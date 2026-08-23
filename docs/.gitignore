@@ -1,0 +1,3 @@
+# Built docs site and zensical's build cache.
+site/
+.cache/

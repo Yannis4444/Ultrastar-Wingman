@@ -170,7 +170,7 @@ UI section over the settings registry: grouped, typed inputs, live
 validation, USDB credentials managed here. Adding a future setting = one
 registry entry, zero UI code.
 
-### Phase 8 — Packaging & docs site 🟨
+### Phase 8 — Packaging & docs site ✅
 
 Windows installer (PyInstaller — verify yt-dlp/ffmpeg actually bundle; the
 old build shipped without yt-dlp), zensical docs site with user guides per

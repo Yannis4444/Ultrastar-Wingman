@@ -1,0 +1,6 @@
+# Docs site build tool. Not a Wingman dependency — the app never imports it, so it
+# stays out of backend/pyproject.toml.
+#
+#   venv\Scripts\python.exe -m pip install -r docs\requirements.txt
+#   cd docs && ..\venv\Scripts\python.exe -m zensical build
+zensical
