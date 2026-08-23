@@ -31,4 +31,7 @@
 - Commit in sensible chunks as work progresses — not one giant commit at
   feature end, not a commit per keystroke.
 - Never commit generated artifacts (build output, `node_modules`,
-  `__pycache__`, generated API clients) — keep `.gitignore` current instead.
+  `__pycache__`) — keep `.gitignore` current instead. **Exception:** the
+  generated TS API client (`frontend/src/api/`) is committed so the frontend
+  builds without a running backend; regenerate with `npm run generate-api`,
+  never edit it by hand.
