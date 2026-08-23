@@ -1,3 +1,45 @@
+/* A row with controls: the row button and the controls are siblings. */
+.song-list-row {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  background-color: var(--tile-bg);
+  border-radius: var(--border-radius);
+}
+
+.song-list-actions {
+  display: flex;
+  flex: 0 0 auto;
+  align-items: center;
+  gap: 2px;
+  padding-right: 8px;
+}
+
+.song-list-actions button {
+  padding: 6px 8px;
+  font: inherit;
+  color: var(--color-dark);
+  background: none;
+  border: 1px solid var(--input-border-color);
+  border-radius: var(--border-radius-small);
+  cursor: pointer;
+}
+
+.song-list-actions button:hover:enabled {
+  color: var(--color);
+  background-color: var(--highlight-blue-dark);
+}
+
+.song-list-actions button:disabled {
+  color: var(--color-darkerer);
+  cursor: default;
+}
+
+.song-list-actions .song-favorite-on {
+  color: var(--highlight-pink-light);
+  border-color: var(--highlight-pink-light);
+}
+
 .song-list-item {
   display: flex;
   align-items: center;

@@ -1,18 +1,42 @@
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { MemoryRouter } from "react-router-dom";
-import type { SongRead } from "../api";
-import { meResponse } from "../test/auth";
+import type { MeRead, PlaylistRead, SongRead } from "../api";
+import { meResponse, userRead } from "../test/auth";
 import { FakeSocket } from "../test/fakeSocket";
 import Songs from "./Songs";
 
 // The generated query options call the sdk and read `.data`, so the sdk is the
 // seam: the real TanStack wiring runs, only the transport is faked. The rest of
 // the module stays real so a new endpoint can't break this mock.
-const { listSongs, rescanSongs, getMe } = vi.hoisted(() => ({
+const {
+  listSongs,
+  rescanSongs,
+  getMe,
+  listWishlist,
+  listFavorites,
+  addFavorite,
+  removeFavorite,
+  listPlaylists,
+  getPlaylist,
+  createPlaylist,
+  addPlaylistEntry,
+  removePlaylistEntry,
+  reorderPlaylistEntries,
+} = vi.hoisted(() => ({
   listSongs: vi.fn(),
   rescanSongs: vi.fn(),
   getMe: vi.fn(),
+  listWishlist: vi.fn(),
+  listFavorites: vi.fn(),
+  addFavorite: vi.fn(),
+  removeFavorite: vi.fn(),
+  listPlaylists: vi.fn(),
+  getPlaylist: vi.fn(),
+  createPlaylist: vi.fn(),
+  addPlaylistEntry: vi.fn(),
+  removePlaylistEntry: vi.fn(),
+  reorderPlaylistEntries: vi.fn(),
 }));
 
 vi.mock("../api/sdk.gen", async (importOriginal) => ({
@@ -20,6 +44,16 @@ vi.mock("../api/sdk.gen", async (importOriginal) => ({
   listSongs,
   rescanSongs,
   getMe,
+  listWishlist,
+  listFavorites,
+  addFavorite,
+  removeFavorite,
+  listPlaylists,
+  getPlaylist,
+  createPlaylist,
+  addPlaylistEntry,
+  removePlaylistEntry,
+  reorderPlaylistEntries,
 }));
 
 /** What the trusted role holds: enough for every button on this page. */
@@ -48,8 +82,12 @@ function song(overrides: Partial<SongRead> = {}): SongRead {
   };
 }
 
-function renderSongs(songs: SongRead[] | Error, capabilities = TRUSTED) {
-  getMe.mockResolvedValue(meResponse(capabilities));
+function renderSongs(
+  songs: SongRead[] | Error,
+  capabilities = TRUSTED,
+  me: Partial<MeRead> = {},
+) {
+  getMe.mockResolvedValue(meResponse(capabilities, me));
   listSongs.mockImplementation(async () => {
     if (songs instanceof Error) throw songs;
     return { data: { songs } };
@@ -76,9 +114,26 @@ function searchFor(text: string) {
 beforeEach(() => {
   FakeSocket.last = undefined;
   vi.stubGlobal("WebSocket", FakeSocket);
-  listSongs.mockReset();
-  rescanSongs.mockReset();
-  getMe.mockReset();
+  for (const mock of [
+    listSongs,
+    rescanSongs,
+    getMe,
+    listWishlist,
+    listFavorites,
+    addFavorite,
+    removeFavorite,
+    listPlaylists,
+    getPlaylist,
+    createPlaylist,
+    addPlaylistEntry,
+    removePlaylistEntry,
+    reorderPlaylistEntries,
+  ]) {
+    mock.mockReset();
+  }
+  listWishlist.mockResolvedValue({ data: { wishes: [] } });
+  listFavorites.mockResolvedValue({ data: { song_ids: [] } });
+  listPlaylists.mockResolvedValue({ data: { playlists: [] } });
 });
 
 afterEach(() => vi.unstubAllGlobals());
@@ -290,4 +345,278 @@ test("a rescan denied by the backend explains the missing capability", async () 
   expect(
     await screen.findByText(/may not do this \(songs\.rescan\)/),
   ).toBeInTheDocument();
+});
+
+// --- wishlist / favorites / playlists ----------------------------------------
+
+/** What a logged-in `user` holds: the library features on top of TRUSTED. */
+const LIBRARY = [
+  ...TRUSTED,
+  "wishlist.view",
+  "wishlist.add",
+  "playlists.view",
+  "playlists.manage",
+];
+const ACCOUNT: Partial<MeRead> = { user: userRead(), role: "user" };
+
+const QUEEN = song();
+const AFRICA = song({ id: "local:abc", title: "Africa", artist: "Toto" });
+
+function playlist(overrides: Partial<PlaylistRead> = {}): PlaylistRead {
+  return {
+    id: "p1",
+    name: "Party",
+    shared: false,
+    owner_username: "Alice",
+    song_count: 2,
+    mine: true,
+    ...overrides,
+  };
+}
+
+test("the favorite heart flips before the request and back when it fails", async () => {
+  renderSongs([QUEEN], LIBRARY, ACCOUNT);
+  // Held open, so the optimistic state is observable before the failure.
+  let refuse: (error: unknown) => void = () => {};
+  addFavorite.mockReturnValue(
+    new Promise((_resolve, reject) => {
+      refuse = reject;
+    }),
+  );
+
+  fireEvent.click(
+    await screen.findByRole("button", {
+      name: "Add Dancing Queen to favorites",
+    }),
+  );
+
+  // Optimistic: the heart is filled while the request is still in flight.
+  expect(
+    await screen.findByRole("button", {
+      name: "Remove Dancing Queen from favorites",
+    }),
+  ).toBeInTheDocument();
+  expect(addFavorite.mock.calls[0][0].path).toEqual({ song_id: "usdb:1" });
+
+  // Rolled back once the backend said no.
+  refuse(new Error("boom"));
+  expect(
+    await screen.findByRole("button", {
+      name: "Add Dancing Queen to favorites",
+    }),
+  ).toBeInTheDocument();
+});
+
+test("the favorites chip shows only the favorites", async () => {
+  listFavorites.mockResolvedValue({ data: { song_ids: ["local:abc"] } });
+  renderSongs([QUEEN, AFRICA], LIBRARY, ACCOUNT);
+  await screen.findByText("Dancing Queen");
+
+  fireEvent.click(await screen.findByRole("button", { name: "♥ Favorites" }));
+
+  expect(screen.getByText("Africa")).toBeInTheDocument();
+  expect(screen.queryByText("Dancing Queen")).not.toBeInTheDocument();
+  expect(screen.getByText("1 song")).toBeInTheDocument();
+});
+
+test("an anonymous browser gets no hearts and no favorites chip", async () => {
+  renderSongs([QUEEN], TRUSTED);
+  await screen.findByText("Dancing Queen");
+
+  await waitFor(() =>
+    expect(
+      screen.queryByRole("button", { name: "♥ Favorites" }),
+    ).not.toBeInTheDocument(),
+  );
+  expect(
+    screen.queryByRole("button", { name: /favorites$/ }),
+  ).not.toBeInTheDocument();
+  expect(listFavorites).not.toHaveBeenCalled();
+});
+
+test("a playlist chip filters the list to its entries, shared ones are marked", async () => {
+  listPlaylists.mockResolvedValue({
+    data: {
+      playlists: [
+        playlist(),
+        playlist({
+          id: "p2",
+          name: "Bobs mix",
+          shared: true,
+          mine: false,
+          owner_username: "Bob",
+          song_count: 1,
+        }),
+      ],
+    },
+  });
+  getPlaylist.mockResolvedValue({
+    data: { ...playlist(), entries: [{ song: AFRICA, position: 0 }] },
+  });
+  renderSongs([QUEEN, AFRICA], LIBRARY, ACCOUNT);
+  await screen.findByText("Dancing Queen");
+
+  expect(
+    await screen.findByRole("button", { name: "Bobs mix Bob" }),
+  ).toBeInTheDocument();
+  fireEvent.click(screen.getByRole("button", { name: "Party" }));
+
+  expect(await screen.findByText("Africa")).toBeInTheDocument();
+  expect(screen.queryByText("Dancing Queen")).not.toBeInTheDocument();
+  expect(screen.getByText("1 song")).toBeInTheDocument();
+  expect(getPlaylist.mock.calls[0][0].path).toEqual({ playlist_id: "p1" });
+});
+
+test("the move buttons send the reordered ids", async () => {
+  const detail = {
+    ...playlist(),
+    entries: [
+      { song: QUEEN, position: 0 },
+      { song: AFRICA, position: 1 },
+    ],
+  };
+  listPlaylists.mockResolvedValue({ data: { playlists: [playlist()] } });
+  getPlaylist.mockResolvedValue({ data: detail });
+  reorderPlaylistEntries.mockResolvedValue({
+    data: {
+      ...detail,
+      entries: [
+        { song: AFRICA, position: 0 },
+        { song: QUEEN, position: 1 },
+      ],
+    },
+  });
+  renderSongs([QUEEN, AFRICA], LIBRARY, ACCOUNT);
+  fireEvent.click(await screen.findByRole("button", { name: "Party" }));
+  await screen.findByText("Africa");
+
+  // The first row cannot move up, the last cannot move down.
+  expect(
+    screen.getByRole("button", { name: "Move Dancing Queen up" }),
+  ).toBeDisabled();
+  expect(
+    screen.getByRole("button", { name: "Move Africa down" }),
+  ).toBeDisabled();
+
+  fireEvent.click(screen.getByRole("button", { name: "Move Africa up" }));
+
+  await waitFor(() =>
+    expect(reorderPlaylistEntries.mock.calls[0][0]).toMatchObject({
+      path: { playlist_id: "p1" },
+      body: { song_ids: ["local:abc", "usdb:1"] },
+    }),
+  );
+});
+
+test("a playlist entry can be removed from the filtered list", async () => {
+  listPlaylists.mockResolvedValue({ data: { playlists: [playlist()] } });
+  getPlaylist.mockResolvedValue({
+    data: { ...playlist(), entries: [{ song: AFRICA, position: 0 }] },
+  });
+  removePlaylistEntry.mockResolvedValue({ data: undefined });
+  renderSongs([QUEEN, AFRICA], LIBRARY, ACCOUNT);
+  fireEvent.click(await screen.findByRole("button", { name: "Party" }));
+
+  fireEvent.click(
+    await screen.findByRole("button", {
+      name: "Remove Africa from the playlist",
+    }),
+  );
+
+  await waitFor(() =>
+    expect(removePlaylistEntry.mock.calls[0][0].path).toEqual({
+      playlist_id: "p1",
+      song_id: "local:abc",
+    }),
+  );
+});
+
+test("somebody else's shared playlist has no editing controls", async () => {
+  const shared = playlist({
+    id: "p2",
+    name: "Bobs mix",
+    shared: true,
+    mine: false,
+    owner_username: "Bob",
+  });
+  listPlaylists.mockResolvedValue({ data: { playlists: [shared] } });
+  getPlaylist.mockResolvedValue({
+    data: { ...shared, entries: [{ song: AFRICA, position: 0 }] },
+  });
+  renderSongs([QUEEN, AFRICA], LIBRARY, ACCOUNT);
+  fireEvent.click(await screen.findByRole("button", { name: "Bobs mix Bob" }));
+
+  await screen.findByText("Africa");
+  expect(
+    screen.queryByRole("button", { name: "Move Africa up" }),
+  ).not.toBeInTheDocument();
+  expect(
+    screen.queryByRole("button", { name: "Remove Africa from the playlist" }),
+  ).not.toBeInTheDocument();
+});
+
+test("the song details add a song to one of my playlists", async () => {
+  listPlaylists.mockResolvedValue({ data: { playlists: [playlist()] } });
+  renderSongs([QUEEN], LIBRARY, ACCOUNT);
+  fireEvent.click(await screen.findByText("Dancing Queen"));
+
+  fireEvent.change(await screen.findByLabelText(/Add to playlist/), {
+    target: { value: "p1" },
+  });
+  addPlaylistEntry.mockRejectedValue({ detail: "duplicate_entry" });
+  fireEvent.click(screen.getByRole("button", { name: "Add" }));
+
+  await waitFor(() =>
+    expect(addPlaylistEntry.mock.calls[0][0]).toMatchObject({
+      path: { playlist_id: "p1" },
+      body: { song_id: "usdb:1" },
+    }),
+  );
+  // A song that is already in the playlist is not an error worth shouting about.
+  expect(
+    await screen.findByText("That playlist already has this song."),
+  ).toBeInTheDocument();
+});
+
+test("adding a song refreshes the playlist song count", async () => {
+  listPlaylists.mockResolvedValue({
+    data: { playlists: [playlist({ song_count: 0 })] },
+  });
+  renderSongs([QUEEN], LIBRARY, ACCOUNT);
+  fireEvent.click(await screen.findByText("Dancing Queen"));
+
+  fireEvent.change(await screen.findByLabelText(/Add to playlist/), {
+    target: { value: "p1" },
+  });
+  addPlaylistEntry.mockResolvedValue({ data: { entries: [] } });
+  listPlaylists.mockResolvedValue({
+    data: { playlists: [playlist({ song_count: 1 })] },
+  });
+  // Only the fetches the click causes count; the two mounts already had theirs.
+  listPlaylists.mockClear();
+  fireEvent.click(screen.getByRole("button", { name: "Add" }));
+
+  expect(await screen.findByText("Added to the playlist.")).toBeInTheDocument();
+  // `song_count` lives on the list, not on the detail, so adding a song has to
+  // invalidate the list too — otherwise the playlist dialog shows a stale count.
+  await waitFor(() => expect(listPlaylists).toHaveBeenCalled());
+});
+
+test("the manage dialog creates a playlist", async () => {
+  createPlaylist.mockResolvedValue({ data: playlist({ song_count: 0 }) });
+  renderSongs([QUEEN], LIBRARY, ACCOUNT);
+
+  fireEvent.click(await screen.findByRole("button", { name: "Playlists…" }));
+  fireEvent.change(screen.getByLabelText("New playlist name"), {
+    target: { value: "Party" },
+  });
+  fireEvent.click(screen.getByLabelText("Shared"));
+  fireEvent.click(screen.getByRole("button", { name: "Create" }));
+
+  await waitFor(() =>
+    expect(createPlaylist.mock.calls[0][0].body).toEqual({
+      name: "Party",
+      shared: true,
+    }),
+  );
 });

@@ -4,11 +4,17 @@ import { MemoryRouter } from "react-router-dom";
 import App from "./App";
 import { FakeSocket } from "./test/fakeSocket";
 
-// Home asks for the running song; nothing plays in this test.
+// Home asks for the running song, the library and the wishlist; this test only
+// looks at the shell, so every one of them answers empty.
 vi.mock("./api/sdk.gen", async (importOriginal) => ({
   ...(await importOriginal<typeof import("./api/sdk.gen")>()),
   getCurrentSing: vi.fn(async () => ({ data: { sing: null } })),
   listKaraokeColors: vi.fn(async () => ({ data: { colors: [] } })),
+  listSongs: vi.fn(async () => ({ data: { songs: [] } })),
+  listWishlist: vi.fn(async () => ({ data: { wishes: [] } })),
+  getMe: vi.fn(async () => ({
+    data: { user: null, role: "guest", capabilities: [], is_host: false },
+  })),
 }));
 
 function renderApp(path: string) {

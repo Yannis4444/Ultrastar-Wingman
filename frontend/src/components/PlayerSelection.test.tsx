@@ -7,6 +7,7 @@ import {
   within,
 } from "@testing-library/react";
 import type { PlayerRead, SongRead } from "../api";
+import { FakeSocket } from "../test/fakeSocket";
 import PlayerSelection from "./PlayerSelection";
 import SongDetails from "./SongDetails";
 
@@ -74,11 +75,15 @@ function slot(color: string) {
 
 beforeEach(() => {
   window.localStorage.clear();
+  // The song details subscribe to wishlist events: no test opens a real socket.
+  vi.stubGlobal("WebSocket", FakeSocket);
   listKaraokeColors.mockResolvedValue({ data: { colors: COLORS } });
   listPlayers.mockResolvedValue({ data: { players: PLAYERS } });
   singSong.mockReset();
   createPlayer.mockReset();
 });
+
+afterEach(() => vi.unstubAllGlobals());
 
 test("one slot per backend color, in the backend's order", async () => {
   renderSelection();

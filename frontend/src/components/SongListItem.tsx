@@ -1,3 +1,4 @@
+import type { ReactNode } from "react";
 import type { SongRead } from "../api";
 import { formatDuration } from "../duration";
 import SongCover from "./SongCover";
@@ -6,10 +7,19 @@ import "./SongListItem.css";
 interface SongListItemProps {
   song: SongRead;
   onClick: () => void;
+  /**
+   * Controls next to the row (favorite heart, playlist reordering). They sit
+   * beside the row button, never inside it: nested buttons are invalid HTML.
+   */
+  actions?: ReactNode;
 }
 
-export default function SongListItem({ song, onClick }: SongListItemProps) {
-  return (
+export default function SongListItem({
+  song,
+  onClick,
+  actions,
+}: SongListItemProps) {
+  const item = (
     <button type="button" className="song-list-item" onClick={onClick}>
       <SongCover song={song} />
       <span className="song-text">
@@ -23,5 +33,13 @@ export default function SongListItem({ song, onClick }: SongListItemProps) {
         </span>
       </span>
     </button>
+  );
+
+  if (!actions) return item;
+  return (
+    <div className="song-list-row">
+      {item}
+      <span className="song-list-actions">{actions}</span>
+    </div>
   );
 }

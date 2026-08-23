@@ -147,6 +147,16 @@ export type DownloadRead = {
 };
 
 /**
+ * FavoritesRead
+ */
+export type FavoritesRead = {
+    /**
+     * Song Ids
+     */
+    song_ids: Array<string>;
+};
+
+/**
  * HTTPValidationError
  */
 export type HttpValidationError = {
@@ -270,6 +280,141 @@ export type PlayerRead = {
      * Has Avatar
      */
     has_avatar: boolean;
+};
+
+/**
+ * PlaylistCreate
+ */
+export type PlaylistCreate = {
+    /**
+     * Name
+     */
+    name: string;
+    /**
+     * Shared
+     */
+    shared?: boolean;
+};
+
+/**
+ * PlaylistDetail
+ */
+export type PlaylistDetail = {
+    /**
+     * Id
+     */
+    id: string;
+    /**
+     * Name
+     */
+    name: string;
+    /**
+     * Shared
+     */
+    shared: boolean;
+    /**
+     * Owner Username
+     */
+    owner_username: string | null;
+    /**
+     * Song Count
+     */
+    song_count: number;
+    /**
+     * Mine
+     */
+    mine: boolean;
+    /**
+     * Entries
+     */
+    entries: Array<PlaylistEntryRead>;
+};
+
+/**
+ * PlaylistEntryCreate
+ */
+export type PlaylistEntryCreate = {
+    /**
+     * Song Id
+     */
+    song_id: string;
+};
+
+/**
+ * PlaylistEntryRead
+ */
+export type PlaylistEntryRead = {
+    song: SongRead;
+    /**
+     * Position
+     */
+    position: number;
+};
+
+/**
+ * PlaylistList
+ */
+export type PlaylistList = {
+    /**
+     * Playlists
+     */
+    playlists: Array<PlaylistRead>;
+};
+
+/**
+ * PlaylistOrder
+ */
+export type PlaylistOrder = {
+    /**
+     * Song Ids
+     */
+    song_ids: Array<string>;
+};
+
+/**
+ * PlaylistRead
+ */
+export type PlaylistRead = {
+    /**
+     * Id
+     */
+    id: string;
+    /**
+     * Name
+     */
+    name: string;
+    /**
+     * Shared
+     */
+    shared: boolean;
+    /**
+     * Owner Username
+     */
+    owner_username: string | null;
+    /**
+     * Song Count
+     */
+    song_count: number;
+    /**
+     * Mine
+     */
+    mine: boolean;
+};
+
+/**
+ * PlaylistUpdate
+ *
+ * Both fields optional: a PATCH only touches what it names.
+ */
+export type PlaylistUpdate = {
+    /**
+     * Name
+     */
+    name?: string | null;
+    /**
+     * Shared
+     */
+    shared?: boolean | null;
 };
 
 /**
@@ -598,6 +743,47 @@ export type ValidationError = {
     ctx?: {
         [key: string]: unknown;
     };
+};
+
+/**
+ * WishCreate
+ */
+export type WishCreate = {
+    /**
+     * Song Id
+     */
+    song_id: string;
+};
+
+/**
+ * WishRead
+ *
+ * One wished song, aggregated over everybody who wished for it.
+ */
+export type WishRead = {
+    song: SongRead;
+    /**
+     * Count
+     */
+    count: number;
+    /**
+     * Latest
+     */
+    latest: string;
+    /**
+     * Mine
+     */
+    mine: boolean;
+};
+
+/**
+ * WishlistRead
+ */
+export type WishlistRead = {
+    /**
+     * Wishes
+     */
+    wishes: Array<WishRead>;
 };
 
 export type RegisterData = {
@@ -1327,6 +1513,444 @@ export type UsdbSearchResponses = {
 };
 
 export type UsdbSearchResponse = UsdbSearchResponses[keyof UsdbSearchResponses];
+
+export type ListWishlistData = {
+    body?: never;
+    path?: never;
+    query?: never;
+    url: '/api/v1/wishlist';
+};
+
+export type ListWishlistResponses = {
+    /**
+     * Successful Response
+     */
+    200: WishlistRead;
+};
+
+export type ListWishlistResponse = ListWishlistResponses[keyof ListWishlistResponses];
+
+export type AddWishData = {
+    body: WishCreate;
+    path?: never;
+    query?: never;
+    url: '/api/v1/wishlist';
+};
+
+export type AddWishErrors = {
+    /**
+     * Unknown song.
+     */
+    404: unknown;
+    /**
+     * The caller already wished for this song.
+     */
+    409: unknown;
+    /**
+     * Validation Error
+     */
+    422: HttpValidationError;
+};
+
+export type AddWishError = AddWishErrors[keyof AddWishErrors];
+
+export type AddWishResponses = {
+    /**
+     * Successful Response
+     */
+    201: WishRead;
+};
+
+export type AddWishResponse = AddWishResponses[keyof AddWishResponses];
+
+export type RemoveWishData = {
+    body?: never;
+    path: {
+        /**
+         * Song Id
+         */
+        song_id: string;
+    };
+    query?: never;
+    url: '/api/v1/wishlist/{song_id}';
+};
+
+export type RemoveWishErrors = {
+    /**
+     * The caller has no wish for this song.
+     */
+    404: unknown;
+    /**
+     * Validation Error
+     */
+    422: HttpValidationError;
+};
+
+export type RemoveWishError = RemoveWishErrors[keyof RemoveWishErrors];
+
+export type RemoveWishResponses = {
+    /**
+     * Successful Response
+     */
+    204: void;
+};
+
+export type RemoveWishResponse = RemoveWishResponses[keyof RemoveWishResponses];
+
+export type ListFavoritesData = {
+    body?: never;
+    path?: never;
+    query?: never;
+    url: '/api/v1/favorites';
+};
+
+export type ListFavoritesResponses = {
+    /**
+     * Successful Response
+     */
+    200: FavoritesRead;
+};
+
+export type ListFavoritesResponse = ListFavoritesResponses[keyof ListFavoritesResponses];
+
+export type RemoveFavoriteData = {
+    body?: never;
+    path: {
+        /**
+         * Song Id
+         */
+        song_id: string;
+    };
+    query?: never;
+    url: '/api/v1/favorites/{song_id}';
+};
+
+export type RemoveFavoriteErrors = {
+    /**
+     * Validation Error
+     */
+    422: HttpValidationError;
+};
+
+export type RemoveFavoriteError = RemoveFavoriteErrors[keyof RemoveFavoriteErrors];
+
+export type RemoveFavoriteResponses = {
+    /**
+     * Successful Response
+     */
+    204: void;
+};
+
+export type RemoveFavoriteResponse = RemoveFavoriteResponses[keyof RemoveFavoriteResponses];
+
+export type AddFavoriteData = {
+    body?: never;
+    path: {
+        /**
+         * Song Id
+         */
+        song_id: string;
+    };
+    query?: never;
+    url: '/api/v1/favorites/{song_id}';
+};
+
+export type AddFavoriteErrors = {
+    /**
+     * Unknown song.
+     */
+    404: unknown;
+    /**
+     * Validation Error
+     */
+    422: HttpValidationError;
+};
+
+export type AddFavoriteError = AddFavoriteErrors[keyof AddFavoriteErrors];
+
+export type AddFavoriteResponses = {
+    /**
+     * Successful Response
+     */
+    204: void;
+};
+
+export type AddFavoriteResponse = AddFavoriteResponses[keyof AddFavoriteResponses];
+
+export type ListPlaylistsData = {
+    body?: never;
+    path?: never;
+    query?: never;
+    url: '/api/v1/playlists';
+};
+
+export type ListPlaylistsResponses = {
+    /**
+     * Successful Response
+     */
+    200: PlaylistList;
+};
+
+export type ListPlaylistsResponse = ListPlaylistsResponses[keyof ListPlaylistsResponses];
+
+export type CreatePlaylistData = {
+    body: PlaylistCreate;
+    path?: never;
+    query?: never;
+    url: '/api/v1/playlists';
+};
+
+export type CreatePlaylistErrors = {
+    /**
+     * A playlist needs an account to belong to.
+     */
+    401: unknown;
+    /**
+     * Validation Error
+     */
+    422: HttpValidationError;
+};
+
+export type CreatePlaylistError = CreatePlaylistErrors[keyof CreatePlaylistErrors];
+
+export type CreatePlaylistResponses = {
+    /**
+     * Successful Response
+     */
+    201: PlaylistRead;
+};
+
+export type CreatePlaylistResponse = CreatePlaylistResponses[keyof CreatePlaylistResponses];
+
+export type DeletePlaylistData = {
+    body?: never;
+    path: {
+        /**
+         * Playlist Id
+         */
+        playlist_id: string;
+    };
+    query?: never;
+    url: '/api/v1/playlists/{playlist_id}';
+};
+
+export type DeletePlaylistErrors = {
+    /**
+     * Not the owner.
+     */
+    403: unknown;
+    /**
+     * Unknown playlist, or somebody else's private one.
+     */
+    404: unknown;
+    /**
+     * Validation Error
+     */
+    422: HttpValidationError;
+};
+
+export type DeletePlaylistError = DeletePlaylistErrors[keyof DeletePlaylistErrors];
+
+export type DeletePlaylistResponses = {
+    /**
+     * Successful Response
+     */
+    204: void;
+};
+
+export type DeletePlaylistResponse = DeletePlaylistResponses[keyof DeletePlaylistResponses];
+
+export type GetPlaylistData = {
+    body?: never;
+    path: {
+        /**
+         * Playlist Id
+         */
+        playlist_id: string;
+    };
+    query?: never;
+    url: '/api/v1/playlists/{playlist_id}';
+};
+
+export type GetPlaylistErrors = {
+    /**
+     * Unknown playlist, or somebody else's private one.
+     */
+    404: unknown;
+    /**
+     * Validation Error
+     */
+    422: HttpValidationError;
+};
+
+export type GetPlaylistError = GetPlaylistErrors[keyof GetPlaylistErrors];
+
+export type GetPlaylistResponses = {
+    /**
+     * Successful Response
+     */
+    200: PlaylistDetail;
+};
+
+export type GetPlaylistResponse = GetPlaylistResponses[keyof GetPlaylistResponses];
+
+export type UpdatePlaylistData = {
+    body: PlaylistUpdate;
+    path: {
+        /**
+         * Playlist Id
+         */
+        playlist_id: string;
+    };
+    query?: never;
+    url: '/api/v1/playlists/{playlist_id}';
+};
+
+export type UpdatePlaylistErrors = {
+    /**
+     * Not the owner.
+     */
+    403: unknown;
+    /**
+     * Unknown playlist, or somebody else's private one.
+     */
+    404: unknown;
+    /**
+     * Validation Error
+     */
+    422: HttpValidationError;
+};
+
+export type UpdatePlaylistError = UpdatePlaylistErrors[keyof UpdatePlaylistErrors];
+
+export type UpdatePlaylistResponses = {
+    /**
+     * Successful Response
+     */
+    200: PlaylistRead;
+};
+
+export type UpdatePlaylistResponse = UpdatePlaylistResponses[keyof UpdatePlaylistResponses];
+
+export type AddPlaylistEntryData = {
+    body: PlaylistEntryCreate;
+    path: {
+        /**
+         * Playlist Id
+         */
+        playlist_id: string;
+    };
+    query?: never;
+    url: '/api/v1/playlists/{playlist_id}/entries';
+};
+
+export type AddPlaylistEntryErrors = {
+    /**
+     * Not the owner.
+     */
+    403: unknown;
+    /**
+     * Unknown playlist or song.
+     */
+    404: unknown;
+    /**
+     * The song is already in the playlist.
+     */
+    409: unknown;
+    /**
+     * Validation Error
+     */
+    422: HttpValidationError;
+};
+
+export type AddPlaylistEntryError = AddPlaylistEntryErrors[keyof AddPlaylistEntryErrors];
+
+export type AddPlaylistEntryResponses = {
+    /**
+     * Successful Response
+     */
+    201: PlaylistDetail;
+};
+
+export type AddPlaylistEntryResponse = AddPlaylistEntryResponses[keyof AddPlaylistEntryResponses];
+
+export type ReorderPlaylistEntriesData = {
+    body: PlaylistOrder;
+    path: {
+        /**
+         * Playlist Id
+         */
+        playlist_id: string;
+    };
+    query?: never;
+    url: '/api/v1/playlists/{playlist_id}/entries';
+};
+
+export type ReorderPlaylistEntriesErrors = {
+    /**
+     * Not the owner.
+     */
+    403: unknown;
+    /**
+     * Unknown playlist, or somebody else's private one.
+     */
+    404: unknown;
+    /**
+     * The order is not a permutation of the playlist's songs.
+     */
+    422: unknown;
+};
+
+export type ReorderPlaylistEntriesResponses = {
+    /**
+     * Successful Response
+     */
+    200: PlaylistDetail;
+};
+
+export type ReorderPlaylistEntriesResponse = ReorderPlaylistEntriesResponses[keyof ReorderPlaylistEntriesResponses];
+
+export type RemovePlaylistEntryData = {
+    body?: never;
+    path: {
+        /**
+         * Playlist Id
+         */
+        playlist_id: string;
+        /**
+         * Song Id
+         */
+        song_id: string;
+    };
+    query?: never;
+    url: '/api/v1/playlists/{playlist_id}/entries/{song_id}';
+};
+
+export type RemovePlaylistEntryErrors = {
+    /**
+     * Not the owner.
+     */
+    403: unknown;
+    /**
+     * Unknown playlist, or the song is not in it.
+     */
+    404: unknown;
+    /**
+     * Validation Error
+     */
+    422: HttpValidationError;
+};
+
+export type RemovePlaylistEntryError = RemovePlaylistEntryErrors[keyof RemovePlaylistEntryErrors];
+
+export type RemovePlaylistEntryResponses = {
+    /**
+     * Successful Response
+     */
+    204: void;
+};
+
+export type RemovePlaylistEntryResponse = RemovePlaylistEntryResponses[keyof RemovePlaylistEntryResponses];
 
 export type HealthData = {
     body?: never;
