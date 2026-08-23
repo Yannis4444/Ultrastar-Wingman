@@ -10,7 +10,8 @@ never as ground truth.
 - Backend: Python 3.12+, FastAPI, SQLite (SQLAlchemy + aiosqlite), pytest
 - Frontend: React + TypeScript + Vite
 - User docs: Markdown built with zensical
-- Master plan: `plan.md`
+- Master plan: `plan.md` · Implementation plan & phase status:
+  [docs/dev/implementation-plan.md](docs/dev/implementation-plan.md)
 
 ## Hard rules
 
