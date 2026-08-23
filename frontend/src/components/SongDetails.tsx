@@ -6,6 +6,7 @@ import {
   getPlaylistQueryKey,
   listPlaylistsOptions,
   listPlaylistsQueryKey,
+  listSongScoresOptions,
 } from "../api/@tanstack/react-query.gen";
 import { useAuth } from "../auth";
 import { formatDuration } from "../duration";
@@ -34,6 +35,15 @@ export default function SongDetails({ song, onClose }: SongDetailsProps) {
     enabled: auth.loaded && canManagePlaylists,
   });
   const mine = (playlists.data?.playlists ?? []).filter((list) => list.mine);
+
+  // All-time and newest first, so the top five need sorting here.
+  const songScores = useQuery({
+    ...listSongScoresOptions({ path: { song_id: song.id } }),
+    enabled: auth.loaded && auth.can("stats.view"),
+  });
+  const best = [...(songScores.data?.scores ?? [])]
+    .sort((a, b) => b.score - a.score)
+    .slice(0, 5);
 
   const addToPlaylist = useMutation({
     ...addPlaylistEntryMutation(),
@@ -120,6 +130,20 @@ export default function SongDetails({ song, onClose }: SongDetailsProps) {
           </button>
         )}
       </div>
+
+      {best.length > 0 && (
+        <div className="song-details-best">
+          <h3>Best scores</h3>
+          <ol>
+            {best.map((score) => (
+              <li key={score.id}>
+                <span>{score.player_name}</span>
+                <span>{score.score}</span>
+              </li>
+            ))}
+          </ol>
+        </div>
+      )}
 
       {canManagePlaylists && mine.length > 0 && (
         <div className="song-details-playlist">

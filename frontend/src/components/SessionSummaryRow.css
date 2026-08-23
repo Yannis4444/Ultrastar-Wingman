@@ -1,0 +1,33 @@
+.session-summary {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(110px, 1fr));
+  gap: 8px;
+  margin: 16px 8px 0 8px;
+}
+
+.session-summary > div {
+  padding: 12px;
+  background-color: var(--tile-bg);
+  border-radius: var(--border-radius);
+}
+
+.session-summary dt {
+  font-size: 0.8em;
+  color: var(--color-darker);
+}
+
+.session-summary dd {
+  margin: 4px 0 0 0;
+  font-size: 1.2em;
+  overflow-wrap: anywhere;
+}
+
+/* The top score carries a name and a song, so it gets the full width and a
+   size that still fits on a phone. */
+.session-summary > div:last-child {
+  grid-column: 1 / -1;
+}
+
+.session-summary > div:last-child dd {
+  font-size: 1em;
+}

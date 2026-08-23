@@ -1,0 +1,61 @@
+.scores-picker {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  align-items: center;
+  margin: 0 16px;
+}
+
+.scores-picker select {
+  flex: 1 1 200px;
+  min-width: 0;
+}
+
+.scores-rename-form {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  align-items: center;
+  flex: 1 1 100%;
+}
+
+.scores-rename-form label {
+  display: flex;
+  flex: 1 1 160px;
+  min-width: 0;
+}
+
+.scores-rename-form input {
+  flex: 1 1 auto;
+}
+
+.scores-grouping {
+  display: flex;
+  gap: 16px;
+  align-items: center;
+  margin: 16px 16px 0 16px;
+  padding: 8px 12px;
+  border: 1px solid var(--input-border-color);
+  border-radius: var(--border-radius);
+}
+
+.scores-grouping legend {
+  padding: 0 4px;
+  font-size: 0.85em;
+  color: var(--color-darker);
+}
+
+.scores-grouping label {
+  display: flex;
+  gap: 6px;
+  align-items: center;
+  text-transform: capitalize;
+  cursor: pointer;
+}
+
+.scores-chart {
+  margin: 8px 8px 0 8px;
+  padding: 8px 0;
+  background-color: var(--tile-bg);
+  border-radius: var(--border-radius);
+}

@@ -452,6 +452,112 @@ export type ScanStatus = {
 };
 
 /**
+ * ScoreList
+ */
+export type ScoreList = {
+    /**
+     * Scores
+     */
+    scores: Array<ScoreWithContext>;
+};
+
+/**
+ * ScoreWithContext
+ *
+ * A score plus what it was scored on. `song` is NULL when that song left the library —
+ * the score itself outlives it (`sings.song_id` is deliberately not a foreign key).
+ */
+export type ScoreWithContext = {
+    /**
+     * Id
+     */
+    id: number;
+    /**
+     * Sing Id
+     */
+    sing_id: string;
+    /**
+     * Player Id
+     */
+    player_id: string | null;
+    /**
+     * Player Name
+     */
+    player_name: string;
+    /**
+     * Score
+     */
+    score: number;
+    /**
+     * Difficulty
+     */
+    difficulty: number | null;
+    /**
+     * Recorded At
+     */
+    recorded_at: string;
+    song: SongRead | null;
+    /**
+     * Sing Started At
+     */
+    sing_started_at: string;
+};
+
+/**
+ * SessionList
+ */
+export type SessionList = {
+    /**
+     * Sessions
+     */
+    sessions: Array<SessionRead>;
+};
+
+/**
+ * SessionRead
+ *
+ * One recorded party. `name` is NULL until somebody names it.
+ */
+export type SessionRead = {
+    /**
+     * Id
+     */
+    id: string;
+    /**
+     * Name
+     */
+    name: string | null;
+    /**
+     * Started At
+     */
+    started_at: string;
+    /**
+     * Last Activity At
+     */
+    last_activity_at: string;
+    /**
+     * Sing Count
+     */
+    sing_count: number;
+    /**
+     * Score Count
+     */
+    score_count: number;
+};
+
+/**
+ * SessionUpdate
+ *
+ * `None` clears the name again.
+ */
+export type SessionUpdate = {
+    /**
+     * Name
+     */
+    name: string | null;
+};
+
+/**
  * SettingRead
  */
 export type SettingRead = {
@@ -1951,6 +2057,154 @@ export type RemovePlaylistEntryResponses = {
 };
 
 export type RemovePlaylistEntryResponse = RemovePlaylistEntryResponses[keyof RemovePlaylistEntryResponses];
+
+export type ListSessionsData = {
+    body?: never;
+    path?: never;
+    query?: never;
+    url: '/api/v1/stats/sessions';
+};
+
+export type ListSessionsResponses = {
+    /**
+     * Successful Response
+     */
+    200: SessionList;
+};
+
+export type ListSessionsResponse = ListSessionsResponses[keyof ListSessionsResponses];
+
+export type RenameSessionData = {
+    body: SessionUpdate;
+    path: {
+        /**
+         * Session Id
+         */
+        session_id: string;
+    };
+    query?: never;
+    url: '/api/v1/stats/sessions/{session_id}';
+};
+
+export type RenameSessionErrors = {
+    /**
+     * Unknown session.
+     */
+    404: unknown;
+    /**
+     * Validation Error
+     */
+    422: HttpValidationError;
+};
+
+export type RenameSessionError = RenameSessionErrors[keyof RenameSessionErrors];
+
+export type RenameSessionResponses = {
+    /**
+     * Successful Response
+     */
+    200: SessionRead;
+};
+
+export type RenameSessionResponse = RenameSessionResponses[keyof RenameSessionResponses];
+
+export type ListSessionScoresData = {
+    body?: never;
+    path: {
+        /**
+         * Session Id
+         */
+        session_id: string;
+    };
+    query?: never;
+    url: '/api/v1/stats/sessions/{session_id}/scores';
+};
+
+export type ListSessionScoresErrors = {
+    /**
+     * Unknown session.
+     */
+    404: unknown;
+    /**
+     * Validation Error
+     */
+    422: HttpValidationError;
+};
+
+export type ListSessionScoresError = ListSessionScoresErrors[keyof ListSessionScoresErrors];
+
+export type ListSessionScoresResponses = {
+    /**
+     * Successful Response
+     */
+    200: ScoreList;
+};
+
+export type ListSessionScoresResponse = ListSessionScoresResponses[keyof ListSessionScoresResponses];
+
+export type ListSongScoresData = {
+    body?: never;
+    path: {
+        /**
+         * Song Id
+         */
+        song_id: string;
+    };
+    query?: never;
+    url: '/api/v1/stats/songs/{song_id}/scores';
+};
+
+export type ListSongScoresErrors = {
+    /**
+     * Unknown song.
+     */
+    404: unknown;
+    /**
+     * Validation Error
+     */
+    422: HttpValidationError;
+};
+
+export type ListSongScoresError = ListSongScoresErrors[keyof ListSongScoresErrors];
+
+export type ListSongScoresResponses = {
+    /**
+     * Successful Response
+     */
+    200: ScoreList;
+};
+
+export type ListSongScoresResponse = ListSongScoresResponses[keyof ListSongScoresResponses];
+
+export type ListLatestScoresData = {
+    body?: never;
+    path?: never;
+    query?: {
+        /**
+         * Limit
+         */
+        limit?: number;
+    };
+    url: '/api/v1/stats/latest';
+};
+
+export type ListLatestScoresErrors = {
+    /**
+     * Validation Error
+     */
+    422: HttpValidationError;
+};
+
+export type ListLatestScoresError = ListLatestScoresErrors[keyof ListLatestScoresErrors];
+
+export type ListLatestScoresResponses = {
+    /**
+     * Successful Response
+     */
+    200: ScoreList;
+};
+
+export type ListLatestScoresResponse = ListLatestScoresResponses[keyof ListLatestScoresResponses];
 
 export type HealthData = {
     body?: never;

@@ -52,3 +52,43 @@
   font-size: 0.85em;
   color: var(--color-darker);
 }
+
+.song-details-best {
+  margin: 16px 16px 0 16px;
+}
+
+.song-details-best h3 {
+  margin: 0 0 4px 0;
+  font-size: 0.85em;
+  color: var(--color-darker);
+}
+
+.song-details-best ol {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  counter-reset: best;
+}
+
+.song-details-best li {
+  display: flex;
+  gap: 8px;
+  padding: 6px 0;
+  border-top: 1px solid var(--input-border-color);
+  counter-increment: best;
+}
+
+.song-details-best li::before {
+  content: counter(best) ".";
+  flex: 0 0 20px;
+  color: var(--color-darker);
+}
+
+.song-details-best li > span:first-of-type {
+  flex: 1 1 auto;
+  overflow-wrap: anywhere;
+}
+
+.song-details-best li > span:last-child {
+  font-variant-numeric: tabular-nums;
+}
