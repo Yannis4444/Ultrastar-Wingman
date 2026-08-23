@@ -1,0 +1,22 @@
+.song-details {
+  margin: 0 16px;
+}
+
+.song-details > div {
+  display: flex;
+  gap: 12px;
+  padding: 8px 0;
+  border-top: 1px solid var(--input-border-color);
+}
+
+.song-details dt {
+  flex: 0 0 90px;
+  font-size: 0.85em;
+  color: var(--color-darker);
+}
+
+.song-details dd {
+  flex: 1 1 auto;
+  margin: 0;
+  overflow-wrap: anywhere;
+}

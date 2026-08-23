@@ -2,14 +2,12 @@
 
 import contextlib
 import logging
-from collections.abc import AsyncIterator
-from typing import Annotated
 
-from fastapi import APIRouter, Depends, HTTPException, Request, WebSocket, WebSocketDisconnect
+from fastapi import APIRouter, HTTPException, WebSocket, WebSocketDisconnect
 from pydantic import BaseModel
-from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
 
 from . import APP_NAME, __version__
+from .db import SessionDep
 from .events import ServerReady, SettingChanged, event_bus
 from .settings import (
     SettingDefinition,
@@ -18,19 +16,12 @@ from .settings import (
     SettingValue,
     UnknownSettingError,
 )
+from .songs.api import router as songs_router
 
 logger = logging.getLogger(__name__)
 
 router = APIRouter()
-
-
-async def get_session(request: Request) -> AsyncIterator[AsyncSession]:
-    session_factory: async_sessionmaker[AsyncSession] = request.app.state.session_factory
-    async with session_factory() as session:
-        yield session
-
-
-SessionDep = Annotated[AsyncSession, Depends(get_session)]
+router.include_router(songs_router)
 
 
 class Health(BaseModel):

@@ -26,6 +26,18 @@ class SettingChanged(Event):
     value: str | int | bool | float | None = None
 
 
+class SongsScanStarted(Event):
+    event: Literal["songs.scan_started"] = "songs.scan_started"
+
+
+class SongsScanFinished(Event):
+    event: Literal["songs.scan_finished"] = "songs.scan_finished"
+    added: int
+    removed: int
+    updated: int
+    total: int
+
+
 class EventBus:
     """Fans events out to all connected sockets."""
 

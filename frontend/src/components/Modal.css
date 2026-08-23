@@ -1,0 +1,58 @@
+.modal-backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 2000;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 16px;
+  background-color: #000b;
+}
+
+.modal {
+  width: 100%;
+  max-width: 500px;
+  max-height: 80vh;
+  overflow-y: auto;
+  padding-bottom: 16px;
+  background-color: var(--tile-bg);
+  border-radius: var(--border-radius);
+  box-shadow: 0 4px 16px #000a;
+}
+
+.modal:focus {
+  outline: none;
+}
+
+.modal-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  position: sticky;
+  top: 0;
+  background-color: var(--tile-bg);
+  border-radius: var(--border-radius) var(--border-radius) 0 0;
+}
+
+.modal-header h2 {
+  margin: 16px;
+  font-size: 1.1em;
+}
+
+.modal-header button {
+  margin: 8px 8px 8px 0;
+  padding: 0 12px;
+  font-size: 1.5em;
+  line-height: 1.4;
+  color: var(--color-dark);
+  background: none;
+  border: none;
+  border-radius: var(--border-radius-small);
+  cursor: pointer;
+}
+
+.modal-header button:hover {
+  color: var(--color);
+  background-color: var(--highlight-blue-dark);
+}

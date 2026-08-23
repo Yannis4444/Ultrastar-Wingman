@@ -12,6 +12,7 @@ from . import APP_NAME, __version__
 from .api import router
 from .config import BootstrapSettings, get_bootstrap_settings
 from .db import run_migrations
+from .songs import scanner
 
 API_PREFIX = "/api/v1"
 
@@ -26,9 +27,13 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
     await run_migrations(settings.database_url)
     engine = create_async_engine(settings.database_url)
     app.state.session_factory = async_sessionmaker(engine, expire_on_commit=False)
+    # Pick up library changes made while Wingman was down, without delaying startup.
+    scanner.start_scan(app.state.session_factory)
     try:
         yield
     finally:
+        # Before the engine goes: a scan outliving it would fail on a dead connection pool.
+        await scanner.stop_scan()
         await engine.dispose()
 
 

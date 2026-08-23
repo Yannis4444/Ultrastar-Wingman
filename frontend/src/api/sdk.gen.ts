@@ -2,7 +2,7 @@
 
 import type { Client, ClientMeta, Options as Options2, RequestResult, TDataShape } from './client';
 import { client } from './client.gen';
-import type { HealthData, HealthResponses, ListSettingsData, ListSettingsResponses, UpdateSettingData, UpdateSettingErrors, UpdateSettingResponses } from './types.gen';
+import type { GetSongCoverData, GetSongCoverErrors, GetSongCoverResponses, GetSongData, GetSongErrors, GetSongResponses, HealthData, HealthResponses, ListSettingsData, ListSettingsResponses, ListSongsData, ListSongsResponses, RescanSongsData, RescanSongsErrors, RescanSongsResponses, UpdateSettingData, UpdateSettingErrors, UpdateSettingResponses } from './types.gen';
 
 export type Options<TData extends TDataShape = TDataShape, ThrowOnError extends boolean = boolean, TResponse = unknown> = Options2<TData, ThrowOnError, TResponse> & {
     /**
@@ -17,6 +17,29 @@ export type Options<TData extends TDataShape = TDataShape, ThrowOnError extends 
      */
     meta?: keyof ClientMeta extends never ? Record<string, unknown> : ClientMeta;
 };
+
+/**
+ * List Songs
+ */
+export const listSongs = <ThrowOnError extends boolean = false>(options?: Options<ListSongsData, ThrowOnError>): RequestResult<ListSongsResponses, unknown, ThrowOnError> => (options?.client ?? client).get<ListSongsResponses, unknown, ThrowOnError>({ url: '/api/v1/songs', ...options });
+
+/**
+ * Rescan Songs
+ *
+ * Start a library scan. 409 while one is still running; progress arrives as
+ * `songs.scan_started` / `songs.scan_finished` websocket events.
+ */
+export const rescanSongs = <ThrowOnError extends boolean = false>(options?: Options<RescanSongsData, ThrowOnError>): RequestResult<RescanSongsResponses, RescanSongsErrors, ThrowOnError> => (options?.client ?? client).post<RescanSongsResponses, RescanSongsErrors, ThrowOnError>({ url: '/api/v1/songs/rescan', ...options });
+
+/**
+ * Get Song
+ */
+export const getSong = <ThrowOnError extends boolean = false>(options: Options<GetSongData, ThrowOnError>): RequestResult<GetSongResponses, GetSongErrors, ThrowOnError> => (options.client ?? client).get<GetSongResponses, GetSongErrors, ThrowOnError>({ url: '/api/v1/songs/{song_id}', ...options });
+
+/**
+ * Get Song Cover
+ */
+export const getSongCover = <ThrowOnError extends boolean = false>(options: Options<GetSongCoverData, ThrowOnError>): RequestResult<GetSongCoverResponses, GetSongCoverErrors, ThrowOnError> => (options.client ?? client).get<GetSongCoverResponses, GetSongCoverErrors, ThrowOnError>({ url: '/api/v1/songs/{song_id}/cover', ...options });
 
 /**
  * Health
