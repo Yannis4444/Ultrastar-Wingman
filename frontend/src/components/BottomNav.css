@@ -1,0 +1,42 @@
+.bottom-nav {
+  position: fixed;
+  bottom: 0;
+  left: 0;
+  width: 100%;
+  padding: 10px 0 max(10px, env(safe-area-inset-bottom)) 0;
+  background-color: var(--footer-bg);
+  z-index: 1000;
+  box-shadow: 0 4px 16px #000a;
+}
+
+.bottom-nav > div {
+  display: flex;
+  justify-content: space-around;
+  max-width: 1200px;
+  margin: 0 auto;
+}
+
+.bottom-nav a {
+  text-decoration: none;
+  color: var(--highlight-blue-light);
+  text-align: center;
+  transition: 0.1s color;
+}
+
+.bottom-nav a:hover,
+.bottom-nav a.active {
+  color: var(--highlight-pink-light);
+}
+
+.bottom-nav svg {
+  display: block;
+  margin: auto;
+  width: 24px;
+  height: 24px;
+  fill: currentColor;
+}
+
+.bottom-nav span {
+  display: block;
+  font-size: 12px;
+}
