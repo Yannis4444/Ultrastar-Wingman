@@ -6,6 +6,8 @@ from typing import Literal
 from fastapi import WebSocket
 from pydantic import BaseModel
 
+from .karaoke.schema import CurrentSing, ScoreRead
+
 logger = logging.getLogger(__name__)
 
 
@@ -36,6 +38,25 @@ class SongsScanFinished(Event):
     removed: int
     updated: int
     total: int
+
+
+class KaraokeStarted(Event):
+    event: Literal["karaoke.started"] = "karaoke.started"
+    sing: CurrentSing
+
+
+class KaraokeEnded(Event):
+    event: Literal["karaoke.ended"] = "karaoke.ended"
+    sing_id: str
+    song_id: str
+
+
+class ScoresRecorded(Event):
+    """Sent right after `karaoke.ended`, and only when USDX actually scored something."""
+
+    event: Literal["scores.recorded"] = "scores.recorded"
+    sing_id: str
+    scores: list[ScoreRead]
 
 
 class EventBus:

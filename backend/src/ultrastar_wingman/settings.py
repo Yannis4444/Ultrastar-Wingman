@@ -90,6 +90,57 @@ register(
 )
 register(
     SettingDefinition(
+        key="usdx.base_path",
+        value_type=str,
+        default="",
+        group="USDX",
+        description=(
+            "Ultrastar Deluxe installation directory. The executable, config.ini, avatars "
+            "directory and Ultrastar.db are derived from it unless overridden below."
+        ),
+    )
+)
+register(
+    SettingDefinition(
+        key="usdx.executable",
+        value_type=str,
+        default="",
+        group="USDX",
+        description="Overrides the derived <base path>/ultrastardx.exe.",
+    )
+)
+register(
+    SettingDefinition(
+        key="usdx.config_file",
+        value_type=str,
+        default="",
+        group="USDX",
+        description="Overrides the derived <base path>/config.ini (players, colors, avatars).",
+    )
+)
+register(
+    SettingDefinition(
+        key="usdx.avatars_dir",
+        value_type=str,
+        default="",
+        group="USDX",
+        description="Overrides the derived <base path>/avatars (USDX reads avatars from here).",
+    )
+)
+register(
+    SettingDefinition(
+        key="usdx.ultrastar_db",
+        value_type=str,
+        default="",
+        group="USDX",
+        description=(
+            "Overrides the derived <base path>/Ultrastar.db. Wingman only reads it, to import "
+            "the scores USDX wrote after a song."
+        ),
+    )
+)
+register(
+    SettingDefinition(
         key="usdb.password",
         value_type=str,
         default="",

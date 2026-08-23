@@ -9,6 +9,8 @@ from pydantic import BaseModel
 from . import APP_NAME, __version__
 from .db import SessionDep
 from .events import ServerReady, SettingChanged, event_bus
+from .karaoke.api import router as karaoke_router
+from .players.api import router as players_router
 from .settings import (
     SettingDefinition,
     SettingsService,
@@ -22,6 +24,8 @@ logger = logging.getLogger(__name__)
 
 router = APIRouter()
 router.include_router(songs_router)
+router.include_router(players_router)
+router.include_router(karaoke_router)
 
 
 class Health(BaseModel):

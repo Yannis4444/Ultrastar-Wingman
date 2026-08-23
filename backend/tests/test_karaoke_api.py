@@ -1,0 +1,590 @@
+"""The sing flow, end to end, against a fake "USDX".
+
+No real USDX, no real installation: the executable is a tiny python script (behind a
+wrapper the OS can exec) that records how it was called and optionally appends rows to
+a synthetic `Ultrastar.db` before exiting. Everything lives in a temp directory.
+"""
+
+import configparser
+import contextlib
+import json
+import os
+import signal
+import sqlite3
+import sys
+from collections.abc import Iterator
+from dataclasses import dataclass
+from pathlib import Path
+from typing import Any, cast
+
+import pytest
+from httpx import AsyncClient
+from sqlalchemy import select
+from sqlalchemy.ext.asyncio import AsyncSession
+
+from ultrastar_wingman.karaoke import service
+from ultrastar_wingman.karaoke.model import Score, Sing
+from ultrastar_wingman.karaoke.usdx import COPY_DIR_NAME
+from ultrastar_wingman.settings import SettingsService
+from ultrastar_wingman.songs.model import Song
+
+# USDX stores its strings fixed-width, padded with NUL characters — they must not end up
+# in Wingman's data.
+NUL = chr(0)
+
+# The stand-in for ultrastardx.exe. Reads what to do from spec.json next to itself, so the
+# test can change its behaviour without rewriting the script.
+FAKE_USDX = """
+import json
+import os
+import pathlib
+import sqlite3
+import sys
+import time
+
+here = pathlib.Path(__file__).parent
+spec = json.loads((here / "spec.json").read_text(encoding="utf-8"))
+
+# The launcher only sees the wrapper, so this process survives being killed. The fixture
+# reaps whatever is still listed here when the test ends.
+with (here / "pids.txt").open("a", encoding="utf-8") as file:
+    file.write(f"{os.getpid()}\\n")
+
+(here / "argv.json").write_text(json.dumps(sys.argv[1:]), encoding="utf-8")
+
+song_path = pathlib.Path(sys.argv[sys.argv.index("-SongPath") + 1])
+(here / "song_dir.json").write_text(
+    json.dumps(sorted(entry.name for entry in song_path.iterdir())), encoding="utf-8"
+)
+
+if spec["scores"]:
+    connection = sqlite3.connect(spec["database"])
+    connection.execute(
+        "CREATE TABLE IF NOT EXISTS us_songs (ID INTEGER PRIMARY KEY, Artist TEXT, Title TEXT)"
+    )
+    connection.execute(
+        "CREATE TABLE IF NOT EXISTS us_scores"
+        " (Player TEXT, Score INT, Date INT, SongID INT, Difficulty INT)"
+    )
+    connection.execute("INSERT OR REPLACE INTO us_songs VALUES (1, 'Artist', 'Title')")
+    connection.executemany(
+        "INSERT INTO us_scores (Player, Score, Date, SongID, Difficulty) VALUES (?, ?, ?, 1, ?)",
+        [(player, score, date, difficulty) for player, score, date, difficulty in spec["scores"]],
+    )
+    connection.commit()
+    connection.close()
+
+time.sleep(spec["sleep"])
+"""
+
+# Long enough that it never elapses: every test that uses it kills the process, and the
+# app's shutdown kills whatever a failing test left behind.
+FOREVER = 300.0
+
+
+@dataclass
+class FakeUsdx:
+    """A pretend USDX installation. `base` is what `usdx.base_path` points at."""
+
+    base: Path
+    executable: Path
+    songs_dir: Path
+
+    @property
+    def config_file(self) -> Path:
+        return self.base / "config.ini"
+
+    @property
+    def ultrastar_db(self) -> Path:
+        return self.base / "Ultrastar.db"
+
+    @property
+    def avatars_dir(self) -> Path:
+        return self.base / "avatars"
+
+    def behave(
+        self,
+        scores: list[tuple[str, int, int, int | None]] | None = None,
+        sleep: float = 0.0,
+    ) -> None:
+        """What the fake does on its next run: write these score rows, then sleep."""
+        (self.base / "spec.json").write_text(
+            json.dumps(
+                {"database": str(self.ultrastar_db), "scores": scores or [], "sleep": sleep}
+            ),
+            encoding="utf-8",
+        )
+
+    @property
+    def argv(self) -> list[str]:
+        return list(json.loads((self.base / "argv.json").read_text(encoding="utf-8")))
+
+    @property
+    def song_dir_contents(self) -> list[str]:
+        """What was in the directory it was pointed at, while it was running."""
+        return list(json.loads((self.base / "song_dir.json").read_text(encoding="utf-8")))
+
+    def config(self) -> configparser.RawConfigParser:
+        parser = configparser.RawConfigParser()
+        parser.optionxform = str  # type: ignore[method-assign,assignment]
+        parser.read(self.config_file, encoding="utf-8-sig")
+        return parser
+
+
+@pytest.fixture
+def fake_usdx(tmp_path: Path) -> Iterator[FakeUsdx]:
+    base = tmp_path / "usdx"
+    songs_dir = base / "songs"
+    songs_dir.mkdir(parents=True)
+    script = base / "fake_usdx.py"
+    script.write_text(FAKE_USDX, encoding="utf-8")
+
+    # A python script is not executable by itself, so the "executable" USDX setting points
+    # at a wrapper that runs it with this interpreter.
+    if sys.platform == "win32":
+        executable = base / "ultrastardx.cmd"
+        executable.write_text(
+            f'@echo off\r\n"{sys.executable}" "{script}" %*\r\n', encoding="utf-8"
+        )
+    else:
+        executable = base / "ultrastardx.sh"
+        executable.write_text(f'#!/bin/sh\n"{sys.executable}" "{script}" "$@"\n', encoding="utf-8")
+        executable.chmod(0o755)
+
+    usdx = FakeUsdx(base=base, executable=executable, songs_dir=songs_dir)
+    usdx.behave()
+    try:
+        yield usdx
+    finally:
+        _reap(base / "pids.txt")
+
+
+def _reap(pid_file: Path) -> None:
+    """Kill leftover fakes. Only the test needs this: killing the wrapper does not take its
+    python child with it, whereas the real USDX is a single process."""
+    if not pid_file.exists():
+        return
+    for line in pid_file.read_text(encoding="utf-8").split():
+        with contextlib.suppress(OSError, ValueError):
+            os.kill(int(line), signal.SIGTERM)
+
+
+@pytest.fixture
+async def configured(session: AsyncSession, fake_usdx: FakeUsdx) -> FakeUsdx:
+    """USDX settings pointing at the fake: base path plus the executable override."""
+    settings = SettingsService(session)
+    await settings.set("usdx.base_path", str(fake_usdx.base))
+    await settings.set("usdx.executable", str(fake_usdx.executable))
+    await settings.set("songs.directory", str(fake_usdx.songs_dir))
+    return fake_usdx
+
+
+def make_song_dir(parent: Path, name: str) -> Path:
+    directory = parent / name
+    directory.mkdir(parents=True)
+    (directory / "song.txt").write_text("#TITLE:Title\n#ARTIST:Artist\n", encoding="utf-8")
+    return directory
+
+
+async def add_song(session: AsyncSession, directory: Path) -> str:
+    song = Song(
+        id="usdb:1234",
+        source="usdb",
+        source_id="1234",
+        title="Title",
+        artist="Artist",
+        fingerprint="artist|title",
+        directory=str(directory),
+        txt_file=str(directory / "song.txt"),
+    )
+    session.add(song)
+    await session.commit()
+    return song.id
+
+
+@pytest.fixture
+async def song(session: AsyncSession, configured: FakeUsdx) -> str:
+    """A song in the USDX songs directory, with a name USDX copes with."""
+    return await add_song(session, make_song_dir(configured.songs_dir, "Artist - Title"))
+
+
+async def add_player(client: AsyncClient, name: str) -> dict[str, Any]:
+    response = await client.post("/api/v1/players", json={"name": name})
+    assert response.status_code == 201, response.text
+    player: dict[str, Any] = response.json()
+    return player
+
+
+def seed_scores(database: Path, rows: list[tuple[str, int, int, int | None]]) -> None:
+    """Pre-existing USDX scores: everything older than the launch must stay out."""
+    connection = sqlite3.connect(database)
+    connection.execute(
+        "CREATE TABLE IF NOT EXISTS us_songs (ID INTEGER PRIMARY KEY, Artist TEXT, Title TEXT)"
+    )
+    connection.execute(
+        "CREATE TABLE IF NOT EXISTS us_scores"
+        " (Player TEXT, Score INT, Date INT, SongID INT, Difficulty INT)"
+    )
+    connection.execute("INSERT OR REPLACE INTO us_songs VALUES (1, 'Artist', 'Title')")
+    connection.executemany(
+        "INSERT INTO us_scores (Player, Score, Date, SongID, Difficulty) VALUES (?, ?, ?, 1, ?)",
+        rows,
+    )
+    connection.commit()
+    connection.close()
+
+
+async def sing(
+    client: AsyncClient, song_id: str, slots: list[dict[str, object]], force: bool = False
+) -> dict[str, Any]:
+    response = await client.post(
+        "/api/v1/karaoke/sing", json={"song_id": song_id, "slots": slots, "force": force}
+    )
+    assert response.status_code == 202, response.text
+    result: dict[str, Any] = response.json()
+    return result
+
+
+async def test_the_colors_come_from_the_backend(client: AsyncClient) -> None:
+    response = await client.get("/api/v1/karaoke/colors")
+
+    assert response.status_code == 200
+    colors = response.json()["colors"]
+    # The index in this list is what USDX stores, so the order is part of the contract.
+    assert len(colors) == 16
+    assert colors[0] == {"name": "blue", "hex": "#048BB9"}
+    assert colors[-1] == {"name": "green_yellow", "hex": "#91BE00"}
+
+
+async def test_a_finished_song_records_scores_for_the_players_who_sang(
+    client: AsyncClient,
+    session: AsyncSession,
+    configured: FakeUsdx,
+    song: str,
+    broadcast_events: list[dict[str, object]],
+) -> None:
+    yannis = await add_player(client, "Yannis")
+    alex = await add_player(client, "Alex")
+    seed_scores(configured.ultrastar_db, [("Someone" + NUL * 5, 4000, 1000, 1)])
+    configured.behave(
+        scores=[
+            # USDX pads the names it wrote itself, and we set these names.
+            ("Yannis" + NUL * 10, 8500, 2000, 3),
+            ("Alex" + NUL * 12, 7000, 2001, None),
+        ]
+    )
+
+    started = await sing(
+        client,
+        song,
+        [{"color": "blue", "player_id": yannis["id"]}, {"color": "red", "player_id": alex["id"]}],
+    )
+    await service.wait_for_sing_end()
+
+    assert started["song"]["id"] == song
+    assert started["slots"] == [
+        {"color": "blue", "player": yannis},
+        {"color": "red", "player": alex},
+    ]
+
+    scores = list(await session.scalars(select(Score).order_by(Score.id)))
+    assert [
+        (score.player_id, score.player_name, score.score, score.difficulty) for score in scores
+    ] == [
+        (yannis["id"], "Yannis", 8500, 3),
+        (alex["id"], "Alex", 7000, None),
+    ]
+    assert {score.sing_id for score in scores} == {started["sing_id"]}
+
+    sing_row = await session.get(Sing, started["sing_id"])
+    assert sing_row is not None
+    assert sing_row.song_id == song
+    assert sing_row.ended_at is not None
+
+    assert configured.config()["Name"]["P1"] == "Yannis"
+    assert configured.config()["Name"]["P2"] == "Alex"
+    assert configured.config()["Game"]["Players"] == "2"
+
+    events = [event["event"] for event in broadcast_events]
+    assert events == ["karaoke.started", "karaoke.ended", "scores.recorded"]
+    recorded = broadcast_events[2]
+    assert recorded["sing_id"] == started["sing_id"]
+    recorded_scores = cast(list[dict[str, Any]], recorded["scores"])
+    assert [score["player_name"] for score in recorded_scores] == ["Yannis", "Alex"]
+
+
+async def test_the_song_directory_is_passed_to_usdx(
+    client: AsyncClient, session: AsyncSession, configured: FakeUsdx, song: str
+) -> None:
+    player = await add_player(client, "Yannis")
+    song_row = await session.get(Song, song)
+    assert song_row is not None
+
+    await sing(client, song, [{"color": "blue", "player_id": player["id"]}])
+    await service.wait_for_sing_end()
+
+    assert configured.argv == ["-SongPath", song_row.directory, "-SingleSong"]
+    assert configured.song_dir_contents == ["song.txt"]
+
+
+async def test_a_name_no_slot_used_is_recorded_without_a_player(
+    client: AsyncClient, session: AsyncSession, configured: FakeUsdx, song: str
+) -> None:
+    player = await add_player(client, "Yannis")
+    # Somebody renamed themselves inside USDX: the score is worth keeping, the attribution
+    # is not inventable.
+    configured.behave(scores=[("Someone else", 3000, 2000, 1)])
+
+    started = await sing(client, song, [{"color": "blue", "player_id": player["id"]}])
+    await service.wait_for_sing_end()
+
+    scores = list(await session.scalars(select(Score)))
+    assert [(score.player_id, score.player_name) for score in scores] == [(None, "Someone else")]
+    assert started["sing_id"] == scores[0].sing_id
+
+
+async def test_a_song_nobody_scored_ends_without_scores(
+    client: AsyncClient,
+    session: AsyncSession,
+    configured: FakeUsdx,
+    song: str,
+    broadcast_events: list[dict[str, object]],
+) -> None:
+    player = await add_player(client, "Yannis")
+    seed_scores(configured.ultrastar_db, [("Yannis", 4000, 1000, 1)])
+
+    started = await sing(client, song, [{"color": "blue", "player_id": player["id"]}])
+    await service.wait_for_sing_end()
+
+    # The row from before the launch is not this run's.
+    assert list(await session.scalars(select(Score))) == []
+    assert [event["event"] for event in broadcast_events] == ["karaoke.started", "karaoke.ended"]
+    sing_row = await session.get(Sing, started["sing_id"])
+    assert sing_row is not None and sing_row.ended_at is not None
+
+
+async def test_a_missing_score_database_is_not_fatal(
+    client: AsyncClient, session: AsyncSession, configured: FakeUsdx, song: str
+) -> None:
+    player = await add_player(client, "Yannis")
+    assert not configured.ultrastar_db.exists()
+
+    started = await sing(client, song, [{"color": "blue", "player_id": player["id"]}])
+    await service.wait_for_sing_end()
+
+    sing_row = await session.get(Sing, started["sing_id"])
+    assert sing_row is not None and sing_row.ended_at is not None
+
+
+async def test_the_running_song_is_reported_and_can_be_stopped(
+    client: AsyncClient, configured: FakeUsdx, song: str
+) -> None:
+    player = await add_player(client, "Yannis")
+    configured.behave(sleep=FOREVER)
+
+    started = await sing(client, song, [{"color": "blue", "player_id": player["id"]}])
+
+    current = await client.get("/api/v1/karaoke/current")
+    assert current.status_code == 200
+    assert current.json() == {"sing": started}
+
+    stopped = await client.post("/api/v1/karaoke/stop")
+    assert stopped.status_code == 204
+    assert (await client.get("/api/v1/karaoke/current")).json() == {"sing": None}
+
+
+async def test_stopping_is_idempotent(client: AsyncClient, configured: FakeUsdx, song: str) -> None:
+    player = await add_player(client, "Yannis")
+    assert (await client.post("/api/v1/karaoke/stop")).status_code == 204
+
+    configured.behave(sleep=FOREVER)
+    await sing(client, song, [{"color": "blue", "player_id": player["id"]}])
+
+    for _ in range(3):
+        assert (await client.post("/api/v1/karaoke/stop")).status_code == 204
+
+
+async def test_a_second_song_needs_force(
+    client: AsyncClient,
+    session: AsyncSession,
+    configured: FakeUsdx,
+    song: str,
+    broadcast_events: list[dict[str, object]],
+) -> None:
+    player = await add_player(client, "Yannis")
+    configured.behave(sleep=FOREVER)
+    first = await sing(client, song, [{"color": "blue", "player_id": player["id"]}])
+
+    refused = await client.post(
+        "/api/v1/karaoke/sing",
+        json={"song_id": song, "slots": [{"color": "blue", "player_id": player["id"]}]},
+    )
+    assert refused.status_code == 409
+    assert refused.json() == {"detail": "already_playing"}
+
+    second = await sing(client, song, [{"color": "green", "player_id": player["id"]}], force=True)
+
+    assert second["sing_id"] != first["sing_id"]
+    # The killed run is closed off before the new one starts, not left dangling.
+    first_row = await session.get(Sing, first["sing_id"])
+    assert first_row is not None and first_row.ended_at is not None
+    assert [event["event"] for event in broadcast_events] == [
+        "karaoke.started",
+        "karaoke.ended",
+        "karaoke.started",
+    ]
+    assert (await client.get("/api/v1/karaoke/current")).json()["sing"]["sing_id"] == (
+        second["sing_id"]
+    )
+
+
+async def test_a_song_outside_the_songs_directory_is_copied(
+    client: AsyncClient, session: AsyncSession, configured: FakeUsdx, tmp_path: Path
+) -> None:
+    """USDX ignores -SongPath outside its own songs dir and loads the whole library."""
+    outside = make_song_dir(tmp_path / "elsewhere", "Artist - Title")
+    song = await add_song(session, outside)
+    player = await add_player(client, "Yannis")
+    copy_dir = configured.songs_dir / COPY_DIR_NAME
+
+    await sing(client, song, [{"color": "blue", "player_id": player["id"]}])
+    await service.wait_for_sing_end()
+
+    assert configured.argv == ["-SongPath", str(copy_dir), "-SingleSong"]
+    # The copy really was there while USDX ran, and is gone afterwards.
+    assert configured.song_dir_contents == ["song.txt"]
+    assert not copy_dir.exists()
+
+
+async def test_a_song_with_special_characters_in_its_name_is_copied(
+    client: AsyncClient, session: AsyncSession, configured: FakeUsdx
+) -> None:
+    """Already in the songs dir, but USDX cannot handle the directory name."""
+    inside = make_song_dir(configured.songs_dir, "Künstler & Lied!")
+    song = await add_song(session, inside)
+    player = await add_player(client, "Yannis")
+    copy_dir = configured.songs_dir / COPY_DIR_NAME
+
+    await sing(client, song, [{"color": "blue", "player_id": player["id"]}])
+    await service.wait_for_sing_end()
+
+    assert configured.argv == ["-SongPath", str(copy_dir), "-SingleSong"]
+    assert not copy_dir.exists()
+
+
+async def test_an_empty_slot_keeps_the_colors_of_the_following_ones(
+    client: AsyncClient, configured: FakeUsdx, song: str
+) -> None:
+    player = await add_player(client, "Yannis")
+
+    started = await sing(
+        client,
+        song,
+        [
+            {"color": "blue", "player_id": None},
+            {"color": "red", "player_id": player["id"]},
+            {"color": "green", "player_id": None},
+        ],
+    )
+    await service.wait_for_sing_end()
+
+    config = configured.config()
+    # Trailing empty slots are dropped, the one in between stays so P2 keeps red (2).
+    assert config["Game"]["Players"] == "2"
+    assert config["Name"]["P1"] == "-"
+    assert config["Name"]["P2"] == "Yannis"
+    assert config["PlayerColor"]["P2"] == "2"
+    assert [slot["player"] for slot in started["slots"]] == [None, player, None]
+
+
+async def test_the_avatar_of_a_player_reaches_usdx(
+    client: AsyncClient, configured: FakeUsdx, song: str
+) -> None:
+    player = await add_player(client, "Yannis")
+    png = bytes.fromhex(
+        "89504e470d0a1a0a0000000d49484452000000010000000108060000001f15c4"
+        "890000000a49444154789c63000100000500010d0a2db40000000049454e44ae426082"
+    )
+    uploaded = await client.put(
+        f"/api/v1/players/{player['id']}/avatar",
+        files={"file": ("avatar.png", png, "image/png")},
+    )
+    assert uploaded.status_code == 200
+
+    await sing(client, song, [{"color": "blue", "player_id": player["id"]}])
+    await service.wait_for_sing_end()
+
+    # Copied into USDX's own avatars dir and referenced by the md5 of its content.
+    assert (configured.avatars_dir / f"{player['id']}.png").read_bytes() == png
+    assert len(configured.config()["PlayerAvatar"]["P1"]) == 32
+
+
+async def test_unknown_songs_players_colors_and_empty_selections_are_refused(
+    client: AsyncClient, configured: FakeUsdx, song: str
+) -> None:
+    player = await add_player(client, "Yannis")
+
+    unknown_song = await client.post(
+        "/api/v1/karaoke/sing",
+        json={"song_id": "usdb:9999", "slots": [{"color": "blue", "player_id": player["id"]}]},
+    )
+    assert unknown_song.status_code == 404
+
+    unknown_player = await client.post(
+        "/api/v1/karaoke/sing",
+        json={"song_id": song, "slots": [{"color": "blue", "player_id": "nope"}]},
+    )
+    assert unknown_player.status_code == 404
+
+    unknown_color = await client.post(
+        "/api/v1/karaoke/sing",
+        json={"song_id": song, "slots": [{"color": "chartreuse", "player_id": player["id"]}]},
+    )
+    assert unknown_color.status_code == 422
+
+    nobody = await client.post(
+        "/api/v1/karaoke/sing",
+        json={"song_id": song, "slots": [{"color": "blue", "player_id": None}]},
+    )
+    assert nobody.status_code == 422
+
+    no_slots = await client.post("/api/v1/karaoke/sing", json={"song_id": song, "slots": []})
+    assert no_slots.status_code == 422
+
+
+async def test_an_unconfigured_usdx_is_a_clear_error(
+    client: AsyncClient, session: AsyncSession, fake_usdx: FakeUsdx
+) -> None:
+    """Nothing is set up: the answer names every setting that needs fixing."""
+    song = await add_song(session, make_song_dir(fake_usdx.songs_dir, "Artist - Title"))
+    player = await add_player(client, "Yannis")
+
+    response = await client.post(
+        "/api/v1/karaoke/sing",
+        json={"song_id": song, "slots": [{"color": "blue", "player_id": player["id"]}]},
+    )
+
+    assert response.status_code == 400
+    detail = response.json()["detail"]
+    assert detail["error"] == "usdx_not_configured"
+    assert any("usdx.executable" in problem for problem in detail["problems"])
+    assert any("songs.directory" in problem for problem in detail["problems"])
+    assert (await client.get("/api/v1/karaoke/current")).json() == {"sing": None}
+
+
+async def test_a_missing_executable_is_a_clear_error(
+    client: AsyncClient, session: AsyncSession, configured: FakeUsdx, song: str
+) -> None:
+    settings = SettingsService(session)
+    await settings.set("usdx.executable", str(configured.base / "not-there.exe"))
+    player = await add_player(client, "Yannis")
+
+    response = await client.post(
+        "/api/v1/karaoke/sing",
+        json={"song_id": song, "slots": [{"color": "blue", "player_id": player["id"]}]},
+    )
+
+    assert response.status_code == 400
+    assert response.json()["detail"]["error"] == "usdx_not_configured"
+    # Nothing was recorded for a song that never started.
+    assert list(await session.scalars(select(Sing))) == []
