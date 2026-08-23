@@ -156,7 +156,7 @@ wishlist / wishlist weighted).
 *Done when:* wishes survive restart, favorites/playlists are per-user, the
 wheel spins and starts songs.
 
-### Phase 6 — Statistics UI 🟨
+### Phase 6 — Statistics UI ✅
 
 Sessions recorded explicitly in the DB (stable IDs — the old app inferred
 them from 6-hour gaps at startup). Stats views in the style of the old app
@@ -164,13 +164,13 @@ them from 6-hour gaps at startup). Stats views in the style of the old app
 
 *Done when:* stats pages show live data from Wingman's own DB.
 
-### Phase 7 — Settings UI ⬜
+### Phase 7 — Settings UI ✅
 
 UI section over the settings registry: grouped, typed inputs, live
 validation, USDB credentials managed here. Adding a future setting = one
 registry entry, zero UI code.
 
-### Phase 8 — Packaging & docs site ⬜
+### Phase 8 — Packaging & docs site 🟨
 
 Windows installer (PyInstaller — verify yt-dlp/ffmpeg actually bundle; the
 old build shipped without yt-dlp), zensical docs site with user guides per
