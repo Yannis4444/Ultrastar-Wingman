@@ -1,4 +1,5 @@
-"""The `sings` and `scores` tables: Wingman's own record of who sang what.
+"""The `karaoke_sessions`, `sings` and `scores` tables: Wingman's own record of who
+sang what.
 
 This is the source of truth for statistics from now on. USDX's `Ultrastar.db` is
 only an ingestion source — it cannot tell two runs of the same song apart, which
@@ -6,16 +7,38 @@ is why the old app's statistics were guesswork.
 """
 
 import uuid
-from datetime import UTC, datetime
+from datetime import UTC, datetime, timedelta
 
 from sqlalchemy import DateTime, ForeignKey, Integer, String, Text
 from sqlalchemy.orm import Mapped, mapped_column
 
 from ..db import Base
 
+# A sing joins the newest session while that session has been idle for less than this, and
+# opens a new one otherwise. The old app re-derived the same 6-hour rule over the whole
+# history on every restart, which made session ids (array indexes) shift under the UI.
+SESSION_GAP = timedelta(hours=6)
+
 
 def _now() -> datetime:
     return datetime.now(UTC)
+
+
+class KaraokeSession(Base):
+    """One party: the sings that happened without a long break between them.
+
+    Recorded when a song starts, never inferred at read time, so the id stays stable and
+    the host can name it ("Yannis' birthday").
+    """
+
+    __tablename__ = "karaoke_sessions"
+
+    id: Mapped[str] = mapped_column(String(32), primary_key=True, default=lambda: uuid.uuid4().hex)
+    name: Mapped[str | None] = mapped_column(Text, nullable=True)
+    started_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=_now)
+    # When the last sing of this session started. Bumped on every attachment; what the
+    # `SESSION_GAP` rule compares against.
+    last_activity_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=_now)
 
 
 class Sing(Base):
@@ -27,6 +50,9 @@ class Sing(Base):
     id: Mapped[str] = mapped_column(String(32), primary_key=True, default=lambda: uuid.uuid4().hex)
     # Not a foreign key: statistics must survive a song leaving the library.
     song_id: Mapped[str] = mapped_column(String(64), index=True)
+    # Nullable only because migration 0008 added the column to existing rows; every sing
+    # Wingman records from now on belongs to a session.
+    session_id: Mapped[str | None] = mapped_column(String(32), nullable=True, index=True)
     started_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=_now)
     ended_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
 

@@ -14,6 +14,7 @@ import sqlite3
 import sys
 from collections.abc import Iterator
 from dataclasses import dataclass
+from datetime import timedelta
 from pathlib import Path
 from typing import Any, cast
 
@@ -22,8 +23,9 @@ from httpx import AsyncClient
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from ultrastar_wingman.auth.model import utcnow
 from ultrastar_wingman.karaoke import service
-from ultrastar_wingman.karaoke.model import Score, Sing
+from ultrastar_wingman.karaoke.model import KaraokeSession, Score, Sing
 from ultrastar_wingman.karaoke.usdx import COPY_DIR_NAME
 from ultrastar_wingman.settings import SettingsService
 from ultrastar_wingman.songs.model import Song
@@ -311,6 +313,39 @@ async def test_a_finished_song_records_scores_for_the_players_who_sang(
     assert recorded["sing_id"] == started["sing_id"]
     recorded_scores = cast(list[dict[str, Any]], recorded["scores"])
     assert [score["player_name"] for score in recorded_scores] == ["Yannis", "Alex"]
+
+
+async def test_consecutive_sings_share_a_session_until_the_party_goes_quiet(
+    client: AsyncClient, session: AsyncSession, configured: FakeUsdx, song: str
+) -> None:
+    """The recorded session is what the statistics group by, so the sing flow has to attach
+    every run to one."""
+    player = await add_player(client, "Yannis")
+
+    first = await sing(client, song, [{"color": "blue", "player_id": player["id"]}])
+    await service.wait_for_sing_end()
+    second = await sing(client, song, [{"color": "red", "player_id": player["id"]}])
+    await service.wait_for_sing_end()
+
+    rows = {row.id: row for row in await session.scalars(select(Sing))}
+    session_id = rows[first["sing_id"]].session_id
+    assert session_id is not None
+    assert rows[second["sing_id"]].session_id == session_id
+
+    # Backdate the session instead of waiting six hours: same thing as far as the rule cares.
+    karaoke_session = await session.get(KaraokeSession, session_id)
+    assert karaoke_session is not None
+    karaoke_session.last_activity_at = utcnow() - timedelta(hours=7)
+    await session.commit()
+
+    third = await sing(client, song, [{"color": "green", "player_id": player["id"]}])
+    await service.wait_for_sing_end()
+
+    session.expire_all()
+    third_row = await session.get(Sing, third["sing_id"])
+    assert third_row is not None
+    assert third_row.session_id not in (None, session_id)
+    assert len(list(await session.scalars(select(KaraokeSession)))) == 2
 
 
 async def test_the_song_directory_is_passed_to_usdx(

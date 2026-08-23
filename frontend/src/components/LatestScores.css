@@ -1,0 +1,39 @@
+/* The TV is across the room: everything here is deliberately oversized. */
+.latest-scores {
+  padding: 16px 24px;
+  background-color: var(--tile-bg);
+  border-radius: var(--border-radius);
+  text-align: center;
+}
+
+.latest-scores h2 {
+  margin: 0 0 12px 0;
+  font-size: 1.2em;
+  color: var(--color-dark);
+}
+
+.latest-scores ol {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.latest-scores li {
+  display: flex;
+  gap: 24px;
+  justify-content: space-between;
+  align-items: baseline;
+  padding: 4px 0;
+}
+
+.latest-scores-name {
+  font-size: 1.5em;
+  overflow-wrap: anywhere;
+}
+
+.latest-scores-value {
+  font-size: 2.5em;
+  font-weight: bold;
+  color: var(--highlight-gold-light);
+  font-variant-numeric: tabular-nums;
+}

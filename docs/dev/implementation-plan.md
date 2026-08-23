@@ -132,7 +132,7 @@ auto-update. USDB search/download UI.
 *Done when:* search USDB, queue downloads, watch progress, sing the result;
 yt-dlp updates itself without a Wingman release.
 
-### Phase 4 — Accounts & permissions 🟨
+### Phase 4 — Accounts & permissions ✅
 
 `AuthProvider` seam with local accounts first (username-based, proper
 password hashing, first user is admin); OIDC (Keycloak) as the second
@@ -145,7 +145,7 @@ link to accounts; temporary players remain for guests.
 unauthorized request to every privileged route gets 403, host UI is admin
 without being spoofable.
 
-### Phase 5 — Wishlist, favorites, playlists & randomizer ⬜
+### Phase 5 — Wishlist, favorites, playlists & randomizer ✅
 
 Wishlist (anonymous-cookie guest identity, merged into the account on
 login), favorites (real,
@@ -156,7 +156,7 @@ wishlist / wishlist weighted).
 *Done when:* wishes survive restart, favorites/playlists are per-user, the
 wheel spins and starts songs.
 
-### Phase 6 — Statistics UI ⬜
+### Phase 6 — Statistics UI 🟨
 
 Sessions recorded explicitly in the DB (stable IDs — the old app inferred
 them from 6-hour gaps at startup). Stats views in the style of the old app

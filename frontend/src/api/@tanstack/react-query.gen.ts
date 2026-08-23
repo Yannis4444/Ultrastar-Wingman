@@ -3,8 +3,8 @@
 import { type DefaultError, type InfiniteData, infiniteQueryOptions, queryOptions, type UseMutationOptions } from '@tanstack/react-query';
 
 import { client } from '../client.gen';
-import { addFavorite, addPlaylistEntry, addWish, createDownload, createPlayer, createPlaylist, deletePlayer, deletePlaylist, deleteUser, exchangeHostToken, getCurrentSing, getMe, getPermissions, getPlayerAvatar, getPlaylist, getSong, getSongCover, health, listDownloads, listFavorites, listKaraokeColors, listPlayers, listPlaylists, listSettings, listSongs, listUsers, listWishlist, login, logout, type Options, register, removeFavorite, removePlaylistEntry, removeWish, reorderPlaylistEntries, rescanSongs, setPlayerAvatar, singSong, stopSinging, updatePlaylist, updateRolePermissions, updateSetting, updateUser, usdbSearch, usdbStatus } from '../sdk.gen';
-import type { AddFavoriteData, AddFavoriteError, AddFavoriteResponse, AddPlaylistEntryData, AddPlaylistEntryError, AddPlaylistEntryResponse, AddWishData, AddWishError, AddWishResponse, CreateDownloadData, CreateDownloadError, CreateDownloadResponse, CreatePlayerData, CreatePlayerError, CreatePlayerResponse, CreatePlaylistData, CreatePlaylistError, CreatePlaylistResponse, DeletePlayerData, DeletePlayerError, DeletePlayerResponse, DeletePlaylistData, DeletePlaylistError, DeletePlaylistResponse, DeleteUserData, DeleteUserError, DeleteUserResponse, ExchangeHostTokenData, ExchangeHostTokenError, ExchangeHostTokenResponse, GetCurrentSingData, GetCurrentSingResponse, GetMeData, GetMeResponse, GetPermissionsData, GetPermissionsResponse, GetPlayerAvatarData, GetPlayerAvatarError, GetPlaylistData, GetPlaylistError, GetPlaylistResponse, GetSongCoverData, GetSongCoverError, GetSongData, GetSongError, GetSongResponse, HealthData, HealthResponse, ListDownloadsData, ListDownloadsResponse, ListFavoritesData, ListFavoritesResponse, ListKaraokeColorsData, ListKaraokeColorsResponse, ListPlayersData, ListPlayersResponse, ListPlaylistsData, ListPlaylistsResponse, ListSettingsData, ListSettingsResponse, ListSongsData, ListSongsResponse, ListUsersData, ListUsersResponse, ListWishlistData, ListWishlistResponse, LoginData, LoginError, LoginResponse, LogoutData, LogoutResponse, RegisterData, RegisterError, RegisterResponse, RemoveFavoriteData, RemoveFavoriteError, RemoveFavoriteResponse, RemovePlaylistEntryData, RemovePlaylistEntryError, RemovePlaylistEntryResponse, RemoveWishData, RemoveWishError, RemoveWishResponse, ReorderPlaylistEntriesData, ReorderPlaylistEntriesResponse, RescanSongsData, RescanSongsError, RescanSongsResponse, SetPlayerAvatarData, SetPlayerAvatarError, SetPlayerAvatarResponse, SingSongData, SingSongError, SingSongResponse, StopSingingData, StopSingingResponse, UpdatePlaylistData, UpdatePlaylistError, UpdatePlaylistResponse, UpdateRolePermissionsData, UpdateRolePermissionsResponse, UpdateSettingData, UpdateSettingError, UpdateSettingResponse, UpdateUserData, UpdateUserError, UpdateUserResponse, UsdbSearchData, UsdbSearchError, UsdbSearchResponse, UsdbStatusData, UsdbStatusError, UsdbStatusResponse } from '../types.gen';
+import { addFavorite, addPlaylistEntry, addWish, createDownload, createPlayer, createPlaylist, deletePlayer, deletePlaylist, deleteUser, exchangeHostToken, getCurrentSing, getMe, getPermissions, getPlayerAvatar, getPlaylist, getSong, getSongCover, health, listDownloads, listFavorites, listKaraokeColors, listLatestScores, listPlayers, listPlaylists, listSessions, listSessionScores, listSettings, listSongs, listSongScores, listUsers, listWishlist, login, logout, type Options, register, removeFavorite, removePlaylistEntry, removeWish, renameSession, reorderPlaylistEntries, rescanSongs, setPlayerAvatar, singSong, stopSinging, updatePlaylist, updateRolePermissions, updateSetting, updateUser, usdbSearch, usdbStatus } from '../sdk.gen';
+import type { AddFavoriteData, AddFavoriteError, AddFavoriteResponse, AddPlaylistEntryData, AddPlaylistEntryError, AddPlaylistEntryResponse, AddWishData, AddWishError, AddWishResponse, CreateDownloadData, CreateDownloadError, CreateDownloadResponse, CreatePlayerData, CreatePlayerError, CreatePlayerResponse, CreatePlaylistData, CreatePlaylistError, CreatePlaylistResponse, DeletePlayerData, DeletePlayerError, DeletePlayerResponse, DeletePlaylistData, DeletePlaylistError, DeletePlaylistResponse, DeleteUserData, DeleteUserError, DeleteUserResponse, ExchangeHostTokenData, ExchangeHostTokenError, ExchangeHostTokenResponse, GetCurrentSingData, GetCurrentSingResponse, GetMeData, GetMeResponse, GetPermissionsData, GetPermissionsResponse, GetPlayerAvatarData, GetPlayerAvatarError, GetPlaylistData, GetPlaylistError, GetPlaylistResponse, GetSongCoverData, GetSongCoverError, GetSongData, GetSongError, GetSongResponse, HealthData, HealthResponse, ListDownloadsData, ListDownloadsResponse, ListFavoritesData, ListFavoritesResponse, ListKaraokeColorsData, ListKaraokeColorsResponse, ListLatestScoresData, ListLatestScoresError, ListLatestScoresResponse, ListPlayersData, ListPlayersResponse, ListPlaylistsData, ListPlaylistsResponse, ListSessionScoresData, ListSessionScoresError, ListSessionScoresResponse, ListSessionsData, ListSessionsResponse, ListSettingsData, ListSettingsResponse, ListSongScoresData, ListSongScoresError, ListSongScoresResponse, ListSongsData, ListSongsResponse, ListUsersData, ListUsersResponse, ListWishlistData, ListWishlistResponse, LoginData, LoginError, LoginResponse, LogoutData, LogoutResponse, RegisterData, RegisterError, RegisterResponse, RemoveFavoriteData, RemoveFavoriteError, RemoveFavoriteResponse, RemovePlaylistEntryData, RemovePlaylistEntryError, RemovePlaylistEntryResponse, RemoveWishData, RemoveWishError, RemoveWishResponse, RenameSessionData, RenameSessionError, RenameSessionResponse, ReorderPlaylistEntriesData, ReorderPlaylistEntriesResponse, RescanSongsData, RescanSongsError, RescanSongsResponse, SetPlayerAvatarData, SetPlayerAvatarError, SetPlayerAvatarResponse, SingSongData, SingSongError, SingSongResponse, StopSingingData, StopSingingResponse, UpdatePlaylistData, UpdatePlaylistError, UpdatePlaylistResponse, UpdateRolePermissionsData, UpdateRolePermissionsResponse, UpdateSettingData, UpdateSettingError, UpdateSettingResponse, UpdateUserData, UpdateUserError, UpdateUserResponse, UsdbSearchData, UsdbSearchError, UsdbSearchResponse, UsdbStatusData, UsdbStatusError, UsdbStatusResponse } from '../types.gen';
 
 /**
  * Register
@@ -860,6 +860,106 @@ export const removePlaylistEntryMutation = (options?: Partial<Options<RemovePlay
     };
     return mutationOptions;
 };
+
+export const listSessionsQueryKey = (options?: Options<ListSessionsData>) => createQueryKey('listSessions', options);
+
+/**
+ * List Sessions
+ *
+ * Every recorded party, newest first.
+ */
+export const listSessionsOptions = (options?: Options<ListSessionsData>) => queryOptions<ListSessionsResponse, DefaultError, ListSessionsResponse, ReturnType<typeof listSessionsQueryKey>>({
+    queryFn: async ({ queryKey, signal }) => {
+        const { data } = await listSessions({
+            ...options,
+            ...queryKey[0],
+            signal,
+            throwOnError: true
+        });
+        return data;
+    },
+    queryKey: listSessionsQueryKey(options)
+});
+
+/**
+ * Rename Session
+ *
+ * Name a session ("Yannis' birthday"). Sessions are recorded rows, so the name sticks
+ * to the same party forever.
+ */
+export const renameSessionMutation = (options?: Partial<Options<RenameSessionData>>): UseMutationOptions<RenameSessionResponse, RenameSessionError, Options<RenameSessionData>> => {
+    const mutationOptions: UseMutationOptions<RenameSessionResponse, RenameSessionError, Options<RenameSessionData>> = {
+        mutationFn: async (fnOptions) => {
+            const { data } = await renameSession({
+                ...options,
+                ...fnOptions,
+                throwOnError: true
+            });
+            return data;
+        }
+    };
+    return mutationOptions;
+};
+
+export const listSessionScoresQueryKey = (options: Options<ListSessionScoresData>) => createQueryKey('listSessionScores', options);
+
+/**
+ * List Session Scores
+ *
+ * What was scored during one session, newest first.
+ */
+export const listSessionScoresOptions = (options: Options<ListSessionScoresData>) => queryOptions<ListSessionScoresResponse, ListSessionScoresError, ListSessionScoresResponse, ReturnType<typeof listSessionScoresQueryKey>>({
+    queryFn: async ({ queryKey, signal }) => {
+        const { data } = await listSessionScores({
+            ...options,
+            ...queryKey[0],
+            signal,
+            throwOnError: true
+        });
+        return data;
+    },
+    queryKey: listSessionScoresQueryKey(options)
+});
+
+export const listSongScoresQueryKey = (options: Options<ListSongScoresData>) => createQueryKey('listSongScores', options);
+
+/**
+ * List Song Scores
+ *
+ * Every score one song ever got, across all sessions, newest first.
+ */
+export const listSongScoresOptions = (options: Options<ListSongScoresData>) => queryOptions<ListSongScoresResponse, ListSongScoresError, ListSongScoresResponse, ReturnType<typeof listSongScoresQueryKey>>({
+    queryFn: async ({ queryKey, signal }) => {
+        const { data } = await listSongScores({
+            ...options,
+            ...queryKey[0],
+            signal,
+            throwOnError: true
+        });
+        return data;
+    },
+    queryKey: listSongScoresQueryKey(options)
+});
+
+export const listLatestScoresQueryKey = (options?: Options<ListLatestScoresData>) => createQueryKey('listLatestScores', options);
+
+/**
+ * List Latest Scores
+ *
+ * The most recent scores across everything — the home page's scoreboard.
+ */
+export const listLatestScoresOptions = (options?: Options<ListLatestScoresData>) => queryOptions<ListLatestScoresResponse, ListLatestScoresError, ListLatestScoresResponse, ReturnType<typeof listLatestScoresQueryKey>>({
+    queryFn: async ({ queryKey, signal }) => {
+        const { data } = await listLatestScores({
+            ...options,
+            ...queryKey[0],
+            signal,
+            throwOnError: true
+        });
+        return data;
+    },
+    queryKey: listLatestScoresQueryKey(options)
+});
 
 export const healthQueryKey = (options?: Options<HealthData>) => createQueryKey('health', options);
 

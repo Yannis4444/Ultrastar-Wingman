@@ -4,6 +4,7 @@ import QRCode from "react-qr-code";
 import { exchangeHostTokenMutation } from "../api/@tanstack/react-query.gen";
 import { useAuth } from "../auth";
 import CurrentlyPlaying from "../components/CurrentlyPlaying";
+import LatestScores from "../components/LatestScores";
 import "./Host.css";
 
 /** The query parameter the server puts into the URL it logs and opens. */
@@ -54,6 +55,7 @@ export default function Host() {
   return (
     <div className="host-page">
       <CurrentlyPlaying />
+      <LatestScores />
       <div className="host-side">
         <div className="host-join">
           <QRCode
