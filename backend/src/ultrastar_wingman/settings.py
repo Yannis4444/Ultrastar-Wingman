@@ -9,7 +9,7 @@ import logging
 from collections.abc import Mapping
 from dataclasses import dataclass
 
-from sqlalchemy import String, Text, select
+from sqlalchemy import String, Text, delete, select
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import Mapped, mapped_column
 
@@ -223,6 +223,10 @@ class SettingsService:
             for key, definition in self._definitions.items()
         }
 
+    async def stored_keys(self) -> set[str]:
+        """Keys that have a stored value — the rest answer with their default."""
+        return set(await self._session.scalars(select(Setting.key)))
+
     async def set(self, key: str, value: SettingValue) -> SettingValue:
         definition = self.definition(key)
         checked = self._check(definition, value)
@@ -230,6 +234,14 @@ class SettingsService:
         await self._session.commit()
         logger.info("setting '%s' updated", key)
         return checked
+
+    async def reset(self, key: str) -> SettingValue:
+        """Drop the stored value so the definition's default applies again."""
+        definition = self.definition(key)
+        await self._session.execute(delete(Setting).where(Setting.key == key))
+        await self._session.commit()
+        logger.info("setting '%s' reset to its default", key)
+        return definition.default
 
     @staticmethod
     def _check(definition: SettingDefinition, value: object) -> SettingValue:

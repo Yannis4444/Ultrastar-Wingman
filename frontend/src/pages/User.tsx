@@ -1,5 +1,6 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useState } from "react";
+import { Link } from "react-router-dom";
 import type { PlayerRead } from "../api";
 import {
   createPlayerMutation,
@@ -129,6 +130,14 @@ export default function User() {
             </button>
           </div>
         ))}
+
+      {/* `loaded` for the same reason as the admin panels below: `can` says yes
+          until /auth/me answered, and a guest must not see the link at all. */}
+      {auth.loaded && auth.can("settings.view") && (
+        <Link className="button user-settings-link" to="/settings">
+          Settings
+        </Link>
+      )}
 
       <h2>Players</h2>
       {managePlayers && (

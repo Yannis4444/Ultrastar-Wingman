@@ -95,12 +95,28 @@ async def test_set_rejects_a_wrong_type(session: AsyncSession, key: str, value: 
         await make_service(session).set(key, value)  # type: ignore[arg-type]
 
 
+async def test_reset_drops_the_stored_value(session: AsyncSession) -> None:
+    service = make_service(session)
+    await service.set("test.text", "changed")
+    assert await service.stored_keys() == {"test.text"}
+
+    assert await service.reset("test.text") == "hello"
+    assert await service.get("test.text") == "hello"
+    assert await service.stored_keys() == set()
+
+
+async def test_reset_of_an_untouched_setting_is_a_no_op(session: AsyncSession) -> None:
+    assert await make_service(session).reset("test.count") == 3
+
+
 async def test_unknown_key_raises(session: AsyncSession) -> None:
     service = make_service(session)
     with pytest.raises(UnknownSettingError):
         await service.get("test.nope")
     with pytest.raises(UnknownSettingError):
         await service.set("test.nope", "x")
+    with pytest.raises(UnknownSettingError):
+        await service.reset("test.nope")
 
 
 async def test_value_survives_a_new_session(

@@ -1,0 +1,56 @@
+.setting-field {
+  margin: 8px 16px;
+  padding: 12px;
+  background-color: var(--tile-bg);
+  border-radius: var(--border-radius);
+}
+
+.setting-row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+}
+
+.setting-label {
+  flex: 1 1 140px;
+  font-weight: bold;
+}
+
+.setting-input,
+.setting-textarea {
+  flex: 2 1 220px;
+}
+
+.setting-textarea {
+  font: inherit;
+  resize: vertical;
+}
+
+.setting-toggle {
+  width: 20px;
+  height: 20px;
+  accent-color: var(--highlight-blue-light);
+}
+
+.setting-reset {
+  flex: 0 0 auto;
+  padding: 6px 12px;
+  font-size: 0.85em;
+}
+
+.setting-saved {
+  flex: 0 0 auto;
+  color: var(--highlight-blue-light);
+  font-size: 0.85em;
+}
+
+.setting-description {
+  margin: 8px 0 0 0;
+  color: var(--color-darker);
+  font-size: 0.85em;
+}
+
+.setting-error {
+  margin: 8px 0 0 0;
+}

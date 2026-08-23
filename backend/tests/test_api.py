@@ -35,6 +35,7 @@ async def test_list_settings_returns_definitions_with_defaults(client: AsyncClie
         "group": "USDB",
         "description": "Account used to search and download songs from usdb.animux.de.",
         "secret": False,
+        "is_set": False,
     }
     assert by_key["usdb.password"]["secret"] is True
 
@@ -43,18 +44,36 @@ async def test_patch_setting_updates_the_value(client: AsyncClient) -> None:
     response = await client.patch("/api/v1/settings/usdb.username", json={"value": "singer"})
     assert response.status_code == 200
     assert response.json()["value"] == "singer"
+    assert response.json()["is_set"] is True
 
     listed = {item["key"]: item for item in (await client.get("/api/v1/settings")).json()}
     assert listed["usdb.username"]["value"] == "singer"
+    assert listed["usdb.username"]["is_set"] is True
+
+
+async def test_patch_null_resets_a_setting_to_its_default(client: AsyncClient) -> None:
+    await client.patch("/api/v1/settings/downloads.parallel", json={"value": 5})
+
+    response = await client.patch("/api/v1/settings/downloads.parallel", json={"value": None})
+    assert response.status_code == 200
+    assert response.json()["value"] == 2
+    assert response.json()["is_set"] is False
+
+    listed = {item["key"]: item for item in (await client.get("/api/v1/settings")).json()}
+    assert listed["downloads.parallel"]["value"] == 2
+    assert listed["downloads.parallel"]["is_set"] is False
 
 
 async def test_secret_values_are_never_returned(client: AsyncClient) -> None:
     response = await client.patch("/api/v1/settings/usdb.password", json={"value": "hunter2"})
     assert response.status_code == 200
     assert response.json()["value"] is None
+    # The one thing the UI may know about a secret: whether it is configured.
+    assert response.json()["is_set"] is True
 
     listed = {item["key"]: item for item in (await client.get("/api/v1/settings")).json()}
     assert listed["usdb.password"]["value"] is None
+    assert listed["usdb.password"]["is_set"] is True
 
 
 async def test_patch_unknown_setting_is_404(client: AsyncClient) -> None:

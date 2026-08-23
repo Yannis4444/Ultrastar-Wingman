@@ -57,13 +57,17 @@ class SettingRead(BaseModel):
     group: str
     description: str
     secret: bool
+    # The only thing a client learns about a secret's value: that there is one.
+    is_set: bool
 
 
 class SettingUpdate(BaseModel):
-    value: SettingValue
+    """`value: null` resets the setting to the default from its definition."""
+
+    value: SettingValue | None
 
 
-def _read(definition: SettingDefinition, value: SettingValue) -> SettingRead:
+def _read(definition: SettingDefinition, value: SettingValue, is_set: bool) -> SettingRead:
     return SettingRead(
         key=definition.key,
         value=None if definition.secret else value,
@@ -72,6 +76,7 @@ def _read(definition: SettingDefinition, value: SettingValue) -> SettingRead:
         group=definition.group,
         description=definition.description,
         secret=definition.secret,
+        is_set=is_set,
     )
 
 
@@ -83,7 +88,11 @@ def _read(definition: SettingDefinition, value: SettingValue) -> SettingRead:
 async def list_settings(session: SessionDep) -> list[SettingRead]:
     service = SettingsService(session)
     values = await service.all()
-    return [_read(definition, values[key]) for key, definition in service.definitions.items()]
+    stored = await service.stored_keys()
+    return [
+        _read(definition, values[key], key in stored)
+        for key, definition in service.definitions.items()
+    ]
 
 
 @router.patch(
@@ -94,12 +103,15 @@ async def list_settings(session: SessionDep) -> list[SettingRead]:
 async def update_setting(key: str, update: SettingUpdate, session: SessionDep) -> SettingRead:
     service = SettingsService(session)
     try:
-        value = await service.set(key, update.value)
+        if update.value is None:
+            value = await service.reset(key)
+        else:
+            value = await service.set(key, update.value)
     except UnknownSettingError as error:
         raise HTTPException(status_code=404, detail=str(error)) from error
     except SettingTypeError as error:
         raise HTTPException(status_code=422, detail=str(error)) from error
-    result = _read(service.definition(key), value)
+    result = _read(service.definition(key), value, is_set=update.value is not None)
     # `result.value`, never `value`: the websocket is open to anonymous clients, so a secret
     # setting (usdb.password) must reach it masked exactly like the GET response masks it.
     await event_bus.broadcast(SettingChanged(key=key, value=result.value))

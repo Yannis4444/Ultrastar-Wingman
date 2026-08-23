@@ -1,0 +1,8 @@
+.settings-notice {
+  margin: 16px;
+  color: var(--color-darker);
+}
+
+.error-notice.settings-notice {
+  color: var(--color);
+}
