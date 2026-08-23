@@ -8,8 +8,9 @@ a search result goes through `POST /downloads` like any other download.
 import logging
 from typing import Any
 
-from fastapi import APIRouter, HTTPException
+from fastapi import APIRouter, Depends, HTTPException
 
+from ..auth.deps import require
 from ..db import SessionDep
 from . import usdb
 from .usdb import UsdbDirection, UsdbError, UsdbOrder, UsdbSearchResult, UsdbStatus
@@ -23,13 +24,22 @@ _UNREACHABLE: dict[int | str, dict[str, Any]] = {
 }
 
 
-@router.get("/sources/usdb/status", response_model=UsdbStatus)
+@router.get(
+    "/sources/usdb/status",
+    response_model=UsdbStatus,
+    dependencies=[Depends(require("usdb.search"))],
+)
 async def usdb_status(session: SessionDep, refresh: bool = False) -> UsdbStatus:
     """Whether Wingman can use USDB. Cached; `refresh=true` asks the site again."""
     return await usdb.status(session, refresh)
 
 
-@router.get("/sources/usdb/search", response_model=UsdbSearchResult, responses=_UNREACHABLE)
+@router.get(
+    "/sources/usdb/search",
+    response_model=UsdbSearchResult,
+    dependencies=[Depends(require("usdb.search"))],
+    responses=_UNREACHABLE,
+)
 async def usdb_search(
     session: SessionDep,
     artist: str | None = None,

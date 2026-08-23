@@ -1,6 +1,8 @@
 """FastAPI application factory."""
 
 import logging
+import threading
+import webbrowser
 from collections.abc import AsyncIterator
 from contextlib import asynccontextmanager
 
@@ -10,6 +12,8 @@ from sqlalchemy.ext.asyncio import async_sessionmaker, create_async_engine
 
 from . import APP_NAME, __version__
 from .api import router
+from .auth import permissions
+from .auth import service as auth
 from .config import BootstrapSettings, get_bootstrap_settings
 from .db import run_migrations
 from .downloads import service as downloads
@@ -30,6 +34,10 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
     await run_migrations(settings.database_url)
     engine = create_async_engine(settings.database_url)
     app.state.session_factory = async_sessionmaker(engine, expire_on_commit=False)
+    # The permission table belongs to this database, so a cache from a previous app in the
+    # same process (tests, an embedded restart) must not survive into this one.
+    permissions.invalidate_cache()
+    _announce_host_url(app, settings)
     # Pick up library changes made while Wingman was down, without delaying startup.
     scanner.start_scan(app.state.session_factory)
     # Before the queue: a re-queued USDB download starts running the moment it is enqueued.
@@ -47,6 +55,23 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
         await scanner.stop_scan()
         await karaoke.shutdown()
         await engine.dispose()
+
+
+def _announce_host_url(app: FastAPI, settings: BootstrapSettings) -> None:
+    """Mint the one-time host token and make it reachable.
+
+    Always logged, so somebody on the machine can paste the URL when the browser did not
+    open (or opened the wrong one). The token is single-use, so a stale log line is not a
+    standing key to the app.
+    """
+    host_token = auth.HostToken()
+    app.state.host_token = host_token
+    url = auth.host_url(settings.port, host_token.unused or "")
+    logger.info("Host UI: %s", url)
+    if settings.open_browser:
+        # In a thread: webbrowser.open blocks while it spawns the browser, and startup must
+        # not wait for a GUI process.
+        threading.Thread(target=webbrowser.open, args=(url,), daemon=True).start()
 
 
 def operation_id(route: APIRoute) -> str:

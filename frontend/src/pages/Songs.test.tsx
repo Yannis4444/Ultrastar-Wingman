@@ -2,22 +2,34 @@ import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { MemoryRouter } from "react-router-dom";
 import type { SongRead } from "../api";
+import { meResponse } from "../test/auth";
 import { FakeSocket } from "../test/fakeSocket";
 import Songs from "./Songs";
 
 // The generated query options call the sdk and read `.data`, so the sdk is the
 // seam: the real TanStack wiring runs, only the transport is faked. The rest of
 // the module stays real so a new endpoint can't break this mock.
-const { listSongs, rescanSongs } = vi.hoisted(() => ({
+const { listSongs, rescanSongs, getMe } = vi.hoisted(() => ({
   listSongs: vi.fn(),
   rescanSongs: vi.fn(),
+  getMe: vi.fn(),
 }));
 
 vi.mock("../api/sdk.gen", async (importOriginal) => ({
   ...(await importOriginal<typeof import("../api/sdk.gen")>()),
   listSongs,
   rescanSongs,
+  getMe,
 }));
+
+/** What the trusted role holds: enough for every button on this page. */
+const TRUSTED = [
+  "songs.view",
+  "songs.rescan",
+  "karaoke.sing",
+  "usdb.search",
+  "players.view",
+];
 
 function song(overrides: Partial<SongRead> = {}): SongRead {
   return {
@@ -36,7 +48,8 @@ function song(overrides: Partial<SongRead> = {}): SongRead {
   };
 }
 
-function renderSongs(songs: SongRead[] | Error) {
+function renderSongs(songs: SongRead[] | Error, capabilities = TRUSTED) {
+  getMe.mockResolvedValue(meResponse(capabilities));
   listSongs.mockImplementation(async () => {
     if (songs instanceof Error) throw songs;
     return { data: { songs } };
@@ -65,6 +78,7 @@ beforeEach(() => {
   vi.stubGlobal("WebSocket", FakeSocket);
   listSongs.mockReset();
   rescanSongs.mockReset();
+  getMe.mockReset();
 });
 
 afterEach(() => vi.unstubAllGlobals());
@@ -233,4 +247,47 @@ test("a finished scan refetches the song list", async () => {
   });
 
   expect(await screen.findByText("Waterloo")).toBeInTheDocument();
+});
+
+test("the privileged buttons are gone for a role without the capability", async () => {
+  renderSongs([song()], ["songs.view", "players.view"]);
+  await screen.findByText("Dancing Queen");
+
+  await waitFor(() =>
+    expect(
+      screen.queryByRole("button", { name: "Rescan" }),
+    ).not.toBeInTheDocument(),
+  );
+  expect(
+    screen.queryByRole("link", { name: "Explore USDB" }),
+  ).not.toBeInTheDocument();
+
+  // The song itself stays browsable — only the actions are gated.
+  fireEvent.click(screen.getByText("Dancing Queen"));
+  expect(
+    screen.queryByRole("button", { name: "Sing" }),
+  ).not.toBeInTheDocument();
+});
+
+test("a role with the capabilities gets rescan and sing", async () => {
+  renderSongs([song()], ["songs.view", "songs.rescan", "karaoke.sing"]);
+  await screen.findByText("Dancing Queen");
+
+  expect(
+    await screen.findByRole("button", { name: "Rescan" }),
+  ).toBeInTheDocument();
+  fireEvent.click(screen.getByText("Dancing Queen"));
+  expect(screen.getByRole("button", { name: "Sing" })).toBeInTheDocument();
+});
+
+test("a rescan denied by the backend explains the missing capability", async () => {
+  renderSongs([song()]);
+  await screen.findByText("Dancing Queen");
+  rescanSongs.mockRejectedValue({ detail: "missing_permission:songs.rescan" });
+
+  fireEvent.click(screen.getByRole("button", { name: "Rescan" }));
+
+  expect(
+    await screen.findByText(/may not do this \(songs\.rescan\)/),
+  ).toBeInTheDocument();
 });

@@ -1,0 +1,41 @@
+.permissions-notice {
+  margin: 8px 16px;
+}
+
+/* The table has a column per role: on a phone it scrolls instead of squeezing. */
+.permissions-scroll {
+  margin: 16px;
+  overflow-x: auto;
+  background-color: var(--tile-bg);
+  border-radius: var(--border-radius);
+}
+
+.permissions-matrix {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 0.9em;
+}
+
+.permissions-matrix th,
+.permissions-matrix td {
+  padding: 8px;
+  text-align: center;
+  white-space: nowrap;
+}
+
+.permissions-matrix thead th {
+  color: var(--color-darker);
+  font-weight: normal;
+  border-bottom: 1px solid var(--input-border-color);
+}
+
+.permissions-matrix tbody th {
+  text-align: left;
+  font-weight: normal;
+}
+
+.permissions-matrix input {
+  width: 18px;
+  height: 18px;
+  accent-color: var(--highlight-blue-light);
+}

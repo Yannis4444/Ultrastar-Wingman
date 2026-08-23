@@ -25,6 +25,10 @@ class BootstrapSettings(BaseSettings):
     data_dir: Path = Field(default_factory=default_data_dir)
     host: str = "0.0.0.0"
     port: int = 8080
+    # Open the host UI (the TV browser next to USDX) on startup. That URL carries the
+    # one-time token that makes the browser a trusted admin, so opening it ourselves is how
+    # host trust is established — set WINGMAN_OPEN_BROWSER=false for a headless server.
+    open_browser: bool = True
 
     @property
     def database_path(self) -> Path:

@@ -3,8 +3,61 @@
 import { type DefaultError, type InfiniteData, infiniteQueryOptions, queryOptions, type UseMutationOptions } from '@tanstack/react-query';
 
 import { client } from '../client.gen';
-import { createDownload, createPlayer, deletePlayer, getCurrentSing, getPlayerAvatar, getSong, getSongCover, health, listDownloads, listKaraokeColors, listPlayers, listSettings, listSongs, type Options, rescanSongs, setPlayerAvatar, singSong, stopSinging, updateSetting, usdbSearch, usdbStatus } from '../sdk.gen';
-import type { CreateDownloadData, CreateDownloadError, CreateDownloadResponse, CreatePlayerData, CreatePlayerError, CreatePlayerResponse, DeletePlayerData, DeletePlayerError, DeletePlayerResponse, GetCurrentSingData, GetCurrentSingResponse, GetPlayerAvatarData, GetPlayerAvatarError, GetSongCoverData, GetSongCoverError, GetSongData, GetSongError, GetSongResponse, HealthData, HealthResponse, ListDownloadsData, ListDownloadsResponse, ListKaraokeColorsData, ListKaraokeColorsResponse, ListPlayersData, ListPlayersResponse, ListSettingsData, ListSettingsResponse, ListSongsData, ListSongsResponse, RescanSongsData, RescanSongsError, RescanSongsResponse, SetPlayerAvatarData, SetPlayerAvatarError, SetPlayerAvatarResponse, SingSongData, SingSongError, SingSongResponse, StopSingingData, StopSingingResponse, UpdateSettingData, UpdateSettingError, UpdateSettingResponse, UsdbSearchData, UsdbSearchError, UsdbSearchResponse, UsdbStatusData, UsdbStatusError, UsdbStatusResponse } from '../types.gen';
+import { createDownload, createPlayer, deletePlayer, deleteUser, exchangeHostToken, getCurrentSing, getMe, getPermissions, getPlayerAvatar, getSong, getSongCover, health, listDownloads, listKaraokeColors, listPlayers, listSettings, listSongs, listUsers, login, logout, type Options, register, rescanSongs, setPlayerAvatar, singSong, stopSinging, updateRolePermissions, updateSetting, updateUser, usdbSearch, usdbStatus } from '../sdk.gen';
+import type { CreateDownloadData, CreateDownloadError, CreateDownloadResponse, CreatePlayerData, CreatePlayerError, CreatePlayerResponse, DeletePlayerData, DeletePlayerError, DeletePlayerResponse, DeleteUserData, DeleteUserError, DeleteUserResponse, ExchangeHostTokenData, ExchangeHostTokenError, ExchangeHostTokenResponse, GetCurrentSingData, GetCurrentSingResponse, GetMeData, GetMeResponse, GetPermissionsData, GetPermissionsResponse, GetPlayerAvatarData, GetPlayerAvatarError, GetSongCoverData, GetSongCoverError, GetSongData, GetSongError, GetSongResponse, HealthData, HealthResponse, ListDownloadsData, ListDownloadsResponse, ListKaraokeColorsData, ListKaraokeColorsResponse, ListPlayersData, ListPlayersResponse, ListSettingsData, ListSettingsResponse, ListSongsData, ListSongsResponse, ListUsersData, ListUsersResponse, LoginData, LoginError, LoginResponse, LogoutData, LogoutResponse, RegisterData, RegisterError, RegisterResponse, RescanSongsData, RescanSongsError, RescanSongsResponse, SetPlayerAvatarData, SetPlayerAvatarError, SetPlayerAvatarResponse, SingSongData, SingSongError, SingSongResponse, StopSingingData, StopSingingResponse, UpdateRolePermissionsData, UpdateRolePermissionsResponse, UpdateSettingData, UpdateSettingError, UpdateSettingResponse, UpdateUserData, UpdateUserError, UpdateUserResponse, UsdbSearchData, UsdbSearchError, UsdbSearchResponse, UsdbStatusData, UsdbStatusError, UsdbStatusResponse } from '../types.gen';
+
+/**
+ * Register
+ *
+ * Create an account and log it in. The first account ever created is the administrator.
+ */
+export const registerMutation = (options?: Partial<Options<RegisterData>>): UseMutationOptions<RegisterResponse, RegisterError, Options<RegisterData>> => {
+    const mutationOptions: UseMutationOptions<RegisterResponse, RegisterError, Options<RegisterData>> = {
+        mutationFn: async (fnOptions) => {
+            const { data } = await register({
+                ...options,
+                ...fnOptions,
+                throwOnError: true
+            });
+            return data;
+        }
+    };
+    return mutationOptions;
+};
+
+/**
+ * Login
+ */
+export const loginMutation = (options?: Partial<Options<LoginData>>): UseMutationOptions<LoginResponse, LoginError, Options<LoginData>> => {
+    const mutationOptions: UseMutationOptions<LoginResponse, LoginError, Options<LoginData>> = {
+        mutationFn: async (fnOptions) => {
+            const { data } = await login({
+                ...options,
+                ...fnOptions,
+                throwOnError: true
+            });
+            return data;
+        }
+    };
+    return mutationOptions;
+};
+
+/**
+ * Logout
+ */
+export const logoutMutation = (options?: Partial<Options<LogoutData>>): UseMutationOptions<LogoutResponse, DefaultError, Options<LogoutData>> => {
+    const mutationOptions: UseMutationOptions<LogoutResponse, DefaultError, Options<LogoutData>> = {
+        mutationFn: async (fnOptions) => {
+            const { data } = await logout({
+                ...options,
+                ...fnOptions,
+                throwOnError: true
+            });
+            return data;
+        }
+    };
+    return mutationOptions;
+};
 
 export type QueryKey<TOptions extends Options> = [
     Pick<TOptions, 'baseUrl' | 'body' | 'headers' | 'path' | 'query'> & {
@@ -37,6 +90,140 @@ const createQueryKey = <TOptions extends Options>(id: string, options?: TOptions
         params.query = options.query;
     }
     return [params];
+};
+
+export const getMeQueryKey = (options?: Options<GetMeData>) => createQueryKey('getMe', options);
+
+/**
+ * Get Me
+ *
+ * Who the caller is and what they may do. Anonymous callers get the `guest` role
+ * rather than a 401 — the UI hides what they cannot use instead of asking them to log in.
+ */
+export const getMeOptions = (options?: Options<GetMeData>) => queryOptions<GetMeResponse, DefaultError, GetMeResponse, ReturnType<typeof getMeQueryKey>>({
+    queryFn: async ({ queryKey, signal }) => {
+        const { data } = await getMe({
+            ...options,
+            ...queryKey[0],
+            signal,
+            throwOnError: true
+        });
+        return data;
+    },
+    queryKey: getMeQueryKey(options)
+});
+
+/**
+ * Exchange Host Token
+ *
+ * Trade the one-time token from the host URL for a permanent trusted admin session.
+ *
+ * This is the only way to become the host: no header, no IP check — the old app trusted
+ * `X-Forwarded-For`, which any client can set.
+ */
+export const exchangeHostTokenMutation = (options?: Partial<Options<ExchangeHostTokenData>>): UseMutationOptions<ExchangeHostTokenResponse, ExchangeHostTokenError, Options<ExchangeHostTokenData>> => {
+    const mutationOptions: UseMutationOptions<ExchangeHostTokenResponse, ExchangeHostTokenError, Options<ExchangeHostTokenData>> = {
+        mutationFn: async (fnOptions) => {
+            const { data } = await exchangeHostToken({
+                ...options,
+                ...fnOptions,
+                throwOnError: true
+            });
+            return data;
+        }
+    };
+    return mutationOptions;
+};
+
+export const listUsersQueryKey = (options?: Options<ListUsersData>) => createQueryKey('listUsers', options);
+
+/**
+ * List Users
+ */
+export const listUsersOptions = (options?: Options<ListUsersData>) => queryOptions<ListUsersResponse, DefaultError, ListUsersResponse, ReturnType<typeof listUsersQueryKey>>({
+    queryFn: async ({ queryKey, signal }) => {
+        const { data } = await listUsers({
+            ...options,
+            ...queryKey[0],
+            signal,
+            throwOnError: true
+        });
+        return data;
+    },
+    queryKey: listUsersQueryKey(options)
+});
+
+/**
+ * Delete User
+ *
+ * Delete an account. Its player stays as a temporary one, so the scores keep an owner.
+ */
+export const deleteUserMutation = (options?: Partial<Options<DeleteUserData>>): UseMutationOptions<DeleteUserResponse, DeleteUserError, Options<DeleteUserData>> => {
+    const mutationOptions: UseMutationOptions<DeleteUserResponse, DeleteUserError, Options<DeleteUserData>> = {
+        mutationFn: async (fnOptions) => {
+            const { data } = await deleteUser({
+                ...options,
+                ...fnOptions,
+                throwOnError: true
+            });
+            return data;
+        }
+    };
+    return mutationOptions;
+};
+
+/**
+ * Update User
+ */
+export const updateUserMutation = (options?: Partial<Options<UpdateUserData>>): UseMutationOptions<UpdateUserResponse, UpdateUserError, Options<UpdateUserData>> => {
+    const mutationOptions: UseMutationOptions<UpdateUserResponse, UpdateUserError, Options<UpdateUserData>> = {
+        mutationFn: async (fnOptions) => {
+            const { data } = await updateUser({
+                ...options,
+                ...fnOptions,
+                throwOnError: true
+            });
+            return data;
+        }
+    };
+    return mutationOptions;
+};
+
+export const getPermissionsQueryKey = (options?: Options<GetPermissionsData>) => createQueryKey('getPermissions', options);
+
+/**
+ * Get Permissions
+ */
+export const getPermissionsOptions = (options?: Options<GetPermissionsData>) => queryOptions<GetPermissionsResponse, DefaultError, GetPermissionsResponse, ReturnType<typeof getPermissionsQueryKey>>({
+    queryFn: async ({ queryKey, signal }) => {
+        const { data } = await getPermissions({
+            ...options,
+            ...queryKey[0],
+            signal,
+            throwOnError: true
+        });
+        return data;
+    },
+    queryKey: getPermissionsQueryKey(options)
+});
+
+/**
+ * Update Role Permissions
+ *
+ * Replace what a role may do. Takes effect immediately, for every open session.
+ */
+export const updateRolePermissionsMutation = (options?: Partial<Options<UpdateRolePermissionsData>>): UseMutationOptions<UpdateRolePermissionsResponse, DefaultError, Options<UpdateRolePermissionsData>> => {
+    const mutationOptions: UseMutationOptions<UpdateRolePermissionsResponse, DefaultError, Options<UpdateRolePermissionsData>> = {
+        mutationFn: async (fnOptions) => {
+            const { data } = await updateRolePermissions({
+                ...options,
+                ...fnOptions,
+                throwOnError: true
+            });
+            return data;
+        }
+    };
+    return mutationOptions;
 };
 
 export const listSongsQueryKey = (options?: Options<ListSongsData>) => createQueryKey('listSongs', options);

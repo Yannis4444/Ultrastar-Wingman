@@ -20,6 +20,9 @@ dependencies = [
     # FastAPI needs it to parse multipart form data (avatar uploads).
     "python-multipart",
     "platformdirs",
+    # Password hashing. argon2id is the current recommendation and this is the reference
+    # binding; rolling our own KDF parameters on top of hashlib is not a few lines of code.
+    "argon2-cffi",
     "httpx",
     "websockets",
     "charset-normalizer",

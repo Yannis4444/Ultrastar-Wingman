@@ -24,8 +24,10 @@ class Player(Base):
 
     id: Mapped[str] = mapped_column(String(32), primary_key=True, default=lambda: uuid.uuid4().hex)
     name: Mapped[str] = mapped_column(Text)
-    # Accounts arrive in phase 4; nothing sets this to true yet.
+    # True exactly when `user_id` is set: the player belongs to an account. Deleting the
+    # account unlinks the player (it becomes a temporary one again) instead of deleting it.
     registered: Mapped[bool] = mapped_column(Boolean, default=False)
+    user_id: Mapped[str | None] = mapped_column(String(32), nullable=True, unique=True)
     # Absolute path of the stored avatar image, `<data_dir>/avatars/<id>.<ext>`.
     avatar_file: Mapped[str | None] = mapped_column(Text, nullable=True)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=_now)

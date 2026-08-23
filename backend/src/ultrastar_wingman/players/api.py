@@ -9,6 +9,7 @@ from fastapi.responses import FileResponse
 from pydantic import BaseModel, StringConstraints
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from ..auth.deps import require
 from ..config import BootstrapSettings
 from ..db import SessionDep
 from . import service
@@ -32,8 +33,7 @@ class PlayerCreate(BaseModel):
     name: Annotated[str, StringConstraints(strip_whitespace=True, min_length=1, max_length=64)]
 
 
-# No auth yet: capability checks (`players:manage`) arrive in phase 4 as a FastAPI dependency.
-@router.get("/players", response_model=PlayerList)
+@router.get("/players", response_model=PlayerList, dependencies=[Depends(require("players.view"))])
 async def list_players(session: SessionDep) -> PlayerList:
     return PlayerList(
         players=[read_player(player) for player in await service.list_players(session)]
@@ -44,6 +44,7 @@ async def list_players(session: SessionDep) -> PlayerList:
     "/players",
     response_model=PlayerRead,
     status_code=201,
+    dependencies=[Depends(require("players.manage"))],
     responses={409: {"description": "A player with that name already exists."}},
 )
 async def create_player(new_player: PlayerCreate, session: SessionDep) -> PlayerRead:
@@ -53,7 +54,9 @@ async def create_player(new_player: PlayerCreate, session: SessionDep) -> Player
         raise HTTPException(status_code=409, detail="duplicate_name") from error
 
 
-@router.delete("/players/{player_id}", status_code=204)
+@router.delete(
+    "/players/{player_id}", status_code=204, dependencies=[Depends(require("players.manage"))]
+)
 async def delete_player(player_id: str, session: SessionDep, avatars_dir: AvatarsDirDep) -> None:
     await service.delete_player(session, await _player(player_id, session), avatars_dir)
 
@@ -61,6 +64,7 @@ async def delete_player(player_id: str, session: SessionDep, avatars_dir: Avatar
 @router.put(
     "/players/{player_id}/avatar",
     response_model=PlayerRead,
+    dependencies=[Depends(require("players.manage"))],
     responses={
         413: {"description": "The image is larger than 5 MB."},
         415: {"description": "Not a jpeg, png or webp image."},
@@ -89,6 +93,7 @@ async def set_player_avatar(
 @router.get(
     "/players/{player_id}/avatar",
     response_class=FileResponse,
+    dependencies=[Depends(require("players.view"))],
     responses={200: {"content": {"image/*": {}}, "description": "The avatar image file."}},
 )
 async def get_player_avatar(player_id: str, session: SessionDep) -> FileResponse:

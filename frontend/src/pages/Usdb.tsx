@@ -9,9 +9,10 @@ import {
   usdbStatusOptions,
   usdbStatusQueryKey,
 } from "../api/@tanstack/react-query.gen";
+import { useAuth } from "../auth";
 import DownloadsPanel from "../components/DownloadsPanel";
 import UsdbSongItem from "../components/UsdbSongItem";
-import { errorDetail } from "../errors";
+import { errorDetail, errorMessage } from "../errors";
 import { downloadKey, useDownloadEvents } from "../hooks/useDownloadEvents";
 import "./Usdb.css";
 
@@ -29,6 +30,7 @@ function statusMessage(code: string | null | undefined): string {
 
 export default function Usdb() {
   const queryClient = useQueryClient();
+  const auth = useAuth();
   useDownloadEvents();
 
   const [form, setForm] = useState({ artist: "", title: "" });
@@ -38,7 +40,10 @@ export default function Usdb() {
   const [password, setPassword] = useState("");
   const [downloadError, setDownloadError] = useState<string | null>(null);
 
-  const status = useQuery(usdbStatusOptions());
+  const maySearch = auth.can("usdb.search");
+  const maySeeDownloads = auth.can("downloads.view");
+
+  const status = useQuery({ ...usdbStatusOptions(), enabled: maySearch });
   const loggedIn = status.data?.logged_in === true;
 
   const search = useQuery({
@@ -54,7 +59,10 @@ export default function Usdb() {
 
   // Not gated on the login: a download queued before the session expired is
   // still running and the panel has to keep showing it.
-  const downloads = useQuery(listDownloadsOptions());
+  const downloads = useQuery({
+    ...listDownloadsOptions(),
+    enabled: maySeeDownloads,
+  });
   const byKey = useMemo(() => {
     const map = new Map<string, DownloadRead>();
     // Newest first, so the first row for a song wins over its earlier attempts.
@@ -72,7 +80,7 @@ export default function Usdb() {
       setDownloadError(
         errorDetail(error) === "already_queued"
           ? "That song is already in the queue."
-          : "Could not start the download.",
+          : errorMessage(error, "Could not start the download."),
       ),
   });
 
@@ -115,6 +123,19 @@ export default function Usdb() {
   const results = search.data?.results;
   const pages = search.data?.pages ?? null;
 
+  if (!maySearch) {
+    return (
+      <>
+        <h1>Explore USDB</h1>
+        <p className="usdb-notice usdb-muted">
+          Searching and downloading songs needs access the host has to grant.
+          Log in on the User tab, or ask the host to give your account the
+          rights.
+        </p>
+      </>
+    );
+  }
+
   return (
     <>
       <h1>Explore USDB</h1>
@@ -130,37 +151,41 @@ export default function Usdb() {
           <p className="usdb-login-message" role="alert">
             {statusMessage(status.data.error)}
           </p>
-          <form
-            onSubmit={(event) => {
-              event.preventDefault();
-              void saveCredentials();
-            }}
-          >
-            <input
-              className="text-input"
-              value={username}
-              placeholder="USDB username"
-              aria-label="USDB username"
-              autoComplete="username"
-              onChange={(event) => setUsername(event.target.value)}
-            />
-            <input
-              className="text-input"
-              type="password"
-              value={password}
-              placeholder="USDB password"
-              aria-label="USDB password"
-              autoComplete="current-password"
-              onChange={(event) => setPassword(event.target.value)}
-            />
-            <button
-              type="submit"
-              className="button button-primary"
-              disabled={username.trim() === "" || saveSetting.isPending}
+          {/* The credentials are settings, so only who may change settings
+              gets the form — everybody else just sees why USDB is unusable. */}
+          {auth.can("settings.manage") && (
+            <form
+              onSubmit={(event) => {
+                event.preventDefault();
+                void saveCredentials();
+              }}
             >
-              {saveSetting.isPending ? "Checking…" : "Log in"}
-            </button>
-          </form>
+              <input
+                className="text-input"
+                value={username}
+                placeholder="USDB username"
+                aria-label="USDB username"
+                autoComplete="username"
+                onChange={(event) => setUsername(event.target.value)}
+              />
+              <input
+                className="text-input"
+                type="password"
+                value={password}
+                placeholder="USDB password"
+                aria-label="USDB password"
+                autoComplete="current-password"
+                onChange={(event) => setPassword(event.target.value)}
+              />
+              <button
+                type="submit"
+                className="button button-primary"
+                disabled={username.trim() === "" || saveSetting.isPending}
+              >
+                {saveSetting.isPending ? "Checking…" : "Log in"}
+              </button>
+            </form>
+          )}
           {credentialsError && (
             <p className="error-notice usdb-notice" role="alert">
               {credentialsError}
@@ -274,10 +299,12 @@ export default function Usdb() {
         </div>
       )}
 
-      <DownloadsPanel
-        downloads={downloads.data?.downloads ?? []}
-        onRetry={retry}
-      />
+      {maySeeDownloads && (
+        <DownloadsPanel
+          downloads={downloads.data?.downloads ?? []}
+          onRetry={retry}
+        />
+      )}
     </>
   );
 }
