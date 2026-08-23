@@ -108,7 +108,7 @@ Song list UI: search, song details, covers.
 *Done when:* an existing USDX library shows correctly in the UI, unique IDs
 for every song, rescan works without restart.
 
-### Phase 2 — USDX integration: play a song 🟨
+### Phase 2 — USDX integration: play a song ✅
 
 `KaraokeLauncher` interface + USDX adapter (launch, config rewriting, copy
 workaround, process monitor, kill). Player model (registered later; temporary
@@ -120,7 +120,7 @@ scores, timestamp, difficulty). Basic host UI page (QR code, now playing).
 *Done when:* pick players → start song → USDX runs it → scores appear in
 Wingman's DB attributed to the right song and players.
 
-### Phase 3 — USDB source & downloads ⬜
+### Phase 3 — USDB source & downloads ✅
 
 `SongSource` interface + USDB implementation: session handling with re-login
 on expiry (no blocking console prompt — bad credentials surface in the UI),
@@ -132,7 +132,7 @@ auto-update. USDB search/download UI.
 *Done when:* search USDB, queue downloads, watch progress, sing the result;
 yt-dlp updates itself without a Wingman release.
 
-### Phase 4 — Accounts & permissions ⬜
+### Phase 4 — Accounts & permissions 🟨
 
 `AuthProvider` seam with local accounts first (username-based, proper
 password hashing, first user is admin); OIDC (Keycloak) as the second
