@@ -1,0 +1,8 @@
+﻿#TITLE:Jóga
+#ARTIST:Björk
+#AUDIO:jóga.mp3
+#COVER:cover.jpg
+#LANGUAGE:Icelandic
+#YEAR:1997
+: 0 4 0 Jó
+E

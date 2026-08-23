@@ -1,0 +1,17 @@
+#TITLE:Uptown Funk
+#ARTIST:Mark Ronson feat. Bruno Mars
+#MP3:legacy.mp3
+#AUDIO:song.mp3
+#COVER:cover.jpg
+#VIDEO:video.mp4
+#BACKGROUND:background.jpg
+#LANGUAGE:English
+#GENRE:Funk
+#YEAR:2014
+#EDITION:Party Classics
+#CREATOR:wingman
+#BPM:230
+#GAP:8000
+: 0 4 0 Doh
+- 10
+E

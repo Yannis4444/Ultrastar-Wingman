@@ -1,13 +1,18 @@
 from collections.abc import AsyncIterator
 from pathlib import Path
+from typing import cast
 
 import pytest
+from fastapi import WebSocket
 from httpx import ASGITransport, AsyncClient
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker, create_async_engine
 
 from ultrastar_wingman.app import create_app
 from ultrastar_wingman.config import BootstrapSettings
 from ultrastar_wingman.db import run_migrations
+from ultrastar_wingman.events import event_bus
+
+FIXTURES = Path(__file__).parent / "fixtures"
 
 
 @pytest.fixture
@@ -34,6 +39,26 @@ async def session(
 ) -> AsyncIterator[AsyncSession]:
     async with session_factory() as session:
         yield session
+
+
+@pytest.fixture
+async def broadcast_events() -> AsyncIterator[list[dict[str, object]]]:
+    """Records everything the event bus broadcasts while the test runs."""
+    events: list[dict[str, object]] = []
+
+    class Recorder:
+        async def accept(self) -> None:
+            return None
+
+        async def send_json(self, message: dict[str, object]) -> None:
+            events.append(message)
+
+    socket = cast(WebSocket, Recorder())
+    await event_bus.connect(socket)
+    try:
+        yield events
+    finally:
+        event_bus.disconnect(socket)
 
 
 @pytest.fixture

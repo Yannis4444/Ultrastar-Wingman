@@ -1,11 +1,15 @@
-"""Database plumbing: the declarative base and the migration runner."""
+"""Database plumbing: the declarative base, the migration runner and the session dependency."""
 
 import asyncio
 import logging
+from collections.abc import AsyncIterator
 from pathlib import Path
+from typing import Annotated
 
 from alembic import command
 from alembic.config import Config
+from fastapi import Depends, Request
+from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
 from sqlalchemy.orm import DeclarativeBase
 
 logger = logging.getLogger(__name__)
@@ -15,6 +19,15 @@ MIGRATIONS_DIR = Path(__file__).parent / "migrations"
 
 class Base(DeclarativeBase):
     pass
+
+
+async def get_session(request: Request) -> AsyncIterator[AsyncSession]:
+    session_factory: async_sessionmaker[AsyncSession] = request.app.state.session_factory
+    async with session_factory() as session:
+        yield session
+
+
+SessionDep = Annotated[AsyncSession, Depends(get_session)]
 
 
 async def run_migrations(database_url: str) -> None:

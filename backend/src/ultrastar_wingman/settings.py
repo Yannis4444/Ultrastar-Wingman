@@ -72,6 +72,24 @@ register(
 )
 register(
     SettingDefinition(
+        key="songs.directory",
+        value_type=str,
+        default="",
+        group="Songs",
+        description="The Ultrastar Deluxe songs directory Wingman scans for songs.",
+    )
+)
+register(
+    SettingDefinition(
+        key="songs.additional_directories",
+        value_type=str,
+        default="",
+        group="Songs",
+        description="Further directories to scan for songs, one path per line.",
+    )
+)
+register(
+    SettingDefinition(
         key="usdb.password",
         value_type=str,
         default="",

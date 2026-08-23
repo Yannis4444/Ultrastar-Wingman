@@ -1,0 +1,14 @@
+#TITLE:Über den Wolken
+#ARTIST:Reinhard Mey
+#MP3:groß.mp3
+#LANGUAGE:Deutsch
+#GENRE:Liedermacher
+#YEAR:1974
+: 0 4 0 Über
+: 4 4 0 die
+: 8 4 0 Größe
+: 12 4 0 der
+: 16 4 0 Straße
+- 20
+: 20 4 0 schön
+E

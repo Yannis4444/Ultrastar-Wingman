@@ -71,7 +71,11 @@ def test_websocket_endpoint_delivers_events(bootstrap_settings: BootstrapSetting
 
         response = client.patch("/api/v1/settings/usdb.username", json={"value": "singer"})
         assert response.status_code == 200
-        assert websocket.receive_json() == {
+        # The startup library scan may report in between; skip whatever it sends.
+        message = websocket.receive_json()
+        while message["event"].startswith("songs."):
+            message = websocket.receive_json()
+        assert message == {
             "event": "setting.changed",
             "key": "usdb.username",
             "value": "singer",

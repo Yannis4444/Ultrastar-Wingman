@@ -1,0 +1,13 @@
+#title:Junky Tags
+#Artist:  Spaced Out  
+#TITLE:Ignored Second Title
+#MP3:legacy.mp3
+#YEAR:unknown
+#GENRE:
+#UNKNOWN_TAG:whatever
+#NOCOLON
+this line is not a tag at all
+
+: 0 4 0 la
+- 10
+E

@@ -38,6 +38,15 @@ Everything else is a runtime setting: definitions live in
 `src/ultrastar_wingman/settings.py`, values in the `settings` table, exposed via
 `GET /api/v1/settings` and `PATCH /api/v1/settings/{key}`.
 
+### Song library
+
+`songs.directory` (the USDX songs dir) and `songs.additional_directories` (one
+path per line) are the roots Wingman scans; every direct subdirectory holding a
+`.txt` is one song. The library is scanned once at startup in the background and
+on `POST /api/v1/songs/rescan` (202, or 409 while a scan runs) — progress arrives
+as `songs.scan_started` / `songs.scan_finished` websocket events. Scanning is
+read-only: nothing is ever written into a song directory.
+
 ## Checks
 
 Run from `backend/`:
