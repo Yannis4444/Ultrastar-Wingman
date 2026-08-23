@@ -16,7 +16,7 @@ from httpx import AsyncClient
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from ultrastar_wingman.auth.model import as_utc
-from ultrastar_wingman.db import MIGRATIONS_DIR
+from ultrastar_wingman.db import migrations_dir
 from ultrastar_wingman.karaoke import service
 from ultrastar_wingman.karaoke.model import KaraokeSession, Score, Sing
 from ultrastar_wingman.songs.model import Song
@@ -228,7 +228,7 @@ def _upgrade(database_url: str, revision: str) -> None:
     """Alembic up to one revision. Sync on purpose: `migrations/env.py` calls
     `asyncio.run`, which cannot happen inside a running event loop."""
     config = Config()
-    config.set_main_option("script_location", str(MIGRATIONS_DIR))
+    config.set_main_option("script_location", str(migrations_dir()))
     config.set_main_option("sqlalchemy.url", database_url.replace("%", "%%"))
     command.upgrade(config, revision)
 

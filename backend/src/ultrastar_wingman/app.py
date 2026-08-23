@@ -17,6 +17,7 @@ from .auth import service as auth
 from .config import BootstrapSettings, get_bootstrap_settings
 from .db import run_migrations
 from .downloads import service as downloads
+from .frontend import mount_frontend, resolve_frontend_dir
 from .karaoke import service as karaoke
 from .songs import scanner
 from .sources import usdb
@@ -92,4 +93,11 @@ def create_app(settings: BootstrapSettings | None = None) -> FastAPI:
     )
     app.state.bootstrap_settings = settings or get_bootstrap_settings()
     app.include_router(router, prefix=API_PREFIX)
+    # Last: the SPA fallback is a catch-all, so every real route has to be registered first.
+    frontend_dir = resolve_frontend_dir(app.state.bootstrap_settings.frontend_dir)
+    if frontend_dir is None:
+        logger.info("no built frontend found, serving the API only")
+    else:
+        logger.info("serving frontend from %s", frontend_dir)
+        mount_frontend(app, frontend_dir)
     return app

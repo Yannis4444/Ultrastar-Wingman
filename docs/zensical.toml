@@ -1,0 +1,50 @@
+[project]
+site_name = "Ultrastar Wingman"
+site_description = "Karaoke companion for Ultrastar Deluxe: songs, players, wishes and scores."
+
+# The user guide only. `docs/dev/` stays outside this directory on purpose: zensical
+# builds every markdown file it finds under `docs_dir` and has no exclude option, so
+# scoping the directory is the only way to keep the developer guides off the site.
+docs_dir = "user"
+site_dir = "site"
+
+nav = [
+  { "Overview" = "index.md" },
+  { "Get started" = "getting-started.md" },
+  { "Download songs" = "downloading-songs.md" },
+  { "Sing a song" = "singing.md" },
+  { "Wishes, favorites and playlists" = "wishlist-and-playlists.md" },
+  { "Let the reel pick" = "the-spinner.md" },
+  { "Accounts and permissions" = "accounts-and-permissions.md" },
+  { "Statistics" = "statistics.md" },
+  { "Settings" = "settings.md" },
+  { "Troubleshooting" = "troubleshooting.md" },
+]
+
+[project.theme]
+language = "en"
+features = [
+  "content.code.copy",
+  "navigation.footer",
+  "navigation.top",
+  "navigation.tracking",
+  "search.highlight",
+]
+
+# Dark first, matching the app's own theme; the toggle offers light for whoever wants it.
+[[project.theme.palette]]
+scheme = "slate"
+toggle.icon = "lucide/moon"
+toggle.name = "Switch to light mode"
+
+[[project.theme.palette]]
+scheme = "default"
+toggle.icon = "lucide/sun"
+toggle.name = "Switch to dark mode"
+
+# Only what the pages actually use: admonitions, collapsible blocks, permalinks.
+[project.markdown_extensions]
+admonition = {}
+attr_list = {}
+pymdownx.details = {}
+toc.permalink = true

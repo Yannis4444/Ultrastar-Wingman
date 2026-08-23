@@ -2,10 +2,20 @@
 
 Two audiences, two places. Never mix them.
 
-## User documentation — `docs/` (built with zensical)
+## User documentation — `docs/user/` (built with zensical)
 
-Markdown, built into the docs site with **zensical**. This is the main
-documentation effort: Wingman is used by non-developers at karaoke parties.
+Markdown, built into the docs site with **zensical** (config in
+`docs/zensical.toml`, `docs_dir = "user"` — zensical has no exclude option,
+so the user pages live in their own subdirectory and `docs/dev/` stays
+outside the build root). Build the site with:
+
+```powershell
+venv\Scripts\python.exe -m pip install -r docs\requirements.txt
+cd docs; ..\venv\Scripts\python.exe -m zensical build --strict --clean
+```
+
+This is the main documentation effort: Wingman is used by non-developers at
+karaoke parties.
 
 ### What to write
 
@@ -21,7 +31,7 @@ troubleshooting.
   from USDB"), not component names ("The USDB module").
 - Start each page with one or two sentences of what the feature is for, then
   numbered steps. Screenshots where the UI isn't self-explanatory (store them
-  under `docs/assets/`, PNG, sensible width).
+  under `docs/user/assets/`, PNG, sensible width).
 - Short sentences, no jargon. If a backend term leaks into user docs
   ("source adapter"), rewrite it in user language ("where songs come from").
 - Standard Markdown plus admonitions for warnings/tips:

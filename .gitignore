@@ -219,3 +219,8 @@ __marimo__/
 
 # SQLite databases (dev/stray alembic-CLI files)
 *.db
+
+# PyInstaller build outputs (the spec itself is tracked, despite *.spec above).
+installer/build/
+installer/dist/
+!installer/*.spec

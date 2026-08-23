@@ -33,10 +33,20 @@ directory:
 | `WINGMAN_DATA_DIR` | platform app-data dir for "Ultrastar Wingman" |
 | `WINGMAN_HOST` | `0.0.0.0` |
 | `WINGMAN_PORT` | `8080` |
+| `WINGMAN_FRONTEND_DIR` | the PyInstaller bundle when frozen, else `frontend/dist` |
 
 Everything else is a runtime setting: definitions live in
 `src/ultrastar_wingman/settings.py`, values in the `settings` table, exposed via
 `GET /api/v1/settings` and `PATCH /api/v1/settings/{key}`.
+
+### Serving the frontend
+
+When a built frontend is found, everything outside `/api` is served from it:
+files as themselves, any other path as `index.html` so client-side routes
+survive a reload. `WINGMAN_FRONTEND_DIR` is used alone — no fallback — so it can
+also point at nothing on purpose. With no build anywhere the backend logs one
+line and serves the API only, which is how `npm run dev` runs (vite serves the
+UI and proxies `/api` here).
 
 ### Song library
 

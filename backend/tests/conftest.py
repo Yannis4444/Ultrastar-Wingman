@@ -44,8 +44,12 @@ def bootstrap_settings(tmp_path: Path) -> BootstrapSettings:
     """Bootstrap config pointing at a throwaway data dir (so a fresh DB per test).
 
     `open_browser=False`: the default is on, and the suite must not spawn a browser per test.
+    `frontend_dir`: a path with no build in it, so whether somebody ran `npm run build` does
+    not decide whether the SPA fallback is mounted. `test_frontend` points it at a build.
     """
-    return BootstrapSettings(data_dir=tmp_path, open_browser=False)
+    return BootstrapSettings(
+        data_dir=tmp_path, open_browser=False, frontend_dir=tmp_path / "no-frontend"
+    )
 
 
 @pytest.fixture
