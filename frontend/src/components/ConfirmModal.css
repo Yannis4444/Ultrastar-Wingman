@@ -1,0 +1,14 @@
+.confirm-message {
+  margin: 0 16px 16px 16px;
+  color: var(--color-dark);
+}
+
+.confirm-actions {
+  display: flex;
+  gap: 8px;
+  margin: 0 16px;
+}
+
+.confirm-actions > button {
+  flex: 1 1 0;
+}

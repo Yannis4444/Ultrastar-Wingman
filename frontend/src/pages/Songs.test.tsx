@@ -1,6 +1,7 @@
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { fireEvent, render, screen, waitFor } from "@testing-library/react";
 import type { SongRead } from "../api";
+import { FakeSocket } from "../test/fakeSocket";
 import Songs from "./Songs";
 
 // The generated query options call the sdk and read `.data`, so the sdk is the
@@ -16,20 +17,6 @@ vi.mock("../api/sdk.gen", async (importOriginal) => ({
   listSongs,
   rescanSongs,
 }));
-
-/** Nothing here may open a real socket (jsdom would try). */
-class FakeSocket {
-  static last: FakeSocket | undefined;
-  onopen: (() => void) | null = null;
-  onmessage: ((event: MessageEvent<string>) => void) | null = null;
-  onerror: (() => void) | null = null;
-  onclose: (() => void) | null = null;
-  close = vi.fn();
-
-  constructor() {
-    FakeSocket.last = this;
-  }
-}
 
 function song(overrides: Partial<SongRead> = {}): SongRead {
   return {
@@ -204,11 +191,13 @@ test("a finished scan refetches the song list", async () => {
     data: { songs: [song(), song({ id: "usdb:2", title: "Waterloo" })] },
   });
   // What the backend broadcasts on the shared socket when a scan completes.
-  FakeSocket.last?.onmessage?.(
-    new MessageEvent("message", {
-      data: '{"event":"songs.scan_finished","added":1,"removed":0,"updated":0,"total":2}',
-    }),
-  );
+  FakeSocket.deliver({
+    event: "songs.scan_finished",
+    added: 1,
+    removed: 0,
+    updated: 0,
+    total: 2,
+  });
 
   expect(await screen.findByText("Waterloo")).toBeInTheDocument();
 });

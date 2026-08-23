@@ -72,3 +72,72 @@ h2 {
 p {
   margin: 16px 16px;
 }
+
+/* Shared button and text-input looks, so every dialog and form matches. */
+.button {
+  padding: 10px 16px;
+  font: inherit;
+  color: var(--color);
+  background-color: var(--input-bg);
+  border: 1px solid var(--input-border-color);
+  border-radius: var(--border-radius);
+  cursor: pointer;
+}
+
+.button:hover:enabled {
+  background-color: var(--highlight-blue-dark);
+}
+
+.button:disabled {
+  color: var(--color-darkerer);
+  cursor: default;
+}
+
+.button-primary {
+  background-color: var(--highlight-blue-dark);
+}
+
+.button-primary:hover:enabled {
+  background-color: var(--highlight-blue-light);
+}
+
+.button-danger {
+  background-color: var(--highlight-red-dark);
+}
+
+.button-danger:hover:enabled {
+  background-color: var(--highlight-red-light);
+}
+
+.text-input {
+  min-width: 0;
+  padding: 10px 12px;
+  font: inherit;
+  color: var(--color);
+  background-color: var(--input-bg);
+  border: 1px solid var(--input-border-color);
+  border-radius: var(--border-radius);
+}
+
+.text-input:focus {
+  outline: none;
+  border-color: var(--highlight-blue-light);
+}
+
+.error-notice {
+  color: var(--color);
+  background-color: var(--highlight-red-dark);
+  border-radius: var(--border-radius);
+  padding: 8px 12px;
+}
+
+/* Keeps a control reachable by its label for screen readers and tests while the
+   label itself is the visible affordance. */
+.visually-hidden {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip: rect(0 0 0 0);
+  white-space: nowrap;
+}

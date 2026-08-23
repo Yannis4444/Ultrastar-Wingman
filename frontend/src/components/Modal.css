@@ -20,6 +20,16 @@
   box-shadow: 0 4px 16px #000a;
 }
 
+.modal-fullscreen {
+  max-width: none;
+  max-height: none;
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+  /* The fullscreen layout scrolls its own sections, not the whole panel. */
+  overflow: hidden;
+}
+
 .modal:focus {
   outline: none;
 }

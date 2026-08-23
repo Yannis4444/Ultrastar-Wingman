@@ -4,6 +4,8 @@ import "./Modal.css";
 interface ModalProps {
   title: string;
   onClose: () => void;
+  /** Fills the viewport instead of being a centered card (player selection). */
+  fullscreen?: boolean;
   children: ReactNode;
 }
 
@@ -11,7 +13,12 @@ interface ModalProps {
  * Generic centered overlay. Not a native `<dialog>`: jsdom has no
  * `showModal()`, so the whole component would be untestable.
  */
-export default function Modal({ title, onClose, children }: ModalProps) {
+export default function Modal({
+  title,
+  onClose,
+  fullscreen,
+  children,
+}: ModalProps) {
   const panel = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
@@ -26,7 +33,7 @@ export default function Modal({ title, onClose, children }: ModalProps) {
   return (
     <div className="modal-backdrop" onClick={onClose}>
       <div
-        className="modal"
+        className={fullscreen ? "modal modal-fullscreen" : "modal"}
         role="dialog"
         aria-modal="true"
         aria-label={title}

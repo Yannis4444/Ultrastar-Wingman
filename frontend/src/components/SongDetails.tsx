@@ -1,6 +1,8 @@
+import { useState } from "react";
 import type { SongRead } from "../api";
 import { formatDuration } from "../duration";
 import Modal from "./Modal";
+import PlayerSelection from "./PlayerSelection";
 import "./SongDetails.css";
 
 interface SongDetailsProps {
@@ -9,6 +11,8 @@ interface SongDetailsProps {
 }
 
 export default function SongDetails({ song, onClose }: SongDetailsProps) {
+  const [selectingPlayers, setSelectingPlayers] = useState(false);
+
   const rows: [string, string | null][] = [
     ["Artist", song.artist],
     ["Duration", formatDuration(song.duration_seconds)],
@@ -22,6 +26,10 @@ export default function SongDetails({ song, onClose }: SongDetailsProps) {
     ["ID", song.id],
   ];
 
+  if (selectingPlayers) {
+    return <PlayerSelection song={song} onClose={onClose} />;
+  }
+
   return (
     <Modal title={song.title} onClose={onClose}>
       <dl className="song-details">
@@ -32,6 +40,15 @@ export default function SongDetails({ song, onClose }: SongDetailsProps) {
           </div>
         ))}
       </dl>
+      <div className="song-details-actions">
+        <button
+          type="button"
+          className="button button-primary"
+          onClick={() => setSelectingPlayers(true)}
+        >
+          Sing
+        </button>
+      </div>
     </Modal>
   );
 }

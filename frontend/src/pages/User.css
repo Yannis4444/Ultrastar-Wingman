@@ -1,0 +1,50 @@
+.players-add {
+  display: flex;
+  gap: 8px;
+  margin: 16px;
+}
+
+.players-add input {
+  flex: 1 1 auto;
+}
+
+.players-notice,
+.players-empty {
+  margin: 0 16px 8px 16px;
+}
+
+.players-empty {
+  color: var(--color-darker);
+}
+
+.players-list {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin: 0 16px;
+  padding: 0;
+  list-style: none;
+}
+
+.players-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px;
+  background-color: var(--tile-bg);
+  border-radius: var(--border-radius);
+}
+
+.players-name {
+  flex: 1 1 auto;
+  min-width: 0;
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+
+/* A label, not a button: the file input inside it does the work. */
+.players-avatar-button {
+  flex: 0 0 auto;
+  position: relative;
+}
