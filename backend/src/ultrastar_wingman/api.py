@@ -24,6 +24,7 @@ from .settings import (
 )
 from .songs.api import router as songs_router
 from .sources.api import router as sources_router
+from .stats.api import router as stats_router
 
 logger = logging.getLogger(__name__)
 
@@ -35,6 +36,7 @@ router.include_router(karaoke_router)
 router.include_router(downloads_router)
 router.include_router(sources_router)
 router.include_router(library_router)
+router.include_router(stats_router)
 
 
 class Health(BaseModel):

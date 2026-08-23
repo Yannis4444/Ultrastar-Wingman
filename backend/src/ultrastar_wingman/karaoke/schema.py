@@ -5,6 +5,7 @@ from datetime import datetime
 
 from pydantic import BaseModel
 
+from ..auth.model import as_utc
 from ..players.schema import PlayerRead
 from ..songs.schema import SongRead
 from .model import Score
@@ -46,5 +47,7 @@ def read_score(score: Score) -> ScoreRead:
         player_name=score.player_name,
         score=score.score,
         difficulty=score.difficulty,
-        recorded_at=score.recorded_at,
+        # SQLite drops the offset on write, so a score read back is naive. Everything we
+        # write is UTC — see `as_utc`.
+        recorded_at=as_utc(score.recorded_at),
     )

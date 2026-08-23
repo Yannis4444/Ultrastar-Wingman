@@ -12,8 +12,10 @@ from dataclasses import dataclass
 from datetime import UTC, datetime
 from pathlib import Path
 
+from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
 
+from ..auth.model import as_utc
 from ..events import KaraokeEnded, KaraokeStarted, ScoresRecorded, event_bus
 from ..players.model import Player
 from ..players.schema import read_player
@@ -22,7 +24,7 @@ from ..songs.schema import read_song
 from . import usdx_scores
 from .colors import color_index
 from .launcher import KaraokeLauncher, LaunchSlot
-from .model import Score, Sing
+from .model import SESSION_GAP, KaraokeSession, Score, Sing
 from .schema import CurrentSing, ScoreRead, SlotRead, read_score
 from .usdx import UsdxLauncher
 from .usdx_paths import UsdxPathsError, resolve_usdx_paths
@@ -118,7 +120,9 @@ async def start_sing(
         paths = await resolve_usdx_paths(session)
         snapshot = await usdx_scores.latest_date(paths.ultrastar_db)
 
-        sing = Sing(song_id=song.id)
+        started_at = datetime.now(UTC)
+        karaoke_session = await attach_to_session(session, started_at)
+        sing = Sing(song_id=song.id, session_id=karaoke_session.id, started_at=started_at)
         session.add(sing)
         await session.commit()
 
@@ -159,6 +163,10 @@ async def start_sing(
             )
         except OSError as error:
             await session.delete(sing)
+            # A session opened for a song that never started would show up empty in the
+            # statistics. One that was reused still has its earlier sings, so it stays.
+            if not await _session_has_sings(session, karaoke_session.id):
+                await session.delete(karaoke_session)
             await session.commit()
             # Same shape as a misconfigured path: the user has to fix a setting.
             raise UsdxPathsError([f"cannot start '{paths.executable}': {error}"]) from error
@@ -196,6 +204,35 @@ async def _stop_and_wait(running: _Running) -> None:
     await running.launcher.stop()
     # The launcher's monitor task fires `_finish`, which sets the event.
     await running.finished.wait()
+
+
+async def attach_to_session(session: AsyncSession, started_at: datetime) -> KaraokeSession:
+    """The session a sing starting at `started_at` belongs to, created if there is none.
+
+    The newest session is reused while it has been idle for less than `SESSION_GAP` —
+    "the party is still going". Public so the statistics tests can drive it without USDX.
+    Does not commit: the caller writes the sing in the same transaction.
+    """
+    newest = await session.scalar(
+        select(KaraokeSession).order_by(KaraokeSession.last_activity_at.desc()).limit(1)
+    )
+    if newest is not None and started_at - as_utc(newest.last_activity_at) < SESSION_GAP:
+        newest.last_activity_at = started_at
+        return newest
+    opened = KaraokeSession(started_at=started_at, last_activity_at=started_at)
+    session.add(opened)
+    # Flushed, not committed: the caller needs the generated id for the sing it is about
+    # to write in the same transaction.
+    await session.flush()
+    logger.info("opened karaoke session %s", opened.id)
+    return opened
+
+
+async def _session_has_sings(session: AsyncSession, session_id: str) -> bool:
+    count = await session.scalar(
+        select(func.count()).select_from(Sing).where(Sing.session_id == session_id)
+    )
+    return bool(count)
 
 
 async def _resolve_players(

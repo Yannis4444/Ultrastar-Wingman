@@ -30,6 +30,8 @@ CAPABILITIES: tuple[str, ...] = (
     "downloads.view",
     "downloads.manage",
     "usdb.search",
+    "stats.view",
+    "stats.manage",
     "settings.view",
     "settings.manage",
     "users.manage",
@@ -53,7 +55,8 @@ ROLES: tuple[str, ...] = (GUEST, USER, TRUSTED, ADMIN)
 # exactly like a stranger" — take the account away instead.
 ASSIGNABLE_ROLES: tuple[str, ...] = (USER, TRUSTED, ADMIN)
 
-# A party guest browses, wishes and sings — wishing is the whole point of the guest cookie.
+# A party guest browses, wishes, sings and looks at the scoreboard — wishing is the whole
+# point of the guest cookie.
 _GUEST_CAPABILITIES = frozenset(
     {
         "songs.view",
@@ -62,15 +65,18 @@ _GUEST_CAPABILITIES = frozenset(
         "wishlist.view",
         "wishlist.add",
         "playlists.view",
+        "stats.view",
     }
 )
 # Only an account can own a playlist, so only an account may manage one.
 _USER_CAPABILITIES = _GUEST_CAPABILITIES | {"karaoke.stop", "players.manage", "playlists.manage"}
+# Naming a session is a host's job, so it starts at `trusted`.
 _TRUSTED_CAPABILITIES = _USER_CAPABILITIES | {
     "downloads.view",
     "downloads.manage",
     "usdb.search",
     "songs.rescan",
+    "stats.manage",
 }
 
 # What migration 0006 seeds. Kept here as well so a test can prove the two never drift.
