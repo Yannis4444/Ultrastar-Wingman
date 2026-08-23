@@ -2,6 +2,7 @@
 
 import asyncio
 import logging
+import sys
 from collections.abc import AsyncIterator
 from pathlib import Path
 from typing import Annotated
@@ -14,7 +15,18 @@ from sqlalchemy.orm import DeclarativeBase
 
 logger = logging.getLogger(__name__)
 
-MIGRATIONS_DIR = Path(__file__).parent / "migrations"
+
+def migrations_dir() -> Path:
+    """Alembic's script location.
+
+    Alembic loads migration scripts from the filesystem, so they ship as data files.
+    Frozen (PyInstaller) that is the unpacked bundle directory, not the package directory —
+    which lives inside the archive.
+    """
+    bundle_dir = getattr(sys, "_MEIPASS", None)
+    if bundle_dir is not None:
+        return Path(bundle_dir) / "ultrastar_wingman" / "migrations"
+    return Path(__file__).parent / "migrations"
 
 
 class Base(DeclarativeBase):
@@ -38,7 +50,7 @@ async def run_migrations(database_url: str) -> None:
 
 def _upgrade_to_head(database_url: str) -> None:
     config = Config()
-    config.set_main_option("script_location", str(MIGRATIONS_DIR))
+    config.set_main_option("script_location", str(migrations_dir()))
     # Alembic reads options through ConfigParser: a literal % must be escaped.
     config.set_main_option("sqlalchemy.url", database_url.replace("%", "%%"))
     command.upgrade(config, "head")

@@ -38,6 +38,10 @@ dev = [
     "ruff",
     "mypy",
 ]
+# Building the Windows exe — see installer/build.ps1.
+packaging = [
+    "pyinstaller",
+]
 
 [project.scripts]
 ultrastar-wingman = "ultrastar_wingman.__main__:main"

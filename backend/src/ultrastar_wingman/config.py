@@ -29,6 +29,9 @@ class BootstrapSettings(BaseSettings):
     # one-time token that makes the browser a trusted admin, so opening it ourselves is how
     # host trust is established — set WINGMAN_OPEN_BROWSER=false for a headless server.
     open_browser: bool = True
+    # Where the built frontend lives. Unset: the PyInstaller bundle when frozen, else the
+    # repo's frontend/dist — see `frontend.resolve_frontend_dir`.
+    frontend_dir: Path | None = None
 
     @property
     def database_path(self) -> Path:
