@@ -1,28 +1,28 @@
-# Implementation Plan
+﻿# Implementation Plan
 
 Ground-up rewrite of Ultrastar Wingman (old project: `D:\git\ultrastar-wingman`,
 treated as inspiration only). Phases are vertical slices: each ships backend +
 frontend + tests + user docs and leaves `main` working. Per plan.md, each
 phase still gets its own short design that is discussed with the user before
-implementation — this document fixes scope, order, and the cross-cutting
+implementation â€” this document fixes scope, order, and the cross-cutting
 decisions everything depends on.
 
-Status legend: ⬜ not started · 🟨 in progress · ✅ done
+Status legend: â¬œ not started Â· ðŸŸ¨ in progress Â· âœ… done
 
 ## Cross-cutting decisions (fixed here, apply everywhere)
 
 ### Song identity
 
-The old scheme is broken: `id or f"USDB-{usdb_id}" or uuid4().hex` — the
+The old scheme is broken: `id or f"USDB-{usdb_id}" or uuid4().hex` â€” the
 f-string is always truthy, so every non-USDB song gets the literal ID
 `USDB-None` and collides. New scheme:
 
-- Canonical ID: `<source>:<source_id>` — `usdb:1234` for USDB songs,
+- Canonical ID: `<source>:<source_id>` â€” `usdb:1234` for USDB songs,
   `local:<uuid4>` for songs with no known source. Stable, persisted, opaque
   to the frontend.
 - Content fingerprint: normalized artist + title (lowercased, feat./duet
   markers stripped, non-alphanumerics removed) stored alongside, used to
-  detect "same song from a different source" — never as the primary key.
+  detect "same song from a different source" â€” never as the primary key.
 - Migration: on first scan of an existing library, old `wingman.json` ids of
   the form `USDB-<n>` map to `usdb:<n>`; `USDB-None` and raw-number ids are
   discarded and regenerated.
@@ -38,7 +38,7 @@ date taken before launch) are imported into Wingman's own statistics DB,
 attributed by our song ID and player IDs by position/name. `Ultrastar.db`
 stays read-only and is only an ingestion source; Wingman's DB is the source
 of truth. This is why score capture ships in the same phase as the USDX
-launcher — every song sung before capture exists is lost statistics data.
+launcher â€” every song sung before capture exists is lost statistics data.
 
 ### Host UI trust
 
@@ -51,9 +51,9 @@ session. No header-based trust anywhere.
 
 - `-SongPath <dir> -SingleSong` per song, one process per song, kill to stop.
 - Songs outside the USDX songs dir (or with unsanitized dir names) must be
-  copied into it before launch — `-SongPath` otherwise still loads the
+  copied into it before launch â€” `-SongPath` otherwise still loads the
   default dir.
-- `CREATE_NO_WINDOW` creationflag on Windows — process exit detection breaks
+- `CREATE_NO_WINDOW` creationflag on Windows â€” process exit detection breaks
   without it.
 - Player names/colors/avatars are set by rewriting USDX's `config.ini` before
   launch; avatars are matched by MD5 of the image file. Improvement: parse
@@ -65,12 +65,12 @@ session. No header-based trust anywhere.
 
 - **Auth**: custom session-cookie auth (username + properly hashed password,
   ~small and fully owned) behind the `AuthProvider` seam; OIDC/Keycloak via
-  **authlib**. Not fastapi-users — the old project fought its email-centric
+  **authlib**. Not fastapi-users â€” the old project fought its email-centric
   model (username-in-email hack, hardcoded JWT secret, token in
   localStorage).
 - **yt-dlp**: managed standalone binary, auto-updated by Wingman (check on
   start and on download errors). Invoked as a subprocess with progress
-  parsing — this also gives real download-progress events. No pip pin.
+  parsing â€” this also gives real download-progress events. No pip pin.
 - **Guest identity**: anonymous persistent cookie ID per browser; guests get
   wishlists without accounts, and logging in merges the anonymous wishlist
   into the account. Replaces the old IP-keyed wishlists.
@@ -84,7 +84,7 @@ download.
 
 ## Phases
 
-### Phase 0 — Foundation ⬜
+### Phase 0 â€” Foundation â¬œ
 
 Repo skeleton: `backend/` (Python package, pyproject with ruff/mypy/pytest
 config), `frontend/` (Vite + React + TS + ESLint/Prettier, generated API
@@ -98,7 +98,7 @@ type check, and tests.
 *Done when:* server starts with an empty library, frontend shell (dark theme
 tokens carried over from the old design) loads, CI green.
 
-### Phase 1 — Song library & song list ⬜
+### Phase 1 â€” Song library & song list â¬œ
 
 Song domain model with the new ID scheme, txt metadata parsing
 (fixture-tested against real files, including encoding detection), async
@@ -108,7 +108,7 @@ Song list UI: search, song details, covers.
 *Done when:* an existing USDX library shows correctly in the UI, unique IDs
 for every song, rescan works without restart.
 
-### Phase 2 — USDX integration: play a song ⬜
+### Phase 2 â€” USDX integration: play a song â¬œ
 
 `KaraokeLauncher` interface + USDX adapter (launch, config rewriting, copy
 workaround, process monitor, kill). Player model (registered later; temporary
@@ -117,13 +117,13 @@ from the backend). Currently-playing state over WebSocket. **Score ingestion
 into Wingman's statistics DB** (attributed run data: song ID, player IDs,
 scores, timestamp, difficulty). Basic host UI page (QR code, now playing).
 
-*Done when:* pick players → start song → USDX runs it → scores appear in
+*Done when:* pick players â†’ start song â†’ USDX runs it â†’ scores appear in
 Wingman's DB attributed to the right song and players.
 
-### Phase 3 — USDB source & downloads ⬜
+### Phase 3 â€” USDB source & downloads â¬œ
 
 `SongSource` interface + USDB implementation: session handling with re-login
-on expiry (no blocking console prompt — bad credentials surface in the UI),
+on expiry (no blocking console prompt â€” bad credentials surface in the UI),
 search with corrected column parsing, download pipeline (txt fetch, cover via
 httpx, yt-dlp video, ffmpeg audio extraction, `#BACKGROUND` handled).
 Persistent download queue with per-item state and progress events. yt-dlp
@@ -132,11 +132,11 @@ auto-update. USDB search/download UI.
 *Done when:* search USDB, queue downloads, watch progress, sing the result;
 yt-dlp updates itself without a Wingman release.
 
-### Phase 4 — Accounts & permissions ⬜
+### Phase 4 â€” Accounts & permissions â¬œ
 
 `AuthProvider` seam with local accounts first (username-based, proper
 password hashing, first user is admin); OIDC (Keycloak) as the second
-provider — may land in a later phase but the seam is proven now.
+provider â€” may land in a later phase but the seam is proven now.
 Capability-based permissions, persisted, editable via API, enforced on every
 route and on the WebSocket. Host-UI one-time-token trust. Registered players
 link to accounts; temporary players remain for guests.
@@ -145,41 +145,41 @@ link to accounts; temporary players remain for guests.
 unauthorized request to every privileged route gets 403, host UI is admin
 without being spoofable.
 
-### Phase 5 — Wishlist, favorites, playlists & randomizer ⬜
+### Phase 5 â€” Wishlist, favorites, playlists & randomizer â¬œ
 
 Wishlist (anonymous-cookie guest identity, merged into the account on
 login), favorites (real,
-persisted, per user — the old ones were UI-only), personal and shared
+persisted, per user â€” the old ones were UI-only), personal and shared
 playlists. The casino spinner wheel on the home page (scopes: all songs /
 wishlist / wishlist weighted).
 
 *Done when:* wishes survive restart, favorites/playlists are per-user, the
 wheel spins and starts songs.
 
-### Phase 6 — Statistics UI ⬜
+### Phase 6 â€” Statistics UI â¬œ
 
-Sessions recorded explicitly in the DB (stable IDs — the old app inferred
+Sessions recorded explicitly in the DB (stable IDs â€” the old app inferred
 them from 6-hour gaps at startup). Stats views in the style of the old app
 (session charts, per-player/per-song breakdowns) on top of the phase-2 data.
 
 *Done when:* stats pages show live data from Wingman's own DB.
 
-### Phase 7 — Settings UI ⬜
+### Phase 7 â€” Settings UI â¬œ
 
 UI section over the settings registry: grouped, typed inputs, live
 validation, USDB credentials managed here. Adding a future setting = one
 registry entry, zero UI code.
 
-### Phase 8 — Packaging & docs site ⬜
+### Phase 8 â€” Packaging & docs site â¬œ
 
-Windows installer (PyInstaller — verify yt-dlp/ffmpeg actually bundle; the
+Windows installer (PyInstaller â€” verify yt-dlp/ffmpeg actually bundle; the
 old build shipped without yt-dlp), zensical docs site with user guides per
 feature, release workflow.
 
 ## Explicitly out of scope
 
-- Spotify integration (dropped — API no longer feasible).
+- Spotify integration (dropped â€” API no longer feasible).
 - UltraSinger (revisit later; `SongSource` seam keeps the door open).
 - NFC player selector device (later; enabled by the versioned REST API and
-  the player selector seam — nothing in phases 2/4 may assume selection only
+  the player selector seam â€” nothing in phases 2/4 may assume selection only
   happens in the web UI).
