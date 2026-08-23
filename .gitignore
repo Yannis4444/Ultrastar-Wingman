@@ -216,3 +216,6 @@ __marimo__/
 
 # Streamlit
 .streamlit/secrets.toml
+
+# SQLite databases (dev/stray alembic-CLI files)
+*.db

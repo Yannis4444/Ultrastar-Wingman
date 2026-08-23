@@ -1,0 +1,74 @@
+/* Dark-only theme carried over from the original Wingman design. */
+:root {
+  --bg: #021720;
+  --footer-bg: #162e42;
+  --tile-bg: #1b3347;
+  --input-bg: #1c2832;
+  --color: #fff;
+  --color-dark: #ccc;
+  --color-darker: #888;
+  --color-darkerer: #666;
+  --highlight-blue-light: #4b92cd;
+  --highlight-blue-dark: #1c354a;
+  --highlight-pink-light: #9e3b95;
+  --highlight-pink-dark: #6d2d90;
+  --highlight-red-light: #a50126;
+  --highlight-red-dark: #71182c;
+  --highlight-gold-light: #faa636;
+  --border-radius: 16px;
+  --border-radius-small: 8px;
+  --input-border-color: #384a59;
+
+  color-scheme: dark;
+}
+
+body {
+  margin: 0;
+  font-family:
+    -apple-system, BlinkMacSystemFont, "Segoe UI", "Roboto", "Oxygen", "Ubuntu",
+    "Cantarell", "Fira Sans", "Droid Sans", "Helvetica Neue", sans-serif;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  background-color: var(--bg);
+  color: var(--color);
+}
+
+code {
+  font-family:
+    source-code-pro, Menlo, Monaco, Consolas, "Courier New", monospace;
+}
+
+/* Mobile-first: the bottom nav is fixed, so reserve its height plus the
+   device's safe area at the bottom of the page. */
+#root {
+  max-width: 1200px;
+  margin: 0 auto;
+  padding-bottom: calc(50px + max(10px, env(safe-area-inset-bottom)));
+}
+
+@media only screen and (max-width: 1200px) and (orientation: landscape) {
+  #root {
+    margin: 0 32px;
+  }
+}
+
+h1,
+h2,
+p {
+  color: var(--color);
+}
+
+h1 {
+  font-size: 1.5em;
+  margin: 32px 16px 16px 16px;
+  text-align: center;
+}
+
+h2 {
+  font-size: 1em;
+  margin: 16px 16px 0 16px;
+}
+
+p {
+  margin: 16px 16px;
+}
