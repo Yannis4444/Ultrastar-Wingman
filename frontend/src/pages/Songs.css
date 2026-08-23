@@ -35,6 +35,12 @@
   background-color: var(--highlight-blue-light);
 }
 
+/* A link that has to sit next to the rescan button and match it. */
+.songs-explore {
+  text-decoration: none;
+  white-space: nowrap;
+}
+
 .songs-rescan:disabled {
   color: var(--color-darker);
   cursor: default;

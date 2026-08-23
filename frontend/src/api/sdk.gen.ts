@@ -2,7 +2,7 @@
 
 import { type Client, type ClientMeta, formDataBodySerializer, type Options as Options2, type RequestResult, type TDataShape } from './client';
 import { client } from './client.gen';
-import type { CreatePlayerData, CreatePlayerErrors, CreatePlayerResponses, DeletePlayerData, DeletePlayerErrors, DeletePlayerResponses, GetCurrentSingData, GetCurrentSingResponses, GetPlayerAvatarData, GetPlayerAvatarErrors, GetPlayerAvatarResponses, GetSongCoverData, GetSongCoverErrors, GetSongCoverResponses, GetSongData, GetSongErrors, GetSongResponses, HealthData, HealthResponses, ListKaraokeColorsData, ListKaraokeColorsResponses, ListPlayersData, ListPlayersResponses, ListSettingsData, ListSettingsResponses, ListSongsData, ListSongsResponses, RescanSongsData, RescanSongsErrors, RescanSongsResponses, SetPlayerAvatarData, SetPlayerAvatarErrors, SetPlayerAvatarResponses, SingSongData, SingSongErrors, SingSongResponses, StopSingingData, StopSingingResponses, UpdateSettingData, UpdateSettingErrors, UpdateSettingResponses } from './types.gen';
+import type { CreateDownloadData, CreateDownloadErrors, CreateDownloadResponses, CreatePlayerData, CreatePlayerErrors, CreatePlayerResponses, DeletePlayerData, DeletePlayerErrors, DeletePlayerResponses, GetCurrentSingData, GetCurrentSingResponses, GetPlayerAvatarData, GetPlayerAvatarErrors, GetPlayerAvatarResponses, GetSongCoverData, GetSongCoverErrors, GetSongCoverResponses, GetSongData, GetSongErrors, GetSongResponses, HealthData, HealthResponses, ListDownloadsData, ListDownloadsResponses, ListKaraokeColorsData, ListKaraokeColorsResponses, ListPlayersData, ListPlayersResponses, ListSettingsData, ListSettingsResponses, ListSongsData, ListSongsResponses, RescanSongsData, RescanSongsErrors, RescanSongsResponses, SetPlayerAvatarData, SetPlayerAvatarErrors, SetPlayerAvatarResponses, SingSongData, SingSongErrors, SingSongResponses, StopSingingData, StopSingingResponses, UpdateSettingData, UpdateSettingErrors, UpdateSettingResponses, UsdbSearchData, UsdbSearchErrors, UsdbSearchResponses, UsdbStatusData, UsdbStatusErrors, UsdbStatusResponses } from './types.gen';
 
 export type Options<TData extends TDataShape = TDataShape, ThrowOnError extends boolean = boolean, TResponse = unknown> = Options2<TData, ThrowOnError, TResponse> & {
     /**
@@ -117,6 +117,35 @@ export const getCurrentSing = <ThrowOnError extends boolean = false>(options?: O
  * Kill the running song. Idempotent: 204 even when nothing is playing.
  */
 export const stopSinging = <ThrowOnError extends boolean = false>(options?: Options<StopSingingData, ThrowOnError>): RequestResult<StopSingingResponses, unknown, ThrowOnError> => (options?.client ?? client).post<StopSingingResponses, unknown, ThrowOnError>({ url: '/api/v1/karaoke/stop', ...options });
+
+/**
+ * List Downloads
+ */
+export const listDownloads = <ThrowOnError extends boolean = false>(options?: Options<ListDownloadsData, ThrowOnError>): RequestResult<ListDownloadsResponses, unknown, ThrowOnError> => (options?.client ?? client).get<ListDownloadsResponses, unknown, ThrowOnError>({ url: '/api/v1/downloads', ...options });
+
+/**
+ * Create Download
+ */
+export const createDownload = <ThrowOnError extends boolean = false>(options: Options<CreateDownloadData, ThrowOnError>): RequestResult<CreateDownloadResponses, CreateDownloadErrors, ThrowOnError> => (options.client ?? client).post<CreateDownloadResponses, CreateDownloadErrors, ThrowOnError>({
+    url: '/api/v1/downloads',
+    ...options,
+    headers: {
+        'Content-Type': 'application/json',
+        ...options.headers
+    }
+});
+
+/**
+ * Usdb Status
+ *
+ * Whether Wingman can use USDB. Cached; `refresh=true` asks the site again.
+ */
+export const usdbStatus = <ThrowOnError extends boolean = false>(options?: Options<UsdbStatusData, ThrowOnError>): RequestResult<UsdbStatusResponses, UsdbStatusErrors, ThrowOnError> => (options?.client ?? client).get<UsdbStatusResponses, UsdbStatusErrors, ThrowOnError>({ url: '/api/v1/sources/usdb/status', ...options });
+
+/**
+ * Usdb Search
+ */
+export const usdbSearch = <ThrowOnError extends boolean = false>(options?: Options<UsdbSearchData, ThrowOnError>): RequestResult<UsdbSearchResponses, UsdbSearchErrors, ThrowOnError> => (options?.client ?? client).get<UsdbSearchResponses, UsdbSearchErrors, ThrowOnError>({ url: '/api/v1/sources/usdb/search', ...options });
 
 /**
  * Health

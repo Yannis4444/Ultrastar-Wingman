@@ -1,0 +1,51 @@
+/* The tile look comes from SongListItem.css; only the extras USDB rows have
+   live here. A div, not a button: the download control sits inside the row. */
+.usdb-item:hover {
+  background-color: var(--tile-bg);
+}
+
+.usdb-item-meta {
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  max-width: 60%;
+  gap: 6px;
+}
+
+.usdb-stars {
+  color: var(--highlight-gold-light);
+  font-size: 0.85em;
+  white-space: nowrap;
+}
+
+.usdb-tag {
+  padding: 2px 6px;
+  font-size: 0.7em;
+  color: var(--color-dark);
+  background-color: var(--input-bg);
+  border-radius: var(--border-radius-small);
+  max-width: 10em;
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+
+.usdb-status {
+  font-size: 0.8em;
+  color: var(--color-darker);
+  font-variant-numeric: tabular-nums;
+}
+
+.usdb-status-done {
+  color: var(--highlight-blue-light);
+  font-size: 1.1em;
+}
+
+.usdb-status-failed {
+  color: var(--highlight-red-light);
+}
+
+.usdb-download {
+  padding: 6px 12px;
+  font-size: 0.85em;
+  border-radius: var(--border-radius-small);
+}
