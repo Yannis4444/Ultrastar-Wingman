@@ -4,12 +4,13 @@ import logging
 from pathlib import Path
 from typing import Literal
 
-from fastapi import APIRouter, HTTPException, Request, Response
+from fastapi import APIRouter, Depends, HTTPException, Request, Response
 from fastapi.responses import FileResponse
 from pydantic import BaseModel
 from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from ..auth.deps import require
 from ..db import SessionDep
 from . import scanner
 from .model import Song
@@ -24,7 +25,7 @@ class ScanStatus(BaseModel):
     status: Literal["started", "running"]
 
 
-@router.get("/songs", response_model=SongList)
+@router.get("/songs", response_model=SongList, dependencies=[Depends(require("songs.view"))])
 async def list_songs(session: SessionDep) -> SongList:
     # Case-insensitive so "abba" and "ABBA" sort together; the id breaks ties between
     # two copies of the same song so the order is stable across requests.
@@ -38,6 +39,7 @@ async def list_songs(session: SessionDep) -> SongList:
     "/songs/rescan",
     response_model=ScanStatus,
     status_code=202,
+    dependencies=[Depends(require("songs.rescan"))],
     responses={409: {"model": ScanStatus, "description": "A scan is already running."}},
 )
 async def rescan_songs(request: Request, response: Response) -> ScanStatus:
@@ -49,7 +51,11 @@ async def rescan_songs(request: Request, response: Response) -> ScanStatus:
     return ScanStatus(status="running")
 
 
-@router.get("/songs/{song_id}", response_model=SongRead)
+@router.get(
+    "/songs/{song_id}",
+    response_model=SongRead,
+    dependencies=[Depends(require("songs.view"))],
+)
 async def get_song(song_id: str, session: SessionDep) -> SongRead:
     return read_song(await _song(song_id, session))
 
@@ -57,6 +63,7 @@ async def get_song(song_id: str, session: SessionDep) -> SongRead:
 @router.get(
     "/songs/{song_id}/cover",
     response_class=FileResponse,
+    dependencies=[Depends(require("songs.view"))],
     responses={200: {"content": {"image/*": {}}, "description": "The cover image file."}},
 )
 async def get_song_cover(song_id: str, session: SessionDep) -> FileResponse:

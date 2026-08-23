@@ -527,7 +527,11 @@ async def _login(session: AsyncSession) -> None:
     # The login answer looks the same either way, so the session is verified on a page that
     # says whether we are logged in.
     if LOGGED_OUT_MARKER in (await _request(client, "GET", BROWSE_PATH)).text:
-        raise UsdbLoginError("invalid_credentials", f"USDB rejected the login as '{username}'")
+        # The username stays in the log and out of the message: this message is stored on the
+        # download row, and `download.updated` is broadcast to every websocket — including
+        # the anonymous ones. Reading `usdb.username` otherwise needs `settings.view`.
+        logger.warning("USDB rejected the login as '%s'", username)
+        raise UsdbLoginError("invalid_credentials", "USDB rejected the configured account")
     logger.info("logged in to %s as '%s'", client.base_url, username)
 
 

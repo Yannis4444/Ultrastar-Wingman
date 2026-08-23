@@ -2,10 +2,11 @@
 
 import logging
 
-from fastapi import APIRouter, HTTPException
+from fastapi import APIRouter, Depends, HTTPException
 from pydantic import BaseModel
 from sqlalchemy import select
 
+from ..auth.deps import require
 from ..db import SessionDep
 from ..sources.base import UnknownSourceError
 from . import service
@@ -27,7 +28,9 @@ class DownloadCreate(BaseModel):
     force: bool = False
 
 
-@router.get("/downloads", response_model=DownloadList)
+@router.get(
+    "/downloads", response_model=DownloadList, dependencies=[Depends(require("downloads.view"))]
+)
 async def list_downloads(session: SessionDep) -> DownloadList:
     downloads = await session.scalars(
         select(Download).order_by(Download.id.desc()).limit(HISTORY_LIMIT)
@@ -39,6 +42,7 @@ async def list_downloads(session: SessionDep) -> DownloadList:
     "/downloads",
     response_model=DownloadRead,
     status_code=202,
+    dependencies=[Depends(require("downloads.manage"))],
     responses={
         404: {"description": "Unknown song source."},
         409: {"description": "Already queued, or already in the library."},

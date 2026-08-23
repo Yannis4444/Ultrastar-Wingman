@@ -3,10 +3,12 @@
 import contextlib
 import logging
 
-from fastapi import APIRouter, HTTPException, WebSocket, WebSocketDisconnect
+from fastapi import APIRouter, Depends, HTTPException, WebSocket, WebSocketDisconnect
 from pydantic import BaseModel
 
 from . import APP_NAME, __version__
+from .auth.api import router as auth_router
+from .auth.deps import require
 from .db import SessionDep
 from .downloads.api import router as downloads_router
 from .events import ServerReady, SettingChanged, event_bus
@@ -25,6 +27,7 @@ from .sources.api import router as sources_router
 logger = logging.getLogger(__name__)
 
 router = APIRouter()
+router.include_router(auth_router)
 router.include_router(songs_router)
 router.include_router(players_router)
 router.include_router(karaoke_router)
@@ -68,15 +71,22 @@ def _read(definition: SettingDefinition, value: SettingValue) -> SettingRead:
     )
 
 
-# No auth yet: capability checks (`settings:manage`) arrive in phase 4 as a FastAPI dependency.
-@router.get("/settings", response_model=list[SettingRead])
+@router.get(
+    "/settings",
+    response_model=list[SettingRead],
+    dependencies=[Depends(require("settings.view"))],
+)
 async def list_settings(session: SessionDep) -> list[SettingRead]:
     service = SettingsService(session)
     values = await service.all()
     return [_read(definition, values[key]) for key, definition in service.definitions.items()]
 
 
-@router.patch("/settings/{key}", response_model=SettingRead)
+@router.patch(
+    "/settings/{key}",
+    response_model=SettingRead,
+    dependencies=[Depends(require("settings.manage"))],
+)
 async def update_setting(key: str, update: SettingUpdate, session: SessionDep) -> SettingRead:
     service = SettingsService(session)
     try:
@@ -86,10 +96,14 @@ async def update_setting(key: str, update: SettingUpdate, session: SessionDep) -
     except SettingTypeError as error:
         raise HTTPException(status_code=422, detail=str(error)) from error
     result = _read(service.definition(key), value)
+    # `result.value`, never `value`: the websocket is open to anonymous clients, so a secret
+    # setting (usdb.password) must reach it masked exactly like the GET response masks it.
     await event_bus.broadcast(SettingChanged(key=key, value=result.value))
     return result
 
 
+# Deliberately open to anonymous clients: a guest's song list has to stay live too. Nothing
+# secret goes over the bus — see the masking above.
 @router.websocket("/ws")
 async def websocket_events(websocket: WebSocket) -> None:
     await event_bus.connect(websocket)

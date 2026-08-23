@@ -2,9 +2,10 @@
 
 import logging
 
-from fastapi import APIRouter, HTTPException, Request
+from fastapi import APIRouter, Depends, HTTPException, Request
 from pydantic import BaseModel, Field
 
+from ..auth.deps import PrincipalDep, require
 from ..db import SessionDep
 from . import service
 from .colors import COLORS, ColorList, UnknownColorError
@@ -28,8 +29,12 @@ class SingCreate(BaseModel):
     force: bool = False
 
 
-# No auth yet: capability checks (`karaoke:sing`) arrive in phase 4 as a FastAPI dependency.
-@router.get("/karaoke/colors", response_model=ColorList)
+@router.get(
+    "/karaoke/colors",
+    response_model=ColorList,
+    # The color list is what the player selection UI offers, so it goes with players.view.
+    dependencies=[Depends(require("players.view"))],
+)
 async def list_karaoke_colors() -> ColorList:
     """The player colors USDX knows, in its own order. The single source of truth —
     clients must not hardcode them."""
@@ -40,15 +45,22 @@ async def list_karaoke_colors() -> ColorList:
     "/karaoke/sing",
     response_model=CurrentSing,
     status_code=202,
+    dependencies=[Depends(require("karaoke.sing"))],
     responses={
         400: {"description": "USDX is not configured (or configured wrongly)."},
+        403: {"description": "`force` was set without `karaoke.stop`."},
         404: {"description": "Unknown song or player."},
         409: {"description": "A song is already playing and `force` was not set."},
     },
 )
-async def sing_song(new_sing: SingCreate, request: Request, session: SessionDep) -> CurrentSing:
+async def sing_song(
+    new_sing: SingCreate, request: Request, session: SessionDep, principal: PrincipalDep
+) -> CurrentSing:
     """Start a song. Returns as soon as USDX was launched; the song's end arrives as the
     `karaoke.ended` / `scores.recorded` websocket events."""
+    if new_sing.force:
+        # A forced sing kills whatever is playing, so it needs the right to stop it too.
+        principal.require("karaoke.stop")
     try:
         return await service.start_sing(
             session,
@@ -73,12 +85,16 @@ async def sing_song(new_sing: SingCreate, request: Request, session: SessionDep)
         ) from error
 
 
-@router.get("/karaoke/current", response_model=CurrentSingRead)
+@router.get(
+    "/karaoke/current",
+    response_model=CurrentSingRead,
+    dependencies=[Depends(require("songs.view"))],
+)
 async def get_current_sing() -> CurrentSingRead:
     return CurrentSingRead(sing=service.current_sing())
 
 
-@router.post("/karaoke/stop", status_code=204)
+@router.post("/karaoke/stop", status_code=204, dependencies=[Depends(require("karaoke.stop"))])
 async def stop_singing() -> None:
     """Kill the running song. Idempotent: 204 even when nothing is playing."""
     await service.stop_sing()

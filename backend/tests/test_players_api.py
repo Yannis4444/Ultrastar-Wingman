@@ -2,8 +2,9 @@ from collections.abc import AsyncIterator
 from pathlib import Path
 
 import pytest
-from httpx import ASGITransport, AsyncClient
+from httpx import AsyncClient
 
+from conftest import admin_client, authenticate_admin
 from ultrastar_wingman.app import create_app
 from ultrastar_wingman.config import BootstrapSettings
 from ultrastar_wingman.players.service import MAX_AVATAR_BYTES
@@ -225,6 +226,6 @@ async def _client(settings: BootstrapSettings) -> AsyncIterator[AsyncClient]:
     """One app instance at a time — two live lifespans would fight over the scanner task."""
     app = create_app(settings)
     async with app.router.lifespan_context(app):
-        transport = ASGITransport(app=app)
-        async with AsyncClient(transport=transport, base_url="http://wingman.test") as client:
+        await authenticate_admin(app)
+        async with admin_client(app) as client:
             yield client

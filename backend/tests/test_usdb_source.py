@@ -233,8 +233,11 @@ async def test_wrong_credentials_fail_every_operation(
     assert await usdb.status(session) == usdb.UsdbStatus(
         logged_in=False, error="invalid_credentials"
     )
-    with pytest.raises(usdb.UsdbLoginError, match="invalid_credentials"):
+    with pytest.raises(usdb.UsdbLoginError, match="invalid_credentials") as raised:
         await usdb.search(session)
+    # The message is stored on the download row and `download.updated` goes to every
+    # websocket, anonymous ones included — so it must not name the USDB account.
+    assert USERNAME not in str(raised.value)
 
 
 async def test_an_expired_session_is_retried_once(
