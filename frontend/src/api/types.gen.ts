@@ -171,6 +171,66 @@ export type Health = {
 };
 
 /**
+ * HostTokenRequest
+ */
+export type HostTokenRequest = {
+    /**
+     * Token
+     */
+    token: string;
+};
+
+/**
+ * LoginRequest
+ */
+export type LoginRequest = {
+    /**
+     * Username
+     */
+    username: string;
+    /**
+     * Password
+     */
+    password: string;
+};
+
+/**
+ * MeRead
+ *
+ * Everything the frontend needs to render itself. Works for anonymous callers too:
+ * `user` is then null and `role` is `guest`.
+ */
+export type MeRead = {
+    user: UserRead | null;
+    /**
+     * Role
+     */
+    role: string;
+    /**
+     * Capabilities
+     */
+    capabilities: Array<string>;
+    /**
+     * Is Host
+     */
+    is_host: boolean;
+};
+
+/**
+ * PermissionsRead
+ *
+ * role -> capabilities, for the permission editor.
+ */
+export type PermissionsRead = {
+    /**
+     * Roles
+     */
+    roles: {
+        [key: string]: Array<string>;
+    };
+};
+
+/**
  * PlayerCreate
  */
 export type PlayerCreate = {
@@ -210,6 +270,30 @@ export type PlayerRead = {
      * Has Avatar
      */
     has_avatar: boolean;
+};
+
+/**
+ * RegisterRequest
+ */
+export type RegisterRequest = {
+    /**
+     * Username
+     */
+    username: string;
+    /**
+     * Password
+     */
+    password: string;
+};
+
+/**
+ * RolePermissionsUpdate
+ */
+export type RolePermissionsUpdate = {
+    /**
+     * Capabilities
+     */
+    capabilities: Array<string>;
 };
 
 /**
@@ -447,6 +531,48 @@ export type UsdbStatus = {
 };
 
 /**
+ * UserList
+ */
+export type UserList = {
+    /**
+     * Users
+     */
+    users: Array<UserRead>;
+};
+
+/**
+ * UserRead
+ */
+export type UserRead = {
+    /**
+     * Id
+     */
+    id: string;
+    /**
+     * Username
+     */
+    username: string;
+    /**
+     * Role
+     */
+    role: string;
+    /**
+     * Player Id
+     */
+    player_id: string | null;
+};
+
+/**
+ * UserUpdate
+ */
+export type UserUpdate = {
+    /**
+     * Role
+     */
+    role: string;
+};
+
+/**
  * ValidationError
  */
 export type ValidationError = {
@@ -473,6 +599,272 @@ export type ValidationError = {
         [key: string]: unknown;
     };
 };
+
+export type RegisterData = {
+    body: RegisterRequest;
+    path?: never;
+    query?: never;
+    url: '/api/v1/auth/register';
+};
+
+export type RegisterErrors = {
+    /**
+     * The username is taken.
+     */
+    409: unknown;
+    /**
+     * Validation Error
+     */
+    422: HttpValidationError;
+};
+
+export type RegisterError = RegisterErrors[keyof RegisterErrors];
+
+export type RegisterResponses = {
+    /**
+     * Successful Response
+     */
+    201: UserRead;
+};
+
+export type RegisterResponse = RegisterResponses[keyof RegisterResponses];
+
+export type LoginData = {
+    body: LoginRequest;
+    path?: never;
+    query?: never;
+    url: '/api/v1/auth/login';
+};
+
+export type LoginErrors = {
+    /**
+     * Unknown username or wrong password.
+     */
+    401: unknown;
+    /**
+     * Validation Error
+     */
+    422: HttpValidationError;
+};
+
+export type LoginError = LoginErrors[keyof LoginErrors];
+
+export type LoginResponses = {
+    /**
+     * Successful Response
+     */
+    200: UserRead;
+};
+
+export type LoginResponse = LoginResponses[keyof LoginResponses];
+
+export type LogoutData = {
+    body?: never;
+    path?: never;
+    query?: never;
+    url: '/api/v1/auth/logout';
+};
+
+export type LogoutErrors = {
+    /**
+     * Not logged in.
+     */
+    401: unknown;
+};
+
+export type LogoutResponses = {
+    /**
+     * Successful Response
+     */
+    204: void;
+};
+
+export type LogoutResponse = LogoutResponses[keyof LogoutResponses];
+
+export type GetMeData = {
+    body?: never;
+    path?: never;
+    query?: never;
+    url: '/api/v1/auth/me';
+};
+
+export type GetMeResponses = {
+    /**
+     * Successful Response
+     */
+    200: MeRead;
+};
+
+export type GetMeResponse = GetMeResponses[keyof GetMeResponses];
+
+export type ExchangeHostTokenData = {
+    body: HostTokenRequest;
+    path?: never;
+    query?: never;
+    url: '/api/v1/auth/host';
+};
+
+export type ExchangeHostTokenErrors = {
+    /**
+     * The token is wrong or was already used.
+     */
+    401: unknown;
+    /**
+     * Validation Error
+     */
+    422: HttpValidationError;
+};
+
+export type ExchangeHostTokenError = ExchangeHostTokenErrors[keyof ExchangeHostTokenErrors];
+
+export type ExchangeHostTokenResponses = {
+    /**
+     * Successful Response
+     */
+    200: MeRead;
+};
+
+export type ExchangeHostTokenResponse = ExchangeHostTokenResponses[keyof ExchangeHostTokenResponses];
+
+export type ListUsersData = {
+    body?: never;
+    path?: never;
+    query?: never;
+    url: '/api/v1/users';
+};
+
+export type ListUsersResponses = {
+    /**
+     * Successful Response
+     */
+    200: UserList;
+};
+
+export type ListUsersResponse = ListUsersResponses[keyof ListUsersResponses];
+
+export type DeleteUserData = {
+    body?: never;
+    path: {
+        /**
+         * User Id
+         */
+        user_id: string;
+    };
+    query?: never;
+    url: '/api/v1/users/{user_id}';
+};
+
+export type DeleteUserErrors = {
+    /**
+     * Unknown user.
+     */
+    404: unknown;
+    /**
+     * This would leave the app without an administrator.
+     */
+    409: unknown;
+    /**
+     * Validation Error
+     */
+    422: HttpValidationError;
+};
+
+export type DeleteUserError = DeleteUserErrors[keyof DeleteUserErrors];
+
+export type DeleteUserResponses = {
+    /**
+     * Successful Response
+     */
+    204: void;
+};
+
+export type DeleteUserResponse = DeleteUserResponses[keyof DeleteUserResponses];
+
+export type UpdateUserData = {
+    body: UserUpdate;
+    path: {
+        /**
+         * User Id
+         */
+        user_id: string;
+    };
+    query?: never;
+    url: '/api/v1/users/{user_id}';
+};
+
+export type UpdateUserErrors = {
+    /**
+     * Unknown user.
+     */
+    404: unknown;
+    /**
+     * This would leave the app without an administrator.
+     */
+    409: unknown;
+    /**
+     * Validation Error
+     */
+    422: HttpValidationError;
+};
+
+export type UpdateUserError = UpdateUserErrors[keyof UpdateUserErrors];
+
+export type UpdateUserResponses = {
+    /**
+     * Successful Response
+     */
+    200: UserRead;
+};
+
+export type UpdateUserResponse = UpdateUserResponses[keyof UpdateUserResponses];
+
+export type GetPermissionsData = {
+    body?: never;
+    path?: never;
+    query?: never;
+    url: '/api/v1/permissions';
+};
+
+export type GetPermissionsResponses = {
+    /**
+     * Successful Response
+     */
+    200: PermissionsRead;
+};
+
+export type GetPermissionsResponse = GetPermissionsResponses[keyof GetPermissionsResponses];
+
+export type UpdateRolePermissionsData = {
+    body: RolePermissionsUpdate;
+    path: {
+        /**
+         * Role
+         */
+        role: string;
+    };
+    query?: never;
+    url: '/api/v1/permissions/{role}';
+};
+
+export type UpdateRolePermissionsErrors = {
+    /**
+     * Unknown role.
+     */
+    404: unknown;
+    /**
+     * Unknown capability, or the admin role (it is not editable).
+     */
+    422: unknown;
+};
+
+export type UpdateRolePermissionsResponses = {
+    /**
+     * Successful Response
+     */
+    200: PermissionsRead;
+};
+
+export type UpdateRolePermissionsResponse = UpdateRolePermissionsResponses[keyof UpdateRolePermissionsResponses];
 
 export type ListSongsData = {
     body?: never;
@@ -742,6 +1134,10 @@ export type SingSongErrors = {
      * USDX is not configured (or configured wrongly).
      */
     400: unknown;
+    /**
+     * `force` was set without `karaoke.stop`.
+     */
+    403: unknown;
     /**
      * Unknown song or player.
      */

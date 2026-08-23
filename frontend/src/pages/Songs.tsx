@@ -7,8 +7,10 @@ import {
   listSongsQueryKey,
   rescanSongsMutation,
 } from "../api/@tanstack/react-query.gen";
+import { useAuth } from "../auth";
 import SongDetails from "../components/SongDetails";
 import SongListItem from "../components/SongListItem";
+import { errorMessage } from "../errors";
 import { useDownloadEvents } from "../hooks/useDownloadEvents";
 import { useWingmanEvent } from "../hooks/useWingmanEvents";
 import "./Songs.css";
@@ -23,6 +25,7 @@ function matches(song: SongRead, needle: string): boolean {
 
 export default function Songs() {
   const queryClient = useQueryClient();
+  const auth = useAuth();
   const [search, setSearch] = useState("");
   const [selected, setSelected] = useState<SongRead | null>(null);
   const [scanning, setScanning] = useState(false);
@@ -39,7 +42,7 @@ export default function Songs() {
       setNotice(
         error?.status === "running"
           ? "A scan is already running."
-          : "Could not start the scan.",
+          : errorMessage(error, "Could not start the scan."),
       ),
   });
 
@@ -73,17 +76,21 @@ export default function Songs() {
           aria-label="Search songs"
           onChange={(event) => setSearch(event.target.value)}
         />
-        <button
-          type="button"
-          className="songs-rescan"
-          disabled={scanning || rescan.isPending}
-          onClick={() => rescan.mutate({})}
-        >
-          {scanning ? "Scanning…" : "Rescan"}
-        </button>
-        <Link to="/usdb" className="songs-rescan songs-explore">
-          Explore USDB
-        </Link>
+        {auth.can("songs.rescan") && (
+          <button
+            type="button"
+            className="songs-rescan"
+            disabled={scanning || rescan.isPending}
+            onClick={() => rescan.mutate({})}
+          >
+            {scanning ? "Scanning…" : "Rescan"}
+          </button>
+        )}
+        {auth.can("usdb.search") && (
+          <Link to="/usdb" className="songs-rescan songs-explore">
+            Explore USDB
+          </Link>
+        )}
       </div>
 
       {notice && <p className="songs-notice songs-notice-error">{notice}</p>}

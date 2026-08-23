@@ -7,6 +7,7 @@ import {
   listKaraokeColorsOptions,
   stopSingingMutation,
 } from "../api/@tanstack/react-query.gen";
+import { useAuth } from "../auth";
 import { formatDuration } from "../duration";
 import { useWingmanEvent, type WingmanEvent } from "../hooks/useWingmanEvents";
 import ConfirmModal from "./ConfirmModal";
@@ -46,6 +47,7 @@ function useElapsedSeconds(startedAt: string | null): number {
 /** The running song, or nothing at all when USDX is idle. */
 export default function CurrentlyPlaying() {
   const queryClient = useQueryClient();
+  const auth = useAuth();
   const current = useQuery(getCurrentSingOptions());
   const colors = useQuery(listKaraokeColorsOptions());
   const [askStop, setAskStop] = useState(false);
@@ -95,14 +97,16 @@ export default function CurrentlyPlaying() {
             ))}
         </ul>
 
-        <button
-          type="button"
-          className="button button-danger"
-          disabled={stop.isPending}
-          onClick={() => setAskStop(true)}
-        >
-          Stop
-        </button>
+        {auth.can("karaoke.stop") && (
+          <button
+            type="button"
+            className="button button-danger"
+            disabled={stop.isPending}
+            onClick={() => setAskStop(true)}
+          >
+            Stop
+          </button>
+        )}
       </section>
 
       {askStop && (

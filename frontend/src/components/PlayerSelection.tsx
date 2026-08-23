@@ -8,7 +8,8 @@ import {
   listPlayersQueryKey,
   singSongMutation,
 } from "../api/@tanstack/react-query.gen";
-import { errorDetail } from "../errors";
+import { useAuth } from "../auth";
+import { errorDetail, errorMessage } from "../errors";
 import ConfirmModal from "./ConfirmModal";
 import Modal from "./Modal";
 import PlayerAvatar from "./PlayerAvatar";
@@ -51,6 +52,7 @@ export default function PlayerSelection({
   onClose,
 }: PlayerSelectionProps) {
   const queryClient = useQueryClient();
+  const auth = useAuth();
   const colors = useQuery(listKaraokeColorsOptions());
   const players = useQuery(listPlayersOptions());
 
@@ -99,12 +101,17 @@ export default function PlayerSelection({
     onSuccess: onClose,
     onError: (error) => {
       if (errorDetail(error) === "already_playing") {
-        setAskReplace(true);
+        // Replacing means stopping the running song, which is its own capability.
+        if (auth.can("karaoke.stop")) setAskReplace(true);
+        else setNotice("Another song is playing — ask the host to stop it.");
         return;
       }
       setNotice(
-        errorDetail(error) ??
-          "Could not start the song — check the USDX settings.",
+        errorMessage(
+          error,
+          errorDetail(error) ??
+            "Could not start the song — check the USDX settings.",
+        ),
       );
     },
   });
@@ -121,7 +128,7 @@ export default function PlayerSelection({
       setNotice(
         errorDetail(error) === "duplicate_name"
           ? "There is already a player with that name."
-          : "Could not add the player.",
+          : errorMessage(error, "Could not add the player."),
       ),
   });
 
@@ -209,30 +216,32 @@ export default function PlayerSelection({
             })}
           </div>
 
-          <form
-            className="player-selection-add"
-            onSubmit={(event) => {
-              event.preventDefault();
-              const name = newName.trim();
-              if (name) addPlayer.mutate({ body: { name } });
-            }}
-          >
-            <input
-              className="text-input"
-              value={newName}
-              placeholder="New player"
-              aria-label="New player name"
-              maxLength={64}
-              onChange={(event) => setNewName(event.target.value)}
-            />
-            <button
-              type="submit"
-              className="button"
-              disabled={newName.trim() === "" || addPlayer.isPending}
+          {auth.can("players.manage") && (
+            <form
+              className="player-selection-add"
+              onSubmit={(event) => {
+                event.preventDefault();
+                const name = newName.trim();
+                if (name) addPlayer.mutate({ body: { name } });
+              }}
             >
-              Add
-            </button>
-          </form>
+              <input
+                className="text-input"
+                value={newName}
+                placeholder="New player"
+                aria-label="New player name"
+                maxLength={64}
+                onChange={(event) => setNewName(event.target.value)}
+              />
+              <button
+                type="submit"
+                className="button"
+                disabled={newName.trim() === "" || addPlayer.isPending}
+              >
+                Add
+              </button>
+            </form>
+          )}
 
           <div className="player-selection-actions">
             <button type="button" className="button" onClick={onClose}>

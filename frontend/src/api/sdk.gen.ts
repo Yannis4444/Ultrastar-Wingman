@@ -2,7 +2,7 @@
 
 import { type Client, type ClientMeta, formDataBodySerializer, type Options as Options2, type RequestResult, type TDataShape } from './client';
 import { client } from './client.gen';
-import type { CreateDownloadData, CreateDownloadErrors, CreateDownloadResponses, CreatePlayerData, CreatePlayerErrors, CreatePlayerResponses, DeletePlayerData, DeletePlayerErrors, DeletePlayerResponses, GetCurrentSingData, GetCurrentSingResponses, GetPlayerAvatarData, GetPlayerAvatarErrors, GetPlayerAvatarResponses, GetSongCoverData, GetSongCoverErrors, GetSongCoverResponses, GetSongData, GetSongErrors, GetSongResponses, HealthData, HealthResponses, ListDownloadsData, ListDownloadsResponses, ListKaraokeColorsData, ListKaraokeColorsResponses, ListPlayersData, ListPlayersResponses, ListSettingsData, ListSettingsResponses, ListSongsData, ListSongsResponses, RescanSongsData, RescanSongsErrors, RescanSongsResponses, SetPlayerAvatarData, SetPlayerAvatarErrors, SetPlayerAvatarResponses, SingSongData, SingSongErrors, SingSongResponses, StopSingingData, StopSingingResponses, UpdateSettingData, UpdateSettingErrors, UpdateSettingResponses, UsdbSearchData, UsdbSearchErrors, UsdbSearchResponses, UsdbStatusData, UsdbStatusErrors, UsdbStatusResponses } from './types.gen';
+import type { CreateDownloadData, CreateDownloadErrors, CreateDownloadResponses, CreatePlayerData, CreatePlayerErrors, CreatePlayerResponses, DeletePlayerData, DeletePlayerErrors, DeletePlayerResponses, DeleteUserData, DeleteUserErrors, DeleteUserResponses, ExchangeHostTokenData, ExchangeHostTokenErrors, ExchangeHostTokenResponses, GetCurrentSingData, GetCurrentSingResponses, GetMeData, GetMeResponses, GetPermissionsData, GetPermissionsResponses, GetPlayerAvatarData, GetPlayerAvatarErrors, GetPlayerAvatarResponses, GetSongCoverData, GetSongCoverErrors, GetSongCoverResponses, GetSongData, GetSongErrors, GetSongResponses, HealthData, HealthResponses, ListDownloadsData, ListDownloadsResponses, ListKaraokeColorsData, ListKaraokeColorsResponses, ListPlayersData, ListPlayersResponses, ListSettingsData, ListSettingsResponses, ListSongsData, ListSongsResponses, ListUsersData, ListUsersResponses, LoginData, LoginErrors, LoginResponses, LogoutData, LogoutErrors, LogoutResponses, RegisterData, RegisterErrors, RegisterResponses, RescanSongsData, RescanSongsErrors, RescanSongsResponses, SetPlayerAvatarData, SetPlayerAvatarErrors, SetPlayerAvatarResponses, SingSongData, SingSongErrors, SingSongResponses, StopSingingData, StopSingingResponses, UpdateRolePermissionsData, UpdateRolePermissionsErrors, UpdateRolePermissionsResponses, UpdateSettingData, UpdateSettingErrors, UpdateSettingResponses, UpdateUserData, UpdateUserErrors, UpdateUserResponses, UsdbSearchData, UsdbSearchErrors, UsdbSearchResponses, UsdbStatusData, UsdbStatusErrors, UsdbStatusResponses } from './types.gen';
 
 export type Options<TData extends TDataShape = TDataShape, ThrowOnError extends boolean = boolean, TResponse = unknown> = Options2<TData, ThrowOnError, TResponse> & {
     /**
@@ -17,6 +17,105 @@ export type Options<TData extends TDataShape = TDataShape, ThrowOnError extends 
      */
     meta?: keyof ClientMeta extends never ? Record<string, unknown> : ClientMeta;
 };
+
+/**
+ * Register
+ *
+ * Create an account and log it in. The first account ever created is the administrator.
+ */
+export const register = <ThrowOnError extends boolean = false>(options: Options<RegisterData, ThrowOnError>): RequestResult<RegisterResponses, RegisterErrors, ThrowOnError> => (options.client ?? client).post<RegisterResponses, RegisterErrors, ThrowOnError>({
+    url: '/api/v1/auth/register',
+    ...options,
+    headers: {
+        'Content-Type': 'application/json',
+        ...options.headers
+    }
+});
+
+/**
+ * Login
+ */
+export const login = <ThrowOnError extends boolean = false>(options: Options<LoginData, ThrowOnError>): RequestResult<LoginResponses, LoginErrors, ThrowOnError> => (options.client ?? client).post<LoginResponses, LoginErrors, ThrowOnError>({
+    url: '/api/v1/auth/login',
+    ...options,
+    headers: {
+        'Content-Type': 'application/json',
+        ...options.headers
+    }
+});
+
+/**
+ * Logout
+ */
+export const logout = <ThrowOnError extends boolean = false>(options?: Options<LogoutData, ThrowOnError>): RequestResult<LogoutResponses, LogoutErrors, ThrowOnError> => (options?.client ?? client).post<LogoutResponses, LogoutErrors, ThrowOnError>({ url: '/api/v1/auth/logout', ...options });
+
+/**
+ * Get Me
+ *
+ * Who the caller is and what they may do. Anonymous callers get the `guest` role
+ * rather than a 401 — the UI hides what they cannot use instead of asking them to log in.
+ */
+export const getMe = <ThrowOnError extends boolean = false>(options?: Options<GetMeData, ThrowOnError>): RequestResult<GetMeResponses, unknown, ThrowOnError> => (options?.client ?? client).get<GetMeResponses, unknown, ThrowOnError>({ url: '/api/v1/auth/me', ...options });
+
+/**
+ * Exchange Host Token
+ *
+ * Trade the one-time token from the host URL for a permanent trusted admin session.
+ *
+ * This is the only way to become the host: no header, no IP check — the old app trusted
+ * `X-Forwarded-For`, which any client can set.
+ */
+export const exchangeHostToken = <ThrowOnError extends boolean = false>(options: Options<ExchangeHostTokenData, ThrowOnError>): RequestResult<ExchangeHostTokenResponses, ExchangeHostTokenErrors, ThrowOnError> => (options.client ?? client).post<ExchangeHostTokenResponses, ExchangeHostTokenErrors, ThrowOnError>({
+    url: '/api/v1/auth/host',
+    ...options,
+    headers: {
+        'Content-Type': 'application/json',
+        ...options.headers
+    }
+});
+
+/**
+ * List Users
+ */
+export const listUsers = <ThrowOnError extends boolean = false>(options?: Options<ListUsersData, ThrowOnError>): RequestResult<ListUsersResponses, unknown, ThrowOnError> => (options?.client ?? client).get<ListUsersResponses, unknown, ThrowOnError>({ url: '/api/v1/users', ...options });
+
+/**
+ * Delete User
+ *
+ * Delete an account. Its player stays as a temporary one, so the scores keep an owner.
+ */
+export const deleteUser = <ThrowOnError extends boolean = false>(options: Options<DeleteUserData, ThrowOnError>): RequestResult<DeleteUserResponses, DeleteUserErrors, ThrowOnError> => (options.client ?? client).delete<DeleteUserResponses, DeleteUserErrors, ThrowOnError>({ url: '/api/v1/users/{user_id}', ...options });
+
+/**
+ * Update User
+ */
+export const updateUser = <ThrowOnError extends boolean = false>(options: Options<UpdateUserData, ThrowOnError>): RequestResult<UpdateUserResponses, UpdateUserErrors, ThrowOnError> => (options.client ?? client).patch<UpdateUserResponses, UpdateUserErrors, ThrowOnError>({
+    url: '/api/v1/users/{user_id}',
+    ...options,
+    headers: {
+        'Content-Type': 'application/json',
+        ...options.headers
+    }
+});
+
+/**
+ * Get Permissions
+ */
+export const getPermissions = <ThrowOnError extends boolean = false>(options?: Options<GetPermissionsData, ThrowOnError>): RequestResult<GetPermissionsResponses, unknown, ThrowOnError> => (options?.client ?? client).get<GetPermissionsResponses, unknown, ThrowOnError>({ url: '/api/v1/permissions', ...options });
+
+/**
+ * Update Role Permissions
+ *
+ * Replace what a role may do. Takes effect immediately, for every open session.
+ */
+export const updateRolePermissions = <ThrowOnError extends boolean = false>(options: Options<UpdateRolePermissionsData, ThrowOnError>): RequestResult<UpdateRolePermissionsResponses, UpdateRolePermissionsErrors, ThrowOnError> => (options.client ?? client).put<UpdateRolePermissionsResponses, UpdateRolePermissionsErrors, ThrowOnError>({
+    url: '/api/v1/permissions/{role}',
+    ...options,
+    headers: {
+        'Content-Type': 'application/json',
+        ...options.headers
+    }
+});
 
 /**
  * List Songs

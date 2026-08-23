@@ -6,11 +6,16 @@ import {
   deletePlayerMutation,
   listPlayersOptions,
   listPlayersQueryKey,
+  logoutMutation,
   setPlayerAvatarMutation,
 } from "../api/@tanstack/react-query.gen";
+import { useAuth } from "../auth";
 import ConfirmModal from "../components/ConfirmModal";
+import LoginForm from "../components/LoginForm";
+import PermissionsMatrix from "../components/PermissionsMatrix";
 import PlayerAvatar from "../components/PlayerAvatar";
-import { errorDetail } from "../errors";
+import UsersAdmin from "../components/UsersAdmin";
+import { errorDetail, errorMessage } from "../errors";
 import "./User.css";
 
 /** Mirrors the backend's limit so an oversized file never leaves the browser. */
@@ -24,6 +29,7 @@ const AVATAR_MESSAGES: Record<string, string> = {
 
 export default function User() {
   const queryClient = useQueryClient();
+  const auth = useAuth();
   const players = useQuery(listPlayersOptions());
   const [newName, setNewName] = useState("");
   const [deleting, setDeleting] = useState<PlayerRead | null>(null);
@@ -36,6 +42,12 @@ export default function User() {
   const refresh = () =>
     void queryClient.invalidateQueries({ queryKey: listPlayersQueryKey() });
 
+  const logOut = useMutation({
+    ...logoutMutation(),
+    // Every cached answer belonged to the account that just left.
+    onSettled: () => void queryClient.invalidateQueries(),
+  });
+
   const addPlayer = useMutation({
     ...createPlayerMutation(),
     onSuccess: () => {
@@ -47,7 +59,7 @@ export default function User() {
       setAddError(
         errorDetail(error) === "duplicate_name"
           ? "There is already a player with that name."
-          : "Could not add the player.",
+          : errorMessage(error, "Could not add the player."),
       ),
   });
 
@@ -67,7 +79,7 @@ export default function User() {
         id: variables.path.player_id,
         message:
           AVATAR_MESSAGES[errorDetail(error) ?? ""] ??
-          "Could not upload the image.",
+          errorMessage(error, "Could not upload the image."),
       }),
   });
 
@@ -83,35 +95,68 @@ export default function User() {
     setAvatar.mutate({ path: { player_id: player.id }, body: { file } });
   };
 
+  const managePlayers = auth.can("players.manage");
+  const ownPlayer =
+    players.data?.players.find(
+      (player) => player.id === auth.user?.player_id,
+    ) ?? null;
+
   return (
     <>
       <h1>User</h1>
 
+      {auth.isHost && (
+        <p className="user-host-badge">
+          This browser is the host screen — full access.
+        </p>
+      )}
+
+      {auth.loaded &&
+        (auth.user === null ? (
+          <LoginForm />
+        ) : (
+          <div className="user-card">
+            <PlayerAvatar player={ownPlayer} />
+            <span className="user-card-name">{auth.user.username}</span>
+            <span className="user-role-badge">{auth.user.role}</span>
+            <button
+              type="button"
+              className="button"
+              disabled={logOut.isPending}
+              onClick={() => logOut.mutate({})}
+            >
+              Log out
+            </button>
+          </div>
+        ))}
+
       <h2>Players</h2>
-      <form
-        className="players-add"
-        onSubmit={(event) => {
-          event.preventDefault();
-          const name = newName.trim();
-          if (name) addPlayer.mutate({ body: { name } });
-        }}
-      >
-        <input
-          className="text-input"
-          value={newName}
-          placeholder="New player"
-          aria-label="New player name"
-          maxLength={64}
-          onChange={(event) => setNewName(event.target.value)}
-        />
-        <button
-          type="submit"
-          className="button"
-          disabled={newName.trim() === "" || addPlayer.isPending}
+      {managePlayers && (
+        <form
+          className="players-add"
+          onSubmit={(event) => {
+            event.preventDefault();
+            const name = newName.trim();
+            if (name) addPlayer.mutate({ body: { name } });
+          }}
         >
-          Add
-        </button>
-      </form>
+          <input
+            className="text-input"
+            value={newName}
+            placeholder="New player"
+            aria-label="New player name"
+            maxLength={64}
+            onChange={(event) => setNewName(event.target.value)}
+          />
+          <button
+            type="submit"
+            className="button"
+            disabled={newName.trim() === "" || addPlayer.isPending}
+          >
+            Add
+          </button>
+        </form>
+      )}
       {addError && (
         <p className="error-notice players-notice" role="alert">
           {addError}
@@ -134,26 +179,30 @@ export default function User() {
             <div className="players-row">
               <PlayerAvatar player={player} />
               <span className="players-name">{player.name}</span>
-              <label className="button players-avatar-button">
-                {player.has_avatar ? "Change avatar" : "Add avatar"}
-                <input
-                  type="file"
-                  className="visually-hidden"
-                  accept="image/jpeg,image/png,image/webp"
-                  aria-label={`Avatar for ${player.name}`}
-                  onChange={(event) =>
-                    upload(player, event.target.files?.[0] ?? undefined)
-                  }
-                />
-              </label>
-              <button
-                type="button"
-                className="button button-danger"
-                aria-label={`Delete ${player.name}`}
-                onClick={() => setDeleting(player)}
-              >
-                Delete
-              </button>
+              {managePlayers && (
+                <>
+                  <label className="button players-avatar-button">
+                    {player.has_avatar ? "Change avatar" : "Add avatar"}
+                    <input
+                      type="file"
+                      className="visually-hidden"
+                      accept="image/jpeg,image/png,image/webp"
+                      aria-label={`Avatar for ${player.name}`}
+                      onChange={(event) =>
+                        upload(player, event.target.files?.[0] ?? undefined)
+                      }
+                    />
+                  </label>
+                  <button
+                    type="button"
+                    className="button button-danger"
+                    aria-label={`Delete ${player.name}`}
+                    onClick={() => setDeleting(player)}
+                  >
+                    Delete
+                  </button>
+                </>
+              )}
             </div>
             {avatarError?.id === player.id && (
               <p className="error-notice players-notice" role="alert">
@@ -163,6 +212,11 @@ export default function User() {
           </li>
         ))}
       </ul>
+
+      {/* `loaded`, unlike the action gates: an admin panel mounted on a guess
+          would fire its own requests and flash a 403 error at every guest. */}
+      {auth.loaded && auth.can("users.manage") && <UsersAdmin />}
+      {auth.loaded && auth.can("permissions.manage") && <PermissionsMatrix />}
 
       {deleting && (
         <ConfirmModal

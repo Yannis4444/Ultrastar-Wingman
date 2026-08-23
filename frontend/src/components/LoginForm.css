@@ -1,0 +1,40 @@
+.login-form {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin: 16px;
+  padding: 16px;
+  background-color: var(--tile-bg);
+  border-radius: var(--border-radius);
+}
+
+.login-tabs {
+  display: flex;
+  gap: 8px;
+}
+
+.login-tabs button {
+  flex: 1 1 0;
+  padding: 8px;
+  font: inherit;
+  color: var(--color-darker);
+  background: none;
+  border: none;
+  border-bottom: 2px solid var(--input-border-color);
+  cursor: pointer;
+}
+
+.login-tabs button.active {
+  color: var(--color);
+  border-bottom-color: var(--highlight-blue-light);
+}
+
+.login-form .error-notice {
+  margin: 0;
+}
+
+.login-hint {
+  margin: 0;
+  font-size: 0.85em;
+  color: var(--color-darker);
+}

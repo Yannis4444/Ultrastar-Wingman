@@ -1,5 +1,6 @@
 import { useState } from "react";
 import type { SongRead } from "../api";
+import { useAuth } from "../auth";
 import { formatDuration } from "../duration";
 import Modal from "./Modal";
 import PlayerSelection from "./PlayerSelection";
@@ -12,6 +13,7 @@ interface SongDetailsProps {
 
 export default function SongDetails({ song, onClose }: SongDetailsProps) {
   const [selectingPlayers, setSelectingPlayers] = useState(false);
+  const auth = useAuth();
 
   const rows: [string, string | null][] = [
     ["Artist", song.artist],
@@ -40,15 +42,17 @@ export default function SongDetails({ song, onClose }: SongDetailsProps) {
           </div>
         ))}
       </dl>
-      <div className="song-details-actions">
-        <button
-          type="button"
-          className="button button-primary"
-          onClick={() => setSelectingPlayers(true)}
-        >
-          Sing
-        </button>
-      </div>
+      {auth.can("karaoke.sing") && (
+        <div className="song-details-actions">
+          <button
+            type="button"
+            className="button button-primary"
+            onClick={() => setSelectingPlayers(true)}
+          >
+            Sing
+          </button>
+        </div>
+      )}
     </Modal>
   );
 }

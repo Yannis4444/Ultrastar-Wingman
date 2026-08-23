@@ -1,16 +1,36 @@
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { fireEvent, render, screen, waitFor } from "@testing-library/react";
 import type { PlayerRead } from "../api";
+import { meResponse, userRead } from "../test/auth";
 import User from "./User";
 
-const { listPlayers, createPlayer, deletePlayer, setPlayerAvatar } = vi.hoisted(
-  () => ({
-    listPlayers: vi.fn(),
-    createPlayer: vi.fn(),
-    deletePlayer: vi.fn(),
-    setPlayerAvatar: vi.fn(),
-  }),
-);
+const {
+  listPlayers,
+  createPlayer,
+  deletePlayer,
+  setPlayerAvatar,
+  getMe,
+  login,
+  register,
+  logout,
+  listUsers,
+  updateUser,
+  deleteUser,
+  getPermissions,
+} = vi.hoisted(() => ({
+  listPlayers: vi.fn(),
+  createPlayer: vi.fn(),
+  deletePlayer: vi.fn(),
+  setPlayerAvatar: vi.fn(),
+  getMe: vi.fn(),
+  login: vi.fn(),
+  register: vi.fn(),
+  logout: vi.fn(),
+  listUsers: vi.fn(),
+  updateUser: vi.fn(),
+  deleteUser: vi.fn(),
+  getPermissions: vi.fn(),
+}));
 
 vi.mock("../api/sdk.gen", async (importOriginal) => ({
   ...(await importOriginal<typeof import("../api/sdk.gen")>()),
@@ -18,7 +38,29 @@ vi.mock("../api/sdk.gen", async (importOriginal) => ({
   createPlayer,
   deletePlayer,
   setPlayerAvatar,
+  getMe,
+  login,
+  register,
+  logout,
+  listUsers,
+  updateUser,
+  deleteUser,
+  getPermissions,
 }));
+
+const USER_CAPABILITIES = [
+  "songs.view",
+  "karaoke.sing",
+  "karaoke.stop",
+  "players.view",
+  "players.manage",
+];
+
+const ADMIN_CAPABILITIES = [
+  ...USER_CAPABILITIES,
+  "users.manage",
+  "permissions.manage",
+];
 
 function player(id: string, name: string): PlayerRead {
   return { id, name, registered: false, has_avatar: false };
@@ -36,13 +78,18 @@ function renderUser() {
 }
 
 beforeEach(() => {
-  listPlayers.mockReset();
-  createPlayer.mockReset();
-  deletePlayer.mockReset();
-  setPlayerAvatar.mockReset();
+  vi.resetAllMocks();
   listPlayers.mockResolvedValue({
     data: { players: [player("aaa", "Alice")] },
   });
+  // A logged-in ordinary account: players are manageable, no admin sections.
+  // Not named after a player, so the profile card never collides with a row.
+  getMe.mockResolvedValue(
+    meResponse(USER_CAPABILITIES, {
+      user: userRead({ username: "Charlie", player_id: "ccc" }),
+      role: "user",
+    }),
+  );
 });
 
 test("players are listed and a new one can be added", async () => {
@@ -146,4 +193,136 @@ test("a rejected avatar upload is reported next to the player", async () => {
   expect(await screen.findByRole("alert")).toHaveTextContent(
     "Only jpeg, png and webp images work",
   );
+});
+
+test("an anonymous visitor gets the login form and the profile after logging in", async () => {
+  getMe.mockResolvedValue(meResponse(["songs.view", "players.view"]));
+  login.mockResolvedValue({ data: userRead({ role: "trusted" }) });
+  renderUser();
+
+  await screen.findByRole("tab", { name: "Register" });
+  // A guest without players.manage cannot add or delete players either.
+  expect(screen.queryByLabelText("New player name")).not.toBeInTheDocument();
+  expect(
+    screen.queryByRole("button", { name: "Delete Alice" }),
+  ).not.toBeInTheDocument();
+
+  fireEvent.change(screen.getByLabelText("Name"), {
+    target: { value: " Alice " },
+  });
+  fireEvent.change(screen.getByLabelText("Password"), {
+    target: { value: "hunter2hunter2" },
+  });
+  // The answer to `/auth/me` changes with the session cookie the login sets.
+  getMe.mockResolvedValue(
+    meResponse(USER_CAPABILITIES, {
+      user: userRead({ role: "trusted" }),
+      role: "trusted",
+    }),
+  );
+  fireEvent.click(screen.getByRole("button", { name: "Log in" }));
+
+  await waitFor(() =>
+    expect(login.mock.calls[0][0].body).toEqual({
+      username: "Alice",
+      password: "hunter2hunter2",
+    }),
+  );
+  expect(await screen.findByText("trusted")).toBeInTheDocument();
+  expect(screen.getByRole("button", { name: "Log out" })).toBeInTheDocument();
+  expect(screen.getByLabelText("New player name")).toBeInTheDocument();
+});
+
+test("a short password never reaches the backend", async () => {
+  getMe.mockResolvedValue(meResponse(["songs.view", "players.view"]));
+  renderUser();
+
+  fireEvent.click(await screen.findByRole("tab", { name: "Register" }));
+  fireEvent.change(screen.getByLabelText("Name"), { target: { value: "Bo" } });
+
+  expect(await screen.findByRole("alert")).toHaveTextContent(
+    "at least 3 characters",
+  );
+
+  fireEvent.change(screen.getByLabelText("Name"), { target: { value: "Bob" } });
+  fireEvent.change(screen.getByLabelText("Password"), {
+    target: { value: "short" },
+  });
+  expect(await screen.findByRole("alert")).toHaveTextContent(
+    "at least 8 characters",
+  );
+  expect(screen.getByRole("button", { name: "Create account" })).toBeDisabled();
+  expect(register).not.toHaveBeenCalled();
+});
+
+test("a taken username is reported on the register form", async () => {
+  getMe.mockResolvedValue(meResponse(["songs.view", "players.view"]));
+  register.mockRejectedValue({ detail: "duplicate_username" });
+  renderUser();
+
+  fireEvent.click(await screen.findByRole("tab", { name: "Register" }));
+  fireEvent.change(screen.getByLabelText("Name"), {
+    target: { value: "Alice" },
+  });
+  fireEvent.change(screen.getByLabelText("Password"), {
+    target: { value: "hunter2hunter2" },
+  });
+  fireEvent.click(screen.getByRole("button", { name: "Create account" }));
+
+  await waitFor(() => expect(register).toHaveBeenCalledTimes(1));
+  expect(await screen.findByRole("alert")).toHaveTextContent(
+    "That name is taken",
+  );
+});
+
+test("the admin sections stay hidden for an ordinary account", async () => {
+  renderUser();
+
+  expect(await screen.findByText("Alice")).toBeInTheDocument();
+  expect(screen.queryByText("Accounts")).not.toBeInTheDocument();
+  expect(screen.queryByText("Permissions")).not.toBeInTheDocument();
+  expect(listUsers).not.toHaveBeenCalled();
+});
+
+test("an admin can change a role and is stopped from removing the last admin", async () => {
+  getMe.mockResolvedValue(
+    meResponse(ADMIN_CAPABILITIES, {
+      user: userRead({ role: "admin" }),
+      role: "admin",
+    }),
+  );
+  getPermissions.mockResolvedValue({
+    data: { roles: { guest: [], admin: [] } },
+  });
+  listUsers.mockResolvedValue({
+    data: {
+      users: [
+        userRead({ role: "admin" }),
+        userRead({ id: "user-2", username: "Bob" }),
+      ],
+    },
+  });
+  updateUser.mockResolvedValue({
+    data: userRead({ id: "user-2", role: "trusted" }),
+  });
+  renderUser();
+
+  fireEvent.change(await screen.findByLabelText("Role of Bob"), {
+    target: { value: "trusted" },
+  });
+
+  await waitFor(() =>
+    expect(updateUser.mock.calls[0][0]).toMatchObject({
+      path: { user_id: "user-2" },
+      body: { role: "trusted" },
+    }),
+  );
+
+  deleteUser.mockRejectedValue({ detail: "last_admin" });
+  fireEvent.click(screen.getByRole("button", { name: "Delete account Alice" }));
+  fireEvent.click(screen.getByRole("button", { name: "Delete" }));
+
+  expect(
+    await screen.findByText("There has to be one administrator left."),
+  ).toBeInTheDocument();
 });
