@@ -29,6 +29,16 @@ export type Health = {
 };
 
 /**
+ * ScanStatus
+ */
+export type ScanStatus = {
+    /**
+     * Status
+     */
+    status: 'started' | 'running';
+};
+
+/**
  * SettingRead
  */
 export type SettingRead = {
@@ -73,6 +83,66 @@ export type SettingUpdate = {
 };
 
 /**
+ * SongList
+ */
+export type SongList = {
+    /**
+     * Songs
+     */
+    songs: Array<SongRead>;
+};
+
+/**
+ * SongRead
+ */
+export type SongRead = {
+    /**
+     * Id
+     */
+    id: string;
+    /**
+     * Source
+     */
+    source: string;
+    /**
+     * Title
+     */
+    title: string;
+    /**
+     * Artist
+     */
+    artist: string;
+    /**
+     * Duration Seconds
+     */
+    duration_seconds: number | null;
+    /**
+     * Has Video
+     */
+    has_video: boolean;
+    /**
+     * Language
+     */
+    language: string | null;
+    /**
+     * Genre
+     */
+    genre: string | null;
+    /**
+     * Year
+     */
+    year: number | null;
+    /**
+     * Edition
+     */
+    edition: string | null;
+    /**
+     * Creator
+     */
+    creator: string | null;
+};
+
+/**
  * ValidationError
  */
 export type ValidationError = {
@@ -98,6 +168,105 @@ export type ValidationError = {
     ctx?: {
         [key: string]: unknown;
     };
+};
+
+export type ListSongsData = {
+    body?: never;
+    path?: never;
+    query?: never;
+    url: '/api/v1/songs';
+};
+
+export type ListSongsResponses = {
+    /**
+     * Successful Response
+     */
+    200: SongList;
+};
+
+export type ListSongsResponse = ListSongsResponses[keyof ListSongsResponses];
+
+export type RescanSongsData = {
+    body?: never;
+    path?: never;
+    query?: never;
+    url: '/api/v1/songs/rescan';
+};
+
+export type RescanSongsErrors = {
+    /**
+     * A scan is already running.
+     */
+    409: ScanStatus;
+};
+
+export type RescanSongsError = RescanSongsErrors[keyof RescanSongsErrors];
+
+export type RescanSongsResponses = {
+    /**
+     * Successful Response
+     */
+    202: ScanStatus;
+};
+
+export type RescanSongsResponse = RescanSongsResponses[keyof RescanSongsResponses];
+
+export type GetSongData = {
+    body?: never;
+    path: {
+        /**
+         * Song Id
+         */
+        song_id: string;
+    };
+    query?: never;
+    url: '/api/v1/songs/{song_id}';
+};
+
+export type GetSongErrors = {
+    /**
+     * Validation Error
+     */
+    422: HttpValidationError;
+};
+
+export type GetSongError = GetSongErrors[keyof GetSongErrors];
+
+export type GetSongResponses = {
+    /**
+     * Successful Response
+     */
+    200: SongRead;
+};
+
+export type GetSongResponse = GetSongResponses[keyof GetSongResponses];
+
+export type GetSongCoverData = {
+    body?: never;
+    path: {
+        /**
+         * Song Id
+         */
+        song_id: string;
+    };
+    query?: never;
+    url: '/api/v1/songs/{song_id}/cover';
+};
+
+export type GetSongCoverErrors = {
+    /**
+     * Validation Error
+     */
+    422: HttpValidationError;
+};
+
+export type GetSongCoverError = GetSongCoverErrors[keyof GetSongCoverErrors];
+
+export type GetSongCoverResponses = {
+    /**
+     * The cover image file.
+     */
+    200: unknown;
 };
 
 export type HealthData = {

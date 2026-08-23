@@ -1,0 +1,97 @@
+.songs-toolbar {
+  display: flex;
+  gap: 8px;
+  margin: 16px;
+}
+
+.songs-toolbar input {
+  flex: 1 1 auto;
+  min-width: 0;
+  padding: 10px 12px;
+  font: inherit;
+  color: var(--color);
+  background-color: var(--input-bg);
+  border: 1px solid var(--input-border-color);
+  border-radius: var(--border-radius);
+}
+
+.songs-toolbar input:focus {
+  outline: none;
+  border-color: var(--highlight-blue-light);
+}
+
+.songs-rescan {
+  flex: 0 0 auto;
+  padding: 10px 16px;
+  font: inherit;
+  color: var(--color);
+  background-color: var(--highlight-blue-dark);
+  border: 1px solid var(--input-border-color);
+  border-radius: var(--border-radius);
+  cursor: pointer;
+}
+
+.songs-rescan:hover:enabled {
+  background-color: var(--highlight-blue-light);
+}
+
+.songs-rescan:disabled {
+  color: var(--color-darker);
+  cursor: default;
+}
+
+.songs-count {
+  margin: 0 16px 8px 16px;
+  font-size: 0.85em;
+  color: var(--color-darker);
+}
+
+.songs-list {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin: 0 16px;
+}
+
+.songs-notice {
+  margin: 0 16px 16px 16px;
+  padding: 16px;
+  color: var(--color-dark);
+  background-color: var(--tile-bg);
+  border-radius: var(--border-radius);
+}
+
+.songs-notice-error {
+  background-color: var(--highlight-red-dark);
+  color: var(--color);
+}
+
+.songs-notice button {
+  font: inherit;
+  color: var(--color);
+  background: none;
+  border: none;
+  text-decoration: underline;
+  cursor: pointer;
+}
+
+/* Placeholder tiles keep the list from jumping once the songs arrive. */
+.songs-skeleton {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin: 0 16px;
+}
+
+.songs-skeleton span {
+  height: 64px;
+  background-color: var(--tile-bg);
+  border-radius: var(--border-radius);
+  animation: songs-skeleton-pulse 1.2s ease-in-out infinite;
+}
+
+@keyframes songs-skeleton-pulse {
+  50% {
+    opacity: 0.5;
+  }
+}

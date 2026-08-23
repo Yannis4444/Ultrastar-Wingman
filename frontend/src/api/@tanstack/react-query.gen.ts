@@ -3,8 +3,8 @@
 import { type DefaultError, queryOptions, type UseMutationOptions } from '@tanstack/react-query';
 
 import { client } from '../client.gen';
-import { health, listSettings, type Options, updateSetting } from '../sdk.gen';
-import type { HealthData, HealthResponse, ListSettingsData, ListSettingsResponse, UpdateSettingData, UpdateSettingError, UpdateSettingResponse } from '../types.gen';
+import { getSong, getSongCover, health, listSettings, listSongs, type Options, rescanSongs, updateSetting } from '../sdk.gen';
+import type { GetSongCoverData, GetSongCoverError, GetSongData, GetSongError, GetSongResponse, HealthData, HealthResponse, ListSettingsData, ListSettingsResponse, ListSongsData, ListSongsResponse, RescanSongsData, RescanSongsError, RescanSongsResponse, UpdateSettingData, UpdateSettingError, UpdateSettingResponse } from '../types.gen';
 
 export type QueryKey<TOptions extends Options> = [
     Pick<TOptions, 'baseUrl' | 'body' | 'headers' | 'path' | 'query'> & {
@@ -38,6 +38,80 @@ const createQueryKey = <TOptions extends Options>(id: string, options?: TOptions
     }
     return [params];
 };
+
+export const listSongsQueryKey = (options?: Options<ListSongsData>) => createQueryKey('listSongs', options);
+
+/**
+ * List Songs
+ */
+export const listSongsOptions = (options?: Options<ListSongsData>) => queryOptions<ListSongsResponse, DefaultError, ListSongsResponse, ReturnType<typeof listSongsQueryKey>>({
+    queryFn: async ({ queryKey, signal }) => {
+        const { data } = await listSongs({
+            ...options,
+            ...queryKey[0],
+            signal,
+            throwOnError: true
+        });
+        return data;
+    },
+    queryKey: listSongsQueryKey(options)
+});
+
+/**
+ * Rescan Songs
+ *
+ * Start a library scan. 409 while one is still running; progress arrives as
+ * `songs.scan_started` / `songs.scan_finished` websocket events.
+ */
+export const rescanSongsMutation = (options?: Partial<Options<RescanSongsData>>): UseMutationOptions<RescanSongsResponse, RescanSongsError, Options<RescanSongsData>> => {
+    const mutationOptions: UseMutationOptions<RescanSongsResponse, RescanSongsError, Options<RescanSongsData>> = {
+        mutationFn: async (fnOptions) => {
+            const { data } = await rescanSongs({
+                ...options,
+                ...fnOptions,
+                throwOnError: true
+            });
+            return data;
+        }
+    };
+    return mutationOptions;
+};
+
+export const getSongQueryKey = (options: Options<GetSongData>) => createQueryKey('getSong', options);
+
+/**
+ * Get Song
+ */
+export const getSongOptions = (options: Options<GetSongData>) => queryOptions<GetSongResponse, GetSongError, GetSongResponse, ReturnType<typeof getSongQueryKey>>({
+    queryFn: async ({ queryKey, signal }) => {
+        const { data } = await getSong({
+            ...options,
+            ...queryKey[0],
+            signal,
+            throwOnError: true
+        });
+        return data;
+    },
+    queryKey: getSongQueryKey(options)
+});
+
+export const getSongCoverQueryKey = (options: Options<GetSongCoverData>) => createQueryKey('getSongCover', options);
+
+/**
+ * Get Song Cover
+ */
+export const getSongCoverOptions = (options: Options<GetSongCoverData>) => queryOptions<unknown, GetSongCoverError, unknown, ReturnType<typeof getSongCoverQueryKey>>({
+    queryFn: async ({ queryKey, signal }) => {
+        const { data } = await getSongCover({
+            ...options,
+            ...queryKey[0],
+            signal,
+            throwOnError: true
+        });
+        return data;
+    },
+    queryKey: getSongCoverQueryKey(options)
+});
 
 export const healthQueryKey = (options?: Options<HealthData>) => createQueryKey('health', options);
 
