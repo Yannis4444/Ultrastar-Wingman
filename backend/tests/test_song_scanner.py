@@ -1,3 +1,4 @@
+import asyncio
 import json
 import wave
 from pathlib import Path
@@ -7,8 +8,14 @@ from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
 
 from ultrastar_wingman.settings import SettingsService
+from ultrastar_wingman.songs import scanner
 from ultrastar_wingman.songs.model import Song
-from ultrastar_wingman.songs.scanner import ScanBusyError, _scan_lock, scan_library
+from ultrastar_wingman.songs.scanner import (
+    NotASongDirectoryError,
+    ScanBusyError,
+    scan_library,
+    scan_song_directory,
+)
 
 
 def make_song_dir(
@@ -337,7 +344,7 @@ async def test_file_tags_match_case_insensitively(
 async def test_only_one_scan_runs_at_a_time(
     session_factory: async_sessionmaker[AsyncSession],
 ) -> None:
-    async with _scan_lock:
+    async with scanner._scan_lock:
         with pytest.raises(ScanBusyError):
             await scan_library(session_factory)
 
@@ -364,3 +371,29 @@ async def test_scan_announces_start_and_result(
             "total": 1,
         },
     ]
+
+
+async def test_single_directory_scan_refuses_a_directory_without_a_txt(
+    session: AsyncSession, tmp_path: Path
+) -> None:
+    empty = tmp_path / "not a song"
+    empty.mkdir()
+
+    with pytest.raises(NotASongDirectoryError):
+        await scan_song_directory(session, empty)
+
+
+async def test_single_directory_scan_waits_for_a_running_scan(
+    session: AsyncSession, tmp_path: Path
+) -> None:
+    """A full scan reconciles against the directories it saw before this song existed —
+    registering in between would have the scan delete the row right after."""
+    directory = make_song_dir(tmp_path / "songs", "song")
+
+    async with scanner._scan_lock:
+        registration = asyncio.create_task(scan_song_directory(session, directory))
+        # One event loop pass is enough for the task to reach the lock.
+        await asyncio.sleep(0)
+        assert not registration.done()
+
+    assert (await asyncio.wait_for(registration, timeout=10)).startswith("local:")
