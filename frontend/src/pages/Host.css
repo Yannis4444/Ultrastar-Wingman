@@ -1,0 +1,26 @@
+.host-page {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-around;
+  gap: 16px;
+  min-height: 100dvh;
+  /* No bottom nav here, so give back the space #root reserves for it. */
+  margin-bottom: calc(-50px - max(10px, env(safe-area-inset-bottom)));
+}
+
+.host-join {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 8px;
+  padding: 16px;
+  background-color: #fff;
+  border-radius: var(--border-radius);
+}
+
+.host-join p {
+  margin: 0;
+  color: var(--bg);
+  font-weight: bold;
+}

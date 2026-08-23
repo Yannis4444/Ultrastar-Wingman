@@ -1,0 +1,124 @@
+.player-selection {
+  flex: 1 1 auto;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin: 0 16px;
+}
+
+.player-selection-song {
+  margin: 0;
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+  color: var(--color-dark);
+}
+
+/* One tile per USDX color, in USDX's order — the slot number is the position. */
+.player-selection-slots {
+  flex: 0 1 auto;
+  overflow-y: auto;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.player-selection-slot {
+  display: flex;
+  align-items: center;
+  border: 1px solid transparent;
+  border-radius: var(--border-radius-small);
+}
+
+.player-selection-slot > button {
+  flex: 1 1 auto;
+  min-width: 0;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 4px;
+  font: inherit;
+  text-align: left;
+  color: var(--color);
+  background: none;
+  border: none;
+  cursor: pointer;
+}
+
+.player-selection-slot > button > span {
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+
+.player-selection-slot > button[aria-pressed="true"] {
+  outline: 2px dashed var(--highlight-blue-light);
+  outline-offset: -2px;
+}
+
+.player-selection-empty {
+  color: var(--color-darkerer);
+}
+
+.player-selection-clear {
+  flex: 0 0 auto;
+  padding: 0 12px;
+  font-size: 1.4em;
+  line-height: 1;
+  color: var(--color-dark);
+  background: none;
+  border: none;
+  cursor: pointer;
+}
+
+.player-selection-players {
+  flex: 1 1 auto;
+  overflow-y: auto;
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
+  gap: 8px;
+  align-content: start;
+}
+
+.player-selection-players > button {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-width: 0;
+  padding: 4px;
+  font: inherit;
+  text-align: left;
+  color: var(--color);
+  background-color: var(--highlight-blue-dark);
+  border: none;
+  border-radius: var(--border-radius-small);
+  cursor: pointer;
+}
+
+.player-selection-players > button > span {
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+
+.player-selection-players > button.selected {
+  color: var(--color-darker);
+  outline: 2px dashed var(--highlight-blue-light);
+  outline-offset: -2px;
+}
+
+.player-selection-add,
+.player-selection-actions {
+  flex: 0 0 auto;
+  display: flex;
+  gap: 8px;
+}
+
+.player-selection-add input {
+  flex: 1 1 auto;
+}
+
+.player-selection-actions > button {
+  flex: 1 1 0;
+}

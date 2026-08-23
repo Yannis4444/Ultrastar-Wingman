@@ -12,6 +12,7 @@ from . import APP_NAME, __version__
 from .api import router
 from .config import BootstrapSettings, get_bootstrap_settings
 from .db import run_migrations
+from .karaoke import service as karaoke
 from .songs import scanner
 
 API_PREFIX = "/api/v1"
@@ -32,8 +33,11 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
     try:
         yield
     finally:
-        # Before the engine goes: a scan outliving it would fail on a dead connection pool.
+        # Before the engine goes: a scan or a score import outliving it would fail on a
+        # dead connection pool. Ending the karaoke session kills a running song — the
+        # alternative is losing its scores, which is worse.
         await scanner.stop_scan()
+        await karaoke.shutdown()
         await engine.dispose()
 
 

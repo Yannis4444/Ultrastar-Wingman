@@ -1,0 +1,92 @@
+.currently-playing {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 8px;
+  margin: 16px;
+  padding: 16px;
+  background-color: var(--tile-bg);
+  border-radius: var(--border-radius);
+}
+
+.currently-playing-cover {
+  width: 192px;
+  height: 192px;
+  border-radius: var(--border-radius);
+  font-size: 4em;
+}
+
+.currently-playing-title,
+.currently-playing-artist,
+.currently-playing-elapsed {
+  max-width: 100%;
+  margin: 0;
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+  text-align: center;
+}
+
+.currently-playing-title {
+  font-size: 1.3em;
+}
+
+.currently-playing-artist {
+  color: var(--color-dark);
+}
+
+.currently-playing-elapsed {
+  color: var(--color-darker);
+  font-variant-numeric: tabular-nums;
+}
+
+.currently-playing-players {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 8px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.currently-playing-players > li {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  max-width: 100%;
+  padding: 4px 12px 4px 4px;
+  background-color: var(--input-bg);
+  /* The color is the slot's USDX color, fetched from the backend. */
+  border-bottom: 3px solid transparent;
+  border-radius: var(--border-radius-small);
+}
+
+.currently-playing-players span {
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+
+/* The host view is a TV across the room: same markup, bigger everything. */
+.host-page .currently-playing {
+  background: none;
+}
+
+.host-page .currently-playing-cover {
+  width: min(40vh, 90vw);
+  height: min(40vh, 90vw);
+}
+
+.host-page .currently-playing-title {
+  font-size: 2.5em;
+}
+
+.host-page .currently-playing-artist,
+.host-page .currently-playing-elapsed {
+  font-size: 1.5em;
+}
+
+.host-page .currently-playing-players {
+  font-size: 1.3em;
+}

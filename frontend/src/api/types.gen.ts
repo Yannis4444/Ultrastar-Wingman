@@ -5,6 +5,66 @@ export type ClientOptions = {
 };
 
 /**
+ * Body_set_player_avatar
+ */
+export type BodySetPlayerAvatar = {
+    /**
+     * File
+     */
+    file: Blob | File;
+};
+
+/**
+ * Color
+ */
+export type Color = {
+    /**
+     * Name
+     */
+    name: string;
+    /**
+     * Hex
+     */
+    hex: string;
+};
+
+/**
+ * ColorList
+ */
+export type ColorList = {
+    /**
+     * Colors
+     */
+    colors: Array<Color>;
+};
+
+/**
+ * CurrentSing
+ */
+export type CurrentSing = {
+    /**
+     * Sing Id
+     */
+    sing_id: string;
+    song: SongRead;
+    /**
+     * Started At
+     */
+    started_at: string;
+    /**
+     * Slots
+     */
+    slots: Array<SlotRead>;
+};
+
+/**
+ * CurrentSingRead
+ */
+export type CurrentSingRead = {
+    sing: CurrentSing | null;
+};
+
+/**
  * HTTPValidationError
  */
 export type HttpValidationError = {
@@ -26,6 +86,48 @@ export type Health = {
      * Version
      */
     version: string;
+};
+
+/**
+ * PlayerCreate
+ */
+export type PlayerCreate = {
+    /**
+     * Name
+     */
+    name: string;
+};
+
+/**
+ * PlayerList
+ */
+export type PlayerList = {
+    /**
+     * Players
+     */
+    players: Array<PlayerRead>;
+};
+
+/**
+ * PlayerRead
+ */
+export type PlayerRead = {
+    /**
+     * Id
+     */
+    id: string;
+    /**
+     * Name
+     */
+    name: string;
+    /**
+     * Registered
+     */
+    registered: boolean;
+    /**
+     * Has Avatar
+     */
+    has_avatar: boolean;
 };
 
 /**
@@ -80,6 +182,51 @@ export type SettingUpdate = {
      * Value
      */
     value: string | number | boolean | number;
+};
+
+/**
+ * SingCreate
+ */
+export type SingCreate = {
+    /**
+     * Song Id
+     */
+    song_id: string;
+    /**
+     * Slots
+     */
+    slots: Array<SlotCreate>;
+    /**
+     * Force
+     */
+    force?: boolean;
+};
+
+/**
+ * SlotCreate
+ */
+export type SlotCreate = {
+    /**
+     * Color
+     */
+    color: string;
+    /**
+     * Player Id
+     */
+    player_id?: string | null;
+};
+
+/**
+ * SlotRead
+ *
+ * A singing position of the running song: its color and who is on it.
+ */
+export type SlotRead = {
+    /**
+     * Color
+     */
+    color: string;
+    player: PlayerRead | null;
 };
 
 /**
@@ -268,6 +415,232 @@ export type GetSongCoverResponses = {
      */
     200: unknown;
 };
+
+export type ListPlayersData = {
+    body?: never;
+    path?: never;
+    query?: never;
+    url: '/api/v1/players';
+};
+
+export type ListPlayersResponses = {
+    /**
+     * Successful Response
+     */
+    200: PlayerList;
+};
+
+export type ListPlayersResponse = ListPlayersResponses[keyof ListPlayersResponses];
+
+export type CreatePlayerData = {
+    body: PlayerCreate;
+    path?: never;
+    query?: never;
+    url: '/api/v1/players';
+};
+
+export type CreatePlayerErrors = {
+    /**
+     * A player with that name already exists.
+     */
+    409: unknown;
+    /**
+     * Validation Error
+     */
+    422: HttpValidationError;
+};
+
+export type CreatePlayerError = CreatePlayerErrors[keyof CreatePlayerErrors];
+
+export type CreatePlayerResponses = {
+    /**
+     * Successful Response
+     */
+    201: PlayerRead;
+};
+
+export type CreatePlayerResponse = CreatePlayerResponses[keyof CreatePlayerResponses];
+
+export type DeletePlayerData = {
+    body?: never;
+    path: {
+        /**
+         * Player Id
+         */
+        player_id: string;
+    };
+    query?: never;
+    url: '/api/v1/players/{player_id}';
+};
+
+export type DeletePlayerErrors = {
+    /**
+     * Validation Error
+     */
+    422: HttpValidationError;
+};
+
+export type DeletePlayerError = DeletePlayerErrors[keyof DeletePlayerErrors];
+
+export type DeletePlayerResponses = {
+    /**
+     * Successful Response
+     */
+    204: void;
+};
+
+export type DeletePlayerResponse = DeletePlayerResponses[keyof DeletePlayerResponses];
+
+export type GetPlayerAvatarData = {
+    body?: never;
+    path: {
+        /**
+         * Player Id
+         */
+        player_id: string;
+    };
+    query?: never;
+    url: '/api/v1/players/{player_id}/avatar';
+};
+
+export type GetPlayerAvatarErrors = {
+    /**
+     * Validation Error
+     */
+    422: HttpValidationError;
+};
+
+export type GetPlayerAvatarError = GetPlayerAvatarErrors[keyof GetPlayerAvatarErrors];
+
+export type GetPlayerAvatarResponses = {
+    /**
+     * The avatar image file.
+     */
+    200: unknown;
+};
+
+export type SetPlayerAvatarData = {
+    body: BodySetPlayerAvatar;
+    path: {
+        /**
+         * Player Id
+         */
+        player_id: string;
+    };
+    query?: never;
+    url: '/api/v1/players/{player_id}/avatar';
+};
+
+export type SetPlayerAvatarErrors = {
+    /**
+     * The image is larger than 5 MB.
+     */
+    413: unknown;
+    /**
+     * Not a jpeg, png or webp image.
+     */
+    415: unknown;
+    /**
+     * Validation Error
+     */
+    422: HttpValidationError;
+};
+
+export type SetPlayerAvatarError = SetPlayerAvatarErrors[keyof SetPlayerAvatarErrors];
+
+export type SetPlayerAvatarResponses = {
+    /**
+     * Successful Response
+     */
+    200: PlayerRead;
+};
+
+export type SetPlayerAvatarResponse = SetPlayerAvatarResponses[keyof SetPlayerAvatarResponses];
+
+export type ListKaraokeColorsData = {
+    body?: never;
+    path?: never;
+    query?: never;
+    url: '/api/v1/karaoke/colors';
+};
+
+export type ListKaraokeColorsResponses = {
+    /**
+     * Successful Response
+     */
+    200: ColorList;
+};
+
+export type ListKaraokeColorsResponse = ListKaraokeColorsResponses[keyof ListKaraokeColorsResponses];
+
+export type SingSongData = {
+    body: SingCreate;
+    path?: never;
+    query?: never;
+    url: '/api/v1/karaoke/sing';
+};
+
+export type SingSongErrors = {
+    /**
+     * USDX is not configured (or configured wrongly).
+     */
+    400: unknown;
+    /**
+     * Unknown song or player.
+     */
+    404: unknown;
+    /**
+     * A song is already playing and `force` was not set.
+     */
+    409: unknown;
+    /**
+     * Validation Error
+     */
+    422: HttpValidationError;
+};
+
+export type SingSongError = SingSongErrors[keyof SingSongErrors];
+
+export type SingSongResponses = {
+    /**
+     * Successful Response
+     */
+    202: CurrentSing;
+};
+
+export type SingSongResponse = SingSongResponses[keyof SingSongResponses];
+
+export type GetCurrentSingData = {
+    body?: never;
+    path?: never;
+    query?: never;
+    url: '/api/v1/karaoke/current';
+};
+
+export type GetCurrentSingResponses = {
+    /**
+     * Successful Response
+     */
+    200: CurrentSingRead;
+};
+
+export type GetCurrentSingResponse = GetCurrentSingResponses[keyof GetCurrentSingResponses];
+
+export type StopSingingData = {
+    body?: never;
+    path?: never;
+    query?: never;
+    url: '/api/v1/karaoke/stop';
+};
+
+export type StopSingingResponses = {
+    /**
+     * Successful Response
+     */
+    204: void;
+};
+
+export type StopSingingResponse = StopSingingResponses[keyof StopSingingResponses];
 
 export type HealthData = {
     body?: never;

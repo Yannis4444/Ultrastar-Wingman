@@ -13,49 +13,15 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from ..db import SessionDep
 from . import scanner
 from .model import Song
+from .schema import SongList, SongRead, read_song
 
 logger = logging.getLogger(__name__)
 
 router = APIRouter(tags=["songs"])
 
 
-class SongRead(BaseModel):
-    id: str
-    source: str
-    title: str
-    artist: str
-    duration_seconds: int | None
-    has_video: bool
-    language: str | None
-    genre: str | None
-    year: int | None
-    edition: str | None
-    creator: str | None
-
-
-class SongList(BaseModel):
-    songs: list[SongRead]
-
-
 class ScanStatus(BaseModel):
     status: Literal["started", "running"]
-
-
-def _read(song: Song) -> SongRead:
-    return SongRead(
-        id=song.id,
-        source=song.source,
-        title=song.title,
-        artist=song.artist,
-        duration_seconds=song.duration_seconds,
-        # File paths stay server-side; the UI only needs to know a video exists.
-        has_video=song.video_file is not None,
-        language=song.language,
-        genre=song.genre,
-        year=song.year,
-        edition=song.edition,
-        creator=song.creator,
-    )
 
 
 @router.get("/songs", response_model=SongList)
@@ -65,7 +31,7 @@ async def list_songs(session: SessionDep) -> SongList:
     songs = await session.scalars(
         select(Song).order_by(func.lower(Song.artist), func.lower(Song.title), Song.id)
     )
-    return SongList(songs=[_read(song) for song in songs])
+    return SongList(songs=[read_song(song) for song in songs])
 
 
 @router.post(
@@ -85,7 +51,7 @@ async def rescan_songs(request: Request, response: Response) -> ScanStatus:
 
 @router.get("/songs/{song_id}", response_model=SongRead)
 async def get_song(song_id: str, session: SessionDep) -> SongRead:
-    return _read(await _song(song_id, session))
+    return read_song(await _song(song_id, session))
 
 
 @router.get(

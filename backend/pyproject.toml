@@ -17,6 +17,8 @@ dependencies = [
     "alembic",
     "pydantic",
     "pydantic-settings",
+    # FastAPI needs it to parse multipart form data (avatar uploads).
+    "python-multipart",
     "platformdirs",
     "httpx",
     "websockets",

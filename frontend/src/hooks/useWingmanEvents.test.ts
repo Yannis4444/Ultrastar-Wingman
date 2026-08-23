@@ -1,25 +1,10 @@
 import { renderHook } from "@testing-library/react";
+import { FakeSocket } from "../test/fakeSocket";
 import { useWingmanEvent, type WingmanEvent } from "./useWingmanEvents";
 
 interface SettingChanged extends WingmanEvent {
   key: string;
   value: string;
-}
-
-/** Stands in for the browser socket: the suite must never open a connection. */
-class FakeSocket {
-  static last: FakeSocket | undefined;
-  onopen: (() => void) | null = null;
-  onmessage: ((event: MessageEvent<string>) => void) | null = null;
-  onerror: (() => void) | null = null;
-  onclose: (() => void) | null = null;
-  close = vi.fn();
-  url: string;
-
-  constructor(url: string) {
-    this.url = url;
-    FakeSocket.last = this;
-  }
 }
 
 beforeEach(() => {

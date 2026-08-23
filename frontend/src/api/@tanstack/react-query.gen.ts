@@ -3,8 +3,8 @@
 import { type DefaultError, queryOptions, type UseMutationOptions } from '@tanstack/react-query';
 
 import { client } from '../client.gen';
-import { getSong, getSongCover, health, listSettings, listSongs, type Options, rescanSongs, updateSetting } from '../sdk.gen';
-import type { GetSongCoverData, GetSongCoverError, GetSongData, GetSongError, GetSongResponse, HealthData, HealthResponse, ListSettingsData, ListSettingsResponse, ListSongsData, ListSongsResponse, RescanSongsData, RescanSongsError, RescanSongsResponse, UpdateSettingData, UpdateSettingError, UpdateSettingResponse } from '../types.gen';
+import { createPlayer, deletePlayer, getCurrentSing, getPlayerAvatar, getSong, getSongCover, health, listKaraokeColors, listPlayers, listSettings, listSongs, type Options, rescanSongs, setPlayerAvatar, singSong, stopSinging, updateSetting } from '../sdk.gen';
+import type { CreatePlayerData, CreatePlayerError, CreatePlayerResponse, DeletePlayerData, DeletePlayerError, DeletePlayerResponse, GetCurrentSingData, GetCurrentSingResponse, GetPlayerAvatarData, GetPlayerAvatarError, GetSongCoverData, GetSongCoverError, GetSongData, GetSongError, GetSongResponse, HealthData, HealthResponse, ListKaraokeColorsData, ListKaraokeColorsResponse, ListPlayersData, ListPlayersResponse, ListSettingsData, ListSettingsResponse, ListSongsData, ListSongsResponse, RescanSongsData, RescanSongsError, RescanSongsResponse, SetPlayerAvatarData, SetPlayerAvatarError, SetPlayerAvatarResponse, SingSongData, SingSongError, SingSongResponse, StopSingingData, StopSingingResponse, UpdateSettingData, UpdateSettingError, UpdateSettingResponse } from '../types.gen';
 
 export type QueryKey<TOptions extends Options> = [
     Pick<TOptions, 'baseUrl' | 'body' | 'headers' | 'path' | 'query'> & {
@@ -112,6 +112,173 @@ export const getSongCoverOptions = (options: Options<GetSongCoverData>) => query
     },
     queryKey: getSongCoverQueryKey(options)
 });
+
+export const listPlayersQueryKey = (options?: Options<ListPlayersData>) => createQueryKey('listPlayers', options);
+
+/**
+ * List Players
+ */
+export const listPlayersOptions = (options?: Options<ListPlayersData>) => queryOptions<ListPlayersResponse, DefaultError, ListPlayersResponse, ReturnType<typeof listPlayersQueryKey>>({
+    queryFn: async ({ queryKey, signal }) => {
+        const { data } = await listPlayers({
+            ...options,
+            ...queryKey[0],
+            signal,
+            throwOnError: true
+        });
+        return data;
+    },
+    queryKey: listPlayersQueryKey(options)
+});
+
+/**
+ * Create Player
+ */
+export const createPlayerMutation = (options?: Partial<Options<CreatePlayerData>>): UseMutationOptions<CreatePlayerResponse, CreatePlayerError, Options<CreatePlayerData>> => {
+    const mutationOptions: UseMutationOptions<CreatePlayerResponse, CreatePlayerError, Options<CreatePlayerData>> = {
+        mutationFn: async (fnOptions) => {
+            const { data } = await createPlayer({
+                ...options,
+                ...fnOptions,
+                throwOnError: true
+            });
+            return data;
+        }
+    };
+    return mutationOptions;
+};
+
+/**
+ * Delete Player
+ */
+export const deletePlayerMutation = (options?: Partial<Options<DeletePlayerData>>): UseMutationOptions<DeletePlayerResponse, DeletePlayerError, Options<DeletePlayerData>> => {
+    const mutationOptions: UseMutationOptions<DeletePlayerResponse, DeletePlayerError, Options<DeletePlayerData>> = {
+        mutationFn: async (fnOptions) => {
+            const { data } = await deletePlayer({
+                ...options,
+                ...fnOptions,
+                throwOnError: true
+            });
+            return data;
+        }
+    };
+    return mutationOptions;
+};
+
+export const getPlayerAvatarQueryKey = (options: Options<GetPlayerAvatarData>) => createQueryKey('getPlayerAvatar', options);
+
+/**
+ * Get Player Avatar
+ */
+export const getPlayerAvatarOptions = (options: Options<GetPlayerAvatarData>) => queryOptions<unknown, GetPlayerAvatarError, unknown, ReturnType<typeof getPlayerAvatarQueryKey>>({
+    queryFn: async ({ queryKey, signal }) => {
+        const { data } = await getPlayerAvatar({
+            ...options,
+            ...queryKey[0],
+            signal,
+            throwOnError: true
+        });
+        return data;
+    },
+    queryKey: getPlayerAvatarQueryKey(options)
+});
+
+/**
+ * Set Player Avatar
+ *
+ * Upload or replace a player's avatar (multipart form field `file`).
+ */
+export const setPlayerAvatarMutation = (options?: Partial<Options<SetPlayerAvatarData>>): UseMutationOptions<SetPlayerAvatarResponse, SetPlayerAvatarError, Options<SetPlayerAvatarData>> => {
+    const mutationOptions: UseMutationOptions<SetPlayerAvatarResponse, SetPlayerAvatarError, Options<SetPlayerAvatarData>> = {
+        mutationFn: async (fnOptions) => {
+            const { data } = await setPlayerAvatar({
+                ...options,
+                ...fnOptions,
+                throwOnError: true
+            });
+            return data;
+        }
+    };
+    return mutationOptions;
+};
+
+export const listKaraokeColorsQueryKey = (options?: Options<ListKaraokeColorsData>) => createQueryKey('listKaraokeColors', options);
+
+/**
+ * List Karaoke Colors
+ *
+ * The player colors USDX knows, in its own order. The single source of truth —
+ * clients must not hardcode them.
+ */
+export const listKaraokeColorsOptions = (options?: Options<ListKaraokeColorsData>) => queryOptions<ListKaraokeColorsResponse, DefaultError, ListKaraokeColorsResponse, ReturnType<typeof listKaraokeColorsQueryKey>>({
+    queryFn: async ({ queryKey, signal }) => {
+        const { data } = await listKaraokeColors({
+            ...options,
+            ...queryKey[0],
+            signal,
+            throwOnError: true
+        });
+        return data;
+    },
+    queryKey: listKaraokeColorsQueryKey(options)
+});
+
+/**
+ * Sing Song
+ *
+ * Start a song. Returns as soon as USDX was launched; the song's end arrives as the
+ * `karaoke.ended` / `scores.recorded` websocket events.
+ */
+export const singSongMutation = (options?: Partial<Options<SingSongData>>): UseMutationOptions<SingSongResponse, SingSongError, Options<SingSongData>> => {
+    const mutationOptions: UseMutationOptions<SingSongResponse, SingSongError, Options<SingSongData>> = {
+        mutationFn: async (fnOptions) => {
+            const { data } = await singSong({
+                ...options,
+                ...fnOptions,
+                throwOnError: true
+            });
+            return data;
+        }
+    };
+    return mutationOptions;
+};
+
+export const getCurrentSingQueryKey = (options?: Options<GetCurrentSingData>) => createQueryKey('getCurrentSing', options);
+
+/**
+ * Get Current Sing
+ */
+export const getCurrentSingOptions = (options?: Options<GetCurrentSingData>) => queryOptions<GetCurrentSingResponse, DefaultError, GetCurrentSingResponse, ReturnType<typeof getCurrentSingQueryKey>>({
+    queryFn: async ({ queryKey, signal }) => {
+        const { data } = await getCurrentSing({
+            ...options,
+            ...queryKey[0],
+            signal,
+            throwOnError: true
+        });
+        return data;
+    },
+    queryKey: getCurrentSingQueryKey(options)
+});
+
+/**
+ * Stop Singing
+ *
+ * Kill the running song. Idempotent: 204 even when nothing is playing.
+ */
+export const stopSingingMutation = (options?: Partial<Options<StopSingingData>>): UseMutationOptions<StopSingingResponse, DefaultError, Options<StopSingingData>> => {
+    const mutationOptions: UseMutationOptions<StopSingingResponse, DefaultError, Options<StopSingingData>> = {
+        mutationFn: async (fnOptions) => {
+            const { data } = await stopSinging({
+                ...options,
+                ...fnOptions,
+                throwOnError: true
+            });
+            return data;
+        }
+    };
+    return mutationOptions;
+};
 
 export const healthQueryKey = (options?: Options<HealthData>) => createQueryKey('health', options);
 

@@ -1,0 +1,17 @@
+.song-cover {
+  flex: 0 0 auto;
+  width: 48px;
+  height: 48px;
+  object-fit: cover;
+  border-radius: var(--border-radius-small);
+}
+
+.song-cover-fallback {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 1.3em;
+  font-weight: bold;
+  color: var(--color-darker);
+  background-color: var(--input-bg);
+}

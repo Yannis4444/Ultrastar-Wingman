@@ -84,7 +84,7 @@ download.
 
 ## Phases
 
-### Phase 0 — Foundation ⬜
+### Phase 0 — Foundation ✅
 
 Repo skeleton: `backend/` (Python package, pyproject with ruff/mypy/pytest
 config), `frontend/` (Vite + React + TS + ESLint/Prettier, generated API
@@ -98,7 +98,7 @@ type check, and tests.
 *Done when:* server starts with an empty library, frontend shell (dark theme
 tokens carried over from the old design) loads, CI green.
 
-### Phase 1 — Song library & song list ⬜
+### Phase 1 — Song library & song list ✅
 
 Song domain model with the new ID scheme, txt metadata parsing
 (fixture-tested against real files, including encoding detection), async
@@ -108,7 +108,7 @@ Song list UI: search, song details, covers.
 *Done when:* an existing USDX library shows correctly in the UI, unique IDs
 for every song, rescan works without restart.
 
-### Phase 2 — USDX integration: play a song ⬜
+### Phase 2 — USDX integration: play a song 🟨
 
 `KaraokeLauncher` interface + USDX adapter (launch, config rewriting, copy
 workaround, process monitor, kill). Player model (registered later; temporary
