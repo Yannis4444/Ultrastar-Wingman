@@ -12,8 +12,10 @@ from . import APP_NAME, __version__
 from .api import router
 from .config import BootstrapSettings, get_bootstrap_settings
 from .db import run_migrations
+from .downloads import service as downloads
 from .karaoke import service as karaoke
 from .songs import scanner
+from .sources import usdb
 
 API_PREFIX = "/api/v1"
 
@@ -30,9 +32,15 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
     app.state.session_factory = async_sessionmaker(engine, expire_on_commit=False)
     # Pick up library changes made while Wingman was down, without delaying startup.
     scanner.start_scan(app.state.session_factory)
+    # Before the queue: a re-queued USDB download starts running the moment it is enqueued.
+    usdb.configure(app.state.session_factory, settings.data_dir)
+    # Picks up downloads the last run left pending, and fails the one it interrupted.
+    await downloads.start(app.state.session_factory)
     try:
         yield
     finally:
+        await downloads.stop()
+        await usdb.aclose()
         # Before the engine goes: a scan or a score import outliving it would fail on a
         # dead connection pool. Ending the karaoke session kills a running song — the
         # alternative is losing its scores, which is worse.

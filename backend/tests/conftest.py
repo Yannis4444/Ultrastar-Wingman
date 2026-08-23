@@ -1,3 +1,4 @@
+import asyncio
 from collections.abc import AsyncIterator
 from pathlib import Path
 from typing import cast
@@ -11,6 +12,7 @@ from ultrastar_wingman.app import create_app
 from ultrastar_wingman.config import BootstrapSettings
 from ultrastar_wingman.db import run_migrations
 from ultrastar_wingman.events import event_bus
+from ultrastar_wingman.songs import scanner
 
 FIXTURES = Path(__file__).parent / "fixtures"
 
@@ -69,3 +71,11 @@ async def client(bootstrap_settings: BootstrapSettings) -> AsyncIterator[AsyncCl
         transport = ASGITransport(app=app)
         async with AsyncClient(transport=transport, base_url="http://wingman.test") as client:
             yield client
+
+
+@pytest.fixture(autouse=True)
+def fresh_scan_lock() -> None:
+    """An asyncio lock binds to the first event loop that has to *wait* for it, and
+    pytest-asyncio gives every test its own loop — one shared lock would poison every
+    later test that contends for it."""
+    scanner._scan_lock = asyncio.Lock()

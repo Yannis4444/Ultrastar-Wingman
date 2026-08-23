@@ -8,6 +8,7 @@ from pydantic import BaseModel
 
 from . import APP_NAME, __version__
 from .db import SessionDep
+from .downloads.api import router as downloads_router
 from .events import ServerReady, SettingChanged, event_bus
 from .karaoke.api import router as karaoke_router
 from .players.api import router as players_router
@@ -19,6 +20,7 @@ from .settings import (
     UnknownSettingError,
 )
 from .songs.api import router as songs_router
+from .sources.api import router as sources_router
 
 logger = logging.getLogger(__name__)
 
@@ -26,6 +28,8 @@ router = APIRouter()
 router.include_router(songs_router)
 router.include_router(players_router)
 router.include_router(karaoke_router)
+router.include_router(downloads_router)
+router.include_router(sources_router)
 
 
 class Health(BaseModel):

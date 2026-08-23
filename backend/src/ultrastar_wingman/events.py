@@ -6,6 +6,7 @@ from typing import Literal
 from fastapi import WebSocket
 from pydantic import BaseModel
 
+from .downloads.schema import DownloadRead
 from .karaoke.schema import CurrentSing, ScoreRead
 
 logger = logging.getLogger(__name__)
@@ -38,6 +39,13 @@ class SongsScanFinished(Event):
     removed: int
     updated: int
     total: int
+
+
+class DownloadUpdated(Event):
+    """Every state change of a download, plus throttled progress while it runs."""
+
+    event: Literal["download.updated"] = "download.updated"
+    download: DownloadRead
 
 
 class KaraokeStarted(Event):
