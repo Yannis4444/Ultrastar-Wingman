@@ -149,6 +149,45 @@ register(
         secret=True,
     )
 )
+register(
+    SettingDefinition(
+        key="usdb.base_url",
+        value_type=str,
+        default="https://usdb.animux.de",
+        group="USDB",
+        description="Base URL of the USDB instance. Every USDB request is built from it.",
+    )
+)
+register(
+    SettingDefinition(
+        key="downloads.parallel",
+        value_type=int,
+        default=2,
+        group="Downloads",
+        description="How many songs are downloaded at the same time. Applied on restart.",
+    )
+)
+register(
+    SettingDefinition(
+        key="downloads.ffmpeg",
+        value_type=str,
+        default="ffmpeg",
+        group="Downloads",
+        description="ffmpeg executable, used to extract the audio track from the video.",
+    )
+)
+register(
+    SettingDefinition(
+        key="downloads.ytdlp_path",
+        value_type=str,
+        default="",
+        group="Downloads",
+        description=(
+            "yt-dlp executable. Empty means Wingman downloads and updates its own copy "
+            "in the data directory."
+        ),
+    )
+)
 
 
 class SettingsService:

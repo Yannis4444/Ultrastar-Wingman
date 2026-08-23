@@ -24,6 +24,8 @@ dependencies = [
     "websockets",
     "charset-normalizer",
     "mutagen",
+    # Parses USDB's HTML search results; their table markup is not machine-readable data.
+    "beautifulsoup4",
 ]
 
 [project.optional-dependencies]

@@ -1,5 +1,6 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useMemo, useState } from "react";
+import { Link } from "react-router-dom";
 import type { SongRead } from "../api";
 import {
   listSongsOptions,
@@ -8,6 +9,7 @@ import {
 } from "../api/@tanstack/react-query.gen";
 import SongDetails from "../components/SongDetails";
 import SongListItem from "../components/SongListItem";
+import { useDownloadEvents } from "../hooks/useDownloadEvents";
 import { useWingmanEvent } from "../hooks/useWingmanEvents";
 import "./Songs.css";
 
@@ -40,6 +42,9 @@ export default function Songs() {
           : "Could not start the scan.",
       ),
   });
+
+  // A finished download refetches the list — no rescan needed for a new song.
+  useDownloadEvents();
 
   useWingmanEvent("songs.scan_started", () => {
     setScanning(true);
@@ -76,6 +81,9 @@ export default function Songs() {
         >
           {scanning ? "Scanning…" : "Rescan"}
         </button>
+        <Link to="/usdb" className="songs-rescan songs-explore">
+          Explore USDB
+        </Link>
       </div>
 
       {notice && <p className="songs-notice songs-notice-error">{notice}</p>}

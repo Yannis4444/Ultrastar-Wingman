@@ -65,6 +65,88 @@ export type CurrentSingRead = {
 };
 
 /**
+ * DownloadCreate
+ */
+export type DownloadCreate = {
+    /**
+     * Source
+     */
+    source: string;
+    /**
+     * Source Song Id
+     */
+    source_song_id: string;
+    /**
+     * Force
+     */
+    force?: boolean;
+};
+
+/**
+ * DownloadList
+ */
+export type DownloadList = {
+    /**
+     * Downloads
+     */
+    downloads: Array<DownloadRead>;
+};
+
+/**
+ * DownloadRead
+ */
+export type DownloadRead = {
+    /**
+     * Id
+     */
+    id: number;
+    /**
+     * Source
+     */
+    source: string;
+    /**
+     * Source Song Id
+     */
+    source_song_id: string;
+    /**
+     * Title
+     */
+    title: string | null;
+    /**
+     * Artist
+     */
+    artist: string | null;
+    /**
+     * Status
+     */
+    status: string;
+    /**
+     * Progress
+     */
+    progress: number | null;
+    /**
+     * Step
+     */
+    step: string | null;
+    /**
+     * Error
+     */
+    error: string | null;
+    /**
+     * Song Id
+     */
+    song_id: string | null;
+    /**
+     * Created At
+     */
+    created_at: string;
+    /**
+     * Updated At
+     */
+    updated_at: string;
+};
+
+/**
  * HTTPValidationError
  */
 export type HttpValidationError = {
@@ -287,6 +369,81 @@ export type SongRead = {
      * Creator
      */
     creator: string | null;
+};
+
+/**
+ * UsdbSearchResult
+ */
+export type UsdbSearchResult = {
+    /**
+     * Results
+     */
+    results: Array<UsdbSong>;
+    /**
+     * Page
+     */
+    page: number;
+    /**
+     * Pages
+     */
+    pages?: number | null;
+};
+
+/**
+ * UsdbSong
+ *
+ * One row of the USDB result table. Everything but artist and title may be missing —
+ * that table is rendered for humans, not for us.
+ */
+export type UsdbSong = {
+    /**
+     * Usdb Id
+     */
+    usdb_id: number;
+    /**
+     * Artist
+     */
+    artist: string;
+    /**
+     * Title
+     */
+    title: string;
+    /**
+     * Edition
+     */
+    edition?: string | null;
+    /**
+     * Language
+     */
+    language?: string | null;
+    /**
+     * Golden
+     */
+    golden?: boolean;
+    /**
+     * Rating
+     */
+    rating?: number | null;
+    /**
+     * Downloaded
+     */
+    downloaded?: boolean;
+};
+
+/**
+ * UsdbStatus
+ *
+ * Whether Wingman has a usable USDB session. `error` is a machine-readable code.
+ */
+export type UsdbStatus = {
+    /**
+     * Logged In
+     */
+    logged_in: boolean;
+    /**
+     * Error
+     */
+    error?: string | null;
 };
 
 /**
@@ -641,6 +798,139 @@ export type StopSingingResponses = {
 };
 
 export type StopSingingResponse = StopSingingResponses[keyof StopSingingResponses];
+
+export type ListDownloadsData = {
+    body?: never;
+    path?: never;
+    query?: never;
+    url: '/api/v1/downloads';
+};
+
+export type ListDownloadsResponses = {
+    /**
+     * Successful Response
+     */
+    200: DownloadList;
+};
+
+export type ListDownloadsResponse = ListDownloadsResponses[keyof ListDownloadsResponses];
+
+export type CreateDownloadData = {
+    body: DownloadCreate;
+    path?: never;
+    query?: never;
+    url: '/api/v1/downloads';
+};
+
+export type CreateDownloadErrors = {
+    /**
+     * Unknown song source.
+     */
+    404: unknown;
+    /**
+     * Already queued, or already in the library.
+     */
+    409: unknown;
+    /**
+     * Validation Error
+     */
+    422: HttpValidationError;
+};
+
+export type CreateDownloadError = CreateDownloadErrors[keyof CreateDownloadErrors];
+
+export type CreateDownloadResponses = {
+    /**
+     * Successful Response
+     */
+    202: DownloadRead;
+};
+
+export type CreateDownloadResponse = CreateDownloadResponses[keyof CreateDownloadResponses];
+
+export type UsdbStatusData = {
+    body?: never;
+    path?: never;
+    query?: {
+        /**
+         * Refresh
+         */
+        refresh?: boolean;
+    };
+    url: '/api/v1/sources/usdb/status';
+};
+
+export type UsdbStatusErrors = {
+    /**
+     * Validation Error
+     */
+    422: HttpValidationError;
+};
+
+export type UsdbStatusError = UsdbStatusErrors[keyof UsdbStatusErrors];
+
+export type UsdbStatusResponses = {
+    /**
+     * Successful Response
+     */
+    200: UsdbStatus;
+};
+
+export type UsdbStatusResponse = UsdbStatusResponses[keyof UsdbStatusResponses];
+
+export type UsdbSearchData = {
+    body?: never;
+    path?: never;
+    query?: {
+        /**
+         * Artist
+         */
+        artist?: string | null;
+        /**
+         * Title
+         */
+        title?: string | null;
+        /**
+         * Order
+         */
+        order?: 'id' | 'artist' | 'title' | 'edition' | 'rating' | 'language' | 'views' | 'golden' | null;
+        /**
+         * Ud
+         */
+        ud?: 'asc' | 'desc' | null;
+        /**
+         * Page
+         */
+        page?: number;
+        /**
+         * Limit
+         */
+        limit?: number;
+    };
+    url: '/api/v1/sources/usdb/search';
+};
+
+export type UsdbSearchErrors = {
+    /**
+     * Validation Error
+     */
+    422: HttpValidationError;
+    /**
+     * USDB is unreachable or rejected the login.
+     */
+    502: unknown;
+};
+
+export type UsdbSearchError = UsdbSearchErrors[keyof UsdbSearchErrors];
+
+export type UsdbSearchResponses = {
+    /**
+     * Successful Response
+     */
+    200: UsdbSearchResult;
+};
+
+export type UsdbSearchResponse = UsdbSearchResponses[keyof UsdbSearchResponses];
 
 export type HealthData = {
     body?: never;

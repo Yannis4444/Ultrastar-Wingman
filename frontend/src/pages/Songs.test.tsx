@@ -1,5 +1,6 @@
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { fireEvent, render, screen, waitFor } from "@testing-library/react";
+import { MemoryRouter } from "react-router-dom";
 import type { SongRead } from "../api";
 import { FakeSocket } from "../test/fakeSocket";
 import Songs from "./Songs";
@@ -45,7 +46,10 @@ function renderSongs(songs: SongRead[] | Error) {
   });
   return render(
     <QueryClientProvider client={client}>
-      <Songs />
+      {/* The "Explore USDB" link needs a router context. */}
+      <MemoryRouter>
+        <Songs />
+      </MemoryRouter>
     </QueryClientProvider>,
   );
 }
@@ -180,6 +184,35 @@ test("rescan reports a scan that is already running, then disables itself", asyn
   await waitFor(() =>
     expect(screen.getByRole("button", { name: "Scanning…" })).toBeDisabled(),
   );
+});
+
+test("a finished download refetches the song list", async () => {
+  renderSongs([song()]);
+  await screen.findByText("Dancing Queen");
+  expect(listSongs).toHaveBeenCalledTimes(1);
+
+  listSongs.mockResolvedValue({
+    data: { songs: [song(), song({ id: "usdb:2", title: "Waterloo" })] },
+  });
+  // Still running: the song is not in the library yet, so nothing is refetched.
+  FakeSocket.deliver({
+    event: "download.updated",
+    download: { id: 1, source: "usdb", source_song_id: "2", status: "running" },
+  });
+  expect(listSongs).toHaveBeenCalledTimes(1);
+
+  FakeSocket.deliver({
+    event: "download.updated",
+    download: {
+      id: 1,
+      source: "usdb",
+      source_song_id: "2",
+      status: "finished",
+      song_id: "usdb:2",
+    },
+  });
+
+  expect(await screen.findByText("Waterloo")).toBeInTheDocument();
 });
 
 test("a finished scan refetches the song list", async () => {

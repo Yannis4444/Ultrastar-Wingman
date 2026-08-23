@@ -1,0 +1,66 @@
+.usdb-notice,
+.usdb-logged-in {
+  margin: 0 16px 8px 16px;
+}
+
+.usdb-muted {
+  color: var(--color-darker);
+}
+
+.usdb-logged-in {
+  font-size: 0.85em;
+  color: var(--color-darker);
+}
+
+.usdb-login {
+  margin: 16px;
+  padding: 12px;
+  background-color: var(--tile-bg);
+  border-radius: var(--border-radius);
+}
+
+.usdb-login-message {
+  margin: 0 0 12px 0;
+}
+
+.usdb-login form {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.usdb-login input {
+  flex: 1 1 12em;
+}
+
+.usdb-login .usdb-notice {
+  margin: 12px 0 0 0;
+}
+
+.usdb-search {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin: 16px;
+}
+
+.usdb-search input {
+  flex: 1 1 8em;
+}
+
+.usdb-results {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin: 0 16px;
+}
+
+.usdb-pager {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 12px;
+  margin: 16px;
+  font-size: 0.85em;
+  color: var(--color-darker);
+}

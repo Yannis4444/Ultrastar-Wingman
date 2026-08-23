@@ -21,7 +21,7 @@ from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
 from ..events import SongsScanFinished, SongsScanStarted, event_bus
 from ..settings import SettingsService
 from .fingerprint import fingerprint
-from .model import USDB_SOURCE, Song, song_id
+from .model import LOCAL_SOURCE, Song, song_id
 from .txt import SongTxt, SongTxtError, read_song_txt
 
 logger = logging.getLogger(__name__)
@@ -38,6 +38,12 @@ _scan_lock = asyncio.Lock()
 class ScanBusyError(RuntimeError):
     def __init__(self) -> None:
         super().__init__("a library scan is already running")
+
+
+class NotASongDirectoryError(ValueError):
+    def __init__(self, directory: Path) -> None:
+        super().__init__(f"'{directory}' does not contain a readable song txt")
+        self.directory = directory
 
 
 @dataclass(frozen=True)
@@ -106,6 +112,52 @@ async def scan_library(session_factory: async_sessionmaker[AsyncSession]) -> Sca
                     total=result.total,
                 )
             )
+
+
+async def scan_song_directory(
+    session: AsyncSession,
+    directory: Path,
+    source: str | None = None,
+    source_song_id: str | None = None,
+) -> str:
+    """Scan one song directory into the DB (added if new, refreshed if known) and return
+    its song id. Used after a download, so the new song shows up without a full rescan.
+
+    `source` and `source_song_id` are the provenance the *source* knows — a fresh
+    download has no `wingman.json` to read a USDB id from, so without them the song
+    would get a `local:` id and no longer match its source song. Raises
+    `NotASongDirectoryError` when the directory holds no readable song txt.
+    """
+    # The same lock a full scan takes: a scan reconciles against the directories it saw
+    # before this song existed, so running in between would delete the row again.
+    async with _scan_lock:
+        scanned = await asyncio.to_thread(_scan_resolved_directory, directory)
+        if scanned is None:
+            raise NotASongDirectoryError(directory)
+
+        row: Song | None = None
+        if source is not None and source_song_id is not None:
+            row = await session.get(Song, f"{source}:{source_song_id}")
+        if row is None:
+            row = (
+                await session.scalars(select(Song).where(Song.directory == str(scanned.directory)))
+            ).first()
+        if row is None:
+            taken = set(await session.scalars(select(Song.id)))
+            identifier = (
+                _unique_id(scanned.usdb_id, taken)
+                if source is None or source_song_id is None
+                else f"{source}:{source_song_id}"
+            )
+            row = _new_row(identifier, scanned)
+            session.add(row)
+        else:
+            # A re-download may land in a differently named directory than the previous one.
+            row.directory = str(scanned.directory)
+            _apply_values(row, scanned)
+        await session.commit()
+        logger.info("registered song '%s' from %s", row.id, scanned.directory)
+        return row.id
 
 
 def start_scan(session_factory: async_sessionmaker[AsyncSession]) -> bool:
@@ -186,7 +238,7 @@ def _new_row(identifier: str, scanned: ScannedSong) -> Song:
         id=identifier,
         source=source,
         # A local song has no source id; the uuid in its song id is not one.
-        source_id=source_id if source == USDB_SOURCE else None,
+        source_id=None if source == LOCAL_SOURCE else source_id,
         directory=str(scanned.directory),
     )
     _apply_values(row, scanned)
@@ -243,6 +295,11 @@ def _scan_roots(roots: list[Path]) -> list[ScannedSong]:
             if song is not None:
                 songs.append(song)
     return songs
+
+
+def _scan_resolved_directory(directory: Path) -> ScannedSong | None:
+    """Blocking. `resolve()` touches the file system, so it belongs in the worker thread."""
+    return _scan_directory(directory.resolve())
 
 
 def _scan_directory(directory: Path) -> ScannedSong | None:

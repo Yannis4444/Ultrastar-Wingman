@@ -4,6 +4,7 @@ import Home from "./pages/Home";
 import Host from "./pages/Host";
 import Scores from "./pages/Scores";
 import Songs from "./pages/Songs";
+import Usdb from "./pages/Usdb";
 import User from "./pages/User";
 
 export default function App() {
@@ -15,6 +16,7 @@ export default function App() {
       <Routes>
         <Route path="/" element={<Home />} />
         <Route path="/songs" element={<Songs />} />
+        <Route path="/usdb" element={<Usdb />} />
         <Route path="/scores" element={<Scores />} />
         <Route path="/user" element={<User />} />
         <Route path="/host" element={<Host />} />
