@@ -8,7 +8,7 @@ import {
   stopSingingMutation,
 } from "../api/@tanstack/react-query.gen";
 import { useAuth } from "../auth";
-import { formatDuration } from "../duration";
+import { formatDuration, parseServerTime } from "../duration";
 import { useWingmanEvent, type WingmanEvent } from "../hooks/useWingmanEvents";
 import ConfirmModal from "./ConfirmModal";
 import PlayerAvatar from "./PlayerAvatar";
@@ -17,16 +17,6 @@ import "./CurrentlyPlaying.css";
 
 interface KaraokeStarted extends WingmanEvent {
   sing: CurrentSing;
-}
-
-/**
- * The backend timestamps in UTC, but SQLite can round-trip the offset away and
- * a naive string would be read as local time.
- */
-function parsedStart(startedAt: string): number {
-  return Date.parse(
-    /(Z|[+-]\d\d:?\d\d)$/.test(startedAt) ? startedAt : `${startedAt}Z`,
-  );
 }
 
 function useElapsedSeconds(startedAt: string | null): number {
@@ -41,7 +31,7 @@ function useElapsedSeconds(startedAt: string | null): number {
 
   if (startedAt === null) return 0;
   // A clock skew between server and browser must not show a negative time.
-  return Math.max(0, Math.floor((now - parsedStart(startedAt)) / 1000));
+  return Math.max(0, Math.floor((now - parseServerTime(startedAt)) / 1000));
 }
 
 /** The running song, or nothing at all when USDX is idle. */

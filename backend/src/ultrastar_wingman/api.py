@@ -13,6 +13,7 @@ from .db import SessionDep
 from .downloads.api import router as downloads_router
 from .events import ServerReady, SettingChanged, event_bus
 from .karaoke.api import router as karaoke_router
+from .library.api import router as library_router
 from .players.api import router as players_router
 from .settings import (
     SettingDefinition,
@@ -33,6 +34,7 @@ router.include_router(players_router)
 router.include_router(karaoke_router)
 router.include_router(downloads_router)
 router.include_router(sources_router)
+router.include_router(library_router)
 
 
 class Health(BaseModel):

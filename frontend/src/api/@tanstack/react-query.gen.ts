@@ -3,8 +3,8 @@
 import { type DefaultError, type InfiniteData, infiniteQueryOptions, queryOptions, type UseMutationOptions } from '@tanstack/react-query';
 
 import { client } from '../client.gen';
-import { createDownload, createPlayer, deletePlayer, deleteUser, exchangeHostToken, getCurrentSing, getMe, getPermissions, getPlayerAvatar, getSong, getSongCover, health, listDownloads, listKaraokeColors, listPlayers, listSettings, listSongs, listUsers, login, logout, type Options, register, rescanSongs, setPlayerAvatar, singSong, stopSinging, updateRolePermissions, updateSetting, updateUser, usdbSearch, usdbStatus } from '../sdk.gen';
-import type { CreateDownloadData, CreateDownloadError, CreateDownloadResponse, CreatePlayerData, CreatePlayerError, CreatePlayerResponse, DeletePlayerData, DeletePlayerError, DeletePlayerResponse, DeleteUserData, DeleteUserError, DeleteUserResponse, ExchangeHostTokenData, ExchangeHostTokenError, ExchangeHostTokenResponse, GetCurrentSingData, GetCurrentSingResponse, GetMeData, GetMeResponse, GetPermissionsData, GetPermissionsResponse, GetPlayerAvatarData, GetPlayerAvatarError, GetSongCoverData, GetSongCoverError, GetSongData, GetSongError, GetSongResponse, HealthData, HealthResponse, ListDownloadsData, ListDownloadsResponse, ListKaraokeColorsData, ListKaraokeColorsResponse, ListPlayersData, ListPlayersResponse, ListSettingsData, ListSettingsResponse, ListSongsData, ListSongsResponse, ListUsersData, ListUsersResponse, LoginData, LoginError, LoginResponse, LogoutData, LogoutResponse, RegisterData, RegisterError, RegisterResponse, RescanSongsData, RescanSongsError, RescanSongsResponse, SetPlayerAvatarData, SetPlayerAvatarError, SetPlayerAvatarResponse, SingSongData, SingSongError, SingSongResponse, StopSingingData, StopSingingResponse, UpdateRolePermissionsData, UpdateRolePermissionsResponse, UpdateSettingData, UpdateSettingError, UpdateSettingResponse, UpdateUserData, UpdateUserError, UpdateUserResponse, UsdbSearchData, UsdbSearchError, UsdbSearchResponse, UsdbStatusData, UsdbStatusError, UsdbStatusResponse } from '../types.gen';
+import { addFavorite, addPlaylistEntry, addWish, createDownload, createPlayer, createPlaylist, deletePlayer, deletePlaylist, deleteUser, exchangeHostToken, getCurrentSing, getMe, getPermissions, getPlayerAvatar, getPlaylist, getSong, getSongCover, health, listDownloads, listFavorites, listKaraokeColors, listPlayers, listPlaylists, listSettings, listSongs, listUsers, listWishlist, login, logout, type Options, register, removeFavorite, removePlaylistEntry, removeWish, reorderPlaylistEntries, rescanSongs, setPlayerAvatar, singSong, stopSinging, updatePlaylist, updateRolePermissions, updateSetting, updateUser, usdbSearch, usdbStatus } from '../sdk.gen';
+import type { AddFavoriteData, AddFavoriteError, AddFavoriteResponse, AddPlaylistEntryData, AddPlaylistEntryError, AddPlaylistEntryResponse, AddWishData, AddWishError, AddWishResponse, CreateDownloadData, CreateDownloadError, CreateDownloadResponse, CreatePlayerData, CreatePlayerError, CreatePlayerResponse, CreatePlaylistData, CreatePlaylistError, CreatePlaylistResponse, DeletePlayerData, DeletePlayerError, DeletePlayerResponse, DeletePlaylistData, DeletePlaylistError, DeletePlaylistResponse, DeleteUserData, DeleteUserError, DeleteUserResponse, ExchangeHostTokenData, ExchangeHostTokenError, ExchangeHostTokenResponse, GetCurrentSingData, GetCurrentSingResponse, GetMeData, GetMeResponse, GetPermissionsData, GetPermissionsResponse, GetPlayerAvatarData, GetPlayerAvatarError, GetPlaylistData, GetPlaylistError, GetPlaylistResponse, GetSongCoverData, GetSongCoverError, GetSongData, GetSongError, GetSongResponse, HealthData, HealthResponse, ListDownloadsData, ListDownloadsResponse, ListFavoritesData, ListFavoritesResponse, ListKaraokeColorsData, ListKaraokeColorsResponse, ListPlayersData, ListPlayersResponse, ListPlaylistsData, ListPlaylistsResponse, ListSettingsData, ListSettingsResponse, ListSongsData, ListSongsResponse, ListUsersData, ListUsersResponse, ListWishlistData, ListWishlistResponse, LoginData, LoginError, LoginResponse, LogoutData, LogoutResponse, RegisterData, RegisterError, RegisterResponse, RemoveFavoriteData, RemoveFavoriteError, RemoveFavoriteResponse, RemovePlaylistEntryData, RemovePlaylistEntryError, RemovePlaylistEntryResponse, RemoveWishData, RemoveWishError, RemoveWishResponse, ReorderPlaylistEntriesData, ReorderPlaylistEntriesResponse, RescanSongsData, RescanSongsError, RescanSongsResponse, SetPlayerAvatarData, SetPlayerAvatarError, SetPlayerAvatarResponse, SingSongData, SingSongError, SingSongResponse, StopSingingData, StopSingingResponse, UpdatePlaylistData, UpdatePlaylistError, UpdatePlaylistResponse, UpdateRolePermissionsData, UpdateRolePermissionsResponse, UpdateSettingData, UpdateSettingError, UpdateSettingResponse, UpdateUserData, UpdateUserError, UpdateUserResponse, UsdbSearchData, UsdbSearchError, UsdbSearchResponse, UsdbStatusData, UsdbStatusError, UsdbStatusResponse } from '../types.gen';
 
 /**
  * Register
@@ -597,6 +597,268 @@ export const usdbSearchInfiniteOptions = (options?: Options<UsdbSearchData>) => 
         queryKey: usdbSearchInfiniteQueryKey(options)
     });
     return opts as Omit<typeof opts, 'initialData'>;
+};
+
+export const listWishlistQueryKey = (options?: Options<ListWishlistData>) => createQueryKey('listWishlist', options);
+
+/**
+ * List Wishlist
+ *
+ * What the party wants to sing, most-wished-for first. One row per song with how many
+ * people want it, and whether the caller is one of them.
+ */
+export const listWishlistOptions = (options?: Options<ListWishlistData>) => queryOptions<ListWishlistResponse, DefaultError, ListWishlistResponse, ReturnType<typeof listWishlistQueryKey>>({
+    queryFn: async ({ queryKey, signal }) => {
+        const { data } = await listWishlist({
+            ...options,
+            ...queryKey[0],
+            signal,
+            throwOnError: true
+        });
+        return data;
+    },
+    queryKey: listWishlistQueryKey(options)
+});
+
+/**
+ * Add Wish
+ *
+ * Wish for a song. An anonymous browser gets its guest cookie here — after the song is
+ * resolved, so a 404 does not hand one out.
+ */
+export const addWishMutation = (options?: Partial<Options<AddWishData>>): UseMutationOptions<AddWishResponse, AddWishError, Options<AddWishData>> => {
+    const mutationOptions: UseMutationOptions<AddWishResponse, AddWishError, Options<AddWishData>> = {
+        mutationFn: async (fnOptions) => {
+            const { data } = await addWish({
+                ...options,
+                ...fnOptions,
+                throwOnError: true
+            });
+            return data;
+        }
+    };
+    return mutationOptions;
+};
+
+/**
+ * Remove Wish
+ *
+ * Take back the caller's own wish. Everybody else's wish for the same song stays.
+ */
+export const removeWishMutation = (options?: Partial<Options<RemoveWishData>>): UseMutationOptions<RemoveWishResponse, RemoveWishError, Options<RemoveWishData>> => {
+    const mutationOptions: UseMutationOptions<RemoveWishResponse, RemoveWishError, Options<RemoveWishData>> = {
+        mutationFn: async (fnOptions) => {
+            const { data } = await removeWish({
+                ...options,
+                ...fnOptions,
+                throwOnError: true
+            });
+            return data;
+        }
+    };
+    return mutationOptions;
+};
+
+export const listFavoritesQueryKey = (options?: Options<ListFavoritesData>) => createQueryKey('listFavorites', options);
+
+/**
+ * List Favorites
+ *
+ * The caller's favorites. Identity, not a capability: favorites are nobody else's
+ * business, so there is nothing for an administrator to grant.
+ */
+export const listFavoritesOptions = (options?: Options<ListFavoritesData>) => queryOptions<ListFavoritesResponse, DefaultError, ListFavoritesResponse, ReturnType<typeof listFavoritesQueryKey>>({
+    queryFn: async ({ queryKey, signal }) => {
+        const { data } = await listFavorites({
+            ...options,
+            ...queryKey[0],
+            signal,
+            throwOnError: true
+        });
+        return data;
+    },
+    queryKey: listFavoritesQueryKey(options)
+});
+
+/**
+ * Remove Favorite
+ */
+export const removeFavoriteMutation = (options?: Partial<Options<RemoveFavoriteData>>): UseMutationOptions<RemoveFavoriteResponse, RemoveFavoriteError, Options<RemoveFavoriteData>> => {
+    const mutationOptions: UseMutationOptions<RemoveFavoriteResponse, RemoveFavoriteError, Options<RemoveFavoriteData>> = {
+        mutationFn: async (fnOptions) => {
+            const { data } = await removeFavorite({
+                ...options,
+                ...fnOptions,
+                throwOnError: true
+            });
+            return data;
+        }
+    };
+    return mutationOptions;
+};
+
+/**
+ * Add Favorite
+ *
+ * Idempotent — the UI can send it on every click of a toggle.
+ */
+export const addFavoriteMutation = (options?: Partial<Options<AddFavoriteData>>): UseMutationOptions<AddFavoriteResponse, AddFavoriteError, Options<AddFavoriteData>> => {
+    const mutationOptions: UseMutationOptions<AddFavoriteResponse, AddFavoriteError, Options<AddFavoriteData>> = {
+        mutationFn: async (fnOptions) => {
+            const { data } = await addFavorite({
+                ...options,
+                ...fnOptions,
+                throwOnError: true
+            });
+            return data;
+        }
+    };
+    return mutationOptions;
+};
+
+export const listPlaylistsQueryKey = (options?: Options<ListPlaylistsData>) => createQueryKey('listPlaylists', options);
+
+/**
+ * List Playlists
+ *
+ * The caller's own playlists plus every shared one.
+ */
+export const listPlaylistsOptions = (options?: Options<ListPlaylistsData>) => queryOptions<ListPlaylistsResponse, DefaultError, ListPlaylistsResponse, ReturnType<typeof listPlaylistsQueryKey>>({
+    queryFn: async ({ queryKey, signal }) => {
+        const { data } = await listPlaylists({
+            ...options,
+            ...queryKey[0],
+            signal,
+            throwOnError: true
+        });
+        return data;
+    },
+    queryKey: listPlaylistsQueryKey(options)
+});
+
+/**
+ * Create Playlist
+ */
+export const createPlaylistMutation = (options?: Partial<Options<CreatePlaylistData>>): UseMutationOptions<CreatePlaylistResponse, CreatePlaylistError, Options<CreatePlaylistData>> => {
+    const mutationOptions: UseMutationOptions<CreatePlaylistResponse, CreatePlaylistError, Options<CreatePlaylistData>> = {
+        mutationFn: async (fnOptions) => {
+            const { data } = await createPlaylist({
+                ...options,
+                ...fnOptions,
+                throwOnError: true
+            });
+            return data;
+        }
+    };
+    return mutationOptions;
+};
+
+/**
+ * Delete Playlist
+ */
+export const deletePlaylistMutation = (options?: Partial<Options<DeletePlaylistData>>): UseMutationOptions<DeletePlaylistResponse, DeletePlaylistError, Options<DeletePlaylistData>> => {
+    const mutationOptions: UseMutationOptions<DeletePlaylistResponse, DeletePlaylistError, Options<DeletePlaylistData>> = {
+        mutationFn: async (fnOptions) => {
+            const { data } = await deletePlaylist({
+                ...options,
+                ...fnOptions,
+                throwOnError: true
+            });
+            return data;
+        }
+    };
+    return mutationOptions;
+};
+
+export const getPlaylistQueryKey = (options: Options<GetPlaylistData>) => createQueryKey('getPlaylist', options);
+
+/**
+ * Get Playlist
+ */
+export const getPlaylistOptions = (options: Options<GetPlaylistData>) => queryOptions<GetPlaylistResponse, GetPlaylistError, GetPlaylistResponse, ReturnType<typeof getPlaylistQueryKey>>({
+    queryFn: async ({ queryKey, signal }) => {
+        const { data } = await getPlaylist({
+            ...options,
+            ...queryKey[0],
+            signal,
+            throwOnError: true
+        });
+        return data;
+    },
+    queryKey: getPlaylistQueryKey(options)
+});
+
+/**
+ * Update Playlist
+ */
+export const updatePlaylistMutation = (options?: Partial<Options<UpdatePlaylistData>>): UseMutationOptions<UpdatePlaylistResponse, UpdatePlaylistError, Options<UpdatePlaylistData>> => {
+    const mutationOptions: UseMutationOptions<UpdatePlaylistResponse, UpdatePlaylistError, Options<UpdatePlaylistData>> = {
+        mutationFn: async (fnOptions) => {
+            const { data } = await updatePlaylist({
+                ...options,
+                ...fnOptions,
+                throwOnError: true
+            });
+            return data;
+        }
+    };
+    return mutationOptions;
+};
+
+/**
+ * Add Playlist Entry
+ *
+ * Append a song to the end of the playlist.
+ */
+export const addPlaylistEntryMutation = (options?: Partial<Options<AddPlaylistEntryData>>): UseMutationOptions<AddPlaylistEntryResponse, AddPlaylistEntryError, Options<AddPlaylistEntryData>> => {
+    const mutationOptions: UseMutationOptions<AddPlaylistEntryResponse, AddPlaylistEntryError, Options<AddPlaylistEntryData>> = {
+        mutationFn: async (fnOptions) => {
+            const { data } = await addPlaylistEntry({
+                ...options,
+                ...fnOptions,
+                throwOnError: true
+            });
+            return data;
+        }
+    };
+    return mutationOptions;
+};
+
+/**
+ * Reorder Playlist Entries
+ *
+ * Replace the order. The body must list exactly the songs the playlist holds — adding
+ * or dropping songs is what the entry endpoints are for.
+ */
+export const reorderPlaylistEntriesMutation = (options?: Partial<Options<ReorderPlaylistEntriesData>>): UseMutationOptions<ReorderPlaylistEntriesResponse, DefaultError, Options<ReorderPlaylistEntriesData>> => {
+    const mutationOptions: UseMutationOptions<ReorderPlaylistEntriesResponse, DefaultError, Options<ReorderPlaylistEntriesData>> = {
+        mutationFn: async (fnOptions) => {
+            const { data } = await reorderPlaylistEntries({
+                ...options,
+                ...fnOptions,
+                throwOnError: true
+            });
+            return data;
+        }
+    };
+    return mutationOptions;
+};
+
+/**
+ * Remove Playlist Entry
+ */
+export const removePlaylistEntryMutation = (options?: Partial<Options<RemovePlaylistEntryData>>): UseMutationOptions<RemovePlaylistEntryResponse, RemovePlaylistEntryError, Options<RemovePlaylistEntryData>> => {
+    const mutationOptions: UseMutationOptions<RemovePlaylistEntryResponse, RemovePlaylistEntryError, Options<RemovePlaylistEntryData>> = {
+        mutationFn: async (fnOptions) => {
+            const { data } = await removePlaylistEntry({
+                ...options,
+                ...fnOptions,
+                throwOnError: true
+            });
+            return data;
+        }
+    };
+    return mutationOptions;
 };
 
 export const healthQueryKey = (options?: Options<HealthData>) => createQueryKey('health', options);

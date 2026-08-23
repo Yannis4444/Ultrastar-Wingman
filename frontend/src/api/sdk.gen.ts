@@ -2,7 +2,7 @@
 
 import { type Client, type ClientMeta, formDataBodySerializer, type Options as Options2, type RequestResult, type TDataShape } from './client';
 import { client } from './client.gen';
-import type { CreateDownloadData, CreateDownloadErrors, CreateDownloadResponses, CreatePlayerData, CreatePlayerErrors, CreatePlayerResponses, DeletePlayerData, DeletePlayerErrors, DeletePlayerResponses, DeleteUserData, DeleteUserErrors, DeleteUserResponses, ExchangeHostTokenData, ExchangeHostTokenErrors, ExchangeHostTokenResponses, GetCurrentSingData, GetCurrentSingResponses, GetMeData, GetMeResponses, GetPermissionsData, GetPermissionsResponses, GetPlayerAvatarData, GetPlayerAvatarErrors, GetPlayerAvatarResponses, GetSongCoverData, GetSongCoverErrors, GetSongCoverResponses, GetSongData, GetSongErrors, GetSongResponses, HealthData, HealthResponses, ListDownloadsData, ListDownloadsResponses, ListKaraokeColorsData, ListKaraokeColorsResponses, ListPlayersData, ListPlayersResponses, ListSettingsData, ListSettingsResponses, ListSongsData, ListSongsResponses, ListUsersData, ListUsersResponses, LoginData, LoginErrors, LoginResponses, LogoutData, LogoutErrors, LogoutResponses, RegisterData, RegisterErrors, RegisterResponses, RescanSongsData, RescanSongsErrors, RescanSongsResponses, SetPlayerAvatarData, SetPlayerAvatarErrors, SetPlayerAvatarResponses, SingSongData, SingSongErrors, SingSongResponses, StopSingingData, StopSingingResponses, UpdateRolePermissionsData, UpdateRolePermissionsErrors, UpdateRolePermissionsResponses, UpdateSettingData, UpdateSettingErrors, UpdateSettingResponses, UpdateUserData, UpdateUserErrors, UpdateUserResponses, UsdbSearchData, UsdbSearchErrors, UsdbSearchResponses, UsdbStatusData, UsdbStatusErrors, UsdbStatusResponses } from './types.gen';
+import type { AddFavoriteData, AddFavoriteErrors, AddFavoriteResponses, AddPlaylistEntryData, AddPlaylistEntryErrors, AddPlaylistEntryResponses, AddWishData, AddWishErrors, AddWishResponses, CreateDownloadData, CreateDownloadErrors, CreateDownloadResponses, CreatePlayerData, CreatePlayerErrors, CreatePlayerResponses, CreatePlaylistData, CreatePlaylistErrors, CreatePlaylistResponses, DeletePlayerData, DeletePlayerErrors, DeletePlayerResponses, DeletePlaylistData, DeletePlaylistErrors, DeletePlaylistResponses, DeleteUserData, DeleteUserErrors, DeleteUserResponses, ExchangeHostTokenData, ExchangeHostTokenErrors, ExchangeHostTokenResponses, GetCurrentSingData, GetCurrentSingResponses, GetMeData, GetMeResponses, GetPermissionsData, GetPermissionsResponses, GetPlayerAvatarData, GetPlayerAvatarErrors, GetPlayerAvatarResponses, GetPlaylistData, GetPlaylistErrors, GetPlaylistResponses, GetSongCoverData, GetSongCoverErrors, GetSongCoverResponses, GetSongData, GetSongErrors, GetSongResponses, HealthData, HealthResponses, ListDownloadsData, ListDownloadsResponses, ListFavoritesData, ListFavoritesResponses, ListKaraokeColorsData, ListKaraokeColorsResponses, ListPlayersData, ListPlayersResponses, ListPlaylistsData, ListPlaylistsResponses, ListSettingsData, ListSettingsResponses, ListSongsData, ListSongsResponses, ListUsersData, ListUsersResponses, ListWishlistData, ListWishlistResponses, LoginData, LoginErrors, LoginResponses, LogoutData, LogoutErrors, LogoutResponses, RegisterData, RegisterErrors, RegisterResponses, RemoveFavoriteData, RemoveFavoriteErrors, RemoveFavoriteResponses, RemovePlaylistEntryData, RemovePlaylistEntryErrors, RemovePlaylistEntryResponses, RemoveWishData, RemoveWishErrors, RemoveWishResponses, ReorderPlaylistEntriesData, ReorderPlaylistEntriesErrors, ReorderPlaylistEntriesResponses, RescanSongsData, RescanSongsErrors, RescanSongsResponses, SetPlayerAvatarData, SetPlayerAvatarErrors, SetPlayerAvatarResponses, SingSongData, SingSongErrors, SingSongResponses, StopSingingData, StopSingingResponses, UpdatePlaylistData, UpdatePlaylistErrors, UpdatePlaylistResponses, UpdateRolePermissionsData, UpdateRolePermissionsErrors, UpdateRolePermissionsResponses, UpdateSettingData, UpdateSettingErrors, UpdateSettingResponses, UpdateUserData, UpdateUserErrors, UpdateUserResponses, UsdbSearchData, UsdbSearchErrors, UsdbSearchResponses, UsdbStatusData, UsdbStatusErrors, UsdbStatusResponses } from './types.gen';
 
 export type Options<TData extends TDataShape = TDataShape, ThrowOnError extends boolean = boolean, TResponse = unknown> = Options2<TData, ThrowOnError, TResponse> & {
     /**
@@ -245,6 +245,131 @@ export const usdbStatus = <ThrowOnError extends boolean = false>(options?: Optio
  * Usdb Search
  */
 export const usdbSearch = <ThrowOnError extends boolean = false>(options?: Options<UsdbSearchData, ThrowOnError>): RequestResult<UsdbSearchResponses, UsdbSearchErrors, ThrowOnError> => (options?.client ?? client).get<UsdbSearchResponses, UsdbSearchErrors, ThrowOnError>({ url: '/api/v1/sources/usdb/search', ...options });
+
+/**
+ * List Wishlist
+ *
+ * What the party wants to sing, most-wished-for first. One row per song with how many
+ * people want it, and whether the caller is one of them.
+ */
+export const listWishlist = <ThrowOnError extends boolean = false>(options?: Options<ListWishlistData, ThrowOnError>): RequestResult<ListWishlistResponses, unknown, ThrowOnError> => (options?.client ?? client).get<ListWishlistResponses, unknown, ThrowOnError>({ url: '/api/v1/wishlist', ...options });
+
+/**
+ * Add Wish
+ *
+ * Wish for a song. An anonymous browser gets its guest cookie here — after the song is
+ * resolved, so a 404 does not hand one out.
+ */
+export const addWish = <ThrowOnError extends boolean = false>(options: Options<AddWishData, ThrowOnError>): RequestResult<AddWishResponses, AddWishErrors, ThrowOnError> => (options.client ?? client).post<AddWishResponses, AddWishErrors, ThrowOnError>({
+    url: '/api/v1/wishlist',
+    ...options,
+    headers: {
+        'Content-Type': 'application/json',
+        ...options.headers
+    }
+});
+
+/**
+ * Remove Wish
+ *
+ * Take back the caller's own wish. Everybody else's wish for the same song stays.
+ */
+export const removeWish = <ThrowOnError extends boolean = false>(options: Options<RemoveWishData, ThrowOnError>): RequestResult<RemoveWishResponses, RemoveWishErrors, ThrowOnError> => (options.client ?? client).delete<RemoveWishResponses, RemoveWishErrors, ThrowOnError>({ url: '/api/v1/wishlist/{song_id}', ...options });
+
+/**
+ * List Favorites
+ *
+ * The caller's favorites. Identity, not a capability: favorites are nobody else's
+ * business, so there is nothing for an administrator to grant.
+ */
+export const listFavorites = <ThrowOnError extends boolean = false>(options?: Options<ListFavoritesData, ThrowOnError>): RequestResult<ListFavoritesResponses, unknown, ThrowOnError> => (options?.client ?? client).get<ListFavoritesResponses, unknown, ThrowOnError>({ url: '/api/v1/favorites', ...options });
+
+/**
+ * Remove Favorite
+ */
+export const removeFavorite = <ThrowOnError extends boolean = false>(options: Options<RemoveFavoriteData, ThrowOnError>): RequestResult<RemoveFavoriteResponses, RemoveFavoriteErrors, ThrowOnError> => (options.client ?? client).delete<RemoveFavoriteResponses, RemoveFavoriteErrors, ThrowOnError>({ url: '/api/v1/favorites/{song_id}', ...options });
+
+/**
+ * Add Favorite
+ *
+ * Idempotent — the UI can send it on every click of a toggle.
+ */
+export const addFavorite = <ThrowOnError extends boolean = false>(options: Options<AddFavoriteData, ThrowOnError>): RequestResult<AddFavoriteResponses, AddFavoriteErrors, ThrowOnError> => (options.client ?? client).put<AddFavoriteResponses, AddFavoriteErrors, ThrowOnError>({ url: '/api/v1/favorites/{song_id}', ...options });
+
+/**
+ * List Playlists
+ *
+ * The caller's own playlists plus every shared one.
+ */
+export const listPlaylists = <ThrowOnError extends boolean = false>(options?: Options<ListPlaylistsData, ThrowOnError>): RequestResult<ListPlaylistsResponses, unknown, ThrowOnError> => (options?.client ?? client).get<ListPlaylistsResponses, unknown, ThrowOnError>({ url: '/api/v1/playlists', ...options });
+
+/**
+ * Create Playlist
+ */
+export const createPlaylist = <ThrowOnError extends boolean = false>(options: Options<CreatePlaylistData, ThrowOnError>): RequestResult<CreatePlaylistResponses, CreatePlaylistErrors, ThrowOnError> => (options.client ?? client).post<CreatePlaylistResponses, CreatePlaylistErrors, ThrowOnError>({
+    url: '/api/v1/playlists',
+    ...options,
+    headers: {
+        'Content-Type': 'application/json',
+        ...options.headers
+    }
+});
+
+/**
+ * Delete Playlist
+ */
+export const deletePlaylist = <ThrowOnError extends boolean = false>(options: Options<DeletePlaylistData, ThrowOnError>): RequestResult<DeletePlaylistResponses, DeletePlaylistErrors, ThrowOnError> => (options.client ?? client).delete<DeletePlaylistResponses, DeletePlaylistErrors, ThrowOnError>({ url: '/api/v1/playlists/{playlist_id}', ...options });
+
+/**
+ * Get Playlist
+ */
+export const getPlaylist = <ThrowOnError extends boolean = false>(options: Options<GetPlaylistData, ThrowOnError>): RequestResult<GetPlaylistResponses, GetPlaylistErrors, ThrowOnError> => (options.client ?? client).get<GetPlaylistResponses, GetPlaylistErrors, ThrowOnError>({ url: '/api/v1/playlists/{playlist_id}', ...options });
+
+/**
+ * Update Playlist
+ */
+export const updatePlaylist = <ThrowOnError extends boolean = false>(options: Options<UpdatePlaylistData, ThrowOnError>): RequestResult<UpdatePlaylistResponses, UpdatePlaylistErrors, ThrowOnError> => (options.client ?? client).patch<UpdatePlaylistResponses, UpdatePlaylistErrors, ThrowOnError>({
+    url: '/api/v1/playlists/{playlist_id}',
+    ...options,
+    headers: {
+        'Content-Type': 'application/json',
+        ...options.headers
+    }
+});
+
+/**
+ * Add Playlist Entry
+ *
+ * Append a song to the end of the playlist.
+ */
+export const addPlaylistEntry = <ThrowOnError extends boolean = false>(options: Options<AddPlaylistEntryData, ThrowOnError>): RequestResult<AddPlaylistEntryResponses, AddPlaylistEntryErrors, ThrowOnError> => (options.client ?? client).post<AddPlaylistEntryResponses, AddPlaylistEntryErrors, ThrowOnError>({
+    url: '/api/v1/playlists/{playlist_id}/entries',
+    ...options,
+    headers: {
+        'Content-Type': 'application/json',
+        ...options.headers
+    }
+});
+
+/**
+ * Reorder Playlist Entries
+ *
+ * Replace the order. The body must list exactly the songs the playlist holds — adding
+ * or dropping songs is what the entry endpoints are for.
+ */
+export const reorderPlaylistEntries = <ThrowOnError extends boolean = false>(options: Options<ReorderPlaylistEntriesData, ThrowOnError>): RequestResult<ReorderPlaylistEntriesResponses, ReorderPlaylistEntriesErrors, ThrowOnError> => (options.client ?? client).put<ReorderPlaylistEntriesResponses, ReorderPlaylistEntriesErrors, ThrowOnError>({
+    url: '/api/v1/playlists/{playlist_id}/entries',
+    ...options,
+    headers: {
+        'Content-Type': 'application/json',
+        ...options.headers
+    }
+});
+
+/**
+ * Remove Playlist Entry
+ */
+export const removePlaylistEntry = <ThrowOnError extends boolean = false>(options: Options<RemovePlaylistEntryData, ThrowOnError>): RequestResult<RemovePlaylistEntryResponses, RemovePlaylistEntryErrors, ThrowOnError> => (options.client ?? client).delete<RemovePlaylistEntryResponses, RemovePlaylistEntryErrors, ThrowOnError>({ url: '/api/v1/playlists/{playlist_id}/entries/{song_id}', ...options });
 
 /**
  * Health

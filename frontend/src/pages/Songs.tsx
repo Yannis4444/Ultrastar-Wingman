@@ -3,17 +3,29 @@ import { useMemo, useState } from "react";
 import { Link } from "react-router-dom";
 import type { SongRead } from "../api";
 import {
+  getPlaylistOptions,
+  getPlaylistQueryKey,
+  listPlaylistsQueryKey,
+  listPlaylistsOptions,
   listSongsOptions,
   listSongsQueryKey,
+  removePlaylistEntryMutation,
+  reorderPlaylistEntriesMutation,
   rescanSongsMutation,
 } from "../api/@tanstack/react-query.gen";
 import { useAuth } from "../auth";
+import PlaylistsModal from "../components/PlaylistsModal";
 import SongDetails from "../components/SongDetails";
 import SongListItem from "../components/SongListItem";
 import { errorMessage } from "../errors";
 import { useDownloadEvents } from "../hooks/useDownloadEvents";
+import { useFavorites } from "../hooks/useFavorites";
 import { useWingmanEvent } from "../hooks/useWingmanEvents";
 import "./Songs.css";
+
+/** Reserved filter values; every other one is a playlist id (uuid4 hex). */
+const ALL = "all";
+const FAVORITES = "favorites";
 
 function matches(song: SongRead, needle: string): boolean {
   return (
@@ -26,8 +38,11 @@ function matches(song: SongRead, needle: string): boolean {
 export default function Songs() {
   const queryClient = useQueryClient();
   const auth = useAuth();
+  const favorites = useFavorites();
   const [search, setSearch] = useState("");
+  const [filter, setFilter] = useState(ALL);
   const [selected, setSelected] = useState<SongRead | null>(null);
+  const [managing, setManaging] = useState(false);
   const [scanning, setScanning] = useState(false);
   const [notice, setNotice] = useState<string | null>(null);
 
@@ -46,6 +61,46 @@ export default function Songs() {
       ),
   });
 
+  const playlists = useQuery({
+    ...listPlaylistsOptions(),
+    enabled: auth.loaded && auth.can("playlists.view"),
+  });
+  const inPlaylist = filter !== ALL && filter !== FAVORITES;
+  // Keyed by the playlist the request was for, not by the chip that happens to
+  // be selected when the answer arrives.
+  const playlistKey = (playlistId: string) =>
+    getPlaylistQueryKey({ path: { playlist_id: playlistId } });
+  const playlist = useQuery({
+    ...getPlaylistOptions({ path: { playlist_id: filter } }),
+    enabled: inPlaylist,
+  });
+  const entryIds = (playlist.data?.entries ?? []).map((entry) => entry.song.id);
+  // The owner edits the order; an administrator may fix anybody's playlist.
+  const editable =
+    playlist.data !== undefined &&
+    (playlist.data.mine || auth.role === "admin");
+
+  // The reorder answers with the whole playlist, so the cache takes the
+  // response instead of refetching.
+  const reorder = useMutation({
+    ...reorderPlaylistEntriesMutation(),
+    onSuccess: (data, options) =>
+      queryClient.setQueryData(playlistKey(options.path.playlist_id), data),
+    onError: (error) =>
+      setNotice(errorMessage(error, "Could not reorder the playlist.")),
+  });
+  const removeEntry = useMutation({
+    ...removePlaylistEntryMutation(),
+    onSuccess: (_data, options) => {
+      void queryClient.invalidateQueries({
+        queryKey: playlistKey(options.path.playlist_id),
+      });
+      void queryClient.invalidateQueries({ queryKey: listPlaylistsQueryKey() });
+    },
+    onError: (error) =>
+      setNotice(errorMessage(error, "Could not remove the song.")),
+  });
+
   // A finished download refetches the list — no rescan needed for a new song.
   useDownloadEvents();
 
@@ -58,12 +113,33 @@ export default function Songs() {
     void queryClient.invalidateQueries({ queryKey: listSongsQueryKey() });
   });
 
+  const move = (songId: string, delta: number): void => {
+    const order = [...entryIds];
+    const from = order.indexOf(songId);
+    const to = from + delta;
+    if (from < 0 || to < 0 || to >= order.length) return;
+    [order[from], order[to]] = [order[to], order[from]];
+    setNotice(null);
+    reorder.mutate({
+      path: { playlist_id: filter },
+      body: { song_ids: order },
+    });
+  };
+
   const all = songs.data?.songs;
   const needle = search.trim().toLowerCase();
+  const base = inPlaylist
+    ? playlist.data?.entries.map((entry) => entry.song)
+    : filter === FAVORITES
+      ? (all ?? []).filter((song) => favorites.ids.has(song.id))
+      : all;
   const shown = useMemo(
-    () => (needle ? (all ?? []).filter((song) => matches(song, needle)) : all),
-    [all, needle],
+    () => (needle ? base?.filter((song) => matches(song, needle)) : base),
+    [base, needle],
   );
+
+  const chip = (value: string): string =>
+    filter === value ? "songs-chip songs-chip-on" : "songs-chip";
 
   return (
     <>
@@ -93,6 +169,49 @@ export default function Songs() {
         )}
       </div>
 
+      <div className="songs-chips">
+        <button
+          type="button"
+          className={chip(ALL)}
+          onClick={() => setFilter(ALL)}
+        >
+          All
+        </button>
+        {favorites.available && (
+          <button
+            type="button"
+            className={chip(FAVORITES)}
+            onClick={() => setFilter(FAVORITES)}
+          >
+            ♥ Favorites
+          </button>
+        )}
+        {(playlists.data?.playlists ?? []).map((list) => (
+          <button
+            key={list.id}
+            type="button"
+            className={chip(list.id)}
+            onClick={() => setFilter(list.id)}
+          >
+            {list.name}
+            {list.shared && (
+              <span className="songs-chip-shared">
+                {list.mine ? "shared" : (list.owner_username ?? "shared")}
+              </span>
+            )}
+          </button>
+        ))}
+        {auth.user !== null && auth.can("playlists.manage") && (
+          <button
+            type="button"
+            className="songs-chip songs-chip-manage"
+            onClick={() => setManaging(true)}
+          >
+            Playlists…
+          </button>
+        )}
+      </div>
+
       {notice && <p className="songs-notice songs-notice-error">{notice}</p>}
 
       {songs.isPending && (
@@ -103,11 +222,18 @@ export default function Songs() {
         </div>
       )}
 
-      {songs.isError && (
+      {(songs.isError || playlist.isError) && (
         <p className="songs-notice songs-notice-error" role="alert">
-          Could not load the song library.{" "}
-          <button type="button" onClick={() => void songs.refetch()}>
-            Retry
+          {playlist.isError
+            ? "This playlist is gone."
+            : "Could not load the song library."}{" "}
+          <button
+            type="button"
+            onClick={() =>
+              playlist.isError ? setFilter(ALL) : void songs.refetch()
+            }
+          >
+            {playlist.isError ? "Show all songs" : "Retry"}
           </button>
         </p>
       )}
@@ -121,17 +247,86 @@ export default function Songs() {
             <p className="songs-notice">
               {needle
                 ? `No song matches "${search.trim()}".`
-                : "The library is empty. Run a rescan once songs are on disk."}
+                : filter === FAVORITES
+                  ? "No favorites yet. Tap the heart next to a song."
+                  : inPlaylist
+                    ? "This playlist is empty. Add songs from a song's details."
+                    : "The library is empty. Run a rescan once songs are on disk."}
             </p>
           ) : (
             <div className="songs-list">
-              {shown.map((song) => (
-                <SongListItem
-                  key={song.id}
-                  song={song}
-                  onClick={() => setSelected(song)}
-                />
-              ))}
+              {shown.map((song) => {
+                const position = entryIds.indexOf(song.id);
+                return (
+                  <SongListItem
+                    key={song.id}
+                    song={song}
+                    onClick={() => setSelected(song)}
+                    actions={
+                      (favorites.available || (inPlaylist && editable)) && (
+                        <>
+                          {favorites.available && (
+                            <button
+                              type="button"
+                              className={
+                                favorites.ids.has(song.id)
+                                  ? "song-favorite-on"
+                                  : undefined
+                              }
+                              aria-label={
+                                favorites.ids.has(song.id)
+                                  ? `Remove ${song.title} from favorites`
+                                  : `Add ${song.title} to favorites`
+                              }
+                              onClick={() => favorites.toggle(song.id)}
+                            >
+                              {favorites.ids.has(song.id) ? "♥" : "♡"}
+                            </button>
+                          )}
+                          {inPlaylist && editable && (
+                            <>
+                              <button
+                                type="button"
+                                aria-label={`Move ${song.title} up`}
+                                disabled={position <= 0 || reorder.isPending}
+                                onClick={() => move(song.id, -1)}
+                              >
+                                ↑
+                              </button>
+                              <button
+                                type="button"
+                                aria-label={`Move ${song.title} down`}
+                                disabled={
+                                  position < 0 ||
+                                  position >= entryIds.length - 1 ||
+                                  reorder.isPending
+                                }
+                                onClick={() => move(song.id, 1)}
+                              >
+                                ↓
+                              </button>
+                              <button
+                                type="button"
+                                aria-label={`Remove ${song.title} from the playlist`}
+                                onClick={() =>
+                                  removeEntry.mutate({
+                                    path: {
+                                      playlist_id: filter,
+                                      song_id: song.id,
+                                    },
+                                  })
+                                }
+                              >
+                                ✕
+                              </button>
+                            </>
+                          )}
+                        </>
+                      )
+                    }
+                  />
+                );
+              })}
             </div>
           )}
         </>
@@ -139,6 +334,15 @@ export default function Songs() {
 
       {selected && (
         <SongDetails song={selected} onClose={() => setSelected(null)} />
+      )}
+
+      {managing && (
+        <PlaylistsModal
+          onClose={() => setManaging(false)}
+          onDeleted={(playlistId) => {
+            if (filter === playlistId) setFilter(ALL);
+          }}
+        />
       )}
     </>
   );
