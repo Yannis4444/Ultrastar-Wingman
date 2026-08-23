@@ -1,5 +1,6 @@
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { fireEvent, render, screen, waitFor } from "@testing-library/react";
+import { MemoryRouter } from "react-router-dom";
 import type { PlayerRead } from "../api";
 import { meResponse, userRead } from "../test/auth";
 import User from "./User";
@@ -60,6 +61,7 @@ const ADMIN_CAPABILITIES = [
   ...USER_CAPABILITIES,
   "users.manage",
   "permissions.manage",
+  "settings.view",
 ];
 
 function player(id: string, name: string): PlayerRead {
@@ -70,9 +72,12 @@ function renderUser() {
   const client = new QueryClient({
     defaultOptions: { queries: { retry: false } },
   });
+  // A router: the page links to /settings.
   return render(
     <QueryClientProvider client={client}>
-      <User />
+      <MemoryRouter>
+        <User />
+      </MemoryRouter>
     </QueryClientProvider>,
   );
 }
@@ -281,6 +286,9 @@ test("the admin sections stay hidden for an ordinary account", async () => {
   expect(await screen.findByText("Alice")).toBeInTheDocument();
   expect(screen.queryByText("Accounts")).not.toBeInTheDocument();
   expect(screen.queryByText("Permissions")).not.toBeInTheDocument();
+  expect(
+    screen.queryByRole("link", { name: "Settings" }),
+  ).not.toBeInTheDocument();
   expect(listUsers).not.toHaveBeenCalled();
 });
 
@@ -310,6 +318,10 @@ test("an admin can change a role and is stopped from removing the last admin", a
   fireEvent.change(await screen.findByLabelText("Role of Bob"), {
     target: { value: "trusted" },
   });
+  expect(screen.getByRole("link", { name: "Settings" })).toHaveAttribute(
+    "href",
+    "/settings",
+  );
 
   await waitFor(() =>
     expect(updateUser.mock.calls[0][0]).toMatchObject({

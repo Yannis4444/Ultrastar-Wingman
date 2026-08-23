@@ -4,6 +4,7 @@ import BottomNav from "./components/BottomNav";
 import Spinner from "./components/Spinner";
 import Home from "./pages/Home";
 import Host from "./pages/Host";
+import Settings from "./pages/Settings";
 import Songs from "./pages/Songs";
 import Usdb from "./pages/Usdb";
 import User from "./pages/User";
@@ -26,6 +27,7 @@ export default function App() {
           <Route path="/usdb" element={<Usdb />} />
           <Route path="/scores" element={<Scores />} />
           <Route path="/user" element={<User />} />
+          <Route path="/settings" element={<Settings />} />
           <Route path="/host" element={<Host />} />
         </Routes>
       </Suspense>

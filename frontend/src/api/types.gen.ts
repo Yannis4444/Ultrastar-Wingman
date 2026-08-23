@@ -589,16 +589,22 @@ export type SettingRead = {
      * Secret
      */
     secret: boolean;
+    /**
+     * Is Set
+     */
+    is_set: boolean;
 };
 
 /**
  * SettingUpdate
+ *
+ * `value: null` resets the setting to the default from its definition.
  */
 export type SettingUpdate = {
     /**
      * Value
      */
-    value: string | number | boolean | number;
+    value: string | number | boolean | number | null;
 };
 
 /**
