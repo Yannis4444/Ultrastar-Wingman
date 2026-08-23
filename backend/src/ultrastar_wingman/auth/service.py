@@ -10,6 +10,7 @@ from sqlalchemy import delete, func, select
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from ..library import service as library
 from ..players.model import Player
 from .model import User, UserSession, as_utc, utcnow
 from .permissions import ADMIN, ASSIGNABLE_ROLES, USER, UnknownRoleError
@@ -227,6 +228,9 @@ async def delete_user(session: AsyncSession, user: User) -> None:
         player.registered = False
     # In the same transaction as the delete: a live cookie must not outlive its account.
     await session.execute(delete(UserSession).where(UserSession.user_id == user.id))
+    # Statistics belong to the player and survive; wishes, favorites and playlists belong
+    # to the account and go with it.
+    await library.delete_user_data(session, user.id)
     await session.delete(user)
     await session.commit()
     logger.info("user '%s' deleted (%s)", user.username, user.id)

@@ -5,6 +5,8 @@
 """
 
 import logging
+import re
+import uuid
 from collections.abc import Callable
 from dataclasses import dataclass
 from typing import Annotated
@@ -19,6 +21,14 @@ from .model import User
 logger = logging.getLogger(__name__)
 
 COOKIE_NAME = "wingman_session"
+
+# The anonymous wishlist identity: one id per browser, so a guest keeps their wishes
+# without an account. The old app keyed them by IP address instead — everybody behind the
+# same NAT shared a wishlist, and a phone switching to mobile data lost its own.
+GUEST_COOKIE_NAME = "wingman_guest"
+GUEST_COOKIE_MAX_AGE = 365 * 24 * 60 * 60
+
+_GUEST_ID = re.compile(r"[0-9a-f]{32}")
 
 
 def set_session_cookie(response: Response, raw_token: str) -> None:
@@ -112,3 +122,65 @@ async def authenticated(principal: PrincipalDep) -> Principal:
     if principal.user is None and not principal.is_host:
         raise HTTPException(status_code=401, detail="not_authenticated")
     return principal
+
+
+async def account_id(principal: PrincipalDep) -> str:
+    """The account a row will belong to. Stricter than `authenticated`: the host session is
+    an administrator but not a person, so it cannot own favorites or playlists."""
+    if principal.user is None:
+        raise HTTPException(status_code=401, detail="not_authenticated")
+    return principal.user.id
+
+
+AccountIdDep = Annotated[str, Depends(account_id)]
+
+
+@dataclass(frozen=True)
+class WishlistIdentity:
+    """Who a wish belongs to: the account while logged in, else the browser's guest id.
+
+    Both being None is an anonymous browser that has never wished for anything — it gets
+    an id on its first wish, never on a read.
+    """
+
+    user_id: str | None
+    guest_id: str | None
+
+
+def guest_id(request: Request) -> str | None:
+    """The request's guest id, or None. The cookie is client-supplied, so a value that is
+    not shaped like one we issued is treated as absent rather than written to the database."""
+    value = request.cookies.get(GUEST_COOKIE_NAME)
+    return value if value is not None and _GUEST_ID.fullmatch(value) else None
+
+
+async def wishlist_identity(request: Request, principal: PrincipalDep) -> WishlistIdentity:
+    """A logged-in caller wishes as their account; everybody else as their browser."""
+    if principal.user is not None:
+        return WishlistIdentity(user_id=principal.user.id, guest_id=None)
+    return WishlistIdentity(user_id=None, guest_id=guest_id(request))
+
+
+WishlistIdentityDep = Annotated[WishlistIdentity, Depends(wishlist_identity)]
+
+
+def issue_guest_id(identity: WishlistIdentity, response: Response) -> WishlistIdentity:
+    """Give an anonymous browser a persistent id, once.
+
+    Called from the wishlist mutation only: browsing the wishlist must not hand out a
+    cookie, or every visitor would collect one for nothing.
+    """
+    if identity.user_id is not None or identity.guest_id is not None:
+        return identity
+    new_id = uuid.uuid4().hex
+    # Same reasoning as the session cookie: HttpOnly and no Secure flag (plain http on the
+    # LAN). A year, because the wishlist is the one thing a guest is expected to come back to.
+    response.set_cookie(
+        GUEST_COOKIE_NAME,
+        new_id,
+        max_age=GUEST_COOKIE_MAX_AGE,
+        httponly=True,
+        samesite="lax",
+        path="/",
+    )
+    return WishlistIdentity(user_id=None, guest_id=new_id)

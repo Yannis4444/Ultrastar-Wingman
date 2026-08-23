@@ -57,7 +57,7 @@ async def rescan_songs(request: Request, response: Response) -> ScanStatus:
     dependencies=[Depends(require("songs.view"))],
 )
 async def get_song(song_id: str, session: SessionDep) -> SongRead:
-    return read_song(await _song(song_id, session))
+    return read_song(await song_or_404(song_id, session))
 
 
 @router.get(
@@ -67,14 +67,16 @@ async def get_song(song_id: str, session: SessionDep) -> SongRead:
     responses={200: {"content": {"image/*": {}}, "description": "The cover image file."}},
 )
 async def get_song_cover(song_id: str, session: SessionDep) -> FileResponse:
-    song = await _song(song_id, session)
+    song = await song_or_404(song_id, session)
     cover = None if song.cover_file is None else Path(song.cover_file)
     if cover is None or not cover.is_file():
         raise HTTPException(status_code=404, detail=f"song '{song_id}' has no cover")
     return FileResponse(cover)
 
 
-async def _song(song_id: str, session: AsyncSession) -> Song:
+async def song_or_404(song_id: str, session: AsyncSession) -> Song:
+    """The song, or a 404. Shared with the wishlist, favorites and playlist routes: every
+    one of them has to reject an id that is not in the library."""
     song = await session.get(Song, song_id)
     if song is None:
         raise HTTPException(status_code=404, detail=f"unknown song '{song_id}'")

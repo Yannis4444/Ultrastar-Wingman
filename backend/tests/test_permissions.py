@@ -55,6 +55,18 @@ ROUTES: list[tuple[str, str, str, dict[str, object] | None]] = [
         {"song_id": "usdb:1", "slots": [{"color": "blue"}], "force": True},
     ),
     ("karaoke.stop", "POST", "/api/v1/karaoke/stop", None),
+    ("wishlist.view", "GET", "/api/v1/wishlist", None),
+    ("wishlist.add", "POST", "/api/v1/wishlist", {"song_id": "usdb:1"}),
+    ("wishlist.add", "DELETE", "/api/v1/wishlist/usdb:1", None),
+    ("playlists.view", "GET", "/api/v1/playlists", None),
+    ("playlists.view", "GET", "/api/v1/playlists/nope", None),
+    # POST /playlists is deliberately not here: it checks for an account first, so an
+    # anonymous caller gets a 401 instead of the 403 this matrix asserts.
+    ("playlists.manage", "PATCH", "/api/v1/playlists/nope", {"name": "Party"}),
+    ("playlists.manage", "DELETE", "/api/v1/playlists/nope", None),
+    ("playlists.manage", "POST", "/api/v1/playlists/nope/entries", {"song_id": "usdb:1"}),
+    ("playlists.manage", "DELETE", "/api/v1/playlists/nope/entries/usdb:1", None),
+    ("playlists.manage", "PUT", "/api/v1/playlists/nope/entries", {"song_ids": []}),
     ("downloads.view", "GET", "/api/v1/downloads", None),
     ("downloads.manage", "POST", "/api/v1/downloads", {"source": "nope", "source_song_id": "1"}),
     ("usdb.search", "GET", "/api/v1/sources/usdb/status", None),

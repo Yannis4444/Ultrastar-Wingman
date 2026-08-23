@@ -1,6 +1,7 @@
 """Typed WebSocket event bus (server to client only)."""
 
 import logging
+from datetime import datetime
 from typing import Literal
 
 from fastapi import WebSocket
@@ -65,6 +66,16 @@ class ScoresRecorded(Event):
     event: Literal["scores.recorded"] = "scores.recorded"
     sing_id: str
     scores: list[ScoreRead]
+
+
+class WishlistUpdated(Event):
+    """One song's wish count changed: somebody wished for it, took the wish back, or logged
+    in and brought their guest wishes along. `count` is 0 when the last wish is gone."""
+
+    event: Literal["wishlist.updated"] = "wishlist.updated"
+    song_id: str
+    count: int
+    latest: datetime | None = None
 
 
 class EventBus:

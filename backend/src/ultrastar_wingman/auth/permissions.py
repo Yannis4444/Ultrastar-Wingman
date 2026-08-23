@@ -23,6 +23,10 @@ CAPABILITIES: tuple[str, ...] = (
     "karaoke.stop",
     "players.view",
     "players.manage",
+    "wishlist.view",
+    "wishlist.add",
+    "playlists.view",
+    "playlists.manage",
     "downloads.view",
     "downloads.manage",
     "usdb.search",
@@ -49,8 +53,19 @@ ROLES: tuple[str, ...] = (GUEST, USER, TRUSTED, ADMIN)
 # exactly like a stranger" — take the account away instead.
 ASSIGNABLE_ROLES: tuple[str, ...] = (USER, TRUSTED, ADMIN)
 
-_GUEST_CAPABILITIES = frozenset({"songs.view", "players.view", "karaoke.sing"})
-_USER_CAPABILITIES = _GUEST_CAPABILITIES | {"karaoke.stop", "players.manage"}
+# A party guest browses, wishes and sings — wishing is the whole point of the guest cookie.
+_GUEST_CAPABILITIES = frozenset(
+    {
+        "songs.view",
+        "players.view",
+        "karaoke.sing",
+        "wishlist.view",
+        "wishlist.add",
+        "playlists.view",
+    }
+)
+# Only an account can own a playlist, so only an account may manage one.
+_USER_CAPABILITIES = _GUEST_CAPABILITIES | {"karaoke.stop", "players.manage", "playlists.manage"}
 _TRUSTED_CAPABILITIES = _USER_CAPABILITIES | {
     "downloads.view",
     "downloads.manage",

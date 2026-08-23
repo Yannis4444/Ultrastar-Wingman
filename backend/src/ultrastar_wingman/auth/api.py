@@ -8,12 +8,14 @@ from pydantic import BaseModel, StringConstraints
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from ..db import SessionDep
+from ..library import service as library
 from . import permissions, service
 from .deps import (
     COOKIE_NAME,
     PrincipalDep,
     authenticated,
     clear_session_cookie,
+    guest_id,
     require,
     set_session_cookie,
 )
@@ -65,13 +67,16 @@ class RolePermissionsUpdate(BaseModel):
     status_code=201,
     responses={409: {"description": "The username is taken."}},
 )
-async def register(body: RegisterRequest, response: Response, session: SessionDep) -> UserRead:
+async def register(
+    body: RegisterRequest, request: Request, response: Response, session: SessionDep
+) -> UserRead:
     """Create an account and log it in. The first account ever created is the administrator."""
     try:
         user = await service.register_user(session, body.username, body.password)
     except service.DuplicateUsernameError as error:
         raise HTTPException(status_code=409, detail="duplicate_username") from error
     set_session_cookie(response, await service.start_session(session, user.id))
+    await _claim_guest_wishes(request, session, user)
     return await _read(session, user)
 
 
@@ -80,12 +85,15 @@ async def register(body: RegisterRequest, response: Response, session: SessionDe
     response_model=UserRead,
     responses={401: {"description": "Unknown username or wrong password."}},
 )
-async def login(body: LoginRequest, response: Response, session: SessionDep) -> UserRead:
+async def login(
+    body: LoginRequest, request: Request, response: Response, session: SessionDep
+) -> UserRead:
     user = await get_provider(session).authenticate(body.username, body.password)
     if user is None:
         # One message for both cases: which usernames exist is not a client's business.
         raise HTTPException(status_code=401, detail="invalid_credentials")
     set_session_cookie(response, await service.start_session(session, user.id))
+    await _claim_guest_wishes(request, session, user)
     return await _read(session, user)
 
 
@@ -224,6 +232,18 @@ async def _permissions(session: AsyncSession) -> PermissionsRead:
     return PermissionsRead(
         roles={role: sorted(mapping.get(role, frozenset())) for role in permissions.ROLES}
     )
+
+
+async def _claim_guest_wishes(request: Request, session: AsyncSession, user: User) -> None:
+    """Whoever wished as a guest in this browser keeps those wishes as this account.
+
+    Both login and registration go through here: a guest who spent the evening filling the
+    wishlist and only then made an account must not lose it. The cookie itself stays — it
+    costs nothing and the browser may well be handed to the next guest.
+    """
+    guest = guest_id(request)
+    if guest is not None:
+        await library.merge_guest_wishes(session, guest, user.id)
 
 
 async def _read(session: AsyncSession, user: User) -> UserRead:
