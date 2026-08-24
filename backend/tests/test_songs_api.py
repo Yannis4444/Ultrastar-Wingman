@@ -34,6 +34,8 @@ def make_song(identifier: str, artist: str, title: str, **columns: object) -> So
 async def library(session: AsyncSession, tmp_path: Path) -> AsyncIterator[Path]:
     cover = tmp_path / "cover.png"
     cover.write_bytes(PNG)
+    audio = tmp_path / "song.mp3"
+    audio.write_bytes(b"not really mpeg frames, but a real file")
     session.add_all(
         [
             make_song(
@@ -41,7 +43,7 @@ async def library(session: AsyncSession, tmp_path: Path) -> AsyncIterator[Path]:
                 "Mark Ronson",
                 "Uptown Funk",
                 cover_file=str(cover),
-                audio_file="/library/usdb:1234/song.mp3",
+                audio_file=str(audio),
                 video_file="/library/usdb:1234/clip.mp4",
                 duration_seconds=270,
                 language="English",
@@ -52,7 +54,13 @@ async def library(session: AsyncSession, tmp_path: Path) -> AsyncIterator[Path]:
             ),
             make_song("local:aaaa", "abba", "Mamma Mia"),
             make_song("local:bbbb", "ABBA", "Dancing Queen"),
-            make_song("local:cccc", "Zappa", "Bobby Brown", cover_file="/library/gone.jpg"),
+            make_song(
+                "local:cccc",
+                "Zappa",
+                "Bobby Brown",
+                cover_file="/library/gone.jpg",
+                audio_file="/library/gone.mp3",
+            ),
         ]
     )
     await session.commit()
@@ -115,6 +123,19 @@ async def test_a_missing_cover_file_is_404(client: AsyncClient, library: Path) -
     # No cover tag at all, and a cover that vanished from disk.
     assert (await client.get("/api/v1/songs/local:aaaa/cover")).status_code == 404
     assert (await client.get("/api/v1/songs/local:cccc/cover")).status_code == 404
+
+
+async def test_audio_is_served_with_its_content_type(client: AsyncClient, library: Path) -> None:
+    response = await client.get("/api/v1/songs/usdb:1234/audio")
+
+    assert response.status_code == 200
+    assert response.headers["content-type"] == "audio/mpeg"
+
+
+async def test_a_missing_audio_file_is_404(client: AsyncClient, library: Path) -> None:
+    # No audio tag at all, and an audio file that vanished from disk.
+    assert (await client.get("/api/v1/songs/local:aaaa/audio")).status_code == 404
+    assert (await client.get("/api/v1/songs/local:cccc/audio")).status_code == 404
 
 
 async def test_rescan_starts_a_scan(client: AsyncClient) -> None:

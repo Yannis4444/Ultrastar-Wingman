@@ -74,6 +74,21 @@ async def get_song_cover(song_id: str, session: SessionDep) -> FileResponse:
     return FileResponse(cover)
 
 
+@router.get(
+    "/songs/{song_id}/audio",
+    response_class=FileResponse,
+    dependencies=[Depends(require("songs.view"))],
+    responses={200: {"content": {"audio/*": {}}, "description": "The audio file."}},
+)
+async def get_song_audio(song_id: str, session: SessionDep) -> FileResponse:
+    """The song's audio file, for the preview player in the song details."""
+    song = await song_or_404(song_id, session)
+    audio = None if song.audio_file is None else Path(song.audio_file)
+    if audio is None or not audio.is_file():
+        raise HTTPException(status_code=404, detail=f"song '{song_id}' has no audio")
+    return FileResponse(audio)
+
+
 async def song_or_404(song_id: str, session: AsyncSession) -> Song:
     """The song, or a 404. Shared with the wishlist, favorites and playlist routes: every
     one of them has to reject an id that is not in the library."""
