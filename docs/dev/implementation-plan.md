@@ -186,6 +186,21 @@ feature, release workflow.
   fields, and the Home blocks (currently playing, wishlist, spinner) are
   flat; old logo + favicons adopted; no VIDEO badge in the song list.
 
+- UI/UX rework across every screen (2026-08-24, reviewed screen-by-screen
+  against phone screenshots): song rows slimmed to cover/title/artist with
+  details in the modal; song details rebuilt around a large cover, an audio
+  preview (new `GET /songs/{id}/audio`), icon controls and a collapsible
+  icon detail list; songs toolbar de-bloated to search + two icon buttons;
+  USDB rows use icon download states (progress ring, check, alert) with the
+  downloads list behind a header button in a modal; scores page rebuilt
+  (one summary tile, segmented group-by, gated chart, worded rankings);
+  user page split into an identity card plus `/user/accounts` and
+  `/user/permissions` (role-first editor replaced the matrix); host view is
+  a TV stage with an idle-timer overlay (cursor + gear hide when the mouse
+  rests) and a QR that encodes the LAN address (new `GET /join`); shared
+  `components/icons.tsx` (inline SVG) and `.icon-button` classes carry the
+  icon language; global `:focus-visible` ring.
+
 ## Known gaps / follow-ups (as of 2026-08-24)
 
 - **USDB column mapping is unvalidated against the live logged-in site** —
@@ -201,8 +216,8 @@ feature, release workflow.
   `settings.view`. The UI maps known patterns to path-free prose, so only
   unrecognized strings leak. Decide whether to filter the sing error the
   same way.
-- **The rendered UI has never been visually inspected** — all design work
-  was verified by reading CSS/markup and tests, not screenshots.
+- **USDB `edition`/`golden` live only in a hover title** — the slim rows
+  dropped them; they return once a USDB details view exists.
 - **zensical is at 0.0.57** — very early; its config format may change.
 - OIDC state store is in-memory, single-process (documented in
   `auth/oidc.py`); rate limiting is the noted upgrade path.
