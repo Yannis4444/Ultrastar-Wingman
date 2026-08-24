@@ -1,4 +1,4 @@
-/* The TV is across the room: everything here is deliberately oversized. */
+/* On Home this is a page-level card; the host page flattens it below. */
 .latest-scores {
   padding: 16px 24px;
   background-color: var(--tile-bg);
@@ -19,14 +19,26 @@
 }
 
 .latest-scores li {
-  display: flex;
-  gap: 24px;
-  justify-content: space-between;
+  display: grid;
+  grid-template-columns: auto 1fr auto;
   align-items: baseline;
+  gap: 16px;
   padding: 4px 0;
 }
 
+.latest-scores-rank {
+  color: var(--color-darkerer);
+  font-variant-numeric: tabular-nums;
+}
+
+/* One accent for the winner, not a per-row badge. */
+.latest-scores-star {
+  align-self: center;
+  color: var(--highlight-gold-light);
+}
+
 .latest-scores-name {
+  text-align: left;
   font-size: 1.5em;
   overflow-wrap: anywhere;
 }
@@ -36,4 +48,58 @@
   font-weight: bold;
   color: var(--highlight-gold-light);
   font-variant-numeric: tabular-nums;
+}
+
+/* The host variant: flat hairline rows on the page background, TV-sized.
+   The section font-size makes 22ch measure against the name size. */
+.host-page .latest-scores {
+  max-width: 22ch;
+  padding: 0;
+  font-size: clamp(26px, 4.2vh, 64px);
+  text-align: left;
+  background: none;
+  border-radius: 0;
+}
+
+.host-page .latest-scores h2 {
+  margin: 0 0 clamp(12px, 2vh, 28px) 0;
+  font-size: clamp(18px, 2.4vh, 34px);
+  color: var(--color-dark);
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+}
+
+.host-page .latest-scores li {
+  gap: clamp(16px, 2vw, 40px);
+  padding: clamp(8px, 1.4vh, 20px) 0;
+  border-bottom: 1px solid var(--input-border-color);
+}
+
+.host-page .latest-scores li:last-child {
+  border-bottom: 0;
+}
+
+.host-page .latest-scores-rank {
+  font-size: clamp(16px, 2.2vh, 32px);
+}
+
+.host-page .latest-scores-name {
+  font-size: clamp(26px, 4.2vh, 64px);
+}
+
+.host-page .latest-scores-value {
+  font-size: clamp(36px, 6.4vh, 96px);
+}
+
+/* Six duet rows must still fit 1080px: halve the ceilings. */
+.host-page .latest-scores-dense .latest-scores-name {
+  font-size: clamp(26px, 4.2vh, 40px);
+}
+
+.host-page .latest-scores-dense .latest-scores-value {
+  font-size: clamp(36px, 6.4vh, 56px);
+}
+
+.host-page .latest-scores-dense li {
+  padding: clamp(4px, 0.8vh, 10px) 0;
 }

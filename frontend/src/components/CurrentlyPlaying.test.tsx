@@ -53,13 +53,13 @@ const SING: CurrentSing = {
   ],
 };
 
-function renderTile() {
+function renderTile(props?: { hideControls?: boolean }) {
   const client = new QueryClient({
     defaultOptions: { queries: { retry: false } },
   });
   return render(
     <QueryClientProvider client={client}>
-      <CurrentlyPlaying />
+      <CurrentlyPlaying {...props} />
     </QueryClientProvider>,
   );
 }
@@ -125,6 +125,16 @@ test("a karaoke.ended event takes the tile away again", async () => {
   await waitFor(() =>
     expect(screen.queryByText("Dancing Queen")).not.toBeInTheDocument(),
   );
+});
+
+test("the host page owns Stop, so hideControls leaves it out", async () => {
+  getCurrentSing.mockResolvedValue({ data: { sing: SING } });
+  renderTile({ hideControls: true });
+
+  await screen.findByText("Dancing Queen");
+  expect(
+    screen.queryByRole("button", { name: "Stop" }),
+  ).not.toBeInTheDocument();
 });
 
 test("stopping asks first and then calls the backend", async () => {

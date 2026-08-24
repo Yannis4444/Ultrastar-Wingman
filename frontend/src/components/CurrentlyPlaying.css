@@ -14,15 +14,25 @@
   font-size: 4em;
 }
 
+.currently-playing-info {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 8px;
+  min-width: 0;
+  max-width: 100%;
+}
+
+/* Long titles wrap to two lines instead of being cut mid-word. */
 .currently-playing-title,
-.currently-playing-artist,
-.currently-playing-elapsed {
+.currently-playing-artist {
+  display: -webkit-box;
   max-width: 100%;
   margin: 0;
   overflow: hidden;
-  white-space: nowrap;
-  text-overflow: ellipsis;
   text-align: center;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
 }
 
 .currently-playing-title {
@@ -34,57 +44,126 @@
 }
 
 .currently-playing-elapsed {
+  max-width: 100%;
+  margin: 0;
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
   color: var(--color-darker);
   font-variant-numeric: tabular-nums;
+}
+
+/* No transition: it ticks once a second, a transition just smears. */
+.currently-playing-bar {
+  width: 100%;
+  height: 6px;
+  overflow: hidden;
+  background-color: var(--input-bg);
+  border-radius: 999px;
+}
+
+.currently-playing-bar > span {
+  display: block;
+  height: 100%;
+  background-color: var(--highlight-blue-light);
 }
 
 .currently-playing-players {
   display: flex;
   flex-wrap: wrap;
   justify-content: center;
-  gap: 8px;
+  gap: 8px 16px;
   margin: 0;
   padding: 0;
   list-style: none;
 }
 
+/* Flat rows: the color dot carries the slot color, no boxes. */
 .currently-playing-players > li {
   display: flex;
   align-items: center;
   gap: 8px;
   max-width: 100%;
-  padding: 4px 12px 4px 4px;
-  background-color: var(--input-bg);
-  /* The color is the slot's USDX color, fetched from the backend. */
-  border-bottom: 3px solid transparent;
-  border-radius: var(--border-radius-small);
 }
 
-.currently-playing-players span {
+.currently-playing-dot {
+  flex: 0 0 auto;
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+}
+
+.currently-playing-name {
   overflow: hidden;
   white-space: nowrap;
   text-overflow: ellipsis;
 }
 
-/* The host view is a TV across the room: same markup, bigger everything. */
+/* The host view is a TV across the room: same markup, staged as a grid. */
 .host-page .currently-playing {
+  display: grid;
+  grid-template-areas:
+    "cover text"
+    "bar bar";
+  grid-template-columns: auto minmax(0, 1fr);
+  column-gap: clamp(24px, 3vw, 56px);
+  row-gap: clamp(16px, 3vh, 40px);
+  align-items: center;
+  margin: 0;
+  padding: 0;
   background: none;
+  text-align: left;
 }
 
 .host-page .currently-playing-cover {
-  width: min(40vh, 90vw);
-  height: min(40vh, 90vw);
+  grid-area: cover;
+  width: min(42vh, 30vw);
+  height: min(42vh, 30vw);
+}
+
+.host-page .currently-playing-info {
+  grid-area: text;
+  align-items: flex-start;
+  gap: clamp(8px, 1.5vh, 20px);
 }
 
 .host-page .currently-playing-title {
-  font-size: 2.5em;
+  font-size: clamp(32px, 5.2vh, 84px);
+  font-weight: 700;
+  line-height: 1.05;
+  text-align: left;
 }
 
-.host-page .currently-playing-artist,
+.host-page .currently-playing-artist {
+  font-size: clamp(20px, 3vh, 44px);
+  text-align: left;
+}
+
 .host-page .currently-playing-elapsed {
-  font-size: 1.5em;
+  align-self: flex-end;
+  font-size: clamp(16px, 2.2vh, 32px);
+}
+
+.host-page .currently-playing-bar {
+  grid-area: bar;
 }
 
 .host-page .currently-playing-players {
-  font-size: 1.3em;
+  justify-content: flex-start;
+  gap: clamp(16px, 2vw, 40px);
+  font-size: clamp(18px, 2.6vh, 36px);
+}
+
+.host-page .currently-playing-players > li {
+  gap: clamp(8px, 1vw, 16px);
+}
+
+.host-page .currently-playing-dot {
+  width: clamp(10px, 1.2vh, 18px);
+  height: clamp(10px, 1.2vh, 18px);
+}
+
+.host-page .currently-playing-players .player-avatar {
+  width: clamp(40px, 6vh, 88px);
+  height: clamp(40px, 6vh, 88px);
 }

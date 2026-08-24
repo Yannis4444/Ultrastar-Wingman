@@ -1,23 +1,37 @@
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { render, screen, waitFor } from "@testing-library/react";
+import { MemoryRouter } from "react-router-dom";
 import { meResponse } from "../test/auth";
 import { FakeSocket } from "../test/fakeSocket";
 import Host from "./Host";
 
-const { getMe, exchangeHostToken, getCurrentSing, listKaraokeColors } =
-  vi.hoisted(() => ({
-    getMe: vi.fn(),
-    exchangeHostToken: vi.fn(),
-    getCurrentSing: vi.fn(),
-    listKaraokeColors: vi.fn(),
-  }));
+const {
+  getMe,
+  exchangeHostToken,
+  getCurrentSing,
+  getJoinInfo,
+  listKaraokeColors,
+  listLatestScores,
+  listWishlist,
+} = vi.hoisted(() => ({
+  getMe: vi.fn(),
+  exchangeHostToken: vi.fn(),
+  getCurrentSing: vi.fn(),
+  getJoinInfo: vi.fn(),
+  listKaraokeColors: vi.fn(),
+  listLatestScores: vi.fn(),
+  listWishlist: vi.fn(),
+}));
 
 vi.mock("../api/sdk.gen", async (importOriginal) => ({
   ...(await importOriginal<typeof import("../api/sdk.gen")>()),
   getMe,
   exchangeHostToken,
   getCurrentSing,
+  getJoinInfo,
   listKaraokeColors,
+  listLatestScores,
+  listWishlist,
 }));
 
 function renderHost(url: string) {
@@ -27,7 +41,9 @@ function renderHost(url: string) {
   });
   return render(
     <QueryClientProvider client={client}>
-      <Host />
+      <MemoryRouter>
+        <Host />
+      </MemoryRouter>
     </QueryClientProvider>,
   );
 }
@@ -38,7 +54,10 @@ beforeEach(() => {
   exchangeHostToken.mockReset();
   getMe.mockResolvedValue(meResponse(["songs.view"]));
   getCurrentSing.mockResolvedValue({ data: { sing: null } });
+  getJoinInfo.mockResolvedValue({ data: { url: "http://192.168.0.10:8080" } });
   listKaraokeColors.mockResolvedValue({ data: { colors: [] } });
+  listLatestScores.mockResolvedValue({ data: { scores: [] } });
+  listWishlist.mockResolvedValue({ data: { wishes: [] } });
 });
 
 afterEach(() => vi.unstubAllGlobals());
@@ -82,4 +101,27 @@ test("an established host session is shown as active", async () => {
   renderHost("/host");
 
   expect(await screen.findByText("Host session active")).toBeInTheDocument();
+});
+
+test("the QR encodes the server's join URL and prints it readably", async () => {
+  renderHost("/host");
+
+  // Phones on the host machine's `localhost` origin would go nowhere, so the
+  // LAN URL from the backend is both encoded and printed as text.
+  expect(await screen.findByText("192.168.0.10:8080")).toBeInTheDocument();
+});
+
+test("the overlay has a settings link for the karaoke PC", async () => {
+  renderHost("/host");
+
+  const gear = await screen.findByRole("link", { name: "Settings" });
+  expect(gear).toHaveAttribute("href", "/settings");
+});
+
+test("an idle USDX invites guests to pick a song", async () => {
+  renderHost("/host");
+
+  expect(
+    await screen.findByText("Scan the code to pick a song"),
+  ).toBeInTheDocument();
 });
