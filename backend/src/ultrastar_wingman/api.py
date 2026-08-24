@@ -2,13 +2,15 @@
 
 import contextlib
 import logging
+import socket
 
-from fastapi import APIRouter, Depends, HTTPException, WebSocket, WebSocketDisconnect
+from fastapi import APIRouter, Depends, HTTPException, Request, WebSocket, WebSocketDisconnect
 from pydantic import BaseModel
 
 from . import APP_NAME, __version__
 from .auth.api import router as auth_router
 from .auth.deps import require
+from .config import BootstrapSettings
 from .db import SessionDep
 from .downloads.api import router as downloads_router
 from .events import ServerReady, SettingChanged, event_bus
@@ -47,6 +49,34 @@ class Health(BaseModel):
 @router.get("/health", response_model=Health)
 async def health() -> Health:
     return Health(name=APP_NAME, version=__version__)
+
+
+class JoinInfo(BaseModel):
+    """Where a phone on the same network reaches Wingman."""
+
+    url: str
+
+
+def lan_ip() -> str:
+    """The machine's address on the local network — where the phones can reach us.
+
+    Connecting a UDP socket sends no packet; it only makes the OS pick the outgoing
+    interface, whose address is the one guests can reach.
+    """
+    try:
+        with socket.socket(socket.AF_INET, socket.SOCK_DGRAM) as probe:
+            probe.connect(("203.0.113.1", 1))
+            return str(probe.getsockname()[0])
+    except OSError:
+        return "localhost"
+
+
+@router.get("/join", response_model=JoinInfo)
+async def get_join_info(request: Request) -> JoinInfo:
+    """The URL guests open on their phones. The host screen encodes it in the QR code:
+    `window.location.origin` would be `localhost` on the karaoke PC itself."""
+    settings: BootstrapSettings = request.app.state.bootstrap_settings
+    return JoinInfo(url=f"http://{lan_ip()}:{settings.port}")
 
 
 class SettingRead(BaseModel):
