@@ -9,7 +9,6 @@ import {
   listSongScoresOptions,
 } from "../api/@tanstack/react-query.gen";
 import { useAuth } from "../auth";
-import { formatDuration } from "../duration";
 import { errorDetail, errorMessage } from "../errors";
 import { useFavorites } from "../hooks/useFavorites";
 import { useWishlist } from "../hooks/useWishlist";
@@ -24,14 +23,20 @@ interface SongDetailsProps {
   onClose: () => void;
 }
 
+/** How many all-time scores the best-scores view lists. */
+const BEST_SCORES = 10;
+
 export default function SongDetails({ song, onClose }: SongDetailsProps) {
   const [selectingPlayers, setSelectingPlayers] = useState(false);
-  const [playlistId, setPlaylistId] = useState("");
+  // Sub-views swap the modal content; closing them returns to the song.
+  const [view, setView] = useState<"main" | "scores" | "playlists">("main");
   const [notice, setNotice] = useState<string | null>(null);
   // There is no has_audio flag; the preview 404s for songs without audio and
   // the element's error event is the only signal.
   const [noAudio, setNoAudio] = useState(false);
   const [detailsOpen, setDetailsOpen] = useState(false);
+  // Playlists this song was just added to, so their rows show a check.
+  const [addedTo, setAddedTo] = useState<ReadonlySet<string>>(new Set());
   const auth = useAuth();
   const queryClient = useQueryClient();
   const wishlist = useWishlist();
@@ -44,19 +49,19 @@ export default function SongDetails({ song, onClose }: SongDetailsProps) {
   });
   const mine = (playlists.data?.playlists ?? []).filter((list) => list.mine);
 
-  // All-time and newest first, so the top five need sorting here.
+  // All-time and newest first, so the top of the list needs sorting here.
   const songScores = useQuery({
     ...listSongScoresOptions({ path: { song_id: song.id } }),
     enabled: auth.loaded && auth.can("stats.view"),
   });
   const best = [...(songScores.data?.scores ?? [])]
     .sort((a, b) => b.score - a.score)
-    .slice(0, 5);
+    .slice(0, BEST_SCORES);
 
   const addToPlaylist = useMutation({
     ...addPlaylistEntryMutation(),
     onSuccess: (_data, options) => {
-      setNotice("Added to the playlist.");
+      setAddedTo((old) => new Set(old).add(options.path.playlist_id));
       void queryClient.invalidateQueries({
         queryKey: getPlaylistQueryKey({
           path: { playlist_id: options.path.playlist_id },
@@ -66,26 +71,19 @@ export default function SongDetails({ song, onClose }: SongDetailsProps) {
       // this the count stays behind until something else refetches.
       void queryClient.invalidateQueries({ queryKey: listPlaylistsQueryKey() });
     },
-    onError: (error) =>
-      setNotice(
-        errorDetail(error) === "duplicate_entry"
-          ? "That playlist already has this song."
-          : errorMessage(error, "Could not add the song to the playlist."),
-      ),
+    onError: (error, options) => {
+      if (errorDetail(error) === "duplicate_entry") {
+        // Already in there is what the tap wanted; show the check.
+        setAddedTo((old) => new Set(old).add(options.path.playlist_id));
+        return;
+      }
+      setNotice(errorMessage(error, "Could not add the song to the playlist."));
+    },
   });
 
+  // Duration lives in the preview player and artist in the hero, so the
+  // details keep only what the modal does not show anyway.
   const rows: { icon: IconName; label: string; value: string | null }[] = [
-    {
-      icon: "clock",
-      label: "Duration",
-      value: formatDuration(song.duration_seconds),
-    },
-    { icon: "mic", label: "Artist", value: song.artist },
-    {
-      icon: "video",
-      label: "Video",
-      value: song.has_video ? "Video" : "No video",
-    },
     { icon: "globe", label: "Language", value: song.language },
     { icon: "tag", label: "Genre", value: song.genre },
     {
@@ -101,6 +99,61 @@ export default function SongDetails({ song, onClose }: SongDetailsProps) {
 
   if (selectingPlayers) {
     return <PlayerSelection song={song} onClose={onClose} />;
+  }
+
+  if (view === "scores") {
+    return (
+      <Modal title="Best scores" onClose={() => setView("main")}>
+        <ol className="song-scores-list">
+          {best.map((score) => (
+            <li key={score.id}>
+              <span className="song-scores-player">{score.player_name}</span>
+              <span className="song-scores-value">{score.score}</span>
+            </li>
+          ))}
+        </ol>
+      </Modal>
+    );
+  }
+
+  if (view === "playlists") {
+    return (
+      <Modal title="Add to playlist" onClose={() => setView("main")}>
+        <ul className="song-playlists-list">
+          {mine.map((list) => {
+            const added = addedTo.has(list.id);
+            return (
+              <li key={list.id}>
+                <button
+                  type="button"
+                  className="song-playlists-row"
+                  disabled={addToPlaylist.isPending}
+                  onClick={() => {
+                    setNotice(null);
+                    addToPlaylist.mutate({
+                      path: { playlist_id: list.id },
+                      body: { song_id: song.id },
+                    });
+                  }}
+                >
+                  <Icon name="playlist" />
+                  <span className="song-playlists-name">{list.name}</span>
+                  <Icon
+                    name={added ? "check" : "plus"}
+                    className={added ? "song-playlists-added" : undefined}
+                  />
+                </button>
+              </li>
+            );
+          })}
+        </ul>
+        {notice && (
+          <p className="song-details-notice" role="alert">
+            {notice}
+          </p>
+        )}
+      </Modal>
+    );
   }
 
   const wished = wishlist.mine(song.id);
@@ -187,76 +240,63 @@ export default function SongDetails({ song, onClose }: SongDetailsProps) {
         </p>
       )}
 
-      <button
-        type="button"
-        className="song-details-toggle"
-        aria-expanded={detailsOpen}
-        onClick={() => setDetailsOpen(!detailsOpen)}
-      >
-        <span>Details</span>
-        <Icon
-          name="chevron-down"
-          className={detailsOpen ? "song-chevron-open" : undefined}
-        />
-      </button>
-      {/* Always in the DOM: `hidden` keeps the metadata findable (search,
-          screen-reader "show all") without conditional rendering. */}
-      <ul className="song-details-list" hidden={!detailsOpen}>
-        {rows.map(({ icon, label, value }) => (
-          <li key={label} title={label}>
-            <Icon name={icon} />
-            <span>{value ?? "unknown"}</span>
-          </li>
-        ))}
-      </ul>
+      <div className="song-options">
+        <button
+          type="button"
+          className="song-option"
+          aria-expanded={detailsOpen}
+          onClick={() => setDetailsOpen(!detailsOpen)}
+        >
+          <Icon name="info" className="song-option-icon" />
+          <span className="song-option-label">Details</span>
+          <Icon
+            name="chevron-down"
+            className={
+              detailsOpen
+                ? "song-option-chevron song-chevron-open"
+                : "song-option-chevron"
+            }
+          />
+        </button>
+        {/* Always in the DOM: `hidden` keeps the metadata findable (search,
+            screen-reader "show all") without conditional rendering. */}
+        <ul className="song-details-list" hidden={!detailsOpen}>
+          {rows.map(({ icon, label, value }) => (
+            <li key={label} title={label}>
+              <Icon name={icon} />
+              <span>{value ?? "unknown"}</span>
+            </li>
+          ))}
+        </ul>
 
-      {best.length > 0 && (
-        <div className="song-details-best">
-          <h3>Best scores</h3>
-          <ol>
-            {best.map((score) => (
-              <li key={score.id}>
-                <span>{score.player_name}</span>
-                <span>{score.score}</span>
-              </li>
-            ))}
-          </ol>
-        </div>
-      )}
-
-      {canManagePlaylists && mine.length > 0 && (
-        <div className="song-details-playlist">
-          <label>
-            Add to playlist
-            <select
-              className="text-input"
-              value={playlistId}
-              onChange={(event) => setPlaylistId(event.target.value)}
-            >
-              <option value="">Choose a playlist…</option>
-              {mine.map((list) => (
-                <option key={list.id} value={list.id}>
-                  {list.name}
-                </option>
-              ))}
-            </select>
-          </label>
+        {best.length > 0 && (
           <button
             type="button"
-            className="button"
-            disabled={playlistId === "" || addToPlaylist.isPending}
-            onClick={() => {
-              setNotice(null);
-              addToPlaylist.mutate({
-                path: { playlist_id: playlistId },
-                body: { song_id: song.id },
-              });
-            }}
+            className="song-option"
+            onClick={() => setView("scores")}
           >
-            Add
+            <Icon
+              name="trophy"
+              className="song-option-icon song-option-trophy"
+            />
+            <span className="song-option-label">Best scores</span>
+            <span className="song-option-score">{best[0].score}</span>
+            <Icon name="chevron-right" className="song-option-chevron" />
           </button>
-        </div>
-      )}
+        )}
+
+        {canManagePlaylists && mine.length > 0 && (
+          <button
+            type="button"
+            className="song-option"
+            onClick={() => setView("playlists")}
+          >
+            <Icon name="playlist" className="song-option-icon" />
+            <span className="song-option-label">Add to playlist</span>
+            <Icon name="chevron-right" className="song-option-chevron" />
+          </button>
+        )}
+      </div>
     </Modal>
   );
 }
