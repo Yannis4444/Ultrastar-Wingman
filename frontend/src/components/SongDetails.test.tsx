@@ -7,17 +7,26 @@ import {
   within,
 } from "@testing-library/react";
 import type { ScoreWithContext, SongRead } from "../api";
-import { meResponse } from "../test/auth";
+import { meResponse, userRead } from "../test/auth";
 import SongDetails from "./SongDetails";
 
-const { getMe, listSongScores, listWishlist, listPlaylists, addPlaylistEntry } =
-  vi.hoisted(() => ({
-    getMe: vi.fn(),
-    listSongScores: vi.fn(),
-    listWishlist: vi.fn(),
-    listPlaylists: vi.fn(),
-    addPlaylistEntry: vi.fn(),
-  }));
+const {
+  getMe,
+  listSongScores,
+  listWishlist,
+  listPlaylists,
+  getPlaylist,
+  addPlaylistEntry,
+  removePlaylistEntry,
+} = vi.hoisted(() => ({
+  getMe: vi.fn(),
+  listSongScores: vi.fn(),
+  listWishlist: vi.fn(),
+  listPlaylists: vi.fn(),
+  getPlaylist: vi.fn(),
+  addPlaylistEntry: vi.fn(),
+  removePlaylistEntry: vi.fn(),
+}));
 
 vi.mock("../api/sdk.gen", async (importOriginal) => ({
   ...(await importOriginal<typeof import("../api/sdk.gen")>()),
@@ -25,7 +34,9 @@ vi.mock("../api/sdk.gen", async (importOriginal) => ({
   listSongScores,
   listWishlist,
   listPlaylists,
+  getPlaylist,
   addPlaylistEntry,
+  removePlaylistEntry,
 }));
 
 const song: SongRead = {
@@ -151,8 +162,8 @@ test("the details section starts collapsed and toggles open", async () => {
   expect(toggle).toHaveAttribute("aria-expanded", "false");
 });
 
-test("a playlist owner adds the song from the playlist picker", async () => {
-  const { userRead } = await import("../test/auth");
+/** A logged-in playlist owner with one playlist, `entries` as given. */
+function withPlaylist(entries: { song: SongRead }[]) {
   getMe.mockResolvedValue(
     meResponse(["songs.view", "playlists.manage"], {
       user: userRead(),
@@ -167,12 +178,19 @@ test("a playlist owner adds the song from the playlist picker", async () => {
           name: "Warm-up",
           shared: false,
           owner_username: null,
-          song_count: 2,
+          song_count: entries.length,
           mine: true,
         },
       ],
     },
   });
+  getPlaylist.mockResolvedValue({
+    data: { id: "pl-1", name: "Warm-up", entries },
+  });
+}
+
+test("a playlist owner adds the song from the playlist picker", async () => {
+  withPlaylist([]);
   addPlaylistEntry.mockResolvedValue({ data: {} });
   renderDetails();
 
@@ -180,13 +198,39 @@ test("a playlist owner adds the song from the playlist picker", async () => {
     await screen.findByRole("button", { name: "Add to playlist" }),
   );
   const dialog = screen.getByRole("dialog", { name: "Add to playlist" });
-  fireEvent.click(within(dialog).getByRole("button", { name: /Warm-up/ }));
+  const row = within(dialog).getByRole("button", { name: /Warm-up/ });
+  expect(row).toHaveAttribute("aria-pressed", "false");
+  fireEvent.click(row);
 
   await waitFor(() =>
     expect(addPlaylistEntry).toHaveBeenCalledWith(
       expect.objectContaining({
         path: { playlist_id: "pl-1" },
         body: { song_id: "usdb:1" },
+      }),
+    ),
+  );
+});
+
+test("a playlist that already holds the song shows the check and removes on tap", async () => {
+  withPlaylist([{ song }]);
+  removePlaylistEntry.mockResolvedValue({ data: undefined });
+  renderDetails();
+
+  fireEvent.click(
+    await screen.findByRole("button", { name: "Add to playlist" }),
+  );
+  const dialog = screen.getByRole("dialog", { name: "Add to playlist" });
+  const row = await within(dialog).findByRole("button", {
+    name: /Warm-up/,
+  });
+  await waitFor(() => expect(row).toHaveAttribute("aria-pressed", "true"));
+  fireEvent.click(row);
+
+  await waitFor(() =>
+    expect(removePlaylistEntry).toHaveBeenCalledWith(
+      expect.objectContaining({
+        path: { playlist_id: "pl-1", song_id: "usdb:1" },
       }),
     ),
   );

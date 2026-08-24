@@ -10,6 +10,8 @@ interface ModalProps {
   /** The body carries the visible title (song hero); the header keeps only
    *  the close button while the title stays the dialog's accessible name. */
   hideTitle?: boolean;
+  /** No panel surface: the content floats on a darkened, blurred backdrop. */
+  bare?: boolean;
   children: ReactNode;
 }
 
@@ -25,6 +27,7 @@ export default function Modal({
   onClose,
   fullscreen,
   hideTitle,
+  bare,
   children,
 }: ModalProps) {
   const panel = useRef<HTMLDivElement>(null);
@@ -56,9 +59,18 @@ export default function Modal({
   }, [onClose]);
 
   return (
-    <div className="modal-backdrop" onClick={onClose}>
+    <div
+      className={bare ? "modal-backdrop modal-backdrop-blur" : "modal-backdrop"}
+      onClick={onClose}
+    >
       <div
-        className={fullscreen ? "modal modal-fullscreen" : "modal"}
+        className={[
+          "modal",
+          fullscreen ? "modal-fullscreen" : "",
+          bare ? "modal-bare" : "",
+        ]
+          .filter(Boolean)
+          .join(" ")}
         role="dialog"
         aria-modal="true"
         aria-label={title}

@@ -157,5 +157,5 @@ test("without the capability there is no way to change a wish", async () => {
     ).not.toBeInTheDocument(),
   );
   // The own wish is still marked, just not removable.
-  expect(screen.getByTitle("You wished for this")).toBeInTheDocument();
+  expect(screen.getByTitle("On your wishlist")).toBeInTheDocument();
 });

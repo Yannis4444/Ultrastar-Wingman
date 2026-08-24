@@ -28,7 +28,6 @@ const {
   createPlaylist,
   addPlaylistEntry,
   removePlaylistEntry,
-  reorderPlaylistEntries,
 } = vi.hoisted(() => ({
   listSongs: vi.fn(),
   rescanSongs: vi.fn(),
@@ -42,7 +41,6 @@ const {
   createPlaylist: vi.fn(),
   addPlaylistEntry: vi.fn(),
   removePlaylistEntry: vi.fn(),
-  reorderPlaylistEntries: vi.fn(),
 }));
 
 vi.mock("../api/sdk.gen", async (importOriginal) => ({
@@ -59,7 +57,6 @@ vi.mock("../api/sdk.gen", async (importOriginal) => ({
   createPlaylist,
   addPlaylistEntry,
   removePlaylistEntry,
-  reorderPlaylistEntries,
 }));
 
 /** What the trusted role holds: enough for every button on this page. */
@@ -133,7 +130,6 @@ beforeEach(() => {
     createPlaylist,
     addPlaylistEntry,
     removePlaylistEntry,
-    reorderPlaylistEntries,
   ]) {
     mock.mockReset();
   }
@@ -476,47 +472,6 @@ test("a playlist chip filters the list to its entries, shared ones are marked", 
   expect(screen.queryByText("Dancing Queen")).not.toBeInTheDocument();
   expect(screen.getByText("1 song")).toBeInTheDocument();
   expect(getPlaylist.mock.calls[0][0].path).toEqual({ playlist_id: "p1" });
-});
-
-test("the move buttons send the reordered ids", async () => {
-  const detail = {
-    ...playlist(),
-    entries: [
-      { song: QUEEN, position: 0 },
-      { song: AFRICA, position: 1 },
-    ],
-  };
-  listPlaylists.mockResolvedValue({ data: { playlists: [playlist()] } });
-  getPlaylist.mockResolvedValue({ data: detail });
-  reorderPlaylistEntries.mockResolvedValue({
-    data: {
-      ...detail,
-      entries: [
-        { song: AFRICA, position: 0 },
-        { song: QUEEN, position: 1 },
-      ],
-    },
-  });
-  renderSongs([QUEEN, AFRICA], LIBRARY, ACCOUNT);
-  fireEvent.click(await screen.findByRole("button", { name: "Party" }));
-  await screen.findByText("Africa");
-
-  // The first row cannot move up, the last cannot move down.
-  expect(
-    screen.getByRole("button", { name: "Move Dancing Queen up" }),
-  ).toBeDisabled();
-  expect(
-    screen.getByRole("button", { name: "Move Africa down" }),
-  ).toBeDisabled();
-
-  fireEvent.click(screen.getByRole("button", { name: "Move Africa up" }));
-
-  await waitFor(() =>
-    expect(reorderPlaylistEntries.mock.calls[0][0]).toMatchObject({
-      path: { playlist_id: "p1" },
-      body: { song_ids: ["local:abc", "usdb:1"] },
-    }),
-  );
 });
 
 test("a playlist entry can be removed from the filtered list", async () => {

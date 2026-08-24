@@ -10,7 +10,6 @@ import {
   listSongsOptions,
   listSongsQueryKey,
   removePlaylistEntryMutation,
-  reorderPlaylistEntriesMutation,
   rescanSongsMutation,
 } from "../api/@tanstack/react-query.gen";
 import { useAuth } from "../auth";
@@ -77,21 +76,11 @@ export default function Songs() {
     ...getPlaylistOptions({ path: { playlist_id: filter } }),
     enabled: inPlaylist,
   });
-  const entryIds = (playlist.data?.entries ?? []).map((entry) => entry.song.id);
-  // The owner edits the order; an administrator may fix anybody's playlist.
+  // The owner edits the playlist; an administrator may fix anybody's.
   const editable =
     playlist.data !== undefined &&
     (playlist.data.mine || auth.role === "admin");
 
-  // The reorder answers with the whole playlist, so the cache takes the
-  // response instead of refetching.
-  const reorder = useMutation({
-    ...reorderPlaylistEntriesMutation(),
-    onSuccess: (data, options) =>
-      queryClient.setQueryData(playlistKey(options.path.playlist_id), data),
-    onError: (error) =>
-      setNotice(errorMessage(error, "Could not reorder the playlist.")),
-  });
   const removeEntry = useMutation({
     ...removePlaylistEntryMutation(),
     onSuccess: (_data, options) => {
@@ -115,19 +104,6 @@ export default function Songs() {
     setScanning(false);
     void queryClient.invalidateQueries({ queryKey: listSongsQueryKey() });
   });
-
-  const move = (songId: string, delta: number): void => {
-    const order = [...entryIds];
-    const from = order.indexOf(songId);
-    const to = from + delta;
-    if (from < 0 || to < 0 || to >= order.length) return;
-    [order[from], order[to]] = [order[to], order[from]];
-    setNotice(null);
-    reorder.mutate({
-      path: { playlist_id: filter },
-      body: { song_ids: order },
-    });
-  };
 
   const all = songs.data?.songs;
   const needle = search.trim().toLowerCase();
@@ -286,7 +262,6 @@ export default function Songs() {
           ) : (
             <div className="songs-list">
               {shown.map((song) => {
-                const position = entryIds.indexOf(song.id);
                 return (
                   <SongListItem
                     key={song.id}
@@ -297,45 +272,20 @@ export default function Songs() {
                     actions={
                       inPlaylist &&
                       editable && (
-                        <>
-                          <button
-                            type="button"
-                            aria-label={`Move ${song.title} up`}
-                            disabled={position <= 0 || reorder.isPending}
-                            onClick={() => move(song.id, -1)}
-                          >
-                            <Icon
-                              name="chevron-down"
-                              className="song-icon-up"
-                            />
-                          </button>
-                          <button
-                            type="button"
-                            aria-label={`Move ${song.title} down`}
-                            disabled={
-                              position < 0 ||
-                              position >= entryIds.length - 1 ||
-                              reorder.isPending
-                            }
-                            onClick={() => move(song.id, 1)}
-                          >
-                            <Icon name="chevron-down" />
-                          </button>
-                          <button
-                            type="button"
-                            aria-label={`Remove ${song.title} from the playlist`}
-                            onClick={() =>
-                              removeEntry.mutate({
-                                path: {
-                                  playlist_id: filter,
-                                  song_id: song.id,
-                                },
-                              })
-                            }
-                          >
-                            <Icon name="close" />
-                          </button>
-                        </>
+                        <button
+                          type="button"
+                          aria-label={`Remove ${song.title} from the playlist`}
+                          onClick={() =>
+                            removeEntry.mutate({
+                              path: {
+                                playlist_id: filter,
+                                song_id: song.id,
+                              },
+                            })
+                          }
+                        >
+                          <Icon name="close" />
+                        </button>
                       )
                     }
                   />

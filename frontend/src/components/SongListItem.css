@@ -64,10 +64,6 @@
   opacity: 1;
 }
 
-.song-icon-up {
-  transform: rotate(180deg);
-}
-
 .song-list-item {
   display: flex;
   align-items: center;

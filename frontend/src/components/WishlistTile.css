@@ -70,6 +70,20 @@
   text-overflow: ellipsis;
 }
 
+/* Same anatomy as the songs list: title text ellipsizes, the marks never
+   shrink (the .song-mark styles come from SongListItem.css). */
+.wishlist-title {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.wishlist-title-text {
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+
 .wishlist-artist {
   font-size: 0.85em;
   color: var(--color-darker);
@@ -80,27 +94,12 @@
   font-variant-numeric: tabular-nums;
 }
 
-/* "This is my wish": pink heart, removable or not. */
 .wishlist-remove {
   margin-right: 4px;
-  color: var(--highlight-pink-light);
-  border-color: var(--highlight-pink-light);
 }
 
 .wishlist-remove:hover:enabled {
   color: var(--color);
   background-color: var(--highlight-red-dark);
   border-color: var(--highlight-red-light);
-}
-
-.wishlist-mine-mark {
-  display: flex;
-  flex: 0 0 auto;
-  align-items: center;
-  justify-content: center;
-  width: 40px;
-  height: 40px;
-  margin-right: 4px;
-  font-size: 1.25em;
-  color: var(--highlight-pink-light);
 }

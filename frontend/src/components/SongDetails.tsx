@@ -1,12 +1,19 @@
-import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import {
+  useMutation,
+  useQueries,
+  useQuery,
+  useQueryClient,
+} from "@tanstack/react-query";
 import { useState } from "react";
 import type { SongRead } from "../api";
 import {
   addPlaylistEntryMutation,
+  getPlaylistOptions,
   getPlaylistQueryKey,
   listPlaylistsOptions,
   listPlaylistsQueryKey,
   listSongScoresOptions,
+  removePlaylistEntryMutation,
 } from "../api/@tanstack/react-query.gen";
 import { useAuth } from "../auth";
 import { errorDetail, errorMessage } from "../errors";
@@ -35,8 +42,6 @@ export default function SongDetails({ song, onClose }: SongDetailsProps) {
   // the element's error event is the only signal.
   const [noAudio, setNoAudio] = useState(false);
   const [detailsOpen, setDetailsOpen] = useState(false);
-  // Playlists this song was just added to, so their rows show a check.
-  const [addedTo, setAddedTo] = useState<ReadonlySet<string>>(new Set());
   const auth = useAuth();
   const queryClient = useQueryClient();
   const wishlist = useWishlist();
@@ -49,6 +54,22 @@ export default function SongDetails({ song, onClose }: SongDetailsProps) {
   });
   const mine = (playlists.data?.playlists ?? []).filter((list) => list.mine);
 
+  // Which of my playlists already hold this song — the picker's check marks.
+  // Fetched only once the picker opens; a handful of small requests.
+  const memberships = useQueries({
+    queries: mine.map((list) => ({
+      ...getPlaylistOptions({ path: { playlist_id: list.id } }),
+      enabled: view === "playlists",
+    })),
+  });
+  const containing = new Set(
+    memberships.flatMap((query) =>
+      query.data?.entries.some((entry) => entry.song.id === song.id)
+        ? [query.data.id]
+        : [],
+    ),
+  );
+
   // All-time and newest first, so the top of the list needs sorting here.
   const songScores = useQuery({
     ...listSongScoresOptions({ path: { song_id: song.id } }),
@@ -58,27 +79,33 @@ export default function SongDetails({ song, onClose }: SongDetailsProps) {
     .sort((a, b) => b.score - a.score)
     .slice(0, BEST_SCORES);
 
+  // Both directions refetch the playlist (the check mark) and the list
+  // (`song_count`, which the playlist dialog shows).
+  const refreshPlaylist = (playlistId: string): void => {
+    void queryClient.invalidateQueries({
+      queryKey: getPlaylistQueryKey({ path: { playlist_id: playlistId } }),
+    });
+    void queryClient.invalidateQueries({ queryKey: listPlaylistsQueryKey() });
+  };
+
   const addToPlaylist = useMutation({
     ...addPlaylistEntryMutation(),
-    onSuccess: (_data, options) => {
-      setAddedTo((old) => new Set(old).add(options.path.playlist_id));
-      void queryClient.invalidateQueries({
-        queryKey: getPlaylistQueryKey({
-          path: { playlist_id: options.path.playlist_id },
-        }),
-      });
-      // The list carries `song_count`, which the playlist dialog shows — without
-      // this the count stays behind until something else refetches.
-      void queryClient.invalidateQueries({ queryKey: listPlaylistsQueryKey() });
-    },
+    onSuccess: (_data, options) => refreshPlaylist(options.path.playlist_id),
     onError: (error, options) => {
       if (errorDetail(error) === "duplicate_entry") {
-        // Already in there is what the tap wanted; show the check.
-        setAddedTo((old) => new Set(old).add(options.path.playlist_id));
+        // Already in there is what the tap wanted; the refetch shows the check.
+        refreshPlaylist(options.path.playlist_id);
         return;
       }
       setNotice(errorMessage(error, "Could not add the song to the playlist."));
     },
+  });
+
+  const removeFromPlaylist = useMutation({
+    ...removePlaylistEntryMutation(),
+    onSuccess: (_data, options) => refreshPlaylist(options.path.playlist_id),
+    onError: (error) =>
+      setNotice(errorMessage(error, "Could not remove the song.")),
   });
 
   // Duration lives in the preview player and artist in the hero, so the
@@ -103,7 +130,7 @@ export default function SongDetails({ song, onClose }: SongDetailsProps) {
 
   if (view === "scores") {
     return (
-      <Modal title="Best scores" onClose={() => setView("main")}>
+      <Modal title="Best scores" bare onClose={() => setView("main")}>
         <ol className="song-scores-list">
           {best.map((score) => (
             <li key={score.id}>
@@ -117,23 +144,31 @@ export default function SongDetails({ song, onClose }: SongDetailsProps) {
   }
 
   if (view === "playlists") {
+    const busy = addToPlaylist.isPending || removeFromPlaylist.isPending;
     return (
-      <Modal title="Add to playlist" onClose={() => setView("main")}>
+      <Modal title="Add to playlist" bare onClose={() => setView("main")}>
         <ul className="song-playlists-list">
           {mine.map((list) => {
-            const added = addedTo.has(list.id);
+            const added = containing.has(list.id);
             return (
               <li key={list.id}>
                 <button
                   type="button"
                   className="song-playlists-row"
-                  disabled={addToPlaylist.isPending}
+                  aria-pressed={added}
+                  disabled={busy}
                   onClick={() => {
                     setNotice(null);
-                    addToPlaylist.mutate({
-                      path: { playlist_id: list.id },
-                      body: { song_id: song.id },
-                    });
+                    if (added) {
+                      removeFromPlaylist.mutate({
+                        path: { playlist_id: list.id, song_id: song.id },
+                      });
+                    } else {
+                      addToPlaylist.mutate({
+                        path: { playlist_id: list.id },
+                        body: { song_id: song.id },
+                      });
+                    }
                   }}
                 >
                   <Icon name="playlist" />
@@ -162,7 +197,7 @@ export default function SongDetails({ song, onClose }: SongDetailsProps) {
     favorites.available || auth.can("karaoke.sing") || auth.can("wishlist.add");
 
   return (
-    <Modal title={song.title} hideTitle onClose={onClose}>
+    <Modal title={song.title} hideTitle bare onClose={onClose}>
       <div className="song-hero">
         <SongCover song={song} className="song-hero-cover" />
         <h3 className="song-hero-title">{song.title}</h3>
@@ -224,7 +259,7 @@ export default function SongDetails({ song, onClose }: SongDetailsProps) {
                 else wishlist.wish(song.id);
               }}
             >
-              <Icon name={wished ? "check" : "plus"} />
+              <Icon name={wished ? "playlist-check" : "playlist"} />
             </button>
           )}
         </div>
