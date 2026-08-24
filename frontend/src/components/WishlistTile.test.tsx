@@ -76,8 +76,8 @@ test("the tile lists the aggregated wishes, most wanted first", async () => {
   expect(await screen.findByText("Dancing Queen")).toBeInTheDocument();
   expect(screen.getByText("ABBA")).toBeInTheDocument();
   expect(screen.getByLabelText("3 wishes")).toHaveTextContent("3×");
-  expect(screen.getByLabelText("1 wishes")).toHaveTextContent("1×");
-  expect(screen.getAllByText("just now")).toHaveLength(2);
+  // A single wish is the norm — the count only shows up beyond it.
+  expect(screen.queryByText(/1×/)).not.toBeInTheDocument();
 
   // Only the caller's own wish can be taken back.
   expect(
@@ -156,4 +156,6 @@ test("without the capability there is no way to change a wish", async () => {
       }),
     ).not.toBeInTheDocument(),
   );
+  // The own wish is still marked, just not removable.
+  expect(screen.getByTitle("You wished for this")).toBeInTheDocument();
 });

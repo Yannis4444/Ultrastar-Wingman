@@ -6,48 +6,58 @@
   border-bottom: 1px solid var(--input-border-color);
 }
 
+/* One line per setting: label, input, icon button. The group heading carries
+   the context, so the label stays quiet and truncates before the input does. */
 .setting-row {
   display: flex;
-  flex-wrap: wrap;
   align-items: center;
   gap: 8px;
 }
 
 .setting-label {
-  flex: 1 1 140px;
-  font-weight: bold;
+  flex: 0 1 auto;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  cursor: pointer;
 }
 
-.setting-input,
-.setting-textarea {
-  flex: 2 1 220px;
+.setting-input {
+  flex: 1 1 120px;
+  min-width: 0;
+}
+
+/* The one field type that keeps its own row. */
+.setting-field:has(.setting-textarea) .setting-row {
+  flex-wrap: wrap;
 }
 
 .setting-textarea {
+  flex: 1 1 100%;
   font: inherit;
   resize: vertical;
 }
 
+/* The 20px box plus its margin makes a 40px slot; the label is the second,
+   larger target. */
 .setting-toggle {
   width: 20px;
   height: 20px;
+  margin: 10px;
   accent-color: var(--highlight-blue-light);
 }
 
-.setting-reset {
-  flex: 0 0 auto;
-  padding: 6px 12px;
-  font-size: 0.85em;
-}
-
+/* Fixed width, so the acknowledgement never re-flows the row. */
 .setting-saved {
   flex: 0 0 auto;
+  width: 3.5em;
   color: var(--highlight-blue-light);
   font-size: 0.85em;
 }
 
 .setting-description {
-  margin: 8px 0 0 0;
+  margin: 6px 0 0 0;
   color: var(--color-darker);
   font-size: 0.85em;
 }

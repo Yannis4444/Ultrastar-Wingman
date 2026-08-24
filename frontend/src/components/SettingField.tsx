@@ -1,5 +1,5 @@
 import { useMutation, useQueryClient } from "@tanstack/react-query";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import type { SettingRead, SettingUpdate } from "../api";
 import {
   listSettingsQueryKey,
@@ -7,6 +7,7 @@ import {
 } from "../api/@tanstack/react-query.gen";
 import { errorDetail, errorMessage, missingPermission } from "../errors";
 import { labelize } from "../settings";
+import { Icon } from "./icons";
 import "./SettingField.css";
 
 interface Props {
@@ -42,6 +43,14 @@ export default function SettingField({ setting, readOnly }: Props) {
 
   const patch = (value: SettingUpdate["value"]): void =>
     save.mutate({ path: { key: setting.key }, body: { value } });
+
+  // "Saved" is an acknowledgement, not a state — it fades after a moment.
+  const { isSuccess, reset } = save;
+  useEffect(() => {
+    if (!isSuccess) return;
+    const timer = setTimeout(reset, 2000);
+    return () => clearTimeout(timer);
+  }, [isSuccess, reset]);
 
   // A secret always reads back as null, which is exactly the empty box it needs.
   const stored = setting.value === null ? "" : String(setting.value);
@@ -104,7 +113,7 @@ export default function SettingField({ setting, readOnly }: Props) {
             className="text-input setting-textarea"
             id={inputId}
             aria-describedby={describedBy}
-            rows={4}
+            rows={3}
             value={text}
             disabled={disabled}
             onChange={(event) => setDraft(event.target.value)}
@@ -143,8 +152,13 @@ export default function SettingField({ setting, readOnly }: Props) {
         {!readOnly && resettable && (
           <button
             type="button"
-            className="button setting-reset"
+            className="icon-button icon-button-bordered"
             aria-label={`${setting.secret ? "Clear" : "Reset"} ${label}`}
+            title={
+              setting.secret
+                ? "Clear the stored value"
+                : `Reset to ${defaultText}`
+            }
             disabled={save.isPending}
             // Keeps the focus where it is, so a half-typed value (a secret!)
             // is not saved by the blur this click would otherwise trigger.
@@ -154,7 +168,7 @@ export default function SettingField({ setting, readOnly }: Props) {
               patch(null);
             }}
           >
-            {setting.secret ? "Clear" : `Reset to ${defaultText}`}
+            <Icon name="refresh" />
           </button>
         )}
 

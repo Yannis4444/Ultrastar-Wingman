@@ -6,3 +6,55 @@
 .error-notice.settings-notice {
   color: var(--color);
 }
+
+.settings-group > summary {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-height: 44px;
+  margin: 16px 16px 0 16px;
+  padding: 8px 0;
+  font-size: 1em;
+  font-weight: bold;
+  border-bottom: 1px solid var(--input-border-color);
+  cursor: pointer;
+  list-style: none;
+}
+
+.settings-group > summary::-webkit-details-marker {
+  display: none;
+}
+
+/* Chevron drawn from the border, no icon needed. */
+.settings-group > summary::after {
+  content: "";
+  width: 8px;
+  height: 8px;
+  margin-left: auto;
+  border-right: 2px solid var(--color-darker);
+  border-bottom: 2px solid var(--color-darker);
+  transform: rotate(45deg);
+  transition: transform 0.15s;
+}
+
+.settings-group[open] > summary::after {
+  transform: rotate(-135deg);
+}
+
+.settings-group > summary:focus-visible {
+  outline: 2px solid var(--highlight-blue-light);
+  outline-offset: -2px;
+}
+
+.settings-group-count {
+  color: var(--color-darker);
+  font-weight: normal;
+  font-size: 0.85em;
+  font-variant-numeric: tabular-nums;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .settings-group > summary::after {
+    transition: none;
+  }
+}
