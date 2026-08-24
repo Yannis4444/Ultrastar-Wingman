@@ -24,9 +24,9 @@ alone.
 
 ## Favorites
 
-Favorites need an account. Log in on the **User** tab, then tap the heart next to
-a song in the **Songs** list. The **♥ Favorites** chip filters the list down to
-them.
+Favorites need an account. Log in on the **User** tab, open a song and tap the
+heart. A small heart marks your favorites in the **Songs** list, and the
+**♥ Favorites** chip filters the list down to them.
 
 Nobody else can see your favorites, and there is no right for the host to grant —
 they are yours.
