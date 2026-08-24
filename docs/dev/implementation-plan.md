@@ -176,6 +176,37 @@ Windows installer (PyInstaller — verify yt-dlp/ffmpeg actually bundle; the
 old build shipped without yt-dlp), zensical docs site with user guides per
 feature, release workflow.
 
+## Landed after phase 8
+
+- USDX setup guidance (karaoke/status endpoint + guided UI).
+- OIDC login (authlib, PKCE, state-cookie binding; settings group "Auth").
+- Managed ffmpeg auto-download on Windows (like yt-dlp; no update checks).
+- UI polish: tile background reserved for primary cards (Home header, auth/
+  profile cards, modals, stats chart/summary, host blocks); list rows, form
+  fields, and the Home blocks (currently playing, wishlist, spinner) are
+  flat; old logo + favicons adopted; no VIDEO badge in the song list.
+
+## Known gaps / follow-ups (as of 2026-08-24)
+
+- **USDB column mapping is unvalidated against the live logged-in site** —
+  the list page is login-gated, so verification needs one manual search
+  after entering real credentials in Settings. The parser degrades to empty
+  results (never crashes) if the real table differs from the fixtures.
+- **CI has never run on GitHub** — written for ubuntu-latest while the suite
+  has only ever run on Windows; the first push may surface a POSIX-path
+  issue (the workflow has a comment about adding a Windows matrix entry).
+- **Sing 400 error leaks raw filesystem paths to guests** — the
+  `usdx_not_configured` detail carries the raw `problems` list to anyone
+  with `karaoke.sing`, while GET `/karaoke/status` strips it without
+  `settings.view`. The UI maps known patterns to path-free prose, so only
+  unrecognized strings leak. Decide whether to filter the sing error the
+  same way.
+- **The rendered UI has never been visually inspected** — all design work
+  was verified by reading CSS/markup and tests, not screenshots.
+- **zensical is at 0.0.57** — very early; its config format may change.
+- OIDC state store is in-memory, single-process (documented in
+  `auth/oidc.py`); rate limiting is the noted upgrade path.
+
 ## Explicitly out of scope
 
 - Spotify integration (dropped — API no longer feasible).
