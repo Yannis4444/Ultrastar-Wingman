@@ -24,6 +24,24 @@
   box-shadow: 0 4px 16px #000a;
 }
 
+/* The bare variant: no panel surface, the page shows through darkened and
+   blurred instead of behind a tile card. */
+.modal-backdrop-blur {
+  background-color: #000c;
+  backdrop-filter: blur(10px);
+  -webkit-backdrop-filter: blur(10px);
+}
+
+.modal-bare {
+  background: none;
+  box-shadow: none;
+}
+
+.modal-bare .modal-header {
+  position: static;
+  background: none;
+}
+
 .modal-fullscreen {
   max-width: none;
   max-height: none;
