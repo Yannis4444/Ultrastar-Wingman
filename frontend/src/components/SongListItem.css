@@ -16,16 +16,22 @@
   display: flex;
   flex: 0 0 auto;
   align-items: center;
-  gap: 2px;
-  padding-right: 8px;
+  gap: 0;
+  padding-right: 4px;
 }
 
+/* Flat 40x40 icon targets — per-row boxes are out. */
 .song-list-actions button {
-  padding: 6px 8px;
-  font: inherit;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 40px;
+  height: 40px;
+  padding: 0;
+  font-size: 1.15em;
   color: var(--color-dark);
   background: none;
-  border: 1px solid var(--input-border-color);
+  border: none;
   border-radius: var(--border-radius-small);
   cursor: pointer;
 }
@@ -40,9 +46,26 @@
   cursor: default;
 }
 
+/* One heart, two colors: dimmed outline stand-in when off, pink when on. The
+   opacity sits on the icon so the focus ring stays fully visible. */
+.song-list-actions .song-favorite {
+  color: var(--color-darkerer);
+}
+
+.song-list-actions .song-favorite .icon {
+  opacity: 0.5;
+}
+
 .song-list-actions .song-favorite-on {
   color: var(--highlight-pink-light);
-  border-color: var(--highlight-pink-light);
+}
+
+.song-list-actions .song-favorite-on .icon {
+  opacity: 1;
+}
+
+.song-icon-up {
+  transform: rotate(180deg);
 }
 
 .song-list-item {
@@ -50,7 +73,7 @@
   align-items: center;
   gap: 12px;
   width: 100%;
-  padding: 8px;
+  padding: 6px 8px;
   font: inherit;
   text-align: left;
   color: var(--color);
