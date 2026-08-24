@@ -6,6 +6,7 @@ import {
   listSettingsQueryKey,
 } from "../api/@tanstack/react-query.gen";
 import { useAuth } from "../auth";
+import KaraokeSlotsField from "../components/KaraokeSlotsField";
 import SettingField from "../components/SettingField";
 import { useWingmanEvent, type WingmanEvent } from "../hooks/useWingmanEvents";
 import "./Settings.css";
@@ -16,7 +17,15 @@ interface SettingChanged extends WingmanEvent {
 }
 
 /** Task-first page order; unknown groups land at the end in registry order. */
-const GROUP_ORDER = ["Songs", "USDX", "USDB", "Downloads", "Auth"];
+const GROUP_ORDER = ["Karaoke", "Songs", "USDX", "USDB", "Downloads", "Auth"];
+
+/**
+ * Settings whose stored form is not what a person should be typing. Everything
+ * else is rendered from its value type alone.
+ */
+const CUSTOM_FIELDS: Record<string, typeof SettingField | undefined> = {
+  "karaoke.player_colors": KaraokeSlotsField,
+};
 
 function groupRank(group: string): number {
   const index = GROUP_ORDER.indexOf(group);
@@ -96,13 +105,16 @@ export default function Settings() {
             <span className="settings-group-name">{group}</span>
             <span className="settings-group-count">{rows.length}</span>
           </summary>
-          {rows.map((setting) => (
-            <SettingField
-              key={setting.key}
-              setting={setting}
-              readOnly={!mayManage}
-            />
-          ))}
+          {rows.map((setting) => {
+            const Field = CUSTOM_FIELDS[setting.key] ?? SettingField;
+            return (
+              <Field
+                key={setting.key}
+                setting={setting}
+                readOnly={!mayManage}
+              />
+            );
+          })}
         </details>
       ))}
     </>

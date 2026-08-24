@@ -19,6 +19,7 @@ from ..auth.model import as_utc
 from ..events import KaraokeEnded, KaraokeStarted, ScoresRecorded, event_bus
 from ..players.model import Player
 from ..players.schema import read_player
+from ..settings import SettingsService
 from ..songs.model import Song
 from ..songs.schema import read_song
 from . import usdx_scores
@@ -26,7 +27,8 @@ from .colors import color_index
 from .launcher import KaraokeLauncher, LaunchSlot
 from .model import SESSION_GAP, KaraokeSession, Score, Sing
 from .schema import CurrentSing, ScoreRead, SlotRead, read_score
-from .usdx import UsdxLauncher
+from .slots import parse_slot_colors
+from .usdx import EMPTY_SLOT_NAME, UsdxLauncher
 from .usdx_paths import UsdxPathsError, resolve_usdx_paths
 
 logger = logging.getLogger(__name__)
@@ -55,6 +57,26 @@ class UnknownPlayerError(LookupError):
 class NoPlayersError(ValueError):
     def __init__(self) -> None:
         super().__init__("at least one slot needs a player")
+
+
+class UnconfiguredColorError(ValueError):
+    """A singer was put on a color that is not one of the configured slots — a client
+    working from a color list the host has since changed."""
+
+    def __init__(self, color: str) -> None:
+        super().__init__(
+            f"'{color}' is not one of the configured player slots — reopen the player selection"
+        )
+        self.color = color
+
+
+class DuplicateColorError(ValueError):
+    """The same slot twice, with somebody on it: which singer is which cannot be told
+    apart, on the TV no more than in the scores."""
+
+    def __init__(self, color: str) -> None:
+        super().__init__(f"'{color}' was picked twice — every singer needs a color of their own")
+        self.color = color
 
 
 class AlreadyPlayingError(RuntimeError):
@@ -88,6 +110,13 @@ def current_sing() -> CurrentSing | None:
     return None if _running is None else _running.sing
 
 
+async def slot_colors(session: AsyncSession) -> list[str]:
+    """The configured singing slots, in order — the source of truth for how many people
+    sing at once and in which colors. Stored as one setting, validated on the way in, so
+    this can only ever be a list USDX understands."""
+    return parse_slot_colors(str(await SettingsService(session).get("karaoke.player_colors")))
+
+
 async def start_sing(
     session: AsyncSession,
     session_factory: async_sessionmaker[AsyncSession],
@@ -96,8 +125,9 @@ async def start_sing(
     force: bool = False,
 ) -> CurrentSing:
     """Launch `song_id` for `slots`. Raises `AlreadyPlayingError` unless `force`,
-    `UnknownSongError` / `UnknownPlayerError`, `UnknownColorError`, `NoPlayersError`
-    or `UsdxPathsError`."""
+    `UnknownSongError` / `UnknownPlayerError`, `UnknownColorError`,
+    `UnconfiguredColorError`, `DuplicateColorError`, `NoPlayersError` or
+    `UsdxPathsError`."""
     global _running, _last_finished
     async with _lock:
         song = await session.get(Song, song_id)
@@ -109,6 +139,8 @@ async def start_sing(
         # Fails before anything is started or killed if a color name is bogus.
         for slot in slots:
             color_index(slot.color)
+        # The host's slot configuration is what USDX gets, whatever the client sent.
+        resolved = _for_configured_slots(resolved, await slot_colors(session))
 
         if _running is not None:
             if not force:
@@ -251,6 +283,32 @@ async def _resolve_players(
     return resolved
 
 
+def _for_configured_slots(
+    resolved: list[tuple[SlotRequest, Player | None]], configured: list[str]
+) -> list[tuple[SlotRequest, Player | None]]:
+    """The requested slots reduced to the ones the host configured, in the order they
+    were requested.
+
+    A singer on a color that is not a slot means a client working from an old list, and
+    is refused. An empty one is dropped instead: nobody is on it, and passing it on would
+    make USDX play with more players than the host has microphones for.
+    """
+    kept: list[tuple[SlotRequest, Player | None]] = []
+    seen: set[str] = set()
+    for slot, player in resolved:
+        if slot.color not in configured:
+            if player is not None:
+                raise UnconfiguredColorError(slot.color)
+            continue
+        if slot.color in seen:
+            if player is not None:
+                raise DuplicateColorError(slot.color)
+            continue
+        seen.add(slot.color)
+        kept.append((slot, player))
+    return kept
+
+
 def _avatar(player: Player) -> Path | None:
     return None if player.avatar_file is None else Path(player.avatar_file)
 
@@ -278,7 +336,14 @@ async def _finish(running: _Running, session_factory: async_sessionmaker[AsyncSe
 async def _import_scores(
     running: _Running, session_factory: async_sessionmaker[AsyncSession]
 ) -> list[ScoreRead]:
-    new_scores = await usdx_scores.scores_since(running.ultrastar_db, running.score_snapshot)
+    new_scores = [
+        score
+        for score in await usdx_scores.scores_since(running.ultrastar_db, running.score_snapshot)
+        # An empty slot is a player called "-" to USDX, and it scores like everybody else.
+        # Kept only when somebody of that name really sang, which nobody ever is.
+        if score.player_name != EMPTY_SLOT_NAME
+        or EMPTY_SLOT_NAME.casefold() in running.player_ids_by_name
+    ]
     async with session_factory() as session:
         sing = await session.get(Sing, running.sing.sing_id)
         if sing is not None:

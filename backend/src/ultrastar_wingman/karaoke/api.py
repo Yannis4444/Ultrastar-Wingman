@@ -8,8 +8,9 @@ from pydantic import BaseModel, Field
 from ..auth.deps import PrincipalDep, require
 from ..db import SessionDep
 from . import service
-from .colors import COLORS, ColorList, UnknownColorError
+from .colors import COLORS, Color, ColorList, UnknownColorError
 from .schema import CurrentSing, CurrentSingRead
+from .slots import PLAYER_COUNTS
 from .usdx_paths import UsdxPathsError, resolve_usdx_paths
 
 logger = logging.getLogger(__name__)
@@ -65,6 +66,32 @@ async def list_karaoke_colors() -> ColorList:
     return ColorList(colors=list(COLORS))
 
 
+class SlotConfigRead(BaseModel):
+    """What the player selection is built from, and what the settings UI offers."""
+
+    # The configured singing positions, in order: slot 1 first.
+    slots: list[Color]
+    # The player counts Ultrastar Deluxe accepts on one screen — the choices for
+    # "how many players", so no client has to know that 5 is not one of them.
+    player_counts: list[int]
+
+
+@router.get(
+    "/karaoke/slots",
+    response_model=SlotConfigRead,
+    # Same audience as the color list: this is what the player selection renders.
+    dependencies=[Depends(require("players.view"))],
+)
+async def list_karaoke_slots(session: SessionDep) -> SlotConfigRead:
+    """The singing slots the host configured (`karaoke.player_colors`) with their hex
+    values. How many there are is how many people sing at once."""
+    by_name = {color.name: color for color in COLORS}
+    return SlotConfigRead(
+        slots=[by_name[name] for name in await service.slot_colors(session)],
+        player_counts=list(PLAYER_COUNTS),
+    )
+
+
 @router.post(
     "/karaoke/sing",
     response_model=CurrentSing,
@@ -98,7 +125,12 @@ async def sing_song(
         )
     except (service.UnknownSongError, service.UnknownPlayerError) as error:
         raise HTTPException(status_code=404, detail=str(error)) from error
-    except (UnknownColorError, service.NoPlayersError) as error:
+    except (
+        UnknownColorError,
+        service.UnconfiguredColorError,
+        service.DuplicateColorError,
+        service.NoPlayersError,
+    ) as error:
         raise HTTPException(status_code=422, detail=str(error)) from error
     except service.AlreadyPlayingError as error:
         raise HTTPException(status_code=409, detail="already_playing") from error

@@ -15,6 +15,28 @@ The settings are grouped by area, and each field carries its own one-line
 explanation. Below, every field is listed with the name it has in the app and the
 key it is stored under.
 
+## Karaoke
+
+How many people sing at once, and in which colours.
+
+| Field | What it is |
+|---|---|
+| **Players** | How many singing slots the player selection offers. Ultrastar Deluxe plays 1, 2, 3, 4 or 6 players on one screen, so those are the choices. |
+| **Slot 1 … Slot n** | The colour of each slot, picked from Ultrastar Deluxe's own sixteen. Every slot needs a colour of its own — picking one another slot already has swaps the two. |
+
+Both live in one setting (`karaoke.player_colors`): the colour names in order,
+separated by commas, e.g. `blue,red,green,yellow`. How many there are is how many
+players sing. Wingman writes exactly this into Ultrastar Deluxe's `config.ini`
+before every song, together with the names and avatars of whoever is on the slots.
+
+!!! tip
+    Set this to the number of microphones you have. Slots left empty at the end
+    of a selection are dropped before the song starts, so one slot too many
+    costs nothing — but a slot left empty *between* two singers is kept, so the
+    singers after it keep their colours and their microphone. Since Ultrastar
+    Deluxe itself only plays 1, 2, 3, 4 or 6 players, five singers reach it as
+    six, the sixth one empty.
+
 ## USDX
 
 Where Ultrastar Deluxe lives.

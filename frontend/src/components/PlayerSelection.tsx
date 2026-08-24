@@ -2,7 +2,7 @@ import { useMutation, useQuery } from "@tanstack/react-query";
 import { useState } from "react";
 import type { PlayerRead, SlotCreate, SongRead } from "../api";
 import {
-  listKaraokeColorsOptions,
+  listKaraokeSlotsOptions,
   listPlayersOptions,
   singSongMutation,
 } from "../api/@tanstack/react-query.gen";
@@ -17,7 +17,7 @@ import "./PlayerSelection.css";
 
 const SLOTS_STORAGE_KEY = "wingman.playerSlots";
 
-/** Color name -> player id. Colors come from the backend; nothing is hardcoded. */
+/** Color name -> player id. Slots come from the backend; nothing is hardcoded. */
 type Assignment = Record<string, string>;
 
 /**
@@ -52,7 +52,8 @@ export default function PlayerSelection({
   onClose,
 }: PlayerSelectionProps) {
   const auth = useAuth();
-  const colors = useQuery(listKaraokeColorsOptions());
+  // The host's setting decides how many people sing and in which colors.
+  const slots = useQuery(listKaraokeSlotsOptions());
   const players = useQuery(listPlayersOptions());
 
   const [assignment, setAssignment] = useState<Assignment>(readAssignment);
@@ -62,7 +63,7 @@ export default function PlayerSelection({
   // Non-null while the setup guide is up: the backend's problem list.
   const [setupProblems, setSetupProblems] = useState<string[] | null>(null);
 
-  const colorNames = colors.data?.colors.map((color) => color.name) ?? [];
+  const colorNames = slots.data?.slots.map((color) => color.name) ?? [];
   const byId = new Map(
     (players.data?.players ?? []).map((player) => [player.id, player]),
   );
@@ -124,8 +125,8 @@ export default function PlayerSelection({
   });
 
   const start = (force: boolean): void => {
-    // Every color is sent so USDX gets the colors in its own order; the backend
-    // drops the trailing empty ones.
+    // Every configured slot is sent so USDX gets them in the host's order; the
+    // backend drops the trailing empty ones.
     const slots: SlotCreate[] = colorNames.map((color) => ({
       color,
       player_id: playerFor(color)?.id ?? null,
@@ -148,7 +149,7 @@ export default function PlayerSelection({
           )}
 
           <div className="player-selection-slots">
-            {(colors.data?.colors ?? []).map((color) => {
+            {(slots.data?.slots ?? []).map((color) => {
               const player = playerFor(color.name);
               return (
                 <div

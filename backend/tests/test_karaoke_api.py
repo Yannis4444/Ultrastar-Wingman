@@ -587,6 +587,116 @@ async def test_unknown_songs_players_colors_and_empty_selections_are_refused(
     assert no_slots.status_code == 422
 
 
+async def test_a_singer_on_a_slot_the_host_removed_is_refused(
+    client: AsyncClient, session: AsyncSession, configured: FakeUsdx, song: str
+) -> None:
+    """The host cut the party down to two mics while a phone still showed four slots."""
+    await SettingsService(session).set("karaoke.player_colors", "blue,red")
+    player = await add_player(client, "Yannis")
+
+    stale = await client.post(
+        "/api/v1/karaoke/sing",
+        json={"song_id": song, "slots": [{"color": "green", "player_id": player["id"]}]},
+    )
+
+    assert stale.status_code == 422
+    assert "not one of the configured player slots" in stale.json()["detail"]
+    assert list(await session.scalars(select(Sing))) == []
+
+    # An *empty* slot outside the configuration is dropped instead: nobody sings on it,
+    # and USDX must not end up with more players than the host configured.
+    started = await sing(
+        client,
+        song,
+        [
+            {"color": "blue", "player_id": player["id"]},
+            {"color": "green", "player_id": None},
+        ],
+    )
+    await service.wait_for_sing_end()
+    assert configured.config()["Game"]["Players"] == "1"
+    assert started["slots"] == [{"color": "blue", "player": player}]
+
+
+async def test_the_same_slot_twice_is_refused(
+    client: AsyncClient, configured: FakeUsdx, song: str
+) -> None:
+    """Two singers in one color cannot be told apart — neither on the TV nor in the
+    scores, which are matched by the name written into that slot."""
+    alice = await add_player(client, "Alice")
+    bob = await add_player(client, "Bob")
+
+    doubled = await client.post(
+        "/api/v1/karaoke/sing",
+        json={
+            "song_id": song,
+            "slots": [
+                {"color": "blue", "player_id": alice["id"]},
+                {"color": "blue", "player_id": bob["id"]},
+            ],
+        },
+    )
+
+    assert doubled.status_code == 422
+    assert "color of their own" in doubled.json()["detail"]
+
+
+async def test_five_singers_reach_usdx_as_six_slots(
+    client: AsyncClient, session: AsyncSession, configured: FakeUsdx, song: str
+) -> None:
+    """USDX has no five-player mode: it looks `Players` up in a fixed list and falls back
+    to the first entry — written a five, it would play with *one* player and leave four
+    singers without a microphone."""
+    six_slots = "blue,red,green,yellow,orange,pink"
+    await SettingsService(session).set("karaoke.player_colors", six_slots)
+    names = ["Alice", "Bob", "Cara", "Dan", "Eve"]
+    players = [await add_player(client, name) for name in names]
+
+    await sing(
+        client,
+        song,
+        [
+            {"color": color, "player_id": player["id"]}
+            for color, player in zip(
+                ["blue", "red", "green", "yellow", "orange"], players, strict=True
+            )
+        ],
+    )
+    await service.wait_for_sing_end()
+
+    config = configured.config()
+    assert config["Game"]["Players"] == "6"
+    # Everybody keeps the slot they were put on, colors included.
+    assert [config["Name"][f"P{number}"] for number in range(1, 6)] == names
+    assert config["PlayerColor"]["P5"] == "5"
+    # The sixth slot exists only because five is not a count USDX knows.
+    assert config["Name"]["P6"] == "-"
+
+
+async def test_the_placeholder_of_an_empty_slot_is_not_a_singer(
+    client: AsyncClient, session: AsyncSession, configured: FakeUsdx, song: str
+) -> None:
+    """An empty slot is a player called "-" to USDX, and USDX scores it like any other.
+    Such a row is nobody's performance and must stay out of the statistics."""
+    alice = await add_player(client, "Alice")
+    configured.behave(
+        scores=[("-" + NUL * 15, 120, 2000, None), ("Alice" + NUL * 11, 8000, 2001, 2)]
+    )
+
+    await sing(
+        client,
+        song,
+        [
+            {"color": "blue", "player_id": None},
+            {"color": "red", "player_id": alice["id"]},
+        ],
+    )
+    await service.wait_for_sing_end()
+
+    scores = list(await session.scalars(select(Score).order_by(Score.id)))
+    assert [(score.player_name, score.score) for score in scores] == [("Alice", 8000)]
+
+
 async def test_an_unconfigured_usdx_is_a_clear_error(
     client: AsyncClient, session: AsyncSession, fake_usdx: FakeUsdx
 ) -> None:

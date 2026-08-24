@@ -22,6 +22,7 @@ from .settings import (
     SettingsService,
     SettingTypeError,
     SettingValue,
+    SettingValueError,
     UnknownSettingError,
 )
 from .songs.api import router as songs_router
@@ -139,7 +140,8 @@ async def update_setting(key: str, update: SettingUpdate, session: SessionDep) -
             value = await service.set(key, update.value)
     except UnknownSettingError as error:
         raise HTTPException(status_code=404, detail=str(error)) from error
-    except SettingTypeError as error:
+    except (SettingTypeError, SettingValueError) as error:
+        # The registry's own complaint, verbatim: the settings UI shows it under the field.
         raise HTTPException(status_code=422, detail=str(error)) from error
     result = _read(service.definition(key), value, is_set=update.value is not None)
     # `result.value`, never `value`: the websocket is open to anonymous clients, so a secret

@@ -17,8 +17,9 @@ import sys
 from collections.abc import Sequence
 from pathlib import Path
 
-from .colors import color_index
+from .colors import COLOR_NAMES, color_index
 from .launcher import ExitCallback, Launch, LaunchSlot
+from .slots import PLAYER_COUNTS
 from .usdx_config import ConfiguredPlayer, write_player_config
 from .usdx_paths import UsdxPaths
 
@@ -107,17 +108,41 @@ class UsdxLauncher:
 def _configured_players(slots: Sequence[LaunchSlot]) -> list[ConfiguredPlayer]:
     """Trailing empty slots are dropped (USDX would show them as extra singers);
     empty slots in between keep their place so the colors do not shift."""
-    used = list(slots)
-    while used and used[-1].player_name is None:
-        used.pop()
     return [
         ConfiguredPlayer(
             name=slot.player_name or EMPTY_SLOT_NAME,
             color_index=color_index(slot.color),
             avatar_file=slot.avatar_file,
         )
-        for slot in used
+        for slot in _playable(slots)
     ]
+
+
+def _playable(slots: Sequence[LaunchSlot]) -> list[LaunchSlot]:
+    """As many slots as there are singers, rounded up to a count USDX can actually play.
+
+    USDX looks `[Game] Players` up in its own list of counts (`PLAYER_COUNTS`) and falls
+    back to the *first* of them for anything else: written a five, it would play with one
+    player and leave four singers without a microphone. So five singers are handed over
+    as six slots, the sixth of them empty.
+    """
+    used = list(slots)
+    while used and used[-1].player_name is None:
+        used.pop()
+    target = next((count for count in PLAYER_COUNTS if count >= len(used)), 0)
+    if target == 0:
+        # Unreachable through the API: the configured slots are a count USDX knows, and
+        # nobody can sing on a slot that is not configured.
+        logger.warning("USDX cannot play %d singers — leaving the count alone", len(used))
+        return used
+    # The caller's own slots first: they carry the colors the host configured.
+    used.extend(list(slots)[len(used) : target])
+    for color in COLOR_NAMES:
+        if len(used) >= target:
+            break
+        if all(slot.color != color for slot in used):
+            used.append(LaunchSlot(color=color, player_name=None, avatar_file=None))
+    return used
 
 
 def _needs_copy(song_dir: Path, songs_dir: Path) -> bool:
