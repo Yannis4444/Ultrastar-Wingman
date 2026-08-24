@@ -173,7 +173,10 @@ register(
         value_type=str,
         default="ffmpeg",
         group="Downloads",
-        description="ffmpeg executable, used to extract the audio track from the video.",
+        description=(
+            "ffmpeg executable, used to extract the audio track from the video. The default "
+            "means: the system's ffmpeg, or a copy Wingman downloads itself (Windows only)."
+        ),
     )
 )
 register(
