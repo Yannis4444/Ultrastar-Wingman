@@ -1,6 +1,6 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { useState } from "react";
-import { Link } from "react-router-dom";
+import { useEffect, useState } from "react";
+import { Link, useSearchParams } from "react-router-dom";
 import type { PlayerRead } from "../api";
 import {
   createPlayerMutation,
@@ -28,9 +28,47 @@ const AVATAR_MESSAGES: Record<string, string> = {
     "Only jpeg, png and webp images work — and the file has to really be one.",
 };
 
+const SSO_ERROR_PREFIX = "error:";
+
+/**
+ * The slugs `auth/oidc.py` sends the browser home with. Coarse on purpose over
+ * there, so these say what the singer can do about it rather than which check
+ * refused the token.
+ */
+const SSO_MESSAGES: Record<string, string> = {
+  oidc_disabled: "Single sign-on is switched off. Log in with a name instead.",
+  provider_error: "The login provider refused the sign-in.",
+  invalid_request: "That sign-in came back incomplete. Try again.",
+  invalid_state: "That sign-in took too long or was already used. Try again.",
+  discovery_failed:
+    "Wingman could not reach the login provider. Ask the host to check the SSO settings.",
+  token_failed: "The login provider did not finish the sign-in. Try again.",
+  invalid_token:
+    "The login provider's answer could not be trusted, so nobody was logged in.",
+  login_failed: "The sign-in did not work. Try again.",
+};
+
 export default function User() {
   const queryClient = useQueryClient();
   const auth = useAuth();
+  const [params, setParams] = useSearchParams();
+  // Read once, before the effect below strips it: the outcome of a redirect
+  // login is a one-off event, not page state a reload should repeat.
+  const [outcome] = useState(() => params.get("login"));
+  useEffect(() => {
+    if (!params.has("login")) return;
+    // A copy: mutating the hook's own instance is a router footgun.
+    const remaining = new URLSearchParams(params);
+    remaining.delete("login");
+    setParams(remaining, { replace: true });
+  }, [params, setParams]);
+
+  // `login=ok` needs no handling: the callback set the cookie before
+  // redirecting, so this page load already asks /auth/me as the new account.
+  const ssoError = outcome?.startsWith(SSO_ERROR_PREFIX)
+    ? (SSO_MESSAGES[outcome.slice(SSO_ERROR_PREFIX.length)] ??
+      SSO_MESSAGES.login_failed)
+    : null;
   const players = useQuery(listPlayersOptions());
   const [newName, setNewName] = useState("");
   const [deleting, setDeleting] = useState<PlayerRead | null>(null);
@@ -114,7 +152,7 @@ export default function User() {
 
       {auth.loaded &&
         (auth.user === null ? (
-          <LoginForm />
+          <LoginForm ssoError={ssoError} />
         ) : (
           <div className="user-card">
             <PlayerAvatar player={ownPlayer} />

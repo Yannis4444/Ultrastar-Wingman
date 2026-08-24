@@ -38,3 +38,23 @@
   font-size: 0.85em;
   color: var(--color-darker);
 }
+
+.login-divider {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 0.85em;
+  color: var(--color-darker);
+}
+
+.login-divider::before,
+.login-divider::after {
+  content: "";
+  flex: 1 1 0;
+  border-top: 1px solid var(--input-border-color);
+}
+
+.login-sso {
+  text-align: center;
+  text-decoration: none;
+}

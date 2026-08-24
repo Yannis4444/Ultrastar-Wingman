@@ -1,7 +1,8 @@
-import { useMutation, useQueryClient } from "@tanstack/react-query";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useState } from "react";
 import {
   loginMutation,
+  oidcConfigOptions,
   registerMutation,
 } from "../api/@tanstack/react-query.gen";
 import { errorDetail } from "../errors";
@@ -17,9 +18,20 @@ const MESSAGES: Record<string, string> = {
   invalid_credentials: "Wrong name or password.",
 };
 
+interface Props {
+  /**
+   * A failed SSO round trip, already in words (see `User.tsx`, which owns the
+   * `?login=` parameter the provider sends the browser back with).
+   */
+  ssoError?: string | null;
+}
+
 /** Login and registration; the first account ever created becomes the admin. */
-export default function LoginForm() {
+export default function LoginForm({ ssoError = null }: Props) {
   const queryClient = useQueryClient();
+  // Public on purpose: nobody is logged in yet when the page asks whether to
+  // offer the button.
+  const oidc = useQuery(oidcConfigOptions()).data;
   const [registering, setRegistering] = useState(false);
   const [username, setUsername] = useState("");
   const [password, setPassword] = useState("");
@@ -124,6 +136,25 @@ export default function LoginForm() {
           Registering keeps your scores: an existing player with the same name
           becomes yours.
         </p>
+      )}
+
+      {/* Outside the `enabled` gate: an admin who switched SSO off mid-flow
+          still owes the browser coming back an explanation. */}
+      {ssoError && (
+        <p className="error-notice" role="alert">
+          {ssoError}
+        </p>
+      )}
+
+      {oidc?.enabled && (
+        <>
+          <div className="login-divider">or</div>
+          {/* A plain link, not a fetch: the provider answers with a redirect to
+              its own login page, which only a full navigation can follow. */}
+          <a className="button login-sso" href="/api/v1/auth/oidc/login">
+            Sign in with {oidc.display_name}
+          </a>
+        </>
       )}
     </form>
   );

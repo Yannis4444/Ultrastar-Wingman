@@ -6,6 +6,7 @@ const WORD_OVERRIDES: Record<string, string> = {
   url: "URL",
   db: "DB",
   id: "ID",
+  oidc: "OIDC",
   dir: "directory",
   ytdlp: "yt-dlp",
   ffmpeg: "ffmpeg",

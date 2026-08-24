@@ -10,6 +10,8 @@ test.each([
   ["downloads.ytdlp_path", "yt-dlp path"],
   ["downloads.ffmpeg", "ffmpeg"],
   ["downloads.parallel", "Parallel"],
+  ["auth.oidc_client_id", "OIDC client ID"],
+  ["auth.oidc_enabled", "OIDC enabled"],
 ])("labelize(%s) is %s", (key, label) => {
   expect(labelize(key)).toBe(label);
 });
