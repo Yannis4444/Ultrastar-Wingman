@@ -22,6 +22,7 @@ import { errorMessage } from "../errors";
 import { useDownloadEvents } from "../hooks/useDownloadEvents";
 import { useFavorites } from "../hooks/useFavorites";
 import { useWingmanEvent } from "../hooks/useWingmanEvents";
+import { useWishlist } from "../hooks/useWishlist";
 import "./Songs.css";
 
 /** Reserved filter values; every other one is a playlist id (uuid4 hex). */
@@ -40,6 +41,7 @@ export default function Songs() {
   const queryClient = useQueryClient();
   const auth = useAuth();
   const favorites = useFavorites();
+  const wishlist = useWishlist();
   const [search, setSearch] = useState("");
   const [filter, setFilter] = useState(ALL);
   const [selected, setSelected] = useState<SongRead | null>(null);
@@ -276,7 +278,7 @@ export default function Songs() {
               {needle
                 ? `No song matches "${search.trim()}".`
                 : filter === FAVORITES
-                  ? "No favorites yet. Tap the heart next to a song."
+                  ? "No favorites yet. Open a song and tap the heart."
                   : inPlaylist
                     ? "This playlist is empty. Add songs from a song's details."
                     : "The library is empty. Run a rescan once songs are on disk."}
@@ -289,69 +291,50 @@ export default function Songs() {
                   <SongListItem
                     key={song.id}
                     song={song}
+                    favorite={favorites.ids.has(song.id)}
+                    wished={wishlist.mine(song.id)}
                     onClick={() => setSelected(song)}
                     actions={
-                      (favorites.available || (inPlaylist && editable)) && (
+                      inPlaylist &&
+                      editable && (
                         <>
-                          {favorites.available && (
-                            <button
-                              type="button"
-                              className={
-                                favorites.ids.has(song.id)
-                                  ? "song-favorite song-favorite-on"
-                                  : "song-favorite"
-                              }
-                              aria-label={
-                                favorites.ids.has(song.id)
-                                  ? `Remove ${song.title} from favorites`
-                                  : `Add ${song.title} to favorites`
-                              }
-                              onClick={() => favorites.toggle(song.id)}
-                            >
-                              <Icon name="heart" />
-                            </button>
-                          )}
-                          {inPlaylist && editable && (
-                            <>
-                              <button
-                                type="button"
-                                aria-label={`Move ${song.title} up`}
-                                disabled={position <= 0 || reorder.isPending}
-                                onClick={() => move(song.id, -1)}
-                              >
-                                <Icon
-                                  name="chevron-down"
-                                  className="song-icon-up"
-                                />
-                              </button>
-                              <button
-                                type="button"
-                                aria-label={`Move ${song.title} down`}
-                                disabled={
-                                  position < 0 ||
-                                  position >= entryIds.length - 1 ||
-                                  reorder.isPending
-                                }
-                                onClick={() => move(song.id, 1)}
-                              >
-                                <Icon name="chevron-down" />
-                              </button>
-                              <button
-                                type="button"
-                                aria-label={`Remove ${song.title} from the playlist`}
-                                onClick={() =>
-                                  removeEntry.mutate({
-                                    path: {
-                                      playlist_id: filter,
-                                      song_id: song.id,
-                                    },
-                                  })
-                                }
-                              >
-                                <Icon name="close" />
-                              </button>
-                            </>
-                          )}
+                          <button
+                            type="button"
+                            aria-label={`Move ${song.title} up`}
+                            disabled={position <= 0 || reorder.isPending}
+                            onClick={() => move(song.id, -1)}
+                          >
+                            <Icon
+                              name="chevron-down"
+                              className="song-icon-up"
+                            />
+                          </button>
+                          <button
+                            type="button"
+                            aria-label={`Move ${song.title} down`}
+                            disabled={
+                              position < 0 ||
+                              position >= entryIds.length - 1 ||
+                              reorder.isPending
+                            }
+                            onClick={() => move(song.id, 1)}
+                          >
+                            <Icon name="chevron-down" />
+                          </button>
+                          <button
+                            type="button"
+                            aria-label={`Remove ${song.title} from the playlist`}
+                            onClick={() =>
+                              removeEntry.mutate({
+                                path: {
+                                  playlist_id: filter,
+                                  song_id: song.id,
+                                },
+                              })
+                            }
+                          >
+                            <Icon name="close" />
+                          </button>
                         </>
                       )
                     }
