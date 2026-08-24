@@ -1,10 +1,15 @@
-/* A row with controls: the row button and the controls are siblings. */
+/* A row with controls: the row button and the controls are siblings. The
+   separator belongs to whichever of the two is the outermost element, so a row
+   with actions never draws two. */
 .song-list-row {
   display: flex;
   align-items: center;
   gap: 4px;
-  background-color: var(--tile-bg);
-  border-radius: var(--border-radius);
+  border-bottom: 1px solid var(--input-border-color);
+}
+
+.song-list-row > .song-list-item {
+  border-bottom: none;
 }
 
 .song-list-actions {
@@ -49,14 +54,16 @@
   font: inherit;
   text-align: left;
   color: var(--color);
-  background-color: var(--tile-bg);
+  background: none;
   border: none;
-  border-radius: var(--border-radius);
+  border-bottom: 1px solid var(--input-border-color);
   cursor: pointer;
   transition: 0.1s background-color;
 }
 
-.song-list-item:hover {
+/* Only the button form of the row is clickable — the USDB row is a div whose
+   download control does the work. */
+button.song-list-item:hover {
   background-color: var(--highlight-blue-dark);
 }
 

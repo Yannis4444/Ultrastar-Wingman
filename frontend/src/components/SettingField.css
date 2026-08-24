@@ -1,8 +1,9 @@
+/* A form field, not a card: flat with a separator, like the old app's
+   permission rows. */
 .setting-field {
-  margin: 8px 16px;
-  padding: 12px;
-  background-color: var(--tile-bg);
-  border-radius: var(--border-radius);
+  margin: 0 16px;
+  padding: 12px 0;
+  border-bottom: 1px solid var(--input-border-color);
 }
 
 .setting-row {

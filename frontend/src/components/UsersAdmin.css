@@ -5,7 +5,6 @@
 .users-list {
   display: flex;
   flex-direction: column;
-  gap: 8px;
   margin: 16px;
   padding: 0;
   list-style: none;
@@ -15,9 +14,12 @@
   display: flex;
   align-items: center;
   gap: 8px;
-  padding: 8px;
-  background-color: var(--tile-bg);
-  border-radius: var(--border-radius);
+  padding: 8px 0;
+  border-bottom: 1px solid var(--input-border-color);
+}
+
+.users-list > .users-row:last-child {
+  border-bottom: none;
 }
 
 .users-name {

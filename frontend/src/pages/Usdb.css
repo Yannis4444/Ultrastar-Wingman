@@ -48,11 +48,15 @@
   flex: 1 1 8em;
 }
 
+/* The rows carry their own separators, so no gap between them. */
 .usdb-results {
   display: flex;
   flex-direction: column;
-  gap: 8px;
   margin: 0 16px;
+}
+
+.usdb-results > :last-child {
+  border-bottom: none;
 }
 
 .usdb-pager {

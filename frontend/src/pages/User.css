@@ -63,7 +63,6 @@
 .players-list {
   display: flex;
   flex-direction: column;
-  gap: 8px;
   margin: 0 16px;
   padding: 0;
   list-style: none;
@@ -73,9 +72,13 @@
   display: flex;
   align-items: center;
   gap: 8px;
-  padding: 8px;
-  background-color: var(--tile-bg);
-  border-radius: var(--border-radius);
+  padding: 8px 0;
+  border-bottom: 1px solid var(--input-border-color);
+}
+
+/* The row is a div inside the li, and an error message can follow it. */
+.players-list > li:last-child > .players-row {
+  border-bottom: none;
 }
 
 .players-name {

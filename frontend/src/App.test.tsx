@@ -4,10 +4,13 @@ import { MemoryRouter } from "react-router-dom";
 import App from "./App";
 import { FakeSocket } from "./test/fakeSocket";
 
-// Home asks for the running song, the library and the wishlist; this test only
-// looks at the shell, so every one of them answers empty.
+// Home asks for the running song, the library, the wishlist and the version;
+// this test only looks at the shell, so every one of them answers empty.
 vi.mock("./api/sdk.gen", async (importOriginal) => ({
   ...(await importOriginal<typeof import("./api/sdk.gen")>()),
+  health: vi.fn(async () => ({
+    data: { name: "Ultrastar Wingman", version: "0.0.0" },
+  })),
   getCurrentSing: vi.fn(async () => ({ data: { sing: null } })),
   listKaraokeColors: vi.fn(async () => ({ data: { colors: [] } })),
   listSongs: vi.fn(async () => ({ data: { songs: [] } })),
