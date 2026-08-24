@@ -136,7 +136,7 @@ yt-dlp updates itself without a Wingman release.
 
 `AuthProvider` seam with local accounts first (username-based, proper
 password hashing, first user is admin); OIDC (Keycloak) as the second
-provider — may land in a later phase but the seam is proven now.
+provider — landed after phase 8 (authlib, PKCE, state binding).
 Capability-based permissions, persisted, editable via API, enforced on every
 route and on the WebSocket. Host-UI one-time-token trust. Registered players
 link to accounts; temporary players remain for guests.

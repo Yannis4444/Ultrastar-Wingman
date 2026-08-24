@@ -4,7 +4,8 @@
 
 - **Conventional commits**, always:
   `type(optional-scope): imperative summary`
-  - Types: `feat`, `fix`, `docs`, `refactor`, `test`, `chore`, `build`, `ci`.
+  - Types: `feat`, `fix`, `docs`, `style`, `refactor`, `test`, `chore`,
+    `build`, `ci`.
   - Scope = the area touched: `feat(usdb): …`, `fix(player-selector): …`.
   - Summary ≤ 72 chars, lowercase after the colon, no trailing period.
 - One logical change per commit. "Add the model" and "add the endpoint using
