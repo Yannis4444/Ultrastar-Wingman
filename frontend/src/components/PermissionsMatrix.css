@@ -6,8 +6,6 @@
 .permissions-scroll {
   margin: 16px;
   overflow-x: auto;
-  background-color: var(--tile-bg);
-  border-radius: var(--border-radius);
 }
 
 .permissions-matrix {
@@ -32,6 +30,12 @@
 .permissions-matrix tbody th {
   text-align: left;
   font-weight: normal;
+}
+
+/* Flat rows, separated the way the old app's permission list was. */
+.permissions-matrix tbody tr + tr th,
+.permissions-matrix tbody tr + tr td {
+  border-top: 1px solid var(--input-border-color);
 }
 
 .permissions-matrix input {

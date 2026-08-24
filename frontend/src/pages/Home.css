@@ -1,0 +1,42 @@
+/* The one tile on the page that is pure identity: logo, name, version, source.
+   Mirrors the old app's `.tile.title`. */
+.home-header {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  margin: 16px;
+  padding: 16px;
+  background-color: var(--tile-bg);
+  border-radius: var(--border-radius);
+}
+
+.home-logo {
+  display: block;
+  width: 100%;
+  max-width: 200px;
+  height: auto;
+}
+
+.home-header h1 {
+  margin: 8px 0 0 0;
+  font-size: 2em;
+}
+
+.home-meta {
+  display: flex;
+  justify-content: space-between;
+  gap: 16px;
+  width: 100%;
+  max-width: 400px;
+  margin-top: 8px;
+  color: var(--color-dark);
+}
+
+.home-meta a {
+  color: var(--color-dark);
+  text-decoration: none;
+}
+
+.home-meta a:hover {
+  color: var(--highlight-blue-light);
+}

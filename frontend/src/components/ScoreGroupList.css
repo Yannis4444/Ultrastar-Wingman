@@ -1,17 +1,16 @@
 .score-groups {
-  margin: 16px 8px 0 8px;
+  margin: 16px 16px 0 16px;
   padding: 0;
   list-style: none;
 }
 
+/* Flat rows with a separator, like the old app's score-group headers. */
 .score-groups > li {
-  margin-bottom: 8px;
+  border-bottom: 1px solid var(--input-border-color);
 }
 
-.score-groups details {
-  background-color: var(--tile-bg);
-  border-radius: var(--border-radius);
-  overflow: hidden;
+.score-groups > li:last-child {
+  border-bottom: none;
 }
 
 .score-groups summary {
@@ -19,8 +18,12 @@
   flex-wrap: wrap;
   gap: 4px 12px;
   align-items: baseline;
-  padding: 12px;
+  padding: 12px 0;
   cursor: pointer;
+}
+
+.score-groups summary:hover {
+  background-color: var(--highlight-blue-dark);
 }
 
 .score-group-rank {

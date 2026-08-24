@@ -1,7 +1,8 @@
-/* The tile look comes from SongListItem.css; only the extras USDB rows have
-   live here. A div, not a button: the download control sits inside the row. */
-.usdb-item:hover {
-  background-color: var(--tile-bg);
+/* The row look comes from SongListItem.css; only the extras USDB rows have live
+   here. A div, not a button: the download control sits inside the row, so there
+   is nothing to hover. */
+.usdb-item {
+  cursor: default;
 }
 
 .usdb-item-meta {

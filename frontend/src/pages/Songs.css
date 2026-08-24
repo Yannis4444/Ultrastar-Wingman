@@ -99,24 +99,31 @@
   color: var(--color-darker);
 }
 
+/* The rows carry their own separators, so no gap between them. */
 .songs-list {
   display: flex;
   flex-direction: column;
-  gap: 8px;
   margin: 0 16px;
+}
+
+/* A separator belongs between rows, not under the last one. The child is
+   either the row button or the row-with-actions wrapper. */
+.songs-list > :last-child {
+  border-bottom: none;
 }
 
 .songs-notice {
   margin: 0 16px 16px 16px;
-  padding: 16px;
+  padding: 16px 0;
   color: var(--color-dark);
-  background-color: var(--tile-bg);
-  border-radius: var(--border-radius);
 }
 
+/* The error variant stays a filled box — it has to be impossible to miss. */
 .songs-notice-error {
-  background-color: var(--highlight-red-dark);
+  padding: 16px;
   color: var(--color);
+  background-color: var(--highlight-red-dark);
+  border-radius: var(--border-radius);
 }
 
 .songs-notice button {
@@ -128,7 +135,7 @@
   cursor: pointer;
 }
 
-/* Placeholder tiles keep the list from jumping once the songs arrive. */
+/* Placeholders keep the list from jumping once the songs arrive. */
 .songs-skeleton {
   display: flex;
   flex-direction: column;
@@ -138,8 +145,8 @@
 
 .songs-skeleton span {
   height: 64px;
-  background-color: var(--tile-bg);
-  border-radius: var(--border-radius);
+  background-color: var(--input-bg);
+  border-radius: var(--border-radius-small);
   animation: songs-skeleton-pulse 1.2s ease-in-out infinite;
 }
 

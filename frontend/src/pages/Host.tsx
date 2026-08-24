@@ -57,6 +57,10 @@ export default function Host() {
       <CurrentlyPlaying />
       <LatestScores />
       <div className="host-side">
+        <div className="host-header">
+          <img className="host-logo" src="/logo.png" alt="Ultrastar Wingman" />
+          <span>Ultrastar Wingman</span>
+        </div>
         <div className="host-join">
           <QRCode
             value={window.location.origin}
