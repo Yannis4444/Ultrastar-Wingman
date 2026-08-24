@@ -234,7 +234,6 @@ async def _download(
     library = str(await settings.get(SONGS_DIRECTORY)).strip()
     if not library:
         raise UsdbError("no_songs_directory", "set 'songs.directory' in the settings first")
-    ffmpeg = str(await settings.get(media.FFMPEG_SETTING))
 
     await report(None, "fetching the song text")
     txt = await _get_txt(session, usdb_id)
@@ -244,6 +243,9 @@ async def _download(
     if await asyncio.to_thread(target.exists):
         raise UsdbError("directory_exists", str(target))
     ytdlp = await media.ensure_ytdlp(session, data_dir)
+    # Resolved here, not at the top: fetching a missing ffmpeg is a download of its own, and
+    # it must not happen before the cheap failures (no video, directory exists) had a say.
+    ffmpeg = await media.ensure_ffmpeg(session, data_dir, report=report)
 
     await report(None, "fetching the images")
     await _save_image(session, COVER_PATH.format(usdb_id=usdb_id), work_dir / "cover.jpg")

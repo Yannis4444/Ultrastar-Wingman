@@ -62,7 +62,7 @@ The song database Wingman downloads from. See
 | Field | What it is |
 |---|---|
 | **Parallel** (`downloads.parallel`) | How many songs download at the same time. Default 2, applied after a restart. |
-| **ffmpeg** (`downloads.ffmpeg`) | The ffmpeg program, used to pull the audio track out of the video. Default `ffmpeg`, which means "wherever the system finds it". |
+| **ffmpeg** (`downloads.ffmpeg`) | The ffmpeg program, used to pull the audio track out of the video. Leave it at the default `ffmpeg` and Wingman uses the one on your system, or downloads its own copy (Windows only) the first time it needs one. Fill in a full path to use exactly that program instead. |
 | **yt-dlp path** (`downloads.ytdlp_path`) | The yt-dlp program. Leave it empty and Wingman downloads and updates its own copy. |
 
 !!! warning

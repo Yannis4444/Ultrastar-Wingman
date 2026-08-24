@@ -58,9 +58,12 @@ again logs in fresh.
 
 Read the reason in the download row.
 
-- **Something about ffmpeg** — ffmpeg is missing. Install it and make sure it can
-  be started from a terminal, or put the full path into **Settings → Downloads →
-  ffmpeg**.
+- **Something about ffmpeg** — Wingman fetches ffmpeg itself on Windows, so this
+  usually means the download failed: no internet, or GitHub was unreachable. Try
+  again. On Linux and macOS, install ffmpeg yourself (`apt install ffmpeg`,
+  `brew install ffmpeg`). Either way you can point Wingman at a copy you already
+  have by putting its full path into **Settings → Downloads → ffmpeg** — a path
+  you fill in there is used as it is, with no fallback.
 - **Something about yt-dlp** — Wingman manages yt-dlp itself and needs internet
   to fetch and update it. If you filled in a yt-dlp path yourself, check that the
   file is there and current.

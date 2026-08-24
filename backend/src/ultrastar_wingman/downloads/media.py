@@ -4,13 +4,19 @@ yt-dlp is a standalone binary Wingman manages itself, not a pinned pip dependenc
 YouTube breaks yt-dlp every few weeks, and a Wingman release per breakage is not a
 plan. Both tools are driven as subprocesses — that is also what makes real download
 progress observable (the python API hides it behind a hook).
+
+ffmpeg is managed too, but differently: it is only fetched when the system has none,
+and never updated afterwards — an ffmpeg that muxes mp4 and encodes mp3 today does
+that forever, so there is nothing an update could fix.
 """
 
 import asyncio
 import json
 import logging
 import re
+import shutil
 import sys
+import zipfile
 from collections.abc import AsyncIterator, Awaitable, Callable, Sequence
 from datetime import UTC, datetime, timedelta
 from pathlib import Path
@@ -30,6 +36,13 @@ FFMPEG_SETTING = "downloads.ffmpeg"
 LATEST_RELEASE_URL = "https://api.github.com/repos/yt-dlp/yt-dlp/releases/latest"
 ASSET_NAME = "yt-dlp.exe" if sys.platform == "win32" else "yt-dlp"
 
+# BtbN's builds are the ones the ffmpeg site itself points Windows users at.
+FFMPEG_RELEASE_URL = "https://api.github.com/repos/BtbN/FFmpeg-Builds/releases/latest"
+FFMPEG_ASSET_NAME = "ffmpeg-master-latest-win64-gpl.zip"
+# The archive holds a whole build (ffplay, ffprobe, docs); only this member is unpacked.
+FFMPEG_MEMBER = "/bin/ffmpeg.exe"
+FFMPEG_STEP = "downloading ffmpeg"
+
 # yt-dlp releases daily-ish; checking more often than this only burns GitHub's rate limit.
 CHECK_INTERVAL = timedelta(hours=24)
 
@@ -41,6 +54,10 @@ _PROGRESS_TEMPLATE = f"download:{_PROGRESS_PREFIX} %(progress._percent_str)s"
 _PROGRESS_LINE = re.compile(rf"{re.escape(_PROGRESS_PREFIX)}\s*([\d.]+)\s*%")
 
 _STDERR_TAIL_LINES = 10
+
+# One install at a time: with `downloads.parallel` above 1, two songs starting together on a
+# fresh machine would otherwise both fetch the same 100 MB and race on putting it in place.
+_ffmpeg_lock = asyncio.Lock()
 
 
 class _ReleaseAsset(BaseModel):
@@ -136,8 +153,8 @@ async def _install(
     logger.info("installed yt-dlp %s at %s", release.tag_name, binary)
 
 
-async def _latest_release(client: httpx.AsyncClient) -> _Release:
-    response = await client.get(LATEST_RELEASE_URL)
+async def _latest_release(client: httpx.AsyncClient, url: str = LATEST_RELEASE_URL) -> _Release:
+    response = await client.get(url)
     response.raise_for_status()
     return _Release.model_validate_json(response.content)
 
@@ -194,6 +211,127 @@ def _write_binary(binary: Path, content: bytes) -> None:
     if sys.platform != "win32":
         partial.chmod(0o755)
     partial.replace(binary)
+
+
+def managed_ffmpeg_path(data_dir: Path) -> Path:
+    return data_dir / "bin" / "ffmpeg.exe"
+
+
+async def ensure_ffmpeg(
+    session: AsyncSession,
+    data_dir: Path,
+    client: httpx.AsyncClient | None = None,
+    report: ProgressReport | None = None,
+) -> str:
+    """The ffmpeg command to run: a configured one, else one on `PATH`, else Wingman's own
+    copy — downloaded on first use. Raises `DownloadError` when there is none and none can
+    be fetched."""
+    settings = SettingsService(session)
+    configured = str(await settings.get(FFMPEG_SETTING)).strip()
+    if configured and configured != settings.definition(FFMPEG_SETTING).default:
+        # Used verbatim, with no fallback: silently running a different ffmpeg than the one
+        # the user pointed at would hide a typo forever.
+        return configured
+    found = await asyncio.to_thread(shutil.which, "ffmpeg")
+    if found:
+        return found
+    if sys.platform != "win32":
+        # No managed download elsewhere: the packaged app targets Windows, and every other
+        # platform installs ffmpeg with one package-manager line.
+        raise DownloadError(
+            "ffmpeg not found — install it (e.g. apt/brew) or set the downloads.ffmpeg setting"
+        )
+    binary = managed_ffmpeg_path(data_dir)
+    async with _ffmpeg_lock:
+        # Never an update check: a working ffmpeg does not go stale the way yt-dlp does.
+        if not await asyncio.to_thread(binary.is_file):
+            logger.info("ffmpeg is missing, downloading it to %s", binary)
+            await _install_ffmpeg(binary, client, report)
+    return str(binary)
+
+
+async def _install_ffmpeg(
+    binary: Path, client: httpx.AsyncClient | None, report: ProgressReport | None
+) -> None:
+    if client is not None:
+        await _download_ffmpeg(binary, client, report)
+        return
+    async with httpx.AsyncClient(follow_redirects=True, timeout=60.0) as owned:
+        await _download_ffmpeg(binary, owned, report)
+
+
+async def _download_ffmpeg(
+    binary: Path, client: httpx.AsyncClient, report: ProgressReport | None
+) -> None:
+    await asyncio.to_thread(_make_directory, binary.parent)
+    archive = binary.parent / f"{FFMPEG_ASSET_NAME}.part"
+    try:
+        try:
+            release = await _latest_release(client, FFMPEG_RELEASE_URL)
+            asset = next((one for one in release.assets if one.name == FFMPEG_ASSET_NAME), None)
+            if asset is None:
+                raise DownloadError(
+                    f"the ffmpeg build {release.tag_name} has no {FFMPEG_ASSET_NAME}"
+                )
+            await _stream_to_file(client, asset.browser_download_url, archive, report)
+            await asyncio.to_thread(_extract_ffmpeg, archive, binary)
+        except (httpx.HTTPError, ValidationError, zipfile.BadZipFile, OSError) as error:
+            raise DownloadError(f"could not download ffmpeg: {error}") from error
+    finally:
+        await asyncio.to_thread(_remove, archive)
+    logger.info("installed ffmpeg %s at %s", release.tag_name, binary)
+
+
+async def _stream_to_file(
+    client: httpx.AsyncClient, url: str, destination: Path, report: ProgressReport | None
+) -> None:
+    """Download `url` to `destination` without holding it in memory — the Windows ffmpeg
+    build is around 100 MB."""
+    async with client.stream("GET", url) as response:
+        response.raise_for_status()
+        # A header a CDN mangles must cost the progress bar, not the download: anything `int`
+        # would reject means "unknown length", the same as no header at all. `isdecimal`, not
+        # `isdigit`: the latter is true for "²", which `int` still refuses.
+        length = response.headers.get("content-length", "")
+        total = int(length) if length.isdecimal() else 0
+        if report is not None:
+            await report(0.0 if total else None, FFMPEG_STEP)
+        reported = 0
+        downloaded = 0
+        with destination.open("wb") as file:
+            async for chunk in response.aiter_bytes():
+                await asyncio.to_thread(file.write, chunk)
+                downloaded += len(chunk)
+                if report is None or not total:
+                    continue
+                percent = min(100.0, 100.0 * downloaded / total)
+                # At most one event per whole percent: this is thousands of chunks, and every
+                # report becomes a websocket broadcast to every client.
+                if int(percent) > reported:
+                    reported = int(percent)
+                    await report(percent, FFMPEG_STEP)
+
+
+def _extract_ffmpeg(archive: Path, binary: Path) -> None:
+    """Blocking. Unpacks the one member we ever run, into place atomically."""
+    with zipfile.ZipFile(archive) as zip_file:
+        member = next((name for name in zip_file.namelist() if name.endswith(FFMPEG_MEMBER)), None)
+        if member is None:
+            raise DownloadError(f"{FFMPEG_ASSET_NAME} contains no {FFMPEG_MEMBER}")
+        partial = binary.with_suffix(".part")
+        with zip_file.open(member) as source, partial.open("wb") as target:
+            shutil.copyfileobj(source, target)
+    partial.replace(binary)
+
+
+def _make_directory(directory: Path) -> None:
+    """Blocking."""
+    directory.mkdir(parents=True, exist_ok=True)
+
+
+def _remove(path: Path) -> None:
+    """Blocking."""
+    path.unlink(missing_ok=True)
 
 
 async def download_video(

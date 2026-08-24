@@ -1,5 +1,9 @@
+import io
 import json
+import shutil
 import sys
+import zipfile
+from collections.abc import AsyncIterator
 from datetime import UTC, datetime, timedelta
 from pathlib import Path
 
@@ -13,6 +17,10 @@ from ultrastar_wingman.sources import DownloadError
 
 ASSET_URL = "https://example.invalid/download/yt-dlp"
 NEW_BINARY = b"a newer yt-dlp"
+
+FFMPEG_ASSET_URL = "https://example.invalid/download/ffmpeg.zip"
+FFMPEG_BINARY = b"a real ffmpeg is a hundred megabytes bigger than this"
+FFMPEG_MEMBER = "ffmpeg-master-latest-win64-gpl/bin/ffmpeg.exe"
 
 
 def fake_executable(directory: Path, name: str, body: str) -> Path:
@@ -63,10 +71,58 @@ def github(tag: str, requests: list[str]) -> httpx.AsyncClient:
     return httpx.AsyncClient(transport=httpx.MockTransport(handler), follow_redirects=True)
 
 
+def ffmpeg_zip(member: str = FFMPEG_MEMBER) -> bytes:
+    """A BtbN-shaped archive: the binary somewhere under `<build>/bin`, plus the rest of the
+    build we never unpack."""
+    buffer = io.BytesIO()
+    with zipfile.ZipFile(buffer, "w") as archive:
+        archive.writestr("ffmpeg-master-latest-win64-gpl/README.txt", "not a binary")
+        archive.writestr("ffmpeg-master-latest-win64-gpl/bin/ffplay.exe", b"not ours either")
+        archive.writestr(member, FFMPEG_BINARY)
+    return buffer.getvalue()
+
+
+def ffmpeg_github(requests: list[str], asset: bytes | httpx.Response = b"") -> httpx.AsyncClient:
+    def handler(request: httpx.Request) -> httpx.Response:
+        requests.append(str(request.url))
+        if str(request.url) == media.FFMPEG_RELEASE_URL:
+            return httpx.Response(
+                200,
+                json={
+                    "tag_name": "latest",
+                    "assets": [
+                        {
+                            "name": "ffmpeg-master-latest-linux64-gpl.tar.xz",
+                            "browser_download_url": "https://example.invalid/other",
+                        },
+                        {
+                            "name": media.FFMPEG_ASSET_NAME,
+                            "browser_download_url": FFMPEG_ASSET_URL,
+                        },
+                    ],
+                },
+            )
+        if str(request.url) == FFMPEG_ASSET_URL:
+            return (
+                asset if isinstance(asset, httpx.Response) else httpx.Response(200, content=asset)
+            )
+        raise AssertionError(f"unexpected request to {request.url}")
+
+    return httpx.AsyncClient(transport=httpx.MockTransport(handler), follow_redirects=True)
+
+
 @pytest.fixture
 def requests() -> list[str]:
     """Every URL the MockTransport saw, in order."""
     return []
+
+
+@pytest.fixture
+def windows_without_ffmpeg(monkeypatch: pytest.MonkeyPatch) -> None:
+    """A Windows box with no ffmpeg anywhere on `PATH` — regardless of the host running the
+    suite, so the managed download is exercised everywhere."""
+    monkeypatch.setattr(sys, "platform", "win32")
+    monkeypatch.setattr(shutil, "which", lambda name: None)
 
 
 def write_state(binary: Path, age: timedelta) -> None:
@@ -274,3 +330,192 @@ async def test_extract_audio_raises_on_failure(tmp_path: Path) -> None:
 
     with pytest.raises(DownloadError, match="Invalid data found"):
         await media.extract_audio(str(ffmpeg), tmp_path / "video.mp4", tmp_path / "song.mp3")
+
+
+async def test_configured_ffmpeg_is_used_as_it_is(
+    session: AsyncSession, tmp_path: Path, requests: list[str], monkeypatch: pytest.MonkeyPatch
+) -> None:
+    # An explicit override never falls back, so nothing may even look at PATH.
+    monkeypatch.setattr(shutil, "which", lambda name: pytest.fail("PATH was searched"))
+    await SettingsService(session).set(media.FFMPEG_SETTING, "C:/tools/ffmpeg.exe")
+
+    async with ffmpeg_github(requests) as client:
+        resolved = await media.ensure_ffmpeg(session, tmp_path, client)
+
+    assert resolved == "C:/tools/ffmpeg.exe"
+    assert requests == []
+
+
+async def test_ffmpeg_on_the_path_is_used(
+    session: AsyncSession, tmp_path: Path, requests: list[str], monkeypatch: pytest.MonkeyPatch
+) -> None:
+    monkeypatch.setattr(shutil, "which", lambda name: f"/usr/bin/{name}")
+
+    async with ffmpeg_github(requests) as client:
+        resolved = await media.ensure_ffmpeg(session, tmp_path, client)
+
+    assert resolved == "/usr/bin/ffmpeg"
+    assert requests == []
+    assert not media.managed_ffmpeg_path(tmp_path).exists()
+
+
+async def test_the_managed_ffmpeg_is_never_re_checked(
+    session: AsyncSession,
+    tmp_path: Path,
+    requests: list[str],
+    windows_without_ffmpeg: None,
+) -> None:
+    binary = media.managed_ffmpeg_path(tmp_path)
+    binary.parent.mkdir(parents=True)
+    binary.write_bytes(b"an ffmpeg from a year ago")
+
+    async with ffmpeg_github(requests) as client:
+        resolved = await media.ensure_ffmpeg(session, tmp_path, client)
+
+    assert resolved == str(binary)
+    assert requests == []
+    assert binary.read_bytes() == b"an ffmpeg from a year ago"
+
+
+async def test_missing_ffmpeg_is_downloaded_and_unpacked(
+    session: AsyncSession,
+    tmp_path: Path,
+    requests: list[str],
+    windows_without_ffmpeg: None,
+) -> None:
+    reported: list[tuple[float | None, str]] = []
+
+    async def report(percent: float | None, step: str) -> None:
+        reported.append((percent, step))
+
+    async with ffmpeg_github(requests, ffmpeg_zip()) as client:
+        resolved = await media.ensure_ffmpeg(session, tmp_path, client, report)
+
+    binary = media.managed_ffmpeg_path(tmp_path)
+    assert resolved == str(binary)
+    assert binary.read_bytes() == FFMPEG_BINARY
+    assert requests == [media.FFMPEG_RELEASE_URL, FFMPEG_ASSET_URL]
+    # Only the binary is unpacked, and neither the archive nor a partial file is left behind.
+    assert [path.name for path in binary.parent.iterdir()] == ["ffmpeg.exe"]
+    assert [step for _, step in reported] == [media.FFMPEG_STEP] * len(reported)
+    percents = [percent for percent, _ in reported if percent is not None]
+    assert len(percents) == len(reported)
+    assert percents == sorted(percents)
+    assert percents[0] == 0.0
+    assert percents[-1] == 100.0
+
+
+async def test_a_build_without_ffmpeg_fails_without_leaving_anything(
+    session: AsyncSession,
+    tmp_path: Path,
+    requests: list[str],
+    windows_without_ffmpeg: None,
+) -> None:
+    archive = ffmpeg_zip("ffmpeg-master-latest-win64-gpl/bin/ffprobe.exe")
+
+    async with ffmpeg_github(requests, archive) as client:
+        with pytest.raises(DownloadError, match="contains no"):
+            await media.ensure_ffmpeg(session, tmp_path, client)
+
+    assert list(media.managed_ffmpeg_path(tmp_path).parent.iterdir()) == []
+
+
+async def test_ffmpeg_is_not_downloaded_off_windows(
+    session: AsyncSession, tmp_path: Path, requests: list[str], monkeypatch: pytest.MonkeyPatch
+) -> None:
+    monkeypatch.setattr(sys, "platform", "linux")
+    monkeypatch.setattr(shutil, "which", lambda name: None)
+
+    async with ffmpeg_github(requests) as client:
+        with pytest.raises(DownloadError, match="install it"):
+            await media.ensure_ffmpeg(session, tmp_path, client)
+
+    assert requests == []
+
+
+async def test_a_download_without_a_length_still_arrives_whole(
+    session: AsyncSession,
+    tmp_path: Path,
+    requests: list[str],
+    windows_without_ffmpeg: None,
+) -> None:
+    archive = ffmpeg_zip()
+
+    async def body() -> AsyncIterator[bytes]:
+        yield archive[:64]
+        yield archive[64:]
+
+    reported: list[tuple[float | None, str]] = []
+
+    async def report(percent: float | None, step: str) -> None:
+        reported.append((percent, step))
+
+    # No content-length: httpx sends the body chunked, and there is no percentage to compute.
+    async with ffmpeg_github(requests, httpx.Response(200, content=body())) as client:
+        resolved = await media.ensure_ffmpeg(session, tmp_path, client, report)
+
+    binary = media.managed_ffmpeg_path(tmp_path)
+    assert resolved == str(binary)
+    assert binary.read_bytes() == FFMPEG_BINARY
+    assert reported == [(None, media.FFMPEG_STEP)]
+
+
+async def test_a_mangled_content_length_only_costs_the_progress(
+    session: AsyncSession,
+    tmp_path: Path,
+    requests: list[str],
+    windows_without_ffmpeg: None,
+) -> None:
+    asset = httpx.Response(200, content=ffmpeg_zip(), headers={"content-length": "unknown"})
+    reported: list[tuple[float | None, str]] = []
+
+    async def report(percent: float | None, step: str) -> None:
+        reported.append((percent, step))
+
+    async with ffmpeg_github(requests, asset) as client:
+        resolved = await media.ensure_ffmpeg(session, tmp_path, client, report)
+
+    binary = media.managed_ffmpeg_path(tmp_path)
+    assert resolved == str(binary)
+    assert binary.read_bytes() == FFMPEG_BINARY
+    assert reported == [(None, media.FFMPEG_STEP)]
+
+
+async def test_the_member_name_cannot_choose_where_ffmpeg_lands(
+    session: AsyncSession,
+    tmp_path: Path,
+    requests: list[str],
+    windows_without_ffmpeg: None,
+) -> None:
+    # Member names come out of a GitHub release, so one is never used as an output path.
+    root = tmp_path / "root"
+    archive = ffmpeg_zip("../../../../escaped/bin/ffmpeg.exe")
+
+    async with ffmpeg_github(requests, archive) as client:
+        resolved = await media.ensure_ffmpeg(session, root / "data", client)
+
+    binary = media.managed_ffmpeg_path(root / "data")
+    assert resolved == str(binary)
+    assert binary.read_bytes() == FFMPEG_BINARY
+    # Nothing escaped the data dir.
+    assert [path.name for path in root.iterdir()] == ["data"]
+
+
+async def test_an_interrupted_download_leaves_nothing_to_trust(
+    session: AsyncSession,
+    tmp_path: Path,
+    requests: list[str],
+    windows_without_ffmpeg: None,
+) -> None:
+    archive = ffmpeg_zip()
+
+    async def body() -> AsyncIterator[bytes]:
+        yield archive[:64]
+        raise httpx.ReadError("the connection died halfway")
+
+    async with ffmpeg_github(requests, httpx.Response(200, content=body())) as client:
+        with pytest.raises(DownloadError, match="could not download ffmpeg"):
+            await media.ensure_ffmpeg(session, tmp_path, client)
+
+    # Not even the half-written archive: the next attempt must not resume from a stale one.
+    assert list(media.managed_ffmpeg_path(tmp_path).parent.iterdir()) == []

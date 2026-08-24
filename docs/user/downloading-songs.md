@@ -51,8 +51,13 @@ extracting the audio, and finally moving the song into the library.
 The **Downloads** panel at the bottom of the page keeps the history of this
 Wingman, with the reason for every failure.
 
-!!! warning
+!!! info
     Downloading needs two helper programs: yt-dlp for the video and ffmpeg for
-    the audio track. Wingman downloads and updates yt-dlp itself. ffmpeg has to
-    be on your system — see [Troubleshooting](troubleshooting.md) if a download
-    fails right at the audio step.
+    the audio track. Wingman takes care of both — yt-dlp is downloaded and kept
+    up to date, and on Windows a missing ffmpeg is fetched during the first
+    download that needs it (a one-time ~100 MB step you can watch in the
+    download row). If ffmpeg is already on your system, that copy is used.
+
+    On Linux and macOS, install ffmpeg yourself (`apt install ffmpeg`,
+    `brew install ffmpeg`) — see [Troubleshooting](troubleshooting.md) if a
+    download fails right at the audio step.
