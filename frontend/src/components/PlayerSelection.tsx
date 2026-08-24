@@ -1,15 +1,14 @@
-import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { useMutation, useQuery } from "@tanstack/react-query";
 import { useState } from "react";
 import type { PlayerRead, SlotCreate, SongRead } from "../api";
 import {
-  createPlayerMutation,
   listKaraokeColorsOptions,
   listPlayersOptions,
-  listPlayersQueryKey,
   singSongMutation,
 } from "../api/@tanstack/react-query.gen";
 import { useAuth } from "../auth";
 import { errorDetail, errorMessage, usdxProblems } from "../errors";
+import AddPlayerForm from "./AddPlayerForm";
 import ConfirmModal from "./ConfirmModal";
 import Modal from "./Modal";
 import PlayerAvatar from "./PlayerAvatar";
@@ -52,14 +51,12 @@ export default function PlayerSelection({
   song,
   onClose,
 }: PlayerSelectionProps) {
-  const queryClient = useQueryClient();
   const auth = useAuth();
   const colors = useQuery(listKaraokeColorsOptions());
   const players = useQuery(listPlayersOptions());
 
   const [assignment, setAssignment] = useState<Assignment>(readAssignment);
   const [activeColor, setActiveColor] = useState<string | null>(null);
-  const [newName, setNewName] = useState("");
   const [askReplace, setAskReplace] = useState(false);
   const [notice, setNotice] = useState<string | null>(null);
   // Non-null while the setup guide is up: the backend's problem list.
@@ -124,22 +121,6 @@ export default function PlayerSelection({
         ),
       );
     },
-  });
-
-  const addPlayer = useMutation({
-    ...createPlayerMutation(),
-    onSuccess: (player) => {
-      setNewName("");
-      setNotice(null);
-      void queryClient.invalidateQueries({ queryKey: listPlayersQueryKey() });
-      assign(player.id);
-    },
-    onError: (error) =>
-      setNotice(
-        errorDetail(error) === "duplicate_name"
-          ? "There is already a player with that name."
-          : errorMessage(error, "Could not add the player."),
-      ),
   });
 
   const start = (force: boolean): void => {
@@ -227,30 +208,7 @@ export default function PlayerSelection({
           </div>
 
           {auth.can("players.manage") && (
-            <form
-              className="player-selection-add"
-              onSubmit={(event) => {
-                event.preventDefault();
-                const name = newName.trim();
-                if (name) addPlayer.mutate({ body: { name } });
-              }}
-            >
-              <input
-                className="text-input"
-                value={newName}
-                placeholder="New player"
-                aria-label="New player name"
-                maxLength={64}
-                onChange={(event) => setNewName(event.target.value)}
-              />
-              <button
-                type="submit"
-                className="button"
-                disabled={newName.trim() === "" || addPlayer.isPending}
-              >
-                Add
-              </button>
-            </form>
+            <AddPlayerForm onAdded={(player) => assign(player.id)} />
           )}
 
           <div className="player-selection-actions">

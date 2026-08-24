@@ -1,61 +1,117 @@
-.scores-picker {
+/* A reading column on desktop; a no-op at phone widths. */
+.scores-page {
+  max-width: 720px;
+  margin: 0 auto;
+}
+
+.scores-session {
   display: flex;
-  flex-wrap: wrap;
   gap: 8px;
   align-items: center;
   margin: 0 16px;
 }
 
-.scores-picker select {
-  flex: 1 1 200px;
-  min-width: 0;
-}
-
-.scores-rename-form {
+.scores-session label {
   display: flex;
-  flex-wrap: wrap;
-  gap: 8px;
-  align-items: center;
-  flex: 1 1 100%;
-}
-
-.scores-rename-form label {
-  display: flex;
-  flex: 1 1 160px;
-  min-width: 0;
-}
-
-.scores-rename-form input {
   flex: 1 1 auto;
+  min-width: 0;
+}
+
+.scores-session select,
+.scores-session input {
+  flex: 1 1 auto;
+  min-width: 0;
+  width: 100%;
+}
+
+/* Below the bar, never inside it — it must not compete for row width. */
+.scores-session-error {
+  margin: 8px 16px 0 16px;
 }
 
 .scores-grouping {
   display: flex;
-  gap: 16px;
-  align-items: center;
+  gap: 4px;
+  margin: 0;
+  padding: 0;
+  border: 0;
+}
+
+/* Standalone placement, when the chart tile (whose header holds it) is hidden. */
+.scores-page > .scores-grouping {
   margin: 16px 16px 0 16px;
-  padding: 8px 12px;
+}
+
+/* The visually-hidden radio keeps native keyboard behaviour; the span is the
+   40px-tall visible segment. */
+.scores-grouping-option span {
+  display: flex;
+  align-items: center;
+  min-height: 40px;
+  padding: 0 14px;
+  font: inherit;
+  color: var(--color-dark);
+  text-transform: capitalize;
+  background-color: var(--input-bg);
   border: 1px solid var(--input-border-color);
   border-radius: var(--border-radius);
-}
-
-.scores-grouping legend {
-  padding: 0 4px;
-  font-size: 0.85em;
-  color: var(--color-darker);
-}
-
-.scores-grouping label {
-  display: flex;
-  gap: 6px;
-  align-items: center;
-  text-transform: capitalize;
   cursor: pointer;
 }
 
+.scores-grouping-option input:checked + span {
+  color: var(--color);
+  background-color: var(--highlight-blue-dark);
+  border-color: var(--highlight-blue-light);
+}
+
+.scores-grouping-option input:focus-visible + span {
+  outline: 2px solid var(--highlight-blue-light);
+  outline-offset: 1px;
+}
+
 .scores-chart {
-  margin: 8px 8px 0 8px;
-  padding: 8px 0;
+  margin: 16px 16px 0 16px;
+  padding: 12px;
   background-color: var(--tile-bg);
   border-radius: var(--border-radius);
+}
+
+.scores-chart-header {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 8px;
+}
+
+.scores-chart-title {
+  margin: 0;
+  font-size: 0.9em;
+  color: var(--color-dark);
+}
+
+.scores-empty {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  align-items: center;
+  padding: 32px 16px;
+  text-align: center;
+}
+
+.scores-empty-icon {
+  font-size: 48px;
+  color: var(--color-darkerer);
+}
+
+.scores-empty h2 {
+  margin: 0;
+  font-size: 1.1em;
+}
+
+.scores-empty p {
+  max-width: 34ch;
+  margin: 0;
+  color: var(--color-dark);
 }

@@ -15,9 +15,6 @@ const {
   register,
   logout,
   listUsers,
-  updateUser,
-  deleteUser,
-  getPermissions,
   oidcConfig,
 } = vi.hoisted(() => ({
   listPlayers: vi.fn(),
@@ -29,9 +26,6 @@ const {
   register: vi.fn(),
   logout: vi.fn(),
   listUsers: vi.fn(),
-  updateUser: vi.fn(),
-  deleteUser: vi.fn(),
-  getPermissions: vi.fn(),
   oidcConfig: vi.fn(),
 }));
 
@@ -46,9 +40,6 @@ vi.mock("../api/sdk.gen", async (importOriginal) => ({
   register,
   logout,
   listUsers,
-  updateUser,
-  deleteUser,
-  getPermissions,
   oidcConfig,
 }));
 
@@ -80,7 +71,7 @@ function renderUser(url = "/user") {
   const client = new QueryClient({
     defaultOptions: { queries: { retry: false } },
   });
-  // A router: the page links to /settings and owns the `?login=` parameter.
+  // A router: the page links to its subpages and owns the `?login=` parameter.
   return render(
     <QueryClientProvider client={client}>
       <MemoryRouter initialEntries={[url]}>
@@ -97,7 +88,7 @@ beforeEach(() => {
     data: { players: [player("aaa", "Alice")] },
   });
   // A logged-in ordinary account: players are manageable, no admin sections.
-  // Not named after a player, so the profile card never collides with a row.
+  // Not named after a player, so the identity tile never collides with a row.
   getMe.mockResolvedValue(
     meResponse(USER_CAPABILITIES, {
       user: userRead({ username: "Charlie", player_id: "ccc" }),
@@ -217,7 +208,8 @@ test("an anonymous visitor gets the login form and the profile after logging in"
   login.mockResolvedValue({ data: userRead({ role: "trusted" }) });
   renderUser();
 
-  await screen.findByRole("tab", { name: "Register" });
+  await screen.findByRole("button", { name: "New account" });
+  expect(screen.getByRole("heading", { name: "You" })).toBeInTheDocument();
   // A guest without players.manage cannot add or delete players either.
   expect(screen.queryByLabelText("New player name")).not.toBeInTheDocument();
   expect(
@@ -254,7 +246,7 @@ test("a short password never reaches the backend", async () => {
   getMe.mockResolvedValue(meResponse(["songs.view", "players.view"]));
   renderUser();
 
-  fireEvent.click(await screen.findByRole("tab", { name: "Register" }));
+  fireEvent.click(await screen.findByRole("button", { name: "New account" }));
   fireEvent.change(screen.getByLabelText("Name"), { target: { value: "Bo" } });
 
   expect(await screen.findByRole("alert")).toHaveTextContent(
@@ -277,7 +269,7 @@ test("a taken username is reported on the register form", async () => {
   register.mockRejectedValue({ detail: "duplicate_username" });
   renderUser();
 
-  fireEvent.click(await screen.findByRole("tab", { name: "Register" }));
+  fireEvent.click(await screen.findByRole("button", { name: "New account" }));
   fireEvent.change(screen.getByLabelText("Name"), {
     target: { value: "Alice" },
   });
@@ -292,10 +284,11 @@ test("a taken username is reported on the register form", async () => {
   );
 });
 
-test("the admin sections stay hidden for an ordinary account", async () => {
+test("the manage menu stays hidden for an ordinary account", async () => {
   renderUser();
 
   expect(await screen.findByText("Alice")).toBeInTheDocument();
+  expect(screen.queryByText("Manage")).not.toBeInTheDocument();
   expect(screen.queryByText("Accounts")).not.toBeInTheDocument();
   expect(screen.queryByText("Permissions")).not.toBeInTheDocument();
   expect(
@@ -304,51 +297,49 @@ test("the admin sections stay hidden for an ordinary account", async () => {
   expect(listUsers).not.toHaveBeenCalled();
 });
 
-test("an admin can change a role and is stopped from removing the last admin", async () => {
+test("an admin gets one menu row per admin surface, not the surfaces inline", async () => {
   getMe.mockResolvedValue(
     meResponse(ADMIN_CAPABILITIES, {
       user: userRead({ role: "admin" }),
       role: "admin",
     }),
   );
-  getPermissions.mockResolvedValue({
-    data: { roles: { guest: [], admin: [] } },
-  });
-  listUsers.mockResolvedValue({
-    data: {
-      users: [
-        userRead({ role: "admin" }),
-        userRead({ id: "user-2", username: "Bob" }),
-      ],
-    },
-  });
-  updateUser.mockResolvedValue({
-    data: userRead({ id: "user-2", role: "trusted" }),
-  });
   renderUser();
 
-  fireEvent.change(await screen.findByLabelText("Role of Bob"), {
-    target: { value: "trusted" },
-  });
+  expect(await screen.findByText("Manage")).toBeInTheDocument();
   expect(screen.getByRole("link", { name: "Settings" })).toHaveAttribute(
     "href",
     "/settings",
   );
-
-  await waitFor(() =>
-    expect(updateUser.mock.calls[0][0]).toMatchObject({
-      path: { user_id: "user-2" },
-      body: { role: "trusted" },
-    }),
+  expect(screen.getByRole("link", { name: "Accounts" })).toHaveAttribute(
+    "href",
+    "/user/accounts",
   );
+  expect(screen.getByRole("link", { name: "Permissions" })).toHaveAttribute(
+    "href",
+    "/user/permissions",
+  );
+  // The account list itself lives on the subpage now.
+  expect(listUsers).not.toHaveBeenCalled();
+  expect(screen.queryByRole("checkbox")).not.toBeInTheDocument();
+});
 
-  deleteUser.mockRejectedValue({ detail: "last_admin" });
-  fireEvent.click(screen.getByRole("button", { name: "Delete account Alice" }));
-  fireEvent.click(screen.getByRole("button", { name: "Delete" }));
+test("the host screen gets an identity tile, and the login form only on request", async () => {
+  getMe.mockResolvedValue(meResponse(ADMIN_CAPABILITIES, { is_host: true }));
+  renderUser();
 
   expect(
-    await screen.findByText("There has to be one administrator left."),
+    await screen.findByRole("heading", { name: "Host screen" }),
   ).toBeInTheDocument();
+  expect(screen.getByText("This browser has full access.")).toBeInTheDocument();
+  expect(screen.queryByLabelText("Password")).not.toBeInTheDocument();
+
+  fireEvent.click(
+    screen.getByRole("button", { name: "Log in as a user instead" }),
+  );
+
+  expect(screen.getByLabelText("Password")).toBeInTheDocument();
+  expect(screen.getByLabelText("Name")).toBeInTheDocument();
 });
 
 test("the SSO button appears only when the provider is configured", async () => {
@@ -368,7 +359,7 @@ test("the SSO button stays hidden when the provider is switched off", async () =
   getMe.mockResolvedValue(meResponse(["songs.view", "players.view"]));
   renderUser();
 
-  await screen.findByRole("tab", { name: "Register" });
+  await screen.findByRole("button", { name: "New account" });
   await waitFor(() => expect(oidcConfig).toHaveBeenCalled());
   expect(screen.queryByRole("link", { name: /Sign in with/ })).toBeNull();
 });

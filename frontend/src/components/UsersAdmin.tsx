@@ -8,8 +8,10 @@ import {
   listUsersQueryKey,
   updateUserMutation,
 } from "../api/@tanstack/react-query.gen";
+import { useAuth } from "../auth";
 import { errorDetail, errorMessage } from "../errors";
 import ConfirmModal from "./ConfirmModal";
+import { Icon } from "./icons";
 import "./UsersAdmin.css";
 
 /** `guest` is the anonymous fallback, not an account role — the backend rejects it. */
@@ -24,7 +26,12 @@ function message(error: unknown, fallback: string): string {
 /** Accounts, their roles and the delete button. Needs `users.manage`. */
 export default function UsersAdmin() {
   const queryClient = useQueryClient();
-  const users = useQuery(listUsersOptions());
+  const auth = useAuth();
+  const users = useQuery({
+    ...listUsersOptions(),
+    // A direct navigation by a guest must never fire a 403.
+    enabled: auth.loaded && auth.can("users.manage"),
+  });
   const [deleting, setDeleting] = useState<UserRead | null>(null);
   const [error, setError] = useState<string | null>(null);
 
@@ -49,8 +56,6 @@ export default function UsersAdmin() {
 
   return (
     <>
-      <h2>Accounts</h2>
-
       {(users.isError || error) && (
         <p className="error-notice users-notice" role="alert">
           {error ?? "Could not load the accounts."}
@@ -60,35 +65,43 @@ export default function UsersAdmin() {
       <ul className="users-list">
         {(users.data?.users ?? []).map((user) => (
           <li key={user.id} className="users-row">
-            <span className="users-name">{user.username}</span>
-            <select
-              className="text-input"
-              aria-label={`Role of ${user.username}`}
-              value={user.role}
-              disabled={setRole.isPending}
-              onChange={(event) =>
-                setRole.mutate({
-                  path: { user_id: user.id },
-                  body: { role: event.target.value },
-                })
-              }
-            >
-              {(ASSIGNABLE_ROLES.includes(user.role)
-                ? ASSIGNABLE_ROLES
-                : [user.role, ...ASSIGNABLE_ROLES]
-              ).map((role) => (
-                <option key={role} value={role}>
-                  {role}
-                </option>
-              ))}
-            </select>
+            <span className="users-name">
+              {user.username}
+              {user.id === auth.user?.id && (
+                <span className="users-you"> (you)</span>
+              )}
+            </span>
+            <span className="users-role-wrap">
+              <select
+                className="users-role"
+                aria-label={`Role of ${user.username}`}
+                value={user.role}
+                disabled={setRole.isPending}
+                onChange={(event) =>
+                  setRole.mutate({
+                    path: { user_id: user.id },
+                    body: { role: event.target.value },
+                  })
+                }
+              >
+                {(ASSIGNABLE_ROLES.includes(user.role)
+                  ? ASSIGNABLE_ROLES
+                  : [user.role, ...ASSIGNABLE_ROLES]
+                ).map((role) => (
+                  <option key={role} value={role}>
+                    {role}
+                  </option>
+                ))}
+              </select>
+              <Icon name="chevron-down" />
+            </span>
             <button
               type="button"
-              className="button button-danger"
+              className="icon-button icon-button-danger"
               aria-label={`Delete account ${user.username}`}
               onClick={() => setDeleting(user)}
             >
-              Delete
+              <Icon name="trash" />
             </button>
           </li>
         ))}

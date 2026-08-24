@@ -11,9 +11,12 @@ import {
 import { useAuth } from "../auth";
 import { formatDuration } from "../duration";
 import { errorDetail, errorMessage } from "../errors";
+import { useFavorites } from "../hooks/useFavorites";
 import { useWishlist } from "../hooks/useWishlist";
+import { Icon, type IconName } from "./icons";
 import Modal from "./Modal";
 import PlayerSelection from "./PlayerSelection";
+import SongCover from "./SongCover";
 import "./SongDetails.css";
 
 interface SongDetailsProps {
@@ -25,9 +28,14 @@ export default function SongDetails({ song, onClose }: SongDetailsProps) {
   const [selectingPlayers, setSelectingPlayers] = useState(false);
   const [playlistId, setPlaylistId] = useState("");
   const [notice, setNotice] = useState<string | null>(null);
+  // There is no has_audio flag; the preview 404s for songs without audio and
+  // the element's error event is the only signal.
+  const [noAudio, setNoAudio] = useState(false);
+  const [detailsOpen, setDetailsOpen] = useState(false);
   const auth = useAuth();
   const queryClient = useQueryClient();
   const wishlist = useWishlist();
+  const favorites = useFavorites();
 
   const canManagePlaylists = auth.user !== null && auth.can("playlists.manage");
   const playlists = useQuery({
@@ -66,17 +74,29 @@ export default function SongDetails({ song, onClose }: SongDetailsProps) {
       ),
   });
 
-  const rows: [string, string | null][] = [
-    ["Artist", song.artist],
-    ["Duration", formatDuration(song.duration_seconds)],
-    ["Video", song.has_video ? "yes" : "no"],
-    ["Language", song.language],
-    ["Genre", song.genre],
-    ["Year", song.year === null ? null : String(song.year)],
-    ["Edition", song.edition],
-    ["Creator", song.creator],
-    ["Source", song.source],
-    ["ID", song.id],
+  const rows: { icon: IconName; label: string; value: string | null }[] = [
+    {
+      icon: "clock",
+      label: "Duration",
+      value: formatDuration(song.duration_seconds),
+    },
+    { icon: "mic", label: "Artist", value: song.artist },
+    {
+      icon: "video",
+      label: "Video",
+      value: song.has_video ? "Video" : "No video",
+    },
+    { icon: "globe", label: "Language", value: song.language },
+    { icon: "tag", label: "Genre", value: song.genre },
+    {
+      icon: "calendar",
+      label: "Year",
+      value: song.year === null ? null : String(song.year),
+    },
+    { icon: "disc", label: "Edition", value: song.edition },
+    { icon: "user", label: "Creator", value: song.creator },
+    // The id already names the source ("usdb:24435"), so one row covers both.
+    { icon: "database", label: "Source", value: song.id },
   ];
 
   if (selectingPlayers) {
@@ -84,17 +104,78 @@ export default function SongDetails({ song, onClose }: SongDetailsProps) {
   }
 
   const wished = wishlist.mine(song.id);
+  const favorite = favorites.ids.has(song.id);
+  const hasControls =
+    favorites.available || auth.can("karaoke.sing") || auth.can("wishlist.add");
 
   return (
-    <Modal title={song.title} onClose={onClose}>
-      <dl className="song-details">
-        {rows.map(([label, value]) => (
-          <div key={label}>
-            <dt>{label}</dt>
-            <dd>{value ?? "unknown"}</dd>
-          </div>
-        ))}
-      </dl>
+    <Modal title={song.title} hideTitle onClose={onClose}>
+      <div className="song-hero">
+        <SongCover song={song} className="song-hero-cover" />
+        <h3 className="song-hero-title">{song.title}</h3>
+        <p className="song-hero-artist">{song.artist}</p>
+      </div>
+
+      {!noAudio && (
+        <audio
+          className="song-preview"
+          controls
+          preload="metadata"
+          src={`/api/v1/songs/${encodeURIComponent(song.id)}/audio`}
+          onError={() => setNoAudio(true)}
+        />
+      )}
+
+      {hasControls && (
+        <div className="song-details-controls">
+          {favorites.available && (
+            <button
+              type="button"
+              className={
+                favorite
+                  ? "song-control song-control-favorite song-control-favorite-on"
+                  : "song-control song-control-favorite"
+              }
+              aria-pressed={favorite}
+              aria-label={
+                favorite ? "Remove from favorites" : "Add to favorites"
+              }
+              onClick={() => favorites.toggle(song.id)}
+            >
+              <Icon name="heart" />
+            </button>
+          )}
+          {auth.can("karaoke.sing") && (
+            <button
+              type="button"
+              className="song-control song-control-sing"
+              aria-label="Sing"
+              onClick={() => setSelectingPlayers(true)}
+            >
+              <Icon name="play" />
+            </button>
+          )}
+          {auth.can("wishlist.add") && (
+            <button
+              type="button"
+              className={
+                wished
+                  ? "song-control song-control-wish song-control-wish-on"
+                  : "song-control song-control-wish"
+              }
+              aria-pressed={wished}
+              aria-label={wished ? "Remove wish" : "Wish"}
+              onClick={() => {
+                setNotice(null);
+                if (wished) wishlist.unwish(song.id);
+                else wishlist.wish(song.id);
+              }}
+            >
+              <Icon name={wished ? "check" : "plus"} />
+            </button>
+          )}
+        </div>
+      )}
 
       {(notice || wishlist.error !== null) && (
         <p className="song-details-notice" role="alert">
@@ -106,30 +187,28 @@ export default function SongDetails({ song, onClose }: SongDetailsProps) {
         </p>
       )}
 
-      <div className="song-details-actions">
-        {auth.can("karaoke.sing") && (
-          <button
-            type="button"
-            className="button button-primary"
-            onClick={() => setSelectingPlayers(true)}
-          >
-            Sing
-          </button>
-        )}
-        {auth.can("wishlist.add") && (
-          <button
-            type="button"
-            className="button"
-            onClick={() => {
-              setNotice(null);
-              if (wished) wishlist.unwish(song.id);
-              else wishlist.wish(song.id);
-            }}
-          >
-            {wished ? "Remove wish" : "Wish"}
-          </button>
-        )}
-      </div>
+      <button
+        type="button"
+        className="song-details-toggle"
+        aria-expanded={detailsOpen}
+        onClick={() => setDetailsOpen(!detailsOpen)}
+      >
+        <span>Details</span>
+        <Icon
+          name="chevron-down"
+          className={detailsOpen ? "song-chevron-open" : undefined}
+        />
+      </button>
+      {/* Always in the DOM: `hidden` keeps the metadata findable (search,
+          screen-reader "show all") without conditional rendering. */}
+      <ul className="song-details-list" hidden={!detailsOpen}>
+        {rows.map(({ icon, label, value }) => (
+          <li key={label} title={label}>
+            <Icon name={icon} />
+            <span>{value ?? "unknown"}</span>
+          </li>
+        ))}
+      </ul>
 
       {best.length > 0 && (
         <div className="song-details-best">

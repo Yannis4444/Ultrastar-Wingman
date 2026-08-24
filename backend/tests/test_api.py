@@ -13,6 +13,16 @@ async def test_health(client: AsyncClient) -> None:
     assert response.json() == {"name": APP_NAME, "version": __version__}
 
 
+async def test_join_url_names_a_reachable_host_and_the_port(client: AsyncClient) -> None:
+    response = await client.get("/api/v1/join")
+    assert response.status_code == 200
+    url = response.json()["url"]
+    # An IP on machines with a network, "localhost" without one — never 0.0.0.0.
+    assert url.startswith("http://")
+    assert not url.startswith("http://0.0.0.0")
+    assert url.rsplit(":", 1)[1].isdigit()
+
+
 async def test_openapi_schema_is_served_under_the_api_prefix(client: AsyncClient) -> None:
     # The frontend's client generator reads this exact URL (openapi-ts.config.ts).
     response = await client.get("/api/v1/openapi.json")

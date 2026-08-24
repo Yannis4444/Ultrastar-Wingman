@@ -1,49 +1,71 @@
+/* Search stays reachable while scrolling 500+ rows; below the modal backdrop
+   (z-index 2000). */
 .songs-toolbar {
+  position: sticky;
+  top: 0;
+  z-index: 200;
   display: flex;
   gap: 8px;
-  margin: 16px;
+  align-items: center;
+  padding: 8px 16px;
+  background-color: var(--bg);
 }
 
-.songs-toolbar input {
+.songs-search {
+  display: flex;
   flex: 1 1 auto;
   min-width: 0;
-  padding: 10px 12px;
-  font: inherit;
-  color: var(--color);
+  align-items: center;
+  gap: 8px;
+  padding: 0 12px;
   background-color: var(--input-bg);
   border: 1px solid var(--input-border-color);
   border-radius: var(--border-radius);
 }
 
-.songs-toolbar input:focus {
+.songs-search .icon {
+  font-size: 1.1em;
+  color: var(--color-darker);
+}
+
+.songs-search input {
+  flex: 1 1 auto;
+  min-width: 0;
+  height: 40px;
+  padding: 0;
+  font: inherit;
+  color: var(--color);
+  background: none;
+  border: none;
+}
+
+/* The wrapper carries the focus cue instead of the borderless input. */
+.songs-search input:focus {
   outline: none;
+}
+
+.songs-search:focus-within {
   border-color: var(--highlight-blue-light);
 }
 
-.songs-rescan {
-  flex: 0 0 auto;
-  padding: 10px 16px;
-  font: inherit;
-  color: var(--color);
-  background-color: var(--highlight-blue-dark);
-  border: 1px solid var(--input-border-color);
-  border-radius: var(--border-radius);
-  cursor: pointer;
+.songs-tool-spin {
+  animation: songs-spin 1s linear infinite;
 }
 
-.songs-rescan:hover:enabled {
-  background-color: var(--highlight-blue-light);
+@keyframes songs-spin {
+  to {
+    transform: rotate(360deg);
+  }
 }
 
-/* A link that has to sit next to the rescan button and match it. */
-.songs-explore {
-  text-decoration: none;
-  white-space: nowrap;
-}
+@media (prefers-reduced-motion: reduce) {
+  .songs-tool-spin {
+    animation: none;
+  }
 
-.songs-rescan:disabled {
-  color: var(--color-darker);
-  cursor: default;
+  .songs-skeleton span {
+    animation: none;
+  }
 }
 
 /* Filter chips: All / Favorites / one per visible playlist. Scrolls sideways
@@ -61,9 +83,10 @@
   flex: 0 0 auto;
   gap: 6px;
   align-items: center;
-  padding: 6px 12px;
+  min-height: 40px;
+  padding: 0 14px;
   font: inherit;
-  font-size: 0.85em;
+  font-size: 0.9em;
   color: var(--color-dark);
   background-color: var(--input-bg);
   border: 1px solid var(--input-border-color);
@@ -79,6 +102,10 @@
   color: var(--color);
   background-color: var(--highlight-blue-dark);
   border-color: var(--highlight-blue-light);
+}
+
+.songs-chip-heart {
+  color: var(--highlight-pink-light);
 }
 
 .songs-chip-shared {
@@ -153,5 +180,19 @@
 @keyframes songs-skeleton-pulse {
   50% {
     opacity: 0.5;
+  }
+}
+
+/* Desktop gets a reading column, not 1200px-wide rows. */
+@media (min-width: 768px) {
+  .songs-toolbar,
+  .songs-chips,
+  .songs-count,
+  .songs-list,
+  .songs-notice,
+  .songs-skeleton {
+    max-width: 720px;
+    margin-left: auto;
+    margin-right: auto;
   }
 }

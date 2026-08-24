@@ -258,7 +258,7 @@ test("the default value is part of the reset button", async () => {
 
   expect(
     await screen.findByRole("button", { name: "Reset Parallel" }),
-  ).toHaveTextContent("Reset to 2");
+  ).toHaveAttribute("title", "Reset to 2");
 });
 
 test("a rejected value is reported at its own field", async () => {

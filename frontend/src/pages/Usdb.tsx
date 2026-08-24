@@ -1,5 +1,5 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import type { DownloadRead } from "../api";
 import {
   createDownloadMutation,
@@ -11,7 +11,9 @@ import {
 } from "../api/@tanstack/react-query.gen";
 import { useAuth } from "../auth";
 import DownloadsPanel from "../components/DownloadsPanel";
-import UsdbSongItem from "../components/UsdbSongItem";
+import { Icon } from "../components/icons";
+import Modal from "../components/Modal";
+import UsdbSongItem, { Ring } from "../components/UsdbSongItem";
 import { errorDetail, errorMessage } from "../errors";
 import { downloadKey, useDownloadEvents } from "../hooks/useDownloadEvents";
 import "./Usdb.css";
@@ -39,6 +41,7 @@ export default function Usdb() {
   const [username, setUsername] = useState("");
   const [password, setPassword] = useState("");
   const [downloadError, setDownloadError] = useState<string | null>(null);
+  const [panelOpen, setPanelOpen] = useState(false);
 
   const maySearch = auth.can("usdb.search");
   const maySeeDownloads = auth.can("downloads.view");
@@ -123,6 +126,24 @@ export default function Usdb() {
   const results = search.data?.results;
   const pages = search.data?.pages ?? null;
 
+  const rows = downloads.data?.downloads ?? [];
+  const active = rows.filter(
+    (row) => row.status === "queued" || row.status === "running",
+  ).length;
+  const failed = rows.filter((row) => row.status === "failed").length;
+  const downloadsLabel =
+    active > 0
+      ? `Downloads: ${active} running`
+      : failed > 0
+        ? `Downloads: ${failed} failed`
+        : "Downloads";
+
+  // The pager sits at the bottom; without this, a page flip leaves the view
+  // at the bottom of results it has not seen the top of.
+  useEffect(() => {
+    window.scrollTo({ top: 0 });
+  }, [page, submitted]);
+
   if (!maySearch) {
     return (
       <>
@@ -138,7 +159,29 @@ export default function Usdb() {
 
   return (
     <>
-      <h1>Explore USDB</h1>
+      {/* Sticky, so the downloads status is reachable without scrolling past
+          a 955-page result list. Below the modal backdrop's z-index of 2000. */}
+      <div className="usdb-header">
+        <h1>Explore USDB</h1>
+        {maySeeDownloads && (
+          <button
+            type="button"
+            className={`icon-button usdb-downloads-button${
+              active === 0 && failed > 0 ? " icon-button-danger" : ""
+            }`}
+            aria-label={downloadsLabel}
+            onClick={() => setPanelOpen(true)}
+          >
+            {active > 0 ? (
+              <Ring progress={null} />
+            ) : failed > 0 ? (
+              <Icon name="alert" />
+            ) : (
+              <Icon name="download" />
+            )}
+          </button>
+        )}
+      </div>
 
       {status.isError && (
         <p className="error-notice usdb-notice" role="alert">
@@ -193,8 +236,6 @@ export default function Usdb() {
           )}
         </div>
       )}
-
-      {loggedIn && <p className="usdb-logged-in">Logged in to USDB.</p>}
 
       <form
         className="usdb-search"
@@ -299,11 +340,10 @@ export default function Usdb() {
         </div>
       )}
 
-      {maySeeDownloads && (
-        <DownloadsPanel
-          downloads={downloads.data?.downloads ?? []}
-          onRetry={retry}
-        />
+      {panelOpen && (
+        <Modal title="Downloads" onClose={() => setPanelOpen(false)}>
+          <DownloadsPanel downloads={rows} onRetry={retry} />
+        </Modal>
       )}
     </>
   );

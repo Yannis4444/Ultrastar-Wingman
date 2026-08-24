@@ -138,7 +138,7 @@ beforeEach(() => {
 
 afterEach(() => vi.unstubAllGlobals());
 
-test("songs from the API are listed with artist and duration", async () => {
+test("songs from the API are listed with artist", async () => {
   renderSongs([
     song(),
     song({
@@ -153,9 +153,19 @@ test("songs from the API are listed with artist and duration", async () => {
   expect(await screen.findByText("Dancing Queen")).toBeInTheDocument();
   expect(screen.getByText("Africa")).toBeInTheDocument();
   expect(screen.getByText("ABBA")).toBeInTheDocument();
-  expect(screen.getByText("3:51")).toBeInTheDocument();
-  expect(screen.getByText("4:55")).toBeInTheDocument();
+  // Duration lives in the details modal now, not in the row.
+  expect(screen.queryByText("3:51")).not.toBeInTheDocument();
   expect(screen.getByText("2 songs")).toBeInTheDocument();
+});
+
+test("a guest with no favorites and no playlists gets no filter chips", async () => {
+  renderSongs([song()], TRUSTED);
+  await screen.findByText("Dancing Queen");
+
+  expect(
+    screen.queryByRole("group", { name: "Filter" }),
+  ).not.toBeInTheDocument();
+  expect(screen.queryByRole("button", { name: "All" })).not.toBeInTheDocument();
 });
 
 test("the search box filters by title, artist and exact id", async () => {
@@ -410,7 +420,7 @@ test("the favorites chip shows only the favorites", async () => {
   renderSongs([QUEEN, AFRICA], LIBRARY, ACCOUNT);
   await screen.findByText("Dancing Queen");
 
-  fireEvent.click(await screen.findByRole("button", { name: "♥ Favorites" }));
+  fireEvent.click(await screen.findByRole("button", { name: "Favorites" }));
 
   expect(screen.getByText("Africa")).toBeInTheDocument();
   expect(screen.queryByText("Dancing Queen")).not.toBeInTheDocument();
@@ -423,7 +433,7 @@ test("an anonymous browser gets no hearts and no favorites chip", async () => {
 
   await waitFor(() =>
     expect(
-      screen.queryByRole("button", { name: "♥ Favorites" }),
+      screen.queryByRole("button", { name: "Favorites" }),
     ).not.toBeInTheDocument(),
   );
   expect(

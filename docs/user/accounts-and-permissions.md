@@ -123,8 +123,8 @@ nothing for an administrator to grant.
 
 ## Manage users
 
-An administrator gets a **Users** panel on the **User** tab: every account with
-its role, and a way to change it or delete it.
+An administrator gets an **Accounts** page under **User → Accounts**: every
+account with its role, and a way to change it or delete it.
 
 - A role can be set to **user**, **trusted** or **admin**. Nobody is put back to
   **guest** — that is the role for people without an account. Take the account
@@ -136,10 +136,10 @@ its role, and a way to change it or delete it.
 
 ## Change what a role may do
 
-The **Permissions** matrix, also on the **User** tab, is the table above made
-editable. Tick or untick what **guest**, **user** and **trusted** may do. Every
-tick is saved right away and takes effect immediately, for everybody who is
-already looking at a page.
+**User → Permissions** is the table above made editable. Pick **guest**,
+**user** or **trusted** at the top, then tick or untick what that role may do.
+Every tick is saved right away and takes effect immediately, for everybody who
+is already looking at a page.
 
 Useful in practice:
 

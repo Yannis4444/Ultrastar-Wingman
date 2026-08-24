@@ -108,15 +108,20 @@
   outline-offset: -2px;
 }
 
-.player-selection-add,
+/* The shared add form brings its page margin along; the modal has its own. */
+.player-selection .players-add {
+  flex: 0 0 auto;
+  margin: 0;
+}
+
+.player-selection .players-notice {
+  margin: 0;
+}
+
 .player-selection-actions {
   flex: 0 0 auto;
   display: flex;
   gap: 8px;
-}
-
-.player-selection-add input {
-  flex: 1 1 auto;
 }
 
 .player-selection-actions > button {

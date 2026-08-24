@@ -157,13 +157,16 @@ export default function Spinner() {
             <label key={value} className="spinner-scope">
               <input
                 type="radio"
+                // Hidden, not removed: the pill is the visible affordance, the
+                // radio keeps the keyboard and screen-reader semantics.
+                className="visually-hidden"
                 name="spinner-scope"
                 value={value}
                 checked={scope === value}
                 disabled={spinning || (value !== "all" && wishes.length === 0)}
                 onChange={() => setScope(value)}
               />
-              {label}
+              <span className="spinner-scope-text">{label}</span>
             </label>
           ))}
           <button

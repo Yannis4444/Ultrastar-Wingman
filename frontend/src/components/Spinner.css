@@ -4,8 +4,8 @@
   display: grid;
   grid-template-columns: auto 1fr;
   gap: 8px;
+  max-width: 420px;
   margin: 16px;
-  padding: 8px;
 }
 
 /* The winner headline spans both columns above the reel. */
@@ -50,7 +50,9 @@
   width: var(--spinner-cover);
   height: var(--spinner-cover);
   overflow: hidden;
-  background-color: #000;
+  /* The logo backs the window, so an empty reel is never a black hole; the
+     opaque covers hide it as soon as they paint. */
+  background: #000 url("/logo.png") center/60% no-repeat;
   border: 2px solid var(--color-dark);
   border-radius: var(--border-radius-small);
 }
@@ -123,21 +125,54 @@
 
 .spinner-scope {
   display: flex;
-  align-items: center;
-  gap: 6px;
-  font-size: 0.8em;
-  color: var(--color-dark);
 }
 
-.spinner-scope:has(input:disabled) {
+.spinner-scope-text {
+  flex: 1 1 auto;
+  min-height: 40px;
+  display: flex;
+  align-items: center;
+  padding: 0 10px;
+  font-size: 0.8em;
+  color: var(--color-dark);
+  background-color: var(--input-bg);
+  border: 1px solid var(--input-border-color);
+  border-radius: var(--border-radius-small);
+  cursor: pointer;
+  transition:
+    0.1s color,
+    0.1s background-color,
+    0.1s border-color;
+}
+
+.spinner-scope input:checked ~ .spinner-scope-text {
+  color: var(--highlight-blue-light);
+  background-color: var(--highlight-blue-dark);
+  border-color: var(--highlight-blue-light);
+}
+
+.spinner-scope input:disabled ~ .spinner-scope-text {
   color: var(--color-darkerer);
+  cursor: default;
+}
+
+.spinner-scope input:focus-visible ~ .spinner-scope-text {
+  outline: 2px solid var(--highlight-blue-light);
+  outline-offset: 2px;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .spinner-scope-text {
+    transition: none;
+  }
 }
 
 .spinner-spin {
   flex: 1 1 auto;
+  min-height: 40px;
   margin-top: 4px;
   font: inherit;
-  font-size: 1.6em;
+  font-size: 1.4em;
   font-weight: bold;
   letter-spacing: 0.1em;
   color: var(--color);

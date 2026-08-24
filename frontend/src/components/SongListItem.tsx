@@ -1,6 +1,5 @@
 import type { ReactNode } from "react";
 import type { SongRead } from "../api";
-import { formatDuration } from "../duration";
 import SongCover from "./SongCover";
 import "./SongListItem.css";
 
@@ -23,13 +22,11 @@ export default function SongListItem({
     <button type="button" className="song-list-item" onClick={onClick}>
       <SongCover song={song} />
       <span className="song-text">
-        <span className="song-title">{song.title}</span>
-        <span className="song-artist">{song.artist}</span>
-      </span>
-      <span className="song-meta">
-        <span className="song-duration">
-          {formatDuration(song.duration_seconds)}
+        {/* The title attribute recovers what the ellipsis cuts ("[DUET]"). */}
+        <span className="song-title" title={song.title}>
+          {song.title}
         </span>
+        <span className="song-artist">{song.artist}</span>
       </span>
     </button>
   );

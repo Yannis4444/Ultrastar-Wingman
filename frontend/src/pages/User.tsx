@@ -3,7 +3,6 @@ import { useEffect, useState } from "react";
 import { Link, useSearchParams } from "react-router-dom";
 import type { PlayerRead } from "../api";
 import {
-  createPlayerMutation,
   deletePlayerMutation,
   listPlayersOptions,
   listPlayersQueryKey,
@@ -11,11 +10,11 @@ import {
   setPlayerAvatarMutation,
 } from "../api/@tanstack/react-query.gen";
 import { useAuth } from "../auth";
+import AddPlayerForm from "../components/AddPlayerForm";
 import ConfirmModal from "../components/ConfirmModal";
+import { Icon, type IconName } from "../components/icons";
 import LoginForm from "../components/LoginForm";
-import PermissionsMatrix from "../components/PermissionsMatrix";
 import PlayerAvatar from "../components/PlayerAvatar";
-import UsersAdmin from "../components/UsersAdmin";
 import { errorDetail, errorMessage } from "../errors";
 import "./User.css";
 
@@ -48,6 +47,33 @@ const SSO_MESSAGES: Record<string, string> = {
   login_failed: "The sign-in did not work. Try again.",
 };
 
+/** The admin surfaces, one navigation row each — never inline on this page. */
+const MENU: {
+  capability: string;
+  label: string;
+  to: string;
+  icon: IconName;
+}[] = [
+  {
+    capability: "settings.view",
+    label: "Settings",
+    to: "/settings",
+    icon: "gear",
+  },
+  {
+    capability: "users.manage",
+    label: "Accounts",
+    to: "/user/accounts",
+    icon: "users",
+  },
+  {
+    capability: "permissions.manage",
+    label: "Permissions",
+    to: "/user/permissions",
+    icon: "shield",
+  },
+];
+
 export default function User() {
   const queryClient = useQueryClient();
   const auth = useAuth();
@@ -70,9 +96,8 @@ export default function User() {
       SSO_MESSAGES.login_failed)
     : null;
   const players = useQuery(listPlayersOptions());
-  const [newName, setNewName] = useState("");
+  const [showLogin, setShowLogin] = useState(false);
   const [deleting, setDeleting] = useState<PlayerRead | null>(null);
-  const [addError, setAddError] = useState<string | null>(null);
   const [avatarError, setAvatarError] = useState<{
     id: string;
     message: string;
@@ -85,21 +110,6 @@ export default function User() {
     ...logoutMutation(),
     // Every cached answer belonged to the account that just left.
     onSettled: () => void queryClient.invalidateQueries(),
-  });
-
-  const addPlayer = useMutation({
-    ...createPlayerMutation(),
-    onSuccess: () => {
-      setNewName("");
-      setAddError(null);
-      refresh();
-    },
-    onError: (error) =>
-      setAddError(
-        errorDetail(error) === "duplicate_name"
-          ? "There is already a player with that name."
-          : errorMessage(error, "Could not add the player."),
-      ),
   });
 
   const deletePlayer = useMutation({
@@ -139,25 +149,21 @@ export default function User() {
     players.data?.players.find(
       (player) => player.id === auth.user?.player_id,
     ) ?? null;
+  // `loaded` on every gate: `can` says yes until /auth/me answered, and a guest
+  // must not see the admin rows (or their requests) at all.
+  const menuRows = auth.loaded
+    ? MENU.filter((row) => auth.can(row.capability))
+    : [];
 
   return (
     <>
-      <h1>User</h1>
-
-      {auth.isHost && (
-        <p className="user-host-badge">
-          This browser is the host screen — full access.
-        </p>
-      )}
-
+      {/* Nothing until /auth/me answered, so no identity state flashes. */}
       {auth.loaded &&
-        (auth.user === null ? (
-          <LoginForm ssoError={ssoError} />
-        ) : (
-          <div className="user-card">
-            <PlayerAvatar player={ownPlayer} />
-            <span className="user-card-name">{auth.user.username}</span>
-            <span className="user-role-badge">{auth.user.role}</span>
+        (auth.user !== null ? (
+          <div className="user-identity">
+            <PlayerAvatar player={ownPlayer} className="user-identity-avatar" />
+            <h1 className="user-identity-name">{auth.user.username}</h1>
+            <p className="user-identity-role">{auth.user.role}</p>
             <button
               type="button"
               className="button"
@@ -167,48 +173,55 @@ export default function User() {
               Log out
             </button>
           </div>
+        ) : auth.isHost ? (
+          <>
+            <div className="user-identity">
+              <span
+                className="user-identity-avatar user-identity-shield"
+                aria-hidden="true"
+              >
+                <Icon name="shield" />
+              </span>
+              <h1 className="user-identity-name">Host screen</h1>
+              <p className="user-identity-role">
+                This browser has full access.
+              </p>
+              {!showLogin && (
+                <button
+                  type="button"
+                  className="user-identity-switch"
+                  onClick={() => setShowLogin(true)}
+                >
+                  Log in as a user instead
+                </button>
+              )}
+            </div>
+            {showLogin && <LoginForm ssoError={ssoError} />}
+          </>
+        ) : (
+          <>
+            <h1>You</h1>
+            <LoginForm ssoError={ssoError} />
+          </>
         ))}
 
-      {/* `loaded` for the same reason as the admin panels below: `can` says yes
-          until /auth/me answered, and a guest must not see the link at all. */}
-      {auth.loaded && auth.can("settings.view") && (
-        <Link className="button user-settings-link" to="/settings">
-          Settings
-        </Link>
+      {menuRows.length > 0 && (
+        <>
+          <h2>Manage</h2>
+          <nav className="user-menu">
+            {menuRows.map((row) => (
+              <Link key={row.to} className="user-menu-row" to={row.to}>
+                <Icon name={row.icon} className="user-menu-icon" />
+                <span className="user-menu-label">{row.label}</span>
+                <Icon name="chevron-right" className="user-menu-icon" />
+              </Link>
+            ))}
+          </nav>
+        </>
       )}
 
       <h2>Players</h2>
-      {managePlayers && (
-        <form
-          className="players-add"
-          onSubmit={(event) => {
-            event.preventDefault();
-            const name = newName.trim();
-            if (name) addPlayer.mutate({ body: { name } });
-          }}
-        >
-          <input
-            className="text-input"
-            value={newName}
-            placeholder="New player"
-            aria-label="New player name"
-            maxLength={64}
-            onChange={(event) => setNewName(event.target.value)}
-          />
-          <button
-            type="submit"
-            className="button"
-            disabled={newName.trim() === "" || addPlayer.isPending}
-          >
-            Add
-          </button>
-        </form>
-      )}
-      {addError && (
-        <p className="error-notice players-notice" role="alert">
-          {addError}
-        </p>
-      )}
+      {managePlayers && <AddPlayerForm />}
 
       {players.isError && (
         <p className="error-notice players-notice" role="alert">
@@ -224,31 +237,35 @@ export default function User() {
         {(players.data?.players ?? []).map((player) => (
           <li key={player.id}>
             <div className="players-row">
-              <PlayerAvatar player={player} />
+              {managePlayers ? (
+                // The avatar itself is the upload target; the pencil badge is
+                // the affordance the old text button used to be.
+                <label className="players-avatar-label">
+                  <PlayerAvatar player={player} />
+                  <Icon name="pencil" className="players-avatar-hint" />
+                  <input
+                    type="file"
+                    className="visually-hidden"
+                    accept="image/jpeg,image/png,image/webp"
+                    aria-label={`Avatar for ${player.name}`}
+                    onChange={(event) =>
+                      upload(player, event.target.files?.[0] ?? undefined)
+                    }
+                  />
+                </label>
+              ) : (
+                <PlayerAvatar player={player} />
+              )}
               <span className="players-name">{player.name}</span>
               {managePlayers && (
-                <>
-                  <label className="button players-avatar-button">
-                    {player.has_avatar ? "Change avatar" : "Add avatar"}
-                    <input
-                      type="file"
-                      className="visually-hidden"
-                      accept="image/jpeg,image/png,image/webp"
-                      aria-label={`Avatar for ${player.name}`}
-                      onChange={(event) =>
-                        upload(player, event.target.files?.[0] ?? undefined)
-                      }
-                    />
-                  </label>
-                  <button
-                    type="button"
-                    className="button button-danger"
-                    aria-label={`Delete ${player.name}`}
-                    onClick={() => setDeleting(player)}
-                  >
-                    Delete
-                  </button>
-                </>
+                <button
+                  type="button"
+                  className="icon-button icon-button-danger"
+                  aria-label={`Delete ${player.name}`}
+                  onClick={() => setDeleting(player)}
+                >
+                  <Icon name="trash" />
+                </button>
               )}
             </div>
             {avatarError?.id === player.id && (
@@ -259,11 +276,6 @@ export default function User() {
           </li>
         ))}
       </ul>
-
-      {/* `loaded`, unlike the action gates: an admin panel mounted on a guess
-          would fire its own requests and flash a 403 error at every guest. */}
-      {auth.loaded && auth.can("users.manage") && <UsersAdmin />}
-      {auth.loaded && auth.can("permissions.manage") && <PermissionsMatrix />}
 
       {deleting && (
         <ConfirmModal

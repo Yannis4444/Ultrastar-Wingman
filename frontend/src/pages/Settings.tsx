@@ -15,6 +15,14 @@ interface SettingChanged extends WingmanEvent {
   value: SettingRead["value"];
 }
 
+/** Task-first page order; unknown groups land at the end in registry order. */
+const GROUP_ORDER = ["Songs", "USDX", "USDB", "Downloads", "Auth"];
+
+function groupRank(group: string): number {
+  const index = GROUP_ORDER.indexOf(group);
+  return index === -1 ? GROUP_ORDER.length : index;
+}
+
 export default function Settings() {
   const queryClient = useQueryClient();
   const auth = useAuth();
@@ -40,8 +48,8 @@ export default function Settings() {
     );
   });
 
-  // Registry order, so a group's settings stay in the order the backend
-  // declares them.
+  // A group's settings stay in the order the backend declares them; only the
+  // groups themselves are sorted.
   const groups = useMemo(() => {
     const byGroup = new Map<string, SettingRead[]>();
     for (const setting of settings.data ?? []) {
@@ -49,7 +57,7 @@ export default function Settings() {
       if (rows) rows.push(setting);
       else byGroup.set(setting.group, [setting]);
     }
-    return [...byGroup];
+    return [...byGroup].sort(([a], [b]) => groupRank(a) - groupRank(b));
   }, [settings.data]);
 
   if (auth.loaded && !mayView) {
@@ -81,8 +89,13 @@ export default function Settings() {
       )}
 
       {groups.map(([group, rows]) => (
-        <section key={group}>
-          <h2>{group}</h2>
+        // Open by default: the host collapses what they do not care about,
+        // and nothing is hidden from a first-time visit.
+        <details key={group} className="settings-group" open>
+          <summary>
+            <span className="settings-group-name">{group}</span>
+            <span className="settings-group-count">{rows.length}</span>
+          </summary>
           {rows.map((setting) => (
             <SettingField
               key={setting.key}
@@ -90,7 +103,7 @@ export default function Settings() {
               readOnly={!mayManage}
             />
           ))}
-        </section>
+        </details>
       ))}
     </>
   );

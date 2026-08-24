@@ -1,14 +1,35 @@
-.usdb-notice,
-.usdb-logged-in {
+/* Always reachable: the downloads button must not be 955 pages down. Stays
+   below the modal backdrop (z-index 2000). */
+.usdb-header {
+  position: sticky;
+  top: 0;
+  z-index: 100;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 16px;
+  background-color: var(--bg);
+  border-bottom: 1px solid var(--input-border-color);
+}
+
+/* Balances the 40px button so the centred h1 stays centred. */
+.usdb-header::before {
+  content: "";
+  flex: 0 0 auto;
+  width: 40px;
+}
+
+.usdb-header h1 {
+  flex: 1 1 auto;
+  min-width: 0;
+  margin: 0;
+}
+
+.usdb-notice {
   margin: 0 16px 8px 16px;
 }
 
 .usdb-muted {
-  color: var(--color-darker);
-}
-
-.usdb-logged-in {
-  font-size: 0.85em;
   color: var(--color-darker);
 }
 

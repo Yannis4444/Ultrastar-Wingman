@@ -1,52 +1,108 @@
-/* The row look comes from SongListItem.css; only the extras USDB rows have live
-   here. A div, not a button: the download control sits inside the row, so there
-   is nothing to hover. */
+/* The row frame comes from SongListItem.css; only the USDB extras live here.
+   A div, not a button: the state control inside the row does the work. */
 .usdb-item {
   cursor: default;
 }
 
-.usdb-item-meta {
-  flex-wrap: wrap;
-  justify-content: flex-end;
-  max-width: 60%;
-  gap: 6px;
+/* Title and rating share one line; the title is the only thing that may shrink. */
+.usdb-item-line {
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
 }
 
-.usdb-stars {
-  color: var(--highlight-gold-light);
-  font-size: 0.85em;
-  white-space: nowrap;
+.usdb-item-title {
+  flex: 1 1 auto;
+  min-width: 0; /* .song-title alone does not shrink inside a flex line */
 }
 
-.usdb-tag {
-  padding: 2px 6px;
-  font-size: 0.7em;
-  color: var(--color-dark);
-  background-color: var(--input-bg);
-  border-radius: var(--border-radius-small);
-  max-width: 10em;
+.usdb-item-sub {
   overflow: hidden;
   white-space: nowrap;
   text-overflow: ellipsis;
 }
 
-.usdb-status {
+/* Five glyphs wide whatever the rating: the fill is clipped to the rating. */
+.usdb-stars {
+  position: relative;
+  flex: 0 0 auto;
   font-size: 0.8em;
+  letter-spacing: 1px;
+  color: var(--color-darkerer);
+  white-space: nowrap;
+}
+
+.usdb-stars-fill {
+  position: absolute;
+  top: 0;
+  left: 0;
+  overflow: hidden;
+  color: var(--highlight-gold-light);
+  white-space: nowrap;
+}
+
+/* The slot look comes from .icon-button; only the non-interactive states and
+   the state colors are extras. */
+span.usdb-state {
+  cursor: default;
+}
+
+.usdb-state-queued {
   color: var(--color-darker);
-  font-variant-numeric: tabular-nums;
 }
 
-.usdb-status-done {
+.usdb-state-done {
   color: var(--highlight-blue-light);
-  font-size: 1.1em;
 }
 
-.usdb-status-failed {
-  color: var(--highlight-red-light);
+/* Determinate ring: 2πr with r=10.5 ≈ 66. --p is the fraction, set inline. */
+.usdb-ring {
+  width: 24px;
+  height: 24px;
+  flex: 0 0 auto;
+  transform: rotate(-90deg);
 }
 
-.usdb-download {
-  padding: 6px 12px;
-  font-size: 0.85em;
-  border-radius: var(--border-radius-small);
+.usdb-ring circle {
+  fill: none;
+  stroke-width: 3;
+}
+
+.usdb-ring .usdb-ring-track {
+  stroke: var(--input-border-color);
+}
+
+.usdb-ring .usdb-ring-value {
+  stroke: var(--highlight-blue-light);
+  stroke-linecap: round;
+  stroke-dasharray: 66;
+  stroke-dashoffset: calc(66 - 66 * var(--p, 0));
+  transition: 0.3s linear stroke-dashoffset;
+}
+
+/* No percentage yet (yt-dlp has not reported one): a spinning arc instead. */
+.usdb-ring-indeterminate {
+  animation: usdb-spin 1s linear infinite;
+}
+
+.usdb-ring-indeterminate .usdb-ring-value {
+  stroke-dasharray: 16 50;
+  stroke-dashoffset: 0;
+  transition: none;
+}
+
+@keyframes usdb-spin {
+  to {
+    transform: rotate(270deg);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .usdb-ring-indeterminate {
+    animation: none;
+  }
+
+  .usdb-ring .usdb-ring-value {
+    transition: none;
+  }
 }

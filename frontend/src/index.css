@@ -89,7 +89,7 @@ p {
 }
 
 .button:disabled {
-  color: var(--color-darkerer);
+  color: var(--color-dark);
   cursor: default;
 }
 
@@ -120,8 +120,64 @@ p {
 }
 
 .text-input:focus {
-  outline: none;
   border-color: var(--highlight-blue-light);
+}
+
+/* One visible keyboard-focus ring for the whole app. */
+:focus-visible {
+  outline: 2px solid var(--highlight-blue-light);
+  outline-offset: 2px;
+}
+
+/* Shared inline-SVG icon sizing: icons scale with the font size around them. */
+.icon {
+  width: 1em;
+  height: 1em;
+  flex: 0 0 auto;
+  fill: currentColor;
+}
+
+/* 40x40 icon-only button: flat by default, bordered and danger variants. */
+.icon-button {
+  display: flex;
+  flex: 0 0 auto;
+  align-items: center;
+  justify-content: center;
+  width: 40px;
+  height: 40px;
+  padding: 0;
+  font-size: 1.25em;
+  color: var(--color-dark);
+  background: none;
+  border: none;
+  border-radius: var(--border-radius-small);
+  cursor: pointer;
+}
+
+.icon-button:hover:enabled,
+a.icon-button:hover {
+  color: var(--color);
+  background-color: var(--highlight-blue-dark);
+}
+
+.icon-button:disabled {
+  color: var(--color-darkerer);
+  cursor: default;
+}
+
+.icon-button-bordered {
+  border: 1px solid var(--input-border-color);
+}
+
+/* Matches .button-danger: red-light as a fill only — as a glyph color on the
+   dark ground it drops to ~2.3:1 contrast. */
+.icon-button-danger {
+  color: var(--color);
+  background-color: var(--highlight-red-dark);
+}
+
+.icon-button-danger:hover:enabled {
+  background-color: var(--highlight-red-light);
 }
 
 .error-notice {

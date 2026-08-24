@@ -1,9 +1,9 @@
 import { useState } from "react";
 import type { SongRead } from "../api";
 import { useAuth } from "../auth";
-import { timeAgo } from "../duration";
 import { errorMessage } from "../errors";
 import { useWishlist } from "../hooks/useWishlist";
+import { Icon } from "./icons";
 import SongCover from "./SongCover";
 import SongDetails from "./SongDetails";
 import "./WishlistTile.css";
@@ -44,39 +44,39 @@ export default function WishlistTile() {
                 >
                   <SongCover song={wish.song} />
                   <span className="wishlist-text">
-                    <span className="wishlist-title">
-                      {wish.song.title}
-                      {wish.mine && (
+                    <span className="wishlist-title">{wish.song.title}</span>
+                    <span className="wishlist-artist">
+                      {wish.song.artist}
+                      {wish.count > 1 && (
                         <span
-                          className="wishlist-mine"
-                          title="You wished for this"
+                          className="wishlist-count"
+                          aria-label={`${wish.count} wishes`}
                         >
-                          {" ★"}
+                          {" "}
+                          · {wish.count}×
                         </span>
                       )}
                     </span>
-                    <span className="wishlist-artist">{wish.song.artist}</span>
-                  </span>
-                  <span
-                    className="wishlist-count"
-                    aria-label={`${wish.count} wishes`}
-                  >
-                    {wish.count}×
-                  </span>
-                  <span className="wishlist-latest">
-                    {timeAgo(wish.latest)}
                   </span>
                 </button>
-                {wish.mine && auth.can("wishlist.add") && (
-                  <button
-                    type="button"
-                    className="wishlist-remove"
-                    aria-label={`Take back your wish for ${wish.song.title}`}
-                    onClick={() => wishlist.unwish(wish.song.id)}
-                  >
-                    ♥−
-                  </button>
-                )}
+                {wish.mine &&
+                  (auth.can("wishlist.add") ? (
+                    <button
+                      type="button"
+                      className="icon-button icon-button-bordered wishlist-remove"
+                      aria-label={`Take back your wish for ${wish.song.title}`}
+                      onClick={() => wishlist.unwish(wish.song.id)}
+                    >
+                      <Icon name="heart" />
+                    </button>
+                  ) : (
+                    <span
+                      className="wishlist-mine-mark"
+                      title="You wished for this"
+                    >
+                      <Icon name="heart" />
+                    </span>
+                  ))}
               </li>
             ))}
           </ul>

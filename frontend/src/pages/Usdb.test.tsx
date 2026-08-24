@@ -1,5 +1,11 @@
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import { fireEvent, render, screen, waitFor } from "@testing-library/react";
+import {
+  fireEvent,
+  render,
+  screen,
+  waitFor,
+  within,
+} from "@testing-library/react";
 import type { DownloadRead, UsdbSong } from "../api";
 import { FakeSocket } from "../test/fakeSocket";
 import Usdb from "./Usdb";
@@ -70,6 +76,8 @@ function renderUsdb() {
 beforeEach(() => {
   FakeSocket.last = undefined;
   vi.stubGlobal("WebSocket", FakeSocket);
+  // jsdom has no layout; the page's scroll reset would log "Not implemented".
+  vi.stubGlobal("scrollTo", vi.fn());
   for (const mock of [
     usdbStatus,
     usdbSearch,
@@ -111,10 +119,11 @@ test("search results show the USDB metadata and a download button", async () => 
 
   expect(await screen.findByText("Dancing Queen")).toBeInTheDocument();
   expect(screen.getByText("Africa")).toBeInTheDocument();
-  expect(screen.getByText("SingStar")).toBeInTheDocument();
-  expect(screen.getByText("English")).toBeInTheDocument();
-  expect(screen.getByText("GOLDEN")).toBeInTheDocument();
-  expect(screen.getByLabelText("Rated 3.5 of 5")).toHaveTextContent("★★★½");
+  // Language on the sub-line; the edition survives only in its tooltip.
+  expect(screen.getByText("ABBA · English")).toBeInTheDocument();
+  expect(screen.getByTitle("SingStar · English")).toBeInTheDocument();
+  expect(screen.queryByText("GOLDEN")).toBeNull();
+  expect(screen.getByLabelText("Rated 3.5 of 5")).toBeInTheDocument();
   expect(screen.getByText("1 / 3")).toBeInTheDocument();
   expect(
     screen.getByRole("button", { name: "Download ABBA – Dancing Queen" }),
@@ -171,7 +180,8 @@ test("an already downloaded result shows a checkmark instead of a button", async
   renderUsdb();
 
   expect(await screen.findByTitle("In the library")).toBeInTheDocument();
-  expect(screen.queryByRole("button", { name: /^Download/ })).toBeNull();
+  // Only the header's downloads button is left — no per-row download button.
+  expect(screen.queryByRole("button", { name: /Dancing Queen/ })).toBeNull();
 });
 
 test("clicking download posts it and a progress event turns it into a badge", async () => {
@@ -198,12 +208,17 @@ test("clicking download posts it and a progress event turns it into a badge", as
     event: "download.updated",
     download: download({ status: "queued", progress: null, step: null }),
   });
-  expect(await screen.findByText("Queued")).toBeInTheDocument();
+  expect(
+    await screen.findByLabelText("Queued: ABBA – Dancing Queen"),
+  ).toBeInTheDocument();
 
   FakeSocket.deliver({ event: "download.updated", download: download() });
 
-  // The badge in the result row, and the panel's step line and progress bar.
-  expect(await screen.findByText("42%")).toBeInTheDocument();
+  // The state icon in the result row, and the modal's step line and bar.
+  expect(
+    await screen.findByLabelText("Downloading ABBA – Dancing Queen, 42%"),
+  ).toBeInTheDocument();
+  fireEvent.click(screen.getByRole("button", { name: "Downloads: 1 running" }));
   expect(screen.getByText("downloading the video · 42%")).toBeInTheDocument();
   expect(
     screen.getByRole("progressbar", {
@@ -223,7 +238,7 @@ test("clicking download posts it and a progress event turns it into a badge", as
   expect(await screen.findByTitle("In the library")).toBeInTheDocument();
 });
 
-test("the downloads panel shows a failure and retries it with force", async () => {
+test("the downloads modal shows a failure and retries it with force", async () => {
   listDownloads.mockResolvedValue({
     data: {
       downloads: [
@@ -239,14 +254,18 @@ test("the downloads panel shows a failure and retries it with force", async () =
   createDownload.mockResolvedValue({ data: download({ status: "queued" }) });
   renderUsdb();
 
+  fireEvent.click(
+    await screen.findByRole("button", { name: "Downloads: 1 failed" }),
+  );
+  const dialog = await screen.findByRole("dialog", { name: "Downloads" });
+  // The reason in the summary, the raw dump behind the disclosure — the
+  // message has no colon to strip, so it appears in both.
   expect(
-    await screen.findByText("no_video — the song has no video link"),
-  ).toBeInTheDocument();
-  // The row keeps a retry affordance too, with the error as its tooltip.
-  expect(await screen.findByTitle("no_video — the song has no video link"));
+    within(dialog).getAllByText("no_video — the song has no video link").length,
+  ).toBeGreaterThan(0);
 
   fireEvent.click(
-    screen.getByRole("button", {
+    within(dialog).getByRole("button", {
       name: "Retry download of ABBA – Dancing Queen",
     }),
   );
@@ -258,13 +277,40 @@ test("the downloads panel shows a failure and retries it with force", async () =
       }),
     ),
   );
+});
 
-  // The result row's own retry forces too — the failed attempt may have left a
-  // broken copy behind, which `already_downloaded` would otherwise block.
-  createDownload.mockClear();
+test("a failed row explains itself and retries with force", async () => {
+  listDownloads.mockResolvedValue({
+    data: {
+      downloads: [
+        download({
+          status: "failed",
+          progress: null,
+          step: null,
+          error: "ffmpeg failed with exit code 1: libavcodec 61 banner…",
+        }),
+      ],
+    },
+  });
+  createDownload.mockResolvedValue({ data: download({ status: "queued" }) });
+  renderUsdb();
+
   fireEvent.click(
-    screen.getByRole("button", { name: "Retry ABBA – Dancing Queen" }),
+    await screen.findByRole("button", {
+      name: "Download of ABBA – Dancing Queen failed — show the error",
+    }),
   );
+  const dialog = await screen.findByRole("dialog", {
+    name: "Download failed",
+  });
+  // Only the first clause: the ffmpeg banner after the colon stays out.
+  expect(
+    within(dialog).getByText("ffmpeg failed with exit code 1"),
+  ).toBeInTheDocument();
+
+  // The retry forces — the failed attempt may have left a broken copy behind,
+  // which `already_downloaded` would otherwise block.
+  fireEvent.click(within(dialog).getByRole("button", { name: "Try again" }));
   await waitFor(() =>
     expect(createDownload).toHaveBeenCalledWith(
       expect.objectContaining({
@@ -272,6 +318,21 @@ test("the downloads panel shows a failure and retries it with force", async () =
       }),
     ),
   );
+});
+
+test("the downloads live behind the header button, not on the page", async () => {
+  listDownloads.mockResolvedValue({ data: { downloads: [download()] } });
+  renderUsdb();
+
+  const button = await screen.findByRole("button", {
+    name: "Downloads: 1 running",
+  });
+  expect(screen.queryByText("downloading the video · 42%")).toBeNull();
+
+  fireEvent.click(button);
+  expect(
+    await screen.findByText("downloading the video · 42%"),
+  ).toBeInTheDocument();
 });
 
 test("a download that is already queued is reported", async () => {
@@ -339,8 +400,7 @@ test("saving credentials patches both settings and rechecks the status", async (
     expect.objectContaining({ query: { refresh: true } }),
   );
 
-  // The banner reacts to the refreshed verdict and the search runs.
-  expect(await screen.findByText("Logged in to USDB.")).toBeInTheDocument();
+  // The refreshed verdict unlocks the search — results are the proof.
   expect(await screen.findByText("Dancing Queen")).toBeInTheDocument();
 });
 

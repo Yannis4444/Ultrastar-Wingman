@@ -1,5 +1,5 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { useRef, useState } from "react";
+import { Fragment, useRef, useState } from "react";
 import type { PermissionsRead } from "../api";
 import {
   getPermissionsOptions,
@@ -7,16 +7,18 @@ import {
   updateRolePermissionsMutation,
 } from "../api/@tanstack/react-query.gen";
 import { errorMessage } from "../errors";
-import "./PermissionsMatrix.css";
+import "./RolePermissions.css";
 
 /** The backend hardwires admin to every capability, so it is never editable. */
 const LOCKED_ROLE = "admin";
 
-/** What a role may do, per capability. Needs `permissions.manage`. */
-export default function PermissionsMatrix() {
+/** What a role may do: pick a role, then one flat row per capability. Needs
+ * `permissions.manage`; the page around it gates. */
+export default function RolePermissions() {
   const queryClient = useQueryClient();
   const key = getPermissionsQueryKey();
   const permissions = useQuery(getPermissionsOptions());
+  const [picked, setPicked] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   // The snapshot to restore when a PUT fails. A ref, not the mutation context,
   // because the generated mutation options fix the context type to `unknown`.
@@ -49,8 +51,20 @@ export default function PermissionsMatrix() {
   });
 
   const roles = permissions.data?.roles;
-  // Admin always holds everything, which makes its row the full capability list.
-  const capabilities = roles?.[LOCKED_ROLE] ?? [];
+  const editableRoles = Object.keys(roles ?? {}).filter(
+    (role) => role !== LOCKED_ROLE,
+  );
+  const selected = picked ?? editableRoles[0];
+  // Admin always holds everything, which makes its list the full capability
+  // list; sorted, so same-prefix capabilities sit together for grouping.
+  const capabilities = [...(roles?.[LOCKED_ROLE] ?? [])].sort();
+  const groups: [string, string[]][] = [];
+  for (const capability of capabilities) {
+    const group = capability.split(".")[0];
+    const last = groups[groups.length - 1];
+    if (last !== undefined && last[0] === group) last[1].push(capability);
+    else groups.push([group, [capability]]);
+  }
 
   const toggle = (role: string, capability: string, granted: boolean): void => {
     const current = roles?.[role] ?? [];
@@ -66,49 +80,57 @@ export default function PermissionsMatrix() {
 
   return (
     <>
-      <h2>Permissions</h2>
-
       {(permissions.isError || error) && (
         <p className="error-notice permissions-notice" role="alert">
           {error ?? "Could not load the permissions."}
         </p>
       )}
 
-      {roles && (
-        <div className="permissions-scroll">
-          <table className="permissions-matrix">
-            <thead>
-              <tr>
-                <th scope="col">Capability</th>
-                {Object.keys(roles).map((role) => (
-                  <th key={role} scope="col">
-                    {role}
-                  </th>
-                ))}
-              </tr>
-            </thead>
-            <tbody>
-              {capabilities.map((capability) => (
-                <tr key={capability}>
-                  <th scope="row">{capability}</th>
-                  {Object.keys(roles).map((role) => (
-                    <td key={role}>
+      {roles && selected !== undefined && (
+        <>
+          <div className="perm-roles" role="group" aria-label="Role">
+            {editableRoles.map((role) => (
+              <button
+                type="button"
+                key={role}
+                className={role === selected ? "active" : ""}
+                aria-pressed={role === selected}
+                onClick={() => setPicked(role)}
+              >
+                {role}
+              </button>
+            ))}
+          </div>
+          <p className="perm-hint">
+            Admins can always do everything. Pick a role to change what it may
+            do.
+          </p>
+          {groups.map(([group, names]) => (
+            <Fragment key={group}>
+              <h2 className="perm-group">{group}</h2>
+              <ul className="perm-list">
+                {names.map((capability) => (
+                  <li key={capability}>
+                    <label className="perm-row">
+                      {/* The group heading carries the noun, the row the verb. */}
+                      <span className="perm-name">
+                        {capability.slice(capability.indexOf(".") + 1)}
+                      </span>
                       <input
                         type="checkbox"
-                        aria-label={`${capability} for ${role}`}
-                        checked={roles[role].includes(capability)}
-                        disabled={role === LOCKED_ROLE}
+                        aria-label={`${capability} for ${selected}`}
+                        checked={roles[selected].includes(capability)}
                         onChange={(event) =>
-                          toggle(role, capability, event.target.checked)
+                          toggle(selected, capability, event.target.checked)
                         }
                       />
-                    </td>
-                  ))}
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
+                    </label>
+                  </li>
+                ))}
+              </ul>
+            </Fragment>
+          ))}
+        </>
       )}
     </>
   );

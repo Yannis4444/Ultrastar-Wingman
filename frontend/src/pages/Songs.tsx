@@ -14,6 +14,7 @@ import {
   rescanSongsMutation,
 } from "../api/@tanstack/react-query.gen";
 import { useAuth } from "../auth";
+import { Icon } from "../components/icons";
 import PlaylistsModal from "../components/PlaylistsModal";
 import SongDetails from "../components/SongDetails";
 import SongListItem from "../components/SongListItem";
@@ -141,76 +142,103 @@ export default function Songs() {
   const chip = (value: string): string =>
     filter === value ? "songs-chip songs-chip-on" : "songs-chip";
 
+  const canManage = auth.user !== null && auth.can("playlists.manage");
+  // A guest with nothing to filter by gets no chip row: a lone, already
+  // selected "All" chip is dead weight on a phone.
+  const hasFilters =
+    favorites.available ||
+    (playlists.data?.playlists ?? []).length > 0 ||
+    canManage;
+
   return (
     <>
       <h1>Songs</h1>
       <div className="songs-toolbar">
-        <input
-          type="search"
-          value={search}
-          placeholder="Search title, artist or id"
-          aria-label="Search songs"
-          onChange={(event) => setSearch(event.target.value)}
-        />
+        <label className="songs-search">
+          <Icon name="search" />
+          <input
+            type="search"
+            value={search}
+            placeholder="Search songs"
+            aria-label="Search songs"
+            onChange={(event) => setSearch(event.target.value)}
+          />
+        </label>
         {auth.can("songs.rescan") && (
           <button
             type="button"
-            className="songs-rescan"
+            className="icon-button icon-button-bordered songs-tool"
             disabled={scanning || rescan.isPending}
+            aria-label={scanning ? "Scanning…" : "Rescan"}
+            title={scanning ? "Scanning…" : "Rescan the library"}
             onClick={() => rescan.mutate({})}
           >
-            {scanning ? "Scanning…" : "Rescan"}
+            <Icon
+              name="refresh"
+              className={scanning ? "songs-tool-spin" : undefined}
+            />
           </button>
         )}
         {auth.can("usdb.search") && (
-          <Link to="/usdb" className="songs-rescan songs-explore">
-            Explore USDB
+          <Link
+            to="/usdb"
+            className="icon-button icon-button-bordered songs-tool"
+            aria-label="Explore USDB"
+            title="Explore USDB"
+          >
+            <Icon name="search" />
           </Link>
         )}
       </div>
 
-      <div className="songs-chips">
-        <button
-          type="button"
-          className={chip(ALL)}
-          onClick={() => setFilter(ALL)}
-        >
-          All
-        </button>
-        {favorites.available && (
+      {hasFilters && (
+        <div className="songs-chips" role="group" aria-label="Filter">
           <button
             type="button"
-            className={chip(FAVORITES)}
-            onClick={() => setFilter(FAVORITES)}
+            className={chip(ALL)}
+            aria-pressed={filter === ALL}
+            onClick={() => setFilter(ALL)}
           >
-            ♥ Favorites
+            All
           </button>
-        )}
-        {(playlists.data?.playlists ?? []).map((list) => (
-          <button
-            key={list.id}
-            type="button"
-            className={chip(list.id)}
-            onClick={() => setFilter(list.id)}
-          >
-            {list.name}
-            {list.shared && (
-              <span className="songs-chip-shared">
-                {list.mine ? "shared" : (list.owner_username ?? "shared")}
-              </span>
-            )}
-          </button>
-        ))}
-        {auth.user !== null && auth.can("playlists.manage") && (
-          <button
-            type="button"
-            className="songs-chip songs-chip-manage"
-            onClick={() => setManaging(true)}
-          >
-            Playlists…
-          </button>
-        )}
-      </div>
+          {favorites.available && (
+            <button
+              type="button"
+              className={chip(FAVORITES)}
+              aria-pressed={filter === FAVORITES}
+              onClick={() => setFilter(FAVORITES)}
+            >
+              <Icon name="heart" className="songs-chip-heart" />
+              Favorites
+            </button>
+          )}
+          {(playlists.data?.playlists ?? []).map((list) => (
+            <button
+              key={list.id}
+              type="button"
+              className={chip(list.id)}
+              aria-pressed={filter === list.id}
+              onClick={() => setFilter(list.id)}
+            >
+              {list.name}
+              {list.shared && (
+                <span className="songs-chip-shared">
+                  {list.mine ? "shared" : (list.owner_username ?? "shared")}
+                </span>
+              )}
+            </button>
+          ))}
+          {canManage && (
+            <button
+              type="button"
+              className="songs-chip songs-chip-manage"
+              onClick={() => setManaging(true)}
+            >
+              Playlists…
+            </button>
+          )}
+        </div>
+      )}
 
       {notice && <p className="songs-notice songs-notice-error">{notice}</p>}
 
@@ -270,8 +298,8 @@ export default function Songs() {
                               type="button"
                               className={
                                 favorites.ids.has(song.id)
-                                  ? "song-favorite-on"
-                                  : undefined
+                                  ? "song-favorite song-favorite-on"
+                                  : "song-favorite"
                               }
                               aria-label={
                                 favorites.ids.has(song.id)
@@ -280,7 +308,7 @@ export default function Songs() {
                               }
                               onClick={() => favorites.toggle(song.id)}
                             >
-                              {favorites.ids.has(song.id) ? "♥" : "♡"}
+                              <Icon name="heart" />
                             </button>
                           )}
                           {inPlaylist && editable && (
@@ -291,7 +319,10 @@ export default function Songs() {
                                 disabled={position <= 0 || reorder.isPending}
                                 onClick={() => move(song.id, -1)}
                               >
-                                ↑
+                                <Icon
+                                  name="chevron-down"
+                                  className="song-icon-up"
+                                />
                               </button>
                               <button
                                 type="button"
@@ -303,7 +334,7 @@ export default function Songs() {
                                 }
                                 onClick={() => move(song.id, 1)}
                               >
-                                ↓
+                                <Icon name="chevron-down" />
                               </button>
                               <button
                                 type="button"
@@ -317,7 +348,7 @@ export default function Songs() {
                                   })
                                 }
                               >
-                                ✕
+                                <Icon name="close" />
                               </button>
                             </>
                           )}

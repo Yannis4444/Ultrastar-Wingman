@@ -5,14 +5,15 @@
   display: flex;
   align-items: center;
   justify-content: center;
-  padding: 16px;
+  padding: 12px;
   background-color: #000b;
 }
 
 .modal {
   width: 100%;
   max-width: 500px;
-  max-height: 80vh;
+  max-height: 90vh;
+  max-height: 90dvh;
   overflow-y: auto;
   padding-bottom: 16px;
   background-color: var(--tile-bg);
@@ -45,16 +46,31 @@
   border-radius: var(--border-radius) var(--border-radius) 0 0;
 }
 
+/* Only the close button: the body carries the visible title. */
+.modal-header-bare {
+  justify-content: flex-end;
+  position: static;
+  background: none;
+}
+
 .modal-header h2 {
   margin: 16px;
   font-size: 1.1em;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .modal-header button {
-  margin: 8px 8px 8px 0;
-  padding: 0 12px;
-  font-size: 1.5em;
-  line-height: 1.4;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex: 0 0 auto;
+  width: 40px;
+  height: 40px;
+  margin: 8px 8px 0 0;
+  padding: 0;
+  font-size: 1.2em;
   color: var(--color-dark);
   background: none;
   border: none;
