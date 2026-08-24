@@ -10,7 +10,7 @@ from ..db import SessionDep
 from . import service
 from .colors import COLORS, ColorList, UnknownColorError
 from .schema import CurrentSing, CurrentSingRead
-from .usdx_paths import UsdxPathsError
+from .usdx_paths import UsdxPathsError, resolve_usdx_paths
 
 logger = logging.getLogger(__name__)
 
@@ -27,6 +27,30 @@ class SingCreate(BaseModel):
     # One slot per color at most — the color list is what the UI offers.
     slots: list[SlotCreate] = Field(min_length=1, max_length=len(COLORS))
     force: bool = False
+
+
+class UsdxStatusRead(BaseModel):
+    configured: bool
+    # Empty unless the caller may see the settings: these strings name paths on the host's
+    # file system, which is nobody else's business.
+    problems: list[str]
+
+
+@router.get(
+    "/karaoke/status",
+    response_model=UsdxStatusRead,
+    # Whoever may see songs may know whether singing one would work at all.
+    dependencies=[Depends(require("songs.view"))],
+)
+async def usdx_status(session: SessionDep, principal: PrincipalDep) -> UsdxStatusRead:
+    """Whether USDX could be launched right now — checks the settings without starting
+    anything, so the UI can offer setup guidance before the first Play."""
+    try:
+        await resolve_usdx_paths(session)
+    except UsdxPathsError as error:
+        problems = error.problems if "settings.view" in principal.capabilities else []
+        return UsdxStatusRead(configured=False, problems=problems)
+    return UsdxStatusRead(configured=True, problems=[])
 
 
 @router.get(

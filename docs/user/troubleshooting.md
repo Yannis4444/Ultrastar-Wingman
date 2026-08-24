@@ -2,10 +2,22 @@
 
 The things that actually go wrong at a party, and what fixes them.
 
-## "Could not start the song — check the USDX settings"
+## Ultrastar Deluxe is not set up
 
-Wingman could not find Ultrastar Deluxe, or Windows refused to start it. Go
-through **User → Settings** once — Wingman checks all of the following:
+Wingman checks its Ultrastar Deluxe settings by itself and says so before
+anybody presses Play: the **Home** tab carries a *"Ultrastar Deluxe is not set
+up yet"* banner for as long as a song could not be started. Press **Fix it**
+and Wingman lists what is missing, in plain words, with a link straight to the
+settings. Guests see the banner too, with a note to ask the host — the paths
+themselves are only shown to whoever may see the settings.
+
+Pressing **Play** while it is unset opens the same list instead of an error.
+
+The banner disappears on its own the moment the settings are right, on every
+open page — no reload needed.
+
+The full list of what has to be true, if you would rather go through
+**User → Settings** yourself:
 
 | What has to be true | If it is not |
 |---|---|
@@ -16,6 +28,13 @@ through **User → Settings** once — Wingman checks all of the following:
 | Windows starts the program | The paths are right but the start failed. Start Ultrastar Deluxe by hand once, then try again. |
 
 Then press **Play** again.
+
+The last row reads the same way: the list then says the program refused to
+start, which means the paths were right and Windows was the problem.
+
+A plain *"Could not start the song — check the USDX settings"* notice instead of
+that list means the failure was not one of these at all — read the console
+window.
 
 !!! note
     `config.ini` and `Ultrastar.db` are not checked. Ultrastar Deluxe creates

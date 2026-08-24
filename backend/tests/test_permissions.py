@@ -41,6 +41,7 @@ ROUTES: list[tuple[str, str, str, dict[str, object] | None]] = [
     ("players.manage", "DELETE", "/api/v1/players/nope", None),
     ("players.manage", "PUT", "/api/v1/players/nope/avatar", None),
     ("songs.view", "GET", "/api/v1/karaoke/current", None),
+    ("songs.view", "GET", "/api/v1/karaoke/status", None),
     (
         "karaoke.sing",
         "POST",

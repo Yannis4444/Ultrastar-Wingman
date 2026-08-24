@@ -1,0 +1,23 @@
+.usdx-setup-banner {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin: 16px;
+  padding: 8px 12px;
+  background-color: var(--highlight-red-dark);
+  border-radius: var(--border-radius);
+}
+
+.usdx-setup-banner p {
+  flex: 1 1 auto;
+  margin: 8px;
+}
+
+.usdx-setup-banner .button {
+  flex: 0 0 auto;
+}
+
+.usdx-setup-banner-hint {
+  font-size: 0.85em;
+  color: var(--color-dark);
+}
