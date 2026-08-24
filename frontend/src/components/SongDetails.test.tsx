@@ -1,5 +1,11 @@
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import { render, screen, waitFor, within } from "@testing-library/react";
+import {
+  fireEvent,
+  render,
+  screen,
+  waitFor,
+  within,
+} from "@testing-library/react";
 import type { ScoreWithContext, SongRead } from "../api";
 import { meResponse } from "../test/auth";
 import SongDetails from "./SongDetails";
@@ -110,4 +116,33 @@ test("without stats.view the scores are not even requested", async () => {
   await waitFor(() => expect(getMe).toHaveBeenCalled());
   expect(screen.queryByText("Best scores")).not.toBeInTheDocument();
   expect(listSongScores).not.toHaveBeenCalled();
+});
+
+test("the details section starts collapsed and toggles open", async () => {
+  renderDetails();
+
+  const toggle = await screen.findByRole("button", { name: "Details" });
+  expect(toggle).toHaveAttribute("aria-expanded", "false");
+  // Collapsed means hidden, not gone: the values stay in the DOM.
+  expect(screen.getByRole("dialog")).toHaveTextContent("5:55");
+
+  fireEvent.click(toggle);
+  expect(toggle).toHaveAttribute("aria-expanded", "true");
+  expect(screen.getByText("English")).toBeVisible();
+
+  fireEvent.click(toggle);
+  expect(toggle).toHaveAttribute("aria-expanded", "false");
+});
+
+test("a failing audio preview removes itself", async () => {
+  const { container } = renderDetails();
+
+  const preview = container.querySelector("audio.song-preview");
+  expect(preview).not.toBeNull();
+  expect(preview).toHaveAttribute("src", "/api/v1/songs/usdb%3A1/audio");
+
+  // jsdom never loads media; the 404-for-no-audio case arrives as an error
+  // event, which is the only signal the backend gives.
+  fireEvent.error(preview as Element);
+  expect(container.querySelector("audio.song-preview")).toBeNull();
 });
