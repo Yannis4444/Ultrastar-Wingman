@@ -28,11 +28,16 @@ export interface SessionSummary {
   top: ScoreWithContext | null;
 }
 
-/** A session's own name, or the day it started — the label the picker shows. */
+/** A session's own name, or when it started — the label the picker shows.
+ * The time keeps two nameless parties on the same day apart. */
 export function sessionLabel(session: SessionRead): string {
   if (session.name !== null && session.name !== "") return session.name;
   const started = new Date(parseServerTime(session.started_at));
-  return `Session ${started.toLocaleDateString()}`;
+  const time = started.toLocaleTimeString([], {
+    hour: "2-digit",
+    minute: "2-digit",
+  });
+  return `Session ${started.toLocaleDateString()}, ${time}`;
 }
 
 /** The song a score was sung on — `song` is null once it has left the library. */
@@ -141,61 +146,109 @@ const TOOLTIP = {
   textStyle: { color: "#fff" },
 };
 
-/** Height the boxplot needs: one row per group plus room for the score axis. */
+/** How many groups the chart draws at most — the full list sits right below it. */
+const CHART_GROUPS = 8;
+
+/** Height the boxplot needs: one row per drawn group plus room for the axis. */
 export function boxplotHeight(groupCount: number): number {
-  return 32 * groupCount + 72;
+  return 28 * Math.min(groupCount, CHART_GROUPS) + 40;
 }
 
 /**
  * Horizontal boxplot of every group's score spread, strongest group on top
  * (`inverse`, because an echarts category axis counts up from the bottom).
+ * When no group has more than one score a boxplot is just a row of hairlines,
+ * so each group's single score is drawn as a bar instead.
  */
 export function buildBoxplotOption(
   scores: ScoreWithContext[],
   grouping: Grouping,
 ): EChartsOption {
-  const groups = groupScores(scores, grouping);
+  const groups = groupScores(scores, grouping).slice(0, CHART_GROUPS);
+  const spread = groups.some((group) => group.scores.length > 1);
+  const best = Math.max(...scores.map((score) => score.score), 0);
+  // A normal party's scores are meaningful as a percent of a perfect 10000, so
+  // the full range stays for anything above 40% of it; only a session whose
+  // best score is far lower gets an adaptive max — a fixed axis would draw
+  // such scores as 1px slivers glued to the left edge.
+  const max =
+    best > MAX_SCORE * 0.4
+      ? MAX_SCORE
+      : Math.max(500, Math.ceil((best * 1.25) / 500) * 500);
   return {
     tooltip: {
       ...TOOLTIP,
       trigger: "axis",
-      // `data` of a boxplot item is [index, min, q1, median, q3, max].
-      formatter: (params: unknown) => {
-        const [item] = params as { name: string; data: number[] }[];
-        const [, min, q1, median, q3, max] = item.data;
-        return [
-          `<b>${item.name}</b>`,
-          `Best: ${max}`,
-          `Upper quartile: ${Math.round(q3)}`,
-          `Median: ${Math.round(median)}`,
-          `Lower quartile: ${Math.round(q1)}`,
-          `Worst: ${min}`,
-        ].join("<br/>");
+      formatter: spread
+        ? // `data` of a boxplot item is [index, min, q1, median, q3, max].
+          (params: unknown) => {
+            const [item] = params as { name: string; data: number[] }[];
+            const [, min, q1, median, q3, top] = item.data;
+            return [
+              `<b>${item.name}</b>`,
+              `Best: ${top}`,
+              `Upper quartile: ${Math.round(q3)}`,
+              `Median: ${Math.round(median)}`,
+              `Lower quartile: ${Math.round(q1)}`,
+              `Worst: ${min}`,
+            ].join("<br/>");
+          }
+        : (params: unknown) => {
+            const [item] = params as { name: string; data: number }[];
+            return `<b>${item.name}</b><br/>Score: ${item.data}`;
+          },
+    },
+    grid: { top: 4, bottom: 22, left: 8, right: 12, containLabel: true },
+    xAxis: {
+      ...AXIS,
+      type: "value",
+      min: 0,
+      max,
+      splitNumber: 4,
+      axisLabel: {
+        ...AXIS.axisLabel,
+        hideOverlap: true,
+        // `2.5k` fits a 358px-wide tile where `10,000` collides.
+        formatter: (value: number) =>
+          value >= 1000 ? `${value / 1000}k` : String(value),
       },
     },
-    grid: { top: 8, bottom: 48, left: 8, right: 16, containLabel: true },
-    xAxis: { ...AXIS, type: "value", min: 0, max: MAX_SCORE, name: "Score" },
     yAxis: {
       ...AXIS,
       type: "category",
       inverse: true,
+      // Song labels can be long; the tooltip still carries the full name.
+      axisLabel: {
+        ...AXIS.axisLabel,
+        width: 96,
+        overflow: "truncate",
+        ellipsis: "…",
+      },
       data: groups.map((group) => group.label),
     },
     series: [
-      {
-        type: "boxplot",
-        data: groups.map((group) => group.quartiles),
-        itemStyle: {
-          color: chartTheme.fill,
-          borderColor: chartTheme.accent,
-        },
-        emphasis: {
-          itemStyle: {
-            color: chartTheme.emphasisFill,
-            borderColor: chartTheme.emphasis,
+      spread
+        ? {
+            type: "boxplot" as const,
+            data: groups.map((group) => group.quartiles),
+            itemStyle: {
+              color: chartTheme.fill,
+              borderColor: chartTheme.accent,
+            },
+            emphasis: {
+              itemStyle: {
+                color: chartTheme.emphasisFill,
+                borderColor: chartTheme.emphasis,
+              },
+            },
+          }
+        : {
+            type: "bar" as const,
+            data: groups.map((group) => group.median),
+            barMaxWidth: 18,
+            itemStyle: { color: chartTheme.accent },
+            emphasis: { itemStyle: { color: chartTheme.emphasis } },
           },
-        },
-      },
     ],
   };
 }
@@ -230,18 +283,27 @@ export function buildHistogramOption(
         return `<b>${item.name}</b><br/>${item.data} score${item.data === 1 ? "" : "s"}`;
       },
     },
-    grid: { top: 8, bottom: 24, left: 8, right: 8, containLabel: true },
+    grid: { top: 4, bottom: 18, left: 4, right: 4, containLabel: true },
     xAxis: {
       ...AXIS,
       type: "category",
-      // Only the ends are labelled: twenty ranges never fit on a phone.
-      axisLabel: { show: false },
+      // Only the ends are labelled — twenty ranges never fit on a phone, but
+      // without `0` and `10000` anchors the bars have no scale at all.
+      axisLabel: {
+        color: chartTheme.axis,
+        interval: (index: number) =>
+          index === 0 || index === HISTOGRAM_BUCKETS - 1,
+        formatter: (_value: string, index: number) =>
+          index === 0 ? "0" : String(MAX_SCORE),
+      },
       data: buckets.map(
         (_count, index) =>
           `${index * BUCKET_WIDTH} – ${(index + 1) * BUCKET_WIDTH}`,
       ),
     },
-    yAxis: { ...AXIS, type: "value", minInterval: 1 },
+    // The count is in the tooltip and every score is listed right below the
+    // chart — the left gutter is better spent on bars.
+    yAxis: { show: false },
     series: [
       {
         type: "bar",

@@ -1,5 +1,6 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { useState } from "react";
+import { useState, type ReactNode } from "react";
+import { Link } from "react-router-dom";
 import type { SessionList, SessionRead } from "../api";
 import {
   listSessionScoresOptions,
@@ -10,6 +11,7 @@ import {
 } from "../api/@tanstack/react-query.gen";
 import { useAuth } from "../auth";
 import Chart from "../components/Chart";
+import { Icon } from "../components/icons";
 import ScoreGroupList from "../components/ScoreGroupList";
 import SessionSummaryRow from "../components/SessionSummaryRow";
 import Spinner from "../components/Spinner";
@@ -24,8 +26,21 @@ import {
 } from "../stats";
 import "./Scores.css";
 
-/** Inline "rename this session" control, shown to whoever may manage stats. */
-function SessionName({ session }: { session: SessionRead }) {
+interface SessionBarProps {
+  session: SessionRead;
+  sessions: SessionRead[];
+  onSelect: (id: string) => void;
+  canManage: boolean;
+}
+
+/** The session picker, with an inline rename for whoever may manage stats.
+ * While renaming, the input takes the select's place in the same row. */
+function SessionBar({
+  session,
+  sessions,
+  onSelect,
+  canManage,
+}: SessionBarProps) {
   const queryClient = useQueryClient();
   const [draft, setDraft] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -49,60 +64,99 @@ function SessionName({ session }: { session: SessionRead }) {
       setError(errorMessage(failure, "Could not rename the session.")),
   });
 
-  if (draft === null) {
-    return (
-      <button
-        type="button"
-        className="button scores-rename"
-        onClick={() => {
-          setError(null);
-          setDraft(session.name ?? "");
-        }}
-      >
-        Rename session
-      </button>
-    );
-  }
-
   return (
-    <form
-      className="scores-rename-form"
-      onSubmit={(event) => {
-        event.preventDefault();
-        setError(null);
-        rename.mutate({
-          path: { session_id: session.id },
-          // The backend stores an empty string verbatim; clearing means null.
-          body: { name: draft.trim() === "" ? null : draft.trim() },
-        });
-      }}
-    >
-      <label>
-        <span className="visually-hidden">Session name</span>
-        <input
-          className="text-input"
-          value={draft}
-          placeholder="Yannis’ birthday"
-          onChange={(event) => setDraft(event.target.value)}
-          autoFocus
-        />
-      </label>
-      <button
-        type="submit"
-        className="button button-primary"
-        disabled={rename.isPending}
-      >
-        Save
-      </button>
-      <button type="button" className="button" onClick={() => setDraft(null)}>
-        Cancel
-      </button>
+    <>
+      {draft === null ? (
+        <div className="scores-session">
+          <label>
+            <span className="visually-hidden">Session</span>
+            <select
+              className="text-input"
+              value={session.id}
+              onChange={(event) => onSelect(event.target.value)}
+            >
+              {sessions.map((entry) => (
+                <option key={entry.id} value={entry.id}>
+                  {sessionLabel(entry)}
+                </option>
+              ))}
+            </select>
+          </label>
+          {canManage && (
+            <button
+              type="button"
+              className="icon-button icon-button-bordered"
+              aria-label="Rename session"
+              onClick={() => {
+                setError(null);
+                setDraft(session.name ?? "");
+              }}
+            >
+              <Icon name="pencil" />
+            </button>
+          )}
+        </div>
+      ) : (
+        <form
+          className="scores-session"
+          onSubmit={(event) => {
+            event.preventDefault();
+            setError(null);
+            rename.mutate({
+              path: { session_id: session.id },
+              // The backend stores an empty string verbatim; clearing means null.
+              body: { name: draft.trim() === "" ? null : draft.trim() },
+            });
+          }}
+        >
+          <label>
+            <span className="visually-hidden">Session name</span>
+            <input
+              className="text-input"
+              value={draft}
+              placeholder="Yannis’ birthday"
+              onChange={(event) => setDraft(event.target.value)}
+              autoFocus
+            />
+          </label>
+          <button
+            type="submit"
+            className="icon-button icon-button-bordered"
+            aria-label="Save"
+            disabled={rename.isPending}
+          >
+            <Icon name="check" />
+          </button>
+          <button
+            type="button"
+            className="icon-button icon-button-bordered"
+            aria-label="Cancel"
+            onClick={() => setDraft(null)}
+          >
+            <Icon name="close" />
+          </button>
+        </form>
+      )}
       {error && (
-        <p className="error-notice" role="alert">
+        <p className="error-notice scores-session-error" role="alert">
           {error}
         </p>
       )}
-    </form>
+    </>
+  );
+}
+
+/** An empty page that says what to do about it, not just that it is empty. */
+function ScoresEmpty({ children }: { children: ReactNode }) {
+  return (
+    <div className="scores-empty">
+      <Icon name="chart" className="scores-empty-icon" />
+      <h2>No scores yet</h2>
+      <p>{children}</p>
+      <Link className="button button-primary" to="/songs">
+        Browse songs
+      </Link>
+    </div>
   );
 }
 
@@ -157,76 +211,81 @@ export default function Scores() {
 
   if (session === null) {
     return (
-      <>
+      <div className="scores-page">
         <h1>Scores</h1>
-        <p>
-          No scores yet. Sing a song and the results show up here — one page per
-          party.
-        </p>
-      </>
+        <ScoresEmpty>
+          Sing a song and the results land here — one page per party.
+        </ScoresEmpty>
+      </div>
     );
   }
 
   const rows = scores.data?.scores ?? [];
   const groups = groupScores(rows, grouping);
+  // One group's chart says nothing the single ranking row does not.
+  const showChart = groups.length >= 2;
+
+  const groupingControl = (
+    <fieldset className="scores-grouping">
+      <legend className="visually-hidden">Group by</legend>
+      {(["player", "song"] as const).map((option) => (
+        <label key={option} className="scores-grouping-option">
+          <input
+            type="radio"
+            className="visually-hidden"
+            name="grouping"
+            value={option}
+            checked={grouping === option}
+            onChange={() => setGrouping(option)}
+          />
+          <span>{option}</span>
+        </label>
+      ))}
+    </fieldset>
+  );
 
   return (
     <div className="scores-page">
       <h1>Scores</h1>
 
-      <div className="scores-picker">
-        <label>
-          <span className="visually-hidden">Session</span>
-          <select
-            className="text-input"
-            value={session.id}
-            onChange={(event) => setSelectedId(event.target.value)}
-          >
-            {all.map((entry) => (
-              <option key={entry.id} value={entry.id}>
-                {sessionLabel(entry)}
-              </option>
-            ))}
-          </select>
-        </label>
-        {/* Keyed: switching sessions must not carry an open rename draft over
-            to a different session and save it there. */}
-        {auth.can("stats.manage") && (
-          <SessionName key={session.id} session={session} />
-        )}
-      </div>
-
-      <SessionSummaryRow session={session} scores={rows} />
+      {/* Keyed: switching sessions must not carry an open rename draft over
+          to a different session and save it there. */}
+      <SessionBar
+        key={session.id}
+        session={session}
+        sessions={all}
+        onSelect={setSelectedId}
+        canManage={auth.can("stats.manage")}
+      />
 
       {scores.isPending ? (
         <Spinner />
       ) : groups.length === 0 ? (
-        <p>This session has no scores yet.</p>
+        <ScoresEmpty>
+          {session.sing_count > 0
+            ? `${session.sing_count} sings so far, none scored — Ultrastar ` +
+              "Deluxe reports a score when a song runs to the end."
+            : "Pick a song, sing it, and the ranking builds itself."}
+        </ScoresEmpty>
       ) : (
         <>
-          <fieldset className="scores-grouping">
-            <legend>Group by</legend>
-            {(["player", "song"] as const).map((option) => (
-              <label key={option}>
-                <input
-                  type="radio"
-                  name="grouping"
-                  value={option}
-                  checked={grouping === option}
-                  onChange={() => setGrouping(option)}
-                />
-                {option}
-              </label>
-            ))}
-          </fieldset>
+          <SessionSummaryRow session={session} scores={rows} />
 
-          <div className="scores-chart">
-            <Chart
-              option={buildBoxplotOption(rows, grouping)}
-              height={boxplotHeight(groups.length)}
-              label={`Score spread per ${grouping}, best median first`}
-            />
-          </div>
+          {showChart ? (
+            <div className="scores-chart">
+              <div className="scores-chart-header">
+                <h2 className="scores-chart-title">Score spread</h2>
+                {groupingControl}
+              </div>
+              <Chart
+                option={buildBoxplotOption(rows, grouping)}
+                height={boxplotHeight(groups.length)}
+                label={`Score spread per ${grouping}, best median first`}
+              />
+            </div>
+          ) : (
+            groupingControl
+          )}
 
           <ScoreGroupList groups={groups} grouping={grouping} />
         </>

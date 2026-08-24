@@ -1,5 +1,6 @@
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { fireEvent, render, screen, waitFor } from "@testing-library/react";
+import { MemoryRouter } from "react-router-dom";
 import type { ScoreWithContext, SessionRead, SongRead } from "../api";
 import { meResponse } from "../test/auth";
 import { FakeSocket } from "../test/fakeSocket";
@@ -112,9 +113,12 @@ function renderScores() {
     defaultOptions: { queries: { retry: false } },
   });
   return render(
-    <QueryClientProvider client={client}>
-      <Scores />
-    </QueryClientProvider>,
+    // The router carries the empty state's "Browse songs" link.
+    <MemoryRouter>
+      <QueryClientProvider client={client}>
+        <Scores />
+      </QueryClientProvider>
+    </MemoryRouter>,
   );
 }
 
@@ -136,10 +140,14 @@ test("the picker lists every session and starts on the newest one", async () => 
   renderScores();
 
   const picker = await screen.findByRole("combobox", { name: "Session" });
-  const day = new Date("2026-08-23T18:00:00Z").toLocaleDateString();
+  const started = new Date("2026-08-23T18:00:00Z");
+  const label = `Session ${started.toLocaleDateString()}, ${started.toLocaleTimeString(
+    [],
+    { hour: "2-digit", minute: "2-digit" },
+  )}`;
   expect(
     screen.getAllByRole("option").map((option) => option.textContent),
-  ).toEqual([`Session ${day}`, "New Year 2025"]);
+  ).toEqual([label, "New Year 2025"]);
   // Newest first from the backend, so the first entry is preselected.
   expect(picker).toHaveValue("session-new");
   await waitFor(() =>
@@ -200,11 +208,11 @@ test("every group lists its raw scores, strongest first and difficulty named", a
     minute: "2-digit",
   });
   // Strongest median first: Alice's group leads, and her 9000 leads inside it.
-  const rows = (await screen.findAllByRole("row")).map(
+  const rows = (await screen.findAllByTestId("score-row")).map(
     (row) => row.textContent,
   );
-  expect(rows[1]).toBe(`Oasis – Wonderwall9000Medium${at}`);
-  expect(rows[2]).toBe(`Queen – Bohemian Rhapsody8000Medium${at}`);
+  expect(rows[0]).toBe(`Oasis – WonderwallMedium · ${at}9000`);
+  expect(rows[1]).toBe(`Queen – Bohemian RhapsodyMedium · ${at}8000`);
 });
 
 test("renaming a session patches it and shows the new name", async () => {
@@ -250,7 +258,7 @@ test("clearing the name sends null, not an empty string", async () => {
   );
 });
 
-test("switching sessions drops an open rename draft instead of moving it", async () => {
+test("a session change drops an open rename draft instead of moving it", async () => {
   renderScores();
 
   fireEvent.click(
@@ -259,14 +267,22 @@ test("switching sessions drops an open rename draft instead of moving it", async
   fireEvent.change(screen.getByRole("textbox", { name: "Session name" }), {
     target: { value: "Yannis' birthday" },
   });
-  fireEvent.change(screen.getByRole("combobox", { name: "Session" }), {
-    target: { value: "session-old" },
-  });
+  // While renaming, the input takes the select's place in the row…
+  expect(
+    screen.queryByRole("combobox", { name: "Session" }),
+  ).not.toBeInTheDocument();
+
+  // …so the session changes under the form: a websocket refresh reorders the
+  // list and another session becomes the default selection.
+  listSessions.mockResolvedValue({ data: { sessions: [lastYear, tonight] } });
+  FakeSocket.deliver({ event: "scores.recorded", sing_id: "sing-5" });
 
   // Otherwise Save would rename the other session with this session's name.
-  expect(
-    screen.queryByRole("textbox", { name: "Session name" }),
-  ).not.toBeInTheDocument();
+  await waitFor(() =>
+    expect(
+      screen.queryByRole("textbox", { name: "Session name" }),
+    ).not.toBeInTheDocument(),
+  );
   expect(
     screen.getByRole("button", { name: "Rename session" }),
   ).toBeInTheDocument();

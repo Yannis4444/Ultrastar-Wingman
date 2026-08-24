@@ -64,7 +64,7 @@ function axisLabels(option: ReturnType<typeof buildBoxplotOption>): unknown {
   return (option.yAxis as { data: string[] }).data;
 }
 
-test("a session shows its own name, and its start date when it has none", () => {
+test("a session shows its own name, and its start time when it has none", () => {
   const base: SessionRead = {
     id: "s1",
     name: null,
@@ -77,10 +77,15 @@ test("a session shows its own name, and its start date when it has none", () => 
     "Yannis' birthday",
   );
   // Node's locale decides the format, so the expectation is built the same way.
-  const day = new Date(parseServerTime(base.started_at)).toLocaleDateString();
-  expect(sessionLabel(base)).toBe(`Session ${day}`);
+  // The time keeps two nameless parties on the same day apart.
+  const started = new Date(parseServerTime(base.started_at));
+  const label = `Session ${started.toLocaleDateString()}, ${started.toLocaleTimeString(
+    [],
+    { hour: "2-digit", minute: "2-digit" },
+  )}`;
+  expect(sessionLabel(base)).toBe(label);
   // The backend accepts an empty name; it must not read as a nameless session.
-  expect(sessionLabel({ ...base, name: "" })).toBe(`Session ${day}`);
+  expect(sessionLabel({ ...base, name: "" })).toBe(label);
 });
 
 test("a score whose song left the library still has a label", () => {
@@ -146,6 +151,22 @@ test("the grouping decides the boxplot's categories and boxes", () => {
   expect((bySong.yAxis as { inverse: boolean }).inverse).toBe(true);
   const boxes = (bySong.series as { data: number[][] }[])[0].data;
   expect(boxes[0]).toEqual([6000, 6750, 7500, 8250, 9000]);
+});
+
+test("groups of single scores get bars on an adaptive axis, not boxplots", () => {
+  const option = buildBoxplotOption([score("Alice", 30, bohemian)], "player");
+
+  // A boxplot of one score is a hairline; a fixed 0–10000 axis makes it 1px.
+  expect((option.series as { type: string }[])[0].type).toBe("bar");
+  expect((option.xAxis as { min: number; max: number }).min).toBe(0);
+  expect((option.xAxis as { min: number; max: number }).max).toBe(500);
+});
+
+test("the score axis keeps the full range once scores pass 40% of perfect", () => {
+  const option = buildBoxplotOption(scores, "player");
+
+  expect((option.series as { type: string }[])[0].type).toBe("boxplot");
+  expect((option.xAxis as { max: number }).max).toBe(10000);
 });
 
 test("histogram buckets cover the whole score range, 10000 included", () => {

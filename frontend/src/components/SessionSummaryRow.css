@@ -1,33 +1,62 @@
 .session-summary {
-  display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(110px, 1fr));
-  gap: 8px;
-  margin: 16px 8px 0 8px;
-}
-
-.session-summary > div {
-  padding: 12px;
+  margin: 16px 16px 0 16px;
+  padding: 12px 16px;
   background-color: var(--tile-bg);
   border-radius: var(--border-radius);
 }
 
-.session-summary dt {
-  font-size: 0.8em;
-  color: var(--color-darker);
+.session-summary-top {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0 6px;
+  align-items: baseline;
+  margin: 0 0 12px 0;
 }
 
-.session-summary dd {
-  margin: 4px 0 0 0;
-  font-size: 1.2em;
+.session-summary-trophy {
+  align-self: center;
+  font-size: 20px;
+  color: var(--highlight-gold-light);
+}
+
+.session-summary-score {
+  font-size: 1.6em;
+  font-weight: bold;
+  color: var(--highlight-gold-light);
+  font-variant-numeric: tabular-nums;
+}
+
+.session-summary-who {
+  font-size: 1.1em;
+}
+
+/* The song drops to its own line on a phone instead of truncating. */
+.session-summary-song {
+  flex: 1 1 100%;
+  font-size: 0.9em;
+  color: var(--color-dark);
   overflow-wrap: anywhere;
 }
 
-/* The top score carries a name and a song, so it gets the full width and a
-   size that still fits on a phone. */
-.session-summary > div:last-child {
-  grid-column: 1 / -1;
+.session-summary-counts {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  margin: 0;
 }
 
-.session-summary > div:last-child dd {
-  font-size: 1em;
+/* Hairline dividers — the flat equivalent of three boxes. */
+.session-summary-counts > div + div {
+  padding-left: 12px;
+  border-left: 1px solid var(--input-border-color);
+}
+
+.session-summary-counts dt {
+  font-size: 0.8em;
+  color: var(--color-dark);
+}
+
+.session-summary-counts dd {
+  margin: 2px 0 0 0;
+  font-size: 1.3em;
+  font-variant-numeric: tabular-nums;
 }

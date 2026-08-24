@@ -1,71 +1,126 @@
+/* 8px side margins: row text starts at the 16px page gutter while the
+   hover/focus band bleeds 8px into it and reads as a row. */
 .score-groups {
-  margin: 16px 16px 0 16px;
+  margin: 16px 8px 0 8px;
   padding: 0;
   list-style: none;
 }
 
-/* Flat rows with a separator, like the old app's score-group headers. */
-.score-groups > li {
-  border-bottom: 1px solid var(--input-border-color);
-}
-
-.score-groups > li:last-child {
-  border-bottom: none;
+/* Flat rows split by hairlines; border-top so the last row needs no override. */
+.score-groups > li + li {
+  border-top: 1px solid var(--input-border-color);
 }
 
 .score-groups summary {
   display: flex;
-  flex-wrap: wrap;
-  gap: 4px 12px;
-  align-items: baseline;
-  padding: 12px 0;
+  gap: 12px;
+  align-items: center;
+  min-height: 48px;
+  padding: 10px 8px;
+  border-radius: var(--border-radius-small);
   cursor: pointer;
+  list-style: none;
+}
+
+/* `display: flex` alone kills the marker in Chromium but not Firefox. */
+.score-groups summary::-webkit-details-marker {
+  display: none;
+}
+
+.score-groups summary::marker {
+  content: none;
 }
 
 .score-groups summary:hover {
   background-color: var(--highlight-blue-dark);
 }
 
+.score-groups summary:focus-visible {
+  outline: 2px solid var(--highlight-blue-light);
+  outline-offset: -2px;
+}
+
 .score-group-rank {
+  flex: 0 0 24px;
+  font-size: 1.1em;
   color: var(--color-darker);
+  text-align: right;
+  font-variant-numeric: tabular-nums;
+}
+
+/* The old app's pink podium numeral, without its box. */
+.score-groups > li:nth-child(-n + 3) .score-group-rank {
+  font-weight: bold;
+  color: var(--highlight-pink-light);
+}
+
+.score-group-cover {
+  width: 40px;
+  height: 40px;
+}
+
+.score-group-text {
+  flex: 1 1 auto;
+  min-width: 0;
 }
 
 .score-group-label {
-  flex: 1 1 120px;
-  overflow-wrap: anywhere;
+  display: block;
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
 }
 
-.score-group-numbers {
-  display: flex;
-  gap: 12px;
+.score-group-caption {
+  display: block;
+  overflow: hidden;
   font-size: 0.85em;
-  color: var(--color-dark);
+  color: var(--color-darker);
+  white-space: nowrap;
+  text-overflow: ellipsis;
   font-variant-numeric: tabular-nums;
 }
 
-.score-group-table {
-  width: 100%;
-  border-collapse: collapse;
-  font-size: 0.9em;
+.score-group-score {
+  flex: 0 0 auto;
+  font-size: 1.2em;
+  font-weight: bold;
+  color: var(--highlight-gold-light);
+  font-variant-numeric: tabular-nums;
 }
 
-.score-group-table th {
-  text-align: left;
-  font-weight: normal;
+.score-group-chevron {
+  flex: 0 0 auto;
+  font-size: 20px;
   color: var(--color-darker);
+  transition: transform 0.2s;
 }
 
-.score-group-table th,
-.score-group-table td {
-  padding: 6px 12px;
+details[open] > summary .score-group-chevron {
+  transform: rotate(180deg);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .score-group-chevron {
+    transition: none;
+  }
+}
+
+/* The expanded scores, indented to the row's text column. */
+.score-group-scores {
+  margin: 0 0 8px 44px;
+  padding: 0;
+  list-style: none;
+}
+
+.score-group-scores > li {
+  display: flex;
+  gap: 12px;
+  align-items: baseline;
+  padding: 6px 8px;
   border-top: 1px solid var(--input-border-color);
 }
 
-.score-group-table td:not(:first-child) {
-  font-variant-numeric: tabular-nums;
-  white-space: nowrap;
-}
-
-.score-group-table td:first-child {
-  overflow-wrap: anywhere;
+.score-group-scores .score-group-score {
+  font-size: 1em;
 }
