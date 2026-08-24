@@ -1,0 +1,36 @@
+.page-header {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin: 16px 16px 0 16px;
+}
+
+.page-header h1 {
+  flex: 1 1 auto;
+  min-width: 0;
+  margin: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  text-align: left;
+}
+
+.page-header-back {
+  display: flex;
+  flex: 0 0 auto;
+  align-items: center;
+  justify-content: center;
+  width: 40px;
+  height: 40px;
+  color: var(--color);
+  text-decoration: none;
+  border-radius: var(--border-radius-small);
+}
+
+.page-header-back:hover {
+  background-color: var(--highlight-blue-dark);
+}
+
+.page-header-back .icon {
+  font-size: 1.4em;
+}

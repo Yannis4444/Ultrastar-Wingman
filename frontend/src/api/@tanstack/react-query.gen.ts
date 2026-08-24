@@ -3,8 +3,8 @@
 import { type DefaultError, type InfiniteData, infiniteQueryOptions, queryOptions, type UseMutationOptions } from '@tanstack/react-query';
 
 import { client } from '../client.gen';
-import { addFavorite, addPlaylistEntry, addWish, createDownload, createPlayer, createPlaylist, deletePlayer, deletePlaylist, deleteUser, exchangeHostToken, getCurrentSing, getMe, getPermissions, getPlayerAvatar, getPlaylist, getSong, getSongCover, health, listDownloads, listFavorites, listKaraokeColors, listLatestScores, listPlayers, listPlaylists, listSessions, listSessionScores, listSettings, listSongs, listSongScores, listUsers, listWishlist, login, logout, oidcCallback, oidcConfig, oidcLogin, type Options, register, removeFavorite, removePlaylistEntry, removeWish, renameSession, reorderPlaylistEntries, rescanSongs, setPlayerAvatar, singSong, stopSinging, updatePlaylist, updateRolePermissions, updateSetting, updateUser, usdbSearch, usdbStatus, usdxStatus } from '../sdk.gen';
-import type { AddFavoriteData, AddFavoriteError, AddFavoriteResponse, AddPlaylistEntryData, AddPlaylistEntryError, AddPlaylistEntryResponse, AddWishData, AddWishError, AddWishResponse, CreateDownloadData, CreateDownloadError, CreateDownloadResponse, CreatePlayerData, CreatePlayerError, CreatePlayerResponse, CreatePlaylistData, CreatePlaylistError, CreatePlaylistResponse, DeletePlayerData, DeletePlayerError, DeletePlayerResponse, DeletePlaylistData, DeletePlaylistError, DeletePlaylistResponse, DeleteUserData, DeleteUserError, DeleteUserResponse, ExchangeHostTokenData, ExchangeHostTokenError, ExchangeHostTokenResponse, GetCurrentSingData, GetCurrentSingResponse, GetMeData, GetMeResponse, GetPermissionsData, GetPermissionsResponse, GetPlayerAvatarData, GetPlayerAvatarError, GetPlaylistData, GetPlaylistError, GetPlaylistResponse, GetSongCoverData, GetSongCoverError, GetSongData, GetSongError, GetSongResponse, HealthData, HealthResponse, ListDownloadsData, ListDownloadsResponse, ListFavoritesData, ListFavoritesResponse, ListKaraokeColorsData, ListKaraokeColorsResponse, ListLatestScoresData, ListLatestScoresError, ListLatestScoresResponse, ListPlayersData, ListPlayersResponse, ListPlaylistsData, ListPlaylistsResponse, ListSessionScoresData, ListSessionScoresError, ListSessionScoresResponse, ListSessionsData, ListSessionsResponse, ListSettingsData, ListSettingsResponse, ListSongScoresData, ListSongScoresError, ListSongScoresResponse, ListSongsData, ListSongsResponse, ListUsersData, ListUsersResponse, ListWishlistData, ListWishlistResponse, LoginData, LoginError, LoginResponse, LogoutData, LogoutResponse, OidcCallbackData, OidcCallbackError, OidcConfigData, OidcConfigResponse, OidcLoginData, RegisterData, RegisterError, RegisterResponse, RemoveFavoriteData, RemoveFavoriteError, RemoveFavoriteResponse, RemovePlaylistEntryData, RemovePlaylistEntryError, RemovePlaylistEntryResponse, RemoveWishData, RemoveWishError, RemoveWishResponse, RenameSessionData, RenameSessionError, RenameSessionResponse, ReorderPlaylistEntriesData, ReorderPlaylistEntriesResponse, RescanSongsData, RescanSongsError, RescanSongsResponse, SetPlayerAvatarData, SetPlayerAvatarError, SetPlayerAvatarResponse, SingSongData, SingSongError, SingSongResponse, StopSingingData, StopSingingResponse, UpdatePlaylistData, UpdatePlaylistError, UpdatePlaylistResponse, UpdateRolePermissionsData, UpdateRolePermissionsResponse, UpdateSettingData, UpdateSettingError, UpdateSettingResponse, UpdateUserData, UpdateUserError, UpdateUserResponse, UsdbSearchData, UsdbSearchError, UsdbSearchResponse, UsdbStatusData, UsdbStatusError, UsdbStatusResponse, UsdxStatusData, UsdxStatusResponse } from '../types.gen';
+import { addFavorite, addPlaylistEntry, addWish, createDownload, createPlayer, createPlaylist, deletePlayer, deletePlaylist, deleteUser, exchangeHostToken, getCurrentSing, getJoinInfo, getMe, getPermissions, getPlayerAvatar, getPlaylist, getSong, getSongAudio, getSongCover, health, listDownloads, listFavorites, listKaraokeColors, listLatestScores, listPlayers, listPlaylists, listSessions, listSessionScores, listSettings, listSongs, listSongScores, listUsers, listWishlist, login, logout, oidcCallback, oidcConfig, oidcLogin, type Options, register, removeFavorite, removePlaylistEntry, removeWish, renameSession, reorderPlaylistEntries, rescanSongs, setPlayerAvatar, singSong, stopSinging, updatePlaylist, updateRolePermissions, updateSetting, updateUser, usdbSearch, usdbStatus, usdxStatus } from '../sdk.gen';
+import type { AddFavoriteData, AddFavoriteError, AddFavoriteResponse, AddPlaylistEntryData, AddPlaylistEntryError, AddPlaylistEntryResponse, AddWishData, AddWishError, AddWishResponse, CreateDownloadData, CreateDownloadError, CreateDownloadResponse, CreatePlayerData, CreatePlayerError, CreatePlayerResponse, CreatePlaylistData, CreatePlaylistError, CreatePlaylistResponse, DeletePlayerData, DeletePlayerError, DeletePlayerResponse, DeletePlaylistData, DeletePlaylistError, DeletePlaylistResponse, DeleteUserData, DeleteUserError, DeleteUserResponse, ExchangeHostTokenData, ExchangeHostTokenError, ExchangeHostTokenResponse, GetCurrentSingData, GetCurrentSingResponse, GetJoinInfoData, GetJoinInfoResponse, GetMeData, GetMeResponse, GetPermissionsData, GetPermissionsResponse, GetPlayerAvatarData, GetPlayerAvatarError, GetPlaylistData, GetPlaylistError, GetPlaylistResponse, GetSongAudioData, GetSongAudioError, GetSongCoverData, GetSongCoverError, GetSongData, GetSongError, GetSongResponse, HealthData, HealthResponse, ListDownloadsData, ListDownloadsResponse, ListFavoritesData, ListFavoritesResponse, ListKaraokeColorsData, ListKaraokeColorsResponse, ListLatestScoresData, ListLatestScoresError, ListLatestScoresResponse, ListPlayersData, ListPlayersResponse, ListPlaylistsData, ListPlaylistsResponse, ListSessionScoresData, ListSessionScoresError, ListSessionScoresResponse, ListSessionsData, ListSessionsResponse, ListSettingsData, ListSettingsResponse, ListSongScoresData, ListSongScoresError, ListSongScoresResponse, ListSongsData, ListSongsResponse, ListUsersData, ListUsersResponse, ListWishlistData, ListWishlistResponse, LoginData, LoginError, LoginResponse, LogoutData, LogoutResponse, OidcCallbackData, OidcCallbackError, OidcConfigData, OidcConfigResponse, OidcLoginData, RegisterData, RegisterError, RegisterResponse, RemoveFavoriteData, RemoveFavoriteError, RemoveFavoriteResponse, RemovePlaylistEntryData, RemovePlaylistEntryError, RemovePlaylistEntryResponse, RemoveWishData, RemoveWishError, RemoveWishResponse, RenameSessionData, RenameSessionError, RenameSessionResponse, ReorderPlaylistEntriesData, ReorderPlaylistEntriesResponse, RescanSongsData, RescanSongsError, RescanSongsResponse, SetPlayerAvatarData, SetPlayerAvatarError, SetPlayerAvatarResponse, SingSongData, SingSongError, SingSongResponse, StopSingingData, StopSingingResponse, UpdatePlaylistData, UpdatePlaylistError, UpdatePlaylistResponse, UpdateRolePermissionsData, UpdateRolePermissionsResponse, UpdateSettingData, UpdateSettingError, UpdateSettingResponse, UpdateUserData, UpdateUserError, UpdateUserResponse, UsdbSearchData, UsdbSearchError, UsdbSearchResponse, UsdbStatusData, UsdbStatusError, UsdbStatusResponse, UsdxStatusData, UsdxStatusResponse } from '../types.gen';
 
 export type QueryKey<TOptions extends Options> = [
     Pick<TOptions, 'baseUrl' | 'body' | 'headers' | 'path' | 'query'> & {
@@ -359,6 +359,26 @@ export const getSongCoverOptions = (options: Options<GetSongCoverData>) => query
         return data;
     },
     queryKey: getSongCoverQueryKey(options)
+});
+
+export const getSongAudioQueryKey = (options: Options<GetSongAudioData>) => createQueryKey('getSongAudio', options);
+
+/**
+ * Get Song Audio
+ *
+ * The song's audio file, for the preview player in the song details.
+ */
+export const getSongAudioOptions = (options: Options<GetSongAudioData>) => queryOptions<unknown, GetSongAudioError, unknown, ReturnType<typeof getSongAudioQueryKey>>({
+    queryFn: async ({ queryKey, signal }) => {
+        const { data } = await getSongAudio({
+            ...options,
+            ...queryKey[0],
+            signal,
+            throwOnError: true
+        });
+        return data;
+    },
+    queryKey: getSongAudioQueryKey(options)
 });
 
 export const listPlayersQueryKey = (options?: Options<ListPlayersData>) => createQueryKey('listPlayers', options);
@@ -1059,6 +1079,27 @@ export const healthOptions = (options?: Options<HealthData>) => queryOptions<Hea
         return data;
     },
     queryKey: healthQueryKey(options)
+});
+
+export const getJoinInfoQueryKey = (options?: Options<GetJoinInfoData>) => createQueryKey('getJoinInfo', options);
+
+/**
+ * Get Join Info
+ *
+ * The URL guests open on their phones. The host screen encodes it in the QR code:
+ * `window.location.origin` would be `localhost` on the karaoke PC itself.
+ */
+export const getJoinInfoOptions = (options?: Options<GetJoinInfoData>) => queryOptions<GetJoinInfoResponse, DefaultError, GetJoinInfoResponse, ReturnType<typeof getJoinInfoQueryKey>>({
+    queryFn: async ({ queryKey, signal }) => {
+        const { data } = await getJoinInfo({
+            ...options,
+            ...queryKey[0],
+            signal,
+            throwOnError: true
+        });
+        return data;
+    },
+    queryKey: getJoinInfoQueryKey(options)
 });
 
 export const listSettingsQueryKey = (options?: Options<ListSettingsData>) => createQueryKey('listSettings', options);

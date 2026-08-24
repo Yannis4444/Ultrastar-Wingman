@@ -191,6 +191,18 @@ export type HostTokenRequest = {
 };
 
 /**
+ * JoinInfo
+ *
+ * Where a phone on the same network reaches Wingman.
+ */
+export type JoinInfo = {
+    /**
+     * Url
+     */
+    url: string;
+};
+
+/**
  * LoginRequest
  */
 export type LoginRequest = {
@@ -1352,6 +1364,34 @@ export type GetSongCoverResponses = {
     200: unknown;
 };
 
+export type GetSongAudioData = {
+    body?: never;
+    path: {
+        /**
+         * Song Id
+         */
+        song_id: string;
+    };
+    query?: never;
+    url: '/api/v1/songs/{song_id}/audio';
+};
+
+export type GetSongAudioErrors = {
+    /**
+     * Validation Error
+     */
+    422: HttpValidationError;
+};
+
+export type GetSongAudioError = GetSongAudioErrors[keyof GetSongAudioErrors];
+
+export type GetSongAudioResponses = {
+    /**
+     * The audio file.
+     */
+    200: unknown;
+};
+
 export type ListPlayersData = {
     body?: never;
     path?: never;
@@ -2332,6 +2372,22 @@ export type HealthResponses = {
 };
 
 export type HealthResponse = HealthResponses[keyof HealthResponses];
+
+export type GetJoinInfoData = {
+    body?: never;
+    path?: never;
+    query?: never;
+    url: '/api/v1/join';
+};
+
+export type GetJoinInfoResponses = {
+    /**
+     * Successful Response
+     */
+    200: JoinInfo;
+};
+
+export type GetJoinInfoResponse = GetJoinInfoResponses[keyof GetJoinInfoResponses];
 
 export type ListSettingsData = {
     body?: never;
