@@ -93,15 +93,6 @@ button.song-list-item:hover {
   padding-right: 4px;
 }
 
-.song-badge {
-  padding: 2px 6px;
-  font-size: 0.65em;
-  letter-spacing: 0.05em;
-  color: var(--color-dark);
-  background-color: var(--highlight-pink-dark);
-  border-radius: var(--border-radius-small);
-}
-
 .song-duration {
   font-size: 0.85em;
   color: var(--color-darker);
