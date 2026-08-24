@@ -35,16 +35,18 @@ it.
 
 ## Download
 
-Press the download button on a result. The song joins the download queue, and the
-row shows what is happening: fetching the song text, the images, the video,
-extracting the audio, and finally moving the song into the library.
+Press the download button on a result. The song joins the download queue, and
+the row's icon shows what is happening: a clock while it waits, a progress ring
+while it downloads, a check once the song is in the library. The downloads
+button at the top of the page opens the full list with each download's current
+step.
 
 - Two songs download at the same time by default. Change that under
   **Settings → Downloads → `downloads.parallel`** (it applies after a restart).
 - A finished download appears in **Songs** on its own. No rescan needed.
-- A song you already have is not downloaded twice. A **failed** row has a retry
-  button, which downloads it even if Wingman thinks the song is already in the
-  library.
+- A song you already have is not downloaded twice. A failed row shows a warning
+  icon — tap it to read what went wrong and to retry, which downloads the song
+  even if Wingman thinks it is already in the library.
 - Downloads survive a restart: a queued one is picked up again, and one that was
   running when Wingman stopped is marked as failed so you can retry it.
 

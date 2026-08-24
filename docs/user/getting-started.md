@@ -66,8 +66,8 @@ Go to **User → Settings** and fill in two things:
 2. **Songs → Directory** — the folder that holds your songs. Every direct
    subfolder with a song text file in it is one song.
 
-Both fields are saved as you leave them. Open **Songs** and press **Rescan**;
-the song list fills up.
+Both fields are saved as you leave them. Open **Songs** and press the rescan
+button (the circling arrows next to the search); the song list fills up.
 
 !!! note
     Have more song folders? Put the extra paths into **Songs → Additional
