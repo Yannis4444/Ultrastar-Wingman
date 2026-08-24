@@ -103,6 +103,33 @@ button.song-list-item:hover {
   text-overflow: ellipsis;
 }
 
+/* Title text ellipsizes; the status marks never shrink (old-app pattern). */
+.song-title {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.song-title-text {
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+
+.song-mark {
+  display: flex;
+  flex: 0 0 auto;
+  font-size: 0.8em;
+}
+
+.song-mark-favorite {
+  color: var(--highlight-pink-light);
+}
+
+.song-mark-wished {
+  color: var(--highlight-blue-light);
+}
+
 .song-artist {
   font-size: 0.85em;
   color: var(--color-darker);

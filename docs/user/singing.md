@@ -11,9 +11,10 @@ with the number of songs at the top.
 - The search box matches title and artist while you type. A song id also works.
 - The chips below it narrow the list: **All**, **♥ Favorites**, and one chip per
   playlist you can see.
-- Tap a song to open its details: artist, length, whether it has a video,
-  language, genre, year, edition and who made it — plus the five best scores ever
-  sung on it.
+- Tap a song to open it: the cover, a listen-in preview, and the buttons for
+  favorite, sing and wish. Below them, **Details** unfolds language, genre,
+  year, edition and who made it; **Best scores** lists the best runs ever sung
+  on it; **Add to playlist** puts the song on one of your playlists.
 
 ## Choose the players
 

@@ -1,5 +1,11 @@
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import { fireEvent, render, screen, waitFor } from "@testing-library/react";
+import {
+  fireEvent,
+  render,
+  screen,
+  waitFor,
+  within,
+} from "@testing-library/react";
 import { MemoryRouter } from "react-router-dom";
 import type { MeRead, PlaylistRead, SongRead } from "../api";
 import { meResponse, userRead } from "../test/auth";
@@ -207,7 +213,7 @@ test("clicking a song opens the details modal", async () => {
   fireEvent.click(await screen.findByText("Dancing Queen"));
 
   const modal = screen.getByRole("dialog", { name: "Dancing Queen" });
-  for (const value of ["ABBA", "3:51", "English", "Pop", "1976", "usdb:1"]) {
+  for (const value of ["ABBA", "English", "Pop", "1976", "usdb:1"]) {
     expect(modal).toHaveTextContent(value);
   }
 
@@ -221,7 +227,6 @@ test("missing metadata shows as unknown in the modal", async () => {
   fireEvent.click(await screen.findByText("Dancing Queen"));
 
   const modal = screen.getByRole("dialog", { name: "Dancing Queen" });
-  expect(modal).toHaveTextContent("--:--");
   expect(modal).toHaveTextContent("unknown");
 });
 
@@ -392,27 +397,25 @@ test("the favorite heart flips before the request and back when it fails", async
     }),
   );
 
+  // Favorites are set in the song's details; the row only shows the mark.
+  fireEvent.click(await screen.findByText("Dancing Queen"));
   fireEvent.click(
-    await screen.findByRole("button", {
-      name: "Add Dancing Queen to favorites",
-    }),
+    await screen.findByRole("button", { name: "Add to favorites" }),
   );
 
-  // Optimistic: the heart is filled while the request is still in flight.
+  // Optimistic: the modal button flips and the row mark appears in flight.
   expect(
-    await screen.findByRole("button", {
-      name: "Remove Dancing Queen from favorites",
-    }),
+    await screen.findByRole("button", { name: "Remove from favorites" }),
   ).toBeInTheDocument();
+  expect(screen.getByTitle("In your favorites")).toBeInTheDocument();
   expect(addFavorite.mock.calls[0][0].path).toEqual({ song_id: "usdb:1" });
 
   // Rolled back once the backend said no.
   refuse(new Error("boom"));
   expect(
-    await screen.findByRole("button", {
-      name: "Add Dancing Queen to favorites",
-    }),
+    await screen.findByRole("button", { name: "Add to favorites" }),
   ).toBeInTheDocument();
+  expect(screen.queryByTitle("In your favorites")).not.toBeInTheDocument();
 });
 
 test("the favorites chip shows only the favorites", async () => {
@@ -568,11 +571,12 @@ test("the song details add a song to one of my playlists", async () => {
   renderSongs([QUEEN], LIBRARY, ACCOUNT);
   fireEvent.click(await screen.findByText("Dancing Queen"));
 
-  fireEvent.change(await screen.findByLabelText(/Add to playlist/), {
-    target: { value: "p1" },
-  });
+  fireEvent.click(
+    await screen.findByRole("button", { name: "Add to playlist" }),
+  );
   addPlaylistEntry.mockRejectedValue({ detail: "duplicate_entry" });
-  fireEvent.click(screen.getByRole("button", { name: "Add" }));
+  const picker = screen.getByRole("dialog", { name: "Add to playlist" });
+  fireEvent.click(within(picker).getByRole("button", { name: /Party/ }));
 
   await waitFor(() =>
     expect(addPlaylistEntry.mock.calls[0][0]).toMatchObject({
@@ -580,10 +584,11 @@ test("the song details add a song to one of my playlists", async () => {
       body: { song_id: "usdb:1" },
     }),
   );
-  // A song that is already in the playlist is not an error worth shouting about.
-  expect(
-    await screen.findByText("That playlist already has this song."),
-  ).toBeInTheDocument();
+  // A song that is already in the playlist is not an error worth shouting
+  // about: the row just shows the check.
+  await waitFor(() =>
+    expect(screen.queryByRole("alert")).not.toBeInTheDocument(),
+  );
 });
 
 test("adding a song refreshes the playlist song count", async () => {
@@ -593,18 +598,18 @@ test("adding a song refreshes the playlist song count", async () => {
   renderSongs([QUEEN], LIBRARY, ACCOUNT);
   fireEvent.click(await screen.findByText("Dancing Queen"));
 
-  fireEvent.change(await screen.findByLabelText(/Add to playlist/), {
-    target: { value: "p1" },
-  });
+  fireEvent.click(
+    await screen.findByRole("button", { name: "Add to playlist" }),
+  );
   addPlaylistEntry.mockResolvedValue({ data: { entries: [] } });
   listPlaylists.mockResolvedValue({
     data: { playlists: [playlist({ song_count: 1 })] },
   });
   // Only the fetches the click causes count; the two mounts already had theirs.
   listPlaylists.mockClear();
-  fireEvent.click(screen.getByRole("button", { name: "Add" }));
+  const picker = screen.getByRole("dialog", { name: "Add to playlist" });
+  fireEvent.click(within(picker).getByRole("button", { name: /Party/ }));
 
-  expect(await screen.findByText("Added to the playlist.")).toBeInTheDocument();
   // `song_count` lives on the list, not on the detail, so adding a song has to
   // invalidate the list too — otherwise the playlist dialog shows a stale count.
   await waitFor(() => expect(listPlaylists).toHaveBeenCalled());

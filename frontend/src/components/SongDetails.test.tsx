@@ -10,14 +10,14 @@ import type { ScoreWithContext, SongRead } from "../api";
 import { meResponse } from "../test/auth";
 import SongDetails from "./SongDetails";
 
-const { getMe, listSongScores, listWishlist, listPlaylists } = vi.hoisted(
-  () => ({
+const { getMe, listSongScores, listWishlist, listPlaylists, addPlaylistEntry } =
+  vi.hoisted(() => ({
     getMe: vi.fn(),
     listSongScores: vi.fn(),
     listWishlist: vi.fn(),
     listPlaylists: vi.fn(),
-  }),
-);
+    addPlaylistEntry: vi.fn(),
+  }));
 
 vi.mock("../api/sdk.gen", async (importOriginal) => ({
   ...(await importOriginal<typeof import("../api/sdk.gen")>()),
@@ -25,6 +25,7 @@ vi.mock("../api/sdk.gen", async (importOriginal) => ({
   listSongScores,
   listWishlist,
   listPlaylists,
+  addPlaylistEntry,
 }));
 
 const song: SongRead = {
@@ -89,16 +90,32 @@ beforeEach(() => {
   listPlaylists.mockResolvedValue({ data: { playlists: [] } });
 });
 
-test("the song's five best scores are shown, best first", async () => {
+test("the best-scores row carries the top score and opens the ranked view", async () => {
   renderDetails();
 
-  const best = await screen.findByRole("list");
+  const row = await screen.findByRole("button", { name: /Best scores/ });
+  expect(row).toHaveTextContent("9500");
+
+  fireEvent.click(row);
+  const dialog = screen.getByRole("dialog", { name: "Best scores" });
   expect(
-    within(best)
+    within(dialog)
       .getAllByRole("listitem")
       .map((item) => item.textContent),
-  ).toEqual(["Alice9500", "Bob5000", "Chris4000", "Dan3000", "Erin2000"]);
-  expect(screen.queryByText("Frank")).not.toBeInTheDocument();
+  ).toEqual([
+    "Alice9500",
+    "Bob5000",
+    "Chris4000",
+    "Dan3000",
+    "Erin2000",
+    "Frank1000",
+  ]);
+
+  // Closing the ranking returns to the song, not to the list behind it.
+  fireEvent.click(within(dialog).getByRole("button", { name: "Close" }));
+  expect(
+    screen.getByRole("dialog", { name: "Bohemian Rhapsody" }),
+  ).toBeInTheDocument();
 });
 
 test("a song nobody has sung shows no scores section", async () => {
@@ -124,7 +141,7 @@ test("the details section starts collapsed and toggles open", async () => {
   const toggle = await screen.findByRole("button", { name: "Details" });
   expect(toggle).toHaveAttribute("aria-expanded", "false");
   // Collapsed means hidden, not gone: the values stay in the DOM.
-  expect(screen.getByRole("dialog")).toHaveTextContent("5:55");
+  expect(screen.getByRole("dialog")).toHaveTextContent("English");
 
   fireEvent.click(toggle);
   expect(toggle).toHaveAttribute("aria-expanded", "true");
@@ -132,6 +149,47 @@ test("the details section starts collapsed and toggles open", async () => {
 
   fireEvent.click(toggle);
   expect(toggle).toHaveAttribute("aria-expanded", "false");
+});
+
+test("a playlist owner adds the song from the playlist picker", async () => {
+  const { userRead } = await import("../test/auth");
+  getMe.mockResolvedValue(
+    meResponse(["songs.view", "playlists.manage"], {
+      user: userRead(),
+      role: "user",
+    }),
+  );
+  listPlaylists.mockResolvedValue({
+    data: {
+      playlists: [
+        {
+          id: "pl-1",
+          name: "Warm-up",
+          shared: false,
+          owner_username: null,
+          song_count: 2,
+          mine: true,
+        },
+      ],
+    },
+  });
+  addPlaylistEntry.mockResolvedValue({ data: {} });
+  renderDetails();
+
+  fireEvent.click(
+    await screen.findByRole("button", { name: "Add to playlist" }),
+  );
+  const dialog = screen.getByRole("dialog", { name: "Add to playlist" });
+  fireEvent.click(within(dialog).getByRole("button", { name: /Warm-up/ }));
+
+  await waitFor(() =>
+    expect(addPlaylistEntry).toHaveBeenCalledWith(
+      expect.objectContaining({
+        path: { playlist_id: "pl-1" },
+        body: { song_id: "usdb:1" },
+      }),
+    ),
+  );
 });
 
 test("a failing audio preview removes itself", async () => {
