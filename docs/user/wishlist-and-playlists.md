@@ -40,12 +40,12 @@ Create one from **Songs → Playlists…**:
 
 1. Give it a name.
 2. Decide whether it is **shared**.
-3. Add songs from a song's details: **Add to playlist**, choose the playlist,
-   press **Add**. A song can be in a playlist only once.
+3. Add songs from a song's details: **Add to playlist** lists your playlists —
+   tap one to add the song, tap it again to take the song out. A check marks
+   the playlists that already have it.
 
 Every playlist you can see gets its own chip in the **Songs** list. While a
-playlist chip is active, its owner can reorder the songs with the arrows and
-remove one with the ✕.
+playlist chip is active, its owner can remove a song with the ✕.
 
 ### Shared playlists
 
