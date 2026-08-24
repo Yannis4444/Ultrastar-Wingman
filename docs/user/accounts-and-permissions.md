@@ -20,6 +20,67 @@ does not have to log in again next weekend.
     The very first account ever created is the administrator. There is nobody who
     could have granted it — so create it yourself, before the party.
 
+## Log in with single sign-on (Keycloak and friends)
+
+If you already run a login server — Keycloak, Authentik, Entra, anything that
+speaks OpenID Connect — Wingman can put a **Sign in with …** button under the
+login form. Local accounts keep working next to it; this is an extra way in, not
+a replacement.
+
+**1. Register Wingman at your provider.** Create a client with the authorization
+code flow and PKCE, and register exactly one redirect URI: the address your
+singers use, plus `/api/v1/auth/oidc/callback`. For a Wingman on
+`http://192.168.1.50:8080` that is
+
+```
+http://192.168.1.50:8080/api/v1/auth/oidc/callback
+```
+
+!!! warning
+    Register that one exact address, never a wildcard like `http://*/…`. Wingman
+    builds the redirect address from the address the browser asked it under, and
+    the exact-match list at your provider is what makes sure a login code can
+    only ever come back to Wingman itself.
+
+**2. Fill in the settings** under **User → Settings → Auth**:
+
+| Field | What to put in |
+|---|---|
+| **OIDC enabled** (`auth.oidc_enabled`) | Tick it to show the button. |
+| **OIDC issuer** (`auth.oidc_issuer`) | The issuer URL, e.g. `https://keycloak.example/realms/party`. Wingman reads everything else from `<issuer>/.well-known/openid-configuration`. |
+| **OIDC client ID** (`auth.oidc_client_id`) | The client id you registered Wingman as. |
+| **OIDC client secret** (`auth.oidc_client_secret`) | The client secret. Leave it empty for a public client — Wingman always uses PKCE. Stored but never shown again, like the USDB password. |
+| **OIDC display name** (`auth.oidc_display_name`) | What the button is called: *Sign in with **this***. Default *SSO*. |
+| **OIDC scopes** (`auth.oidc_scopes`) | Space-separated scopes. Default `openid profile`; add `email` if the name should be taken from the email address. |
+
+The button appears as soon as it can actually work — switched on, with an issuer
+and a client id. Until then, and after you switch it off again, guests only see
+the normal login form.
+
+**What a singer gets.** They press the button, log in at your provider, and come
+back to the **User** tab logged in:
+
+- The account is named after the provider's username (or the full name, or the
+  part of the email address before the `@`). If a Wingman account already has
+  that name, the new one becomes *name-2*.
+- A player of that name is created at once, or an existing guest player of that
+  name is taken over — the same as registering.
+- That name then stays. Renaming someone at the provider does not rename them
+  here, so their scores, playlists and wishes stay theirs.
+- The account has no password. The login form will never let anybody in under
+  that name, and there is nothing to reset.
+- Everything else is normal: roles, the permission table, deleting the account.
+
+If something goes wrong on the way back — the provider refused, the settings
+point nowhere, the sign-in sat around too long — the login form says so in one
+line and nobody is logged in.
+
+!!! warning
+    The first account created is the administrator, and an SSO login counts. If
+    your provider lets a whole company in, create your own account **before**
+    switching single sign-on on, or the first colleague who tries it owns your
+    party.
+
 ## The host screen
 
 The browser the host opened with the one-time host link is not an account. It is a

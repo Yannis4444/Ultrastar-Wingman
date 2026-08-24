@@ -227,6 +227,22 @@ export type MeRead = {
 };
 
 /**
+ * OidcConfigRead
+ *
+ * What the login page needs to decide whether to offer the button.
+ */
+export type OidcConfigRead = {
+    /**
+     * Enabled
+     */
+    enabled: boolean;
+    /**
+     * Display Name
+     */
+    display_name: string;
+};
+
+/**
  * PermissionsRead
  *
  * role -> capabilities, for the permission editor.
@@ -911,6 +927,65 @@ export type WishlistRead = {
      */
     wishes: Array<WishRead>;
 };
+
+export type OidcConfigData = {
+    body?: never;
+    path?: never;
+    query?: never;
+    url: '/api/v1/auth/oidc/config';
+};
+
+export type OidcConfigResponses = {
+    /**
+     * Successful Response
+     */
+    200: OidcConfigRead;
+};
+
+export type OidcConfigResponse = OidcConfigResponses[keyof OidcConfigResponses];
+
+export type OidcLoginData = {
+    body?: never;
+    path?: never;
+    query?: never;
+    url: '/api/v1/auth/oidc/login';
+};
+
+export type OidcLoginErrors = {
+    /**
+     * OIDC login is switched off or not configured.
+     */
+    404: unknown;
+};
+
+export type OidcCallbackData = {
+    body?: never;
+    path?: never;
+    query?: {
+        /**
+         * Code
+         */
+        code?: string | null;
+        /**
+         * State
+         */
+        state?: string | null;
+        /**
+         * Error
+         */
+        error?: string | null;
+    };
+    url: '/api/v1/auth/oidc/callback';
+};
+
+export type OidcCallbackErrors = {
+    /**
+     * Validation Error
+     */
+    422: HttpValidationError;
+};
+
+export type OidcCallbackError = OidcCallbackErrors[keyof OidcCallbackErrors];
 
 export type RegisterData = {
     body: RegisterRequest;

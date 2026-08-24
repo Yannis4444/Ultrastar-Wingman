@@ -24,6 +24,11 @@ dependencies = [
     # binding; rolling our own KDF parameters on top of hashlib is not a few lines of code.
     "argon2-cffi",
     "httpx",
+    # OIDC login: the OAuth2/OIDC flow helpers (PKCE) behind the auth provider seam.
+    "authlib",
+    # authlib's own JOSE backend (and its dependency), imported directly here because
+    # `authlib.jose` is deprecated since 1.7. Verifies the ID token against the JWKS.
+    "joserfc",
     "websockets",
     "charset-normalizer",
     "mutagen",
@@ -65,6 +70,12 @@ no_implicit_optional = true
 
 [[tool.mypy.overrides]]
 module = "mutagen.*"
+ignore_missing_imports = true
+
+# authlib ships no py.typed; only its PKCE helper is used (joserfc, which does the actual
+# token verification, is typed).
+[[tool.mypy.overrides]]
+module = "authlib.*"
 ignore_missing_imports = true
 
 [tool.pytest.ini_options]

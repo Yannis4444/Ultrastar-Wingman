@@ -57,6 +57,22 @@ The song database Wingman downloads from. See
 | **Password** (`usdb.password`) | The password of that account. It is stored but never shown again — the box only says whether one is set, and **Clear** removes it. |
 | **Base URL** (`usdb.base_url`) | The address of USDB. Default `https://usdb.animux.de`. |
 
+## Auth
+
+Single sign-on through an OpenID Connect provider (Keycloak and friends). Local
+accounts work without any of this. The full walkthrough — what to register at the
+provider, and what a singer sees — is in
+[Accounts and permissions](accounts-and-permissions.md#log-in-with-single-sign-on-keycloak-and-friends).
+
+| Field | What it is |
+|---|---|
+| **OIDC enabled** (`auth.oidc_enabled`) | Show a **Sign in with …** button under the login form. Needs the issuer and the client id below. |
+| **OIDC issuer** (`auth.oidc_issuer`) | The provider's issuer URL, e.g. `https://keycloak.example/realms/party`. |
+| **OIDC client ID** (`auth.oidc_client_id`) | The client id Wingman is registered as at the provider. |
+| **OIDC client secret** (`auth.oidc_client_secret`) | The client secret. Empty for a public client. Stored but never shown again — the box only says whether one is set. |
+| **OIDC display name** (`auth.oidc_display_name`) | The name on the button. Default *SSO*. |
+| **OIDC scopes** (`auth.oidc_scopes`) | Space-separated scopes, default `openid profile`. `openid` is required. |
+
 ## Downloads
 
 | Field | What it is |

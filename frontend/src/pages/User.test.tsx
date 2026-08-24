@@ -1,6 +1,6 @@
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { fireEvent, render, screen, waitFor } from "@testing-library/react";
-import { MemoryRouter } from "react-router-dom";
+import { MemoryRouter, useLocation } from "react-router-dom";
 import type { PlayerRead } from "../api";
 import { meResponse, userRead } from "../test/auth";
 import User from "./User";
@@ -18,6 +18,7 @@ const {
   updateUser,
   deleteUser,
   getPermissions,
+  oidcConfig,
 } = vi.hoisted(() => ({
   listPlayers: vi.fn(),
   createPlayer: vi.fn(),
@@ -31,6 +32,7 @@ const {
   updateUser: vi.fn(),
   deleteUser: vi.fn(),
   getPermissions: vi.fn(),
+  oidcConfig: vi.fn(),
 }));
 
 vi.mock("../api/sdk.gen", async (importOriginal) => ({
@@ -47,6 +49,7 @@ vi.mock("../api/sdk.gen", async (importOriginal) => ({
   updateUser,
   deleteUser,
   getPermissions,
+  oidcConfig,
 }));
 
 const USER_CAPABILITIES = [
@@ -68,15 +71,21 @@ function player(id: string, name: string): PlayerRead {
   return { id, name, registered: false, has_avatar: false };
 }
 
-function renderUser() {
+/** Shows what the router thinks the URL is, so a stripped parameter is visible. */
+function LocationProbe() {
+  return <span data-testid="search">{useLocation().search}</span>;
+}
+
+function renderUser(url = "/user") {
   const client = new QueryClient({
     defaultOptions: { queries: { retry: false } },
   });
-  // A router: the page links to /settings.
+  // A router: the page links to /settings and owns the `?login=` parameter.
   return render(
     <QueryClientProvider client={client}>
-      <MemoryRouter>
+      <MemoryRouter initialEntries={[url]}>
         <User />
+        <LocationProbe />
       </MemoryRouter>
     </QueryClientProvider>,
   );
@@ -95,6 +104,9 @@ beforeEach(() => {
       role: "user",
     }),
   );
+  oidcConfig.mockResolvedValue({
+    data: { enabled: false, display_name: "SSO" },
+  });
 });
 
 test("players are listed and a new one can be added", async () => {
@@ -337,4 +349,58 @@ test("an admin can change a role and is stopped from removing the last admin", a
   expect(
     await screen.findByText("There has to be one administrator left."),
   ).toBeInTheDocument();
+});
+
+test("the SSO button appears only when the provider is configured", async () => {
+  getMe.mockResolvedValue(meResponse(["songs.view", "players.view"]));
+  oidcConfig.mockResolvedValue({
+    data: { enabled: true, display_name: "Keycloak" },
+  });
+  renderUser();
+
+  // A full navigation, not a fetch: the answer is a redirect to the provider.
+  expect(
+    await screen.findByRole("link", { name: "Sign in with Keycloak" }),
+  ).toHaveAttribute("href", "/api/v1/auth/oidc/login");
+});
+
+test("the SSO button stays hidden when the provider is switched off", async () => {
+  getMe.mockResolvedValue(meResponse(["songs.view", "players.view"]));
+  renderUser();
+
+  await screen.findByRole("tab", { name: "Register" });
+  await waitFor(() => expect(oidcConfig).toHaveBeenCalled());
+  expect(screen.queryByRole("link", { name: /Sign in with/ })).toBeNull();
+});
+
+test("a failed SSO round trip explains itself and leaves no parameter behind", async () => {
+  getMe.mockResolvedValue(meResponse(["songs.view", "players.view"]));
+  renderUser("/user?login=error:invalid_state");
+
+  expect(await screen.findByRole("alert")).toHaveTextContent(
+    "took too long or was already used",
+  );
+  // A reload must not repeat the notice.
+  expect(screen.getByTestId("search")).toHaveTextContent("");
+});
+
+test("an unknown SSO failure falls back to the generic notice", async () => {
+  getMe.mockResolvedValue(meResponse(["songs.view", "players.view"]));
+  renderUser("/user?login=error:something_new");
+
+  expect(await screen.findByRole("alert")).toHaveTextContent(
+    "The sign-in did not work.",
+  );
+});
+
+test("a successful SSO login only strips the parameter", async () => {
+  renderUser("/user?login=ok");
+
+  // The cookie was set before the redirect, so /auth/me already answers as the
+  // account — nothing to do but clean the URL.
+  expect(
+    await screen.findByRole("button", { name: "Log out" }),
+  ).toBeInTheDocument();
+  expect(screen.getByTestId("search")).toHaveTextContent("");
+  expect(screen.queryByRole("alert")).toBeNull();
 });

@@ -243,6 +243,9 @@ async def test_the_password_is_stored_as_an_argon2_hash(
     await register(anonymous_client, "yannis", "hunter2 hunter2")
 
     user = (await session.scalars(select(User))).one()
+    # Only an OIDC account is allowed to have no hash at all.
+    assert user.password_hash is not None
+    assert user.auth_provider == "local"
     assert user.password_hash.startswith("$argon2id$")
     assert PASSWORD not in user.password_hash
     assert "hunter2" not in user.password_hash
