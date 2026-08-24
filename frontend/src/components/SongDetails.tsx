@@ -326,7 +326,7 @@ export default function SongDetails({ song, onClose }: SongDetailsProps) {
             className="song-option"
             onClick={() => setView("playlists")}
           >
-            <Icon name="playlist" className="song-option-icon" />
+            <Icon name="playlist-plus" className="song-option-icon" />
             <span className="song-option-label">Add to playlist</span>
             <Icon name="chevron-right" className="song-option-chevron" />
           </button>
