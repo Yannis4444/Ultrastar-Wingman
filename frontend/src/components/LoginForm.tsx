@@ -78,25 +78,30 @@ export default function LoginForm({ ssoError = null }: Props) {
         submit();
       }}
     >
-      {/* Tabs, not two buttons: "Log in" is also the submit label, and a mode
-          switch that reads as a second submit button confuses everyone. */}
-      <div className="login-tabs" role="tablist">
+      {/* Plain toggles, not an ARIA tablist: there is no panel to point tabs
+          at, and aria-pressed says everything the pattern needs. */}
+      <div className="login-tabs">
         {[false, true].map((mode) => (
           <button
             key={String(mode)}
             type="button"
-            role="tab"
             className={registering === mode ? "active" : ""}
-            aria-selected={registering === mode}
+            aria-pressed={registering === mode}
             onClick={() => {
               setRegistering(mode);
               setError(null);
             }}
           >
-            {mode ? "Register" : "Log in"}
+            {mode ? "New account" : "Existing account"}
           </button>
         ))}
       </div>
+
+      {!registering && (
+        <p className="login-hint">
+          Log in so your scores stay yours next time.
+        </p>
+      )}
 
       <input
         className="text-input"

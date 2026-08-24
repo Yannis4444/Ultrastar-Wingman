@@ -14,6 +14,7 @@
   display: flex;
   align-items: center;
   gap: 8px;
+  min-height: 48px;
   padding: 8px 0;
   border-bottom: 1px solid var(--input-border-color);
 }
@@ -28,4 +29,37 @@
   overflow: hidden;
   white-space: nowrap;
   text-overflow: ellipsis;
+}
+
+.users-you {
+  color: var(--color-darker);
+  font-size: 0.9em;
+}
+
+/* The old app's role picker: visibly a choice, not a text field. */
+.users-role-wrap {
+  display: flex;
+  flex: 0 0 auto;
+  align-items: center;
+  gap: 4px;
+  color: var(--highlight-blue-light);
+}
+
+.users-role-wrap .icon {
+  pointer-events: none;
+}
+
+.users-role {
+  padding: 10px 0;
+  font: inherit;
+  color: var(--highlight-blue-light);
+  text-align: right;
+  background: transparent;
+  border: none;
+  appearance: none;
+  cursor: pointer;
+}
+
+.users-role option {
+  background-color: var(--input-bg);
 }

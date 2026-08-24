@@ -18,6 +18,9 @@ vi.mock("./api/sdk.gen", async (importOriginal) => ({
   getMe: vi.fn(async () => ({
     data: { user: null, role: "guest", capabilities: [], is_host: false },
   })),
+  // The USDB page asks for these while /auth/me is still in flight.
+  usdbStatus: vi.fn(async () => ({ data: { logged_in: false } })),
+  listDownloads: vi.fn(async () => ({ data: { downloads: [] } })),
 }));
 
 function renderApp(path: string) {
@@ -30,7 +33,11 @@ function renderApp(path: string) {
   );
 }
 
-beforeEach(() => vi.stubGlobal("WebSocket", FakeSocket));
+beforeEach(() => {
+  vi.stubGlobal("WebSocket", FakeSocket);
+  // jsdom has no scrollTo; the USDB page calls it on page changes.
+  vi.stubGlobal("scrollTo", vi.fn());
+});
 afterEach(() => vi.unstubAllGlobals());
 
 test("the app shell shows all four navigation tabs", () => {
@@ -39,6 +46,19 @@ test("the app shell shows all four navigation tabs", () => {
   for (const label of ["Home", "Songs", "Scores", "User"]) {
     expect(screen.getByRole("link", { name: label })).toBeInTheDocument();
   }
+});
+
+test("the user tab covers the settings page", () => {
+  renderApp("/settings");
+
+  expect(screen.getByRole("link", { name: "User" })).toHaveClass("active");
+  expect(screen.getByRole("link", { name: "Home" })).not.toHaveClass("active");
+});
+
+test("the songs tab covers the USDB explorer", () => {
+  renderApp("/usdb");
+
+  expect(screen.getByRole("link", { name: "Songs" })).toHaveClass("active");
 });
 
 test("the host screen has no bottom navigation", () => {

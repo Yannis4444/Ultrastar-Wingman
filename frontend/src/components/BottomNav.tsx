@@ -1,4 +1,4 @@
-import { NavLink } from "react-router-dom";
+import { NavLink, useLocation } from "react-router-dom";
 import "./BottomNav.css";
 
 /** Inline 24x24 paths so the nav needs no icon dependency. */
@@ -17,7 +17,15 @@ const TABS = [
   },
 ] as const;
 
+/** Sub-surfaces without a tab of their own light up the tab they belong to. */
+const COVERS: Record<string, string[]> = {
+  "/songs": ["/usdb"],
+  "/user": ["/settings"],
+};
+
 export default function BottomNav() {
+  const { pathname } = useLocation();
+
   return (
     <nav className="bottom-nav">
       <div>
@@ -26,7 +34,12 @@ export default function BottomNav() {
             key={to}
             to={to}
             end={to === "/"}
-            className={({ isActive }) => (isActive ? "active" : "")}
+            className={({ isActive }) =>
+              isActive ||
+              (COVERS[to] ?? []).some((prefix) => pathname.startsWith(prefix))
+                ? "active"
+                : ""
+            }
           >
             <svg viewBox="0 0 24 24" aria-hidden="true">
               <path d={path} />
