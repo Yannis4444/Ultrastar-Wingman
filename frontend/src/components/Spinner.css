@@ -6,8 +6,6 @@
   gap: 8px;
   margin: 16px;
   padding: 8px;
-  background-color: var(--tile-bg);
-  border-radius: var(--border-radius);
 }
 
 /* The winner headline spans both columns above the reel. */

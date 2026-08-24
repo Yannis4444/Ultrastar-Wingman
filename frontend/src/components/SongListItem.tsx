@@ -27,7 +27,6 @@ export default function SongListItem({
         <span className="song-artist">{song.artist}</span>
       </span>
       <span className="song-meta">
-        {song.has_video && <span className="song-badge">VIDEO</span>}
         <span className="song-duration">
           {formatDuration(song.duration_seconds)}
         </span>

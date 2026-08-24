@@ -156,8 +156,6 @@ test("songs from the API are listed with artist and duration", async () => {
   expect(screen.getByText("3:51")).toBeInTheDocument();
   expect(screen.getByText("4:55")).toBeInTheDocument();
   expect(screen.getByText("2 songs")).toBeInTheDocument();
-  // Only the song that has one gets the badge.
-  expect(screen.getAllByText("VIDEO")).toHaveLength(1);
 });
 
 test("the search box filters by title, artist and exact id", async () => {

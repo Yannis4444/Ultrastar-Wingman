@@ -1,8 +1,6 @@
 .wishlist-tile {
   margin: 16px;
   padding: 8px 8px 12px 8px;
-  background-color: var(--tile-bg);
-  border-radius: var(--border-radius);
 }
 
 .wishlist-tile h2 {
