@@ -11,7 +11,7 @@ from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker, create_async_engine
 
 from ultrastar_wingman.app import create_app
-from ultrastar_wingman.auth import permissions
+from ultrastar_wingman.auth import oidc, permissions
 from ultrastar_wingman.auth.deps import COOKIE_NAME
 from ultrastar_wingman.auth.model import User, UserSession, utcnow
 from ultrastar_wingman.auth.service import SESSION_TTL, token_hash
@@ -190,3 +190,10 @@ def fresh_scan_lock() -> None:
 def fresh_permission_cache() -> None:
     """The role/capability cache is module-global while every test has its own database."""
     permissions.invalidate_cache()
+
+
+@pytest.fixture(autouse=True)
+def fresh_oidc_state() -> None:
+    """Pending login attempts and the discovery/JWKS caches are module-global too, while
+    every test brings its own database and its own fake provider."""
+    oidc.reset_state()

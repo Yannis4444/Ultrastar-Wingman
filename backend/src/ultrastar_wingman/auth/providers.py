@@ -1,11 +1,11 @@
 """The auth provider seam, plus password hashing for the local one.
 
-One of the extension points from architecture.md: today local accounts, later OIDC
-(Keycloak) through authlib. A provider turns credentials into a Wingman user; everything
-after that — sessions, cookies, capabilities — is provider-agnostic. An OIDC provider will
-not use `authenticate()` at all (it is a redirect dance, not a password), so it will add
-its own routes and reuse `service.start_session()`; the seam exists so that lands next to
-`LocalAuthProvider` instead of replacing it. authlib is deliberately not a dependency yet.
+One of the extension points from architecture.md: local accounts and OIDC (Keycloak). A
+provider turns credentials into a Wingman user; everything after that — sessions, cookies,
+capabilities — is provider-agnostic. The OIDC one (`oidc.py`) does not use `authenticate()`
+at all: it is a redirect dance, not a password, so it brings its own routes and reuses
+`service.start_session()`. It registers itself here so that a provider can be enumerated
+and named without knowing how it authenticates.
 """
 
 import logging
@@ -20,6 +20,10 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from .model import User
 
 logger = logging.getLogger(__name__)
+
+# Provider names, as stored in `users.auth_provider`.
+LOCAL = "local"
+OIDC = "oidc"
 
 # argon2id with the library's defaults, which track the current OWASP recommendation.
 _hasher = PasswordHasher()
@@ -53,16 +57,18 @@ class AuthProvider(Protocol):
 class LocalAuthProvider:
     """Accounts stored in Wingman's own database."""
 
-    name = "local"
+    name = LOCAL
 
     def __init__(self, session: AsyncSession) -> None:
         self._session = session
 
     async def authenticate(self, username: str, password: str) -> User | None:
         user = await find_by_username(self._session, username)
-        if user is None:
+        if user is None or user.password_hash is None:
             # Hash anyway: an early return would make a missing username measurably faster
-            # than a wrong password and leak which accounts exist.
+            # than a wrong password and leak which accounts exist — or, for the account
+            # without a password (OIDC, which logs in through its own redirect flow), that
+            # it is one.
             verify_password(_DUMMY_HASH, password)
             return None
         if not verify_password(user.password_hash, password):

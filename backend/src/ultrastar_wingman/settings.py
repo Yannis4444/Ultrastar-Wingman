@@ -160,6 +160,73 @@ register(
 )
 register(
     SettingDefinition(
+        key="auth.oidc_enabled",
+        value_type=bool,
+        default=False,
+        group="Auth",
+        description=(
+            "Offer login through an OIDC provider (Keycloak and friends) next to the local "
+            "accounts. Needs the issuer and client id below."
+        ),
+    )
+)
+register(
+    SettingDefinition(
+        key="auth.oidc_issuer",
+        value_type=str,
+        default="",
+        group="Auth",
+        description=(
+            "Issuer URL of the OIDC provider, e.g. https://keycloak.example/realms/party. "
+            "Everything else is read from <issuer>/.well-known/openid-configuration."
+        ),
+    )
+)
+register(
+    SettingDefinition(
+        key="auth.oidc_client_id",
+        value_type=str,
+        default="",
+        group="Auth",
+        description="Client id Wingman is registered as at the provider.",
+    )
+)
+register(
+    SettingDefinition(
+        key="auth.oidc_client_secret",
+        value_type=str,
+        default="",
+        group="Auth",
+        description=(
+            "Client secret. Leave empty for a public client: Wingman always sends PKCE, "
+            "which is what protects the code exchange."
+        ),
+        secret=True,
+    )
+)
+register(
+    SettingDefinition(
+        key="auth.oidc_display_name",
+        value_type=str,
+        default="SSO",
+        group="Auth",
+        description="What the login button is called, e.g. the name of your company login.",
+    )
+)
+register(
+    SettingDefinition(
+        key="auth.oidc_scopes",
+        value_type=str,
+        default="openid profile",
+        group="Auth",
+        description=(
+            "Space-separated scopes requested at login. `openid` is required; `profile` and "
+            "`email` are what the username is taken from."
+        ),
+    )
+)
+register(
+    SettingDefinition(
         key="downloads.parallel",
         value_type=int,
         default=2,

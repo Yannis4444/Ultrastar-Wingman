@@ -15,6 +15,7 @@ from fastapi import Depends, HTTPException, Request, Response
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from ..db import SessionDep
+from ..library import service as library
 from . import permissions, service
 from .model import User
 
@@ -152,6 +153,19 @@ def guest_id(request: Request) -> str | None:
     not shaped like one we issued is treated as absent rather than written to the database."""
     value = request.cookies.get(GUEST_COOKIE_NAME)
     return value if value is not None and _GUEST_ID.fullmatch(value) else None
+
+
+async def claim_guest_wishes(request: Request, session: AsyncSession, user: User) -> None:
+    """Whoever wished as a guest in this browser keeps those wishes as this account.
+
+    Every way into an account goes through here — registration, local login and the OIDC
+    callback: a guest who spent the evening filling the wishlist and only then made an
+    account must not lose it. The cookie itself stays — it costs nothing and the browser may
+    well be handed to the next guest.
+    """
+    guest = guest_id(request)
+    if guest is not None:
+        await library.merge_guest_wishes(session, guest, user.id)
 
 
 async def wishlist_identity(request: Request, principal: PrincipalDep) -> WishlistIdentity:

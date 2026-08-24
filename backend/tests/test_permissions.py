@@ -93,6 +93,22 @@ ROUTES: list[tuple[str, str, str, dict[str, object] | None]] = [
     ),
 ]
 
+# Unauthenticated by design: routes an anonymous caller must be able to reach, because they
+# are what an anonymous caller uses to stop being one. They hold no capability check on
+# purpose, so they belong in this file — a `require(...)` appearing on one of them would
+# lock the login out of the login page.
+PUBLIC_ROUTES: list[tuple[str, str]] = [
+    # The frontend asks this before anybody is logged in, to decide whether to show the SSO
+    # button. It answers with a flag and a label, nothing else.
+    ("GET", "/api/v1/auth/oidc/config"),
+    # The start of the OIDC redirect flow, and where the provider sends the browser back.
+    # Both are opened by the browser itself, so neither can carry a session yet. The
+    # callback's protection is the single-use state and the ID token it verifies, not a
+    # permission — see test_auth_oidc.py.
+    ("GET", "/api/v1/auth/oidc/login"),
+    ("GET", "/api/v1/auth/oidc/callback"),
+]
+
 # What each caller in the matrix may do. Anonymous callers are the `guest` role.
 IDENTITY_CAPABILITIES: Mapping[str, frozenset[str]] = {
     "anonymous": DEFAULT_ROLE_CAPABILITIES["guest"],
@@ -148,6 +164,19 @@ async def test_the_permission_matrix(
         else:
             assert response.status_code == 403, f"{where} was allowed: {response.text}"
             assert response.json() == {"detail": f"missing_permission:{capability}"}, where
+
+
+@pytest.mark.parametrize(
+    ("method", "path"), PUBLIC_ROUTES, ids=[f"{method} {path}" for method, path in PUBLIC_ROUTES]
+)
+async def test_the_public_routes_stay_public(
+    clients: dict[str, AsyncClient], method: str, path: str
+) -> None:
+    """Whatever they answer — 404 while OIDC is off, a redirect once it is on — it is never
+    "who are you". These three are how a caller logs in in the first place."""
+    response = await clients["anonymous"].request(method, path)
+
+    assert response.status_code not in (401, 403), response.text
 
 
 def test_every_capability_is_enforced_somewhere() -> None:

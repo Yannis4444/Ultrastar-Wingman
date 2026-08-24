@@ -14,7 +14,7 @@ from ..library import service as library
 from ..players.model import Player
 from .model import User, UserSession, as_utc, utcnow
 from .permissions import ADMIN, ASSIGNABLE_ROLES, USER, UnknownRoleError
-from .providers import find_by_username, hash_password
+from .providers import LOCAL, OIDC, find_by_username, hash_password
 
 logger = logging.getLogger(__name__)
 
@@ -26,6 +26,11 @@ SESSION_TTL = timedelta(days=90)
 TOUCH_INTERVAL = timedelta(hours=1)
 
 MIN_PASSWORD_LENGTH = 8
+
+# Same bounds as a player name. The API enforces them on registration; an OIDC username
+# comes from a token instead, so it is cut to fit rather than refused.
+MIN_USERNAME_LENGTH = 3
+MAX_USERNAME_LENGTH = 32
 
 
 class DuplicateUsernameError(ValueError):
@@ -143,11 +148,11 @@ async def register_user(session: AsyncSession, username: str, password: str) -> 
     if await find_by_username(session, username) is not None:
         raise DuplicateUsernameError(username)
 
-    existing_users = await session.scalar(select(func.count()).select_from(User))
     user = User(
         username=username,
         password_hash=hash_password(password),
-        role=ADMIN if not existing_users else USER,
+        role=await _role_for_new_user(session),
+        auth_provider=LOCAL,
     )
     session.add(user)
     await session.flush()
@@ -161,6 +166,71 @@ async def register_user(session: AsyncSession, username: str, password: str) -> 
         raise DuplicateUsernameError(username) from error
     logger.info("user '%s' registered as %s (%s)", user.username, user.role, user.id)
     return user
+
+
+async def upsert_oidc_user(session: AsyncSession, subject: str, username: str) -> User:
+    """The account behind an OIDC subject, created on first login.
+
+    The subject is the identity, never the username: a provider may rename somebody, or
+    hand the same name to a new person, and this account's scores and playlists must not
+    follow. So an account that already exists is returned untouched — the `username`
+    argument only names a new one.
+    """
+    existing = await find_by_oidc_subject(session, subject)
+    if existing is not None:
+        return existing
+
+    user = User(
+        username=await _free_username(session, username),
+        # No password: there is nothing to check locally, ever.
+        password_hash=None,
+        role=await _role_for_new_user(session),
+        auth_provider=OIDC,
+        oidc_subject=subject,
+    )
+    session.add(user)
+    await session.flush()
+    await _attach_player(session, user)
+    try:
+        await session.commit()
+    except IntegrityError:
+        # Two callbacks for the same brand-new subject at once: the unique index decides.
+        await session.rollback()
+        existing = await find_by_oidc_subject(session, subject)
+        if existing is None:
+            raise
+        return existing
+    logger.info("user '%s' created from OIDC subject as %s (%s)", user.username, user.role, user.id)
+    return user
+
+
+async def find_by_oidc_subject(session: AsyncSession, subject: str) -> User | None:
+    result = await session.scalars(
+        select(User).where(User.auth_provider == OIDC, User.oidc_subject == subject)
+    )
+    return result.first()
+
+
+async def _free_username(session: AsyncSession, wanted: str) -> str:
+    """`wanted`, or `wanted-2`, `wanted-3`, … once it is taken.
+
+    A provider knows nothing about the names already in Wingman, so a collision with a
+    local account is normal and must not fail the login.
+    """
+    if await find_by_username(session, wanted) is None:
+        return wanted
+    for suffix in range(2, 100):
+        # Cut so the suffixed name still respects the username bounds.
+        candidate = f"{wanted[: MAX_USERNAME_LENGTH - len(str(suffix)) - 1]}-{suffix}"
+        if await find_by_username(session, candidate) is None:
+            return candidate
+    # 98 accounts wanting the same name is not a collision any more.
+    raise DuplicateUsernameError(wanted)
+
+
+async def _role_for_new_user(session: AsyncSession) -> str:
+    """The very first account is the administrator — there is nobody who could grant it."""
+    return USER if await session.scalar(select(func.count()).select_from(User)) else ADMIN
 
 
 async def _attach_player(session: AsyncSession, user: User) -> Player:

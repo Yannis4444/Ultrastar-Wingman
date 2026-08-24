@@ -8,18 +8,18 @@ from pydantic import BaseModel, StringConstraints
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from ..db import SessionDep
-from ..library import service as library
 from . import permissions, service
 from .deps import (
     COOKIE_NAME,
     PrincipalDep,
     authenticated,
+    claim_guest_wishes,
     clear_session_cookie,
-    guest_id,
     require,
     set_session_cookie,
 )
 from .model import User
+from .oidc import router as oidc_router
 from .permissions import (
     ImmutableRoleError,
     UnknownCapabilityError,
@@ -31,10 +31,20 @@ from .schema import MeRead, PermissionsRead, UserList, UserRead, read_user
 logger = logging.getLogger(__name__)
 
 router = APIRouter(tags=["auth"])
+# The OIDC redirect flow: its own module, same prefix, and importing it is what registers
+# the provider in the registry.
+router.include_router(oidc_router)
 
 # Same rules as player names (trimmed, bounded, no charset restriction) so a guest who
 # sang as "Jörg" can register under that exact name and keep their scores.
-Username = Annotated[str, StringConstraints(strip_whitespace=True, min_length=3, max_length=32)]
+Username = Annotated[
+    str,
+    StringConstraints(
+        strip_whitespace=True,
+        min_length=service.MIN_USERNAME_LENGTH,
+        max_length=service.MAX_USERNAME_LENGTH,
+    ),
+]
 
 
 class RegisterRequest(BaseModel):
@@ -76,7 +86,7 @@ async def register(
     except service.DuplicateUsernameError as error:
         raise HTTPException(status_code=409, detail="duplicate_username") from error
     set_session_cookie(response, await service.start_session(session, user.id))
-    await _claim_guest_wishes(request, session, user)
+    await claim_guest_wishes(request, session, user)
     return await _read(session, user)
 
 
@@ -93,7 +103,7 @@ async def login(
         # One message for both cases: which usernames exist is not a client's business.
         raise HTTPException(status_code=401, detail="invalid_credentials")
     set_session_cookie(response, await service.start_session(session, user.id))
-    await _claim_guest_wishes(request, session, user)
+    await claim_guest_wishes(request, session, user)
     return await _read(session, user)
 
 
@@ -232,18 +242,6 @@ async def _permissions(session: AsyncSession) -> PermissionsRead:
     return PermissionsRead(
         roles={role: sorted(mapping.get(role, frozenset())) for role in permissions.ROLES}
     )
-
-
-async def _claim_guest_wishes(request: Request, session: AsyncSession, user: User) -> None:
-    """Whoever wished as a guest in this browser keeps those wishes as this account.
-
-    Both login and registration go through here: a guest who spent the evening filling the
-    wishlist and only then made an account must not lose it. The cookie itself stays — it
-    costs nothing and the browser may well be handed to the next guest.
-    """
-    guest = guest_id(request)
-    if guest is not None:
-        await library.merge_guest_wishes(session, guest, user.id)
 
 
 async def _read(session: AsyncSession, user: User) -> UserRead:

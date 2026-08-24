@@ -35,13 +35,24 @@ class User(Base):
     __tablename__ = "users"
     # Usernames are unique case-insensitively, exactly like player names (same ASCII-only
     # fold — see the comment on the players index).
-    __table_args__ = (Index("ix_users_username_lower", text("lower(username)"), unique=True),)
+    __table_args__ = (
+        Index("ix_users_username_lower", text("lower(username)"), unique=True),
+        # SQLite counts every NULL as distinct in a unique index, so the local accounts do
+        # not collide over their empty subject.
+        Index("ix_users_oidc_subject", "oidc_subject", unique=True),
+    )
 
     id: Mapped[str] = mapped_column(String(32), primary_key=True, default=lambda: uuid.uuid4().hex)
     username: Mapped[str] = mapped_column(Text)
-    password_hash: Mapped[str] = mapped_column(Text)
+    # NULL for an account that has no password: an OIDC account authenticates at its provider.
+    password_hash: Mapped[str | None] = mapped_column(Text, nullable=True)
     role: Mapped[str] = mapped_column(String(16))
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow)
+    # Which `providers.PROVIDERS` entry this account belongs to. The username stays the
+    # identity inside Wingman; for an OIDC account the provider's `sub` is the identity
+    # outside it, because a username at the provider can be reassigned.
+    auth_provider: Mapped[str] = mapped_column(Text, default="local")
+    oidc_subject: Mapped[str | None] = mapped_column(Text, nullable=True)
 
 
 class UserSession(Base):
