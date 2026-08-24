@@ -1,0 +1,19 @@
+.usdx-setup-guide {
+  padding: 0 4px 16px 4px;
+}
+
+.usdx-setup-problems {
+  margin: 16px;
+  padding-left: 20px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  font-size: 0.9em;
+  color: var(--color-dark);
+}
+
+.usdx-setup-guide .button {
+  display: inline-block;
+  margin: 0 16px;
+  text-decoration: none;
+}

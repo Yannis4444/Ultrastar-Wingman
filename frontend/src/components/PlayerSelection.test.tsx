@@ -6,6 +6,7 @@ import {
   waitFor,
   within,
 } from "@testing-library/react";
+import { MemoryRouter } from "react-router-dom";
 import type { PlayerRead, SongRead } from "../api";
 import { FakeSocket } from "../test/fakeSocket";
 import PlayerSelection from "./PlayerSelection";
@@ -62,9 +63,13 @@ function renderSelection() {
   const client = new QueryClient({
     defaultOptions: { queries: { retry: false } },
   });
+  // The setup guide links to /settings, so the selection needs a router around
+  // it — the real app always has one.
   return render(
     <QueryClientProvider client={client}>
-      <PlayerSelection song={SONG} onClose={vi.fn()} />
+      <MemoryRouter>
+        <PlayerSelection song={SONG} onClose={vi.fn()} />
+      </MemoryRouter>
     </QueryClientProvider>,
   );
 }
@@ -184,6 +189,40 @@ test("cancelling the replace prompt does not start the song", async () => {
     screen.queryByRole("dialog", { name: "Already playing" }),
   ).not.toBeInTheDocument();
   expect(singSong).toHaveBeenCalledTimes(1);
+});
+
+test("an unconfigured USDX opens the setup guide instead of an error", async () => {
+  singSong.mockRejectedValueOnce({
+    detail: {
+      error: "usdx_not_configured",
+      problems: ["'songs.directory' is not set"],
+    },
+  });
+  renderSelection();
+  await screen.findByRole("button", { name: "Slot blue: empty" });
+
+  fireEvent.click(screen.getByRole("button", { name: "Alice" }));
+  fireEvent.click(screen.getByRole("button", { name: "Play" }));
+
+  const guide = await screen.findByRole("dialog", {
+    name: "Ultrastar Deluxe is not set up",
+  });
+  expect(guide).toHaveTextContent(/does not know where your songs are/);
+  expect(screen.queryByRole("alert")).not.toBeInTheDocument();
+});
+
+test("any other failure is still a plain notice", async () => {
+  singSong.mockRejectedValueOnce({ detail: "launch_failed" });
+  renderSelection();
+  await screen.findByRole("button", { name: "Slot blue: empty" });
+
+  fireEvent.click(screen.getByRole("button", { name: "Alice" }));
+  fireEvent.click(screen.getByRole("button", { name: "Play" }));
+
+  expect(await screen.findByRole("alert")).toHaveTextContent("launch_failed");
+  expect(
+    screen.queryByRole("dialog", { name: "Ultrastar Deluxe is not set up" }),
+  ).not.toBeInTheDocument();
 });
 
 test("the last configuration comes back preselected", async () => {

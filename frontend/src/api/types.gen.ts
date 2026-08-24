@@ -788,6 +788,20 @@ export type UsdbStatus = {
 };
 
 /**
+ * UsdxStatusRead
+ */
+export type UsdxStatusRead = {
+    /**
+     * Configured
+     */
+    configured: boolean;
+    /**
+     * Problems
+     */
+    problems: Array<string>;
+};
+
+/**
  * UserList
  */
 export type UserList = {
@@ -1403,6 +1417,22 @@ export type SetPlayerAvatarResponses = {
 };
 
 export type SetPlayerAvatarResponse = SetPlayerAvatarResponses[keyof SetPlayerAvatarResponses];
+
+export type UsdxStatusData = {
+    body?: never;
+    path?: never;
+    query?: never;
+    url: '/api/v1/karaoke/status';
+};
+
+export type UsdxStatusResponses = {
+    /**
+     * Successful Response
+     */
+    200: UsdxStatusRead;
+};
+
+export type UsdxStatusResponse = UsdxStatusResponses[keyof UsdxStatusResponses];
 
 export type ListKaraokeColorsData = {
     body?: never;

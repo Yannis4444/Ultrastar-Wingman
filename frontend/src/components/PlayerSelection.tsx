@@ -9,10 +9,11 @@ import {
   singSongMutation,
 } from "../api/@tanstack/react-query.gen";
 import { useAuth } from "../auth";
-import { errorDetail, errorMessage } from "../errors";
+import { errorDetail, errorMessage, usdxProblems } from "../errors";
 import ConfirmModal from "./ConfirmModal";
 import Modal from "./Modal";
 import PlayerAvatar from "./PlayerAvatar";
+import UsdxSetupGuide from "./UsdxSetupGuide";
 import "./PlayerSelection.css";
 
 const SLOTS_STORAGE_KEY = "wingman.playerSlots";
@@ -61,6 +62,8 @@ export default function PlayerSelection({
   const [newName, setNewName] = useState("");
   const [askReplace, setAskReplace] = useState(false);
   const [notice, setNotice] = useState<string | null>(null);
+  // Non-null while the setup guide is up: the backend's problem list.
+  const [setupProblems, setSetupProblems] = useState<string[] | null>(null);
 
   const colorNames = colors.data?.colors.map((color) => color.name) ?? [];
   const byId = new Map(
@@ -104,6 +107,13 @@ export default function PlayerSelection({
         // Replacing means stopping the running song, which is its own capability.
         if (auth.can("karaoke.stop")) setAskReplace(true);
         else setNotice("Another song is playing — ask the host to stop it.");
+        return;
+      }
+      // USDX not being set up is not the singer's mistake to read as an error —
+      // it gets the guide that says what is missing.
+      const problems = usdxProblems(error);
+      if (problems !== null) {
+        setSetupProblems(problems);
         return;
       }
       setNotice(
@@ -270,6 +280,13 @@ export default function PlayerSelection({
             start(true);
           }}
           onCancel={() => setAskReplace(false)}
+        />
+      )}
+
+      {setupProblems !== null && (
+        <UsdxSetupGuide
+          problems={setupProblems}
+          onClose={() => setSetupProblems(null)}
         />
       )}
     </>

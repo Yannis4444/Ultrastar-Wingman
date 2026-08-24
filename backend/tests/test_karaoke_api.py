@@ -607,6 +607,45 @@ async def test_an_unconfigured_usdx_is_a_clear_error(
     assert (await client.get("/api/v1/karaoke/current")).json() == {"sing": None}
 
 
+async def test_the_status_of_a_configured_usdx_is_clean(
+    client: AsyncClient, configured: FakeUsdx
+) -> None:
+    response = await client.get("/api/v1/karaoke/status")
+
+    assert response.status_code == 200
+    assert response.json() == {"configured": True, "problems": []}
+
+
+async def test_the_status_names_every_problem_for_a_host(client: AsyncClient) -> None:
+    """Nothing is set up at all: an admin sees which settings need filling in."""
+    response = await client.get("/api/v1/karaoke/status")
+
+    assert response.status_code == 200
+    body = response.json()
+    assert body["configured"] is False
+    assert any("usdx.executable" in problem for problem in body["problems"])
+    assert any("songs.directory" in problem for problem in body["problems"])
+
+
+async def test_the_status_hides_the_problems_from_a_guest(anonymous_client: AsyncClient) -> None:
+    """The problems name paths on the host's file system — `settings.view` territory."""
+    response = await anonymous_client.get("/api/v1/karaoke/status")
+
+    assert response.status_code == 200
+    assert response.json() == {"configured": False, "problems": []}
+
+
+async def test_a_guest_still_learns_that_usdx_works(
+    anonymous_client: AsyncClient, configured: FakeUsdx
+) -> None:
+    """`configured` is the truth for everybody — the setup banner has to disappear for a
+    guest too once the host fixed the settings."""
+    response = await anonymous_client.get("/api/v1/karaoke/status")
+
+    assert response.status_code == 200
+    assert response.json() == {"configured": True, "problems": []}
+
+
 async def test_a_missing_executable_is_a_clear_error(
     client: AsyncClient, session: AsyncSession, configured: FakeUsdx, song: str
 ) -> None:
