@@ -98,5 +98,14 @@ async def song_scores(session: AsyncSession, song_id: str) -> list[ScoreWithCont
     return await _read_scores(session, _scores_query().where(Sing.song_id == song_id))
 
 
+async def player_scores(session: AsyncSession, player_id: str) -> list[ScoreWithContext]:
+    """Every score one player ever got, across all sessions.
+
+    Matched on the player id, so a walk-in singer who happened to type the same name into
+    USDX is not counted as this player — those scores carry no id at all.
+    """
+    return await _read_scores(session, _scores_query().where(Score.player_id == player_id))
+
+
 async def latest_scores(session: AsyncSession, limit: int) -> list[ScoreWithContext]:
     return await _read_scores(session, _scores_query().limit(limit))

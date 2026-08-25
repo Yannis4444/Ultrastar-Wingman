@@ -316,6 +316,10 @@ export type PlayerRead = {
      * Has Avatar
      */
     has_avatar: boolean;
+    /**
+     * Avatar Version
+     */
+    avatar_version?: number | null;
 };
 
 /**
@@ -1533,7 +1537,7 @@ export type SetPlayerAvatarData = {
 
 export type SetPlayerAvatarErrors = {
     /**
-     * The image is larger than 5 MB.
+     * The image is larger than 5 MB, or its canvas has too many pixels.
      */
     413: unknown;
     /**
@@ -2452,6 +2456,40 @@ export type ListSongScoresResponses = {
 };
 
 export type ListSongScoresResponse = ListSongScoresResponses[keyof ListSongScoresResponses];
+
+export type ListPlayerScoresData = {
+    body?: never;
+    path: {
+        /**
+         * Player Id
+         */
+        player_id: string;
+    };
+    query?: never;
+    url: '/api/v1/stats/players/{player_id}/scores';
+};
+
+export type ListPlayerScoresErrors = {
+    /**
+     * Unknown player.
+     */
+    404: unknown;
+    /**
+     * Validation Error
+     */
+    422: HttpValidationError;
+};
+
+export type ListPlayerScoresError = ListPlayerScoresErrors[keyof ListPlayerScoresErrors];
+
+export type ListPlayerScoresResponses = {
+    /**
+     * Successful Response
+     */
+    200: ScoreList;
+};
+
+export type ListPlayerScoresResponse = ListPlayerScoresResponses[keyof ListPlayerScoresResponses];
 
 export type ListLatestScoresData = {
     body?: never;

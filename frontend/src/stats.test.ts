@@ -7,6 +7,7 @@ import {
   groupScores,
   groupValue,
   histogram,
+  playerSummary,
   scoreLabel,
   scorePlayer,
   sessionLabel,
@@ -294,4 +295,51 @@ test("a singer without a player record still gets an avatar to fall back on", ()
     name: "Guest",
     has_avatar: false,
   });
+});
+
+test("one singer's totals come out of their own scores", () => {
+  const mine = [
+    score("Alice", 8000, bohemian),
+    score("Alice", 9000, wonderwall),
+    score("Alice", 4900, bohemian, { sing_id: "sing-again" }),
+  ];
+
+  expect(playerSummary(mine)).toEqual({
+    sings: 3,
+    best: 9000,
+    // 21900 / 3 = 7300 exactly; the rounding is what a third score would need.
+    average: 7300,
+    // Three performances, but the same song twice.
+    songs: 2,
+  });
+});
+
+test("a duet counts as one sing, and the average is rounded", () => {
+  const duet = [
+    score("Alice", 8000, bohemian, { sing_id: "sing-duet" }),
+    score("Alice", 7001, bohemian, { sing_id: "sing-duet" }),
+  ];
+
+  expect(playerSummary(duet)).toEqual({
+    sings: 1,
+    best: 8000,
+    average: 7501,
+    songs: 1,
+  });
+});
+
+test("songs that have left the library count as one unknown song, as elsewhere", () => {
+  // Same lumping as `summarize`, so the user page and the scores page agree.
+  const gone = [
+    score("Alice", 8000, null, { sing_id: "sing-1" }),
+    score("Alice", 7000, null, { sing_id: "sing-2" }),
+    score("Alice", 6000, bohemian, { sing_id: "sing-3" }),
+  ];
+
+  expect(playerSummary(gone)).toMatchObject({ sings: 3, songs: 2 });
+});
+
+test("a singer without a single score has no summary at all", () => {
+  // Null, not four zeroes: the page says "sing something" instead of lying.
+  expect(playerSummary([])).toBeNull();
 });

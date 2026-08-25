@@ -36,6 +36,20 @@
   fill: currentColor;
 }
 
+/* The logged-in singer's own picture in place of the User glyph. Tinting a
+   photo is not possible, so the 1px ring in `currentColor` is what turns pink
+   on the active tab. */
+.bottom-nav-avatar {
+  display: block;
+  margin: auto;
+  width: 24px;
+  height: 24px;
+  object-fit: cover;
+  border-radius: 50%;
+  outline: 1px solid currentColor;
+  outline-offset: 1px;
+}
+
 .bottom-nav span {
   display: block;
   font-size: 12px;

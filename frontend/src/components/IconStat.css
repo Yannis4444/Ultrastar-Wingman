@@ -12,6 +12,15 @@
   color: var(--highlight-blue-light);
 }
 
+/* Only rendered with `showLabel`; the caption under a stacked stat. */
+.icon-stat-label {
+  overflow: hidden;
+  color: var(--color-darker);
+  white-space: nowrap;
+  text-overflow: ellipsis;
+  font-size: 0.75em;
+}
+
 .icon-stat-value {
   overflow: hidden;
   color: var(--color);

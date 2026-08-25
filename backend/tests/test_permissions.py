@@ -76,6 +76,7 @@ ROUTES: list[tuple[str, str, str, dict[str, object] | None]] = [
     ("stats.view", "GET", "/api/v1/stats/sessions", None),
     ("stats.view", "GET", "/api/v1/stats/sessions/nope/scores", None),
     ("stats.view", "GET", "/api/v1/stats/songs/usdb:1/scores", None),
+    ("stats.view", "GET", "/api/v1/stats/players/nope/scores", None),
     ("stats.view", "GET", "/api/v1/stats/latest", None),
     ("stats.manage", "PATCH", "/api/v1/stats/sessions/nope", {"name": "Party"}),
     ("usdb.search", "GET", "/api/v1/sources/usdb/status", None),

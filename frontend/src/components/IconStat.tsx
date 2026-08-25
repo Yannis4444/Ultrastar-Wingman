@@ -7,11 +7,18 @@ interface IconStatProps {
   label: string;
   value: string | number;
   className?: string;
+  /**
+   * Print the word under the value instead of only announcing it. For a stat
+   * row that appears once on a page there is room for it; a scoreboard that
+   * repeats the same stats on every row leaves it off.
+   */
+  showLabel?: boolean;
 }
 
 /**
- * One number behind a glyph — no visible word, because a scoreboard repeats the
- * same four stats on every row and the labels would outweigh the numbers.
+ * One number behind a glyph — by default no visible word, because a scoreboard
+ * repeats the same four stats on every row and the labels would outweigh the
+ * numbers.
  *
  * The word is not lost: `title` shows it on hover and the visually hidden copy
  * is what a screen reader announces before the value.
@@ -21,15 +28,18 @@ export default function IconStat({
   label,
   value,
   className,
+  showLabel = false,
 }: IconStatProps) {
   return (
     <span
       className={className ? `icon-stat ${className}` : "icon-stat"}
-      title={label}
+      // A tooltip repeating a word that is already printed is just noise.
+      title={showLabel ? undefined : label}
     >
       <Icon name={icon} className="icon-stat-icon" />
-      <span className="visually-hidden">{label}</span>
+      {!showLabel && <span className="visually-hidden">{label}</span>}
       <span className="icon-stat-value">{value}</span>
+      {showLabel && <span className="icon-stat-label">{label}</span>}
     </span>
   );
 }

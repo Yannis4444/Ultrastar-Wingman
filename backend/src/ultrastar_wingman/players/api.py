@@ -66,7 +66,7 @@ async def delete_player(player_id: str, session: SessionDep, avatars_dir: Avatar
     response_model=PlayerRead,
     dependencies=[Depends(require("players.manage"))],
     responses={
-        413: {"description": "The image is larger than 5 MB."},
+        413: {"description": "The image is larger than 5 MB, or its canvas has too many pixels."},
         415: {"description": "Not a jpeg, png or webp image."},
     },
 )
@@ -86,6 +86,8 @@ async def set_player_avatar(
         )
     except service.AvatarTooLargeError as error:
         raise HTTPException(status_code=413, detail="avatar_too_large") from error
+    except service.AvatarTooManyPixelsError as error:
+        raise HTTPException(status_code=413, detail="avatar_too_many_pixels") from error
     except service.AvatarTypeError as error:
         raise HTTPException(status_code=415, detail="unsupported_avatar_type") from error
 

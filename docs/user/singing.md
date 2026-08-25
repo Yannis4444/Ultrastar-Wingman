@@ -42,7 +42,9 @@ Players live on the **User** tab.
 
 - **Add** a player by name. Names are unique.
 - **Add avatar** / **Change avatar** uploads a picture for a player — jpeg, png
-  or webp, up to 5 MB. Ultrastar Deluxe shows it next to the name while singing.
+  or webp, up to 5 MB and 50 megapixels. Ultrastar Deluxe shows it next to the
+  name while singing. Your own picture can also be changed by tapping it on the
+  **User** tab.
 - **Delete** removes a player. Scores that player already earned keep the name.
 
 A registered account automatically has a player of the same name. Somebody who

@@ -27,6 +27,72 @@
   background-color: var(--input-bg);
 }
 
+/* A label, not a button: the file input inside it does the work. Sized like the
+   avatar so the badge can hang off its corner. */
+.user-identity-avatar-label {
+  position: relative;
+  display: block;
+  width: 96px;
+  height: 96px;
+  cursor: pointer;
+}
+
+/* The badge sits inside the circle's corner, where a square avatar's -2px
+   would leave it floating next to nothing. */
+.user-identity-avatar-label .user-identity-avatar-hint {
+  right: 4px;
+  bottom: 4px;
+  font-size: 20px;
+}
+
+/* The input is visually hidden, so the ring has to be drawn on the label. */
+.user-identity-avatar-label:has(input:focus-visible) {
+  outline: 2px solid var(--highlight-blue-light);
+  outline-offset: 2px;
+  border-radius: 50%;
+}
+
+.players-avatar-label:has(input:focus-visible) {
+  outline: 2px solid var(--highlight-blue-light);
+  outline-offset: 2px;
+  border-radius: var(--border-radius-small);
+}
+
+.user-identity-error {
+  margin: 0;
+}
+
+/* Flat, no tile: the identity card above it is the page's one surface. Five
+   stats fit one line from ~340px up; below that they wrap rather than truncate. */
+.user-stats {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: space-around;
+  gap: 12px 8px;
+  margin: 12px 16px;
+}
+
+/* Two classes on purpose: this has to beat `.icon-stat`'s own row layout no
+   matter which of the two stylesheets the bundler puts first. */
+.icon-stat.user-stat {
+  flex: 0 1 auto;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.user-stat .icon-stat-icon {
+  font-size: 24px;
+}
+
+.user-stat .icon-stat-value {
+  font-size: 1.2em;
+}
+
+.user-stats-empty {
+  margin: 12px 16px;
+  color: var(--color-darker);
+}
+
 .user-identity-name {
   margin: 0;
   max-width: 100%;

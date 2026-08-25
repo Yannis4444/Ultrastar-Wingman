@@ -20,6 +20,21 @@ does not have to log in again next weekend.
     The very first account ever created is the administrator. There is nobody who
     could have granted it — so create it yourself, before the party.
 
+## Your own page
+
+Once you are logged in, the **User** tab shows you instead of the login form.
+
+- **Tap your picture** to change it — the same jpeg, png or webp upload as for
+  any other player (see [Singing](singing.md)). Your picture then replaces the
+  generic icon on the User tab itself, so you can see at a glance who this phone
+  is logged in as.
+- Under your name stand your totals over every party you ever sang at: how many
+  performances were scored, your best score, your average, how many different
+  songs you sang and how many songs you marked as favorites.
+
+A singer who has not been scored yet gets an invitation to sing instead of a row
+of zeroes.
+
 ## Log in with single sign-on (Keycloak and friends)
 
 If you already run a login server — Keycloak, Authentik, Entra, anything that

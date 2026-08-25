@@ -72,6 +72,11 @@ const PATHS = {
   // "#" — the count marker (old app's `MdNumbers`). Upright rather than
   // italic: at caption size the slanted bars smear into each other.
   hash: "M7 3h2v18H7V3Zm8 0h2v18h-2V3ZM3 8h18v2H3V8Zm0 6h18v2H3v-2Z",
+  // "change the picture": a solid frame with the mountain and the sun punched
+  // out by the nonzero fill rule. Solid rather than outlined because this glyph
+  // is worn as a 14px badge on the avatar, where hairlines disappear.
+  image:
+    "M3 5h18v14H3V5Zm2 12h11l-5.5-7.5ZM17 6.3a1.7 1.7 0 1 0 0 3.4 1.7 1.7 0 1 0 0-3.4Z",
   // The die face is solid; the five pips are wound the other way round so the
   // nonzero fill rule punches them out (same trick as `info` and `clock`).
   dice: "M6 3h12a3 3 0 0 1 3 3v12a3 3 0 0 1-3 3H6a3 3 0 0 1-3-3V6a3 3 0 0 1 3-3Zm2 3.4a1.6 1.6 0 1 0 0 3.2 1.6 1.6 0 1 0 0-3.2Zm8 0a1.6 1.6 0 1 0 0 3.2 1.6 1.6 0 1 0 0-3.2Zm-4 4a1.6 1.6 0 1 0 0 3.2 1.6 1.6 0 1 0 0-3.2Zm-4 4a1.6 1.6 0 1 0 0 3.2 1.6 1.6 0 1 0 0-3.2Zm8 0a1.6 1.6 0 1 0 0 3.2 1.6 1.6 0 1 0 0-3.2Z",

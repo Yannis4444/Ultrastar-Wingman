@@ -5,8 +5,10 @@ Sings and scores are inserted straight into the database here: what USDX does wi
 """
 
 import sqlite3
+from collections.abc import Mapping
 from datetime import UTC, datetime, timedelta
 from pathlib import Path
+from types import MappingProxyType
 from typing import Any
 
 import pytest
@@ -19,6 +21,7 @@ from ultrastar_wingman.auth.model import as_utc
 from ultrastar_wingman.db import migrations_dir
 from ultrastar_wingman.karaoke import service
 from ultrastar_wingman.karaoke.model import KaraokeSession, Score, Sing
+from ultrastar_wingman.players.model import Player
 from ultrastar_wingman.songs.model import Song
 
 # A fixed instant: nothing here may depend on the wall clock.
@@ -50,7 +53,10 @@ async def add_sing(
     song_id: str,
     started_at: datetime,
     scores: list[tuple[str, int]],
+    player_ids: Mapping[str, str] = MappingProxyType({}),
 ) -> Sing:
+    """`player_ids` links a scored name to a player row; a name that is not in it stays a
+    walk-in singer, exactly as USDX leaves one."""
     sing = Sing(
         song_id=song_id,
         session_id=karaoke_session.id,
@@ -63,7 +69,7 @@ async def add_sing(
         session.add(
             Score(
                 sing_id=sing.id,
-                player_id=None,
+                player_id=player_ids.get(player_name),
                 player_name=player_name,
                 score=score,
                 difficulty=1,
@@ -78,22 +84,39 @@ async def add_sing(
 @pytest.fixture
 async def seeded(session: AsyncSession) -> dict[str, Any]:
     """Two parties: the older one sang one song, the newer one two (the second of which has
-    since left the library)."""
+    since left the library).
+
+    Yannis is a registered player, so his scores carry an id; Alex is a walk-in whose scores
+    carry only a name. Mona is registered but has never sung.
+    """
     await add_song(session, "usdb:1", "Song One")
     await add_song(session, "usdb:2", "Song Two")
 
+    yannis = Player(name="Yannis")
+    mona = Player(name="Mona")
     old = KaraokeSession(started_at=START, last_activity_at=START, name="Last year")
     new_start = START + timedelta(days=30)
     new = KaraokeSession(started_at=new_start, last_activity_at=new_start + timedelta(hours=1))
-    session.add_all([old, new])
+    session.add_all([yannis, mona, old, new])
     await session.flush()
+    linked = {"Yannis": yannis.id}
 
-    old_sing = await add_sing(session, old, "usdb:1", START, [("Yannis", 5000)])
-    first = await add_sing(session, new, "usdb:1", new_start, [("Yannis", 8500), ("Alex", 7000)])
+    old_sing = await add_sing(session, old, "usdb:1", START, [("Yannis", 5000)], linked)
+    first = await add_sing(
+        session, new, "usdb:1", new_start, [("Yannis", 8500), ("Alex", 7000)], linked
+    )
     second = await add_sing(
         session, new, GONE_SONG_ID, new_start + timedelta(hours=1), [("Alex", 9000)]
     )
-    return {"old": old, "new": new, "old_sing": old_sing, "first": first, "second": second}
+    return {
+        "old": old,
+        "new": new,
+        "old_sing": old_sing,
+        "first": first,
+        "second": second,
+        "yannis": yannis,
+        "mona": mona,
+    }
 
 
 async def test_the_sessions_are_listed_newest_first_with_their_counts(
@@ -189,6 +212,33 @@ async def test_an_unknown_song_is_a_404(client: AsyncClient, seeded: dict[str, A
     """Even the song of a recorded score: its page cannot show a song that is gone."""
     assert (await client.get("/api/v1/stats/songs/usdb:9999/scores")).status_code == 404
     assert (await client.get(f"/api/v1/stats/songs/{GONE_SONG_ID}/scores")).status_code == 404
+
+
+async def test_a_players_scores_span_every_session_and_leave_out_walk_ins(
+    client: AsyncClient, seeded: dict[str, Any]
+) -> None:
+    response = await client.get(f"/api/v1/stats/players/{seeded['yannis'].id}/scores")
+
+    assert response.status_code == 200
+    scores = response.json()["scores"]
+    # Newest first, across both parties — and not a single one of Alex's.
+    assert [row["score"] for row in scores] == [8500, 5000]
+    assert {row["player_name"] for row in scores} == {"Yannis"}
+    assert scores[0]["song"]["id"] == "usdb:1"
+
+
+async def test_a_player_who_never_sang_has_no_scores(
+    client: AsyncClient, seeded: dict[str, Any]
+) -> None:
+    response = await client.get(f"/api/v1/stats/players/{seeded['mona'].id}/scores")
+
+    assert response.status_code == 200
+    assert response.json() == {"scores": []}
+
+
+async def test_an_unknown_player_is_a_404(client: AsyncClient, seeded: dict[str, Any]) -> None:
+    """Not an empty list: a page asking for a player that is gone should say so."""
+    assert (await client.get("/api/v1/stats/players/nope/scores")).status_code == 404
 
 
 async def test_the_latest_scores_are_newest_first_and_limited(

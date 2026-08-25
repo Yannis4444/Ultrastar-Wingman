@@ -32,6 +32,17 @@ export interface ScoreGroup {
   average: number;
 }
 
+/** One singer's totals over their whole history, for the user page. */
+export interface PlayerSummary {
+  /** Performances that were scored, not scores: a duet counts once. */
+  sings: number;
+  best: number;
+  average: number;
+  /** Distinct songs behind those performances; the ones that have left the
+   * library are lumped into one, exactly as `summarize` counts them. */
+  songs: number;
+}
+
 export interface SessionSummary {
   /** Performances that produced a score — distinct `sing_id`s among them. */
   sings: number;
@@ -220,6 +231,36 @@ export function summarize(scores: ScoreWithContext[]): SessionSummary {
     if (top === null || score.score > top.score) top = score;
   }
   return { sings: sings.size, songs: songs.size, singers: singers.size, top };
+}
+
+/**
+ * What one singer's scores add up to, or `null` when there are none — a page
+ * with nothing to show should say so rather than print four zeroes.
+ *
+ * Deliberately the same shape as `summarize`: the numbers are derived from the
+ * scores themselves, so every one of them can be checked against the score list
+ * on the Scores page.
+ */
+export function playerSummary(
+  scores: ScoreWithContext[],
+): PlayerSummary | null {
+  if (scores.length === 0) return null;
+  const sings = new Set<string>();
+  const songs = new Set<string>();
+  let best = scores[0].score;
+  let total = 0;
+  for (const score of scores) {
+    sings.add(score.sing_id);
+    songs.add(groupKey(score, "song"));
+    if (score.score > best) best = score.score;
+    total += score.score;
+  }
+  return {
+    sings: sings.size,
+    best,
+    average: Math.round(total / scores.length),
+    songs: songs.size,
+  };
 }
 
 const AXIS = {

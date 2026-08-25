@@ -14,6 +14,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from ..auth.deps import require
 from ..db import SessionDep
 from ..karaoke.model import KaraokeSession
+from ..players.model import Player
 from ..songs.api import song_or_404
 from . import service
 from .schema import ScoreList, SessionList, SessionRead
@@ -75,6 +76,20 @@ async def list_song_scores(song_id: str, session: SessionDep) -> ScoreList:
     """Every score one song ever got, across all sessions, newest first."""
     await song_or_404(song_id, session)
     return ScoreList(scores=await service.song_scores(session, song_id))
+
+
+@router.get(
+    "/stats/players/{player_id}/scores",
+    response_model=ScoreList,
+    dependencies=[Depends(require("stats.view"))],
+    responses={404: {"description": "Unknown player."}},
+)
+async def list_player_scores(player_id: str, session: SessionDep) -> ScoreList:
+    """Every score one player ever got, across all sessions, newest first — what the user
+    page turns into their totals."""
+    if await session.get(Player, player_id) is None:
+        raise HTTPException(status_code=404, detail=f"unknown player '{player_id}'")
+    return ScoreList(scores=await service.player_scores(session, player_id))
 
 
 @router.get(
