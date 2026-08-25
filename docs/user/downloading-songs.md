@@ -56,8 +56,24 @@ step.
 - Downloads survive a restart: a queued one is picked up again, and one that was
   running when Wingman stopped is marked as failed so you can retry it.
 
-The **Downloads** panel at the bottom of the page keeps the history of this
-Wingman, with the reason for every failure.
+## The downloads panel
+
+The panel behind the downloads button shows what this Wingman has been doing
+**since it was started**, with the reason for every failure. Older downloads are
+still there: turn **Only this session** off to see them.
+
+- The `×` next to a finished or failed download dismisses it — it leaves the
+  panel for everybody, and the warning on the downloads button goes with it.
+- **Clear finished** at the bottom dismisses every download that succeeded. It
+  never touches a failure: an error stays until you have read it and dismissed
+  it yourself.
+- Wingman cleans up after itself. Anything finished or dismissed is dropped once
+  the history grows past a couple of hundred entries, and everything that is done
+  goes after a month — so the panel cannot fill up over time. A failure you have
+  not dismissed is only ever removed by that one-month limit.
+
+Retrying, dismissing and clearing all need the right to manage downloads;
+without it the panel only reports what happened.
 
 !!! info
     Downloading needs two helper programs: yt-dlp for the video and ffmpeg for

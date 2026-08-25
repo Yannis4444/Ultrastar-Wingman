@@ -18,6 +18,10 @@ class DownloadRead(BaseModel):
     step: str | None
     error: str | None
     song_id: str | None
+    # Computed, not stored: "this session" is a question about the running process, so the
+    # answer has to be produced when the row is read, not when it was written.
+    current_session: bool
+    dismissed_at: datetime | None
     created_at: datetime
     updated_at: datetime
 
@@ -38,6 +42,8 @@ def read_download(download: Download) -> DownloadRead:
         step=download.step,
         error=download.error,
         song_id=download.song_id,
+        current_session=download.current_session,
+        dismissed_at=download.dismissed_at,
         created_at=download.created_at,
         updated_at=download.updated_at,
     )

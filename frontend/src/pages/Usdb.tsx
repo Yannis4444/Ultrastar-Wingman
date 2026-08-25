@@ -3,6 +3,8 @@ import { useEffect, useMemo, useState } from "react";
 import type { DownloadRead, SongRead, UsdbSong } from "../api";
 import {
   createDownloadMutation,
+  dismissDownloadMutation,
+  dismissFinishedDownloadsMutation,
   listDownloadsOptions,
   listSongsOptions,
   updateSettingMutation,
@@ -18,7 +20,11 @@ import PageHeader from "../components/PageHeader";
 import SongDetails from "../components/SongDetails";
 import UsdbSongItem, { Ring } from "../components/UsdbSongItem";
 import { errorDetail, errorMessage } from "../errors";
-import { downloadKey, useDownloadEvents } from "../hooks/useDownloadEvents";
+import {
+  applyDownload,
+  downloadKey,
+  useDownloadEvents,
+} from "../hooks/useDownloadEvents";
 import "./Usdb.css";
 
 const STATUS_MESSAGES: Record<string, string> = {
@@ -137,6 +143,7 @@ export default function Usdb() {
 
   const maySearch = auth.can("usdb.search");
   const maySeeDownloads = auth.can("downloads.view");
+  const mayManageDownloads = auth.can("downloads.manage");
 
   const status = useQuery({ ...usdbStatusOptions(), enabled: maySearch });
   const loggedIn = status.data?.logged_in === true;
@@ -195,6 +202,35 @@ export default function Usdb() {
       ),
   });
 
+  // The backend broadcasts the dismissed rows too; folding the answer in as well
+  // means the panel empties on the spot instead of on the next event.
+  const dismiss = useMutation({
+    ...dismissDownloadMutation(),
+    onSuccess: (row) => {
+      setDownloadError(null);
+      applyDownload(queryClient, row);
+    },
+    // A row that retention already dropped, or one that started running between
+    // the render and the click — either way the panel has to say why it stayed.
+    onError: (error) =>
+      setDownloadError(
+        errorDetail(error) === "still_running"
+          ? "That download is still running."
+          : errorMessage(error, "Could not dismiss the download."),
+      ),
+  });
+  const clearFinished = useMutation({
+    ...dismissFinishedDownloadsMutation(),
+    onSuccess: (cleared) => {
+      setDownloadError(null);
+      for (const row of cleared.downloads) applyDownload(queryClient, row);
+    },
+    onError: (error) =>
+      setDownloadError(
+        errorMessage(error, "Could not clear the finished downloads."),
+      ),
+  });
+
   const saveSetting = useMutation(updateSettingMutation());
   const [credentialsError, setCredentialsError] = useState<string | null>(null);
 
@@ -244,10 +280,13 @@ export default function Usdb() {
   const pages = search.data?.pages ?? null;
 
   const rows = downloads.data?.downloads ?? [];
-  const active = rows.filter(
+  // The header button reports this run only. Counting the whole history is what
+  // kept it alerting about a failure from a party weeks ago.
+  const current = rows.filter((row) => row.current_session);
+  const active = current.filter(
     (row) => row.status === "queued" || row.status === "running",
   ).length;
-  const failed = rows.filter((row) => row.status === "failed").length;
+  const failed = current.filter((row) => row.status === "failed").length;
   const downloadsLabel =
     active > 0
       ? `Downloads: ${active} running`
@@ -423,7 +462,9 @@ export default function Usdb() {
         </button>
       </form>
 
-      {downloadError && (
+      {/* Not while the panel is open: it reports the same state on top of the
+          backdrop, and two live alerts saying one thing is one too many. */}
+      {downloadError && !panelOpen && (
         <p className="error-notice usdb-notice" role="alert">
           {downloadError}
         </p>
@@ -496,7 +537,16 @@ export default function Usdb() {
 
       {panelOpen && (
         <Modal title="Downloads" onClose={() => setPanelOpen(false)}>
-          <DownloadsPanel downloads={rows} onRetry={retry} />
+          <DownloadsPanel
+            downloads={rows}
+            onRetry={retry}
+            onDismiss={(row) =>
+              dismiss.mutate({ path: { download_id: row.id } })
+            }
+            onClearFinished={() => clearFinished.mutate({})}
+            mayManage={mayManageDownloads}
+            error={downloadError}
+          />
         </Modal>
       )}
 

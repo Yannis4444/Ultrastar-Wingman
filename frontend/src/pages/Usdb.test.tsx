@@ -19,6 +19,8 @@ const {
   usdbSearch,
   listDownloads,
   createDownload,
+  dismissDownload,
+  dismissFinishedDownloads,
   updateSetting,
   listSongs,
   getMe,
@@ -31,6 +33,8 @@ const {
   usdbSearch: vi.fn(),
   listDownloads: vi.fn(),
   createDownload: vi.fn(),
+  dismissDownload: vi.fn(),
+  dismissFinishedDownloads: vi.fn(),
   updateSetting: vi.fn(),
   listSongs: vi.fn(),
   getMe: vi.fn(),
@@ -46,6 +50,8 @@ vi.mock("../api/sdk.gen", async (importOriginal) => ({
   usdbSearch,
   listDownloads,
   createDownload,
+  dismissDownload,
+  dismissFinishedDownloads,
   updateSetting,
   listSongs,
   getMe,
@@ -60,6 +66,7 @@ const TRUSTED = [
   "songs.view",
   "usdb.search",
   "downloads.view",
+  "downloads.manage",
   "settings.manage",
   "wishlist.view",
   "playlists.view",
@@ -109,6 +116,10 @@ function download(overrides: Partial<DownloadRead> = {}): DownloadRead {
     step: "downloading the video",
     error: null,
     song_id: null,
+    // What the backend says about a row this run produced; an older one carries
+    // `current_session: false` and only shows with the filter off.
+    current_session: true,
+    dismissed_at: null,
     created_at: "2026-08-23T10:00:00Z",
     updated_at: "2026-08-23T10:00:05Z",
     ...overrides,
@@ -140,6 +151,8 @@ beforeEach(() => {
     usdbSearch,
     listDownloads,
     createDownload,
+    dismissDownload,
+    dismissFinishedDownloads,
     updateSetting,
     listSongs,
     getMe,
@@ -504,6 +517,182 @@ test("the downloads live behind the header button, not on the page", async () =>
   expect(
     await screen.findByText("downloading the video · 42%"),
   ).toBeInTheDocument();
+});
+
+test("the panel shows this run and keeps the older history one click away", async () => {
+  listDownloads.mockResolvedValue({
+    data: {
+      downloads: [
+        download({
+          id: 9,
+          artist: "Toto",
+          title: "Africa",
+          status: "finished",
+          song_id: "usdb:5",
+        }),
+        download({
+          id: 3,
+          title: "Waterloo",
+          status: "failed",
+          progress: null,
+          step: null,
+          error: "no_video — the song has no video link",
+          current_session: false,
+        }),
+      ],
+    },
+  });
+  renderUsdb();
+
+  // A failure from an earlier run is history: it must not keep the header
+  // button alerting for ever, which is what it used to do.
+  const button = await screen.findByRole("button", { name: "Downloads" });
+  fireEvent.click(button);
+
+  const dialog = await screen.findByRole("dialog", { name: "Downloads" });
+  expect(within(dialog).getByText("Toto – Africa")).toBeInTheDocument();
+  expect(within(dialog).queryByText("ABBA – Waterloo")).toBeNull();
+
+  // Hidden, not gone.
+  fireEvent.click(within(dialog).getByLabelText("Only this session"));
+  expect(within(dialog).getByText("ABBA – Waterloo")).toBeInTheDocument();
+});
+
+test("dismissing a failed download takes it off the panel", async () => {
+  const failed = download({
+    status: "failed",
+    progress: null,
+    step: null,
+    error: "no_video — the song has no video link",
+  });
+  listDownloads.mockResolvedValue({ data: { downloads: [failed] } });
+  dismissDownload.mockResolvedValue({
+    data: { ...failed, dismissed_at: "2026-08-23T10:05:00Z" },
+  });
+  renderUsdb();
+
+  fireEvent.click(
+    await screen.findByRole("button", { name: "Downloads: 1 failed" }),
+  );
+  const dialog = await screen.findByRole("dialog", { name: "Downloads" });
+  fireEvent.click(
+    within(dialog).getByRole("button", {
+      name: "Dismiss ABBA – Dancing Queen",
+    }),
+  );
+
+  await waitFor(() =>
+    expect(dismissDownload).toHaveBeenCalledWith(
+      expect.objectContaining({ path: { download_id: 7 } }),
+    ),
+  );
+  expect(
+    await within(dialog).findByText("Nothing downloaded yet."),
+  ).toBeInTheDocument();
+  // And the alert on the header button goes with it.
+  expect(screen.getByRole("button", { name: "Downloads" })).toBeInTheDocument();
+});
+
+test("clearing the finished downloads leaves the failures alone", async () => {
+  const done = download({
+    id: 9,
+    artist: "Toto",
+    title: "Africa",
+    status: "finished",
+    song_id: "usdb:5",
+  });
+  const failed = download({
+    status: "failed",
+    progress: null,
+    step: null,
+    error: "no_video — the song has no video link",
+  });
+  listDownloads.mockResolvedValue({ data: { downloads: [failed, done] } });
+  dismissFinishedDownloads.mockResolvedValue({
+    data: { downloads: [{ ...done, dismissed_at: "2026-08-23T10:05:00Z" }] },
+  });
+  renderUsdb();
+
+  fireEvent.click(
+    await screen.findByRole("button", { name: "Downloads: 1 failed" }),
+  );
+  const dialog = await screen.findByRole("dialog", { name: "Downloads" });
+  fireEvent.click(
+    within(dialog).getByRole("button", { name: "Clear finished" }),
+  );
+
+  await waitFor(() =>
+    expect(within(dialog).queryByText("Toto – Africa")).toBeNull(),
+  );
+  expect(within(dialog).getByText("ABBA – Dancing Queen")).toBeInTheDocument();
+});
+
+test("a dismiss the backend refuses is reported inside the panel", async () => {
+  const failed = download({
+    status: "failed",
+    progress: null,
+    step: null,
+    error: "no_video — the song has no video link",
+  });
+  listDownloads.mockResolvedValue({ data: { downloads: [failed] } });
+  // Retention dropped it between the last refetch and the click.
+  dismissDownload.mockRejectedValue({ detail: "unknown_download" });
+  renderUsdb();
+
+  fireEvent.click(
+    await screen.findByRole("button", { name: "Downloads: 1 failed" }),
+  );
+  const dialog = await screen.findByRole("dialog", { name: "Downloads" });
+  fireEvent.click(
+    within(dialog).getByRole("button", {
+      name: "Dismiss ABBA – Dancing Queen",
+    }),
+  );
+
+  // In the panel, not on the page behind the backdrop, where nobody would see it.
+  expect(await within(dialog).findByRole("alert")).toHaveTextContent(
+    "Could not dismiss the download.",
+  );
+  expect(within(dialog).getByText("ABBA – Dancing Queen")).toBeInTheDocument();
+});
+
+test("without the right to manage downloads the panel only reports", async () => {
+  listDownloads.mockResolvedValue({
+    data: {
+      downloads: [
+        download({ status: "finished", song_id: "usdb:1234" }),
+        download({
+          id: 8,
+          artist: "Toto",
+          title: "Africa",
+          status: "failed",
+          progress: null,
+          step: null,
+          error: "no_video — the song has no video link",
+        }),
+      ],
+    },
+  });
+  renderUsdb(TRUSTED.filter((one) => one !== "downloads.manage"));
+
+  fireEvent.click(
+    await screen.findByRole("button", { name: "Downloads: 1 failed" }),
+  );
+  const dialog = await screen.findByRole("dialog", { name: "Downloads" });
+  expect(within(dialog).getByText("ABBA – Dancing Queen")).toBeInTheDocument();
+  expect(within(dialog).queryByRole("button", { name: /^Dismiss/ })).toBeNull();
+  expect(
+    within(dialog).queryByRole("button", { name: "Clear finished" }),
+  ).toBeNull();
+  // Retry queues a new download, which is `downloads.manage` too: offering it
+  // here would only ever produce a 403.
+  expect(within(dialog).queryByRole("button", { name: /^Retry/ })).toBeNull();
+  // The failure still reports itself — summary and raw dump — it just cannot be
+  // acted on.
+  expect(within(dialog).getByText("Toto – Africa")).toBeInTheDocument();
+  expect(
+    within(dialog).getAllByText("no_video — the song has no video link"),
+  ).toHaveLength(2);
 });
 
 test("a download that is already queued is reported", async () => {

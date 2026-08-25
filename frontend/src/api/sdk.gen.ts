@@ -2,7 +2,7 @@
 
 import { type Client, type ClientMeta, formDataBodySerializer, type Options as Options2, type RequestResult, type TDataShape } from './client';
 import { client } from './client.gen';
-import type { AddFavoriteData, AddFavoriteErrors, AddFavoriteResponses, AddPlaylistEntryData, AddPlaylistEntryErrors, AddPlaylistEntryResponses, AddWishData, AddWishErrors, AddWishResponses, CreateDownloadData, CreateDownloadErrors, CreateDownloadResponses, CreatePlayerData, CreatePlayerErrors, CreatePlayerResponses, CreatePlaylistData, CreatePlaylistErrors, CreatePlaylistResponses, DeletePlayerData, DeletePlayerErrors, DeletePlayerResponses, DeletePlaylistData, DeletePlaylistErrors, DeletePlaylistResponses, DeleteUserData, DeleteUserErrors, DeleteUserResponses, ExchangeHostTokenData, ExchangeHostTokenErrors, ExchangeHostTokenResponses, GetCurrentSingData, GetCurrentSingResponses, GetJoinInfoData, GetJoinInfoResponses, GetMeData, GetMeResponses, GetPermissionsData, GetPermissionsResponses, GetPlayerAvatarData, GetPlayerAvatarErrors, GetPlayerAvatarResponses, GetPlaylistData, GetPlaylistErrors, GetPlaylistResponses, GetSongAudioData, GetSongAudioErrors, GetSongAudioResponses, GetSongCoverData, GetSongCoverErrors, GetSongCoverResponses, GetSongData, GetSongErrors, GetSongResponses, HealthData, HealthResponses, ListDownloadsData, ListDownloadsResponses, ListFavoritesData, ListFavoritesResponses, ListKaraokeColorsData, ListKaraokeColorsResponses, ListKaraokeSlotsData, ListKaraokeSlotsResponses, ListLatestScoresData, ListLatestScoresErrors, ListLatestScoresResponses, ListPlayersData, ListPlayersResponses, ListPlaylistsData, ListPlaylistsResponses, ListSessionScoresData, ListSessionScoresErrors, ListSessionScoresResponses, ListSessionsData, ListSessionsResponses, ListSettingsData, ListSettingsResponses, ListSongScoresData, ListSongScoresErrors, ListSongScoresResponses, ListSongsData, ListSongsResponses, ListUsersData, ListUsersResponses, ListWishlistData, ListWishlistResponses, LoginData, LoginErrors, LoginResponses, LogoutData, LogoutErrors, LogoutResponses, OidcCallbackData, OidcCallbackErrors, OidcConfigData, OidcConfigResponses, OidcLoginData, OidcLoginErrors, RegisterData, RegisterErrors, RegisterResponses, RemoveFavoriteData, RemoveFavoriteErrors, RemoveFavoriteResponses, RemovePlaylistEntryData, RemovePlaylistEntryErrors, RemovePlaylistEntryResponses, RemoveWishData, RemoveWishErrors, RemoveWishResponses, RenameSessionData, RenameSessionErrors, RenameSessionResponses, ReorderPlaylistEntriesData, ReorderPlaylistEntriesErrors, ReorderPlaylistEntriesResponses, RescanSongsData, RescanSongsErrors, RescanSongsResponses, SetPlayerAvatarData, SetPlayerAvatarErrors, SetPlayerAvatarResponses, SingSongData, SingSongErrors, SingSongResponses, StopSingingData, StopSingingResponses, UpdatePlaylistData, UpdatePlaylistErrors, UpdatePlaylistResponses, UpdateRolePermissionsData, UpdateRolePermissionsErrors, UpdateRolePermissionsResponses, UpdateSettingData, UpdateSettingErrors, UpdateSettingResponses, UpdateUserData, UpdateUserErrors, UpdateUserResponses, UsdbSearchData, UsdbSearchErrors, UsdbSearchResponses, UsdbStatusData, UsdbStatusErrors, UsdbStatusResponses, UsdxStatusData, UsdxStatusResponses } from './types.gen';
+import type { AddFavoriteData, AddFavoriteErrors, AddFavoriteResponses, AddPlaylistEntryData, AddPlaylistEntryErrors, AddPlaylistEntryResponses, AddWishData, AddWishErrors, AddWishResponses, CreateDownloadData, CreateDownloadErrors, CreateDownloadResponses, CreatePlayerData, CreatePlayerErrors, CreatePlayerResponses, CreatePlaylistData, CreatePlaylistErrors, CreatePlaylistResponses, DeletePlayerData, DeletePlayerErrors, DeletePlayerResponses, DeletePlaylistData, DeletePlaylistErrors, DeletePlaylistResponses, DeleteUserData, DeleteUserErrors, DeleteUserResponses, DismissDownloadData, DismissDownloadErrors, DismissDownloadResponses, DismissFinishedDownloadsData, DismissFinishedDownloadsResponses, ExchangeHostTokenData, ExchangeHostTokenErrors, ExchangeHostTokenResponses, GetCurrentSingData, GetCurrentSingResponses, GetJoinInfoData, GetJoinInfoResponses, GetMeData, GetMeResponses, GetPermissionsData, GetPermissionsResponses, GetPlayerAvatarData, GetPlayerAvatarErrors, GetPlayerAvatarResponses, GetPlaylistData, GetPlaylistErrors, GetPlaylistResponses, GetSongAudioData, GetSongAudioErrors, GetSongAudioResponses, GetSongCoverData, GetSongCoverErrors, GetSongCoverResponses, GetSongData, GetSongErrors, GetSongResponses, HealthData, HealthResponses, ListDownloadsData, ListDownloadsResponses, ListFavoritesData, ListFavoritesResponses, ListKaraokeColorsData, ListKaraokeColorsResponses, ListKaraokeSlotsData, ListKaraokeSlotsResponses, ListLatestScoresData, ListLatestScoresErrors, ListLatestScoresResponses, ListPlayersData, ListPlayersResponses, ListPlaylistsData, ListPlaylistsResponses, ListSessionScoresData, ListSessionScoresErrors, ListSessionScoresResponses, ListSessionsData, ListSessionsResponses, ListSettingsData, ListSettingsResponses, ListSongScoresData, ListSongScoresErrors, ListSongScoresResponses, ListSongsData, ListSongsResponses, ListUsersData, ListUsersResponses, ListWishlistData, ListWishlistResponses, LoginData, LoginErrors, LoginResponses, LogoutData, LogoutErrors, LogoutResponses, OidcCallbackData, OidcCallbackErrors, OidcConfigData, OidcConfigResponses, OidcLoginData, OidcLoginErrors, RegisterData, RegisterErrors, RegisterResponses, RemoveFavoriteData, RemoveFavoriteErrors, RemoveFavoriteResponses, RemovePlaylistEntryData, RemovePlaylistEntryErrors, RemovePlaylistEntryResponses, RemoveWishData, RemoveWishErrors, RemoveWishResponses, RenameSessionData, RenameSessionErrors, RenameSessionResponses, ReorderPlaylistEntriesData, ReorderPlaylistEntriesErrors, ReorderPlaylistEntriesResponses, RescanSongsData, RescanSongsErrors, RescanSongsResponses, SetPlayerAvatarData, SetPlayerAvatarErrors, SetPlayerAvatarResponses, SingSongData, SingSongErrors, SingSongResponses, StopSingingData, StopSingingResponses, UpdatePlaylistData, UpdatePlaylistErrors, UpdatePlaylistResponses, UpdateRolePermissionsData, UpdateRolePermissionsErrors, UpdateRolePermissionsResponses, UpdateSettingData, UpdateSettingErrors, UpdateSettingResponses, UpdateUserData, UpdateUserErrors, UpdateUserResponses, UsdbCoverData, UsdbCoverErrors, UsdbCoverResponses, UsdbSearchData, UsdbSearchErrors, UsdbSearchResponses, UsdbStatusData, UsdbStatusErrors, UsdbStatusResponses, UsdxStatusData, UsdxStatusResponses } from './types.gen';
 
 export type Options<TData extends TDataShape = TDataShape, ThrowOnError extends boolean = boolean, TResponse = unknown> = Options2<TData, ThrowOnError, TResponse> & {
     /**
@@ -264,6 +264,9 @@ export const stopSinging = <ThrowOnError extends boolean = false>(options?: Opti
 
 /**
  * List Downloads
+ *
+ * The queue and the recent history. Dismissed rows are gone from here: taking note of
+ * one is what empties the panel — the row itself lives on until retention drops it.
  */
 export const listDownloads = <ThrowOnError extends boolean = false>(options?: Options<ListDownloadsData, ThrowOnError>): RequestResult<ListDownloadsResponses, unknown, ThrowOnError> => (options?.client ?? client).get<ListDownloadsResponses, unknown, ThrowOnError>({ url: '/api/v1/downloads', ...options });
 
@@ -280,6 +283,21 @@ export const createDownload = <ThrowOnError extends boolean = false>(options: Op
 });
 
 /**
+ * Dismiss Finished Downloads
+ *
+ * Clear the successes in one go. Failures stay: only their owner's explicit dismiss
+ * takes an error off the screen.
+ */
+export const dismissFinishedDownloads = <ThrowOnError extends boolean = false>(options?: Options<DismissFinishedDownloadsData, ThrowOnError>): RequestResult<DismissFinishedDownloadsResponses, unknown, ThrowOnError> => (options?.client ?? client).post<DismissFinishedDownloadsResponses, unknown, ThrowOnError>({ url: '/api/v1/downloads/dismiss-finished', ...options });
+
+/**
+ * Dismiss Download
+ *
+ * Mark one finished or failed download as read, taking it out of the panel.
+ */
+export const dismissDownload = <ThrowOnError extends boolean = false>(options: Options<DismissDownloadData, ThrowOnError>): RequestResult<DismissDownloadResponses, DismissDownloadErrors, ThrowOnError> => (options.client ?? client).post<DismissDownloadResponses, DismissDownloadErrors, ThrowOnError>({ url: '/api/v1/downloads/{download_id}/dismiss', ...options });
+
+/**
  * Usdb Status
  *
  * Whether Wingman can use USDB. Cached; `refresh=true` asks the site again.
@@ -290,6 +308,18 @@ export const usdbStatus = <ThrowOnError extends boolean = false>(options?: Optio
  * Usdb Search
  */
 export const usdbSearch = <ThrowOnError extends boolean = false>(options?: Options<UsdbSearchData, ThrowOnError>): RequestResult<UsdbSearchResponses, UsdbSearchErrors, ThrowOnError> => (options?.client ?? client).get<UsdbSearchResponses, UsdbSearchErrors, ThrowOnError>({ url: '/api/v1/sources/usdb/search', ...options });
+
+/**
+ * Usdb Cover
+ *
+ * The cover of a search result, proxied.
+ *
+ * Proxied rather than linked: pointing every phone in the room at usdb.animux.de would
+ * hand out the browsing habits of the whole party, and Wingman is the only party with a
+ * USDB session anyway. `usdb_id` is an int, so nothing a caller sends can steer the
+ * upstream path.
+ */
+export const usdbCover = <ThrowOnError extends boolean = false>(options: Options<UsdbCoverData, ThrowOnError>): RequestResult<UsdbCoverResponses, UsdbCoverErrors, ThrowOnError> => (options.client ?? client).get<UsdbCoverResponses, UsdbCoverErrors, ThrowOnError>({ url: '/api/v1/sources/usdb/songs/{usdb_id}/cover', ...options });
 
 /**
  * List Wishlist

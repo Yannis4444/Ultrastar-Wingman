@@ -70,6 +70,9 @@ ROUTES: list[tuple[str, str, str, dict[str, object] | None]] = [
     ("playlists.manage", "PUT", "/api/v1/playlists/nope/entries", {"song_ids": []}),
     ("downloads.view", "GET", "/api/v1/downloads", None),
     ("downloads.manage", "POST", "/api/v1/downloads", {"source": "nope", "source_song_id": "1"}),
+    # Taking a download off the panel changes what everybody else sees, so it is `manage`.
+    ("downloads.manage", "POST", "/api/v1/downloads/1/dismiss", None),
+    ("downloads.manage", "POST", "/api/v1/downloads/dismiss-finished", None),
     ("stats.view", "GET", "/api/v1/stats/sessions", None),
     ("stats.view", "GET", "/api/v1/stats/sessions/nope/scores", None),
     ("stats.view", "GET", "/api/v1/stats/songs/usdb:1/scores", None),
