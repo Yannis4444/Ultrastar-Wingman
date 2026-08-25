@@ -81,6 +81,9 @@ export default function SettingField({ setting, readOnly }: Props) {
   // Multi-line settings are recognised by their description, not by a key list:
   // a new "one path per line" registry entry then needs no UI change.
   const multiline = setting.description.includes("per line");
+  // A checkbox is the one control that stays on the label's line: it is a 40px
+  // slot at the row's end, and alone under a label it would read as an orphan.
+  const stacked = setting.value_type !== "bool";
   const disabled = readOnly || save.isPending;
   // A secret's value never comes back, so "is it configured" is the only
   // signal; everything else compares against its default.
@@ -92,7 +95,7 @@ export default function SettingField({ setting, readOnly }: Props) {
 
   return (
     <div className="setting-field">
-      <div className="setting-row">
+      <div className={`setting-row${stacked ? " setting-row-stacked" : ""}`}>
         <label className="setting-label" htmlFor={inputId}>
           {label}
         </label>

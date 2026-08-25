@@ -83,7 +83,7 @@ export default function KaraokeSlotsField({ setting, readOnly }: Props) {
   return (
     <div className="karaoke-slots">
       <div className="setting-field">
-        <div className="setting-row">
+        <div className="setting-row setting-row-stacked">
           <label className="setting-label" htmlFor={countId}>
             Players
           </label>
@@ -150,7 +150,7 @@ export default function KaraokeSlotsField({ setting, readOnly }: Props) {
         const slotId = `setting-${setting.key}-${index}`;
         return (
           <div className="setting-field" key={slotId}>
-            <div className="setting-row">
+            <div className="setting-row setting-row-stacked">
               <label className="setting-label" htmlFor={slotId}>
                 Slot {index + 1}
               </label>

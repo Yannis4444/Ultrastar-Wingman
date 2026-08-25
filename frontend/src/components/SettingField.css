@@ -6,8 +6,8 @@
   border-bottom: 1px solid var(--input-border-color);
 }
 
-/* One line per setting: label, input, icon button. The group heading carries
-   the context, so the label stays quiet and truncates before the input does. */
+/* One line per setting: label, control, icon button. Rows that hold no input —
+   a toggle, an action — keep everything on that one line. */
 .setting-row {
   display: flex;
   align-items: center;
@@ -23,18 +23,50 @@
   cursor: pointer;
 }
 
+/* Labels differ far more in length than the values do, so a shared line gave
+   every box a different width. The label takes the first line alone and the
+   input the second, which makes every input on the page the same width. */
+.setting-row-stacked {
+  flex-wrap: wrap;
+  row-gap: 4px;
+}
+
+/* Full width is the wrap: what follows the label is pushed to the next line.
+   With the whole line to itself the label wraps rather than truncating. */
+.setting-row-stacked > .setting-label {
+  flex: 1 1 100%;
+  overflow: visible;
+  white-space: normal;
+}
+
+/* The acknowledgement sits at the right end of the input's line; a spacer of
+   its width holds that end while there is nothing to acknowledge, so the input
+   does not resize the moment "Saved" appears. */
+.setting-row-stacked::after {
+  content: "";
+  /* The slot it holds is `.setting-saved`'s: same font-size, same 3.5em. */
+  font-size: 0.85em;
+  flex: 0 0 3.5em;
+}
+
+.setting-row-stacked:has(.setting-saved)::after {
+  display: none;
+}
+
+/* A three-row box makes a tall line: the button belongs at its top edge
+   instead of floating halfway down it. */
+.setting-row-stacked:has(.setting-textarea) {
+  align-items: flex-start;
+}
+
 .setting-input {
-  flex: 1 1 120px;
+  flex: 1 1 auto;
   min-width: 0;
 }
 
-/* The one field type that keeps its own row. */
-.setting-field:has(.setting-textarea) .setting-row {
-  flex-wrap: wrap;
-}
-
 .setting-textarea {
-  flex: 1 1 100%;
+  flex: 1 1 auto;
+  min-width: 0;
   font: inherit;
   resize: vertical;
 }
@@ -44,7 +76,7 @@
 .setting-toggle {
   width: 20px;
   height: 20px;
-  margin: 10px;
+  margin: 10px 10px 10px auto;
   accent-color: var(--highlight-blue-light);
 }
 
