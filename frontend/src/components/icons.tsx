@@ -63,13 +63,16 @@ const PATHS = {
   // confused with the plain three-bar `playlist` glyph next to it.
   list: "M5 5.5a1.5 1.5 0 1 0 0 3 1.5 1.5 0 0 0 0-3Zm5 .5h10v2H10V6Zm-5 4.5a1.5 1.5 0 1 0 0 3 1.5 1.5 0 0 0 0-3Zm5 .5h10v2H10v-2Zm-5 4.5a1.5 1.5 0 1 0 0 3 1.5 1.5 0 0 0 0-3Zm5 .5h10v2H10v-2Z",
   chart: "M4 20h16v2H4v-2Zm1-8h3v7H5v-7Zm5.5-7h3v14h-3V5ZM16 9h3v10h-3V9Z",
-  // The mean mark: a bar over a slash. The old app's `TbMathAvg` is really a
-  // slashed circle (⌀), and it was drawn that way here at first — but a ring
-  // with a diagonal through it is the "forbidden" gestalt, which is exactly how
-  // it read at the 24px stat size. The bar clears the slash by 2.7 units at the
-  // closest (a full stroke width) and the slash overhangs it on both ends, so
-  // the pair never joins into a "7" at caption size either.
-  average: "M6 3.2h12v2.4H6V3.2ZM2.3 19.3 20.3 7.3l1.4 2.1-18 12Z",
+  // The mean mark — the statistician's ⌀, which is what the old app's
+  // `TbMathAvg` draws. Two things keep it off the "forbidden" sign: the ring is
+  // a 2.4-unit hairline rather than a fat donut, and the slash *ascends* and
+  // overhangs the ring by 2.6 units at both ends instead of being contained by
+  // it. Winding, since `fill-rule` is not available: the outer circle runs
+  // clockwise, the inner one counter-clockwise so the nonzero rule punches the
+  // middle out, and the slash runs clockwise like the outer circle — wound the
+  // other way it would cancel the ring wherever it crosses it.
+  average:
+    "M4 12A8 8 0 0 1 20 12 8 8 0 0 1 4 12ZM6.4 12A5.6 5.6 0 0 0 17.6 12 5.6 5.6 0 0 0 6.4 12ZM5.28 20.28 3.72 18.72 18.72 3.72 20.28 5.28Z",
   // "#" — the count marker (old app's `MdNumbers`). Upright rather than
   // italic: at caption size the slanted bars smear into each other.
   hash: "M7 3h2v18H7V3Zm8 0h2v18h-2V3ZM3 8h18v2H3V8Zm0 6h18v2H3v-2Z",

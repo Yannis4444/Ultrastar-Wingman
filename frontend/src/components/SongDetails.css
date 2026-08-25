@@ -86,20 +86,38 @@
   cursor: pointer;
 }
 
-/* The one primary action in the modal: bigger than the two state toggles
-   beside it and the only filled control in the row. */
+/* The one primary action in the modal: an unfilled glyph that reads as primary
+   through size and the blue accent alone. The round radius survives the missing
+   fill only so the global :focus-visible ring stays round around the target. */
 .song-control-sing {
   grid-column: 2;
   width: 72px;
   height: 72px;
-  font-size: 2.4em;
-  color: var(--color);
-  background-color: var(--highlight-blue-dark);
+  font-size: 2.6em;
+  color: var(--highlight-blue-light);
   border-radius: 50%;
+  transition:
+    color 0.15s ease,
+    transform 0.15s ease;
 }
 
 .song-control-sing:hover:enabled {
-  background-color: var(--highlight-blue-light);
+  color: var(--color);
+  transform: scale(1.06);
+}
+
+.song-control-sing:disabled {
+  color: var(--color-darkerer);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .song-control-sing {
+    transition: none;
+  }
+
+  .song-control-sing:hover:enabled {
+    transform: none;
+  }
 }
 
 .song-control-favorite-on {
@@ -237,9 +255,11 @@
   font-variant-numeric: tabular-nums;
 }
 
-/* Add-to-playlist sub-view: tap a playlist to add the song. */
+/* Add-to-playlist sub-view: tap a playlist to add the song. 8px side margins
+   so the row text starts at the 16px gutter while the hover band bleeds into
+   it and reads as a row. */
 .song-playlists-list {
-  margin: 0 16px;
+  margin: 0 8px;
   padding: 0;
   list-style: none;
 }
@@ -251,15 +271,21 @@
 .song-playlists-row {
   display: flex;
   width: 100%;
-  min-height: 48px;
+  min-height: 56px;
   align-items: center;
-  gap: 10px;
-  padding: 0;
+  gap: 12px;
+  padding: 0 8px;
   font: inherit;
   color: var(--color);
   background: none;
   border: none;
+  border-radius: var(--border-radius-small);
   cursor: pointer;
+}
+
+.song-playlists-row:hover:enabled,
+.song-playlists-row:active:enabled {
+  background-color: var(--highlight-blue-dark);
 }
 
 .song-playlists-row:disabled {
@@ -267,19 +293,36 @@
   cursor: default;
 }
 
-.song-playlists-row .icon:first-child {
+.song-playlists-glyph {
+  font-size: 1.4em;
   color: var(--color-darker);
 }
 
-.song-playlists-name {
+/* The leading mark is what says "already in", so it overrides the glyph gray. */
+.song-playlists-added {
+  color: var(--highlight-blue-light);
+}
+
+.song-playlists-text {
   flex: 1 1 auto;
   min-width: 0;
   text-align: left;
+}
+
+.song-playlists-name,
+.song-playlists-meta {
+  display: block;
   overflow: hidden;
   white-space: nowrap;
   text-overflow: ellipsis;
 }
 
-.song-playlists-added {
-  color: var(--highlight-blue-light);
+.song-playlists-name {
+  font-size: 1.15em;
+  font-weight: 600;
+}
+
+.song-playlists-meta {
+  font-size: 0.85em;
+  color: var(--color-darker);
 }

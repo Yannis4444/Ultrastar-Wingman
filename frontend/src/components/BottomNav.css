@@ -38,7 +38,16 @@
 
 /* The logged-in singer's own picture in place of the User glyph. Tinting a
    photo is not possible, so the 1px ring in `currentColor` is what turns pink
-   on the active tab. */
+   on the active tab.
+
+   A shadow rather than an `outline`: the tab is a flex item sized by its
+   caption, so `margin: auto` lands the picture on a fractional x, and Chrome
+   rasterises a rounded outline as a stroke of its own — at 24px the two edges
+   round to different device pixels and the ring comes out lopsided. A spread
+   shadow is painted from this element's own rounded box, so ring and picture
+   share one edge whatever the subpixel offset. It also brings the ring back
+   to 26px across from the 28px the outline's offset made it, closer to the
+   24px glyph box of the other tabs. */
 .bottom-nav-avatar {
   display: block;
   margin: auto;
@@ -46,8 +55,7 @@
   height: 24px;
   object-fit: cover;
   border-radius: 50%;
-  outline: 1px solid currentColor;
-  outline-offset: 1px;
+  box-shadow: 0 0 0 1px currentColor;
 }
 
 .bottom-nav span {

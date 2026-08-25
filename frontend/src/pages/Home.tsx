@@ -29,7 +29,6 @@ export default function Home() {
       </div>
       <UsdxSetupBanner />
       <CurrentlyPlaying />
-      <WishlistTile />
       {/* The slot machine has a page of its own; Home only points at it. */}
       {auth.can("songs.view") && (
         <Link className="home-entry" to="/spinner">
@@ -38,6 +37,7 @@ export default function Home() {
           <Icon name="chevron-right" className="home-entry-chevron" />
         </Link>
       )}
+      <WishlistTile />
     </>
   );
 }

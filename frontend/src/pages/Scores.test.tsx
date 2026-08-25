@@ -237,6 +237,20 @@ test("a session whose sings were all scored says only 'Sings'", async () => {
   );
 });
 
+test("the grouping and sorting choices stand above the chart they shape", async () => {
+  renderScores();
+  await screen.findAllByTestId("chart");
+
+  // Reading order: decide what is being compared, then look at the picture.
+  const legend = screen.getByText("Grouping");
+  const title = document.querySelector(".scores-chart-title");
+  expect(title).not.toBeNull();
+  expect(
+    legend.compareDocumentPosition(title as Node) &
+      Node.DOCUMENT_POSITION_FOLLOWING,
+  ).toBeTruthy();
+});
+
 test("switching the grouping rebuilds the chart around the other axis", async () => {
   renderScores();
   await screen.findAllByTestId("chart");

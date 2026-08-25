@@ -243,6 +243,18 @@ test("a number setting sends a number, not a string", async () => {
   );
 });
 
+test("an input sits under its label, a toggle stays on its line", async () => {
+  renderSettings();
+
+  // Labels vary far more in length than values do: sharing the line gave every
+  // box a different width. A checkbox is the exception, see SettingField.
+  const input = await screen.findByLabelText("Username");
+  expect(input.closest(".setting-row")).toHaveClass("setting-row-stacked");
+  expect(
+    screen.getByLabelText("Overwrite").closest(".setting-row"),
+  ).not.toHaveClass("setting-row-stacked");
+});
+
 test("a toggle saves immediately", async () => {
   updateSetting.mockResolvedValue({
     data: { ...OVERWRITE, value: true, is_set: true },
