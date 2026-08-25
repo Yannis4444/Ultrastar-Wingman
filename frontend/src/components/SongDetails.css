@@ -86,20 +86,38 @@
   cursor: pointer;
 }
 
-/* The one primary action in the modal: bigger than the two state toggles
-   beside it and the only filled control in the row. */
+/* The one primary action in the modal: an unfilled glyph that reads as primary
+   through size and the blue accent alone. The round radius survives the missing
+   fill only so the global :focus-visible ring stays round around the target. */
 .song-control-sing {
   grid-column: 2;
   width: 72px;
   height: 72px;
-  font-size: 2.4em;
-  color: var(--color);
-  background-color: var(--highlight-blue-dark);
+  font-size: 2.6em;
+  color: var(--highlight-blue-light);
   border-radius: 50%;
+  transition:
+    color 0.15s ease,
+    transform 0.15s ease;
 }
 
 .song-control-sing:hover:enabled {
-  background-color: var(--highlight-blue-light);
+  color: var(--color);
+  transform: scale(1.06);
+}
+
+.song-control-sing:disabled {
+  color: var(--color-darkerer);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .song-control-sing {
+    transition: none;
+  }
+
+  .song-control-sing:hover:enabled {
+    transform: none;
+  }
 }
 
 .song-control-favorite-on {
