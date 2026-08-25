@@ -1,20 +1,20 @@
+/* Flat: a hairline and 16px of air instead of a tile — the boxplot card is the
+   only surface on this page that gets one. */
 .session-summary {
   margin: 16px 16px 0 16px;
-  padding: 12px 16px;
-  background-color: var(--tile-bg);
-  border-radius: var(--border-radius);
+  padding-bottom: 12px;
+  border-bottom: 1px solid var(--input-border-color);
 }
 
 .session-summary-top {
   display: flex;
   flex-wrap: wrap;
-  gap: 0 6px;
-  align-items: baseline;
+  gap: 0 8px;
+  align-items: center;
   margin: 0 0 12px 0;
 }
 
 .session-summary-trophy {
-  align-self: center;
   font-size: 20px;
   color: var(--highlight-gold-light);
 }
@@ -26,8 +26,17 @@
   font-variant-numeric: tabular-nums;
 }
 
+.session-summary-avatar {
+  width: 28px;
+  height: 28px;
+  font-size: 0.9em;
+}
+
 .session-summary-who {
+  overflow: hidden;
   font-size: 1.1em;
+  white-space: nowrap;
+  text-overflow: ellipsis;
 }
 
 /* The song drops to its own line on a phone instead of truncating. */
@@ -38,25 +47,13 @@
   overflow-wrap: anywhere;
 }
 
-.session-summary-counts {
-  display: grid;
-  grid-template-columns: repeat(3, 1fr);
+/* Icons carry the meaning; the words live in the tooltip and the hidden label
+   so three counts do not need three captions. */
+.session-summary-stats {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px 24px;
+  align-items: center;
   margin: 0;
-}
-
-/* Hairline dividers — the flat equivalent of three boxes. */
-.session-summary-counts > div + div {
-  padding-left: 12px;
-  border-left: 1px solid var(--input-border-color);
-}
-
-.session-summary-counts dt {
-  font-size: 0.8em;
-  color: var(--color-dark);
-}
-
-.session-summary-counts dd {
-  margin: 2px 0 0 0;
-  font-size: 1.3em;
-  font-variant-numeric: tabular-nums;
+  font-size: 1.1em;
 }

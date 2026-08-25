@@ -5,9 +5,13 @@ import {
   buildHistogramOption,
   difficultyLabel,
   groupScores,
+  groupValue,
   histogram,
+  scoreLabel,
+  scorePlayer,
   sessionLabel,
   songLabel,
+  sortGroups,
   summarize,
 } from "./stats";
 
@@ -134,12 +138,24 @@ test("grouping by song puts the strongest song on top and labels it", () => {
     "Oasis – Wonderwall",
     "Queen – Bohemian Rhapsody",
   ]);
-  expect(groups[0].songId).toBe("usdb:2");
+  expect(groups[0].song?.id).toBe("usdb:2");
+});
+
+test("ungrouped, every score stands alone under its own song", () => {
+  const groups = groupScores(scores, "none");
+
+  expect(groups).toHaveLength(4);
+  // The row is headed by the song, so the singer is what the caption says.
+  expect(groups[0].label).toBe("Oasis – Wonderwall");
+  expect(scoreLabel(groups[0].scores[0], "none")).toBe("Alice");
+  expect(groups[0].song?.id).toBe("usdb:2");
+  // One score each: best, worst and average are all that one number.
+  expect(groups[0]).toMatchObject({ best: 9000, worst: 9000, average: 9000 });
 });
 
 test("the grouping decides the boxplot's categories and boxes", () => {
-  const byPlayer = buildBoxplotOption(scores, "player");
-  const bySong = buildBoxplotOption(scores, "song");
+  const byPlayer = buildBoxplotOption(groupScores(scores, "player"));
+  const bySong = buildBoxplotOption(groupScores(scores, "song"));
 
   expect(axisLabels(byPlayer)).toEqual(["Alice", "Bob"]);
   expect(axisLabels(bySong)).toEqual([
@@ -154,7 +170,9 @@ test("the grouping decides the boxplot's categories and boxes", () => {
 });
 
 test("groups of single scores get bars on an adaptive axis, not boxplots", () => {
-  const option = buildBoxplotOption([score("Alice", 30, bohemian)], "player");
+  const option = buildBoxplotOption(
+    groupScores([score("Alice", 30, bohemian)], "player"),
+  );
 
   // A boxplot of one score is a hairline; a fixed 0–10000 axis makes it 1px.
   expect((option.series as { type: string }[])[0].type).toBe("bar");
@@ -163,7 +181,7 @@ test("groups of single scores get bars on an adaptive axis, not boxplots", () =>
 });
 
 test("the score axis keeps the full range once scores pass 40% of perfect", () => {
-  const option = buildBoxplotOption(scores, "player");
+  const option = buildBoxplotOption(groupScores(scores, "player"));
 
   expect((option.series as { type: string }[])[0].type).toBe("boxplot");
   expect((option.xAxis as { max: number }).max).toBe(10000);
@@ -199,8 +217,81 @@ test("the summary counts distinct songs and singers and finds the top score", ()
   expect(summary.top?.player_name).toBe("Alice");
 });
 
+test("the summary counts scored performances, not score rows", () => {
+  // One duet: two singers, two scores, but a single run of the song.
+  const duet = [
+    score("Alice", 8000, bohemian, { sing_id: "sing-duet" }),
+    score("Bob", 7000, bohemian, { sing_id: "sing-duet" }),
+  ];
+
+  expect(summarize(duet)).toMatchObject({ sings: 1, songs: 1, singers: 2 });
+});
+
 test("an empty session summarizes to nothing rather than crashing", () => {
-  expect(summarize([])).toEqual({ songs: 0, singers: 0, top: null });
+  expect(summarize([])).toEqual({
+    sings: 0,
+    songs: 0,
+    singers: 0,
+    top: null,
+  });
   expect(groupScores([], "player")).toEqual([]);
-  expect(axisLabels(buildBoxplotOption([], "player"))).toEqual([]);
+  expect(axisLabels(buildBoxplotOption([]))).toEqual([]);
+});
+
+test("each sorting orders the groups the way the old app did", () => {
+  const groups = groupScores(scores, "player");
+  const labels = (sorting: Parameters<typeof sortGroups>[1]): string[] =>
+    sortGroups(groups, sorting).map((group) => group.label);
+
+  expect(labels("best")).toEqual(["Alice", "Bob"]);
+  expect(labels("average")).toEqual(["Alice", "Bob"]);
+  expect(labels("alphabetically")).toEqual(["Alice", "Bob"]);
+  // "worst score" ranks ascending: whoever bombed hardest leads the list.
+  expect(labels("worst")).toEqual(["Bob", "Alice"]);
+  // Sorting never mutates the list it was handed.
+  expect(groups.map((group) => group.label)).toEqual(["Alice", "Bob"]);
+});
+
+test("groups that tie on the sorted value fall back to their label", () => {
+  const tied = groupScores(
+    [
+      score("Zoe", 5000, bohemian, { player_id: "z" }),
+      score("Ada", 5000, wonderwall, { player_id: "a" }),
+    ],
+    "player",
+  );
+
+  expect(sortGroups(tied, "best").map((group) => group.label)).toEqual([
+    "Ada",
+    "Zoe",
+  ]);
+  expect(sortGroups(tied, "worst").map((group) => group.label)).toEqual([
+    "Ada",
+    "Zoe",
+  ]);
+});
+
+test("the number a row shows is the number it is sorted by", () => {
+  const [alice] = groupScores(scores, "player");
+
+  expect(groupValue(alice, "best")).toBe(9000);
+  expect(groupValue(alice, "worst")).toBe(8000);
+  expect(groupValue(alice, "average")).toBe(8500);
+  // Alphabetical order ranks by nothing, so the best score stands in.
+  expect(groupValue(alice, "alphabetically")).toBe(9000);
+});
+
+test("a singer without a player record still gets an avatar to fall back on", () => {
+  const known = { id: "p1", name: "Alice", registered: true, has_avatar: true };
+  const players = new Map([[known.id, known]]);
+
+  expect(
+    scorePlayer(score("Alice", 9000, bohemian, { player_id: "p1" }), players),
+  ).toBe(known);
+  // A guest has no player id at all; the stand-in carries the name so
+  // `PlayerAvatar` can draw its initial.
+  expect(scorePlayer(score("Guest", 100, bohemian), players)).toMatchObject({
+    name: "Guest",
+    has_avatar: false,
+  });
 });

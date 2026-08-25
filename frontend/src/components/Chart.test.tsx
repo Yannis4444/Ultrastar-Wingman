@@ -6,7 +6,7 @@ import Chart from "./Chart";
 // echarts wiring runs: a missing `echarts` instance or an unregistered series
 // type fails on mount, and nothing else in the suite would notice.
 test.each([
-  ["boxplot", buildBoxplotOption([], "player")],
+  ["boxplot", buildBoxplotOption([])],
   ["histogram", buildHistogramOption([])],
 ])("the %s chart mounts with echarts wired up", (kind, option) => {
   render(<Chart option={option} height={100} label={`${kind} chart`} />);

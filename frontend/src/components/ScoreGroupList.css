@@ -48,13 +48,37 @@
   font-variant-numeric: tabular-nums;
 }
 
-/* The old app's pink podium numeral, without its box. */
-.score-groups > li:nth-child(-n + 3) .score-group-rank {
+/* The old app's pink podium numeral, without its box — and only while the
+   order actually is a ranking. */
+.score-groups-podium > li:nth-child(-n + 3) .score-group-rank {
   font-weight: bold;
   color: var(--highlight-pink-light);
 }
 
+/* 40px, so the way into the song modal is a full touch target. */
+.score-group-cover-button {
+  flex: 0 0 auto;
+  display: block;
+  width: 40px;
+  height: 40px;
+  padding: 0;
+  background: none;
+  border: 0;
+  border-radius: var(--border-radius-small);
+  cursor: pointer;
+}
+
+.score-group-cover-button:focus-visible {
+  outline: 2px solid var(--highlight-blue-light);
+  outline-offset: 2px;
+}
+
 .score-group-cover {
+  width: 40px;
+  height: 40px;
+}
+
+.score-group-avatar {
   width: 40px;
   height: 40px;
 }
@@ -71,6 +95,14 @@
   text-overflow: ellipsis;
 }
 
+/* One line of icon stats: 4px inside a pair, 8px between them, and the whole
+   run truncates as one.
+   The stats run as plain inline content here — the old app's `.data` line — and
+   deliberately not as flex boxes. A flex row shrinks all four at once, so on a
+   phone every number lost digits off its own end ("↑ 9…"); a row of atomic
+   inline-flex boxes clips mid-number with no ellipsis, which reads as a wrong
+   value. Inline text gives the block's `text-overflow` something to work with,
+   so the line drops whole stats and ends in one ellipsis. */
 .score-group-caption {
   display: block;
   overflow: hidden;
@@ -79,6 +111,24 @@
   white-space: nowrap;
   text-overflow: ellipsis;
   font-variant-numeric: tabular-nums;
+}
+
+.score-group-caption .icon-stat {
+  display: inline;
+}
+
+/* `gap` is gone with the flex box; these are the same 4px and 8px. */
+.score-group-caption .icon-stat .icon {
+  margin-right: 4px;
+  vertical-align: -0.15em;
+}
+
+.score-group-caption .icon-stat + .icon-stat {
+  margin-left: 8px;
+}
+
+.score-group-caption .icon-stat-value {
+  color: var(--color-darker);
 }
 
 .score-group-score {
@@ -114,13 +164,45 @@ details[open] > summary .score-group-chevron {
 }
 
 .score-group-scores > li {
-  display: flex;
-  gap: 12px;
-  align-items: baseline;
-  padding: 6px 8px;
   border-top: 1px solid var(--input-border-color);
 }
 
-.score-group-scores .score-group-score {
+.score-entry {
+  display: flex;
+  gap: 12px;
+  align-items: center;
+  width: 100%;
+  min-height: 44px;
+  padding: 6px 8px;
+  border-radius: var(--border-radius-small);
+}
+
+/* A row that opens the song modal: a button that keeps the row's looks. */
+.score-entry-button {
+  font: inherit;
+  color: inherit;
+  text-align: left;
+  background: none;
+  border: 0;
+  cursor: pointer;
+}
+
+.score-entry-button:hover {
+  background-color: var(--highlight-blue-dark);
+}
+
+.score-entry-button:focus-visible {
+  outline: 2px solid var(--highlight-blue-light);
+  outline-offset: -2px;
+}
+
+.score-entry-cover,
+.score-entry-avatar {
+  width: 32px;
+  height: 32px;
+  font-size: 0.9em;
+}
+
+.score-entry .score-group-score {
   font-size: 1em;
 }

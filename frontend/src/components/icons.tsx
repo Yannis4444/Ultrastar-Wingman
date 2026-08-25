@@ -17,6 +17,10 @@ const PATHS = {
   "chevron-down": "M7.41 8.59 12 13.17l4.59-4.58L18 10l-6 6-6-6 1.41-1.41Z",
   "chevron-right": "M8.59 16.59 13.17 12 8.59 7.41 10 6l6 6-6 6-1.41-1.41Z",
   "chevron-left": "M15.41 7.41 10.83 12l4.58 4.59L14 18l-6-6 6-6 1.41 1.41Z",
+  // Long, thin arrows — the score list's "best" and "worst" markers. Slimmer
+  // than the chevrons so a caption run of four stats stays readable at 0.85em.
+  "arrow-up": "M12 3l6 7h-4v11h-4V10H6l6-7Z",
+  "arrow-down": "M12 21l-6-7h4V3h4v11h4l-6 7Z",
   download:
     "M11 3h2v8.2l3.1-3.1 1.4 1.4L12 15 6.5 9.5 7.9 8.1 11 11.2V3Zm-6 15h14v2H5v-2Z",
   clock:
@@ -59,6 +63,15 @@ const PATHS = {
   // confused with the plain three-bar `playlist` glyph next to it.
   list: "M5 5.5a1.5 1.5 0 1 0 0 3 1.5 1.5 0 0 0 0-3Zm5 .5h10v2H10V6Zm-5 4.5a1.5 1.5 0 1 0 0 3 1.5 1.5 0 0 0 0-3Zm5 .5h10v2H10v-2Zm-5 4.5a1.5 1.5 0 1 0 0 3 1.5 1.5 0 0 0 0-3Zm5 .5h10v2H10v-2Z",
   chart: "M4 20h16v2H4v-2Zm1-8h3v7H5v-7Zm5.5-7h3v14h-3V5ZM16 9h3v10h-3V9Z",
+  // The old app's `TbMathAvg`, which is a slashed circle — not the bar over a
+  // slash it is sometimes described as. A bar that close to a slash reads as a
+  // "7" at caption size; the ⌀ never reads as a digit. Ring punched out by the
+  // nonzero fill rule (the inner arc is wound the other way round).
+  average:
+    "M12 2.2a9.8 9.8 0 1 1-.01 0Zm0 2.8a7 7 0 1 0 .01 0ZM5.4 20.5 20.5 5.4l-1.9-1.9L3.5 18.6l1.9 1.9Z",
+  // "#" — the count marker (old app's `MdNumbers`). Upright rather than
+  // italic: at caption size the slanted bars smear into each other.
+  hash: "M7 3h2v18H7V3Zm8 0h2v18h-2V3ZM3 8h18v2H3V8Zm0 6h18v2H3v-2Z",
   // The die face is solid; the five pips are wound the other way round so the
   // nonzero fill rule punches them out (same trick as `info` and `clock`).
   dice: "M6 3h12a3 3 0 0 1 3 3v12a3 3 0 0 1-3 3H6a3 3 0 0 1-3-3V6a3 3 0 0 1 3-3Zm2 3.4a1.6 1.6 0 1 0 0 3.2 1.6 1.6 0 1 0 0-3.2Zm8 0a1.6 1.6 0 1 0 0 3.2 1.6 1.6 0 1 0 0-3.2Zm-4 4a1.6 1.6 0 1 0 0 3.2 1.6 1.6 0 1 0 0-3.2Zm-4 4a1.6 1.6 0 1 0 0 3.2 1.6 1.6 0 1 0 0-3.2Zm8 0a1.6 1.6 0 1 0 0 3.2 1.6 1.6 0 1 0 0-3.2Z",
