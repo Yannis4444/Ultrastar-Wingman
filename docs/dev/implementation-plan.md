@@ -195,7 +195,7 @@ feature, release workflow.
   downloads list behind a header button in a modal; scores page rebuilt
   (one summary tile, segmented group-by, gated chart, worded rankings);
   user page split into an identity card plus `/user/accounts` and
-  `/user/permissions` (role-first editor replaced the matrix); host view is
+  `/user/permissions` (one matrix, a column per role); host view is
   a TV stage with an idle-timer overlay (cursor + gear hide when the mouse
   rests) and a QR that encodes the LAN address (new `GET /join`); shared
   `components/icons.tsx` (inline SVG) and `.icon-button` classes carry the

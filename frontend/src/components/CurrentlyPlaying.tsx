@@ -1,6 +1,6 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useEffect, useState } from "react";
-import type { CurrentSing } from "../api";
+import type { CurrentSing, SongRead } from "../api";
 import {
   getCurrentSingOptions,
   getCurrentSingQueryKey,
@@ -43,7 +43,10 @@ function useElapsedSeconds(startedAt: string | null): number {
   return Math.max(0, Math.floor((now - parseServerTime(startedAt)) / 1000));
 }
 
-/** The running song, or nothing at all when USDX is idle. */
+/**
+ * The running song. When USDX is idle the block itself is gone — only a song
+ * modal the reader opened from it stays until they close it.
+ */
 export default function CurrentlyPlaying({
   hideControls = false,
 }: CurrentlyPlayingProps) {
@@ -54,8 +57,14 @@ export default function CurrentlyPlaying({
   const favorites = useFavorites();
   const [askStop, setAskStop] = useState(false);
   // Which song-modal view the block opened, if any — the cover goes to the song
-  // itself, the playlist button straight into the picker.
-  const [details, setDetails] = useState<"main" | "playlists" | null>(null);
+  // itself, the playlist button straight into the picker. The song travels with
+  // it: the sing can end while the modal is open (USDX finished it, or somebody
+  // else stopped it), and the block going away must not take the reader's open
+  // modal with it.
+  const [details, setDetails] = useState<{
+    view: "main" | "playlists";
+    song: SongRead;
+  } | null>(null);
 
   const canManagePlaylists = auth.user !== null && auth.can("playlists.manage");
   // Same query key the modal uses, so this only warms a cache entry it needs
@@ -82,7 +91,26 @@ export default function CurrentlyPlaying({
   const sing = current.data?.sing ?? null;
   const elapsed = useElapsedSeconds(sing?.started_at ?? null);
 
-  if (!sing) return null;
+  // A sing that ends takes its Stop confirmation with it: the flag would
+  // otherwise survive the idle gap and put the dialog back over the *next*
+  // song, one stray tap away from stopping it. Not folded into the
+  // `karaoke.ended` handler — a plain refetch can also come back empty.
+  useEffect(() => {
+    if (sing === null) setAskStop(false);
+  }, [sing]);
+
+  // Rendered outside the block below as well as instead of it, so that the end
+  // of the sing closes the block and leaves the modal standing.
+  const modal =
+    details !== null ? (
+      <SongDetails
+        song={details.song}
+        initialView={details.view}
+        onClose={() => setDetails(null)}
+      />
+    ) : null;
+
+  if (!sing) return modal;
 
   const song = sing.song;
   const duration = song.duration_seconds;
@@ -116,7 +144,7 @@ export default function CurrentlyPlaying({
             type="button"
             className="currently-playing-cover-button"
             aria-label={`Details for ${song.title}`}
-            onClick={() => setDetails("main")}
+            onClick={() => setDetails({ view: "main", song })}
           >
             {cover}
           </button>
@@ -185,7 +213,7 @@ export default function CurrentlyPlaying({
                 type="button"
                 className="icon-button"
                 aria-label="Add to playlist"
-                onClick={() => setDetails("playlists")}
+                onClick={() => setDetails({ view: "playlists", song })}
               >
                 <Icon name="playlist-plus" />
               </button>
@@ -206,13 +234,7 @@ export default function CurrentlyPlaying({
         )}
       </section>
 
-      {details !== null && (
-        <SongDetails
-          song={song}
-          initialView={details}
-          onClose={() => setDetails(null)}
-        />
-      )}
+      {modal}
 
       {!hideControls && askStop && (
         <ConfirmModal

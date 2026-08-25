@@ -257,6 +257,35 @@ test("the cover opens the song modal", async () => {
   ).toBeInTheDocument();
 });
 
+test("the song modal stays open when the sing ends under it", async () => {
+  getCurrentSing.mockResolvedValue({ data: { sing: SING } });
+  const { container } = renderTile();
+
+  fireEvent.click(
+    await screen.findByRole("button", { name: "Details for Dancing Queen" }),
+  );
+  await screen.findByRole("dialog", { name: "Dancing Queen" });
+
+  FakeSocket.deliver({
+    event: "karaoke.ended",
+    sing_id: "sing-1",
+    song_id: "usdb:1",
+  });
+
+  // The block goes, the modal the reader opened stays — with the song it was
+  // opened for, which is no longer the running one.
+  await waitFor(() =>
+    expect(
+      screen.queryByRole("region", { name: "Now playing" }),
+    ).not.toBeInTheDocument(),
+  );
+  const dialog = screen.getByRole("dialog", { name: "Dancing Queen" });
+
+  fireEvent.click(within(dialog).getByRole("button", { name: "Close" }));
+
+  await waitFor(() => expect(container).toBeEmptyDOMElement());
+});
+
 test("the host page owns Stop, so hideControls leaves the whole row out", async () => {
   loggedIn();
   getCurrentSing.mockResolvedValue({ data: { sing: SING } });
@@ -289,6 +318,32 @@ test("stopping asks first and then calls the backend", async () => {
   await waitFor(() =>
     expect(screen.queryByText("Dancing Queen")).not.toBeInTheDocument(),
   );
+});
+
+test("a stop nobody confirmed does not follow the next song", async () => {
+  getCurrentSing.mockResolvedValue({ data: { sing: SING } });
+  renderTile();
+
+  fireEvent.click(await screen.findByRole("button", { name: "Stop" }));
+  screen.getByRole("dialog", { name: "Stop the song" });
+
+  // USDX finishes the song while the prompt is up, then the next one starts.
+  FakeSocket.deliver({
+    event: "karaoke.ended",
+    sing_id: "sing-1",
+    song_id: "usdb:1",
+  });
+  await waitFor(() =>
+    expect(screen.queryByText("Dancing Queen")).not.toBeInTheDocument(),
+  );
+  FakeSocket.deliver({ event: "karaoke.started", sing: SING });
+
+  // The block is back; the prompt for the song that already ended is not.
+  await screen.findByRole("region", { name: "Now playing" });
+  expect(
+    screen.queryByRole("dialog", { name: "Stop the song" }),
+  ).not.toBeInTheDocument();
+  expect(stopSinging).not.toHaveBeenCalled();
 });
 
 test("an anonymous browser gets Stop alone", async () => {

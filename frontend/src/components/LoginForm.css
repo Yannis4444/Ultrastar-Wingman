@@ -33,6 +33,13 @@
   margin: 0;
 }
 
+/* The fields keep the 8px field rhythm; the action that follows them gets the
+   16px block gap, so "Log in" reads as the end of the form rather than as one
+   more field stuck to the password. */
+.login-form button[type="submit"] {
+  margin-top: 8px;
+}
+
 .login-hint {
   margin: 0;
   font-size: 0.85em;

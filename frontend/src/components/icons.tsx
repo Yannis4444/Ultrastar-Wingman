@@ -63,12 +63,13 @@ const PATHS = {
   // confused with the plain three-bar `playlist` glyph next to it.
   list: "M5 5.5a1.5 1.5 0 1 0 0 3 1.5 1.5 0 0 0 0-3Zm5 .5h10v2H10V6Zm-5 4.5a1.5 1.5 0 1 0 0 3 1.5 1.5 0 0 0 0-3Zm5 .5h10v2H10v-2Zm-5 4.5a1.5 1.5 0 1 0 0 3 1.5 1.5 0 0 0 0-3Zm5 .5h10v2H10v-2Z",
   chart: "M4 20h16v2H4v-2Zm1-8h3v7H5v-7Zm5.5-7h3v14h-3V5ZM16 9h3v10h-3V9Z",
-  // The old app's `TbMathAvg`, which is a slashed circle — not the bar over a
-  // slash it is sometimes described as. A bar that close to a slash reads as a
-  // "7" at caption size; the ⌀ never reads as a digit. Ring punched out by the
-  // nonzero fill rule (the inner arc is wound the other way round).
-  average:
-    "M12 2.2a9.8 9.8 0 1 1-.01 0Zm0 2.8a7 7 0 1 0 .01 0ZM5.4 20.5 20.5 5.4l-1.9-1.9L3.5 18.6l1.9 1.9Z",
+  // The mean mark: a bar over a slash. The old app's `TbMathAvg` is really a
+  // slashed circle (⌀), and it was drawn that way here at first — but a ring
+  // with a diagonal through it is the "forbidden" gestalt, which is exactly how
+  // it read at the 24px stat size. The bar clears the slash by 2.7 units at the
+  // closest (a full stroke width) and the slash overhangs it on both ends, so
+  // the pair never joins into a "7" at caption size either.
+  average: "M6 3.2h12v2.4H6V3.2ZM2.3 19.3 20.3 7.3l1.4 2.1-18 12Z",
   // "#" — the count marker (old app's `MdNumbers`). Upright rather than
   // italic: at caption size the slanted bars smear into each other.
   hash: "M7 3h2v18H7V3Zm8 0h2v18h-2V3ZM3 8h18v2H3V8Zm0 6h18v2H3v-2Z",
