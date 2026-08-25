@@ -1,6 +1,6 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useEffect, useState } from "react";
-import { Link, useSearchParams } from "react-router-dom";
+import { useSearchParams } from "react-router-dom";
 import type { PlayerRead } from "../api";
 import {
   listFavoritesOptions,
@@ -12,10 +12,12 @@ import {
 } from "../api/@tanstack/react-query.gen";
 import { useAuth } from "../auth";
 import IconStat from "../components/IconStat";
-import { Icon, type IconName } from "../components/icons";
+import { Icon } from "../components/icons";
 import LoginForm from "../components/LoginForm";
+import ManageMenu from "../components/ManageMenu";
 import PlayerAvatar from "../components/PlayerAvatar";
 import { errorDetail, errorMessage } from "../errors";
+import { manageEntries } from "../manage";
 import { playerSummary } from "../stats";
 import "./User.css";
 
@@ -49,40 +51,6 @@ const SSO_MESSAGES: Record<string, string> = {
     "The login provider's answer could not be trusted, so nobody was logged in.",
   login_failed: "The sign-in did not work. Try again.",
 };
-
-/**
- * The management surfaces, one navigation row each — never inline on this page.
- * A row appears as soon as the account holds one of its capabilities: the people
- * page is two rights in one place, managing the players and managing the
- * accounts. Merely *seeing* the players is not one of them — every party guest
- * holds `players.view`, and a "Manage" heading over the login form would promise
- * a stranger something to do.
- */
-const MENU: {
-  capabilities: string[];
-  label: string;
-  to: string;
-  icon: IconName;
-}[] = [
-  {
-    capabilities: ["settings.view"],
-    label: "Settings",
-    to: "/settings",
-    icon: "gear",
-  },
-  {
-    capabilities: ["players.manage", "users.manage"],
-    label: "Players & accounts",
-    to: "/user/accounts",
-    icon: "users",
-  },
-  {
-    capabilities: ["permissions.manage"],
-    label: "Permissions",
-    to: "/user/permissions",
-    icon: "shield",
-  },
-];
 
 /**
  * The account's own singing record, over every party it ever took part in.
@@ -229,11 +197,9 @@ export default function User() {
   const managePlayers = auth.can("players.manage");
   const ownPlayer =
     players.data?.players.find((player) => player.id === ownPlayerId) ?? null;
-  // `loaded` on every gate: `can` says yes until /auth/me answered, and a guest
-  // must not see the management rows (or their requests) at all.
-  const menuRows = auth.loaded
-    ? MENU.filter((row) => row.capabilities.some((name) => auth.can(name)))
-    : [];
+  // The same rows the host screen lists on its own manage view; the back arrow
+  // of the pages behind them leads here because nothing says otherwise.
+  const menuRows = manageEntries(auth);
 
   return (
     <>
@@ -318,15 +284,7 @@ export default function User() {
       {menuRows.length > 0 && (
         <>
           <h2>Manage</h2>
-          <nav className="user-menu">
-            {menuRows.map((row) => (
-              <Link key={row.to} className="user-menu-row" to={row.to}>
-                <Icon name={row.icon} className="user-menu-icon" />
-                <span className="user-menu-label">{row.label}</span>
-                <Icon name="chevron-right" className="user-menu-icon" />
-              </Link>
-            ))}
-          </nav>
+          <ManageMenu entries={menuRows} />
         </>
       )}
     </>

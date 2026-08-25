@@ -24,10 +24,10 @@ vi.mock("./api/sdk.gen", async (importOriginal) => ({
   listPlaylists: vi.fn(async () => ({ data: { playlists: [] } })),
 }));
 
-function renderApp(path: string) {
+function renderApp(entry: string | { pathname: string; state?: unknown }) {
   return render(
     <QueryClientProvider client={new QueryClient()}>
-      <MemoryRouter initialEntries={[path]}>
+      <MemoryRouter initialEntries={[entry]}>
         <App />
       </MemoryRouter>
     </QueryClientProvider>,
@@ -54,6 +54,18 @@ test("the user tab covers the settings page", () => {
 
   expect(screen.getByRole("link", { name: "User" })).toHaveClass("active");
   expect(screen.getByRole("link", { name: "Home" })).not.toHaveClass("active");
+});
+
+test("a settings page nobody linked to is still the phone's own", async () => {
+  renderApp("/settings");
+
+  // The host view names its way back in the router state; a typed or shared URL
+  // carries none, so the page keeps its own parent and its tab bar.
+  expect(await screen.findByRole("link", { name: "Back" })).toHaveAttribute(
+    "href",
+    "/user",
+  );
+  expect(screen.getByRole("link", { name: "Home" })).toBeInTheDocument();
 });
 
 test("the songs tab covers the USDB explorer", () => {
@@ -85,4 +97,21 @@ test("the host screen has no bottom navigation", () => {
 
   expect(screen.queryByRole("link", { name: "Home" })).not.toBeInTheDocument();
   expect(screen.getByText("Scan to join")).toBeInTheDocument();
+});
+
+test("the host's manage view is a host page, so it has no tab bar", () => {
+  renderApp("/host/manage");
+
+  expect(screen.getByRole("heading", { name: "Manage" })).toBeInTheDocument();
+  expect(screen.queryByRole("link", { name: "Home" })).not.toBeInTheDocument();
+});
+
+test("a page opened from the host view keeps the phone chrome away", async () => {
+  renderApp({ pathname: "/settings", state: { back: "/host/manage" } });
+
+  expect(await screen.findByRole("link", { name: "Back" })).toHaveAttribute(
+    "href",
+    "/host/manage",
+  );
+  expect(screen.queryByRole("link", { name: "Home" })).not.toBeInTheDocument();
 });

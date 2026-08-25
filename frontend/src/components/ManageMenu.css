@@ -1,0 +1,39 @@
+/* Flat hairline rows on the page background; the phone metrics are the base and
+   the host page scales them up for couch distance. */
+.manage-menu {
+  display: flex;
+  flex-direction: column;
+  margin: 8px 16px 0 16px;
+}
+
+.manage-menu-row {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  min-height: 48px;
+  padding: 8px 0;
+  color: var(--color);
+  text-decoration: none;
+  border-bottom: 1px solid var(--input-border-color);
+}
+
+.manage-menu-row:last-child {
+  border-bottom: none;
+}
+
+.manage-menu-row:hover {
+  color: var(--highlight-blue-light);
+}
+
+.manage-menu-icon {
+  font-size: 20px;
+  color: var(--color-darker);
+}
+
+.manage-menu-label {
+  flex: 1 1 auto;
+  min-width: 0;
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}

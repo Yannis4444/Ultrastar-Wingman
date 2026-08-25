@@ -16,6 +16,7 @@ import { Icon } from "../components/icons";
 import LatestScores from "../components/LatestScores";
 import SongCover from "../components/SongCover";
 import { useWishlist } from "../hooks/useWishlist";
+import { manageEntries } from "../manage";
 import "./Host.css";
 
 /** The query parameter the server puts into the URL it logs and opens. */
@@ -128,6 +129,10 @@ export default function Host() {
   const join = useQuery(getJoinInfoOptions());
   const joinUrl = join.data?.url ?? window.location.origin;
 
+  // Only what this session may actually open, so a guest that found the host
+  // URL sees the stage and nothing else.
+  const manage = manageEntries(auth);
+
   const stop = useMutation({
     ...stopSingingMutation(),
     onSuccess: () =>
@@ -163,13 +168,17 @@ export default function Host() {
       {/* Everything mouse-only lives here; hiding is opacity-only so the
           strings stay in the DOM and Tab still reaches the buttons. */}
       <div className="host-controls">
-        <Link
-          to="/settings"
-          className="icon-button host-icon-button"
-          aria-label="Settings"
-        >
-          <Icon name="gear" />
-        </Link>
+        {/* The host's own manage view, not the phone's user page: this screen
+            has no tab bar to find its way back from. */}
+        {manage.length > 0 && (
+          <Link
+            to="/host/manage"
+            className="icon-button host-icon-button"
+            aria-label="Manage"
+          >
+            <Icon name="gear" />
+          </Link>
+        )}
         {sing !== null && auth.can("karaoke.stop") && (
           <button
             type="button"

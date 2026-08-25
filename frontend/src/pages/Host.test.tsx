@@ -111,11 +111,22 @@ test("the QR encodes the server's join URL and prints it readably", async () => 
   expect(await screen.findByText("192.168.0.10:8080")).toBeInTheDocument();
 });
 
-test("the overlay has a settings link for the karaoke PC", async () => {
+test("the overlay opens the host's own manage view, not the user page", async () => {
+  getMe.mockResolvedValue(
+    meResponse(["settings.view"], { is_host: true, role: "admin" }),
+  );
   renderHost("/host");
 
-  const gear = await screen.findByRole("link", { name: "Settings" });
-  expect(gear).toHaveAttribute("href", "/settings");
+  const gear = await screen.findByRole("link", { name: "Manage" });
+  expect(gear).toHaveAttribute("href", "/host/manage");
+});
+
+test("a browser without management rights gets no manage entry", async () => {
+  // The default `getMe` here is a plain guest that only found the host URL.
+  renderHost("/host");
+
+  expect(await screen.findByText("Scan to join")).toBeInTheDocument();
+  expect(screen.queryByRole("link", { name: "Manage" })).toBeNull();
 });
 
 test("an idle USDX invites guests to pick a song", async () => {
