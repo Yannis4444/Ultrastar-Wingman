@@ -48,9 +48,19 @@ Where Ultrastar Deluxe lives.
 | **Config file** (`usdx.config_file`) | Overrides the derived `<base path>\config.ini` — the file that holds players, colours and avatars. |
 | **Avatars directory** (`usdx.avatars_dir`) | Overrides the derived `<base path>\avatars`, where Ultrastar Deluxe reads avatar pictures from. |
 | **Ultrastar DB** (`usdx.ultrastar_db`) | Overrides the derived `<base path>\Ultrastar.db`. Wingman only reads it, to import the scores. |
+| **Songs directory** (`usdx.songs_dir`) | Overrides the derived `<base path>\songs` — the folder Ultrastar Deluxe itself loads songs from. |
 
-For a normal installation, fill in the base path and leave the four overrides
+For a normal installation, fill in the base path and leave the five overrides
 empty. They exist for portable installations spread over several folders.
+
+**Songs directory** is not the same field as the songs directory under
+[Songs](#songs). That one says where *Wingman* looks for songs and may be
+anywhere, on any drive; this one is where *Ultrastar Deluxe* looks. Wingman
+starts every song from inside Ultrastar Deluxe's own songs folder — copying the
+song there first when it lives somewhere else, or when its folder name has
+characters Ultrastar Deluxe cannot pass on the command line. Started from
+anywhere else, Ultrastar Deluxe loads its whole library alongside the song and
+opens on the first song of the list instead of the one that was picked.
 
 The section starts with a **Run Ultrastar Deluxe** row and its **Launch**
 button. Some things are not Wingman's to set — which microphone is player one,

@@ -1,12 +1,57 @@
 """The Ultrastar Deluxe launcher.
 
-Load-bearing workarounds, all confirmed against a real USDX — do not "clean up":
+Load-bearing workarounds — do not "clean up":
+
 - `-SongPath <dir> -SingleSong`, one process per song, killed to stop.
 - `CREATE_NO_WINDOW` on Windows: without it the process never reports its exit,
   so score import would never run.
-- A song outside the USDX songs directory, or with special characters in its
-  directory name, has to be copied into the songs directory first — otherwise
-  USDX ignores `-SongPath` and loads the whole default library instead.
+- **The directory `-SongPath` points at has to live inside USDX's own songs
+  directory** (`UsdxPaths.songs_dir`, derived from `usdx.base_path` — *not*
+  Wingman's `songs.directory`, which may be a library USDX knows nothing about).
+  A song that does not, is copied into it first.
+- A song whose directory name is not plain ASCII is copied too, under an ASCII
+  name. That USDX cannot be pointed at such a directory is observed (the old app
+  worked around it the same way); the likely reason is that USDX reads its
+  parameters through Pascal's `ParamStr`, so a non-ASCII path arrives mangled and
+  it finds no song there at all.
+
+Why the first one is not superstition, from USDX's own source, `master` branch
+(`UPathUtils.pas`, `UCommandLine.pas`, `UPlatformWindows.pas` — read, not run):
+
+- `-SongPath` does not *replace* the library, it *adds* one more song path.
+  `InitializePaths` calls, in this order, `AddSongPath(Params.SongPath)`,
+  `AddSongPath(SharedPath/songs)` and `AddSongPath(UserPath/songs)`, and
+  `TIni.LoadPaths` adds every `SongDir<n>` from `config.ini` on top.
+- `AddSpecialPath` only collapses *nested* paths: a directory that contains one
+  already in the list is dropped, and one contained by an entry replaces it. So
+  the library directory is suppressed exactly when the launch directory sits
+  inside it — and is loaded in full when it does not, which is how starting one
+  song ends up showing the whole library, alphabetically first song selected.
+- On Windows `SharedPath` is always the directory `ultrastardx.exe` sits in.
+  `UserPath` is that same directory when `UseLocalDirs` is on, and
+  `%APPDATA%/ultrastardx` otherwise — and `DetectLocalExecution` turns
+  `UseLocalDirs` on exactly when `<exe dir>/config.ini` can be opened for
+  writing (creating it if it is missing). `_prepare` writes
+  `UsdxPaths.config_file` before every launch, so for any installation Wingman
+  can configure at all, that file is there and writable — which makes
+  `UserPath/songs` and `SharedPath/songs` the same `<base path>/songs`, and both
+  are dropped again for containing the directory this launcher copied into.
+- `-SingleSong` is not a parameter USDX (master) knows; unrecognised parameters
+  are silently ignored. It is kept because the old app passed it and it costs
+  nothing, not because it does anything verified here.
+
+Residual limitations, all of them the old app's as well:
+
+- A `SongDir<n>` in USDX's `config.ini` pointing at a library *outside* the songs
+  directory is still loaded next to the song. Wingman does not touch
+  `[Directories]` — USDX rewrites its own config on every start, so a blanked
+  entry would be lost for good.
+- The `UserPath/songs` collapse above needs `usdx.base_path` to be the directory
+  the executable really lives in and `usdx.config_file` to be the `config.ini`
+  next to it. Overrides that pull those apart put `%APPDATA%/ultrastardx/songs`
+  back into the list (USDX creates it if missing, so it is usually empty).
+- A non-ASCII character in `usdx.base_path` itself cannot be worked around:
+  the copy inherits it, and `-SongPath` arrives mangled all the same.
 """
 
 import asyncio
@@ -30,7 +75,9 @@ CREATE_NO_WINDOW = 0x08000000
 
 COPY_DIR_NAME = "ULTRASTAR_WINGMAN_SONG_COPY"
 
-# USDX chokes on anything else in a song directory name.
+# USDX chokes on anything else in a song directory name — most likely because it reads
+# the path through Pascal's `ParamStr`, which does not hand a non-ASCII command line over
+# intact.
 _UNSUPPORTED_IN_DIR_NAME = re.compile(r"[^a-zA-Z0-9.,\-_()+ ]")
 
 # What an empty slot is called in USDX, so the colors of the following slots stay put.
@@ -161,16 +208,25 @@ def _playable(slots: Sequence[LaunchSlot]) -> list[LaunchSlot]:
     return used
 
 
-def _needs_copy(song_dir: Path, songs_dir: Path) -> bool:
+def _needs_copy(song_dir: Path, usdx_songs_dir: Path) -> bool:
+    """Whether USDX can be pointed at `song_dir` as it is.
+
+    It can only when the name is one USDX survives on a command line *and* it sits inside
+    USDX's own songs directory — anywhere else, USDX loads the whole library alongside it
+    (see the module docstring).
+
+    Only the directory's own name is looked at: what a copy replaces is that name, the rest
+    of the path is USDX's songs directory and stays whatever the host configured.
+    """
     if _UNSUPPORTED_IN_DIR_NAME.search(song_dir.name):
         return True
-    return not song_dir.resolve().is_relative_to(songs_dir.resolve())
+    return not song_dir.resolve().is_relative_to(usdx_songs_dir.resolve())
 
 
-def _copy_into_songs_dir(song_dir: Path, songs_dir: Path) -> Path:
+def _copy_into_songs_dir(song_dir: Path, usdx_songs_dir: Path) -> Path:
     """Blocking. The copy always lands in the same directory, so a leftover from a crash
     is overwritten rather than accumulating."""
-    destination = songs_dir / COPY_DIR_NAME
+    destination = usdx_songs_dir / COPY_DIR_NAME
     shutil.rmtree(destination, ignore_errors=True)
     shutil.copytree(song_dir, destination)
     logger.info("copied %s to %s for USDX", song_dir, destination)

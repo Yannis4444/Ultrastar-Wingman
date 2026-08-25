@@ -53,6 +53,7 @@ test("each backend problem gets its own explanation", () => {
     "'usdx.config_file' is not set and cannot be derived from 'usdx.base_path'",
     "'usdx.avatars_dir' is not set and cannot be derived from 'usdx.base_path'",
     "'usdx.ultrastar_db' is not set and cannot be derived from 'usdx.base_path'",
+    "'usdx.songs_dir' is not set and cannot be derived from 'usdx.base_path'",
     "'usdx.executable' is not a file: C:\\usdx\\nope.exe",
     "'songs.directory' is not set",
     "'songs.directory' is not a directory: D:\\gone",
@@ -69,13 +70,13 @@ test("each backend problem gets its own explanation", () => {
         !sentence.includes("usdx.") && !sentence.includes("songs.directory"),
     ),
   ).toBe(true);
-  expect(explained[4]).toContain("no Ultrastar Deluxe program at that path");
-  expect(explained[6]).toContain("does not exist");
+  expect(explained[5]).toContain("no Ultrastar Deluxe program at that path");
+  expect(explained[7]).toContain("does not exist");
   // A failed launch arrives as a path problem as well, and its raw text is the one
   // that would put a host path (and a WinError) in front of a party guest.
-  expect(explained[7]).toContain("refused to start");
-  expect(explained[7]).not.toContain("C:\\usdx");
-  expect(explained[7]).not.toContain("WinError");
+  expect(explained[8]).toContain("refused to start");
+  expect(explained[8]).not.toContain("C:\\usdx");
+  expect(explained[8]).not.toContain("WinError");
 });
 
 test("an unknown problem is shown as it came", () => {

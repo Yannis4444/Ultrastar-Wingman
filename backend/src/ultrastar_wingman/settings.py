@@ -164,6 +164,20 @@ register(
 )
 register(
     SettingDefinition(
+        key="usdx.songs_dir",
+        value_type=str,
+        default="",
+        group="USDX",
+        description=(
+            "Overrides the derived <base path>/songs — Ultrastar Deluxe's own songs directory. "
+            "A song Wingman starts has to be launched from inside it, otherwise Ultrastar "
+            "Deluxe loads the whole library next to it. This is not 'songs.directory': that "
+            "one only says where Wingman looks for songs."
+        ),
+    )
+)
+register(
+    SettingDefinition(
         key="usdx.ultrastar_db",
         value_type=str,
         default="",
