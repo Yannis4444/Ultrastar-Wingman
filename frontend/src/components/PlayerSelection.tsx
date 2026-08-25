@@ -18,6 +18,13 @@ import "./PlayerSelection.css";
 
 const SLOTS_STORAGE_KEY = "wingman.playerSlots";
 
+/**
+ * Above this many players the roster gets a filter field. Under it the grid is
+ * two or three flicks long and a field would only be one more thing to skip —
+ * on the keyboard as much as under the thumb.
+ */
+const FILTER_FROM = 12;
+
 /** Color name -> player id. Slots come from the backend; nothing is hardcoded. */
 type Assignment = Record<string, string>;
 
@@ -60,6 +67,7 @@ export default function PlayerSelection({
   const [assignment, setAssignment] = useState<Assignment>(readAssignment);
   const [activeColor, setActiveColor] = useState<string | null>(null);
   const [askReplace, setAskReplace] = useState(false);
+  const [filter, setFilter] = useState("");
   const [notice, setNotice] = useState<string | null>(null);
   // Non-null while the setup guide is up: the backend's problem list.
   const [setupProblems, setSetupProblems] = useState<string[] | null>(null);
@@ -151,6 +159,21 @@ export default function PlayerSelection({
   const roster = players.data?.players ?? [];
   const full = colorNames.length > 0 && chosen === colorNames.length;
 
+  // Whether the field is offered is decided by the *whole* roster, so it cannot
+  // disappear under the cursor the moment a query narrows the list past twelve.
+  const filtering = roster.length > FILTER_FROM;
+  const needle = filter.trim().toLowerCase();
+  // Backend order throughout: a filter hides rows, it never reorders them —
+  // rows that move under the finger are how the wrong person gets picked.
+  const shown =
+    filtering && needle !== ""
+      ? roster.filter((player) => player.name.toLowerCase().includes(needle))
+      : roster;
+  // Only a query that came up empty says so. An empty `shown` also means "the
+  // roster has not arrived yet" — the loading and the failed fetch both land
+  // here, and neither is the reader having mistyped a name.
+  const noMatch = filtering && needle !== "" && shown.length === 0;
+
   // One line that always says what a tap on a player will do — the two-step
   // "pick a slot, then a person" is invisible without it, and a full board
   // would otherwise swallow taps in silence.
@@ -235,27 +258,47 @@ export default function PlayerSelection({
                 <p className="player-selection-hint" aria-live="polite">
                   {hint}
                 </p>
-                <div className="player-selection-players">
-                  {roster.map((player) => {
-                    const on = takenColor(player.id);
-                    return (
-                      <button
-                        key={player.id}
-                        type="button"
-                        className={
-                          on
-                            ? "player-selection-player player-selection-player-on"
-                            : "player-selection-player"
-                        }
-                        aria-pressed={on !== undefined}
-                        onClick={() => toggle(player.id)}
-                      >
-                        <PlayerAvatar player={player} />
-                        <span>{player.name}</span>
-                      </button>
-                    );
-                  })}
-                </div>
+                {filtering && (
+                  <input
+                    className="text-input text-input-quiet player-selection-filter"
+                    value={filter}
+                    placeholder="Filter players"
+                    aria-label="Filter players"
+                    autoComplete="off"
+                    maxLength={64}
+                    onChange={(event) => setFilter(event.target.value)}
+                  />
+                )}
+                {noMatch ? (
+                  // A status region, not a plain line: the reader who typed the
+                  // query is in the field with the grid out of view, so the one
+                  // thing that changed has to be spoken.
+                  <p className="player-selection-none" role="status">
+                    No player matches that.
+                  </p>
+                ) : (
+                  <div className="player-selection-players">
+                    {shown.map((player) => {
+                      const on = takenColor(player.id);
+                      return (
+                        <button
+                          key={player.id}
+                          type="button"
+                          className={
+                            on
+                              ? "player-selection-player player-selection-player-on"
+                              : "player-selection-player"
+                          }
+                          aria-pressed={on !== undefined}
+                          onClick={() => toggle(player.id)}
+                        >
+                          <PlayerAvatar player={player} />
+                          <span>{player.name}</span>
+                        </button>
+                      );
+                    })}
+                  </div>
+                )}
               </>
             )}
           </div>

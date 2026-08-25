@@ -47,6 +47,10 @@
   flex: 0 1 auto;
   max-height: 40vh;
   overflow-y: auto;
+  /* A flick that runs off the end of the list stays in the list: without this
+     the scroll chains outward, and the page behind a fullscreen modal is the
+     last thing that should move. */
+  overscroll-behavior: contain;
   margin: 0;
   padding: 0;
   list-style: none;
@@ -109,9 +113,17 @@
 /*endregion*/
 /*region roster*/
 
+/* `flex: 1 1 0`, not `1 1 auto`: with an `auto` basis the roster's own content
+   height joins the flex-shrink split, so forty players squeezed the slot list
+   to a third of its rows while six left it whole — how many people are
+   registered must not decide how much of the board is visible. With a zero
+   basis the slots keep their (capped) content height and this region takes
+   whatever is left, which is what it is for.
+   The floor keeps the roster from being squeezed away in return, and is itself
+   viewport-relative so it can never overflow the modal on a short screen. */
 .player-selection-pick {
-  flex: 1 1 auto;
-  min-height: 0;
+  flex: 1 1 0;
+  min-height: min(180px, 28vh);
   display: flex;
   flex-direction: column;
   gap: 8px;
@@ -130,10 +142,18 @@
   color: var(--color-darker);
 }
 
+/* Narrows the grid and nothing else — the quiet variant (§10.1) because the
+   loud one belongs to the add-player field a few rows below it. */
+.player-selection-filter {
+  flex: 0 0 auto;
+  width: 100%;
+}
+
 .player-selection-players {
   flex: 1 1 auto;
   min-height: 0;
   overflow-y: auto;
+  overscroll-behavior: contain;
   display: grid;
   grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
   gap: 8px;
@@ -222,5 +242,45 @@
 
   .player-selection-slots {
     max-height: 28vh;
+  }
+}
+
+/* Landscape phone (and a short desktop window): stacked, the two scroll regions
+   get about one row each and the column throws away half the screen. Side by
+   side they get the full remaining height instead, and the roster grid finally
+   uses the width to wrap into more than one column. Head and foot still span
+   the full width, so the actions stay exactly where the stacked layout puts
+   them.
+   560px, not 600: a 568x320 landscape phone is the narrowest short viewport
+   that exists, and it is exactly the one the stacked layout fails hardest on —
+   the slot list collapses to a 15px sliver there. Nothing narrower than that
+   is ever this short. */
+@media (max-height: 520px) and (min-width: 560px) {
+  .player-selection {
+    display: grid;
+    max-width: 900px;
+    grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+    grid-template-rows: auto minmax(0, 1fr) auto;
+    column-gap: 16px;
+  }
+
+  .player-selection-head,
+  .player-selection-foot {
+    grid-column: 1 / -1;
+  }
+
+  .player-selection-slots {
+    grid-column: 1;
+    grid-row: 2;
+    /* The grid row is the cap here; 28vh on top of it would only re-open the
+       gap the two-column layout was meant to close. */
+    max-height: none;
+    min-height: 0;
+  }
+
+  .player-selection-pick {
+    grid-column: 2;
+    grid-row: 2;
+    min-height: 0;
   }
 }

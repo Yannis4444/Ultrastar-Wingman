@@ -25,9 +25,13 @@ Press **Sing** in the song details. The player selection opens.
    uses them. The first slot is blue, the second red, and so on.
 2. Tap a player below to put them on the next free slot. Tap them again to take
    them off. Tap a slot first to fill exactly that slot.
-3. Missing somebody? Type a name into **New player** and press **Add**. The new
+3. With more than twelve players there is a **Filter players** box above the
+   list. Type any part of a name and only the matching people stay visible.
+   Clearing the box brings everybody back. Filtering only hides rows — nobody
+   loses their slot by being filtered away.
+4. Missing somebody? Type a name into **New player** and press **Add**. The new
    player goes straight onto a slot.
-4. Press **Play**.
+5. Press **Play**.
 
 Ultrastar Deluxe opens on the TV with that song, and with the chosen names,
 colours and avatars already set up. At least one slot needs a player.
