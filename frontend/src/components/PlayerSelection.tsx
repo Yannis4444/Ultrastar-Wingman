@@ -2,7 +2,7 @@ import { useMutation, useQuery } from "@tanstack/react-query";
 import { useState } from "react";
 import type { PlayerRead, SlotCreate, SongRead } from "../api";
 import {
-  listKaraokeColorsOptions,
+  listKaraokeSlotsOptions,
   listPlayersOptions,
   singSongMutation,
 } from "../api/@tanstack/react-query.gen";
@@ -10,6 +10,7 @@ import { useAuth } from "../auth";
 import { errorDetail, errorMessage, usdxProblems } from "../errors";
 import AddPlayerForm from "./AddPlayerForm";
 import ConfirmModal from "./ConfirmModal";
+import { Icon } from "./icons";
 import Modal from "./Modal";
 import PlayerAvatar from "./PlayerAvatar";
 import UsdxSetupGuide from "./UsdxSetupGuide";
@@ -17,7 +18,7 @@ import "./PlayerSelection.css";
 
 const SLOTS_STORAGE_KEY = "wingman.playerSlots";
 
-/** Color name -> player id. Colors come from the backend; nothing is hardcoded. */
+/** Color name -> player id. Slots come from the backend; nothing is hardcoded. */
 type Assignment = Record<string, string>;
 
 /**
@@ -52,7 +53,8 @@ export default function PlayerSelection({
   onClose,
 }: PlayerSelectionProps) {
   const auth = useAuth();
-  const colors = useQuery(listKaraokeColorsOptions());
+  // The host's setting decides how many people sing and in which colors.
+  const slots = useQuery(listKaraokeSlotsOptions());
   const players = useQuery(listPlayersOptions());
 
   const [assignment, setAssignment] = useState<Assignment>(readAssignment);
@@ -62,7 +64,7 @@ export default function PlayerSelection({
   // Non-null while the setup guide is up: the backend's problem list.
   const [setupProblems, setSetupProblems] = useState<string[] | null>(null);
 
-  const colorNames = colors.data?.colors.map((color) => color.name) ?? [];
+  const colorNames = slots.data?.slots.map((color) => color.name) ?? [];
   const byId = new Map(
     (players.data?.players ?? []).map((player) => [player.id, player]),
   );
@@ -96,6 +98,18 @@ export default function PlayerSelection({
     update(next);
   };
 
+  /**
+   * A tap on a player row. With a slot picked, the tap always means "put them
+   * here" — even for someone already standing on another slot, who then moves
+   * instead of dropping out. Without a picked slot it is a plain toggle.
+   */
+  const toggle = (playerId: string): void => {
+    const on = takenColor(playerId);
+    if (on !== undefined && (activeColor === null || activeColor === on))
+      clear(on);
+    else assign(playerId);
+  };
+
   const sing = useMutation({
     ...singSongMutation(),
     onSuccess: onClose,
@@ -124,8 +138,8 @@ export default function PlayerSelection({
   });
 
   const start = (force: boolean): void => {
-    // Every color is sent so USDX gets the colors in its own order; the backend
-    // drops the trailing empty ones.
+    // Every configured slot is sent so USDX gets them in the host's order; the
+    // backend drops the trailing empty ones.
     const slots: SlotCreate[] = colorNames.map((color) => ({
       color,
       player_id: playerFor(color)?.id ?? null,
@@ -134,95 +148,136 @@ export default function PlayerSelection({
   };
 
   const chosen = colorNames.filter((color) => playerFor(color) !== null).length;
+  const roster = players.data?.players ?? [];
+  const full = colorNames.length > 0 && chosen === colorNames.length;
+
+  // One line that always says what a tap on a player will do — the two-step
+  // "pick a slot, then a person" is invisible without it, and a full board
+  // would otherwise swallow taps in silence.
+  const hint =
+    activeColor !== null
+      ? "Pick a player for the outlined slot."
+      : full
+        ? "All slots are full — tap a slot to change it."
+        : "Tap a player to fill the next free slot.";
 
   return (
     <>
       <Modal title="Player Selection" onClose={onClose} fullscreen>
         <div className="player-selection">
-          <p className="player-selection-song">{song.title}</p>
+          <div className="player-selection-head">
+            <p className="player-selection-song">{song.title}</p>
+            {notice && (
+              <p className="error-notice player-selection-error" role="alert">
+                {notice}
+              </p>
+            )}
+          </div>
 
-          {notice && (
-            <p className="error-notice" role="alert">
-              {notice}
-            </p>
-          )}
-
-          <div className="player-selection-slots">
-            {(colors.data?.colors ?? []).map((color) => {
+          <ul className="player-selection-slots">
+            {(slots.data?.slots ?? []).map((color) => {
               const player = playerFor(color.name);
+              const active = activeColor === color.name;
               return (
-                <div
+                <li
                   key={color.name}
-                  className="player-selection-slot"
-                  style={{
-                    borderColor: `${color.hex}aa`,
-                    backgroundColor: `${color.hex}28`,
-                  }}
+                  className={
+                    active
+                      ? "player-selection-slot player-selection-slot-active"
+                      : "player-selection-slot"
+                  }
+                  // The slot's USDX color as a bar on the leading edge: readable
+                  // on every hue, unlike a wash behind the name.
+                  style={{ boxShadow: `inset 4px 0 0 ${color.hex}` }}
                 >
                   <button
                     type="button"
+                    className="player-selection-slot-button"
                     aria-label={`Slot ${color.name}: ${player?.name ?? "empty"}`}
-                    aria-pressed={activeColor === color.name}
-                    onClick={() =>
-                      setActiveColor(
-                        activeColor === color.name ? null : color.name,
-                      )
-                    }
+                    aria-pressed={active}
+                    onClick={() => setActiveColor(active ? null : color.name)}
                   >
                     <PlayerAvatar player={player} />
-                    <span className={player ? "" : "player-selection-empty"}>
+                    <span
+                      className={
+                        player
+                          ? "player-selection-slot-name"
+                          : "player-selection-slot-name player-selection-empty"
+                      }
+                    >
                       {player?.name ?? "empty"}
                     </span>
                   </button>
                   {player && (
                     <button
                       type="button"
-                      className="player-selection-clear"
+                      className="icon-button"
                       aria-label={`Clear slot ${color.name}`}
                       onClick={() => clear(color.name)}
                     >
-                      &times;
+                      <Icon name="close" />
                     </button>
                   )}
+                </li>
+              );
+            })}
+          </ul>
+
+          <div className="player-selection-pick">
+            {players.isSuccess && roster.length === 0 ? (
+              <p className="player-selection-none">
+                {auth.can("players.manage")
+                  ? "No players yet — add the first one below."
+                  : "No players yet — ask the host to add one."}
+              </p>
+            ) : (
+              <>
+                <p className="player-selection-hint" aria-live="polite">
+                  {hint}
+                </p>
+                <div className="player-selection-players">
+                  {roster.map((player) => {
+                    const on = takenColor(player.id);
+                    return (
+                      <button
+                        key={player.id}
+                        type="button"
+                        className={
+                          on
+                            ? "player-selection-player player-selection-player-on"
+                            : "player-selection-player"
+                        }
+                        aria-pressed={on !== undefined}
+                        onClick={() => toggle(player.id)}
+                      >
+                        <PlayerAvatar player={player} />
+                        <span>{player.name}</span>
+                      </button>
+                    );
+                  })}
                 </div>
-              );
-            })}
+              </>
+            )}
           </div>
 
-          <div className="player-selection-players">
-            {(players.data?.players ?? []).map((player) => {
-              const on = takenColor(player.id);
-              return (
-                <button
-                  key={player.id}
-                  type="button"
-                  className={on ? "selected" : ""}
-                  aria-pressed={on !== undefined}
-                  onClick={() => (on ? clear(on) : assign(player.id))}
-                >
-                  <PlayerAvatar player={player} />
-                  <span>{player.name}</span>
-                </button>
-              );
-            })}
-          </div>
+          <div className="player-selection-foot">
+            {auth.can("players.manage") && (
+              <AddPlayerForm onAdded={(player) => assign(player.id)} />
+            )}
 
-          {auth.can("players.manage") && (
-            <AddPlayerForm onAdded={(player) => assign(player.id)} />
-          )}
-
-          <div className="player-selection-actions">
-            <button type="button" className="button" onClick={onClose}>
-              Cancel
-            </button>
-            <button
-              type="button"
-              className="button button-primary"
-              disabled={chosen === 0 || sing.isPending}
-              onClick={() => start(false)}
-            >
-              Play
-            </button>
+            <div className="player-selection-actions">
+              <button type="button" className="button" onClick={onClose}>
+                Cancel
+              </button>
+              <button
+                type="button"
+                className="button button-primary"
+                disabled={chosen === 0 || sing.isPending}
+                onClick={() => start(false)}
+              >
+                Play
+              </button>
+            </div>
           </div>
         </div>
       </Modal>

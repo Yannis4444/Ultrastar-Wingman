@@ -1,4 +1,4 @@
-import { useEffect, useRef, type ReactNode } from "react";
+import { useEffect, useRef, type MouseEvent, type ReactNode } from "react";
 import { Icon } from "./icons";
 import "./Modal.css";
 
@@ -31,9 +31,19 @@ export default function Modal({
   children,
 }: ModalProps) {
   const panel = useRef<HTMLDivElement>(null);
+  /** Where the last press started — see `closeOnOwnSurface`. */
+  const pressedOn = useRef<EventTarget | null>(null);
 
+  // Keyed on the title, not on every render: `onClose` is an inline arrow at
+  // most call sites, so an `[onClose]` dependency would yank focus back to the
+  // dialog on every keystroke and every parent refetch. The title changes
+  // exactly when the body swaps to a sub-view, which is when the previously
+  // focused element unmounts and focus really does have to be recovered.
   useEffect(() => {
     panel.current?.focus();
+  }, [title]);
+
+  useEffect(() => {
     const onKeyDown = (event: KeyboardEvent) => {
       if (event.key === "Escape") onClose();
       // Focus stays inside the dialog: behind the backdrop are hundreds of
@@ -58,10 +68,30 @@ export default function Modal({
     return () => document.removeEventListener("keydown", onKeyDown);
   }, [onClose]);
 
+  /**
+   * Closes only when the whole press happened on this element's own surface.
+   * The target check ignores clicks bubbling out of the content; the press
+   * check ignores drags that merely *ended* here — a `click` is dispatched on
+   * the common ancestor of mousedown and mouseup, so selecting the song title
+   * and releasing over the empty space beside it would otherwise dismiss the
+   * modal.
+   */
+  const closeOnOwnSurface = (event: MouseEvent<HTMLDivElement>) => {
+    if (
+      event.target === event.currentTarget &&
+      pressedOn.current === event.target
+    )
+      onClose();
+  };
+
   return (
     <div
       className={bare ? "modal-backdrop modal-backdrop-blur" : "modal-backdrop"}
-      onClick={onClose}
+      // Bubbles from the whole overlay, so it records where any press started.
+      onMouseDown={(event) => {
+        pressedOn.current = event.target;
+      }}
+      onClick={closeOnOwnSurface}
     >
       <div
         className={[
@@ -76,7 +106,10 @@ export default function Modal({
         aria-label={title}
         tabIndex={-1}
         ref={panel}
-        onClick={(event) => event.stopPropagation()}
+        // A bare panel has no visible surface, so its empty stretches read as
+        // backdrop and must close too. A panel modal keeps its own surface
+        // inert.
+        onClick={bare ? closeOnOwnSurface : undefined}
       >
         <div
           className={

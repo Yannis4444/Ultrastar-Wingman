@@ -14,9 +14,9 @@ import SongDetails from "./SongDetails";
 
 // Same seam as the songs tests: the real TanStack wiring runs, only the
 // transport is faked.
-const { listKaraokeColors, listPlayers, singSong, createPlayer } = vi.hoisted(
+const { listKaraokeSlots, listPlayers, singSong, createPlayer } = vi.hoisted(
   () => ({
-    listKaraokeColors: vi.fn(),
+    listKaraokeSlots: vi.fn(),
     listPlayers: vi.fn(),
     singSong: vi.fn(),
     createPlayer: vi.fn(),
@@ -25,7 +25,7 @@ const { listKaraokeColors, listPlayers, singSong, createPlayer } = vi.hoisted(
 
 vi.mock("../api/sdk.gen", async (importOriginal) => ({
   ...(await importOriginal<typeof import("../api/sdk.gen")>()),
-  listKaraokeColors,
+  listKaraokeSlots,
   listPlayers,
   singSong,
   createPlayer,
@@ -51,9 +51,9 @@ function player(id: string, name: string): PlayerRead {
 
 const PLAYERS = [player("aaa", "Alice"), player("bbb", "Bob")];
 
-// Three of USDX's sixteen colors: the component must render whatever the
-// backend sends, in that order, and never a hardcoded list.
-const COLORS = [
+// Three configured slots: the component must render whatever the backend's
+// slot configuration says, in that order, and never a hardcoded list.
+const SLOTS = [
   { name: "blue", hex: "#048BB9" },
   { name: "red", hex: "#D00000" },
   { name: "green", hex: "#00AC00" },
@@ -82,7 +82,9 @@ beforeEach(() => {
   window.localStorage.clear();
   // The song details subscribe to wishlist events: no test opens a real socket.
   vi.stubGlobal("WebSocket", FakeSocket);
-  listKaraokeColors.mockResolvedValue({ data: { colors: COLORS } });
+  listKaraokeSlots.mockResolvedValue({
+    data: { slots: SLOTS, player_counts: [1, 2, 3, 4, 6] },
+  });
   listPlayers.mockResolvedValue({ data: { players: PLAYERS } });
   singSong.mockReset();
   createPlayer.mockReset();
@@ -90,7 +92,7 @@ beforeEach(() => {
 
 afterEach(() => vi.unstubAllGlobals());
 
-test("one slot per backend color, in the backend's order", async () => {
+test("one slot per configured color, in the backend's order", async () => {
   renderSelection();
 
   const slots = await screen.findAllByRole("button", { name: /^Slot / });
@@ -129,7 +131,7 @@ test("without an active slot a player lands on the first free one", async () => 
   expect(slot("red")).toHaveAccessibleName("Slot red: Bob");
 });
 
-test("play sends every color with the assigned players", async () => {
+test("play sends every configured slot with the assigned players", async () => {
   singSong.mockResolvedValue({ data: {} });
   renderSelection();
   await screen.findByRole("button", { name: "Slot green: empty" });
@@ -275,6 +277,45 @@ test("a new player is created and put straight on the active slot", async () => 
   await waitFor(() =>
     expect(slot("green")).toHaveAccessibleName("Slot green: Chris"),
   );
+});
+
+test("with a slot picked an already assigned player moves instead of dropping out", async () => {
+  renderSelection();
+  await screen.findByRole("button", { name: "Slot blue: empty" });
+
+  fireEvent.click(screen.getByRole("button", { name: "Alice" }));
+  expect(slot("blue")).toHaveAccessibleName("Slot blue: Alice");
+
+  // Picking green first makes the tap mean "stand here", not "step off".
+  fireEvent.click(slot("green"));
+  fireEvent.click(screen.getByRole("button", { name: "Alice" }));
+
+  expect(slot("green")).toHaveAccessibleName("Slot green: Alice");
+  expect(slot("blue")).toHaveAccessibleName("Slot blue: empty");
+});
+
+test("the hint says what a tap does, including on a full board", async () => {
+  listKaraokeSlots.mockResolvedValue({
+    data: { slots: [SLOTS[0]], player_counts: [1, 2] },
+  });
+  renderSelection();
+  await screen.findByRole("button", { name: "Slot blue: empty" });
+
+  expect(screen.getByText(/Tap a player to fill/)).toBeInTheDocument();
+
+  fireEvent.click(slot("blue"));
+  expect(screen.getByText(/Pick a player for the outlined slot/)).toBeVisible();
+
+  fireEvent.click(screen.getByRole("button", { name: "Alice" }));
+  expect(screen.getByText(/All slots are full/)).toBeVisible();
+});
+
+test("an empty roster says so instead of showing a void", async () => {
+  listPlayers.mockResolvedValue({ data: { players: [] } });
+  renderSelection();
+  await screen.findByRole("button", { name: "Slot blue: empty" });
+
+  expect(await screen.findByText(/No players yet/)).toBeInTheDocument();
 });
 
 test("the sing button in the song details opens the player selection", async () => {

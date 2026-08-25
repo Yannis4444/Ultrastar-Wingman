@@ -27,11 +27,13 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from ..settings import SettingsService
 from ..sources.base import DownloadError, ProgressReport
+from .video_quality import DEFAULT_VIDEO_FORMAT
 
 logger = logging.getLogger(__name__)
 
 YTDLP_PATH_SETTING = "downloads.ytdlp_path"
 FFMPEG_SETTING = "downloads.ffmpeg"
+VIDEO_FORMAT_SETTING = "downloads.video_format"
 
 LATEST_RELEASE_URL = "https://api.github.com/repos/yt-dlp/yt-dlp/releases/latest"
 ASSET_NAME = "yt-dlp.exe" if sys.platform == "win32" else "yt-dlp"
@@ -45,8 +47,6 @@ FFMPEG_STEP = "downloading ffmpeg"
 
 # yt-dlp releases daily-ish; checking more often than this only burns GitHub's rate limit.
 CHECK_INTERVAL = timedelta(hours=24)
-
-VIDEO_FORMAT = "bestvideo[ext=mp4][height<=1080]+bestaudio[ext=m4a]/best[ext=mp4][height<=1080]"
 
 # Marks our own progress lines so they cannot be confused with yt-dlp's normal output.
 _PROGRESS_PREFIX = "[wingman]"
@@ -334,16 +334,26 @@ def _remove(path: Path) -> None:
     path.unlink(missing_ok=True)
 
 
+async def video_format(session: AsyncSession) -> str:
+    """The yt-dlp format string to download with. Validated on the way into the settings,
+    so whatever comes back out is something yt-dlp can be handed."""
+    configured = str(await SettingsService(session).get(VIDEO_FORMAT_SETTING)).strip()
+    return configured or DEFAULT_VIDEO_FORMAT
+
+
 async def download_video(
     executable: Path,
     url: str,
     destination: Path,
     report: ProgressReport,
     ffmpeg: str | None = None,
+    *,
+    format_string: str = DEFAULT_VIDEO_FORMAT,
 ) -> Path:
     """Download `url` to exactly `destination`. `ffmpeg` is where yt-dlp finds the muxer
-    it needs to join the separate best video and best audio streams."""
-    args = ["--format", VIDEO_FORMAT, "--output", str(destination)]
+    it needs to join the separate video and audio streams; `format_string` is what the
+    host configured (`downloads.video_format`)."""
+    args = ["--format", format_string, "--output", str(destination)]
     if ffmpeg:
         args += ["--ffmpeg-location", ffmpeg]
     await run_ytdlp(executable, [*args, "--", url], report)

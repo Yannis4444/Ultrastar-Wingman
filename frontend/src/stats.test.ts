@@ -4,10 +4,19 @@ import {
   buildBoxplotOption,
   buildHistogramOption,
   difficultyLabel,
+  evaluationLabel,
   groupScores,
+  groupValue,
   histogram,
+  isNewHighscore,
+  playerSummary,
+  scoreLabel,
+  scorePlayer,
   sessionLabel,
+  sessionLeaderboard,
+  songHistory,
   songLabel,
+  sortGroups,
   summarize,
 } from "./stats";
 
@@ -134,12 +143,24 @@ test("grouping by song puts the strongest song on top and labels it", () => {
     "Oasis – Wonderwall",
     "Queen – Bohemian Rhapsody",
   ]);
-  expect(groups[0].songId).toBe("usdb:2");
+  expect(groups[0].song?.id).toBe("usdb:2");
+});
+
+test("ungrouped, every score stands alone under its own song", () => {
+  const groups = groupScores(scores, "none");
+
+  expect(groups).toHaveLength(4);
+  // The row is headed by the song, so the singer is what the caption says.
+  expect(groups[0].label).toBe("Oasis – Wonderwall");
+  expect(scoreLabel(groups[0].scores[0], "none")).toBe("Alice");
+  expect(groups[0].song?.id).toBe("usdb:2");
+  // One score each: best, worst and average are all that one number.
+  expect(groups[0]).toMatchObject({ best: 9000, worst: 9000, average: 9000 });
 });
 
 test("the grouping decides the boxplot's categories and boxes", () => {
-  const byPlayer = buildBoxplotOption(scores, "player");
-  const bySong = buildBoxplotOption(scores, "song");
+  const byPlayer = buildBoxplotOption(groupScores(scores, "player"));
+  const bySong = buildBoxplotOption(groupScores(scores, "song"));
 
   expect(axisLabels(byPlayer)).toEqual(["Alice", "Bob"]);
   expect(axisLabels(bySong)).toEqual([
@@ -154,7 +175,9 @@ test("the grouping decides the boxplot's categories and boxes", () => {
 });
 
 test("groups of single scores get bars on an adaptive axis, not boxplots", () => {
-  const option = buildBoxplotOption([score("Alice", 30, bohemian)], "player");
+  const option = buildBoxplotOption(
+    groupScores([score("Alice", 30, bohemian)], "player"),
+  );
 
   // A boxplot of one score is a hairline; a fixed 0–10000 axis makes it 1px.
   expect((option.series as { type: string }[])[0].type).toBe("bar");
@@ -163,7 +186,7 @@ test("groups of single scores get bars on an adaptive axis, not boxplots", () =>
 });
 
 test("the score axis keeps the full range once scores pass 40% of perfect", () => {
-  const option = buildBoxplotOption(scores, "player");
+  const option = buildBoxplotOption(groupScores(scores, "player"));
 
   expect((option.series as { type: string }[])[0].type).toBe("boxplot");
   expect((option.xAxis as { max: number }).max).toBe(10000);
@@ -199,8 +222,266 @@ test("the summary counts distinct songs and singers and finds the top score", ()
   expect(summary.top?.player_name).toBe("Alice");
 });
 
+test("the summary counts scored performances, not score rows", () => {
+  // One duet: two singers, two scores, but a single run of the song.
+  const duet = [
+    score("Alice", 8000, bohemian, { sing_id: "sing-duet" }),
+    score("Bob", 7000, bohemian, { sing_id: "sing-duet" }),
+  ];
+
+  expect(summarize(duet)).toMatchObject({ sings: 1, songs: 1, singers: 2 });
+});
+
 test("an empty session summarizes to nothing rather than crashing", () => {
-  expect(summarize([])).toEqual({ songs: 0, singers: 0, top: null });
+  expect(summarize([])).toEqual({
+    sings: 0,
+    songs: 0,
+    singers: 0,
+    top: null,
+  });
   expect(groupScores([], "player")).toEqual([]);
-  expect(axisLabels(buildBoxplotOption([], "player"))).toEqual([]);
+  expect(axisLabels(buildBoxplotOption([]))).toEqual([]);
+});
+
+test("each sorting orders the groups the way the old app did", () => {
+  const groups = groupScores(scores, "player");
+  const labels = (sorting: Parameters<typeof sortGroups>[1]): string[] =>
+    sortGroups(groups, sorting).map((group) => group.label);
+
+  expect(labels("best")).toEqual(["Alice", "Bob"]);
+  expect(labels("average")).toEqual(["Alice", "Bob"]);
+  expect(labels("alphabetically")).toEqual(["Alice", "Bob"]);
+  // "worst score" ranks ascending: whoever bombed hardest leads the list.
+  expect(labels("worst")).toEqual(["Bob", "Alice"]);
+  // Sorting never mutates the list it was handed.
+  expect(groups.map((group) => group.label)).toEqual(["Alice", "Bob"]);
+});
+
+test("groups that tie on the sorted value fall back to their label", () => {
+  const tied = groupScores(
+    [
+      score("Zoe", 5000, bohemian, { player_id: "z" }),
+      score("Ada", 5000, wonderwall, { player_id: "a" }),
+    ],
+    "player",
+  );
+
+  expect(sortGroups(tied, "best").map((group) => group.label)).toEqual([
+    "Ada",
+    "Zoe",
+  ]);
+  expect(sortGroups(tied, "worst").map((group) => group.label)).toEqual([
+    "Ada",
+    "Zoe",
+  ]);
+});
+
+test("the number a row shows is the number it is sorted by", () => {
+  const [alice] = groupScores(scores, "player");
+
+  expect(groupValue(alice, "best")).toBe(9000);
+  expect(groupValue(alice, "worst")).toBe(8000);
+  expect(groupValue(alice, "average")).toBe(8500);
+  // Alphabetical order ranks by nothing, so the best score stands in.
+  expect(groupValue(alice, "alphabetically")).toBe(9000);
+});
+
+test("a singer without a player record still gets an avatar to fall back on", () => {
+  const known = { id: "p1", name: "Alice", registered: true, has_avatar: true };
+  const players = new Map([[known.id, known]]);
+
+  expect(
+    scorePlayer(score("Alice", 9000, bohemian, { player_id: "p1" }), players),
+  ).toBe(known);
+  // A guest has no player id at all; the stand-in carries the name so
+  // `PlayerAvatar` can draw its initial.
+  expect(scorePlayer(score("Guest", 100, bohemian), players)).toMatchObject({
+    name: "Guest",
+    has_avatar: false,
+  });
+});
+
+test("one singer's totals come out of their own scores", () => {
+  const mine = [
+    score("Alice", 8000, bohemian),
+    score("Alice", 9000, wonderwall),
+    score("Alice", 4900, bohemian, { sing_id: "sing-again" }),
+  ];
+
+  expect(playerSummary(mine)).toEqual({
+    sings: 3,
+    best: 9000,
+    // 21900 / 3 = 7300 exactly; the rounding is what a third score would need.
+    average: 7300,
+    // Three performances, but the same song twice.
+    songs: 2,
+  });
+});
+
+test("a duet counts as one sing, and the average is rounded", () => {
+  const duet = [
+    score("Alice", 8000, bohemian, { sing_id: "sing-duet" }),
+    score("Alice", 7001, bohemian, { sing_id: "sing-duet" }),
+  ];
+
+  expect(playerSummary(duet)).toEqual({
+    sings: 1,
+    best: 8000,
+    average: 7501,
+    songs: 1,
+  });
+});
+
+test("songs that have left the library count as one unknown song, as elsewhere", () => {
+  // Same lumping as `summarize`, so the user page and the scores page agree.
+  const gone = [
+    score("Alice", 8000, null, { sing_id: "sing-1" }),
+    score("Alice", 7000, null, { sing_id: "sing-2" }),
+    score("Alice", 6000, bohemian, { sing_id: "sing-3" }),
+  ];
+
+  expect(playerSummary(gone)).toMatchObject({ sings: 3, songs: 2 });
+});
+
+test("a singer without a single score has no summary at all", () => {
+  // Null, not four zeroes: the page says "sing something" instead of lying.
+  expect(playerSummary([])).toBeNull();
+});
+
+test("every USDX rating word is reachable at its own threshold", () => {
+  // The old app's bounds verbatim, checked on both sides of each one.
+  expect(
+    [
+      0, 2009, 2010, 4009, 4010, 5009, 5010, 6009, 6010, 7509, 7510, 8509, 8510,
+      9009, 9010, 10000,
+    ].map(evaluationLabel),
+  ).toEqual([
+    "Tone Deaf",
+    "Tone Deaf",
+    "Amateur",
+    "Amateur",
+    "Wannabe",
+    "Wannabe",
+    "Hopeful",
+    "Hopeful",
+    "Rising Star",
+    "Rising Star",
+    "Lead Singer",
+    "Lead Singer",
+    "Superstar",
+    "Superstar",
+    "Ultrastar",
+    "Ultrastar",
+  ]);
+});
+
+test("a score above a perfect run is a parsing accident, not a better word", () => {
+  expect(evaluationLabel(12345)).toBe("Ultrastar");
+});
+
+test("a song's history is measured over every score it ever got", () => {
+  const history = [
+    score("Alice", 8500, bohemian, { sing_id: "sing-2" }),
+    score("Bob", 6000, bohemian, { sing_id: "sing-2" }),
+    score("Chris", 4000, bohemian, { sing_id: "sing-1" }),
+  ];
+
+  expect(songHistory(history)).toEqual({
+    // A duet is one performance, so two sings and not three.
+    sings: 2,
+    best: 8500,
+    bestPlayers: ["Alice"],
+    worst: 4000,
+    worstPlayers: ["Chris"],
+    // 18500 / 3 = 6166.67, rounded.
+    average: 6167,
+  });
+});
+
+test("everybody who tied for best or worst is named once", () => {
+  const history = [
+    score("Alice", 9000, bohemian, { sing_id: "sing-1" }),
+    score("Alice", 9000, bohemian, { sing_id: "sing-2" }),
+    score("Bob", 9000, bohemian, { sing_id: "sing-3" }),
+  ];
+
+  // Alice managed it twice; the line names her once, not twice.
+  expect(songHistory(history)).toMatchObject({
+    bestPlayers: ["Alice", "Bob"],
+    worstPlayers: ["Alice", "Bob"],
+  });
+});
+
+test("a song nobody has scored yet has no history at all", () => {
+  expect(songHistory([])).toBeNull();
+});
+
+test("a record is one where the whole all-time best came out of this sing", () => {
+  const now = [
+    score("Alice", 8500, bohemian, { sing_id: "sing-2" }),
+    score("Bob", 6000, bohemian, { sing_id: "sing-2" }),
+  ];
+  const earlier = score("Chris", 4000, bohemian, { sing_id: "sing-1" });
+
+  expect(isNewHighscore([...now, earlier], now)).toBe(true);
+  // Someone cleared it before: the same score is no longer a record.
+  expect(
+    isNewHighscore(
+      [...now, earlier, score("Dora", 8500, bohemian, { sing_id: "sing-0" })],
+      now,
+    ),
+  ).toBe(false);
+});
+
+test("a history that has not arrived yet is not a record", () => {
+  const now = [score("Alice", 8500, bohemian, { sing_id: "sing-2" })];
+
+  expect(isNewHighscore([], now)).toBe(false);
+  expect(isNewHighscore(now, [])).toBe(false);
+});
+
+test("the session leaderboard ranks by the order it is asked for", () => {
+  const party = [
+    score("Alice", 8500, bohemian, { sing_id: "sing-3" }),
+    score("Bob", 6000, bohemian, { sing_id: "sing-3" }),
+    score("Chris", 5000, wonderwall, { sing_id: "sing-2" }),
+    score("Chris", 4000, bohemian, { sing_id: "sing-1" }),
+  ];
+
+  const names = (order: "best" | "average" | "sings"): [string, number][] =>
+    sessionLeaderboard(party, order).map((entry) => [entry.name, entry.value]);
+
+  expect(names("best")).toEqual([
+    ["Alice", 8500],
+    ["Bob", 6000],
+    ["Chris", 5000],
+  ]);
+  expect(names("average")).toEqual([
+    ["Alice", 8500],
+    ["Bob", 6000],
+    ["Chris", 4500],
+  ]);
+  // Chris sang twice; the two singers he beats on count tie and fall back to
+  // their best score, so Alice stays ahead of Bob.
+  expect(names("sings")).toEqual([
+    ["Chris", 2],
+    ["Alice", 1],
+    ["Bob", 1],
+  ]);
+});
+
+test("a leaderboard row keeps its best score, for the avatar behind it", () => {
+  const party = [
+    score("Alice", 4000, bohemian, { sing_id: "sing-1", player_id: "p1" }),
+    score("Alice", 8500, wonderwall, { sing_id: "sing-2", player_id: "p1" }),
+  ];
+
+  const [alice] = sessionLeaderboard(party, "best");
+  expect(alice.top.score).toBe(8500);
+  expect(alice.top.player_id).toBe("p1");
+  expect(alice).toMatchObject({ best: 8500, average: 6250, sings: 2 });
+});
+
+test("nobody has sung, so nobody is ranked", () => {
+  expect(sessionLeaderboard([], "best")).toEqual([]);
 });

@@ -1,0 +1,141 @@
+/* Flat hairline rows on the page background, sized like the host stage's other
+   score rows. No tile: the leaderboard is ordinary content. */
+.host-leaderboard {
+  display: flex;
+  flex-direction: column;
+  gap: clamp(8px, 1.4vh, 20px);
+  min-width: 0;
+}
+
+.host-leaderboard-head {
+  display: flex;
+  gap: clamp(12px, 1.5vw, 24px);
+  align-items: center;
+  flex-wrap: wrap;
+}
+
+.host-leaderboard-head h2 {
+  margin: 0;
+  color: var(--color-dark);
+  font-size: clamp(18px, 2.4vh, 34px);
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+/* Segmented pills: a hidden native radio per option, the span is the pill. */
+.host-leaderboard-order {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+  margin: 0;
+  padding: 0;
+  border: none;
+}
+
+.host-order-option {
+  cursor: pointer;
+}
+
+.host-order-option > span {
+  display: block;
+  min-height: 40px;
+  padding: 0 12px;
+  color: var(--color-darker);
+  font-size: clamp(14px, 1.6vh, 22px);
+  line-height: 40px;
+  background-color: var(--input-bg);
+  border: 1px solid var(--input-border-color);
+  border-radius: var(--border-radius);
+  transition: color 0.2s;
+}
+
+.host-order-option:hover > span {
+  color: var(--color);
+  background-color: var(--highlight-blue-dark);
+}
+
+.host-order-option input:checked + span {
+  color: var(--highlight-blue-light);
+  background-color: var(--highlight-blue-dark);
+  border-color: var(--highlight-blue-light);
+}
+
+.host-order-option input:focus-visible + span {
+  outline: 2px solid var(--highlight-blue-light);
+  outline-offset: 2px;
+}
+
+.host-leaderboard-list {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.host-leaderboard-list > li {
+  display: grid;
+  grid-template-columns: auto auto minmax(0, 1fr) auto;
+  gap: clamp(12px, 1.6vw, 32px);
+  align-items: center;
+  padding: clamp(8px, 1.4vh, 20px) 0;
+  border-bottom: 1px solid var(--input-border-color);
+}
+
+.host-leaderboard-list > li:last-child {
+  border-bottom: 0;
+}
+
+.host-leaderboard-rank {
+  color: var(--color-darkerer);
+  font-size: clamp(16px, 2.2vh, 32px);
+  font-variant-numeric: tabular-nums;
+}
+
+/* The podium accent, as on the Scores page — three numerals, not a badge. */
+.host-leaderboard-podium {
+  color: var(--highlight-pink-light);
+  font-weight: 700;
+}
+
+.host-leaderboard .host-leaderboard-avatar {
+  width: clamp(40px, 6vh, 80px);
+  height: clamp(40px, 6vh, 80px);
+  font-size: clamp(18px, 2.6vh, 36px);
+}
+
+.host-leaderboard-name {
+  overflow: hidden;
+  font-size: clamp(26px, 4.2vh, 64px);
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+
+.host-leaderboard-value {
+  color: var(--highlight-gold-light);
+  font-size: clamp(36px, 6.4vh, 96px);
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+}
+
+/* Five or six rows must still fit 1080px: halve the ceilings. */
+.host-leaderboard-dense > li {
+  padding: clamp(4px, 0.8vh, 10px) 0;
+}
+
+.host-leaderboard-dense .host-leaderboard-name {
+  font-size: clamp(22px, 3.2vh, 40px);
+}
+
+.host-leaderboard-dense .host-leaderboard-value {
+  font-size: clamp(28px, 4.4vh, 56px);
+}
+
+.host-leaderboard-dense .host-leaderboard-avatar {
+  width: clamp(32px, 4.4vh, 56px);
+  height: clamp(32px, 4.4vh, 56px);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .host-order-option > span {
+    transition: none;
+  }
+}

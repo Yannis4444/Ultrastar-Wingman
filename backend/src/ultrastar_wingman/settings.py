@@ -6,7 +6,7 @@ Definitions are code, values are data: adding a setting means adding one
 
 import json
 import logging
-from collections.abc import Mapping
+from collections.abc import Callable, Mapping
 from dataclasses import dataclass
 
 from sqlalchemy import String, Text, delete, select
@@ -15,9 +15,20 @@ from sqlalchemy.orm import Mapped, mapped_column
 
 from .db import Base
 
+# The definitions live here, so a rule that only a domain module can state has to be
+# imported here. `karaoke.slots` and `downloads.video_quality` are leaves on purpose — they
+# must never import this module back, or the services that do close the circle.
+from .downloads.video_quality import DEFAULT_VIDEO_FORMAT, validate_video_format
+from .karaoke.slots import DEFAULT_SLOT_COLORS_SETTING, validate_slot_colors
+
 logger = logging.getLogger(__name__)
 
 SettingValue = str | int | bool | float
+
+# Beyond the type: raises `ValueError` when the value is of the right type but still
+# unusable (a color list USDX could not be pointed at). Kept as a plain callable so a
+# domain module owns its own rules and the registry stays domain-agnostic.
+Validator = Callable[[SettingValue], None]
 
 
 class Setting(Base):
@@ -37,6 +48,7 @@ class SettingDefinition:
     group: str
     description: str
     secret: bool = False
+    validate: Validator | None = None
 
 
 class UnknownSettingError(LookupError):
@@ -49,6 +61,15 @@ class SettingTypeError(TypeError):
     def __init__(self, key: str, expected: type[SettingValue], got: type[object]) -> None:
         super().__init__(f"setting '{key}' expects {expected.__name__}, got {got.__name__}")
         self.key = key
+
+
+class SettingValueError(ValueError):
+    """Right type, unusable value — the definition's own validator said no."""
+
+    def __init__(self, key: str, reason: str) -> None:
+        super().__init__(f"setting '{key}': {reason}")
+        self.key = key
+        self.reason = reason
 
 
 DEFINITIONS: dict[str, SettingDefinition] = {}
@@ -86,6 +107,20 @@ register(
         default="",
         group="Songs",
         description="Further directories to scan for songs, one path per line.",
+    )
+)
+register(
+    SettingDefinition(
+        key="karaoke.player_colors",
+        value_type=str,
+        default=DEFAULT_SLOT_COLORS_SETTING,
+        group="Karaoke",
+        description=(
+            "The singing slots, as Ultrastar Deluxe color names separated by commas. How "
+            "many there are is how many players sing at once — 1, 2, 3, 4 or 6, the counts "
+            "Ultrastar Deluxe plays on one screen."
+        ),
+        validate=validate_slot_colors,
     )
 )
 register(
@@ -248,6 +283,21 @@ register(
 )
 register(
     SettingDefinition(
+        key="downloads.video_format",
+        value_type=str,
+        default=DEFAULT_VIDEO_FORMAT,
+        group="Downloads",
+        # The presets and the string each one stands for are what the settings UI puts on
+        # the screen; repeating them here would only be the same list twice.
+        description=(
+            "Which YouTube stream yt-dlp downloads, as a yt-dlp format string. A video is "
+            "always downloaded — Ultrastar Deluxe plays it, and the mp3 is extracted from it."
+        ),
+        validate=validate_video_format,
+    )
+)
+register(
+    SettingDefinition(
         key="downloads.ytdlp_path",
         value_type=str,
         default="",
@@ -315,17 +365,25 @@ class SettingsService:
 
     @staticmethod
     def _check(definition: SettingDefinition, value: object) -> SettingValue:
+        checked: SettingValue
         # `type() is` on purpose: isinstance(True, int) is True, and a bool is not an int here.
         if type(value) is definition.value_type:
-            return value
-        if definition.value_type is float and type(value) is int:
-            return float(value)
-        raise SettingTypeError(definition.key, definition.value_type, type(value))
+            checked = value
+        elif definition.value_type is float and type(value) is int:
+            checked = float(value)
+        else:
+            raise SettingTypeError(definition.key, definition.value_type, type(value))
+        if definition.validate is not None:
+            try:
+                definition.validate(checked)
+            except ValueError as error:
+                raise SettingValueError(definition.key, str(error)) from error
+        return checked
 
     def _decode(self, definition: SettingDefinition, raw: str) -> SettingValue:
         try:
             return self._check(definition, json.loads(raw))
-        except (json.JSONDecodeError, SettingTypeError):
+        except (json.JSONDecodeError, SettingTypeError, SettingValueError):
             logger.warning(
                 "stored value of '%s' does not match its definition, falling back to the default",
                 definition.key,

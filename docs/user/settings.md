@@ -15,6 +15,28 @@ The settings are grouped by area, and each field carries its own one-line
 explanation. Below, every field is listed with the name it has in the app and the
 key it is stored under.
 
+## Karaoke
+
+How many people sing at once, and in which colours.
+
+| Field | What it is |
+|---|---|
+| **Players** | How many singing slots the player selection offers. Ultrastar Deluxe plays 1, 2, 3, 4 or 6 players on one screen, so those are the choices. |
+| **Slot 1 … Slot n** | The colour of each slot, picked from Ultrastar Deluxe's own sixteen. Every slot needs a colour of its own — picking one another slot already has swaps the two. |
+
+Both live in one setting (`karaoke.player_colors`): the colour names in order,
+separated by commas, e.g. `blue,red,green,yellow`. How many there are is how many
+players sing. Wingman writes exactly this into Ultrastar Deluxe's `config.ini`
+before every song, together with the names and avatars of whoever is on the slots.
+
+!!! tip
+    Set this to the number of microphones you have. Slots left empty at the end
+    of a selection are dropped before the song starts, so one slot too many
+    costs nothing — but a slot left empty *between* two singers is kept, so the
+    singers after it keep their colours and their microphone. Since Ultrastar
+    Deluxe itself only plays 1, 2, 3, 4 or 6 players, five singers reach it as
+    six, the sixth one empty.
+
 ## USDX
 
 Where Ultrastar Deluxe lives.
@@ -29,6 +51,15 @@ Where Ultrastar Deluxe lives.
 
 For a normal installation, fill in the base path and leave the four overrides
 empty. They exist for portable installations spread over several folders.
+
+The section starts with a **Run Ultrastar Deluxe** row and its **Launch**
+button. Some things are not Wingman's to set — which microphone is player one,
+above all — and can only be changed inside Ultrastar Deluxe itself. Launch
+starts it with no song and without touching its player configuration; pressing
+it again while it is up says *Running* instead of starting a second one. While
+Ultrastar Deluxe stands in its own menus, a song from a phone is refused the
+same way a running song is refused — whoever may stop a song can still replace
+it.
 
 !!! note
     `config.ini` is created by Ultrastar Deluxe on demand and `Ultrastar.db` only
@@ -78,6 +109,7 @@ provider, and what a singer sees — is in
 | Field | What it is |
 |---|---|
 | **Parallel** (`downloads.parallel`) | How many songs download at the same time. Default 2, applied after a restart. |
+| **Video quality** (`downloads.video_format`) | How good the downloaded video is. Pick a preset — *Best available*, *High (1080p)* (the default), *Medium (720p)*, *Small (480p)* — or *Custom* and write a yt-dlp format string yourself. The effective format string is always spelled out under the presets. |
 | **ffmpeg** (`downloads.ffmpeg`) | The ffmpeg program, used to pull the audio track out of the video. Leave it at the default `ffmpeg` and Wingman uses the one on your system, or downloads its own copy (Windows only) the first time it needs one. Fill in a full path to use exactly that program instead. |
 | **yt-dlp path** (`downloads.ytdlp_path`) | The yt-dlp program. Leave it empty and Wingman downloads and updates its own copy. |
 
@@ -85,3 +117,10 @@ provider, and what a singer sees — is in
     Only fill in the yt-dlp path if you want to manage yt-dlp yourself. Wingman
     does not update a copy you point it at — and YouTube breaks old yt-dlp
     versions every few weeks.
+
+!!! note
+    The presets ask for mp4 video plus m4a audio capped at their resolution
+    (`bestvideo[ext=mp4][height<=1080]+bestaudio[ext=m4a]/best[ext=mp4][height<=1080]`
+    for 1080p), *Best available* asks for `bestvideo*+bestaudio/best`. There is
+    no audio-only choice: Ultrastar Deluxe plays the video file, and the mp3
+    next to it is extracted from that same file.

@@ -1,0 +1,223 @@
+/* The host stage's result block: flat on `--bg`, everything sized in `vh` so a
+   TV across the room reads it. Only used on `.host-page`, but the sizes are
+   self-contained so it does not depend on that class. */
+.last-song {
+  display: flex;
+  flex-direction: column;
+  gap: clamp(12px, 2vh, 28px);
+  min-width: 0;
+}
+
+.last-song-head {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr);
+  gap: clamp(16px, 2vw, 40px);
+  align-items: center;
+}
+
+/* Two classes: beats `.song-cover`'s own size whatever the import order. */
+.last-song .last-song-cover {
+  width: min(20vh, 14vw);
+  height: min(20vh, 14vw);
+}
+
+.last-song-naming {
+  min-width: 0;
+}
+
+/* Two lines rather than one: on a 3fr TV column a nowrap title loses half of
+   "Gimme! Gimme! Gimme! (A Man After Midnight)", and the stage's other song
+   title (`.currently-playing-title`) already wraps this way. */
+.last-song-title {
+  display: -webkit-box;
+  margin: 0;
+  overflow: hidden;
+  color: var(--color);
+  font-size: clamp(28px, 4.4vh, 64px);
+  font-weight: 700;
+  line-height: 1.1;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+}
+
+.last-song-artist {
+  margin: 0;
+  overflow: hidden;
+  color: var(--color-dark);
+  font-size: clamp(18px, 2.4vh, 34px);
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+
+/* The song's whole history, one line per number, as the old app had it. */
+.last-song-stats {
+  display: flex;
+  flex-direction: column;
+  gap: clamp(2px, 0.5vh, 8px);
+  min-width: 0;
+  /* The numbers the room reads across the room: never below 20px, and just
+     under the singer names below so they stay the louder line. */
+  font-size: clamp(20px, 2.1vh, 28px);
+}
+
+/* Secondary to the bars below: the numbers stay `--color-dark`, only the
+   glyphs carry the accent `.icon-stat` already gives them. */
+.last-song-stat .icon-stat-value {
+  color: var(--color-dark);
+}
+
+.last-song-bars {
+  /* One measure for the avatar square, the bar and the type inside it — the old
+     app's 50px avatar beside a 50px bar, scaled to the TV. The avatar column
+     has to stay a known width or the marker strip's grid drifts off the bars,
+     so the height is derived from it and not the other way round. */
+  --last-song-row: clamp(48px, 7vh, 88px);
+
+  display: flex;
+  flex-direction: column;
+  gap: clamp(8px, 1.4vh, 20px);
+  min-width: 0;
+}
+
+/* Shares the rows' two-column grid so the markers land on the bar's scale and
+   not on the avatar column. */
+.last-song-markers,
+.last-song-row {
+  display: grid;
+  grid-template-columns: var(--last-song-row) minmax(0, 1fr);
+  gap: 1em;
+  align-items: center;
+}
+
+/* The avatar takes whatever height the bar ends up with, so the two can never
+   disagree — square while the type fits, cropped rather than short if it does
+   not. */
+.last-song-row {
+  align-items: stretch;
+}
+
+/* Tall enough for a glyph plus its pointer (about 1.6em together): a shorter
+   strip would let the markers lean up into the stat lines. */
+.last-song-markers > div {
+  position: relative;
+  height: clamp(24px, 2.9vh, 40px);
+}
+
+.last-song-marker {
+  position: absolute;
+  bottom: 0;
+  display: block;
+  width: 0;
+  color: var(--highlight-blue-light);
+  font-size: clamp(14px, 1.8vh, 24px);
+}
+
+.last-song-marker .icon {
+  display: block;
+  transform: translateX(-50%);
+}
+
+/* The little pointer under each marker glyph, aimed at its place on the bar. */
+.last-song-marker::after {
+  content: "";
+  display: block;
+  width: 0;
+  height: 0;
+  border-right: 0.4em solid transparent;
+  border-left: 0.4em solid transparent;
+  border-top: 0.6em solid var(--highlight-blue-light);
+  transform: translateX(-50%);
+}
+
+.last-song .last-song-avatar {
+  width: var(--last-song-row);
+  height: auto;
+  align-self: stretch;
+  font-size: calc(var(--last-song-row) * 0.45);
+}
+
+.last-song-bar {
+  position: relative;
+  display: flex;
+  gap: 1em;
+  align-items: center;
+  justify-content: space-between;
+  box-sizing: border-box;
+  overflow: hidden;
+  /* No vertical padding: the row is the measure and the flex box centres the
+     two lines in it. Padding on top would push them out of `overflow: hidden`. */
+  min-height: var(--last-song-row);
+  padding: 0 clamp(12px, 1.4vw, 24px);
+  background-color: var(--input-bg);
+  border-radius: var(--border-radius-small);
+}
+
+/* Grows out of the left edge on mount — the reveal is the point of the bar. */
+.last-song-percent {
+  position: absolute;
+  top: 0;
+  left: 0;
+  height: 100%;
+  background-color: var(--highlight-pink-dark);
+  animation: last-song-expand 2s ease-in-out forwards;
+}
+
+@keyframes last-song-expand {
+  from {
+    width: 0;
+  }
+}
+
+/* Above the fill, which is absolutely positioned behind them. The row's own
+   font size lives here, so the 0.75em second lines measure against it. */
+.last-song-singer,
+.last-song-value {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  /* Sized off the row — the old app's 16px name in a 50px row is a third of it —
+     with a floor that keeps a 720p TV readable. */
+  font-size: max(20px, calc(var(--last-song-row) * 0.33));
+}
+
+.last-song-value {
+  flex: 0 0 auto;
+  align-items: flex-end;
+  text-align: right;
+}
+
+.last-song-name {
+  overflow: hidden;
+  color: var(--color);
+  font-weight: 700;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+
+.last-song-evaluation {
+  overflow: hidden;
+  color: var(--highlight-blue-light);
+  font-size: 0.75em;
+  font-weight: 700;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+
+.last-song-score {
+  color: var(--color-dark);
+  font-variant-numeric: tabular-nums;
+}
+
+.last-song-record {
+  color: var(--highlight-gold-light);
+  font-size: 0.75em;
+  font-weight: 700;
+  white-space: nowrap;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .last-song-percent {
+    animation: none;
+  }
+}

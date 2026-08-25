@@ -1,0 +1,15 @@
+/* The base look; the player selection (`PlayerSelection.css`) zeroes the margin
+   for its own copy of the form. */
+.players-add {
+  display: flex;
+  gap: 8px;
+  margin: 16px;
+}
+
+.players-add input {
+  flex: 1 1 auto;
+}
+
+.players-notice {
+  margin: 0 16px 8px 16px;
+}

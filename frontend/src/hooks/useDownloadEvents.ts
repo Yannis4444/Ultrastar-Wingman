@@ -1,4 +1,4 @@
-import { useQueryClient } from "@tanstack/react-query";
+import { useQueryClient, type QueryClient } from "@tanstack/react-query";
 import type { DownloadList, DownloadRead } from "../api";
 import {
   listDownloadsQueryKey,
@@ -19,6 +19,29 @@ export function downloadKey(source: string, sourceSongId: string): string {
 }
 
 /**
+ * Folds one row into the downloads cache, whether it came from a broadcast or
+ * straight out of a mutation. A dismissed row is dropped instead of stored: the
+ * backend's list does not carry it either, so keeping it would resurrect the
+ * entry until the next refetch.
+ */
+export function applyDownload(
+  queryClient: QueryClient,
+  download: DownloadRead,
+): void {
+  queryClient.setQueryData(
+    listDownloadsQueryKey(),
+    (previous: DownloadList | undefined) => ({
+      downloads: [
+        ...(download.dismissed_at === null ? [download] : []),
+        ...(previous?.downloads ?? []).filter((row) => row.id !== download.id),
+      ]
+        .sort((left, right) => right.id - left.id)
+        .slice(0, HISTORY_LIMIT),
+    }),
+  );
+}
+
+/**
  * Folds `download.updated` broadcasts into the `listDownloads` cache — the one
  * place download state lives, so progress bars and the per-song badges read the
  * same rows. A finished download also invalidates the song list, which is why
@@ -28,19 +51,7 @@ export function useDownloadEvents(): void {
   const queryClient = useQueryClient();
 
   useWingmanEvent<DownloadUpdated>("download.updated", ({ download }) => {
-    queryClient.setQueryData(
-      listDownloadsQueryKey(),
-      (previous: DownloadList | undefined) => ({
-        downloads: [
-          download,
-          ...(previous?.downloads ?? []).filter(
-            (row) => row.id !== download.id,
-          ),
-        ]
-          .sort((left, right) => right.id - left.id)
-          .slice(0, HISTORY_LIMIT),
-      }),
-    );
+    applyDownload(queryClient, download);
     if (download.status === "finished") {
       void queryClient.invalidateQueries({ queryKey: listSongsQueryKey() });
     }

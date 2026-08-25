@@ -21,7 +21,23 @@ def test_all_tags_are_parsed() -> None:
         "year": 2014,
         "edition": "Party Classics",
         "creator": "wingman",
+        # Both in seconds here: "#START:12.5" already is, "#END:210000" is milliseconds.
+        "start": 12.5,
+        "end": 210.0,
     }
+
+
+def test_the_playback_window_is_normalized_to_seconds() -> None:
+    txt = parse_song_txt("#TITLE:t\n#ARTIST:a\n#START:25,6\n#END:225000\n")
+    # A German editor writes the decimal with a comma.
+    assert (txt.start, txt.end) == (25.6, 225.0)
+
+
+@pytest.mark.parametrize("value", ["unknown", "", "0", "-4"])
+def test_an_unusable_playback_window_is_no_window(value: str) -> None:
+    # Zero means "not set" to USDX, and nothing before it can be parsed as a time.
+    txt = parse_song_txt(f"#TITLE:t\n#ARTIST:a\n#START:{value}\n#END:{value}\n")
+    assert (txt.start, txt.end) == (None, None)
 
 
 def test_utf8_bom_is_stripped_and_unicode_survives() -> None:

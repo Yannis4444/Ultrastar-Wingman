@@ -4,6 +4,12 @@
   cursor: default;
 }
 
+/* Except once the song is in the library — then the row opens it, like every
+   other song row in the app. */
+button.usdb-item-open {
+  cursor: pointer;
+}
+
 /* Title and rating share one line; the title is the only thing that may shrink. */
 .usdb-item-line {
   display: flex;

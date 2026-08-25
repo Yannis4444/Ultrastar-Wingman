@@ -2,12 +2,20 @@ import pytest
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
 
 from ultrastar_wingman.settings import (
+    Setting,
     SettingDefinition,
     SettingsService,
     SettingTypeError,
     SettingValue,
+    SettingValueError,
     UnknownSettingError,
 )
+
+
+def _even(value: SettingValue) -> None:
+    if int(value) % 2:
+        raise ValueError("must be even")
+
 
 TEST_DEFINITIONS = {
     definition.key: definition
@@ -27,6 +35,14 @@ TEST_DEFINITIONS = {
         ),
         SettingDefinition(
             key="test.ratio", value_type=float, default=0.5, group="Test", description="A float."
+        ),
+        SettingDefinition(
+            key="test.pairs",
+            value_type=int,
+            default=2,
+            group="Test",
+            description="An int with a rule of its own.",
+            validate=_even,
         ),
     ]
 }
@@ -52,6 +68,7 @@ async def test_all_merges_stored_values_with_defaults(session: AsyncSession) -> 
         "test.count": 7,
         "test.enabled": False,
         "test.ratio": 0.5,
+        "test.pairs": 2,
     }
 
 
@@ -93,6 +110,27 @@ async def test_int_is_accepted_for_a_float_setting(session: AsyncSession) -> Non
 async def test_set_rejects_a_wrong_type(session: AsyncSession, key: str, value: object) -> None:
     with pytest.raises(SettingTypeError):
         await make_service(session).set(key, value)  # type: ignore[arg-type]
+
+
+async def test_a_definitions_own_rule_is_enforced(session: AsyncSession) -> None:
+    """The type is not always the whole truth — a definition may carry its own validator."""
+    service = make_service(session)
+    assert await service.set("test.pairs", 4) == 4
+
+    with pytest.raises(SettingValueError, match="must be even"):
+        await service.set("test.pairs", 5)
+    assert await service.get("test.pairs") == 4
+
+
+async def test_a_stored_value_the_rule_rejects_falls_back_to_the_default(
+    session: AsyncSession,
+) -> None:
+    """Only reachable by editing the database by hand — but a bad row must not crash
+    whatever reads the setting."""
+    session.add(Setting(key="test.pairs", value="7"))
+    await session.commit()
+
+    assert await make_service(session).get("test.pairs") == 2
 
 
 async def test_reset_drops_the_stored_value(session: AsyncSession) -> None:

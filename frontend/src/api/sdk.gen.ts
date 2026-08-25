@@ -2,7 +2,7 @@
 
 import { type Client, type ClientMeta, formDataBodySerializer, type Options as Options2, type RequestResult, type TDataShape } from './client';
 import { client } from './client.gen';
-import type { AddFavoriteData, AddFavoriteErrors, AddFavoriteResponses, AddPlaylistEntryData, AddPlaylistEntryErrors, AddPlaylistEntryResponses, AddWishData, AddWishErrors, AddWishResponses, CreateDownloadData, CreateDownloadErrors, CreateDownloadResponses, CreatePlayerData, CreatePlayerErrors, CreatePlayerResponses, CreatePlaylistData, CreatePlaylistErrors, CreatePlaylistResponses, DeletePlayerData, DeletePlayerErrors, DeletePlayerResponses, DeletePlaylistData, DeletePlaylistErrors, DeletePlaylistResponses, DeleteUserData, DeleteUserErrors, DeleteUserResponses, ExchangeHostTokenData, ExchangeHostTokenErrors, ExchangeHostTokenResponses, GetCurrentSingData, GetCurrentSingResponses, GetJoinInfoData, GetJoinInfoResponses, GetMeData, GetMeResponses, GetPermissionsData, GetPermissionsResponses, GetPlayerAvatarData, GetPlayerAvatarErrors, GetPlayerAvatarResponses, GetPlaylistData, GetPlaylistErrors, GetPlaylistResponses, GetSongAudioData, GetSongAudioErrors, GetSongAudioResponses, GetSongCoverData, GetSongCoverErrors, GetSongCoverResponses, GetSongData, GetSongErrors, GetSongResponses, HealthData, HealthResponses, ListDownloadsData, ListDownloadsResponses, ListFavoritesData, ListFavoritesResponses, ListKaraokeColorsData, ListKaraokeColorsResponses, ListLatestScoresData, ListLatestScoresErrors, ListLatestScoresResponses, ListPlayersData, ListPlayersResponses, ListPlaylistsData, ListPlaylistsResponses, ListSessionScoresData, ListSessionScoresErrors, ListSessionScoresResponses, ListSessionsData, ListSessionsResponses, ListSettingsData, ListSettingsResponses, ListSongScoresData, ListSongScoresErrors, ListSongScoresResponses, ListSongsData, ListSongsResponses, ListUsersData, ListUsersResponses, ListWishlistData, ListWishlistResponses, LoginData, LoginErrors, LoginResponses, LogoutData, LogoutErrors, LogoutResponses, OidcCallbackData, OidcCallbackErrors, OidcConfigData, OidcConfigResponses, OidcLoginData, OidcLoginErrors, RegisterData, RegisterErrors, RegisterResponses, RemoveFavoriteData, RemoveFavoriteErrors, RemoveFavoriteResponses, RemovePlaylistEntryData, RemovePlaylistEntryErrors, RemovePlaylistEntryResponses, RemoveWishData, RemoveWishErrors, RemoveWishResponses, RenameSessionData, RenameSessionErrors, RenameSessionResponses, ReorderPlaylistEntriesData, ReorderPlaylistEntriesErrors, ReorderPlaylistEntriesResponses, RescanSongsData, RescanSongsErrors, RescanSongsResponses, SetPlayerAvatarData, SetPlayerAvatarErrors, SetPlayerAvatarResponses, SingSongData, SingSongErrors, SingSongResponses, StopSingingData, StopSingingResponses, UpdatePlaylistData, UpdatePlaylistErrors, UpdatePlaylistResponses, UpdateRolePermissionsData, UpdateRolePermissionsErrors, UpdateRolePermissionsResponses, UpdateSettingData, UpdateSettingErrors, UpdateSettingResponses, UpdateUserData, UpdateUserErrors, UpdateUserResponses, UsdbSearchData, UsdbSearchErrors, UsdbSearchResponses, UsdbStatusData, UsdbStatusErrors, UsdbStatusResponses, UsdxStatusData, UsdxStatusResponses } from './types.gen';
+import type { AddFavoriteData, AddFavoriteErrors, AddFavoriteResponses, AddPlaylistEntryData, AddPlaylistEntryErrors, AddPlaylistEntryResponses, AddWishData, AddWishErrors, AddWishResponses, CreateDownloadData, CreateDownloadErrors, CreateDownloadResponses, CreatePlayerData, CreatePlayerErrors, CreatePlayerResponses, CreatePlaylistData, CreatePlaylistErrors, CreatePlaylistResponses, DeletePlayerData, DeletePlayerErrors, DeletePlayerResponses, DeletePlaylistData, DeletePlaylistErrors, DeletePlaylistResponses, DeleteUserData, DeleteUserErrors, DeleteUserResponses, DismissDownloadData, DismissDownloadErrors, DismissDownloadResponses, DismissFinishedDownloadsData, DismissFinishedDownloadsResponses, ExchangeHostTokenData, ExchangeHostTokenErrors, ExchangeHostTokenResponses, GetCurrentSingData, GetCurrentSingResponses, GetJoinInfoData, GetJoinInfoResponses, GetMeData, GetMeResponses, GetPermissionsData, GetPermissionsResponses, GetPlayerAvatarData, GetPlayerAvatarErrors, GetPlayerAvatarResponses, GetPlaylistData, GetPlaylistErrors, GetPlaylistResponses, GetSongAudioData, GetSongAudioErrors, GetSongAudioResponses, GetSongCoverData, GetSongCoverErrors, GetSongCoverResponses, GetSongData, GetSongErrors, GetSongResponses, HealthData, HealthResponses, LaunchUsdxData, LaunchUsdxErrors, LaunchUsdxResponses, ListDownloadsData, ListDownloadsResponses, ListFavoritesData, ListFavoritesResponses, ListKaraokeColorsData, ListKaraokeColorsResponses, ListKaraokeSlotsData, ListKaraokeSlotsResponses, ListLatestScoresData, ListLatestScoresErrors, ListLatestScoresResponses, ListPlayerScoresData, ListPlayerScoresErrors, ListPlayerScoresResponses, ListPlayersData, ListPlayersResponses, ListPlaylistsData, ListPlaylistsResponses, ListSessionScoresData, ListSessionScoresErrors, ListSessionScoresResponses, ListSessionsData, ListSessionsResponses, ListSettingsData, ListSettingsResponses, ListSongScoresData, ListSongScoresErrors, ListSongScoresResponses, ListSongsData, ListSongsResponses, ListUsersData, ListUsersResponses, ListVideoQualityPresetsData, ListVideoQualityPresetsResponses, ListWishlistData, ListWishlistResponses, LoginData, LoginErrors, LoginResponses, LogoutData, LogoutErrors, LogoutResponses, OidcCallbackData, OidcCallbackErrors, OidcConfigData, OidcConfigResponses, OidcLoginData, OidcLoginErrors, RegisterData, RegisterErrors, RegisterResponses, RemoveFavoriteData, RemoveFavoriteErrors, RemoveFavoriteResponses, RemovePlaylistEntryData, RemovePlaylistEntryErrors, RemovePlaylistEntryResponses, RemoveWishData, RemoveWishErrors, RemoveWishResponses, RenameSessionData, RenameSessionErrors, RenameSessionResponses, ReorderPlaylistEntriesData, ReorderPlaylistEntriesErrors, ReorderPlaylistEntriesResponses, RescanSongsData, RescanSongsErrors, RescanSongsResponses, SetPlayerAvatarData, SetPlayerAvatarErrors, SetPlayerAvatarResponses, SingSongData, SingSongErrors, SingSongResponses, StopSingingData, StopSingingResponses, UpdatePlaylistData, UpdatePlaylistErrors, UpdatePlaylistResponses, UpdateRolePermissionsData, UpdateRolePermissionsErrors, UpdateRolePermissionsResponses, UpdateSettingData, UpdateSettingErrors, UpdateSettingResponses, UpdateUserData, UpdateUserErrors, UpdateUserResponses, UsdbCoverData, UsdbCoverErrors, UsdbCoverResponses, UsdbSearchData, UsdbSearchErrors, UsdbSearchResponses, UsdbStatusData, UsdbStatusErrors, UsdbStatusResponses, UsdxStatusData, UsdxStatusResponses } from './types.gen';
 
 export type Options<TData extends TDataShape = TDataShape, ThrowOnError extends boolean = boolean, TResponse = unknown> = Options2<TData, ThrowOnError, TResponse> & {
     /**
@@ -220,12 +220,28 @@ export const setPlayerAvatar = <ThrowOnError extends boolean = false>(options: O
 export const usdxStatus = <ThrowOnError extends boolean = false>(options?: Options<UsdxStatusData, ThrowOnError>): RequestResult<UsdxStatusResponses, unknown, ThrowOnError> => (options?.client ?? client).get<UsdxStatusResponses, unknown, ThrowOnError>({ url: '/api/v1/karaoke/status', ...options });
 
 /**
+ * Launch Usdx
+ *
+ * Start Ultrastar Deluxe on its own, so the host can change the settings only USDX has
+ * (the microphones). Asking again while it is up is not an error: `started` is then false.
+ */
+export const launchUsdx = <ThrowOnError extends boolean = false>(options?: Options<LaunchUsdxData, ThrowOnError>): RequestResult<LaunchUsdxResponses, LaunchUsdxErrors, ThrowOnError> => (options?.client ?? client).post<LaunchUsdxResponses, LaunchUsdxErrors, ThrowOnError>({ url: '/api/v1/karaoke/usdx/launch', ...options });
+
+/**
  * List Karaoke Colors
  *
  * The player colors USDX knows, in its own order. The single source of truth —
  * clients must not hardcode them.
  */
 export const listKaraokeColors = <ThrowOnError extends boolean = false>(options?: Options<ListKaraokeColorsData, ThrowOnError>): RequestResult<ListKaraokeColorsResponses, unknown, ThrowOnError> => (options?.client ?? client).get<ListKaraokeColorsResponses, unknown, ThrowOnError>({ url: '/api/v1/karaoke/colors', ...options });
+
+/**
+ * List Karaoke Slots
+ *
+ * The singing slots the host configured (`karaoke.player_colors`) with their hex
+ * values. How many there are is how many people sing at once.
+ */
+export const listKaraokeSlots = <ThrowOnError extends boolean = false>(options?: Options<ListKaraokeSlotsData, ThrowOnError>): RequestResult<ListKaraokeSlotsResponses, unknown, ThrowOnError> => (options?.client ?? client).get<ListKaraokeSlotsResponses, unknown, ThrowOnError>({ url: '/api/v1/karaoke/slots', ...options });
 
 /**
  * Sing Song
@@ -255,7 +271,18 @@ export const getCurrentSing = <ThrowOnError extends boolean = false>(options?: O
 export const stopSinging = <ThrowOnError extends boolean = false>(options?: Options<StopSingingData, ThrowOnError>): RequestResult<StopSingingResponses, unknown, ThrowOnError> => (options?.client ?? client).post<StopSingingResponses, unknown, ThrowOnError>({ url: '/api/v1/karaoke/stop', ...options });
 
 /**
+ * List Video Quality Presets
+ *
+ * The download quality presets and the yt-dlp format string each one stands for. The
+ * single source of truth — no client may hardcode a format string.
+ */
+export const listVideoQualityPresets = <ThrowOnError extends boolean = false>(options?: Options<ListVideoQualityPresetsData, ThrowOnError>): RequestResult<ListVideoQualityPresetsResponses, unknown, ThrowOnError> => (options?.client ?? client).get<ListVideoQualityPresetsResponses, unknown, ThrowOnError>({ url: '/api/v1/downloads/video-quality', ...options });
+
+/**
  * List Downloads
+ *
+ * The queue and the recent history. Dismissed rows are gone from here: taking note of
+ * one is what empties the panel — the row itself lives on until retention drops it.
  */
 export const listDownloads = <ThrowOnError extends boolean = false>(options?: Options<ListDownloadsData, ThrowOnError>): RequestResult<ListDownloadsResponses, unknown, ThrowOnError> => (options?.client ?? client).get<ListDownloadsResponses, unknown, ThrowOnError>({ url: '/api/v1/downloads', ...options });
 
@@ -272,6 +299,21 @@ export const createDownload = <ThrowOnError extends boolean = false>(options: Op
 });
 
 /**
+ * Dismiss Finished Downloads
+ *
+ * Clear the successes in one go. Failures stay: only their owner's explicit dismiss
+ * takes an error off the screen.
+ */
+export const dismissFinishedDownloads = <ThrowOnError extends boolean = false>(options?: Options<DismissFinishedDownloadsData, ThrowOnError>): RequestResult<DismissFinishedDownloadsResponses, unknown, ThrowOnError> => (options?.client ?? client).post<DismissFinishedDownloadsResponses, unknown, ThrowOnError>({ url: '/api/v1/downloads/dismiss-finished', ...options });
+
+/**
+ * Dismiss Download
+ *
+ * Mark one finished or failed download as read, taking it out of the panel.
+ */
+export const dismissDownload = <ThrowOnError extends boolean = false>(options: Options<DismissDownloadData, ThrowOnError>): RequestResult<DismissDownloadResponses, DismissDownloadErrors, ThrowOnError> => (options.client ?? client).post<DismissDownloadResponses, DismissDownloadErrors, ThrowOnError>({ url: '/api/v1/downloads/{download_id}/dismiss', ...options });
+
+/**
  * Usdb Status
  *
  * Whether Wingman can use USDB. Cached; `refresh=true` asks the site again.
@@ -282,6 +324,18 @@ export const usdbStatus = <ThrowOnError extends boolean = false>(options?: Optio
  * Usdb Search
  */
 export const usdbSearch = <ThrowOnError extends boolean = false>(options?: Options<UsdbSearchData, ThrowOnError>): RequestResult<UsdbSearchResponses, UsdbSearchErrors, ThrowOnError> => (options?.client ?? client).get<UsdbSearchResponses, UsdbSearchErrors, ThrowOnError>({ url: '/api/v1/sources/usdb/search', ...options });
+
+/**
+ * Usdb Cover
+ *
+ * The cover of a search result, proxied.
+ *
+ * Proxied rather than linked: pointing every phone in the room at usdb.animux.de would
+ * hand out the browsing habits of the whole party, and Wingman is the only party with a
+ * USDB session anyway. `usdb_id` is an int, so nothing a caller sends can steer the
+ * upstream path.
+ */
+export const usdbCover = <ThrowOnError extends boolean = false>(options: Options<UsdbCoverData, ThrowOnError>): RequestResult<UsdbCoverResponses, UsdbCoverErrors, ThrowOnError> => (options.client ?? client).get<UsdbCoverResponses, UsdbCoverErrors, ThrowOnError>({ url: '/api/v1/sources/usdb/songs/{usdb_id}/cover', ...options });
 
 /**
  * List Wishlist
@@ -443,6 +497,14 @@ export const listSessionScores = <ThrowOnError extends boolean = false>(options:
  * Every score one song ever got, across all sessions, newest first.
  */
 export const listSongScores = <ThrowOnError extends boolean = false>(options: Options<ListSongScoresData, ThrowOnError>): RequestResult<ListSongScoresResponses, ListSongScoresErrors, ThrowOnError> => (options.client ?? client).get<ListSongScoresResponses, ListSongScoresErrors, ThrowOnError>({ url: '/api/v1/stats/songs/{song_id}/scores', ...options });
+
+/**
+ * List Player Scores
+ *
+ * Every score one player ever got, across all sessions, newest first — what the user
+ * page turns into their totals.
+ */
+export const listPlayerScores = <ThrowOnError extends boolean = false>(options: Options<ListPlayerScoresData, ThrowOnError>): RequestResult<ListPlayerScoresResponses, ListPlayerScoresErrors, ThrowOnError> => (options.client ?? client).get<ListPlayerScoresResponses, ListPlayerScoresErrors, ThrowOnError>({ url: '/api/v1/stats/players/{player_id}/scores', ...options });
 
 /**
  * List Latest Scores

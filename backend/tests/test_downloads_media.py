@@ -255,13 +255,18 @@ async def test_download_video_builds_the_standard_arguments(
         return None
 
     destination = await media.download_video(
-        tmp_path / "yt-dlp", "https://youtu.be/abc", tmp_path / "video.mp4", report, "ffmpeg"
+        tmp_path / "yt-dlp",
+        "https://youtu.be/abc",
+        tmp_path / "video.mp4",
+        report,
+        "ffmpeg",
+        format_string="best[height<=720]",
     )
 
     assert destination == tmp_path / "video.mp4"
     assert recorded == [
         "--format",
-        media.VIDEO_FORMAT,
+        "best[height<=720]",
         "--output",
         str(tmp_path / "video.mp4"),
         "--ffmpeg-location",

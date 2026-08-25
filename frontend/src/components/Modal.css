@@ -42,6 +42,14 @@
   background: none;
 }
 
+/* Title-less bare header: shrink to the close button so the empty strip
+   beside it stays backdrop rather than swallowing the click. Bare sub-views
+   keep a full-width header — their `h2` has to stay left. */
+.modal-bare .modal-header-bare {
+  width: max-content;
+  margin-left: auto;
+}
+
 .modal-fullscreen {
   max-width: none;
   max-height: none;

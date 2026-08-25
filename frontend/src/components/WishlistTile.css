@@ -1,10 +1,13 @@
+/* 8px of gutter plus 8px of row padding — the `.home-entry` geometry, so the
+   hairline under a wish and the one under "Random song" start and end on the
+   same pixel while the text of both lands on the 16px gutter. */
 .wishlist-tile {
-  margin: 16px;
-  padding: 8px 8px 12px 8px;
+  margin: 16px 8px;
+  padding: 0;
 }
 
 .wishlist-tile h2 {
-  margin: 8px;
+  margin: 0 8px;
 }
 
 .wishlist-notice,

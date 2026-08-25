@@ -36,7 +36,7 @@ they are yours.
 A playlist is a named, ordered list of songs: the birthday set, the ballads,
 everything for the late shift. Playlists belong to an account.
 
-Create one from **Songs → Playlists…**:
+Create one from **Songs → Playlists**:
 
 1. Give it a name.
 2. Decide whether it is **shared**.
@@ -44,8 +44,10 @@ Create one from **Songs → Playlists…**:
    tap one to add the song, tap it again to take the song out. A check marks
    the playlists that already have it.
 
-Every playlist you can see gets its own chip in the **Songs** list. While a
-playlist chip is active, its owner can remove a song with the ✕.
+The **Playlists** view lists every playlist you can see with the number of songs
+on it. Tap one to browse its songs — tap a song there to open it, and the owner
+can take a song out with the ✕. The pencil renames a playlist (and turns sharing
+on or off), the bin deletes it.
 
 ### Shared playlists
 

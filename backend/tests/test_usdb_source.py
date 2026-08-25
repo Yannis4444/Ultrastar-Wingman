@@ -33,6 +33,9 @@ PASSWORD = "not-a-real-password"
 
 SONG_DIR_NAME = "Test Artist - Test Song (1234)"
 
+# What `downloads.video_format` is set to for the tests, and what yt-dlp must be handed.
+VIDEO_FORMAT = "best"
+
 # Writes the video where it was told to and reports progress the way yt-dlp does with
 # --newline --progress-template. The argument list goes next to the script, not into the
 # work dir — everything in there ends up in the library.
@@ -122,6 +125,10 @@ class FakeUsdb:
     def count(self, link: str) -> int:
         return sum(1 for one in self.requests if f"link={link}" in one)
 
+    @property
+    def cover_requests(self) -> int:
+        return sum(1 for one in self.requests if "/data/cover/" in one)
+
 
 @dataclass(frozen=True)
 class Environment:
@@ -177,9 +184,10 @@ async def environment(
     await settings.set(SONGS_DIRECTORY, str(library))
     await settings.set(media.YTDLP_PATH_SETTING, str(fake_executable(tools, "yt-dlp", FAKE_YTDLP)))
     await settings.set(media.FFMPEG_SETTING, str(fake_executable(tools, "ffmpeg", FAKE_FFMPEG)))
-    # The real format contains `height<=1080`, which cmd turns into a redirection when the
-    # fake executable's .cmd wrapper forwards it.
-    monkeypatch.setattr(media, "VIDEO_FORMAT", "best")
+    # The default format contains `height<=1080`, which cmd turns into a redirection when
+    # the fake executable's .cmd wrapper forwards it. A configured format is also what the
+    # download must pick up, so setting it is the test of that.
+    await settings.set(media.VIDEO_FORMAT_SETTING, VIDEO_FORMAT)
     monkeypatch.setattr(usdb, "_session_factory", session_factory)
     monkeypatch.setattr(usdb, "_data_dir", tmp_path)
     return Environment(library=library, tools=tools)
@@ -379,6 +387,67 @@ async def test_search_endpoint_reports_a_broken_usdb_as_a_bad_gateway(
     assert response.json()["detail"] == "no_credentials"
 
 
+# --- covers ------------------------------------------------------------------------------
+
+
+async def test_cover_endpoint_proxies_the_image_and_caches_it(
+    site: FakeUsdb, client: AsyncClient
+) -> None:
+    response = await client.get("/api/v1/sources/usdb/songs/1234/cover")
+
+    assert response.status_code == 200
+    assert response.content == b"cover-bytes"
+    assert response.headers["content-type"] == "image/jpeg"
+    assert response.headers["cache-control"] == "public, max-age=86400"
+    # One request for one static image: the id is enough, no detail page is scraped — and
+    # no login round-trip either, USDB serves its covers to anyone.
+    assert site.requests == ["GET http://usdb.test/data/cover/1234.jpg"]
+
+    assert (await client.get("/api/v1/sources/usdb/songs/1234/cover")).content == b"cover-bytes"
+    # Paging back over results that were already on screen costs USDB nothing.
+    assert site.cover_requests == 1
+
+
+@pytest.mark.parametrize(
+    "answer",
+    [
+        pytest.param(httpx.Response(404, text="not found"), id="404"),
+        # USDB answers a request without a session with a normal HTML page, and a song
+        # without a cover with an error page — neither is an image.
+        pytest.param(
+            httpx.Response(
+                200, text="<html>no cover</html>", headers={"content-type": "text/html"}
+            ),
+            id="html",
+        ),
+    ],
+)
+async def test_a_song_without_a_cover_is_a_404_and_is_asked_for_once(
+    site: FakeUsdb, client: AsyncClient, answer: httpx.Response
+) -> None:
+    site.cover = answer
+
+    assert (await client.get("/api/v1/sources/usdb/songs/1234/cover")).status_code == 404
+    assert (await client.get("/api/v1/sources/usdb/songs/1234/cover")).status_code == 404
+    # The miss is cached too: a coverless song must not be re-asked on every page flip.
+    assert site.cover_requests == 1
+
+
+async def test_the_cover_cache_forgets_the_oldest_entries(
+    site: FakeUsdb, session: AsyncSession, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    monkeypatch.setattr(usdb, "COVER_CACHE_SIZE", 2)
+
+    for usdb_id in (1, 2, 3):
+        assert await usdb.cover(session, usdb_id) == (b"cover-bytes", "image/jpeg")
+    assert list(usdb._cover_cache) == [2, 3]
+
+    # The evicted one is fetched again, the kept one is not.
+    await usdb.cover(session, 1)
+    await usdb.cover(session, 3)
+    assert site.cover_requests == 4
+
+
 # --- download ----------------------------------------------------------------------------
 
 
@@ -426,6 +495,8 @@ async def test_download_puts_the_song_into_the_library(
     # The video url was built from the meta string of the #VIDEO tag.
     arguments = (environment.tools / "ytdlp-argv.txt").read_text(encoding="utf-8").splitlines()
     assert arguments[-1] == "https://www.youtube.com/watch?v=dQw4w9WgXcQ"
+    # The configured download quality, not a compiled-in format string.
+    assert arguments[arguments.index("--format") + 1] == VIDEO_FORMAT
 
 
 @pytest.mark.parametrize(

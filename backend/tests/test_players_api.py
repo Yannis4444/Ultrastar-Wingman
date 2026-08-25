@@ -1,5 +1,6 @@
 from collections.abc import AsyncIterator
 from pathlib import Path
+from unittest import mock
 
 import pytest
 from httpx import AsyncClient
@@ -7,15 +8,44 @@ from httpx import AsyncClient
 from conftest import admin_client, authenticate_admin
 from ultrastar_wingman.app import create_app
 from ultrastar_wingman.config import BootstrapSettings
-from ultrastar_wingman.players.service import MAX_AVATAR_BYTES
+from ultrastar_wingman.players.service import MAX_AVATAR_BYTES, MAX_AVATAR_PIXELS
 
-# Smallest real images, so declared content type and magic bytes genuinely agree.
+# Smallest real images, so declared content type, magic bytes and header dimensions all
+# genuinely agree — the upload reads the canvas size out of each of these headers.
 PNG = bytes.fromhex(
     "89504e470d0a1a0a0000000d49484452000000010000000108060000001f15c4"
     "890000000a49444154789c63000100000500010d0a2db40000000049454e44ae426082"
 )
-JPEG = b"\xff\xd8\xff\xe0\x00\x10JFIF\x00\x01" + b"\x00" * 16 + b"\xff\xd9"
-WEBP = b"RIFF" + (20).to_bytes(4, "little") + b"WEBPVP8 " + b"\x00" * 12
+# SOI, a JFIF header, a 1x1 baseline frame header (SOF0), EOI.
+JPEG = bytes.fromhex(
+    "ffd8"  # SOI
+    "ffe000104a46494600010100000100010000"  # APP0, the JFIF header
+    "ffc0000b080001000101011100"  # SOF0: 1x1, one component
+    "ffd9"  # EOI
+)
+
+
+def webp(chunk: bytes, payload: bytes) -> bytes:
+    return (
+        b"RIFF"
+        + (4 + 8 + len(payload)).to_bytes(4, "little")
+        + b"WEBP"
+        + chunk
+        + len(payload).to_bytes(4, "little")
+        + payload
+    )
+
+
+# Lossy: the keyframe tag, the start code and 1x1 in 14 bits each.
+WEBP = webp(b"VP8 ", b"\x50\x00\x00\x9d\x01\x2a" + (1).to_bytes(2, "little") * 2)
+# Lossless: the signature byte, then width-1 and height-1 in 14 bits each.
+WEBP_LOSSLESS = webp(b"VP8L", b"\x2f\x00\x00\x00\x00")
+
+
+def vp8x(width: int, height: int) -> bytes:
+    """An extended webp, whose canvas size is a header field of its own."""
+    canvas = (width - 1).to_bytes(3, "little") + (height - 1).to_bytes(3, "little")
+    return webp(b"VP8X", b"\x00\x00\x00\x00" + canvas)
 
 
 def upload(data: bytes, filename: str, content_type: str) -> dict[str, tuple[str, bytes, str]]:
@@ -25,6 +55,13 @@ def upload(data: bytes, filename: str, content_type: str) -> dict[str, tuple[str
 def avatar_files(avatars_dir: Path) -> list[str]:
     """Sync on purpose: ruff's ASYNC rules ban pathlib calls inside async functions."""
     return sorted(path.name for path in avatars_dir.iterdir()) if avatars_dir.is_dir() else []
+
+
+def touch_and_read_version(avatar: Path) -> int:
+    """Move the file's modification time on and report the version the API should now
+    serve. Sync for the same reason as `avatar_files`."""
+    avatar.touch()
+    return avatar.stat().st_mtime_ns // 1_000_000
 
 
 async def create(client: AsyncClient, name: str) -> dict[str, object]:
@@ -95,6 +132,8 @@ async def test_unknown_player_is_404(client: AsyncClient) -> None:
         (PNG, "avatar.png", "image/png", ".png"),
         (JPEG, "avatar.jpg", "image/jpeg", ".jpg"),
         (WEBP, "avatar.webp", "image/webp", ".webp"),
+        (WEBP_LOSSLESS, "avatar.webp", "image/webp", ".webp"),
+        (vp8x(1, 1), "avatar.webp", "image/webp", ".webp"),
     ],
 )
 async def test_uploading_an_avatar_stores_and_serves_it(
@@ -178,6 +217,99 @@ async def test_an_oversized_avatar_is_rejected(client: AsyncClient, avatars_dir:
     assert avatar_files(avatars_dir) == []
 
 
+@pytest.mark.parametrize(
+    ("data", "filename", "content_type"),
+    [
+        # A few hundred bytes of png that declare a 30000x30000 canvas: 900 megapixels,
+        # 3.6 GB of memory in whatever decodes it.
+        (
+            b"\x89PNG\r\n\x1a\n"
+            + (13).to_bytes(4, "big")
+            + b"IHDR"
+            + (30000).to_bytes(4, "big")
+            + (30000).to_bytes(4, "big")
+            + b"\x08\x06\x00\x00\x00",
+            "bomb.png",
+            "image/png",
+        ),
+        (
+            bytes.fromhex("ffd8ffc0000b084e204e2001011100ffd9"),  # SOF0 saying 20000x20000
+            "bomb.jpg",
+            "image/jpeg",
+        ),
+        (vp8x(16383, 16383), "bomb.webp", "image/webp"),
+    ],
+)
+async def test_an_image_with_an_absurd_canvas_is_rejected(
+    client: AsyncClient,
+    avatars_dir: Path,
+    data: bytes,
+    filename: str,
+    content_type: str,
+) -> None:
+    """Small files, enormous pictures: the byte limit lets these through, so the header's
+    own canvas size has to be checked before the file is stored and handed to USDX."""
+    player = await create(client, "Yannis")
+
+    rejected = await client.put(
+        f"/api/v1/players/{player['id']}/avatar", files=upload(data, filename, content_type)
+    )
+
+    assert rejected.status_code == 413
+    assert rejected.json() == {"detail": "avatar_too_many_pixels"}
+    assert avatar_files(avatars_dir) == []
+
+
+async def test_an_image_whose_header_has_no_size_is_rejected(
+    client: AsyncClient, avatars_dir: Path
+) -> None:
+    """Magic bytes are four characters anyone can prepend; without a readable header this
+    is not a picture, whatever the content type says."""
+    player = await create(client, "Yannis")
+
+    rejected = await client.put(
+        f"/api/v1/players/{player['id']}/avatar",
+        files=upload(b"\x89PNG\r\n\x1a\nand then some junk", "fake.png", "image/png"),
+    )
+
+    assert rejected.status_code == 415
+    assert rejected.json() == {"detail": "unsupported_avatar_type"}
+    assert avatar_files(avatars_dir) == []
+
+
+async def test_a_picture_right_at_the_pixel_limit_is_accepted(client: AsyncClient) -> None:
+    side = int(MAX_AVATAR_PIXELS**0.5)
+    player = await create(client, "Yannis")
+
+    accepted = await client.put(
+        f"/api/v1/players/{player['id']}/avatar",
+        files=upload(vp8x(side, side), "large.webp", "image/webp"),
+    )
+
+    assert accepted.status_code == 200
+
+
+async def test_the_avatar_version_moves_only_when_the_picture_does(
+    client: AsyncClient, avatars_dir: Path
+) -> None:
+    """The URL and `has_avatar` are the same before and after a replacement, so this is the
+    only field a client can hang a cache buster on."""
+    player = await create(client, "Yannis")
+    assert player["avatar_version"] is None
+    url = f"/api/v1/players/{player['id']}/avatar"
+
+    first = (await client.put(url, files=upload(PNG, "a.png", "image/png"))).json()
+    assert isinstance(first["avatar_version"], int)
+    # Listing the player again reports the same version: nothing but an upload moves it.
+    assert (await client.get("/api/v1/players")).json()["players"] == [first]
+
+    # A touch of the stored file stands in for a second upload a moment later.
+    touched = touch_and_read_version(avatars_dir / f"{player['id']}.png")
+    second = (await client.get("/api/v1/players")).json()["players"][0]
+
+    assert second["avatar_version"] == touched
+
+
 async def test_replacing_an_avatar_leaves_exactly_one_file(
     client: AsyncClient, avatars_dir: Path
 ) -> None:
@@ -218,7 +350,10 @@ async def test_players_survive_a_restart(
     async for second in _client(bootstrap_settings):
         listed = await second.get("/api/v1/players")
         assert listed.status_code == 200
-        assert listed.json()["players"] == [{**player, "has_avatar": True}]
+        restored = listed.json()["players"][0]
+        # The version follows the file, so it survives the restart with it.
+        assert restored == {**player, "has_avatar": True, "avatar_version": mock.ANY}
+        assert isinstance(restored["avatar_version"], int)
         assert (await second.get(f"/api/v1/players/{player['id']}/avatar")).content == PNG
 
 

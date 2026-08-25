@@ -17,6 +17,10 @@ const PATHS = {
   "chevron-down": "M7.41 8.59 12 13.17l4.59-4.58L18 10l-6 6-6-6 1.41-1.41Z",
   "chevron-right": "M8.59 16.59 13.17 12 8.59 7.41 10 6l6 6-6 6-1.41-1.41Z",
   "chevron-left": "M15.41 7.41 10.83 12l4.58 4.59L14 18l-6-6 6-6 1.41 1.41Z",
+  // Long, thin arrows — the score list's "best" and "worst" markers. Slimmer
+  // than the chevrons so a caption run of four stats stays readable at 0.85em.
+  "arrow-up": "M12 3l6 7h-4v11h-4V10H6l6-7Z",
+  "arrow-down": "M12 21l-6-7h4V3h4v11h4l-6 7Z",
   download:
     "M11 3h2v8.2l3.1-3.1 1.4 1.4L12 15 6.5 9.5 7.9 8.1 11 11.2V3Zm-6 15h14v2H5v-2Z",
   clock:
@@ -47,11 +51,41 @@ const PATHS = {
     "M17 10.5V7a1 1 0 0 0-1-1H4a1 1 0 0 0-1 1v10a1 1 0 0 0 1 1h12a1 1 0 0 0 1-1v-3.5l4 4v-11l-4 4Z",
   music: "M12 3v10.55A4 4 0 1 0 14 17V7h4V3h-6Z",
   info: "M12 2a10 10 0 1 0 0 20 10 10 0 0 0 0-20Zm0 2a8 8 0 1 1 0 16 8 8 0 0 1 0-16Zm-1 3h2v2h-2V7Zm0 4h2v6h-2v-6Z",
-  playlist:
-    "M3 6h12v2H3V6Zm0 4h12v2H3v-2Zm0 4h8v2H3v-2Zm13 0v-3h2v3h3v2h-3v3h-2v-3h-3v-2h3Z",
+  // The three-bar stack is the shared base: bare = on a list, +check = already
+  // on it, +plus = put it on one. Keeping the bars identical makes the three
+  // read as one family at 1.1em.
+  playlist: "M3 6h12v2H3V6Zm0 4h12v2H3v-2Zm0 4h8v2H3v-2Z",
   "playlist-check":
     "M3 6h12v2H3V6Zm0 4h12v2H3v-2Zm0 4h8v2H3v-2Zm17.1-1.9 1.4 1.4-6.1 6.1-3.2-3.2 1.4-1.4 1.8 1.8 4.7-4.7Z",
+  "playlist-plus":
+    "M3 6h12v2H3V6Zm0 4h12v2H3v-2Zm0 4h8v2H3v-2Zm13 0v-3h2v3h3v2h-3v3h-2v-3h-3v-2h3Z",
+  // The "many lists" entry, not a list itself: bulleted rows, so it never gets
+  // confused with the plain three-bar `playlist` glyph next to it.
+  list: "M5 5.5a1.5 1.5 0 1 0 0 3 1.5 1.5 0 0 0 0-3Zm5 .5h10v2H10V6Zm-5 4.5a1.5 1.5 0 1 0 0 3 1.5 1.5 0 0 0 0-3Zm5 .5h10v2H10v-2Zm-5 4.5a1.5 1.5 0 1 0 0 3 1.5 1.5 0 0 0 0-3Zm5 .5h10v2H10v-2Z",
   chart: "M4 20h16v2H4v-2Zm1-8h3v7H5v-7Zm5.5-7h3v14h-3V5ZM16 9h3v10h-3V9Z",
+  // The mean mark: a bar over a slash. The old app's `TbMathAvg` is really a
+  // slashed circle (⌀), and it was drawn that way here at first — but a ring
+  // with a diagonal through it is the "forbidden" gestalt, which is exactly how
+  // it read at the 24px stat size. The bar clears the slash by 2.7 units at the
+  // closest (a full stroke width) and the slash overhangs it on both ends, so
+  // the pair never joins into a "7" at caption size either.
+  average: "M6 3.2h12v2.4H6V3.2ZM2.3 19.3 20.3 7.3l1.4 2.1-18 12Z",
+  // "#" — the count marker (old app's `MdNumbers`). Upright rather than
+  // italic: at caption size the slanted bars smear into each other.
+  hash: "M7 3h2v18H7V3Zm8 0h2v18h-2V3ZM3 8h18v2H3V8Zm0 6h18v2H3v-2Z",
+  // "change the picture": a solid frame with the mountain and the sun punched
+  // out by the nonzero fill rule. Solid rather than outlined because this glyph
+  // is worn as a 14px badge on the avatar, where hairlines disappear.
+  image:
+    "M3 5h18v14H3V5Zm2 12h11l-5.5-7.5ZM17 6.3a1.7 1.7 0 1 0 0 3.4 1.7 1.7 0 1 0 0-3.4Z",
+  // The power symbol: an almost-closed ring (outer arc one way, inner arc the other, so
+  // the nonzero fill rule punches the middle out) with the gap at the top, plus the stem
+  // through it. Arc endpoints sit at 55° and 125°, which is what leaves the gap.
+  power:
+    "M7.12 5.04A8.5 8.5 0 1 0 16.88 5.04L15.44 7.09A6 6 0 1 1 8.56 7.09ZM11 3h2v9.5h-2Z",
+  // The die face is solid; the five pips are wound the other way round so the
+  // nonzero fill rule punches them out (same trick as `info` and `clock`).
+  dice: "M6 3h12a3 3 0 0 1 3 3v12a3 3 0 0 1-3 3H6a3 3 0 0 1-3-3V6a3 3 0 0 1 3-3Zm2 3.4a1.6 1.6 0 1 0 0 3.2 1.6 1.6 0 1 0 0-3.2Zm8 0a1.6 1.6 0 1 0 0 3.2 1.6 1.6 0 1 0 0-3.2Zm-4 4a1.6 1.6 0 1 0 0 3.2 1.6 1.6 0 1 0 0-3.2Zm-4 4a1.6 1.6 0 1 0 0 3.2 1.6 1.6 0 1 0 0-3.2Zm8 0a1.6 1.6 0 1 0 0 3.2 1.6 1.6 0 1 0 0-3.2Z",
 } as const;
 
 export type IconName = keyof typeof PATHS;

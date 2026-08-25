@@ -1,24 +1,43 @@
+/* One tight block on the page background — no tile, the Home header is the only
+   one of those. */
 .currently-playing {
   display: flex;
   flex-direction: column;
   align-items: center;
   gap: 8px;
   margin: 16px;
-  padding: 16px;
+  padding: 0;
 }
 
-.currently-playing-cover {
-  width: 192px;
-  height: 192px;
-  border-radius: var(--border-radius);
-  font-size: 4em;
+/* Compound selector so the 40px base in SongCover.css loses regardless of
+   bundle order. */
+.currently-playing-cover,
+.song-cover.currently-playing-cover {
+  width: 128px;
+  height: 128px;
+  /* Covers are square (the artwork is) — the rounding only cropped corners. */
+  border-radius: 0;
+  font-size: 3em;
+}
+
+/* Wraps the cover so the whole square opens the song modal. Sized by its
+   content, so the host's `grid-area` rules keep working on the cover itself. */
+.currently-playing-cover-button {
+  display: flex;
+  padding: 0;
+  background: none;
+  border: none;
+  /* Square, so the focus ring hugs the artwork instead of rounding off its
+     corners. */
+  border-radius: 0;
+  cursor: pointer;
 }
 
 .currently-playing-info {
   display: flex;
   flex-direction: column;
   align-items: center;
-  gap: 8px;
+  gap: 4px;
   min-width: 0;
   max-width: 100%;
 }
@@ -36,17 +55,19 @@
 }
 
 .currently-playing-title {
-  font-size: 1.3em;
+  font-size: 1.15em;
 }
 
 .currently-playing-artist {
-  color: var(--color-dark);
+  font-size: 0.85em;
+  color: var(--color-darker);
 }
 
 .currently-playing-elapsed {
   max-width: 100%;
   margin: 0;
   overflow: hidden;
+  font-size: 0.85em;
   white-space: nowrap;
   text-overflow: ellipsis;
   color: var(--color-darker);
@@ -93,17 +114,43 @@
   border-radius: 50%;
 }
 
+/* One tight line of singers: the 40px list-row avatar would out-weigh the whole
+   block. The host keeps its own, much larger size below. */
+.currently-playing-players .player-avatar {
+  width: 24px;
+  height: 24px;
+}
+
 .currently-playing-name {
   overflow: hidden;
   white-space: nowrap;
   text-overflow: ellipsis;
 }
 
-/* The host view is a TV across the room: same markup, staged as a grid. */
+/* One icon row: favorite, add to playlist, stop. */
+.currently-playing-controls {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+}
+
+/* Compound with `.icon-button`: index.css sets the idle glyph color and is
+   bundled after this file, so a single class would lose and the heart would
+   never turn pink. */
+.icon-button.currently-playing-favorite-on,
+.icon-button.currently-playing-favorite-on:hover:enabled {
+  color: var(--highlight-pink-light);
+}
+
+/* The host view is a TV across the room: same markup, staged as a grid. The
+   players moved out of the text block on phones, so the cover spans both text
+   rows to keep the stage looking the way it did. */
 .host-page .currently-playing {
   display: grid;
   grid-template-areas:
     "cover text"
+    "cover players"
     "bar bar";
   grid-template-columns: auto minmax(0, 1fr);
   column-gap: clamp(24px, 3vw, 56px);
@@ -115,7 +162,8 @@
   text-align: left;
 }
 
-.host-page .currently-playing-cover {
+.host-page .currently-playing-cover,
+.host-page .song-cover.currently-playing-cover {
   grid-area: cover;
   width: min(42vh, 30vw);
   height: min(42vh, 30vw);
@@ -149,6 +197,7 @@
 }
 
 .host-page .currently-playing-players {
+  grid-area: players;
   justify-content: flex-start;
   gap: clamp(16px, 2vw, 40px);
   font-size: clamp(18px, 2.6vh, 36px);

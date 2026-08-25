@@ -1,6 +1,7 @@
 import { useState, type CSSProperties } from "react";
 import type { DownloadRead, UsdbSong } from "../api";
 import ConfirmModal from "./ConfirmModal";
+import CoverImage from "./CoverImage";
 import { Icon } from "./icons";
 import "./SongListItem.css";
 import "./UsdbSongItem.css";
@@ -10,6 +11,11 @@ interface UsdbSongItemProps {
   /** The row for this song, live from the downloads cache; absent = never tried. */
   download: DownloadRead | undefined;
   onDownload: () => void;
+  /**
+   * Opens the song's details. Only passed once the song really is in the local
+   * library — a queued or running download has no song to open yet.
+   */
+  onOpen?: () => void;
 }
 
 type RowState = "idle" | "queued" | "running" | "done" | "failed";
@@ -83,6 +89,7 @@ export default function UsdbSongItem({
   song,
   download,
   onDownload,
+  onOpen,
 }: UsdbSongItemProps) {
   const [showError, setShowError] = useState(false);
   const label = `${song.artist} – ${song.title}`;
@@ -91,16 +98,24 @@ export default function UsdbSongItem({
     [song.edition, song.language].filter(Boolean).join(" · ") || undefined;
   const pct =
     download?.progress == null ? "…" : `${Math.round(download.progress)}%`;
+  // Both conditions: `downloaded` is set for a queued download too, so only the
+  // caller finding the song in the library proves there is something to open.
+  const open = state === "done" && onOpen !== undefined;
 
-  return (
-    <div className="song-list-item usdb-item">
-      {/* No cover: USDB's images go through the backend only once downloaded. */}
-      <span className="song-cover song-cover-fallback" aria-hidden="true">
-        {song.artist.slice(0, 1).toUpperCase()}
-      </span>
+  const content = (
+    <>
+      <CoverImage
+        src={`/api/v1/sources/usdb/songs/${song.usdb_id}/cover`}
+        initial={song.artist.slice(0, 1).toUpperCase()}
+      />
       <span className="song-text">
         <span className="usdb-item-line">
-          <span className="song-title usdb-item-title">{song.title}</span>
+          {/* `.song-title` is a flex box, and `text-overflow` needs a block
+              container — so the text ellipsizes in its own span, as in
+              SongListItem. */}
+          <span className="song-title usdb-item-title">
+            <span className="song-title-text">{song.title}</span>
+          </span>
           {song.rating != null && <Stars rating={song.rating} />}
         </span>
         <span className="song-artist usdb-item-sub" title={detailTitle}>
@@ -140,11 +155,15 @@ export default function UsdbSongItem({
         </span>
       )}
       {state === "done" && (
+        // Inside the open row the button's own label already says it, so the
+        // mark is decoration there; on a row that cannot be opened it is the
+        // only statement of the state.
         <span
           className="icon-button usdb-state usdb-state-done"
-          role="img"
-          aria-label="In the library"
           title="In the library"
+          role={open ? undefined : "img"}
+          aria-label={open ? undefined : "In the library"}
+          aria-hidden={open || undefined}
         >
           <Icon name="check" />
         </span>
@@ -159,6 +178,27 @@ export default function UsdbSongItem({
           <Icon name="alert" />
         </button>
       )}
+    </>
+  );
+
+  // A song that arrived in the library is a song like any other: the row opens
+  // the standard details modal instead of staying a dead end.
+  if (open) {
+    return (
+      <button
+        type="button"
+        className="song-list-item usdb-item usdb-item-open"
+        aria-label={`Details for ${label}`}
+        onClick={onOpen}
+      >
+        {content}
+      </button>
+    );
+  }
+
+  return (
+    <div className="song-list-item usdb-item">
+      {content}
       {showError && (
         <ConfirmModal
           title="Download failed"

@@ -1,0 +1,155 @@
+/* The old app's `.radio`, recreated. The check mark deliberately overshoots the
+   12px circle — that is the look, not a bug. */
+.check-option {
+  display: block;
+  position: relative;
+  width: max-content;
+  padding: 4px 0;
+  margin: 0 16px 0 32px;
+  color: var(--color-dark);
+  cursor: pointer;
+}
+
+/* The box. */
+.check-option::before {
+  content: "";
+  position: absolute;
+  top: 6px;
+  left: 0;
+  width: 12px;
+  height: 12px;
+  background-color: transparent;
+  border: 1px solid var(--color-dark);
+  border-radius: 50%;
+  transition: background-color 0.2s;
+}
+
+.check-option:hover::before {
+  background-color: var(--highlight-blue-dark);
+}
+
+.check-option-text {
+  display: flex;
+  align-items: center;
+  height: 16px;
+  padding-left: calc(16px + 0.5em);
+  font-weight: bold;
+  color: inherit;
+  cursor: inherit;
+  transition: color 0.2s;
+}
+
+.check-option:hover .check-option-text,
+.check-option input:checked ~ .check-option-text {
+  color: var(--highlight-blue-light);
+}
+
+/* The old CSS hid the input outright, which lost keyboard access; the input is
+   only visually hidden here, so the ring has to be drawn on the label text. */
+.check-option input:focus-visible ~ .check-option-text {
+  outline: 2px solid var(--highlight-blue-light);
+  outline-offset: 2px;
+}
+
+/* Two bars rotated into a tick. */
+.check-option-mark {
+  position: absolute;
+  top: -3.5px;
+  left: 0.5px;
+  width: 22px;
+  height: 22px;
+  transform: rotate(45deg);
+}
+
+.check-option-mark::before,
+.check-option-mark::after {
+  content: "";
+  position: absolute;
+  background: var(--highlight-blue-light);
+}
+
+@keyframes checkmark_before {
+  0% {
+    width: 3px;
+    height: 0;
+    left: 12px;
+    top: 21px;
+  }
+
+  100% {
+    width: 3px;
+    height: 14px;
+    left: 12px;
+    top: 7px;
+  }
+}
+
+@keyframes checkmark_after {
+  0% {
+    width: 0;
+    height: 3px;
+    left: 7px;
+    top: 18px;
+  }
+
+  100% {
+    width: 8px;
+    height: 3px;
+    left: 7px;
+    top: 18px;
+  }
+}
+
+.check-option-mark::before {
+  animation: checkmark_before 0.2s 0.1s linear forwards;
+}
+
+.check-option-mark::after {
+  animation: checkmark_after 0.1s linear forwards;
+}
+
+/* After the hover and checked rules, so equal specificity lands on disabled. */
+.check-option-disabled {
+  cursor: default;
+}
+
+.check-option-disabled .check-option-text,
+.check-option-disabled:hover .check-option-text,
+.check-option-disabled input:checked ~ .check-option-text {
+  color: var(--color-darker);
+}
+
+.check-option-disabled::before,
+.check-option-disabled:hover::before {
+  background-color: transparent;
+  border-color: var(--color-darker);
+}
+
+.check-option-disabled .check-option-mark::before,
+.check-option-disabled .check-option-mark::after {
+  background: var(--color-darker);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .check-option::before,
+  .check-option-text {
+    transition: none;
+  }
+
+  /* No stroke animation: the finished tick is drawn straight away. */
+  .check-option-mark::before {
+    width: 3px;
+    height: 14px;
+    left: 12px;
+    top: 7px;
+    animation: none;
+  }
+
+  .check-option-mark::after {
+    width: 8px;
+    height: 3px;
+    left: 7px;
+    top: 18px;
+    animation: none;
+  }
+}

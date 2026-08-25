@@ -309,6 +309,34 @@ async def test_audio_duration_is_read_from_the_audio_file(
     assert durations[str(library / "not audio")] is None
 
 
+async def test_the_duration_is_what_usdx_plays_not_the_file_length(
+    session: AsyncSession,
+    session_factory: async_sessionmaker[AsyncSession],
+    tmp_path: Path,
+) -> None:
+    library = tmp_path / "songs"
+    # USDX skips to #START and stops at #END, so a four second file plays for two.
+    windowed = make_song_dir(library, "windowed", tags="#MP3:song.wav\n#START:1\n#END:3000\n")
+    make_wav(windowed / "song.wav", seconds=4)
+    # An #END past the end of the file changes nothing: the audio runs out first.
+    late_end = make_song_dir(library, "late end", tags="#MP3:song.wav\n#END:99000\n")
+    make_wav(late_end / "song.wav", seconds=2)
+    # Without a readable audio file the window is the only length there is.
+    make_song_dir(library, "window only", tags="#MP3:missing.mp3\n#END:5000\n")
+    # A window that ends before it starts is a broken header, not a zero second song.
+    broken = make_song_dir(library, "broken", tags="#MP3:song.wav\n#START:5\n#END:1000\n")
+    make_wav(broken / "song.wav", seconds=2)
+    await configure(session, library)
+
+    await scan_library(session_factory)
+
+    durations = {song.directory: song.duration_seconds for song in await songs_in_db(session)}
+    assert durations[str(library / "windowed")] == 2
+    assert durations[str(library / "late end")] == 2
+    assert durations[str(library / "window only")] == 5
+    assert durations[str(library / "broken")] is None
+
+
 async def test_file_tags_may_not_escape_the_song_directory(
     session: AsyncSession,
     session_factory: async_sessionmaker[AsyncSession],

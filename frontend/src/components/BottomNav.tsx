@@ -1,4 +1,9 @@
+import { useQuery } from "@tanstack/react-query";
+import { useState } from "react";
 import { NavLink, useLocation } from "react-router-dom";
+import { listPlayersOptions } from "../api/@tanstack/react-query.gen";
+import { useAuth } from "../auth";
+import { avatarUrl } from "../avatars";
 import "./BottomNav.css";
 
 /** Inline 24x24 paths so the nav needs no icon dependency. */
@@ -19,12 +24,32 @@ const TABS = [
 
 /** Sub-surfaces without a tab of their own light up the tab they belong to. */
 const COVERS: Record<string, string[]> = {
-  "/songs": ["/usdb"],
+  "/": ["/spinner"],
+  "/songs": ["/usdb", "/songs/playlists"],
   "/user": ["/settings"],
 };
 
 export default function BottomNav() {
   const { pathname } = useLocation();
+  const auth = useAuth();
+  const playerId = auth.user?.player_id ?? null;
+  // Only asked when it can be answered and there is something to look up: a
+  // logged-out browser must not fetch the player list to draw a nav glyph. The
+  // query is the one the user and scores pages already share.
+  const players = useQuery({
+    ...listPlayersOptions(),
+    enabled: auth.loaded && playerId !== null && auth.can("players.view"),
+  });
+  const own = players.data?.players.find((player) => player.id === playerId);
+  // Remembering the URL, not a flag: a new upload gets a new version and is
+  // tried again instead of staying on the glyph forever.
+  const [failedSrc, setFailedSrc] = useState<string | null>(null);
+
+  const src =
+    own !== undefined && own.has_avatar
+      ? avatarUrl(own.id, own.avatar_version)
+      : null;
+  const avatar = src !== null && src !== failedSrc ? src : null;
 
   return (
     <nav className="bottom-nav">
@@ -41,9 +66,20 @@ export default function BottomNav() {
                 : ""
             }
           >
-            <svg viewBox="0 0 24 24" aria-hidden="true">
-              <path d={path} />
-            </svg>
+            {to === "/user" && avatar !== null ? (
+              // A photo cannot take the tab's colour, so the ring around it
+              // carries the active state instead (`currentColor`).
+              <img
+                className="bottom-nav-avatar"
+                src={avatar}
+                alt=""
+                onError={() => setFailedSrc(avatar)}
+              />
+            ) : (
+              <svg viewBox="0 0 24 24" aria-hidden="true">
+                <path d={path} />
+              </svg>
+            )}
             <span>{label}</span>
           </NavLink>
         ))}

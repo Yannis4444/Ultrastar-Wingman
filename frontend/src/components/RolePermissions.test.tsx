@@ -16,9 +16,9 @@ vi.mock("../api/sdk.gen", async (importOriginal) => ({
 // Admin holds everything, which is what makes its list the row list.
 const ROLES = {
   guest: ["songs.view"],
-  user: ["songs.view", "karaoke.stop"],
-  trusted: ["songs.view", "karaoke.stop"],
-  admin: ["songs.view", "karaoke.stop", "users.manage"],
+  user: ["songs.view", "karaoke.stop", "playlists.manage"],
+  trusted: ["songs.view", "karaoke.stop", "playlists.manage"],
+  admin: ["songs.view", "karaoke.stop", "playlists.manage", "users.manage"],
 };
 
 function renderPermissions() {
@@ -38,25 +38,28 @@ beforeEach(() => {
   getPermissions.mockResolvedValue({ data: { roles: ROLES } });
 });
 
-test("the first editable role is selected and admin is not offered at all", async () => {
+test("every editable role is a column of the one matrix, admin is not", async () => {
   renderPermissions();
 
-  expect(await screen.findByRole("button", { name: "guest" })).toHaveAttribute(
-    "aria-pressed",
-    "true",
-  );
+  // All three roles at once, no role picker in between.
+  expect(await screen.findByLabelText("songs.view for guest")).toBeChecked();
+  expect(screen.getByLabelText("songs.view for user")).toBeChecked();
+  expect(screen.getByLabelText("songs.view for trusted")).toBeChecked();
+  expect(screen.getByLabelText("karaoke.stop for guest")).not.toBeChecked();
+  expect(screen.getByLabelText("karaoke.stop for user")).toBeChecked();
+
+  // Admin is hardwired to everything, so it has no column and no button.
+  expect(screen.queryByLabelText("users.manage for admin")).toBeNull();
+  expect(screen.queryByRole("button", { name: "guest" })).toBeNull();
   expect(screen.queryByRole("button", { name: "admin" })).toBeNull();
 
-  // Only the selected role's checkboxes exist, one per capability.
-  expect(screen.getByLabelText("songs.view for guest")).toBeChecked();
-  expect(screen.getByLabelText("karaoke.stop for guest")).not.toBeChecked();
-  expect(screen.getByLabelText("users.manage for guest")).not.toBeChecked();
-  expect(screen.queryByLabelText("karaoke.stop for user")).toBeNull();
-  expect(screen.queryByLabelText("users.manage for admin")).toBeNull();
-
-  // Grouped: the heading carries the noun, the row the verb.
+  // Grouped: the heading carries the noun, the row the verb, and the
+  // description spells the capability out.
   expect(screen.getByRole("heading", { name: "karaoke" })).toBeInTheDocument();
   expect(screen.getByText("stop")).toBeInTheDocument();
+  expect(
+    screen.getByText("Stop the song that is running now."),
+  ).toBeInTheDocument();
 });
 
 test("granting a capability puts the whole new list into one PUT", async () => {
@@ -74,23 +77,48 @@ test("granting a capability puts the whole new list into one PUT", async () => {
     }),
   );
   expect(screen.getByLabelText("karaoke.stop for guest")).toBeChecked();
+  // The acknowledgement sits in the row that was ticked.
+  expect(await screen.findByRole("status")).toHaveTextContent("Saved");
 });
 
 test("revoking sends the list without that capability", async () => {
   updateRolePermissions.mockResolvedValue({
-    data: { roles: { ...ROLES, user: ["songs.view"] } },
+    data: { roles: { ...ROLES, user: ["songs.view", "playlists.manage"] } },
   });
   renderPermissions();
 
-  // Role first: switch to "user", then toggle its row.
-  fireEvent.click(await screen.findByRole("button", { name: "user" }));
-  fireEvent.click(screen.getByLabelText("karaoke.stop for user"));
+  // No role to pick first: the row for `user` is right there.
+  fireEvent.click(await screen.findByLabelText("karaoke.stop for user"));
 
   await waitFor(() =>
     expect(updateRolePermissions.mock.calls[0][0].body).toEqual({
-      capabilities: ["songs.view"],
+      capabilities: ["songs.view", "playlists.manage"],
     }),
   );
+});
+
+test("a capability a guest could never use is disabled, not a lying tick", async () => {
+  renderPermissions();
+
+  const guestBox = await screen.findByLabelText("playlists.manage for guest");
+  expect(guestBox).toBeDisabled();
+  expect(guestBox).not.toBeChecked();
+  expect(guestBox).toHaveAccessibleDescription(/belongs to an account/);
+  // Only the guest column: an account can own a playlist.
+  expect(screen.getByLabelText("playlists.manage for user")).toBeEnabled();
+});
+
+test("a stored grant stays clearable even where it does nothing", async () => {
+  getPermissions.mockResolvedValue({
+    data: {
+      roles: { ...ROLES, guest: ["songs.view", "playlists.manage"] },
+    },
+  });
+  renderPermissions();
+
+  const guestBox = await screen.findByLabelText("playlists.manage for guest");
+  expect(guestBox).toBeChecked();
+  expect(guestBox).toBeEnabled();
 });
 
 test("a failed save rolls the checkbox back and says why", async () => {
@@ -106,4 +134,8 @@ test("a failed save rolls the checkbox back and says why", async () => {
     "may not do this (permissions.manage)",
   );
   expect(screen.getByLabelText("karaoke.stop for guest")).not.toBeChecked();
+  // The notice is out of sight from most rows, so the row says it too — and
+  // stays saying it, because it explains why the box jumped back.
+  expect(screen.getByText("Not saved")).toBeInTheDocument();
+  expect(screen.queryByText("Saved")).toBeNull();
 });

@@ -35,6 +35,8 @@ class Song(Base):
     cover_file: Mapped[str | None] = mapped_column(Text, nullable=True)
     audio_file: Mapped[str | None] = mapped_column(Text, nullable=True)
     video_file: Mapped[str | None] = mapped_column(Text, nullable=True)
+    # How long USDX plays the song, not how long the audio file is: `#START` and `#END`
+    # are already applied (see `scanner.played_seconds`).
     duration_seconds: Mapped[int | None] = mapped_column(Integer, nullable=True)
     language: Mapped[str | None] = mapped_column(Text, nullable=True)
     genre: Mapped[str | None] = mapped_column(Text, nullable=True)

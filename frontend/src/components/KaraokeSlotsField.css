@@ -1,0 +1,33 @@
+/* The slot rows are ordinary `.setting-field` rows (flat, hairline separator);
+   only the color mark is new. */
+
+/* Round, small and quiet — the row's job is the name, not the paint. */
+.karaoke-slot-swatch {
+  flex: 0 0 auto;
+  width: 14px;
+  height: 14px;
+  border-radius: 50%;
+  /* The palette is dark enough that a few colors would vanish on --bg. */
+  border: 1px solid var(--input-border-color);
+}
+
+.karaoke-slots select {
+  cursor: pointer;
+}
+
+/* The dropdown itself is drawn by the browser and would otherwise come up in
+   the system's light colors. */
+.karaoke-slots option {
+  color: var(--color);
+  background-color: var(--input-bg);
+}
+
+/* Same fixed slot as in a normal setting row, so the count select does not
+   shift when the reset button appears. */
+.karaoke-slots-reset {
+  flex: 0 0 auto;
+}
+
+.karaoke-slots-error {
+  margin: 8px 16px 0;
+}

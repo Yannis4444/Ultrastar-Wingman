@@ -19,6 +19,7 @@ from ..auth.model import as_utc
 from ..events import KaraokeEnded, KaraokeStarted, ScoresRecorded, event_bus
 from ..players.model import Player
 from ..players.schema import read_player
+from ..settings import SettingsService
 from ..songs.model import Song
 from ..songs.schema import read_song
 from . import usdx_scores
@@ -26,7 +27,8 @@ from .colors import color_index
 from .launcher import KaraokeLauncher, LaunchSlot
 from .model import SESSION_GAP, KaraokeSession, Score, Sing
 from .schema import CurrentSing, ScoreRead, SlotRead, read_score
-from .usdx import UsdxLauncher
+from .slots import parse_slot_colors
+from .usdx import EMPTY_SLOT_NAME, UsdxLauncher
 from .usdx_paths import UsdxPathsError, resolve_usdx_paths
 
 logger = logging.getLogger(__name__)
@@ -57,9 +59,37 @@ class NoPlayersError(ValueError):
         super().__init__("at least one slot needs a player")
 
 
+class UnconfiguredColorError(ValueError):
+    """A singer was put on a color that is not one of the configured slots — a client
+    working from a color list the host has since changed."""
+
+    def __init__(self, color: str) -> None:
+        super().__init__(
+            f"'{color}' is not one of the configured player slots — reopen the player selection"
+        )
+        self.color = color
+
+
+class DuplicateColorError(ValueError):
+    """The same slot twice, with somebody on it: which singer is which cannot be told
+    apart, on the TV no more than in the scores."""
+
+    def __init__(self, color: str) -> None:
+        super().__init__(f"'{color}' was picked twice — every singer needs a color of their own")
+        self.color = color
+
+
 class AlreadyPlayingError(RuntimeError):
     def __init__(self) -> None:
         super().__init__("a song is already playing")
+
+
+@dataclass
+class _Standalone:
+    """USDX started from the settings, with no song: the host is in its menus."""
+
+    launcher: KaraokeLauncher
+    exited: asyncio.Event
 
 
 @dataclass
@@ -78,6 +108,8 @@ class _Running:
 
 # Module state on purpose: there is exactly one USDX and one song playing on this machine.
 _running: _Running | None = None
+# USDX opened for its own settings, if any. Never at the same time as `_running`.
+_standalone: _Standalone | None = None
 # The `finished` event of the most recent sing, kept after it ended so waiting for the end
 # of a song that is already over does not hang.
 _last_finished: asyncio.Event | None = None
@@ -88,6 +120,13 @@ def current_sing() -> CurrentSing | None:
     return None if _running is None else _running.sing
 
 
+async def slot_colors(session: AsyncSession) -> list[str]:
+    """The configured singing slots, in order — the source of truth for how many people
+    sing at once and in which colors. Stored as one setting, validated on the way in, so
+    this can only ever be a list USDX understands."""
+    return parse_slot_colors(str(await SettingsService(session).get("karaoke.player_colors")))
+
+
 async def start_sing(
     session: AsyncSession,
     session_factory: async_sessionmaker[AsyncSession],
@@ -96,8 +135,9 @@ async def start_sing(
     force: bool = False,
 ) -> CurrentSing:
     """Launch `song_id` for `slots`. Raises `AlreadyPlayingError` unless `force`,
-    `UnknownSongError` / `UnknownPlayerError`, `UnknownColorError`, `NoPlayersError`
-    or `UsdxPathsError`."""
+    `UnknownSongError` / `UnknownPlayerError`, `UnknownColorError`,
+    `UnconfiguredColorError`, `DuplicateColorError`, `NoPlayersError` or
+    `UsdxPathsError`."""
     global _running, _last_finished
     async with _lock:
         song = await session.get(Song, song_id)
@@ -109,6 +149,8 @@ async def start_sing(
         # Fails before anything is started or killed if a color name is bogus.
         for slot in slots:
             color_index(slot.color)
+        # The host's slot configuration is what USDX gets, whatever the client sent.
+        resolved = _for_configured_slots(resolved, await slot_colors(session))
 
         if _running is not None:
             if not force:
@@ -116,6 +158,13 @@ async def start_sing(
             # Finish the old run completely (scores imported, `karaoke.ended` sent) before
             # the new one exists, so its exit handler cannot clobber the new state.
             await _stop_and_wait(_running)
+        if _standalone is not None and _standalone.launcher.is_running:
+            # USDX in its own menus is in the way exactly like a running song: one process
+            # at a time, and this sing is about to rewrite the config file it has open. Same
+            # error, so the phone that asked gets the same "replace it?" it knows.
+            if not force:
+                raise AlreadyPlayingError
+            await _close_standalone(_standalone)
 
         paths = await resolve_usdx_paths(session)
         snapshot = await usdx_scores.latest_date(paths.ultrastar_db)
@@ -177,6 +226,54 @@ async def start_sing(
         return running.sing
 
 
+async def open_usdx(session: AsyncSession) -> bool:
+    """Start USDX on its own so the host can change what only USDX itself can change — the
+    microphones above all.
+
+    `True` when this call started it, `False` when it was already up (asking twice is not a
+    mistake). Raises `AlreadyPlayingError` while a song is playing — that USDX is busy — and
+    `UsdxPathsError` when USDX is not configured or refuses to start.
+    """
+    global _standalone
+    async with _lock:
+        if _running is not None:
+            raise AlreadyPlayingError
+        if _standalone is not None and _standalone.launcher.is_running:
+            return False
+        paths = await resolve_usdx_paths(session)
+        launcher = UsdxLauncher(paths)
+        standalone = _Standalone(launcher=launcher, exited=asyncio.Event())
+        launcher.on_exit = lambda: _standalone_exited(standalone)
+        try:
+            await launcher.start_standalone()
+        except OSError as error:
+            # Same shape as a misconfigured path: the user has to fix a setting.
+            raise UsdxPathsError([f"cannot start '{paths.executable}': {error}"]) from error
+        _standalone = standalone
+        return True
+
+
+def usdx_is_open() -> bool:
+    """Whether USDX is standing in its own menus, started by `open_usdx`."""
+    return _standalone is not None and _standalone.launcher.is_running
+
+
+async def _standalone_exited(standalone: _Standalone) -> None:
+    """The launcher's monitor task, once the host closed USDX again. Takes no lock on
+    purpose: a forced sing waits for this event while holding `_lock`."""
+    global _standalone
+    if _standalone is standalone:
+        _standalone = None
+    standalone.exited.set()
+
+
+async def _close_standalone(standalone: _Standalone) -> None:
+    """Kill the settings USDX and wait for it to be gone — starting the next one while the
+    old process is still on screen is how two USDX windows happen."""
+    await standalone.launcher.stop()
+    await standalone.exited.wait()
+
+
 async def stop_sing() -> None:
     """Kill the running song and wait for its scores to be imported. Idempotent."""
     async with _lock:
@@ -194,9 +291,15 @@ async def wait_for_sing_end() -> None:
 
 async def shutdown() -> None:
     """Wingman is going down: kill the song and let the import finish while the database
-    is still there. The alternative — leaving USDX running — loses the scores."""
-    global _last_finished
+    is still there. The alternative — leaving USDX running — loses the scores. A settings
+    USDX goes too: an orphan of a process we started would still hold the config file, and
+    the next start would know nothing about it."""
+    global _last_finished, _standalone
     await stop_sing()
+    async with _lock:
+        if _standalone is not None:
+            await _close_standalone(_standalone)
+        _standalone = None
     _last_finished = None
 
 
@@ -251,6 +354,32 @@ async def _resolve_players(
     return resolved
 
 
+def _for_configured_slots(
+    resolved: list[tuple[SlotRequest, Player | None]], configured: list[str]
+) -> list[tuple[SlotRequest, Player | None]]:
+    """The requested slots reduced to the ones the host configured, in the order they
+    were requested.
+
+    A singer on a color that is not a slot means a client working from an old list, and
+    is refused. An empty one is dropped instead: nobody is on it, and passing it on would
+    make USDX play with more players than the host has microphones for.
+    """
+    kept: list[tuple[SlotRequest, Player | None]] = []
+    seen: set[str] = set()
+    for slot, player in resolved:
+        if slot.color not in configured:
+            if player is not None:
+                raise UnconfiguredColorError(slot.color)
+            continue
+        if slot.color in seen:
+            if player is not None:
+                raise DuplicateColorError(slot.color)
+            continue
+        seen.add(slot.color)
+        kept.append((slot, player))
+    return kept
+
+
 def _avatar(player: Player) -> Path | None:
     return None if player.avatar_file is None else Path(player.avatar_file)
 
@@ -278,7 +407,14 @@ async def _finish(running: _Running, session_factory: async_sessionmaker[AsyncSe
 async def _import_scores(
     running: _Running, session_factory: async_sessionmaker[AsyncSession]
 ) -> list[ScoreRead]:
-    new_scores = await usdx_scores.scores_since(running.ultrastar_db, running.score_snapshot)
+    new_scores = [
+        score
+        for score in await usdx_scores.scores_since(running.ultrastar_db, running.score_snapshot)
+        # An empty slot is a player called "-" to USDX, and it scores like everybody else.
+        # Kept only when somebody of that name really sang, which nobody ever is.
+        if score.player_name != EMPTY_SLOT_NAME
+        or EMPTY_SLOT_NAME.casefold() in running.player_ids_by_name
+    ]
     async with session_factory() as session:
         sing = await session.get(Sing, running.sing.sing_id)
         if sing is not None:

@@ -5,6 +5,7 @@ wrapper the OS can exec) that records how it was called and optionally appends r
 a synthetic `Ultrastar.db` before exiting. Everything lives in a temp directory.
 """
 
+import asyncio
 import configparser
 import contextlib
 import json
@@ -54,10 +55,13 @@ with (here / "pids.txt").open("a", encoding="utf-8") as file:
 
 (here / "argv.json").write_text(json.dumps(sys.argv[1:]), encoding="utf-8")
 
-song_path = pathlib.Path(sys.argv[sys.argv.index("-SongPath") + 1])
-(here / "song_dir.json").write_text(
-    json.dumps(sorted(entry.name for entry in song_path.iterdir())), encoding="utf-8"
-)
+# Started for its own settings, USDX gets no arguments at all — there is no song
+# directory to list then.
+if "-SongPath" in sys.argv:
+    song_path = pathlib.Path(sys.argv[sys.argv.index("-SongPath") + 1])
+    (here / "song_dir.json").write_text(
+        json.dumps(sorted(entry.name for entry in song_path.iterdir())), encoding="utf-8"
+    )
 
 if spec["scores"]:
     connection = sqlite3.connect(spec["database"])
@@ -118,8 +122,16 @@ class FakeUsdx:
         )
 
     @property
+    def argv_file(self) -> Path:
+        return self.base / "argv.json"
+
+    @property
     def argv(self) -> list[str]:
-        return list(json.loads((self.base / "argv.json").read_text(encoding="utf-8")))
+        return list(json.loads(self.argv_file.read_text(encoding="utf-8")))
+
+    def forget(self) -> None:
+        """Drop what the last run recorded, so the next assertion cannot read it instead."""
+        self.argv_file.unlink(missing_ok=True)
 
     @property
     def song_dir_contents(self) -> list[str]:
@@ -208,6 +220,18 @@ async def add_song(session: AsyncSession, directory: Path) -> str:
 async def song(session: AsyncSession, configured: FakeUsdx) -> str:
     """A song in the USDX songs directory, with a name USDX copes with."""
     return await add_song(session, make_song_dir(configured.songs_dir, "Artist - Title"))
+
+
+async def wait_for(path: Path, seconds: float = 10.0) -> None:
+    """Wait until the fake wrote `path`. A launch returns as soon as the process was
+    spawned, so what it recorded is not there yet."""
+    loop = asyncio.get_running_loop()
+    deadline = loop.time() + seconds
+    while loop.time() < deadline:
+        if await asyncio.to_thread(path.exists):
+            return
+        await asyncio.sleep(0.05)
+    raise AssertionError(f"{path} was never written")
 
 
 async def add_player(client: AsyncClient, name: str) -> dict[str, Any]:
@@ -587,6 +611,116 @@ async def test_unknown_songs_players_colors_and_empty_selections_are_refused(
     assert no_slots.status_code == 422
 
 
+async def test_a_singer_on_a_slot_the_host_removed_is_refused(
+    client: AsyncClient, session: AsyncSession, configured: FakeUsdx, song: str
+) -> None:
+    """The host cut the party down to two mics while a phone still showed four slots."""
+    await SettingsService(session).set("karaoke.player_colors", "blue,red")
+    player = await add_player(client, "Yannis")
+
+    stale = await client.post(
+        "/api/v1/karaoke/sing",
+        json={"song_id": song, "slots": [{"color": "green", "player_id": player["id"]}]},
+    )
+
+    assert stale.status_code == 422
+    assert "not one of the configured player slots" in stale.json()["detail"]
+    assert list(await session.scalars(select(Sing))) == []
+
+    # An *empty* slot outside the configuration is dropped instead: nobody sings on it,
+    # and USDX must not end up with more players than the host configured.
+    started = await sing(
+        client,
+        song,
+        [
+            {"color": "blue", "player_id": player["id"]},
+            {"color": "green", "player_id": None},
+        ],
+    )
+    await service.wait_for_sing_end()
+    assert configured.config()["Game"]["Players"] == "1"
+    assert started["slots"] == [{"color": "blue", "player": player}]
+
+
+async def test_the_same_slot_twice_is_refused(
+    client: AsyncClient, configured: FakeUsdx, song: str
+) -> None:
+    """Two singers in one color cannot be told apart — neither on the TV nor in the
+    scores, which are matched by the name written into that slot."""
+    alice = await add_player(client, "Alice")
+    bob = await add_player(client, "Bob")
+
+    doubled = await client.post(
+        "/api/v1/karaoke/sing",
+        json={
+            "song_id": song,
+            "slots": [
+                {"color": "blue", "player_id": alice["id"]},
+                {"color": "blue", "player_id": bob["id"]},
+            ],
+        },
+    )
+
+    assert doubled.status_code == 422
+    assert "color of their own" in doubled.json()["detail"]
+
+
+async def test_five_singers_reach_usdx_as_six_slots(
+    client: AsyncClient, session: AsyncSession, configured: FakeUsdx, song: str
+) -> None:
+    """USDX has no five-player mode: it looks `Players` up in a fixed list and falls back
+    to the first entry — written a five, it would play with *one* player and leave four
+    singers without a microphone."""
+    six_slots = "blue,red,green,yellow,orange,pink"
+    await SettingsService(session).set("karaoke.player_colors", six_slots)
+    names = ["Alice", "Bob", "Cara", "Dan", "Eve"]
+    players = [await add_player(client, name) for name in names]
+
+    await sing(
+        client,
+        song,
+        [
+            {"color": color, "player_id": player["id"]}
+            for color, player in zip(
+                ["blue", "red", "green", "yellow", "orange"], players, strict=True
+            )
+        ],
+    )
+    await service.wait_for_sing_end()
+
+    config = configured.config()
+    assert config["Game"]["Players"] == "6"
+    # Everybody keeps the slot they were put on, colors included.
+    assert [config["Name"][f"P{number}"] for number in range(1, 6)] == names
+    assert config["PlayerColor"]["P5"] == "5"
+    # The sixth slot exists only because five is not a count USDX knows.
+    assert config["Name"]["P6"] == "-"
+
+
+async def test_the_placeholder_of_an_empty_slot_is_not_a_singer(
+    client: AsyncClient, session: AsyncSession, configured: FakeUsdx, song: str
+) -> None:
+    """An empty slot is a player called "-" to USDX, and USDX scores it like any other.
+    Such a row is nobody's performance and must stay out of the statistics."""
+    alice = await add_player(client, "Alice")
+    configured.behave(
+        scores=[("-" + NUL * 15, 120, 2000, None), ("Alice" + NUL * 11, 8000, 2001, 2)]
+    )
+
+    await sing(
+        client,
+        song,
+        [
+            {"color": "blue", "player_id": None},
+            {"color": "red", "player_id": alice["id"]},
+        ],
+    )
+    await service.wait_for_sing_end()
+
+    scores = list(await session.scalars(select(Score).order_by(Score.id)))
+    assert [(score.player_name, score.score) for score in scores] == [("Alice", 8000)]
+
+
 async def test_an_unconfigured_usdx_is_a_clear_error(
     client: AsyncClient, session: AsyncSession, fake_usdx: FakeUsdx
 ) -> None:
@@ -662,3 +796,105 @@ async def test_a_missing_executable_is_a_clear_error(
     assert response.json()["detail"]["error"] == "usdx_not_configured"
     # Nothing was recorded for a song that never started.
     assert list(await session.scalars(select(Sing))) == []
+
+
+# --- USDX for its own settings -----------------------------------------------------------
+
+
+LAUNCH_URL = "/api/v1/karaoke/usdx/launch"
+
+
+async def test_usdx_can_be_started_for_its_own_settings(
+    client: AsyncClient, configured: FakeUsdx
+) -> None:
+    """The microphones can only be assigned inside USDX, so the settings start it plainly:
+    no song, and above all no rewritten config — the host is about to change it by hand."""
+    configured.behave(sleep=FOREVER)
+
+    response = await client.post(LAUNCH_URL)
+
+    assert response.status_code == 200
+    assert response.json() == {"started": True}
+    await wait_for(configured.argv_file)
+    assert configured.argv == []
+    assert not configured.config_file.exists()
+
+
+async def test_starting_usdx_again_while_it_runs_is_not_an_error(
+    client: AsyncClient, configured: FakeUsdx
+) -> None:
+    """Two taps on the button are not a mistake worth an error message."""
+    configured.behave(sleep=FOREVER)
+    assert (await client.post(LAUNCH_URL)).json() == {"started": True}
+    await wait_for(configured.argv_file)
+
+    second = await client.post(LAUNCH_URL)
+
+    assert second.status_code == 200
+    assert second.json() == {"started": False}
+
+
+async def test_usdx_is_not_started_while_a_song_is_playing(
+    client: AsyncClient, configured: FakeUsdx, song: str
+) -> None:
+    player = await add_player(client, "Yannis")
+    configured.behave(sleep=FOREVER)
+    await sing(client, song, [{"color": "blue", "player_id": player["id"]}])
+
+    response = await client.post(LAUNCH_URL)
+
+    assert response.status_code == 409
+    assert response.json() == {"detail": "already_playing"}
+
+
+async def test_a_sing_replaces_the_usdx_the_settings_opened(
+    client: AsyncClient, configured: FakeUsdx, song: str
+) -> None:
+    """USDX standing in its own menus blocks a song exactly like another song does — and
+    the same force flag gets past it, so a phone is never stuck behind the TV."""
+    player = await add_player(client, "Yannis")
+    configured.behave(sleep=FOREVER)
+    assert (await client.post(LAUNCH_URL)).json() == {"started": True}
+    await wait_for(configured.argv_file)
+
+    refused = await client.post(
+        "/api/v1/karaoke/sing",
+        json={"song_id": song, "slots": [{"color": "blue", "player_id": player["id"]}]},
+    )
+    assert refused.status_code == 409
+    assert refused.json() == {"detail": "already_playing"}
+
+    configured.forget()
+    # This one has to end by itself, so the score import can be awaited below.
+    configured.behave()
+    await sing(client, song, [{"color": "blue", "player_id": player["id"]}], force=True)
+    await service.wait_for_sing_end()
+
+    assert "-SongPath" in configured.argv
+    # The settings USDX is gone, so the button offers to start one again.
+    assert not service.usdx_is_open()
+
+
+async def test_an_unconfigured_usdx_cannot_be_started(client: AsyncClient) -> None:
+    """Nothing is set up: the same problem report the sing endpoint gives."""
+    response = await client.post(LAUNCH_URL)
+
+    assert response.status_code == 400
+    detail = response.json()["detail"]
+    assert detail["error"] == "usdx_not_configured"
+    assert any("usdx.executable" in problem for problem in detail["problems"])
+
+
+async def test_a_usdx_that_refuses_to_start_is_reported(
+    client: AsyncClient, session: AsyncSession, configured: FakeUsdx
+) -> None:
+    """The executable is there but not runnable — that is a settings problem too."""
+    broken = configured.base / "not-an-executable.exe"
+    broken.write_bytes(b"")
+    await SettingsService(session).set("usdx.executable", str(broken))
+
+    response = await client.post(LAUNCH_URL)
+
+    assert response.status_code == 400
+    assert response.json()["detail"]["error"] == "usdx_not_configured"
+    assert not service.usdx_is_open()

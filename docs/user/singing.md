@@ -9,8 +9,9 @@ Open the **Songs** tab. It lists everything Wingman found in your song folders,
 with the number of songs at the top.
 
 - The search box matches title and artist while you type. A song id also works.
-- The chips below it narrow the list: **All**, **♥ Favorites**, and one chip per
-  playlist you can see.
+- The chips below it narrow the list: **All** and **♥ Favorites**. **Playlists**
+  next to them opens the playlists view, where a playlist shows its own songs.
+- The reload button next to the song count scans the song folders again.
 - Tap a song to open it: the cover, a listen-in preview, and the buttons for
   favorite, sing and wish. Below them, **Details** unfolds language, genre,
   year, edition and who made it; **Best scores** lists the best runs ever sung
@@ -37,16 +38,20 @@ colours and avatars already set up. At least one slot needs a player.
 
 ## Players, colours and avatars
 
-Players live on the **User** tab.
+Players live under **User → Players & accounts**, in two groups: the people with
+an account, and the guests who only sing.
 
-- **Add** a player by name. Names are unique.
-- **Add avatar** / **Change avatar** uploads a picture for a player — jpeg, png
-  or webp, up to 5 MB. Ultrastar Deluxe shows it next to the name while singing.
-- **Delete** removes a player. Scores that player already earned keep the name.
+- **Add** a player by name, under **Guests**. Names are unique.
+- Tapping a player's picture uploads a new one — jpeg, png or webp, up to 5 MB
+  and 50 megapixels. Ultrastar Deluxe shows it next to the name while singing.
+  Your own picture can also be changed by tapping it on the **User** tab.
+- The bin removes a guest. Scores that player already earned keep the name.
+  Somebody with an account is removed by deleting the account, which turns them
+  into a guest first.
 
-A registered account automatically has a player of the same name. Somebody who
-sang all evening as a guest keeps their scores when they register under that
-exact name later.
+A registered account automatically has a player of the same name, which is why
+they stand under **Accounts**. Somebody who sang all evening as a guest keeps
+their scores when they register under that exact name later.
 
 The colours are the sixteen Ultrastar Deluxe player colours, and Wingman uses the
 same order Ultrastar Deluxe does. There is nothing to configure.

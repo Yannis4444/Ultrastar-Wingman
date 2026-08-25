@@ -321,7 +321,9 @@ def _scan_directory(directory: Path) -> ScannedSong | None:
         cover_file=_song_file(directory, txt.cover),
         audio_file=audio_file,
         video_file=_song_file(directory, txt.video),
-        duration_seconds=None if audio_file is None else audio_duration_seconds(audio_file),
+        duration_seconds=played_seconds(
+            None if audio_file is None else audio_duration_seconds(audio_file), txt
+        ),
         usdb_id=_usdb_id(directory),
     )
 
@@ -346,14 +348,34 @@ def _song_file(directory: Path, name: str | None) -> Path | None:
     return None
 
 
-def audio_duration_seconds(path: Path) -> int | None:
+def audio_duration_seconds(path: Path) -> float | None:
     """Best effort: an unreadable or exotic audio file simply has no known duration."""
     try:
         audio = mutagen.File(path)
-        return None if audio is None else round(audio.info.length)
+        return None if audio is None else float(audio.info.length)
     except Exception:
         logger.debug("could not read the duration of %s", path, exc_info=True)
         return None
+
+
+def played_seconds(audio_seconds: float | None, txt: SongTxt) -> int | None:
+    """How long USDX plays this song — *not* how long the audio file is.
+
+    USDX starts at `#START` and stops at `#END` instead of playing the file end to end,
+    and USDB files use both liberally (a sixth of a real 525-song library). Reporting the
+    raw file length overstated the total by 12 s on a typical song and by more than four
+    minutes on the worst one, so the progress bar and the "x / y" on Home were wrong.
+    """
+    end = audio_seconds
+    if txt.end is not None:
+        # `#END` past the end of the file is a no-op — the audio runs out first. Without a
+        # readable audio file it is the only length there is, and still a real one.
+        end = txt.end if end is None else min(end, txt.end)
+    if end is None:
+        return None
+    played = round(end - (txt.start or 0.0))
+    # A window that ends before it starts is a broken header, not a zero-second song.
+    return played if played > 0 else None
 
 
 def _usdb_id(directory: Path) -> int | None:

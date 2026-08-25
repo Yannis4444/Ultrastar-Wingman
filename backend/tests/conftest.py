@@ -19,6 +19,7 @@ from ultrastar_wingman.config import BootstrapSettings
 from ultrastar_wingman.db import run_migrations
 from ultrastar_wingman.events import event_bus
 from ultrastar_wingman.songs import scanner
+from ultrastar_wingman.sources import usdb
 
 FIXTURES = Path(__file__).parent / "fixtures"
 
@@ -190,6 +191,13 @@ def fresh_scan_lock() -> None:
 def fresh_permission_cache() -> None:
     """The role/capability cache is module-global while every test has its own database."""
     permissions.invalidate_cache()
+
+
+@pytest.fixture(autouse=True)
+def fresh_usdb_covers() -> None:
+    """The proxied USDB covers are cached module-globally, while every test brings its own
+    fake USDB — a leftover entry would answer for the next one's."""
+    usdb._cover_cache.clear()
 
 
 @pytest.fixture(autouse=True)

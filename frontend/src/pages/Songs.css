@@ -68,8 +68,8 @@
   }
 }
 
-/* Filter chips: All / Favorites / one per visible playlist. Scrolls sideways
-   instead of wrapping, so the song list stays where it is. */
+/* Filter chips: All / Favorites plus the link into the playlists view. Scrolls
+   sideways instead of wrapping, so the song list stays where it is. */
 .songs-chips {
   display: flex;
   gap: 8px;
@@ -108,20 +108,38 @@
   color: var(--highlight-pink-light);
 }
 
-.songs-chip-shared {
-  padding: 1px 6px;
-  font-size: 0.8em;
-  color: var(--color-dark);
-  background-color: var(--highlight-pink-dark);
-  border-radius: var(--border-radius-small);
+.songs-filters {
+  display: flex;
+  flex: 0 0 auto;
+  gap: 8px;
 }
 
-.songs-chip-manage {
+/* The chip that leaves the page: a link, so it never looks pressed. It parks at
+   the far end away from the filters — but only when there are filters to be
+   away from, or it would read as a stray chip pushed into the corner. */
+.songs-chip-link {
+  text-decoration: none;
+}
+
+.songs-chip-link:not(:first-child) {
   margin-left: auto;
 }
 
+/* One line for the library itself: how many songs there are, the way to count
+   them again, and — at the far end, away from the two — the way to get more. */
 .songs-count {
-  margin: 0 16px 8px 16px;
+  display: flex;
+  gap: 8px;
+  align-items: center;
+  min-height: 40px;
+  margin: 0 16px 4px 16px;
+}
+
+.songs-add {
+  margin-left: auto;
+}
+
+.songs-count span {
   font-size: 0.85em;
   color: var(--color-darker);
 }

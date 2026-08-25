@@ -1,0 +1,98 @@
+.people-notice,
+.people-empty {
+  margin: 0 16px 8px 16px;
+}
+
+.people-empty {
+  color: var(--color-darker);
+}
+
+.people-list {
+  display: flex;
+  flex-direction: column;
+  margin: 0 16px;
+  padding: 0;
+  list-style: none;
+}
+
+.people-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-height: 48px;
+  padding: 8px 0;
+  border-bottom: 1px solid var(--input-border-color);
+}
+
+/* The row is a div inside the li, and an error message can follow it. */
+.people-list > li:last-child > .people-row {
+  border-bottom: none;
+}
+
+.people-name {
+  flex: 1 1 auto;
+  min-width: 0;
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+
+.people-you {
+  color: var(--color-darker);
+  font-size: 0.9em;
+}
+
+/* A label, not a button: the file input inside it does the work. */
+.people-avatar-label {
+  position: relative;
+  flex: 0 0 auto;
+  width: 40px;
+  height: 40px;
+  cursor: pointer;
+}
+
+/* The input is visually hidden, so the ring has to be drawn on the label. */
+.people-avatar-label:has(input:focus-visible) {
+  outline: 2px solid var(--highlight-blue-light);
+  outline-offset: 2px;
+  border-radius: var(--border-radius-small);
+}
+
+.people-avatar-hint {
+  position: absolute;
+  right: -2px;
+  bottom: -2px;
+  padding: 2px;
+  font-size: 14px;
+  color: var(--color);
+  background-color: var(--highlight-blue-dark);
+  border-radius: 50%;
+}
+
+/* The old app's role picker: visibly a choice, not a text field. */
+.people-role-wrap {
+  display: flex;
+  flex: 0 0 auto;
+  align-items: center;
+  gap: 4px;
+  color: var(--highlight-blue-light);
+}
+
+.people-role-wrap .icon {
+  pointer-events: none;
+}
+
+.people-role {
+  padding: 10px 0;
+  font: inherit;
+  color: var(--highlight-blue-light);
+  text-align: right;
+  background: transparent;
+  border: none;
+  appearance: none;
+  cursor: pointer;
+}
+
+.people-role option {
+  background-color: var(--input-bg);
+}

@@ -1,14 +1,23 @@
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { fireEvent, render, screen, waitFor } from "@testing-library/react";
+import { MemoryRouter } from "react-router-dom";
 import type { SettingRead } from "../api";
 import { meResponse, userRead } from "../test/auth";
 import { FakeSocket } from "../test/fakeSocket";
 import Settings from "./Settings";
 
-const { listSettings, updateSetting, getMe } = vi.hoisted(() => ({
+const {
+  listSettings,
+  updateSetting,
+  getMe,
+  launchUsdx,
+  listVideoQualityPresets,
+} = vi.hoisted(() => ({
   listSettings: vi.fn(),
   updateSetting: vi.fn(),
   getMe: vi.fn(),
+  launchUsdx: vi.fn(),
+  listVideoQualityPresets: vi.fn(),
 }));
 
 vi.mock("../api/sdk.gen", async (importOriginal) => ({
@@ -16,7 +25,13 @@ vi.mock("../api/sdk.gen", async (importOriginal) => ({
   listSettings,
   updateSetting,
   getMe,
+  // Never the real one: a test must not start Ultrastar Deluxe.
+  launchUsdx,
+  listVideoQualityPresets,
 }));
+
+const HIGH_FORMAT = "bestvideo[ext=mp4][height<=1080]+bestaudio[ext=m4a]";
+const MEDIUM_FORMAT = "bestvideo[ext=mp4][height<=720]+bestaudio[ext=m4a]";
 
 function setting(overrides: Partial<SettingRead>): SettingRead {
   return {
@@ -69,14 +84,52 @@ const OVERWRITE = setting({
   description: "Replace an existing song.",
 });
 
+const BASE_PATH = setting({
+  key: "usdx.base_path",
+  group: "USDX",
+  description: "Where Ultrastar Deluxe is installed.",
+});
+const QUALITY = setting({
+  key: "downloads.video_format",
+  group: "Downloads",
+  value: HIGH_FORMAT,
+  default: HIGH_FORMAT,
+  description: "Which YouTube stream yt-dlp downloads.",
+});
+
 const SETTINGS: SettingRead[] = [
   DIRECTORY,
   ADDITIONAL,
+  BASE_PATH,
   USERNAME,
   PASSWORD,
   PARALLEL,
   OVERWRITE,
+  QUALITY,
 ];
+
+const PRESETS = {
+  presets: [
+    {
+      key: "best",
+      label: "Best available",
+      description: "Whatever YouTube has.",
+      video_format: "bestvideo*+bestaudio/best",
+    },
+    {
+      key: "high",
+      label: "High (1080p)",
+      description: "Full HD.",
+      video_format: HIGH_FORMAT,
+    },
+    {
+      key: "medium",
+      label: "Medium (720p)",
+      description: "Half the size.",
+      video_format: MEDIUM_FORMAT,
+    },
+  ],
+};
 
 function renderSettings() {
   const client = new QueryClient({
@@ -84,7 +137,9 @@ function renderSettings() {
   });
   return render(
     <QueryClientProvider client={client}>
-      <Settings />
+      <MemoryRouter initialEntries={["/settings"]}>
+        <Settings />
+      </MemoryRouter>
     </QueryClientProvider>,
   );
 }
@@ -93,6 +148,7 @@ beforeEach(() => {
   vi.resetAllMocks();
   vi.stubGlobal("WebSocket", FakeSocket);
   listSettings.mockResolvedValue({ data: SETTINGS });
+  listVideoQualityPresets.mockResolvedValue({ data: PRESETS });
   getMe.mockResolvedValue(
     meResponse(["settings.view", "settings.manage"], {
       user: userRead({ role: "admin" }),
@@ -102,6 +158,28 @@ beforeEach(() => {
 });
 
 afterEach(() => vi.unstubAllGlobals());
+
+test("the page has a back link to the user page", async () => {
+  renderSettings();
+
+  expect(await screen.findByRole("link", { name: "Back" })).toHaveAttribute(
+    "href",
+    "/user",
+  );
+  expect(screen.getByRole("heading", { name: "Settings" })).toBeVisible();
+});
+
+test("the sections are ordered task first and carry no count", async () => {
+  renderSettings();
+
+  await screen.findByText("Songs");
+  const groups = screen
+    .getAllByRole("group")
+    .map((group) => group.querySelector("summary")?.textContent);
+  expect(groups).toEqual(["Songs", "USDX", "USDB", "Downloads"]);
+  // The count was wrong wherever one setting rendered several rows.
+  expect(screen.queryByText("1")).not.toBeInTheDocument();
+});
 
 test("every group becomes a section with human labels and help text", async () => {
   renderSettings();
@@ -316,4 +394,160 @@ test("a broadcast from another browser updates the fields", async () => {
   });
 
   expect(await screen.findByDisplayValue("D:/other")).toBeInTheDocument();
+});
+
+test("the USDX section offers to run Ultrastar Deluxe and says why", async () => {
+  launchUsdx.mockResolvedValue({ data: { started: true } });
+  renderSettings();
+
+  expect(await screen.findByText("Run Ultrastar Deluxe")).toBeVisible();
+  expect(
+    screen.getByText(/microphones, can only be changed in Ultrastar Deluxe/),
+  ).toBeVisible();
+
+  fireEvent.click(screen.getByRole("button", { name: "Launch" }));
+
+  expect(await screen.findByText("Started")).toBeVisible();
+  expect(launchUsdx).toHaveBeenCalledTimes(1);
+});
+
+test("an Ultrastar Deluxe that was already up is not reported as an error", async () => {
+  launchUsdx.mockResolvedValue({ data: { started: false } });
+  renderSettings();
+
+  fireEvent.click(await screen.findByRole("button", { name: "Launch" }));
+
+  expect(await screen.findByText("Running")).toBeVisible();
+  expect(screen.queryByRole("alert")).not.toBeInTheDocument();
+});
+
+test("a running song is why Ultrastar Deluxe could not be started", async () => {
+  launchUsdx.mockRejectedValue({ detail: "already_playing" });
+  renderSettings();
+
+  fireEvent.click(await screen.findByRole("button", { name: "Launch" }));
+
+  expect(await screen.findByRole("alert")).toHaveTextContent(
+    "A song is playing right now",
+  );
+});
+
+test("an unconfigured Ultrastar Deluxe is explained, not dumped", async () => {
+  launchUsdx.mockRejectedValue({
+    detail: {
+      error: "usdx_not_configured",
+      problems: ["'usdx.executable' is not set and cannot be derived"],
+    },
+  });
+  renderSettings();
+
+  fireEvent.click(await screen.findByRole("button", { name: "Launch" }));
+
+  expect(await screen.findByRole("alert")).toHaveTextContent(
+    "Wingman does not know where Ultrastar Deluxe is installed",
+  );
+});
+
+test("view-only access has nothing to launch", async () => {
+  getMe.mockResolvedValue(
+    meResponse(["settings.view"], {
+      user: userRead({ role: "user" }),
+      role: "user",
+    }),
+  );
+  renderSettings();
+
+  expect(await screen.findByText("Run Ultrastar Deluxe")).toBeVisible();
+  expect(
+    screen.queryByRole("button", { name: "Launch" }),
+  ).not.toBeInTheDocument();
+});
+
+test("the download quality is picked as a preset, not as a format string", async () => {
+  updateSetting.mockResolvedValue({
+    data: { ...QUALITY, value: MEDIUM_FORMAT, is_set: true },
+  });
+  renderSettings();
+
+  // Every preset explains itself, and the selected one comes from the stored
+  // format string.
+  expect(await screen.findByLabelText("High (1080p)")).toBeChecked();
+  expect(screen.getByText("Full HD.")).toBeVisible();
+  expect(screen.getByLabelText("Best available")).not.toBeChecked();
+  // Whatever a preset writes stays readable.
+  expect(screen.getByText(HIGH_FORMAT)).toBeVisible();
+
+  fireEvent.click(screen.getByLabelText("Medium (720p)"));
+
+  await waitFor(() =>
+    expect(updateSetting.mock.calls[0][0]).toMatchObject({
+      path: { key: "downloads.video_format" },
+      body: { value: MEDIUM_FORMAT },
+    }),
+  );
+});
+
+test("custom is the only option with a format string to type", async () => {
+  updateSetting.mockResolvedValue({
+    data: { ...QUALITY, value: "worstvideo", is_set: true },
+  });
+  renderSettings();
+
+  await screen.findByLabelText("High (1080p)");
+  expect(
+    screen.queryByLabelText("yt-dlp format string"),
+  ).not.toBeInTheDocument();
+
+  fireEvent.click(screen.getByLabelText("Custom"));
+  const input = screen.getByLabelText("yt-dlp format string");
+  // Picking Custom alone stores nothing — there is nothing to store yet.
+  expect(updateSetting).not.toHaveBeenCalled();
+
+  fireEvent.change(input, { target: { value: "worstvideo" } });
+  fireEvent.keyDown(input, { key: "Enter" });
+
+  await waitFor(() =>
+    expect(updateSetting.mock.calls[0][0].body).toEqual({
+      value: "worstvideo",
+    }),
+  );
+});
+
+test("a stored format string no preset covers shows up as custom", async () => {
+  listSettings.mockResolvedValue({
+    data: [{ ...QUALITY, value: "worstvideo+worstaudio", is_set: true }],
+  });
+  renderSettings();
+
+  expect(await screen.findByLabelText("Custom")).toBeChecked();
+  expect(screen.getByLabelText("yt-dlp format string")).toHaveValue(
+    "worstvideo+worstaudio",
+  );
+});
+
+test("a rejected format string is reported at the quality field", async () => {
+  updateSetting.mockRejectedValue({
+    detail:
+      "setting 'downloads.video_format': a format string must not contain ;",
+  });
+  renderSettings();
+
+  fireEvent.click(await screen.findByLabelText("Best available"));
+
+  expect(await screen.findByRole("alert")).toHaveTextContent(
+    "must not contain ;",
+  );
+});
+
+test("view-only access cannot change the download quality", async () => {
+  getMe.mockResolvedValue(
+    meResponse(["settings.view"], {
+      user: userRead({ role: "user" }),
+      role: "user",
+    }),
+  );
+  renderSettings();
+
+  expect(await screen.findByLabelText("High (1080p)")).toBeDisabled();
+  expect(screen.getByLabelText("Best available")).toBeDisabled();
 });

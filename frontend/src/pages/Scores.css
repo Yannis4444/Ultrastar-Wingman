@@ -29,44 +29,21 @@
   margin: 8px 16px 0 16px;
 }
 
-.scores-grouping {
-  display: flex;
-  gap: 4px;
+/* Two labelled blocks of the old app's check controls. The `fieldset` groups
+   the radios for assistive tech; the `legend` is styled as the section heading
+   the guidelines ask for, so the group is named exactly once. */
+.scores-options fieldset {
   margin: 0;
   padding: 0;
   border: 0;
 }
 
-/* Standalone placement, when the chart tile (whose header holds it) is hidden. */
-.scores-page > .scores-grouping {
+.scores-options legend {
+  padding: 0;
   margin: 16px 16px 0 16px;
-}
-
-/* The visually-hidden radio keeps native keyboard behaviour; the span is the
-   40px-tall visible segment. */
-.scores-grouping-option span {
-  display: flex;
-  align-items: center;
-  min-height: 40px;
-  padding: 0 14px;
-  font: inherit;
-  color: var(--color-dark);
-  text-transform: capitalize;
-  background-color: var(--input-bg);
-  border: 1px solid var(--input-border-color);
-  border-radius: var(--border-radius);
-  cursor: pointer;
-}
-
-.scores-grouping-option input:checked + span {
+  font-size: 1em;
+  font-weight: bold;
   color: var(--color);
-  background-color: var(--highlight-blue-dark);
-  border-color: var(--highlight-blue-light);
-}
-
-.scores-grouping-option input:focus-visible + span {
-  outline: 2px solid var(--highlight-blue-light);
-  outline-offset: 1px;
 }
 
 .scores-chart {
@@ -76,17 +53,8 @@
   border-radius: var(--border-radius);
 }
 
-.scores-chart-header {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 8px;
-  align-items: center;
-  justify-content: space-between;
-  margin-bottom: 8px;
-}
-
 .scores-chart-title {
-  margin: 0;
+  margin: 0 0 8px 0;
   font-size: 0.9em;
   color: var(--color-dark);
 }

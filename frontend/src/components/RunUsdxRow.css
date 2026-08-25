@@ -1,0 +1,28 @@
+/* An action row in the settings: the same flat 44px row as `.setting-field`,
+   with a button where a field would be. */
+.run-usdx-icon {
+  font-size: 1.2em;
+  color: var(--color-dark);
+}
+
+.run-usdx-label {
+  flex: 1 1 auto;
+}
+
+.run-usdx-button {
+  flex: 0 0 auto;
+  padding: 8px 16px;
+}
+
+/* Wider than `.setting-saved`: "Running" does not fit its 3.5em. */
+.run-usdx-state {
+  width: auto;
+}
+
+.run-usdx-problem {
+  margin: 0;
+}
+
+.run-usdx-problem + .run-usdx-problem {
+  margin-top: 6px;
+}

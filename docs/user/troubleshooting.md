@@ -60,7 +60,7 @@ window.
 
 ## The USDB login fails
 
-The **Explore USDB** page says what went wrong:
+The **USDB** page (**Songs → + → USDB**) says what went wrong:
 
 | Message | What it means |
 |---|---|
@@ -126,6 +126,6 @@ it reconnects on its own after a moment. Reload if it does not.
 
 ## Somebody cannot do something they should
 
-Check the role, not the button. **User → Users** shows every account's role, and
-**Permissions** decides what each role may do. See
+Check the role, not the button. **User → Players & accounts** shows every
+account's role, and **Permissions** decides what each role may do. See
 [Accounts and permissions](accounts-and-permissions.md).

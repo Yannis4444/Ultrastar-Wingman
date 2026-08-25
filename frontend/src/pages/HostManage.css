@@ -1,0 +1,31 @@
+/* Read from the couch as often as from the keyboard: the page keeps the app's
+   flat rows and grows their type with the screen, like the host stage does. */
+.host-manage-page .page-header h1 {
+  font-size: clamp(24px, 3.4vh, 44px);
+}
+
+.host-manage-page .page-header-back {
+  width: clamp(40px, 5vh, 64px);
+  height: clamp(40px, 5vh, 64px);
+  font-size: clamp(16px, 2vh, 28px);
+}
+
+/* Same rows as the user page (`components/ManageMenu.css`), TV metrics. */
+.host-manage-page .manage-menu {
+  margin: 16px;
+}
+
+.host-manage-page .manage-menu-row {
+  gap: 16px;
+  min-height: clamp(56px, 8vh, 96px);
+  font-size: clamp(18px, 2.6vh, 32px);
+}
+
+/* Glyphs follow the row instead of the phone's fixed 20px. */
+.host-manage-page .manage-menu-icon {
+  font-size: 1em;
+}
+
+.host-manage-page .settings-notice {
+  font-size: clamp(14px, 2vh, 24px);
+}

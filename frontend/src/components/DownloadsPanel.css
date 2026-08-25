@@ -23,6 +23,33 @@
   color: var(--color-darker);
 }
 
+/* What went wrong with a retry or a dismiss, reported where it was started. */
+.downloads-notice {
+  margin: 0 16px 12px 16px;
+}
+
+/* The scope filter above the list, on the list's own gutter — the shared control
+   indents itself by 32px to tuck under an `h2`, and there is none here. The
+   hairline is inset like the row separators below it, not full-bleed. */
+.downloads-controls {
+  margin: 0 16px 8px 16px;
+  border-bottom: 1px solid var(--input-border-color);
+}
+
+.downloads-controls .check-option {
+  margin: 0 0 4px 0;
+}
+
+/* The bulk action closes the panel's content, so it sits below the last row. */
+.downloads-actions {
+  display: flex;
+  margin: 12px 16px 0 16px;
+}
+
+.downloads-actions .button {
+  flex: 1 1 auto;
+}
+
 .downloads-row {
   display: flex;
   align-items: center;

@@ -1,5 +1,6 @@
 import asyncio
 from collections.abc import AsyncIterator, Iterator
+from datetime import UTC, datetime, timedelta
 from pathlib import Path
 from typing import cast
 
@@ -103,6 +104,27 @@ async def run_download(
     await idle()
     await session.refresh(row)
     return row
+
+
+def history_row(source_song_id: str, status: str, age: timedelta, **values: object) -> Download:
+    """A row from an earlier run: both timestamps are set explicitly, so the column
+    defaults (and `onupdate`) do not drag it back into the present."""
+    moment = datetime.now(UTC) - age
+    return Download(
+        source="fake",
+        source_song_id=source_song_id,
+        status=status,
+        created_at=moment,
+        updated_at=moment,
+        **values,
+    )
+
+
+async def stored(session_factory: async_sessionmaker[AsyncSession]) -> list[Download]:
+    """Every row, read through a session of its own — the test's session would answer a
+    pruned row from its identity map."""
+    async with session_factory() as session:
+        return list(await session.scalars(select(Download).order_by(Download.id)))
 
 
 def broadcast_downloads(events: list[dict[str, object]]) -> list[dict[str, object]]:
@@ -306,3 +328,179 @@ async def test_post_download_conflicts_and_unknown_source(
 
     unknown = await client.post("/api/v1/downloads", json={"source": "nope", "source_song_id": "1"})
     assert unknown.status_code == 404
+
+
+async def test_a_dismissed_download_leaves_the_panel(
+    client: AsyncClient, fake_source: FakeSource, broadcast_events: list[dict[str, object]]
+) -> None:
+    await scanner.stop_scan()
+    fake_source.error = "no video url in the txt"
+    await client.post("/api/v1/downloads", json={"source": "fake", "source_song_id": "1"})
+    await idle()
+
+    listed = (await client.get("/api/v1/downloads")).json()["downloads"]
+    assert [(row["status"], row["current_session"], row["dismissed_at"]) for row in listed] == [
+        ("failed", True, None)
+    ]
+
+    dismissed = await client.post(f"/api/v1/downloads/{listed[0]['id']}/dismiss")
+    assert dismissed.status_code == 200
+    assert dismissed.json()["dismissed_at"] is not None
+    # Gone from the panel for every client, not just the one that dismissed it.
+    assert (await client.get("/api/v1/downloads")).json()["downloads"] == []
+    assert broadcast_downloads(broadcast_events)[-1]["dismissed_at"] is not None
+
+    # Dismissing again is a no-op, not an error: two tabs may well both do it.
+    again = await client.post(f"/api/v1/downloads/{listed[0]['id']}/dismiss")
+    assert again.status_code == 200
+
+
+async def test_dismiss_refuses_an_unfinished_or_unknown_download(
+    client: AsyncClient, fake_source: FakeSource
+) -> None:
+    await scanner.stop_scan()
+    fake_source.gate = asyncio.Event()
+    created = await client.post("/api/v1/downloads", json={"source": "fake", "source_song_id": "1"})
+    conflict = await client.post(f"/api/v1/downloads/{created.json()['id']}/dismiss")
+    assert conflict.status_code == 409
+    assert conflict.json()["detail"] == "still_running"
+    fake_source.gate.set()
+    await idle()
+
+    unknown = await client.post("/api/v1/downloads/4711/dismiss")
+    assert unknown.status_code == 404
+    assert unknown.json()["detail"] == "unknown_download"
+
+
+async def test_clearing_the_finished_ones_keeps_the_failures(
+    client: AsyncClient, fake_source: FakeSource
+) -> None:
+    await scanner.stop_scan()
+    for number in ("1", "2"):
+        await client.post("/api/v1/downloads", json={"source": "fake", "source_song_id": number})
+    await idle()
+    fake_source.error = "no video url in the txt"
+    await client.post("/api/v1/downloads", json={"source": "fake", "source_song_id": "3"})
+    await idle()
+
+    cleared = await client.post("/api/v1/downloads/dismiss-finished")
+    assert cleared.status_code == 200
+    assert {row["source_song_id"] for row in cleared.json()["downloads"]} == {"1", "2"}
+
+    # The bulk button must never take away an error nobody has read.
+    left = (await client.get("/api/v1/downloads")).json()["downloads"]
+    assert [(row["source_song_id"], row["status"]) for row in left] == [("3", "failed")]
+
+    # Nothing left to clear: the second call changes nothing.
+    assert (await client.post("/api/v1/downloads/dismiss-finished")).json()["downloads"] == []
+
+
+async def test_old_history_is_not_part_of_the_current_session(
+    queue: async_sessionmaker[AsyncSession],
+    session_factory: async_sessionmaker[AsyncSession],
+    session: AsyncSession,
+    fake_source: FakeSource,
+) -> None:
+    # `queue` started the service, which is what marks the beginning of this session.
+    old_failure = history_row("1", "failed", timedelta(days=2), error="boom")
+    old_queued = history_row("2", "queued", timedelta(days=2))
+    # A long download that started before midnight: its last progress report may well be
+    # older than anything else on screen, and the default filter must still show it.
+    old_running = history_row("4", "running", timedelta(days=2), progress=3.0, step="video")
+    session.add_all([old_failure, old_queued, old_running])
+    await session.commit()
+    await run_download(session, "3")
+
+    # Read back, not held in memory: SQLite has no timezone type, so the comparison has to
+    # survive an aware timestamp coming back naive.
+    by_id = {row.source_song_id: row.current_session for row in await stored(session_factory)}
+    assert by_id["1"] is False
+    # Still on its way, whenever it was queued: the running work is always this session's.
+    assert by_id["2"] is True
+    assert by_id["3"] is True
+    assert by_id["4"] is True
+
+
+async def test_retention_drops_completed_rows_past_the_age_limit(
+    session_factory: async_sessionmaker[AsyncSession], session: AsyncSession
+) -> None:
+    aged = timedelta(days=service.RETENTION_DAYS + 1)
+    session.add_all(
+        [
+            history_row("1", "failed", aged, error="boom"),
+            history_row("2", "finished", aged, song_id="fake:2"),
+            history_row("3", "failed", timedelta(days=1), error="boom"),
+            # Old but not done: a queue entry is never retention's business, and a row a
+            # worker is downloading into right now least of all.
+            history_row("4", "queued", aged),
+            history_row("5", "running", aged, progress=42.0, step="downloading the video"),
+        ]
+    )
+    await session.commit()
+
+    assert await service.prune(session_factory) == 2
+    assert [row.source_song_id for row in await stored(session_factory)] == ["3", "4", "5"]
+
+
+async def test_retention_caps_the_history_but_spares_unread_failures(
+    session_factory: async_sessionmaker[AsyncSession],
+    session: AsyncSession,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.setattr(service, "HISTORY_CAP", 3)
+    recent = timedelta(minutes=1)
+    session.add_all(
+        [
+            # The oldest row of all, and the one thing the cap may not touch.
+            history_row("failure", "failed", recent, error="boom"),
+            history_row("read", "failed", recent, error="boom", dismissed_at=datetime.now(UTC)),
+            *(history_row(str(number), "finished", recent) for number in range(4)),
+        ]
+    )
+    await session.commit()
+
+    await service.prune(session_factory)
+
+    assert [row.source_song_id for row in await stored(session_factory)] == [
+        "failure",
+        "1",
+        "2",
+        "3",
+    ]
+
+
+async def test_startup_prunes_the_history(
+    session_factory: async_sessionmaker[AsyncSession], session: AsyncSession
+) -> None:
+    session.add(
+        history_row("1", "finished", timedelta(days=service.RETENTION_DAYS + 1), song_id="fake:1")
+    )
+    await session.commit()
+
+    await service.start(session_factory)
+    try:
+        await idle()
+    finally:
+        await service.stop()
+
+    assert await stored(session_factory) == []
+
+
+async def test_a_finished_download_prunes_what_it_pushed_past_the_cap(
+    session_factory: async_sessionmaker[AsyncSession],
+    session: AsyncSession,
+    fake_source: FakeSource,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    # Between restarts too: a party downloading all evening must not grow the table.
+    monkeypatch.setattr(service, "HISTORY_CAP", 1)
+    await service.start(session_factory)
+    try:
+        await service.enqueue(session, "fake", "1")
+        await idle()
+        await service.enqueue(session, "fake", "2")
+        await idle()
+    finally:
+        await service.stop()
+
+    assert [row.source_song_id for row in await stored(session_factory)] == ["2"]

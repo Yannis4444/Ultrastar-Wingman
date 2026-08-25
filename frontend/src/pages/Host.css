@@ -124,8 +124,27 @@
   pointer-events: auto;
 }
 
+/* Mouse-only chrome that has to sit next to what it controls instead of in the
+   corner overlay — the leaderboard's order pills. Same treatment as
+   `.host-controls`, driven by the same single idle timer, so what it controls
+   stays on screen while the control itself gets out of the way. */
+.host-reveal {
+  transition: opacity 200ms ease;
+}
+
+.host-idle .host-reveal {
+  opacity: 0;
+  pointer-events: none;
+}
+
+.host-reveal:focus-within {
+  opacity: 1 !important;
+  pointer-events: auto;
+}
+
 @media (prefers-reduced-motion: reduce) {
-  .host-controls {
+  .host-controls,
+  .host-reveal {
     transition: none;
   }
 }

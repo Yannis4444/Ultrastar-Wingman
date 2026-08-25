@@ -20,6 +20,21 @@ does not have to log in again next weekend.
     The very first account ever created is the administrator. There is nobody who
     could have granted it — so create it yourself, before the party.
 
+## Your own page
+
+Once you are logged in, the **User** tab shows you instead of the login form.
+
+- **Tap your picture** to change it — the same jpeg, png or webp upload as for
+  any other player (see [Singing](singing.md)). Your picture then replaces the
+  generic icon on the User tab itself, so you can see at a glance who this phone
+  is logged in as.
+- Under your name stand your totals over every party you ever sang at: how many
+  performances were scored, your best score, your average, how many different
+  songs you sang and how many songs you marked as favorites.
+
+A singer who has not been scored yet gets an invitation to sing instead of a row
+of zeroes.
+
 ## Log in with single sign-on (Keycloak and friends)
 
 If you already run a login server — Keycloak, Authentik, Entra, anything that
@@ -121,10 +136,12 @@ What each role may do by default:
 Favorites are in no row on purpose: they belong to whoever made them, and there is
 nothing for an administrator to grant.
 
-## Manage users
+## Manage players and accounts
 
-An administrator gets an **Accounts** page under **User → Accounts**: every
-account with its role, and a way to change it or delete it.
+**User → Players & accounts** is everybody in the party on one page, in two
+groups: **Accounts** for the people who log in, **Guests** for the people who
+only sing. Whoever may see the players sees the whole list; the account controls
+appear for an administrator.
 
 - A role can be set to **user**, **trusted** or **admin**. Nobody is put back to
   **guest** — that is the role for people without an account. Take the account
@@ -132,21 +149,30 @@ account with its role, and a way to change it or delete it.
 - The last administrator cannot be demoted or deleted. Wingman would lock
   everybody out.
 - Deleting an account keeps its player and its scores, under the same name, and
-  removes its wishes, favorites and playlists.
+  removes its wishes, favorites and playlists. The player moves down to the
+  guests, and can be deleted there.
 
 ## Change what a role may do
 
-**User → Permissions** is the table above made editable. Pick **guest**,
-**user** or **trusted** at the top, then tick or untick what that role may do.
-Every tick is saved right away and takes effect immediately, for everybody who
-is already looking at a page.
+**User → Permissions** is the table above made editable, all of it at once: one
+row per right, one column for **guest**, **user** and **trusted**. Rights that
+belong together stand under one heading — *songs*, *karaoke*, *players*,
+*wishlist*, *playlists*, *downloads*, *USDB*, *stats*, *settings*, *users*,
+*permissions* — and under each row stands in one line what it allows. Every tick
+is saved right away and takes effect immediately, for everybody who is already
+looking at a page.
 
 Useful in practice:
 
-- A quiet party: untick *Start a song* for **guest** so only accounts start songs.
+- A quiet party: untick *sing* under **karaoke** for **guest** so only accounts
+  start songs.
 - A helper who should download songs: give their account the **trusted** role, or
   tick the download rights for **user**.
 
+One box cannot be ticked: *manage* under **playlists** for **guest**. A playlist
+belongs to an account, so somebody without one has none to create or edit — the
+box is greyed out and says so when you point at it.
+
 !!! note
-    The **admin** row cannot be changed. An administrator always holds every
-    right, so no mistake in this table can lock the host out of their own app.
+    There is no **admin** column. An administrator always holds every right, so
+    no mistake in this table can lock the host out of their own app.

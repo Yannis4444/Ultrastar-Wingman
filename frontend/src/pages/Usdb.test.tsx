@@ -6,20 +6,43 @@ import {
   waitFor,
   within,
 } from "@testing-library/react";
-import type { DownloadRead, UsdbSong } from "../api";
+import { MemoryRouter } from "react-router-dom";
+import type { DownloadRead, SongRead, UsdbSong } from "../api";
+import { meResponse } from "../test/auth";
 import { FakeSocket } from "../test/fakeSocket";
 import Usdb from "./Usdb";
 
 // Same seam as Songs.test.tsx: the real TanStack wiring runs, only the transport
 // is faked, so a changed endpoint shape breaks the test instead of hiding.
-const { usdbStatus, usdbSearch, listDownloads, createDownload, updateSetting } =
-  vi.hoisted(() => ({
-    usdbStatus: vi.fn(),
-    usdbSearch: vi.fn(),
-    listDownloads: vi.fn(),
-    createDownload: vi.fn(),
-    updateSetting: vi.fn(),
-  }));
+const {
+  usdbStatus,
+  usdbSearch,
+  listDownloads,
+  createDownload,
+  dismissDownload,
+  dismissFinishedDownloads,
+  updateSetting,
+  listSongs,
+  getMe,
+  listFavorites,
+  listWishlist,
+  listPlaylists,
+  listSongScores,
+} = vi.hoisted(() => ({
+  usdbStatus: vi.fn(),
+  usdbSearch: vi.fn(),
+  listDownloads: vi.fn(),
+  createDownload: vi.fn(),
+  dismissDownload: vi.fn(),
+  dismissFinishedDownloads: vi.fn(),
+  updateSetting: vi.fn(),
+  listSongs: vi.fn(),
+  getMe: vi.fn(),
+  listFavorites: vi.fn(),
+  listWishlist: vi.fn(),
+  listPlaylists: vi.fn(),
+  listSongScores: vi.fn(),
+}));
 
 vi.mock("../api/sdk.gen", async (importOriginal) => ({
   ...(await importOriginal<typeof import("../api/sdk.gen")>()),
@@ -27,8 +50,45 @@ vi.mock("../api/sdk.gen", async (importOriginal) => ({
   usdbSearch,
   listDownloads,
   createDownload,
+  dismissDownload,
+  dismissFinishedDownloads,
   updateSetting,
+  listSongs,
+  getMe,
+  listFavorites,
+  listWishlist,
+  listPlaylists,
+  listSongScores,
 }));
+
+/** What the trusted role holds: enough for every control on this page. */
+const TRUSTED = [
+  "songs.view",
+  "usdb.search",
+  "downloads.view",
+  "downloads.manage",
+  "settings.manage",
+  "wishlist.view",
+  "playlists.view",
+  "stats.view",
+];
+
+function localSong(overrides: Partial<SongRead> = {}): SongRead {
+  return {
+    id: "usdb:1234",
+    source: "usdb",
+    title: "Dancing Queen",
+    artist: "ABBA",
+    duration_seconds: 231,
+    has_video: true,
+    language: "English",
+    genre: "Pop",
+    year: 1976,
+    edition: "SingStar",
+    creator: "someone",
+    ...overrides,
+  };
+}
 
 function usdbSong(overrides: Partial<UsdbSong> = {}): UsdbSong {
   return {
@@ -56,19 +116,27 @@ function download(overrides: Partial<DownloadRead> = {}): DownloadRead {
     step: "downloading the video",
     error: null,
     song_id: null,
+    // What the backend says about a row this run produced; an older one carries
+    // `current_session: false` and only shows with the filter off.
+    current_session: true,
+    dismissed_at: null,
     created_at: "2026-08-23T10:00:00Z",
     updated_at: "2026-08-23T10:00:05Z",
     ...overrides,
   };
 }
 
-function renderUsdb() {
+function renderUsdb(capabilities = TRUSTED) {
+  getMe.mockResolvedValue(meResponse(capabilities));
   const client = new QueryClient({
     defaultOptions: { queries: { retry: false } },
   });
   return render(
     <QueryClientProvider client={client}>
-      <Usdb />
+      {/* The page header's back link and nothing else needs a router. */}
+      <MemoryRouter>
+        <Usdb />
+      </MemoryRouter>
     </QueryClientProvider>,
   );
 }
@@ -83,7 +151,15 @@ beforeEach(() => {
     usdbSearch,
     listDownloads,
     createDownload,
+    dismissDownload,
+    dismissFinishedDownloads,
     updateSetting,
+    listSongs,
+    getMe,
+    listFavorites,
+    listWishlist,
+    listPlaylists,
+    listSongScores,
   ]) {
     mock.mockReset();
   }
@@ -92,6 +168,12 @@ beforeEach(() => {
     data: { results: [usdbSong()], page: 1, pages: 3 },
   });
   listDownloads.mockResolvedValue({ data: { downloads: [] } });
+  // The library is empty unless a test puts the song into it.
+  listSongs.mockResolvedValue({ data: { songs: [] } });
+  listFavorites.mockResolvedValue({ data: { song_ids: [] } });
+  listWishlist.mockResolvedValue({ data: { wishes: [] } });
+  listPlaylists.mockResolvedValue({ data: { playlists: [] } });
+  listSongScores.mockResolvedValue({ data: { scores: [] } });
 });
 
 afterEach(() => vi.unstubAllGlobals());
@@ -125,9 +207,43 @@ test("search results show the USDB metadata and a download button", async () => 
   expect(screen.queryByText("GOLDEN")).toBeNull();
   expect(screen.getByLabelText("Rated 3.5 of 5")).toBeInTheDocument();
   expect(screen.getByText("1 / 3")).toBeInTheDocument();
+  expect(screen.getByText("2 results")).toBeInTheDocument();
   expect(
     screen.getByRole("button", { name: "Download ABBA – Dancing Queen" }),
   ).toBeInTheDocument();
+});
+
+test("the page is a sub-view of Songs with the downloads button in its header", async () => {
+  renderUsdb();
+
+  const header = (await screen.findByRole("heading", { name: "USDB" }))
+    .parentElement as HTMLElement;
+  expect(within(header).getByRole("link", { name: "Back" })).toHaveAttribute(
+    "href",
+    "/songs",
+  );
+  expect(
+    within(header).getByRole("button", { name: "Downloads" }),
+  ).toBeInTheDocument();
+});
+
+test("every result shows the cover USDB serves, proxied by the backend", async () => {
+  renderUsdb();
+  await screen.findByText("Dancing Queen");
+
+  const cover = document.querySelector("img.song-cover") as HTMLImageElement;
+  expect(cover).not.toBeNull();
+  expect(cover.getAttribute("src")).toBe(
+    "/api/v1/sources/usdb/songs/1234/cover",
+  );
+  // Only what is on screen is fetched; a page of 100 results is not 100
+  // requests to USDB up front.
+  expect(cover.getAttribute("loading")).toBe("lazy");
+
+  // USDB has no cover for every song, and says so with a 404.
+  fireEvent.error(cover);
+  expect(await screen.findByText("A")).toBeInTheDocument();
+  expect(document.querySelector("img.song-cover")).toBeNull();
 });
 
 test("submitting the form searches for the entered artist and title", async () => {
@@ -145,7 +261,53 @@ test("submitting the form searches for the entered artist and title", async () =
   await waitFor(() =>
     expect(usdbSearch).toHaveBeenLastCalledWith(
       expect.objectContaining({
-        query: { artist: "Toto", title: "Africa", page: 1 },
+        query: {
+          artist: "Toto",
+          title: "Africa",
+          order: "rating",
+          ud: "desc",
+          limit: 30,
+          page: 1,
+        },
+      }),
+    ),
+  );
+});
+
+test("the extra filters change the order and the page size right away", async () => {
+  renderUsdb();
+  await screen.findByText("Dancing Queen");
+
+  fireEvent.change(screen.getByLabelText("Artist"), {
+    target: { value: "Toto" },
+  });
+  // Collapsed by default; the fields are in the DOM either way.
+  fireEvent.change(screen.getByLabelText("Sort by"), {
+    target: { value: "title-asc" },
+  });
+
+  // No second click on Search: a filter behind a button the user has to find
+  // again is a filter nobody uses.
+  await waitFor(() =>
+    expect(usdbSearch).toHaveBeenLastCalledWith(
+      expect.objectContaining({
+        query: expect.objectContaining({
+          artist: "Toto",
+          order: "title",
+          ud: "asc",
+          page: 1,
+        }),
+      }),
+    ),
+  );
+
+  fireEvent.change(screen.getByLabelText("Results per page"), {
+    target: { value: "100" },
+  });
+  await waitFor(() =>
+    expect(usdbSearch).toHaveBeenLastCalledWith(
+      expect.objectContaining({
+        query: expect.objectContaining({ limit: 100, page: 1 }),
       }),
     ),
   );
@@ -173,7 +335,9 @@ test("paging past the last page keeps a way back", async () => {
   expect(await screen.findByText("Dancing Queen")).toBeInTheDocument();
 });
 
-test("an already downloaded result shows a checkmark instead of a button", async () => {
+test("a result that is downloading shows its state and offers nothing to click", async () => {
+  // `downloaded` is set for a queued download too, and there is no local song
+  // behind it yet — so the row must stay inert.
   usdbSearch.mockResolvedValue({
     data: { results: [usdbSong({ downloaded: true })], page: 1, pages: 1 },
   });
@@ -182,6 +346,26 @@ test("an already downloaded result shows a checkmark instead of a button", async
   expect(await screen.findByTitle("In the library")).toBeInTheDocument();
   // Only the header's downloads button is left — no per-row download button.
   expect(screen.queryByRole("button", { name: /Dancing Queen/ })).toBeNull();
+});
+
+test("a result that is in the library opens the song details", async () => {
+  usdbSearch.mockResolvedValue({
+    data: { results: [usdbSong({ downloaded: true })], page: 1, pages: 1 },
+  });
+  listSongs.mockResolvedValue({ data: { songs: [localSong()] } });
+  renderUsdb();
+
+  const row = await screen.findByRole("button", {
+    name: "Details for ABBA – Dancing Queen",
+  });
+  fireEvent.click(row);
+
+  // The standard song modal, not a USDB-only view.
+  const dialog = await screen.findByRole("dialog", { name: "Dancing Queen" });
+  expect(within(dialog).getByText("ABBA")).toBeInTheDocument();
+  expect(
+    within(dialog).getByRole("button", { name: "Details" }),
+  ).toBeInTheDocument();
 });
 
 test("clicking download posts it and a progress event turns it into a badge", async () => {
@@ -333,6 +517,182 @@ test("the downloads live behind the header button, not on the page", async () =>
   expect(
     await screen.findByText("downloading the video · 42%"),
   ).toBeInTheDocument();
+});
+
+test("the panel shows this run and keeps the older history one click away", async () => {
+  listDownloads.mockResolvedValue({
+    data: {
+      downloads: [
+        download({
+          id: 9,
+          artist: "Toto",
+          title: "Africa",
+          status: "finished",
+          song_id: "usdb:5",
+        }),
+        download({
+          id: 3,
+          title: "Waterloo",
+          status: "failed",
+          progress: null,
+          step: null,
+          error: "no_video — the song has no video link",
+          current_session: false,
+        }),
+      ],
+    },
+  });
+  renderUsdb();
+
+  // A failure from an earlier run is history: it must not keep the header
+  // button alerting for ever, which is what it used to do.
+  const button = await screen.findByRole("button", { name: "Downloads" });
+  fireEvent.click(button);
+
+  const dialog = await screen.findByRole("dialog", { name: "Downloads" });
+  expect(within(dialog).getByText("Toto – Africa")).toBeInTheDocument();
+  expect(within(dialog).queryByText("ABBA – Waterloo")).toBeNull();
+
+  // Hidden, not gone.
+  fireEvent.click(within(dialog).getByLabelText("Only this session"));
+  expect(within(dialog).getByText("ABBA – Waterloo")).toBeInTheDocument();
+});
+
+test("dismissing a failed download takes it off the panel", async () => {
+  const failed = download({
+    status: "failed",
+    progress: null,
+    step: null,
+    error: "no_video — the song has no video link",
+  });
+  listDownloads.mockResolvedValue({ data: { downloads: [failed] } });
+  dismissDownload.mockResolvedValue({
+    data: { ...failed, dismissed_at: "2026-08-23T10:05:00Z" },
+  });
+  renderUsdb();
+
+  fireEvent.click(
+    await screen.findByRole("button", { name: "Downloads: 1 failed" }),
+  );
+  const dialog = await screen.findByRole("dialog", { name: "Downloads" });
+  fireEvent.click(
+    within(dialog).getByRole("button", {
+      name: "Dismiss ABBA – Dancing Queen",
+    }),
+  );
+
+  await waitFor(() =>
+    expect(dismissDownload).toHaveBeenCalledWith(
+      expect.objectContaining({ path: { download_id: 7 } }),
+    ),
+  );
+  expect(
+    await within(dialog).findByText("Nothing downloaded yet."),
+  ).toBeInTheDocument();
+  // And the alert on the header button goes with it.
+  expect(screen.getByRole("button", { name: "Downloads" })).toBeInTheDocument();
+});
+
+test("clearing the finished downloads leaves the failures alone", async () => {
+  const done = download({
+    id: 9,
+    artist: "Toto",
+    title: "Africa",
+    status: "finished",
+    song_id: "usdb:5",
+  });
+  const failed = download({
+    status: "failed",
+    progress: null,
+    step: null,
+    error: "no_video — the song has no video link",
+  });
+  listDownloads.mockResolvedValue({ data: { downloads: [failed, done] } });
+  dismissFinishedDownloads.mockResolvedValue({
+    data: { downloads: [{ ...done, dismissed_at: "2026-08-23T10:05:00Z" }] },
+  });
+  renderUsdb();
+
+  fireEvent.click(
+    await screen.findByRole("button", { name: "Downloads: 1 failed" }),
+  );
+  const dialog = await screen.findByRole("dialog", { name: "Downloads" });
+  fireEvent.click(
+    within(dialog).getByRole("button", { name: "Clear finished" }),
+  );
+
+  await waitFor(() =>
+    expect(within(dialog).queryByText("Toto – Africa")).toBeNull(),
+  );
+  expect(within(dialog).getByText("ABBA – Dancing Queen")).toBeInTheDocument();
+});
+
+test("a dismiss the backend refuses is reported inside the panel", async () => {
+  const failed = download({
+    status: "failed",
+    progress: null,
+    step: null,
+    error: "no_video — the song has no video link",
+  });
+  listDownloads.mockResolvedValue({ data: { downloads: [failed] } });
+  // Retention dropped it between the last refetch and the click.
+  dismissDownload.mockRejectedValue({ detail: "unknown_download" });
+  renderUsdb();
+
+  fireEvent.click(
+    await screen.findByRole("button", { name: "Downloads: 1 failed" }),
+  );
+  const dialog = await screen.findByRole("dialog", { name: "Downloads" });
+  fireEvent.click(
+    within(dialog).getByRole("button", {
+      name: "Dismiss ABBA – Dancing Queen",
+    }),
+  );
+
+  // In the panel, not on the page behind the backdrop, where nobody would see it.
+  expect(await within(dialog).findByRole("alert")).toHaveTextContent(
+    "Could not dismiss the download.",
+  );
+  expect(within(dialog).getByText("ABBA – Dancing Queen")).toBeInTheDocument();
+});
+
+test("without the right to manage downloads the panel only reports", async () => {
+  listDownloads.mockResolvedValue({
+    data: {
+      downloads: [
+        download({ status: "finished", song_id: "usdb:1234" }),
+        download({
+          id: 8,
+          artist: "Toto",
+          title: "Africa",
+          status: "failed",
+          progress: null,
+          step: null,
+          error: "no_video — the song has no video link",
+        }),
+      ],
+    },
+  });
+  renderUsdb(TRUSTED.filter((one) => one !== "downloads.manage"));
+
+  fireEvent.click(
+    await screen.findByRole("button", { name: "Downloads: 1 failed" }),
+  );
+  const dialog = await screen.findByRole("dialog", { name: "Downloads" });
+  expect(within(dialog).getByText("ABBA – Dancing Queen")).toBeInTheDocument();
+  expect(within(dialog).queryByRole("button", { name: /^Dismiss/ })).toBeNull();
+  expect(
+    within(dialog).queryByRole("button", { name: "Clear finished" }),
+  ).toBeNull();
+  // Retry queues a new download, which is `downloads.manage` too: offering it
+  // here would only ever produce a 403.
+  expect(within(dialog).queryByRole("button", { name: /^Retry/ })).toBeNull();
+  // The failure still reports itself — summary and raw dump — it just cannot be
+  // acted on.
+  expect(within(dialog).getByText("Toto – Africa")).toBeInTheDocument();
+  expect(
+    within(dialog).getAllByText("no_video — the song has no video link"),
+  ).toHaveLength(2);
 });
 
 test("a download that is already queued is reported", async () => {

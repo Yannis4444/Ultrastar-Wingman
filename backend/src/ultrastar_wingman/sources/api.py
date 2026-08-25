@@ -8,7 +8,7 @@ a search result goes through `POST /downloads` like any other download.
 import logging
 from typing import Any
 
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends, HTTPException, Response
 
 from ..auth.deps import require
 from ..db import SessionDep
@@ -62,3 +62,33 @@ async def usdb_search(
     except UsdbError as error:
         # Not 401/403: nothing is wrong with *this* request, USDB is the failing upstream.
         raise HTTPException(status_code=502, detail=error.code) from error
+
+
+@router.get(
+    "/sources/usdb/songs/{usdb_id}/cover",
+    response_class=Response,
+    dependencies=[Depends(require("usdb.search"))],
+    responses={
+        200: {"content": {"image/*": {}}, "description": "The cover image USDB serves."},
+        404: {"description": "USDB has no cover for that song."},
+    },
+)
+async def usdb_cover(usdb_id: int, session: SessionDep) -> Response:
+    """The cover of a search result, proxied.
+
+    Proxied rather than linked: pointing every phone in the room at usdb.animux.de would
+    hand out the browsing habits of the whole party, and Wingman is the only party with a
+    USDB session anyway. `usdb_id` is an int, so nothing a caller sends can steer the
+    upstream path.
+    """
+    image = await usdb.cover(session, usdb_id)
+    if image is None:
+        raise HTTPException(status_code=404, detail="no_cover")
+    content, content_type = image
+    # A cover for a given id never changes, so the browser may keep it: scrolling a result
+    # list back up must not re-ask for images it already has.
+    return Response(
+        content=content,
+        media_type=content_type,
+        headers={"Cache-Control": "public, max-age=86400"},
+    )

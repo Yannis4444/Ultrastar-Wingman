@@ -1,0 +1,42 @@
+/* The presets, stacked as the old app's check controls. Their own margin
+   (`0 16px 0 32px`) is the indent, so the list adds none. */
+.video-quality-options {
+  margin: 4px 0 0 0;
+}
+
+.video-quality-option + .video-quality-option {
+  margin-top: 4px;
+}
+
+/* What a preset means, under its own option and aligned with its text. */
+.video-quality-hint {
+  margin: 0 16px 0 calc(32px + 16px + 0.5em);
+  color: var(--color-darker);
+  font-size: 0.8em;
+}
+
+.video-quality-custom {
+  display: flex;
+  flex-direction: column;
+  margin-top: 8px;
+}
+
+/* `.text-input` is padded and content-box: without `border-box` a full-width
+   box is 26px wider than the field and scrolls the whole page sideways. */
+.video-quality-input {
+  box-sizing: border-box;
+  width: 100%;
+}
+
+/* The value the presets write, spelled out: no preset hides what yt-dlp is
+   actually asked for. */
+.video-quality-effective {
+  margin: 8px 0 0 0;
+  color: var(--color-darker);
+  font-size: 0.8em;
+  overflow-wrap: anywhere;
+}
+
+.video-quality-reset {
+  margin-left: auto;
+}

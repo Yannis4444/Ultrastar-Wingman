@@ -1,0 +1,30 @@
+/* Glyph and value read as one token: 4px between them, the surrounding row
+   decides how far the tokens sit apart. */
+.icon-stat {
+  display: inline-flex;
+  gap: 4px;
+  align-items: center;
+  min-width: 0;
+}
+
+.icon-stat-icon {
+  flex: 0 0 auto;
+  color: var(--highlight-blue-light);
+}
+
+/* Only rendered with `showLabel`; the caption under a stacked stat. */
+.icon-stat-label {
+  overflow: hidden;
+  color: var(--color-darker);
+  white-space: nowrap;
+  text-overflow: ellipsis;
+  font-size: 0.75em;
+}
+
+.icon-stat-value {
+  overflow: hidden;
+  color: var(--color);
+  white-space: nowrap;
+  text-overflow: ellipsis;
+  font-variant-numeric: tabular-nums;
+}

@@ -3,8 +3,8 @@
 import { type DefaultError, type InfiniteData, infiniteQueryOptions, queryOptions, type UseMutationOptions } from '@tanstack/react-query';
 
 import { client } from '../client.gen';
-import { addFavorite, addPlaylistEntry, addWish, createDownload, createPlayer, createPlaylist, deletePlayer, deletePlaylist, deleteUser, exchangeHostToken, getCurrentSing, getJoinInfo, getMe, getPermissions, getPlayerAvatar, getPlaylist, getSong, getSongAudio, getSongCover, health, listDownloads, listFavorites, listKaraokeColors, listLatestScores, listPlayers, listPlaylists, listSessions, listSessionScores, listSettings, listSongs, listSongScores, listUsers, listWishlist, login, logout, oidcCallback, oidcConfig, oidcLogin, type Options, register, removeFavorite, removePlaylistEntry, removeWish, renameSession, reorderPlaylistEntries, rescanSongs, setPlayerAvatar, singSong, stopSinging, updatePlaylist, updateRolePermissions, updateSetting, updateUser, usdbSearch, usdbStatus, usdxStatus } from '../sdk.gen';
-import type { AddFavoriteData, AddFavoriteError, AddFavoriteResponse, AddPlaylistEntryData, AddPlaylistEntryError, AddPlaylistEntryResponse, AddWishData, AddWishError, AddWishResponse, CreateDownloadData, CreateDownloadError, CreateDownloadResponse, CreatePlayerData, CreatePlayerError, CreatePlayerResponse, CreatePlaylistData, CreatePlaylistError, CreatePlaylistResponse, DeletePlayerData, DeletePlayerError, DeletePlayerResponse, DeletePlaylistData, DeletePlaylistError, DeletePlaylistResponse, DeleteUserData, DeleteUserError, DeleteUserResponse, ExchangeHostTokenData, ExchangeHostTokenError, ExchangeHostTokenResponse, GetCurrentSingData, GetCurrentSingResponse, GetJoinInfoData, GetJoinInfoResponse, GetMeData, GetMeResponse, GetPermissionsData, GetPermissionsResponse, GetPlayerAvatarData, GetPlayerAvatarError, GetPlaylistData, GetPlaylistError, GetPlaylistResponse, GetSongAudioData, GetSongAudioError, GetSongCoverData, GetSongCoverError, GetSongData, GetSongError, GetSongResponse, HealthData, HealthResponse, ListDownloadsData, ListDownloadsResponse, ListFavoritesData, ListFavoritesResponse, ListKaraokeColorsData, ListKaraokeColorsResponse, ListLatestScoresData, ListLatestScoresError, ListLatestScoresResponse, ListPlayersData, ListPlayersResponse, ListPlaylistsData, ListPlaylistsResponse, ListSessionScoresData, ListSessionScoresError, ListSessionScoresResponse, ListSessionsData, ListSessionsResponse, ListSettingsData, ListSettingsResponse, ListSongScoresData, ListSongScoresError, ListSongScoresResponse, ListSongsData, ListSongsResponse, ListUsersData, ListUsersResponse, ListWishlistData, ListWishlistResponse, LoginData, LoginError, LoginResponse, LogoutData, LogoutResponse, OidcCallbackData, OidcCallbackError, OidcConfigData, OidcConfigResponse, OidcLoginData, RegisterData, RegisterError, RegisterResponse, RemoveFavoriteData, RemoveFavoriteError, RemoveFavoriteResponse, RemovePlaylistEntryData, RemovePlaylistEntryError, RemovePlaylistEntryResponse, RemoveWishData, RemoveWishError, RemoveWishResponse, RenameSessionData, RenameSessionError, RenameSessionResponse, ReorderPlaylistEntriesData, ReorderPlaylistEntriesResponse, RescanSongsData, RescanSongsError, RescanSongsResponse, SetPlayerAvatarData, SetPlayerAvatarError, SetPlayerAvatarResponse, SingSongData, SingSongError, SingSongResponse, StopSingingData, StopSingingResponse, UpdatePlaylistData, UpdatePlaylistError, UpdatePlaylistResponse, UpdateRolePermissionsData, UpdateRolePermissionsResponse, UpdateSettingData, UpdateSettingError, UpdateSettingResponse, UpdateUserData, UpdateUserError, UpdateUserResponse, UsdbSearchData, UsdbSearchError, UsdbSearchResponse, UsdbStatusData, UsdbStatusError, UsdbStatusResponse, UsdxStatusData, UsdxStatusResponse } from '../types.gen';
+import { addFavorite, addPlaylistEntry, addWish, createDownload, createPlayer, createPlaylist, deletePlayer, deletePlaylist, deleteUser, dismissDownload, dismissFinishedDownloads, exchangeHostToken, getCurrentSing, getJoinInfo, getMe, getPermissions, getPlayerAvatar, getPlaylist, getSong, getSongAudio, getSongCover, health, launchUsdx, listDownloads, listFavorites, listKaraokeColors, listKaraokeSlots, listLatestScores, listPlayers, listPlayerScores, listPlaylists, listSessions, listSessionScores, listSettings, listSongs, listSongScores, listUsers, listVideoQualityPresets, listWishlist, login, logout, oidcCallback, oidcConfig, oidcLogin, type Options, register, removeFavorite, removePlaylistEntry, removeWish, renameSession, reorderPlaylistEntries, rescanSongs, setPlayerAvatar, singSong, stopSinging, updatePlaylist, updateRolePermissions, updateSetting, updateUser, usdbCover, usdbSearch, usdbStatus, usdxStatus } from '../sdk.gen';
+import type { AddFavoriteData, AddFavoriteError, AddFavoriteResponse, AddPlaylistEntryData, AddPlaylistEntryError, AddPlaylistEntryResponse, AddWishData, AddWishError, AddWishResponse, CreateDownloadData, CreateDownloadError, CreateDownloadResponse, CreatePlayerData, CreatePlayerError, CreatePlayerResponse, CreatePlaylistData, CreatePlaylistError, CreatePlaylistResponse, DeletePlayerData, DeletePlayerError, DeletePlayerResponse, DeletePlaylistData, DeletePlaylistError, DeletePlaylistResponse, DeleteUserData, DeleteUserError, DeleteUserResponse, DismissDownloadData, DismissDownloadError, DismissDownloadResponse, DismissFinishedDownloadsData, DismissFinishedDownloadsResponse, ExchangeHostTokenData, ExchangeHostTokenError, ExchangeHostTokenResponse, GetCurrentSingData, GetCurrentSingResponse, GetJoinInfoData, GetJoinInfoResponse, GetMeData, GetMeResponse, GetPermissionsData, GetPermissionsResponse, GetPlayerAvatarData, GetPlayerAvatarError, GetPlaylistData, GetPlaylistError, GetPlaylistResponse, GetSongAudioData, GetSongAudioError, GetSongCoverData, GetSongCoverError, GetSongData, GetSongError, GetSongResponse, HealthData, HealthResponse, LaunchUsdxData, LaunchUsdxResponse, ListDownloadsData, ListDownloadsResponse, ListFavoritesData, ListFavoritesResponse, ListKaraokeColorsData, ListKaraokeColorsResponse, ListKaraokeSlotsData, ListKaraokeSlotsResponse, ListLatestScoresData, ListLatestScoresError, ListLatestScoresResponse, ListPlayerScoresData, ListPlayerScoresError, ListPlayerScoresResponse, ListPlayersData, ListPlayersResponse, ListPlaylistsData, ListPlaylistsResponse, ListSessionScoresData, ListSessionScoresError, ListSessionScoresResponse, ListSessionsData, ListSessionsResponse, ListSettingsData, ListSettingsResponse, ListSongScoresData, ListSongScoresError, ListSongScoresResponse, ListSongsData, ListSongsResponse, ListUsersData, ListUsersResponse, ListVideoQualityPresetsData, ListVideoQualityPresetsResponse, ListWishlistData, ListWishlistResponse, LoginData, LoginError, LoginResponse, LogoutData, LogoutResponse, OidcCallbackData, OidcCallbackError, OidcConfigData, OidcConfigResponse, OidcLoginData, RegisterData, RegisterError, RegisterResponse, RemoveFavoriteData, RemoveFavoriteError, RemoveFavoriteResponse, RemovePlaylistEntryData, RemovePlaylistEntryError, RemovePlaylistEntryResponse, RemoveWishData, RemoveWishError, RemoveWishResponse, RenameSessionData, RenameSessionError, RenameSessionResponse, ReorderPlaylistEntriesData, ReorderPlaylistEntriesResponse, RescanSongsData, RescanSongsError, RescanSongsResponse, SetPlayerAvatarData, SetPlayerAvatarError, SetPlayerAvatarResponse, SingSongData, SingSongError, SingSongResponse, StopSingingData, StopSingingResponse, UpdatePlaylistData, UpdatePlaylistError, UpdatePlaylistResponse, UpdateRolePermissionsData, UpdateRolePermissionsResponse, UpdateSettingData, UpdateSettingError, UpdateSettingResponse, UpdateUserData, UpdateUserError, UpdateUserResponse, UsdbCoverData, UsdbCoverError, UsdbSearchData, UsdbSearchError, UsdbSearchResponse, UsdbStatusData, UsdbStatusError, UsdbStatusResponse, UsdxStatusData, UsdxStatusResponse } from '../types.gen';
 
 export type QueryKey<TOptions extends Options> = [
     Pick<TOptions, 'baseUrl' | 'body' | 'headers' | 'path' | 'query'> & {
@@ -491,6 +491,26 @@ export const usdxStatusOptions = (options?: Options<UsdxStatusData>) => queryOpt
     queryKey: usdxStatusQueryKey(options)
 });
 
+/**
+ * Launch Usdx
+ *
+ * Start Ultrastar Deluxe on its own, so the host can change the settings only USDX has
+ * (the microphones). Asking again while it is up is not an error: `started` is then false.
+ */
+export const launchUsdxMutation = (options?: Partial<Options<LaunchUsdxData>>): UseMutationOptions<LaunchUsdxResponse, DefaultError, Options<LaunchUsdxData>> => {
+    const mutationOptions: UseMutationOptions<LaunchUsdxResponse, DefaultError, Options<LaunchUsdxData>> = {
+        mutationFn: async (fnOptions) => {
+            const { data } = await launchUsdx({
+                ...options,
+                ...fnOptions,
+                throwOnError: true
+            });
+            return data;
+        }
+    };
+    return mutationOptions;
+};
+
 export const listKaraokeColorsQueryKey = (options?: Options<ListKaraokeColorsData>) => createQueryKey('listKaraokeColors', options);
 
 /**
@@ -510,6 +530,27 @@ export const listKaraokeColorsOptions = (options?: Options<ListKaraokeColorsData
         return data;
     },
     queryKey: listKaraokeColorsQueryKey(options)
+});
+
+export const listKaraokeSlotsQueryKey = (options?: Options<ListKaraokeSlotsData>) => createQueryKey('listKaraokeSlots', options);
+
+/**
+ * List Karaoke Slots
+ *
+ * The singing slots the host configured (`karaoke.player_colors`) with their hex
+ * values. How many there are is how many people sing at once.
+ */
+export const listKaraokeSlotsOptions = (options?: Options<ListKaraokeSlotsData>) => queryOptions<ListKaraokeSlotsResponse, DefaultError, ListKaraokeSlotsResponse, ReturnType<typeof listKaraokeSlotsQueryKey>>({
+    queryFn: async ({ queryKey, signal }) => {
+        const { data } = await listKaraokeSlots({
+            ...options,
+            ...queryKey[0],
+            signal,
+            throwOnError: true
+        });
+        return data;
+    },
+    queryKey: listKaraokeSlotsQueryKey(options)
 });
 
 /**
@@ -569,10 +610,34 @@ export const stopSingingMutation = (options?: Partial<Options<StopSingingData>>)
     return mutationOptions;
 };
 
+export const listVideoQualityPresetsQueryKey = (options?: Options<ListVideoQualityPresetsData>) => createQueryKey('listVideoQualityPresets', options);
+
+/**
+ * List Video Quality Presets
+ *
+ * The download quality presets and the yt-dlp format string each one stands for. The
+ * single source of truth — no client may hardcode a format string.
+ */
+export const listVideoQualityPresetsOptions = (options?: Options<ListVideoQualityPresetsData>) => queryOptions<ListVideoQualityPresetsResponse, DefaultError, ListVideoQualityPresetsResponse, ReturnType<typeof listVideoQualityPresetsQueryKey>>({
+    queryFn: async ({ queryKey, signal }) => {
+        const { data } = await listVideoQualityPresets({
+            ...options,
+            ...queryKey[0],
+            signal,
+            throwOnError: true
+        });
+        return data;
+    },
+    queryKey: listVideoQualityPresetsQueryKey(options)
+});
+
 export const listDownloadsQueryKey = (options?: Options<ListDownloadsData>) => createQueryKey('listDownloads', options);
 
 /**
  * List Downloads
+ *
+ * The queue and the recent history. Dismissed rows are gone from here: taking note of
+ * one is what empties the panel — the row itself lives on until retention drops it.
  */
 export const listDownloadsOptions = (options?: Options<ListDownloadsData>) => queryOptions<ListDownloadsResponse, DefaultError, ListDownloadsResponse, ReturnType<typeof listDownloadsQueryKey>>({
     queryFn: async ({ queryKey, signal }) => {
@@ -594,6 +659,45 @@ export const createDownloadMutation = (options?: Partial<Options<CreateDownloadD
     const mutationOptions: UseMutationOptions<CreateDownloadResponse, CreateDownloadError, Options<CreateDownloadData>> = {
         mutationFn: async (fnOptions) => {
             const { data } = await createDownload({
+                ...options,
+                ...fnOptions,
+                throwOnError: true
+            });
+            return data;
+        }
+    };
+    return mutationOptions;
+};
+
+/**
+ * Dismiss Finished Downloads
+ *
+ * Clear the successes in one go. Failures stay: only their owner's explicit dismiss
+ * takes an error off the screen.
+ */
+export const dismissFinishedDownloadsMutation = (options?: Partial<Options<DismissFinishedDownloadsData>>): UseMutationOptions<DismissFinishedDownloadsResponse, DefaultError, Options<DismissFinishedDownloadsData>> => {
+    const mutationOptions: UseMutationOptions<DismissFinishedDownloadsResponse, DefaultError, Options<DismissFinishedDownloadsData>> = {
+        mutationFn: async (fnOptions) => {
+            const { data } = await dismissFinishedDownloads({
+                ...options,
+                ...fnOptions,
+                throwOnError: true
+            });
+            return data;
+        }
+    };
+    return mutationOptions;
+};
+
+/**
+ * Dismiss Download
+ *
+ * Mark one finished or failed download as read, taking it out of the panel.
+ */
+export const dismissDownloadMutation = (options?: Partial<Options<DismissDownloadData>>): UseMutationOptions<DismissDownloadResponse, DismissDownloadError, Options<DismissDownloadData>> => {
+    const mutationOptions: UseMutationOptions<DismissDownloadResponse, DismissDownloadError, Options<DismissDownloadData>> = {
+        mutationFn: async (fnOptions) => {
+            const { data } = await dismissDownload({
                 ...options,
                 ...fnOptions,
                 throwOnError: true
@@ -700,6 +804,31 @@ export const usdbSearchInfiniteOptions = (options?: Options<UsdbSearchData>) => 
     });
     return opts as Omit<typeof opts, 'initialData'>;
 };
+
+export const usdbCoverQueryKey = (options: Options<UsdbCoverData>) => createQueryKey('usdbCover', options);
+
+/**
+ * Usdb Cover
+ *
+ * The cover of a search result, proxied.
+ *
+ * Proxied rather than linked: pointing every phone in the room at usdb.animux.de would
+ * hand out the browsing habits of the whole party, and Wingman is the only party with a
+ * USDB session anyway. `usdb_id` is an int, so nothing a caller sends can steer the
+ * upstream path.
+ */
+export const usdbCoverOptions = (options: Options<UsdbCoverData>) => queryOptions<unknown, UsdbCoverError, unknown, ReturnType<typeof usdbCoverQueryKey>>({
+    queryFn: async ({ queryKey, signal }) => {
+        const { data } = await usdbCover({
+            ...options,
+            ...queryKey[0],
+            signal,
+            throwOnError: true
+        });
+        return data;
+    },
+    queryKey: usdbCoverQueryKey(options)
+});
 
 export const listWishlistQueryKey = (options?: Options<ListWishlistData>) => createQueryKey('listWishlist', options);
 
@@ -1041,6 +1170,27 @@ export const listSongScoresOptions = (options: Options<ListSongScoresData>) => q
         return data;
     },
     queryKey: listSongScoresQueryKey(options)
+});
+
+export const listPlayerScoresQueryKey = (options: Options<ListPlayerScoresData>) => createQueryKey('listPlayerScores', options);
+
+/**
+ * List Player Scores
+ *
+ * Every score one player ever got, across all sessions, newest first — what the user
+ * page turns into their totals.
+ */
+export const listPlayerScoresOptions = (options: Options<ListPlayerScoresData>) => queryOptions<ListPlayerScoresResponse, ListPlayerScoresError, ListPlayerScoresResponse, ReturnType<typeof listPlayerScoresQueryKey>>({
+    queryFn: async ({ queryKey, signal }) => {
+        const { data } = await listPlayerScores({
+            ...options,
+            ...queryKey[0],
+            signal,
+            throwOnError: true
+        });
+        return data;
+    },
+    queryKey: listPlayerScoresQueryKey(options)
 });
 
 export const listLatestScoresQueryKey = (options?: Options<ListLatestScoresData>) => createQueryKey('listLatestScores', options);

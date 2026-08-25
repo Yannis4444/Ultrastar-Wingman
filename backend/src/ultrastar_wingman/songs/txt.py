@@ -43,6 +43,11 @@ class SongTxt(BaseModel):
     year: int | None = None
     edition: str | None = None
     creator: str | None = None
+    # The playback window USDX honours, both in **seconds** — `#START` is written in
+    # seconds, `#END` in milliseconds, and normalizing that here keeps the unit trap in
+    # one place. `start` skips the intro, `end` cuts the song off before the audio ends.
+    start: float | None = None
+    end: float | None = None
 
 
 def parse_song_txt(text: str) -> SongTxt:
@@ -63,6 +68,9 @@ def parse_song_txt(text: str) -> SongTxt:
         year=_year(tags.get("YEAR")),
         edition=tags.get("EDITION"),
         creator=tags.get("CREATOR"),
+        start=_positive(_decimal(tags.get("START"))),
+        # Milliseconds in the file, seconds in the model.
+        end=_positive(_milliseconds_to_seconds(_decimal(tags.get("END")))),
     )
 
 
@@ -105,3 +113,24 @@ def _year(value: str | None) -> int | None:
     if value is None or not value.strip().isdigit():
         return None
     return int(value.strip())
+
+
+def _decimal(value: str | None) -> float | None:
+    """A numeric tag. Editors on a German locale write "25,6" instead of "25.6", and a
+    tag nobody can read is a tag that is not there."""
+    if value is None:
+        return None
+    try:
+        return float(value.strip().replace(",", "."))
+    except ValueError:
+        logger.debug("ignoring the unreadable numeric tag value '%s'", value)
+        return None
+
+
+def _milliseconds_to_seconds(value: float | None) -> float | None:
+    return None if value is None else value / 1000
+
+
+def _positive(value: float | None) -> float | None:
+    """Zero means "not set" in USDX, and a negative window is nonsense either way."""
+    return None if value is None or value <= 0 else value

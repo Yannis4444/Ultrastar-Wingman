@@ -1,21 +1,24 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useEffect, useState } from "react";
-import { Link, useSearchParams } from "react-router-dom";
+import { useSearchParams } from "react-router-dom";
 import type { PlayerRead } from "../api";
 import {
-  deletePlayerMutation,
+  listFavoritesOptions,
+  listPlayerScoresOptions,
   listPlayersOptions,
   listPlayersQueryKey,
   logoutMutation,
   setPlayerAvatarMutation,
 } from "../api/@tanstack/react-query.gen";
 import { useAuth } from "../auth";
-import AddPlayerForm from "../components/AddPlayerForm";
-import ConfirmModal from "../components/ConfirmModal";
-import { Icon, type IconName } from "../components/icons";
+import IconStat from "../components/IconStat";
+import { Icon } from "../components/icons";
 import LoginForm from "../components/LoginForm";
+import ManageMenu from "../components/ManageMenu";
 import PlayerAvatar from "../components/PlayerAvatar";
 import { errorDetail, errorMessage } from "../errors";
+import { manageEntries } from "../manage";
+import { playerSummary } from "../stats";
 import "./User.css";
 
 /** Mirrors the backend's limit so an oversized file never leaves the browser. */
@@ -23,6 +26,8 @@ const MAX_AVATAR_BYTES = 5 * 1024 * 1024;
 
 const AVATAR_MESSAGES: Record<string, string> = {
   avatar_too_large: "That image is larger than 5 MB.",
+  avatar_too_many_pixels:
+    "That picture has far too many pixels. Scale it down and try again.",
   unsupported_avatar_type:
     "Only jpeg, png and webp images work — and the file has to really be one.",
 };
@@ -47,32 +52,84 @@ const SSO_MESSAGES: Record<string, string> = {
   login_failed: "The sign-in did not work. Try again.",
 };
 
-/** The admin surfaces, one navigation row each — never inline on this page. */
-const MENU: {
-  capability: string;
-  label: string;
-  to: string;
-  icon: IconName;
-}[] = [
-  {
-    capability: "settings.view",
-    label: "Settings",
-    to: "/settings",
-    icon: "gear",
-  },
-  {
-    capability: "users.manage",
-    label: "Accounts",
-    to: "/user/accounts",
-    icon: "users",
-  },
-  {
-    capability: "permissions.manage",
-    label: "Permissions",
-    to: "/user/permissions",
-    icon: "shield",
-  },
-];
+/**
+ * The account's own singing record, over every party it ever took part in.
+ *
+ * Scores are tied to a player, so an account without one has nothing to total
+ * up — and neither has a singer who has not been scored yet, who gets a
+ * sentence instead of a row of zeroes.
+ */
+function UserStats({ playerId }: { playerId: string | null }) {
+  const auth = useAuth();
+  const scores = useQuery({
+    ...listPlayerScoresOptions({ path: { player_id: playerId ?? "" } }),
+    enabled: auth.loaded && playerId !== null && auth.can("stats.view"),
+  });
+  // Favorites belong to the account rather than to the player, and the query is
+  // the one the songs list already shares — so this costs no second request.
+  const favorites = useQuery({
+    ...listFavoritesOptions(),
+    enabled: auth.loaded && auth.user !== null,
+  });
+
+  if (playerId === null || !auth.can("stats.view")) return null;
+  // Nothing while it loads, and nothing when it fails: a stat row is a bonus on
+  // this page, not something worth a loading bar or an alert of its own.
+  if (scores.data === undefined) return null;
+
+  const summary = playerSummary(scores.data.scores);
+  if (summary === null) {
+    return (
+      <p className="user-stats-empty">
+        Sing a song and your stats appear here.
+      </p>
+    );
+  }
+
+  return (
+    <div className="user-stats">
+      <IconStat
+        className="user-stat"
+        icon="hash"
+        label="Sings"
+        value={summary.sings}
+        showLabel
+      />
+      <IconStat
+        className="user-stat"
+        icon="trophy"
+        label="Best"
+        value={summary.best}
+        showLabel
+      />
+      <IconStat
+        className="user-stat"
+        icon="average"
+        label="Average"
+        value={summary.average}
+        showLabel
+      />
+      <IconStat
+        className="user-stat"
+        icon="music"
+        label="Songs"
+        value={summary.songs}
+        showLabel
+      />
+      {/* Only once it is known — a count that starts at zero and jumps looks
+          like a number that changed. */}
+      {favorites.data !== undefined && (
+        <IconStat
+          className="user-stat"
+          icon="heart"
+          label="Favorites"
+          value={favorites.data.song_ids.length}
+          showLabel
+        />
+      )}
+    </div>
+  );
+}
 
 export default function User() {
   const queryClient = useQueryClient();
@@ -95,16 +152,15 @@ export default function User() {
     ? (SSO_MESSAGES[outcome.slice(SSO_ERROR_PREFIX.length)] ??
       SSO_MESSAGES.login_failed)
     : null;
-  const players = useQuery(listPlayersOptions());
+  // Only for the identity tile: the roster itself lives on /user/accounts, so
+  // there is nothing to ask for until an account with a player is logged in.
+  const ownPlayerId = auth.user?.player_id ?? null;
+  const players = useQuery({
+    ...listPlayersOptions(),
+    enabled: auth.loaded && ownPlayerId !== null && auth.can("players.view"),
+  });
   const [showLogin, setShowLogin] = useState(false);
-  const [deleting, setDeleting] = useState<PlayerRead | null>(null);
-  const [avatarError, setAvatarError] = useState<{
-    id: string;
-    message: string;
-  } | null>(null);
-
-  const refresh = () =>
-    void queryClient.invalidateQueries({ queryKey: listPlayersQueryKey() });
+  const [avatarError, setAvatarError] = useState<string | null>(null);
 
   const logOut = useMutation({
     ...logoutMutation(),
@@ -112,33 +168,27 @@ export default function User() {
     onSettled: () => void queryClient.invalidateQueries(),
   });
 
-  const deletePlayer = useMutation({
-    ...deletePlayerMutation(),
-    onSuccess: refresh,
-  });
-
   const setAvatar = useMutation({
     ...setPlayerAvatarMutation(),
     onSuccess: () => {
       setAvatarError(null);
-      refresh();
+      void queryClient.invalidateQueries({ queryKey: listPlayersQueryKey() });
     },
-    onError: (error, variables) =>
-      setAvatarError({
-        id: variables.path.player_id,
-        message:
-          AVATAR_MESSAGES[errorDetail(error) ?? ""] ??
+    onError: (error) =>
+      setAvatarError(
+        AVATAR_MESSAGES[errorDetail(error) ?? ""] ??
           errorMessage(error, "Could not upload the image."),
-      }),
+      ),
   });
 
-  const upload = (player: PlayerRead, file: File | undefined): void => {
+  const upload = (player: PlayerRead, input: HTMLInputElement): void => {
+    const file = input.files?.[0];
+    // Cleared right away, so picking the very same file again after a rejection
+    // is another change event and not a click that does nothing.
+    input.value = "";
     if (!file) return;
     if (file.size > MAX_AVATAR_BYTES) {
-      setAvatarError({
-        id: player.id,
-        message: AVATAR_MESSAGES.avatar_too_large,
-      });
+      setAvatarError(AVATAR_MESSAGES.avatar_too_large);
       return;
     }
     setAvatar.mutate({ path: { player_id: player.id }, body: { file } });
@@ -146,33 +196,59 @@ export default function User() {
 
   const managePlayers = auth.can("players.manage");
   const ownPlayer =
-    players.data?.players.find(
-      (player) => player.id === auth.user?.player_id,
-    ) ?? null;
-  // `loaded` on every gate: `can` says yes until /auth/me answered, and a guest
-  // must not see the admin rows (or their requests) at all.
-  const menuRows = auth.loaded
-    ? MENU.filter((row) => auth.can(row.capability))
-    : [];
+    players.data?.players.find((player) => player.id === ownPlayerId) ?? null;
+  // The same rows the host screen lists on its own manage view; the back arrow
+  // of the pages behind them leads here because nothing says otherwise.
+  const menuRows = manageEntries(auth);
 
   return (
     <>
       {/* Nothing until /auth/me answered, so no identity state flashes. */}
       {auth.loaded &&
         (auth.user !== null ? (
-          <div className="user-identity">
-            <PlayerAvatar player={ownPlayer} className="user-identity-avatar" />
-            <h1 className="user-identity-name">{auth.user.username}</h1>
-            <p className="user-identity-role">{auth.user.role}</p>
-            <button
-              type="button"
-              className="button"
-              disabled={logOut.isPending}
-              onClick={() => logOut.mutate({})}
-            >
-              Log out
-            </button>
-          </div>
+          <>
+            <div className="user-identity">
+              {ownPlayer !== null && managePlayers ? (
+                // The avatar is the way to change it — the `image` badge is the
+                // affordance, the file input behind the label does the work.
+                <label className="user-identity-avatar-label">
+                  <PlayerAvatar
+                    player={ownPlayer}
+                    className="user-identity-avatar"
+                  />
+                  <Icon name="image" className="user-identity-avatar-hint" />
+                  <input
+                    type="file"
+                    className="visually-hidden"
+                    accept="image/jpeg,image/png,image/webp"
+                    aria-label="Change your picture"
+                    onChange={(event) => upload(ownPlayer, event.target)}
+                  />
+                </label>
+              ) : (
+                <PlayerAvatar
+                  player={ownPlayer}
+                  className="user-identity-avatar"
+                />
+              )}
+              <h1 className="user-identity-name">{auth.user.username}</h1>
+              <p className="user-identity-role">{auth.user.role}</p>
+              {avatarError !== null && (
+                <p className="error-notice user-identity-error" role="alert">
+                  {avatarError}
+                </p>
+              )}
+              <button
+                type="button"
+                className="button"
+                disabled={logOut.isPending}
+                onClick={() => logOut.mutate({})}
+              >
+                Log out
+              </button>
+            </div>
+            <UserStats playerId={auth.user.player_id} />
+          </>
         ) : auth.isHost ? (
           <>
             <div className="user-identity">
@@ -208,87 +284,8 @@ export default function User() {
       {menuRows.length > 0 && (
         <>
           <h2>Manage</h2>
-          <nav className="user-menu">
-            {menuRows.map((row) => (
-              <Link key={row.to} className="user-menu-row" to={row.to}>
-                <Icon name={row.icon} className="user-menu-icon" />
-                <span className="user-menu-label">{row.label}</span>
-                <Icon name="chevron-right" className="user-menu-icon" />
-              </Link>
-            ))}
-          </nav>
+          <ManageMenu entries={menuRows} />
         </>
-      )}
-
-      <h2>Players</h2>
-      {managePlayers && <AddPlayerForm />}
-
-      {players.isError && (
-        <p className="error-notice players-notice" role="alert">
-          Could not load the players.
-        </p>
-      )}
-
-      {players.data?.players.length === 0 && (
-        <p className="players-empty">No players yet.</p>
-      )}
-
-      <ul className="players-list">
-        {(players.data?.players ?? []).map((player) => (
-          <li key={player.id}>
-            <div className="players-row">
-              {managePlayers ? (
-                // The avatar itself is the upload target; the pencil badge is
-                // the affordance the old text button used to be.
-                <label className="players-avatar-label">
-                  <PlayerAvatar player={player} />
-                  <Icon name="pencil" className="players-avatar-hint" />
-                  <input
-                    type="file"
-                    className="visually-hidden"
-                    accept="image/jpeg,image/png,image/webp"
-                    aria-label={`Avatar for ${player.name}`}
-                    onChange={(event) =>
-                      upload(player, event.target.files?.[0] ?? undefined)
-                    }
-                  />
-                </label>
-              ) : (
-                <PlayerAvatar player={player} />
-              )}
-              <span className="players-name">{player.name}</span>
-              {managePlayers && (
-                <button
-                  type="button"
-                  className="icon-button icon-button-danger"
-                  aria-label={`Delete ${player.name}`}
-                  onClick={() => setDeleting(player)}
-                >
-                  <Icon name="trash" />
-                </button>
-              )}
-            </div>
-            {avatarError?.id === player.id && (
-              <p className="error-notice players-notice" role="alert">
-                {avatarError.message}
-              </p>
-            )}
-          </li>
-        ))}
-      </ul>
-
-      {deleting && (
-        <ConfirmModal
-          title="Delete player"
-          message={`Delete "${deleting.name}"? Recorded scores keep the name.`}
-          confirmLabel="Delete"
-          danger
-          onConfirm={() => {
-            deletePlayer.mutate({ path: { player_id: deleting.id } });
-            setDeleting(null);
-          }}
-          onCancel={() => setDeleting(null)}
-        />
       )}
     </>
   );

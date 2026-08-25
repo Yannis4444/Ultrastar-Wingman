@@ -49,8 +49,8 @@ beforeEach(() => {
 
 afterEach(() => vi.unstubAllGlobals());
 
-test("the header shows the logo and the running version", async () => {
-  render(
+function renderHome() {
+  return render(
     <QueryClientProvider
       client={
         new QueryClient({ defaultOptions: { queries: { retry: false } } })
@@ -61,9 +61,24 @@ test("the header shows the logo and the running version", async () => {
       </MemoryRouter>
     </QueryClientProvider>,
   );
+}
+
+test("the header shows the logo and the running version", async () => {
+  renderHome();
 
   expect(
     screen.getByRole("img", { name: "Ultrastar Wingman" }),
   ).toHaveAttribute("src", "/logo.png");
   expect(await screen.findByText("Version 2.1.0")).toBeInTheDocument();
+});
+
+test("the spinner is an entry to its own page, not a reel on Home", async () => {
+  renderHome();
+
+  expect(
+    await screen.findByRole("link", { name: "Random song" }),
+  ).toHaveAttribute("href", "/spinner");
+  expect(
+    screen.queryByRole("button", { name: "Spin" }),
+  ).not.toBeInTheDocument();
 });

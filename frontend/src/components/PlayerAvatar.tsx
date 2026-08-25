@@ -1,5 +1,6 @@
 import { useState } from "react";
 import type { PlayerRead } from "../api";
+import { avatarUrl } from "../avatars";
 import "./PlayerAvatar.css";
 
 interface PlayerAvatarProps {
@@ -10,8 +11,9 @@ interface PlayerAvatarProps {
 
 export default function PlayerAvatar({ player, className }: PlayerAvatarProps) {
   // The avatar endpoint 404s when the file vanished behind `has_avatar`; the
-  // failing id is remembered so switching players re-tries the new image.
-  const [failedId, setFailedId] = useState<string | null>(null);
+  // failing URL is remembered so another player — or a freshly uploaded image
+  // under a new version — is tried again rather than written off.
+  const [failedSrc, setFailedSrc] = useState<string | null>(null);
   const classes = `player-avatar${className ? ` ${className}` : ""}`;
 
   if (!player) {
@@ -19,7 +21,8 @@ export default function PlayerAvatar({ player, className }: PlayerAvatarProps) {
       <span className={`${classes} player-avatar-empty`} aria-hidden="true" />
     );
   }
-  if (!player.has_avatar || failedId === player.id) {
+  const src = avatarUrl(player.id, player.avatar_version);
+  if (!player.has_avatar || failedSrc === src) {
     return (
       <span className={`${classes} player-avatar-letter`} aria-hidden="true">
         {player.name.slice(0, 1).toUpperCase()}
@@ -29,10 +32,10 @@ export default function PlayerAvatar({ player, className }: PlayerAvatarProps) {
   return (
     <img
       className={classes}
-      src={`/api/v1/players/${encodeURIComponent(player.id)}/avatar`}
+      src={src}
       alt=""
       loading="lazy"
-      onError={() => setFailedId(player.id)}
+      onError={() => setFailedSrc(src)}
     />
   );
 }

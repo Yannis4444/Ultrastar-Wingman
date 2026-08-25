@@ -9,7 +9,7 @@ that loses its `require(...)` fails here; so does a role that silently gains a c
 from collections.abc import AsyncIterator, Mapping
 
 import pytest
-from httpx import ASGITransport, AsyncClient
+from httpx import ASGITransport, AsyncClient, MockTransport, Response
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -70,15 +70,24 @@ ROUTES: list[tuple[str, str, str, dict[str, object] | None]] = [
     ("playlists.manage", "PUT", "/api/v1/playlists/nope/entries", {"song_ids": []}),
     ("downloads.view", "GET", "/api/v1/downloads", None),
     ("downloads.manage", "POST", "/api/v1/downloads", {"source": "nope", "source_song_id": "1"}),
+    # Taking a download off the panel changes what everybody else sees, so it is `manage`.
+    ("downloads.manage", "POST", "/api/v1/downloads/1/dismiss", None),
+    ("downloads.manage", "POST", "/api/v1/downloads/dismiss-finished", None),
     ("stats.view", "GET", "/api/v1/stats/sessions", None),
     ("stats.view", "GET", "/api/v1/stats/sessions/nope/scores", None),
     ("stats.view", "GET", "/api/v1/stats/songs/usdb:1/scores", None),
+    ("stats.view", "GET", "/api/v1/stats/players/nope/scores", None),
     ("stats.view", "GET", "/api/v1/stats/latest", None),
     ("stats.manage", "PATCH", "/api/v1/stats/sessions/nope", {"name": "Party"}),
     ("usdb.search", "GET", "/api/v1/sources/usdb/status", None),
     ("usdb.search", "GET", "/api/v1/sources/usdb/search", None),
+    ("usdb.search", "GET", "/api/v1/sources/usdb/songs/1/cover", None),
     ("settings.view", "GET", "/api/v1/settings", None),
+    ("settings.view", "GET", "/api/v1/downloads/video-quality", None),
     ("settings.manage", "PATCH", "/api/v1/settings/usdb.username", {"value": "singer"}),
+    # Starting a program on the karaoke PC is the host's business. Nothing is launched
+    # here: USDX is not configured in this fixture, so a permitted caller gets a 400.
+    ("settings.manage", "POST", "/api/v1/karaoke/usdx/launch", None),
     ("users.manage", "GET", "/api/v1/users", None),
     ("users.manage", "PATCH", "/api/v1/users/nope", {"role": "user"}),
     ("users.manage", "DELETE", "/api/v1/users/nope", None),
@@ -126,8 +135,14 @@ async def clients(
     # A configured-looking USDB verdict, so the status route answers from cache instead of
     # trying to log in.
     monkeypatch.setattr(usdb, "_status", UsdbStatus(logged_in=False, error="no_credentials"))
+    # The cover route reaches out to USDB for a permitted caller; this transport keeps the
+    # matrix off the network, and a 404 is not a 403 so the assertions still hold.
+    usdb_client = AsyncClient(
+        transport=MockTransport(lambda request: Response(404)), base_url="http://usdb.test"
+    )
+    monkeypatch.setattr(usdb, "_client", usdb_client)
     app = create_app(bootstrap_settings)
-    async with app.router.lifespan_context(app):
+    async with app.router.lifespan_context(app), usdb_client:
         transport = ASGITransport(app=app)
         clients = {"anonymous": AsyncClient(transport=transport, base_url=BASE_URL)}
         for role in ("user", "trusted", "admin"):

@@ -27,6 +27,71 @@
   background-color: var(--input-bg);
 }
 
+/* A label, not a button: the file input inside it does the work. Sized like the
+   avatar so the badge can hang off its corner. */
+.user-identity-avatar-label {
+  position: relative;
+  display: block;
+  width: 96px;
+  height: 96px;
+  cursor: pointer;
+}
+
+/* The badge sits inside the circle's corner, where a row avatar's -2px would
+   leave it floating next to nothing. */
+.user-identity-avatar-hint {
+  position: absolute;
+  right: 4px;
+  bottom: 4px;
+  padding: 2px;
+  font-size: 20px;
+  color: var(--color);
+  background-color: var(--highlight-blue-dark);
+  border-radius: 50%;
+}
+
+/* The input is visually hidden, so the ring has to be drawn on the label. */
+.user-identity-avatar-label:has(input:focus-visible) {
+  outline: 2px solid var(--highlight-blue-light);
+  outline-offset: 2px;
+  border-radius: 50%;
+}
+
+.user-identity-error {
+  margin: 0;
+}
+
+/* Flat, no tile: the identity card above it is the page's one surface. Five
+   stats fit one line from ~340px up; below that they wrap rather than truncate. */
+.user-stats {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: space-around;
+  gap: 12px 8px;
+  margin: 12px 16px;
+}
+
+/* Two classes on purpose: this has to beat `.icon-stat`'s own row layout no
+   matter which of the two stylesheets the bundler puts first. */
+.icon-stat.user-stat {
+  flex: 0 1 auto;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.user-stat .icon-stat-icon {
+  font-size: 24px;
+}
+
+.user-stat .icon-stat-value {
+  font-size: 1.2em;
+}
+
+.user-stats-empty {
+  margin: 12px 16px;
+  color: var(--color-darker);
+}
+
 .user-identity-name {
   margin: 0;
   max-width: 100%;
@@ -63,111 +128,5 @@
   cursor: pointer;
 }
 
-.user-menu {
-  display: flex;
-  flex-direction: column;
-  margin: 8px 16px 0 16px;
-}
-
-.user-menu-row {
-  display: flex;
-  align-items: center;
-  gap: 12px;
-  min-height: 48px;
-  padding: 8px 0;
-  color: var(--color);
-  text-decoration: none;
-  border-bottom: 1px solid var(--input-border-color);
-}
-
-.user-menu-row:last-child {
-  border-bottom: none;
-}
-
-.user-menu-row:hover {
-  color: var(--highlight-blue-light);
-}
-
-.user-menu-icon {
-  font-size: 20px;
-  color: var(--color-darker);
-}
-
-.user-menu-label {
-  flex: 1 1 auto;
-  min-width: 0;
-  overflow: hidden;
-  white-space: nowrap;
-  text-overflow: ellipsis;
-}
-
-/* Shared with AddPlayerForm inside the player selection, which zeroes the
-   margin — this page's copy is the base look. */
-.players-add {
-  display: flex;
-  gap: 8px;
-  margin: 16px;
-}
-
-.players-add input {
-  flex: 1 1 auto;
-}
-
-.players-notice,
-.players-empty {
-  margin: 0 16px 8px 16px;
-}
-
-.players-empty {
-  color: var(--color-darker);
-}
-
-.players-list {
-  display: flex;
-  flex-direction: column;
-  margin: 0 16px;
-  padding: 0;
-  list-style: none;
-}
-
-.players-row {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  min-height: 48px;
-  padding: 8px 0;
-  border-bottom: 1px solid var(--input-border-color);
-}
-
-/* The row is a div inside the li, and an error message can follow it. */
-.players-list > li:last-child > .players-row {
-  border-bottom: none;
-}
-
-.players-name {
-  flex: 1 1 auto;
-  min-width: 0;
-  overflow: hidden;
-  white-space: nowrap;
-  text-overflow: ellipsis;
-}
-
-/* A label, not a button: the file input inside it does the work. */
-.players-avatar-label {
-  position: relative;
-  flex: 0 0 auto;
-  width: 40px;
-  height: 40px;
-  cursor: pointer;
-}
-
-.players-avatar-hint {
-  position: absolute;
-  right: -2px;
-  bottom: -2px;
-  padding: 2px;
-  font-size: 14px;
-  color: var(--color);
-  background-color: var(--highlight-blue-dark);
-  border-radius: 50%;
-}
+/* The "Manage" rows live in `components/ManageMenu.css` — the host screen shows
+   the same list, so the row shape is shared instead of copied. */

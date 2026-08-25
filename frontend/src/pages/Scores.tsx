@@ -1,8 +1,9 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useState, type ReactNode } from "react";
 import { Link } from "react-router-dom";
-import type { SessionList, SessionRead } from "../api";
+import type { SessionList, SessionRead, SongRead } from "../api";
 import {
+  listPlayersOptions,
   listSessionScoresOptions,
   listSessionScoresQueryKey,
   listSessionsOptions,
@@ -11,10 +12,12 @@ import {
 } from "../api/@tanstack/react-query.gen";
 import { useAuth } from "../auth";
 import Chart from "../components/Chart";
+import CheckOption from "../components/CheckOption";
 import { Icon } from "../components/icons";
 import ScoreGroupList from "../components/ScoreGroupList";
 import SessionSummaryRow from "../components/SessionSummaryRow";
-import Spinner from "../components/Spinner";
+import SongDetails from "../components/SongDetails";
+import Loading from "../components/Loading";
 import { errorMessage } from "../errors";
 import { useWingmanEvent } from "../hooks/useWingmanEvents";
 import {
@@ -22,9 +25,25 @@ import {
   buildBoxplotOption,
   groupScores,
   sessionLabel,
+  sortGroups,
   type Grouping,
+  type Sorting,
 } from "../stats";
 import "./Scores.css";
+
+/** The old app's grouping and sorting choices, wording included. */
+const GROUPINGS: { value: Grouping; label: string }[] = [
+  { value: "none", label: "don't group" },
+  { value: "player", label: "group by player" },
+  { value: "song", label: "group by song" },
+];
+
+const SORTINGS: { value: Sorting; label: string }[] = [
+  { value: "alphabetically", label: "alphabetically" },
+  { value: "average", label: "average score" },
+  { value: "best", label: "best score" },
+  { value: "worst", label: "worst score" },
+];
 
 interface SessionBarProps {
   session: SessionRead;
@@ -166,12 +185,25 @@ export default function Scores() {
   const queryClient = useQueryClient();
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [grouping, setGrouping] = useState<Grouping>("player");
+  // The old app's default order, and the one a scoreboard is read for.
+  const [sorting, setSorting] = useState<Sorting>("best");
+  const [openSong, setOpenSong] = useState<SongRead | null>(null);
 
   const canView = auth.can("stats.view");
   const sessions = useQuery({
     ...listSessionsOptions(),
     enabled: auth.loaded && canView,
   });
+
+  // Only for the avatars: a singer without a player record — a guest, or a
+  // deleted player — still gets the initial `PlayerAvatar` draws for them.
+  const playerList = useQuery({
+    ...listPlayersOptions(),
+    enabled: auth.loaded && auth.can("players.view"),
+  });
+  const players = new Map(
+    (playerList.data?.players ?? []).map((player) => [player.id, player]),
+  );
 
   // Newest first from the backend, so the default selection is the first row.
   const all = sessions.data?.sessions ?? [];
@@ -207,7 +239,7 @@ export default function Scores() {
     );
   }
 
-  if (sessions.isPending) return <Spinner />;
+  if (sessions.isPending) return <Loading />;
 
   if (session === null) {
     return (
@@ -221,27 +253,55 @@ export default function Scores() {
   }
 
   const rows = scores.data?.scores ?? [];
-  const groups = groupScores(rows, grouping);
+  const groups = sortGroups(groupScores(rows, grouping), sorting);
   // One group's chart says nothing the single ranking row does not.
   const showChart = groups.length >= 2;
+  // Ungrouped there is no spread to draw — the chart becomes a plain ranking of
+  // the head of the list. It therefore may not claim a ranking the reader's
+  // order does not have: "worst score" puts the *lowest* scores on top, and
+  // alphabetically the eight drawn bars are no ranking at all.
+  const chartTitle =
+    grouping !== "none"
+      ? "Score spread"
+      : sorting === "worst"
+        ? "Lowest scores"
+        : sorting === "alphabetically"
+          ? "Scores"
+          : "Top scores";
+  const chartLabel =
+    grouping === "none"
+      ? `${chartTitle} in this session`
+      : `Score spread per ${grouping}`;
 
-  const groupingControl = (
-    <fieldset className="scores-grouping">
-      <legend className="visually-hidden">Group by</legend>
-      {(["player", "song"] as const).map((option) => (
-        <label key={option} className="scores-grouping-option">
-          <input
-            type="radio"
-            className="visually-hidden"
+  const controls = (
+    <div className="scores-options">
+      <fieldset>
+        <legend>Grouping</legend>
+        {GROUPINGS.map((option) => (
+          <CheckOption
+            key={option.value}
             name="grouping"
-            value={option}
-            checked={grouping === option}
-            onChange={() => setGrouping(option)}
+            value={option.value}
+            label={option.label}
+            checked={grouping === option.value}
+            onChange={() => setGrouping(option.value)}
           />
-          <span>{option}</span>
-        </label>
-      ))}
-    </fieldset>
+        ))}
+      </fieldset>
+      <fieldset>
+        <legend>Sorting</legend>
+        {SORTINGS.map((option) => (
+          <CheckOption
+            key={option.value}
+            name="sorting"
+            value={option.value}
+            label={option.label}
+            checked={sorting === option.value}
+            onChange={() => setSorting(option.value)}
+          />
+        ))}
+      </fieldset>
+    </div>
   );
 
   return (
@@ -259,36 +319,49 @@ export default function Scores() {
       />
 
       {scores.isPending ? (
-        <Spinner />
+        <Loading />
       ) : groups.length === 0 ? (
         <ScoresEmpty>
+          {/* `sing_count` counts songs *started*, which is exactly the right
+              number here: every one of them ended without a score. */}
           {session.sing_count > 0
-            ? `${session.sing_count} sings so far, none scored — Ultrastar ` +
-              "Deluxe reports a score when a song runs to the end."
+            ? `${session.sing_count} songs started so far, none scored — ` +
+              "Ultrastar Deluxe reports a score when a song runs to the end."
             : "Pick a song, sing it, and the ranking builds itself."}
         </ScoresEmpty>
       ) : (
         <>
-          <SessionSummaryRow session={session} scores={rows} />
+          <SessionSummaryRow
+            session={session}
+            scores={rows}
+            players={players}
+          />
 
-          {showChart ? (
+          {showChart && (
             <div className="scores-chart">
-              <div className="scores-chart-header">
-                <h2 className="scores-chart-title">Score spread</h2>
-                {groupingControl}
-              </div>
+              <h2 className="scores-chart-title">{chartTitle}</h2>
               <Chart
-                option={buildBoxplotOption(rows, grouping)}
+                option={buildBoxplotOption(groups)}
                 height={boxplotHeight(groups.length)}
-                label={`Score spread per ${grouping}, best median first`}
+                label={chartLabel}
               />
             </div>
-          ) : (
-            groupingControl
           )}
 
-          <ScoreGroupList groups={groups} grouping={grouping} />
+          {controls}
+
+          <ScoreGroupList
+            groups={groups}
+            grouping={grouping}
+            sorting={sorting}
+            players={players}
+            onOpenSong={setOpenSong}
+          />
         </>
+      )}
+
+      {openSong !== null && (
+        <SongDetails song={openSong} onClose={() => setOpenSong(null)} />
       )}
     </div>
   );
