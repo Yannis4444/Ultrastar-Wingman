@@ -1,0 +1,190 @@
+/* One centred column: options, the reel alone, the result, the spin button. */
+.spinner {
+  --spinner-cover: min(280px, 70vw);
+
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 16px;
+  max-width: 420px;
+  margin: 16px auto;
+  padding: 0 16px;
+}
+
+.spinner-scopes {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  align-self: stretch;
+  min-width: 0;
+  margin: 0;
+  padding: 0;
+  border: none;
+}
+
+/* The shared control indents itself by 32px to tuck under an `h2`; there is no
+   heading here, so the options line up with the column's own content edge. */
+.spinner .check-option {
+  margin-left: 0;
+}
+
+/* The slot window: only one cover of the reel is visible at a time, and it is
+   the way into the song modal once a spin has settled. */
+.spinner-window {
+  /* The reel is measured in whole covers, so the border must sit outside the
+     stated size — a button would otherwise default to border-box. */
+  box-sizing: content-box;
+  position: relative;
+  width: var(--spinner-cover);
+  height: var(--spinner-cover);
+  padding: 0;
+  overflow: hidden;
+  /* The logo backs the window, so an empty reel is never a black hole; the
+     opaque covers hide it as soon as they paint. */
+  background: #000 url("/logo.png") center/60% no-repeat;
+  border: 2px solid var(--color-dark);
+  border-radius: var(--border-radius-small);
+  cursor: pointer;
+}
+
+.spinner-window:disabled {
+  cursor: default;
+}
+
+.spinner-window::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  box-shadow: inset 0 0 20px rgba(0, 0, 0, 0.8);
+  pointer-events: none;
+  z-index: 2;
+}
+
+.spinner-line {
+  position: absolute;
+  top: calc(50% - 1px);
+  left: 0;
+  width: 100%;
+  height: 2px;
+  background-color: var(--color-dark);
+  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.8);
+  pointer-events: none;
+  z-index: 3;
+}
+
+.spinner-line::before,
+.spinner-line::after {
+  content: "";
+  position: absolute;
+  top: 50%;
+  transform: translateY(-50%);
+  width: 0;
+  height: 0;
+  border-style: solid;
+}
+
+.spinner-line::before {
+  left: 0;
+  border-width: 5px 0 5px 10px;
+  border-color: transparent transparent transparent var(--color-dark);
+}
+
+.spinner-line::after {
+  right: 0;
+  border-width: 5px 10px 5px 0;
+  border-color: transparent var(--color-dark) transparent transparent;
+}
+
+/* The reel itself. The transition is attached in JS for one spin at a time, so
+   the snap back to the resting position never animates. */
+.spinner-reel {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: var(--spinner-cover);
+}
+
+.spinner-cover {
+  display: block;
+  width: var(--spinner-cover);
+  height: var(--spinner-cover);
+  object-fit: contain;
+  background-color: var(--input-bg);
+}
+
+/* Keeps the two result lines' worth of height whether or not a spin has
+   settled, so the SPIN button sits still. */
+.spinner-result {
+  display: flex;
+  align-items: center;
+  align-self: stretch;
+  min-width: 0;
+  min-height: 2.5em;
+}
+
+/* The result, flat under the reel — no box, the reel is the surface here. */
+.spinner-winner {
+  display: grid;
+  gap: 2px;
+  width: 100%;
+  min-width: 0;
+  padding: 0;
+  font: inherit;
+  text-align: center;
+  color: var(--color);
+  background: none;
+  border: none;
+  cursor: pointer;
+}
+
+/* While the reel runs the line still names the *previous* winner, so it steps
+   back a shade — the old app dimmed both lines the same way. */
+.spinner-winner:disabled {
+  color: var(--color-darker);
+  cursor: default;
+}
+
+.spinner-winner:disabled .spinner-winner-artist {
+  color: var(--color-darkerer);
+}
+
+.spinner-winner:hover:enabled .spinner-winner-title {
+  color: var(--highlight-blue-light);
+}
+
+.spinner-winner-title,
+.spinner-winner-artist {
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+
+.spinner-winner-title {
+  font-weight: bold;
+  transition: color 0.2s;
+}
+
+.spinner-winner-artist {
+  font-size: 0.75em;
+  color: var(--color-darker);
+}
+
+.spinner-spin {
+  width: 100%;
+  min-height: 48px;
+  font-size: 1.4em;
+  font-weight: bold;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+}
+
+.spinner-spin:disabled {
+  color: var(--color-darkerer);
+  background-color: var(--input-bg);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .spinner-winner-title {
+    transition: none;
+  }
+}

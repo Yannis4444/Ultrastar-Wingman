@@ -1,0 +1,35 @@
+/* Stands in for the old app's BarLoader — three lines of CSS instead of a
+   dependency. */
+.loading {
+  width: 100%;
+  max-width: 150px;
+  height: 3px;
+  margin: 16px auto;
+  overflow: hidden;
+  background-color: var(--input-bg);
+}
+
+.loading-bar {
+  display: block;
+  width: 40%;
+  height: 100%;
+  background-color: var(--highlight-blue-light);
+  animation: loading-slide 1.2s linear infinite;
+}
+
+/* 250% of the 40%-wide bar is exactly one track width. */
+@keyframes loading-slide {
+  from {
+    transform: translateX(-100%);
+  }
+
+  to {
+    transform: translateX(250%);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .loading-bar {
+    animation: none;
+  }
+}

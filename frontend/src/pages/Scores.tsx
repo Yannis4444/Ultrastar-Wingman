@@ -14,7 +14,7 @@ import Chart from "../components/Chart";
 import { Icon } from "../components/icons";
 import ScoreGroupList from "../components/ScoreGroupList";
 import SessionSummaryRow from "../components/SessionSummaryRow";
-import Spinner from "../components/Spinner";
+import Loading from "../components/Loading";
 import { errorMessage } from "../errors";
 import { useWingmanEvent } from "../hooks/useWingmanEvents";
 import {
@@ -207,7 +207,7 @@ export default function Scores() {
     );
   }
 
-  if (sessions.isPending) return <Spinner />;
+  if (sessions.isPending) return <Loading />;
 
   if (session === null) {
     return (
@@ -259,7 +259,7 @@ export default function Scores() {
       />
 
       {scores.isPending ? (
-        <Spinner />
+        <Loading />
       ) : groups.length === 0 ? (
         <ScoresEmpty>
           {session.sing_count > 0

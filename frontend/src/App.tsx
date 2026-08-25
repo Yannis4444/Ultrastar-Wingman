@@ -1,11 +1,12 @@
 import { Suspense, lazy } from "react";
 import { Route, Routes, useLocation } from "react-router-dom";
 import BottomNav from "./components/BottomNav";
-import Spinner from "./components/Spinner";
+import Loading from "./components/Loading";
 import Home from "./pages/Home";
 import Host from "./pages/Host";
 import Settings from "./pages/Settings";
 import Songs from "./pages/Songs";
+import Spinner from "./pages/Spinner";
 import Usdb from "./pages/Usdb";
 import User from "./pages/User";
 import UserAccounts from "./pages/UserAccounts";
@@ -22,9 +23,10 @@ export default function App() {
 
   return (
     <>
-      <Suspense fallback={<Spinner />}>
+      <Suspense fallback={<Loading />}>
         <Routes>
           <Route path="/" element={<Home />} />
+          <Route path="/spinner" element={<Spinner />} />
           <Route path="/songs" element={<Songs />} />
           <Route path="/usdb" element={<Usdb />} />
           <Route path="/scores" element={<Scores />} />

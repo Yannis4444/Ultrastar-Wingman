@@ -61,6 +61,15 @@ test("the songs tab covers the USDB explorer", () => {
   expect(screen.getByRole("link", { name: "Songs" })).toHaveClass("active");
 });
 
+test("the spinner has a page of its own under the home tab", () => {
+  renderApp("/spinner");
+
+  expect(
+    screen.getByRole("heading", { name: "Random song" }),
+  ).toBeInTheDocument();
+  expect(screen.getByRole("link", { name: "Home" })).toHaveClass("active");
+});
+
 test("the host screen has no bottom navigation", () => {
   renderApp("/host");
 

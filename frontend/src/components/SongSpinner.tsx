@@ -3,9 +3,10 @@ import { useCallback, useLayoutEffect, useRef, useState } from "react";
 import type { SongRead, WishRead } from "../api";
 import { listSongsOptions } from "../api/@tanstack/react-query.gen";
 import { useWishlist } from "../hooks/useWishlist";
+import CheckOption from "./CheckOption";
 import SongCover from "./SongCover";
 import SongDetails from "./SongDetails";
-import "./Spinner.css";
+import "./SongSpinner.css";
 
 type Scope = "all" | "wishlist" | "weighted";
 
@@ -49,8 +50,12 @@ function prefersReducedMotion(): boolean {
  * built once per spin inside the click handler and kept in state — building it
  * during render made the old app reshuffle every cover on any unrelated
  * re-render.
+ *
+ * The reel stands alone: scope options above it, the result and the SPIN button
+ * below. A finished spin never opens the song modal by itself — the cover and
+ * the result line are the way in, and the user takes it.
  */
-export default function Spinner() {
+export default function SongSpinner() {
   const [scope, setScope] = useState<Scope>("all");
   const [reel, setReel] = useState<Reel | null>(null);
   const [spinning, setSpinning] = useState(false);
@@ -66,7 +71,6 @@ export default function Spinner() {
     setReel({ key, items: [song], winner: song });
     setWinner(song);
     setSpinning(false);
-    setDetails(song);
   }, []);
 
   const spin = () => {
@@ -110,27 +114,37 @@ export default function Spinner() {
     return () => clearTimeout(timer);
   }, [spinning, reel, reveal]);
 
+  const settled = spinning ? null : winner;
+
   return (
     <>
-      <section
-        className={spinning ? "spinner spinner-spinning" : "spinner"}
-        aria-label="Random song"
-      >
+      <div className="spinner">
+        <fieldset className="spinner-scopes">
+          <legend className="visually-hidden">Pick from</legend>
+          {SCOPES.map(([value, label]) => (
+            <CheckOption
+              key={value}
+              name="spinner-scope"
+              value={value}
+              label={label}
+              checked={scope === value}
+              disabled={spinning || (value !== "all" && wishes.length === 0)}
+              onChange={() => setScope(value)}
+            />
+          ))}
+        </fieldset>
+
         <button
           type="button"
-          className="spinner-winner"
-          disabled={winner === null || spinning}
-          onClick={() => setDetails(winner)}
+          className="spinner-window"
+          disabled={settled === null}
+          aria-label={
+            settled === null
+              ? "Nothing spun yet"
+              : `Details for ${settled.title}`
+          }
+          onClick={() => setDetails(settled)}
         >
-          <span className="spinner-winner-title">
-            {winner?.title ?? "Random song"}
-          </span>
-          <span className="spinner-winner-artist">
-            {winner?.artist ?? "Spin the reel"}
-          </span>
-        </button>
-
-        <div className="spinner-window">
           <div
             key={reel?.key}
             ref={reelElement}
@@ -150,37 +164,34 @@ export default function Spinner() {
             ))}
           </div>
           <span className="spinner-line" />
+        </button>
+
+        {/* The slot is held open before the first spin so SPIN never jumps —
+            but it stays empty: the page title already says "Random song". */}
+        <div className="spinner-result">
+          {winner && (
+            <button
+              type="button"
+              className="spinner-winner"
+              disabled={settled === null}
+              onClick={() => setDetails(settled)}
+            >
+              <span className="spinner-winner-title">{winner.title}</span>
+              <span className="spinner-winner-artist">{winner.artist}</span>
+            </button>
+          )}
         </div>
 
-        <div className="spinner-controls">
-          {SCOPES.map(([value, label]) => (
-            <label key={value} className="spinner-scope">
-              <input
-                type="radio"
-                // Hidden, not removed: the pill is the visible affordance, the
-                // radio keeps the keyboard and screen-reader semantics.
-                className="visually-hidden"
-                name="spinner-scope"
-                value={value}
-                checked={scope === value}
-                disabled={spinning || (value !== "all" && wishes.length === 0)}
-                onChange={() => setScope(value)}
-              />
-              <span className="spinner-scope-text">{label}</span>
-            </label>
-          ))}
-          <button
-            type="button"
-            className="spinner-spin"
-            // The label changes while the reel runs; the name must not.
-            aria-label="Spin"
-            disabled={spinning || candidates.length === 0}
-            onClick={spin}
-          >
-            {spinning ? "…" : "SPIN"}
-          </button>
-        </div>
-      </section>
+        <button
+          type="button"
+          className="button button-primary spinner-spin"
+          disabled={spinning || candidates.length === 0}
+          onClick={spin}
+        >
+          {/* Uppercased in CSS: the caps are the look, "Spin" is the name. */}
+          Spin
+        </button>
+      </div>
 
       {details && (
         <SongDetails song={details} onClose={() => setDetails(null)} />

@@ -9,7 +9,7 @@ import {
 import type { SongRead, WishRead } from "../api";
 import { meResponse } from "../test/auth";
 import { FakeSocket } from "../test/fakeSocket";
-import Spinner from "./Spinner";
+import SongSpinner from "./SongSpinner";
 
 // Same seam as the other tests: the real TanStack wiring runs, only the
 // transport is faked.
@@ -62,7 +62,7 @@ function renderSpinner(songs: SongRead[], wishes: WishRead[]) {
         new QueryClient({ defaultOptions: { queries: { retry: false } } })
       }
     >
-      <Spinner />
+      <SongSpinner />
     </QueryClientProvider>,
   );
 }
@@ -90,11 +90,11 @@ afterEach(() => {
   vi.restoreAllMocks();
 });
 
-/** Clicks a scope once the wishlist has arrived — the radios load disabled. */
+/** Clicks a scope once the wishlist has arrived — the options load disabled. */
 async function chooseScope(label: string): Promise<void> {
-  const radio = await screen.findByLabelText(label);
-  await waitFor(() => expect(radio).toBeEnabled());
-  fireEvent.click(radio);
+  const option = await screen.findByLabelText(label);
+  await waitFor(() => expect(option).toBeEnabled());
+  fireEvent.click(option);
 }
 
 test("the reel only holds songs from the selected scope", async () => {
@@ -110,6 +110,33 @@ test("the reel only holds songs from the selected scope", async () => {
   // 40-60 fillers plus the winner and the resting cover.
   expect(ids.length).toBeGreaterThan(40);
   expect(new Set(ids)).toEqual(new Set(["usdb:2", "usdb:3"]));
+});
+
+test("the scope options are the shared check control, one of them chosen", async () => {
+  renderSpinner([QUEEN, AFRICA], [wish(AFRICA)]);
+
+  const all = await screen.findByLabelText("All songs");
+  const wishlist = screen.getByLabelText("Wishlist");
+  expect(all).toBeChecked();
+  expect(all.closest("label")).toHaveClass("check-option");
+  // Only the chosen option draws the animated mark.
+  expect(document.querySelectorAll(".check-option-mark")).toHaveLength(1);
+
+  await waitFor(() => expect(wishlist).toBeEnabled());
+  fireEvent.click(wishlist);
+
+  expect(wishlist).toBeChecked();
+  expect(all).not.toBeChecked();
+  expect(document.querySelectorAll(".check-option-mark")).toHaveLength(1);
+});
+
+test("the result slot is reserved but empty before the first spin", async () => {
+  const { container } = renderSpinner([QUEEN, AFRICA], []);
+  await screen.findByLabelText("All songs");
+
+  // The page header already says "Random song": no placeholder repeats it.
+  expect(container.querySelector(".spinner-result")).toBeEmptyDOMElement();
+  expect(screen.queryByText("Dancing Queen")).not.toBeInTheDocument();
 });
 
 test("the weighted scope gives a song one ticket per wish", async () => {
@@ -152,22 +179,60 @@ test("the reel stays put when an unrelated update re-renders the spinner", async
   expect(reelSongIds(container)).toEqual(before);
 });
 
-test("the winner is revealed in the song details when the reel stops", async () => {
+test("the finished spin settles in place and opens no modal by itself", async () => {
   vi.useFakeTimers({ shouldAdvanceTime: true });
   renderSpinner([QUEEN], []);
   await screen.findByLabelText("All songs");
 
   fireEvent.click(spinButton());
   expect(spinButton()).toBeDisabled();
-  expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
+  // The button keeps its word while the reel runs — no "…" flicker.
+  expect(spinButton()).toHaveTextContent("Spin");
 
   act(() => vi.advanceTimersByTime(6000));
+
+  // The result is on the page; the song modal is not.
+  expect(screen.getByText("Dancing Queen")).toBeInTheDocument();
+  expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
+  expect(spinButton()).toBeEnabled();
+});
+
+test("the settled result opens the song modal when it is clicked", async () => {
+  vi.useFakeTimers({ shouldAdvanceTime: true });
+  renderSpinner([QUEEN], []);
+  await screen.findByLabelText("All songs");
+
+  // Nothing to open before the first spin.
+  expect(
+    screen.getByRole("button", { name: "Nothing spun yet" }),
+  ).toBeDisabled();
+
+  fireEvent.click(spinButton());
+  act(() => vi.advanceTimersByTime(6000));
+
+  fireEvent.click(screen.getByText("Dancing Queen"));
 
   expect(
     screen.getByRole("dialog", { name: "Dancing Queen" }),
   ).toBeInTheDocument();
   expect(screen.getByRole("button", { name: "Sing" })).toBeInTheDocument();
-  expect(spinButton()).toBeEnabled();
+});
+
+test("the cover is the second way into the song modal", async () => {
+  vi.useFakeTimers({ shouldAdvanceTime: true });
+  renderSpinner([QUEEN], []);
+  await screen.findByLabelText("All songs");
+
+  fireEvent.click(spinButton());
+  act(() => vi.advanceTimersByTime(6000));
+
+  fireEvent.click(
+    screen.getByRole("button", { name: "Details for Dancing Queen" }),
+  );
+
+  expect(
+    screen.getByRole("dialog", { name: "Dancing Queen" }),
+  ).toBeInTheDocument();
 });
 
 test("an empty scope cannot be spun", async () => {

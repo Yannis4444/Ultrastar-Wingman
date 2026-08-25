@@ -56,6 +56,9 @@ const PATHS = {
   "playlist-plus":
     "M3 6h12v2H3V6Zm0 4h12v2H3v-2Zm0 4h8v2H3v-2Zm13 0v-3h2v3h3v2h-3v3h-2v-3h-3v-2h3Z",
   chart: "M4 20h16v2H4v-2Zm1-8h3v7H5v-7Zm5.5-7h3v14h-3V5ZM16 9h3v10h-3V9Z",
+  // The die face is solid; the five pips are wound the other way round so the
+  // nonzero fill rule punches them out (same trick as `info` and `clock`).
+  dice: "M6 3h12a3 3 0 0 1 3 3v12a3 3 0 0 1-3 3H6a3 3 0 0 1-3-3V6a3 3 0 0 1 3-3Zm2 3.4a1.6 1.6 0 1 0 0 3.2 1.6 1.6 0 1 0 0-3.2Zm8 0a1.6 1.6 0 1 0 0 3.2 1.6 1.6 0 1 0 0-3.2Zm-4 4a1.6 1.6 0 1 0 0 3.2 1.6 1.6 0 1 0 0-3.2Zm-4 4a1.6 1.6 0 1 0 0 3.2 1.6 1.6 0 1 0 0-3.2Zm8 0a1.6 1.6 0 1 0 0 3.2 1.6 1.6 0 1 0 0-3.2Z",
 } as const;
 
 export type IconName = keyof typeof PATHS;
