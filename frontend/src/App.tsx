@@ -4,6 +4,8 @@ import BottomNav from "./components/BottomNav";
 import Loading from "./components/Loading";
 import Home from "./pages/Home";
 import Host from "./pages/Host";
+import Playlist from "./pages/Playlist";
+import Playlists from "./pages/Playlists";
 import Settings from "./pages/Settings";
 import Songs from "./pages/Songs";
 import Spinner from "./pages/Spinner";
@@ -28,6 +30,8 @@ export default function App() {
           <Route path="/" element={<Home />} />
           <Route path="/spinner" element={<Spinner />} />
           <Route path="/songs" element={<Songs />} />
+          <Route path="/songs/playlists" element={<Playlists />} />
+          <Route path="/songs/playlists/:playlistId" element={<Playlist />} />
           <Route path="/usdb" element={<Usdb />} />
           <Route path="/scores" element={<Scores />} />
           <Route path="/user" element={<User />} />

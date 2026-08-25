@@ -24,10 +24,7 @@ const {
   addFavorite,
   removeFavorite,
   listPlaylists,
-  getPlaylist,
-  createPlaylist,
   addPlaylistEntry,
-  removePlaylistEntry,
 } = vi.hoisted(() => ({
   listSongs: vi.fn(),
   rescanSongs: vi.fn(),
@@ -37,10 +34,7 @@ const {
   addFavorite: vi.fn(),
   removeFavorite: vi.fn(),
   listPlaylists: vi.fn(),
-  getPlaylist: vi.fn(),
-  createPlaylist: vi.fn(),
   addPlaylistEntry: vi.fn(),
-  removePlaylistEntry: vi.fn(),
 }));
 
 vi.mock("../api/sdk.gen", async (importOriginal) => ({
@@ -53,10 +47,7 @@ vi.mock("../api/sdk.gen", async (importOriginal) => ({
   addFavorite,
   removeFavorite,
   listPlaylists,
-  getPlaylist,
-  createPlaylist,
   addPlaylistEntry,
-  removePlaylistEntry,
 }));
 
 /** What the trusted role holds: enough for every button on this page. */
@@ -126,10 +117,7 @@ beforeEach(() => {
     addFavorite,
     removeFavorite,
     listPlaylists,
-    getPlaylist,
-    createPlaylist,
     addPlaylistEntry,
-    removePlaylistEntry,
   ]) {
     mock.mockReset();
   }
@@ -158,6 +146,24 @@ test("songs from the API are listed with artist", async () => {
   // Duration lives in the details modal now, not in the row.
   expect(screen.queryByText("3:51")).not.toBeInTheDocument();
   expect(screen.getByText("2 songs")).toBeInTheDocument();
+});
+
+test("the reload button sits next to the song count, not in the toolbar", async () => {
+  renderSongs([song()]);
+
+  const count = await screen.findByText("1 song");
+  const row = count.parentElement;
+  expect(row).not.toBeNull();
+  expect(
+    within(row as HTMLElement).getByRole("button", { name: "Rescan" }),
+  ).toBeInTheDocument();
+  // The toolbar is the search field (plus the USDB link), nothing else.
+  const toolbar = screen
+    .getByRole("searchbox", { name: "Search songs" })
+    .closest("div") as HTMLElement;
+  expect(
+    within(toolbar).queryByRole("button", { name: "Rescan" }),
+  ).not.toBeInTheDocument();
 });
 
 test("a guest with no favorites and no playlists gets no filter chips", async () => {
@@ -441,83 +447,42 @@ test("an anonymous browser gets no hearts and no favorites chip", async () => {
   expect(listFavorites).not.toHaveBeenCalled();
 });
 
-test("a playlist chip filters the list to its entries, shared ones are marked", async () => {
+test("playlists are one link into their own view, never a chip per playlist", async () => {
   listPlaylists.mockResolvedValue({
     data: {
       playlists: [
         playlist(),
-        playlist({
-          id: "p2",
-          name: "Bobs mix",
-          shared: true,
-          mine: false,
-          owner_username: "Bob",
-          song_count: 1,
-        }),
+        playlist({ id: "p2", name: "Bobs mix", shared: true, mine: false }),
       ],
     },
-  });
-  getPlaylist.mockResolvedValue({
-    data: { ...playlist(), entries: [{ song: AFRICA, position: 0 }] },
   });
   renderSongs([QUEEN, AFRICA], LIBRARY, ACCOUNT);
   await screen.findByText("Dancing Queen");
 
   expect(
-    await screen.findByRole("button", { name: "Bobs mix Bob" }),
-  ).toBeInTheDocument();
-  fireEvent.click(screen.getByRole("button", { name: "Party" }));
-
-  expect(await screen.findByText("Africa")).toBeInTheDocument();
-  expect(screen.queryByText("Dancing Queen")).not.toBeInTheDocument();
-  expect(screen.getByText("1 song")).toBeInTheDocument();
-  expect(getPlaylist.mock.calls[0][0].path).toEqual({ playlist_id: "p1" });
-});
-
-test("a playlist entry can be removed from the filtered list", async () => {
-  listPlaylists.mockResolvedValue({ data: { playlists: [playlist()] } });
-  getPlaylist.mockResolvedValue({
-    data: { ...playlist(), entries: [{ song: AFRICA, position: 0 }] },
-  });
-  removePlaylistEntry.mockResolvedValue({ data: undefined });
-  renderSongs([QUEEN, AFRICA], LIBRARY, ACCOUNT);
-  fireEvent.click(await screen.findByRole("button", { name: "Party" }));
-
-  fireEvent.click(
-    await screen.findByRole("button", {
-      name: "Remove Africa from the playlist",
-    }),
-  );
-
-  await waitFor(() =>
-    expect(removePlaylistEntry.mock.calls[0][0].path).toEqual({
-      playlist_id: "p1",
-      song_id: "local:abc",
-    }),
-  );
-});
-
-test("somebody else's shared playlist has no editing controls", async () => {
-  const shared = playlist({
-    id: "p2",
-    name: "Bobs mix",
-    shared: true,
-    mine: false,
-    owner_username: "Bob",
-  });
-  listPlaylists.mockResolvedValue({ data: { playlists: [shared] } });
-  getPlaylist.mockResolvedValue({
-    data: { ...shared, entries: [{ song: AFRICA, position: 0 }] },
-  });
-  renderSongs([QUEEN, AFRICA], LIBRARY, ACCOUNT);
-  fireEvent.click(await screen.findByRole("button", { name: "Bobs mix Bob" }));
-
-  await screen.findByText("Africa");
+    await screen.findByRole("link", { name: "Playlists" }),
+  ).toHaveAttribute("href", "/songs/playlists");
   expect(
-    screen.queryByRole("button", { name: "Move Africa up" }),
+    screen.queryByRole("button", { name: "Party" }),
   ).not.toBeInTheDocument();
   expect(
-    screen.queryByRole("button", { name: "Remove Africa from the playlist" }),
+    screen.queryByRole("button", { name: /Bobs mix/ }),
+  ).not.toBeInTheDocument();
+  // It leaves the page instead of filtering it, so it is not part of the group
+  // the two filter chips form.
+  expect(
+    within(screen.getByRole("group", { name: "Filter" })).queryByRole("link"),
+  ).not.toBeInTheDocument();
+});
+
+test("a role without playlists.view gets no playlists link", async () => {
+  renderSongs([QUEEN], TRUSTED, ACCOUNT);
+  await screen.findByText("Dancing Queen");
+
+  // Favorites need an account, so the chip row itself is there.
+  await screen.findByRole("button", { name: "Favorites" });
+  expect(
+    screen.queryByRole("link", { name: "Playlists" }),
   ).not.toBeInTheDocument();
 });
 
@@ -568,23 +533,4 @@ test("adding a song refreshes the playlist song count", async () => {
   // `song_count` lives on the list, not on the detail, so adding a song has to
   // invalidate the list too — otherwise the playlist dialog shows a stale count.
   await waitFor(() => expect(listPlaylists).toHaveBeenCalled());
-});
-
-test("the manage dialog creates a playlist", async () => {
-  createPlaylist.mockResolvedValue({ data: playlist({ song_count: 0 }) });
-  renderSongs([QUEEN], LIBRARY, ACCOUNT);
-
-  fireEvent.click(await screen.findByRole("button", { name: "Playlists…" }));
-  fireEvent.change(screen.getByLabelText("New playlist name"), {
-    target: { value: "Party" },
-  });
-  fireEvent.click(screen.getByLabelText("Shared"));
-  fireEvent.click(screen.getByRole("button", { name: "Create" }));
-
-  await waitFor(() =>
-    expect(createPlaylist.mock.calls[0][0].body).toEqual({
-      name: "Party",
-      shared: true,
-    }),
-  );
 });

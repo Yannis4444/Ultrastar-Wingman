@@ -21,6 +21,7 @@ vi.mock("./api/sdk.gen", async (importOriginal) => ({
   // The USDB page asks for these while /auth/me is still in flight.
   usdbStatus: vi.fn(async () => ({ data: { logged_in: false } })),
   listDownloads: vi.fn(async () => ({ data: { downloads: [] } })),
+  listPlaylists: vi.fn(async () => ({ data: { playlists: [] } })),
 }));
 
 function renderApp(path: string) {
@@ -58,6 +59,15 @@ test("the user tab covers the settings page", () => {
 test("the songs tab covers the USDB explorer", () => {
   renderApp("/usdb");
 
+  expect(screen.getByRole("link", { name: "Songs" })).toHaveClass("active");
+});
+
+test("the playlists view has a page of its own under the songs tab", async () => {
+  renderApp("/songs/playlists");
+
+  expect(
+    await screen.findByRole("heading", { name: "Playlists" }),
+  ).toBeInTheDocument();
   expect(screen.getByRole("link", { name: "Songs" })).toHaveClass("active");
 });
 

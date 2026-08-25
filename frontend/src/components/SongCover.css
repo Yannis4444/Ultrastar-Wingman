@@ -1,9 +1,10 @@
+/* Square corners everywhere: an album cover is artwork, not a surface. Rounding
+   stays with people (PlayerAvatar) and with real surfaces. */
 .song-cover {
   flex: 0 0 auto;
   width: 40px;
   height: 40px;
   object-fit: cover;
-  border-radius: var(--border-radius-small);
 }
 
 .song-cover-fallback {

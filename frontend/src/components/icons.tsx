@@ -55,6 +55,9 @@ const PATHS = {
     "M3 6h12v2H3V6Zm0 4h12v2H3v-2Zm0 4h8v2H3v-2Zm17.1-1.9 1.4 1.4-6.1 6.1-3.2-3.2 1.4-1.4 1.8 1.8 4.7-4.7Z",
   "playlist-plus":
     "M3 6h12v2H3V6Zm0 4h12v2H3v-2Zm0 4h8v2H3v-2Zm13 0v-3h2v3h3v2h-3v3h-2v-3h-3v-2h3Z",
+  // The "many lists" entry, not a list itself: bulleted rows, so it never gets
+  // confused with the plain three-bar `playlist` glyph next to it.
+  list: "M5 5.5a1.5 1.5 0 1 0 0 3 1.5 1.5 0 0 0 0-3Zm5 .5h10v2H10V6Zm-5 4.5a1.5 1.5 0 1 0 0 3 1.5 1.5 0 0 0 0-3Zm5 .5h10v2H10v-2Zm-5 4.5a1.5 1.5 0 1 0 0 3 1.5 1.5 0 0 0 0-3Zm5 .5h10v2H10v-2Z",
   chart: "M4 20h16v2H4v-2Zm1-8h3v7H5v-7Zm5.5-7h3v14h-3V5ZM16 9h3v10h-3V9Z",
   // The die face is solid; the five pips are wound the other way round so the
   // nonzero fill rule punches them out (same trick as `info` and `clock`).

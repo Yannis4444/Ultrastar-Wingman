@@ -20,7 +20,7 @@ const TABS = [
 /** Sub-surfaces without a tab of their own light up the tab they belong to. */
 const COVERS: Record<string, string[]> = {
   "/": ["/spinner"],
-  "/songs": ["/usdb"],
+  "/songs": ["/usdb", "/songs/playlists"],
   "/user": ["/settings"],
 };
 

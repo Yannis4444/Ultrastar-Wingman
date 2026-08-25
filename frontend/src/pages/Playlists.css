@@ -1,0 +1,154 @@
+/* A reading column on desktop; a no-op at phone widths. The whole page moves
+   together, so the header stays on the same axis as the rows (as on Scores). */
+.playlists-page {
+  max-width: 720px;
+  margin: 0 auto;
+}
+
+.playlists-notice,
+.playlists-empty {
+  margin: 16px;
+}
+
+.playlists-empty {
+  font-size: 0.85em;
+  color: var(--color-darker);
+}
+
+.playlists-create,
+.playlists-edit {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  align-items: center;
+}
+
+.playlists-create {
+  margin: 16px;
+}
+
+/* The edit form takes the row's place, so it keeps the list's own gutter. */
+.playlists-edit {
+  width: 100%;
+  padding: 8px 0;
+}
+
+.playlists-create .text-input,
+.playlists-edit .text-input {
+  flex: 1 1 12em;
+  min-width: 0;
+}
+
+.playlists-shared {
+  display: flex;
+  gap: 4px;
+  align-items: center;
+  font-size: 0.85em;
+  color: var(--color-darker);
+  white-space: nowrap;
+}
+
+.playlists-shared input {
+  width: 20px;
+  height: 20px;
+  margin: 0 4px;
+  accent-color: var(--highlight-blue-light);
+}
+
+.playlists-edit-actions {
+  display: flex;
+  flex: 1 1 auto;
+  gap: 8px;
+  justify-content: flex-end;
+}
+
+/* Flat rows with hairline separators — the row itself is the way into the
+   playlist, the two icon buttons sit beside it (never inside: a link may not
+   contain buttons). */
+.playlists-list {
+  display: flex;
+  flex-direction: column;
+  margin: 0 16px;
+  padding: 0;
+  list-style: none;
+}
+
+/* The separator belongs to the row itself, so an edited row keeps it. */
+.playlists-list li {
+  border-bottom: 1px solid var(--input-border-color);
+}
+
+.playlists-row {
+  display: flex;
+  gap: 4px;
+  align-items: center;
+}
+
+.playlists-list > :last-child {
+  border-bottom: none;
+}
+
+.playlists-open {
+  display: flex;
+  flex: 1 1 auto;
+  gap: 8px;
+  align-items: center;
+  min-width: 0;
+  min-height: 48px;
+  padding: 4px 8px;
+  color: var(--color);
+  text-decoration: none;
+  border-radius: var(--border-radius-small);
+  transition: 0.1s background-color;
+}
+
+.playlists-open:hover {
+  background-color: var(--highlight-blue-dark);
+}
+
+.playlists-text {
+  flex: 1 1 auto;
+  min-width: 0;
+}
+
+.playlists-name,
+.playlists-meta {
+  display: block;
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+
+.playlists-meta {
+  font-size: 0.85em;
+  color: var(--color-darker);
+}
+
+.playlists-chevron {
+  color: var(--color-darker);
+}
+
+.playlists-actions {
+  display: flex;
+  flex: 0 0 auto;
+  align-items: center;
+  gap: 4px;
+  padding-right: 4px;
+}
+
+/* One playlist's songs: the rows carry their own separators. */
+.playlist-count {
+  margin: 0 16px 4px 16px;
+  font-size: 0.85em;
+  color: var(--color-darker);
+}
+
+.playlist-songs {
+  display: flex;
+  flex-direction: column;
+  margin: 0 16px;
+}
+
+.playlist-songs > :last-child {
+  border-bottom: none;
+}

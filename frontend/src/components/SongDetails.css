@@ -16,7 +16,6 @@
   width: 200px;
   height: 200px;
   max-width: 60vw;
-  border-radius: var(--border-radius-small);
 }
 
 .song-cover-fallback.song-hero-cover {
