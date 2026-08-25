@@ -11,10 +11,6 @@
   border: 1px solid var(--input-border-color);
 }
 
-.karaoke-slots select {
-  cursor: pointer;
-}
-
 /* The dropdown itself is drawn by the browser and would otherwise come up in
    the system's light colors. */
 .karaoke-slots option {

@@ -39,17 +39,18 @@
   white-space: normal;
 }
 
-/* The acknowledgement sits at the right end of the input's line; a spacer of
-   its width holds that end while there is nothing to acknowledge, so the input
-   does not resize the moment "Saved" appears. */
-.setting-row-stacked::after {
+/* The acknowledgement sits at the right end of every settings row; a spacer of
+   its width holds that end while there is nothing to acknowledge, so nothing
+   resizes or jumps the moment "Saved" appears. Because every row reserves it,
+   inputs, toggles and buttons all stop on the same right rail. */
+.setting-row::after {
   content: "";
   /* The slot it holds is `.setting-saved`'s: same font-size, same 3.5em. */
   font-size: 0.85em;
   flex: 0 0 3.5em;
 }
 
-.setting-row-stacked:has(.setting-saved)::after {
+.setting-row:has(.setting-saved)::after {
   display: none;
 }
 
@@ -64,19 +65,20 @@
   min-width: 0;
 }
 
+/* Only the layout lives here: the box itself — height, padding, type scale,
+   `resize` — is `.text-input-quiet`'s in `index.css`. */
 .setting-textarea {
   flex: 1 1 auto;
   min-width: 0;
-  font: inherit;
-  resize: vertical;
 }
 
-/* The 20px box plus its margin makes a 40px slot; the label is the second,
-   larger target. */
+/* The 20px box plus its vertical margin makes a 40px-tall slot; the row's
+   `htmlFor` label is the second, much larger target. No right margin: the box
+   ends on the same rail as the inputs above and below it. */
 .setting-toggle {
   width: 20px;
   height: 20px;
-  margin: 10px 10px 10px auto;
+  margin: 10px 0 10px auto;
   accent-color: var(--highlight-blue-light);
 }
 

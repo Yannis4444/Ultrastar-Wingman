@@ -113,7 +113,7 @@ export default function SettingField({ setting, readOnly }: Props) {
         ) : multiline ? (
           // Blur only: Enter has to insert a line here.
           <textarea
-            className="text-input setting-textarea"
+            className="text-input text-input-quiet setting-textarea"
             id={inputId}
             aria-describedby={describedBy}
             rows={3}
@@ -124,7 +124,7 @@ export default function SettingField({ setting, readOnly }: Props) {
           />
         ) : (
           <input
-            className="text-input setting-input"
+            className="text-input text-input-quiet setting-input"
             id={inputId}
             aria-describedby={describedBy}
             type={
