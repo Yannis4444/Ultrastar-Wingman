@@ -8,6 +8,7 @@ import {
 } from "@testing-library/react";
 import type { ScoreWithContext, SongRead } from "../api";
 import { meResponse, userRead } from "../test/auth";
+import { iconNames } from "../test/icons";
 import SongDetails from "./SongDetails";
 
 const {
@@ -15,6 +16,7 @@ const {
   listSongScores,
   listWishlist,
   listPlaylists,
+  listPlayers,
   getPlaylist,
   addPlaylistEntry,
   removePlaylistEntry,
@@ -23,6 +25,7 @@ const {
   listSongScores: vi.fn(),
   listWishlist: vi.fn(),
   listPlaylists: vi.fn(),
+  listPlayers: vi.fn(),
   getPlaylist: vi.fn(),
   addPlaylistEntry: vi.fn(),
   removePlaylistEntry: vi.fn(),
@@ -34,6 +37,7 @@ vi.mock("../api/sdk.gen", async (importOriginal) => ({
   listSongScores,
   listWishlist,
   listPlaylists,
+  listPlayers,
   getPlaylist,
   addPlaylistEntry,
   removePlaylistEntry,
@@ -57,11 +61,12 @@ function score(
   id: number,
   playerName: string,
   value: number,
+  playerId: string | null = null,
 ): ScoreWithContext {
   return {
     id,
     sing_id: `sing-${id}`,
-    player_id: null,
+    player_id: playerId,
     player_name: playerName,
     score: value,
     difficulty: 2,
@@ -69,6 +74,13 @@ function score(
     song,
     sing_started_at: "2026-08-23T19:55:00Z",
   };
+}
+
+/** The parts of one ranked row a test cares about, per row. */
+function rankedRows(list: HTMLElement, part: string): (string | undefined)[] {
+  return within(list)
+    .getAllByRole("listitem")
+    .map((row) => row.querySelector(part)?.textContent ?? undefined);
 }
 
 // Newest first, as every stats route answers — never in score order.
@@ -95,10 +107,12 @@ function renderDetails() {
 beforeEach(() => {
   getMe.mockReset();
   listSongScores.mockReset();
+  listPlayers.mockReset();
   getMe.mockResolvedValue(meResponse(["songs.view", "stats.view"]));
   listSongScores.mockResolvedValue({ data: { scores: history } });
   listWishlist.mockResolvedValue({ data: { wishes: [] } });
   listPlaylists.mockResolvedValue({ data: { playlists: [] } });
+  listPlayers.mockResolvedValue({ data: { players: [] } });
 });
 
 test("the best-scores row carries the top score and opens the ranked view", async () => {
@@ -109,24 +123,95 @@ test("the best-scores row carries the top score and opens the ranked view", asyn
 
   fireEvent.click(row);
   const dialog = screen.getByRole("dialog", { name: "Best scores" });
-  expect(
-    within(dialog)
-      .getAllByRole("listitem")
-      .map((item) => item.textContent),
-  ).toEqual([
-    "Alice9500",
-    "Bob5000",
-    "Chris4000",
-    "Dan3000",
-    "Erin2000",
-    "Frank1000",
+  const list = within(dialog).getByRole("list", { name: "Best scores" });
+
+  expect(rankedRows(list, ".ranked-score-rank")).toEqual([
+    "1",
+    "2",
+    "3",
+    "4",
+    "5",
+    "6",
   ]);
+  expect(rankedRows(list, ".ranked-score-name")).toEqual([
+    "Alice",
+    "Bob",
+    "Chris",
+    "Dan",
+    "Erin",
+    "Frank",
+  ]);
+  expect(rankedRows(list, ".ranked-score-value")).toEqual([
+    "9500",
+    "5000",
+    "4000",
+    "3000",
+    "2000",
+    "1000",
+  ]);
+  // Difficulty and a date — the exact date format is the platform's locale.
+  expect(rankedRows(list, ".ranked-score-caption")[0]).toMatch(/^Hard · \S/);
 
   // Closing the ranking returns to the song, not to the list behind it.
   fireEvent.click(within(dialog).getByRole("button", { name: "Close" }));
   expect(
     screen.getByRole("dialog", { name: "Bohemian Rhapsody" }),
   ).toBeInTheDocument();
+});
+
+test("the ranking summarises the song's whole history above the rows", async () => {
+  renderDetails();
+
+  fireEvent.click(await screen.findByRole("button", { name: /Best scores/ }));
+  const dialog = screen.getByRole("dialog", { name: "Best scores" });
+
+  // Six sings, and the average over every score — not over the listed ten.
+  expect(dialog.querySelector(".song-scores-stats")).toHaveTextContent(
+    "Times sung6Best9500Worst1000Average4083",
+  );
+});
+
+test("a singer with a player record gets their avatar, a guest their initial", async () => {
+  getMe.mockResolvedValue(
+    meResponse(["songs.view", "stats.view", "players.view"]),
+  );
+  listSongScores.mockResolvedValue({
+    data: { scores: [score(1, "Alice", 9500, "p-1"), score(2, "Bob", 5000)] },
+  });
+  listPlayers.mockResolvedValue({
+    data: {
+      players: [
+        { id: "p-1", name: "Alice", registered: true, has_avatar: true },
+      ],
+    },
+  });
+  renderDetails();
+
+  fireEvent.click(await screen.findByRole("button", { name: /Best scores/ }));
+  const list = await screen.findByRole("list", { name: "Best scores" });
+  await waitFor(() =>
+    expect(list.querySelector("img.ranked-score-avatar")).toHaveAttribute(
+      "src",
+      expect.stringContaining("p-1"),
+    ),
+  );
+  // Bob has no player record; the stand-in is drawn as his initial.
+  expect(list.querySelectorAll(".player-avatar-letter")[0]).toHaveTextContent(
+    "B",
+  );
+});
+
+test("without players.view the ranking still draws initials", async () => {
+  renderDetails();
+
+  fireEvent.click(await screen.findByRole("button", { name: /Best scores/ }));
+  const list = await screen.findByRole("list", { name: "Best scores" });
+  expect(listPlayers).not.toHaveBeenCalled();
+  expect(
+    [...list.querySelectorAll(".player-avatar-letter")].map(
+      (mark) => mark.textContent,
+    ),
+  ).toEqual(["A", "B", "C", "D", "E", "F"]);
 });
 
 test("a song nobody has sung shows no scores section", async () => {
@@ -160,6 +245,54 @@ test("the details section starts collapsed and toggles open", async () => {
 
   fireEvent.click(toggle);
   expect(toggle).toHaveAttribute("aria-expanded", "false");
+});
+
+test("the collapsed details row points right and only turns down when open", async () => {
+  renderDetails();
+
+  const toggle = await screen.findByRole("button", { name: "Details" });
+  // Row icon then chevron; every collapsed option row points the same way.
+  expect(iconNames(toggle)).toEqual(["info", "chevron-right"]);
+
+  fireEvent.click(toggle);
+  expect(iconNames(toggle)).toEqual(["info", "chevron-down"]);
+  // The rotation trick is gone: it pointed the arrow up.
+  expect(toggle.querySelector(".song-chevron-open")).toBeNull();
+});
+
+test("the wish control wears the three-bar wishlist glyphs", async () => {
+  getMe.mockResolvedValue(
+    meResponse(["songs.view", "wishlist.view", "wishlist.add"]),
+  );
+  renderDetails();
+
+  // Off: the plus says what tapping it does. The bare bars are used nowhere.
+  expect(
+    iconNames(await screen.findByRole("button", { name: "Wish" })),
+  ).toEqual(["playlist-plus"]);
+
+  listWishlist.mockResolvedValue({
+    data: {
+      wishes: [{ song, count: 1, mine: true, latest: "2026-08-23T20:00:00Z" }],
+    },
+  });
+  renderDetails();
+  expect(
+    iconNames(await screen.findByRole("button", { name: "Remove wish" })),
+  ).toEqual(["playlist-check"]);
+});
+
+test("the playlist row and picker wear the bulleted-list glyphs", async () => {
+  withPlaylist([]);
+  renderDetails();
+
+  const option = await screen.findByRole("button", { name: "Add to playlist" });
+  expect(iconNames(option)).toEqual(["list-plus", "chevron-right"]);
+
+  fireEvent.click(option);
+  const dialog = screen.getByRole("dialog", { name: "Add to playlist" });
+  const row = within(dialog).getByRole("button", { name: /Warm-up/ });
+  expect(iconNames(row)).toEqual(["list"]);
 });
 
 /** A logged-in playlist owner with one playlist, `entries` as given. */
@@ -225,6 +358,9 @@ test("a playlist that already holds the song shows the check and removes on tap"
     name: /Warm-up/,
   });
   await waitFor(() => expect(row).toHaveAttribute("aria-pressed", "true"));
+  // Same bulleted family as the empty row, with the check the wishlist's
+  // "already on it" glyph carries.
+  expect(iconNames(row)).toEqual(["list-check"]);
   fireEvent.click(row);
 
   await waitFor(() =>

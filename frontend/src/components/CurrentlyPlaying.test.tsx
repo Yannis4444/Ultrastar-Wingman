@@ -9,6 +9,7 @@ import {
 import type { CurrentSing } from "../api";
 import { meResponse, userRead } from "../test/auth";
 import { FakeSocket } from "../test/fakeSocket";
+import { iconNames } from "../test/icons";
 import CurrentlyPlaying from "./CurrentlyPlaying";
 
 const {
@@ -396,9 +397,10 @@ test("the playlist icon opens the picker straight away", async () => {
   getCurrentSing.mockResolvedValue({ data: { sing: SING } });
   renderTile();
 
-  fireEvent.click(
-    await screen.findByRole("button", { name: "Add to playlist" }),
-  );
+  const button = await screen.findByRole("button", { name: "Add to playlist" });
+  // Playlists are the bulleted-list family; the three-bar stack is the wishlist.
+  expect(iconNames(button)).toEqual(["list-plus"]);
+  fireEvent.click(button);
 
   const dialog = await screen.findByRole("dialog", { name: "Add to playlist" });
   expect(

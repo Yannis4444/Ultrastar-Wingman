@@ -12,6 +12,7 @@ import {
   getPlaylistQueryKey,
   listPlaylistsOptions,
   listPlaylistsQueryKey,
+  listPlayersOptions,
   listSongScoresOptions,
   removePlaylistEntryMutation,
 } from "../api/@tanstack/react-query.gen";
@@ -19,9 +20,12 @@ import { useAuth } from "../auth";
 import { errorDetail, errorMessage } from "../errors";
 import { useFavorites } from "../hooks/useFavorites";
 import { useWishlist } from "../hooks/useWishlist";
+import { songHistory } from "../stats";
+import IconStat from "./IconStat";
 import { Icon, type IconName } from "./icons";
 import Modal from "./Modal";
 import PlayerSelection from "./PlayerSelection";
+import RankedScoreList from "./RankedScoreList";
 import SongCover from "./SongCover";
 import "./SongDetails.css";
 
@@ -86,9 +90,22 @@ export default function SongDetails({
     ...listSongScoresOptions({ path: { song_id: song.id } }),
     enabled: auth.loaded && auth.can("stats.view"),
   });
-  const best = [...(songScores.data?.scores ?? [])]
-    .sort((a, b) => b.score - a.score)
-    .slice(0, BEST_SCORES);
+  const allScores = songScores.data?.scores ?? [];
+  const ranked = [...allScores].sort((a, b) => b.score - a.score);
+  const best = ranked.slice(0, BEST_SCORES);
+  // The whole history, not the listed ten: the summary describes the song.
+  const history = songHistory(allScores);
+
+  // Only for the avatars in the ranking, so it waits for the sub-view. A singer
+  // without a player record — a guest, a deleted player, or a caller who may
+  // not list players at all — still gets the initial `PlayerAvatar` draws.
+  const playerList = useQuery({
+    ...listPlayersOptions(),
+    enabled: auth.loaded && auth.can("players.view") && view === "scores",
+  });
+  const players = new Map(
+    (playerList.data?.players ?? []).map((player) => [player.id, player]),
+  );
 
   // Both directions refetch the playlist (the check mark) and the list
   // (`song_count`, which the playlist dialog shows).
@@ -142,14 +159,18 @@ export default function SongDetails({
   if (view === "scores") {
     return (
       <Modal title="Best scores" bare onClose={() => setView("main")}>
-        <ol className="song-scores-list">
-          {best.map((score) => (
-            <li key={score.id}>
-              <span className="song-scores-player">{score.player_name}</span>
-              <span className="song-scores-value">{score.score}</span>
-            </li>
-          ))}
-        </ol>
+        {/* The song's whole history in the scores page's idiom, so the ranking
+            below has something to be read against. The best and worst singers
+            are left out of it: rank 1 names one of them one row further down. */}
+        {history !== null && (
+          <p className="song-scores-stats">
+            <IconStat icon="hash" label="Times sung" value={history.sings} />
+            <IconStat icon="arrow-up" label="Best" value={history.best} />
+            <IconStat icon="arrow-down" label="Worst" value={history.worst} />
+            <IconStat icon="average" label="Average" value={history.average} />
+          </p>
+        )}
+        <RankedScoreList scores={best} players={players} label="Best scores" />
       </Modal>
     );
   }
@@ -183,7 +204,7 @@ export default function SongDetails({
                   }}
                 >
                   <Icon
-                    name={added ? "playlist-check" : "playlist"}
+                    name={added ? "list-check" : "list"}
                     className={
                       added
                         ? "song-playlists-glyph song-playlists-added"
@@ -279,7 +300,7 @@ export default function SongDetails({
                 else wishlist.wish(song.id);
               }}
             >
-              <Icon name={wished ? "playlist-check" : "playlist"} />
+              <Icon name={wished ? "playlist-check" : "playlist-plus"} />
             </button>
           )}
         </div>
@@ -304,13 +325,12 @@ export default function SongDetails({
         >
           <Icon name="info" className="song-option-icon" />
           <span className="song-option-label">Details</span>
+          {/* A glyph swap, not a rotation: every collapsed option row points
+              right, whether it expands inline or opens a sub-view, and
+              rotating `chevron-down` by 180° would point it up. */}
           <Icon
-            name="chevron-down"
-            className={
-              detailsOpen
-                ? "song-option-chevron song-chevron-open"
-                : "song-option-chevron"
-            }
+            name={detailsOpen ? "chevron-down" : "chevron-right"}
+            className="song-option-chevron"
           />
         </button>
         {/* Always in the DOM: `hidden` keeps the metadata findable (search,
@@ -346,7 +366,7 @@ export default function SongDetails({
             className="song-option"
             onClick={() => setView("playlists")}
           >
-            <Icon name="playlist-plus" className="song-option-icon" />
+            <Icon name="list-plus" className="song-option-icon" />
             <span className="song-option-label">Add to playlist</span>
             <Icon name="chevron-right" className="song-option-chevron" />
           </button>

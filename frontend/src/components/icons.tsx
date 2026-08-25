@@ -2,7 +2,7 @@
  * Shared inline 24x24 icons. One path per icon, `fill: currentColor` via the
  * `.icon` rule in index.css — a path is cheaper than an icon dependency.
  */
-const PATHS = {
+export const ICON_PATHS = {
   search:
     "M10 4a6 6 0 1 0 3.8 10.6l4.8 4.8 1.4-1.4-4.8-4.8A6 6 0 0 0 10 4Zm0 2a4 4 0 1 1 0 8 4 4 0 0 1 0-8Z",
   refresh: "M12 5V2L7 6l5 4V7a5 5 0 1 1-5 5H5a7 7 0 1 0 7-7Z",
@@ -51,17 +51,28 @@ const PATHS = {
     "M17 10.5V7a1 1 0 0 0-1-1H4a1 1 0 0 0-1 1v10a1 1 0 0 0 1 1h12a1 1 0 0 0 1-1v-3.5l4 4v-11l-4 4Z",
   music: "M12 3v10.55A4 4 0 1 0 14 17V7h4V3h-6Z",
   info: "M12 2a10 10 0 1 0 0 20 10 10 0 0 0 0-20Zm0 2a8 8 0 1 1 0 16 8 8 0 0 1 0-16Zm-1 3h2v2h-2V7Zm0 4h2v6h-2v-6Z",
-  // The three-bar stack is the shared base: bare = on a list, +check = already
-  // on it, +plus = put it on one. Keeping the bars identical makes the three
-  // read as one family at 1.1em.
+  // The three-bar stack is the wishlist family: +plus = wish for it, +check =
+  // already wished. Keeping the bars identical makes them read as one family at
+  // 1.1em. The bare `playlist` bars are the base both are built from; no
+  // control uses them on their own any more.
   playlist: "M3 6h12v2H3V6Zm0 4h12v2H3v-2Zm0 4h8v2H3v-2Z",
   "playlist-check":
     "M3 6h12v2H3V6Zm0 4h12v2H3v-2Zm0 4h8v2H3v-2Zm17.1-1.9 1.4 1.4-6.1 6.1-3.2-3.2 1.4-1.4 1.8 1.8 4.7-4.7Z",
   "playlist-plus":
     "M3 6h12v2H3V6Zm0 4h12v2H3v-2Zm0 4h8v2H3v-2Zm13 0v-3h2v3h3v2h-3v3h-2v-3h-3v-2h3Z",
-  // The "many lists" entry, not a list itself: bulleted rows, so it never gets
-  // confused with the plain three-bar `playlist` glyph next to it.
+  // The bulleted rows are the playlists family, so a playlist never gets
+  // confused with the three-bar wishlist glyph next to it. `list-plus` and
+  // `list-check` shorten the lower two bars to x=14 to make room and then carry
+  // the *same* plus and check `playlist-plus`/`playlist-check` carry, shifted
+  // 2 to the right — that shared mark is what pairs the two families.
   list: "M5 5.5a1.5 1.5 0 1 0 0 3 1.5 1.5 0 0 0 0-3Zm5 .5h10v2H10V6Zm-5 4.5a1.5 1.5 0 1 0 0 3 1.5 1.5 0 0 0 0-3Zm5 .5h10v2H10v-2Zm-5 4.5a1.5 1.5 0 1 0 0 3 1.5 1.5 0 0 0 0-3Zm5 .5h10v2H10v-2Z",
+  "list-plus":
+    "M5 5.5a1.5 1.5 0 1 0 0 3 1.5 1.5 0 0 0 0-3Zm5 .5h10v2H10V6Zm-5 4.5a1.5 1.5 0 1 0 0 3 1.5 1.5 0 0 0 0-3Zm5 .5h4v2H10v-2Zm-5 4.5a1.5 1.5 0 1 0 0 3 1.5 1.5 0 0 0 0-3Zm5 .5h4v2H10v-2ZM18 14v-3h2v3h3v2h-3v3h-2v-3h-3v-2h3Z",
+  // The check is `playlist-check`'s, re-anchored absolutely first: there it is
+  // written as a relative `m` continuation of the bars, which would land it
+  // somewhere else entirely once the bars underneath it change length.
+  "list-check":
+    "M5 5.5a1.5 1.5 0 1 0 0 3 1.5 1.5 0 0 0 0-3Zm5 .5h10v2H10V6Zm-5 4.5a1.5 1.5 0 1 0 0 3 1.5 1.5 0 0 0 0-3Zm5 .5h4v2H10v-2Zm-5 4.5a1.5 1.5 0 1 0 0 3 1.5 1.5 0 0 0 0-3Zm5 .5h4v2H10v-2ZM22.1 12.1l1.4 1.4-6.1 6.1-3.2-3.2 1.4-1.4 1.8 1.8 4.7-4.7Z",
   chart: "M4 20h16v2H4v-2Zm1-8h3v7H5v-7Zm5.5-7h3v14h-3V5ZM16 9h3v10h-3V9Z",
   // The mean mark — the statistician's ⌀, which is what the old app's
   // `TbMathAvg` draws. Two things keep it off the "forbidden" sign: the ring is
@@ -91,7 +102,7 @@ const PATHS = {
   dice: "M6 3h12a3 3 0 0 1 3 3v12a3 3 0 0 1-3 3H6a3 3 0 0 1-3-3V6a3 3 0 0 1 3-3Zm2 3.4a1.6 1.6 0 1 0 0 3.2 1.6 1.6 0 1 0 0-3.2Zm8 0a1.6 1.6 0 1 0 0 3.2 1.6 1.6 0 1 0 0-3.2Zm-4 4a1.6 1.6 0 1 0 0 3.2 1.6 1.6 0 1 0 0-3.2Zm-4 4a1.6 1.6 0 1 0 0 3.2 1.6 1.6 0 1 0 0-3.2Zm8 0a1.6 1.6 0 1 0 0 3.2 1.6 1.6 0 1 0 0-3.2Z",
 } as const;
 
-export type IconName = keyof typeof PATHS;
+export type IconName = keyof typeof ICON_PATHS;
 
 export function Icon({
   name,
@@ -107,7 +118,7 @@ export function Icon({
       aria-hidden="true"
       focusable="false"
     >
-      <path d={PATHS[name]} />
+      <path d={ICON_PATHS[name]} />
     </svg>
   );
 }

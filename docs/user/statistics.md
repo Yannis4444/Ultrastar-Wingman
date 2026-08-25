@@ -42,7 +42,10 @@ The chart is a box plot: the box is where most of that singer's (or song's) scor
 sit, the line in it is the median, and the whiskers are the outliers. A singer
 with one lucky hit looks very different from a consistently good one.
 
-Open a song from the **Songs** tab to see its five best scores of all time.
+Open a song from the **Songs** tab and tap **Best scores** to see its ten best
+runs of all time: how often it was sung, the best, worst and average score over
+its whole history, and then the ranking itself — the singer's picture, how hard
+they sang it and when, and what they got.
 
 ## Where the scores come from
 

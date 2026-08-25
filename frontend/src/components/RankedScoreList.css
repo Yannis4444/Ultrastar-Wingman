@@ -1,0 +1,67 @@
+/* 8px side margins, as in `ScoreGroupList`: the row text starts on the 16px
+   page gutter while the row itself is 8px wider on both sides. */
+.ranked-score-list {
+  margin: 0 8px;
+  padding: 0;
+  list-style: none;
+}
+
+.ranked-score-row {
+  display: flex;
+  gap: 12px;
+  align-items: center;
+  min-height: 56px;
+  padding: 6px 8px;
+}
+
+/* border-top so the last row needs no override. */
+.ranked-score-list > li + li {
+  border-top: 1px solid var(--input-border-color);
+}
+
+.ranked-score-rank {
+  flex: 0 0 24px;
+  font-size: 1.1em;
+  color: var(--color-darker);
+  text-align: right;
+  font-variant-numeric: tabular-nums;
+}
+
+/* The same pink podium numeral the scores page uses. The list is always
+   ordered best-first, so the top three really are a podium. */
+.ranked-score-list > li:nth-child(-n + 3) .ranked-score-rank {
+  font-weight: bold;
+  color: var(--highlight-pink-light);
+}
+
+.ranked-score-avatar {
+  width: 40px;
+  height: 40px;
+}
+
+.ranked-score-text {
+  flex: 1 1 auto;
+  min-width: 0;
+}
+
+.ranked-score-name,
+.ranked-score-caption {
+  display: block;
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+
+.ranked-score-caption {
+  font-size: 0.85em;
+  color: var(--color-darker);
+  font-variant-numeric: tabular-nums;
+}
+
+.ranked-score-value {
+  flex: 0 0 auto;
+  font-size: 1.2em;
+  font-weight: bold;
+  color: var(--highlight-gold-light);
+  font-variant-numeric: tabular-nums;
+}

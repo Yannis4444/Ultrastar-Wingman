@@ -184,10 +184,6 @@
   color: var(--color-darker);
 }
 
-.song-chevron-open {
-  transform: rotate(180deg);
-}
-
 .song-details-list {
   margin: 0;
   padding: 0 0 4px 0;
@@ -208,50 +204,14 @@
   color: var(--color-darker);
 }
 
-/* Best-scores sub-view: rank, name, gold score. */
-.song-scores-list {
-  margin: 0 16px;
-  padding: 0;
-  list-style: none;
-  counter-reset: best;
-}
-
-.song-scores-list li {
+/* Best-scores sub-view: the song's history over the ranking, as one wrapping
+   run of glyph+number pairs — 8px inside a pair's own gap, 16px between them. */
+.song-scores-stats {
   display: flex;
-  gap: 10px;
-  align-items: baseline;
-  min-height: 44px;
-  align-items: center;
-  border-top: 1px solid var(--input-border-color);
-  counter-increment: best;
-}
-
-.song-scores-list li:first-child {
-  border-top: none;
-}
-
-.song-scores-list li::before {
-  content: counter(best);
-  flex: 0 0 20px;
-  text-align: right;
-  color: var(--color-darker);
-  font-variant-numeric: tabular-nums;
-}
-
-.song-scores-list li:nth-child(-n + 3)::before {
-  color: var(--highlight-pink-light);
-  font-weight: bold;
-}
-
-.song-scores-player {
-  flex: 1 1 auto;
-  min-width: 0;
-  overflow-wrap: anywhere;
-}
-
-.song-scores-value {
-  color: var(--highlight-gold-light);
-  font-weight: bold;
+  flex-wrap: wrap;
+  gap: 8px 16px;
+  margin: 0 16px 12px 16px;
+  font-size: 0.9em;
   font-variant-numeric: tabular-nums;
 }
 

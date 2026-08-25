@@ -215,7 +215,7 @@ export default function CurrentlyPlaying({
                 aria-label="Add to playlist"
                 onClick={() => setDetails({ view: "playlists", song })}
               >
-                <Icon name="playlist-plus" />
+                <Icon name="list-plus" />
               </button>
             )}
             {auth.can("karaoke.stop") && (

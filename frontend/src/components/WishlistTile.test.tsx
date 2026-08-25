@@ -3,6 +3,7 @@ import { fireEvent, render, screen, waitFor } from "@testing-library/react";
 import type { SongRead, WishRead } from "../api";
 import { meResponse } from "../test/auth";
 import { FakeSocket } from "../test/fakeSocket";
+import { iconNames } from "../test/icons";
 import WishlistTile from "./WishlistTile";
 
 const { listWishlist, addWish, removeWish, getMe } = vi.hoisted(() => ({
@@ -88,6 +89,12 @@ test("the tile lists the aggregated wishes, most wanted first", async () => {
   expect(
     screen.queryByRole("button", { name: "Take back your wish for Africa" }),
   ).not.toBeInTheDocument();
+
+  // The row mark stays the small check even though the wish *control* moved to
+  // the three-bar family: at 0.8em a bar stack with a plus welded on is mud,
+  // and the mark is a state ("wished"), not the control.
+  const mark = screen.getByTitle("On your wishlist");
+  expect(iconNames(mark)).toEqual(["check"]);
 });
 
 test("an empty wishlist invites the party to wish", async () => {

@@ -1,5 +1,5 @@
 import type { PlayerRead, ScoreWithContext, SongRead } from "../api";
-import { parseServerTime } from "../duration";
+import { shortTime } from "../duration";
 import {
   buildHistogramOption,
   difficultyLabel,
@@ -24,13 +24,6 @@ interface ScoreGroupListProps {
   /** Registered players by id, for the avatars. */
   players: Map<string, PlayerRead>;
   onOpenSong: (song: SongRead) => void;
-}
-
-function shortTime(timestamp: string): string {
-  return new Date(parseServerTime(timestamp)).toLocaleTimeString([], {
-    hour: "2-digit",
-    minute: "2-digit",
-  });
 }
 
 /** A single score's second line: how hard it was sung and when. */
