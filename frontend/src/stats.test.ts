@@ -4,13 +4,17 @@ import {
   buildBoxplotOption,
   buildHistogramOption,
   difficultyLabel,
+  evaluationLabel,
   groupScores,
   groupValue,
   histogram,
+  isNewHighscore,
   playerSummary,
   scoreLabel,
   scorePlayer,
   sessionLabel,
+  sessionLeaderboard,
+  songHistory,
   songLabel,
   sortGroups,
   summarize,
@@ -342,4 +346,142 @@ test("songs that have left the library count as one unknown song, as elsewhere",
 test("a singer without a single score has no summary at all", () => {
   // Null, not four zeroes: the page says "sing something" instead of lying.
   expect(playerSummary([])).toBeNull();
+});
+
+test("every USDX rating word is reachable at its own threshold", () => {
+  // The old app's bounds verbatim, checked on both sides of each one.
+  expect(
+    [
+      0, 2009, 2010, 4009, 4010, 5009, 5010, 6009, 6010, 7509, 7510, 8509, 8510,
+      9009, 9010, 10000,
+    ].map(evaluationLabel),
+  ).toEqual([
+    "Tone Deaf",
+    "Tone Deaf",
+    "Amateur",
+    "Amateur",
+    "Wannabe",
+    "Wannabe",
+    "Hopeful",
+    "Hopeful",
+    "Rising Star",
+    "Rising Star",
+    "Lead Singer",
+    "Lead Singer",
+    "Superstar",
+    "Superstar",
+    "Ultrastar",
+    "Ultrastar",
+  ]);
+});
+
+test("a score above a perfect run is a parsing accident, not a better word", () => {
+  expect(evaluationLabel(12345)).toBe("Ultrastar");
+});
+
+test("a song's history is measured over every score it ever got", () => {
+  const history = [
+    score("Alice", 8500, bohemian, { sing_id: "sing-2" }),
+    score("Bob", 6000, bohemian, { sing_id: "sing-2" }),
+    score("Chris", 4000, bohemian, { sing_id: "sing-1" }),
+  ];
+
+  expect(songHistory(history)).toEqual({
+    // A duet is one performance, so two sings and not three.
+    sings: 2,
+    best: 8500,
+    bestPlayers: ["Alice"],
+    worst: 4000,
+    worstPlayers: ["Chris"],
+    // 18500 / 3 = 6166.67, rounded.
+    average: 6167,
+  });
+});
+
+test("everybody who tied for best or worst is named once", () => {
+  const history = [
+    score("Alice", 9000, bohemian, { sing_id: "sing-1" }),
+    score("Alice", 9000, bohemian, { sing_id: "sing-2" }),
+    score("Bob", 9000, bohemian, { sing_id: "sing-3" }),
+  ];
+
+  // Alice managed it twice; the line names her once, not twice.
+  expect(songHistory(history)).toMatchObject({
+    bestPlayers: ["Alice", "Bob"],
+    worstPlayers: ["Alice", "Bob"],
+  });
+});
+
+test("a song nobody has scored yet has no history at all", () => {
+  expect(songHistory([])).toBeNull();
+});
+
+test("a record is one where the whole all-time best came out of this sing", () => {
+  const now = [
+    score("Alice", 8500, bohemian, { sing_id: "sing-2" }),
+    score("Bob", 6000, bohemian, { sing_id: "sing-2" }),
+  ];
+  const earlier = score("Chris", 4000, bohemian, { sing_id: "sing-1" });
+
+  expect(isNewHighscore([...now, earlier], now)).toBe(true);
+  // Someone cleared it before: the same score is no longer a record.
+  expect(
+    isNewHighscore(
+      [...now, earlier, score("Dora", 8500, bohemian, { sing_id: "sing-0" })],
+      now,
+    ),
+  ).toBe(false);
+});
+
+test("a history that has not arrived yet is not a record", () => {
+  const now = [score("Alice", 8500, bohemian, { sing_id: "sing-2" })];
+
+  expect(isNewHighscore([], now)).toBe(false);
+  expect(isNewHighscore(now, [])).toBe(false);
+});
+
+test("the session leaderboard ranks by the order it is asked for", () => {
+  const party = [
+    score("Alice", 8500, bohemian, { sing_id: "sing-3" }),
+    score("Bob", 6000, bohemian, { sing_id: "sing-3" }),
+    score("Chris", 5000, wonderwall, { sing_id: "sing-2" }),
+    score("Chris", 4000, bohemian, { sing_id: "sing-1" }),
+  ];
+
+  const names = (order: "best" | "average" | "sings"): [string, number][] =>
+    sessionLeaderboard(party, order).map((entry) => [entry.name, entry.value]);
+
+  expect(names("best")).toEqual([
+    ["Alice", 8500],
+    ["Bob", 6000],
+    ["Chris", 5000],
+  ]);
+  expect(names("average")).toEqual([
+    ["Alice", 8500],
+    ["Bob", 6000],
+    ["Chris", 4500],
+  ]);
+  // Chris sang twice; the two singers he beats on count tie and fall back to
+  // their best score, so Alice stays ahead of Bob.
+  expect(names("sings")).toEqual([
+    ["Chris", 2],
+    ["Alice", 1],
+    ["Bob", 1],
+  ]);
+});
+
+test("a leaderboard row keeps its best score, for the avatar behind it", () => {
+  const party = [
+    score("Alice", 4000, bohemian, { sing_id: "sing-1", player_id: "p1" }),
+    score("Alice", 8500, wonderwall, { sing_id: "sing-2", player_id: "p1" }),
+  ];
+
+  const [alice] = sessionLeaderboard(party, "best");
+  expect(alice.top.score).toBe(8500);
+  expect(alice.top.player_id).toBe("p1");
+  expect(alice).toMatchObject({ best: 8500, average: 6250, sings: 2 });
+});
+
+test("nobody has sung, so nobody is ranked", () => {
+  expect(sessionLeaderboard([], "best")).toEqual([]);
 });

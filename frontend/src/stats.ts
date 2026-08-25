@@ -51,6 +51,154 @@ export interface SessionSummary {
   top: ScoreWithContext | null;
 }
 
+/** What a song's whole history adds up to — the lines the host stage prints
+ * under the cover of the song that just finished. */
+export interface SongHistory {
+  /** Performances that were scored, so a duet counts once. */
+  sings: number;
+  best: number;
+  /** Everybody who ever hit `best`, deduplicated — a singer who managed it
+   * twice is one name, not two. */
+  bestPlayers: string[];
+  worst: number;
+  worstPlayers: string[];
+  average: number;
+}
+
+/** How the session leaderboard ranks its singers. */
+export type LeaderboardOrder = "best" | "average" | "sings";
+
+/** One singer's standing in the running session. */
+export interface LeaderboardEntry {
+  /** Stable across renders, so it works as a React key. */
+  key: string;
+  name: string;
+  best: number;
+  average: number;
+  /** Performances of theirs that were scored in this session. */
+  sings: number;
+  /** The number the chosen order ranks by, and therefore the one shown. */
+  value: number;
+  /** Their best score of the session — where the row's avatar comes from. */
+  top: ScoreWithContext;
+}
+
+/** The USDX rating words the old app printed under each singer's name, with
+ * its thresholds verbatim: the score has to be at or below the bound. */
+const EVALUATIONS: [number, string][] = [
+  [2009, "Tone Deaf"],
+  [4009, "Amateur"],
+  [5009, "Wannabe"],
+  [6009, "Hopeful"],
+  [7509, "Rising Star"],
+  [8509, "Lead Singer"],
+  [9009, "Superstar"],
+  [MAX_SCORE, "Ultrastar"],
+];
+
+/**
+ * The rating word for one score. USDX cannot award more than `MAX_SCORE`, so
+ * anything above it is a parsing accident rather than a better performance —
+ * it gets the top word instead of the old app's "How did we get here?".
+ */
+export function evaluationLabel(score: number): string {
+  for (const [bound, label] of EVALUATIONS) if (score <= bound) return label;
+  return EVALUATIONS[EVALUATIONS.length - 1][1];
+}
+
+/** The names of everybody who scored exactly `value`, each name once. */
+function playersWith(scores: ScoreWithContext[], value: number): string[] {
+  return [
+    ...new Set(
+      scores
+        .filter((score) => score.score === value)
+        .map((score) => score.player_name),
+    ),
+  ];
+}
+
+/**
+ * What one song's complete score history adds up to, or `null` when it has
+ * none. Computed over *every* score the song ever got, across all sessions —
+ * that is what makes the numbers worth putting on the TV.
+ */
+export function songHistory(scores: ScoreWithContext[]): SongHistory | null {
+  if (scores.length === 0) return null;
+  const sings = new Set<string>();
+  let best = scores[0].score;
+  let worst = scores[0].score;
+  let total = 0;
+  for (const score of scores) {
+    sings.add(score.sing_id);
+    if (score.score > best) best = score.score;
+    if (score.score < worst) worst = score.score;
+    total += score.score;
+  }
+  return {
+    sings: sings.size,
+    best,
+    bestPlayers: playersWith(scores, best),
+    worst,
+    worstPlayers: playersWith(scores, worst),
+    average: Math.round(total / scores.length),
+  };
+}
+
+/**
+ * Whether the sing that just finished set the song's all-time record. The old
+ * app's rule, ported: it is a record when *every* occurrence of the song's best
+ * score came out of this one sing.
+ *
+ * `history` is the song's complete history, which already contains `scores`.
+ * An empty history means nothing is known yet — not a record.
+ */
+export function isNewHighscore(
+  history: ScoreWithContext[],
+  scores: ScoreWithContext[],
+): boolean {
+  if (history.length === 0 || scores.length === 0) return false;
+  const best = Math.max(...history.map((score) => score.score));
+  const counts = (rows: ScoreWithContext[]): number =>
+    rows.filter((score) => score.score === best).length;
+  return counts(history) === counts(scores);
+}
+
+/**
+ * The running session's singers, strongest first in the reader's order. Ties
+ * fall back to the best score and then the name, so the rows keep a stable
+ * place while the party goes on.
+ */
+export function sessionLeaderboard(
+  scores: ScoreWithContext[],
+  order: LeaderboardOrder,
+): LeaderboardEntry[] {
+  // `groupScores` already bundles the scores per singer, keeping two guests of
+  // the same name apart, and its groups are sorted best score first.
+  const entries = groupScores(scores, "player").map((group) => {
+    const sings = new Set(group.scores.map((score) => score.sing_id)).size;
+    return {
+      key: group.key,
+      name: group.label,
+      best: group.best,
+      average: group.average,
+      sings,
+      value:
+        order === "average"
+          ? group.average
+          : order === "sings"
+            ? sings
+            : group.best,
+      top: group.scores[0],
+    };
+  });
+  return entries.sort(
+    (a, b) =>
+      b.value - a.value ||
+      b.best - a.best ||
+      a.name.localeCompare(b.name, undefined, { sensitivity: "base" }),
+  );
+}
+
 /** A session's own name, or when it started — the label the picker shows.
  * The time keeps two nameless parties on the same day apart. */
 export function sessionLabel(session: SessionRead): string {

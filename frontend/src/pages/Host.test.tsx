@@ -1,6 +1,13 @@
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import { render, screen, waitFor } from "@testing-library/react";
+import {
+  act,
+  fireEvent,
+  render,
+  screen,
+  waitFor,
+} from "@testing-library/react";
 import { MemoryRouter } from "react-router-dom";
+import type { ScoreWithContext, SessionRead } from "../api";
 import { meResponse } from "../test/auth";
 import { FakeSocket } from "../test/fakeSocket";
 import Host from "./Host";
@@ -12,6 +19,10 @@ const {
   getJoinInfo,
   listKaraokeColors,
   listLatestScores,
+  listPlayers,
+  listSessionScores,
+  listSessions,
+  listSongScores,
   listWishlist,
 } = vi.hoisted(() => ({
   getMe: vi.fn(),
@@ -20,6 +31,10 @@ const {
   getJoinInfo: vi.fn(),
   listKaraokeColors: vi.fn(),
   listLatestScores: vi.fn(),
+  listPlayers: vi.fn(),
+  listSessionScores: vi.fn(),
+  listSessions: vi.fn(),
+  listSongScores: vi.fn(),
   listWishlist: vi.fn(),
 }));
 
@@ -31,8 +46,70 @@ vi.mock("../api/sdk.gen", async (importOriginal) => ({
   getJoinInfo,
   listKaraokeColors,
   listLatestScores,
+  listPlayers,
+  listSessionScores,
+  listSessions,
+  listSongScores,
   listWishlist,
 }));
+
+/** One singer's score in the running session, enough for a leaderboard row. */
+function score(
+  id: number,
+  singId: string,
+  playerName: string,
+  value: number,
+): ScoreWithContext {
+  return {
+    id,
+    sing_id: singId,
+    player_id: null,
+    player_name: playerName,
+    score: value,
+    difficulty: 2,
+    recorded_at: "2026-08-23T20:00:00Z",
+    song: {
+      id: "usdb:1",
+      artist: "Queen",
+      title: "Bohemian Rhapsody",
+      duration_seconds: null,
+      has_video: false,
+      language: null,
+      genre: null,
+      year: null,
+      edition: null,
+      creator: null,
+      source: "usdb",
+    },
+    sing_started_at: "2026-08-23T19:55:00Z",
+  };
+}
+
+const SESSION: SessionRead = {
+  id: "session-1",
+  name: null,
+  started_at: "2026-08-23T19:00:00Z",
+  last_activity_at: "2026-08-23T20:00:00Z",
+  sing_count: 2,
+  score_count: 2,
+};
+
+/** Two sings, so the stage carries a leaderboard next to the last song. */
+const PARTY = [
+  score(2, "sing-2", "Alice", 8500),
+  score(1, "sing-1", "Bob", 6000),
+];
+
+/** A host screen that has something to rank: last song plus leaderboard. */
+function withScores() {
+  getMe.mockResolvedValue(
+    meResponse(["stats.view"], { is_host: true, role: "admin" }),
+  );
+  listLatestScores.mockResolvedValue({ data: { scores: PARTY } });
+  listSongScores.mockResolvedValue({ data: { scores: PARTY } });
+  listSessions.mockResolvedValue({ data: { sessions: [SESSION] } });
+  listSessionScores.mockResolvedValue({ data: { scores: PARTY } });
+}
 
 function renderHost(url: string) {
   window.history.replaceState(null, "", url);
@@ -52,15 +129,27 @@ beforeEach(() => {
   vi.stubGlobal("WebSocket", FakeSocket);
   getMe.mockReset();
   exchangeHostToken.mockReset();
+  listLatestScores.mockReset();
+  listSongScores.mockReset();
+  listSessions.mockReset();
+  listSessionScores.mockReset();
   getMe.mockResolvedValue(meResponse(["songs.view"]));
   getCurrentSing.mockResolvedValue({ data: { sing: null } });
   getJoinInfo.mockResolvedValue({ data: { url: "http://192.168.0.10:8080" } });
   listKaraokeColors.mockResolvedValue({ data: { colors: [] } });
   listLatestScores.mockResolvedValue({ data: { scores: [] } });
+  listPlayers.mockResolvedValue({ data: { players: [] } });
+  listSessions.mockResolvedValue({ data: { sessions: [] } });
+  listSessionScores.mockResolvedValue({ data: { scores: [] } });
+  listSongScores.mockResolvedValue({ data: { scores: [] } });
   listWishlist.mockResolvedValue({ data: { wishes: [] } });
 });
 
-afterEach(() => vi.unstubAllGlobals());
+afterEach(() => {
+  // A leaked fake clock would break every later test's `findBy*`.
+  vi.useRealTimers();
+  vi.unstubAllGlobals();
+});
 
 test("the token from the host URL is exchanged and taken out of the URL", async () => {
   exchangeHostToken.mockResolvedValue({
@@ -135,4 +224,49 @@ test("an idle USDX invites guests to pick a song", async () => {
   expect(
     await screen.findByText("Scan the code to pick a song"),
   ).toBeInTheDocument();
+});
+
+test("between songs the stage carries the last song and the standing", async () => {
+  withScores();
+  renderHost("/host");
+
+  expect(await screen.findByLabelText("Last song")).toHaveTextContent(
+    "Bohemian Rhapsody",
+  );
+  // The standing comes from the session's own score list, a round trip behind.
+  expect(
+    await screen.findByLabelText("Session leaderboard"),
+  ).toBeInTheDocument();
+  // The QR card is the page's anchor and does not move for the results.
+  expect(screen.getByText("Scan to join")).toBeInTheDocument();
+});
+
+test("the leaderboard order settings hide with the host chrome, the ranking stays", async () => {
+  vi.useFakeTimers({ shouldAdvanceTime: true });
+  withScores();
+  const { container } = renderHost("/host");
+
+  const order = await screen.findByRole("group", {
+    name: "Leaderboard order",
+  });
+  const page = container.querySelector(".host-page");
+  const board = screen.getByLabelText("Session leaderboard");
+
+  // The pills ride the page's one reveal-on-move mechanism — `.host-idle
+  // .host-reveal` is what hides them. The ranking is not part of that chrome,
+  // so it stays on the TV whatever the mouse does.
+  expect(order).toHaveClass("host-reveal");
+  expect(board.closest(".host-reveal")).toBeNull();
+  expect(board.querySelector(".host-leaderboard-list")).not.toHaveClass(
+    "host-reveal",
+  );
+  expect(page).not.toHaveClass("host-idle");
+
+  act(() => vi.advanceTimersByTime(3100));
+  expect(page).toHaveClass("host-idle");
+  expect(board).toBeInTheDocument();
+
+  // One moved mouse brings the whole cluster back.
+  fireEvent.pointerMove(window);
+  expect(page).not.toHaveClass("host-idle");
 });

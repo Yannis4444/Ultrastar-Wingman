@@ -12,8 +12,8 @@ import {
 import { useAuth } from "../auth";
 import ConfirmModal from "../components/ConfirmModal";
 import CurrentlyPlaying from "../components/CurrentlyPlaying";
+import HostResults from "../components/HostResults";
 import { Icon } from "../components/icons";
-import LatestScores from "../components/LatestScores";
 import SongCover from "../components/SongCover";
 import { useWishlist } from "../hooks/useWishlist";
 import { manageEntries } from "../manage";
@@ -32,7 +32,11 @@ function takeToken(): string | null {
   return token;
 }
 
-/** True after `delay` ms without input; drives cursor hiding and the overlay. */
+/**
+ * True after `delay` ms without input; drives cursor hiding, the overlay and
+ * every `.host-reveal` cluster (the leaderboard's order pills). One timer for
+ * the whole page — a second one would let the chrome fade out in pieces.
+ */
 function useIdle(delay = 3000): boolean {
   const [idle, setIdle] = useState(false);
 
@@ -143,7 +147,7 @@ export default function Host() {
     <div className={`host-page${idle ? " host-idle" : ""}`}>
       <div className="host-stage">
         <CurrentlyPlaying hideControls />
-        <LatestScores fallback={<HostIdle />} />
+        <HostResults fallback={<HostIdle />} />
       </div>
 
       <div className="host-rail">
