@@ -77,9 +77,12 @@
   flex: 1 1 100%;
 }
 
-/* The section-summary look of the settings groups, at search-field scale. */
+/* The section-summary look of the settings groups, at search-field scale. The
+   whole line is its own: opening it may only grow the block downwards, never
+   push the fields or the Search button sideways. */
 .usdb-filters {
   flex: 1 1 100%;
+  min-width: 0;
 }
 
 .usdb-filters > summary {
@@ -117,29 +120,39 @@
   outline-offset: 2px;
 }
 
+/* Stacked like the settings fields: on a phone the label and a select wide
+   enough for "Results per page" cannot share one line without both losing. */
 .usdb-filter {
   display: flex;
-  gap: 8px;
-  align-items: center;
-  justify-content: space-between;
-  min-height: 44px;
+  flex-wrap: wrap;
+  row-gap: 4px;
+  padding: 12px 0;
   border-bottom: 1px solid var(--input-border-color);
+}
+
+/* The disclosure's first row, off the summary line. */
+.usdb-filters > summary + .usdb-filter {
+  margin-top: 4px;
 }
 
 .usdb-filter:last-child {
   border-bottom: none;
 }
 
+/* Full width is the wrap: the select is pushed onto the next line. */
 .usdb-filter > span {
+  flex: 1 1 100%;
   font-size: 0.85em;
   color: var(--color-darker);
 }
 
-/* No `height`: `.text-input`'s padding already makes the 40px target, and the
-   app sets no global `box-sizing`. */
+/* Still no `height`: `.text-input`'s padding makes the 40px target, and
+   `box-sizing` leaves an auto height alone. It is `width: 100%` that needs the
+   border box — the app sets no global `box-sizing`, so the padding and border
+   would otherwise put the select past the edge of the form. */
 .usdb-filter select {
-  flex: 0 1 14em;
-  min-width: 0;
+  box-sizing: border-box;
+  width: 100%;
 }
 
 /* The answer to the search above it, separated by a hairline instead of a box. */
