@@ -1,43 +1,85 @@
+/* Four stacked regions inside the fullscreen modal: song, slots, roster,
+   actions. Flex rather than a fixed grid template so both scroll regions can
+   give up height when the viewport shrinks (on-screen keyboard, landscape) —
+   the modal clips its overflow, so an unshrinkable row would hide the actions. */
 .player-selection {
   flex: 1 1 auto;
   min-height: 0;
   display: flex;
   flex-direction: column;
-  gap: 8px;
-  margin: 0 16px;
+  gap: 12px;
+  /* The panel is fullscreen, the content is not: a phone-width column, centered,
+     so a desktop window does not stretch a slot row to a metre of empty middle.
+     500px is the width every other modal in the app already uses. */
+  box-sizing: border-box;
+  width: 100%;
+  max-width: 500px;
+  margin: 0 auto;
+  padding: 0 16px;
+}
+
+/*region head*/
+
+.player-selection-head {
+  flex: 0 0 auto;
 }
 
 .player-selection-song {
   margin: 0;
+  font-size: 0.9em;
   overflow: hidden;
   white-space: nowrap;
   text-overflow: ellipsis;
   color: var(--color-dark);
 }
 
-/* One tile per USDX color, in USDX's order — the slot number is the position. */
+/* `p` carries a 16px page margin it must not add to the modal's own gutter. */
+.player-selection-error {
+  margin: 8px 0 0 0;
+}
+
+/*endregion*/
+/*region slots*/
+
+/* One row per configured USDX color, in USDX's order — capped so a six-player
+   configuration cannot squeeze the roster below it out of the view. */
 .player-selection-slots {
   flex: 0 1 auto;
+  max-height: 40vh;
   overflow-y: auto;
-  display: flex;
-  flex-direction: column;
-  gap: 4px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
 }
 
 .player-selection-slot {
   display: flex;
   align-items: center;
-  border: 1px solid transparent;
-  border-radius: var(--border-radius-small);
+  min-height: 48px;
+  border-bottom: 1px solid var(--input-border-color);
 }
 
-.player-selection-slot > button {
+.player-selection-slot:last-child {
+  border-bottom: none;
+}
+
+/* On the row, never on the button: the button's own outline is the focus ring. */
+.player-selection-slot-active {
+  outline: 2px dashed var(--highlight-blue-light);
+  outline-offset: -2px;
+}
+
+.player-selection-slot-button {
   flex: 1 1 auto;
   min-width: 0;
+  align-self: stretch;
   display: flex;
   align-items: center;
-  gap: 8px;
-  padding: 4px;
+  gap: 12px;
+  /* Starts *after* the 4px color bar the row draws on its leading edge: a
+     margin, not padding, so neither a fill nor the focus ring covers the bar. */
+  margin-left: 4px;
+  padding: 4px 8px;
   font: inherit;
   text-align: left;
   color: var(--color);
@@ -46,34 +88,51 @@
   cursor: pointer;
 }
 
-.player-selection-slot > button > span {
+/* Inside, as on `.score-groups summary`: the row lives in a scroll container,
+   and an offset ring is clipped away on the first and last row. */
+.player-selection-slot-button:focus-visible,
+.player-selection-slot .icon-button:focus-visible {
+  outline: 2px solid var(--highlight-blue-light);
+  outline-offset: -2px;
+}
+
+.player-selection-slot-name {
   overflow: hidden;
   white-space: nowrap;
   text-overflow: ellipsis;
-}
-
-.player-selection-slot > button[aria-pressed="true"] {
-  outline: 2px dashed var(--highlight-blue-light);
-  outline-offset: -2px;
 }
 
 .player-selection-empty {
   color: var(--color-darkerer);
 }
 
-.player-selection-clear {
+/*endregion*/
+/*region roster*/
+
+.player-selection-pick {
+  flex: 1 1 auto;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.player-selection-hint {
   flex: 0 0 auto;
-  padding: 0 12px;
-  font-size: 1.4em;
-  line-height: 1;
-  color: var(--color-dark);
-  background: none;
-  border: none;
-  cursor: pointer;
+  margin: 0;
+  font-size: 0.85em;
+  color: var(--color-darker);
+}
+
+.player-selection-none {
+  flex: 0 0 auto;
+  margin: 0;
+  color: var(--color-darker);
 }
 
 .player-selection-players {
   flex: 1 1 auto;
+  min-height: 0;
   overflow-y: auto;
   display: grid;
   grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
@@ -81,36 +140,60 @@
   align-content: start;
 }
 
-.player-selection-players > button {
+.player-selection-player {
   display: flex;
   align-items: center;
-  gap: 8px;
   min-width: 0;
-  padding: 4px;
+  height: 40px;
+  padding: 0;
   font: inherit;
   text-align: left;
   color: var(--color);
-  background-color: var(--highlight-blue-dark);
+  background-color: var(--input-bg);
   border: none;
   border-radius: var(--border-radius-small);
   cursor: pointer;
 }
 
-.player-selection-players > button > span {
+.player-selection-player:hover {
+  background-color: var(--highlight-blue-dark);
+}
+
+.player-selection-player > span {
+  padding: 0 8px;
   overflow: hidden;
   white-space: nowrap;
   text-overflow: ellipsis;
 }
 
-.player-selection-players > button.selected {
+/* Already standing on a slot: dimmed, outlined, still tappable to step off. */
+.player-selection-player-on {
   color: var(--color-darker);
   outline: 2px dashed var(--highlight-blue-light);
   outline-offset: -2px;
 }
 
+/* Restates the global ring so it beats the dashed marker on the same element,
+   and pulls it inside: the grid scrolls, and an offset ring would be clipped on
+   the first row and on both edge columns. */
+.player-selection-player:focus-visible {
+  outline: 2px solid var(--highlight-blue-light);
+  outline-offset: -2px;
+}
+
+/*endregion*/
+/*region foot*/
+
+.player-selection-foot {
+  flex: 0 0 auto;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding-bottom: env(safe-area-inset-bottom, 0px);
+}
+
 /* The shared add form brings its page margin along; the modal has its own. */
 .player-selection .players-add {
-  flex: 0 0 auto;
   margin: 0;
 }
 
@@ -119,11 +202,25 @@
 }
 
 .player-selection-actions {
-  flex: 0 0 auto;
   display: flex;
   gap: 8px;
 }
 
 .player-selection-actions > button {
   flex: 1 1 0;
+}
+
+/*endregion*/
+
+/* Landscape phones and an open on-screen keyboard: the fixed parts give up
+   what they can so the two scroll regions squeeze each other less. Nothing
+   moves — the actions stay pinned either way. */
+@media (max-height: 520px) {
+  .player-selection {
+    gap: 8px;
+  }
+
+  .player-selection-slots {
+    max-height: 28vh;
+  }
 }

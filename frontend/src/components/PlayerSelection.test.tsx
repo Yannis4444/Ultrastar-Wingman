@@ -279,6 +279,45 @@ test("a new player is created and put straight on the active slot", async () => 
   );
 });
 
+test("with a slot picked an already assigned player moves instead of dropping out", async () => {
+  renderSelection();
+  await screen.findByRole("button", { name: "Slot blue: empty" });
+
+  fireEvent.click(screen.getByRole("button", { name: "Alice" }));
+  expect(slot("blue")).toHaveAccessibleName("Slot blue: Alice");
+
+  // Picking green first makes the tap mean "stand here", not "step off".
+  fireEvent.click(slot("green"));
+  fireEvent.click(screen.getByRole("button", { name: "Alice" }));
+
+  expect(slot("green")).toHaveAccessibleName("Slot green: Alice");
+  expect(slot("blue")).toHaveAccessibleName("Slot blue: empty");
+});
+
+test("the hint says what a tap does, including on a full board", async () => {
+  listKaraokeSlots.mockResolvedValue({
+    data: { slots: [SLOTS[0]], player_counts: [1, 2] },
+  });
+  renderSelection();
+  await screen.findByRole("button", { name: "Slot blue: empty" });
+
+  expect(screen.getByText(/Tap a player to fill/)).toBeInTheDocument();
+
+  fireEvent.click(slot("blue"));
+  expect(screen.getByText(/Pick a player for the outlined slot/)).toBeVisible();
+
+  fireEvent.click(screen.getByRole("button", { name: "Alice" }));
+  expect(screen.getByText(/All slots are full/)).toBeVisible();
+});
+
+test("an empty roster says so instead of showing a void", async () => {
+  listPlayers.mockResolvedValue({ data: { players: [] } });
+  renderSelection();
+  await screen.findByRole("button", { name: "Slot blue: empty" });
+
+  expect(await screen.findByText(/No players yet/)).toBeInTheDocument();
+});
+
 test("the sing button in the song details opens the player selection", async () => {
   const client = new QueryClient({
     defaultOptions: { queries: { retry: false } },
