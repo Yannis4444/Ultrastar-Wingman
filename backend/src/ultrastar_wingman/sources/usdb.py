@@ -283,7 +283,14 @@ async def _download(
         _write_txt, work_dir / f"{target.name}.txt", _rewrite(txt, background is not None)
     )
 
-    await media.download_video(ytdlp, video_url, work_dir / "video.mp4", report, ffmpeg)
+    await media.download_video(
+        ytdlp,
+        video_url,
+        work_dir / "video.mp4",
+        report,
+        ffmpeg,
+        format_string=await media.video_format(session),
+    )
     await report(None, "extracting the audio")
     await media.extract_audio(ffmpeg, work_dir / "video.mp4", work_dir / "song.mp3")
     await report(None, "moving the song into the library")

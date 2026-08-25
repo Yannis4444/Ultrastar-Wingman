@@ -54,6 +54,38 @@ async def usdx_status(session: SessionDep, principal: PrincipalDep) -> UsdxStatu
     return UsdxStatusRead(configured=True, problems=[])
 
 
+class UsdxLaunchRead(BaseModel):
+    """Ultrastar Deluxe is up. `started` says whether this call is what started it."""
+
+    started: bool
+
+
+@router.post(
+    "/karaoke/usdx/launch",
+    response_model=UsdxLaunchRead,
+    # Starting a program on the karaoke PC is the host's business, and the button lives in
+    # the settings — so it is the settings' own manage right.
+    dependencies=[Depends(require("settings.manage"))],
+    responses={
+        400: {"description": "USDX is not configured, or refused to start."},
+        409: {"description": "A song is playing — that USDX is busy."},
+    },
+)
+async def launch_usdx(session: SessionDep) -> UsdxLaunchRead:
+    """Start Ultrastar Deluxe on its own, so the host can change the settings only USDX has
+    (the microphones). Asking again while it is up is not an error: `started` is then false.
+    """
+    try:
+        return UsdxLaunchRead(started=await service.open_usdx(session))
+    except service.AlreadyPlayingError as error:
+        raise HTTPException(status_code=409, detail="already_playing") from error
+    except UsdxPathsError as error:
+        raise HTTPException(
+            status_code=400,
+            detail={"error": "usdx_not_configured", "problems": error.problems},
+        ) from error
+
+
 @router.get(
     "/karaoke/colors",
     response_model=ColorList,

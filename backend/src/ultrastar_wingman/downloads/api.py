@@ -12,6 +12,7 @@ from ..sources.base import UnknownSourceError
 from . import service
 from .model import Download
 from .schema import DownloadList, DownloadRead, read_download
+from .video_quality import PRESETS
 
 logger = logging.getLogger(__name__)
 
@@ -26,6 +27,41 @@ class DownloadCreate(BaseModel):
     source_song_id: str
     # Download again although the library already has the song (a broken or better version).
     force: bool = False
+
+
+class VideoQualityPresetRead(BaseModel):
+    """A ready-made value for `downloads.video_format`, for the settings UI to offer."""
+
+    key: str
+    label: str
+    description: str
+    video_format: str
+
+
+class VideoQualityPresetList(BaseModel):
+    presets: list[VideoQualityPresetRead]
+
+
+@router.get(
+    "/downloads/video-quality",
+    response_model=VideoQualityPresetList,
+    # Read by the settings UI, so it goes with the settings and not with the queue.
+    dependencies=[Depends(require("settings.view"))],
+)
+async def list_video_quality_presets() -> VideoQualityPresetList:
+    """The download quality presets and the yt-dlp format string each one stands for. The
+    single source of truth — no client may hardcode a format string."""
+    return VideoQualityPresetList(
+        presets=[
+            VideoQualityPresetRead(
+                key=preset.key,
+                label=preset.label,
+                description=preset.description,
+                video_format=preset.video_format,
+            )
+            for preset in PRESETS
+        ]
+    )
 
 
 @router.get(

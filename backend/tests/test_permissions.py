@@ -83,7 +83,11 @@ ROUTES: list[tuple[str, str, str, dict[str, object] | None]] = [
     ("usdb.search", "GET", "/api/v1/sources/usdb/search", None),
     ("usdb.search", "GET", "/api/v1/sources/usdb/songs/1/cover", None),
     ("settings.view", "GET", "/api/v1/settings", None),
+    ("settings.view", "GET", "/api/v1/downloads/video-quality", None),
     ("settings.manage", "PATCH", "/api/v1/settings/usdb.username", {"value": "singer"}),
+    # Starting a program on the karaoke PC is the host's business. Nothing is launched
+    # here: USDX is not configured in this fixture, so a permitted caller gets a 400.
+    ("settings.manage", "POST", "/api/v1/karaoke/usdx/launch", None),
     ("users.manage", "GET", "/api/v1/users", None),
     ("users.manage", "PATCH", "/api/v1/users/nope", {"role": "user"}),
     ("users.manage", "DELETE", "/api/v1/users/nope", None),

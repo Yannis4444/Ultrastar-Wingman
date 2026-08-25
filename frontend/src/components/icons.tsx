@@ -77,6 +77,11 @@ const PATHS = {
   // is worn as a 14px badge on the avatar, where hairlines disappear.
   image:
     "M3 5h18v14H3V5Zm2 12h11l-5.5-7.5ZM17 6.3a1.7 1.7 0 1 0 0 3.4 1.7 1.7 0 1 0 0-3.4Z",
+  // The power symbol: an almost-closed ring (outer arc one way, inner arc the other, so
+  // the nonzero fill rule punches the middle out) with the gap at the top, plus the stem
+  // through it. Arc endpoints sit at 55° and 125°, which is what leaves the gap.
+  power:
+    "M7.12 5.04A8.5 8.5 0 1 0 16.88 5.04L15.44 7.09A6 6 0 1 1 8.56 7.09ZM11 3h2v9.5h-2Z",
   // The die face is solid; the five pips are wound the other way round so the
   // nonzero fill rule punches them out (same trick as `info` and `clock`).
   dice: "M6 3h12a3 3 0 0 1 3 3v12a3 3 0 0 1-3 3H6a3 3 0 0 1-3-3V6a3 3 0 0 1 3-3Zm2 3.4a1.6 1.6 0 1 0 0 3.2 1.6 1.6 0 1 0 0-3.2Zm8 0a1.6 1.6 0 1 0 0 3.2 1.6 1.6 0 1 0 0-3.2Zm-4 4a1.6 1.6 0 1 0 0 3.2 1.6 1.6 0 1 0 0-3.2Zm-4 4a1.6 1.6 0 1 0 0 3.2 1.6 1.6 0 1 0 0-3.2Zm8 0a1.6 1.6 0 1 0 0 3.2 1.6 1.6 0 1 0 0-3.2Z",

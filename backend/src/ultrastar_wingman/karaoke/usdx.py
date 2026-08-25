@@ -73,6 +73,22 @@ class UsdxLauncher:
             self._monitor = asyncio.create_task(self._wait_for_exit(self._process))
             return Launch(pid=self._process.pid, song_dir=effective_dir)
 
+    async def start_standalone(self) -> Launch:
+        """USDX with no arguments at all: the host wants its own menus (microphones live
+        there). Deliberately no `write_player_config` — the configuration they are about to
+        change by hand must not be overwritten under them."""
+        async with self._lock:
+            if self.is_running:
+                raise RuntimeError("USDX is already running")
+            command = [str(self._paths.executable)]
+            logger.info("starting USDX for its own settings: %s", command)
+            self._process = await asyncio.create_subprocess_exec(
+                *command,
+                creationflags=CREATE_NO_WINDOW if sys.platform == "win32" else 0,
+            )
+            self._monitor = asyncio.create_task(self._wait_for_exit(self._process))
+            return Launch(pid=self._process.pid, song_dir=None)
+
     async def stop(self) -> None:
         async with self._lock:
             if self._process is not None and self._process.returncode is None:

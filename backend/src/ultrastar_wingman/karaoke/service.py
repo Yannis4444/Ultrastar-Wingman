@@ -85,6 +85,14 @@ class AlreadyPlayingError(RuntimeError):
 
 
 @dataclass
+class _Standalone:
+    """USDX started from the settings, with no song: the host is in its menus."""
+
+    launcher: KaraokeLauncher
+    exited: asyncio.Event
+
+
+@dataclass
 class _Running:
     """Everything the exit handler needs, captured at launch time."""
 
@@ -100,6 +108,8 @@ class _Running:
 
 # Module state on purpose: there is exactly one USDX and one song playing on this machine.
 _running: _Running | None = None
+# USDX opened for its own settings, if any. Never at the same time as `_running`.
+_standalone: _Standalone | None = None
 # The `finished` event of the most recent sing, kept after it ended so waiting for the end
 # of a song that is already over does not hang.
 _last_finished: asyncio.Event | None = None
@@ -148,6 +158,13 @@ async def start_sing(
             # Finish the old run completely (scores imported, `karaoke.ended` sent) before
             # the new one exists, so its exit handler cannot clobber the new state.
             await _stop_and_wait(_running)
+        if _standalone is not None and _standalone.launcher.is_running:
+            # USDX in its own menus is in the way exactly like a running song: one process
+            # at a time, and this sing is about to rewrite the config file it has open. Same
+            # error, so the phone that asked gets the same "replace it?" it knows.
+            if not force:
+                raise AlreadyPlayingError
+            await _close_standalone(_standalone)
 
         paths = await resolve_usdx_paths(session)
         snapshot = await usdx_scores.latest_date(paths.ultrastar_db)
@@ -209,6 +226,54 @@ async def start_sing(
         return running.sing
 
 
+async def open_usdx(session: AsyncSession) -> bool:
+    """Start USDX on its own so the host can change what only USDX itself can change — the
+    microphones above all.
+
+    `True` when this call started it, `False` when it was already up (asking twice is not a
+    mistake). Raises `AlreadyPlayingError` while a song is playing — that USDX is busy — and
+    `UsdxPathsError` when USDX is not configured or refuses to start.
+    """
+    global _standalone
+    async with _lock:
+        if _running is not None:
+            raise AlreadyPlayingError
+        if _standalone is not None and _standalone.launcher.is_running:
+            return False
+        paths = await resolve_usdx_paths(session)
+        launcher = UsdxLauncher(paths)
+        standalone = _Standalone(launcher=launcher, exited=asyncio.Event())
+        launcher.on_exit = lambda: _standalone_exited(standalone)
+        try:
+            await launcher.start_standalone()
+        except OSError as error:
+            # Same shape as a misconfigured path: the user has to fix a setting.
+            raise UsdxPathsError([f"cannot start '{paths.executable}': {error}"]) from error
+        _standalone = standalone
+        return True
+
+
+def usdx_is_open() -> bool:
+    """Whether USDX is standing in its own menus, started by `open_usdx`."""
+    return _standalone is not None and _standalone.launcher.is_running
+
+
+async def _standalone_exited(standalone: _Standalone) -> None:
+    """The launcher's monitor task, once the host closed USDX again. Takes no lock on
+    purpose: a forced sing waits for this event while holding `_lock`."""
+    global _standalone
+    if _standalone is standalone:
+        _standalone = None
+    standalone.exited.set()
+
+
+async def _close_standalone(standalone: _Standalone) -> None:
+    """Kill the settings USDX and wait for it to be gone — starting the next one while the
+    old process is still on screen is how two USDX windows happen."""
+    await standalone.launcher.stop()
+    await standalone.exited.wait()
+
+
 async def stop_sing() -> None:
     """Kill the running song and wait for its scores to be imported. Idempotent."""
     async with _lock:
@@ -226,9 +291,15 @@ async def wait_for_sing_end() -> None:
 
 async def shutdown() -> None:
     """Wingman is going down: kill the song and let the import finish while the database
-    is still there. The alternative — leaving USDX running — loses the scores."""
-    global _last_finished
+    is still there. The alternative — leaving USDX running — loses the scores. A settings
+    USDX goes too: an orphan of a process we started would still hold the config file, and
+    the next start would know nothing about it."""
+    global _last_finished, _standalone
     await stop_sing()
+    async with _lock:
+        if _standalone is not None:
+            await _close_standalone(_standalone)
+        _standalone = None
     _last_finished = None
 
 

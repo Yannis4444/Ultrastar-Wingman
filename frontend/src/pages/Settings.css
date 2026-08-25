@@ -7,15 +7,24 @@
   color: var(--color);
 }
 
+/* Sections are told apart by air, not by boxes: 24px between them against the
+   12px between two fields inside one. */
+.settings-group {
+  margin-top: 24px;
+}
+
 .settings-group > summary {
   display: flex;
   align-items: center;
   gap: 8px;
   min-height: 44px;
-  margin: 16px 16px 0 16px;
-  padding: 8px 0;
-  font-size: 1em;
+  margin: 0 16px;
+  padding: 4px 0;
+  font-size: 0.8em;
   font-weight: bold;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--color-dark);
   border-bottom: 1px solid var(--input-border-color);
   cursor: pointer;
   list-style: none;
@@ -23,6 +32,13 @@
 
 .settings-group > summary::-webkit-details-marker {
   display: none;
+}
+
+/* 24px per the section-header rule, and its own font-size: the summary text is
+   0.8em, which the glyph must not shrink with. */
+.settings-group-icon {
+  font-size: 24px;
+  color: var(--color-dark);
 }
 
 /* Chevron drawn from the border, no icon needed. */
@@ -46,11 +62,11 @@
   outline-offset: -2px;
 }
 
-.settings-group-count {
-  color: var(--color-darker);
-  font-weight: normal;
-  font-size: 0.85em;
-  font-variant-numeric: tabular-nums;
+/* The section header already closed the group off; a hairline under its last
+   row would only float in the gap to the next one. */
+.settings-group > .setting-field:last-child,
+.settings-group > :last-child > .setting-field:last-of-type {
+  border-bottom: none;
 }
 
 @media (prefers-reduced-motion: reduce) {

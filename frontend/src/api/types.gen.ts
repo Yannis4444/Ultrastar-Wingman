@@ -844,6 +844,18 @@ export type UsdbStatus = {
 };
 
 /**
+ * UsdxLaunchRead
+ *
+ * Ultrastar Deluxe is up. `started` says whether this call is what started it.
+ */
+export type UsdxLaunchRead = {
+    /**
+     * Started
+     */
+    started: boolean;
+};
+
+/**
  * UsdxStatusRead
  */
 export type UsdxStatusRead = {
@@ -925,6 +937,40 @@ export type ValidationError = {
     ctx?: {
         [key: string]: unknown;
     };
+};
+
+/**
+ * VideoQualityPresetList
+ */
+export type VideoQualityPresetList = {
+    /**
+     * Presets
+     */
+    presets: Array<VideoQualityPresetRead>;
+};
+
+/**
+ * VideoQualityPresetRead
+ *
+ * A ready-made value for `downloads.video_format`, for the settings UI to offer.
+ */
+export type VideoQualityPresetRead = {
+    /**
+     * Key
+     */
+    key: string;
+    /**
+     * Label
+     */
+    label: string;
+    /**
+     * Description
+     */
+    description: string;
+    /**
+     * Video Format
+     */
+    video_format: string;
 };
 
 /**
@@ -1577,6 +1623,33 @@ export type UsdxStatusResponses = {
 
 export type UsdxStatusResponse = UsdxStatusResponses[keyof UsdxStatusResponses];
 
+export type LaunchUsdxData = {
+    body?: never;
+    path?: never;
+    query?: never;
+    url: '/api/v1/karaoke/usdx/launch';
+};
+
+export type LaunchUsdxErrors = {
+    /**
+     * USDX is not configured, or refused to start.
+     */
+    400: unknown;
+    /**
+     * A song is playing — that USDX is busy.
+     */
+    409: unknown;
+};
+
+export type LaunchUsdxResponses = {
+    /**
+     * Successful Response
+     */
+    200: UsdxLaunchRead;
+};
+
+export type LaunchUsdxResponse = LaunchUsdxResponses[keyof LaunchUsdxResponses];
+
 export type ListKaraokeColorsData = {
     body?: never;
     path?: never;
@@ -1681,6 +1754,22 @@ export type StopSingingResponses = {
 };
 
 export type StopSingingResponse = StopSingingResponses[keyof StopSingingResponses];
+
+export type ListVideoQualityPresetsData = {
+    body?: never;
+    path?: never;
+    query?: never;
+    url: '/api/v1/downloads/video-quality';
+};
+
+export type ListVideoQualityPresetsResponses = {
+    /**
+     * Successful Response
+     */
+    200: VideoQualityPresetList;
+};
+
+export type ListVideoQualityPresetsResponse = ListVideoQualityPresetsResponses[keyof ListVideoQualityPresetsResponses];
 
 export type ListDownloadsData = {
     body?: never;

@@ -16,8 +16,9 @@ from sqlalchemy.orm import Mapped, mapped_column
 from .db import Base
 
 # The definitions live here, so a rule that only a domain module can state has to be
-# imported here. `karaoke.slots` is a leaf on purpose — it must never import this module
-# back, or the karaoke service (which does) closes the circle.
+# imported here. `karaoke.slots` and `downloads.video_quality` are leaves on purpose — they
+# must never import this module back, or the services that do close the circle.
+from .downloads.video_quality import DEFAULT_VIDEO_FORMAT, validate_video_format
 from .karaoke.slots import DEFAULT_SLOT_COLORS_SETTING, validate_slot_colors
 
 logger = logging.getLogger(__name__)
@@ -278,6 +279,21 @@ register(
             "ffmpeg executable, used to extract the audio track from the video. The default "
             "means: the system's ffmpeg, or a copy Wingman downloads itself (Windows only)."
         ),
+    )
+)
+register(
+    SettingDefinition(
+        key="downloads.video_format",
+        value_type=str,
+        default=DEFAULT_VIDEO_FORMAT,
+        group="Downloads",
+        # The presets and the string each one stands for are what the settings UI puts on
+        # the screen; repeating them here would only be the same list twice.
+        description=(
+            "Which YouTube stream yt-dlp downloads, as a yt-dlp format string. A video is "
+            "always downloaded — Ultrastar Deluxe plays it, and the mp3 is extracted from it."
+        ),
+        validate=validate_video_format,
     )
 )
 register(
