@@ -12,6 +12,8 @@
 #CREATOR:wingman
 #BPM:230
 #GAP:8000
+#START:12.5
+#END:210000
 : 0 4 0 Doh
 - 10
 E

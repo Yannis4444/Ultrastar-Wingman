@@ -11,6 +11,8 @@ class SongRead(BaseModel):
     source: str
     title: str
     artist: str
+    # The span USDX plays (`#START`/`#END` applied), so a progress bar built on it lines
+    # up with what the TV shows.
     duration_seconds: int | None
     has_video: bool
     language: str | None
