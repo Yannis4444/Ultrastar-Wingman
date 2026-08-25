@@ -39,7 +39,7 @@ beforeEach(() => {
   health.mockResolvedValue({
     data: { name: "Ultrastar Wingman", version: "2.1.0" },
   });
-  getMe.mockResolvedValue(meResponse(["songs.view"]));
+  getMe.mockResolvedValue(meResponse(["songs.view", "wishlist.view"]));
   usdxStatus.mockResolvedValue({ data: { configured: true, problems: [] } });
   getCurrentSing.mockResolvedValue({ data: { sing: null } });
   listKaraokeColors.mockResolvedValue({ data: { colors: [] } });
@@ -81,4 +81,15 @@ test("the spinner is an entry to its own page, not a reel on Home", async () => 
   expect(
     screen.queryByRole("button", { name: "Spin" }),
   ).not.toBeInTheDocument();
+});
+
+test("the random song entry comes before the wishlist", async () => {
+  renderHome();
+
+  const entry = await screen.findByRole("link", { name: "Random song" });
+  const wishlist = await screen.findByRole("heading", { name: "Wishlist" });
+
+  expect(
+    entry.compareDocumentPosition(wishlist) & Node.DOCUMENT_POSITION_FOLLOWING,
+  ).toBeTruthy();
 });
