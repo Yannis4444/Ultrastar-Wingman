@@ -1,5 +1,11 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { Fragment, useRef, useState } from "react";
+import {
+  Fragment,
+  useEffect,
+  useRef,
+  useState,
+  type CSSProperties,
+} from "react";
 import type { PermissionsRead } from "../api";
 import {
   getPermissionsOptions,
@@ -7,19 +13,96 @@ import {
   updateRolePermissionsMutation,
 } from "../api/@tanstack/react-query.gen";
 import { errorMessage } from "../errors";
+import { Icon, type IconName } from "./icons";
 import "./RolePermissions.css";
 
 /** The backend hardwires admin to every capability, so it is never editable. */
 const LOCKED_ROLE = "admin";
 
-/** What a role may do: pick a role, then one flat row per capability. Needs
- * `permissions.manage`; the page around it gates. */
+/** Column order. A role the backend grows later is appended instead of dropped,
+ * so a new role still reaches this table without a frontend change. */
+const ROLE_ORDER = ["guest", "user", "trusted"];
+
+/** One glyph per section, so a group is found by shape before it is read.
+ * Existing icon names only. */
+const GROUP_ICONS: Record<string, IconName> = {
+  songs: "music",
+  karaoke: "mic",
+  players: "users",
+  wishlist: "playlist",
+  playlists: "list",
+  downloads: "download",
+  usdb: "globe",
+  stats: "chart",
+  settings: "gear",
+  users: "user",
+  permissions: "shield",
+};
+
+/** Groups whose name is not simply their capitalized prefix. */
+const GROUP_NAMES: Record<string, string> = { usdb: "USDB" };
+
+/**
+ * What a capability actually lets somebody do, in the words the user handbook
+ * uses. The row itself only carries the verb (the group heading carries the
+ * noun), which is short enough to be ambiguous on its own. A capability with no
+ * entry here — one the backend grew after this file — still renders and is
+ * still editable, just without the sentence.
+ */
+const DESCRIPTIONS: Record<string, string> = {
+  "songs.view": "See the song list and open a song.",
+  "songs.rescan": "Read the song folders again to pick up new files.",
+  "karaoke.sing": "Start a song on the Ultrastar Deluxe machine.",
+  "karaoke.stop": "Stop the song that is running now.",
+  "players.view": "See the players, and pick who is singing.",
+  "players.manage": "Add, rename and delete players and their pictures.",
+  "wishlist.view": "See what everybody wished for.",
+  "wishlist.add": "Put a song on the wishlist, and take it off again.",
+  "playlists.view": "See shared playlists and the songs in them.",
+  "playlists.manage": "Create and edit own playlists.",
+  "downloads.view": "See the download queue.",
+  "downloads.manage": "Start downloads, retry and clear them.",
+  "usdb.search": "Search usdb.animux.de for new songs.",
+  "stats.view": "See the scores and the party statistics.",
+  "stats.manage": "Rename a party in the statistics.",
+  "settings.view": "See Wingman's settings.",
+  "settings.manage": "Change every setting, the USDB login included.",
+  "users.manage": "Change what role other accounts have, and delete them.",
+  "permissions.manage": "Change this table.",
+};
+
+/**
+ * Why a grant would do nothing, or `null` when it works. The backend accepts
+ * every capability for every editable role, but a playlist belongs to an
+ * account: creating one goes through `account_id` (401 without an account) and
+ * every change through an ownership check a guest can never pass. Ticking it for
+ * `guest` would therefore be a lie, so the box is disabled — unless the value is
+ * already on, which has to stay clearable.
+ */
+function inertReason(role: string, capability: string): string | null {
+  return role === "guest" && capability === "playlists.manage"
+    ? "A playlist belongs to an account, so a guest has none to create or edit."
+    : null;
+}
+
+/** Ids have to survive in an `aria-describedby` list, where a space separates
+ * entries — dots are fine, but keep the shape simple. */
+function rowId(capability: string): string {
+  return `perm-${capability.replace(".", "-")}`;
+}
+
+/** The whole role/capability matrix: one row per capability, one column per
+ * editable role. Needs `permissions.manage`; the page around it gates. */
 export default function RolePermissions() {
   const queryClient = useQueryClient();
   const key = getPermissionsQueryKey();
   const permissions = useQuery(getPermissionsOptions());
-  const [picked, setPicked] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
+  // The row that was last written and how it went, for the acknowledgement next
+  // to its name — the notice above the matrix is out of sight from most rows.
+  const [ack, setAck] = useState<{ capability: string; ok: boolean } | null>(
+    null,
+  );
   // The snapshot to restore when a PUT fails. A ref, not the mutation context,
   // because the generated mutation options fix the context type to `unknown`.
   const rollback = useRef<PermissionsRead | undefined>(undefined);
@@ -50,11 +133,22 @@ export default function RolePermissions() {
     },
   });
 
+  // "Saved" is an acknowledgement, not a state — it fades after a moment. A
+  // failure stays until the next tick: it is the reason the box jumped back.
+  useEffect(() => {
+    if (ack === null || !ack.ok) return;
+    const timer = setTimeout(() => setAck(null), 2000);
+    return () => clearTimeout(timer);
+  }, [ack]);
+
   const roles = permissions.data?.roles;
   const editableRoles = Object.keys(roles ?? {}).filter(
     (role) => role !== LOCKED_ROLE,
   );
-  const selected = picked ?? editableRoles[0];
+  const columns = [
+    ...ROLE_ORDER.filter((role) => editableRoles.includes(role)),
+    ...editableRoles.filter((role) => !ROLE_ORDER.includes(role)),
+  ];
   // Admin always holds everything, which makes its list the full capability
   // list; sorted, so same-prefix capabilities sit together for grouping.
   const capabilities = [...(roles?.[LOCKED_ROLE] ?? [])].sort();
@@ -68,14 +162,21 @@ export default function RolePermissions() {
 
   const toggle = (role: string, capability: string, granted: boolean): void => {
     const current = roles?.[role] ?? [];
-    save.mutate({
-      path: { role },
-      body: {
-        capabilities: granted
-          ? [...current, capability]
-          : current.filter((name) => name !== capability),
+    save.mutate(
+      {
+        path: { role },
+        body: {
+          capabilities: granted
+            ? [...current, capability]
+            : current.filter((name) => name !== capability),
+        },
       },
-    });
+      // Per row, so the acknowledgement lands where the tick happened.
+      {
+        onSuccess: () => setAck({ capability, ok: true }),
+        onError: () => setAck({ capability, ok: false }),
+      },
+    );
   };
 
   return (
@@ -86,51 +187,107 @@ export default function RolePermissions() {
         </p>
       )}
 
-      {roles && selected !== undefined && (
-        <>
-          <div className="perm-roles" role="group" aria-label="Role">
-            {editableRoles.map((role) => (
-              <button
-                type="button"
-                key={role}
-                className={role === selected ? "active" : ""}
-                aria-pressed={role === selected}
-                onClick={() => setPicked(role)}
-              >
+      {roles && columns.length > 0 && (
+        <div
+          className="perm-matrix"
+          style={{ "--perm-roles": columns.length } as CSSProperties}
+        >
+          <p className="perm-hint">
+            Every tick is saved right away. Admins are not in the table: they
+            always hold every right, so nothing here can lock the host out.
+          </p>
+          {/* Decoration: every checkbox names its own role and capability. */}
+          <div className="perm-head" aria-hidden="true">
+            <span />
+            {columns.map((role) => (
+              <span key={role} className="perm-head-role">
                 {role}
-              </button>
+              </span>
             ))}
           </div>
-          <p className="perm-hint">
-            Admins can always do everything. Pick a role to change what it may
-            do.
-          </p>
           {groups.map(([group, names]) => (
             <Fragment key={group}>
-              <h2 className="perm-group">{group}</h2>
+              <h2 className="perm-group">
+                <Icon
+                  name={GROUP_ICONS[group] ?? "gear"}
+                  className="perm-group-icon"
+                />
+                {GROUP_NAMES[group] ?? group}
+              </h2>
               <ul className="perm-list">
-                {names.map((capability) => (
-                  <li key={capability}>
-                    <label className="perm-row">
-                      {/* The group heading carries the noun, the row the verb. */}
-                      <span className="perm-name">
-                        {capability.slice(capability.indexOf(".") + 1)}
-                      </span>
-                      <input
-                        type="checkbox"
-                        aria-label={`${capability} for ${selected}`}
-                        checked={roles[selected].includes(capability)}
-                        onChange={(event) =>
-                          toggle(selected, capability, event.target.checked)
-                        }
-                      />
-                    </label>
-                  </li>
-                ))}
+                {names.map((capability) => {
+                  const description = DESCRIPTIONS[capability];
+                  const id = rowId(capability);
+                  return (
+                    <li key={capability} className="perm-row">
+                      <div className="perm-label">
+                        <span className="perm-line">
+                          {/* The group heading carries the noun, the row the
+                              verb; the description spells both out. */}
+                          <span className="perm-name">
+                            {capability.slice(capability.indexOf(".") + 1)}
+                          </span>
+                          {ack?.capability === capability &&
+                            (ack.ok ? (
+                              <span className="perm-saved" role="status">
+                                Saved
+                              </span>
+                            ) : (
+                              // No live region: the notice above the matrix
+                              // already announces the failure.
+                              <span className="perm-failed">Not saved</span>
+                            ))}
+                        </span>
+                        {description !== undefined && (
+                          <p className="perm-description" id={id}>
+                            {description}
+                          </p>
+                        )}
+                      </div>
+                      {columns.map((role) => {
+                        const granted =
+                          roles[role]?.includes(capability) ?? false;
+                        const reason = inertReason(role, capability);
+                        const locked = reason !== null && !granted;
+                        const reasonId = `${id}-${role}-reason`;
+                        const describedBy = [
+                          description === undefined ? null : id,
+                          locked ? reasonId : null,
+                        ].filter((part) => part !== null);
+                        return (
+                          // A label, so the tap target is the whole 44px cell
+                          // and not just the 22px box.
+                          <label className="perm-cell" key={role}>
+                            <input
+                              type="checkbox"
+                              aria-label={`${capability} for ${role}`}
+                              aria-describedby={
+                                describedBy.length === 0
+                                  ? undefined
+                                  : describedBy.join(" ")
+                              }
+                              checked={granted}
+                              disabled={locked}
+                              title={reason ?? undefined}
+                              onChange={(event) =>
+                                toggle(role, capability, event.target.checked)
+                              }
+                            />
+                            {locked && (
+                              <span className="visually-hidden" id={reasonId}>
+                                {reason}
+                              </span>
+                            )}
+                          </label>
+                        );
+                      })}
+                    </li>
+                  );
+                })}
               </ul>
             </Fragment>
           ))}
-        </>
+        </div>
       )}
     </>
   );

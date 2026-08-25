@@ -151,17 +151,25 @@ account with its role, and a way to change it or delete it.
 
 ## Change what a role may do
 
-**User → Permissions** is the table above made editable. Pick **guest**,
-**user** or **trusted** at the top, then tick or untick what that role may do.
-Every tick is saved right away and takes effect immediately, for everybody who
-is already looking at a page.
+**User → Permissions** is the table above made editable, all of it at once: one
+row per right, one column for **guest**, **user** and **trusted**. Rights that
+belong together stand under one heading — *songs*, *karaoke*, *players*,
+*wishlist*, *playlists*, *downloads*, *USDB*, *stats*, *settings*, *users*,
+*permissions* — and under each row stands in one line what it allows. Every tick
+is saved right away and takes effect immediately, for everybody who is already
+looking at a page.
 
 Useful in practice:
 
-- A quiet party: untick *Start a song* for **guest** so only accounts start songs.
+- A quiet party: untick *sing* under **karaoke** for **guest** so only accounts
+  start songs.
 - A helper who should download songs: give their account the **trusted** role, or
   tick the download rights for **user**.
 
+One box cannot be ticked: *manage* under **playlists** for **guest**. A playlist
+belongs to an account, so somebody without one has none to create or edit — the
+box is greyed out and says so when you point at it.
+
 !!! note
-    The **admin** row cannot be changed. An administrator always holds every
-    right, so no mistake in this table can lock the host out of their own app.
+    There is no **admin** column. An administrator always holds every right, so
+    no mistake in this table can lock the host out of their own app.

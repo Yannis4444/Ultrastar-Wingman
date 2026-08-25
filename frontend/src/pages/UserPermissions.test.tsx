@@ -51,10 +51,8 @@ test("the back link leads to the user page and the roles load", async () => {
   expect(
     screen.getByRole("heading", { name: "Permissions" }),
   ).toBeInTheDocument();
-  expect(
-    await screen.findByRole("button", { name: "guest" }),
-  ).toBeInTheDocument();
-  expect(screen.getByLabelText("songs.view for guest")).toBeChecked();
+  // One matrix, no role picker: the guest column is simply there.
+  expect(await screen.findByLabelText("songs.view for guest")).toBeChecked();
 });
 
 test("without permissions.manage the page explains itself and asks nothing", async () => {

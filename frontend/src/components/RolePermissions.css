@@ -2,72 +2,158 @@
   margin: 8px 16px;
 }
 
-/* Same segmented-control look as .login-tabs: one visual language. */
-.perm-roles {
-  display: flex;
-  gap: 8px;
-  margin: 16px;
-}
-
-.perm-roles button {
-  flex: 1 1 0;
-  min-height: 40px;
-  font: inherit;
-  color: var(--color-darker);
-  background: none;
-  border: none;
-  border-bottom: 2px solid var(--input-border-color);
-  cursor: pointer;
-}
-
-.perm-roles button.active {
-  color: var(--color);
-  border-bottom-color: var(--highlight-blue-light);
-}
-
 .perm-hint {
-  margin: 0 16px;
+  margin: 16px;
   color: var(--color-darker);
   font-size: 0.85em;
 }
 
-.perm-group {
+/* Header and rows share one template, so the three role columns line up down
+   the page without a table wrapping the group headings. */
+.perm-head,
+.perm-row {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) repeat(var(--perm-roles, 3), 44px);
+  align-items: center;
+  column-gap: 4px;
+}
+
+/* One header for the whole matrix: it follows the scroll instead of being
+   repeated under every group. The 16px gutter is padding, not margin, so the
+   background repaints the full width the rows scroll under. */
+.perm-head {
+  position: sticky;
+  top: 0;
+  z-index: 1;
+  padding: 6px 16px;
+  background-color: var(--bg);
+  border-bottom: 1px solid var(--input-border-color);
+}
+
+.perm-head-role {
+  font-size: 0.75em;
+  color: var(--color-darker);
+  text-align: center;
   text-transform: capitalize;
 }
 
+/* Same section idiom as the settings groups: uppercase, quiet, hairline under
+   it — a header, not a card. */
+.perm-group {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-height: 44px;
+  margin: 24px 16px 0;
+  padding: 4px 0;
+  font-size: 0.8em;
+  font-weight: bold;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--color-dark);
+  border-bottom: 1px solid var(--input-border-color);
+}
+
+/* 24px per the section-header rule, and its own font-size: the heading text is
+   0.8em, which the glyph must not shrink with. */
+.perm-group-icon {
+  font-size: 24px;
+  color: var(--color-dark);
+}
+
 .perm-list {
-  margin: 0 16px;
+  margin: 0;
   padding: 0;
   list-style: none;
 }
 
-/* The label is the whole row, so the hit target is the full 48px line. */
 .perm-row {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 12px;
-  min-height: 48px;
+  min-height: 44px;
+  margin: 0 16px;
   padding: 8px 0;
   border-bottom: 1px solid var(--input-border-color);
-  cursor: pointer;
 }
 
-.perm-list > li:last-child > .perm-row {
+/* The next group heading already closes the group off; a hairline over its
+   24px gap would only float there. */
+.perm-list > .perm-row:last-child {
   border-bottom: none;
 }
 
+.perm-label {
+  min-width: 0;
+}
+
+.perm-line {
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
+  min-width: 0;
+}
+
 .perm-name {
-  flex: 1 1 auto;
   min-width: 0;
   overflow: hidden;
   white-space: nowrap;
   text-overflow: ellipsis;
+  text-transform: capitalize;
 }
 
-.perm-row input {
+.perm-saved {
   flex: 0 0 auto;
+  color: var(--highlight-blue-light);
+  font-size: 0.8em;
+}
+
+/* The failure has to be readable where the tick was, because the notice above
+   the matrix is off-screen for every row but the first few. Red is fill only,
+   so the word rides on it. */
+.perm-failed {
+  flex: 0 0 auto;
+  padding: 0 6px;
+  color: var(--color);
+  font-size: 0.8em;
+  background-color: var(--highlight-red-dark);
+  border-radius: var(--border-radius-small);
+}
+
+.perm-description {
+  margin: 2px 0 0;
+  color: var(--color-darker);
+  font-size: 0.8em;
+}
+
+/* The cell is the target, the box only its mark. */
+.perm-cell {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  align-self: stretch;
+  min-height: 44px;
+  cursor: pointer;
+}
+
+/* Shows how big the target really is — the same hover fill the icon buttons
+   use. */
+.perm-cell:hover:has(input:enabled) {
+  background-color: var(--highlight-blue-dark);
+  border-radius: var(--border-radius-small);
+}
+
+.perm-cell:has(input:disabled) {
+  cursor: default;
+}
+
+.perm-cell input {
   width: 22px;
   height: 22px;
   accent-color: var(--highlight-blue-light);
+  cursor: inherit;
+}
+
+/* A grant the backend could not honour: an empty box dims, `accent-color` only
+   paints a tick, so the box itself has to fade — otherwise it is an ordinary
+   off box that silently refuses the click. */
+.perm-cell input:disabled {
+  opacity: 0.45;
 }
