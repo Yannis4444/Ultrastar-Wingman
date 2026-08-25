@@ -46,8 +46,10 @@
   color: var(--color);
 }
 
+/* The card follows the sorting controls, whose last radio already contributes
+   4px of padding below its text — 12px + that 4px is the page's 16px rhythm. */
 .scores-chart {
-  margin: 16px 16px 0 16px;
+  margin: 12px 16px 0 16px;
   padding: 12px;
   background-color: var(--tile-bg);
   border-radius: var(--border-radius);

@@ -337,6 +337,8 @@ export default function Scores() {
             players={players}
           />
 
+          {controls}
+
           {showChart && (
             <div className="scores-chart">
               <h2 className="scores-chart-title">{chartTitle}</h2>
@@ -347,8 +349,6 @@ export default function Scores() {
               />
             </div>
           )}
-
-          {controls}
 
           <ScoreGroupList
             groups={groups}
