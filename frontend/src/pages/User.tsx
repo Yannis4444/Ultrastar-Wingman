@@ -1,9 +1,8 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useState } from "react";
 import { Link, useSearchParams } from "react-router-dom";
 import type { PlayerRead } from "../api";
 import {
-  deletePlayerMutation,
   listFavoritesOptions,
   listPlayerScoresOptions,
   listPlayersOptions,
@@ -12,8 +11,6 @@ import {
   setPlayerAvatarMutation,
 } from "../api/@tanstack/react-query.gen";
 import { useAuth } from "../auth";
-import AddPlayerForm from "../components/AddPlayerForm";
-import ConfirmModal from "../components/ConfirmModal";
 import IconStat from "../components/IconStat";
 import { Icon, type IconName } from "../components/icons";
 import LoginForm from "../components/LoginForm";
@@ -32,10 +29,6 @@ const AVATAR_MESSAGES: Record<string, string> = {
   unsupported_avatar_type:
     "Only jpeg, png and webp images work — and the file has to really be one.",
 };
-
-/** Where an avatar failure belongs when it came from the identity tile rather
- * than from a row of the player list. Never a player id. */
-const IDENTITY_TARGET = "identity";
 
 const SSO_ERROR_PREFIX = "error:";
 
@@ -57,27 +50,34 @@ const SSO_MESSAGES: Record<string, string> = {
   login_failed: "The sign-in did not work. Try again.",
 };
 
-/** The admin surfaces, one navigation row each — never inline on this page. */
+/**
+ * The management surfaces, one navigation row each — never inline on this page.
+ * A row appears as soon as the account holds one of its capabilities: the people
+ * page is two rights in one place, managing the players and managing the
+ * accounts. Merely *seeing* the players is not one of them — every party guest
+ * holds `players.view`, and a "Manage" heading over the login form would promise
+ * a stranger something to do.
+ */
 const MENU: {
-  capability: string;
+  capabilities: string[];
   label: string;
   to: string;
   icon: IconName;
 }[] = [
   {
-    capability: "settings.view",
+    capabilities: ["settings.view"],
     label: "Settings",
     to: "/settings",
     icon: "gear",
   },
   {
-    capability: "users.manage",
-    label: "Accounts",
+    capabilities: ["players.manage", "users.manage"],
+    label: "Players & accounts",
     to: "/user/accounts",
     icon: "users",
   },
   {
-    capability: "permissions.manage",
+    capabilities: ["permissions.manage"],
     label: "Permissions",
     to: "/user/permissions",
     icon: "shield",
@@ -184,22 +184,15 @@ export default function User() {
     ? (SSO_MESSAGES[outcome.slice(SSO_ERROR_PREFIX.length)] ??
       SSO_MESSAGES.login_failed)
     : null;
-  const players = useQuery(listPlayersOptions());
+  // Only for the identity tile: the roster itself lives on /user/accounts, so
+  // there is nothing to ask for until an account with a player is logged in.
+  const ownPlayerId = auth.user?.player_id ?? null;
+  const players = useQuery({
+    ...listPlayersOptions(),
+    enabled: auth.loaded && ownPlayerId !== null && auth.can("players.view"),
+  });
   const [showLogin, setShowLogin] = useState(false);
-  const [deleting, setDeleting] = useState<PlayerRead | null>(null);
-  // `target` is where the message belongs, not which player it is about: the
-  // account's own player has two uploaders on this page (the identity tile and
-  // its row), and the failure must show up under the one that was used.
-  const [avatarError, setAvatarError] = useState<{
-    target: string;
-    message: string;
-  } | null>(null);
-  // The mutation's own `variables` only carry the player id, so the target of
-  // the upload in flight is remembered here for `onError`.
-  const avatarTarget = useRef("");
-
-  const refresh = () =>
-    void queryClient.invalidateQueries({ queryKey: listPlayersQueryKey() });
+  const [avatarError, setAvatarError] = useState<string | null>(null);
 
   const logOut = useMutation({
     ...logoutMutation(),
@@ -207,53 +200,39 @@ export default function User() {
     onSettled: () => void queryClient.invalidateQueries(),
   });
 
-  const deletePlayer = useMutation({
-    ...deletePlayerMutation(),
-    onSuccess: refresh,
-  });
-
   const setAvatar = useMutation({
     ...setPlayerAvatarMutation(),
     onSuccess: () => {
       setAvatarError(null);
-      refresh();
+      void queryClient.invalidateQueries({ queryKey: listPlayersQueryKey() });
     },
     onError: (error) =>
-      setAvatarError({
-        target: avatarTarget.current,
-        message:
-          AVATAR_MESSAGES[errorDetail(error) ?? ""] ??
+      setAvatarError(
+        AVATAR_MESSAGES[errorDetail(error) ?? ""] ??
           errorMessage(error, "Could not upload the image."),
-      }),
+      ),
   });
 
-  const upload = (
-    player: PlayerRead,
-    target: string,
-    input: HTMLInputElement,
-  ): void => {
+  const upload = (player: PlayerRead, input: HTMLInputElement): void => {
     const file = input.files?.[0];
     // Cleared right away, so picking the very same file again after a rejection
     // is another change event and not a click that does nothing.
     input.value = "";
     if (!file) return;
     if (file.size > MAX_AVATAR_BYTES) {
-      setAvatarError({ target, message: AVATAR_MESSAGES.avatar_too_large });
+      setAvatarError(AVATAR_MESSAGES.avatar_too_large);
       return;
     }
-    avatarTarget.current = target;
     setAvatar.mutate({ path: { player_id: player.id }, body: { file } });
   };
 
   const managePlayers = auth.can("players.manage");
   const ownPlayer =
-    players.data?.players.find(
-      (player) => player.id === auth.user?.player_id,
-    ) ?? null;
+    players.data?.players.find((player) => player.id === ownPlayerId) ?? null;
   // `loaded` on every gate: `can` says yes until /auth/me answered, and a guest
-  // must not see the admin rows (or their requests) at all.
+  // must not see the management rows (or their requests) at all.
   const menuRows = auth.loaded
-    ? MENU.filter((row) => auth.can(row.capability))
+    ? MENU.filter((row) => row.capabilities.some((name) => auth.can(name)))
     : [];
 
   return (
@@ -271,18 +250,13 @@ export default function User() {
                     player={ownPlayer}
                     className="user-identity-avatar"
                   />
-                  <Icon
-                    name="image"
-                    className="players-avatar-hint user-identity-avatar-hint"
-                  />
+                  <Icon name="image" className="user-identity-avatar-hint" />
                   <input
                     type="file"
                     className="visually-hidden"
                     accept="image/jpeg,image/png,image/webp"
                     aria-label="Change your picture"
-                    onChange={(event) =>
-                      upload(ownPlayer, IDENTITY_TARGET, event.target)
-                    }
+                    onChange={(event) => upload(ownPlayer, event.target)}
                   />
                 </label>
               ) : (
@@ -293,9 +267,9 @@ export default function User() {
               )}
               <h1 className="user-identity-name">{auth.user.username}</h1>
               <p className="user-identity-role">{auth.user.role}</p>
-              {avatarError?.target === IDENTITY_TARGET && (
+              {avatarError !== null && (
                 <p className="error-notice user-identity-error" role="alert">
-                  {avatarError.message}
+                  {avatarError}
                 </p>
               )}
               <button
@@ -354,77 +328,6 @@ export default function User() {
             ))}
           </nav>
         </>
-      )}
-
-      <h2>Players</h2>
-      {managePlayers && <AddPlayerForm />}
-
-      {players.isError && (
-        <p className="error-notice players-notice" role="alert">
-          Could not load the players.
-        </p>
-      )}
-
-      {players.data?.players.length === 0 && (
-        <p className="players-empty">No players yet.</p>
-      )}
-
-      <ul className="players-list">
-        {(players.data?.players ?? []).map((player) => (
-          <li key={player.id}>
-            <div className="players-row">
-              {managePlayers ? (
-                // The avatar itself is the upload target; the pencil badge is
-                // the affordance the old text button used to be.
-                <label className="players-avatar-label">
-                  <PlayerAvatar player={player} />
-                  <Icon name="image" className="players-avatar-hint" />
-                  <input
-                    type="file"
-                    className="visually-hidden"
-                    accept="image/jpeg,image/png,image/webp"
-                    aria-label={`Avatar for ${player.name}`}
-                    onChange={(event) =>
-                      upload(player, player.id, event.target)
-                    }
-                  />
-                </label>
-              ) : (
-                <PlayerAvatar player={player} />
-              )}
-              <span className="players-name">{player.name}</span>
-              {managePlayers && (
-                <button
-                  type="button"
-                  className="icon-button icon-button-danger"
-                  aria-label={`Delete ${player.name}`}
-                  onClick={() => setDeleting(player)}
-                >
-                  <Icon name="trash" />
-                </button>
-              )}
-            </div>
-            {avatarError?.target === player.id && (
-              <p className="error-notice players-notice" role="alert">
-                {avatarError.message}
-              </p>
-            )}
-          </li>
-        ))}
-      </ul>
-
-      {deleting && (
-        <ConfirmModal
-          title="Delete player"
-          message={`Delete "${deleting.name}"? Recorded scores keep the name.`}
-          confirmLabel="Delete"
-          danger
-          onConfirm={() => {
-            deletePlayer.mutate({ path: { player_id: deleting.id } });
-            setDeleting(null);
-          }}
-          onCancel={() => setDeleting(null)}
-        />
       )}
     </>
   );

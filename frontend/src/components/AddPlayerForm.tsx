@@ -6,6 +6,7 @@ import {
   listPlayersQueryKey,
 } from "../api/@tanstack/react-query.gen";
 import { errorDetail, errorMessage } from "../errors";
+import "./AddPlayerForm.css";
 
 interface AddPlayerFormProps {
   /** Called with the created player, after the list is invalidated. */

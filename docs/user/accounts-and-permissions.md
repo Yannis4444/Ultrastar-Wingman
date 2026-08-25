@@ -136,10 +136,12 @@ What each role may do by default:
 Favorites are in no row on purpose: they belong to whoever made them, and there is
 nothing for an administrator to grant.
 
-## Manage users
+## Manage players and accounts
 
-An administrator gets an **Accounts** page under **User → Accounts**: every
-account with its role, and a way to change it or delete it.
+**User → Players & accounts** is everybody in the party on one page, in two
+groups: **Accounts** for the people who log in, **Guests** for the people who
+only sing. Whoever may see the players sees the whole list; the account controls
+appear for an administrator.
 
 - A role can be set to **user**, **trusted** or **admin**. Nobody is put back to
   **guest** — that is the role for people without an account. Take the account
@@ -147,7 +149,8 @@ account with its role, and a way to change it or delete it.
 - The last administrator cannot be demoted or deleted. Wingman would lock
   everybody out.
 - Deleting an account keeps its player and its scores, under the same name, and
-  removes its wishes, favorites and playlists.
+  removes its wishes, favorites and playlists. The player moves down to the
+  guests, and can be deleted there.
 
 ## Change what a role may do
 

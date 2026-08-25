@@ -37,12 +37,17 @@
   cursor: pointer;
 }
 
-/* The badge sits inside the circle's corner, where a square avatar's -2px
-   would leave it floating next to nothing. */
-.user-identity-avatar-label .user-identity-avatar-hint {
+/* The badge sits inside the circle's corner, where a row avatar's -2px would
+   leave it floating next to nothing. */
+.user-identity-avatar-hint {
+  position: absolute;
   right: 4px;
   bottom: 4px;
+  padding: 2px;
   font-size: 20px;
+  color: var(--color);
+  background-color: var(--highlight-blue-dark);
+  border-radius: 50%;
 }
 
 /* The input is visually hidden, so the ring has to be drawn on the label. */
@@ -50,12 +55,6 @@
   outline: 2px solid var(--highlight-blue-light);
   outline-offset: 2px;
   border-radius: 50%;
-}
-
-.players-avatar-label:has(input:focus-visible) {
-  outline: 2px solid var(--highlight-blue-light);
-  outline-offset: 2px;
-  border-radius: var(--border-radius-small);
 }
 
 .user-identity-error {
@@ -165,75 +164,4 @@
   overflow: hidden;
   white-space: nowrap;
   text-overflow: ellipsis;
-}
-
-/* Shared with AddPlayerForm inside the player selection, which zeroes the
-   margin — this page's copy is the base look. */
-.players-add {
-  display: flex;
-  gap: 8px;
-  margin: 16px;
-}
-
-.players-add input {
-  flex: 1 1 auto;
-}
-
-.players-notice,
-.players-empty {
-  margin: 0 16px 8px 16px;
-}
-
-.players-empty {
-  color: var(--color-darker);
-}
-
-.players-list {
-  display: flex;
-  flex-direction: column;
-  margin: 0 16px;
-  padding: 0;
-  list-style: none;
-}
-
-.players-row {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  min-height: 48px;
-  padding: 8px 0;
-  border-bottom: 1px solid var(--input-border-color);
-}
-
-/* The row is a div inside the li, and an error message can follow it. */
-.players-list > li:last-child > .players-row {
-  border-bottom: none;
-}
-
-.players-name {
-  flex: 1 1 auto;
-  min-width: 0;
-  overflow: hidden;
-  white-space: nowrap;
-  text-overflow: ellipsis;
-}
-
-/* A label, not a button: the file input inside it does the work. */
-.players-avatar-label {
-  position: relative;
-  flex: 0 0 auto;
-  width: 40px;
-  height: 40px;
-  cursor: pointer;
-}
-
-.players-avatar-hint {
-  position: absolute;
-  right: -2px;
-  bottom: -2px;
-  padding: 2px;
-  font-size: 14px;
-  color: var(--color);
-  background-color: var(--highlight-blue-dark);
-  border-radius: 50%;
 }

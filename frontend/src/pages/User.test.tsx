@@ -9,8 +9,6 @@ const {
   listPlayers,
   listPlayerScores,
   listFavorites,
-  createPlayer,
-  deletePlayer,
   setPlayerAvatar,
   getMe,
   login,
@@ -22,8 +20,6 @@ const {
   listPlayers: vi.fn(),
   listPlayerScores: vi.fn(),
   listFavorites: vi.fn(),
-  createPlayer: vi.fn(),
-  deletePlayer: vi.fn(),
   setPlayerAvatar: vi.fn(),
   getMe: vi.fn(),
   login: vi.fn(),
@@ -38,8 +34,6 @@ vi.mock("../api/sdk.gen", async (importOriginal) => ({
   listPlayers,
   listPlayerScores,
   listFavorites,
-  createPlayer,
-  deletePlayer,
   setPlayerAvatar,
   getMe,
   login,
@@ -124,121 +118,19 @@ beforeEach(() => {
   });
 });
 
-test("players are listed and a new one can be added", async () => {
-  createPlayer.mockResolvedValue({ data: player("bbb", "Bob") });
-  renderUser();
-  expect(await screen.findByText("Alice")).toBeInTheDocument();
-
-  listPlayers.mockResolvedValue({
-    data: { players: [player("aaa", "Alice"), player("bbb", "Bob")] },
-  });
-  fireEvent.change(screen.getByLabelText("New player name"), {
-    target: { value: "  Bob  " },
-  });
-  fireEvent.click(screen.getByRole("button", { name: "Add" }));
-
-  await waitFor(() =>
-    expect(createPlayer.mock.calls[0][0].body).toEqual({ name: "Bob" }),
-  );
-  expect(await screen.findByText("Bob")).toBeInTheDocument();
-});
-
-test("a duplicate name is reported instead of silently failing", async () => {
-  createPlayer.mockRejectedValue({ detail: "duplicate_name" });
-  renderUser();
-  await screen.findByText("Alice");
-
-  fireEvent.change(screen.getByLabelText("New player name"), {
-    target: { value: "Alice" },
-  });
-  fireEvent.click(screen.getByRole("button", { name: "Add" }));
-
-  expect(await screen.findByRole("alert")).toHaveTextContent(
-    "There is already a player with that name.",
-  );
-  expect(screen.getByRole("button", { name: "Add" })).toBeEnabled();
-});
-
-test("deleting a player asks for confirmation first", async () => {
-  deletePlayer.mockResolvedValue({ data: undefined });
-  renderUser();
-
-  fireEvent.click(await screen.findByRole("button", { name: "Delete Alice" }));
-  expect(deletePlayer).not.toHaveBeenCalled();
-
-  const confirm = screen.getByRole("dialog", { name: "Delete player" });
-  expect(confirm).toHaveTextContent('Delete "Alice"?');
-
-  listPlayers.mockResolvedValue({ data: { players: [] } });
-  // The row button is labelled "Delete Alice", so this is the prompt's button.
-  fireEvent.click(screen.getByRole("button", { name: "Delete" }));
-
-  await waitFor(() =>
-    expect(deletePlayer.mock.calls[0][0].path).toEqual({ player_id: "aaa" }),
-  );
-  expect(await screen.findByText("No players yet.")).toBeInTheDocument();
-});
-
-test("cancelling the delete prompt keeps the player", async () => {
-  renderUser();
-
-  fireEvent.click(await screen.findByRole("button", { name: "Delete Alice" }));
-  fireEvent.click(screen.getByRole("button", { name: "Cancel" }));
-
-  expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
-  expect(deletePlayer).not.toHaveBeenCalled();
-  expect(screen.getByText("Alice")).toBeInTheDocument();
-});
-
-test("an oversized avatar never leaves the browser", async () => {
-  renderUser();
-  await screen.findByText("Alice");
-
-  const file = new File(["x"], "big.png", { type: "image/png" });
-  // 5 MB is the backend's limit; the size is faked so no huge buffer is needed.
-  Object.defineProperty(file, "size", { value: 5 * 1024 * 1024 + 1 });
-  fireEvent.change(screen.getByLabelText("Avatar for Alice"), {
-    target: { files: [file] },
-  });
-
-  expect(await screen.findByRole("alert")).toHaveTextContent(
-    "larger than 5 MB",
-  );
-  expect(setPlayerAvatar).not.toHaveBeenCalled();
-});
-
-test("a rejected avatar upload is reported next to the player", async () => {
-  setPlayerAvatar.mockRejectedValue({ detail: "unsupported_avatar_type" });
-  renderUser();
-  await screen.findByText("Alice");
-
-  const file = new File(["not an image"], "cv.png", { type: "image/png" });
-  fireEvent.change(screen.getByLabelText("Avatar for Alice"), {
-    target: { files: [file] },
-  });
-
-  await waitFor(() =>
-    expect(setPlayerAvatar.mock.calls[0][0]).toMatchObject({
-      path: { player_id: "aaa" },
-    }),
-  );
-  expect(await screen.findByRole("alert")).toHaveTextContent(
-    "Only jpeg, png and webp images work",
-  );
-});
-
 test("an anonymous visitor gets the login form and the profile after logging in", async () => {
+  // `players.view` is a guest capability, so this is what a stranger holds.
   getMe.mockResolvedValue(meResponse(["songs.view", "players.view"]));
   login.mockResolvedValue({ data: userRead({ role: "trusted" }) });
   renderUser();
 
   await screen.findByRole("button", { name: "New account" });
   expect(screen.getByRole("heading", { name: "You" })).toBeInTheDocument();
-  // A guest without players.manage cannot add or delete players either.
-  expect(screen.queryByLabelText("New player name")).not.toBeInTheDocument();
-  expect(
-    screen.queryByRole("button", { name: "Delete Alice" }),
-  ).not.toBeInTheDocument();
+  // Nothing to manage without a single right for it — looking at the roster is
+  // not one, or every party guest would get a "Manage" heading.
+  expect(screen.queryByText("Manage")).not.toBeInTheDocument();
+  // And no account, so no own player to look up either.
+  expect(listPlayers).not.toHaveBeenCalled();
 
   fireEvent.change(screen.getByLabelText("Name"), {
     target: { value: " Alice " },
@@ -263,7 +155,10 @@ test("an anonymous visitor gets the login form and the profile after logging in"
   );
   expect(await screen.findByText("trusted")).toBeInTheDocument();
   expect(screen.getByRole("button", { name: "Log out" })).toBeInTheDocument();
-  expect(screen.getByLabelText("New player name")).toBeInTheDocument();
+  // The players are a page of their own now, and the account may reach it.
+  expect(
+    screen.getByRole("link", { name: "Players & accounts" }),
+  ).toHaveAttribute("href", "/user/accounts");
 });
 
 test("a short password never reaches the backend", async () => {
@@ -308,12 +203,15 @@ test("a taken username is reported on the register form", async () => {
   );
 });
 
-test("the manage menu stays hidden for an ordinary account", async () => {
+test("an ordinary account reaches the players, and nothing else", async () => {
   renderUser();
 
-  expect(await screen.findByText("Alice")).toBeInTheDocument();
-  expect(screen.queryByText("Manage")).not.toBeInTheDocument();
-  expect(screen.queryByText("Accounts")).not.toBeInTheDocument();
+  expect(await screen.findByText("Charlie")).toBeInTheDocument();
+  // Managing the players is a right an ordinary account has, so the row is
+  // there — the admin surfaces behind the other rights are not.
+  expect(
+    screen.getByRole("link", { name: "Players & accounts" }),
+  ).toHaveAttribute("href", "/user/accounts");
   expect(screen.queryByText("Permissions")).not.toBeInTheDocument();
   expect(
     screen.queryByRole("link", { name: "Settings" }),
@@ -335,10 +233,9 @@ test("an admin gets one menu row per admin surface, not the surfaces inline", as
     "href",
     "/settings",
   );
-  expect(screen.getByRole("link", { name: "Accounts" })).toHaveAttribute(
-    "href",
-    "/user/accounts",
-  );
+  expect(
+    screen.getByRole("link", { name: "Players & accounts" }),
+  ).toHaveAttribute("href", "/user/accounts");
   expect(screen.getByRole("link", { name: "Permissions" })).toHaveAttribute(
     "href",
     "/user/permissions",
@@ -515,8 +412,7 @@ test("a rejected own picture is reported in the tile, not twice", async () => {
   });
 
   const alerts = await screen.findAllByRole("alert");
-  // The same player also has a row in the list below; the failure belongs to
-  // the uploader that was used, and only to that one.
+  // One uploader, one failure: the tile says it once.
   expect(alerts).toHaveLength(1);
   expect(alerts[0]).toHaveTextContent("Only jpeg, png and webp images work");
 });
