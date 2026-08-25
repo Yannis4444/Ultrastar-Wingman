@@ -6,20 +6,39 @@ import {
   waitFor,
   within,
 } from "@testing-library/react";
-import type { DownloadRead, UsdbSong } from "../api";
+import { MemoryRouter } from "react-router-dom";
+import type { DownloadRead, SongRead, UsdbSong } from "../api";
+import { meResponse } from "../test/auth";
 import { FakeSocket } from "../test/fakeSocket";
 import Usdb from "./Usdb";
 
 // Same seam as Songs.test.tsx: the real TanStack wiring runs, only the transport
 // is faked, so a changed endpoint shape breaks the test instead of hiding.
-const { usdbStatus, usdbSearch, listDownloads, createDownload, updateSetting } =
-  vi.hoisted(() => ({
-    usdbStatus: vi.fn(),
-    usdbSearch: vi.fn(),
-    listDownloads: vi.fn(),
-    createDownload: vi.fn(),
-    updateSetting: vi.fn(),
-  }));
+const {
+  usdbStatus,
+  usdbSearch,
+  listDownloads,
+  createDownload,
+  updateSetting,
+  listSongs,
+  getMe,
+  listFavorites,
+  listWishlist,
+  listPlaylists,
+  listSongScores,
+} = vi.hoisted(() => ({
+  usdbStatus: vi.fn(),
+  usdbSearch: vi.fn(),
+  listDownloads: vi.fn(),
+  createDownload: vi.fn(),
+  updateSetting: vi.fn(),
+  listSongs: vi.fn(),
+  getMe: vi.fn(),
+  listFavorites: vi.fn(),
+  listWishlist: vi.fn(),
+  listPlaylists: vi.fn(),
+  listSongScores: vi.fn(),
+}));
 
 vi.mock("../api/sdk.gen", async (importOriginal) => ({
   ...(await importOriginal<typeof import("../api/sdk.gen")>()),
@@ -28,7 +47,41 @@ vi.mock("../api/sdk.gen", async (importOriginal) => ({
   listDownloads,
   createDownload,
   updateSetting,
+  listSongs,
+  getMe,
+  listFavorites,
+  listWishlist,
+  listPlaylists,
+  listSongScores,
 }));
+
+/** What the trusted role holds: enough for every control on this page. */
+const TRUSTED = [
+  "songs.view",
+  "usdb.search",
+  "downloads.view",
+  "settings.manage",
+  "wishlist.view",
+  "playlists.view",
+  "stats.view",
+];
+
+function localSong(overrides: Partial<SongRead> = {}): SongRead {
+  return {
+    id: "usdb:1234",
+    source: "usdb",
+    title: "Dancing Queen",
+    artist: "ABBA",
+    duration_seconds: 231,
+    has_video: true,
+    language: "English",
+    genre: "Pop",
+    year: 1976,
+    edition: "SingStar",
+    creator: "someone",
+    ...overrides,
+  };
+}
 
 function usdbSong(overrides: Partial<UsdbSong> = {}): UsdbSong {
   return {
@@ -62,13 +115,17 @@ function download(overrides: Partial<DownloadRead> = {}): DownloadRead {
   };
 }
 
-function renderUsdb() {
+function renderUsdb(capabilities = TRUSTED) {
+  getMe.mockResolvedValue(meResponse(capabilities));
   const client = new QueryClient({
     defaultOptions: { queries: { retry: false } },
   });
   return render(
     <QueryClientProvider client={client}>
-      <Usdb />
+      {/* The page header's back link and nothing else needs a router. */}
+      <MemoryRouter>
+        <Usdb />
+      </MemoryRouter>
     </QueryClientProvider>,
   );
 }
@@ -84,6 +141,12 @@ beforeEach(() => {
     listDownloads,
     createDownload,
     updateSetting,
+    listSongs,
+    getMe,
+    listFavorites,
+    listWishlist,
+    listPlaylists,
+    listSongScores,
   ]) {
     mock.mockReset();
   }
@@ -92,6 +155,12 @@ beforeEach(() => {
     data: { results: [usdbSong()], page: 1, pages: 3 },
   });
   listDownloads.mockResolvedValue({ data: { downloads: [] } });
+  // The library is empty unless a test puts the song into it.
+  listSongs.mockResolvedValue({ data: { songs: [] } });
+  listFavorites.mockResolvedValue({ data: { song_ids: [] } });
+  listWishlist.mockResolvedValue({ data: { wishes: [] } });
+  listPlaylists.mockResolvedValue({ data: { playlists: [] } });
+  listSongScores.mockResolvedValue({ data: { scores: [] } });
 });
 
 afterEach(() => vi.unstubAllGlobals());
@@ -125,9 +194,43 @@ test("search results show the USDB metadata and a download button", async () => 
   expect(screen.queryByText("GOLDEN")).toBeNull();
   expect(screen.getByLabelText("Rated 3.5 of 5")).toBeInTheDocument();
   expect(screen.getByText("1 / 3")).toBeInTheDocument();
+  expect(screen.getByText("2 results")).toBeInTheDocument();
   expect(
     screen.getByRole("button", { name: "Download ABBA – Dancing Queen" }),
   ).toBeInTheDocument();
+});
+
+test("the page is a sub-view of Songs with the downloads button in its header", async () => {
+  renderUsdb();
+
+  const header = (await screen.findByRole("heading", { name: "USDB" }))
+    .parentElement as HTMLElement;
+  expect(within(header).getByRole("link", { name: "Back" })).toHaveAttribute(
+    "href",
+    "/songs",
+  );
+  expect(
+    within(header).getByRole("button", { name: "Downloads" }),
+  ).toBeInTheDocument();
+});
+
+test("every result shows the cover USDB serves, proxied by the backend", async () => {
+  renderUsdb();
+  await screen.findByText("Dancing Queen");
+
+  const cover = document.querySelector("img.song-cover") as HTMLImageElement;
+  expect(cover).not.toBeNull();
+  expect(cover.getAttribute("src")).toBe(
+    "/api/v1/sources/usdb/songs/1234/cover",
+  );
+  // Only what is on screen is fetched; a page of 100 results is not 100
+  // requests to USDB up front.
+  expect(cover.getAttribute("loading")).toBe("lazy");
+
+  // USDB has no cover for every song, and says so with a 404.
+  fireEvent.error(cover);
+  expect(await screen.findByText("A")).toBeInTheDocument();
+  expect(document.querySelector("img.song-cover")).toBeNull();
 });
 
 test("submitting the form searches for the entered artist and title", async () => {
@@ -145,7 +248,53 @@ test("submitting the form searches for the entered artist and title", async () =
   await waitFor(() =>
     expect(usdbSearch).toHaveBeenLastCalledWith(
       expect.objectContaining({
-        query: { artist: "Toto", title: "Africa", page: 1 },
+        query: {
+          artist: "Toto",
+          title: "Africa",
+          order: "rating",
+          ud: "desc",
+          limit: 30,
+          page: 1,
+        },
+      }),
+    ),
+  );
+});
+
+test("the extra filters change the order and the page size right away", async () => {
+  renderUsdb();
+  await screen.findByText("Dancing Queen");
+
+  fireEvent.change(screen.getByLabelText("Artist"), {
+    target: { value: "Toto" },
+  });
+  // Collapsed by default; the fields are in the DOM either way.
+  fireEvent.change(screen.getByLabelText("Sort by"), {
+    target: { value: "title-asc" },
+  });
+
+  // No second click on Search: a filter behind a button the user has to find
+  // again is a filter nobody uses.
+  await waitFor(() =>
+    expect(usdbSearch).toHaveBeenLastCalledWith(
+      expect.objectContaining({
+        query: expect.objectContaining({
+          artist: "Toto",
+          order: "title",
+          ud: "asc",
+          page: 1,
+        }),
+      }),
+    ),
+  );
+
+  fireEvent.change(screen.getByLabelText("Results per page"), {
+    target: { value: "100" },
+  });
+  await waitFor(() =>
+    expect(usdbSearch).toHaveBeenLastCalledWith(
+      expect.objectContaining({
+        query: expect.objectContaining({ limit: 100, page: 1 }),
       }),
     ),
   );
@@ -173,7 +322,9 @@ test("paging past the last page keeps a way back", async () => {
   expect(await screen.findByText("Dancing Queen")).toBeInTheDocument();
 });
 
-test("an already downloaded result shows a checkmark instead of a button", async () => {
+test("a result that is downloading shows its state and offers nothing to click", async () => {
+  // `downloaded` is set for a queued download too, and there is no local song
+  // behind it yet — so the row must stay inert.
   usdbSearch.mockResolvedValue({
     data: { results: [usdbSong({ downloaded: true })], page: 1, pages: 1 },
   });
@@ -182,6 +333,26 @@ test("an already downloaded result shows a checkmark instead of a button", async
   expect(await screen.findByTitle("In the library")).toBeInTheDocument();
   // Only the header's downloads button is left — no per-row download button.
   expect(screen.queryByRole("button", { name: /Dancing Queen/ })).toBeNull();
+});
+
+test("a result that is in the library opens the song details", async () => {
+  usdbSearch.mockResolvedValue({
+    data: { results: [usdbSong({ downloaded: true })], page: 1, pages: 1 },
+  });
+  listSongs.mockResolvedValue({ data: { songs: [localSong()] } });
+  renderUsdb();
+
+  const row = await screen.findByRole("button", {
+    name: "Details for ABBA – Dancing Queen",
+  });
+  fireEvent.click(row);
+
+  // The standard song modal, not a USDB-only view.
+  const dialog = await screen.findByRole("dialog", { name: "Dancing Queen" });
+  expect(within(dialog).getByText("ABBA")).toBeInTheDocument();
+  expect(
+    within(dialog).getByRole("button", { name: "Details" }),
+  ).toBeInTheDocument();
 });
 
 test("clicking download posts it and a progress event turns it into a badge", async () => {

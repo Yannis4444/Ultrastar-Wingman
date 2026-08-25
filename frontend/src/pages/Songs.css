@@ -125,13 +125,18 @@
   margin-left: auto;
 }
 
-/* The count and the reload button read as one line: how many songs there are,
-   and the way to count them again. */
+/* One line for the library itself: how many songs there are, the way to count
+   them again, and — at the far end, away from the two — the way to get more. */
 .songs-count {
   display: flex;
   gap: 8px;
   align-items: center;
+  min-height: 40px;
   margin: 0 16px 4px 16px;
+}
+
+.songs-add {
+  margin-left: auto;
 }
 
 .songs-count span {

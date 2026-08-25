@@ -9,7 +9,8 @@ puts the finished song into your song folder.
 USDB only answers to logged-in accounts, so Wingman needs one.
 
 1. Create a free account at usdb.animux.de if you do not have one.
-2. Open **Songs → Explore USDB**. Without credentials the page says
+2. Open **Songs**, press the **+** button next to the song count, and pick
+   **USDB** from *Add songs*. Without credentials the page says
    *Wingman has no USDB account yet.*
 3. Type the username and password into the form and press **Log in**. Wingman
    saves them and immediately tries the login.
@@ -26,12 +27,17 @@ the settings page only shows that one is stored.
 ## Search
 
 Fill in **Artist**, **Title**, or both, and press **Search**. Best-rated songs
-come first. **Previous** and **Next** page through the results — USDB often does
-not say how many pages there are, so stepping past the last page is how you find
-the end.
+come first; **More filters** opens the sort order (newest, artist, title, most
+viewed …) and how many results a page holds. Changing one of those searches
+again straight away.
 
-Each result shows what USDB knows about the song, and whether you already have
-it.
+**Previous** and **Next** page through the results — USDB often does not say how
+many pages there are, so stepping past the last page is how you find the end.
+
+Each result shows its cover, what USDB knows about the song, and whether you
+already have it. A result that is already in your library opens the normal song
+details when you tap it, so you can play it, favorite it or wish for it without
+leaving the search.
 
 ## Download
 

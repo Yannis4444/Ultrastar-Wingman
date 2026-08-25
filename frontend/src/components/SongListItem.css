@@ -68,7 +68,11 @@
   opacity: 1;
 }
 
+/* `box-sizing` because the app sets none globally: a `<button>` row is
+   border-box by UA default and a `<div>` row is not, so without this the two
+   forms of the row end up 16px apart in width inside the same list. */
 .song-list-item {
+  box-sizing: border-box;
   display: flex;
   align-items: center;
   gap: 12px;
@@ -84,8 +88,8 @@
   transition: 0.1s background-color;
 }
 
-/* Only the button form of the row is clickable — the USDB row is a div whose
-   download control does the work. */
+/* Only the button form of the row is clickable — a USDB row that is not in the
+   library yet is a div whose download control does the work. */
 button.song-list-item:hover {
   background-color: var(--highlight-blue-dark);
 }

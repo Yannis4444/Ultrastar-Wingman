@@ -13,6 +13,7 @@ import asyncio
 import logging
 import re
 import shutil
+from collections import OrderedDict
 from pathlib import Path
 from typing import Literal
 
@@ -53,6 +54,11 @@ UsdbDirection = Literal["asc", "desc"]
 
 DEFAULT_LIMIT = 30
 MAX_LIMIT = 100
+
+# How many cover answers (misses included) stay in memory. A page of results is 30 of them,
+# so this holds the last handful of pages — enough that paging back and forth costs USDB
+# nothing — while a jpeg thumbnail's worth of bytes each keeps the whole cache small.
+COVER_CACHE_SIZE = 256
 # What the old app used, and what makes sense for a karaoke night: best rated first.
 DEFAULT_ORDER: UsdbOrder = "rating"
 DEFAULT_DIRECTION: UsdbDirection = "desc"
@@ -143,6 +149,9 @@ _lock = asyncio.Lock()
 _status: UsdbStatus | None = None
 _session_factory: async_sessionmaker[AsyncSession] | None = None
 _data_dir: Path | None = None
+# usdb id -> (bytes, content type), or None for "USDB serves no cover for that id". An
+# `OrderedDict` used as an LRU: the oldest entry goes once the cache is full.
+_cover_cache: OrderedDict[int, tuple[bytes, str] | None] = OrderedDict()
 
 
 def configure(session_factory: async_sessionmaker[AsyncSession], data_dir: Path) -> None:
@@ -158,6 +167,7 @@ async def aclose() -> None:
     global _client, _status
     client, _client = _client, None
     _status = None
+    _cover_cache.clear()
     if client is not None:
         await client.aclose()
 
@@ -203,6 +213,25 @@ async def search(
     await _mark_downloaded(session, results)
     logger.info("USDB search returned %d song(s) on page %d", len(results), page)
     return UsdbSearchResult(results=results, page=page, pages=pages)
+
+
+async def cover(session: AsyncSession, usdb_id: int) -> tuple[bytes, str] | None:
+    """The cover image USDB serves for a song id, with its content type — or `None` when
+    there is none.
+
+    USDB keeps every cover at a fixed path per song id, so this is one request for one static
+    image, not a detail page that would have to be scraped. Answers are cached, misses
+    included: a song without a cover must not be asked for again on every page flip, and
+    paging back to results that were already on screen must cost USDB nothing.
+    """
+    if usdb_id in _cover_cache:
+        _cover_cache.move_to_end(usdb_id)
+        return _cover_cache[usdb_id]
+    image = await _fetch_image(session, COVER_PATH.format(usdb_id=usdb_id))
+    _cover_cache[usdb_id] = image
+    while len(_cover_cache) > COVER_CACHE_SIZE:
+        _cover_cache.popitem(last=False)
+    return image
 
 
 class UsdbSource:
@@ -332,9 +361,18 @@ def _background_url(video: str | None) -> str | None:
 
 
 async def _save_image(session: AsyncSession, url: str, destination: Path) -> Path | None:
-    """Fetch an image, or nothing. A missing cover is answered with an HTML error page and
-    the old app saved that as cover.jpg, so the content type decides — not the status code
-    alone."""
+    """Write a fetched image to disk, or do nothing at all."""
+    image = await _fetch_image(session, url)
+    if image is None:
+        return None
+    await asyncio.to_thread(destination.write_bytes, image[0])
+    return destination
+
+
+async def _fetch_image(session: AsyncSession, url: str) -> tuple[bytes, str] | None:
+    """Fetch an image and its content type, or nothing. A missing cover is answered with an
+    HTML error page — the logged-out page is one too — and the old app saved that as
+    cover.jpg, so the content type decides, not the status code alone."""
     client = await _http(session)
     try:
         response = await client.get(url)
@@ -350,8 +388,7 @@ async def _save_image(session: AsyncSession, url: str, destination: Path) -> Pat
             content_type or "no content type",
         )
         return None
-    await asyncio.to_thread(destination.write_bytes, response.content)
-    return destination
+    return response.content, content_type
 
 
 def _directory_name(artist: str, title: str, usdb_id: str) -> str:

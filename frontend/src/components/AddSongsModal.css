@@ -1,0 +1,55 @@
+.add-songs-intro {
+  margin: 0 16px 12px 16px;
+  color: var(--color-dark);
+}
+
+/* The old app's download tiles: the one place outside page identity and modal
+   panels where a card is the right answer — each source is its own thing. The
+   tile sits on a panel of the same `--tile-bg`, so the hairline is what makes it
+   read as a card at all. */
+.add-songs-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
+  gap: 12px;
+  margin: 0 16px 16px 16px;
+}
+
+.add-songs-card {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 8px;
+  padding: 16px;
+  color: var(--color);
+  text-align: center;
+  text-decoration: none;
+  background-color: var(--tile-bg);
+  border: 1px solid var(--input-border-color);
+  border-radius: var(--border-radius);
+  transition: 0.1s background-color;
+}
+
+.add-songs-card:hover {
+  background-color: var(--highlight-blue-dark);
+  border-color: var(--highlight-blue-light);
+}
+
+.add-songs-card-icon {
+  font-size: 48px;
+  color: var(--highlight-blue-light);
+}
+
+.add-songs-card-name {
+  font-weight: bold;
+}
+
+.add-songs-card-text {
+  font-size: 0.8em;
+  color: var(--color-darker);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .add-songs-card {
+    transition: none;
+  }
+}

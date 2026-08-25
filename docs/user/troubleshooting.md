@@ -60,7 +60,7 @@ window.
 
 ## The USDB login fails
 
-The **Explore USDB** page says what went wrong:
+The **USDB** page (**Songs → + → USDB**) says what went wrong:
 
 | Message | What it means |
 |---|---|

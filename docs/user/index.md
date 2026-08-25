@@ -38,8 +38,9 @@ and the rights the host hands out.
 | **Scores** | The statistics of every party |
 | **User** | Log in, players and their avatars, and (for the host) users and permissions |
 
-Two more pages are linked from there: **Explore USDB** for downloading new
-songs, and **Settings** for everything the host configures.
+Two more pages are linked from there: **USDB** — behind the **+** button on the
+Songs page — for downloading new songs, and **Settings** for everything the host
+configures.
 
 ## Where to go next
 

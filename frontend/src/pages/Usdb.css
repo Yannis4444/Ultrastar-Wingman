@@ -1,28 +1,22 @@
-/* Always reachable: the downloads button must not be 955 pages down. Stays
-   below the modal backdrop (z-index 2000). */
-.usdb-header {
+/* A reading column on desktop; a no-op at phone widths. The whole page moves
+   together, so the header stays on the same axis as the rows (as on Playlists
+   and Scores). */
+.usdb-page {
+  max-width: 720px;
+  margin: 0 auto;
+}
+
+/* The title bar sticks: the downloads button must not be 955 pages down. Stays
+   below the modal backdrop (z-index 2000). The page background is repainted
+   because content scrolls underneath. */
+.usdb-page .page-header {
   position: sticky;
   top: 0;
   z-index: 100;
-  display: flex;
-  align-items: center;
-  gap: 8px;
+  margin: 0;
   padding: 8px 16px;
   background-color: var(--bg);
   border-bottom: 1px solid var(--input-border-color);
-}
-
-/* Balances the 40px button so the centred h1 stays centred. */
-.usdb-header::before {
-  content: "";
-  flex: 0 0 auto;
-  width: 40px;
-}
-
-.usdb-header h1 {
-  flex: 1 1 auto;
-  min-width: 0;
-  margin: 0;
 }
 
 .usdb-notice {
@@ -58,6 +52,9 @@
   margin: 12px 0 0 0;
 }
 
+/* One block: the two fields that are the search, the tuning behind a
+   disclosure, and the one primary button. Fields go full width on a phone and
+   share a line once there is room for two. */
 .usdb-search {
   display: flex;
   flex-wrap: wrap;
@@ -65,15 +62,107 @@
   margin: 16px;
 }
 
-.usdb-search input {
-  flex: 1 1 8em;
+.usdb-field {
+  flex: 1 1 100%;
+  min-width: 0;
+}
+
+@media (min-width: 480px) {
+  .usdb-field {
+    flex: 1 1 8em;
+  }
+}
+
+.usdb-submit {
+  flex: 1 1 100%;
+}
+
+/* The section-summary look of the settings groups, at search-field scale. */
+.usdb-filters {
+  flex: 1 1 100%;
+}
+
+.usdb-filters > summary {
+  display: flex;
+  align-items: center;
+  min-height: 40px;
+  font-size: 0.85em;
+  color: var(--color-dark);
+  cursor: pointer;
+  list-style: none;
+}
+
+.usdb-filters > summary::-webkit-details-marker {
+  display: none;
+}
+
+/* Chevron drawn from the border, no icon needed. */
+.usdb-filters > summary::after {
+  content: "";
+  width: 7px;
+  height: 7px;
+  margin-left: 8px;
+  border-right: 2px solid var(--color-darker);
+  border-bottom: 2px solid var(--color-darker);
+  transform: rotate(45deg);
+  transition: transform 0.15s;
+}
+
+.usdb-filters[open] > summary::after {
+  transform: rotate(-135deg);
+}
+
+.usdb-filters > summary:focus-visible {
+  outline: 2px solid var(--highlight-blue-light);
+  outline-offset: 2px;
+}
+
+.usdb-filter {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+  justify-content: space-between;
+  min-height: 44px;
+  border-bottom: 1px solid var(--input-border-color);
+}
+
+.usdb-filter:last-child {
+  border-bottom: none;
+}
+
+.usdb-filter > span {
+  font-size: 0.85em;
+  color: var(--color-darker);
+}
+
+/* No `height`: `.text-input`'s padding already makes the 40px target, and the
+   app sets no global `box-sizing`. */
+.usdb-filter select {
+  flex: 0 1 14em;
+  min-width: 0;
+}
+
+/* The answer to the search above it, separated by a hairline instead of a box. */
+.usdb-results-section {
+  margin: 16px 16px 0 16px;
+  border-top: 1px solid var(--input-border-color);
+}
+
+.usdb-status {
+  margin: 12px 0;
+  font-size: 0.85em;
+  color: var(--color-darker);
+  font-variant-numeric: tabular-nums;
+}
+
+.usdb-results-section .usdb-notice {
+  margin: 12px 0;
 }
 
 /* The rows carry their own separators, so no gap between them. */
 .usdb-results {
   display: flex;
   flex-direction: column;
-  margin: 0 16px;
 }
 
 .usdb-results > :last-child {
@@ -85,7 +174,14 @@
   align-items: center;
   justify-content: center;
   gap: 12px;
-  margin: 16px;
+  margin: 16px 0;
   font-size: 0.85em;
   color: var(--color-darker);
+  font-variant-numeric: tabular-nums;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .usdb-filters > summary::after {
+    transition: none;
+  }
 }

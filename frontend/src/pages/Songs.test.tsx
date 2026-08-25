@@ -91,7 +91,7 @@ function renderSongs(
   });
   return render(
     <QueryClientProvider client={client}>
-      {/* The "Explore USDB" link needs a router context. */}
+      {/* The playlists chip and the source picker's cards are links. */}
       <MemoryRouter>
         <Songs />
       </MemoryRouter>
@@ -157,13 +157,44 @@ test("the reload button sits next to the song count, not in the toolbar", async 
   expect(
     within(row as HTMLElement).getByRole("button", { name: "Rescan" }),
   ).toBeInTheDocument();
-  // The toolbar is the search field (plus the USDB link), nothing else.
+  // The toolbar is the search field, nothing else.
   const toolbar = screen
     .getByRole("searchbox", { name: "Search songs" })
     .closest("div") as HTMLElement;
   expect(
     within(toolbar).queryByRole("button", { name: "Rescan" }),
   ).not.toBeInTheDocument();
+  expect(
+    within(toolbar).queryByRole("button", { name: "Add songs" }),
+  ).not.toBeInTheDocument();
+});
+
+test("the add button opens the source picker instead of jumping to USDB", async () => {
+  renderSongs([song()]);
+
+  const add = await screen.findByRole("button", { name: "Add songs" });
+  // It sits with the library's own line, not in the search toolbar.
+  expect(add.closest(".songs-count")).not.toBeNull();
+  fireEvent.click(add);
+
+  const dialog = await screen.findByRole("dialog", { name: "Add songs" });
+  const usdb = within(dialog).getByRole("link", { name: /USDB/ });
+  expect(usdb).toHaveAttribute("href", "/usdb");
+  // The card explains what the source is, not just its name.
+  expect(
+    within(dialog).getByText(/Search usdb\.animux\.de/),
+  ).toBeInTheDocument();
+});
+
+test("a role that may not search a source gets no add button", async () => {
+  renderSongs([song()], ["songs.view", "songs.rescan"]);
+  await screen.findByText("Dancing Queen");
+
+  await waitFor(() =>
+    expect(
+      screen.queryByRole("button", { name: "Add songs" }),
+    ).not.toBeInTheDocument(),
+  );
 });
 
 test("a guest with no favorites and no playlists gets no filter chips", async () => {
@@ -329,7 +360,7 @@ test("the privileged buttons are gone for a role without the capability", async 
     ).not.toBeInTheDocument(),
   );
   expect(
-    screen.queryByRole("link", { name: "Explore USDB" }),
+    screen.queryByRole("button", { name: "Add songs" }),
   ).not.toBeInTheDocument();
 
   // The song itself stays browsable — only the actions are gated.

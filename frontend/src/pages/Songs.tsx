@@ -8,6 +8,7 @@ import {
   rescanSongsMutation,
 } from "../api/@tanstack/react-query.gen";
 import { useAuth } from "../auth";
+import AddSongsModal from "../components/AddSongsModal";
 import { Icon } from "../components/icons";
 import SongDetails from "../components/SongDetails";
 import SongListItem from "../components/SongListItem";
@@ -16,6 +17,7 @@ import { useDownloadEvents } from "../hooks/useDownloadEvents";
 import { useFavorites } from "../hooks/useFavorites";
 import { useWingmanEvent } from "../hooks/useWingmanEvents";
 import { useWishlist } from "../hooks/useWishlist";
+import { SONG_SOURCES } from "../songSources";
 import "./Songs.css";
 
 /** The two filters this page still owns; playlists live on /songs/playlists. */
@@ -40,6 +42,7 @@ export default function Songs() {
   const [selected, setSelected] = useState<SongRead | null>(null);
   const [scanning, setScanning] = useState(false);
   const [notice, setNotice] = useState<string | null>(null);
+  const [addingSongs, setAddingSongs] = useState(false);
 
   const songs = useQuery(listSongsOptions());
   const rescan = useMutation({
@@ -86,6 +89,10 @@ export default function Songs() {
   // would be a chip that does nothing.
   const canFilter = favorites.available;
   const canBrowsePlaylists = auth.loaded && auth.can("playlists.view");
+  // No source this role may search means nothing for the picker to offer.
+  const canAddSongs = SONG_SOURCES.some((source) =>
+    auth.can(source.capability),
+  );
 
   return (
     <>
@@ -101,16 +108,6 @@ export default function Songs() {
             onChange={(event) => setSearch(event.target.value)}
           />
         </label>
-        {auth.can("usdb.search") && (
-          <Link
-            to="/usdb"
-            className="icon-button icon-button-bordered songs-tool"
-            aria-label="Explore USDB"
-            title="Explore USDB"
-          >
-            <Icon name="search" />
-          </Link>
-        )}
       </div>
 
       {(canFilter || canBrowsePlaylists) && (
@@ -147,6 +144,43 @@ export default function Songs() {
         </div>
       )}
 
+      {/* What the library holds and the two ways to change it. Outside the list
+          branch on purpose: adding songs is exactly what an empty or unreadable
+          library calls for. */}
+      <div className="songs-count">
+        {shown && (
+          <span>
+            {shown.length} {shown.length === 1 ? "song" : "songs"}
+          </span>
+        )}
+        {auth.can("songs.rescan") && (
+          <button
+            type="button"
+            className="icon-button songs-count-reload"
+            disabled={scanning || rescan.isPending}
+            aria-label={scanning ? "Scanning…" : "Rescan"}
+            title={scanning ? "Scanning…" : "Rescan the library"}
+            onClick={() => rescan.mutate({})}
+          >
+            <Icon
+              name="refresh"
+              className={scanning ? "songs-tool-spin" : undefined}
+            />
+          </button>
+        )}
+        {canAddSongs && (
+          <button
+            type="button"
+            className="icon-button icon-button-bordered songs-add"
+            aria-label="Add songs"
+            title="Add songs from an online source"
+            onClick={() => setAddingSongs(true)}
+          >
+            <Icon name="plus" />
+          </button>
+        )}
+      </div>
+
       {notice && <p className="songs-notice songs-notice-error">{notice}</p>}
 
       {songs.isPending && (
@@ -168,33 +202,15 @@ export default function Songs() {
 
       {shown && (
         <>
-          <div className="songs-count">
-            <span>
-              {shown.length} {shown.length === 1 ? "song" : "songs"}
-            </span>
-            {auth.can("songs.rescan") && (
-              <button
-                type="button"
-                className="icon-button songs-count-reload"
-                disabled={scanning || rescan.isPending}
-                aria-label={scanning ? "Scanning…" : "Rescan"}
-                title={scanning ? "Scanning…" : "Rescan the library"}
-                onClick={() => rescan.mutate({})}
-              >
-                <Icon
-                  name="refresh"
-                  className={scanning ? "songs-tool-spin" : undefined}
-                />
-              </button>
-            )}
-          </div>
           {shown.length === 0 ? (
             <p className="songs-notice">
               {needle
                 ? `No song matches "${search.trim()}".`
                 : filter === FAVORITES
                   ? "No favorites yet. Open a song and tap the heart."
-                  : "The library is empty. Run a rescan once songs are on disk."}
+                  : canAddSongs
+                    ? "The library is empty. Add songs from an online source, or run a rescan once they are on disk."
+                    : "The library is empty. Run a rescan once songs are on disk."}
             </p>
           ) : (
             <div className="songs-list">
@@ -215,6 +231,8 @@ export default function Songs() {
       {selected && (
         <SongDetails song={selected} onClose={() => setSelected(null)} />
       )}
+
+      {addingSongs && <AddSongsModal onClose={() => setAddingSongs(false)} />}
     </>
   );
 }

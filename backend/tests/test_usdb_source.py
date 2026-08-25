@@ -122,6 +122,10 @@ class FakeUsdb:
     def count(self, link: str) -> int:
         return sum(1 for one in self.requests if f"link={link}" in one)
 
+    @property
+    def cover_requests(self) -> int:
+        return sum(1 for one in self.requests if "/data/cover/" in one)
+
 
 @dataclass(frozen=True)
 class Environment:
@@ -377,6 +381,67 @@ async def test_search_endpoint_reports_a_broken_usdb_as_a_bad_gateway(
 
     assert response.status_code == 502
     assert response.json()["detail"] == "no_credentials"
+
+
+# --- covers ------------------------------------------------------------------------------
+
+
+async def test_cover_endpoint_proxies_the_image_and_caches_it(
+    site: FakeUsdb, client: AsyncClient
+) -> None:
+    response = await client.get("/api/v1/sources/usdb/songs/1234/cover")
+
+    assert response.status_code == 200
+    assert response.content == b"cover-bytes"
+    assert response.headers["content-type"] == "image/jpeg"
+    assert response.headers["cache-control"] == "public, max-age=86400"
+    # One request for one static image: the id is enough, no detail page is scraped — and
+    # no login round-trip either, USDB serves its covers to anyone.
+    assert site.requests == ["GET http://usdb.test/data/cover/1234.jpg"]
+
+    assert (await client.get("/api/v1/sources/usdb/songs/1234/cover")).content == b"cover-bytes"
+    # Paging back over results that were already on screen costs USDB nothing.
+    assert site.cover_requests == 1
+
+
+@pytest.mark.parametrize(
+    "answer",
+    [
+        pytest.param(httpx.Response(404, text="not found"), id="404"),
+        # USDB answers a request without a session with a normal HTML page, and a song
+        # without a cover with an error page — neither is an image.
+        pytest.param(
+            httpx.Response(
+                200, text="<html>no cover</html>", headers={"content-type": "text/html"}
+            ),
+            id="html",
+        ),
+    ],
+)
+async def test_a_song_without_a_cover_is_a_404_and_is_asked_for_once(
+    site: FakeUsdb, client: AsyncClient, answer: httpx.Response
+) -> None:
+    site.cover = answer
+
+    assert (await client.get("/api/v1/sources/usdb/songs/1234/cover")).status_code == 404
+    assert (await client.get("/api/v1/sources/usdb/songs/1234/cover")).status_code == 404
+    # The miss is cached too: a coverless song must not be re-asked on every page flip.
+    assert site.cover_requests == 1
+
+
+async def test_the_cover_cache_forgets_the_oldest_entries(
+    site: FakeUsdb, session: AsyncSession, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    monkeypatch.setattr(usdb, "COVER_CACHE_SIZE", 2)
+
+    for usdb_id in (1, 2, 3):
+        assert await usdb.cover(session, usdb_id) == (b"cover-bytes", "image/jpeg")
+    assert list(usdb._cover_cache) == [2, 3]
+
+    # The evicted one is fetched again, the kept one is not.
+    await usdb.cover(session, 1)
+    await usdb.cover(session, 3)
+    assert site.cover_requests == 4
 
 
 # --- download ----------------------------------------------------------------------------
