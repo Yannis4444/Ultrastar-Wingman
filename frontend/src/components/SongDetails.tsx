@@ -182,12 +182,21 @@ export default function SongDetails({
                     }
                   }}
                 >
-                  <Icon name="playlist" />
-                  <span className="song-playlists-name">{list.name}</span>
                   <Icon
-                    name={added ? "check" : "plus"}
-                    className={added ? "song-playlists-added" : undefined}
+                    name={added ? "playlist-check" : "playlist"}
+                    className={
+                      added
+                        ? "song-playlists-glyph song-playlists-added"
+                        : "song-playlists-glyph"
+                    }
                   />
+                  <span className="song-playlists-text">
+                    <span className="song-playlists-name">{list.name}</span>
+                    <span className="song-playlists-meta">
+                      {list.song_count}{" "}
+                      {list.song_count === 1 ? "song" : "songs"}
+                    </span>
+                  </span>
                 </button>
               </li>
             );
