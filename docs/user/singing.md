@@ -78,11 +78,12 @@ same order Ultrastar Deluxe does. There is nothing to configure.
 
 ## While a song plays
 
-**Home** and the host screen show what is playing and who is on which colour.
-On **Home** the running song takes the place of the Wingman title at the top of
-the page — cover, title, how far in it is, and the singers on their colours —
-and hands the title back when the song ends. The tile keeps its size either way,
-so nothing under it jumps.
+**Home** shows what is playing; the host screen also shows how far in it is and
+who is on which colour. On **Home** the running song takes the place of the
+Wingman title at the top of the page — cover, title and artist, with the buttons
+below — and hands the title back when the song ends. The time and the singers
+are not repeated there: the Ultrastar Deluxe screen in the same room already
+shows both. The tile keeps its size either way, so nothing under it jumps.
 
 - **Stop** is the large pink button in the middle, and it asks before it ends
   the song. Only somebody who may stop a song sees it at all. The heart and the
