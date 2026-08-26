@@ -75,6 +75,7 @@ ROUTES: list[tuple[str, str, str, dict[str, object] | None]] = [
     ("downloads.manage", "POST", "/api/v1/downloads/dismiss-finished", None),
     ("stats.view", "GET", "/api/v1/stats/sessions", None),
     ("stats.view", "GET", "/api/v1/stats/sessions/nope/scores", None),
+    ("stats.view", "GET", "/api/v1/stats/sessions/current/sings", None),
     ("stats.view", "GET", "/api/v1/stats/songs/usdb:1/scores", None),
     ("stats.view", "GET", "/api/v1/stats/players/nope/scores", None),
     ("stats.view", "GET", "/api/v1/stats/latest", None),

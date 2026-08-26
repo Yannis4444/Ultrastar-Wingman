@@ -17,7 +17,7 @@ from ..karaoke.model import KaraokeSession
 from ..players.model import Player
 from ..songs.api import song_or_404
 from . import service
-from .schema import ScoreList, SessionList, SessionRead
+from .schema import ScoreList, SessionList, SessionRead, SingList
 
 logger = logging.getLogger(__name__)
 
@@ -38,6 +38,22 @@ class SessionUpdate(BaseModel):
 async def list_sessions(session: SessionDep) -> SessionList:
     """Every recorded party, newest first."""
     return SessionList(sessions=await service.sessions(session))
+
+
+@router.get(
+    "/stats/sessions/current/sings",
+    response_model=SingList,
+    dependencies=[Depends(require("stats.view"))],
+)
+async def list_current_session_sings(session: SessionDep) -> SingList:
+    """What the running party has played, newest first, one entry per song — the Songs
+    page's "Recently played" tab.
+
+    Never a 404: when the last party is over (nothing sung for `SESSION_GAP`) the list is
+    simply empty, which is exactly what the tab has to show. A literal path segment rather
+    than a magic `session_id`, so `current` can never collide with a real session id.
+    """
+    return SingList(sings=await service.current_session_sings(session))
 
 
 @router.patch(

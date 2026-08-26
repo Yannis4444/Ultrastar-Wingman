@@ -7,7 +7,8 @@ import {
   within,
 } from "@testing-library/react";
 import { MemoryRouter } from "react-router-dom";
-import type { MeRead, PlaylistRead, SongRead } from "../api";
+import type { MeRead, PlaylistRead, SingRead, SongRead } from "../api";
+import { shortTime } from "../duration";
 import { meResponse, userRead } from "../test/auth";
 import { FakeSocket } from "../test/fakeSocket";
 import Songs from "./Songs";
@@ -25,6 +26,7 @@ const {
   removeFavorite,
   listPlaylists,
   addPlaylistEntry,
+  listCurrentSessionSings,
 } = vi.hoisted(() => ({
   listSongs: vi.fn(),
   rescanSongs: vi.fn(),
@@ -35,6 +37,7 @@ const {
   removeFavorite: vi.fn(),
   listPlaylists: vi.fn(),
   addPlaylistEntry: vi.fn(),
+  listCurrentSessionSings: vi.fn(),
 }));
 
 vi.mock("../api/sdk.gen", async (importOriginal) => ({
@@ -48,6 +51,7 @@ vi.mock("../api/sdk.gen", async (importOriginal) => ({
   removeFavorite,
   listPlaylists,
   addPlaylistEntry,
+  listCurrentSessionSings,
 }));
 
 /** What the trusted role holds: enough for every button on this page. */
@@ -57,6 +61,7 @@ const TRUSTED = [
   "karaoke.sing",
   "usdb.search",
   "players.view",
+  "stats.view",
 ];
 
 function song(overrides: Partial<SongRead> = {}): SongRead {
@@ -118,12 +123,15 @@ beforeEach(() => {
     removeFavorite,
     listPlaylists,
     addPlaylistEntry,
+    listCurrentSessionSings,
   ]) {
     mock.mockReset();
   }
   listWishlist.mockResolvedValue({ data: { wishes: [] } });
   listFavorites.mockResolvedValue({ data: { song_ids: [] } });
   listPlaylists.mockResolvedValue({ data: { playlists: [] } });
+  // Nothing sung: the recently-played chip is absent unless a test seeds sings.
+  listCurrentSessionSings.mockResolvedValue({ data: { sings: [] } });
 });
 
 afterEach(() => vi.unstubAllGlobals());
@@ -564,4 +572,176 @@ test("adding a song refreshes the playlist song count", async () => {
   // `song_count` lives on the list, not on the detail, so adding a song has to
   // invalidate the list too — otherwise the playlist dialog shows a stale count.
   await waitFor(() => expect(listPlaylists).toHaveBeenCalled());
+});
+
+const AT_QUEEN = "2026-08-26T20:40:00Z";
+const AT_AFRICA = "2026-08-26T20:10:00Z";
+
+function sing(overrides: Partial<SingRead> = {}): SingRead {
+  return {
+    sing_id: "sing-1",
+    song_id: QUEEN.id,
+    song: QUEEN,
+    started_at: AT_QUEEN,
+    ...overrides,
+  };
+}
+
+/** The backend already orders and deduplicates; the page shows what it sends. */
+function playedQueenThenAfrica() {
+  listCurrentSessionSings.mockResolvedValue({
+    data: {
+      sings: [
+        sing(),
+        sing({
+          sing_id: "sing-2",
+          song_id: AFRICA.id,
+          song: AFRICA,
+          started_at: AT_AFRICA,
+        }),
+      ],
+    },
+  });
+}
+
+test("the recently played tab lists this session's songs with the time they started", async () => {
+  playedQueenThenAfrica();
+  const THIRD = song({
+    id: "local:zzz",
+    title: "Never Sung",
+    artist: "Nobody",
+  });
+  // The library order is the reverse of the play order, so the assertion below
+  // can only pass if the tab follows the endpoint and not the library.
+  renderSongs([AFRICA, QUEEN, THIRD]);
+  await screen.findByText("Dancing Queen");
+
+  fireEvent.click(
+    await screen.findByRole("button", { name: "Recently played" }),
+  );
+
+  // Newest first, exactly the order the endpoint sent — and only what was sung.
+  const rows = screen.getAllByRole("button", {
+    name: /Dancing Queen|Africa|Never Sung/,
+  });
+  expect(rows.map((row) => row.textContent)).toEqual([
+    expect.stringContaining("Dancing Queen"),
+    expect.stringContaining("Africa"),
+  ]);
+  expect(screen.queryByText("Never Sung")).not.toBeInTheDocument();
+  // The clock time, not a "3 minutes ago" that would need a ticking timer.
+  expect(screen.getByText(shortTime(AT_QUEEN))).toBeInTheDocument();
+  expect(screen.getByText(shortTime(AT_AFRICA))).toBeInTheDocument();
+  expect(screen.getByText("2 songs")).toBeInTheDocument();
+});
+
+test("only the recently played tab shows a time next to the row", async () => {
+  playedQueenThenAfrica();
+  renderSongs([QUEEN, AFRICA]);
+  await screen.findByText("Dancing Queen");
+
+  expect(screen.queryByText(shortTime(AT_QUEEN))).not.toBeInTheDocument();
+});
+
+test("a song whose file left the library is left out of the recently played tab", async () => {
+  listCurrentSessionSings.mockResolvedValue({
+    data: {
+      sings: [
+        sing({ sing_id: "sing-gone", song_id: "usdb:gone", song: null }),
+        sing({
+          sing_id: "sing-2",
+          song_id: AFRICA.id,
+          song: AFRICA,
+          started_at: AT_AFRICA,
+        }),
+      ],
+    },
+  });
+  renderSongs([AFRICA]);
+  await screen.findByText("Africa");
+
+  fireEvent.click(
+    await screen.findByRole("button", { name: "Recently played" }),
+  );
+
+  expect(screen.getByText("Africa")).toBeInTheDocument();
+  expect(screen.getByText("1 song")).toBeInTheDocument();
+});
+
+test("the search box filters inside the recently played tab", async () => {
+  playedQueenThenAfrica();
+  renderSongs([QUEEN, AFRICA]);
+  await screen.findByText("Dancing Queen");
+  fireEvent.click(
+    await screen.findByRole("button", { name: "Recently played" }),
+  );
+
+  searchFor("toT");
+
+  expect(screen.getByText("Africa")).toBeInTheDocument();
+  expect(screen.queryByText("Dancing Queen")).not.toBeInTheDocument();
+
+  searchFor("nothing matches this");
+  expect(
+    screen.getByText('No song matches "nothing matches this".'),
+  ).toBeInTheDocument();
+});
+
+test("nothing sung yet means no recently played chip at all", async () => {
+  renderSongs([QUEEN, AFRICA], LIBRARY, ACCOUNT);
+  await screen.findByText("Dancing Queen");
+
+  await waitFor(() =>
+    expect(
+      screen.queryByRole("button", { name: "Recently played" }),
+    ).not.toBeInTheDocument(),
+  );
+});
+
+test("the tab a reader is standing on stays, and says the party is empty", async () => {
+  playedQueenThenAfrica();
+  renderSongs([QUEEN, AFRICA]);
+  await screen.findByText("Dancing Queen");
+  fireEvent.click(
+    await screen.findByRole("button", { name: "Recently played" }),
+  );
+
+  // The party ended between two refetches: the list empties under the finger.
+  listCurrentSessionSings.mockResolvedValue({ data: { sings: [] } });
+  FakeSocket.deliver({
+    event: "karaoke.ended",
+    sing_id: "s",
+    song_id: "usdb:1",
+  });
+
+  expect(
+    await screen.findByText("Nothing has been sung yet."),
+  ).toBeInTheDocument();
+  expect(
+    screen.getByRole("button", { name: "Recently played" }),
+  ).toBeInTheDocument();
+});
+
+test("a song starting refetches what was recently played", async () => {
+  playedQueenThenAfrica();
+  renderSongs([QUEEN, AFRICA]);
+  await screen.findByRole("button", { name: "Recently played" });
+  listCurrentSessionSings.mockClear();
+
+  FakeSocket.deliver({ event: "karaoke.started" });
+
+  await waitFor(() => expect(listCurrentSessionSings).toHaveBeenCalled());
+});
+
+test("a role without stats.view never asks what was played", async () => {
+  playedQueenThenAfrica();
+  renderSongs([QUEEN], ["songs.view"]);
+  await screen.findByText("Dancing Queen");
+
+  await waitFor(() =>
+    expect(
+      screen.queryByRole("button", { name: "Recently played" }),
+    ).not.toBeInTheDocument(),
+  );
+  expect(listCurrentSessionSings).not.toHaveBeenCalled();
 });

@@ -15,14 +15,17 @@ import pytest
 from alembic import command
 from alembic.config import Config
 from httpx import AsyncClient
+from sqlalchemy import delete
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from ultrastar_wingman.auth.model import as_utc
+from ultrastar_wingman.auth import permissions
+from ultrastar_wingman.auth.model import RolePermission, as_utc
 from ultrastar_wingman.db import migrations_dir
 from ultrastar_wingman.karaoke import service
 from ultrastar_wingman.karaoke.model import KaraokeSession, Score, Sing
 from ultrastar_wingman.players.model import Player
 from ultrastar_wingman.songs.model import Song
+from ultrastar_wingman.stats import service as stats_service
 
 # A fixed instant: nothing here may depend on the wall clock.
 START = datetime(2026, 8, 1, 20, 0, tzinfo=UTC)
@@ -272,6 +275,126 @@ async def test_a_sing_after_a_long_break_opens_a_new_session(session: AsyncSessi
     assert later.id != first.id
     assert as_utc(later.started_at) == START + timedelta(hours=6)
     assert as_utc(first.last_activity_at) == START
+
+
+@pytest.fixture
+async def running(session: AsyncSession) -> dict[str, Any]:
+    """A party that is still going, plus one from three days ago that must stay out of it.
+
+    Clock-relative on purpose, unlike everything above: "the current session" is defined
+    against `datetime.now` (`SESSION_GAP`), so a fixed instant cannot express it. The
+    offsets are minutes and days, nowhere near the six-hour boundary.
+    """
+    await add_song(session, "usdb:1", "Song One")
+    await add_song(session, "usdb:2", "Song Two")
+    await add_song(session, "usdb:3", "Song Three")
+
+    now = datetime.now(UTC)
+    over = KaraokeSession(
+        started_at=now - timedelta(days=3), last_activity_at=now - timedelta(days=3)
+    )
+    live = KaraokeSession(
+        started_at=now - timedelta(minutes=50), last_activity_at=now - timedelta(minutes=10)
+    )
+    session.add_all([over, live])
+    await session.flush()
+
+    await add_sing(session, over, "usdb:3", now - timedelta(days=3), [("Yannis", 5000)])
+    first = await add_sing(session, live, "usdb:1", now - timedelta(minutes=50), [("Yannis", 8500)])
+    gone = await add_sing(
+        session, live, GONE_SONG_ID, now - timedelta(minutes=40), [("Alex", 9000)]
+    )
+    # No scores at all: USDX was stopped before it awarded any. It was still played.
+    unscored = await add_sing(session, live, "usdb:2", now - timedelta(minutes=30), [])
+    again = await add_sing(session, live, "usdb:1", now - timedelta(minutes=10), [("Alex", 7000)])
+    return {
+        "over": over,
+        "live": live,
+        "first": first,
+        "gone": gone,
+        "unscored": unscored,
+        "again": again,
+    }
+
+
+async def test_the_current_sessions_sings_are_newest_first_and_one_row_per_song(
+    client: AsyncClient, running: dict[str, Any]
+) -> None:
+    response = await client.get("/api/v1/stats/sessions/current/sings")
+
+    assert response.status_code == 200
+    sings = response.json()["sings"]
+    # Song One was sung twice and appears once, at the newer start; the unscored Song Two
+    # is in; the song that left the library keeps its place with no song to show.
+    assert [(row["song_id"], row["sing_id"]) for row in sings] == [
+        ("usdb:1", running["again"].id),
+        ("usdb:2", running["unscored"].id),
+        (GONE_SONG_ID, running["gone"].id),
+    ]
+    assert sings[0]["song"]["title"] == "Song One"
+    assert sings[1]["song"]["title"] == "Song Two"
+    assert sings[2]["song"] is None
+    # Serialized with the UTC offset SQLite dropped on write.
+    assert sings[0]["started_at"].endswith("Z")
+    assert sings[0]["started_at"] > sings[1]["started_at"] > sings[2]["started_at"]
+    # The other party's song is not in the current session.
+    assert all(row["song_id"] != "usdb:3" for row in sings)
+
+
+async def test_an_empty_installation_has_no_current_sings(client: AsyncClient) -> None:
+    response = await client.get("/api/v1/stats/sessions/current/sings")
+
+    assert response.status_code == 200
+    assert response.json() == {"sings": []}
+
+
+async def test_a_finished_party_is_no_longer_the_current_session(
+    client: AsyncClient, session: AsyncSession
+) -> None:
+    """Nothing sung for `SESSION_GAP`: the next sing opens a new session, so the tab is
+    empty rather than showing last night."""
+    await add_song(session, "usdb:1", "Song One")
+    long_ago = datetime.now(UTC) - timedelta(hours=7)
+    over = KaraokeSession(started_at=long_ago, last_activity_at=long_ago)
+    session.add(over)
+    await session.flush()
+    await add_sing(session, over, "usdb:1", long_ago, [("Yannis", 5000)])
+
+    response = await client.get("/api/v1/stats/sessions/current/sings")
+
+    assert response.status_code == 200
+    assert response.json() == {"sings": []}
+
+
+async def test_the_current_session_ends_exactly_at_the_session_gap(session: AsyncSession) -> None:
+    """The same boundary `attach_to_session` applies, asserted without the wall clock."""
+    party = await service.attach_to_session(session, START)
+    await session.commit()
+
+    still_going = await stats_service.current_session(
+        session, START + timedelta(hours=5, minutes=59)
+    )
+    over = await stats_service.current_session(session, START + timedelta(hours=6))
+
+    assert still_going is not None and still_going.id == party.id
+    assert over is None
+
+
+async def test_listing_the_current_sings_needs_stats_view(
+    anonymous_client: AsyncClient, session: AsyncSession
+) -> None:
+    await session.execute(
+        delete(RolePermission).where(
+            RolePermission.role == "guest", RolePermission.capability == "stats.view"
+        )
+    )
+    await session.commit()
+    permissions.invalidate_cache()
+
+    response = await anonymous_client.get("/api/v1/stats/sessions/current/sings")
+
+    assert response.status_code == 403
+    assert response.json() == {"detail": "missing_permission:stats.view"}
 
 
 def _upgrade(database_url: str, revision: str) -> None:
