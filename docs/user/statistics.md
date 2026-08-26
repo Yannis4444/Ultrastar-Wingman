@@ -61,6 +61,23 @@ The chart is a box plot: the box is where most of that singer's (or song's) scor
 sit, the line in it is the median, and the whiskers are the outliers. A singer
 with one lucky hit looks very different from a consistently good one.
 
+## All your own scores
+
+The **Scores** tab is one party at a time. Your own record is not: open the
+**User** tab and tap **All my scores** under your totals.
+
+That page is the same list, with one singer in it and every party at once. It is
+always grouped by song — one row per song you ever sang, with how often, your
+best, your worst and your average behind it — so the only control is **Sort**.
+Open a row for the spread of that one song and every single run behind it, or
+tap a cover to open the song itself.
+
+The row only appears once you have been scored at least once, and only for a
+logged-in account that is linked to a player: scores belong to a player, and
+that is the one Wingman can total up for you.
+
+## One song's best runs
+
 Open a song from the **Songs** tab and tap **Best scores** to see its ten best
 runs of all time: how often it was sung, the best, worst and average score over
 its whole history, and then the ranking itself — the singer's picture, how hard

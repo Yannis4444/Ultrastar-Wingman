@@ -1,6 +1,5 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { useState, type ReactNode } from "react";
-import { Link } from "react-router-dom";
+import { useState } from "react";
 import type { SessionList, SessionRead, SongRead } from "../api";
 import {
   listPlayersOptions,
@@ -14,6 +13,7 @@ import { useAuth } from "../auth";
 import Chart from "../components/Chart";
 import { Icon } from "../components/icons";
 import ScoreGroupList from "../components/ScoreGroupList";
+import ScoresEmpty from "../components/ScoresEmpty";
 import SessionSummaryRow from "../components/SessionSummaryRow";
 import SongDetails from "../components/SongDetails";
 import Loading from "../components/Loading";
@@ -161,20 +161,6 @@ function SessionBar({
         </p>
       )}
     </>
-  );
-}
-
-/** An empty page that says what to do about it, not just that it is empty. */
-function ScoresEmpty({ children }: { children: ReactNode }) {
-  return (
-    <div className="scores-empty">
-      <Icon name="chart" className="scores-empty-icon" />
-      <h2>No scores yet</h2>
-      <p>{children}</p>
-      <Link className="button button-primary" to="/songs">
-        Browse songs
-      </Link>
-    </div>
   );
 }
 

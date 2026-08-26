@@ -428,6 +428,22 @@ test("a group's caption states its spread with icons, not words", async () => {
   );
 });
 
+test("under a song, best and worst still name the singer who managed them", async () => {
+  renderScores();
+  await screen.findAllByTestId("chart");
+  choose("Group", "song");
+
+  // The account's own history switches this off — every score there is the
+  // reader's. On a party page the name is the interesting half and must stay.
+  const wonderwall = (await screen.findAllByTestId("score-group"))[0];
+  expect(within(wonderwall).getByTitle("Best")).toHaveTextContent(
+    /^Best9000 · Alice$/,
+  );
+  expect(within(wonderwall).getByTitle("Worst")).toHaveTextContent(
+    /^Worst6000 · Bob$/,
+  );
+});
+
 test("a player's avatar stands next to their name, an initial when there is none", async () => {
   renderScores();
 

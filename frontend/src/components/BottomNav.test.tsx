@@ -29,13 +29,13 @@ function player(overrides: Partial<PlayerRead> = {}): PlayerRead {
   };
 }
 
-function renderNav() {
+function renderNav(url = "/") {
   const client = new QueryClient({
     defaultOptions: { queries: { retry: false } },
   });
   return render(
     <QueryClientProvider client={client}>
-      <MemoryRouter initialEntries={["/"]}>
+      <MemoryRouter initialEntries={[url]}>
         <BottomNav />
       </MemoryRouter>
     </QueryClientProvider>,
@@ -74,6 +74,28 @@ test("a logged-in singer's own picture replaces the generic glyph", async () => 
   expect(
     screen.getByRole("link", { name: "Songs" }).querySelector("svg"),
   ).not.toBeNull();
+});
+
+test.each([
+  ["/user/stats", "User"],
+  ["/settings", "User"],
+  ["/spinner", "Home"],
+  ["/songs/playlists", "Songs"],
+  ["/usdb", "Songs"],
+])("%s lights the %s tab", async (url, tab) => {
+  renderNav(url);
+
+  // A sub-surface has no tab of its own; the tab it belongs to must not go
+  // dark under it, or the reader loses track of where they are.
+  await waitFor(() =>
+    expect(screen.getByRole("link", { name: tab })).toHaveClass("active"),
+  );
+  const dark = ["Home", "Songs", "Scores", "User"].filter(
+    (name) => name !== tab,
+  );
+  for (const name of dark) {
+    expect(screen.getByRole("link", { name })).not.toHaveClass("active");
+  }
 });
 
 test("a logged-out browser keeps the glyph and asks for no players at all", async () => {
