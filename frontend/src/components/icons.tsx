@@ -100,6 +100,18 @@ export const ICON_PATHS = {
   // The die face is solid; the five pips are wound the other way round so the
   // nonzero fill rule punches them out (same trick as `info` and `clock`).
   dice: "M6 3h12a3 3 0 0 1 3 3v12a3 3 0 0 1-3 3H6a3 3 0 0 1-3-3V6a3 3 0 0 1 3-3Zm2 3.4a1.6 1.6 0 1 0 0 3.2 1.6 1.6 0 1 0 0-3.2Zm8 0a1.6 1.6 0 1 0 0 3.2 1.6 1.6 0 1 0 0-3.2Zm-4 4a1.6 1.6 0 1 0 0 3.2 1.6 1.6 0 1 0 0-3.2Zm-4 4a1.6 1.6 0 1 0 0 3.2 1.6 1.6 0 1 0 0-3.2Zm8 0a1.6 1.6 0 1 0 0 3.2 1.6 1.6 0 1 0 0-3.2Z",
+  // The other faces of the same die, for the spinner's roll (`dice` is the
+  // five). Same frame, same punched-out pips.
+  "dice-1":
+    "M6 3h12a3 3 0 0 1 3 3v12a3 3 0 0 1-3 3H6a3 3 0 0 1-3-3V6a3 3 0 0 1 3-3ZM12 10.4a1.6 1.6 0 1 0 0 3.2 1.6 1.6 0 1 0 0-3.2Z",
+  "dice-2":
+    "M6 3h12a3 3 0 0 1 3 3v12a3 3 0 0 1-3 3H6a3 3 0 0 1-3-3V6a3 3 0 0 1 3-3ZM8 6.4a1.6 1.6 0 1 0 0 3.2 1.6 1.6 0 1 0 0-3.2ZM16 14.4a1.6 1.6 0 1 0 0 3.2 1.6 1.6 0 1 0 0-3.2Z",
+  "dice-3":
+    "M6 3h12a3 3 0 0 1 3 3v12a3 3 0 0 1-3 3H6a3 3 0 0 1-3-3V6a3 3 0 0 1 3-3ZM8 6.4a1.6 1.6 0 1 0 0 3.2 1.6 1.6 0 1 0 0-3.2ZM12 10.4a1.6 1.6 0 1 0 0 3.2 1.6 1.6 0 1 0 0-3.2ZM16 14.4a1.6 1.6 0 1 0 0 3.2 1.6 1.6 0 1 0 0-3.2Z",
+  "dice-4":
+    "M6 3h12a3 3 0 0 1 3 3v12a3 3 0 0 1-3 3H6a3 3 0 0 1-3-3V6a3 3 0 0 1 3-3ZM8 6.4a1.6 1.6 0 1 0 0 3.2 1.6 1.6 0 1 0 0-3.2ZM16 6.4a1.6 1.6 0 1 0 0 3.2 1.6 1.6 0 1 0 0-3.2ZM8 14.4a1.6 1.6 0 1 0 0 3.2 1.6 1.6 0 1 0 0-3.2ZM16 14.4a1.6 1.6 0 1 0 0 3.2 1.6 1.6 0 1 0 0-3.2Z",
+  "dice-6":
+    "M6 3h12a3 3 0 0 1 3 3v12a3 3 0 0 1-3 3H6a3 3 0 0 1-3-3V6a3 3 0 0 1 3-3ZM8 6.4a1.6 1.6 0 1 0 0 3.2 1.6 1.6 0 1 0 0-3.2ZM16 6.4a1.6 1.6 0 1 0 0 3.2 1.6 1.6 0 1 0 0-3.2ZM8 10.4a1.6 1.6 0 1 0 0 3.2 1.6 1.6 0 1 0 0-3.2ZM16 10.4a1.6 1.6 0 1 0 0 3.2 1.6 1.6 0 1 0 0-3.2ZM8 14.4a1.6 1.6 0 1 0 0 3.2 1.6 1.6 0 1 0 0-3.2ZM16 14.4a1.6 1.6 0 1 0 0 3.2 1.6 1.6 0 1 0 0-3.2Z",
   // The TV the host screen runs on: a rounded case with the screen wound the
   // other way round so the nonzero fill rule punches it out (as `dice` does),
   // plus the stand bar under it.

@@ -3,6 +3,7 @@ import { render, screen } from "@testing-library/react";
 import { MemoryRouter } from "react-router-dom";
 import { meResponse } from "../test/auth";
 import { FakeSocket } from "../test/fakeSocket";
+import { iconNames } from "../test/icons";
 import Home from "./Home";
 
 const {
@@ -120,6 +121,22 @@ test("the spinner is an entry to its own page, not a reel on Home", async () => 
   expect(
     screen.queryByRole("button", { name: "Spin" }),
   ).not.toBeInTheDocument();
+});
+
+test("the die on the random song entry shows a face rolled on load", async () => {
+  // Math.random at 0 rolls the first face, at the top end the last.
+  const random = vi.spyOn(Math, "random").mockReturnValue(0);
+  const first = renderHome();
+  const entry = await screen.findByRole("link", { name: "Random song" });
+  expect(iconNames(entry)).toEqual(["dice-1"]);
+  first.unmount();
+
+  random.mockReturnValue(0.99);
+  renderHome();
+  expect(
+    iconNames(await screen.findByRole("link", { name: "Random song" })),
+  ).toEqual(["dice-6"]);
+  random.mockRestore();
 });
 
 test("the random song entry comes before the wishlist", async () => {

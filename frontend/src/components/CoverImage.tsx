@@ -7,6 +7,13 @@ interface CoverImageProps {
   /** The letter the fallback tile carries — the artist's initial. */
   initial: string;
   className?: string;
+  /**
+   * `lazy` (the default) for covers in lists, where most are off screen. The
+   * spinner reel needs `eager`: its covers sit inside an overflow-hidden frame
+   * and a lazy image only starts loading once it scrolls into view — too late
+   * when it flies past in a fraction of a second.
+   */
+  loading?: "lazy" | "eager";
 }
 
 /**
@@ -18,6 +25,7 @@ export default function CoverImage({
   src,
   initial,
   className,
+  loading = "lazy",
 }: CoverImageProps) {
   // The failed *url*, not a flag: a row that swaps to another song must try
   // again instead of inheriting the previous one's missing cover.
@@ -36,7 +44,7 @@ export default function CoverImage({
       className={classes}
       src={src}
       alt=""
-      loading="lazy"
+      loading={loading}
       onError={() => setFailedSrc(src)}
     />
   );
