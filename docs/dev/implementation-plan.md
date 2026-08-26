@@ -181,10 +181,10 @@ feature, release workflow.
 - USDX setup guidance (karaoke/status endpoint + guided UI).
 - OIDC login (authlib, PKCE, state-cookie binding; settings group "Auth").
 - Managed ffmpeg auto-download on Windows (like yt-dlp; no update checks).
-- UI polish: tile background reserved for primary cards (Home header, auth/
-  profile cards, modals, stats chart/summary, host blocks); list rows, form
-  fields, and the Home blocks (currently playing, wishlist, spinner) are
-  flat; old logo + favicons adopted; no VIDEO badge in the song list.
+- UI polish: tile background reserved for primary cards (the Home tile at the
+  top of the page, auth/profile cards, modals, stats chart/summary, host
+  blocks); list rows, form fields and the Home wishlist block are flat; old
+  logo + favicons adopted; no VIDEO badge in the song list.
 
 - UI/UX rework across every screen (2026-08-24, reviewed screen-by-screen
   against phone screenshots): song rows slimmed to cover/title/artist with
@@ -200,6 +200,21 @@ feature, release workflow.
   rests) and a QR that encodes the LAN address (new `GET /join`); shared
   `components/icons.tsx` (inline SVG) and `.icon-button` classes carry the
   icon language; global `:focus-visible` ring.
+
+- UI batch 3 (2026-08-26): USDX is now launched from inside its **own** songs
+  directory (new `usdx.songs_dir`, derived from `usdx.base_path`) — pointing
+  `-SongPath` anywhere else made USDX load the whole library next to the song
+  (reasoning from USDX's sources is in `karaoke/usdx.py`'s docstring); the QR
+  code's address is overridable with `host.join_url` (validated, normalised,
+  new settings group "Host") and `GET /join` answers with it; new
+  `GET /stats/sessions/current/sings` behind the Songs page's "Recently
+  played" chip; own score history on `/user/stats` plus an About block on the
+  user page; host view split into a one-job stage (song / results / brand) and
+  a rail (QR, session standing, wishes); Home's header became a tile that
+  swaps identity for the running song; scores page controls reduced to two
+  quiet selects with a numbers-only summary row; playlists view rebuilt
+  (header plus, inline rename); shared `EmptyState` and `RankedScoreList`;
+  wishlist and playlist glyphs split into two icon families.
 
 ## Known gaps / follow-ups (as of 2026-08-24)
 

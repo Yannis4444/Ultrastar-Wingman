@@ -1,8 +1,9 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useEffect, useState } from "react";
-import { useSearchParams } from "react-router-dom";
+import { Link, useSearchParams } from "react-router-dom";
 import type { PlayerRead } from "../api";
 import {
+  healthOptions,
   listFavoritesOptions,
   listPlayerScoresOptions,
   listPlayersOptions,
@@ -17,8 +18,12 @@ import LoginForm from "../components/LoginForm";
 import ManageMenu from "../components/ManageMenu";
 import PlayerAvatar from "../components/PlayerAvatar";
 import { errorDetail, errorMessage } from "../errors";
+import { REPOSITORY_URL } from "../links";
 import { manageEntries } from "../manage";
 import { playerSummary } from "../stats";
+// The entry row below the stat bar is Home's `.home-entry` — the same glyph,
+// label and chevron at the same 48px, so it is imported rather than recreated.
+import "./Home.css";
 import "./User.css";
 
 /** Mirrors the backend's limit so an oversized file never leaves the browser. */
@@ -87,47 +92,57 @@ function UserStats({ playerId }: { playerId: string | null }) {
   }
 
   return (
-    <div className="user-stats">
-      <IconStat
-        className="user-stat"
-        icon="hash"
-        label="Sings"
-        value={summary.sings}
-        showLabel
-      />
-      <IconStat
-        className="user-stat"
-        icon="trophy"
-        label="Best"
-        value={summary.best}
-        showLabel
-      />
-      <IconStat
-        className="user-stat"
-        icon="average"
-        label="Average"
-        value={summary.average}
-        showLabel
-      />
-      <IconStat
-        className="user-stat"
-        icon="music"
-        label="Songs"
-        value={summary.songs}
-        showLabel
-      />
-      {/* Only once it is known — a count that starts at zero and jumps looks
-          like a number that changed. */}
-      {favorites.data !== undefined && (
+    <>
+      <div className="user-stats">
         <IconStat
           className="user-stat"
-          icon="heart"
-          label="Favorites"
-          value={favorites.data.song_ids.length}
+          icon="hash"
+          label="Sings"
+          value={summary.sings}
           showLabel
         />
-      )}
-    </div>
+        <IconStat
+          className="user-stat"
+          icon="trophy"
+          label="Best"
+          value={summary.best}
+          showLabel
+        />
+        <IconStat
+          className="user-stat"
+          icon="average"
+          label="Average"
+          value={summary.average}
+          showLabel
+        />
+        <IconStat
+          className="user-stat"
+          icon="music"
+          label="Songs"
+          value={summary.songs}
+          showLabel
+        />
+        {/* Only once it is known — a count that starts at zero and jumps looks
+            like a number that changed. */}
+        {favorites.data !== undefined && (
+          <IconStat
+            className="user-stat"
+            icon="heart"
+            label="Favorites"
+            value={favorites.data.song_ids.length}
+            showLabel
+          />
+        )}
+      </div>
+      {/* Inside this component on purpose: it is the only place that knows the
+          five numbers have something behind them, so the row can never lead to
+          an empty page. */}
+      <Link className="home-entry user-stats-link" to="/user/stats">
+        <Icon name="chart" />
+        <span className="home-entry-label">All my scores</span>
+        <Icon name="chevron-right" className="home-entry-chevron" />
+      </Link>
+    </>
   );
 }
 
@@ -287,6 +302,45 @@ export default function User() {
           <ManageMenu entries={menuRows} />
         </>
       )}
+
+      <About />
+    </>
+  );
+}
+
+/**
+ * Reference material at the foot of the page: which Wingman this is, and where
+ * it comes from. A list rather than a paragraph, so documentation and licence
+ * rows can slot in later at the cost of one `<a>` each.
+ */
+function About() {
+  // From the backend, never from a constant in here: a frontend built against
+  // one release and served by another would print the wrong number.
+  const health = useQuery(healthOptions());
+
+  return (
+    <>
+      <h2>About</h2>
+      <div className="about-list">
+        {/* Absent until the answer is in — never "Version undefined". */}
+        {health.data !== undefined && (
+          <p className="about-row">
+            <Icon name="info" className="about-icon" />
+            <span className="about-label">Version</span>
+            <span className="about-value">{health.data.version}</span>
+          </p>
+        )}
+        <a
+          className="about-row about-link"
+          href={REPOSITORY_URL}
+          target="_blank"
+          rel="noopener noreferrer"
+        >
+          <Icon name="github" className="about-icon" />
+          <span className="about-label">GitHub</span>
+          <Icon name="chevron-right" className="about-icon" />
+        </a>
+      </div>
     </>
   );
 }

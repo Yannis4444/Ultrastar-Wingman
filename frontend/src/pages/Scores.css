@@ -29,25 +29,63 @@
   margin: 8px 16px 0 16px;
 }
 
-/* Two labelled blocks of the old app's check controls. The `fieldset` groups
-   the radios for assistive tech; the `legend` is styled as the section heading
-   the guidelines ask for, so the group is named exactly once. */
-.scores-options fieldset {
-  margin: 0;
-  padding: 0;
-  border: 0;
+/* One row, two quiet selects: the reader touches these once an evening, so
+   they are a line of the page and not a section of it. The row follows the
+   summary, whose hairline already sits 12px below the numbers — the same 12px
+   the controls and the chart keep between them. */
+.scores-controls {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+  margin: 12px 16px 0 16px;
 }
 
-.scores-options legend {
-  padding: 0;
-  margin: 16px 16px 0 16px;
-  font-size: 1em;
-  font-weight: bold;
-  color: var(--color);
+/* `flex-basis: auto`, not 0: an even split gives both controls the same width,
+   and "group by player" is half again as wide as "best score" — the longer
+   select then clips its own value while the shorter one sits half empty. */
+.scores-control {
+  display: flex;
+  flex: 1 1 auto;
+  gap: 6px;
+  align-items: center;
+  min-width: 0;
 }
 
-/* The card follows the sorting controls, whose last radio already contributes
-   4px of padding below its text — 12px + that 4px is the page's 16px rhythm. */
+.scores-control-label {
+  flex: 0 0 auto;
+  font-size: 0.85em;
+  color: var(--color-darker);
+}
+
+/* A lone control is a control, not a bar. The account's own history offers
+   Sort and nothing else, and `flex: 1 1 auto` stretched that one select across
+   the whole 720px column, where it read as a page-wide toolbar. Sized to its
+   longest option instead. */
+.scores-control:only-child {
+  flex: 0 1 auto;
+}
+
+/* Without `min-width: 0` a select refuses to shrink below its widest option,
+   and "group by player" plus "alphabetically" push the row off a 390px phone. */
+.scores-control select {
+  flex: 1 1 auto;
+  min-width: 0;
+}
+
+/* Under ~380px the two selects cannot both show their longest option — a
+   `<select>` clips its value without an ellipsis, so "group by player" reads
+   "group by" and is no longer distinguishable from "group by song". Below that
+   width each control takes a line of its own and stays legible; at the 390px
+   design width the row is untouched. */
+@media (max-width: 380px) {
+  .scores-controls {
+    flex-wrap: wrap;
+  }
+}
+
+/* The card follows the controls row, whose 36px selects carry no margin of
+   their own — 12px is the gap the whole top section is built on, and the
+   ranking below the card then reopens the page's 16px rhythm. */
 .scores-chart {
   margin: 12px 16px 0 16px;
   padding: 12px;
@@ -61,27 +99,5 @@
   color: var(--color-dark);
 }
 
-.scores-empty {
-  display: flex;
-  flex-direction: column;
-  gap: 12px;
-  align-items: center;
-  padding: 32px 16px;
-  text-align: center;
-}
-
-.scores-empty-icon {
-  font-size: 48px;
-  color: var(--color-darkerer);
-}
-
-.scores-empty h2 {
-  margin: 0;
-  font-size: 1.1em;
-}
-
-.scores-empty p {
-  max-width: 34ch;
-  margin: 0;
-  color: var(--color-dark);
-}
+/* The empty state is `components/EmptyState.css` — the playlists page draws
+   the same shape, so it is a component now rather than a page rule. */

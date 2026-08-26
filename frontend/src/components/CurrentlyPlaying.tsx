@@ -5,17 +5,19 @@ import {
   getCurrentSingOptions,
   getCurrentSingQueryKey,
   listKaraokeColorsOptions,
-  listPlaylistsOptions,
   stopSingingMutation,
 } from "../api/@tanstack/react-query.gen";
 import { useAuth } from "../auth";
 import { formatDuration, parseServerTime } from "../duration";
 import { useFavorites } from "../hooks/useFavorites";
 import { useWingmanEvent, type WingmanEvent } from "../hooks/useWingmanEvents";
+import { useWishlist } from "../hooks/useWishlist";
 import ConfirmModal from "./ConfirmModal";
 import { Icon } from "./icons";
 import PlayerAvatar from "./PlayerAvatar";
 import SongCover from "./SongCover";
+// The control row mirrors the song modal's, down to the stylesheet.
+import "./SongControls.css";
 import SongDetails from "./SongDetails";
 import "./CurrentlyPlaying.css";
 
@@ -26,6 +28,12 @@ interface KaraokeStarted extends WingmanEvent {
 interface CurrentlyPlayingProps {
   /** The host page owns Stop (in its reveal-on-move overlay); hide it here. */
   hideControls?: boolean;
+  /**
+   * Appended to the block's own class. The Home stage passes
+   * `currently-playing-stage`, which restyles the block for the tile it sits
+   * in; the host passes nothing and keeps today's rendering exactly.
+   */
+  className?: string;
 }
 
 function useElapsedSeconds(startedAt: string | null): number {
@@ -49,30 +57,22 @@ function useElapsedSeconds(startedAt: string | null): number {
  */
 export default function CurrentlyPlaying({
   hideControls = false,
+  className,
 }: CurrentlyPlayingProps) {
   const queryClient = useQueryClient();
   const auth = useAuth();
   const current = useQuery(getCurrentSingOptions());
   const colors = useQuery(listKaraokeColorsOptions());
   const favorites = useFavorites();
+  // The same list the wishlist tile and the host already hold, so the wish mark
+  // on the stage costs no extra request.
+  const wishlist = useWishlist();
   const [askStop, setAskStop] = useState(false);
-  // Which song-modal view the block opened, if any — the cover goes to the song
-  // itself, the playlist button straight into the picker. The song travels with
-  // it: the sing can end while the modal is open (USDX finished it, or somebody
-  // else stopped it), and the block going away must not take the reader's open
-  // modal with it.
-  const [details, setDetails] = useState<{
-    view: "main" | "playlists";
-    song: SongRead;
-  } | null>(null);
-
-  const canManagePlaylists = auth.user !== null && auth.can("playlists.manage");
-  // Same query key the modal uses, so this only warms a cache entry it needs
-  // anyway. Without a playlist of their own the button would open an empty list.
-  const playlists = useQuery({
-    ...listPlaylistsOptions(),
-    enabled: auth.loaded && canManagePlaylists && !hideControls,
-  });
+  // The song the reader opened the modal for, if any. It travels with the
+  // state: the sing can end while the modal is open (USDX finished it, or
+  // somebody else stopped it), and the block going away must not take the
+  // reader's open modal with it.
+  const [details, setDetails] = useState<SongRead | null>(null);
 
   const stop = useMutation({
     ...stopSingingMutation(),
@@ -103,11 +103,7 @@ export default function CurrentlyPlaying({
   // of the sing closes the block and leaves the modal standing.
   const modal =
     details !== null ? (
-      <SongDetails
-        song={details.song}
-        initialView={details.view}
-        onClose={() => setDetails(null)}
-      />
+      <SongDetails song={details} onClose={() => setDetails(null)} />
     ) : null;
 
   if (!sing) return modal;
@@ -120,12 +116,11 @@ export default function CurrentlyPlaying({
   // bar stays full.
   const showTotal = duration !== null && elapsed <= duration;
   const favorite = favorites.ids.has(song.id);
-  const hasPlaylists = (playlists.data?.playlists ?? []).some(
-    (list) => list.mine,
-  );
+  const wished = wishlist.mine(song.id);
+  const canWish = auth.can("wishlist.add");
   const showControls =
     !hideControls &&
-    (favorites.available || hasPlaylists || auth.can("karaoke.stop"));
+    (favorites.available || canWish || auth.can("karaoke.stop"));
 
   const hexFor = (name: string): string | undefined =>
     colors.data?.colors.find((color) => color.name === name)?.hex;
@@ -134,7 +129,12 @@ export default function CurrentlyPlaying({
 
   return (
     <>
-      <section className="currently-playing" aria-label="Now playing">
+      <section
+        className={
+          className ? `currently-playing ${className}` : "currently-playing"
+        }
+        aria-label="Now playing"
+      >
         {/* The host is a TV nobody taps: it keeps the bare cover, which is also
             what its grid places. */}
         {hideControls ? (
@@ -144,7 +144,7 @@ export default function CurrentlyPlaying({
             type="button"
             className="currently-playing-cover-button"
             aria-label={`Details for ${song.title}`}
-            onClick={() => setDetails({ view: "main", song })}
+            onClick={() => setDetails(song)}
           >
             {cover}
           </button>
@@ -159,10 +159,23 @@ export default function CurrentlyPlaying({
           </p>
         </div>
 
-        {duration !== null && (
-          <div className="currently-playing-bar" aria-hidden="true">
+        {/* Off the host the bar is always in the DOM, hidden rather than
+            dropped when the song has no known duration: 6px appearing halfway
+            through a sing would shove everything below it down. The host keeps
+            today's markup, so its grid rows are untouched. */}
+        {(duration !== null || !hideControls) && (
+          <div
+            className="currently-playing-bar"
+            aria-hidden="true"
+            style={duration === null ? { visibility: "hidden" } : undefined}
+          >
             <span
-              style={{ width: `${Math.min(100, (elapsed / duration) * 100)}%` }}
+              style={{
+                width:
+                  duration === null
+                    ? "0%"
+                    : `${Math.min(100, (elapsed / duration) * 100)}%`,
+              }}
             />
           </div>
         )}
@@ -189,6 +202,8 @@ export default function CurrentlyPlaying({
             ))}
         </ul>
 
+        {/* Mirrors the song modal's row: two 48px marks either side of one
+            large, unfilled control. Here the large one is Stop. */}
         {showControls && (
           <div className="currently-playing-controls">
             {favorites.available && (
@@ -196,8 +211,8 @@ export default function CurrentlyPlaying({
                 type="button"
                 className={
                   favorite
-                    ? "icon-button currently-playing-favorite-on"
-                    : "icon-button"
+                    ? "song-control song-control-favorite song-control-favorite-on"
+                    : "song-control song-control-favorite"
                 }
                 aria-pressed={favorite}
                 aria-label={
@@ -208,26 +223,34 @@ export default function CurrentlyPlaying({
                 <Icon name="heart" />
               </button>
             )}
-            {hasPlaylists && (
-              <button
-                type="button"
-                className="icon-button"
-                aria-label="Add to playlist"
-                onClick={() => setDetails({ view: "playlists", song })}
-              >
-                <Icon name="playlist-plus" />
-              </button>
-            )}
             {auth.can("karaoke.stop") && (
               <button
                 type="button"
-                className="icon-button icon-button-danger"
+                className="song-control song-control-lead song-control-stop"
                 aria-label="Stop"
                 title="Stop"
                 disabled={stop.isPending}
                 onClick={() => setAskStop(true)}
               >
                 <Icon name="stop" />
+              </button>
+            )}
+            {canWish && (
+              <button
+                type="button"
+                className={
+                  wished
+                    ? "song-control song-control-wish song-control-wish-on"
+                    : "song-control song-control-wish"
+                }
+                aria-pressed={wished}
+                aria-label={wished ? "Remove wish" : "Wish"}
+                onClick={() => {
+                  if (wished) wishlist.unwish(song.id);
+                  else wishlist.wish(song.id);
+                }}
+              >
+                <Icon name={wished ? "playlist-check" : "playlist-plus"} />
               </button>
             )}
           </div>

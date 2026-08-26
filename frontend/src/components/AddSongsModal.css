@@ -34,6 +34,11 @@
   border-color: var(--highlight-blue-light);
 }
 
+/* Pressed state: a card that reads as a button has to answer the tap. */
+.add-songs-card:active {
+  background-color: var(--highlight-blue-dark);
+}
+
 .add-songs-card-icon {
   font-size: 48px;
   color: var(--highlight-blue-light);
@@ -46,6 +51,23 @@
 .add-songs-card-text {
   font-size: 0.8em;
   color: var(--color-darker);
+}
+
+/* The affordance the card was missing: the accent line that says a tap leads
+   somewhere. It brightens with the card, so hovering lights the whole target. */
+.add-songs-card-go {
+  display: flex;
+  gap: 4px;
+  align-items: center;
+  margin-top: 4px;
+  font-size: 0.85em;
+  font-weight: 700;
+  color: var(--highlight-blue-light);
+}
+
+.add-songs-card:hover .add-songs-card-go,
+.add-songs-card:focus-visible .add-songs-card-go {
+  color: var(--color);
 }
 
 @media (prefers-reduced-motion: reduce) {

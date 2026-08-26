@@ -38,16 +38,21 @@ everything for the late shift. Playlists belong to an account.
 
 Create one from **Songs → Playlists**:
 
-1. Give it a name.
-2. Decide whether it is **shared**.
-3. Add songs from a song's details: **Add to playlist** lists your playlists —
+1. Press the **+** at the top right of the page. On a page with no playlists yet
+   the form is already open — the **+** folds it away again.
+2. Give it a name.
+3. Decide whether it is **shared**.
+4. Press **Create**. The form stays open with the cursor in it, so the next
+   playlist is one word away.
+5. Add songs from a song's details: **Add to playlist** lists your playlists —
    tap one to add the song, tap it again to take the song out. A check marks
    the playlists that already have it.
 
 The **Playlists** view lists every playlist you can see with the number of songs
-on it. Tap one to browse its songs — tap a song there to open it, and the owner
-can take a song out with the ✕. The pencil renames a playlist (and turns sharing
-on or off), the bin deletes it.
+on it, and who shared it when it is not yours. Tap a row to browse its songs —
+tap a song there to open it, and the owner can take a song out with the ✕. On
+your own playlists the pencil renames one (and turns sharing on or off) right in
+the row, and the bin deletes it.
 
 ### Shared playlists
 

@@ -37,6 +37,29 @@ before every song, together with the names and avatars of whoever is on the slot
     Deluxe itself only plays 1, 2, 3, 4 or 6 players, five singers reach it as
     six, the sixth one empty.
 
+## Host
+
+What the host screen — the TV — tells the guests.
+
+| Field | What it is |
+|---|---|
+| **Join URL** (`host.join_url`) | The address guests open on their phones, and therefore what the QR code on the host screen encodes. Empty means Wingman picks your PC's address on the local network itself, which is right on most machines. |
+
+Fill it in when the QR code carries an address the guests cannot reach — a VPN, a
+Hyper-V switch or a second network card can make the automatic pick land on the
+wrong one. `http://192.168.1.20:8080`, `192.168.1.20:8080` and plain
+`192.168.1.20` are all fine: Wingman adds the `http://` for you, and it adds the
+port it is listening on when you leave it off. Write the scheme yourself
+(`https://party.example`) and Wingman changes nothing — that is the way to point
+the QR code at a reverse proxy on its own port. An address no phone could open (a
+scheme that is not `http` or `https`, a missing host, a port that is not a number)
+is refused with the reason under the field, and the QR code keeps the address that
+worked.
+
+The line under the field always names the address the QR code is carrying right
+now, whether that is your value or Wingman's guess. Saving a new one changes the
+TV immediately — nobody has to walk over and reload it.
+
 ## USDX
 
 Where Ultrastar Deluxe lives.
@@ -48,9 +71,19 @@ Where Ultrastar Deluxe lives.
 | **Config file** (`usdx.config_file`) | Overrides the derived `<base path>\config.ini` — the file that holds players, colours and avatars. |
 | **Avatars directory** (`usdx.avatars_dir`) | Overrides the derived `<base path>\avatars`, where Ultrastar Deluxe reads avatar pictures from. |
 | **Ultrastar DB** (`usdx.ultrastar_db`) | Overrides the derived `<base path>\Ultrastar.db`. Wingman only reads it, to import the scores. |
+| **Songs directory** (`usdx.songs_dir`) | Overrides the derived `<base path>\songs` — the folder Ultrastar Deluxe itself loads songs from. |
 
-For a normal installation, fill in the base path and leave the four overrides
+For a normal installation, fill in the base path and leave the five overrides
 empty. They exist for portable installations spread over several folders.
+
+**Songs directory** is not the same field as the songs directory under
+[Songs](#songs). That one says where *Wingman* looks for songs and may be
+anywhere, on any drive; this one is where *Ultrastar Deluxe* looks. Wingman
+starts every song from inside Ultrastar Deluxe's own songs folder — copying the
+song there first when it lives somewhere else, or when its folder name has
+characters Ultrastar Deluxe cannot pass on the command line. Started from
+anywhere else, Ultrastar Deluxe loads its whole library alongside the song and
+opens on the first song of the list instead of the one that was picked.
 
 The section starts with a **Run Ultrastar Deluxe** row and its **Launch**
 button. Some things are not Wingman's to set — which microphone is player one,
@@ -62,8 +95,10 @@ same way a running song is refused — whoever may stop a song can still replace
 it.
 
 !!! note
-    `config.ini` is created by Ultrastar Deluxe on demand and `Ultrastar.db` only
-    exists after the first score, so neither has to be there yet.
+    `config.ini` is created by Ultrastar Deluxe on demand, `Ultrastar.db` only
+    exists after the first score, and Ultrastar Deluxe's own songs folder
+    appears at the latest when the first song is put into it, so none of the
+    three has to be there yet.
 
 ## Songs
 
@@ -71,11 +106,16 @@ Where your songs are.
 
 | Field | What it is |
 |---|---|
-| **Directory** (`songs.directory`) | The Ultrastar Deluxe songs folder Wingman scans. Downloads land here. |
+| **Directory** (`songs.directory`) | The folder Wingman scans for songs. Downloads land here. |
 | **Additional directories** (`songs.additional_directories`) | Further folders to scan, one path per line. |
 
 Every direct subfolder of a scanned folder that holds a song text file counts as
 one song. Scanning never writes anything into a song folder.
+
+This is your library, and it may be anywhere — it is usually Ultrastar Deluxe's
+own songs folder, but it does not have to be. Where Ultrastar Deluxe itself looks
+is [USDX → Songs directory](#usdx); a song that lives outside that folder is
+copied into it for as long as it plays.
 
 ## USDB
 

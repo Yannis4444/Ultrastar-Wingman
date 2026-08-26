@@ -1,5 +1,5 @@
-/* One tight block on the page background — no tile, the Home header is the only
-   one of those. */
+/* One tight block. On Home it fills the stage tile; on the host it is restaged
+   as a grid further down. */
 .currently-playing {
   display: flex;
   flex-direction: column;
@@ -127,7 +127,8 @@
   text-overflow: ellipsis;
 }
 
-/* One icon row: favorite, add to playlist, stop. */
+/* One icon row: favorite, stop, wish. Its layout comes from SongControls.css,
+   which the song modal's row uses too. */
 .currently-playing-controls {
   display: flex;
   align-items: center;
@@ -135,12 +136,86 @@
   gap: 8px;
 }
 
-/* Compound with `.icon-button`: index.css sets the idle glyph color and is
-   bundled after this file, so a single class would lose and the heart would
-   never turn pink. */
-.icon-button.currently-playing-favorite-on,
-.icon-button.currently-playing-favorite-on:hover:enabled {
-  color: var(--highlight-pink-light);
+/* The Home stage: the block owns a tile now, so the cover grows and the row
+   below it becomes the song modal's. Every rule here is scoped to the stage
+   class, so the host's overrides further down cannot collide with them. */
+.currently-playing-stage {
+  margin: 0;
+  /* Mounts when the sing starts, so a transition would have nothing to run
+     from — the idle half of the stage fades out with a transition instead. */
+  animation: currently-playing-in 200ms ease;
+}
+
+@keyframes currently-playing-in {
+  from {
+    opacity: 0;
+  }
+}
+
+.currently-playing-stage .currently-playing-cover,
+.currently-playing-stage .song-cover.currently-playing-cover {
+  width: 160px;
+  height: 160px;
+  font-size: 3.5em;
+}
+
+/* The one part of the block whose height is not fixed: everything above is a
+   cover, a clamped line or a 6px bar, but the singers wrap. Six slots is a
+   configured party size, and six long names wrap to three rows — 32px more than
+   the tile budgets, which pushes the whole page below the tile down the moment
+   the song starts. Two rows is the budget; a bigger party scrolls inside the
+   line instead of growing it, so no singer is lost. */
+.currently-playing-stage .currently-playing-players {
+  /* Two 24px rows and the 8px between them. */
+  max-height: 56px;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+}
+
+/* 72px is the large control's own height: the row keeps it whether the reader
+   may stop, wish, both or neither, so logging in does not resize the tile. */
+.currently-playing-stage .currently-playing-controls {
+  width: 100%;
+  min-height: 72px;
+}
+
+/* The two flanking marks while they are off. `--color-darkerer` is 2.25:1 on
+   `--tile-bg`, under the 3:1 floor a control glyph has to clear; on the page
+   background the song modal floats over, the same token does clear it. So the
+   stage — and only the stage — steps up to `--color-darker` (3.4:1) and the
+   modal keeps what §5 prescribes for it. */
+.currently-playing-stage .song-control-favorite,
+.currently-playing-stage .song-control-wish {
+  color: var(--color-darker);
+}
+
+/* `--highlight-pink-light` is only 2.2:1 as a glyph on `--tile-bg`; the stage
+   defines `--stage-pink` as the mix that clears 3:1. The fallback keeps the
+   control visible if the block is ever mounted outside the stage. */
+.currently-playing-stage .song-control-stop,
+.currently-playing-stage .song-control-favorite-on {
+  color: var(--stage-pink, var(--highlight-pink-light));
+}
+
+/* Re-asserted here because the off rule above is two classes deep and would
+   otherwise outrank the single-class `.song-control-wish-on` that colors a
+   wished song everywhere else. */
+.currently-playing-stage .song-control-wish-on {
+  color: var(--highlight-blue-light);
+}
+
+/* An optical correction, not a second size: `stop` is a square filling half its
+   24-unit box, while the modal's `play` triangle fills the full height. At the
+   row's shared 2.6em the square measures 20.8px against the triangle's 24.3px
+   and stops reading as the large control. 3em squares that up. */
+.currently-playing-stage .song-control-stop {
+  font-size: 3em;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .currently-playing-stage {
+    animation: none;
+  }
 }
 
 /* The host view is a TV across the room: same markup, staged as a grid. The

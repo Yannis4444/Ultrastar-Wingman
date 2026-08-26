@@ -63,21 +63,60 @@ function renderHome() {
   );
 }
 
-test("the header shows the logo and the running version", async () => {
+test("the stage shows the app's identity while nothing plays", async () => {
   renderHome();
 
   expect(
     screen.getByRole("img", { name: "Ultrastar Wingman" }),
   ).toHaveAttribute("src", "/logo.png");
-  expect(await screen.findByText("Version 2.1.0")).toBeInTheDocument();
+  expect(
+    await screen.findByRole("heading", { name: "Ultrastar Wingman" }),
+  ).toBeInTheDocument();
+  // Version and repository moved to the About block on the User page — one
+  // place each, not two.
+  expect(screen.queryByText(/^Version /)).not.toBeInTheDocument();
+});
+
+test("the running song takes the stage in the identity's place", async () => {
+  getCurrentSing.mockResolvedValue({
+    data: {
+      sing: {
+        sing_id: "sing-1",
+        started_at: new Date(Date.now() - 60_000).toISOString(),
+        song: {
+          id: "usdb:1",
+          source: "usdb",
+          title: "Dancing Queen",
+          artist: "ABBA",
+          duration_seconds: 231,
+          has_video: true,
+          language: null,
+          genre: null,
+          year: null,
+          edition: null,
+          creator: null,
+        },
+        slots: [],
+      },
+    },
+  });
+  renderHome();
+
+  await screen.findByRole("region", { name: "Now playing" });
+  // The identity stays in the DOM holding the tile's height, but out of sight
+  // and out of the reader's way.
+  expect(
+    screen.getByRole("heading", { name: "Ultrastar Wingman", hidden: true })
+      .parentElement,
+  ).toHaveClass("home-stage-hidden");
 });
 
 test("the spinner is an entry to its own page, not a reel on Home", async () => {
   renderHome();
 
-  expect(
-    await screen.findByRole("link", { name: "Random song" }),
-  ).toHaveAttribute("href", "/spinner");
+  const entry = await screen.findByRole("link", { name: "Random song" });
+  expect(entry).toHaveAttribute("href", "/spinner");
+  expect(entry).toHaveClass("home-random");
   expect(
     screen.queryByRole("button", { name: "Spin" }),
   ).not.toBeInTheDocument();

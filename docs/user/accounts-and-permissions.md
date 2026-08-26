@@ -31,9 +31,19 @@ Once you are logged in, the **User** tab shows you instead of the login form.
 - Under your name stand your totals over every party you ever sang at: how many
   performances were scored, your best score, your average, how many different
   songs you sang and how many songs you marked as favorites.
+- **All my scores** under those numbers opens
+  [your whole history](statistics.md#all-your-own-scores) — every song you ever
+  sang, not just tonight's.
 
 A singer who has not been scored yet gets an invitation to sing instead of a row
-of zeroes.
+of zeroes, and no row leading to an empty page.
+
+## About
+
+At the very bottom of the **User** tab stands what this Wingman is: the version
+it is running, and a link to the project on GitHub. The version is the one the
+Wingman you are talking to reports, so it is the number to quote in a bug
+report.
 
 ## Log in with single sign-on (Keycloak and friends)
 
@@ -98,10 +108,12 @@ line and nobody is logged in.
 
 ## The host screen
 
-The browser the host opened with the one-time host link is not an account. It is a
-session with full administrator rights, marked *This browser is the host screen —
-full access* on the **User** tab. It may change every setting, but it cannot own
-favorites or playlists — those need a real account.
+The browser the host opened with the one-time host link is not an account. It is
+a session with full administrator rights: the **User** tab shows it as *Host
+screen*, with *This browser has full access* under it, and offers *Log in as a
+user instead* for whoever wants their own account on that browser after all. It
+may change every setting, but it cannot own favorites or playlists — those need a
+real account.
 
 ## The four roles
 
@@ -156,9 +168,10 @@ appear for an administrator.
 
 **User → Permissions** is the table above made editable, all of it at once: one
 row per right, one column for **guest**, **user** and **trusted**. Rights that
-belong together stand under one heading — *songs*, *karaoke*, *players*,
-*wishlist*, *playlists*, *downloads*, *USDB*, *stats*, *settings*, *users*,
-*permissions* — and under each row stands in one line what it allows. Every tick
+belong together stand under one heading, in alphabetical order — *downloads*,
+*karaoke*, *permissions*, *players*, *playlists*, *settings*, *songs*, *stats*,
+*USDB*, *users*, *wishlist* — and under each row stands in one line what it
+allows. Every tick
 is saved right away and takes effect immediately, for everybody who is already
 looking at a page.
 

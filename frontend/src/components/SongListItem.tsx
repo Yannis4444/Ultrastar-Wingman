@@ -12,6 +12,12 @@ interface SongListItemProps {
   /** Small passive marker after the title: I wished for this song. */
   wished?: boolean;
   /**
+   * Right-aligned trailing text inside the row: the one value this list is
+   * about (the time a song was played, a duration). Not a control — anything
+   * clickable belongs in `actions`.
+   */
+  meta?: ReactNode;
+  /**
    * Controls next to the row (playlist reordering). They sit beside the row
    * button, never inside it: nested buttons are invalid HTML.
    */
@@ -23,6 +29,7 @@ export default function SongListItem({
   onClick,
   favorite,
   wished,
+  meta,
   actions,
 }: SongListItemProps) {
   const item = (
@@ -51,6 +58,7 @@ export default function SongListItem({
         </span>
         <span className="song-artist">{song.artist}</span>
       </span>
+      {meta && <span className="song-meta">{meta}</span>}
     </button>
   );
 

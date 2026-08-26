@@ -11,16 +11,8 @@
   border: 1px solid var(--input-border-color);
 }
 
-.karaoke-slots select {
-  cursor: pointer;
-}
-
-/* The dropdown itself is drawn by the browser and would otherwise come up in
-   the system's light colors. */
-.karaoke-slots option {
-  color: var(--color);
-  background-color: var(--input-bg);
-}
+/* The dark dropdown itself is `select.text-input-quiet option` in `index.css`:
+   every quiet select needs it, not just this one. */
 
 /* Same fixed slot as in a normal setting row, so the count select does not
    shift when the reset button appears. */

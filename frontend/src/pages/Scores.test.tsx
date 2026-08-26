@@ -10,6 +10,7 @@ import { MemoryRouter } from "react-router-dom";
 import type { ScoreWithContext, SessionRead, SongRead } from "../api";
 import { meResponse } from "../test/auth";
 import { FakeSocket } from "../test/fakeSocket";
+import { iconNames } from "../test/icons";
 import Scores from "./Scores";
 
 interface RenderedChart {
@@ -60,6 +61,11 @@ vi.mock("../components/SongDetails", () => ({
     <div data-testid="song-details">{song.title}</div>
   ),
 }));
+
+/** Pick a value in one of the two compact selects above the list. */
+function choose(control: "Group" | "Sort", value: string): void {
+  fireEvent.change(screen.getByLabelText(control), { target: { value } });
+}
 
 /** Category axis of the most recent boxplot — the per-group histograms have none. */
 function lastBoxplotCategories(): string[] | undefined {
@@ -220,9 +226,24 @@ test("the summary counts scored performances, not songs started", async () => {
   );
   expect(within(summary).getByTitle("Songs")).toHaveTextContent(/^Songs2$/);
   expect(within(summary).getByTitle("Singers")).toHaveTextContent(/^Singers2$/);
-  expect(summary).toHaveTextContent("9000");
-  expect(summary).toHaveTextContent("Alice");
-  expect(summary).toHaveTextContent("Oasis – Wonderwall");
+});
+
+test("the summary names the evening's best score but not who sang it", async () => {
+  renderScores();
+
+  const summary = await screen.findByLabelText("Session summary");
+  // The number is the headline; who got it and on what is the first row of the
+  // ranking below, which is where the reader looks for a name.
+  await waitFor(() =>
+    expect(within(summary).getByTitle("Top score")).toHaveTextContent(
+      /^Top score9000$/,
+    ),
+  );
+  expect(within(summary).queryByText("Alice")).not.toBeInTheDocument();
+  expect(
+    within(summary).queryByText(/Oasis – Wonderwall/),
+  ).not.toBeInTheDocument();
+  expect(summary.querySelector("img")).toBeNull();
 });
 
 test("a session whose sings were all scored says only 'Sings'", async () => {
@@ -237,18 +258,49 @@ test("a session whose sings were all scored says only 'Sings'", async () => {
   );
 });
 
-test("the grouping and sorting choices stand above the chart they shape", async () => {
+test("the compact controls sit above both the chart and the list they reorder", async () => {
   renderScores();
   await screen.findAllByTestId("chart");
 
-  // Reading order: decide what is being compared, then look at the picture.
-  const legend = screen.getByText("Grouping");
+  // Summary, then the two dropdowns, then the picture and the ranking they
+  // both rebuild — the selects rewrite the chart's title as well as its bars.
+  const summary = document.querySelector(".session-summary");
   const title = document.querySelector(".scores-chart-title");
+  const controls = document.querySelector(".scores-controls");
+  const list = document.querySelector(".score-groups");
+  expect(summary).not.toBeNull();
   expect(title).not.toBeNull();
+  expect(controls).not.toBeNull();
+  expect(list).not.toBeNull();
+  const follows = (first: Element, second: Element): boolean =>
+    Boolean(
+      first.compareDocumentPosition(second) & Node.DOCUMENT_POSITION_FOLLOWING,
+    );
+  expect(follows(summary as Element, controls as Element)).toBe(true);
+  expect(follows(controls as Element, title as Element)).toBe(true);
+  expect(follows(title as Element, list as Element)).toBe(true);
+});
+
+test("both controls are quiet selects carrying the old wordings", async () => {
+  renderScores();
+
+  const group = await screen.findByLabelText("Group");
+  const sort = screen.getByLabelText("Sort");
+  expect(group).toHaveClass("text-input-quiet");
+  expect(sort).toHaveClass("text-input-quiet");
   expect(
-    legend.compareDocumentPosition(title as Node) &
-      Node.DOCUMENT_POSITION_FOLLOWING,
-  ).toBeTruthy();
+    within(group)
+      .getAllByRole("option")
+      .map((option) => option.textContent),
+  ).toEqual(["don't group", "group by player", "group by song"]);
+  expect(
+    within(sort)
+      .getAllByRole("option")
+      .map((option) => option.textContent),
+  ).toEqual(["alphabetically", "average score", "best score", "worst score"]);
+  // The defaults the page has always opened on.
+  expect(group).toHaveValue("player");
+  expect(sort).toHaveValue("best");
 });
 
 test("switching the grouping rebuilds the chart around the other axis", async () => {
@@ -257,7 +309,7 @@ test("switching the grouping rebuilds the chart around the other axis", async ()
 
   expect(lastBoxplotCategories()).toEqual(["Alice", "Bob"]);
 
-  fireEvent.click(screen.getByRole("radio", { name: "group by song" }));
+  choose("Group", "song");
 
   await waitFor(() =>
     expect(lastBoxplotCategories()).toEqual([
@@ -279,10 +331,10 @@ test("sorting by worst score puts the evening's flop first", async () => {
   // Best score first by default: Alice's 9000 leads.
   await waitFor(() => expect(groupLabels()[0]).toBe("Alice"));
 
-  fireEvent.click(screen.getByRole("radio", { name: "worst score" }));
+  choose("Sort", "worst");
   await waitFor(() => expect(groupLabels()[0]).toBe("Bob"));
 
-  fireEvent.click(screen.getByRole("radio", { name: "alphabetically" }));
+  choose("Sort", "alphabetically");
   await waitFor(() => expect(groupLabels()).toEqual(["Alice", "Bob"]));
 });
 
@@ -290,7 +342,7 @@ test("'don't group' leaves every score standing on its own", async () => {
   renderScores();
   await screen.findAllByTestId("chart");
 
-  fireEvent.click(screen.getByRole("radio", { name: "don't group" }));
+  choose("Group", "none");
 
   // One row per score, headed by its song and best score first.
   await waitFor(() =>
@@ -305,7 +357,7 @@ test("'don't group' leaves every score standing on its own", async () => {
 test("the ungrouped chart never claims a ranking the order does not have", async () => {
   renderScores();
   await screen.findAllByTestId("chart");
-  fireEvent.click(screen.getByRole("radio", { name: "don't group" }));
+  choose("Group", "none");
 
   const title = (): string | undefined =>
     document.querySelector(".scores-chart-title")?.textContent ?? undefined;
@@ -314,10 +366,10 @@ test("the ungrouped chart never claims a ranking the order does not have", async
 
   // "worst score" sorts ascending, so the drawn head of the list is the
   // session's *lowest* scores — calling that "Top scores" would be a lie.
-  fireEvent.click(screen.getByRole("radio", { name: "worst score" }));
+  choose("Sort", "worst");
   await waitFor(() => expect(title()).toBe("Lowest scores"));
 
-  fireEvent.click(screen.getByRole("radio", { name: "alphabetically" }));
+  choose("Sort", "alphabetically");
   await waitFor(() => expect(title()).toBe("Scores"));
 });
 
@@ -332,7 +384,7 @@ test("a score whose song has left the library keeps its place in the row", async
   });
   renderScores();
   await screen.findAllByTestId("chart");
-  fireEvent.click(screen.getByRole("radio", { name: "group by song" }));
+  choose("Group", "song");
 
   // No cover to show and no modal to open, but the 40px square stays so the
   // text column of every row still lines up.
@@ -376,6 +428,22 @@ test("a group's caption states its spread with icons, not words", async () => {
   );
 });
 
+test("under a song, best and worst still name the singer who managed them", async () => {
+  renderScores();
+  await screen.findAllByTestId("chart");
+  choose("Group", "song");
+
+  // The account's own history switches this off — every score there is the
+  // reader's. On a party page the name is the interesting half and must stay.
+  const wonderwall = (await screen.findAllByTestId("score-group"))[0];
+  expect(within(wonderwall).getByTitle("Best")).toHaveTextContent(
+    /^Best9000 · Alice$/,
+  );
+  expect(within(wonderwall).getByTitle("Worst")).toHaveTextContent(
+    /^Worst6000 · Bob$/,
+  );
+});
+
 test("a player's avatar stands next to their name, an initial when there is none", async () => {
   renderScores();
 
@@ -388,10 +456,27 @@ test("a player's avatar stands next to their name, an initial when there is none
   expect(bob.querySelector(".score-group-avatar")).toHaveTextContent("B");
 });
 
+test("a collapsed group row points its chevron right, like every other row", async () => {
+  renderScores();
+
+  const alice = (await screen.findAllByTestId("score-group"))[0];
+  expect(alice).not.toHaveAttribute("open");
+  // The caption's four stat glyphs, then the disclosure. Collapsed it points
+  // the same way as every option row in the song modal; the open state turns
+  // this one glyph 90° in CSS rather than swapping in a second path.
+  expect(iconNames(alice.querySelector("summary") as Element)).toEqual([
+    "hash",
+    "arrow-up",
+    "arrow-down",
+    "average",
+    "chevron-right",
+  ]);
+});
+
 test("a song's cover opens its details instead of expanding the row", async () => {
   renderScores();
   await screen.findAllByTestId("chart");
-  fireEvent.click(screen.getByRole("radio", { name: "group by song" }));
+  choose("Group", "song");
 
   const cover = await screen.findByRole("button", {
     name: "Details for Wonderwall",
@@ -514,4 +599,25 @@ test("a finished song refreshes the session list and its scores", async () => {
     expect(listSessionScores.mock.calls.length).toBeGreaterThan(scoreCalls);
     expect(listSessions.mock.calls.length).toBeGreaterThan(sessionCalls);
   });
+});
+
+test("a failed score request says so instead of claiming nobody sang", async () => {
+  listSessionScores.mockRejectedValue({ detail: "boom" });
+  renderScores();
+
+  const alert = await screen.findByRole("alert");
+  expect(alert).toHaveTextContent("Could not load this session's scores.");
+  // The empty state would be a lie here: the session may be full of scores.
+  expect(
+    screen.queryByRole("heading", { name: "No scores yet" }),
+  ).not.toBeInTheDocument();
+});
+
+test("a denied score request names the capability the role is missing", async () => {
+  listSessionScores.mockRejectedValue({
+    detail: "missing_permission:stats.view",
+  });
+  renderScores();
+
+  expect(await screen.findByRole("alert")).toHaveTextContent("stats.view");
 });

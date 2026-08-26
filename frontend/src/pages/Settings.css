@@ -1,3 +1,12 @@
+/* A reading column on desktop; a no-op at phone widths, the way Scores, Songs,
+   Playlists and USDB all do it. Without it the quiet inputs stretched to about
+   1100px on a laptop, which is the one width at which a "toned down" field
+   reads louder than the loud one it tones down. */
+.settings-page {
+  max-width: 720px;
+  margin: 0 auto;
+}
+
 .settings-notice {
   margin: 16px;
   color: var(--color-darker);

@@ -32,6 +32,12 @@ export default function AddSongsModal({ onClose }: AddSongsModalProps) {
             <Icon name={source.icon} className="add-songs-card-icon" />
             <span className="add-songs-card-name">{source.name}</span>
             <span className="add-songs-card-text">{source.description}</span>
+            {/* The go affordance: without it the card is a poster, not a
+                control. Decorative — the link already reads its own name. */}
+            <span className="add-songs-card-go">
+              Search
+              <Icon name="chevron-right" />
+            </span>
           </Link>
         ))}
       </div>

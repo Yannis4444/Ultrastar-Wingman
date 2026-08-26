@@ -5,9 +5,16 @@ import {
   render,
   screen,
   waitFor,
+  within,
 } from "@testing-library/react";
 import { MemoryRouter } from "react-router-dom";
-import type { ScoreWithContext, SessionRead } from "../api";
+import type {
+  CurrentSing,
+  ScoreWithContext,
+  SessionRead,
+  SongRead,
+  WishRead,
+} from "../api";
 import { meResponse } from "../test/auth";
 import { FakeSocket } from "../test/fakeSocket";
 import Host from "./Host";
@@ -53,6 +60,20 @@ vi.mock("../api/sdk.gen", async (importOriginal) => ({
   listWishlist,
 }));
 
+const RHAPSODY: SongRead = {
+  id: "usdb:1",
+  artist: "Queen",
+  title: "Bohemian Rhapsody",
+  duration_seconds: null,
+  has_video: false,
+  language: null,
+  genre: null,
+  year: null,
+  edition: null,
+  creator: null,
+  source: "usdb",
+};
+
 /** One singer's score in the running session, enough for a leaderboard row. */
 function score(
   id: number,
@@ -68,19 +89,7 @@ function score(
     score: value,
     difficulty: 2,
     recorded_at: "2026-08-23T20:00:00Z",
-    song: {
-      id: "usdb:1",
-      artist: "Queen",
-      title: "Bohemian Rhapsody",
-      duration_seconds: null,
-      has_video: false,
-      language: null,
-      genre: null,
-      year: null,
-      edition: null,
-      creator: null,
-      source: "usdb",
-    },
+    song: RHAPSODY,
     sing_started_at: "2026-08-23T19:55:00Z",
   };
 }
@@ -94,11 +103,39 @@ const SESSION: SessionRead = {
   score_count: 2,
 };
 
-/** Two sings, so the stage carries a leaderboard next to the last song. */
+/** Two sings, so the rail carries a standing next to the QR code. */
 const PARTY = [
   score(2, "sing-2", "Alice", 8500),
   score(1, "sing-1", "Bob", 6000),
 ];
+
+/** Rank, name and value of every leaderboard row, best first. */
+function ranking(): (string | null)[][] {
+  const board = screen.getByLabelText("Session leaderboard");
+  return within(board)
+    .getAllByRole("listitem")
+    .map((row) => [
+      row.querySelector(".host-leaderboard-rank")?.textContent ?? null,
+      row.querySelector(".host-leaderboard-name")?.textContent ?? null,
+      row.querySelector(".host-leaderboard-value")?.textContent ?? null,
+    ]);
+}
+
+/** Wishes enough to prove both rail caps. */
+const WISHES: WishRead[] = [1, 2, 3, 4, 5].map((n) => ({
+  song: { ...RHAPSODY, id: `usdb:w${n}`, title: `Wish ${n}` },
+  count: 6 - n,
+  latest: "2026-08-23T20:00:00Z",
+  mine: false,
+}));
+
+/** A sing on the stage, so the brand and the results both have to give way. */
+const RUNNING: CurrentSing = {
+  sing_id: "sing-9",
+  started_at: "2026-08-23T20:05:00Z",
+  song: { ...RHAPSODY, id: "usdb:2", title: "Dancing Queen" },
+  slots: [],
+};
 
 /** A host screen that has something to rank: last song plus leaderboard. */
 function withScores() {
@@ -133,6 +170,9 @@ beforeEach(() => {
   listSongScores.mockReset();
   listSessions.mockReset();
   listSessionScores.mockReset();
+  listWishlist.mockReset();
+  // Reset too: a test that counts join requests must not see the last one's.
+  getJoinInfo.mockReset();
   getMe.mockResolvedValue(meResponse(["songs.view"]));
   getCurrentSing.mockResolvedValue({ data: { sing: null } });
   getJoinInfo.mockResolvedValue({ data: { url: "http://192.168.0.10:8080" } });
@@ -200,6 +240,15 @@ test("the QR encodes the server's join URL and prints it readably", async () => 
   expect(await screen.findByText("192.168.0.10:8080")).toBeInTheDocument();
 });
 
+test("an https join URL keeps its scheme in the printed line", async () => {
+  getJoinInfo.mockResolvedValue({ data: { url: "https://party.example" } });
+  renderHost("/host");
+
+  // Only `http://` may be dropped: a guest typing the line instead of scanning
+  // it has to land on the protocol the host configured.
+  expect(await screen.findByText("https://party.example")).toBeInTheDocument();
+});
+
 test("the overlay opens the host's own manage view, not the user page", async () => {
   getMe.mockResolvedValue(
     meResponse(["settings.view"], { is_host: true, role: "admin" }),
@@ -226,19 +275,183 @@ test("an idle USDX invites guests to pick a song", async () => {
   ).toBeInTheDocument();
 });
 
-test("between songs the stage carries the last song and the standing", async () => {
+test("between songs the stage shows the last song and the rail the standing", async () => {
   withScores();
-  renderHost("/host");
+  const { container } = renderHost("/host");
 
   expect(await screen.findByLabelText("Last song")).toHaveTextContent(
     "Bohemian Rhapsody",
   );
-  // The standing comes from the session's own score list, a round trip behind.
-  expect(
-    await screen.findByLabelText("Session leaderboard"),
-  ).toBeInTheDocument();
-  // The QR card is the page's anchor and does not move for the results.
+  // Each column has one job: the finished song is stage content, the party's
+  // standing is rail content that outlives it.
+  const board = await screen.findByLabelText("Session leaderboard");
+  expect(container.querySelector(".host-stage")).toContainElement(
+    screen.getByLabelText("Last song"),
+  );
+  expect(container.querySelector(".host-rail")).toContainElement(board);
+  // The QR card is the rail's anchor and does not move for the results.
   expect(screen.getByText("Scan to join")).toBeInTheDocument();
+});
+
+test("the idle stage is the brand, and only the idle stage", async () => {
+  const { container } = renderHost("/host");
+
+  expect(await screen.findByText("Ultrastar Wingman")).toBeInTheDocument();
+  const stage = container.querySelector(".host-stage");
+  expect(stage).toContainElement(screen.getByText("Ultrastar Wingman"));
+  expect(stage).toContainElement(
+    screen.getByText("Scan the code to pick a song"),
+  );
+});
+
+test("a playing song owns the stage and the rail carries on", async () => {
+  withScores();
+  getCurrentSing.mockResolvedValue({ data: { sing: RUNNING } });
+  const { container } = renderHost("/host");
+
+  expect(await screen.findByText("Dancing Queen")).toBeInTheDocument();
+  // The name of the app is idle-only: a TV playing a song needs the room.
+  expect(screen.queryByText("Ultrastar Wingman")).not.toBeInTheDocument();
+  expect(screen.queryByLabelText("Last song")).not.toBeInTheDocument();
+  // The rail does not depend on the stage — that is the point of splitting it.
+  expect(container.querySelector(".host-rail")).toContainElement(
+    await screen.findByLabelText("Session leaderboard"),
+  );
+  expect(screen.getByText("Scan to join")).toBeInTheDocument();
+});
+
+test("the leaderboard ranks the running session by best score by default", async () => {
+  withScores();
+  renderHost("/host");
+
+  await screen.findByLabelText("Session leaderboard");
+  expect(ranking()).toEqual([
+    ["1", "Alice", "8500"],
+    ["2", "Bob", "6000"],
+  ]);
+  // Newest activity wins, whatever order the backend listed the sessions in.
+  expect(listSessionScores.mock.calls[0][0].path).toEqual({
+    session_id: "session-1",
+  });
+});
+
+test("the leaderboard order can be switched to average and to sings", async () => {
+  withScores();
+  // Bob sang twice, weakly the second time: best keeps him second, sings puts
+  // him first.
+  listSessionScores.mockResolvedValue({
+    data: { scores: [...PARTY, score(3, "sing-0", "Bob", 4000)] },
+  });
+  renderHost("/host");
+
+  const board = await screen.findByLabelText("Session leaderboard");
+  expect(ranking()).toEqual([
+    ["1", "Alice", "8500"],
+    ["2", "Bob", "6000"],
+  ]);
+
+  fireEvent.click(within(board).getByRole("radio", { name: "average" }));
+  expect(ranking()).toEqual([
+    ["1", "Alice", "8500"],
+    ["2", "Bob", "5000"],
+  ]);
+
+  // A count is not a score, so it is not printed as one.
+  fireEvent.click(within(board).getByRole("radio", { name: "sings" }));
+  expect(ranking()).toEqual([
+    ["1", "Bob", "2×"],
+    ["2", "Alice", "1×"],
+  ]);
+});
+
+test("one performance ranks nobody, so the first song gets no leaderboard", async () => {
+  withScores();
+  listSessionScores.mockResolvedValue({
+    data: { scores: PARTY.filter((row) => row.sing_id === "sing-2") },
+  });
+  renderHost("/host");
+
+  expect(await screen.findByLabelText("Last song")).toBeInTheDocument();
+  expect(
+    screen.queryByLabelText("Session leaderboard"),
+  ).not.toBeInTheDocument();
+});
+
+test("the standing outlives the results the stage was showing", async () => {
+  withScores();
+  renderHost("/host");
+  await screen.findByLabelText("Last song");
+  await screen.findByLabelText("Session leaderboard");
+
+  FakeSocket.deliver({ event: "karaoke.started", sing: null });
+
+  // The song was stopped before USDX scored it, so the results are stale and the
+  // stage falls back to the brand. The party's standing is not stale — it is
+  // rail content now precisely so it stays up through every stage change.
+  expect(await screen.findByText("Ultrastar Wingman")).toBeInTheDocument();
+  expect(screen.queryByLabelText("Last song")).not.toBeInTheDocument();
+  expect(screen.getByLabelText("Session leaderboard")).toBeInTheDocument();
+});
+
+test("the wishes sit in the rail and make room for the standing", async () => {
+  withScores();
+  getMe.mockResolvedValue(
+    meResponse(["stats.view", "wishlist.view"], {
+      is_host: true,
+      role: "admin",
+    }),
+  );
+  listWishlist.mockResolvedValue({ data: { wishes: WISHES } });
+  const { container } = renderHost("/host");
+
+  // The standing is a round trip behind the wishlist; the cap follows it.
+  await screen.findByLabelText("Session leaderboard");
+  const wishes = await screen.findByLabelText("Most wished");
+  expect(container.querySelector(".host-rail")).toContainElement(wishes);
+  // Five wishes with a standing above them: the rail shows the top three.
+  await waitFor(() =>
+    expect(within(wishes).getAllByRole("listitem")).toHaveLength(3),
+  );
+  expect(within(wishes).getByText("Wish 1")).toBeInTheDocument();
+});
+
+test("without a standing the rail gives the wishes the whole column", async () => {
+  getMe.mockResolvedValue(meResponse(["wishlist.view"]));
+  listWishlist.mockResolvedValue({ data: { wishes: WISHES } });
+  renderHost("/host");
+
+  const wishes = await screen.findByLabelText("Most wished");
+  expect(within(wishes).getAllByRole("listitem")).toHaveLength(5);
+});
+
+test("a changed join URL reaches the TV without a reload", async () => {
+  renderHost("/host");
+  expect(await screen.findByText("192.168.0.10:8080")).toBeInTheDocument();
+
+  getJoinInfo.mockResolvedValue({ data: { url: "http://party.local:1234" } });
+  FakeSocket.deliver({
+    event: "setting.changed",
+    key: "host.join_url",
+    value: "http://party.local:1234",
+  });
+
+  // The QR encodes exactly what the line under it prints, so one assertion
+  // covers both — nobody may have to walk over to the TV and reload it.
+  expect(await screen.findByText("party.local:1234")).toBeInTheDocument();
+});
+
+test("a setting that is not the join URL leaves the QR alone", async () => {
+  renderHost("/host");
+  await screen.findByText("192.168.0.10:8080");
+  expect(getJoinInfo).toHaveBeenCalledTimes(1);
+
+  FakeSocket.deliver({
+    event: "setting.changed",
+    key: "usdb.username",
+    value: "singer",
+  });
+
+  await waitFor(() => expect(getJoinInfo).toHaveBeenCalledTimes(1));
 });
 
 test("the leaderboard order settings hide with the host chrome, the ranking stays", async () => {

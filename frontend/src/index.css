@@ -123,6 +123,65 @@ p {
   border-color: var(--highlight-blue-light);
 }
 
+/* The secondary input: same border, no fill, no pill. For forms of many
+   fields, for selects, and for anything the reader did not come to the page
+   to type into. */
+.text-input-quiet {
+  /* The app is content-box, so a bare `min-height` would size the content and
+     make the quiet box taller than the loud one it tones down. */
+  box-sizing: border-box;
+  min-height: 36px;
+  padding: 6px 10px;
+  font-size: 0.9em;
+  background-color: transparent;
+  border-radius: var(--border-radius-small);
+}
+
+.text-input-quiet:hover:enabled {
+  border-color: var(--color-darker);
+}
+
+/* `:enabled` is here only to match the hover rule above: without it the hover
+   selector is one class more specific and a field that is both hovered and
+   focused draws the grey hover border instead of the blue focus one. Equal
+   specificity, later in the file — focus wins, which is the whole point. */
+.text-input-quiet:focus:enabled {
+  border-color: var(--highlight-blue-light);
+}
+
+.text-input-quiet:disabled {
+  color: var(--color-darker);
+  background-color: transparent;
+}
+
+/* Selects keep the browser's own disclosure arrow: `color-scheme: dark` on
+   :root already draws it light, and an SVG arrow of our own would be the first
+   background-image icon in the app. */
+select.text-input-quiet {
+  padding-right: 8px;
+  cursor: pointer;
+}
+
+/* Same as `.button:disabled`: a control that cannot be opened does not offer
+   the hand. */
+select.text-input-quiet:disabled {
+  cursor: default;
+}
+
+/* The dropdown itself is drawn by the browser and would otherwise come up in
+   the system's light colors — the transparent quiet select gives it nothing to
+   inherit. Global, because it is true of every quiet select and not of the
+   karaoke colors alone. */
+select.text-input-quiet option {
+  color: var(--color);
+  background-color: var(--input-bg);
+}
+
+textarea.text-input-quiet {
+  min-height: 72px;
+  resize: vertical;
+}
+
 /* One visible keyboard-focus ring for the whole app. */
 :focus-visible {
   outline: 2px solid var(--highlight-blue-light);

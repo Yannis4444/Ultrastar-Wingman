@@ -33,3 +33,17 @@ class ScoreWithContext(ScoreRead):
 
 class ScoreList(BaseModel):
     scores: list[ScoreWithContext]
+
+
+class SingRead(BaseModel):
+    """One run of one song. `song` is NULL when that song left the library — the sing
+    outlives it (`sings.song_id` is deliberately not a foreign key)."""
+
+    sing_id: str
+    song_id: str
+    song: SongRead | None
+    started_at: datetime
+
+
+class SingList(BaseModel):
+    sings: list[SingRead]

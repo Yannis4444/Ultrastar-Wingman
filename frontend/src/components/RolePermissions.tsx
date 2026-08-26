@@ -29,7 +29,7 @@ const GROUP_ICONS: Record<string, IconName> = {
   songs: "music",
   karaoke: "mic",
   players: "users",
-  wishlist: "playlist",
+  wishlist: "playlist-plus",
   playlists: "list",
   downloads: "download",
   usdb: "globe",

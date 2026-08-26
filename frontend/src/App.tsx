@@ -16,10 +16,11 @@ import User from "./pages/User";
 import UserAccounts from "./pages/UserAccounts";
 import UserPermissions from "./pages/UserPermissions";
 
-// Split out on its own: the stats page is the only echarts user, and echarts is
+// Split out: the two stats pages are the only echarts users, and echarts is
 // larger than the rest of the app put together. Every other page stays eager —
 // they share the same handful of components anyway.
 const Scores = lazy(() => import("./pages/Scores"));
+const UserStats = lazy(() => import("./pages/UserStats"));
 
 export default function App() {
   const location = useLocation();
@@ -48,6 +49,7 @@ export default function App() {
           <Route path="/scores" element={<Scores />} />
           <Route path="/user" element={<User />} />
           <Route path="/user/accounts" element={<UserAccounts />} />
+          <Route path="/user/stats" element={<UserStats />} />
           <Route path="/user/permissions" element={<UserPermissions />} />
           <Route path="/settings" element={<Settings />} />
           <Route path="/host" element={<Host />} />

@@ -10,10 +10,14 @@
   margin: 16px;
 }
 
+/* Still the sentence under one playlist's empty song list (`Playlist.tsx`). */
 .playlists-empty {
   font-size: 0.85em;
   color: var(--color-darker);
 }
+
+/* The empty state is the shared `EmptyState` component — this page used to
+   carry a verbatim copy of the scores page's rules. */
 
 .playlists-create,
 .playlists-edit {
@@ -23,14 +27,16 @@
   align-items: center;
 }
 
+/* The form hangs off the header's plus button, so it sits tight under it. */
 .playlists-create {
-  margin: 16px;
+  margin: 12px 16px 0 16px;
 }
 
 /* The edit form takes the row's place, so it keeps the list's own gutter. */
 .playlists-edit {
+  box-sizing: border-box;
   width: 100%;
-  padding: 8px 0;
+  padding: 8px;
 }
 
 .playlists-create .text-input,
@@ -68,7 +74,10 @@
 .playlists-list {
   display: flex;
   flex-direction: column;
-  margin: 0 16px;
+
+  /* 8px here plus 8px of row padding: the text lands on the page gutter while
+     the hover band bleeds past it, the way the score groups do. */
+  margin: 0 8px;
   padding: 0;
   list-style: none;
 }
@@ -91,11 +100,11 @@
 .playlists-open {
   display: flex;
   flex: 1 1 auto;
-  gap: 8px;
+  gap: 12px;
   align-items: center;
   min-width: 0;
   min-height: 48px;
-  padding: 4px 8px;
+  padding: 0 8px;
   color: var(--color);
   text-decoration: none;
   border-radius: var(--border-radius-small);
@@ -104,6 +113,21 @@
 
 .playlists-open:hover {
   background-color: var(--highlight-blue-dark);
+}
+
+/* A 40px leading square puts the name on the same axis as a song row's title,
+   without the four cover requests a stack of album art would cost. */
+.playlists-glyph {
+  display: flex;
+  flex: 0 0 auto;
+  align-items: center;
+  justify-content: center;
+  width: 40px;
+  height: 40px;
+  font-size: 1.25em;
+  color: var(--color-darker);
+  background-color: var(--input-bg);
+  border-radius: var(--border-radius-small);
 }
 
 .playlists-text {
@@ -136,6 +160,12 @@
   padding-right: 4px;
 }
 
+@media (prefers-reduced-motion: reduce) {
+  .playlists-open {
+    transition: none;
+  }
+}
+
 /* One playlist's songs: the rows carry their own separators. */
 .playlist-count {
   margin: 0 16px 4px 16px;
@@ -143,10 +173,13 @@
   color: var(--color-darker);
 }
 
+/* 8px plus the row's own 8px of padding: the same axis the playlists list
+   above and the songs page use, so a cover never moves when a reader walks
+   from one list into the other. */
 .playlist-songs {
   display: flex;
   flex-direction: column;
-  margin: 0 16px;
+  margin: 0 8px;
 }
 
 .playlist-songs > :last-child {

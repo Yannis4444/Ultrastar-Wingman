@@ -15,6 +15,28 @@ export function parseServerTime(timestamp: string): number {
   );
 }
 
+/** Clock time of a timestamp — what a score row inside one session shows. */
+export function shortTime(timestamp: string): string {
+  return new Date(parseServerTime(timestamp)).toLocaleTimeString([], {
+    hour: "2-digit",
+    minute: "2-digit",
+  });
+}
+
+/**
+ * Day and month of a timestamp, with the year once the score is old enough for
+ * it to matter. An all-time list spans parties, so "21:40" would say nothing.
+ */
+export function shortDate(timestamp: string): string {
+  const date = new Date(parseServerTime(timestamp));
+  const sameYear = date.getFullYear() === new Date().getFullYear();
+  return date.toLocaleDateString([], {
+    day: "2-digit",
+    month: "short",
+    year: sameYear ? undefined : "numeric",
+  });
+}
+
 /** Coarse "how long ago" for wish times — a party never needs seconds. */
 export function timeAgo(timestamp: string): string {
   const minutes = Math.floor((Date.now() - parseServerTime(timestamp)) / 60000);

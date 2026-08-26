@@ -88,7 +88,7 @@ export default function KaraokeSlotsField({ setting, readOnly }: Props) {
             Players
           </label>
           <select
-            className="text-input setting-input"
+            className="text-input text-input-quiet setting-input"
             id={countId}
             aria-describedby={describedBy}
             value={slots.length}
@@ -160,7 +160,7 @@ export default function KaraokeSlotsField({ setting, readOnly }: Props) {
                 aria-hidden="true"
               />
               <select
-                className="text-input setting-input"
+                className="text-input text-input-quiet setting-input"
                 id={slotId}
                 value={name}
                 disabled={disabled || palette.length === 0}

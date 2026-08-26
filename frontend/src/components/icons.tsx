@@ -2,7 +2,7 @@
  * Shared inline 24x24 icons. One path per icon, `fill: currentColor` via the
  * `.icon` rule in index.css — a path is cheaper than an icon dependency.
  */
-const PATHS = {
+export const ICON_PATHS = {
   search:
     "M10 4a6 6 0 1 0 3.8 10.6l4.8 4.8 1.4-1.4-4.8-4.8A6 6 0 0 0 10 4Zm0 2a4 4 0 1 1 0 8 4 4 0 0 1 0-8Z",
   refresh: "M12 5V2L7 6l5 4V7a5 5 0 1 1-5 5H5a7 7 0 1 0 7-7Z",
@@ -51,17 +51,28 @@ const PATHS = {
     "M17 10.5V7a1 1 0 0 0-1-1H4a1 1 0 0 0-1 1v10a1 1 0 0 0 1 1h12a1 1 0 0 0 1-1v-3.5l4 4v-11l-4 4Z",
   music: "M12 3v10.55A4 4 0 1 0 14 17V7h4V3h-6Z",
   info: "M12 2a10 10 0 1 0 0 20 10 10 0 0 0 0-20Zm0 2a8 8 0 1 1 0 16 8 8 0 0 1 0-16Zm-1 3h2v2h-2V7Zm0 4h2v6h-2v-6Z",
-  // The three-bar stack is the shared base: bare = on a list, +check = already
-  // on it, +plus = put it on one. Keeping the bars identical makes the three
-  // read as one family at 1.1em.
+  // The three-bar stack is the wishlist family: +plus = wish for it, +check =
+  // already wished. Keeping the bars identical makes them read as one family at
+  // 1.1em. The bare `playlist` bars are the base both are built from; no
+  // control uses them on their own any more.
   playlist: "M3 6h12v2H3V6Zm0 4h12v2H3v-2Zm0 4h8v2H3v-2Z",
   "playlist-check":
     "M3 6h12v2H3V6Zm0 4h12v2H3v-2Zm0 4h8v2H3v-2Zm17.1-1.9 1.4 1.4-6.1 6.1-3.2-3.2 1.4-1.4 1.8 1.8 4.7-4.7Z",
   "playlist-plus":
     "M3 6h12v2H3V6Zm0 4h12v2H3v-2Zm0 4h8v2H3v-2Zm13 0v-3h2v3h3v2h-3v3h-2v-3h-3v-2h3Z",
-  // The "many lists" entry, not a list itself: bulleted rows, so it never gets
-  // confused with the plain three-bar `playlist` glyph next to it.
+  // The bulleted rows are the playlists family, so a playlist never gets
+  // confused with the three-bar wishlist glyph next to it. `list-plus` and
+  // `list-check` shorten the lower two bars to x=14 to make room and then carry
+  // the *same* plus and check `playlist-plus`/`playlist-check` carry, shifted
+  // 2 to the right — that shared mark is what pairs the two families.
   list: "M5 5.5a1.5 1.5 0 1 0 0 3 1.5 1.5 0 0 0 0-3Zm5 .5h10v2H10V6Zm-5 4.5a1.5 1.5 0 1 0 0 3 1.5 1.5 0 0 0 0-3Zm5 .5h10v2H10v-2Zm-5 4.5a1.5 1.5 0 1 0 0 3 1.5 1.5 0 0 0 0-3Zm5 .5h10v2H10v-2Z",
+  "list-plus":
+    "M5 5.5a1.5 1.5 0 1 0 0 3 1.5 1.5 0 0 0 0-3Zm5 .5h10v2H10V6Zm-5 4.5a1.5 1.5 0 1 0 0 3 1.5 1.5 0 0 0 0-3Zm5 .5h4v2H10v-2Zm-5 4.5a1.5 1.5 0 1 0 0 3 1.5 1.5 0 0 0 0-3Zm5 .5h4v2H10v-2ZM18 14v-3h2v3h3v2h-3v3h-2v-3h-3v-2h3Z",
+  // The check is `playlist-check`'s, re-anchored absolutely first: there it is
+  // written as a relative `m` continuation of the bars, which would land it
+  // somewhere else entirely once the bars underneath it change length.
+  "list-check":
+    "M5 5.5a1.5 1.5 0 1 0 0 3 1.5 1.5 0 0 0 0-3Zm5 .5h10v2H10V6Zm-5 4.5a1.5 1.5 0 1 0 0 3 1.5 1.5 0 0 0 0-3Zm5 .5h4v2H10v-2Zm-5 4.5a1.5 1.5 0 1 0 0 3 1.5 1.5 0 0 0 0-3Zm5 .5h4v2H10v-2ZM22.1 12.1l1.4 1.4-6.1 6.1-3.2-3.2 1.4-1.4 1.8 1.8 4.7-4.7Z",
   chart: "M4 20h16v2H4v-2Zm1-8h3v7H5v-7Zm5.5-7h3v14h-3V5ZM16 9h3v10h-3V9Z",
   // The mean mark — the statistician's ⌀, which is what the old app's
   // `TbMathAvg` draws. Two things keep it off the "forbidden" sign: the ring is
@@ -89,9 +100,19 @@ const PATHS = {
   // The die face is solid; the five pips are wound the other way round so the
   // nonzero fill rule punches them out (same trick as `info` and `clock`).
   dice: "M6 3h12a3 3 0 0 1 3 3v12a3 3 0 0 1-3 3H6a3 3 0 0 1-3-3V6a3 3 0 0 1 3-3Zm2 3.4a1.6 1.6 0 1 0 0 3.2 1.6 1.6 0 1 0 0-3.2Zm8 0a1.6 1.6 0 1 0 0 3.2 1.6 1.6 0 1 0 0-3.2Zm-4 4a1.6 1.6 0 1 0 0 3.2 1.6 1.6 0 1 0 0-3.2Zm-4 4a1.6 1.6 0 1 0 0 3.2 1.6 1.6 0 1 0 0-3.2Zm8 0a1.6 1.6 0 1 0 0 3.2 1.6 1.6 0 1 0 0-3.2Z",
+  // The TV the host screen runs on: a rounded case with the screen wound the
+  // other way round so the nonzero fill rule punches it out (as `dice` does),
+  // plus the stand bar under it.
+  tv: "M3 5h18a1 1 0 0 1 1 1v10a1 1 0 0 1-1 1H3a1 1 0 0 1-1-1V6a1 1 0 0 1 1-1Zm1 2v8h16V7ZM8 20h8v2H8v-2Z",
+  // The octocat silhouette, one closed outline — the ears, the arms and the
+  // tail are all the same subpath, so no fill rule is involved. Drawn on the
+  // 18px grid `info` and `clock` use (3…21) rather than edge to edge, or the
+  // solid mark would outweigh its neighbours in the About list.
+  github:
+    "M12 3C7.0275 3 3 7.0275 3 12c0 3.9825 2.5763 7.3463 6.1537 8.5388.45.0788.6188-.1912.6188-.4275 0-.2137-.0112-.9225-.0112-1.6762-2.2612.4163-2.8462-.5512-3.0262-1.0575-.1012-.2588-.54-1.0575-.9225-1.2712-.315-.1687-.765-.585-.0112-.5963.7088-.0112 1.215.6525 1.3838.9225.81 1.3613 2.1038.9788 2.6213.7425.0788-.585.315-.9787.5738-1.2038-2.0025-.225-4.095-1.0012-4.095-4.4438 0-.9787.3488-1.7887.9225-2.4187-.09-.225-.405-1.1475.09-2.385 0 0 .7538-.2362 2.475.9225.72-.2025 1.485-.3037 2.25-.3037s1.53.1012 2.25.3038c1.7213-1.17 2.475-.9225 2.475-.9225.495 1.2375.18 2.16.09 2.385.5738.63.9225 1.4288.9225 2.4187 0 3.4538-2.1038 4.2188-4.1062 4.4438.3263.2813.6075.8213.6075 1.665 0 1.2038-.0112 2.1713-.0112 2.475 0 .2363.1687.5175.6188.4275A9.0135 9.0135 0 0 0 21 12c0-4.9725-4.0275-9-9-9Z",
 } as const;
 
-export type IconName = keyof typeof PATHS;
+export type IconName = keyof typeof ICON_PATHS;
 
 export function Icon({
   name,
@@ -107,7 +128,7 @@ export function Icon({
       aria-hidden="true"
       focusable="false"
     >
-      <path d={PATHS[name]} />
+      <path d={ICON_PATHS[name]} />
     </svg>
   );
 }

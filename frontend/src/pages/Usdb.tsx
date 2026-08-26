@@ -425,7 +425,7 @@ export default function Usdb() {
           <label className="usdb-filter">
             <span>Sort by</span>
             <select
-              className="text-input"
+              className="text-input text-input-quiet"
               value={form.sort}
               onChange={(event) => apply({ sort: event.target.value })}
             >
@@ -439,7 +439,7 @@ export default function Usdb() {
           <label className="usdb-filter">
             <span>Results per page</span>
             <select
-              className="text-input"
+              className="text-input text-input-quiet"
               value={form.limit}
               onChange={(event) => apply({ limit: Number(event.target.value) })}
             >

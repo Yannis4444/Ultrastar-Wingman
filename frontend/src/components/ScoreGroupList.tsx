@@ -1,5 +1,5 @@
 import type { PlayerRead, ScoreWithContext, SongRead } from "../api";
-import { parseServerTime } from "../duration";
+import { shortDate, shortTime } from "../duration";
 import {
   buildHistogramOption,
   difficultyLabel,
@@ -24,19 +24,32 @@ interface ScoreGroupListProps {
   /** Registered players by id, for the avatars. */
   players: Map<string, PlayerRead>;
   onOpenSong: (song: SongRead) => void;
-}
-
-function shortTime(timestamp: string): string {
-  return new Date(parseServerTime(timestamp)).toLocaleTimeString([], {
-    hour: "2-digit",
-    minute: "2-digit",
-  });
+  /**
+   * Whether the caption's best and worst name the singer who managed them.
+   * Under a song that name is the interesting half, which is the default — but
+   * a list of one singer's own scores would repeat the same name twice per row
+   * and truncate the rest of the caption away on a phone.
+   */
+  namedPeaks?: boolean;
+  /**
+   * Whether the list spans more than one party. Inside one session a clock
+   * time places a score; across parties it says nothing, so the date joins it.
+   */
+  allTime?: boolean;
+  /**
+   * Whether every score in here belongs to the reader. Their own name and
+   * avatar on each of a hundred expanded rows says nothing (§1.5), so the row
+   * leads with when the run happened instead; difficulty and score stay.
+   */
+  ownRows?: boolean;
 }
 
 /** A single score's second line: how hard it was sung and when. */
-function scoreDetail(score: ScoreWithContext): string {
+function scoreDetail(score: ScoreWithContext, allTime: boolean): string {
   const difficulty = difficultyLabel(score.difficulty);
-  const at = shortTime(score.recorded_at);
+  const at = allTime
+    ? `${shortDate(score.recorded_at)}, ${shortTime(score.recorded_at)}`
+    : shortTime(score.recorded_at);
   return difficulty === "—" ? at : `${difficulty} · ${at}`;
 }
 
@@ -65,21 +78,28 @@ function MissingCover({ className }: { className: string }) {
 function Caption({
   group,
   grouping,
+  named,
+  allTime,
 }: {
   group: ScoreGroup;
   grouping: Grouping;
+  named: boolean;
+  allTime: boolean;
 }) {
   if (group.scores.length === 1) {
+    // The other axis — under a song that is the singer. A list of one singer's
+    // own scores has no other axis, though: it would print the reader's own
+    // name and nothing else, so that one says when the run happened instead.
+    const only = group.scores[0];
     return (
       <span className="score-group-caption">
-        {scoreLabel(group.scores[0], grouping)}
+        {named || grouping !== "song"
+          ? scoreLabel(only, grouping)
+          : scoreDetail(only, allTime)}
       </span>
     );
   }
   const worstScore = group.scores[group.scores.length - 1];
-  // Under a song, "who" is the interesting half of best and worst; under a
-  // player it would repeat the name the row is already headed by.
-  const named = grouping === "song";
   return (
     <span className="score-group-caption">
       {/* "Scores", not "sings": one duet run leaves two rows in here. */}
@@ -117,6 +137,11 @@ export default function ScoreGroupList({
   sorting,
   players,
   onOpenSong,
+  // Under a song, "who" is the interesting half of best and worst; under a
+  // player it would repeat the name the row is already headed by.
+  namedPeaks = grouping === "song",
+  allTime = false,
+  ownRows = false,
 }: ScoreGroupListProps) {
   // Ranks 1–3 are a podium only while the list is ordered best-first. Under
   // "alphabetically" or "worst score" the numerals are positions, nothing more.
@@ -159,14 +184,22 @@ export default function ScoreGroupList({
               )}
               <span className="score-group-text">
                 <span className="score-group-label">{group.label}</span>
-                <Caption group={group} grouping={grouping} />
+                <Caption
+                  group={group}
+                  grouping={grouping}
+                  named={namedPeaks}
+                  allTime={allTime}
+                />
               </span>
               {/* The number the list is sorted by, so it can never disagree
                   with the rank order. */}
               <span className="score-group-score">
                 {groupValue(group, sorting)}
               </span>
-              <Icon name="chevron-down" className="score-group-chevron" />
+              {/* Right while collapsed like every other row in the app, down
+                  while open — the rotation below turns the one glyph, so the
+                  open state never points the arrow up. */}
+              <Icon name="chevron-right" className="score-group-chevron" />
             </summary>
 
             {/* A couple of bars across twenty buckets is noise, not a shape. */}
@@ -181,9 +214,13 @@ export default function ScoreGroupList({
             <ul className="score-group-scores">
               {group.scores.map((score) => {
                 const song = score.song;
+                // The reader's own list: the singer is a given, so the row is
+                // headed by the run itself. `—` difficulty leaves no second
+                // line rather than an em dash under every date.
+                const difficulty = difficultyLabel(score.difficulty);
                 const body = (
                   <>
-                    {rowsAreSongs ? (
+                    {ownRows ? null : rowsAreSongs ? (
                       song !== null ? (
                         <SongCover song={song} className="score-entry-cover" />
                       ) : (
@@ -196,12 +233,28 @@ export default function ScoreGroupList({
                       />
                     )}
                     <span className="score-group-text">
-                      <span className="score-group-label">
-                        {scoreLabel(score, grouping)}
+                      <span
+                        className={
+                          ownRows
+                            ? "score-group-label score-entry-when"
+                            : "score-group-label"
+                        }
+                      >
+                        {ownRows
+                          ? `${shortDate(score.recorded_at)}, ${shortTime(score.recorded_at)}`
+                          : scoreLabel(score, grouping)}
                       </span>
-                      <span className="score-group-caption">
-                        {scoreDetail(score)}
-                      </span>
+                      {ownRows ? (
+                        difficulty !== "—" && (
+                          <span className="score-group-caption">
+                            {difficulty}
+                          </span>
+                        )
+                      ) : (
+                        <span className="score-group-caption">
+                          {scoreDetail(score, allTime)}
+                        </span>
+                      )}
                     </span>
                     <span className="score-group-score">{score.score}</span>
                   </>

@@ -666,6 +666,38 @@ export type SingCreate = {
 };
 
 /**
+ * SingList
+ */
+export type SingList = {
+    /**
+     * Sings
+     */
+    sings: Array<SingRead>;
+};
+
+/**
+ * SingRead
+ *
+ * One run of one song. `song` is NULL when that song left the library — the sing
+ * outlives it (`sings.song_id` is deliberately not a foreign key).
+ */
+export type SingRead = {
+    /**
+     * Sing Id
+     */
+    sing_id: string;
+    /**
+     * Song Id
+     */
+    song_id: string;
+    song: SongRead | null;
+    /**
+     * Started At
+     */
+    started_at: string;
+};
+
+/**
  * SlotConfigRead
  *
  * What the player selection is built from, and what the settings UI offers.
@@ -2443,6 +2475,22 @@ export type ListSessionsResponses = {
 };
 
 export type ListSessionsResponse = ListSessionsResponses[keyof ListSessionsResponses];
+
+export type ListCurrentSessionSingsData = {
+    body?: never;
+    path?: never;
+    query?: never;
+    url: '/api/v1/stats/sessions/current/sings';
+};
+
+export type ListCurrentSessionSingsResponses = {
+    /**
+     * Successful Response
+     */
+    200: SingList;
+};
+
+export type ListCurrentSessionSingsResponse = ListCurrentSessionSingsResponses[keyof ListCurrentSessionSingsResponses];
 
 export type RenameSessionData = {
     body: SessionUpdate;

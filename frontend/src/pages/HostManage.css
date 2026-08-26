@@ -10,9 +10,11 @@
   font-size: clamp(16px, 2vh, 28px);
 }
 
-/* Same rows as the user page (`components/ManageMenu.css`), TV metrics. */
+/* Same rows as the user page (`components/ManageMenu.css`), TV metrics. The
+   8px is the row's own padding given back, so the label stays on the host
+   page's 16px edge while the hairline bleeds past it as on the phone. */
 .host-manage-page .manage-menu {
-  margin: 16px;
+  margin: 16px 8px;
 }
 
 .host-manage-page .manage-menu-row {

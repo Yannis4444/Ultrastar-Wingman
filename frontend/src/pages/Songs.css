@@ -1,3 +1,12 @@
+/* A reading column on desktop; a no-op at phone widths. The whole page moves
+   together, so the toolbar, the chips and the rows keep one gutter at every
+   width — capping each block on its own (what this page did before) let the
+   centring margins overwrite the 16px they were supposed to preserve. */
+.songs-page {
+  max-width: 720px;
+  margin: 0 auto;
+}
+
 /* Search stays reachable while scrolling 500+ rows; below the modal backdrop
    (z-index 2000). */
 .songs-toolbar {
@@ -68,10 +77,14 @@
   }
 }
 
-/* Filter chips: All / Favorites plus the link into the playlists view. Scrolls
-   sideways instead of wrapping, so the song list stays where it is. */
+/* Filter chips: All / Favorites / Recently played plus the link into the
+   playlists view. Wraps rather than scrolling sideways: at four chips the row is
+   ~424px, so on a 360–390px phone the scrolling version hid the trailing
+   "Playlists" chip behind a scrollbar. `overflow-x` stays as a backstop for the
+   sub-330px case where the filter group alone is wider than the page. */
 .songs-chips {
   display: flex;
+  flex-wrap: wrap;
   gap: 8px;
   margin: 0 16px 12px 16px;
   padding-bottom: 4px;
@@ -108,9 +121,12 @@
   color: var(--highlight-pink-light);
 }
 
+/* Wraps too: the group is one flex item of the row above, so without this the
+   three filter chips stay one unbreakable ~326px block. */
 .songs-filters {
   display: flex;
   flex: 0 0 auto;
+  flex-wrap: wrap;
   gap: 8px;
 }
 
@@ -144,11 +160,17 @@
   color: var(--color-darker);
 }
 
-/* The rows carry their own separators, so no gap between them. */
+/* The rows carry their own separators, so no gap between them.
+
+   8px here plus the row's own 8px of padding: the cover lands on the page's
+   16px gutter while the hover band bleeds past it, which is the pattern every
+   other list in the app follows (score groups, playlists, wishlist). With
+   `margin: 0 16px` the covers sat at 24px and tapping a playlist shifted every
+   row 8px sideways. */
 .songs-list {
   display: flex;
   flex-direction: column;
-  margin: 0 16px;
+  margin: 0 8px;
 }
 
 /* A separator belongs between rows, not under the last one. The child is
@@ -198,19 +220,5 @@
 @keyframes songs-skeleton-pulse {
   50% {
     opacity: 0.5;
-  }
-}
-
-/* Desktop gets a reading column, not 1200px-wide rows. */
-@media (min-width: 768px) {
-  .songs-toolbar,
-  .songs-chips,
-  .songs-count,
-  .songs-list,
-  .songs-notice,
-  .songs-skeleton {
-    max-width: 720px;
-    margin-left: auto;
-    margin-right: auto;
   }
 }

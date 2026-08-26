@@ -164,7 +164,7 @@ export default function VideoQualityField({ setting, readOnly }: Props) {
       {custom && (
         <div className="video-quality-custom">
           <input
-            className="text-input video-quality-input"
+            className="text-input text-input-quiet video-quality-input"
             type="text"
             aria-label="yt-dlp format string"
             value={draft ?? stored}

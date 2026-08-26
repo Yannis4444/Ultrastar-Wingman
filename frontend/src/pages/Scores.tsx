@@ -1,6 +1,5 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { useState, type ReactNode } from "react";
-import { Link } from "react-router-dom";
+import { useState } from "react";
 import type { SessionList, SessionRead, SongRead } from "../api";
 import {
   listPlayersOptions,
@@ -12,9 +11,9 @@ import {
 } from "../api/@tanstack/react-query.gen";
 import { useAuth } from "../auth";
 import Chart from "../components/Chart";
-import CheckOption from "../components/CheckOption";
 import { Icon } from "../components/icons";
 import ScoreGroupList from "../components/ScoreGroupList";
+import ScoresEmpty from "../components/ScoresEmpty";
 import SessionSummaryRow from "../components/SessionSummaryRow";
 import SongDetails from "../components/SongDetails";
 import Loading from "../components/Loading";
@@ -165,20 +164,6 @@ function SessionBar({
   );
 }
 
-/** An empty page that says what to do about it, not just that it is empty. */
-function ScoresEmpty({ children }: { children: ReactNode }) {
-  return (
-    <div className="scores-empty">
-      <Icon name="chart" className="scores-empty-icon" />
-      <h2>No scores yet</h2>
-      <p>{children}</p>
-      <Link className="button button-primary" to="/songs">
-        Browse songs
-      </Link>
-    </div>
-  );
-}
-
 /** Statistics of one party: who sang what and how well it went. */
 export default function Scores() {
   const auth = useAuth();
@@ -273,34 +258,39 @@ export default function Scores() {
       ? `${chartTitle} in this session`
       : `Score spread per ${grouping}`;
 
+  // Two quiet selects on one line: the reader sets these once an evening, so
+  // they get a row, not the two blocks of radios that used to own the first
+  // screen. The `<label>` wraps its select, which is what names it.
   const controls = (
-    <div className="scores-options">
-      <fieldset>
-        <legend>Grouping</legend>
-        {GROUPINGS.map((option) => (
-          <CheckOption
-            key={option.value}
-            name="grouping"
-            value={option.value}
-            label={option.label}
-            checked={grouping === option.value}
-            onChange={() => setGrouping(option.value)}
-          />
-        ))}
-      </fieldset>
-      <fieldset>
-        <legend>Sorting</legend>
-        {SORTINGS.map((option) => (
-          <CheckOption
-            key={option.value}
-            name="sorting"
-            value={option.value}
-            label={option.label}
-            checked={sorting === option.value}
-            onChange={() => setSorting(option.value)}
-          />
-        ))}
-      </fieldset>
+    <div className="scores-controls">
+      <label className="scores-control">
+        <span className="scores-control-label">Group</span>
+        <select
+          className="text-input text-input-quiet"
+          value={grouping}
+          onChange={(event) => setGrouping(event.target.value as Grouping)}
+        >
+          {GROUPINGS.map((option) => (
+            <option key={option.value} value={option.value}>
+              {option.label}
+            </option>
+          ))}
+        </select>
+      </label>
+      <label className="scores-control">
+        <span className="scores-control-label">Sort</span>
+        <select
+          className="text-input text-input-quiet"
+          value={sorting}
+          onChange={(event) => setSorting(event.target.value as Sorting)}
+        >
+          {SORTINGS.map((option) => (
+            <option key={option.value} value={option.value}>
+              {option.label}
+            </option>
+          ))}
+        </select>
+      </label>
     </div>
   );
 
@@ -320,6 +310,13 @@ export default function Scores() {
 
       {scores.isPending ? (
         <Loading />
+      ) : scores.isError ? (
+        /* Before the empty state, never instead of it: a failed request also
+           leaves `rows` empty, and "Sing a song" is a lie about a session that
+           may be full of scores nobody could fetch. */
+        <p className="error-notice scores-session-error" role="alert">
+          {errorMessage(scores.error, "Could not load this session's scores.")}
+        </p>
       ) : groups.length === 0 ? (
         <ScoresEmpty>
           {/* `sing_count` counts songs *started*, which is exactly the right
@@ -331,12 +328,10 @@ export default function Scores() {
         </ScoresEmpty>
       ) : (
         <>
-          <SessionSummaryRow
-            session={session}
-            scores={rows}
-            players={players}
-          />
+          <SessionSummaryRow session={session} scores={rows} />
 
+          {/* Above both things they reorder: the two selects rebuild the chart
+              — its title included — as well as the ranking below it. */}
           {controls}
 
           {showChart && (

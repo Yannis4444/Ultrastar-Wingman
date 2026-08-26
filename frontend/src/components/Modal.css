@@ -60,6 +60,17 @@
   overflow: hidden;
 }
 
+/* The fullscreen panel is the whole viewport, but its content is the same
+   500px column every other modal uses (`.player-selection`). Without this the
+   header title sat at the far left of a 1280px screen while the song it heads
+   started in the middle. */
+.modal-fullscreen .modal-header {
+  box-sizing: border-box;
+  width: 100%;
+  max-width: 500px;
+  margin: 0 auto;
+}
+
 .modal:focus {
   outline: none;
 }

@@ -146,18 +146,20 @@
   color: var(--color-darker);
 }
 
-/* Still no `height`: `.text-input`'s padding makes the 40px target, and
-   `box-sizing` leaves an auto height alone. It is `width: 100%` that needs the
-   border box — the app sets no global `box-sizing`, so the padding and border
-   would otherwise put the select past the edge of the form. */
+/* Height, padding and the border box all come from `.text-input-quiet`; the
+   filters only ask for the full width of the form. */
 .usdb-filter select {
-  box-sizing: border-box;
   width: 100%;
 }
 
-/* The answer to the search above it, separated by a hairline instead of a box. */
+/* The answer to the search above it, separated by a hairline instead of a box.
+   8px of margin plus 8px of padding is the old 16px for everything inside, but
+   it puts the section's own hairline on the same 8px edge the result rows draw
+   theirs on — a rule 16px wide above rules 8px wide was the one seam this page
+   had left. */
 .usdb-results-section {
-  margin: 16px 16px 0 16px;
+  margin: 16px 8px 0 8px;
+  padding: 0 8px;
   border-top: 1px solid var(--input-border-color);
 }
 
@@ -172,10 +174,14 @@
   margin: 12px 0;
 }
 
-/* The rows carry their own separators, so no gap between them. */
+/* The rows carry their own separators, so no gap between them. The negative
+   margin gives back the 8px of padding a `.song-list-item` carries: the cover
+   then lands on the section's own 16px text edge, and the row band bleeds past
+   it exactly as it does on the songs page. */
 .usdb-results {
   display: flex;
   flex-direction: column;
+  margin: 0 -8px;
 }
 
 .usdb-results > :last-child {

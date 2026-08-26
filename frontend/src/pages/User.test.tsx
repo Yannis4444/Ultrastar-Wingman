@@ -16,6 +16,7 @@ const {
   logout,
   listUsers,
   oidcConfig,
+  health,
 } = vi.hoisted(() => ({
   listPlayers: vi.fn(),
   listPlayerScores: vi.fn(),
@@ -27,6 +28,7 @@ const {
   logout: vi.fn(),
   listUsers: vi.fn(),
   oidcConfig: vi.fn(),
+  health: vi.fn(),
 }));
 
 vi.mock("../api/sdk.gen", async (importOriginal) => ({
@@ -41,6 +43,7 @@ vi.mock("../api/sdk.gen", async (importOriginal) => ({
   logout,
   listUsers,
   oidcConfig,
+  health,
 }));
 
 const USER_CAPABILITIES = [
@@ -115,6 +118,9 @@ beforeEach(() => {
   );
   oidcConfig.mockResolvedValue({
     data: { enabled: false, display_name: "SSO" },
+  });
+  health.mockResolvedValue({
+    data: { name: "Ultrastar Wingman", version: "0.4.2" },
   });
 });
 
@@ -349,6 +355,76 @@ test("the account's own totals are summed up under the identity", async () => {
   expect(screen.getByText("Favorites").previousSibling).toHaveTextContent("2");
   // Not on the user's own page: nobody needs their flops counted for them.
   expect(screen.queryByText("Worst")).not.toBeInTheDocument();
+});
+
+test("the whole history is one row below the numbers it totals", async () => {
+  loggedInAsAlice();
+  listPlayerScores.mockResolvedValue({ data: { scores: [score(9000, "s1")] } });
+  renderUser();
+
+  const link = await screen.findByRole("link", { name: "All my scores" });
+  expect(link).toHaveAttribute("href", "/user/stats");
+  // Directly under the stat bar: the row is the way into those very numbers.
+  expect(link.previousElementSibling?.classList.contains("user-stats")).toBe(
+    true,
+  );
+});
+
+test("nothing links to an empty history", async () => {
+  loggedInAsAlice();
+  renderUser();
+
+  expect(
+    await screen.findByText("Sing a song and your stats appear here."),
+  ).toBeInTheDocument();
+  expect(screen.queryByRole("link", { name: "All my scores" })).toBeNull();
+});
+
+test("a role that may not see statistics gets no way into them either", async () => {
+  loggedInAsAlice(USER_CAPABILITIES.filter((name) => name !== "stats.view"));
+  renderUser();
+
+  await screen.findByRole("button", { name: "Log out" });
+  expect(screen.queryByRole("link", { name: "All my scores" })).toBeNull();
+});
+
+test("the About block prints the running version and links out to the source", async () => {
+  loggedInAsAlice();
+  renderUser();
+
+  expect(await screen.findByText("Version")).toBeInTheDocument();
+  // From the backend, so a frontend served by another release cannot lie.
+  expect(screen.getByText("0.4.2")).toBeInTheDocument();
+
+  const repository = screen.getByRole("link", { name: "GitHub" });
+  expect(repository).toHaveAttribute(
+    "href",
+    "https://github.com/Yannis4444/Ultrastar-Wingman",
+  );
+  // A new tab, and one that cannot reach back into this one.
+  expect(repository).toHaveAttribute("target", "_blank");
+  expect(repository.getAttribute("rel")).toContain("noopener");
+});
+
+test("the version row stays away until the backend answered", async () => {
+  loggedInAsAlice();
+  health.mockRejectedValue(new Error("no"));
+  renderUser();
+
+  // The link is the row that is always there; the version is not.
+  expect(
+    await screen.findByRole("link", { name: "GitHub" }),
+  ).toBeInTheDocument();
+  expect(screen.queryByText("Version")).not.toBeInTheDocument();
+});
+
+test("a stranger gets the About block too, and no way into someone's scores", async () => {
+  getMe.mockResolvedValue(meResponse(["songs.view", "players.view"]));
+  renderUser();
+
+  expect(await screen.findByText("0.4.2")).toBeInTheDocument();
+  expect(screen.getByRole("link", { name: "GitHub" })).toBeInTheDocument();
+  expect(screen.queryByRole("link", { name: "All my scores" })).toBeNull();
 });
 
 test("the favorites count waits until it is known", async () => {

@@ -19,6 +19,7 @@ from .db import Base
 # imported here. `karaoke.slots` and `downloads.video_quality` are leaves on purpose — they
 # must never import this module back, or the services that do close the circle.
 from .downloads.video_quality import DEFAULT_VIDEO_FORMAT, validate_video_format
+from .join_url import validate_join_url
 from .karaoke.slots import DEFAULT_SLOT_COLORS_SETTING, validate_slot_colors
 
 logger = logging.getLogger(__name__)
@@ -97,7 +98,11 @@ register(
         value_type=str,
         default="",
         group="Songs",
-        description="The Ultrastar Deluxe songs directory Wingman scans for songs.",
+        description=(
+            "The folder Wingman scans for songs — usually the one Ultrastar Deluxe already "
+            "uses, but any folder works. Ultrastar Deluxe's own songs folder is the separate "
+            "USDX → Songs directory setting."
+        ),
     )
 )
 register(
@@ -125,13 +130,29 @@ register(
 )
 register(
     SettingDefinition(
+        key="host.join_url",
+        value_type=str,
+        default="",
+        group="Host",
+        description=(
+            "The address guests open on their phones, e.g. http://192.168.0.5:1234 — it is "
+            "what the QR code on the host screen encodes. Empty picks the machine's LAN "
+            "address automatically, which is right unless a VPN or a second network card "
+            "makes Wingman guess wrong."
+        ),
+        validate=validate_join_url,
+    )
+)
+register(
+    SettingDefinition(
         key="usdx.base_path",
         value_type=str,
         default="",
         group="USDX",
         description=(
             "Ultrastar Deluxe installation directory. The executable, config.ini, avatars "
-            "directory and Ultrastar.db are derived from it unless overridden below."
+            "directory, songs directory and Ultrastar.db are derived from it unless "
+            "overridden below."
         ),
     )
 )
@@ -160,6 +181,20 @@ register(
         default="",
         group="USDX",
         description="Overrides the derived <base path>/avatars (USDX reads avatars from here).",
+    )
+)
+register(
+    SettingDefinition(
+        key="usdx.songs_dir",
+        value_type=str,
+        default="",
+        group="USDX",
+        description=(
+            "Overrides the derived <base path>/songs — Ultrastar Deluxe's own songs directory. "
+            "A song Wingman starts has to be launched from inside it, otherwise Ultrastar "
+            "Deluxe loads the whole library next to it. This is not 'songs.directory': that "
+            "one only says where Wingman looks for songs."
+        ),
     )
 )
 register(

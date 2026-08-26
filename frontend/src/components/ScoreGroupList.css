@@ -146,8 +146,11 @@
   transition: transform 0.2s;
 }
 
+/* 90° clockwise from `chevron-right`, so the open row points down. Rotating a
+   `chevron-down` by 180° would point it up, which reads as "collapse me
+   upwards" — the rendered pair is right/down, never up. */
 details[open] > summary .score-group-chevron {
-  transform: rotate(180deg);
+  transform: rotate(90deg);
 }
 
 @media (prefers-reduced-motion: reduce) {
@@ -205,4 +208,10 @@ details[open] > summary .score-group-chevron {
 
 .score-entry .score-group-score {
   font-size: 1em;
+}
+
+/* The reader's own history: with the avatar and the repeated name gone, the
+   run's date and time are the row's identity, and they line up as a column. */
+.score-entry-when {
+  font-variant-numeric: tabular-nums;
 }

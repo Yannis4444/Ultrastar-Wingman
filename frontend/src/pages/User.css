@@ -92,6 +92,13 @@
   color: var(--color-darker);
 }
 
+/* Home's `.home-entry`, pulled up under the numbers it belongs to: the stat bar
+   already carries 12px below itself, and 16px on top of that would read as a
+   separate section rather than as the way into these very numbers. */
+.home-entry.user-stats-link {
+  margin-top: 0;
+}
+
 .user-identity-name {
   margin: 0;
   max-width: 100%;
@@ -130,3 +137,55 @@
 
 /* The "Manage" rows live in `components/ManageMenu.css` — the host screen shows
    the same list, so the row shape is shared instead of copied. */
+
+/* The About rows repeat `.manage-menu-row`'s metrics rather than the component:
+   that one is a <nav> of <Link>s, and neither the version paragraph nor an
+   outbound <a> is a route. The 8px gutter lets the hover band on the link bleed
+   past the page's 16px text edge, as everywhere else. */
+.about-list {
+  display: flex;
+  flex-direction: column;
+  margin: 8px 8px 0 8px;
+}
+
+.about-row {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  min-height: 48px;
+  margin: 0;
+  padding: 8px;
+  color: var(--color);
+  text-decoration: none;
+  border-bottom: 1px solid var(--input-border-color);
+}
+
+.about-row:last-child {
+  border-bottom: none;
+}
+
+.about-link:hover {
+  background-color: var(--highlight-blue-dark);
+}
+
+.about-icon {
+  font-size: 20px;
+  color: var(--color-darker);
+}
+
+.about-label {
+  flex: 1 1 auto;
+  min-width: 0;
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+
+/* A version string is an unbreakable token; it may wrap mid-word rather than
+   push the row off a narrow phone. */
+.about-value {
+  flex: 0 1 auto;
+  color: var(--color-darker);
+  font-variant-numeric: tabular-nums;
+  overflow-wrap: anywhere;
+}

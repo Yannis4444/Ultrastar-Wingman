@@ -77,6 +77,10 @@ const USDX_EXPLANATIONS: [RegExp, string][] = [
     "Wingman does not know where USDX keeps its scores (Ultrastar.db), so nothing would be recorded after a song.",
   ],
   [
+    /^'usdx\.songs_dir' is not set/,
+    "Wingman does not know USDX's own songs folder. It has to start a song from inside it, otherwise Ultrastar Deluxe opens with the whole library instead.",
+  ],
+  [
     /^'songs\.directory' is not set/,
     "Wingman does not know where your songs are. Fill in the songs directory.",
   ],

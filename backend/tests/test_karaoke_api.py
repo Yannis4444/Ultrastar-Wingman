@@ -500,7 +500,8 @@ async def test_a_second_song_needs_force(
 async def test_a_song_outside_the_songs_directory_is_copied(
     client: AsyncClient, session: AsyncSession, configured: FakeUsdx, tmp_path: Path
 ) -> None:
-    """USDX ignores -SongPath outside its own songs dir and loads the whole library."""
+    """-SongPath outside USDX's own songs dir only *adds* a path: USDX loads its whole
+    library next to the song and opens on the first song of the list."""
     outside = make_song_dir(tmp_path / "elsewhere", "Artist - Title")
     song = await add_song(session, outside)
     player = await add_player(client, "Yannis")
@@ -511,6 +512,51 @@ async def test_a_song_outside_the_songs_directory_is_copied(
 
     assert configured.argv == ["-SongPath", str(copy_dir), "-SingleSong"]
     # The copy really was there while USDX ran, and is gone afterwards.
+    assert configured.song_dir_contents == ["song.txt"]
+    assert not copy_dir.exists()
+
+
+async def test_a_song_from_a_library_of_its_own_is_copied_into_the_usdx_songs_dir(
+    client: AsyncClient, session: AsyncSession, configured: FakeUsdx, tmp_path: Path
+) -> None:
+    """The reported bug: Wingman's song library is not USDX's songs directory.
+
+    A plain, unproblematic song directory — but in the library Wingman scans, which is a
+    folder of its own here. Launched from there, USDX would load its whole library on top
+    and open on the alphabetically first song, not the one that was picked.
+    """
+    library = tmp_path / "karaoke library"
+    await SettingsService(session).set("songs.directory", str(library))
+    song = await add_song(session, make_song_dir(library, "Celine Dion - My Heart Will Go On"))
+    player = await add_player(client, "Yannis")
+    copy_dir = configured.songs_dir / COPY_DIR_NAME
+
+    await sing(client, song, [{"color": "blue", "player_id": player["id"]}])
+    await service.wait_for_sing_end()
+
+    assert configured.argv == ["-SongPath", str(copy_dir), "-SingleSong"]
+    assert configured.song_dir_contents == ["song.txt"]
+    assert not copy_dir.exists()
+
+
+async def test_the_usdx_songs_dir_override_is_where_the_song_is_launched_from(
+    client: AsyncClient, session: AsyncSession, configured: FakeUsdx, tmp_path: Path
+) -> None:
+    """A portable install whose songs are not under the base path: the override says where
+    USDX loads from, and that is the directory the song has to be started from."""
+    usdx_songs = tmp_path / "portable" / "songs"
+    usdx_songs.mkdir(parents=True)
+    settings = SettingsService(session)
+    await settings.set("usdx.songs_dir", str(usdx_songs))
+    song = await add_song(session, make_song_dir(configured.songs_dir, "Artist - Title"))
+    player = await add_player(client, "Yannis")
+    copy_dir = usdx_songs / COPY_DIR_NAME
+
+    await sing(client, song, [{"color": "blue", "player_id": player["id"]}])
+    await service.wait_for_sing_end()
+
+    # Under the base path but not under the configured songs dir, so it is copied there.
+    assert configured.argv == ["-SongPath", str(copy_dir), "-SingleSong"]
     assert configured.song_dir_contents == ["song.txt"]
     assert not copy_dir.exists()
 

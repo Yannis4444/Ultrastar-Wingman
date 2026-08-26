@@ -1,5 +1,5 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { useState } from "react";
+import { useRef, useState } from "react";
 import { Link } from "react-router-dom";
 import type { PlaylistRead } from "../api";
 import {
@@ -11,6 +11,7 @@ import {
 } from "../api/@tanstack/react-query.gen";
 import { useAuth } from "../auth";
 import ConfirmModal from "../components/ConfirmModal";
+import EmptyState from "../components/EmptyState";
 import { Icon } from "../components/icons";
 import Loading from "../components/Loading";
 import PageHeader from "../components/PageHeader";
@@ -23,9 +24,14 @@ export default function Playlists() {
   const auth = useAuth();
   const [name, setName] = useState("");
   const [shared, setShared] = useState(false);
+  // `null` means "the reader has not said": the form then opens by itself on an
+  // empty page and stays shut everywhere else. The header toggle and the empty
+  // state's button write a real boolean and take over from there.
+  const [creating, setCreating] = useState<boolean | null>(null);
   const [editing, setEditing] = useState<string | null>(null);
   const [deleting, setDeleting] = useState<PlaylistRead | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const nameField = useRef<HTMLInputElement>(null);
 
   const playlists = useQuery({
     ...listPlaylistsOptions(),
@@ -44,6 +50,10 @@ export default function Playlists() {
     onSuccess: () => {
       setName("");
       setShared(false);
+      // The list stops being empty, so without this the form would vanish
+      // under the reader's hands. A second playlist is one word away.
+      setCreating(true);
+      nameField.current?.focus();
       refresh();
     },
     onError: failed("Could not create the playlist."),
@@ -70,10 +80,31 @@ export default function Playlists() {
     auth.can("playlists.manage") && (list.mine || auth.role === "admin");
 
   const rows = playlists.data?.playlists ?? [];
+  const empty = playlists.isSuccess && rows.length === 0;
+  const showForm = canManage && (creating ?? empty);
 
   return (
     <div className="playlists-page">
-      <PageHeader title="Playlists" back="/songs" />
+      <PageHeader title="Playlists" back="/songs">
+        {canManage && (
+          <button
+            type="button"
+            className="icon-button icon-button-bordered"
+            aria-label="New playlist"
+            aria-expanded={showForm}
+            title="New playlist"
+            /* Exactly one primary button on screen (§4): the create form and an
+               open rename each own a "Create"/"Save", so opening either one
+               closes the other. */
+            onClick={() => {
+              setEditing(null);
+              setCreating(!showForm);
+            }}
+          >
+            <Icon name="plus" />
+          </button>
+        )}
+      </PageHeader>
       {/* Nothing until /auth/me answered: `can` says yes while it is in flight. */}
       {auth.loaded &&
         (auth.can("playlists.view") ? (
@@ -84,7 +115,7 @@ export default function Playlists() {
               </p>
             )}
 
-            {canManage && (
+            {showForm && (
               <form
                 className="playlists-create"
                 onSubmit={(event) => {
@@ -94,7 +125,8 @@ export default function Playlists() {
                 }}
               >
                 <input
-                  className="text-input"
+                  className="text-input text-input-quiet"
+                  ref={nameField}
                   aria-label="New playlist name"
                   placeholder="New playlist"
                   value={name}
@@ -126,12 +158,28 @@ export default function Playlists() {
               </p>
             )}
 
-            {playlists.isSuccess && rows.length === 0 && (
-              <p className="playlists-empty">
+            {empty && (
+              /* A guest cannot act on the invitation, so neither the sentence
+                 nor the button is offered to one. */
+              <EmptyState
+                icon="list"
+                title="No playlists yet"
+                action={
+                  canManage && !showForm ? (
+                    <button
+                      type="button"
+                      className="button button-primary"
+                      onClick={() => setCreating(true)}
+                    >
+                      New playlist
+                    </button>
+                  ) : undefined
+                }
+              >
                 {canManage
-                  ? "No playlists yet. Create one, then add songs from a song's details."
-                  : "No playlists yet."}
-              </p>
+                  ? "Create one, then add songs from a song's details."
+                  : undefined}
+              </EmptyState>
             )}
 
             <ul className="playlists-list">
@@ -140,6 +188,18 @@ export default function Playlists() {
                   <li key={list.id}>
                     <form
                       className="playlists-edit"
+                      // Enter saves (the form's own submit), so Escape has to
+                      // be the way out — the Cancel button is the only other
+                      // one, and a keyboard reader typing a name should not
+                      // have to tab past Shared and Cancel to abandon the edit.
+                      // Blur deliberately does nothing: the Shared checkbox and
+                      // both buttons take focus off the field.
+                      onKeyDown={(event) => {
+                        if (event.key === "Escape") {
+                          event.stopPropagation();
+                          setEditing(null);
+                        }
+                      }}
                       onSubmit={(event) => {
                         event.preventDefault();
                         const form = new FormData(event.currentTarget);
@@ -155,7 +215,7 @@ export default function Playlists() {
                       }}
                     >
                       <input
-                        className="text-input"
+                        className="text-input text-input-quiet"
                         name="name"
                         defaultValue={list.name}
                         aria-label={`Name of ${list.name}`}
@@ -193,6 +253,12 @@ export default function Playlists() {
                       className="playlists-open"
                       to={`/songs/playlists/${encodeURIComponent(list.id)}`}
                     >
+                      {/* A 40px square, not a stack of covers: it keeps every
+                          list in the app on one text axis and costs no
+                          requests. */}
+                      <span className="playlists-glyph">
+                        <Icon name="list" />
+                      </span>
                       <span className="playlists-text">
                         <span className="playlists-name">{list.name}</span>
                         <span className="playlists-meta">
@@ -202,10 +268,14 @@ export default function Playlists() {
                             ` · ${list.mine ? "shared" : (list.owner_username ?? "shared")}`}
                         </span>
                       </span>
-                      <Icon
-                        name="chevron-right"
-                        className="playlists-chevron"
-                      />
+                      {/* Two icon buttons already say "this row does things";
+                          a third glyph beside them is clutter. */}
+                      {!mutable(list) && (
+                        <Icon
+                          name="chevron-right"
+                          className="playlists-chevron"
+                        />
+                      )}
                     </Link>
                     {mutable(list) && (
                       <span className="playlists-actions">
@@ -213,7 +283,15 @@ export default function Playlists() {
                           type="button"
                           className="icon-button"
                           aria-label={`Edit ${list.name}`}
-                          onClick={() => setEditing(list.id)}
+                          /* The other half of the rule above: a rename takes
+                             the primary button, so the create form gives it
+                             up. `false`, not `null` — the reader has now said
+                             something, and the empty-page default must not
+                             reopen the form behind the edit. */
+                          onClick={() => {
+                            setCreating(false);
+                            setEditing(list.id);
+                          }}
                         >
                           <Icon name="pencil" />
                         </button>

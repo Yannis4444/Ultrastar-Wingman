@@ -10,12 +10,14 @@ const {
   listSettings,
   updateSetting,
   getMe,
+  getJoinInfo,
   launchUsdx,
   listVideoQualityPresets,
 } = vi.hoisted(() => ({
   listSettings: vi.fn(),
   updateSetting: vi.fn(),
   getMe: vi.fn(),
+  getJoinInfo: vi.fn(),
   launchUsdx: vi.fn(),
   listVideoQualityPresets: vi.fn(),
 }));
@@ -25,6 +27,7 @@ vi.mock("../api/sdk.gen", async (importOriginal) => ({
   listSettings,
   updateSetting,
   getMe,
+  getJoinInfo,
   // Never the real one: a test must not start Ultrastar Deluxe.
   launchUsdx,
   listVideoQualityPresets,
@@ -97,7 +100,14 @@ const QUALITY = setting({
   description: "Which YouTube stream yt-dlp downloads.",
 });
 
+const JOIN_URL = setting({
+  key: "host.join_url",
+  group: "Host",
+  description: "The address guests open on their phones — empty picks one.",
+});
+
 const SETTINGS: SettingRead[] = [
+  JOIN_URL,
   DIRECTORY,
   ADDITIONAL,
   BASE_PATH,
@@ -148,6 +158,7 @@ beforeEach(() => {
   vi.resetAllMocks();
   vi.stubGlobal("WebSocket", FakeSocket);
   listSettings.mockResolvedValue({ data: SETTINGS });
+  getJoinInfo.mockResolvedValue({ data: { url: "http://192.168.0.10:8080" } });
   listVideoQualityPresets.mockResolvedValue({ data: PRESETS });
   getMe.mockResolvedValue(
     meResponse(["settings.view", "settings.manage"], {
@@ -176,7 +187,7 @@ test("the sections are ordered task first and carry no count", async () => {
   const groups = screen
     .getAllByRole("group")
     .map((group) => group.querySelector("summary")?.textContent);
-  expect(groups).toEqual(["Songs", "USDX", "USDB", "Downloads"]);
+  expect(groups).toEqual(["Host", "Songs", "USDX", "USDB", "Downloads"]);
   // The count was wrong wherever one setting rendered several rows.
   expect(screen.queryByText("1")).not.toBeInTheDocument();
 });
@@ -364,6 +375,57 @@ test("a rejected value is reported at its own field", async () => {
   expect(await screen.findByRole("alert")).toHaveTextContent(
     "expects int, got float",
   );
+});
+
+test("the Host section carries the join URL and the address it produces", async () => {
+  renderSettings();
+
+  const input = await screen.findByLabelText("Join URL");
+  expect(input).toHaveValue("");
+  expect(input).toHaveClass("text-input-quiet");
+  // Empty means "guess it", and the guess is the one thing the registry's own
+  // description cannot say — the QR code and this line come from `/join`.
+  expect(
+    await screen.findByText(/Guests open http:\/\/192\.168\.0\.10:8080\./),
+  ).toBeVisible();
+});
+
+test("a join URL no phone could open is refused at its own field", async () => {
+  updateSetting.mockRejectedValue({
+    detail:
+      "setting 'host.join_url': a join URL must start with http:// or https://",
+  });
+  renderSettings();
+
+  const input = await screen.findByLabelText("Join URL");
+  fireEvent.change(input, { target: { value: "ftp://nope" } });
+  fireEvent.blur(input);
+
+  expect(await screen.findByRole("alert")).toHaveTextContent(
+    "must start with http:// or https://",
+  );
+});
+
+test("a saved join URL refetches the address the QR code will carry", async () => {
+  updateSetting.mockResolvedValue({
+    data: { ...JOIN_URL, value: "http://party.local:1234", is_set: true },
+  });
+  renderSettings();
+
+  const input = await screen.findByLabelText("Join URL");
+  getJoinInfo.mockResolvedValue({ data: { url: "http://party.local:1234" } });
+  fireEvent.change(input, { target: { value: "http://party.local:1234" } });
+  fireEvent.blur(input);
+
+  FakeSocket.deliver({
+    event: "setting.changed",
+    key: "host.join_url",
+    value: "http://party.local:1234",
+  });
+
+  expect(
+    await screen.findByText(/Guests open http:\/\/party\.local:1234\./),
+  ).toBeVisible();
 });
 
 test("view-only access disables every input", async () => {
