@@ -113,18 +113,18 @@ export default function Settings() {
 
   if (auth.loaded && !mayView) {
     return (
-      <>
+      <div className="settings-page">
         <PageHeader title="Settings" back="/user" />
         <p className="settings-notice">
           Wingman's settings are for the host. Log in on the User tab, or ask
           the host to give your account the rights.
         </p>
-      </>
+      </div>
     );
   }
 
   return (
-    <>
+    <div className="settings-page">
       <PageHeader title="Settings" back="/user" />
 
       {mayView && !mayManage && (
@@ -168,6 +168,6 @@ export default function Settings() {
           </details>
         );
       })}
-    </>
+    </div>
   );
 }

@@ -1,3 +1,12 @@
+/* A reading column on desktop; a no-op at phone widths. The whole page moves
+   together, so the toolbar, the chips and the rows keep one gutter at every
+   width — capping each block on its own (what this page did before) let the
+   centring margins overwrite the 16px they were supposed to preserve. */
+.songs-page {
+  max-width: 720px;
+  margin: 0 auto;
+}
+
 /* Search stays reachable while scrolling 500+ rows; below the modal backdrop
    (z-index 2000). */
 .songs-toolbar {
@@ -151,11 +160,17 @@
   color: var(--color-darker);
 }
 
-/* The rows carry their own separators, so no gap between them. */
+/* The rows carry their own separators, so no gap between them.
+
+   8px here plus the row's own 8px of padding: the cover lands on the page's
+   16px gutter while the hover band bleeds past it, which is the pattern every
+   other list in the app follows (score groups, playlists, wishlist). With
+   `margin: 0 16px` the covers sat at 24px and tapping a playlist shifted every
+   row 8px sideways. */
 .songs-list {
   display: flex;
   flex-direction: column;
-  margin: 0 16px;
+  margin: 0 8px;
 }
 
 /* A separator belongs between rows, not under the last one. The child is
@@ -205,19 +220,5 @@
 @keyframes songs-skeleton-pulse {
   50% {
     opacity: 0.5;
-  }
-}
-
-/* Desktop gets a reading column, not 1200px-wide rows. */
-@media (min-width: 768px) {
-  .songs-toolbar,
-  .songs-chips,
-  .songs-count,
-  .songs-list,
-  .songs-notice,
-  .songs-skeleton {
-    max-width: 720px;
-    margin-left: auto;
-    margin-right: auto;
   }
 }

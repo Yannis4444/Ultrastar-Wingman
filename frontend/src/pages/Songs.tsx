@@ -127,7 +127,9 @@ export default function Songs() {
   );
 
   return (
-    <>
+    /* One column for the whole page, so the sticky toolbar, the chips and the
+       rows share a gutter on the desktop as they do on a phone. */
+    <div className="songs-page">
       <h1>Songs</h1>
       <div className="songs-toolbar">
         <label className="songs-search">
@@ -282,6 +284,6 @@ export default function Songs() {
       )}
 
       {addingSongs && <AddSongsModal onClose={() => setAddingSongs(false)} />}
-    </>
+    </div>
   );
 }

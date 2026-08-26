@@ -1,10 +1,7 @@
 import { useQuery } from "@tanstack/react-query";
 import { useState } from "react";
 import type { SongRead } from "../api";
-import {
-  listPlayerScoresOptions,
-  listPlayersOptions,
-} from "../api/@tanstack/react-query.gen";
+import { listPlayerScoresOptions } from "../api/@tanstack/react-query.gen";
 import { useAuth } from "../auth";
 import Chart from "../components/Chart";
 import Loading from "../components/Loading";
@@ -12,6 +9,7 @@ import PageHeader from "../components/PageHeader";
 import ScoreGroupList from "../components/ScoreGroupList";
 import ScoresEmpty from "../components/ScoresEmpty";
 import SongDetails from "../components/SongDetails";
+import { errorMessage } from "../errors";
 import {
   boxplotHeight,
   buildBoxplotOption,
@@ -33,7 +31,6 @@ const SORTINGS: { value: Sorting; label: string }[] = [
 
 /** The list itself, once it is known that there is a player to list. */
 function History({ playerId }: { playerId: string }) {
-  const auth = useAuth();
   // The old app's default order, and the one a scoreboard is read for.
   const [sorting, setSorting] = useState<Sorting>("best");
   const [openSong, setOpenSong] = useState<SongRead | null>(null);
@@ -41,17 +38,16 @@ function History({ playerId }: { playerId: string }) {
   const scores = useQuery(
     listPlayerScoresOptions({ path: { player_id: playerId } }),
   );
-  // Only for the avatars in the expanded rows; a guest who sang along has no
-  // player record and still gets the initial `PlayerAvatar` draws.
-  const playerList = useQuery({
-    ...listPlayersOptions(),
-    enabled: auth.loaded && auth.can("players.view"),
-  });
-  const players = new Map(
-    (playerList.data?.players ?? []).map((player) => [player.id, player]),
-  );
 
   if (scores.isPending) return <Loading />;
+
+  if (scores.isError) {
+    return (
+      <p className="error-notice scores-session-error" role="alert">
+        {errorMessage(scores.error, "Could not load your scores.")}
+      </p>
+    );
+  }
 
   const rows = scores.data?.scores ?? [];
   // Always by song: it is the only grouping that says something about a single
@@ -100,16 +96,21 @@ function History({ playerId }: { playerId: string }) {
 
       {/* Every score in here is the reader's own, so the singer's name behind
           best and worst would be the same word twice a row — and on a phone it
-          truncates the rest of the caption away. The dates stay, though: this
-          list spans every party, where a bare clock time places nothing. */}
+          truncates the rest of the caption away. `ownRows` does the same for
+          the expanded rows, which led with the reader's own avatar and name
+          once per score: they lead with the date and time instead. */}
       <ScoreGroupList
         groups={groups}
         grouping="song"
         sorting={sorting}
-        players={players}
+        /* Empty on purpose: the map only feeds avatars, and `ownRows` is what
+           took the reader's own avatar off every row. Nothing here needs the
+           roster, so nothing here fetches it. */
+        players={new Map()}
         onOpenSong={setOpenSong}
         namedPeaks={false}
         allTime
+        ownRows
       />
 
       {openSong !== null && (

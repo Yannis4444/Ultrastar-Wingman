@@ -141,7 +141,11 @@ p {
   border-color: var(--color-darker);
 }
 
-.text-input-quiet:focus {
+/* `:enabled` is here only to match the hover rule above: without it the hover
+   selector is one class more specific and a field that is both hovered and
+   focused draws the grey hover border instead of the blue focus one. Equal
+   specificity, later in the file — focus wins, which is the whole point. */
+.text-input-quiet:focus:enabled {
   border-color: var(--highlight-blue-light);
 }
 
@@ -162,6 +166,15 @@ select.text-input-quiet {
    the hand. */
 select.text-input-quiet:disabled {
   cursor: default;
+}
+
+/* The dropdown itself is drawn by the browser and would otherwise come up in
+   the system's light colors — the transparent quiet select gives it nothing to
+   inherit. Global, because it is true of every quiet select and not of the
+   karaoke colors alone. */
+select.text-input-quiet option {
+  color: var(--color);
+  background-color: var(--input-bg);
 }
 
 textarea.text-input-quiet {

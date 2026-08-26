@@ -310,6 +310,13 @@ export default function Scores() {
 
       {scores.isPending ? (
         <Loading />
+      ) : scores.isError ? (
+        /* Before the empty state, never instead of it: a failed request also
+           leaves `rows` empty, and "Sing a song" is a lie about a session that
+           may be full of scores nobody could fetch. */
+        <p className="error-notice scores-session-error" role="alert">
+          {errorMessage(scores.error, "Could not load this session's scores.")}
+        </p>
       ) : groups.length === 0 ? (
         <ScoresEmpty>
           {/* `sing_count` counts songs *started*, which is exactly the right

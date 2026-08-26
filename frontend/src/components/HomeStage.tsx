@@ -33,6 +33,13 @@ export default function HomeStage() {
           modal CurrentlyPlaying can open lives inside it, and an ancestor
           opacity would take the modal down with the sing that ends under it. */}
       <div className="home-stage-playing">
+        {/* The idle `h1` above goes `aria-hidden` the moment a song starts,
+            which left the page with no heading at all. This one takes over for
+            exactly as long as that lasts, so Home always exposes one `h1` —
+            and it is silent while nothing plays, so the two never overlap. The
+            song's own title stays an `h2` inside the block: it names the song,
+            not the page. */}
+        {playing && <h1 className="visually-hidden">Now playing</h1>}
         <CurrentlyPlaying className="currently-playing-stage" />
       </div>
     </div>

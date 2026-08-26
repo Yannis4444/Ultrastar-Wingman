@@ -16,32 +16,8 @@
   color: var(--color-darker);
 }
 
-/* The app's empty-state idiom, as the scores page draws it: a big dim glyph,
-   a heading, one sentence, and the way out. */
-.playlists-blank {
-  display: flex;
-  flex-direction: column;
-  gap: 12px;
-  align-items: center;
-  padding: 32px 16px;
-  text-align: center;
-}
-
-.playlists-blank-icon {
-  font-size: 48px;
-  color: var(--color-darkerer);
-}
-
-.playlists-blank h2 {
-  margin: 0;
-  font-size: 1.1em;
-}
-
-.playlists-blank p {
-  max-width: 34ch;
-  margin: 0;
-  color: var(--color-dark);
-}
+/* The empty state is the shared `EmptyState` component — this page used to
+   carry a verbatim copy of the scores page's rules. */
 
 .playlists-create,
 .playlists-edit {
@@ -197,10 +173,13 @@
   color: var(--color-darker);
 }
 
+/* 8px plus the row's own 8px of padding: the same axis the playlists list
+   above and the songs page use, so a cover never moves when a reader walks
+   from one list into the other. */
 .playlist-songs {
   display: flex;
   flex-direction: column;
-  margin: 0 16px;
+  margin: 0 8px;
 }
 
 .playlist-songs > :last-child {

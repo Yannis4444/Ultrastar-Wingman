@@ -57,6 +57,14 @@
   color: var(--color-darker);
 }
 
+/* A lone control is a control, not a bar. The account's own history offers
+   Sort and nothing else, and `flex: 1 1 auto` stretched that one select across
+   the whole 720px column, where it read as a page-wide toolbar. Sized to its
+   longest option instead. */
+.scores-control:only-child {
+  flex: 0 1 auto;
+}
+
 /* Without `min-width: 0` a select refuses to shrink below its widest option,
    and "group by player" plus "alphabetically" push the row off a 390px phone. */
 .scores-control select {
@@ -91,27 +99,5 @@
   color: var(--color-dark);
 }
 
-.scores-empty {
-  display: flex;
-  flex-direction: column;
-  gap: 12px;
-  align-items: center;
-  padding: 32px 16px;
-  text-align: center;
-}
-
-.scores-empty-icon {
-  font-size: 48px;
-  color: var(--color-darkerer);
-}
-
-.scores-empty h2 {
-  margin: 0;
-  font-size: 1.1em;
-}
-
-.scores-empty p {
-  max-width: 34ch;
-  margin: 0;
-  color: var(--color-dark);
-}
+/* The empty state is `components/EmptyState.css` — the playlists page draws
+   the same shape, so it is a component now rather than a page rule. */

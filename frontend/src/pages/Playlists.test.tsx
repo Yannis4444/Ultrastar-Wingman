@@ -317,3 +317,26 @@ test("a failing request says so", async () => {
     "Could not load the playlists.",
   );
 });
+
+test("only one primary button at a time: the two forms take turns", async () => {
+  renderPlaylists([playlist()]);
+
+  // Open the create form, then start renaming: the create form gives way.
+  const toggle = await screen.findByRole("button", { name: "New playlist" });
+  fireEvent.click(toggle);
+  expect(screen.getByRole("button", { name: "Create" })).toBeInTheDocument();
+
+  fireEvent.click(screen.getByRole("button", { name: "Edit Party" }));
+  expect(screen.getByRole("button", { name: "Save" })).toBeInTheDocument();
+  expect(
+    screen.queryByRole("button", { name: "Create" }),
+  ).not.toBeInTheDocument();
+  expect(toggle).toHaveAttribute("aria-expanded", "false");
+
+  // And the other way round: reopening the create form closes the rename.
+  fireEvent.click(toggle);
+  expect(screen.getByRole("button", { name: "Create" })).toBeInTheDocument();
+  expect(
+    screen.queryByRole("button", { name: "Save" }),
+  ).not.toBeInTheDocument();
+});

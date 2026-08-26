@@ -331,3 +331,39 @@ test("a cover opens the song modal from inside the history", async () => {
     "Bohemian Rhapsody",
   );
 });
+
+test("an expanded row leads with the run, not with the reader's own name", async () => {
+  renderStats();
+
+  fireEvent.click(await screen.findByText("Queen – Bohemian Rhapsody"));
+  const rows = await screen.findAllByTestId("score-row");
+
+  // The singer is a given on this page; printing "Alice" plus her avatar once
+  // per score says nothing and costs the row its whole left edge.
+  expect(rows[0]).not.toHaveTextContent("Alice");
+  expect(rows[0].querySelector(".player-avatar")).toBeNull();
+  // What is left is when it happened, how hard it was and what it scored.
+  expect(rows[0].querySelector(".score-entry-when")).toHaveTextContent(
+    shortDate("2026-08-23T20:00:00Z"),
+  );
+  expect(rows[0]).toHaveTextContent("9500");
+});
+
+test("the roster is not fetched for a list of avatars nobody draws", async () => {
+  renderStats();
+  await waitFor(() => expect(groupLabels()).toHaveLength(2));
+
+  expect(listPlayers).not.toHaveBeenCalled();
+});
+
+test("a failed history request says so instead of claiming nothing was sung", async () => {
+  listPlayerScores.mockRejectedValue({ detail: "boom" });
+  renderStats();
+
+  expect(await screen.findByRole("alert")).toHaveTextContent(
+    "Could not load your scores.",
+  );
+  expect(
+    screen.queryByRole("heading", { name: "No scores yet" }),
+  ).not.toBeInTheDocument();
+});

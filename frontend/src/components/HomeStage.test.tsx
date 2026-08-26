@@ -223,3 +223,35 @@ test("the song modal outlives the sing that opened it", async () => {
     screen.getByRole("dialog", { name: "Dancing Queen" }),
   ).toBeInTheDocument();
 });
+
+test("the page keeps exactly one heading across the switch", async () => {
+  renderStage();
+  await waitFor(() => expect(getCurrentSing).toHaveBeenCalled());
+
+  // Idle: the app's own name is the page heading.
+  expect(screen.getAllByRole("heading", { level: 1 })).toHaveLength(1);
+  expect(screen.getByRole("heading", { level: 1 })).toHaveTextContent(
+    "Ultrastar Wingman",
+  );
+
+  FakeSocket.deliver({ event: "karaoke.started", sing: SING });
+  await screen.findByRole("region", { name: "Now playing" });
+
+  // The identity heading is aria-hidden now, so without a replacement the page
+  // would expose none at all — and never two.
+  const playing = screen.getAllByRole("heading", { level: 1 });
+  expect(playing).toHaveLength(1);
+  expect(playing[0]).toHaveTextContent("Now playing");
+
+  FakeSocket.deliver({
+    event: "karaoke.ended",
+    sing_id: "sing-1",
+    song_id: "usdb:1",
+  });
+  await waitFor(() =>
+    expect(screen.getByRole("heading", { level: 1 })).toHaveTextContent(
+      "Ultrastar Wingman",
+    ),
+  );
+  expect(screen.getAllByRole("heading", { level: 1 })).toHaveLength(1);
+});

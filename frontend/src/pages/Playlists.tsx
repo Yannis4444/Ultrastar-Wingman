@@ -11,6 +11,7 @@ import {
 } from "../api/@tanstack/react-query.gen";
 import { useAuth } from "../auth";
 import ConfirmModal from "../components/ConfirmModal";
+import EmptyState from "../components/EmptyState";
 import { Icon } from "../components/icons";
 import Loading from "../components/Loading";
 import PageHeader from "../components/PageHeader";
@@ -92,7 +93,13 @@ export default function Playlists() {
             aria-label="New playlist"
             aria-expanded={showForm}
             title="New playlist"
-            onClick={() => setCreating(!showForm)}
+            /* Exactly one primary button on screen (§4): the create form and an
+               open rename each own a "Create"/"Save", so opening either one
+               closes the other. */
+            onClick={() => {
+              setEditing(null);
+              setCreating(!showForm);
+            }}
           >
             <Icon name="plus" />
           </button>
@@ -152,27 +159,27 @@ export default function Playlists() {
             )}
 
             {empty && (
-              <div className="playlists-blank">
-                <Icon name="list" className="playlists-blank-icon" />
-                <h2>No playlists yet</h2>
-                {/* A guest cannot act on the invitation, so it is not offered. */}
-                {canManage && (
-                  <>
-                    <p>
-                      Create one, then add songs from a song&apos;s details.
-                    </p>
-                    {!showForm && (
-                      <button
-                        type="button"
-                        className="button button-primary"
-                        onClick={() => setCreating(true)}
-                      >
-                        New playlist
-                      </button>
-                    )}
-                  </>
-                )}
-              </div>
+              /* A guest cannot act on the invitation, so neither the sentence
+                 nor the button is offered to one. */
+              <EmptyState
+                icon="list"
+                title="No playlists yet"
+                action={
+                  canManage && !showForm ? (
+                    <button
+                      type="button"
+                      className="button button-primary"
+                      onClick={() => setCreating(true)}
+                    >
+                      New playlist
+                    </button>
+                  ) : undefined
+                }
+              >
+                {canManage
+                  ? "Create one, then add songs from a song's details."
+                  : undefined}
+              </EmptyState>
             )}
 
             <ul className="playlists-list">
@@ -276,7 +283,15 @@ export default function Playlists() {
                           type="button"
                           className="icon-button"
                           aria-label={`Edit ${list.name}`}
-                          onClick={() => setEditing(list.id)}
+                          /* The other half of the rule above: a rename takes
+                             the primary button, so the create form gives it
+                             up. `false`, not `null` — the reader has now said
+                             something, and the empty-page default must not
+                             reopen the form behind the edit. */
+                          onClick={() => {
+                            setCreating(false);
+                            setEditing(list.id);
+                          }}
                         >
                           <Icon name="pencil" />
                         </button>

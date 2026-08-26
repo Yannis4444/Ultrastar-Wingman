@@ -179,12 +179,29 @@
   min-height: 72px;
 }
 
+/* The two flanking marks while they are off. `--color-darkerer` is 2.25:1 on
+   `--tile-bg`, under the 3:1 floor a control glyph has to clear; on the page
+   background the song modal floats over, the same token does clear it. So the
+   stage — and only the stage — steps up to `--color-darker` (3.4:1) and the
+   modal keeps what §5 prescribes for it. */
+.currently-playing-stage .song-control-favorite,
+.currently-playing-stage .song-control-wish {
+  color: var(--color-darker);
+}
+
 /* `--highlight-pink-light` is only 2.2:1 as a glyph on `--tile-bg`; the stage
    defines `--stage-pink` as the mix that clears 3:1. The fallback keeps the
    control visible if the block is ever mounted outside the stage. */
 .currently-playing-stage .song-control-stop,
 .currently-playing-stage .song-control-favorite-on {
   color: var(--stage-pink, var(--highlight-pink-light));
+}
+
+/* Re-asserted here because the off rule above is two classes deep and would
+   otherwise outrank the single-class `.song-control-wish-on` that colors a
+   wished song everywhere else. */
+.currently-playing-stage .song-control-wish-on {
+  color: var(--highlight-blue-light);
 }
 
 /* An optical correction, not a second size: `stop` is a square filling half its

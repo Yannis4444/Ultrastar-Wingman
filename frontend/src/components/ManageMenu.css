@@ -3,7 +3,12 @@
 .manage-menu {
   display: flex;
   flex-direction: column;
-  margin: 8px 16px 0 16px;
+
+  /* 8px here plus 8px of row padding: the label still lands on the page's 16px
+     gutter, and the hairline now starts and ends where `.home-entry`'s and
+     `.about-row`'s do — the three lists of the User page used to draw two
+     different rule widths under the same text axis. */
+  margin: 8px 8px 0 8px;
 }
 
 .manage-menu-row {
@@ -11,7 +16,7 @@
   align-items: center;
   gap: 12px;
   min-height: 48px;
-  padding: 8px 0;
+  padding: 8px;
   color: var(--color);
   text-decoration: none;
   border-bottom: 1px solid var(--input-border-color);

@@ -34,26 +34,17 @@ import "./SongDetails.css";
 interface SongDetailsProps {
   song: SongRead;
   onClose: () => void;
-  /**
-   * Which view the modal opens on. Currently Playing's playlist button jumps
-   * straight into the picker instead of making the user find the option row.
-   */
-  initialView?: "main" | "playlists";
 }
 
 /** How many all-time scores the best-scores view lists. */
 const BEST_SCORES = 10;
 
-export default function SongDetails({
-  song,
-  onClose,
-  initialView = "main",
-}: SongDetailsProps) {
+export default function SongDetails({ song, onClose }: SongDetailsProps) {
   const [selectingPlayers, setSelectingPlayers] = useState(false);
-  // Sub-views swap the modal content; closing them returns to the song.
-  const [view, setView] = useState<"main" | "scores" | "playlists">(
-    initialView,
-  );
+  // Sub-views swap the modal content; closing them returns to the song. Always
+  // from the song itself: the one caller that opened straight into the picker
+  // was Currently Playing's playlist button, and that button is gone.
+  const [view, setView] = useState<"main" | "scores" | "playlists">("main");
   const [notice, setNotice] = useState<string | null>(null);
   // There is no has_audio flag; the preview 404s for songs without audio and
   // the element's error event is the only signal.

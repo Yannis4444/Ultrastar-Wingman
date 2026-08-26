@@ -600,3 +600,24 @@ test("a finished song refreshes the session list and its scores", async () => {
     expect(listSessions.mock.calls.length).toBeGreaterThan(sessionCalls);
   });
 });
+
+test("a failed score request says so instead of claiming nobody sang", async () => {
+  listSessionScores.mockRejectedValue({ detail: "boom" });
+  renderScores();
+
+  const alert = await screen.findByRole("alert");
+  expect(alert).toHaveTextContent("Could not load this session's scores.");
+  // The empty state would be a lie here: the session may be full of scores.
+  expect(
+    screen.queryByRole("heading", { name: "No scores yet" }),
+  ).not.toBeInTheDocument();
+});
+
+test("a denied score request names the capability the role is missing", async () => {
+  listSessionScores.mockRejectedValue({
+    detail: "missing_permission:stats.view",
+  });
+  renderScores();
+
+  expect(await screen.findByRole("alert")).toHaveTextContent("stats.view");
+});

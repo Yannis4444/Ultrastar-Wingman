@@ -102,8 +102,10 @@ function HostBrand() {
  */
 function HostWishes({ wishes }: { wishes: WishRead[] }) {
   return (
-    <section className="host-wishes" aria-label="Most wished">
-      <h2>Most wished</h2>
+    /* The heading names the region; an `aria-label` saying the same words
+       would only be a second copy to keep in step with it. */
+    <section className="host-wishes" aria-labelledby="host-wishes-heading">
+      <h2 id="host-wishes-heading">Most wished</h2>
       <ol>
         {wishes.map((wish) => (
           <li key={wish.song.id}>
