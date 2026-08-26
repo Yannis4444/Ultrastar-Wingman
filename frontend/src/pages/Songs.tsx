@@ -130,7 +130,9 @@ export default function Songs() {
     /* One column for the whole page, so the sticky toolbar, the chips and the
        rows share a gutter on the desktop as they do on a phone. */
     <div className="songs-page">
-      <h1>Songs</h1>
+      {/* The bottom nav already names the page; the heading stays for the
+          document outline and for screen readers. */}
+      <h1 className="visually-hidden">Songs</h1>
       <div className="songs-toolbar">
         <label className="songs-search">
           <Icon name="search" />

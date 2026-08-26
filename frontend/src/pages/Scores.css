@@ -4,11 +4,13 @@
   margin: 0 auto;
 }
 
+/* First thing on the page — no visible heading precedes it — so it opens the
+   page on the same 16px the sections below it keep. */
 .scores-session {
   display: flex;
   gap: 8px;
   align-items: center;
-  margin: 0 16px;
+  margin: 16px 16px 0 16px;
 }
 
 .scores-session label {
@@ -96,6 +98,13 @@
 .scores-chart-title {
   margin: 0 0 8px 0;
   font-size: 0.9em;
+  color: var(--color-dark);
+}
+
+/* The page's own prose — the "not your role" line. Carries the page gutter the
+   heading used to bring with it. */
+.scores-notice {
+  margin: 16px;
   color: var(--color-dark);
 }
 
