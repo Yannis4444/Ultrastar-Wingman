@@ -53,8 +53,9 @@ doesn't belong here.
   file, `PascalCase.tsx`.
 - Local UI state with `useState`/`useReducer`; reach for a state library only
   when prop-drilling actually hurts, and discuss it first.
-- CSS: keep the existing Wingman visual design (see plan.md — the user likes
-  it). Prefer plain CSS/CSS modules over a styling framework.
+- CSS: keep the existing Wingman visual design — the rules are in
+  [ui-guidelines.md](ui-guidelines.md). Plain CSS files next to the
+  component, no styling framework.
 
 ## API design (REST)
 

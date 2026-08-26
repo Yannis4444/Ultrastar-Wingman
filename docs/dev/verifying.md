@@ -96,9 +96,10 @@ session that started things sweeps at the end:
    yours. The venv's `python.exe` is a launcher whose child is
    `C:\Python312\python.exe -m ultrastar_wingman` — check the parent before
    concluding anything from the path.
-3. **Kill only by PID you own:** `taskkill //PID <pid> //T //F`. Never
-   `taskkill //IM python.exe`, `//FI`, or `Stop-Process -Name` — name-based
-   kills hit the user's processes. If an orphan cannot be attributed to you,
+3. **Kill only by PID you own:** `taskkill //PID <pid> //T //F` (the doubled
+   slashes are the Git-Bash spelling; in PowerShell it is `/PID <pid> /T /F`).
+   Never `taskkill //IM python.exe`, `//FI`, or `Stop-Process -Name` —
+   name-based kills hit the user's processes. If an orphan cannot be attributed to you,
    leave it, exclude its port, and list it for the user.
 4. Delete temp vite configs and the scratch data dir; close tabs you opened;
    revert any setting you changed on a shared instance; remove test
