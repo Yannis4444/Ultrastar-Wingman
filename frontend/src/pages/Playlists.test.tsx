@@ -3,6 +3,7 @@ import { fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { MemoryRouter } from "react-router-dom";
 import type { MeRead, PlaylistRead } from "../api";
 import { meResponse, userRead } from "../test/auth";
+import { iconNames } from "../test/icons";
 import Playlists from "./Playlists";
 
 // Same seam as the songs page: the real TanStack wiring runs, only the
@@ -96,6 +97,55 @@ test("every visible playlist is a row leading to its songs", async () => {
   expect(screen.getByText("1 song · Bob")).toBeInTheDocument();
 });
 
+test("the chevron only appears where the row has no action buttons", async () => {
+  renderPlaylists([
+    playlist(),
+    playlist({ id: "p2", name: "Bobs mix", shared: true, mine: false }),
+  ]);
+
+  // Own row: the pencil and the bin already say the row does things.
+  const mine = await screen.findByRole("link", { name: /Party/ });
+  expect(iconNames(mine)).toEqual(["list"]);
+  // Somebody else's: nothing else marks it as a way in, so the chevron does.
+  const theirs = screen.getByRole("link", { name: /Bobs mix/ });
+  expect(iconNames(theirs)).toEqual(["list", "chevron-right"]);
+});
+
+test("with playlists on the page the form waits for the header's plus", async () => {
+  renderPlaylists([playlist()]);
+
+  const toggle = await screen.findByRole("button", { name: "New playlist" });
+  expect(toggle).toHaveAttribute("aria-expanded", "false");
+  expect(screen.queryByLabelText("New playlist name")).not.toBeInTheDocument();
+
+  fireEvent.click(toggle);
+  expect(toggle).toHaveAttribute("aria-expanded", "true");
+  expect(screen.getByLabelText("New playlist name")).toBeInTheDocument();
+
+  // And it folds away again.
+  fireEvent.click(toggle);
+  expect(screen.queryByLabelText("New playlist name")).not.toBeInTheDocument();
+});
+
+test("an empty page opens the form itself, and the empty state reopens it", async () => {
+  renderPlaylists([]);
+  await screen.findByRole("heading", { name: "No playlists yet" });
+
+  // Nothing to hunt for: the one thing to do here is already open.
+  expect(screen.getByLabelText("New playlist name")).toBeInTheDocument();
+  const toggle = screen.getByRole("button", { name: "New playlist" });
+  expect(toggle).toHaveAttribute("aria-expanded", "true");
+
+  fireEvent.click(toggle);
+  expect(screen.queryByLabelText("New playlist name")).not.toBeInTheDocument();
+  // With the form folded away the empty state carries the way back in: the
+  // header's plus and the empty state's button, in that document order.
+  const ways = screen.getAllByRole("button", { name: "New playlist" });
+  expect(ways).toHaveLength(2);
+  fireEvent.click(ways[1]);
+  expect(screen.getByLabelText("New playlist name")).toBeInTheDocument();
+});
+
 test("the view creates a playlist", async () => {
   createPlaylist.mockResolvedValue({ data: playlist({ song_count: 0 }) });
   renderPlaylists([]);
@@ -144,6 +194,38 @@ test("editing can be abandoned without a request", async () => {
     await screen.findByRole("link", { name: /Party/ }),
   ).toBeInTheDocument();
   expect(updatePlaylist).not.toHaveBeenCalled();
+});
+
+test("Escape leaves the rename form the way Cancel does", async () => {
+  renderPlaylists([playlist()]);
+
+  fireEvent.click(await screen.findByRole("button", { name: "Edit Party" }));
+  const field = screen.getByLabelText("Name of Party");
+  fireEvent.change(field, { target: { value: "Karaoke" } });
+  fireEvent.keyDown(field, { key: "Escape" });
+
+  expect(
+    await screen.findByRole("link", { name: /Party/ }),
+  ).toBeInTheDocument();
+  expect(updatePlaylist).not.toHaveBeenCalled();
+});
+
+test("a refused create says which capability is missing", async () => {
+  // What a 403 from the backend looks like once the generated client has
+  // parsed it: the page has to name the capability, not swallow the refusal.
+  createPlaylist.mockRejectedValue({
+    detail: "missing_permission:playlists.manage",
+  });
+  renderPlaylists([]);
+
+  fireEvent.change(await screen.findByLabelText("New playlist name"), {
+    target: { value: "Party" },
+  });
+  fireEvent.click(screen.getByRole("button", { name: "Create" }));
+
+  expect(await screen.findByRole("alert")).toHaveTextContent(
+    "Your role may not do this (playlists.manage)",
+  );
 });
 
 test("deleting asks first", async () => {
@@ -196,6 +278,9 @@ test("a guest sees the playlists but gets no create form", async () => {
 
   await screen.findByRole("link", { name: /Party/ });
   expect(screen.queryByLabelText("New playlist name")).not.toBeInTheDocument();
+  expect(
+    screen.queryByRole("button", { name: "New playlist" }),
+  ).not.toBeInTheDocument();
 });
 
 test("the host may fix a shared playlist it does not own", async () => {
