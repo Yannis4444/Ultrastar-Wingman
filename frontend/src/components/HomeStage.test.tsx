@@ -125,7 +125,8 @@ test("a running song takes the stage and the identity steps aside", async () => 
   const block = await screen.findByRole("region", { name: "Now playing" });
   expect(block).toHaveClass("currently-playing-stage");
   expect(block).toHaveTextContent("Dancing Queen");
-  expect(block).toHaveTextContent("Alice");
+  // The singers stay on the USDX screen; the phone shows the song alone.
+  expect(block).not.toHaveTextContent("Alice");
 
   // Still mounted — it is what holds the tile's height — but invisible and
   // untappable.

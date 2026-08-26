@@ -199,7 +199,7 @@ export default function Host() {
   return (
     <div className={`host-page${idle ? " host-idle" : ""}`}>
       <div className="host-stage">
-        <CurrentlyPlaying hideControls />
+        <CurrentlyPlaying variant="host" />
         <HostResults players={standing.players} fallback={<HostBrand />} />
       </div>
 

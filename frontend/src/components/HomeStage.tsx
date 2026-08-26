@@ -40,7 +40,7 @@ export default function HomeStage() {
             song's own title stays an `h2` inside the block: it names the song,
             not the page. */}
         {playing && <h1 className="visually-hidden">Now playing</h1>}
-        <CurrentlyPlaying className="currently-playing-stage" />
+        <CurrentlyPlaying variant="stage" />
       </div>
     </div>
   );

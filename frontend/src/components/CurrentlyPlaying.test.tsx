@@ -125,13 +125,14 @@ function loggedIn(): void {
   });
 }
 
-function renderTile(props?: { hideControls?: boolean; className?: string }) {
+/** Mounted as the Home stage unless a test asks for the host's TV rendering. */
+function renderTile(variant: "stage" | "host" = "stage") {
   const client = new QueryClient({
     defaultOptions: { queries: { retry: false } },
   });
   return render(
     <QueryClientProvider client={client}>
-      <CurrentlyPlaying {...props} />
+      <CurrentlyPlaying variant={variant} />
     </QueryClientProvider>,
   );
 }
@@ -169,9 +170,30 @@ test("nothing is rendered while USDX is idle", async () => {
   expect(container).toBeEmptyDOMElement();
 });
 
-test("the running song is shown with its players and elapsed time", async () => {
+test("the stage shows the song and its buttons, not the time or the singers", async () => {
+  // Both are on the USDX screen in the same room; the phone only repeats the
+  // song and adds what the screen cannot offer — the buttons.
   getCurrentSing.mockResolvedValue({ data: { sing: playing(60) } });
-  renderTile();
+  const { container } = renderTile();
+
+  const tile = await screen.findByRole("region", { name: "Now playing" });
+  expect(tile).toHaveTextContent("Dancing Queen");
+  expect(tile).toHaveTextContent("ABBA");
+  expect(tile).not.toHaveTextContent("Alice");
+  expect(tile).not.toHaveTextContent(/\d:\d\d/);
+  expect(screen.queryByRole("list")).not.toBeInTheDocument();
+  expect(container.querySelector(".currently-playing-bar")).toBeNull();
+  expect(listKaraokeColors).not.toHaveBeenCalled();
+  expect([...tile.children].map((child) => child.className)).toEqual([
+    "currently-playing-cover-button",
+    "currently-playing-info",
+    "currently-playing-controls",
+  ]);
+});
+
+test("the host shows the whole picture: players and elapsed time", async () => {
+  getCurrentSing.mockResolvedValue({ data: { sing: playing(60) } });
+  renderTile("host");
 
   const tile = await screen.findByRole("region", { name: "Now playing" });
   expect(tile).toHaveTextContent("Dancing Queen");
@@ -183,17 +205,16 @@ test("the running song is shown with its players and elapsed time", async () => 
   expect(screen.getAllByRole("listitem")).toHaveLength(1);
 });
 
-test("the progress bar sits directly under the time, above the players", async () => {
+test("on the host the progress bar sits under the text, above the players", async () => {
   getCurrentSing.mockResolvedValue({ data: { sing: playing(60) } });
-  renderTile();
+  renderTile("host");
 
   const tile = await screen.findByRole("region", { name: "Now playing" });
   expect([...tile.children].map((child) => child.className)).toEqual([
-    "currently-playing-cover-button",
+    "song-cover currently-playing-cover",
     "currently-playing-info",
     "currently-playing-bar",
     "currently-playing-players",
-    "currently-playing-controls",
   ]);
 });
 
@@ -201,7 +222,7 @@ test("a total the elapsed time already passed is dropped, the bar stays full", a
   // USDX boots after Wingman starts the clock, so the elapsed time can overtake
   // the song. A total that is provably wrong is worse than none.
   getCurrentSing.mockResolvedValue({ data: { sing: playing(300) } });
-  const { container } = renderTile();
+  const { container } = renderTile("host");
 
   const tile = await screen.findByRole("region", { name: "Now playing" });
   // A loaded runner may need a second between the mock and the render, so the
@@ -214,46 +235,32 @@ test("a total the elapsed time already passed is dropped, the bar stays full", a
   expect(fill?.style.width).toBe("100%");
 });
 
-test("a song without a known duration hides the bar instead of dropping it", async () => {
-  // Off the host the bar keeps its 6px: a duration that only arrives with the
-  // next song must not shove the controls down mid-sing.
+test("a song without a known duration has no bar on the host", async () => {
   const sing = playing(60);
   getCurrentSing.mockResolvedValue({
     data: { sing: { ...sing, song: { ...sing.song, duration_seconds: null } } },
   });
-  const { container } = renderTile();
+  const { container } = renderTile("host");
 
   const tile = await screen.findByRole("region", { name: "Now playing" });
   expect(tile).toHaveTextContent(/1:0\d/);
   expect(tile).not.toHaveTextContent("/");
-  const bar = container.querySelector<HTMLElement>(".currently-playing-bar");
-  expect(bar).not.toBeNull();
-  expect(bar?.style.visibility).toBe("hidden");
-});
-
-test("the host keeps today's markup: no duration, no bar element at all", async () => {
-  const sing = playing(60);
-  getCurrentSing.mockResolvedValue({
-    data: { sing: { ...sing, song: { ...sing.song, duration_seconds: null } } },
-  });
-  const { container } = renderTile({ hideControls: true });
-
-  await screen.findByText("Dancing Queen");
   expect(container.querySelector(".currently-playing-bar")).toBeNull();
 });
 
-test("a class the caller mounts it with lands on the block", async () => {
+test("the stage carries its own class next to the block's", async () => {
+  // SongControls.css and the stage tile key their rules on it.
   getCurrentSing.mockResolvedValue({ data: { sing: SING } });
-  renderTile({ className: "currently-playing-stage" });
+  renderTile();
 
   expect(
     await screen.findByRole("region", { name: "Now playing" }),
-  ).toHaveClass("currently-playing", "currently-playing-stage");
+  ).toHaveAttribute("class", "currently-playing currently-playing-stage");
 });
 
-test("without a class the block keeps its own alone", async () => {
+test("the host block keeps the block's class alone", async () => {
   getCurrentSing.mockResolvedValue({ data: { sing: SING } });
-  renderTile();
+  renderTile("host");
 
   expect(
     await screen.findByRole("region", { name: "Now playing" }),
@@ -328,10 +335,10 @@ test("the song modal stays open when the sing ends under it", async () => {
   await waitFor(() => expect(container).toBeEmptyDOMElement());
 });
 
-test("the host page owns Stop, so hideControls leaves the whole row out", async () => {
+test("the host page owns Stop, so the host variant leaves the whole row out", async () => {
   loggedIn();
   getCurrentSing.mockResolvedValue({ data: { sing: SING } });
-  const { container } = renderTile({ hideControls: true });
+  const { container } = renderTile("host");
 
   await screen.findByText("Dancing Queen");
   expect(container.querySelector(".currently-playing-controls")).toBeNull();

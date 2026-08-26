@@ -1,5 +1,6 @@
 /* One tight block. On Home it fills the stage tile; on the host it is restaged
-   as a grid further down. */
+   as a grid further down. The rules up here are the ones both variants render:
+   cover, title and artist, and the control row. */
 .currently-playing {
   display: flex;
   flex-direction: column;
@@ -63,70 +64,6 @@
   color: var(--color-darker);
 }
 
-.currently-playing-elapsed {
-  max-width: 100%;
-  margin: 0;
-  overflow: hidden;
-  font-size: 0.85em;
-  white-space: nowrap;
-  text-overflow: ellipsis;
-  color: var(--color-darker);
-  font-variant-numeric: tabular-nums;
-}
-
-/* No transition: it ticks once a second, a transition just smears. */
-.currently-playing-bar {
-  width: 100%;
-  height: 6px;
-  overflow: hidden;
-  background-color: var(--input-bg);
-  border-radius: 999px;
-}
-
-.currently-playing-bar > span {
-  display: block;
-  height: 100%;
-  background-color: var(--highlight-blue-light);
-}
-
-.currently-playing-players {
-  display: flex;
-  flex-wrap: wrap;
-  justify-content: center;
-  gap: 8px 16px;
-  margin: 0;
-  padding: 0;
-  list-style: none;
-}
-
-/* Flat rows: the color dot carries the slot color, no boxes. */
-.currently-playing-players > li {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  max-width: 100%;
-}
-
-.currently-playing-dot {
-  flex: 0 0 auto;
-  width: 10px;
-  height: 10px;
-  border-radius: 50%;
-}
-
-/* One tight line of singers: the 40px list-row avatar would out-weigh the whole
-   block. The host keeps its own, much larger size below. */
-.currently-playing-players .player-avatar {
-  width: 24px;
-  height: 24px;
-}
-
-.currently-playing-name {
-  overflow: hidden;
-  white-space: nowrap;
-  text-overflow: ellipsis;
-}
-
 /* One icon row: favorite, stop, wish. Its layout comes from SongControls.css,
    which the song modal's row uses too. */
 .currently-playing-controls {
@@ -136,9 +73,11 @@
   gap: 8px;
 }
 
-/* The Home stage: the block owns a tile now, so the cover grows and the row
-   below it becomes the song modal's. Every rule here is scoped to the stage
-   class, so the host's overrides further down cannot collide with them. */
+/* The Home stage: the block owns a tile, so the cover grows and the row below
+   the song is the song modal's. Time and singers are not here — the USDX screen
+   in the same room shows both, the phone only needs the buttons. Every rule
+   here is scoped to the stage class, so the host's overrides further down
+   cannot collide with them. */
 .currently-playing-stage {
   margin: 0;
   /* Mounts when the sing starts, so a transition would have nothing to run
@@ -157,19 +96,6 @@
   width: 160px;
   height: 160px;
   font-size: 3.5em;
-}
-
-/* The one part of the block whose height is not fixed: everything above is a
-   cover, a clamped line or a 6px bar, but the singers wrap. Six slots is a
-   configured party size, and six long names wrap to three rows — 32px more than
-   the tile budgets, which pushes the whole page below the tile down the moment
-   the song starts. Two rows is the budget; a bigger party scrolls inside the
-   line instead of growing it, so no singer is lost. */
-.currently-playing-stage .currently-playing-players {
-  /* Two 24px rows and the 8px between them. */
-  max-height: 56px;
-  overflow-y: auto;
-  overscroll-behavior: contain;
 }
 
 /* 72px is the large control's own height: the row keeps it whether the reader
@@ -218,9 +144,10 @@
   }
 }
 
-/* The host view is a TV across the room: same markup, staged as a grid. The
-   players moved out of the text block on phones, so the cover spans both text
-   rows to keep the stage looking the way it did. */
+/* The host view is a TV across the room: same block, staged as a grid, and the
+   only place the elapsed time, the progress bar and the singers render — so
+   their rules live here, under the host scope, in full. The cover spans both
+   text rows to keep the stage looking the way it did. */
 .host-page .currently-playing {
   display: grid;
   grid-template-areas:
@@ -264,30 +191,66 @@
 
 .host-page .currently-playing-elapsed {
   align-self: flex-end;
+  max-width: 100%;
+  margin: 0;
+  overflow: hidden;
   font-size: clamp(16px, 2.2vh, 32px);
+  white-space: nowrap;
+  text-overflow: ellipsis;
+  color: var(--color-darker);
+  font-variant-numeric: tabular-nums;
 }
 
+/* No transition: it ticks once a second, a transition just smears. */
 .host-page .currently-playing-bar {
   grid-area: bar;
+  width: 100%;
+  height: 6px;
+  overflow: hidden;
+  background-color: var(--input-bg);
+  border-radius: 999px;
+}
+
+.host-page .currently-playing-bar > span {
+  display: block;
+  height: 100%;
+  background-color: var(--highlight-blue-light);
 }
 
 .host-page .currently-playing-players {
+  display: flex;
+  flex-wrap: wrap;
   grid-area: players;
   justify-content: flex-start;
   gap: clamp(16px, 2vw, 40px);
+  margin: 0;
+  padding: 0;
   font-size: clamp(18px, 2.6vh, 36px);
+  list-style: none;
 }
 
+/* Flat rows: the color dot carries the slot color, no boxes. */
 .host-page .currently-playing-players > li {
+  display: flex;
+  align-items: center;
   gap: clamp(8px, 1vw, 16px);
+  max-width: 100%;
 }
 
 .host-page .currently-playing-dot {
+  flex: 0 0 auto;
   width: clamp(10px, 1.2vh, 18px);
   height: clamp(10px, 1.2vh, 18px);
+  border-radius: 50%;
 }
 
 .host-page .currently-playing-players .player-avatar {
   width: clamp(40px, 6vh, 88px);
   height: clamp(40px, 6vh, 88px);
+}
+
+.host-page .currently-playing-name {
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
 }
