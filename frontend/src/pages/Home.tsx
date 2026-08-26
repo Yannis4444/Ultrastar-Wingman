@@ -1,13 +1,17 @@
+import { useState } from "react";
 import { Link } from "react-router-dom";
 import { useAuth } from "../auth";
 import HomeStage from "../components/HomeStage";
 import { Icon } from "../components/icons";
+import { randomDiceFace } from "../dice";
 import UsdxSetupBanner from "../components/UsdxSetupBanner";
 import WishlistTile from "../components/WishlistTile";
 import "./Home.css";
 
 export default function Home() {
   const auth = useAuth();
+  // Rolled once per mount, so every visit to Home shows another face.
+  const [face] = useState(randomDiceFace);
 
   return (
     <>
@@ -18,7 +22,7 @@ export default function Home() {
       {/* The slot machine has a page of its own; Home only points at it. */}
       {auth.can("songs.view") && (
         <Link className="home-random" to="/spinner">
-          <Icon name="dice" />
+          <Icon name={face} />
           Random song
         </Link>
       )}

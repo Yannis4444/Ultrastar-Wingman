@@ -1,9 +1,18 @@
 /* The one loud thing on Home: the way into the slot machine. A gradient is
    vocabulary nothing else in the app uses, which is the point — it is the only
    button on a page that is otherwise a stage and a list. The sweep opens on
-   the vibrant blue token and lands on dark pink, so the bold white label
-   reads from ~3.4:1 at the blue end to well past 9:1 at the pink end. */
+   a deepened blue and lands on dark pink, so the bold white label reads from
+   ~4.5:1 at the blue end to well past 9:1 at the pink end. */
 .home-random {
+  /* The blue end of the sweep: the light token pulled a quarter of the way to
+     the dark one — a shade deeper than the raw accent, no new token. The SPIN
+     button on the spinner composes the very same value. */
+  --gradient-blue: color-mix(
+    in srgb,
+    var(--highlight-blue-light) 75%,
+    var(--highlight-blue-dark)
+  );
+
   display: flex;
   box-sizing: border-box;
   align-items: center;
@@ -25,7 +34,7 @@
   background-color: var(--highlight-pink-dark);
   background-image: linear-gradient(
     135deg,
-    var(--highlight-blue-light),
+    var(--gradient-blue),
     var(--highlight-pink-dark)
   );
   border: 1px solid var(--input-border-color);
