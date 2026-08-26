@@ -92,11 +92,26 @@
   color: var(--color-darker);
 }
 
-/* Home's `.home-entry`, pulled up under the numbers it belongs to: the stat bar
-   already carries 12px below itself, and 16px on top of that would read as a
-   separate section rather than as the way into these very numbers. */
+/* Where those scores actually land, drawn flat on the page: the stat bar above
+   already carries 12px below itself, so the chart only needs the page gutter
+   and its own 12px down to the row that opens the full list. */
+.user-stats-chart {
+  margin: 0 16px 12px 16px;
+}
+
+/* Home's `.home-entry`, pulled up under the block it belongs to: whatever sits
+   above — the stat bar, or the distribution under it — already carries 12px,
+   and 16px on top of that would read as a separate section rather than as the
+   way into these very numbers. */
 .home-entry.user-stats-link {
   margin-top: 0;
+}
+
+/* The page's last section starts over: 32px marks it off from the scores block
+   above, which the 16px an `h2` carries left glued to the row before it. Scoped
+   to this heading — `ManageMenu` itself is shared with the host screen. */
+.user-manage-title {
+  margin-top: 32px;
 }
 
 .user-identity-name {

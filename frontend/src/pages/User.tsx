@@ -1,5 +1,5 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { useEffect, useState } from "react";
+import { Suspense, lazy, useEffect, useState } from "react";
 import { Link, useSearchParams } from "react-router-dom";
 import type { PlayerRead } from "../api";
 import {
@@ -20,14 +20,23 @@ import PlayerAvatar from "../components/PlayerAvatar";
 import { errorDetail, errorMessage } from "../errors";
 import { REPOSITORY_URL } from "../links";
 import { manageEntries } from "../manage";
-import { playerSummary } from "../stats";
+import { buildHistogramOption, playerSummary } from "../stats";
 // The entry row below the stat bar is Home's `.home-entry` — the same glyph,
 // label and chevron at the same 48px, so it is imported rather than recreated.
 import "./Home.css";
 import "./User.css";
 
+// Lazily, unlike everywhere else it is drawn: this page is in the eager bundle
+// and echarts is about a megabyte, so a static import would make every visitor
+// pay for a chart most of them never scroll to.
+const Chart = lazy(() => import("../components/Chart"));
+
 /** Mirrors the backend's limit so an oversized file never leaves the browser. */
 const MAX_AVATAR_BYTES = 5 * 1024 * 1024;
+
+/** The `ScoreGroupList` threshold, verbatim: a couple of bars across twenty
+ * buckets is noise rather than a shape. */
+const HISTOGRAM_MIN_SCORES = 4;
 
 const AVATAR_MESSAGES: Record<string, string> = {
   avatar_too_large: "That image is larger than 5 MB.",
@@ -134,6 +143,22 @@ function UserStats({ playerId }: { playerId: string | null }) {
           />
         )}
       </div>
+      {/* The shape behind the numbers: where this singer's scores actually land
+          across the full 0–10000 range. Flat on the page like the stat bar
+          above it — the identity card is this page's one surface. */}
+      {scores.data.scores.length >= HISTOGRAM_MIN_SCORES && (
+        // Only the chart waits for the chunk; the numbers above and the row
+        // below are already there, so neither may hang on it.
+        <Suspense fallback={null}>
+          <div className="user-stats-chart">
+            <Chart
+              option={buildHistogramOption(scores.data.scores)}
+              height={96}
+              label="Your score distribution"
+            />
+          </div>
+        </Suspense>
+      )}
       {/* Inside this component on purpose: it is the only place that knows the
           five numbers have something behind them, so the row can never lead to
           an empty page. */}
@@ -298,7 +323,7 @@ export default function User() {
 
       {menuRows.length > 0 && (
         <>
-          <h2>Manage</h2>
+          <h2 className="user-manage-title">Manage</h2>
           <ManageMenu entries={menuRows} />
         </>
       )}
