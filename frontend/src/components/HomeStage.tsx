@@ -7,9 +7,10 @@ import "./HomeStage.css";
  * The one tile at the top of Home: the app's own identity while nothing plays,
  * the running song in its place while something does.
  *
- * Both states are always mounted in the same grid cell of a tile with a fixed
- * height, so the switch cannot move anything below it — the idle half only
- * fades out, and the running song fades in over it.
+ * Both states are always mounted in the same grid cell of a tile whose height
+ * is the running song's own, so the switch is a pure crossfade that moves
+ * nothing below it — the idle half only fades out, and the running song fades
+ * in over it.
  */
 export default function HomeStage() {
   // The very cache entry CurrentlyPlaying reads, so this costs no request: the

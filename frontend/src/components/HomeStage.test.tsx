@@ -128,8 +128,7 @@ test("a running song takes the stage and the identity steps aside", async () => 
   // The singers stay on the USDX screen; the phone shows the song alone.
   expect(block).not.toHaveTextContent("Alice");
 
-  // Still mounted — it is what holds the tile's height — but invisible and
-  // untappable.
+  // Still mounted — the song fades in over it — but invisible and untappable.
   const idle = container.querySelector(".home-stage-idle");
   expect(idle).toHaveClass("home-stage-hidden");
   expect(idle).toHaveAttribute("aria-hidden", "true");

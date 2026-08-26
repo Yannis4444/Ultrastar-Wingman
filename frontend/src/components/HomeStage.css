@@ -2,10 +2,13 @@
    The whitelist of tiled surfaces does not grow: one identity tile became one
    stage tile.
 
-   `min-height` is what keeps the page still. Both states sit in the same grid
-   cell, so neither can push the other, and the tile is tall enough for the
-   taller of the two — the running song with a two-line title — so flipping
-   between them changes no rectangle on the page. */
+   One height for both states, so the switch between them moves nothing below
+   the tile: the identity and the running song sit in the same grid cell, and
+   `min-height` is cut to what the song actually needs rather than to the
+   worst case it might need. The padding is deliberately lopsided — the cover
+   is a hard-edged square that wants air above it, while the control row below
+   carries its own, since a 72px round button is mostly empty space around a
+   29px glyph. Equal padding read as a hole under the buttons. */
 .home-stage {
   /* A local composition rather than a new token: the pink accent lightened far
      enough to clear 3:1 as a glyph on `--tile-bg`, where the raw token is
@@ -18,14 +21,15 @@
 
   display: grid;
   box-sizing: border-box;
-  /* The worst case measured at 390px — the 160px cover, a two-line title, a
-     two-line artist and the 72px control row — is 338px of content inside 32px
-     of padding, 370 in all; the idle identity is 283. Nothing in the block
-     wraps beyond that (both text lines are clamped, the row is fixed), so 390
-     clears the worst case by a real margin and the tile stays put. */
-  min-height: 390px;
+  /* 295px of content inside 24px above and 8px below: exactly the running
+     song's block — the 160px cover, one title line, one artist line and the
+     72px control row. A song whose title or artist wraps to a second line
+     grows the tile instead of finding room already reserved for it; that is
+     the trade for the 63px of emptiness the reserved room used to cost every
+     other song. */
+  min-height: 327px;
   margin: 16px;
-  padding: 16px;
+  padding: 24px 16px 8px;
   background-color: var(--tile-bg);
   border-radius: var(--border-radius);
   place-items: center;
@@ -36,6 +40,8 @@
   width: 100%;
 }
 
+/* Shorter than the cell, so the grid's `place-items` centres it: the logo and
+   the app name sit in the middle of the tile the song fills. */
 .home-stage-idle {
   display: flex;
   flex-direction: column;
@@ -44,7 +50,7 @@
   transition: opacity 200ms ease;
 }
 
-/* Still in the cell so it keeps holding the height, but invisible and out of
+/* Still in the cell — the song fades in over it — but invisible and out of
    reach of a finger that lands on the song above it. */
 .home-stage-hidden {
   opacity: 0;
@@ -72,8 +78,6 @@
 
 @media (min-width: 768px) {
   .home-stage {
-    /* The phone value holds here too: the 720px column still puts a long title
-       and a long artist on two lines, so the worst case is the same 370px. */
     max-width: 720px;
     margin-inline: auto;
   }
