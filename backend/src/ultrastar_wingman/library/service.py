@@ -6,7 +6,7 @@ must not import.
 """
 
 import logging
-from collections.abc import Sequence
+from collections.abc import Collection, Sequence
 from datetime import datetime
 
 from sqlalchemy import ColumnElement, delete, false, func, or_, select
@@ -141,6 +141,27 @@ async def remove_wish(
     await session.delete(wish)
     await session.commit()
     await _broadcast(session, song_id)
+
+
+async def clear_fulfilled_wishes(
+    session: AsyncSession, song_id: str, user_ids: Collection[str]
+) -> int:
+    """Drop the wishes a starting song fulfils and announce the song's new count. Returns
+    how many wishes went.
+
+    `user_ids` are the accounts of the people about to sing it. Every wish made without an
+    account goes too, whoever made it: such a wish belongs to a browser cookie, not to a
+    player, so a singer's own wish cannot be told apart from a bystander's — and a wish is
+    "somebody should sing this tonight", which the sing that is starting settles.
+    """
+    owners = or_(Wish.guest_id.is_not(None), Wish.user_id.in_(user_ids))
+    wish_ids = list(await session.scalars(select(Wish.id).where(Wish.song_id == song_id, owners)))
+    if not wish_ids:
+        return 0
+    await session.execute(delete(Wish).where(Wish.id.in_(wish_ids)))
+    await session.commit()
+    await _broadcast(session, song_id)
+    return len(wish_ids)
 
 
 async def merge_guest_wishes(session: AsyncSession, guest_id: str, user_id: str) -> None:

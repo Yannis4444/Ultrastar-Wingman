@@ -28,6 +28,8 @@ from ultrastar_wingman.auth.model import utcnow
 from ultrastar_wingman.karaoke import service
 from ultrastar_wingman.karaoke.model import KaraokeSession, Score, Sing
 from ultrastar_wingman.karaoke.usdx import COPY_DIR_NAME
+from ultrastar_wingman.library.model import Wish
+from ultrastar_wingman.players.model import Player
 from ultrastar_wingman.settings import SettingsService
 from ultrastar_wingman.songs.model import Song
 
@@ -433,6 +435,48 @@ async def test_a_missing_score_database_is_not_fatal(
 
     sing_row = await session.get(Sing, started["sing_id"])
     assert sing_row is not None and sing_row.ended_at is not None
+
+
+async def test_starting_a_song_takes_it_off_the_wishlist(
+    client: AsyncClient,
+    session: AsyncSession,
+    configured: FakeUsdx,
+    song: str,
+    broadcast_events: list[dict[str, object]],
+) -> None:
+    """Wished for by the singer, by somebody who is only watching and by a phone with no
+    account: starting it settles the singer's wish and every account-less one."""
+    temporary = await add_player(client, "Alex")
+    singer = Player(name="Yannis", registered=True, user_id="singer-account")
+    session.add(singer)
+    session.add_all(
+        [
+            Wish(song_id=song, user_id="singer-account"),
+            Wish(song_id=song, user_id="watcher-account"),
+            Wish(song_id=song, guest_id="a-phone"),
+            Wish(song_id="local:other", guest_id="a-phone"),
+        ]
+    )
+    await session.commit()
+
+    await sing(
+        client,
+        song,
+        [
+            {"color": "blue", "player_id": singer.id},
+            {"color": "red", "player_id": temporary["id"]},
+        ],
+    )
+    await service.wait_for_sing_end()
+
+    wishes = await session.scalars(select(Wish))
+    assert {(wish.song_id, wish.user_id, wish.guest_id) for wish in wishes} == {
+        (song, "watcher-account", None),
+        ("local:other", None, "a-phone"),
+    }
+    # The count the clients get is the one wish that is left, so the row stays on the list.
+    update = next(event for event in broadcast_events if event["event"] == "wishlist.updated")
+    assert (update["song_id"], update["count"]) == (song, 1)
 
 
 async def test_the_running_song_is_reported_and_can_be_stopped(

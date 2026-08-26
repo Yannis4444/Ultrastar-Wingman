@@ -25,6 +25,7 @@ from test_songs_api import make_song
 from ultrastar_wingman.app import create_app
 from ultrastar_wingman.auth.deps import COOKIE_NAME, GUEST_COOKIE_MAX_AGE, GUEST_COOKIE_NAME
 from ultrastar_wingman.config import BootstrapSettings
+from ultrastar_wingman.library import service as library
 from ultrastar_wingman.library.model import Wish
 from ultrastar_wingman.songs import scanner
 from ultrastar_wingman.songs.model import Song
@@ -285,6 +286,43 @@ async def test_a_wish_for_a_song_that_left_the_library_is_not_listed(
         assert await wishes(client) == []
         # The row itself stays: nothing scans the wishlist when a song disappears.
         assert len(await stored_wishes(app_with_songs)) == 1
+
+
+async def test_a_started_song_clears_the_singers_and_every_account_less_wish(
+    app_with_songs: FastAPI, broadcast_events: list[dict[str, object]]
+) -> None:
+    """What starting a song does to the wishlist. `test_karaoke_api` drives the same thing
+    through the sing flow; this pins down whose wishes go."""
+    singer = await account(app_with_songs, "singer")
+    bystander = await account(app_with_songs, "bystander")
+    async with singer, bystander, guest(app_with_songs) as browser:
+        await wish(singer, SONG)
+        await wish(bystander, SONG)
+        await wish(browser, SONG)
+        await wish(browser, OTHER_SONG)
+        singer_id = (await singer.get("/api/v1/auth/me")).json()["user"]["id"]
+
+        async with factory(app_with_songs)() as session:
+            dropped = await library.clear_fulfilled_wishes(session, SONG, [singer_id])
+
+    assert dropped == 2
+    # The bystander's account wish survives — they did not sing. So does anything wished
+    # for another song, guest or not.
+    assert {
+        (row.song_id, row.user_id is not None) for row in await stored_wishes(app_with_songs)
+    } == {(SONG, True), (OTHER_SONG, False)}
+    updates = [event for event in broadcast_events if event["event"] == "wishlist.updated"]
+    assert (updates[-1]["song_id"], updates[-1]["count"]) == (SONG, 1)
+
+
+async def test_clearing_the_wishes_of_a_song_nobody_wished_for_says_nothing(
+    app_with_songs: FastAPI, broadcast_events: list[dict[str, object]]
+) -> None:
+    """Every start would otherwise make every client refetch the wishlist for nothing."""
+    async with factory(app_with_songs)() as session:
+        assert await library.clear_fulfilled_wishes(session, SONG, ["some-account"]) == 0
+
+    assert [event for event in broadcast_events if event["event"] == "wishlist.updated"] == []
 
 
 async def test_login_merges_the_guest_wishes_into_the_account(

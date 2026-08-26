@@ -18,6 +18,12 @@ many people want it. Wishing for a song somebody already wished for raises its
 count. **Remove wish** takes back your own wish and leaves everybody else's
 alone.
 
+Starting a song takes it off the wishlist. The wishes of the singers who have
+an account are settled, and so is every wish made without an account — such a
+wish belongs to a phone, not to a player, so the singer's own cannot be told
+apart from anybody else's, and the song has just been sung either way. A wish
+from another account stays: that person still has not sung it.
+
 !!! note
     Made an account later in the evening? The wishes from that browser move over
     to your account when you log in. Nothing is lost.

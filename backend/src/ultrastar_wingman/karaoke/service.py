@@ -17,6 +17,7 @@ from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
 
 from ..auth.model import as_utc
 from ..events import KaraokeEnded, KaraokeStarted, ScoresRecorded, event_bus
+from ..library import service as library
 from ..players.model import Player
 from ..players.schema import read_player
 from ..settings import SettingsService
@@ -223,6 +224,7 @@ async def start_sing(
         _running = running
         _last_finished = running.finished
         await event_bus.broadcast(KaraokeStarted(sing=running.sing))
+        await _clear_wishes(session, song.id, resolved)
         return running.sing
 
 
@@ -378,6 +380,26 @@ def _for_configured_slots(
         seen.add(slot.color)
         kept.append((slot, player))
     return kept
+
+
+async def _clear_wishes(
+    session: AsyncSession, song_id: str, resolved: list[tuple[SlotRequest, Player | None]]
+) -> None:
+    """The song is on, so nobody has to wish for it any more — see
+    `library.service.clear_fulfilled_wishes` for whose wishes that is.
+
+    Called after the launch succeeded, and swallowing everything: USDX is already playing,
+    and a failure in here must not turn a started song into an error for the caller.
+    """
+    user_ids = {
+        player.user_id
+        for _, player in resolved
+        if player is not None and player.user_id is not None
+    }
+    try:
+        await library.clear_fulfilled_wishes(session, song_id, user_ids)
+    except Exception:
+        logger.exception("clearing the wishes for song %s failed", song_id)
 
 
 def _avatar(player: Player) -> Path | None:
