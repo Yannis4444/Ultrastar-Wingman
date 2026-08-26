@@ -309,9 +309,10 @@ export default function User() {
 }
 
 /**
- * Reference material at the foot of the page: which Wingman this is, and where
- * it comes from. A list rather than a paragraph, so documentation and licence
- * rows can slot in later at the cost of one `<a>` each.
+ * The signature at the foot of the page: the mark, the name under it, and in
+ * one quiet line the two facts a bug report needs — which release is running
+ * and where to file it. Not a list of rows any more; nothing here is an
+ * errand, so it gets the page's smallest voice rather than 48px of tap target.
  */
 function About() {
   // From the backend, never from a constant in here: a frontend built against
@@ -319,28 +320,30 @@ function About() {
   const health = useQuery(healthOptions());
 
   return (
-    <>
-      <h2>About</h2>
-      <div className="about-list">
-        {/* Absent until the answer is in — never "Version undefined". */}
+    <div className="about">
+      {/* Decorative: the name is spelled out directly underneath, and a mark
+          announced next to its own caption reads the app's name twice. */}
+      <img className="about-logo" src="/logo.png" alt="" />
+      <h2 className="about-name">Ultrastar Wingman</h2>
+      <p className="about-meta">
+        {/* Absent until the answer is in — never "Version undefined". The dot
+            leaves with it, so the line never opens on a separator. */}
         {health.data !== undefined && (
-          <p className="about-row">
-            <Icon name="info" className="about-icon" />
-            <span className="about-label">Version</span>
-            <span className="about-value">{health.data.version}</span>
-          </p>
+          <>
+            <span className="about-version">v{health.data.version}</span>
+            <span aria-hidden="true">·</span>
+          </>
         )}
         <a
-          className="about-row about-link"
+          className="about-repository"
           href={REPOSITORY_URL}
           target="_blank"
           rel="noopener noreferrer"
         >
-          <Icon name="github" className="about-icon" />
-          <span className="about-label">GitHub</span>
-          <Icon name="chevron-right" className="about-icon" />
+          <Icon name="github" className="about-repository-icon" />
+          GitHub
         </a>
-      </div>
-    </>
+      </p>
+    </div>
   );
 }

@@ -38,12 +38,12 @@ Once you are logged in, the **User** tab shows you instead of the login form.
 A singer who has not been scored yet gets an invitation to sing instead of a row
 of zeroes, and no row leading to an empty page.
 
-## About
+## Which Wingman is this
 
-At the very bottom of the **User** tab stands what this Wingman is: the version
-it is running, and a link to the project on GitHub. The version is the one the
-Wingman you are talking to reports, so it is the number to quote in a bug
-report.
+The **User** tab signs off with the Wingman logo, the name under it, and one
+small line: the version it is running and a link to the project on GitHub. The
+version is the one the Wingman you are talking to reports, so it is the number
+to quote in a bug report.
 
 ## Log in with single sign-on (Keycloak and friends)
 

@@ -138,54 +138,77 @@
 /* The "Manage" rows live in `components/ManageMenu.css` — the host screen shows
    the same list, so the row shape is shared instead of copied. */
 
-/* The About rows repeat `.manage-menu-row`'s metrics rather than the component:
-   that one is a <nav> of <Link>s, and neither the version paragraph nor an
-   outbound <a> is a route. The 8px gutter lets the hover band on the link bleed
-   past the page's 16px text edge, as everywhere else. */
-.about-list {
+/* The page signs off with the mark instead of a third list of rows. Centred
+   under the left-aligned rows above, dimmed, and stacked tightly: the eye
+   reads it as a footer and skips it, which is what reference material at the
+   bottom of a page should get. */
+.about {
   display: flex;
   flex-direction: column;
-  margin: 8px 8px 0 8px;
-}
-
-.about-row {
-  display: flex;
   align-items: center;
-  gap: 12px;
-  min-height: 48px;
+  gap: 6px;
+  margin: 32px 16px 8px 16px;
+}
+
+/* A third of Home's 200px mark: that one opens the page, this one signs it.
+   `width` rather than `height` so a logo re-exported at another aspect ratio
+   still lands on the same column width. */
+.about-logo {
+  display: block;
+  width: 64px;
+  height: auto;
+}
+
+/* Still an <h2>, so the section has a heading now that "About" is gone — but
+   it is a name, not a section label, so it takes the centring and the weight
+   the page's other h2s do not. */
+.about-name {
   margin: 0;
-  padding: 8px;
-  color: var(--color);
-  text-decoration: none;
-  border-bottom: 1px solid var(--input-border-color);
+  font-size: 1.1em;
+  font-weight: 700;
+  text-align: center;
 }
 
-.about-row:last-child {
-  border-bottom: none;
-}
-
-.about-link:hover {
-  background-color: var(--highlight-blue-dark);
-}
-
-.about-icon {
-  font-size: 20px;
+/* One line, but allowed to become two on a narrow phone rather than push the
+   page sideways — hence the wrap and the centred rows. */
+.about-meta {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  margin: 0;
+  font-size: 0.85em;
   color: var(--color-darker);
-}
-
-.about-label {
-  flex: 1 1 auto;
-  min-width: 0;
-  overflow: hidden;
-  white-space: nowrap;
-  text-overflow: ellipsis;
 }
 
 /* A version string is an unbreakable token; it may wrap mid-word rather than
-   push the row off a narrow phone. */
-.about-value {
-  flex: 0 1 auto;
-  color: var(--color-darker);
+   push the line off a narrow phone. */
+.about-version {
   font-variant-numeric: tabular-nums;
   overflow-wrap: anywhere;
+}
+
+/* Underlined, not coloured: the link stays in the footer's gray voice, and
+   the underline is what marks it as a link without leaning on colour alone.
+   The vertical padding is the only tap target it gets — a 48px row would make
+   this line as loud as the Manage entries above, which is the opposite of the
+   point. */
+.about-repository {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 4px 2px;
+  color: inherit;
+  text-decoration: underline;
+}
+
+.about-repository:hover {
+  color: var(--color);
+}
+
+/* Sized off the line rather than fixed, so the mark and the word scale
+   together if the footer's font-size is ever tuned. */
+.about-repository-icon {
+  font-size: 1.2em;
 }

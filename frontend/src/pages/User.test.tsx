@@ -388,13 +388,20 @@ test("a role that may not see statistics gets no way into them either", async ()
   expect(screen.queryByRole("link", { name: "All my scores" })).toBeNull();
 });
 
-test("the About block prints the running version and links out to the source", async () => {
+test("the About footer signs the page with the mark, the name and the version", async () => {
   loggedInAsAlice();
   renderUser();
 
-  expect(await screen.findByText("Version")).toBeInTheDocument();
+  expect(
+    await screen.findByRole("heading", { name: "Ultrastar Wingman" }),
+  ).toBeInTheDocument();
+  // Decorative, so it has no accessible name to query by: the heading right
+  // under it already says what it is.
+  const logo = document.querySelector(".about-logo");
+  expect(logo).toHaveAttribute("src", "/logo.png");
+  expect(logo).toHaveAttribute("alt", "");
   // From the backend, so a frontend served by another release cannot lie.
-  expect(screen.getByText("0.4.2")).toBeInTheDocument();
+  expect(await screen.findByText("v0.4.2")).toBeInTheDocument();
 
   const repository = screen.getByRole("link", { name: "GitHub" });
   expect(repository).toHaveAttribute(
@@ -406,23 +413,23 @@ test("the About block prints the running version and links out to the source", a
   expect(repository.getAttribute("rel")).toContain("noopener");
 });
 
-test("the version row stays away until the backend answered", async () => {
+test("the version stays away until the backend answered", async () => {
   loggedInAsAlice();
   health.mockRejectedValue(new Error("no"));
   renderUser();
 
-  // The link is the row that is always there; the version is not.
+  // The link is what is always there; the version is not.
   expect(
     await screen.findByRole("link", { name: "GitHub" }),
   ).toBeInTheDocument();
-  expect(screen.queryByText("Version")).not.toBeInTheDocument();
+  expect(screen.queryByText(/^v\d/)).not.toBeInTheDocument();
 });
 
-test("a stranger gets the About block too, and no way into someone's scores", async () => {
+test("a stranger gets the About footer too, and no way into someone's scores", async () => {
   getMe.mockResolvedValue(meResponse(["songs.view", "players.view"]));
   renderUser();
 
-  expect(await screen.findByText("0.4.2")).toBeInTheDocument();
+  expect(await screen.findByText("v0.4.2")).toBeInTheDocument();
   expect(screen.getByRole("link", { name: "GitHub" })).toBeInTheDocument();
   expect(screen.queryByRole("link", { name: "All my scores" })).toBeNull();
 });
