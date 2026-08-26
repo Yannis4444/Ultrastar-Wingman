@@ -9,8 +9,12 @@ interface SessionSummaryRowProps {
 }
 
 /**
- * A party in four numbers: how much was sung, how varied it was, how many
- * people took a turn, and what the evening's best score was.
+ * A party in up to four numbers: how much was sung, how varied it was, how
+ * many people took a turn, and what the evening's best score was.
+ *
+ * The sing count only appears when it differs from the song count. As long as
+ * every song was sung once the two numbers are the same, and printing the same
+ * figure twice behind two glyphs made the row look wrong rather than complete.
  *
  * Deliberately numbers only. Who sang that best score, and on what, is the
  * first row of the ranking directly below — printing it here as well said the
@@ -35,7 +39,9 @@ export default function SessionSummaryRow({
   return (
     <section className="session-summary" aria-label="Session summary">
       <p className="session-summary-stats">
-        <IconStat icon="hash" label={singsLabel} value={sings} />
+        {sings !== songs && (
+          <IconStat icon="hash" label={singsLabel} value={sings} />
+        )}
         <IconStat icon="music" label="Songs" value={songs} />
         <IconStat icon="users" label="Singers" value={singers} />
         {top !== null && (

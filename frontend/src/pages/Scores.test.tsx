@@ -214,18 +214,45 @@ test("picking another session loads that session's scores", async () => {
 });
 
 test("the summary counts scored performances, not songs started", async () => {
+  // Wonderwall a second time, solo: three scored sings of two songs. Four
+  // songs were started, so the tooltip is what carries the session's 4.
+  listSessionScores.mockResolvedValue({
+    data: {
+      scores: [
+        ...tonightScores,
+        score(
+          5,
+          "Alice",
+          7000,
+          wonderwall,
+          "sing-wonderwall-2",
+          "player-alice",
+        ),
+      ],
+    },
+  });
   renderScores();
 
   const summary = await screen.findByLabelText("Session summary");
-  // Four songs were started; two of them produced the four scores below, so
-  // the stat shows 2 and the tooltip is what carries the session's 4.
   await waitFor(() =>
     expect(
-      within(summary).getByTitle("Sings — 2 scored of 4 started"),
-    ).toHaveTextContent("2"),
+      within(summary).getByTitle("Sings — 3 scored of 4 started"),
+    ).toHaveTextContent("3"),
   );
   expect(within(summary).getByTitle("Songs")).toHaveTextContent(/^Songs2$/);
   expect(within(summary).getByTitle("Singers")).toHaveTextContent(/^Singers2$/);
+});
+
+test("the summary leaves out the sing count while it equals the song count", async () => {
+  renderScores();
+
+  // Two sings of two songs: the same figure twice would only look like a
+  // mistake, so the row starts with the songs.
+  const summary = await screen.findByLabelText("Session summary");
+  await waitFor(() =>
+    expect(within(summary).getByTitle("Songs")).toHaveTextContent(/^Songs2$/),
+  );
+  expect(within(summary).queryByTitle(/^Sings/)).not.toBeInTheDocument();
 });
 
 test("the summary names the evening's best score but not who sang it", async () => {
@@ -248,13 +275,28 @@ test("the summary names the evening's best score but not who sang it", async () 
 
 test("a session whose sings were all scored says only 'Sings'", async () => {
   listSessions.mockResolvedValue({
-    data: { sessions: [{ ...tonight, sing_count: 2 }, lastYear] },
+    data: { sessions: [{ ...tonight, sing_count: 3 }, lastYear] },
+  });
+  listSessionScores.mockResolvedValue({
+    data: {
+      scores: [
+        ...tonightScores,
+        score(
+          5,
+          "Alice",
+          7000,
+          wonderwall,
+          "sing-wonderwall-2",
+          "player-alice",
+        ),
+      ],
+    },
   });
   renderScores();
 
   const summary = await screen.findByLabelText("Session summary");
   await waitFor(() =>
-    expect(within(summary).getByTitle("Sings")).toHaveTextContent(/^Sings2$/),
+    expect(within(summary).getByTitle("Sings")).toHaveTextContent(/^Sings3$/),
   );
 });
 

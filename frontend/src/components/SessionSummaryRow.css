@@ -7,10 +7,12 @@
 }
 
 /* Icons carry the meaning; the words live in the tooltip and the hidden label
-   so four counts do not need four captions. */
+   so four counts do not need four captions. Centered: the row is a headline
+   over the whole page, not the start of a column. */
 .session-summary-stats {
   display: flex;
   flex-wrap: wrap;
+  justify-content: center;
   gap: 8px 24px;
   align-items: center;
   margin: 0;
