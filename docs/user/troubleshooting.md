@@ -98,10 +98,14 @@ Read the reason in the download row.
 
 - Everybody has to be on the same Wi-Fi. A guest phone on mobile data cannot see
   your PC.
-- The QR code on the host screen contains the address the host screen was opened
-  at. If the host screen runs on `localhost`, the QR code sends every guest to
-  their own phone. Open the host screen at the network address of the PC
-  (`http://192.168.1.20:8080`) and the QR code will be right.
+- The QR code carries the address Wingman worked out for itself: your PC's
+  address on the local network, never `localhost`, whichever address the host
+  screen was opened at. A VPN, a virtual machine adapter or a second network
+  card can make it pick the wrong one of your PC's addresses — then put the
+  right one into **User → Settings → Host → Join URL**, as described under
+  [Let the guests in](getting-started.md#let-the-guests-in). The line under the
+  field, and the text under the QR code, always say which address is being
+  handed out right now.
 - Windows Firewall blocks the port the first time. Allow the app when Windows
   asks, or open port 8080 by hand.
 - Guests must type the port too: `http://192.168.1.20:8080`, not just the
