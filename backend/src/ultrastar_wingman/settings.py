@@ -98,7 +98,11 @@ register(
         value_type=str,
         default="",
         group="Songs",
-        description="The Ultrastar Deluxe songs directory Wingman scans for songs.",
+        description=(
+            "The folder Wingman scans for songs — usually the one Ultrastar Deluxe already "
+            "uses, but any folder works. Ultrastar Deluxe's own songs folder is the separate "
+            "USDX → Songs directory setting."
+        ),
     )
 )
 register(
@@ -147,7 +151,8 @@ register(
         group="USDX",
         description=(
             "Ultrastar Deluxe installation directory. The executable, config.ini, avatars "
-            "directory and Ultrastar.db are derived from it unless overridden below."
+            "directory, songs directory and Ultrastar.db are derived from it unless "
+            "overridden below."
         ),
     )
 )
