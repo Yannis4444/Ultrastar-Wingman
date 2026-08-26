@@ -26,14 +26,18 @@ interface KaraokeStarted extends WingmanEvent {
 }
 
 interface CurrentlyPlayingProps {
-  /** The host page owns Stop (in its reveal-on-move overlay); hide it here. */
-  hideControls?: boolean;
   /**
-   * Appended to the block's own class. The Home stage passes
-   * `currently-playing-stage`, which restyles the block for the tile it sits
-   * in; the host passes nothing and keeps today's rendering exactly.
+   * Where the block is mounted, which decides what it shows.
+   *
+   * `stage` is the tile at the top of Home, read on a phone in the same room
+   * as the USDX screen: cover, title, artist and the control row. The elapsed
+   * time and the singers on their colours are on that screen already, so the
+   * tile does not repeat them. `host` is the host page — a TV across the room
+   * that nobody taps — and shows the whole picture: time, progress bar and
+   * singers, but no controls (the host page owns Stop, in its reveal-on-move
+   * overlay).
    */
-  className?: string;
+  variant: "stage" | "host";
 }
 
 function useElapsedSeconds(startedAt: string | null): number {
@@ -55,14 +59,13 @@ function useElapsedSeconds(startedAt: string | null): number {
  * The running song. When USDX is idle the block itself is gone — only a song
  * modal the reader opened from it stays until they close it.
  */
-export default function CurrentlyPlaying({
-  hideControls = false,
-  className,
-}: CurrentlyPlayingProps) {
+export default function CurrentlyPlaying({ variant }: CurrentlyPlayingProps) {
+  const host = variant === "host";
   const queryClient = useQueryClient();
   const auth = useAuth();
   const current = useQuery(getCurrentSingOptions());
-  const colors = useQuery(listKaraokeColorsOptions());
+  // Only the host draws the slot colours, so only the host asks for them.
+  const colors = useQuery({ ...listKaraokeColorsOptions(), enabled: host });
   const favorites = useFavorites();
   // The same list the wishlist tile and the host already hold, so the wish mark
   // on the stage costs no extra request.
@@ -89,7 +92,9 @@ export default function CurrentlyPlaying({
   );
 
   const sing = current.data?.sing ?? null;
-  const elapsed = useElapsedSeconds(sing?.started_at ?? null);
+  // The stage shows no time, so its clock never starts: no re-render a second
+  // on every phone in the room for a number none of them shows.
+  const elapsed = useElapsedSeconds(host ? (sing?.started_at ?? null) : null);
 
   // A sing that ends takes its Stop confirmation with it: the flag would
   // otherwise survive the idle gap and put the dialog back over the *next*
@@ -119,8 +124,7 @@ export default function CurrentlyPlaying({
   const wished = wishlist.mine(song.id);
   const canWish = auth.can("wishlist.add");
   const showControls =
-    !hideControls &&
-    (favorites.available || canWish || auth.can("karaoke.stop"));
+    !host && (favorites.available || canWish || auth.can("karaoke.stop"));
 
   const hexFor = (name: string): string | undefined =>
     colors.data?.colors.find((color) => color.name === name)?.hex;
@@ -131,13 +135,15 @@ export default function CurrentlyPlaying({
     <>
       <section
         className={
-          className ? `currently-playing ${className}` : "currently-playing"
+          host
+            ? "currently-playing"
+            : "currently-playing currently-playing-stage"
         }
         aria-label="Now playing"
       >
         {/* The host is a TV nobody taps: it keeps the bare cover, which is also
             what its grid places. */}
-        {hideControls ? (
+        {host ? (
           cover
         ) : (
           <button
@@ -153,54 +159,47 @@ export default function CurrentlyPlaying({
         <div className="currently-playing-info">
           <h2 className="currently-playing-title">{song.title}</h2>
           <p className="currently-playing-artist">{song.artist}</p>
-          <p className="currently-playing-elapsed">
-            {formatDuration(elapsed)}
-            {showTotal && ` / ${formatDuration(duration)}`}
-          </p>
+          {host && (
+            <p className="currently-playing-elapsed">
+              {formatDuration(elapsed)}
+              {showTotal && ` / ${formatDuration(duration)}`}
+            </p>
+          )}
         </div>
 
-        {/* Off the host the bar is always in the DOM, hidden rather than
-            dropped when the song has no known duration: 6px appearing halfway
-            through a sing would shove everything below it down. The host keeps
-            today's markup, so its grid rows are untouched. */}
-        {(duration !== null || !hideControls) && (
-          <div
-            className="currently-playing-bar"
-            aria-hidden="true"
-            style={duration === null ? { visibility: "hidden" } : undefined}
-          >
+        {host && duration !== null && (
+          <div className="currently-playing-bar" aria-hidden="true">
             <span
               style={{
-                width:
-                  duration === null
-                    ? "0%"
-                    : `${Math.min(100, (elapsed / duration) * 100)}%`,
+                width: `${Math.min(100, (elapsed / duration) * 100)}%`,
               }}
             />
           </div>
         )}
 
-        <ul className="currently-playing-players">
-          {sing.slots
-            .filter((slot) => slot.player !== null)
-            .map((slot) => (
-              <li key={slot.color}>
-                <span
-                  className="currently-playing-dot"
-                  /* The slot's USDX color, fetched from the backend. */
-                  style={{
-                    backgroundColor:
-                      hexFor(slot.color) ?? "var(--color-darkerer)",
-                  }}
-                  aria-hidden="true"
-                />
-                <PlayerAvatar player={slot.player} />
-                <span className="currently-playing-name">
-                  {slot.player?.name}
-                </span>
-              </li>
-            ))}
-        </ul>
+        {host && (
+          <ul className="currently-playing-players">
+            {sing.slots
+              .filter((slot) => slot.player !== null)
+              .map((slot) => (
+                <li key={slot.color}>
+                  <span
+                    className="currently-playing-dot"
+                    /* The slot's USDX color, fetched from the backend. */
+                    style={{
+                      backgroundColor:
+                        hexFor(slot.color) ?? "var(--color-darkerer)",
+                    }}
+                    aria-hidden="true"
+                  />
+                  <PlayerAvatar player={slot.player} />
+                  <span className="currently-playing-name">
+                    {slot.player?.name}
+                  </span>
+                </li>
+              ))}
+          </ul>
+        )}
 
         {/* Mirrors the song modal's row: two 48px marks either side of one
             large, unfilled control. Here the large one is Stop. */}
@@ -259,7 +258,7 @@ export default function CurrentlyPlaying({
 
       {modal}
 
-      {!hideControls && askStop && (
+      {!host && askStop && (
         <ConfirmModal
           title="Stop the song"
           message={`Stop "${song.title}"? Scores for an unfinished song are not recorded.`}

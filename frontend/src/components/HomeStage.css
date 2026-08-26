@@ -18,11 +18,12 @@
 
   display: grid;
   box-sizing: border-box;
-  /* The worst case measured at 390px — a two-line title, a two-line artist and
-     two rows of singers — is 437.3px of content inside 32px of padding. 470
-     would clear it by 0.7px, which is one font metric away from the tile
-     growing and taking the page with it; 480 leaves a real margin. */
-  min-height: 480px;
+  /* The worst case measured at 390px — the 160px cover, a two-line title, a
+     two-line artist and the 72px control row — is 338px of content inside 32px
+     of padding, 370 in all; the idle identity is 283. Nothing in the block
+     wraps beyond that (both text lines are clamped, the row is fixed), so 390
+     clears the worst case by a real margin and the tile stays put. */
+  min-height: 390px;
   margin: 16px;
   padding: 16px;
   background-color: var(--tile-bg);
@@ -71,11 +72,8 @@
 
 @media (min-width: 768px) {
   .home-stage {
-    /* Not much smaller than the phone value, because the content barely
-       shrinks: the 720px column puts a long title on two lines all the same,
-       and six singers still take two rows. Measured worst case 419.3px inside
-       32px of padding — the prescribed 420 is 31px short of it. */
-    min-height: 460px;
+    /* The phone value holds here too: the 720px column still puts a long title
+       and a long artist on two lines, so the worst case is the same 370px. */
     max-width: 720px;
     margin-inline: auto;
   }
