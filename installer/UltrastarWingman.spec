@@ -44,6 +44,9 @@ exe = EXE(  # noqa: F821
     a.binaries,
     a.datas,
     name="UltrastarWingman",
+    # Regenerate from frontend\public\logo.png (the 800px master) when the logo changes:
+    # Pillow's `Image.open(logo).save(ico, sizes=[(16,16), ..., (256,256)])`.
+    icon=str(Path(SPECPATH) / "UltrastarWingman.ico"),  # noqa: F821
     # One file: users download one exe. Console: the log lines (data dir, host URL with the
     # one-time token) are the only interface when the browser did not open.
     console=True,
