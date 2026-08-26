@@ -170,13 +170,21 @@ details[open] > summary .score-group-chevron {
   border-top: 1px solid var(--input-border-color);
 }
 
+/* `border-box` because the app is content-box: `width: 100%` plus 8px of
+   padding a side made every expanded row 16px wider than the list, which is
+   what put a horizontal scrollbar under the whole page.
+
+   40px on the right, not 8: that is the 8px padding plus the summary's 20px
+   chevron and the 12px gap before it, so an expanded score lands in the same
+   column as the group score above it instead of hanging past it. */
 .score-entry {
+  box-sizing: border-box;
   display: flex;
   gap: 12px;
   align-items: center;
   width: 100%;
   min-height: 44px;
-  padding: 6px 8px;
+  padding: 6px 40px 6px 8px;
   border-radius: var(--border-radius-small);
 }
 
