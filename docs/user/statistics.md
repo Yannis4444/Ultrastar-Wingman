@@ -13,7 +13,7 @@ The dropdown at the top picks the party. The newest one is selected when you ope
 the tab, and unnamed parties are listed by their date.
 
 The party that is going on right now also has a shortcut of its own: the
-**Recently played** chip on the [Songs tab](singing.md#what-has-already-been-sung)
+**Recent** chip on the [Songs tab](singing.md#what-has-already-been-sung)
 lists what it has played so far, including the songs nobody got a score for.
 
 ## Name a party

@@ -9,9 +9,9 @@ Open the **Songs** tab. It lists everything Wingman found in your song folders,
 with the number of songs at the top.
 
 - The search box matches title and artist while you type. A song id also works.
-- The chips below it narrow the list: **All**, **♥ Favorites** and **Recently
-  played**. **Playlists** next to them opens the playlists view, where a
-  playlist shows its own songs.
+- The chips below it narrow the list: **All**, **♥ Favorites** and
+  **Recent**. The list icon at the end of the row opens the playlists view,
+  where a playlist shows its own songs.
 - The reload button next to the song count scans the song folders again.
 - Tap a song to open it: the cover, a listen-in preview, and the buttons for
   favorite, sing and wish. Below them, **Details** unfolds language, genre,
@@ -20,8 +20,8 @@ with the number of songs at the top.
 
 ## What has already been sung
 
-**Recently played** lists the songs of the party that is going on right now, the
-one played last at the top, with the time it started next to it. A song that was
+**Recent** lists the songs of the party that is going on right now, the one
+played last at the top, with the time it started next to it. A song that was
 sung twice appears once, at the later time.
 
 The chip only appears once there is something to show. It counts songs that were

@@ -36,7 +36,8 @@ they are yours.
 A playlist is a named, ordered list of songs: the birthday set, the ballads,
 everything for the late shift. Playlists belong to an account.
 
-Create one from **Songs → Playlists**:
+Create one from the playlists view — the list icon at the end of the chips
+row on the **Songs** tab:
 
 1. Press the **+** at the top right of the page. On a page with no playlists yet
    the form is already open — the **+** folds it away again.
