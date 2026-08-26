@@ -100,6 +100,10 @@ export const ICON_PATHS = {
   // The die face is solid; the five pips are wound the other way round so the
   // nonzero fill rule punches them out (same trick as `info` and `clock`).
   dice: "M6 3h12a3 3 0 0 1 3 3v12a3 3 0 0 1-3 3H6a3 3 0 0 1-3-3V6a3 3 0 0 1 3-3Zm2 3.4a1.6 1.6 0 1 0 0 3.2 1.6 1.6 0 1 0 0-3.2Zm8 0a1.6 1.6 0 1 0 0 3.2 1.6 1.6 0 1 0 0-3.2Zm-4 4a1.6 1.6 0 1 0 0 3.2 1.6 1.6 0 1 0 0-3.2Zm-4 4a1.6 1.6 0 1 0 0 3.2 1.6 1.6 0 1 0 0-3.2Zm8 0a1.6 1.6 0 1 0 0 3.2 1.6 1.6 0 1 0 0-3.2Z",
+  // The TV the host screen runs on: a rounded case with the screen wound the
+  // other way round so the nonzero fill rule punches it out (as `dice` does),
+  // plus the stand bar under it.
+  tv: "M3 5h18a1 1 0 0 1 1 1v10a1 1 0 0 1-1 1H3a1 1 0 0 1-1-1V6a1 1 0 0 1 1-1Zm1 2v8h16V7ZM8 20h8v2H8v-2Z",
   // The octocat silhouette, one closed outline — the ears, the arms and the
   // tail are all the same subpath, so no fill rule is involved. Drawn on the
   // 18px grid `info` and `clock` use (3…21) rather than edge to edge, or the

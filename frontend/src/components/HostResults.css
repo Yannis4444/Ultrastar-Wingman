@@ -1,28 +1,6 @@
-/* One block by default; the wrapper is always here so the last song does not
-   remount when the leaderboard joins it. */
+/* The stage's result slot. One block — the party's standing moved to the rail,
+   so nothing shares this column any more. The wrapper stays even while it is
+   empty: the last song must not remount when its history arrives. */
 .host-results {
-  display: grid;
-  grid-template-columns: minmax(0, 1fr);
-  gap: clamp(16px, 2.5vh, 40px);
-  align-items: start;
   min-width: 0;
-}
-
-/* Between songs with a party to rank: the finished song on the left, the
-   standing beside it. */
-.host-results-split {
-  grid-template-columns: minmax(0, 3fr) minmax(0, 2fr);
-  gap: clamp(24px, 3vw, 64px);
-}
-
-.host-results-main {
-  min-width: 0;
-}
-
-/* A narrow window (or a portrait screen) has no room for two columns. */
-@media (max-width: 1100px) {
-  .host-results-split {
-    grid-template-columns: minmax(0, 1fr);
-    gap: clamp(16px, 2.5vh, 40px);
-  }
 }

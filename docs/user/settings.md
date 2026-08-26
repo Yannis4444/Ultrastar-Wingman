@@ -37,6 +37,29 @@ before every song, together with the names and avatars of whoever is on the slot
     Deluxe itself only plays 1, 2, 3, 4 or 6 players, five singers reach it as
     six, the sixth one empty.
 
+## Host
+
+What the host screen — the TV — tells the guests.
+
+| Field | What it is |
+|---|---|
+| **Join URL** (`host.join_url`) | The address guests open on their phones, and therefore what the QR code on the host screen encodes. Empty means Wingman picks your PC's address on the local network itself, which is right on most machines. |
+
+Fill it in when the QR code carries an address the guests cannot reach — a VPN, a
+Hyper-V switch or a second network card can make the automatic pick land on the
+wrong one. `http://192.168.1.20:8080`, `192.168.1.20:8080` and plain
+`192.168.1.20` are all fine: Wingman adds the `http://` for you, and it adds the
+port it is listening on when you leave it off. Write the scheme yourself
+(`https://party.example`) and Wingman changes nothing — that is the way to point
+the QR code at a reverse proxy on its own port. An address no phone could open (a
+scheme that is not `http` or `https`, a missing host, a port that is not a number)
+is refused with the reason under the field, and the QR code keeps the address that
+worked.
+
+The line under the field always names the address the QR code is carrying right
+now, whether that is your value or Wingman's guess. Saving a new one changes the
+TV immediately — nobody has to walk over and reload it.
+
 ## USDX
 
 Where Ultrastar Deluxe lives.

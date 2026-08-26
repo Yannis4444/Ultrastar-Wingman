@@ -79,17 +79,26 @@ See [Settings](settings.md) for every field, and
 
 ## Let the guests in
 
-The host screen shows a QR code. It contains the address the host screen itself
-was opened at — so open the host screen at the network address of your PC, not at
-`localhost`, or the QR code sends the guests to their own phone:
+The host screen shows a QR code, with the same address printed under it in plain
+text for anyone whose camera will not cooperate. Wingman works the address out
+itself: it is your PC's address on the local network, not `localhost`, so the
+guests reach Wingman and not their own phone.
 
 ```text
-http://192.168.1.20:8080/host
+http://192.168.1.20:8080
 ```
 
-Your PC's address is the one your router gave it; `ipconfig` in the console shows
-it. Guests have to be on the same Wi-Fi. The first guest who cannot connect is
-almost always the firewall — see [Troubleshooting](troubleshooting.md).
+Guests have to be on the same Wi-Fi. The first guest who cannot connect is almost
+always the firewall — see [Troubleshooting](troubleshooting.md).
+
+!!! note "The QR code shows the wrong address"
+    A VPN, a virtual machine adapter or a second network card can make Wingman
+    pick the wrong one of your PC's addresses. Put the right one into
+    **User → Settings → Host → Join URL** — `192.168.1.20` is enough, Wingman
+    fills in the `http://` and its own port — and the QR code changes on the TV
+    straight away, without a reload. Leave the
+    field empty to go back to letting Wingman pick. The line under the field
+    always tells you which address the QR code is carrying right now.
 
 ## Optional: your own account
 

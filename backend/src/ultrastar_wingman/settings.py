@@ -19,6 +19,7 @@ from .db import Base
 # imported here. `karaoke.slots` and `downloads.video_quality` are leaves on purpose — they
 # must never import this module back, or the services that do close the circle.
 from .downloads.video_quality import DEFAULT_VIDEO_FORMAT, validate_video_format
+from .join_url import validate_join_url
 from .karaoke.slots import DEFAULT_SLOT_COLORS_SETTING, validate_slot_colors
 
 logger = logging.getLogger(__name__)
@@ -121,6 +122,21 @@ register(
             "Ultrastar Deluxe plays on one screen."
         ),
         validate=validate_slot_colors,
+    )
+)
+register(
+    SettingDefinition(
+        key="host.join_url",
+        value_type=str,
+        default="",
+        group="Host",
+        description=(
+            "The address guests open on their phones, e.g. http://192.168.0.5:1234 — it is "
+            "what the QR code on the host screen encodes. Empty picks the machine's LAN "
+            "address automatically, which is right unless a VPN or a second network card "
+            "makes Wingman guess wrong."
+        ),
+        validate=validate_join_url,
     )
 )
 register(

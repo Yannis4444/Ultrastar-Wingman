@@ -14,8 +14,8 @@ const ORDERS: { value: LeaderboardOrder; label: string }[] = [
   { value: "sings", label: "sings" },
 ];
 
-/** More rows than this and the names shrink past reading distance. */
-const MAX_ROWS = 6;
+/** What the rail has room for beside the QR code and the wishes. */
+const MAX_ROWS = 5;
 
 /** Above this many rows the TV needs the tighter treatment to fit them. */
 const DENSE_FROM = 4;
@@ -30,7 +30,8 @@ interface SessionLeaderboardProps {
 
 /**
  * Who is winning the party so far, aggregated over every score of the running
- * session — the standing that the single song's bars cannot show.
+ * session — the standing that the single song's bars cannot show. It sits in
+ * the host rail under the QR code, so it stays up while a song is playing.
  *
  * The order control carries `host-reveal`: it is mouse-only chrome and hides
  * with the rest of it when the host screen goes idle. The ranking does not.

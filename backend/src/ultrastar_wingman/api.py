@@ -14,6 +14,7 @@ from .config import BootstrapSettings
 from .db import SessionDep
 from .downloads.api import router as downloads_router
 from .events import ServerReady, SettingChanged, event_bus
+from .join_url import normalize_join_url
 from .karaoke.api import router as karaoke_router
 from .library.api import router as library_router
 from .players.api import router as players_router
@@ -73,10 +74,20 @@ def lan_ip() -> str:
 
 
 @router.get("/join", response_model=JoinInfo)
-async def get_join_info(request: Request) -> JoinInfo:
-    """The URL guests open on their phones. The host screen encodes it in the QR code:
+async def get_join_info(request: Request, session: SessionDep) -> JoinInfo:
+    """The URL guests open on their phones — `host.join_url` when it is set, otherwise
+    the machine's LAN address. The host screen encodes it in the QR code:
     `window.location.origin` would be `localhost` on the karaoke PC itself."""
     settings: BootstrapSettings = request.app.state.bootstrap_settings
+    # Normalised, never rejected here: the PATCH that stored the override already
+    # refused what cannot be opened, and a host left without a QR code has no way back
+    # in. The port goes on a bare address ("192.168.1.5"), which is what a host types
+    # when all they mean to correct is which of their machine's addresses to advertise.
+    override = normalize_join_url(
+        str(await SettingsService(session).get("host.join_url")), port=settings.port
+    )
+    if override:
+        return JoinInfo(url=override)
     return JoinInfo(url=f"http://{lan_ip()}:{settings.port}")
 
 

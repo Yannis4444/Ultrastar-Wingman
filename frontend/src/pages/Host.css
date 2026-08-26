@@ -1,11 +1,15 @@
 /* Fullscreen TV composition: `fixed; inset: 0` escapes both #root's
-   max-width and the bottom-nav padding it reserves. */
+   max-width and the bottom-nav padding it reserves.
+
+   Two columns, one job each: the stage is what the party is doing, the rail is
+   how to take part. The rail is the narrower one and never moves — the QR code
+   sits at the top of it whatever the stage is showing. */
 .host-page {
   position: fixed;
   inset: 0;
   z-index: 0; /* own stacking context, so the ::before glow can sit at -1 */
   display: grid;
-  grid-template-columns: 1fr clamp(280px, 22vw, 420px);
+  grid-template-columns: minmax(0, 1fr) clamp(300px, 24vw, 440px);
   gap: clamp(24px, 3vw, 64px);
   box-sizing: border-box;
   padding: clamp(24px, 3vh, 56px);
@@ -32,53 +36,72 @@
   flex-direction: column;
   justify-content: center;
   min-width: 0;
+  overflow: hidden;
 }
 
-/* The layout's anchor: brand and QR are always up, whatever USDX does. */
+/* The QR is pinned to the top and never shrinks; the two lists below it take
+   what is left and clip rather than push it off the screen. */
 .host-rail {
   display: flex;
   flex-direction: column;
-  align-items: center;
-  justify-content: center;
-  gap: clamp(16px, 2.5vh, 32px);
+  align-items: stretch;
+  justify-content: flex-start;
+  gap: clamp(12px, 2vh, 28px);
+  min-width: 0;
+  overflow: hidden;
 }
 
+.host-rail > * {
+  min-height: 0;
+}
+
+/* The brand is the idle stage, not rail furniture: a TV that is playing a song
+   does not need to be told which app it is. */
 .host-brand {
   display: flex;
   flex-direction: column;
   align-items: center;
-  gap: 8px;
+  gap: clamp(8px, 1.5vh, 24px);
+  text-align: center;
 }
 
-.host-brand span {
-  font-size: clamp(20px, 2.6vh, 42px);
+.host-brand-name {
+  font-size: clamp(28px, 4vh, 64px);
   font-weight: 700;
   line-height: 1.1;
   color: var(--color);
-  text-align: center;
 }
 
 .host-logo {
   display: block;
   width: auto;
-  height: clamp(72px, 14vh, 180px);
+  height: clamp(120px, 26vh, 320px);
+  max-width: 100%;
+  object-fit: contain;
 }
 
-/* The QR must sit on white to scan — the one sanctioned card on this page. */
+/* The QR must sit on white to scan — the one sanctioned card on this page.
+   Height-bound as well as width-bound: on a 720p rail an unbounded square
+   would leave the standing and the wishes with nothing. The 240px floor keeps
+   the code itself over 200px at every size a TV comes in. */
 .host-join {
   display: flex;
+  flex: 0 0 auto;
   flex-direction: column;
-  gap: 8px;
-  width: 100%;
+  gap: 6px;
+  width: min(100%, clamp(240px, 30vh, 400px));
   box-sizing: border-box;
-  padding: clamp(12px, 1.6vw, 24px);
+  margin-inline: auto;
+  padding: clamp(10px, 1.2vw, 20px);
   background-color: #fff;
   border-radius: var(--border-radius);
 }
 
+/* Both lines under the code are read from the sofa, not from the phone that is
+   scanning: at 1080p they land above 18px, which is the floor for three metres. */
 .host-join-label {
   margin: 0;
-  font-size: clamp(14px, 1.5vh, 22px);
+  font-size: clamp(15px, 2vh, 26px);
   font-weight: 700;
   color: var(--bg);
   text-align: center;
@@ -88,7 +111,7 @@
 .host-join-url {
   margin: 0;
   font-family: ui-monospace, monospace;
-  font-size: clamp(13px, 1.4vh, 20px);
+  font-size: clamp(14px, 1.8vh, 24px);
   color: var(--bg);
   opacity: 0.75;
   text-align: center;
@@ -166,10 +189,10 @@
   max-width: 480px;
 }
 
-/* Idle stage, empty wishlist: one line inviting guests over to the QR. */
+/* Under the brand: one line telling the room what the code on the right is. */
 .host-scan-hint {
   margin: 0;
-  font-size: clamp(24px, 3.6vh, 52px);
+  font-size: clamp(20px, 3vh, 44px);
   color: var(--color-dark);
   text-align: center;
 }
@@ -190,10 +213,19 @@
   }
 }
 
-/* Idle stage, wishes present: flat hairline rows, no tiles. */
+/* Rail block: what the crowd wants to sing. Flat hairline rows, no tiles, and
+   sized for a third of the QR's column rather than for the stage. */
+.host-wishes {
+  display: flex;
+  flex: 0 1 auto;
+  flex-direction: column;
+  min-width: 0;
+  overflow: hidden;
+}
+
 .host-wishes h2 {
-  margin: 0 0 clamp(12px, 2vh, 28px) 0;
-  font-size: clamp(18px, 2.4vh, 34px);
+  margin: 0 0 clamp(6px, 1.2vh, 16px) 0;
+  font-size: clamp(14px, 1.8vh, 24px);
   color: var(--color-dark);
   text-transform: uppercase;
   letter-spacing: 0.08em;
@@ -208,8 +240,8 @@
 .host-wishes li {
   display: flex;
   align-items: center;
-  gap: clamp(16px, 2vw, 40px);
-  padding: clamp(8px, 1.4vh, 20px) 0;
+  gap: clamp(10px, 1.2vw, 20px);
+  padding: clamp(6px, 1vh, 14px) 0;
   border-bottom: 1px solid var(--input-border-color);
 }
 
@@ -219,8 +251,9 @@
 
 /* Two classes: beats .song-cover's own size whatever the CSS import order. */
 .host-wishes .host-wishes-cover {
-  width: clamp(56px, 8vh, 120px);
-  height: clamp(56px, 8vh, 120px);
+  flex: 0 0 auto;
+  width: clamp(40px, 4.2vh, 60px);
+  height: clamp(40px, 4.2vh, 60px);
 }
 
 .host-wishes-song {
@@ -230,17 +263,63 @@
   min-width: 0;
 }
 
+.host-wishes-title,
+.host-wishes-artist {
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+
 .host-wishes-title {
-  font-size: clamp(22px, 3.2vh, 44px);
+  font-size: clamp(15px, 1.9vh, 24px);
 }
 
 .host-wishes-artist {
-  font-size: clamp(16px, 2.2vh, 30px);
+  font-size: clamp(13px, 1.6vh, 19px);
   color: var(--color-dark);
 }
 
 .host-wishes-count {
-  font-size: clamp(22px, 3.2vh, 44px);
+  flex: 0 0 auto;
+  font-size: clamp(15px, 1.9vh, 24px);
   color: var(--highlight-blue-light);
   font-variant-numeric: tabular-nums;
+}
+
+/* A 720p rail cannot hold the QR, five ranks and three wishes at a size the
+   room can read. One of the two lists has to give up its tail, and it is the
+   wishes: the standing keeps its full five (measured: QR + 5 ranks + 2 wishes
+   fills a 720p rail exactly, with nothing clipped), and a shorter "top N" is
+   still the truth. Shrinking the type past its floors is not an option — the
+   whole page is written to be read from the sofa.
+   Two-column layout only: below 1101px the rail is under the stage and the page
+   scrolls, so there is room for every row and nothing to buy by hiding them. */
+@media (max-height: 820px) and (min-width: 1101px) {
+  .host-rail:has(.host-leaderboard) .host-wishes li:nth-child(n + 3) {
+    display: none;
+  }
+
+  .host-rail:has(.host-leaderboard) .host-wishes li:nth-child(2) {
+    border-bottom: 0;
+  }
+}
+
+/* Narrow or portrait: one column, stage first, rail below it — and the page
+   scrolls, because nothing can be made to fit a phone-shaped host window. */
+@media (max-width: 1100px) {
+  .host-page {
+    grid-template-columns: minmax(0, 1fr);
+    grid-template-rows: auto auto;
+    gap: clamp(16px, 2.5vh, 40px);
+    overflow-y: auto;
+  }
+
+  .host-stage,
+  .host-rail {
+    overflow: visible;
+  }
+
+  .host-join {
+    width: min(100%, 360px);
+  }
 }

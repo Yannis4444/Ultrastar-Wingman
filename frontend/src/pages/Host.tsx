@@ -2,11 +2,13 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useEffect, useState } from "react";
 import QRCode from "react-qr-code";
 import { Link } from "react-router-dom";
+import type { WishRead } from "../api";
 import {
   exchangeHostTokenMutation,
   getCurrentSingOptions,
   getCurrentSingQueryKey,
   getJoinInfoOptions,
+  getJoinInfoQueryKey,
   stopSingingMutation,
 } from "../api/@tanstack/react-query.gen";
 import { useAuth } from "../auth";
@@ -14,13 +16,31 @@ import ConfirmModal from "../components/ConfirmModal";
 import CurrentlyPlaying from "../components/CurrentlyPlaying";
 import HostResults from "../components/HostResults";
 import { Icon } from "../components/icons";
+import SessionLeaderboard from "../components/SessionLeaderboard";
 import SongCover from "../components/SongCover";
+import { useSessionStanding } from "../hooks/useSessionStanding";
+import { useWingmanEvent, type WingmanEvent } from "../hooks/useWingmanEvents";
 import { useWishlist } from "../hooks/useWishlist";
 import { manageEntries } from "../manage";
+import type { LeaderboardOrder } from "../stats";
 import "./Host.css";
 
 /** The query parameter the server puts into the URL it logs and opens. */
 const TOKEN_PARAM = "hostToken";
+
+/** The setting that overrides the address the QR code encodes. */
+const JOIN_URL_SETTING = "host.join_url";
+
+/** One performance ranks nobody — the standing starts once there is a second. */
+const MIN_SINGS = 2;
+
+/** Rail wishes with a leaderboard above them, and without it. */
+const WISHES_WITH_STANDING = 3;
+const WISHES_ALONE = 5;
+
+interface SettingChanged extends WingmanEvent {
+  key: string;
+}
 
 /** Reads the token and takes it out of the URL, so it is never shared or re-sent. */
 function takeToken(): string | null {
@@ -60,19 +80,27 @@ function useIdle(delay = 3000): boolean {
 }
 
 /**
- * What the stage shows while USDX is idle and no scores are up: the crowd's
- * favourites — wishes feed the spinner's odds, they are not a queue.
+ * The stage while USDX is idle and nothing has been scored: whose screen this
+ * is, and what to do about it. It is the only state that says the name — a TV
+ * playing a song does not need to be told which app it is, and the rail needs
+ * the room.
  */
-function HostIdle() {
-  const wishlist = useWishlist();
-  const wishes = [...wishlist.wishes]
-    .sort((a, b) => b.count - a.count)
-    .slice(0, 5);
+function HostBrand() {
+  return (
+    <div className="host-brand">
+      <img className="host-logo" src="/logo.png" alt="" />
+      <span className="host-brand-name">Ultrastar Wingman</span>
+      <p className="host-scan-hint">Scan the code to pick a song</p>
+    </div>
+  );
+}
 
-  if (wishes.length === 0) {
-    return <p className="host-scan-hint">Scan the code to pick a song</p>;
-  }
-
+/**
+ * What the crowd wants to sing, in the rail beside the QR code: wishes feed the
+ * spinner's odds, they are not a queue, so they belong next to the way in
+ * rather than on the stage.
+ */
+function HostWishes({ wishes }: { wishes: WishRead[] }) {
   return (
     <section className="host-wishes" aria-label="Most wished">
       <h2>Most wished</h2>
@@ -93,8 +121,10 @@ function HostIdle() {
 }
 
 /**
- * The screen next to the TV where USDX runs: what is playing plus the QR code
- * guests scan to open the app on their phones.
+ * The screen next to the TV where USDX runs. Two columns, each with one job:
+ * the stage on the left is whatever the party is doing right now (a song, the
+ * scores it just got, or the brand), and the rail on the right is how to take
+ * part — the QR code first, then the standing and the wishes.
  *
  * Opened with `?hostToken=…` it trades that one-time token for a permanent
  * trusted admin session — the only way to become the host (no IP or header
@@ -106,6 +136,8 @@ export default function Host() {
   const idle = useIdle();
   const [error, setError] = useState<string | null>(null);
   const [askStop, setAskStop] = useState(false);
+  // What a scoreboard is read for, and the Scores page's default too.
+  const [order, setOrder] = useState<LeaderboardOrder>("best");
 
   const exchange = useMutation({
     ...exchangeHostTokenMutation(),
@@ -132,6 +164,25 @@ export default function Host() {
 
   const join = useQuery(getJoinInfoOptions());
   const joinUrl = join.data?.url ?? window.location.origin;
+  // A corrected address must reach the TV without somebody walking over to it.
+  useWingmanEvent<SettingChanged>("setting.changed", ({ key }) => {
+    if (key === JOIN_URL_SETTING) {
+      void queryClient.invalidateQueries({ queryKey: getJoinInfoQueryKey() });
+    }
+  });
+
+  // Fetched once for the whole page: the rail ranks with it, the stage's score
+  // bars take their avatars from it.
+  const standing = useSessionStanding(order);
+  const showStanding =
+    auth.can("stats.view") &&
+    standing.sings >= MIN_SINGS &&
+    standing.entries.length > 0;
+
+  const wishlist = useWishlist();
+  const wishes = [...wishlist.wishes]
+    .sort((a, b) => b.count - a.count)
+    .slice(0, showStanding ? WISHES_WITH_STANDING : WISHES_ALONE);
 
   // Only what this session may actually open, so a guest that found the host
   // URL sees the stage and nothing else.
@@ -147,14 +198,12 @@ export default function Host() {
     <div className={`host-page${idle ? " host-idle" : ""}`}>
       <div className="host-stage">
         <CurrentlyPlaying hideControls />
-        <HostResults fallback={<HostIdle />} />
+        <HostResults players={standing.players} fallback={<HostBrand />} />
       </div>
 
       <div className="host-rail">
-        <div className="host-brand">
-          <img className="host-logo" src="/logo.png" alt="" />
-          <span>Ultrastar Wingman</span>
-        </div>
+        {/* First in the rail because it is the one thing a guest is looking
+            for — nothing below it may push it off the top. */}
         <div className="host-join">
           <QRCode
             value={joinUrl}
@@ -165,8 +214,20 @@ export default function Host() {
             style={{ width: "100%", height: "auto", display: "block" }}
           />
           <p className="host-join-label">Scan to join</p>
-          <p className="host-join-url">{joinUrl.replace(/^https?:\/\//, "")}</p>
+          {/* Only `http://` is dropped — it is what a phone assumes anyway. An
+              `https://` join URL has to keep its scheme, or the guest who types
+              the line instead of scanning it lands on the wrong protocol. */}
+          <p className="host-join-url">{joinUrl.replace(/^http:\/\//, "")}</p>
         </div>
+        {showStanding && (
+          <SessionLeaderboard
+            entries={standing.entries}
+            order={order}
+            onOrder={setOrder}
+            players={standing.players}
+          />
+        )}
+        {wishes.length > 0 && <HostWishes wishes={wishes} />}
       </div>
 
       {/* Everything mouse-only lives here; hiding is opacity-only so the

@@ -1,15 +1,18 @@
-/* Flat hairline rows on the page background, sized like the host stage's other
-   score rows. No tile: the leaderboard is ordinary content. */
+/* Flat hairline rows on the page background — no tile, the standing is
+   ordinary content. It lives in the host rail beside the QR code, so it is
+   sized for a quarter of the screen and not for the stage. */
 .host-leaderboard {
   display: flex;
+  flex: 0 1 auto;
   flex-direction: column;
-  gap: clamp(8px, 1.4vh, 20px);
+  gap: clamp(6px, 1.2vh, 16px);
   min-width: 0;
+  overflow: hidden;
 }
 
 .host-leaderboard-head {
   display: flex;
-  gap: clamp(12px, 1.5vw, 24px);
+  gap: clamp(8px, 1vw, 16px);
   align-items: center;
   flex-wrap: wrap;
 }
@@ -17,7 +20,7 @@
 .host-leaderboard-head h2 {
   margin: 0;
   color: var(--color-dark);
-  font-size: clamp(18px, 2.4vh, 34px);
+  font-size: clamp(14px, 1.8vh, 24px);
   letter-spacing: 0.08em;
   text-transform: uppercase;
 }
@@ -25,7 +28,7 @@
 /* Segmented pills: a hidden native radio per option, the span is the pill. */
 .host-leaderboard-order {
   display: flex;
-  gap: 8px;
+  gap: 6px;
   flex-wrap: wrap;
   margin: 0;
   padding: 0;
@@ -39,9 +42,9 @@
 .host-order-option > span {
   display: block;
   min-height: 40px;
-  padding: 0 12px;
+  padding: 0 10px;
   color: var(--color-darker);
-  font-size: clamp(14px, 1.6vh, 22px);
+  font-size: clamp(12px, 1.4vh, 18px);
   line-height: 40px;
   background-color: var(--input-bg);
   border: 1px solid var(--input-border-color);
@@ -74,9 +77,9 @@
 .host-leaderboard-list > li {
   display: grid;
   grid-template-columns: auto auto minmax(0, 1fr) auto;
-  gap: clamp(12px, 1.6vw, 32px);
+  gap: clamp(8px, 1vw, 20px);
   align-items: center;
-  padding: clamp(8px, 1.4vh, 20px) 0;
+  padding: clamp(5px, 0.9vh, 12px) 0;
   border-bottom: 1px solid var(--input-border-color);
 }
 
@@ -86,7 +89,7 @@
 
 .host-leaderboard-rank {
   color: var(--color-darkerer);
-  font-size: clamp(16px, 2.2vh, 32px);
+  font-size: clamp(14px, 1.8vh, 24px);
   font-variant-numeric: tabular-nums;
 }
 
@@ -97,41 +100,42 @@
 }
 
 .host-leaderboard .host-leaderboard-avatar {
-  width: clamp(40px, 6vh, 80px);
-  height: clamp(40px, 6vh, 80px);
-  font-size: clamp(18px, 2.6vh, 36px);
+  width: clamp(32px, 4vh, 56px);
+  height: clamp(32px, 4vh, 56px);
+  font-size: clamp(14px, 1.8vh, 24px);
 }
 
 .host-leaderboard-name {
   overflow: hidden;
-  font-size: clamp(26px, 4.2vh, 64px);
+  font-size: clamp(18px, 2.2vh, 30px);
   white-space: nowrap;
   text-overflow: ellipsis;
 }
 
 .host-leaderboard-value {
   color: var(--highlight-gold-light);
-  font-size: clamp(36px, 6.4vh, 96px);
+  font-size: clamp(22px, 3vh, 42px);
   font-weight: 700;
   font-variant-numeric: tabular-nums;
 }
 
-/* Five or six rows must still fit 1080px: halve the ceilings. */
+/* Four rows and up: a step tighter, so the fifth one does not cost the wishes
+   below their last row. */
 .host-leaderboard-dense > li {
-  padding: clamp(4px, 0.8vh, 10px) 0;
+  padding: clamp(3px, 0.5vh, 7px) 0;
 }
 
 .host-leaderboard-dense .host-leaderboard-name {
-  font-size: clamp(22px, 3.2vh, 40px);
+  font-size: clamp(16px, 2vh, 26px);
 }
 
 .host-leaderboard-dense .host-leaderboard-value {
-  font-size: clamp(28px, 4.4vh, 56px);
+  font-size: clamp(20px, 2.6vh, 34px);
 }
 
 .host-leaderboard-dense .host-leaderboard-avatar {
-  width: clamp(32px, 4.4vh, 56px);
-  height: clamp(32px, 4.4vh, 56px);
+  width: clamp(28px, 3.4vh, 44px);
+  height: clamp(28px, 3.4vh, 44px);
 }
 
 @media (prefers-reduced-motion: reduce) {

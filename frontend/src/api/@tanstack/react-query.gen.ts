@@ -1261,7 +1261,8 @@ export const getJoinInfoQueryKey = (options?: Options<GetJoinInfoData>) => creat
 /**
  * Get Join Info
  *
- * The URL guests open on their phones. The host screen encodes it in the QR code:
+ * The URL guests open on their phones — `host.join_url` when it is set, otherwise
+ * the machine's LAN address. The host screen encodes it in the QR code:
  * `window.location.origin` would be `localhost` on the karaoke PC itself.
  */
 export const getJoinInfoOptions = (options?: Options<GetJoinInfoData>) => queryOptions<GetJoinInfoResponse, DefaultError, GetJoinInfoResponse, ReturnType<typeof getJoinInfoQueryKey>>({

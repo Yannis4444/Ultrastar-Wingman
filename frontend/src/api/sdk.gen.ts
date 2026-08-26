@@ -533,7 +533,8 @@ export const health = <ThrowOnError extends boolean = false>(options?: Options<H
 /**
  * Get Join Info
  *
- * The URL guests open on their phones. The host screen encodes it in the QR code:
+ * The URL guests open on their phones — `host.join_url` when it is set, otherwise
+ * the machine's LAN address. The host screen encodes it in the QR code:
  * `window.location.origin` would be `localhost` on the karaoke PC itself.
  */
 export const getJoinInfo = <ThrowOnError extends boolean = false>(options?: Options<GetJoinInfoData, ThrowOnError>): RequestResult<GetJoinInfoResponses, unknown, ThrowOnError> => (options?.client ?? client).get<GetJoinInfoResponses, unknown, ThrowOnError>({ url: '/api/v1/join', ...options });

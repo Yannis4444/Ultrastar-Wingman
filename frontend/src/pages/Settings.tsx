@@ -7,6 +7,7 @@ import {
 } from "../api/@tanstack/react-query.gen";
 import { useAuth } from "../auth";
 import { Icon, type IconName } from "../components/icons";
+import JoinUrlField from "../components/JoinUrlField";
 import KaraokeSlotsField from "../components/KaraokeSlotsField";
 import PageHeader from "../components/PageHeader";
 import RunUsdxRow from "../components/RunUsdxRow";
@@ -21,11 +22,20 @@ interface SettingChanged extends WingmanEvent {
 }
 
 /** Task-first page order; unknown groups land at the end in registry order. */
-const GROUP_ORDER = ["Karaoke", "Songs", "USDX", "USDB", "Downloads", "Auth"];
+const GROUP_ORDER = [
+  "Karaoke",
+  "Host",
+  "Songs",
+  "USDX",
+  "USDB",
+  "Downloads",
+  "Auth",
+];
 
 /** One glyph per section, so a group is found by shape before it is read. */
 const GROUP_ICONS: Record<string, IconName> = {
   Karaoke: "users",
+  Host: "tv",
   Songs: "music",
   USDX: "mic",
   USDB: "globe",
@@ -34,14 +44,17 @@ const GROUP_ICONS: Record<string, IconName> = {
 };
 
 /**
- * Settings whose stored form is not what a person should be typing. Everything
- * else is rendered from its value type alone.
+ * Settings whose stored form is not what a person should be typing, or whose
+ * effect only makes sense next to something the registry cannot know (the
+ * address the join URL currently resolves to). Everything else is rendered
+ * from its value type alone.
  */
 const CUSTOM_FIELDS: Record<
   string,
   ComponentType<{ setting: SettingRead; readOnly: boolean }> | undefined
 > = {
   "karaoke.player_colors": KaraokeSlotsField,
+  "host.join_url": JoinUrlField,
   "downloads.video_format": VideoQualityField,
 };
 
