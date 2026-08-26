@@ -107,11 +107,11 @@ Turn the flat wish list into **bundles** (one workflow each). Rules of thumb:
   off", "restructure", "make it nicer", or touches a TV/phone surface — build
   output cannot judge those. Otherwise the verify agent does an adversarial code
   review + runs the suites.
-- If the batch contains design work, the first bundle is a **guidelines** agent that
-  writes/extends a prescriptive design doc (tokens, icon inventory + reserved names,
-  surface rules, per-view prescriptions) to the scratchpad. If a guidelines doc
-  already exists in memory, have the agent *extend* it, not rewrite it. Every later
-  prompt points at that doc as binding.
+- The binding design doc is `docs/dev/ui-guidelines.md` in the repo. If the batch
+  contains design work the existing rules do not cover (new icons, a redesigned
+  view), the first bundle is a **guidelines** agent (templates.md §GUIDELINES) that
+  *extends* that file — committed as `docs(dev): …` before any pixel work. Every
+  later prompt points at the file, never at a scratchpad or memory copy.
 
 ### How to approach design work
 
@@ -251,9 +251,12 @@ lose):
 - **Durable lessons** (feedback type, with *why* and *how to apply*): anything the
   run got wrong and future runs must not — leaked servers, a check that lied, a
   convention agents kept breaking, a tool quirk (UTF-8 readers, heredoc limits).
-- **Artifacts that live only in the scratchpad** — copy the guidelines doc (and
-  anything else agents must reuse) into the memory dir with a one-line index entry;
-  the scratchpad dies with the session.
+- **Artifacts that live only in the scratchpad** — anything agents must reuse and
+  that is not repo material goes into the memory dir with a one-line index entry;
+  the scratchpad dies with the session. Design rules, testing tricks and commands
+  are repo material: they belong in `docs/dev/` (ui-guidelines, verifying,
+  recipes) and `CLAUDE.md`, where subagents can read them — memory is invisible
+  to them.
 - **Extend, don't duplicate**: check the memory index for an existing file on the
   topic first; update it; delete memories the run proved wrong.
 
