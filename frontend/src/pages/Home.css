@@ -1,44 +1,74 @@
-/* The one tile on the page that is pure identity: logo, name, version, source.
-   Mirrors the old app's `.tile.title`. */
-.home-header {
+/* The one loud thing on Home: the way into the slot machine. A gradient is
+   vocabulary nothing else in the app uses, which is the point — it is the only
+   button on a page that is otherwise a stage and a list. Both stops are dark
+   tokens, so the white label stays above 9:1 across the whole sweep. */
+.home-random {
   display: flex;
-  flex-direction: column;
+  box-sizing: border-box;
   align-items: center;
+  justify-content: center;
+  gap: 12px;
+  width: calc(100% - 32px);
+  min-height: 56px;
   margin: 16px;
-  padding: 16px;
-  background-color: var(--tile-bg);
-  border-radius: var(--border-radius);
-}
-
-.home-logo {
-  display: block;
-  width: 100%;
-  max-width: 200px;
-  height: auto;
-}
-
-.home-header h1 {
-  margin: 8px 0 0 0;
-  font-size: 2em;
-}
-
-.home-meta {
-  display: flex;
-  justify-content: space-between;
-  gap: 16px;
-  width: 100%;
-  max-width: 400px;
-  margin-top: 8px;
-  color: var(--color-dark);
-}
-
-.home-meta a {
-  color: var(--color-dark);
+  padding: 0 16px;
+  font-size: 1.1em;
+  font-weight: 700;
+  letter-spacing: 0.02em;
+  color: var(--color);
   text-decoration: none;
+  /* Under the gradient, invisible while it paints: if either token ever fails
+     to resolve the whole `background-image` drops out, and a transparent
+     button on the page background is not what this row is for. It is also the
+     flat look, one deleted line away, if the gradient is ever dropped. */
+  background-color: var(--highlight-pink-dark);
+  background-image: linear-gradient(
+    135deg,
+    var(--highlight-blue-dark),
+    var(--highlight-pink-dark)
+  );
+  border: 1px solid var(--input-border-color);
+  border-radius: var(--border-radius);
+  transition: filter 0.15s ease;
 }
 
-.home-meta a:hover {
-  color: var(--highlight-blue-light);
+.home-random:hover {
+  filter: brightness(1.25);
+}
+
+.home-random .icon {
+  font-size: 1.5em;
+}
+
+.home-random:hover .icon {
+  animation: home-dice-roll 0.6s ease-in-out;
+}
+
+@keyframes home-dice-roll {
+  25% {
+    transform: rotate(-14deg);
+  }
+
+  75% {
+    transform: rotate(14deg);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .home-random {
+    transition: none;
+  }
+
+  .home-random:hover .icon {
+    animation: none;
+  }
+}
+
+@media (min-width: 768px) {
+  .home-random {
+    max-width: 720px;
+    margin-inline: auto;
+  }
 }
 
 /* Flat row leading to a sub-page — no tile, just a hairline. The 8px margin
@@ -46,7 +76,11 @@
    bleeds past it, as the wishlist rows below do. The row carries 16px on both
    ends so it keeps the page rhythm wherever it sits: against the wishlist the
    two 16px margins collapse into one gap, and with the wishlist hidden the
-   hairline still closes the page on the same rhythm. */
+   hairline still closes the page on the same rhythm.
+
+   Home itself no longer uses it — the random-song entry became the button
+   above — but it is the shared shape for the User page's rows and stays here
+   until that bundle gives it a home of its own. */
 .home-entry {
   display: flex;
   align-items: center;

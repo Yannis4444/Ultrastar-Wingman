@@ -1,0 +1,82 @@
+/* The page-identity tile of the old `.home-header`, now carrying two states.
+   The whitelist of tiled surfaces does not grow: one identity tile became one
+   stage tile.
+
+   `min-height` is what keeps the page still. Both states sit in the same grid
+   cell, so neither can push the other, and the tile is tall enough for the
+   taller of the two — the running song with a two-line title — so flipping
+   between them changes no rectangle on the page. */
+.home-stage {
+  /* A local composition rather than a new token: the pink accent lightened far
+     enough to clear 3:1 as a glyph on `--tile-bg`, where the raw token is
+     2.2:1. Inherited by the stop and favorite controls inside the block. */
+  --stage-pink: color-mix(
+    in srgb,
+    var(--highlight-pink-light) 70%,
+    var(--color)
+  );
+
+  display: grid;
+  box-sizing: border-box;
+  /* The worst case measured at 390px — a two-line title, a two-line artist and
+     two rows of singers — is 437.3px of content inside 32px of padding. 470
+     would clear it by 0.7px, which is one font metric away from the tile
+     growing and taking the page with it; 480 leaves a real margin. */
+  min-height: 480px;
+  margin: 16px;
+  padding: 16px;
+  background-color: var(--tile-bg);
+  border-radius: var(--border-radius);
+  place-items: center;
+}
+
+.home-stage > * {
+  grid-area: 1 / 1;
+  width: 100%;
+}
+
+.home-stage-idle {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 8px;
+  transition: opacity 200ms ease;
+}
+
+/* Still in the cell so it keeps holding the height, but invisible and out of
+   reach of a finger that lands on the song above it. */
+.home-stage-hidden {
+  opacity: 0;
+  pointer-events: none;
+}
+
+.home-logo {
+  display: block;
+  width: 100%;
+  max-width: 200px;
+  height: auto;
+}
+
+.home-stage-idle h1 {
+  margin: 0;
+  font-size: 2em;
+  text-align: center;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .home-stage-idle {
+    transition: none;
+  }
+}
+
+@media (min-width: 768px) {
+  .home-stage {
+    /* Not much smaller than the phone value, because the content barely
+       shrinks: the 720px column puts a long title on two lines all the same,
+       and six singers still take two rows. Measured worst case 419.3px inside
+       32px of padding — the prescribed 420 is 31px short of it. */
+    min-height: 460px;
+    max-width: 720px;
+    margin-inline: auto;
+  }
+}

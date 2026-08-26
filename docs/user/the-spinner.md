@@ -1,7 +1,7 @@
 # Let the reel pick
 
-Nobody can decide what to sing? The reel on **Home** picks a song at random. It
-spins like a slot machine and stops on the winner.
+Nobody can decide what to sing? **Random song** on **Home** opens a reel that
+picks for you. It spins like a slot machine and stops on the winner.
 
 ## Spin it
 

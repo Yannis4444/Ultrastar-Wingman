@@ -1,0 +1,96 @@
+/* The icon control row, shared by the song modal and the Home stage. The Home
+   stage is meant to mirror the modal, and two copies of the same geometry drift
+   apart the first time one of them is touched — so both rows key on this file
+   and only the colors stay with the caller. */
+
+/* Three fixed cells rather than `space-evenly` over however many controls the
+   session actually gets: with all three present the geometry is identical (two
+   equal side columns put the marks at the quarter points), but a browser
+   without an account — the large control plus one mark — keeps that control on
+   the centre line instead of sliding it a sixth of the row to the left. */
+.song-details-controls,
+.currently-playing-stage .currently-playing-controls {
+  display: grid;
+  grid-template-columns: 1fr auto 1fr;
+  align-items: center;
+  justify-items: center;
+}
+
+/* Nothing anchors the middle without the large control, so the marks that
+   remain simply centre as a group (`grid-column` is inert under flex layout).
+   Keyed on `.song-control-lead`, never on Play: the Home stage's large control
+   is a Stop, and a selector that looked for Play would hand it the wrong
+   layout. */
+.song-details-controls:not(:has(.song-control-lead)),
+.currently-playing-stage
+  .currently-playing-controls:not(:has(.song-control-lead)) {
+  display: flex;
+  justify-content: center;
+  gap: 24px;
+}
+
+/* The flanking marks: 48px, glyph-only, no fill. */
+.song-control {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 48px;
+  height: 48px;
+  padding: 0;
+  font-size: 1.6em;
+  color: var(--color-darkerer);
+  background: none;
+  border: none;
+  border-radius: var(--border-radius-small);
+  cursor: pointer;
+}
+
+.song-control-favorite {
+  grid-column: 1;
+}
+
+.song-control-wish {
+  grid-column: 3;
+}
+
+/* The one large control in the middle of a row: 72px, unfilled, round only so
+   the global :focus-visible ring hugs the target. It reads as primary through
+   size and accent alone; the color belongs to the caller (blue Play in the
+   modal, pink Stop on the Home stage). */
+.song-control-lead {
+  grid-column: 2;
+  width: 72px;
+  height: 72px;
+  font-size: 2.6em;
+  border-radius: 50%;
+  transition:
+    color 0.15s ease,
+    transform 0.15s ease;
+}
+
+.song-control-lead:hover:enabled {
+  color: var(--color);
+  transform: scale(1.06);
+}
+
+.song-control-lead:disabled {
+  color: var(--color-darkerer);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .song-control-lead {
+    transition: none;
+  }
+
+  .song-control-lead:hover:enabled {
+    transform: none;
+  }
+}
+
+.song-control-favorite-on {
+  color: var(--highlight-pink-light);
+}
+
+.song-control-wish-on {
+  color: var(--highlight-blue-light);
+}

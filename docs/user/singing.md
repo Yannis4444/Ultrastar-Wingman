@@ -63,9 +63,14 @@ same order Ultrastar Deluxe does. There is nothing to configure.
 ## While a song plays
 
 **Home** and the host screen show what is playing and who is on which colour.
+On **Home** the running song takes the place of the Wingman title at the top of
+the page — cover, title, how far in it is, and the singers on their colours —
+and hands the title back when the song ends. The tile keeps its size either way,
+so nothing under it jumps.
 
-- **Stop** ends the running song. Only somebody who may stop a song sees the
-  button at all.
+- **Stop** is the large pink button in the middle, and it asks before it ends
+  the song. Only somebody who may stop a song sees it at all. The heart and the
+  wish button beside it do the same as in the song's own view.
 - Starting another song while one is running offers to replace it — replacing
   stops the running one first. Whoever may not stop a song is told to ask the
   host instead.

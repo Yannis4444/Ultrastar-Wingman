@@ -33,7 +33,7 @@ and the rights the host hands out.
 
 | Tab | What you find there |
 |---|---|
-| **Home** | What is playing, the random-song reel, the wishlist |
+| **Home** | What is playing, the way into the random-song reel, the wishlist |
 | **Songs** | The whole song list, search, favorites, playlists, and the way into a song |
 | **Scores** | The statistics of every party |
 | **User** | Log in, players and their avatars, and (for the host) users and permissions |

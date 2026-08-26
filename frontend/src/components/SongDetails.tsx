@@ -27,6 +27,8 @@ import Modal from "./Modal";
 import PlayerSelection from "./PlayerSelection";
 import RankedScoreList from "./RankedScoreList";
 import SongCover from "./SongCover";
+// The control row is shared with the Home stage.
+import "./SongControls.css";
 import "./SongDetails.css";
 
 interface SongDetailsProps {
@@ -277,7 +279,7 @@ export default function SongDetails({
           {auth.can("karaoke.sing") && (
             <button
               type="button"
-              className="song-control song-control-sing"
+              className="song-control song-control-lead song-control-sing"
               aria-label="Sing"
               onClick={() => setSelectingPlayers(true)}
             >
