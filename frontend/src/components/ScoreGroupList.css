@@ -146,8 +146,11 @@
   transition: transform 0.2s;
 }
 
+/* 90° clockwise from `chevron-right`, so the open row points down. Rotating a
+   `chevron-down` by 180° would point it up, which reads as "collapse me
+   upwards" — the rendered pair is right/down, never up. */
 details[open] > summary .score-group-chevron {
-  transform: rotate(180deg);
+  transform: rotate(90deg);
 }
 
 @media (prefers-reduced-motion: reduce) {

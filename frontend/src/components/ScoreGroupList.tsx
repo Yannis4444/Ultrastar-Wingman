@@ -159,7 +159,10 @@ export default function ScoreGroupList({
               <span className="score-group-score">
                 {groupValue(group, sorting)}
               </span>
-              <Icon name="chevron-down" className="score-group-chevron" />
+              {/* Right while collapsed like every other row in the app, down
+                  while open — the rotation below turns the one glyph, so the
+                  open state never points the arrow up. */}
+              <Icon name="chevron-right" className="score-group-chevron" />
             </summary>
 
             {/* A couple of bars across twenty buckets is noise, not a shape. */}

@@ -27,20 +27,35 @@ by default.
 
 ## What a party page shows
 
-Four numbers first:
+Four numbers first, each behind its own symbol. On a computer, resting the
+pointer on one spells out the word; a screen reader reads it out too:
 
 | | |
 |---|---|
-| **Sings** | How many songs were started |
+| **Sings** | How many performances were scored |
 | **Songs** | How many different songs |
 | **Singers** | How many different people sang |
-| **Top score** | The best score, with who sang it on what |
+| **Top score** | The evening's best score |
 
-Below that, a chart of the score spread, and the score list itself. **Group by**
-switches both between:
+The top score is the number alone. Who got it, and on what, is the first row of
+the list further down — that list is what the page is for.
 
-- **player** — one row per singer, best median first. Who was on form.
-- **song** — one row per song. Which song the room actually nails.
+If more songs were started than were scored, the **Sings** symbol says so: its
+word becomes "Sings — 2 scored of 4 started". A song that was stopped early is a
+sing without a score.
+
+Below the numbers come two dropdowns, then a chart of the score spread, then
+the list itself.
+
+**Group** rearranges both the chart and the list:
+
+- **group by player** — one row per singer. Who was on form.
+- **group by song** — one row per song. Which song the room actually nails.
+- **don't group** — one row per single score, nothing merged.
+
+**Sort** decides the order: *alphabetically*, or by *average score*, *best
+score* or *worst score*. The number printed at the right of each row is always
+the one being sorted on, so the ranking can never disagree with itself.
 
 The chart is a box plot: the box is where most of that singer's (or song's) scores
 sit, the line in it is the median, and the whiskers are the outliers. A singer

@@ -12,7 +12,6 @@ import {
 } from "../api/@tanstack/react-query.gen";
 import { useAuth } from "../auth";
 import Chart from "../components/Chart";
-import CheckOption from "../components/CheckOption";
 import { Icon } from "../components/icons";
 import ScoreGroupList from "../components/ScoreGroupList";
 import SessionSummaryRow from "../components/SessionSummaryRow";
@@ -273,34 +272,39 @@ export default function Scores() {
       ? `${chartTitle} in this session`
       : `Score spread per ${grouping}`;
 
+  // Two quiet selects on one line: the reader sets these once an evening, so
+  // they get a row, not the two blocks of radios that used to own the first
+  // screen. The `<label>` wraps its select, which is what names it.
   const controls = (
-    <div className="scores-options">
-      <fieldset>
-        <legend>Grouping</legend>
-        {GROUPINGS.map((option) => (
-          <CheckOption
-            key={option.value}
-            name="grouping"
-            value={option.value}
-            label={option.label}
-            checked={grouping === option.value}
-            onChange={() => setGrouping(option.value)}
-          />
-        ))}
-      </fieldset>
-      <fieldset>
-        <legend>Sorting</legend>
-        {SORTINGS.map((option) => (
-          <CheckOption
-            key={option.value}
-            name="sorting"
-            value={option.value}
-            label={option.label}
-            checked={sorting === option.value}
-            onChange={() => setSorting(option.value)}
-          />
-        ))}
-      </fieldset>
+    <div className="scores-controls">
+      <label className="scores-control">
+        <span className="scores-control-label">Group</span>
+        <select
+          className="text-input text-input-quiet"
+          value={grouping}
+          onChange={(event) => setGrouping(event.target.value as Grouping)}
+        >
+          {GROUPINGS.map((option) => (
+            <option key={option.value} value={option.value}>
+              {option.label}
+            </option>
+          ))}
+        </select>
+      </label>
+      <label className="scores-control">
+        <span className="scores-control-label">Sort</span>
+        <select
+          className="text-input text-input-quiet"
+          value={sorting}
+          onChange={(event) => setSorting(event.target.value as Sorting)}
+        >
+          {SORTINGS.map((option) => (
+            <option key={option.value} value={option.value}>
+              {option.label}
+            </option>
+          ))}
+        </select>
+      </label>
     </div>
   );
 
@@ -331,12 +335,10 @@ export default function Scores() {
         </ScoresEmpty>
       ) : (
         <>
-          <SessionSummaryRow
-            session={session}
-            scores={rows}
-            players={players}
-          />
+          <SessionSummaryRow session={session} scores={rows} />
 
+          {/* Above both things they reorder: the two selects rebuild the chart
+              — its title included — as well as the ranking below it. */}
           {controls}
 
           {showChart && (

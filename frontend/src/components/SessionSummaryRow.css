@@ -6,49 +6,8 @@
   border-bottom: 1px solid var(--input-border-color);
 }
 
-.session-summary-top {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 0 8px;
-  align-items: center;
-  margin: 0 0 12px 0;
-}
-
-.session-summary-trophy {
-  font-size: 20px;
-  color: var(--highlight-gold-light);
-}
-
-.session-summary-score {
-  font-size: 1.6em;
-  font-weight: bold;
-  color: var(--highlight-gold-light);
-  font-variant-numeric: tabular-nums;
-}
-
-.session-summary-avatar {
-  width: 28px;
-  height: 28px;
-  font-size: 0.9em;
-}
-
-.session-summary-who {
-  overflow: hidden;
-  font-size: 1.1em;
-  white-space: nowrap;
-  text-overflow: ellipsis;
-}
-
-/* The song drops to its own line on a phone instead of truncating. */
-.session-summary-song {
-  flex: 1 1 100%;
-  font-size: 0.9em;
-  color: var(--color-dark);
-  overflow-wrap: anywhere;
-}
-
 /* Icons carry the meaning; the words live in the tooltip and the hidden label
-   so three counts do not need three captions. */
+   so four counts do not need four captions. */
 .session-summary-stats {
   display: flex;
   flex-wrap: wrap;
@@ -56,4 +15,10 @@
   align-items: center;
   margin: 0;
   font-size: 1.1em;
+}
+
+/* The one stat that is a score rather than a count wears the score color the
+   whole app uses for them. */
+.session-summary-best .icon-stat-icon {
+  color: var(--highlight-gold-light);
 }
