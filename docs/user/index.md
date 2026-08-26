@@ -15,8 +15,10 @@ Everybody uses it from a browser. There is nothing to install on a phone.
 
 1. One person is the **host**. They run Wingman on the PC that runs Ultrastar
    Deluxe, and connect it to their Ultrastar Deluxe installation once.
-2. The host opens the **host screen** on that PC. It shows what is playing, the
-   latest scores, and a QR code with the address of Wingman.
+2. The host opens the **host screen** on that PC. On the left it shows what is
+   playing, or the scores of the song that just finished; down the right side
+   stand the QR code with the address of Wingman, the standing of the party so
+   far, and what the room wished for.
 3. Guests scan that QR code, or type the address into their browser. They land
    on the same Wingman, on their own phone.
 4. Anyone can browse the songs, add a song to the wishlist, and start a song:
@@ -34,9 +36,9 @@ and the rights the host hands out.
 | Tab | What you find there |
 |---|---|
 | **Home** | What is playing, the way into the random-song reel, the wishlist |
-| **Songs** | The whole song list, search, favorites, playlists, and the way into a song |
+| **Songs** | The whole song list, search, favorites, what has been sung tonight, playlists, and the way into a song |
 | **Scores** | The statistics of every party |
-| **User** | Log in, players and their avatars, and (for the host) users and permissions |
+| **User** | Log in, your own scores, players and their avatars, and (for the host) users and permissions |
 
 Two more pages are linked from there: **USDB** — behind the **+** button on the
 Songs page — for downloading new songs, and **Settings** for everything the host

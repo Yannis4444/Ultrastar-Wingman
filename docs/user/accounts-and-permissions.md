@@ -108,10 +108,12 @@ line and nobody is logged in.
 
 ## The host screen
 
-The browser the host opened with the one-time host link is not an account. It is a
-session with full administrator rights, marked *This browser is the host screen —
-full access* on the **User** tab. It may change every setting, but it cannot own
-favorites or playlists — those need a real account.
+The browser the host opened with the one-time host link is not an account. It is
+a session with full administrator rights: the **User** tab shows it as *Host
+screen*, with *This browser has full access* under it, and offers *Log in as a
+user instead* for whoever wants their own account on that browser after all. It
+may change every setting, but it cannot own favorites or playlists — those need a
+real account.
 
 ## The four roles
 
@@ -166,9 +168,10 @@ appear for an administrator.
 
 **User → Permissions** is the table above made editable, all of it at once: one
 row per right, one column for **guest**, **user** and **trusted**. Rights that
-belong together stand under one heading — *songs*, *karaoke*, *players*,
-*wishlist*, *playlists*, *downloads*, *USDB*, *stats*, *settings*, *users*,
-*permissions* — and under each row stands in one line what it allows. Every tick
+belong together stand under one heading, in alphabetical order — *downloads*,
+*karaoke*, *permissions*, *players*, *playlists*, *settings*, *songs*, *stats*,
+*USDB*, *users*, *wishlist* — and under each row stands in one line what it
+allows. Every tick
 is saved right away and takes effect immediately, for everybody who is already
 looking at a page.
 

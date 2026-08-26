@@ -37,8 +37,31 @@ that list means the failure was not one of these at all — read the console
 window.
 
 !!! note
-    `config.ini` and `Ultrastar.db` are not checked. Ultrastar Deluxe creates
-    them itself, so neither has to exist yet.
+    `config.ini`, `Ultrastar.db` and Ultrastar Deluxe's own songs folder are not
+    checked. Each of them is created when it is first needed, so none has to
+    exist yet.
+
+## Ultrastar Deluxe opens the whole song list
+
+The song starts, but Ultrastar Deluxe comes up with its full song list instead
+of the song that was picked.
+
+Wingman starts every song from inside Ultrastar Deluxe's own songs folder — that
+is what keeps Ultrastar Deluxe from loading the rest of the library next to it.
+Three things get in the way:
+
+- **Wingman is pointed at the wrong folder.** It derives Ultrastar Deluxe's
+  songs folder from **USDX → Base path**. An installation that keeps its songs
+  somewhere else needs **USDX → Songs directory** filled in — that field is
+  Ultrastar Deluxe's folder, not the one Wingman scans.
+- **Ultrastar Deluxe has a song folder of its own on top.** A `SongDir1` line
+  (or `SongDir2`, and so on) in its `config.ini` pointing outside its songs
+  folder is loaded every time.
+  Wingman never touches that part of the file; take the line out yourself while
+  Ultrastar Deluxe is closed.
+- **The path has unusual characters in it.** A song folder called `Björk - Jóga`
+  is copied to a plain name automatically, but the folders above it are not — if
+  Ultrastar Deluxe itself lives under an accented path, move it.
 
 ## The song list is empty
 
@@ -99,10 +122,11 @@ Read the reason in the download row.
 - Everybody has to be on the same Wi-Fi. A guest phone on mobile data cannot see
   your PC.
 - The QR code carries the address Wingman worked out for itself: your PC's
-  address on the local network, never `localhost`, whichever address the host
-  screen was opened at. A VPN, a virtual machine adapter or a second network
-  card can make it pick the wrong one of your PC's addresses — then put the
-  right one into **User → Settings → Host → Join URL**, as described under
+  address on the local network, never `localhost`, no matter which address the
+  host screen itself was opened at. A VPN, a virtual machine adapter or a
+  second network card can make it pick the wrong one of your PC's addresses —
+  then put the right one into **User → Settings → Host → Join URL**, as
+  described under
   [Let the guests in](getting-started.md#let-the-guests-in). The line under the
   field, and the text under the QR code, always say which address is being
   handed out right now.

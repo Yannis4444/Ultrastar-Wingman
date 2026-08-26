@@ -6,7 +6,8 @@ in a browser.
 ## What you need
 
 - Ultrastar Deluxe, installed and started at least once.
-- A folder with songs — the same folder Ultrastar Deluxe uses.
+- A folder with songs — usually the one Ultrastar Deluxe already uses, but any
+  folder does.
 - `UltrastarWingman.exe`, or the Wingman source folder if you prefer to run it
   from there.
 
@@ -61,13 +62,13 @@ console into a browser.
 Go to **User → Settings** and fill in two things:
 
 1. **USDX → Base path** — the folder Ultrastar Deluxe is installed in. Wingman
-   finds the program, its `config.ini`, the avatars folder and the score database
-   inside it.
+   finds the program, its `config.ini`, the avatars folder, the score database
+   and Ultrastar Deluxe's own songs folder inside it.
 2. **Songs → Directory** — the folder that holds your songs. Every direct
    subfolder with a song text file in it is one song.
 
 Both fields are saved as you leave them. Open **Songs** and press the rescan
-button (the circling arrows next to the search); the song list fills up.
+button (the circling arrows next to the song count); the song list fills up.
 
 !!! note
     Have more song folders? Put the extra paths into **Songs → Additional

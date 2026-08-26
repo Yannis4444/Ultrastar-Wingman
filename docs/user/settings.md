@@ -95,8 +95,10 @@ same way a running song is refused — whoever may stop a song can still replace
 it.
 
 !!! note
-    `config.ini` is created by Ultrastar Deluxe on demand and `Ultrastar.db` only
-    exists after the first score, so neither has to be there yet.
+    `config.ini` is created by Ultrastar Deluxe on demand, `Ultrastar.db` only
+    exists after the first score, and Ultrastar Deluxe's own songs folder
+    appears at the latest when the first song is put into it, so none of the
+    three has to be there yet.
 
 ## Songs
 
@@ -104,11 +106,16 @@ Where your songs are.
 
 | Field | What it is |
 |---|---|
-| **Directory** (`songs.directory`) | The Ultrastar Deluxe songs folder Wingman scans. Downloads land here. |
+| **Directory** (`songs.directory`) | The folder Wingman scans for songs. Downloads land here. |
 | **Additional directories** (`songs.additional_directories`) | Further folders to scan, one path per line. |
 
 Every direct subfolder of a scanned folder that holds a song text file counts as
 one song. Scanning never writes anything into a song folder.
+
+This is your library, and it may be anywhere — it is usually Ultrastar Deluxe's
+own songs folder, but it does not have to be. Where Ultrastar Deluxe itself looks
+is [USDX → Songs directory](#usdx); a song that lives outside that folder is
+copied into it for as long as it plays.
 
 ## USDB
 

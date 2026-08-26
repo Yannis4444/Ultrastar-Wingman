@@ -53,7 +53,7 @@ plug in from outside the repo).
 ## Permissions
 
 - Permission checks live in one place (FastAPI dependencies) and are named by
-  capability (`songs:download`, `playlists:manage`, …), not by role. Roles are
+  capability (`downloads.manage`, `playlists.manage`, …), not by role. Roles are
   bundles of capabilities.
 - The host UI (the TV where USDX runs) is always admin — model this as a
   trusted local session, not a hardcoded bypass inside individual handlers.
