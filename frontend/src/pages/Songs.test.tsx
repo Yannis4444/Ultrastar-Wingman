@@ -616,9 +616,7 @@ test("the recently played tab lists this session's songs with the time they star
   renderSongs([AFRICA, QUEEN, THIRD]);
   await screen.findByText("Dancing Queen");
 
-  fireEvent.click(
-    await screen.findByRole("button", { name: "Recently played" }),
-  );
+  fireEvent.click(await screen.findByRole("button", { name: "Recent" }));
 
   // Newest first, exactly the order the endpoint sent — and only what was sung.
   const rows = screen.getAllByRole("button", {
@@ -660,9 +658,7 @@ test("a song whose file left the library is left out of the recently played tab"
   renderSongs([AFRICA]);
   await screen.findByText("Africa");
 
-  fireEvent.click(
-    await screen.findByRole("button", { name: "Recently played" }),
-  );
+  fireEvent.click(await screen.findByRole("button", { name: "Recent" }));
 
   expect(screen.getByText("Africa")).toBeInTheDocument();
   expect(screen.getByText("1 song")).toBeInTheDocument();
@@ -672,9 +668,7 @@ test("the search box filters inside the recently played tab", async () => {
   playedQueenThenAfrica();
   renderSongs([QUEEN, AFRICA]);
   await screen.findByText("Dancing Queen");
-  fireEvent.click(
-    await screen.findByRole("button", { name: "Recently played" }),
-  );
+  fireEvent.click(await screen.findByRole("button", { name: "Recent" }));
 
   searchFor("toT");
 
@@ -693,7 +687,7 @@ test("nothing sung yet means no recently played chip at all", async () => {
 
   await waitFor(() =>
     expect(
-      screen.queryByRole("button", { name: "Recently played" }),
+      screen.queryByRole("button", { name: "Recent" }),
     ).not.toBeInTheDocument(),
   );
 });
@@ -702,9 +696,7 @@ test("the tab a reader is standing on stays, and says the party is empty", async
   playedQueenThenAfrica();
   renderSongs([QUEEN, AFRICA]);
   await screen.findByText("Dancing Queen");
-  fireEvent.click(
-    await screen.findByRole("button", { name: "Recently played" }),
-  );
+  fireEvent.click(await screen.findByRole("button", { name: "Recent" }));
 
   // The party ended between two refetches: the list empties under the finger.
   listCurrentSessionSings.mockResolvedValue({ data: { sings: [] } });
@@ -717,15 +709,13 @@ test("the tab a reader is standing on stays, and says the party is empty", async
   expect(
     await screen.findByText("Nothing has been sung yet."),
   ).toBeInTheDocument();
-  expect(
-    screen.getByRole("button", { name: "Recently played" }),
-  ).toBeInTheDocument();
+  expect(screen.getByRole("button", { name: "Recent" })).toBeInTheDocument();
 });
 
 test("a song starting refetches what was recently played", async () => {
   playedQueenThenAfrica();
   renderSongs([QUEEN, AFRICA]);
-  await screen.findByRole("button", { name: "Recently played" });
+  await screen.findByRole("button", { name: "Recent" });
   listCurrentSessionSings.mockClear();
 
   FakeSocket.deliver({ event: "karaoke.started" });
@@ -740,7 +730,7 @@ test("a role without stats.view never asks what was played", async () => {
 
   await waitFor(() =>
     expect(
-      screen.queryByRole("button", { name: "Recently played" }),
+      screen.queryByRole("button", { name: "Recent" }),
     ).not.toBeInTheDocument(),
   );
   expect(listCurrentSessionSings).not.toHaveBeenCalled();

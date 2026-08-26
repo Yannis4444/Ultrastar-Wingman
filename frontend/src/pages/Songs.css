@@ -79,11 +79,11 @@
   }
 }
 
-/* Filter chips: All / Favorites / Recently played plus the link into the
-   playlists view. Wraps rather than scrolling sideways: at four chips the row is
-   ~424px, so on a 360–390px phone the scrolling version hid the trailing
-   "Playlists" chip behind a scrollbar. `overflow-x` stays as a backstop for the
-   sub-330px case where the filter group alone is wider than the page. */
+/* Filter chips: All / Favorites / Recent plus the link into the playlists
+   view. The four fit one line on a 360px phone (312px of 328px available) —
+   which took shortening "Recently played" and dropping the playlists label.
+   `flex-wrap` and `overflow-x` stay as backstops for narrower screens and for
+   a longer label in a future translation. */
 .songs-chips {
   display: flex;
   flex-wrap: wrap;
@@ -134,9 +134,21 @@
 
 /* The chip that leaves the page: a link, so it never looks pressed. It parks at
    the far end away from the filters — but only when there are filters to be
-   away from, or it would read as a stray chip pushed into the corner. */
+   away from, or it would read as a stray chip pushed into the corner.
+
+   Icon only, and square at the chips' 40px: the `list` glyph beside a filter
+   group is unambiguous, and its label was the 88px the row could not spare. */
 .songs-chip-link {
+  justify-content: center;
+  width: 40px;
+  padding: 0;
   text-decoration: none;
+}
+
+/* A solo glyph carries the chip on its own, so it takes the `.icon-button`
+   size rather than the 0.9em the chip labels set. */
+.songs-chip-link .icon {
+  font-size: 1.25em;
 }
 
 .songs-chip-link:not(:first-child) {

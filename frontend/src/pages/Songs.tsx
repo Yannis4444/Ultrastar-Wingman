@@ -179,15 +179,21 @@ export default function Songs() {
                   onClick={() => setFilter(RECENT)}
                 >
                   <Icon name="clock" />
-                  Recently played
+                  Recent
                 </button>
               )}
             </div>
           )}
+          {/* Icon only: with its label the four chips ran to 427px and wrapped
+              onto a second line on every phone. */}
           {canBrowsePlaylists && (
-            <Link to="/songs/playlists" className="songs-chip songs-chip-link">
+            <Link
+              to="/songs/playlists"
+              className="songs-chip songs-chip-link"
+              aria-label="Playlists"
+              title="Playlists"
+            >
               <Icon name="list" />
-              Playlists
             </Link>
           )}
         </div>
