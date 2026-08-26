@@ -5,7 +5,8 @@ picks for you. It spins like a slot machine and stops on the winner.
 
 ## Spin it
 
-1. Choose what it may pick from.
+1. Choose what it may pick from. The line under the choices tells you how
+   many songs are in the running.
 2. Press **SPIN**.
 3. The reel runs for a few seconds and reveals the song. Tap the winner to open
    its details — from there you go straight into **Sing**.

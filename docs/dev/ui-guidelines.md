@@ -96,7 +96,8 @@ className })` renders exactly one `<path d>` in a 24×24 viewBox with
 refresh, play, stop, heart, plus, check, close, chevrons, arrows, download,
 clock, alert, trash, pencil, shield, users, gear, star, trophy, mic, globe,
 tag, calendar, disc, user, database, video, music, info, list/playlist
-families, chart, average, hash, image, power, dice, tv, github.
+families, chart, average, hash, image, power, dice (`dice` is the five; `dice-1`…`dice-6`
+are the other faces), tv, github.
 
 Two glyph families keep wishes and playlists apart at a glance:
 
@@ -138,9 +139,14 @@ Never inline an `<svg>` in a component (the one existing exception,
   native radio inside a `<label>` plus a visible `<span>`; checked =
   `--highlight-blue-dark` fill, `--highlight-blue-light` border/text; focus via
   `input:focus-visible + span`. For 2–4 mutually exclusive options that must
-  all be visible.
+  all be visible — the spinner scope is the reference implementation.
+- **The gradient button** (`.home-random`, `.spinner-spin`): the blue→pink
+  sweep with the `dice` glyph marks the way into the slot machine and the SPIN
+  action itself, nothing else. It is the one gradient button in the app; on SPIN the
+  die tumbles and rolls through its faces while the reel runs.
 - **`CheckOption`** (the old app's animated round check) only where a handful
-  of options all fit on screen — today the spinner scope. Dense matrices
+  of options all fit on screen — today the download-panel filters and the
+  video-quality presets. Dense matrices
   (permissions, settings toggles) keep native checkboxes with
   `accent-color: var(--highlight-blue-light)`.
 - **Quiet `<select>`s** for grouping/sorting controls that should not dominate

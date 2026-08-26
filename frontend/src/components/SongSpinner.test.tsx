@@ -9,6 +9,7 @@ import {
 import type { SongRead, WishRead } from "../api";
 import { meResponse } from "../test/auth";
 import { FakeSocket } from "../test/fakeSocket";
+import { iconNames } from "../test/icons";
 import SongSpinner from "./SongSpinner";
 
 // Same seam as the other tests: the real TanStack wiring runs, only the
@@ -112,22 +113,61 @@ test("the reel only holds songs from the selected scope", async () => {
   expect(new Set(ids)).toEqual(new Set(["usdb:2", "usdb:3"]));
 });
 
-test("the scope options are the shared check control, one of them chosen", async () => {
+test("the scope options are segmented pills, one of them chosen", async () => {
   renderSpinner([QUEEN, AFRICA], [wish(AFRICA)]);
 
   const all = await screen.findByLabelText("All songs");
   const wishlist = screen.getByLabelText("Wishlist");
   expect(all).toBeChecked();
-  expect(all.closest("label")).toHaveClass("check-option");
-  // Only the chosen option draws the animated mark.
-  expect(document.querySelectorAll(".check-option-mark")).toHaveLength(1);
+  expect(all.closest("label")).toHaveClass("spinner-scope");
+  // The pills are radios of one group: the keyboard and screen-reader
+  // semantics stay with the hidden input.
+  expect(all).toHaveAttribute("type", "radio");
+  expect(all).toHaveClass("visually-hidden");
 
   await waitFor(() => expect(wishlist).toBeEnabled());
   fireEvent.click(wishlist);
 
   expect(wishlist).toBeChecked();
   expect(all).not.toBeChecked();
-  expect(document.querySelectorAll(".check-option-mark")).toHaveLength(1);
+});
+
+test("the caption under the pills counts what the reel can land on", async () => {
+  renderSpinner(
+    [QUEEN, AFRICA, WATERLOO],
+    [wish(AFRICA, 3), wish(WATERLOO, 1)],
+  );
+
+  expect(await screen.findByText("3 songs")).toBeInTheDocument();
+
+  await chooseScope("Wishlist");
+  expect(screen.getByText("2 wished songs")).toBeInTheDocument();
+
+  // Weighted: one ticket per wish, so the wish total is what matters.
+  await chooseScope("Wishlist (weighted)");
+  expect(screen.getByText("2 wished songs · 4 wishes")).toBeInTheDocument();
+});
+
+test("an empty library says so instead of showing a count", async () => {
+  renderSpinner([], []);
+
+  expect(
+    await screen.findByText("No songs in the library yet"),
+  ).toBeInTheDocument();
+});
+
+test("the reel covers load eagerly, so they are there when they fly past", async () => {
+  const { container } = renderSpinner([QUEEN, AFRICA], []);
+  // The caption is the sign that the library has arrived.
+  await screen.findByText("2 songs");
+
+  fireEvent.click(spinButton());
+
+  const covers = container.querySelectorAll(".spinner-reel img");
+  expect(covers.length).toBeGreaterThan(40);
+  for (const cover of covers) {
+    expect(cover).toHaveAttribute("loading", "eager");
+  }
 });
 
 test("the result slot is reserved but empty before the first spin", async () => {
@@ -156,6 +196,25 @@ test("the weighted scope gives a song one ticket per wish", async () => {
   await chooseScope("Wishlist (weighted)");
   fireEvent.click(spinButton());
   expect(new Set(reelSongIds(weighted.container))).toEqual(new Set(["usdb:2"]));
+});
+
+test("the first spin starts from the logo, later spins from the last winner", async () => {
+  vi.useFakeTimers({ shouldAdvanceTime: true });
+  const { container } = renderSpinner([QUEEN], []);
+  await screen.findByText("1 song");
+  const resting = () => container.querySelector(".spinner-reel > :last-child");
+
+  fireEvent.click(spinButton());
+  // The window showed the logo before the first spin; it is what spins away.
+  expect(resting()).toHaveClass("spinner-cover-logo");
+  expect(resting()?.tagName).toBe("SPAN");
+
+  act(() => vi.advanceTimersByTime(6000));
+  fireEvent.click(spinButton());
+  // From then on the previous winner's cover is the one on show at the start.
+  expect(resting()?.tagName).toBe("IMG");
+  const ids = reelSongIds(container);
+  expect(ids[ids.length - 1]).toBe("usdb:1");
 });
 
 test("the reel stays put when an unrelated update re-renders the spinner", async () => {
@@ -195,6 +254,31 @@ test("the finished spin settles in place and opens no modal by itself", async ()
   expect(screen.getByText("Dancing Queen")).toBeInTheDocument();
   expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
   expect(spinButton()).toBeEnabled();
+});
+
+test("the die on the button rolls through its faces while the reel runs", async () => {
+  vi.useFakeTimers({ shouldAdvanceTime: true });
+  renderSpinner([QUEEN, AFRICA], []);
+  await screen.findByText("2 songs");
+  const die = () => iconNames(spinButton())[0];
+  expect(die()).toBe("dice");
+
+  fireEvent.click(spinButton());
+  const seen = new Set<string>();
+  for (let step = 0; step < 6; step += 1) {
+    act(() => vi.advanceTimersByTime(150));
+    seen.add(die());
+  }
+
+  // Every roll lands on another face, so a handful of steps show several.
+  expect(seen.size).toBeGreaterThan(1);
+  for (const name of seen) expect(name).toMatch(/^dice(-[1-6])?$/);
+
+  // Settled: the die stops on whatever it last showed and stays there.
+  act(() => vi.advanceTimersByTime(6000));
+  const rest = die();
+  act(() => vi.advanceTimersByTime(1000));
+  expect(die()).toBe(rest);
 });
 
 test("the settled result opens the song modal when it is clicked", async () => {

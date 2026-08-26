@@ -1,6 +1,7 @@
-/* One centred column: options, the reel alone, the result, the spin button. */
+/* One centred column: the scope pills and the pool size, the reel alone, the
+   result, the SPIN button. Flat on the page — the reel is the only surface. */
 .spinner {
-  --spinner-cover: min(280px, 70vw);
+  --spinner-cover: min(320px, 80vw);
 
   display: flex;
   flex-direction: column;
@@ -11,10 +12,13 @@
   padding: 0 16px;
 }
 
+/* Segmented pills, one row where they fit and a centred wrap where they do
+   not (the weighted label is long at 360px). */
 .spinner-scopes {
   display: flex;
-  flex-direction: column;
-  gap: 4px;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 8px;
   align-self: stretch;
   min-width: 0;
   margin: 0;
@@ -22,10 +26,71 @@
   border: none;
 }
 
-/* The shared control indents itself by 32px to tuck under an `h2`; there is no
-   heading here, so the options line up with the column's own content edge. */
-.spinner .check-option {
-  margin-left: 0;
+.spinner-scope {
+  display: flex;
+  min-width: 0;
+}
+
+/* Hairline and transparent at rest, like the quiet input; the chosen pill
+   fills with the blue accent. The radio underneath is visually hidden, so hover,
+   checked, disabled and focus all draw on the text. */
+.spinner-scope-text {
+  display: flex;
+  box-sizing: border-box;
+  align-items: center;
+  min-height: 40px;
+  padding: 0 16px;
+  font-size: 0.9em;
+  font-weight: 600;
+  white-space: nowrap;
+  color: var(--color-dark);
+  background-color: transparent;
+  border: 1px solid var(--input-border-color);
+  border-radius: var(--border-radius);
+  cursor: pointer;
+  transition:
+    color 0.15s,
+    background-color 0.15s,
+    border-color 0.15s;
+}
+
+.spinner-scope:hover input:enabled ~ .spinner-scope-text {
+  color: var(--color);
+  border-color: var(--color-darker);
+}
+
+/* After the hover rule at equal specificity, so a hovered chosen pill keeps the
+   accent border. */
+.spinner-scope input:checked ~ .spinner-scope-text {
+  color: var(--highlight-blue-light);
+  background-color: var(--highlight-blue-dark);
+  border-color: var(--highlight-blue-light);
+}
+
+.spinner-scope input:disabled ~ .spinner-scope-text {
+  color: var(--color-darkerer);
+  cursor: default;
+}
+
+/* A chosen pill that is only disabled while the reel runs keeps its fill. */
+.spinner-scope input:disabled:checked ~ .spinner-scope-text {
+  color: var(--highlight-blue-light);
+}
+
+.spinner-scope input:focus-visible ~ .spinner-scope-text {
+  outline: 2px solid var(--highlight-blue-light);
+  outline-offset: 2px;
+}
+
+/* What the reel can land on. The line is always reserved, so switching scopes
+   never shifts the reel; it sits closer to the pills than the column rhythm. */
+.spinner-pool {
+  min-height: 1.2em;
+  margin: -8px 0 0;
+  font-size: 0.85em;
+  font-variant-numeric: tabular-nums;
+  text-align: center;
+  color: var(--color-darker);
 }
 
 /* The slot window: only one cover of the reel is visible at a time, and it is
@@ -104,12 +169,21 @@
   width: var(--spinner-cover);
 }
 
-.spinner-cover {
+/* Black behind every cover, as behind the logo: a non-square cover is
+   letterboxed on black, and a missing one is its initial on black. The
+   `.spinner-window` prefix outranks the fallback tile's own `--input-bg`. */
+.spinner-window .spinner-cover {
   display: block;
   width: var(--spinner-cover);
   height: var(--spinner-cover);
   object-fit: contain;
-  background-color: var(--input-bg);
+  background-color: #000;
+}
+
+/* The bottom entry of the first spin: drawn exactly like the window behind it,
+   so the logo the reader was looking at is what starts to move. */
+.spinner-cover-logo {
+  background: #000 url("/logo.png") center/60% no-repeat;
 }
 
 /* Keeps the two result lines' worth of height whether or not a spin has
@@ -119,10 +193,11 @@
   align-items: center;
   align-self: stretch;
   min-width: 0;
-  min-height: 2.5em;
+  min-height: 2.75em;
 }
 
-/* The result, flat under the reel — no box, the reel is the surface here. */
+/* The result, flat under the reel at the song hero's sizes — no box, the reel
+   is the surface here. It rises in with each reveal. */
 .spinner-winner {
   display: grid;
   gap: 2px;
@@ -135,10 +210,18 @@
   background: none;
   border: none;
   cursor: pointer;
+  animation: spinner-rise 0.3s ease-out;
+}
+
+@keyframes spinner-rise {
+  from {
+    opacity: 0;
+    transform: translateY(6px);
+  }
 }
 
 /* While the reel runs the line still names the *previous* winner, so it steps
-   back a shade — the old app dimmed both lines the same way. */
+   back a shade. */
 .spinner-winner:disabled {
   color: var(--color-darker);
   cursor: default;
@@ -152,39 +235,128 @@
   color: var(--highlight-blue-light);
 }
 
-.spinner-winner-title,
-.spinner-winner-artist {
+.spinner-winner-title {
   overflow: hidden;
   white-space: nowrap;
   text-overflow: ellipsis;
-}
-
-.spinner-winner-title {
+  font-size: 1.15em;
   font-weight: bold;
   transition: color 0.2s;
 }
 
 .spinner-winner-artist {
-  font-size: 0.75em;
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+  font-size: 0.85em;
   color: var(--color-darker);
 }
 
+/* The same sweep as the Random-song button on Home: the gesture that opened
+   this page is the gesture that spins. The gradient stays lit while the reel
+   runs — the button is busy, not off — and only goes flat when there is
+   nothing to pick from. */
 .spinner-spin {
+  /* Same composition as `.home-random`: the two sweeps must match. */
+  --gradient-blue: color-mix(
+    in srgb,
+    var(--highlight-blue-light) 75%,
+    var(--highlight-blue-dark)
+  );
+
+  display: flex;
+  box-sizing: border-box;
+  align-items: center;
+  justify-content: center;
+  gap: 12px;
   width: 100%;
-  min-height: 48px;
-  font-size: 1.4em;
-  font-weight: bold;
+  min-height: 56px;
+  padding: 0 16px;
+  font: inherit;
+  font-size: 1.1em;
+  font-weight: 700;
   letter-spacing: 0.1em;
   text-transform: uppercase;
+  color: var(--color);
+  /* Under the gradient, invisible while it paints — and the flat fallback if a
+     token ever fails to resolve. */
+  background-color: var(--highlight-pink-dark);
+  background-image: linear-gradient(
+    135deg,
+    var(--gradient-blue),
+    var(--highlight-pink-dark)
+  );
+  border: 1px solid var(--input-border-color);
+  border-radius: var(--border-radius);
+  cursor: pointer;
+  transition: filter 0.15s ease;
+}
+
+.spinner-spin:hover:enabled {
+  filter: brightness(1.25);
 }
 
 .spinner-spin:disabled {
   color: var(--color-darkerer);
   background-color: var(--input-bg);
+  background-image: none;
+  cursor: default;
+}
+
+.spinner-spin-running:disabled {
+  color: var(--color);
+  background-color: var(--highlight-pink-dark);
+  background-image: linear-gradient(
+    135deg,
+    var(--gradient-blue),
+    var(--highlight-pink-dark)
+  );
+}
+
+.spinner-spin-dice {
+  font-size: 1.5em;
+}
+
+/* The nudge Home gives the die on hover... */
+.spinner-spin:hover:enabled .spinner-spin-dice {
+  animation: spinner-dice-roll 0.6s ease-in-out;
+}
+
+/* ...and the tumble while the reel runs: eight turns on the reel's clock, but
+   on a curve of its own — up to speed within the first half second where the
+   reel winds up slowly — and a long settle, so the die still comes to rest as
+   the covers do. The face it shows changes underneath, roll by roll, from the
+   component. */
+.spinner-spin-running .spinner-spin-dice {
+  animation: spinner-dice-tumble 5000ms cubic-bezier(0.2, 0.1, 0.1, 1) both;
+}
+
+@keyframes spinner-dice-roll {
+  25% {
+    transform: rotate(-14deg);
+  }
+
+  75% {
+    transform: rotate(14deg);
+  }
+}
+
+@keyframes spinner-dice-tumble {
+  to {
+    transform: rotate(2880deg);
+  }
 }
 
 @media (prefers-reduced-motion: reduce) {
-  .spinner-winner-title {
+  .spinner-scope-text,
+  .spinner-winner-title,
+  .spinner-spin {
     transition: none;
+  }
+
+  .spinner-winner,
+  .spinner-spin:hover:enabled .spinner-spin-dice,
+  .spinner-spin-running .spinner-spin-dice {
+    animation: none;
   }
 }
