@@ -18,9 +18,9 @@ override are the accessibility and dependency floors in §1.8–1.10.
    "needs a box", it needs a separator and 16px of margin instead.
 2. **`--tile-bg` is whitelisted, not general.** Allowed: the Home stage
    (`.home-stage`), the User identity card (`.user-identity`), modal panels
-   (`.modal`, non-bare), the Scores boxplot card (`.scores-chart`), the summary
-   of an opened score group (`.score-group-panel`), the USDB login card and the
-   login form, and the "add songs from…" source cards.
+   (`.modal`, non-bare), the Scores boxplot card (`.scores-chart`), an opened
+   score group (`.score-group-panel`), the USDB login card and the login form,
+   and the "add songs from…" source cards.
    Nothing else. Extending the whitelist is a user decision.
 3. **No per-row badges for near-universal attributes.** No "MP3", "video",
    "duet", "downloaded", role chips per account row. Such facts belong in the
@@ -214,13 +214,15 @@ Every new route: register in `App.tsx` **and** add it to `COVERS` in
 - **Scores** rows are flat `<details>` groups: rank numeral (pink top 3),
   cover or avatar, two lines of text, score, chevron. The two lines are a list
   row's, never a spread crammed into one: title over artist under a song, name
-  over "N scores" under a singer. The spread lives in the one tile the row
-  unfolds (`.score-group-panel`) — `hash` / `arrow-up` / `arrow-down` /
-  `average` as labelled `IconStat`s plus the histogram — and under it the
-  scores themselves, again as ordinary list rows (songs: title over artist;
-  singers: avatar and name). Ungrouped a row *is* one score, so it does not
-  unfold: it is a plain row that opens the song. Expanded score rows are
-  `border-box` so they stay inside the list.
+  over "N scores" under a singer. Everything an open row shows is one tile
+  (`.score-group-panel`): the group's summary — `hash` / `arrow-up` /
+  `arrow-down` / `average` as labelled `IconStat`s plus the histogram — over a
+  hairline, then the scores themselves as ordinary list rows (songs: title over
+  artist; singers: avatar and name). A group of one score has no summary, so
+  the tile opens on its single row. Ungrouped a row *is* one score and does not
+  unfold at all: it is a plain row that opens the song. Rows inside the tile
+  are `border-box` and take its width; their hover band is a lift off
+  `--tile-bg` (`--highlight-blue-dark` is that same colour).
 - **Settings** groups are `<details class="settings-group" open>` with a
   section icon; fields are flat `.setting-field` rows with quiet inputs and a
   0.85em description; complex settings get their own sub-page, not an inline

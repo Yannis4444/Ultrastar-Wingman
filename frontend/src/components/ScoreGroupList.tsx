@@ -86,14 +86,14 @@ function rowLines(
 
 /**
  * What an opened group adds up to: the four numbers the row no longer carries,
- * plus the shape behind them. The one tile on this page besides the session's
- * boxplot — it holds the summary, never the scores themselves, which stay flat
- * rows like every other list.
+ * and the shape behind them. Sits at the head of the tile the row unfolds; one
+ * score is its own best, worst and average, so a group of one has no summary
+ * to show and the tile opens on its single row instead.
  */
-function GroupPanel({ group, named }: { group: ScoreGroup; named: boolean }) {
+function GroupSummary({ group, named }: { group: ScoreGroup; named: boolean }) {
   const worst = group.scores[group.scores.length - 1];
   return (
-    <div className="score-group-panel">
+    <>
       <div className="score-group-stats">
         <IconStat
           className="score-group-stat"
@@ -134,7 +134,7 @@ function GroupPanel({ group, named }: { group: ScoreGroup; named: boolean }) {
           />
         </div>
       )}
-    </div>
+    </>
   );
 }
 
@@ -250,72 +250,76 @@ export default function ScoreGroupList({
             <details data-testid="score-group">
               <summary>{head}</summary>
 
-              {/* One score is its own best, worst and average — four times the
-                  same number says nothing the row below it does not. */}
-              {group.scores.length > 1 && (
-                <GroupPanel group={group} named={namedPeaks} />
-              )}
+              {/* Everything the open row shows is one tile: what the group adds
+                  up to, and the scores it adds up from. */}
+              <div className="score-group-panel">
+                {/* One score is its own best, worst and average — four times
+                    the same number says nothing the row below it does not. */}
+                {group.scores.length > 1 && (
+                  <GroupSummary group={group} named={namedPeaks} />
+                )}
 
-              <ul className="score-group-scores">
-                {group.scores.map((score) => {
-                  const entry = entryLines(score, {
-                    ownRows,
-                    rowsAreSongs,
-                  });
-                  const body = (
-                    <>
-                      {ownRows ? null : rowsAreSongs ? (
-                        score.song !== null ? (
-                          <SongCover
-                            song={score.song}
-                            className="score-entry-cover"
-                          />
+                <ul className="score-group-scores">
+                  {group.scores.map((score) => {
+                    const entry = entryLines(score, {
+                      ownRows,
+                      rowsAreSongs,
+                    });
+                    const body = (
+                      <>
+                        {ownRows ? null : rowsAreSongs ? (
+                          score.song !== null ? (
+                            <SongCover
+                              song={score.song}
+                              className="score-entry-cover"
+                            />
+                          ) : (
+                            <MissingCover className="score-entry-cover" />
+                          )
                         ) : (
-                          <MissingCover className="score-entry-cover" />
-                        )
-                      ) : (
-                        <PlayerAvatar
-                          player={scorePlayer(score, players)}
-                          className="score-entry-avatar"
-                        />
-                      )}
-                      <span className="score-group-text">
-                        <span
-                          className={
-                            ownRows
-                              ? "score-group-label score-entry-when"
-                              : "score-group-label"
-                          }
-                        >
-                          {entry.title}
-                        </span>
-                        {entry.caption !== null && (
-                          <span className="score-group-caption">
-                            {entry.caption}
-                          </span>
+                          <PlayerAvatar
+                            player={scorePlayer(score, players)}
+                            className="score-entry-avatar"
+                          />
                         )}
-                      </span>
-                      <span className="score-group-score">{score.score}</span>
-                    </>
-                  );
-                  const entrySong = score.song;
-                  return (
-                    <li key={score.id} data-testid="score-row">
-                      {rowsAreSongs && entrySong !== null ? (
-                        <button
-                          type="button"
-                          className="score-entry score-entry-button"
-                          onClick={() => onOpenSong(entrySong)}
-                        >
-                          {body}
-                        </button>
-                      ) : (
-                        <div className="score-entry">{body}</div>
-                      )}
-                    </li>
-                  );
-                })}
-              </ul>
+                        <span className="score-group-text">
+                          <span
+                            className={
+                              ownRows
+                                ? "score-group-label score-entry-when"
+                                : "score-group-label"
+                            }
+                          >
+                            {entry.title}
+                          </span>
+                          {entry.caption !== null && (
+                            <span className="score-group-caption">
+                              {entry.caption}
+                            </span>
+                          )}
+                        </span>
+                        <span className="score-group-score">{score.score}</span>
+                      </>
+                    );
+                    const entrySong = score.song;
+                    return (
+                      <li key={score.id} data-testid="score-row">
+                        {rowsAreSongs && entrySong !== null ? (
+                          <button
+                            type="button"
+                            className="score-entry score-entry-button"
+                            onClick={() => onOpenSong(entrySong)}
+                          >
+                            {body}
+                          </button>
+                        ) : (
+                          <div className="score-entry">{body}</div>
+                        )}
+                      </li>
+                    );
+                  })}
+                </ul>
+              </div>
             </details>
           </li>
         );

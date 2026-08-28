@@ -295,10 +295,10 @@ test("a song sung once carries its artist, and its run one tap away", async () =
   const row = screen.getAllByTestId("score-group")[0];
   expect(row.querySelector(".score-group-caption")).toHaveTextContent("Queen");
 
-  // One score is its own best, worst and average, so it gets no panel — just
-  // the run behind it, which is what tells two of them apart.
+  // One score is its own best, worst and average, so the tile opens with no
+  // summary at all — just the run behind it, which is what tells two apart.
   fireEvent.click(screen.getByText("Bohemian Rhapsody"));
-  expect(document.querySelector(".score-group-panel")).toBeNull();
+  expect(document.querySelector(".score-group-stats")).toBeNull();
   expect(screen.getByTestId("score-row")).toHaveTextContent(
     shortDate("2026-08-23T20:00:00Z"),
   );

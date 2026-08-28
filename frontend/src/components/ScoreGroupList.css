@@ -162,10 +162,10 @@ details[open] > summary .score-group-chevron {
   }
 }
 
-/* What the opened group adds up to, as one tile: the four numbers the row
-   itself no longer carries, and the shape behind them. As wide as the row it
-   hangs off, so the histogram gets the whole column; the scores below it stay
-   indented to the row's text column, as list rows. */
+/* Everything an opened row shows, as one tile: what the group adds up to, and
+   the scores it adds up from. As wide as the row it hangs off — the rows
+   inside it are the tile's own list, so they take its width rather than the
+   44px indent they had while they sat on the page. */
 .score-group-panel {
   margin: 4px 8px 8px 8px;
   padding: 12px;
@@ -214,24 +214,32 @@ details[open] > summary .score-group-chevron {
   margin-top: 8px;
 }
 
-/* The expanded scores, indented to the row's text column. */
+/* The scores themselves, filling the rest of the tile. The 8px negative
+   margin is the row padding given back: the rows read as a list that runs the
+   width of the tile, and their hover band still bleeds past their text. */
 .score-group-scores {
-  margin: 0 0 8px 44px;
+  margin: 0 -8px;
   padding: 0;
   list-style: none;
 }
 
-.score-group-scores > li {
+/* Only between rows — the hairline that divides them from the summary above is
+   the summary's, so a group of one score draws none at all. */
+.score-group-scores > li + li {
+  border-top: 1px solid var(--input-border-color);
+}
+
+/* The scores are a section of the tile, not a continuation of the numbers. */
+.score-group-stats + .score-group-scores,
+.score-group-chart + .score-group-scores {
+  margin-top: 12px;
+  padding-top: 4px;
   border-top: 1px solid var(--input-border-color);
 }
 
 /* `border-box` because the app is content-box: `width: 100%` plus 8px of
-   padding a side made every expanded row 16px wider than the list, which is
-   what put a horizontal scrollbar under the whole page.
-
-   40px on the right, not 8: that is the 8px padding plus the summary's 20px
-   chevron and the 12px gap before it, so an expanded score lands in the same
-   column as the group score above it instead of hanging past it. */
+   padding a side made every expanded row wider than the tile it sits in, which
+   is what put a horizontal scrollbar under the whole page. */
 .score-entry {
   box-sizing: border-box;
   display: flex;
@@ -239,7 +247,7 @@ details[open] > summary .score-group-chevron {
   align-items: center;
   width: 100%;
   min-height: 44px;
-  padding: 6px 40px 6px 8px;
+  padding: 6px 8px;
   border-radius: var(--border-radius-small);
 }
 
@@ -253,8 +261,11 @@ details[open] > summary .score-group-chevron {
   cursor: pointer;
 }
 
+/* `--highlight-blue-dark` is the app's hover fill, but on `--tile-bg` the two
+   are the same colour — inside the tile the band has to lift off the surface
+   instead. */
 .score-entry-button:hover {
-  background-color: var(--highlight-blue-dark);
+  background-color: color-mix(in srgb, var(--tile-bg) 88%, #fff);
 }
 
 .score-entry-button:focus-visible {

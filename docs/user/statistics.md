@@ -66,11 +66,11 @@ the list itself.
 score* or *worst score*. The number printed at the right of each row is always
 the one being sorted on, so the ranking can never disagree with itself.
 
-Tap a row to open it. What that group adds up to — how many scores, the best,
-the worst and the average, under a song with the name of whoever managed the
-best and the worst — sits in a panel of its own, with the shape of those scores
-drawn under it once there are at least four. Below the panel is every single
-score behind the row: the songs of that singer, or the singers of that song.
+Tap a row to open it, and it unfolds into a card. At the top, what that group
+adds up to: how many scores, the best, the worst and the average — under a song
+with the name of whoever managed the best and the worst — plus the shape of
+those scores once there are at least four of them. Under that, every single
+score behind the row: the songs that singer sang, or the singers of that song.
 
 The chart is a box plot: the box is where most of that singer's (or song's) scores
 sit, the line in it is the median, and the whiskers are the outliers. A singer
@@ -86,8 +86,8 @@ own scores are yours: they show up whatever the host has done with the history
 right — it is somebody *else's* record that needs it. It is
 always grouped by song — one row per song you ever sang — so the only control
 is **Sort**. Open a row for how often you sang it, your best, worst and average
-and the spread behind them, plus every single run with the day and time it
-happened. A cover opens the song itself.
+and the spread behind them, and under those every single run with the day and
+time it happened. A cover opens the song itself.
 
 The row only appears once you have been scored at least once, and only for a
 logged-in account that is linked to a player: scores belong to a player, and

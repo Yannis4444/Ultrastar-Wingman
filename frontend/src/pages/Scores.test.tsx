@@ -543,6 +543,8 @@ test("an opened group states its whole spread in one tile", async () => {
     ["Worst", "8000"],
     ["Average", "8500"],
   ]);
+  // The scores are part of that tile, not a list left behind under it.
+  expect(panel.querySelector(".score-group-scores")).not.toBeNull();
 });
 
 test("under a song, best and worst still name the singer who managed them", async () => {
