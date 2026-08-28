@@ -78,8 +78,61 @@
   border-bottom: none;
 }
 
+/* The group's second half: overrides of what Wingman derives on its own, and
+   the escape hatches a normal setup never needs. Subordinate to the section
+   header, so it borrows the fields' 16px column instead of the header's look —
+   no icon, no rule, and its chevron leads the word rather than sitting at the
+   far edge. */
+.settings-advanced > summary {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-height: 44px;
+  margin: 0 16px;
+  font-size: 0.85em;
+  color: var(--color-darker);
+  cursor: pointer;
+  list-style: none;
+}
+
+.settings-advanced > summary::-webkit-details-marker {
+  display: none;
+}
+
+.settings-advanced > summary:hover {
+  color: var(--color-dark);
+}
+
+/* Same drawn chevron as the group header, pointing right while closed. */
+.settings-advanced > summary::before {
+  content: "";
+  width: 6px;
+  height: 6px;
+  border-right: 2px solid var(--color-darker);
+  border-bottom: 2px solid var(--color-darker);
+  transform: rotate(-45deg);
+  transition: transform 0.15s;
+}
+
+.settings-advanced[open] > summary::before {
+  transform: rotate(45deg);
+}
+
+.settings-advanced > summary:focus-visible {
+  outline: 2px solid var(--highlight-blue-light);
+  outline-offset: -2px;
+}
+
+/* Last row of the group either way — the hairline above the summary is what
+   separates the two halves. */
+.settings-advanced > .setting-field:last-child,
+.settings-advanced > :last-child > .setting-field:last-of-type {
+  border-bottom: none;
+}
+
 @media (prefers-reduced-motion: reduce) {
-  .settings-group > summary::after {
+  .settings-group > summary::after,
+  .settings-advanced > summary::before {
     transition: none;
   }
 }

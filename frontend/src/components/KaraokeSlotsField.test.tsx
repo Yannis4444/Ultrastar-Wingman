@@ -36,6 +36,7 @@ const SETTING: SettingRead = {
   group: "Karaoke",
   description: "The singing slots, as Ultrastar Deluxe color names.",
   secret: false,
+  advanced: false,
   is_set: true,
 };
 

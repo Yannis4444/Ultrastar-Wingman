@@ -45,6 +45,7 @@ function setting(overrides: Partial<SettingRead>): SettingRead {
     group: "Songs",
     description: "Where the songs live.",
     secret: false,
+    advanced: false,
     is_set: false,
     ...overrides,
   };
@@ -54,6 +55,7 @@ const DIRECTORY = setting({ value: "C:/songs", is_set: true });
 const ADDITIONAL = setting({
   key: "songs.additional_directories",
   description: "Further directories, one path per line.",
+  advanced: true,
 });
 const USERNAME = setting({
   key: "usdb.username",
@@ -184,8 +186,11 @@ test("the sections are ordered task first and carry no count", async () => {
   renderSettings();
 
   await screen.findByText("Songs");
+  // Only the sections themselves — a group's own "Advanced" half is a
+  // `<details>` too, and it is not one of them.
   const groups = screen
     .getAllByRole("group")
+    .filter((group) => group.classList.contains("settings-group"))
     .map((group) => group.querySelector("summary")?.textContent);
   expect(groups).toEqual(["Host", "Songs", "USDX", "USDB", "Downloads"]);
   // The count was wrong wherever one setting rendered several rows.
@@ -426,6 +431,26 @@ test("a saved join URL refetches the address the QR code will carry", async () =
   expect(
     await screen.findByText(/Guests open http:\/\/party\.local:1234\./),
   ).toBeVisible();
+});
+
+test("a setting a normal setup never touches is folded away in its group", async () => {
+  renderSettings();
+
+  // Inside Songs, not in an "Advanced" section of its own: what a setting
+  // belongs to does not change, only how loudly it is shown.
+  const advanced = (await screen.findByText("Additional directories")).closest(
+    "details",
+  );
+  expect(advanced).toHaveClass("settings-advanced");
+  expect(advanced?.parentElement).toHaveClass("settings-group");
+  expect(screen.getByLabelText("Additional directories")).not.toBeVisible();
+  expect(screen.getByLabelText("Directory")).toBeVisible();
+  // A group whose settings are all ordinary keeps no empty toggle.
+  expect(screen.getAllByText("Advanced")).toHaveLength(1);
+
+  fireEvent.click(screen.getByText("Advanced"));
+
+  expect(screen.getByLabelText("Additional directories")).toBeVisible();
 });
 
 test("view-only access disables every input", async () => {
