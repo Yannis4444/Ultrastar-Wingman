@@ -27,6 +27,8 @@ vi.mock("../api/sdk.gen", async (importOriginal) => ({
 }));
 
 const LIBRARY = ["playlists.view", "playlists.manage"];
+// `moderate` never stands alone: it extends `manage` to somebody else's list.
+const MODERATOR = [...LIBRARY, "playlists.moderate"];
 const ACCOUNT: Partial<MeRead> = { user: userRead(), role: "user" };
 
 function playlist(overrides: Partial<PlaylistRead> = {}): PlaylistRead {
@@ -284,9 +286,9 @@ test("a guest sees the playlists but gets no create form", async () => {
 });
 
 test("the host may fix a shared playlist it does not own", async () => {
-  // The host session is an administrator without an account: it can never own a
-  // playlist (so no create form), but the backend lets it edit anybody's.
-  renderPlaylists([playlist({ shared: true, mine: false })], LIBRARY, {
+  // The host session holds every right but has no account: it can never own a
+  // playlist (so no create form), and reaches this one through `moderate`.
+  renderPlaylists([playlist({ shared: true, mine: false })], MODERATOR, {
     user: null,
     role: "admin",
     is_host: true,
@@ -299,6 +301,18 @@ test("the host may fix a shared playlist it does not own", async () => {
     screen.getByRole("button", { name: "Delete playlist Party" }),
   ).toBeInTheDocument();
   expect(screen.queryByLabelText("New playlist name")).not.toBeInTheDocument();
+});
+
+test("without moderate somebody else's shared playlist is read-only", async () => {
+  renderPlaylists([playlist({ shared: true, mine: false })], LIBRARY, ACCOUNT);
+
+  expect(await screen.findByText("Party")).toBeInTheDocument();
+  expect(
+    screen.queryByRole("button", { name: "Edit Party" }),
+  ).not.toBeInTheDocument();
+  expect(
+    screen.queryByRole("button", { name: "Delete playlist Party" }),
+  ).not.toBeInTheDocument();
 });
 
 test("a role without playlists.view is told who may look", async () => {

@@ -404,3 +404,58 @@ async def test_deleting_a_user_deletes_their_wishes(bootstrap_settings: Bootstra
             assert (await admin.delete(f"/api/v1/users/{user['id']}")).status_code == 204
 
             assert await stored_wishes(app) == []
+
+
+async def test_clearing_a_song_drops_everybody_s_wishes(
+    app_with_songs: FastAPI, broadcast_events: list[dict[str, object]]
+) -> None:
+    """The host's answer to a wish the party is not going to sing: one song off the list,
+    whoever put it there. `wishlist.manage` is seeded to `trusted` and up, so an
+    administrator has it."""
+    await authenticate_admin(app_with_songs)
+    one = await account(app_with_songs, "one")
+    two = await account(app_with_songs, "two")
+    async with one, two, admin_client(app_with_songs) as admin:
+        await wish(one, SONG)
+        await wish(two, SONG)
+        await wish(one, OTHER_SONG)
+
+        cleared = await admin.delete(f"/api/v1/wishlist/{SONG}/wishes")
+
+        assert cleared.status_code == 204
+        assert [row["song"]["id"] for row in await wishes(admin)] == [OTHER_SONG]
+        assert [row.song_id for row in await stored_wishes(app_with_songs)] == [OTHER_SONG]
+    # The count reached zero, which is what tells every open page to drop the row.
+    updates = [event for event in broadcast_events if event["event"] == "wishlist.updated"]
+    assert updates[-1] == {
+        "event": "wishlist.updated",
+        "song_id": SONG,
+        "count": 0,
+        "latest": None,
+    }
+
+
+async def test_clearing_a_song_nobody_wished_for_is_404(app_with_songs: FastAPI) -> None:
+    await authenticate_admin(app_with_songs)
+    async with admin_client(app_with_songs) as admin:
+        response = await admin.delete(f"/api/v1/wishlist/{SONG}/wishes")
+
+        assert response.status_code == 404
+        assert response.json() == {"detail": "not_wished"}
+
+
+async def test_a_plain_account_may_not_clear_somebody_else_s_wish(
+    app_with_songs: FastAPI,
+) -> None:
+    """`wishlist.add` takes back your own wish and nothing more — clearing the song for
+    everybody is `wishlist.manage`, which a `user` does not hold."""
+    one = await account(app_with_songs, "one")
+    two = await account(app_with_songs, "two")
+    async with one, two:
+        await wish(one, SONG)
+
+        refused = await two.delete(f"/api/v1/wishlist/{SONG}/wishes")
+
+        assert refused.status_code == 403
+        assert refused.json() == {"detail": "missing_permission:wishlist.manage"}
+        assert len(await stored_wishes(app_with_songs)) == 1

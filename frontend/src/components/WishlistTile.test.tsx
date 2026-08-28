@@ -6,22 +6,27 @@ import { FakeSocket } from "../test/fakeSocket";
 import { iconNames } from "../test/icons";
 import WishlistTile from "./WishlistTile";
 
-const { listWishlist, addWish, removeWish, getMe } = vi.hoisted(() => ({
-  listWishlist: vi.fn(),
-  addWish: vi.fn(),
-  removeWish: vi.fn(),
-  getMe: vi.fn(),
-}));
+const { listWishlist, addWish, removeWish, clearWishes, getMe } = vi.hoisted(
+  () => ({
+    listWishlist: vi.fn(),
+    addWish: vi.fn(),
+    removeWish: vi.fn(),
+    clearWishes: vi.fn(),
+    getMe: vi.fn(),
+  }),
+);
 
 vi.mock("../api/sdk.gen", async (importOriginal) => ({
   ...(await importOriginal<typeof import("../api/sdk.gen")>()),
   listWishlist,
   addWish,
   removeWish,
+  clearWishes,
   getMe,
 }));
 
 const WISHLIST = ["songs.view", "wishlist.view", "wishlist.add"];
+const MODERATOR = [...WISHLIST, "wishlist.manage"];
 
 function song(id: string, title: string, artist: string): SongRead {
   return {
@@ -66,6 +71,7 @@ beforeEach(() => {
   listWishlist.mockReset();
   addWish.mockReset();
   removeWish.mockReset();
+  clearWishes.mockReset();
   getMe.mockReset();
 });
 
@@ -165,4 +171,51 @@ test("without the capability there is no way to change a wish", async () => {
   );
   // The own wish is still marked, just not removable.
   expect(screen.getByTitle("On your wishlist")).toBeInTheDocument();
+});
+
+test("a moderator takes somebody else's wish off the list", async () => {
+  renderTile([wish(AFRICA, 2, false)], MODERATOR);
+  clearWishes.mockResolvedValue({ data: undefined });
+
+  fireEvent.click(
+    await screen.findByRole("button", {
+      name: "Take Africa off the wishlist for everybody",
+    }),
+  );
+
+  await waitFor(() =>
+    expect(clearWishes.mock.calls[0][0].path).toEqual({ song_id: "usdb:2" }),
+  );
+});
+
+test("clearing is not offered where the only wish is the reader's own", async () => {
+  // The take-back button beside it already does exactly that, and two buttons
+  // for one outcome is one button too many.
+  renderTile([wish(QUEEN, 1, true), wish(AFRICA, 2, true)], MODERATOR);
+  await screen.findByText("Dancing Queen");
+
+  expect(
+    screen.queryByRole("button", {
+      name: "Take Dancing Queen off the wishlist for everybody",
+    }),
+  ).not.toBeInTheDocument();
+  // Two wishes, one of them somebody else's — that one is a moderator's to clear.
+  expect(
+    screen.getByRole("button", {
+      name: "Take Africa off the wishlist for everybody",
+    }),
+  ).toBeInTheDocument();
+});
+
+test("without wishlist.manage nobody else's wish can be touched", async () => {
+  renderTile([wish(AFRICA, 2, false)]);
+  await screen.findByText("Africa");
+
+  await waitFor(() =>
+    expect(
+      screen.queryByRole("button", {
+        name: "Take Africa off the wishlist for everybody",
+      }),
+    ).not.toBeInTheDocument(),
+  );
 });

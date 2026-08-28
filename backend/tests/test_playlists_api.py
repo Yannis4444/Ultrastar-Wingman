@@ -177,23 +177,68 @@ async def test_mutating_somebody_elses_private_playlist_is_404(app_with_songs: F
         assert refused.status_code == 404
 
 
-async def test_an_admin_may_change_anybody_s_playlist(app_with_songs: FastAPI) -> None:
-    owner = await account(app_with_songs, "owner")
-    admin_user = await add_user(factory(app_with_songs), "boss", "admin")
-    await add_session(factory(app_with_songs), "boss-token", admin_user)
-    admin = guest(app_with_songs)
-    set_cookie(admin, COOKIE_NAME, "boss-token")
-    async with owner, admin:
-        private = await create(owner, "Secret")
+async def moderator(app: FastAPI, username: str = "boss") -> AsyncClient:
+    """A client holding `playlists.moderate` — seeded to admin alone, so an admin is the
+    shortest way to one."""
+    user = await add_user(factory(app), username, "admin")
+    await add_session(factory(app), f"{username}-token", user)
+    client = guest(app)
+    set_cookie(client, COOKIE_NAME, f"{username}-token")
+    return client
 
-        renamed = await admin.patch(
-            f"/api/v1/playlists/{private['id']}", json={"name": "Moderated"}
-        )
+
+async def test_a_moderator_may_change_anybody_s_shared_playlist(app_with_songs: FastAPI) -> None:
+    owner = await account(app_with_songs, "owner")
+    admin = await moderator(app_with_songs)
+    async with owner, admin:
+        shared = await create(owner, "Party", shared=True)
+
+        renamed = await admin.patch(f"/api/v1/playlists/{shared['id']}", json={"name": "Moderated"})
 
         assert renamed.status_code == 200
         assert renamed.json()["name"] == "Moderated"
-        # Somebody else's playlist, so not the admin's own.
+        # Somebody else's playlist, so not the moderator's own.
         assert renamed.json()["mine"] is False
+
+
+async def test_a_moderator_may_delete_anybody_s_shared_playlist(app_with_songs: FastAPI) -> None:
+    owner = await account(app_with_songs, "owner")
+    admin = await moderator(app_with_songs)
+    async with owner, admin:
+        shared = await create(owner, "Party", shared=True)
+
+        deleted = await admin.delete(f"/api/v1/playlists/{shared['id']}")
+
+        assert deleted.status_code == 204
+        assert (await owner.get(f"/api/v1/playlists/{shared['id']}")).status_code == 404
+
+
+async def test_even_a_moderator_never_reaches_a_private_playlist(app_with_songs: FastAPI) -> None:
+    """Moderation follows what can be looked at: a private playlist is a 404 for everybody
+    but its owner, so nothing can be deleted that could not be read."""
+    owner = await account(app_with_songs, "owner")
+    admin = await moderator(app_with_songs)
+    async with owner, admin:
+        private = await create(owner, "Secret")
+
+        refused = await admin.patch(f"/api/v1/playlists/{private['id']}", json={"name": "Nope"})
+
+        assert refused.status_code == 404
+        assert (await owner.get(f"/api/v1/playlists/{private['id']}")).json()["name"] == "Secret"
+
+
+async def test_without_moderate_somebody_else_s_shared_playlist_is_403(
+    app_with_songs: FastAPI,
+) -> None:
+    owner = await account(app_with_songs, "owner")
+    other = await account(app_with_songs, "other")
+    async with owner, other:
+        shared = await create(owner, "Party", shared=True)
+
+        refused = await other.delete(f"/api/v1/playlists/{shared['id']}")
+
+        assert refused.status_code == 403
+        assert refused.json() == {"detail": "not_playlist_owner"}
 
 
 async def test_entries_are_appended_and_a_duplicate_is_409(app_with_songs: FastAPI) -> None:

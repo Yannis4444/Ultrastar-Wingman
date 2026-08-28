@@ -16,9 +16,11 @@ from alembic import command
 from alembic.config import Config
 from httpx import AsyncClient
 from sqlalchemy import delete
-from sqlalchemy.ext.asyncio import AsyncSession
+from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
 
+from conftest import add_session, add_user
 from ultrastar_wingman.auth import permissions
+from ultrastar_wingman.auth.deps import COOKIE_NAME
 from ultrastar_wingman.auth.model import RolePermission, as_utc
 from ultrastar_wingman.db import migrations_dir
 from ultrastar_wingman.karaoke import service
@@ -395,6 +397,70 @@ async def test_listing_the_current_sings_needs_stats_view(
 
     assert response.status_code == 403
     assert response.json() == {"detail": "missing_permission:stats.view"}
+
+
+async def test_a_guest_sees_only_the_running_party_in_the_session_list(
+    anonymous_client: AsyncClient, running: dict[str, Any]
+) -> None:
+    """`stats.history` is not a guest right: tonight's scoreboard is still theirs, the
+    parties before it are not. A short list rather than a 403 — the page keeps working."""
+    response = await anonymous_client.get("/api/v1/stats/sessions")
+
+    assert response.status_code == 200
+    assert [entry["id"] for entry in response.json()["sessions"]] == [running["live"].id]
+
+
+async def test_a_guest_reads_the_running_party_s_scores_but_not_an_older_one_s(
+    anonymous_client: AsyncClient, running: dict[str, Any]
+) -> None:
+    live = await anonymous_client.get(f"/api/v1/stats/sessions/{running['live'].id}/scores")
+    older = await anonymous_client.get(f"/api/v1/stats/sessions/{running['over'].id}/scores")
+
+    assert live.status_code == 200
+    assert older.status_code == 403
+    assert older.json() == {"detail": "missing_permission:stats.history"}
+
+
+async def test_a_song_s_whole_history_needs_stats_history(
+    anonymous_client: AsyncClient, seeded: dict[str, Any]
+) -> None:
+    """Every score a song ever got reaches back over every party, so there is no
+    "tonight only" version of it."""
+    response = await anonymous_client.get("/api/v1/stats/songs/usdb:1/scores")
+
+    assert response.status_code == 403
+    assert response.json() == {"detail": "missing_permission:stats.history"}
+
+
+async def test_your_own_scores_need_no_history_right_but_somebody_else_s_do(
+    anonymous_client: AsyncClient,
+    session_factory: async_sessionmaker[AsyncSession],
+    session: AsyncSession,
+    seeded: dict[str, Any],
+) -> None:
+    """Identity, not a capability: "Your scores" must not empty out when the host takes the
+    archive away from the `user` role."""
+    yannis: Player = seeded["yannis"]
+    user_id = await add_user(session_factory, "yannis", "user")
+    yannis.user_id = user_id
+    yannis.registered = True
+    await session.execute(
+        delete(RolePermission).where(
+            RolePermission.role == "user", RolePermission.capability == "stats.history"
+        )
+    )
+    await session.commit()
+    await add_session(session_factory, "yannis-token", user_id)
+    permissions.invalidate_cache()
+    anonymous_client.cookies.set(COOKIE_NAME, "yannis-token", domain="wingman.test", path="/")
+
+    own = await anonymous_client.get(f"/api/v1/stats/players/{yannis.id}/scores")
+    other = await anonymous_client.get(f"/api/v1/stats/players/{seeded['mona'].id}/scores")
+
+    assert own.status_code == 200
+    assert [score["score"] for score in own.json()["scores"]] == [8500, 5000]
+    assert other.status_code == 403
+    assert other.json() == {"detail": "missing_permission:stats.history"}
 
 
 def _upgrade(database_url: str, revision: str) -> None:

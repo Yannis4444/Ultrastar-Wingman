@@ -108,7 +108,8 @@ beforeEach(() => {
   getMe.mockReset();
   listSongScores.mockReset();
   listPlayers.mockReset();
-  getMe.mockResolvedValue(meResponse(["songs.view", "stats.view"]));
+  // The best-scores view reaches over every party, so it is `stats.history`.
+  getMe.mockResolvedValue(meResponse(["songs.view", "stats.history"]));
   listSongScores.mockResolvedValue({ data: { scores: history } });
   listWishlist.mockResolvedValue({ data: { wishes: [] } });
   listPlaylists.mockResolvedValue({ data: { playlists: [] } });
@@ -173,7 +174,7 @@ test("the ranking summarises the song's whole history above the rows", async () 
 
 test("a singer with a player record gets their avatar, a guest their initial", async () => {
   getMe.mockResolvedValue(
-    meResponse(["songs.view", "stats.view", "players.view"]),
+    meResponse(["songs.view", "stats.history", "players.view"]),
   );
   listSongScores.mockResolvedValue({
     data: { scores: [score(1, "Alice", 9500, "p-1"), score(2, "Bob", 5000)] },
@@ -222,8 +223,9 @@ test("a song nobody has sung shows no scores section", async () => {
   expect(screen.queryByText("Best scores")).not.toBeInTheDocument();
 });
 
-test("without stats.view the scores are not even requested", async () => {
-  getMe.mockResolvedValue(meResponse(["songs.view"]));
+test("without stats.history the scores are not even requested", async () => {
+  // Tonight's scoreboard alone is not enough: this list is the whole archive.
+  getMe.mockResolvedValue(meResponse(["songs.view", "stats.view"]));
   renderDetails();
 
   await waitFor(() => expect(getMe).toHaveBeenCalled());

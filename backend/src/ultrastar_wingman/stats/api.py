@@ -11,9 +11,10 @@ from fastapi import APIRouter, Depends, HTTPException, Query
 from pydantic import BaseModel
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from ..auth.deps import require
+from ..auth.deps import PrincipalDep, missing_permission, require
 from ..db import SessionDep
 from ..karaoke.model import KaraokeSession
+from ..players import service as players
 from ..players.model import Player
 from ..songs.api import song_or_404
 from . import service
@@ -35,9 +36,19 @@ class SessionUpdate(BaseModel):
 @router.get(
     "/stats/sessions", response_model=SessionList, dependencies=[Depends(require("stats.view"))]
 )
-async def list_sessions(session: SessionDep) -> SessionList:
-    """Every recorded party, newest first."""
-    return SessionList(sessions=await service.sessions(session))
+async def list_sessions(session: SessionDep, principal: PrincipalDep) -> SessionList:
+    """Every recorded party, newest first — or only the one still going, for a caller
+    without `stats.history`.
+
+    A short list rather than a 403: tonight's scoreboard is what a guest phone opens the
+    Scores page for, and the page keeps working with a session picker of one.
+    """
+    if "stats.history" in principal.capabilities:
+        return SessionList(sessions=await service.sessions(session))
+    current = await service.current_session(session)
+    return SessionList(
+        sessions=[] if current is None else [await service.read_session(session, current)]
+    )
 
 
 @router.get(
@@ -70,11 +81,24 @@ async def rename_session(session_id: str, body: SessionUpdate, session: SessionD
     )
 
 
+async def current_session_or_history_right(
+    session_id: str, session: SessionDep, principal: PrincipalDep
+) -> None:
+    """The party that is still going is `stats.view`; every one before it is
+    `stats.history`. Checked before the session is looked up, so which parties were ever
+    recorded stays out of reach as well."""
+    if "stats.history" in principal.capabilities:
+        return
+    current = await service.current_session(session)
+    if current is None or current.id != session_id:
+        raise missing_permission("stats.history")
+
+
 @router.get(
     "/stats/sessions/{session_id}/scores",
     response_model=ScoreList,
-    dependencies=[Depends(require("stats.view"))],
-    responses=UNKNOWN_SESSION,
+    dependencies=[Depends(require("stats.view")), Depends(current_session_or_history_right)],
+    responses={**UNKNOWN_SESSION, 403: {"description": "An older party, without history."}},
 )
 async def list_session_scores(session_id: str, session: SessionDep) -> ScoreList:
     """What was scored during one session, newest first."""
@@ -85,7 +109,8 @@ async def list_session_scores(session_id: str, session: SessionDep) -> ScoreList
 @router.get(
     "/stats/songs/{song_id}/scores",
     response_model=ScoreList,
-    dependencies=[Depends(require("stats.view"))],
+    # Every score a song ever got reaches back over every party, so it is the archive.
+    dependencies=[Depends(require("stats.history"))],
     responses={404: {"description": "Unknown song."}},
 )
 async def list_song_scores(song_id: str, session: SessionDep) -> ScoreList:
@@ -94,11 +119,29 @@ async def list_song_scores(song_id: str, session: SessionDep) -> ScoreList:
     return ScoreList(scores=await service.song_scores(session, song_id))
 
 
+async def own_player_or_history_right(
+    player_id: str, session: SessionDep, principal: PrincipalDep
+) -> None:
+    """Your own totals are identity, not a capability: they are what "Your scores" shows
+    whoever is logged in, and taking `stats.history` away must not empty that page.
+    Everybody else's history is the archive. Checked before the player is looked up."""
+    own = (
+        None
+        if principal.user is None
+        else await players.player_id_of_user(session, principal.user.id)
+    )
+    if own != player_id:
+        principal.require("stats.history")
+
+
 @router.get(
     "/stats/players/{player_id}/scores",
     response_model=ScoreList,
-    dependencies=[Depends(require("stats.view"))],
-    responses={404: {"description": "Unknown player."}},
+    dependencies=[Depends(require("stats.view")), Depends(own_player_or_history_right)],
+    responses={
+        403: {"description": "Somebody else's history, without `stats.history`."},
+        404: {"description": "Unknown player."},
+    },
 )
 async def list_player_scores(player_id: str, session: SessionDep) -> ScoreList:
     """Every score one player ever got, across all sessions, newest first — what the user

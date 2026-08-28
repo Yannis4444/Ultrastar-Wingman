@@ -14,6 +14,9 @@ import "./WishlistTile.css";
 /** What the party wants to sing, most-wished-for first. */
 export default function WishlistTile() {
   const auth = useAuth();
+  // Taking a song off for everybody. Never offered where the only wish is the
+  // reader's own — the take-back button beside it already does exactly that.
+  const mayClear = auth.can("wishlist.manage");
   const wishlist = useWishlist();
   const favorites = useFavorites();
   const [selected, setSelected] = useState<SongRead | null>(null);
@@ -27,7 +30,7 @@ export default function WishlistTile() {
 
         {wishlist.error !== null && (
           <p className="error-notice wishlist-notice" role="alert">
-            {errorMessage(wishlist.error, "Could not change your wish.")}
+            {errorMessage(wishlist.error, "Could not change the wishlist.")}
           </p>
         )}
 
@@ -91,6 +94,16 @@ export default function WishlistTile() {
                     onClick={() => wishlist.unwish(wish.song.id)}
                   >
                     <Icon name="close" />
+                  </button>
+                )}
+                {mayClear && (!wish.mine || wish.count > 1) && (
+                  <button
+                    type="button"
+                    className="icon-button icon-button-bordered wishlist-remove"
+                    aria-label={`Take ${wish.song.title} off the wishlist for everybody`}
+                    onClick={() => wishlist.clear(wish.song.id)}
+                  >
+                    <Icon name="trash" />
                   </button>
                 )}
               </li>

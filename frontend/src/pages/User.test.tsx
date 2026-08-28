@@ -62,17 +62,26 @@ vi.mock("../components/Chart", () => ({
   },
 }));
 
+// What a plain account holds: no right over anybody else's player, and none is
+// needed for the picture of the one it sings as.
 const USER_CAPABILITIES = [
   "songs.view",
   "karaoke.sing",
   "karaoke.stop",
   "players.view",
-  "players.manage",
   "stats.view",
+  "stats.history",
+];
+
+// A helper: the players page and everything on it but the accounts.
+const TRUSTED_CAPABILITIES = [
+  ...USER_CAPABILITIES,
+  "players.avatar",
+  "players.manage",
 ];
 
 const ADMIN_CAPABILITIES = [
-  ...USER_CAPABILITIES,
+  ...TRUSTED_CAPABILITIES,
   "users.manage",
   "permissions.manage",
   "settings.view",
@@ -125,7 +134,7 @@ beforeEach(() => {
   });
   listPlayerScores.mockResolvedValue({ data: { scores: [] } });
   listFavorites.mockResolvedValue({ data: { song_ids: ["usdb:1", "usdb:2"] } });
-  // A logged-in ordinary account: players are manageable, no admin sections.
+  // A logged-in ordinary account: nothing to manage, no admin sections.
   // Not named after a player, so the identity tile never collides with a row.
   getMe.mockResolvedValue(
     meResponse(USER_CAPABILITIES, {
@@ -163,7 +172,7 @@ test("an anonymous visitor gets the login form and the profile after logging in"
   });
   // The answer to `/auth/me` changes with the session cookie the login sets.
   getMe.mockResolvedValue(
-    meResponse(USER_CAPABILITIES, {
+    meResponse(TRUSTED_CAPABILITIES, {
       user: userRead({ role: "trusted" }),
       role: "trusted",
     }),
@@ -226,12 +235,33 @@ test("a taken username is reported on the register form", async () => {
   );
 });
 
-test("an ordinary account reaches the players, and nothing else", async () => {
+test("an ordinary account has nothing to manage", async () => {
   renderUser();
 
   expect(await screen.findByText("Charlie")).toBeInTheDocument();
-  // Managing the players is a right an ordinary account has, so the row is
-  // there — the admin surfaces behind the other rights are not.
+  // Adding and deleting people starts at `trusted`, and reading the roster is
+  // not a reason of its own to open the page — so no "Manage" heading at all.
+  expect(screen.queryByText("Manage")).not.toBeInTheDocument();
+  expect(
+    screen.queryByRole("link", { name: "Players & accounts" }),
+  ).not.toBeInTheDocument();
+  expect(screen.queryByText("Permissions")).not.toBeInTheDocument();
+  expect(
+    screen.queryByRole("link", { name: "Settings" }),
+  ).not.toBeInTheDocument();
+  expect(listUsers).not.toHaveBeenCalled();
+});
+
+test("a helper reaches the players page, and nothing else", async () => {
+  getMe.mockResolvedValue(
+    meResponse(TRUSTED_CAPABILITIES, {
+      user: userRead({ id: "user-3", username: "Charlie", role: "trusted" }),
+      role: "trusted",
+    }),
+  );
+  renderUser();
+
+  expect(await screen.findByText("Charlie")).toBeInTheDocument();
   expect(
     screen.getByRole("link", { name: "Players & accounts" }),
   ).toHaveAttribute("href", "/user/accounts");
@@ -239,7 +269,6 @@ test("an ordinary account reaches the players, and nothing else", async () => {
   expect(
     screen.queryByRole("link", { name: "Settings" }),
   ).not.toBeInTheDocument();
-  expect(listUsers).not.toHaveBeenCalled();
 });
 
 test("an admin gets one menu row per admin surface, not the surfaces inline", async () => {
@@ -576,14 +605,13 @@ test("an oversized own picture never leaves the browser", async () => {
   expect(setPlayerAvatar).not.toHaveBeenCalled();
 });
 
-test("without players.manage the identity avatar is not an uploader", async () => {
-  loggedInAsAlice(
-    USER_CAPABILITIES.filter((name) => name !== "players.manage"),
-  );
+test("the own picture needs no capability at all", async () => {
+  // Identity, like favorites: an account with nothing but the right to look at
+  // the players still changes the picture of the player it sings as.
+  loggedInAsAlice(["songs.view", "players.view"]);
   renderUser();
 
-  await screen.findByRole("button", { name: "Log out" });
   expect(
-    screen.queryByLabelText("Change your picture"),
-  ).not.toBeInTheDocument();
+    await screen.findByLabelText("Change your picture"),
+  ).toBeInTheDocument();
 });

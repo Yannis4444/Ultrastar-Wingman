@@ -143,6 +143,20 @@ async def remove_wish(
     await _broadcast(session, song_id)
 
 
+async def clear_wishes(session: AsyncSession, song_id: str) -> int:
+    """Drop every wish for a song, whoever made it — the moderation counterpart to
+    `remove_wish`. Returns how many went; 0 means the song was not wished for at all.
+    """
+    wish_ids = list(await session.scalars(select(Wish.id).where(Wish.song_id == song_id)))
+    if not wish_ids:
+        return 0
+    await session.execute(delete(Wish).where(Wish.id.in_(wish_ids)))
+    await session.commit()
+    await _broadcast(session, song_id)
+    logger.info("every wish for '%s' cleared (%d)", song_id, len(wish_ids))
+    return len(wish_ids)
+
+
 async def clear_fulfilled_wishes(
     session: AsyncSession, song_id: str, user_ids: Collection[str]
 ) -> int:

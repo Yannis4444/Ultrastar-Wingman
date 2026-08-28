@@ -22,18 +22,23 @@ CAPABILITIES: tuple[str, ...] = (
     "karaoke.sing",
     "karaoke.stop",
     "players.view",
+    "players.avatar",
     "players.manage",
     "wishlist.view",
     "wishlist.add",
+    "wishlist.manage",
     "playlists.view",
     "playlists.manage",
+    "playlists.moderate",
     "downloads.view",
     "downloads.manage",
     "usdb.search",
     "stats.view",
+    "stats.history",
     "stats.manage",
     "settings.view",
     "settings.manage",
+    "users.view",
     "users.manage",
     "permissions.manage",
 )
@@ -68,10 +73,19 @@ _GUEST_CAPABILITIES = frozenset(
         "stats.view",
     }
 )
-# Only an account can own a playlist, so only an account may manage one.
-_USER_CAPABILITIES = _GUEST_CAPABILITIES | {"karaoke.stop", "players.manage", "playlists.manage"}
-# Naming a session is a host's job, so it starts at `trusted`.
+# Only an account can own a playlist, so only an account may manage one. Reading the
+# archive of past parties is an account's right too: `stats.view` is tonight's scoreboard,
+# which a guest phone is welcome to, and `stats.history` is every party before it.
+_USER_CAPABILITIES = _GUEST_CAPABILITIES | {"karaoke.stop", "playlists.manage", "stats.history"}
+# The party's helpers: naming a session, the download queue — and the rights over other
+# people. Adding and deleting players used to be a `user` right, which let anybody with an
+# account delete anybody else's; changing your own picture never needed it (that is
+# identity, like favorites), so nothing a normal account does is lost by moving it here.
 _TRUSTED_CAPABILITIES = _USER_CAPABILITIES | {
+    "players.manage",
+    "players.avatar",
+    "wishlist.manage",
+    "users.view",
     "downloads.view",
     "downloads.manage",
     "usdb.search",
@@ -79,7 +93,11 @@ _TRUSTED_CAPABILITIES = _USER_CAPABILITIES | {
     "stats.manage",
 }
 
-# What migration 0006 seeds. Kept here as well so a test can prove the two never drift.
+# `playlists.moderate` is in no default set but admin's: reaching into somebody else's
+# shared playlist is the host stepping in, not a helper's everyday job.
+
+# What migrations 0006 to 0011 seed. Kept here as well so a test can prove the two never
+# drift.
 DEFAULT_ROLE_CAPABILITIES: dict[str, frozenset[str]] = {
     GUEST: _GUEST_CAPABILITIES,
     USER: _USER_CAPABILITIES,

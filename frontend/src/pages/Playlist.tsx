@@ -48,11 +48,12 @@ export default function Playlist() {
       setError(errorMessage(cause, "Could not remove the song.")),
   });
 
-  // The owner edits the playlist; an administrator may fix anybody's.
+  // The owner edits the playlist; `playlists.moderate` extends that to anybody
+  // else's shared one.
   const editable =
     playlist.data !== undefined &&
     auth.can("playlists.manage") &&
-    (playlist.data.mine || auth.role === "admin");
+    (playlist.data.mine || auth.can("playlists.moderate"));
   const songs = playlist.data?.entries.map((entry) => entry.song) ?? [];
 
   return (

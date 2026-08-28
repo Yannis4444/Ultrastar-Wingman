@@ -133,27 +133,36 @@ What each role may do by default:
 | Start a song | yes | yes | yes | yes |
 | See and add wishes | yes | yes | yes | yes |
 | See playlists | yes | yes | yes | yes |
-| See the statistics | yes | yes | yes | yes |
+| See tonight's scoreboard | yes | yes | yes | yes |
 | Stop a running song | – | yes | yes | yes |
-| Add, change and delete players | – | yes | yes | yes |
 | Create and edit own playlists | – | yes | yes | yes |
+| See the parties before tonight | – | yes | yes | yes |
+| Add and delete players | – | – | yes | yes |
+| Change somebody else's picture | – | – | yes | yes |
+| Clear a song off the wishlist | – | – | yes | yes |
+| See who has an account | – | – | yes | yes |
 | Search USDB | – | – | yes | yes |
 | See and start downloads | – | – | yes | yes |
 | Rescan the song folders | – | – | yes | yes |
 | Rename a party in the statistics | – | – | yes | yes |
+| Change somebody else's shared playlist | – | – | – | yes |
 | See and change the settings | – | – | – | yes |
 | Manage users | – | – | – | yes |
 | Change these permissions | – | – | – | yes |
 
-Favorites are in no row on purpose: they belong to whoever made them, and there is
-nothing for an administrator to grant.
+Three things are in no row on purpose, because they are yours rather than
+granted: your **favorites**, the **picture** of the player you sing as, and
+**your own scores** on *User → Your scores*. Nobody has to give you those, and
+no administrator can take them away.
 
 ## Manage players and accounts
 
 **User → Players & accounts** is everybody in the party on one page, in two
 groups: **Accounts** for the people who log in, **Guests** for the people who
-only sing. Whoever may see the players sees the whole list; the account controls
-appear for an administrator.
+only sing. The page opens for **trusted** and above; what it shows follows the
+rights behind it — the pictures for *avatar*, the new player and the guest
+deletions for *manage*, the names of the account holders for *users → view*, and
+their roles and deletions for *users → manage*.
 
 - A role can be set to **user**, **trusted** or **admin**. Nobody is put back to
   **guest** — that is the role for people without an account. Take the account
@@ -181,6 +190,15 @@ Useful in practice:
   start songs.
 - A helper who should download songs: give their account the **trusted** role, or
   tick the download rights for **user**.
+- A private archive: untick *history* under **stats** for **guest** and **user**.
+  Tonight's scoreboard stays open to the whole party — the Scores page simply
+  stops offering the parties before it.
+- A helper who fixes pictures but touches nothing else: tick *avatar* under
+  **players** for their role. *manage* beside it is the one that deletes people.
+
+Two rights only work together. *moderate* under **playlists** lets somebody
+change a shared playlist that is not theirs, but only alongside *manage* — and it
+never reaches a playlist that was kept private, not even for an administrator.
 
 One box cannot be ticked: *manage* under **playlists** for **guest**. A playlist
 belongs to an account, so somebody without one has none to create or edit — the

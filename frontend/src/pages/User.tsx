@@ -234,7 +234,6 @@ export default function User() {
     setAvatar.mutate({ path: { player_id: player.id }, body: { file } });
   };
 
-  const managePlayers = auth.can("players.manage");
   const ownPlayer =
     players.data?.players.find((player) => player.id === ownPlayerId) ?? null;
   // The same rows the host screen lists on its own manage view; the back arrow
@@ -248,9 +247,11 @@ export default function User() {
         (auth.user !== null ? (
           <>
             <div className="user-identity">
-              {ownPlayer !== null && managePlayers ? (
+              {ownPlayer !== null ? (
                 // The avatar is the way to change it — the `image` badge is the
-                // affordance, the file input behind the label does the work.
+                // affordance, the file input behind the label does the work. No
+                // capability gates it: your own picture is identity, like your
+                // favorites, so there is nothing for the host to grant.
                 <label className="user-identity-avatar-label">
                   <PlayerAvatar
                     player={ownPlayer}

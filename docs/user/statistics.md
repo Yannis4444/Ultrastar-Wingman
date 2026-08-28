@@ -12,6 +12,11 @@ nothing to open or close.
 The dropdown at the top picks the party. The newest one is selected when you open
 the tab, and unnamed parties are listed by their date.
 
+Which parties are in that dropdown depends on one right. Everybody sees the party
+that is going on right now — that is what the scoreboard at a party is for. The
+parties before it need the right to see the history, which **user** and up hold by
+default; take it away from a role and their dropdown simply holds tonight alone.
+
 The party that is going on right now also has a shortcut of its own: the
 **Recent** chip on the [Songs tab](singing.md#what-has-already-been-sung)
 lists what it has played so far, including the songs nobody got a score for.
@@ -66,7 +71,9 @@ with one lucky hit looks very different from a consistently good one.
 The **Scores** tab is one party at a time. Your own record is not: open the
 **User** tab and tap **All my scores** under your totals.
 
-That page is the same list, with one singer in it and every party at once. It is
+That page is the same list, with one singer in it and every party at once. Your
+own scores are yours: they show up whatever the host has done with the history
+right — it is somebody *else's* record that needs it. It is
 always grouped by song — one row per song you ever sang, with how often, your
 best, your worst and your average behind it — so the only control is **Sort**.
 Open a row for the spread of that one song and every single run behind it, or
@@ -82,6 +89,9 @@ Open a song from the **Songs** tab and tap **Best scores** to see its ten best
 runs of all time: how often it was sung, the best, worst and average score over
 its whole history, and then the ranking itself — the singer's picture, how hard
 they sang it and when, and what they got.
+
+It reaches back over every party, so it needs the same right as the parties
+before tonight. A role without it does not get the **Best scores** row at all.
 
 ## Where the scores come from
 

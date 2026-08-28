@@ -76,6 +76,13 @@ async def create_player(session: AsyncSession, name: str) -> Player:
     return player
 
 
+async def player_id_of_user(session: AsyncSession, user_id: str) -> str | None:
+    """The player an account sings as, or None while it has none — what tells "my own
+    picture" and "my own scores" apart from everybody else's.
+    """
+    return await session.scalar(select(Player.id).where(Player.user_id == user_id))
+
+
 async def delete_player(session: AsyncSession, player: Player, avatars_dir: Path) -> None:
     await _remove_avatar_files(player.id, avatars_dir)
     await session.delete(player)
