@@ -257,9 +257,9 @@ export default function Playlists() {
                     >
                       {/* A 40px square, not a stack of covers: it keeps every
                           list in the app on one text axis and costs no
-                          requests. */}
+                          requests. A globe marks the lists everybody sees. */}
                       <span className="playlists-glyph">
-                        <Icon name="list" />
+                        <Icon name={list.shared ? "globe" : "list"} />
                       </span>
                       <span className="playlists-text">
                         <span className="playlists-name">{list.name}</span>

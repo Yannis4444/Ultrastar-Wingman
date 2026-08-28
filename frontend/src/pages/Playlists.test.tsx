@@ -110,7 +110,21 @@ test("the chevron only appears where the row has no action buttons", async () =>
   expect(iconNames(mine)).toEqual(["list"]);
   // Somebody else's: nothing else marks it as a way in, so the chevron does.
   const theirs = screen.getByRole("link", { name: /Bobs mix/ });
-  expect(iconNames(theirs)).toEqual(["list", "chevron-right"]);
+  expect(iconNames(theirs)).toEqual(["globe", "chevron-right"]);
+});
+
+test("a globe marks the rows everybody can see", async () => {
+  renderPlaylists([
+    playlist(),
+    playlist({ id: "p2", name: "House list", shared: true }),
+  ]);
+
+  expect(
+    iconNames(await screen.findByRole("link", { name: /Party/ })),
+  ).toContain("list");
+  expect(iconNames(screen.getByRole("link", { name: /House list/ }))).toContain(
+    "globe",
+  );
 });
 
 test("with playlists on the page the form waits for the header's plus", async () => {
