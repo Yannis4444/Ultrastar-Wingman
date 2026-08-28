@@ -90,6 +90,15 @@ function prefersReducedMotion(): boolean {
   );
 }
 
+interface SongSpinnerProps {
+  /**
+   * A fixed pool to spin — the songs of one playlist. The scope pills then
+   * have nothing to choose between and go away, and the whole library is
+   * never fetched: the caller already holds the songs.
+   */
+  songs?: SongRead[];
+}
+
 /**
  * The casino reel: a stack of covers that scrolls up to the winner. The reel is
  * built once per spin inside the click handler and kept in state — building it
@@ -101,7 +110,7 @@ function prefersReducedMotion(): boolean {
  * itself — the cover and the result line are the way in, and the user takes
  * it.
  */
-export default function SongSpinner() {
+export default function SongSpinner({ songs: fixed }: SongSpinnerProps) {
   const [scope, setScope] = useState<Scope>("all");
   const [reel, setReel] = useState<Reel | null>(null);
   const [spinning, setSpinning] = useState(false);
@@ -110,9 +119,11 @@ export default function SongSpinner() {
   const [face, setFace] = useState(FACE_AT_REST);
   const reelElement = useRef<HTMLDivElement>(null);
 
-  const songs = useQuery(listSongsOptions()).data?.songs ?? [];
+  const songs =
+    useQuery({ ...listSongsOptions(), enabled: fixed === undefined }).data
+      ?.songs ?? [];
   const wishes = useWishlist().wishes;
-  const candidates = pool(scope, songs, wishes);
+  const candidates = fixed ?? pool(scope, songs, wishes);
 
   const reveal = useCallback((song: SongRead, key: number) => {
     setReel({ key, items: [song], winner: song });
@@ -182,26 +193,36 @@ export default function SongSpinner() {
   return (
     <>
       <div className="spinner">
-        <fieldset className="spinner-scopes">
-          <legend className="visually-hidden">Pick from</legend>
-          {SCOPES.map(([value, label]) => (
-            <label key={value} className="spinner-scope">
-              {/* Hidden, not removed: the pill is the visible affordance, the
-                  radio keeps the keyboard and screen-reader semantics. */}
-              <input
-                className="visually-hidden"
-                type="radio"
-                name="spinner-scope"
-                value={value}
-                checked={scope === value}
-                disabled={spinning || (value !== "all" && wishes.length === 0)}
-                onChange={() => setScope(value)}
-              />
-              <span className="spinner-scope-text">{label}</span>
-            </label>
-          ))}
-        </fieldset>
-        <p className="spinner-pool">{poolCaption(scope, songs, wishes)}</p>
+        {fixed === undefined && (
+          <fieldset className="spinner-scopes">
+            <legend className="visually-hidden">Pick from</legend>
+            {SCOPES.map(([value, label]) => (
+              <label key={value} className="spinner-scope">
+                {/* Hidden, not removed: the pill is the visible affordance, the
+                    radio keeps the keyboard and screen-reader semantics. */}
+                <input
+                  className="visually-hidden"
+                  type="radio"
+                  name="spinner-scope"
+                  value={value}
+                  checked={scope === value}
+                  disabled={
+                    spinning || (value !== "all" && wishes.length === 0)
+                  }
+                  onChange={() => setScope(value)}
+                />
+                <span className="spinner-scope-text">{label}</span>
+              </label>
+            ))}
+          </fieldset>
+        )}
+        {/* The count stays in a fixed pool: it is what the reel can land on,
+            not a setting. */}
+        <p className="spinner-pool">
+          {fixed
+            ? count(fixed.length, "song", "songs")
+            : poolCaption(scope, songs, wishes)}
+        </p>
 
         <button
           type="button"

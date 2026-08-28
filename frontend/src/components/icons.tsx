@@ -1,3 +1,5 @@
+import { useId } from "react";
+
 /**
  * Shared inline 24x24 icons. One path per icon, `fill: currentColor` via the
  * `.icon` rule in index.css — a path is cheaper than an icon dependency.
@@ -129,10 +131,21 @@ export type IconName = keyof typeof ICON_PATHS;
 export function Icon({
   name,
   className,
+  gradient = false,
 }: {
   name: IconName;
   className?: string;
+  /**
+   * Paint the glyph with a two-stop diagonal gradient instead of
+   * `currentColor`. The stops carry no colour of their own — style them from
+   * the caller's stylesheet with `stop-color`, as `.playlist-spin` does; a
+   * `var()` in the SVG attribute would not resolve everywhere. The id is per
+   * instance, so two gradient icons on a page never fight over it.
+   */
+  gradient?: boolean;
 }) {
+  const id = `icon-gradient-${useId().replace(/[^a-zA-Z0-9]/g, "")}`;
+
   return (
     <svg
       className={className ? `icon ${className}` : "icon"}
@@ -140,7 +153,18 @@ export function Icon({
       aria-hidden="true"
       focusable="false"
     >
-      <path d={ICON_PATHS[name]} />
+      {gradient && (
+        <defs>
+          {/* Corner to corner: the 135deg of the gradient button's sweep. */}
+          <linearGradient id={id} x1="0" y1="0" x2="1" y2="1">
+            <stop offset="0" />
+            <stop offset="1" />
+          </linearGradient>
+        </defs>
+      )}
+      {/* An attribute, not a class: it sits on the path itself and so outranks
+          the `fill: currentColor` the `.icon` rule puts on the svg. */}
+      <path d={ICON_PATHS[name]} fill={gradient ? `url(#${id})` : undefined} />
     </svg>
   );
 }

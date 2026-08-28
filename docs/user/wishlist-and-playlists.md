@@ -67,6 +67,9 @@ tap a song there to open it, and the owner can take a song out with the ✕. On
 your own playlists the pencil renames one (and turns sharing on or off) right in
 the row, and the bin deletes it.
 
+Can't decide inside a playlist? The dice at its top right spins
+[the reel](the-spinner.md) over that playlist alone.
+
 ### Shared playlists
 
 A shared playlist is visible to everybody in the party, including guests without

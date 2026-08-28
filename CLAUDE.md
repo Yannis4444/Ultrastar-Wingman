@@ -92,7 +92,7 @@ live in `tests/fixtures/`.
 
 | Path | Owns |
 |---|---|
-| `App.tsx` | routes: `/`, `/spinner`, `/songs`, `/songs/playlists[/:id]`, `/usdb`, `/scores`, `/user`, `/user/{accounts,stats,permissions}`, `/settings`, `/host`, `/host/manage` |
+| `App.tsx` | routes: `/`, `/spinner`, `/songs`, `/songs/playlists[/:id[/spinner]]`, `/usdb`, `/scores`, `/user`, `/user/{accounts,stats,permissions}`, `/settings`, `/host`, `/host/manage` |
 | `pages/` | one component per route: `Name.tsx` + `Name.css` + `Name.test.tsx` |
 | `components/` | shared components, same triple. `icons.tsx` is the only icon source; `Modal`/`ConfirmModal`; `PageHeader` (sub-pages); `BottomNav` (`COVERS` keeps a tab lit on its sub-routes); `SongDetails` (the song modal); `HomeStage`; `PlayerSelection`; `RankedScoreList`; `CheckOption`; `Loading` |
 | `hooks/` | `useWingmanEvent(name, handler)` (one shared socket), `useWishlist`, `useFavorites`, `useRecentlyPlayed`, `useDownloadEvents`, `useSessionStanding` |

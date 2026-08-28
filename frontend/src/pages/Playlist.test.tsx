@@ -3,6 +3,7 @@ import { fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { MemoryRouter, Route, Routes } from "react-router-dom";
 import type { MeRead, PlaylistDetail, SongRead } from "../api";
 import { meResponse, userRead } from "../test/auth";
+import { iconNames } from "../test/icons";
 import { FakeSocket } from "../test/fakeSocket";
 import Playlist from "./Playlist";
 
@@ -133,6 +134,25 @@ test("the playlist's songs are listed under its name", async () => {
     "/songs/playlists",
   );
   expect(getPlaylist.mock.calls[0][0].path).toEqual({ playlist_id: "p1" });
+});
+
+test("the header offers the reel with this playlist as its pool", async () => {
+  renderPlaylist(detail());
+
+  const spin = await screen.findByRole("link", {
+    name: "Random song from this playlist",
+  });
+  expect(spin).toHaveAttribute("href", "/songs/playlists/p1/spinner");
+  expect(iconNames(spin)).toEqual(["dice"]);
+});
+
+test("an empty playlist offers no reel: there would be nothing to pick", async () => {
+  renderPlaylist(detail({ entries: [], song_count: 0 }));
+
+  await screen.findByText(/This playlist is empty/);
+  expect(
+    screen.queryByRole("link", { name: "Random song from this playlist" }),
+  ).not.toBeInTheDocument();
 });
 
 test("tapping a song opens the details modal", async () => {

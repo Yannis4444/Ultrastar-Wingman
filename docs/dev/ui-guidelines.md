@@ -92,7 +92,9 @@ the tab already names them; keep the `h1` as `visually-hidden`. `Home` and
 `frontend/src/components/icons.tsx` is the only icon source. `Icon({ name,
 className })` renders exactly one `<path d>` in a 24×24 viewBox with
 `fill: currentColor`; size comes from the parent's `font-size` (`.icon` is
-1em). Check `ICON_PATHS` before adding — the set already covers search,
+1em). `gradient` swaps that fill for a per-instance two-stop diagonal
+gradient whose stops the caller colours with `stop-color` (`.playlist-spin`
+is the only user). Check `ICON_PATHS` before adding — the set already covers search,
 refresh, play, stop, heart, plus, check, close, chevrons, arrows, download,
 clock, alert, trash, pencil, shield, users, gear, star, trophy, mic, globe,
 tag, calendar, disc, user, database, video, music, info, list/playlist
@@ -140,10 +142,13 @@ Never inline an `<svg>` in a component (the one existing exception,
   `--highlight-blue-dark` fill, `--highlight-blue-light` border/text; focus via
   `input:focus-visible + span`. For 2–4 mutually exclusive options that must
   all be visible — the spinner scope is the reference implementation.
-- **The gradient button** (`.home-random`, `.spinner-spin`): the blue→pink
-  sweep with the `dice` glyph marks the way into the slot machine and the SPIN
-  action itself, nothing else. It is the one gradient button in the app; on SPIN the
-  die tumbles and rolls through its faces while the reel runs.
+- **The gradient dice** (`.home-random`, `.spinner-spin`, `.playlist-spin`):
+  the blue→pink sweep with the `dice` glyph marks the way into the slot
+  machine and the SPIN action itself, nothing else. Two buttons carry it as a
+  fill — the only gradient buttons in the app — and the playlist header's
+  icon-only link carries it on the glyph, where a filled 40px tile would read
+  as a second header. On SPIN the die tumbles and rolls through its faces
+  while the reel runs.
 - **`CheckOption`** (the old app's animated round check) only where a handful
   of options all fit on screen — today the download-panel filters and the
   video-quality presets. Dense matrices

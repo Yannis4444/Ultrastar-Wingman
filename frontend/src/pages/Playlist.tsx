@@ -61,7 +61,22 @@ export default function Playlist() {
       <PageHeader
         title={playlist.data?.name ?? "Playlist"}
         back="/songs/playlists"
-      />
+      >
+        {/* Only with something to pick from: an empty playlist would open a
+            reel that can never spin. The gradient of the Random-song button
+            rides on the glyph itself here — the way into the reel looks the
+            same wherever it is offered. */}
+        {playlist.isSuccess && songs.length > 0 && (
+          <Link
+            className="icon-button playlist-spin"
+            to={`/songs/playlists/${encodeURIComponent(playlistId)}/spinner`}
+            aria-label="Random song from this playlist"
+            title="Random song from this playlist"
+          >
+            <Icon name="dice" gradient />
+          </Link>
+        )}
+      </PageHeader>
       {/* Nothing until /auth/me answered: `can` says yes while it is in flight. */}
       {auth.loaded &&
         (allowed ? (
