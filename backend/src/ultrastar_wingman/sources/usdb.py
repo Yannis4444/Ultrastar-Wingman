@@ -267,7 +267,7 @@ _PHASES = (
     Phase(TXT_STEP, 2),
     Phase(media.FFMPEG_STEP, 10),
     Phase(IMAGES_STEP, 4),
-    Phase(media.VIDEO_STEP, 70),
+    Phase(media.VIDEO_STEP, 70, repeats=True),
     Phase(AUDIO_STEP, 12),
     Phase(LIBRARY_STEP, 2),
 )

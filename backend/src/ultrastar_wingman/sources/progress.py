@@ -6,9 +6,10 @@ bytes from 0 to 100, fetching the song text has no percentage at all. Reported a
 come, the UI ring restarts at every step — so a source hands its steps to
 `PhasedProgress` instead, which owns the whole scale and gives each step a slice of it.
 
-The result is monotone by construction: a step that never runs (a tool that is already
-installed) is skipped over, a step that reports no percentage sits at the start of its
-slice, and nothing ever moves backwards.
+The scale is what actually runs: a step that never happens (a tool that is already
+installed) drops out of it instead of leaving a gap, so a download that skips half the plan
+still starts at 0 and ends at 100. The rest follows from that — a step that reports no
+percentage sits at the start of its slice, and nothing ever moves backwards.
 """
 
 from collections.abc import Sequence
@@ -16,11 +17,11 @@ from dataclasses import dataclass
 
 from .base import ProgressReport
 
-# What the first pass of a step gets, when a step turns out to have several passes (yt-dlp
-# downloads video and audio as two streams, each counting from 0 to 100). Every further pass
-# gets the same share of what is left, so the slice can hold any number of passes without
-# knowing how many are coming — and with the first pass being by far the biggest download,
-# the split is roughly where the bytes are.
+# What the first pass of a repeating step gets. Such a step counts from 0 to 100 more than
+# once (yt-dlp downloads video and audio as two streams, each with its own percentage), and
+# how often is not known in advance — so every further pass gets the same share of what is
+# left of the slice. The first pass being by far the biggest download, the split is roughly
+# where the bytes are.
 FIRST_PASS_SHARE = 0.8
 
 
@@ -31,6 +32,9 @@ class Phase:
 
     step: str
     weight: float
+    # Whether the step counts from 0 to 100 several times — see `FIRST_PASS_SHARE`. A step
+    # that runs once fills its slice, so the last phase of a plan really reaches 100.
+    repeats: bool = False
 
 
 class PhasedProgress:
@@ -43,26 +47,19 @@ class PhasedProgress:
     def __init__(self, report: ProgressReport, phases: Sequence[Phase]) -> None:
         if not phases:
             raise ValueError("a progress plan needs at least one phase")
+        if sum(phase.weight for phase in phases) <= 0:
+            raise ValueError("a progress plan needs a positive total weight")
         self._report = report
         self._phases = tuple(phases)
-        total = sum(phase.weight for phase in self._phases)
-        if total <= 0:
-            raise ValueError("a progress plan needs a positive total weight")
-        self._starts: list[float] = []
-        offset = 0.0
-        for phase in self._phases:
-            self._starts.append(100.0 * offset / total)
-            offset += phase.weight
-        self._spans = [
-            (self._starts[index + 1] if index + 1 < len(self._starts) else 100.0)
-            - self._starts[index]
-            for index in range(len(self._starts))
-        ]
         self._index: int | None = None
-        # How much of the current slice earlier passes of the current step have used up, and
-        # what the pass running now may still add.
+        # The scale: what the phases before the current one were worth, and what the phases
+        # that will never run took out of the total.
+        self._done = 0.0
+        self._skipped = 0.0
+        # How much of the current phase earlier passes of it have used up, and what the pass
+        # running now may still add.
         self._consumed = 0.0
-        self._share = FIRST_PASS_SHARE
+        self._share = 1.0
         self._last_percent = 0.0
         self._highest = 0.0
 
@@ -80,7 +77,9 @@ class PhasedProgress:
             self._next_pass()
         self._last_percent = 0.0 if percent is None else percent
         within = self._consumed + self._share * self._last_percent / 100.0
-        self._highest = max(self._highest, self._starts[index] + self._spans[index] * within)
+        reached = self._done + self._phases[index].weight * within
+        total = sum(phase.weight for phase in self._phases) - self._skipped
+        self._highest = max(self._highest, 100.0 * reached / total)
         return self._highest
 
     def _phase_index(self, step: str) -> int | None:
@@ -93,9 +92,14 @@ class PhasedProgress:
         return None
 
     def _enter(self, index: int) -> None:
+        """Move on to `index`: the phase we leave is done, the ones in between never ran."""
+        first = 0 if self._index is None else self._index + 1
+        if self._index is not None:
+            self._done += self._phases[self._index].weight
+        self._skipped += sum(phase.weight for phase in self._phases[first:index])
         self._index = index
         self._consumed = 0.0
-        self._share = FIRST_PASS_SHARE
+        self._share = FIRST_PASS_SHARE if self._phases[index].repeats else 1.0
 
     def _next_pass(self) -> None:
         self._consumed += self._share

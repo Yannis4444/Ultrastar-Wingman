@@ -7,7 +7,7 @@ from ultrastar_wingman.sources.progress import Phase, PhasedProgress
 PLAN = (
     Phase("first", 10),
     Phase("optional", 10),
-    Phase("long", 70),
+    Phase("long", 70, repeats=True),
     Phase("last", 10),
 )
 
@@ -51,19 +51,23 @@ async def test_a_step_without_a_percentage_sits_at_the_start_of_its_slice() -> N
     recorder = Recorder()
     report = PhasedProgress(recorder, PLAN)
     await report(None, "first")
-    await report(None, "long")
+    await report(None, "optional")
 
-    assert recorder.percentages == [0.0, 20.0]
+    assert recorder.percentages == [0.0, 10.0]
 
 
-async def test_a_skipped_step_hands_its_share_to_the_next_one() -> None:
-    """ffmpeg is only downloaded once: every later download jumps over that phase."""
+async def test_a_skipped_step_leaves_the_scale_instead_of_a_gap() -> None:
+    """ffmpeg is only downloaded once, so every later download jumps over that phase — and
+    then the ten percent it would have been worth belong to the steps that do run."""
     recorder = Recorder()
     report = PhasedProgress(recorder, PLAN)
     await report(None, "first")
     await report(0.0, "long")
+    await report(100.0, "last")
 
-    assert recorder.percentages == [0.0, 20.0]
+    # 10 of the 90 that are left, not 10 of 100 with a hole where the skipped phase was.
+    assert recorder.percentages[1] == pytest.approx(100 * 10 / 90)
+    assert recorder.percentages[-1] == 100.0
 
 
 async def test_a_step_that_counts_again_shares_its_slice_with_the_first_pass() -> None:
