@@ -9,6 +9,7 @@ import asyncio
 from collections.abc import AsyncIterator
 from dataclasses import dataclass
 from pathlib import Path
+from typing import cast
 from urllib.parse import parse_qsl
 
 import httpx
@@ -49,7 +50,12 @@ destination.write_bytes(b"video-bytes")
 pathlib.Path(__file__).with_name("ytdlp-argv.txt").write_text(
     "\\n".join(arguments), encoding="utf-8"
 )
+# Two streams, the way the default format (video + audio) makes yt-dlp count: each one
+# runs from 0 to 100 on its own.
+print("[wingman]   0.0%")
 print("[wingman]  50.0%")
+print("[wingman] 100.0%")
+print("[wingman]   0.0%")
 print("[wingman] 100.0%")
 """
 
@@ -449,6 +455,30 @@ async def test_the_cover_cache_forgets_the_oldest_entries(
 
 
 # --- download ----------------------------------------------------------------------------
+
+
+async def test_the_progress_runs_from_zero_to_a_hundred_once(
+    site: FakeUsdb,
+    environment: Environment,
+    queue: None,
+    session: AsyncSession,
+    broadcast_events: list[dict[str, object]],
+) -> None:
+    """Every step is a slice of one bar: fetching the text, the two yt-dlp streams and the
+    library scan move it forward, so the ring in the UI never restarts."""
+    await download(session)
+
+    percentages = [
+        cast(float, update["progress"])
+        for event in broadcast_events
+        if event["event"] == "download.updated"
+        and (update := cast(dict[str, object], event["download"]))["progress"] is not None
+    ]
+
+    assert percentages[0] == 0.0
+    assert percentages[-1] == 100.0
+    pairs = zip(percentages, percentages[1:], strict=False)
+    assert all(later >= earlier for earlier, later in pairs)
 
 
 async def test_download_puts_the_song_into_the_library(

@@ -322,7 +322,10 @@ async def _download(session: AsyncSession, row: Download, song_source: SongSourc
     # otherwise turn a finished download into a failure.
     with tempfile.TemporaryDirectory(ignore_cleanup_errors=True) as work_dir:
         directory = await song_source.download(row.source_song_id, Path(work_dir), report)
-    await report(None, "adding to the library")
+    # The step, but not the percentage: the source has just handed over a bar that ran to the
+    # end of its last phase, and dropping it back to "no percentage" would restart the ring
+    # one step before the download is done.
+    await report.set_step("adding to the library")
     return await scan_song_directory(
         session, directory, source=song_source.source, source_song_id=row.source_song_id
     )
@@ -336,6 +339,10 @@ class _Reporter:
         self._session = session
         self._row = row
         self._last_percent: float | None = None
+
+    async def set_step(self, step: str) -> None:
+        """A new step that has no progress of its own — leaves the percentage where it is."""
+        await _update(self._session, self._row, step=step)
 
     async def __call__(self, percent: float | None, step: str) -> None:
         if not self._is_news(percent, step):

@@ -30,10 +30,18 @@ from ..songs.model import Song
 from ..songs.scanner import SONGS_DIRECTORY
 from ..songs.txt import SongTxt, SongTxtError, parse_song_txt
 from .base import DownloadError, ProgressReport, register
+from .progress import Phase, PhasedProgress
 
 logger = logging.getLogger(__name__)
 
 SOURCE_ID = "usdb"
+
+# The steps of a download, as the UI shows them. Named because the progress plan below
+# matches them by string.
+TXT_STEP = "fetching the song text"
+IMAGES_STEP = "fetching the images"
+AUDIO_STEP = "extracting the audio"
+LIBRARY_STEP = "moving the song into the library"
 
 BASE_URL_SETTING = "usdb.base_url"
 USERNAME_SETTING = "usdb.username"
@@ -252,6 +260,19 @@ class UsdbSource:
 # --- the download pipeline ---------------------------------------------------------------
 
 
+# What the download consists of, and how much of the bar each part is worth — see
+# `progress.PhasedProgress`. In the order the steps run: the tool downloads only happen on a
+# fresh install and are skipped over on every later download, the video is the long one.
+_PHASES = (
+    Phase(TXT_STEP, 2),
+    Phase(media.FFMPEG_STEP, 10),
+    Phase(IMAGES_STEP, 4),
+    Phase(media.VIDEO_STEP, 70),
+    Phase(AUDIO_STEP, 12),
+    Phase(LIBRARY_STEP, 2),
+)
+
+
 async def _download(
     session: AsyncSession,
     usdb_id: str,
@@ -259,12 +280,13 @@ async def _download(
     report: ProgressReport,
     data_dir: Path,
 ) -> Path:
+    report = PhasedProgress(report, _PHASES)
     settings = SettingsService(session)
     library = str(await settings.get(SONGS_DIRECTORY)).strip()
     if not library:
         raise UsdbError("no_songs_directory", "set 'songs.directory' in the settings first")
 
-    await report(None, "fetching the song text")
+    await report(None, TXT_STEP)
     txt = await _get_txt(session, usdb_id)
     header = _parse_header(txt)
     video_url = _youtube_url(header.video)
@@ -276,7 +298,7 @@ async def _download(
     # it must not happen before the cheap failures (no video, directory exists) had a say.
     ffmpeg = await media.ensure_ffmpeg(session, data_dir, report=report)
 
-    await report(None, "fetching the images")
+    await report(None, IMAGES_STEP)
     await _save_image(session, COVER_PATH.format(usdb_id=usdb_id), work_dir / "cover.jpg")
     background = await _save_background(session, header.video, work_dir / "background.jpg")
     await asyncio.to_thread(
@@ -291,9 +313,9 @@ async def _download(
         ffmpeg,
         format_string=await media.video_format(session),
     )
-    await report(None, "extracting the audio")
+    await report(None, AUDIO_STEP)
     await media.extract_audio(ffmpeg, work_dir / "video.mp4", work_dir / "song.mp3")
-    await report(None, "moving the song into the library")
+    await report(None, LIBRARY_STEP)
     await asyncio.to_thread(_move_into_library, work_dir, target)
     logger.info("downloaded USDB song %s to %s", usdb_id, target)
     return target
