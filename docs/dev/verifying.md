@@ -56,7 +56,7 @@ explicitly in the report what stayed unverified.
 
 ## Without a backend, without a browser tool
 
-Two harnesses that have proven reliable when Chrome automation is unavailable:
+Three harnesses that have proven reliable when Chrome automation is unavailable:
 
 1. **Canned API in vite.** A temporary vite config whose `configureServer`
    middleware answers `/api/*` with fixed JSON (a cookie can pick the state,
@@ -73,6 +73,17 @@ Two harnesses that have proven reliable when Chrome automation is unavailable:
    the real `index.css` + the page's CSS and `chrome.exe --headless=new
    --virtual-time-budget=1500 --dump-dom file:///…` is enough (`--window-size`
    is ignored there — vary a wrapper div's width instead).
+3. **Firefox over WebDriver BiDi**, for "does this look right in Firefox
+   too": `firefox.exe -profile <scratchpad>fprofile -no-remote --headless
+   --remote-debugging-port=9222` prints `WebDriver BiDi listening on ws://…`,
+   and a venv-python script over `websockets` drives it: `session.new` →
+   `browsingContext.getTree` → `browsingContext.navigate` (`wait: complete`)
+   → `script.evaluate`. End with `session.end`, or the next connection is
+   refused with "Maximum number of active sessions". `--screenshot` does not
+   work here (the software compositor fails to map its framebuffer), so ask
+   the page what it computed — `getComputedStyle(...)` as JSON — instead of
+   looking at pixels. Firefox refuses `file://` links to another directory, so
+   a static harness has to inline the CSS it wants to test.
 
 ## Singing
 
