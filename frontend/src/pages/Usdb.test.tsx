@@ -399,9 +399,14 @@ test("clicking download posts it and a progress event turns it into a badge", as
   FakeSocket.deliver({ event: "download.updated", download: download() });
 
   // The state icon in the result row, and the modal's step line and bar.
-  expect(
-    await screen.findByLabelText("Downloading ABBA – Dancing Queen, 42%"),
-  ).toBeInTheDocument();
+  const state = await screen.findByLabelText(
+    "Downloading ABBA – Dancing Queen, 42%",
+  );
+  // The row's ring draws the same percentage the panel writes out — not the
+  // spinner it falls back to while nothing measurable is happening.
+  const ring = state.querySelector("svg");
+  expect(ring).not.toHaveClass("usdb-ring-indeterminate");
+  expect(ring?.style.getPropertyValue("--p")).toBe("0.424");
   fireEvent.click(screen.getByRole("button", { name: "Downloads: 1 running" }));
   expect(screen.getByText("downloading the video · 42%")).toBeInTheDocument();
   expect(
