@@ -89,9 +89,13 @@
 }
 
 /* Only the button form of the row is clickable — a USDB row that is not in the
-   library yet is a div whose download control does the work. */
-button.song-list-item:hover {
-  background-color: var(--highlight-blue-dark);
+   library yet is a div whose download control does the work. Pointers only: a
+   touch screen fakes a hover on tap and leaves the row lit long after the
+   finger has scrolled on. */
+@media (hover: hover) {
+  button.song-list-item:hover {
+    background-color: var(--highlight-blue-dark);
+  }
 }
 
 .song-text {

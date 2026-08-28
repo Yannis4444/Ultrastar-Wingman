@@ -56,8 +56,12 @@
   transition: 0.1s background-color;
 }
 
-.wishlist-song:hover {
-  background-color: var(--highlight-blue-dark);
+/* Pointers only: a touch screen fakes a hover on tap and leaves the row
+   lit long after the finger has scrolled on. */
+@media (hover: hover) {
+  .wishlist-song:hover {
+    background-color: var(--highlight-blue-dark);
+  }
 }
 
 .wishlist-text {

@@ -55,9 +55,13 @@
   cursor: pointer;
 }
 
-.score-groups summary:hover,
-.score-group-row-button:hover {
-  background-color: var(--highlight-blue-dark);
+/* Pointers only: a touch screen fakes a hover on tap and leaves the row
+   lit long after the finger has scrolled on. */
+@media (hover: hover) {
+  .score-groups summary:hover,
+  .score-group-row-button:hover {
+    background-color: var(--highlight-blue-dark);
+  }
 }
 
 .score-groups summary:focus-visible,
@@ -263,9 +267,11 @@ details[open] > summary .score-group-chevron {
 
 /* `--highlight-blue-dark` is the app's hover fill, but on `--tile-bg` the two
    are the same colour — inside the tile the band has to lift off the surface
-   instead. */
-.score-entry-button:hover {
-  background-color: color-mix(in srgb, var(--tile-bg) 88%, #fff);
+   instead. Pointers only, like every other row band. */
+@media (hover: hover) {
+  .score-entry-button:hover {
+    background-color: color-mix(in srgb, var(--tile-bg) 88%, #fff);
+  }
 }
 
 .score-entry-button:focus-visible {

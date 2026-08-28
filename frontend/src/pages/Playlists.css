@@ -111,8 +111,12 @@
   transition: 0.1s background-color;
 }
 
-.playlists-open:hover {
-  background-color: var(--highlight-blue-dark);
+/* Pointers only: a touch screen fakes a hover on tap and leaves the row
+   lit long after the finger has scrolled on. */
+@media (hover: hover) {
+  .playlists-open:hover {
+    background-color: var(--highlight-blue-dark);
+  }
 }
 
 /* A 40px leading square puts the name on the same axis as a song row's title,

@@ -50,6 +50,11 @@ override are the accessibility and dependency floors in §1.8–1.10.
 11. **Nothing scrolls the page sideways** at 360px width
     (`documentElement.scrollWidth == clientWidth`). Long text truncates or
     clamps; long unbreakable strings get `overflow-wrap: anywhere`.
+12. **A row's hover state is for pointers.** Every hover that paints a row —
+    the `--highlight-blue-dark` band, a lit label — sits inside
+    `@media (hover: hover)`. A touch screen reports `hover: none` and fakes a
+    hover on tap, which then stays on the row long after the finger has
+    scrolled away. Focus rings, `:active` and control hovers are untouched.
 
 ## 2. Tokens, spacing, typography
 
@@ -75,7 +80,7 @@ Spacing: page gutter 16px; section rhythm 16px; inner gaps 4/8/12/16px
 (tight icon cluster / default / row content with cover / page blocks). Row
 separators: `border-bottom` + `:last-child { border-bottom: none }`, or
 `border-top` on `li + li` — never both. Hover bands that bleed past the
-gutter: list margin `0 8px`, row padding `10px 8px`.
+gutter: list margin `0 8px`, row padding `10px 8px` (pointer-only, rule 1.12).
 
 Typography: `h1` 1.5em centered (`margin: 32px 16px 16px`); sub-pages use
 `PageHeader`, which left-aligns it. `h2` 1em, `margin: 16px 16px 0`. Captions
