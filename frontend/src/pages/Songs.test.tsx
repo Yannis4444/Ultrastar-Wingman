@@ -27,6 +27,7 @@ const {
   listPlaylists,
   addPlaylistEntry,
   listCurrentSessionSings,
+  listPlayerScores,
 } = vi.hoisted(() => ({
   listSongs: vi.fn(),
   rescanSongs: vi.fn(),
@@ -38,6 +39,7 @@ const {
   listPlaylists: vi.fn(),
   addPlaylistEntry: vi.fn(),
   listCurrentSessionSings: vi.fn(),
+  listPlayerScores: vi.fn(),
 }));
 
 vi.mock("../api/sdk.gen", async (importOriginal) => ({
@@ -52,6 +54,7 @@ vi.mock("../api/sdk.gen", async (importOriginal) => ({
   listPlaylists,
   addPlaylistEntry,
   listCurrentSessionSings,
+  listPlayerScores,
 }));
 
 /** What the trusted role holds: enough for every button on this page. */
@@ -124,6 +127,7 @@ beforeEach(() => {
     listPlaylists,
     addPlaylistEntry,
     listCurrentSessionSings,
+    listPlayerScores,
   ]) {
     mock.mockReset();
   }
@@ -132,6 +136,8 @@ beforeEach(() => {
   listPlaylists.mockResolvedValue({ data: { playlists: [] } });
   // Nothing sung: the recently-played chip is absent unless a test seeds sings.
   listCurrentSessionSings.mockResolvedValue({ data: { sings: [] } });
+  // No history either, so no row wears a microphone unless a test says so.
+  listPlayerScores.mockResolvedValue({ data: { scores: [] } });
 });
 
 afterEach(() => vi.unstubAllGlobals());
@@ -734,4 +740,91 @@ test("a role without stats.view never asks what was played", async () => {
     ).not.toBeInTheDocument(),
   );
   expect(listCurrentSessionSings).not.toHaveBeenCalled();
+});
+
+// --- sung before -------------------------------------------------------------
+
+/** One score of the reader's own on `song`, which is what "sung" is made of. */
+function score(song: SongRead) {
+  return {
+    id: 1,
+    sing_id: "sing-1",
+    player_id: "aaa",
+    player_name: "Alice",
+    score: 8000,
+    difficulty: 1,
+    recorded_at: "2026-08-27T20:00:00Z",
+    song,
+    sing_started_at: "2026-08-27T19:57:00Z",
+  };
+}
+
+test("a song the reader sang before wears a microphone", async () => {
+  listPlayerScores.mockResolvedValue({ data: { scores: [score(AFRICA)] } });
+  renderSongs([QUEEN, AFRICA], LIBRARY, ACCOUNT);
+  await screen.findByText("Dancing Queen");
+
+  const mark = await screen.findByTitle("You sang this");
+  expect(mark.closest("button")).toHaveTextContent("Africa");
+  expect(listPlayerScores.mock.calls[0][0].path).toEqual({ player_id: "aaa" });
+  // The wishlist check mark the row used to carry is gone.
+  expect(screen.queryByTitle("On your wishlist")).not.toBeInTheDocument();
+});
+
+test("the sung chip shows only what the reader sang", async () => {
+  listPlayerScores.mockResolvedValue({ data: { scores: [score(AFRICA)] } });
+  renderSongs([QUEEN, AFRICA], LIBRARY, ACCOUNT);
+  await screen.findByText("Dancing Queen");
+
+  fireEvent.click(await screen.findByRole("button", { name: "Sung" }));
+
+  expect(screen.getByText("Africa")).toBeInTheDocument();
+  expect(screen.queryByText("Dancing Queen")).not.toBeInTheDocument();
+  expect(screen.getByText("1 song")).toBeInTheDocument();
+});
+
+test("a fresh score of the reader's own refetches the sung songs", async () => {
+  renderSongs([QUEEN], LIBRARY, ACCOUNT);
+  await screen.findByRole("button", { name: "Sung" });
+  listPlayerScores.mockClear();
+
+  FakeSocket.deliver({ event: "scores.recorded", sing_id: "sing-1" });
+
+  await waitFor(() => expect(listPlayerScores).toHaveBeenCalled());
+});
+
+test("an account with no player behind it gets no sung chip", async () => {
+  renderSongs([QUEEN], LIBRARY, {
+    user: userRead({ player_id: null }),
+    role: "user",
+  });
+  await screen.findByText("Dancing Queen");
+
+  await waitFor(() =>
+    expect(
+      screen.queryByRole("button", { name: "Sung" }),
+    ).not.toBeInTheDocument(),
+  );
+  expect(listPlayerScores).not.toHaveBeenCalled();
+});
+
+test("only the pressed filter wears its label, the rest are their glyph", async () => {
+  renderSongs([QUEEN], LIBRARY, ACCOUNT);
+  await screen.findByText("Dancing Queen");
+
+  // "All" is pressed and has no glyph of its own, so it is the only word.
+  const favorites = await screen.findByRole("button", { name: "Favorites" });
+  const sung = screen.getByRole("button", { name: "Sung" });
+  // Exactly, not `toHaveTextContent("")` — that one passes for any element.
+  // The glyph is an SVG, so an icon-only chip holds no text at all.
+  expect(screen.getByRole("button", { name: "All" }).textContent).toBe("All");
+  expect(favorites.textContent).toBe("");
+  expect(sung.textContent).toBe("");
+
+  // Pressing one hands it the label and takes "All" nothing away — it has no
+  // icon to shrink to.
+  fireEvent.click(sung);
+  expect(sung.textContent).toBe("Sung");
+  expect(favorites.textContent).toBe("");
+  expect(screen.getByRole("button", { name: "All" }).textContent).toBe("All");
 });

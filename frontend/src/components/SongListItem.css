@@ -130,7 +130,13 @@ button.song-list-item:hover {
   color: var(--highlight-pink-light);
 }
 
+/* Only the wishlist tile still draws this one: there, a check means "this wish
+   is mine" among everybody else's. */
 .song-mark-wished {
+  color: var(--highlight-blue-light);
+}
+
+.song-mark-sung {
   color: var(--highlight-blue-light);
 }
 

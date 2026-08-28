@@ -9,9 +9,10 @@ Open the **Songs** tab. It lists everything Wingman found in your song folders,
 with the number of songs at the top.
 
 - The search box matches title and artist while you type. A song id also works.
-- The chips below it narrow the list: **All**, **♥ Favorites** and
-  **Recent**. The list icon at the end of the row opens the playlists view,
-  where a playlist shows its own songs.
+- The chips below it narrow the list: **All**, **♥ Favorites**, **Recent** and
+  **Sung**. Only the chip you are standing on spells its name out; the others
+  shrink to their icon so the row keeps fitting a phone. The list icon at the
+  end of the row opens the playlists view, where a playlist shows its own songs.
 - The reload button next to the song count scans the song folders again.
 - Tap a song to open it: the cover, a listen-in preview, and the buttons for
   favorite, sing and wish. Below them, **Details** unfolds language, genre,
@@ -32,6 +33,17 @@ that happens it stays put and simply says nothing has been sung yet.
 
 The search box works inside the tab, and tapping a row opens the song as usual —
 handy when the room wants the same song again.
+
+## What you have sung before
+
+A small blue microphone next to a title means you have sung that song before, in
+this party or in any party Wingman ever recorded. The **Sung** chip filters the
+list down to those songs.
+
+Both need an account with a player behind it: a song counts as sung by you once
+Ultrastar Deluxe scored it under your player. A song nobody scored — stopped
+after a verse, or sung with no microphone plugged in — belongs to nobody in
+particular, so it does not show up here. It is still in **Recent**.
 
 ## Choose the players
 

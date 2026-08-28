@@ -79,11 +79,12 @@
   }
 }
 
-/* Filter chips: All / Favorites / Recent plus the link into the playlists
-   view. The four fit one line on a 360px phone (312px of 328px available) —
-   which took shortening "Recently played" and dropping the playlists label.
-   `flex-wrap` and `overflow-x` stay as backstops for narrower screens and for
-   a longer label in a future translation. */
+/* Filter chips: All / Favorites / Recent / Sung plus the link into the
+   playlists view. Only the pressed filter wears its label — five labelled
+   chips are far past the 328px a 360px phone has, while four square glyphs,
+   one word and the playlists link fit with room to spare. `flex-wrap` and
+   `overflow-x` stay as backstops for narrower screens and for a longer label
+   in a future translation. */
 .songs-chips {
   display: flex;
   flex-wrap: wrap;
@@ -121,6 +122,23 @@
 
 .songs-chip-heart {
   color: var(--highlight-pink-light);
+}
+
+.songs-chip-mic {
+  color: var(--highlight-blue-light);
+}
+
+/* An unpressed filter is its glyph alone: square at the chips' 40px, and the
+   `.icon-button` glyph size rather than the 0.9em a chip label sets. Same shape
+   as the playlists link below, which has never had a label. */
+.songs-chip-icon {
+  justify-content: center;
+  width: 40px;
+  padding: 0;
+}
+
+.songs-chip-icon .icon {
+  font-size: 1.25em;
 }
 
 /* Wraps too: the group is one flex item of the row above, so without this the

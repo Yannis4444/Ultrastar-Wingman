@@ -15,6 +15,7 @@ const {
   listFavorites,
   listWishlist,
   listSongScores,
+  listPlayerScores,
 } = vi.hoisted(() => ({
   getMe: vi.fn(),
   getPlaylist: vi.fn(),
@@ -23,6 +24,7 @@ const {
   listFavorites: vi.fn(),
   listWishlist: vi.fn(),
   listSongScores: vi.fn(),
+  listPlayerScores: vi.fn(),
 }));
 
 vi.mock("../api/sdk.gen", async (importOriginal) => ({
@@ -34,6 +36,7 @@ vi.mock("../api/sdk.gen", async (importOriginal) => ({
   listFavorites,
   listWishlist,
   listSongScores,
+  listPlayerScores,
 }));
 
 const LIBRARY = [
@@ -109,6 +112,7 @@ beforeEach(() => {
     listFavorites,
     listWishlist,
     listSongScores,
+    listPlayerScores,
   ]) {
     mock.mockReset();
   }
@@ -116,6 +120,7 @@ beforeEach(() => {
   listFavorites.mockResolvedValue({ data: { song_ids: [] } });
   listWishlist.mockResolvedValue({ data: { wishes: [] } });
   listSongScores.mockResolvedValue({ data: { scores: [] } });
+  listPlayerScores.mockResolvedValue({ data: { scores: [] } });
 });
 
 afterEach(() => vi.unstubAllGlobals());
@@ -217,4 +222,29 @@ test("a role without playlists.view is told who may look", async () => {
     await screen.findByText(/Playlists are not open to your role/),
   ).toBeInTheDocument();
   expect(getPlaylist).not.toHaveBeenCalled();
+});
+
+test("a playlist song the reader sang before wears a microphone", async () => {
+  listPlayerScores.mockResolvedValue({
+    data: {
+      scores: [
+        {
+          id: 1,
+          sing_id: "sing-1",
+          player_id: "aaa",
+          player_name: "Alice",
+          score: 8000,
+          difficulty: 1,
+          recorded_at: "2026-08-27T20:00:00Z",
+          song: song(),
+          sing_started_at: "2026-08-27T19:57:00Z",
+        },
+      ],
+    },
+  });
+  renderPlaylist(detail(), [...LIBRARY, "stats.view"]);
+
+  expect(await screen.findByTitle("You sang this")).toBeInTheDocument();
+  // The wishlist check mark the row used to carry is gone.
+  expect(screen.queryByTitle("On your wishlist")).not.toBeInTheDocument();
 });
