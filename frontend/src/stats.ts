@@ -223,15 +223,6 @@ export function difficultyLabel(difficulty: number | null): string {
   return ["Easy", "Medium", "Hard"][difficulty ?? -1] ?? "—";
 }
 
-/** How a score is described inside a group: the other axis of the grouping.
- * Ungrouped rows are headed by their song, so they name the singer too. */
-export function scoreLabel(
-  score: ScoreWithContext,
-  grouping: Grouping,
-): string {
-  return grouping === "player" ? songLabel(score) : score.player_name;
-}
-
 /**
  * The player record behind a score, for its avatar. A guest, a singer whose
  * player was deleted and a caller who may not list players all end up on the

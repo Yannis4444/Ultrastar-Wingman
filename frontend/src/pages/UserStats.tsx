@@ -95,10 +95,10 @@ function History({ playerId }: { playerId: string }) {
       )}
 
       {/* Every score in here is the reader's own, so the singer's name behind
-          best and worst would be the same word twice a row — and on a phone it
-          truncates the rest of the caption away. `ownRows` does the same for
-          the expanded rows, which led with the reader's own avatar and name
-          once per score: they lead with the date and time instead. */}
+          the panel's best and worst would be the same word twice. `ownRows`
+          does the same for the expanded rows, which led with the reader's own
+          avatar and name once per score: under one song those rows would be
+          identical, so they lead with the date and time instead. */}
       <ScoreGroupList
         groups={groups}
         grouping="song"
@@ -109,7 +109,6 @@ function History({ playerId }: { playerId: string }) {
         players={new Map()}
         onOpenSong={setOpenSong}
         namedPeaks={false}
-        allTime
         ownRows
       />
 

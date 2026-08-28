@@ -54,13 +54,23 @@ the list itself.
 
 **Group** rearranges both the chart and the list:
 
-- **group by player** — one row per singer. Who was on form.
-- **group by song** — one row per song. Which song the room actually nails.
-- **don't group** — one row per single score, nothing merged.
+- **group by player** — one row per singer. Who was on form, with how many
+  scores they have under their name.
+- **group by song** — one row per song, title over artist as in the song list.
+  Which song the room actually nails.
+- **don't group** — one row per single score, nothing merged; the line under
+  the title names the artist and whoever sang it. Nothing to open here, so the
+  row goes straight to the song.
 
 **Sort** decides the order: *alphabetically*, or by *average score*, *best
 score* or *worst score*. The number printed at the right of each row is always
 the one being sorted on, so the ranking can never disagree with itself.
+
+Tap a row to open it. What that group adds up to — how many scores, the best,
+the worst and the average, under a song with the name of whoever managed the
+best and the worst — sits in a panel of its own, with the shape of those scores
+drawn under it once there are at least four. Below the panel is every single
+score behind the row: the songs of that singer, or the singers of that song.
 
 The chart is a box plot: the box is where most of that singer's (or song's) scores
 sit, the line in it is the median, and the whiskers are the outliers. A singer
@@ -74,10 +84,10 @@ The **Scores** tab is one party at a time. Your own record is not: open the
 That page is the same list, with one singer in it and every party at once. Your
 own scores are yours: they show up whatever the host has done with the history
 right — it is somebody *else's* record that needs it. It is
-always grouped by song — one row per song you ever sang, with how often, your
-best, your worst and your average behind it — so the only control is **Sort**.
-Open a row for the spread of that one song and every single run behind it, or
-tap a cover to open the song itself.
+always grouped by song — one row per song you ever sang — so the only control
+is **Sort**. Open a row for how often you sang it, your best, worst and average
+and the spread behind them, plus every single run with the day and time it
+happened. A cover opens the song itself.
 
 The row only appears once you have been scored at least once, and only for a
 logged-in account that is linked to a player: scores belong to a player, and
