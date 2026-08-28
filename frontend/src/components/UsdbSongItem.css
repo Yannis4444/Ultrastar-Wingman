@@ -61,7 +61,9 @@ span.usdb-state {
   color: var(--highlight-blue-light);
 }
 
-/* Determinate ring: 2πr with r=10.5 ≈ 66. --p is the fraction, set inline. */
+/* Determinate ring: 2πr with r=10.5 ≈ 66. --p is the fraction, set inline. The dash
+   lengths carry `px` because of the offset below: Firefox drops a unitless `calc()` on
+   `stroke-dashoffset` and falls back to 0, which draws the ring full at every percentage. */
 .usdb-ring {
   width: 24px;
   height: 24px;
@@ -81,8 +83,8 @@ span.usdb-state {
 .usdb-ring .usdb-ring-value {
   stroke: var(--highlight-blue-light);
   stroke-linecap: round;
-  stroke-dasharray: 66;
-  stroke-dashoffset: calc(66 - 66 * var(--p, 0));
+  stroke-dasharray: 66px;
+  stroke-dashoffset: calc(66px - 66px * var(--p, 0));
   transition: 0.3s linear stroke-dashoffset;
 }
 
@@ -92,7 +94,7 @@ span.usdb-state {
 }
 
 .usdb-ring-indeterminate .usdb-ring-value {
-  stroke-dasharray: 16 50;
+  stroke-dasharray: 16px 50px;
   stroke-dashoffset: 0;
   transition: none;
 }
