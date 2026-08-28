@@ -95,7 +95,7 @@ live in `tests/fixtures/`.
 | `App.tsx` | routes: `/`, `/spinner`, `/songs`, `/songs/playlists[/:id[/spinner]]`, `/usdb`, `/scores`, `/user`, `/user/{accounts,stats,permissions}`, `/settings`, `/host`, `/host/manage` |
 | `pages/` | one component per route: `Name.tsx` + `Name.css` + `Name.test.tsx` |
 | `components/` | shared components, same triple. `icons.tsx` is the only icon source; `Modal`/`ConfirmModal`; `PageHeader` (sub-pages); `BottomNav` (`COVERS` keeps a tab lit on its sub-routes); `SongDetails` (the song modal); `HomeStage`; `PlayerSelection`; `RankedScoreList`; `CheckOption`; `Loading` |
-| `hooks/` | `useWingmanEvent(name, handler)` (one shared socket), `useWishlist`, `useFavorites`, `useRecentlyPlayed`, `useDownloadEvents`, `useSessionStanding` |
+| `hooks/` | `useWingmanEvent(name, handler)` (one shared socket), `useWishlist`, `useFavorites`, `useRecentlyPlayed`, `useSungSongs`, `useDownloadEvents`, `useSessionStanding` |
 | `api/` | **generated** by `@hey-api/openapi-ts` (fetch client + TanStack Query options). Never edit; regenerate and commit |
 | `auth.ts` | `useAuth()` → `{ user, role, capabilities, isHost, loaded, can(capability) }` |
 | `index.css` | design tokens and the shared classes (`.button*`, `.text-input[-quiet]`, `.icon-button*`, `.error-notice`, `.visually-hidden`, global focus ring) |

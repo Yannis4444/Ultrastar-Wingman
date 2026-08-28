@@ -9,8 +9,8 @@ interface SongListItemProps {
   onClick: () => void;
   /** Small passive marker after the title: this song is in my favorites. */
   favorite?: boolean;
-  /** Small passive marker after the title: I wished for this song. */
-  wished?: boolean;
+  /** Small passive marker after the title: I have sung this song before. */
+  sung?: boolean;
   /**
    * Right-aligned trailing text inside the row: the one value this list is
    * about (the time a song was played, a duration). Not a control — anything
@@ -28,7 +28,7 @@ export default function SongListItem({
   song,
   onClick,
   favorite,
-  wished,
+  sung,
   meta,
   actions,
 }: SongListItemProps) {
@@ -39,20 +39,17 @@ export default function SongListItem({
         {/* The title attribute recovers what the ellipsis cuts ("[DUET]"). */}
         <span className="song-title" title={song.title}>
           <span className="song-title-text">{song.title}</span>
+          {sung && (
+            <span className="song-mark song-mark-sung" title="You sang this">
+              <Icon name="mic" />
+            </span>
+          )}
           {favorite && (
             <span
               className="song-mark song-mark-favorite"
               title="In your favorites"
             >
               <Icon name="heart" />
-            </span>
-          )}
-          {wished && (
-            <span
-              className="song-mark song-mark-wished"
-              title="On your wishlist"
-            >
-              <Icon name="check" />
             </span>
           )}
         </span>

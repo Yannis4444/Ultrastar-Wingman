@@ -16,7 +16,7 @@ import SongDetails from "../components/SongDetails";
 import SongListItem from "../components/SongListItem";
 import { errorMessage } from "../errors";
 import { useFavorites } from "../hooks/useFavorites";
-import { useWishlist } from "../hooks/useWishlist";
+import { useSungSongs } from "../hooks/useSungSongs";
 import "./Playlists.css";
 
 /** One playlist's songs — what the playlist chips on the songs page used to do. */
@@ -25,7 +25,7 @@ export default function Playlist() {
   const queryClient = useQueryClient();
   const auth = useAuth();
   const favorites = useFavorites();
-  const wishlist = useWishlist();
+  const sung = useSungSongs();
   const [selected, setSelected] = useState<SongRead | null>(null);
   const [error, setError] = useState<string | null>(null);
 
@@ -115,7 +115,7 @@ export default function Playlist() {
                           key={song.id}
                           song={song}
                           favorite={favorites.ids.has(song.id)}
-                          wished={wishlist.mine(song.id)}
+                          sung={sung.ids.has(song.id)}
                           onClick={() => setSelected(song)}
                           actions={
                             editable && (

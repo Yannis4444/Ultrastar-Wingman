@@ -9,7 +9,7 @@ import {
 } from "../api/@tanstack/react-query.gen";
 import { useAuth } from "../auth";
 import AddSongsModal from "../components/AddSongsModal";
-import { Icon } from "../components/icons";
+import { Icon, type IconName } from "../components/icons";
 import SongDetails from "../components/SongDetails";
 import SongListItem from "../components/SongListItem";
 import { shortTime } from "../duration";
@@ -17,8 +17,8 @@ import { errorMessage } from "../errors";
 import { useDownloadEvents } from "../hooks/useDownloadEvents";
 import { useFavorites } from "../hooks/useFavorites";
 import { useRecentlyPlayed } from "../hooks/useRecentlyPlayed";
+import { useSungSongs } from "../hooks/useSungSongs";
 import { useWingmanEvent } from "../hooks/useWingmanEvents";
-import { useWishlist } from "../hooks/useWishlist";
 import { SONG_SOURCES } from "../songSources";
 import "./Songs.css";
 
@@ -26,6 +26,7 @@ import "./Songs.css";
 const ALL = "all";
 const FAVORITES = "favorites";
 const RECENT = "recent";
+const SUNG = "sung";
 
 /**
  * The clock time a song last started, on the recently-played tab only. The 24h
@@ -43,6 +44,43 @@ function recentTime(
   return <span className="song-duration">{shortTime(at)}</span>;
 }
 
+/**
+ * One filter chip. Only the pressed one spells its filter out; the others are
+ * their glyph alone, named for a screen reader and for a hover. Four labelled
+ * chips no longer fit a phone's width, and the label that earns the room is the
+ * one saying which list the reader is looking at.
+ */
+function FilterChip({
+  value,
+  label,
+  icon,
+  iconClassName,
+  filter,
+  onSelect,
+}: {
+  value: string;
+  label: string;
+  icon: IconName;
+  iconClassName?: string;
+  filter: string;
+  onSelect: (value: string) => void;
+}) {
+  const on = filter === value;
+  return (
+    <button
+      type="button"
+      className={on ? "songs-chip songs-chip-on" : "songs-chip songs-chip-icon"}
+      aria-pressed={on}
+      aria-label={label}
+      title={label}
+      onClick={() => onSelect(value)}
+    >
+      <Icon name={icon} className={iconClassName} />
+      {on && label}
+    </button>
+  );
+}
+
 function matches(song: SongRead, needle: string): boolean {
   return (
     song.id === needle ||
@@ -55,8 +93,8 @@ export default function Songs() {
   const queryClient = useQueryClient();
   const auth = useAuth();
   const favorites = useFavorites();
-  const wishlist = useWishlist();
   const recent = useRecentlyPlayed();
+  const sung = useSungSongs();
   const [search, setSearch] = useState("");
   const [filter, setFilter] = useState(ALL);
   const [selected, setSelected] = useState<SongRead | null>(null);
@@ -108,18 +146,21 @@ export default function Songs() {
           recent.isPending
           ? undefined
           : recent.songs
-        : all;
+        : filter === SUNG
+          ? // Same reason: an empty set while the history is in flight would
+            // flash "you have not sung anything yet" over a full record.
+            sung.isPending
+            ? undefined
+            : (all ?? []).filter((song) => sung.ids.has(song.id))
+          : all;
   const shown = useMemo(
     () => (needle ? base?.filter((song) => matches(song, needle)) : base),
     [base, needle],
   );
 
-  const chip = (value: string): string =>
-    filter === value ? "songs-chip songs-chip-on" : "songs-chip";
-
   // `All` only earns its place next to another filter; on its own beside a link
   // it would be a chip that does nothing.
-  const canFilter = favorites.available || showRecent;
+  const canFilter = favorites.available || showRecent || sung.available;
   const canBrowsePlaylists = auth.loaded && auth.can("playlists.view");
   // No source this role may search means nothing for the picker to offer.
   const canAddSongs = SONG_SOURCES.some((source) =>
@@ -152,40 +193,51 @@ export default function Songs() {
               playlists chip leaves it. */}
           {canFilter && (
             <div className="songs-filters" role="group" aria-label="Filter">
+              {/* The one chip with no glyph of its own, so it keeps its label
+                  whether it is pressed or not. */}
               <button
                 type="button"
-                className={chip(ALL)}
+                className={
+                  filter === ALL ? "songs-chip songs-chip-on" : "songs-chip"
+                }
                 aria-pressed={filter === ALL}
                 onClick={() => setFilter(ALL)}
               >
                 All
               </button>
               {favorites.available && (
-                <button
-                  type="button"
-                  className={chip(FAVORITES)}
-                  aria-pressed={filter === FAVORITES}
-                  onClick={() => setFilter(FAVORITES)}
-                >
-                  <Icon name="heart" className="songs-chip-heart" />
-                  Favorites
-                </button>
+                <FilterChip
+                  value={FAVORITES}
+                  label="Favorites"
+                  icon="heart"
+                  iconClassName="songs-chip-heart"
+                  filter={filter}
+                  onSelect={setFilter}
+                />
               )}
               {showRecent && (
-                <button
-                  type="button"
-                  className={chip(RECENT)}
-                  aria-pressed={filter === RECENT}
-                  onClick={() => setFilter(RECENT)}
-                >
-                  <Icon name="clock" />
-                  Recent
-                </button>
+                <FilterChip
+                  value={RECENT}
+                  label="Recent"
+                  icon="clock"
+                  filter={filter}
+                  onSelect={setFilter}
+                />
+              )}
+              {sung.available && (
+                <FilterChip
+                  value={SUNG}
+                  label="Sung"
+                  icon="mic"
+                  iconClassName="songs-chip-mic"
+                  filter={filter}
+                  onSelect={setFilter}
+                />
               )}
             </div>
           )}
-          {/* Icon only: with its label the four chips ran to 427px and wrapped
-              onto a second line on every phone. */}
+          {/* Icon only like the unpressed filters, and for the same reason —
+              the `list` glyph beside them is unambiguous. */}
           {canBrowsePlaylists && (
             <Link
               to="/songs/playlists"
@@ -266,9 +318,11 @@ export default function Songs() {
                   ? "No favorites yet. Open a song and tap the heart."
                   : filter === RECENT
                     ? "Nothing has been sung yet."
-                    : canAddSongs
-                      ? "The library is empty. Add songs from an online source, or run a rescan once they are on disk."
-                      : "The library is empty. Run a rescan once songs are on disk."}
+                    : filter === SUNG
+                      ? "You have not sung anything yet. Songs you get a score on show up here."
+                      : canAddSongs
+                        ? "The library is empty. Add songs from an online source, or run a rescan once they are on disk."
+                        : "The library is empty. Run a rescan once songs are on disk."}
             </p>
           ) : (
             <div className="songs-list">
@@ -277,7 +331,7 @@ export default function Songs() {
                   key={song.id}
                   song={song}
                   favorite={favorites.ids.has(song.id)}
-                  wished={wishlist.mine(song.id)}
+                  sung={sung.ids.has(song.id)}
                   meta={recentTime(filter, recent.startedAt, song.id)}
                   onClick={() => setSelected(song)}
                 />
