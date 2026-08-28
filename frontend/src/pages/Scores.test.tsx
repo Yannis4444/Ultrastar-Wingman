@@ -1,5 +1,6 @@
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import {
+  cleanup,
   fireEvent,
   render,
   screen,
@@ -8,6 +9,7 @@ import {
 } from "@testing-library/react";
 import { MemoryRouter } from "react-router-dom";
 import type { ScoreWithContext, SessionRead, SongRead } from "../api";
+import { shortDate } from "../duration";
 import { meResponse } from "../test/auth";
 import { FakeSocket } from "../test/fakeSocket";
 import { iconNames } from "../test/icons";
@@ -275,6 +277,34 @@ test("the summary leaves out the sing count while it equals the song count", asy
     expect(within(summary).getByTitle("Songs")).toHaveTextContent(/^Songs2$/),
   );
   expect(within(summary).queryByTitle(/^Sings/)).not.toBeInTheDocument();
+});
+
+test("an older session is dated in the summary; today's is not", async () => {
+  renderScores();
+
+  // `tonight` is a fixture from August 2026 — by the time anybody runs this it
+  // is a party from another day, and nothing else on the page would say when
+  // it was: the picker prints a *named* session's name, not its date.
+  const summary = await screen.findByLabelText("Session summary");
+  await waitFor(() =>
+    expect(within(summary).getByTitle("Started")).toHaveTextContent(
+      shortDate(tonight.started_at),
+    ),
+  );
+
+  // A party that is happening today needs no date: the reader is at it.
+  const today = new Date().toISOString();
+  listSessions.mockResolvedValue({
+    data: { sessions: [{ ...tonight, started_at: today }] },
+  });
+  cleanup();
+  renderScores();
+
+  const running = await screen.findByLabelText("Session summary");
+  await waitFor(() =>
+    expect(within(running).getByTitle("Songs")).toBeInTheDocument(),
+  );
+  expect(within(running).queryByTitle("Started")).not.toBeInTheDocument();
 });
 
 test("the summary names the evening's best score but not who sang it", async () => {

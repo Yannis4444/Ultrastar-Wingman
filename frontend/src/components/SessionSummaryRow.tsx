@@ -1,4 +1,5 @@
 import type { ScoreWithContext, SessionRead } from "../api";
+import { isToday, shortDate } from "../duration";
 import { summarize } from "../stats";
 import IconStat from "./IconStat";
 import "./SessionSummaryRow.css";
@@ -9,8 +10,12 @@ interface SessionSummaryRowProps {
 }
 
 /**
- * A party in up to four numbers: how much was sung, how varied it was, how
- * many people took a turn, and what the evening's best score was.
+ * A party in up to five figures: when it was, how much was sung, how varied it
+ * was, how many people took a turn, and what the evening's best score was.
+ *
+ * The date only appears once the party is not today's. Tonight's session needs
+ * no date — the reader was there — but a named one from months ago ("Yannis'
+ * birthday") otherwise says nowhere on the page when it happened.
  *
  * The sing count only appears when it differs from the song count. As long as
  * every song was sung once the two numbers are the same, and printing the same
@@ -39,6 +44,13 @@ export default function SessionSummaryRow({
   return (
     <section className="session-summary" aria-label="Session summary">
       <p className="session-summary-stats">
+        {!isToday(session.started_at) && (
+          <IconStat
+            icon="calendar"
+            label="Started"
+            value={shortDate(session.started_at)}
+          />
+        )}
         {sings !== songs && (
           <IconStat icon="hash" label={singsLabel} value={sings} />
         )}

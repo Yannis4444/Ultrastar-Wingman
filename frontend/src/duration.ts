@@ -37,6 +37,15 @@ export function shortDate(timestamp: string): string {
   });
 }
 
+/**
+ * Whether a timestamp falls on the day the reader is having — local days, so
+ * "today" means what the calendar on the wall says, not what UTC says.
+ */
+export function isToday(timestamp: string): boolean {
+  const day = new Date(parseServerTime(timestamp));
+  return day.toDateString() === new Date().toDateString();
+}
+
 /** Coarse "how long ago" for wish times — a party never needs seconds. */
 export function timeAgo(timestamp: string): string {
   const minutes = Math.floor((Date.now() - parseServerTime(timestamp)) / 60000);

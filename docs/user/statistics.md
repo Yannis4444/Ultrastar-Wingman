@@ -32,15 +32,20 @@ by default.
 
 ## What a party page shows
 
-Four numbers first, each behind its own symbol. On a computer, resting the
-pointer on one spells out the word; a screen reader reads it out too:
+A handful of figures first, each behind its own symbol. On a computer, resting
+the pointer on one spells out the word; a screen reader reads it out too:
 
 | | |
 |---|---|
+| **Started** | The day the party was — only for a party that is not today's |
 | **Sings** | How many performances were scored |
 | **Songs** | How many different songs |
 | **Singers** | How many different people sang |
 | **Top score** | The evening's best score |
+
+Tonight's party carries no date: you were at it. An older one does, because a
+party you gave a name to ("Yannis' birthday") would otherwise say nowhere on
+the page when it happened.
 
 The top score is the number alone. Who got it, and on what, is the first row of
 the list further down — that list is what the page is for.
