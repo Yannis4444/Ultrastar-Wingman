@@ -55,34 +55,49 @@ const DESCRIPTIONS: Record<string, string> = {
   "karaoke.sing": "Start a song on the Ultrastar Deluxe machine.",
   "karaoke.stop": "Stop the song that is running now.",
   "players.view": "See the players, and pick who is singing.",
-  "players.manage": "Add, rename and delete players and their pictures.",
+  "players.avatar": "Change anybody's picture. Your own never needs a right.",
+  "players.manage": "Add and delete players.",
   "wishlist.view": "See what everybody wished for.",
   "wishlist.add": "Put a song on the wishlist, and take it off again.",
+  "wishlist.manage": "Take a song off the wishlist for everybody.",
   "playlists.view": "See shared playlists and the songs in them.",
   "playlists.manage": "Create and edit own playlists.",
+  "playlists.moderate":
+    "Change and delete shared playlists somebody else made — needs manage too.",
   "downloads.view": "See the download queue.",
   "downloads.manage": "Start downloads, retry and clear them.",
   "usdb.search": "Search usdb.animux.de for new songs.",
-  "stats.view": "See the scores and the party statistics.",
+  "stats.view": "See the scoreboard of the party that is running.",
+  "stats.history":
+    "See the parties before tonight, and anybody's whole record.",
   "stats.manage": "Rename a party in the statistics.",
   "settings.view": "See Wingman's settings.",
   "settings.manage": "Change every setting, the USDB login included.",
+  "users.view": "See who has an account and what role they hold.",
   "users.manage": "Change what role other accounts have, and delete them.",
   "permissions.manage": "Change this table.",
 };
 
 /**
  * Why a grant would do nothing, or `null` when it works. The backend accepts
- * every capability for every editable role, but a playlist belongs to an
- * account: creating one goes through `account_id` (401 without an account) and
- * every change through an ownership check a guest can never pass. Ticking it for
- * `guest` would therefore be a lie, so the box is disabled — unless the value is
- * already on, which has to stay clearable.
+ * every capability for every editable role, but some rights are about a row that
+ * belongs to somebody: creating a playlist goes through `account_id` (401
+ * without an account), and both a favorite and an own-player picture need an
+ * account to belong to. Ticking those for `guest` would be a lie, so the box is
+ * disabled — unless the value is already on, which has to stay clearable.
+ *
+ * `playlists.moderate` is *not* inert for a guest: it reaches into other
+ * people's shared lists, which needs no account of one's own. It does need
+ * `playlists.manage` alongside it, and that sentence lives in the description —
+ * this function only sees one capability at a time.
  */
+const GUEST_INERT: Record<string, string> = {
+  "playlists.manage":
+    "A playlist belongs to an account, so a guest has none to create or edit.",
+};
+
 function inertReason(role: string, capability: string): string | null {
-  return role === "guest" && capability === "playlists.manage"
-    ? "A playlist belongs to an account, so a guest has none to create or edit."
-    : null;
+  return role === "guest" ? (GUEST_INERT[capability] ?? null) : null;
 }
 
 /** Ids have to survive in an `aria-describedby` list, where a space separates

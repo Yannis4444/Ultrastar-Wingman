@@ -18,6 +18,12 @@ many people want it. Wishing for a song somebody already wished for raises its
 count. **Remove wish** takes back your own wish and leaves everybody else's
 alone.
 
+The host has a bin beside the rows instead: it takes the song off the wishlist
+for everybody at once, for the wish the party is not going to sing. It needs the
+right to manage the wishlist, which **trusted** and **admin** hold by default,
+and it never appears where your own wish is the only one — **Remove wish** beside
+it already does exactly that.
+
 Starting a song takes it off the wishlist. The wishes of the singers who have
 an account are settled, and so is every wish made without an account — such a
 wish belongs to a phone, not to a player, so the singer's own cannot be told
@@ -66,8 +72,12 @@ the row, and the bin deletes it.
 A shared playlist is visible to everybody in the party, including guests without
 an account. A private one is visible to nobody but its owner.
 
-Only the owner can change a playlist — with one exception: an administrator may
-fix anybody's. Deleting a playlist deletes only the list, never the songs.
+Only the owner can change a playlist — with one exception: whoever holds the
+right to moderate playlists may fix anybody's *shared* one, rename it, take songs
+out of it or delete it. Only an administrator holds that right by default. A
+playlist that was kept private is nobody else's to touch, not even theirs: it is
+invisible to everybody but its owner, and what cannot be looked at cannot be
+changed either. Deleting a playlist deletes only the list, never the songs.
 
 !!! warning
     Deleting an account deletes its playlists, wishes and favorites with it,

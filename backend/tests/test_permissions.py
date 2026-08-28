@@ -39,7 +39,9 @@ ROUTES: list[tuple[str, str, str, dict[str, object] | None]] = [
     ("players.view", "GET", "/api/v1/karaoke/colors", None),
     ("players.manage", "POST", "/api/v1/players", {"name": "Someone"}),
     ("players.manage", "DELETE", "/api/v1/players/nope", None),
-    ("players.manage", "PUT", "/api/v1/players/nope/avatar", None),
+    # Somebody else's picture. Your own needs no capability, which is why the id here is
+    # one no caller in this matrix owns — see test_players_api for the identity half.
+    ("players.avatar", "PUT", "/api/v1/players/nope/avatar", None),
     ("songs.view", "GET", "/api/v1/karaoke/current", None),
     ("songs.view", "GET", "/api/v1/karaoke/status", None),
     (
@@ -59,6 +61,7 @@ ROUTES: list[tuple[str, str, str, dict[str, object] | None]] = [
     ("wishlist.view", "GET", "/api/v1/wishlist", None),
     ("wishlist.add", "POST", "/api/v1/wishlist", {"song_id": "usdb:1"}),
     ("wishlist.add", "DELETE", "/api/v1/wishlist/usdb:1", None),
+    ("wishlist.manage", "DELETE", "/api/v1/wishlist/usdb:1/wishes", None),
     ("playlists.view", "GET", "/api/v1/playlists", None),
     ("playlists.view", "GET", "/api/v1/playlists/nope", None),
     # POST /playlists is deliberately not here: it checks for an account first, so an
@@ -68,17 +71,24 @@ ROUTES: list[tuple[str, str, str, dict[str, object] | None]] = [
     ("playlists.manage", "POST", "/api/v1/playlists/nope/entries", {"song_id": "usdb:1"}),
     ("playlists.manage", "DELETE", "/api/v1/playlists/nope/entries/usdb:1", None),
     ("playlists.manage", "PUT", "/api/v1/playlists/nope/entries", {"song_ids": []}),
+    # `playlists.moderate` is not here: it is not a route's own right but an extension of
+    # `playlists.manage` to somebody else's shared list, so it needs a real playlist to
+    # mean anything — test_library_api owns that half.
     ("downloads.view", "GET", "/api/v1/downloads", None),
     ("downloads.manage", "POST", "/api/v1/downloads", {"source": "nope", "source_song_id": "1"}),
     # Taking a download off the panel changes what everybody else sees, so it is `manage`.
     ("downloads.manage", "POST", "/api/v1/downloads/1/dismiss", None),
     ("downloads.manage", "POST", "/api/v1/downloads/dismiss-finished", None),
+    # The list itself answers everybody: without `stats.history` it simply holds nothing
+    # but the party that is still going.
     ("stats.view", "GET", "/api/v1/stats/sessions", None),
-    ("stats.view", "GET", "/api/v1/stats/sessions/nope/scores", None),
     ("stats.view", "GET", "/api/v1/stats/sessions/current/sings", None),
-    ("stats.view", "GET", "/api/v1/stats/songs/usdb:1/scores", None),
-    ("stats.view", "GET", "/api/v1/stats/players/nope/scores", None),
     ("stats.view", "GET", "/api/v1/stats/latest", None),
+    # No party is running in this fixture, so every session id here is an older one.
+    ("stats.history", "GET", "/api/v1/stats/sessions/nope/scores", None),
+    ("stats.history", "GET", "/api/v1/stats/songs/usdb:1/scores", None),
+    # Somebody else's player; your own scores are identity — see test_stats_api.
+    ("stats.history", "GET", "/api/v1/stats/players/nope/scores", None),
     ("stats.manage", "PATCH", "/api/v1/stats/sessions/nope", {"name": "Party"}),
     ("usdb.search", "GET", "/api/v1/sources/usdb/status", None),
     ("usdb.search", "GET", "/api/v1/sources/usdb/search", None),
@@ -89,7 +99,7 @@ ROUTES: list[tuple[str, str, str, dict[str, object] | None]] = [
     # Starting a program on the karaoke PC is the host's business. Nothing is launched
     # here: USDX is not configured in this fixture, so a permitted caller gets a 400.
     ("settings.manage", "POST", "/api/v1/karaoke/usdx/launch", None),
-    ("users.manage", "GET", "/api/v1/users", None),
+    ("users.view", "GET", "/api/v1/users", None),
     ("users.manage", "PATCH", "/api/v1/users/nope", {"role": "user"}),
     ("users.manage", "DELETE", "/api/v1/users/nope", None),
     ("permissions.manage", "GET", "/api/v1/permissions", None),
@@ -195,14 +205,23 @@ async def test_the_public_routes_stay_public(
     assert response.status_code not in (401, 403), response.text
 
 
+# The two rights that guard a *row* rather than a route: they only bite once the target
+# exists and belongs to somebody else, so they cannot be asserted with a made-up id. Their
+# spec lives with the module they moderate.
+ROW_LEVEL_CAPABILITIES = {"playlists.moderate"}
+
+
 def test_every_capability_is_enforced_somewhere() -> None:
     """A capability nobody requires is either dead or a route that forgot its check."""
     # users.manage and permissions.manage are in ROUTES; nothing may be missing.
-    assert set(CAPABILITIES) == {capability for capability, _, _, _ in ROUTES}
+    assert (
+        set(CAPABILITIES) == {capability for capability, _, _, _ in ROUTES} | ROW_LEVEL_CAPABILITIES
+    )
 
 
 async def test_the_migration_seeds_the_module_defaults(session: AsyncSession) -> None:
-    """Migration 0006 spells the defaults out literally; this is what keeps the two in step."""
+    """Migrations 0006 to 0011 spell the defaults out literally, each seeding the
+    capabilities it introduces; this is what keeps them and the module in step."""
     seeded: dict[str, set[str]] = {}
     for row in await session.scalars(select(RolePermission)):
         seeded.setdefault(row.role, set()).add(row.capability)

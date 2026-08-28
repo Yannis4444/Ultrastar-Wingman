@@ -78,10 +78,12 @@ export default function SongDetails({ song, onClose }: SongDetailsProps) {
     ),
   );
 
-  // All-time and newest first, so the top of the list needs sorting here.
+  // All-time and newest first, so the top of the list needs sorting here. The
+  // whole archive rather than tonight, hence `stats.history` and not
+  // `stats.view`.
   const songScores = useQuery({
     ...listSongScoresOptions({ path: { song_id: song.id } }),
-    enabled: auth.loaded && auth.can("stats.view"),
+    enabled: auth.loaded && auth.can("stats.history"),
   });
   const allScores = songScores.data?.scores ?? [];
   const ranked = [...allScores].sort((a, b) => b.score - a.score);

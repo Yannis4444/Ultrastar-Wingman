@@ -8,7 +8,6 @@ from fastapi import APIRouter, Depends, HTTPException, Response
 from pydantic import BaseModel, StringConstraints
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from ..auth import permissions
 from ..auth.deps import (
     AccountIdDep,
     Principal,
@@ -109,6 +108,20 @@ async def remove_wish(song_id: str, session: SessionDep, identity: WishlistIdent
         await service.remove_wish(session, song_id, identity.user_id, identity.guest_id)
     except service.NotWishedError as error:
         raise HTTPException(status_code=404, detail="not_wished") from error
+
+
+@router.delete(
+    "/wishlist/{song_id}/wishes",
+    status_code=204,
+    dependencies=[Depends(require("wishlist.manage"))],
+    responses={404: {"description": "Nobody wished for this song."}},
+)
+async def clear_wishes(song_id: str, session: SessionDep) -> None:
+    """Take a song off the wishlist for everybody — the host's answer to the wish the party
+    is not going to sing. `DELETE /wishlist/{song_id}` is the one that only takes back the
+    caller's own wish; this one drops the lot, whoever made them."""
+    if await service.clear_wishes(session, song_id) == 0:
+        raise HTTPException(status_code=404, detail="not_wished")
 
 
 @router.get("/favorites", response_model=FavoritesRead)
@@ -286,12 +299,19 @@ async def _visible(playlist_id: str, principal: Principal, session: AsyncSession
 
 
 async def _mutable(playlist_id: str, principal: Principal, session: AsyncSession) -> Playlist:
-    """Ownership is a property of the row, so this cannot be a route dependency."""
+    """Ownership is a property of the row, so this cannot be a route dependency.
+
+    Your own playlist is always yours to change; somebody else's takes
+    `playlists.moderate`, and only ever a *shared* one — a private playlist stays the 404
+    `_visible` makes it, so nothing can be deleted that could not be looked at.
+    """
     playlist = await session.get(Playlist, playlist_id)
     if playlist is None:
         raise HTTPException(status_code=404, detail=f"unknown playlist '{playlist_id}'")
-    if _owns(principal, playlist) or principal.role == permissions.ADMIN:
+    if _owns(principal, playlist):
         return playlist
     if not playlist.shared:
         raise HTTPException(status_code=404, detail=f"unknown playlist '{playlist_id}'")
+    if "playlists.moderate" in principal.capabilities:
+        return playlist
     raise HTTPException(status_code=403, detail="not_playlist_owner")

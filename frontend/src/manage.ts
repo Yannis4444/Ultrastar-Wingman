@@ -14,10 +14,11 @@ export interface ManageEntry {
  * that lists them. The phone lists them under "Manage" on the user page, the
  * host screen on a view of its own; the pages behind them are the same.
  *
- * The people page is two rights in one place, managing the players and managing
- * the accounts. Merely *seeing* the players is not one of them — every party
- * guest holds `players.view`, and a "Manage" heading over the login form would
- * promise a stranger something to do.
+ * The people page gathers four rights, any one of which is something to do
+ * there: the players, their pictures, reading the accounts and managing them.
+ * Merely *seeing* the players is not among them — every party guest holds
+ * `players.view` (the singer picker needs it), and a "Manage" heading over the
+ * login form would promise a stranger something to do.
  */
 export const MANAGE_ENTRIES: ManageEntry[] = [
   {
@@ -27,7 +28,12 @@ export const MANAGE_ENTRIES: ManageEntry[] = [
     icon: "gear",
   },
   {
-    capabilities: ["players.manage", "users.manage"],
+    capabilities: [
+      "players.manage",
+      "players.avatar",
+      "users.view",
+      "users.manage",
+    ],
     label: "Players & accounts",
     to: "/user/accounts",
     icon: "users",

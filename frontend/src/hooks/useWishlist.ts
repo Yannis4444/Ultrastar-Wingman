@@ -2,6 +2,7 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import type { WishRead } from "../api";
 import {
   addWishMutation,
+  clearWishesMutation,
   listWishlistOptions,
   listWishlistQueryKey,
   removeWishMutation,
@@ -17,6 +18,8 @@ export interface Wishlist {
   mine: (songId: string) => boolean;
   wish: (songId: string) => void;
   unwish: (songId: string) => void;
+  /** Take the song off the list for everybody — needs `wishlist.manage`. */
+  clear: (songId: string) => void;
   /** Last failed wish mutation, for a notice next to the button. */
   error: unknown;
 }
@@ -48,12 +51,13 @@ export function useWishlist(): Wishlist {
     onSettled: refresh,
   });
   const remove = useMutation({ ...removeWishMutation(), onSettled: refresh });
+  const clear = useMutation({ ...clearWishesMutation(), onSettled: refresh });
 
   const wishes = wishlist.data?.wishes ?? [];
   // A wish that was already there (or already gone) means the list was stale;
   // the refetch fixes the button, there is nothing to tell the user.
   const stale = ["already_wished", "not_wished"];
-  const failure = [add.error, remove.error].find(
+  const failure = [add.error, remove.error, clear.error].find(
     (error) => error && !stale.includes(errorDetail(error) ?? ""),
   );
 
@@ -64,6 +68,7 @@ export function useWishlist(): Wishlist {
       wishes.some((wish) => wish.song.id === songId && wish.mine),
     wish: (songId) => add.mutate({ body: { song_id: songId } }),
     unwish: (songId) => remove.mutate({ path: { song_id: songId } }),
+    clear: (songId) => clear.mutate({ path: { song_id: songId } }),
     error: failure ?? null,
   };
 }

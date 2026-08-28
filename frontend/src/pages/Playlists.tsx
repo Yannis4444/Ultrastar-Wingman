@@ -74,10 +74,12 @@ export default function Playlists() {
 
   // A playlist needs an account to belong to, so a guest never gets the form.
   const canManage = auth.user !== null && auth.can("playlists.manage");
-  // The owner edits their own; an administrator may fix anybody's — including
-  // the host session, which is an administrator without an account of its own.
+  // The owner edits their own; `playlists.moderate` extends that to anybody
+  // else's shared list — the host session included, which holds every right but
+  // has no account and so owns nothing.
   const mutable = (list: PlaylistRead) =>
-    auth.can("playlists.manage") && (list.mine || auth.role === "admin");
+    auth.can("playlists.manage") &&
+    (list.mine || auth.can("playlists.moderate"));
 
   const rows = playlists.data?.playlists ?? [];
   const empty = playlists.isSuccess && rows.length === 0;

@@ -9,7 +9,7 @@ from fastapi.responses import FileResponse
 from pydantic import BaseModel, StringConstraints
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from ..auth.deps import require
+from ..auth.deps import PrincipalDep, require
 from ..config import BootstrapSettings
 from ..db import SessionDep
 from . import service
@@ -61,11 +61,32 @@ async def delete_player(player_id: str, session: SessionDep, avatars_dir: Avatar
     await service.delete_player(session, await _player(player_id, session), avatars_dir)
 
 
+async def own_player_or_avatar_right(
+    player_id: str, session: SessionDep, principal: PrincipalDep
+) -> None:
+    """Your own picture is identity, not a capability — like favorites, there is nothing
+    for an administrator to grant. Everybody else's takes `players.avatar`.
+
+    A dependency and not an `if` in the handler, both because the permission belongs in the
+    decorator (code-style.md) and because it has to refuse before the upload is parsed.
+    The player is never looked up here: which ids exist is not something a caller who may
+    not touch them should be able to probe.
+    """
+    own = (
+        None
+        if principal.user is None
+        else await service.player_id_of_user(session, principal.user.id)
+    )
+    if own != player_id:
+        principal.require("players.avatar")
+
+
 @router.put(
     "/players/{player_id}/avatar",
     response_model=PlayerRead,
-    dependencies=[Depends(require("players.manage"))],
+    dependencies=[Depends(own_player_or_avatar_right)],
     responses={
+        403: {"description": "Somebody else's picture, without `players.avatar`."},
         413: {"description": "The image is larger than 5 MB, or its canvas has too many pixels."},
         415: {"description": "Not a jpeg, png or webp image."},
     },

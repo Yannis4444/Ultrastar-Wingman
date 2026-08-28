@@ -43,7 +43,13 @@ vi.mock("../api/sdk.gen", async (importOriginal) => ({
   setPlayerAvatar,
 }));
 
-const PLAYER_CAPABILITIES = ["players.view", "players.manage"];
+// What `trusted` holds over the players: the roster, the pictures, and adding
+// and deleting people.
+const PLAYER_CAPABILITIES = [
+  "players.view",
+  "players.avatar",
+  "players.manage",
+];
 const ADMIN_CAPABILITIES = [...PLAYER_CAPABILITIES, "users.manage"];
 
 function player(id: string, name: string, registered = false): PlayerRead {
@@ -160,7 +166,9 @@ test("an empty group says so only once the answer is in", async () => {
 });
 
 test("a party nobody has joined yet needs no groups at all", async () => {
-  getMe.mockResolvedValue(meResponse(["players.view"]));
+  // The pictures right alone: enough to open the page, nothing to add anybody
+  // with, so neither heading has a reason to stand there.
+  getMe.mockResolvedValue(meResponse(["players.view", "players.avatar"]));
   listPlayers.mockResolvedValue({ data: { players: [] } });
   renderPage();
 
@@ -173,8 +181,10 @@ test("a party nobody has joined yet needs no groups at all", async () => {
   ).not.toBeInTheDocument();
 });
 
-test("without either right the page explains itself and asks nothing", async () => {
-  getMe.mockResolvedValue(meResponse(["songs.view"]));
+test("seeing the players is not on its own a reason to open this page", async () => {
+  // Every guest phone holds `players.view` for the singer picker; the page is
+  // for the four rights that actually do something here.
+  getMe.mockResolvedValue(meResponse(["songs.view", "players.view"]));
   renderPage();
 
   expect(
@@ -303,7 +313,9 @@ test("a player manager sees the people but no account controls", async () => {
 });
 
 test("only looking on means no form, no delete and no uploader", async () => {
-  getMe.mockResolvedValue(meResponse(["players.view"]));
+  // `users.view` opens the page read-only: who is here and who has an account,
+  // and not one control over either.
+  getMe.mockResolvedValue(meResponse(["players.view", "users.view"]));
   renderPage();
 
   await screen.findByText("Mallory");
@@ -312,6 +324,23 @@ test("only looking on means no form, no delete and no uploader", async () => {
     screen.queryByRole("button", { name: "Delete Mallory" }),
   ).not.toBeInTheDocument();
   expect(screen.queryByLabelText("Avatar for Mallory")).not.toBeInTheDocument();
+  // Read-only over the accounts too: the names, never the roles.
+  expect(screen.queryByLabelText("Role of Alice")).not.toBeInTheDocument();
+  expect(
+    screen.queryByRole("button", { name: "Delete account Alice" }),
+  ).not.toBeInTheDocument();
+});
+
+test("the pictures right hands out the uploaders and nothing else", async () => {
+  getMe.mockResolvedValue(meResponse(["players.view", "players.avatar"]));
+  renderPage();
+
+  await screen.findByText("Mallory");
+  expect(screen.getByLabelText("Avatar for Mallory")).toBeInTheDocument();
+  expect(screen.queryByLabelText("New player name")).not.toBeInTheDocument();
+  expect(
+    screen.queryByRole("button", { name: "Delete Mallory" }),
+  ).not.toBeInTheDocument();
 });
 
 test("a new player joins the guests", async () => {

@@ -1619,6 +1619,10 @@ export type SetPlayerAvatarData = {
 
 export type SetPlayerAvatarErrors = {
     /**
+     * Somebody else's picture, without `players.avatar`.
+     */
+    403: unknown;
+    /**
      * The image is larger than 5 MB, or its canvas has too many pixels.
      */
     413: unknown;
@@ -2109,6 +2113,40 @@ export type RemoveWishResponses = {
 
 export type RemoveWishResponse = RemoveWishResponses[keyof RemoveWishResponses];
 
+export type ClearWishesData = {
+    body?: never;
+    path: {
+        /**
+         * Song Id
+         */
+        song_id: string;
+    };
+    query?: never;
+    url: '/api/v1/wishlist/{song_id}/wishes';
+};
+
+export type ClearWishesErrors = {
+    /**
+     * Nobody wished for this song.
+     */
+    404: unknown;
+    /**
+     * Validation Error
+     */
+    422: HttpValidationError;
+};
+
+export type ClearWishesError = ClearWishesErrors[keyof ClearWishesErrors];
+
+export type ClearWishesResponses = {
+    /**
+     * Successful Response
+     */
+    204: void;
+};
+
+export type ClearWishesResponse = ClearWishesResponses[keyof ClearWishesResponses];
+
 export type ListFavoritesData = {
     body?: never;
     path?: never;
@@ -2544,6 +2582,10 @@ export type ListSessionScoresData = {
 
 export type ListSessionScoresErrors = {
     /**
+     * An older party, without history.
+     */
+    403: unknown;
+    /**
      * Unknown session.
      */
     404: unknown;
@@ -2611,6 +2653,10 @@ export type ListPlayerScoresData = {
 };
 
 export type ListPlayerScoresErrors = {
+    /**
+     * Somebody else's history, without `stats.history`.
+     */
+    403: unknown;
     /**
      * Unknown player.
      */

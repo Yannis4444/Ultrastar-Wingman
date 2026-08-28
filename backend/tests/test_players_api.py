@@ -3,11 +3,15 @@ from pathlib import Path
 from unittest import mock
 
 import pytest
-from httpx import AsyncClient
+from fastapi import FastAPI
+from httpx import ASGITransport, AsyncClient
+from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
 
-from conftest import admin_client, authenticate_admin
+from conftest import BASE_URL, add_session, add_user, admin_client, authenticate_admin
 from ultrastar_wingman.app import create_app
+from ultrastar_wingman.auth.deps import COOKIE_NAME
 from ultrastar_wingman.config import BootstrapSettings
+from ultrastar_wingman.players.model import Player
 from ultrastar_wingman.players.service import MAX_AVATAR_BYTES, MAX_AVATAR_PIXELS
 
 # Smallest real images, so declared content type, magic bytes and header dimensions all
@@ -355,6 +359,91 @@ async def test_players_survive_a_restart(
         assert restored == {**player, "has_avatar": True, "avatar_version": mock.ANY}
         assert isinstance(restored["avatar_version"], int)
         assert (await second.get(f"/api/v1/players/{player['id']}/avatar")).content == PNG
+
+
+@pytest.fixture
+async def party(
+    bootstrap_settings: BootstrapSettings,
+) -> AsyncIterator[tuple[FastAPI, AsyncClient]]:
+    """One app plus its administrator, so a second client can be pointed at the very same
+    instance — the identity tests need two callers on one database."""
+    app = create_app(bootstrap_settings)
+    async with app.router.lifespan_context(app):
+        await authenticate_admin(app)
+        async with admin_client(app) as admin:
+            yield app, admin
+
+
+async def singer(app: FastAPI, player_id: str, username: str) -> AsyncClient:
+    """A logged-in `user` account that sings as `player_id`. A plain `user` holds neither
+    `players.manage` nor `players.avatar`, which is the whole point of these tests."""
+    factory: async_sessionmaker[AsyncSession] = app.state.session_factory
+    user_id = await add_user(factory, username, "user")
+    async with factory() as session:
+        player = await session.get(Player, player_id)
+        assert player is not None
+        player.user_id = user_id
+        player.registered = True
+        await session.commit()
+    await add_session(factory, f"{username}-token", user_id)
+    return AsyncClient(
+        transport=ASGITransport(app=app),
+        base_url=BASE_URL,
+        cookies={COOKIE_NAME: f"{username}-token"},
+    )
+
+
+async def test_your_own_picture_needs_no_capability(party: tuple[FastAPI, AsyncClient]) -> None:
+    """Identity, not a capability — the same rule favorites follow."""
+    app, admin = party
+    player = await create(admin, "Yannis")
+    yannis = await singer(app, str(player["id"]), "yannis")
+
+    async with yannis:
+        uploaded = await yannis.put(
+            f"/api/v1/players/{player['id']}/avatar", files=upload(PNG, "a.png", "image/png")
+        )
+
+    assert uploaded.status_code == 200
+    assert uploaded.json()["has_avatar"] is True
+
+
+async def test_somebody_else_s_picture_needs_players_avatar(
+    party: tuple[FastAPI, AsyncClient],
+) -> None:
+    app, admin = party
+    player = await create(admin, "Yannis")
+    other = await create(admin, "Mona")
+    yannis = await singer(app, str(player["id"]), "yannis")
+
+    async with yannis:
+        refused = await yannis.put(
+            f"/api/v1/players/{other['id']}/avatar", files=upload(PNG, "a.png", "image/png")
+        )
+
+    assert refused.status_code == 403
+    assert refused.json() == {"detail": "missing_permission:players.avatar"}
+
+
+async def test_an_account_without_a_player_may_change_nobody_s_picture(
+    party: tuple[FastAPI, AsyncClient],
+) -> None:
+    """ "Which player is mine" answers None for such an account, and None must never match
+    a player — least of all one whose own `user_id` is null too."""
+    app, admin = party
+    player = await create(admin, "Yannis")
+    factory: async_sessionmaker[AsyncSession] = app.state.session_factory
+    user_id = await add_user(factory, "nobody", "user")
+    await add_session(factory, "nobody-token", user_id)
+
+    async with AsyncClient(
+        transport=ASGITransport(app=app), base_url=BASE_URL, cookies={COOKIE_NAME: "nobody-token"}
+    ) as stranger:
+        refused = await stranger.put(
+            f"/api/v1/players/{player['id']}/avatar", files=upload(PNG, "a.png", "image/png")
+        )
+
+    assert refused.status_code == 403
 
 
 async def _client(settings: BootstrapSettings) -> AsyncIterator[AsyncClient]:

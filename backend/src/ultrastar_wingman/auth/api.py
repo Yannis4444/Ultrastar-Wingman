@@ -160,7 +160,9 @@ async def exchange_host_token(
 @router.get(
     "/users",
     response_model=UserList,
-    dependencies=[Depends(require("users.manage"))],
+    # Reading who has an account is its own right: a helper who runs the players page has
+    # no business promoting or deleting anybody, which is what `users.manage` is for.
+    dependencies=[Depends(require("users.view"))],
 )
 async def list_users(session: SessionDep) -> UserList:
     players = await service.player_ids_by_user(session)

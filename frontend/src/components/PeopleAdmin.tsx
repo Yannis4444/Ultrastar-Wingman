@@ -69,15 +69,20 @@ function byName(one: Person, other: Person): number {
  * account — so they belong in one list, and the section is the mark that says
  * which is which.
  *
- * `players.view` shows the roster, `players.manage` adds the pictures, the new
- * player and the guest deletions, `users.manage` adds the roles and the account
- * deletions. The caller gates on at least one of them.
+ * `players.view` shows the roster, `players.avatar` adds the pictures,
+ * `players.manage` the new player and the guest deletions, `users.view` the
+ * accounts behind the names and `users.manage` their roles and deletions. The
+ * caller gates on at least one of the last four.
  */
 export default function PeopleAdmin() {
   const queryClient = useQueryClient();
   const auth = useAuth();
   const mayViewPlayers = auth.can("players.view");
   const mayManagePlayers = auth.can("players.manage");
+  // Everybody's picture, not the reader's own — that one is on the user page and
+  // needs no right at all.
+  const mayChangePictures = auth.can("players.avatar");
+  const mayViewUsers = auth.can("users.view") || auth.can("users.manage");
   const mayManageUsers = auth.can("users.manage");
 
   const players = useQuery({
@@ -87,7 +92,7 @@ export default function PeopleAdmin() {
   });
   const users = useQuery({
     ...listUsersOptions(),
-    enabled: auth.loaded && mayManageUsers,
+    enabled: auth.loaded && mayViewUsers,
   });
 
   const [deletingPlayer, setDeletingPlayer] = useState<PlayerRead | null>(null);
@@ -197,24 +202,24 @@ export default function PeopleAdmin() {
   const guests = people.filter((person) => !hasAccount(person));
   // A heading with nothing under it still says the category exists; without the
   // right to see or add anything in it, it says nothing at all.
-  const showAccounts = accounts.length > 0 || mayManageUsers;
+  const showAccounts = accounts.length > 0 || mayViewUsers;
   const showGuests = guests.length > 0 || mayManagePlayers;
   // "Nobody yet" is a claim, and it needs the answers to be in: said while the
   // lists are still on their way it reads as a roster that lost its rows, and
   // said after a failure it is not true at all.
   const rosterKnown =
     (!mayViewPlayers || players.isSuccess) &&
-    (!mayManageUsers || users.isSuccess);
+    (!mayViewUsers || users.isSuccess);
 
   const row = (person: Person) => {
     const { key, name, player, account } = person;
-    // Not the same as `account !== null`: a viewer without `users.manage` sees
+    // Not the same as `account !== null`: a viewer without `users.view` sees
     // that somebody is registered but never the account itself.
     const registered = hasAccount(person);
     return (
       <li key={key}>
         <div className="people-row">
-          {player !== null && mayManagePlayers ? (
+          {player !== null && mayChangePictures ? (
             // The avatar itself is the upload target; the `image` badge is the
             // affordance the old text button used to be.
             <label className="people-avatar-label">
