@@ -49,6 +49,11 @@ class SettingDefinition:
     group: str
     description: str
     secret: bool = False
+    # A setting a host does not touch on a normal setup — an override of something that is
+    # derived correctly on its own, or a knob only a broken environment needs. The UI folds
+    # these away inside their group instead of putting them in a group of their own: what
+    # they belong to does not change, only how loudly they are shown.
+    advanced: bool = False
     validate: Validator | None = None
 
 
@@ -112,6 +117,7 @@ register(
         default="",
         group="Songs",
         description="Further directories to scan for songs, one path per line.",
+        advanced=True,
     )
 )
 register(
@@ -163,6 +169,7 @@ register(
         default="",
         group="USDX",
         description="Overrides the derived <base path>/ultrastardx.exe.",
+        advanced=True,
     )
 )
 register(
@@ -172,6 +179,7 @@ register(
         default="",
         group="USDX",
         description="Overrides the derived <base path>/config.ini (players, colors, avatars).",
+        advanced=True,
     )
 )
 register(
@@ -181,6 +189,7 @@ register(
         default="",
         group="USDX",
         description="Overrides the derived <base path>/avatars (USDX reads avatars from here).",
+        advanced=True,
     )
 )
 register(
@@ -195,6 +204,7 @@ register(
             "Deluxe loads the whole library next to it. This is not 'songs.directory': that "
             "one only says where Wingman looks for songs."
         ),
+        advanced=True,
     )
 )
 register(
@@ -207,6 +217,7 @@ register(
             "Overrides the derived <base path>/Ultrastar.db. Wingman only reads it, to import "
             "the scores USDX wrote after a song."
         ),
+        advanced=True,
     )
 )
 register(
@@ -226,6 +237,7 @@ register(
         default="https://usdb.animux.de",
         group="USDB",
         description="Base URL of the USDB instance. Every USDB request is built from it.",
+        advanced=True,
     )
 )
 register(
@@ -293,6 +305,7 @@ register(
             "Space-separated scopes requested at login. `openid` is required; `profile` and "
             "`email` are what the username is taken from."
         ),
+        advanced=True,
     )
 )
 register(
@@ -314,6 +327,7 @@ register(
             "ffmpeg executable, used to extract the audio track from the video. The default "
             "means: the system's ffmpeg, or a copy Wingman downloads itself (Windows only)."
         ),
+        advanced=True,
     )
 )
 register(
@@ -341,6 +355,7 @@ register(
             "yt-dlp executable. Empty means Wingman downloads and updates its own copy "
             "in the data directory."
         ),
+        advanced=True,
     )
 )
 

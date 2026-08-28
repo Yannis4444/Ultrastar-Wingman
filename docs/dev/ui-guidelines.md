@@ -212,7 +212,9 @@ Every new route: register in `App.tsx` **and** add it to `COVERS` in
 - **Settings** groups are `<details class="settings-group" open>` with a
   section icon; fields are flat `.setting-field` rows with quiet inputs and a
   0.85em description; complex settings get their own sub-page, not an inline
-  block.
+  block. A group's `advanced=True` settings follow its ordinary ones in a
+  nested `<details class="settings-advanced">` labelled *Advanced*, closed by
+  default — never a section of its own, and never a group's only content.
 - **Host** (`/host`) is a TV across the room: everything scales with
   `clamp()` and `vh`, flat on `--bg`, the white QR card is the only tile.
   Controls reveal on pointer movement through the page's single `useIdle`

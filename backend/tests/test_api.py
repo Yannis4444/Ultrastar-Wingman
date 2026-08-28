@@ -45,9 +45,14 @@ async def test_list_settings_returns_definitions_with_defaults(client: AsyncClie
         "group": "USDB",
         "description": "Account used to search and download songs from usdb.animux.de.",
         "secret": False,
+        "advanced": False,
         "is_set": False,
     }
     assert by_key["usdb.password"]["secret"] is True
+    # The overrides of what `usdx.base_path` already derives are the settings the UI folds
+    # away; the base path itself is not one of them.
+    assert by_key["usdx.songs_dir"]["advanced"] is True
+    assert by_key["usdx.base_path"]["advanced"] is False
 
 
 async def test_patch_setting_updates_the_value(client: AsyncClient) -> None:

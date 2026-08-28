@@ -99,6 +99,8 @@ class SettingRead(BaseModel):
     group: str
     description: str
     secret: bool
+    # Shown folded away inside its group: a normal setup never touches it.
+    advanced: bool
     # The only thing a client learns about a secret's value: that there is one.
     is_set: bool
 
@@ -118,6 +120,7 @@ def _read(definition: SettingDefinition, value: SettingValue, is_set: bool) -> S
         group=definition.group,
         description=definition.description,
         secret=definition.secret,
+        advanced=definition.advanced,
         is_set=is_set,
     )
 

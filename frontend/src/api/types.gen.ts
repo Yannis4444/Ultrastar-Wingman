@@ -630,6 +630,10 @@ export type SettingRead = {
      */
     secret: boolean;
     /**
+     * Advanced
+     */
+    advanced: boolean;
+    /**
      * Is Set
      */
     is_set: boolean;

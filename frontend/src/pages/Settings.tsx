@@ -111,6 +111,11 @@ export default function Settings() {
     return [...byGroup].sort(([a], [b]) => groupRank(a) - groupRank(b));
   }, [settings.data]);
 
+  const renderField = (setting: SettingRead) => {
+    const Field = CUSTOM_FIELDS[setting.key] ?? SettingField;
+    return <Field key={setting.key} setting={setting} readOnly={!mayManage} />;
+  };
+
   if (auth.loaded && !mayView) {
     return (
       <div className="settings-page">
@@ -141,6 +146,10 @@ export default function Settings() {
 
       {groups.map(([group, rows]) => {
         const Action = GROUP_ACTIONS[group];
+        // Both halves keep the registry's order; the split only decides which
+        // of the two a setting is listed in.
+        const plain = rows.filter((setting) => !setting.advanced);
+        const advanced = rows.filter((setting) => setting.advanced);
         return (
           // Open by default: the host collapses what they do not care about,
           // and nothing is hidden from a first-time visit.
@@ -155,16 +164,16 @@ export default function Settings() {
               <span className="settings-group-name">{group}</span>
             </summary>
             {Action && <Action readOnly={!mayManage} />}
-            {rows.map((setting) => {
-              const Field = CUSTOM_FIELDS[setting.key] ?? SettingField;
-              return (
-                <Field
-                  key={setting.key}
-                  setting={setting}
-                  readOnly={!mayManage}
-                />
-              );
-            })}
+            {plain.map(renderField)}
+            {advanced.length > 0 && (
+              // Closed by default, and inside the group it belongs to rather
+              // than in an "Advanced" section of its own: a host looking for
+              // the USDX executable still looks under USDX.
+              <details className="settings-advanced">
+                <summary>Advanced</summary>
+                {advanced.map(renderField)}
+              </details>
+            )}
           </details>
         );
       })}

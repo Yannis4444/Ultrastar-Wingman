@@ -52,7 +52,10 @@ changed `input`. The output is identical to `npm run generate-api`.
 1. `register(SettingDefinition(key="<group>.<name>", value_type=…,
    default=…, group="<Group>", description="…", validate=…))` in
    `backend/src/ultrastar_wingman/settings.py`. Groups are display sections;
-   the description is user-facing text (task-first, no jargon).
+   the description is user-facing text (task-first, no jargon). Add
+   `advanced=True` when a normal setup never touches it — an override of
+   something Wingman derives, or a knob only a broken environment needs: the
+   page folds those away inside their group.
 2. Read it where needed via `SettingsService`; react to changes by
    subscribing to `setting.changed` if the value is consumed by a long-lived
    object.
