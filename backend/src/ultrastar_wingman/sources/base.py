@@ -11,8 +11,10 @@ from collections.abc import Awaitable, Callable
 from pathlib import Path
 from typing import Protocol
 
-# Progress callback handed to `download()`: (percent, step). `percent` is None while a
-# step has no measurable progress; `step` is shown to the user as-is.
+# Progress callback handed to `download()`: (percent, step). `percent` is the progress of the
+# download as a whole, None while nothing measurable is happening; `step` is shown to the user
+# as-is. A source whose steps each count from 0 to 100 on their own wraps this in
+# `progress.PhasedProgress` instead of forwarding the per-step numbers.
 ProgressReport = Callable[[float | None, str], Awaitable[None]]
 
 

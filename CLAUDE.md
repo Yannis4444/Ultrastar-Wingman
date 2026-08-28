@@ -75,7 +75,7 @@ so services and the event bus can use them).
 | `events.py` | typed WebSocket event bus, server → client only: `class Foo(Event)` with a `Literal` name, `await event_bus.broadcast(Foo(...))` |
 | `auth/` | accounts, sessions, host token, OIDC. `deps.py` is the **only** place permissions are checked; `permissions.py` lists capabilities (`songs.view`, `karaoke.sing`, `settings.manage`, …) and role defaults; `providers.py` is the auth-provider seam |
 | `songs/` | the library: `.txt` parsing (`txt.py`), content fingerprint, directory scanner, `songs` table |
-| `sources/` | song-source seam (`base.py`) + registry; `usdb.py` is the USDB implementation |
+| `sources/` | song-source seam (`base.py`) + registry; `progress.py` maps a source's steps onto one 0–100 bar; `usdb.py` is the USDB implementation |
 | `downloads/` | persistent download queue + worker; `media.py` manages yt-dlp/ffmpeg |
 | `karaoke/` | launcher seam (`launcher.py`) + USDX implementation (`usdx.py` process, `usdx_config.py` config.ini rewrite, `usdx_paths.py`, `usdx_scores.py` import from `Ultrastar.db`), the sing flow, sessions/sings/scores tables, slots & colors |
 | `players/` | players (guest + registered), avatars |

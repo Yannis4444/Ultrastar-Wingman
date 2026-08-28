@@ -44,6 +44,7 @@ FFMPEG_ASSET_NAME = "ffmpeg-master-latest-win64-gpl.zip"
 # The archive holds a whole build (ffplay, ffprobe, docs); only this member is unpacked.
 FFMPEG_MEMBER = "/bin/ffmpeg.exe"
 FFMPEG_STEP = "downloading ffmpeg"
+VIDEO_STEP = "downloading video"
 
 # yt-dlp releases daily-ish; checking more often than this only burns GitHub's rate limit.
 CHECK_INTERVAL = timedelta(hours=24)
@@ -369,7 +370,7 @@ async def run_ytdlp(executable: Path, args: Sequence[str], report: ProgressRepor
         if match is None:
             logger.debug("yt-dlp: %s", line)
             return
-        await report(float(match.group(1)), "downloading video")
+        await report(float(match.group(1)), VIDEO_STEP)
 
     command = [
         str(executable),
