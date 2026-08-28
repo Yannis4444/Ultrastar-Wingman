@@ -185,3 +185,70 @@
 .playlist-songs > :last-child {
   border-bottom: none;
 }
+
+/* The way into this playlist's own reel, in the header row. The glyph carries
+   the gradient button's sweep instead of a flat colour — a filled 40px tile
+   beside the title would read as a second header. The two stops are styled
+   here because an `Icon` leaves them colourless. */
+.playlist-spin {
+  /* The third copy of the sweep's blue end, composed exactly as in `Home.css`
+     (`.home-random`) and `SongSpinner.css` (`.spinner-spin`): change one,
+     change all three. */
+  --gradient-blue: color-mix(
+    in srgb,
+    var(--highlight-blue-light) 75%,
+    var(--highlight-blue-dark)
+  );
+
+  transition: filter 0.15s ease;
+}
+
+/* Bigger than the 1.25em an icon button gives its glyph, and than the back
+   chevron's 1.4em: the pips need the room, and the die is the one control on
+   the row worth spotting. 26px inside the 40px box. On the glyph, not the
+   button — `.icon-button` sets a font-size of its own at the same
+   specificity, and which of the two wins would come down to stylesheet
+   order. */
+.playlist-spin .icon {
+  font-size: 1.3em;
+}
+
+.playlist-spin stop:first-child {
+  stop-color: var(--gradient-blue);
+}
+
+.playlist-spin stop:last-child {
+  stop-color: var(--highlight-pink-dark);
+}
+
+/* The blue fill of an ordinary icon button would sit under a blue-to-pink
+   glyph and swallow it, so this one brightens instead — the gradient button's
+   own hover — and rolls the die the way Home does. */
+a.playlist-spin:hover {
+  background-color: transparent;
+  filter: brightness(1.25);
+}
+
+.playlist-spin:hover .icon {
+  animation: playlist-dice-roll 0.6s ease-in-out;
+}
+
+@keyframes playlist-dice-roll {
+  25% {
+    transform: rotate(-14deg);
+  }
+
+  75% {
+    transform: rotate(14deg);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .playlist-spin {
+    transition: none;
+  }
+
+  .playlist-spin:hover .icon {
+    animation: none;
+  }
+}

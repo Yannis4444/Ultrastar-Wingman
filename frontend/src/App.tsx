@@ -8,6 +8,7 @@ import Host from "./pages/Host";
 import HostManage from "./pages/HostManage";
 import Playlist from "./pages/Playlist";
 import Playlists from "./pages/Playlists";
+import PlaylistSpinner from "./pages/PlaylistSpinner";
 import Settings from "./pages/Settings";
 import Songs from "./pages/Songs";
 import Spinner from "./pages/Spinner";
@@ -45,6 +46,10 @@ export default function App() {
           <Route path="/songs" element={<Songs />} />
           <Route path="/songs/playlists" element={<Playlists />} />
           <Route path="/songs/playlists/:playlistId" element={<Playlist />} />
+          <Route
+            path="/songs/playlists/:playlistId/spinner"
+            element={<PlaylistSpinner />}
+          />
           <Route path="/usdb" element={<Usdb />} />
           <Route path="/scores" element={<Scores />} />
           <Route path="/user" element={<User />} />
