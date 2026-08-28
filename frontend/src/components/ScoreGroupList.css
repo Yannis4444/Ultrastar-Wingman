@@ -11,14 +11,19 @@
   border-top: 1px solid var(--input-border-color);
 }
 
-.score-groups summary {
+/* One shape for both forms of the row: the `<summary>` of a group that
+   unfolds, and the plain row of a single ungrouped score, which has nothing to
+   unfold and opens the song modal instead. */
+.score-groups summary,
+.score-group-row {
+  box-sizing: border-box;
   display: flex;
   gap: 12px;
   align-items: center;
+  width: 100%;
   min-height: 48px;
   padding: 10px 8px;
   border-radius: var(--border-radius-small);
-  cursor: pointer;
   list-style: none;
 }
 
@@ -31,11 +36,36 @@
   content: none;
 }
 
-.score-groups summary:hover {
-  background-color: var(--highlight-blue-dark);
+/* The button form of the ungrouped row keeps the row's looks. Without the
+   chevron the row ends on its score, so the 20px glyph and its 12px gap come
+   back as padding — the numbers of both forms stay in one column. */
+.score-group-row {
+  padding-right: 40px;
+  font: inherit;
+  color: inherit;
+  text-align: left;
+  background: none;
+  border: 0;
 }
 
-.score-groups summary:focus-visible {
+/* Only the button form is clickable: a score whose song has left the library
+   has no modal to open, so it gets neither the hover band nor the hand. */
+.score-groups summary,
+.score-group-row-button {
+  cursor: pointer;
+}
+
+/* Pointers only: a touch screen fakes a hover on tap and leaves the row
+   lit long after the finger has scrolled on. */
+@media (hover: hover) {
+  .score-groups summary:hover,
+  .score-group-row-button:hover {
+    background-color: var(--highlight-blue-dark);
+  }
+}
+
+.score-groups summary:focus-visible,
+.score-group-row-button:focus-visible {
   outline: 2px solid var(--highlight-blue-light);
   outline-offset: -2px;
 }
@@ -95,14 +125,9 @@
   text-overflow: ellipsis;
 }
 
-/* One line of icon stats: 4px inside a pair, 8px between them, and the whole
-   run truncates as one.
-   The stats run as plain inline content here — the old app's `.data` line — and
-   deliberately not as flex boxes. A flex row shrinks all four at once, so on a
-   phone every number lost digits off its own end ("↑ 9…"); a row of atomic
-   inline-flex boxes clips mid-number with no ellipsis, which reads as a wrong
-   value. Inline text gives the block's `text-overflow` something to work with,
-   so the line drops whole stats and ends in one ellipsis. */
+/* The artist under a song, the score count under a singer: the same quiet
+   second line every list row in the app carries. The spread that used to be
+   crammed in here is in the panel the row unfolds. */
 .score-group-caption {
   display: block;
   overflow: hidden;
@@ -111,24 +136,6 @@
   white-space: nowrap;
   text-overflow: ellipsis;
   font-variant-numeric: tabular-nums;
-}
-
-.score-group-caption .icon-stat {
-  display: inline;
-}
-
-/* `gap` is gone with the flex box; these are the same 4px and 8px. */
-.score-group-caption .icon-stat .icon {
-  margin-right: 4px;
-  vertical-align: -0.15em;
-}
-
-.score-group-caption .icon-stat + .icon-stat {
-  margin-left: 8px;
-}
-
-.score-group-caption .icon-stat-value {
-  color: var(--color-darker);
 }
 
 .score-group-score {
@@ -159,24 +166,84 @@ details[open] > summary .score-group-chevron {
   }
 }
 
-/* The expanded scores, indented to the row's text column. */
+/* Everything an opened row shows, as one tile: what the group adds up to, and
+   the scores it adds up from. As wide as the row it hangs off — the rows
+   inside it are the tile's own list, so they take its width rather than the
+   44px indent they had while they sat on the page. */
+.score-group-panel {
+  margin: 4px 8px 8px 8px;
+  padding: 12px;
+  background-color: var(--tile-bg);
+  border-radius: var(--border-radius);
+}
+
+/* Four stacked stats: two by two on a phone, one line from ~500px up.
+   `minmax(0, …)` so a long "Best · Christopher" ellipsizes inside its column
+   instead of widening it. */
+.score-group-stats {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(min(120px, 100%), 1fr));
+  gap: 12px 8px;
+}
+
+/* Glyph and number on one line with the word under them: four stats stacked
+   like the User page's would be half the tile tall and push the scores
+   themselves off the screen. Two classes on purpose — this has to beat
+   `.icon-stat`'s own row layout no matter which of the two stylesheets the
+   bundler puts first. */
+.icon-stat.score-group-stat {
+  flex-wrap: wrap;
+  gap: 0 6px;
+  min-width: 0;
+}
+
+.score-group-stat .icon-stat-icon {
+  font-size: 20px;
+}
+
+.score-group-stat .icon-stat-value {
+  font-size: 1.2em;
+}
+
+/* Its own line under the pair, and never wider than the column: a peak that
+   names a singer ellipsizes instead of stretching the grid. */
+.score-group-stat .icon-stat-label {
+  flex: 1 0 100%;
+  max-width: 100%;
+}
+
+/* The words under the last row of stats already carry their own descender of
+   air; 8px keeps the bars from reading as a fifth stat. */
+.score-group-chart {
+  margin-top: 8px;
+}
+
+/* The scores themselves, filling the rest of the tile. The 8px negative
+   margin is the row padding given back: the rows read as a list that runs the
+   width of the tile, and their hover band still bleeds past their text. */
 .score-group-scores {
-  margin: 0 0 8px 44px;
+  margin: 0 -8px;
   padding: 0;
   list-style: none;
 }
 
-.score-group-scores > li {
+/* Only between rows — the hairline that divides them from the summary above is
+   the summary's, so a group of one score draws none at all. */
+.score-group-scores > li + li {
+  border-top: 1px solid var(--input-border-color);
+}
+
+/* The scores are a section of the tile, not a continuation of the numbers. */
+.score-group-stats + .score-group-scores,
+.score-group-chart + .score-group-scores {
+  margin-top: 12px;
+  padding-top: 4px;
   border-top: 1px solid var(--input-border-color);
 }
 
 /* `border-box` because the app is content-box: `width: 100%` plus 8px of
-   padding a side made every expanded row 16px wider than the list, which is
-   what put a horizontal scrollbar under the whole page.
-
-   40px on the right, not 8: that is the 8px padding plus the summary's 20px
-   chevron and the 12px gap before it, so an expanded score lands in the same
-   column as the group score above it instead of hanging past it. */
+   padding a side made every expanded row wider than the tile it sits in, which
+   is what put a horizontal scrollbar under the whole page. */
 .score-entry {
   box-sizing: border-box;
   display: flex;
@@ -184,7 +251,7 @@ details[open] > summary .score-group-chevron {
   align-items: center;
   width: 100%;
   min-height: 44px;
-  padding: 6px 40px 6px 8px;
+  padding: 6px 8px;
   border-radius: var(--border-radius-small);
 }
 
@@ -198,8 +265,13 @@ details[open] > summary .score-group-chevron {
   cursor: pointer;
 }
 
-.score-entry-button:hover {
-  background-color: var(--highlight-blue-dark);
+/* `--highlight-blue-dark` is the app's hover fill, but on `--tile-bg` the two
+   are the same colour — inside the tile the band has to lift off the surface
+   instead. Pointers only, like every other row band. */
+@media (hover: hover) {
+  .score-entry-button:hover {
+    background-color: color-mix(in srgb, var(--tile-bg) 88%, #fff);
+  }
 }
 
 .score-entry-button:focus-visible {

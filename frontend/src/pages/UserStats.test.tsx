@@ -159,12 +159,11 @@ test("the account's whole history is grouped by song, best first", async () => {
     }),
   );
 
-  // One row per song, not per score, and the strongest song leads.
+  // One row per song, not per score, and the strongest song leads. The row is
+  // headed by the title alone — the artist is the line under it, as in every
+  // other song list.
   await waitFor(() =>
-    expect(groupLabels()).toEqual([
-      "Queen – Bohemian Rhapsody",
-      "Oasis – Wonderwall",
-    ]),
+    expect(groupLabels()).toEqual(["Bohemian Rhapsody", "Wonderwall"]),
   );
 });
 
@@ -192,15 +191,13 @@ test("sorting reorders the songs without touching the grouping", async () => {
   fireEvent.change(screen.getByLabelText("Sort"), {
     target: { value: "average" },
   });
-  await waitFor(() => expect(groupLabels()[0]).toBe("Oasis – Wonderwall"));
+  await waitFor(() => expect(groupLabels()[0]).toBe("Wonderwall"));
 
   // "worst score" sorts the other way round — the biggest flop leads.
   fireEvent.change(screen.getByLabelText("Sort"), {
     target: { value: "worst" },
   });
-  await waitFor(() =>
-    expect(groupLabels()[0]).toBe("Queen – Bohemian Rhapsody"),
-  );
+  await waitFor(() => expect(groupLabels()[0]).toBe("Bohemian Rhapsody"));
 
   // Still two songs, never four scores: the grouping is not a control here.
   expect(screen.queryAllByTestId("score-group")).toHaveLength(2);
@@ -267,21 +264,20 @@ test("nothing in the list repeats the one singer it is about", async () => {
   renderStats();
   await waitFor(() => expect(groupLabels()).toHaveLength(2));
 
-  // Best and worst name the singer under a song — but here every score is the
-  // reader's own, and the repeated name pushes the rest of the caption off a
-  // phone. The numbers themselves stay.
-  const caption = screen
-    .getAllByTestId("score-group")[0]
-    .querySelector(".score-group-caption");
-  expect(caption).not.toHaveTextContent("Alice");
-  expect(caption).toHaveTextContent("9500");
-  expect(caption).toHaveTextContent("3000");
+  // Under a song the panel's best and worst name the singer who managed them —
+  // but here every score is the reader's own, so the name would be the same
+  // word twice. The numbers themselves stay.
+  fireEvent.click(screen.getByText("Bohemian Rhapsody"));
+  const panel = document.querySelector(".score-group-panel") as HTMLElement;
+  expect(panel).not.toHaveTextContent("Alice");
+  expect(panel).toHaveTextContent("9500");
+  expect(panel).toHaveTextContent("3000");
 });
 
 test("a score is dated, not just clocked: this list spans parties", async () => {
   renderStats();
 
-  fireEvent.click(await screen.findByText("Queen – Bohemian Rhapsody"));
+  fireEvent.click(await screen.findByText("Bohemian Rhapsody"));
 
   const rows = await screen.findAllByTestId("score-row");
   // The day, because two runs of one song can be months apart. Built the way
@@ -289,21 +285,23 @@ test("a score is dated, not just clocked: this list spans parties", async () => 
   expect(rows[0]).toHaveTextContent(shortDate("2026-08-23T20:00:00Z"));
 });
 
-test("a song sung once is captioned by its run, not by the reader's own name", async () => {
+test("a song sung once carries its artist, and its run one tap away", async () => {
   listPlayerScores.mockResolvedValue({
     data: { scores: [score(1, 9500, bohemian, "sing-1")] },
   });
   renderStats();
 
   await waitFor(() => expect(groupLabels()).toHaveLength(1));
-  const caption = screen
-    .getAllByTestId("score-group")[0]
-    .querySelector(".score-group-caption");
-  // Under a song the caption normally names the singer. Here that singer is
-  // the reader, on every row of the page — the date is the half that says
-  // something.
-  expect(caption).not.toHaveTextContent("Alice");
-  expect(caption).toHaveTextContent(shortDate("2026-08-23T20:00:00Z"));
+  const row = screen.getAllByTestId("score-group")[0];
+  expect(row.querySelector(".score-group-caption")).toHaveTextContent("Queen");
+
+  // One score is its own best, worst and average, so the tile opens with no
+  // summary at all — just the run behind it, which is what tells two apart.
+  fireEvent.click(screen.getByText("Bohemian Rhapsody"));
+  expect(document.querySelector(".score-group-stats")).toBeNull();
+  expect(screen.getByTestId("score-row")).toHaveTextContent(
+    shortDate("2026-08-23T20:00:00Z"),
+  );
 });
 
 test("a visitor without an account is not shown someone else's history", async () => {
@@ -335,14 +333,15 @@ test("a cover opens the song modal from inside the history", async () => {
 test("an expanded row leads with the run, not with the reader's own name", async () => {
   renderStats();
 
-  fireEvent.click(await screen.findByText("Queen – Bohemian Rhapsody"));
+  fireEvent.click(await screen.findByText("Bohemian Rhapsody"));
   const rows = await screen.findAllByTestId("score-row");
 
   // The singer is a given on this page; printing "Alice" plus her avatar once
   // per score says nothing and costs the row its whole left edge.
   expect(rows[0]).not.toHaveTextContent("Alice");
   expect(rows[0].querySelector(".player-avatar")).toBeNull();
-  // What is left is when it happened, how hard it was and what it scored.
+  // What is left is when it happened and what it scored — under one song the
+  // run is the only thing that tells two rows apart.
   expect(rows[0].querySelector(".score-entry-when")).toHaveTextContent(
     shortDate("2026-08-23T20:00:00Z"),
   );

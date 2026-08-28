@@ -104,8 +104,12 @@
   border-bottom: 1px solid var(--input-border-color);
 }
 
-.home-entry:hover {
-  background-color: var(--highlight-blue-dark);
+/* Pointers only: a touch screen fakes a hover on tap and leaves the row
+   lit long after the finger has scrolled on. */
+@media (hover: hover) {
+  .home-entry:hover {
+    background-color: var(--highlight-blue-dark);
+  }
 }
 
 .home-entry-label {

@@ -10,7 +10,6 @@ import {
   histogram,
   isNewHighscore,
   playerSummary,
-  scoreLabel,
   scorePlayer,
   sessionLabel,
   sessionLeaderboard,
@@ -150,9 +149,9 @@ test("ungrouped, every score stands alone under its own song", () => {
   const groups = groupScores(scores, "none");
 
   expect(groups).toHaveLength(4);
-  // The row is headed by the song, so the singer is what the caption says.
+  // The row is headed by its song; the singer comes off the score itself.
   expect(groups[0].label).toBe("Oasis – Wonderwall");
-  expect(scoreLabel(groups[0].scores[0], "none")).toBe("Alice");
+  expect(groups[0].scores[0].player_name).toBe("Alice");
   expect(groups[0].song?.id).toBe("usdb:2");
   // One score each: best, worst and average are all that one number.
   expect(groups[0]).toMatchObject({ best: 9000, worst: 9000, average: 9000 });

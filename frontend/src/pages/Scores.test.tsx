@@ -1,5 +1,6 @@
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import {
+  cleanup,
   fireEvent,
   render,
   screen,
@@ -8,6 +9,7 @@ import {
 } from "@testing-library/react";
 import { MemoryRouter } from "react-router-dom";
 import type { ScoreWithContext, SessionRead, SongRead } from "../api";
+import { shortDate } from "../duration";
 import { meResponse } from "../test/auth";
 import { FakeSocket } from "../test/fakeSocket";
 import { iconNames } from "../test/icons";
@@ -65,6 +67,28 @@ vi.mock("../components/SongDetails", () => ({
 /** Pick a value in one of the two compact selects above the list. */
 function choose(control: "Group" | "Sort", value: string): void {
   fireEvent.change(screen.getByLabelText(control), { target: { value } });
+}
+
+/** The `<summary>` of a group row — the part that is visible while it is shut. */
+function summaryOf(row: HTMLElement): HTMLElement {
+  return row.querySelector("summary") as HTMLElement;
+}
+
+/** What a row prints: its title, the quiet line under it, and its score. */
+function lines(row: HTMLElement): (string | null)[] {
+  return [
+    ".score-group-label",
+    ".score-group-caption",
+    ".score-group-score",
+  ].map((selector) => row.querySelector(selector)?.textContent ?? null);
+}
+
+/** The tile's stats as `[label, value]` pairs, in the order it prints them. */
+function stats(panel: HTMLElement): (string | null)[][] {
+  return [...panel.querySelectorAll(".score-group-stat")].map((stat) => [
+    stat.querySelector(".icon-stat-label")?.textContent ?? null,
+    stat.querySelector(".icon-stat-value")?.textContent ?? null,
+  ]);
 }
 
 /** Category axis of the most recent boxplot — the per-group histograms have none. */
@@ -255,6 +279,34 @@ test("the summary leaves out the sing count while it equals the song count", asy
   expect(within(summary).queryByTitle(/^Sings/)).not.toBeInTheDocument();
 });
 
+test("an older session is dated in the summary; today's is not", async () => {
+  renderScores();
+
+  // `tonight` is a fixture from August 2026 — by the time anybody runs this it
+  // is a party from another day, and nothing else on the page would say when
+  // it was: the picker prints a *named* session's name, not its date.
+  const summary = await screen.findByLabelText("Session summary");
+  await waitFor(() =>
+    expect(within(summary).getByTitle("Started")).toHaveTextContent(
+      shortDate(tonight.started_at),
+    ),
+  );
+
+  // A party that is happening today needs no date: the reader is at it.
+  const today = new Date().toISOString();
+  listSessions.mockResolvedValue({
+    data: { sessions: [{ ...tonight, started_at: today }] },
+  });
+  cleanup();
+  renderScores();
+
+  const running = await screen.findByLabelText("Session summary");
+  await waitFor(() =>
+    expect(within(running).getByTitle("Songs")).toBeInTheDocument(),
+  );
+  expect(within(running).queryByTitle("Started")).not.toBeInTheDocument();
+});
+
 test("the summary names the evening's best score but not who sang it", async () => {
   renderScores();
 
@@ -390,10 +442,36 @@ test("'don't group' leaves every score standing on its own", async () => {
   await waitFor(() =>
     expect(screen.getAllByTestId("score-group")).toHaveLength(4),
   );
-  expect(
-    screen.getAllByTestId("score-group")[0].querySelector(".score-group-label")
-      ?.textContent,
-  ).toBe("Oasis – Wonderwall");
+  const first = screen.getAllByTestId("score-group")[0];
+  expect(first.querySelector(".score-group-label")?.textContent).toBe(
+    "Wonderwall",
+  );
+  // A single score has nothing behind it to unfold, so the row is a plain song
+  // row that opens the modal — and the singer, who has nowhere else to go,
+  // joins the artist on the line under the title.
+  expect(first.querySelector(".score-group-caption")?.textContent).toBe(
+    "Oasis · Alice",
+  );
+  expect(first.closest("details")).toBeNull();
+});
+
+test("an ungrouped row opens the song it is a score of", async () => {
+  renderScores();
+  await screen.findAllByTestId("chart");
+  choose("Group", "none");
+
+  // No disclosure on these rows, so the whole row is the way into the song —
+  // as a song list row is everywhere else in the app.
+  const row = await waitFor(() => {
+    const first = screen.getAllByTestId("score-group")[0];
+    expect(first.tagName).toBe("BUTTON");
+    return first;
+  });
+  fireEvent.click(row);
+
+  expect(await screen.findByTestId("song-details")).toHaveTextContent(
+    "Wonderwall",
+  );
 });
 
 test("the ungrouped chart never claims a ranking the order does not have", async () => {
@@ -442,32 +520,61 @@ test("a score whose song has left the library keeps its place in the row", async
   );
 });
 
-test("every group lists its raw scores, strongest first and difficulty named", async () => {
+test("a group's scores are listed as the song rows they are", async () => {
   renderScores();
 
-  // The rendered time is local, so the expectation is built the same way.
-  const at = new Date("2026-08-23T20:00:00Z").toLocaleTimeString([], {
-    hour: "2-digit",
-    minute: "2-digit",
-  });
-  // Best score first: Alice's group leads, and her 9000 leads inside it.
-  const rows = (await screen.findAllByTestId("score-row")).map(
-    (row) => row.textContent,
-  );
-  expect(rows[0]).toBe(`Oasis – WonderwallMedium · ${at}9000`);
-  expect(rows[1]).toBe(`Queen – Bohemian RhapsodyMedium · ${at}8000`);
+  // Best score first: Alice's group leads, and her 9000 leads inside it. Title
+  // over artist, exactly as in the song list — no difficulty, no clock time.
+  const rows = await screen.findAllByTestId("score-row");
+  expect(lines(rows[0])).toEqual(["Wonderwall", "Oasis", "9000"]);
+  expect(lines(rows[1])).toEqual(["Bohemian Rhapsody", "Queen", "8000"]);
 });
 
-test("a group's caption states its spread with icons, not words", async () => {
+test("under a song, the scores are the singers behind them", async () => {
+  renderScores();
+  await screen.findAllByTestId("chart");
+  choose("Group", "song");
+
+  // A name is a name: no second line under it, and an avatar in front of it.
+  const rows = await waitFor(() => {
+    const found = screen.getAllByTestId("score-row");
+    expect(lines(found[0])[0]).toBe("Alice");
+    return found;
+  });
+  expect(lines(rows[0])).toEqual(["Alice", null, "9000"]);
+  expect(rows[0].querySelector(".score-entry-avatar")).not.toBeNull();
+});
+
+test("a collapsed row carries a list row's two lines, not a spread", async () => {
   renderScores();
 
   const alice = (await screen.findAllByTestId("score-group"))[0];
-  expect(within(alice).getByTitle("Scores")).toHaveTextContent(/^Scores2$/);
-  expect(within(alice).getByTitle("Best")).toHaveTextContent(/^Best9000$/);
-  expect(within(alice).getByTitle("Worst")).toHaveTextContent(/^Worst8000$/);
-  expect(within(alice).getByTitle("Average")).toHaveTextContent(
-    /^Average8500$/,
-  );
+  expect(lines(summaryOf(alice))).toEqual(["Alice", "2 scores", "9000"]);
+  // The four stats moved into the tile the row unfolds.
+  expect(within(summaryOf(alice)).queryByText("Average")).toBeNull();
+
+  choose("Group", "song");
+  await waitFor(() => {
+    const wonderwall = summaryOf(screen.getAllByTestId("score-group")[0]);
+    expect(lines(wonderwall)).toEqual(["Wonderwall", "Oasis", "9000"]);
+  });
+});
+
+test("an opened group states its whole spread in one tile", async () => {
+  renderScores();
+
+  const alice = (await screen.findAllByTestId("score-group"))[0];
+  fireEvent.click(within(summaryOf(alice)).getByText("Alice"));
+
+  const panel = alice.querySelector(".score-group-panel") as HTMLElement;
+  expect(stats(panel)).toEqual([
+    ["Scores", "2"],
+    ["Best", "9000"],
+    ["Worst", "8000"],
+    ["Average", "8500"],
+  ]);
+  // The scores are part of that tile, not a list left behind under it.
+  expect(panel.querySelector(".score-group-scores")).not.toBeNull();
 });
 
 test("under a song, best and worst still name the singer who managed them", async () => {
@@ -478,11 +585,15 @@ test("under a song, best and worst still name the singer who managed them", asyn
   // The account's own history switches this off — every score there is the
   // reader's. On a party page the name is the interesting half and must stay.
   const wonderwall = (await screen.findAllByTestId("score-group"))[0];
-  expect(within(wonderwall).getByTitle("Best")).toHaveTextContent(
-    /^Best9000 · Alice$/,
-  );
-  expect(within(wonderwall).getByTitle("Worst")).toHaveTextContent(
-    /^Worst6000 · Bob$/,
+  await waitFor(() =>
+    expect(
+      stats(wonderwall.querySelector(".score-group-panel") as HTMLElement),
+    ).toEqual([
+      ["Scores", "2"],
+      ["Best · Alice", "9000"],
+      ["Worst · Bob", "6000"],
+      ["Average", "7500"],
+    ]),
   );
 });
 
@@ -503,16 +614,10 @@ test("a collapsed group row points its chevron right, like every other row", asy
 
   const alice = (await screen.findAllByTestId("score-group"))[0];
   expect(alice).not.toHaveAttribute("open");
-  // The caption's four stat glyphs, then the disclosure. Collapsed it points
-  // the same way as every option row in the song modal; the open state turns
-  // this one glyph 90° in CSS rather than swapping in a second path.
-  expect(iconNames(alice.querySelector("summary") as Element)).toEqual([
-    "hash",
-    "arrow-up",
-    "arrow-down",
-    "average",
-    "chevron-right",
-  ]);
+  // The disclosure and nothing else. Collapsed it points the same way as every
+  // option row in the song modal; the open state turns this one glyph 90° in
+  // CSS rather than swapping in a second path.
+  expect(iconNames(summaryOf(alice))).toEqual(["chevron-right"]);
 });
 
 test("a song's cover opens its details instead of expanding the row", async () => {
@@ -536,7 +641,7 @@ test("a song under a player opens its details when the row is tapped", async () 
   renderScores();
 
   fireEvent.click(
-    (await screen.findAllByRole("button", { name: /Oasis – Wonderwall/ }))[0],
+    (await screen.findAllByRole("button", { name: /Wonderwall/ }))[0],
   );
 
   expect(await screen.findByTestId("song-details")).toHaveTextContent(

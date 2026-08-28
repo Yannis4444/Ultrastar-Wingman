@@ -26,8 +26,12 @@
   border-bottom: none;
 }
 
-.manage-menu-row:hover {
-  color: var(--highlight-blue-light);
+/* Pointers only: a touch screen fakes a hover on tap and leaves the row
+   lit long after the finger has scrolled on. */
+@media (hover: hover) {
+  .manage-menu-row:hover {
+    color: var(--highlight-blue-light);
+  }
 }
 
 .manage-menu-icon {

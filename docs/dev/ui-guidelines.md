@@ -18,8 +18,9 @@ override are the accessibility and dependency floors in §1.8–1.10.
    "needs a box", it needs a separator and 16px of margin instead.
 2. **`--tile-bg` is whitelisted, not general.** Allowed: the Home stage
    (`.home-stage`), the User identity card (`.user-identity`), modal panels
-   (`.modal`, non-bare), the Scores boxplot card (`.scores-chart`), the USDB
-   login card and the login form, and the "add songs from…" source cards.
+   (`.modal`, non-bare), the Scores boxplot card (`.scores-chart`), an opened
+   score group (`.score-group-panel`), the USDB login card and the login form,
+   and the "add songs from…" source cards.
    Nothing else. Extending the whitelist is a user decision.
 3. **No per-row badges for near-universal attributes.** No "MP3", "video",
    "duet", "downloaded", role chips per account row. Such facts belong in the
@@ -49,6 +50,11 @@ override are the accessibility and dependency floors in §1.8–1.10.
 11. **Nothing scrolls the page sideways** at 360px width
     (`documentElement.scrollWidth == clientWidth`). Long text truncates or
     clamps; long unbreakable strings get `overflow-wrap: anywhere`.
+12. **A row's hover state is for pointers.** Every hover that paints a row —
+    the `--highlight-blue-dark` band, a lit label — sits inside
+    `@media (hover: hover)`. A touch screen reports `hover: none` and fakes a
+    hover on tap, which then stays on the row long after the finger has
+    scrolled away. Focus rings, `:active` and control hovers are untouched.
 
 ## 2. Tokens, spacing, typography
 
@@ -74,7 +80,7 @@ Spacing: page gutter 16px; section rhythm 16px; inner gaps 4/8/12/16px
 (tight icon cluster / default / row content with cover / page blocks). Row
 separators: `border-bottom` + `:last-child { border-bottom: none }`, or
 `border-top` on `li + li` — never both. Hover bands that bleed past the
-gutter: list margin `0 8px`, row padding `10px 8px`.
+gutter: list margin `0 8px`, row padding `10px 8px` (pointer-only, rule 1.12).
 
 Typography: `h1` 1.5em centered (`margin: 32px 16px 16px`); sub-pages use
 `PageHeader`, which left-aligns it. `h2` 1em, `margin: 16px 16px 0`. Captions
@@ -211,9 +217,17 @@ Every new route: register in `App.tsx` **and** add it to `COVERS` in
   singer list on phones) → setup banner → wishlist → the Random song entry.
   Nothing may shift when the stage switches state.
 - **Scores** rows are flat `<details>` groups: rank numeral (pink top 3),
-  cover or avatar, text, score, chevron; captions are icon runs (`hash`,
-  `arrow-up`, `arrow-down`, `average`) not sentences. Expanded score rows are
-  `border-box` so they stay inside the list.
+  cover or avatar, two lines of text, score, chevron. The two lines are a list
+  row's, never a spread crammed into one: title over artist under a song, name
+  over "N scores" under a singer. Everything an open row shows is one tile
+  (`.score-group-panel`): the group's summary — `hash` / `arrow-up` /
+  `arrow-down` / `average` as labelled `IconStat`s plus the histogram — over a
+  hairline, then the scores themselves as ordinary list rows (songs: title over
+  artist; singers: avatar and name). A group of one score has no summary, so
+  the tile opens on its single row. Ungrouped a row *is* one score and does not
+  unfold at all: it is a plain row that opens the song. Rows inside the tile
+  are `border-box` and take its width; their hover band is a lift off
+  `--tile-bg` (`--highlight-blue-dark` is that same colour).
 - **Settings** groups are `<details class="settings-group" open>` with a
   section icon; fields are flat `.setting-field` rows with quiet inputs and a
   0.85em description; complex settings get their own sub-page, not an inline

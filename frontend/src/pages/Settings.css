@@ -99,8 +99,12 @@
   display: none;
 }
 
-.settings-advanced > summary:hover {
-  color: var(--color-dark);
+/* Pointers only: a touch screen fakes a hover on tap and leaves the row
+   lit long after the finger has scrolled on. */
+@media (hover: hover) {
+  .settings-advanced > summary:hover {
+    color: var(--color-dark);
+  }
 }
 
 /* Same drawn chevron as the group header, pointing right while closed. */
