@@ -557,7 +557,8 @@ test("the song details add a song to one of my playlists", async () => {
   );
   addPlaylistEntry.mockRejectedValue({ detail: "duplicate_entry" });
   const picker = screen.getByRole("dialog", { name: "Add to playlist" });
-  fireEvent.click(within(picker).getByRole("button", { name: /Party/ }));
+  // The listing is only asked for once the picker opens, so the row arrives.
+  fireEvent.click(await within(picker).findByRole("button", { name: /Party/ }));
 
   await waitFor(() =>
     expect(addPlaylistEntry.mock.calls[0][0]).toMatchObject({
@@ -583,13 +584,15 @@ test("adding a song refreshes the playlist song count", async () => {
     await screen.findByRole("button", { name: "Add to playlist" }),
   );
   addPlaylistEntry.mockResolvedValue({ data: { entries: [] } });
+  const picker = screen.getByRole("dialog", { name: "Add to playlist" });
+  const row = await within(picker).findByRole("button", { name: /Party/ });
   listPlaylists.mockResolvedValue({
     data: { playlists: [playlist({ song_count: 1 })] },
   });
-  // Only the fetches the click causes count; the two mounts already had theirs.
+  // Only the fetches the click causes count; the mount and the picker already
+  // had theirs.
   listPlaylists.mockClear();
-  const picker = screen.getByRole("dialog", { name: "Add to playlist" });
-  fireEvent.click(within(picker).getByRole("button", { name: /Party/ }));
+  fireEvent.click(row);
 
   // `song_count` lives on the list, not on the detail, so adding a song has to
   // invalidate the list too — otherwise the playlist dialog shows a stale count.

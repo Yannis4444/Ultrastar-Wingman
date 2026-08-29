@@ -54,6 +54,12 @@ export const ICON_PATHS = {
     "M19 4h-1V2h-2v2H8V2H6v2H5a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2V6a2 2 0 0 0-2-2Zm0 16H5V10h14Zm0-12H5V6h14Z",
   disc: "M12 2a10 10 0 1 0 0 20 10 10 0 0 0 0-20Zm0 7a3 3 0 1 1 0 6 3 3 0 0 1 0-6Z",
   user: "M12 12a4 4 0 1 0-4-4 4 4 0 0 0 4 4Zm0 2c-2.67 0-8 1.34-8 4v2h16v-2c0-2.66-5.33-4-8-4Z",
+  // "add a person": the `user` bust shifted left to make room, with `plus`
+  // beside its right shoulder at half the arm length. The three subpaths never
+  // touch (head x5–13, bust x1–17 below y14, plus x15–23), so the nonzero fill
+  // rule has nothing to punch out and the winding does not matter.
+  "user-plus":
+    "M9 12a4 4 0 1 0 0-8 4 4 0 0 0 0 8Zm0 2c-2.67 0-8 1.34-8 4v2h16v-2c0-2.66-5.33-4-8-4Zm9-7h2v3h3v2h-3v3h-2v-3h-3v-2h3V7Z",
   database:
     "M12 3C7.58 3 4 4.79 4 7s3.58 4 8 4 8-1.79 8-4-3.58-4-8-4Zm-8 6.5V12c0 2.21 3.58 4 8 4s8-1.79 8-4V9.5c-1.7 1.5-4.7 2.5-8 2.5s-6.3-1-8-2.5Zm0 4.5V17c0 2.21 3.58 4 8 4s8-1.79 8-4v-2.99c-1.7 1.5-4.7 2.49-8 2.49s-6.3-.99-8-2.5Z",
   video:

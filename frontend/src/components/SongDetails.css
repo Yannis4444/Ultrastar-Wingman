@@ -141,74 +141,18 @@
   font-variant-numeric: tabular-nums;
 }
 
-/* Add-to-playlist sub-view: tap a playlist to add the song. 8px side margins
-   so the row text starts at the 16px gutter while the hover band bleeds into
-   it and reads as a row. */
-.song-playlists-list {
-  margin: 0 8px;
-  padding: 0;
-  list-style: none;
-}
-
-.song-playlists-list li + li {
-  border-top: 1px solid var(--input-border-color);
-}
-
-.song-playlists-row {
+/* The "New playlist…" row of the picker, expanded: the name field and the
+   plus that commits it, on the same axis as the rows above (the 8px of the
+   list plus the 8px a `.picker-row` pads itself with). */
+.song-playlists-new {
   display: flex;
-  width: 100%;
-  min-height: 56px;
+  gap: 8px;
   align-items: center;
-  gap: 12px;
-  padding: 0 8px;
-  font: inherit;
-  color: var(--color);
-  background: none;
-  border: none;
-  border-radius: var(--border-radius-small);
-  cursor: pointer;
+  min-height: 56px;
+  padding: 6px 8px;
 }
 
-.song-playlists-row:hover:enabled,
-.song-playlists-row:active:enabled {
-  background-color: var(--highlight-blue-dark);
-}
-
-.song-playlists-row:disabled {
-  color: var(--color-dark);
-  cursor: default;
-}
-
-.song-playlists-glyph {
-  font-size: 1.4em;
-  color: var(--color-darker);
-}
-
-/* The leading mark is what says "already in", so it overrides the glyph gray. */
-.song-playlists-added {
-  color: var(--highlight-blue-light);
-}
-
-.song-playlists-text {
+.song-playlists-name-input {
   flex: 1 1 auto;
   min-width: 0;
-  text-align: left;
-}
-
-.song-playlists-name,
-.song-playlists-meta {
-  display: block;
-  overflow: hidden;
-  white-space: nowrap;
-  text-overflow: ellipsis;
-}
-
-.song-playlists-name {
-  font-size: 1.15em;
-  font-weight: 600;
-}
-
-.song-playlists-meta {
-  font-size: 0.85em;
-  color: var(--color-darker);
 }

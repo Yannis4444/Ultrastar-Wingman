@@ -20,6 +20,7 @@ const {
   getPlaylist,
   addPlaylistEntry,
   removePlaylistEntry,
+  createPlaylist,
 } = vi.hoisted(() => ({
   getMe: vi.fn(),
   listSongScores: vi.fn(),
@@ -29,6 +30,7 @@ const {
   getPlaylist: vi.fn(),
   addPlaylistEntry: vi.fn(),
   removePlaylistEntry: vi.fn(),
+  createPlaylist: vi.fn(),
 }));
 
 vi.mock("../api/sdk.gen", async (importOriginal) => ({
@@ -41,6 +43,7 @@ vi.mock("../api/sdk.gen", async (importOriginal) => ({
   getPlaylist,
   addPlaylistEntry,
   removePlaylistEntry,
+  createPlaylist,
 }));
 
 const song: SongRead = {
@@ -108,6 +111,11 @@ beforeEach(() => {
   getMe.mockReset();
   listSongScores.mockReset();
   listPlayers.mockReset();
+  listPlaylists.mockReset();
+  getPlaylist.mockReset();
+  createPlaylist.mockReset();
+  addPlaylistEntry.mockReset();
+  removePlaylistEntry.mockReset();
   // The best-scores view reaches over every party, so it is `stats.history`.
   getMe.mockResolvedValue(meResponse(["songs.view", "stats.history"]));
   listSongScores.mockResolvedValue({ data: { scores: history } });
@@ -284,21 +292,12 @@ test("the wish control wears the three-bar wishlist glyphs", async () => {
   ).toEqual(["playlist-check"]);
 });
 
-test("the playlist row and picker wear the bulleted-list glyphs", async () => {
-  withPlaylist([]);
-  renderDetails();
-
-  const option = await screen.findByRole("button", { name: "Add to playlist" });
-  expect(iconNames(option)).toEqual(["list-plus", "chevron-right"]);
-
-  fireEvent.click(option);
-  const dialog = screen.getByRole("dialog", { name: "Add to playlist" });
-  const row = within(dialog).getByRole("button", { name: /Warm-up/ });
-  expect(iconNames(row)).toEqual(["list"]);
-});
-
-/** A logged-in playlist owner with one playlist, `entries` as given. */
-function withPlaylist(entries: { song: SongRead }[]) {
+/** A logged-in playlist owner with one playlist; `contains` is what the picker
+ *  reads the check mark off. */
+function withPlaylist(
+  contains: boolean,
+  extra: Record<string, unknown>[] = [],
+) {
   getMe.mockResolvedValue(
     meResponse(["songs.view", "playlists.manage"], {
       user: userRead(),
@@ -315,25 +314,57 @@ function withPlaylist(entries: { song: SongRead }[]) {
           is_global: false,
           owner_username: null,
           owner_player_id: null,
-          song_count: entries.length,
+          song_count: contains ? 1 : 0,
           duration_seconds: 0,
-          cover_song_ids: [],
+          // A cover, so the mosaic is images and the only glyph on the row is
+          // the membership mark the assertions are about.
+          cover_song_ids: ["local:a"],
           my_access: "owner",
           followed: true,
           can_edit: true,
           can_manage: true,
-          contains: null,
+          contains,
         },
+        ...extra,
       ],
     },
   });
-  getPlaylist.mockResolvedValue({
-    data: { id: "pl-1", name: "Warm-up", entries },
-  });
 }
 
+test("the playlist row and picker wear the bulleted-list glyphs", async () => {
+  withPlaylist(false);
+  renderDetails();
+
+  const option = await screen.findByRole("button", { name: "Add to playlist" });
+  expect(iconNames(option)).toEqual(["list-plus", "chevron-right"]);
+
+  fireEvent.click(option);
+  const dialog = screen.getByRole("dialog", { name: "Add to playlist" });
+  const row = await within(dialog).findByRole("button", { name: /Warm-up/ });
+  expect(iconNames(row)).toEqual(["list"]);
+});
+
+test("the picker asks for the listing once, with the song, and never per row", async () => {
+  withPlaylist(false);
+  renderDetails();
+
+  fireEvent.click(
+    await screen.findByRole("button", { name: "Add to playlist" }),
+  );
+  const dialog = screen.getByRole("dialog", { name: "Add to playlist" });
+  await within(dialog).findByRole("button", { name: /Warm-up/ });
+
+  expect(listPlaylists).toHaveBeenCalledTimes(1);
+  expect(listPlaylists.mock.calls[0][0]).toMatchObject({
+    query: { song_id: "usdb:1" },
+  });
+  // The check mark comes off the listing's `contains`, so no playlist is
+  // fetched to find out what is in it.
+  expect(getPlaylist).not.toHaveBeenCalled();
+});
+
 test("a playlist owner adds the song from the playlist picker", async () => {
-  withPlaylist([]);
+  withPlaylist(false);
   addPlaylistEntry.mockResolvedValue({ data: {} });
   renderDetails();
 
@@ -341,7 +372,7 @@ test("a playlist owner adds the song from the playlist picker", async () => {
     await screen.findByRole("button", { name: "Add to playlist" }),
   );
   const dialog = screen.getByRole("dialog", { name: "Add to playlist" });
-  const row = within(dialog).getByRole("button", { name: /Warm-up/ });
+  const row = await within(dialog).findByRole("button", { name: /Warm-up/ });
   expect(row).toHaveAttribute("aria-pressed", "false");
   fireEvent.click(row);
 
@@ -356,7 +387,7 @@ test("a playlist owner adds the song from the playlist picker", async () => {
 });
 
 test("a playlist that already holds the song shows the check and removes on tap", async () => {
-  withPlaylist([{ song }]);
+  withPlaylist(true);
   removePlaylistEntry.mockResolvedValue({ data: undefined });
   renderDetails();
 
@@ -367,7 +398,7 @@ test("a playlist that already holds the song shows the check and removes on tap"
   const row = await within(dialog).findByRole("button", {
     name: /Warm-up/,
   });
-  await waitFor(() => expect(row).toHaveAttribute("aria-pressed", "true"));
+  expect(row).toHaveAttribute("aria-pressed", "true");
   // Same bulleted family as the empty row, with the check the wishlist's
   // "already on it" glyph carries.
   expect(iconNames(row)).toEqual(["list-check"]);
@@ -380,6 +411,86 @@ test("a playlist that already holds the song shows the check and removes on tap"
       }),
     ),
   );
+});
+
+test("the picker offers itself with no playlist at all, and makes a private one", async () => {
+  getMe.mockResolvedValue(
+    meResponse(["songs.view", "playlists.manage"], {
+      user: userRead(),
+      role: "user",
+    }),
+  );
+  listPlaylists.mockResolvedValue({ data: { playlists: [] } });
+  createPlaylist.mockResolvedValue({ data: { id: "pl-new" } });
+  addPlaylistEntry.mockResolvedValue({ data: {} });
+  renderDetails();
+
+  // The row is offered on the right alone: somebody with no list yet is
+  // exactly who "New playlist…" is for.
+  fireEvent.click(
+    await screen.findByRole("button", { name: "Add to playlist" }),
+  );
+  const dialog = screen.getByRole("dialog", { name: "Add to playlist" });
+  fireEvent.click(
+    await within(dialog).findByRole("button", { name: /New playlist/ }),
+  );
+
+  const field = within(dialog).getByRole("textbox", {
+    name: "New playlist name",
+  });
+  fireEvent.change(field, { target: { value: "  Late shift  " } });
+  fireEvent.click(
+    within(dialog).getByRole("button", {
+      name: "Create the playlist and add the song",
+    }),
+  );
+
+  await waitFor(() =>
+    expect(createPlaylist).toHaveBeenCalledWith(
+      expect.objectContaining({
+        body: { name: "Late shift", is_global: false },
+      }),
+    ),
+  );
+  await waitFor(() =>
+    expect(addPlaylistEntry).toHaveBeenCalledWith(
+      expect.objectContaining({
+        path: { playlist_id: "pl-new" },
+        body: { song_id: "usdb:1" },
+      }),
+    ),
+  );
+});
+
+test("a list the reader may only look at is not in the picker", async () => {
+  withPlaylist(false, [
+    {
+      id: "pl-2",
+      name: "Bobs mix",
+      description: null,
+      is_global: true,
+      owner_username: "Bob",
+      owner_player_id: null,
+      song_count: 3,
+      duration_seconds: 0,
+      cover_song_ids: [],
+      my_access: null,
+      followed: false,
+      can_edit: false,
+      can_manage: false,
+      contains: false,
+    },
+  ]);
+  renderDetails();
+
+  fireEvent.click(
+    await screen.findByRole("button", { name: "Add to playlist" }),
+  );
+  const dialog = screen.getByRole("dialog", { name: "Add to playlist" });
+  await within(dialog).findByRole("button", { name: /Warm-up/ });
+  expect(
+    within(dialog).queryByRole("button", { name: /Bobs mix/ }),
+  ).not.toBeInTheDocument();
 });
 
 test("a failing audio preview removes itself", async () => {

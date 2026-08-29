@@ -24,6 +24,7 @@ import { Icon } from "../components/icons";
 import Loading from "../components/Loading";
 import Modal from "../components/Modal";
 import PageHeader from "../components/PageHeader";
+import PickerRow from "../components/PickerRow";
 import SongCover from "../components/SongCover";
 import SongDetails from "../components/SongDetails";
 import SongListItem from "../components/SongListItem";
@@ -572,35 +573,18 @@ export default function Playlist() {
             onChange={(event) => setSearch(event.target.value)}
           />
           {library.isLoading && <Loading />}
-          <ul className="playlist-add-list">
-            {found.slice(0, RESULTS).map((song) => {
-              const inList = holds.has(song.id);
-              return (
-                <li key={song.id}>
-                  <button
-                    type="button"
-                    className="playlist-add-row"
-                    aria-pressed={inList}
-                    disabled={busySong === song.id}
-                    onClick={() => toggleMembership(song)}
-                  >
-                    <SongCover song={song} />
-                    <span className="playlist-add-text">
-                      <span className="playlist-add-title">{song.title}</span>
-                      <span className="playlist-add-artist">{song.artist}</span>
-                    </span>
-                    <Icon
-                      name={inList ? "list-check" : "list"}
-                      className={
-                        inList
-                          ? "playlist-add-mark playlist-add-mark-on"
-                          : "playlist-add-mark"
-                      }
-                    />
-                  </button>
-                </li>
-              );
-            })}
+          <ul className="picker-list">
+            {found.slice(0, RESULTS).map((song) => (
+              <PickerRow
+                key={song.id}
+                lead={<SongCover song={song} />}
+                title={song.title}
+                meta={song.artist}
+                pressed={holds.has(song.id)}
+                disabled={busySong === song.id}
+                onClick={() => toggleMembership(song)}
+              />
+            ))}
           </ul>
           {found.length > RESULTS && (
             <p className="playlist-add-more">

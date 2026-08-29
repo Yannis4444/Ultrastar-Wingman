@@ -1,0 +1,96 @@
+/* The two membership pickers — "Add to playlist" in the song modal and "Add
+   songs" on the playlist page — share one row: a 40px square, two lines and
+   the trailing list mark. Same axis as every other list in the app (8px on the
+   list plus 8px of row padding), so a cover never moves when a reader walks
+   from a song list into a picker. */
+
+.picker-list {
+  margin: 0 8px;
+  padding: 0;
+  list-style: none;
+}
+
+.picker-list li + li {
+  border-top: 1px solid var(--input-border-color);
+}
+
+.picker-row {
+  display: flex;
+  box-sizing: border-box;
+  width: 100%;
+  min-height: 56px;
+  align-items: center;
+  gap: 12px;
+  padding: 6px 8px;
+  font: inherit;
+  color: var(--color);
+  text-align: left;
+  background: none;
+  border: none;
+  border-radius: var(--border-radius-small);
+  cursor: pointer;
+}
+
+/* The tap itself always lights the row — that is the feedback for a toggle
+   whose mark only changes once the server answers. The hover band is for
+   pointers alone (§1.12): a touch screen fakes a hover on tap and leaves the
+   row lit long after the finger has moved on. */
+.picker-row:active:enabled {
+  background-color: var(--highlight-blue-dark);
+}
+
+@media (hover: hover) {
+  .picker-row:hover:enabled {
+    background-color: var(--highlight-blue-dark);
+  }
+}
+
+.picker-row:disabled {
+  color: var(--color-dark);
+  cursor: default;
+}
+
+/* A row that leads with a bare glyph instead of a cover — "New playlist…".
+   The same 40px `--input-bg` square §4 gives an icon-led row, so it lines up
+   with the mosaics above it. */
+.picker-row-glyph {
+  display: flex;
+  flex: 0 0 auto;
+  align-items: center;
+  justify-content: center;
+  width: 40px;
+  height: 40px;
+  font-size: 1.25em;
+  color: var(--color-darker);
+  background-color: var(--input-bg);
+  border-radius: var(--border-radius-small);
+}
+
+.picker-row-text {
+  flex: 1 1 auto;
+  min-width: 0;
+}
+
+.picker-row-title,
+.picker-row-meta {
+  display: block;
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+
+.picker-row-meta {
+  font-size: 0.85em;
+  color: var(--color-darker);
+}
+
+.picker-row-mark {
+  flex: 0 0 auto;
+  font-size: 1.3em;
+  color: var(--color-darker);
+}
+
+/* The mark is what says "already on the list", so it takes the accent. */
+.picker-row-mark-on {
+  color: var(--highlight-blue-light);
+}

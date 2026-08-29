@@ -1,14 +1,9 @@
-import {
-  useMutation,
-  useQueries,
-  useQuery,
-  useQueryClient,
-} from "@tanstack/react-query";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useState } from "react";
 import type { SongRead } from "../api";
 import {
   addPlaylistEntryMutation,
-  getPlaylistOptions,
+  createPlaylistMutation,
   getPlaylistQueryKey,
   listPlaylistsOptions,
   listPlaylistsQueryKey,
@@ -23,8 +18,11 @@ import { useWishlist } from "../hooks/useWishlist";
 import { songHistory } from "../stats";
 import IconStat from "./IconStat";
 import { Icon, type IconName } from "./icons";
+import Loading from "./Loading";
 import Modal from "./Modal";
+import PickerRow from "./PickerRow";
 import PlayerSelection from "./PlayerSelection";
+import PlaylistCover from "./PlaylistCover";
 import RankedScoreList from "./RankedScoreList";
 import SongCover from "./SongCover";
 // The control row is shared with the Home stage.
@@ -50,36 +48,26 @@ export default function SongDetails({ song, onClose }: SongDetailsProps) {
   // the element's error event is the only signal.
   const [noAudio, setNoAudio] = useState(false);
   const [detailsOpen, setDetailsOpen] = useState(false);
+  // The inline name field of the "New playlist…" row, and what is in it.
+  const [naming, setNaming] = useState(false);
+  const [newName, setNewName] = useState("");
   const auth = useAuth();
   const queryClient = useQueryClient();
   const wishlist = useWishlist();
   const favorites = useFavorites();
 
   const canManagePlaylists = auth.user !== null && auth.can("playlists.manage");
+  // One listing for the whole picker: `song_id` makes the backend fill each
+  // row's `contains`, which is the check mark — never a detail request per row.
+  // Nothing outside the sub-view needs it, so it waits for the sub-view.
   const playlists = useQuery({
-    ...listPlaylistsOptions(),
-    enabled: auth.loaded && canManagePlaylists,
+    ...listPlaylistsOptions({ query: { song_id: song.id } }),
+    enabled: auth.loaded && canManagePlaylists && view === "playlists",
   });
   // Every list the caller may put a song into: their own, the ones shared with
   // them as write or admin, and — for a moderator — the global ones.
   const mine = (playlists.data?.playlists ?? []).filter(
     (list) => list.can_edit,
-  );
-
-  // Which of my playlists already hold this song — the picker's check marks.
-  // Fetched only once the picker opens; a handful of small requests.
-  const memberships = useQueries({
-    queries: mine.map((list) => ({
-      ...getPlaylistOptions({ path: { playlist_id: list.id } }),
-      enabled: view === "playlists",
-    })),
-  });
-  const containing = new Set(
-    memberships.flatMap((query) =>
-      query.data?.entries.some((entry) => entry.song.id === song.id)
-        ? [query.data.id]
-        : [],
-    ),
   );
 
   // All-time and newest first, so the top of the list needs sorting here. The
@@ -135,6 +123,24 @@ export default function SongDetails({ song, onClose }: SongDetailsProps) {
       setNotice(errorMessage(error, "Could not remove the song.")),
   });
 
+  // "New playlist…" makes a private list and puts the song in it — two
+  // requests, because the create endpoint takes no songs. A list that was
+  // created but could not be filled still exists, so the failure of the second
+  // one says exactly that instead of "could not create the playlist".
+  const createList = useMutation({
+    ...createPlaylistMutation(),
+    onSuccess: (created) => {
+      setNaming(false);
+      setNewName("");
+      addToPlaylist.mutate({
+        path: { playlist_id: created.id },
+        body: { song_id: song.id },
+      });
+    },
+    onError: (error) =>
+      setNotice(errorMessage(error, "Could not create the playlist.")),
+  });
+
   // Duration lives in the preview player and artist in the hero, so the
   // details keep only what the modal does not show anyway.
   const rows: { icon: IconName; label: string; value: string | null }[] = [
@@ -175,52 +181,109 @@ export default function SongDetails({ song, onClose }: SongDetailsProps) {
   }
 
   if (view === "playlists") {
-    const busy = addToPlaylist.isPending || removeFromPlaylist.isPending;
+    const busy =
+      addToPlaylist.isPending ||
+      removeFromPlaylist.isPending ||
+      createList.isPending;
     return (
-      <Modal title="Add to playlist" bare onClose={() => setView("main")}>
-        <ul className="song-playlists-list">
-          {mine.map((list) => {
-            const added = containing.has(list.id);
-            return (
-              <li key={list.id}>
+      <Modal
+        title="Add to playlist"
+        bare
+        onClose={() => {
+          // Leaving the sub-view abandons a half-typed name: coming back to a
+          // field the reader does not remember opening is worse than the row.
+          setNaming(false);
+          setNewName("");
+          setView("main");
+        }}
+      >
+        {playlists.isPending && <Loading />}
+        {/* The listing is the whole picker; without it the reader would face a
+            "New playlist…" row alone and read it as "you have none". */}
+        {playlists.isError && (
+          <p className="song-details-notice" role="alert">
+            Could not load your playlists.
+          </p>
+        )}
+        <ul className="picker-list">
+          {mine.map((list) => (
+            <PickerRow
+              key={list.id}
+              lead={<PlaylistCover songIds={list.cover_song_ids} />}
+              title={list.name}
+              meta={`${list.song_count} ${list.song_count === 1 ? "song" : "songs"}`}
+              // The listing filled this in for the song the picker is about; a
+              // row never asks for the playlist itself to find out.
+              pressed={list.contains === true}
+              disabled={busy}
+              onClick={() => {
+                setNotice(null);
+                if (list.contains === true) {
+                  removeFromPlaylist.mutate({
+                    path: { playlist_id: list.id, song_id: song.id },
+                  });
+                } else {
+                  addToPlaylist.mutate({
+                    path: { playlist_id: list.id },
+                    body: { song_id: song.id },
+                  });
+                }
+              }}
+            />
+          ))}
+          {/* The way out of an empty picker, and the shortcut past the
+              playlists page for a full one. What it makes is private: a list
+              born from one song is nobody else's business until it is shared
+              on its own manage page. */}
+          <li>
+            {naming ? (
+              <form
+                className="song-playlists-new"
+                onSubmit={(event) => {
+                  event.preventDefault();
+                  const name = newName.trim();
+                  if (name === "") return;
+                  setNotice(null);
+                  createList.mutate({ body: { name, is_global: false } });
+                }}
+              >
+                <input
+                  className="text-input text-input-quiet song-playlists-name-input"
+                  aria-label="New playlist name"
+                  placeholder="Playlist name"
+                  autoFocus
+                  value={newName}
+                  onChange={(event) => setNewName(event.target.value)}
+                />
                 <button
-                  type="button"
-                  className="song-playlists-row"
-                  aria-pressed={added}
-                  disabled={busy}
-                  onClick={() => {
-                    setNotice(null);
-                    if (added) {
-                      removeFromPlaylist.mutate({
-                        path: { playlist_id: list.id, song_id: song.id },
-                      });
-                    } else {
-                      addToPlaylist.mutate({
-                        path: { playlist_id: list.id },
-                        body: { song_id: song.id },
-                      });
-                    }
-                  }}
+                  type="submit"
+                  className="icon-button"
+                  aria-label="Create the playlist and add the song"
+                  disabled={busy || newName.trim() === ""}
                 >
-                  <Icon
-                    name={added ? "list-check" : "list"}
-                    className={
-                      added
-                        ? "song-playlists-glyph song-playlists-added"
-                        : "song-playlists-glyph"
-                    }
-                  />
-                  <span className="song-playlists-text">
-                    <span className="song-playlists-name">{list.name}</span>
-                    <span className="song-playlists-meta">
-                      {list.song_count}{" "}
-                      {list.song_count === 1 ? "song" : "songs"}
-                    </span>
-                  </span>
+                  {/* The plus the collapsed row led with, now the control that
+                      commits it — never a bare `check` (§3). */}
+                  <Icon name="plus" />
                 </button>
-              </li>
-            );
-          })}
+              </form>
+            ) : (
+              <button
+                type="button"
+                className="picker-row"
+                onClick={() => {
+                  setNotice(null);
+                  setNaming(true);
+                }}
+              >
+                <span className="picker-row-glyph">
+                  <Icon name="plus" />
+                </span>
+                <span className="picker-row-text">
+                  <span className="picker-row-title">New playlist…</span>
+                </span>
+              </button>
+            )}
+          </li>
         </ul>
         {notice && (
           <p className="song-details-notice" role="alert">
@@ -359,7 +422,11 @@ export default function SongDetails({ song, onClose }: SongDetailsProps) {
           </button>
         )}
 
-        {canManagePlaylists && mine.length > 0 && (
+        {/* Offered on the strength of the right alone, not of the listing: a
+            reader with no list yet is exactly who the "New playlist…" row
+            inside is for, and the listing has not been asked for at this
+            point anyway. */}
+        {canManagePlaylists && (
           <button
             type="button"
             className="song-option"

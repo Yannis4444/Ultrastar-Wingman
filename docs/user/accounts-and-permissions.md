@@ -171,7 +171,7 @@ their roles and deletions for *users → manage*.
   everybody out.
 - Deleting an account keeps its player and its scores, under the same name, and
   removes its wishes, favorites and playlists — except a playlist with an
-  [admin member](wishlist-and-playlists.md#sharing-a-playlist), which is handed
+  [admin member](wishlist-and-playlists.md#manage-a-playlist), which is handed
   to that person. The player moves down to the guests, and can be deleted there.
 
 ## Change what a role may do

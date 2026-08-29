@@ -88,21 +88,34 @@ gives you — you only see the ones you may use:
 - **Save a copy** takes a copy of any playlist you can see — same songs, same
   order, owned by you and shared with nobody.
 - The dice at the top right spins [the reel](the-spinner.md) over this playlist
-  alone, and the gear (on a playlist you manage) opens its settings.
+  alone, and the gear — on a playlist you manage — opens
+  [Manage playlist](#manage-a-playlist).
 
 Songs also go on a list from the song itself: **Add to playlist** in a song's
 details lists the playlists you may edit — tap one to add the song, tap it again
-to take it out. A check marks the lists that already have it.
+to take it out. A check marks the lists that already have it. **New playlist…**
+at the foot of that list makes a new one, private, and puts the song straight
+into it — the shortcut for a list that does not exist yet.
 
-### Sharing a playlist
+### Manage a playlist
 
-There are two ways to let other people at a playlist, and they can be combined:
+The gear at the top right of a playlist opens **Manage playlist**. It is there
+on every list you may manage: the ones you made, the ones somebody shared with
+you as an **admin**, and — for accounts that may moderate playlists — any list
+they can already see.
 
-- **Global** shows the list to everybody in the party, guests without an account
-  included. Nobody can change it just by seeing it.
-- **Named people** get an access level of their own. Open the playlist and press
-  the gear — it is there on every playlist you manage — to add somebody by their
-  username and to say what they may do:
+**What the list is.** Change the **name** and the **description**, and tick
+**Global** to show the list to everybody in the party, guests without an account
+included. Being able to see a list is not being able to change it: nobody gets
+that from the tick. **Save** sends only what you actually changed.
+
+**Who is on it.** Under **Members** stands the owner first, then everybody the
+list was shared with. Type the first two letters of a username into **Add
+people** to find an account — the search matches the beginning of a name, not
+the middle; the **+** beside a name shares the list with that person as a
+reader. After that, the dropdown on their row decides what they may
+do and the **✕** takes them off the list again — their access goes, the songs
+stay.
 
 | Access | What it allows |
 |---|---|
@@ -110,14 +123,19 @@ There are two ways to let other people at a playlist, and they can be combined:
 | **Write** | Add songs, take songs off, change the order |
 | **Admin** | All of that, plus renaming, sharing and deleting the list |
 
-A list somebody shared with you turns up under **Shared with you**, and you keep
-or hide it with **Follow** / **Unfollow**.
+A list you share turns up under **Shared with you** on the other person's
+playlists page, and they keep or hide it with **Follow** / **Unfollow**.
 
-Beyond that, whoever holds the right to moderate playlists may change any list
-they can already see, and **trusted** accounts and administrators hold it by
+**Delete playlist**, at the foot of the page, asks once and then takes the list
+away from everybody it was shared with. Only the list goes: the songs stay in
+the library, and so does everything the statistics recorded.
+
+Beyond the people named on a list, whoever holds the right to moderate playlists
+may change any list they can already see — the global ones, and the ones shared
+with them — and **trusted** accounts and administrators hold that right by
 default. It never reaches a playlist nobody shared with them: such a list is
 invisible to everybody but its owner, and what cannot be looked at cannot be
-changed either. Deleting a playlist deletes only the list, never the songs.
+changed either.
 
 !!! warning
     Deleting an account takes its wishes, favorites and playlists with it — but

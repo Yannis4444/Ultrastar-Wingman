@@ -316,85 +316,14 @@
   font-size: 1.1em;
 }
 
-/* The Add songs sub-view: the library, filtered, with membership on the row. */
+/* The Add songs sub-view: the library, filtered, with membership on the row.
+   The rows themselves are `PickerRow`s, shared with the song modal's
+   "Add to playlist" — only the search field and the "too many" line are the
+   page's own. */
 .playlist-add-search {
   display: block;
   width: calc(100% - 32px);
   margin: 0 16px 8px 16px;
-}
-
-.playlist-add-list {
-  margin: 0 8px;
-  padding: 0;
-  list-style: none;
-}
-
-.playlist-add-list li + li {
-  border-top: 1px solid var(--input-border-color);
-}
-
-.playlist-add-row {
-  display: flex;
-  width: 100%;
-  box-sizing: border-box;
-  min-height: 56px;
-  align-items: center;
-  gap: 12px;
-  padding: 6px 8px;
-  font: inherit;
-  color: var(--color);
-  background: none;
-  border: none;
-  border-radius: var(--border-radius-small);
-  cursor: pointer;
-}
-
-/* The tap itself always lights the row — that is the feedback for a toggle
-   whose mark only changes once the server answers. The hover band is for
-   pointers alone (§1.12). */
-.playlist-add-row:active:enabled {
-  background-color: var(--highlight-blue-dark);
-}
-
-@media (hover: hover) {
-  .playlist-add-row:hover:enabled {
-    background-color: var(--highlight-blue-dark);
-  }
-}
-
-.playlist-add-row:disabled {
-  color: var(--color-dark);
-  cursor: default;
-}
-
-.playlist-add-text {
-  flex: 1 1 auto;
-  min-width: 0;
-  text-align: left;
-}
-
-.playlist-add-title,
-.playlist-add-artist {
-  display: block;
-  overflow: hidden;
-  white-space: nowrap;
-  text-overflow: ellipsis;
-}
-
-.playlist-add-artist {
-  font-size: 0.85em;
-  color: var(--color-darker);
-}
-
-.playlist-add-mark {
-  flex: 0 0 auto;
-  font-size: 1.3em;
-  color: var(--color-darker);
-}
-
-/* The mark is what says "already on the list", so it takes the accent. */
-.playlist-add-mark-on {
-  color: var(--highlight-blue-light);
 }
 
 .playlist-add-more {

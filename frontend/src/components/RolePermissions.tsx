@@ -63,7 +63,7 @@ const DESCRIPTIONS: Record<string, string> = {
   "playlists.view": "See shared playlists and the songs in them.",
   "playlists.manage": "Create and edit own playlists.",
   "playlists.moderate":
-    "Change and delete shared playlists somebody else made — needs manage too.",
+    "Change and delete somebody else's playlists — the global ones, and the ones shared with you. Needs manage too.",
   "downloads.view": "See the download queue.",
   "downloads.manage": "Start downloads, retry and clear them.",
   "usdb.search": "Search usdb.animux.de for new songs.",
