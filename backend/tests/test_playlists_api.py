@@ -124,6 +124,7 @@ async def test_create_list_read_update_and_delete(app_with_songs: FastAPI) -> No
             "owner_player_id": None,
             "song_count": 0,
             "duration_seconds": 0,
+            "cover_song_ids": [],
             "my_access": "owner",
             "followed": True,
             "can_edit": True,
@@ -185,6 +186,35 @@ async def test_the_song_count_and_duration_add_up(app_with_songs: FastAPI) -> No
         assert row["song_count"] == 3
         assert row["duration_seconds"] == 395
         assert (await listed(client))[0]["duration_seconds"] == 395
+
+
+async def test_the_listing_names_the_first_songs_for_the_cover_mosaic(
+    app_with_songs: FastAPI,
+) -> None:
+    """Four ids at most, in playlist order, so a row draws its 2x2 of covers without one
+    detail request per playlist."""
+    await add_songs(app_with_songs, "local:dddd", "local:eeee")
+    client = await account(app_with_songs, "singer")
+    async with client:
+        playlist = await create(client, "Party")
+        for song in (SONG, OTHER_SONG, THIRD_SONG, "local:dddd", "local:eeee"):
+            row = await add_entry(client, str(playlist["id"]), song)
+
+        assert row["cover_song_ids"] == [SONG, OTHER_SONG, THIRD_SONG, "local:dddd"]
+        assert (await listed(client))[0]["cover_song_ids"] == row["cover_song_ids"]
+
+        # The mosaic follows the order the songs are in, not the order they arrived.
+        reordered = await client.put(
+            f"/api/v1/playlists/{playlist['id']}/entries",
+            json={"song_ids": ["local:eeee", "local:dddd", THIRD_SONG, OTHER_SONG, SONG]},
+        )
+        assert reordered.status_code == 200, reordered.text
+        assert reordered.json()["cover_song_ids"] == [
+            "local:eeee",
+            "local:dddd",
+            THIRD_SONG,
+            OTHER_SONG,
+        ]
 
 
 async def test_a_playlist_needs_an_account(app_with_songs: FastAPI) -> None:

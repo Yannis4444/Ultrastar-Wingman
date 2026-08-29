@@ -387,6 +387,10 @@ export type PlaylistDetail = {
      */
     duration_seconds: number;
     /**
+     * Cover Song Ids
+     */
+    cover_song_ids: Array<string>;
+    /**
      * My Access
      */
     my_access: 'owner' | 'admin' | 'write' | 'read' | null;
@@ -539,6 +543,10 @@ export type PlaylistRead = {
      * Duration Seconds
      */
     duration_seconds: number;
+    /**
+     * Cover Song Ids
+     */
+    cover_song_ids: Array<string>;
     /**
      * My Access
      */

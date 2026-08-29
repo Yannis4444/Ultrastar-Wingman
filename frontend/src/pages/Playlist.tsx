@@ -1,33 +1,119 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { useState } from "react";
-import { Link, useParams } from "react-router-dom";
-import type { SongRead } from "../api";
 import {
+  useRef,
+  useState,
+  type PointerEvent as ReactPointerEvent,
+} from "react";
+import { Link, useNavigate, useParams } from "react-router-dom";
+import type { PlaylistDetail, SongRead } from "../api";
+import {
+  addPlaylistEntryMutation,
+  copyPlaylistMutation,
+  followPlaylistMutation,
   getPlaylistOptions,
   getPlaylistQueryKey,
   listPlaylistsQueryKey,
+  listSongsOptions,
   removePlaylistEntryMutation,
+  reorderPlaylistEntriesMutation,
+  unfollowPlaylistMutation,
 } from "../api/@tanstack/react-query.gen";
 import { useAuth } from "../auth";
+import EmptyState from "../components/EmptyState";
 import { Icon } from "../components/icons";
 import Loading from "../components/Loading";
+import Modal from "../components/Modal";
 import PageHeader from "../components/PageHeader";
+import SongCover from "../components/SongCover";
 import SongDetails from "../components/SongDetails";
 import SongListItem from "../components/SongListItem";
-import { errorMessage } from "../errors";
+import { formatTotalDuration } from "../duration";
+import { errorDetail, errorMessage } from "../errors";
 import { useFavorites } from "../hooks/useFavorites";
 import { useSungSongs } from "../hooks/useSungSongs";
+import { useWingmanEvent, type WingmanEvent } from "../hooks/useWingmanEvents";
 import "./Playlists.css";
 
-/** One playlist's songs — what the playlist chips on the songs page used to do. */
+interface PlaylistsChanged extends WingmanEvent {
+  /** Null when several lists changed at once (an account was deleted). */
+  playlist_id: string | null;
+}
+
+/** How many songs the "Add songs" sub-view lists before asking for a search. */
+const RESULTS = 50;
+
+/** The same needle the songs page matches on. */
+function matches(song: SongRead, needle: string): boolean {
+  return (
+    song.id === needle ||
+    song.title.toLowerCase().includes(needle) ||
+    song.artist.toLowerCase().includes(needle)
+  );
+}
+
+/** The array with the item at `from` put at `to`. */
+function moved(ids: string[], from: number, to: number): string[] {
+  const next = [...ids];
+  next.splice(to, 0, ...next.splice(from, 1));
+  return next;
+}
+
+function sameOrder(left: string[], right: string[]): boolean {
+  return left.length === right.length && left.every((id, i) => id === right[i]);
+}
+
+/**
+ * "12 songs · 48 min · Global · shared by alice · read access" — everything the
+ * header cannot say, in one line under it.
+ */
+function summary(playlist: PlaylistDetail): string {
+  const count = playlist.song_count;
+  const parts = [`${count} ${count === 1 ? "song" : "songs"}`];
+  if (playlist.duration_seconds > 0)
+    parts.push(formatTotalDuration(playlist.duration_seconds));
+  if (playlist.is_global) parts.push("Global");
+  if (playlist.my_access !== "owner" && playlist.owner_username !== null)
+    parts.push(`shared by ${playlist.owner_username}`);
+  if (playlist.my_access !== null && playlist.my_access !== "owner")
+    parts.push(`${playlist.my_access} access`);
+  return parts.join(" · ");
+}
+
+/** One playlist: its songs, and everything the reader may do with the list. */
 export default function Playlist() {
   const { playlistId = "" } = useParams();
   const queryClient = useQueryClient();
+  const navigate = useNavigate();
   const auth = useAuth();
   const favorites = useFavorites();
   const sung = useSungSongs();
   const [selected, setSelected] = useState<SongRead | null>(null);
+  const [adding, setAdding] = useState(false);
+  const [search, setSearch] = useState("");
   const [error, setError] = useState<string | null>(null);
+  // The order being edited. Seeded when edit mode opens and left alone by
+  // refetches until it closes: a list rearranging itself under a dragging
+  // finger is worse than a moment of staleness.
+  const [order, setOrder] = useState<string[] | null>(null);
+  const [dragged, setDragged] = useState<string | null>(null);
+  const rows = useRef<HTMLUListElement>(null);
+  /** Where the dragged row currently sits — a ref, so a move does not re-render
+   *  the pointer handler out from under the gesture. */
+  const dragFrom = useRef<number | null>(null);
+  // Router keeps the page mounted when only the id changes ("Save a copy" opens
+  // the copy, back and forward walk between two lists), so everything about the
+  // list being looked at has to be dropped by hand — an order of another list's
+  // songs would show the new one half empty and save a permutation it refuses.
+  const [shown, setShown] = useState(playlistId);
+  if (shown !== playlistId) {
+    setShown(playlistId);
+    setOrder(null);
+    setDragged(null);
+    setAdding(false);
+    setSearch("");
+    setSelected(null);
+    setError(null);
+  }
 
   const allowed = auth.loaded && auth.can("playlists.view");
   const playlist = useQuery({
@@ -35,26 +121,204 @@ export default function Playlist() {
     enabled: allowed && playlistId !== "",
   });
 
-  const removeEntry = useMutation({
-    ...removePlaylistEntryMutation(),
-    onSuccess: () => {
-      setError(null);
-      void queryClient.invalidateQueries({
-        queryKey: getPlaylistQueryKey({ path: { playlist_id: playlistId } }),
-      });
-      void queryClient.invalidateQueries({ queryKey: listPlaylistsQueryKey() });
-    },
-    onError: (cause) =>
-      setError(errorMessage(cause, "Could not remove the song.")),
+  const playlistKey = getPlaylistQueryKey({
+    path: { playlist_id: playlistId },
+  });
+  const refresh = () => {
+    void queryClient.invalidateQueries({ queryKey: playlistKey });
+    void queryClient.invalidateQueries({ queryKey: listPlaylistsQueryKey() });
+  };
+
+  useWingmanEvent<PlaylistsChanged>("playlists.changed", (message) => {
+    void queryClient.invalidateQueries({ queryKey: listPlaylistsQueryKey() });
+    if (message.playlist_id === null || message.playlist_id === playlistId)
+      void queryClient.invalidateQueries({ queryKey: playlistKey });
   });
 
-  // Who may take a song out: the backend worked it out from the owner, the
-  // caller's member row and `playlists.moderate`.
-  const editable =
+  const failed = (fallback: string) => (cause: unknown) =>
+    setError(errorMessage(cause, fallback));
+  const succeeded = () => {
+    setError(null);
+    refresh();
+  };
+
+  const addEntry = useMutation({
+    ...addPlaylistEntryMutation(),
+    onSuccess: succeeded,
+    onError: (cause) => {
+      // Already in there is what the tap wanted; the refetch shows the mark.
+      if (errorDetail(cause) === "duplicate_entry") succeeded();
+      else setError(errorMessage(cause, "Could not add the song."));
+    },
+  });
+  const removeEntry = useMutation({
+    ...removePlaylistEntryMutation(),
+    onSuccess: succeeded,
+    onError: failed("Could not remove the song."),
+  });
+  const reorder = useMutation({
+    ...reorderPlaylistEntriesMutation(),
+    onSuccess: succeeded,
+    onError: failed("Could not save the new order."),
+  });
+  const follow = useMutation({
+    ...followPlaylistMutation(),
+    onSuccess: succeeded,
+    onError: failed("Could not follow the playlist."),
+  });
+  const unfollow = useMutation({
+    ...unfollowPlaylistMutation(),
+    onSuccess: succeeded,
+    onError: failed("Could not unfollow the playlist."),
+  });
+  const copy = useMutation({
+    ...copyPlaylistMutation(),
+    onSuccess: (created) => {
+      setError(null);
+      void queryClient.invalidateQueries({ queryKey: listPlaylistsQueryKey() });
+      void navigate(`/songs/playlists/${encodeURIComponent(created.id)}`);
+    },
+    onError: failed("Could not copy the playlist."),
+  });
+
+  const library = useQuery({
+    ...listSongsOptions(),
+    enabled: adding && auth.loaded && auth.can("songs.view"),
+  });
+
+  const entries = playlist.data?.entries ?? [];
+  const stored = entries.map((entry) => entry.song.id);
+  const byId = new Map(entries.map((entry) => [entry.song.id, entry.song]));
+  const editing = order !== null;
+  const songs = editing
+    ? order.flatMap((id) => {
+        const song = byId.get(id);
+        return song === undefined ? [] : [song];
+      })
+    : entries.map((entry) => entry.song);
+  const holds = new Set(stored);
+
+  // Who may do what: the backend worked it out from the owner, the caller's
+  // member row and `playlists.moderate`, so the page only has to check that the
+  // role still holds `playlists.manage` at all.
+  const canEdit =
     playlist.data !== undefined &&
     auth.can("playlists.manage") &&
     playlist.data.can_edit;
-  const songs = playlist.data?.entries.map((entry) => entry.song) ?? [];
+  const canManage =
+    playlist.data !== undefined &&
+    auth.can("playlists.manage") &&
+    playlist.data.can_manage;
+  // Only a member row can be followed: an owner and a passer-by on a global
+  // list have none, and the backend refuses both.
+  const access = playlist.data?.my_access ?? null;
+  const isMember =
+    access === "read" || access === "write" || access === "admin";
+  // A copy needs an account of its own to belong to.
+  const canCopy = auth.user !== null && auth.can("playlists.manage");
+
+  const save = (next: string[]) => {
+    const previous = order ?? stored;
+    setOrder(next);
+    if (sameOrder(next, stored)) return;
+    reorder.mutate(
+      { path: { playlist_id: playlistId }, body: { song_ids: next } },
+      // A refused move puts the rows back where the server still has them: the
+      // notice says what went wrong, and the list must not go on claiming the
+      // order it failed to save.
+      { onError: () => setOrder(previous) },
+    );
+  };
+
+  /** Take a song out from inside edit mode, and put it back if the server says no. */
+  const drop = (song: SongRead) => {
+    const previous = order ?? stored;
+    setError(null);
+    setOrder(previous.filter((id) => id !== song.id));
+    removeEntry.mutate(
+      { path: { playlist_id: playlistId, song_id: song.id } },
+      { onError: () => setOrder(previous) },
+    );
+  };
+
+  const step = (index: number, delta: number) => {
+    if (order === null) return;
+    const to = index + delta;
+    if (to < 0 || to >= order.length) return;
+    save(moved(order, index, to));
+  };
+
+  /** Which row the pointer is over, so a drag needs no library. */
+  const rowAt = (clientY: number): number | null => {
+    const list = rows.current;
+    if (list === null) return null;
+    const children = [...list.children];
+    if (children.length === 0) return null;
+    const over = children.findIndex(
+      (row) => clientY < row.getBoundingClientRect().bottom,
+    );
+    return over === -1 ? children.length - 1 : over;
+  };
+
+  const startDrag = (
+    event: ReactPointerEvent<HTMLSpanElement>,
+    index: number,
+  ) => {
+    if (order === null) return;
+    // Or the browser starts a text selection / scrolls the page instead.
+    event.preventDefault();
+    event.currentTarget.setPointerCapture(event.pointerId);
+    dragFrom.current = index;
+    setDragged(order[index]);
+  };
+
+  const dragOver = (event: ReactPointerEvent<HTMLSpanElement>) => {
+    const from = dragFrom.current;
+    if (from === null || order === null) return;
+    const to = rowAt(event.clientY);
+    if (to === null || to === from) return;
+    dragFrom.current = to;
+    setOrder(moved(order, from, to));
+  };
+
+  const endDrag = (event: ReactPointerEvent<HTMLSpanElement>) => {
+    if (dragFrom.current === null) return;
+    event.currentTarget.releasePointerCapture(event.pointerId);
+    dragFrom.current = null;
+    setDragged(null);
+    // One request for the whole gesture, not one per row it crossed.
+    if (order !== null) save(order);
+  };
+
+  const toggleMembership = (song: SongRead) => {
+    setError(null);
+    if (holds.has(song.id)) {
+      removeEntry.mutate({
+        path: { playlist_id: playlistId, song_id: song.id },
+      });
+    } else {
+      addEntry.mutate({
+        path: { playlist_id: playlistId },
+        body: { song_id: song.id },
+      });
+    }
+  };
+
+  /**
+   * The one song the sub-view is busy with, so filling a playlist stays a run
+   * of taps: locking all fifty rows for every round trip would make adding ten
+   * songs ten waits.
+   */
+  const busySong = addEntry.isPending
+    ? addEntry.variables.body.song_id
+    : removeEntry.isPending
+      ? removeEntry.variables.path.song_id
+      : null;
+
+  const needle = search.trim().toLowerCase();
+  const found = (library.data?.songs ?? []).filter(
+    (song) => needle === "" || matches(song, needle),
+  );
 
   return (
     <div className="playlists-page">
@@ -74,6 +338,16 @@ export default function Playlist() {
             title="Random song from this playlist"
           >
             <Icon name="dice" gradient />
+          </Link>
+        )}
+        {canManage && (
+          <Link
+            className="icon-button"
+            to={`/songs/playlists/${encodeURIComponent(playlistId)}/manage`}
+            aria-label="Manage playlist"
+            title="Manage playlist"
+          >
+            <Icon name="gear" />
           </Link>
         )}
       </PageHeader>
@@ -98,47 +372,183 @@ export default function Playlist() {
 
             {playlist.isSuccess && (
               <>
-                {/* No count above the empty sentence: it already says "empty". */}
-                {songs.length === 0 ? (
-                  <p className="playlists-empty">
-                    This playlist is empty. Add songs from a song&apos;s
-                    details.
+                {playlist.data.description !== null && (
+                  <p className="playlist-description">
+                    {playlist.data.description}
                   </p>
-                ) : (
-                  <>
-                    <p className="playlist-count">
-                      {songs.length} {songs.length === 1 ? "song" : "songs"}
-                    </p>
-                    <div className="playlist-songs">
-                      {songs.map((song) => (
+                )}
+                <p className="playlist-summary">{summary(playlist.data)}</p>
+
+                {(canEdit || isMember) && (
+                  <div className="playlist-actions">
+                    {canEdit && (
+                      <button
+                        type="button"
+                        className="icon-button icon-button-bordered"
+                        aria-label="Add songs"
+                        title="Add songs"
+                        onClick={() => {
+                          setError(null);
+                          setAdding(true);
+                        }}
+                      >
+                        <Icon name="list-plus" />
+                      </button>
+                    )}
+                    {/* Nothing to reorder or take out of an empty list — the
+                        same reason the dice waits for a first song. It stays
+                        while edit mode is open, so emptying the list from
+                        inside it still has a way out. */}
+                    {canEdit && (songs.length > 0 || editing) && (
+                      <button
+                        type="button"
+                        className="icon-button icon-button-bordered"
+                        aria-pressed={editing}
+                        aria-label={editing ? "Done" : "Edit"}
+                        title={editing ? "Done" : "Edit"}
+                        onClick={() => {
+                          setError(null);
+                          setOrder(editing ? null : stored);
+                        }}
+                      >
+                        <Icon name="pencil" />
+                      </button>
+                    )}
+                    {isMember && (
+                      <button
+                        type="button"
+                        className="icon-button icon-button-bordered"
+                        aria-label={
+                          playlist.data.followed ? "Unfollow" : "Follow"
+                        }
+                        title={playlist.data.followed ? "Unfollow" : "Follow"}
+                        disabled={follow.isPending || unfollow.isPending}
+                        onClick={() => {
+                          setError(null);
+                          const path = { playlist_id: playlistId };
+                          if (playlist.data.followed) unfollow.mutate({ path });
+                          else follow.mutate({ path });
+                        }}
+                      >
+                        <Icon
+                          name={
+                            playlist.data.followed ? "bookmark-off" : "bookmark"
+                          }
+                        />
+                      </button>
+                    )}
+                  </div>
+                )}
+
+                {songs.length === 0 ? (
+                  <EmptyState icon="list" title="No songs yet">
+                    {canEdit
+                      ? "Add songs here, or from a song's details."
+                      : undefined}
+                  </EmptyState>
+                ) : order !== null ? (
+                  <ul className="playlist-reorder" ref={rows}>
+                    {songs.map((song, index) => (
+                      <li
+                        key={song.id}
+                        className={
+                          dragged === song.id
+                            ? "playlist-reorder-row playlist-reorder-dragged"
+                            : "playlist-reorder-row"
+                        }
+                      >
+                        {/* The same row as outside edit mode — marks, cover and
+                            all — with a grip in front and the controls behind
+                            it, so nothing about a song moves but the song. */}
                         <SongListItem
-                          key={song.id}
                           song={song}
                           favorite={favorites.ids.has(song.id)}
                           sung={sung.ids.has(song.id)}
                           onClick={() => setSelected(song)}
+                          leading={
+                            /* A grip, not a control: the same reordering is on
+                               the two arrows beside it, which is where a
+                               keyboard reader does it. A focusable handle would
+                               only put a third stop in every row that does
+                               nothing on Enter. */
+                            <span
+                              className="playlist-drag"
+                              aria-hidden="true"
+                              onPointerDown={(event) => startDrag(event, index)}
+                              onPointerMove={dragOver}
+                              onPointerUp={endDrag}
+                              onPointerCancel={endDrag}
+                            >
+                              <Icon name="drag-handle" />
+                            </span>
+                          }
                           actions={
-                            editable && (
+                            <>
+                              <button
+                                type="button"
+                                aria-label={`Move ${song.title} up`}
+                                disabled={index === 0 || reorder.isPending}
+                                onClick={() => step(index, -1)}
+                              >
+                                <Icon name="arrow-up" />
+                              </button>
+                              <button
+                                type="button"
+                                aria-label={`Move ${song.title} down`}
+                                disabled={
+                                  index === songs.length - 1 ||
+                                  reorder.isPending
+                                }
+                                onClick={() => step(index, 1)}
+                              >
+                                <Icon name="arrow-down" />
+                              </button>
                               <button
                                 type="button"
                                 aria-label={`Remove ${song.title} from the playlist`}
-                                onClick={() =>
-                                  removeEntry.mutate({
-                                    path: {
-                                      playlist_id: playlistId,
-                                      song_id: song.id,
-                                    },
-                                  })
-                                }
+                                disabled={removeEntry.isPending}
+                                onClick={() => drop(song)}
                               >
                                 <Icon name="close" />
                               </button>
-                            )
+                            </>
                           }
                         />
-                      ))}
-                    </div>
-                  </>
+                      </li>
+                    ))}
+                  </ul>
+                ) : (
+                  <div className="playlist-songs">
+                    {songs.map((song) => (
+                      <SongListItem
+                        key={song.id}
+                        song={song}
+                        favorite={favorites.ids.has(song.id)}
+                        sung={sung.ids.has(song.id)}
+                        onClick={() => setSelected(song)}
+                      />
+                    ))}
+                  </div>
+                )}
+
+                {canCopy && (
+                  /* A text row at the foot, never a fourth icon: taking a copy
+                     is a thing you do once, not a control of the list. */
+                  <button
+                    type="button"
+                    className="playlist-copy"
+                    disabled={copy.isPending}
+                    onClick={() => {
+                      setError(null);
+                      copy.mutate({
+                        path: { playlist_id: playlistId },
+                        body: {},
+                      });
+                    }}
+                  >
+                    <Icon name="copy" className="playlist-copy-icon" />
+                    <span>Save a copy</span>
+                  </button>
                 )}
               </>
             )}
@@ -149,6 +559,65 @@ export default function Playlist() {
             access.
           </p>
         ))}
+
+      {adding && (
+        /* A sub-view in the song modal's idiom: the close button is the way
+           back to the playlist. */
+        <Modal title="Add songs" bare onClose={() => setAdding(false)}>
+          <input
+            className="text-input text-input-quiet playlist-add-search"
+            aria-label="Search songs"
+            placeholder="Search songs"
+            value={search}
+            onChange={(event) => setSearch(event.target.value)}
+          />
+          {library.isLoading && <Loading />}
+          <ul className="playlist-add-list">
+            {found.slice(0, RESULTS).map((song) => {
+              const inList = holds.has(song.id);
+              return (
+                <li key={song.id}>
+                  <button
+                    type="button"
+                    className="playlist-add-row"
+                    aria-pressed={inList}
+                    disabled={busySong === song.id}
+                    onClick={() => toggleMembership(song)}
+                  >
+                    <SongCover song={song} />
+                    <span className="playlist-add-text">
+                      <span className="playlist-add-title">{song.title}</span>
+                      <span className="playlist-add-artist">{song.artist}</span>
+                    </span>
+                    <Icon
+                      name={inList ? "list-check" : "list"}
+                      className={
+                        inList
+                          ? "playlist-add-mark playlist-add-mark-on"
+                          : "playlist-add-mark"
+                      }
+                    />
+                  </button>
+                </li>
+              );
+            })}
+          </ul>
+          {found.length > RESULTS && (
+            <p className="playlist-add-more">
+              {found.length} songs match — the first {RESULTS} are shown. Type
+              to narrow it down.
+            </p>
+          )}
+          {library.isSuccess && found.length === 0 && (
+            <p className="playlist-add-more">No song matches that.</p>
+          )}
+          {error && (
+            <p className="error-notice playlists-notice" role="alert">
+              {error}
+            </p>
+          )}
+        </Modal>
+      )}
 
       {selected && (
         <SongDetails song={selected} onClose={() => setSelected(null)} />

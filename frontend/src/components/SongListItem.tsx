@@ -22,6 +22,11 @@ interface SongListItemProps {
    * button, never inside it: nested buttons are invalid HTML.
    */
   actions?: ReactNode;
+  /**
+   * What goes in front of the cover — the drag grip of a playlist's edit mode.
+   * Same reason as `actions`: beside the row button, never inside it.
+   */
+  leading?: ReactNode;
 }
 
 export default function SongListItem({
@@ -31,6 +36,7 @@ export default function SongListItem({
   sung,
   meta,
   actions,
+  leading,
 }: SongListItemProps) {
   const item = (
     <button type="button" className="song-list-item" onClick={onClick}>
@@ -59,11 +65,12 @@ export default function SongListItem({
     </button>
   );
 
-  if (!actions) return item;
+  if (!actions && !leading) return item;
   return (
     <div className="song-list-row">
+      {leading}
       {item}
-      <span className="song-list-actions">{actions}</span>
+      {actions && <span className="song-list-actions">{actions}</span>}
     </div>
   );
 }

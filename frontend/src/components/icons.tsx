@@ -32,6 +32,13 @@ export const ICON_PATHS = {
     "M6 19c0 1.1.9 2 2 2h8a2 2 0 0 0 2-2V7H6v12ZM19 4h-3.5l-1-1h-5l-1 1H5v2h14V4Z",
   pencil:
     "M3 17.25V21h3.75L17.81 9.94l-3.75-3.75L3 17.25ZM20.71 7.04a1 1 0 0 0 0-1.41l-2.34-2.34a1 1 0 0 0-1.41 0l-1.83 1.83 3.75 3.75 1.83-1.83Z",
+  // Two offset rounded squares: the sheet being written is solid, the one behind
+  // it shows only as the frame the front one does not cover.
+  copy: "M5 8h9a2 2 0 0 1 2 2v9a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-9a2 2 0 0 1 2-2ZM10 3h9a2 2 0 0 1 2 2v9a2 2 0 0 1-2 2h-3v-2h3V5h-9v3H8V5a2 2 0 0 1 2-2Z",
+  // The reorder grip: six dots in two columns of three, the same pip the dice
+  // faces are made of so the two never look like different kinds of dot.
+  "drag-handle":
+    "M9 4.4a1.6 1.6 0 1 0 0 3.2 1.6 1.6 0 1 0 0-3.2Zm6 0a1.6 1.6 0 1 0 0 3.2 1.6 1.6 0 1 0 0-3.2ZM9 10.4a1.6 1.6 0 1 0 0 3.2 1.6 1.6 0 1 0 0-3.2Zm6 0a1.6 1.6 0 1 0 0 3.2 1.6 1.6 0 1 0 0-3.2ZM9 16.4a1.6 1.6 0 1 0 0 3.2 1.6 1.6 0 1 0 0-3.2Zm6 0a1.6 1.6 0 1 0 0 3.2 1.6 1.6 0 1 0 0-3.2Z",
   shield: "M12 2 4 5v6c0 5 3.4 9.7 8 11 4.6-1.3 8-6 8-11V5l-8-3Z",
   users:
     "M16 11a3 3 0 1 0-3-3 3 3 0 0 0 3 3Zm-8 0a3 3 0 1 0-3-3 3 3 0 0 0 3 3Zm0 2c-2.33 0-7 1.17-7 3.5V19h14v-2.5C15 14.17 10.33 13 8 13Zm8 0c-.29 0-.62.02-.97.05A4.22 4.22 0 0 1 17 16.5V19h6v-2.5c0-2.33-4.67-3.5-7-3.5Z",
@@ -75,6 +82,13 @@ export const ICON_PATHS = {
   // somewhere else entirely once the bars underneath it change length.
   "list-check":
     "M5 5.5a1.5 1.5 0 1 0 0 3 1.5 1.5 0 0 0 0-3Zm5 .5h10v2H10V6Zm-5 4.5a1.5 1.5 0 1 0 0 3 1.5 1.5 0 0 0 0-3Zm5 .5h4v2H10v-2Zm-5 4.5a1.5 1.5 0 1 0 0 3 1.5 1.5 0 0 0 0-3Zm5 .5h4v2H10v-2ZM22.1 12.1l1.4 1.4-6.1 6.1-3.2-3.2 1.4-1.4 1.8 1.8 4.7-4.7Z",
+  // Following a playlist keeps it in your listing, so the ribbon is the mark.
+  bookmark: "M7 3h10a1 1 0 0 1 1 1v17l-6-4-6 4V4a1 1 0 0 1 1-1Z",
+  // The same ribbon behind the diagonal bar `average` uses, cut along it with a
+  // gap of about a pixel either side: a bar merely laid over the ribbon would
+  // merge into one blob at 1em, since both are drawn in the one colour.
+  "bookmark-off":
+    "M7 3h11L6 15V4a1 1 0 0 1 1-1ZM18 9v12l-6-4-6 4ZM5.28 20.28 3.72 18.72 18.72 3.72 20.28 5.28Z",
   chart: "M4 20h16v2H4v-2Zm1-8h3v7H5v-7Zm5.5-7h3v14h-3V5ZM16 9h3v10h-3V9Z",
   // The mean mark — the statistician's ⌀, which is what the old app's
   // `TbMathAvg` draws. Two things keep it off the "forbidden" sign: the ring is

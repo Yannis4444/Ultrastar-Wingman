@@ -317,6 +317,7 @@ function withPlaylist(entries: { song: SongRead }[]) {
           owner_player_id: null,
           song_count: entries.length,
           duration_seconds: 0,
+          cover_song_ids: [],
           my_access: "owner",
           followed: true,
           can_edit: true,

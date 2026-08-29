@@ -51,6 +51,7 @@ function detail(overrides: Partial<PlaylistDetail> = {}): PlaylistDetail {
     owner_player_id: null,
     song_count: 2,
     duration_seconds: 0,
+    cover_song_ids: [],
     my_access: "owner",
     followed: true,
     can_edit: true,

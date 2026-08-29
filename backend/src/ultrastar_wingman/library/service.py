@@ -45,6 +45,9 @@ MAX_NAME_LENGTH = 64
 
 _COPY_SUFFIX = " (copy)"
 
+# How many covers a playlist row's mosaic holds — the client draws a 2x2 of them.
+COVER_SONGS = 4
+
 
 class AlreadyWishedError(ValueError):
     def __init__(self, song_id: str) -> None:
@@ -375,11 +378,48 @@ async def _entry_totals(
     }
 
 
+async def _cover_song_ids(
+    session: AsyncSession, playlist_ids: Collection[str]
+) -> dict[str, list[str]]:
+    """playlist id -> the first `COVER_SONGS` song ids, in playlist order.
+
+    Ranked in SQL rather than by reading every entry: a listing of long playlists must not
+    pull thousands of rows to draw four covers each. Songs that left the library are left
+    out, the way the detail's entries are — a cover URL for one would only 404.
+    """
+    if not playlist_ids:
+        return {}
+    ranked = (
+        select(
+            PlaylistEntry.playlist_id.label("playlist_id"),
+            PlaylistEntry.song_id.label("song_id"),
+            func.row_number()
+            .over(
+                partition_by=PlaylistEntry.playlist_id,
+                order_by=PlaylistEntry.position,
+            )
+            .label("rank"),
+        )
+        .join(Song, Song.id == PlaylistEntry.song_id)
+        .where(PlaylistEntry.playlist_id.in_(playlist_ids))
+        .subquery()
+    )
+    covers: dict[str, list[str]] = {}
+    for playlist_id, song_id in await session.execute(
+        select(ranked.c.playlist_id, ranked.c.song_id)
+        .where(ranked.c.rank <= COVER_SONGS)
+        .order_by(ranked.c.playlist_id, ranked.c.rank)
+    ):
+        covers.setdefault(playlist_id, []).append(song_id)
+    return covers
+
+
 def _read_playlist(
     playlist: Playlist,
     rights: Rights,
     owners: dict[str, tuple[str, str | None]],
     totals: dict[str, tuple[int, int]],
+    covers: dict[str, list[str]],
     contains: bool | None,
 ) -> PlaylistRead:
     owner_username, owner_player_id = owners.get(playlist.owner_user_id, (None, None))
@@ -393,6 +433,7 @@ def _read_playlist(
         owner_player_id=owner_player_id,
         song_count=song_count,
         duration_seconds=duration_seconds,
+        cover_song_ids=covers.get(playlist.id, []),
         my_access=rights.my_access,
         followed=rights.followed,
         can_edit=rights.can_edit,
@@ -438,6 +479,7 @@ async def visible_playlists(
     )
     owners = await _owners(session, {playlist.owner_user_id for playlist in playlists})
     totals = await _entry_totals(session, [playlist.id for playlist in playlists])
+    covers = await _cover_song_ids(session, [playlist.id for playlist in playlists])
     holders = (
         None
         if song_id is None
@@ -453,6 +495,7 @@ async def visible_playlists(
             rights_for(playlist, user_id, capabilities, members.get(playlist.id)),
             owners,
             totals,
+            covers,
             None if holders is None else playlist.id in holders,
         )
         for playlist in playlists
@@ -467,6 +510,7 @@ async def read_playlist(
         rights,
         await _owners(session, [playlist.owner_user_id]),
         await _entry_totals(session, [playlist.id]),
+        await _cover_song_ids(session, [playlist.id]),
         contains,
     )
 

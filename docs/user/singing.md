@@ -17,7 +17,7 @@ with the number of songs at the top.
 - Tap a song to open it: the cover, a listen-in preview, and the buttons for
   favorite, sing and wish. Below them, **Details** unfolds language, genre,
   year, edition and who made it; **Best scores** lists the best runs ever sung
-  on it; **Add to playlist** puts the song on one of your playlists.
+  on it; **Add to playlist** puts the song on one of the playlists you may edit.
 
 ## What has already been sung
 

@@ -38,9 +38,13 @@ export default function Modal({
   // most call sites, so an `[onClose]` dependency would yank focus back to the
   // dialog on every keystroke and every parent refetch. The title changes
   // exactly when the body swaps to a sub-view, which is when the previously
-  // focused element unmounts and focus really does have to be recovered.
+  // focused element unmounts and focus really does have to be recovered — and
+  // recovered is all it is: a dialog that already holds the focus somewhere
+  // leaves it there, so a field the body autofocuses (the New playlist panel's
+  // name) keeps what it just took, on the way in and across a swap.
   useEffect(() => {
-    panel.current?.focus();
+    if (!panel.current?.contains(document.activeElement))
+      panel.current?.focus();
   }, [title]);
 
   useEffect(() => {

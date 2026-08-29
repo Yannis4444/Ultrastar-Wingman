@@ -1,4 +1,5 @@
 import { fireEvent, render, within } from "@testing-library/react";
+import type { ReactNode } from "react";
 import Modal from "./Modal";
 
 /** Renders a modal whose body has one button, scoped to its own container. */
@@ -16,8 +17,9 @@ function renderModal(props: { bare?: boolean; hideTitle?: boolean } = {}) {
     backdrop,
     panel: within(container).getByRole("dialog"),
     body: within(container),
-    /** Re-renders with fresh props, as a parent re-render would. */
-    rerender: (next: { title?: string } = {}) =>
+    /** Re-renders with fresh props, as a parent re-render would. A sub-view
+     *  passes its own `body`: the swap really does unmount what was focused. */
+    rerender: (next: { title?: string; body?: ReactNode } = {}) =>
       rerender(
         <Modal
           title={next.title ?? "Bohemian Rhapsody"}
@@ -26,7 +28,7 @@ function renderModal(props: { bare?: boolean; hideTitle?: boolean } = {}) {
           onClose={() => onClose()}
           {...props}
         >
-          <button type="button">Sing</button>
+          {next.body ?? <button type="button">Sing</button>}
         </Modal>,
       ),
   };
@@ -124,6 +126,20 @@ test("a re-render leaves the focus where the user put it", () => {
   expect(document.activeElement).toBe(sing);
 });
 
+test("a field the body autofocuses keeps the focus the dialog would take", () => {
+  // The New playlist panel opens with the cursor in the name field; the focus
+  // trap must not pull it back to the panel on the way in.
+  const { container } = render(
+    <Modal title="New playlist" onClose={vi.fn()}>
+      <input aria-label="Name" autoFocus />
+    </Modal>,
+  );
+
+  expect(document.activeElement).toBe(
+    within(container).getByRole("textbox", { name: "Name" }),
+  );
+});
+
 test("swapping to a sub-view moves focus back into the dialog", () => {
   const { body, panel, rerender } = renderModal({
     bare: true,
@@ -131,7 +147,8 @@ test("swapping to a sub-view moves focus back into the dialog", () => {
   });
   body.getByRole("button", { name: "Sing" }).focus();
 
-  // The sub-views render their own title; whatever was focused is gone.
-  rerender({ title: "Add to playlist" });
+  // The sub-views render their own title and their own body; whatever was
+  // focused is gone with it.
+  rerender({ title: "Add to playlist", body: <p>Pick a playlist</p> });
   expect(document.activeElement).toBe(panel);
 });

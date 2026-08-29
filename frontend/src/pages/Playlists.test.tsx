@@ -1,34 +1,34 @@
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import { fireEvent, render, screen, waitFor } from "@testing-library/react";
-import { MemoryRouter } from "react-router-dom";
+import {
+  fireEvent,
+  render,
+  screen,
+  waitFor,
+  within,
+} from "@testing-library/react";
+import { MemoryRouter, useLocation } from "react-router-dom";
 import type { MeRead, PlaylistRead } from "../api";
 import { meResponse, userRead } from "../test/auth";
+import { FakeSocket } from "../test/fakeSocket";
 import { iconNames } from "../test/icons";
 import Playlists from "./Playlists";
 
 // Same seam as the songs page: the real TanStack wiring runs, only the
 // transport is faked.
-const { getMe, listPlaylists, createPlaylist, updatePlaylist, deletePlaylist } =
-  vi.hoisted(() => ({
-    getMe: vi.fn(),
-    listPlaylists: vi.fn(),
-    createPlaylist: vi.fn(),
-    updatePlaylist: vi.fn(),
-    deletePlaylist: vi.fn(),
-  }));
+const { getMe, listPlaylists, createPlaylist } = vi.hoisted(() => ({
+  getMe: vi.fn(),
+  listPlaylists: vi.fn(),
+  createPlaylist: vi.fn(),
+}));
 
 vi.mock("../api/sdk.gen", async (importOriginal) => ({
   ...(await importOriginal<typeof import("../api/sdk.gen")>()),
   getMe,
   listPlaylists,
   createPlaylist,
-  updatePlaylist,
-  deletePlaylist,
 }));
 
 const LIBRARY = ["playlists.view", "playlists.manage"];
-// `moderate` never stands alone: it extends `manage` to somebody else's list.
-const MODERATOR = [...LIBRARY, "playlists.moderate"];
 const ACCOUNT: Partial<MeRead> = { user: userRead(), role: "user" };
 
 function playlist(overrides: Partial<PlaylistRead> = {}): PlaylistRead {
@@ -41,6 +41,7 @@ function playlist(overrides: Partial<PlaylistRead> = {}): PlaylistRead {
     owner_player_id: null,
     song_count: 2,
     duration_seconds: 0,
+    cover_song_ids: [],
     my_access: "owner",
     followed: true,
     can_edit: true,
@@ -57,14 +58,25 @@ const THEIRS: Partial<PlaylistRead> = {
   followed: false,
   can_edit: false,
   can_manage: false,
+  owner_username: "Bob",
 };
 
-/** The same list seen by somebody the backend granted `playlists.moderate`. */
-const MODERATED: Partial<PlaylistRead> = {
-  ...THEIRS,
+/** A list Bob named the reader on, and the reader kept. */
+const SHARED: Partial<PlaylistRead> = {
+  my_access: "write",
+  followed: true,
   can_edit: true,
-  can_manage: true,
+  can_manage: false,
+  owner_username: "Bob",
 };
+
+/** The same, unfollowed: out of the way, not gone. */
+const UNFOLLOWED: Partial<PlaylistRead> = { ...SHARED, followed: false };
+
+/** Where the page has taken the reader — the create flow navigates. */
+function Probe() {
+  return <p>at {useLocation().pathname}</p>;
+}
 
 function renderPlaylists(
   playlists: PlaylistRead[] | Error,
@@ -81,35 +93,26 @@ function renderPlaylists(
   });
   return render(
     <QueryClientProvider client={client}>
-      <MemoryRouter>
+      <MemoryRouter initialEntries={["/songs/playlists"]}>
         <Playlists />
+        <Probe />
       </MemoryRouter>
     </QueryClientProvider>,
   );
 }
 
 beforeEach(() => {
-  for (const mock of [
-    getMe,
-    listPlaylists,
-    createPlaylist,
-    updatePlaylist,
-    deletePlaylist,
-  ]) {
-    mock.mockReset();
-  }
+  FakeSocket.last = undefined;
+  vi.stubGlobal("WebSocket", FakeSocket);
+  for (const mock of [getMe, listPlaylists, createPlaylist]) mock.mockReset();
 });
+
+afterEach(() => vi.unstubAllGlobals());
 
 test("every visible playlist is a row leading to its songs", async () => {
   renderPlaylists([
-    playlist(),
-    playlist({
-      ...THEIRS,
-      id: "p2",
-      name: "Bobs mix",
-      owner_username: "Bob",
-      song_count: 1,
-    }),
+    playlist({ cover_song_ids: ["local:a", "local:b"] }),
+    playlist({ ...THEIRS, id: "p2", name: "Bobs mix", song_count: 1 }),
   ]);
 
   expect(await screen.findByRole("link", { name: /Party/ })).toHaveAttribute(
@@ -117,22 +120,73 @@ test("every visible playlist is a row leading to its songs", async () => {
     "/songs/playlists/p1",
   );
   expect(screen.getByText("2 songs")).toBeInTheDocument();
-  // The owner of a shared playlist is plain text, never a badge.
-  expect(screen.getByText("1 song · Bob")).toBeInTheDocument();
+  // The owner of a list that is not the reader's is plain text, never a badge.
+  expect(screen.getByText("1 song · by Bob")).toBeInTheDocument();
 });
 
-test("the chevron only appears where the row has no action buttons", async () => {
+test("the four groups sort the playlists, and Hidden folds away", async () => {
   renderPlaylists([
     playlist(),
-    playlist({ ...THEIRS, id: "p2", name: "Bobs mix" }),
+    playlist({ ...SHARED, id: "p2", name: "Bobs mix" }),
+    playlist({ ...THEIRS, id: "p3", name: "House list" }),
+    playlist({ ...UNFOLLOWED, id: "p4", name: "Old set" }),
   ]);
 
-  // Own row: the pencil and the bin already say the row does things.
-  const mine = await screen.findByRole("link", { name: /Party/ });
-  expect(iconNames(mine)).toEqual(["list"]);
-  // Somebody else's: nothing else marks it as a way in, so the chevron does.
-  const theirs = screen.getByRole("link", { name: /Bobs mix/ });
-  expect(iconNames(theirs)).toEqual(["globe", "chevron-right"]);
+  await screen.findByRole("link", { name: /Party/ });
+  for (const heading of ["Your playlists", "Shared with you", "Global"]) {
+    expect(screen.getByRole("heading", { name: heading })).toBeInTheDocument();
+  }
+
+  // The unfollowed one is behind a closed disclosure, not on the page.
+  const hidden = screen.getByText("Hidden").closest("details");
+  expect(hidden).not.toBeNull();
+  expect(hidden).not.toHaveAttribute("open");
+  expect(hidden).toContainElement(
+    screen.getByRole("link", { name: /Old set/ }),
+  );
+});
+
+test("a global list nobody unfollowed out of stays under Global", async () => {
+  // Unfollowing cannot hide what everybody can see anyway, so a member row on a
+  // global list drops it back into Global rather than into Hidden.
+  renderPlaylists([
+    playlist({ ...UNFOLLOWED, is_global: true, id: "p4", name: "House list" }),
+  ]);
+
+  await screen.findByRole("link", { name: /House list/ });
+  expect(screen.getByRole("heading", { name: "Global" })).toBeInTheDocument();
+  expect(screen.queryByText("Hidden")).not.toBeInTheDocument();
+});
+
+test("with nothing to hide there is no Hidden group", async () => {
+  renderPlaylists([playlist()]);
+
+  await screen.findByRole("link", { name: /Party/ });
+  expect(screen.queryByText("Hidden")).not.toBeInTheDocument();
+});
+
+test("a row without songs falls back to the list glyph", async () => {
+  const { container } = renderPlaylists([playlist({ cover_song_ids: [] })]);
+
+  const row = await screen.findByRole("link", { name: /Party/ });
+  expect(iconNames(row)).toEqual(["list", "chevron-right"]);
+  expect(container.querySelectorAll("img")).toHaveLength(0);
+});
+
+test("a row with songs wears their covers", async () => {
+  const { container } = renderPlaylists([
+    playlist({ cover_song_ids: ["local:a", "local:b", "local:c"] }),
+  ]);
+
+  await screen.findByRole("link", { name: /Party/ });
+  const covers = [...container.querySelectorAll("img")].map((img) =>
+    img.getAttribute("src"),
+  );
+  expect(covers).toEqual([
+    "/api/v1/songs/local%3Aa/cover",
+    "/api/v1/songs/local%3Ab/cover",
+    "/api/v1/songs/local%3Ac/cover",
+  ]);
 });
 
 test("a globe marks the rows everybody can see", async () => {
@@ -143,109 +197,80 @@ test("a globe marks the rows everybody can see", async () => {
 
   expect(
     iconNames(await screen.findByRole("link", { name: /Party/ })),
-  ).toContain("list");
+  ).not.toContain("globe");
   expect(iconNames(screen.getByRole("link", { name: /House list/ }))).toContain(
     "globe",
   );
 });
 
-test("with playlists on the page the form waits for the header's plus", async () => {
+test("no row carries an edit or a delete control any more", async () => {
+  // Managing a list lives behind the detail page's gear, so a row is a way in
+  // and nothing else.
   renderPlaylists([playlist()]);
 
-  const toggle = await screen.findByRole("button", { name: "New playlist" });
-  expect(toggle).toHaveAttribute("aria-expanded", "false");
-  expect(screen.queryByLabelText("New playlist name")).not.toBeInTheDocument();
-
-  fireEvent.click(toggle);
-  expect(toggle).toHaveAttribute("aria-expanded", "true");
-  expect(screen.getByLabelText("New playlist name")).toBeInTheDocument();
-
-  // And it folds away again.
-  fireEvent.click(toggle);
-  expect(screen.queryByLabelText("New playlist name")).not.toBeInTheDocument();
+  await screen.findByRole("link", { name: /Party/ });
+  expect(
+    screen.queryByRole("button", { name: /Edit Party/ }),
+  ).not.toBeInTheDocument();
+  expect(
+    screen.queryByRole("button", { name: /Delete playlist/ }),
+  ).not.toBeInTheDocument();
 });
 
-test("an empty page opens the form itself, and the empty state reopens it", async () => {
-  renderPlaylists([]);
-  await screen.findByRole("heading", { name: "No playlists yet" });
-
-  // Nothing to hunt for: the one thing to do here is already open.
-  expect(screen.getByLabelText("New playlist name")).toBeInTheDocument();
-  const toggle = screen.getByRole("button", { name: "New playlist" });
-  expect(toggle).toHaveAttribute("aria-expanded", "true");
-
-  fireEvent.click(toggle);
-  expect(screen.queryByLabelText("New playlist name")).not.toBeInTheDocument();
-  // With the form folded away the empty state carries the way back in: the
-  // header's plus and the empty state's button, in that document order.
-  const ways = screen.getAllByRole("button", { name: "New playlist" });
-  expect(ways).toHaveLength(2);
-  fireEvent.click(ways[1]);
-  expect(screen.getByLabelText("New playlist name")).toBeInTheDocument();
-});
-
-test("the view creates a playlist", async () => {
-  createPlaylist.mockResolvedValue({ data: playlist({ song_count: 0 }) });
-  renderPlaylists([]);
-  await screen.findByText(/No playlists yet/);
-
-  fireEvent.change(screen.getByLabelText("New playlist name"), {
-    target: { value: "Party" },
+test("the header's plus opens the panel and lands in what it creates", async () => {
+  createPlaylist.mockResolvedValue({
+    data: playlist({ id: "p9", name: "Ballads", song_count: 0 }),
   });
-  fireEvent.click(screen.getByLabelText("Shared"));
+  renderPlaylists([playlist()]);
+
+  fireEvent.click(await screen.findByRole("button", { name: "New playlist" }));
+  expect(
+    screen.getByRole("dialog", { name: "New playlist" }),
+  ).toBeInTheDocument();
+
+  fireEvent.change(screen.getByLabelText("Name"), {
+    target: { value: "  Ballads  " },
+  });
+  fireEvent.change(screen.getByLabelText("Description"), {
+    target: { value: "The slow ones" },
+  });
+  fireEvent.click(screen.getByLabelText(/Global/));
   fireEvent.click(screen.getByRole("button", { name: "Create" }));
 
   await waitFor(() =>
     expect(createPlaylist.mock.calls[0][0].body).toEqual({
-      name: "Party",
+      name: "Ballads",
+      description: "The slow ones",
       is_global: true,
     }),
   );
+  expect(await screen.findByText("at /songs/playlists/p9")).toBeInTheDocument();
 });
 
-test("the pencil renames a playlist and can share it", async () => {
-  updatePlaylist.mockResolvedValue({ data: playlist({ name: "Karaoke" }) });
+test("the panel can be left without a request", async () => {
   renderPlaylists([playlist()]);
 
-  fireEvent.click(await screen.findByRole("button", { name: "Edit Party" }));
-  fireEvent.change(screen.getByLabelText("Name of Party"), {
-    target: { value: "Karaoke" },
-  });
-  fireEvent.click(screen.getByLabelText("Share Party"));
-  fireEvent.click(screen.getByRole("button", { name: "Save" }));
-
-  await waitFor(() =>
-    expect(updatePlaylist.mock.calls[0][0]).toMatchObject({
-      path: { playlist_id: "p1" },
-      body: { name: "Karaoke", is_global: true },
-    }),
-  );
-});
-
-test("editing can be abandoned without a request", async () => {
-  renderPlaylists([playlist()]);
-
-  fireEvent.click(await screen.findByRole("button", { name: "Edit Party" }));
+  fireEvent.click(await screen.findByRole("button", { name: "New playlist" }));
   fireEvent.click(screen.getByRole("button", { name: "Cancel" }));
 
   expect(
-    await screen.findByRole("link", { name: /Party/ }),
-  ).toBeInTheDocument();
-  expect(updatePlaylist).not.toHaveBeenCalled();
+    screen.queryByRole("dialog", { name: "New playlist" }),
+  ).not.toBeInTheDocument();
+  expect(createPlaylist).not.toHaveBeenCalled();
 });
 
-test("Escape leaves the rename form the way Cancel does", async () => {
-  renderPlaylists([playlist()]);
+test("an empty page invites the reader to make the first playlist", async () => {
+  renderPlaylists([]);
 
-  fireEvent.click(await screen.findByRole("button", { name: "Edit Party" }));
-  const field = screen.getByLabelText("Name of Party");
-  fireEvent.change(field, { target: { value: "Karaoke" } });
-  fireEvent.keyDown(field, { key: "Escape" });
+  await screen.findByRole("heading", { name: "No playlists yet" });
+  // The header's plus and the empty state's button, in that document order.
+  const ways = screen.getAllByRole("button", { name: "New playlist" });
+  expect(ways).toHaveLength(2);
 
+  fireEvent.click(ways[1]);
   expect(
-    await screen.findByRole("link", { name: /Party/ }),
+    screen.getByRole("dialog", { name: "New playlist" }),
   ).toBeInTheDocument();
-  expect(updatePlaylist).not.toHaveBeenCalled();
 });
 
 test("a refused create says which capability is missing", async () => {
@@ -256,93 +281,45 @@ test("a refused create says which capability is missing", async () => {
   });
   renderPlaylists([]);
 
-  fireEvent.change(await screen.findByLabelText("New playlist name"), {
+  fireEvent.click(
+    (await screen.findAllByRole("button", { name: "New playlist" }))[0],
+  );
+  fireEvent.change(screen.getByLabelText("Name"), {
     target: { value: "Party" },
   });
   fireEvent.click(screen.getByRole("button", { name: "Create" }));
 
-  expect(await screen.findByRole("alert")).toHaveTextContent(
+  // Inside the panel: a notice on the page behind the backdrop is a notice
+  // nobody reads, and the panel stays open with the name still in it.
+  const panel = within(screen.getByRole("dialog", { name: "New playlist" }));
+  expect(await panel.findByRole("alert")).toHaveTextContent(
     "Your role may not do this (playlists.manage)",
   );
 });
 
-test("deleting asks first", async () => {
-  deletePlaylist.mockResolvedValue({ data: undefined });
-  renderPlaylists([playlist()]);
-
-  fireEvent.click(
-    await screen.findByRole("button", { name: "Delete playlist Party" }),
-  );
-  expect(
-    screen.getByRole("dialog", { name: "Delete playlist" }),
-  ).toBeInTheDocument();
-  // Backing out leaves the playlist alone.
-  fireEvent.click(screen.getByRole("button", { name: "Cancel" }));
-  expect(deletePlaylist).not.toHaveBeenCalled();
-
-  fireEvent.click(
-    screen.getByRole("button", { name: "Delete playlist Party" }),
-  );
-  fireEvent.click(screen.getByRole("button", { name: "Delete" }));
-
-  await waitFor(() =>
-    expect(deletePlaylist.mock.calls[0][0].path).toEqual({ playlist_id: "p1" }),
-  );
-});
-
-test("somebody else's playlist has no edit or delete controls", async () => {
-  renderPlaylists([playlist({ ...THEIRS, id: "p2", name: "Bobs mix" })]);
-  await screen.findByRole("link", { name: /Bobs mix/ });
-
-  expect(
-    screen.queryByRole("button", { name: "Edit Bobs mix" }),
-  ).not.toBeInTheDocument();
-  expect(
-    screen.queryByRole("button", { name: "Delete playlist Bobs mix" }),
-  ).not.toBeInTheDocument();
-});
-
-test("a guest sees the playlists but gets no create form", async () => {
+test("a guest sees the global lists and no way to make one", async () => {
   renderPlaylists([playlist(THEIRS)], ["playlists.view"], {
     user: null,
     role: "guest",
   });
 
   await screen.findByRole("link", { name: /Party/ });
-  expect(screen.queryByLabelText("New playlist name")).not.toBeInTheDocument();
+  expect(screen.getByRole("heading", { name: "Global" })).toBeInTheDocument();
   expect(
     screen.queryByRole("button", { name: "New playlist" }),
   ).not.toBeInTheDocument();
 });
 
-test("the host may fix a global playlist it does not own", async () => {
-  // The host session holds every right but has no account: it can never own a
-  // playlist (so no create form), and reaches this one through `moderate`.
-  renderPlaylists([playlist(MODERATED)], MODERATOR, {
-    user: null,
-    role: "admin",
-    is_host: true,
-  });
+test("a guest with nothing to see is not invited to create one", async () => {
+  renderPlaylists([], ["playlists.view"], { user: null, role: "guest" });
 
+  await screen.findByRole("heading", { name: "No playlists yet" });
   expect(
-    await screen.findByRole("button", { name: "Edit Party" }),
-  ).toBeInTheDocument();
-  expect(
-    screen.getByRole("button", { name: "Delete playlist Party" }),
-  ).toBeInTheDocument();
-  expect(screen.queryByLabelText("New playlist name")).not.toBeInTheDocument();
-});
-
-test("without moderate somebody else's global playlist is read-only", async () => {
-  renderPlaylists([playlist(THEIRS)], LIBRARY, ACCOUNT);
-
-  expect(await screen.findByText("Party")).toBeInTheDocument();
-  expect(
-    screen.queryByRole("button", { name: "Edit Party" }),
+    screen.queryByRole("button", { name: "New playlist" }),
   ).not.toBeInTheDocument();
   expect(
-    screen.queryByRole("button", { name: "Delete playlist Party" }),
-  ).not.toBeInTheDocument();
+    screen.getByText(/Playlists shared with everybody/),
+  ).toBeInTheDocument();
 });
 
 test("a role without playlists.view is told who may look", async () => {
@@ -362,25 +339,15 @@ test("a failing request says so", async () => {
   );
 });
 
-test("only one primary button at a time: the two forms take turns", async () => {
+test("somebody else sharing a list refreshes the page", async () => {
   renderPlaylists([playlist()]);
+  await screen.findByRole("link", { name: /Party/ });
+  expect(listPlaylists).toHaveBeenCalledTimes(1);
 
-  // Open the create form, then start renaming: the create form gives way.
-  const toggle = await screen.findByRole("button", { name: "New playlist" });
-  fireEvent.click(toggle);
-  expect(screen.getByRole("button", { name: "Create" })).toBeInTheDocument();
+  listPlaylists.mockResolvedValue({
+    data: { playlists: [playlist(), playlist({ ...SHARED, id: "p2" })] },
+  });
+  FakeSocket.deliver({ event: "playlists.changed", playlist_id: "p2" });
 
-  fireEvent.click(screen.getByRole("button", { name: "Edit Party" }));
-  expect(screen.getByRole("button", { name: "Save" })).toBeInTheDocument();
-  expect(
-    screen.queryByRole("button", { name: "Create" }),
-  ).not.toBeInTheDocument();
-  expect(toggle).toHaveAttribute("aria-expanded", "false");
-
-  // And the other way round: reopening the create form closes the rename.
-  fireEvent.click(toggle);
-  expect(screen.getByRole("button", { name: "Create" })).toBeInTheDocument();
-  expect(
-    screen.queryByRole("button", { name: "Save" }),
-  ).not.toBeInTheDocument();
+  await waitFor(() => expect(listPlaylists).toHaveBeenCalledTimes(2));
 });

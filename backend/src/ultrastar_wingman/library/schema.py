@@ -47,6 +47,10 @@ class PlaylistRead(BaseModel):
     # Over the songs whose duration is known; an unknown one counts as nothing rather
     # than making the whole sum unknown.
     duration_seconds: int
+    # The first few songs still in the library, in playlist order — the ids the client
+    # needs for the cover mosaic on a playlist row. Four of them, so a listing draws its
+    # covers without one detail request per row.
+    cover_song_ids: list[str]
     # How the caller reaches this list: `owner`, their member row's access, or None for a
     # global list they were never named on.
     my_access: PlaylistAccess | None
