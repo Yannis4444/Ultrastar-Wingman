@@ -80,6 +80,8 @@ so services and the event bus can use them).
 | `karaoke/` | launcher seam (`launcher.py`) + USDX implementation (`usdx.py` process, `usdx_config.py` config.ini rewrite, `usdx_paths.py`, `usdx_scores.py` import from `Ultrastar.db`), the sing flow, sessions/sings/scores tables, slots & colors |
 | `players/` | players (guest + registered), avatars |
 | `library/` | wishlist, favorites, playlists |
+| `tags/` | global song tags: the `tags` / `tag_permissions` / `song_tags` tables, per-tag `view` / `view_songs` / `assign` (`service.allowed`), and `hidden_song_ids` — the songs a caller may not see, applied through `auth.deps.HiddenSongsDep` and `songs.api.song_or_404` |
+| `comments/` | what people say about a song: the `song_comments` table, `comments.write` to add one and `comments.moderate` to delete somebody else's (your own is always yours) |
 | `stats/` | read-only statistics over what `karaoke` recorded |
 | `frontend.py`, `join_url.py` | serving `frontend/dist`; the address the host screen advertises |
 | `migrations/versions/` | alembic, `NNNN_<what>.py` |
@@ -92,15 +94,15 @@ live in `tests/fixtures/`.
 
 | Path | Owns |
 |---|---|
-| `App.tsx` | routes: `/`, `/spinner`, `/songs`, `/songs/playlists[/:id[/spinner]]`, `/usdb`, `/scores`, `/user`, `/user/{accounts,stats,permissions}`, `/settings`, `/host`, `/host/manage` |
+| `App.tsx` | routes: `/`, `/spinner`, `/songs`, `/songs/playlists[/:id[/manage|/spinner]]`, `/usdb`, `/scores`, `/user`, `/user/{accounts,stats,permissions,tags}`, `/user/tags/{new,:tagId}`, `/settings`, `/host`, `/host/manage` |
 | `pages/` | one component per route: `Name.tsx` + `Name.css` + `Name.test.tsx` |
-| `components/` | shared components, same triple. `icons.tsx` is the only icon source; `Modal`/`ConfirmModal`; `PageHeader` (sub-pages); `BottomNav` (`COVERS` keeps a tab lit on its sub-routes); `SongDetails` (the song modal); `HomeStage`; `PlayerSelection`; `RankedScoreList`; `CheckOption`; `Loading` |
-| `hooks/` | `useWingmanEvent(name, handler)` (one shared socket), `useWishlist`, `useFavorites`, `useRecentlyPlayed`, `useSungSongs`, `useDownloadEvents`, `useSessionStanding` |
+| `components/` | shared components, same triple. `icons.tsx` is the only icon source; `Modal`/`ConfirmModal`; `PageHeader` (sub-pages); `BottomNav` (`COVERS` keeps a tab lit on its sub-routes); `SongDetails` (the song modal); `FilterPanel` (the Songs Filter panel and the `.tri-state` control); `PlaylistCover` (the 2×2 cover mosaic of a playlist row); `PickerRow` (the shared row of the two membership pickers); `HomeStage`; `PlayerSelection`; `RankedScoreList`; `CheckOption`; `Loading` |
+| `hooks/` | `useWingmanEvent(name, handler)` (one shared socket), `useWishlist`, `useFavorites`, `useRecentlyPlayed`, `useSungSongs`, `useTags` (the tag listings shared by every surface that draws a tag: `tags` / `allTags` / `bySong` / `showInList` / `hideByDefault`), `useDownloadEvents`, `useSessionStanding`, `useUserLookup` (the debounced "add people" search of the playlist and tag people rows) |
 | `api/` | **generated** by `@hey-api/openapi-ts` (fetch client + TanStack Query options). Never edit; regenerate and commit |
 | `auth.ts` | `useAuth()` → `{ user, role, capabilities, isHost, loaded, can(capability) }` |
 | `index.css` | design tokens and the shared classes (`.button*`, `.text-input[-quiet]`, `.icon-button*`, `.error-notice`, `.visually-hidden`, global focus ring) |
-| `stats.ts`, `karaokeSlots.ts`, `settings.ts`, `duration.ts`, `errors.ts`, `manage.ts`, `songSources.ts`, `links.ts`, `backLink.ts`, `dice.ts` | plain helpers, each with its own test |
-| `test/` | `auth.ts` (`meResponse`, `userRead`), `fakeSocket.ts`, `icons.ts` (`iconNames`), `setup.ts` |
+| `stats.ts`, `karaokeSlots.ts`, `settings.ts`, `duration.ts`, `errors.ts`, `manage.ts`, `songSources.ts`, `links.ts`, `backLink.ts`, `dice.ts`, `avatars.ts` (a player's picture: the cache-busted URL, and `asPlayer` for the people who are not player rows — a comment's author, a playlist's members), `tags.ts` (a tag's glyph and colour class, the row marks, and the criteria the song list filters on: the defaults, the reader's overrides and the two built-in marks) | plain helpers, each with its own test |
+| `test/` | `auth.ts` (`meResponse`, `userRead`), `tags.ts` (`tagRead`), `fakeSocket.ts`, `icons.ts` (`iconNames`), `setup.ts` |
 
 Keep this map at module granularity and update it in the same commit when a
 module, page or route is added, renamed or removed.

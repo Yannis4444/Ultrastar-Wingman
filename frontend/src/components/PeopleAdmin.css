@@ -7,10 +7,13 @@
   color: var(--color-darker);
 }
 
+/* The §4 people row, the geometry the playlist's members and the tag's people
+   already use: the list sits 8px in and the row pads 8px, so the content still
+   starts on the 16px page gutter and a row's own band may bleed past it. */
 .people-list {
   display: flex;
   flex-direction: column;
-  margin: 0 16px;
+  margin: 0 8px;
   padding: 0;
   list-style: none;
 }
@@ -20,13 +23,18 @@
   align-items: center;
   gap: 8px;
   min-height: 48px;
-  padding: 8px 0;
+  padding: 8px;
   border-bottom: 1px solid var(--input-border-color);
 }
 
 /* The row is a div inside the li, and an error message can follow it. */
 .people-list > li:last-child > .people-row {
   border-bottom: none;
+}
+
+/* Inside the list, 8px of the page gutter is already the list's own. */
+.people-list .people-notice {
+  margin: 0 8px 8px 8px;
 }
 
 .people-name {

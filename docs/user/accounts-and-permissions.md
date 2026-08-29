@@ -137,6 +137,7 @@ What each role may do by default:
 | Stop a running song | – | yes | yes | yes |
 | Create and edit own playlists | – | yes | yes | yes |
 | See the parties before tonight | – | yes | yes | yes |
+| [Comment on songs](singing.md#comments) | – | yes | yes | yes |
 | Add and delete players | – | – | yes | yes |
 | Change somebody else's picture | – | – | yes | yes |
 | Clear a song off the wishlist | – | – | yes | yes |
@@ -145,15 +146,18 @@ What each role may do by default:
 | See and start downloads | – | – | yes | yes |
 | Rescan the song folders | – | – | yes | yes |
 | Rename a party in the statistics | – | – | yes | yes |
-| Change somebody else's shared playlist | – | – | – | yes |
+| Change a playlist somebody else shared | – | – | yes | yes |
+| [Manage tags](tags.md) | – | – | yes | yes |
+| Delete anybody's comments | – | – | yes | yes |
 | See and change the settings | – | – | – | yes |
 | Manage users | – | – | – | yes |
 | Change these permissions | – | – | – | yes |
 
-Three things are in no row on purpose, because they are yours rather than
-granted: your **favorites**, the **picture** of the player you sing as, and
-**your own scores** on *User → Your scores*. Nobody has to give you those, and
-no administrator can take them away.
+Four things are in no row on purpose, because they are yours rather than
+granted: your **favorites**, the **picture** of the player you sing as, **your
+own scores** on *User → Your scores*, and **taking back a comment you wrote
+yourself**. Nobody has to give you those, and no administrator can take them
+away.
 
 ## Manage players and accounts
 
@@ -170,19 +174,20 @@ their roles and deletions for *users → manage*.
 - The last administrator cannot be demoted or deleted. Wingman would lock
   everybody out.
 - Deleting an account keeps its player and its scores, under the same name, and
-  removes its wishes, favorites and playlists. The player moves down to the
-  guests, and can be deleted there.
+  removes its wishes, favorites, comments and playlists — except a playlist
+  with an [admin member](wishlist-and-playlists.md#manage-a-playlist), which is
+  handed to that person. The player moves down to the guests, and can be
+  deleted there.
 
 ## Change what a role may do
 
 **User → Permissions** is the table above made editable, all of it at once: one
 row per right, one column for **guest**, **user** and **trusted**. Rights that
-belong together stand under one heading, in alphabetical order — *downloads*,
-*karaoke*, *permissions*, *players*, *playlists*, *settings*, *songs*, *stats*,
-*USDB*, *users*, *wishlist* — and under each row stands in one line what it
-allows. Every tick
-is saved right away and takes effect immediately, for everybody who is already
-looking at a page.
+belong together stand under one heading, in alphabetical order — *comments*,
+*downloads*, *karaoke*, *permissions*, *players*, *playlists*, *settings*,
+*songs*, *stats*, *tags*, *USDB*, *users*, *wishlist* — and under each row
+stands in one line what it allows. Every tick is saved right away and takes
+effect immediately, for everybody who is already looking at a page.
 
 Useful in practice:
 
@@ -197,8 +202,9 @@ Useful in practice:
   **players** for their role. *manage* beside it is the one that deletes people.
 
 Two rights only work together. *moderate* under **playlists** lets somebody
-change a shared playlist that is not theirs, but only alongside *manage* — and it
-never reaches a playlist that was kept private, not even for an administrator.
+change a playlist that is not theirs — a global one, or one they were named on —
+but only alongside *manage*, and it never reaches a playlist nobody shared with
+them, not even for an administrator.
 
 One box cannot be ticked: *manage* under **playlists** for **guest**. A playlist
 belongs to an account, so somebody without one has none to create or edit — the

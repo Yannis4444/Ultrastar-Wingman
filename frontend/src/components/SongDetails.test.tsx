@@ -6,9 +6,11 @@ import {
   waitFor,
   within,
 } from "@testing-library/react";
-import type { ScoreWithContext, SongRead } from "../api";
+import type { CommentRead, ScoreWithContext, SongRead, TagRead } from "../api";
 import { meResponse, userRead } from "../test/auth";
+import { FakeSocket } from "../test/fakeSocket";
 import { iconNames } from "../test/icons";
+import { tagRead } from "../test/tags";
 import SongDetails from "./SongDetails";
 
 const {
@@ -20,6 +22,14 @@ const {
   getPlaylist,
   addPlaylistEntry,
   removePlaylistEntry,
+  createPlaylist,
+  listTags,
+  listTagAssignments,
+  assignTag,
+  unassignTag,
+  listSongComments,
+  addSongComment,
+  deleteSongComment,
 } = vi.hoisted(() => ({
   getMe: vi.fn(),
   listSongScores: vi.fn(),
@@ -29,6 +39,14 @@ const {
   getPlaylist: vi.fn(),
   addPlaylistEntry: vi.fn(),
   removePlaylistEntry: vi.fn(),
+  createPlaylist: vi.fn(),
+  listTags: vi.fn(),
+  listTagAssignments: vi.fn(),
+  assignTag: vi.fn(),
+  unassignTag: vi.fn(),
+  listSongComments: vi.fn(),
+  addSongComment: vi.fn(),
+  deleteSongComment: vi.fn(),
 }));
 
 vi.mock("../api/sdk.gen", async (importOriginal) => ({
@@ -41,6 +59,14 @@ vi.mock("../api/sdk.gen", async (importOriginal) => ({
   getPlaylist,
   addPlaylistEntry,
   removePlaylistEntry,
+  createPlaylist,
+  listTags,
+  listTagAssignments,
+  assignTag,
+  unassignTag,
+  listSongComments,
+  addSongComment,
+  deleteSongComment,
 }));
 
 const song: SongRead = {
@@ -104,16 +130,44 @@ function renderDetails() {
   );
 }
 
+/** What the composer's `scrollIntoView` was replaced with for one test. */
+let scrollComposerIntoView: ReturnType<
+  typeof vi.fn<HTMLElement["scrollIntoView"]>
+>;
+
 beforeEach(() => {
+  FakeSocket.last = undefined;
+  vi.stubGlobal("WebSocket", FakeSocket);
+  // jsdom has no layout and so no `scrollIntoView`; the composer follows the
+  // list down after a post. Same treatment `scrollTo` gets on the USDB page.
+  scrollComposerIntoView = vi.fn<HTMLElement["scrollIntoView"]>();
+  HTMLElement.prototype.scrollIntoView = scrollComposerIntoView;
   getMe.mockReset();
   listSongScores.mockReset();
   listPlayers.mockReset();
+  listPlaylists.mockReset();
+  getPlaylist.mockReset();
+  createPlaylist.mockReset();
+  addPlaylistEntry.mockReset();
+  removePlaylistEntry.mockReset();
+  for (const mock of [listTags, listTagAssignments, assignTag, unassignTag])
+    mock.mockReset();
+  // No tag the reader may see, so the Tags row is absent unless a test says so.
+  listTags.mockResolvedValue({ data: { tags: [] } });
+  listTagAssignments.mockResolvedValue({ data: { assignments: [] } });
+  assignTag.mockResolvedValue({ data: undefined });
+  unassignTag.mockResolvedValue({ data: undefined });
   // The best-scores view reaches over every party, so it is `stats.history`.
   getMe.mockResolvedValue(meResponse(["songs.view", "stats.history"]));
   listSongScores.mockResolvedValue({ data: { scores: history } });
   listWishlist.mockResolvedValue({ data: { wishes: [] } });
   listPlaylists.mockResolvedValue({ data: { playlists: [] } });
   listPlayers.mockResolvedValue({ data: { players: [] } });
+  for (const mock of [listSongComments, addSongComment, deleteSongComment])
+    mock.mockReset();
+  // The count query runs as the modal opens, so every test needs an answer.
+  listSongComments.mockResolvedValue({ data: { comments: [] } });
+  deleteSongComment.mockResolvedValue({ data: undefined });
 });
 
 test("the best-scores row carries the top score and opens the ranked view", async () => {
@@ -284,21 +338,12 @@ test("the wish control wears the three-bar wishlist glyphs", async () => {
   ).toEqual(["playlist-check"]);
 });
 
-test("the playlist row and picker wear the bulleted-list glyphs", async () => {
-  withPlaylist([]);
-  renderDetails();
-
-  const option = await screen.findByRole("button", { name: "Add to playlist" });
-  expect(iconNames(option)).toEqual(["list-plus", "chevron-right"]);
-
-  fireEvent.click(option);
-  const dialog = screen.getByRole("dialog", { name: "Add to playlist" });
-  const row = within(dialog).getByRole("button", { name: /Warm-up/ });
-  expect(iconNames(row)).toEqual(["list"]);
-});
-
-/** A logged-in playlist owner with one playlist, `entries` as given. */
-function withPlaylist(entries: { song: SongRead }[]) {
+/** A logged-in playlist owner with one playlist; `contains` is what the picker
+ *  reads the check mark off. */
+function withPlaylist(
+  contains: boolean,
+  extra: Record<string, unknown>[] = [],
+) {
   getMe.mockResolvedValue(
     meResponse(["songs.view", "playlists.manage"], {
       user: userRead(),
@@ -311,21 +356,61 @@ function withPlaylist(entries: { song: SongRead }[]) {
         {
           id: "pl-1",
           name: "Warm-up",
-          shared: false,
+          description: null,
+          is_global: false,
           owner_username: null,
-          song_count: entries.length,
-          mine: true,
+          owner_player_id: null,
+          song_count: contains ? 1 : 0,
+          duration_seconds: 0,
+          // A cover, so the mosaic is images and the only glyph on the row is
+          // the membership mark the assertions are about.
+          cover_song_ids: ["local:a"],
+          my_access: "owner",
+          followed: true,
+          can_edit: true,
+          can_manage: true,
+          contains,
         },
+        ...extra,
       ],
     },
   });
-  getPlaylist.mockResolvedValue({
-    data: { id: "pl-1", name: "Warm-up", entries },
-  });
 }
 
+test("the playlist row and picker wear the bulleted-list glyphs", async () => {
+  withPlaylist(false);
+  renderDetails();
+
+  const option = await screen.findByRole("button", { name: "Add to playlist" });
+  expect(iconNames(option)).toEqual(["list-plus", "chevron-right"]);
+
+  fireEvent.click(option);
+  const dialog = screen.getByRole("dialog", { name: "Add to playlist" });
+  const row = await within(dialog).findByRole("button", { name: /Warm-up/ });
+  expect(iconNames(row)).toEqual(["list"]);
+});
+
+test("the picker asks for the listing once, with the song, and never per row", async () => {
+  withPlaylist(false);
+  renderDetails();
+
+  fireEvent.click(
+    await screen.findByRole("button", { name: "Add to playlist" }),
+  );
+  const dialog = screen.getByRole("dialog", { name: "Add to playlist" });
+  await within(dialog).findByRole("button", { name: /Warm-up/ });
+
+  expect(listPlaylists).toHaveBeenCalledTimes(1);
+  expect(listPlaylists.mock.calls[0][0]).toMatchObject({
+    query: { song_id: "usdb:1" },
+  });
+  // The check mark comes off the listing's `contains`, so no playlist is
+  // fetched to find out what is in it.
+  expect(getPlaylist).not.toHaveBeenCalled();
+});
+
 test("a playlist owner adds the song from the playlist picker", async () => {
-  withPlaylist([]);
+  withPlaylist(false);
   addPlaylistEntry.mockResolvedValue({ data: {} });
   renderDetails();
 
@@ -333,7 +418,7 @@ test("a playlist owner adds the song from the playlist picker", async () => {
     await screen.findByRole("button", { name: "Add to playlist" }),
   );
   const dialog = screen.getByRole("dialog", { name: "Add to playlist" });
-  const row = within(dialog).getByRole("button", { name: /Warm-up/ });
+  const row = await within(dialog).findByRole("button", { name: /Warm-up/ });
   expect(row).toHaveAttribute("aria-pressed", "false");
   fireEvent.click(row);
 
@@ -348,7 +433,7 @@ test("a playlist owner adds the song from the playlist picker", async () => {
 });
 
 test("a playlist that already holds the song shows the check and removes on tap", async () => {
-  withPlaylist([{ song }]);
+  withPlaylist(true);
   removePlaylistEntry.mockResolvedValue({ data: undefined });
   renderDetails();
 
@@ -359,7 +444,7 @@ test("a playlist that already holds the song shows the check and removes on tap"
   const row = await within(dialog).findByRole("button", {
     name: /Warm-up/,
   });
-  await waitFor(() => expect(row).toHaveAttribute("aria-pressed", "true"));
+  expect(row).toHaveAttribute("aria-pressed", "true");
   // Same bulleted family as the empty row, with the check the wishlist's
   // "already on it" glyph carries.
   expect(iconNames(row)).toEqual(["list-check"]);
@@ -374,6 +459,86 @@ test("a playlist that already holds the song shows the check and removes on tap"
   );
 });
 
+test("the picker offers itself with no playlist at all, and makes a private one", async () => {
+  getMe.mockResolvedValue(
+    meResponse(["songs.view", "playlists.manage"], {
+      user: userRead(),
+      role: "user",
+    }),
+  );
+  listPlaylists.mockResolvedValue({ data: { playlists: [] } });
+  createPlaylist.mockResolvedValue({ data: { id: "pl-new" } });
+  addPlaylistEntry.mockResolvedValue({ data: {} });
+  renderDetails();
+
+  // The row is offered on the right alone: somebody with no list yet is
+  // exactly who "New playlist…" is for.
+  fireEvent.click(
+    await screen.findByRole("button", { name: "Add to playlist" }),
+  );
+  const dialog = screen.getByRole("dialog", { name: "Add to playlist" });
+  fireEvent.click(
+    await within(dialog).findByRole("button", { name: /New playlist/ }),
+  );
+
+  const field = within(dialog).getByRole("textbox", {
+    name: "New playlist name",
+  });
+  fireEvent.change(field, { target: { value: "  Late shift  " } });
+  fireEvent.click(
+    within(dialog).getByRole("button", {
+      name: "Create the playlist and add the song",
+    }),
+  );
+
+  await waitFor(() =>
+    expect(createPlaylist).toHaveBeenCalledWith(
+      expect.objectContaining({
+        body: { name: "Late shift", is_global: false },
+      }),
+    ),
+  );
+  await waitFor(() =>
+    expect(addPlaylistEntry).toHaveBeenCalledWith(
+      expect.objectContaining({
+        path: { playlist_id: "pl-new" },
+        body: { song_id: "usdb:1" },
+      }),
+    ),
+  );
+});
+
+test("a list the reader may only look at is not in the picker", async () => {
+  withPlaylist(false, [
+    {
+      id: "pl-2",
+      name: "Bobs mix",
+      description: null,
+      is_global: true,
+      owner_username: "Bob",
+      owner_player_id: null,
+      song_count: 3,
+      duration_seconds: 0,
+      cover_song_ids: [],
+      my_access: null,
+      followed: false,
+      can_edit: false,
+      can_manage: false,
+      contains: false,
+    },
+  ]);
+  renderDetails();
+
+  fireEvent.click(
+    await screen.findByRole("button", { name: "Add to playlist" }),
+  );
+  const dialog = screen.getByRole("dialog", { name: "Add to playlist" });
+  await within(dialog).findByRole("button", { name: /Warm-up/ });
+  expect(
+    within(dialog).queryByRole("button", { name: /Bobs mix/ }),
+  ).not.toBeInTheDocument();
+});
+
 test("a failing audio preview removes itself", async () => {
   const { container } = renderDetails();
 
@@ -385,4 +550,547 @@ test("a failing audio preview removes itself", async () => {
   // event, which is the only signal the backend gives.
   fireEvent.error(preview as Element);
   expect(container.querySelector("audio.song-preview")).toBeNull();
+});
+
+/** Seed the two tag listings the modal reads through `useTags`. */
+function withTags(tags: TagRead[], carried: string[] = []) {
+  listTags.mockResolvedValue({ data: { tags } });
+  listTagAssignments.mockResolvedValue({
+    data: {
+      assignments: tags.map((tag) => ({
+        tag_id: tag.id,
+        song_ids: carried.includes(tag.id) ? [song.id] : [],
+      })),
+    },
+  });
+}
+
+const BROKEN = tagRead({
+  id: "t-broken",
+  name: "broken",
+  icon: "alert",
+  color: "gold",
+});
+const ARCHIVE = tagRead({
+  id: "t-archive",
+  name: "archive",
+  can_assign: false,
+});
+
+test("the genre row wears the music glyph, the tags feature keeps its own", async () => {
+  renderDetails();
+
+  fireEvent.click(await screen.findByRole("button", { name: "Details" }));
+  expect(iconNames(screen.getByTitle("Genre"))).toEqual(["music"]);
+});
+
+test("there is no tags row when the reader may not view a single tag", async () => {
+  renderDetails();
+
+  await screen.findByRole("button", { name: "Details" });
+  expect(
+    screen.queryByRole("button", { name: /Tags/ }),
+  ).not.toBeInTheDocument();
+});
+
+test("the tags row draws the song's tags and opens the sub-view", async () => {
+  withTags([BROKEN, ARCHIVE], ["t-broken"]);
+  renderDetails();
+
+  const row = await screen.findByRole("button", { name: /Tags/ });
+  // The feature's glyph, then the one tag this song wears, then the chevron.
+  expect(iconNames(row)).toEqual(["tag", "alert", "chevron-right"]);
+
+  fireEvent.click(row);
+  const dialog = screen.getByRole("dialog", { name: "Tags" });
+  expect(within(dialog).getByText("broken")).toBeInTheDocument();
+  expect(within(dialog).getByText("archive")).toBeInTheDocument();
+});
+
+test("past three tags the row counts them instead", async () => {
+  const many = [1, 2, 3, 4].map((n) =>
+    tagRead({ id: `t${n}`, name: `tag ${n}`, icon: "music" }),
+  );
+  withTags(
+    many,
+    many.map((tag) => tag.id),
+  );
+  renderDetails();
+
+  const row = await screen.findByRole("button", { name: /Tags/ });
+  expect(row).toHaveTextContent("4 tags");
+  expect(iconNames(row)).toEqual(["tag", "chevron-right"]);
+});
+
+test("a tag the reader may set toggles on and off", async () => {
+  withTags([BROKEN]);
+  renderDetails();
+
+  fireEvent.click(await screen.findByRole("button", { name: /Tags/ }));
+  const toggle = screen.getByRole("button", { name: /broken/ });
+  expect(toggle).toHaveAttribute("aria-pressed", "false");
+
+  // The refetched assignments are what flips the row, not the click — so the
+  // listing answers with the tag on before the toggle is pressed.
+  withTags([BROKEN], ["t-broken"]);
+  fireEvent.click(toggle);
+
+  await waitFor(() => expect(assignTag).toHaveBeenCalled());
+  expect(assignTag.mock.calls[0][0].path).toEqual({
+    song_id: song.id,
+    tag_id: "t-broken",
+  });
+  await waitFor(() => expect(toggle).toHaveAttribute("aria-pressed", "true"));
+
+  fireEvent.click(toggle);
+  await waitFor(() => expect(unassignTag).toHaveBeenCalled());
+  expect(unassignTag.mock.calls[0][0].path).toEqual({
+    song_id: song.id,
+    tag_id: "t-broken",
+  });
+});
+
+test("a tag the reader may see but not set is a padlock row", async () => {
+  withTags([ARCHIVE], ["t-archive"]);
+  renderDetails();
+
+  fireEvent.click(await screen.findByRole("button", { name: /Tags/ }));
+  const dialog = screen.getByRole("dialog", { name: "Tags" });
+  expect(
+    within(dialog).queryByRole("button", { name: /archive/ }),
+  ).not.toBeInTheDocument();
+  const row = within(dialog).getByText("archive").closest(".picker-row");
+  expect(iconNames(row as HTMLElement)).toEqual(["archive", "lock"]);
+});
+
+test("a refused tag says so instead of failing silently", async () => {
+  withTags([BROKEN]);
+  assignTag.mockRejectedValue({ detail: "missing_tag_permission:assign" });
+  renderDetails();
+
+  fireEvent.click(await screen.findByRole("button", { name: /Tags/ }));
+  fireEvent.click(screen.getByRole("button", { name: /broken/ }));
+
+  expect(await screen.findByRole("alert")).toHaveTextContent(
+    "That tag is not yours to set.",
+  );
+});
+
+test("nothing to set and nothing set is one sentence, not a list of locks", async () => {
+  withTags([ARCHIVE]);
+  renderDetails();
+
+  fireEvent.click(await screen.findByRole("button", { name: /Tags/ }));
+  const dialog = screen.getByRole("dialog", { name: "Tags" });
+  expect(
+    within(dialog).getByText(
+      "No tags on this song, and none of them is yours to set.",
+    ),
+  ).toBeInTheDocument();
+  expect(within(dialog).queryByText("archive")).not.toBeInTheDocument();
+});
+
+/** A comment as the backend hands it over. Times are built off `Date.now()`
+ *  rather than frozen: `timeAgo` reads the real clock, and fake timers fight
+ *  both `waitFor` and react-query. */
+function comment(
+  id: number,
+  username: string | null,
+  body: string,
+  overrides: Partial<CommentRead> = {},
+): CommentRead {
+  return {
+    id,
+    song_id: song.id,
+    body,
+    created_at: new Date(Date.now() - 5 * 60000).toISOString(),
+    author:
+      username === null
+        ? null
+        : {
+            user_id: `u-${id}`,
+            username,
+            player_id: null,
+            avatar_version: null,
+          },
+    mine: false,
+    can_delete: false,
+    ...overrides,
+  };
+}
+
+/** A browser holding an account, with the capabilities the test names. */
+function asAccount(capabilities: string[]) {
+  getMe.mockResolvedValue(
+    meResponse(["songs.view", ...capabilities], {
+      user: userRead(),
+      role: "user",
+    }),
+  );
+}
+
+/** Opens the modal's Comments sub-view and hands back its dialog. */
+async function openComments(): Promise<HTMLElement> {
+  fireEvent.click(await screen.findByRole("button", { name: /Comments/ }));
+  return screen.getByRole("dialog", { name: "Comments" });
+}
+
+test("the comments row counts what was said and opens the sub-view", async () => {
+  listSongComments.mockResolvedValue({
+    data: {
+      comments: [comment(1, "Bob", "Banger."), comment(2, "Cara", "No")],
+    },
+  });
+  renderDetails();
+
+  const row = await screen.findByRole("button", { name: /Comments/ });
+  await waitFor(() => expect(row).toHaveTextContent("2"));
+  expect(iconNames(row)).toEqual(["comment", "chevron-right"]);
+  expect(listSongComments.mock.calls[0][0]).toMatchObject({
+    path: { song_id: "usdb:1" },
+  });
+
+  fireEvent.click(row);
+  expect(screen.getByRole("dialog", { name: "Comments" })).toBeInTheDocument();
+});
+
+test("a song nobody has commented on still has the row, without a count", async () => {
+  renderDetails();
+
+  const row = await screen.findByRole("button", { name: /Comments/ });
+  await waitFor(() => expect(listSongComments).toHaveBeenCalled());
+  expect(row.querySelector(".song-option-count")).toBeNull();
+
+  fireEvent.click(row);
+  expect(
+    await screen.findByText("Nobody has said anything about this song yet."),
+  ).toBeInTheDocument();
+});
+
+test("a listing that will not load says so rather than reading as empty", async () => {
+  listSongComments.mockRejectedValue({ detail: "nope" });
+  renderDetails();
+
+  const dialog = await openComments();
+  expect(await within(dialog).findByRole("alert")).toHaveTextContent(
+    "Could not load the comments.",
+  );
+  // "Nobody has said anything" would be a lie about a list that never arrived.
+  expect(
+    within(dialog).queryByText("Nobody has said anything about this song yet."),
+  ).not.toBeInTheDocument();
+});
+
+test("a comment row carries the avatar, the name, the time and the body", async () => {
+  listSongComments.mockResolvedValue({
+    data: {
+      comments: [
+        comment(1, "Bob", "Sung it twice already", {
+          author: {
+            user_id: "u-1",
+            username: "Bob",
+            player_id: "p-bob",
+            avatar_version: 3,
+          },
+        }),
+        comment(2, "Cara", "Needs\ntwo lines"),
+        // The account behind this one is gone; the row still reads.
+        comment(3, null, "Said long ago"),
+      ],
+    },
+  });
+  renderDetails();
+
+  const dialog = await openComments();
+  const rows = within(dialog).getAllByRole("listitem");
+  expect(rows).toHaveLength(3);
+
+  // A player with a picture gets it, cache-busted with the version.
+  expect(rows[0].querySelector("img.player-avatar")).toHaveAttribute(
+    "src",
+    "/api/v1/players/p-bob/avatar?v=3",
+  );
+  expect(rows[0]).toHaveTextContent("Bob");
+  expect(rows[0]).toHaveTextContent("5 min ago");
+  expect(rows[0]).toHaveTextContent("Sung it twice already");
+
+  // No player behind the account: the initial, and no request that would 404.
+  expect(rows[1].querySelector(".player-avatar-letter")).toHaveTextContent("C");
+  // A deleted account has no name to take an initial from.
+  expect(rows[2]).toHaveTextContent("Former member");
+  expect(rows[2].querySelector(".player-avatar-empty")).not.toBeNull();
+});
+
+test("a guest is told that commenting takes an account", async () => {
+  listSongComments.mockResolvedValue({
+    data: { comments: [comment(1, "Bob", "Banger.")] },
+  });
+  renderDetails();
+
+  const dialog = await openComments();
+  expect(
+    within(dialog).getByText(/writing one takes an account/),
+  ).toBeInTheDocument();
+  expect(
+    within(dialog).queryByRole("button", { name: "Send" }),
+  ).not.toBeInTheDocument();
+});
+
+test("an account whose role may not comment is told so, not shown a field", async () => {
+  asAccount([]);
+  renderDetails();
+
+  const dialog = await openComments();
+  expect(
+    within(dialog).getByText(
+      "Your role may not comment. Ask the host for access.",
+    ),
+  ).toBeInTheDocument();
+});
+
+test("the host screen is an administrator without a name to sign with", async () => {
+  // Every right, no account — exactly what the host token grants.
+  getMe.mockResolvedValue(
+    meResponse(["songs.view", "comments.write", "comments.moderate"], {
+      role: "admin",
+      is_host: true,
+    }),
+  );
+  renderDetails();
+
+  const dialog = await openComments();
+  expect(
+    within(dialog).getByText(/no name to sign a comment with/),
+  ).toBeInTheDocument();
+  expect(
+    within(dialog).queryByRole("textbox", {
+      name: "Say something about this song",
+    }),
+  ).not.toBeInTheDocument();
+});
+
+test("the composer posts what was typed, then clears and keeps the focus", async () => {
+  asAccount(["comments.write"]);
+  addSongComment.mockResolvedValue({ data: {} });
+  renderDetails();
+
+  const dialog = await openComments();
+  const field = within(dialog).getByRole("textbox", {
+    name: "Say something about this song",
+  });
+  const send = within(dialog).getByRole("button", { name: "Send" });
+
+  // Nothing to say yet, so there is nothing to press.
+  expect(send).toBeDisabled();
+  expect(iconNames(send)).toEqual(["send"]);
+  expect(field).toHaveAttribute("maxlength", "1000");
+
+  fireEvent.change(field, { target: { value: "  What a song  " } });
+  expect(send).toBeEnabled();
+  fireEvent.click(send);
+
+  await waitFor(() =>
+    expect(addSongComment).toHaveBeenCalledWith(
+      expect.objectContaining({
+        path: { song_id: "usdb:1" },
+        body: { body: "What a song" },
+      }),
+    ),
+  );
+  await waitFor(() => expect(field).toHaveValue(""));
+  expect(field).toHaveFocus();
+});
+
+test("Enter is a newline and Ctrl+Enter sends", async () => {
+  asAccount(["comments.write"]);
+  addSongComment.mockResolvedValue({ data: {} });
+  renderDetails();
+
+  const dialog = await openComments();
+  const field = within(dialog).getByRole("textbox", {
+    name: "Say something about this song",
+  });
+  fireEvent.change(field, { target: { value: "First line" } });
+
+  // A bare Enter is the browser's own newline: nothing is sent.
+  fireEvent.keyDown(field, { key: "Enter" });
+  expect(addSongComment).not.toHaveBeenCalled();
+
+  fireEvent.keyDown(field, { key: "Enter", ctrlKey: true });
+  await waitFor(() => expect(addSongComment).toHaveBeenCalledTimes(1));
+});
+
+test("a refused comment says so instead of vanishing", async () => {
+  asAccount(["comments.write"]);
+  addSongComment.mockRejectedValue({
+    detail: "missing_permission:comments.write",
+  });
+  renderDetails();
+
+  const dialog = await openComments();
+  fireEvent.change(
+    within(dialog).getByRole("textbox", {
+      name: "Say something about this song",
+    }),
+    { target: { value: "Anyway" } },
+  );
+  fireEvent.click(within(dialog).getByRole("button", { name: "Send" }));
+
+  expect(await screen.findByRole("alert")).toHaveTextContent(
+    "Your role may not do this (comments.write).",
+  );
+});
+
+test("your own comment is yours to take back, after a confirmation", async () => {
+  asAccount(["comments.write"]);
+  listSongComments.mockResolvedValue({
+    data: {
+      comments: [
+        comment(7, "Alice", "Mine", { mine: true, can_delete: true }),
+        comment(8, "Bob", "His"),
+      ],
+    },
+  });
+  renderDetails();
+
+  const dialog = await openComments();
+  // Only the row that may go carries the bin.
+  const bins = within(dialog).getAllByRole("button", { name: /Delete/ });
+  expect(bins).toHaveLength(1);
+  expect(bins[0]).toHaveAccessibleName("Delete Alice's comment");
+  expect(iconNames(bins[0])).toEqual(["trash"]);
+
+  fireEvent.click(bins[0]);
+  const confirm = screen.getByRole("dialog", { name: "Delete comment" });
+  expect(confirm).toHaveTextContent("there is no undo");
+  fireEvent.click(within(confirm).getByRole("button", { name: "Delete" }));
+
+  await waitFor(() =>
+    expect(deleteSongComment).toHaveBeenCalledWith(
+      expect.objectContaining({
+        path: { song_id: "usdb:1", comment_id: 7 },
+      }),
+    ),
+  );
+});
+
+test("backing out of the confirmation leaves the comment where it was", async () => {
+  asAccount(["comments.write"]);
+  listSongComments.mockResolvedValue({
+    data: {
+      comments: [comment(7, "Alice", "Mine", { mine: true, can_delete: true })],
+    },
+  });
+  renderDetails();
+
+  const dialog = await openComments();
+  fireEvent.click(
+    within(dialog).getByRole("button", { name: "Delete Alice's comment" }),
+  );
+  const confirm = screen.getByRole("dialog", { name: "Delete comment" });
+  fireEvent.click(within(confirm).getByRole("button", { name: "Cancel" }));
+
+  expect(
+    screen.queryByRole("dialog", { name: "Delete comment" }),
+  ).not.toBeInTheDocument();
+  expect(deleteSongComment).not.toHaveBeenCalled();
+  expect(within(dialog).getByText("Mine")).toBeInTheDocument();
+});
+
+test("the composer follows the list down when a comment lands under it", async () => {
+  asAccount(["comments.write"]);
+  addSongComment.mockResolvedValue({ data: {} });
+  renderDetails();
+
+  const dialog = await openComments();
+  const field = within(dialog).getByRole("textbox", {
+    name: "Say something about this song",
+  });
+  // Reading the list must not drag anybody's view around; only the writer
+  // whose thought is still in the field is followed down.
+  expect(scrollComposerIntoView).not.toHaveBeenCalled();
+
+  fireEvent.change(field, { target: { value: "One more" } });
+  // The list grows above the composer, which would otherwise be pushed below
+  // the fold of a phone-sized modal.
+  listSongComments.mockResolvedValue({
+    data: { comments: [comment(1, "Alice", "One more", { mine: true })] },
+  });
+  fireEvent.click(within(dialog).getByRole("button", { name: "Send" }));
+
+  await waitFor(() => expect(scrollComposerIntoView).toHaveBeenCalled());
+  expect(field).toHaveFocus();
+});
+
+test("a moderator may take anybody's comment away", async () => {
+  asAccount(["comments.write", "comments.moderate"]);
+  listSongComments.mockResolvedValue({
+    data: { comments: [comment(9, "Bob", "His", { can_delete: true })] },
+  });
+  renderDetails();
+
+  const dialog = await openComments();
+  fireEvent.click(
+    within(dialog).getByRole("button", { name: "Delete Bob's comment" }),
+  );
+  fireEvent.click(
+    within(screen.getByRole("dialog", { name: "Delete comment" })).getByRole(
+      "button",
+      { name: "Delete" },
+    ),
+  );
+
+  await waitFor(() =>
+    expect(deleteSongComment).toHaveBeenCalledWith(
+      expect.objectContaining({
+        path: { song_id: "usdb:1", comment_id: 9 },
+      }),
+    ),
+  );
+});
+
+test("a delete the backend refuses says which right is missing", async () => {
+  asAccount(["comments.write"]);
+  listSongComments.mockResolvedValue({
+    data: { comments: [comment(9, "Bob", "His", { can_delete: true })] },
+  });
+  deleteSongComment.mockRejectedValue({
+    detail: "missing_permission:comments.moderate",
+  });
+  renderDetails();
+
+  const dialog = await openComments();
+  fireEvent.click(
+    within(dialog).getByRole("button", { name: "Delete Bob's comment" }),
+  );
+  fireEvent.click(
+    within(screen.getByRole("dialog", { name: "Delete comment" })).getByRole(
+      "button",
+      { name: "Delete" },
+    ),
+  );
+
+  expect(await screen.findByRole("alert")).toHaveTextContent(
+    "Your role may not do this (comments.moderate).",
+  );
+});
+
+test("somebody else commenting refetches this song's list, and only this song's", async () => {
+  renderDetails();
+
+  await screen.findByRole("button", { name: /Comments/ });
+  await waitFor(() => expect(listSongComments).toHaveBeenCalledTimes(1));
+
+  // Another song's conversation is none of this modal's business.
+  FakeSocket.deliver({
+    event: "comments.changed",
+    song_id: "usdb:2",
+    count: 1,
+  });
+  FakeSocket.deliver({
+    event: "comments.changed",
+    song_id: "usdb:1",
+    count: 1,
+  });
+  await waitFor(() => expect(listSongComments).toHaveBeenCalledTimes(2));
 });

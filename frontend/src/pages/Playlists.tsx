@@ -1,89 +1,163 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { useRef, useState } from "react";
-import { Link } from "react-router-dom";
+import { useState } from "react";
+import { Link, useNavigate } from "react-router-dom";
 import type { PlaylistRead } from "../api";
 import {
   createPlaylistMutation,
-  deletePlaylistMutation,
   listPlaylistsOptions,
   listPlaylistsQueryKey,
-  updatePlaylistMutation,
 } from "../api/@tanstack/react-query.gen";
 import { useAuth } from "../auth";
-import ConfirmModal from "../components/ConfirmModal";
 import EmptyState from "../components/EmptyState";
 import { Icon } from "../components/icons";
 import Loading from "../components/Loading";
+import Modal from "../components/Modal";
 import PageHeader from "../components/PageHeader";
+import PlaylistCover from "../components/PlaylistCover";
+import { formatTotalDuration } from "../duration";
 import { errorMessage } from "../errors";
+import { useWingmanEvent } from "../hooks/useWingmanEvents";
 import "./Playlists.css";
 
-/** Every playlist the caller may see, with the create/rename/delete controls. */
+/**
+ * Which heading a playlist lives under. The backend hands out everything the
+ * caller may see in one listing and leaves the grouping to the client:
+ *
+ * - `mine` — theirs, whether shared with anybody or not.
+ * - `shared` — a member row they still follow.
+ * - `global` — everybody's, including a global list they were named on but
+ *   unfollowed: unfollowing cannot hide what everybody sees anyway.
+ * - `hidden` — a member row they unfollowed. Only these fold away.
+ */
+function groupOf(list: PlaylistRead): "mine" | "shared" | "global" | "hidden" {
+  if (list.my_access === "owner") return "mine";
+  if (list.my_access !== null && list.followed) return "shared";
+  if (list.is_global) return "global";
+  return "hidden";
+}
+
+/** "12 songs · 48 min · by alice" — the owner only where the reader is not it. */
+function meta(list: PlaylistRead, withOwner: boolean): string {
+  const parts = [
+    `${list.song_count} ${list.song_count === 1 ? "song" : "songs"}`,
+  ];
+  if (list.duration_seconds > 0)
+    parts.push(formatTotalDuration(list.duration_seconds));
+  if (withOwner && list.owner_username !== null)
+    parts.push(`by ${list.owner_username}`);
+  return parts.join(" · ");
+}
+
+function PlaylistRow({
+  list,
+  withOwner,
+}: {
+  list: PlaylistRead;
+  withOwner: boolean;
+}) {
+  return (
+    <li className="playlists-row">
+      <Link
+        className="playlists-open"
+        to={`/songs/playlists/${encodeURIComponent(list.id)}`}
+      >
+        <PlaylistCover songIds={list.cover_song_ids} />
+        <span className="playlists-text">
+          <span className="playlists-name">
+            <span className="playlists-name-text">{list.name}</span>
+            {/* A passive mark, never a control: what a list is shared with is
+                changed on the manage page, not from a row. */}
+            {list.is_global && (
+              <span
+                className="playlists-mark"
+                title="Everybody can see this playlist"
+              >
+                <Icon name="globe" />
+              </span>
+            )}
+          </span>
+          <span className="playlists-meta">{meta(list, withOwner)}</span>
+        </span>
+        <Icon name="chevron-right" className="playlists-chevron" />
+      </Link>
+    </li>
+  );
+}
+
+function PlaylistGroup({
+  title,
+  rows,
+  withOwner,
+}: {
+  title: string;
+  rows: PlaylistRead[];
+  withOwner: boolean;
+}) {
+  if (rows.length === 0) return null;
+  return (
+    <section className="playlists-group">
+      <h2>{title}</h2>
+      <ul className="playlists-list">
+        {rows.map((list) => (
+          <PlaylistRow key={list.id} list={list} withOwner={withOwner} />
+        ))}
+      </ul>
+    </section>
+  );
+}
+
+/** Every playlist the caller may see, in the four groups of §7. */
 export default function Playlists() {
   const queryClient = useQueryClient();
+  const navigate = useNavigate();
   const auth = useAuth();
+  const [creating, setCreating] = useState(false);
   const [name, setName] = useState("");
-  const [shared, setShared] = useState(false);
-  // `null` means "the reader has not said": the form then opens by itself on an
-  // empty page and stays shut everywhere else. The header toggle and the empty
-  // state's button write a real boolean and take over from there.
-  const [creating, setCreating] = useState<boolean | null>(null);
-  const [editing, setEditing] = useState<string | null>(null);
-  const [deleting, setDeleting] = useState<PlaylistRead | null>(null);
+  const [description, setDescription] = useState("");
+  const [isGlobal, setIsGlobal] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const nameField = useRef<HTMLInputElement>(null);
 
   const playlists = useQuery({
     ...listPlaylistsOptions(),
     enabled: auth.loaded && auth.can("playlists.view"),
   });
 
-  const refresh = () => {
-    setError(null);
+  // Somebody else sharing a list with me, or taking it back, changes what this
+  // page shows without me touching anything.
+  useWingmanEvent("playlists.changed", () => {
     void queryClient.invalidateQueries({ queryKey: listPlaylistsQueryKey() });
+  });
+
+  const closeForm = () => {
+    setCreating(false);
+    setName("");
+    setDescription("");
+    setIsGlobal(false);
   };
-  const failed = (fallback: string) => (cause: unknown) =>
-    setError(errorMessage(cause, fallback));
 
   const create = useMutation({
     ...createPlaylistMutation(),
-    onSuccess: () => {
-      setName("");
-      setShared(false);
-      // The list stops being empty, so without this the form would vanish
-      // under the reader's hands. A second playlist is one word away.
-      setCreating(true);
-      nameField.current?.focus();
-      refresh();
+    onSuccess: (created) => {
+      closeForm();
+      void queryClient.invalidateQueries({ queryKey: listPlaylistsQueryKey() });
+      // Straight into the new list: it is empty, and adding songs is the only
+      // reason anybody creates one.
+      void navigate(`/songs/playlists/${encodeURIComponent(created.id)}`);
     },
-    onError: failed("Could not create the playlist."),
-  });
-  const update = useMutation({
-    ...updatePlaylistMutation(),
-    onSuccess: () => {
-      setEditing(null);
-      refresh();
-    },
-    onError: failed("Could not change the playlist."),
-  });
-  const remove = useMutation({
-    ...deletePlaylistMutation(),
-    onSuccess: refresh,
-    onError: failed("Could not delete the playlist."),
+    onError: (cause) =>
+      setError(errorMessage(cause, "Could not create the playlist.")),
   });
 
   // A playlist needs an account to belong to, so a guest never gets the form.
   const canManage = auth.user !== null && auth.can("playlists.manage");
-  // The owner edits their own; `playlists.moderate` extends that to anybody
-  // else's shared list — the host session included, which holds every right but
-  // has no account and so owns nothing.
-  const mutable = (list: PlaylistRead) =>
-    auth.can("playlists.manage") &&
-    (list.mine || auth.can("playlists.moderate"));
-
   const rows = playlists.data?.playlists ?? [];
+  const grouped = {
+    mine: rows.filter((list) => groupOf(list) === "mine"),
+    shared: rows.filter((list) => groupOf(list) === "shared"),
+    global: rows.filter((list) => groupOf(list) === "global"),
+    hidden: rows.filter((list) => groupOf(list) === "hidden"),
+  };
   const empty = playlists.isSuccess && rows.length === 0;
-  const showForm = canManage && (creating ?? empty);
 
   return (
     <div className="playlists-page">
@@ -93,14 +167,10 @@ export default function Playlists() {
             type="button"
             className="icon-button icon-button-bordered"
             aria-label="New playlist"
-            aria-expanded={showForm}
             title="New playlist"
-            /* Exactly one primary button on screen (§4): the create form and an
-               open rename each own a "Create"/"Save", so opening either one
-               closes the other. */
             onClick={() => {
-              setEditing(null);
-              setCreating(!showForm);
+              setError(null);
+              setCreating(true);
             }}
           >
             <Icon name="plus" />
@@ -111,45 +181,12 @@ export default function Playlists() {
       {auth.loaded &&
         (auth.can("playlists.view") ? (
           <>
-            {error && (
+            {/* While the panel is up the notice belongs inside it: behind the
+                backdrop nobody would ever read why the create was refused. */}
+            {error && !creating && (
               <p className="error-notice playlists-notice" role="alert">
                 {error}
               </p>
-            )}
-
-            {showForm && (
-              <form
-                className="playlists-create"
-                onSubmit={(event) => {
-                  event.preventDefault();
-                  if (name.trim() !== "")
-                    create.mutate({ body: { name, shared } });
-                }}
-              >
-                <input
-                  className="text-input text-input-quiet"
-                  ref={nameField}
-                  aria-label="New playlist name"
-                  placeholder="New playlist"
-                  value={name}
-                  onChange={(event) => setName(event.target.value)}
-                />
-                <label className="playlists-shared">
-                  <input
-                    type="checkbox"
-                    checked={shared}
-                    onChange={(event) => setShared(event.target.checked)}
-                  />
-                  Shared
-                </label>
-                <button
-                  type="submit"
-                  className="button button-primary"
-                  disabled={name.trim() === "" || create.isPending}
-                >
-                  Create
-                </button>
-              </form>
             )}
 
             {playlists.isPending && <Loading />}
@@ -161,13 +198,14 @@ export default function Playlists() {
             )}
 
             {empty && (
-              /* A guest cannot act on the invitation, so neither the sentence
-                 nor the button is offered to one. */
+              /* One empty state for the page, not one per heading: three of
+                 them stacked on a fresh install would say the same thing three
+                 times. A reader who cannot create one is not invited to. */
               <EmptyState
                 icon="list"
                 title="No playlists yet"
                 action={
-                  canManage && !showForm ? (
+                  canManage ? (
                     <button
                       type="button"
                       className="button button-primary"
@@ -179,138 +217,41 @@ export default function Playlists() {
                 }
               >
                 {canManage
-                  ? "Create one, then add songs from a song's details."
-                  : undefined}
+                  ? "Create one, then add songs to it."
+                  : "Playlists shared with everybody show up here."}
               </EmptyState>
             )}
 
-            <ul className="playlists-list">
-              {rows.map((list) =>
-                editing === list.id ? (
-                  <li key={list.id}>
-                    <form
-                      className="playlists-edit"
-                      // Enter saves (the form's own submit), so Escape has to
-                      // be the way out — the Cancel button is the only other
-                      // one, and a keyboard reader typing a name should not
-                      // have to tab past Shared and Cancel to abandon the edit.
-                      // Blur deliberately does nothing: the Shared checkbox and
-                      // both buttons take focus off the field.
-                      onKeyDown={(event) => {
-                        if (event.key === "Escape") {
-                          event.stopPropagation();
-                          setEditing(null);
-                        }
-                      }}
-                      onSubmit={(event) => {
-                        event.preventDefault();
-                        const form = new FormData(event.currentTarget);
-                        const renamed = String(form.get("name") ?? "").trim();
-                        if (renamed === "") return;
-                        update.mutate({
-                          path: { playlist_id: list.id },
-                          body: {
-                            name: renamed,
-                            shared: form.get("shared") !== null,
-                          },
-                        });
-                      }}
-                    >
-                      <input
-                        className="text-input text-input-quiet"
-                        name="name"
-                        defaultValue={list.name}
-                        aria-label={`Name of ${list.name}`}
-                      />
-                      <label className="playlists-shared">
-                        <input
-                          type="checkbox"
-                          name="shared"
-                          defaultChecked={list.shared}
-                          aria-label={`Share ${list.name}`}
-                        />
-                        Shared
-                      </label>
-                      <div className="playlists-edit-actions">
-                        <button
-                          type="button"
-                          className="button"
-                          onClick={() => setEditing(null)}
-                        >
-                          Cancel
-                        </button>
-                        <button
-                          type="submit"
-                          className="button button-primary"
-                          disabled={update.isPending}
-                        >
-                          Save
-                        </button>
-                      </div>
-                    </form>
-                  </li>
-                ) : (
-                  <li key={list.id} className="playlists-row">
-                    <Link
-                      className="playlists-open"
-                      to={`/songs/playlists/${encodeURIComponent(list.id)}`}
-                    >
-                      {/* A 40px square, not a stack of covers: it keeps every
-                          list in the app on one text axis and costs no
-                          requests. A globe marks the lists everybody sees. */}
-                      <span className="playlists-glyph">
-                        <Icon name={list.shared ? "globe" : "list"} />
-                      </span>
-                      <span className="playlists-text">
-                        <span className="playlists-name">{list.name}</span>
-                        <span className="playlists-meta">
-                          {list.song_count}{" "}
-                          {list.song_count === 1 ? "song" : "songs"}
-                          {list.shared &&
-                            ` · ${list.mine ? "shared" : (list.owner_username ?? "shared")}`}
-                        </span>
-                      </span>
-                      {/* Two icon buttons already say "this row does things";
-                          a third glyph beside them is clutter. */}
-                      {!mutable(list) && (
-                        <Icon
-                          name="chevron-right"
-                          className="playlists-chevron"
-                        />
-                      )}
-                    </Link>
-                    {mutable(list) && (
-                      <span className="playlists-actions">
-                        <button
-                          type="button"
-                          className="icon-button"
-                          aria-label={`Edit ${list.name}`}
-                          /* The other half of the rule above: a rename takes
-                             the primary button, so the create form gives it
-                             up. `false`, not `null` — the reader has now said
-                             something, and the empty-page default must not
-                             reopen the form behind the edit. */
-                          onClick={() => {
-                            setCreating(false);
-                            setEditing(list.id);
-                          }}
-                        >
-                          <Icon name="pencil" />
-                        </button>
-                        <button
-                          type="button"
-                          className="icon-button icon-button-danger"
-                          aria-label={`Delete playlist ${list.name}`}
-                          onClick={() => setDeleting(list)}
-                        >
-                          <Icon name="trash" />
-                        </button>
-                      </span>
-                    )}
-                  </li>
-                ),
-              )}
-            </ul>
+            <PlaylistGroup
+              title="Your playlists"
+              rows={grouped.mine}
+              withOwner={false}
+            />
+            <PlaylistGroup
+              title="Shared with you"
+              rows={grouped.shared}
+              withOwner
+            />
+            <PlaylistGroup title="Global" rows={grouped.global} withOwner />
+
+            {grouped.hidden.length > 0 && (
+              /* Unfollowed lists are out of the way but not gone: the reader
+                 said "not on my page", not "never again". */
+              <details className="playlists-hidden">
+                <summary>
+                  <Icon name="bookmark-off" />
+                  <span>Hidden</span>
+                  <span className="playlists-hidden-count">
+                    {grouped.hidden.length}
+                  </span>
+                </summary>
+                <ul className="playlists-list">
+                  {grouped.hidden.map((list) => (
+                    <PlaylistRow key={list.id} list={list} withOwner />
+                  ))}
+                </ul>
+              </details>
+            )}
           </>
         ) : (
           <p className="settings-notice">
@@ -319,18 +260,70 @@ export default function Playlists() {
           </p>
         ))}
 
-      {deleting && (
-        <ConfirmModal
-          title="Delete playlist"
-          message={`Delete the playlist "${deleting.name}"? The songs themselves stay in the library.`}
-          confirmLabel="Delete"
-          danger
-          onConfirm={() => {
-            remove.mutate({ path: { playlist_id: deleting.id } });
-            setDeleting(null);
-          }}
-          onCancel={() => setDeleting(null)}
-        />
+      {creating && (
+        <Modal title="New playlist" onClose={closeForm}>
+          <form
+            className="playlists-create"
+            onSubmit={(event) => {
+              event.preventDefault();
+              if (name.trim() === "") return;
+              setError(null);
+              create.mutate({
+                body: {
+                  name: name.trim(),
+                  description:
+                    description.trim() === "" ? null : description.trim(),
+                  is_global: isGlobal,
+                },
+              });
+            }}
+          >
+            <label className="playlists-field">
+              <span>Name</span>
+              <input
+                className="text-input text-input-quiet"
+                // The one thing the dialog exists to ask for.
+                autoFocus
+                value={name}
+                onChange={(event) => setName(event.target.value)}
+              />
+            </label>
+            <label className="playlists-field">
+              <span>Description</span>
+              <textarea
+                className="text-input text-input-quiet"
+                rows={2}
+                value={description}
+                onChange={(event) => setDescription(event.target.value)}
+              />
+            </label>
+            <label className="playlists-check">
+              <input
+                type="checkbox"
+                checked={isGlobal}
+                onChange={(event) => setIsGlobal(event.target.checked)}
+              />
+              <span>Global — everyone can see it</span>
+            </label>
+            {error && (
+              <p className="error-notice" role="alert">
+                {error}
+              </p>
+            )}
+            <div className="playlists-create-actions">
+              <button type="button" className="button" onClick={closeForm}>
+                Cancel
+              </button>
+              <button
+                type="submit"
+                className="button button-primary"
+                disabled={name.trim() === "" || create.isPending}
+              >
+                Create
+              </button>
+            </div>
+          </form>
+        </Modal>
       )}
     </div>
   );

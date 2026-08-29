@@ -3,12 +3,15 @@ import {
   useCallback,
   useEffect,
   useLayoutEffect,
+  useMemo,
   useRef,
   useState,
 } from "react";
 import type { SongRead, WishRead } from "../api";
 import { listSongsOptions } from "../api/@tanstack/react-query.gen";
+import { useTags } from "../hooks/useTags";
 import { useWishlist } from "../hooks/useWishlist";
+import { defaultTagCriteria, passesTagCriteria } from "../tags";
 import { DICE_FACES } from "../dice";
 import { Icon } from "./icons";
 import SongCover from "./SongCover";
@@ -119,10 +122,29 @@ export default function SongSpinner({ songs: fixed }: SongSpinnerProps) {
   const [face, setFace] = useState(FACE_AT_REST);
   const reelElement = useRef<HTMLDivElement>(null);
 
-  const songs =
-    useQuery({ ...listSongsOptions(), enabled: fixed === undefined }).data
-      ?.songs ?? [];
+  const library = useQuery({
+    ...listSongsOptions(),
+    enabled: fixed === undefined,
+  }).data?.songs;
   const wishes = useWishlist().wishes;
+  const tags = useTags();
+  // The reel is the song list in another shape, so it hides the same songs
+  // (§7). Only the library scope: a wish and a playlist are somebody's own
+  // choice, and hiding what they deliberately asked for would be a bug.
+  const criteria = useMemo(() => defaultTagCriteria(tags.tags), [tags.tags]);
+  const songs = useMemo(
+    () =>
+      // Nothing to land on until the tags are in: the criteria are empty while
+      // they load, so every hidden song would be a candidate — and the reel
+      // picks the instant SPIN is pressed. An empty pool disables SPIN exactly
+      // as an unloaded library does, which is the state this already is in.
+      tags.isPending
+        ? []
+        : (library ?? []).filter((song) =>
+            passesTagCriteria(song.id, tags.bySong, criteria),
+          ),
+    [library, criteria, tags.bySong, tags.isPending],
+  );
   const candidates = fixed ?? pool(scope, songs, wishes);
 
   const reveal = useCallback((song: SongRead, key: number) => {

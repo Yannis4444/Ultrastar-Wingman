@@ -10,8 +10,10 @@ from sqlalchemy import delete, func, select
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from ..comments import service as comments
 from ..library import service as library
 from ..players.model import Player
+from ..tags import service as tags
 from .model import User, UserSession, as_utc, utcnow
 from .permissions import ADMIN, ASSIGNABLE_ROLES, USER, UnknownRoleError
 from .providers import LOCAL, OIDC, find_by_username, hash_password
@@ -31,6 +33,11 @@ MIN_PASSWORD_LENGTH = 8
 # comes from a token instead, so it is cut to fit rather than refused.
 MIN_USERNAME_LENGTH = 3
 MAX_USERNAME_LENGTH = 32
+
+# Shortest prefix `find_users_by_prefix` answers, and the most matches it returns. One
+# letter would hand back most of the party for nothing.
+MIN_LOOKUP_LENGTH = 2
+LOOKUP_LIMIT = 20
 
 
 class DuplicateUsernameError(ValueError):
@@ -270,6 +277,24 @@ async def player_ids_by_user(session: AsyncSession) -> dict[str, str]:
     return {user_id: player_id for user_id, player_id in rows if user_id is not None}
 
 
+async def find_users_by_prefix(
+    session: AsyncSession, prefix: str
+) -> list[tuple[User, Player | None]]:
+    """Accounts whose username starts with `prefix`, case-insensitively, with the player
+    each of them sings as. Bounded: picking somebody to share with needs a shortlist, not
+    the whole party."""
+    rows = await session.execute(
+        select(User, Player)
+        .join(Player, Player.user_id == User.id, isouter=True)
+        # `autoescape` because a `%` or `_` typed into the box is a character somebody's
+        # name may contain, never a wildcard.
+        .where(func.lower(User.username).startswith(prefix.lower(), autoescape=True))
+        .order_by(func.lower(User.username), User.id)
+        .limit(LOOKUP_LIMIT)
+    )
+    return [(user, player) for user, player in rows]
+
+
 async def list_users(session: AsyncSession) -> Sequence[User]:
     result = await session.scalars(select(User).order_by(func.lower(User.username), User.id))
     return result.all()
@@ -301,9 +326,17 @@ async def delete_user(session: AsyncSession, user: User) -> None:
     # Statistics belong to the player and survive; wishes, favorites and playlists belong
     # to the account and go with it.
     await library.delete_user_data(session, user.id)
+    # Its tag permissions go too; the `song_tags` rows it left behind stay as attribution.
+    await tags.delete_user_data(session, user.id)
+    # A comment carries the account's name and its words, so it is not attribution that can
+    # outlive the account the way a score's player does — it leaves with it.
+    await comments.delete_user_data(session, user.id)
     await session.delete(user)
     await session.commit()
     logger.info("user '%s' deleted (%s)", user.username, user.id)
+    # After the commit, and with no id: an account leaving takes some playlists with it and
+    # hands the rest to a new owner, so every open listing has to be fetched again.
+    await library.announce_playlists()
 
 
 async def _admin_count(session: AsyncSession) -> int:

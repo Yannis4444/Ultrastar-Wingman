@@ -8,6 +8,7 @@ from pydantic import BaseModel, StringConstraints
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from ..db import SessionDep
+from ..players.schema import avatar_version
 from . import permissions, service
 from .deps import (
     COOKIE_NAME,
@@ -26,7 +27,15 @@ from .permissions import (
     UnknownRoleError,
 )
 from .providers import get_provider
-from .schema import MeRead, PermissionsRead, UserList, UserRead, read_user
+from .schema import (
+    MeRead,
+    PermissionsRead,
+    UserList,
+    UserLookupList,
+    UserLookupRead,
+    UserRead,
+    read_user,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -42,6 +51,18 @@ Username = Annotated[
     StringConstraints(
         strip_whitespace=True,
         min_length=service.MIN_USERNAME_LENGTH,
+        max_length=service.MAX_USERNAME_LENGTH,
+    ),
+]
+
+
+# Trimmed first, then bounded: " a " is a one-letter query with padding, not a
+# three-letter one.
+LookupQuery = Annotated[
+    str,
+    StringConstraints(
+        strip_whitespace=True,
+        min_length=service.MIN_LOOKUP_LENGTH,
         max_length=service.MAX_USERNAME_LENGTH,
     ),
 ]
@@ -168,6 +189,34 @@ async def list_users(session: SessionDep) -> UserList:
     players = await service.player_ids_by_user(session)
     return UserList(
         users=[read_user(user, players.get(user.id)) for user in await service.list_users(session)]
+    )
+
+
+@router.get(
+    "/users/lookup",
+    response_model=UserLookupList,
+    # Identity, not a capability: anybody with an account (and the host session) has to be
+    # able to find the person they want to share a playlist with. A guest gets a 401 —
+    # there is nothing for them to share.
+    dependencies=[Depends(authenticated)],
+    responses={
+        401: {"description": "Not logged in."},
+        422: {"description": "The query is shorter than two characters."},
+    },
+)
+async def lookup_users(q: LookupQuery, session: SessionDep) -> UserLookupList:
+    """Accounts whose username starts with `q`. For picking somebody to share with, so it
+    answers names and pictures and nothing about roles or rights."""
+    return UserLookupList(
+        users=[
+            UserLookupRead(
+                id=user.id,
+                username=user.username,
+                player_id=None if player is None else player.id,
+                avatar_version=None if player is None else avatar_version(player.avatar_file),
+            )
+            for user, player in await service.find_users_by_prefix(session, q)
+        ]
     )
 
 

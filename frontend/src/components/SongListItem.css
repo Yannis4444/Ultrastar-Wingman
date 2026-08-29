@@ -144,6 +144,12 @@
   color: var(--highlight-blue-light);
 }
 
+/* `.song-mark-tag` deliberately has no rule of its own: a tag mark takes its
+   colour from the `.tag-color-*` class the row puts beside it (index.css), and
+   a colour here would fight that one at equal specificity. The size and the
+   no-shrink are `.song-mark`'s, so a row full of tags still ellipsizes its
+   title rather than pushing the page sideways. */
+
 .song-artist {
   font-size: 0.85em;
   color: var(--color-darker);

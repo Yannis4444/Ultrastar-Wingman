@@ -9,15 +9,48 @@ Open the **Songs** tab. It lists everything Wingman found in your song folders,
 with the number of songs at the top.
 
 - The search box matches title and artist while you type. A song id also works.
-- The chips below it narrow the list: **All**, **♥ Favorites**, **Recent** and
-  **Sung**. Only the chip you are standing on spells its name out; the others
-  shrink to their icon so the row keeps fitting a phone. The list icon at the
-  end of the row opens the playlists view, where a playlist shows its own songs.
+- The chips below it narrow the list: **All**, **♥ Favorites**, **Recent**,
+  **Sung** and the funnel, **Filter**. Only the chip you are standing on spells
+  its name out; the others shrink to their icon so the row keeps fitting a
+  phone. The list icon at the end of the row opens the playlists view, where a
+  playlist shows its own songs.
 - The reload button next to the song count scans the song folders again.
 - Tap a song to open it: the cover, a listen-in preview, and the buttons for
   favorite, sing and wish. Below them, **Details** unfolds language, genre,
   year, edition and who made it; **Best scores** lists the best runs ever sung
-  on it; **Add to playlist** puts the song on one of your playlists.
+  on it; **Add to playlist** puts the song on one of the playlists you may edit;
+  **Tags** shows the labels the party has put on it, and lets you set the ones
+  you are allowed to; **Comments** is what the room has said about it.
+
+## Filter by more than one thing
+
+**All**, **Favorites** and **Sung** are shortcuts. The funnel — **Filter** — is
+the long way round, and it is where the tags live.
+
+Tap it and a panel opens with one row for everything the list can be filtered
+on: **Favorites**, **Sung**, and every tag you are allowed to see. Each row ends
+in three buttons.
+
+| Choice | What the list keeps |
+|---|---|
+| **Any** | Everything. That row is not filtering. |
+| **Yes** | Only the songs that have it. |
+| **No** | Only the songs that do not. |
+
+Set as many rows as you like — they add up, so *duet: Yes* together with
+*broken: No* leaves you the duets that actually play. The list behind the panel
+follows every tap, the song count included, so you can watch it narrow.
+**Done** closes the panel and **Reset** puts every row back to where it started.
+
+Most rows start on **Any**. A tag set up to hide its songs starts on **No** —
+that is what keeps the archive out of your way. Put its row on **Any** and those
+songs come back.
+
+While something is filtering, the funnel is the pressed chip and reads
+**Filter · 2**: the number of rows that are not on *Any*, the tags that were
+already hiding songs included. Tapping **All**, **Favorites** or **Sung** throws
+the whole filter away and starts again from that chip. **Recent** does not — it
+is a different order of the same list, and the filter keeps working inside it.
 
 ## What has already been sung
 
@@ -44,6 +77,69 @@ Both need an account with a player behind it: a song counts as sung by you once
 Ultrastar Deluxe scored it under your player. A song nobody scored — stopped
 after a verse, or sung with no microphone plugged in — belongs to nobody in
 particular, so it does not show up here. It is still in **Recent**.
+
+## The marks next to a title
+
+A row can carry a few small icons after the song's title. They are marks, not
+buttons — nothing happens when you tap one, and the song's own view is where the
+state is changed.
+
+- A blue **microphone** means you have sung this song before — the section
+  above.
+- A pink **heart** means it is one of your favorites.
+- After those, one icon per **tag** the song wears that was set up to show in the
+  list — in the tag's own colour, with its name on hover. A tag nobody chose to
+  show stays out of the row and lives in the song's **Tags** view.
+
+## Songs you do not see
+
+Some songs are deliberately kept out of the list.
+
+- A tag can be set to **hide songs by default**. Its songs are out of the song
+  list — in every chip, not only *All* — and out of the random reel's *All
+  songs*, until you put that tag's row on *Any* or *Yes* in **Filter**. They
+  are still there: a playlist that holds one still shows it and a wished one
+  can still win the reel, because somebody put it there on purpose. The seeded
+  **archive** tag works this way.
+- A tag can also take *See songs* away from a role entirely. Those songs do not
+  exist for that person at all: not in the list, not in the search, not in the
+  reel, and not on a playlist or the wishlist either. The seeded **broken** tag
+  works this way, so nobody stumbles into a song that does not play.
+
+If a filter ends up empty because of the first kind, the page says so instead of
+pretending you have no favorites. See [Tags](tags.md) for the whole picture.
+
+## Comments
+
+Every song has a **Comments** row at the bottom of its view, carrying the
+number of comments once there is one. Open it and you get what everybody said
+about the song, oldest first: who said it, how long ago, and the text
+underneath.
+
+**Reading is open to everybody.** A guest phone that can see the song list can
+read the comments too — knowing that a song is in the wrong key, or that it is
+the one the birthday guest wants, is worth more shared than hidden.
+
+**Writing takes an account**, because a comment carries your name and your
+picture. Log in and a box appears at the foot of the list. Type, press the paper
+plane, and it is there for everybody in the room — the lists other people have
+open follow along on their own. **Enter** starts a new line; **Ctrl+Enter**
+(**Cmd+Enter** on a Mac) sends, so you never have to reach for the button. A
+comment is up to 1000 characters, and there is no editing: say it again, or take
+it back.
+
+The host screen is the one exception. It is an administrator, but it is nobody
+in particular and has no name to sign a comment with — so it reads the comments
+and says nothing. Comment from your own phone instead.
+
+**Taking a comment back** is always yours: the bin at the end of your own row
+removes it, after asking. Nobody has to grant you that and no administrator can
+take it away. Deleting *somebody else's* comment is the moderator's right —
+*trusted* and *admin* hold it by default, and it is the row **Delete anybody's
+comments** on [Accounts and permissions](accounts-and-permissions.md). A deleted
+comment is gone for good; there is no undo.
+
+If the account behind a comment is deleted, its comments go with it.
 
 ## Choose the players
 

@@ -1,4 +1,4 @@
-"""The `wishes`, `favorites`, `playlists` and `playlist_entries` tables.
+"""The `wishes`, `favorites`, `playlists`, `playlist_entries` and `playlist_members` tables.
 
 No foreign keys, like the rest of the schema: SQLite only enforces them with
 `PRAGMA foreign_keys` on, which Wingman does not set, so a decorative constraint would be
@@ -64,17 +64,22 @@ class Favorite(Base):
 
 
 class Playlist(Base):
-    """A named, ordered list of songs. `shared` makes it visible to everybody who may
-    view playlists; unshared ones exist only for their owner."""
+    """A named, ordered list of songs.
+
+    Three ways in: the owner, a `PlaylistMember` row, and `is_global` — which shows the
+    list to everybody who may view playlists without letting any of them change it. The
+    column is `is_global` and not `global` because `global` is a Python keyword.
+    """
 
     __tablename__ = "playlists"
 
     id: Mapped[str] = mapped_column(String(32), primary_key=True, default=lambda: uuid.uuid4().hex)
     name: Mapped[str] = mapped_column(Text)
+    description: Mapped[str | None] = mapped_column(Text, nullable=True)
     # Playlists need an account to belong to, so the host session (admin, but nobody) has
-    # to log in to create one.
+    # to log in to create one. The owner is the implicit admin of their own list.
     owner_user_id: Mapped[str] = mapped_column(String(32), index=True)
-    shared: Mapped[bool] = mapped_column(Boolean, default=False)
+    is_global: Mapped[bool] = mapped_column(Boolean, default=False)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=_now)
 
 
@@ -86,3 +91,23 @@ class PlaylistEntry(Base):
     playlist_id: Mapped[str] = mapped_column(String(32), primary_key=True)
     song_id: Mapped[str] = mapped_column(String(64), primary_key=True)
     position: Mapped[int] = mapped_column(Integer)
+
+
+class PlaylistMember(Base):
+    """One account the owner shared a playlist with, and how far that reaches.
+
+    `followed` is the member's own switch, not the sharer's: unfollowing hides the list
+    from the member's own listing and leaves the access untouched, so the owner does not
+    have to grant it again when the member wants it back.
+    """
+
+    __tablename__ = "playlist_members"
+    __table_args__ = (
+        CheckConstraint("access IN ('read', 'write', 'admin')", name="ck_playlist_members_access"),
+    )
+
+    playlist_id: Mapped[str] = mapped_column(String(32), primary_key=True)
+    user_id: Mapped[str] = mapped_column(String(32), primary_key=True, index=True)
+    access: Mapped[str] = mapped_column(String(8))
+    followed: Mapped[bool] = mapped_column(Boolean, default=True)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=_now)

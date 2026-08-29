@@ -18,7 +18,7 @@ playlist alone.
 
 | Choice | What can win |
 |---|---|
-| **All songs** | Every song in the library |
+| **All songs** | Every song in the library, minus what a tag folds away |
 | **Wishlist** | Only wished songs, each with the same chance |
 | **Wishlist (weighted)** | Only wished songs, more wishes mean a better chance |
 
@@ -27,11 +27,20 @@ three times the chance of a song only one person wished for.
 
 Both wishlist choices stay greyed out while nobody has wished for anything.
 
+**All songs** leaves out the songs a tag folds away, the same songs the song
+list keeps back until you ask for them — and there is no filter up here to ask.
+The two wishlist choices spin what people wished for, a folded-away song
+included: somebody asked for it on purpose. A song hidden from you altogether
+can win in none of the three; it is not on your wishlist either. See
+[Songs you do not see](singing.md#songs-you-do-not-see).
+
 ## One playlist's reel
 
 Opened from a playlist's dice, the reel picks from that playlist and nothing
 else — there are no choices above it, only the number of songs it can land on.
-The dice appears once the playlist has a song in it.
+The dice appears once the playlist has a song in it. A song only folded away by
+a tag can win here, the same way the playlist itself still lists it: somebody
+put it there on purpose.
 
 !!! note
     A phone set to reduce motion skips the animation and shows the winner right

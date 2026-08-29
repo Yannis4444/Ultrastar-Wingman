@@ -11,7 +11,7 @@ from fastapi import APIRouter, Depends, HTTPException, Query
 from pydantic import BaseModel
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from ..auth.deps import PrincipalDep, missing_permission, require
+from ..auth.deps import HiddenSongsDep, PrincipalDep, missing_permission, require
 from ..db import SessionDep
 from ..karaoke.model import KaraokeSession
 from ..players import service as players
@@ -56,15 +56,24 @@ async def list_sessions(session: SessionDep, principal: PrincipalDep) -> Session
     response_model=SingList,
     dependencies=[Depends(require("stats.view"))],
 )
-async def list_current_session_sings(session: SessionDep) -> SingList:
+async def list_current_session_sings(session: SessionDep, hidden: HiddenSongsDep) -> SingList:
     """What the running party has played, newest first, one entry per song — the Songs
     page's "Recently played" tab.
 
     Never a 404: when the last party is over (nothing sung for `SESSION_GAP`) the list is
     simply empty, which is exactly what the tab has to show. A literal path segment rather
     than a magic `session_id`, so `current` can never collide with a real session id.
+
+    A sing of a song a tag keeps back from this caller drops out whole — this is a song
+    list a stranger browses (the Recent tab of the Songs page), so it has to hide the same
+    songs `GET /songs` does. Filtered here rather than in the service, which stays
+    principal-free, and in Python rather than in SQL so every route uses the one set the
+    dependency built — the same shape as `songs.api.list_songs`. The score lists below are
+    deliberately *not* filtered: a score belongs to its singer (see
+    `test_tags_api.test_the_leaks_we_accept`).
     """
-    return SingList(sings=await service.current_session_sings(session))
+    sings = await service.current_session_sings(session)
+    return SingList(sings=[sing for sing in sings if sing.song_id not in hidden])
 
 
 @router.patch(
@@ -113,9 +122,9 @@ async def list_session_scores(session_id: str, session: SessionDep) -> ScoreList
     dependencies=[Depends(require("stats.history"))],
     responses={404: {"description": "Unknown song."}},
 )
-async def list_song_scores(song_id: str, session: SessionDep) -> ScoreList:
+async def list_song_scores(song_id: str, session: SessionDep, hidden: HiddenSongsDep) -> ScoreList:
     """Every score one song ever got, across all sessions, newest first."""
-    await song_or_404(song_id, session)
+    await song_or_404(song_id, session, hidden)
     return ScoreList(scores=await service.song_scores(session, song_id))
 
 

@@ -1,0 +1,276 @@
+/* The tag editor (§7): Name, Icon, Colour, the two flags, the permission
+   matrix and the people named on the tag, in that order, flat on `--bg`. The
+   page frame comes from `Tags.css` and the matrix classes from
+   `RolePermissions.css`, both of which the page imports. Only what is this
+   page's own lives here. */
+
+.tag-editor-form {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  margin: 0;
+}
+
+/* A labelled field, the quiet caption over the quiet input — the shape the
+   playlist's manage page uses, on the page gutter rather than inside a panel. */
+.tag-editor-field {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  margin: 16px 16px 0 16px;
+}
+
+/* The caption alone is the quiet 0.85em — see `.playlists-field` in
+   `Playlists.css`, whose shape this is. */
+.tag-editor-field > span {
+  font-size: 0.85em;
+  color: var(--color-darker);
+}
+
+.tag-editor-field .text-input {
+  width: 100%;
+  box-sizing: border-box;
+}
+
+/* A dense flag row (§4 keeps `CheckOption` for the handful-of-options cases). */
+.tag-check {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+  min-height: 32px;
+  font-size: 0.9em;
+  color: var(--color-dark);
+}
+
+.tag-check input {
+  width: 20px;
+  height: 20px;
+  margin: 0;
+  accent-color: var(--highlight-blue-light);
+}
+
+.tag-editor-hint {
+  margin: 4px 16px 0 16px;
+  font-size: 0.85em;
+  color: var(--color-darker);
+}
+
+/* ------------------------------------------------------------- icon picker
+   40x40 icon buttons that fill the row, the chosen one lit (§4). */
+.tag-icons {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(40px, 1fr));
+  gap: 4px;
+  margin: 8px 16px 0 16px;
+}
+
+/* The glyphs are previews of the tag, so they wear the colour the tag is being
+   given — except the "no icon" cell, which is a control and stays quiet. */
+.tag-icons .icon-button[aria-pressed="true"] {
+  color: var(--highlight-blue-light);
+  background-color: var(--highlight-blue-dark);
+}
+
+/* ------------------------------------------------------------------ colours
+   The spinner scope's pill pattern (§4), one pill per colour, each drawn in
+   its own: the reader picks the colour by seeing it, not by reading its name.
+   `currentColor` is the tag colour the `.tag-color-*` class put on the label. */
+/* 6px of gap and 10px of padding rather than the usual 8/14: it is what makes
+   all four pills sit on one row at 390px, and a segmented choice that wraps
+   three-and-one reads as an accident. */
+.tag-colours {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin: 8px 16px 0 16px;
+}
+
+.tag-colour {
+  display: flex;
+  min-width: 0;
+}
+
+.tag-colour-text {
+  display: flex;
+  box-sizing: border-box;
+  gap: 6px;
+  align-items: center;
+  min-height: 40px;
+  padding: 0 10px;
+  font-size: 0.9em;
+  font-weight: 600;
+  white-space: nowrap;
+  color: currentcolor;
+  background-color: transparent;
+  border: 1px solid var(--input-border-color);
+  border-radius: var(--border-radius);
+  cursor: pointer;
+  transition:
+    background-color 0.15s,
+    border-color 0.15s;
+}
+
+.tag-colour:hover input:enabled ~ .tag-colour-text {
+  border-color: currentcolor;
+}
+
+/* After the hover rule at equal specificity, so a hovered chosen pill keeps
+   its fill. A tint of the pill's own colour rather than the blue accent: the
+   pill *is* the colour it offers. */
+.tag-colour input:checked ~ .tag-colour-text {
+  background-color: color-mix(in srgb, currentcolor 22%, transparent);
+  border-color: currentcolor;
+}
+
+.tag-colour input:focus-visible ~ .tag-colour-text {
+  outline: 2px solid var(--highlight-blue-light);
+  outline-offset: 2px;
+}
+
+/* -------------------------------------------------------------- the flags
+   A checkbox and the line that says what it does to everybody else. */
+.tag-flags {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  margin: 20px 16px 0 16px;
+}
+
+.tag-flag-hint {
+  margin: 0 0 12px 28px;
+  font-size: 0.8em;
+  color: var(--color-darker);
+}
+
+.tag-flags > :last-child {
+  margin-bottom: 0;
+}
+
+/* ---------------------------------------------------------------- matrix
+   `RolePermissions`' grid with three columns. Two differences: the head does
+   not follow the scroll (three rows never leave the screen, and a header
+   sticking to the viewport while the reader scrolls past the icon picker would
+   only be in the way), and the row names are sentences rather than the single
+   capitalized verbs of the permissions table. */
+.tag-editor .perm-head {
+  position: static;
+}
+
+.tag-editor .perm-name {
+  text-transform: none;
+}
+
+.tag-editor .perm-hint {
+  margin: 8px 16px;
+}
+
+/* A consequence the reader should know about, not a refusal: the save button
+   stays live. Amber-free — the app has no warning colour — so the sentence
+   leans on the gold accent the scores use, indented behind a rule. */
+.tag-warning {
+  margin: 12px 16px 0 16px;
+  padding-left: 10px;
+  font-size: 0.85em;
+  color: var(--color-dark);
+  border-left: 2px solid var(--highlight-gold-light);
+}
+
+/* ---------------------------------------------------------------- people
+   A people row (§4) with the three rights on it. The columns are the three
+   actions, not the three roles of the matrix above, so the two grids do not
+   share a template — the head names them instead. */
+.tag-people {
+  margin: 8px 8px 0 8px;
+}
+
+.tag-people-head,
+.tag-people-row {
+  display: grid;
+  grid-template-columns: 40px minmax(0, 1fr) repeat(3, 44px) 40px;
+  align-items: center;
+  column-gap: 4px;
+}
+
+.tag-people-head {
+  padding: 4px 8px;
+  border-bottom: 1px solid var(--input-border-color);
+}
+
+.tag-people-head-cell {
+  font-size: 0.7em;
+  line-height: 1.2;
+  color: var(--color-darker);
+  text-align: center;
+}
+
+.tag-people-list {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.tag-people-row {
+  min-height: 48px;
+  padding: 4px 8px;
+  border-bottom: 1px solid var(--input-border-color);
+}
+
+.tag-people-list > :last-child {
+  border-bottom: none;
+}
+
+.tag-person-name {
+  min-width: 0;
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+
+/* The lookup results: ordinary people rows with one way in, on the same axis
+   as the rows they will join. */
+.tag-matches {
+  display: flex;
+  flex-direction: column;
+  margin: 8px 8px 0 8px;
+  padding: 0;
+  list-style: none;
+}
+
+.tag-matches li {
+  border-bottom: 1px solid var(--input-border-color);
+}
+
+.tag-matches > :last-child {
+  border-bottom: none;
+}
+
+.tag-match-row {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+  min-height: 48px;
+  padding: 4px 8px;
+}
+
+/* ------------------------------------------------------------------- foot */
+.tag-editor-save {
+  display: flex;
+  gap: 12px;
+  align-items: center;
+  margin: 24px 16px 0 16px;
+}
+
+.tag-editor-saved {
+  font-size: 0.85em;
+  color: var(--highlight-blue-light);
+}
+
+.tag-editor-delete {
+  margin: 24px 16px;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .tag-colour-text {
+    transition: none;
+  }
+}

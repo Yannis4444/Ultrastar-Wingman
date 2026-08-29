@@ -26,7 +26,7 @@ const TABS = [
 const COVERS: Record<string, string[]> = {
   "/": ["/spinner"],
   "/songs": ["/usdb", "/songs/playlists"],
-  "/user": ["/settings", "/user/stats"],
+  "/user": ["/settings", "/user/stats", "/user/tags"],
 };
 
 export default function BottomNav() {

@@ -32,6 +32,18 @@ export const ICON_PATHS = {
     "M6 19c0 1.1.9 2 2 2h8a2 2 0 0 0 2-2V7H6v12ZM19 4h-3.5l-1-1h-5l-1 1H5v2h14V4Z",
   pencil:
     "M3 17.25V21h3.75L17.81 9.94l-3.75-3.75L3 17.25ZM20.71 7.04a1 1 0 0 0 0-1.41l-2.34-2.34a1 1 0 0 0-1.41 0l-1.83 1.83 3.75 3.75 1.83-1.83Z",
+  // Two offset rounded squares: the sheet being written is solid, the one behind
+  // it shows only as the frame the front one does not cover.
+  copy: "M5 8h9a2 2 0 0 1 2 2v9a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-9a2 2 0 0 1 2-2ZM10 3h9a2 2 0 0 1 2 2v9a2 2 0 0 1-2 2h-3v-2h3V5h-9v3H8V5a2 2 0 0 1 2-2Z",
+  // The reorder grip: six dots in two columns of three, the same pip the dice
+  // faces are made of so the two never look like different kinds of dot.
+  "drag-handle":
+    "M9 4.4a1.6 1.6 0 1 0 0 3.2 1.6 1.6 0 1 0 0-3.2Zm6 0a1.6 1.6 0 1 0 0 3.2 1.6 1.6 0 1 0 0-3.2ZM9 10.4a1.6 1.6 0 1 0 0 3.2 1.6 1.6 0 1 0 0-3.2Zm6 0a1.6 1.6 0 1 0 0 3.2 1.6 1.6 0 1 0 0-3.2ZM9 16.4a1.6 1.6 0 1 0 0 3.2 1.6 1.6 0 1 0 0-3.2Zm6 0a1.6 1.6 0 1 0 0 3.2 1.6 1.6 0 1 0 0-3.2Z",
+  // Submit in the comment composer: one triangle with the fold cut out of its
+  // left edge, so the plane reads as folded paper and not as a solid `play`
+  // turned on its side. A single contour — the notch is part of the outline,
+  // so no fill rule is involved.
+  send: "M2 21l21-9L2 3v7l15 2-15 2v7Z",
   shield: "M12 2 4 5v6c0 5 3.4 9.7 8 11 4.6-1.3 8-6 8-11V5l-8-3Z",
   users:
     "M16 11a3 3 0 1 0-3-3 3 3 0 0 0 3 3Zm-8 0a3 3 0 1 0-3-3 3 3 0 0 0 3 3Zm0 2c-2.33 0-7 1.17-7 3.5V19h14v-2.5C15 14.17 10.33 13 8 13Zm8 0c-.29 0-.62.02-.97.05A4.22 4.22 0 0 1 17 16.5V19h6v-2.5c0-2.33-4.67-3.5-7-3.5Z",
@@ -43,16 +55,41 @@ export const ICON_PATHS = {
   globe:
     "M11.99 2A10 10 0 1 0 22 12 10 10 0 0 0 11.99 2Zm6.93 6h-2.95a15.65 15.65 0 0 0-1.38-3.56A8.03 8.03 0 0 1 18.92 8ZM12 4.04A14.09 14.09 0 0 1 13.91 8h-3.82A14.09 14.09 0 0 1 12 4.04ZM4.26 14a8.12 8.12 0 0 1 0-4h3.38a16.51 16.51 0 0 0-.14 2 16.51 16.51 0 0 0 .14 2Zm.82 2h2.95a15.65 15.65 0 0 0 1.38 3.56A8.03 8.03 0 0 1 5.08 16Zm2.95-8H5.08a8.03 8.03 0 0 1 4.33-3.56A15.65 15.65 0 0 0 8.03 8ZM12 19.96A14.09 14.09 0 0 1 10.09 16h3.82A14.09 14.09 0 0 1 12 19.96ZM14.34 14H9.66a14.59 14.59 0 0 1-.16-2 14.59 14.59 0 0 1 .16-2h4.68a14.59 14.59 0 0 1 .16 2 14.59 14.59 0 0 1-.16 2Zm.25 5.56A15.65 15.65 0 0 0 15.97 16h2.95a8.03 8.03 0 0 1-4.33 3.56ZM16.36 14a16.51 16.51 0 0 0 .14-2 16.51 16.51 0 0 0-.14-2h3.38a8.12 8.12 0 0 1 0 4Z",
   tag: "M21.41 11.58l-9-9A2 2 0 0 0 11 2H4a2 2 0 0 0-2 2v7a2 2 0 0 0 .59 1.42l9 9a2 2 0 0 0 2.82 0l7-7a2 2 0 0 0 0-2.84ZM5.5 7A1.5 1.5 0 1 1 7 5.5 1.5 1.5 0 0 1 5.5 7Z",
+  // The seeded `archive` tag: a lid bar overhanging a box body, with one notch
+  // cut out of the lid's top edge. The notch is part of the lid's own outline
+  // rather than a punched-out shape, so no fill rule is involved.
+  archive: "M2 4h8v2h4V4h8v4H2V4Zm2 5h16v12H4V9Z",
+  // A tag row the reader may see but not set. The shackle is one contour whose
+  // inner arc runs back the way the outer one came, so the default nonzero fill
+  // leaves the hole open — the two halves must never wind the same way. It is
+  // half the body's width and stands on straight legs: a wide shallow arch on a
+  // box reads as a handbag once the glyph is drawn any bigger than a row mark.
+  lock: "M8 11V7a4 4 0 0 1 8 0v4h-2V7a2 2 0 0 0-4 0v4H8Zm-4-1h16a1 1 0 0 1 1 1v9a1 1 0 0 1-1 1H4a1 1 0 0 1-1-1v-9a1 1 0 0 1 1-1Z",
+  // The Songs filter: one solid funnel, a wide bar at the top tapering into a
+  // short stem. Symmetric about x=12 (3/21 and 10/14), and the stem's slanted
+  // foot is what keeps it from reading as a plain triangle at row size.
+  filter: "M3 4h18l-7 8v7l-4 2v-9L3 4Z",
   calendar:
     "M19 4h-1V2h-2v2H8V2H6v2H5a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2V6a2 2 0 0 0-2-2Zm0 16H5V10h14Zm0-12H5V6h14Z",
   disc: "M12 2a10 10 0 1 0 0 20 10 10 0 0 0 0-20Zm0 7a3 3 0 1 1 0 6 3 3 0 0 1 0-6Z",
   user: "M12 12a4 4 0 1 0-4-4 4 4 0 0 0 4 4Zm0 2c-2.67 0-8 1.34-8 4v2h16v-2c0-2.66-5.33-4-8-4Z",
+  // "add a person": the `user` bust shifted left to make room, with `plus`
+  // beside its right shoulder at half the arm length. The three subpaths never
+  // touch (head x5–13, bust x1–17 below y14, plus x15–23), so the nonzero fill
+  // rule has nothing to punch out and the winding does not matter.
+  "user-plus":
+    "M9 12a4 4 0 1 0 0-8 4 4 0 0 0 0 8Zm0 2c-2.67 0-8 1.34-8 4v2h16v-2c0-2.66-5.33-4-8-4Zm9-7h2v3h3v2h-3v3h-2v-3h-3v-2h3V7Z",
   database:
     "M12 3C7.58 3 4 4.79 4 7s3.58 4 8 4 8-1.79 8-4-3.58-4-8-4Zm-8 6.5V12c0 2.21 3.58 4 8 4s8-1.79 8-4V9.5c-1.7 1.5-4.7 2.5-8 2.5s-6.3-1-8-2.5Zm0 4.5V17c0 2.21 3.58 4 8 4s8-1.79 8-4v-2.99c-1.7 1.5-4.7 2.49-8 2.49s-6.3-.99-8-2.5Z",
   video:
     "M17 10.5V7a1 1 0 0 0-1-1H4a1 1 0 0 0-1 1v10a1 1 0 0 0 1 1h12a1 1 0 0 0 1-1v-3.5l4 4v-11l-4 4Z",
   music: "M12 3v10.55A4 4 0 1 0 14 17V7h4V3h-6Z",
   info: "M12 2a10 10 0 1 0 0 20 10 10 0 0 0 0-20Zm0 2a8 8 0 1 1 0 16 8 8 0 0 1 0-16Zm-1 3h2v2h-2V7Zm0 4h2v6h-2v-6Z",
+  // Comments — the modal row, the sub-view and its empty state. One rounded
+  // speech bubble whose tail replaces the bottom-left corner, so three corners
+  // are rounded and the fourth is the tail. Drawn on the same 18-unit grid as
+  // `info` and `clock` (3…21), one closed contour, no fill rule.
+  comment: "M6 3h12a2 2 0 0 1 2 2v10a2 2 0 0 1-2 2H9l-5 4V5a2 2 0 0 1 2-2Z",
   // The three-bar stack is the wishlist family: +plus = wish for it, +check =
   // already wished. Keeping the bars identical makes them read as one family at
   // 1.1em. The bare `playlist` bars are the base both are built from; no
@@ -75,6 +112,13 @@ export const ICON_PATHS = {
   // somewhere else entirely once the bars underneath it change length.
   "list-check":
     "M5 5.5a1.5 1.5 0 1 0 0 3 1.5 1.5 0 0 0 0-3Zm5 .5h10v2H10V6Zm-5 4.5a1.5 1.5 0 1 0 0 3 1.5 1.5 0 0 0 0-3Zm5 .5h4v2H10v-2Zm-5 4.5a1.5 1.5 0 1 0 0 3 1.5 1.5 0 0 0 0-3Zm5 .5h4v2H10v-2ZM22.1 12.1l1.4 1.4-6.1 6.1-3.2-3.2 1.4-1.4 1.8 1.8 4.7-4.7Z",
+  // Following a playlist keeps it in your listing, so the ribbon is the mark.
+  bookmark: "M7 3h10a1 1 0 0 1 1 1v17l-6-4-6 4V4a1 1 0 0 1 1-1Z",
+  // The same ribbon behind the diagonal bar `average` uses, cut along it with a
+  // gap of about a pixel either side: a bar merely laid over the ribbon would
+  // merge into one blob at 1em, since both are drawn in the one colour.
+  "bookmark-off":
+    "M7 3h11L6 15V4a1 1 0 0 1 1-1ZM18 9v12l-6-4-6 4ZM5.28 20.28 3.72 18.72 18.72 3.72 20.28 5.28Z",
   chart: "M4 20h16v2H4v-2Zm1-8h3v7H5v-7Zm5.5-7h3v14h-3V5ZM16 9h3v10h-3V9Z",
   // The mean mark — the statistician's ⌀, which is what the old app's
   // `TbMathAvg` draws. Two things keep it off the "forbidden" sign: the ring is
@@ -127,6 +171,48 @@ export const ICON_PATHS = {
 } as const;
 
 export type IconName = keyof typeof ICON_PATHS;
+
+/**
+ * The glyphs the tag editor's icon picker does *not* offer (ui-guidelines §3):
+ * the dice family, the control glyphs that mean an action wherever they appear,
+ * and the two marks a song row already owns. The list sits here rather than
+ * with the picker so that adding an icon and deciding whether it is pickable
+ * happen in the one file.
+ */
+const NOT_PICKABLE: ReadonlySet<string> = new Set([
+  "search",
+  "refresh",
+  "play",
+  "stop",
+  "plus",
+  "check",
+  "close",
+  "pencil",
+  "trash",
+  "copy",
+  "send",
+  "drag-handle",
+  "heart",
+  "mic",
+]);
+
+/** Prefixes of whole families the picker leaves out. */
+const NOT_PICKABLE_PREFIXES = ["dice", "chevron-", "arrow-"];
+
+/**
+ * The icons a tag may be given, in `ICON_PATHS` order. A new glyph joins the
+ * picker by being appended to `ICON_PATHS` — unless it belongs to one of the
+ * groups above, which is where a control glyph or a song-row mark is kept out.
+ */
+export const PICKER_ICON_NAMES: IconName[] = (
+  Object.keys(ICON_PATHS) as IconName[]
+).filter(
+  (name) =>
+    !NOT_PICKABLE.has(name) &&
+    !NOT_PICKABLE_PREFIXES.some(
+      (prefix) => name === prefix || name.startsWith(prefix),
+    ),
+);
 
 export function Icon({
   name,

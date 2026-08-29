@@ -39,6 +39,85 @@ export type ColorList = {
 };
 
 /**
+ * CommentAuthor
+ *
+ * Who said it, as the list draws them: a name and, when the account sings, the player
+ * whose picture goes next to it.
+ *
+ * `player_id` is None for an account that never got a player, and `avatar_version` is
+ * None until that player has a picture — the same cache buster `PlayerRead` carries.
+ */
+export type CommentAuthor = {
+    /**
+     * User Id
+     */
+    user_id: string;
+    /**
+     * Username
+     */
+    username: string;
+    /**
+     * Player Id
+     */
+    player_id: string | null;
+    /**
+     * Avatar Version
+     */
+    avatar_version: number | null;
+};
+
+/**
+ * CommentCreate
+ */
+export type CommentCreate = {
+    /**
+     * Body
+     */
+    body: string;
+};
+
+/**
+ * CommentList
+ */
+export type CommentList = {
+    /**
+     * Comments
+     */
+    comments: Array<CommentRead>;
+};
+
+/**
+ * CommentRead
+ */
+export type CommentRead = {
+    /**
+     * Id
+     */
+    id: number;
+    /**
+     * Song Id
+     */
+    song_id: string;
+    /**
+     * Body
+     */
+    body: string;
+    /**
+     * Created At
+     */
+    created_at: string;
+    author: CommentAuthor | null;
+    /**
+     * Mine
+     */
+    mine: boolean;
+    /**
+     * Can Delete
+     */
+    can_delete: boolean;
+};
+
+/**
  * CurrentSing
  */
 export type CurrentSing = {
@@ -323,6 +402,19 @@ export type PlayerRead = {
 };
 
 /**
+ * PlaylistCopy
+ *
+ * Every field optional, and so is the whole body: "copy this" needs to say nothing
+ * beyond the id already in the path.
+ */
+export type PlaylistCopy = {
+    /**
+     * Name
+     */
+    name?: string | null;
+};
+
+/**
  * PlaylistCreate
  */
 export type PlaylistCreate = {
@@ -331,9 +423,13 @@ export type PlaylistCreate = {
      */
     name: string;
     /**
-     * Shared
+     * Description
      */
-    shared?: boolean;
+    description?: string | null;
+    /**
+     * Is Global
+     */
+    is_global?: boolean;
 };
 
 /**
@@ -349,21 +445,53 @@ export type PlaylistDetail = {
      */
     name: string;
     /**
-     * Shared
+     * Description
      */
-    shared: boolean;
+    description: string | null;
+    /**
+     * Is Global
+     */
+    is_global: boolean;
     /**
      * Owner Username
      */
     owner_username: string | null;
     /**
+     * Owner Player Id
+     */
+    owner_player_id: string | null;
+    /**
      * Song Count
      */
     song_count: number;
     /**
-     * Mine
+     * Duration Seconds
      */
-    mine: boolean;
+    duration_seconds: number;
+    /**
+     * Cover Song Ids
+     */
+    cover_song_ids: Array<string>;
+    /**
+     * My Access
+     */
+    my_access: 'owner' | 'admin' | 'write' | 'read' | null;
+    /**
+     * Followed
+     */
+    followed: boolean;
+    /**
+     * Can Edit
+     */
+    can_edit: boolean;
+    /**
+     * Can Manage
+     */
+    can_manage: boolean;
+    /**
+     * Contains
+     */
+    contains?: boolean | null;
     /**
      * Entries
      */
@@ -402,6 +530,56 @@ export type PlaylistList = {
 };
 
 /**
+ * PlaylistMemberList
+ */
+export type PlaylistMemberList = {
+    /**
+     * Members
+     */
+    members: Array<PlaylistMemberRead>;
+};
+
+/**
+ * PlaylistMemberRead
+ */
+export type PlaylistMemberRead = {
+    /**
+     * User Id
+     */
+    user_id: string;
+    /**
+     * Username
+     */
+    username: string;
+    /**
+     * Player Id
+     */
+    player_id: string | null;
+    /**
+     * Access
+     */
+    access: 'read' | 'write' | 'admin';
+    /**
+     * Created At
+     */
+    created_at: string;
+};
+
+/**
+ * PlaylistMemberUpdate
+ */
+export type PlaylistMemberUpdate = {
+    /**
+     * User Id
+     */
+    user_id: string;
+    /**
+     * Access
+     */
+    access: 'read' | 'write' | 'admin';
+};
+
+/**
  * PlaylistOrder
  */
 export type PlaylistOrder = {
@@ -424,27 +602,60 @@ export type PlaylistRead = {
      */
     name: string;
     /**
-     * Shared
+     * Description
      */
-    shared: boolean;
+    description: string | null;
+    /**
+     * Is Global
+     */
+    is_global: boolean;
     /**
      * Owner Username
      */
     owner_username: string | null;
     /**
+     * Owner Player Id
+     */
+    owner_player_id: string | null;
+    /**
      * Song Count
      */
     song_count: number;
     /**
-     * Mine
+     * Duration Seconds
      */
-    mine: boolean;
+    duration_seconds: number;
+    /**
+     * Cover Song Ids
+     */
+    cover_song_ids: Array<string>;
+    /**
+     * My Access
+     */
+    my_access: 'owner' | 'admin' | 'write' | 'read' | null;
+    /**
+     * Followed
+     */
+    followed: boolean;
+    /**
+     * Can Edit
+     */
+    can_edit: boolean;
+    /**
+     * Can Manage
+     */
+    can_manage: boolean;
+    /**
+     * Contains
+     */
+    contains?: boolean | null;
 };
 
 /**
  * PlaylistUpdate
  *
- * Both fields optional: a PATCH only touches what it names.
+ * Every field optional: a PATCH only touches what it names. An explicit
+ * `"description": null` clears the description — leaving the field out keeps it.
  */
 export type PlaylistUpdate = {
     /**
@@ -452,9 +663,13 @@ export type PlaylistUpdate = {
      */
     name?: string | null;
     /**
-     * Shared
+     * Description
      */
-    shared?: boolean | null;
+    description?: string | null;
+    /**
+     * Is Global
+     */
+    is_global?: boolean | null;
 };
 
 /**
@@ -805,6 +1020,201 @@ export type SongRead = {
 };
 
 /**
+ * TagAssignment
+ *
+ * Which songs carry one tag. Ids only — the client already has the song list.
+ */
+export type TagAssignment = {
+    /**
+     * Tag Id
+     */
+    tag_id: string;
+    /**
+     * Song Ids
+     */
+    song_ids: Array<string>;
+};
+
+/**
+ * TagAssignments
+ */
+export type TagAssignments = {
+    /**
+     * Assignments
+     */
+    assignments: Array<TagAssignment>;
+};
+
+/**
+ * TagCreate
+ */
+export type TagCreate = {
+    /**
+     * Name
+     */
+    name: string;
+    /**
+     * Icon
+     */
+    icon?: string | null;
+    /**
+     * Color
+     */
+    color: 'neutral' | 'blue' | 'pink' | 'gold';
+    /**
+     * Show In List
+     */
+    show_in_list?: boolean;
+    /**
+     * Hide By Default
+     */
+    hide_by_default?: boolean;
+    /**
+     * Permissions
+     */
+    permissions?: Array<TagPermissionInput>;
+};
+
+/**
+ * TagList
+ */
+export type TagList = {
+    /**
+     * Tags
+     */
+    tags: Array<TagRead>;
+};
+
+/**
+ * TagPermissionInput
+ *
+ * One row: an action, and exactly one subject to grant it to.
+ */
+export type TagPermissionInput = {
+    /**
+     * Action
+     */
+    action: 'view' | 'view_songs' | 'assign';
+    /**
+     * Role
+     */
+    role?: string | null;
+    /**
+     * User Id
+     */
+    user_id?: string | null;
+};
+
+/**
+ * TagPermissionRead
+ *
+ * Who may do one thing with a tag: a role, or one account.
+ */
+export type TagPermissionRead = {
+    /**
+     * Action
+     */
+    action: 'view' | 'view_songs' | 'assign';
+    /**
+     * Role
+     */
+    role: string | null;
+    /**
+     * User Id
+     */
+    user_id: string | null;
+    /**
+     * Username
+     */
+    username: string | null;
+};
+
+/**
+ * TagPermissionsUpdate
+ */
+export type TagPermissionsUpdate = {
+    /**
+     * Permissions
+     */
+    permissions: Array<TagPermissionInput>;
+};
+
+/**
+ * TagRead
+ */
+export type TagRead = {
+    /**
+     * Id
+     */
+    id: string;
+    /**
+     * Name
+     */
+    name: string;
+    /**
+     * Icon
+     */
+    icon: string | null;
+    /**
+     * Color
+     */
+    color: string;
+    /**
+     * Show In List
+     */
+    show_in_list: boolean;
+    /**
+     * Hide By Default
+     */
+    hide_by_default: boolean;
+    /**
+     * Can View
+     */
+    can_view: boolean;
+    /**
+     * Can Assign
+     */
+    can_assign: boolean;
+    /**
+     * Song Count
+     */
+    song_count: number;
+    /**
+     * Permissions
+     */
+    permissions?: Array<TagPermissionRead> | null;
+};
+
+/**
+ * TagUpdate
+ *
+ * Every field optional: a PATCH only touches what it names. An explicit
+ * `"icon": null` clears the icon — leaving the field out keeps it.
+ */
+export type TagUpdate = {
+    /**
+     * Name
+     */
+    name?: string | null;
+    /**
+     * Icon
+     */
+    icon?: string | null;
+    /**
+     * Color
+     */
+    color?: 'neutral' | 'blue' | 'pink' | 'gold' | null;
+    /**
+     * Show In List
+     */
+    show_in_list?: boolean | null;
+    /**
+     * Hide By Default
+     */
+    hide_by_default?: boolean | null;
+};
+
+/**
  * UsdbSearchResult
  */
 export type UsdbSearchResult = {
@@ -913,6 +1323,41 @@ export type UserList = {
      * Users
      */
     users: Array<UserRead>;
+};
+
+/**
+ * UserLookupList
+ */
+export type UserLookupList = {
+    /**
+     * Users
+     */
+    users: Array<UserLookupRead>;
+};
+
+/**
+ * UserLookupRead
+ *
+ * An account as somebody looking for a person to share with sees it: enough to pick
+ * the right one, and nothing about what that account may do.
+ */
+export type UserLookupRead = {
+    /**
+     * Id
+     */
+    id: string;
+    /**
+     * Username
+     */
+    username: string;
+    /**
+     * Player Id
+     */
+    player_id: string | null;
+    /**
+     * Avatar Version
+     */
+    avatar_version: number | null;
 };
 
 /**
@@ -1250,6 +1695,38 @@ export type ListUsersResponses = {
 };
 
 export type ListUsersResponse = ListUsersResponses[keyof ListUsersResponses];
+
+export type LookupUsersData = {
+    body?: never;
+    path?: never;
+    query: {
+        /**
+         * Q
+         */
+        q: string;
+    };
+    url: '/api/v1/users/lookup';
+};
+
+export type LookupUsersErrors = {
+    /**
+     * Not logged in.
+     */
+    401: unknown;
+    /**
+     * The query is shorter than two characters.
+     */
+    422: unknown;
+};
+
+export type LookupUsersResponses = {
+    /**
+     * Successful Response
+     */
+    200: UserLookupList;
+};
+
+export type LookupUsersResponse = LookupUsersResponses[keyof LookupUsersResponses];
 
 export type DeleteUserData = {
     body?: never;
@@ -2230,9 +2707,23 @@ export type AddFavoriteResponse = AddFavoriteResponses[keyof AddFavoriteResponse
 export type ListPlaylistsData = {
     body?: never;
     path?: never;
-    query?: never;
+    query?: {
+        /**
+         * Song Id
+         */
+        song_id?: string | null;
+    };
     url: '/api/v1/playlists';
 };
+
+export type ListPlaylistsErrors = {
+    /**
+     * Validation Error
+     */
+    422: HttpValidationError;
+};
+
+export type ListPlaylistsError = ListPlaylistsErrors[keyof ListPlaylistsErrors];
 
 export type ListPlaylistsResponses = {
     /**
@@ -2286,11 +2777,11 @@ export type DeletePlaylistData = {
 
 export type DeletePlaylistErrors = {
     /**
-     * Not the owner.
+     * The caller may look at the playlist but not manage it.
      */
     403: unknown;
     /**
-     * Unknown playlist, or somebody else's private one.
+     * Unknown playlist, or one the caller was not named on.
      */
     404: unknown;
     /**
@@ -2324,7 +2815,7 @@ export type GetPlaylistData = {
 
 export type GetPlaylistErrors = {
     /**
-     * Unknown playlist, or somebody else's private one.
+     * Unknown playlist, or one the caller was not named on.
      */
     404: unknown;
     /**
@@ -2358,11 +2849,11 @@ export type UpdatePlaylistData = {
 
 export type UpdatePlaylistErrors = {
     /**
-     * Not the owner.
+     * The caller may look at the playlist but not manage it.
      */
     403: unknown;
     /**
-     * Unknown playlist, or somebody else's private one.
+     * Unknown playlist, or one the caller was not named on.
      */
     404: unknown;
     /**
@@ -2382,6 +2873,238 @@ export type UpdatePlaylistResponses = {
 
 export type UpdatePlaylistResponse = UpdatePlaylistResponses[keyof UpdatePlaylistResponses];
 
+export type CopyPlaylistData = {
+    body?: PlaylistCopy;
+    path: {
+        /**
+         * Playlist Id
+         */
+        playlist_id: string;
+    };
+    query?: never;
+    url: '/api/v1/playlists/{playlist_id}/copy';
+};
+
+export type CopyPlaylistErrors = {
+    /**
+     * A playlist needs an account to belong to.
+     */
+    401: unknown;
+    /**
+     * Unknown playlist, or one the caller was not named on.
+     */
+    404: unknown;
+    /**
+     * Validation Error
+     */
+    422: HttpValidationError;
+};
+
+export type CopyPlaylistError = CopyPlaylistErrors[keyof CopyPlaylistErrors];
+
+export type CopyPlaylistResponses = {
+    /**
+     * Successful Response
+     */
+    201: PlaylistDetail;
+};
+
+export type CopyPlaylistResponse = CopyPlaylistResponses[keyof CopyPlaylistResponses];
+
+export type ListPlaylistMembersData = {
+    body?: never;
+    path: {
+        /**
+         * Playlist Id
+         */
+        playlist_id: string;
+    };
+    query?: never;
+    url: '/api/v1/playlists/{playlist_id}/members';
+};
+
+export type ListPlaylistMembersErrors = {
+    /**
+     * The caller may look at the playlist but not manage it.
+     */
+    403: unknown;
+    /**
+     * Unknown playlist, or one the caller was not named on.
+     */
+    404: unknown;
+    /**
+     * Validation Error
+     */
+    422: HttpValidationError;
+};
+
+export type ListPlaylistMembersError = ListPlaylistMembersErrors[keyof ListPlaylistMembersErrors];
+
+export type ListPlaylistMembersResponses = {
+    /**
+     * Successful Response
+     */
+    200: PlaylistMemberList;
+};
+
+export type ListPlaylistMembersResponse = ListPlaylistMembersResponses[keyof ListPlaylistMembersResponses];
+
+export type SetPlaylistMemberData = {
+    body: PlaylistMemberUpdate;
+    path: {
+        /**
+         * Playlist Id
+         */
+        playlist_id: string;
+    };
+    query?: never;
+    url: '/api/v1/playlists/{playlist_id}/members';
+};
+
+export type SetPlaylistMemberErrors = {
+    /**
+     * The caller may look at the playlist but not manage it.
+     */
+    403: unknown;
+    /**
+     * Unknown playlist or user.
+     */
+    404: unknown;
+    /**
+     * That account already owns the playlist.
+     */
+    409: unknown;
+    /**
+     * Validation Error
+     */
+    422: HttpValidationError;
+};
+
+export type SetPlaylistMemberError = SetPlaylistMemberErrors[keyof SetPlaylistMemberErrors];
+
+export type SetPlaylistMemberResponses = {
+    /**
+     * Successful Response
+     */
+    200: PlaylistMemberList;
+    /**
+     * The playlist was shared with somebody new.
+     */
+    201: unknown;
+};
+
+export type SetPlaylistMemberResponse = SetPlaylistMemberResponses[keyof SetPlaylistMemberResponses];
+
+export type RemovePlaylistMemberData = {
+    body?: never;
+    path: {
+        /**
+         * Playlist Id
+         */
+        playlist_id: string;
+        /**
+         * User Id
+         */
+        user_id: string;
+    };
+    query?: never;
+    url: '/api/v1/playlists/{playlist_id}/members/{user_id}';
+};
+
+export type RemovePlaylistMemberErrors = {
+    /**
+     * The caller may look at the playlist but not manage it.
+     */
+    403: unknown;
+    /**
+     * Unknown playlist, or that account is not a member.
+     */
+    404: unknown;
+    /**
+     * Validation Error
+     */
+    422: HttpValidationError;
+};
+
+export type RemovePlaylistMemberError = RemovePlaylistMemberErrors[keyof RemovePlaylistMemberErrors];
+
+export type RemovePlaylistMemberResponses = {
+    /**
+     * Successful Response
+     */
+    204: void;
+};
+
+export type RemovePlaylistMemberResponse = RemovePlaylistMemberResponses[keyof RemovePlaylistMemberResponses];
+
+export type UnfollowPlaylistData = {
+    body?: never;
+    path: {
+        /**
+         * Playlist Id
+         */
+        playlist_id: string;
+    };
+    query?: never;
+    url: '/api/v1/playlists/{playlist_id}/follow';
+};
+
+export type UnfollowPlaylistErrors = {
+    /**
+     * Unknown playlist, or the caller is not a member.
+     */
+    404: unknown;
+    /**
+     * Validation Error
+     */
+    422: HttpValidationError;
+};
+
+export type UnfollowPlaylistError = UnfollowPlaylistErrors[keyof UnfollowPlaylistErrors];
+
+export type UnfollowPlaylistResponses = {
+    /**
+     * Successful Response
+     */
+    204: void;
+};
+
+export type UnfollowPlaylistResponse = UnfollowPlaylistResponses[keyof UnfollowPlaylistResponses];
+
+export type FollowPlaylistData = {
+    body?: never;
+    path: {
+        /**
+         * Playlist Id
+         */
+        playlist_id: string;
+    };
+    query?: never;
+    url: '/api/v1/playlists/{playlist_id}/follow';
+};
+
+export type FollowPlaylistErrors = {
+    /**
+     * Unknown playlist, or the caller is not a member.
+     */
+    404: unknown;
+    /**
+     * Validation Error
+     */
+    422: HttpValidationError;
+};
+
+export type FollowPlaylistError = FollowPlaylistErrors[keyof FollowPlaylistErrors];
+
+export type FollowPlaylistResponses = {
+    /**
+     * Successful Response
+     */
+    204: void;
+};
+
+export type FollowPlaylistResponse = FollowPlaylistResponses[keyof FollowPlaylistResponses];
+
 export type AddPlaylistEntryData = {
     body: PlaylistEntryCreate;
     path: {
@@ -2396,7 +3119,7 @@ export type AddPlaylistEntryData = {
 
 export type AddPlaylistEntryErrors = {
     /**
-     * Not the owner.
+     * The caller may look at the playlist but not change it.
      */
     403: unknown;
     /**
@@ -2438,15 +3161,15 @@ export type ReorderPlaylistEntriesData = {
 
 export type ReorderPlaylistEntriesErrors = {
     /**
-     * Not the owner.
+     * The caller may look at the playlist but not change it.
      */
     403: unknown;
     /**
-     * Unknown playlist, or somebody else's private one.
+     * Unknown playlist, or one the caller was not named on.
      */
     404: unknown;
     /**
-     * The order is not a permutation of the playlist's songs.
+     * The order is not a permutation of the songs the caller sees.
      */
     422: unknown;
 };
@@ -2478,7 +3201,7 @@ export type RemovePlaylistEntryData = {
 
 export type RemovePlaylistEntryErrors = {
     /**
-     * Not the owner.
+     * The caller may look at the playlist but not change it.
      */
     403: unknown;
     /**
@@ -2707,6 +3430,367 @@ export type ListLatestScoresResponses = {
 };
 
 export type ListLatestScoresResponse = ListLatestScoresResponses[keyof ListLatestScoresResponses];
+
+export type ListTagsData = {
+    body?: never;
+    path?: never;
+    query?: never;
+    url: '/api/v1/tags';
+};
+
+export type ListTagsResponses = {
+    /**
+     * Successful Response
+     */
+    200: TagList;
+};
+
+export type ListTagsResponse = ListTagsResponses[keyof ListTagsResponses];
+
+export type CreateTagData = {
+    body: TagCreate;
+    path?: never;
+    query?: never;
+    url: '/api/v1/tags';
+};
+
+export type CreateTagErrors = {
+    /**
+     * A tag of that name already exists.
+     */
+    409: unknown;
+    /**
+     * Unknown role or account, or a bad color or icon.
+     */
+    422: unknown;
+};
+
+export type CreateTagResponses = {
+    /**
+     * Successful Response
+     */
+    201: TagRead;
+};
+
+export type CreateTagResponse = CreateTagResponses[keyof CreateTagResponses];
+
+export type ListTagAssignmentsData = {
+    body?: never;
+    path?: never;
+    query?: never;
+    url: '/api/v1/tags/assignments';
+};
+
+export type ListTagAssignmentsResponses = {
+    /**
+     * Successful Response
+     */
+    200: TagAssignments;
+};
+
+export type ListTagAssignmentsResponse = ListTagAssignmentsResponses[keyof ListTagAssignmentsResponses];
+
+export type DeleteTagData = {
+    body?: never;
+    path: {
+        /**
+         * Tag Id
+         */
+        tag_id: string;
+    };
+    query?: never;
+    url: '/api/v1/tags/{tag_id}';
+};
+
+export type DeleteTagErrors = {
+    /**
+     * Unknown tag.
+     */
+    404: unknown;
+    /**
+     * Validation Error
+     */
+    422: HttpValidationError;
+};
+
+export type DeleteTagError = DeleteTagErrors[keyof DeleteTagErrors];
+
+export type DeleteTagResponses = {
+    /**
+     * Successful Response
+     */
+    204: void;
+};
+
+export type DeleteTagResponse = DeleteTagResponses[keyof DeleteTagResponses];
+
+export type UpdateTagData = {
+    body: TagUpdate;
+    path: {
+        /**
+         * Tag Id
+         */
+        tag_id: string;
+    };
+    query?: never;
+    url: '/api/v1/tags/{tag_id}';
+};
+
+export type UpdateTagErrors = {
+    /**
+     * Unknown tag.
+     */
+    404: unknown;
+    /**
+     * A tag of that name already exists.
+     */
+    409: unknown;
+    /**
+     * Validation Error
+     */
+    422: HttpValidationError;
+};
+
+export type UpdateTagError = UpdateTagErrors[keyof UpdateTagErrors];
+
+export type UpdateTagResponses = {
+    /**
+     * Successful Response
+     */
+    200: TagRead;
+};
+
+export type UpdateTagResponse = UpdateTagResponses[keyof UpdateTagResponses];
+
+export type ReplaceTagPermissionsData = {
+    body: TagPermissionsUpdate;
+    path: {
+        /**
+         * Tag Id
+         */
+        tag_id: string;
+    };
+    query?: never;
+    url: '/api/v1/tags/{tag_id}/permissions';
+};
+
+export type ReplaceTagPermissionsErrors = {
+    /**
+     * Unknown tag.
+     */
+    404: unknown;
+    /**
+     * Unknown role or account.
+     */
+    422: unknown;
+};
+
+export type ReplaceTagPermissionsResponses = {
+    /**
+     * Successful Response
+     */
+    200: TagRead;
+};
+
+export type ReplaceTagPermissionsResponse = ReplaceTagPermissionsResponses[keyof ReplaceTagPermissionsResponses];
+
+export type UnassignTagData = {
+    body?: never;
+    path: {
+        /**
+         * Song Id
+         */
+        song_id: string;
+        /**
+         * Tag Id
+         */
+        tag_id: string;
+    };
+    query?: never;
+    url: '/api/v1/songs/{song_id}/tags/{tag_id}';
+};
+
+export type UnassignTagErrors = {
+    /**
+     * The caller may see the tag but not set it.
+     */
+    403: unknown;
+    /**
+     * Unknown song or tag.
+     */
+    404: unknown;
+    /**
+     * Validation Error
+     */
+    422: HttpValidationError;
+};
+
+export type UnassignTagError = UnassignTagErrors[keyof UnassignTagErrors];
+
+export type UnassignTagResponses = {
+    /**
+     * Successful Response
+     */
+    204: void;
+};
+
+export type UnassignTagResponse = UnassignTagResponses[keyof UnassignTagResponses];
+
+export type AssignTagData = {
+    body?: never;
+    path: {
+        /**
+         * Song Id
+         */
+        song_id: string;
+        /**
+         * Tag Id
+         */
+        tag_id: string;
+    };
+    query?: never;
+    url: '/api/v1/songs/{song_id}/tags/{tag_id}';
+};
+
+export type AssignTagErrors = {
+    /**
+     * The caller may see the tag but not set it.
+     */
+    403: unknown;
+    /**
+     * Unknown song or tag.
+     */
+    404: unknown;
+    /**
+     * Validation Error
+     */
+    422: HttpValidationError;
+};
+
+export type AssignTagError = AssignTagErrors[keyof AssignTagErrors];
+
+export type AssignTagResponses = {
+    /**
+     * Successful Response
+     */
+    204: void;
+};
+
+export type AssignTagResponse = AssignTagResponses[keyof AssignTagResponses];
+
+export type ListSongCommentsData = {
+    body?: never;
+    path: {
+        /**
+         * Song Id
+         */
+        song_id: string;
+    };
+    query?: never;
+    url: '/api/v1/songs/{song_id}/comments';
+};
+
+export type ListSongCommentsErrors = {
+    /**
+     * Unknown song.
+     */
+    404: unknown;
+    /**
+     * Validation Error
+     */
+    422: HttpValidationError;
+};
+
+export type ListSongCommentsError = ListSongCommentsErrors[keyof ListSongCommentsErrors];
+
+export type ListSongCommentsResponses = {
+    /**
+     * Successful Response
+     */
+    200: CommentList;
+};
+
+export type ListSongCommentsResponse = ListSongCommentsResponses[keyof ListSongCommentsResponses];
+
+export type AddSongCommentData = {
+    body: CommentCreate;
+    path: {
+        /**
+         * Song Id
+         */
+        song_id: string;
+    };
+    query?: never;
+    url: '/api/v1/songs/{song_id}/comments';
+};
+
+export type AddSongCommentErrors = {
+    /**
+     * A comment needs an account to sign it.
+     */
+    401: unknown;
+    /**
+     * Unknown song.
+     */
+    404: unknown;
+    /**
+     * Validation Error
+     */
+    422: HttpValidationError;
+};
+
+export type AddSongCommentError = AddSongCommentErrors[keyof AddSongCommentErrors];
+
+export type AddSongCommentResponses = {
+    /**
+     * Successful Response
+     */
+    201: CommentRead;
+};
+
+export type AddSongCommentResponse = AddSongCommentResponses[keyof AddSongCommentResponses];
+
+export type DeleteSongCommentData = {
+    body?: never;
+    path: {
+        /**
+         * Song Id
+         */
+        song_id: string;
+        /**
+         * Comment Id
+         */
+        comment_id: number;
+    };
+    query?: never;
+    url: '/api/v1/songs/{song_id}/comments/{comment_id}';
+};
+
+export type DeleteSongCommentErrors = {
+    /**
+     * Somebody else's comment, without `comments.moderate`.
+     */
+    403: unknown;
+    /**
+     * Unknown song or comment.
+     */
+    404: unknown;
+    /**
+     * Validation Error
+     */
+    422: HttpValidationError;
+};
+
+export type DeleteSongCommentError = DeleteSongCommentErrors[keyof DeleteSongCommentErrors];
+
+export type DeleteSongCommentResponses = {
+    /**
+     * Successful Response
+     */
+    204: void;
+};
+
+export type DeleteSongCommentResponse = DeleteSongCommentResponses[keyof DeleteSongCommentResponses];
 
 export type HealthData = {
     body?: never;

@@ -5,8 +5,9 @@ import logging
 from fastapi import APIRouter, Depends, HTTPException, Request
 from pydantic import BaseModel, Field
 
-from ..auth.deps import PrincipalDep, require
+from ..auth.deps import HiddenSongsDep, PrincipalDep, require
 from ..db import SessionDep
+from ..songs.api import song_or_404
 from . import service
 from .colors import COLORS, Color, ColorList, UnknownColorError
 from .schema import CurrentSing, CurrentSingRead
@@ -137,13 +138,20 @@ async def list_karaoke_slots(session: SessionDep) -> SlotConfigRead:
     },
 )
 async def sing_song(
-    new_sing: SingCreate, request: Request, session: SessionDep, principal: PrincipalDep
+    new_sing: SingCreate,
+    request: Request,
+    session: SessionDep,
+    principal: PrincipalDep,
+    hidden: HiddenSongsDep,
 ) -> CurrentSing:
     """Start a song. Returns as soon as USDX was launched; the song's end arrives as the
     `karaoke.ended` / `scores.recorded` websocket events."""
     if new_sing.force:
         # A forced sing kills whatever is playing, so it needs the right to stop it too.
         principal.require("karaoke.stop")
+    # Here and not in the service: who the caller is decides which songs exist for them,
+    # and the sing flow itself stays principal-free.
+    await song_or_404(new_sing.song_id, session, hidden)
     try:
         return await service.start_sing(
             session,

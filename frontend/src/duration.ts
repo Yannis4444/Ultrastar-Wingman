@@ -6,6 +6,20 @@ export function formatDuration(seconds: number | null): string {
 }
 
 /**
+ * How long a whole playlist runs, in words — "48 min", "1 h 20 min". Minutes,
+ * not `m:ss`: nobody plans an evening to the second, and the clock format would
+ * read as one song's length beside the song count.
+ */
+export function formatTotalDuration(seconds: number): string {
+  // Anything that plays at all is at least a minute of the evening.
+  const minutes = Math.max(1, Math.round(seconds / 60));
+  if (minutes < 60) return `${minutes} min`;
+  const rest = minutes % 60;
+  const hours = (minutes - rest) / 60;
+  return rest === 0 ? `${hours} h` : `${hours} h ${rest} min`;
+}
+
+/**
  * The backend timestamps in UTC, but SQLite can round-trip the offset away and
  * a naive string would be read as local time.
  */

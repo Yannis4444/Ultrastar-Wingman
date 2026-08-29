@@ -110,6 +110,126 @@
   color: var(--color-darker);
 }
 
+/* The Tags row's value: the song's tag glyphs, each painted by its own
+   `.tag-color-*` class, or — past three of them — how many there are. */
+.song-option-tags {
+  display: flex;
+  flex: 0 0 auto;
+  align-items: center;
+  gap: 4px;
+  font-size: 0.9em;
+  color: var(--color-darker);
+}
+
+/* The Comments row's value: how many there are. In the row's own colour, not
+   the score row's gold — a count is a fact, not an accolade. */
+.song-option-count {
+  flex: 0 0 auto;
+  color: var(--color-darker);
+  font-variant-numeric: tabular-nums;
+}
+
+/* Comments (§5). One row per comment on the same axis as every other list in
+   the app — 8px on the list plus 8px of row padding — so the avatars line up
+   with the covers of the picker sub-view next door. */
+.song-comments {
+  margin: 4px 8px 0 8px;
+  padding: 0;
+  list-style: none;
+}
+
+.song-comments li + li {
+  border-top: 1px solid var(--input-border-color);
+}
+
+/* Top-aligned, not centred: the name is the row's first line and has to stay
+   level with the avatar however long the body underneath it runs. */
+.song-comment {
+  display: flex;
+  gap: 12px;
+  align-items: flex-start;
+  min-height: 44px;
+  padding: 8px;
+}
+
+.song-comment-text {
+  flex: 1 1 auto;
+  min-width: 0;
+}
+
+/* Name and time share one line and wrap together on a narrow phone; the
+   baseline keeps the smaller time sitting on the name's. */
+.song-comment-head {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  align-items: baseline;
+  margin: 0;
+}
+
+/* A username is one line and never wraps (§2), so a 32-character one on a
+   360px phone ellipsises instead of running out of the row and printing
+   itself under the delete button. `min-width: 0` is what lets a flex item
+   shrink below its own unbreakable word at all. */
+.song-comment-author {
+  min-width: 0;
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+  color: var(--color);
+}
+
+.song-comment-time {
+  flex: 0 0 auto;
+  font-size: 0.85em;
+  color: var(--color-darker);
+}
+
+/* `pre-wrap` keeps the newlines the composer's Enter puts in; `anywhere` is
+   what stops one unbroken 400-character word scrolling the page (§1.11). */
+.song-comment-body {
+  margin: 2px 0 0 0;
+  color: var(--color);
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+
+/* The composer at the foot of the sub-view: the quiet field and the 40px send
+   button, bottom-aligned so the button stays beside the last line as the
+   field grows. */
+.song-comment-composer {
+  display: flex;
+  gap: 8px;
+  align-items: flex-end;
+  margin: 12px 16px 0 16px;
+}
+
+/* `rows` sets the starting height and the script grows it from there, so the
+   72px floor a settings textarea gets has to go — an empty composer three
+   lines tall would dwarf the comments above it. Two classes deep, because
+   that floor is `textarea.text-input-quiet` and an equally specific rule would
+   only win on stylesheet order. */
+.song-comment-composer textarea.song-comment-input {
+  flex: 1 1 auto;
+  min-width: 0;
+  min-height: 0;
+  resize: none;
+  overflow-y: auto;
+}
+
+/* A tag the song does not wear, in the Tags sub-view: the same off-state the
+   song controls use, so the coloured glyphs are the ones that are on. */
+.song-tag-glyph-off {
+  color: var(--color-darkerer);
+}
+
+/* A tag row with nothing to press — the padlock row. It keeps the picker row's
+   shape and loses its cursor and its hover band (`:hover:enabled` never
+   matches a div, so only the cursor has to go). */
+.song-tag-locked {
+  cursor: default;
+}
+
 .song-details-list {
   margin: 0;
   padding: 0 0 4px 0;
@@ -141,74 +261,18 @@
   font-variant-numeric: tabular-nums;
 }
 
-/* Add-to-playlist sub-view: tap a playlist to add the song. 8px side margins
-   so the row text starts at the 16px gutter while the hover band bleeds into
-   it and reads as a row. */
-.song-playlists-list {
-  margin: 0 8px;
-  padding: 0;
-  list-style: none;
-}
-
-.song-playlists-list li + li {
-  border-top: 1px solid var(--input-border-color);
-}
-
-.song-playlists-row {
+/* The "New playlist…" row of the picker, expanded: the name field and the
+   plus that commits it, on the same axis as the rows above (the 8px of the
+   list plus the 8px a `.picker-row` pads itself with). */
+.song-playlists-new {
   display: flex;
-  width: 100%;
-  min-height: 56px;
+  gap: 8px;
   align-items: center;
-  gap: 12px;
-  padding: 0 8px;
-  font: inherit;
-  color: var(--color);
-  background: none;
-  border: none;
-  border-radius: var(--border-radius-small);
-  cursor: pointer;
+  min-height: 56px;
+  padding: 6px 8px;
 }
 
-.song-playlists-row:hover:enabled,
-.song-playlists-row:active:enabled {
-  background-color: var(--highlight-blue-dark);
-}
-
-.song-playlists-row:disabled {
-  color: var(--color-dark);
-  cursor: default;
-}
-
-.song-playlists-glyph {
-  font-size: 1.4em;
-  color: var(--color-darker);
-}
-
-/* The leading mark is what says "already in", so it overrides the glyph gray. */
-.song-playlists-added {
-  color: var(--highlight-blue-light);
-}
-
-.song-playlists-text {
+.song-playlists-name-input {
   flex: 1 1 auto;
   min-width: 0;
-  text-align: left;
-}
-
-.song-playlists-name,
-.song-playlists-meta {
-  display: block;
-  overflow: hidden;
-  white-space: nowrap;
-  text-overflow: ellipsis;
-}
-
-.song-playlists-name {
-  font-size: 1.15em;
-  font-weight: 600;
-}
-
-.song-playlists-meta {
-  font-size: 0.85em;
-  color: var(--color-darker);
 }

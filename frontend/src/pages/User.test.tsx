@@ -85,6 +85,7 @@ const ADMIN_CAPABILITIES = [
   "users.manage",
   "permissions.manage",
   "settings.view",
+  "tags.manage",
 ];
 
 function player(id: string, name: string): PlayerRead {
@@ -288,6 +289,10 @@ test("an admin gets one menu row per admin surface, not the surfaces inline", as
   expect(
     screen.getByRole("link", { name: "Players & accounts" }),
   ).toHaveAttribute("href", "/user/accounts");
+  expect(screen.getByRole("link", { name: "Tags" })).toHaveAttribute(
+    "href",
+    "/user/tags",
+  );
   expect(screen.getByRole("link", { name: "Permissions" })).toHaveAttribute(
     "href",
     "/user/permissions",

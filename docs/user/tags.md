@@ -1,0 +1,143 @@
+# Tags
+
+A tag is a label the whole party shares. Wishes and favorites belong to one
+person; a tag belongs to the song. Put **broken** on the file that never plays,
+**archive** on the ones nobody should stumble over, **duet** on the ones that
+need two microphones — and decide, per tag, who is allowed to know it exists.
+
+Setting tags up needs the right to manage tags, which **trusted** and **admin**
+hold by default. Everybody else only ever sees the result.
+
+## The two tags you already have
+
+Wingman starts with two, and both are ordinary tags: rename them, recolour
+them, or delete them.
+
+| Tag | What it does |
+|---|---|
+| **broken** | For a song that does not work — the audio is missing, the timing is wrong. Only **trusted** and **admin** can see it, and a song marked broken is invisible to everybody else. |
+| **archive** | For songs that should not clutter the list. Everybody can see it, but its songs are folded away until somebody asks for them. |
+
+## Who sees what
+
+Every tag carries three separate rights. They are the whole point of tags, so
+they are worth reading slowly.
+
+| Right | What it means |
+|---|---|
+| **See tag** | The tag exists for that person. They can filter on it, and they see it on a song. |
+| **See songs** | They may see the songs carrying the tag **at all**. |
+| **Tag songs** | They may put the tag on a song and take it off again. |
+
+**See songs** is the one with teeth. Take it away, and every song wearing that
+tag disappears for that person — out of the song list, out of the search, out of
+the random reel. That is how **broken** works: nobody granted *See songs* on it
+ever meets a broken song.
+
+The other two are quieter. *See tag* only decides whether the tag is offered as
+something to look at. *Tag songs* is the right to change what is tagged, and it
+only works alongside *See tag* — you cannot set a label you are not allowed to
+know about.
+
+!!! note
+    Administrators are never in the table. They see every tag and every song, so
+    no combination of ticks can hide anything from the host.
+
+Taking *See tag* away from yourself is safe: **User → Tags** lists every tag to
+everybody who may manage tags, whether they may see it or not, so you can always
+tick it back on. What you do lose is the tag itself — it leaves your song list,
+your song details and your filter, and you can no longer put it on a song.
+
+## Create a tag
+
+1. Open **User → Tags**. The page lists every tag, with how many songs carry it.
+2. Press **+** in the top right.
+3. Give it a **name** (up to 32 characters) and, if you like, an **icon** and one
+   of the four **colours**. The icon and the colour are how the tag is
+   recognised at a glance, so pick something that is not already in use.
+4. Decide the two options below (next section).
+5. Tick who it is for, in the table of **guest**, **user** and **trusted** — and,
+   under **Specific people**, search for an account to give one person more than
+   their role has.
+6. **Save**.
+
+A brand-new tag starts out like **archive**: everybody can see it and its songs,
+and **trusted** accounts may set it. Change that before you save if the tag is
+meant to be private.
+
+Two sentences may appear under the table while you are ticking. They are
+warnings, not refusals — Wingman will save either way:
+
+- **Tag songs without See songs.** That person would tag a song and watch it
+  vanish, with no way to undo it. Tick *See songs* as well.
+- **See tag without See songs.** The tag is offered but none of its songs are, so
+  its filter is always empty.
+
+## The two options
+
+**Show in song list** puts the tag's icon on every song that carries it, in the
+song list, beside the favorite heart. Use it for something worth spotting while
+scrolling — leave it off for a tag half the library would end up with, or the
+rows fill with icons.
+
+**Hide songs by default** keeps those songs out of the song list and out of the
+random reel's *All songs* until somebody asks for them in the filter — a wished
+song can still win the reel. It is a default, not a lock: everybody who may see
+the tag can still bring the songs back. To really hide songs from somebody,
+take *See songs* away from them instead.
+
+## Change or delete a tag
+
+Tap a tag on **User → Tags** to open it again. Everything is editable, the
+permissions included; **Save** sends only what you changed.
+
+**Delete tag** at the foot removes the tag from every song that carries it and
+from everybody it was granted to. The songs themselves stay in the library —
+only the label goes.
+
+## Putting a tag on a song
+
+Tags are set up here and used on the song itself. Open a song — from **Songs**,
+from a playlist, from the random reel — and tap its **Tags** row, under *Add to
+playlist*. The row shows the icons of the tags the song already wears, so you
+can see how it is marked without opening anything; past three of them it says
+how many there are instead.
+
+Inside, every tag you may see is one row:
+
+- A tag you may **set** is a switch. Tap it to put the tag on the song, tap it
+  again to take it off. Its icon is grey while the song does not wear the tag
+  and takes the tag's colour once it does. Everybody in the room sees the change
+  straight away.
+- A tag you may only **see** carries a padlock and does nothing. Somebody
+  holding *Tag songs* on it has to make that change.
+
+If you may not see a single tag, the row is not there at all. If none of the
+tags is yours to set and none is on the song, the list is replaced by one
+sentence — a screen full of padlocks would say the same thing more slowly.
+
+A tag with **Show in song list** on also rides on the song's row everywhere it
+is listed: its icon, in its colour, after the microphone and the heart, with its
+name on hover.
+
+## Filtering the song list by tag
+
+Every tag you may see is also a filter. On the **Songs** page the funnel chip
+opens **Filter**, a panel with one row per tag — and, above them, your favorites
+and the songs you have sung. Each row is set to **Any**, **Yes** or **No**:
+*Yes* keeps only the songs wearing the tag, *No* drops them, and several rows
+narrow the list together. The list updates as you tap; **Reset** puts everything
+back.
+
+A tag with **Hide songs by default** simply starts its row on *No*. That is the
+whole mechanism — anybody who may see the tag can move the row to *Any* and have
+the songs back, which is why it is a default and not a lock. The funnel counts
+those rows as well, so once you are filtering, the number on the chip includes
+the tags that were already holding songs back.
+
+The panel itself is described in [Sing a song](singing.md).
+
+## See also
+
+- [Accounts and permissions](accounts-and-permissions.md) — the roles this
+  table is built from, and who holds the right to manage tags.

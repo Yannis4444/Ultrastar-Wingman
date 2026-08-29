@@ -78,6 +78,41 @@ class WishlistUpdated(Event):
     latest: datetime | None = None
 
 
+class PlaylistsChanged(Event):
+    """A playlist was created, changed, shared, followed, copied or deleted. Ids only —
+    the bus is anonymous, and who may see the list is decided when the client asks for it.
+    `playlist_id` is None when several changed at once (an account being deleted)."""
+
+    event: Literal["playlists.changed"] = "playlists.changed"
+    playlist_id: str | None = None
+
+
+class TagsChanged(Event):
+    """A tag was created, edited, deleted, or had its permission rows replaced. No payload:
+    what a listener may see of the tags depends on who it is, which the bus does not know."""
+
+    event: Literal["tags.changed"] = "tags.changed"
+
+
+class SongTagsChanged(Event):
+    """One song was tagged or untagged. Ids only, for the same reason: a client that may
+    not view the tag learns nothing from the pair it cannot resolve."""
+
+    event: Literal["song_tags.changed"] = "song_tags.changed"
+    song_id: str
+    tag_id: str
+
+
+class CommentsChanged(Event):
+    """One song's comments changed: somebody said something, took it back, or a moderator
+    removed it. `count` is what the song's badge shows — the bodies themselves are not on
+    the bus, so a listener refetches the list it happens to have open."""
+
+    event: Literal["comments.changed"] = "comments.changed"
+    song_id: str
+    count: int
+
+
 class EventBus:
     """Fans events out to all connected sockets."""
 

@@ -39,6 +39,12 @@ export const MANAGE_ENTRIES: ManageEntry[] = [
     icon: "users",
   },
   {
+    capabilities: ["tags.manage"],
+    label: "Tags",
+    to: "/user/tags",
+    icon: "tag",
+  },
+  {
     capabilities: ["permissions.manage"],
     label: "Permissions",
     to: "/user/permissions",

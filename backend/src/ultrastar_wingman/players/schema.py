@@ -30,11 +30,11 @@ def read_player(player: Player) -> PlayerRead:
         registered=player.registered,
         # File paths stay server-side; the UI only needs to know whether to request the image.
         has_avatar=player.avatar_file is not None,
-        avatar_version=_avatar_version(player.avatar_file),
+        avatar_version=avatar_version(player.avatar_file),
     )
 
 
-def _avatar_version(avatar_file: str | None) -> int | None:
+def avatar_version(avatar_file: str | None) -> int | None:
     """`None` when there is no avatar — or when the file behind it is gone, which the
     avatar endpoint answers with a 404 anyway."""
     if avatar_file is None:

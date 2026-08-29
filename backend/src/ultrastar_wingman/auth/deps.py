@@ -16,6 +16,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from ..db import SessionDep
 from ..library import service as library
+from ..tags import service as tags
 from . import permissions, service
 from .model import User
 
@@ -134,6 +135,27 @@ async def account_id(principal: PrincipalDep) -> str:
 
 
 AccountIdDep = Annotated[str, Depends(account_id)]
+
+
+def tag_viewer(principal: Principal) -> tags.Viewer:
+    """The caller as `tags.service` sees them. That module must not import FastAPI, so the
+    `Principal` is taken apart here — the same split as the wishlist identity below."""
+    return tags.Viewer(
+        role=principal.role, user_id=None if principal.user is None else principal.user.id
+    )
+
+
+async def hidden_song_ids(principal: PrincipalDep, session: SessionDep) -> frozenset[str]:
+    """The songs this caller may not see, because of a tag they hold no `view_songs` on.
+
+    A dependency and not a check inside `songs.api`, because it reaches much further than
+    the song list: every route that takes a song id has to answer 404 for one of these, or
+    the id itself would tell the caller the song is there.
+    """
+    return await tags.hidden_song_ids(session, tag_viewer(principal))
+
+
+HiddenSongsDep = Annotated[frozenset[str], Depends(hidden_song_ids)]
 
 
 @dataclass(frozen=True)

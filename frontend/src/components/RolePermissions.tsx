@@ -31,6 +31,8 @@ const GROUP_ICONS: Record<string, IconName> = {
   players: "users",
   wishlist: "playlist-plus",
   playlists: "list",
+  tags: "tag",
+  comments: "comment",
   downloads: "download",
   usdb: "globe",
   stats: "chart",
@@ -63,7 +65,13 @@ const DESCRIPTIONS: Record<string, string> = {
   "playlists.view": "See shared playlists and the songs in them.",
   "playlists.manage": "Create and edit own playlists.",
   "playlists.moderate":
-    "Change and delete shared playlists somebody else made — needs manage too.",
+    "Change and delete somebody else's playlists — the global ones, and the ones shared with you. Needs manage too.",
+  "tags.manage":
+    "Create tags, say who each one is for, and delete them. Putting a tag on a song is granted per tag.",
+  "comments.write":
+    "Say something under a song. Needs an account — a comment carries your name.",
+  "comments.moderate":
+    "Delete anybody's comment. Taking your own back never needs a right.",
   "downloads.view": "See the download queue.",
   "downloads.manage": "Start downloads, retry and clear them.",
   "usdb.search": "Search usdb.animux.de for new songs.",

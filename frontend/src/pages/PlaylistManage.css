@@ -1,0 +1,96 @@
+/* Playlist manage (§7): the three fields, the people who were named on the
+   list, and the way to delete it. Flat on `--bg` like every other sub-page —
+   the fields carry the page, so nothing here is boxed. The page frame,
+   the labelled field and the checkbox row come from `Playlists.css`, which
+   this page imports alongside this file. */
+
+.playlist-manage-form {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  margin: 16px;
+}
+
+/* The page's one primary, and the word that says it landed. */
+.playlist-manage-save {
+  display: flex;
+  gap: 12px;
+  align-items: center;
+}
+
+.playlist-manage-saved {
+  font-size: 0.85em;
+  color: var(--highlight-blue-light);
+}
+
+.playlist-manage-hint {
+  margin: 4px 16px 0 16px;
+  font-size: 0.85em;
+  color: var(--color-darker);
+}
+
+/* The search that shares the list, on the same 16px gutter as the fields. The
+   field itself is a `.playlists-field`, which already sizes the input. */
+.playlist-manage-search {
+  margin: 12px 16px 0 16px;
+}
+
+/* The search results are people rows too, so the boundary between them and the
+   members has to be said out loud — otherwise the owner reads as a duplicate
+   row of the list below. A caption, not an `h2`: the section heading is
+   "Members", and this is one list inside it. */
+.playlist-manage-caption {
+  margin: 12px 16px 0 16px;
+  font-size: 0.85em;
+  color: var(--color-darker);
+}
+
+/* People rows (§4): a 40px avatar, the username, one trailing control.
+   8px on the list plus 8px of row padding puts the names on the page gutter,
+   the axis every other list in the app sits on. */
+.playlist-manage-people {
+  display: flex;
+  flex-direction: column;
+  margin: 4px 8px 0 8px;
+  padding: 0;
+  list-style: none;
+}
+
+.playlist-manage-people li {
+  border-bottom: 1px solid var(--input-border-color);
+}
+
+.playlist-manage-people > :last-child {
+  border-bottom: none;
+}
+
+.playlist-manage-row {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+  min-height: 48px;
+  padding: 8px;
+}
+
+.playlist-manage-name {
+  flex: 1 1 auto;
+  min-width: 0;
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+
+/* The owner's row has no control, so the word stands where the select does. */
+.playlist-manage-owner {
+  flex: 0 0 auto;
+  font-size: 0.85em;
+  color: var(--color-darker);
+}
+
+.playlist-manage-row select {
+  flex: 0 0 auto;
+}
+
+.playlist-manage-delete {
+  margin: 24px 16px;
+}

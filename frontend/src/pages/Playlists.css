@@ -5,92 +5,34 @@
   margin: 0 auto;
 }
 
-.playlists-notice,
-.playlists-empty {
+.playlists-notice {
   margin: 16px;
 }
 
-/* Still the sentence under one playlist's empty song list (`Playlist.tsx`). */
-.playlists-empty {
-  font-size: 0.85em;
-  color: var(--color-darker);
+/* ---------------------------------------------------------------- Playlists
+   The four groups: your own, the ones shared with you, the global ones and —
+   folded away — the shared ones you unfollowed. Flat `h2` headings, hairline
+   rows, no card anywhere. */
+
+/* The heading owns the 16px above it (`h2` already carries `margin: 16px 16px
+   0`), so a group needs nothing of its own. */
+.playlists-group + .playlists-group {
+  margin-top: 4px;
 }
 
-/* The empty state is the shared `EmptyState` component — this page used to
-   carry a verbatim copy of the scores page's rules. */
-
-.playlists-create,
-.playlists-edit {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 8px;
-  align-items: center;
-}
-
-/* The form hangs off the header's plus button, so it sits tight under it. */
-.playlists-create {
-  margin: 12px 16px 0 16px;
-}
-
-/* The edit form takes the row's place, so it keeps the list's own gutter. */
-.playlists-edit {
-  box-sizing: border-box;
-  width: 100%;
-  padding: 8px;
-}
-
-.playlists-create .text-input,
-.playlists-edit .text-input {
-  flex: 1 1 12em;
-  min-width: 0;
-}
-
-.playlists-shared {
-  display: flex;
-  gap: 4px;
-  align-items: center;
-  font-size: 0.85em;
-  color: var(--color-darker);
-  white-space: nowrap;
-}
-
-.playlists-shared input {
-  width: 20px;
-  height: 20px;
-  margin: 0 4px;
-  accent-color: var(--highlight-blue-light);
-}
-
-.playlists-edit-actions {
-  display: flex;
-  flex: 1 1 auto;
-  gap: 8px;
-  justify-content: flex-end;
-}
-
-/* Flat rows with hairline separators — the row itself is the way into the
-   playlist, the two icon buttons sit beside it (never inside: a link may not
-   contain buttons). */
 .playlists-list {
   display: flex;
   flex-direction: column;
 
   /* 8px here plus 8px of row padding: the text lands on the page gutter while
      the hover band bleeds past it, the way the score groups do. */
-  margin: 0 8px;
+  margin: 4px 8px 0 8px;
   padding: 0;
   list-style: none;
 }
 
-/* The separator belongs to the row itself, so an edited row keeps it. */
 .playlists-list li {
   border-bottom: 1px solid var(--input-border-color);
-}
-
-.playlists-row {
-  display: flex;
-  gap: 4px;
-  align-items: center;
 }
 
 .playlists-list > :last-child {
@@ -99,12 +41,11 @@
 
 .playlists-open {
   display: flex;
-  flex: 1 1 auto;
   gap: 12px;
   align-items: center;
   min-width: 0;
-  min-height: 48px;
-  padding: 0 8px;
+  min-height: 56px;
+  padding: 6px 8px;
   color: var(--color);
   text-decoration: none;
   border-radius: var(--border-radius-small);
@@ -119,32 +60,32 @@
   }
 }
 
-/* A 40px leading square puts the name on the same axis as a song row's title,
-   without the four cover requests a stack of album art would cost. */
-.playlists-glyph {
-  display: flex;
-  flex: 0 0 auto;
-  align-items: center;
-  justify-content: center;
-  width: 40px;
-  height: 40px;
-  font-size: 1.25em;
-  color: var(--color-darker);
-  background-color: var(--input-bg);
-  border-radius: var(--border-radius-small);
-}
-
 .playlists-text {
   flex: 1 1 auto;
   min-width: 0;
 }
 
-.playlists-name,
+/* Name and its passive marks on one line, the name giving way first. */
+.playlists-name {
+  display: flex;
+  gap: 4px;
+  align-items: center;
+}
+
+.playlists-name-text,
 .playlists-meta {
   display: block;
   overflow: hidden;
   white-space: nowrap;
   text-overflow: ellipsis;
+}
+
+/* A mark, not a control (§1.4): same size and colour as a song row's. */
+.playlists-mark {
+  display: flex;
+  flex: 0 0 auto;
+  font-size: 0.8em;
+  color: var(--color-darker);
 }
 
 .playlists-meta {
@@ -153,15 +94,96 @@
 }
 
 .playlists-chevron {
+  flex: 0 0 auto;
   color: var(--color-darker);
 }
 
-.playlists-actions {
+/* The unfollowed lists, folded away. A summary row on the same axis as a
+   group heading, so the page reads as four groups and not as three plus a
+   widget. */
+.playlists-hidden {
+  margin: 16px 8px 0 8px;
+}
+
+/* The group already carries the list's 8px, so its rows keep the axis every
+   other row on the page sits on instead of stepping 8px to the right. */
+.playlists-hidden .playlists-list {
+  margin-right: 0;
+  margin-left: 0;
+}
+
+.playlists-hidden > summary {
   display: flex;
-  flex: 0 0 auto;
+  gap: 8px;
   align-items: center;
+  min-height: 44px;
+  padding: 0 8px;
+  font-size: 1em;
+  color: var(--color-dark);
+  cursor: pointer;
+  border-radius: var(--border-radius-small);
+}
+
+.playlists-hidden > summary .icon {
+  font-size: 1.1em;
+  color: var(--color-darker);
+}
+
+.playlists-hidden-count {
+  font-size: 0.85em;
+  color: var(--color-darker);
+  font-variant-numeric: tabular-nums;
+}
+
+/* The New playlist panel: labelled fields stacked, then the two buttons. */
+.playlists-create {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  padding: 16px;
+}
+
+.playlists-field {
+  display: flex;
+  flex-direction: column;
   gap: 4px;
-  padding-right: 4px;
+}
+
+/* The caption is the quiet 0.85em, and it carries that on its own: sizing the
+   whole label would shrink the input inside it, and the quiet input is 0.9em of
+   whatever it sits in — the same size here as everywhere else in the app. */
+.playlists-field > span {
+  font-size: 0.85em;
+  color: var(--color-darker);
+}
+
+.playlists-field .text-input {
+  width: 100%;
+  box-sizing: border-box;
+}
+
+.playlists-check {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+  font-size: 0.9em;
+  color: var(--color-dark);
+}
+
+.playlists-check input {
+  width: 20px;
+  height: 20px;
+  margin: 0;
+  accent-color: var(--highlight-blue-light);
+}
+
+.playlists-create-actions {
+  display: flex;
+  gap: 8px;
+}
+
+.playlists-create-actions .button {
+  flex: 1 1 0;
 }
 
 @media (prefers-reduced-motion: reduce) {
@@ -170,11 +192,35 @@
   }
 }
 
-/* One playlist's songs: the rows carry their own separators. */
-.playlist-count {
-  margin: 0 16px 4px 16px;
+/* ----------------------------------------------------------------- Playlist
+   One list: what it is, what may be done with it, then its songs. */
+
+.playlist-description {
+  margin: 8px 16px 0 16px;
+  font-size: 0.9em;
+  color: var(--color-dark);
+  overflow-wrap: anywhere;
+}
+
+.playlist-summary {
+  margin: 8px 16px 0 16px;
   font-size: 0.85em;
   color: var(--color-darker);
+}
+
+/* At most three bordered icon buttons — never a row of labelled buttons: the
+   glyphs are the app's own and the page has room for the songs instead. */
+.playlist-actions {
+  display: flex;
+  gap: 8px;
+  margin: 12px 16px 4px 16px;
+}
+
+/* The pressed Edit button, lit like a pressed chip. */
+.playlist-actions [aria-pressed="true"] {
+  color: var(--highlight-blue-light);
+  background-color: var(--highlight-blue-dark);
+  border-color: var(--highlight-blue-light);
 }
 
 /* 8px plus the row's own 8px of padding: the same axis the playlists list
@@ -188,6 +234,112 @@
 
 .playlist-songs > :last-child {
   border-bottom: none;
+}
+
+/* Edit mode: the song rows of the list above, with a grip in front and the
+   three controls behind (`SongListItem`'s `leading` and `actions` slots).
+   Nothing else on the page moves. */
+.playlist-reorder {
+  margin: 0 8px;
+  padding: 0;
+  list-style: none;
+}
+
+.playlist-reorder-row {
+  border-radius: var(--border-radius-small);
+  transition: background-color 0.1s;
+}
+
+/* The row draws its own separator; the last one in the list drops it, the way
+   the plain song list does. */
+.playlist-reorder-row:last-child .song-list-row {
+  border-bottom: none;
+}
+
+/* The row under the finger: lifted off the page so the gap it leaves behind
+   reads as where it will land. */
+.playlist-reorder-dragged {
+  background-color: var(--highlight-blue-dark);
+}
+
+.playlist-drag {
+  display: flex;
+  flex: 0 0 auto;
+  align-items: center;
+  justify-content: center;
+  width: 40px;
+  height: 40px;
+  font-size: 1.25em;
+  color: var(--color-darker);
+  cursor: grab;
+
+  /* Or a touch drag scrolls the page instead of moving the row. */
+  touch-action: none;
+}
+
+.playlist-drag:active {
+  cursor: grabbing;
+  color: var(--color);
+}
+
+/* The one text row on the page, in the song modal's option-row idiom: a
+   hairline above it, a dim glyph, no chevron — it does something, it does not
+   lead anywhere. */
+.playlist-copy {
+  display: flex;
+  width: calc(100% - 32px);
+  min-height: 44px;
+  margin: 16px 16px 0 16px;
+  gap: 10px;
+  align-items: center;
+  padding: 0;
+  font: inherit;
+  font-size: 0.95em;
+  color: var(--color-darker);
+  text-align: left;
+  background: none;
+  border: none;
+  border-top: 1px solid var(--input-border-color);
+  cursor: pointer;
+}
+
+/* Pointers only (§1.12): a touch screen fakes a hover on tap and leaves the
+   row lit long after the finger has moved on. */
+@media (hover: hover) {
+  .playlist-copy:hover:enabled {
+    color: var(--color);
+  }
+}
+
+.playlist-copy:disabled {
+  color: var(--color-darkerer);
+  cursor: default;
+}
+
+.playlist-copy-icon {
+  font-size: 1.1em;
+}
+
+/* The Add songs sub-view: the library, filtered, with membership on the row.
+   The rows themselves are `PickerRow`s, shared with the song modal's
+   "Add to playlist" — only the search field and the "too many" line are the
+   page's own. */
+.playlist-add-search {
+  display: block;
+  width: calc(100% - 32px);
+  margin: 0 16px 8px 16px;
+}
+
+.playlist-add-more {
+  margin: 12px 16px 0 16px;
+  font-size: 0.85em;
+  color: var(--color-darker);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .playlist-reorder-row {
+    transition: none;
+  }
 }
 
 /* The way into this playlist's own reel, in the header row. The glyph carries

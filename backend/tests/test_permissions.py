@@ -71,9 +71,44 @@ ROUTES: list[tuple[str, str, str, dict[str, object] | None]] = [
     ("playlists.manage", "POST", "/api/v1/playlists/nope/entries", {"song_id": "usdb:1"}),
     ("playlists.manage", "DELETE", "/api/v1/playlists/nope/entries/usdb:1", None),
     ("playlists.manage", "PUT", "/api/v1/playlists/nope/entries", {"song_ids": []}),
+    ("playlists.manage", "GET", "/api/v1/playlists/nope/members", None),
+    (
+        "playlists.manage",
+        "PUT",
+        "/api/v1/playlists/nope/members",
+        {"user_id": "nobody", "access": "read"},
+    ),
+    ("playlists.manage", "DELETE", "/api/v1/playlists/nope/members/nobody", None),
+    ("playlists.manage", "PUT", "/api/v1/playlists/nope/follow", None),
+    ("playlists.manage", "DELETE", "/api/v1/playlists/nope/follow", None),
+    # Copying checks the capability before the account, the other way round from
+    # POST /playlists, so an anonymous caller reaches the 403 this matrix asserts.
+    ("playlists.manage", "POST", "/api/v1/playlists/nope/copy", {}),
     # `playlists.moderate` is not here: it is not a route's own right but an extension of
-    # `playlists.manage` to somebody else's shared list, so it needs a real playlist to
-    # mean anything — test_library_api owns that half.
+    # `playlists.manage` to somebody else's visible list, so it needs a real playlist to
+    # mean anything — test_playlists_api owns that half.
+    # `GET /users/lookup` is not here either: it takes an identity (`authenticated`), not a
+    # capability, so a guest gets 401 rather than the 403 this matrix asserts —
+    # test_playlists_api pins it down beside the sharing it exists for.
+    # Tags: the two listings are `songs.view`, and so are the assign routes — whether the
+    # caller may set *that* tag is a `tag_permissions` row, which is data and not a
+    # capability, so it lives in test_tags_api.py.
+    ("songs.view", "GET", "/api/v1/tags", None),
+    ("songs.view", "GET", "/api/v1/tags/assignments", None),
+    ("songs.view", "PUT", "/api/v1/songs/usdb:1/tags/nope", None),
+    ("songs.view", "DELETE", "/api/v1/songs/usdb:1/tags/nope", None),
+    ("tags.manage", "POST", "/api/v1/tags", {"name": "Duets", "color": "blue"}),
+    ("tags.manage", "PATCH", "/api/v1/tags/nope", {"name": "Duets"}),
+    ("tags.manage", "PUT", "/api/v1/tags/nope/permissions", {"permissions": []}),
+    ("tags.manage", "DELETE", "/api/v1/tags/nope", None),
+    # Reading the conversation under a song is part of looking at the song; joining it
+    # needs an account, which is why the POST checks the capability before `account_id`.
+    ("songs.view", "GET", "/api/v1/songs/usdb:1/comments", None),
+    ("comments.write", "POST", "/api/v1/songs/usdb:1/comments", {"body": "Great one"}),
+    # Somebody else's comment. Your own needs no capability — see test_comments_api for the
+    # identity half. The id has to be numeric or FastAPI answers 422 before the dependency
+    # that decides between 403 and 404 ever runs.
+    ("comments.moderate", "DELETE", "/api/v1/songs/usdb:1/comments/999", None),
     ("downloads.view", "GET", "/api/v1/downloads", None),
     ("downloads.manage", "POST", "/api/v1/downloads", {"source": "nope", "source_song_id": "1"}),
     # Taking a download off the panel changes what everybody else sees, so it is `manage`.
@@ -220,7 +255,7 @@ def test_every_capability_is_enforced_somewhere() -> None:
 
 
 async def test_the_migration_seeds_the_module_defaults(session: AsyncSession) -> None:
-    """Migrations 0006 to 0011 spell the defaults out literally, each seeding the
+    """Migrations 0006 to 0014 spell the defaults out literally, each seeding the
     capabilities it introduces; this is what keeps them and the module in step."""
     seeded: dict[str, set[str]] = {}
     for row in await session.scalars(select(RolePermission)):

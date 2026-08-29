@@ -1,4 +1,10 @@
-import { useEffect, useRef, type MouseEvent, type ReactNode } from "react";
+import {
+  useEffect,
+  useRef,
+  type MouseEvent,
+  type ReactNode,
+  type RefObject,
+} from "react";
 import { Icon } from "./icons";
 import "./Modal.css";
 
@@ -19,6 +25,18 @@ const FOCUSABLE =
   'a[href], button:not([disabled]), input:not([disabled]), select:not([disabled]), textarea:not([disabled]), audio[controls], [tabindex]:not([tabindex="-1"])';
 
 /**
+ * Every open modal, oldest first — a confirmation opened from inside a dialog
+ * is the last one on it.
+ *
+ * Escape and the focus trap listen on `document`, so without this every layer
+ * would answer the same keypress: one Escape over a nested `ConfirmModal` used
+ * to close the confirmation *and* the dialog behind it, and the outer trap saw
+ * the confirmation's own buttons (it renders inside the outer panel) and fought
+ * the inner one over where Tab goes. Only the top of the stack acts.
+ */
+const openModals: RefObject<HTMLDivElement | null>[] = [];
+
+/**
  * Generic centered overlay. Not a native `<dialog>`: jsdom has no
  * `showModal()`, so the whole component would be untestable.
  */
@@ -33,18 +51,49 @@ export default function Modal({
   const panel = useRef<HTMLDivElement>(null);
   /** Where the last press started — see `closeOnOwnSurface`. */
   const pressedOn = useRef<EventTarget | null>(null);
+  /** What held the focus when this dialog opened, to give it back. */
+  const opener = useRef<Element | null>(null);
+
+  // First, so `document.activeElement` is still whatever opened this dialog
+  // when it is read: the focus effect below moves it into the panel.
+  useEffect(() => {
+    opener.current = document.activeElement;
+    openModals.push(panel);
+    return () => {
+      const at = openModals.indexOf(panel);
+      if (at !== -1) openModals.splice(at, 1);
+      // Focus falls to `document.body` when a dialog unmounts, and from there
+      // the next Tab starts at the top of the page — behind whatever is still
+      // open. The control that opened this one gets it back; if that control
+      // is gone with the view it lived in, the dialog underneath takes it.
+      const previous = opener.current;
+      if (
+        previous instanceof HTMLElement &&
+        previous.isConnected &&
+        previous !== document.body
+      )
+        previous.focus();
+      else openModals[openModals.length - 1]?.current?.focus();
+    };
+  }, []);
 
   // Keyed on the title, not on every render: `onClose` is an inline arrow at
   // most call sites, so an `[onClose]` dependency would yank focus back to the
   // dialog on every keystroke and every parent refetch. The title changes
   // exactly when the body swaps to a sub-view, which is when the previously
-  // focused element unmounts and focus really does have to be recovered.
+  // focused element unmounts and focus really does have to be recovered — and
+  // recovered is all it is: a dialog that already holds the focus somewhere
+  // leaves it there, so a field the body autofocuses (the New playlist panel's
+  // name) keeps what it just took, on the way in and across a swap.
   useEffect(() => {
-    panel.current?.focus();
+    if (!panel.current?.contains(document.activeElement))
+      panel.current?.focus();
   }, [title]);
 
   useEffect(() => {
     const onKeyDown = (event: KeyboardEvent) => {
+      // A confirmation opened from inside this dialog answers for both of them.
+      if (openModals[openModals.length - 1] !== panel) return;
       if (event.key === "Escape") onClose();
       // Focus stays inside the dialog: behind the backdrop are hundreds of
       // focusable rows a keyboard user would silently tab into.

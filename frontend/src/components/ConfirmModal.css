@@ -1,6 +1,9 @@
 .confirm-message {
   margin: 0 16px 16px 16px;
   color: var(--color-dark);
+  /* The sentence quotes a name the reader chose — a playlist, a song, an
+     account — and an unbroken one would run out of the dialog (§1.11). */
+  overflow-wrap: anywhere;
 }
 
 .confirm-actions {

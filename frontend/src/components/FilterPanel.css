@@ -1,0 +1,113 @@
+/* The rows of the Filter panel. 8px here plus the row's own 8px puts the glyph
+   on the modal's 16px gutter, the way every other list in the app is laid out. */
+.filter-panel {
+  display: flex;
+  flex-direction: column;
+  margin: 0 8px;
+}
+
+/* Glyph · name · control (ui-guidelines §4). 48px rather than the 44px floor:
+   the tri-state option inside is 40px and needs its own breathing room. */
+.filter-row {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+  min-height: 48px;
+  padding: 4px 8px;
+  border-bottom: 1px solid var(--input-border-color);
+}
+
+.filter-row:last-child {
+  border-bottom: none;
+}
+
+.filter-row-glyph {
+  flex: 0 0 auto;
+  font-size: 1.15em;
+}
+
+/* The name gives up the room, never the control: at 360 there are ~130px left
+   for it, which is a word and a half. Ellipsis, never a second line — a wrapped
+   name would push the rows to different heights. */
+.filter-row-name {
+  flex: 1 1 auto;
+  min-width: 0;
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+
+/* The tri-state control: the segmented pill of `.spinner-scope` at three
+   options. A fieldset for the grouping and the legend, so its own chrome has to
+   go first. */
+.tri-state {
+  display: flex;
+  flex: 0 0 auto;
+  gap: 4px;
+  min-width: 0;
+  margin: 0;
+  padding: 0;
+  border: none;
+}
+
+.tri-state-option {
+  display: flex;
+  min-width: 0;
+}
+
+/* Hairline and transparent at rest like the quiet input; the chosen option
+   fills with the blue accent. The radio underneath is visually hidden, so
+   hover, checked and focus all draw on the text. */
+.tri-state-text {
+  display: flex;
+  box-sizing: border-box;
+  align-items: center;
+  min-height: 40px;
+  padding: 0 10px;
+  font-size: 0.85em;
+  white-space: nowrap;
+  color: var(--color-dark);
+  background-color: transparent;
+  border: 1px solid var(--input-border-color);
+  border-radius: var(--border-radius);
+  cursor: pointer;
+  transition:
+    color 0.15s,
+    background-color 0.15s,
+    border-color 0.15s;
+}
+
+.tri-state-option:hover input ~ .tri-state-text {
+  color: var(--color);
+  border-color: var(--color-darker);
+}
+
+/* After the hover rule at equal specificity, so a hovered chosen option keeps
+   the accent border. */
+.tri-state input:checked ~ .tri-state-text {
+  color: var(--highlight-blue-light);
+  background-color: var(--highlight-blue-dark);
+  border-color: var(--highlight-blue-light);
+}
+
+.tri-state input:focus-visible ~ .tri-state-text {
+  outline: 2px solid var(--highlight-blue-light);
+  outline-offset: 2px;
+}
+
+/* Reset then Done, the dialog's only primary (§5). */
+.filter-panel-footer {
+  display: flex;
+  gap: 8px;
+  margin: 16px 16px 0 16px;
+}
+
+.filter-panel-footer .button {
+  flex: 1 1 0;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .tri-state-text {
+    transition: none;
+  }
+}

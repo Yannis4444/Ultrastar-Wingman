@@ -74,6 +74,8 @@ Three things get in the way:
 - A song folder needs a song text file (`.txt`). A folder with only audio and a
   cover is not a song.
 - A song that is on disk but not in the list is usually a broken song text.
+- A song everybody else can see but you cannot is not missing: a tag is holding
+  it back. See [Songs you do not see](singing.md#songs-you-do-not-see).
 - New downloads appear on their own. Only songs you copied in by hand need a
   rescan.
 

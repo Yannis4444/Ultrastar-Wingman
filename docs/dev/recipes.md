@@ -14,7 +14,10 @@ the same commit.
 3. **Route** in `<module>/api.py`: `response_model=…`,
    `dependencies=[Depends(require("<area>.<verb>"))]`. Plural nouns for
    resources, a verb only for a true action (`POST /songs/{id}/sing`). Errors
-   are `HTTPException` with a machine-readable `detail`.
+   are `HTTPException` with a machine-readable `detail`. A handler that returns
+   songs or takes a song id also takes `HiddenSongsDep` and passes it to
+   `songs.api.song_or_404` (or filters the ids out): a tag's `view_songs` hides
+   songs everywhere, see [architecture](architecture.md#permissions).
 4. **Capability**: if none fits, add `<area>.<verb>` to `CAPABILITIES` in
    `auth/permissions.py` and to the role defaults there, and mention it in
    `docs/user/accounts-and-permissions.md`. The permissions UI groups by the
