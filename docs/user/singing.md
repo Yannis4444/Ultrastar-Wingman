@@ -96,14 +96,15 @@ state is changed.
 Some songs are deliberately kept out of the list.
 
 - A tag can be set to **hide songs by default**. Its songs are out of the song
-  list — in every chip, not only *All* — and out of the random reel, until you
-  put that tag's row on *Any* or *Yes* in **Filter**. They are still there: a
-  playlist that holds one still shows it, because somebody put it there on
-  purpose. The seeded **archive** tag works this way.
+  list — in every chip, not only *All* — and out of the random reel's *All
+  songs*, until you put that tag's row on *Any* or *Yes* in **Filter**. They
+  are still there: a playlist that holds one still shows it and a wished one
+  can still win the reel, because somebody put it there on purpose. The seeded
+  **archive** tag works this way.
 - A tag can also take *See songs* away from a role entirely. Those songs do not
   exist for that person at all: not in the list, not in the search, not in the
-  reel. The seeded **broken** tag works this way, so nobody stumbles into a song
-  that does not play.
+  reel, and not on a playlist or the wishlist either. The seeded **broken** tag
+  works this way, so nobody stumbles into a song that does not play.
 
 If a filter ends up empty because of the first kind, the page says so instead of
 pretending you have no favorites. See [Tags](tags.md) for the whole picture.

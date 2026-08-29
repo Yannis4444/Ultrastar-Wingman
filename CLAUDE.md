@@ -101,7 +101,7 @@ live in `tests/fixtures/`.
 | `api/` | **generated** by `@hey-api/openapi-ts` (fetch client + TanStack Query options). Never edit; regenerate and commit |
 | `auth.ts` | `useAuth()` → `{ user, role, capabilities, isHost, loaded, can(capability) }` |
 | `index.css` | design tokens and the shared classes (`.button*`, `.text-input[-quiet]`, `.icon-button*`, `.error-notice`, `.visually-hidden`, global focus ring) |
-| `stats.ts`, `karaokeSlots.ts`, `settings.ts`, `duration.ts`, `errors.ts`, `manage.ts`, `songSources.ts`, `links.ts`, `backLink.ts`, `dice.ts`, `tags.ts` (a tag's glyph and colour class, the row marks, and the criteria the song list filters on: the defaults, the reader's overrides and the two built-in marks) | plain helpers, each with its own test |
+| `stats.ts`, `karaokeSlots.ts`, `settings.ts`, `duration.ts`, `errors.ts`, `manage.ts`, `songSources.ts`, `links.ts`, `backLink.ts`, `dice.ts`, `avatars.ts` (a player's picture: the cache-busted URL, and `asPlayer` for the people who are not player rows — a comment's author, a playlist's members), `tags.ts` (a tag's glyph and colour class, the row marks, and the criteria the song list filters on: the defaults, the reader's overrides and the two built-in marks) | plain helpers, each with its own test |
 | `test/` | `auth.ts` (`meResponse`, `userRead`), `tags.ts` (`tagRead`), `fakeSocket.ts`, `icons.ts` (`iconNames`), `setup.ts` |
 
 Keep this map at module granularity and update it in the same commit when a

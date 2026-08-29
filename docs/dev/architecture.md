@@ -57,6 +57,22 @@ plug in from outside the repo).
   bundles of capabilities.
 - The host UI (the TV where USDX runs) is always admin — model this as a
   trusted local session, not a hardcoded bypass inside individual handlers.
+- **Per-resource rights sit under the capability, not beside it.** A capability
+  opens the door (`playlists.manage`, `tags.manage`); which resource it reaches
+  is a row: `playlist_members` grants read/write/admin on one list, and
+  `tag_permissions` grants view / view_songs / assign on one tag, per role or
+  per account. Those row checks live in the owning service (`library/`,
+  `tags/`), never in `auth/deps.py` — `deps.py` only answers "does this
+  principal hold the capability".
+- **Hiding a song is cross-cutting.** A tag whose `view_songs` a caller lacks
+  removes its songs from that caller's world, not just from the song list, so
+  the filter cannot live in one endpoint. `tags.hidden_song_ids` is computed
+  once per request behind `auth.deps.HiddenSongsDep`, and every handler that
+  returns songs or takes a song id applies it — the listing (which is what the
+  client's search runs over), covers and audio, playlist entries, the wishlist,
+  tonight's sings, scores, a song's comments, its tag assignments, and the sing
+  flow (`songs.api.song_or_404` for the single-song case). A new song-returning
+  endpoint that forgets it is a hole in every tag's privacy.
 
 ## Concurrency & the outside world
 

@@ -94,8 +94,9 @@ gives you — you only see the ones you may use:
 Songs also go on a list from the song itself: **Add to playlist** in a song's
 details lists the playlists you may edit — tap one to add the song, tap it again
 to take it out. A check marks the lists that already have it. **New playlist…**
-at the foot of that list makes a new one, private, and puts the song straight
-into it — the shortcut for a list that does not exist yet.
+at the foot of that list turns into a name field: type one, press the **+**
+beside it, and the song lands on a brand-new private list — the shortcut for a
+list that does not exist yet.
 
 ### Manage a playlist
 
@@ -138,7 +139,7 @@ invisible to everybody but its owner, and what cannot be looked at cannot be
 changed either.
 
 !!! warning
-    Deleting an account takes its wishes, favorites and playlists with it — but
-    a playlist with an **admin** member is handed to that person instead of
-    being deleted, which is what admin access is for. Its scores stay in the
-    statistics.
+    Deleting an account takes its wishes, favorites, comments and playlists
+    with it — but a playlist with an **admin** member is handed to that person
+    instead of being deleted, which is what admin access is for. Its scores
+    stay in the statistics.

@@ -216,6 +216,26 @@ feature, release workflow.
   (header plus, inline rename); shared `EmptyState` and `RankedScoreList`;
   wishlist and playlist glyphs split into two icon families.
 
+- Playlists, tags and comments (2026-08-29, migrations 0012–0014): playlists
+  became shareable — `playlist_members` with `read` / `write` / `admin` access,
+  an `is_global` flag for the whole party, follow/unfollow, and "Save a copy" —
+  and the list page regrouped into *Your playlists* / *Shared with you* /
+  *Global* plus a collapsed *Hidden* for unfollowed lists; naming, sharing and
+  deleting moved off the row's inline rename (batch 3) into the sub-page
+  `/songs/playlists/:id/manage`, and `playlists.moderate` became a **trusted**
+  default. New `tags/` package: global song tags with three rights granted per
+  role or per account (`view` / `view_songs` / `assign`), a `/user/tags` admin
+  page and editor, opt-in row marks, a `hide_by_default` client-side baseline
+  and the seeded `broken` / `archive` tags. `view_songs` is the first
+  cross-cutting filter — `auth.deps.HiddenSongsDep` now runs through every
+  handler that hands out songs (the listing, cover, audio, playlist entries,
+  wishlist, current-session sings, scores, sing). New `comments/` package: one
+  thread per song in the song modal, readable by anyone who may see the song,
+  writable with an account, deletable by its author or a moderator. Songs' chips
+  turned into presets over one criteria state behind a **Filter** panel of
+  tri-state (Any / Yes / No) rows, one per tag plus Favorites and Sung. New
+  capabilities: `tags.manage`, `comments.write`, `comments.moderate`.
+
 ## Known gaps / follow-ups (as of 2026-08-24)
 
 - **USDB column mapping is unvalidated against the live logged-in site** —

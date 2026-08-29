@@ -2,10 +2,9 @@
 
 How the Wingman UI looks and why. Read sections 1–3 before touching any frontend file; the rest
 when the area applies. The old app (`D:\git\ultrastar-wingman`) is ground truth for the **look**
-only — read its CSS for an equivalent surface, never copy its code. An explicit request from the
-user beats this document: implement it and say so in the report rather than "fixing" it back in
-review. The only rules a request does not override are the accessibility and dependency floors
-in §1.8–1.10.
+only — read its CSS, never copy its code. An explicit request from the user beats this document:
+implement it and say so in the report rather than "fixing" it back in review. The only rules a
+request does not override are the accessibility and dependency floors in §1.8–1.10.
 
 ## 1. Hard rules
 
@@ -96,8 +95,7 @@ Two glyph families keep near-neighbours apart at a glance:
 Never `heart` for a wish (favorites own it), never `star` (the winner accent owns it), never a
 bare `check` as a control glyph. `clock` is "Recent". **`tag` is the tags feature**: the modal's
 Tags row, the Tags admin entry and its `ManageMenu` row, the tags empty state, the fallback for
-an icon-less tag. The song details list's **Genre** row therefore takes `music`, unambiguous
-among rows labelled in words.
+an icon-less tag — so the song details list's **Genre** row takes `music` instead.
 
 | Reserved glyph | Means | Drawing note |
 |---|---|---|
@@ -111,12 +109,13 @@ among rows labelled in words.
 | `bookmark` / `bookmark-off` | follow / unfollow a playlist; `bookmark-off` also labels the collapsed *Hidden* group | ribbon with a notched foot · the same ribbon behind a diagonal bar |
 | `user-plus` | add a member, add a person to a tag | the `user` bust with a plus at its shoulder |
 
-The **icon picker** (tag editor) enumerates `ICON_PATHS` minus three groups: the dice family
-(`dice` and `dice-*`), the control glyphs (`search`, `refresh`, `play`, `stop`, `plus`,
-`check`, `close`, `chevron-*`, `arrow-*`, `pencil`, `trash`, `copy`, `send`, `drag-handle`) and
-the two marks a song row owns (`heart`, `mic`); the list lives with the picker. Adding an icon:
-append one `d` string to `ICON_PATHS` (several subpaths in the one string are fine; solid shapes
-— no `fill-rule`, no `stroke`, no `<g>`). Never inline an `<svg>` in a component (the one
+The **icon picker** (tag editor) offers `PICKER_ICON_NAMES`: `ICON_PATHS` minus three groups —
+the dice family (`dice` and `dice-*`), the control glyphs (`search`, `refresh`, `play`, `stop`,
+`plus`, `check`, `close`, `chevron-*`, `arrow-*`, `pencil`, `trash`, `copy`, `send`,
+`drag-handle`) and the two marks a song row owns (`heart`, `mic`). That list lives in
+`icons.tsx`, so adding a glyph and judging it pickable happen in one file. Adding an icon:
+append one `d` string to `ICON_PATHS` (several subpaths in one string are fine; solid shapes —
+no `fill-rule`, no `stroke`, no `<g>`). Never inline an `<svg>` in a component (the one
 exception, `BottomNav`, stays). Tests identify glyphs with `iconNames()` from
 `src/test/icons.ts`.
 
@@ -202,9 +201,10 @@ exception, `BottomNav`, stays). Tests identify glyphs with `iconNames()` from
   Confirmations, pickers, admin dialogs, the download queue, and the two panels **Filter**
   (footer Reset `.button` then Done `.button-primary`, both `flex: 1 1 0`) and **New playlist**
   (name, optional description, one "Global" checkbox).
-- **Fullscreen** is player selection only. Backdrop click and Escape close any modal; the focus
-  trap stays. **Confirmations always use `ConfirmModal`** (`window.confirm` is banned): title,
-  one-sentence consequence, `confirmLabel`, `danger` for stop/delete/replace.
+- **Fullscreen** is player selection only. A backdrop click closes any modal; Escape and the Tab
+  trap belong to the topmost one alone (`Modal` keeps a stack), and closing restores the
+  opener's focus. **Confirmations always use `ConfirmModal`** (`window.confirm` is banned):
+  title, one-sentence consequence, `confirmLabel`, `danger` for stop/delete/replace.
 - **"Add songs from…" picker:** panel modal with a grid of source cards (`repeat(auto-fit,
   minmax(140px, 1fr))`, `--tile-bg`, icon ~48px, name, one-line description). The sanctioned
   tile use; cards must read as buttons.
