@@ -3,19 +3,24 @@ import { useState } from "react";
 import type { SongRead } from "../api";
 import {
   addPlaylistEntryMutation,
+  assignTagMutation,
   createPlaylistMutation,
   getPlaylistQueryKey,
   listPlaylistsOptions,
   listPlaylistsQueryKey,
   listPlayersOptions,
   listSongScoresOptions,
+  listTagAssignmentsQueryKey,
   removePlaylistEntryMutation,
+  unassignTagMutation,
 } from "../api/@tanstack/react-query.gen";
 import { useAuth } from "../auth";
 import { errorDetail, errorMessage } from "../errors";
 import { useFavorites } from "../hooks/useFavorites";
+import { useTags } from "../hooks/useTags";
 import { useWishlist } from "../hooks/useWishlist";
 import { songHistory } from "../stats";
+import { tagColorClass, tagGlyph } from "../tags";
 import IconStat from "./IconStat";
 import { Icon, type IconName } from "./icons";
 import Loading from "./Loading";
@@ -27,6 +32,10 @@ import RankedScoreList from "./RankedScoreList";
 import SongCover from "./SongCover";
 // The control row is shared with the Home stage.
 import "./SongControls.css";
+// The Tags sub-view builds its own rows out of the picker's classes: a tag row
+// is the same 40px square and name, but its trailing mark is a padlock and
+// never the playlist family's `list-check` (§3).
+import "./PickerRow.css";
 import "./SongDetails.css";
 
 interface SongDetailsProps {
@@ -37,12 +46,21 @@ interface SongDetailsProps {
 /** How many all-time scores the best-scores view lists. */
 const BEST_SCORES = 10;
 
+/**
+ * How many tag glyphs the Tags row draws before it gives up and counts them
+ * instead (§5). Past three the glyphs stop being recognisable at a glance and
+ * start crowding the row's label.
+ */
+const TAG_GLYPHS = 3;
+
 export default function SongDetails({ song, onClose }: SongDetailsProps) {
   const [selectingPlayers, setSelectingPlayers] = useState(false);
   // Sub-views swap the modal content; closing them returns to the song. Always
   // from the song itself: the one caller that opened straight into the picker
   // was Currently Playing's playlist button, and that button is gone.
-  const [view, setView] = useState<"main" | "scores" | "playlists">("main");
+  const [view, setView] = useState<"main" | "scores" | "playlists" | "tags">(
+    "main",
+  );
   const [notice, setNotice] = useState<string | null>(null);
   // There is no has_audio flag; the preview 404s for songs without audio and
   // the element's error event is the only signal.
@@ -55,6 +73,16 @@ export default function SongDetails({ song, onClose }: SongDetailsProps) {
   const queryClient = useQueryClient();
   const wishlist = useWishlist();
   const favorites = useFavorites();
+  const tags = useTags();
+
+  // What this reader may know about the song's tags, and what they may change.
+  // `bySong` also carries the tags a `tags.manage` holder may not view; those
+  // belong on the admin page, never here.
+  const carried = (tags.bySong.get(song.id) ?? []).filter(
+    (tag) => tag.can_view,
+  );
+  const assignable = tags.tags.filter((tag) => tag.can_assign);
+  const carriedIds = new Set(carried.map((tag) => tag.id));
 
   const canManagePlaylists = auth.user !== null && auth.can("playlists.manage");
   // One listing for the whole picker: `song_id` makes the backend fill each
@@ -141,11 +169,38 @@ export default function SongDetails({ song, onClose }: SongDetailsProps) {
       setNotice(errorMessage(error, "Could not create the playlist.")),
   });
 
+  // Both directions refetch the assignments, which is where a mark on a song
+  // row and the glyphs on the Tags row come from. The backend broadcasts
+  // `song_tags.changed` as well, for every other reader in the room.
+  const refreshTags = (): void => {
+    void queryClient.invalidateQueries({
+      queryKey: listTagAssignmentsQueryKey(),
+    });
+  };
+  const tagFailed = (error: unknown): void =>
+    setNotice(
+      errorDetail(error) === "missing_tag_permission:assign"
+        ? "That tag is not yours to set. Ask the host."
+        : errorMessage(error, "Could not change the tag."),
+    );
+
+  const setTag = useMutation({
+    ...assignTagMutation(),
+    onSuccess: refreshTags,
+    onError: tagFailed,
+  });
+  const clearTag = useMutation({
+    ...unassignTagMutation(),
+    onSuccess: refreshTags,
+    onError: tagFailed,
+  });
+
   // Duration lives in the preview player and artist in the hero, so the
   // details keep only what the modal does not show anyway.
   const rows: { icon: IconName; label: string; value: string | null }[] = [
     { icon: "globe", label: "Language", value: song.language },
-    { icon: "tag", label: "Genre", value: song.genre },
+    // Not `tag`: that glyph is the tags feature's, one row further down (§3).
+    { icon: "music", label: "Genre", value: song.genre },
     {
       icon: "calendar",
       label: "Year",
@@ -285,6 +340,99 @@ export default function SongDetails({ song, onClose }: SongDetailsProps) {
             )}
           </li>
         </ul>
+        {notice && (
+          <p className="song-details-notice" role="alert">
+            {notice}
+          </p>
+        )}
+      </Modal>
+    );
+  }
+
+  if (view === "tags") {
+    const busy = setTag.isPending || clearTag.isPending;
+    // A tag nobody in this seat may set and nobody has set is a row that says
+    // nothing and does nothing. One sentence is the honest version of that list.
+    const useful = assignable.length > 0 || carried.length > 0;
+    return (
+      <Modal
+        title="Tags"
+        bare
+        onClose={() => {
+          setNotice(null);
+          setView("main");
+        }}
+      >
+        {tags.isPending ? (
+          <Loading />
+        ) : useful ? (
+          <ul className="picker-list">
+            {tags.tags.map((tag) => {
+              const on = carriedIds.has(tag.id);
+              // The §4 song-control idiom: the glyph is the tag's colour when
+              // the song wears it and `--color-darkerer` when it does not, so
+              // one look down the list says which tags are on.
+              const glyph = (
+                <span className="picker-row-glyph">
+                  <Icon
+                    name={tagGlyph(tag.icon)}
+                    className={
+                      on ? tagColorClass(tag.color) : "song-tag-glyph-off"
+                    }
+                  />
+                </span>
+              );
+              const name = (
+                <span className="picker-row-text">
+                  <span className="picker-row-title" title={tag.name}>
+                    {tag.name}
+                  </span>
+                </span>
+              );
+              if (!tag.can_assign) {
+                return (
+                  <li key={tag.id}>
+                    {/* Not a button: there is nothing to press. The padlock is
+                        what says so, and it is the row's only trailing mark. */}
+                    <div className="picker-row song-tag-locked">
+                      {glyph}
+                      {name}
+                      <span
+                        className="picker-row-mark"
+                        title="You may see this tag but not set it"
+                      >
+                        <Icon name="lock" />
+                      </span>
+                    </div>
+                  </li>
+                );
+              }
+              return (
+                <li key={tag.id}>
+                  <button
+                    type="button"
+                    className="picker-row"
+                    aria-pressed={on}
+                    disabled={busy}
+                    onClick={() => {
+                      setNotice(null);
+                      const path = { song_id: song.id, tag_id: tag.id };
+                      if (on) clearTag.mutate({ path });
+                      else setTag.mutate({ path });
+                    }}
+                  >
+                    {glyph}
+                    {name}
+                  </button>
+                </li>
+              );
+            })}
+          </ul>
+        ) : (
+          <p className="song-details-notice">
+            No tags on this song, and none of them is yours to set.
+          </p>
+        )}
         {notice && (
           <p className="song-details-notice" role="alert">
             {notice}
@@ -434,6 +582,35 @@ export default function SongDetails({ song, onClose }: SongDetailsProps) {
           >
             <Icon name="list-plus" className="song-option-icon" />
             <span className="song-option-label">Add to playlist</span>
+            <Icon name="chevron-right" className="song-option-chevron" />
+          </button>
+        )}
+
+        {/* Absent when the reader may not view a single tag: a row leading into
+            an empty list is worse than no row (§5). It is the tags this reader
+            knows about that decide, not the ones on this song — putting the
+            first tag on a song is the point of the sub-view. */}
+        {tags.tags.length > 0 && (
+          <button
+            type="button"
+            className="song-option"
+            onClick={() => setView("tags")}
+          >
+            <Icon name="tag" className="song-option-icon" />
+            <span className="song-option-label">Tags</span>
+            {carried.length > 0 && (
+              <span className="song-option-tags">
+                {carried.length > TAG_GLYPHS
+                  ? `${carried.length} tags`
+                  : carried.map((tag) => (
+                      <Icon
+                        key={tag.id}
+                        name={tagGlyph(tag.icon)}
+                        className={tagColorClass(tag.color)}
+                      />
+                    ))}
+              </span>
+            )}
             <Icon name="chevron-right" className="song-option-chevron" />
           </button>
         )}

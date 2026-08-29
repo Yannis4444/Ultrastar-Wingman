@@ -10,21 +10,27 @@ import type { SongRead, WishRead } from "../api";
 import { meResponse } from "../test/auth";
 import { FakeSocket } from "../test/fakeSocket";
 import { iconNames } from "../test/icons";
+import { tagRead } from "../test/tags";
 import SongSpinner from "./SongSpinner";
 
 // Same seam as the other tests: the real TanStack wiring runs, only the
 // transport is faked.
-const { listSongs, listWishlist, getMe } = vi.hoisted(() => ({
-  listSongs: vi.fn(),
-  listWishlist: vi.fn(),
-  getMe: vi.fn(),
-}));
+const { listSongs, listWishlist, getMe, listTags, listTagAssignments } =
+  vi.hoisted(() => ({
+    listSongs: vi.fn(),
+    listWishlist: vi.fn(),
+    getMe: vi.fn(),
+    listTags: vi.fn(),
+    listTagAssignments: vi.fn(),
+  }));
 
 vi.mock("../api/sdk.gen", async (importOriginal) => ({
   ...(await importOriginal<typeof import("../api/sdk.gen")>()),
   listSongs,
   listWishlist,
   getMe,
+  listTags,
+  listTagAssignments,
 }));
 
 function song(id: string, title: string): SongRead {
@@ -83,6 +89,11 @@ beforeEach(() => {
   listSongs.mockReset();
   listWishlist.mockReset();
   getMe.mockReset();
+  listTags.mockReset();
+  listTagAssignments.mockReset();
+  // No tags unless a test seeds them: the reel holds the whole library.
+  listTags.mockResolvedValue({ data: { tags: [] } });
+  listTagAssignments.mockResolvedValue({ data: { assignments: [] } });
 });
 
 afterEach(() => {
@@ -241,7 +252,9 @@ test("the reel stays put when an unrelated update re-renders the spinner", async
 test("the finished spin settles in place and opens no modal by itself", async () => {
   vi.useFakeTimers({ shouldAdvanceTime: true });
   renderSpinner([QUEEN], []);
-  await screen.findByLabelText("All songs");
+  // The pool line is the page's "ready": the reel holds nothing until the tag
+  // listings have said which songs are kept out of it.
+  await screen.findByText("1 song");
 
   fireEvent.click(spinButton());
   expect(spinButton()).toBeDisabled();
@@ -284,7 +297,7 @@ test("the die on the button rolls through its faces while the reel runs", async 
 test("the settled result opens the song modal when it is clicked", async () => {
   vi.useFakeTimers({ shouldAdvanceTime: true });
   renderSpinner([QUEEN], []);
-  await screen.findByLabelText("All songs");
+  await screen.findByText("1 song");
 
   // Nothing to open before the first spin.
   expect(
@@ -305,7 +318,7 @@ test("the settled result opens the song modal when it is clicked", async () => {
 test("the cover is the second way into the song modal", async () => {
   vi.useFakeTimers({ shouldAdvanceTime: true });
   renderSpinner([QUEEN], []);
-  await screen.findByLabelText("All songs");
+  await screen.findByText("1 song");
 
   fireEvent.click(spinButton());
   act(() => vi.advanceTimersByTime(6000));
@@ -326,4 +339,65 @@ test("an empty scope cannot be spun", async () => {
   expect(screen.getByLabelText("Wishlist (weighted)")).toBeDisabled();
   // No songs at all: even "All songs" has nothing to pick from.
   expect(spinButton()).toBeDisabled();
+});
+
+test("a hidden-by-default tag keeps its songs out of the reel and its count", async () => {
+  listTags.mockResolvedValue({
+    data: { tags: [tagRead({ id: "t-archive", hide_by_default: true })] },
+  });
+  listTagAssignments.mockResolvedValue({
+    data: { assignments: [{ tag_id: "t-archive", song_ids: ["usdb:2"] }] },
+  });
+  const { container } = renderSpinner([QUEEN, AFRICA], []);
+  await screen.findByLabelText("All songs");
+
+  // The pool line counts what the reel can land on, so it drops too.
+  expect(await screen.findByText("1 song")).toBeInTheDocument();
+  fireEvent.click(spinButton());
+  expect(new Set(reelSongIds(container))).toEqual(new Set(["usdb:1"]));
+});
+
+test("a wished song stays in the reel even when a tag would hide it", async () => {
+  listTags.mockResolvedValue({
+    data: { tags: [tagRead({ id: "t-archive", hide_by_default: true })] },
+  });
+  listTagAssignments.mockResolvedValue({
+    data: { assignments: [{ tag_id: "t-archive", song_ids: ["usdb:2"] }] },
+  });
+  const { container } = renderSpinner([QUEEN, AFRICA], [wish(AFRICA)]);
+  await chooseScope("Wishlist");
+
+  // Somebody asked for it by name: the wishlist is a decision, not a listing.
+  fireEvent.click(spinButton());
+  expect(new Set(reelSongIds(container))).toEqual(new Set(["usdb:2"]));
+});
+
+test("the reel waits for the tags rather than spinning what they would hide", async () => {
+  // The library answers first and the tag listings are still out — the state a
+  // cold load passes through. Nothing may be spun in it: the criteria are empty
+  // until the tags land, so an archived song would be a candidate.
+  let landTags = (): void => {};
+  listTags.mockReturnValue(
+    new Promise((resolve) => {
+      landTags = () =>
+        resolve({
+          data: {
+            tags: [tagRead({ id: "t-archive", hide_by_default: true })],
+          },
+        });
+    }),
+  );
+  listTagAssignments.mockResolvedValue({
+    data: { assignments: [{ tag_id: "t-archive", song_ids: ["usdb:2"] }] },
+  });
+  const { container } = renderSpinner([QUEEN, AFRICA], []);
+
+  await screen.findByLabelText("All songs");
+  await waitFor(() => expect(listSongs).toHaveBeenCalled());
+  expect(spinButton()).toBeDisabled();
+
+  landTags();
+  expect(await screen.findByText("1 song")).toBeInTheDocument();
+  fireEvent.click(spinButton());
+  expect(new Set(reelSongIds(container))).toEqual(new Set(["usdb:1"]));
 });

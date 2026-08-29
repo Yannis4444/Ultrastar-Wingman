@@ -6,9 +6,10 @@ import {
   waitFor,
   within,
 } from "@testing-library/react";
-import type { ScoreWithContext, SongRead } from "../api";
+import type { ScoreWithContext, SongRead, TagRead } from "../api";
 import { meResponse, userRead } from "../test/auth";
 import { iconNames } from "../test/icons";
+import { tagRead } from "../test/tags";
 import SongDetails from "./SongDetails";
 
 const {
@@ -21,6 +22,10 @@ const {
   addPlaylistEntry,
   removePlaylistEntry,
   createPlaylist,
+  listTags,
+  listTagAssignments,
+  assignTag,
+  unassignTag,
 } = vi.hoisted(() => ({
   getMe: vi.fn(),
   listSongScores: vi.fn(),
@@ -31,6 +36,10 @@ const {
   addPlaylistEntry: vi.fn(),
   removePlaylistEntry: vi.fn(),
   createPlaylist: vi.fn(),
+  listTags: vi.fn(),
+  listTagAssignments: vi.fn(),
+  assignTag: vi.fn(),
+  unassignTag: vi.fn(),
 }));
 
 vi.mock("../api/sdk.gen", async (importOriginal) => ({
@@ -44,6 +53,10 @@ vi.mock("../api/sdk.gen", async (importOriginal) => ({
   addPlaylistEntry,
   removePlaylistEntry,
   createPlaylist,
+  listTags,
+  listTagAssignments,
+  assignTag,
+  unassignTag,
 }));
 
 const song: SongRead = {
@@ -116,6 +129,13 @@ beforeEach(() => {
   createPlaylist.mockReset();
   addPlaylistEntry.mockReset();
   removePlaylistEntry.mockReset();
+  for (const mock of [listTags, listTagAssignments, assignTag, unassignTag])
+    mock.mockReset();
+  // No tag the reader may see, so the Tags row is absent unless a test says so.
+  listTags.mockResolvedValue({ data: { tags: [] } });
+  listTagAssignments.mockResolvedValue({ data: { assignments: [] } });
+  assignTag.mockResolvedValue({ data: undefined });
+  unassignTag.mockResolvedValue({ data: undefined });
   // The best-scores view reaches over every party, so it is `stats.history`.
   getMe.mockResolvedValue(meResponse(["songs.view", "stats.history"]));
   listSongScores.mockResolvedValue({ data: { scores: history } });
@@ -504,4 +524,142 @@ test("a failing audio preview removes itself", async () => {
   // event, which is the only signal the backend gives.
   fireEvent.error(preview as Element);
   expect(container.querySelector("audio.song-preview")).toBeNull();
+});
+
+/** Seed the two tag listings the modal reads through `useTags`. */
+function withTags(tags: TagRead[], carried: string[] = []) {
+  listTags.mockResolvedValue({ data: { tags } });
+  listTagAssignments.mockResolvedValue({
+    data: {
+      assignments: tags.map((tag) => ({
+        tag_id: tag.id,
+        song_ids: carried.includes(tag.id) ? [song.id] : [],
+      })),
+    },
+  });
+}
+
+const BROKEN = tagRead({
+  id: "t-broken",
+  name: "broken",
+  icon: "alert",
+  color: "gold",
+});
+const ARCHIVE = tagRead({
+  id: "t-archive",
+  name: "archive",
+  can_assign: false,
+});
+
+test("the genre row wears the music glyph, the tags feature keeps its own", async () => {
+  renderDetails();
+
+  fireEvent.click(await screen.findByRole("button", { name: "Details" }));
+  expect(iconNames(screen.getByTitle("Genre"))).toEqual(["music"]);
+});
+
+test("there is no tags row when the reader may not view a single tag", async () => {
+  renderDetails();
+
+  await screen.findByRole("button", { name: "Details" });
+  expect(
+    screen.queryByRole("button", { name: /Tags/ }),
+  ).not.toBeInTheDocument();
+});
+
+test("the tags row draws the song's tags and opens the sub-view", async () => {
+  withTags([BROKEN, ARCHIVE], ["t-broken"]);
+  renderDetails();
+
+  const row = await screen.findByRole("button", { name: /Tags/ });
+  // The feature's glyph, then the one tag this song wears, then the chevron.
+  expect(iconNames(row)).toEqual(["tag", "alert", "chevron-right"]);
+
+  fireEvent.click(row);
+  const dialog = screen.getByRole("dialog", { name: "Tags" });
+  expect(within(dialog).getByText("broken")).toBeInTheDocument();
+  expect(within(dialog).getByText("archive")).toBeInTheDocument();
+});
+
+test("past three tags the row counts them instead", async () => {
+  const many = [1, 2, 3, 4].map((n) =>
+    tagRead({ id: `t${n}`, name: `tag ${n}`, icon: "music" }),
+  );
+  withTags(
+    many,
+    many.map((tag) => tag.id),
+  );
+  renderDetails();
+
+  const row = await screen.findByRole("button", { name: /Tags/ });
+  expect(row).toHaveTextContent("4 tags");
+  expect(iconNames(row)).toEqual(["tag", "chevron-right"]);
+});
+
+test("a tag the reader may set toggles on and off", async () => {
+  withTags([BROKEN]);
+  renderDetails();
+
+  fireEvent.click(await screen.findByRole("button", { name: /Tags/ }));
+  const toggle = screen.getByRole("button", { name: /broken/ });
+  expect(toggle).toHaveAttribute("aria-pressed", "false");
+
+  // The refetched assignments are what flips the row, not the click — so the
+  // listing answers with the tag on before the toggle is pressed.
+  withTags([BROKEN], ["t-broken"]);
+  fireEvent.click(toggle);
+
+  await waitFor(() => expect(assignTag).toHaveBeenCalled());
+  expect(assignTag.mock.calls[0][0].path).toEqual({
+    song_id: song.id,
+    tag_id: "t-broken",
+  });
+  await waitFor(() => expect(toggle).toHaveAttribute("aria-pressed", "true"));
+
+  fireEvent.click(toggle);
+  await waitFor(() => expect(unassignTag).toHaveBeenCalled());
+  expect(unassignTag.mock.calls[0][0].path).toEqual({
+    song_id: song.id,
+    tag_id: "t-broken",
+  });
+});
+
+test("a tag the reader may see but not set is a padlock row", async () => {
+  withTags([ARCHIVE], ["t-archive"]);
+  renderDetails();
+
+  fireEvent.click(await screen.findByRole("button", { name: /Tags/ }));
+  const dialog = screen.getByRole("dialog", { name: "Tags" });
+  expect(
+    within(dialog).queryByRole("button", { name: /archive/ }),
+  ).not.toBeInTheDocument();
+  const row = within(dialog).getByText("archive").closest(".picker-row");
+  expect(iconNames(row as HTMLElement)).toEqual(["archive", "lock"]);
+});
+
+test("a refused tag says so instead of failing silently", async () => {
+  withTags([BROKEN]);
+  assignTag.mockRejectedValue({ detail: "missing_tag_permission:assign" });
+  renderDetails();
+
+  fireEvent.click(await screen.findByRole("button", { name: /Tags/ }));
+  fireEvent.click(screen.getByRole("button", { name: /broken/ }));
+
+  expect(await screen.findByRole("alert")).toHaveTextContent(
+    "That tag is not yours to set.",
+  );
+});
+
+test("nothing to set and nothing set is one sentence, not a list of locks", async () => {
+  withTags([ARCHIVE]);
+  renderDetails();
+
+  fireEvent.click(await screen.findByRole("button", { name: /Tags/ }));
+  const dialog = screen.getByRole("dialog", { name: "Tags" });
+  expect(
+    within(dialog).getByText(
+      "No tags on this song, and none of them is yours to set.",
+    ),
+  ).toBeInTheDocument();
+  expect(within(dialog).queryByText("archive")).not.toBeInTheDocument();
 });

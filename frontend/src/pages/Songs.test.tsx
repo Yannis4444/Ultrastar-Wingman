@@ -7,10 +7,12 @@ import {
   within,
 } from "@testing-library/react";
 import { MemoryRouter } from "react-router-dom";
-import type { MeRead, PlaylistRead, SingRead, SongRead } from "../api";
+import type { MeRead, PlaylistRead, SingRead, SongRead, TagRead } from "../api";
 import { shortTime } from "../duration";
 import { meResponse, userRead } from "../test/auth";
 import { FakeSocket } from "../test/fakeSocket";
+import { iconNames } from "../test/icons";
+import { tagRead } from "../test/tags";
 import Songs from "./Songs";
 
 // The generated query options call the sdk and read `.data`, so the sdk is the
@@ -28,6 +30,8 @@ const {
   addPlaylistEntry,
   listCurrentSessionSings,
   listPlayerScores,
+  listTags,
+  listTagAssignments,
 } = vi.hoisted(() => ({
   listSongs: vi.fn(),
   rescanSongs: vi.fn(),
@@ -40,6 +44,8 @@ const {
   addPlaylistEntry: vi.fn(),
   listCurrentSessionSings: vi.fn(),
   listPlayerScores: vi.fn(),
+  listTags: vi.fn(),
+  listTagAssignments: vi.fn(),
 }));
 
 vi.mock("../api/sdk.gen", async (importOriginal) => ({
@@ -55,6 +61,8 @@ vi.mock("../api/sdk.gen", async (importOriginal) => ({
   addPlaylistEntry,
   listCurrentSessionSings,
   listPlayerScores,
+  listTags,
+  listTagAssignments,
 }));
 
 /** What the trusted role holds: enough for every button on this page. */
@@ -128,9 +136,14 @@ beforeEach(() => {
     addPlaylistEntry,
     listCurrentSessionSings,
     listPlayerScores,
+    listTags,
+    listTagAssignments,
   ]) {
     mock.mockReset();
   }
+  // No tags unless a test seeds them: no row wears a mark and nothing is hidden.
+  listTags.mockResolvedValue({ data: { tags: [] } });
+  listTagAssignments.mockResolvedValue({ data: { assignments: [] } });
   listWishlist.mockResolvedValue({ data: { wishes: [] } });
   listFavorites.mockResolvedValue({ data: { song_ids: [] } });
   listPlaylists.mockResolvedValue({ data: { playlists: [] } });
@@ -846,4 +859,93 @@ test("only the pressed filter wears its label, the rest are their glyph", async 
   expect(sung.textContent).toBe("Sung");
   expect(favorites.textContent).toBe("");
   expect(screen.getByRole("button", { name: "All" }).textContent).toBe("All");
+});
+
+/** Seed the two tag listings the page reads through `useTags`. */
+function withTags(
+  tags: TagRead[],
+  assignments: { tag_id: string; song_ids: string[] }[] = [],
+) {
+  listTags.mockResolvedValue({ data: { tags } });
+  listTagAssignments.mockResolvedValue({ data: { assignments } });
+}
+
+test("a hidden-by-default tag keeps its songs out of the list and the count", async () => {
+  withTags(
+    [tagRead({ id: "t-archive", hide_by_default: true })],
+    [{ tag_id: "t-archive", song_ids: ["local:abc"] }],
+  );
+  renderSongs([QUEEN, AFRICA]);
+
+  expect(await screen.findByText("Dancing Queen")).toBeInTheDocument();
+  expect(screen.queryByText("Africa")).not.toBeInTheDocument();
+  expect(screen.getByText("1 song")).toBeInTheDocument();
+});
+
+test("a hidden-by-default tag hides its songs from the other filters too", async () => {
+  withTags(
+    [tagRead({ id: "t-archive", hide_by_default: true })],
+    [{ tag_id: "t-archive", song_ids: ["local:abc"] }],
+  );
+  listFavorites.mockResolvedValue({ data: { song_ids: ["local:abc"] } });
+  renderSongs([QUEEN, AFRICA], LIBRARY, ACCOUNT);
+
+  fireEvent.click(await screen.findByRole("button", { name: "Favorites" }));
+
+  // The one favorite is archived, so the tab is empty — and says why, rather
+  // than claiming nothing has been favorited.
+  expect(
+    await screen.findByText(
+      "Every song here carries a tag that keeps it out of the list.",
+    ),
+  ).toBeInTheDocument();
+});
+
+test("a tag the reader may not view hides nothing: the server decides that", async () => {
+  // What a `tags.manage` holder is handed for a tag they took their own "See
+  // tag" away from. Its songs are only missing if the *backend* left them out.
+  withTags(
+    [
+      tagRead({
+        id: "t-secret",
+        name: "scratch",
+        can_view: false,
+        hide_by_default: true,
+        show_in_list: true,
+      }),
+    ],
+    [{ tag_id: "t-secret", song_ids: ["local:abc"] }],
+  );
+  renderSongs([QUEEN, AFRICA]);
+
+  expect(await screen.findByText("Africa")).toBeInTheDocument();
+  expect(screen.getByText("2 songs")).toBeInTheDocument();
+  expect(iconNames(screen.getByText("Africa").parentElement!)).toEqual([]);
+});
+
+test("a show-in-list tag rides on the row it belongs to", async () => {
+  withTags(
+    [
+      tagRead({
+        id: "t-broken",
+        name: "broken",
+        icon: "alert",
+        color: "gold",
+        show_in_list: true,
+      }),
+      tagRead({ id: "t-quiet", name: "quiet", icon: "music" }),
+    ],
+    [
+      { tag_id: "t-broken", song_ids: ["local:abc"] },
+      { tag_id: "t-quiet", song_ids: ["local:abc"] },
+    ],
+  );
+  renderSongs([QUEEN, AFRICA]);
+
+  const africa = await screen.findByText("Africa");
+  // Only the tag that asked for the row, and nothing on the untagged song.
+  expect(iconNames(africa.parentElement!)).toEqual(["alert"]);
+  expect(iconNames(screen.getByText("Dancing Queen").parentElement!)).toEqual(
+    [],
+  );
 });

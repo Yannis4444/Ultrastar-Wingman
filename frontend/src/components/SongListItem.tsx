@@ -1,5 +1,6 @@
 import type { ReactNode } from "react";
-import type { SongRead } from "../api";
+import type { SongRead, TagRead } from "../api";
+import { tagColorClass, tagGlyph } from "../tags";
 import { Icon } from "./icons";
 import SongCover from "./SongCover";
 import "./SongListItem.css";
@@ -11,6 +12,12 @@ interface SongListItemProps {
   favorite?: boolean;
   /** Small passive marker after the title: I have sung this song before. */
   sung?: boolean;
+  /**
+   * The tags this song wears that asked to be on the row — the reader's own
+   * `show_in_list` ones, from `markTags`. They follow the two marks above in
+   * DOM order (§1.4) and are passive like them: tags are set in the song modal.
+   */
+  tags?: TagRead[];
   /**
    * Right-aligned trailing text inside the row: the one value this list is
    * about (the time a song was played, a duration). Not a control — anything
@@ -34,6 +41,7 @@ export default function SongListItem({
   onClick,
   favorite,
   sung,
+  tags,
   meta,
   actions,
   leading,
@@ -58,6 +66,15 @@ export default function SongListItem({
               <Icon name="heart" />
             </span>
           )}
+          {(tags ?? []).map((tag) => (
+            <span
+              key={tag.id}
+              className={`song-mark song-mark-tag ${tagColorClass(tag.color)}`}
+              title={tag.name}
+            >
+              <Icon name={tagGlyph(tag.icon)} />
+            </span>
+          ))}
         </span>
         <span className="song-artist">{song.artist}</span>
       </span>

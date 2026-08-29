@@ -1086,6 +1086,10 @@ export type TagRead = {
      */
     hide_by_default: boolean;
     /**
+     * Can View
+     */
+    can_view: boolean;
+    /**
      * Can Assign
      */
     can_assign: boolean;

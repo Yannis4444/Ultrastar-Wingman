@@ -1407,8 +1407,10 @@ export const listTagsQueryKey = (options?: Options<ListTagsData>) => createQuery
 /**
  * List Tags
  *
- * The tags the caller may view, by name. A caller holding `tags.manage` also gets
- * each tag's permission rows; for everybody else `permissions` is null.
+ * The tags the caller may view, by name — plus, for a caller holding `tags.manage`,
+ * the ones they may not: managing a tag is not the same right as knowing it, and each
+ * row says which it is in `can_view`. A manager also gets each tag's permission rows;
+ * for everybody else `permissions` is null.
  */
 export const listTagsOptions = (options?: Options<ListTagsData>) => queryOptions<ListTagsResponse, DefaultError, ListTagsResponse, ReturnType<typeof listTagsQueryKey>>({
     queryFn: async ({ queryKey, signal }) => {
@@ -1445,9 +1447,9 @@ export const listTagAssignmentsQueryKey = (options?: Options<ListTagAssignmentsD
 /**
  * List Tag Assignments
  *
- * Which songs carry which tag, for the tags the caller may view — one request for the
- * whole song list. Songs the caller may not see are not in it, and neither are tags left
- * on songs that have since left the library.
+ * Which songs carry which tag, over the same tags `GET /tags` lists — one request for
+ * the whole song list. Songs the caller may not see are not in it, and neither are tags
+ * left on songs that have since left the library.
  */
 export const listTagAssignmentsOptions = (options?: Options<ListTagAssignmentsData>) => queryOptions<ListTagAssignmentsResponse, DefaultError, ListTagAssignmentsResponse, ReturnType<typeof listTagAssignmentsQueryKey>>({
     queryFn: async ({ queryKey, signal }) => {

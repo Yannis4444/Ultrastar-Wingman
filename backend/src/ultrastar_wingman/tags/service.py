@@ -177,6 +177,7 @@ def _read_tag(
         color=tag.color,
         show_in_list=tag.show_in_list,
         hide_by_default=tag.hide_by_default,
+        can_view=rights.can_view,
         can_assign=rights.can_assign,
         permissions=_read_permissions(rows, usernames) if with_permissions else None,
     )
@@ -190,26 +191,40 @@ async def read_tag(
     return _read_tag(tag, rows, rights_for(rows, viewer), usernames, with_permissions)
 
 
-async def visible_tags(
-    session: AsyncSession, viewer: Viewer, with_permissions: bool
-) -> list[TagRead]:
-    """Only the tags this caller may view. `with_permissions` is the `tags.manage` half:
-    which accounts were named on a tag is a manager's business, nobody else's."""
+async def _listed(
+    session: AsyncSession, viewer: Viewer, manages: bool
+) -> list[tuple[Tag, list[TagPermission]]]:
+    """The tags a listing shows this caller, with their permission rows.
+
+    Everybody sees the tags they may view. A `tags.manage` holder sees every tag, viewable
+    or not: managing a tag is not the same right as knowing it, and a manager who unticks
+    their own *See tag* must not watch the tag vanish from the page they unticked it on.
+    Each row carries `can_view`, so the reader-facing surfaces can drop the rest.
+    """
     tags = await all_tags(session)
     rows = await permission_rows(session, [tag.id for tag in tags])
-    visible = [(tag, rows.get(tag.id, [])) for tag in tags]
-    visible = [(tag, tag_rows) for tag, tag_rows in visible if allowed(tag_rows, "view", viewer)]
+    listed = [(tag, rows.get(tag.id, [])) for tag in tags]
+    if manages:
+        return listed
+    return [(tag, tag_rows) for tag, tag_rows in listed if allowed(tag_rows, "view", viewer)]
+
+
+async def visible_tags(session: AsyncSession, viewer: Viewer, manages: bool) -> list[TagRead]:
+    """The tags a listing shows this caller (see `_listed`). `manages` is the `tags.manage`
+    half twice over: which accounts were named on a tag is a manager's business, nobody
+    else's, and so is a tag they gave themselves no right to see."""
+    listed = await _listed(session, viewer, manages)
     usernames = (
         await _usernames(
             session,
-            {row.user_id for _, tag_rows in visible for row in tag_rows if row.user_id},
+            {row.user_id for _, tag_rows in listed for row in tag_rows if row.user_id},
         )
-        if with_permissions
+        if manages
         else {}
     )
     return [
-        _read_tag(tag, tag_rows, rights_for(tag_rows, viewer), usernames, with_permissions)
-        for tag, tag_rows in visible
+        _read_tag(tag, tag_rows, rights_for(tag_rows, viewer), usernames, manages)
+        for tag, tag_rows in listed
     ]
 
 
@@ -243,29 +258,29 @@ async def hidden_song_ids(session: AsyncSession, viewer: Viewer) -> frozenset[st
 
 
 async def assignments(
-    session: AsyncSession, viewer: Viewer, hidden: frozenset[str]
+    session: AsyncSession, viewer: Viewer, hidden: frozenset[str], manages: bool
 ) -> list[TagAssignment]:
-    """Which songs carry which of the tags this caller may view.
+    """Which songs carry which tag, over exactly the tags `visible_tags` lists — one
+    listing without the other would leave the client holding assignments for a tag it
+    never heard of, or a tag whose songs it cannot count.
 
     Joined against `songs` so a tag left on a song that is no longer in the library does
     not turn up as an id the client cannot resolve — and so that song keeps its tags for
     the day it comes back.
     """
-    tags = await all_tags(session)
-    rows = await permission_rows(session, [tag.id for tag in tags])
-    viewable = [tag.id for tag in tags if allowed(rows.get(tag.id, []), "view", viewer)]
-    if not viewable:
+    listed = [tag.id for tag, _ in await _listed(session, viewer, manages)]
+    if not listed:
         return []
-    grouped: dict[str, list[str]] = {tag_id: [] for tag_id in viewable}
+    grouped: dict[str, list[str]] = {tag_id: [] for tag_id in listed}
     for tag_id, song_id in await session.execute(
         select(SongTag.tag_id, SongTag.song_id)
         .join(Song, Song.id == SongTag.song_id)
-        .where(SongTag.tag_id.in_(viewable))
+        .where(SongTag.tag_id.in_(listed))
         .order_by(SongTag.tag_id, SongTag.song_id)
     ):
         if song_id not in hidden:
             grouped[tag_id].append(song_id)
-    return [TagAssignment(tag_id=tag_id, song_ids=grouped[tag_id]) for tag_id in viewable]
+    return [TagAssignment(tag_id=tag_id, song_ids=grouped[tag_id]) for tag_id in listed]
 
 
 async def _check_name(session: AsyncSession, name: str, tag_id: str | None) -> None:

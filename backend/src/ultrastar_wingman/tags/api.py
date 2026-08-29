@@ -78,8 +78,10 @@ class TagPermissionsUpdate(BaseModel):
 
 @router.get("/tags", response_model=TagList, dependencies=[Depends(require("songs.view"))])
 async def list_tags(session: SessionDep, principal: PrincipalDep) -> TagList:
-    """The tags the caller may view, by name. A caller holding `tags.manage` also gets
-    each tag's permission rows; for everybody else `permissions` is null."""
+    """The tags the caller may view, by name — plus, for a caller holding `tags.manage`,
+    the ones they may not: managing a tag is not the same right as knowing it, and each
+    row says which it is in `can_view`. A manager also gets each tag's permission rows;
+    for everybody else `permissions` is null."""
     return TagList(
         tags=await service.visible_tags(session, tag_viewer(principal), _manages(principal))
     )
@@ -93,11 +95,13 @@ async def list_tags(session: SessionDep, principal: PrincipalDep) -> TagList:
 async def list_tag_assignments(
     session: SessionDep, principal: PrincipalDep, hidden: HiddenSongsDep
 ) -> TagAssignments:
-    """Which songs carry which tag, for the tags the caller may view — one request for the
-    whole song list. Songs the caller may not see are not in it, and neither are tags left
-    on songs that have since left the library."""
+    """Which songs carry which tag, over the same tags `GET /tags` lists — one request for
+    the whole song list. Songs the caller may not see are not in it, and neither are tags
+    left on songs that have since left the library."""
     return TagAssignments(
-        assignments=await service.assignments(session, tag_viewer(principal), hidden)
+        assignments=await service.assignments(
+            session, tag_viewer(principal), hidden, _manages(principal)
+        )
     )
 
 

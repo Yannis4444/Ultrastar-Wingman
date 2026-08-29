@@ -32,6 +32,12 @@ class TagRead(BaseModel):
     # A client-side default: fold this tag's songs away from the list. Only meaningful to
     # somebody who may view the tag — hiding songs from everybody else is `view_songs`.
     hide_by_default: bool
+    # Whether the tag exists as far as the caller is concerned. True for every row of
+    # every listing but one: a `tags.manage` holder is shown the tags they may not view,
+    # because managing a tag is not the same right as knowing it. Reader-facing surfaces
+    # — the marks on a song row, the modal's Tags row, the filter panel — draw only the
+    # rows where this is true.
+    can_view: bool
     # Whether the caller may tag and untag songs with it.
     can_assign: bool
     # The permission rows, for a caller who holds `tags.manage`; None for everybody else,

@@ -96,12 +96,12 @@ live in `tests/fixtures/`.
 | `App.tsx` | routes: `/`, `/spinner`, `/songs`, `/songs/playlists[/:id[/manage|/spinner]]`, `/usdb`, `/scores`, `/user`, `/user/{accounts,stats,permissions,tags}`, `/user/tags/{new,:tagId}`, `/settings`, `/host`, `/host/manage` |
 | `pages/` | one component per route: `Name.tsx` + `Name.css` + `Name.test.tsx` |
 | `components/` | shared components, same triple. `icons.tsx` is the only icon source; `Modal`/`ConfirmModal`; `PageHeader` (sub-pages); `BottomNav` (`COVERS` keeps a tab lit on its sub-routes); `SongDetails` (the song modal); `PlaylistCover` (the 2×2 cover mosaic of a playlist row); `PickerRow` (the shared row of the two membership pickers); `HomeStage`; `PlayerSelection`; `RankedScoreList`; `CheckOption`; `Loading` |
-| `hooks/` | `useWingmanEvent(name, handler)` (one shared socket), `useWishlist`, `useFavorites`, `useRecentlyPlayed`, `useSungSongs`, `useDownloadEvents`, `useSessionStanding`, `useUserLookup` (the debounced "add people" search of the playlist and tag people rows) |
+| `hooks/` | `useWingmanEvent(name, handler)` (one shared socket), `useWishlist`, `useFavorites`, `useRecentlyPlayed`, `useSungSongs`, `useTags` (the tag listings shared by every surface that draws a tag: `tags` / `allTags` / `bySong` / `showInList` / `hideByDefault`), `useDownloadEvents`, `useSessionStanding`, `useUserLookup` (the debounced "add people" search of the playlist and tag people rows) |
 | `api/` | **generated** by `@hey-api/openapi-ts` (fetch client + TanStack Query options). Never edit; regenerate and commit |
 | `auth.ts` | `useAuth()` → `{ user, role, capabilities, isHost, loaded, can(capability) }` |
 | `index.css` | design tokens and the shared classes (`.button*`, `.text-input[-quiet]`, `.icon-button*`, `.error-notice`, `.visually-hidden`, global focus ring) |
-| `stats.ts`, `karaokeSlots.ts`, `settings.ts`, `duration.ts`, `errors.ts`, `manage.ts`, `songSources.ts`, `links.ts`, `backLink.ts`, `dice.ts`, `tags.ts` (a tag's glyph and colour class) | plain helpers, each with its own test |
-| `test/` | `auth.ts` (`meResponse`, `userRead`), `fakeSocket.ts`, `icons.ts` (`iconNames`), `setup.ts` |
+| `stats.ts`, `karaokeSlots.ts`, `settings.ts`, `duration.ts`, `errors.ts`, `manage.ts`, `songSources.ts`, `links.ts`, `backLink.ts`, `dice.ts`, `tags.ts` (a tag's glyph and colour class, the row marks, and the tag criteria the song list filters on) | plain helpers, each with its own test |
+| `test/` | `auth.ts` (`meResponse`, `userRead`), `tags.ts` (`tagRead`), `fakeSocket.ts`, `icons.ts` (`iconNames`), `setup.ts` |
 
 Keep this map at module granularity and update it in the same commit when a
 module, page or route is added, renamed or removed.

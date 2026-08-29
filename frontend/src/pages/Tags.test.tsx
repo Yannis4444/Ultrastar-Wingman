@@ -5,6 +5,7 @@ import type { MeRead, TagRead } from "../api";
 import { meResponse, userRead } from "../test/auth";
 import { FakeSocket } from "../test/fakeSocket";
 import { iconNames } from "../test/icons";
+import { tagRead } from "../test/tags";
 import Tags from "./Tags";
 
 const { getMe, listTags, listTagAssignments } = vi.hoisted(() => ({
@@ -24,17 +25,16 @@ const MANAGER = ["songs.view", "tags.manage"];
 const ACCOUNT: Partial<MeRead> = { user: userRead(), role: "trusted" };
 
 function tag(overrides: Partial<TagRead> = {}): TagRead {
-  return {
+  return tagRead({
     id: "t-broken",
     name: "broken",
     icon: "alert",
     color: "gold",
     show_in_list: true,
     hide_by_default: true,
-    can_assign: true,
     permissions: [],
     ...overrides,
-  };
+  });
 }
 
 function renderTags(

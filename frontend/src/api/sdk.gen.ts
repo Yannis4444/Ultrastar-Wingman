@@ -608,8 +608,10 @@ export const listLatestScores = <ThrowOnError extends boolean = false>(options?:
 /**
  * List Tags
  *
- * The tags the caller may view, by name. A caller holding `tags.manage` also gets
- * each tag's permission rows; for everybody else `permissions` is null.
+ * The tags the caller may view, by name — plus, for a caller holding `tags.manage`,
+ * the ones they may not: managing a tag is not the same right as knowing it, and each
+ * row says which it is in `can_view`. A manager also gets each tag's permission rows;
+ * for everybody else `permissions` is null.
  */
 export const listTags = <ThrowOnError extends boolean = false>(options?: Options<ListTagsData, ThrowOnError>): RequestResult<ListTagsResponses, unknown, ThrowOnError> => (options?.client ?? client).get<ListTagsResponses, unknown, ThrowOnError>({ url: '/api/v1/tags', ...options });
 
@@ -628,9 +630,9 @@ export const createTag = <ThrowOnError extends boolean = false>(options: Options
 /**
  * List Tag Assignments
  *
- * Which songs carry which tag, for the tags the caller may view — one request for the
- * whole song list. Songs the caller may not see are not in it, and neither are tags left
- * on songs that have since left the library.
+ * Which songs carry which tag, over the same tags `GET /tags` lists — one request for
+ * the whole song list. Songs the caller may not see are not in it, and neither are tags
+ * left on songs that have since left the library.
  */
 export const listTagAssignments = <ThrowOnError extends boolean = false>(options?: Options<ListTagAssignmentsData, ThrowOnError>): RequestResult<ListTagAssignmentsResponses, unknown, ThrowOnError> => (options?.client ?? client).get<ListTagAssignmentsResponses, unknown, ThrowOnError>({ url: '/api/v1/tags/assignments', ...options });
 

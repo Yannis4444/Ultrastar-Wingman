@@ -11,6 +11,7 @@ import type { MeRead, PlaylistDetail, SongRead } from "../api";
 import { meResponse, userRead } from "../test/auth";
 import { FakeSocket } from "../test/fakeSocket";
 import { iconNames } from "../test/icons";
+import { tagRead } from "../test/tags";
 import Playlist from "./Playlist";
 
 const {
@@ -28,6 +29,8 @@ const {
   listWishlist,
   listSongScores,
   listPlayerScores,
+  listTags,
+  listTagAssignments,
 } = vi.hoisted(() => ({
   getMe: vi.fn(),
   getPlaylist: vi.fn(),
@@ -43,6 +46,8 @@ const {
   listWishlist: vi.fn(),
   listSongScores: vi.fn(),
   listPlayerScores: vi.fn(),
+  listTags: vi.fn(),
+  listTagAssignments: vi.fn(),
 }));
 
 vi.mock("../api/sdk.gen", async (importOriginal) => ({
@@ -61,6 +66,8 @@ vi.mock("../api/sdk.gen", async (importOriginal) => ({
   listWishlist,
   listSongScores,
   listPlayerScores,
+  listTags,
+  listTagAssignments,
 }));
 
 const LIBRARY = [
@@ -199,9 +206,14 @@ beforeEach(() => {
     listWishlist,
     listSongScores,
     listPlayerScores,
+    listTags,
+    listTagAssignments,
   ]) {
     mock.mockReset();
   }
+  // No tags unless a test seeds them.
+  listTags.mockResolvedValue({ data: { tags: [] } });
+  listTagAssignments.mockResolvedValue({ data: { assignments: [] } });
   listPlaylists.mockResolvedValue({ data: { playlists: [] } });
   listSongs.mockResolvedValue({ data: { songs: [song(), HEY] } });
   listFavorites.mockResolvedValue({ data: { song_ids: [] } });
@@ -658,4 +670,27 @@ test("a change to this playlist somewhere else refetches it", async () => {
   // A null id means several lists changed at once, this one possibly among them.
   FakeSocket.deliver({ event: "playlists.changed", playlist_id: null });
   await waitFor(() => expect(getPlaylist).toHaveBeenCalledTimes(3));
+});
+
+test("a playlist keeps a hidden-by-default song and still marks it", async () => {
+  listTags.mockResolvedValue({
+    data: {
+      tags: [
+        tagRead({
+          id: "t-archive",
+          hide_by_default: true,
+          show_in_list: true,
+        }),
+      ],
+    },
+  });
+  listTagAssignments.mockResolvedValue({
+    data: { assignments: [{ tag_id: "t-archive", song_ids: ["local:abc"] }] },
+  });
+  renderPlaylist(detail());
+
+  // Somebody put it on this list on purpose, so the list shows it — the tag
+  // only keeps songs out of the library's own list and the reel.
+  const title = await screen.findByText("Africa");
+  expect(iconNames(title.parentElement!)).toEqual(["archive"]);
 });

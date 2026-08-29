@@ -43,6 +43,11 @@ know about.
     Administrators are never in the table. They see every tag and every song, so
     no combination of ticks can hide anything from the host.
 
+Taking *See tag* away from yourself is safe: **User → Tags** lists every tag to
+everybody who may manage tags, whether they may see it or not, so you can always
+tick it back on. What you do lose is the tag itself — it leaves your song list,
+your song details and your filter, and you can no longer put it on a song.
+
 ## Create a tag
 
 1. Open **User → Tags**. The page lists every tag, with how many songs carry it.
@@ -91,9 +96,31 @@ only the label goes.
 
 ## Putting a tag on a song
 
-This page is where tags are set up, not where they are used. Tagging happens on
-the song itself — open a song and use its **Tags** row — and the **Songs** page
-filters the list by tag. Both are described where they live.
+Tags are set up here and used on the song itself. Open a song — from **Songs**,
+from a playlist, from the random reel — and tap its **Tags** row, under *Add to
+playlist*. The row shows the icons of the tags the song already wears, so you
+can see how it is marked without opening anything; past three of them it says
+how many there are instead.
+
+Inside, every tag you may see is one row:
+
+- A tag you may **set** is a switch. Tap it to put the tag on the song, tap it
+  again to take it off. Its icon is grey while the song does not wear the tag
+  and takes the tag's colour once it does. Everybody in the room sees the change
+  straight away.
+- A tag you may only **see** carries a padlock and does nothing. Somebody
+  holding *Tag songs* on it has to make that change.
+
+If you may not see a single tag, the row is not there at all. If none of the
+tags is yours to set and none is on the song, the list is replaced by one
+sentence — a screen full of padlocks would say the same thing more slowly.
+
+A tag with **Show in song list** on also rides on the song's row everywhere it
+is listed: its icon, in its colour, after the microphone and the heart, with its
+name on hover.
+
+Filtering the song list by tag is coming with the **Filter** chip on the
+**Songs** page.
 
 ## See also
 

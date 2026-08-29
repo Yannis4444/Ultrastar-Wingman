@@ -18,8 +18,10 @@ import { useDownloadEvents } from "../hooks/useDownloadEvents";
 import { useFavorites } from "../hooks/useFavorites";
 import { useRecentlyPlayed } from "../hooks/useRecentlyPlayed";
 import { useSungSongs } from "../hooks/useSungSongs";
+import { useTags } from "../hooks/useTags";
 import { useWingmanEvent } from "../hooks/useWingmanEvents";
 import { SONG_SOURCES } from "../songSources";
+import { defaultTagCriteria, markTags, passesTagCriteria } from "../tags";
 import "./Songs.css";
 
 /** The filters this page owns; playlists live on /songs/playlists. */
@@ -95,6 +97,7 @@ export default function Songs() {
   const favorites = useFavorites();
   const recent = useRecentlyPlayed();
   const sung = useSungSongs();
+  const tags = useTags();
   const [search, setSearch] = useState("");
   const [filter, setFilter] = useState(ALL);
   const [selected, setSelected] = useState<SongRead | null>(null);
@@ -153,10 +156,25 @@ export default function Songs() {
             ? undefined
             : (all ?? []).filter((song) => sung.ids.has(song.id))
           : all;
-  const shown = useMemo(
-    () => (needle ? base?.filter((song) => matches(song, needle)) : base),
-    [base, needle],
-  );
+  // What the tags say about the list. Today only the baseline: a tag flagged
+  // `hide_by_default` opens on *No* and its songs stay out of every filter
+  // until somebody asks for them. Bundle 8's Filter panel writes the other two
+  // states into the same map, and nothing else here has to move.
+  const criteria = useMemo(() => defaultTagCriteria(tags.tags), [tags.tags]);
+  const shown = useMemo(() => {
+    // Until the tags are in, the list would show what a tag is about to hide —
+    // a `broken` song flashing past is exactly what the flag exists to prevent.
+    if (tags.isPending) return undefined;
+    const visible = base?.filter((song) =>
+      passesTagCriteria(song.id, tags.bySong, criteria),
+    );
+    return needle ? visible?.filter((song) => matches(song, needle)) : visible;
+  }, [base, needle, criteria, tags.bySong, tags.isPending]);
+  // Everything this filter holds carries a hidden-by-default tag. Worth its own
+  // sentence: "no favorites yet" over a shelf full of archived favorites is a
+  // lie, and the reader would go looking for the songs they know are there.
+  const allHidden =
+    needle === "" && shown?.length === 0 && (base?.length ?? 0) > 0;
 
   // `All` only earns its place next to another filter; on its own beside a link
   // it would be a chip that does nothing.
@@ -291,7 +309,8 @@ export default function Songs() {
       {notice && <p className="songs-notice songs-notice-error">{notice}</p>}
 
       {/* The recently-played tab has a list of its own, so it waits for that one. */}
-      {(filter === RECENT ? recent.isPending : songs.isPending) && (
+      {((filter === RECENT ? recent.isPending : songs.isPending) ||
+        tags.isPending) && (
         <div className="songs-skeleton" aria-label="Loading songs">
           {[0, 1, 2, 3, 4].map((row) => (
             <span key={row} />
@@ -314,15 +333,17 @@ export default function Songs() {
             <p className="songs-notice">
               {needle
                 ? `No song matches "${search.trim()}".`
-                : filter === FAVORITES
-                  ? "No favorites yet. Open a song and tap the heart."
-                  : filter === RECENT
-                    ? "Nothing has been sung yet."
-                    : filter === SUNG
-                      ? "You have not sung anything yet. Songs you get a score on show up here."
-                      : canAddSongs
-                        ? "The library is empty. Add songs from an online source, or run a rescan once they are on disk."
-                        : "The library is empty. Run a rescan once songs are on disk."}
+                : allHidden
+                  ? "Every song here carries a tag that keeps it out of the list."
+                  : filter === FAVORITES
+                    ? "No favorites yet. Open a song and tap the heart."
+                    : filter === RECENT
+                      ? "Nothing has been sung yet."
+                      : filter === SUNG
+                        ? "You have not sung anything yet. Songs you get a score on show up here."
+                        : canAddSongs
+                          ? "The library is empty. Add songs from an online source, or run a rescan once they are on disk."
+                          : "The library is empty. Run a rescan once songs are on disk."}
             </p>
           ) : (
             <div className="songs-list">
@@ -332,6 +353,7 @@ export default function Songs() {
                   song={song}
                   favorite={favorites.ids.has(song.id)}
                   sung={sung.ids.has(song.id)}
+                  tags={markTags(tags.bySong.get(song.id))}
                   meta={recentTime(filter, recent.startedAt, song.id)}
                   onClick={() => setSelected(song)}
                 />

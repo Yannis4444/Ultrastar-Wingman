@@ -4,6 +4,7 @@ import { MemoryRouter, Route, Routes, useLocation } from "react-router-dom";
 import type { MeRead, TagPermissionRead, TagRead } from "../api";
 import { meResponse, userRead } from "../test/auth";
 import { FakeSocket } from "../test/fakeSocket";
+import { tagRead } from "../test/tags";
 import TagEditor from "./TagEditor";
 
 const {
@@ -51,20 +52,19 @@ function roleRows(): TagPermissionRead[] {
 }
 
 function tag(overrides: Partial<TagRead> = {}): TagRead {
-  return {
+  return tagRead({
     id: "t1",
     name: "broken",
     icon: "alert",
     color: "gold",
     show_in_list: true,
     hide_by_default: true,
-    can_assign: true,
     permissions: [
       ...roleRows(),
       { action: "assign", role: "trusted", user_id: null, username: null },
     ],
     ...overrides,
-  };
+  });
 }
 
 /** Where a create or a delete has taken the reader. */

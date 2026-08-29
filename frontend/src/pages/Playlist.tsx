@@ -32,7 +32,9 @@ import { formatTotalDuration } from "../duration";
 import { errorDetail, errorMessage } from "../errors";
 import { useFavorites } from "../hooks/useFavorites";
 import { useSungSongs } from "../hooks/useSungSongs";
+import { useTags } from "../hooks/useTags";
 import { useWingmanEvent, type WingmanEvent } from "../hooks/useWingmanEvents";
+import { markTags } from "../tags";
 import "./Playlists.css";
 
 interface PlaylistsChanged extends WingmanEvent {
@@ -88,6 +90,7 @@ export default function Playlist() {
   const auth = useAuth();
   const favorites = useFavorites();
   const sung = useSungSongs();
+  const tags = useTags();
   const [selected, setSelected] = useState<SongRead | null>(null);
   const [adding, setAdding] = useState(false);
   const [search, setSearch] = useState("");
@@ -465,6 +468,7 @@ export default function Playlist() {
                           song={song}
                           favorite={favorites.ids.has(song.id)}
                           sung={sung.ids.has(song.id)}
+                          tags={markTags(tags.bySong.get(song.id))}
                           onClick={() => setSelected(song)}
                           leading={
                             /* A grip, not a control: the same reordering is on
@@ -526,6 +530,7 @@ export default function Playlist() {
                         song={song}
                         favorite={favorites.ids.has(song.id)}
                         sung={sung.ids.has(song.id)}
+                        tags={markTags(tags.bySong.get(song.id))}
                         onClick={() => setSelected(song)}
                       />
                     ))}

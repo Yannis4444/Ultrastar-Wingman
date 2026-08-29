@@ -54,6 +54,12 @@ export const ICON_PATHS = {
   // cut out of the lid's top edge. The notch is part of the lid's own outline
   // rather than a punched-out shape, so no fill rule is involved.
   archive: "M2 4h8v2h4V4h8v4H2V4Zm2 5h16v12H4V9Z",
+  // A tag row the reader may see but not set. The shackle is one contour whose
+  // inner arc runs back the way the outer one came, so the default nonzero fill
+  // leaves the hole open — the two halves must never wind the same way. It is
+  // half the body's width and stands on straight legs: a wide shallow arch on a
+  // box reads as a handbag once the glyph is drawn any bigger than a row mark.
+  lock: "M8 11V7a4 4 0 0 1 8 0v4h-2V7a2 2 0 0 0-4 0v4H8Zm-4-1h16a1 1 0 0 1 1 1v9a1 1 0 0 1-1 1H4a1 1 0 0 1-1-1v-9a1 1 0 0 1 1-1Z",
   calendar:
     "M19 4h-1V2h-2v2H8V2H6v2H5a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2V6a2 2 0 0 0-2-2Zm0 16H5V10h14Zm0-12H5V6h14Z",
   disc: "M12 2a10 10 0 1 0 0 20 10 10 0 0 0 0-20Zm0 7a3 3 0 1 1 0 6 3 3 0 0 1 0-6Z",

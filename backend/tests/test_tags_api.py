@@ -166,6 +166,29 @@ async def test_only_a_tag_manager_is_shown_who_a_tag_is_for(party: Party) -> Non
     assert all(row["user_id"] is None for row in managed[ARCHIVE]["permissions"])
 
 
+async def test_a_manager_lists_a_tag_they_may_not_view(party: Party) -> None:
+    """Managing a tag is not the same right as knowing it. A manager who granted themselves
+    no `view` still needs the tag on the page they manage it from — otherwise unticking
+    *See tag* makes the tag disappear from under the hand that unticked it. Everybody else
+    never learns that it exists."""
+    secret = await make_tag(party["admin"], name="scratch")
+    await tag_song(party["admin"], THIRD_SONG, secret["id"])
+
+    listed = {tag["id"]: tag for tag in await tags_of(party["trusted"])}
+    assert listed[secret["id"]]["can_view"] is False
+    # A tag a manager may not view is one they may not set either.
+    assert listed[secret["id"]]["can_assign"] is False
+    assert listed[ARCHIVE_TAG_ID]["can_view"] is True
+    assert secret["id"] not in {tag["id"] for tag in await tags_of(party["user"])}
+
+    # The two listings hold the same tags, so the client never has assignments for a tag
+    # it never heard of. The song under `scratch` is still hidden from trusted by it.
+    trusted_rows = await assignments_of(party["trusted"])
+    assert set(trusted_rows) == set(listed)
+    assert trusted_rows[secret["id"]] == []
+    assert secret["id"] not in await assignments_of(party["user"])
+
+
 async def test_a_broken_song_is_gone_for_a_guest_and_a_plain_account(party: Party) -> None:
     """Every route that takes a song id has to answer as if the song were never there."""
     await tag_song(party["trusted"], SONG, BROKEN_TAG_ID)
@@ -280,9 +303,13 @@ async def test_replacing_the_permissions_can_name_a_single_account(party: Party)
     named = [row for row in response.json()["permissions"] if row["user_id"] is not None]
     assert {row["username"] for row in named} == {"user-account"}
     # The rows that were not sent are gone: the plain account may now set the tag, and
-    # trusted — which the seed had granted it to — may not even see it any more.
+    # trusted — which the seed had granted it to — may not even see it any more. It still
+    # *lists* the tag, because trusted manages tags; `can_view` is what says the
+    # difference, and the 404 below is the part with teeth.
     await tag_song(party["user"], SONG, ARCHIVE_TAG_ID)
-    assert await names(party["trusted"]) == [BROKEN]
+    listed = {tag["name"]: tag for tag in await tags_of(party["trusted"])}
+    assert listed[ARCHIVE]["can_view"] is False
+    assert listed[BROKEN]["can_view"] is True
     assert await tag_song(party["trusted"], OTHER_SONG, ARCHIVE_TAG_ID, expect=404) is not None
 
 

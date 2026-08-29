@@ -110,6 +110,30 @@
   color: var(--color-darker);
 }
 
+/* The Tags row's value: the song's tag glyphs, each painted by its own
+   `.tag-color-*` class, or — past three of them — how many there are. */
+.song-option-tags {
+  display: flex;
+  flex: 0 0 auto;
+  align-items: center;
+  gap: 4px;
+  font-size: 0.9em;
+  color: var(--color-darker);
+}
+
+/* A tag the song does not wear, in the Tags sub-view: the same off-state the
+   song controls use, so the coloured glyphs are the ones that are on. */
+.song-tag-glyph-off {
+  color: var(--color-darkerer);
+}
+
+/* A tag row with nothing to press — the padlock row. It keeps the picker row's
+   shape and loses its cursor and its hover band (`:hover:enabled` never
+   matches a div, so only the cursor has to go). */
+.song-tag-locked {
+  cursor: default;
+}
+
 .song-details-list {
   margin: 0;
   padding: 0 0 4px 0;

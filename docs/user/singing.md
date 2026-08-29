@@ -17,7 +17,9 @@ with the number of songs at the top.
 - Tap a song to open it: the cover, a listen-in preview, and the buttons for
   favorite, sing and wish. Below them, **Details** unfolds language, genre,
   year, edition and who made it; **Best scores** lists the best runs ever sung
-  on it; **Add to playlist** puts the song on one of the playlists you may edit.
+  on it; **Add to playlist** puts the song on one of the playlists you may edit;
+  **Tags** shows the labels the party has put on it, and lets you set the ones
+  you are allowed to.
 
 ## What has already been sung
 
@@ -44,6 +46,36 @@ Both need an account with a player behind it: a song counts as sung by you once
 Ultrastar Deluxe scored it under your player. A song nobody scored — stopped
 after a verse, or sung with no microphone plugged in — belongs to nobody in
 particular, so it does not show up here. It is still in **Recent**.
+
+## The marks next to a title
+
+A row can carry a few small icons after the song's title. They are marks, not
+buttons — nothing happens when you tap one, and the song's own view is where the
+state is changed.
+
+- A blue **microphone** means you have sung this song before — the section
+  above.
+- A pink **heart** means it is one of your favorites.
+- After those, one icon per **tag** the song wears that was set up to show in the
+  list — in the tag's own colour, with its name on hover. A tag nobody chose to
+  show stays out of the row and lives in the song's **Tags** view.
+
+## Songs you do not see
+
+Some songs are deliberately kept out of the list.
+
+- A tag can be set to **hide songs by default**. Its songs are out of the song
+  list — in every chip, not only *All* — and out of the random reel, until the
+  tag filter asks for them. They are still there: a playlist that holds one
+  still shows it, because somebody put it there on purpose. The seeded
+  **archive** tag works this way.
+- A tag can also take *See songs* away from a role entirely. Those songs do not
+  exist for that person at all: not in the list, not in the search, not in the
+  reel. The seeded **broken** tag works this way, so nobody stumbles into a song
+  that does not play.
+
+If a filter ends up empty because of the first kind, the page says so instead of
+pretending you have no favorites. See [Tags](tags.md) for the whole picture.
 
 ## Choose the players
 
