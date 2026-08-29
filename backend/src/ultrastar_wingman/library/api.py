@@ -10,6 +10,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from ..auth.deps import (
     AccountIdDep,
+    HiddenSongsDep,
     Principal,
     PrincipalDep,
     WishlistIdentityDep,
@@ -83,10 +84,14 @@ class PlaylistMemberUpdate(BaseModel):
 @router.get(
     "/wishlist", response_model=WishlistRead, dependencies=[Depends(require("wishlist.view"))]
 )
-async def list_wishlist(session: SessionDep, identity: WishlistIdentityDep) -> WishlistRead:
+async def list_wishlist(
+    session: SessionDep, identity: WishlistIdentityDep, hidden: HiddenSongsDep
+) -> WishlistRead:
     """What the party wants to sing, most-wished-for first. One row per song with how many
     people want it, and whether the caller is one of them."""
-    return WishlistRead(wishes=await service.wishlist(session, identity.user_id, identity.guest_id))
+    return WishlistRead(
+        wishes=await service.wishlist(session, identity.user_id, identity.guest_id, hidden)
+    )
 
 
 @router.post(
@@ -104,10 +109,11 @@ async def add_wish(
     response: Response,
     session: SessionDep,
     identity: WishlistIdentityDep,
+    hidden: HiddenSongsDep,
 ) -> WishRead:
     """Wish for a song. An anonymous browser gets its guest cookie here — after the song is
     resolved, so a 404 does not hand one out."""
-    song = await song_or_404(body.song_id, session)
+    song = await song_or_404(body.song_id, session, hidden)
     identity = issue_guest_id(identity, response)
     try:
         return await service.add_wish(session, song, identity.user_id, identity.guest_id)
@@ -155,9 +161,11 @@ async def list_favorites(session: SessionDep, user_id: AccountIdDep) -> Favorite
     status_code=204,
     responses={404: {"description": "Unknown song."}},
 )
-async def add_favorite(song_id: str, session: SessionDep, user_id: AccountIdDep) -> None:
+async def add_favorite(
+    song_id: str, session: SessionDep, user_id: AccountIdDep, hidden: HiddenSongsDep
+) -> None:
     """Idempotent — the UI can send it on every click of a toggle."""
-    await song_or_404(song_id, session)
+    await song_or_404(song_id, session, hidden)
     await service.add_favorite(session, user_id, song_id)
 
 
@@ -188,10 +196,10 @@ async def list_playlists(
     responses={404: {"description": "Unknown playlist, or one the caller was not named on."}},
 )
 async def get_playlist(
-    playlist_id: str, session: SessionDep, principal: PrincipalDep
+    playlist_id: str, session: SessionDep, principal: PrincipalDep, hidden: HiddenSongsDep
 ) -> PlaylistDetail:
     playlist, rights = await _seen(playlist_id, principal, session)
-    return await service.read_playlist_detail(session, playlist, rights)
+    return await service.read_playlist_detail(session, playlist, rights, hidden)
 
 
 @router.post(
@@ -269,12 +277,13 @@ async def copy_playlist(
     session: SessionDep,
     principal: PrincipalDep,
     user_id: AccountIdDep,
+    hidden: HiddenSongsDep,
 ) -> PlaylistDetail:
     """Take a private copy of a playlist the caller may see. The copy is theirs: same
     songs and description, no members and not global."""
     playlist, _ = await _seen(playlist_id, principal, session)
     copy = await service.copy_playlist(session, playlist, user_id, body.name)
-    return await service.read_playlist_detail(session, copy, _rights(copy, principal, None))
+    return await service.read_playlist_detail(session, copy, _rights(copy, principal, None), hidden)
 
 
 @router.get(
@@ -381,16 +390,20 @@ async def unfollow_playlist(playlist_id: str, session: SessionDep, principal: Pr
     },
 )
 async def add_playlist_entry(
-    playlist_id: str, body: PlaylistEntryCreate, session: SessionDep, principal: PrincipalDep
+    playlist_id: str,
+    body: PlaylistEntryCreate,
+    session: SessionDep,
+    principal: PrincipalDep,
+    hidden: HiddenSongsDep,
 ) -> PlaylistDetail:
     """Append a song to the end of the playlist."""
     playlist, rights = await _edited(playlist_id, principal, session)
-    await song_or_404(body.song_id, session)
+    await song_or_404(body.song_id, session, hidden)
     try:
         await service.add_entry(session, playlist, body.song_id)
     except service.DuplicateEntryError as error:
         raise HTTPException(status_code=409, detail="duplicate_entry") from error
-    return await service.read_playlist_detail(session, playlist, rights)
+    return await service.read_playlist_detail(session, playlist, rights, hidden)
 
 
 @router.delete(
@@ -419,20 +432,25 @@ async def remove_playlist_entry(
     responses={
         403: {"description": "The caller may look at the playlist but not change it."},
         404: {"description": "Unknown playlist, or one the caller was not named on."},
-        422: {"description": "The order is not a permutation of the playlist's songs."},
+        422: {"description": "The order is not a permutation of the songs the caller sees."},
     },
 )
 async def reorder_playlist_entries(
-    playlist_id: str, body: PlaylistOrder, session: SessionDep, principal: PrincipalDep
+    playlist_id: str,
+    body: PlaylistOrder,
+    session: SessionDep,
+    principal: PrincipalDep,
+    hidden: HiddenSongsDep,
 ) -> PlaylistDetail:
-    """Replace the order. The body must list exactly the songs the playlist holds — adding
-    or dropping songs is what the entry endpoints are for."""
+    """Replace the order. The body must list exactly the songs the playlist shows this
+    caller — adding or dropping songs is what the entry endpoints are for. An entry a tag
+    hides from them keeps the slot it is in."""
     playlist, rights = await _edited(playlist_id, principal, session)
     try:
-        await service.reorder_entries(session, playlist, body.song_ids)
+        await service.reorder_entries(session, playlist, body.song_ids, hidden)
     except service.OrderMismatchError as error:
         raise HTTPException(status_code=422, detail="order_mismatch") from error
-    return await service.read_playlist_detail(session, playlist, rights)
+    return await service.read_playlist_detail(session, playlist, rights, hidden)
 
 
 def _user_id(principal: Principal) -> str | None:

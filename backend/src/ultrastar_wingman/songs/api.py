@@ -10,7 +10,7 @@ from pydantic import BaseModel
 from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from ..auth.deps import require
+from ..auth.deps import HiddenSongsDep, require
 from ..db import SessionDep
 from . import scanner
 from .model import Song
@@ -26,13 +26,15 @@ class ScanStatus(BaseModel):
 
 
 @router.get("/songs", response_model=SongList, dependencies=[Depends(require("songs.view"))])
-async def list_songs(session: SessionDep) -> SongList:
+async def list_songs(session: SessionDep, hidden: HiddenSongsDep) -> SongList:
     # Case-insensitive so "abba" and "ABBA" sort together; the id breaks ties between
     # two copies of the same song so the order is stable across requests.
     songs = await session.scalars(
         select(Song).order_by(func.lower(Song.artist), func.lower(Song.title), Song.id)
     )
-    return SongList(songs=[read_song(song) for song in songs])
+    # Songs carrying a tag this caller holds no `view_songs` on are not theirs to see —
+    # filtered here rather than in SQL so every route uses the one set the dependency built.
+    return SongList(songs=[read_song(song) for song in songs if song.id not in hidden])
 
 
 @router.post(
@@ -56,8 +58,8 @@ async def rescan_songs(request: Request, response: Response) -> ScanStatus:
     response_model=SongRead,
     dependencies=[Depends(require("songs.view"))],
 )
-async def get_song(song_id: str, session: SessionDep) -> SongRead:
-    return read_song(await song_or_404(song_id, session))
+async def get_song(song_id: str, session: SessionDep, hidden: HiddenSongsDep) -> SongRead:
+    return read_song(await song_or_404(song_id, session, hidden))
 
 
 @router.get(
@@ -66,8 +68,8 @@ async def get_song(song_id: str, session: SessionDep) -> SongRead:
     dependencies=[Depends(require("songs.view"))],
     responses={200: {"content": {"image/*": {}}, "description": "The cover image file."}},
 )
-async def get_song_cover(song_id: str, session: SessionDep) -> FileResponse:
-    song = await song_or_404(song_id, session)
+async def get_song_cover(song_id: str, session: SessionDep, hidden: HiddenSongsDep) -> FileResponse:
+    song = await song_or_404(song_id, session, hidden)
     cover = None if song.cover_file is None else Path(song.cover_file)
     if cover is None or not cover.is_file():
         raise HTTPException(status_code=404, detail=f"song '{song_id}' has no cover")
@@ -80,19 +82,24 @@ async def get_song_cover(song_id: str, session: SessionDep) -> FileResponse:
     dependencies=[Depends(require("songs.view"))],
     responses={200: {"content": {"audio/*": {}}, "description": "The audio file."}},
 )
-async def get_song_audio(song_id: str, session: SessionDep) -> FileResponse:
+async def get_song_audio(song_id: str, session: SessionDep, hidden: HiddenSongsDep) -> FileResponse:
     """The song's audio file, for the preview player in the song details."""
-    song = await song_or_404(song_id, session)
+    song = await song_or_404(song_id, session, hidden)
     audio = None if song.audio_file is None else Path(song.audio_file)
     if audio is None or not audio.is_file():
         raise HTTPException(status_code=404, detail=f"song '{song_id}' has no audio")
     return FileResponse(audio)
 
 
-async def song_or_404(song_id: str, session: AsyncSession) -> Song:
-    """The song, or a 404. Shared with the wishlist, favorites and playlist routes: every
-    one of them has to reject an id that is not in the library."""
+async def song_or_404(song_id: str, session: AsyncSession, hidden: frozenset[str]) -> Song:
+    """The song, or a 404. Shared with the wishlist, favorites, playlist, statistics,
+    karaoke and tag routes: every one of them has to reject an id that is not in the
+    library.
+
+    `hidden` (`auth.deps.HiddenSongsDep`) is what a tag's `view_songs` keeps back. Such a
+    song answers exactly like one that was never there — a 403 would confirm it exists.
+    """
     song = await session.get(Song, song_id)
-    if song is None:
+    if song is None or song_id in hidden:
         raise HTTPException(status_code=404, detail=f"unknown song '{song_id}'")
     return song

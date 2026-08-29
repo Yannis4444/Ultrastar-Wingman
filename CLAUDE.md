@@ -80,6 +80,7 @@ so services and the event bus can use them).
 | `karaoke/` | launcher seam (`launcher.py`) + USDX implementation (`usdx.py` process, `usdx_config.py` config.ini rewrite, `usdx_paths.py`, `usdx_scores.py` import from `Ultrastar.db`), the sing flow, sessions/sings/scores tables, slots & colors |
 | `players/` | players (guest + registered), avatars |
 | `library/` | wishlist, favorites, playlists |
+| `tags/` | global song tags: the `tags` / `tag_permissions` / `song_tags` tables, per-tag `view` / `view_songs` / `assign` (`service.allowed`), and `hidden_song_ids` — the songs a caller may not see, applied through `auth.deps.HiddenSongsDep` and `songs.api.song_or_404` |
 | `stats/` | read-only statistics over what `karaoke` recorded |
 | `frontend.py`, `join_url.py` | serving `frontend/dist`; the address the host screen advertises |
 | `migrations/versions/` | alembic, `NNNN_<what>.py` |

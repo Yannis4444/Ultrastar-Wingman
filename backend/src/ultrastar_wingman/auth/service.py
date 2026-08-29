@@ -12,6 +12,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from ..library import service as library
 from ..players.model import Player
+from ..tags import service as tags
 from .model import User, UserSession, as_utc, utcnow
 from .permissions import ADMIN, ASSIGNABLE_ROLES, USER, UnknownRoleError
 from .providers import LOCAL, OIDC, find_by_username, hash_password
@@ -324,6 +325,8 @@ async def delete_user(session: AsyncSession, user: User) -> None:
     # Statistics belong to the player and survive; wishes, favorites and playlists belong
     # to the account and go with it.
     await library.delete_user_data(session, user.id)
+    # Its tag permissions go too; the `song_tags` rows it left behind stay as attribution.
+    await tags.delete_user_data(session, user.id)
     await session.delete(user)
     await session.commit()
     logger.info("user '%s' deleted (%s)", user.username, user.id)

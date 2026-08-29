@@ -87,6 +87,22 @@ class PlaylistsChanged(Event):
     playlist_id: str | None = None
 
 
+class TagsChanged(Event):
+    """A tag was created, edited, deleted, or had its permission rows replaced. No payload:
+    what a listener may see of the tags depends on who it is, which the bus does not know."""
+
+    event: Literal["tags.changed"] = "tags.changed"
+
+
+class SongTagsChanged(Event):
+    """One song was tagged or untagged. Ids only, for the same reason: a client that may
+    not view the tag learns nothing from the pair it cannot resolve."""
+
+    event: Literal["song_tags.changed"] = "song_tags.changed"
+    song_id: str
+    tag_id: str
+
+
 class EventBus:
     """Fans events out to all connected sockets."""
 

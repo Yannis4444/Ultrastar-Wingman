@@ -2,7 +2,7 @@
 
 import { type Client, type ClientMeta, formDataBodySerializer, type Options as Options2, type RequestResult, type TDataShape } from './client';
 import { client } from './client.gen';
-import type { AddFavoriteData, AddFavoriteErrors, AddFavoriteResponses, AddPlaylistEntryData, AddPlaylistEntryErrors, AddPlaylistEntryResponses, AddWishData, AddWishErrors, AddWishResponses, ClearWishesData, ClearWishesErrors, ClearWishesResponses, CopyPlaylistData, CopyPlaylistErrors, CopyPlaylistResponses, CreateDownloadData, CreateDownloadErrors, CreateDownloadResponses, CreatePlayerData, CreatePlayerErrors, CreatePlayerResponses, CreatePlaylistData, CreatePlaylistErrors, CreatePlaylistResponses, DeletePlayerData, DeletePlayerErrors, DeletePlayerResponses, DeletePlaylistData, DeletePlaylistErrors, DeletePlaylistResponses, DeleteUserData, DeleteUserErrors, DeleteUserResponses, DismissDownloadData, DismissDownloadErrors, DismissDownloadResponses, DismissFinishedDownloadsData, DismissFinishedDownloadsResponses, ExchangeHostTokenData, ExchangeHostTokenErrors, ExchangeHostTokenResponses, FollowPlaylistData, FollowPlaylistErrors, FollowPlaylistResponses, GetCurrentSingData, GetCurrentSingResponses, GetJoinInfoData, GetJoinInfoResponses, GetMeData, GetMeResponses, GetPermissionsData, GetPermissionsResponses, GetPlayerAvatarData, GetPlayerAvatarErrors, GetPlayerAvatarResponses, GetPlaylistData, GetPlaylistErrors, GetPlaylistResponses, GetSongAudioData, GetSongAudioErrors, GetSongAudioResponses, GetSongCoverData, GetSongCoverErrors, GetSongCoverResponses, GetSongData, GetSongErrors, GetSongResponses, HealthData, HealthResponses, LaunchUsdxData, LaunchUsdxErrors, LaunchUsdxResponses, ListCurrentSessionSingsData, ListCurrentSessionSingsResponses, ListDownloadsData, ListDownloadsResponses, ListFavoritesData, ListFavoritesResponses, ListKaraokeColorsData, ListKaraokeColorsResponses, ListKaraokeSlotsData, ListKaraokeSlotsResponses, ListLatestScoresData, ListLatestScoresErrors, ListLatestScoresResponses, ListPlayerScoresData, ListPlayerScoresErrors, ListPlayerScoresResponses, ListPlayersData, ListPlayersResponses, ListPlaylistMembersData, ListPlaylistMembersErrors, ListPlaylistMembersResponses, ListPlaylistsData, ListPlaylistsErrors, ListPlaylistsResponses, ListSessionScoresData, ListSessionScoresErrors, ListSessionScoresResponses, ListSessionsData, ListSessionsResponses, ListSettingsData, ListSettingsResponses, ListSongScoresData, ListSongScoresErrors, ListSongScoresResponses, ListSongsData, ListSongsResponses, ListUsersData, ListUsersResponses, ListVideoQualityPresetsData, ListVideoQualityPresetsResponses, ListWishlistData, ListWishlistResponses, LoginData, LoginErrors, LoginResponses, LogoutData, LogoutErrors, LogoutResponses, LookupUsersData, LookupUsersErrors, LookupUsersResponses, OidcCallbackData, OidcCallbackErrors, OidcConfigData, OidcConfigResponses, OidcLoginData, OidcLoginErrors, RegisterData, RegisterErrors, RegisterResponses, RemoveFavoriteData, RemoveFavoriteErrors, RemoveFavoriteResponses, RemovePlaylistEntryData, RemovePlaylistEntryErrors, RemovePlaylistEntryResponses, RemovePlaylistMemberData, RemovePlaylistMemberErrors, RemovePlaylistMemberResponses, RemoveWishData, RemoveWishErrors, RemoveWishResponses, RenameSessionData, RenameSessionErrors, RenameSessionResponses, ReorderPlaylistEntriesData, ReorderPlaylistEntriesErrors, ReorderPlaylistEntriesResponses, RescanSongsData, RescanSongsErrors, RescanSongsResponses, SetPlayerAvatarData, SetPlayerAvatarErrors, SetPlayerAvatarResponses, SetPlaylistMemberData, SetPlaylistMemberErrors, SetPlaylistMemberResponses, SingSongData, SingSongErrors, SingSongResponses, StopSingingData, StopSingingResponses, UnfollowPlaylistData, UnfollowPlaylistErrors, UnfollowPlaylistResponses, UpdatePlaylistData, UpdatePlaylistErrors, UpdatePlaylistResponses, UpdateRolePermissionsData, UpdateRolePermissionsErrors, UpdateRolePermissionsResponses, UpdateSettingData, UpdateSettingErrors, UpdateSettingResponses, UpdateUserData, UpdateUserErrors, UpdateUserResponses, UsdbCoverData, UsdbCoverErrors, UsdbCoverResponses, UsdbSearchData, UsdbSearchErrors, UsdbSearchResponses, UsdbStatusData, UsdbStatusErrors, UsdbStatusResponses, UsdxStatusData, UsdxStatusResponses } from './types.gen';
+import type { AddFavoriteData, AddFavoriteErrors, AddFavoriteResponses, AddPlaylistEntryData, AddPlaylistEntryErrors, AddPlaylistEntryResponses, AddWishData, AddWishErrors, AddWishResponses, AssignTagData, AssignTagErrors, AssignTagResponses, ClearWishesData, ClearWishesErrors, ClearWishesResponses, CopyPlaylistData, CopyPlaylistErrors, CopyPlaylistResponses, CreateDownloadData, CreateDownloadErrors, CreateDownloadResponses, CreatePlayerData, CreatePlayerErrors, CreatePlayerResponses, CreatePlaylistData, CreatePlaylistErrors, CreatePlaylistResponses, CreateTagData, CreateTagErrors, CreateTagResponses, DeletePlayerData, DeletePlayerErrors, DeletePlayerResponses, DeletePlaylistData, DeletePlaylistErrors, DeletePlaylistResponses, DeleteTagData, DeleteTagErrors, DeleteTagResponses, DeleteUserData, DeleteUserErrors, DeleteUserResponses, DismissDownloadData, DismissDownloadErrors, DismissDownloadResponses, DismissFinishedDownloadsData, DismissFinishedDownloadsResponses, ExchangeHostTokenData, ExchangeHostTokenErrors, ExchangeHostTokenResponses, FollowPlaylistData, FollowPlaylistErrors, FollowPlaylistResponses, GetCurrentSingData, GetCurrentSingResponses, GetJoinInfoData, GetJoinInfoResponses, GetMeData, GetMeResponses, GetPermissionsData, GetPermissionsResponses, GetPlayerAvatarData, GetPlayerAvatarErrors, GetPlayerAvatarResponses, GetPlaylistData, GetPlaylistErrors, GetPlaylistResponses, GetSongAudioData, GetSongAudioErrors, GetSongAudioResponses, GetSongCoverData, GetSongCoverErrors, GetSongCoverResponses, GetSongData, GetSongErrors, GetSongResponses, HealthData, HealthResponses, LaunchUsdxData, LaunchUsdxErrors, LaunchUsdxResponses, ListCurrentSessionSingsData, ListCurrentSessionSingsResponses, ListDownloadsData, ListDownloadsResponses, ListFavoritesData, ListFavoritesResponses, ListKaraokeColorsData, ListKaraokeColorsResponses, ListKaraokeSlotsData, ListKaraokeSlotsResponses, ListLatestScoresData, ListLatestScoresErrors, ListLatestScoresResponses, ListPlayerScoresData, ListPlayerScoresErrors, ListPlayerScoresResponses, ListPlayersData, ListPlayersResponses, ListPlaylistMembersData, ListPlaylistMembersErrors, ListPlaylistMembersResponses, ListPlaylistsData, ListPlaylistsErrors, ListPlaylistsResponses, ListSessionScoresData, ListSessionScoresErrors, ListSessionScoresResponses, ListSessionsData, ListSessionsResponses, ListSettingsData, ListSettingsResponses, ListSongScoresData, ListSongScoresErrors, ListSongScoresResponses, ListSongsData, ListSongsResponses, ListTagAssignmentsData, ListTagAssignmentsResponses, ListTagsData, ListTagsResponses, ListUsersData, ListUsersResponses, ListVideoQualityPresetsData, ListVideoQualityPresetsResponses, ListWishlistData, ListWishlistResponses, LoginData, LoginErrors, LoginResponses, LogoutData, LogoutErrors, LogoutResponses, LookupUsersData, LookupUsersErrors, LookupUsersResponses, OidcCallbackData, OidcCallbackErrors, OidcConfigData, OidcConfigResponses, OidcLoginData, OidcLoginErrors, RegisterData, RegisterErrors, RegisterResponses, RemoveFavoriteData, RemoveFavoriteErrors, RemoveFavoriteResponses, RemovePlaylistEntryData, RemovePlaylistEntryErrors, RemovePlaylistEntryResponses, RemovePlaylistMemberData, RemovePlaylistMemberErrors, RemovePlaylistMemberResponses, RemoveWishData, RemoveWishErrors, RemoveWishResponses, RenameSessionData, RenameSessionErrors, RenameSessionResponses, ReorderPlaylistEntriesData, ReorderPlaylistEntriesErrors, ReorderPlaylistEntriesResponses, ReplaceTagPermissionsData, ReplaceTagPermissionsErrors, ReplaceTagPermissionsResponses, RescanSongsData, RescanSongsErrors, RescanSongsResponses, SetPlayerAvatarData, SetPlayerAvatarErrors, SetPlayerAvatarResponses, SetPlaylistMemberData, SetPlaylistMemberErrors, SetPlaylistMemberResponses, SingSongData, SingSongErrors, SingSongResponses, StopSingingData, StopSingingResponses, UnassignTagData, UnassignTagErrors, UnassignTagResponses, UnfollowPlaylistData, UnfollowPlaylistErrors, UnfollowPlaylistResponses, UpdatePlaylistData, UpdatePlaylistErrors, UpdatePlaylistResponses, UpdateRolePermissionsData, UpdateRolePermissionsErrors, UpdateRolePermissionsResponses, UpdateSettingData, UpdateSettingErrors, UpdateSettingResponses, UpdateTagData, UpdateTagErrors, UpdateTagResponses, UpdateUserData, UpdateUserErrors, UpdateUserResponses, UsdbCoverData, UsdbCoverErrors, UsdbCoverResponses, UsdbSearchData, UsdbSearchErrors, UsdbSearchResponses, UsdbStatusData, UsdbStatusErrors, UsdbStatusResponses, UsdxStatusData, UsdxStatusResponses } from './types.gen';
 
 export type Options<TData extends TDataShape = TDataShape, ThrowOnError extends boolean = boolean, TResponse = unknown> = Options2<TData, ThrowOnError, TResponse> & {
     /**
@@ -520,8 +520,9 @@ export const addPlaylistEntry = <ThrowOnError extends boolean = false>(options: 
 /**
  * Reorder Playlist Entries
  *
- * Replace the order. The body must list exactly the songs the playlist holds — adding
- * or dropping songs is what the entry endpoints are for.
+ * Replace the order. The body must list exactly the songs the playlist shows this
+ * caller — adding or dropping songs is what the entry endpoints are for. An entry a tag
+ * hides from them keeps the slot it is in.
  */
 export const reorderPlaylistEntries = <ThrowOnError extends boolean = false>(options: Options<ReorderPlaylistEntriesData, ThrowOnError>): RequestResult<ReorderPlaylistEntriesResponses, ReorderPlaylistEntriesErrors, ThrowOnError> => (options.client ?? client).put<ReorderPlaylistEntriesResponses, ReorderPlaylistEntriesErrors, ThrowOnError>({
     url: '/api/v1/playlists/{playlist_id}/entries',
@@ -603,6 +604,83 @@ export const listPlayerScores = <ThrowOnError extends boolean = false>(options: 
  * The most recent scores across everything — the home page's scoreboard.
  */
 export const listLatestScores = <ThrowOnError extends boolean = false>(options?: Options<ListLatestScoresData, ThrowOnError>): RequestResult<ListLatestScoresResponses, ListLatestScoresErrors, ThrowOnError> => (options?.client ?? client).get<ListLatestScoresResponses, ListLatestScoresErrors, ThrowOnError>({ url: '/api/v1/stats/latest', ...options });
+
+/**
+ * List Tags
+ *
+ * The tags the caller may view, by name. A caller holding `tags.manage` also gets
+ * each tag's permission rows; for everybody else `permissions` is null.
+ */
+export const listTags = <ThrowOnError extends boolean = false>(options?: Options<ListTagsData, ThrowOnError>): RequestResult<ListTagsResponses, unknown, ThrowOnError> => (options?.client ?? client).get<ListTagsResponses, unknown, ThrowOnError>({ url: '/api/v1/tags', ...options });
+
+/**
+ * Create Tag
+ */
+export const createTag = <ThrowOnError extends boolean = false>(options: Options<CreateTagData, ThrowOnError>): RequestResult<CreateTagResponses, CreateTagErrors, ThrowOnError> => (options.client ?? client).post<CreateTagResponses, CreateTagErrors, ThrowOnError>({
+    url: '/api/v1/tags',
+    ...options,
+    headers: {
+        'Content-Type': 'application/json',
+        ...options.headers
+    }
+});
+
+/**
+ * List Tag Assignments
+ *
+ * Which songs carry which tag, for the tags the caller may view — one request for the
+ * whole song list. Songs the caller may not see are not in it, and neither are tags left
+ * on songs that have since left the library.
+ */
+export const listTagAssignments = <ThrowOnError extends boolean = false>(options?: Options<ListTagAssignmentsData, ThrowOnError>): RequestResult<ListTagAssignmentsResponses, unknown, ThrowOnError> => (options?.client ?? client).get<ListTagAssignmentsResponses, unknown, ThrowOnError>({ url: '/api/v1/tags/assignments', ...options });
+
+/**
+ * Delete Tag
+ *
+ * Deletes the tag, everywhere it was put, and everybody it was granted to.
+ */
+export const deleteTag = <ThrowOnError extends boolean = false>(options: Options<DeleteTagData, ThrowOnError>): RequestResult<DeleteTagResponses, DeleteTagErrors, ThrowOnError> => (options.client ?? client).delete<DeleteTagResponses, DeleteTagErrors, ThrowOnError>({ url: '/api/v1/tags/{tag_id}', ...options });
+
+/**
+ * Update Tag
+ */
+export const updateTag = <ThrowOnError extends boolean = false>(options: Options<UpdateTagData, ThrowOnError>): RequestResult<UpdateTagResponses, UpdateTagErrors, ThrowOnError> => (options.client ?? client).patch<UpdateTagResponses, UpdateTagErrors, ThrowOnError>({
+    url: '/api/v1/tags/{tag_id}',
+    ...options,
+    headers: {
+        'Content-Type': 'application/json',
+        ...options.headers
+    }
+});
+
+/**
+ * Replace Tag Permissions
+ *
+ * Replace who the tag is for, all of it at once — the rows not sent are the rows
+ * taken away.
+ */
+export const replaceTagPermissions = <ThrowOnError extends boolean = false>(options: Options<ReplaceTagPermissionsData, ThrowOnError>): RequestResult<ReplaceTagPermissionsResponses, ReplaceTagPermissionsErrors, ThrowOnError> => (options.client ?? client).put<ReplaceTagPermissionsResponses, ReplaceTagPermissionsErrors, ThrowOnError>({
+    url: '/api/v1/tags/{tag_id}/permissions',
+    ...options,
+    headers: {
+        'Content-Type': 'application/json',
+        ...options.headers
+    }
+});
+
+/**
+ * Unassign Tag
+ *
+ * Idempotent as well: a tag that was not there is already off.
+ */
+export const unassignTag = <ThrowOnError extends boolean = false>(options: Options<UnassignTagData, ThrowOnError>): RequestResult<UnassignTagResponses, UnassignTagErrors, ThrowOnError> => (options.client ?? client).delete<UnassignTagResponses, UnassignTagErrors, ThrowOnError>({ url: '/api/v1/songs/{song_id}/tags/{tag_id}', ...options });
+
+/**
+ * Assign Tag
+ *
+ * Idempotent — the UI can send it on every click of a toggle.
+ */
+export const assignTag = <ThrowOnError extends boolean = false>(options: Options<AssignTagData, ThrowOnError>): RequestResult<AssignTagResponses, AssignTagErrors, ThrowOnError> => (options.client ?? client).put<AssignTagResponses, AssignTagErrors, ThrowOnError>({ url: '/api/v1/songs/{song_id}/tags/{tag_id}', ...options });
 
 /**
  * Health

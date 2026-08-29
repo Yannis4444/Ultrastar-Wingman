@@ -90,6 +90,17 @@ ROUTES: list[tuple[str, str, str, dict[str, object] | None]] = [
     # `GET /users/lookup` is not here either: it takes an identity (`authenticated`), not a
     # capability, so a guest gets 401 rather than the 403 this matrix asserts —
     # test_playlists_api pins it down beside the sharing it exists for.
+    # Tags: the two listings are `songs.view`, and so are the assign routes — whether the
+    # caller may set *that* tag is a `tag_permissions` row, which is data and not a
+    # capability, so it lives in test_tags_api.py.
+    ("songs.view", "GET", "/api/v1/tags", None),
+    ("songs.view", "GET", "/api/v1/tags/assignments", None),
+    ("songs.view", "PUT", "/api/v1/songs/usdb:1/tags/nope", None),
+    ("songs.view", "DELETE", "/api/v1/songs/usdb:1/tags/nope", None),
+    ("tags.manage", "POST", "/api/v1/tags", {"name": "Duets", "color": "blue"}),
+    ("tags.manage", "PATCH", "/api/v1/tags/nope", {"name": "Duets"}),
+    ("tags.manage", "PUT", "/api/v1/tags/nope/permissions", {"permissions": []}),
+    ("tags.manage", "DELETE", "/api/v1/tags/nope", None),
     ("downloads.view", "GET", "/api/v1/downloads", None),
     ("downloads.manage", "POST", "/api/v1/downloads", {"source": "nope", "source_song_id": "1"}),
     # Taking a download off the panel changes what everybody else sees, so it is `manage`.
@@ -236,7 +247,7 @@ def test_every_capability_is_enforced_somewhere() -> None:
 
 
 async def test_the_migration_seeds_the_module_defaults(session: AsyncSession) -> None:
-    """Migrations 0006 to 0012 spell the defaults out literally, each seeding the
+    """Migrations 0006 to 0013 spell the defaults out literally, each seeding the
     capabilities it introduces; this is what keeps them and the module in step."""
     seeded: dict[str, set[str]] = {}
     for row in await session.scalars(select(RolePermission)):

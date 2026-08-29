@@ -30,6 +30,7 @@ CAPABILITIES: tuple[str, ...] = (
     "playlists.view",
     "playlists.manage",
     "playlists.moderate",
+    "tags.manage",
     "downloads.view",
     "downloads.manage",
     "usdb.search",
@@ -94,9 +95,12 @@ _TRUSTED_CAPABILITIES = _USER_CAPABILITIES | {
     # Tidying up the party's global playlists is a helper's job, not only the host's. It
     # never reaches a list the holder cannot already see, so it opens no private one.
     "playlists.moderate",
+    # Creating a tag and saying who it is for. Not the right to *use* a tag: what one
+    # person may put on a song is a `tag_permissions` row, granted per tag.
+    "tags.manage",
 }
 
-# What migrations 0006 to 0012 seed. Kept here as well so a test can prove the two never
+# What migrations 0006 to 0013 seed. Kept here as well so a test can prove the two never
 # drift.
 DEFAULT_ROLE_CAPABILITIES: dict[str, frozenset[str]] = {
     GUEST: _GUEST_CAPABILITIES,

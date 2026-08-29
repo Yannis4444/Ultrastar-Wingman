@@ -146,6 +146,7 @@ What each role may do by default:
 | Rescan the song folders | – | – | yes | yes |
 | Rename a party in the statistics | – | – | yes | yes |
 | Change a playlist somebody else shared | – | – | yes | yes |
+| Manage tags | – | – | yes | yes |
 | See and change the settings | – | – | – | yes |
 | Manage users | – | – | – | yes |
 | Change these permissions | – | – | – | yes |
@@ -180,10 +181,9 @@ their roles and deletions for *users → manage*.
 row per right, one column for **guest**, **user** and **trusted**. Rights that
 belong together stand under one heading, in alphabetical order — *downloads*,
 *karaoke*, *permissions*, *players*, *playlists*, *settings*, *songs*, *stats*,
-*USDB*, *users*, *wishlist* — and under each row stands in one line what it
-allows. Every tick
-is saved right away and takes effect immediately, for everybody who is already
-looking at a page.
+*tags*, *USDB*, *users*, *wishlist* — and under each row stands in one line
+what it allows. Every tick is saved right away and takes effect immediately,
+for everybody who is already looking at a page.
 
 Useful in practice:
 

@@ -31,6 +31,7 @@ const GROUP_ICONS: Record<string, IconName> = {
   players: "users",
   wishlist: "playlist-plus",
   playlists: "list",
+  tags: "tag",
   downloads: "download",
   usdb: "globe",
   stats: "chart",
@@ -64,6 +65,8 @@ const DESCRIPTIONS: Record<string, string> = {
   "playlists.manage": "Create and edit own playlists.",
   "playlists.moderate":
     "Change and delete somebody else's playlists — the global ones, and the ones shared with you. Needs manage too.",
+  "tags.manage":
+    "Create tags, say who each one is for, and delete them. Putting a tag on a song is granted per tag.",
   "downloads.view": "See the download queue.",
   "downloads.manage": "Start downloads, retry and clear them.",
   "usdb.search": "Search usdb.animux.de for new songs.",

@@ -19,6 +19,7 @@ from ultrastar_wingman.karaoke import model as _karaoke  # noqa: F401  sings and
 from ultrastar_wingman.library import model as _library  # noqa: F401  wishes, favorites, playlists
 from ultrastar_wingman.players import model as _players  # noqa: F401  registers the players table
 from ultrastar_wingman.songs import model as _songs  # noqa: F401  registers the songs table
+from ultrastar_wingman.tags import model as _tags  # noqa: F401  tags, permissions, song tags
 
 config = context.config
 

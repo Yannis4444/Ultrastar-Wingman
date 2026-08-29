@@ -129,10 +129,14 @@ async def _broadcast(session: AsyncSession, song_id: str) -> tuple[int, datetime
 
 
 async def wishlist(
-    session: AsyncSession, user_id: str | None, guest_id: str | None
+    session: AsyncSession, user_id: str | None, guest_id: str | None, hidden: frozenset[str]
 ) -> list[WishRead]:
     """Every wished song, most-wanted first. Aggregated in SQL: the counts are what the
-    party votes with, and `mine` is the only per-caller part."""
+    party votes with, and `mine` is the only per-caller part.
+
+    `hidden` is what a tag's `view_songs` keeps back (`auth.deps.HiddenSongsDep`): such a
+    wish drops out of this listing exactly like one whose song left the library.
+    """
     mine = set(await session.scalars(select(Wish.song_id).where(_owner(user_id, guest_id))))
     counts = {
         song_id: (count, as_utc(latest))
@@ -150,6 +154,7 @@ async def wishlist(
             mine=song.id in mine,
         )
         for song in songs
+        if song.id not in hidden
     ]
     # Most wished for first, then most recently wished for; the id only breaks ties so the
     # order is stable across requests.
@@ -516,8 +521,12 @@ async def read_playlist(
 
 
 async def read_playlist_detail(
-    session: AsyncSession, playlist: Playlist, rights: Rights
+    session: AsyncSession, playlist: Playlist, rights: Rights, hidden: frozenset[str]
 ) -> PlaylistDetail:
+    """`hidden` drops the entries a tag keeps back from this caller. `song_count` and
+    `cover_song_ids` on the meta above are deliberately left whole: they are what the row
+    in the listing shows, and recomputing them per caller would make two people disagree
+    about how long the same playlist is."""
     meta = await read_playlist(session, playlist, rights)
     rows = await _entries(session, playlist.id)
     songs = {
@@ -533,7 +542,7 @@ async def read_playlist_detail(
         entries=[
             PlaylistEntryRead(song=read_song(songs[row.song_id]), position=row.position)
             for row in rows
-            if row.song_id in songs
+            if row.song_id in songs and row.song_id not in hidden
         ],
     )
 
@@ -728,14 +737,27 @@ async def remove_entry(session: AsyncSession, playlist: Playlist, song_id: str) 
     await announce_playlists(playlist.id)
 
 
-async def reorder_entries(session: AsyncSession, playlist: Playlist, song_ids: list[str]) -> None:
+async def reorder_entries(
+    session: AsyncSession, playlist: Playlist, song_ids: list[str], hidden: frozenset[str]
+) -> None:
     """Rewrite the order. Raises `OrderMismatchError` unless `song_ids` is a permutation of
-    what the playlist holds — a partial order would silently drop songs."""
-    rows = {row.song_id: row for row in await _entries(session, playlist.id)}
-    if sorted(song_ids) != sorted(rows):
+    the entries this caller can see — a partial order would silently drop songs.
+
+    A song a tag keeps back (`auth.deps.HiddenSongsDep`) was never in the list the caller
+    was shown, so it cannot come back in the order they send. Such an entry keeps the slot
+    it sits in and the sent songs fill the rest: demanding the whole list would leave a
+    playlist holding one broken song impossible to reorder ever again.
+    """
+    rows = list(await _entries(session, playlist.id))
+    visible = {row.song_id: row for row in rows if row.song_id not in hidden}
+    if sorted(song_ids) != sorted(visible):
         raise OrderMismatchError
-    for position, song_id in enumerate(song_ids):
-        rows[song_id].position = position
+    sent = iter(song_ids)
+    for position, row in enumerate(rows):
+        if row.song_id in hidden:
+            row.position = position
+        else:
+            visible[next(sent)].position = position
     await session.commit()
     await announce_playlists(playlist.id)
 

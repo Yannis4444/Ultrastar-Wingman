@@ -11,7 +11,7 @@ from fastapi import APIRouter, Depends, HTTPException, Query
 from pydantic import BaseModel
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from ..auth.deps import PrincipalDep, missing_permission, require
+from ..auth.deps import HiddenSongsDep, PrincipalDep, missing_permission, require
 from ..db import SessionDep
 from ..karaoke.model import KaraokeSession
 from ..players import service as players
@@ -113,9 +113,9 @@ async def list_session_scores(session_id: str, session: SessionDep) -> ScoreList
     dependencies=[Depends(require("stats.history"))],
     responses={404: {"description": "Unknown song."}},
 )
-async def list_song_scores(song_id: str, session: SessionDep) -> ScoreList:
+async def list_song_scores(song_id: str, session: SessionDep, hidden: HiddenSongsDep) -> ScoreList:
     """Every score one song ever got, across all sessions, newest first."""
-    await song_or_404(song_id, session)
+    await song_or_404(song_id, session, hidden)
     return ScoreList(scores=await service.song_scores(session, song_id))
 
 

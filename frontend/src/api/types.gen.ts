@@ -938,6 +938,193 @@ export type SongRead = {
 };
 
 /**
+ * TagAssignment
+ *
+ * Which songs carry one tag. Ids only — the client already has the song list.
+ */
+export type TagAssignment = {
+    /**
+     * Tag Id
+     */
+    tag_id: string;
+    /**
+     * Song Ids
+     */
+    song_ids: Array<string>;
+};
+
+/**
+ * TagAssignments
+ */
+export type TagAssignments = {
+    /**
+     * Assignments
+     */
+    assignments: Array<TagAssignment>;
+};
+
+/**
+ * TagCreate
+ */
+export type TagCreate = {
+    /**
+     * Name
+     */
+    name: string;
+    /**
+     * Icon
+     */
+    icon?: string | null;
+    /**
+     * Color
+     */
+    color: 'neutral' | 'blue' | 'pink' | 'gold';
+    /**
+     * Show In List
+     */
+    show_in_list?: boolean;
+    /**
+     * Hide By Default
+     */
+    hide_by_default?: boolean;
+    /**
+     * Permissions
+     */
+    permissions?: Array<TagPermissionInput>;
+};
+
+/**
+ * TagList
+ */
+export type TagList = {
+    /**
+     * Tags
+     */
+    tags: Array<TagRead>;
+};
+
+/**
+ * TagPermissionInput
+ *
+ * One row: an action, and exactly one subject to grant it to.
+ */
+export type TagPermissionInput = {
+    /**
+     * Action
+     */
+    action: 'view' | 'view_songs' | 'assign';
+    /**
+     * Role
+     */
+    role?: string | null;
+    /**
+     * User Id
+     */
+    user_id?: string | null;
+};
+
+/**
+ * TagPermissionRead
+ *
+ * Who may do one thing with a tag: a role, or one account.
+ */
+export type TagPermissionRead = {
+    /**
+     * Action
+     */
+    action: 'view' | 'view_songs' | 'assign';
+    /**
+     * Role
+     */
+    role: string | null;
+    /**
+     * User Id
+     */
+    user_id: string | null;
+    /**
+     * Username
+     */
+    username: string | null;
+};
+
+/**
+ * TagPermissionsUpdate
+ */
+export type TagPermissionsUpdate = {
+    /**
+     * Permissions
+     */
+    permissions: Array<TagPermissionInput>;
+};
+
+/**
+ * TagRead
+ */
+export type TagRead = {
+    /**
+     * Id
+     */
+    id: string;
+    /**
+     * Name
+     */
+    name: string;
+    /**
+     * Icon
+     */
+    icon: string | null;
+    /**
+     * Color
+     */
+    color: string;
+    /**
+     * Show In List
+     */
+    show_in_list: boolean;
+    /**
+     * Hide By Default
+     */
+    hide_by_default: boolean;
+    /**
+     * Can Assign
+     */
+    can_assign: boolean;
+    /**
+     * Permissions
+     */
+    permissions?: Array<TagPermissionRead> | null;
+};
+
+/**
+ * TagUpdate
+ *
+ * Every field optional: a PATCH only touches what it names. An explicit
+ * `"icon": null` clears the icon — leaving the field out keeps it.
+ */
+export type TagUpdate = {
+    /**
+     * Name
+     */
+    name?: string | null;
+    /**
+     * Icon
+     */
+    icon?: string | null;
+    /**
+     * Color
+     */
+    color?: 'neutral' | 'blue' | 'pink' | 'gold' | null;
+    /**
+     * Show In List
+     */
+    show_in_list?: boolean | null;
+    /**
+     * Hide By Default
+     */
+    hide_by_default?: boolean | null;
+};
+
+/**
  * UsdbSearchResult
  */
 export type UsdbSearchResult = {
@@ -2892,7 +3079,7 @@ export type ReorderPlaylistEntriesErrors = {
      */
     404: unknown;
     /**
-     * The order is not a permutation of the playlist's songs.
+     * The order is not a permutation of the songs the caller sees.
      */
     422: unknown;
 };
@@ -3153,6 +3340,253 @@ export type ListLatestScoresResponses = {
 };
 
 export type ListLatestScoresResponse = ListLatestScoresResponses[keyof ListLatestScoresResponses];
+
+export type ListTagsData = {
+    body?: never;
+    path?: never;
+    query?: never;
+    url: '/api/v1/tags';
+};
+
+export type ListTagsResponses = {
+    /**
+     * Successful Response
+     */
+    200: TagList;
+};
+
+export type ListTagsResponse = ListTagsResponses[keyof ListTagsResponses];
+
+export type CreateTagData = {
+    body: TagCreate;
+    path?: never;
+    query?: never;
+    url: '/api/v1/tags';
+};
+
+export type CreateTagErrors = {
+    /**
+     * A tag of that name already exists.
+     */
+    409: unknown;
+    /**
+     * Unknown role or account, or a bad color or icon.
+     */
+    422: unknown;
+};
+
+export type CreateTagResponses = {
+    /**
+     * Successful Response
+     */
+    201: TagRead;
+};
+
+export type CreateTagResponse = CreateTagResponses[keyof CreateTagResponses];
+
+export type ListTagAssignmentsData = {
+    body?: never;
+    path?: never;
+    query?: never;
+    url: '/api/v1/tags/assignments';
+};
+
+export type ListTagAssignmentsResponses = {
+    /**
+     * Successful Response
+     */
+    200: TagAssignments;
+};
+
+export type ListTagAssignmentsResponse = ListTagAssignmentsResponses[keyof ListTagAssignmentsResponses];
+
+export type DeleteTagData = {
+    body?: never;
+    path: {
+        /**
+         * Tag Id
+         */
+        tag_id: string;
+    };
+    query?: never;
+    url: '/api/v1/tags/{tag_id}';
+};
+
+export type DeleteTagErrors = {
+    /**
+     * Unknown tag.
+     */
+    404: unknown;
+    /**
+     * Validation Error
+     */
+    422: HttpValidationError;
+};
+
+export type DeleteTagError = DeleteTagErrors[keyof DeleteTagErrors];
+
+export type DeleteTagResponses = {
+    /**
+     * Successful Response
+     */
+    204: void;
+};
+
+export type DeleteTagResponse = DeleteTagResponses[keyof DeleteTagResponses];
+
+export type UpdateTagData = {
+    body: TagUpdate;
+    path: {
+        /**
+         * Tag Id
+         */
+        tag_id: string;
+    };
+    query?: never;
+    url: '/api/v1/tags/{tag_id}';
+};
+
+export type UpdateTagErrors = {
+    /**
+     * Unknown tag.
+     */
+    404: unknown;
+    /**
+     * A tag of that name already exists.
+     */
+    409: unknown;
+    /**
+     * Validation Error
+     */
+    422: HttpValidationError;
+};
+
+export type UpdateTagError = UpdateTagErrors[keyof UpdateTagErrors];
+
+export type UpdateTagResponses = {
+    /**
+     * Successful Response
+     */
+    200: TagRead;
+};
+
+export type UpdateTagResponse = UpdateTagResponses[keyof UpdateTagResponses];
+
+export type ReplaceTagPermissionsData = {
+    body: TagPermissionsUpdate;
+    path: {
+        /**
+         * Tag Id
+         */
+        tag_id: string;
+    };
+    query?: never;
+    url: '/api/v1/tags/{tag_id}/permissions';
+};
+
+export type ReplaceTagPermissionsErrors = {
+    /**
+     * Unknown tag.
+     */
+    404: unknown;
+    /**
+     * Unknown role or account.
+     */
+    422: unknown;
+};
+
+export type ReplaceTagPermissionsResponses = {
+    /**
+     * Successful Response
+     */
+    200: TagRead;
+};
+
+export type ReplaceTagPermissionsResponse = ReplaceTagPermissionsResponses[keyof ReplaceTagPermissionsResponses];
+
+export type UnassignTagData = {
+    body?: never;
+    path: {
+        /**
+         * Song Id
+         */
+        song_id: string;
+        /**
+         * Tag Id
+         */
+        tag_id: string;
+    };
+    query?: never;
+    url: '/api/v1/songs/{song_id}/tags/{tag_id}';
+};
+
+export type UnassignTagErrors = {
+    /**
+     * The caller may see the tag but not set it.
+     */
+    403: unknown;
+    /**
+     * Unknown song or tag.
+     */
+    404: unknown;
+    /**
+     * Validation Error
+     */
+    422: HttpValidationError;
+};
+
+export type UnassignTagError = UnassignTagErrors[keyof UnassignTagErrors];
+
+export type UnassignTagResponses = {
+    /**
+     * Successful Response
+     */
+    204: void;
+};
+
+export type UnassignTagResponse = UnassignTagResponses[keyof UnassignTagResponses];
+
+export type AssignTagData = {
+    body?: never;
+    path: {
+        /**
+         * Song Id
+         */
+        song_id: string;
+        /**
+         * Tag Id
+         */
+        tag_id: string;
+    };
+    query?: never;
+    url: '/api/v1/songs/{song_id}/tags/{tag_id}';
+};
+
+export type AssignTagErrors = {
+    /**
+     * The caller may see the tag but not set it.
+     */
+    403: unknown;
+    /**
+     * Unknown song or tag.
+     */
+    404: unknown;
+    /**
+     * Validation Error
+     */
+    422: HttpValidationError;
+};
+
+export type AssignTagError = AssignTagErrors[keyof AssignTagErrors];
+
+export type AssignTagResponses = {
+    /**
+     * Successful Response
+     */
+    204: void;
+};
+
+export type AssignTagResponse = AssignTagResponses[keyof AssignTagResponses];
 
 export type HealthData = {
     body?: never;
