@@ -20,7 +20,7 @@ with the number of songs at the top.
   year, edition and who made it; **Best scores** lists the best runs ever sung
   on it; **Add to playlist** puts the song on one of the playlists you may edit;
   **Tags** shows the labels the party has put on it, and lets you set the ones
-  you are allowed to.
+  you are allowed to; **Comments** is what the room has said about it.
 
 ## Filter by more than one thing
 
@@ -107,6 +107,38 @@ Some songs are deliberately kept out of the list.
 
 If a filter ends up empty because of the first kind, the page says so instead of
 pretending you have no favorites. See [Tags](tags.md) for the whole picture.
+
+## Comments
+
+Every song has a **Comments** row at the bottom of its view, carrying the
+number of comments once there is one. Open it and you get what everybody said
+about the song, oldest first: who said it, how long ago, and the text
+underneath.
+
+**Reading is open to everybody.** A guest phone that can see the song list can
+read the comments too — knowing that a song is in the wrong key, or that it is
+the one the birthday guest wants, is worth more shared than hidden.
+
+**Writing takes an account**, because a comment carries your name and your
+picture. Log in and a box appears at the foot of the list. Type, press the paper
+plane, and it is there for everybody in the room — the lists other people have
+open follow along on their own. **Enter** starts a new line; **Ctrl+Enter**
+(**Cmd+Enter** on a Mac) sends, so you never have to reach for the button. A
+comment is up to 1000 characters, and there is no editing: say it again, or take
+it back.
+
+The host screen is the one exception. It is an administrator, but it is nobody
+in particular and has no name to sign a comment with — so it reads the comments
+and says nothing. Comment from your own phone instead.
+
+**Taking a comment back** is always yours: the bin at the end of your own row
+removes it, after asking. Nobody has to grant you that and no administrator can
+take it away. Deleting *somebody else's* comment is the moderator's right —
+*trusted* and *admin* hold it by default, and it is the row **Delete anybody's
+comments** on [Accounts and permissions](accounts-and-permissions.md). A deleted
+comment is gone for good; there is no undo.
+
+If the account behind a comment is deleted, its comments go with it.
 
 ## Choose the players
 

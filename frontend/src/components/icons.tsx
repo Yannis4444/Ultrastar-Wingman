@@ -39,6 +39,11 @@ export const ICON_PATHS = {
   // faces are made of so the two never look like different kinds of dot.
   "drag-handle":
     "M9 4.4a1.6 1.6 0 1 0 0 3.2 1.6 1.6 0 1 0 0-3.2Zm6 0a1.6 1.6 0 1 0 0 3.2 1.6 1.6 0 1 0 0-3.2ZM9 10.4a1.6 1.6 0 1 0 0 3.2 1.6 1.6 0 1 0 0-3.2Zm6 0a1.6 1.6 0 1 0 0 3.2 1.6 1.6 0 1 0 0-3.2ZM9 16.4a1.6 1.6 0 1 0 0 3.2 1.6 1.6 0 1 0 0-3.2Zm6 0a1.6 1.6 0 1 0 0 3.2 1.6 1.6 0 1 0 0-3.2Z",
+  // Submit in the comment composer: one triangle with the fold cut out of its
+  // left edge, so the plane reads as folded paper and not as a solid `play`
+  // turned on its side. A single contour — the notch is part of the outline,
+  // so no fill rule is involved.
+  send: "M2 21l21-9L2 3v7l15 2-15 2v7Z",
   shield: "M12 2 4 5v6c0 5 3.4 9.7 8 11 4.6-1.3 8-6 8-11V5l-8-3Z",
   users:
     "M16 11a3 3 0 1 0-3-3 3 3 0 0 0 3 3Zm-8 0a3 3 0 1 0-3-3 3 3 0 0 0 3 3Zm0 2c-2.33 0-7 1.17-7 3.5V19h14v-2.5C15 14.17 10.33 13 8 13Zm8 0c-.29 0-.62.02-.97.05A4.22 4.22 0 0 1 17 16.5V19h6v-2.5c0-2.33-4.67-3.5-7-3.5Z",
@@ -80,6 +85,11 @@ export const ICON_PATHS = {
     "M17 10.5V7a1 1 0 0 0-1-1H4a1 1 0 0 0-1 1v10a1 1 0 0 0 1 1h12a1 1 0 0 0 1-1v-3.5l4 4v-11l-4 4Z",
   music: "M12 3v10.55A4 4 0 1 0 14 17V7h4V3h-6Z",
   info: "M12 2a10 10 0 1 0 0 20 10 10 0 0 0 0-20Zm0 2a8 8 0 1 1 0 16 8 8 0 0 1 0-16Zm-1 3h2v2h-2V7Zm0 4h2v6h-2v-6Z",
+  // Comments — the modal row, the sub-view and its empty state. One rounded
+  // speech bubble whose tail replaces the bottom-left corner, so three corners
+  // are rounded and the fourth is the tail. Drawn on the same 18-unit grid as
+  // `info` and `clock` (3…21), one closed contour, no fill rule.
+  comment: "M6 3h12a2 2 0 0 1 2 2v10a2 2 0 0 1-2 2H9l-5 4V5a2 2 0 0 1 2-2Z",
   // The three-bar stack is the wishlist family: +plus = wish for it, +check =
   // already wished. Keeping the bars identical makes them read as one family at
   // 1.1em. The bare `playlist` bars are the base both are built from; no

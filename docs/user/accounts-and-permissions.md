@@ -137,7 +137,7 @@ What each role may do by default:
 | Stop a running song | – | yes | yes | yes |
 | Create and edit own playlists | – | yes | yes | yes |
 | See the parties before tonight | – | yes | yes | yes |
-| Comment on songs | – | yes | yes | yes |
+| [Comment on songs](singing.md#comments) | – | yes | yes | yes |
 | Add and delete players | – | – | yes | yes |
 | Change somebody else's picture | – | – | yes | yes |
 | Clear a song off the wishlist | – | – | yes | yes |

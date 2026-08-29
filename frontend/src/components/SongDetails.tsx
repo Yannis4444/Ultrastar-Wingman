@@ -1,31 +1,39 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { useState } from "react";
-import type { SongRead } from "../api";
+import { useEffect, useRef, useState } from "react";
+import type { CommentAuthor, CommentRead, PlayerRead, SongRead } from "../api";
 import {
   addPlaylistEntryMutation,
+  addSongCommentMutation,
   assignTagMutation,
   createPlaylistMutation,
+  deleteSongCommentMutation,
   getPlaylistQueryKey,
   listPlaylistsOptions,
   listPlaylistsQueryKey,
   listPlayersOptions,
+  listSongCommentsOptions,
+  listSongCommentsQueryKey,
   listSongScoresOptions,
   listTagAssignmentsQueryKey,
   removePlaylistEntryMutation,
   unassignTagMutation,
 } from "../api/@tanstack/react-query.gen";
 import { useAuth } from "../auth";
+import { timeAgo } from "../duration";
 import { errorDetail, errorMessage } from "../errors";
 import { useFavorites } from "../hooks/useFavorites";
 import { useTags } from "../hooks/useTags";
+import { useWingmanEvent, type WingmanEvent } from "../hooks/useWingmanEvents";
 import { useWishlist } from "../hooks/useWishlist";
 import { songHistory } from "../stats";
 import { tagColorClass, tagGlyph } from "../tags";
+import ConfirmModal from "./ConfirmModal";
 import IconStat from "./IconStat";
 import { Icon, type IconName } from "./icons";
 import Loading from "./Loading";
 import Modal from "./Modal";
 import PickerRow from "./PickerRow";
+import PlayerAvatar from "./PlayerAvatar";
 import PlayerSelection from "./PlayerSelection";
 import PlaylistCover from "./PlaylistCover";
 import RankedScoreList from "./RankedScoreList";
@@ -43,8 +51,58 @@ interface SongDetailsProps {
   onClose: () => void;
 }
 
+/** One song's comments changed — somebody said something, or one was deleted. */
+interface CommentsChanged extends WingmanEvent {
+  song_id: string;
+  count: number;
+}
+
 /** How many all-time scores the best-scores view lists. */
 const BEST_SCORES = 10;
+
+/** What the backend accepts in one comment; the field stops there too. */
+const COMMENT_MAX_LENGTH = 1000;
+
+/** How far the composer grows with what is typed — about five lines. */
+const COMPOSER_MAX_HEIGHT = 132;
+
+/** A comment whose account is gone still says something worth reading. */
+const FORMER_MEMBER = "Former member";
+
+function authorName(author: CommentAuthor | null): string {
+  return author?.username ?? FORMER_MEMBER;
+}
+
+/**
+ * `PlayerAvatar` draws a player, and a comment carries only who wrote it.
+ * An author with no player has no picture to ask for, and `avatar_version`
+ * stays null until that player has one — so those rows go straight to the
+ * initial instead of a request the backend answers with a 404. A deleted
+ * account has no picture and no initial either: `null` is the empty square.
+ */
+function asAuthor(author: CommentAuthor | null): PlayerRead | null {
+  if (author === null) return null;
+  return {
+    id: author.player_id ?? "",
+    name: author.username,
+    registered: true,
+    has_avatar: author.player_id !== null && author.avatar_version !== null,
+    avatar_version: author.avatar_version,
+  };
+}
+
+/** Grows the composer with what is typed, up to a few lines. */
+function grow(field: HTMLTextAreaElement): void {
+  field.style.height = "auto";
+  // `scrollHeight` is content plus padding, but the app is `border-box`: the
+  // two hairlines have to be added back or the field settles two pixels short
+  // of what it holds and scrolls its own last line under the border.
+  const border = field.offsetHeight - field.clientHeight;
+  const wanted = Math.min(field.scrollHeight + border, COMPOSER_MAX_HEIGHT);
+  // jsdom measures nothing, and a 0px composer would be unusable in a browser
+  // whose layout has not happened yet.
+  field.style.height = wanted > 0 ? `${wanted}px` : "";
+}
 
 /**
  * How many tag glyphs the Tags row draws before it gives up and counts them
@@ -58,9 +116,9 @@ export default function SongDetails({ song, onClose }: SongDetailsProps) {
   // Sub-views swap the modal content; closing them returns to the song. Always
   // from the song itself: the one caller that opened straight into the picker
   // was Currently Playing's playlist button, and that button is gone.
-  const [view, setView] = useState<"main" | "scores" | "playlists" | "tags">(
-    "main",
-  );
+  const [view, setView] = useState<
+    "main" | "scores" | "playlists" | "tags" | "comments"
+  >("main");
   const [notice, setNotice] = useState<string | null>(null);
   // There is no has_audio flag; the preview 404s for songs without audio and
   // the element's error event is the only signal.
@@ -69,6 +127,10 @@ export default function SongDetails({ song, onClose }: SongDetailsProps) {
   // The inline name field of the "New playlist…" row, and what is in it.
   const [naming, setNaming] = useState(false);
   const [newName, setNewName] = useState("");
+  // The composer's text, and the comment whose deletion is being confirmed.
+  const [draft, setDraft] = useState("");
+  const [deleting, setDeleting] = useState<CommentRead | null>(null);
+  const composer = useRef<HTMLTextAreaElement>(null);
   const auth = useAuth();
   const queryClient = useQueryClient();
   const wishlist = useWishlist();
@@ -194,6 +256,75 @@ export default function SongDetails({ song, onClose }: SongDetailsProps) {
     onSuccess: refreshTags,
     onError: tagFailed,
   });
+
+  // What everybody said about the song, oldest first. Asked for as the modal
+  // opens rather than with the sub-view: the count is the option row's value,
+  // so the row cannot wait for the view it leads into. Reading takes only
+  // `songs.view`, which is what got this reader to the song in the first place.
+  const comments = useQuery(
+    listSongCommentsOptions({ path: { song_id: song.id } }),
+  );
+  const said = comments.data?.comments ?? [];
+
+  const refreshComments = (): void => {
+    void queryClient.invalidateQueries({
+      queryKey: listSongCommentsQueryKey({ path: { song_id: song.id } }),
+    });
+  };
+
+  // Somebody else in the room said something, or a moderator took one away.
+  // The bodies are not on the bus, so the list refetches itself — which is
+  // what moves the count on the option row as well.
+  useWingmanEvent<CommentsChanged>("comments.changed", (message) => {
+    if (message.song_id === song.id) refreshComments();
+  });
+
+  // The composer sits under the list, so every row that arrives — your own
+  // post, or somebody else's over the socket — pushes it down by its own
+  // height while the scroll position stays put. Two consequences to undo,
+  // both only once the field is on screen at all:
+  useEffect(() => {
+    const field = composer.current;
+    if (!field) return;
+    // Re-entering the sub-view mounts a fresh textarea, and the draft that
+    // survived in state has to be measured against it again.
+    grow(field);
+    // And the writer whose thought is still in the field follows it down
+    // rather than being left looking at the comment above.
+    if (document.activeElement === field)
+      field.scrollIntoView({ block: "nearest" });
+  }, [view, said.length]);
+
+  const say = useMutation({
+    ...addSongCommentMutation(),
+    onSuccess: () => {
+      setDraft("");
+      const field = composer.current;
+      if (field) {
+        // Back to two rows, and still the focused element: the next thought
+        // usually follows the one just sent.
+        field.style.height = "";
+        field.focus();
+      }
+      refreshComments();
+    },
+    onError: (error) =>
+      setNotice(errorMessage(error, "Could not post your comment.")),
+  });
+
+  const unsay = useMutation({
+    ...deleteSongCommentMutation(),
+    onSuccess: refreshComments,
+    onError: (error) =>
+      setNotice(errorMessage(error, "Could not delete the comment.")),
+  });
+
+  const post = (): void => {
+    const body = draft.trim();
+    if (body === "" || say.isPending) return;
+    setNotice(null);
+    say.mutate({ path: { song_id: song.id }, body: { body } });
+  };
 
   // Duration lives in the preview player and artist in the hero, so the
   // details keep only what the modal does not show anyway.
@@ -442,6 +573,142 @@ export default function SongDetails({ song, onClose }: SongDetailsProps) {
     );
   }
 
+  if (view === "comments") {
+    // Writing takes the right *and* an account: a comment carries a name, and
+    // the host screen is an administrator without one.
+    const canWrite = auth.user !== null && auth.can("comments.write");
+    const whoMayWrite = auth.isHost
+      ? "The host screen has no name to sign a comment with — say it from your own phone."
+      : auth.user === null
+        ? "Comments carry a name, so writing one takes an account. Log in to say something."
+        : "Your role may not comment. Ask the host for access.";
+    return (
+      <>
+        <Modal
+          title="Comments"
+          bare
+          onClose={() => {
+            setNotice(null);
+            setView("main");
+          }}
+        >
+          {comments.isPending && <Loading />}
+          {comments.isError && (
+            <p className="song-details-notice" role="alert">
+              Could not load the comments.
+            </p>
+          )}
+          {comments.isSuccess && said.length === 0 && (
+            <p className="song-details-notice">
+              Nobody has said anything about this song yet.
+            </p>
+          )}
+          {said.length > 0 && (
+            <ul className="song-comments">
+              {said.map((comment) => (
+                <li key={comment.id} className="song-comment">
+                  <PlayerAvatar player={asAuthor(comment.author)} />
+                  <div className="song-comment-text">
+                    <p className="song-comment-head">
+                      <span className="song-comment-author">
+                        {authorName(comment.author)}
+                      </span>
+                      <span className="song-comment-time">
+                        {timeAgo(comment.created_at)}
+                      </span>
+                    </p>
+                    <p className="song-comment-body">{comment.body}</p>
+                  </div>
+                  {/* Your own words are always yours; anybody else's takes
+                      `comments.moderate`, which is what `can_delete` says. */}
+                  {comment.can_delete && (
+                    <button
+                      type="button"
+                      className="icon-button icon-button-danger"
+                      aria-label={`Delete ${authorName(comment.author)}'s comment`}
+                      disabled={unsay.isPending}
+                      onClick={() => {
+                        setNotice(null);
+                        setDeleting(comment);
+                      }}
+                    >
+                      <Icon name="trash" />
+                    </button>
+                  )}
+                </li>
+              ))}
+            </ul>
+          )}
+          {auth.loaded &&
+            (canWrite ? (
+              <form
+                className="song-comment-composer"
+                onSubmit={(event) => {
+                  event.preventDefault();
+                  post();
+                }}
+              >
+                <textarea
+                  ref={composer}
+                  className="text-input text-input-quiet song-comment-input"
+                  aria-label="Say something about this song"
+                  placeholder="Say something…"
+                  rows={2}
+                  maxLength={COMMENT_MAX_LENGTH}
+                  value={draft}
+                  onChange={(event) => {
+                    setDraft(event.target.value);
+                    grow(event.target);
+                  }}
+                  onKeyDown={(event) => {
+                    // Enter is a newline — a comment is prose, not a chat
+                    // line — so the keyboard's send is Ctrl/Cmd+Enter.
+                    if (
+                      event.key === "Enter" &&
+                      (event.ctrlKey || event.metaKey)
+                    ) {
+                      event.preventDefault();
+                      post();
+                    }
+                  }}
+                />
+                <button
+                  type="submit"
+                  className="icon-button"
+                  aria-label="Send"
+                  disabled={draft.trim() === "" || say.isPending}
+                >
+                  <Icon name="send" />
+                </button>
+              </form>
+            ) : (
+              <p className="song-details-notice">{whoMayWrite}</p>
+            ))}
+          {notice && (
+            <p className="song-details-notice" role="alert">
+              {notice}
+            </p>
+          )}
+        </Modal>
+        {deleting && (
+          <ConfirmModal
+            title="Delete comment"
+            message="The comment disappears for everybody, and there is no undo."
+            confirmLabel="Delete"
+            danger
+            onConfirm={() => {
+              unsay.mutate({
+                path: { song_id: song.id, comment_id: deleting.id },
+              });
+              setDeleting(null);
+            }}
+            onCancel={() => setDeleting(null)}
+          />
+        )}
+      </>
+    );
+  }
+
   const wished = wishlist.mine(song.id);
   const favorite = favorites.ids.has(song.id);
   const hasControls =
@@ -614,6 +881,25 @@ export default function SongDetails({ song, onClose }: SongDetailsProps) {
             <Icon name="chevron-right" className="song-option-chevron" />
           </button>
         )}
+
+        {/* Last of the option rows (§5), and the one row nobody is kept out
+            of: reading what the room said about a song is part of looking at
+            it. Writing is what needs an account, and that is said inside. */}
+        <button
+          type="button"
+          className="song-option"
+          onClick={() => {
+            setNotice(null);
+            setView("comments");
+          }}
+        >
+          <Icon name="comment" className="song-option-icon" />
+          <span className="song-option-label">Comments</span>
+          {said.length > 0 && (
+            <span className="song-option-count">{said.length}</span>
+          )}
+          <Icon name="chevron-right" className="song-option-chevron" />
+        </button>
       </div>
     </Modal>
   );
