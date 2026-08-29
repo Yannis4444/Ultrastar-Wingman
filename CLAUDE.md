@@ -81,6 +81,7 @@ so services and the event bus can use them).
 | `players/` | players (guest + registered), avatars |
 | `library/` | wishlist, favorites, playlists |
 | `tags/` | global song tags: the `tags` / `tag_permissions` / `song_tags` tables, per-tag `view` / `view_songs` / `assign` (`service.allowed`), and `hidden_song_ids` — the songs a caller may not see, applied through `auth.deps.HiddenSongsDep` and `songs.api.song_or_404` |
+| `comments/` | what people say about a song: the `song_comments` table, `comments.write` to add one and `comments.moderate` to delete somebody else's (your own is always yours) |
 | `stats/` | read-only statistics over what `karaoke` recorded |
 | `frontend.py`, `join_url.py` | serving `frontend/dist`; the address the host screen advertises |
 | `migrations/versions/` | alembic, `NNNN_<what>.py` |

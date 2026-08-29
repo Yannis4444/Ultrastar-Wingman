@@ -101,6 +101,14 @@ ROUTES: list[tuple[str, str, str, dict[str, object] | None]] = [
     ("tags.manage", "PATCH", "/api/v1/tags/nope", {"name": "Duets"}),
     ("tags.manage", "PUT", "/api/v1/tags/nope/permissions", {"permissions": []}),
     ("tags.manage", "DELETE", "/api/v1/tags/nope", None),
+    # Reading the conversation under a song is part of looking at the song; joining it
+    # needs an account, which is why the POST checks the capability before `account_id`.
+    ("songs.view", "GET", "/api/v1/songs/usdb:1/comments", None),
+    ("comments.write", "POST", "/api/v1/songs/usdb:1/comments", {"body": "Great one"}),
+    # Somebody else's comment. Your own needs no capability — see test_comments_api for the
+    # identity half. The id has to be numeric or FastAPI answers 422 before the dependency
+    # that decides between 403 and 404 ever runs.
+    ("comments.moderate", "DELETE", "/api/v1/songs/usdb:1/comments/999", None),
     ("downloads.view", "GET", "/api/v1/downloads", None),
     ("downloads.manage", "POST", "/api/v1/downloads", {"source": "nope", "source_song_id": "1"}),
     # Taking a download off the panel changes what everybody else sees, so it is `manage`.
@@ -247,7 +255,7 @@ def test_every_capability_is_enforced_somewhere() -> None:
 
 
 async def test_the_migration_seeds_the_module_defaults(session: AsyncSession) -> None:
-    """Migrations 0006 to 0013 spell the defaults out literally, each seeding the
+    """Migrations 0006 to 0014 spell the defaults out literally, each seeding the
     capabilities it introduces; this is what keeps them and the module in step."""
     seeded: dict[str, set[str]] = {}
     for row in await session.scalars(select(RolePermission)):

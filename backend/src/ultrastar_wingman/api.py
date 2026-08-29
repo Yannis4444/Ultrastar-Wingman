@@ -10,6 +10,7 @@ from pydantic import BaseModel
 from . import APP_NAME, __version__
 from .auth.api import router as auth_router
 from .auth.deps import require
+from .comments.api import router as comments_router
 from .config import BootstrapSettings
 from .db import SessionDep
 from .downloads.api import router as downloads_router
@@ -43,6 +44,7 @@ router.include_router(sources_router)
 router.include_router(library_router)
 router.include_router(stats_router)
 router.include_router(tags_router)
+router.include_router(comments_router)
 
 
 class Health(BaseModel):

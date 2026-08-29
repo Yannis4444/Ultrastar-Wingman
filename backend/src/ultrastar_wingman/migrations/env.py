@@ -13,6 +13,7 @@ from sqlalchemy.ext.asyncio import async_engine_from_config
 
 from ultrastar_wingman import settings as _settings  # noqa: F401  registers the settings table
 from ultrastar_wingman.auth import model as _auth  # noqa: F401  users, sessions, permissions
+from ultrastar_wingman.comments import model as _comments  # noqa: F401  song comments table
 from ultrastar_wingman.db import Base
 from ultrastar_wingman.downloads import model as _downloads  # noqa: F401  downloads table
 from ultrastar_wingman.karaoke import model as _karaoke  # noqa: F401  sings and scores tables

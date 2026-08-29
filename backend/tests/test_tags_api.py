@@ -11,6 +11,7 @@ Roles are bundles and not a ladder, so every grant is spelled out per role; only
 
 from collections.abc import AsyncIterator
 from dataclasses import dataclass
+from datetime import UTC, datetime, timedelta
 from typing import Any, get_args
 
 import pytest
@@ -23,6 +24,7 @@ from test_wishlist_api import OTHER_SONG, SONG, THIRD_SONG, add_songs, factory
 from ultrastar_wingman.app import create_app
 from ultrastar_wingman.auth.deps import COOKIE_NAME
 from ultrastar_wingman.config import BootstrapSettings
+from ultrastar_wingman.karaoke.model import KaraokeSession, Sing
 from ultrastar_wingman.library.model import PlaylistEntry
 from ultrastar_wingman.songs.model import Song
 from ultrastar_wingman.tags.model import (
@@ -494,6 +496,39 @@ async def test_the_changes_are_broadcast(
     }
 
 
+async def test_the_recently_played_tab_hides_a_hidden_song(party: Party) -> None:
+    """`GET /stats/sessions/current/sings` is the Songs page's Recent tab — a song list a
+    stranger browses, so it hides exactly what `GET /songs` hides. It used to be an
+    accepted leak: it carries the whole `SongRead`, so a guest saw a broken song's title
+    and cover there while the library itself kept it back."""
+    started = datetime.now(UTC) - timedelta(minutes=5)
+    async with factory(party.app)() as session:
+        karaoke_session = KaraokeSession(started_at=started, last_activity_at=started)
+        session.add(karaoke_session)
+        await session.flush()
+        for index, song_id in enumerate((SONG, OTHER_SONG)):
+            session.add(
+                Sing(
+                    song_id=song_id,
+                    session_id=karaoke_session.id,
+                    started_at=started + timedelta(minutes=index),
+                )
+            )
+        await session.commit()
+    await tag_song(party["trusted"], SONG, BROKEN_TAG_ID)
+
+    async def played(client: AsyncClient) -> list[str]:
+        response = await client.get("/api/v1/stats/sessions/current/sings")
+        assert response.status_code == 200, response.text
+        return [row["song_id"] for row in response.json()["sings"]]
+
+    # The row goes whole — not a sing with `song: null`, which would still say a song was
+    # played that this caller cannot see.
+    assert await played(party["anonymous"]) == [OTHER_SONG]
+    assert await played(party["user"]) == [OTHER_SONG]
+    assert await played(party["trusted"]) == [OTHER_SONG, SONG]
+
+
 async def test_the_leaks_we_accept(party: Party) -> None:
     """What a hidden song still shows, on purpose.
 
@@ -504,7 +539,10 @@ async def test_the_leaks_we_accept(party: Party) -> None:
       the same room learning its title is not a leak.
     * the statistics score lists (`/stats/latest`, a session's and a player's scores) carry
       the song title of everything that was ever sung, hidden or not: a score belongs to
-      the singer, and dropping rows would make two people disagree about a scoreboard.
+      the singer, and dropping rows would make two people disagree about a scoreboard. The
+      current session's *sings* are no longer among them — that one is the Songs page's
+      Recent tab, a song list rather than a scoreboard, and
+      `test_the_recently_played_tab_hides_a_hidden_song` above pins it down.
     * every websocket event carries ids only, so a client that may not resolve one learns
       nothing from it.
     * `PlaylistRead.song_count`, `duration_seconds` and `cover_song_ids` are what the row

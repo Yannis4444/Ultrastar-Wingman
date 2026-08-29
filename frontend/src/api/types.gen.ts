@@ -39,6 +39,85 @@ export type ColorList = {
 };
 
 /**
+ * CommentAuthor
+ *
+ * Who said it, as the list draws them: a name and, when the account sings, the player
+ * whose picture goes next to it.
+ *
+ * `player_id` is None for an account that never got a player, and `avatar_version` is
+ * None until that player has a picture — the same cache buster `PlayerRead` carries.
+ */
+export type CommentAuthor = {
+    /**
+     * User Id
+     */
+    user_id: string;
+    /**
+     * Username
+     */
+    username: string;
+    /**
+     * Player Id
+     */
+    player_id: string | null;
+    /**
+     * Avatar Version
+     */
+    avatar_version: number | null;
+};
+
+/**
+ * CommentCreate
+ */
+export type CommentCreate = {
+    /**
+     * Body
+     */
+    body: string;
+};
+
+/**
+ * CommentList
+ */
+export type CommentList = {
+    /**
+     * Comments
+     */
+    comments: Array<CommentRead>;
+};
+
+/**
+ * CommentRead
+ */
+export type CommentRead = {
+    /**
+     * Id
+     */
+    id: number;
+    /**
+     * Song Id
+     */
+    song_id: string;
+    /**
+     * Body
+     */
+    body: string;
+    /**
+     * Created At
+     */
+    created_at: string;
+    author: CommentAuthor | null;
+    /**
+     * Mine
+     */
+    mine: boolean;
+    /**
+     * Can Delete
+     */
+    can_delete: boolean;
+};
+
+/**
  * CurrentSing
  */
 export type CurrentSing = {
@@ -3591,6 +3670,120 @@ export type AssignTagResponses = {
 };
 
 export type AssignTagResponse = AssignTagResponses[keyof AssignTagResponses];
+
+export type ListSongCommentsData = {
+    body?: never;
+    path: {
+        /**
+         * Song Id
+         */
+        song_id: string;
+    };
+    query?: never;
+    url: '/api/v1/songs/{song_id}/comments';
+};
+
+export type ListSongCommentsErrors = {
+    /**
+     * Unknown song.
+     */
+    404: unknown;
+    /**
+     * Validation Error
+     */
+    422: HttpValidationError;
+};
+
+export type ListSongCommentsError = ListSongCommentsErrors[keyof ListSongCommentsErrors];
+
+export type ListSongCommentsResponses = {
+    /**
+     * Successful Response
+     */
+    200: CommentList;
+};
+
+export type ListSongCommentsResponse = ListSongCommentsResponses[keyof ListSongCommentsResponses];
+
+export type AddSongCommentData = {
+    body: CommentCreate;
+    path: {
+        /**
+         * Song Id
+         */
+        song_id: string;
+    };
+    query?: never;
+    url: '/api/v1/songs/{song_id}/comments';
+};
+
+export type AddSongCommentErrors = {
+    /**
+     * A comment needs an account to sign it.
+     */
+    401: unknown;
+    /**
+     * Unknown song.
+     */
+    404: unknown;
+    /**
+     * Validation Error
+     */
+    422: HttpValidationError;
+};
+
+export type AddSongCommentError = AddSongCommentErrors[keyof AddSongCommentErrors];
+
+export type AddSongCommentResponses = {
+    /**
+     * Successful Response
+     */
+    201: CommentRead;
+};
+
+export type AddSongCommentResponse = AddSongCommentResponses[keyof AddSongCommentResponses];
+
+export type DeleteSongCommentData = {
+    body?: never;
+    path: {
+        /**
+         * Song Id
+         */
+        song_id: string;
+        /**
+         * Comment Id
+         */
+        comment_id: number;
+    };
+    query?: never;
+    url: '/api/v1/songs/{song_id}/comments/{comment_id}';
+};
+
+export type DeleteSongCommentErrors = {
+    /**
+     * Somebody else's comment, without `comments.moderate`.
+     */
+    403: unknown;
+    /**
+     * Unknown song or comment.
+     */
+    404: unknown;
+    /**
+     * Validation Error
+     */
+    422: HttpValidationError;
+};
+
+export type DeleteSongCommentError = DeleteSongCommentErrors[keyof DeleteSongCommentErrors];
+
+export type DeleteSongCommentResponses = {
+    /**
+     * Successful Response
+     */
+    204: void;
+};
+
+export type DeleteSongCommentResponse = DeleteSongCommentResponses[keyof DeleteSongCommentResponses];
 
 export type HealthData = {
     body?: never;

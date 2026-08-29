@@ -103,6 +103,16 @@ class SongTagsChanged(Event):
     tag_id: str
 
 
+class CommentsChanged(Event):
+    """One song's comments changed: somebody said something, took it back, or a moderator
+    removed it. `count` is what the song's badge shows — the bodies themselves are not on
+    the bus, so a listener refetches the list it happens to have open."""
+
+    event: Literal["comments.changed"] = "comments.changed"
+    song_id: str
+    count: int
+
+
 class EventBus:
     """Fans events out to all connected sockets."""
 

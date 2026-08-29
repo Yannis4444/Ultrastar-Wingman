@@ -31,6 +31,8 @@ CAPABILITIES: tuple[str, ...] = (
     "playlists.manage",
     "playlists.moderate",
     "tags.manage",
+    "comments.write",
+    "comments.moderate",
     "downloads.view",
     "downloads.manage",
     "usdb.search",
@@ -77,7 +79,14 @@ _GUEST_CAPABILITIES = frozenset(
 # Only an account can own a playlist, so only an account may manage one. Reading the
 # archive of past parties is an account's right too: `stats.view` is tonight's scoreboard,
 # which a guest phone is welcome to, and `stats.history` is every party before it.
-_USER_CAPABILITIES = _GUEST_CAPABILITIES | {"karaoke.stop", "playlists.manage", "stats.history"}
+# Saying something about a song is an account's right too: a comment carries a name and a
+# picture, and an anonymous phone has neither — it may read the conversation, not join it.
+_USER_CAPABILITIES = _GUEST_CAPABILITIES | {
+    "karaoke.stop",
+    "playlists.manage",
+    "stats.history",
+    "comments.write",
+}
 # The party's helpers: naming a session, the download queue — and the rights over other
 # people. Adding and deleting players used to be a `user` right, which let anybody with an
 # account delete anybody else's; changing your own picture never needed it (that is
@@ -98,9 +107,12 @@ _TRUSTED_CAPABILITIES = _USER_CAPABILITIES | {
     # Creating a tag and saying who it is for. Not the right to *use* a tag: what one
     # person may put on a song is a `tag_permissions` row, granted per tag.
     "tags.manage",
+    # Deleting somebody else's comment. Taking your own back needs no right at all — it is
+    # your own words, like your favorites.
+    "comments.moderate",
 }
 
-# What migrations 0006 to 0013 seed. Kept here as well so a test can prove the two never
+# What migrations 0006 to 0014 seed. Kept here as well so a test can prove the two never
 # drift.
 DEFAULT_ROLE_CAPABILITIES: dict[str, frozenset[str]] = {
     GUEST: _GUEST_CAPABILITIES,

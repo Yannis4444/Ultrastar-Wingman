@@ -3,8 +3,8 @@
 import { type DefaultError, type InfiniteData, infiniteQueryOptions, queryOptions, type UseMutationOptions } from '@tanstack/react-query';
 
 import { client } from '../client.gen';
-import { addFavorite, addPlaylistEntry, addWish, assignTag, clearWishes, copyPlaylist, createDownload, createPlayer, createPlaylist, createTag, deletePlayer, deletePlaylist, deleteTag, deleteUser, dismissDownload, dismissFinishedDownloads, exchangeHostToken, followPlaylist, getCurrentSing, getJoinInfo, getMe, getPermissions, getPlayerAvatar, getPlaylist, getSong, getSongAudio, getSongCover, health, launchUsdx, listCurrentSessionSings, listDownloads, listFavorites, listKaraokeColors, listKaraokeSlots, listLatestScores, listPlayers, listPlayerScores, listPlaylistMembers, listPlaylists, listSessions, listSessionScores, listSettings, listSongs, listSongScores, listTagAssignments, listTags, listUsers, listVideoQualityPresets, listWishlist, login, logout, lookupUsers, oidcCallback, oidcConfig, oidcLogin, type Options, register, removeFavorite, removePlaylistEntry, removePlaylistMember, removeWish, renameSession, reorderPlaylistEntries, replaceTagPermissions, rescanSongs, setPlayerAvatar, setPlaylistMember, singSong, stopSinging, unassignTag, unfollowPlaylist, updatePlaylist, updateRolePermissions, updateSetting, updateTag, updateUser, usdbCover, usdbSearch, usdbStatus, usdxStatus } from '../sdk.gen';
-import type { AddFavoriteData, AddFavoriteError, AddFavoriteResponse, AddPlaylistEntryData, AddPlaylistEntryError, AddPlaylistEntryResponse, AddWishData, AddWishError, AddWishResponse, AssignTagData, AssignTagError, AssignTagResponse, ClearWishesData, ClearWishesError, ClearWishesResponse, CopyPlaylistData, CopyPlaylistError, CopyPlaylistResponse, CreateDownloadData, CreateDownloadError, CreateDownloadResponse, CreatePlayerData, CreatePlayerError, CreatePlayerResponse, CreatePlaylistData, CreatePlaylistError, CreatePlaylistResponse, CreateTagData, CreateTagResponse, DeletePlayerData, DeletePlayerError, DeletePlayerResponse, DeletePlaylistData, DeletePlaylistError, DeletePlaylistResponse, DeleteTagData, DeleteTagError, DeleteTagResponse, DeleteUserData, DeleteUserError, DeleteUserResponse, DismissDownloadData, DismissDownloadError, DismissDownloadResponse, DismissFinishedDownloadsData, DismissFinishedDownloadsResponse, ExchangeHostTokenData, ExchangeHostTokenError, ExchangeHostTokenResponse, FollowPlaylistData, FollowPlaylistError, FollowPlaylistResponse, GetCurrentSingData, GetCurrentSingResponse, GetJoinInfoData, GetJoinInfoResponse, GetMeData, GetMeResponse, GetPermissionsData, GetPermissionsResponse, GetPlayerAvatarData, GetPlayerAvatarError, GetPlaylistData, GetPlaylistError, GetPlaylistResponse, GetSongAudioData, GetSongAudioError, GetSongCoverData, GetSongCoverError, GetSongData, GetSongError, GetSongResponse, HealthData, HealthResponse, LaunchUsdxData, LaunchUsdxResponse, ListCurrentSessionSingsData, ListCurrentSessionSingsResponse, ListDownloadsData, ListDownloadsResponse, ListFavoritesData, ListFavoritesResponse, ListKaraokeColorsData, ListKaraokeColorsResponse, ListKaraokeSlotsData, ListKaraokeSlotsResponse, ListLatestScoresData, ListLatestScoresError, ListLatestScoresResponse, ListPlayerScoresData, ListPlayerScoresError, ListPlayerScoresResponse, ListPlayersData, ListPlayersResponse, ListPlaylistMembersData, ListPlaylistMembersError, ListPlaylistMembersResponse, ListPlaylistsData, ListPlaylistsError, ListPlaylistsResponse, ListSessionScoresData, ListSessionScoresError, ListSessionScoresResponse, ListSessionsData, ListSessionsResponse, ListSettingsData, ListSettingsResponse, ListSongScoresData, ListSongScoresError, ListSongScoresResponse, ListSongsData, ListSongsResponse, ListTagAssignmentsData, ListTagAssignmentsResponse, ListTagsData, ListTagsResponse, ListUsersData, ListUsersResponse, ListVideoQualityPresetsData, ListVideoQualityPresetsResponse, ListWishlistData, ListWishlistResponse, LoginData, LoginError, LoginResponse, LogoutData, LogoutResponse, LookupUsersData, LookupUsersResponse, OidcCallbackData, OidcCallbackError, OidcConfigData, OidcConfigResponse, OidcLoginData, RegisterData, RegisterError, RegisterResponse, RemoveFavoriteData, RemoveFavoriteError, RemoveFavoriteResponse, RemovePlaylistEntryData, RemovePlaylistEntryError, RemovePlaylistEntryResponse, RemovePlaylistMemberData, RemovePlaylistMemberError, RemovePlaylistMemberResponse, RemoveWishData, RemoveWishError, RemoveWishResponse, RenameSessionData, RenameSessionError, RenameSessionResponse, ReorderPlaylistEntriesData, ReorderPlaylistEntriesResponse, ReplaceTagPermissionsData, ReplaceTagPermissionsResponse, RescanSongsData, RescanSongsError, RescanSongsResponse, SetPlayerAvatarData, SetPlayerAvatarError, SetPlayerAvatarResponse, SetPlaylistMemberData, SetPlaylistMemberError, SetPlaylistMemberResponse, SingSongData, SingSongError, SingSongResponse, StopSingingData, StopSingingResponse, UnassignTagData, UnassignTagError, UnassignTagResponse, UnfollowPlaylistData, UnfollowPlaylistError, UnfollowPlaylistResponse, UpdatePlaylistData, UpdatePlaylistError, UpdatePlaylistResponse, UpdateRolePermissionsData, UpdateRolePermissionsResponse, UpdateSettingData, UpdateSettingError, UpdateSettingResponse, UpdateTagData, UpdateTagError, UpdateTagResponse, UpdateUserData, UpdateUserError, UpdateUserResponse, UsdbCoverData, UsdbCoverError, UsdbSearchData, UsdbSearchError, UsdbSearchResponse, UsdbStatusData, UsdbStatusError, UsdbStatusResponse, UsdxStatusData, UsdxStatusResponse } from '../types.gen';
+import { addFavorite, addPlaylistEntry, addSongComment, addWish, assignTag, clearWishes, copyPlaylist, createDownload, createPlayer, createPlaylist, createTag, deletePlayer, deletePlaylist, deleteSongComment, deleteTag, deleteUser, dismissDownload, dismissFinishedDownloads, exchangeHostToken, followPlaylist, getCurrentSing, getJoinInfo, getMe, getPermissions, getPlayerAvatar, getPlaylist, getSong, getSongAudio, getSongCover, health, launchUsdx, listCurrentSessionSings, listDownloads, listFavorites, listKaraokeColors, listKaraokeSlots, listLatestScores, listPlayers, listPlayerScores, listPlaylistMembers, listPlaylists, listSessions, listSessionScores, listSettings, listSongComments, listSongs, listSongScores, listTagAssignments, listTags, listUsers, listVideoQualityPresets, listWishlist, login, logout, lookupUsers, oidcCallback, oidcConfig, oidcLogin, type Options, register, removeFavorite, removePlaylistEntry, removePlaylistMember, removeWish, renameSession, reorderPlaylistEntries, replaceTagPermissions, rescanSongs, setPlayerAvatar, setPlaylistMember, singSong, stopSinging, unassignTag, unfollowPlaylist, updatePlaylist, updateRolePermissions, updateSetting, updateTag, updateUser, usdbCover, usdbSearch, usdbStatus, usdxStatus } from '../sdk.gen';
+import type { AddFavoriteData, AddFavoriteError, AddFavoriteResponse, AddPlaylistEntryData, AddPlaylistEntryError, AddPlaylistEntryResponse, AddSongCommentData, AddSongCommentError, AddSongCommentResponse, AddWishData, AddWishError, AddWishResponse, AssignTagData, AssignTagError, AssignTagResponse, ClearWishesData, ClearWishesError, ClearWishesResponse, CopyPlaylistData, CopyPlaylistError, CopyPlaylistResponse, CreateDownloadData, CreateDownloadError, CreateDownloadResponse, CreatePlayerData, CreatePlayerError, CreatePlayerResponse, CreatePlaylistData, CreatePlaylistError, CreatePlaylistResponse, CreateTagData, CreateTagResponse, DeletePlayerData, DeletePlayerError, DeletePlayerResponse, DeletePlaylistData, DeletePlaylistError, DeletePlaylistResponse, DeleteSongCommentData, DeleteSongCommentError, DeleteSongCommentResponse, DeleteTagData, DeleteTagError, DeleteTagResponse, DeleteUserData, DeleteUserError, DeleteUserResponse, DismissDownloadData, DismissDownloadError, DismissDownloadResponse, DismissFinishedDownloadsData, DismissFinishedDownloadsResponse, ExchangeHostTokenData, ExchangeHostTokenError, ExchangeHostTokenResponse, FollowPlaylistData, FollowPlaylistError, FollowPlaylistResponse, GetCurrentSingData, GetCurrentSingResponse, GetJoinInfoData, GetJoinInfoResponse, GetMeData, GetMeResponse, GetPermissionsData, GetPermissionsResponse, GetPlayerAvatarData, GetPlayerAvatarError, GetPlaylistData, GetPlaylistError, GetPlaylistResponse, GetSongAudioData, GetSongAudioError, GetSongCoverData, GetSongCoverError, GetSongData, GetSongError, GetSongResponse, HealthData, HealthResponse, LaunchUsdxData, LaunchUsdxResponse, ListCurrentSessionSingsData, ListCurrentSessionSingsResponse, ListDownloadsData, ListDownloadsResponse, ListFavoritesData, ListFavoritesResponse, ListKaraokeColorsData, ListKaraokeColorsResponse, ListKaraokeSlotsData, ListKaraokeSlotsResponse, ListLatestScoresData, ListLatestScoresError, ListLatestScoresResponse, ListPlayerScoresData, ListPlayerScoresError, ListPlayerScoresResponse, ListPlayersData, ListPlayersResponse, ListPlaylistMembersData, ListPlaylistMembersError, ListPlaylistMembersResponse, ListPlaylistsData, ListPlaylistsError, ListPlaylistsResponse, ListSessionScoresData, ListSessionScoresError, ListSessionScoresResponse, ListSessionsData, ListSessionsResponse, ListSettingsData, ListSettingsResponse, ListSongCommentsData, ListSongCommentsError, ListSongCommentsResponse, ListSongScoresData, ListSongScoresError, ListSongScoresResponse, ListSongsData, ListSongsResponse, ListTagAssignmentsData, ListTagAssignmentsResponse, ListTagsData, ListTagsResponse, ListUsersData, ListUsersResponse, ListVideoQualityPresetsData, ListVideoQualityPresetsResponse, ListWishlistData, ListWishlistResponse, LoginData, LoginError, LoginResponse, LogoutData, LogoutResponse, LookupUsersData, LookupUsersResponse, OidcCallbackData, OidcCallbackError, OidcConfigData, OidcConfigResponse, OidcLoginData, RegisterData, RegisterError, RegisterResponse, RemoveFavoriteData, RemoveFavoriteError, RemoveFavoriteResponse, RemovePlaylistEntryData, RemovePlaylistEntryError, RemovePlaylistEntryResponse, RemovePlaylistMemberData, RemovePlaylistMemberError, RemovePlaylistMemberResponse, RemoveWishData, RemoveWishError, RemoveWishResponse, RenameSessionData, RenameSessionError, RenameSessionResponse, ReorderPlaylistEntriesData, ReorderPlaylistEntriesResponse, ReplaceTagPermissionsData, ReplaceTagPermissionsResponse, RescanSongsData, RescanSongsError, RescanSongsResponse, SetPlayerAvatarData, SetPlayerAvatarError, SetPlayerAvatarResponse, SetPlaylistMemberData, SetPlaylistMemberError, SetPlaylistMemberResponse, SingSongData, SingSongError, SingSongResponse, StopSingingData, StopSingingResponse, UnassignTagData, UnassignTagError, UnassignTagResponse, UnfollowPlaylistData, UnfollowPlaylistError, UnfollowPlaylistResponse, UpdatePlaylistData, UpdatePlaylistError, UpdatePlaylistResponse, UpdateRolePermissionsData, UpdateRolePermissionsResponse, UpdateSettingData, UpdateSettingError, UpdateSettingResponse, UpdateTagData, UpdateTagError, UpdateTagResponse, UpdateUserData, UpdateUserError, UpdateUserResponse, UsdbCoverData, UsdbCoverError, UsdbSearchData, UsdbSearchError, UsdbSearchResponse, UsdbStatusData, UsdbStatusError, UsdbStatusResponse, UsdxStatusData, UsdxStatusResponse } from '../types.gen';
 
 export type QueryKey<TOptions extends Options> = [
     Pick<TOptions, 'baseUrl' | 'body' | 'headers' | 'path' | 'query'> & {
@@ -1287,6 +1287,14 @@ export const listCurrentSessionSingsQueryKey = (options?: Options<ListCurrentSes
  * Never a 404: when the last party is over (nothing sung for `SESSION_GAP`) the list is
  * simply empty, which is exactly what the tab has to show. A literal path segment rather
  * than a magic `session_id`, so `current` can never collide with a real session id.
+ *
+ * A sing of a song a tag keeps back from this caller drops out whole — this is a song
+ * list a stranger browses (the Recent tab of the Songs page), so it has to hide the same
+ * songs `GET /songs` does. Filtered here rather than in the service, which stays
+ * principal-free, and in Python rather than in SQL so every route uses the one set the
+ * dependency built — the same shape as `songs.api.list_songs`. The score lists below are
+ * deliberately *not* filtered: a score belongs to its singer (see
+ * `test_tags_api.test_the_leaks_we_accept`).
  */
 export const listCurrentSessionSingsOptions = (options?: Options<ListCurrentSessionSingsData>) => queryOptions<ListCurrentSessionSingsResponse, DefaultError, ListCurrentSessionSingsResponse, ReturnType<typeof listCurrentSessionSingsQueryKey>>({
     queryFn: async ({ queryKey, signal }) => {
@@ -1548,6 +1556,65 @@ export const assignTagMutation = (options?: Partial<Options<AssignTagData>>): Us
     const mutationOptions: UseMutationOptions<AssignTagResponse, AssignTagError, Options<AssignTagData>> = {
         mutationFn: async (fnOptions) => {
             const { data } = await assignTag({
+                ...options,
+                ...fnOptions,
+                throwOnError: true
+            });
+            return data;
+        }
+    };
+    return mutationOptions;
+};
+
+export const listSongCommentsQueryKey = (options: Options<ListSongCommentsData>) => createQueryKey('listSongComments', options);
+
+/**
+ * List Song Comments
+ *
+ * What was said about one song, oldest first. Open to a guest phone: reading the
+ * conversation is part of looking at the song, writing to it is what needs an account.
+ */
+export const listSongCommentsOptions = (options: Options<ListSongCommentsData>) => queryOptions<ListSongCommentsResponse, ListSongCommentsError, ListSongCommentsResponse, ReturnType<typeof listSongCommentsQueryKey>>({
+    queryFn: async ({ queryKey, signal }) => {
+        const { data } = await listSongComments({
+            ...options,
+            ...queryKey[0],
+            signal,
+            throwOnError: true
+        });
+        return data;
+    },
+    queryKey: listSongCommentsQueryKey(options)
+});
+
+/**
+ * Add Song Comment
+ *
+ * Say something about a song. There is no editing: a comment is said, or deleted.
+ */
+export const addSongCommentMutation = (options?: Partial<Options<AddSongCommentData>>): UseMutationOptions<AddSongCommentResponse, AddSongCommentError, Options<AddSongCommentData>> => {
+    const mutationOptions: UseMutationOptions<AddSongCommentResponse, AddSongCommentError, Options<AddSongCommentData>> = {
+        mutationFn: async (fnOptions) => {
+            const { data } = await addSongComment({
+                ...options,
+                ...fnOptions,
+                throwOnError: true
+            });
+            return data;
+        }
+    };
+    return mutationOptions;
+};
+
+/**
+ * Delete Song Comment
+ *
+ * Take a comment back, or moderate one away.
+ */
+export const deleteSongCommentMutation = (options?: Partial<Options<DeleteSongCommentData>>): UseMutationOptions<DeleteSongCommentResponse, DeleteSongCommentError, Options<DeleteSongCommentData>> => {
+    const mutationOptions: UseMutationOptions<DeleteSongCommentResponse, DeleteSongCommentError, Options<DeleteSongCommentData>> = {
+        mutationFn: async (fnOptions) => {
+            const { data } = await deleteSongComment({
                 ...options,
                 ...fnOptions,
                 throwOnError: true

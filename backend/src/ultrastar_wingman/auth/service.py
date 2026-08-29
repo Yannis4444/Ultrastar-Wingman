@@ -10,6 +10,7 @@ from sqlalchemy import delete, func, select
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from ..comments import service as comments
 from ..library import service as library
 from ..players.model import Player
 from ..tags import service as tags
@@ -327,6 +328,9 @@ async def delete_user(session: AsyncSession, user: User) -> None:
     await library.delete_user_data(session, user.id)
     # Its tag permissions go too; the `song_tags` rows it left behind stay as attribution.
     await tags.delete_user_data(session, user.id)
+    # A comment carries the account's name and its words, so it is not attribution that can
+    # outlive the account the way a score's player does — it leaves with it.
+    await comments.delete_user_data(session, user.id)
     await session.delete(user)
     await session.commit()
     logger.info("user '%s' deleted (%s)", user.username, user.id)
