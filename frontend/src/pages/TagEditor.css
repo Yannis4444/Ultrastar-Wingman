@@ -18,6 +18,11 @@
   flex-direction: column;
   gap: 4px;
   margin: 16px 16px 0 16px;
+}
+
+/* The caption alone is the quiet 0.85em — see `.playlists-field` in
+   `Playlists.css`, whose shape this is. */
+.tag-editor-field > span {
   font-size: 0.85em;
   color: var(--color-darker);
 }
@@ -25,8 +30,6 @@
 .tag-editor-field .text-input {
   width: 100%;
   box-sizing: border-box;
-  font-size: 1rem;
-  color: var(--color);
 }
 
 /* A dense flag row (§4 keeps `CheckOption` for the handful-of-options cases). */

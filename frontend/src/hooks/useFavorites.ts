@@ -1,4 +1,5 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { useMemo } from "react";
 import type { FavoritesRead } from "../api";
 import {
   addFavoriteMutation,
@@ -26,7 +27,12 @@ export function useFavorites(): Favorites {
   const key = listFavoritesQueryKey();
 
   const favorites = useQuery({ ...listFavoritesOptions(), enabled: available });
-  const ids = new Set(favorites.data?.song_ids ?? []);
+  // One set per answer, not one per render: the Songs list memoizes what it
+  // shows on this very set, and a fresh one every time made that memo — over
+  // thousands of songs — recompute on every keystroke. The optimistic toggle
+  // below writes a new `data` object, so the set still moves with the heart.
+  const data = favorites.data;
+  const ids = useMemo(() => new Set(data?.song_ids ?? []), [data]);
 
   const flip = (songId: string, wanted: boolean): FavoritesRead | undefined => {
     const previous = queryClient.getQueryData<FavoritesRead>(key);

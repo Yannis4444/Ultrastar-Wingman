@@ -81,7 +81,9 @@ async def list_tags(session: SessionDep, principal: PrincipalDep) -> TagList:
     """The tags the caller may view, by name — plus, for a caller holding `tags.manage`,
     the ones they may not: managing a tag is not the same right as knowing it, and each
     row says which it is in `can_view`. A manager also gets each tag's permission rows;
-    for everybody else `permissions` is null."""
+    for everybody else `permissions` is null.
+
+    `song_count` is the whole library's, not the caller's: see the field."""
     return TagList(
         tags=await service.visible_tags(session, tag_viewer(principal), _manages(principal))
     )

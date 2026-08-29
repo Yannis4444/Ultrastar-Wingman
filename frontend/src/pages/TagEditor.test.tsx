@@ -10,7 +10,6 @@ import TagEditor from "./TagEditor";
 const {
   getMe,
   listTags,
-  listTagAssignments,
   createTag,
   updateTag,
   replaceTagPermissions,
@@ -19,7 +18,6 @@ const {
 } = vi.hoisted(() => ({
   getMe: vi.fn(),
   listTags: vi.fn(),
-  listTagAssignments: vi.fn(),
   createTag: vi.fn(),
   updateTag: vi.fn(),
   replaceTagPermissions: vi.fn(),
@@ -31,7 +29,6 @@ vi.mock("../api/sdk.gen", async (importOriginal) => ({
   ...(await importOriginal<typeof import("../api/sdk.gen")>()),
   getMe,
   listTags,
-  listTagAssignments,
   createTag,
   updateTag,
   replaceTagPermissions,
@@ -74,18 +71,15 @@ function Probe() {
 
 function renderEditor({
   path = "/user/tags/t1",
-  tags = [tag()],
-  assignments = [{ tag_id: "t1", song_ids: ["s1", "s2"] }],
+  tags = [tag({ song_count: 2 })],
   capabilities = MANAGER,
 }: {
   path?: string;
   tags?: TagRead[];
-  assignments?: { tag_id: string; song_ids: string[] }[];
   capabilities?: string[];
 } = {}) {
   getMe.mockResolvedValue(meResponse(capabilities, ACCOUNT));
   listTags.mockResolvedValue({ data: { tags } });
-  listTagAssignments.mockResolvedValue({ data: { assignments } });
   const client = new QueryClient({
     defaultOptions: { queries: { retry: false } },
   });
@@ -123,7 +117,6 @@ beforeEach(() => {
   for (const mock of [
     getMe,
     listTags,
-    listTagAssignments,
     createTag,
     updateTag,
     replaceTagPermissions,
@@ -444,7 +437,7 @@ it("names the songs that lose the tag before deleting it", async () => {
 });
 
 it("does not count zero songs at the reader when deleting", async () => {
-  renderEditor({ assignments: [] });
+  renderEditor({ tags: [tag()] });
 
   await screen.findByDisplayValue("broken");
   fireEvent.click(screen.getByRole("button", { name: "Delete tag" }));

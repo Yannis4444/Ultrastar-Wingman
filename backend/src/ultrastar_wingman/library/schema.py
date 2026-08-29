@@ -43,6 +43,8 @@ class PlaylistRead(BaseModel):
     # one may still be listed while its owner row is gone in an old database.
     owner_username: str | None
     owner_player_id: str | None
+    # The songs still in the library, so the number agrees with the entries the detail
+    # hands out; a song that left takes its entry out of the count until it comes back.
     song_count: int
     # Over the songs whose duration is known; an unknown one counts as nothing rather
     # than making the whole sum unknown.

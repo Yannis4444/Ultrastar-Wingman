@@ -1,7 +1,7 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useState } from "react";
 import { Link, useNavigate, useParams } from "react-router-dom";
-import type { PlayerRead, PlaylistMemberRead, PlaylistUpdate } from "../api";
+import type { PlaylistMemberRead, PlaylistUpdate } from "../api";
 import {
   deletePlaylistMutation,
   getPlaylistOptions,
@@ -14,6 +14,7 @@ import {
   updatePlaylistMutation,
 } from "../api/@tanstack/react-query.gen";
 import { useAuth } from "../auth";
+import { asPlayer } from "../avatars";
 import ConfirmModal from "../components/ConfirmModal";
 import { Icon } from "../components/icons";
 import Loading from "../components/Loading";
@@ -60,31 +61,6 @@ function baseline(playlist: {
 }
 
 /**
- * `PlayerAvatar` draws a player row, and a member is an account that may or may
- * not have one. A lookup row carries `avatar_version`, and `null` there means
- * there is no picture at all — those rows go straight to the initial instead of
- * asking for a file that 404s. A member row carries no version, so the avatar
- * endpoint is asked and its own 404 is the fallback; a replaced picture appears
- * once the browser's copy goes stale, which is the whole cost of not pulling in
- * the player list here.
- */
-function asPlayer(
-  username: string,
-  playerId: string | null,
-  avatarVersion?: number | null,
-): PlayerRead {
-  return {
-    id: playerId ?? "",
-    name: username,
-    registered: true,
-    has_avatar:
-      playerId !== null &&
-      (avatarVersion === undefined || avatarVersion !== null),
-    avatar_version: avatarVersion ?? null,
-  };
-}
-
-/**
  * The settings of one playlist: what it is called, who may see it and who may
  * change it. A §6 sub-page behind the playlist header's gear, gated on the
  * `can_manage` the backend worked out for this caller — the owner, an `admin`
@@ -109,7 +85,12 @@ export default function PlaylistManage() {
   // description must not send the name they never typed and undo the rename.
   const [base, setBase] = useState<Draft>(EMPTY);
 
+  // Two notices, because the two halves of the page are a screen apart: saving
+  // and deleting fail at the form up top, sharing fails at the "Add people"
+  // search far below it, and a message about the row somebody just tapped has
+  // to appear where they are looking.
   const [error, setError] = useState<string | null>(null);
+  const [memberError, setMemberError] = useState<string | null>(null);
   const [saved, setSaved] = useState(false);
   const [deleting, setDeleting] = useState(false);
 
@@ -132,6 +113,7 @@ export default function PlaylistManage() {
     setIsGlobal(loaded.is_global);
     setBase(baseline(loaded));
     setError(null);
+    setMemberError(null);
     setSaved(false);
   }
 
@@ -170,6 +152,10 @@ export default function PlaylistManage() {
     setError(errorMessage(cause, fallback));
   };
 
+  /** The same, for what goes wrong down at the members. */
+  const memberFailed = (fallback: string) => (cause: unknown) =>
+    setMemberError(errorMessage(cause, fallback));
+
   const save = useMutation({
     ...updatePlaylistMutation(),
     onSuccess: (updated) => {
@@ -190,24 +176,24 @@ export default function PlaylistManage() {
   const setMember = useMutation({
     ...setPlaylistMemberMutation(),
     onSuccess: () => {
-      setError(null);
+      setMemberError(null);
       clear();
       refresh();
     },
     onError: (cause) => {
       if (errorDetail(cause) === "already_owner")
-        setError("That account already owns this playlist.");
-      else failed("Could not share the playlist.")(cause);
+        setMemberError("That account already owns this playlist.");
+      else memberFailed("Could not share the playlist.")(cause);
     },
   });
 
   const dropMember = useMutation({
     ...removePlaylistMemberMutation(),
     onSuccess: () => {
-      setError(null);
+      setMemberError(null);
       refresh();
     },
-    onError: failed("Could not take that person off the playlist."),
+    onError: memberFailed("Could not take that person off the playlist."),
   });
 
   const remove = useMutation({
@@ -365,6 +351,14 @@ export default function PlaylistManage() {
                 />
               </label>
 
+              {/* Under the search, not up at the form: everything that can go
+                  wrong here was started from a row down here. */}
+              {memberError && (
+                <p className="error-notice playlists-notice" role="alert">
+                  {memberError}
+                </p>
+              )}
+
               {searching && (
                 <>
                   {suggestions.isPending && <Loading />}
@@ -417,7 +411,7 @@ export default function PlaylistManage() {
                                 aria-label={`Share with ${user.username}`}
                                 disabled={busy}
                                 onClick={() => {
-                                  setError(null);
+                                  setMemberError(null);
                                   setMember.mutate({
                                     path: { playlist_id: playlistId },
                                     body: {
@@ -473,7 +467,7 @@ export default function PlaylistManage() {
                         value={member.access}
                         disabled={busy}
                         onChange={(event) => {
-                          setError(null);
+                          setMemberError(null);
                           setMember.mutate({
                             path: { playlist_id: playlistId },
                             body: {
@@ -496,7 +490,7 @@ export default function PlaylistManage() {
                         aria-label={`Remove ${member.username}`}
                         disabled={busy}
                         onClick={() => {
-                          setError(null);
+                          setMemberError(null);
                           dropMember.mutate({
                             path: {
                               playlist_id: playlistId,

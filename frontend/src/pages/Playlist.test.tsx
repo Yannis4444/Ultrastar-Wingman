@@ -567,9 +567,10 @@ test("Save a copy makes the copy the reader's own and opens it", async () => {
   await waitFor(() =>
     expect(copyPlaylist.mock.calls[0][0]).toMatchObject({
       path: { playlist_id: "p1" },
-      body: {},
     }),
   );
+  // Nothing to say beyond the id: the copy keeps the default name.
+  expect(copyPlaylist.mock.calls[0][0].body).toBeUndefined();
   expect(await screen.findByText("at /songs/playlists/p7")).toBeInTheDocument();
 });
 

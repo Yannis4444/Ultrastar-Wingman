@@ -40,6 +40,11 @@ class TagRead(BaseModel):
     can_view: bool
     # Whether the caller may tag and untag songs with it.
     can_assign: bool
+    # How many songs carry the tag, over the whole library — songs this caller may not
+    # see included, songs that have left it not. A manager who never gave themselves
+    # `view_songs` still has to be told what a delete would take the tag off, and a count
+    # is not a listing: `GET /tags/assignments` remains the only place ids come from.
+    song_count: int
     # The permission rows, for a caller who holds `tags.manage`; None for everybody else,
     # who has no business knowing which accounts were named on a tag.
     permissions: list[TagPermissionRead] | None = None

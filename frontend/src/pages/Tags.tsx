@@ -2,8 +2,6 @@ import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { Link } from "react-router-dom";
 import type { TagRead } from "../api";
 import {
-  listTagAssignmentsOptions,
-  listTagAssignmentsQueryKey,
   listTagsOptions,
   listTagsQueryKey,
 } from "../api/@tanstack/react-query.gen";
@@ -21,7 +19,8 @@ import "./Tags.css";
  * two flags that change what everybody else sees. Both flags are left out when
  * they are off — a meta line is for what is unusual about this row.
  */
-function meta(tag: TagRead, songs: number): string {
+function meta(tag: TagRead): string {
+  const songs = tag.song_count;
   const parts = [songs === 1 ? "1 song" : `${songs} songs`];
   if (tag.hide_by_default) parts.push("hidden by default");
   if (tag.show_in_list) parts.push("shown in list");
@@ -31,8 +30,8 @@ function meta(tag: TagRead, songs: number): string {
 /**
  * The tags of the party, one row each, behind the `tags.manage` entry of the
  * manage menu (§7). A row leads into the editor; the header's `+` starts a new
- * tag. Both the tags and how many songs carry each of them come from the two
- * requests the song list already makes, so the page costs nothing new.
+ * tag. The tags and their counts come from the one request the song list
+ * already makes, so the page costs nothing new.
  */
 export default function Tags() {
   const auth = useAuth();
@@ -40,30 +39,13 @@ export default function Tags() {
   const allowed = auth.loaded && auth.can("tags.manage");
 
   const tags = useQuery({ ...listTagsOptions(), enabled: allowed });
-  const assignments = useQuery({
-    ...listTagAssignmentsOptions(),
-    enabled: allowed,
-  });
 
-  useWingmanEvent("tags.changed", () => {
+  const refresh = () =>
     void queryClient.invalidateQueries({ queryKey: listTagsQueryKey() });
-    void queryClient.invalidateQueries({
-      queryKey: listTagAssignmentsQueryKey(),
-    });
-  });
-  useWingmanEvent("song_tags.changed", () => {
-    void queryClient.invalidateQueries({
-      queryKey: listTagAssignmentsQueryKey(),
-    });
-  });
+  useWingmanEvent("tags.changed", refresh);
+  // The counts live on the listing, so tagging a song moves it too.
+  useWingmanEvent("song_tags.changed", refresh);
 
-  // tag id -> how many songs carry it. A tag nobody has used is simply absent.
-  const counts = new Map(
-    (assignments.data?.assignments ?? []).map((row) => [
-      row.tag_id,
-      row.song_ids.length,
-    ]),
-  );
   const rows = tags.data?.tags ?? [];
 
   return (
@@ -124,9 +106,7 @@ export default function Tags() {
                         </span>
                         <span className="tags-text">
                           <span className="tags-name">{tag.name}</span>
-                          <span className="tags-meta">
-                            {meta(tag, counts.get(tag.id) ?? 0)}
-                          </span>
+                          <span className="tags-meta">{meta(tag)}</span>
                         </span>
                         <Icon name="chevron-right" className="tags-chevron" />
                       </Link>

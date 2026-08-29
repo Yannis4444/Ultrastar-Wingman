@@ -356,8 +356,10 @@ async def _entry_totals(
 ) -> dict[str, tuple[int, int]]:
     """playlist id -> (song count, seconds).
 
-    The count is every stored entry, the seconds only the songs still in the library with
-    a known duration — one unknown song must not make the whole sum unknown.
+    Both are joined against `songs`: an entry whose song has left the library is not one
+    of the rows the detail hands out, so counting it would make a list of two songs claim
+    three. The seconds add up only the songs with a known duration on top of that — one
+    unknown song must not make the whole sum unknown.
     """
     if not playlist_ids:
         return {}
@@ -365,6 +367,7 @@ async def _entry_totals(
         playlist_id: count
         for playlist_id, count in await session.execute(
             select(PlaylistEntry.playlist_id, func.count())
+            .join(Song, Song.id == PlaylistEntry.song_id)
             .where(PlaylistEntry.playlist_id.in_(playlist_ids))
             .group_by(PlaylistEntry.playlist_id)
         )
@@ -524,7 +527,7 @@ async def read_playlist_detail(
     session: AsyncSession, playlist: Playlist, rights: Rights, hidden: frozenset[str]
 ) -> PlaylistDetail:
     """`hidden` drops the entries a tag keeps back from this caller. `song_count` and
-    `cover_song_ids` on the meta above are deliberately left whole: they are what the row
+    `cover_song_ids` on the meta above stay the same for everybody: they are what the row
     in the listing shows, and recomputing them per caller would make two people disagree
     about how long the same playlist is."""
     meta = await read_playlist(session, playlist, rights)

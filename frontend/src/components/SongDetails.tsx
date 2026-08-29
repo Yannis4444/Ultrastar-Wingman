@@ -19,6 +19,7 @@ import {
   unassignTagMutation,
 } from "../api/@tanstack/react-query.gen";
 import { useAuth } from "../auth";
+import { asPlayer } from "../avatars";
 import { timeAgo } from "../duration";
 import { errorDetail, errorMessage } from "../errors";
 import { useFavorites } from "../hooks/useFavorites";
@@ -74,21 +75,13 @@ function authorName(author: CommentAuthor | null): string {
 }
 
 /**
- * `PlayerAvatar` draws a player, and a comment carries only who wrote it.
- * An author with no player has no picture to ask for, and `avatar_version`
- * stays null until that player has one — so those rows go straight to the
- * initial instead of a request the backend answers with a 404. A deleted
- * account has no picture and no initial either: `null` is the empty square.
+ * `PlayerAvatar` draws a player, and a comment carries only who wrote it. A
+ * deleted account is nobody at all — `null` is the empty square.
  */
 function asAuthor(author: CommentAuthor | null): PlayerRead | null {
-  if (author === null) return null;
-  return {
-    id: author.player_id ?? "",
-    name: author.username,
-    registered: true,
-    has_avatar: author.player_id !== null && author.avatar_version !== null,
-    avatar_version: author.avatar_version,
-  };
+  return author === null
+    ? null
+    : asPlayer(author.username, author.player_id, author.avatar_version);
 }
 
 /** Grows the composer with what is typed, up to a few lines. */

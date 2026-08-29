@@ -546,10 +546,8 @@ export default function Playlist() {
                     disabled={copy.isPending}
                     onClick={() => {
                       setError(null);
-                      copy.mutate({
-                        path: { playlist_id: playlistId },
-                        body: {},
-                      });
+                      // No body: the copy keeps the default name.
+                      copy.mutate({ path: { playlist_id: playlistId } });
                     }}
                   >
                     <Icon name="copy" className="playlist-copy-icon" />

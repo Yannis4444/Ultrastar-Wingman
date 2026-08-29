@@ -403,6 +403,9 @@ export type PlayerRead = {
 
 /**
  * PlaylistCopy
+ *
+ * Every field optional, and so is the whole body: "copy this" needs to say nothing
+ * beyond the id already in the path.
  */
 export type PlaylistCopy = {
     /**
@@ -1172,6 +1175,10 @@ export type TagRead = {
      * Can Assign
      */
     can_assign: boolean;
+    /**
+     * Song Count
+     */
+    song_count: number;
     /**
      * Permissions
      */
@@ -2867,7 +2874,7 @@ export type UpdatePlaylistResponses = {
 export type UpdatePlaylistResponse = UpdatePlaylistResponses[keyof UpdatePlaylistResponses];
 
 export type CopyPlaylistData = {
-    body: PlaylistCopy;
+    body?: PlaylistCopy;
     path: {
         /**
          * Playlist Id

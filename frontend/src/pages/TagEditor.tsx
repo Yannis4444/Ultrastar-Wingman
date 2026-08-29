@@ -11,8 +11,6 @@ import type {
 import {
   createTagMutation,
   deleteTagMutation,
-  listTagAssignmentsOptions,
-  listTagAssignmentsQueryKey,
   listTagsOptions,
   listTagsQueryKey,
   replaceTagPermissionsMutation,
@@ -169,10 +167,6 @@ export default function TagEditor() {
   const allowed = auth.loaded && auth.can("tags.manage");
 
   const tags = useQuery({ ...listTagsOptions(), enabled: allowed });
-  const assignments = useQuery({
-    ...listTagAssignmentsOptions(),
-    enabled: allowed && !creating,
-  });
 
   // There is no GET /tags/{id}: the listing is the one request, and it is the
   // one the admin list already made.
@@ -269,14 +263,12 @@ export default function TagEditor() {
     }
   }
 
-  const refresh = () => {
+  const refresh = () =>
     void queryClient.invalidateQueries({ queryKey: listTagsQueryKey() });
-    void queryClient.invalidateQueries({
-      queryKey: listTagAssignmentsQueryKey(),
-    });
-  };
 
   useWingmanEvent("tags.changed", refresh);
+  // The count the delete confirmation names is on the listing too.
+  useWingmanEvent("song_tags.changed", refresh);
 
   const { search, setSearch, searching, suggestions, clear } =
     useUserLookup(allowed);
@@ -428,9 +420,9 @@ export default function TagEditor() {
   const matches = (suggestions.data?.users ?? []).filter(
     (user) => !named.has(user.id),
   );
-  const songs =
-    assignments.data?.assignments.find((row) => row.tag_id === tagId)?.song_ids
-      .length ?? 0;
+  // Every song carrying the tag, the ones this manager may not see included:
+  // what a delete takes the tag off is not what the assignments listing shows.
+  const songs = found?.song_count ?? 0;
   // Only once the listing has answered and still does not know this tag: a
   // draft already seeded keeps its form, including the tag a manager has just
   // hidden from themselves.

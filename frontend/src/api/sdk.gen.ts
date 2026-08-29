@@ -451,6 +451,8 @@ export const updatePlaylist = <ThrowOnError extends boolean = false>(options: Op
  *
  * Take a private copy of a playlist the caller may see. The copy is theirs: same
  * songs and description, no members and not global.
+ *
+ * The body may be left off altogether — the "Save a copy" row sends nothing.
  */
 export const copyPlaylist = <ThrowOnError extends boolean = false>(options: Options<CopyPlaylistData, ThrowOnError>): RequestResult<CopyPlaylistResponses, CopyPlaylistErrors, ThrowOnError> => (options.client ?? client).post<CopyPlaylistResponses, CopyPlaylistErrors, ThrowOnError>({
     url: '/api/v1/playlists/{playlist_id}/copy',
@@ -620,6 +622,8 @@ export const listLatestScores = <ThrowOnError extends boolean = false>(options?:
  * the ones they may not: managing a tag is not the same right as knowing it, and each
  * row says which it is in `can_view`. A manager also gets each tag's permission rows;
  * for everybody else `permissions` is null.
+ *
+ * `song_count` is the whole library's, not the caller's: see the field.
  */
 export const listTags = <ThrowOnError extends boolean = false>(options?: Options<ListTagsData, ThrowOnError>): RequestResult<ListTagsResponses, unknown, ThrowOnError> => (options?.client ?? client).get<ListTagsResponses, unknown, ThrowOnError>({ url: '/api/v1/tags', ...options });
 

@@ -147,6 +147,12 @@
   display: flex;
   flex-direction: column;
   gap: 4px;
+}
+
+/* The caption is the quiet 0.85em, and it carries that on its own: sizing the
+   whole label would shrink the input inside it, and the quiet input is 0.9em of
+   whatever it sits in — the same size here as everywhere else in the app. */
+.playlists-field > span {
   font-size: 0.85em;
   color: var(--color-darker);
 }
@@ -154,8 +160,6 @@
 .playlists-field .text-input {
   width: 100%;
   box-sizing: border-box;
-  font-size: 1rem;
-  color: var(--color);
 }
 
 .playlists-check {

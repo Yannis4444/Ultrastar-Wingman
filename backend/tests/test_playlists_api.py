@@ -188,6 +188,34 @@ async def test_the_song_count_and_duration_add_up(app_with_songs: FastAPI) -> No
         assert (await listed(client))[0]["duration_seconds"] == 395
 
 
+async def test_a_song_that_left_the_library_leaves_the_count(app_with_songs: FastAPI) -> None:
+    """The entry stays — the song may come back — but the number beside the name is what
+    the list holds *now*, and the detail already skips the orphan. The two saying
+    different things is a playlist that claims three songs and shows two."""
+    await set_duration(app_with_songs, SONG, 210)
+    await set_duration(app_with_songs, OTHER_SONG, 185)
+    client = await account(app_with_songs, "singer")
+    async with client:
+        playlist = await create(client, "Party")
+        playlist_id = str(playlist["id"])
+        for song in (SONG, OTHER_SONG):
+            await add_entry(client, playlist_id, song)
+
+        async with factory(app_with_songs)() as session:
+            gone = await session.get(Song, SONG)
+            assert gone is not None
+            await session.delete(gone)
+            await session.commit()
+
+        rows = await detail(client, playlist_id)
+        assert song_ids(rows) == [OTHER_SONG]
+        assert rows["song_count"] == 1
+        assert rows["duration_seconds"] == 185
+        assert (await listed(client))[0]["song_count"] == 1
+        # The entry is still stored, so the song brings its place back with it.
+        assert await stored_positions(app_with_songs, playlist_id) == [(SONG, 0), (OTHER_SONG, 1)]
+
+
 async def test_the_listing_names_the_first_songs_for_the_cover_mosaic(
     app_with_songs: FastAPI,
 ) -> None:
@@ -631,6 +659,21 @@ async def test_a_copy_is_the_caller_s_own_private_list(app_with_songs: FastAPI) 
 
         named = await fan.post(f"/api/v1/playlists/{original['id']}/copy", json={"name": "Mine"})
         assert named.json()["name"] == "Mine"
+
+
+async def test_a_copy_needs_no_body_at_all(app_with_songs: FastAPI) -> None:
+    """The "Save a copy" row has nothing to say beyond the id in the path, so it sends
+    nothing. An empty object works too, and both mean the default name."""
+    owner = await account(app_with_songs, "owner")
+    async with owner:
+        original = await create(owner, "Party")
+        await add_entry(owner, str(original["id"]), SONG)
+
+        bodyless = await owner.post(f"/api/v1/playlists/{original['id']}/copy")
+
+        assert bodyless.status_code == 201, bodyless.text
+        assert bodyless.json()["name"] == "Party (copy)"
+        assert song_ids(bodyless.json()) == [SONG]
 
 
 async def test_a_copy_of_a_maximum_length_name_is_still_marked_as_one(

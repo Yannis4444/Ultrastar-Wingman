@@ -5,7 +5,7 @@ import logging
 from typing import Annotated
 
 from fastapi import APIRouter, Depends, HTTPException, Response
-from pydantic import BaseModel, StringConstraints
+from pydantic import BaseModel, ConfigDict, StringConstraints
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from ..auth.deps import (
@@ -65,7 +65,19 @@ class PlaylistUpdate(BaseModel):
 
 
 class PlaylistCopy(BaseModel):
+    """Every field optional, and so is the whole body: "copy this" needs to say nothing
+    beyond the id already in the path."""
+
+    # Frozen because one instance of it is the handler's default, shared by every request
+    # that sends no body.
+    model_config = ConfigDict(frozen=True)
+
     name: PlaylistName | None = None
+
+
+# Spelled out rather than called in the default argument, which is what ruff's B008 is
+# about — and it keeps the empty body one object instead of one per request.
+EMPTY_COPY = PlaylistCopy()
 
 
 class PlaylistEntryCreate(BaseModel):
@@ -273,14 +285,17 @@ async def delete_playlist(playlist_id: str, session: SessionDep, principal: Prin
 )
 async def copy_playlist(
     playlist_id: str,
-    body: PlaylistCopy,
     session: SessionDep,
     principal: PrincipalDep,
     user_id: AccountIdDep,
     hidden: HiddenSongsDep,
+    body: PlaylistCopy = EMPTY_COPY,
 ) -> PlaylistDetail:
     """Take a private copy of a playlist the caller may see. The copy is theirs: same
-    songs and description, no members and not global."""
+    songs and description, no members and not global.
+
+    The body may be left off altogether — the "Save a copy" row sends nothing.
+    """
     playlist, _ = await _seen(playlist_id, principal, session)
     copy = await service.copy_playlist(session, playlist, user_id, body.name)
     return await service.read_playlist_detail(session, copy, _rights(copy, principal, None), hidden)

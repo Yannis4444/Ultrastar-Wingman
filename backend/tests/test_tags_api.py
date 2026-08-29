@@ -453,6 +453,71 @@ async def test_assignments_hold_only_viewable_tags_and_visible_songs(party: Part
     }
 
 
+async def test_the_song_count_holds_the_songs_the_caller_may_not_see(party: Party) -> None:
+    """`song_count` counts every song under a tag, `view_songs` or no `view_songs` — the
+    tag admin's "N songs" and the delete confirmation would otherwise lie to the one
+    person entitled to the truth about what they are about to take away.
+
+    Nothing leaks: a number is not a listing. Which songs those are still comes from
+    `GET /tags/assignments`, which drops every one the caller may not see — the two
+    disagreeing is the point of the field.
+    """
+    secret = await make_tag(party["admin"], name="scratch")
+    await tag_song(party["admin"], SONG, secret["id"])
+    await tag_song(party["admin"], OTHER_SONG, secret["id"])
+
+    listed = {tag["id"]: tag for tag in await tags_of(party["trusted"])}
+    assert listed[secret["id"]]["can_view"] is False
+    assert listed[secret["id"]]["song_count"] == 2
+    assert (await assignments_of(party["trusted"]))[secret["id"]] == []
+
+    # And the manager's own view of a tag they may see agrees with the ids they get.
+    # `THIRD_SONG` because `scratch` has taken the other two away from trusted entirely.
+    await tag_song(party["trusted"], THIRD_SONG, ARCHIVE_TAG_ID)
+    listed = {tag["id"]: tag for tag in await tags_of(party["trusted"])}
+    assert listed[ARCHIVE_TAG_ID]["song_count"] == 1
+    assert (await assignments_of(party["trusted"]))[ARCHIVE_TAG_ID] == [THIRD_SONG]
+
+
+async def test_the_song_count_leaves_out_a_song_that_left_the_library(party: Party) -> None:
+    """The tag stays on `usdb:1234` for the day it comes back, but a song that is not in
+    the library is not one of the songs the tag is on today."""
+    await tag_song(party["trusted"], SONG, ARCHIVE_TAG_ID)
+    await tag_song(party["trusted"], OTHER_SONG, ARCHIVE_TAG_ID)
+    async with factory(party.app)() as session:
+        await session.execute(delete(Song).where(Song.id == SONG))
+        await session.commit()
+
+    listed = {tag["id"]: tag for tag in await tags_of(party["admin"])}
+    assert listed[ARCHIVE_TAG_ID]["song_count"] == 1
+
+    await add_songs(party.app, SONG)
+
+    listed = {tag["id"]: tag for tag in await tags_of(party["admin"])}
+    assert listed[ARCHIVE_TAG_ID]["song_count"] == 2
+
+
+async def test_a_freshly_written_tag_answers_with_its_count(party: Party) -> None:
+    """Create, PATCH and the permissions PUT all return a `TagRead`, and the editor reads
+    the count straight off the answer."""
+    created = await make_tag(party["admin"], name="scratch")
+    assert created["song_count"] == 0
+    await tag_song(party["admin"], SONG, created["id"])
+
+    patched = await party["admin"].patch(
+        f"/api/v1/tags/{created['id']}", json={"name": "scratched"}
+    )
+    assert patched.status_code == 200, patched.text
+    assert patched.json()["song_count"] == 1
+
+    granted = await party["admin"].put(
+        f"/api/v1/tags/{created['id']}/permissions",
+        json={"permissions": [{"action": "view", "role": "user"}]},
+    )
+    assert granted.status_code == 200, granted.text
+    assert granted.json()["song_count"] == 1
+
+
 async def test_deleting_an_account_drops_the_rows_that_named_it(party: Party) -> None:
     user_id = party.ids["user"]
     granted = await party["admin"].put(

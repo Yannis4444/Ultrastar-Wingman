@@ -4,6 +4,8 @@
  * component: it falls back to an inline path, not to an initial.
  */
 
+import type { PlayerRead } from "./api";
+
 /**
  * The avatar endpoint of one player, cache-busted with the version the backend
  * reports for the stored file.
@@ -18,4 +20,35 @@ export function avatarUrl(playerId: string, version?: number | null): string {
   return version === undefined || version === null
     ? url
     : `${url}?v=${version}`;
+}
+
+/**
+ * Somebody who is not a player row — a comment's author, a playlist's member or
+ * its owner — in the shape `PlayerAvatar` draws.
+ *
+ * `avatarVersion` says what is known about the picture, and the two kinds of
+ * "nothing" mean different things. `null` is an answer: that player has no
+ * picture, so the row goes straight to the initial instead of a request the
+ * backend replies to with a 404. Leaving it out is *not knowing* — a member row
+ * carries no version — so the avatar endpoint is asked and its own 404 is the
+ * fallback; a replaced picture then appears once the browser's copy goes stale,
+ * which is the whole cost of not pulling the player list into the page.
+ *
+ * Somebody with no player at all has no picture either way, and a deleted
+ * account has neither picture nor initial: `null` is the empty square.
+ */
+export function asPlayer(
+  username: string,
+  playerId: string | null,
+  avatarVersion?: number | null,
+): PlayerRead {
+  return {
+    id: playerId ?? "",
+    name: username,
+    registered: true,
+    has_avatar:
+      playerId !== null &&
+      (avatarVersion === undefined || avatarVersion !== null),
+    avatar_version: avatarVersion ?? null,
+  };
 }

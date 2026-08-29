@@ -139,6 +139,27 @@ async def all_tags(session: AsyncSession) -> Sequence[Tag]:
     return result.all()
 
 
+async def _song_counts(session: AsyncSession, tag_ids: Collection[str]) -> dict[str, int]:
+    """tag id -> how many songs carry it. A tag nobody has used is absent.
+
+    Over every `song_tags` row, whoever is asking: a count is not a listing, and the tag
+    admin has to be told the size of what it manages even where `view_songs` would keep
+    the songs themselves back. Joined against `songs` so a tag left on a song that has
+    left the library is not counted — the same rows `assignments` drops as orphans.
+    """
+    if not tag_ids:
+        return {}
+    return {
+        tag_id: count
+        for tag_id, count in await session.execute(
+            select(SongTag.tag_id, func.count())
+            .join(Song, Song.id == SongTag.song_id)
+            .where(SongTag.tag_id.in_(tag_ids))
+            .group_by(SongTag.tag_id)
+        )
+    }
+
+
 async def _usernames(session: AsyncSession, user_ids: Collection[str]) -> dict[str, str]:
     if not user_ids:
         return {}
@@ -168,6 +189,7 @@ def _read_tag(
     rows: Sequence[TagPermission],
     rights: TagRights,
     usernames: dict[str, str],
+    song_count: int,
     with_permissions: bool,
 ) -> TagRead:
     return TagRead(
@@ -179,6 +201,7 @@ def _read_tag(
         hide_by_default=tag.hide_by_default,
         can_view=rights.can_view,
         can_assign=rights.can_assign,
+        song_count=song_count,
         permissions=_read_permissions(rows, usernames) if with_permissions else None,
     )
 
@@ -188,7 +211,10 @@ async def read_tag(
 ) -> TagRead:
     rows = (await permission_rows(session, [tag.id])).get(tag.id, [])
     usernames = await _usernames(session, [row.user_id for row in rows if row.user_id])
-    return _read_tag(tag, rows, rights_for(rows, viewer), usernames, with_permissions)
+    counts = await _song_counts(session, [tag.id])
+    return _read_tag(
+        tag, rows, rights_for(rows, viewer), usernames, counts.get(tag.id, 0), with_permissions
+    )
 
 
 async def _listed(
@@ -222,8 +248,16 @@ async def visible_tags(session: AsyncSession, viewer: Viewer, manages: bool) -> 
         if manages
         else {}
     )
+    counts = await _song_counts(session, [tag.id for tag, _ in listed])
     return [
-        _read_tag(tag, tag_rows, rights_for(tag_rows, viewer), usernames, manages)
+        _read_tag(
+            tag,
+            tag_rows,
+            rights_for(tag_rows, viewer),
+            usernames,
+            counts.get(tag.id, 0),
+            manages,
+        )
         for tag, tag_rows in listed
     ]
 

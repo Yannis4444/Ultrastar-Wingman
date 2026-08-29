@@ -16,6 +16,7 @@ export function tagRead(overrides: Partial<TagRead> = {}): TagRead {
     hide_by_default: false,
     can_view: true,
     can_assign: true,
+    song_count: 0,
     permissions: null,
     ...overrides,
   };

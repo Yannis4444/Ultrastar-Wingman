@@ -421,8 +421,39 @@ test("sharing with the owner is refused in words", async () => {
     await screen.findByRole("button", { name: "Share with Alice" }),
   );
 
-  expect(await screen.findByRole("alert")).toHaveTextContent(
-    "That account already owns this playlist.",
+  const notice = await screen.findByRole("alert");
+  expect(notice).toHaveTextContent("That account already owns this playlist.");
+  // Beside the search that caused it, not up at the form a screen above: the
+  // reader is looking at the row they just tapped.
+  expect(
+    screen.getByLabelText("Add people").compareDocumentPosition(notice),
+  ).toBe(Node.DOCUMENT_POSITION_FOLLOWING);
+});
+
+test("a failed removal is said at the members, and saving still at the form", async () => {
+  listPlaylistMembers.mockResolvedValue({ data: { members: [member()] } });
+  removePlaylistMember.mockRejectedValue(new Error("nope"));
+  updatePlaylist.mockRejectedValue(new Error("nope"));
+  renderManage();
+
+  fireEvent.click(await screen.findByRole("button", { name: "Remove Bob" }));
+
+  const search = await screen.findByLabelText("Add people");
+  const atMembers = await screen.findByRole("alert");
+  expect(atMembers).toHaveTextContent("Could not take that person off");
+  expect(search.compareDocumentPosition(atMembers)).toBe(
+    Node.DOCUMENT_POSITION_FOLLOWING,
+  );
+
+  // The form's own failure keeps the page-level notice, above the form.
+  fireEvent.change(screen.getByLabelText("Name"), {
+    target: { value: "Encore" },
+  });
+  fireEvent.click(screen.getByRole("button", { name: "Save" }));
+
+  const atForm = await screen.findByText("Could not save the playlist.");
+  expect(search.compareDocumentPosition(atForm)).toBe(
+    Node.DOCUMENT_POSITION_PRECEDING,
   );
 });
 
