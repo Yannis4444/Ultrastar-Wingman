@@ -426,10 +426,17 @@ function playlist(overrides: Partial<PlaylistRead> = {}): PlaylistRead {
   return {
     id: "p1",
     name: "Party",
-    shared: false,
+    description: null,
+    is_global: false,
     owner_username: "Alice",
+    owner_player_id: null,
     song_count: 2,
-    mine: true,
+    duration_seconds: 0,
+    my_access: "owner",
+    followed: true,
+    can_edit: true,
+    can_manage: true,
+    contains: null,
     ...overrides,
   };
 }
@@ -497,7 +504,15 @@ test("playlists are one link into their own view, never a chip per playlist", as
     data: {
       playlists: [
         playlist(),
-        playlist({ id: "p2", name: "Bobs mix", shared: true, mine: false }),
+        playlist({
+          id: "p2",
+          name: "Bobs mix",
+          is_global: true,
+          my_access: null,
+          followed: false,
+          can_edit: false,
+          can_manage: false,
+        }),
       ],
     },
   });

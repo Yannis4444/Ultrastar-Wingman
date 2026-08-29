@@ -76,11 +76,12 @@ A shared playlist is visible to everybody in the party, including guests without
 an account. A private one is visible to nobody but its owner.
 
 Only the owner can change a playlist — with one exception: whoever holds the
-right to moderate playlists may fix anybody's *shared* one, rename it, take songs
-out of it or delete it. Only an administrator holds that right by default. A
-playlist that was kept private is nobody else's to touch, not even theirs: it is
-invisible to everybody but its owner, and what cannot be looked at cannot be
-changed either. Deleting a playlist deletes only the list, never the songs.
+right to moderate playlists may fix any list they can already see, rename it,
+take songs out of it or delete it. **Trusted** accounts and administrators hold
+that right by default. A playlist nobody shared with them is nobody else's to
+touch, not even theirs: it is invisible to everybody but its owner, and what
+cannot be looked at cannot be changed either. Deleting a playlist deletes only
+the list, never the songs.
 
 !!! warning
     Deleting an account deletes its playlists, wishes and favorites with it,

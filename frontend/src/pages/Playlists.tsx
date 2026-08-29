@@ -23,7 +23,7 @@ export default function Playlists() {
   const queryClient = useQueryClient();
   const auth = useAuth();
   const [name, setName] = useState("");
-  const [shared, setShared] = useState(false);
+  const [isGlobal, setIsGlobal] = useState(false);
   // `null` means "the reader has not said": the form then opens by itself on an
   // empty page and stays shut everywhere else. The header toggle and the empty
   // state's button write a real boolean and take over from there.
@@ -49,7 +49,7 @@ export default function Playlists() {
     ...createPlaylistMutation(),
     onSuccess: () => {
       setName("");
-      setShared(false);
+      setIsGlobal(false);
       // The list stops being empty, so without this the form would vanish
       // under the reader's hands. A second playlist is one word away.
       setCreating(true);
@@ -74,12 +74,11 @@ export default function Playlists() {
 
   // A playlist needs an account to belong to, so a guest never gets the form.
   const canManage = auth.user !== null && auth.can("playlists.manage");
-  // The owner edits their own; `playlists.moderate` extends that to anybody
-  // else's shared list — the host session included, which holds every right but
-  // has no account and so owns nothing.
+  // Who may rename, share and delete one row: the backend worked it out from the
+  // owner, the caller's member row and `playlists.moderate`, so the page only
+  // has to check that the role still holds `playlists.manage` at all.
   const mutable = (list: PlaylistRead) =>
-    auth.can("playlists.manage") &&
-    (list.mine || auth.can("playlists.moderate"));
+    auth.can("playlists.manage") && list.can_manage;
 
   const rows = playlists.data?.playlists ?? [];
   const empty = playlists.isSuccess && rows.length === 0;
@@ -123,7 +122,7 @@ export default function Playlists() {
                 onSubmit={(event) => {
                   event.preventDefault();
                   if (name.trim() !== "")
-                    create.mutate({ body: { name, shared } });
+                    create.mutate({ body: { name, is_global: isGlobal } });
                 }}
               >
                 <input
@@ -137,8 +136,8 @@ export default function Playlists() {
                 <label className="playlists-shared">
                   <input
                     type="checkbox"
-                    checked={shared}
-                    onChange={(event) => setShared(event.target.checked)}
+                    checked={isGlobal}
+                    onChange={(event) => setIsGlobal(event.target.checked)}
                   />
                   Shared
                 </label>
@@ -211,7 +210,7 @@ export default function Playlists() {
                           path: { playlist_id: list.id },
                           body: {
                             name: renamed,
-                            shared: form.get("shared") !== null,
+                            is_global: form.get("shared") !== null,
                           },
                         });
                       }}
@@ -226,7 +225,7 @@ export default function Playlists() {
                         <input
                           type="checkbox"
                           name="shared"
-                          defaultChecked={list.shared}
+                          defaultChecked={list.is_global}
                           aria-label={`Share ${list.name}`}
                         />
                         Shared
@@ -259,15 +258,15 @@ export default function Playlists() {
                           list in the app on one text axis and costs no
                           requests. A globe marks the lists everybody sees. */}
                       <span className="playlists-glyph">
-                        <Icon name={list.shared ? "globe" : "list"} />
+                        <Icon name={list.is_global ? "globe" : "list"} />
                       </span>
                       <span className="playlists-text">
                         <span className="playlists-name">{list.name}</span>
                         <span className="playlists-meta">
                           {list.song_count}{" "}
                           {list.song_count === 1 ? "song" : "songs"}
-                          {list.shared &&
-                            ` · ${list.mine ? "shared" : (list.owner_username ?? "shared")}`}
+                          {list.is_global &&
+                            ` · ${list.my_access === "owner" ? "shared" : (list.owner_username ?? "shared")}`}
                         </span>
                       </span>
                       {/* Two icon buttons already say "this row does things";

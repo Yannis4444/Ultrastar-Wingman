@@ -7,19 +7,43 @@ must not import.
 
 import logging
 from collections.abc import Collection, Sequence
+from dataclasses import dataclass
 from datetime import datetime
+from typing import cast
 
 from sqlalchemy import ColumnElement, delete, false, func, or_, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from ..auth.model import User, as_utc
-from ..events import WishlistUpdated, event_bus
+from ..events import PlaylistsChanged, WishlistUpdated, event_bus
+from ..players.model import Player
 from ..songs.model import Song
 from ..songs.schema import read_song
-from .model import Favorite, Playlist, PlaylistEntry, Wish
-from .schema import PlaylistDetail, PlaylistEntryRead, PlaylistRead, WishRead
+from .model import Favorite, Playlist, PlaylistEntry, PlaylistMember, Wish
+from .schema import (
+    MemberAccess,
+    PlaylistAccess,
+    PlaylistDetail,
+    PlaylistEntryRead,
+    PlaylistMemberRead,
+    PlaylistRead,
+    WishRead,
+)
 
 logger = logging.getLogger(__name__)
+
+# Row-level, so it can never be a route dependency: it widens what its holder may do to
+# every playlist they can already see, and to none they cannot.
+MODERATE_CAPABILITY = "playlists.moderate"
+
+# The member accesses that may add, remove and reorder songs. `admin` also renames,
+# shares and deletes; the owner always does everything.
+_EDITORS: tuple[str, ...] = ("write", "admin")
+
+# The longest a playlist name may get, copies included.
+MAX_NAME_LENGTH = 64
+
+_COPY_SUFFIX = " (copy)"
 
 
 class AlreadyWishedError(ValueError):
@@ -49,6 +73,20 @@ class UnknownEntryError(LookupError):
 class OrderMismatchError(ValueError):
     def __init__(self) -> None:
         super().__init__("the new order must be a permutation of the playlist's songs")
+
+
+class AlreadyOwnerError(ValueError):
+    """The owner is the implicit admin of their own list; a member row would say less."""
+
+    def __init__(self, user_id: str) -> None:
+        super().__init__(f"'{user_id}' already owns this playlist")
+        self.user_id = user_id
+
+
+class NotAMemberError(LookupError):
+    def __init__(self, user_id: str) -> None:
+        super().__init__(f"'{user_id}' is not a member of this playlist")
+        self.user_id = user_id
 
 
 def _owner(user_id: str | None, guest_id: str | None) -> ColumnElement[bool]:
@@ -231,56 +269,212 @@ async def remove_favorite(session: AsyncSession, user_id: str, song_id: str) -> 
     await session.commit()
 
 
-async def visible_playlists(session: AsyncSession, user_id: str | None) -> list[PlaylistRead]:
-    """The caller's own playlists plus every shared one."""
-    playlists = await session.scalars(
-        select(Playlist)
-        .where(or_(Playlist.owner_user_id == user_id, Playlist.shared.is_(True)))
-        .order_by(func.lower(Playlist.name), Playlist.id)
+@dataclass(frozen=True)
+class Rights:
+    """What one caller may do with one playlist.
+
+    Ownership and membership are properties of the row, so none of this can be a route
+    dependency — `library.api` builds a `Rights` per request and the routes branch on it.
+    """
+
+    # False means the caller is told the playlist does not exist: whose lists exist is
+    # not a stranger's business either.
+    visible: bool
+    my_access: PlaylistAccess | None
+    followed: bool
+    # Add, remove and reorder songs.
+    can_edit: bool
+    # Name, description, global flag, members, delete.
+    can_manage: bool
+
+
+def rights_for(
+    playlist: Playlist,
+    user_id: str | None,
+    capabilities: Collection[str],
+    member: PlaylistMember | None,
+) -> Rights:
+    """`member` is the caller's own row, or None — the host session and every guest have
+    none, and neither does a stranger looking at a global list."""
+    owner = user_id is not None and playlist.owner_user_id == user_id
+    access: PlaylistAccess | None = None
+    if owner:
+        access = "owner"
+    elif member is not None:
+        access = cast(PlaylistAccess, member.access)
+    visible = owner or playlist.is_global or member is not None
+    # Moderation follows what can be looked at, so it never opens a list its holder could
+    # not already read.
+    moderates = visible and MODERATE_CAPABILITY in capabilities
+    return Rights(
+        visible=visible,
+        my_access=access,
+        followed=True if owner else (member.followed if member is not None else False),
+        can_edit=owner or access in _EDITORS or moderates,
+        can_manage=owner or access == "admin" or moderates,
     )
+
+
+async def member_row(
+    session: AsyncSession, playlist_id: str, user_id: str | None
+) -> PlaylistMember | None:
+    """The caller's own membership of one playlist, or None."""
+    if user_id is None:
+        return None
+    return await session.get(PlaylistMember, (playlist_id, user_id))
+
+
+async def _owners(
+    session: AsyncSession, user_ids: Collection[str]
+) -> dict[str, tuple[str, str | None]]:
+    """owner id -> (username, player id). Missing when the account was deleted."""
+    if not user_ids:
+        return {}
+    players = {
+        user_id: player_id
+        for user_id, player_id in await session.execute(
+            select(Player.user_id, Player.id).where(Player.user_id.in_(user_ids))
+        )
+        if user_id is not None
+    }
+    return {
+        user.id: (user.username, players.get(user.id))
+        for user in await session.scalars(select(User).where(User.id.in_(user_ids)))
+    }
+
+
+async def _entry_totals(
+    session: AsyncSession, playlist_ids: Collection[str]
+) -> dict[str, tuple[int, int]]:
+    """playlist id -> (song count, seconds).
+
+    The count is every stored entry, the seconds only the songs still in the library with
+    a known duration — one unknown song must not make the whole sum unknown.
+    """
+    if not playlist_ids:
+        return {}
     counts = {
         playlist_id: count
         for playlist_id, count in await session.execute(
-            select(PlaylistEntry.playlist_id, func.count()).group_by(PlaylistEntry.playlist_id)
+            select(PlaylistEntry.playlist_id, func.count())
+            .where(PlaylistEntry.playlist_id.in_(playlist_ids))
+            .group_by(PlaylistEntry.playlist_id)
         )
     }
-    usernames = {user.id: user.username for user in await session.scalars(select(User))}
+    durations = {
+        playlist_id: int(total or 0)
+        for playlist_id, total in await session.execute(
+            select(PlaylistEntry.playlist_id, func.sum(Song.duration_seconds))
+            .join(Song, Song.id == PlaylistEntry.song_id)
+            .where(PlaylistEntry.playlist_id.in_(playlist_ids))
+            .group_by(PlaylistEntry.playlist_id)
+        )
+    }
+    return {
+        playlist_id: (count, durations.get(playlist_id, 0)) for playlist_id, count in counts.items()
+    }
+
+
+def _read_playlist(
+    playlist: Playlist,
+    rights: Rights,
+    owners: dict[str, tuple[str, str | None]],
+    totals: dict[str, tuple[int, int]],
+    contains: bool | None,
+) -> PlaylistRead:
+    owner_username, owner_player_id = owners.get(playlist.owner_user_id, (None, None))
+    song_count, duration_seconds = totals.get(playlist.id, (0, 0))
+    return PlaylistRead(
+        id=playlist.id,
+        name=playlist.name,
+        description=playlist.description,
+        is_global=playlist.is_global,
+        owner_username=owner_username,
+        owner_player_id=owner_player_id,
+        song_count=song_count,
+        duration_seconds=duration_seconds,
+        my_access=rights.my_access,
+        followed=rights.followed,
+        can_edit=rights.can_edit,
+        can_manage=rights.can_manage,
+        contains=contains,
+    )
+
+
+async def visible_playlists(
+    session: AsyncSession,
+    user_id: str | None,
+    capabilities: Collection[str],
+    song_id: str | None = None,
+) -> list[PlaylistRead]:
+    """Everything the caller may see: their own lists, every list they were named on —
+    followed or not, the client groups them — and every global one.
+
+    `song_id` fills `contains` so a song's "add to playlist" picker needs one request
+    instead of one per list.
+    """
+    members = (
+        {}
+        if user_id is None
+        else {
+            row.playlist_id: row
+            for row in await session.scalars(
+                select(PlaylistMember).where(PlaylistMember.user_id == user_id)
+            )
+        }
+    )
+    playlists = list(
+        await session.scalars(
+            select(Playlist)
+            .where(
+                or_(
+                    Playlist.owner_user_id == user_id,
+                    Playlist.is_global.is_(True),
+                    Playlist.id.in_(list(members)),
+                )
+            )
+            .order_by(func.lower(Playlist.name), Playlist.id)
+        )
+    )
+    owners = await _owners(session, {playlist.owner_user_id for playlist in playlists})
+    totals = await _entry_totals(session, [playlist.id for playlist in playlists])
+    holders = (
+        None
+        if song_id is None
+        else set(
+            await session.scalars(
+                select(PlaylistEntry.playlist_id).where(PlaylistEntry.song_id == song_id)
+            )
+        )
+    )
     return [
-        PlaylistRead(
-            id=playlist.id,
-            name=playlist.name,
-            shared=playlist.shared,
-            owner_username=usernames.get(playlist.owner_user_id),
-            song_count=counts.get(playlist.id, 0),
-            mine=playlist.owner_user_id == user_id,
+        _read_playlist(
+            playlist,
+            rights_for(playlist, user_id, capabilities, members.get(playlist.id)),
+            owners,
+            totals,
+            None if holders is None else playlist.id in holders,
         )
         for playlist in playlists
     ]
 
 
 async def read_playlist(
-    session: AsyncSession, playlist: Playlist, user_id: str | None
+    session: AsyncSession, playlist: Playlist, rights: Rights, contains: bool | None = None
 ) -> PlaylistRead:
-    owner = await session.get(User, playlist.owner_user_id)
-    song_count = await session.scalar(
-        select(func.count())
-        .select_from(PlaylistEntry)
-        .where(PlaylistEntry.playlist_id == playlist.id)
-    )
-    return PlaylistRead(
-        id=playlist.id,
-        name=playlist.name,
-        shared=playlist.shared,
-        owner_username=None if owner is None else owner.username,
-        song_count=song_count or 0,
-        mine=playlist.owner_user_id == user_id,
+    return _read_playlist(
+        playlist,
+        rights,
+        await _owners(session, [playlist.owner_user_id]),
+        await _entry_totals(session, [playlist.id]),
+        contains,
     )
 
 
 async def read_playlist_detail(
-    session: AsyncSession, playlist: Playlist, user_id: str | None
+    session: AsyncSession, playlist: Playlist, rights: Rights
 ) -> PlaylistDetail:
-    meta = await read_playlist(session, playlist, user_id)
+    meta = await read_playlist(session, playlist, rights)
     rows = await _entries(session, playlist.id)
     songs = {
         song.id: song
@@ -309,31 +503,162 @@ async def _entries(session: AsyncSession, playlist_id: str) -> Sequence[Playlist
     return result.all()
 
 
+async def announce_playlists(playlist_id: str | None = None) -> None:
+    """Tell every client one playlist changed — or, with no id, that several did.
+
+    Ids only: the bus is anonymous, so what a listener may see is decided when it asks.
+    """
+    await event_bus.broadcast(PlaylistsChanged(playlist_id=playlist_id))
+
+
+class _Unset:
+    """Marker for a PATCH field the request did not mention. `None` cannot serve: for a
+    nullable column it is a value the caller may well be sending on purpose."""
+
+
+UNSET = _Unset()
+
+
 async def create_playlist(
-    session: AsyncSession, name: str, shared: bool, owner_user_id: str
+    session: AsyncSession,
+    name: str,
+    description: str | None,
+    is_global: bool,
+    owner_user_id: str,
 ) -> Playlist:
-    playlist = Playlist(name=name, shared=shared, owner_user_id=owner_user_id)
+    playlist = Playlist(
+        name=name, description=description, is_global=is_global, owner_user_id=owner_user_id
+    )
     session.add(playlist)
     await session.commit()
     logger.info("playlist '%s' created by %s (%s)", name, owner_user_id, playlist.id)
+    await announce_playlists(playlist.id)
     return playlist
 
 
 async def update_playlist(
-    session: AsyncSession, playlist: Playlist, name: str | None, shared: bool | None
+    session: AsyncSession,
+    playlist: Playlist,
+    name: str | None = None,
+    is_global: bool | None = None,
+    description: str | None | _Unset = UNSET,
 ) -> Playlist:
     if name is not None:
         playlist.name = name
-    if shared is not None:
-        playlist.shared = shared
+    if is_global is not None:
+        playlist.is_global = is_global
+    if not isinstance(description, _Unset):
+        playlist.description = description
     await session.commit()
+    await announce_playlists(playlist.id)
     return playlist
 
 
 async def delete_playlist(session: AsyncSession, playlist: Playlist) -> None:
-    await session.execute(delete(PlaylistEntry).where(PlaylistEntry.playlist_id == playlist.id))
+    playlist_id = playlist.id
+    await session.execute(delete(PlaylistEntry).where(PlaylistEntry.playlist_id == playlist_id))
+    await session.execute(delete(PlaylistMember).where(PlaylistMember.playlist_id == playlist_id))
     await session.delete(playlist)
     await session.commit()
+    await announce_playlists(playlist_id)
+
+
+def copy_name(name: str) -> str:
+    """`<name> (copy)`, within the same bound as any other name. The original is what gets
+    cut back, never the suffix: a copy of a maximum-length name has to stay tellable from
+    the list it was copied from."""
+    return f"{name[: MAX_NAME_LENGTH - len(_COPY_SUFFIX)].rstrip()}{_COPY_SUFFIX}"
+
+
+async def copy_playlist(
+    session: AsyncSession, playlist: Playlist, owner_user_id: str, name: str | None
+) -> Playlist:
+    """A private copy for the caller: the same songs in the same order and the same
+    description, but none of the sharing — a copy is theirs, not a second front door to
+    somebody else's list."""
+    copy = Playlist(
+        name=name or copy_name(playlist.name),
+        description=playlist.description,
+        is_global=False,
+        owner_user_id=owner_user_id,
+    )
+    session.add(copy)
+    session.add_all(
+        PlaylistEntry(playlist_id=copy.id, song_id=row.song_id, position=row.position)
+        for row in await _entries(session, playlist.id)
+    )
+    await session.commit()
+    logger.info("playlist %s copied to %s by %s", playlist.id, copy.id, owner_user_id)
+    await announce_playlists(copy.id)
+    return copy
+
+
+async def list_members(session: AsyncSession, playlist: Playlist) -> list[PlaylistMemberRead]:
+    """Who the playlist was shared with, in the order they were added."""
+    rows = list(
+        await session.scalars(
+            select(PlaylistMember)
+            .where(PlaylistMember.playlist_id == playlist.id)
+            .order_by(PlaylistMember.created_at, PlaylistMember.user_id)
+        )
+    )
+    people = await _owners(session, [row.user_id for row in rows])
+    return [
+        PlaylistMemberRead(
+            user_id=row.user_id,
+            # A member row whose account is gone should not exist; if one does, the id is
+            # still the truth and the listing has to keep working.
+            username=people.get(row.user_id, (row.user_id, None))[0],
+            player_id=people.get(row.user_id, (row.user_id, None))[1],
+            access=cast(MemberAccess, row.access),
+            created_at=as_utc(row.created_at),
+            # `followed` is deliberately absent: whether somebody keeps the list in their
+            # own listing is theirs, not something the sharer is shown.
+        )
+        for row in rows
+    ]
+
+
+async def set_member(
+    session: AsyncSession, playlist: Playlist, user: User, access: MemberAccess
+) -> bool:
+    """Share the playlist, or change what an existing member may do. Returns True when the
+    row was created. Raises `AlreadyOwnerError`."""
+    if user.id == playlist.owner_user_id:
+        raise AlreadyOwnerError(user.id)
+    row = await session.get(PlaylistMember, (playlist.id, user.id))
+    created = row is None
+    if row is None:
+        session.add(PlaylistMember(playlist_id=playlist.id, user_id=user.id, access=access))
+    else:
+        row.access = access
+    await session.commit()
+    logger.info("playlist %s shared with %s (%s)", playlist.id, user.username, access)
+    await announce_playlists(playlist.id)
+    return created
+
+
+async def remove_member(session: AsyncSession, playlist: Playlist, user_id: str) -> None:
+    """Take the access away. Raises `NotAMemberError`."""
+    row = await session.get(PlaylistMember, (playlist.id, user_id))
+    if row is None:
+        raise NotAMemberError(user_id)
+    await session.delete(row)
+    await session.commit()
+    await announce_playlists(playlist.id)
+
+
+async def set_followed(
+    session: AsyncSession, playlist: Playlist, user_id: str, followed: bool
+) -> None:
+    """Keep the shared list in the caller's own listing, or hide it. Idempotent. Raises
+    `NotAMemberError` — the owner and a plain global viewer have no row to flip."""
+    row = await session.get(PlaylistMember, (playlist.id, user_id))
+    if row is None:
+        raise NotAMemberError(user_id)
+    row.followed = followed
+    await session.commit()
+    await announce_playlists(playlist.id)
 
 
 async def add_entry(session: AsyncSession, playlist: Playlist, song_id: str) -> None:
@@ -343,6 +668,7 @@ async def add_entry(session: AsyncSession, playlist: Playlist, song_id: str) -> 
         raise DuplicateEntryError(song_id)
     session.add(PlaylistEntry(playlist_id=playlist.id, song_id=song_id, position=len(rows)))
     await session.commit()
+    await announce_playlists(playlist.id)
 
 
 async def remove_entry(session: AsyncSession, playlist: Playlist, song_id: str) -> None:
@@ -355,6 +681,7 @@ async def remove_entry(session: AsyncSession, playlist: Playlist, song_id: str) 
     for position, row in enumerate(row for row in rows if row is not entry):
         row.position = position
     await session.commit()
+    await announce_playlists(playlist.id)
 
 
 async def reorder_entries(session: AsyncSession, playlist: Playlist, song_ids: list[str]) -> None:
@@ -366,21 +693,44 @@ async def reorder_entries(session: AsyncSession, playlist: Playlist, song_ids: l
     for position, song_id in enumerate(song_ids):
         rows[song_id].position = position
     await session.commit()
+    await announce_playlists(playlist.id)
 
 
 async def delete_user_data(session: AsyncSession, user_id: str) -> None:
-    """Drop everything an account owns: its playlists, wishes and favorites.
+    """Drop everything an account owns: its wishes, favorites and playlists.
+
+    A shared playlist is handed to its earliest admin member instead of being deleted —
+    the point of admin access is that the list survives its creator. Only a playlist with
+    nobody to hand it to goes, entries and members included; the account's own membership
+    of other people's lists goes either way.
 
     Does not commit — `auth.service.delete_user` removes the account in the same
     transaction, so a half-deleted user cannot exist.
     """
-    playlist_ids = list(
-        await session.scalars(select(Playlist.id).where(Playlist.owner_user_id == user_id))
-    )
-    if playlist_ids:
-        await session.execute(
-            delete(PlaylistEntry).where(PlaylistEntry.playlist_id.in_(playlist_ids))
+    orphaned: list[str] = []
+    for playlist in await session.scalars(
+        select(Playlist).where(Playlist.owner_user_id == user_id)
+    ):
+        heir = await session.scalar(
+            select(PlaylistMember)
+            .where(PlaylistMember.playlist_id == playlist.id, PlaylistMember.access == "admin")
+            # The user id only breaks a tie, so the handover cannot differ between runs.
+            .order_by(PlaylistMember.created_at, PlaylistMember.user_id)
+            .limit(1)
         )
-        await session.execute(delete(Playlist).where(Playlist.id.in_(playlist_ids)))
+        if heir is None:
+            orphaned.append(playlist.id)
+            continue
+        playlist.owner_user_id = heir.user_id
+        # The new owner is the implicit admin, so the row it was granted through goes.
+        await session.delete(heir)
+        logger.info("playlist %s handed over to %s", playlist.id, heir.user_id)
+    if orphaned:
+        await session.execute(delete(PlaylistEntry).where(PlaylistEntry.playlist_id.in_(orphaned)))
+        await session.execute(
+            delete(PlaylistMember).where(PlaylistMember.playlist_id.in_(orphaned))
+        )
+        await session.execute(delete(Playlist).where(Playlist.id.in_(orphaned)))
+    await session.execute(delete(PlaylistMember).where(PlaylistMember.user_id == user_id))
     await session.execute(delete(Wish).where(Wish.user_id == user_id))
     await session.execute(delete(Favorite).where(Favorite.user_id == user_id))

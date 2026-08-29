@@ -18,6 +18,22 @@ class UserList(BaseModel):
     users: list[UserRead]
 
 
+class UserLookupRead(BaseModel):
+    """An account as somebody looking for a person to share with sees it: enough to pick
+    the right one, and nothing about what that account may do."""
+
+    id: str
+    username: str
+    player_id: str | None
+    # Cache buster for the player's picture, `None` when there is none — same meaning as
+    # on `PlayerRead`, so the same avatar URL works.
+    avatar_version: int | None
+
+
+class UserLookupList(BaseModel):
+    users: list[UserLookupRead]
+
+
 class MeRead(BaseModel):
     """Everything the frontend needs to render itself. Works for anonymous callers too:
     `user` is then null and `role` is `guest`."""

@@ -145,7 +145,7 @@ What each role may do by default:
 | See and start downloads | – | – | yes | yes |
 | Rescan the song folders | – | – | yes | yes |
 | Rename a party in the statistics | – | – | yes | yes |
-| Change somebody else's shared playlist | – | – | – | yes |
+| Change a playlist somebody else shared | – | – | yes | yes |
 | See and change the settings | – | – | – | yes |
 | Manage users | – | – | – | yes |
 | Change these permissions | – | – | – | yes |
@@ -197,8 +197,9 @@ Useful in practice:
   **players** for their role. *manage* beside it is the one that deletes people.
 
 Two rights only work together. *moderate* under **playlists** lets somebody
-change a shared playlist that is not theirs, but only alongside *manage* — and it
-never reaches a playlist that was kept private, not even for an administrator.
+change a playlist that is not theirs — a global one, or one they were named on —
+but only alongside *manage*, and it never reaches a playlist nobody shared with
+them, not even for an administrator.
 
 One box cannot be ticked: *manage* under **playlists** for **guest**. A playlist
 belongs to an account, so somebody without one has none to create or edit — the

@@ -91,12 +91,12 @@ _TRUSTED_CAPABILITIES = _USER_CAPABILITIES | {
     "usdb.search",
     "songs.rescan",
     "stats.manage",
+    # Tidying up the party's global playlists is a helper's job, not only the host's. It
+    # never reaches a list the holder cannot already see, so it opens no private one.
+    "playlists.moderate",
 }
 
-# `playlists.moderate` is in no default set but admin's: reaching into somebody else's
-# shared playlist is the host stepping in, not a helper's everyday job.
-
-# What migrations 0006 to 0011 seed. Kept here as well so a test can prove the two never
+# What migrations 0006 to 0012 seed. Kept here as well so a test can prove the two never
 # drift.
 DEFAULT_ROLE_CAPABILITIES: dict[str, frozenset[str]] = {
     GUEST: _GUEST_CAPABILITIES,

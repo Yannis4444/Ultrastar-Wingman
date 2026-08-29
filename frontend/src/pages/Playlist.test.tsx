@@ -68,10 +68,17 @@ function detail(overrides: Partial<PlaylistDetail> = {}): PlaylistDetail {
   return {
     id: "p1",
     name: "Party",
-    shared: false,
+    description: null,
+    is_global: false,
     owner_username: "Alice",
+    owner_player_id: null,
     song_count: 1,
-    mine: true,
+    duration_seconds: 0,
+    my_access: "owner",
+    followed: true,
+    can_edit: true,
+    can_manage: true,
+    contains: null,
     entries: [{ song: song(), position: 0 }],
     ...overrides,
   };
@@ -186,8 +193,17 @@ test("the owner removes an entry", async () => {
   );
 });
 
-test("somebody else's shared playlist has no remove control", async () => {
-  renderPlaylist(detail({ shared: true, mine: false, owner_username: "Bob" }));
+test("somebody else's global playlist has no remove control", async () => {
+  renderPlaylist(
+    detail({
+      is_global: true,
+      my_access: null,
+      followed: false,
+      can_edit: false,
+      can_manage: false,
+      owner_username: "Bob",
+    }),
+  );
 
   await screen.findByText("Africa");
   expect(

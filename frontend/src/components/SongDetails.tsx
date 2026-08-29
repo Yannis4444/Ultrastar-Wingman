@@ -60,7 +60,11 @@ export default function SongDetails({ song, onClose }: SongDetailsProps) {
     ...listPlaylistsOptions(),
     enabled: auth.loaded && canManagePlaylists,
   });
-  const mine = (playlists.data?.playlists ?? []).filter((list) => list.mine);
+  // Every list the caller may put a song into: their own, the ones shared with
+  // them as write or admin, and — for a moderator — the global ones.
+  const mine = (playlists.data?.playlists ?? []).filter(
+    (list) => list.can_edit,
+  );
 
   // Which of my playlists already hold this song — the picker's check marks.
   // Fetched only once the picker opens; a handful of small requests.

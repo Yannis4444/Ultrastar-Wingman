@@ -3,8 +3,8 @@
 import { type DefaultError, type InfiniteData, infiniteQueryOptions, queryOptions, type UseMutationOptions } from '@tanstack/react-query';
 
 import { client } from '../client.gen';
-import { addFavorite, addPlaylistEntry, addWish, clearWishes, createDownload, createPlayer, createPlaylist, deletePlayer, deletePlaylist, deleteUser, dismissDownload, dismissFinishedDownloads, exchangeHostToken, getCurrentSing, getJoinInfo, getMe, getPermissions, getPlayerAvatar, getPlaylist, getSong, getSongAudio, getSongCover, health, launchUsdx, listCurrentSessionSings, listDownloads, listFavorites, listKaraokeColors, listKaraokeSlots, listLatestScores, listPlayers, listPlayerScores, listPlaylists, listSessions, listSessionScores, listSettings, listSongs, listSongScores, listUsers, listVideoQualityPresets, listWishlist, login, logout, oidcCallback, oidcConfig, oidcLogin, type Options, register, removeFavorite, removePlaylistEntry, removeWish, renameSession, reorderPlaylistEntries, rescanSongs, setPlayerAvatar, singSong, stopSinging, updatePlaylist, updateRolePermissions, updateSetting, updateUser, usdbCover, usdbSearch, usdbStatus, usdxStatus } from '../sdk.gen';
-import type { AddFavoriteData, AddFavoriteError, AddFavoriteResponse, AddPlaylistEntryData, AddPlaylistEntryError, AddPlaylistEntryResponse, AddWishData, AddWishError, AddWishResponse, ClearWishesData, ClearWishesError, ClearWishesResponse, CreateDownloadData, CreateDownloadError, CreateDownloadResponse, CreatePlayerData, CreatePlayerError, CreatePlayerResponse, CreatePlaylistData, CreatePlaylistError, CreatePlaylistResponse, DeletePlayerData, DeletePlayerError, DeletePlayerResponse, DeletePlaylistData, DeletePlaylistError, DeletePlaylistResponse, DeleteUserData, DeleteUserError, DeleteUserResponse, DismissDownloadData, DismissDownloadError, DismissDownloadResponse, DismissFinishedDownloadsData, DismissFinishedDownloadsResponse, ExchangeHostTokenData, ExchangeHostTokenError, ExchangeHostTokenResponse, GetCurrentSingData, GetCurrentSingResponse, GetJoinInfoData, GetJoinInfoResponse, GetMeData, GetMeResponse, GetPermissionsData, GetPermissionsResponse, GetPlayerAvatarData, GetPlayerAvatarError, GetPlaylistData, GetPlaylistError, GetPlaylistResponse, GetSongAudioData, GetSongAudioError, GetSongCoverData, GetSongCoverError, GetSongData, GetSongError, GetSongResponse, HealthData, HealthResponse, LaunchUsdxData, LaunchUsdxResponse, ListCurrentSessionSingsData, ListCurrentSessionSingsResponse, ListDownloadsData, ListDownloadsResponse, ListFavoritesData, ListFavoritesResponse, ListKaraokeColorsData, ListKaraokeColorsResponse, ListKaraokeSlotsData, ListKaraokeSlotsResponse, ListLatestScoresData, ListLatestScoresError, ListLatestScoresResponse, ListPlayerScoresData, ListPlayerScoresError, ListPlayerScoresResponse, ListPlayersData, ListPlayersResponse, ListPlaylistsData, ListPlaylistsResponse, ListSessionScoresData, ListSessionScoresError, ListSessionScoresResponse, ListSessionsData, ListSessionsResponse, ListSettingsData, ListSettingsResponse, ListSongScoresData, ListSongScoresError, ListSongScoresResponse, ListSongsData, ListSongsResponse, ListUsersData, ListUsersResponse, ListVideoQualityPresetsData, ListVideoQualityPresetsResponse, ListWishlistData, ListWishlistResponse, LoginData, LoginError, LoginResponse, LogoutData, LogoutResponse, OidcCallbackData, OidcCallbackError, OidcConfigData, OidcConfigResponse, OidcLoginData, RegisterData, RegisterError, RegisterResponse, RemoveFavoriteData, RemoveFavoriteError, RemoveFavoriteResponse, RemovePlaylistEntryData, RemovePlaylistEntryError, RemovePlaylistEntryResponse, RemoveWishData, RemoveWishError, RemoveWishResponse, RenameSessionData, RenameSessionError, RenameSessionResponse, ReorderPlaylistEntriesData, ReorderPlaylistEntriesResponse, RescanSongsData, RescanSongsError, RescanSongsResponse, SetPlayerAvatarData, SetPlayerAvatarError, SetPlayerAvatarResponse, SingSongData, SingSongError, SingSongResponse, StopSingingData, StopSingingResponse, UpdatePlaylistData, UpdatePlaylistError, UpdatePlaylistResponse, UpdateRolePermissionsData, UpdateRolePermissionsResponse, UpdateSettingData, UpdateSettingError, UpdateSettingResponse, UpdateUserData, UpdateUserError, UpdateUserResponse, UsdbCoverData, UsdbCoverError, UsdbSearchData, UsdbSearchError, UsdbSearchResponse, UsdbStatusData, UsdbStatusError, UsdbStatusResponse, UsdxStatusData, UsdxStatusResponse } from '../types.gen';
+import { addFavorite, addPlaylistEntry, addWish, clearWishes, copyPlaylist, createDownload, createPlayer, createPlaylist, deletePlayer, deletePlaylist, deleteUser, dismissDownload, dismissFinishedDownloads, exchangeHostToken, followPlaylist, getCurrentSing, getJoinInfo, getMe, getPermissions, getPlayerAvatar, getPlaylist, getSong, getSongAudio, getSongCover, health, launchUsdx, listCurrentSessionSings, listDownloads, listFavorites, listKaraokeColors, listKaraokeSlots, listLatestScores, listPlayers, listPlayerScores, listPlaylistMembers, listPlaylists, listSessions, listSessionScores, listSettings, listSongs, listSongScores, listUsers, listVideoQualityPresets, listWishlist, login, logout, lookupUsers, oidcCallback, oidcConfig, oidcLogin, type Options, register, removeFavorite, removePlaylistEntry, removePlaylistMember, removeWish, renameSession, reorderPlaylistEntries, rescanSongs, setPlayerAvatar, setPlaylistMember, singSong, stopSinging, unfollowPlaylist, updatePlaylist, updateRolePermissions, updateSetting, updateUser, usdbCover, usdbSearch, usdbStatus, usdxStatus } from '../sdk.gen';
+import type { AddFavoriteData, AddFavoriteError, AddFavoriteResponse, AddPlaylistEntryData, AddPlaylistEntryError, AddPlaylistEntryResponse, AddWishData, AddWishError, AddWishResponse, ClearWishesData, ClearWishesError, ClearWishesResponse, CopyPlaylistData, CopyPlaylistError, CopyPlaylistResponse, CreateDownloadData, CreateDownloadError, CreateDownloadResponse, CreatePlayerData, CreatePlayerError, CreatePlayerResponse, CreatePlaylistData, CreatePlaylistError, CreatePlaylistResponse, DeletePlayerData, DeletePlayerError, DeletePlayerResponse, DeletePlaylistData, DeletePlaylistError, DeletePlaylistResponse, DeleteUserData, DeleteUserError, DeleteUserResponse, DismissDownloadData, DismissDownloadError, DismissDownloadResponse, DismissFinishedDownloadsData, DismissFinishedDownloadsResponse, ExchangeHostTokenData, ExchangeHostTokenError, ExchangeHostTokenResponse, FollowPlaylistData, FollowPlaylistError, FollowPlaylistResponse, GetCurrentSingData, GetCurrentSingResponse, GetJoinInfoData, GetJoinInfoResponse, GetMeData, GetMeResponse, GetPermissionsData, GetPermissionsResponse, GetPlayerAvatarData, GetPlayerAvatarError, GetPlaylistData, GetPlaylistError, GetPlaylistResponse, GetSongAudioData, GetSongAudioError, GetSongCoverData, GetSongCoverError, GetSongData, GetSongError, GetSongResponse, HealthData, HealthResponse, LaunchUsdxData, LaunchUsdxResponse, ListCurrentSessionSingsData, ListCurrentSessionSingsResponse, ListDownloadsData, ListDownloadsResponse, ListFavoritesData, ListFavoritesResponse, ListKaraokeColorsData, ListKaraokeColorsResponse, ListKaraokeSlotsData, ListKaraokeSlotsResponse, ListLatestScoresData, ListLatestScoresError, ListLatestScoresResponse, ListPlayerScoresData, ListPlayerScoresError, ListPlayerScoresResponse, ListPlayersData, ListPlayersResponse, ListPlaylistMembersData, ListPlaylistMembersError, ListPlaylistMembersResponse, ListPlaylistsData, ListPlaylistsError, ListPlaylistsResponse, ListSessionScoresData, ListSessionScoresError, ListSessionScoresResponse, ListSessionsData, ListSessionsResponse, ListSettingsData, ListSettingsResponse, ListSongScoresData, ListSongScoresError, ListSongScoresResponse, ListSongsData, ListSongsResponse, ListUsersData, ListUsersResponse, ListVideoQualityPresetsData, ListVideoQualityPresetsResponse, ListWishlistData, ListWishlistResponse, LoginData, LoginError, LoginResponse, LogoutData, LogoutResponse, LookupUsersData, LookupUsersResponse, OidcCallbackData, OidcCallbackError, OidcConfigData, OidcConfigResponse, OidcLoginData, RegisterData, RegisterError, RegisterResponse, RemoveFavoriteData, RemoveFavoriteError, RemoveFavoriteResponse, RemovePlaylistEntryData, RemovePlaylistEntryError, RemovePlaylistEntryResponse, RemovePlaylistMemberData, RemovePlaylistMemberError, RemovePlaylistMemberResponse, RemoveWishData, RemoveWishError, RemoveWishResponse, RenameSessionData, RenameSessionError, RenameSessionResponse, ReorderPlaylistEntriesData, ReorderPlaylistEntriesResponse, RescanSongsData, RescanSongsError, RescanSongsResponse, SetPlayerAvatarData, SetPlayerAvatarError, SetPlayerAvatarResponse, SetPlaylistMemberData, SetPlaylistMemberError, SetPlaylistMemberResponse, SingSongData, SingSongError, SingSongResponse, StopSingingData, StopSingingResponse, UnfollowPlaylistData, UnfollowPlaylistError, UnfollowPlaylistResponse, UpdatePlaylistData, UpdatePlaylistError, UpdatePlaylistResponse, UpdateRolePermissionsData, UpdateRolePermissionsResponse, UpdateSettingData, UpdateSettingError, UpdateSettingResponse, UpdateUserData, UpdateUserError, UpdateUserResponse, UsdbCoverData, UsdbCoverError, UsdbSearchData, UsdbSearchError, UsdbSearchResponse, UsdbStatusData, UsdbStatusError, UsdbStatusResponse, UsdxStatusData, UsdxStatusResponse } from '../types.gen';
 
 export type QueryKey<TOptions extends Options> = [
     Pick<TOptions, 'baseUrl' | 'body' | 'headers' | 'path' | 'query'> & {
@@ -212,6 +212,27 @@ export const listUsersOptions = (options?: Options<ListUsersData>) => queryOptio
         return data;
     },
     queryKey: listUsersQueryKey(options)
+});
+
+export const lookupUsersQueryKey = (options: Options<LookupUsersData>) => createQueryKey('lookupUsers', options);
+
+/**
+ * Lookup Users
+ *
+ * Accounts whose username starts with `q`. For picking somebody to share with, so it
+ * answers names and pictures and nothing about roles or rights.
+ */
+export const lookupUsersOptions = (options: Options<LookupUsersData>) => queryOptions<LookupUsersResponse, DefaultError, LookupUsersResponse, ReturnType<typeof lookupUsersQueryKey>>({
+    queryFn: async ({ queryKey, signal }) => {
+        const { data } = await lookupUsers({
+            ...options,
+            ...queryKey[0],
+            signal,
+            throwOnError: true
+        });
+        return data;
+    },
+    queryKey: lookupUsersQueryKey(options)
 });
 
 /**
@@ -973,9 +994,10 @@ export const listPlaylistsQueryKey = (options?: Options<ListPlaylistsData>) => c
 /**
  * List Playlists
  *
- * The caller's own playlists plus every shared one.
+ * Every playlist the caller may see: their own, the ones shared with them (followed
+ * or not) and every global one. `song_id` fills each row's `contains`.
  */
-export const listPlaylistsOptions = (options?: Options<ListPlaylistsData>) => queryOptions<ListPlaylistsResponse, DefaultError, ListPlaylistsResponse, ReturnType<typeof listPlaylistsQueryKey>>({
+export const listPlaylistsOptions = (options?: Options<ListPlaylistsData>) => queryOptions<ListPlaylistsResponse, ListPlaylistsError, ListPlaylistsResponse, ReturnType<typeof listPlaylistsQueryKey>>({
     queryFn: async ({ queryKey, signal }) => {
         const { data } = await listPlaylists({
             ...options,
@@ -1047,6 +1069,122 @@ export const updatePlaylistMutation = (options?: Partial<Options<UpdatePlaylistD
     const mutationOptions: UseMutationOptions<UpdatePlaylistResponse, UpdatePlaylistError, Options<UpdatePlaylistData>> = {
         mutationFn: async (fnOptions) => {
             const { data } = await updatePlaylist({
+                ...options,
+                ...fnOptions,
+                throwOnError: true
+            });
+            return data;
+        }
+    };
+    return mutationOptions;
+};
+
+/**
+ * Copy Playlist
+ *
+ * Take a private copy of a playlist the caller may see. The copy is theirs: same
+ * songs and description, no members and not global.
+ */
+export const copyPlaylistMutation = (options?: Partial<Options<CopyPlaylistData>>): UseMutationOptions<CopyPlaylistResponse, CopyPlaylistError, Options<CopyPlaylistData>> => {
+    const mutationOptions: UseMutationOptions<CopyPlaylistResponse, CopyPlaylistError, Options<CopyPlaylistData>> = {
+        mutationFn: async (fnOptions) => {
+            const { data } = await copyPlaylist({
+                ...options,
+                ...fnOptions,
+                throwOnError: true
+            });
+            return data;
+        }
+    };
+    return mutationOptions;
+};
+
+export const listPlaylistMembersQueryKey = (options: Options<ListPlaylistMembersData>) => createQueryKey('listPlaylistMembers', options);
+
+/**
+ * List Playlist Members
+ *
+ * Who the playlist was shared with. Needs manage, not view: a global list must not
+ * show every guest who its collaborators are.
+ */
+export const listPlaylistMembersOptions = (options: Options<ListPlaylistMembersData>) => queryOptions<ListPlaylistMembersResponse, ListPlaylistMembersError, ListPlaylistMembersResponse, ReturnType<typeof listPlaylistMembersQueryKey>>({
+    queryFn: async ({ queryKey, signal }) => {
+        const { data } = await listPlaylistMembers({
+            ...options,
+            ...queryKey[0],
+            signal,
+            throwOnError: true
+        });
+        return data;
+    },
+    queryKey: listPlaylistMembersQueryKey(options)
+});
+
+/**
+ * Set Playlist Member
+ *
+ * Share the playlist with an account, or change what that account may do.
+ */
+export const setPlaylistMemberMutation = (options?: Partial<Options<SetPlaylistMemberData>>): UseMutationOptions<SetPlaylistMemberResponse, SetPlaylistMemberError, Options<SetPlaylistMemberData>> => {
+    const mutationOptions: UseMutationOptions<SetPlaylistMemberResponse, SetPlaylistMemberError, Options<SetPlaylistMemberData>> = {
+        mutationFn: async (fnOptions) => {
+            const { data } = await setPlaylistMember({
+                ...options,
+                ...fnOptions,
+                throwOnError: true
+            });
+            return data;
+        }
+    };
+    return mutationOptions;
+};
+
+/**
+ * Remove Playlist Member
+ */
+export const removePlaylistMemberMutation = (options?: Partial<Options<RemovePlaylistMemberData>>): UseMutationOptions<RemovePlaylistMemberResponse, RemovePlaylistMemberError, Options<RemovePlaylistMemberData>> => {
+    const mutationOptions: UseMutationOptions<RemovePlaylistMemberResponse, RemovePlaylistMemberError, Options<RemovePlaylistMemberData>> = {
+        mutationFn: async (fnOptions) => {
+            const { data } = await removePlaylistMember({
+                ...options,
+                ...fnOptions,
+                throwOnError: true
+            });
+            return data;
+        }
+    };
+    return mutationOptions;
+};
+
+/**
+ * Unfollow Playlist
+ *
+ * Take a shared list out of the caller's own listing. The access stays, so the owner
+ * does not have to grant it again.
+ */
+export const unfollowPlaylistMutation = (options?: Partial<Options<UnfollowPlaylistData>>): UseMutationOptions<UnfollowPlaylistResponse, UnfollowPlaylistError, Options<UnfollowPlaylistData>> => {
+    const mutationOptions: UseMutationOptions<UnfollowPlaylistResponse, UnfollowPlaylistError, Options<UnfollowPlaylistData>> = {
+        mutationFn: async (fnOptions) => {
+            const { data } = await unfollowPlaylist({
+                ...options,
+                ...fnOptions,
+                throwOnError: true
+            });
+            return data;
+        }
+    };
+    return mutationOptions;
+};
+
+/**
+ * Follow Playlist
+ *
+ * Put a list shared with the caller back into their own listing. Idempotent.
+ */
+export const followPlaylistMutation = (options?: Partial<Options<FollowPlaylistData>>): UseMutationOptions<FollowPlaylistResponse, FollowPlaylistError, Options<FollowPlaylistData>> => {
+    const mutationOptions: UseMutationOptions<FollowPlaylistResponse, FollowPlaylistError, Options<FollowPlaylistData>> = {
+        mutationFn: async (fnOptions) => {
+            const { data } = await followPlaylist({
                 ...options,
                 ...fnOptions,
                 throwOnError: true

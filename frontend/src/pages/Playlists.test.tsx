@@ -35,13 +35,36 @@ function playlist(overrides: Partial<PlaylistRead> = {}): PlaylistRead {
   return {
     id: "p1",
     name: "Party",
-    shared: false,
+    description: null,
+    is_global: false,
     owner_username: "Alice",
+    owner_player_id: null,
     song_count: 2,
-    mine: true,
+    duration_seconds: 0,
+    my_access: "owner",
+    followed: true,
+    can_edit: true,
+    can_manage: true,
+    contains: null,
     ...overrides,
   };
 }
+
+/** Somebody else's global list: everybody may look, nobody but them may change. */
+const THEIRS: Partial<PlaylistRead> = {
+  is_global: true,
+  my_access: null,
+  followed: false,
+  can_edit: false,
+  can_manage: false,
+};
+
+/** The same list seen by somebody the backend granted `playlists.moderate`. */
+const MODERATED: Partial<PlaylistRead> = {
+  ...THEIRS,
+  can_edit: true,
+  can_manage: true,
+};
 
 function renderPlaylists(
   playlists: PlaylistRead[] | Error,
@@ -81,10 +104,9 @@ test("every visible playlist is a row leading to its songs", async () => {
   renderPlaylists([
     playlist(),
     playlist({
+      ...THEIRS,
       id: "p2",
       name: "Bobs mix",
-      shared: true,
-      mine: false,
       owner_username: "Bob",
       song_count: 1,
     }),
@@ -102,7 +124,7 @@ test("every visible playlist is a row leading to its songs", async () => {
 test("the chevron only appears where the row has no action buttons", async () => {
   renderPlaylists([
     playlist(),
-    playlist({ id: "p2", name: "Bobs mix", shared: true, mine: false }),
+    playlist({ ...THEIRS, id: "p2", name: "Bobs mix" }),
   ]);
 
   // Own row: the pencil and the bin already say the row does things.
@@ -116,7 +138,7 @@ test("the chevron only appears where the row has no action buttons", async () =>
 test("a globe marks the rows everybody can see", async () => {
   renderPlaylists([
     playlist(),
-    playlist({ id: "p2", name: "House list", shared: true }),
+    playlist({ id: "p2", name: "House list", is_global: true }),
   ]);
 
   expect(
@@ -176,7 +198,7 @@ test("the view creates a playlist", async () => {
   await waitFor(() =>
     expect(createPlaylist.mock.calls[0][0].body).toEqual({
       name: "Party",
-      shared: true,
+      is_global: true,
     }),
   );
 });
@@ -195,7 +217,7 @@ test("the pencil renames a playlist and can share it", async () => {
   await waitFor(() =>
     expect(updatePlaylist.mock.calls[0][0]).toMatchObject({
       path: { playlist_id: "p1" },
-      body: { name: "Karaoke", shared: true },
+      body: { name: "Karaoke", is_global: true },
     }),
   );
 });
@@ -269,9 +291,7 @@ test("deleting asks first", async () => {
 });
 
 test("somebody else's playlist has no edit or delete controls", async () => {
-  renderPlaylists([
-    playlist({ id: "p2", name: "Bobs mix", shared: true, mine: false }),
-  ]);
+  renderPlaylists([playlist({ ...THEIRS, id: "p2", name: "Bobs mix" })]);
   await screen.findByRole("link", { name: /Bobs mix/ });
 
   expect(
@@ -283,14 +303,10 @@ test("somebody else's playlist has no edit or delete controls", async () => {
 });
 
 test("a guest sees the playlists but gets no create form", async () => {
-  renderPlaylists(
-    [playlist({ shared: true, mine: false })],
-    ["playlists.view"],
-    {
-      user: null,
-      role: "guest",
-    },
-  );
+  renderPlaylists([playlist(THEIRS)], ["playlists.view"], {
+    user: null,
+    role: "guest",
+  });
 
   await screen.findByRole("link", { name: /Party/ });
   expect(screen.queryByLabelText("New playlist name")).not.toBeInTheDocument();
@@ -299,10 +315,10 @@ test("a guest sees the playlists but gets no create form", async () => {
   ).not.toBeInTheDocument();
 });
 
-test("the host may fix a shared playlist it does not own", async () => {
+test("the host may fix a global playlist it does not own", async () => {
   // The host session holds every right but has no account: it can never own a
   // playlist (so no create form), and reaches this one through `moderate`.
-  renderPlaylists([playlist({ shared: true, mine: false })], MODERATOR, {
+  renderPlaylists([playlist(MODERATED)], MODERATOR, {
     user: null,
     role: "admin",
     is_host: true,
@@ -317,8 +333,8 @@ test("the host may fix a shared playlist it does not own", async () => {
   expect(screen.queryByLabelText("New playlist name")).not.toBeInTheDocument();
 });
 
-test("without moderate somebody else's shared playlist is read-only", async () => {
-  renderPlaylists([playlist({ shared: true, mine: false })], LIBRARY, ACCOUNT);
+test("without moderate somebody else's global playlist is read-only", async () => {
+  renderPlaylists([playlist(THEIRS)], LIBRARY, ACCOUNT);
 
   expect(await screen.findByText("Party")).toBeInTheDocument();
   expect(

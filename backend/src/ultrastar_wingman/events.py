@@ -78,6 +78,15 @@ class WishlistUpdated(Event):
     latest: datetime | None = None
 
 
+class PlaylistsChanged(Event):
+    """A playlist was created, changed, shared, followed, copied or deleted. Ids only —
+    the bus is anonymous, and who may see the list is decided when the client asks for it.
+    `playlist_id` is None when several changed at once (an account being deleted)."""
+
+    event: Literal["playlists.changed"] = "playlists.changed"
+    playlist_id: str | None = None
+
+
 class EventBus:
     """Fans events out to all connected sockets."""
 

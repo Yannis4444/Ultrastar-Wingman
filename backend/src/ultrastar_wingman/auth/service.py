@@ -32,6 +32,11 @@ MIN_PASSWORD_LENGTH = 8
 MIN_USERNAME_LENGTH = 3
 MAX_USERNAME_LENGTH = 32
 
+# Shortest prefix `find_users_by_prefix` answers, and the most matches it returns. One
+# letter would hand back most of the party for nothing.
+MIN_LOOKUP_LENGTH = 2
+LOOKUP_LIMIT = 20
+
 
 class DuplicateUsernameError(ValueError):
     def __init__(self, username: str) -> None:
@@ -270,6 +275,24 @@ async def player_ids_by_user(session: AsyncSession) -> dict[str, str]:
     return {user_id: player_id for user_id, player_id in rows if user_id is not None}
 
 
+async def find_users_by_prefix(
+    session: AsyncSession, prefix: str
+) -> list[tuple[User, Player | None]]:
+    """Accounts whose username starts with `prefix`, case-insensitively, with the player
+    each of them sings as. Bounded: picking somebody to share with needs a shortlist, not
+    the whole party."""
+    rows = await session.execute(
+        select(User, Player)
+        .join(Player, Player.user_id == User.id, isouter=True)
+        # `autoescape` because a `%` or `_` typed into the box is a character somebody's
+        # name may contain, never a wildcard.
+        .where(func.lower(User.username).startswith(prefix.lower(), autoescape=True))
+        .order_by(func.lower(User.username), User.id)
+        .limit(LOOKUP_LIMIT)
+    )
+    return [(user, player) for user, player in rows]
+
+
 async def list_users(session: AsyncSession) -> Sequence[User]:
     result = await session.scalars(select(User).order_by(func.lower(User.username), User.id))
     return result.all()
@@ -304,6 +327,9 @@ async def delete_user(session: AsyncSession, user: User) -> None:
     await session.delete(user)
     await session.commit()
     logger.info("user '%s' deleted (%s)", user.username, user.id)
+    # After the commit, and with no id: an account leaving takes some playlists with it and
+    # hands the rest to a new owner, so every open listing has to be fetched again.
+    await library.announce_playlists()
 
 
 async def _admin_count(session: AsyncSession) -> int:
