@@ -1,5 +1,5 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { useEffect, useState } from "react";
+import { useState } from "react";
 import { Link, useNavigate, useParams } from "react-router-dom";
 import type { PlayerRead, PlaylistMemberRead, PlaylistUpdate } from "../api";
 import {
@@ -9,7 +9,6 @@ import {
   listPlaylistMembersOptions,
   listPlaylistMembersQueryKey,
   listPlaylistsQueryKey,
-  lookupUsersOptions,
   removePlaylistMemberMutation,
   setPlaylistMemberMutation,
   updatePlaylistMutation,
@@ -21,6 +20,7 @@ import Loading from "../components/Loading";
 import PageHeader from "../components/PageHeader";
 import PlayerAvatar from "../components/PlayerAvatar";
 import { errorDetail, errorMessage } from "../errors";
+import { useUserLookup } from "../hooks/useUserLookup";
 import { useWingmanEvent, type WingmanEvent } from "../hooks/useWingmanEvents";
 import "./Playlists.css";
 import "./PlaylistManage.css";
@@ -36,12 +36,6 @@ const ACCESS: PlaylistMemberRead["access"][] = ["read", "write", "admin"];
 
 /** Somebody shared with starts by being allowed to look, never to change. */
 const DEFAULT_ACCESS: PlaylistMemberRead["access"] = "read";
-
-/** The backend answers nothing shorter, so nothing shorter is asked. */
-const MIN_QUERY = 2;
-
-/** Long enough that typing a name is one request, short enough to feel live. */
-const DEBOUNCE_MS = 250;
 
 /** The three fields the form owns, as the reader last saw them saved. */
 interface Draft {
@@ -115,8 +109,6 @@ export default function PlaylistManage() {
   // description must not send the name they never typed and undo the rename.
   const [base, setBase] = useState<Draft>(EMPTY);
 
-  const [search, setSearch] = useState("");
-  const [needle, setNeedle] = useState("");
   const [error, setError] = useState<string | null>(null);
   const [saved, setSaved] = useState(false);
   const [deleting, setDeleting] = useState(false);
@@ -150,16 +142,8 @@ export default function PlaylistManage() {
     enabled: canManage,
   });
 
-  // One request per pause in the typing, not one per keystroke.
-  useEffect(() => {
-    const timer = setTimeout(() => setNeedle(search.trim()), DEBOUNCE_MS);
-    return () => clearTimeout(timer);
-  }, [search]);
-
-  const suggestions = useQuery({
-    ...lookupUsersOptions({ query: { q: needle } }),
-    enabled: canManage && needle.length >= MIN_QUERY,
-  });
+  const { search, setSearch, searching, suggestions, clear } =
+    useUserLookup(canManage);
 
   const playlistKey = getPlaylistQueryKey({
     path: { playlist_id: playlistId },
@@ -207,8 +191,7 @@ export default function PlaylistManage() {
     ...setPlaylistMemberMutation(),
     onSuccess: () => {
       setError(null);
-      setSearch("");
-      setNeedle("");
+      clear();
       refresh();
     },
     onError: (cause) => {
@@ -382,7 +365,7 @@ export default function PlaylistManage() {
                 />
               </label>
 
-              {needle.length >= MIN_QUERY && (
+              {searching && (
                 <>
                   {suggestions.isPending && <Loading />}
                   {suggestions.isError && (

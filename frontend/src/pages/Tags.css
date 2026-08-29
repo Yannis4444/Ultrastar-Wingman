@@ -1,0 +1,101 @@
+/* Tags admin (§7) and the tag editor behind it. Both are flat sub-pages on
+   `--bg`: hairline rows, hairline separators, no card anywhere. The reading
+   column matches the playlists pages, so walking from one manage surface into
+   another moves nothing. */
+.tags-page {
+  max-width: 720px;
+  margin: 0 auto;
+}
+
+.tags-notice {
+  margin: 16px;
+}
+
+/* ------------------------------------------------------------- the tag list
+   One row per tag: the coloured glyph square, the name over its meta line, a
+   chevron. Same metrics as a playlist row, which is the row this one stands
+   next to in the reader's memory. */
+
+.tags-list {
+  display: flex;
+  flex-direction: column;
+
+  /* 8px here plus 8px of row padding: the text lands on the page gutter while
+     the hover band bleeds past it. */
+  margin: 8px 8px 0 8px;
+  padding: 0;
+  list-style: none;
+}
+
+.tags-list li {
+  border-bottom: 1px solid var(--input-border-color);
+}
+
+.tags-list > :last-child {
+  border-bottom: none;
+}
+
+.tags-open {
+  display: flex;
+  gap: 12px;
+  align-items: center;
+  min-width: 0;
+  min-height: 56px;
+  padding: 6px 8px;
+  color: var(--color);
+  text-decoration: none;
+  border-radius: var(--border-radius-small);
+  transition: 0.1s background-color;
+}
+
+/* Pointers only (§1.12): a touch screen fakes a hover on tap and leaves the
+   row lit long after the finger has scrolled on. */
+@media (hover: hover) {
+  .tags-open:hover {
+    background-color: var(--highlight-blue-dark);
+  }
+}
+
+/* The 40px square a tag row leads with (§4). `--input-bg` like a playlist's,
+   but the glyph carries the tag's own colour, which is what tells two tags
+   apart at a glance. */
+.tags-square {
+  display: flex;
+  flex: 0 0 auto;
+  align-items: center;
+  justify-content: center;
+  width: 40px;
+  height: 40px;
+  font-size: 1.25em;
+  background-color: var(--input-bg);
+  border-radius: var(--border-radius-small);
+}
+
+.tags-text {
+  flex: 1 1 auto;
+  min-width: 0;
+}
+
+.tags-name,
+.tags-meta {
+  display: block;
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+
+.tags-meta {
+  font-size: 0.85em;
+  color: var(--color-darker);
+}
+
+.tags-chevron {
+  flex: 0 0 auto;
+  color: var(--color-darker);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .tags-open {
+    transition: none;
+  }
+}

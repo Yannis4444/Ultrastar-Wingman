@@ -246,6 +246,27 @@ a.icon-button:hover {
   padding: 8px 12px;
 }
 
+/* Tag chrome (ui-guidelines §4): the four colours a tag may be drawn in, as one
+   class each. The colour paints the tag's glyph wherever the tag appears — the
+   admin list, the editor's pills, a song row's mark, the filter panel — so it
+   lives here rather than in the stylesheet of whichever page draws it first.
+   Never red: on `--bg` the red light is ~2.3:1 (§1.6). */
+.tag-color-neutral {
+  color: var(--color-dark);
+}
+
+.tag-color-blue {
+  color: var(--highlight-blue-light);
+}
+
+.tag-color-pink {
+  color: var(--highlight-pink-light);
+}
+
+.tag-color-gold {
+  color: var(--highlight-gold-light);
+}
+
 /* Keeps a control reachable by its label for screen readers and tests while the
    label itself is the visible affordance. */
 .visually-hidden {

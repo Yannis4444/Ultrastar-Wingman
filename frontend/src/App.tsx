@@ -13,6 +13,8 @@ import PlaylistSpinner from "./pages/PlaylistSpinner";
 import Settings from "./pages/Settings";
 import Songs from "./pages/Songs";
 import Spinner from "./pages/Spinner";
+import TagEditor from "./pages/TagEditor";
+import Tags from "./pages/Tags";
 import Usdb from "./pages/Usdb";
 import User from "./pages/User";
 import UserAccounts from "./pages/UserAccounts";
@@ -61,6 +63,9 @@ export default function App() {
           <Route path="/user/accounts" element={<UserAccounts />} />
           <Route path="/user/stats" element={<UserStats />} />
           <Route path="/user/permissions" element={<UserPermissions />} />
+          <Route path="/user/tags" element={<Tags />} />
+          <Route path="/user/tags/new" element={<TagEditor />} />
+          <Route path="/user/tags/:tagId" element={<TagEditor />} />
           <Route path="/settings" element={<Settings />} />
           <Route path="/host" element={<Host />} />
           <Route path="/host/manage" element={<HostManage />} />

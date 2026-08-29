@@ -38,7 +38,7 @@ and the rights the host hands out.
 | **Home** | What is playing, the way into the random-song reel, the wishlist |
 | **Songs** | The whole song list, search, favorites, what has been sung tonight, playlists, and the way into a song |
 | **Scores** | The statistics of every party |
-| **User** | Log in, your own scores, players and their avatars, and (for the host) users and permissions |
+| **User** | Log in, your own scores, players and their avatars, and (for the host) users, tags and permissions |
 
 Two more pages are linked from there: **USDB** — behind the **+** button on the
 Songs page — for downloading new songs, and **Settings** for everything the host
@@ -49,4 +49,5 @@ configures.
 - [Get started](getting-started.md) — run Wingman and connect Ultrastar Deluxe.
 - [Sing a song](singing.md) — the player selection and starting a song.
 - [Download songs](downloading-songs.md) — get new songs from USDB.
+- [Tags](tags.md) — label songs, and decide who may see which.
 - [Troubleshooting](troubleshooting.md) — when something does not work.
