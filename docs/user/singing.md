@@ -9,10 +9,11 @@ Open the **Songs** tab. It lists everything Wingman found in your song folders,
 with the number of songs at the top.
 
 - The search box matches title and artist while you type. A song id also works.
-- The chips below it narrow the list: **All**, **♥ Favorites**, **Recent** and
-  **Sung**. Only the chip you are standing on spells its name out; the others
-  shrink to their icon so the row keeps fitting a phone. The list icon at the
-  end of the row opens the playlists view, where a playlist shows its own songs.
+- The chips below it narrow the list: **All**, **♥ Favorites**, **Recent**,
+  **Sung** and the funnel, **Filter**. Only the chip you are standing on spells
+  its name out; the others shrink to their icon so the row keeps fitting a
+  phone. The list icon at the end of the row opens the playlists view, where a
+  playlist shows its own songs.
 - The reload button next to the song count scans the song folders again.
 - Tap a song to open it: the cover, a listen-in preview, and the buttons for
   favorite, sing and wish. Below them, **Details** unfolds language, genre,
@@ -20,6 +21,36 @@ with the number of songs at the top.
   on it; **Add to playlist** puts the song on one of the playlists you may edit;
   **Tags** shows the labels the party has put on it, and lets you set the ones
   you are allowed to.
+
+## Filter by more than one thing
+
+**All**, **Favorites** and **Sung** are shortcuts. The funnel — **Filter** — is
+the long way round, and it is where the tags live.
+
+Tap it and a panel opens with one row for everything the list can be filtered
+on: **Favorites**, **Sung**, and every tag you are allowed to see. Each row ends
+in three buttons.
+
+| Choice | What the list keeps |
+|---|---|
+| **Any** | Everything. That row is not filtering. |
+| **Yes** | Only the songs that have it. |
+| **No** | Only the songs that do not. |
+
+Set as many rows as you like — they add up, so *duet: Yes* together with
+*broken: No* leaves you the duets that actually play. The list behind the panel
+follows every tap, the song count included, so you can watch it narrow.
+**Done** closes the panel and **Reset** puts every row back to where it started.
+
+Most rows start on **Any**. A tag set up to hide its songs starts on **No** —
+that is what keeps the archive out of your way. Put its row on **Any** and those
+songs come back.
+
+While something is filtering, the funnel is the pressed chip and reads
+**Filter · 2**: the number of rows that are not on *Any*, the tags that were
+already hiding songs included. Tapping **All**, **Favorites** or **Sung** throws
+the whole filter away and starts again from that chip. **Recent** does not — it
+is a different order of the same list, and the filter keeps working inside it.
 
 ## What has already been sung
 
@@ -65,10 +96,10 @@ state is changed.
 Some songs are deliberately kept out of the list.
 
 - A tag can be set to **hide songs by default**. Its songs are out of the song
-  list — in every chip, not only *All* — and out of the random reel, until the
-  tag filter asks for them. They are still there: a playlist that holds one
-  still shows it, because somebody put it there on purpose. The seeded
-  **archive** tag works this way.
+  list — in every chip, not only *All* — and out of the random reel, until you
+  put that tag's row on *Any* or *Yes* in **Filter**. They are still there: a
+  playlist that holds one still shows it, because somebody put it there on
+  purpose. The seeded **archive** tag works this way.
 - A tag can also take *See songs* away from a role entirely. Those songs do not
   exist for that person at all: not in the list, not in the search, not in the
   reel. The seeded **broken** tag works this way, so nobody stumbles into a song

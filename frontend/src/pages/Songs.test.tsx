@@ -949,3 +949,320 @@ test("a show-in-list tag rides on the row it belongs to", async () => {
     [],
   );
 });
+
+// --- the filter chip and its panel -------------------------------------------
+
+const ARCHIVE = tagRead({
+  id: "t-archive",
+  name: "archive",
+  hide_by_default: true,
+});
+const DUET = tagRead({
+  id: "t-duet",
+  name: "duet",
+  icon: "users",
+  color: "blue",
+});
+
+/** Open the Filter panel and hand back the dialog. */
+async function openFilter() {
+  fireEvent.click(await screen.findByRole("button", { name: "Filter" }));
+  return screen.getByRole("dialog", { name: "Filter" });
+}
+
+/** Set one criterion the way a reader does: tap Any / Yes / No in its row. */
+function setCriterion(dialog: HTMLElement, row: string, option: string) {
+  fireEvent.click(
+    within(within(dialog).getByRole("group", { name: row })).getByRole(
+      "radio",
+      { name: option },
+    ),
+  );
+}
+
+test("the filter panel lists the two marks and every tag the reader may see", async () => {
+  withTags([
+    ARCHIVE,
+    DUET,
+    tagRead({ id: "t-secret", name: "scratch", can_view: false }),
+  ]);
+  renderSongs([QUEEN, AFRICA], LIBRARY, ACCOUNT);
+  await screen.findByText("Dancing Queen");
+
+  const dialog = await openFilter();
+
+  // The two marks first, then the tags — and nothing the reader may not view.
+  expect(within(dialog).getAllByRole("group")).toHaveLength(4);
+  for (const name of ["Favorites", "Sung", "archive", "duet"])
+    expect(within(dialog).getByRole("group", { name })).toBeInTheDocument();
+  expect(
+    within(dialog).queryByRole("group", { name: "scratch" }),
+  ).not.toBeInTheDocument();
+
+  // A hide-by-default tag opens on No, everything else on Any.
+  const archive = within(dialog).getByRole("group", { name: "archive" });
+  expect(within(archive).getByRole("radio", { name: "No" })).toBeChecked();
+  const duet = within(dialog).getByRole("group", { name: "duet" });
+  expect(within(duet).getByRole("radio", { name: "Any" })).toBeChecked();
+});
+
+test("a browser with no account gets the tags but neither built-in row", async () => {
+  withTags([DUET]);
+  renderSongs([QUEEN], TRUSTED);
+  await screen.findByText("Dancing Queen");
+
+  const dialog = await openFilter();
+
+  expect(
+    within(dialog).getByRole("group", { name: "duet" }),
+  ).toBeInTheDocument();
+  expect(
+    within(dialog).queryByRole("group", { name: "Favorites" }),
+  ).not.toBeInTheDocument();
+  expect(
+    within(dialog).queryByRole("group", { name: "Sung" }),
+  ).not.toBeInTheDocument();
+});
+
+test("nothing to filter on means no Filter chip at all", async () => {
+  renderSongs([QUEEN], TRUSTED);
+  await screen.findByText("Dancing Queen");
+
+  await waitFor(() =>
+    expect(
+      screen.queryByRole("button", { name: "Filter" }),
+    ).not.toBeInTheDocument(),
+  );
+});
+
+test("a tri-state narrows the list, the count and the chip's label", async () => {
+  withTags([DUET], [{ tag_id: "t-duet", song_ids: ["local:abc"] }]);
+  renderSongs([QUEEN, AFRICA]);
+  await screen.findByText("Dancing Queen");
+  // Nothing is off Any yet, so All is the pressed chip and Filter is a glyph.
+  expect(screen.getByRole("button", { name: "All" })).toHaveAttribute(
+    "aria-pressed",
+    "true",
+  );
+  expect(screen.getByRole("button", { name: "Filter" }).textContent).toBe("");
+
+  const dialog = await openFilter();
+  setCriterion(dialog, "duet", "Yes");
+
+  // The list behind the panel follows straight away — no Done to press first.
+  expect(screen.getByText("Africa")).toBeInTheDocument();
+  expect(screen.queryByText("Dancing Queen")).not.toBeInTheDocument();
+  expect(screen.getByText("1 song")).toBeInTheDocument();
+  const filter = screen.getByRole("button", { name: "Filter" });
+  expect(filter).toHaveAttribute("aria-pressed", "true");
+  expect(filter.textContent).toBe("Filter · 1");
+  expect(screen.getByRole("button", { name: "All" })).toHaveAttribute(
+    "aria-pressed",
+    "false",
+  );
+
+  setCriterion(dialog, "duet", "No");
+  expect(screen.getByText("Dancing Queen")).toBeInTheDocument();
+  expect(screen.queryByText("Africa")).not.toBeInTheDocument();
+
+  // Back on its own default, so the state is the All preset again.
+  setCriterion(dialog, "duet", "Any");
+  expect(screen.getByText("2 songs")).toBeInTheDocument();
+  expect(screen.getByRole("button", { name: "All" })).toHaveAttribute(
+    "aria-pressed",
+    "true",
+  );
+});
+
+test("the Filter chip counts the hiding nobody had to ask for", async () => {
+  withTags([ARCHIVE, DUET], [{ tag_id: "t-archive", song_ids: ["local:abc"] }]);
+  renderSongs([QUEEN, AFRICA]);
+  await screen.findByText("Dancing Queen");
+
+  const dialog = await openFilter();
+  setCriterion(dialog, "duet", "Yes");
+
+  // Two criteria are narrowing the list: the duet Yes and the archive No that
+  // was there before anybody opened the panel.
+  expect(screen.getByRole("button", { name: "Filter" }).textContent).toBe(
+    "Filter · 2",
+  );
+
+  // Asking for the archived songs takes the count back down.
+  setCriterion(dialog, "archive", "Any");
+  expect(screen.getByRole("button", { name: "Filter" }).textContent).toBe(
+    "Filter · 1",
+  );
+});
+
+test("Reset puts every criterion back, the hidden-by-default ones included", async () => {
+  withTags([ARCHIVE, DUET], [{ tag_id: "t-archive", song_ids: ["local:abc"] }]);
+  renderSongs([QUEEN, AFRICA], LIBRARY, ACCOUNT);
+  await screen.findByText("Dancing Queen");
+
+  const dialog = await openFilter();
+  setCriterion(dialog, "archive", "Any");
+  setCriterion(dialog, "duet", "No");
+  expect(screen.getByText("2 songs")).toBeInTheDocument();
+
+  fireEvent.click(within(dialog).getByRole("button", { name: "Reset" }));
+
+  expect(
+    within(within(dialog).getByRole("group", { name: "archive" })).getByRole(
+      "radio",
+      { name: "No" },
+    ),
+  ).toBeChecked();
+  expect(screen.getByText("1 song")).toBeInTheDocument();
+  expect(screen.getByRole("button", { name: "All" })).toHaveAttribute(
+    "aria-pressed",
+    "true",
+  );
+});
+
+test("Done only closes: the criteria were applied while the panel was open", async () => {
+  withTags([DUET], [{ tag_id: "t-duet", song_ids: ["local:abc"] }]);
+  renderSongs([QUEEN, AFRICA]);
+  await screen.findByText("Dancing Queen");
+
+  const dialog = await openFilter();
+  setCriterion(dialog, "duet", "Yes");
+  fireEvent.click(within(dialog).getByRole("button", { name: "Done" }));
+
+  expect(
+    screen.queryByRole("dialog", { name: "Filter" }),
+  ).not.toBeInTheDocument();
+  expect(screen.getByText("Africa")).toBeInTheDocument();
+  expect(screen.getByText("1 song")).toBeInTheDocument();
+});
+
+test("a preset chip replaces whatever the panel was set to", async () => {
+  withTags([DUET], [{ tag_id: "t-duet", song_ids: [QUEEN.id] }]);
+  listFavorites.mockResolvedValue({ data: { song_ids: ["local:abc"] } });
+  renderSongs([QUEEN, AFRICA], LIBRARY, ACCOUNT);
+  await screen.findByText("Dancing Queen");
+
+  const dialog = await openFilter();
+  setCriterion(dialog, "duet", "Yes");
+  fireEvent.click(within(dialog).getByRole("button", { name: "Done" }));
+
+  // Favorites is exactly its own criterion and nothing else, so the duet Yes
+  // goes rather than being added to.
+  fireEvent.click(screen.getByRole("button", { name: "Favorites" }));
+
+  expect(screen.getByText("Africa")).toBeInTheDocument();
+  expect(screen.queryByText("Dancing Queen")).not.toBeInTheDocument();
+  expect(screen.getByRole("button", { name: "Filter" }).textContent).toBe("");
+  expect(
+    within(
+      within(await openFilter()).getByRole("group", { name: "duet" }),
+    ).getByRole("radio", { name: "Any" }),
+  ).toBeChecked();
+});
+
+test("the criteria still apply inside the recently played tab", async () => {
+  playedQueenThenAfrica();
+  withTags([ARCHIVE], [{ tag_id: "t-archive", song_ids: ["local:abc"] }]);
+  renderSongs([QUEEN, AFRICA]);
+  await screen.findByText("Dancing Queen");
+
+  fireEvent.click(await screen.findByRole("button", { name: "Recent" }));
+
+  // Africa was played, but it is archived: the tab is another order of the
+  // library, not a way around the criteria.
+  expect(screen.queryByText("Africa")).not.toBeInTheDocument();
+  expect(screen.getByText("1 song")).toBeInTheDocument();
+
+  const dialog = await openFilter();
+  setCriterion(dialog, "archive", "Any");
+
+  expect(screen.getByText("Africa")).toBeInTheDocument();
+  expect(screen.getByText("2 songs")).toBeInTheDocument();
+  // Recent is a mode of its own, so it stays the pressed chip throughout.
+  expect(screen.getByRole("button", { name: "Recent" })).toHaveAttribute(
+    "aria-pressed",
+    "true",
+  );
+});
+
+test("a preset chip leaves the recently played tab", async () => {
+  playedQueenThenAfrica();
+  renderSongs([QUEEN, AFRICA], LIBRARY, ACCOUNT);
+  await screen.findByText("Dancing Queen");
+  fireEvent.click(await screen.findByRole("button", { name: "Recent" }));
+
+  fireEvent.click(screen.getByRole("button", { name: "All" }));
+
+  expect(screen.getByRole("button", { name: "Recent" })).toHaveAttribute(
+    "aria-pressed",
+    "false",
+  );
+  expect(screen.queryByText(shortTime(AT_QUEEN))).not.toBeInTheDocument();
+});
+
+test("a filtered-down recent tab does not claim the party is empty", async () => {
+  playedQueenThenAfrica();
+  withTags([DUET]);
+  renderSongs([QUEEN, AFRICA]);
+  await screen.findByText("Dancing Queen");
+  fireEvent.click(await screen.findByRole("button", { name: "Recent" }));
+
+  const dialog = await openFilter();
+  setCriterion(dialog, "duet", "Yes");
+
+  expect(screen.getByText("No song matches the filter.")).toBeInTheDocument();
+});
+
+test("each row is one native radio group, so the arrow keys walk it", async () => {
+  withTags([DUET]);
+  renderSongs([QUEEN], LIBRARY, ACCOUNT);
+  await screen.findByText("Dancing Queen");
+
+  const dialog = await openFilter();
+
+  for (const name of ["Favorites", "Sung", "duet"]) {
+    const radios = within(
+      within(dialog).getByRole("group", { name }),
+    ).getAllByRole("radio");
+    expect(radios.map((radio) => radio.getAttribute("value"))).toEqual([
+      "any",
+      "yes",
+      "no",
+    ]);
+    // One name per row, and no two rows sharing one: that is what makes the
+    // browser move the selection with the arrow keys.
+    expect(
+      new Set(radios.map((radio) => radio.getAttribute("name"))).size,
+    ).toBe(1);
+  }
+  const every = within(dialog).getAllByRole("radio");
+  expect(new Set(every.map((radio) => radio.getAttribute("name"))).size).toBe(
+    3,
+  );
+});
+
+test("the Filter chip is its glyph until it is the pressed one", async () => {
+  withTags([DUET]);
+  renderSongs([QUEEN], LIBRARY, ACCOUNT);
+  await screen.findByText("Dancing Queen");
+
+  const filter = await screen.findByRole("button", { name: "Filter" });
+  expect(filter.textContent).toBe("");
+  expect(iconNames(filter)).toEqual(["filter"]);
+  // The one chip that opens a dialog instead of switching the list.
+  expect(filter).toHaveAttribute("aria-haspopup", "dialog");
+  expect(screen.getByRole("button", { name: "Favorites" })).not.toHaveAttribute(
+    "aria-haspopup",
+  );
+
+  const dialog = await openFilter();
+  setCriterion(dialog, "duet", "Yes");
+
+  // Two labels at most: "All", which owns no glyph, and the pressed chip.
+  expect(filter.textContent).toBe("Filter · 1");
+  expect(screen.getByRole("button", { name: "Favorites" }).textContent).toBe(
+    "",
+  );
+  expect(screen.getByRole("button", { name: "Sung" }).textContent).toBe("");
+  expect(screen.getByRole("button", { name: "All" }).textContent).toBe("All");
+});

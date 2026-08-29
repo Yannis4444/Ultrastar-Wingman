@@ -77,3 +77,130 @@ export function passesTagCriteria(
   }
   return true;
 }
+
+/**
+ * Everything the song list filters on: the two built-in marks and every tag the
+ * reader may view. One shape, so the Filter panel draws one kind of row and the
+ * page asks one question per song.
+ */
+export interface SongCriteria {
+  favorite: TagCriterion;
+  sung: TagCriterion;
+  tags: TagCriteria;
+}
+
+/**
+ * What the reader chose, and only that. The defaults depend on the tags, which
+ * arrive after the page mounts and move again when a permission changes — state
+ * holding the whole criteria object would freeze the tag list it was built from.
+ * A criterion set back to its own default drops out of here, so "opened the
+ * panel and changed nothing back" is the same state as never having opened it.
+ */
+export interface CriteriaOverrides {
+  favorite?: TagCriterion;
+  sung?: TagCriterion;
+  tags: ReadonlyMap<string, TagCriterion>;
+}
+
+const NO_TAG_OVERRIDES: ReadonlyMap<string, TagCriterion> = new Map();
+
+/** The state behind the *All* chip: nothing chosen, everything at its default. */
+export const NO_OVERRIDES: CriteriaOverrides = { tags: NO_TAG_OVERRIDES };
+
+/** The state behind the *Favorites* chip. */
+export const FAVORITES_ONLY: CriteriaOverrides = {
+  favorite: "yes",
+  tags: NO_TAG_OVERRIDES,
+};
+
+/** The state behind the *Sung* chip. */
+export const SUNG_ONLY: CriteriaOverrides = {
+  sung: "yes",
+  tags: NO_TAG_OVERRIDES,
+};
+
+/** Whether two override sets ask for the same thing — which chip is pressed. */
+export function sameOverrides(
+  a: CriteriaOverrides,
+  b: CriteriaOverrides,
+): boolean {
+  if (a.favorite !== b.favorite || a.sung !== b.sung) return false;
+  if (a.tags.size !== b.tags.size) return false;
+  for (const [tagId, criterion] of a.tags)
+    if (b.tags.get(tagId) !== criterion) return false;
+  return true;
+}
+
+/** The default of one criterion: *Any*, or *No* for a `hide_by_default` tag. */
+export function defaultCriterion(tag: TagRead | undefined): TagCriterion {
+  return tag !== undefined && tag.hide_by_default ? "no" : "any";
+}
+
+/**
+ * The defaults with the reader's choices laid over them. An override for a tag
+ * the reader may no longer view is dropped rather than applied: the panel has no
+ * row for it, so nothing on screen would explain why the list is short.
+ */
+export function effectiveCriteria(
+  tags: readonly TagRead[],
+  overrides: CriteriaOverrides,
+): SongCriteria {
+  const byTag = defaultTagCriteria(tags);
+  for (const [tagId, criterion] of overrides.tags)
+    if (byTag.has(tagId)) byTag.set(tagId, criterion);
+  return {
+    favorite: overrides.favorite ?? "any",
+    sung: overrides.sung ?? "any",
+    tags: byTag,
+  };
+}
+
+/** How many criteria are off *Any* — the N of the Filter chip's label (§7). */
+export function criteriaOffAny(criteria: SongCriteria): number {
+  let off = 0;
+  if (criteria.favorite !== "any") off += 1;
+  if (criteria.sung !== "any") off += 1;
+  for (const criterion of criteria.tags.values())
+    if (criterion !== "any") off += 1;
+  return off;
+}
+
+/**
+ * The same criteria with every untouched `hide_by_default` tag put back on
+ * *Any*. What the list would hold if nothing were hidden for the reader — the
+ * page compares the two to tell "you have no favorites" from "your favorites
+ * are all archived".
+ */
+export function withoutDefaultHiding(
+  tags: readonly TagRead[],
+  overrides: CriteriaOverrides,
+  criteria: SongCriteria,
+): SongCriteria {
+  const relaxed = new Map(criteria.tags);
+  for (const tag of tags)
+    if (
+      tag.hide_by_default &&
+      relaxed.has(tag.id) &&
+      !overrides.tags.has(tag.id)
+    )
+      relaxed.set(tag.id, "any");
+  return { ...criteria, tags: relaxed };
+}
+
+function passesFlag(criterion: TagCriterion, has: boolean): boolean {
+  return criterion === "any" || has === (criterion === "yes");
+}
+
+/** Whether one song survives every criterion, the two built-in marks included. */
+export function passesSongCriteria(
+  songId: string,
+  bySong: ReadonlyMap<string, TagRead[]>,
+  criteria: SongCriteria,
+  marks: { favorite: boolean; sung: boolean },
+): boolean {
+  return (
+    passesFlag(criteria.favorite, marks.favorite) &&
+    passesFlag(criteria.sung, marks.sung) &&
+    passesTagCriteria(songId, bySong, criteria.tags)
+  );
+}

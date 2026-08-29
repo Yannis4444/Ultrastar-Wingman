@@ -79,15 +79,27 @@
   }
 }
 
-/* Filter chips: All / Favorites / Recent / Sung plus the link into the
-   playlists view. Only the pressed filter wears its label — five labelled
-   chips are far past the 328px a 360px phone has, while four square glyphs,
-   one word and the playlists link fit with room to spare. `flex-wrap` and
-   `overflow-x` stay as backstops for narrower screens and for a longer label
-   in a future translation. */
+/* Filter chips: All / Favorites / Recent / Sung / Filter plus the link into the
+   playlists view. Only the pressed chip wears its label — six labelled chips are
+   several times the 328px a 360px phone has between its gutters.
+
+   Measured at 360: `All` 46px, an unpressed glyph square 40px, the playlists
+   link 42px, gaps 8px; a pressed chip is icon + gap + label, 101px for
+   `Filter · 3` and 107px for `Favorites`. So four chips and the link fit on one
+   line whatever is pressed (251 + 8 + 42 = 301), and the fifth chip — `Recent`,
+   which is only there while a party is running — is what tips a pressed label
+   over: 299 + 8 + 42 = 349. Then the group wraps its own chips onto a second
+   line and the link stays anchored top right. Wrapping, never sideways scroll
+   (§1.11); `overflow-x` stays only as a backstop for a chip wider than the row.
+   At 390 even the five-chip row fits on one line. */
 .songs-chips {
   display: flex;
-  flex-wrap: wrap;
+  /* One line, so the group below is what gives way. With `wrap` here the whole
+     filter group counts as one unbreakable item and the playlists link is what
+     drops — a second row holding nothing but the list glyph. */
+  flex-wrap: nowrap;
+  /* The link is 40px tall, not as tall as a group that had to wrap. */
+  align-items: flex-start;
   gap: 8px;
   margin: 0 16px 12px 16px;
   padding-bottom: 4px;
@@ -96,6 +108,9 @@
 
 .songs-chip {
   display: flex;
+  /* A `<button>` is border-box by default and the playlists `<a>` is not, so
+     without this the link stands 2px taller than the chips beside it. */
+  box-sizing: border-box;
   flex: 0 0 auto;
   gap: 6px;
   align-items: center;
@@ -142,10 +157,16 @@
 }
 
 /* Wraps too: the group is one flex item of the row above, so without this the
-   three filter chips stay one unbreakable ~326px block. */
+   filter chips stay one unbreakable block.
+
+   `0 1 auto`, not `0 0 auto`: at its natural width the group leaves the room the
+   playlists link's `margin-left: auto` needs to park at the far end, and once a
+   pressed label outgrows the line the group gives way and wraps its own chips
+   instead — which keeps the link anchored top right rather than stranding it
+   alone on a second row. */
 .songs-filters {
   display: flex;
-  flex: 0 0 auto;
+  flex: 0 1 auto;
   flex-wrap: wrap;
   gap: 8px;
 }

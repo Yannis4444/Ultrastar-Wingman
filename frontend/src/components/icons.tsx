@@ -60,6 +60,10 @@ export const ICON_PATHS = {
   // half the body's width and stands on straight legs: a wide shallow arch on a
   // box reads as a handbag once the glyph is drawn any bigger than a row mark.
   lock: "M8 11V7a4 4 0 0 1 8 0v4h-2V7a2 2 0 0 0-4 0v4H8Zm-4-1h16a1 1 0 0 1 1 1v9a1 1 0 0 1-1 1H4a1 1 0 0 1-1-1v-9a1 1 0 0 1 1-1Z",
+  // The Songs filter: one solid funnel, a wide bar at the top tapering into a
+  // short stem. Symmetric about x=12 (3/21 and 10/14), and the stem's slanted
+  // foot is what keeps it from reading as a plain triangle at row size.
+  filter: "M3 4h18l-7 8v7l-4 2v-9L3 4Z",
   calendar:
     "M19 4h-1V2h-2v2H8V2H6v2H5a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2V6a2 2 0 0 0-2-2Zm0 16H5V10h14Zm0-12H5V6h14Z",
   disc: "M12 2a10 10 0 1 0 0 20 10 10 0 0 0 0-20Zm0 7a3 3 0 1 1 0 6 3 3 0 0 1 0-6Z",

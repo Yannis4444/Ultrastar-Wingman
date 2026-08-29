@@ -119,8 +119,22 @@ A tag with **Show in song list** on also rides on the song's row everywhere it
 is listed: its icon, in its colour, after the microphone and the heart, with its
 name on hover.
 
-Filtering the song list by tag is coming with the **Filter** chip on the
-**Songs** page.
+## Filtering the song list by tag
+
+Every tag you may see is also a filter. On the **Songs** page the funnel chip
+opens **Filter**, a panel with one row per tag — and, above them, your favorites
+and the songs you have sung. Each row is set to **Any**, **Yes** or **No**:
+*Yes* keeps only the songs wearing the tag, *No* drops them, and several rows
+narrow the list together. The list updates as you tap; **Reset** puts everything
+back.
+
+A tag with **Hide songs by default** simply starts its row on *No*. That is the
+whole mechanism — anybody who may see the tag can move the row to *Any* and have
+the songs back, which is why it is a default and not a lock. The funnel counts
+those rows as well, so once you are filtering, the number on the chip includes
+the tags that were already holding songs back.
+
+The panel itself is described in [Sing a song](singing.md).
 
 ## See also
 

@@ -2,11 +2,19 @@ import type { TagRead } from "./api";
 import { ICON_PATHS, PICKER_ICON_NAMES } from "./components/icons";
 import { tagRead } from "./test/tags";
 import {
+  criteriaOffAny,
   defaultTagCriteria,
+  effectiveCriteria,
+  FAVORITES_ONLY,
   markTags,
+  NO_OVERRIDES,
+  passesSongCriteria,
   passesTagCriteria,
+  sameOverrides,
+  SUNG_ONLY,
   tagColorClass,
   tagGlyph,
+  withoutDefaultHiding,
 } from "./tags";
 
 it("draws a tag with the glyph it names", () => {
@@ -103,4 +111,110 @@ it("keeps a song out of the list only for the criteria that are set", () => {
   const wanted = new Map(criteria).set("duet", "yes" as const);
   expect(passesTagCriteria("s-duet", bySong, wanted)).toBe(true);
   expect(passesTagCriteria("s-plain", bySong, wanted)).toBe(false);
+});
+
+it("offers the funnel to a tag as well: §3 keeps no filter glyph out", () => {
+  // Not in §3's exclusion list, so the tag editor may use it like any other
+  // glyph — the Songs chip owns the meaning, not the drawing.
+  expect(PICKER_ICON_NAMES).toContain("filter");
+});
+
+const ARCHIVE = tagRead({ id: "archive", hide_by_default: true });
+const DUET = tagRead({ id: "duet", name: "duet" });
+
+it("starts every criterion at its default, the built-in marks included", () => {
+  const criteria = effectiveCriteria([ARCHIVE, DUET], NO_OVERRIDES);
+
+  expect(criteria.favorite).toBe("any");
+  expect(criteria.sung).toBe("any");
+  expect([...criteria.tags]).toEqual([
+    ["archive", "no"],
+    ["duet", "any"],
+  ]);
+});
+
+it("lays the reader's choices over the defaults", () => {
+  const criteria = effectiveCriteria([ARCHIVE, DUET], {
+    favorite: "yes",
+    tags: new Map([
+      ["archive", "any" as const],
+      // A tag the reader may no longer view: the panel has no row for it, so
+      // nothing on screen would explain a list it silently shortened.
+      ["gone", "yes" as const],
+    ]),
+  });
+
+  expect(criteria.favorite).toBe("yes");
+  expect(criteria.sung).toBe("any");
+  expect([...criteria.tags]).toEqual([
+    ["archive", "any"],
+    ["duet", "any"],
+  ]);
+});
+
+it("counts the criteria off Any, a hidden-by-default tag included", () => {
+  // §7: N is what is narrowing the list, not what the reader touched — the
+  // archive tag is holding songs back whether or not anybody set it.
+  expect(criteriaOffAny(effectiveCriteria([ARCHIVE, DUET], NO_OVERRIDES))).toBe(
+    1,
+  );
+  expect(criteriaOffAny(effectiveCriteria([ARCHIVE, DUET], SUNG_ONLY))).toBe(2);
+  expect(
+    criteriaOffAny(
+      effectiveCriteria([ARCHIVE, DUET], {
+        tags: new Map([["archive", "any" as const]]),
+      }),
+    ),
+  ).toBe(0);
+});
+
+it("tells the chips apart by what the reader chose, not by the result", () => {
+  expect(sameOverrides(NO_OVERRIDES, { tags: new Map() })).toBe(true);
+  expect(sameOverrides(FAVORITES_ONLY, SUNG_ONLY)).toBe(false);
+  expect(
+    sameOverrides(NO_OVERRIDES, { tags: new Map([["duet", "yes"]]) }),
+  ).toBe(false);
+  expect(
+    sameOverrides(
+      { tags: new Map([["duet", "yes"]]) },
+      { tags: new Map([["duet", "no"]]) },
+    ),
+  ).toBe(false);
+});
+
+it("lifts only the hiding nobody asked for", () => {
+  const overrides = { tags: new Map([["duet", "no" as const]]) };
+  const criteria = effectiveCriteria([ARCHIVE, DUET], overrides);
+
+  const relaxed = withoutDefaultHiding([ARCHIVE, DUET], overrides, criteria);
+
+  // The archive default goes back to Any; the No the reader typed stays.
+  expect([...relaxed.tags]).toEqual([
+    ["archive", "any"],
+    ["duet", "no"],
+  ]);
+});
+
+it("asks the two built-in marks the same question as a tag", () => {
+  const bySong = new Map<string, TagRead[]>([["s-archived", [ARCHIVE]]]);
+  const criteria = effectiveCriteria([ARCHIVE, DUET], FAVORITES_ONLY);
+  const marks = { favorite: true, sung: false };
+
+  expect(passesSongCriteria("s-plain", bySong, criteria, marks)).toBe(true);
+  // Favorited, but archived by the default nobody touched.
+  expect(passesSongCriteria("s-archived", bySong, criteria, marks)).toBe(false);
+  expect(
+    passesSongCriteria("s-plain", bySong, criteria, {
+      favorite: false,
+      sung: false,
+    }),
+  ).toBe(false);
+  expect(
+    passesSongCriteria(
+      "s-plain",
+      bySong,
+      effectiveCriteria([], { sung: "no", tags: new Map() }),
+      { favorite: false, sung: true },
+    ),
+  ).toBe(false);
 });
