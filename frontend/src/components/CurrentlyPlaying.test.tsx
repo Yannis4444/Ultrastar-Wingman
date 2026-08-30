@@ -69,6 +69,7 @@ const SING: CurrentSing = {
     artist: "ABBA",
     duration_seconds: 231,
     has_video: true,
+    is_duet: false,
     language: null,
     genre: null,
     year: null,

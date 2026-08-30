@@ -15,7 +15,6 @@ import {
   listSongCommentsQueryKey,
   listSongScoresOptions,
   listTagAssignmentsQueryKey,
-  listTagRulesOptions,
   removePlaylistEntryMutation,
   unassignTagMutation,
 } from "../api/@tanstack/react-query.gen";
@@ -28,7 +27,7 @@ import { useTags } from "../hooks/useTags";
 import { useWingmanEvent, type WingmanEvent } from "../hooks/useWingmanEvents";
 import { useWishlist } from "../hooks/useWishlist";
 import { songHistory } from "../stats";
-import { ruleSummary, tagColorClass, tagGlyph } from "../tags";
+import { tagColorClass, tagGlyph } from "../tags";
 import ConfirmModal from "./ConfirmModal";
 import IconStat from "./IconStat";
 import { Icon, type IconName } from "./icons";
@@ -139,12 +138,6 @@ export default function SongDetails({ song, onClose }: SongDetailsProps) {
   );
   const assignable = tags.tags.filter((tag) => tag.can_assign);
   const carriedIds = new Set(carried.map((tag) => tag.id));
-  // What the padlock on an automatic tag says it follows. Only the Tags
-  // sub-view spells a rule out, so the listing waits for it.
-  const ruleKinds = useQuery({
-    ...listTagRulesOptions(),
-    enabled: auth.loaded && auth.can("songs.view") && view === "tags",
-  });
 
   const canManagePlaylists = auth.user !== null && auth.can("playlists.manage");
   // One listing for the whole picker: `song_id` makes the backend fill each
@@ -329,7 +322,8 @@ export default function SongDetails({ song, onClose }: SongDetailsProps) {
   // Duration lives in the preview player and artist in the hero, so the
   // details keep only what the modal does not show anyway.
   const rows: { icon: IconName; label: string; value: string | null }[] = [
-    { icon: "globe", label: "Language", value: song.language },
+    // `flag` is "a language or a country" (§3); `globe` means global sharing.
+    { icon: "flag", label: "Language", value: song.language },
     // Not `tag`: that glyph is the tags feature's, one row further down (§3).
     { icon: "music", label: "Genre", value: song.genre },
     {
@@ -521,14 +515,7 @@ export default function SongDetails({ song, onClose }: SongDetailsProps) {
                 </span>
               );
               if (!tag.can_assign) {
-                // Two different padlocks: a tag somebody else may set, and one
-                // nobody sets at all. Saying "you may not" about an automatic
-                // tag would send the reader asking for a right that does not
-                // exist, so it names the rule instead.
-                const why =
-                  tag.rule === null
-                    ? "You may see this tag but not set it"
-                    : `Set automatically — ${ruleSummary(tag.rule, ruleKinds.data?.rules ?? [])}`;
+                const why = "You may see this tag but not set it";
                 return (
                   <li key={tag.id}>
                     {/* Not a button: there is nothing to press. The padlock is

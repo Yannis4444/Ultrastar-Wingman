@@ -39,11 +39,28 @@ the same commit.
 With a backend on :8080: `npm run generate-api` (cwd `frontend/`).
 
 Without one (the user's backend may be stale or absent), dump the schema and
-point the generator at the file:
+point the generator at the file. The dump is a script, not a `python -c`
+one-liner: the venv python is only ever called by absolute path on a file
+(CLAUDE.md), so write this to `<scratchpad>\dump_openapi.py` first —
+
+```python
+import json
+from pathlib import Path
+
+from ultrastar_wingman.app import create_app
+
+# Written here rather than by a `>` redirect: PowerShell's redirect writes
+# UTF-8 *with* a BOM, and the generator's JSON parser refuses one.
+Path(r"<scratchpad>\openapi.json").write_text(
+    json.dumps(create_app().openapi()), encoding="utf-8"
+)
+```
+
+— and then run it:
 
 ```powershell
 $env:WINGMAN_DATA_DIR = "<scratchpad>\gen"   # isolated DB, never the live one
-D:\git\Ultrastar-Wingman-new\venv\Scripts\python.exe -c "import json; from ultrastar_wingman.app import create_app; print(json.dumps(create_app().openapi()))" > <scratchpad>\openapi.json
+D:\git\Ultrastar-Wingman-new\venv\Scripts\python.exe <scratchpad>\dump_openapi.py
 cd frontend; npx openapi-ts --input <scratchpad>\openapi.json
 ```
 

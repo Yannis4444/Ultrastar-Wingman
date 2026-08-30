@@ -15,6 +15,10 @@ class SongRead(BaseModel):
     # up with what the TV shows.
     duration_seconds: int | None
     has_video: bool
+    # Two singers take turns in the file. Read out of the `.txt` by the parser, and — like
+    # `has_video`, the genre and the year — what the *Duet* facet filters on: the built-in
+    # facets are computed on the client, over the song list it already has.
+    is_duet: bool
     language: str | None
     genre: str | None
     year: int | None
@@ -35,6 +39,7 @@ def read_song(song: Song) -> SongRead:
         duration_seconds=song.duration_seconds,
         # File paths stay server-side; the UI only needs to know a video exists.
         has_video=song.video_file is not None,
+        is_duet=song.is_duet,
         language=song.language,
         genre=song.genre,
         year=song.year,

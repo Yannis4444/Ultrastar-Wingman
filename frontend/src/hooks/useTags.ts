@@ -31,10 +31,11 @@ export interface Tags {
   /** The viewable tags whose songs the list leaves out until asked. */
   hideByDefault: TagRead[];
   /**
-   * The two built-in marks — Favorites and Sung — as the party configured
-   * them. Not tags and not in the lists above: they say something about the
-   * *reader*, so they carry no permissions and everybody gets both. They fall
-   * back to the pink heart and the blue microphone until the listing answers.
+   * The eight built-ins — the two marks and the six facets — as the party
+   * configured them. Not tags and not in the lists above: a mark says something
+   * about the *reader* and a facet something the song file already carries, so
+   * they carry no permissions and everybody gets all eight. They fall back to
+   * the app's own defaults until the listing answers.
    */
   builtIns: BuiltInTags;
   isPending: boolean;
@@ -43,8 +44,8 @@ export interface Tags {
 const NO_TAGS: TagRead[] = [];
 
 /**
- * The two built-in marks alone, for a surface that draws a heart or a
- * microphone but no tags — the wishlist tile on Home. `useTags` would drag the
+ * The built-ins alone, for a surface that draws a heart or a microphone but no
+ * tags — the wishlist tile on Home. `useTags` would drag the
  * assignments listing along, which is the expensive one and which Home has no
  * use for; this reads the same `GET /tags` cache and nothing else, so a page
  * that also uses `useTags` still makes one request.

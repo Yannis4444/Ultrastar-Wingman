@@ -1,8 +1,7 @@
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { Link } from "react-router-dom";
-import type { TagRead, TagRuleKindRead } from "../api";
+import type { TagRead } from "../api";
 import {
-  listTagRulesOptions,
   listTagsOptions,
   listTagsQueryKey,
 } from "../api/@tanstack/react-query.gen";
@@ -13,30 +12,40 @@ import Loading from "../components/Loading";
 import PageHeader from "../components/PageHeader";
 import { useWingmanEvent } from "../hooks/useWingmanEvents";
 import {
+  type BuiltInTag,
   BUILT_IN_TAG_IDS,
   BUILT_IN_TAGS,
   builtInTags,
-  ruleSummary,
   tagColorClass,
   tagGlyph,
 } from "../tags";
 import "./Tags.css";
 
 /**
- * What a row says about a tag under its name: how many songs wear it, the rule
- * that put them there if it was not a person, and the two flags that change
- * what everybody else sees. Everything but the count is left out when it does
- * not apply — a meta line is for what is unusual about this row.
+ * What a row says about a tag under its name: how many songs wear it, and the
+ * two flags that change what everybody else sees. Either flag is left out when
+ * it does not apply — a meta line is for what is unusual about this row.
  */
-function meta(tag: TagRead, kinds: readonly TagRuleKindRead[]): string {
+function meta(tag: TagRead): string {
   const songs = tag.song_count;
   const parts = [songs === 1 ? "1 song" : `${songs} songs`];
-  // First of the three, right behind the count (§7): how the songs got there
-  // comes before what the tag does to a list.
-  if (tag.rule !== null)
-    parts.push(`automatic: ${ruleSummary(tag.rule, kinds)}`);
   if (tag.hide_by_default) parts.push("hidden by default");
   if (tag.show_in_list) parts.push("shown in list");
+  return parts.join(" · ");
+}
+
+/**
+ * What a row says about a built-in. The kind leads, so no line is ever empty:
+ * a mark is "per person" (never a song count — that number is different for
+ * every reader) and a facet comes "from the file". After it, only what is *on*
+ * — an option that is off is dropped rather than spelled out, the same way a
+ * tag's row leaves out the flags it has not got (§7).
+ */
+function builtInMeta(built: BuiltInTag): string {
+  const parts = [built.kind === "mark" ? "per person" : "from the file"];
+  if (built.kind !== "valued" && built.show_in_list)
+    parts.push("shown in list");
+  if (built.kind !== "mark" && built.show_in_filter) parts.push("in filter");
   return parts.join(" · ");
 }
 
@@ -52,9 +61,6 @@ export default function Tags() {
   const allowed = auth.loaded && auth.can("tags.manage");
 
   const tags = useQuery({ ...listTagsOptions(), enabled: allowed });
-  // What a rule is called, for the meta line of an automatic tag. Its own
-  // request, and the same cache the editor and the song modal read.
-  const ruleKinds = useQuery({ ...listTagRulesOptions(), enabled: allowed });
 
   const refresh = () =>
     void queryClient.invalidateQueries({ queryKey: listTagsQueryKey() });
@@ -123,9 +129,7 @@ export default function Tags() {
                         </span>
                         <span className="tags-text">
                           <span className="tags-name">{tag.name}</span>
-                          <span className="tags-meta">
-                            {meta(tag, ruleKinds.data?.rules ?? [])}
-                          </span>
+                          <span className="tags-meta">{meta(tag)}</span>
                         </span>
                         <Icon name="chevron-right" className="tags-chevron" />
                       </Link>
@@ -134,7 +138,7 @@ export default function Tags() {
                 </ul>
               )}
 
-              {/* The two marks the app brings with it, after the rows `+` and
+              {/* The eight the app brings with it, after the rows `+` and
                   Delete govern: they are not tags, so nothing here creates or
                   removes one. *Recent* is a mode — a time-ordered list — and
                   has no row at all. */}
@@ -155,12 +159,11 @@ export default function Tags() {
                             <span className="tags-name">
                               {BUILT_IN_TAGS[id].name}
                             </span>
-                            {/* Never a song count: how many songs wear this one
-                                is a different number for every reader. */}
+                            {/* Never a song count: a mark's is a different
+                                number for every reader, a facet's is one
+                                number per value. */}
                             <span className="tags-meta">
-                              {builtIns[id].show_in_list
-                                ? "per person · shown in list"
-                                : "per person"}
+                              {builtInMeta(builtIns[id])}
                             </span>
                           </span>
                           <Icon name="chevron-right" className="tags-chevron" />

@@ -10,7 +10,7 @@ import type { CommentRead, ScoreWithContext, SongRead, TagRead } from "../api";
 import { meResponse, userRead } from "../test/auth";
 import { FakeSocket } from "../test/fakeSocket";
 import { iconNames } from "../test/icons";
-import { ruleKindReads, tagRead } from "../test/tags";
+import { tagRead } from "../test/tags";
 import SongDetails from "./SongDetails";
 
 const {
@@ -25,7 +25,6 @@ const {
   createPlaylist,
   listTags,
   listTagAssignments,
-  listTagRules,
   assignTag,
   unassignTag,
   listSongComments,
@@ -43,7 +42,6 @@ const {
   createPlaylist: vi.fn(),
   listTags: vi.fn(),
   listTagAssignments: vi.fn(),
-  listTagRules: vi.fn(),
   assignTag: vi.fn(),
   unassignTag: vi.fn(),
   listSongComments: vi.fn(),
@@ -64,7 +62,6 @@ vi.mock("../api/sdk.gen", async (importOriginal) => ({
   createPlaylist,
   listTags,
   listTagAssignments,
-  listTagRules,
   assignTag,
   unassignTag,
   listSongComments,
@@ -78,6 +75,7 @@ const song: SongRead = {
   title: "Bohemian Rhapsody",
   duration_seconds: 355,
   has_video: true,
+  is_duet: false,
   language: "English",
   genre: null,
   year: 1975,
@@ -153,19 +151,11 @@ beforeEach(() => {
   createPlaylist.mockReset();
   addPlaylistEntry.mockReset();
   removePlaylistEntry.mockReset();
-  for (const mock of [
-    listTags,
-    listTagAssignments,
-    listTagRules,
-    assignTag,
-    unassignTag,
-  ])
+  for (const mock of [listTags, listTagAssignments, assignTag, unassignTag])
     mock.mockReset();
   // No tag the reader may see, so the Tags row is absent unless a test says so.
   listTags.mockResolvedValue({ data: { tags: [] } });
   listTagAssignments.mockResolvedValue({ data: { assignments: [] } });
-  // Read by the Tags sub-view alone, to spell an automatic tag's rule out.
-  listTagRules.mockResolvedValue({ data: { rules: ruleKindReads() } });
   assignTag.mockResolvedValue({ data: undefined });
   unassignTag.mockResolvedValue({ data: undefined });
   // The best-scores view reaches over every party, so it is `stats.history`.
@@ -595,6 +585,14 @@ test("the genre row wears the music glyph, the tags feature keeps its own", asyn
   expect(iconNames(screen.getByTitle("Genre"))).toEqual(["music"]);
 });
 
+test("the language row wears the flag, the glyph the Language facet wears", async () => {
+  renderDetails();
+
+  fireEvent.click(await screen.findByRole("button", { name: "Details" }));
+  // Not `globe`: that one means global sharing (a public playlist, USDB).
+  expect(iconNames(screen.getByTitle("Language"))).toEqual(["flag"]);
+});
+
 test("there is no tags row when the reader may not view a single tag", async () => {
   renderDetails();
 
@@ -674,40 +672,25 @@ test("a tag the reader may see but not set is a padlock row", async () => {
   expect(iconNames(row as HTMLElement)).toEqual(["archive", "lock"]);
 });
 
-test("an automatic tag's padlock names its rule, not a missing right", async () => {
+test("every padlock says the same thing: somebody else sets this one", async () => {
   const duets = tagRead({
     id: "t-duets",
     name: "duets",
     icon: "music",
     can_assign: false,
-    rule: { kind: "duet", value: null },
   });
-  const deutsch = tagRead({
-    id: "t-deutsch",
-    name: "deutsch",
-    icon: "music",
-    can_assign: false,
-    rule: { kind: "language", value: "Deutsch" },
-  });
-  withTags([ARCHIVE, duets, deutsch], ["t-duets"]);
+  withTags([ARCHIVE, duets], ["t-duets"]);
   renderDetails();
 
   fireEvent.click(await screen.findByRole("button", { name: /Tags/ }));
   const dialog = screen.getByRole("dialog", { name: "Tags" });
-  // Nobody sets these two, so "you may not" would send the reader asking for a
-  // right that does not exist.
+  // A tag is what people put on songs, so a locked row is always about a right
+  // somebody else holds — there is no second reason a row can be locked.
   await waitFor(() =>
     expect(
-      within(dialog).getByTitle("Set automatically — duet"),
-    ).toBeInTheDocument(),
+      within(dialog).getAllByTitle("You may see this tag but not set it"),
+    ).toHaveLength(2),
   );
-  expect(
-    within(dialog).getByTitle("Set automatically — language = Deutsch"),
-  ).toBeInTheDocument();
-  // The ordinary padlock still says what it always said.
-  expect(
-    within(dialog).getByTitle("You may see this tag but not set it"),
-  ).toBeInTheDocument();
 });
 
 test("a refused tag says so instead of failing silently", async () => {

@@ -1,34 +1,21 @@
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import {
-  fireEvent,
-  render,
-  screen,
-  waitFor,
-  within,
-} from "@testing-library/react";
+import { fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { MemoryRouter, Route, Routes, useLocation } from "react-router-dom";
 import type {
   BuiltInTagRead,
   MeRead,
   TagPermissionRead,
   TagRead,
-  TagRuleKindRead,
 } from "../api";
 import { meResponse, userRead } from "../test/auth";
 import { FakeSocket } from "../test/fakeSocket";
 import { iconNames } from "../test/icons";
-import {
-  builtInTagRead,
-  builtInTagReads,
-  ruleKindReads,
-  tagRead,
-} from "../test/tags";
+import { builtInTagRead, builtInTagReads, tagRead } from "../test/tags";
 import TagEditor from "./TagEditor";
 
 const {
   getMe,
   listTags,
-  listTagRules,
   createTag,
   updateTag,
   replaceTagPermissions,
@@ -38,7 +25,6 @@ const {
 } = vi.hoisted(() => ({
   getMe: vi.fn(),
   listTags: vi.fn(),
-  listTagRules: vi.fn(),
   createTag: vi.fn(),
   updateTag: vi.fn(),
   replaceTagPermissions: vi.fn(),
@@ -51,7 +37,6 @@ vi.mock("../api/sdk.gen", async (importOriginal) => ({
   ...(await importOriginal<typeof import("../api/sdk.gen")>()),
   getMe,
   listTags,
-  listTagRules,
   createTag,
   updateTag,
   replaceTagPermissions,
@@ -98,17 +83,14 @@ function renderEditor({
   tags = [tag({ song_count: 2 })],
   capabilities = MANAGER,
   builtIns = builtInTagReads(),
-  rules = ruleKindReads(),
 }: {
   path?: string;
   tags?: TagRead[];
   capabilities?: string[];
   builtIns?: BuiltInTagRead[];
-  rules?: TagRuleKindRead[];
 } = {}) {
   getMe.mockResolvedValue(meResponse(capabilities, ACCOUNT));
   listTags.mockResolvedValue({ data: { tags, built_ins: builtIns } });
-  listTagRules.mockResolvedValue({ data: { rules } });
   const client = new QueryClient({
     defaultOptions: { queries: { retry: false } },
   });
@@ -156,7 +138,6 @@ beforeEach(() => {
   for (const mock of [
     getMe,
     listTags,
-    listTagRules,
     createTag,
     updateTag,
     replaceTagPermissions,
@@ -576,379 +557,9 @@ it("offers no delete for a tag that does not exist yet", async () => {
   ).not.toBeInTheDocument();
 });
 
-// --- automatic tags --------------------------------------------------------
+// --- the built-in marks and facets ----------------------------------------
 
-/** The rule select's options, in the order it offers them. */
-function ruleOptions(): string[] {
-  return [...screen.getByLabelText("Rule").querySelectorAll("option")].map(
-    (option) => option.textContent ?? "",
-  );
-}
-
-/** The confirmation, whose confirm button says "Save" like the form's own. */
-function dialog() {
-  return within(screen.getByRole("dialog"));
-}
-
-it("offers every rule the registry lists, and 'not automatic' first", async () => {
-  renderEditor();
-
-  await screen.findByDisplayValue("broken");
-  await waitFor(() =>
-    expect(ruleOptions()).toEqual([
-      "Not automatic",
-      "Duet",
-      "Has video",
-      "Language is…",
-      "Genre is…",
-      "Edition is…",
-    ]),
-  );
-  // A manual tag opens on the first one, and asks for nothing to compare.
-  expect(screen.getByLabelText("Rule")).toHaveValue("");
-  expect(screen.queryByLabelText("Value")).not.toBeInTheDocument();
-});
-
-it("asks for a value only where the rule needs one, and suggests the library's", async () => {
-  renderEditor();
-
-  await screen.findByDisplayValue("broken");
-  fireEvent.change(screen.getByLabelText("Rule"), {
-    target: { value: "duet" },
-  });
-  expect(screen.queryByLabelText("Value")).not.toBeInTheDocument();
-
-  fireEvent.change(screen.getByLabelText("Rule"), {
-    target: { value: "language" },
-  });
-  const value = screen.getByLabelText("Value");
-  expect(value).toBeInTheDocument();
-  // A suggestion, not a choice: the input takes anything, and the list is the
-  // languages this library happens to hold.
-  const list = document.getElementById(value.getAttribute("list") ?? "");
-  expect(
-    [...(list?.querySelectorAll("option") ?? [])].map((option) => option.value),
-  ).toEqual(["Deutsch", "English"]);
-});
-
-it("sends the rule a new tag was given", async () => {
-  createTag.mockResolvedValue({ data: tag({ id: "t-new", name: "deutsch" }) });
-  renderEditor({ path: "/user/tags/new", tags: [] });
-
-  await screen.findByLabelText("Name");
-  fireEvent.change(screen.getByLabelText("Name"), {
-    target: { value: "deutsch" },
-  });
-  fireEvent.change(screen.getByLabelText("Rule"), {
-    target: { value: "language" },
-  });
-  fireEvent.change(screen.getByLabelText("Value"), {
-    target: { value: "  Deutsch  " },
-  });
-  fireEvent.click(screen.getByRole("button", { name: "Save" }));
-
-  await waitFor(() => expect(createTag).toHaveBeenCalled());
-  expect(createTag.mock.calls[0][0].body.rule).toEqual({
-    kind: "language",
-    value: "Deutsch",
-  });
-  // A tag that has never had a song has nothing to lose, so nothing was asked.
-  expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
-});
-
-it("waits for a value the rule cannot do without", async () => {
-  renderEditor({ path: "/user/tags/new", tags: [] });
-
-  await screen.findByLabelText("Name");
-  fireEvent.change(screen.getByLabelText("Name"), {
-    target: { value: "editions" },
-  });
-  fireEvent.change(screen.getByLabelText("Rule"), {
-    target: { value: "edition" },
-  });
-
-  expect(screen.getByRole("button", { name: "Save" })).toBeDisabled();
-  fireEvent.change(screen.getByLabelText("Value"), {
-    target: { value: "Party" },
-  });
-  expect(screen.getByRole("button", { name: "Save" })).toBeEnabled();
-});
-
-it("never sends a value with a rule that has nothing to compare", async () => {
-  createTag.mockResolvedValue({ data: tag({ id: "t-new", name: "duets" }) });
-  renderEditor({ path: "/user/tags/new", tags: [] });
-
-  await screen.findByLabelText("Name");
-  fireEvent.change(screen.getByLabelText("Name"), {
-    target: { value: "duets" },
-  });
-  fireEvent.change(screen.getByLabelText("Rule"), {
-    target: { value: "language" },
-  });
-  fireEvent.change(screen.getByLabelText("Value"), {
-    target: { value: "English" },
-  });
-  // Changed its mind: the input is gone, and what was in it must go with it —
-  // the backend refuses a value on a rule that compares nothing.
-  fireEvent.change(screen.getByLabelText("Rule"), {
-    target: { value: "duet" },
-  });
-  fireEvent.click(screen.getByRole("button", { name: "Save" }));
-
-  await waitFor(() => expect(createTag).toHaveBeenCalled());
-  expect(createTag.mock.calls[0][0].body.rule).toEqual({
-    kind: "duet",
-    value: null,
-  });
-});
-
-it("leaves the assign ticks standing but nobody's while a rule is on", async () => {
-  renderEditor({
-    tags: [tag({ song_count: 0, rule: { kind: "duet", value: null } })],
-  });
-
-  await screen.findByDisplayValue("broken");
-  // Still ticked — the permission rows survive the rule, so taking it off
-  // gives the tag back to the same people.
-  expect(screen.getByLabelText("Tag songs for trusted")).toBeChecked();
-  expect(screen.getByLabelText("Tag songs for trusted")).toBeDisabled();
-  expect(screen.getByLabelText("Tag songs for guest")).toBeDisabled();
-  expect(screen.getByLabelText("See tag for guest")).toBeEnabled();
-  expect(
-    screen.getByText(/Tag songs is nobody's while it is automatic/),
-  ).toBeInTheDocument();
-
-  // Back to manual and the ticks are ticks again.
-  fireEvent.change(screen.getByLabelText("Rule"), { target: { value: "" } });
-  expect(screen.getByLabelText("Tag songs for trusted")).toBeEnabled();
-});
-
-it("warns before a rule takes over the songs somebody set by hand", async () => {
-  updateTag.mockResolvedValue({
-    data: tag({ rule: { kind: "duet", value: null } }),
-  });
-  renderEditor();
-
-  await screen.findByDisplayValue("broken");
-  fireEvent.change(screen.getByLabelText("Rule"), {
-    target: { value: "duet" },
-  });
-  fireEvent.click(screen.getByRole("button", { name: "Save" }));
-
-  expect(
-    screen.getByText(/The 2 songs carrying it lose their hand-set tag/),
-  ).toBeInTheDocument();
-  expect(updateTag).not.toHaveBeenCalled();
-
-  fireEvent.click(dialog().getByRole("button", { name: "Save" }));
-  await waitFor(() => expect(updateTag).toHaveBeenCalled());
-  expect(updateTag.mock.calls[0][0].body).toEqual({
-    rule: { kind: "duet", value: null },
-  });
-});
-
-it("says a changed rule is re-derived, and a removed one empties the tag", async () => {
-  updateTag.mockResolvedValue({ data: tag() });
-  renderEditor({
-    tags: [
-      tag({ song_count: 3, rule: { kind: "language", value: "English" } }),
-    ],
-  });
-
-  await screen.findByDisplayValue("broken");
-  fireEvent.change(screen.getByLabelText("Value"), {
-    target: { value: "Deutsch" },
-  });
-  fireEvent.click(screen.getByRole("button", { name: "Save" }));
-  expect(screen.getByText(/Its 3 songs are re-derived/)).toBeInTheDocument();
-  fireEvent.click(dialog().getByRole("button", { name: "Cancel" }));
-  // Cancel is not a save: nothing went, and the draft is still the reader's.
-  expect(updateTag).not.toHaveBeenCalled();
-  expect(screen.getByLabelText("Value")).toHaveValue("Deutsch");
-  expect(screen.getByRole("button", { name: "Save" })).toBeEnabled();
-
-  fireEvent.change(screen.getByLabelText("Rule"), { target: { value: "" } });
-  fireEvent.click(screen.getByRole("button", { name: "Save" }));
-  expect(
-    screen.getByText(/the tag comes off them all and starts empty/),
-  ).toBeInTheDocument();
-
-  fireEvent.click(dialog().getByRole("button", { name: "Save" }));
-  await waitFor(() => expect(updateTag).toHaveBeenCalled());
-  expect(updateTag.mock.calls[0][0].body).toEqual({ rule: null });
-});
-
-it("counts a single song in the singular", async () => {
-  renderEditor({ tags: [tag({ song_count: 1 })] });
-
-  await screen.findByDisplayValue("broken");
-  fireEvent.change(screen.getByLabelText("Rule"), {
-    target: { value: "duet" },
-  });
-  fireEvent.click(screen.getByRole("button", { name: "Save" }));
-
-  expect(
-    screen.getByText(/The one song carrying it loses its hand-set tag/),
-  ).toBeInTheDocument();
-});
-
-it("asks nothing when the rule costs the tag no songs", async () => {
-  updateTag.mockResolvedValue({
-    data: tag({ rule: { kind: "has_video", value: null } }),
-  });
-  renderEditor({ tags: [tag({ song_count: 0 })] });
-
-  await screen.findByDisplayValue("broken");
-  fireEvent.change(screen.getByLabelText("Rule"), {
-    target: { value: "has_video" },
-  });
-  fireEvent.click(screen.getByRole("button", { name: "Save" }));
-
-  await waitFor(() => expect(updateTag).toHaveBeenCalled());
-  expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
-});
-
-it("keeps a rule kind this build does not know rather than dropping it", async () => {
-  updateTag.mockResolvedValue({ data: tag({ name: "cursed" }) });
-  renderEditor({
-    tags: [
-      tag({ song_count: 2, rule: { kind: "year_between", value: "1990" } }),
-    ],
-  });
-
-  await screen.findByDisplayValue("broken");
-  await waitFor(() => expect(ruleOptions()).toContain("year_between"));
-  // Shown, so the editor says what the tag follows; disabled, so it cannot be
-  // chosen for another tag.
-  expect(screen.getByLabelText("Rule")).toHaveValue("year_between");
-  expect(screen.getByRole("option", { name: "year_between" })).toBeDisabled();
-  expect(screen.getByLabelText("Value")).toHaveValue("1990");
-
-  // Saving something else does not mention the rule at all, so the backend
-  // leaves it — and the songs under it — alone.
-  fireEvent.change(screen.getByLabelText("Name"), {
-    target: { value: "cursed" },
-  });
-  fireEvent.click(screen.getByRole("button", { name: "Save" }));
-
-  await waitFor(() => expect(updateTag).toHaveBeenCalled());
-  expect(updateTag.mock.calls[0][0].body).toEqual({ name: "cursed" });
-});
-
-it("freezes the value of a rule kind it cannot send back", async () => {
-  renderEditor({
-    tags: [
-      tag({ song_count: 2, rule: { kind: "year_between", value: "1990" } }),
-    ],
-  });
-
-  await screen.findByDisplayValue("broken");
-  await waitFor(() => expect(ruleOptions()).toContain("year_between"));
-  // The listing comes from the very backend a save would go to, so a kind it
-  // does not offer is a kind that save would refuse: editing the value could
-  // only ever end in a 422.
-  expect(screen.getByLabelText("Value")).toBeDisabled();
-
-  // A rule this build does know unfreezes it again, the text still there.
-  fireEvent.change(screen.getByLabelText("Rule"), {
-    target: { value: "language" },
-  });
-  expect(screen.getByLabelText("Value")).toBeEnabled();
-  expect(screen.getByLabelText("Value")).toHaveValue("1990");
-});
-
-it("says why Save is off while a rule has nothing to compare against", async () => {
-  renderEditor({ path: "/user/tags/new", tags: [] });
-
-  await screen.findByLabelText("Name");
-  fireEvent.change(screen.getByLabelText("Name"), {
-    target: { value: "editions" },
-  });
-  fireEvent.change(screen.getByLabelText("Rule"), {
-    target: { value: "edition" },
-  });
-
-  // A dead button without a reason is not a refusal the reader can act on.
-  const hint = screen.getByText(/Save waits for this/);
-  expect(screen.getByLabelText("Value")).toHaveAttribute(
-    "aria-describedby",
-    hint.id,
-  );
-  // Spaces are not a value either — the backend trims before it compares.
-  fireEvent.change(screen.getByLabelText("Value"), { target: { value: "  " } });
-  expect(screen.getByText(/Save waits for this/)).toBeInTheDocument();
-  expect(screen.getByRole("button", { name: "Save" })).toBeDisabled();
-
-  fireEvent.change(screen.getByLabelText("Value"), {
-    target: { value: "Party" },
-  });
-  expect(screen.queryByText(/Save waits for this/)).not.toBeInTheDocument();
-  expect(screen.getByRole("button", { name: "Save" })).toBeEnabled();
-});
-
-it("keeps the value when the kind moves from one value rule to another", async () => {
-  renderEditor({
-    tags: [
-      tag({ song_count: 3, rule: { kind: "language", value: "English" } }),
-    ],
-  });
-
-  await screen.findByDisplayValue("broken");
-  fireEvent.change(screen.getByLabelText("Rule"), {
-    target: { value: "genre" },
-  });
-  // Two rules over the same word: retyping it would be the editor forgetting
-  // what the reader just told it.
-  expect(screen.getByLabelText("Value")).toHaveValue("English");
-  expect(screen.getByRole("button", { name: "Save" })).toBeEnabled();
-});
-
-it("asks for nothing when a rule comes back to where it started", async () => {
-  renderEditor({
-    tags: [
-      tag({ song_count: 3, rule: { kind: "language", value: "English" } }),
-    ],
-  });
-
-  await screen.findByDisplayValue("broken");
-  fireEvent.change(screen.getByLabelText("Rule"), {
-    target: { value: "genre" },
-  });
-  fireEvent.change(screen.getByLabelText("Rule"), {
-    target: { value: "language" },
-  });
-
-  // Back where it was: nothing to send, so nothing to confirm either.
-  expect(screen.getByRole("button", { name: "Save" })).toBeDisabled();
-  // Even submitted around the dead button, it neither asks nor sends.
-  const [form] = document.getElementsByTagName("form");
-  fireEvent.submit(form);
-  expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
-  expect(updateTag).not.toHaveBeenCalled();
-});
-
-it("sends the assign rows a rule made nobody's, untouched", async () => {
-  replaceTagPermissions.mockResolvedValue({ data: tag() });
-  renderEditor({
-    tags: [tag({ song_count: 0, rule: { kind: "duet", value: null } })],
-  });
-
-  await screen.findByDisplayValue("broken");
-  expect(screen.getByLabelText("Tag songs for trusted")).toBeDisabled();
-  // Something else moves, so the permissions go out — and the greyed tick has
-  // to be in them, or an automatic tag would quietly lose its grants.
-  fireEvent.click(screen.getByLabelText("See tag for guest"));
-  fireEvent.click(screen.getByRole("button", { name: "Save" }));
-
-  await waitFor(() => expect(replaceTagPermissions).toHaveBeenCalled());
-  expect(sentRows(replaceTagPermissions.mock.calls[0][0].body)).toContain(
-    "assign trusted",
-  );
-});
-
-// --- the built-in marks ---------------------------------------------------
-
-it("opens a built-in on two controls and nothing else", async () => {
+it("opens a mark on two controls and nothing else", async () => {
   renderEditor({ path: "/user/tags/favorites" });
 
   expect(
@@ -1033,7 +644,7 @@ it("says so when a built-in cannot be saved", async () => {
   fireEvent.click(screen.getByRole("button", { name: "Save" }));
 
   expect(await screen.findByRole("alert")).toHaveTextContent(
-    "Could not save the mark.",
+    "Could not save the built-in.",
   );
 });
 
@@ -1044,4 +655,138 @@ it("keeps a built-in from a role that may not manage tags", async () => {
     await screen.findByText(/Tags are set up by trusted accounts/),
   ).toBeInTheDocument();
   expect(listTags).not.toHaveBeenCalled();
+});
+
+it("opens a boolean facet on its colour and its two flags", async () => {
+  renderEditor({ path: "/user/tags/duet" });
+
+  expect(
+    await screen.findByRole("radiogroup", { name: "Colour" }),
+  ).toBeInTheDocument();
+  expect(screen.getByRole("heading", { name: "Duet" })).toBeInTheDocument();
+  // Colour, both flags, Save — and every flag with its explaining line.
+  expect(
+    screen.getByRole("checkbox", { name: "Show in song list" }),
+  ).not.toBeChecked();
+  expect(
+    screen.getByRole("checkbox", { name: "Show in filter" }),
+  ).toBeChecked();
+  expect(screen.getByText(/next to the tags/)).toBeInTheDocument();
+  expect(
+    screen.getByText(/The Filter panel offers Duet as a row of its own/),
+  ).toBeInTheDocument();
+  expect(
+    screen.getByText(/Duet comes out of the song file/),
+  ).toBeInTheDocument();
+  // The pills preview the facet's own glyph, never the tag one.
+  expect(iconNames(screen.getByRole("radiogroup", { name: "Colour" }))).toEqual(
+    ["users", "users", "users", "users"],
+  );
+  expect(screen.queryByLabelText("Name")).not.toBeInTheDocument();
+  expect(
+    screen.queryByRole("checkbox", { name: "Hide songs by default" }),
+  ).not.toBeInTheDocument();
+  expect(
+    screen.queryByRole("button", { name: "Delete tag" }),
+  ).not.toBeInTheDocument();
+});
+
+it("opens a valued facet on the one thing there is to decide", async () => {
+  renderEditor({ path: "/user/tags/genre" });
+
+  expect(
+    await screen.findByRole("checkbox", { name: "Show in filter" }),
+  ).toBeChecked();
+  expect(screen.getByRole("heading", { name: "Genre" })).toBeInTheDocument();
+  // No colour to set and never a mark on a row (§1.3), so neither control is
+  // here — and one line says why the rest is gone.
+  expect(
+    screen.queryByRole("radiogroup", { name: "Colour" }),
+  ).not.toBeInTheDocument();
+  expect(
+    screen.queryByRole("checkbox", { name: "Show in song list" }),
+  ).not.toBeInTheDocument();
+  expect(
+    screen.getByText(/Genre comes out of the song file itself/),
+  ).toBeInTheDocument();
+  expect(
+    screen.getByText(/listing the values the library actually holds/),
+  ).toBeInTheDocument();
+});
+
+it("sends a boolean facet every option its kind has", async () => {
+  updateBuiltInTag.mockResolvedValue({
+    data: {
+      id: "video",
+      kind: "boolean",
+      color: "pink",
+      show_in_list: true,
+      show_in_filter: false,
+    },
+  });
+  renderEditor({ path: "/user/tags/video" });
+
+  await screen.findByRole("radiogroup", { name: "Colour" });
+  fireEvent.click(screen.getByRole("radio", { name: /Pink/ }));
+  fireEvent.click(screen.getByRole("checkbox", { name: "Show in song list" }));
+  fireEvent.click(screen.getByRole("checkbox", { name: "Show in filter" }));
+  fireEvent.click(screen.getByRole("button", { name: "Save" }));
+
+  await waitFor(() => expect(updateBuiltInTag).toHaveBeenCalled());
+  expect(updateBuiltInTag.mock.calls[0][0]).toMatchObject({
+    path: { built_in_id: "video" },
+    body: { color: "pink", show_in_list: true, show_in_filter: false },
+  });
+  expect(await screen.findByText("Saved")).toBeInTheDocument();
+});
+
+it("sends a valued facet nothing but its flag", async () => {
+  updateBuiltInTag.mockResolvedValue({
+    data: {
+      id: "decade",
+      kind: "valued",
+      color: null,
+      show_in_list: null,
+      show_in_filter: false,
+    },
+  });
+  renderEditor({ path: "/user/tags/decade" });
+
+  await screen.findByRole("checkbox", { name: "Show in filter" });
+  fireEvent.click(screen.getByRole("checkbox", { name: "Show in filter" }));
+  fireEvent.click(screen.getByRole("button", { name: "Save" }));
+
+  await waitFor(() => expect(updateBuiltInTag).toHaveBeenCalled());
+  // A colour on Decade is a 422: the body carries exactly the kind's options.
+  expect(updateBuiltInTag.mock.calls[0][0].body).toEqual({
+    show_in_filter: false,
+  });
+  expect(await screen.findByText("Saved")).toBeInTheDocument();
+  expect(screen.getByRole("button", { name: "Save" })).toBeDisabled();
+});
+
+it("sends a mark nothing about the filter", async () => {
+  updateBuiltInTag.mockResolvedValue({
+    data: {
+      id: "sung",
+      kind: "mark",
+      color: "gold",
+      show_in_list: true,
+      show_in_filter: null,
+    },
+  });
+  renderEditor({ path: "/user/tags/sung" });
+
+  await screen.findByRole("radiogroup", { name: "Colour" });
+  expect(
+    screen.queryByRole("checkbox", { name: "Show in filter" }),
+  ).not.toBeInTheDocument();
+  fireEvent.click(screen.getByRole("radio", { name: /Gold/ }));
+  fireEvent.click(screen.getByRole("button", { name: "Save" }));
+
+  await waitFor(() => expect(updateBuiltInTag).toHaveBeenCalled());
+  expect(updateBuiltInTag.mock.calls[0][0].body).toEqual({
+    color: "gold",
+    show_in_list: true,
+  });
 });

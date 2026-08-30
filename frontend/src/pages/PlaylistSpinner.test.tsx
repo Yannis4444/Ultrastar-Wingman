@@ -32,6 +32,7 @@ function song(overrides: Partial<SongRead> = {}): SongRead {
     artist: "Toto",
     duration_seconds: 295,
     has_video: false,
+    is_duet: false,
     language: "English",
     genre: "Pop",
     year: 1982,

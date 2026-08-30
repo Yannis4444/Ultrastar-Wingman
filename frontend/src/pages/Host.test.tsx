@@ -66,6 +66,7 @@ const RHAPSODY: SongRead = {
   title: "Bohemian Rhapsody",
   duration_seconds: null,
   has_video: false,
+  is_duet: false,
   language: null,
   genre: null,
   year: null,

@@ -51,6 +51,7 @@ async def library(session: AsyncSession, tmp_path: Path) -> AsyncIterator[Path]:
                 year=2014,
                 edition="Party",
                 creator="someone",
+                is_duet=True,
             ),
             make_song("local:aaaa", "abba", "Mamma Mia"),
             make_song("local:bbbb", "ABBA", "Dancing Queen"),
@@ -91,6 +92,7 @@ async def test_song_detail_carries_the_full_contract(client: AsyncClient, librar
         "artist": "Mark Ronson",
         "duration_seconds": 270,
         "has_video": True,
+        "is_duet": True,
         "language": "English",
         "genre": "Funk",
         "year": 2014,
@@ -104,6 +106,24 @@ async def test_a_song_without_a_video_says_so(client: AsyncClient, library: Path
     assert response.status_code == 200
     assert response.json()["has_video"] is False
     assert response.json()["duration_seconds"] is None
+
+
+async def test_every_listed_song_carries_the_facet_fields(
+    client: AsyncClient, library: Path
+) -> None:
+    """The built-in facets are computed on the client, over the list it already has — so
+    `is_duet` rides on every row of the listing, not only on the detail, exactly like
+    `has_video` and the three metadata values beside it."""
+    response = await client.get("/api/v1/songs")
+
+    assert response.status_code == 200
+    by_id = {song["id"]: song for song in response.json()["songs"]}
+    assert by_id["usdb:1234"]["is_duet"] is True
+    # The column is NOT NULL with a default of 0: a song the parser said nothing about
+    # reads "not a duet", never null — there is no third answer to filter for.
+    assert by_id["local:aaaa"]["is_duet"] is False
+    for song in by_id.values():
+        assert set(song) >= {"is_duet", "has_video", "genre", "language", "edition", "year"}
 
 
 async def test_unknown_song_is_404(client: AsyncClient, library: Path) -> None:

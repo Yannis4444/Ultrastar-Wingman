@@ -41,6 +41,7 @@ function song(id: string, title: string): SongRead {
     artist: `Artist of ${title}`,
     duration_seconds: 100,
     has_video: false,
+    is_duet: false,
     language: null,
     genre: null,
     year: null,

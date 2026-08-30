@@ -1,4 +1,4 @@
-import type { BuiltInTagRead, TagRead, TagRuleKindRead } from "../api";
+import type { BuiltInTagRead, TagRead } from "../api";
 
 /**
  * One tag as `GET /tags` returns it: visible to the reader, theirs to set, and
@@ -16,9 +16,6 @@ export function tagRead(overrides: Partial<TagRead> = {}): TagRead {
     hide_by_default: false,
     can_view: true,
     can_assign: true,
-    // Manual: what people put on songs. An automatic tag carries a rule instead, and
-    // then `can_assign` is false for everybody.
-    rule: null,
     song_count: 0,
     permissions: null,
     ...overrides,
@@ -27,50 +24,49 @@ export function tagRead(overrides: Partial<TagRead> = {}): TagRead {
 
 /**
  * One built-in mark as `GET /tags` returns it beside the tags — the pink heart
- * and the blue microphone the app arrives with, unless a test says otherwise.
+ * the app arrives with, unless a test says otherwise. A mark has no
+ * `show_in_filter`: the Filter panel always has its row.
  */
 export function builtInTagRead(
   overrides: Partial<BuiltInTagRead> = {},
 ): BuiltInTagRead {
-  return { id: "favorites", color: "pink", show_in_list: true, ...overrides };
-}
-
-/** Both marks at their defaults, for the listings a test does not configure. */
-export function builtInTagReads(): BuiltInTagRead[] {
-  return [builtInTagRead(), builtInTagRead({ id: "sung", color: "blue" })];
+  return {
+    id: "favorites",
+    kind: "mark",
+    color: "pink",
+    show_in_list: true,
+    show_in_filter: null,
+    ...overrides,
+  };
 }
 
 /**
- * The rule registry as `GET /tags/rules` answers it: the five kinds in the
- * order the editor offers them — the two flags first, then the three that
- * compare a field, each with the values a small library holds.
+ * All eight built-ins at their defaults, in §7's *Built-in* order: the two
+ * per-reader marks, the two boolean facets the song file answers yes or no to,
+ * and the four valued ones. Every listing a test does not configure carries the
+ * whole set, so every surface reads the same eight rows the backend sends.
  */
-export function ruleKindReads(): TagRuleKindRead[] {
+export function builtInTagReads(): BuiltInTagRead[] {
   return [
-    { kind: "duet", label: "Duet", needs_value: false, suggestions: [] },
-    {
-      kind: "has_video",
-      label: "Has video",
-      needs_value: false,
-      suggestions: [],
-    },
-    {
-      kind: "language",
-      label: "Language is…",
-      needs_value: true,
-      suggestions: ["Deutsch", "English"],
-    },
-    {
-      kind: "genre",
-      label: "Genre is…",
-      needs_value: true,
-      suggestions: ["Pop", "Schlager"],
-    },
-    {
-      kind: "edition",
-      label: "Edition is…",
-      needs_value: true,
-      suggestions: ["Party"],
-    },
+    builtInTagRead(),
+    builtInTagRead({ id: "sung", color: "blue" }),
+    ...(["duet", "video"] as const).map((id) =>
+      builtInTagRead({
+        id,
+        kind: "boolean",
+        color: "neutral",
+        show_in_list: false,
+        show_in_filter: true,
+      }),
+    ),
+    ...(["genre", "language", "edition", "decade"] as const).map((id) =>
+      builtInTagRead({
+        id,
+        kind: "valued",
+        color: null,
+        show_in_list: null,
+        show_in_filter: true,
+      }),
+    ),
   ];
 }

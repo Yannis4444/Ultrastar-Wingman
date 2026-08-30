@@ -14,18 +14,20 @@ request does not override are the accessibility and dependency floors in §1.8�
 2. **`--tile-bg` is whitelisted, not general.** Allowed: `.home-stage`, `.user-identity`,
    `.modal` (non-bare), `.scores-chart`, `.score-group-panel`, the USDB login card, the login
    form, the "add songs from…" source cards. Nothing else; extending it is a user decision.
-3. **No per-row badges for near-universal attributes.** No "MP3", "video", "duet", "downloaded"
-   or role chips per row — those belong in the details modal. Allowed per row: the marks of rule
-   4 and one numeric (or `—`) value column. Tag marks are the opt-in exception: a tag most songs
-   would wear leaves `show_in_list` off.
+3. **No per-row badges for near-universal attributes.** No "MP3", "downloaded" or role chips
+   per row, and never a valued facet — a genre, a language, an edition, a decade belongs in
+   the details modal, where it is one line and not a mark. Allowed per row: the marks of rule
+   4 and one numeric (or `—`) value column. Opt-in marks are the exception: a tag most songs
+   would wear leaves `show_in_list` off, and so do *Duet* and *Video*.
 4. **List rows carry passive marks, never toggles.** After the title, in DOM order:
-   `.song-mark-sung` (`mic`), `.song-mark-favorite` (`heart`) — each in its built-in's
-   configured colour (blue and pink by default), and only while that built-in is shown in the
-   song list — then one `.song-mark-tag` per visible `show_in_list` tag in the tag's colour.
-   Each is `font-size: 0.8em; flex: 0 0 auto`; state is set in the song modal. That colour
-   paints the built-in's Filter row and Songs chip glyph too; the heart and mic **toggles**
-   (Home stage, song modal) keep their accent colours — they are controls, not tags.
-   `.song-mark-wished` (blue `check`) is the wishlist tile's alone; rows never draw it.
+   `.song-mark-sung` (`mic`), `.song-mark-favorite` (`heart`), `.song-mark-duet` (`users`),
+   `.song-mark-video` (`video`) — each in its built-in's configured colour, and only while
+   that built-in is shown in the song list — then one `.song-mark-tag` per visible
+   `show_in_list` tag in the tag's colour. Each is `font-size: 0.8em; flex: 0 0 auto`; state
+   is set in the song modal, or by the file for the two facets. A built-in's colour paints
+   its Filter row glyph and, for the two marks, the Songs chip too; the heart and mic
+   **toggles** (Home stage, song modal) keep their accent colours — they are controls, not
+   tags. `.song-mark-wished` (blue `check`) is the wishlist tile's alone; rows never draw it.
 5. **Icons over words.** Structure with `Icon` + layout; add a text label only where the icon is
    ambiguous. Never repeat a datum the surrounding view already shows (duration is in the
    preview player; artist is in the hero).
@@ -95,17 +97,25 @@ is the picker's list below, never this table.
 | `list-plus` / `list` / `list-check` | add to playlist / picker row not in it / already in it; `list` is also the "Playlists" link | bulleted rows |
 | `filter` / `comment` / `drag-handle` / `copy` | the Songs Filter chip and its panel · comments: modal row, sub-view, empty state · the reorder grip in playlist edit mode · "Save a copy" of a playlist | solid funnel, a wide bar tapering into a short stem · one rounded speech bubble, tail at the bottom left · six dots in two columns of three · two offset rounded squares, the front one solid |
 | `send` / `user-plus` | submit in the comment composer · add a member, add a person to a tag | a paper plane, one triangle with the fold cut out · the `user` bust with a plus at its shoulder |
-| `lock` / `bookmark` / `bookmark-off` | a tag row nobody assigns here (no `assign`, or automatic) · follow / unfollow a playlist, `bookmark-off` also labelling the collapsed *Hidden* group | padlock, solid body under a counter-wound shackle so the nonzero fill leaves the hole · ribbon with a notched foot · the same ribbon behind a diagonal bar |
+| `lock` / `bookmark` / `bookmark-off` | a tag row nobody assigns here (no `assign`) · follow / unfollow a playlist, `bookmark-off` also labelling the collapsed *Hidden* group | padlock, solid body under a counter-wound shackle so the nonzero fill leaves the hole · ribbon with a notched foot · the same ribbon behind a diagonal bar |
 | `archive` / `flame` / `moon` | a tag for put-away songs · for party songs · for slow songs and ballads | a lid bar over a box body, one notch in the lid · one teardrop tongue, notched at the foot · a crescent as one contour, the rim the long way round and back along the cutting circle — a cut-out cannot do it, the cutting disc has to reach past the rim |
 | `snowflake` / `gift` / `cake` / `child` | tags for christmas: the winter half · presents · a tag for birthdays · for songs for kids | three crossed bars, a short fork at each of the six tips · a box under a lid bar, one ribbon band down the middle of the box and a two-petal bow on the lid · a slab on a plate, three candles · a round head over a body, arms out and legs apart, never `user` |
-| `guitar` / `crown` / `film` / `gamepad` / `flag` / `skull` | a tag for rock · for the classics everybody knows · for movies and musicals · for game music · for a language or country · for hard to sing | two bouts with a waist between them, sound hole cut out of the upper one, neck to the top right · three points over a solid band · an upright strip with a column of sprocket holes down each edge, `video` staying the camera · a lozenge, d-pad cross and two buttons cut out · a triangular pennant on a staff · a cranium over a jaw, the eye sockets and a nose cut out |
+| `guitar` / `crown` / `film` / `gamepad` / `flag` / `skull` | a tag for rock · for the classics everybody knows · for movies and musicals · for game music · for a language or country, which the song details list's **Language** row takes too · for hard to sing | two bouts with a waist between them, sound hole cut out of the upper one, neck to the top right · three points over a solid band · an upright strip with a column of sprocket holes down each edge, `video` staying the camera · a lozenge, d-pad cross and two buttons cut out · a triangular pennant on a staff · a cranium over a jaw, the eye sockets and a nose cut out |
+| `sun` / `umbrella` / `beer` / `car` / `plane` / `bolt` | tags for summer · for rainy songs · for drinking songs · for road songs · for holidays · for the loud fast ones | a disc under eight detached tapered rays, nine subpaths, nothing cut out · a scalloped half-disc canopy over a stem that hooks left at the foot · a tankard under a three-lobe foam cap, the handle loop counter-wound · a cabin stepped onto a body over two wheel discs, the windows counter-wound · one outline — fuselage, swept wings, tailplane — nose to the top right · a single zigzag contour |
+| `bell` / `ghost` / `ring` / `graduation-cap` / `headphones` / `drum` | tags for new year · for halloween · for weddings · for school and graduation · for songs to play rather than sing · for the drum-driven ones | a dome on a flared rim over a clapper disc · a dome over a three-lobe hem, the two eyes counter-wound · two concentric circles, the inner one counter-wound, a gem lozenge on top · a rhombus board on a trapezoid cap, a tassel cord down the right · a headband arc, its inner edge counter-wound, and two capsule earcups · a cylinder between two overhanging rim bars, one three-V zigzag band counter-wound out of the shell |
+| `piano` / `rocket` / `anchor` / `tree` / `paw` / `smile` | tags for songs at the keys · for the night's openers · for sea shanties · for folk · for animal songs · for the funny ones | a keybed bar over five keys, the four black ones counter-wound out of it · a pointed body between two fins over a flame, the porthole counter-wound · a ring over a shank crossed by a stock, above one curved fluke bar, the ring's hole counter-wound · three stacked triangles on a short trunk · a pad disc under four toe discs, five subpaths, nothing cut out · a disc with two eyes and a crescent mouth counter-wound out of it |
+| `thumbs-up` / `hourglass` / `balloon` / `dumbbell` / `tv` | tags for the crowd-pleasers · for the long ones · for carnival · for the gym set · for series and anime — labelling the Host settings group is a job, not a meaning | a fist block with the thumb up over a separate cuff bar · two triangles meeting at the waist between two cap bars · a teardrop bulb over a short zigzag string · a bar between two pairs of stacked plates · a rounded case, the screen counter-wound, on a stand bar |
 
 The **icon picker** (tag editor) offers `PICKER_ICON_NAMES`, an allowlist in `icons.tsx` — the
-glyphs that say something about a *song*: `users`, `alert`, `archive`, `calendar`, `disc`,
-`user`, `video`, `music`, `flame`, `moon`, `snowflake`, `gift`, `cake`, `child`, `guitar`,
-`crown`, `film`, `gamepad`, `flag`, `skull`. A glyph whose job here means something else stays
-out (`clock`, `globe`, `star`, `trophy`, `tag`), as do the dice, the control glyphs and the row
-marks `heart` / `mic`; `music` stays, meaning genre in both places. A tag may wear a glyph the
+glyphs that say something about a *song*, in this order: `users`, `alert`, `archive`,
+`calendar`, `disc`, `user`, `video`, `music`, `flame`, `moon`, `snowflake`, `gift`, `cake`,
+`child`, `guitar`, `crown`, `film`, `gamepad`, `flag`, `skull`, `sun`, `umbrella`, `beer`,
+`car`, `plane`, `bolt`, `bell`, `ghost`, `ring`, `graduation-cap`, `headphones`, `drum`,
+`piano`, `rocket`, `anchor`, `tree`, `paw`, `smile`, `thumbs-up`, `hourglass`, `balloon`,
+`dumbbell`, `tv`. A glyph whose job here means something else stays out (`clock`, `globe`,
+`star`, `trophy`, `tag`), as do the dice, the control glyphs and the per-person marks `heart` /
+`mic`; `music` stays, meaning genre in both places, and so do the other five facet glyphs; `tv`
+is in too — labelling a settings group is a job, not a meaning. A tag may wear a glyph the
 picker does not offer: it draws like any other and its editor keeps it chosen and choosable.
 Adding an icon: append one `d` string to `ICON_PATHS` (several subpaths fine, cut-outs
 counter-wound like `lock`'s; solid — no `fill-rule`, `stroke` or `<g>`) and name it in
@@ -137,9 +147,12 @@ exception). Tests identify glyphs with `iconNames()` from `src/test/icons.ts`.
   the hidden radio and a `.tri-state-text` span (40px min-height, `padding: 0 10px`, 0.85em, 4px
   gaps, the group `flex: 0 0 auto`, ~150px). *Any* is checked by default, a `hide_by_default`
   tag opens on *No*. Its row is glyph (1.15em, tag colour) · name (`flex: 1 1 auto; min-width:
-  0`, ellipsis, never wraps) · control. **`CheckOption`** is for the few places where a handful
-  of options all fit on screen — download-panel filters, video-quality presets; dense matrices
-  of them (permissions, tag flags, settings toggles) keep native checkboxes.
+  0`, ellipsis, never wraps) · control. A **valued facet** keeps that row and puts a quiet
+  `<select>` where the tri-state group sits — `flex: 0 0 auto`, the same ~150px, so a 390px row
+  still leaves ~130px of name — named by the criterion like that legend, its glyph drawn in the
+  neutral tag colour, having none to configure. **`CheckOption`** is for the few places where a
+  handful of options all fit on screen — download-panel filters, video-quality presets; dense
+  matrices of them (permissions, tag flags, settings toggles) keep native checkboxes.
 - **Tag chrome:** four colours — neutral `--color-dark`, blue `--highlight-blue-light`, pink
   `--highlight-pink-light`, gold `--highlight-gold-light`; never red (§1.6). The colour paints
   the tag's glyph wherever it appears. A tag or playlist row leads with a 40px square
@@ -178,7 +191,7 @@ exception). Tests identify glyphs with `iconNames()` from `src/test/icons.ts`.
   page). Row order: Details, Best scores, Add to playlist, Tags, Comments. The Tags row's value
   is the song's tag glyphs (a count past three), the row absent when no tag is visible to the
   reader; Comments shows the count. Inside Tags, an assignable tag is a toggle row
-  (`aria-pressed`), any other — unassignable or automatic — a `lock` row. **Add to playlist**
+  (`aria-pressed`), any other — one nobody assigns here — a `lock` row. **Add to playlist**
   gives `playlists.manage` holders one `aria-pressed` row per playlist they may edit (state from
   the listing's `contains` flag, not a fetch per row) and a "New playlist…" row (`plus`).
 - **Comment rows**, oldest first: 40px `PlayerAvatar` · username with a relative time (0.85em
@@ -223,9 +236,14 @@ do it. Back is a `<Link>` to a fixed path (`backLink.ts` resolves a state-provid
   that state: Favorites and Sung set exactly their own criterion to *Yes*, All returns to the
   defaults, Filter lights for anything else. Recent is its own exclusive mode (a time-ordered
   list, not a criterion); the criteria still apply inside it. A `hide_by_default` tag keeps its
-  songs out of the list and the reel while its criterion sits on *No*. The **Filter panel**
-  lists Favorites (`heart`), Sung (`mic`) and every visible tag, each row ending in the
-  tri-state control of §4.
+  songs out of the list and the reel while its criterion sits on *No*; that default is all the
+  reel reads — no choice made in the panel, tag or facet, reaches it. The **Filter panel**
+  lists Favorites (`heart`), Sung (`mic`), then the facets shown in the filter in *Built-in*
+  order, then every visible tag. A mark, a tag and a boolean facet end in the tri-state
+  control of §4, a valued facet in the select: *Any* plus the distinct values of the songs the
+  reader may see, sorted, *Decade* bucketed from the year and labelled "1980s". A song without
+  the value matches *Any* alone: no "No year" option, a gap in the metadata is not a decade. A
+  facet off *Any* counts towards "Filter · N" like a tag.
 - **Playlists** (`/songs/playlists`): flat `h2` groups — *Your playlists*, *Shared with you*,
   *Global* — then a collapsed `<details>` *Hidden* for unfollowed shared lists, rendered only
   when it has rows; global lists never hide. A row is a 40px cover mosaic (2×2 of the first
@@ -248,28 +266,28 @@ do it. Back is a `<Link>` to a fixed path (`backLink.ts` resolves a state-provid
   quiet "Add people" search, one primary Save, and Delete (`.button-danger` + `ConfirmModal`) at
   the foot.
 - **Tags admin** (`/user/tags`, a `ManageMenu` entry gated on `tags.manage`): rows of the 40px
-  coloured glyph square, the name, a meta line "N songs · automatic: language = English · hidden
-  by default · shown in list" and a chevron; the header `+` opens `/user/tags/new`. Under them
-  an `h2` *Built-in* over the fixed pair *Favorites* (`heart`) and *Sung* (`mic`) in the same
-  row shape, placed after the rows `+` and Delete govern; their meta line is "per person · shown
-  in list", never a song count, which differs per reader. *Recent* is a mode, not a tag, and has
-  no row. The **tag editor** (`/user/tags/:id`) runs in one order: Name (quiet input), Icon (the
-  picker grid), Colour (radio pills), the checkboxes "Show in song list" and "Hide songs by
-  default", each with a one-line explanation of its effect on other people, *Automatic*, the
-  permission matrix (rows *See tag* / *See songs* / *Tag songs* × columns Guest / User /
-  Trusted, admin always on), then "Specific people" — people-rows with the same three
+  coloured glyph square, the name, a meta line "N songs · hidden by default · shown in list" and
+  a chevron; the header `+` opens `/user/tags/new`. Under them an `h2` *Built-in* over eight
+  fixed rows in the same shape, after the rows `+` and Delete govern: the per-person marks
+  *Favorites* (`heart`) and *Sung* (`mic`), meta "per person · shown in list"; the boolean
+  facets *Duet* (`users`) and *Video* (`video`), meta "from the file · shown in list · in
+  filter"; the valued facets *Genre* (`music`), *Language* (`flag`), *Edition* (`disc`) and
+  *Decade* (`calendar`), meta "from the file · in filter". The kind leads so no line is empty
+  and what is off is dropped; never a song count — a mark's differs per reader, a facet's is
+  one number per value. A valued facet's square is neutral: no colour to set. *Recent* is a
+  mode, not a tag, and has no row. The **tag editor** (`/user/tags/:id`) runs in one order: Name
+  (quiet input), Icon (the picker grid), Colour (radio pills), the checkboxes "Show in song
+  list" and "Hide songs by default", each with a one-line explanation of its effect on other
+  people, the permission matrix (rows *See tag* / *See songs* / *Tag songs* × columns Guest /
+  User / Trusted, admin always on), then "Specific people" — people-rows with the same three
   checkboxes. Save is the page's one primary; an existing tag ends with a danger Delete whose
   `ConfirmModal` says how many songs lose it. A **built-in** opens that editor on a reserved id
-  (`/user/tags/favorites`, `/user/tags/sung`) — one row idiom, one editor, and a 32-hex tag id
-  cannot collide with either word; being a per-person fact it keeps only Colour and "Show in
-  song list" (`heart` pink, `mic` blue, both shown in the list by default), the usual Save and
-  one line saying why: no name, icon, hiding, rule, permissions, people or Delete.
-- **Automatic** sits between the flags and the matrix — how a tag reaches a song, before who may
-  put it there: a quiet `<select>` (*Not automatic*, *Duet*, *Has video*, *Language is…*, *Genre
-  is…*, *Edition is…*) plus, for the last three, a quiet text input whose `<datalist>` suggests
-  the library's values. A rule hands the tag to the scanner alone: *Tag songs* in the matrix and
-  the people-rows' assign checkbox stay but go `disabled` under one explaining line — dropping
-  them would read as a lost permission. The Filter panel treats the tag like any other.
+  (`/user/tags/favorites`, `/user/tags/duet`, …) — one row idiom, one editor, and a 32-hex tag
+  id cannot collide with a word. A mark keeps Colour and "Show in song list" (`heart` pink,
+  `mic` blue, both shown in the list by default); a boolean facet those two plus "Show in
+  filter" (neutral, off the rows, in the filter); a valued facet "Show in filter" alone, on by
+  default too. Every checkbox keeps its explaining line, Save is the usual one, and one line
+  says why the rest is gone: no name, icon, hiding, permissions, people or Delete.
 - **Scores** rows are flat `<details>` groups: rank numeral (pink top 3), cover or avatar, two
   lines of text, score, chevron. The two lines are a list row's: title over artist for a song,
   name over "N scores" for a singer. An open row is one tile (`.score-group-panel`) — the
@@ -290,7 +308,7 @@ do it. Back is a `<Link>` to a fixed path (`backLink.ts` resolves a state-provid
 
 ## 8. Checklist before finishing UI work
 
-1. No new `--tile-bg` outside the whitelist; no per-row badge beyond an opt-in tag mark (§1.3).
+1. No new `--tile-bg` outside the whitelist; no per-row badge beyond an opt-in mark (§1.3).
 2. Icon-only controls use `.icon-button*`; new icons are one path, listed in §3 with a note.
 3. New routes: `App.tsx` **and** `COVERS`; sub-pages: `PageHeader`, `back`, capability gate.
 4. Every animation has a reduced-motion branch; every control has a name and a focus ring.

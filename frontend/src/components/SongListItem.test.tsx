@@ -1,10 +1,11 @@
 import { render, screen } from "@testing-library/react";
 import type { SongRead } from "../api";
+import { builtInTags } from "../tags";
 import { iconNames } from "../test/icons";
-import { builtInTagRead, tagRead } from "../test/tags";
+import { builtInTagRead, builtInTagReads, tagRead } from "../test/tags";
 import SongListItem from "./SongListItem";
 
-function song(): SongRead {
+function song(overrides: Partial<SongRead> = {}): SongRead {
   return {
     id: "usdb:1",
     source: "usdb",
@@ -12,11 +13,13 @@ function song(): SongRead {
     artist: "ABBA",
     duration_seconds: 231,
     has_video: true,
+    is_duet: false,
     language: "English",
     genre: "Pop",
     year: 1976,
     edition: "SingStar",
     creator: "someone",
+    ...overrides,
   };
 }
 
@@ -96,10 +99,10 @@ it("paints the two built-in marks in the colours the party chose", () => {
       song={song()}
       sung
       favorite
-      builtIns={{
-        favorites: builtInTagRead({ color: "gold" }),
-        sung: builtInTagRead({ id: "sung", color: "neutral" }),
-      }}
+      builtIns={builtInTags([
+        builtInTagRead({ color: "gold" }),
+        builtInTagRead({ id: "sung", color: "neutral" }),
+      ])}
       onClick={() => {}}
     />,
   );
@@ -118,10 +121,10 @@ it("leaves a built-in mark off the row when it is not shown in the list", () => 
       song={song()}
       sung
       favorite
-      builtIns={{
-        favorites: builtInTagRead({ show_in_list: false }),
-        sung: builtInTagRead({ id: "sung", color: "blue" }),
-      }}
+      builtIns={builtInTags([
+        builtInTagRead({ show_in_list: false }),
+        builtInTagRead({ id: "sung", color: "blue" }),
+      ])}
       tags={[tagRead({ id: "t-broken", name: "broken", icon: "alert" })]}
       onClick={() => {}}
     />,
@@ -144,4 +147,93 @@ it("falls back to the pink heart and the blue microphone", () => {
   expect(container.querySelector(".song-mark-favorite")).toHaveClass(
     "tag-color-pink",
   );
+});
+
+// --- the two boolean facets ------------------------------------------------
+
+/** The eight built-ins with `duet` and `video` put on the rows — off is how
+ *  they arrive (§1.3), so every test that wants them says so. */
+function withFacetMarks(color = "gold") {
+  return builtInTags(
+    builtInTagReads().map((row) =>
+      row.id === "duet" || row.id === "video"
+        ? { ...row, color, show_in_list: true }
+        : row,
+    ),
+  );
+}
+
+it("leaves the duet and video marks off the row by default", () => {
+  // The song is both, and the built-ins arrive with `show_in_list` off: half a
+  // library is a duet, so nothing is marked until the party asks for it.
+  render(
+    <SongListItem
+      song={song({ is_duet: true, has_video: true })}
+      sung
+      builtIns={builtInTags(builtInTagReads())}
+      onClick={() => {}}
+    />,
+  );
+
+  expect(marks()).toEqual(["mic"]);
+});
+
+it("draws the duet and video marks in §1.4's order once they are shown", () => {
+  render(
+    <SongListItem
+      song={song({ is_duet: true, has_video: true })}
+      sung
+      favorite
+      builtIns={withFacetMarks()}
+      tags={[tagRead({ id: "t-broken", name: "broken", icon: "alert" })]}
+      onClick={() => {}}
+    />,
+  );
+
+  // Microphone, heart, the two facets, then the tags.
+  expect(marks()).toEqual(["mic", "heart", "users", "video", "alert"]);
+});
+
+it("paints the facet marks in the colour the party chose", () => {
+  const { container } = render(
+    <SongListItem
+      song={song({ is_duet: true, has_video: true })}
+      builtIns={withFacetMarks("pink")}
+      onClick={() => {}}
+    />,
+  );
+
+  expect(container.querySelector(".song-mark-duet")).toHaveClass(
+    "tag-color-pink",
+  );
+  expect(container.querySelector(".song-mark-video")).toHaveClass(
+    "tag-color-pink",
+  );
+});
+
+it("marks only what the file actually says about the song", () => {
+  render(
+    <SongListItem
+      song={song({ is_duet: false, has_video: true })}
+      builtIns={withFacetMarks()}
+      onClick={() => {}}
+    />,
+  );
+
+  expect(marks()).toEqual(["video"]);
+});
+
+it("never marks a valued facet", () => {
+  // Genre, language, edition and decade have a value on this song and no row
+  // mark anywhere: a near-universal attribute belongs in the modal (§1.3).
+  const { container } = render(
+    <SongListItem
+      song={song()}
+      builtIns={builtInTags(builtInTagReads())}
+      onClick={() => {}}
+    />,
+  );
+
+  expect(marks()).toEqual([]);
+  expect(container.querySelectorAll(".song-mark")).toHaveLength(0);
 });

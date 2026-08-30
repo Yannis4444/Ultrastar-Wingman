@@ -5,25 +5,18 @@ import type { BuiltInTagRead, MeRead, TagRead } from "../api";
 import { meResponse, userRead } from "../test/auth";
 import { FakeSocket } from "../test/fakeSocket";
 import { iconNames } from "../test/icons";
-import {
-  builtInTagRead,
-  builtInTagReads,
-  ruleKindReads,
-  tagRead,
-} from "../test/tags";
+import { builtInTagRead, builtInTagReads, tagRead } from "../test/tags";
 import Tags from "./Tags";
 
-const { getMe, listTags, listTagRules } = vi.hoisted(() => ({
+const { getMe, listTags } = vi.hoisted(() => ({
   getMe: vi.fn(),
   listTags: vi.fn(),
-  listTagRules: vi.fn(),
 }));
 
 vi.mock("../api/sdk.gen", async (importOriginal) => ({
   ...(await importOriginal<typeof import("../api/sdk.gen")>()),
   getMe,
   listTags,
-  listTagRules,
 }));
 
 const MANAGER = ["songs.view", "tags.manage"];
@@ -48,7 +41,6 @@ function renderTags(
   builtIns: BuiltInTagRead[] = builtInTagReads(),
 ) {
   getMe.mockResolvedValue(meResponse(capabilities, ACCOUNT));
-  listTagRules.mockResolvedValue({ data: { rules: ruleKindReads() } });
   listTags.mockImplementation(async () => {
     if (tags instanceof Error) throw tags;
     return { data: { tags, built_ins: builtIns } };
@@ -68,7 +60,7 @@ function renderTags(
 beforeEach(() => {
   FakeSocket.last = undefined;
   vi.stubGlobal("WebSocket", FakeSocket);
-  for (const mock of [getMe, listTags, listTagRules]) mock.mockReset();
+  for (const mock of [getMe, listTags]) mock.mockReset();
 });
 
 afterEach(() => vi.unstubAllGlobals());
@@ -118,7 +110,7 @@ it("names the songs a tag carries and the flags that are on", async () => {
   ).toBeInTheDocument();
 });
 
-it("says what an automatic tag follows, before what it does to a list", async () => {
+it("says the count first, then only the flags that are on", async () => {
   renderTags([
     tag({
       id: "t-duet",
@@ -126,7 +118,6 @@ it("says what an automatic tag follows, before what it does to a list", async ()
       song_count: 4,
       show_in_list: true,
       hide_by_default: false,
-      rule: { kind: "duet", value: null },
     }),
     tag({
       id: "t-deutsch",
@@ -134,34 +125,27 @@ it("says what an automatic tag follows, before what it does to a list", async ()
       song_count: 12,
       show_in_list: false,
       hide_by_default: true,
-      rule: { kind: "language", value: "Deutsch" },
     }),
-    // A rule this build has no label for: named by its own kind rather than
-    // read as an ordinary tag nobody can set.
     tag({
       id: "t-nineties",
       name: "nineties",
       song_count: 1,
       show_in_list: false,
       hide_by_default: false,
-      rule: { kind: "year_between", value: "1990" },
     }),
   ]);
 
   const rows = await screen.findAllByRole("listitem");
   await waitFor(() =>
     expect(
-      within(rows[0]).getByText("4 songs · automatic: duet · shown in list"),
+      within(rows[0]).getByText("4 songs · shown in list"),
     ).toBeInTheDocument(),
   );
   expect(
-    within(rows[1]).getByText(
-      "12 songs · automatic: language = Deutsch · hidden by default",
-    ),
+    within(rows[1]).getByText("12 songs · hidden by default"),
   ).toBeInTheDocument();
-  expect(
-    within(rows[2]).getByText("1 song · automatic: year_between = 1990"),
-  ).toBeInTheDocument();
+  // Nothing unusual about it at all: the count is the whole line.
+  expect(within(rows[2]).getByText("1 song")).toBeInTheDocument();
 });
 
 it("draws each tag in its own colour, falling back to the tag glyph", async () => {
@@ -234,32 +218,113 @@ it("counts the songs again when one is tagged", async () => {
   await waitFor(() => expect(screen.getByText(/2 songs/)).toBeInTheDocument());
 });
 
-it("lists the two built-in marks under their own heading", async () => {
-  renderTags();
+/** The rows of the *Built-in* list, in the order they are drawn. */
+function builtInRows(container: HTMLElement): HTMLAnchorElement[] {
+  const lists = container.querySelectorAll(".tags-list");
+  return [
+    ...lists[lists.length - 1].querySelectorAll<HTMLAnchorElement>(
+      ".tags-open",
+    ),
+  ];
+}
+
+it("lists all eight built-ins under their own heading, in §7's order", async () => {
+  const { container } = renderTags();
 
   expect(
     await screen.findByRole("heading", { name: "Built-in" }),
   ).toBeInTheDocument();
-  const favorites = screen.getByRole("link", { name: /Favorites/ });
-  const sung = screen.getByRole("link", { name: /Sung/ });
-  expect(favorites).toHaveAttribute("href", "/user/tags/favorites");
-  expect(sung).toHaveAttribute("href", "/user/tags/sung");
-  // Never a song count: it is a different number for every reader.
+  const rows = builtInRows(container);
   expect(
-    within(favorites).getByText("per person · shown in list"),
-  ).toBeInTheDocument();
-  expect(iconNames(favorites.querySelector(".tags-square")!)).toEqual([
-    "heart",
+    rows.map((row) => row.querySelector(".tags-name")?.textContent),
+  ).toEqual([
+    "Favorites",
+    "Sung",
+    "Duet",
+    "Video",
+    "Genre",
+    "Language",
+    "Edition",
+    "Decade",
   ]);
-  expect(iconNames(sung.querySelector(".tags-square")!)).toEqual(["mic"]);
+  // Each opens the editor on its own reserved id.
+  expect(rows.map((row) => row.getAttribute("href"))).toEqual([
+    "/user/tags/favorites",
+    "/user/tags/sung",
+    "/user/tags/duet",
+    "/user/tags/video",
+    "/user/tags/genre",
+    "/user/tags/language",
+    "/user/tags/edition",
+    "/user/tags/decade",
+  ]);
+  expect(
+    rows.map((row) => iconNames(row.querySelector(".tags-square")!)[0]),
+  ).toEqual([
+    "heart",
+    "mic",
+    "users",
+    "video",
+    "music",
+    "flag",
+    "disc",
+    "calendar",
+  ]);
   // Recent is a mode, not a mark, so it has no row.
   expect(
     screen.queryByRole("link", { name: /Recent/ }),
   ).not.toBeInTheDocument();
 });
 
-it("draws each built-in in its configured colour and says when it is off", async () => {
-  renderTags([tag()], MANAGER, [
+it("leads a built-in's meta line with its kind and drops what is off", async () => {
+  const { container } = renderTags();
+
+  await screen.findByRole("heading", { name: "Built-in" });
+  // The defaults: a mark is on the rows, a facet is off them and in the filter.
+  expect(
+    builtInRows(container).map(
+      (row) => row.querySelector(".tags-meta")?.textContent,
+    ),
+  ).toEqual([
+    "per person · shown in list",
+    "per person · shown in list",
+    "from the file · in filter",
+    "from the file · in filter",
+    "from the file · in filter",
+    "from the file · in filter",
+    "from the file · in filter",
+    "from the file · in filter",
+  ]);
+  // Never a song count: a mark's is a different number for every reader, a
+  // facet's is one number per value.
+  expect(container.textContent).not.toContain("0 songs · per person");
+});
+
+it("says so when everything about a built-in is on, and when it is off", async () => {
+  const { container } = renderTags(
+    [tag()],
+    MANAGER,
+    builtInTagReads().map((row) => {
+      if (row.id === "duet") return { ...row, show_in_list: true };
+      if (row.id === "video") return { ...row, show_in_filter: false };
+      if (row.id === "sung") return { ...row, show_in_list: false };
+      if (row.id === "genre") return { ...row, show_in_filter: false };
+      return row;
+    }),
+  );
+
+  await screen.findByRole("heading", { name: "Built-in" });
+  const meta = builtInRows(container).map(
+    (row) => row.querySelector(".tags-meta")?.textContent,
+  );
+  expect(meta[1]).toBe("per person");
+  expect(meta[2]).toBe("from the file · shown in list · in filter");
+  expect(meta[3]).toBe("from the file");
+  expect(meta[4]).toBe("from the file");
+});
+
+it("draws each built-in in its configured colour, a valued facet neutral", async () => {
+  const { container } = renderTags([tag()], MANAGER, [
     builtInTagRead({ color: "gold" }),
     builtInTagRead({ id: "sung", color: "blue", show_in_list: false }),
   ]);
@@ -269,6 +334,10 @@ it("draws each built-in in its configured colour and says when it is off", async
   expect(favorites.querySelector(".tags-square")).toHaveClass("tag-color-gold");
   expect(sung.querySelector(".tags-square")).toHaveClass("tag-color-blue");
   expect(within(sung).getByText("per person")).toBeInTheDocument();
+  // A valued facet has no colour to set, so its square is the neutral one.
+  expect(builtInRows(container)[4].querySelector(".tags-square")).toHaveClass(
+    "tag-color-neutral",
+  );
 });
 
 it("keeps the built-in rows when the party has no tags of its own", async () => {
