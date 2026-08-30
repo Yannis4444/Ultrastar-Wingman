@@ -120,3 +120,4 @@ module, page or route is added, renamed or removed.
 | Testing | [docs/dev/testing.md](docs/dev/testing.md) |
 | Writing documentation | [docs/dev/documentation.md](docs/dev/documentation.md) |
 | Running & configuring each half in depth | [backend/README.md](backend/README.md), [frontend/README.md](frontend/README.md) |
+| Architecture decision records (the *why* behind the structure) | codebase-memory MCP: `manage_adr(mode='get', project='D-git-Ultrastar-Wingman-new')` — when a recorded decision changes, update the ADR alongside the code (`mode='update'` replaces the whole document) |
