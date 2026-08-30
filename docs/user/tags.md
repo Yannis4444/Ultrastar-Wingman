@@ -106,7 +106,8 @@ only the label goes.
 Eight rows were there before you made a single tag. Under **Built-in**, at the
 foot of **User → Tags**, they sit in rows that look exactly like a tag's — and
 they are not tags. Nobody puts them on a song: two of them say something about
-*you*, and the other six are what the song file already says about itself.
+*you*, and the other six are what the song file already says about itself. Tap
+one to open it, the same as a tag.
 
 | Built-in | What it is | What you can change |
 |---|---|---|
