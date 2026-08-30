@@ -15,6 +15,7 @@ import {
   listSongCommentsQueryKey,
   listSongScoresOptions,
   listTagAssignmentsQueryKey,
+  listTagRulesOptions,
   removePlaylistEntryMutation,
   unassignTagMutation,
 } from "../api/@tanstack/react-query.gen";
@@ -27,7 +28,7 @@ import { useTags } from "../hooks/useTags";
 import { useWingmanEvent, type WingmanEvent } from "../hooks/useWingmanEvents";
 import { useWishlist } from "../hooks/useWishlist";
 import { songHistory } from "../stats";
-import { tagColorClass, tagGlyph } from "../tags";
+import { ruleSummary, tagColorClass, tagGlyph } from "../tags";
 import ConfirmModal from "./ConfirmModal";
 import IconStat from "./IconStat";
 import { Icon, type IconName } from "./icons";
@@ -138,6 +139,12 @@ export default function SongDetails({ song, onClose }: SongDetailsProps) {
   );
   const assignable = tags.tags.filter((tag) => tag.can_assign);
   const carriedIds = new Set(carried.map((tag) => tag.id));
+  // What the padlock on an automatic tag says it follows. Only the Tags
+  // sub-view spells a rule out, so the listing waits for it.
+  const ruleKinds = useQuery({
+    ...listTagRulesOptions(),
+    enabled: auth.loaded && auth.can("songs.view") && view === "tags",
+  });
 
   const canManagePlaylists = auth.user !== null && auth.can("playlists.manage");
   // One listing for the whole picker: `song_id` makes the backend fill each
@@ -514,6 +521,14 @@ export default function SongDetails({ song, onClose }: SongDetailsProps) {
                 </span>
               );
               if (!tag.can_assign) {
+                // Two different padlocks: a tag somebody else may set, and one
+                // nobody sets at all. Saying "you may not" about an automatic
+                // tag would send the reader asking for a right that does not
+                // exist, so it names the rule instead.
+                const why =
+                  tag.rule === null
+                    ? "You may see this tag but not set it"
+                    : `Set automatically — ${ruleSummary(tag.rule, ruleKinds.data?.rules ?? [])}`;
                 return (
                   <li key={tag.id}>
                     {/* Not a button: there is nothing to press. The padlock is
@@ -521,10 +536,7 @@ export default function SongDetails({ song, onClose }: SongDetailsProps) {
                     <div className="picker-row song-tag-locked">
                       {glyph}
                       {name}
-                      <span
-                        className="picker-row-mark"
-                        title="You may see this tag but not set it"
-                      >
+                      <span className="picker-row-mark" title={why}>
                         <Icon name="lock" />
                       </span>
                     </div>

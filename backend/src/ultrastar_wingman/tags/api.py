@@ -19,7 +19,7 @@ from ..db import SessionDep
 from ..songs.api import song_or_404
 from ..songs.model import Song
 from . import builtin, rules, service
-from .model import MAX_NAME_LENGTH, Tag
+from .model import MAX_NAME_LENGTH, MAX_RULE_VALUE_LENGTH, Tag
 from .schema import (
     BuiltInTagId,
     BuiltInTagRead,
@@ -42,6 +42,10 @@ TagName = Annotated[
 # The name of an entry in the frontend's `ICON_PATHS`. Only the shape is checked: the
 # backend ships no icon list, and an icon the UI does not know simply draws nothing.
 TagIcon = Annotated[str, StringConstraints(pattern=r"^[a-z][a-z0-9-]{0,31}$")]
+# What a value rule compares against. Bounded like the name is; not stripped here, because
+# the rule itself does that — `rules.TextColumnRule.normalized` is the one place a value
+# becomes what is stored, and a value of nothing but spaces has to reach it to be refused.
+TagRuleValue = Annotated[str, StringConstraints(max_length=MAX_RULE_VALUE_LENGTH)]
 
 UNKNOWN_TAG: dict[int | str, dict[str, object]] = {404: {"description": "Unknown tag."}}
 
@@ -67,7 +71,7 @@ class TagRuleInput(BaseModel):
 
     kind: str
     # Required by `language` / `genre` / `edition`, refused by `duet` / `has_video`.
-    value: str | None = None
+    value: TagRuleValue | None = None
 
 
 class TagCreate(BaseModel):

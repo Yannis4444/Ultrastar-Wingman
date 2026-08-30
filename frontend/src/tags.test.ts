@@ -1,5 +1,5 @@
 import type { TagRead } from "./api";
-import { tagRead } from "./test/tags";
+import { ruleKindReads, tagRead } from "./test/tags";
 import {
   criteriaOffAny,
   defaultTagCriteria,
@@ -9,6 +9,7 @@ import {
   NO_OVERRIDES,
   passesSongCriteria,
   passesTagCriteria,
+  ruleSummary,
   sameOverrides,
   SUNG_ONLY,
   tagColorClass,
@@ -33,6 +34,33 @@ it("paints a tag in one of the four colours, never in nothing", () => {
   // A colour the backend grew after this build reads as the plain one rather
   // than leaving the glyph in whatever colour it inherited.
   expect(tagColorClass("chartreuse")).toBe("tag-color-neutral");
+});
+
+it("says what a rule does in the voice of a meta line", () => {
+  const kinds = ruleKindReads();
+  // A flag rule is its label; a value rule loses the "is…" the select's option
+  // trails off into and gains the value the input finished it with.
+  expect(ruleSummary({ kind: "duet", value: null }, kinds)).toBe("duet");
+  expect(ruleSummary({ kind: "has_video", value: null }, kinds)).toBe(
+    "has video",
+  );
+  expect(ruleSummary({ kind: "language", value: "English" }, kinds)).toBe(
+    "language = English",
+  );
+  expect(ruleSummary({ kind: "edition", value: "Party" }, kinds)).toBe(
+    "edition = Party",
+  );
+});
+
+it("names a rule this build does not know by its own kind", () => {
+  // A tag written by a newer backend. Saying nothing about it would be worse:
+  // the row would read as an ordinary tag nobody can set.
+  expect(ruleSummary({ kind: "year_between", value: null }, [])).toBe(
+    "year_between",
+  );
+  expect(ruleSummary({ kind: "year_between", value: "1990" }, [])).toBe(
+    "year_between = 1990",
+  );
 });
 
 it("puts on a row only the tags the reader may see and asked for", () => {

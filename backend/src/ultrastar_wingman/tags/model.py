@@ -42,6 +42,12 @@ TAG_ACTIONS: tuple[str, ...] = ("view", "view_songs", "assign")
 # The longest a tag name may get.
 MAX_NAME_LENGTH = 32
 
+# The longest a rule's value may get. `rule_value` is TEXT — a value is a language, a
+# genre or an edition, and the column takes whatever length one of those happens to have —
+# but an unbounded request field is an unbounded row, so the API caps it here. Generous on
+# purpose: the longest edition any real library carries is a handful of words.
+MAX_RULE_VALUE_LENGTH = 100
+
 # The one tag the app arrives with, seeded by migration 0013 with this exact id so tests
 # and documentation can name it. It is an ordinary row: whoever holds `tags.manage` may
 # rename, recolor or delete it like any other tag. (0013 seeded a second one, `archive`;

@@ -1082,6 +1082,29 @@ test("a tri-state narrows the list, the count and the chip's label", async () =>
   );
 });
 
+test("an automatic tag filters like any other", async () => {
+  // The Filter panel knows nothing about rules (§7): a derived tag is a row
+  // like the rest, and the reader who does not manage tags never learns which
+  // is which.
+  const automatic = tagRead({
+    ...DUET,
+    can_assign: false,
+    rule: { kind: "duet", value: null },
+  });
+  withTags([automatic], [{ tag_id: "t-duet", song_ids: ["local:abc"] }]);
+  renderSongs([QUEEN, AFRICA]);
+  await screen.findByText("Dancing Queen");
+
+  const dialog = await openFilter();
+  setCriterion(dialog, "duet", "Yes");
+
+  expect(screen.getByText("Africa")).toBeInTheDocument();
+  expect(screen.queryByText("Dancing Queen")).not.toBeInTheDocument();
+  expect(screen.getByRole("button", { name: "Filter" }).textContent).toBe(
+    "Filter · 1",
+  );
+});
+
 test("the Filter chip counts the hiding nobody had to ask for", async () => {
   withTags([ARCHIVE, DUET], [{ tag_id: "t-archive", song_ids: ["local:abc"] }]);
   renderSongs([QUEEN, AFRICA]);

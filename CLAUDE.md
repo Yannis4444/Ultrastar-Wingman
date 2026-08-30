@@ -101,8 +101,8 @@ live in `tests/fixtures/`.
 | `api/` | **generated** by `@hey-api/openapi-ts` (fetch client + TanStack Query options). Never edit; regenerate and commit |
 | `auth.ts` | `useAuth()` → `{ user, role, capabilities, isHost, loaded, can(capability) }` |
 | `index.css` | design tokens and the shared classes (`.button*`, `.text-input[-quiet]`, `.icon-button*`, `.error-notice`, `.visually-hidden`, global focus ring) |
-| `stats.ts`, `karaokeSlots.ts`, `settings.ts`, `duration.ts`, `errors.ts`, `manage.ts`, `songSources.ts`, `links.ts`, `backLink.ts`, `dice.ts`, `avatars.ts` (a player's picture: the cache-busted URL, and `asPlayer` for the people who are not player rows — a comment's author, a playlist's members), `tags.ts` (a tag's glyph and colour class, the row marks, the two built-in marks — their fixed glyphs/names and their configured colour + `show_in_list` — and the criteria the song list filters on: the defaults and the reader's overrides) | plain helpers, each with its own test |
-| `test/` | `auth.ts` (`meResponse`, `userRead`), `tags.ts` (`tagRead`, `builtInTagRead`), `fakeSocket.ts`, `icons.ts` (`iconNames`), `setup.ts` |
+| `stats.ts`, `karaokeSlots.ts`, `settings.ts`, `duration.ts`, `errors.ts`, `manage.ts`, `songSources.ts`, `links.ts`, `backLink.ts`, `dice.ts`, `avatars.ts` (a player's picture: the cache-busted URL, and `asPlayer` for the people who are not player rows — a comment's author, a playlist's members), `tags.ts` (a tag's glyph and colour class, the row marks, the two built-in marks — their fixed glyphs/names and their configured colour + `show_in_list` —, `ruleSummary` — an automatic tag's rule in words, for the admin meta line and the song modal's padlock — and the criteria the song list filters on: the defaults and the reader's overrides) | plain helpers, each with its own test |
+| `test/` | `auth.ts` (`meResponse`, `userRead`), `tags.ts` (`tagRead`, `builtInTagRead`, `ruleKindReads`), `fakeSocket.ts`, `icons.ts` (`iconNames`), `setup.ts` |
 
 Keep this map at module granularity and update it in the same commit when a
 module, page or route is added, renamed or removed.

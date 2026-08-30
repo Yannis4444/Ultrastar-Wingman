@@ -1,4 +1,9 @@
-import type { BuiltInTagRead, TagRead } from "./api";
+import type {
+  BuiltInTagRead,
+  TagRead,
+  TagRuleKindRead,
+  TagRuleRead,
+} from "./api";
 import { ICON_PATHS, type IconName } from "./components/icons";
 
 /** The colours a tag may be drawn in, in the order the editor offers them.
@@ -25,6 +30,38 @@ export function tagGlyph(icon: string | null): IconName {
 export function tagColorClass(color: string): string {
   const known = (TAG_COLORS as readonly string[]).includes(color);
   return `tag-color-${known ? color : "neutral"}`;
+}
+
+/**
+ * A rule's name in the middle of a sentence — "automatic: language = English"
+ * on the admin row, "Set automatically — duet" on a locked tag.
+ *
+ * The registry's labels are written for the editor's select, where each stands
+ * alone and a value kind trails off into the input behind it ("Language is…").
+ * A sentence wants the plain noun instead, so the ellipsis and the "is" in
+ * front of it go and the rest is lowercased into the voice of the meta line it
+ * joins ("hidden by default", "per person").
+ */
+function ruleNoun(label: string): string {
+  return label
+    .replace(/\s*…$/, "")
+    .replace(/\s+is$/i, "")
+    .toLowerCase();
+}
+
+/**
+ * What one tag's rule says, in words: "duet", "language = English". A kind this
+ * build does not know — a tag written by a newer backend — is named by its raw
+ * kind rather than dropped: "automatic: year_between" is still the truth about
+ * the tag, and it says where to look.
+ */
+export function ruleSummary(
+  rule: TagRuleRead,
+  kinds: readonly TagRuleKindRead[],
+): string {
+  const known = kinds.find((kind) => kind.kind === rule.kind);
+  const noun = known === undefined ? rule.kind : ruleNoun(known.label);
+  return rule.value === null ? noun : `${noun} = ${rule.value}`;
 }
 
 /** The two marks Wingman brings with it. */

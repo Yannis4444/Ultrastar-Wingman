@@ -31,7 +31,7 @@ from ultrastar_wingman.songs import scanner
 from ultrastar_wingman.songs.model import Song
 from ultrastar_wingman.songs.scanner import scan_library
 from ultrastar_wingman.tags import rules, service
-from ultrastar_wingman.tags.model import SongTag, Tag
+from ultrastar_wingman.tags.model import MAX_RULE_VALUE_LENGTH, SongTag, Tag
 
 # The duet headers, as a `make_song_dir` tag block.
 DUET_HEADERS = "#DUETSINGERP1:Her\n#DUETSINGERP2:Him\n"
@@ -461,6 +461,27 @@ async def test_a_rule_the_registry_does_not_know_is_refused(
     assert extraneous.status_code == 422
     # Nothing was written on the way to any of those.
     assert [row["name"] for row in (await admin.get("/api/v1/tags")).json()["tags"]] == ["broken"]
+
+
+async def test_a_rule_value_longer_than_the_bound_is_refused(
+    admin: AsyncClient, library: Path
+) -> None:
+    """`rule_value` is TEXT, so nothing but the request model stops a novel from being
+    stored as an edition."""
+    too_long = "e" * (MAX_RULE_VALUE_LENGTH + 1)
+
+    created = await admin.post(
+        "/api/v1/tags",
+        json={"name": "long", "color": "blue", "rule": {"kind": "edition", "value": too_long}},
+    )
+    tag = await make_tag(admin, name="editions", rule={"kind": "edition", "value": "e" * 100})
+    await patch_tag(admin, tag["id"], expect=422, rule={"kind": "edition", "value": too_long})
+
+    assert created.status_code == 422
+    # The bound itself is usable: a hundred characters go in and come back out.
+    listed = (await admin.get("/api/v1/tags")).json()["tags"]
+    stored = next(row for row in listed if row["id"] == tag["id"])
+    assert stored["rule"] == {"kind": "edition", "value": "e" * 100}
 
 
 async def test_a_bad_rule_on_a_patch_leaves_the_tag_as_it_was(

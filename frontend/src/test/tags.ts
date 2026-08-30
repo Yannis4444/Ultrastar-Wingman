@@ -1,4 +1,4 @@
-import type { BuiltInTagRead, TagRead } from "../api";
+import type { BuiltInTagRead, TagRead, TagRuleKindRead } from "../api";
 
 /**
  * One tag as `GET /tags` returns it: visible to the reader, theirs to set, and
@@ -38,4 +38,39 @@ export function builtInTagRead(
 /** Both marks at their defaults, for the listings a test does not configure. */
 export function builtInTagReads(): BuiltInTagRead[] {
   return [builtInTagRead(), builtInTagRead({ id: "sung", color: "blue" })];
+}
+
+/**
+ * The rule registry as `GET /tags/rules` answers it: the five kinds in the
+ * order the editor offers them — the two flags first, then the three that
+ * compare a field, each with the values a small library holds.
+ */
+export function ruleKindReads(): TagRuleKindRead[] {
+  return [
+    { kind: "duet", label: "Duet", needs_value: false, suggestions: [] },
+    {
+      kind: "has_video",
+      label: "Has video",
+      needs_value: false,
+      suggestions: [],
+    },
+    {
+      kind: "language",
+      label: "Language is…",
+      needs_value: true,
+      suggestions: ["Deutsch", "English"],
+    },
+    {
+      kind: "genre",
+      label: "Genre is…",
+      needs_value: true,
+      suggestions: ["Pop", "Schlager"],
+    },
+    {
+      kind: "edition",
+      label: "Edition is…",
+      needs_value: true,
+      suggestions: ["Party"],
+    },
+  ];
 }

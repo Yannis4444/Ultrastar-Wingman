@@ -5,18 +5,25 @@ import type { BuiltInTagRead, MeRead, TagRead } from "../api";
 import { meResponse, userRead } from "../test/auth";
 import { FakeSocket } from "../test/fakeSocket";
 import { iconNames } from "../test/icons";
-import { builtInTagRead, builtInTagReads, tagRead } from "../test/tags";
+import {
+  builtInTagRead,
+  builtInTagReads,
+  ruleKindReads,
+  tagRead,
+} from "../test/tags";
 import Tags from "./Tags";
 
-const { getMe, listTags } = vi.hoisted(() => ({
+const { getMe, listTags, listTagRules } = vi.hoisted(() => ({
   getMe: vi.fn(),
   listTags: vi.fn(),
+  listTagRules: vi.fn(),
 }));
 
 vi.mock("../api/sdk.gen", async (importOriginal) => ({
   ...(await importOriginal<typeof import("../api/sdk.gen")>()),
   getMe,
   listTags,
+  listTagRules,
 }));
 
 const MANAGER = ["songs.view", "tags.manage"];
@@ -41,6 +48,7 @@ function renderTags(
   builtIns: BuiltInTagRead[] = builtInTagReads(),
 ) {
   getMe.mockResolvedValue(meResponse(capabilities, ACCOUNT));
+  listTagRules.mockResolvedValue({ data: { rules: ruleKindReads() } });
   listTags.mockImplementation(async () => {
     if (tags instanceof Error) throw tags;
     return { data: { tags, built_ins: builtIns } };
@@ -60,7 +68,7 @@ function renderTags(
 beforeEach(() => {
   FakeSocket.last = undefined;
   vi.stubGlobal("WebSocket", FakeSocket);
-  for (const mock of [getMe, listTags]) mock.mockReset();
+  for (const mock of [getMe, listTags, listTagRules]) mock.mockReset();
 });
 
 afterEach(() => vi.unstubAllGlobals());
@@ -107,6 +115,52 @@ it("names the songs a tag carries and the flags that are on", async () => {
   // Nothing tagged with it yet, and only the one flag on.
   expect(
     within(rows[2]).getByText("0 songs · shown in list"),
+  ).toBeInTheDocument();
+});
+
+it("says what an automatic tag follows, before what it does to a list", async () => {
+  renderTags([
+    tag({
+      id: "t-duet",
+      name: "duet",
+      song_count: 4,
+      show_in_list: true,
+      hide_by_default: false,
+      rule: { kind: "duet", value: null },
+    }),
+    tag({
+      id: "t-deutsch",
+      name: "deutsch",
+      song_count: 12,
+      show_in_list: false,
+      hide_by_default: true,
+      rule: { kind: "language", value: "Deutsch" },
+    }),
+    // A rule this build has no label for: named by its own kind rather than
+    // read as an ordinary tag nobody can set.
+    tag({
+      id: "t-nineties",
+      name: "nineties",
+      song_count: 1,
+      show_in_list: false,
+      hide_by_default: false,
+      rule: { kind: "year_between", value: "1990" },
+    }),
+  ]);
+
+  const rows = await screen.findAllByRole("listitem");
+  await waitFor(() =>
+    expect(
+      within(rows[0]).getByText("4 songs · automatic: duet · shown in list"),
+    ).toBeInTheDocument(),
+  );
+  expect(
+    within(rows[1]).getByText(
+      "12 songs · automatic: language = Deutsch · hidden by default",
+    ),
+  ).toBeInTheDocument();
+  expect(
+    within(rows[2]).getByText("1 song · automatic: year_between = 1990"),
   ).toBeInTheDocument();
 });
 
