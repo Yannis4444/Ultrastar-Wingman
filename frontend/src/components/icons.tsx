@@ -169,10 +169,10 @@ export const ICON_PATHS = {
   github:
     "M12 3C7.0275 3 3 7.0275 3 12c0 3.9825 2.5763 7.3463 6.1537 8.5388.45.0788.6188-.1912.6188-.4275 0-.2137-.0112-.9225-.0112-1.6762-2.2612.4163-2.8462-.5512-3.0262-1.0575-.1012-.2588-.54-1.0575-.9225-1.2712-.315-.1687-.765-.585-.0112-.5963.7088-.0112 1.215.6525 1.3838.9225.81 1.3613 2.1038.9788 2.6213.7425.0788-.585.315-.9787.5738-1.2038-2.0025-.225-4.095-1.0012-4.095-4.4438 0-.9787.3488-1.7887.9225-2.4187-.09-.225-.405-1.1475.09-2.385 0 0 .7538-.2362 2.475.9225.72-.2025 1.485-.3037 2.25-.3037s1.53.1012 2.25.3038c1.7213-1.17 2.475-.9225 2.475-.9225.495 1.2375.18 2.16.09 2.385.5738.63.9225 1.4288.9225 2.4187 0 3.4538-2.1038 4.2188-4.1062 4.4438.3263.2813.6075.8213.6075 1.665 0 1.2038-.0112 2.1713-.0112 2.475 0 .2363.1687.5175.6188.4275A9.0135 9.0135 0 0 0 21 12c0-4.9725-4.0275-9-9-9Z",
   // ------------------------------------------------------------ tag glyphs
-  // The twelve that exist only so a tag can say something about a *song*
-  // (ui-guidelines §3): party, ballad, christmas, birthday, kids, rock, the
-  // classics, film, game, country and hard-to-sing. Every one is read twice —
-  // 40px in the editor's picker and 0.8em (~11px) as a song-row mark — so they
+  // The thirty-four that exist only so a tag can say something about a *song*
+  // (ui-guidelines §3), from party and ballad through the seasons, the genres
+  // and the occasions to the gym set. Every one is read twice — 40px in the
+  // editor's picker and 0.8em (~11px) as a song-row mark — so they
   // are few bold shapes, and what carries the reading is drawn at least as wide
   // as `music`'s two-unit stem, the thinnest thing the glyphs beside them in a
   // row are made of. Thinner than that is for detail the glyph survives losing:
@@ -257,6 +257,145 @@ export const ICON_PATHS = {
   // is part of the head's own outline, not a second box, so nothing can drift.
   skull:
     "M12 2a8 8 0 0 0-8 8c0 2.6 1.3 4.9 3.2 6.3V19h9.6v-2.7c1.9-1.4 3.2-3.7 3.2-6.3a8 8 0 0 0-8-8ZM9 8.3a2.2 2.2 0 1 1 0 4.4 2.2 2.2 0 1 1 0-4.4Zm6 0a2.2 2.2 0 1 1 0 4.4 2.2 2.2 0 1 1 0-4.4ZM12 13.4l1.5 2.6h-3Z",
+  // Summer: a disc under eight rays that stand clear of it by 1.8. Rays rooted
+  // *inside* the disc were drawn twice and starred both times — eight roots
+  // eat so much of the rim that what is left of it reads as the notches of a
+  // star, not as a circle. Detached, nothing overlaps and no winding has to
+  // agree with any other: nine subpaths, nothing cut out. Each ray is 2.8 wide
+  // at the root and 2 at the tip, `music`'s stem, so it stays a wedge at 12px
+  // where a ray tapering to a point would be a hair.
+  sun: "M12 7a5 5 0 1 1 0 10 5 5 0 1 1 0-10ZM18.8 13.4 18.8 10.6 22.8 11 22.8 13ZM15.8 17.8 17.8 15.8 20.3 18.9 18.9 20.3ZM10.6 18.8 13.4 18.8 13 22.8 11 22.8ZM6.2 15.8 8.2 17.8 5.1 20.3 3.7 18.9ZM5.2 10.6 5.2 13.4 1.2 13 1.2 11ZM8.2 6.2 6.2 8.2 3.7 5.1 5.1 3.7ZM13.4 5.2 10.6 5.2 11 1.2 13 1.2ZM17.8 8.2 15.8 6.2 18.9 3.7 20.3 5.1Z",
+  // Rainy songs: a scalloped half-disc canopy over a stem that hooks left at
+  // the foot. The four scallops are part of the canopy's own outline — arcs
+  // bulging *down* on the way back along the hem — so the canopy is one
+  // contour and no fill rule is involved. The hook is the piece that tells the
+  // glyph from a mushroom: without it the stem is a stalk.
+  umbrella:
+    "M2 12A10 10 0 0 1 22 12a2.5 2.5 0 0 1-5 0 2.5 2.5 0 0 1-5 0 2.5 2.5 0 0 1-5 0 2.5 2.5 0 0 1-5 0ZM10.9 11h2.2v7h-2.2ZM13.1 17.6v0.8a3.1 3.1 0 0 1-6.2 0h2.2a0.9 0.9 0 0 0 1.8 0v-0.8Z",
+  // Drinking songs: a tankard under a three-lobe foam cap, the handle a loop
+  // off the right side whose inner arc runs back the way the outer one came,
+  // so the nonzero fill leaves the grip hole open. The foam is a bar with
+  // three discs riding on it rather than a scalloped outline — at row size the
+  // lobes have to overlap the bar by a couple of units or the cap breaks up.
+  beer: "M4 9h11v12H4ZM4 6.4h11v3H4ZM6.6 3.8a2.6 2.6 0 1 1 0 5.2 2.6 2.6 0 1 1 0-5.2ZM9.6 2.8a2.6 2.6 0 1 1 0 5.2 2.6 2.6 0 1 1 0-5.2ZM12.7 3.8a2.6 2.6 0 1 1 0 5.2 2.6 2.6 0 1 1 0-5.2ZM15 9.5a4.5 4.5 0 0 1 0 9v-2.3a2.2 2.2 0 0 0 0-4.4Z",
+  // Road songs: a cabin stepped onto a body over two wheel discs, the two
+  // windows counter-wound so the nonzero fill punches them out of the cabin.
+  // The wheels sit half under the body and half below it — a car drawn with
+  // the wheels clear of the body reads as a trolley at 0.8em.
+  car: "M2 12h20v5H2ZM6.5 6h9.5l2.5 6H4ZM7.6 7.4 6 10.8 11.2 10.8 11.2 7.4ZM12.4 7.4 12.4 10.8 16.8 10.8 15.4 7.4ZM7 14.7a2.8 2.8 0 1 1 0 5.6 2.8 2.8 0 1 1 0-5.6ZM17 14.7a2.8 2.8 0 1 1 0 5.6 2.8 2.8 0 1 1 0-5.6Z",
+  // Holidays: one outline — fuselage, swept wings and tailplane — climbing to
+  // the top right at 45°, which is what stops it reading as the `send` plane
+  // lying flat. Everything is mirrored about that diagonal, so the two wings
+  // and the two tailplanes are the same shape and the glyph stays symmetric
+  // however small it is drawn. The fuselage is 2.6 units across at its
+  // narrowest, `music`'s stem, so the body survives where the tips do not.
+  plane:
+    "M19.8 4.2 14.6 11.4 14.1 18.4 12.6 19.4 11.9 13.9 8.3 17.6 8.5 20.3 7.6 20.9 5.9 19.8 4.7 19.4 4.2 18.1 3.1 16.4 3.7 15.5 6.4 15.8 10.1 12.1 4.7 11.4 5.6 9.9 12.6 9.5Z",
+  // The loud fast ones: a single zigzag contour. Both limbs are cut on the
+  // same slant and the top bar is 2.5 units wide, so the bolt keeps its weight
+  // where the two halves cross — a bolt drawn from thin strokes loses its
+  // middle first and then reads as two unrelated wedges.
+  bolt: "M14 2 4 13.5h6.2L9 22 20 10.5h-6.4L16.5 2Z",
+  // New year: a dome on a flared rim, with the clapper a separate disc under
+  // it. Dome and rim are one contour — the flare is two short slants at the
+  // foot rather than a bar of its own, so the bell does not read as a tent
+  // with a lid.
+  bell: "M12 2.5a6 6 0 0 1 6 6v4.5l2 3.2H4l2-3.2V8.5a6 6 0 0 1 6-6ZM12 17.3a1.7 1.7 0 1 1 0 3.4 1.7 1.7 0 1 1 0-3.4Z",
+  // Halloween: a dome over a three-lobe hem, the two eyes counter-wound out of
+  // it. The hem's three points hang *below* where the sides end, so the lobes
+  // read as cloth and not as a scalloped foot; the eyes are a full 3 units
+  // across, since a ghost that loses its eyes is a bell.
+  ghost:
+    "M12 2.5a7.5 7.5 0 0 1 7.5 7.5v8.6L17 21l-2.5-2.4L12 21l-2.5-2.4L7 21l-2.5-2.4V10a7.5 7.5 0 0 1 7.5-7.5ZM9 8a1.5 1.5 0 1 0 0 3 1.5 1.5 0 1 0 0-3Zm6 0a1.5 1.5 0 1 0 0 3 1.5 1.5 0 1 0 0-3Z",
+  // Weddings: two concentric circles, the inner one counter-wound so the band
+  // is a band and not a disc, with a gem lozenge sitting on top of the rim.
+  // The band is 3.4 units thick — as heavy as `archive`'s lid — because a ring
+  // drawn as a hairline circle is the one shape that vanishes completely at
+  // 12px.
+  ring: "M12 8a7 7 0 1 1 0 14 7 7 0 1 1 0-14ZM12 11.4a3.6 3.6 0 1 0 0 7.2 3.6 3.6 0 1 0 0-7.2ZM12 1.6 15 5.2 12 8.8 9 5.2Z",
+  // School and graduation: a rhombus board on a trapezoid cap, with the tassel
+  // a cord and a knob hanging off the board's right tip. The board is drawn
+  // flat rather than in perspective — a foreshortened board and the cap under
+  // it merge into one lump before the picker's 40px.
+  "graduation-cap":
+    "M12 3 22.5 8 12 13 1.5 8ZM6.6 10.3 12 12.9 17.4 10.3 16.4 18H7.6ZM20.9 7.6h2v5.8h-2ZM21.9 13.4a1.6 1.6 0 1 1 0 3.2 1.6 1.6 0 1 1 0-3.2Z",
+  // Songs to play rather than sing: a headband arc whose inner edge runs back
+  // the way the outer one came — the nonzero fill leaves the head-shaped gap —
+  // and two capsule earcups overlapping its ends. The band is 2.4 units thick
+  // and the cups 5.6 across, more than twice that: cups no wider than the band
+  // leave a horseshoe, which is what the first cut of this glyph drew.
+  headphones:
+    "M3.4 14.2a8.6 8.6 0 0 1 17.2 0h-2.4a6.2 6.2 0 0 0-12.4 0ZM1.8 15.4a2.8 2.8 0 0 1 5.6 0v2.8a2.8 2.8 0 0 1-5.6 0ZM16.6 15.4a2.8 2.8 0 0 1 5.6 0v2.8a2.8 2.8 0 0 1-5.6 0Z",
+  // The drum-driven ones: a cylinder between two rim bars, with one zigzag
+  // band of three V's counter-wound out of the shell. The zigzag runs at 45°
+  // and is offset 2.6 downwards, which is 1.8 measured across it — steeper V's
+  // would need an offset half the shell deep to keep that width, which is why
+  // the first cut drew three fat chevrons and read as a saw. It sits in the
+  // middle, 3.6 of solid shell above it and 2.6 below, and the rims overhang
+  // the shell by 2 on each side: a rim flush with the shell is not a rim.
+  drum: "M4 6.4h16v11.2H4ZM2 4.6h20v2.2H2ZM2 17.2h20v2.2H2ZM19.2 10 16.8 12.4 14.4 10 12 12.4 9.6 10 7.2 12.4 4.8 10 4.8 12.6 7.2 15 9.6 12.6 12 15 14.4 12.6 16.8 15 19.2 12.6Z",
+  // Songs at the keys: a keybed bar over the keys, with the four black ones
+  // counter-wound out of the block — each cut carrying on below as a thin slot
+  // so the five white keys are told apart by the same shape that draws the
+  // black one. Cutting the slots out of one block rather than drawing five
+  // separate white keys is what keeps the gaps empty: a black key laid across
+  // a gap between two bars would wind to -1 there and fill it in.
+  piano:
+    "M3 4h18v3H3ZM3 7h18v13H3ZM5.6 7 5.6 14 6.3 14 6.3 20.2 6.9 20.2 6.9 14 7.6 14 7.6 7ZM9.2 7 9.2 14 9.9 14 9.9 20.2 10.5 20.2 10.5 14 11.2 14 11.2 7ZM12.8 7 12.8 14 13.5 14 13.5 20.2 14.1 20.2 14.1 14 14.8 14 14.8 7ZM16.4 7 16.4 14 17.1 14 17.1 20.2 17.7 20.2 17.7 14 18.4 14 18.4 7Z",
+  // The night's openers: a pointed body between two fins over a flame, the
+  // porthole counter-wound out of the body. The flame keeps half a unit of air
+  // under the body — touching it would read as a fifth fin — and the fins are
+  // triangles off the body's sides rather than swept curves, which at 12px are
+  // the first thing to close up.
+  rocket:
+    "M12 1.4 15.6 6.4 15.6 16.4H8.4V6.4ZM12 6.9a1.7 1.7 0 1 0 0 3.4 1.7 1.7 0 1 0 0-3.4ZM8.4 10.6 8.4 16.4 5 19v-4ZM15.6 10.6 19 15v4l-3.4-2.6ZM9.6 17h4.8L12 22.4Z",
+  // Sea shanties: a ring over a shank crossed by a stock, above one curved
+  // fluke bar, the ring's hole counter-wound. The fluke is a single 2.6-unit
+  // crescent — outer arc one way, inner the other — rather than two hooks, so
+  // there is nothing at the bottom thin enough to break.
+  anchor:
+    "M12 1.4a2.6 2.6 0 1 1 0 5.2 2.6 2.6 0 1 1 0-5.2ZM12 2.8a1.2 1.2 0 1 0 0 2.4 1.2 1.2 0 1 0 0-2.4ZM10.8 6h2.4v14.6h-2.4ZM6.4 8.4h11.2v2.2H6.4ZM2.6 13.4h2.6a6.8 6.8 0 0 0 13.6 0h2.6a9.4 9.4 0 0 1-18.8 0Z",
+  // Folk: three stacked triangles on a short trunk. Each triangle's apex sits
+  // well inside the one above it, so the three read as one crown rather than
+  // as a stack of separate roofs, and the trunk is 2.8 units wide — the same
+  // bar `cake`'s candles are made of.
+  tree: "M12 2 16.6 9.2H7.4ZM12 6.4 18.6 14.6H5.4ZM12 11 20.6 20H3.4ZM10.6 19.4h2.8v3h-2.8Z",
+  // Animal songs: a pad disc under four toe discs, five subpaths, nothing cut
+  // out. The toes are set on an arc and the outer pair sits lower than the
+  // inner pair — four toes in a straight line read as a caterpillar. Toe
+  // radius 2.2 against the pad's 4.4: at half the pad they stay separate dots
+  // at row size instead of fusing into a rosette.
+  paw: "M12 12a4.4 4.4 0 1 1 0 8.8 4.4 4.4 0 1 1 0-8.8ZM5.4 8a2.2 2.2 0 1 1 0 4.4 2.2 2.2 0 1 1 0-4.4ZM9.6 4.2a2.2 2.2 0 1 1 0 4.4 2.2 2.2 0 1 1 0-4.4ZM14.4 4.2a2.2 2.2 0 1 1 0 4.4 2.2 2.2 0 1 1 0-4.4ZM18.6 8a2.2 2.2 0 1 1 0 4.4 2.2 2.2 0 1 1 0-4.4Z",
+  // The funny ones: a disc with two eyes and a crescent mouth counter-wound
+  // out of it. The mouth is the `moon` construction upside down — a deep arc
+  // out and a shallow one back — because a mouth drawn as a stroked arc is not
+  // available here, and one drawn as a half-disc turns the face into a bowl.
+  smile:
+    "M12 2a10 10 0 1 1 0 20 10 10 0 1 1 0-20ZM8.6 7.9a1.5 1.5 0 1 0 0 3 1.5 1.5 0 1 0 0-3Zm6.8 0a1.5 1.5 0 1 0 0 3 1.5 1.5 0 1 0 0-3ZM6.6 13a5.6 5.6 0 0 0 10.8 0 9 9 0 0 1-10.8 0Z",
+  // The crowd-pleasers: a fist block with the thumb up, over a separate cuff
+  // bar. The cuff stands clear of the fist by a unit — run together they are
+  // one paddle — and the thumb is a wedge 4.2 units across at its base, so it
+  // is still a thumb and not a spike when the glyph is 11px tall.
+  "thumbs-up":
+    "M13 2.2 15.4 5.6 14.8 9.4H21.6L20.2 21H7.6V8.8h3ZM2 10h4.4v11H2Z",
+  // The long ones: two triangles meeting at the waist between two cap bars.
+  // The bulbs touch at a single point rather than through a neck: a waist with
+  // width in it turns the glyph into a bow tie between two shelves, and the
+  // caps are what say "hourglass" anyway.
+  hourglass:
+    "M4 2.6h16v2.6H4ZM4 18.8h16v2.6H4ZM5.6 5.2h12.8L12 12ZM12 12 18.4 18.8H5.6Z",
+  // Carnival: a teardrop bulb over a short zigzag string. The neck is a
+  // triangle overlapping the bulb rather than a separate tag, so the balloon
+  // is one shape, and the string is a closed band about a unit thick — a
+  // hairline string would simply not be there at 12px.
+  balloon:
+    "M12 2a6.8 6.8 0 1 1 0 13.6 6.8 6.8 0 1 1 0-13.6ZM10.7 14.2h2.6L12 17.4ZM12.2 16.2 15.6 20.4 12 23 11.4 22.2 13.9 20.1 11.3 16.7Z",
+  // The gym set: a bar between two pairs of stacked plates. The inner plates
+  // are the tall pair and the outer ones the short pair, which is what gives
+  // the glyph a direction to read along; the bar overlaps both inner plates,
+  // and the outer pair stands off by 0.8 so the stack reads as plates.
+  dumbbell:
+    "M7.6 10.6h8.8v2.8H7.6ZM4.8 6.4h3v11.2h-3ZM16.2 6.4h3v11.2h-3ZM1.4 8.4h2.6v7.2H1.4ZM20 8.4h2.6v7.2H20Z",
 } as const;
 
 export type IconName = keyof typeof ICON_PATHS;
@@ -268,7 +407,9 @@ export type IconName = keyof typeof ICON_PATHS;
  * `ICON_PATHS` has a job elsewhere in the app — `clock` is Recent, `star` the
  * winner accent, `tag` the tags feature itself — and a tag wearing one of those
  * would be saying the wrong thing. The eight general ones come first, then the
- * twelve drawn for tags, each group in its own line here.
+ * thirty-four drawn for tags, and last `tv`, which was drawn for the host
+ * screen: labelling a settings group is a job, not a meaning a tag could
+ * contradict.
  *
  * A tag may still carry a glyph this list leaves out: the picker keeps such a
  * one chosen and choosable for that tag, and it draws like any other.
@@ -294,6 +435,29 @@ export const PICKER_ICON_NAMES: readonly IconName[] = [
   "gamepad",
   "flag",
   "skull",
+  "sun",
+  "umbrella",
+  "beer",
+  "car",
+  "plane",
+  "bolt",
+  "bell",
+  "ghost",
+  "ring",
+  "graduation-cap",
+  "headphones",
+  "drum",
+  "piano",
+  "rocket",
+  "anchor",
+  "tree",
+  "paw",
+  "smile",
+  "thumbs-up",
+  "hourglass",
+  "balloon",
+  "dumbbell",
+  "tv",
   // `as const` like `ICON_PATHS` above: the annotation is what checks the
   // names, and a plain array literal exported from the file that also exports
   // `Icon` is what `react-refresh/only-export-components` warns about.

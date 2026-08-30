@@ -585,6 +585,14 @@ test("the genre row wears the music glyph, the tags feature keeps its own", asyn
   expect(iconNames(screen.getByTitle("Genre"))).toEqual(["music"]);
 });
 
+test("the language row wears the flag, the glyph the Language facet wears", async () => {
+  renderDetails();
+
+  fireEvent.click(await screen.findByRole("button", { name: "Details" }));
+  // Not `globe`: that one means global sharing (a public playlist, USDB).
+  expect(iconNames(screen.getByTitle("Language"))).toEqual(["flag"]);
+});
+
 test("there is no tags row when the reader may not view a single tag", async () => {
   renderDetails();
 

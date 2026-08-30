@@ -322,7 +322,8 @@ export default function SongDetails({ song, onClose }: SongDetailsProps) {
   // Duration lives in the preview player and artist in the hero, so the
   // details keep only what the modal does not show anyway.
   const rows: { icon: IconName; label: string; value: string | null }[] = [
-    { icon: "globe", label: "Language", value: song.language },
+    // `flag` is "a language or a country" (§3); `globe` means global sharing.
+    { icon: "flag", label: "Language", value: song.language },
     // Not `tag`: that glyph is the tags feature's, one row further down (§3).
     { icon: "music", label: "Genre", value: song.genre },
     {
