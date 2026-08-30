@@ -591,7 +591,15 @@ export default function Playlist() {
             ))}
           </ul>
           {library.isSuccess && found.length === 0 && (
-            <p className="playlist-add-more">No song matches that.</p>
+            /* An empty library is not a search that found nothing: saying "no
+               song matches that" about a search nobody typed sends the reader
+               looking for a spelling mistake. The songs page owns the how-to
+               (scan, or add from a source); here the state is enough. */
+            <p className="playlist-add-more">
+              {(library.data?.songs ?? []).length === 0
+                ? "The library is empty. There is nothing to add yet."
+                : "No song matches that."}
+            </p>
           )}
           {error && (
             <p className="error-notice playlists-notice" role="alert">

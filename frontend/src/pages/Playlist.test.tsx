@@ -509,6 +509,34 @@ test("Add songs lists the whole library, however big it is", async () => {
   expect(screen.queryByText(/are shown/)).not.toBeInTheDocument();
 });
 
+test("Add songs says the library is empty rather than blaming a search", async () => {
+  listSongs.mockResolvedValue({ data: { songs: [] } });
+  renderPlaylist(detail());
+
+  fireEvent.click(await screen.findByRole("button", { name: "Add songs" }));
+  const view = within(await screen.findByRole("dialog", { name: "Add songs" }));
+
+  expect(
+    await view.findByText("The library is empty. There is nothing to add yet."),
+  ).toBeInTheDocument();
+  expect(view.queryByText("No song matches that.")).not.toBeInTheDocument();
+});
+
+test("Add songs blames the search once the library holds songs", async () => {
+  renderPlaylist(detail());
+
+  fireEvent.click(await screen.findByRole("button", { name: "Add songs" }));
+  const view = within(await screen.findByRole("dialog", { name: "Add songs" }));
+  await view.findByRole("button", { name: /Hey Jude/ });
+
+  fireEvent.change(screen.getByLabelText("Search songs"), {
+    target: { value: "nothing like this" },
+  });
+
+  expect(view.getByText("No song matches that.")).toBeInTheDocument();
+  expect(view.queryByText(/The library is empty/)).not.toBeInTheDocument();
+});
+
 test("one song being added does not lock the rest of the library", async () => {
   // Filling a playlist is a run of taps: only the row waiting for its answer
   // goes quiet.

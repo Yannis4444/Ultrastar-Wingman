@@ -185,13 +185,15 @@ export const ICON_PATHS = {
   // smaller than `archive` and `alert` in the same row of marks.
   flame:
     "M12 2c.5 4.2 4.8 6.6 7 12.7a7 7 0 0 1-5.5 6.9L12 19.9l-1.5 1.7a7 7 0 0 1-5.5-6.9c0-1.7.6-3 1.6-4.1c.1 1.3.8 2.4 1.9 3C8.8 9.9 10.7 6.8 12 2Z",
-  // Slow songs and ballads: a crescent, a disc cut out of a disc. The cut-out
-  // runs the other way round (sweep 1 against the outer circle's 0) so the
-  // nonzero fill leaves the bite open. The bite is the *smaller* disc (8.5
-  // against 9.5) pushed half a radius up and to the right, which opens 126° of
-  // sky and leaves the belly six units thick: a bite that is nearly the same
-  // size as the moon, or barely offset, closes the crescent into a ring.
-  moon: "M12 2.5a9.5 9.5 0 1 0 0 19 9.5 9.5 0 0 0 0-19ZM15.5 0a8.5 8.5 0 1 1 0 17 8.5 8.5 0 1 1 0-17Z",
+  // Slow songs and ballads: a crescent, a disc cut out of a disc — but drawn
+  // as *one* contour, the long way round the outer circle (r 9.6 about the
+  // centre) and back along the cutting one (r 8.4, its centre pushed 6.1 up
+  // and to the right). Two whole circles cannot do it: the cutting disc has to
+  // reach past the outer rim to open a crescent rather than a hole, and
+  // whatever of it lands outside is nonzero too, so it fills in as a second
+  // crescent and the pair reads as a ring. Belly 7.3 units — the weight
+  // `archive` and `video` carry — with 120° of sky between the horns.
+  moon: "M9.53 2.72A9.6 9.6 0 1 0 21.28 14.47A8.4 8.4 0 0 1 9.53 2.72Z",
   // The winter half of christmas: three crossed bars — one upright, two at
   // ±60° — with a short fork at each of the six tips. One polygon per bar, so
   // the three are the same shape rotated and no tip is drawn twice. Three
@@ -215,10 +217,12 @@ export const ICON_PATHS = {
   // `user`, which is the grown-up bust and means an account everywhere else.
   // Five subpaths all wound the same way (the head clockwise like the bars),
   // so the nonzero fill unions them where the torso crosses the arms and the
-  // two legs cross each other. The head stays twice the torso's width, which
-  // is what keeps it a head and not the top of a cross.
+  // two legs cross each other. The head is eight units across — twice the
+  // torso and more than half the arm bar — because a small head over a long
+  // bar is a dagger, not a child: it is the ratio between those two, not the
+  // head's own size, that carries the reading at 0.8em.
   child:
-    "M12 1.8a3.3 3.3 0 1 1 0 6.6 3.3 3.3 0 1 1 0-6.6ZM3 10.2h18v3.2H3Zm7.4-1.8h3.2v8.4h-3.2Zm.2 7.4h3.2l-2.8 6.4H7.8Zm-.4 0h3.2l2.8 6.4h-3.2Z",
+    "M12 1.4a4 4 0 1 1 0 8 4 4 0 1 1 0-8ZM4.6 11h14.8v3.2H4.6Zm5.4-2h4v8.2h-4ZM10.2 16.2h3.6l-3.6 6.2H6.6ZM10.2 16.2h3.6l3.6 6.2h-3.6Z",
   // Rock: two bouts with a waist between them, the sound hole cut out of the
   // upper one (wound the other way round), and the neck running out of it to
   // the top right, widening once into the head. The waist is what makes it a

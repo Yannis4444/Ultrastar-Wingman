@@ -49,8 +49,8 @@ request does not override are the accessibility and dependency floors in §1.8�
 
 ## 2. Tokens, spacing, typography
 
-Tokens live in `frontend/src/index.css` (dark-only). Do not introduce new tokens; compose with
-`color-mix(in srgb, …)` if a value is missing.
+Tokens live in `frontend/src/index.css` (dark-only, same values as the old app). Do not
+introduce new tokens; compose with `color-mix(in srgb, …)` if a value is missing.
 
 | Token | Use |
 |---|---|
@@ -96,7 +96,7 @@ is the picker's list below, never this table.
 | `filter` / `comment` / `drag-handle` / `copy` | the Songs Filter chip and its panel · comments: modal row, sub-view, empty state · the reorder grip in playlist edit mode · "Save a copy" of a playlist | solid funnel, a wide bar tapering into a short stem · one rounded speech bubble, tail at the bottom left · six dots in two columns of three · two offset rounded squares, the front one solid |
 | `send` / `user-plus` | submit in the comment composer · add a member, add a person to a tag | a paper plane, one triangle with the fold cut out · the `user` bust with a plus at its shoulder |
 | `lock` / `bookmark` / `bookmark-off` | a tag row nobody assigns here (no `assign`, or automatic) · follow / unfollow a playlist, `bookmark-off` also labelling the collapsed *Hidden* group | padlock, solid body under a counter-wound shackle so the nonzero fill leaves the hole · ribbon with a notched foot · the same ribbon behind a diagonal bar |
-| `archive` / `flame` / `moon` | a tag for put-away songs · for party songs · for slow songs and ballads | a lid bar over a box body, one notch in the lid · one teardrop tongue, notched at the foot · a crescent, a disc cut out of a disc |
+| `archive` / `flame` / `moon` | a tag for put-away songs · for party songs · for slow songs and ballads | a lid bar over a box body, one notch in the lid · one teardrop tongue, notched at the foot · a crescent as one contour, the rim the long way round and back along the cutting circle — a cut-out cannot do it, the cutting disc has to reach past the rim |
 | `snowflake` / `gift` / `cake` / `child` | tags for christmas: the winter half · presents · a tag for birthdays · for songs for kids | three crossed bars, a short fork at each of the six tips · a box under a lid bar, one ribbon band down the middle of the box and a two-petal bow on the lid · a slab on a plate, three candles · a round head over a body, arms out and legs apart, never `user` |
 | `guitar` / `crown` / `film` / `gamepad` / `flag` / `skull` | a tag for rock · for the classics everybody knows · for movies and musicals · for game music · for a language or country · for hard to sing | two bouts with a waist between them, sound hole cut out of the upper one, neck to the top right · three points over a solid band · an upright strip with a column of sprocket holes down each edge, `video` staying the camera · a lozenge, d-pad cross and two buttons cut out · a triangular pennant on a staff · a cranium over a jaw, the eye sockets and a nose cut out |
 
@@ -157,8 +157,8 @@ exception). Tests identify glyphs with `iconNames()` from `src/test/icons.ts`.
   min-height, hairline separators, list `margin: 0 8px`, 8px padding. Search by username.
 - **The gradient dice** (`.home-random`, `.spinner-spin`, `.playlist-spin`): the blue→pink sweep
   with the `dice` glyph marks the way into the slot machine and the SPIN action, nothing else —
-  two buttons carry it as a fill, the playlist header's icon-only link on the glyph. On SPIN the
-  die tumbles through its faces.
+  two buttons carry it as a fill (the only gradient buttons in the app), the playlist header's
+  icon-only link on the glyph. On SPIN the die tumbles through its faces.
 - **`Loading`** (`components/Loading.tsx`) is the only loading indicator — every `Suspense`
   fallback and `isPending` branch uses it. `SongSpinner` is the reel, not a loader.
 
