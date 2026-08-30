@@ -30,6 +30,7 @@ const {
   listSongComments,
   addSongComment,
   deleteSongComment,
+  deleteSong,
 } = vi.hoisted(() => ({
   getMe: vi.fn(),
   listSongScores: vi.fn(),
@@ -47,6 +48,7 @@ const {
   listSongComments: vi.fn(),
   addSongComment: vi.fn(),
   deleteSongComment: vi.fn(),
+  deleteSong: vi.fn(),
 }));
 
 vi.mock("../api/sdk.gen", async (importOriginal) => ({
@@ -67,6 +69,7 @@ vi.mock("../api/sdk.gen", async (importOriginal) => ({
   listSongComments,
   addSongComment,
   deleteSongComment,
+  deleteSong,
 }));
 
 const song: SongRead = {
@@ -120,13 +123,13 @@ const history = [
   score(1, "Alice", 9500),
 ];
 
-function renderDetails() {
+function renderDetails(onClose: () => void = () => {}) {
   const client = new QueryClient({
     defaultOptions: { queries: { retry: false } },
   });
   return render(
     <QueryClientProvider client={client}>
-      <SongDetails song={song} onClose={() => {}} />
+      <SongDetails song={song} onClose={onClose} />
     </QueryClientProvider>,
   );
 }
@@ -166,6 +169,8 @@ beforeEach(() => {
   listPlayers.mockResolvedValue({ data: { players: [] } });
   for (const mock of [listSongComments, addSongComment, deleteSongComment])
     mock.mockReset();
+  deleteSong.mockReset();
+  deleteSong.mockResolvedValue({ data: undefined });
   // The count query runs as the modal opens, so every test needs an answer.
   listSongComments.mockResolvedValue({ data: { comments: [] } });
   deleteSongComment.mockResolvedValue({ data: undefined });
@@ -1245,4 +1250,94 @@ test("somebody else commenting refetches this song's list, and only this song's"
     count: 1,
   });
   await waitFor(() => expect(listSongComments).toHaveBeenCalledTimes(2));
+});
+
+test("no Delete song row without the right", async () => {
+  renderDetails();
+
+  // The trophy waits for `/auth/me`, so by the time it is here the row has had
+  // its answer too — and the answer is no.
+  await screen.findByRole("button", { name: /Best scores/ });
+  expect(
+    screen.queryByRole("button", { name: "Delete song" }),
+  ).not.toBeInTheDocument();
+});
+
+test("Delete song is the last row and looks like every other one", async () => {
+  asAccount(["songs.delete"]);
+  renderDetails();
+
+  const row = await screen.findByRole("button", { name: "Delete song" });
+  // A row, not a red button: the weight is in the confirmation (§1.6, §5).
+  expect(row.className).toBe("song-option");
+  expect(iconNames(row)).toEqual(["trash", "chevron-right"]);
+  const rows = Array.from(
+    row.closest(".song-options")?.querySelectorAll(".song-option") ?? [],
+  );
+  expect(rows[rows.length - 1]).toBe(row);
+});
+
+test("deleting asks first, names the song and says the files go", async () => {
+  asAccount(["songs.delete"]);
+  const onClose = vi.fn();
+  renderDetails(onClose);
+
+  fireEvent.click(await screen.findByRole("button", { name: "Delete song" }));
+  const confirm = screen.getByRole("dialog", { name: "Delete song" });
+  expect(confirm).toHaveTextContent("Bohemian Rhapsody");
+  expect(confirm).toHaveTextContent("Queen");
+  expect(confirm).toHaveTextContent(/folder is deleted from the disk/);
+  // Nothing has happened yet — the question is the whole point of the dialog.
+  expect(deleteSong).not.toHaveBeenCalled();
+
+  fireEvent.click(within(confirm).getByRole("button", { name: "Delete" }));
+
+  await waitFor(() =>
+    expect(deleteSong).toHaveBeenCalledWith(
+      expect.objectContaining({ path: { song_id: "usdb:1" } }),
+    ),
+  );
+  // The song it was about is gone, so the modal closes behind it.
+  await waitFor(() => expect(onClose).toHaveBeenCalled());
+});
+
+test("backing out of the confirmation leaves the song alone", async () => {
+  asAccount(["songs.delete"]);
+  const onClose = vi.fn();
+  renderDetails(onClose);
+
+  fireEvent.click(await screen.findByRole("button", { name: "Delete song" }));
+  fireEvent.click(
+    within(screen.getByRole("dialog", { name: "Delete song" })).getByRole(
+      "button",
+      { name: "Cancel" },
+    ),
+  );
+
+  expect(deleteSong).not.toHaveBeenCalled();
+  expect(onClose).not.toHaveBeenCalled();
+  expect(
+    screen.getByRole("dialog", { name: "Bohemian Rhapsody" }),
+  ).toBeInTheDocument();
+});
+
+test("a song that is playing cannot be deleted, and the modal says why", async () => {
+  asAccount(["songs.delete"]);
+  deleteSong.mockRejectedValue({ detail: "song_is_playing" });
+  const onClose = vi.fn();
+  renderDetails(onClose);
+
+  fireEvent.click(await screen.findByRole("button", { name: "Delete song" }));
+  fireEvent.click(
+    within(screen.getByRole("dialog", { name: "Delete song" })).getByRole(
+      "button",
+      { name: "Delete" },
+    ),
+  );
+
+  expect(await screen.findByRole("alert")).toHaveTextContent(
+    "That song is playing right now. Stop it first.",
+  );
+  // The song is still there, so the modal stays open on it.
+  expect(onClose).not.toHaveBeenCalled();
 });

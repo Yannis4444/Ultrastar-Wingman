@@ -42,6 +42,14 @@ class SongsScanFinished(Event):
     total: int
 
 
+class SongDeleted(Event):
+    """One song was deleted from the library, files and all. The id alone: every listing
+    that carried it has to be fetched again anyway, and the row is gone from all of them."""
+
+    event: Literal["songs.deleted"] = "songs.deleted"
+    song_id: str
+
+
 class DownloadUpdated(Event):
     """Every state change of a download, plus throttled progress while it runs."""
 

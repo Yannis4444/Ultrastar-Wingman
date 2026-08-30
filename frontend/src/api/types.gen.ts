@@ -1961,6 +1961,40 @@ export type RescanSongsResponses = {
 
 export type RescanSongsResponse = RescanSongsResponses[keyof RescanSongsResponses];
 
+export type DeleteSongData = {
+    body?: never;
+    path: {
+        /**
+         * Song Id
+         */
+        song_id: string;
+    };
+    query?: never;
+    url: '/api/v1/songs/{song_id}';
+};
+
+export type DeleteSongErrors = {
+    /**
+     * The song is playing, or its files could not be removed.
+     */
+    409: unknown;
+    /**
+     * Validation Error
+     */
+    422: HttpValidationError;
+};
+
+export type DeleteSongError = DeleteSongErrors[keyof DeleteSongErrors];
+
+export type DeleteSongResponses = {
+    /**
+     * Successful Response
+     */
+    204: void;
+};
+
+export type DeleteSongResponse = DeleteSongResponses[keyof DeleteSongResponses];
+
 export type GetSongData = {
     body?: never;
     path: {

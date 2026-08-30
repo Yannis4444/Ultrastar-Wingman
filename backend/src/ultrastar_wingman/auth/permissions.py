@@ -19,6 +19,7 @@ logger = logging.getLogger(__name__)
 CAPABILITIES: tuple[str, ...] = (
     "songs.view",
     "songs.rescan",
+    "songs.delete",
     "karaoke.sing",
     "karaoke.stop",
     "players.view",
@@ -112,7 +113,12 @@ _TRUSTED_CAPABILITIES = _USER_CAPABILITIES | {
     "comments.moderate",
 }
 
-# What migrations 0006 to 0014 seed. Kept here as well so a test can prove the two never
+# Nobody but an administrator: `songs.delete` erases a song folder from the disk, which no
+# role below the host can undo — so it is in `CAPABILITIES` and in no bundle above. An
+# administrator holds it because `ADMIN` is `ALL_CAPABILITIES`, not because a set names it;
+# the host can still hand it to `trusted` in the permissions table like any other right.
+
+# What migrations 0006 to 0018 seed. Kept here as well so a test can prove the two never
 # drift.
 DEFAULT_ROLE_CAPABILITIES: dict[str, frozenset[str]] = {
     GUEST: _GUEST_CAPABILITIES,

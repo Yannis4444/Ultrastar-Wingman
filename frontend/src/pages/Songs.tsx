@@ -176,6 +176,11 @@ export default function Songs() {
     setScanning(false);
     void queryClient.invalidateQueries({ queryKey: listSongsQueryKey() });
   });
+  // Somebody with `songs.delete` took a song out of the library. Same treatment
+  // as a finished scan: the list this page shows is what changed.
+  useWingmanEvent("songs.deleted", () => {
+    void queryClient.invalidateQueries({ queryKey: listSongsQueryKey() });
+  });
 
   // Nothing sung yet (or the party is over) means no tab: an empty one nobody
   // in the room can fill is worse than none at all. It stays while the reader

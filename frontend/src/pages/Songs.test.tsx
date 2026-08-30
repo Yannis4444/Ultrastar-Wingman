@@ -420,6 +420,20 @@ test("a finished scan refetches the song list", async () => {
   expect(await screen.findByText("Waterloo")).toBeInTheDocument();
 });
 
+test("a song somebody deleted leaves the list", async () => {
+  renderSongs([song(), song({ id: "usdb:2", title: "Waterloo" })]);
+  await screen.findByText("Waterloo");
+
+  listSongs.mockResolvedValue({ data: { songs: [song()] } });
+  // What the backend broadcasts once a `songs.delete` holder removed one.
+  FakeSocket.deliver({ event: "songs.deleted", song_id: "usdb:2" });
+
+  await waitFor(() =>
+    expect(screen.queryByText("Waterloo")).not.toBeInTheDocument(),
+  );
+  expect(screen.getByText("Dancing Queen")).toBeInTheDocument();
+});
+
 test("the privileged buttons are gone for a role without the capability", async () => {
   renderSongs([song()], ["songs.view", "players.view"]);
   await screen.findByText("Dancing Queen");

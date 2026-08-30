@@ -12,7 +12,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from ..auth.deps import HiddenSongsDep, require
 from ..db import SessionDep
-from . import scanner
+from . import scanner, service
 from .model import Song
 from .schema import SongList, SongRead, read_song
 
@@ -60,6 +60,35 @@ async def rescan_songs(request: Request, response: Response) -> ScanStatus:
 )
 async def get_song(song_id: str, session: SessionDep, hidden: HiddenSongsDep) -> SongRead:
     return read_song(await song_or_404(song_id, session, hidden))
+
+
+@router.delete(
+    "/songs/{song_id}",
+    status_code=204,
+    dependencies=[Depends(require("songs.delete"))],
+    responses={409: {"description": "The song is playing, or its files could not be removed."}},
+)
+async def delete_song(song_id: str, session: SessionDep, hidden: HiddenSongsDep) -> None:
+    """Delete a song from the library, its folder on disk included. Admin-only by default.
+
+    409 while that very song is playing, and 409 when the folder cannot be removed — a file
+    still open in another program, which is what Windows says to a running USDX. Nothing is
+    deleted in either case.
+    """
+    song = await song_or_404(song_id, session, hidden)
+    try:
+        await service.delete_song(session, song)
+    except service.SongGoneError as error:
+        # Somebody else deleted it while this request waited for the scanner's lock, so it
+        # answers what it would have answered a moment earlier.
+        raise HTTPException(status_code=404, detail=f"unknown song '{song_id}'") from error
+    except service.SongIsPlayingError as error:
+        raise HTTPException(status_code=409, detail="song_is_playing") from error
+    except service.LibraryRootError as error:
+        raise HTTPException(status_code=409, detail="song_directory_is_a_library_root") from error
+    except service.SongFilesError as error:
+        logger.warning("deleting song '%s' failed: %s", song_id, error)
+        raise HTTPException(status_code=409, detail="song_files_in_use") from error
 
 
 @router.get(

@@ -91,7 +91,7 @@ async def scan_library(session_factory: async_sessionmaker[AsyncSession]) -> Sca
         await event_bus.broadcast(SongsScanStarted())
         try:
             async with session_factory() as session:
-                roots = await _configured_roots(session)
+                roots = await configured_roots(session)
                 scanned = await asyncio.to_thread(_scan_roots, roots)
                 result = await _reconcile(session, scanned)
             logger.info(
@@ -160,6 +160,17 @@ async def scan_song_directory(
         return row.id
 
 
+def library_lock() -> asyncio.Lock:
+    """The lock that says "the library is being reconciled right now".
+
+    Held by both scan entry points, and by anything else that adds or removes a song
+    directory behind the scanner's back (`songs.service.delete_song`): a scan that walked
+    the directories before such a change would otherwise put the row back afterwards.
+    Read through the module global on every call, because the tests swap it per event loop.
+    """
+    return _scan_lock
+
+
 def start_scan(session_factory: async_sessionmaker[AsyncSession]) -> bool:
     """Kick off a scan in the background. False when one is already running."""
     global _scan_task
@@ -189,7 +200,7 @@ def _log_failure(task: asyncio.Task[ScanResult]) -> None:
         logger.error("library scan failed", exc_info=error)
 
 
-async def _configured_roots(session: AsyncSession) -> list[Path]:
+async def configured_roots(session: AsyncSession) -> list[Path]:
     settings = SettingsService(session)
     values = [str(await settings.get(SONGS_DIRECTORY))]
     values += str(await settings.get(ADDITIONAL_DIRECTORIES)).splitlines()

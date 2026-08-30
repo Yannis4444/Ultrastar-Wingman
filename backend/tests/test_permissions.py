@@ -34,6 +34,8 @@ ROUTES: list[tuple[str, str, str, dict[str, object] | None]] = [
     ("songs.view", "GET", "/api/v1/songs/usdb:1", None),
     ("songs.view", "GET", "/api/v1/songs/usdb:1/cover", None),
     ("songs.rescan", "POST", "/api/v1/songs/rescan", None),
+    # Admin-only by default: the folder goes off the disk with the row.
+    ("songs.delete", "DELETE", "/api/v1/songs/usdb:1", None),
     ("players.view", "GET", "/api/v1/players", None),
     ("players.view", "GET", "/api/v1/players/nope/avatar", None),
     ("players.view", "GET", "/api/v1/karaoke/colors", None),

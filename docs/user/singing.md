@@ -168,6 +168,37 @@ comment is gone for good; there is no undo.
 
 If the account behind a comment is deleted, its comments go with it.
 
+## Delete a song
+
+A song that will never be sung again — a broken file, a duplicate, a download
+that went wrong — can be taken out of the library for good. The last row of the
+song's view is **Delete song**, and only **admin** holds the right by default.
+It is on [Accounts and permissions](accounts-and-permissions.md) as *Delete a
+song*, so the host can hand it to **trusted** as well.
+
+Wingman asks first, naming the song, and then deletes **the whole song folder
+from the disk** — the txt, the audio, the video, the cover. There is no undo and
+there is no bin: the files are gone. Deleting the database row alone would not
+help anyway, because the next start would find the folder and read it back in.
+
+What stays is everything the party *did* with the song:
+
+- The **scores** and the parties they were sung at. A score of a deleted song
+  still counts towards a singer's record; it simply has no song to name any more.
+- The **comments** and the **tags** on it, the **favorites** that pointed at it
+  and its place in a **playlist**. None of them shows up anywhere while the song
+  is gone — and if the very same song is downloaded again from USDB, it comes
+  back under the same name and finds all of it again.
+
+The **wishes** are the exception, and they go: a wish is "somebody should sing
+this tonight", and after the file is gone nobody can.
+
+A deletion can be stopped, always with a sentence saying why: the song is
+**playing right now** (stop it first), Ultrastar Deluxe still has its files open
+(close it and try again), or the song's folder is — or holds — your songs
+folder itself rather than being one song inside it, which would take the whole
+library with it. In every case nothing at all is deleted.
+
 ## Choose the players
 
 Press **Sing** in the song details. The player selection opens.
