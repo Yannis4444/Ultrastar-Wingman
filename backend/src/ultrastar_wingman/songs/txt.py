@@ -8,12 +8,28 @@ detected instead of assumed.
 
 import codecs
 import logging
+import re
 from pathlib import Path
 
 from charset_normalizer import from_bytes
 from pydantic import BaseModel
 
 logger = logging.getLogger(__name__)
+
+# A body line that hands the song to another singer: "P1", "P 2", "P3". Note lines start
+# with ":", "*", "F", "R", "G", "-" or "E", so a bare "P<n>" can be nothing else.
+_SINGER_LINE = re.compile(r"P\s*(\d+)", re.IGNORECASE)
+
+# The header pairs that name a duet's two singers — the current spelling and the one
+# older files use. Either pair, complete, marks a duet even when the body has no switch.
+_DUET_HEADER_PAIRS: tuple[tuple[str, str], ...] = (
+    ("DUETSINGERP1", "DUETSINGERP2"),
+    ("P1", "P2"),
+)
+
+# The character a UTF-8 BOM decodes to. It sits in front of the first line, which is a
+# header in every readable file, but the line loops must not trip over it either way.
+_BOM_CHARACTER = "\ufeff"
 
 _BOMS: tuple[tuple[bytes, str], ...] = (
     (codecs.BOM_UTF8, "utf-8-sig"),
@@ -43,6 +59,9 @@ class SongTxt(BaseModel):
     year: int | None = None
     edition: str | None = None
     creator: str | None = None
+    # Two people share this song: the body hands it over at least once, or both duet
+    # singer headers name somebody. A fact about the file, not a tag anybody set.
+    is_duet: bool = False
     # The playback window USDX honours, both in **seconds** — `#START` is written in
     # seconds, `#END` in milliseconds, and normalizing that here keeps the unit trap in
     # one place. `start` skips the intro, `end` cuts the song off before the audio ends.
@@ -68,6 +87,7 @@ def parse_song_txt(text: str) -> SongTxt:
         year=_year(tags.get("YEAR")),
         edition=tags.get("EDITION"),
         creator=tags.get("CREATOR"),
+        is_duet=_is_duet(text, tags),
         start=_positive(_decimal(tags.get("START"))),
         # Milliseconds in the file, seconds in the model.
         end=_positive(_milliseconds_to_seconds(_decimal(tags.get("END")))),
@@ -99,13 +119,36 @@ def _tags(text: str) -> dict[str, str]:
     are ignored (`#GENRE:` with nothing behind it means "no genre", not an empty genre)."""
     tags: dict[str, str] = {}
     for line in text.splitlines():
-        stripped = line.strip().lstrip("\ufeff")
+        stripped = line.strip().lstrip(_BOM_CHARACTER)
         if not stripped.startswith("#"):
             continue
         name, separator, value = stripped[1:].partition(":")
         if separator and value.strip():
             tags.setdefault(name.strip().upper(), value.strip())
     return tags
+
+
+def _is_duet(text: str, tags: dict[str, str]) -> bool:
+    """Whether two singers share the song.
+
+    Two independent marks, either of which is enough: both duet singer headers, or a body
+    that switches singer. *Two* different singer numbers are needed in the body — a file
+    that opens with "P1" and never hands over is one person singing under a marker, which
+    is what a converted solo song looks like.
+    """
+    if any(first in tags and second in tags for first, second in _DUET_HEADER_PAIRS):
+        return True
+    singers: set[int] = set()
+    for line in text.splitlines():
+        stripped = line.strip().lstrip(_BOM_CHARACTER)
+        if stripped.startswith("#"):
+            continue
+        match = _SINGER_LINE.fullmatch(stripped)
+        if match is not None:
+            singers.add(int(match.group(1)))
+            if len(singers) > 1:
+                return True
+    return False
 
 
 def _year(value: str | None) -> int | None:

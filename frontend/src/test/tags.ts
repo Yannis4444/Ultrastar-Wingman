@@ -16,6 +16,9 @@ export function tagRead(overrides: Partial<TagRead> = {}): TagRead {
     hide_by_default: false,
     can_view: true,
     can_assign: true,
+    // Manual: what people put on songs. An automatic tag carries a rule instead, and
+    // then `can_assign` is false for everybody.
+    rule: null,
     song_count: 0,
     permissions: null,
     ...overrides,

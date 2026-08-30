@@ -20,6 +20,7 @@ from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
 
 from ..events import SongsScanFinished, SongsScanStarted, event_bus
 from ..settings import SettingsService
+from ..tags.service import apply_rules
 from .fingerprint import fingerprint
 from .model import LOCAL_SOURCE, Song, song_id
 from .txt import SongTxt, SongTxtError, read_song_txt
@@ -94,6 +95,10 @@ async def scan_library(session_factory: async_sessionmaker[AsyncSession]) -> Sca
                 roots = await _configured_roots(session)
                 scanned = await asyncio.to_thread(_scan_roots, roots)
                 result = await _reconcile(session, scanned)
+                # An automatic tag reads song metadata, so the library the scan just
+                # wrote is what it has to follow: a song whose `.txt` gained a language
+                # gets the tag here, one that left the library loses it.
+                await apply_rules(session)
             logger.info(
                 "library scan finished: %d added, %d removed, %d updated, %d total",
                 result.added,
@@ -156,6 +161,9 @@ async def scan_song_directory(
             row.directory = str(scanned.directory)
             _apply_values(row, scanned)
         await session.commit()
+        # A fresh download arrives already carrying the automatic tags it matches, rather
+        # than waiting for the next full scan.
+        await apply_rules(session)
         logger.info("registered song '%s' from %s", row.id, scanned.directory)
         return row.id
 
@@ -271,6 +279,7 @@ def _mutable_values(scanned: ScannedSong) -> dict[str, object]:
         "year": txt.year,
         "edition": txt.edition,
         "creator": txt.creator,
+        "is_duet": txt.is_duet,
     }
 
 

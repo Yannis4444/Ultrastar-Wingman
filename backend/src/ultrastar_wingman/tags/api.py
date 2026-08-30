@@ -18,7 +18,7 @@ from ..auth.permissions import UnknownRoleError
 from ..db import SessionDep
 from ..songs.api import song_or_404
 from ..songs.model import Song
-from . import builtin, service
+from . import builtin, rules, service
 from .model import MAX_NAME_LENGTH, Tag
 from .schema import (
     BuiltInTagId,
@@ -28,6 +28,8 @@ from .schema import (
     TagColor,
     TagList,
     TagRead,
+    TagRuleKindList,
+    TagRuleKindRead,
 )
 
 logger = logging.getLogger(__name__)
@@ -58,6 +60,16 @@ class TagPermissionInput(BaseModel):
         return self
 
 
+class TagRuleInput(BaseModel):
+    """The rule a tag should follow. `kind` is checked against the registry, not by a
+    `Literal`: a rule is added by writing one class, and a schema the frontend regenerates
+    would otherwise be a second place to remember."""
+
+    kind: str
+    # Required by `language` / `genre` / `edition`, refused by `duet` / `has_video`.
+    value: str | None = None
+
+
 class TagCreate(BaseModel):
     name: TagName
     icon: TagIcon | None = None
@@ -67,6 +79,9 @@ class TagCreate(BaseModel):
     # Empty means "administrators only" — which also hides every song the tag lands on
     # from everybody else, and is exactly what a "broken" tag is for.
     permissions: list[TagPermissionInput] = Field(default_factory=list)
+    # A tag that arrives with a rule is automatic from its first second: the scanner owns
+    # which songs carry it, and nobody sets it by hand.
+    rule: TagRuleInput | None = None
 
 
 class TagUpdate(BaseModel):
@@ -78,6 +93,9 @@ class TagUpdate(BaseModel):
     color: TagColor | None = None
     show_in_list: bool | None = None
     hide_by_default: bool | None = None
+    # Same idiom as `icon`: an explicit `"rule": null` hands the tag back to the people —
+    # and takes every song off it, all of them having been the rule's.
+    rule: TagRuleInput | None = None
 
 
 class TagPermissionsUpdate(BaseModel):
@@ -131,6 +149,35 @@ async def update_built_in_tag(
 
 
 @router.get(
+    "/tags/rules",
+    response_model=TagRuleKindList,
+    dependencies=[Depends(require("songs.view"))],
+)
+async def list_tag_rules(session: SessionDep) -> TagRuleKindList:
+    """The rules a tag may follow, in the order the editor offers them — each with what to
+    call it, whether it needs a value, and the values the library holds for the field it
+    reads, for the editor's datalist.
+
+    Read by anybody who may see songs, not only a `tags.manage` holder: the same listing
+    tells a reader what "automatic: language = English" on a tag means. The suggestions
+    are the whole library's, songs a caller may not see included — a language somebody
+    else's library has is not a secret, and filtering them per caller would make the
+    editor's datalist depend on who opened it.
+    """
+    return TagRuleKindList(
+        rules=[
+            TagRuleKindRead(
+                kind=rule.kind,
+                label=rule.label,
+                needs_value=rule.needs_value,
+                suggestions=await rule.suggestions(session),
+            )
+            for rule in rules.all_rules()
+        ]
+    )
+
+
+@router.get(
     "/tags/assignments",
     response_model=TagAssignments,
     dependencies=[Depends(require("songs.view"))],
@@ -155,7 +202,7 @@ async def list_tag_assignments(
     dependencies=[Depends(require("tags.manage"))],
     responses={
         409: {"description": "A tag of that name already exists."},
-        422: {"description": "Unknown role or account, or a bad color or icon."},
+        422: {"description": "Unknown role, account or rule, or a bad color, icon or value."},
     },
 )
 async def create_tag(body: TagCreate, session: SessionDep, principal: PrincipalDep) -> TagRead:
@@ -168,10 +215,16 @@ async def create_tag(body: TagCreate, session: SessionDep, principal: PrincipalD
             body.show_in_list,
             body.hide_by_default,
             _specs(body.permissions),
+            rule=_rule(body.rule),
         )
     except service.DuplicateTagNameError as error:
         raise HTTPException(status_code=409, detail="duplicate_tag_name") from error
-    except (UnknownRoleError, service.UnknownUserError) as error:
+    except (
+        UnknownRoleError,
+        service.UnknownUserError,
+        rules.UnknownRuleKindError,
+        rules.RuleValueError,
+    ) as error:
         raise HTTPException(status_code=422, detail=str(error)) from error
     return await service.read_tag(session, tag, tag_viewer(principal), _manages(principal))
 
@@ -180,11 +233,18 @@ async def create_tag(body: TagCreate, session: SessionDep, principal: PrincipalD
     "/tags/{tag_id}",
     response_model=TagRead,
     dependencies=[Depends(require("tags.manage"))],
-    responses={**UNKNOWN_TAG, 409: {"description": "A tag of that name already exists."}},
+    responses={
+        **UNKNOWN_TAG,
+        409: {"description": "A tag of that name already exists."},
+        422: {"description": "Unknown rule, or a value the rule cannot use."},
+    },
 )
 async def update_tag(
     tag_id: str, body: TagUpdate, session: SessionDep, principal: PrincipalDep
 ) -> TagRead:
+    """Setting or changing a tag's rule replaces every song under it — the ones somebody
+    put there by hand included. The count that is about to go is the `song_count` the
+    caller already has."""
     tag = await _tag_or_404(tag_id, session)
     try:
         await service.update_tag(
@@ -195,9 +255,12 @@ async def update_tag(
             color=body.color,
             show_in_list=body.show_in_list,
             hide_by_default=body.hide_by_default,
+            rule=_rule(body.rule) if "rule" in body.model_fields_set else service.UNSET,
         )
     except service.DuplicateTagNameError as error:
         raise HTTPException(status_code=409, detail="duplicate_tag_name") from error
+    except (rules.UnknownRuleKindError, rules.RuleValueError) as error:
+        raise HTTPException(status_code=422, detail=str(error)) from error
     return await service.read_tag(session, tag, tag_viewer(principal), _manages(principal))
 
 
@@ -240,6 +303,7 @@ async def delete_tag(tag_id: str, session: SessionDep) -> None:
     responses={
         403: {"description": "The caller may see the tag but not set it."},
         404: {"description": "Unknown song or tag."},
+        409: {"description": "The tag is automatic — its rule decides who carries it."},
     },
 )
 async def assign_tag(
@@ -261,6 +325,7 @@ async def assign_tag(
     responses={
         403: {"description": "The caller may see the tag but not set it."},
         404: {"description": "Unknown song or tag."},
+        409: {"description": "The tag is automatic — its rule decides who carries it."},
     },
 )
 async def unassign_tag(
@@ -282,6 +347,10 @@ def _manages(principal: Principal) -> bool:
 def _user_id(principal: Principal) -> str | None:
     """Who tagged the song. None for the host screen: an administrator, but nobody."""
     return None if principal.user is None else principal.user.id
+
+
+def _rule(row: TagRuleInput | None) -> service.RuleSpec | None:
+    return None if row is None else service.RuleSpec(kind=row.kind, value=row.value)
 
 
 def _specs(rows: list[TagPermissionInput]) -> list[service.PermissionSpec]:
@@ -310,6 +379,9 @@ async def _assignable(
     A tag the caller may not view is a 404, exactly like a song they may not see: which
     tags exist is not a stranger's business either. Only a tag they can see but not set
     is a 403 — that one they already know about.
+
+    An automatic tag is a 409 before the 403, and for everybody including an administrator:
+    "nobody sets this one" is the state of the tag, not a right somebody is missing.
     """
     song = await song_or_404(song_id, session, hidden)
     tag = await _tag_or_404(tag_id, session)
@@ -317,6 +389,8 @@ async def _assignable(
     rights = service.rights_for(rows, tag_viewer(principal))
     if not rights.can_view:
         raise HTTPException(status_code=404, detail=f"unknown tag '{tag_id}'")
+    if tag.rule_kind is not None:
+        raise HTTPException(status_code=409, detail="tag_is_automatic")
     if not rights.can_assign:
         raise HTTPException(status_code=403, detail="missing_tag_permission:assign")
     return song, tag

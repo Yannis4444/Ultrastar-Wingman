@@ -32,6 +32,7 @@ the user first (see plan.md).
 | Player selector | built-in web UI | NFC tag device via REST API |
 | Auth provider | local accounts | OIDC (Keycloak) |
 | Settings | file/DB-backed registry | new settings without schema surgery |
+| Tag rule | duet, video, language/genre/edition | any other song metadata |
 
 An extension point is a small Python ABC/Protocol in its own module, with
 implementations registered in one place (a plain dict/registry — no plugin
@@ -64,6 +65,12 @@ plug in from outside the repo).
   per account. Those row checks live in the owning service (`library/`,
   `tags/`), never in `auth/deps.py` — `deps.py` only answers "does this
   principal hold the capability".
+- **A rule is not a permission.** A tag carrying a rule (`tags/rules.py`) is fully
+  automatic: the scanner derives every `song_tags` row under it, so `assign` is
+  refused for everybody — an administrator included — with a 409 rather than a
+  403, and the listing reports `can_assign: false`. The permission rows stay
+  exactly as they were: `view` and `view_songs` still say who knows the tag and
+  who sees its songs, and taking the rule off hands `assign` back.
 - **Hiding a song is cross-cutting.** A tag whose `view_songs` a caller lacks
   removes its songs from that caller's world, not just from the song list, so
   the filter cannot live in one endpoint. `tags.hidden_song_ids` is computed

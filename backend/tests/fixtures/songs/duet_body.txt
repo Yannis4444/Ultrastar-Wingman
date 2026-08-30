@@ -1,0 +1,10 @@
+#TITLE:Summer Nights
+#ARTIST:John Travolta & Olivia Newton-John
+#LANGUAGE:English
+#BPM:230
+P1
+: 0 4 0 Sum-
+- 10
+P2
+: 20 4 0 mer
+E

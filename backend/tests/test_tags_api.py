@@ -649,6 +649,10 @@ async def test_the_leaks_we_accept(party: Party) -> None:
       in the listing shows — recomputed per caller, two people would disagree about how
       long the same playlist is. The playlist *detail* does drop the hidden entries.
     * `GET /favorites` answers ids the caller marked themselves, and nothing else.
+    * `GET /tags/rules` suggests the languages, genres and editions the *whole* library
+      holds, a hidden song's included (`test_tags_rules` pins that down). A datalist that
+      changed per reader would show two managers different options for the same rule, and
+      a metadata value is not a song.
     * somebody who already has the id can still learn a hidden song is *in* a playlist —
       `GET /playlists?song_id=…` fills `contains`, and adding it again is a 409. Both need
       the id first, which is what the 404s above keep back.

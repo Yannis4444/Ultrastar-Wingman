@@ -21,6 +21,7 @@ def test_all_tags_are_parsed() -> None:
         "year": 2014,
         "edition": "Party Classics",
         "creator": "wingman",
+        "is_duet": False,
         # Both in seconds here: "#START:12.5" already is, "#END:210000" is milliseconds.
         "start": 12.5,
         "end": 210.0,
@@ -73,6 +74,41 @@ def test_junk_lines_unknown_tags_and_crlf_are_tolerated() -> None:
     # "#YEAR:unknown" and an empty "#GENRE:" are missing values, not errors.
     assert txt.year is None
     assert txt.genre is None
+
+
+def test_a_duet_is_recognized_by_its_body() -> None:
+    assert read_song_txt(SONGS / "duet_body.txt").is_duet is True
+
+
+def test_a_duet_is_recognized_by_its_headers_alone() -> None:
+    # No "P1" line in the body of this one; the two singer headers are the whole mark.
+    assert read_song_txt(SONGS / "duet_headers.txt").is_duet is True
+
+
+def test_a_solo_is_not_a_duet() -> None:
+    assert read_song_txt(SONGS / "minimal.txt").is_duet is False
+    assert read_song_txt(SONGS / "utf8.txt").is_duet is False
+
+
+def test_the_older_duet_singer_headers_count_too() -> None:
+    assert parse_song_txt("#TITLE:T\n#ARTIST:A\n#P1:Her\n#P2:Him\n: 0 4 0 la\nE\n").is_duet is True
+
+
+@pytest.mark.parametrize("line", ["P 2", "p2", "P02"])
+def test_a_singer_line_is_read_however_it_is_spaced_and_cased(line: str) -> None:
+    body = f"#TITLE:T\n#ARTIST:A\nP1\n: 0 4 0 la\n{line}\n: 8 4 0 la\nE\n"
+    assert parse_song_txt(body).is_duet is True
+
+
+def test_one_singer_marker_alone_is_not_a_duet() -> None:
+    # A converted solo song keeps its "P1" and never hands over.
+    assert parse_song_txt("#TITLE:T\n#ARTIST:A\nP1\n: 0 4 0 la\nE\n").is_duet is False
+
+
+def test_one_duet_singer_header_alone_is_not_a_duet() -> None:
+    assert (
+        parse_song_txt("#TITLE:T\n#ARTIST:A\n#DUETSINGERP1:Her\n: 0 4 0 la\nE\n").is_duet is False
+    )
 
 
 def test_a_song_without_artist_is_refused() -> None:

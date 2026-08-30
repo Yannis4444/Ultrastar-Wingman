@@ -3,7 +3,7 @@
 import uuid
 from datetime import UTC, datetime
 
-from sqlalchemy import DateTime, Integer, String, Text
+from sqlalchemy import Boolean, DateTime, Integer, String, Text, text
 from sqlalchemy.orm import Mapped, mapped_column
 
 from ..db import Base
@@ -43,6 +43,10 @@ class Song(Base):
     year: Mapped[int | None] = mapped_column(Integer, nullable=True)
     edition: Mapped[str | None] = mapped_column(Text, nullable=True)
     creator: Mapped[str | None] = mapped_column(Text, nullable=True)
+    # Two singers share the song (`songs.txt._is_duet`). Not nullable: the parser answers
+    # yes or no for every file, and "unknown" would be a third state nothing can produce —
+    # the migration fills the column for the songs scanned before it existed.
+    is_duet: Mapped[bool] = mapped_column(Boolean, default=False, server_default=text("0"))
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=_now)
     updated_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), default=_now, onupdate=_now

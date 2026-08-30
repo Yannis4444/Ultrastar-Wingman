@@ -72,6 +72,13 @@ class Tag(Base):
     color: Mapped[str] = mapped_column(String(16))
     show_in_list: Mapped[bool] = mapped_column(Boolean, default=False)
     hide_by_default: Mapped[bool] = mapped_column(Boolean, default=False)
+    # The rule that puts this tag on a song, from `rules.RULES`, or NULL for a tag people
+    # set themselves. A tag with one is fully automatic: every `song_tags` row under it is
+    # derived, and setting or clearing the rule rewrites them all.
+    rule_kind: Mapped[str | None] = mapped_column(String(32), nullable=True)
+    # What the rule compares against ("English"), for the kinds that need one; NULL for
+    # `duet` and `has_video`, which have nothing to compare.
+    rule_value: Mapped[str | None] = mapped_column(Text, nullable=True)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=_now)
 
 
@@ -103,7 +110,8 @@ class TagPermission(Base):
 
 class SongTag(Base):
     """One tag on one song. `user_id` is who put it there — NULL for the host screen, which
-    is an administrator but nobody. It stays behind when the account goes, like a score's
+    is an administrator but nobody, and NULL for the rows an automatic tag's rule derives,
+    which nobody put there at all. It stays behind when the account goes, like a score's
     player."""
 
     __tablename__ = "song_tags"
