@@ -42,9 +42,6 @@ interface PlaylistsChanged extends WingmanEvent {
   playlist_id: string | null;
 }
 
-/** How many songs the "Add songs" sub-view lists before asking for a search. */
-const RESULTS = 50;
-
 /** The same needle the songs page matches on. */
 function matches(song: SongRead, needle: string): boolean {
   return (
@@ -310,7 +307,7 @@ export default function Playlist() {
 
   /**
    * The one song the sub-view is busy with, so filling a playlist stays a run
-   * of taps: locking all fifty rows for every round trip would make adding ten
+   * of taps: locking every row for every round trip would make adding ten
    * songs ten waits.
    */
   const busySong = addEntry.isPending
@@ -577,7 +574,9 @@ export default function Playlist() {
           />
           {library.isLoading && <Loading />}
           <ul className="picker-list">
-            {found.slice(0, RESULTS).map((song) => (
+            {/* Every match, the way the songs page lists its own library: a
+                cap would only hide the song somebody came here to add. */}
+            {found.map((song) => (
               <PickerRow
                 key={song.id}
                 lead={<SongCover song={song} />}
@@ -589,12 +588,6 @@ export default function Playlist() {
               />
             ))}
           </ul>
-          {found.length > RESULTS && (
-            <p className="playlist-add-more">
-              {found.length} songs match — the first {RESULTS} are shown. Type
-              to narrow it down.
-            </p>
-          )}
           {library.isSuccess && found.length === 0 && (
             <p className="playlist-add-more">No song matches that.</p>
           )}

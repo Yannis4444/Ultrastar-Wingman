@@ -489,6 +489,26 @@ test("Add songs searches the library and toggles membership", async () => {
   expect(screen.getByRole("dialog", { name: "Add songs" })).toBeInTheDocument();
 });
 
+test("Add songs lists the whole library, however big it is", async () => {
+  // No cap and no "type to narrow it down": the songs page draws its own list
+  // the same way, and a song held back is a song nobody can put on the list.
+  const many = Array.from({ length: 120 }, (_, index) =>
+    song({ id: `local:${index}`, title: `Song ${index}`, artist: "Nobody" }),
+  );
+  listSongs.mockResolvedValue({ data: { songs: many } });
+  renderPlaylist(detail());
+
+  fireEvent.click(await screen.findByRole("button", { name: "Add songs" }));
+  const view = within(await screen.findByRole("dialog", { name: "Add songs" }));
+
+  expect(
+    await view.findByRole("button", { name: /Song 0/ }),
+  ).toBeInTheDocument();
+  expect(view.getByRole("button", { name: /Song 119/ })).toBeInTheDocument();
+  expect(view.getAllByRole("button", { pressed: false })).toHaveLength(120);
+  expect(screen.queryByText(/are shown/)).not.toBeInTheDocument();
+});
+
 test("one song being added does not lock the rest of the library", async () => {
   // Filling a playlist is a run of taps: only the row waiting for its answer
   // goes quiet.
