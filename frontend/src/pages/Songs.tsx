@@ -23,6 +23,7 @@ import { useTags } from "../hooks/useTags";
 import { useWingmanEvent } from "../hooks/useWingmanEvents";
 import { SONG_SOURCES } from "../songSources";
 import {
+  BUILT_IN_TAGS,
   type CriteriaOverrides,
   criteriaOffAny,
   defaultCriterion,
@@ -296,17 +297,19 @@ export default function Songs() {
   if (favorites.available)
     filterRows.push({
       key: "favorite",
-      name: "Favorites",
-      icon: "heart",
-      colorClass: "tag-color-pink",
+      name: BUILT_IN_TAGS.favorites.name,
+      icon: BUILT_IN_TAGS.favorites.icon,
+      // Its row reads like a tag's, so its glyph wears the colour the party
+      // gave the mark — whether or not the mark itself is on the song rows.
+      colorClass: tagColorClass(tags.builtIns.favorites.color),
       value: criteria.favorite,
     });
   if (sung.available)
     filterRows.push({
       key: "sung",
-      name: "Sung",
-      icon: "mic",
-      colorClass: "tag-color-blue",
+      name: BUILT_IN_TAGS.sung.name,
+      icon: BUILT_IN_TAGS.sung.icon,
+      colorClass: tagColorClass(tags.builtIns.sung.color),
       value: criteria.sung,
     });
   for (const tag of tags.tags)
@@ -358,9 +361,9 @@ export default function Songs() {
               </button>
               {favorites.available && (
                 <FilterChip
-                  label="Favorites"
-                  icon="heart"
-                  iconClassName="songs-chip-heart"
+                  label={BUILT_IN_TAGS.favorites.name}
+                  icon={BUILT_IN_TAGS.favorites.icon}
+                  iconClassName={tagColorClass(tags.builtIns.favorites.color)}
                   on={pressed === FAVORITES}
                   onClick={() => selectPreset(FAVORITES_ONLY)}
                 />
@@ -375,9 +378,9 @@ export default function Songs() {
               )}
               {sung.available && (
                 <FilterChip
-                  label="Sung"
-                  icon="mic"
-                  iconClassName="songs-chip-mic"
+                  label={BUILT_IN_TAGS.sung.name}
+                  icon={BUILT_IN_TAGS.sung.icon}
+                  iconClassName={tagColorClass(tags.builtIns.sung.color)}
                   on={pressed === SUNG}
                   onClick={() => selectPreset(SUNG_ONLY)}
                 />
@@ -502,6 +505,7 @@ export default function Songs() {
                   favorite={favorites.ids.has(song.id)}
                   sung={sung.ids.has(song.id)}
                   tags={markTags(tags.bySong.get(song.id))}
+                  builtIns={tags.builtIns}
                   meta={recentTime(recentMode, recent.startedAt, song.id)}
                   onClick={() => setSelected(song)}
                 />

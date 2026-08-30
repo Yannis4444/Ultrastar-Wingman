@@ -3,7 +3,9 @@ import type { SongRead } from "../api";
 import { useAuth } from "../auth";
 import { errorMessage } from "../errors";
 import { useFavorites } from "../hooks/useFavorites";
+import { useBuiltInTags } from "../hooks/useTags";
 import { useWishlist } from "../hooks/useWishlist";
+import { tagColorClass } from "../tags";
 import { Icon } from "./icons";
 import SongCover from "./SongCover";
 import SongDetails from "./SongDetails";
@@ -19,6 +21,11 @@ export default function WishlistTile() {
   const mayClear = auth.can("wishlist.manage");
   const wishlist = useWishlist();
   const favorites = useFavorites();
+  // The heart here is the same passive mark the song list draws, so it follows
+  // the same built-in: the party's colour, and gone when the mark is off. The
+  // narrow hook on purpose — Home draws no tag, so it must not pull the
+  // assignments listing down with it.
+  const builtIns = useBuiltInTags();
   const [selected, setSelected] = useState<SongRead | null>(null);
 
   if (!auth.can("wishlist.view")) return null;
@@ -55,14 +62,15 @@ export default function WishlistTile() {
                       <span className="wishlist-title-text">
                         {wish.song.title}
                       </span>
-                      {favorites.ids.has(wish.song.id) && (
-                        <span
-                          className="song-mark song-mark-favorite"
-                          title="In your favorites"
-                        >
-                          <Icon name="heart" />
-                        </span>
-                      )}
+                      {favorites.ids.has(wish.song.id) &&
+                        builtIns.favorites.show_in_list && (
+                          <span
+                            className={`song-mark song-mark-favorite ${tagColorClass(builtIns.favorites.color)}`}
+                            title="In your favorites"
+                          >
+                            <Icon name="heart" />
+                          </span>
+                        )}
                       {wish.mine && (
                         <span
                           className="song-mark song-mark-wished"

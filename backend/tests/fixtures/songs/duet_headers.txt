@@ -1,0 +1,9 @@
+#TITLE:Barbie Girl
+#ARTIST:Aqua
+#DUETSINGERP1:Barbie
+#DUETSINGERP2:Ken
+#BPM:280
+: 0 4 0 Hi
+- 10
+: 20 4 0 Bar-
+E

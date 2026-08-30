@@ -38,7 +38,9 @@ from another account stays: that person still has not sung it.
 
 Favorites need an account. Log in on the **User** tab, open a song and tap the
 heart. A small heart marks your favorites in the **Songs** list, and the
-**♥ Favorites** chip filters the list down to them.
+**♥ Favorites** chip filters the list down to them. The heart is pink unless the
+host recoloured it, and it can be taken off the rows entirely — see
+[the built-in marks](tags.md#the-built-in-marks-favorites-and-sung).
 
 Nobody else can see your favorites, and there is no right for the host to grant —
 they are yours.

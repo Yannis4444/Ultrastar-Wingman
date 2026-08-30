@@ -38,13 +38,15 @@ in three buttons.
 | **No** | Only the songs that do not. |
 
 Set as many rows as you like — they add up, so *duet: Yes* together with
-*broken: No* leaves you the duets that actually play. The list behind the panel
-follows every tap, the song count included, so you can watch it narrow.
+*broken: No* leaves you the duets that actually play. A tag like *duet* need not
+even be kept by hand: see [automatic tags](tags.md#automatic-tags). The list
+behind the panel follows every tap, the song count included, so you can watch it
+narrow.
 **Done** closes the panel and **Reset** puts every row back to where it started.
 
 Most rows start on **Any**. A tag set up to hide its songs starts on **No** —
-that is what keeps the archive out of your way. Put its row on **Any** and those
-songs come back.
+that is what keeps the put-away songs out of your way. Put its row on **Any**
+and those songs come back.
 
 While something is filtering, the funnel is the pressed chip and reads
 **Filter · 2**: the number of rows that are not on *Any*, the tags that were
@@ -69,9 +71,9 @@ handy when the room wants the same song again.
 
 ## What you have sung before
 
-A small blue microphone next to a title means you have sung that song before, in
-this party or in any party Wingman ever recorded. The **Sung** chip filters the
-list down to those songs.
+A small microphone next to a title — blue unless the host recoloured it — means
+you have sung that song before, in this party or in any party Wingman ever
+recorded. The **Sung** chip filters the list down to those songs.
 
 Both need an account with a player behind it: a song counts as sung by you once
 Ultrastar Deluxe scored it under your player. A song nobody scored — stopped
@@ -84,12 +86,15 @@ A row can carry a few small icons after the song's title. They are marks, not
 buttons — nothing happens when you tap one, and the song's own view is where the
 state is changed.
 
-- A blue **microphone** means you have sung this song before — the section
-  above.
-- A pink **heart** means it is one of your favorites.
+- A **microphone** means you have sung this song before — the section above.
+- A **heart** means it is one of your favorites.
 - After those, one icon per **tag** the song wears that was set up to show in the
   list — in the tag's own colour, with its name on hover. A tag nobody chose to
   show stays out of the row and lives in the song's **Tags** view.
+
+The microphone is blue and the heart pink unless somebody changed them: both are
+[built-in marks](tags.md#the-built-in-marks-favorites-and-sung), and whoever may
+manage tags picks their colour — or takes either off the rows altogether.
 
 ## Songs you do not see
 
@@ -99,8 +104,8 @@ Some songs are deliberately kept out of the list.
   list — in every chip, not only *All* — and out of the random reel's *All
   songs*, until you put that tag's row on *Any* or *Yes* in **Filter**. They
   are still there: a playlist that holds one still shows it and a wished one
-  can still win the reel, because somebody put it there on purpose. The seeded
-  **archive** tag works this way.
+  can still win the reel, because somebody put it there on purpose. An
+  **archive** tag, if the party made one, works this way.
 - A tag can also take *See songs* away from a role entirely. Those songs do not
   exist for that person at all: not in the list, not in the search, not in the
   reel, and not on a playlist or the wishlist either. The seeded **broken** tag

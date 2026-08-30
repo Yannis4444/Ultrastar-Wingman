@@ -76,8 +76,9 @@
   min-width: 0;
 }
 
-.tags-name,
-.tags-meta {
+/* Both lines are one line each, ellipsised (§2); the meta line is the same
+   line one step quieter, so it says everything about itself in one place. */
+.tags-name {
   display: block;
   overflow: hidden;
   white-space: nowrap;
@@ -85,6 +86,10 @@
 }
 
 .tags-meta {
+  display: block;
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
   font-size: 0.85em;
   color: var(--color-darker);
 }

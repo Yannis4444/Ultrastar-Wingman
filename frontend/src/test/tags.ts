@@ -1,4 +1,4 @@
-import type { TagRead } from "../api";
+import type { BuiltInTagRead, TagRead, TagRuleKindRead } from "../api";
 
 /**
  * One tag as `GET /tags` returns it: visible to the reader, theirs to set, and
@@ -16,8 +16,61 @@ export function tagRead(overrides: Partial<TagRead> = {}): TagRead {
     hide_by_default: false,
     can_view: true,
     can_assign: true,
+    // Manual: what people put on songs. An automatic tag carries a rule instead, and
+    // then `can_assign` is false for everybody.
+    rule: null,
     song_count: 0,
     permissions: null,
     ...overrides,
   };
+}
+
+/**
+ * One built-in mark as `GET /tags` returns it beside the tags — the pink heart
+ * and the blue microphone the app arrives with, unless a test says otherwise.
+ */
+export function builtInTagRead(
+  overrides: Partial<BuiltInTagRead> = {},
+): BuiltInTagRead {
+  return { id: "favorites", color: "pink", show_in_list: true, ...overrides };
+}
+
+/** Both marks at their defaults, for the listings a test does not configure. */
+export function builtInTagReads(): BuiltInTagRead[] {
+  return [builtInTagRead(), builtInTagRead({ id: "sung", color: "blue" })];
+}
+
+/**
+ * The rule registry as `GET /tags/rules` answers it: the five kinds in the
+ * order the editor offers them — the two flags first, then the three that
+ * compare a field, each with the values a small library holds.
+ */
+export function ruleKindReads(): TagRuleKindRead[] {
+  return [
+    { kind: "duet", label: "Duet", needs_value: false, suggestions: [] },
+    {
+      kind: "has_video",
+      label: "Has video",
+      needs_value: false,
+      suggestions: [],
+    },
+    {
+      kind: "language",
+      label: "Language is…",
+      needs_value: true,
+      suggestions: ["Deutsch", "English"],
+    },
+    {
+      kind: "genre",
+      label: "Genre is…",
+      needs_value: true,
+      suggestions: ["Pop", "Schlager"],
+    },
+    {
+      kind: "edition",
+      label: "Edition is…",
+      needs_value: true,
+      suggestions: ["Party"],
+    },
+  ];
 }

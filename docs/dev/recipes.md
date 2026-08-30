@@ -89,6 +89,13 @@ shapes, several subpaths in the one string are fine — no `stroke`, no `<g>`).
 Check the family rules in [ui-guidelines.md](ui-guidelines.md#3-icons) first.
 Tests assert glyph choice with `iconNames()` from `src/test/icons.ts`.
 
+A glyph a tag may be given goes into `PICKER_ICON_NAMES` in the same file as
+well — the tag editor's picker is that allowlist and nothing else, in the order
+[ui-guidelines.md](ui-guidelines.md#3-icons) fixes, because most of
+`ICON_PATHS` already means something else in the app. A tag may still carry a
+glyph the list leaves out (one written before the list, or by hand): the picker
+keeps such a one chosen and choosable for that tag.
+
 ## Add a page or sub-page
 
 1. `pages/Name.tsx` + `Name.css` + `Name.test.tsx`. Sub-pages start with

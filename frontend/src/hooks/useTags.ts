@@ -9,6 +9,7 @@ import {
   listTagsQueryKey,
 } from "../api/@tanstack/react-query.gen";
 import { useAuth } from "../auth";
+import { builtInTags, type BuiltInTags } from "../tags";
 import { useWingmanEvent } from "./useWingmanEvents";
 
 export interface Tags {
@@ -29,10 +30,40 @@ export interface Tags {
   showInList: TagRead[];
   /** The viewable tags whose songs the list leaves out until asked. */
   hideByDefault: TagRead[];
+  /**
+   * The two built-in marks — Favorites and Sung — as the party configured
+   * them. Not tags and not in the lists above: they say something about the
+   * *reader*, so they carry no permissions and everybody gets both. They fall
+   * back to the pink heart and the blue microphone until the listing answers.
+   */
+  builtIns: BuiltInTags;
   isPending: boolean;
 }
 
 const NO_TAGS: TagRead[] = [];
+
+/**
+ * The two built-in marks alone, for a surface that draws a heart or a
+ * microphone but no tags — the wishlist tile on Home. `useTags` would drag the
+ * assignments listing along, which is the expensive one and which Home has no
+ * use for; this reads the same `GET /tags` cache and nothing else, so a page
+ * that also uses `useTags` still makes one request.
+ */
+export function useBuiltInTags(): BuiltInTags {
+  const auth = useAuth();
+  const queryClient = useQueryClient();
+  const available = auth.loaded && auth.can("songs.view");
+
+  const tags = useQuery({ ...listTagsOptions(), enabled: available });
+
+  // Recoloured or taken off the rows: the mark has to follow without a reload.
+  useWingmanEvent("tags.changed", () => {
+    void queryClient.invalidateQueries({ queryKey: listTagsQueryKey() });
+  });
+
+  const builtInRows = tags.data?.built_ins;
+  return useMemo(() => builtInTags(builtInRows), [builtInRows]);
+}
 
 /**
  * The party's tags and which songs carry them — two requests shared by every
@@ -70,6 +101,7 @@ export function useTags(): Tags {
   });
 
   const allTags = tags.data?.tags ?? NO_TAGS;
+  const builtInRows = tags.data?.built_ins;
   const rows = assignments.data?.assignments;
 
   return useMemo(() => {
@@ -93,6 +125,7 @@ export function useTags(): Tags {
       bySong,
       showInList: viewable.filter((tag) => tag.show_in_list),
       hideByDefault: viewable.filter((tag) => tag.hide_by_default),
+      builtIns: builtInTags(builtInRows),
       // Pending until it is known that there is nothing to wait for: a list
       // drawn before the tags are in shows what a tag is about to hide.
       isPending:
@@ -101,6 +134,7 @@ export function useTags(): Tags {
     };
   }, [
     allTags,
+    builtInRows,
     rows,
     auth.loaded,
     available,

@@ -130,25 +130,20 @@
   font-size: 0.8em;
 }
 
-.song-mark-favorite {
-  color: var(--highlight-pink-light);
-}
-
 /* Only the wishlist tile still draws this one: there, a check means "this wish
-   is mine" among everybody else's. */
+   is mine" among everybody else's. It is the wishlist's own mark and not a
+   built-in, so its blue is fixed. */
 .song-mark-wished {
   color: var(--highlight-blue-light);
 }
 
-.song-mark-sung {
-  color: var(--highlight-blue-light);
-}
-
-/* `.song-mark-tag` deliberately has no rule of its own: a tag mark takes its
-   colour from the `.tag-color-*` class the row puts beside it (index.css), and
-   a colour here would fight that one at equal specificity. The size and the
-   no-shrink are `.song-mark`'s, so a row full of tags still ellipsizes its
-   title rather than pushing the page sideways. */
+/* `.song-mark-tag`, `.song-mark-favorite` and `.song-mark-sung` deliberately
+   have no colour of their own: each takes it from the `.tag-color-*` class the
+   row puts beside it (index.css) — the tag's for a tag, the built-in's
+   configured colour for the heart and the microphone — and a colour here would
+   fight that one at equal specificity. The size and the no-shrink are
+   `.song-mark`'s, so a row full of marks still ellipsizes its title rather than
+   pushing the page sideways. */
 
 .song-artist {
   font-size: 0.85em;

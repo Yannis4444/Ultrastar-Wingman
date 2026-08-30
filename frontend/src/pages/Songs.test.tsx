@@ -7,12 +7,19 @@ import {
   within,
 } from "@testing-library/react";
 import { MemoryRouter } from "react-router-dom";
-import type { MeRead, PlaylistRead, SingRead, SongRead, TagRead } from "../api";
+import type {
+  BuiltInTagRead,
+  MeRead,
+  PlaylistRead,
+  SingRead,
+  SongRead,
+  TagRead,
+} from "../api";
 import { shortTime } from "../duration";
 import { meResponse, userRead } from "../test/auth";
 import { FakeSocket } from "../test/fakeSocket";
 import { iconNames } from "../test/icons";
-import { tagRead } from "../test/tags";
+import { builtInTagRead, builtInTagReads, tagRead } from "../test/tags";
 import Songs from "./Songs";
 
 // The generated query options call the sdk and read `.data`, so the sdk is the
@@ -865,8 +872,9 @@ test("only the pressed filter wears its label, the rest are their glyph", async 
 function withTags(
   tags: TagRead[],
   assignments: { tag_id: string; song_ids: string[] }[] = [],
+  builtIns: BuiltInTagRead[] = builtInTagReads(),
 ) {
-  listTags.mockResolvedValue({ data: { tags } });
+  listTags.mockResolvedValue({ data: { tags, built_ins: builtIns } });
   listTagAssignments.mockResolvedValue({ data: { assignments } });
 }
 
@@ -1074,6 +1082,29 @@ test("a tri-state narrows the list, the count and the chip's label", async () =>
   );
 });
 
+test("an automatic tag filters like any other", async () => {
+  // The Filter panel knows nothing about rules (§7): a derived tag is a row
+  // like the rest, and the reader who does not manage tags never learns which
+  // is which.
+  const automatic = tagRead({
+    ...DUET,
+    can_assign: false,
+    rule: { kind: "duet", value: null },
+  });
+  withTags([automatic], [{ tag_id: "t-duet", song_ids: ["local:abc"] }]);
+  renderSongs([QUEEN, AFRICA]);
+  await screen.findByText("Dancing Queen");
+
+  const dialog = await openFilter();
+  setCriterion(dialog, "duet", "Yes");
+
+  expect(screen.getByText("Africa")).toBeInTheDocument();
+  expect(screen.queryByText("Dancing Queen")).not.toBeInTheDocument();
+  expect(screen.getByRole("button", { name: "Filter" }).textContent).toBe(
+    "Filter · 1",
+  );
+});
+
 test("the Filter chip counts the hiding nobody had to ask for", async () => {
   withTags([ARCHIVE, DUET], [{ tag_id: "t-archive", song_ids: ["local:abc"] }]);
   renderSongs([QUEEN, AFRICA]);
@@ -1265,4 +1296,60 @@ test("the Filter chip is its glyph until it is the pressed one", async () => {
   );
   expect(screen.getByRole("button", { name: "Sung" }).textContent).toBe("");
   expect(screen.getByRole("button", { name: "All" }).textContent).toBe("All");
+});
+
+// --- the built-in marks -------------------------------------------------------
+
+test("the chips, the filter rows and the marks follow the built-ins' colours", async () => {
+  withTags(
+    [],
+    [],
+    [
+      builtInTagRead({ color: "gold" }),
+      builtInTagRead({ id: "sung", color: "neutral" }),
+    ],
+  );
+  listFavorites.mockResolvedValue({ data: { song_ids: ["local:abc"] } });
+  const { container } = renderSongs([QUEEN, AFRICA], LIBRARY, ACCOUNT);
+  await screen.findByText("Africa");
+
+  // The chip glyph…
+  expect(
+    screen.getByRole("button", { name: "Favorites" }).querySelector("svg"),
+  ).toHaveClass("tag-color-gold");
+  expect(
+    screen.getByRole("button", { name: "Sung" }).querySelector("svg"),
+  ).toHaveClass("tag-color-neutral");
+  // …the row mark…
+  expect(container.querySelector(".song-mark-favorite")).toHaveClass(
+    "tag-color-gold",
+  );
+  // …and the Filter panel's row, which reads like a tag's.
+  const dialog = await openFilter();
+  const rows = dialog.querySelectorAll(".filter-row-glyph");
+  expect(rows[0]).toHaveClass("tag-color-gold");
+  expect(rows[1]).toHaveClass("tag-color-neutral");
+});
+
+test("a built-in that is off the song list keeps its chip and its filter row", async () => {
+  withTags(
+    [],
+    [],
+    [
+      builtInTagRead({ show_in_list: false }),
+      builtInTagRead({ id: "sung", color: "blue" }),
+    ],
+  );
+  listFavorites.mockResolvedValue({ data: { song_ids: ["local:abc"] } });
+  const { container } = renderSongs([QUEEN, AFRICA], LIBRARY, ACCOUNT);
+  await screen.findByText("Africa");
+
+  // The mark is gone from the row…
+  expect(container.querySelector(".song-mark-favorite")).toBeNull();
+  // …but Favorites is still a list you can ask for.
+  fireEvent.click(screen.getByRole("button", { name: "Favorites" }));
+  await waitFor(() =>
+    expect(screen.queryByText("Dancing Queen")).not.toBeInTheDocument(),
+  );
+  expect(screen.getByText("Africa")).toBeInTheDocument();
 });

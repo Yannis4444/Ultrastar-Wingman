@@ -1,20 +1,31 @@
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { fireEvent, render, screen, waitFor } from "@testing-library/react";
-import type { SongRead, WishRead } from "../api";
-import { meResponse } from "../test/auth";
+import type { BuiltInTagRead, SongRead, WishRead } from "../api";
+import { meResponse, userRead } from "../test/auth";
 import { FakeSocket } from "../test/fakeSocket";
 import { iconNames } from "../test/icons";
+import { builtInTagRead } from "../test/tags";
 import WishlistTile from "./WishlistTile";
 
-const { listWishlist, addWish, removeWish, clearWishes, getMe } = vi.hoisted(
-  () => ({
-    listWishlist: vi.fn(),
-    addWish: vi.fn(),
-    removeWish: vi.fn(),
-    clearWishes: vi.fn(),
-    getMe: vi.fn(),
-  }),
-);
+const {
+  listWishlist,
+  addWish,
+  removeWish,
+  clearWishes,
+  getMe,
+  listFavorites,
+  listTags,
+  listTagAssignments,
+} = vi.hoisted(() => ({
+  listWishlist: vi.fn(),
+  addWish: vi.fn(),
+  removeWish: vi.fn(),
+  clearWishes: vi.fn(),
+  getMe: vi.fn(),
+  listFavorites: vi.fn(),
+  listTags: vi.fn(),
+  listTagAssignments: vi.fn(),
+}));
 
 vi.mock("../api/sdk.gen", async (importOriginal) => ({
   ...(await importOriginal<typeof import("../api/sdk.gen")>()),
@@ -23,6 +34,9 @@ vi.mock("../api/sdk.gen", async (importOriginal) => ({
   removeWish,
   clearWishes,
   getMe,
+  listFavorites,
+  listTags,
+  listTagAssignments,
 }));
 
 const WISHLIST = ["songs.view", "wishlist.view", "wishlist.add"];
@@ -73,6 +87,10 @@ beforeEach(() => {
   removeWish.mockReset();
   clearWishes.mockReset();
   getMe.mockReset();
+  for (const mock of [listFavorites, listTags, listTagAssignments])
+    mock.mockReset();
+  listFavorites.mockResolvedValue({ data: { song_ids: [] } });
+  listTags.mockResolvedValue({ data: { tags: [], built_ins: [] } });
 });
 
 afterEach(() => vi.unstubAllGlobals());
@@ -218,4 +236,55 @@ test("without wishlist.manage nobody else's wish can be touched", async () => {
       }),
     ).not.toBeInTheDocument(),
   );
+});
+
+// --- the built-in heart ----------------------------------------------------
+
+// The tile's heart is the song list's passive mark, so it follows the built-in:
+// the party's colour, and gone from the rows when the mark is switched off.
+
+function renderWithFavorite(
+  builtIns: BuiltInTagRead[],
+  capabilities = WISHLIST,
+) {
+  getMe.mockResolvedValue(meResponse(capabilities, { user: userRead() }));
+  listWishlist.mockResolvedValue({ data: { wishes: [wish(QUEEN, 1, false)] } });
+  listFavorites.mockResolvedValue({ data: { song_ids: [QUEEN.id] } });
+  listTags.mockResolvedValue({ data: { tags: [], built_ins: builtIns } });
+  return render(
+    <QueryClientProvider
+      client={
+        new QueryClient({ defaultOptions: { queries: { retry: false } } })
+      }
+    >
+      <WishlistTile />
+    </QueryClientProvider>,
+  );
+}
+
+test("the tile's heart wears the colour the party gave the mark", async () => {
+  const { container } = renderWithFavorite([
+    builtInTagRead({ color: "gold" }),
+    builtInTagRead({ id: "sung", color: "blue" }),
+  ]);
+
+  await waitFor(() =>
+    expect(container.querySelector(".song-mark-favorite")).toHaveClass(
+      "tag-color-gold",
+    ),
+  );
+  // Home draws no tag, so it must not pay for the assignments listing.
+  expect(listTagAssignments).not.toHaveBeenCalled();
+});
+
+// Same fixture as the test above, which proves the heart is drawn at all — only
+// the built-in's `show_in_list` differs.
+test("a built-in taken off the song rows is off this row too", async () => {
+  const { container } = renderWithFavorite([
+    builtInTagRead({ show_in_list: false }),
+  ]);
+
+  await screen.findByText("Dancing Queen");
+  await waitFor(() => expect(listTags).toHaveBeenCalled());
+  expect(container.querySelector(".song-mark-favorite")).toBeNull();
 });

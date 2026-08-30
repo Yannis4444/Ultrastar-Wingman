@@ -97,6 +97,80 @@ async def test_scan_adds_every_song_directory(
     assert second.cover_file is None
 
 
+async def test_the_duet_flag_comes_off_the_txt(
+    session: AsyncSession,
+    session_factory: async_sessionmaker[AsyncSession],
+    tmp_path: Path,
+) -> None:
+    library = tmp_path / "songs"
+    make_song_dir(library, "duet", tags="#DUETSINGERP1:Her\n#DUETSINGERP2:Him\n")
+    make_song_dir(library, "solo")
+    await configure(session, library)
+
+    await scan_library(session_factory)
+
+    duet, solo = await songs_in_db(session)
+    assert duet.is_duet is True
+    assert solo.is_duet is False
+
+
+async def test_a_rescan_fills_the_duet_flag_the_migration_only_placeheld(
+    session: AsyncSession,
+    session_factory: async_sessionmaker[AsyncSession],
+    tmp_path: Path,
+) -> None:
+    """The upgrade path, without a data migration.
+
+    `0016` adds `is_duet` with a server default of 0, so every song already in the table
+    reads "not a duet" whatever its `.txt` says. Nothing on disk changes at the upgrade —
+    which is exactly the case the "an edited txt is followed" test does *not* cover — so
+    this one puts the column back to the migration's placeholder and asserts that the very
+    next scan reads the real value out of the file again.
+    """
+    library = tmp_path / "songs"
+    make_song_dir(library, "duet", tags="#DUETSINGERP1:Her\n#DUETSINGERP2:Him\n")
+    make_song_dir(library, "solo")
+    await configure(session, library)
+    await scan_library(session_factory)
+    async with session_factory() as other:
+        for row in await songs_in_db(other):
+            row.is_duet = False
+        await other.commit()
+
+    result = await scan_library(session_factory)
+
+    # No file moved and nothing was added: the duet alone is rewritten.
+    assert (result.added, result.removed, result.updated) == (0, 0, 1)
+    async with session_factory() as other:
+        duet, solo = await songs_in_db(other)
+        assert duet.is_duet is True
+        assert solo.is_duet is False
+
+
+async def test_a_rescan_reparses_every_txt_and_follows_an_edit(
+    session: AsyncSession,
+    session_factory: async_sessionmaker[AsyncSession],
+    tmp_path: Path,
+) -> None:
+    """The scanner keeps no mtime or size cache, which is what lets a column added to the
+    parser fill itself on the next start rather than needing a data migration."""
+    library = tmp_path / "songs"
+    make_song_dir(library, "song")
+    await configure(session, library)
+    await scan_library(session_factory)
+    (before,) = await songs_in_db(session)
+    assert before.is_duet is False
+    # Only the body changes: same directory, same title, same artist, same file size class.
+    make_song_dir(library, "song", tags="P1\n: 0 4 0 la\nP2\n")
+
+    result = await scan_library(session_factory)
+
+    assert (result.added, result.updated) == (0, 1)
+    session.expire_all()
+    (after,) = await songs_in_db(session)
+    assert after.is_duet is True
+
+
 async def test_songs_without_a_source_get_unique_local_ids(
     session: AsyncSession,
     session_factory: async_sessionmaker[AsyncSession],

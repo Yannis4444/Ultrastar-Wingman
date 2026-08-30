@@ -9,6 +9,12 @@ from pydantic import BaseModel
 TagAction = Literal["view", "view_songs", "assign"]
 TagColor = Literal["neutral", "blue", "pink", "gold"]
 
+# The two marks Wingman brings with it. They are not rows in `tags`: what they say about a
+# song is a fact about *one reader* — their favorites, the songs they have sung — while a
+# tag is one global row everybody shares. Their ids are words, and a tag id is 32 hex
+# characters, so `/user/tags/favorites` can never mean a real tag.
+BuiltInTagId = Literal["favorites", "sung"]
+
 
 class TagPermissionRead(BaseModel):
     """Who may do one thing with a tag: a role, or one account."""
@@ -19,6 +25,30 @@ class TagPermissionRead(BaseModel):
     # Filled beside `user_id` so the manage UI does not need a second request; None for a
     # role row and for an account that is gone.
     username: str | None
+
+
+class TagRuleRead(BaseModel):
+    """The rule a tag carries, if it carries one: a kind from the registry and, for the
+    kinds that compare a field, the value it compares against."""
+
+    kind: str
+    value: str | None
+
+
+class TagRuleKindRead(BaseModel):
+    """One entry of the rule registry, as the tag editor needs it: what to call it, whether
+    it needs a value, and the values the library holds for the field it reads."""
+
+    kind: str
+    label: str
+    needs_value: bool
+    # Empty for a kind that needs no value; otherwise the library's own values, for the
+    # editor's datalist. Over the whole library, songs the caller may not see included.
+    suggestions: list[str]
+
+
+class TagRuleKindList(BaseModel):
+    rules: list[TagRuleKindRead]
 
 
 class TagRead(BaseModel):
@@ -38,8 +68,13 @@ class TagRead(BaseModel):
     # — the marks on a song row, the modal's Tags row, the filter panel — draw only the
     # rows where this is true.
     can_view: bool
-    # Whether the caller may tag and untag songs with it.
+    # Whether the caller may tag and untag songs with it. Always false for a tag carrying
+    # a rule: an automatic tag is the scanner's, and nobody — an administrator included —
+    # puts it on a song by hand. The permission rows behind it are left alone, so taking
+    # the rule off gives the tag back to the people it was granted to.
     can_assign: bool
+    # The rule that puts this tag on songs, or null for a tag people set themselves.
+    rule: TagRuleRead | None
     # How many songs carry the tag, over the whole library — songs this caller may not
     # see included, songs that have left it not. A manager who never gave themselves
     # `view_songs` still has to be told what a delete would take the tag off, and a count
@@ -50,8 +85,26 @@ class TagRead(BaseModel):
     permissions: list[TagPermissionRead] | None = None
 
 
+class BuiltInTagRead(BaseModel):
+    """One of the two built-in marks, and the little about it a party may decide.
+
+    No name, icon, permissions or song count: the glyph is fixed (`heart` / `mic`), the
+    name is what the app calls it, and how many songs carry it is a different number for
+    every reader. What is left is what a tag row would also have — the colour it is drawn
+    in, and whether it belongs on a song row at all."""
+
+    id: BuiltInTagId
+    color: str
+    # Draw the mark on every song row it applies to, like a `show_in_list` tag.
+    show_in_list: bool
+
+
 class TagList(BaseModel):
     tags: list[TagRead]
+    # A separate list, not rows among the tags: every reader gets these two — a guest with
+    # no account included, because the marks are drawn for everybody — while `tags` is
+    # filtered by what the caller may view, and nothing about a built-in is per-caller.
+    built_ins: list[BuiltInTagRead]
 
 
 class TagAssignment(BaseModel):

@@ -11,7 +11,7 @@ import type { MeRead, PlaylistDetail, SongRead } from "../api";
 import { meResponse, userRead } from "../test/auth";
 import { FakeSocket } from "../test/fakeSocket";
 import { iconNames } from "../test/icons";
-import { tagRead } from "../test/tags";
+import { builtInTagRead, tagRead } from "../test/tags";
 import Playlist from "./Playlist";
 
 const {
@@ -489,6 +489,54 @@ test("Add songs searches the library and toggles membership", async () => {
   expect(screen.getByRole("dialog", { name: "Add songs" })).toBeInTheDocument();
 });
 
+test("Add songs lists the whole library, however big it is", async () => {
+  // No cap and no "type to narrow it down": the songs page draws its own list
+  // the same way, and a song held back is a song nobody can put on the list.
+  const many = Array.from({ length: 120 }, (_, index) =>
+    song({ id: `local:${index}`, title: `Song ${index}`, artist: "Nobody" }),
+  );
+  listSongs.mockResolvedValue({ data: { songs: many } });
+  renderPlaylist(detail());
+
+  fireEvent.click(await screen.findByRole("button", { name: "Add songs" }));
+  const view = within(await screen.findByRole("dialog", { name: "Add songs" }));
+
+  expect(
+    await view.findByRole("button", { name: /Song 0/ }),
+  ).toBeInTheDocument();
+  expect(view.getByRole("button", { name: /Song 119/ })).toBeInTheDocument();
+  expect(view.getAllByRole("button", { pressed: false })).toHaveLength(120);
+  expect(screen.queryByText(/are shown/)).not.toBeInTheDocument();
+});
+
+test("Add songs says the library is empty rather than blaming a search", async () => {
+  listSongs.mockResolvedValue({ data: { songs: [] } });
+  renderPlaylist(detail());
+
+  fireEvent.click(await screen.findByRole("button", { name: "Add songs" }));
+  const view = within(await screen.findByRole("dialog", { name: "Add songs" }));
+
+  expect(
+    await view.findByText("The library is empty. There is nothing to add yet."),
+  ).toBeInTheDocument();
+  expect(view.queryByText("No song matches that.")).not.toBeInTheDocument();
+});
+
+test("Add songs blames the search once the library holds songs", async () => {
+  renderPlaylist(detail());
+
+  fireEvent.click(await screen.findByRole("button", { name: "Add songs" }));
+  const view = within(await screen.findByRole("dialog", { name: "Add songs" }));
+  await view.findByRole("button", { name: /Hey Jude/ });
+
+  fireEvent.change(screen.getByLabelText("Search songs"), {
+    target: { value: "nothing like this" },
+  });
+
+  expect(view.getByText("No song matches that.")).toBeInTheDocument();
+  expect(view.queryByText(/The library is empty/)).not.toBeInTheDocument();
+});
+
 test("one song being added does not lock the rest of the library", async () => {
   // Filling a playlist is a run of taps: only the row waiting for its answer
   // goes quiet.
@@ -694,4 +742,25 @@ test("a playlist keeps a hidden-by-default song and still marks it", async () =>
   // only keeps songs out of the library's own list and the reel.
   const title = await screen.findByText("Africa");
   expect(iconNames(title.parentElement!)).toEqual(["archive"]);
+});
+
+test("a playlist row wears the built-in marks the party configured", async () => {
+  listTags.mockResolvedValue({
+    data: {
+      tags: [],
+      built_ins: [
+        builtInTagRead({ color: "gold" }),
+        builtInTagRead({ id: "sung", show_in_list: false }),
+      ],
+    },
+  });
+  listFavorites.mockResolvedValue({ data: { song_ids: ["local:abc"] } });
+  const { container } = renderPlaylist(detail());
+
+  await screen.findByText("Africa");
+  expect(container.querySelector(".song-mark-favorite")).toHaveClass(
+    "tag-color-gold",
+  );
+  // Sung is off the rows, so no microphone even where there would be one.
+  expect(container.querySelector(".song-mark-sung")).toBeNull();
 });

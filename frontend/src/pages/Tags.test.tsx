@@ -1,22 +1,29 @@
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { render, screen, waitFor, within } from "@testing-library/react";
 import { MemoryRouter } from "react-router-dom";
-import type { MeRead, TagRead } from "../api";
+import type { BuiltInTagRead, MeRead, TagRead } from "../api";
 import { meResponse, userRead } from "../test/auth";
 import { FakeSocket } from "../test/fakeSocket";
 import { iconNames } from "../test/icons";
-import { tagRead } from "../test/tags";
+import {
+  builtInTagRead,
+  builtInTagReads,
+  ruleKindReads,
+  tagRead,
+} from "../test/tags";
 import Tags from "./Tags";
 
-const { getMe, listTags } = vi.hoisted(() => ({
+const { getMe, listTags, listTagRules } = vi.hoisted(() => ({
   getMe: vi.fn(),
   listTags: vi.fn(),
+  listTagRules: vi.fn(),
 }));
 
 vi.mock("../api/sdk.gen", async (importOriginal) => ({
   ...(await importOriginal<typeof import("../api/sdk.gen")>()),
   getMe,
   listTags,
+  listTagRules,
 }));
 
 const MANAGER = ["songs.view", "tags.manage"];
@@ -35,11 +42,16 @@ function tag(overrides: Partial<TagRead> = {}): TagRead {
   });
 }
 
-function renderTags(tags: TagRead[] | Error = [tag()], capabilities = MANAGER) {
+function renderTags(
+  tags: TagRead[] | Error = [tag()],
+  capabilities = MANAGER,
+  builtIns: BuiltInTagRead[] = builtInTagReads(),
+) {
   getMe.mockResolvedValue(meResponse(capabilities, ACCOUNT));
+  listTagRules.mockResolvedValue({ data: { rules: ruleKindReads() } });
   listTags.mockImplementation(async () => {
     if (tags instanceof Error) throw tags;
-    return { data: { tags } };
+    return { data: { tags, built_ins: builtIns } };
   });
   const client = new QueryClient({
     defaultOptions: { queries: { retry: false } },
@@ -56,7 +68,7 @@ function renderTags(tags: TagRead[] | Error = [tag()], capabilities = MANAGER) {
 beforeEach(() => {
   FakeSocket.last = undefined;
   vi.stubGlobal("WebSocket", FakeSocket);
-  for (const mock of [getMe, listTags]) mock.mockReset();
+  for (const mock of [getMe, listTags, listTagRules]) mock.mockReset();
 });
 
 afterEach(() => vi.unstubAllGlobals());
@@ -103,6 +115,52 @@ it("names the songs a tag carries and the flags that are on", async () => {
   // Nothing tagged with it yet, and only the one flag on.
   expect(
     within(rows[2]).getByText("0 songs · shown in list"),
+  ).toBeInTheDocument();
+});
+
+it("says what an automatic tag follows, before what it does to a list", async () => {
+  renderTags([
+    tag({
+      id: "t-duet",
+      name: "duet",
+      song_count: 4,
+      show_in_list: true,
+      hide_by_default: false,
+      rule: { kind: "duet", value: null },
+    }),
+    tag({
+      id: "t-deutsch",
+      name: "deutsch",
+      song_count: 12,
+      show_in_list: false,
+      hide_by_default: true,
+      rule: { kind: "language", value: "Deutsch" },
+    }),
+    // A rule this build has no label for: named by its own kind rather than
+    // read as an ordinary tag nobody can set.
+    tag({
+      id: "t-nineties",
+      name: "nineties",
+      song_count: 1,
+      show_in_list: false,
+      hide_by_default: false,
+      rule: { kind: "year_between", value: "1990" },
+    }),
+  ]);
+
+  const rows = await screen.findAllByRole("listitem");
+  await waitFor(() =>
+    expect(
+      within(rows[0]).getByText("4 songs · automatic: duet · shown in list"),
+    ).toBeInTheDocument(),
+  );
+  expect(
+    within(rows[1]).getByText(
+      "12 songs · automatic: language = Deutsch · hidden by default",
+    ),
+  ).toBeInTheDocument();
+  expect(
+    within(rows[2]).getByText("1 song · automatic: year_between = 1990"),
   ).toBeInTheDocument();
 });
 
@@ -174,4 +232,48 @@ it("counts the songs again when one is tagged", async () => {
   });
 
   await waitFor(() => expect(screen.getByText(/2 songs/)).toBeInTheDocument());
+});
+
+it("lists the two built-in marks under their own heading", async () => {
+  renderTags();
+
+  expect(
+    await screen.findByRole("heading", { name: "Built-in" }),
+  ).toBeInTheDocument();
+  const favorites = screen.getByRole("link", { name: /Favorites/ });
+  const sung = screen.getByRole("link", { name: /Sung/ });
+  expect(favorites).toHaveAttribute("href", "/user/tags/favorites");
+  expect(sung).toHaveAttribute("href", "/user/tags/sung");
+  // Never a song count: it is a different number for every reader.
+  expect(
+    within(favorites).getByText("per person · shown in list"),
+  ).toBeInTheDocument();
+  expect(iconNames(favorites.querySelector(".tags-square")!)).toEqual([
+    "heart",
+  ]);
+  expect(iconNames(sung.querySelector(".tags-square")!)).toEqual(["mic"]);
+  // Recent is a mode, not a mark, so it has no row.
+  expect(
+    screen.queryByRole("link", { name: /Recent/ }),
+  ).not.toBeInTheDocument();
+});
+
+it("draws each built-in in its configured colour and says when it is off", async () => {
+  renderTags([tag()], MANAGER, [
+    builtInTagRead({ color: "gold" }),
+    builtInTagRead({ id: "sung", color: "blue", show_in_list: false }),
+  ]);
+
+  const favorites = await screen.findByRole("link", { name: /Favorites/ });
+  const sung = screen.getByRole("link", { name: /Sung/ });
+  expect(favorites.querySelector(".tags-square")).toHaveClass("tag-color-gold");
+  expect(sung.querySelector(".tags-square")).toHaveClass("tag-color-blue");
+  expect(within(sung).getByText("per person")).toBeInTheDocument();
+});
+
+it("keeps the built-in rows when the party has no tags of its own", async () => {
+  renderTags([]);
+
+  expect(await screen.findByText("No tags yet")).toBeInTheDocument();
+  expect(screen.getByRole("link", { name: /Favorites/ })).toBeInTheDocument();
 });

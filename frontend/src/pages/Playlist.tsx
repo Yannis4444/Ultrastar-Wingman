@@ -42,9 +42,6 @@ interface PlaylistsChanged extends WingmanEvent {
   playlist_id: string | null;
 }
 
-/** How many songs the "Add songs" sub-view lists before asking for a search. */
-const RESULTS = 50;
-
 /** The same needle the songs page matches on. */
 function matches(song: SongRead, needle: string): boolean {
   return (
@@ -310,7 +307,7 @@ export default function Playlist() {
 
   /**
    * The one song the sub-view is busy with, so filling a playlist stays a run
-   * of taps: locking all fifty rows for every round trip would make adding ten
+   * of taps: locking every row for every round trip would make adding ten
    * songs ten waits.
    */
   const busySong = addEntry.isPending
@@ -469,6 +466,7 @@ export default function Playlist() {
                           favorite={favorites.ids.has(song.id)}
                           sung={sung.ids.has(song.id)}
                           tags={markTags(tags.bySong.get(song.id))}
+                          builtIns={tags.builtIns}
                           onClick={() => setSelected(song)}
                           leading={
                             /* A grip, not a control: the same reordering is on
@@ -531,6 +529,7 @@ export default function Playlist() {
                         favorite={favorites.ids.has(song.id)}
                         sung={sung.ids.has(song.id)}
                         tags={markTags(tags.bySong.get(song.id))}
+                        builtIns={tags.builtIns}
                         onClick={() => setSelected(song)}
                       />
                     ))}
@@ -577,7 +576,9 @@ export default function Playlist() {
           />
           {library.isLoading && <Loading />}
           <ul className="picker-list">
-            {found.slice(0, RESULTS).map((song) => (
+            {/* Every match, the way the songs page lists its own library: a
+                cap would only hide the song somebody came here to add. */}
+            {found.map((song) => (
               <PickerRow
                 key={song.id}
                 lead={<SongCover song={song} />}
@@ -589,14 +590,16 @@ export default function Playlist() {
               />
             ))}
           </ul>
-          {found.length > RESULTS && (
-            <p className="playlist-add-more">
-              {found.length} songs match — the first {RESULTS} are shown. Type
-              to narrow it down.
-            </p>
-          )}
           {library.isSuccess && found.length === 0 && (
-            <p className="playlist-add-more">No song matches that.</p>
+            /* An empty library is not a search that found nothing: saying "no
+               song matches that" about a search nobody typed sends the reader
+               looking for a spelling mistake. The songs page owns the how-to
+               (scan, or add from a source); here the state is enough. */
+            <p className="playlist-add-more">
+              {(library.data?.songs ?? []).length === 0
+                ? "The library is empty. There is nothing to add yet."
+                : "No song matches that."}
+            </p>
           )}
           {error && (
             <p className="error-notice playlists-notice" role="alert">

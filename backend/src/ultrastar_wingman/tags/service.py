@@ -5,6 +5,7 @@ the request, its id. The FastAPI dependency that builds one lives in `auth.deps`
 this module must not import.
 """
 
+import asyncio
 import logging
 from collections.abc import Collection, Iterable, Sequence
 from dataclasses import dataclass
@@ -17,10 +18,19 @@ from ..auth.model import User
 from ..auth.permissions import ADMIN, ROLES, UnknownRoleError
 from ..events import SongTagsChanged, TagsChanged, event_bus
 from ..songs.model import Song
+from . import rules
 from .model import SongTag, Tag, TagPermission
-from .schema import TagAction, TagAssignment, TagPermissionRead, TagRead
+from .schema import TagAction, TagAssignment, TagPermissionRead, TagRead, TagRuleRead
 
 logger = logging.getLogger(__name__)
+
+# One writer at a time over the rows a rule derives. A scan reconciling every automatic
+# tag and a PATCH rewriting one of them run on different sessions, and both read the rows
+# a tag carries before they write the ones it should: interleaved, the scan would insert a
+# row the PATCH just inserted (the `(tag_id, song_id)` primary key refuses it, and the
+# scan dies) or re-derive the rule the PATCH replaced. Held around the reads as well as
+# the writes, so whoever gets there second sees the other's finished answer.
+_rules_lock = asyncio.Lock()
 
 # Holding `tags.manage` is the right to create a tag and to say who it is for. It is
 # deliberately not the right to *use* one: a manager who never gave themselves `assign`
@@ -57,6 +67,15 @@ class PermissionSpec:
     action: TagAction
     role: str | None = None
     user_id: str | None = None
+
+
+@dataclass(frozen=True)
+class RuleSpec:
+    """The rule a request asks a tag to carry. Checked against the registry before it is
+    written — `kind` is whatever the client sent."""
+
+    kind: str
+    value: str | None = None
 
 
 @dataclass(frozen=True)
@@ -184,6 +203,12 @@ def _read_permissions(
     ]
 
 
+def _read_rule(tag: Tag) -> TagRuleRead | None:
+    if tag.rule_kind is None:
+        return None
+    return TagRuleRead(kind=tag.rule_kind, value=tag.rule_value)
+
+
 def _read_tag(
     tag: Tag,
     rows: Sequence[TagPermission],
@@ -200,7 +225,12 @@ def _read_tag(
         show_in_list=tag.show_in_list,
         hide_by_default=tag.hide_by_default,
         can_view=rights.can_view,
-        can_assign=rights.can_assign,
+        # An automatic tag is nobody's to set: the rule decides which songs carry it, so
+        # the surfaces that offer a toggle draw it locked instead (the routes refuse it
+        # too, with a 409). The permission rows stay as they are — the tag gets them back
+        # the moment the rule comes off.
+        can_assign=rights.can_assign and tag.rule_kind is None,
+        rule=_read_rule(tag),
         song_count=song_count,
         permissions=_read_permissions(rows, usernames) if with_permissions else None,
     )
@@ -364,16 +394,21 @@ async def create_tag(
     show_in_list: bool,
     hide_by_default: bool,
     specs: Sequence[PermissionSpec],
+    rule: RuleSpec | None = None,
 ) -> Tag:
-    """Raises `DuplicateTagNameError`, `UnknownRoleError` or `UnknownUserError`."""
+    """Raises `DuplicateTagNameError`, `UnknownRoleError`, `UnknownUserError`,
+    `rules.UnknownRuleKindError` or `rules.RuleValueError`."""
     await _check_name(session, name, None)
     await _check_subjects(session, specs)
+    rule_kind, rule_value = _normalized_rule(rule)
     tag = Tag(
         name=name,
         icon=icon,
         color=color,
         show_in_list=show_in_list,
         hide_by_default=hide_by_default,
+        rule_kind=rule_kind,
+        rule_value=rule_value,
     )
     session.add(tag)
     # The id is a column default, so it only exists once the row reaches the database —
@@ -382,6 +417,13 @@ async def create_tag(
     session.add_all(_rows_for(tag.id, specs))
     await session.commit()
     logger.info("tag '%s' created (%s)", name, tag.id)
+    # A tag that arrives with a rule arrives on its songs: the response already carries
+    # the count, and nobody should have to wait for the next scan to see them. Under the
+    # rules lock — a scan that read the tag list a moment ago would derive the same rows.
+    if rule_kind is not None:
+        async with _rules_lock:
+            if await _reconcile_rule_tag(session, tag):
+                await session.commit()
     await event_bus.broadcast(TagsChanged())
     return tag
 
@@ -394,8 +436,17 @@ async def update_tag(
     color: str | None = None,
     show_in_list: bool | None = None,
     hide_by_default: bool | None = None,
+    rule: RuleSpec | None | _Unset = UNSET,
 ) -> Tag:
-    """Raises `DuplicateTagNameError`."""
+    """Raises `DuplicateTagNameError`, `rules.UnknownRuleKindError` or
+    `rules.RuleValueError`.
+
+    An explicit `rule=None` takes the rule off and the tag becomes manual again — with no
+    songs on it, because every row under it was the rule's. A *different* rule rewrites
+    them the same way: the rows a tag carried are the old rule's answer, and even the ones
+    the new rule would repeat were somebody else's. The caller who has to warn about that
+    (the tag editor) knows how many there were: it is the `song_count` it is showing.
+    """
     if name is not None:
         await _check_name(session, name, tag.id)
         tag.name = name
@@ -407,9 +458,100 @@ async def update_tag(
         tag.show_in_list = show_in_list
     if hide_by_default is not None:
         tag.hide_by_default = hide_by_default
+    rule_changed = False
+    if not isinstance(rule, _Unset):
+        rule_kind, rule_value = _normalized_rule(rule)
+        rule_changed = (tag.rule_kind, tag.rule_value) != (rule_kind, rule_value)
+        tag.rule_kind, tag.rule_value = rule_kind, rule_value
     await session.commit()
+    if rule_changed:
+        # Under the rules lock, so a library scan reconciling this same tag cannot land
+        # its inserts between the delete and the ones below.
+        async with _rules_lock:
+            await session.execute(delete(SongTag).where(SongTag.tag_id == tag.id))
+            await _reconcile_rule_tag(session, tag)
+            await session.commit()
+        logger.info(
+            "tag %s is %s",
+            tag.id,
+            f"automatic now ({tag.rule_kind})" if tag.rule_kind else "manual again",
+        )
     await event_bus.broadcast(TagsChanged())
     return tag
+
+
+def _normalized_rule(rule: RuleSpec | None) -> tuple[str | None, str | None]:
+    """The pair to store. Raises `rules.UnknownRuleKindError` / `rules.RuleValueError`."""
+    if rule is None:
+        return None, None
+    known = rules.get(rule.kind)
+    return known.kind, known.normalized(rule.value)
+
+
+async def apply_rules(session: AsyncSession) -> int:
+    """Put every automatic tag on exactly the songs its rule matches, and take it off the
+    rest. Returns how many tags changed, and broadcasts once if any did.
+
+    Called after every library scan — a rule reads song metadata, so a rescan is what
+    makes a tag follow an edited `.txt` — and after a single directory is scanned in, so a
+    fresh download arrives already tagged. One query per rule tag, never one per song.
+    (Creating a tag and changing its rule reconcile that one tag inline instead, so the
+    response they return already carries its songs.)
+
+    Serialized against those two through `_rules_lock`, so a rule that changes while a
+    scan is running cannot leave the scan inserting a row the change already wrote.
+    """
+    async with _rules_lock:
+        targets = await session.scalars(select(Tag).where(Tag.rule_kind.is_not(None)))
+        changed = 0
+        for target in targets:
+            if await _reconcile_rule_tag(session, target):
+                changed += 1
+        if changed:
+            await session.commit()
+    if changed:
+        await event_bus.broadcast(TagsChanged())
+    return changed
+
+
+async def _reconcile_rule_tag(session: AsyncSession, tag: Tag) -> bool:
+    """Rewrite one automatic tag's rows to exactly what its rule matches. True when
+    something changed; does not commit. A manual tag is left alone.
+
+    Call it with `_rules_lock` held — it reads the rows the tag carries and then writes
+    them, and it is not reentrant enough to take the lock itself (`apply_rules` holds it
+    across the whole loop).
+    """
+    if tag.rule_kind is None:
+        return False
+    try:
+        condition = rules.get(tag.rule_kind).condition(tag.rule_value)
+    except (rules.UnknownRuleKindError, rules.RuleValueError):
+        # A rule an older or newer build wrote. Leaving the rows as they are is the only
+        # safe answer: deriving nothing would silently strip the tag off every song.
+        logger.warning("tag %s carries the unusable rule '%s'", tag.id, tag.rule_kind)
+        return False
+    matching = set(await session.scalars(select(Song.id).where(condition)))
+    carried = set(await session.scalars(select(SongTag.song_id).where(SongTag.tag_id == tag.id)))
+    missing = matching - carried
+    dropped = len(carried - matching)
+    if not missing and not dropped:
+        return False
+    if dropped:
+        # As a subquery, not a list of ids: a rule changed on a large library would
+        # otherwise send thousands of bind parameters at SQLite.
+        await session.execute(
+            delete(SongTag).where(
+                SongTag.tag_id == tag.id,
+                SongTag.song_id.not_in(select(Song.id).where(condition)),
+            )
+        )
+    # `user_id` stays NULL: nobody put these rows there, the rule did.
+    session.add_all(
+        SongTag(tag_id=tag.id, song_id=song_id, user_id=None) for song_id in sorted(missing)
+    )
+    logger.info("automatic tag %s: %d songs added, %d taken off", tag.id, len(missing), dropped)
+    return True
 
 
 async def replace_permissions(
@@ -437,7 +579,11 @@ async def delete_tag(session: AsyncSession, tag: Tag) -> None:
 
 async def assign(session: AsyncSession, tag: Tag, song: Song, user_id: str | None) -> None:
     """Put the tag on the song. Idempotent — the UI sends it on every click of a toggle,
-    and a second click must not be an error."""
+    and a second click must not be an error.
+
+    By hand, which is why an automatic tag never reaches here: the route turns that into
+    a 409 (`tag_is_automatic`), and `apply_rules` writes the derived rows itself.
+    """
     if await session.get(SongTag, (tag.id, song.id)) is not None:
         return
     session.add(SongTag(tag_id=tag.id, song_id=song.id, user_id=user_id))

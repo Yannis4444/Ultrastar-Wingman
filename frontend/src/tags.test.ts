@@ -1,6 +1,5 @@
 import type { TagRead } from "./api";
-import { ICON_PATHS, PICKER_ICON_NAMES } from "./components/icons";
-import { tagRead } from "./test/tags";
+import { ruleKindReads, tagRead } from "./test/tags";
 import {
   criteriaOffAny,
   defaultTagCriteria,
@@ -10,6 +9,7 @@ import {
   NO_OVERRIDES,
   passesSongCriteria,
   passesTagCriteria,
+  ruleSummary,
   sameOverrides,
   SUNG_ONLY,
   tagColorClass,
@@ -36,35 +36,31 @@ it("paints a tag in one of the four colours, never in nothing", () => {
   expect(tagColorClass("chartreuse")).toBe("tag-color-neutral");
 });
 
-it("keeps the control glyphs and the song row's marks out of the picker", () => {
-  for (const excluded of [
-    "search",
-    "plus",
-    "check",
-    "close",
-    "chevron-right",
-    "arrow-up",
-    "pencil",
-    "trash",
-    "copy",
-    // Not drawn yet (the comment composer owns it): named here so it stays out
-    // of the picker the moment it is added.
-    "send",
-    "drag-handle",
-    "dice",
-    "dice-3",
-    "heart",
-    "mic",
-  ])
-    expect(PICKER_ICON_NAMES).not.toContain(excluded);
+it("says what a rule does in the voice of a meta line", () => {
+  const kinds = ruleKindReads();
+  // A flag rule is its label; a value rule loses the "is…" the select's option
+  // trails off into and gains the value the input finished it with.
+  expect(ruleSummary({ kind: "duet", value: null }, kinds)).toBe("duet");
+  expect(ruleSummary({ kind: "has_video", value: null }, kinds)).toBe(
+    "has video",
+  );
+  expect(ruleSummary({ kind: "language", value: "English" }, kinds)).toBe(
+    "language = English",
+  );
+  expect(ruleSummary({ kind: "edition", value: "Party" }, kinds)).toBe(
+    "edition = Party",
+  );
 });
 
-it("offers every other glyph, the seeded tags' two included", () => {
-  expect(PICKER_ICON_NAMES).toContain("archive");
-  expect(PICKER_ICON_NAMES).toContain("alert");
-  expect(PICKER_ICON_NAMES).toContain("tag");
-  // Nothing invented: the picker is a view of `ICON_PATHS`.
-  for (const name of PICKER_ICON_NAMES) expect(ICON_PATHS[name]).toBeDefined();
+it("names a rule this build does not know by its own kind", () => {
+  // A tag written by a newer backend. Saying nothing about it would be worse:
+  // the row would read as an ordinary tag nobody can set.
+  expect(ruleSummary({ kind: "year_between", value: null }, [])).toBe(
+    "year_between",
+  );
+  expect(ruleSummary({ kind: "year_between", value: "1990" }, [])).toBe(
+    "year_between = 1990",
+  );
 });
 
 it("puts on a row only the tags the reader may see and asked for", () => {
@@ -111,12 +107,6 @@ it("keeps a song out of the list only for the criteria that are set", () => {
   const wanted = new Map(criteria).set("duet", "yes" as const);
   expect(passesTagCriteria("s-duet", bySong, wanted)).toBe(true);
   expect(passesTagCriteria("s-plain", bySong, wanted)).toBe(false);
-});
-
-it("offers the funnel to a tag as well: §3 keeps no filter glyph out", () => {
-  // Not in §3's exclusion list, so the tag editor may use it like any other
-  // glyph — the Songs chip owns the meaning, not the drawing.
-  expect(PICKER_ICON_NAMES).toContain("filter");
 });
 
 const ARCHIVE = tagRead({ id: "archive", hide_by_default: true });

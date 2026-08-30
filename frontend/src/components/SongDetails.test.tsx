@@ -10,7 +10,7 @@ import type { CommentRead, ScoreWithContext, SongRead, TagRead } from "../api";
 import { meResponse, userRead } from "../test/auth";
 import { FakeSocket } from "../test/fakeSocket";
 import { iconNames } from "../test/icons";
-import { tagRead } from "../test/tags";
+import { ruleKindReads, tagRead } from "../test/tags";
 import SongDetails from "./SongDetails";
 
 const {
@@ -25,6 +25,7 @@ const {
   createPlaylist,
   listTags,
   listTagAssignments,
+  listTagRules,
   assignTag,
   unassignTag,
   listSongComments,
@@ -42,6 +43,7 @@ const {
   createPlaylist: vi.fn(),
   listTags: vi.fn(),
   listTagAssignments: vi.fn(),
+  listTagRules: vi.fn(),
   assignTag: vi.fn(),
   unassignTag: vi.fn(),
   listSongComments: vi.fn(),
@@ -62,6 +64,7 @@ vi.mock("../api/sdk.gen", async (importOriginal) => ({
   createPlaylist,
   listTags,
   listTagAssignments,
+  listTagRules,
   assignTag,
   unassignTag,
   listSongComments,
@@ -150,11 +153,19 @@ beforeEach(() => {
   createPlaylist.mockReset();
   addPlaylistEntry.mockReset();
   removePlaylistEntry.mockReset();
-  for (const mock of [listTags, listTagAssignments, assignTag, unassignTag])
+  for (const mock of [
+    listTags,
+    listTagAssignments,
+    listTagRules,
+    assignTag,
+    unassignTag,
+  ])
     mock.mockReset();
   // No tag the reader may see, so the Tags row is absent unless a test says so.
   listTags.mockResolvedValue({ data: { tags: [] } });
   listTagAssignments.mockResolvedValue({ data: { assignments: [] } });
+  // Read by the Tags sub-view alone, to spell an automatic tag's rule out.
+  listTagRules.mockResolvedValue({ data: { rules: ruleKindReads() } });
   assignTag.mockResolvedValue({ data: undefined });
   unassignTag.mockResolvedValue({ data: undefined });
   // The best-scores view reaches over every party, so it is `stats.history`.
@@ -661,6 +672,42 @@ test("a tag the reader may see but not set is a padlock row", async () => {
   ).not.toBeInTheDocument();
   const row = within(dialog).getByText("archive").closest(".picker-row");
   expect(iconNames(row as HTMLElement)).toEqual(["archive", "lock"]);
+});
+
+test("an automatic tag's padlock names its rule, not a missing right", async () => {
+  const duets = tagRead({
+    id: "t-duets",
+    name: "duets",
+    icon: "music",
+    can_assign: false,
+    rule: { kind: "duet", value: null },
+  });
+  const deutsch = tagRead({
+    id: "t-deutsch",
+    name: "deutsch",
+    icon: "music",
+    can_assign: false,
+    rule: { kind: "language", value: "Deutsch" },
+  });
+  withTags([ARCHIVE, duets, deutsch], ["t-duets"]);
+  renderDetails();
+
+  fireEvent.click(await screen.findByRole("button", { name: /Tags/ }));
+  const dialog = screen.getByRole("dialog", { name: "Tags" });
+  // Nobody sets these two, so "you may not" would send the reader asking for a
+  // right that does not exist.
+  await waitFor(() =>
+    expect(
+      within(dialog).getByTitle("Set automatically — duet"),
+    ).toBeInTheDocument(),
+  );
+  expect(
+    within(dialog).getByTitle("Set automatically — language = Deutsch"),
+  ).toBeInTheDocument();
+  // The ordinary padlock still says what it always said.
+  expect(
+    within(dialog).getByTitle("You may see this tag but not set it"),
+  ).toBeInTheDocument();
 });
 
 test("a refused tag says so instead of failing silently", async () => {
