@@ -12,6 +12,7 @@ import Loading from "../components/Loading";
 import PageHeader from "../components/PageHeader";
 import { useWingmanEvent } from "../hooks/useWingmanEvents";
 import {
+  type BuiltInTag,
   BUILT_IN_TAG_IDS,
   BUILT_IN_TAGS,
   builtInTags,
@@ -30,6 +31,21 @@ function meta(tag: TagRead): string {
   const parts = [songs === 1 ? "1 song" : `${songs} songs`];
   if (tag.hide_by_default) parts.push("hidden by default");
   if (tag.show_in_list) parts.push("shown in list");
+  return parts.join(" · ");
+}
+
+/**
+ * What a row says about a built-in. The kind leads, so no line is ever empty:
+ * a mark is "per person" (never a song count — that number is different for
+ * every reader) and a facet comes "from the file". After it, only what is *on*
+ * — an option that is off is dropped rather than spelled out, the same way a
+ * tag's row leaves out the flags it has not got (§7).
+ */
+function builtInMeta(built: BuiltInTag): string {
+  const parts = [built.kind === "mark" ? "per person" : "from the file"];
+  if (built.kind !== "valued" && built.show_in_list)
+    parts.push("shown in list");
+  if (built.kind !== "mark" && built.show_in_filter) parts.push("in filter");
   return parts.join(" · ");
 }
 
@@ -122,7 +138,7 @@ export default function Tags() {
                 </ul>
               )}
 
-              {/* The two marks the app brings with it, after the rows `+` and
+              {/* The eight the app brings with it, after the rows `+` and
                   Delete govern: they are not tags, so nothing here creates or
                   removes one. *Recent* is a mode — a time-ordered list — and
                   has no row at all. */}
@@ -143,12 +159,11 @@ export default function Tags() {
                             <span className="tags-name">
                               {BUILT_IN_TAGS[id].name}
                             </span>
-                            {/* Never a song count: how many songs wear this one
-                                is a different number for every reader. */}
+                            {/* Never a song count: a mark's is a different
+                                number for every reader, a facet's is one
+                                number per value. */}
                             <span className="tags-meta">
-                              {builtIns[id].show_in_list
-                                ? "per person · shown in list"
-                                : "per person"}
+                              {builtInMeta(builtIns[id])}
                             </span>
                           </span>
                           <Icon name="chevron-right" className="tags-chevron" />

@@ -101,17 +101,29 @@ permissions included; **Save** sends only what you changed.
 from everybody it was granted to. The songs themselves stay in the library —
 only the label goes.
 
-## The built-in marks: Favorites and Sung
+## Built-in marks and facets
 
-Two marks were there before you made a single tag. Under **Built-in**, at the
-foot of **User → Tags**, they sit in rows of their own: **Favorites** (the
-heart) and **Sung** (the microphone). They look like tags on a song row, and
-they are not tags — they say something about *you*, not about the song. Your
-heart is on the songs you favorited and on nobody else's; the microphone is on
-the songs you have sung. That is why their rows say "per person" where a tag's
-row counts songs: the number would be different for everybody reading it.
+Eight rows were there before you made a single tag. Under **Built-in**, at the
+foot of **User → Tags**, they sit in rows that look exactly like a tag's — and
+they are not tags. Nobody puts them on a song: two of them say something about
+*you*, and the other six are what the song file already says about itself.
 
-Open one and there are two things to decide, and they are the same two a tag has:
+| Built-in | What it is | What you can change |
+|---|---|---|
+| **Favorites** (heart) | The songs you favorited — yours alone. | Colour · Show in song list |
+| **Sung** (microphone) | The songs you have sung — yours alone. | Colour · Show in song list |
+| **Duet** (two people) | The file is written for two singers. | Colour · Show in song list · Show in filter |
+| **Video** (film camera) | The song folder has a video beside the audio. | Colour · Show in song list · Show in filter |
+| **Genre** (note) | The `#GENRE` line of the file. | Show in filter |
+| **Language** (flag) | The `#LANGUAGE` line. | Show in filter |
+| **Edition** (disc) | The `#EDITION` line — which SingStar or karaoke set it came from. | Show in filter |
+| **Decade** (calendar) | The `#YEAR` line, rounded down: 1985 is the **1980s**. | Show in filter |
+
+That is why their rows say "per person" or "from the file" where a tag's row
+counts songs. A mark's count would be a different number for every reader, and a
+facet's would be one number per value.
+
+**The two marks** — Favorites and Sung — have the two options a tag has:
 
 - **Colour** — one of the four a tag may wear. The heart starts pink and the
   microphone blue.
@@ -124,11 +136,31 @@ the **Songs** page and the row in the **Filter** panel. The heart and microphone
 *buttons* — in the song's own view and on the home screen — keep their own
 colours. Those are switches you press, not marks you read.
 
-Nothing else about them can be changed, and it is the same reason each time:
-there is no name (the app calls them what they are), no icon, nobody to grant
-them to (everybody has their own), and no **Delete tag** — a built-in is not a
-row you made. Whoever may manage tags may change the two settings, for everyone
-at once.
+**Duet and Video** are the same two options plus one more, **Show in filter**.
+They start **off** the song rows: half a library is a duet, and a mark most songs
+would wear says nothing at a glance. Turn *Show in song list* on and every duet —
+or every song with a video — wears the icon after the microphone and the heart,
+in the colour you picked. Turn *Show in filter* off and the row leaves the
+**Filter** panel; nobody can filter by it any more.
+
+**Genre, Language, Edition and Decade** have **Show in filter** and nothing
+else. There is no colour, because there is no mark: a value nearly every song
+has belongs in the song's own **Details**, not on the row (that is where you
+read it — the song's view lists language, genre, year and edition). Their values
+are not something anybody types here either; they come out of the song files, so
+the **Filter** panel offers exactly what your library holds. Add a Schlager song
+and *Schlager* appears in the Genre list on its own.
+
+A song whose file says nothing — no genre, no year — is in no value at all. It
+shows up while the row is on *Any* and disappears the moment you pick one; there
+is no "No genre" option to ask for, because a gap in the metadata is not a genre.
+
+Nothing else about any of the eight can be changed, and it is the same reason
+each time: there is no name (the app calls them what they are), no icon, no
+hiding songs, nobody to grant them to (everybody sees the same facts), and no
+**Delete tag** — a built-in is not a row you made. Whoever may manage tags may
+change these settings, for everyone at once. If you want to hide songs without a
+video, or give one genre its own rules, make a tag: that is what tags are for.
 
 **Recent** is not on this page. It is not a mark at all: it is a way of *sorting*
 the song list — what has been sung tonight, newest first — and there is nothing
@@ -162,11 +194,24 @@ name on hover.
 ## Filtering the song list by tag
 
 Every tag you may see is also a filter. On the **Songs** page the funnel chip
-opens **Filter**, a panel with one row per tag — and, above them, your favorites
-and the songs you have sung. Each row is set to **Any**, **Yes** or **No**:
-*Yes* keeps only the songs wearing the tag, *No* drops them, and several rows
-narrow the list together. The list updates as you tap; **Reset** puts everything
-back.
+opens **Filter**, a panel with one row per thing the list can be narrowed by, in
+this order: your favorites, the songs you have sung, the built-in facets the
+party left in the filter, then every tag. Each row is set to **Any**, **Yes** or
+**No**: *Yes* keeps only the songs wearing the tag, *No* drops them, and several
+rows narrow the list together. The list updates as you tap; **Reset** puts
+everything back.
+
+**Genre**, **Language**, **Edition** and **Decade** end in a drop-down instead of
+the three buttons, because there are more than three answers. It offers **Any**
+and then the values your library actually holds — the genres of the songs you can
+see, sorted; the decades in order, *1970s*, *1980s*, *1990s*. Pick one and the
+list keeps only the songs with that value. One value per row, and a row you left
+on *Any* is not filtering at all.
+
+**Duet** and **Video** are ordinary *Any / Yes / No* rows like a tag. Nothing
+about facets depends on who you are: a guest phone filters by genre exactly the
+way the host does. Only the show-and-hide options behind them need the right to
+manage tags.
 
 A tag with **Hide songs by default** simply starts its row on *No*. That is the
 whole mechanism — anybody who may see the tag can move the row to *Any* and have

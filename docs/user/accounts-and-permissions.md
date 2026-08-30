@@ -147,7 +147,7 @@ What each role may do by default:
 | Rescan the song folders | – | – | yes | yes |
 | Rename a party in the statistics | – | – | yes | yes |
 | Change a playlist somebody else shared | – | – | yes | yes |
-| [Manage tags](tags.md) and the two built-in marks | – | – | yes | yes |
+| [Manage tags](tags.md) and the built-in marks and facets | – | – | yes | yes |
 | Delete anybody's comments | – | – | yes | yes |
 | See and change the settings | – | – | – | yes |
 | Manage users | – | – | – | yes |

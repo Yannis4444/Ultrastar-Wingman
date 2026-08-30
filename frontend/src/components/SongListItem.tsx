@@ -24,11 +24,13 @@ interface SongListItemProps {
    */
   tags?: TagRead[];
   /**
-   * How the party configured the two built-in marks: the colour each is drawn
-   * in, and whether it belongs on a song row at all. From `useTags`, passed in
-   * rather than read here — a list is hundreds of these, and hundreds of query
-   * subscriptions for one pair of values is a hundred times the work. Left out,
-   * the marks look the way they always did (pink heart, blue microphone).
+   * How the party configured the built-ins: the colour each is drawn in, and
+   * whether it belongs on a song row at all. From `useTags`, passed in rather
+   * than read here — a list is hundreds of these, and hundreds of query
+   * subscriptions for one handful of values is a hundred times the work. Left
+   * out, they look the way they always did: the pink heart and the blue
+   * microphone on, the two facets off. Only the marks and the two boolean
+   * facets are read; a valued facet is never a mark (§1.3).
    */
   builtIns?: BuiltInTags;
   /**
@@ -81,6 +83,26 @@ export default function SongListItem({
               title="In your favorites"
             >
               <Icon name="heart" />
+            </span>
+          )}
+          {/* The two facets the file answers, after the two per-reader marks
+              and before the tags (§1.4). They are off the rows by default —
+              half a library is a duet — and a party that wants them turns them
+              on in the Tags admin. */}
+          {song.is_duet && builtIns.duet.show_in_list && (
+            <span
+              className={`song-mark song-mark-duet ${tagColorClass(builtIns.duet.color)}`}
+              title="A duet"
+            >
+              <Icon name="users" />
+            </span>
+          )}
+          {song.has_video && builtIns.video.show_in_list && (
+            <span
+              className={`song-mark song-mark-video ${tagColorClass(builtIns.video.color)}`}
+              title="Has a video"
+            >
+              <Icon name="video" />
             </span>
           )}
           {(tags ?? []).map((tag) => (

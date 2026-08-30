@@ -44,7 +44,7 @@ export function builtInTagRead(
  * All eight built-ins at their defaults, in §7's *Built-in* order: the two
  * per-reader marks, the two boolean facets the song file answers yes or no to,
  * and the four valued ones. Every listing a test does not configure carries the
- * whole set, so a surface that draws only the marks proves it skips the rest.
+ * whole set, so every surface reads the same eight rows the backend sends.
  */
 export function builtInTagReads(): BuiltInTagRead[] {
   return [

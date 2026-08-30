@@ -2,6 +2,7 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useMemo, useState, type CSSProperties } from "react";
 import { Link, useNavigate, useParams } from "react-router-dom";
 import type {
+  BuiltInTagUpdate,
   PlayerRead,
   TagList,
   TagPermissionInput,
@@ -31,6 +32,8 @@ import {
   BUILT_IN_TAGS,
   builtInTags,
   DEFAULT_BUILT_IN_TAGS,
+  isBuiltInTagId,
+  KIND_OPTIONS,
   TAG_COLORS,
   tagColorClass,
   tagGlyph,
@@ -162,12 +165,12 @@ function asPlayer(person: Person): PlayerRead {
 }
 
 /**
- * The tag editor, at `/user/tags/new`, `/user/tags/:tagId` — and, on the two
- * reserved ids, on a built-in mark.
+ * The tag editor, at `/user/tags/new`, `/user/tags/:tagId` — and, on the eight
+ * reserved ids, on a built-in mark or facet.
  *
  * The built-in half is its own component rather than a dozen `builtIn &&`
- * branches threaded through the 500 lines below: of that form it keeps two
- * controls, and everything else (the name, the icon picker, the second flag,
+ * branches threaded through the 500 lines below: of that form it keeps at most
+ * three controls, and everything else (the name, the icon picker, the hiding,
  * the matrix, the people rows, Delete, the duplicate-name error, the draft
  * measured against a base) exists for a `tags` row it does not have.
  * The pieces they do share are the shared classes and `tagColorClass`, so the
@@ -176,7 +179,7 @@ function asPlayer(person: Person): PlayerRead {
  */
 export default function TagEditor() {
   const { tagId } = useParams();
-  if (tagId === "favorites" || tagId === "sung")
+  if (tagId !== undefined && isBuiltInTagId(tagId))
     return <BuiltInTagEditor builtInId={tagId} />;
   return <RealTagEditor />;
 }
@@ -949,19 +952,44 @@ function RealTagEditor() {
 }
 
 /**
- * What a built-in mark is, in one line — the reason the page below it is two
- * controls and not the tag editor's dozen.
+ * What a built-in is, in one line — the reason the page below it is a control
+ * or three and not the tag editor's dozen. Each ends the same way, because the
+ * reason is the same one every time: it is not a row somebody made.
  */
 const BUILT_IN_WHY: Record<BuiltInTagId, string> = {
   favorites:
     "Favorites are one person's own: everybody sees a heart on the songs they favorited and on nobody else's. So there is nothing to name, no icon to pick, nobody to grant it to and nothing to delete — only what the mark looks like, and whether it belongs on a song row at all.",
   sung: "Sung is one person's own: everybody sees a microphone on the songs they have sung and on nobody else's. So there is nothing to name, no icon to pick, nobody to grant it to and nothing to delete — only what the mark looks like, and whether it belongs on a song row at all.",
+  duet: "Duet comes out of the song file itself: a song written for two singers is one, and nobody tags it. So there is nothing to name, no icon to pick, no songs to hide, nobody to grant it to and nothing to delete — only what the mark looks like, whether it belongs on a song row, and whether the filter offers it.",
+  video:
+    "Video comes out of the song folder itself: a song with a video file beside it has one, and nobody tags it. So there is nothing to name, no icon to pick, no songs to hide, nobody to grant it to and nothing to delete — only what the mark looks like, whether it belongs on a song row, and whether the filter offers it.",
+  genre:
+    "Genre comes out of the song file itself, and it is one word out of hundreds — never a mark on a row, where it would say nothing at a glance. So the one thing to decide is whether the Filter panel offers it; the song's own view lists the value either way.",
+  language:
+    "Language comes out of the song file itself, and it is one word out of hundreds — never a mark on a row, where it would say nothing at a glance. So the one thing to decide is whether the Filter panel offers it; the song's own view lists the value either way.",
+  edition:
+    "Edition comes out of the song file itself, and it is one word out of hundreds — never a mark on a row, where it would say nothing at a glance. So the one thing to decide is whether the Filter panel offers it; the song's own view lists the value either way.",
+  decade:
+    "Decade is the song's year, rounded down: 1985 is the 1980s. It comes out of the file, it is never a mark on a row, and the one thing to decide is whether the Filter panel offers it. A song whose file names no year is in no decade and only ever matches *Any*.",
+};
+
+/** What *Show in song list* does, per kind. A mark is one reader's own; a facet
+ *  is a fact about the song and is off the rows until somebody wants it. */
+const SHOW_IN_LIST_HINT: Record<"mark" | "boolean", string> = {
+  mark: "Everybody wears the mark on their own songs in the song list, next to the tags. Off, the mark is gone from the rows — the filter and the chip above them stay.",
+  boolean:
+    "The mark goes on every song in the library the file says yes about, next to the tags. Off — which is how it starts — the rows stay clean and the fact lives in the song's own view and in the filter.",
 };
 
 /**
- * A built-in mark — Favorites or Sung — at `/user/tags/favorites` and
- * `/user/tags/sung`. A tag id is 32 hex characters, so neither word can ever be
- * one, and the two share the tag rows' idiom without being tags.
+ * A built-in — a mark or one of the six facets — at `/user/tags/favorites`,
+ * `/user/tags/duet`, `/user/tags/genre` and the rest. A tag id is 32 hex
+ * characters, so none of the eight words can ever be one, and they share the
+ * tag rows' idiom without being tags.
+ *
+ * One form, three shapes: what it holds is exactly the options the kind has
+ * (`KIND_OPTIONS`, mirroring the backend), because a `PATCH` naming any other
+ * one is a 422.
  */
 function BuiltInTagEditor({ builtInId }: { builtInId: BuiltInTagId }) {
   const queryClient = useQueryClient();
@@ -969,33 +997,44 @@ function BuiltInTagEditor({ builtInId }: { builtInId: BuiltInTagId }) {
   const allowed = auth.loaded && auth.can("tags.manage");
 
   // The same listing the admin page made: there is no GET for one built-in
-  // either, and both come down with the tags.
+  // either, and all eight come down with the tags.
   const tags = useQuery({ ...listTagsOptions(), enabled: allowed });
   const stored = builtInTags(tags.data?.built_ins)[builtInId];
 
+  const kind = BUILT_IN_TAGS[builtInId].kind;
+  const options = KIND_OPTIONS[kind];
+  const hasColor = options.includes("color");
+  const hasShowInList = options.includes("show_in_list");
+  const hasShowInFilter = options.includes("show_in_filter");
+
   const [color, setColor] = useState<TagColor>("neutral");
   const [showInList, setShowInList] = useState(true);
-  // What the server last said, to measure the two fields against — so a save
+  const [showInFilter, setShowInFilter] = useState(true);
+  // What the server last said, to measure the fields against — so a save
   // somebody else made does not come back as "you have unsaved changes".
-  const [base, setBase] = useState<{ color: TagColor; showInList: boolean }>({
-    color: "neutral",
+  const [base, setBase] = useState({
+    color: "neutral" as TagColor,
     showInList: true,
+    showInFilter: true,
   });
   const [seeded, setSeeded] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [saved, setSaved] = useState(false);
 
-  // Seeded once, and re-seeded when the page is reused for the other mark. A
+  // Seeded once, and re-seeded when the page is reused for another built-in. A
   // `tags.changed` refetch while somebody is choosing must not move the pills
-  // under their hand, so the draft is tagged with the mark it came from.
+  // under their hand, so the draft is tagged with the built-in it came from.
   if (tags.isSuccess && seeded !== builtInId) {
-    setSeeded(builtInId);
-    setColor(stored.color as TagColor);
-    setShowInList(stored.show_in_list);
-    setBase({
+    const latest = {
       color: stored.color as TagColor,
       showInList: stored.show_in_list,
-    });
+      showInFilter: stored.show_in_filter,
+    };
+    setSeeded(builtInId);
+    setColor(latest.color);
+    setShowInList(latest.showInList);
+    setShowInFilter(latest.showInFilter);
+    setBase(latest);
     setError(null);
     setSaved(false);
   }
@@ -1006,42 +1045,51 @@ function BuiltInTagEditor({ builtInId }: { builtInId: BuiltInTagId }) {
 
   const update = useMutation(updateBuiltInTagMutation());
 
-  const pending = color !== base.color || showInList !== base.showInList;
+  const pending =
+    color !== base.color ||
+    showInList !== base.showInList ||
+    showInFilter !== base.showInFilter;
 
   const save = async () => {
     if (!pending) return;
     setError(null);
+    // Only the options this kind has: a colour on *Genre* is a 422, and it is
+    // the one place a client can get that wrong.
+    const body: BuiltInTagUpdate = {};
+    if (hasColor) body.color = color;
+    if (hasShowInList) body.show_in_list = showInList;
+    if (hasShowInFilter) body.show_in_filter = showInFilter;
     try {
       const answered = await update.mutateAsync({
         path: { built_in_id: builtInId },
-        body: { color, show_in_list: showInList },
+        body,
       });
-      // The response is the shape every built-in has, and a mark is the one
-      // kind that fills both of these — but the type says "or null" for the
-      // kinds that do not, so the defaults stand in rather than a cast.
+      // The response is the shape every built-in has, so an option this kind
+      // has not got comes back null; the defaults stand in rather than a cast.
+      const fallback = DEFAULT_BUILT_IN_TAGS[builtInId];
       const latest = {
-        color: (answered.color ??
-          DEFAULT_BUILT_IN_TAGS[builtInId].color) as TagColor,
-        showInList:
-          answered.show_in_list ??
-          DEFAULT_BUILT_IN_TAGS[builtInId].show_in_list,
+        color: (answered.color ?? fallback.color) as TagColor,
+        showInList: answered.show_in_list ?? fallback.show_in_list,
+        showInFilter: answered.show_in_filter ?? fallback.show_in_filter,
       };
       setColor(latest.color);
       setShowInList(latest.showInList);
+      setShowInFilter(latest.showInFilter);
       setBase(latest);
       setSaved(true);
       refresh();
     } catch (cause) {
       setSaved(false);
-      setError(errorMessage(cause, "Could not save the mark."));
+      setError(errorMessage(cause, "Could not save the built-in."));
     }
   };
 
   const glyph = BUILT_IN_TAGS[builtInId].icon;
+  const name = BUILT_IN_TAGS[builtInId].name;
 
   return (
     <div className="tags-page tag-editor">
-      <PageHeader title={BUILT_IN_TAGS[builtInId].name} back="/user/tags" />
+      <PageHeader title={name} back="/user/tags" />
 
       {/* Nothing until /auth/me answered: `can` says yes while it is in flight. */}
       {auth.loaded && (
@@ -1080,53 +1128,82 @@ function BuiltInTagEditor({ builtInId }: { builtInId: BuiltInTagId }) {
                   >
                     <p className="tag-editor-hint">{BUILT_IN_WHY[builtInId]}</p>
 
-                    <h2 id="tag-colour">Colour</h2>
-                    <div
-                      className="tag-colours"
-                      role="radiogroup"
-                      aria-labelledby="tag-colour"
-                    >
-                      {TAG_COLORS.map((option) => (
-                        <label
-                          key={option}
-                          className={`tag-colour ${tagColorClass(option)}`}
+                    {hasColor && (
+                      <>
+                        <h2 id="tag-colour">Colour</h2>
+                        <div
+                          className="tag-colours"
+                          role="radiogroup"
+                          aria-labelledby="tag-colour"
                         >
-                          <input
-                            type="radio"
-                            className="visually-hidden"
-                            name="tag-colour"
-                            value={option}
-                            checked={color === option}
-                            onChange={() => {
-                              setSaved(false);
-                              setColor(option);
-                            }}
-                          />
-                          <span className="tag-colour-text">
-                            <Icon name={glyph} />
-                            {COLOR_LABELS[option]}
-                          </span>
-                        </label>
-                      ))}
-                    </div>
+                          {TAG_COLORS.map((option) => (
+                            <label
+                              key={option}
+                              className={`tag-colour ${tagColorClass(option)}`}
+                            >
+                              <input
+                                type="radio"
+                                className="visually-hidden"
+                                name="tag-colour"
+                                value={option}
+                                checked={color === option}
+                                onChange={() => {
+                                  setSaved(false);
+                                  setColor(option);
+                                }}
+                              />
+                              <span className="tag-colour-text">
+                                <Icon name={glyph} />
+                                {COLOR_LABELS[option]}
+                              </span>
+                            </label>
+                          ))}
+                        </div>
+                      </>
+                    )}
 
                     <div className="tag-flags">
-                      <label className="tag-check">
-                        <input
-                          type="checkbox"
-                          checked={showInList}
-                          onChange={(event) => {
-                            setSaved(false);
-                            setShowInList(event.target.checked);
-                          }}
-                        />
-                        <span>Show in song list</span>
-                      </label>
-                      <p className="tag-flag-hint">
-                        Everybody wears the mark on their own songs in the song
-                        list, next to the tags. Off, the mark is gone from the
-                        rows — the filter and the chip above them stay.
-                      </p>
+                      {hasShowInList && (
+                        <>
+                          <label className="tag-check">
+                            <input
+                              type="checkbox"
+                              checked={showInList}
+                              onChange={(event) => {
+                                setSaved(false);
+                                setShowInList(event.target.checked);
+                              }}
+                            />
+                            <span>Show in song list</span>
+                          </label>
+                          <p className="tag-flag-hint">
+                            {kind === "mark"
+                              ? SHOW_IN_LIST_HINT.mark
+                              : SHOW_IN_LIST_HINT.boolean}
+                          </p>
+                        </>
+                      )}
+
+                      {hasShowInFilter && (
+                        <>
+                          <label className="tag-check">
+                            <input
+                              type="checkbox"
+                              checked={showInFilter}
+                              onChange={(event) => {
+                                setSaved(false);
+                                setShowInFilter(event.target.checked);
+                              }}
+                            />
+                            <span>Show in filter</span>
+                          </label>
+                          <p className="tag-flag-hint">
+                            {kind === "valued"
+                              ? `The Filter panel offers ${name} as a row of its own, listing the values the library actually holds. Off, the row is gone and nobody can filter by it.`
+                              : `The Filter panel offers ${name} as a row of its own — Any, Yes or No. Off, the row is gone and nobody can filter by it.`}
+                          </p>
+                        </>
+                      )}
                     </div>
 
                     <div className="tag-editor-save">

@@ -159,16 +159,20 @@ it("reloads the assignments when a song is tagged", async () => {
   expect(result.current.bySong.get("s1")).toBeUndefined();
 });
 
-it("hands the two built-in marks over as the party configured them", async () => {
+it("hands all eight built-ins over as the party configured them", async () => {
   listTags.mockResolvedValue({
     data: {
       tags: [ARCHIVE, BROKEN],
       // The whole eight the listing carries: the two marks, and the six facets
-      // that belong to the Filter panel and the Tags admin.
+      // the Filter panel and the Tags admin read out of the same answer.
       built_ins: [
         builtInTagRead({ color: "gold" }),
         builtInTagRead({ id: "sung", color: "blue", show_in_list: false }),
-        ...builtInTagReads().slice(2),
+        ...builtInTagReads()
+          .slice(2)
+          .map((row) =>
+            row.id === "genre" ? { ...row, show_in_filter: false } : row,
+          ),
       ],
     },
   });
@@ -178,22 +182,40 @@ it("hands the two built-in marks over as the party configured them", async () =>
     expect(result.current.builtIns.favorites.color).toBe("gold"),
   );
   expect(result.current.builtIns.sung.show_in_list).toBe(false);
-  // The facets are skipped rather than drawn: a surface that puts a mark on a
-  // song row reads these two and nothing else.
-  expect(Object.keys(result.current.builtIns)).toEqual(["favorites", "sung"]);
+  // Every surface reads one record: the marks it draws, and the facets the
+  // Filter panel offers.
+  expect(Object.keys(result.current.builtIns)).toEqual([
+    "favorites",
+    "sung",
+    "duet",
+    "video",
+    "genre",
+    "language",
+    "edition",
+    "decade",
+  ]);
+  expect(result.current.builtIns.genre.show_in_filter).toBe(false);
+  expect(result.current.builtIns.duet.show_in_filter).toBe(true);
   // Not tags either: they are in neither listing and neither is filtered by them.
   expect(result.current.tags).toEqual([ARCHIVE, BROKEN]);
   expect(result.current.showInList).toEqual([BROKEN]);
 });
 
-it("draws the marks the way they always looked until the listing answers", () => {
+it("draws the built-ins the way they always looked until the listing answers", () => {
   // A row rendered before `GET /tags` lands must not flash an unpainted heart.
   const { result } = render();
 
-  expect(result.current.builtIns).toEqual({
-    favorites: { id: "favorites", color: "pink", show_in_list: true },
-    sung: { id: "sung", color: "blue", show_in_list: true },
+  expect(result.current.builtIns.favorites).toEqual({
+    id: "favorites",
+    kind: "mark",
+    color: "pink",
+    show_in_list: true,
+    show_in_filter: false,
   });
+  expect(result.current.builtIns.sung.color).toBe("blue");
+  // A facet is off the rows and in the filter until somebody says otherwise.
+  expect(result.current.builtIns.duet.show_in_list).toBe(false);
+  expect(result.current.builtIns.decade.show_in_filter).toBe(true);
 });
 
 // --- the narrow hook -------------------------------------------------------

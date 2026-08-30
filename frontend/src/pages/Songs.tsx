@@ -23,12 +23,18 @@ import { useTags } from "../hooks/useTags";
 import { useWingmanEvent } from "../hooks/useWingmanEvents";
 import { SONG_SOURCES } from "../songSources";
 import {
+  ANY_VALUE,
+  BOOLEAN_FACET_IDS,
   BUILT_IN_TAGS,
   type CriteriaOverrides,
   criteriaOffAny,
   defaultCriterion,
   effectiveCriteria,
+  type FacetId,
+  facetShown,
+  facetValues,
   FAVORITES_ONLY,
+  isBooleanFacet,
   markTags,
   NO_OVERRIDES,
   passesSongCriteria,
@@ -37,6 +43,7 @@ import {
   type TagCriterion,
   tagColorClass,
   tagGlyph,
+  VALUED_FACET_IDS,
   withoutDefaultHiding,
 } from "../tags";
 import "./Songs.css";
@@ -176,8 +183,8 @@ export default function Songs() {
   // What the page is actually filtering on: the defaults the tags dictate, with
   // whatever the reader set in the panel laid over them.
   const criteria = useMemo(
-    () => effectiveCriteria(tags.tags, overrides),
-    [tags.tags, overrides],
+    () => effectiveCriteria(tags.tags, tags.builtIns, overrides),
+    [tags.tags, tags.builtIns, overrides],
   );
   // Which chip that state is. A preset is matched on the overrides, not on the
   // result, so a reader who dials the defaults back in by hand lands on `All`
@@ -202,22 +209,39 @@ export default function Songs() {
    * default drops out of the overrides instead of being stored, so setting a
    * tag to *Yes* and back to *Any* returns the page to `All`.
    */
-  const setCriterion = (key: string, value: TagCriterion) => {
+  const setCriterion = (key: string, value: string) => {
     setOverrides((previous) => {
       const next: CriteriaOverrides = {
         favorite: previous.favorite,
         sung: previous.sung,
         tags: previous.tags,
+        facets: previous.facets,
       };
       if (key === "favorite" || key === "sung") {
-        next[key] = value === "any" ? undefined : value;
+        next[key] = value === "any" ? undefined : (value as TagCriterion);
+        return next;
+      }
+      // A facet's default is *Any* whichever kind it is — but the two kinds
+      // spell it differently: a boolean facet's row is the tri-state, whose
+      // *Any* is the word, and a valued one's select uses `ANY_VALUE`. Reading
+      // the wrong one would store an override that means "the default", and the
+      // *All* chip would never come back.
+      if (key.startsWith("facet:")) {
+        const facet = key.slice("facet:".length) as FacetId;
+        const byFacet = new Map(previous.facets);
+        const untouched = isBooleanFacet(facet)
+          ? value === "any"
+          : value === ANY_VALUE;
+        if (untouched) byFacet.delete(facet);
+        else byFacet.set(facet, value);
+        next.facets = byFacet;
         return next;
       }
       const tagId = key.slice("tag:".length);
       const byTag = new Map(previous.tags);
       if (value === defaultCriterion(tags.tags.find((tag) => tag.id === tagId)))
         byTag.delete(tagId);
-      else byTag.set(tagId, value);
+      else byTag.set(tagId, value as TagCriterion);
       next.tags = byTag;
       return next;
     });
@@ -243,7 +267,7 @@ export default function Songs() {
     // a `broken` song flashing past is exactly what the flag exists to prevent.
     if (tags.isPending || waitingForSung) return undefined;
     const visible = base?.filter((song) =>
-      passesSongCriteria(song.id, tags.bySong, criteria, {
+      passesSongCriteria(song, tags.bySong, criteria, {
         favorite: favorites.ids.has(song.id),
         sung: sung.ids.has(song.id),
       }),
@@ -273,16 +297,31 @@ export default function Songs() {
     needle === "" &&
     shown?.length === 0 &&
     (base ?? []).some((song) =>
-      passesSongCriteria(song.id, tags.bySong, relaxed, {
+      passesSongCriteria(song, tags.bySong, relaxed, {
         favorite: favorites.ids.has(song.id),
         sung: sung.ids.has(song.id),
       }),
     );
 
+  // The facets the party offers as rows, in *Built-in* order (§7). A facet with
+  // *Show in filter* off is not a criterion at all, so it is not here either.
+  const shownFacets = useMemo(
+    () =>
+      [...BOOLEAN_FACET_IDS, ...VALUED_FACET_IDS].filter((facet) =>
+        facetShown(tags.builtIns, facet),
+      ),
+    [tags.builtIns],
+  );
+
   // `All` only earns its place next to another chip; on its own beside a link
-  // it would be a chip that does nothing.
+  // it would be a chip that does nothing. A guest with no account and no tags
+  // still gets the panel when the party shows a facet: filtering by genre is
+  // for everybody in the room (facets.md).
   const canOpenFilter =
-    favorites.available || sung.available || tags.tags.length > 0;
+    favorites.available ||
+    sung.available ||
+    tags.tags.length > 0 ||
+    shownFacets.length > 0;
   const canFilter = canOpenFilter || showRecent;
   const canBrowsePlaylists = auth.loaded && auth.can("playlists.view");
   // No source this role may search means nothing for the picker to offer.
@@ -291,12 +330,14 @@ export default function Songs() {
   );
 
   // One row per criterion, in the order §7 fixes: the two built-in marks, then
-  // the tags. A mark nothing can be said about — no account, no player — has no
-  // row, the same way its chip has no place in the row above.
+  // the facets the party shows in the filter, then the tags. A mark nothing can
+  // be said about — no account, no player — has no row, the same way its chip
+  // has no place in the row above.
   const filterRows: FilterRow[] = [];
   if (favorites.available)
     filterRows.push({
       key: "favorite",
+      kind: "tri-state",
       name: BUILT_IN_TAGS.favorites.name,
       icon: BUILT_IN_TAGS.favorites.icon,
       // Its row reads like a tag's, so its glyph wears the colour the party
@@ -307,14 +348,40 @@ export default function Songs() {
   if (sung.available)
     filterRows.push({
       key: "sung",
+      kind: "tri-state",
       name: BUILT_IN_TAGS.sung.name,
       icon: BUILT_IN_TAGS.sung.icon,
       colorClass: tagColorClass(tags.builtIns.sung.color),
       value: criteria.sung,
     });
+  for (const facet of shownFacets) {
+    const built = tags.builtIns[facet];
+    const shared = {
+      key: `facet:${facet}`,
+      name: BUILT_IN_TAGS[facet].name,
+      icon: BUILT_IN_TAGS[facet].icon,
+      colorClass: tagColorClass(built.color),
+    };
+    if (isBooleanFacet(facet))
+      filterRows.push({
+        ...shared,
+        kind: "tri-state",
+        value: criteria.booleans.get(facet) ?? "any",
+      });
+    else
+      filterRows.push({
+        ...shared,
+        kind: "select",
+        value: criteria.values.get(facet) ?? ANY_VALUE,
+        // The whole library, never the filtered list: options that vanished as
+        // the reader narrowed would take away the way back.
+        options: facetValues(facet, all),
+      });
+  }
   for (const tag of tags.tags)
     filterRows.push({
       key: `tag:${tag.id}`,
+      kind: "tri-state",
       name: tag.name,
       icon: tagGlyph(tag.icon),
       colorClass: tagColorClass(tag.color),
