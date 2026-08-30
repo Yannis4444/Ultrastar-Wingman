@@ -1,4 +1,4 @@
-import type { TagRead } from "../api";
+import type { BuiltInTagRead, TagRead } from "../api";
 
 /**
  * One tag as `GET /tags` returns it: visible to the reader, theirs to set, and
@@ -20,4 +20,19 @@ export function tagRead(overrides: Partial<TagRead> = {}): TagRead {
     permissions: null,
     ...overrides,
   };
+}
+
+/**
+ * One built-in mark as `GET /tags` returns it beside the tags — the pink heart
+ * and the blue microphone the app arrives with, unless a test says otherwise.
+ */
+export function builtInTagRead(
+  overrides: Partial<BuiltInTagRead> = {},
+): BuiltInTagRead {
+  return { id: "favorites", color: "pink", show_in_list: true, ...overrides };
+}
+
+/** Both marks at their defaults, for the listings a test does not configure. */
+export function builtInTagReads(): BuiltInTagRead[] {
+  return [builtInTagRead(), builtInTagRead({ id: "sung", color: "blue" })];
 }

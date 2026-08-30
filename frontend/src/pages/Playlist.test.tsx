@@ -11,7 +11,7 @@ import type { MeRead, PlaylistDetail, SongRead } from "../api";
 import { meResponse, userRead } from "../test/auth";
 import { FakeSocket } from "../test/fakeSocket";
 import { iconNames } from "../test/icons";
-import { tagRead } from "../test/tags";
+import { builtInTagRead, tagRead } from "../test/tags";
 import Playlist from "./Playlist";
 
 const {
@@ -714,4 +714,25 @@ test("a playlist keeps a hidden-by-default song and still marks it", async () =>
   // only keeps songs out of the library's own list and the reel.
   const title = await screen.findByText("Africa");
   expect(iconNames(title.parentElement!)).toEqual(["archive"]);
+});
+
+test("a playlist row wears the built-in marks the party configured", async () => {
+  listTags.mockResolvedValue({
+    data: {
+      tags: [],
+      built_ins: [
+        builtInTagRead({ color: "gold" }),
+        builtInTagRead({ id: "sung", show_in_list: false }),
+      ],
+    },
+  });
+  listFavorites.mockResolvedValue({ data: { song_ids: ["local:abc"] } });
+  const { container } = renderPlaylist(detail());
+
+  await screen.findByText("Africa");
+  expect(container.querySelector(".song-mark-favorite")).toHaveClass(
+    "tag-color-gold",
+  );
+  // Sung is off the rows, so no microphone even where there would be one.
+  expect(container.querySelector(".song-mark-sung")).toBeNull();
 });

@@ -31,6 +31,7 @@ from ultrastar_wingman.config import BootstrapSettings
 from ultrastar_wingman.db import migrations_dir
 from ultrastar_wingman.karaoke.model import KaraokeSession, Sing
 from ultrastar_wingman.library.model import PlaylistEntry
+from ultrastar_wingman.settings import Setting as SettingRow
 from ultrastar_wingman.songs.model import Song
 from ultrastar_wingman.tags.model import (
     BROKEN_TAG_ID,
@@ -720,6 +721,143 @@ async def test_a_hidden_song_drops_out_of_the_wishlist(party: Party) -> None:
 
     assert await wished(party["anonymous"]) == []
     assert await wished(party["trusted"]) == [SONG]
+
+
+# --- the built-in marks ------------------------------------------------------------
+
+# Favorites and Sung: not rows in `tags`, so `/api/v1/tags` carries them in a list of
+# their own and one route of their own changes them.
+
+
+async def built_ins_of(client: AsyncClient) -> dict[str, dict[str, Any]]:
+    response = await client.get("/api/v1/tags")
+    assert response.status_code == 200, response.text
+    return {row["id"]: row for row in response.json()["built_ins"]}
+
+
+async def set_built_in(
+    client: AsyncClient, built_in_id: str, expect: int = 200, **body: Any
+) -> dict[str, Any]:
+    response = await client.patch(f"/api/v1/tags/built-in/{built_in_id}", json=body)
+    assert response.status_code == expect, response.text
+    return dict(response.json())
+
+
+async def test_everybody_reads_the_built_in_marks(party: Party) -> None:
+    """A guest with no account has to know what colour to paint the hearts, so the config
+    rides on the listing every reader already makes — a pink heart and a blue microphone,
+    both on the song rows, until somebody says otherwise."""
+    for identity in ("anonymous", "user", "trusted", "admin", "host"):
+        rows = await built_ins_of(party[identity])
+        assert list(rows) == ["favorites", "sung"]
+        assert rows["favorites"] == {"id": "favorites", "color": "pink", "show_in_list": True}
+        assert rows["sung"] == {"id": "sung", "color": "blue", "show_in_list": True}
+
+
+async def test_a_tag_manager_recolours_a_built_in_mark(
+    party: Party, broadcast_events: list[dict[str, object]]
+) -> None:
+    """`tags.manage` is the right: what a mark looks like is a decision about tags, not a
+    setting. And an open song list has to repaint, so the same `tags.changed` goes out."""
+    assert await set_built_in(party["trusted"], "favorites", color="gold") == {
+        "id": "favorites",
+        "color": "gold",
+        "show_in_list": True,
+    }
+    assert await set_built_in(party["admin"], "sung", show_in_list=False) == {
+        "id": "sung",
+        "color": "blue",
+        "show_in_list": False,
+    }
+
+    assert [event["event"] for event in broadcast_events] == ["tags.changed", "tags.changed"]
+    rows = await built_ins_of(party["anonymous"])
+    assert rows["favorites"]["color"] == "gold"
+    assert rows["sung"]["show_in_list"] is False
+
+
+async def test_a_built_in_patch_touches_only_what_it_names(party: Party) -> None:
+    await set_built_in(party["admin"], "favorites", color="neutral", show_in_list=False)
+
+    assert await set_built_in(party["admin"], "favorites", show_in_list=True) == {
+        "id": "favorites",
+        "color": "neutral",
+        "show_in_list": True,
+    }
+
+
+async def test_a_plain_account_cannot_change_a_built_in_mark(party: Party) -> None:
+    """It is one global decision, like a tag's colour — and a guest may not even try."""
+    await set_built_in(party["user"], "favorites", expect=403, color="gold")
+    await set_built_in(party["anonymous"], "favorites", expect=403, color="gold")
+
+    assert (await built_ins_of(party["anonymous"]))["favorites"]["color"] == "pink"
+
+
+async def test_a_built_in_mark_refuses_a_colour_no_tag_may_wear(party: Party) -> None:
+    """The same four colours a tag has: a mark drawn in red would be the one thing §1.6
+    keeps off a glyph, and an unknown name would leave it in whatever it inherited."""
+    await set_built_in(party["admin"], "favorites", expect=422, color="red")
+    await set_built_in(party["admin"], "favorites", expect=422, color="mauve")
+
+    assert (await built_ins_of(party["admin"]))["favorites"]["color"] == "pink"
+
+
+async def test_only_the_two_built_in_ids_exist(party: Party) -> None:
+    """`recent` is a mode — a time-ordered list — and not a mark, so there is nothing to
+    configure about it; a tag id is not a built-in id either."""
+    await set_built_in(party["admin"], "recent", expect=422, color="gold")
+    await set_built_in(party["admin"], BROKEN_TAG_ID, expect=422, color="gold")
+
+
+async def test_the_reserved_ids_are_not_tags(party: Party) -> None:
+    """Everywhere a real tag id is expected, `favorites` and `sung` are simply unknown —
+    they are not rows in `tags`, and no route may pretend otherwise. A tag id is 32 hex
+    characters, so nothing a manager creates can ever collide with the two words."""
+    admin = party["admin"]
+    for built_in_id in ("favorites", "sung"):
+        assert (
+            await admin.patch(f"/api/v1/tags/{built_in_id}", json={"color": "gold"})
+        ).status_code == 404
+        assert (
+            await admin.put(
+                f"/api/v1/tags/{built_in_id}/permissions",
+                json={"permissions": [{"action": "view", "role": "user"}]},
+            )
+        ).status_code == 404
+        assert (await admin.delete(f"/api/v1/tags/{built_in_id}")).status_code == 404
+        await tag_song(admin, SONG, built_in_id, expect=404)
+        assert (await admin.delete(f"/api/v1/songs/{SONG}/tags/{built_in_id}")).status_code == 404
+
+    # And a tag *named* "Favorites" is fine — it is the id that is reserved, not the word.
+    named = await make_tag(admin, name="Favorites", color="pink")
+    assert named["id"] != "favorites"
+
+
+async def test_a_stored_built_in_colour_the_app_no_longer_knows_falls_back(
+    party: Party,
+) -> None:
+    """Only a hand-edited database can get there, and a mark with no colour class would
+    inherit whatever the row around it is painted in."""
+    async with factory(party.app)() as db:
+        await db.merge(SettingRow(key="tags.built_in.favorites.color", value='"chartreuse"'))
+        await db.commit()
+
+    assert (await built_ins_of(party["anonymous"]))["favorites"]["color"] == "pink"
+
+
+async def test_the_built_ins_stay_out_of_the_settings_api(party: Party) -> None:
+    """They are stored as settings, but they are not settings: `settings.view` is an
+    administrator's right while the marks are drawn for every guest, and the one gate on
+    changing them is `tags.manage`."""
+    response = await party["admin"].get("/api/v1/settings")
+    assert response.status_code == 200, response.text
+    assert not [row for row in response.json() if row["key"].startswith("tags.built_in.")]
+
+    refused = await party["admin"].patch(
+        "/api/v1/settings/tags.built_in.favorites.color", json={"value": "gold"}
+    )
+    assert refused.status_code == 404, refused.text
 
 
 # --- the migration -----------------------------------------------------------------

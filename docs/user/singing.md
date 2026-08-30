@@ -69,9 +69,9 @@ handy when the room wants the same song again.
 
 ## What you have sung before
 
-A small blue microphone next to a title means you have sung that song before, in
-this party or in any party Wingman ever recorded. The **Sung** chip filters the
-list down to those songs.
+A small microphone next to a title — blue unless the host recoloured it — means
+you have sung that song before, in this party or in any party Wingman ever
+recorded. The **Sung** chip filters the list down to those songs.
 
 Both need an account with a player behind it: a song counts as sung by you once
 Ultrastar Deluxe scored it under your player. A song nobody scored — stopped
@@ -84,12 +84,15 @@ A row can carry a few small icons after the song's title. They are marks, not
 buttons — nothing happens when you tap one, and the song's own view is where the
 state is changed.
 
-- A blue **microphone** means you have sung this song before — the section
-  above.
-- A pink **heart** means it is one of your favorites.
+- A **microphone** means you have sung this song before — the section above.
+- A **heart** means it is one of your favorites.
 - After those, one icon per **tag** the song wears that was set up to show in the
   list — in the tag's own colour, with its name on hover. A tag nobody chose to
   show stays out of the row and lives in the song's **Tags** view.
+
+The microphone is blue and the heart pink unless somebody changed them: both are
+[built-in marks](tags.md#the-built-in-marks-favorites-and-sung), and whoever may
+manage tags picks their colour — or takes either off the rows altogether.
 
 ## Songs you do not see
 

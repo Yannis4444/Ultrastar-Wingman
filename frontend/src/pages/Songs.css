@@ -135,13 +135,9 @@
   border-color: var(--highlight-blue-light);
 }
 
-.songs-chip-heart {
-  color: var(--highlight-pink-light);
-}
-
-.songs-chip-mic {
-  color: var(--highlight-blue-light);
-}
+/* The Favorites and Sung chips draw their glyph in the colour their built-in is
+   configured with, through the `.tag-color-*` classes of index.css — a chip
+   colour of its own here would fight that one at equal specificity. */
 
 /* An unpressed filter is its glyph alone: square at the chips' 40px, and the
    `.icon-button` glyph size rather than the 0.9em a chip label sets. Same shape

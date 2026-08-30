@@ -1,11 +1,11 @@
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { render, screen, waitFor, within } from "@testing-library/react";
 import { MemoryRouter } from "react-router-dom";
-import type { MeRead, TagRead } from "../api";
+import type { BuiltInTagRead, MeRead, TagRead } from "../api";
 import { meResponse, userRead } from "../test/auth";
 import { FakeSocket } from "../test/fakeSocket";
 import { iconNames } from "../test/icons";
-import { tagRead } from "../test/tags";
+import { builtInTagRead, builtInTagReads, tagRead } from "../test/tags";
 import Tags from "./Tags";
 
 const { getMe, listTags } = vi.hoisted(() => ({
@@ -35,11 +35,15 @@ function tag(overrides: Partial<TagRead> = {}): TagRead {
   });
 }
 
-function renderTags(tags: TagRead[] | Error = [tag()], capabilities = MANAGER) {
+function renderTags(
+  tags: TagRead[] | Error = [tag()],
+  capabilities = MANAGER,
+  builtIns: BuiltInTagRead[] = builtInTagReads(),
+) {
   getMe.mockResolvedValue(meResponse(capabilities, ACCOUNT));
   listTags.mockImplementation(async () => {
     if (tags instanceof Error) throw tags;
-    return { data: { tags } };
+    return { data: { tags, built_ins: builtIns } };
   });
   const client = new QueryClient({
     defaultOptions: { queries: { retry: false } },
@@ -174,4 +178,48 @@ it("counts the songs again when one is tagged", async () => {
   });
 
   await waitFor(() => expect(screen.getByText(/2 songs/)).toBeInTheDocument());
+});
+
+it("lists the two built-in marks under their own heading", async () => {
+  renderTags();
+
+  expect(
+    await screen.findByRole("heading", { name: "Built-in" }),
+  ).toBeInTheDocument();
+  const favorites = screen.getByRole("link", { name: /Favorites/ });
+  const sung = screen.getByRole("link", { name: /Sung/ });
+  expect(favorites).toHaveAttribute("href", "/user/tags/favorites");
+  expect(sung).toHaveAttribute("href", "/user/tags/sung");
+  // Never a song count: it is a different number for every reader.
+  expect(
+    within(favorites).getByText("per person · shown in list"),
+  ).toBeInTheDocument();
+  expect(iconNames(favorites.querySelector(".tags-square")!)).toEqual([
+    "heart",
+  ]);
+  expect(iconNames(sung.querySelector(".tags-square")!)).toEqual(["mic"]);
+  // Recent is a mode, not a mark, so it has no row.
+  expect(
+    screen.queryByRole("link", { name: /Recent/ }),
+  ).not.toBeInTheDocument();
+});
+
+it("draws each built-in in its configured colour and says when it is off", async () => {
+  renderTags([tag()], MANAGER, [
+    builtInTagRead({ color: "gold" }),
+    builtInTagRead({ id: "sung", color: "blue", show_in_list: false }),
+  ]);
+
+  const favorites = await screen.findByRole("link", { name: /Favorites/ });
+  const sung = screen.getByRole("link", { name: /Sung/ });
+  expect(favorites.querySelector(".tags-square")).toHaveClass("tag-color-gold");
+  expect(sung.querySelector(".tags-square")).toHaveClass("tag-color-blue");
+  expect(within(sung).getByText("per person")).toBeInTheDocument();
+});
+
+it("keeps the built-in rows when the party has no tags of its own", async () => {
+  renderTags([]);
+
+  expect(await screen.findByText("No tags yet")).toBeInTheDocument();
+  expect(screen.getByRole("link", { name: /Favorites/ })).toBeInTheDocument();
 });

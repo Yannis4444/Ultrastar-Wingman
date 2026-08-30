@@ -466,6 +466,7 @@ export default function Playlist() {
                           favorite={favorites.ids.has(song.id)}
                           sung={sung.ids.has(song.id)}
                           tags={markTags(tags.bySong.get(song.id))}
+                          builtIns={tags.builtIns}
                           onClick={() => setSelected(song)}
                           leading={
                             /* A grip, not a control: the same reordering is on
@@ -528,6 +529,7 @@ export default function Playlist() {
                         favorite={favorites.ids.has(song.id)}
                         sung={sung.ids.has(song.id)}
                         tags={markTags(tags.bySong.get(song.id))}
+                        builtIns={tags.builtIns}
                         onClick={() => setSelected(song)}
                       />
                     ))}

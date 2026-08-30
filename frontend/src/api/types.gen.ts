@@ -15,6 +15,47 @@ export type BodySetPlayerAvatar = {
 };
 
 /**
+ * BuiltInTagRead
+ *
+ * One of the two built-in marks, and the little about it a party may decide.
+ *
+ * No name, icon, permissions or song count: the glyph is fixed (`heart` / `mic`), the
+ * name is what the app calls it, and how many songs carry it is a different number for
+ * every reader. What is left is what a tag row would also have — the colour it is drawn
+ * in, and whether it belongs on a song row at all.
+ */
+export type BuiltInTagRead = {
+    /**
+     * Id
+     */
+    id: 'favorites' | 'sung';
+    /**
+     * Color
+     */
+    color: string;
+    /**
+     * Show In List
+     */
+    show_in_list: boolean;
+};
+
+/**
+ * BuiltInTagUpdate
+ *
+ * The two things a built-in mark has. Both optional, like every other PATCH here.
+ */
+export type BuiltInTagUpdate = {
+    /**
+     * Color
+     */
+    color?: 'neutral' | 'blue' | 'pink' | 'gold' | null;
+    /**
+     * Show In List
+     */
+    show_in_list?: boolean | null;
+};
+
+/**
  * Color
  */
 export type Color = {
@@ -1083,6 +1124,10 @@ export type TagList = {
      * Tags
      */
     tags: Array<TagRead>;
+    /**
+     * Built Ins
+     */
+    built_ins: Array<BuiltInTagRead>;
 };
 
 /**
@@ -3473,6 +3518,34 @@ export type CreateTagResponses = {
 };
 
 export type CreateTagResponse = CreateTagResponses[keyof CreateTagResponses];
+
+export type UpdateBuiltInTagData = {
+    body: BuiltInTagUpdate;
+    path: {
+        /**
+         * Built In Id
+         */
+        built_in_id: 'favorites' | 'sung';
+    };
+    query?: never;
+    url: '/api/v1/tags/built-in/{built_in_id}';
+};
+
+export type UpdateBuiltInTagErrors = {
+    /**
+     * Unknown built-in, or a bad color.
+     */
+    422: unknown;
+};
+
+export type UpdateBuiltInTagResponses = {
+    /**
+     * Successful Response
+     */
+    200: BuiltInTagRead;
+};
+
+export type UpdateBuiltInTagResponse = UpdateBuiltInTagResponses[keyof UpdateBuiltInTagResponses];
 
 export type ListTagAssignmentsData = {
     body?: never;

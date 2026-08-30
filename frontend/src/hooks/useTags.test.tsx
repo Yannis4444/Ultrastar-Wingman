@@ -11,8 +11,8 @@ import {
 } from "../api/@tanstack/react-query.gen";
 import { meResponse } from "../test/auth";
 import { FakeSocket } from "../test/fakeSocket";
-import { tagRead } from "../test/tags";
-import { useTags } from "./useTags";
+import { builtInTagRead, tagRead } from "../test/tags";
+import { useBuiltInTags, useTags } from "./useTags";
 
 const { getMe, listSongs, listTags, listTagAssignments } = vi.hoisted(() => ({
   getMe: vi.fn(),
@@ -157,4 +157,96 @@ it("reloads the assignments when a song is tagged", async () => {
     expect(result.current.bySong.get("s3")).toEqual([BROKEN]),
   );
   expect(result.current.bySong.get("s1")).toBeUndefined();
+});
+
+it("hands the two built-in marks over as the party configured them", async () => {
+  listTags.mockResolvedValue({
+    data: {
+      tags: [ARCHIVE, BROKEN],
+      built_ins: [
+        builtInTagRead({ color: "gold" }),
+        builtInTagRead({ id: "sung", color: "blue", show_in_list: false }),
+      ],
+    },
+  });
+  const { result } = render();
+
+  await waitFor(() =>
+    expect(result.current.builtIns.favorites.color).toBe("gold"),
+  );
+  expect(result.current.builtIns.sung.show_in_list).toBe(false);
+  // Not tags: they are in neither listing and neither is filtered by them.
+  expect(result.current.tags).toEqual([ARCHIVE, BROKEN]);
+  expect(result.current.showInList).toEqual([BROKEN]);
+});
+
+it("draws the marks the way they always looked until the listing answers", () => {
+  // A row rendered before `GET /tags` lands must not flash an unpainted heart.
+  const { result } = render();
+
+  expect(result.current.builtIns).toEqual({
+    favorites: { id: "favorites", color: "pink", show_in_list: true },
+    sung: { id: "sung", color: "blue", show_in_list: true },
+  });
+});
+
+// --- the narrow hook -------------------------------------------------------
+
+// `useBuiltInTags` exists so Home, which draws a heart but no tag, does not pay
+// for the assignments listing.
+
+function renderBuiltIns(capabilities = ["songs.view"]) {
+  getMe.mockResolvedValue(meResponse(capabilities));
+  const client = new QueryClient({
+    defaultOptions: { queries: { retry: false } },
+  });
+  const wrapper = ({ children }: { children: ReactNode }) => (
+    <QueryClientProvider client={client}>{children}</QueryClientProvider>
+  );
+  return { ...renderHook(() => useBuiltInTags(), { wrapper }), client };
+}
+
+it("reads the marks without asking which song wears which tag", async () => {
+  listTags.mockResolvedValue({
+    data: {
+      tags: [ARCHIVE, BROKEN],
+      built_ins: [
+        builtInTagRead({ color: "gold" }),
+        builtInTagRead({ id: "sung", color: "neutral" }),
+      ],
+    },
+  });
+  const { result } = renderBuiltIns();
+
+  await waitFor(() => expect(result.current.favorites.color).toBe("gold"));
+  expect(result.current.sung.color).toBe("neutral");
+  // The whole point of the second hook: Home makes one request, not two.
+  expect(listTagAssignments).not.toHaveBeenCalled();
+});
+
+it("repaints the marks it drew when a built-in changes", async () => {
+  const { result } = renderBuiltIns();
+
+  await waitFor(() => expect(listTags).toHaveBeenCalledTimes(1));
+  listTags.mockResolvedValue({
+    data: {
+      tags: [],
+      built_ins: [builtInTagRead({ color: "gold", show_in_list: false })],
+    },
+  });
+  FakeSocket.deliver({ event: "tags.changed" });
+
+  await waitFor(() => expect(result.current.favorites.color).toBe("gold"));
+  expect(result.current.favorites.show_in_list).toBe(false);
+});
+
+it("leaves the listing alone for a reader who may not see songs", async () => {
+  const { result, client } = renderBuiltIns([]);
+
+  await waitFor(() =>
+    expect(client.getQueryData(getMeQueryKey())).toBeDefined(),
+  );
+  expect(listTags).not.toHaveBeenCalled();
+  // And the marks are still the pair the app arrives with.
+  expect(result.current.favorites.color).toBe("pink");
 });

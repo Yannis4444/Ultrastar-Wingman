@@ -1,11 +1,16 @@
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { MemoryRouter, Route, Routes, useLocation } from "react-router-dom";
-import type { MeRead, TagPermissionRead, TagRead } from "../api";
+import type {
+  BuiltInTagRead,
+  MeRead,
+  TagPermissionRead,
+  TagRead,
+} from "../api";
 import { meResponse, userRead } from "../test/auth";
 import { FakeSocket } from "../test/fakeSocket";
 import { iconNames } from "../test/icons";
-import { tagRead } from "../test/tags";
+import { builtInTagRead, builtInTagReads, tagRead } from "../test/tags";
 import TagEditor from "./TagEditor";
 
 const {
@@ -16,6 +21,7 @@ const {
   replaceTagPermissions,
   deleteTag,
   lookupUsers,
+  updateBuiltInTag,
 } = vi.hoisted(() => ({
   getMe: vi.fn(),
   listTags: vi.fn(),
@@ -24,6 +30,7 @@ const {
   replaceTagPermissions: vi.fn(),
   deleteTag: vi.fn(),
   lookupUsers: vi.fn(),
+  updateBuiltInTag: vi.fn(),
 }));
 
 vi.mock("../api/sdk.gen", async (importOriginal) => ({
@@ -35,6 +42,7 @@ vi.mock("../api/sdk.gen", async (importOriginal) => ({
   replaceTagPermissions,
   deleteTag,
   lookupUsers,
+  updateBuiltInTag,
 }));
 
 const MANAGER = ["songs.view", "tags.manage"];
@@ -74,13 +82,15 @@ function renderEditor({
   path = "/user/tags/t1",
   tags = [tag({ song_count: 2 })],
   capabilities = MANAGER,
+  builtIns = builtInTagReads(),
 }: {
   path?: string;
   tags?: TagRead[];
   capabilities?: string[];
+  builtIns?: BuiltInTagRead[];
 } = {}) {
   getMe.mockResolvedValue(meResponse(capabilities, ACCOUNT));
-  listTags.mockResolvedValue({ data: { tags } });
+  listTags.mockResolvedValue({ data: { tags, built_ins: builtIns } });
   const client = new QueryClient({
     defaultOptions: { queries: { retry: false } },
   });
@@ -133,6 +143,7 @@ beforeEach(() => {
     replaceTagPermissions,
     deleteTag,
     lookupUsers,
+    updateBuiltInTag,
   ])
     mock.mockReset();
 });
@@ -544,4 +555,104 @@ it("offers no delete for a tag that does not exist yet", async () => {
   expect(
     screen.queryByRole("button", { name: "Delete tag" }),
   ).not.toBeInTheDocument();
+});
+
+// --- the built-in marks ---------------------------------------------------
+
+it("opens a built-in on two controls and nothing else", async () => {
+  renderEditor({ path: "/user/tags/favorites" });
+
+  expect(
+    await screen.findByRole("radiogroup", { name: "Colour" }),
+  ).toBeInTheDocument();
+  expect(
+    screen.getByRole("heading", { name: "Favorites" }),
+  ).toBeInTheDocument();
+  // A colour, a flag, Save — and none of what belongs to a `tags` row.
+  expect(
+    screen.getByRole("radiogroup", { name: "Colour" }),
+  ).toBeInTheDocument();
+  expect(
+    screen.getByRole("checkbox", { name: "Show in song list" }),
+  ).toBeInTheDocument();
+  expect(screen.getByRole("button", { name: "Save" })).toBeInTheDocument();
+  expect(screen.queryByLabelText("Name")).not.toBeInTheDocument();
+  expect(screen.queryByRole("group", { name: "Icon" })).not.toBeInTheDocument();
+  expect(
+    screen.queryByRole("checkbox", { name: "Hide songs by default" }),
+  ).not.toBeInTheDocument();
+  expect(
+    screen.queryByRole("heading", { name: "Permissions" }),
+  ).not.toBeInTheDocument();
+  expect(
+    screen.queryByRole("button", { name: "Delete tag" }),
+  ).not.toBeInTheDocument();
+  // And one line saying why there is nothing else.
+  expect(
+    screen.getByText(/Favorites are one person's own/),
+  ).toBeInTheDocument();
+});
+
+it("draws the colour pills of a built-in with its own glyph", async () => {
+  renderEditor({
+    path: "/user/tags/sung",
+    builtIns: [
+      builtInTagRead(),
+      builtInTagRead({ id: "sung", color: "gold", show_in_list: false }),
+    ],
+  });
+
+  await screen.findByRole("radiogroup", { name: "Colour" });
+  expect(screen.getByRole("radio", { name: /Gold/ })).toBeChecked();
+  expect(
+    screen.getByRole("checkbox", { name: "Show in song list" }),
+  ).not.toBeChecked();
+  // Every pill previews the mark itself, never the tag glyph.
+  expect(iconNames(screen.getByRole("radiogroup", { name: "Colour" }))).toEqual(
+    ["mic", "mic", "mic", "mic"],
+  );
+});
+
+it("saves a built-in's colour and flag together", async () => {
+  updateBuiltInTag.mockResolvedValue({
+    data: { id: "favorites", color: "gold", show_in_list: false },
+  });
+  renderEditor({ path: "/user/tags/favorites" });
+
+  await screen.findByRole("radiogroup", { name: "Colour" });
+  expect(screen.getByRole("button", { name: "Save" })).toBeDisabled();
+  fireEvent.click(screen.getByRole("radio", { name: /Gold/ }));
+  fireEvent.click(screen.getByRole("checkbox", { name: "Show in song list" }));
+  fireEvent.click(screen.getByRole("button", { name: "Save" }));
+
+  await waitFor(() => expect(updateBuiltInTag).toHaveBeenCalled());
+  expect(updateBuiltInTag.mock.calls[0][0]).toMatchObject({
+    path: { built_in_id: "favorites" },
+    body: { color: "gold", show_in_list: false },
+  });
+  expect(await screen.findByText("Saved")).toBeInTheDocument();
+  // Back on the answer, so there is nothing left to save.
+  expect(screen.getByRole("button", { name: "Save" })).toBeDisabled();
+});
+
+it("says so when a built-in cannot be saved", async () => {
+  updateBuiltInTag.mockRejectedValue(new Error("nope"));
+  renderEditor({ path: "/user/tags/sung" });
+
+  await screen.findByRole("radiogroup", { name: "Colour" });
+  fireEvent.click(screen.getByRole("radio", { name: /Neutral/ }));
+  fireEvent.click(screen.getByRole("button", { name: "Save" }));
+
+  expect(await screen.findByRole("alert")).toHaveTextContent(
+    "Could not save the mark.",
+  );
+});
+
+it("keeps a built-in from a role that may not manage tags", async () => {
+  renderEditor({ path: "/user/tags/favorites", capabilities: ["songs.view"] });
+
+  expect(
+    await screen.findByText(/Tags are set up by trusted accounts/),
+  ).toBeInTheDocument();
+  expect(listTags).not.toHaveBeenCalled();
 });

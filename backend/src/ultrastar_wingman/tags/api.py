@@ -18,9 +18,17 @@ from ..auth.permissions import UnknownRoleError
 from ..db import SessionDep
 from ..songs.api import song_or_404
 from ..songs.model import Song
-from . import service
+from . import builtin, service
 from .model import MAX_NAME_LENGTH, Tag
-from .schema import TagAction, TagAssignments, TagColor, TagList, TagRead
+from .schema import (
+    BuiltInTagId,
+    BuiltInTagRead,
+    TagAction,
+    TagAssignments,
+    TagColor,
+    TagList,
+    TagRead,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -76,6 +84,13 @@ class TagPermissionsUpdate(BaseModel):
     permissions: list[TagPermissionInput]
 
 
+class BuiltInTagUpdate(BaseModel):
+    """The two things a built-in mark has. Both optional, like every other PATCH here."""
+
+    color: TagColor | None = None
+    show_in_list: bool | None = None
+
+
 @router.get("/tags", response_model=TagList, dependencies=[Depends(require("songs.view"))])
 async def list_tags(session: SessionDep, principal: PrincipalDep) -> TagList:
     """The tags the caller may view, by name — plus, for a caller holding `tags.manage`,
@@ -83,9 +98,35 @@ async def list_tags(session: SessionDep, principal: PrincipalDep) -> TagList:
     row says which it is in `can_view`. A manager also gets each tag's permission rows;
     for everybody else `permissions` is null.
 
-    `song_count` is the whole library's, not the caller's: see the field."""
+    `song_count` is the whole library's, not the caller's: see the field.
+
+    `built_ins` rides along on the same request because it is wanted by exactly the same
+    surfaces — every song row, the filter panel, the Songs chips — and is the same two
+    rows for everybody, a guest without an account included."""
     return TagList(
-        tags=await service.visible_tags(session, tag_viewer(principal), _manages(principal))
+        tags=await service.visible_tags(session, tag_viewer(principal), _manages(principal)),
+        built_ins=await builtin.read_all(session),
+    )
+
+
+@router.patch(
+    "/tags/built-in/{built_in_id}",
+    response_model=BuiltInTagRead,
+    dependencies=[Depends(require("tags.manage"))],
+    responses={422: {"description": "Unknown built-in, or a bad color."}},
+)
+async def update_built_in_tag(
+    built_in_id: BuiltInTagId, body: BuiltInTagUpdate, session: SessionDep
+) -> BuiltInTagRead:
+    """Recolour one of the two built-in marks, or take it off the song rows.
+
+    Its own route rather than `PATCH /tags/{tag_id}`: a built-in is not a row in `tags`,
+    so it has no name to rename, no icon, no permissions and no song count to answer
+    with — and the two-segment path can never be read as a tag id. Gated on `tags.manage`
+    like every other decision about what a mark looks like; `settings.manage` deliberately
+    does not open it, even though the values are stored as settings."""
+    return await builtin.update(
+        session, built_in_id, color=body.color, show_in_list=body.show_in_list
     )
 
 

@@ -9,6 +9,12 @@ from pydantic import BaseModel
 TagAction = Literal["view", "view_songs", "assign"]
 TagColor = Literal["neutral", "blue", "pink", "gold"]
 
+# The two marks Wingman brings with it. They are not rows in `tags`: what they say about a
+# song is a fact about *one reader* — their favorites, the songs they have sung — while a
+# tag is one global row everybody shares. Their ids are words, and a tag id is 32 hex
+# characters, so `/user/tags/favorites` can never mean a real tag.
+BuiltInTagId = Literal["favorites", "sung"]
+
 
 class TagPermissionRead(BaseModel):
     """Who may do one thing with a tag: a role, or one account."""
@@ -50,8 +56,26 @@ class TagRead(BaseModel):
     permissions: list[TagPermissionRead] | None = None
 
 
+class BuiltInTagRead(BaseModel):
+    """One of the two built-in marks, and the little about it a party may decide.
+
+    No name, icon, permissions or song count: the glyph is fixed (`heart` / `mic`), the
+    name is what the app calls it, and how many songs carry it is a different number for
+    every reader. What is left is what a tag row would also have — the colour it is drawn
+    in, and whether it belongs on a song row at all."""
+
+    id: BuiltInTagId
+    color: str
+    # Draw the mark on every song row it applies to, like a `show_in_list` tag.
+    show_in_list: bool
+
+
 class TagList(BaseModel):
     tags: list[TagRead]
+    # A separate list, not rows among the tags: every reader gets these two — a guest with
+    # no account included, because the marks are drawn for everybody — while `tags` is
+    # filtered by what the caller may view, and nothing about a built-in is per-caller.
+    built_ins: list[BuiltInTagRead]
 
 
 class TagAssignment(BaseModel):

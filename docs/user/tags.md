@@ -101,6 +101,39 @@ permissions included; **Save** sends only what you changed.
 from everybody it was granted to. The songs themselves stay in the library —
 only the label goes.
 
+## The built-in marks: Favorites and Sung
+
+Two marks were there before you made a single tag. Under **Built-in**, at the
+foot of **User → Tags**, they sit in rows of their own: **Favorites** (the
+heart) and **Sung** (the microphone). They look like tags on a song row, and
+they are not tags — they say something about *you*, not about the song. Your
+heart is on the songs you favorited and on nobody else's; the microphone is on
+the songs you have sung. That is why their rows say "per person" where a tag's
+row counts songs: the number would be different for everybody reading it.
+
+Open one and there are two things to decide, and they are the same two a tag has:
+
+- **Colour** — one of the four a tag may wear. The heart starts pink and the
+  microphone blue.
+- **Show in song list** — whether the mark goes on the song rows at all. Turn it
+  off and the rows lose it; the **Favorites** and **Sung** chips above the list
+  and their rows in the **Filter** panel stay exactly where they were.
+
+The colour follows the mark everywhere it is drawn: the song rows, the chip on
+the **Songs** page and the row in the **Filter** panel. The heart and microphone
+*buttons* — in the song's own view and on the home screen — keep their own
+colours. Those are switches you press, not marks you read.
+
+Nothing else about them can be changed, and it is the same reason each time:
+there is no name (the app calls them what they are), no icon, nobody to grant
+them to (everybody has their own), and no **Delete tag** — a built-in is not a
+row you made. Whoever may manage tags may change the two settings, for everyone
+at once.
+
+**Recent** is not on this page. It is not a mark at all: it is a way of *sorting*
+the song list — what has been sung tonight, newest first — and there is nothing
+about it to colour.
+
 ## Putting a tag on a song
 
 Tags are set up here and used on the song itself. Open a song — from **Songs**,

@@ -14,6 +14,7 @@ import {
   listTagsOptions,
   listTagsQueryKey,
   replaceTagPermissionsMutation,
+  updateBuiltInTagMutation,
   updateTagMutation,
 } from "../api/@tanstack/react-query.gen";
 import { useAuth } from "../auth";
@@ -25,7 +26,17 @@ import PlayerAvatar from "../components/PlayerAvatar";
 import { errorDetail, errorMessage } from "../errors";
 import { useUserLookup } from "../hooks/useUserLookup";
 import { useWingmanEvent } from "../hooks/useWingmanEvents";
-import { TAG_COLORS, tagColorClass, tagGlyph, type TagColor } from "../tags";
+import {
+  type BuiltInTagId,
+  BUILT_IN_TAG_IDS,
+  BUILT_IN_TAGS,
+  builtInTags,
+  DEFAULT_BUILT_IN_TAGS,
+  TAG_COLORS,
+  tagColorClass,
+  tagGlyph,
+  type TagColor,
+} from "../tags";
 // The permission matrix is `RolePermissions`' grid, class for class (§4), so
 // the two tables of checkboxes in the app line up on the same metrics.
 import "../components/RolePermissions.css";
@@ -152,12 +163,32 @@ function asPlayer(person: Person): PlayerRead {
 }
 
 /**
+ * The tag editor, at `/user/tags/new`, `/user/tags/:tagId` — and, on the two
+ * reserved ids, on a built-in mark.
+ *
+ * The built-in half is its own component rather than a dozen `builtIn &&`
+ * branches threaded through the 500 lines below: of that form it keeps two
+ * controls, and everything else (the name, the icon picker, the second flag,
+ * *Automatic*, the matrix, the people rows, Delete, the duplicate-name error,
+ * the draft measured against a base) exists for a `tags` row it does not have.
+ * The pieces they do share are the shared classes and `tagColorClass`, so the
+ * fork costs no duplicated logic. The dispatch happens before either one's
+ * hooks, so neither renders a form it then has to unpick.
+ */
+export default function TagEditor() {
+  const { tagId } = useParams();
+  if (tagId === "favorites" || tagId === "sung")
+    return <BuiltInTagEditor builtInId={tagId} />;
+  return <RealTagEditor />;
+}
+
+/**
  * One tag: what it is called, what it looks like, and who it is for. Serves
  * both `/user/tags/new` and `/user/tags/:tagId` — the sections are the same
  * either way, only the way out differs (create and go to the tag, or save and
  * stay). A §6 sub-page gated on `tags.manage`.
  */
-export default function TagEditor() {
+function RealTagEditor() {
   const { tagId } = useParams();
   const creating = tagId === undefined;
   const draftId = tagId ?? "new";
@@ -364,8 +395,18 @@ export default function TagEditor() {
         // not grant themselves "See tag" is not shown their own tag).
         queryClient.setQueryData<TagList>(listTagsQueryKey(), (old) =>
           old === undefined
-            ? { tags: [made] }
-            : { tags: [...old.tags.filter((tag) => tag.id !== made.id), made] },
+            ? // The built-ins are the listing's other half; without an answer to
+              // seed them from, their defaults are what the app draws anyway.
+              {
+                tags: [made],
+                built_ins: BUILT_IN_TAG_IDS.map(
+                  (id) => DEFAULT_BUILT_IN_TAGS[id],
+                ),
+              }
+            : {
+                ...old,
+                tags: [...old.tags.filter((tag) => tag.id !== made.id), made],
+              },
         );
         setSeeded(made.id);
         seedFrom(made);
@@ -900,6 +941,207 @@ export default function TagEditor() {
           }}
           onCancel={() => setDeleting(false)}
         />
+      )}
+    </div>
+  );
+}
+
+/**
+ * What a built-in mark is, in one line — the reason the page below it is two
+ * controls and not the tag editor's dozen.
+ */
+const BUILT_IN_WHY: Record<BuiltInTagId, string> = {
+  favorites:
+    "Favorites are one person's own: everybody sees a heart on the songs they favorited and on nobody else's. So there is nothing to name, no icon to pick, nobody to grant it to and nothing to delete — only what the mark looks like, and whether it belongs on a song row at all.",
+  sung: "Sung is one person's own: everybody sees a microphone on the songs they have sung and on nobody else's. So there is nothing to name, no icon to pick, nobody to grant it to and nothing to delete — only what the mark looks like, and whether it belongs on a song row at all.",
+};
+
+/**
+ * A built-in mark — Favorites or Sung — at `/user/tags/favorites` and
+ * `/user/tags/sung`. A tag id is 32 hex characters, so neither word can ever be
+ * one, and the two share the tag rows' idiom without being tags.
+ */
+function BuiltInTagEditor({ builtInId }: { builtInId: BuiltInTagId }) {
+  const queryClient = useQueryClient();
+  const auth = useAuth();
+  const allowed = auth.loaded && auth.can("tags.manage");
+
+  // The same listing the admin page made: there is no GET for one built-in
+  // either, and both come down with the tags.
+  const tags = useQuery({ ...listTagsOptions(), enabled: allowed });
+  const stored = builtInTags(tags.data?.built_ins)[builtInId];
+
+  const [color, setColor] = useState<TagColor>("neutral");
+  const [showInList, setShowInList] = useState(true);
+  // What the server last said, to measure the two fields against — so a save
+  // somebody else made does not come back as "you have unsaved changes".
+  const [base, setBase] = useState<{ color: TagColor; showInList: boolean }>({
+    color: "neutral",
+    showInList: true,
+  });
+  const [seeded, setSeeded] = useState<string | null>(null);
+  const [error, setError] = useState<string | null>(null);
+  const [saved, setSaved] = useState(false);
+
+  // Seeded once, and re-seeded when the page is reused for the other mark. A
+  // `tags.changed` refetch while somebody is choosing must not move the pills
+  // under their hand, so the draft is tagged with the mark it came from.
+  if (tags.isSuccess && seeded !== builtInId) {
+    setSeeded(builtInId);
+    setColor(stored.color as TagColor);
+    setShowInList(stored.show_in_list);
+    setBase({
+      color: stored.color as TagColor,
+      showInList: stored.show_in_list,
+    });
+    setError(null);
+    setSaved(false);
+  }
+
+  const refresh = () =>
+    void queryClient.invalidateQueries({ queryKey: listTagsQueryKey() });
+  useWingmanEvent("tags.changed", refresh);
+
+  const update = useMutation(updateBuiltInTagMutation());
+
+  const pending = color !== base.color || showInList !== base.showInList;
+
+  const save = async () => {
+    if (!pending) return;
+    setError(null);
+    try {
+      const latest = await update.mutateAsync({
+        path: { built_in_id: builtInId },
+        body: { color, show_in_list: showInList },
+      });
+      setColor(latest.color as TagColor);
+      setShowInList(latest.show_in_list);
+      setBase({
+        color: latest.color as TagColor,
+        showInList: latest.show_in_list,
+      });
+      setSaved(true);
+      refresh();
+    } catch (cause) {
+      setSaved(false);
+      setError(errorMessage(cause, "Could not save the mark."));
+    }
+  };
+
+  const glyph = BUILT_IN_TAGS[builtInId].icon;
+
+  return (
+    <div className="tags-page tag-editor">
+      <PageHeader title={BUILT_IN_TAGS[builtInId].name} back="/user/tags" />
+
+      {/* Nothing until /auth/me answered: `can` says yes while it is in flight. */}
+      {auth.loaded && (
+        <>
+          {!allowed && (
+            <p className="settings-notice">
+              Tags are set up by trusted accounts and the host. Ask the host for
+              access.
+            </p>
+          )}
+
+          {allowed && (
+            <>
+              {tags.isPending && <Loading />}
+
+              {tags.isError && (
+                <p className="error-notice tags-notice" role="alert">
+                  Could not load the tags.
+                </p>
+              )}
+
+              {seeded === builtInId && (
+                <>
+                  {error && (
+                    <p className="error-notice tags-notice" role="alert">
+                      {error}
+                    </p>
+                  )}
+
+                  <form
+                    className="tag-editor-form"
+                    onSubmit={(event) => {
+                      event.preventDefault();
+                      void save();
+                    }}
+                  >
+                    <p className="tag-editor-hint">{BUILT_IN_WHY[builtInId]}</p>
+
+                    <h2 id="tag-colour">Colour</h2>
+                    <div
+                      className="tag-colours"
+                      role="radiogroup"
+                      aria-labelledby="tag-colour"
+                    >
+                      {TAG_COLORS.map((option) => (
+                        <label
+                          key={option}
+                          className={`tag-colour ${tagColorClass(option)}`}
+                        >
+                          <input
+                            type="radio"
+                            className="visually-hidden"
+                            name="tag-colour"
+                            value={option}
+                            checked={color === option}
+                            onChange={() => {
+                              setSaved(false);
+                              setColor(option);
+                            }}
+                          />
+                          <span className="tag-colour-text">
+                            <Icon name={glyph} />
+                            {COLOR_LABELS[option]}
+                          </span>
+                        </label>
+                      ))}
+                    </div>
+
+                    <div className="tag-flags">
+                      <label className="tag-check">
+                        <input
+                          type="checkbox"
+                          checked={showInList}
+                          onChange={(event) => {
+                            setSaved(false);
+                            setShowInList(event.target.checked);
+                          }}
+                        />
+                        <span>Show in song list</span>
+                      </label>
+                      <p className="tag-flag-hint">
+                        Everybody wears the mark on their own songs in the song
+                        list, next to the tags. Off, the mark is gone from the
+                        rows — the filter and the chip above them stay.
+                      </p>
+                    </div>
+
+                    <div className="tag-editor-save">
+                      <button
+                        type="submit"
+                        className="button button-primary"
+                        disabled={!pending || update.isPending}
+                      >
+                        Save
+                      </button>
+                      {/* An acknowledgement, not a state: the page stays where
+                          it is, so something has to say the save landed. */}
+                      {saved && (
+                        <span className="tag-editor-saved" role="status">
+                          Saved
+                        </span>
+                      )}
+                    </div>
+                  </form>
+                </>
+              )}
+            </>
+          )}
+        </>
       )}
     </div>
   );

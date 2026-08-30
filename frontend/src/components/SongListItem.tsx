@@ -1,6 +1,11 @@
 import type { ReactNode } from "react";
 import type { SongRead, TagRead } from "../api";
-import { tagColorClass, tagGlyph } from "../tags";
+import {
+  type BuiltInTags,
+  DEFAULT_BUILT_IN_TAGS,
+  tagColorClass,
+  tagGlyph,
+} from "../tags";
 import { Icon } from "./icons";
 import SongCover from "./SongCover";
 import "./SongListItem.css";
@@ -18,6 +23,14 @@ interface SongListItemProps {
    * DOM order (§1.4) and are passive like them: tags are set in the song modal.
    */
   tags?: TagRead[];
+  /**
+   * How the party configured the two built-in marks: the colour each is drawn
+   * in, and whether it belongs on a song row at all. From `useTags`, passed in
+   * rather than read here — a list is hundreds of these, and hundreds of query
+   * subscriptions for one pair of values is a hundred times the work. Left out,
+   * the marks look the way they always did (pink heart, blue microphone).
+   */
+  builtIns?: BuiltInTags;
   /**
    * Right-aligned trailing text inside the row: the one value this list is
    * about (the time a song was played, a duration). Not a control — anything
@@ -42,6 +55,7 @@ export default function SongListItem({
   favorite,
   sung,
   tags,
+  builtIns = DEFAULT_BUILT_IN_TAGS,
   meta,
   actions,
   leading,
@@ -53,14 +67,17 @@ export default function SongListItem({
         {/* The title attribute recovers what the ellipsis cuts ("[DUET]"). */}
         <span className="song-title" title={song.title}>
           <span className="song-title-text">{song.title}</span>
-          {sung && (
-            <span className="song-mark song-mark-sung" title="You sang this">
+          {sung && builtIns.sung.show_in_list && (
+            <span
+              className={`song-mark song-mark-sung ${tagColorClass(builtIns.sung.color)}`}
+              title="You sang this"
+            >
               <Icon name="mic" />
             </span>
           )}
-          {favorite && (
+          {favorite && builtIns.favorites.show_in_list && (
             <span
-              className="song-mark song-mark-favorite"
+              className={`song-mark song-mark-favorite ${tagColorClass(builtIns.favorites.color)}`}
               title="In your favorites"
             >
               <Icon name="heart" />

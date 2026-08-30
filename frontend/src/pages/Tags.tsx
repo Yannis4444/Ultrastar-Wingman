@@ -11,7 +11,13 @@ import { Icon } from "../components/icons";
 import Loading from "../components/Loading";
 import PageHeader from "../components/PageHeader";
 import { useWingmanEvent } from "../hooks/useWingmanEvents";
-import { tagColorClass, tagGlyph } from "../tags";
+import {
+  BUILT_IN_TAG_IDS,
+  BUILT_IN_TAGS,
+  builtInTags,
+  tagColorClass,
+  tagGlyph,
+} from "../tags";
 import "./Tags.css";
 
 /**
@@ -47,6 +53,7 @@ export default function Tags() {
   useWingmanEvent("song_tags.changed", refresh);
 
   const rows = tags.data?.tags ?? [];
+  const builtIns = builtInTags(tags.data?.built_ins);
 
   return (
     <div className="tags-page">
@@ -113,6 +120,43 @@ export default function Tags() {
                     </li>
                   ))}
                 </ul>
+              )}
+
+              {/* The two marks the app brings with it, after the rows `+` and
+                  Delete govern: they are not tags, so nothing here creates or
+                  removes one. *Recent* is a mode — a time-ordered list — and
+                  has no row at all. */}
+              {tags.isSuccess && (
+                <>
+                  <h2>Built-in</h2>
+                  <ul className="tags-list">
+                    {BUILT_IN_TAG_IDS.map((id) => (
+                      <li key={id}>
+                        <Link className="tags-open" to={`/user/tags/${id}`}>
+                          <span
+                            className={`tags-square ${tagColorClass(builtIns[id].color)}`}
+                            aria-hidden="true"
+                          >
+                            <Icon name={BUILT_IN_TAGS[id].icon} />
+                          </span>
+                          <span className="tags-text">
+                            <span className="tags-name">
+                              {BUILT_IN_TAGS[id].name}
+                            </span>
+                            {/* Never a song count: how many songs wear this one
+                                is a different number for every reader. */}
+                            <span className="tags-meta">
+                              {builtIns[id].show_in_list
+                                ? "per person · shown in list"
+                                : "per person"}
+                            </span>
+                          </span>
+                          <Icon name="chevron-right" className="tags-chevron" />
+                        </Link>
+                      </li>
+                    ))}
+                  </ul>
+                </>
               )}
             </>
           )}

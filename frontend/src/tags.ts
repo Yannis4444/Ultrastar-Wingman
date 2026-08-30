@@ -1,4 +1,4 @@
-import type { TagRead } from "./api";
+import type { BuiltInTagRead, TagRead } from "./api";
 import { ICON_PATHS, type IconName } from "./components/icons";
 
 /** The colours a tag may be drawn in, in the order the editor offers them.
@@ -25,6 +25,51 @@ export function tagGlyph(icon: string | null): IconName {
 export function tagColorClass(color: string): string {
   const known = (TAG_COLORS as readonly string[]).includes(color);
   return `tag-color-${known ? color : "neutral"}`;
+}
+
+/** The two marks Wingman brings with it. */
+export type BuiltInTagId = BuiltInTagRead["id"];
+
+/** In the order §7's *Built-in* section lists them — the heart everybody knows
+ *  first. Their order on a song row is the other way round and belongs to
+ *  `SongListItem` alone (§1.4: the microphone, then the heart, then the tags). */
+export const BUILT_IN_TAG_IDS = ["favorites", "sung"] as const;
+
+/**
+ * What is fixed about a built-in: its glyph and what the app calls it. Only the
+ * colour and `show_in_list` are the party's to decide — a mark is a fact about
+ * one reader (my favorites, the songs I have sung), so it has no name to rename,
+ * no icon to pick, nobody to grant it to and nothing to delete.
+ */
+export const BUILT_IN_TAGS: Record<
+  BuiltInTagId,
+  { name: string; icon: IconName }
+> = {
+  favorites: { name: "Favorites", icon: "heart" },
+  sung: { name: "Sung", icon: "mic" },
+};
+
+/** Both built-ins by id — one lookup for every surface that draws a mark. */
+export type BuiltInTags = Record<BuiltInTagId, BuiltInTagRead>;
+
+/**
+ * What the marks look like before the listing has answered, and what a build
+ * older than the backend falls back to: the pink heart and the blue microphone
+ * they were hard-coded as, both on the song rows. A row drawn from nothing would
+ * flash the wrong colour on every list that does not wait for the tags.
+ */
+export const DEFAULT_BUILT_IN_TAGS: BuiltInTags = {
+  favorites: { id: "favorites", color: "pink", show_in_list: true },
+  sung: { id: "sung", color: "blue", show_in_list: true },
+};
+
+/** The listing's `built_ins` as the pair every surface reads. */
+export function builtInTags(
+  rows: readonly BuiltInTagRead[] | undefined,
+): BuiltInTags {
+  const found = { ...DEFAULT_BUILT_IN_TAGS };
+  for (const row of rows ?? []) found[row.id] = row;
+  return found;
 }
 
 /**
