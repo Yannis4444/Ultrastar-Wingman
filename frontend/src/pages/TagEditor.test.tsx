@@ -39,8 +39,8 @@ vi.mock("../api/sdk.gen", async (importOriginal) => ({
 const MANAGER = ["songs.view", "tags.manage"];
 const ACCOUNT: Partial<MeRead> = { user: userRead(), role: "trusted" };
 
-/** The rows the seeded `archive` tag carries — the shape the editor's own
- *  default for a new tag copies. */
+/** Everybody may see the tag and its songs — the shape the editor's own default
+ *  for a new tag has, spelled out in `NEW_TAG_GRANTS` and copied from no row. */
 function roleRows(): TagPermissionRead[] {
   return (["guest", "user", "trusted"] as const).flatMap((role) => [
     { action: "view" as const, role, user_id: null, username: null },
@@ -190,8 +190,9 @@ it("creates a tag with the rights the form was left on", async () => {
     show_in_list: true,
     hide_by_default: false,
   });
-  // A fresh tag opens on the seeded `archive` tag's rows, so the manager who
-  // made it can still see it.
+  // A fresh tag opens on `NEW_TAG_GRANTS` — its own constant, not a copy of any
+  // existing tag: the listing above is empty and the rows are still these, so
+  // the manager who made it can still see it.
   expect(sentRows(body)).toEqual([
     "assign trusted",
     "view guest",

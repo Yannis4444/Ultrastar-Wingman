@@ -55,7 +55,7 @@ export const ICON_PATHS = {
   globe:
     "M11.99 2A10 10 0 1 0 22 12 10 10 0 0 0 11.99 2Zm6.93 6h-2.95a15.65 15.65 0 0 0-1.38-3.56A8.03 8.03 0 0 1 18.92 8ZM12 4.04A14.09 14.09 0 0 1 13.91 8h-3.82A14.09 14.09 0 0 1 12 4.04ZM4.26 14a8.12 8.12 0 0 1 0-4h3.38a16.51 16.51 0 0 0-.14 2 16.51 16.51 0 0 0 .14 2Zm.82 2h2.95a15.65 15.65 0 0 0 1.38 3.56A8.03 8.03 0 0 1 5.08 16Zm2.95-8H5.08a8.03 8.03 0 0 1 4.33-3.56A15.65 15.65 0 0 0 8.03 8ZM12 19.96A14.09 14.09 0 0 1 10.09 16h3.82A14.09 14.09 0 0 1 12 19.96ZM14.34 14H9.66a14.59 14.59 0 0 1-.16-2 14.59 14.59 0 0 1 .16-2h4.68a14.59 14.59 0 0 1 .16 2 14.59 14.59 0 0 1-.16 2Zm.25 5.56A15.65 15.65 0 0 0 15.97 16h2.95a8.03 8.03 0 0 1-4.33 3.56ZM16.36 14a16.51 16.51 0 0 0 .14-2 16.51 16.51 0 0 0-.14-2h3.38a8.12 8.12 0 0 1 0 4Z",
   tag: "M21.41 11.58l-9-9A2 2 0 0 0 11 2H4a2 2 0 0 0-2 2v7a2 2 0 0 0 .59 1.42l9 9a2 2 0 0 0 2.82 0l7-7a2 2 0 0 0 0-2.84ZM5.5 7A1.5 1.5 0 1 1 7 5.5 1.5 1.5 0 0 1 5.5 7Z",
-  // The seeded `archive` tag: a lid bar overhanging a box body, with one notch
+  // For a tag that puts songs away: a lid bar overhanging a box body, with one notch
   // cut out of the lid's top edge. The notch is part of the lid's own outline
   // rather than a punched-out shape, so no fill rule is involved.
   archive: "M2 4h8v2h4V4h8v4H2V4Zm2 5h16v12H4V9Z",

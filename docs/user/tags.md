@@ -2,21 +2,25 @@
 
 A tag is a label the whole party shares. Wishes and favorites belong to one
 person; a tag belongs to the song. Put **broken** on the file that never plays,
-**archive** on the ones nobody should stumble over, **duet** on the ones that
-need two microphones — and decide, per tag, who is allowed to know it exists.
+**duet** on the ones that need two microphones, **archive** on the ones nobody
+should stumble over — and decide, per tag, who is allowed to know it exists.
 
 Setting tags up needs the right to manage tags, which **trusted** and **admin**
 hold by default. Everybody else only ever sees the result.
 
-## The two tags you already have
+## The tag you already have
 
-Wingman starts with two, and both are ordinary tags: rename them, recolour
-them, or delete them.
+Wingman starts with one, and it is an ordinary tag: rename it, recolour it, or
+delete it.
 
 | Tag | What it does |
 |---|---|
 | **broken** | For a song that does not work — the audio is missing, the timing is wrong. Only **trusted** and **admin** can see it, and a song marked broken is invisible to everybody else. |
-| **archive** | For songs that should not clutter the list. Everybody can see it, but its songs are folded away until somebody asks for them. |
+
+Everything else is yours to invent. A good second one is an **archive**: a tag
+everybody can see, with *Hide songs by default* on, for the songs that should
+not clutter the list without leaving the library. *Create a tag*, further down,
+makes exactly that.
 
 ## Who sees what
 
@@ -61,9 +65,10 @@ your song details and your filter, and you can no longer put it on a song.
    their role has.
 6. **Save**.
 
-A brand-new tag starts out like **archive**: everybody can see it and its songs,
-and **trusted** accounts may set it. Change that before you save if the tag is
-meant to be private.
+A brand-new tag starts out open: everybody can see it and its songs, and
+**trusted** accounts may set it. That is the archive above, one tick away — turn
+*Hide songs by default* on and you have it. Change the ticks before you save if
+the tag is meant to be private instead.
 
 Two sentences may appear under the table while you are ticking. They are
 warnings, not refusals — Wingman will save either way:

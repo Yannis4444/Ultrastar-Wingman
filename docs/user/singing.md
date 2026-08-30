@@ -43,8 +43,8 @@ follows every tap, the song count included, so you can watch it narrow.
 **Done** closes the panel and **Reset** puts every row back to where it started.
 
 Most rows start on **Any**. A tag set up to hide its songs starts on **No** —
-that is what keeps the archive out of your way. Put its row on **Any** and those
-songs come back.
+that is what keeps the put-away songs out of your way. Put its row on **Any**
+and those songs come back.
 
 While something is filtering, the funnel is the pressed chip and reads
 **Filter · 2**: the number of rows that are not on *Any*, the tags that were
@@ -99,8 +99,8 @@ Some songs are deliberately kept out of the list.
   list — in every chip, not only *All* — and out of the random reel's *All
   songs*, until you put that tag's row on *Any* or *Yes* in **Filter**. They
   are still there: a playlist that holds one still shows it and a wished one
-  can still win the reel, because somebody put it there on purpose. The seeded
-  **archive** tag works this way.
+  can still win the reel, because somebody put it there on purpose. An
+  **archive** tag, if the party made one, works this way.
 - A tag can also take *See songs* away from a role entirely. Those songs do not
   exist for that person at all: not in the list, not in the search, not in the
   reel, and not on a playlist or the wishlist either. The seeded **broken** tag

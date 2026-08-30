@@ -59,7 +59,7 @@ it("keeps the control glyphs and the song row's marks out of the picker", () => 
     expect(PICKER_ICON_NAMES).not.toContain(excluded);
 });
 
-it("offers every other glyph, the seeded tags' two included", () => {
+it("offers every other glyph, the seeded tag's own included", () => {
   expect(PICKER_ICON_NAMES).toContain("archive");
   expect(PICKER_ICON_NAMES).toContain("alert");
   expect(PICKER_ICON_NAMES).toContain("tag");

@@ -73,8 +73,8 @@ const COLOR_LABELS: Record<TagColor, string> = {
 };
 
 /**
- * What a fresh tag is for before anybody says otherwise: the same rows the
- * seeded `archive` tag carries — everybody knows it and sees its songs, trusted
+ * What a fresh tag is for before anybody says otherwise, written out here and
+ * copied from no existing tag: everybody knows it and sees its songs, trusted
  * accounts may set it. Starting from "nobody" would be worse than useless: a
  * `tags.manage` holder who is not an administrator would not be granted `view`
  * on the tag they just made, and it would disappear from their own list.

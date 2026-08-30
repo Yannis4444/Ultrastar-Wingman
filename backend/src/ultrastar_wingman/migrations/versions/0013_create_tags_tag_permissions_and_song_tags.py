@@ -9,9 +9,10 @@ on a song (`assign`). A tag nobody was granted `view_songs` on hides its songs f
 everybody but an administrator — which is what makes "keep the broken ones out of the
 list" one tag and not a setting.
 
-Two tags are seeded, with the ids `tags.model` names so tests and documentation can point
-at them. Both are ordinary rows: whoever holds `tags.manage` may rename, recolor or delete
-them.
+Two tags are seeded. Both are ordinary rows: whoever holds `tags.manage` may rename,
+recolor or delete them. Only `broken` is still there at head — 0015 takes the `archive`
+row back out again, and `tags.model` names `BROKEN_TAG_ID` alone. This revision keeps
+seeding both, because a migration must go on producing the same database it always did.
 
 * **broken** — trusted and above; a guest or a plain account never sees a song marked
   broken at all.
@@ -46,7 +47,8 @@ SONG_TAG_INDEX = "ix_song_tags_song_id"
 MANAGE = "tags.manage"
 MANAGE_ROLES = ("trusted", "admin")
 
-# Written out literally, and mirrored by `tags.model.BROKEN_TAG_ID` / `ARCHIVE_TAG_ID`.
+# Written out literally. `tags.model.BROKEN_TAG_ID` mirrors the first; the second lives
+# here and in 0015, which removes the row it seeds.
 BROKEN_TAG_ID = "9f95e47cdadc42a59273e16d7b0e5ace"
 ARCHIVE_TAG_ID = "a96ea6e6f3504493817d2db6813e030a"
 

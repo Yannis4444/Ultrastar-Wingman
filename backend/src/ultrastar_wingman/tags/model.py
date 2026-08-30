@@ -42,11 +42,11 @@ TAG_ACTIONS: tuple[str, ...] = ("view", "view_songs", "assign")
 # The longest a tag name may get.
 MAX_NAME_LENGTH = 32
 
-# Migration 0013 seeds these two with these exact ids, so tests and documentation can name
-# them. Both are ordinary rows: whoever holds `tags.manage` may rename, recolor or delete
-# them like any other tag.
+# The one tag the app arrives with, seeded by migration 0013 with this exact id so tests
+# and documentation can name it. It is an ordinary row: whoever holds `tags.manage` may
+# rename, recolor or delete it like any other tag. (0013 seeded a second one, `archive`;
+# 0015 takes it back out — folding songs away is a tick on any tag somebody makes.)
 BROKEN_TAG_ID = "9f95e47cdadc42a59273e16d7b0e5ace"
-ARCHIVE_TAG_ID = "a96ea6e6f3504493817d2db6813e030a"
 
 
 def _now() -> datetime:

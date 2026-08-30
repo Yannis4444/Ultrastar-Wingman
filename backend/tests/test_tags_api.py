@@ -9,12 +9,16 @@ Roles are bundles and not a ladder, so every grant is spelled out per role; only
 (the host screen included) is exempt, the same way it is exempt from `role_permissions`.
 """
 
+import sqlite3
 from collections.abc import AsyncIterator
 from dataclasses import dataclass
 from datetime import UTC, datetime, timedelta
+from pathlib import Path
 from typing import Any, get_args
 
 import pytest
+from alembic import command
+from alembic.config import Config
 from fastapi import FastAPI
 from httpx import ASGITransport, AsyncClient
 from sqlalchemy import delete, select
@@ -24,11 +28,11 @@ from test_wishlist_api import OTHER_SONG, SONG, THIRD_SONG, add_songs, factory
 from ultrastar_wingman.app import create_app
 from ultrastar_wingman.auth.deps import COOKIE_NAME
 from ultrastar_wingman.config import BootstrapSettings
+from ultrastar_wingman.db import migrations_dir
 from ultrastar_wingman.karaoke.model import KaraokeSession, Sing
 from ultrastar_wingman.library.model import PlaylistEntry
 from ultrastar_wingman.songs.model import Song
 from ultrastar_wingman.tags.model import (
-    ARCHIVE_TAG_ID,
     BROKEN_TAG_ID,
     TAG_ACTIONS,
     TAG_COLORS,
@@ -37,9 +41,22 @@ from ultrastar_wingman.tags.model import (
 )
 from ultrastar_wingman.tags.schema import TagAction, TagColor
 
-# The colors the two seeded tags use, so a test that renames one does not have to know them.
+# The one tag the app seeds, by name, so a test that renames it does not have to know its id.
 BROKEN = "broken"
+
+# The other tag most of these tests need: one everybody may see, whose songs are folded
+# away by default and which trusted accounts may set. Nothing seeds it — the `archive`
+# fixture makes it, the way the handbook tells a party to make it themselves.
 ARCHIVE = "archive"
+ARCHIVE_GRANTS: list[dict[str, str]] = [
+    {"action": "view", "role": "guest"},
+    {"action": "view", "role": "user"},
+    {"action": "view", "role": "trusted"},
+    {"action": "view_songs", "role": "guest"},
+    {"action": "view_songs", "role": "user"},
+    {"action": "view_songs", "role": "trusted"},
+    {"action": "assign", "role": "trusted"},
+]
 
 
 @dataclass
@@ -78,6 +95,23 @@ async def party(bootstrap_settings: BootstrapSettings) -> AsyncIterator[Party]:
         finally:
             for client in clients.values():
                 await client.aclose()
+
+
+@pytest.fixture
+async def archive(party: Party) -> str:
+    """A tag of the party's own making: everybody may see it and the songs under it,
+    trusted accounts may set it, and `hide_by_default` folds those songs away. Wingman used
+    to seed one like this; it now ships `broken` alone, and this is the shape the handbook
+    describes for anybody who wants it back."""
+    created = await make_tag(
+        party["admin"],
+        name=ARCHIVE,
+        icon="archive",
+        color="neutral",
+        hide_by_default=True,
+        permissions=ARCHIVE_GRANTS,
+    )
+    return str(created["id"])
 
 
 async def tags_of(client: AsyncClient) -> list[dict[str, Any]]:
@@ -125,50 +159,40 @@ def test_the_schema_literals_mirror_the_columns() -> None:
     assert set(get_args(TagAction)) == set(TAG_ACTIONS)
 
 
-async def test_the_seeded_tags_reach_the_right_people(party: Party) -> None:
-    """`broken` is for helpers; `archive` is for everybody. The ids are the ones
-    `tags.model` names, which is what keeps migration 0013 and the module in step."""
-    assert await names(party["anonymous"]) == [ARCHIVE]
-    assert await names(party["user"]) == [ARCHIVE]
-    # Alphabetical, case-insensitively.
-    assert await names(party["trusted"]) == [ARCHIVE, BROKEN]
-    assert await names(party["admin"]) == [ARCHIVE, BROKEN]
-    assert await names(party["host"]) == [ARCHIVE, BROKEN]
+async def test_the_seeded_tag_reaches_only_the_helpers(party: Party) -> None:
+    """`broken` is the one tag the app arrives with, and it is for helpers. Its id is the
+    one `tags.model` names, which is what keeps migration 0013 and the module in step."""
+    assert await names(party["anonymous"]) == []
+    assert await names(party["user"]) == []
+    assert await names(party["trusted"]) == [BROKEN]
+    assert await names(party["admin"]) == [BROKEN]
+    assert await names(party["host"]) == [BROKEN]
 
     seeded = {tag["name"]: tag for tag in await tags_of(party["admin"])}
     assert seeded[BROKEN]["id"] == BROKEN_TAG_ID
-    assert seeded[ARCHIVE]["id"] == ARCHIVE_TAG_ID
     assert seeded[BROKEN]["show_in_list"] is True
     assert seeded[BROKEN]["hide_by_default"] is True
     assert seeded[BROKEN]["icon"] == "alert"
     assert seeded[BROKEN]["color"] == "gold"
-    assert seeded[ARCHIVE]["show_in_list"] is False
-    assert seeded[ARCHIVE]["hide_by_default"] is True
 
 
-async def test_only_a_tag_manager_is_shown_who_a_tag_is_for(party: Party) -> None:
+async def test_only_a_tag_manager_is_shown_who_a_tag_is_for(party: Party, archive: str) -> None:
     """`tags.manage` is trusted and above, so a plain account sees the tag and not the
     accounts named on it."""
     plain = {tag["name"]: tag for tag in await tags_of(party["user"])}
     assert plain[ARCHIVE]["permissions"] is None
-    # It may see the tag but not set it: `assign` on `archive` is trusted's.
+    # It may see the tag but not set it: `assign` on it is trusted's.
     assert plain[ARCHIVE]["can_assign"] is False
 
     managed = {tag["name"]: tag for tag in await tags_of(party["trusted"])}
     assert managed[ARCHIVE]["can_assign"] is True
     assert {(row["action"], row["role"]) for row in managed[ARCHIVE]["permissions"]} == {
-        ("view", "guest"),
-        ("view", "user"),
-        ("view", "trusted"),
-        ("view_songs", "guest"),
-        ("view_songs", "user"),
-        ("view_songs", "trusted"),
-        ("assign", "trusted"),
+        (row["action"], row["role"]) for row in ARCHIVE_GRANTS
     }
     assert all(row["user_id"] is None for row in managed[ARCHIVE]["permissions"])
 
 
-async def test_a_manager_lists_a_tag_they_may_not_view(party: Party) -> None:
+async def test_a_manager_lists_a_tag_they_may_not_view(party: Party, archive: str) -> None:
     """Managing a tag is not the same right as knowing it. A manager who granted themselves
     no `view` still needs the tag on the page they manage it from — otherwise unticking
     *See tag* makes the tag disappear from under the hand that unticked it. Everybody else
@@ -180,7 +204,7 @@ async def test_a_manager_lists_a_tag_they_may_not_view(party: Party) -> None:
     assert listed[secret["id"]]["can_view"] is False
     # A tag a manager may not view is one they may not set either.
     assert listed[secret["id"]]["can_assign"] is False
-    assert listed[ARCHIVE_TAG_ID]["can_view"] is True
+    assert listed[archive]["can_view"] is True
     assert secret["id"] not in {tag["id"] for tag in await tags_of(party["user"])}
 
     # The two listings hold the same tags, so the client never has assignments for a tag
@@ -231,10 +255,10 @@ async def test_a_broken_song_stays_for_the_people_who_may_see_the_tag(party: Par
         assert (await party[identity].get(f"/api/v1/songs/{SONG}")).status_code == 200
 
 
-async def test_an_archived_song_stays_visible_to_everybody(party: Party) -> None:
+async def test_an_archived_song_stays_visible_to_everybody(party: Party, archive: str) -> None:
     """`hide_by_default` is a client-side default, not a permission: the backend stores the
     flag and keeps serving the song."""
-    await tag_song(party["trusted"], OTHER_SONG, ARCHIVE_TAG_ID)
+    await tag_song(party["trusted"], OTHER_SONG, archive)
 
     for identity in ("anonymous", "user", "trusted"):
         assert OTHER_SONG in await library_ids(party[identity]), identity
@@ -251,46 +275,48 @@ async def test_a_tag_nobody_was_granted_view_songs_on_hides_its_songs(party: Par
     assert THIRD_SONG in await library_ids(party["host"])
 
 
-async def test_assigning_is_a_403_only_for_a_tag_the_caller_can_see(party: Party) -> None:
+async def test_assigning_is_a_403_only_for_a_tag_the_caller_can_see(
+    party: Party, archive: str
+) -> None:
     """A tag they may not view is a 404, exactly like a song they may not see. Only a tag
     they already know about is a 403."""
-    refused = await tag_song(party["user"], OTHER_SONG, ARCHIVE_TAG_ID, expect=403)
+    refused = await tag_song(party["user"], OTHER_SONG, archive, expect=403)
     assert refused == {"detail": "missing_tag_permission:assign"}
     hidden = await tag_song(party["user"], OTHER_SONG, BROKEN_TAG_ID, expect=404)
     assert hidden == {"detail": f"unknown tag '{BROKEN_TAG_ID}'"}
     assert await tag_song(party["user"], OTHER_SONG, "nope", expect=404) is not None
 
 
-async def test_tagging_and_untagging_are_both_idempotent(party: Party) -> None:
-    await tag_song(party["trusted"], OTHER_SONG, ARCHIVE_TAG_ID)
-    await tag_song(party["trusted"], OTHER_SONG, ARCHIVE_TAG_ID)
-    assert (await assignments_of(party["trusted"]))[ARCHIVE_TAG_ID] == [OTHER_SONG]
+async def test_tagging_and_untagging_are_both_idempotent(party: Party, archive: str) -> None:
+    await tag_song(party["trusted"], OTHER_SONG, archive)
+    await tag_song(party["trusted"], OTHER_SONG, archive)
+    assert (await assignments_of(party["trusted"]))[archive] == [OTHER_SONG]
 
     for _ in range(2):
-        response = await party["trusted"].delete(
-            f"/api/v1/songs/{OTHER_SONG}/tags/{ARCHIVE_TAG_ID}"
-        )
+        response = await party["trusted"].delete(f"/api/v1/songs/{OTHER_SONG}/tags/{archive}")
         assert response.status_code == 204, response.text
-    assert (await assignments_of(party["trusted"]))[ARCHIVE_TAG_ID] == []
+    assert (await assignments_of(party["trusted"]))[archive] == []
 
 
-async def test_who_tagged_a_song_is_recorded_and_the_host_is_nobody(party: Party) -> None:
-    await tag_song(party["trusted"], SONG, ARCHIVE_TAG_ID)
-    await tag_song(party["host"], OTHER_SONG, ARCHIVE_TAG_ID)
+async def test_who_tagged_a_song_is_recorded_and_the_host_is_nobody(
+    party: Party, archive: str
+) -> None:
+    await tag_song(party["trusted"], SONG, archive)
+    await tag_song(party["host"], OTHER_SONG, archive)
 
     async with factory(party.app)() as session:
         rows = {
             row.song_id: row.user_id
-            for row in await session.scalars(
-                select(SongTag).where(SongTag.tag_id == ARCHIVE_TAG_ID)
-            )
+            for row in await session.scalars(select(SongTag).where(SongTag.tag_id == archive))
         }
     assert rows == {SONG: party.ids["trusted"], OTHER_SONG: None}
 
 
-async def test_replacing_the_permissions_can_name_a_single_account(party: Party) -> None:
+async def test_replacing_the_permissions_can_name_a_single_account(
+    party: Party, archive: str
+) -> None:
     response = await party["admin"].put(
-        f"/api/v1/tags/{ARCHIVE_TAG_ID}/permissions",
+        f"/api/v1/tags/{archive}/permissions",
         json={
             "permissions": [
                 {"action": "view", "user_id": party.ids["user"]},
@@ -305,17 +331,17 @@ async def test_replacing_the_permissions_can_name_a_single_account(party: Party)
     named = [row for row in response.json()["permissions"] if row["user_id"] is not None]
     assert {row["username"] for row in named} == {"user-account"}
     # The rows that were not sent are gone: the plain account may now set the tag, and
-    # trusted — which the seed had granted it to — may not even see it any more. It still
+    # trusted — which the tag had been granted to — may not even see it any more. It still
     # *lists* the tag, because trusted manages tags; `can_view` is what says the
     # difference, and the 404 below is the part with teeth.
-    await tag_song(party["user"], SONG, ARCHIVE_TAG_ID)
+    await tag_song(party["user"], SONG, archive)
     listed = {tag["name"]: tag for tag in await tags_of(party["trusted"])}
     assert listed[ARCHIVE]["can_view"] is False
     assert listed[BROKEN]["can_view"] is True
-    assert await tag_song(party["trusted"], OTHER_SONG, ARCHIVE_TAG_ID, expect=404) is not None
+    assert await tag_song(party["trusted"], OTHER_SONG, archive, expect=404) is not None
 
 
-async def test_a_manager_can_create_edit_and_delete_a_tag(party: Party) -> None:
+async def test_a_manager_can_create_edit_and_delete_a_tag(party: Party, archive: str) -> None:
     created = await make_tag(
         party["trusted"],
         name="  Duets  ",
@@ -372,7 +398,7 @@ async def test_deleting_a_tag_takes_its_songs_and_its_permissions_with_it(party:
     assert SONG in await library_ids(party["anonymous"])
 
 
-async def test_a_duplicate_name_is_refused_case_insensitively(party: Party) -> None:
+async def test_a_duplicate_name_is_refused_case_insensitively(party: Party, archive: str) -> None:
     response = await party["admin"].post(
         "/api/v1/tags", json={"name": "BROKEN", "color": "neutral"}
     )
@@ -380,11 +406,11 @@ async def test_a_duplicate_name_is_refused_case_insensitively(party: Party) -> N
     assert response.status_code == 409
     assert response.json() == {"detail": "duplicate_tag_name"}
     # And on a rename, which the unique index would otherwise turn into a 500.
-    renamed = await party["admin"].patch(f"/api/v1/tags/{ARCHIVE_TAG_ID}", json={"name": "Broken"})
+    renamed = await party["admin"].patch(f"/api/v1/tags/{archive}", json={"name": "Broken"})
     assert renamed.status_code == 409
     # Renaming a tag to what it is already called is not a clash with itself.
     assert (
-        await party["admin"].patch(f"/api/v1/tags/{ARCHIVE_TAG_ID}", json={"name": "Archive"})
+        await party["admin"].patch(f"/api/v1/tags/{archive}", json={"name": "Archive"})
     ).status_code == 200
 
 
@@ -411,7 +437,7 @@ async def test_a_bad_body_is_refused_before_anything_is_written(party: Party) ->
     ):
         response = await party["admin"].post("/api/v1/tags", json=body)
         assert response.status_code == 422, f"{body}: {response.text}"
-    assert await names(party["admin"]) == [ARCHIVE, BROKEN]
+    assert await names(party["admin"]) == [BROKEN]
 
 
 async def test_the_same_row_twice_is_one_row(party: Party) -> None:
@@ -426,34 +452,40 @@ async def test_the_same_row_twice_is_one_row(party: Party) -> None:
     ]
 
 
-async def test_a_tag_on_a_song_that_left_the_library_waits_for_it(party: Party) -> None:
+async def test_a_tag_on_a_song_that_left_the_library_waits_for_it(
+    party: Party, archive: str
+) -> None:
     """`usdb:1234` coming back is the same song, so its tags come back with it."""
-    await tag_song(party["trusted"], SONG, ARCHIVE_TAG_ID)
+    await tag_song(party["trusted"], SONG, archive)
     async with factory(party.app)() as session:
         await session.execute(delete(Song).where(Song.id == SONG))
         await session.commit()
 
-    assert (await assignments_of(party["trusted"]))[ARCHIVE_TAG_ID] == []
+    assert (await assignments_of(party["trusted"]))[archive] == []
 
     await add_songs(party.app, SONG)
 
-    assert (await assignments_of(party["trusted"]))[ARCHIVE_TAG_ID] == [SONG]
+    assert (await assignments_of(party["trusted"]))[archive] == [SONG]
 
 
-async def test_assignments_hold_only_viewable_tags_and_visible_songs(party: Party) -> None:
+async def test_assignments_hold_only_viewable_tags_and_visible_songs(
+    party: Party, archive: str
+) -> None:
     await tag_song(party["trusted"], SONG, BROKEN_TAG_ID)
-    await tag_song(party["trusted"], SONG, ARCHIVE_TAG_ID)
-    await tag_song(party["trusted"], OTHER_SONG, ARCHIVE_TAG_ID)
+    await tag_song(party["trusted"], SONG, archive)
+    await tag_song(party["trusted"], OTHER_SONG, archive)
 
     # A guest may view `archive`, but the song under it is hidden by `broken`.
-    assert await assignments_of(party["anonymous"]) == {ARCHIVE_TAG_ID: [OTHER_SONG]}
+    assert await assignments_of(party["anonymous"]) == {archive: [OTHER_SONG]}
     assert await assignments_of(party["trusted"]) == {
-        ARCHIVE_TAG_ID: [OTHER_SONG, SONG],
+        archive: [OTHER_SONG, SONG],
         BROKEN_TAG_ID: [SONG],
     }
 
 
-async def test_the_song_count_holds_the_songs_the_caller_may_not_see(party: Party) -> None:
+async def test_the_song_count_holds_the_songs_the_caller_may_not_see(
+    party: Party, archive: str
+) -> None:
     """`song_count` counts every song under a tag, `view_songs` or no `view_songs` — the
     tag admin's "N songs" and the delete confirmation would otherwise lie to the one
     person entitled to the truth about what they are about to take away.
@@ -473,28 +505,30 @@ async def test_the_song_count_holds_the_songs_the_caller_may_not_see(party: Part
 
     # And the manager's own view of a tag they may see agrees with the ids they get.
     # `THIRD_SONG` because `scratch` has taken the other two away from trusted entirely.
-    await tag_song(party["trusted"], THIRD_SONG, ARCHIVE_TAG_ID)
+    await tag_song(party["trusted"], THIRD_SONG, archive)
     listed = {tag["id"]: tag for tag in await tags_of(party["trusted"])}
-    assert listed[ARCHIVE_TAG_ID]["song_count"] == 1
-    assert (await assignments_of(party["trusted"]))[ARCHIVE_TAG_ID] == [THIRD_SONG]
+    assert listed[archive]["song_count"] == 1
+    assert (await assignments_of(party["trusted"]))[archive] == [THIRD_SONG]
 
 
-async def test_the_song_count_leaves_out_a_song_that_left_the_library(party: Party) -> None:
+async def test_the_song_count_leaves_out_a_song_that_left_the_library(
+    party: Party, archive: str
+) -> None:
     """The tag stays on `usdb:1234` for the day it comes back, but a song that is not in
     the library is not one of the songs the tag is on today."""
-    await tag_song(party["trusted"], SONG, ARCHIVE_TAG_ID)
-    await tag_song(party["trusted"], OTHER_SONG, ARCHIVE_TAG_ID)
+    await tag_song(party["trusted"], SONG, archive)
+    await tag_song(party["trusted"], OTHER_SONG, archive)
     async with factory(party.app)() as session:
         await session.execute(delete(Song).where(Song.id == SONG))
         await session.commit()
 
     listed = {tag["id"]: tag for tag in await tags_of(party["admin"])}
-    assert listed[ARCHIVE_TAG_ID]["song_count"] == 1
+    assert listed[archive]["song_count"] == 1
 
     await add_songs(party.app, SONG)
 
     listed = {tag["id"]: tag for tag in await tags_of(party["admin"])}
-    assert listed[ARCHIVE_TAG_ID]["song_count"] == 2
+    assert listed[archive]["song_count"] == 2
 
 
 async def test_a_freshly_written_tag_answers_with_its_count(party: Party) -> None:
@@ -518,14 +552,14 @@ async def test_a_freshly_written_tag_answers_with_its_count(party: Party) -> Non
     assert granted.json()["song_count"] == 1
 
 
-async def test_deleting_an_account_drops_the_rows_that_named_it(party: Party) -> None:
+async def test_deleting_an_account_drops_the_rows_that_named_it(party: Party, archive: str) -> None:
     user_id = party.ids["user"]
     granted = await party["admin"].put(
-        f"/api/v1/tags/{ARCHIVE_TAG_ID}/permissions",
+        f"/api/v1/tags/{archive}/permissions",
         json={"permissions": [{"action": "view", "user_id": user_id}]},
     )
     assert granted.status_code == 200, granted.text
-    await tag_song(party["admin"], SONG, ARCHIVE_TAG_ID)
+    await tag_song(party["admin"], SONG, archive)
 
     assert (await party["admin"].delete(f"/api/v1/users/{user_id}")).status_code == 204
 
@@ -686,3 +720,159 @@ async def test_a_hidden_song_drops_out_of_the_wishlist(party: Party) -> None:
 
     assert await wished(party["anonymous"]) == []
     assert await wished(party["trusted"]) == [SONG]
+
+
+# --- the migration -----------------------------------------------------------------
+
+# The id 0013 seeded `archive` with, and 0015 takes back out. Written out here rather than
+# imported: `tags.model` no longer names it, which is the point of the revision.
+SEEDED_ARCHIVE_ID = "a96ea6e6f3504493817d2db6813e030a"
+
+
+def _config(database_url: str) -> Config:
+    """Alembic runs sync: `migrations/env.py` calls `asyncio.run`, which cannot happen
+    inside a running event loop — hence a sync test."""
+    config = Config()
+    config.set_main_option("script_location", str(migrations_dir()))
+    config.set_main_option("sqlalchemy.url", database_url.replace("%", "%%"))
+    return config
+
+
+def _upgrade(database_url: str, revision: str) -> None:
+    command.upgrade(_config(database_url), revision)
+
+
+def _downgrade(database_url: str, revision: str) -> None:
+    command.downgrade(_config(database_url), revision)
+
+
+def _tag_ids(database: Path) -> set[str]:
+    with sqlite3.connect(database) as connection:
+        return {row[0] for row in connection.execute("SELECT id FROM tags")}
+
+
+def _tag_name(database: Path, tag_id: str) -> str | None:
+    with sqlite3.connect(database) as connection:
+        row = connection.execute("SELECT name FROM tags WHERE id = ?", (tag_id,)).fetchone()
+    return None if row is None else str(row[0])
+
+
+def _permission_count(database: Path, tag_id: str) -> int:
+    with sqlite3.connect(database) as connection:
+        count: int = connection.execute(
+            "SELECT count(*) FROM tag_permissions WHERE tag_id = ?", (tag_id,)
+        ).fetchone()[0]
+    return count
+
+
+def test_migration_0015_removes_the_untouched_archive_seed(tmp_path: Path) -> None:
+    """A database nobody ever used `archive` in loses the row, its permissions and nothing
+    else — and a database migrated all the way to head has `broken` alone, which is what a
+    fresh install gets."""
+    database = tmp_path / "wingman.db"
+    url = f"sqlite+aiosqlite:///{database}"
+    _upgrade(url, "0014")
+    assert SEEDED_ARCHIVE_ID in _tag_ids(database)
+
+    _upgrade(url, "head")
+
+    assert _tag_ids(database) == {BROKEN_TAG_ID}
+    assert _permission_count(database, SEEDED_ARCHIVE_ID) == 0
+    # `broken` is untouched: 0015 knows exactly one row.
+    assert _permission_count(database, BROKEN_TAG_ID) == 3
+
+    # And the downgrade puts it back the way 0013 had it.
+    _downgrade(url, "0014")
+
+    assert _tag_ids(database) == {BROKEN_TAG_ID, SEEDED_ARCHIVE_ID}
+    assert _permission_count(database, SEEDED_ARCHIVE_ID) == len(ARCHIVE_GRANTS)
+
+
+def test_migration_0015_keeps_an_archive_tag_somebody_renamed(tmp_path: Path) -> None:
+    """A renamed tag is somebody's own tag now, whatever id it happens to carry."""
+    database = tmp_path / "wingman.db"
+    url = f"sqlite+aiosqlite:///{database}"
+    _upgrade(url, "0014")
+    with sqlite3.connect(database) as connection:
+        connection.execute("UPDATE tags SET name = 'Put away' WHERE id = ?", (SEEDED_ARCHIVE_ID,))
+
+    _upgrade(url, "head")
+
+    assert SEEDED_ARCHIVE_ID in _tag_ids(database)
+    assert _permission_count(database, SEEDED_ARCHIVE_ID) == len(ARCHIVE_GRANTS)
+
+
+def test_migration_0015_keeps_an_archive_tag_that_holds_songs(tmp_path: Path) -> None:
+    """One `song_tags` row is a party using the tag, and taking it away would untag their
+    songs behind their back."""
+    database = tmp_path / "wingman.db"
+    url = f"sqlite+aiosqlite:///{database}"
+    _upgrade(url, "0014")
+    with sqlite3.connect(database) as connection:
+        connection.execute(
+            "INSERT INTO song_tags (tag_id, song_id, user_id, created_at) "
+            "VALUES (?, 'usdb:1', NULL, '2026-08-01 20:00:00')",
+            (SEEDED_ARCHIVE_ID,),
+        )
+
+    _upgrade(url, "head")
+
+    assert SEEDED_ARCHIVE_ID in _tag_ids(database)
+    assert _permission_count(database, SEEDED_ARCHIVE_ID) == len(ARCHIVE_GRANTS)
+
+
+def test_migration_0015_survives_an_archive_somebody_already_deleted(tmp_path: Path) -> None:
+    """Deleting the tag by hand is what the revision does anyway, so arriving to find it
+    gone must be a no-op and not a failure."""
+    database = tmp_path / "wingman.db"
+    url = f"sqlite+aiosqlite:///{database}"
+    _upgrade(url, "0014")
+    with sqlite3.connect(database) as connection:
+        connection.execute("DELETE FROM tag_permissions WHERE tag_id = ?", (SEEDED_ARCHIVE_ID,))
+        connection.execute("DELETE FROM tags WHERE id = ?", (SEEDED_ARCHIVE_ID,))
+
+    _upgrade(url, "head")
+
+    assert _tag_ids(database) == {BROKEN_TAG_ID}
+    assert _permission_count(database, BROKEN_TAG_ID) == 3
+
+
+def test_migration_0015_does_not_hand_a_kept_tag_back_a_revoked_grant(tmp_path: Path) -> None:
+    """The downgrade re-seeds into an empty space and nowhere else. A tag the upgrade kept
+    is the party's own, and putting a grant they revoked back under them would be this
+    revision undoing their work instead of its own."""
+    database = tmp_path / "wingman.db"
+    url = f"sqlite+aiosqlite:///{database}"
+    _upgrade(url, "0014")
+    with sqlite3.connect(database) as connection:
+        connection.execute("UPDATE tags SET name = 'Put away' WHERE id = ?", (SEEDED_ARCHIVE_ID,))
+        connection.execute(
+            "DELETE FROM tag_permissions WHERE tag_id = ? AND action = 'view' AND role = 'guest'",
+            (SEEDED_ARCHIVE_ID,),
+        )
+    _upgrade(url, "head")
+
+    _downgrade(url, "0014")
+
+    assert _permission_count(database, SEEDED_ARCHIVE_ID) == len(ARCHIVE_GRANTS) - 1
+    assert _tag_name(database, SEEDED_ARCHIVE_ID) == "Put away"
+
+
+def test_migration_0015_leaves_a_partys_own_archive_tag_alone_on_the_way_back(
+    tmp_path: Path,
+) -> None:
+    """The downgrade re-seeds — but `ix_tags_name_lower` is unique, so a party that made
+    their own `archive` after upgrading must not have the insert fail under them."""
+    database = tmp_path / "wingman.db"
+    url = f"sqlite+aiosqlite:///{database}"
+    _upgrade(url, "head")
+    with sqlite3.connect(database) as connection:
+        connection.execute(
+            "INSERT INTO tags (id, name, icon, color, show_in_list, hide_by_default, created_at) "
+            "VALUES ('mine', 'Archive', NULL, 'blue', 0, 1, '2026-08-01 20:00:00')"
+        )
+
+    _downgrade(url, "0014")
+
+    assert _tag_ids(database) == {BROKEN_TAG_ID, "mine"}
+    assert _permission_count(database, SEEDED_ARCHIVE_ID) == 0
