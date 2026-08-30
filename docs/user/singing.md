@@ -19,10 +19,15 @@ with the number of songs at the top.
 - The reload button next to the song count scans the song folders again.
 - Tap a song to open it: the cover, a listen-in preview, and the buttons for
   favorite, sing and wish. Below them, **Details** unfolds language, genre,
-  year, edition and who made it; **Best scores** lists the best runs ever sung
-  on it; **Add to playlist** puts the song on one of the playlists you may edit;
-  **Tags** shows the labels the party has put on it, and lets you set the ones
-  you are allowed to; **Comments** is what the room has said about it.
+  year, edition and who made it, and **Add to playlist** puts the song on one of
+  the playlists you may edit.
+- At the very bottom sit up to three icons, each with a number under it, and each
+  opening what it counts. The **trophy** is the best score anybody ever got on
+  the song and opens the whole ranking; the **tag** is how many labels the song
+  wears and opens the view where you set them; the **speech bubble** is how many
+  comments there are and opens them. Tag and speech bubble stand at **0** too —
+  putting the first tag on a song and being the first to say something are
+  exactly what they lead to — while the trophy waits until somebody has sung it.
 
 ## Filter by more than one thing
 
@@ -134,10 +139,9 @@ pretending you have no favorites. See [Tags](tags.md) for the whole picture.
 
 ## Comments
 
-Every song has a **Comments** row at the bottom of its view, carrying the
-number of comments once there is one. Open it and you get what everybody said
-about the song, oldest first: who said it, how long ago, and the text
-underneath.
+Every song carries a speech bubble at the bottom of its view with the number of
+comments under it — **0** included. Tap it and you get what everybody said about
+the song, oldest first: who said it, how long ago, and the text underneath.
 
 **Reading is open to everybody.** A guest phone that can see the song list can
 read the comments too — knowing that a song is in the wrong key, or that it is

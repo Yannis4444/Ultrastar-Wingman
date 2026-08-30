@@ -100,13 +100,15 @@ that is the one Wingman can total up for you.
 
 ## One song's best runs
 
-Open a song from the **Songs** tab and tap **Best scores** to see its ten best
-runs of all time: how often it was sung, the best, worst and average score over
-its whole history, and then the ranking itself — the singer's picture, how hard
-they sang it and when, and what they got.
+Open a song from the **Songs** tab and tap the **trophy** at the bottom of it —
+the number under it is the best anybody ever got — to see its ten best runs of
+all time: how often it was sung, the best, worst and average score over its
+whole history, and then the ranking itself — the singer's picture, how hard they
+sang it and when, and what they got.
 
 It reaches back over every party, so it needs the same right as the parties
-before tonight. A role without it does not get the **Best scores** row at all.
+before tonight. A role without it does not get the trophy at all, and neither
+does a song nobody has sung yet.
 
 ## Where the scores come from
 

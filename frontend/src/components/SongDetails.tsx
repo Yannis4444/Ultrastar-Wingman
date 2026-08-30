@@ -67,6 +67,13 @@ const COMMENT_MAX_LENGTH = 1000;
 /** How far the composer grows with what is typed — about five lines. */
 const COMPOSER_MAX_HEIGHT = 132;
 
+/**
+ * A count the listing behind it has not delivered yet — or never will. The
+ * app's no-value mark everywhere a number is expected (§1.3), and not "0",
+ * which would be an answer rather than the absence of one.
+ */
+const UNKNOWN = "—";
+
 /** A comment whose account is gone still says something worth reading. */
 const FORMER_MEMBER = "Former member";
 
@@ -96,13 +103,6 @@ function grow(field: HTMLTextAreaElement): void {
   // whose layout has not happened yet.
   field.style.height = wanted > 0 ? `${wanted}px` : "";
 }
-
-/**
- * How many tag glyphs the Tags row draws before it gives up and counts them
- * instead (§5). Past three the glyphs stop being recognisable at a glance and
- * start crowding the row's label.
- */
-const TAG_GLYPHS = 3;
 
 export default function SongDetails({ song, onClose }: SongDetailsProps) {
   const [selectingPlayers, setSelectingPlayers] = useState(false);
@@ -813,22 +813,6 @@ export default function SongDetails({ song, onClose }: SongDetailsProps) {
           ))}
         </ul>
 
-        {best.length > 0 && (
-          <button
-            type="button"
-            className="song-option"
-            onClick={() => setView("scores")}
-          >
-            <Icon
-              name="trophy"
-              className="song-option-icon song-option-trophy"
-            />
-            <span className="song-option-label">Best scores</span>
-            <span className="song-option-score">{best[0].score}</span>
-            <Icon name="chevron-right" className="song-option-chevron" />
-          </button>
-        )}
-
         {/* Offered on the strength of the right alone, not of the listing: a
             reader with no list yet is exactly who the "New playlist…" row
             inside is for, and the listing has not been asked for at this
@@ -844,53 +828,66 @@ export default function SongDetails({ song, onClose }: SongDetailsProps) {
             <Icon name="chevron-right" className="song-option-chevron" />
           </button>
         )}
+      </div>
 
-        {/* Absent when the reader may not view a single tag: a row leading into
-            an empty list is worse than no row (§5). It is the tags this reader
-            knows about that decide, not the ones on this song — putting the
-            first tag on a song is the point of the sub-view. */}
-        {tags.tags.length > 0 && (
+      {/* The summary strip closes the modal (§5): the three counted things as
+          a glyph over its number, each opening the sub-view it counts. The
+          rows above hold content and actions; these hold numbers. */}
+      <div className="song-summary">
+        {/* A trophy with nothing behind it would be a promise the song cannot
+            keep — unlike a tag or a comment, nobody can put the first score on
+            a song from here. Without `stats.history` the query never runs, so
+            the button is absent for the same reason the old row was. */}
+        {best.length > 0 && (
           <button
             type="button"
-            className="song-option"
-            onClick={() => setView("tags")}
+            className="song-summary-stat song-summary-scores"
+            onClick={() => setView("scores")}
           >
-            <Icon name="tag" className="song-option-icon" />
-            <span className="song-option-label">Tags</span>
-            {carried.length > 0 && (
-              <span className="song-option-tags">
-                {carried.length > TAG_GLYPHS
-                  ? `${carried.length} tags`
-                  : carried.map((tag) => (
-                      <Icon
-                        key={tag.id}
-                        name={tagGlyph(tag.icon)}
-                        className={tagColorClass(tag.color)}
-                      />
-                    ))}
-              </span>
-            )}
-            <Icon name="chevron-right" className="song-option-chevron" />
+            <IconStat icon="trophy" label="Best scores" value={best[0].score} />
           </button>
         )}
 
-        {/* Last of the option rows (§5), and the one row nobody is kept out
-            of: reading what the room said about a song is part of looking at
-            it. Writing is what needs an account, and that is said inside. */}
+        {/* Absent only when the reader may neither see nor set a single tag: a
+            button leading into an empty list is worse than no button (§5). At
+            zero it stays — putting the first tag on a song is what it is for. */}
+        {tags.tags.length > 0 && (
+          <button
+            type="button"
+            className="song-summary-stat"
+            onClick={() => setView("tags")}
+          >
+            {/* The two listings answer separately, and the tags one first: a
+                zero drawn between them would say "no tags on this song" about
+                a song whose assignments are still in flight. */}
+            <IconStat
+              icon="tag"
+              label="Tags"
+              value={tags.isPending ? UNKNOWN : carried.length}
+            />
+          </button>
+        )}
+
+        {/* Nobody is kept out of this one: reading what the room said about a
+            song is part of looking at it, and being the first to say something
+            is exactly what a zero leads to. Writing needs an account, and that
+            is said inside. */}
         <button
           type="button"
-          className="song-option"
+          className="song-summary-stat"
           onClick={() => {
             setNotice(null);
             setView("comments");
           }}
         >
-          <Icon name="comment" className="song-option-icon" />
-          <span className="song-option-label">Comments</span>
-          {said.length > 0 && (
-            <span className="song-option-count">{said.length}</span>
-          )}
-          <Icon name="chevron-right" className="song-option-chevron" />
+          {/* Zero once the listing says so, and not a moment earlier: while it
+              is in flight — or after it failed, when `said` stays empty for
+              good — "0" would be a claim nobody checked. */}
+          <IconStat
+            icon="comment"
+            label="Comments"
+            value={comments.isSuccess ? said.length : UNKNOWN}
+          />
         </button>
       </div>
     </Modal>

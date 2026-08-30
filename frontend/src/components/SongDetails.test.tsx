@@ -171,11 +171,14 @@ beforeEach(() => {
   deleteSongComment.mockResolvedValue({ data: undefined });
 });
 
-test("the best-scores row carries the top score and opens the ranked view", async () => {
+test("the strip's trophy carries the top score and opens the ranked view", async () => {
   renderDetails();
 
   const row = await screen.findByRole("button", { name: /Best scores/ });
   expect(row).toHaveTextContent("9500");
+  // A glyph over its number, and no chevron: the strip is not a row (§5).
+  expect(iconNames(row)).toEqual(["trophy"]);
+  expect(row.closest(".song-summary")).not.toBeNull();
 
   fireEvent.click(row);
   const dialog = screen.getByRole("dialog", { name: "Best scores" });
@@ -270,7 +273,7 @@ test("without players.view the ranking still draws initials", async () => {
   ).toEqual(["A", "B", "C", "D", "E", "F"]);
 });
 
-test("a song nobody has sung shows no scores section", async () => {
+test("a song nobody has sung carries no trophy", async () => {
   listSongScores.mockResolvedValue({ data: { scores: [] } });
   renderDetails();
 
@@ -302,6 +305,37 @@ test("the details section starts collapsed and toggles open", async () => {
 
   fireEvent.click(toggle);
   expect(toggle).toHaveAttribute("aria-expanded", "false");
+});
+
+test("the rows hold the content and the actions, the strip the numbers", async () => {
+  withPlaylist(false);
+  // Everything the modal can offer at once, so the order is the whole order.
+  getMe.mockResolvedValue(
+    meResponse(["songs.view", "playlists.manage", "stats.history"], {
+      user: userRead(),
+      role: "user",
+    }),
+  );
+  withTags([BROKEN], ["t-broken"]);
+  listSongComments.mockResolvedValue({
+    data: { comments: [comment(1, "Bob", "Banger.")] },
+  });
+  renderDetails();
+
+  // Details first, Add to playlist second — the order §5 prescribes, with the
+  // places after it reserved for Edit details and Delete song.
+  await screen.findByRole("button", { name: "Add to playlist" });
+  expect(
+    [...document.querySelectorAll(".song-option .song-option-label")].map(
+      (label) => label.textContent,
+    ),
+  ).toEqual(["Details", "Add to playlist"]);
+
+  // Everything with a number to show sits in the strip instead, in one order.
+  const strip = document.querySelector(".song-summary") as HTMLElement;
+  await waitFor(() =>
+    expect(iconNames(strip)).toEqual(["trophy", "tag", "comment"]),
+  );
 });
 
 test("the collapsed details row points right and only turns down when open", async () => {
@@ -593,7 +627,7 @@ test("the language row wears the flag, the glyph the Language facet wears", asyn
   expect(iconNames(screen.getByTitle("Language"))).toEqual(["flag"]);
 });
 
-test("there is no tags row when the reader may not view a single tag", async () => {
+test("there is no tag button when the reader may not view a single tag", async () => {
   renderDetails();
 
   await screen.findByRole("button", { name: "Details" });
@@ -602,33 +636,68 @@ test("there is no tags row when the reader may not view a single tag", async () 
   ).not.toBeInTheDocument();
 });
 
-test("the tags row draws the song's tags and opens the sub-view", async () => {
-  withTags([BROKEN, ARCHIVE], ["t-broken"]);
-  renderDetails();
-
-  const row = await screen.findByRole("button", { name: /Tags/ });
-  // The feature's glyph, then the one tag this song wears, then the chevron.
-  expect(iconNames(row)).toEqual(["tag", "alert", "chevron-right"]);
-
-  fireEvent.click(row);
-  const dialog = screen.getByRole("dialog", { name: "Tags" });
-  expect(within(dialog).getByText("broken")).toBeInTheDocument();
-  expect(within(dialog).getByText("archive")).toBeInTheDocument();
-});
-
-test("past three tags the row counts them instead", async () => {
+test("the strip counts the song's tags and opens the sub-view", async () => {
   const many = [1, 2, 3, 4].map((n) =>
     tagRead({ id: `t${n}`, name: `tag ${n}`, icon: "music" }),
   );
-  withTags(
-    many,
-    many.map((tag) => tag.id),
-  );
+  withTags([...many, ARCHIVE], [...many.map((tag) => tag.id), "t-archive"]);
   renderDetails();
 
-  const row = await screen.findByRole("button", { name: /Tags/ });
-  expect(row).toHaveTextContent("4 tags");
-  expect(iconNames(row)).toEqual(["tag", "chevron-right"]);
+  const button = await screen.findByRole("button", { name: /Tags/ });
+  // The feature's glyph and how many the song wears — never the tags' own
+  // glyphs, which stopped being recognisable past three of them.
+  await waitFor(() => expect(button).toHaveTextContent("5"));
+  expect(iconNames(button)).toEqual(["tag"]);
+
+  fireEvent.click(button);
+  const dialog = screen.getByRole("dialog", { name: "Tags" });
+  expect(within(dialog).getByText("tag 1")).toBeInTheDocument();
+  expect(within(dialog).getByText("archive")).toBeInTheDocument();
+});
+
+test("a song wearing no tag still gets the button, standing at zero", async () => {
+  withTags([BROKEN]);
+  renderDetails();
+
+  // Putting the first tag on a song is exactly what the button leads to (§5).
+  const button = await screen.findByRole("button", { name: /Tags/ });
+  await waitFor(() => expect(button).toHaveTextContent("0"));
+
+  fireEvent.click(button);
+  expect(
+    within(screen.getByRole("dialog", { name: "Tags" })).getByText("broken"),
+  ).toBeInTheDocument();
+});
+
+test("a tag count still in flight is a dash, never a zero", async () => {
+  listTags.mockResolvedValue({ data: { tags: [BROKEN] } });
+  // The two listings answer separately; this is the window between them.
+  listTagAssignments.mockReturnValue(new Promise(() => {}));
+  renderDetails();
+
+  const button = await screen.findByRole("button", { name: /Tags/ });
+  expect(button).toHaveTextContent("—");
+  expect(button).not.toHaveTextContent("0");
+});
+
+test("a tag set from the sub-view moves the strip's count", async () => {
+  withTags([BROKEN]);
+  renderDetails();
+
+  const button = await screen.findByRole("button", { name: /Tags/ });
+  await waitFor(() => expect(button).toHaveTextContent("0"));
+
+  fireEvent.click(button);
+  // The refetched assignments are what the count is read off, so the listing
+  // answers with the tag on before the row is pressed.
+  withTags([BROKEN], ["t-broken"]);
+  fireEvent.click(screen.getByRole("button", { name: /broken/ }));
+  await waitFor(() => expect(assignTag).toHaveBeenCalled());
+
+  fireEvent.click(screen.getByRole("button", { name: "Close" }));
+  await waitFor(() =>
+    expect(screen.getByRole("button", { name: /Tags/ })).toHaveTextContent("1"),
+  );
 });
 
 test("a tag the reader may set toggles on and off", async () => {
@@ -765,7 +834,7 @@ async function openComments(): Promise<HTMLElement> {
   return screen.getByRole("dialog", { name: "Comments" });
 }
 
-test("the comments row counts what was said and opens the sub-view", async () => {
+test("the strip counts what was said and opens the sub-view", async () => {
   listSongComments.mockResolvedValue({
     data: {
       comments: [comment(1, "Bob", "Banger."), comment(2, "Cara", "No")],
@@ -775,7 +844,7 @@ test("the comments row counts what was said and opens the sub-view", async () =>
 
   const row = await screen.findByRole("button", { name: /Comments/ });
   await waitFor(() => expect(row).toHaveTextContent("2"));
-  expect(iconNames(row)).toEqual(["comment", "chevron-right"]);
+  expect(iconNames(row)).toEqual(["comment"]);
   expect(listSongComments.mock.calls[0][0]).toMatchObject({
     path: { song_id: "usdb:1" },
   });
@@ -784,17 +853,70 @@ test("the comments row counts what was said and opens the sub-view", async () =>
   expect(screen.getByRole("dialog", { name: "Comments" })).toBeInTheDocument();
 });
 
-test("a song nobody has commented on still has the row, without a count", async () => {
+test("a song nobody has commented on stands at zero, not without a number", async () => {
   renderDetails();
 
   const row = await screen.findByRole("button", { name: /Comments/ });
-  await waitFor(() => expect(listSongComments).toHaveBeenCalled());
-  expect(row.querySelector(".song-option-count")).toBeNull();
+  // Being the first to say something is what the zero leads to (§5).
+  await waitFor(() => expect(row).toHaveTextContent("0"));
 
   fireEvent.click(row);
   expect(
     await screen.findByText("Nobody has said anything about this song yet."),
   ).toBeInTheDocument();
+});
+
+test("a comment count nobody has yet is a dash, never a zero", async () => {
+  // Never answers: the state the strip is in for as long as the request runs.
+  listSongComments.mockReturnValue(new Promise(() => {}));
+  renderDetails();
+
+  const button = await screen.findByRole("button", { name: /Comments/ });
+  await waitFor(() => expect(listSongComments).toHaveBeenCalled());
+  expect(button).toHaveTextContent("—");
+  expect(button).not.toHaveTextContent("0");
+});
+
+test("a comment listing that failed stays a dash rather than settling on zero", async () => {
+  listSongComments.mockRejectedValue({ detail: "nope" });
+  renderDetails();
+
+  const button = await screen.findByRole("button", { name: /Comments/ });
+  await waitFor(() => expect(listSongComments).toHaveBeenCalled());
+  // "0 comments" about a list that never arrived is a claim nobody checked.
+  expect(button).toHaveTextContent("—");
+  expect(button).not.toHaveTextContent("0");
+});
+
+test("a comment posted from the sub-view moves the strip's count", async () => {
+  asAccount(["comments.write"]);
+  addSongComment.mockResolvedValue({ data: {} });
+  renderDetails();
+
+  const button = await screen.findByRole("button", { name: /Comments/ });
+  await waitFor(() => expect(button).toHaveTextContent("0"));
+
+  const dialog = await openComments();
+  fireEvent.change(
+    within(dialog).getByRole("textbox", {
+      name: "Say something about this song",
+    }),
+    { target: { value: "Banger" } },
+  );
+  // What the refetch after the post finds.
+  listSongComments.mockResolvedValue({
+    data: { comments: [comment(1, "Alice", "Banger", { mine: true })] },
+  });
+  fireEvent.click(within(dialog).getByRole("button", { name: "Send" }));
+  await waitFor(() => expect(addSongComment).toHaveBeenCalled());
+
+  // Back on the song, the strip counts what was just said.
+  fireEvent.click(within(dialog).getByRole("button", { name: "Close" }));
+  await waitFor(() =>
+    expect(screen.getByRole("button", { name: /Comments/ })).toHaveTextContent(
+      "1",
+    ),
+  );
 });
 
 test("a listing that will not load says so rather than reading as empty", async () => {
