@@ -60,8 +60,7 @@ your song details and your filter, and you can no longer put it on a song.
    picker offers the ones that say something about a song — and one of the four
    **colours**. The icon and the colour are how the tag is recognised at a
    glance, so pick something that is not already in use.
-4. Decide the two options below (next section), and — if the tag should fill
-   itself rather than be set by hand — a rule under *Automatic*.
+4. Decide the two options below (next section).
 5. Tick who it is for, in the table of **guest**, **user** and **trusted** — and,
    under **Specific people**, search for an account to give one person more than
    their role has.
@@ -92,47 +91,6 @@ random reel's *All songs* until somebody asks for them in the filter — a wishe
 song can still win the reel. It is a default, not a lock: everybody who may see
 the tag can still bring the songs back. To really hide songs from somebody,
 take *See songs* away from them instead.
-
-## Automatic tags
-
-Most tags are put on songs by hand. A tag can also fill itself: pick a **rule**
-under *Automatic* in the tag editor and Wingman puts the tag on every song that
-matches, now and after every scan. A song downloaded at midnight arrives already
-tagged.
-
-There are five rules:
-
-| Rule | The songs it takes |
-|---|---|
-| **Duet** | Songs written for two singers — the file names two of them, or its lines switch between them partway through. |
-| **Has video** | Songs with a video file that is really there, the same video the song list knows about. |
-| **Language is…** | Songs whose language is the one you type — *Deutsch*, *English*. |
-| **Genre is…** | Songs of one genre — *Schlager*, *Rock*. |
-| **Edition is…** | Songs from one edition — the song packs a library is usually built out of. |
-
-The last three ask for a value, and the box offers what your own library
-actually holds: every language, genre or edition it has, so you rarely have to
-type one out. It is a list of suggestions and not a menu — type anything you
-like. Spelling and spaces do not matter (*english* finds the same songs as
-*English*), and a value nothing carries yet is perfectly fine: the tag stays
-empty until a song arrives that matches.
-
-!!! warning
-    A rule takes the tag over completely. Turn one on and every song somebody
-    had tagged by hand loses the tag; change the rule and the tag is worked out
-    again from scratch; take the rule off and the tag is left empty, because
-    every song under it was the rule's. Wingman asks first whenever there is
-    something to lose.
-
-Nobody sets an automatic tag on a song, not even the host: in a song's **Tags**
-the row wears a padlock that says what the tag follows — *Set automatically —
-language = Deutsch*. In the editor, **Tag songs** stays exactly as you ticked
-it but goes grey while a rule is on, and comes back the moment you set the rule
-to *Not automatic*. Everything else about the tag is unchanged: its name, icon,
-colour, the two options, and who may see it and its songs.
-
-On **User → Tags** an automatic tag says so under its name: "12 songs ·
-automatic: language = Deutsch".
 
 ## Change or delete a tag
 
@@ -192,8 +150,6 @@ Inside, every tag you may see is one row:
   straight away.
 - A tag you may only **see** carries a padlock and does nothing. Somebody
   holding *Tag songs* on it has to make that change.
-- An **automatic** tag carries a padlock too, and it says what the tag follows
-  — *Set automatically — duet*. Nobody sets that one; its rule does.
 
 If you may not see a single tag, the row is not there at all. If none of the
 tags is yours to set and none is on the song, the list is replaced by one

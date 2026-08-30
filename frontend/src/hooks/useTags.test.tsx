@@ -11,7 +11,7 @@ import {
 } from "../api/@tanstack/react-query.gen";
 import { meResponse } from "../test/auth";
 import { FakeSocket } from "../test/fakeSocket";
-import { builtInTagRead, tagRead } from "../test/tags";
+import { builtInTagRead, builtInTagReads, tagRead } from "../test/tags";
 import { useBuiltInTags, useTags } from "./useTags";
 
 const { getMe, listSongs, listTags, listTagAssignments } = vi.hoisted(() => ({
@@ -163,9 +163,12 @@ it("hands the two built-in marks over as the party configured them", async () =>
   listTags.mockResolvedValue({
     data: {
       tags: [ARCHIVE, BROKEN],
+      // The whole eight the listing carries: the two marks, and the six facets
+      // that belong to the Filter panel and the Tags admin.
       built_ins: [
         builtInTagRead({ color: "gold" }),
         builtInTagRead({ id: "sung", color: "blue", show_in_list: false }),
+        ...builtInTagReads().slice(2),
       ],
     },
   });
@@ -175,7 +178,10 @@ it("hands the two built-in marks over as the party configured them", async () =>
     expect(result.current.builtIns.favorites.color).toBe("gold"),
   );
   expect(result.current.builtIns.sung.show_in_list).toBe(false);
-  // Not tags: they are in neither listing and neither is filtered by them.
+  // The facets are skipped rather than drawn: a surface that puts a mark on a
+  // song row reads these two and nothing else.
+  expect(Object.keys(result.current.builtIns)).toEqual(["favorites", "sung"]);
+  // Not tags either: they are in neither listing and neither is filtered by them.
   expect(result.current.tags).toEqual([ARCHIVE, BROKEN]);
   expect(result.current.showInList).toEqual([BROKEN]);
 });

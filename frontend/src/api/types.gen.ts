@@ -17,32 +17,47 @@ export type BodySetPlayerAvatar = {
 /**
  * BuiltInTagRead
  *
- * One of the two built-in marks, and the little about it a party may decide.
+ * One built-in, and the little about it a party may decide.
  *
- * No name, icon, permissions or song count: the glyph is fixed (`heart` / `mic`), the
- * name is what the app calls it, and how many songs carry it is a different number for
- * every reader. What is left is what a tag row would also have — the colour it is drawn
- * in, and whether it belongs on a song row at all.
+ * No name, icon, permissions or song count: the glyph and the name are fixed, and how
+ * many songs carry it is a different number for every reader (a mark) or one number per
+ * value (a valued facet). What is left is what a tag row would also have — the colour it
+ * is drawn in, whether it belongs on a song row, and whether the Filter panel offers it.
+ *
+ * One flat model rather than three, one per kind: `kind` says which options exist, and
+ * an option the kind does not have is **null** — not absent, and never a value that
+ * could be mistaken for a setting somebody made. So a reader checks `kind` (or, for one
+ * field, `is not None`) and a `PATCH` naming a null option is a 422.
  */
 export type BuiltInTagRead = {
     /**
      * Id
      */
-    id: 'favorites' | 'sung';
+    id: 'favorites' | 'sung' | 'duet' | 'video' | 'genre' | 'language' | 'edition' | 'decade';
+    /**
+     * Kind
+     */
+    kind: 'mark' | 'boolean' | 'valued';
     /**
      * Color
      */
-    color: string;
+    color: string | null;
     /**
      * Show In List
      */
-    show_in_list: boolean;
+    show_in_list: boolean | null;
+    /**
+     * Show In Filter
+     */
+    show_in_filter: boolean | null;
 };
 
 /**
  * BuiltInTagUpdate
  *
- * The two things a built-in mark has. Both optional, like every other PATCH here.
+ * Every option any built-in has. All optional, like every other PATCH here — and
+ * which of them this particular built-in *may* be sent is its kind's business, checked
+ * in the service: a body cannot know the id in the path.
  */
 export type BuiltInTagUpdate = {
     /**
@@ -53,6 +68,10 @@ export type BuiltInTagUpdate = {
      * Show In List
      */
     show_in_list?: boolean | null;
+    /**
+     * Show In Filter
+     */
+    show_in_filter?: boolean | null;
 };
 
 /**
@@ -1039,6 +1058,10 @@ export type SongRead = {
      */
     has_video: boolean;
     /**
+     * Is Duet
+     */
+    is_duet: boolean;
+    /**
      * Language
      */
     language: string | null;
@@ -1114,7 +1137,6 @@ export type TagCreate = {
      * Permissions
      */
     permissions?: Array<TagPermissionInput>;
-    rule?: TagRuleInput | null;
 };
 
 /**
@@ -1221,7 +1243,6 @@ export type TagRead = {
      * Can Assign
      */
     can_assign: boolean;
-    rule: TagRuleRead | null;
     /**
      * Song Count
      */
@@ -1230,76 +1251,6 @@ export type TagRead = {
      * Permissions
      */
     permissions?: Array<TagPermissionRead> | null;
-};
-
-/**
- * TagRuleInput
- *
- * The rule a tag should follow. `kind` is checked against the registry, not by a
- * `Literal`: a rule is added by writing one class, and a schema the frontend regenerates
- * would otherwise be a second place to remember.
- */
-export type TagRuleInput = {
-    /**
-     * Kind
-     */
-    kind: string;
-    /**
-     * Value
-     */
-    value?: string | null;
-};
-
-/**
- * TagRuleKindList
- */
-export type TagRuleKindList = {
-    /**
-     * Rules
-     */
-    rules: Array<TagRuleKindRead>;
-};
-
-/**
- * TagRuleKindRead
- *
- * One entry of the rule registry, as the tag editor needs it: what to call it, whether
- * it needs a value, and the values the library holds for the field it reads.
- */
-export type TagRuleKindRead = {
-    /**
-     * Kind
-     */
-    kind: string;
-    /**
-     * Label
-     */
-    label: string;
-    /**
-     * Needs Value
-     */
-    needs_value: boolean;
-    /**
-     * Suggestions
-     */
-    suggestions: Array<string>;
-};
-
-/**
- * TagRuleRead
- *
- * The rule a tag carries, if it carries one: a kind from the registry and, for the
- * kinds that compare a field, the value it compares against.
- */
-export type TagRuleRead = {
-    /**
-     * Kind
-     */
-    kind: string;
-    /**
-     * Value
-     */
-    value: string | null;
 };
 
 /**
@@ -1329,7 +1280,6 @@ export type TagUpdate = {
      * Hide By Default
      */
     hide_by_default?: boolean | null;
-    rule?: TagRuleInput | null;
 };
 
 /**
@@ -3578,7 +3528,7 @@ export type CreateTagErrors = {
      */
     409: unknown;
     /**
-     * Unknown role, account or rule, or a bad color, icon or value.
+     * Unknown role or account, or a bad color or icon.
      */
     422: unknown;
 };
@@ -3598,7 +3548,7 @@ export type UpdateBuiltInTagData = {
         /**
          * Built In Id
          */
-        built_in_id: 'favorites' | 'sung';
+        built_in_id: 'favorites' | 'sung' | 'duet' | 'video' | 'genre' | 'language' | 'edition' | 'decade';
     };
     query?: never;
     url: '/api/v1/tags/built-in/{built_in_id}';
@@ -3606,7 +3556,7 @@ export type UpdateBuiltInTagData = {
 
 export type UpdateBuiltInTagErrors = {
     /**
-     * Unknown built-in, or a bad color.
+     * Unknown built-in, an option its kind lacks, or a bad color.
      */
     422: unknown;
 };
@@ -3619,22 +3569,6 @@ export type UpdateBuiltInTagResponses = {
 };
 
 export type UpdateBuiltInTagResponse = UpdateBuiltInTagResponses[keyof UpdateBuiltInTagResponses];
-
-export type ListTagRulesData = {
-    body?: never;
-    path?: never;
-    query?: never;
-    url: '/api/v1/tags/rules';
-};
-
-export type ListTagRulesResponses = {
-    /**
-     * Successful Response
-     */
-    200: TagRuleKindList;
-};
-
-export type ListTagRulesResponse = ListTagRulesResponses[keyof ListTagRulesResponses];
 
 export type ListTagAssignmentsData = {
     body?: never;
@@ -3708,10 +3642,12 @@ export type UpdateTagErrors = {
      */
     409: unknown;
     /**
-     * Unknown rule, or a value the rule cannot use.
+     * Validation Error
      */
-    422: unknown;
+    422: HttpValidationError;
 };
+
+export type UpdateTagError = UpdateTagErrors[keyof UpdateTagErrors];
 
 export type UpdateTagResponses = {
     /**
@@ -3780,10 +3716,6 @@ export type UnassignTagErrors = {
      */
     404: unknown;
     /**
-     * The tag is automatic — its rule decides who carries it.
-     */
-    409: unknown;
-    /**
      * Validation Error
      */
     422: HttpValidationError;
@@ -3825,10 +3757,6 @@ export type AssignTagErrors = {
      * Unknown song or tag.
      */
     404: unknown;
-    /**
-     * The tag is automatic — its rule decides who carries it.
-     */
-    409: unknown;
     /**
      * Validation Error
      */

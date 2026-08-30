@@ -1,7 +1,9 @@
 import type { TagRead } from "./api";
-import { ruleKindReads, tagRead } from "./test/tags";
+import { builtInTagRead, builtInTagReads, tagRead } from "./test/tags";
 import {
+  builtInTags,
   criteriaOffAny,
+  DEFAULT_BUILT_IN_TAGS,
   defaultTagCriteria,
   effectiveCriteria,
   FAVORITES_ONLY,
@@ -9,7 +11,6 @@ import {
   NO_OVERRIDES,
   passesSongCriteria,
   passesTagCriteria,
-  ruleSummary,
   sameOverrides,
   SUNG_ONLY,
   tagColorClass,
@@ -36,31 +37,29 @@ it("paints a tag in one of the four colours, never in nothing", () => {
   expect(tagColorClass("chartreuse")).toBe("tag-color-neutral");
 });
 
-it("says what a rule does in the voice of a meta line", () => {
-  const kinds = ruleKindReads();
-  // A flag rule is its label; a value rule loses the "is…" the select's option
-  // trails off into and gains the value the input finished it with.
-  expect(ruleSummary({ kind: "duet", value: null }, kinds)).toBe("duet");
-  expect(ruleSummary({ kind: "has_video", value: null }, kinds)).toBe(
-    "has video",
-  );
-  expect(ruleSummary({ kind: "language", value: "English" }, kinds)).toBe(
-    "language = English",
-  );
-  expect(ruleSummary({ kind: "edition", value: "Party" }, kinds)).toBe(
-    "edition = Party",
-  );
+it("reads the two marks out of a listing that carries all eight built-ins", () => {
+  // The six facets ride along on the same listing; the surfaces that draw a
+  // mark take their two and leave the rest to the filter panel and the admin.
+  const marks = builtInTags(builtInTagReads());
+
+  expect(Object.keys(marks)).toEqual(["favorites", "sung"]);
+  expect(marks.favorites).toEqual({
+    id: "favorites",
+    color: "pink",
+    show_in_list: true,
+  });
+  expect(marks.sung.color).toBe("blue");
 });
 
-it("names a rule this build does not know by its own kind", () => {
-  // A tag written by a newer backend. Saying nothing about it would be worse:
-  // the row would read as an ordinary tag nobody can set.
-  expect(ruleSummary({ kind: "year_between", value: null }, [])).toBe(
-    "year_between",
-  );
-  expect(ruleSummary({ kind: "year_between", value: "1990" }, [])).toBe(
-    "year_between = 1990",
-  );
+it("falls back to the hard-coded marks for a listing it cannot read", () => {
+  // No answer yet, and — a build older than the backend — a mark whose options
+  // came back null. Either way a heart drawn in nothing would inherit whatever
+  // colour the row around it is painted in.
+  expect(builtInTags(undefined)).toEqual(DEFAULT_BUILT_IN_TAGS);
+  expect(
+    builtInTags([builtInTagRead({ color: null, show_in_list: null })])
+      .favorites,
+  ).toEqual(DEFAULT_BUILT_IN_TAGS.favorites);
 });
 
 it("puts on a row only the tags the reader may see and asked for", () => {

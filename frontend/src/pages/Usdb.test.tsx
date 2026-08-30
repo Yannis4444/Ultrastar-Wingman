@@ -81,6 +81,7 @@ function localSong(overrides: Partial<SongRead> = {}): SongRead {
     artist: "ABBA",
     duration_seconds: 231,
     has_video: true,
+    is_duet: false,
     language: "English",
     genre: "Pop",
     year: 1976,

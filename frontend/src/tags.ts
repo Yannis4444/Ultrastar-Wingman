@@ -1,9 +1,4 @@
-import type {
-  BuiltInTagRead,
-  TagRead,
-  TagRuleKindRead,
-  TagRuleRead,
-} from "./api";
+import type { BuiltInTagRead, TagRead } from "./api";
 import { ICON_PATHS, type IconName } from "./components/icons";
 
 /** The colours a tag may be drawn in, in the order the editor offers them.
@@ -33,39 +28,12 @@ export function tagColorClass(color: string): string {
 }
 
 /**
- * A rule's name in the middle of a sentence — "automatic: language = English"
- * on the admin row, "Set automatically — duet" on a locked tag.
- *
- * The registry's labels are written for the editor's select, where each stands
- * alone and a value kind trails off into the input behind it ("Language is…").
- * A sentence wants the plain noun instead, so the ellipsis and the "is" in
- * front of it go and the rest is lowercased into the voice of the meta line it
- * joins ("hidden by default", "per person").
+ * The two per-reader marks. `GET /tags` answers eight built-ins — the marks and
+ * the six facets the song files already carry — and every surface here draws
+ * the two it knows; the rest are the Filter panel's and the admin's, and are
+ * taught to this module in their own batch.
  */
-function ruleNoun(label: string): string {
-  return label
-    .replace(/\s*…$/, "")
-    .replace(/\s+is$/i, "")
-    .toLowerCase();
-}
-
-/**
- * What one tag's rule says, in words: "duet", "language = English". A kind this
- * build does not know — a tag written by a newer backend — is named by its raw
- * kind rather than dropped: "automatic: year_between" is still the truth about
- * the tag, and it says where to look.
- */
-export function ruleSummary(
-  rule: TagRuleRead,
-  kinds: readonly TagRuleKindRead[],
-): string {
-  const known = kinds.find((kind) => kind.kind === rule.kind);
-  const noun = known === undefined ? rule.kind : ruleNoun(known.label);
-  return rule.value === null ? noun : `${noun} = ${rule.value}`;
-}
-
-/** The two marks Wingman brings with it. */
-export type BuiltInTagId = BuiltInTagRead["id"];
+export type BuiltInTagId = "favorites" | "sung";
 
 /** In the order §7's *Built-in* section lists them — the heart everybody knows
  *  first. Their order on a song row is the other way round and belongs to
@@ -86,8 +54,20 @@ export const BUILT_IN_TAGS: Record<
   sung: { name: "Sung", icon: "mic" },
 };
 
-/** Both built-ins by id — one lookup for every surface that draws a mark. */
-export type BuiltInTags = Record<BuiltInTagId, BuiltInTagRead>;
+/**
+ * One mark as the surfaces that draw it need it: never null, whatever the
+ * listing holds. The API's own row has a null for every option its kind has not
+ * got, and a `tagColorClass(null)` would leave a heart in whatever colour the
+ * row around it is painted in.
+ */
+export interface BuiltInMark {
+  id: BuiltInTagId;
+  color: string;
+  show_in_list: boolean;
+}
+
+/** Both marks by id — one lookup for every surface that draws one. */
+export type BuiltInTags = Record<BuiltInTagId, BuiltInMark>;
 
 /**
  * What the marks look like before the listing has answered, and what a build
@@ -100,12 +80,26 @@ export const DEFAULT_BUILT_IN_TAGS: BuiltInTags = {
   sung: { id: "sung", color: "blue", show_in_list: true },
 };
 
-/** The listing's `built_ins` as the pair every surface reads. */
+/**
+ * The listing's `built_ins` as the pair every surface reads. The six facets in
+ * the same list are skipped here rather than dropped from the response: they
+ * belong to the Filter panel and the Tags admin, which read the rows themselves.
+ * A null option falls back to the default, so a backend that grew a kind this
+ * build has never heard of still leaves the two marks drawable.
+ */
 export function builtInTags(
   rows: readonly BuiltInTagRead[] | undefined,
 ): BuiltInTags {
   const found = { ...DEFAULT_BUILT_IN_TAGS };
-  for (const row of rows ?? []) found[row.id] = row;
+  for (const row of rows ?? []) {
+    if (row.id !== "favorites" && row.id !== "sung") continue;
+    found[row.id] = {
+      id: row.id,
+      color: row.color ?? DEFAULT_BUILT_IN_TAGS[row.id].color,
+      show_in_list:
+        row.show_in_list ?? DEFAULT_BUILT_IN_TAGS[row.id].show_in_list,
+    };
+  }
   return found;
 }
 

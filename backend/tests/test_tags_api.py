@@ -33,6 +33,7 @@ from ultrastar_wingman.karaoke.model import KaraokeSession, Sing
 from ultrastar_wingman.library.model import PlaylistEntry
 from ultrastar_wingman.settings import Setting as SettingRow
 from ultrastar_wingman.songs.model import Song
+from ultrastar_wingman.tags import builtin
 from ultrastar_wingman.tags.model import (
     BROKEN_TAG_ID,
     TAG_ACTIONS,
@@ -40,7 +41,7 @@ from ultrastar_wingman.tags.model import (
     SongTag,
     TagPermission,
 )
-from ultrastar_wingman.tags.schema import TagAction, TagColor
+from ultrastar_wingman.tags.schema import BuiltInTagId, BuiltInTagKind, TagAction, TagColor
 
 # The one tag the app seeds, by name, so a test that renames it does not have to know its id.
 BROKEN = "broken"
@@ -649,10 +650,6 @@ async def test_the_leaks_we_accept(party: Party) -> None:
       in the listing shows — recomputed per caller, two people would disagree about how
       long the same playlist is. The playlist *detail* does drop the hidden entries.
     * `GET /favorites` answers ids the caller marked themselves, and nothing else.
-    * `GET /tags/rules` suggests the languages, genres and editions the *whole* library
-      holds, a hidden song's included (`test_tags_rules` pins that down). A datalist that
-      changed per reader would show two managers different options for the same rule, and
-      a metadata value is not a song.
     * somebody who already has the id can still learn a hidden song is *in* a playlist —
       `GET /playlists?song_id=…` fills `contains`, and adding it again is a 409. Both need
       the id first, which is what the 404s above keep back.
@@ -727,16 +724,49 @@ async def test_a_hidden_song_drops_out_of_the_wishlist(party: Party) -> None:
     assert await wished(party["trusted"]) == [SONG]
 
 
-# --- the built-in marks ------------------------------------------------------------
+# --- the built-in marks and facets ---------------------------------------------------
 
-# Favorites and Sung: not rows in `tags`, so `/api/v1/tags` carries them in a list of
-# their own and one route of their own changes them.
+# The eight things Wingman brings with it: the two per-reader marks, the two boolean
+# facets and the four valued ones. None is a row in `tags`, so `/api/v1/tags` carries them
+# in a list of their own and one route of their own changes them.
+
+# What §7's *Built-in* section draws, in its order, and the options each kind allows.
+BUILT_IN_ORDER = ["favorites", "sung", "duet", "video", "genre", "language", "edition", "decade"]
+MARK_OPTIONS = {"color", "show_in_list"}
+BOOLEAN_OPTIONS = {"color", "show_in_list", "show_in_filter"}
+VALUED_OPTIONS = {"show_in_filter"}
 
 
 async def built_ins_of(client: AsyncClient) -> dict[str, dict[str, Any]]:
     response = await client.get("/api/v1/tags")
     assert response.status_code == 200, response.text
     return {row["id"]: row for row in response.json()["built_ins"]}
+
+
+def options_of(row: dict[str, Any]) -> set[str]:
+    """Which options this row actually carries — the fields that are not null. The client
+    tells "off" from "not a thing here" by exactly this."""
+    return {option for option in BOOLEAN_OPTIONS if row[option] is not None}
+
+
+def test_the_built_in_table_says_the_same_thing_everywhere() -> None:
+    """`BUILT_INS` is the one place that knows, so nothing may quietly disagree with it:
+    the schema's two literals, the options each kind has, and the settings keys the values
+    live under. A default for an option the kind has not got would otherwise be written
+    down, never read, and never noticed — the read builds its nulls from `KIND_OPTIONS`,
+    not from `defaults`."""
+    assert [built_in.id for built_in in builtin.BUILT_INS] == BUILT_IN_ORDER
+    assert set(get_args(BuiltInTagId)) == set(BUILT_IN_ORDER)
+    assert set(get_args(BuiltInTagKind)) == set(builtin.KIND_OPTIONS)
+    assert set(builtin.KIND_OPTIONS["mark"]) == MARK_OPTIONS
+    assert set(builtin.KIND_OPTIONS["boolean"]) == BOOLEAN_OPTIONS
+    assert set(builtin.KIND_OPTIONS["valued"]) == VALUED_OPTIONS
+
+    keys = set()
+    for built_in in builtin.BUILT_INS:
+        assert set(built_in.defaults) == set(built_in.options), built_in.id
+        keys |= {f"tags.built_in.{built_in.id}.{option}" for option in built_in.options}
+    assert set(builtin.DEFINITIONS) == keys
 
 
 async def set_built_in(
@@ -747,15 +777,64 @@ async def set_built_in(
     return dict(response.json())
 
 
-async def test_everybody_reads_the_built_in_marks(party: Party) -> None:
-    """A guest with no account has to know what colour to paint the hearts, so the config
-    rides on the listing every reader already makes — a pink heart and a blue microphone,
-    both on the song rows, until somebody says otherwise."""
+async def test_everybody_reads_the_built_ins(party: Party) -> None:
+    """A guest with no account has to know what colour to paint the hearts and which
+    facets the Filter panel offers, so the config rides on the listing every reader
+    already makes — in §7's order, and at the defaults until somebody says otherwise.
+
+    The marks arrive pink and blue on the song rows; the two boolean facets neutral, off
+    the rows (§1.3 — a duet is not rare enough to mark every second song with) and on in
+    the filter; a valued facet has the filter alone, and is on there too."""
     for identity in ("anonymous", "user", "trusted", "admin", "host"):
         rows = await built_ins_of(party[identity])
-        assert list(rows) == ["favorites", "sung"]
-        assert rows["favorites"] == {"id": "favorites", "color": "pink", "show_in_list": True}
-        assert rows["sung"] == {"id": "sung", "color": "blue", "show_in_list": True}
+        assert list(rows) == BUILT_IN_ORDER
+        assert rows["favorites"] == {
+            "id": "favorites",
+            "kind": "mark",
+            "color": "pink",
+            "show_in_list": True,
+            "show_in_filter": None,
+        }
+        assert rows["sung"] == {
+            "id": "sung",
+            "kind": "mark",
+            "color": "blue",
+            "show_in_list": True,
+            "show_in_filter": None,
+        }
+        for facet_id in ("duet", "video"):
+            assert rows[facet_id] == {
+                "id": facet_id,
+                "kind": "boolean",
+                "color": "neutral",
+                "show_in_list": False,
+                "show_in_filter": True,
+            }
+        for facet_id in ("genre", "language", "edition", "decade"):
+            assert rows[facet_id] == {
+                "id": facet_id,
+                "kind": "valued",
+                "color": None,
+                "show_in_list": None,
+                "show_in_filter": True,
+            }
+
+
+async def test_a_built_in_carries_exactly_its_kind_s_options(party: Party) -> None:
+    """`kind` is what says which options exist, and a null is how the row says "not a
+    thing here" — so a client never has to guess whether an absent value means off."""
+    rows = await built_ins_of(party["anonymous"])
+    for built_in_id, expected in (
+        ("favorites", MARK_OPTIONS),
+        ("sung", MARK_OPTIONS),
+        ("duet", BOOLEAN_OPTIONS),
+        ("video", BOOLEAN_OPTIONS),
+        ("genre", VALUED_OPTIONS),
+        ("language", VALUED_OPTIONS),
+        ("edition", VALUED_OPTIONS),
+        ("decade", VALUED_OPTIONS),
+    ):
+        assert options_of(rows[built_in_id]) == expected, built_in_id
 
 
 async def test_a_tag_manager_recolours_a_built_in_mark(
@@ -765,13 +844,17 @@ async def test_a_tag_manager_recolours_a_built_in_mark(
     setting. And an open song list has to repaint, so the same `tags.changed` goes out."""
     assert await set_built_in(party["trusted"], "favorites", color="gold") == {
         "id": "favorites",
+        "kind": "mark",
         "color": "gold",
         "show_in_list": True,
+        "show_in_filter": None,
     }
     assert await set_built_in(party["admin"], "sung", show_in_list=False) == {
         "id": "sung",
+        "kind": "mark",
         "color": "blue",
         "show_in_list": False,
+        "show_in_filter": None,
     }
 
     assert [event["event"] for event in broadcast_events] == ["tags.changed", "tags.changed"]
@@ -780,22 +863,75 @@ async def test_a_tag_manager_recolours_a_built_in_mark(
     assert rows["sung"]["show_in_list"] is False
 
 
+async def test_a_tag_manager_takes_a_facet_out_of_the_filter(party: Party) -> None:
+    """The one option a valued facet has — a party that files nothing by edition can drop
+    that row. A boolean facet has all three, and its mark can go on the rows."""
+    assert await set_built_in(party["admin"], "edition", show_in_filter=False) == {
+        "id": "edition",
+        "kind": "valued",
+        "color": None,
+        "show_in_list": None,
+        "show_in_filter": False,
+    }
+    assert await set_built_in(party["admin"], "duet", color="gold", show_in_list=True) == {
+        "id": "duet",
+        "kind": "boolean",
+        "color": "gold",
+        "show_in_list": True,
+        "show_in_filter": True,
+    }
+
+    rows = await built_ins_of(party["anonymous"])
+    assert rows["edition"]["show_in_filter"] is False
+    assert rows["duet"]["show_in_list"] is True
+
+
+async def test_a_built_in_refuses_an_option_its_kind_has_not_got(party: Party) -> None:
+    """A colour on *Genre*, which is drawn in nothing, and `show_in_filter` on a mark,
+    whose Filter row the panel always has: 422 rather than a value written where nothing
+    would ever read it. The other built-ins are untouched by the attempt."""
+    await set_built_in(party["admin"], "genre", expect=422, color="gold")
+    await set_built_in(party["admin"], "genre", expect=422, show_in_list=True)
+    await set_built_in(party["admin"], "favorites", expect=422, show_in_filter=False)
+    # Refused as a whole: the good half of a mixed body is not written either.
+    await set_built_in(party["admin"], "decade", expect=422, show_in_filter=False, color="blue")
+
+    rows = await built_ins_of(party["admin"])
+    assert rows["genre"] == {
+        "id": "genre",
+        "kind": "valued",
+        "color": None,
+        "show_in_list": None,
+        "show_in_filter": True,
+    }
+    assert rows["decade"]["show_in_filter"] is True
+    assert rows["favorites"]["show_in_filter"] is None
+
+
 async def test_a_built_in_patch_touches_only_what_it_names(party: Party) -> None:
     await set_built_in(party["admin"], "favorites", color="neutral", show_in_list=False)
 
     assert await set_built_in(party["admin"], "favorites", show_in_list=True) == {
         "id": "favorites",
+        "kind": "mark",
         "color": "neutral",
         "show_in_list": True,
+        "show_in_filter": None,
     }
 
 
-async def test_a_plain_account_cannot_change_a_built_in_mark(party: Party) -> None:
-    """It is one global decision, like a tag's colour — and a guest may not even try."""
+async def test_a_plain_account_cannot_change_a_built_in(party: Party) -> None:
+    """It is one global decision, like a tag's colour — and a guest may not even try.
+    The same gate over all three kinds: reading is everybody's, writing is `tags.manage`."""
     await set_built_in(party["user"], "favorites", expect=403, color="gold")
     await set_built_in(party["anonymous"], "favorites", expect=403, color="gold")
+    await set_built_in(party["user"], "duet", expect=403, show_in_filter=False)
+    await set_built_in(party["anonymous"], "genre", expect=403, show_in_filter=False)
 
-    assert (await built_ins_of(party["anonymous"]))["favorites"]["color"] == "pink"
+    rows = await built_ins_of(party["anonymous"])
+    assert rows["favorites"]["color"] == "pink"
+    assert rows["duet"]["show_in_filter"] is True
+    assert rows["genre"]["show_in_filter"] is True
 
 
 async def test_a_built_in_mark_refuses_a_colour_no_tag_may_wear(party: Party) -> None:
@@ -807,19 +943,21 @@ async def test_a_built_in_mark_refuses_a_colour_no_tag_may_wear(party: Party) ->
     assert (await built_ins_of(party["admin"]))["favorites"]["color"] == "pink"
 
 
-async def test_only_the_two_built_in_ids_exist(party: Party) -> None:
-    """`recent` is a mode — a time-ordered list — and not a mark, so there is nothing to
-    configure about it; a tag id is not a built-in id either."""
+async def test_only_the_eight_built_in_ids_exist(party: Party) -> None:
+    """`recent` is a mode — a time-ordered list — and neither a mark nor a facet, so there
+    is nothing to configure about it; a tag id is not a built-in id either. `year` is the
+    column *Decade* is bucketed from, and not a built-in in its own right."""
     await set_built_in(party["admin"], "recent", expect=422, color="gold")
+    await set_built_in(party["admin"], "year", expect=422, show_in_filter=False)
     await set_built_in(party["admin"], BROKEN_TAG_ID, expect=422, color="gold")
 
 
 async def test_the_reserved_ids_are_not_tags(party: Party) -> None:
-    """Everywhere a real tag id is expected, `favorites` and `sung` are simply unknown —
+    """Everywhere a real tag id is expected, the eight built-in ids are simply unknown —
     they are not rows in `tags`, and no route may pretend otherwise. A tag id is 32 hex
-    characters, so nothing a manager creates can ever collide with the two words."""
+    characters, so nothing a manager creates can ever collide with the eight words."""
     admin = party["admin"]
-    for built_in_id in ("favorites", "sung"):
+    for built_in_id in BUILT_IN_ORDER:
         assert (
             await admin.patch(f"/api/v1/tags/{built_in_id}", json={"color": "gold"})
         ).status_code == 404
@@ -1018,3 +1156,88 @@ def test_migration_0015_leaves_a_partys_own_archive_tag_alone_on_the_way_back(
 
     assert _tag_ids(database) == {BROKEN_TAG_ID, "mine"}
     assert _permission_count(database, SEEDED_ARCHIVE_ID) == 0
+
+
+# The tag 0016 could make automatic, written by hand at that revision — `tags.model` has
+# no rule columns any more, which is what 0017 is about.
+AUTOMATIC_TAG_ID = "1e0f6a2c9b8d4e7fa0c3b5d7e9f10123"
+MANUAL_TAG_ID = "2f1a7b3d0c9e5f8ab1d4c6e8fa021234"
+
+
+def _insert_tag(database: Path, tag_id: str, name: str, rule_kind: str | None) -> None:
+    with sqlite3.connect(database) as connection:
+        connection.execute(
+            "INSERT INTO tags (id, name, icon, color, show_in_list, hide_by_default, "
+            "rule_kind, rule_value, created_at) "
+            "VALUES (?, ?, NULL, 'neutral', 0, 0, ?, NULL, '2026-08-01 20:00:00')",
+            (tag_id, name, rule_kind),
+        )
+        connection.execute(
+            "INSERT INTO tag_permissions (tag_id, action, role, user_id) "
+            "VALUES (?, 'view', 'user', NULL)",
+            (tag_id,),
+        )
+
+
+def _tagged_song_ids(database: Path, tag_id: str) -> set[str]:
+    with sqlite3.connect(database) as connection:
+        return {
+            row[0]
+            for row in connection.execute(
+                "SELECT song_id FROM song_tags WHERE tag_id = ?", (tag_id,)
+            )
+        }
+
+
+def _tag_columns(database: Path) -> set[str]:
+    with sqlite3.connect(database) as connection:
+        return {row[1] for row in connection.execute("PRAGMA table_info(tags)")}
+
+
+def test_migration_0017_drops_the_rule_columns_and_the_rows_they_derived(tmp_path: Path) -> None:
+    """The rows an automatic tag carried were the rule's answer, not anybody's decision —
+    and once the column that says so is gone, nothing would ever take them off again. The
+    tag itself survives as an ordinary empty one, name, colour and grants intact; a manual
+    tag keeps every song it was put on."""
+    database = tmp_path / "wingman.db"
+    url = f"sqlite+aiosqlite:///{database}"
+    _upgrade(url, "0016")
+    _insert_tag(database, AUTOMATIC_TAG_ID, "Duets", "duet")
+    _insert_tag(database, MANUAL_TAG_ID, "Broken audio", None)
+    with sqlite3.connect(database) as connection:
+        for tag_id in (AUTOMATIC_TAG_ID, MANUAL_TAG_ID):
+            connection.execute(
+                "INSERT INTO song_tags (tag_id, song_id, user_id, created_at) "
+                "VALUES (?, 'usdb:1', NULL, '2026-08-01 20:00:00')",
+                (tag_id,),
+            )
+
+    _upgrade(url, "head")
+
+    assert "rule_kind" not in _tag_columns(database)
+    assert "rule_value" not in _tag_columns(database)
+    # `is_duet` is 0016's third column and stays: the Duet facet reads it.
+    with sqlite3.connect(database) as connection:
+        assert "is_duet" in {row[1] for row in connection.execute("PRAGMA table_info(songs)")}
+    assert _tagged_song_ids(database, AUTOMATIC_TAG_ID) == set()
+    assert _tagged_song_ids(database, MANUAL_TAG_ID) == {"usdb:1"}
+    assert _tag_name(database, AUTOMATIC_TAG_ID) == "Duets"
+    assert _permission_count(database, AUTOMATIC_TAG_ID) == 1
+
+
+def test_migration_0017_gives_the_columns_back_empty(tmp_path: Path) -> None:
+    """The downgrade can only restore the shape. Which tag followed what was in the very
+    columns it dropped, so every tag comes back manual — which is what it is now."""
+    database = tmp_path / "wingman.db"
+    url = f"sqlite+aiosqlite:///{database}"
+    _upgrade(url, "head")
+    assert "rule_kind" not in _tag_columns(database)
+
+    _downgrade(url, "0016")
+
+    assert {"rule_kind", "rule_value"} <= _tag_columns(database)
+    with sqlite3.connect(database) as connection:
+        automatic = connection.execute(
+            "SELECT count(*) FROM tags WHERE rule_kind IS NOT NULL"
+        ).fetchone()[0]
+    assert automatic == 0

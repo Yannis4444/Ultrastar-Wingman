@@ -37,11 +37,9 @@ in three buttons.
 | **Yes** | Only the songs that have it. |
 | **No** | Only the songs that do not. |
 
-Set as many rows as you like — they add up, so *duet: Yes* together with
-*broken: No* leaves you the duets that actually play. A tag like *duet* need not
-even be kept by hand: see [automatic tags](tags.md#automatic-tags). The list
-behind the panel follows every tap, the song count included, so you can watch it
-narrow.
+Set as many rows as you like — they add up, so *party: Yes* together with
+*broken: No* leaves you the party songs that actually play. The list behind the
+panel follows every tap, the song count included, so you can watch it narrow.
 **Done** closes the panel and **Reset** puts every row back to where it started.
 
 Most rows start on **Any**. A tag set up to hide its songs starts on **No** —

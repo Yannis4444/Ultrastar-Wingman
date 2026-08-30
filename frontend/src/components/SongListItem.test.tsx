@@ -1,5 +1,6 @@
 import { render, screen } from "@testing-library/react";
 import type { SongRead } from "../api";
+import { builtInTags } from "../tags";
 import { iconNames } from "../test/icons";
 import { builtInTagRead, tagRead } from "../test/tags";
 import SongListItem from "./SongListItem";
@@ -12,6 +13,7 @@ function song(): SongRead {
     artist: "ABBA",
     duration_seconds: 231,
     has_video: true,
+    is_duet: false,
     language: "English",
     genre: "Pop",
     year: 1976,
@@ -96,10 +98,10 @@ it("paints the two built-in marks in the colours the party chose", () => {
       song={song()}
       sung
       favorite
-      builtIns={{
-        favorites: builtInTagRead({ color: "gold" }),
-        sung: builtInTagRead({ id: "sung", color: "neutral" }),
-      }}
+      builtIns={builtInTags([
+        builtInTagRead({ color: "gold" }),
+        builtInTagRead({ id: "sung", color: "neutral" }),
+      ])}
       onClick={() => {}}
     />,
   );
@@ -118,10 +120,10 @@ it("leaves a built-in mark off the row when it is not shown in the list", () => 
       song={song()}
       sung
       favorite
-      builtIns={{
-        favorites: builtInTagRead({ show_in_list: false }),
-        sung: builtInTagRead({ id: "sung", color: "blue" }),
-      }}
+      builtIns={builtInTags([
+        builtInTagRead({ show_in_list: false }),
+        builtInTagRead({ id: "sung", color: "blue" }),
+      ])}
       tags={[tagRead({ id: "t-broken", name: "broken", icon: "alert" })]}
       onClick={() => {}}
     />,

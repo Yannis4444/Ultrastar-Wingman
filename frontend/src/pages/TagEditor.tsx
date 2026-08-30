@@ -6,14 +6,11 @@ import type {
   TagList,
   TagPermissionInput,
   TagRead,
-  TagRuleInput,
-  TagRuleKindRead,
   TagUpdate,
 } from "../api";
 import {
   createTagMutation,
   deleteTagMutation,
-  listTagRulesOptions,
   listTagsOptions,
   listTagsQueryKey,
   replaceTagPermissionsMutation,
@@ -31,7 +28,6 @@ import { useUserLookup } from "../hooks/useUserLookup";
 import { useWingmanEvent } from "../hooks/useWingmanEvents";
 import {
   type BuiltInTagId,
-  BUILT_IN_TAG_IDS,
   BUILT_IN_TAGS,
   builtInTags,
   DEFAULT_BUILT_IN_TAGS,
@@ -123,14 +119,6 @@ function sameGrants(left: Set<string>, right: Set<string>): boolean {
   );
 }
 
-/** The longest value a rule may compare against — `MAX_RULE_VALUE_LENGTH` in
- *  the backend's `tags/model.py`, the way the name field mirrors its own. */
-const MAX_RULE_VALUE_LENGTH = 100;
-
-/** What the select says for a tag people set themselves, and the value the
- *  draft holds while it is chosen. A kind is never the empty string. */
-const NOT_AUTOMATIC = "";
-
 /** One account named on the tag. `username` is null when the account is gone —
  *  the row stays so the grant can be taken away on purpose rather than by
  *  accident. */
@@ -150,11 +138,6 @@ interface Draft {
   color: TagColor;
   showInList: boolean;
   hideByDefault: boolean;
-  /** The rule's kind, or `NOT_AUTOMATIC` for a tag people set themselves. */
-  ruleKind: string;
-  /** What a value kind compares against; empty for the flag kinds and for a
-   *  tag with no rule at all, so the field is one string either way. */
-  ruleValue: string;
 }
 
 const NEW_DRAFT: Draft = {
@@ -163,8 +146,6 @@ const NEW_DRAFT: Draft = {
   color: "neutral",
   showInList: false,
   hideByDefault: false,
-  ruleKind: NOT_AUTOMATIC,
-  ruleValue: "",
 };
 
 /** `PlayerAvatar` wants a player; a person named on a tag is an account that
@@ -187,8 +168,8 @@ function asPlayer(person: Person): PlayerRead {
  * The built-in half is its own component rather than a dozen `builtIn &&`
  * branches threaded through the 500 lines below: of that form it keeps two
  * controls, and everything else (the name, the icon picker, the second flag,
- * *Automatic*, the matrix, the people rows, Delete, the duplicate-name error,
- * the draft measured against a base) exists for a `tags` row it does not have.
+ * the matrix, the people rows, Delete, the duplicate-name error, the draft
+ * measured against a base) exists for a `tags` row it does not have.
  * The pieces they do share are the shared classes and `tagColorClass`, so the
  * fork costs no duplicated logic. The dispatch happens before either one's
  * hooks, so neither renders a form it then has to unpick.
@@ -216,10 +197,6 @@ function RealTagEditor() {
   const allowed = auth.loaded && auth.can("tags.manage");
 
   const tags = useQuery({ ...listTagsOptions(), enabled: allowed });
-  // The rules a tag may follow, for the select and its suggestions. Its own
-  // request, cached beside the listing and shared with the admin rows and the
-  // song modal, both of which name a rule too.
-  const ruleKinds = useQuery({ ...listTagRulesOptions(), enabled: allowed });
 
   // There is no GET /tags/{id}: the listing is the one request, and it is the
   // one the admin list already made.
@@ -230,8 +207,6 @@ function RealTagEditor() {
   const [color, setColor] = useState<TagColor>("neutral");
   const [showInList, setShowInList] = useState(false);
   const [hideByDefault, setHideByDefault] = useState(false);
-  const [ruleKind, setRuleKind] = useState(NOT_AUTOMATIC);
-  const [ruleValue, setRuleValue] = useState("");
   const [grants, setGrants] = useState<Set<string>>(new Set());
   const [people, setPeople] = useState<Person[]>([]);
   // Permission rows this page has no column for — an `admin` row somebody wrote
@@ -246,8 +221,6 @@ function RealTagEditor() {
   const [saved, setSaved] = useState(false);
   const [saving, setSaving] = useState(false);
   const [deleting, setDeleting] = useState(false);
-  // A rule change that costs the tag its songs is confirmed before it is sent.
-  const [confirmingRule, setConfirmingRule] = useState(false);
 
   /** Take the draft from a tag the server answered with. */
   const seedFrom = (tag: TagRead) => {
@@ -278,8 +251,6 @@ function RealTagEditor() {
     setColor(tag.color as TagColor);
     setShowInList(tag.show_in_list);
     setHideByDefault(tag.hide_by_default);
-    setRuleKind(tag.rule?.kind ?? NOT_AUTOMATIC);
-    setRuleValue(tag.rule?.value ?? "");
     setGrants(next);
     setBaseGrants(new Set(next));
     setPeople(named);
@@ -290,8 +261,6 @@ function RealTagEditor() {
       color: tag.color as TagColor,
       showInList: tag.show_in_list,
       hideByDefault: tag.hide_by_default,
-      ruleKind: tag.rule?.kind ?? NOT_AUTOMATIC,
-      ruleValue: tag.rule?.value ?? "",
     });
     setError(null);
     setSaved(false);
@@ -311,8 +280,6 @@ function RealTagEditor() {
       setColor("neutral");
       setShowInList(false);
       setHideByDefault(false);
-      setRuleKind(NOT_AUTOMATIC);
-      setRuleValue("");
       setGrants(next);
       setBaseGrants(new Set());
       setPeople([]);
@@ -350,48 +317,6 @@ function RealTagEditor() {
   });
 
   const trimmed = name.trim();
-
-  // --- the rule ------------------------------------------------------------
-  const kinds: TagRuleKindRead[] = ruleKinds.data?.rules ?? [];
-  const chosen = kinds.find((kind) => kind.kind === ruleKind);
-  const automatic = ruleKind !== NOT_AUTOMATIC;
-  /** Whether the chosen kind compares against something the reader types. For
-   *  a kind this build does not know — only ever the stored one — the answer
-   *  is what the tag already carries: a value it has is a value it needs. */
-  const needsValue =
-    chosen !== undefined
-      ? chosen.needs_value
-      : automatic && base.ruleValue !== "";
-  const value = ruleValue.trim();
-  /** The stored kind, when the registry does not offer it: a build older than
-   *  the backend that wrote the tag. It is added to the select as a disabled
-   *  option, so Save does not quietly hand the tag back to the people — and
-   *  while the listing is still in flight it stands in for its own label,
-   *  which reads better than an empty select. */
-  const missingKind =
-    base.ruleKind !== NOT_AUTOMATIC &&
-    !kinds.some((kind) => kind.kind === base.ruleKind);
-  /** The chosen kind is one the registry does not offer — the stored one, on a
-   *  build older than the backend that wrote it, or a listing still in flight.
-   *  Its value is shown but not editable: `GET /tags/rules` comes from the very
-   *  backend the save would go to, so a kind it does not list is a kind that
-   *  save would refuse. Only the value is frozen; the select still lets the
-   *  reader pick a rule this build does know. */
-  const unknownKind = automatic && chosen === undefined;
-
-  /** What the tag should follow, as the API takes it. A flag kind is sent
-   *  without a value whatever is left in the input behind it — `{"kind":
-   *  "duet", "value": "English"}` is a 422, and the input is only hidden. */
-  const rule: TagRuleInput | null = automatic
-    ? { kind: ruleKind, value: needsValue ? value : null }
-    : null;
-  const ruleChanged =
-    ruleKind !== base.ruleKind || (needsValue && value !== base.ruleValue);
-
-  const changeRule = (kind: string) => {
-    setSaved(false);
-    setRuleKind(kind);
-  };
 
   /** The cells of the icon picker: the allowlist, and after it the tag's own
    *  glyph when that is one the picker does not offer — a tag made before the
@@ -435,9 +360,6 @@ function RealTagEditor() {
     if (showInList !== base.showInList) body.show_in_list = showInList;
     if (hideByDefault !== base.hideByDefault)
       body.hide_by_default = hideByDefault;
-    // An explicit `rule: null` is what takes a rule off, so the field is only
-    // named when it actually moved — a PATCH that mentions it re-derives.
-    if (ruleChanged) body.rule = rule;
     return body;
   };
 
@@ -449,12 +371,9 @@ function RealTagEditor() {
   const fieldsChanged = Object.keys(changes()).length > 0;
   const grantsChanged = !sameGrants(grants, baseGrants);
   const pending = creating || fieldsChanged || grantsChanged;
-  /** A value kind with nothing to compare against. Saving it is a guaranteed
-   *  422, so the button waits — the same guard the empty name gets. */
-  const incomplete = needsValue && value === "";
 
   const save = async () => {
-    if (trimmed === "" || incomplete || !pending) return;
+    if (trimmed === "" || !pending) return;
     setSaving(true);
     setError(null);
     try {
@@ -467,7 +386,6 @@ function RealTagEditor() {
             show_in_list: showInList,
             hide_by_default: hideByDefault,
             permissions: permissionRows(),
-            rule,
           },
         });
         // Into the cache before the route changes, so the editor at the new URL
@@ -478,12 +396,7 @@ function RealTagEditor() {
           old === undefined
             ? // The built-ins are the listing's other half; without an answer to
               // seed them from, their defaults are what the app draws anyway.
-              {
-                tags: [made],
-                built_ins: BUILT_IN_TAG_IDS.map(
-                  (id) => DEFAULT_BUILT_IN_TAGS[id],
-                ),
-              }
+              { tags: [made], built_ins: [] }
             : {
                 ...old,
                 tags: [...old.tags.filter((tag) => tag.id !== made.id), made],
@@ -541,22 +454,17 @@ function RealTagEditor() {
   // A tagger who may not see the songs they tag loses each one the moment they
   // tag it, and cannot untag it again. The weaker "the filter is always empty"
   // warning skips those: it would say the same thing about the same people.
-  // Nobody tags an automatic tag, so under a rule the warning describes
-  // something that cannot happen — the line under the matrix says why instead.
-  const lockedOut = automatic
-    ? []
-    : subjects.filter(
-        (subject) =>
-          has("assign", subject.kind, subject.id) &&
-          !has("view_songs", subject.kind, subject.id),
-      );
+  const lockedOut = subjects.filter(
+    (subject) =>
+      has("assign", subject.kind, subject.id) &&
+      !has("view_songs", subject.kind, subject.id),
+  );
   const emptyFilter = subjects.filter(
     (subject) =>
       has("view", subject.kind, subject.id) &&
       !has("view_songs", subject.kind, subject.id) &&
-      // A ticked Tag songs is what sends somebody to the warning above — and
-      // under a rule that tick does nothing, so this one speaks for them too.
-      (automatic || !has("assign", subject.kind, subject.id)),
+      // A ticked Tag songs is what sends somebody to the warning above.
+      !has("assign", subject.kind, subject.id),
   );
 
   const named = new Set(people.map((person) => person.id));
@@ -566,33 +474,12 @@ function RealTagEditor() {
   // Every song carrying the tag, the ones this manager may not see included:
   // what a delete takes the tag off is not what the assignments listing shows.
   const songs = found?.song_count ?? 0;
-  const count = songs === 1 ? "one song" : `${songs} songs`;
-  const is = songs === 1 ? "is" : "are";
-
-  /**
-   * What this save is about to do to the songs under the tag, or null when it
-   * does nothing to them. The backend rewrites every row of a tag whose rule
-   * moves — the ones the new rule would have picked as well, because they were
-   * somebody else's answer — so the reader is told before it happens.
-   *
-   * Only for a tag that has something to lose: a new tag has no songs, and
-   * neither has one nobody has used yet.
-   */
-  const ruleCost: string | null =
-    creating || !ruleChanged || songs === 0
-      ? null
-      : base.ruleKind === NOT_AUTOMATIC
-        ? `Make "${base.name}" automatic? The ${count} carrying it ${songs === 1 ? "loses its" : "lose their"} hand-set tag — from now on the rule decides, and nobody puts this tag on a song by hand.`
-        : automatic
-          ? `Change the rule of "${base.name}"? Its ${count} ${is} re-derived: the new rule picks the songs from scratch.`
-          : `Hand "${base.name}" back to the people? Its ${count} ${is} the rule's, so the tag comes off ${songs === 1 ? "it" : "them all"} and starts empty.`;
 
   const submit = () => {
-    // The same door `save` keeps: a confirmation for a save that would turn
-    // straight around again would be a question about nothing.
-    if (trimmed === "" || incomplete || !pending || saving) return;
-    if (ruleCost !== null) setConfirmingRule(true);
-    else void save();
+    // The same door `save` keeps: a save that would turn straight around again
+    // is nothing to press.
+    if (trimmed === "" || !pending || saving) return;
+    void save();
   };
   // Only once the listing has answered and still does not know this tag: a
   // draft already seeded keeps its form, including the tag a manager has just
@@ -768,83 +655,6 @@ function RealTagEditor() {
                       </p>
                     </div>
 
-                    {/* Between the flags and the matrix (§7): how a tag reaches
-                        a song, before who may put it there. */}
-                    <h2 id="tag-automatic">Automatic</h2>
-                    <p className="tag-editor-hint">
-                      A rule reads what is in the song files and puts the tag on
-                      every song that matches. Wingman keeps it up to date on
-                      every scan, and nobody sets an automatic tag by hand.
-                    </p>
-
-                    {ruleKinds.isError && (
-                      <p className="error-notice tags-notice" role="alert">
-                        Could not load the rules a tag can follow.
-                      </p>
-                    )}
-
-                    <label className="tag-editor-field">
-                      <span>Rule</span>
-                      <select
-                        className="text-input text-input-quiet"
-                        value={ruleKind}
-                        onChange={(event) => changeRule(event.target.value)}
-                      >
-                        <option value={NOT_AUTOMATIC}>Not automatic</option>
-                        {kinds.map((kind) => (
-                          <option key={kind.kind} value={kind.kind}>
-                            {kind.label}
-                          </option>
-                        ))}
-                        {/* A rule this build does not know, by its bare name:
-                            offered so the select can show what the tag follows,
-                            disabled so it cannot be chosen for another tag. */}
-                        {missingKind && (
-                          <option value={base.ruleKind} disabled>
-                            {base.ruleKind}
-                          </option>
-                        )}
-                      </select>
-                    </label>
-
-                    {needsValue && (
-                      <label className="tag-editor-field">
-                        <span>Value</span>
-                        <input
-                          className="text-input text-input-quiet"
-                          list="tag-rule-values"
-                          value={ruleValue}
-                          maxLength={MAX_RULE_VALUE_LENGTH}
-                          disabled={unknownKind}
-                          aria-describedby={
-                            incomplete ? "tag-rule-value-hint" : undefined
-                          }
-                          onChange={(event) => {
-                            setSaved(false);
-                            setRuleValue(event.target.value);
-                          }}
-                        />
-                        {/* What the library holds for that field — an offer and
-                            not a list to pick from: a value nothing carries yet
-                            is a tag that fills itself on the next download. */}
-                        <datalist id="tag-rule-values">
-                          {(chosen?.suggestions ?? []).map((suggestion) => (
-                            <option key={suggestion} value={suggestion} />
-                          ))}
-                        </datalist>
-                      </label>
-                    )}
-
-                    {/* Why Save is off. Blocking the save is not enough on its
-                        own — the reader is owed the reason here rather than a
-                        422 from the backend after they find a way to send it. */}
-                    {incomplete && (
-                      <p className="tag-editor-hint" id="tag-rule-value-hint">
-                        Save waits for this: a rule with nothing to compare
-                        against would take no song at all.
-                      </p>
-                    )}
-
                     <h2 id="tag-permissions">Permissions</h2>
                     <div
                       className="perm-matrix"
@@ -886,10 +696,6 @@ function RealTagEditor() {
                                   type="checkbox"
                                   aria-label={`${label} for ${role}`}
                                   aria-describedby={`tag-perm-${action}`}
-                                  // The rule owns the songs of an automatic
-                                  // tag: the ticks stay, so taking the rule
-                                  // off gives the tag back to the same people.
-                                  disabled={automatic && action === "assign"}
                                   checked={has(action, "role", role)}
                                   onChange={(event) =>
                                     toggle(
@@ -906,17 +712,6 @@ function RealTagEditor() {
                         ))}
                       </ul>
                     </div>
-
-                    {/* One line for both tables of ticks, where the guideline
-                        puts it: under the matrix, above the people rows. */}
-                    {automatic && (
-                      <p className="tag-editor-hint">
-                        The rule decides which songs carry this tag, so Tag
-                        songs is nobody&apos;s while it is automatic. The ticks
-                        stay as they are and count again the moment the rule
-                        goes.
-                      </p>
-                    )}
 
                     {lockedOut.length > 0 && (
                       <p className="tag-warning">
@@ -1053,9 +848,6 @@ function RealTagEditor() {
                                     <input
                                       type="checkbox"
                                       aria-label={`${label} for ${who}`}
-                                      disabled={
-                                        automatic && action === "assign"
-                                      }
                                       checked={has(action, "user", person.id)}
                                       onChange={(event) =>
                                         toggle(
@@ -1102,9 +894,7 @@ function RealTagEditor() {
                       <button
                         type="submit"
                         className="button button-primary"
-                        disabled={
-                          trimmed === "" || incomplete || !pending || saving
-                        }
+                        disabled={trimmed === "" || !pending || saving}
                       >
                         Save
                       </button>
@@ -1135,22 +925,6 @@ function RealTagEditor() {
             </>
           )}
         </>
-      )}
-
-      {/* The songs under the tag are rewritten by the save itself, so the
-          question comes before it goes (§5: a replace is a danger). */}
-      {confirmingRule && ruleCost !== null && (
-        <ConfirmModal
-          title={automatic ? "Change what this tag follows" : "Remove the rule"}
-          message={ruleCost}
-          confirmLabel="Save"
-          danger
-          onConfirm={() => {
-            setConfirmingRule(false);
-            void save();
-          }}
-          onCancel={() => setConfirmingRule(false)}
-        />
       )}
 
       {deleting && (
@@ -1238,16 +1012,23 @@ function BuiltInTagEditor({ builtInId }: { builtInId: BuiltInTagId }) {
     if (!pending) return;
     setError(null);
     try {
-      const latest = await update.mutateAsync({
+      const answered = await update.mutateAsync({
         path: { built_in_id: builtInId },
         body: { color, show_in_list: showInList },
       });
-      setColor(latest.color as TagColor);
-      setShowInList(latest.show_in_list);
-      setBase({
-        color: latest.color as TagColor,
-        showInList: latest.show_in_list,
-      });
+      // The response is the shape every built-in has, and a mark is the one
+      // kind that fills both of these — but the type says "or null" for the
+      // kinds that do not, so the defaults stand in rather than a cast.
+      const latest = {
+        color: (answered.color ??
+          DEFAULT_BUILT_IN_TAGS[builtInId].color) as TagColor,
+        showInList:
+          answered.show_in_list ??
+          DEFAULT_BUILT_IN_TAGS[builtInId].show_in_list,
+      };
+      setColor(latest.color);
+      setShowInList(latest.showInList);
+      setBase(latest);
       setSaved(true);
       refresh();
     } catch (cause) {

@@ -90,6 +90,7 @@ function song(overrides: Partial<SongRead> = {}): SongRead {
     artist: "ABBA",
     duration_seconds: 231,
     has_video: true,
+    is_duet: false,
     language: "English",
     genre: "Pop",
     year: 1976,
@@ -171,6 +172,7 @@ test("songs from the API are listed with artist", async () => {
       artist: "Toto",
       duration_seconds: 295,
       has_video: false,
+      is_duet: false,
     }),
   ]);
 
@@ -1082,16 +1084,11 @@ test("a tri-state narrows the list, the count and the chip's label", async () =>
   );
 });
 
-test("an automatic tag filters like any other", async () => {
-  // The Filter panel knows nothing about rules (§7): a derived tag is a row
-  // like the rest, and the reader who does not manage tags never learns which
-  // is which.
-  const automatic = tagRead({
-    ...DUET,
-    can_assign: false,
-    rule: { kind: "duet", value: null },
-  });
-  withTags([automatic], [{ tag_id: "t-duet", song_ids: ["local:abc"] }]);
+test("a tag nobody here may set filters like any other", async () => {
+  // The Filter panel asks about the tags a reader may *view* (§7): whether they
+  // could put this one on a song is a different right and no business of a row.
+  const locked = tagRead({ ...DUET, can_assign: false });
+  withTags([locked], [{ tag_id: "t-duet", song_ids: ["local:abc"] }]);
   renderSongs([QUEEN, AFRICA]);
   await screen.findByText("Dancing Queen");
 
