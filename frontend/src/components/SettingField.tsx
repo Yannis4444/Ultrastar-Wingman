@@ -16,6 +16,40 @@ interface Props {
   readOnly: boolean;
 }
 
+interface SavedProps {
+  /** Whether there is something to acknowledge right now. */
+  shown: boolean;
+  /**
+   * Extra class for a word that is not "Saved" — it sizes the slot, so it goes
+   * on the empty one too: a class only the shown span carried would give the
+   * two states two widths and bring back the jump the slot exists to stop.
+   */
+  className?: string;
+  children?: string;
+}
+
+/**
+ * The acknowledgement at the end of a setting's label line, and the space it
+ * holds: the slot is there whether or not anything is being acknowledged, so
+ * the reset button beside it never slides when the word comes and goes. Only
+ * the word is a live region — an empty one in every row would be announced by
+ * nobody and found by every `getByRole("status")`.
+ */
+export function SettingSaved({
+  shown,
+  className,
+  children = "Saved",
+}: SavedProps) {
+  const classes = `setting-saved${className === undefined ? "" : ` ${className}`}`;
+  return shown ? (
+    <span className={classes} role="status">
+      {children}
+    </span>
+  ) : (
+    <span className={classes} aria-hidden="true" />
+  );
+}
+
 /** A 422 carries the registry's own complaint — worth showing verbatim. */
 function saveError(error: unknown): string {
   const detail = errorDetail(error);
@@ -83,7 +117,7 @@ export default function SettingField({ setting, readOnly }: Props) {
   const multiline = setting.description.includes("per line");
   // A checkbox is the one control that stays on the label's line: it is a 40px
   // slot at the row's end, and alone under a label it would read as an orphan.
-  const stacked = setting.value_type !== "bool";
+  const toggle = setting.value_type === "bool";
   const disabled = readOnly || save.isPending;
   // A secret's value never comes back, so "is it configured" is the only
   // signal; everything else compares against its default.
@@ -95,62 +129,14 @@ export default function SettingField({ setting, readOnly }: Props) {
 
   return (
     <div className="setting-field">
-      <div className={`setting-row${stacked ? " setting-row-stacked" : ""}`}>
+      {/* The label's line: what the setting is called, whether it was just
+          saved, and the way back to the default. */}
+      <div className="setting-row">
         <label className="setting-label" htmlFor={inputId}>
           {label}
         </label>
 
-        {setting.value_type === "bool" ? (
-          <input
-            type="checkbox"
-            className="setting-toggle"
-            id={inputId}
-            aria-describedby={describedBy}
-            checked={setting.value === true}
-            disabled={disabled}
-            onChange={(event) => patch(event.target.checked)}
-          />
-        ) : multiline ? (
-          // Blur only: Enter has to insert a line here.
-          <textarea
-            className="text-input text-input-quiet setting-textarea"
-            id={inputId}
-            aria-describedby={describedBy}
-            rows={3}
-            value={text}
-            disabled={disabled}
-            onChange={(event) => setDraft(event.target.value)}
-            onBlur={commit}
-          />
-        ) : (
-          <input
-            className="text-input text-input-quiet setting-input"
-            id={inputId}
-            aria-describedby={describedBy}
-            type={
-              setting.secret
-                ? "password"
-                : setting.value_type === "str"
-                  ? "text"
-                  : "number"
-            }
-            step={setting.value_type === "float" ? "any" : undefined}
-            autoComplete={setting.secret ? "new-password" : undefined}
-            placeholder={
-              setting.secret && setting.is_set ? "(unchanged)" : undefined
-            }
-            value={text}
-            disabled={disabled}
-            onChange={(event) => setDraft(event.target.value)}
-            onBlur={commit}
-            onKeyDown={(event) => {
-              if (event.key === "Enter") {
-                event.preventDefault();
-                commit();
-              }
-            }}
-          />
-        )}
+        <SettingSaved shown={save.isSuccess && draft === null} />
 
         {!readOnly && resettable && (
           <button
@@ -175,12 +161,65 @@ export default function SettingField({ setting, readOnly }: Props) {
           </button>
         )}
 
-        {save.isSuccess && draft === null && (
-          <span className="setting-saved" role="status">
-            Saved
-          </span>
+        {toggle && (
+          <input
+            type="checkbox"
+            className="setting-toggle"
+            id={inputId}
+            aria-describedby={describedBy}
+            checked={setting.value === true}
+            disabled={disabled}
+            onChange={(event) => patch(event.target.checked)}
+          />
         )}
       </div>
+
+      {/* The input's line: the box alone, the width of the field. */}
+      {!toggle && (
+        <div className="setting-control">
+          {multiline ? (
+            // Blur only: Enter has to insert a line here.
+            <textarea
+              className="text-input text-input-quiet setting-textarea"
+              id={inputId}
+              aria-describedby={describedBy}
+              rows={3}
+              value={text}
+              disabled={disabled}
+              onChange={(event) => setDraft(event.target.value)}
+              onBlur={commit}
+            />
+          ) : (
+            <input
+              className="text-input text-input-quiet setting-input"
+              id={inputId}
+              aria-describedby={describedBy}
+              type={
+                setting.secret
+                  ? "password"
+                  : setting.value_type === "str"
+                    ? "text"
+                    : "number"
+              }
+              step={setting.value_type === "float" ? "any" : undefined}
+              autoComplete={setting.secret ? "new-password" : undefined}
+              placeholder={
+                setting.secret && setting.is_set ? "(unchanged)" : undefined
+              }
+              value={text}
+              disabled={disabled}
+              onChange={(event) => setDraft(event.target.value)}
+              onBlur={commit}
+              onKeyDown={(event) => {
+                if (event.key === "Enter") {
+                  event.preventDefault();
+                  commit();
+                }
+              }}
+            />
+          )}
+        </div>
+      )}
 
       <p className="setting-description" id={describedBy}>
         {setting.description}

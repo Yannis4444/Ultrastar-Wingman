@@ -22,13 +22,23 @@
   margin-top: 24px;
 }
 
+/* Sticky, so the section being scrolled stays named: a page of paths and
+   numbers says nothing without the word above it. `--bg` because the rows
+   scroll underneath, and it holds inside its own `<details>` — the header
+   leaves with its section instead of stacking up. The 16px margin can stay:
+   everything in a group is inset by the same 16px, so nothing passes through
+   the gutters beside it. */
 .settings-group > summary {
+  position: sticky;
+  top: 0;
+  z-index: 1;
   display: flex;
   align-items: center;
   gap: 8px;
   min-height: 44px;
   margin: 0 16px;
   padding: 4px 0;
+  background-color: var(--bg);
   font-size: 0.8em;
   font-weight: bold;
   letter-spacing: 0.06em;
@@ -41,6 +51,17 @@
 
 .settings-group > summary::-webkit-details-marker {
   display: none;
+}
+
+/* A sticky header hides whatever the browser scrolls to the top edge: tabbing
+   backwards through a group, or a phone lifting a focused box above its
+   keyboard, would otherwise park the control under the section name. The
+   margin clears the header's own height (44px plus its hairline) and the last
+   few pixels a header that has not started sticking yet still reaches down to,
+   and it has to sit on the focusable itself — the scroll is computed from that
+   element, not from the `.setting-field` around it. */
+.settings-page :is(input, select, textarea, button, summary) {
+  scroll-margin-top: 56px;
 }
 
 /* 24px per the section-header rule, and its own font-size: the summary text is

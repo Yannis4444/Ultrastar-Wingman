@@ -1,7 +1,8 @@
 /* The slot rows are ordinary `.setting-field` rows (flat, hairline separator);
    only the color mark is new. */
 
-/* Round, small and quiet — the row's job is the name, not the paint. */
+/* Round, small and quiet — the row's job is the name, not the paint. It ends
+   the label's line, on the rail a checkbox and a "Saved" stop at. */
 .karaoke-slot-swatch {
   flex: 0 0 auto;
   width: 14px;

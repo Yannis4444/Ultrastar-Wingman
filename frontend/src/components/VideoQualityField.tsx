@@ -9,6 +9,7 @@ import {
 import { errorDetail, errorMessage, missingPermission } from "../errors";
 import CheckOption from "./CheckOption";
 import { Icon } from "./icons";
+import { SettingSaved } from "./SettingField";
 import "./SettingField.css";
 import "./VideoQualityField.css";
 
@@ -92,10 +93,12 @@ export default function VideoQualityField({ setting, readOnly }: Props) {
           Video quality
         </span>
 
+        <SettingSaved shown={save.isSuccess && draft === null} />
+
         {!readOnly && setting.value !== setting.default && (
           <button
             type="button"
-            className="icon-button icon-button-bordered video-quality-reset"
+            className="icon-button icon-button-bordered"
             aria-label="Reset Video quality"
             title={`Reset to ${String(setting.default)}`}
             disabled={save.isPending}
@@ -111,12 +114,6 @@ export default function VideoQualityField({ setting, readOnly }: Props) {
           >
             <Icon name="refresh" />
           </button>
-        )}
-
-        {save.isSuccess && draft === null && (
-          <span className="setting-saved" role="status">
-            Saved
-          </span>
         )}
       </div>
 
@@ -164,7 +161,7 @@ export default function VideoQualityField({ setting, readOnly }: Props) {
       {custom && (
         <div className="video-quality-custom">
           <input
-            className="text-input text-input-quiet video-quality-input"
+            className="text-input text-input-quiet"
             type="text"
             aria-label="yt-dlp format string"
             value={draft ?? stored}

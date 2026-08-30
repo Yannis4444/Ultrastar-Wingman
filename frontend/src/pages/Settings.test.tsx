@@ -259,16 +259,52 @@ test("a number setting sends a number, not a string", async () => {
   );
 });
 
-test("an input sits under its label, a toggle stays on its line", async () => {
+test("an input has the line under its label to itself, a toggle has not", async () => {
   renderSettings();
 
   // Labels vary far more in length than values do: sharing the line gave every
   // box a different width. A checkbox is the exception, see SettingField.
   const input = await screen.findByLabelText("Username");
-  expect(input.closest(".setting-row")).toHaveClass("setting-row-stacked");
-  expect(
-    screen.getByLabelText("Overwrite").closest(".setting-row"),
-  ).not.toHaveClass("setting-row-stacked");
+  const control = input.parentElement;
+  expect(control).toHaveClass("setting-control");
+  // The label's line is a line of its own, above the box.
+  expect(control?.previousElementSibling).toHaveClass("setting-row");
+  expect(control?.querySelectorAll("*")).toHaveLength(1);
+
+  const toggle = screen.getByLabelText("Overwrite");
+  const field = toggle.closest(".setting-field");
+  expect(toggle.closest(".setting-row")).toContainElement(
+    screen.getByText("Overwrite"),
+  );
+  expect(field?.querySelector(".setting-control")).toBeNull();
+});
+
+test("the acknowledgement sits on the label's line, not on the input's", async () => {
+  updateSetting.mockResolvedValue({
+    data: { ...USERNAME, value: "singer", is_set: true },
+  });
+  renderSettings();
+
+  const input = await screen.findByLabelText("Username");
+  fireEvent.change(input, { target: { value: "singer" } });
+  fireEvent.blur(input);
+
+  const saved = await screen.findByText("Saved");
+  const row = saved.closest(".setting-row");
+  expect(row).toContainElement(screen.getByText("Username"));
+  expect(row).not.toContainElement(input);
+});
+
+test("the reset button stands on the label's line, above the input", async () => {
+  renderSettings();
+
+  const reset = await screen.findByRole("button", { name: "Reset Parallel" });
+  const row = reset.closest(".setting-row");
+  expect(row).toContainElement(screen.getByText("Parallel"));
+  expect(row).not.toContainElement(screen.getByLabelText("Parallel"));
+  // The slot "Saved" will take is already there, so the button does not slide
+  // the moment a save is acknowledged.
+  expect(row?.querySelector(".setting-saved")).toBeInTheDocument();
 });
 
 test("a toggle saves immediately", async () => {
@@ -518,6 +554,24 @@ test("an Ultrastar Deluxe that was already up is not reported as an error", asyn
 
   expect(await screen.findByText("Running")).toBeVisible();
   expect(screen.queryByRole("alert")).not.toBeInTheDocument();
+});
+
+test("the launch row holds its state slot open before anything is started", async () => {
+  launchUsdx.mockResolvedValue({ data: { started: true } });
+  renderSettings();
+
+  const launch = await screen.findByRole("button", { name: "Launch" });
+  const row = launch.closest(".setting-row");
+  // Empty, but the same box the word will stand in — its width is the class's,
+  // so "Started" must not push the button sideways when it arrives.
+  const slot = row?.querySelector(".run-usdx-state");
+  expect(slot).toBeInTheDocument();
+  expect(slot).toBeEmptyDOMElement();
+
+  fireEvent.click(launch);
+
+  const started = await screen.findByText("Started");
+  expect(started).toHaveClass("setting-saved", "run-usdx-state");
 });
 
 test("a running song is why Ultrastar Deluxe could not be started", async () => {
