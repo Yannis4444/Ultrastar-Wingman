@@ -46,9 +46,9 @@
   max-width: 150px;
 }
 
-/* The tri-state control: the segmented pill of `.spinner-scope` at three
-   options. A fieldset for the grouping and the legend, so its own chrome has to
-   go first. */
+/* The tri-state control: the segmented pill of the tag editor's colours (§4) at
+   three options. A fieldset for the grouping and the legend, so its own chrome
+   has to go first. */
 .tri-state {
   display: flex;
   flex: 0 0 auto;

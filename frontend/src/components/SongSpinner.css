@@ -1,4 +1,4 @@
-/* One centred column: the scope pills and the pool size, the reel alone, the
+/* One centred column: the pool select and the pool size, the reel alone, the
    result, the SPIN button. Flat on the page — the reel is the only surface. */
 .spinner {
   --spinner-cover: min(320px, 80vw);
@@ -12,78 +12,30 @@
   padding: 0 16px;
 }
 
-/* Segmented pills, one row where they fit and a centred wrap where they do
-   not (the weighted label is long at 360px). */
-.spinner-scopes {
+/* What the reel may land on: the label and the quiet select on one line, the
+   select taking the rest of it so it is the same width whatever is chosen. */
+.spinner-pick {
   display: flex;
-  flex-wrap: wrap;
-  justify-content: center;
   gap: 8px;
+  align-items: center;
   align-self: stretch;
   min-width: 0;
-  margin: 0;
-  padding: 0;
-  border: none;
 }
 
-.spinner-scope {
-  display: flex;
+.spinner-pick-label {
+  flex: 0 0 auto;
+  font-size: 0.85em;
+  color: var(--color-darker);
+}
+
+.spinner-pick-select {
+  flex: 1 1 auto;
   min-width: 0;
-}
-
-/* Hairline and transparent at rest, like the quiet input; the chosen pill
-   fills with the blue accent. The radio underneath is visually hidden, so hover,
-   checked, disabled and focus all draw on the text. */
-.spinner-scope-text {
-  display: flex;
-  box-sizing: border-box;
-  align-items: center;
-  min-height: 40px;
-  padding: 0 16px;
-  font-size: 0.9em;
-  font-weight: 600;
-  white-space: nowrap;
-  color: var(--color-dark);
-  background-color: transparent;
-  border: 1px solid var(--input-border-color);
-  border-radius: var(--border-radius);
-  cursor: pointer;
-  transition:
-    color 0.15s,
-    background-color 0.15s,
-    border-color 0.15s;
-}
-
-.spinner-scope:hover input:enabled ~ .spinner-scope-text {
-  color: var(--color);
-  border-color: var(--color-darker);
-}
-
-/* After the hover rule at equal specificity, so a hovered chosen pill keeps the
-   accent border. */
-.spinner-scope input:checked ~ .spinner-scope-text {
-  color: var(--highlight-blue-light);
-  background-color: var(--highlight-blue-dark);
-  border-color: var(--highlight-blue-light);
-}
-
-.spinner-scope input:disabled ~ .spinner-scope-text {
-  color: var(--color-darkerer);
-  cursor: default;
-}
-
-/* A chosen pill that is only disabled while the reel runs keeps its fill. */
-.spinner-scope input:disabled:checked ~ .spinner-scope-text {
-  color: var(--highlight-blue-light);
-}
-
-.spinner-scope input:focus-visible ~ .spinner-scope-text {
-  outline: 2px solid var(--highlight-blue-light);
-  outline-offset: 2px;
 }
 
 /* What the reel can land on. The line is always reserved, so switching scopes
-   never shifts the reel; it sits closer to the pills than the column rhythm. */
+   never shifts the reel; it sits closer to the select than the column
+   rhythm. */
 .spinner-pool {
   min-height: 1.2em;
   margin: -8px 0 0;
@@ -348,7 +300,6 @@
 }
 
 @media (prefers-reduced-motion: reduce) {
-  .spinner-scope-text,
   .spinner-winner-title,
   .spinner-spin {
     transition: none;

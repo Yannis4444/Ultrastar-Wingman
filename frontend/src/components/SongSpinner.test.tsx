@@ -5,9 +5,10 @@ import {
   render,
   screen,
   waitFor,
+  within,
 } from "@testing-library/react";
-import type { SongRead, WishRead } from "../api";
-import { meResponse } from "../test/auth";
+import type { MeRead, SongRead, WishRead } from "../api";
+import { meResponse, userRead } from "../test/auth";
 import { FakeSocket } from "../test/fakeSocket";
 import { iconNames } from "../test/icons";
 import { tagRead } from "../test/tags";
@@ -15,19 +16,27 @@ import SongSpinner from "./SongSpinner";
 
 // Same seam as the other tests: the real TanStack wiring runs, only the
 // transport is faked.
-const { listSongs, listWishlist, getMe, listTags, listTagAssignments } =
-  vi.hoisted(() => ({
-    listSongs: vi.fn(),
-    listWishlist: vi.fn(),
-    getMe: vi.fn(),
-    listTags: vi.fn(),
-    listTagAssignments: vi.fn(),
-  }));
+const {
+  listSongs,
+  listWishlist,
+  listFavorites,
+  getMe,
+  listTags,
+  listTagAssignments,
+} = vi.hoisted(() => ({
+  listSongs: vi.fn(),
+  listWishlist: vi.fn(),
+  listFavorites: vi.fn(),
+  getMe: vi.fn(),
+  listTags: vi.fn(),
+  listTagAssignments: vi.fn(),
+}));
 
 vi.mock("../api/sdk.gen", async (importOriginal) => ({
   ...(await importOriginal<typeof import("../api/sdk.gen")>()),
   listSongs,
   listWishlist,
+  listFavorites,
   getMe,
   listTags,
   listTagAssignments,
@@ -58,12 +67,21 @@ const QUEEN = song("usdb:1", "Dancing Queen");
 const AFRICA = song("usdb:2", "Africa");
 const WATERLOO = song("usdb:3", "Waterloo");
 
-function renderSpinner(songs: SongRead[], wishes: WishRead[]) {
+/** Signed in by default: favorites need an account to belong to. */
+const ACCOUNT: Partial<MeRead> = { user: userRead(), role: "user" };
+
+function renderSpinner(
+  songs: SongRead[],
+  wishes: WishRead[],
+  favorites: string[] = [],
+  me: Partial<MeRead> = ACCOUNT,
+) {
   getMe.mockResolvedValue(
-    meResponse(["songs.view", "wishlist.view", "karaoke.sing"]),
+    meResponse(["songs.view", "wishlist.view", "karaoke.sing"], me),
   );
   listSongs.mockResolvedValue({ data: { songs } });
   listWishlist.mockResolvedValue({ data: { wishes } });
+  listFavorites.mockResolvedValue({ data: { song_ids: favorites } });
   return render(
     <QueryClientProvider
       client={
@@ -89,6 +107,7 @@ beforeEach(() => {
   vi.stubGlobal("WebSocket", FakeSocket);
   listSongs.mockReset();
   listWishlist.mockReset();
+  listFavorites.mockReset();
   getMe.mockReset();
   listTags.mockReset();
   listTagAssignments.mockReset();
@@ -103,11 +122,20 @@ afterEach(() => {
   vi.restoreAllMocks();
 });
 
-/** Clicks a scope once the wishlist has arrived — the options load disabled. */
+const pickFrom = () =>
+  screen.getByRole("combobox", { name: "Pick from" }) as HTMLSelectElement;
+
+/** The option of that name inside the *Pick from* select. */
+const scopeOption = (label: string) =>
+  within(pickFrom()).getByRole("option", { name: label }) as HTMLOptionElement;
+
+/** Picks a scope once its pool has arrived — the options load disabled. */
 async function chooseScope(label: string): Promise<void> {
-  const option = await screen.findByLabelText(label);
-  await waitFor(() => expect(option).toBeEnabled());
-  fireEvent.click(option);
+  await screen.findByRole("combobox", { name: "Pick from" });
+  await waitFor(() => expect(scopeOption(label)).toBeEnabled());
+  fireEvent.change(pickFrom(), {
+    target: { value: scopeOption(label).value },
+  });
 }
 
 test("the reel only holds songs from the selected scope", async () => {
@@ -125,26 +153,48 @@ test("the reel only holds songs from the selected scope", async () => {
   expect(new Set(ids)).toEqual(new Set(["usdb:2", "usdb:3"]));
 });
 
-test("the scope options are segmented pills, one of them chosen", async () => {
+test("the scope is one quiet select, opening on the whole library", async () => {
   renderSpinner([QUEEN, AFRICA], [wish(AFRICA)]);
 
-  const all = await screen.findByLabelText("All songs");
-  const wishlist = screen.getByLabelText("Wishlist");
-  expect(all).toBeChecked();
-  expect(all.closest("label")).toHaveClass("spinner-scope");
-  // The pills are radios of one group: the keyboard and screen-reader
-  // semantics stay with the hidden input.
-  expect(all).toHaveAttribute("type", "radio");
-  expect(all).toHaveClass("visually-hidden");
+  const select = await screen.findByRole("combobox", { name: "Pick from" });
+  // A quiet select, not the bank of pills that used to compete with the reel.
+  expect(select).toHaveClass("text-input-quiet");
+  expect(select).toHaveValue("all");
+  expect(
+    within(select)
+      .getAllByRole("option")
+      .map((option) => option.textContent),
+  ).toEqual(["All songs", "Favorites", "Wishlist", "Wishlist (weighted)"]);
 
-  await waitFor(() => expect(wishlist).toBeEnabled());
-  fireEvent.click(wishlist);
+  await chooseScope("Wishlist");
 
-  expect(wishlist).toBeChecked();
-  expect(all).not.toBeChecked();
+  expect(select).toHaveValue("wishlist");
 });
 
-test("the caption under the pills counts what the reel can land on", async () => {
+test("the favorites scope spins the hearted songs and counts them", async () => {
+  const { container } = renderSpinner(
+    [QUEEN, AFRICA, WATERLOO],
+    [],
+    ["usdb:2", "usdb:3"],
+  );
+  await chooseScope("Favorites");
+
+  expect(screen.getByText("2 favorites")).toBeInTheDocument();
+  fireEvent.click(spinButton());
+  expect(new Set(reelSongIds(container))).toEqual(
+    new Set(["usdb:2", "usdb:3"]),
+  );
+});
+
+test("without an account favorites cannot be picked and are not fetched", async () => {
+  renderSpinner([QUEEN, AFRICA], [], [], { user: null, role: "guest" });
+
+  await screen.findByRole("combobox", { name: "Pick from" });
+  expect(scopeOption("Favorites")).toBeDisabled();
+  expect(listFavorites).not.toHaveBeenCalled();
+});
+
+test("the caption under the select counts what the reel can land on", async () => {
   renderSpinner(
     [QUEEN, AFRICA, WATERLOO],
     [wish(AFRICA, 3), wish(WATERLOO, 1)],
@@ -184,7 +234,7 @@ test("the reel covers load eagerly, so they are there when they fly past", async
 
 test("the result slot is reserved but empty before the first spin", async () => {
   const { container } = renderSpinner([QUEEN, AFRICA], []);
-  await screen.findByLabelText("All songs");
+  await screen.findByRole("combobox", { name: "Pick from" });
 
   // The page header already says "Random song": no placeholder repeats it.
   expect(container.querySelector(".spinner-result")).toBeEmptyDOMElement();
@@ -231,7 +281,7 @@ test("the first spin starts from the logo, later spins from the last winner", as
 
 test("the reel stays put when an unrelated update re-renders the spinner", async () => {
   const { container } = renderSpinner([QUEEN, AFRICA, WATERLOO], []);
-  await screen.findByLabelText("All songs");
+  await screen.findByRole("combobox", { name: "Pick from" });
 
   fireEvent.click(spinButton());
   const before = reelSongIds(container);
@@ -295,6 +345,35 @@ test("the die on the button rolls through its faces while the reel runs", async 
   expect(die()).toBe(rest);
 });
 
+test("the number on the die comes to rest before the reel does", async () => {
+  vi.useFakeTimers({ shouldAdvanceTime: true });
+  // Pinned randomness: every roll then steps exactly one face on, so a changed
+  // number is a roll that happened and an unchanged one is a roll that did not.
+  vi.spyOn(Math, "random").mockReturnValue(0);
+  renderSpinner([QUEEN, AFRICA], []);
+  await screen.findByText("2 songs");
+  const die = () => iconNames(spinButton())[0];
+
+  fireEvent.click(spinButton());
+  // Both ends have to be pinned. Deep into the spin the die is still rolling —
+  // "it settles before the reel" would otherwise also pass on a die that went
+  // quiet in the first second, which is the opposite of what this is for.
+  act(() => vi.advanceTimersByTime(3000));
+  const late = die();
+  act(() => vi.advanceTimersByTime(900));
+  expect(die()).not.toBe(late);
+
+  // And from here it no longer changes, while the covers are still gliding —
+  // the button is busy — which is what makes the stop look like a die coming
+  // to rest instead of a counter being switched off.
+  act(() => vi.advanceTimersByTime(300));
+  const settled = die();
+  act(() => vi.advanceTimersByTime(700));
+
+  expect(spinButton()).toBeDisabled();
+  expect(die()).toBe(settled);
+});
+
 test("the settled result opens the song modal when it is clicked", async () => {
   vi.useFakeTimers({ shouldAdvanceTime: true });
   renderSpinner([QUEEN], []);
@@ -333,12 +412,16 @@ test("the cover is the second way into the song modal", async () => {
   ).toBeInTheDocument();
 });
 
-test("an empty scope cannot be spun", async () => {
+test("an empty scope cannot be picked", async () => {
   renderSpinner([], []);
 
-  expect(await screen.findByLabelText("Wishlist")).toBeDisabled();
-  expect(screen.getByLabelText("Wishlist (weighted)")).toBeDisabled();
-  // No songs at all: even "All songs" has nothing to pick from.
+  await screen.findByRole("combobox", { name: "Pick from" });
+  expect(scopeOption("Favorites")).toBeDisabled();
+  expect(scopeOption("Wishlist")).toBeDisabled();
+  expect(scopeOption("Wishlist (weighted)")).toBeDisabled();
+  // "All songs" stays open even so: an empty library is the library's state,
+  // not a closed door.
+  expect(scopeOption("All songs")).toBeEnabled();
   expect(spinButton()).toBeDisabled();
 });
 
@@ -350,7 +433,7 @@ test("a hidden-by-default tag keeps its songs out of the reel and its count", as
     data: { assignments: [{ tag_id: "t-archive", song_ids: ["usdb:2"] }] },
   });
   const { container } = renderSpinner([QUEEN, AFRICA], []);
-  await screen.findByLabelText("All songs");
+  await screen.findByRole("combobox", { name: "Pick from" });
 
   // The pool line counts what the reel can land on, so it drops too.
   expect(await screen.findByText("1 song")).toBeInTheDocument();
@@ -369,6 +452,21 @@ test("a wished song stays in the reel even when a tag would hide it", async () =
   await chooseScope("Wishlist");
 
   // Somebody asked for it by name: the wishlist is a decision, not a listing.
+  fireEvent.click(spinButton());
+  expect(new Set(reelSongIds(container))).toEqual(new Set(["usdb:2"]));
+});
+
+test("a favorited song stays in the reel even when a tag would hide it", async () => {
+  listTags.mockResolvedValue({
+    data: { tags: [tagRead({ id: "t-archive", hide_by_default: true })] },
+  });
+  listTagAssignments.mockResolvedValue({
+    data: { assignments: [{ tag_id: "t-archive", song_ids: ["usdb:2"] }] },
+  });
+  const { container } = renderSpinner([QUEEN, AFRICA], [], ["usdb:2"]);
+  await chooseScope("Favorites");
+
+  // Somebody hearted it: a favorite is a decision, not a listing.
   fireEvent.click(spinButton());
   expect(new Set(reelSongIds(container))).toEqual(new Set(["usdb:2"]));
 });
@@ -393,7 +491,7 @@ test("the reel waits for the tags rather than spinning what they would hide", as
   });
   const { container } = renderSpinner([QUEEN, AFRICA], []);
 
-  await screen.findByLabelText("All songs");
+  await screen.findByRole("combobox", { name: "Pick from" });
   await waitFor(() => expect(listSongs).toHaveBeenCalled());
   expect(spinButton()).toBeDisabled();
 

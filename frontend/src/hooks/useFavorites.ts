@@ -16,17 +16,33 @@ export interface Favorites {
   toggle: (songId: string) => void;
 }
 
+export interface FavoritesOptions {
+  /**
+   * Whether the listing is fetched at all. For a surface that only sometimes
+   * needs it — the reel over a fixed playlist never does. Only for a caller
+   * that draws no heart: without the listing `ids` is empty, so `toggle` would
+   * favorite a song that already is one. `available` still answers on its own,
+   * so a caller may ask whether there is an account without fetching anything.
+   */
+  enabled?: boolean;
+}
+
 /**
  * The caller's favorites with an optimistic toggle: the heart flips on click and
  * flips back if the request fails.
  */
-export function useFavorites(): Favorites {
+export function useFavorites({
+  enabled = true,
+}: FavoritesOptions = {}): Favorites {
   const queryClient = useQueryClient();
   const auth = useAuth();
   const available = auth.user !== null;
   const key = listFavoritesQueryKey();
 
-  const favorites = useQuery({ ...listFavoritesOptions(), enabled: available });
+  const favorites = useQuery({
+    ...listFavoritesOptions(),
+    enabled: available && enabled,
+  });
   // One set per answer, not one per render: the Songs list memoizes what it
   // shows on this very set, and a fresh one every time made that memo — over
   // thousands of songs — recompute on every keystroke. The optimistic toggle

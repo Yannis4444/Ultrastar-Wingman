@@ -9,6 +9,7 @@ import {
 } from "react";
 import type { SongRead, WishRead } from "../api";
 import { listSongsOptions } from "../api/@tanstack/react-query.gen";
+import { useFavorites } from "../hooks/useFavorites";
 import { useTags } from "../hooks/useTags";
 import { useWishlist } from "../hooks/useWishlist";
 import { defaultTagCriteria, passesTagCriteria } from "../tags";
@@ -18,10 +19,11 @@ import SongCover from "./SongCover";
 import SongDetails from "./SongDetails";
 import "./SongSpinner.css";
 
-type Scope = "all" | "wishlist" | "weighted";
+type Scope = "all" | "favorites" | "wishlist" | "weighted";
 
 const SCOPES: [Scope, string][] = [
   ["all", "All songs"],
+  ["favorites", "Favorites"],
   ["wishlist", "Wishlist"],
   ["weighted", "Wishlist (weighted)"],
 ];
@@ -40,6 +42,12 @@ const FACE_AT_REST = 4;
     roll comes to about 25 rolls over the reel's five seconds. */
 const ROLL_MS = 90;
 const ROLL_SLOWDOWN = 1.06;
+/** The number settles before the drum does: the last roll lands about eight
+    tenths of a second before the reel stops, so the die comes to rest and the
+    covers glide the last stretch under a face that no longer changes. Nothing
+    is clamped mid-roll — a roll that would land after this is simply never
+    scheduled, so the slowdown keeps its shape to the end. */
+const ROLL_STOP_MS = SPIN_MS - 800;
 
 /** The reel entry that is not a song: the logo the empty window shows. */
 const LOGO = "logo";
@@ -54,8 +62,14 @@ interface Reel {
   winner: SongRead;
 }
 
-function pool(scope: Scope, songs: SongRead[], wishes: WishRead[]): SongRead[] {
+function pool(
+  scope: Scope,
+  songs: SongRead[],
+  favorites: SongRead[],
+  wishes: WishRead[],
+): SongRead[] {
   if (scope === "all") return songs;
+  if (scope === "favorites") return favorites;
   if (scope === "wishlist") return wishes.map((wish) => wish.song);
   // Weighted: a song wished for three times gets three tickets.
   return wishes.flatMap((wish) => Array<SongRead>(wish.count).fill(wish.song));
@@ -66,19 +80,25 @@ function count(n: number, one: string, many: string): string {
 }
 
 /**
- * What the reel can land on, in one line under the scope pills. The empty
- * cases say what to do about it — an empty scope is an invitation, not a
+ * What the reel can land on, in one line under the *Pick from* select. The
+ * empty cases say what to do about it — an empty scope is an invitation, not a
  * shrug.
  */
 function poolCaption(
   scope: Scope,
   songs: SongRead[],
+  favorites: SongRead[],
   wishes: WishRead[],
 ): string {
   if (scope === "all") {
     return songs.length === 0
       ? "No songs in the library yet"
       : count(songs.length, "song", "songs");
+  }
+  if (scope === "favorites") {
+    return favorites.length === 0
+      ? "Nothing favorited yet"
+      : count(favorites.length, "favorite", "favorites");
   }
   if (wishes.length === 0) return "Nothing on the wishlist yet";
   const wished = count(wishes.length, "wished song", "wished songs");
@@ -95,9 +115,9 @@ function prefersReducedMotion(): boolean {
 
 interface SongSpinnerProps {
   /**
-   * A fixed pool to spin — the songs of one playlist. The scope pills then
-   * have nothing to choose between and go away, and the whole library is
-   * never fetched: the caller already holds the songs.
+   * A fixed pool to spin — the songs of one playlist. The *Pick from* select
+   * then has nothing to choose between and goes away, and neither the library
+   * nor the favorites are fetched: the caller already holds the songs.
    */
   songs?: SongRead[];
 }
@@ -108,10 +128,10 @@ interface SongSpinnerProps {
  * during render made the old app reshuffle every cover on any unrelated
  * re-render.
  *
- * The reel stands alone: scope pills and the pool size above it, the result
- * and the SPIN button below. A finished spin never opens the song modal by
- * itself — the cover and the result line are the way in, and the user takes
- * it.
+ * The reel stands alone: the *Pick from* select and the pool size above it,
+ * the result and the SPIN button below. A finished spin never opens the song
+ * modal by itself — the cover and the result line are the way in, and the user
+ * takes it.
  */
 export default function SongSpinner({ songs: fixed }: SongSpinnerProps) {
   const [scope, setScope] = useState<Scope>("all");
@@ -127,6 +147,7 @@ export default function SongSpinner({ songs: fixed }: SongSpinnerProps) {
     enabled: fixed === undefined,
   }).data?.songs;
   const wishes = useWishlist().wishes;
+  const favoriteIds = useFavorites({ enabled: fixed === undefined }).ids;
   const tags = useTags();
   // The reel is the song list in another shape, so it hides the same songs
   // (§7). Only the library scope: a wish and a playlist are somebody's own
@@ -145,7 +166,20 @@ export default function SongSpinner({ songs: fixed }: SongSpinnerProps) {
           ),
     [library, criteria, tags.bySong, tags.isPending],
   );
-  const candidates = fixed ?? pool(scope, songs, wishes);
+  // The favorites come off the *unfiltered* library, like the wishes: somebody
+  // hearted these songs on purpose, and a tag folding them away would be a bug
+  // (§7). So this pool also never waits for the tag listings.
+  const favorites = useMemo(
+    () => (library ?? []).filter((song) => favoriteIds.has(song.id)),
+    [library, favoriteIds],
+  );
+  const candidates = fixed ?? pool(scope, songs, favorites, wishes);
+  /** An option with nothing behind it cannot be picked; *All songs* always can
+      — an empty library is the library's state, not a closed door. */
+  const empty = (value: Scope): boolean =>
+    value === "all"
+      ? false
+      : (value === "favorites" ? favorites : wishes).length === 0;
 
   const reveal = useCallback((song: SongRead, key: number) => {
     setReel({ key, items: [song], winner: song });
@@ -192,10 +226,13 @@ export default function SongSpinner({ songs: fixed }: SongSpinnerProps) {
 
   // The die on the button rolls while the reel runs. Every roll lands on a
   // face other than the current one, so the change is always visible; the
-  // reduced-motion path never sets `spinning`, so it never rolls.
+  // reduced-motion path never sets `spinning`, so it never rolls. The rolls
+  // stop at `ROLL_STOP_MS`, short of the reel — a die that is still flickering
+  // as the drum halts reads as a counter, not as a die.
   useEffect(() => {
     if (!spinning) return;
     let delay = ROLL_MS;
+    let elapsed = 0;
     let timer: ReturnType<typeof setTimeout>;
     const roll = () => {
       setFace(
@@ -203,7 +240,9 @@ export default function SongSpinner({ songs: fixed }: SongSpinnerProps) {
           (current + 1 + Math.floor(Math.random() * (DICE_FACES.length - 1))) %
           DICE_FACES.length,
       );
+      elapsed += delay;
       delay *= ROLL_SLOWDOWN;
+      if (elapsed + delay > ROLL_STOP_MS) return;
       timer = setTimeout(roll, delay);
     };
     timer = setTimeout(roll, delay);
@@ -215,35 +254,32 @@ export default function SongSpinner({ songs: fixed }: SongSpinnerProps) {
   return (
     <>
       <div className="spinner">
+        {/* One quiet select, not a bank of pills: four choices made once an
+            evening must not compete with the reel and the SPIN below (§7).
+            The `<label>` wraps the select, which is what names it. */}
         {fixed === undefined && (
-          <fieldset className="spinner-scopes">
-            <legend className="visually-hidden">Pick from</legend>
-            {SCOPES.map(([value, label]) => (
-              <label key={value} className="spinner-scope">
-                {/* Hidden, not removed: the pill is the visible affordance, the
-                    radio keeps the keyboard and screen-reader semantics. */}
-                <input
-                  className="visually-hidden"
-                  type="radio"
-                  name="spinner-scope"
-                  value={value}
-                  checked={scope === value}
-                  disabled={
-                    spinning || (value !== "all" && wishes.length === 0)
-                  }
-                  onChange={() => setScope(value)}
-                />
-                <span className="spinner-scope-text">{label}</span>
-              </label>
-            ))}
-          </fieldset>
+          <label className="spinner-pick">
+            <span className="spinner-pick-label">Pick from</span>
+            <select
+              className="text-input text-input-quiet spinner-pick-select"
+              value={scope}
+              disabled={spinning}
+              onChange={(event) => setScope(event.target.value as Scope)}
+            >
+              {SCOPES.map(([value, label]) => (
+                <option key={value} value={value} disabled={empty(value)}>
+                  {label}
+                </option>
+              ))}
+            </select>
+          </label>
         )}
         {/* The count stays in a fixed pool: it is what the reel can land on,
             not a setting. */}
         <p className="spinner-pool">
           {fixed
             ? count(fixed.length, "song", "songs")
-            : poolCaption(scope, songs, wishes)}
+            : poolCaption(scope, songs, favorites, wishes)}
         </p>
 
         <button
