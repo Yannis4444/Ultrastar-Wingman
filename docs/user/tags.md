@@ -56,9 +56,10 @@ your song details and your filter, and you can no longer put it on a song.
 
 1. Open **User → Tags**. The page lists every tag, with how many songs carry it.
 2. Press **+** in the top right.
-3. Give it a **name** (up to 32 characters) and, if you like, an **icon** and one
-   of the four **colours**. The icon and the colour are how the tag is
-   recognised at a glance, so pick something that is not already in use.
+3. Give it a **name** (up to 32 characters) and, if you like, an **icon** — the
+   picker offers the ones that say something about a song — and one of the four
+   **colours**. The icon and the colour are how the tag is recognised at a
+   glance, so pick something that is not already in use.
 4. Decide the two options below (next section).
 5. Tick who it is for, in the table of **guest**, **user** and **trusted** — and,
    under **Specific people**, search for an account to give one person more than

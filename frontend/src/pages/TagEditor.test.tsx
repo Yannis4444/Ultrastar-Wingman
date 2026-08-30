@@ -4,6 +4,7 @@ import { MemoryRouter, Route, Routes, useLocation } from "react-router-dom";
 import type { MeRead, TagPermissionRead, TagRead } from "../api";
 import { meResponse, userRead } from "../test/auth";
 import { FakeSocket } from "../test/fakeSocket";
+import { iconNames } from "../test/icons";
 import { tagRead } from "../test/tags";
 import TagEditor from "./TagEditor";
 
@@ -94,6 +95,16 @@ function renderEditor({
         <Probe />
       </MemoryRouter>
     </QueryClientProvider>,
+  );
+}
+
+/** The classes on one picker cell's glyph. The colour rides on the `<svg>`
+ *  rather than on the button, so that the cell's hover cannot repaint it — so
+ *  that is where a test has to look for it. */
+function glyphClass(label: string): string {
+  return (
+    screen.getByLabelText(label).querySelector("svg")?.getAttribute("class") ??
+    ""
   );
 }
 
@@ -233,6 +244,85 @@ it("clears an icon with an explicit null and touches nothing else", async () => 
   const body = updateTag.mock.calls[0][0].body;
   expect(body).toEqual({ icon: null });
   expect(Object.keys(body)).toEqual(["icon"]);
+});
+
+it("greys the offered glyphs and paints only the chosen one", async () => {
+  renderEditor();
+
+  await screen.findByDisplayValue("broken");
+  // The tag is gold, so the cell it is on wears gold and every other cell is
+  // left to the idle `--color-dark` of any `.icon-button`.
+  expect(glyphClass("alert")).toBe("icon tag-color-gold");
+  expect(glyphClass("music")).toBe("icon");
+  expect(glyphClass("flame")).toBe("icon");
+});
+
+it("moves the chosen glyph's colour with the colour pills", async () => {
+  renderEditor();
+
+  await screen.findByDisplayValue("broken");
+  fireEvent.click(screen.getByLabelText("Blue"));
+
+  expect(glyphClass("alert")).toBe("icon tag-color-blue");
+  // And it follows the choice, not the cell it started on.
+  fireEvent.click(screen.getByLabelText("flame"));
+  expect(glyphClass("flame")).toBe("icon tag-color-blue");
+  expect(glyphClass("alert")).toBe("icon");
+});
+
+it("keeps the 'no icon' cell quiet even when it is the chosen one", async () => {
+  renderEditor();
+
+  await screen.findByDisplayValue("broken");
+  fireEvent.click(screen.getByLabelText("No icon"));
+
+  expect(screen.getByLabelText("No icon")).toHaveAttribute(
+    "aria-pressed",
+    "true",
+  );
+  // A control, not a preview: it never takes the tag's colour.
+  expect(glyphClass("No icon")).toBe("icon");
+  expect(glyphClass("alert")).toBe("icon");
+});
+
+it("keeps a glyph the picker no longer offers choosable for its own tag", async () => {
+  renderEditor({ tags: [tag({ icon: "gear" })] });
+
+  await screen.findByDisplayValue("broken");
+  const cells = screen
+    .getAllByRole("button")
+    .map((button) => button.getAttribute("aria-label"));
+  // Appended after the allowlist, for this tag alone.
+  expect(cells).toContain("gear");
+  expect(cells.indexOf("gear")).toBeGreaterThan(cells.indexOf("skull"));
+  expect(screen.getByLabelText("gear")).toHaveAttribute("aria-pressed", "true");
+  expect(glyphClass("gear")).toBe("icon tag-color-gold");
+  // And it is the gear itself, not the `tag` fallback an unknown name gets.
+  expect(iconNames(screen.getByLabelText("gear"))).toEqual(["gear"]);
+
+  // Trying another glyph must not take the cell the reader came in on away.
+  fireEvent.click(screen.getByLabelText("flame"));
+  expect(screen.getByLabelText("gear")).toHaveAttribute(
+    "aria-pressed",
+    "false",
+  );
+  fireEvent.click(screen.getByLabelText("gear"));
+  expect(screen.getByLabelText("gear")).toHaveAttribute("aria-pressed", "true");
+  expect(screen.getByRole("button", { name: "Save" })).toBeDisabled();
+});
+
+it("keeps a name this build has no glyph for chosen, drawn as the tag itself", async () => {
+  // The backend only checks the shape of an icon name, so a tag can carry one
+  // this frontend cannot draw. Its cell still says which name that is.
+  renderEditor({ tags: [tag({ icon: "sparkles" })] });
+
+  await screen.findByDisplayValue("broken");
+  expect(screen.getByLabelText("sparkles")).toHaveAttribute(
+    "aria-pressed",
+    "true",
+  );
+  expect(iconNames(screen.getByLabelText("sparkles"))).toEqual(["tag"]);
+  expect(glyphClass("sparkles")).toBe("icon tag-color-gold");
 });
 
 it("replaces the permissions when a box in the matrix moves", async () => {

@@ -1,0 +1,120 @@
+import { render } from "@testing-library/react";
+import { iconNames } from "../test/icons";
+import { ICON_PATHS, Icon, PICKER_ICON_NAMES, type IconName } from "./icons";
+
+/**
+ * The allowlist ui-guidelines §3 pins, in the order the picker draws it: the
+ * eight general glyphs that already say something about a song, then the twelve
+ * drawn for tags. Spelled out again here rather than derived from the export,
+ * so that adding a glyph to the picker — or giving one a job that should take
+ * it out — is a deliberate edit and not a side effect of touching `ICON_PATHS`.
+ */
+const PICKABLE = [
+  "users",
+  "alert",
+  "archive",
+  "calendar",
+  "disc",
+  "user",
+  "video",
+  "music",
+  "flame",
+  "moon",
+  "snowflake",
+  "gift",
+  "cake",
+  "child",
+  "guitar",
+  "crown",
+  "film",
+  "gamepad",
+  "flag",
+  "skull",
+];
+
+/** Glyphs that mean something else wherever they appear: the feature icons, the
+ *  controls, the two marks a song row already owns, and the dice. */
+const NOT_PICKABLE: IconName[] = [
+  "clock",
+  "globe",
+  "star",
+  "trophy",
+  "tag",
+  "heart",
+  "mic",
+  "close",
+  "check",
+  "plus",
+  "send",
+  "trash",
+  "pencil",
+  "copy",
+  "drag-handle",
+  "filter",
+  "dice",
+  "dice-1",
+  "chevron-down",
+  "arrow-up",
+];
+
+test("the picker offers exactly the glyphs that say something about a song", () => {
+  expect(PICKER_ICON_NAMES).toEqual(PICKABLE);
+});
+
+test("every pickable glyph is one drawn path", () => {
+  for (const name of PICKER_ICON_NAMES) {
+    expect(ICON_PATHS[name]).toMatch(/^M/);
+  }
+});
+
+test("the glyphs with a job of their own stay out of the picker", () => {
+  for (const name of NOT_PICKABLE) {
+    expect(ICON_PATHS[name]).toBeDefined();
+    expect(PICKER_ICON_NAMES).not.toContain(name);
+  }
+});
+
+test("every subpath is closed, so the nonzero fill has something to fill", () => {
+  for (const [name, d] of Object.entries(ICON_PATHS)) {
+    // An open subpath is filled as if it were closed, but its outline is the
+    // straight line back to where it started — which is not what any of the
+    // cut-outs here were drawn against. `Z` before every `M` and at the end.
+    expect({ name, closed: d.trimEnd().endsWith("Z") }).toEqual({
+      name,
+      closed: true,
+    });
+    expect({ name, open: /[^Zz]\s*M/.test(d.slice(1)) }).toEqual({
+      name,
+      open: false,
+    });
+  }
+});
+
+test("no two glyphs share their path, which is how a test tells them apart", () => {
+  const paths = Object.values(ICON_PATHS);
+  expect(new Set(paths).size).toBe(paths.length);
+});
+
+test("a glyph is one solid path in the 24x24 box", () => {
+  const { container } = render(<Icon name="flame" />);
+
+  expect(container.querySelector("svg")).toHaveAttribute(
+    "viewBox",
+    "0 0 24 24",
+  );
+  expect(container.querySelectorAll("path")).toHaveLength(1);
+  expect(container.querySelector("g")).toBeNull();
+  expect(iconNames(container)).toEqual(["flame"]);
+});
+
+test("every glyph is path data and nothing else", () => {
+  for (const [name, d] of Object.entries(ICON_PATHS)) {
+    // Solid shapes with counter-wound cut-outs, so the default nonzero fill is
+    // the whole story: one `d` string of path commands and numbers each, never
+    // markup that could carry a `fill-rule`, a `stroke` or a `<g>` with it.
+    expect({ name, d }).toEqual({
+      name,
+      d: expect.stringMatching(/^M[-\d\s.,AaCcHhLlMmQqSsTtVvZz]*$/),
+    });
+  }
+});

@@ -1,5 +1,5 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { useState, type CSSProperties } from "react";
+import { useMemo, useState, type CSSProperties } from "react";
 import { Link, useNavigate, useParams } from "react-router-dom";
 import type {
   PlayerRead,
@@ -287,6 +287,21 @@ export default function TagEditor() {
   });
 
   const trimmed = name.trim();
+
+  /** The cells of the icon picker: the allowlist, and after it the tag's own
+   *  glyph when that is one the picker does not offer — a tag made before the
+   *  list changed keeps its icon choosable rather than losing it on the next
+   *  save. Keyed to the *saved* icon, not the live choice: trying another glyph
+   *  must not make the cell the reader came in on vanish from the grid. */
+  const pickerIcons: readonly string[] = useMemo(
+    () =>
+      base.icon !== null &&
+      !(PICKER_ICON_NAMES as readonly string[]).includes(base.icon)
+        ? [...PICKER_ICON_NAMES, base.icon]
+        : PICKER_ICON_NAMES,
+    [base.icon],
+  );
+
   const has = (action: Action, kind: "role" | "user", id: string) =>
     grants.has(grantKey(action, kind, id));
 
@@ -506,11 +521,11 @@ export default function TagEditor() {
                       >
                         <Icon name="close" />
                       </button>
-                      {PICKER_ICON_NAMES.map((glyph) => (
+                      {pickerIcons.map((glyph) => (
                         <button
                           key={glyph}
                           type="button"
-                          className={`icon-button ${tagColorClass(color)}`}
+                          className="icon-button"
                           aria-label={glyph}
                           aria-pressed={icon === glyph}
                           onClick={() => {
@@ -518,7 +533,16 @@ export default function TagEditor() {
                             setIcon(glyph);
                           }}
                         >
-                          <Icon name={glyph} />
+                          {/* The colour rides on the glyph, not on the cell:
+                              the cell's hover repaints `color`, and a chosen
+                              cell must keep the tag's colour under the
+                              pointer. */}
+                          <Icon
+                            name={tagGlyph(glyph)}
+                            className={
+                              icon === glyph ? tagColorClass(color) : undefined
+                            }
+                          />
                         </button>
                       ))}
                     </div>

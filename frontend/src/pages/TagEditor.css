@@ -64,11 +64,22 @@
   margin: 8px 16px 0 16px;
 }
 
-/* The glyphs are previews of the tag, so they wear the colour the tag is being
-   given — except the "no icon" cell, which is a control and stays quiet. */
-.tag-icons .icon-button[aria-pressed="true"] {
-  color: var(--highlight-blue-light);
-  background-color: var(--highlight-blue-dark);
+/* Only the chosen glyph previews the tag; the rest of the grid is a list of
+   offers, so it sits in the idle `--color-dark` of any `.icon-button` (§4).
+   The chosen cell repeats the 40px tag square above it — `--input-bg` under
+   the tag's colour — and the tag's colour comes from a `.tag-color-*` class on
+   the glyph itself, so it follows the colour pills live. The "no icon" cell
+   carries no such class and so keeps `--color-dark`, which is what it should:
+   it is a control, not a preview.
+
+   The `:hover` half is the same declaration at a higher specificity, because
+   `.icon-button:hover:enabled` in `index.css` would otherwise paint the chosen
+   cell blue under the pointer. (`.tag-colour input:checked` below does the same
+   thing for the colour pills.) */
+.tag-icons .icon-button[aria-pressed="true"],
+.tag-icons .icon-button[aria-pressed="true"]:hover:enabled {
+  color: var(--color-dark);
+  background-color: var(--input-bg);
 }
 
 /* ------------------------------------------------------------------ colours
