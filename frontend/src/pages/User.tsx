@@ -4,7 +4,6 @@ import { Link, useSearchParams } from "react-router-dom";
 import type { PlayerRead } from "../api";
 import {
   healthOptions,
-  listFavoritesOptions,
   listPlayerScoresOptions,
   listPlayersOptions,
   listPlayersQueryKey,
@@ -21,9 +20,6 @@ import { errorDetail, errorMessage } from "../errors";
 import { REPOSITORY_URL } from "../links";
 import { manageEntries } from "../manage";
 import { buildHistogramOption, playerSummary } from "../stats";
-// The entry row below the stat bar is Home's `.home-entry` — the same glyph,
-// label and chevron at the same 48px, so it is imported rather than recreated.
-import "./Home.css";
 import "./User.css";
 
 // Lazily, unlike everywhere else it is drawn: this page is in the eager bundle
@@ -79,12 +75,6 @@ function UserStats({ playerId }: { playerId: string | null }) {
     ...listPlayerScoresOptions({ path: { player_id: playerId ?? "" } }),
     enabled: auth.loaded && playerId !== null && auth.can("stats.view"),
   });
-  // Favorites belong to the account rather than to the player, and the query is
-  // the one the songs list already shares — so this costs no second request.
-  const favorites = useQuery({
-    ...listFavoritesOptions(),
-    enabled: auth.loaded && auth.user !== null,
-  });
 
   if (playerId === null || !auth.can("stats.view")) return null;
   // Nothing while it loads, and nothing when it fails: a stat row is a bonus on
@@ -102,12 +92,21 @@ function UserStats({ playerId }: { playerId: string | null }) {
 
   return (
     <>
+      {/* What was sung before how well it went, and no favorites count: a
+          favorite is a filter on the song list, not something achieved. */}
       <div className="user-stats">
         <IconStat
           className="user-stat"
           icon="hash"
           label="Sings"
           value={summary.sings}
+          showLabel
+        />
+        <IconStat
+          className="user-stat"
+          icon="music"
+          label="Songs"
+          value={summary.songs}
           showLabel
         />
         <IconStat
@@ -124,24 +123,6 @@ function UserStats({ playerId }: { playerId: string | null }) {
           value={summary.average}
           showLabel
         />
-        <IconStat
-          className="user-stat"
-          icon="music"
-          label="Songs"
-          value={summary.songs}
-          showLabel
-        />
-        {/* Only once it is known — a count that starts at zero and jumps looks
-            like a number that changed. */}
-        {favorites.data !== undefined && (
-          <IconStat
-            className="user-stat"
-            icon="heart"
-            label="Favorites"
-            value={favorites.data.song_ids.length}
-            showLabel
-          />
-        )}
       </div>
       {/* The shape behind the numbers: where this singer's scores actually land
           across the full 0–10000 range. Flat on the page like the stat bar
@@ -160,12 +141,12 @@ function UserStats({ playerId }: { playerId: string | null }) {
         </Suspense>
       )}
       {/* Inside this component on purpose: it is the only place that knows the
-          five numbers have something behind them, so the row can never lead to
-          an empty page. */}
-      <Link className="home-entry user-stats-link" to="/user/stats">
-        <Icon name="chart" />
-        <span className="home-entry-label">All my scores</span>
-        <Icon name="chevron-right" className="home-entry-chevron" />
+          four numbers have something behind them, so the row can never lead to
+          an empty page. A quiet line tied to the block above by its hairline —
+          no leading glyph, which is what made it read as a Manage errand. */}
+      <Link className="user-stats-link" to="/user/stats">
+        <span className="user-stats-link-label">All my scores</span>
+        <Icon name="chevron-right" className="user-stats-link-chevron" />
       </Link>
     </>
   );

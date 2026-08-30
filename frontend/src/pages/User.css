@@ -61,8 +61,8 @@
   margin: 0;
 }
 
-/* Flat, no tile: the identity card above it is the page's one surface. Five
-   stats fit one line from ~340px up; below that they wrap rather than truncate. */
+/* Flat, no tile: the identity card above it is the page's one surface. Four
+   stats fit one line on any phone; they wrap rather than truncate all the same. */
 .user-stats {
   display: flex;
   flex-wrap: wrap;
@@ -99,12 +99,45 @@
   margin: 0 16px 12px 16px;
 }
 
-/* Home's `.home-entry`, pulled up under the block it belongs to: whatever sits
-   above — the stat bar, or the distribution under it — already carries 12px,
-   and 16px on top of that would read as a separate section rather than as the
-   way into these very numbers. */
-.home-entry.user-stats-link {
-  margin-top: 0;
+/* The way into the numbers above, not an errand: a quiet full-width line held
+   to the stats block by one hairline, on the same 16px column as the stat bar
+   and the chart, and deliberately unlike the 48px glyph rows of Manage below.
+   No top margin — whatever sits above already carries its own 12px. */
+.user-stats-link {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  /* The app is content-box, so a bare `min-height` would add the padding on
+     top and make this quiet line taller than the errands it must undercut. */
+  box-sizing: border-box;
+  min-height: 44px;
+  margin: 0 16px;
+  padding: 4px 0;
+  text-decoration: none;
+  border-top: 1px solid var(--input-border-color);
+}
+
+.user-stats-link-label {
+  flex: 1 1 auto;
+  min-width: 0;
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+  font-size: 0.85em;
+  color: var(--highlight-blue-light);
+}
+
+.user-stats-link-chevron {
+  font-size: 0.85em;
+  color: var(--color-darker);
+}
+
+/* Pointers only: a touch screen fakes a hover on tap and leaves the line lit
+   long after the finger has scrolled on. */
+@media (hover: hover) {
+  .user-stats-link:hover .user-stats-link-chevron {
+    color: var(--highlight-blue-light);
+  }
 }
 
 /* The page's last section starts over: 32px marks it off from the scores block

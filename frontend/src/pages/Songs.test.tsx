@@ -206,7 +206,7 @@ test("the reload button sits next to the song count, not in the toolbar", async 
   // The toolbar is the search field, nothing else.
   const toolbar = screen
     .getByRole("searchbox", { name: "Search songs" })
-    .closest("div") as HTMLElement;
+    .closest(".songs-toolbar") as HTMLElement;
   expect(
     within(toolbar).queryByRole("button", { name: "Rescan" }),
   ).not.toBeInTheDocument();
@@ -278,6 +278,29 @@ test("the search box filters by title, artist and exact id", async () => {
   expect(
     screen.getByText('No song matches "nothing matches this".'),
   ).toBeInTheDocument();
+});
+
+test("the X clears the search and only stands while something is typed", async () => {
+  renderSongs([
+    song(),
+    song({ id: "local:abc", title: "Africa", artist: "Toto" }),
+  ]);
+  await screen.findByText("Dancing Queen");
+
+  // An X on an empty field would be a control that does nothing.
+  expect(screen.queryByRole("button", { name: "Clear search" })).toBeNull();
+
+  searchFor("toT");
+  expect(screen.queryByText("Dancing Queen")).not.toBeInTheDocument();
+
+  fireEvent.click(screen.getByRole("button", { name: "Clear search" }));
+  const box = screen.getByRole("searchbox", { name: "Search songs" });
+  expect(box).toHaveValue("");
+  // The whole library is back, and the caret stays where typing goes on.
+  expect(screen.getByText("Dancing Queen")).toBeInTheDocument();
+  expect(screen.getByText("Africa")).toBeInTheDocument();
+  expect(box).toHaveFocus();
+  expect(screen.queryByRole("button", { name: "Clear search" })).toBeNull();
 });
 
 test("an empty library says so instead of showing an empty list", async () => {

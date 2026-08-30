@@ -9,6 +9,8 @@ Open the **Songs** tab. It lists everything Wingman found in your song folders,
 with the number of songs at the top.
 
 - The search box matches title and artist while you type. A song id also works.
+  The **×** at its right end appears as soon as you type and empties the box
+  again in one tap.
 - The chips below it narrow the list: **All**, **♥ Favorites**, **Recent**,
   **Sung** and the funnel, **Filter**. Only the chip you are standing on spells
   its name out; the others shrink to their icon so the row keeps fitting a

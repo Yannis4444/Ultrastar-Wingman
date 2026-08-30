@@ -29,8 +29,8 @@ Once you are logged in, the **User** tab shows you instead of the login form.
   generic icon on the User tab itself, so you can see at a glance who this phone
   is logged in as.
 - Under your name stand your totals over every party you ever sang at: how many
-  performances were scored, your best score, your average, how many different
-  songs you sang and how many songs you marked as favorites.
+  performances were scored, how many different songs you sang, your best score
+  and your average.
 - **All my scores** under those numbers opens
   [your whole history](statistics.md#all-your-own-scores) — every song you ever
   sang, not just tonight's.

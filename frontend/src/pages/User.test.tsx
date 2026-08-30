@@ -3,6 +3,7 @@ import { fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { MemoryRouter, useLocation } from "react-router-dom";
 import type { PlayerRead, ScoreWithContext } from "../api";
 import { meResponse, userRead } from "../test/auth";
+import { iconNames } from "../test/icons";
 import User from "./User";
 
 interface RenderedChart {
@@ -402,8 +403,12 @@ test("the account's own totals are summed up under the identity", async () => {
   expect(screen.getByText("Average").previousSibling).toHaveTextContent("8500");
   // Both scores are on songs that have left the library: one unknown song.
   expect(screen.getByText("Songs").previousSibling).toHaveTextContent("1");
-  // The account's favorites, which belong to it rather than to the player.
-  expect(screen.getByText("Favorites").previousSibling).toHaveTextContent("2");
+  // What was sung before how well it went.
+  expect(
+    [...document.querySelectorAll(".user-stat .icon-stat-label")].map(
+      (label) => label.textContent,
+    ),
+  ).toEqual(["Sings", "Songs", "Best", "Average"]);
   // Not on the user's own page: nobody needs their flops counted for them.
   expect(screen.queryByText("Worst")).not.toBeInTheDocument();
 });
@@ -461,6 +466,10 @@ test("the whole history is one row below the numbers it totals", async () => {
   expect(link.previousElementSibling?.classList.contains("user-stats")).toBe(
     true,
   );
+  // Belongs to the stats, not to the errands below: none of Manage's row idiom
+  // — no 48px glyph row, and the only glyph on it is the chevron.
+  expect(link.classList.contains("home-entry")).toBe(false);
+  expect(iconNames(link)).toEqual(["chevron-right"]);
 });
 
 test("nothing links to an empty history", async () => {
@@ -528,15 +537,15 @@ test("a stranger gets the About footer too, and no way into someone's scores", a
   expect(screen.queryByRole("link", { name: "All my scores" })).toBeNull();
 });
 
-test("the favorites count waits until it is known", async () => {
+test("favorites are no achievement, so the stat bar does not count them", async () => {
   loggedInAsAlice();
   listPlayerScores.mockResolvedValue({ data: { scores: [score(9000, "s1")] } });
-  listFavorites.mockRejectedValue(new Error("no"));
+  // Two favorites are there to be counted; the bar still does not count them.
   renderUser();
 
   expect(await screen.findByText("Sings")).toBeInTheDocument();
-  // A count that starts at zero and jumps reads as a number that changed.
   expect(screen.queryByText("Favorites")).not.toBeInTheDocument();
+  expect(listFavorites).not.toHaveBeenCalled();
 });
 
 test("a singer without scores is asked to sing instead of shown zeroes", async () => {
