@@ -6,7 +6,7 @@ import type {
   SongRead,
 } from "./api";
 import { MAX_SCORE, chartTheme } from "./chartTheme";
-import { parseServerTime, shortDate } from "./duration";
+import { parseServerTime, shortDate, shortTime } from "./duration";
 
 /** What the score lists can be grouped by on the stats page. `none` leaves
  * every single score standing on its own, as the old app's "don't group". */
@@ -259,6 +259,21 @@ export function songLabel(score: ScoreWithContext): string {
     : `${score.song.artist} – ${score.song.title}`;
 }
 
+/**
+ * The lines a chart mark answers hover or tap with: who, on what, and what it
+ * scored when. A chart over one evening clocks the score; one that spans
+ * parties (`dated`) dates it too, or two runs months apart would read alike.
+ */
+export function scoreTipLines(
+  score: ScoreWithContext,
+  dated: boolean,
+): string[] {
+  const when = dated
+    ? `${shortDate(score.recorded_at)}, ${shortTime(score.recorded_at)}`
+    : shortTime(score.recorded_at);
+  return [score.player_name, songLabel(score), `${score.score} · ${when}`];
+}
+
 /** USDX stores the difficulty it was sung on as 0/1/2; anything else is unknown. */
 export function difficultyLabel(difficulty: number | null): string {
   return ["Easy", "Medium", "Hard"][difficulty ?? -1] ?? "—";
@@ -302,6 +317,50 @@ function groupKey(score: ScoreWithContext, grouping: Grouping): string {
   // Two guests can share a display name; the player id keeps them apart when
   // there is one. Registered and walk-in singers never collide.
   return score.player_id ?? `name:${score.player_name}`;
+}
+
+/** The singer behind a score, as `groupScores(…, "player")` tells them apart —
+ * what the timeline uses to give one singer's dots one colour. */
+export function scorePlayerKey(score: ScoreWithContext): string {
+  return groupKey(score, "player");
+}
+
+/** Tukey box statistics of one group, for the spread chart's box rows. */
+export interface BoxStats {
+  q1: number;
+  median: number;
+  q3: number;
+  /** Whisker ends: the most extreme *scores* still inside the 1.5 × IQR
+   * fences — a whisker always ends on a real score, never on the fence. */
+  whiskerLow: number;
+  whiskerHigh: number;
+  /** The scores beyond either fence, drawn as dots past the whiskers. */
+  outliers: ScoreWithContext[];
+}
+
+/**
+ * The standard box-and-whisker numbers of a group: quartiles as `groupScores`
+ * already computes them, whiskers to the farthest score within 1.5 × IQR of
+ * the box, and whatever lies beyond a fence — on either side — as outliers.
+ */
+export function boxStats(group: ScoreGroup): BoxStats {
+  const [, q1, median, q3] = group.quartiles;
+  const reach = 1.5 * (q3 - q1);
+  const lowFence = q1 - reach;
+  const highFence = q3 + reach;
+  const inside = group.scores
+    .map((score) => score.score)
+    .filter((value) => value >= lowFence && value <= highFence);
+  return {
+    q1,
+    median,
+    q3,
+    whiskerLow: Math.min(...inside),
+    whiskerHigh: Math.max(...inside),
+    outliers: group.scores.filter(
+      (score) => score.score < lowFence || score.score > highFence,
+    ),
+  };
 }
 
 /**

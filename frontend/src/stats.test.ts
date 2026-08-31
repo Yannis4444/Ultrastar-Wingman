@@ -2,6 +2,7 @@ import type { ScoreWithContext, SessionRead, SongRead } from "./api";
 import { parseServerTime, shortDate } from "./duration";
 import {
   allSessionsMeta,
+  boxStats,
   boxplotWidth,
   buildBoxplotOption,
   buildHistogramOption,
@@ -13,6 +14,7 @@ import {
   isNewHighscore,
   playerSummary,
   scorePlayer,
+  scorePlayerKey,
   sessionLabel,
   sessionLeaderboard,
   sessionMeta,
@@ -279,6 +281,54 @@ test("the score axis keeps the full range once scores pass 40% of perfect", () =
 
   expect((option.series as { type: string }[])[0].type).toBe("boxplot");
   expect((option.yAxis as { max: number }).max).toBe(10000);
+});
+
+test("a bombed song becomes an outlier instead of stretching the whisker", () => {
+  const [group] = groupScores(
+    [8000, 8200, 8400, 8600, 2000].map((value) =>
+      score("Alice", value, bohemian),
+    ),
+    "player",
+  );
+
+  const box = boxStats(group);
+  // Ascending [2000, 8000, 8200, 8400, 8600]: quartiles by interpolation.
+  expect(box).toMatchObject({ q1: 8000, median: 8200, q3: 8400 });
+  // 1.5 × IQR = 600 — the 2000 lies far below the fence, so the whisker ends
+  // on the lowest score still inside it, never on the fence itself.
+  expect(box.whiskerLow).toBe(8000);
+  expect(box.whiskerHigh).toBe(8600);
+  expect(box.outliers.map((entry) => entry.score)).toEqual([2000]);
+});
+
+test("outliers flag on both ends — a surprise hit counts like a flop", () => {
+  const [group] = groupScores(
+    [5000, 5100, 5200, 5300, 9900].map((value) =>
+      score("Alice", value, bohemian),
+    ),
+    "player",
+  );
+
+  const box = boxStats(group);
+  expect(box.outliers.map((entry) => entry.score)).toEqual([9900]);
+  expect(box.whiskerHigh).toBe(5300);
+});
+
+test("a tight group has no outliers and whiskers at its extremes", () => {
+  const [alice] = groupScores(scores, "player");
+
+  expect(boxStats(alice)).toMatchObject({
+    whiskerLow: 8000,
+    whiskerHigh: 9000,
+    outliers: [],
+  });
+});
+
+test("the timeline tells two same-named guests apart by their player id", () => {
+  expect(
+    scorePlayerKey(score("Chris", 9000, bohemian, { player_id: "player-a" })),
+  ).toBe("player-a");
+  expect(scorePlayerKey(score("Chris", 9000, bohemian))).toBe("name:Chris");
 });
 
 test("histogram buckets cover the whole score range, 10000 included", () => {
