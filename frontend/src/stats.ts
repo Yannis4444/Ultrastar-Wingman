@@ -6,14 +6,20 @@ import type {
   SongRead,
 } from "./api";
 import { MAX_SCORE, chartTheme } from "./chartTheme";
-import { parseServerTime } from "./duration";
+import { parseServerTime, shortDate } from "./duration";
 
 /** What the score lists can be grouped by on the stats page. `none` leaves
  * every single score standing on its own, as the old app's "don't group". */
 export type Grouping = "none" | "player" | "song";
 
-/** The old app's four score orders, recreated verbatim. */
-export type Sorting = "alphabetically" | "average" | "best" | "worst";
+/**
+ * The old app's four score orders, recreated verbatim, plus one it never had:
+ * `chronological` reads the evening back in the order it happened. It says
+ * nothing about a *singer* — a player is not an event — so the Scores page
+ * keeps it out of the sort list while the grouping is by player.
+ */
+export type Sorting =
+  "alphabetically" | "average" | "best" | "worst" | "chronological";
 
 export interface ScoreGroup {
   /** Stable across renders, so it works as a React key and an expansion id. */
@@ -30,6 +36,12 @@ export interface ScoreGroup {
   /** Boxplot five-number summary, ascending: worst, q1, median, q3, best. */
   quartiles: number[];
   average: number;
+  /**
+   * When the group first happened, as epoch milliseconds — the earliest
+   * `recorded_at` behind it. What `chronological` orders by: a song's place in
+   * the evening is the run that put it there, not the last time it came round.
+   */
+  firstAt: number;
 }
 
 /** One singer's totals over their whole history, for the user page. */
@@ -199,6 +211,35 @@ export function sessionLeaderboard(
   );
 }
 
+/** "1 singer" / "5 singers" — the picker's counts, none of which is ever a bare
+ * number the reader has to guess the unit of. */
+function plural(count: number, word: string): string {
+  return `${count} ${word}${count === 1 ? "" : "s"}`;
+}
+
+/**
+ * A party's second line in the session picker: when it was and how much
+ * happened at it. A party is more than its name, and this is what tells two
+ * evenings apart before either is opened.
+ */
+export function sessionMeta(session: SessionRead): string {
+  return [
+    shortDate(session.started_at),
+    plural(session.singer_count, "singer"),
+    plural(session.score_count, "score"),
+  ].join(" · ");
+}
+
+/**
+ * The picker's head row under its name: what "everything at once" adds up to.
+ * The listing holds exactly the parties the reader may open, so summing it is
+ * summing precisely what the head row will show.
+ */
+export function allSessionsMeta(sessions: SessionRead[]): string {
+  const scores = sessions.reduce((sum, entry) => sum + entry.score_count, 0);
+  return `${plural(sessions.length, "session")} · ${plural(scores, "score")}`;
+}
+
 /** A session's own name, or when it started — the label the picker shows.
  * The time keeps two nameless parties on the same day apart. */
 export function sessionLabel(session: SessionRead): string {
@@ -304,14 +345,18 @@ export function groupScores(
           ascending[ascending.length - 1],
         ],
         average: Math.round(total / ascending.length),
+        firstAt: Math.min(
+          ...members.map((score) => parseServerTime(score.recorded_at)),
+        ),
       };
     })
     .sort((a, b) => b.median - a.median || b.best - a.best);
 }
 
 /** The number a row is ranked by, and therefore the number it shows — the two
- * can never disagree. Alphabetical order has no value of its own, so it falls
- * back to the best score, the same thing "best score" ranks by. */
+ * can never disagree. Alphabetical and chronological order have no value of
+ * their own (a date is not a score), so they fall back to the best score, the
+ * same thing "best score" ranks by. */
 export function groupValue(group: ScoreGroup, sorting: Sorting): number {
   if (sorting === "average") return group.average;
   if (sorting === "worst") return group.worst;
@@ -323,7 +368,9 @@ export function groupValue(group: ScoreGroup, sorting: Sorting): number {
  * groups with identical scores keep a stable place across re-renders.
  *
  * "worst score" sorts *ascending*, exactly as the old app did: the point of
- * that order is to put the evening's biggest flop first.
+ * that order is to put the evening's biggest flop first. "chronological" is
+ * ascending too, and for the same reason: the word means oldest first — the
+ * evening read forwards from its first song.
  */
 export function sortGroups(
   groups: ScoreGroup[],
@@ -347,6 +394,8 @@ export function sortGroups(
       return copy.sort(
         (a, b) => b.best - a.best || b.average - a.average || byLabel(a, b),
       );
+    case "chronological":
+      return copy.sort((a, b) => a.firstAt - b.firstAt || byLabel(a, b));
   }
 }
 
@@ -418,16 +467,32 @@ const TOOLTIP = {
 /** How many groups the chart draws at most — the full list sits right below it. */
 const CHART_GROUPS = 8;
 
-/** Height the boxplot needs: one row per drawn group plus room for the axis. */
-export function boxplotHeight(groupCount: number): number {
-  return 28 * Math.min(groupCount, CHART_GROUPS) + 40;
+/** Room one group gets on the category axis. Less and the boxes touch and the
+ * labels under them are two characters wide. */
+const CATEGORY_WIDTH = 56;
+
+/**
+ * The boxplot's height. A standing chart no longer grows with the number of
+ * groups — a group makes it wider, not taller — so this is a constant and not
+ * the function it replaced.
+ */
+export const BOXPLOT_HEIGHT = 200;
+
+/**
+ * Width the boxplot needs: one column per drawn group plus the gutter the
+ * value axis and its labels take. Narrower than its box the chart stretches to
+ * fill it (`min-width: 100%` on the wrapper `Chart` sizes); wider, the box
+ * scrolls sideways rather than the page (§1.11).
+ */
+export function boxplotWidth(groupCount: number): number {
+  return CATEGORY_WIDTH * Math.min(groupCount, CHART_GROUPS) + 44;
 }
 
 /**
- * Horizontal boxplot of every group's score spread, first group on top
- * (`inverse`, because an echarts category axis counts up from the bottom).
- * When no group has more than one score a boxplot is just a row of hairlines,
- * so each group's single score is drawn as a bar instead.
+ * Standing boxplot of every group's score spread: the group on the x-axis, the
+ * score on the y, first group on the left. When no group has more than one
+ * score a boxplot is just a row of hairlines, so each group's single score is
+ * drawn as a bar instead.
  *
  * Takes the groups already sorted: the chart draws the head of the same list
  * the page shows, so changing the order never makes the two disagree.
@@ -467,8 +532,25 @@ export function buildBoxplotOption(sorted: ScoreGroup[]): EChartsOption {
             return `<b>${item.name}</b><br/>Score: ${item.data}`;
           },
     },
-    grid: { top: 4, bottom: 22, left: 8, right: 12, containLabel: true },
+    grid: { top: 4, bottom: 4, left: 4, right: 8, containLabel: true },
     xAxis: {
+      ...AXIS,
+      type: "category",
+      // Every category keeps its label: echarts thins a crowded axis out by
+      // dropping labels, and a box with no name under it says nothing. The
+      // width is `CATEGORY_WIDTH` minus the gap, so long song labels truncate
+      // instead of running into their neighbours — the tooltip still carries
+      // the full name.
+      axisLabel: {
+        ...AXIS.axisLabel,
+        interval: 0,
+        width: CATEGORY_WIDTH - 4,
+        overflow: "truncate",
+        ellipsis: "…",
+      },
+      data: groups.map((group) => group.label),
+    },
+    yAxis: {
       ...AXIS,
       type: "value",
       min: 0,
@@ -477,23 +559,11 @@ export function buildBoxplotOption(sorted: ScoreGroup[]): EChartsOption {
       axisLabel: {
         ...AXIS.axisLabel,
         hideOverlap: true,
-        // `2.5k` fits a 358px-wide tile where `10,000` collides.
+        // `2.5k` fits the narrow gutter a standing chart leaves the value axis,
+        // where `10,000` would eat into the boxes.
         formatter: (value: number) =>
           value >= 1000 ? `${value / 1000}k` : String(value),
       },
-    },
-    yAxis: {
-      ...AXIS,
-      type: "category",
-      inverse: true,
-      // Song labels can be long; the tooltip still carries the full name.
-      axisLabel: {
-        ...AXIS.axisLabel,
-        width: 96,
-        overflow: "truncate",
-        ellipsis: "…",
-      },
-      data: groups.map((group) => group.label),
     },
     series: [
       spread

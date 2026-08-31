@@ -60,6 +60,7 @@ const PICKABLE = [
  *  controls, the two marks a song row already owns, and the dice. */
 const NOT_PICKABLE: IconName[] = [
   "clock",
+  "layers",
   "globe",
   "star",
   "trophy",

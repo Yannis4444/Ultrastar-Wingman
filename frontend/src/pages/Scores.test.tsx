@@ -17,7 +17,10 @@ import Scores from "./Scores";
 
 interface RenderedChart {
   label: string;
-  option: { yAxis?: { data?: string[] } };
+  /** The groups sit on the category axis, which is the x-axis now. */
+  option: { xAxis?: { data?: string[] } };
+  /** What the page asks the chart to be wide, for the box that scrolls it. */
+  width?: number;
 }
 
 const {
@@ -40,7 +43,11 @@ const {
   reassignScore: vi.fn(),
   deleteScore: vi.fn(),
   // Every option object the page hands to echarts, in render order.
-  charts: [] as { label: string; option: { yAxis?: { data?: string[] } } }[],
+  charts: [] as {
+    label: string;
+    option: { xAxis?: { data?: string[] } };
+    width?: number;
+  }[],
 }));
 
 vi.mock("../api/sdk.gen", async (importOriginal) => ({
@@ -58,8 +65,8 @@ vi.mock("../api/sdk.gen", async (importOriginal) => ({
 // jsdom has no canvas, so the real chart cannot render. The option building is
 // covered in `stats.test.ts`; here the mock only records what it was given.
 vi.mock("../components/Chart", () => ({
-  default: ({ option, label }: RenderedChart) => {
-    charts.push({ option, label });
+  default: ({ option, label, width }: RenderedChart) => {
+    charts.push({ option, label, width });
     return <div data-testid="chart">{label}</div>;
   },
 }));
@@ -100,12 +107,48 @@ function stats(panel: HTMLElement): (string | null)[][] {
   ]);
 }
 
-/** Category axis of the most recent boxplot — the per-group histograms have none. */
-function lastBoxplotCategories(): string[] | undefined {
+/** The most recent boxplot — the per-group histograms are charts too. */
+function lastBoxplot(): RenderedChart | undefined {
   const boxplots = charts.filter((chart) =>
     chart.label.startsWith("Score spread"),
   );
-  return boxplots[boxplots.length - 1]?.option.yAxis?.data;
+  return boxplots[boxplots.length - 1];
+}
+
+/** Category axis of the most recent boxplot: the groups, standing on the x. */
+function lastBoxplotCategories(): string[] | undefined {
+  return lastBoxplot()?.option.xAxis?.data;
+}
+
+/** Open the session picker and hand the panel back. */
+async function openSessions(): Promise<HTMLElement> {
+  const opener = await screen.findByRole("button", { name: /^Session:/ });
+  // A real press focuses the button before it clicks it, and that is what the
+  // dialog reads to know where to give the focus back when it closes.
+  opener.focus();
+  fireEvent.click(opener);
+  return screen.findByRole("dialog", { name: "Session" });
+}
+
+/** The picker's rows: the first line of each, in order. */
+function sessionRows(panel: HTMLElement): (string | null)[] {
+  return [...panel.querySelectorAll(".picker-row")].map(
+    (row) => row.querySelector(".picker-row-title")?.textContent ?? null,
+  );
+}
+
+/** The labels of the ranking rows, in the order the page draws them. */
+function groupLabels(): (string | null)[] {
+  return screen
+    .getAllByTestId("score-group")
+    .map((row) => row.querySelector(".score-group-label")?.textContent ?? null);
+}
+
+/** The wordings of one of the two compact selects, in order. */
+function options(control: "Group" | "Sort"): (string | null)[] {
+  return within(screen.getByLabelText(control))
+    .getAllByRole("option")
+    .map((option) => option.textContent);
 }
 
 function song(id: string, artist: string, title: string): SongRead {
@@ -132,6 +175,8 @@ function score(
   songRead: SongRead,
   singId: string,
   playerId: string | null = null,
+  /** When it was sung — what the chronological order reads. */
+  recordedAt = "2026-08-23T20:00:00Z",
 ): ScoreWithContext {
   return {
     id,
@@ -140,7 +185,7 @@ function score(
     player_name: playerName,
     score: value,
     difficulty: 1,
-    recorded_at: "2026-08-23T20:00:00Z",
+    recorded_at: recordedAt,
     song: songRead,
     sing_started_at: "2026-08-23T19:55:00Z",
   };
@@ -237,19 +282,20 @@ afterEach(() => vi.unstubAllGlobals());
 test("the picker lists every session and starts on the newest one", async () => {
   renderScores();
 
-  const picker = await screen.findByRole("combobox", { name: "Session" });
   const started = new Date("2026-08-23T18:00:00Z");
   const label = `Session ${started.toLocaleDateString()}, ${started.toLocaleTimeString(
     [],
     { hour: "2-digit", minute: "2-digit" },
   )}`;
+  // Newest first from the backend, so the bar opens on the first entry.
+  expect(
+    await screen.findByRole("button", { name: `Session: ${label}` }),
+  ).toBeInTheDocument();
+
+  const panel = await openSessions();
   // The head row first: everything at once, then the parties themselves. This
   // reader holds no `stats.history`, so what it adds up is their own parties.
-  expect(
-    screen.getAllByRole("option").map((option) => option.textContent),
-  ).toEqual(["All my scores", label, "New Year 2025"]);
-  // Newest first from the backend, so the first entry is preselected.
-  expect(picker).toHaveValue("session-new");
+  expect(sessionRows(panel)).toEqual(["All my scores", label, "New Year 2025"]);
   await waitFor(() =>
     expect(listSessionScores.mock.calls[0][0].path).toEqual({
       session_id: "session-new",
@@ -257,19 +303,88 @@ test("the picker lists every session and starts on the newest one", async () => 
   );
 });
 
+test("a party's row says when it was and how big it was", async () => {
+  renderScores();
+  const panel = await openSessions();
+
+  // A dropdown could only ever carry the name; this is why the picker is a
+  // panel of rows.
+  expect(
+    within(panel).getByText(
+      `${shortDate(tonight.started_at)} · 3 singers · 4 scores`,
+    ),
+  ).toBeInTheDocument();
+  expect(
+    within(panel).getByText(
+      `${shortDate(lastYear.started_at)} · 5 singers · 12 scores`,
+    ),
+  ).toBeInTheDocument();
+  // The head row adds those two parties up rather than dating itself, and the
+  // stack of layers is what marks it as the row that is not a party.
+  expect(within(panel).getByText("2 sessions · 16 scores")).toBeInTheDocument();
+  const rows = [...panel.querySelectorAll<HTMLElement>(".picker-row")];
+  expect(iconNames(rows[0])).toEqual(["layers"]);
+  expect(iconNames(rows[1])).toEqual([]);
+  // The row the page stands on is the pressed one: the panel says where the
+  // reader is, not only where they may go.
+  expect(
+    [...panel.querySelectorAll(".picker-row")].map((row) =>
+      row.getAttribute("aria-pressed"),
+    ),
+  ).toEqual(["false", "true", "false"]);
+});
+
 test("picking another session loads that session's scores", async () => {
   renderScores();
-  const picker = await screen.findByRole("combobox", { name: "Session" });
+  const panel = await openSessions();
 
   listSessionScores.mockResolvedValue({ data: { scores: [] } });
-  fireEvent.change(picker, { target: { value: "session-old" } });
+  fireEvent.click(within(panel).getByText("New Year 2025"));
 
   await waitFor(() =>
     expect(
       listSessionScores.mock.calls.map((call) => call[0].path.session_id),
     ).toContain("session-old"),
   );
+  // The choice made, the panel is done: it closes behind it.
+  expect(
+    screen.queryByRole("dialog", { name: "Session" }),
+  ).not.toBeInTheDocument();
   expect(await screen.findByText(/no scores yet/i)).toBeInTheDocument();
+});
+
+test("choosing another party hands the focus back to the session button", async () => {
+  renderScores();
+  const opener = await screen.findByRole("button", { name: /^Session:/ });
+  const panel = await openSessions();
+
+  listSessionScores.mockResolvedValue({ data: { scores: [] } });
+  fireEvent.click(within(panel).getByText("New Year 2025"));
+
+  // The bar is not rebuilt around the new party, so the dialog still finds the
+  // button it was opened from and a keyboard reader carries on from the bar
+  // instead of re-tabbing from the top of the page.
+  await waitFor(() =>
+    expect(
+      screen.queryByRole("dialog", { name: "Session" }),
+    ).not.toBeInTheDocument(),
+  );
+  expect(document.activeElement).toBe(opener);
+  expect(opener).toHaveAccessibleName("Session: New Year 2025");
+});
+
+test("picking the session already shown closes the picker anyway", async () => {
+  renderScores();
+  const panel = await openSessions();
+
+  // Nothing changes, so nothing re-renders: the panel has to close itself.
+  fireEvent.click(within(panel).getAllByText(/^Session /)[0]);
+
+  await waitFor(() =>
+    expect(
+      screen.queryByRole("dialog", { name: "Session" }),
+    ).not.toBeInTheDocument(),
+  );
 });
 
 test("the summary counts scored performances, not songs started", async () => {
@@ -417,19 +532,114 @@ test("both controls are quiet selects carrying the old wordings", async () => {
   const sort = screen.getByLabelText("Sort");
   expect(group).toHaveClass("text-input-quiet");
   expect(sort).toHaveClass("text-input-quiet");
-  expect(
-    within(group)
-      .getAllByRole("option")
-      .map((option) => option.textContent),
-  ).toEqual(["don't group", "group by player", "group by song"]);
-  expect(
-    within(sort)
-      .getAllByRole("option")
-      .map((option) => option.textContent),
-  ).toEqual(["alphabetically", "average score", "best score", "worst score"]);
+  expect(options("Group")).toEqual([
+    "don't group",
+    "group by player",
+    "group by song",
+  ]);
+  // Grouped by player, which is where the page opens, a time order says
+  // nothing — so the list is the old app's four.
+  expect(options("Sort")).toEqual([
+    "alphabetically",
+    "average score",
+    "best score",
+    "worst score",
+  ]);
   // The defaults the page has always opened on.
   expect(group).toHaveValue("player");
   expect(sort).toHaveValue("best");
+});
+
+test("chronological joins the sort list for every grouping but by player", async () => {
+  renderScores();
+  await screen.findAllByTestId("chart");
+
+  choose("Group", "song");
+  await waitFor(() =>
+    expect(options("Sort")).toEqual([
+      "alphabetically",
+      "average score",
+      "best score",
+      "chronological",
+      "worst score",
+    ]),
+  );
+
+  choose("Group", "none");
+  await waitFor(() => expect(options("Sort")).toContain("chronological"));
+});
+
+test("going back to group by player takes chronological's place, not just its option", async () => {
+  renderScores();
+  await screen.findAllByTestId("chart");
+  choose("Group", "song");
+  choose("Sort", "chronological");
+  await waitFor(() =>
+    expect(screen.getByLabelText("Sort")).toHaveValue("chronological"),
+  );
+
+  choose("Group", "player");
+
+  // A `<select>` whose value matches no option of its own draws blank, so the
+  // order has to be replaced and not merely hidden.
+  await waitFor(() => expect(options("Sort")).not.toContain("chronological"));
+  expect(screen.getByLabelText("Sort")).toHaveValue("best");
+});
+
+test("chronological reads the party forwards, from the song sung first", async () => {
+  listSessionScores.mockResolvedValue({
+    data: {
+      scores: [
+        // Bohemian Rhapsody scored higher but came second.
+        score(
+          1,
+          "Alice",
+          9000,
+          bohemian,
+          "sing-b",
+          "player-alice",
+          "2026-08-23T21:00:00Z",
+        ),
+        score(
+          2,
+          "Bob",
+          4000,
+          wonderwall,
+          "sing-w",
+          null,
+          "2026-08-23T19:00:00Z",
+        ),
+      ],
+    },
+  });
+  renderScores();
+  await screen.findAllByTestId("score-group");
+
+  choose("Group", "song");
+  choose("Sort", "chronological");
+
+  await waitFor(() =>
+    expect(groupLabels()).toEqual(["Wonderwall", "Bohemian Rhapsody"]),
+  );
+  // The head of that list is no ranking, so the chart may not call it one.
+  choose("Group", "none");
+  await waitFor(() =>
+    expect(document.querySelector(".scores-chart-title")?.textContent).toBe(
+      "Scores",
+    ),
+  );
+});
+
+test("the chart stands its groups up in a box that scrolls sideways", async () => {
+  renderScores();
+  await screen.findAllByTestId("chart");
+
+  // The groups are the category axis, and the category axis is the x-axis.
+  expect(lastBoxplotCategories()).toEqual(["Alice", "Bob"]);
+  // Two groups, 56px each plus the value axis' gutter — the page states the
+  // width so the box around it knows when to scroll (§1.11).
+  expect(lastBoxplot()?.width).toBe(156);
+  expect(document.querySelector(".scores-chart-scroll")).not.toBeNull();
 });
 
 test("switching the grouping rebuilds the chart around the other axis", async () => {
@@ -450,12 +660,6 @@ test("switching the grouping rebuilds the chart around the other axis", async ()
 
 test("sorting by worst score puts the evening's flop first", async () => {
   renderScores();
-  const groupLabels = (): (string | null)[] =>
-    screen
-      .getAllByTestId("score-group")
-      .map(
-        (row) => row.querySelector(".score-group-label")?.textContent ?? null,
-      );
 
   // Best score first by default: Alice's 9000 leads.
   await waitFor(() => expect(groupLabels()[0]).toBe("Alice"));
@@ -705,7 +909,7 @@ test("renaming a session patches it and shows the new name", async () => {
     }),
   );
   expect(
-    await screen.findByRole("option", { name: "Yannis' birthday" }),
+    await screen.findByRole("button", { name: "Session: Yannis' birthday" }),
   ).toBeInTheDocument();
 });
 
@@ -713,9 +917,8 @@ test("clearing the name sends null, not an empty string", async () => {
   renameSession.mockResolvedValue({ data: { ...lastYear, name: null } });
   renderScores();
 
-  fireEvent.change(await screen.findByRole("combobox", { name: "Session" }), {
-    target: { value: "session-old" },
-  });
+  const panel = await openSessions();
+  fireEvent.click(within(panel).getByText("New Year 2025"));
   fireEvent.click(screen.getByRole("button", { name: "Rename session" }));
   fireEvent.change(screen.getByRole("textbox", { name: "Session name" }), {
     target: { value: "  " },
@@ -736,9 +939,9 @@ test("a session change drops an open rename draft instead of moving it", async (
   fireEvent.change(screen.getByRole("textbox", { name: "Session name" }), {
     target: { value: "Yannis' birthday" },
   });
-  // While renaming, the input takes the select's place in the row…
+  // While renaming, the input takes the picker button's place in the row…
   expect(
-    screen.queryByRole("combobox", { name: "Session" }),
+    screen.queryByRole("button", { name: /^Session:/ }),
   ).not.toBeInTheDocument();
 
   // …so the session changes under the form: a websocket refresh reorders the
@@ -806,9 +1009,9 @@ test("a denied score request names the capability the role is missing", async ()
 
 test("the head row adds every party the reader may open into one list", async () => {
   renderScores();
-  const picker = await screen.findByRole("combobox", { name: "Session" });
+  const panel = await openSessions();
 
-  fireEvent.change(picker, { target: { value: "all" } });
+  fireEvent.click(within(panel).getByText("All my scores"));
 
   await waitFor(() => expect(listAllScores).toHaveBeenCalled());
   // Five scores over two parties, grouped by player: Alice and Bob.
@@ -828,21 +1031,19 @@ test("the head row is All sessions for a reader who holds the history right", as
   );
   renderScores();
 
-  await screen.findByRole("combobox", { name: "Session" });
-  expect(
-    screen.getAllByRole("option").map((option) => option.textContent),
-  ).toContain("All sessions");
-  expect(
-    screen.getAllByRole("option").map((option) => option.textContent),
-  ).not.toContain("All my scores");
+  const panel = await openSessions();
+  expect(sessionRows(panel)).toContain("All sessions");
+  expect(sessionRows(panel)).not.toContain("All my scores");
+  // The whole history added up says so on its own line.
+  expect(within(panel).getByText("2 sessions · 16 scores")).toBeInTheDocument();
 });
 
 test("a single party gets no head row — it would only repeat itself", async () => {
   listSessions.mockResolvedValue({ data: { sessions: [tonight] } });
   renderScores();
 
-  await screen.findByRole("combobox", { name: "Session" });
-  expect(screen.getAllByRole("option")).toHaveLength(1);
+  const panel = await openSessions();
+  expect(sessionRows(panel)).toHaveLength(1);
   expect(screen.queryByText("All my scores")).not.toBeInTheDocument();
 });
 

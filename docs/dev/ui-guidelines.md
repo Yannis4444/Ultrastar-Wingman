@@ -311,7 +311,12 @@ do it. Back is a `<Link>` to a fixed path (`backLink.ts` resolves a state-provid
   a `<select>` — a party is more than its name: one row per session, `aria-pressed` on the
   current one, the name (or its date when unnamed) over a meta line "12 Aug 2026 · 5 singers ·
   23 scores", and at the head one row for everything at once (`layers`) — *All sessions* with
-  `stats.history`, *All my scores* for a reader who only sees the parties they sang in. The list
+  `stats.history`, *All my scores* for a reader who only sees the parties they sang in, over the
+  same line for the lot ("3 sessions · 60 scores"). The rows are `PickerRow`'s shape — its
+  stylesheet, not the component: a party is not something a song is *on*, so no membership mark —
+  and the pressed one wears the `--highlight-blue-dark` band under a `--highlight-blue-light`
+  name. A party row has no lead, so the head row's `layers` sits in the line of its name rather
+  than in a 40px square that would set one title 52px off all the others. The list
   holds exactly the sessions that reader may open, so it never names a party to say no to it.
   The chart stands its groups up — group on the x-axis, score on the y — inside an `overflow-x:
   auto` wrapper giving every category about 56px, so a wide chart scrolls in its own box

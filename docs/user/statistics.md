@@ -9,10 +9,13 @@ Wingman groups sings into parties by itself. Everything sung within six hours of
 the last song belongs to the same party; a longer break starts a new one. There is
 nothing to open or close.
 
-The dropdown at the top picks the party. The newest one is selected when you open
-the tab, and unnamed parties are listed by their date.
+The wide button at the top names the party you are looking at. Press it and a
+panel opens with one row per party: its name — or its date, when nobody has
+named it — over a line saying when it was, how many people sang and how many
+scores it holds, so you can tell two evenings apart before opening either. The
+row you are on is highlighted. The newest party is the one the tab opens on.
 
-Which parties are in that dropdown depends on who you are:
+Which parties are in that panel depends on who you are:
 
 - Everybody sees the party that is going on right now — that is what the
   scoreboard at a party is for.
@@ -23,14 +26,15 @@ Which parties are in that dropdown depends on who you are:
 - Every other party needs the right to see the history, which **user** and up
   hold by default.
 
-The dropdown holds exactly the parties you may open, so it never names one only
+The panel holds exactly the parties you may open, so it never names one only
 to refuse it.
 
 ## Every party at once
 
-Above the parties stands one more entry that adds them all up: **All sessions**
+Above the parties stands one more row that adds them all up: **All sessions**
 with the history right, **All my scores** without it — the same list, over every
-party you may open rather than one evening. It appears as soon as there is more
+party you may open rather than one evening. Its line says how many parties that
+is and how many scores they hold together. It appears as soon as there is more
 than one party to add up, and it is the whole page: the chart, the grouping and
 the ranking all read the wider list. It has no date and no name of its own, so
 the row of figures at the top and the rename button stay away.
@@ -85,9 +89,15 @@ the list itself.
   the title names the artist and whoever sang it. Nothing to open here, so the
   row goes straight to the song.
 
-**Sort** decides the order: *alphabetically*, or by *average score*, *best
-score* or *worst score*. The number printed at the right of each row is always
-the one being sorted on, so the ranking can never disagree with itself.
+**Sort** decides the order: *alphabetically*, by *average score*, *best score*
+or *worst score*, or *chronological* — the evening read forwards, from the song
+that was sung first. Grouped by player, *chronological* is not offered: a singer
+is not a moment in the evening. Picking it and then grouping by player puts the
+order back to *best score*.
+
+The number printed at the right of each row is the one being sorted on, so a
+ranking can never disagree with itself; *alphabetically* and *chronological*
+rank by nothing a row could print, and those two show the best score.
 
 Tap a row to open it, and it unfolds into a card. At the top, what that group
 adds up to: how many scores, the best, the worst and the average — under a song
@@ -95,9 +105,14 @@ with the name of whoever managed the best and the worst — plus the shape of
 those scores once there are at least four of them. Under that, every single
 score behind the row: the songs that singer sang, or the singers of that song.
 
-The chart is a box plot: the box is where most of that singer's (or song's) scores
-sit, the line in it is the median, and the whiskers are the outliers. A singer
-with one lucky hit looks very different from a consistently good one.
+The chart is a box plot, one standing box per singer (or song): the box is where
+most of their scores sit, the line in it is the median, and the whiskers are the
+outliers. A singer with one lucky hit looks very different from a consistently
+good one. It draws the first eight rows of the list under it, in the same order,
+and on a phone that is wider than the screen — so the chart itself scrolls
+sideways inside its card while the page stays put. Resting the pointer on a box
+names it in full, which is where a long song title goes that the label under the
+box has no room for.
 
 ## Fix a wrong singer
 

@@ -1,6 +1,8 @@
 import type { ScoreWithContext, SessionRead, SongRead } from "./api";
-import { parseServerTime } from "./duration";
+import { parseServerTime, shortDate } from "./duration";
 import {
+  allSessionsMeta,
+  boxplotWidth,
   buildBoxplotOption,
   buildHistogramOption,
   difficultyLabel,
@@ -13,6 +15,7 @@ import {
   scorePlayer,
   sessionLabel,
   sessionLeaderboard,
+  sessionMeta,
   songHistory,
   songLabel,
   sortGroups,
@@ -69,8 +72,10 @@ const scores = [
   score("Bob", 6000, wonderwall),
 ];
 
+/** The group names of a boxplot. They sit on the *x*-axis: the chart stands
+ * its groups up, score on the y. */
 function axisLabels(option: ReturnType<typeof buildBoxplotOption>): unknown {
-  return (option.yAxis as { data: string[] }).data;
+  return (option.xAxis as { data: string[] }).data;
 }
 
 test("a session shows its own name, and its start time when it has none", () => {
@@ -96,6 +101,34 @@ test("a session shows its own name, and its start time when it has none", () => 
   expect(sessionLabel(base)).toBe(label);
   // The backend accepts an empty name; it must not read as a nameless session.
   expect(sessionLabel({ ...base, name: "" })).toBe(label);
+});
+
+test("a party's picker line is when it was and how much happened at it", () => {
+  const party: SessionRead = {
+    id: "s1",
+    name: "New Year",
+    started_at: "2025-12-31T20:00:00Z",
+    last_activity_at: "2026-01-01T03:00:00Z",
+    sing_count: 30,
+    score_count: 23,
+    singer_count: 5,
+  };
+
+  // Node's locale decides the date's format, so the expectation borrows it.
+  expect(sessionMeta(party)).toBe(
+    `${shortDate(party.started_at)} · 5 singers · 23 scores`,
+  );
+  // Never a bare number, and never "1 singers".
+  expect(sessionMeta({ ...party, singer_count: 1, score_count: 1 })).toBe(
+    `${shortDate(party.started_at)} · 1 singer · 1 score`,
+  );
+
+  // The head row sums exactly the parties under it — the listing holds only
+  // the ones this reader may open.
+  expect(allSessionsMeta([party, { ...party, id: "s2", score_count: 4 }])).toBe(
+    "2 sessions · 27 scores",
+  );
+  expect(allSessionsMeta([])).toBe("0 sessions · 0 scores");
 });
 
 test("a score whose song left the library still has a label", () => {
@@ -169,10 +202,31 @@ test("the grouping decides the boxplot's categories and boxes", () => {
     "Queen – Bohemian Rhapsody",
   ]);
 
-  // Strongest first, and the axis is inverted so that row draws at the top.
-  expect((bySong.yAxis as { inverse: boolean }).inverse).toBe(true);
   const boxes = (bySong.series as { data: number[][] }[])[0].data;
   expect(boxes[0]).toEqual([6000, 6750, 7500, 8250, 9000]);
+});
+
+test("the groups stand on the x-axis, every one of them named", () => {
+  const option = buildBoxplotOption(groupScores(scores, "player"));
+
+  // Standing up, strongest on the left: a category axis on x counts left to
+  // right by itself, so nothing inverts it any more.
+  expect((option.xAxis as { type: string }).type).toBe("category");
+  expect((option.yAxis as { type: string }).type).toBe("value");
+  expect(option.xAxis).not.toHaveProperty("inverse");
+  // echarts thins a crowded category axis out by dropping labels; a box with
+  // no name under it says nothing, and the chart scrolls instead.
+  expect(
+    (option.xAxis as { axisLabel: { interval: number } }).axisLabel,
+  ).toMatchObject({ interval: 0, overflow: "truncate" });
+});
+
+test("the chart gets wider with its groups, and stops at the eight it draws", () => {
+  // 56px per group plus the value axis' gutter — what the scrolling box in
+  // `Scores.css` scrolls when that is more than the page has.
+  expect(boxplotWidth(2)).toBe(156);
+  expect(boxplotWidth(8)).toBe(492);
+  expect(boxplotWidth(40)).toBe(boxplotWidth(8));
 });
 
 test("groups of single scores get bars on an adaptive axis, not boxplots", () => {
@@ -182,15 +236,15 @@ test("groups of single scores get bars on an adaptive axis, not boxplots", () =>
 
   // A boxplot of one score is a hairline; a fixed 0–10000 axis makes it 1px.
   expect((option.series as { type: string }[])[0].type).toBe("bar");
-  expect((option.xAxis as { min: number; max: number }).min).toBe(0);
-  expect((option.xAxis as { min: number; max: number }).max).toBe(500);
+  expect((option.yAxis as { min: number; max: number }).min).toBe(0);
+  expect((option.yAxis as { min: number; max: number }).max).toBe(500);
 });
 
 test("the score axis keeps the full range once scores pass 40% of perfect", () => {
   const option = buildBoxplotOption(groupScores(scores, "player"));
 
   expect((option.series as { type: string }[])[0].type).toBe("boxplot");
-  expect((option.xAxis as { max: number }).max).toBe(10000);
+  expect((option.yAxis as { max: number }).max).toBe(10000);
 });
 
 test("histogram buckets cover the whole score range, 10000 included", () => {
@@ -258,6 +312,50 @@ test("each sorting orders the groups the way the old app did", () => {
   expect(groups.map((group) => group.label)).toEqual(["Alice", "Bob"]);
 });
 
+test("chronological reads the evening forwards, from its first song", () => {
+  const sung = [
+    score("Alice", 4000, bohemian, {
+      recorded_at: "2026-08-23T21:30:00Z",
+      sing_id: "sing-3",
+    }),
+    score("Bob", 9000, wonderwall, {
+      recorded_at: "2026-08-23T20:00:00Z",
+      sing_id: "sing-1",
+    }),
+    // A second run of Wonderwall, later: a group is placed by when it *first*
+    // happened, so coming round again does not move it down the evening.
+    score("Chris", 5000, wonderwall, {
+      recorded_at: "2026-08-23T22:00:00Z",
+      sing_id: "sing-4",
+    }),
+  ];
+  const groups = groupScores(sung, "song");
+
+  expect(
+    sortGroups(groups, "chronological").map((group) => group.label),
+  ).toEqual(["Oasis – Wonderwall", "Queen – Bohemian Rhapsody"]);
+  // Oldest first is what the word means; "best score" is unmoved by any of it.
+  expect(sortGroups(groups, "best").map((group) => group.label)).toEqual([
+    "Oasis – Wonderwall",
+    "Queen – Bohemian Rhapsody",
+  ]);
+});
+
+test("two groups that started at the same moment fall back to their label", () => {
+  const together = groupScores(
+    [
+      score("Zoe", 9000, bohemian, { player_id: "z" }),
+      score("Ada", 5000, wonderwall, { player_id: "a" }),
+    ],
+    "player",
+  );
+
+  // Both fixtures carry the same `recorded_at`, which is exactly the tie.
+  expect(
+    sortGroups(together, "chronological").map((group) => group.label),
+  ).toEqual(["Ada", "Zoe"]);
+});
+
 test("groups that tie on the sorted value fall back to their label", () => {
   const tied = groupScores(
     [
@@ -283,8 +381,10 @@ test("the number a row shows is the number it is sorted by", () => {
   expect(groupValue(alice, "best")).toBe(9000);
   expect(groupValue(alice, "worst")).toBe(8000);
   expect(groupValue(alice, "average")).toBe(8500);
-  // Alphabetical order ranks by nothing, so the best score stands in.
+  // Alphabetical and chronological order rank by nothing a row could print —
+  // a name and a time are not scores — so the best score stands in.
   expect(groupValue(alice, "alphabetically")).toBe(9000);
+  expect(groupValue(alice, "chronological")).toBe(9000);
 });
 
 test("a singer without a player record still gets an avatar to fall back on", () => {

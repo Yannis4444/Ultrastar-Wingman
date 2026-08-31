@@ -14,6 +14,7 @@ import {
 import { useAuth } from "../auth";
 import Chart from "../components/Chart";
 import { Icon } from "../components/icons";
+import Modal from "../components/Modal";
 import ScoreGroupList from "../components/ScoreGroupList";
 import ScoresEmpty from "../components/ScoresEmpty";
 import SessionSummaryRow from "../components/SessionSummaryRow";
@@ -22,14 +23,22 @@ import Loading from "../components/Loading";
 import { errorMessage } from "../errors";
 import { useWingmanEvent } from "../hooks/useWingmanEvents";
 import {
-  boxplotHeight,
+  BOXPLOT_HEIGHT,
+  allSessionsMeta,
+  boxplotWidth,
   buildBoxplotOption,
   groupScores,
   sessionLabel,
+  sessionMeta,
   sortGroups,
   type Grouping,
   type Sorting,
 } from "../stats";
+// The picker's rows are the shape `PickerRow` draws — a title over a quiet line
+// — so they wear its stylesheet rather than a second copy of it. Not the
+// component: its trailing `list` mark says "already on the list", and a party
+// is not something a song is on.
+import "../components/PickerRow.css";
 import "./Scores.css";
 
 /** The old app's grouping and sorting choices, wording included. */
@@ -39,10 +48,13 @@ const GROUPINGS: { value: Grouping; label: string }[] = [
   { value: "song", label: "group by song" },
 ];
 
+/** The old app's four orders plus `chronological`, kept alphabetical by label
+ * so a reader can find one in a five-option list without reading all five. */
 const SORTINGS: { value: Sorting; label: string }[] = [
   { value: "alphabetically", label: "alphabetically" },
   { value: "average", label: "average score" },
   { value: "best", label: "best score" },
+  { value: "chronological", label: "chronological" },
   { value: "worst", label: "worst score" },
 ];
 
@@ -53,10 +65,55 @@ const SORTINGS: { value: Sorting; label: string }[] = [
  */
 export const ALL_SESSIONS = "all";
 
+interface SessionRowProps {
+  /**
+   * Whether this is the head row — the one that is every party at once. It
+   * wears the `layers` glyph in front of its name rather than the 40px square
+   * an icon-led picker row leads with: a party row has no lead of its own, and
+   * a square here would push one title 52px off every other one.
+   */
+  everything?: boolean;
+  title: string;
+  meta: string;
+  /** Whether this is the row the page is currently showing. */
+  pressed: boolean;
+  onClick: () => void;
+}
+
+/** One row of the session picker: what the party was called, and what it was. */
+function SessionRow({
+  everything,
+  title,
+  meta,
+  pressed,
+  onClick,
+}: SessionRowProps) {
+  return (
+    <li>
+      <button
+        type="button"
+        className="picker-row session-row"
+        aria-pressed={pressed}
+        onClick={onClick}
+      >
+        <span className="picker-row-text">
+          <span className="picker-row-title" title={title}>
+            {everything === true && (
+              <Icon name="layers" className="session-row-glyph" />
+            )}
+            {title}
+          </span>
+          <span className="picker-row-meta">{meta}</span>
+        </span>
+      </button>
+    </li>
+  );
+}
+
 interface SessionBarProps {
   /** The party being shown, or `null` while the head row is selected. */
   session: SessionRead | null;
-  /** What the select stands on: a session id, or `ALL_SESSIONS`. */
+  /** What the picker stands on: a session id, or `ALL_SESSIONS`. */
   selected: string;
   sessions: SessionRead[];
   /** The head row's wording, or `null` when there is no head row to draw. */
@@ -65,8 +122,8 @@ interface SessionBarProps {
   canManage: boolean;
 }
 
-/** The session picker, with an inline rename for whoever may manage stats.
- * While renaming, the input takes the select's place in the same row. */
+/** The session bar, with an inline rename for whoever may manage stats. While
+ * renaming, the input takes the picker button's place in the same row. */
 function SessionBar({
   session,
   selected,
@@ -77,7 +134,20 @@ function SessionBar({
 }: SessionBarProps) {
   const queryClient = useQueryClient();
   const [draft, setDraft] = useState<string | null>(null);
+  const [picking, setPicking] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  // The bar stays mounted across a change of party — a remount would hand the
+  // picker's focus back to a button that is no longer in the document, and a
+  // keyboard reader would land on `document.body` and re-tab from the top of
+  // the page. So what belongs to *this* party is dropped by hand instead: an
+  // open rename draft must never be carried to another party and saved there,
+  // and a failure of the party just left is not this one's.
+  const [shown, setShown] = useState(selected);
+  if (shown !== selected) {
+    setShown(selected);
+    setDraft(null);
+    setError(null);
+  }
 
   const rename = useMutation({
     ...renameSessionMutation(),
@@ -102,25 +172,22 @@ function SessionBar({
     <>
       {draft === null || session === null ? (
         <div className="scores-session">
-          <label>
-            <span className="visually-hidden">Session</span>
-            <select
-              className="text-input"
-              value={selected}
-              onChange={(event) => onSelect(event.target.value)}
-            >
-              {/* At the head, so "everything at once" is where a list starts
-                  rather than something to scroll past. */}
-              {metaLabel !== null && (
-                <option value={ALL_SESSIONS}>{metaLabel}</option>
-              )}
-              {sessions.map((entry) => (
-                <option key={entry.id} value={entry.id}>
-                  {sessionLabel(entry)}
-                </option>
-              ))}
-            </select>
-          </label>
+          {/* A party is more than its name — a date, who was there, how much
+              was sung — and none of that fits in an `<option>`. The button
+              carries the name it stands on; the panel behind it carries the
+              rest. */}
+          <button
+            type="button"
+            className="scores-session-button"
+            aria-haspopup="dialog"
+            onClick={() => setPicking(true)}
+          >
+            <span className="visually-hidden">Session: </span>
+            <span className="scores-session-name">
+              {session === null ? metaLabel : sessionLabel(session)}
+            </span>
+            <Icon name="chevron-right" className="scores-session-chevron" />
+          </button>
           {/* Nothing to rename while the head row is selected: it is every
               party at once, not a party. */}
           {canManage && session !== null && (
@@ -182,6 +249,41 @@ function SessionBar({
         <p className="error-notice scores-session-error" role="alert">
           {error}
         </p>
+      )}
+
+      {picking && (
+        <Modal title="Session" onClose={() => setPicking(false)}>
+          <ul className="picker-list">
+            {/* At the head, so "everything at once" is where the list starts
+                rather than something to scroll past. */}
+            {metaLabel !== null && (
+              <SessionRow
+                everything
+                title={metaLabel}
+                meta={allSessionsMeta(sessions)}
+                pressed={selected === ALL_SESSIONS}
+                onClick={() => {
+                  onSelect(ALL_SESSIONS);
+                  setPicking(false);
+                }}
+              />
+            )}
+            {sessions.map((entry) => (
+              <SessionRow
+                key={entry.id}
+                title={sessionLabel(entry)}
+                meta={sessionMeta(entry)}
+                pressed={selected === entry.id}
+                onClick={() => {
+                  // The choice made, the panel is done — and closing it is what
+                  // gives the focus back to the button that opened it.
+                  onSelect(entry.id);
+                  setPicking(false);
+                }}
+              />
+            ))}
+          </ul>
+        </Modal>
       )}
     </>
   );
@@ -286,20 +388,28 @@ export default function Scores() {
   const showChart = groups.length >= 2;
   // Ungrouped there is no spread to draw — the chart becomes a plain ranking of
   // the head of the list. It therefore may not claim a ranking the reader's
-  // order does not have: "worst score" puts the *lowest* scores on top, and
-  // alphabetically the eight drawn bars are no ranking at all.
+  // order does not have: "worst score" puts the *lowest* scores first, and
+  // alphabetically or chronologically the eight drawn bars are no ranking at
+  // all.
   const chartTitle =
     grouping !== "none"
       ? "Score spread"
       : sorting === "worst"
         ? "Lowest scores"
-        : sorting === "alphabetically"
+        : sorting === "alphabetically" || sorting === "chronological"
           ? "Scores"
           : "Top scores";
   const chartLabel =
     grouping === "none"
       ? `${chartTitle} in ${meta ? "every session" : "this session"}`
       : `Score spread per ${grouping}`;
+
+  // A time order says nothing about a *singer* — a player is not an event, and
+  // "who sang first" is not a property of a person — so grouped by player the
+  // option leaves the list rather than sitting there meaning nothing.
+  const sortings = SORTINGS.filter(
+    (option) => option.value !== "chronological" || grouping !== "player",
+  );
 
   // Two quiet selects on one line: the reader sets these once an evening, so
   // they get a row, not the two blocks of radios that used to own the first
@@ -311,7 +421,15 @@ export default function Scores() {
         <select
           className="text-input text-input-quiet"
           value={grouping}
-          onChange={(event) => setGrouping(event.target.value as Grouping)}
+          onChange={(event) => {
+            const next = event.target.value as Grouping;
+            setGrouping(next);
+            // The order that is about to leave the list has to be *replaced*,
+            // not merely hidden: a `<select>` whose value matches no option of
+            // its own draws blank.
+            if (next === "player" && sorting === "chronological")
+              setSorting("best");
+          }}
         >
           {GROUPINGS.map((option) => (
             <option key={option.value} value={option.value}>
@@ -327,7 +445,7 @@ export default function Scores() {
           value={sorting}
           onChange={(event) => setSorting(event.target.value as Sorting)}
         >
-          {SORTINGS.map((option) => (
+          {sortings.map((option) => (
             <option key={option.value} value={option.value}>
               {option.label}
             </option>
@@ -343,10 +461,7 @@ export default function Scores() {
           document outline and for screen readers. */}
       <h1 className="visually-hidden">Scores</h1>
 
-      {/* Keyed: switching sessions must not carry an open rename draft over
-          to a different session and save it there. */}
       <SessionBar
-        key={session?.id ?? ALL_SESSIONS}
         session={session}
         selected={session?.id ?? ALL_SESSIONS}
         sessions={all}
@@ -388,11 +503,16 @@ export default function Scores() {
           {showChart && (
             <div className="scores-chart">
               <h2 className="scores-chart-title">{chartTitle}</h2>
-              <Chart
-                option={buildBoxplotOption(groups)}
-                height={boxplotHeight(groups.length)}
-                label={chartLabel}
-              />
+              {/* The groups stand up, so a wide chart grows sideways. It
+                  scrolls inside its own box — the page never does (§1.11). */}
+              <div className="scores-chart-scroll">
+                <Chart
+                  option={buildBoxplotOption(groups)}
+                  height={BOXPLOT_HEIGHT}
+                  width={boxplotWidth(groups.length)}
+                  label={chartLabel}
+                />
+              </div>
             </div>
           )}
 

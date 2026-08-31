@@ -120,6 +120,11 @@ export const ICON_PATHS = {
   "bookmark-off":
     "M7 3h11L6 15V4a1 1 0 0 1 1-1ZM18 9v12l-6-4-6 4ZM5.28 20.28 3.72 18.72 18.72 3.72 20.28 5.28Z",
   chart: "M4 20h16v2H4v-2Zm1-8h3v7H5v-7Zm5.5-7h3v14h-3V5ZM16 9h3v10h-3V9Z",
+  // "everything at once" — the session picker's head row. Three stacked
+  // lozenges seen at an angle: the top one solid, the two under it only the
+  // thin V of their front edge, which is all a layer below the top one shows.
+  layers:
+    "M12 2 20.5 7 12 12 3.5 7ZM3.5 10.4 12 15.4 20.5 10.4 20.5 12.2 12 17.2 3.5 12.2ZM3.5 14.4 12 19.4 20.5 14.4 20.5 16.2 12 21.2 3.5 16.2Z",
   // The mean mark — the statistician's ⌀, which is what the old app's
   // `TbMathAvg` draws. Two things keep it off the "forbidden" sign: the ring is
   // a 2.4-unit hairline rather than a fat donut, and the slash *ascends* and

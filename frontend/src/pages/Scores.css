@@ -19,11 +19,75 @@
   min-width: 0;
 }
 
-.scores-session select,
 .scores-session input {
   flex: 1 1 auto;
   min-width: 0;
   width: 100%;
+}
+
+/* The way into the picker: one wide flat row of the page, not a control that
+   looks like an input. Flat on `--bg` with a hairline, the 40px touch floor,
+   and the chevron every row in the app ends with when it leads somewhere. */
+.scores-session-button {
+  display: flex;
+  box-sizing: border-box;
+  flex: 1 1 auto;
+  min-width: 0;
+  min-height: 40px;
+  align-items: center;
+  gap: 8px;
+  padding: 4px 12px;
+  font: inherit;
+  color: var(--color);
+  text-align: left;
+  background: none;
+  border: 1px solid var(--input-border-color);
+  border-radius: var(--border-radius);
+  cursor: pointer;
+}
+
+@media (hover: hover) {
+  .scores-session-button:hover {
+    background-color: var(--highlight-blue-dark);
+  }
+}
+
+.scores-session-button:active {
+  background-color: var(--highlight-blue-dark);
+}
+
+/* A named party can be long; the picker behind the button carries the rest. */
+.scores-session-name {
+  overflow: hidden;
+  flex: 1 1 auto;
+  min-width: 0;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+
+.scores-session-chevron {
+  flex: 0 0 auto;
+  color: var(--color-dark);
+}
+
+/* The picker's rows are `PickerRow`'s, minus the membership mark — a party is
+   not something a song is on. What marks the current one instead is the row
+   itself: the accent fill a row wears while it is being pressed, kept. */
+.session-row[aria-pressed="true"] {
+  background-color: var(--highlight-blue-dark);
+}
+
+.session-row[aria-pressed="true"] .picker-row-title {
+  color: var(--highlight-blue-light);
+}
+
+/* The head row's mark. In the line of the name rather than a 40px square in
+   front of it: the party rows below have no lead, and a square would leave the
+   one row that is not a party reading 52px to the right of all of them. */
+.session-row-glyph {
+  margin-right: 8px;
+  color: var(--color-dark);
+  vertical-align: -0.15em;
 }
 
 /* Below the bar, never inside it — it must not compete for row width. */
@@ -99,6 +163,18 @@
   margin: 0 0 8px 0;
   font-size: 0.9em;
   color: var(--color-dark);
+}
+
+/* The chart stands its groups up, so it grows sideways rather than downwards:
+   eight singers need more width than a phone has. The box scrolls, the page
+   never does (§1.11). The value axis is part of the chart and scrolls off with
+   the first groups, which §7 accepts: what a box is worth is in its tooltip
+   and, in the same order, in the ranking row right under the card.
+   `overscroll-behavior-x` stops a swipe that runs out of chart from turning
+   into the browser's back gesture. */
+.scores-chart-scroll {
+  overflow-x: auto;
+  overscroll-behavior-x: contain;
 }
 
 /* The page's own prose — the "not your role" line. Carries the page gutter the

@@ -11,7 +11,8 @@ import ScoresEmpty from "../components/ScoresEmpty";
 import SongDetails from "../components/SongDetails";
 import { errorMessage } from "../errors";
 import {
-  boxplotHeight,
+  BOXPLOT_HEIGHT,
+  boxplotWidth,
   buildBoxplotOption,
   groupScores,
   sortGroups,
@@ -21,7 +22,9 @@ import {
 // in it, so it shares the stylesheet instead of restating it.
 import "./Scores.css";
 
-/** The same four orders the Scores page offers, wording included. */
+/** The four score orders the Scores page opens with, wording included. That
+ * page also offers *chronological*; here every row is a song rather than a
+ * point in the evening, and the whole history is not an evening. */
 const SORTINGS: { value: Sorting; label: string }[] = [
   { value: "alphabetically", label: "alphabetically" },
   { value: "average", label: "average score" },
@@ -86,11 +89,16 @@ function History({ playerId }: { playerId: string }) {
       {groups.length >= 2 && (
         <div className="scores-chart">
           <h2 className="scores-chart-title">Score spread</h2>
-          <Chart
-            option={buildBoxplotOption(groups)}
-            height={boxplotHeight(groups.length)}
-            label="Score spread per song"
-          />
+          {/* A whole history is many songs, so this is the chart that grows
+              widest — it scrolls in its box rather than squeezing the boxes. */}
+          <div className="scores-chart-scroll">
+            <Chart
+              option={buildBoxplotOption(groups)}
+              height={BOXPLOT_HEIGHT}
+              width={boxplotWidth(groups.length)}
+              label="Score spread per song"
+            />
+          </div>
         </div>
       )}
 
