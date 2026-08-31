@@ -1,0 +1,35 @@
+/* The two corrections a moderator may make, at the end of a score row. They sit
+   beside the row rather than inside it: the row itself is a button (it opens the
+   song), and a button inside a button is invalid HTML. */
+.score-actions {
+  display: flex;
+  flex: 0 0 auto;
+  gap: 4px;
+  align-items: center;
+}
+
+/* The row and its actions share one band. The row keeps its own hover fill, so
+   the actions stay quiet until they are pointed at. */
+.score-row-with-actions {
+  display: flex;
+  gap: 4px;
+  align-items: center;
+}
+
+/* The row gives the actions the room it was holding for the chevron column. */
+.score-row-with-actions > .score-group-row,
+.score-row-with-actions > .score-entry {
+  flex: 1 1 auto;
+  min-width: 0;
+  padding-right: 8px;
+}
+
+.score-actions-note {
+  margin: 0 8px 12px 8px;
+  font-size: 0.9em;
+  color: var(--color-darker);
+}
+
+.score-actions-error {
+  margin: 4px 8px;
+}

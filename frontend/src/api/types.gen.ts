@@ -777,6 +777,54 @@ export type ScoreList = {
 };
 
 /**
+ * ScoreRead
+ */
+export type ScoreRead = {
+    /**
+     * Id
+     */
+    id: number;
+    /**
+     * Sing Id
+     */
+    sing_id: string;
+    /**
+     * Player Id
+     */
+    player_id: string | null;
+    /**
+     * Player Name
+     */
+    player_name: string;
+    /**
+     * Score
+     */
+    score: number;
+    /**
+     * Difficulty
+     */
+    difficulty: number | null;
+    /**
+     * Recorded At
+     */
+    recorded_at: string;
+};
+
+/**
+ * ScoreUpdate
+ *
+ * Who really sang it. Neither the number nor the song is editable: USDX awarded that
+ * score for that song, and the only thing Wingman can get wrong is which player was on the
+ * microphone.
+ */
+export type ScoreUpdate = {
+    /**
+     * Player Id
+     */
+    player_id: string;
+};
+
+/**
  * ScoreWithContext
  *
  * A score plus what it was scored on. `song` is NULL when that song left the library —
@@ -858,6 +906,10 @@ export type SessionRead = {
      * Score Count
      */
     score_count: number;
+    /**
+     * Singer Count
+     */
+    singer_count: number;
 };
 
 /**
@@ -3484,6 +3536,90 @@ export type RenameSessionResponses = {
 
 export type RenameSessionResponse = RenameSessionResponses[keyof RenameSessionResponses];
 
+export type ListAllScoresData = {
+    body?: never;
+    path?: never;
+    query?: never;
+    url: '/api/v1/stats/scores';
+};
+
+export type ListAllScoresResponses = {
+    /**
+     * Successful Response
+     */
+    200: ScoreList;
+};
+
+export type ListAllScoresResponse = ListAllScoresResponses[keyof ListAllScoresResponses];
+
+export type DeleteScoreData = {
+    body?: never;
+    path: {
+        /**
+         * Score Id
+         */
+        score_id: number;
+    };
+    query?: never;
+    url: '/api/v1/stats/scores/{score_id}';
+};
+
+export type DeleteScoreErrors = {
+    /**
+     * Unknown score.
+     */
+    404: unknown;
+    /**
+     * Validation Error
+     */
+    422: HttpValidationError;
+};
+
+export type DeleteScoreError = DeleteScoreErrors[keyof DeleteScoreErrors];
+
+export type DeleteScoreResponses = {
+    /**
+     * Successful Response
+     */
+    204: void;
+};
+
+export type DeleteScoreResponse = DeleteScoreResponses[keyof DeleteScoreResponses];
+
+export type ReassignScoreData = {
+    body: ScoreUpdate;
+    path: {
+        /**
+         * Score Id
+         */
+        score_id: number;
+    };
+    query?: never;
+    url: '/api/v1/stats/scores/{score_id}';
+};
+
+export type ReassignScoreErrors = {
+    /**
+     * Unknown score or player.
+     */
+    404: unknown;
+    /**
+     * Validation Error
+     */
+    422: HttpValidationError;
+};
+
+export type ReassignScoreError = ReassignScoreErrors[keyof ReassignScoreErrors];
+
+export type ReassignScoreResponses = {
+    /**
+     * Successful Response
+     */
+    200: ScoreRead;
+};
+
+export type ReassignScoreResponse = ReassignScoreResponses[keyof ReassignScoreResponses];
+
 export type ListSessionScoresData = {
     body?: never;
     path: {
@@ -3498,7 +3634,7 @@ export type ListSessionScoresData = {
 
 export type ListSessionScoresErrors = {
     /**
-     * An older party, without history.
+     * A party this caller was not at, without history.
      */
     403: unknown;
     /**

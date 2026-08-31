@@ -2,6 +2,8 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useState } from "react";
 import type { SessionList, SessionRead, SongRead } from "../api";
 import {
+  listAllScoresOptions,
+  listAllScoresQueryKey,
   listPlayersOptions,
   listSessionScoresOptions,
   listSessionScoresQueryKey,
@@ -44,9 +46,21 @@ const SORTINGS: { value: Sorting; label: string }[] = [
   { value: "worst", label: "worst score" },
 ];
 
+/**
+ * The picker's head row: every party this reader may open, added up as one
+ * list. A word and not an id — a session id is 32 hex characters, so the two
+ * can never collide.
+ */
+export const ALL_SESSIONS = "all";
+
 interface SessionBarProps {
-  session: SessionRead;
+  /** The party being shown, or `null` while the head row is selected. */
+  session: SessionRead | null;
+  /** What the select stands on: a session id, or `ALL_SESSIONS`. */
+  selected: string;
   sessions: SessionRead[];
+  /** The head row's wording, or `null` when there is no head row to draw. */
+  metaLabel: string | null;
   onSelect: (id: string) => void;
   canManage: boolean;
 }
@@ -55,7 +69,9 @@ interface SessionBarProps {
  * While renaming, the input takes the select's place in the same row. */
 function SessionBar({
   session,
+  selected,
   sessions,
+  metaLabel,
   onSelect,
   canManage,
 }: SessionBarProps) {
@@ -84,15 +100,20 @@ function SessionBar({
 
   return (
     <>
-      {draft === null ? (
+      {draft === null || session === null ? (
         <div className="scores-session">
           <label>
             <span className="visually-hidden">Session</span>
             <select
               className="text-input"
-              value={session.id}
+              value={selected}
               onChange={(event) => onSelect(event.target.value)}
             >
+              {/* At the head, so "everything at once" is where a list starts
+                  rather than something to scroll past. */}
+              {metaLabel !== null && (
+                <option value={ALL_SESSIONS}>{metaLabel}</option>
+              )}
               {sessions.map((entry) => (
                 <option key={entry.id} value={entry.id}>
                   {sessionLabel(entry)}
@@ -100,7 +121,9 @@ function SessionBar({
               ))}
             </select>
           </label>
-          {canManage && (
+          {/* Nothing to rename while the head row is selected: it is every
+              party at once, not a party. */}
+          {canManage && session !== null && (
             <button
               type="button"
               className="icon-button icon-button-bordered"
@@ -192,17 +215,31 @@ export default function Scores() {
 
   // Newest first from the backend, so the default selection is the first row.
   const all = sessions.data?.sessions ?? [];
-  const session =
-    all.find((entry) => entry.id === selectedId) ?? all[0] ?? null;
+  // The backend hands over exactly the parties this reader may open, so the
+  // head row adds them all up — every party for a reader with the history
+  // right, the ones they sang at for everybody else. With a single party in
+  // the list it would only repeat that party, so it stays away.
+  const metaLabel =
+    all.length < 2
+      ? null
+      : auth.can("stats.history")
+        ? "All sessions"
+        : "All my scores";
+  const meta = metaLabel !== null && selectedId === ALL_SESSIONS;
+  const session = meta
+    ? null
+    : (all.find((entry) => entry.id === selectedId) ?? all[0] ?? null);
 
-  const scores = useQuery({
+  const sessionScores = useQuery({
     ...listSessionScoresOptions({ path: { session_id: session?.id ?? "" } }),
     enabled: session !== null,
   });
+  const allScores = useQuery({ ...listAllScoresOptions(), enabled: meta });
+  const scores = meta ? allScores : sessionScores;
 
-  // A finished song changes both the session's counts and its score list.
-  useWingmanEvent("scores.recorded", () => {
+  const refresh = () => {
     void queryClient.invalidateQueries({ queryKey: listSessionsQueryKey() });
+    void queryClient.invalidateQueries({ queryKey: listAllScoresQueryKey() });
     if (session !== null) {
       void queryClient.invalidateQueries({
         queryKey: listSessionScoresQueryKey({
@@ -210,7 +247,13 @@ export default function Scores() {
         }),
       });
     }
-  });
+  };
+
+  // A finished song changes both the session's counts and its score list.
+  useWingmanEvent("scores.recorded", refresh);
+  // A moderator moved a score to another singer, or took one off the record —
+  // possibly on another screen in the room.
+  useWingmanEvent("scores.changed", refresh);
 
   if (!canView) {
     return (
@@ -226,7 +269,7 @@ export default function Scores() {
 
   if (sessions.isPending) return <Loading />;
 
-  if (session === null) {
+  if (session === null && !meta) {
     return (
       <div className="scores-page">
         <h1 className="visually-hidden">Scores</h1>
@@ -255,7 +298,7 @@ export default function Scores() {
           : "Top scores";
   const chartLabel =
     grouping === "none"
-      ? `${chartTitle} in this session`
+      ? `${chartTitle} in ${meta ? "every session" : "this session"}`
       : `Score spread per ${grouping}`;
 
   // Two quiet selects on one line: the reader sets these once an evening, so
@@ -303,9 +346,11 @@ export default function Scores() {
       {/* Keyed: switching sessions must not carry an open rename draft over
           to a different session and save it there. */}
       <SessionBar
-        key={session.id}
+        key={session?.id ?? ALL_SESSIONS}
         session={session}
+        selected={session?.id ?? ALL_SESSIONS}
         sessions={all}
+        metaLabel={metaLabel}
         onSelect={setSelectedId}
         canManage={auth.can("stats.manage")}
       />
@@ -323,14 +368,18 @@ export default function Scores() {
         <ScoresEmpty>
           {/* `sing_count` counts songs *started*, which is exactly the right
               number here: every one of them ended without a score. */}
-          {session.sing_count > 0
+          {session !== null && session.sing_count > 0
             ? `${session.sing_count} songs started so far, none scored — ` +
               "Ultrastar Deluxe reports a score when a song runs to the end."
             : "Pick a song, sing it, and the ranking builds itself."}
         </ScoresEmpty>
       ) : (
         <>
-          <SessionSummaryRow session={session} scores={rows} />
+          {/* Every party at once is no party: it has no date to head, and the
+              figures of the row below are one evening's. */}
+          {session !== null && (
+            <SessionSummaryRow session={session} scores={rows} />
+          )}
 
           {/* Above both things they reorder: the two selects rebuild the chart
               — its title included — as well as the ranking below it. */}
@@ -353,6 +402,8 @@ export default function Scores() {
             sorting={sorting}
             players={players}
             onOpenSong={setOpenSong}
+            canModerate={auth.can("stats.moderate")}
+            onModerated={refresh}
           />
         </>
       )}

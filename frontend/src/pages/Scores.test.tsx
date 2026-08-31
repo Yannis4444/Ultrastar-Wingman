@@ -24,15 +24,21 @@ const {
   getMe,
   listSessions,
   listSessionScores,
+  listAllScores,
   listPlayers,
   renameSession,
+  reassignScore,
+  deleteScore,
   charts,
 } = vi.hoisted(() => ({
   getMe: vi.fn(),
   listSessions: vi.fn(),
   listSessionScores: vi.fn(),
+  listAllScores: vi.fn(),
   listPlayers: vi.fn(),
   renameSession: vi.fn(),
+  reassignScore: vi.fn(),
+  deleteScore: vi.fn(),
   // Every option object the page hands to echarts, in render order.
   charts: [] as { label: string; option: { yAxis?: { data?: string[] } } }[],
 }));
@@ -42,8 +48,11 @@ vi.mock("../api/sdk.gen", async (importOriginal) => ({
   getMe,
   listSessions,
   listSessionScores,
+  listAllScores,
   listPlayers,
   renameSession,
+  reassignScore,
+  deleteScore,
 }));
 
 // jsdom has no canvas, so the real chart cannot render. The option building is
@@ -147,6 +156,7 @@ const tonight: SessionRead = {
   last_activity_at: "2026-08-23T23:00:00Z",
   sing_count: 4,
   score_count: 4,
+  singer_count: 3,
 };
 const lastYear: SessionRead = {
   id: "session-old",
@@ -155,6 +165,7 @@ const lastYear: SessionRead = {
   last_activity_at: "2026-01-01T03:00:00Z",
   sing_count: 9,
   score_count: 12,
+  singer_count: 5,
 };
 
 // Two duets: four scores out of two runs of a song. Two more songs were
@@ -168,7 +179,18 @@ const tonightScores = [
 
 const PLAYERS = [
   { id: "player-alice", name: "Alice", registered: true, has_avatar: true },
+  { id: "player-bob", name: "Bob", registered: false, has_avatar: false },
 ];
+
+// One score from a party that is over, so the head row is more than tonight.
+const lastYearScore = score(
+  9,
+  "Alice",
+  7000,
+  bohemian,
+  "sing-newyear",
+  "player-alice",
+);
 
 function renderScores() {
   const client = new QueryClient({
@@ -190,14 +212,24 @@ beforeEach(() => {
   getMe.mockReset();
   listSessions.mockReset();
   listSessionScores.mockReset();
+  listAllScores.mockReset();
   listPlayers.mockReset();
   renameSession.mockReset();
+  reassignScore.mockReset();
+  deleteScore.mockReset();
   getMe.mockResolvedValue(
     meResponse(["stats.view", "stats.manage", "players.view"]),
   );
   listSessions.mockResolvedValue({ data: { sessions: [tonight, lastYear] } });
   listSessionScores.mockResolvedValue({ data: { scores: tonightScores } });
+  listAllScores.mockResolvedValue({
+    data: { scores: [...tonightScores, lastYearScore] },
+  });
   listPlayers.mockResolvedValue({ data: { players: PLAYERS } });
+  reassignScore.mockResolvedValue({
+    data: { ...tonightScores[2], player_id: "player-alice" },
+  });
+  deleteScore.mockResolvedValue({ data: undefined });
 });
 
 afterEach(() => vi.unstubAllGlobals());
@@ -211,9 +243,11 @@ test("the picker lists every session and starts on the newest one", async () => 
     [],
     { hour: "2-digit", minute: "2-digit" },
   )}`;
+  // The head row first: everything at once, then the parties themselves. This
+  // reader holds no `stats.history`, so what it adds up is their own parties.
   expect(
     screen.getAllByRole("option").map((option) => option.textContent),
-  ).toEqual([label, "New Year 2025"]);
+  ).toEqual(["All my scores", label, "New Year 2025"]);
   // Newest first from the backend, so the first entry is preselected.
   expect(picker).toHaveValue("session-new");
   await waitFor(() =>
@@ -768,4 +802,121 @@ test("a denied score request names the capability the role is missing", async ()
   renderScores();
 
   expect(await screen.findByRole("alert")).toHaveTextContent("stats.view");
+});
+
+test("the head row adds every party the reader may open into one list", async () => {
+  renderScores();
+  const picker = await screen.findByRole("combobox", { name: "Session" });
+
+  fireEvent.change(picker, { target: { value: "all" } });
+
+  await waitFor(() => expect(listAllScores).toHaveBeenCalled());
+  // Five scores over two parties, grouped by player: Alice and Bob.
+  const rows = await screen.findAllByTestId("score-group");
+  expect(rows.map((row) => lines(summaryOf(row))[0])).toEqual(["Alice", "Bob"]);
+  // Every party at once is no party: nothing to rename, and no evening's
+  // figures to head the list with.
+  expect(
+    screen.queryByRole("button", { name: "Rename session" }),
+  ).not.toBeInTheDocument();
+  expect(document.querySelector(".session-summary")).toBeNull();
+});
+
+test("the head row is All sessions for a reader who holds the history right", async () => {
+  getMe.mockResolvedValue(
+    meResponse(["stats.view", "stats.history", "players.view"]),
+  );
+  renderScores();
+
+  await screen.findByRole("combobox", { name: "Session" });
+  expect(
+    screen.getAllByRole("option").map((option) => option.textContent),
+  ).toContain("All sessions");
+  expect(
+    screen.getAllByRole("option").map((option) => option.textContent),
+  ).not.toContain("All my scores");
+});
+
+test("a single party gets no head row — it would only repeat itself", async () => {
+  listSessions.mockResolvedValue({ data: { sessions: [tonight] } });
+  renderScores();
+
+  await screen.findByRole("combobox", { name: "Session" });
+  expect(screen.getAllByRole("option")).toHaveLength(1);
+  expect(screen.queryByText("All my scores")).not.toBeInTheDocument();
+});
+
+test("a moderator moves a score to the singer who really sang it", async () => {
+  getMe.mockResolvedValue(
+    meResponse(["stats.view", "stats.moderate", "players.view"]),
+  );
+  renderScores();
+  await screen.findAllByTestId("score-group");
+  // Ungrouped, every row is one score — the rows that carry the corrections.
+  choose("Group", "none");
+
+  fireEvent.click(
+    await screen.findByRole("button", { name: "Change who sang 4000" }),
+  );
+  // Inside the picker: the list behind it names Alice on her own rows too.
+  const picker = await screen.findByRole("dialog", { name: "Who sang this?" });
+  fireEvent.click(within(picker).getByRole("button", { name: /Alice/ }));
+  fireEvent.click(await screen.findByRole("button", { name: "Move" }));
+
+  await waitFor(() =>
+    expect(reassignScore).toHaveBeenCalledWith(
+      expect.objectContaining({
+        path: { score_id: 3 },
+        body: { player_id: "player-alice" },
+      }),
+    ),
+  );
+});
+
+test("deleting a score asks first and then takes it off the record", async () => {
+  getMe.mockResolvedValue(
+    meResponse(["stats.view", "stats.moderate", "players.view"]),
+  );
+  renderScores();
+  await screen.findAllByTestId("score-group");
+  choose("Group", "none");
+
+  fireEvent.click(
+    await screen.findByRole("button", { name: "Delete the score 4000" }),
+  );
+  expect(await screen.findByText(/gone for good/i)).toBeInTheDocument();
+  fireEvent.click(screen.getByRole("button", { name: "Delete" }));
+
+  await waitFor(() =>
+    expect(deleteScore).toHaveBeenCalledWith(
+      expect.objectContaining({ path: { score_id: 3 } }),
+    ),
+  );
+});
+
+test("without stats.moderate a score row carries no corrections", async () => {
+  renderScores();
+  await screen.findAllByTestId("score-group");
+
+  choose("Group", "none");
+
+  expect(await screen.findAllByTestId("score-group")).not.toHaveLength(0);
+  expect(
+    screen.queryByRole("button", { name: /Change who sang/ }),
+  ).not.toBeInTheDocument();
+  expect(
+    screen.queryByRole("button", { name: /Delete the score/ }),
+  ).not.toBeInTheDocument();
+});
+
+test("a moved score reaches the other screens in the room", async () => {
+  renderScores();
+  await screen.findAllByTestId("chart");
+  const scoreCalls = listSessionScores.mock.calls.length;
+
+  FakeSocket.deliver({ event: "scores.changed", sing_id: "sing-bohemian" });
+
+  await waitFor(() =>
+    expect(listSessionScores.mock.calls.length).toBeGreaterThan(scoreCalls),
+  );
 });

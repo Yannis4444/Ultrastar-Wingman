@@ -12,10 +12,28 @@ nothing to open or close.
 The dropdown at the top picks the party. The newest one is selected when you open
 the tab, and unnamed parties are listed by their date.
 
-Which parties are in that dropdown depends on one right. Everybody sees the party
-that is going on right now — that is what the scoreboard at a party is for. The
-parties before it need the right to see the history, which **user** and up hold by
-default; take it away from a role and their dropdown simply holds tonight alone.
+Which parties are in that dropdown depends on who you are:
+
+- Everybody sees the party that is going on right now — that is what the
+  scoreboard at a party is for.
+- Logged in, you also see every party you sang at yourself. Your own evenings
+  are yours, whatever the host has done with the history right. A party is
+  yours once one of its scores is under your name as a player — a phone without
+  an account has no name to go by and gets tonight alone.
+- Every other party needs the right to see the history, which **user** and up
+  hold by default.
+
+The dropdown holds exactly the parties you may open, so it never names one only
+to refuse it.
+
+## Every party at once
+
+Above the parties stands one more entry that adds them all up: **All sessions**
+with the history right, **All my scores** without it — the same list, over every
+party you may open rather than one evening. It appears as soon as there is more
+than one party to add up, and it is the whole page: the chart, the grouping and
+the ranking all read the wider list. It has no date and no name of its own, so
+the row of figures at the top and the rename button stay away.
 
 The party that is going on right now also has a shortcut of its own: the
 **Recent** chip on the [Songs tab](singing.md#what-has-already-been-sung)
@@ -80,6 +98,31 @@ score behind the row: the songs that singer sang, or the singers of that song.
 The chart is a box plot: the box is where most of that singer's (or song's) scores
 sit, the line in it is the median, and the whiskers are the outliers. A singer
 with one lucky hit looks very different from a consistently good one.
+
+## Fix a wrong singer
+
+Ultrastar Deluxe files a score under whoever was on that microphone slot, and
+sometimes that was the wrong person — the phone picked Jörg, Anna sang. A score
+row then carries two buttons for whoever may moderate the statistics:
+
+- the **pencil** opens the list of players. Pick the one who really sang it and
+  confirm; the score keeps its number, its song and its place in the party, and
+  only the name on it changes.
+- the **trash** deletes the score after a confirmation. The performance itself
+  stays in what was played — the song *was* sung, it simply has no score any
+  more.
+
+The number and the song are never editable: those are what Ultrastar Deluxe
+reported, and a wrongly picked singer is the mistake this fixes.
+
+Both need the right to moderate the statistics, which **admin** alone holds by
+default — it rewrites the party's own record, where renaming a party only
+changes a label. Everybody looking at the Scores page sees the correction
+straight away.
+
+Rows that stand for several scores — a singer, or a song, while the list is
+grouped — carry no buttons: there is no single score behind them to move. Open
+the row, or set **Group** to *don't group*, and every row is one score again.
 
 ## All your own scores
 

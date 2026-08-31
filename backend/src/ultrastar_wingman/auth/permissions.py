@@ -41,6 +41,7 @@ CAPABILITIES: tuple[str, ...] = (
     "stats.view",
     "stats.history",
     "stats.manage",
+    "stats.moderate",
     "settings.view",
     "settings.manage",
     "users.view",
@@ -123,8 +124,11 @@ _TRUSTED_CAPABILITIES = _USER_CAPABILITIES | {
 # role below the host can undo — so it is in `CAPABILITIES` and in no bundle above. An
 # administrator holds it because `ADMIN` is `ALL_CAPABILITIES`, not because a set names it;
 # the host can still hand it to `trusted` in the permissions table like any other right.
+# `stats.moderate` is the second one: rewriting a recorded score's singer, or deleting the
+# score outright, edits the party's own record after the fact. Renaming a party
+# (`stats.manage`) changes a label; this changes what happened, so it starts with nobody.
 
-# What migrations 0006 to 0018 seed. Kept here as well so a test can prove the two never
+# What migrations 0006 to 0020 seed. Kept here as well so a test can prove the two never
 # drift.
 DEFAULT_ROLE_CAPABILITIES: dict[str, frozenset[str]] = {
     GUEST: _GUEST_CAPABILITIES,

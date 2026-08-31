@@ -150,6 +150,7 @@ What each role may do by default:
 | [Manage tags](tags.md) and the built-in marks and facets | – | – | yes | yes |
 | Delete anybody's comments | – | – | yes | yes |
 | [Fix a song's details](singing.md#fix-a-songs-details) | – | – | yes | yes |
+| [Correct or delete a score](statistics.md#fix-a-wrong-singer) | – | – | – | yes |
 | [Delete a song](singing.md#delete-a-song) | – | – | – | yes |
 | See and change the settings | – | – | – | yes |
 | Manage users | – | – | – | yes |
@@ -198,8 +199,9 @@ Useful in practice:
 - A helper who should download songs: give their account the **trusted** role, or
   tick the download rights for **user**.
 - A private archive: untick *history* under **stats** for **guest** and **user**.
-  Tonight's scoreboard stays open to the whole party — the Scores page simply
-  stops offering the parties before it.
+  Tonight's scoreboard stays open to the whole party — the Scores page then
+  offers a logged-in singer the parties they sang at themselves, and nothing
+  else.
 - A helper who fixes pictures but touches nothing else: tick *avatar* under
   **players** for their role. *manage* beside it is the one that deletes people.
 

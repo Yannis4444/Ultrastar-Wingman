@@ -81,6 +81,7 @@ test("a session shows its own name, and its start time when it has none", () => 
     last_activity_at: "2026-08-23T23:00:00Z",
     sing_count: 4,
     score_count: 6,
+    singer_count: 3,
   };
   expect(sessionLabel({ ...base, name: "Yannis' birthday" })).toBe(
     "Yannis' birthday",

@@ -131,12 +131,18 @@ ROUTES: list[tuple[str, str, str, dict[str, object] | None]] = [
     ("stats.view", "GET", "/api/v1/stats/sessions", None),
     ("stats.view", "GET", "/api/v1/stats/sessions/current/sings", None),
     ("stats.view", "GET", "/api/v1/stats/latest", None),
+    # Every party at once — the same "holds what you may see" list as `/stats/sessions`,
+    # so it answers everybody and its content is `test_stats_api`'s business.
+    ("stats.view", "GET", "/api/v1/stats/scores", None),
     # No party is running in this fixture, so every session id here is an older one.
     ("stats.history", "GET", "/api/v1/stats/sessions/nope/scores", None),
     ("stats.history", "GET", "/api/v1/stats/songs/usdb:1/scores", None),
     # Somebody else's player; your own scores are identity — see test_stats_api.
     ("stats.history", "GET", "/api/v1/stats/players/nope/scores", None),
     ("stats.manage", "PATCH", "/api/v1/stats/sessions/nope", {"name": "Party"}),
+    # Admin-only by default: both rewrite what the party's record says happened.
+    ("stats.moderate", "PATCH", "/api/v1/stats/scores/1", {"player_id": "nope"}),
+    ("stats.moderate", "DELETE", "/api/v1/stats/scores/1", None),
     ("usdb.search", "GET", "/api/v1/sources/usdb/status", None),
     ("usdb.search", "GET", "/api/v1/sources/usdb/search", None),
     ("usdb.search", "GET", "/api/v1/sources/usdb/songs/1/cover", None),

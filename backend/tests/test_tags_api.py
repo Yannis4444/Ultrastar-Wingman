@@ -638,9 +638,11 @@ async def test_the_leaks_we_accept(party: Party) -> None:
 
     * `karaoke.started` and `GET /karaoke/current` — the TV is showing the song; a phone in
       the same room learning its title is not a leak.
-    * the statistics score lists (`/stats/latest`, a session's and a player's scores) carry
-      the song title of everything that was ever sung, hidden or not: a score belongs to
-      the singer, and dropping rows would make two people disagree about a scoreboard. The
+    * the statistics score lists (`/stats/latest`, `/stats/scores`, a session's and a
+      player's scores) carry the song title of everything that was ever sung, hidden or
+      not: a score belongs to the singer, and dropping rows would make two people disagree
+      about a scoreboard — `/stats/scores` is every party at once and no different, it is
+      the same board read end to end rather than one evening at a time. The
       current session's *sings* are no longer among them — that one is the Songs page's
       Recent tab, a song list rather than a scoreboard, and
       `test_the_recently_played_tab_hides_a_hidden_song` above pins it down.

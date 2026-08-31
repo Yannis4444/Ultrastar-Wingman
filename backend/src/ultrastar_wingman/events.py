@@ -86,6 +86,19 @@ class ScoresRecorded(Event):
     scores: list[ScoreRead]
 
 
+class ScoresChanged(Event):
+    """A recorded score was put on another singer or removed (`stats.moderate`).
+
+    Deliberately not `scores.recorded`: nothing was just sung, and that event un-dismisses
+    the host screen's results panel — a correction hours later must not throw the last
+    song's scoreboard back onto the TV. Ids only, like the other "something changed" events:
+    every listener refetches whichever list it happens to have open.
+    """
+
+    event: Literal["scores.changed"] = "scores.changed"
+    sing_id: str
+
+
 class WishlistUpdated(Event):
     """One song's wish count changed: somebody wished for it, took the wish back, or logged
     in and brought their guest wishes along. `count` is 0 when the last wish is gone."""
