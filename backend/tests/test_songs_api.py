@@ -210,6 +210,301 @@ async def test_the_startup_scan_survives_unset_directories(client: AsyncClient) 
     assert response.json() == {"songs": []}
 
 
+# A real library file: CRLF endings, a header the parser knows nothing about, a genre that
+# is spelled wrong and a body. Everything but the headers named in a request has to come out
+# of an edit exactly as it went in.
+EDITABLE_TXT = (
+    "#TITLE:Uptown Funk\r\n"
+    "#ARTIST:Mark Ronson\r\n"
+    "#MP3:song.mp3\r\n"
+    "#BPM:230\r\n"
+    "#GENRE:Fonk\r\n"
+    "#YEAR:2014\r\n"
+    "#UNKNOWN_TAG:whatever\r\n"
+    ": 0 4 0 Doh\r\n"
+    "- 10\r\n"
+    "E\r\n"
+)
+
+# What the editor was opened on — the song as `SongRead` hands it over.
+OPENED_ON: dict[str, object] = {
+    "title": "Uptown Funk",
+    "artist": "Mark Ronson",
+    "language": None,
+    "genre": "Fonk",
+    "year": 2014,
+    "edition": None,
+}
+
+
+def an_edit(**changed: object) -> dict[str, object]:
+    """A PATCH body: the values the form was filled with, over the ones it was opened on."""
+    return {"values": {**OPENED_ON, **changed}, "expected": dict(OPENED_ON)}
+
+
+def txt_bytes(path: Path) -> bytes:
+    """Reading one small file, like `on_disk` above — a blocking call ASYNC240 is right
+    about in general and wrong about here."""
+    return path.read_bytes()
+
+
+def write_txt(path: Path, text: str, encoding: str = "utf-8") -> None:
+    # `write_text` would translate the line endings on Windows; a fixture about CRLF must
+    # put down the bytes it says it does.
+    path.write_bytes(text.encode(encoding))
+
+
+def write_raw(path: Path, data: bytes) -> None:
+    path.write_bytes(data)
+
+
+def remove(path: Path) -> None:
+    path.unlink()
+
+
+@pytest.fixture
+async def editable(session: AsyncSession, tmp_path: Path) -> Path:
+    """One song whose txt really is on disk: an edit that only wrote the row would be undone
+    by the next scan, so there is nothing to test without the file."""
+    directory = tmp_path / "library" / "Mark Ronson - Uptown Funk"
+    directory.mkdir(parents=True)
+    txt = directory / "song.txt"
+    write_txt(txt, EDITABLE_TXT)
+    song = make_song("usdb:1234", "Mark Ronson", "Uptown Funk", genre="Fonk", year=2014)
+    song.directory = str(directory)
+    song.txt_file = str(txt)
+    session.add(song)
+    await session.commit()
+    return txt
+
+
+async def test_editing_a_song_writes_the_file_and_answers_with_the_song(
+    client: AsyncClient, editable: Path, broadcast_events: list[dict[str, object]]
+) -> None:
+    response = await client.patch(
+        "/api/v1/songs/usdb:1234", json=an_edit(genre="Funk", language="English", year=2015)
+    )
+
+    assert response.status_code == 200
+    assert response.json()["genre"] == "Funk"
+    assert response.json()["language"] == "English"
+    text = txt_bytes(editable).decode()
+    assert "#GENRE:Funk\r\n" in text
+    assert "#YEAR:2015\r\n" in text
+    # A header the song did not have is added to the header block, not to the end.
+    assert "#LANGUAGE:English\r\n" in text
+    assert text.index("#LANGUAGE") < text.index(": 0 4 0 Doh")
+    # And the row the listing reads from says the same thing.
+    assert (await client.get("/api/v1/songs/usdb:1234")).json()["year"] == 2015
+    updates = [event for event in broadcast_events if event["event"] == "songs.updated"]
+    assert len(updates) == 1
+    broadcast = updates[0]["song"]
+    assert isinstance(broadcast, dict)
+    assert broadcast["genre"] == "Funk"
+
+
+async def test_an_edit_leaves_every_byte_it_was_not_asked_about(
+    client: AsyncClient, editable: Path
+) -> None:
+    """The file belongs to USDX, not to Wingman: the notes, the BPM, the tag nobody parses
+    and the CRLF endings are none of the editor's business."""
+    before = txt_bytes(editable)
+
+    assert (await client.patch("/api/v1/songs/usdb:1234", json=an_edit(genre="Funk"))).status_code
+
+    after = txt_bytes(editable)
+    assert after.replace(b"#GENRE:Funk", b"#GENRE:Fonk") == before
+
+
+async def test_an_emptied_value_takes_its_header_out_of_the_file(
+    client: AsyncClient, editable: Path
+) -> None:
+    response = await client.patch("/api/v1/songs/usdb:1234", json=an_edit(genre=None, year=None))
+
+    assert response.status_code == 200
+    assert response.json()["genre"] is None
+    text = txt_bytes(editable).decode()
+    # "no genre" in a txt is no `#GENRE` header at all, not an empty one.
+    assert "#GENRE" not in text
+    assert "#YEAR" not in text
+
+
+async def test_an_edit_survives_the_next_scan(
+    client: AsyncClient, editable: Path, session: AsyncSession
+) -> None:
+    """The whole reason the file is written and not only the row. The scan re-parses the txt
+    and copies it over the row, so an edit that reached the file is what it finds — and the
+    song keeps its id, and with it everything hanging off that id."""
+    tagged = SongTag(tag_id=BROKEN_TAG_ID, song_id="usdb:1234")
+    session.add_all([tagged, Favorite(user_id="u-1", song_id="usdb:1234")])
+    await session.commit()
+    assert (
+        await client.patch("/api/v1/songs/usdb:1234", json=an_edit(title="Uptown Funky"))
+    ).status_code == 200
+
+    await scanner.scan_song_directory(session, editable.parent)
+
+    song = await client.get("/api/v1/songs/usdb:1234")
+    assert song.status_code == 200
+    assert song.json()["title"] == "Uptown Funky"
+    assert await _count(session, SongTag) == 1
+    assert await _count(session, Favorite) == 1
+
+
+async def test_an_edit_moves_the_fingerprint_with_the_artist(
+    client: AsyncClient, editable: Path, session: AsyncSession
+) -> None:
+    """The fingerprint is "the same song from another source" and is derived from the artist
+    and the title — never a key, but it has to keep up with what it describes."""
+    assert (
+        await client.patch(
+            "/api/v1/songs/usdb:1234", json=an_edit(artist="Mark Ronson feat. Bruno Mars")
+        )
+    ).status_code == 200
+
+    session.expire_all()
+    song = await session.get(Song, "usdb:1234")
+    assert song is not None
+    assert song.fingerprint == "brunomars&markronson|uptownfunk"
+
+
+async def test_a_file_that_moved_on_is_not_overwritten(client: AsyncClient, editable: Path) -> None:
+    """The song was downloaded again (or hand-edited) between opening the editor and saving
+    it. The values in the form are older than the file, so the save is refused rather than
+    put over the new ones."""
+    write_txt(editable, EDITABLE_TXT.replace("#GENRE:Fonk", "#GENRE:Funk"))
+
+    response = await client.patch("/api/v1/songs/usdb:1234", json=an_edit(year=2015))
+
+    assert response.status_code == 409
+    assert response.json() == {"detail": "song_file_changed"}
+    # Nothing was written: the download's genre is still there and the year is untouched.
+    text = txt_bytes(editable).decode()
+    assert "#GENRE:Funk\r\n" in text
+    assert "#YEAR:2014\r\n" in text
+
+
+async def test_a_change_to_the_body_alone_is_not_a_conflict(
+    client: AsyncClient, editable: Path
+) -> None:
+    """Somebody re-timed the lyrics. The editor never touches the body, so there is nothing
+    to lose — refusing here would make an edit impossible on a library anybody works on."""
+    write_txt(editable, EDITABLE_TXT.replace(": 0 4 0 Doh", ": 0 8 0 Doh"))
+
+    response = await client.patch("/api/v1/songs/usdb:1234", json=an_edit(genre="Funk"))
+
+    assert response.status_code == 200
+    text = txt_bytes(editable).decode()
+    assert ": 0 8 0 Doh\r\n" in text
+    assert "#GENRE:Funk\r\n" in text
+
+
+async def test_an_edit_of_a_song_whose_txt_is_gone_is_refused(
+    client: AsyncClient, editable: Path
+) -> None:
+    remove(editable)
+
+    response = await client.patch("/api/v1/songs/usdb:1234", json=an_edit(genre="Funk"))
+
+    assert response.status_code == 409
+    assert response.json() == {"detail": "song_txt_missing"}
+
+
+async def test_a_txt_that_cannot_be_rewritten_safely_is_refused(
+    client: AsyncClient, editable: Path
+) -> None:
+    """A UTF-8 BOM in front of a byte that is not UTF-8. The song is readable enough to be
+    in the library, and rewriting it would change the bytes nobody could read."""
+    write_raw(editable, b"\xef\xbb\xbf" + EDITABLE_TXT.encode().replace(b"Doh", b"\xffoh"))
+
+    response = await client.patch("/api/v1/songs/usdb:1234", json=an_edit(genre="Funk"))
+
+    assert response.status_code == 409
+    assert response.json() == {"detail": "song_txt_unreadable"}
+
+
+async def test_a_value_the_files_encoding_cannot_spell_is_refused(
+    client: AsyncClient, editable: Path
+) -> None:
+    """Transcoding the file would rewrite every byte in it, so the value loses instead."""
+    german = EDITABLE_TXT.replace("Uptown Funk", "Über den Wolken").replace(
+        "Mark Ronson", "Reinhard Mey"
+    )
+    write_txt(editable, german, "cp1252")
+    opened = {**OPENED_ON, "title": "Über den Wolken", "artist": "Reinhard Mey"}
+
+    response = await client.patch(
+        "/api/v1/songs/usdb:1234",
+        json={"values": {**opened, "title": "上を向いて歩こう"}, "expected": opened},
+    )
+
+    assert response.status_code == 422
+    assert response.json() == {"detail": "value_not_encodable"}
+    assert txt_bytes(editable) == german.encode("cp1252")
+
+
+@pytest.mark.parametrize("field", ["title", "artist"])
+async def test_a_song_without_a_title_or_an_artist_is_refused(
+    client: AsyncClient, editable: Path, field: str
+) -> None:
+    response = await client.patch("/api/v1/songs/usdb:1234", json=an_edit(**{field: "   "}))
+
+    assert response.status_code == 422
+    assert txt_bytes(editable) == EDITABLE_TXT.encode()
+
+
+@pytest.mark.parametrize("separator", ["\r\n", "\n", "\x0b", "\u2028"])
+async def test_a_value_with_a_line_break_cannot_write_itself_into_the_file(
+    client: AsyncClient, editable: Path, separator: str
+) -> None:
+    """A header is one line: a title carrying a line break would put whatever follows it
+    into the file as another header, or as a note line in the middle of the tags. Every
+    break Python's own `splitlines` knows counts, because that is what reads the file back
+    — a value that survives the write only to split on the next read is the same hole."""
+    response = await client.patch(
+        "/api/v1/songs/usdb:1234",
+        json=an_edit(title=f"Uptown Funk{separator}#VIDEO:hack.mp4"),
+    )
+
+    assert response.status_code == 422
+    assert txt_bytes(editable) == EDITABLE_TXT.encode()
+
+
+async def test_a_year_the_editor_would_not_write_can_still_be_corrected(
+    client: AsyncClient, editable: Path
+) -> None:
+    """A library really does hold `#YEAR:20144`, and that song is exactly the one somebody
+    opens the editor for. The values the editor was *opened on* are therefore not bounded —
+    bounding both halves would refuse the request before it ever reached the file."""
+    write_txt(editable, EDITABLE_TXT.replace("#YEAR:2014", "#YEAR:20144"))
+    opened = {**OPENED_ON, "year": 20144}
+
+    response = await client.patch(
+        "/api/v1/songs/usdb:1234", json={"values": {**opened, "year": 2014}, "expected": opened}
+    )
+
+    assert response.status_code == 200
+    assert response.json()["year"] == 2014
+    assert "#YEAR:2014\r\n" in txt_bytes(editable).decode()
+
+
+@pytest.mark.parametrize("year", [-1, 10000])
+async def test_a_year_outside_the_four_digits_is_not_written(
+    client: AsyncClient, editable: Path, year: int
+) -> None:
+    """The other half of the bound: what goes *into* the file is a four-digit year."""
+    response = await client.patch("/api/v1/songs/usdb:1234", json=an_edit(year=year))
+
+    assert response.status_code == 422
+    assert txt_bytes(editable) == EDITABLE_TXT.encode()
+
+
+async def test_editing_an_unknown_song_is_404(client: AsyncClient, library: Path) -> None:
+    assert (
+        await client.patch("/api/v1/songs/local:nope", json=an_edit(genre="Funk"))
+    ).status_code == 404
+
+
 @pytest.fixture
 async def deletable(session: AsyncSession, tmp_path: Path) -> Path:
     """One song whose directory really is on disk, files and all — deleting it has to take

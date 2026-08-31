@@ -54,6 +54,8 @@ const GROUP_NAMES: Record<string, string> = { usdb: "USDB" };
 const DESCRIPTIONS: Record<string, string> = {
   "songs.view": "See the song list and open a song.",
   "songs.rescan": "Read the song folders again to pick up new files.",
+  "songs.edit":
+    "Fix a song's title, artist, language, genre, year or edition. It is written into the song's own file, so Ultrastar Deluxe shows it too.",
   "songs.delete":
     "Delete a song for good, its folder on the disk included. Nothing can undo it.",
   "karaoke.sing": "Start a song on the Ultrastar Deluxe machine.",

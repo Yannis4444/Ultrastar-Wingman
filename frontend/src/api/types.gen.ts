@@ -1020,6 +1020,21 @@ export type SlotRead = {
 };
 
 /**
+ * SongEdit
+ *
+ * What the editor sends: the new metadata, and the metadata it was opened on.
+ *
+ * `expected` is how a lost edit is caught. The file may have been re-downloaded or edited
+ * by hand since the form was filled in, and the request that arrives afterwards would
+ * otherwise put the old values back over the new ones — so the service compares
+ * `expected` against what the txt says *now* and refuses when the two have drifted apart.
+ */
+export type SongEdit = {
+    values: SongMetadata;
+    expected: SongMetadata;
+};
+
+/**
  * SongList
  */
 export type SongList = {
@@ -1027,6 +1042,50 @@ export type SongList = {
      * Songs
      */
     songs: Array<SongRead>;
+};
+
+/**
+ * SongMetadata
+ *
+ * The headers the song editor writes, and nothing else.
+ *
+ * Deliberately not every column of `SongRead`: `duration_seconds`, `has_video` and
+ * `is_duet` are facts about the files rather than values anybody types, and the txt's
+ * `#CREATOR` says who built the karaoke file — not something to fix about the song.
+ * Title and artist have to say something, everything else may be emptied, and an emptied
+ * value is `None`: in a txt "no genre" is no `#GENRE` header at all.
+ *
+ * The model says what a file *may say*, not what may be written into one — it describes
+ * `expected`, the values the editor was opened on, as much as the new ones. So the year
+ * carries no bound here: real libraries hold `#YEAR:20144`, and a bound on both halves
+ * would make that very song the one song this editor cannot fix. `SongEdit` bounds the
+ * half that is written.
+ */
+export type SongMetadata = {
+    /**
+     * Title
+     */
+    title: string;
+    /**
+     * Artist
+     */
+    artist: string;
+    /**
+     * Language
+     */
+    language?: string | null;
+    /**
+     * Genre
+     */
+    genre?: string | null;
+    /**
+     * Year
+     */
+    year?: number | null;
+    /**
+     * Edition
+     */
+    edition?: string | null;
 };
 
 /**
@@ -2024,6 +2083,38 @@ export type GetSongResponses = {
 };
 
 export type GetSongResponse = GetSongResponses[keyof GetSongResponses];
+
+export type EditSongData = {
+    body: SongEdit;
+    path: {
+        /**
+         * Song Id
+         */
+        song_id: string;
+    };
+    query?: never;
+    url: '/api/v1/songs/{song_id}';
+};
+
+export type EditSongErrors = {
+    /**
+     * The file moved on, is unreadable, or could not be written.
+     */
+    409: unknown;
+    /**
+     * A value is empty, or cannot be written in the file's encoding.
+     */
+    422: unknown;
+};
+
+export type EditSongResponses = {
+    /**
+     * Successful Response
+     */
+    200: SongRead;
+};
+
+export type EditSongResponse = EditSongResponses[keyof EditSongResponses];
 
 export type GetSongCoverData = {
     body?: never;

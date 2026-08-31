@@ -34,6 +34,16 @@ ROUTES: list[tuple[str, str, str, dict[str, object] | None]] = [
     ("songs.view", "GET", "/api/v1/songs/usdb:1", None),
     ("songs.view", "GET", "/api/v1/songs/usdb:1/cover", None),
     ("songs.rescan", "POST", "/api/v1/songs/rescan", None),
+    # Fixing wrong metadata rewrites the song's txt headers, nothing else.
+    (
+        "songs.edit",
+        "PATCH",
+        "/api/v1/songs/usdb:1",
+        {
+            "values": {"title": "Uptown Funk", "artist": "Mark Ronson"},
+            "expected": {"title": "Uptown Funk", "artist": "Mark Ronson"},
+        },
+    ),
     # Admin-only by default: the folder goes off the disk with the row.
     ("songs.delete", "DELETE", "/api/v1/songs/usdb:1", None),
     ("players.view", "GET", "/api/v1/players", None),

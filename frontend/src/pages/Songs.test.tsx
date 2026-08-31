@@ -434,6 +434,25 @@ test("a song somebody deleted leaves the list", async () => {
   expect(screen.getByText("Dancing Queen")).toBeInTheDocument();
 });
 
+test("a song somebody corrected shows its new title", async () => {
+  renderSongs([song(), song({ id: "usdb:2", title: "Watrloo" })]);
+  await screen.findByText("Watrloo");
+
+  listSongs.mockResolvedValue({
+    data: { songs: [song(), song({ id: "usdb:2", title: "Waterloo" })] },
+  });
+  // What the backend broadcasts once a `songs.edit` holder fixed the metadata.
+  // The row carries the title, the artist and every facet the filter reads, so
+  // the list is fetched again exactly as after a delete.
+  FakeSocket.deliver({
+    event: "songs.updated",
+    song: song({ id: "usdb:2", title: "Waterloo" }),
+  });
+
+  expect(await screen.findByText("Waterloo")).toBeInTheDocument();
+  expect(screen.queryByText("Watrloo")).not.toBeInTheDocument();
+});
+
 test("the privileged buttons are gone for a role without the capability", async () => {
   renderSongs([song()], ["songs.view", "players.view"]);
   await screen.findByText("Dancing Queen");

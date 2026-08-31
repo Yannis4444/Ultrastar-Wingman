@@ -168,6 +168,43 @@ comment is gone for good; there is no undo.
 
 If the account behind a comment is deleted, its comments go with it.
 
+## Fix a song's details
+
+Downloaded songs arrive with whatever whoever made them typed: a misspelt
+artist, no year, a genre in the wrong language, a title with the karaoke site's
+name stuck to it. **Edit details** in the song's view is where that is put
+right. *Trusted* and *admin* hold the right by default, and it is the row **Fix
+a song's details** on
+[Accounts and permissions](accounts-and-permissions.md).
+
+Six things can be changed: **title**, **artist**, **language**, **genre**,
+**year** and **edition** — the values that show up in **Details**, in the song
+list and in the filter. A title and an artist have to say something; the other
+four may be left empty, which means the song simply has no year (or no genre,
+or …), and the filter treats it accordingly.
+
+What is written is the **song's own file**, not just Wingman's copy of it, so
+Ultrastar Deluxe shows the corrected title too, and the next library scan
+agrees with what you typed instead of putting the old value back. Only those
+few lines of the file are touched: the lyrics, the timing, the audio, the video
+and the cover are exactly as they were, and everything the party did with the
+song — its tags, favorites, wishes, playlist entries, comments and scores —
+stays with it.
+
+Two answers are worth knowing:
+
+- **"This song's file changed while the editor was open."** Somebody downloaded
+  the song again, or edited its file by hand, after you opened the editor.
+  Saving would put your older values over theirs, so Wingman does not. Close the
+  song, open it again, and you will see what the file says now.
+- **"Its file is still open."** Ultrastar Deluxe is holding the song — usually
+  because it is the one on the TV. Close USDX (or finish the song) and save
+  again. Nothing was written.
+
+A file written in a very old encoding can refuse a letter it has no way to
+spell; Wingman says so rather than rewriting the whole file into another
+alphabet.
+
 ## Delete a song
 
 A song that will never be sung again — a broken file, a duplicate, a download

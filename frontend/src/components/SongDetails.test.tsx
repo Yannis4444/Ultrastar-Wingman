@@ -31,6 +31,7 @@ const {
   addSongComment,
   deleteSongComment,
   deleteSong,
+  editSong,
 } = vi.hoisted(() => ({
   getMe: vi.fn(),
   listSongScores: vi.fn(),
@@ -49,6 +50,7 @@ const {
   addSongComment: vi.fn(),
   deleteSongComment: vi.fn(),
   deleteSong: vi.fn(),
+  editSong: vi.fn(),
 }));
 
 vi.mock("../api/sdk.gen", async (importOriginal) => ({
@@ -70,6 +72,7 @@ vi.mock("../api/sdk.gen", async (importOriginal) => ({
   addSongComment,
   deleteSongComment,
   deleteSong,
+  editSong,
 }));
 
 const song: SongRead = {
@@ -171,6 +174,8 @@ beforeEach(() => {
     mock.mockReset();
   deleteSong.mockReset();
   deleteSong.mockResolvedValue({ data: undefined });
+  editSong.mockReset();
+  editSong.mockResolvedValue({ data: song });
   // The count query runs as the modal opens, so every test needs an answer.
   listSongComments.mockResolvedValue({ data: { comments: [] } });
   deleteSongComment.mockResolvedValue({ data: undefined });
@@ -1340,4 +1345,181 @@ test("a song that is playing cannot be deleted, and the modal says why", async (
   );
   // The song is still there, so the modal stays open on it.
   expect(onClose).not.toHaveBeenCalled();
+});
+
+test("no Edit details row without the right", async () => {
+  renderDetails();
+
+  // The trophy waits for `/auth/me`, so by the time it is here the row has had
+  // its answer too — and the answer is no.
+  await screen.findByRole("button", { name: /Best scores/ });
+  expect(
+    screen.queryByRole("button", { name: "Edit details" }),
+  ).not.toBeInTheDocument();
+});
+
+test("Edit details sits between the playlist row and the delete", async () => {
+  asAccount(["playlists.manage", "songs.edit", "songs.delete"]);
+  renderDetails();
+
+  const row = await screen.findByRole("button", { name: "Edit details" });
+  // An ordinary row with the pencil (§3), like the three around it.
+  expect(row.className).toBe("song-option");
+  expect(iconNames(row)).toEqual(["pencil", "chevron-right"]);
+  expect(
+    [...document.querySelectorAll(".song-option .song-option-label")].map(
+      (label) => label.textContent,
+    ),
+  ).toEqual(["Details", "Add to playlist", "Edit details", "Delete song"]);
+});
+
+/** Opens the editor and hands back its dialog. */
+async function openEditor(): Promise<HTMLElement> {
+  fireEvent.click(await screen.findByRole("button", { name: "Edit details" }));
+  return screen.getByRole("dialog", { name: "Edit details" });
+}
+
+test("the editor opens on what the song says, in the order §5 fixes", async () => {
+  asAccount(["songs.edit"]);
+  renderDetails();
+
+  const dialog = await openEditor();
+
+  expect(
+    within(dialog)
+      .getAllByRole("textbox")
+      .concat(within(dialog).getAllByRole("spinbutton"))
+      .map((field) => (field as HTMLInputElement).value),
+  ).toEqual(["Bohemian Rhapsody", "Queen", "English", "", "", "1975"]);
+  expect(
+    [...dialog.querySelectorAll(".song-edit-field > span")].map(
+      (caption) => caption.textContent,
+    ),
+  ).toEqual(["Title", "Artist", "Language", "Genre", "Year", "Edition"]);
+});
+
+test("saving sends the new values and what they were based on", async () => {
+  asAccount(["songs.edit"]);
+  editSong.mockResolvedValue({ data: { ...song, genre: "Rock", year: 1976 } });
+  renderDetails();
+
+  const dialog = await openEditor();
+  fireEvent.change(within(dialog).getByLabelText("Genre"), {
+    target: { value: "Rock" },
+  });
+  fireEvent.change(within(dialog).getByLabelText("Year"), {
+    target: { value: "1976" },
+  });
+  fireEvent.click(within(dialog).getByRole("button", { name: "Save" }));
+
+  await waitFor(() =>
+    expect(editSong).toHaveBeenCalledWith(
+      expect.objectContaining({
+        path: { song_id: "usdb:1" },
+        body: {
+          values: {
+            title: "Bohemian Rhapsody",
+            artist: "Queen",
+            language: "English",
+            genre: "Rock",
+            year: 1976,
+            edition: null,
+          },
+          // What the form was filled from: the backend refuses the save if the
+          // file has moved on from it.
+          expected: {
+            title: "Bohemian Rhapsody",
+            artist: "Queen",
+            language: "English",
+            genre: null,
+            year: 1975,
+            edition: null,
+          },
+        },
+      }),
+    ),
+  );
+  // Back on the song, showing what was just saved rather than the row the
+  // listing behind the modal still holds.
+  const song_modal = await screen.findByRole("dialog", {
+    name: "Bohemian Rhapsody",
+  });
+  fireEvent.click(within(song_modal).getByRole("button", { name: "Details" }));
+  expect(within(song_modal).getByText("Rock")).toBeVisible();
+});
+
+test("an emptied field is saved as no value at all", async () => {
+  asAccount(["songs.edit"]);
+  renderDetails();
+
+  const dialog = await openEditor();
+  fireEvent.change(within(dialog).getByLabelText("Language"), {
+    target: { value: "   " },
+  });
+  fireEvent.click(within(dialog).getByRole("button", { name: "Save" }));
+
+  await waitFor(() =>
+    expect(editSong).toHaveBeenCalledWith(
+      expect.objectContaining({
+        // Not an empty string: in a song txt "no language" is no header at all.
+        body: expect.objectContaining({
+          values: expect.objectContaining({ language: null }),
+        }),
+      }),
+    ),
+  );
+});
+
+test("a song cannot be saved without a title or an artist", async () => {
+  asAccount(["songs.edit"]);
+  renderDetails();
+
+  const dialog = await openEditor();
+  fireEvent.change(within(dialog).getByLabelText("Title"), {
+    target: { value: "  " },
+  });
+
+  expect(within(dialog).getByRole("button", { name: "Save" })).toBeDisabled();
+  fireEvent.change(within(dialog).getByLabelText("Title"), {
+    target: { value: "Bohemian Rhapsody" },
+  });
+  fireEvent.change(within(dialog).getByLabelText("Artist"), {
+    target: { value: "" },
+  });
+  expect(within(dialog).getByRole("button", { name: "Save" })).toBeDisabled();
+  expect(editSong).not.toHaveBeenCalled();
+});
+
+test("a file that moved on under the editor says so and keeps the form", async () => {
+  asAccount(["songs.edit"]);
+  editSong.mockRejectedValue({ detail: "song_file_changed" });
+  renderDetails();
+
+  const dialog = await openEditor();
+  fireEvent.change(within(dialog).getByLabelText("Genre"), {
+    target: { value: "Rock" },
+  });
+  fireEvent.click(within(dialog).getByRole("button", { name: "Save" }));
+
+  expect(await screen.findByRole("alert")).toHaveTextContent(
+    /changed while the editor was open/,
+  );
+  // Still in the editor, with what was typed: the reader has to decide what to
+  // do about it, and retyping it first would be the wrong ask.
+  expect(
+    (within(dialog).getByLabelText("Genre") as HTMLInputElement).value,
+  ).toBe("Rock");
+});
+
+test("a file Wingman cannot write back says which of its problems it is", async () => {
+  asAccount(["songs.edit"]);
+  editSong.mockRejectedValue({ detail: "value_not_encodable" });
+  renderDetails();
+
+  const dialog = await openEditor();
+  fireEvent.click(within(dialog).getByRole("button", { name: "Save" }));
+
+  expect(await screen.findByRole("alert")).toHaveTextContent(
+    /cannot spell one of those values/,
+  );
 });

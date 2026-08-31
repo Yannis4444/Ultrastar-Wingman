@@ -181,6 +181,12 @@ export default function Songs() {
   useWingmanEvent("songs.deleted", () => {
     void queryClient.invalidateQueries({ queryKey: listSongsQueryKey() });
   });
+  // And somebody with `songs.edit` fixed a song's metadata. The row this page
+  // draws — its title, and the facets the filter reads off it — is what moved,
+  // so the list is asked again exactly as above.
+  useWingmanEvent("songs.updated", () => {
+    void queryClient.invalidateQueries({ queryKey: listSongsQueryKey() });
+  });
 
   // Nothing sung yet (or the party is over) means no tab: an empty one nobody
   // in the room can fill is worse than none at all. It stays while the reader

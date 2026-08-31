@@ -9,6 +9,7 @@ from pydantic import BaseModel
 
 from .downloads.schema import DownloadRead
 from .karaoke.schema import CurrentSing, ScoreRead
+from .songs.schema import SongRead
 
 logger = logging.getLogger(__name__)
 
@@ -48,6 +49,15 @@ class SongDeleted(Event):
 
     event: Literal["songs.deleted"] = "songs.deleted"
     song_id: str
+
+
+class SongUpdated(Event):
+    """A song's metadata was corrected — a wrong title, a missing year. The whole song
+    rides along: every listing in the app draws it from a `SongRead`, so a listener can put
+    the new one straight where the old one was."""
+
+    event: Literal["songs.updated"] = "songs.updated"
+    song: SongRead
 
 
 class DownloadUpdated(Event):

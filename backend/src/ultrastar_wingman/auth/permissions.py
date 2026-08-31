@@ -19,6 +19,7 @@ logger = logging.getLogger(__name__)
 CAPABILITIES: tuple[str, ...] = (
     "songs.view",
     "songs.rescan",
+    "songs.edit",
     "songs.delete",
     "karaoke.sing",
     "karaoke.stop",
@@ -101,6 +102,11 @@ _TRUSTED_CAPABILITIES = _USER_CAPABILITIES | {
     "downloads.manage",
     "usdb.search",
     "songs.rescan",
+    # Fixing a wrong title or a missing year. It rewrites the song's txt, which is the file
+    # USDX reads — but only its headers, and nothing it does is a deletion: the lyrics, the
+    # media and the song's whole history are out of its reach. A helper who may add songs
+    # to the library may as well correct the ones that came in wrong.
+    "songs.edit",
     "stats.manage",
     # Tidying up the party's global playlists is a helper's job, not only the host's. It
     # never reaches a list the holder cannot already see, so it opens no private one.

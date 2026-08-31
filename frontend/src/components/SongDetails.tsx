@@ -1,6 +1,12 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useEffect, useRef, useState } from "react";
-import type { CommentAuthor, CommentRead, PlayerRead, SongRead } from "../api";
+import type {
+  CommentAuthor,
+  CommentRead,
+  PlayerRead,
+  SongMetadata,
+  SongRead,
+} from "../api";
 import {
   addPlaylistEntryMutation,
   addSongCommentMutation,
@@ -8,6 +14,7 @@ import {
   createPlaylistMutation,
   deleteSongCommentMutation,
   deleteSongMutation,
+  editSongMutation,
   getPlaylistQueryKey,
   listPlaylistsOptions,
   listPlaylistsQueryKey,
@@ -83,6 +90,74 @@ const FORMER_MEMBER = "Former member";
  * person in front of the screen can act on, which a generic "could not delete"
  * would not be.
  */
+/**
+ * Why the backend refused to save the metadata. The editor writes the song's
+ * `.txt` — the file USDX itself reads — so every one of these is about that
+ * file, and every one of them is something the person can do something about.
+ */
+const EDIT_REFUSALS: Record<string, string> = {
+  song_file_changed:
+    "This song's file changed while the editor was open — it was downloaded again, or somebody edited it by hand. Close this and open it again to see what it says now.",
+  song_txt_missing:
+    "The song's file is not there any more. Rescan the library to find out what happened to it.",
+  song_txt_unreadable:
+    "Wingman cannot write this file back without garbling the rest of it — its encoding is one nothing here can reproduce.",
+  song_files_in_use:
+    "Its file is still open — close Ultrastar Deluxe and try again.",
+  value_not_encodable:
+    "This file cannot spell one of those values: it was written in an old encoding that has no such letters.",
+};
+
+/** The song's fields the editor writes, as the form holds them: all text. */
+type EditForm = Record<
+  "title" | "artist" | "language" | "genre" | "year" | "edition",
+  string
+>;
+
+/** The form filled in with what a song says now. */
+function formOf(song: SongRead): EditForm {
+  return {
+    title: song.title,
+    artist: song.artist,
+    language: song.language ?? "",
+    genre: song.genre ?? "",
+    year: song.year === null ? "" : String(song.year),
+    edition: song.edition ?? "",
+  };
+}
+
+/** An emptied field is no value at all — in a txt, no header rather than an
+ * empty one, which is what the backend does with a `null`. */
+function said(value: string): string | null {
+  return value.trim() === "" ? null : value.trim();
+}
+
+/** What the form is asking for. */
+function valuesOf(form: EditForm): SongMetadata {
+  return {
+    title: form.title,
+    artist: form.artist,
+    language: said(form.language),
+    genre: said(form.genre),
+    year: form.year.trim() === "" ? null : Number(form.year),
+    edition: said(form.edition),
+  };
+}
+
+/** What the editor was opened on. The backend compares it against the file as
+ * it is *now* and refuses when the two have drifted apart, so a save can never
+ * put these values back over a download that happened in the meantime. */
+function metadataOf(song: SongRead): SongMetadata {
+  return {
+    title: song.title,
+    artist: song.artist,
+    language: song.language,
+    genre: song.genre,
+    year: song.year,
+    edition: song.edition,
+  };
+}
+
 const DELETE_REFUSALS: Record<string, string> = {
   song_is_playing: "That song is playing right now. Stop it first.",
   song_files_in_use:
@@ -124,8 +199,14 @@ export default function SongDetails({ song, onClose }: SongDetailsProps) {
   // from the song itself: the one caller that opened straight into the picker
   // was Currently Playing's playlist button, and that button is gone.
   const [view, setView] = useState<
-    "main" | "scores" | "playlists" | "tags" | "comments"
+    "main" | "scores" | "playlists" | "tags" | "comments" | "edit"
   >("main");
+  // The song as the editor last saved it. The song itself is a prop — a row out
+  // of whatever listing opened this modal — so without this the hero would go
+  // on showing the old title until that listing has fetched itself again.
+  const [saved, setSaved] = useState<SongRead | null>(null);
+  // What is in the editor's fields. Filled from the song when it opens.
+  const [form, setForm] = useState<EditForm | null>(null);
   const [notice, setNotice] = useState<string | null>(null);
   // There is no has_audio flag; the preview 404s for songs without audio and
   // the element's error event is the only signal.
@@ -145,6 +226,12 @@ export default function SongDetails({ song, onClose }: SongDetailsProps) {
   const wishlist = useWishlist();
   const favorites = useFavorites();
   const tags = useTags();
+
+  // Everything the modal *shows* comes from here: the song it was opened with
+  // until somebody corrects it, and what the backend answered after that. The
+  // id never changes with an edit, so everything the modal *does* still goes
+  // through `song`.
+  const shown = saved ?? song;
 
   // What this reader may know about the song's tags, and what they may change.
   // `bySong` also carries the tags a `tags.manage` holder may not view; those
@@ -338,6 +425,31 @@ export default function SongDetails({ song, onClose }: SongDetailsProps) {
     },
   });
 
+  // Wrong or missing metadata, corrected. It goes into the song's `.txt` rather
+  // than into the row alone: the file is what USDX reads and what the next
+  // library scan re-imports, so a row-only edit would last until the next start.
+  const saveDetails = useMutation({
+    ...editSongMutation(),
+    onSuccess: (updated) => {
+      // The modal shows the new values at once; every listing behind it — the
+      // library, the playlists, the wishlist, the reel — is asked again, since
+      // each of them carries its own copy of the row.
+      setSaved(updated);
+      void queryClient.invalidateQueries();
+      setView("main");
+    },
+    onError: (error) => {
+      const refusal = EDIT_REFUSALS[errorDetail(error) ?? ""];
+      setNotice(
+        refusal ??
+          errorMessage(
+            error,
+            "Could not save the details. A title and an artist are needed, and neither may run over one line.",
+          ),
+      );
+    },
+  });
+
   const unsay = useMutation({
     ...deleteSongCommentMutation(),
     onSuccess: refreshComments,
@@ -356,22 +468,98 @@ export default function SongDetails({ song, onClose }: SongDetailsProps) {
   // details keep only what the modal does not show anyway.
   const rows: { icon: IconName; label: string; value: string | null }[] = [
     // `flag` is "a language or a country" (§3); `globe` means global sharing.
-    { icon: "flag", label: "Language", value: song.language },
+    { icon: "flag", label: "Language", value: shown.language },
     // Not `tag`: that glyph is the tags feature's, one row further down (§3).
-    { icon: "music", label: "Genre", value: song.genre },
+    { icon: "music", label: "Genre", value: shown.genre },
     {
       icon: "calendar",
       label: "Year",
-      value: song.year === null ? null : String(song.year),
+      value: shown.year === null ? null : String(shown.year),
     },
-    { icon: "disc", label: "Edition", value: song.edition },
-    { icon: "user", label: "Creator", value: song.creator },
+    { icon: "disc", label: "Edition", value: shown.edition },
+    { icon: "user", label: "Creator", value: shown.creator },
     // The id already names the source ("usdb:24435"), so one row covers both.
-    { icon: "database", label: "Source", value: song.id },
+    { icon: "database", label: "Source", value: shown.id },
+  ];
+
+  // The fields the editor writes, in the order §5 fixes. The creator is not
+  // among them: it says who built the karaoke file, which is not a fact about
+  // the song anybody here is fixing.
+  const fields: { name: keyof EditForm; label: string; numeric?: boolean }[] = [
+    { name: "title", label: "Title" },
+    { name: "artist", label: "Artist" },
+    { name: "language", label: "Language" },
+    { name: "genre", label: "Genre" },
+    { name: "year", label: "Year", numeric: true },
+    { name: "edition", label: "Edition" },
   ];
 
   if (selectingPlayers) {
-    return <PlayerSelection song={song} onClose={onClose} />;
+    return <PlayerSelection song={shown} onClose={onClose} />;
+  }
+
+  if (view === "edit" && form !== null) {
+    const incomplete = form.title.trim() === "" || form.artist.trim() === "";
+    return (
+      <Modal
+        title="Edit details"
+        bare
+        onClose={() => {
+          setNotice(null);
+          setForm(null);
+          setView("main");
+        }}
+      >
+        <form
+          className="song-edit"
+          onSubmit={(event) => {
+            event.preventDefault();
+            if (incomplete || saveDetails.isPending) return;
+            setNotice(null);
+            saveDetails.mutate({
+              path: { song_id: song.id },
+              // What the fields say, and what they were filled from: the second
+              // is how the backend knows whether the file moved on meanwhile.
+              body: { values: valuesOf(form), expected: metadataOf(shown) },
+            });
+          }}
+        >
+          {fields.map(({ name, label, numeric }) => (
+            <label className="song-edit-field" key={name}>
+              <span>{label}</span>
+              <input
+                className="text-input text-input-quiet"
+                type={numeric ? "number" : "text"}
+                inputMode={numeric ? "numeric" : undefined}
+                min={numeric ? 0 : undefined}
+                max={numeric ? 9999 : undefined}
+                value={form[name]}
+                disabled={saveDetails.isPending}
+                onChange={(event) =>
+                  setForm({ ...form, [name]: event.target.value })
+                }
+              />
+            </label>
+          ))}
+          <p className="song-details-notice">
+            The values go into the song's own file, so Ultrastar Deluxe shows
+            them too. Its lyrics and its music are not touched.
+          </p>
+          {notice && (
+            <p className="song-details-notice" role="alert">
+              {notice}
+            </p>
+          )}
+          <button
+            type="submit"
+            className="button button-primary song-edit-save"
+            disabled={incomplete || saveDetails.isPending}
+          >
+            Save
+          </button>
+        </form>
+      </Modal>
+    );
   }
 
   if (view === "scores") {
@@ -741,11 +929,11 @@ export default function SongDetails({ song, onClose }: SongDetailsProps) {
 
   return (
     <>
-      <Modal title={song.title} hideTitle bare onClose={onClose}>
+      <Modal title={shown.title} hideTitle bare onClose={onClose}>
         <div className="song-hero">
-          <SongCover song={song} className="song-hero-cover" />
-          <h3 className="song-hero-title">{song.title}</h3>
-          <p className="song-hero-artist">{song.artist}</p>
+          <SongCover song={shown} className="song-hero-cover" />
+          <h3 className="song-hero-title">{shown.title}</h3>
+          <p className="song-hero-artist">{shown.artist}</p>
         </div>
 
         {!noAudio && (
@@ -863,6 +1051,28 @@ export default function SongDetails({ song, onClose }: SongDetailsProps) {
             </button>
           )}
 
+          {/* Between the playlist row and the delete (§5). Waits for `/auth/me`
+              for the same reason the row below it does: an editor offered to
+              somebody who turns out not to hold the right is a form that can
+              only end in a refusal. */}
+          {auth.loaded && auth.can("songs.edit") && (
+            <button
+              type="button"
+              className="song-option"
+              onClick={() => {
+                setNotice(null);
+                // Filled from what is on screen — which is what the backend is
+                // told the edit was based on when it is saved.
+                setForm(formOf(shown));
+                setView("edit");
+              }}
+            >
+              <Icon name="pencil" className="song-option-icon" />
+              <span className="song-option-label">Edit details</span>
+              <Icon name="chevron-right" className="song-option-chevron" />
+            </button>
+          )}
+
           {/* The last row, and an ordinary one: nothing here is red (§1.6). What
               it costs is said in the confirmation, which is where it can be read
               before anything happens. Waits for `/auth/me` rather than assuming
@@ -953,7 +1163,7 @@ export default function SongDetails({ song, onClose }: SongDetailsProps) {
       {confirmingDelete && (
         <ConfirmModal
           title="Delete song"
-          message={`“${song.title}” by ${song.artist} leaves the library and its folder is deleted from the disk. There is no undo.`}
+          message={`“${shown.title}” by ${shown.artist} leaves the library and its folder is deleted from the disk. There is no undo.`}
           confirmLabel="Delete"
           danger
           onConfirm={() => {

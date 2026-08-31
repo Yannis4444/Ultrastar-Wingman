@@ -149,6 +149,7 @@ What each role may do by default:
 | Change a playlist somebody else shared | – | – | yes | yes |
 | [Manage tags](tags.md) and the built-in marks and facets | – | – | yes | yes |
 | Delete anybody's comments | – | – | yes | yes |
+| [Fix a song's details](singing.md#fix-a-songs-details) | – | – | yes | yes |
 | [Delete a song](singing.md#delete-a-song) | – | – | – | yes |
 | See and change the settings | – | – | – | yes |
 | Manage users | – | – | – | yes |
