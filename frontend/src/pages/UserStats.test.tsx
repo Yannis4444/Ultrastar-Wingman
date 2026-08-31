@@ -8,6 +8,7 @@ import {
 } from "@testing-library/react";
 import { MemoryRouter } from "react-router-dom";
 import type { ScoreWithContext, SongRead } from "../api";
+import { chartTheme } from "../chartTheme";
 import { shortDate } from "../duration";
 import { meResponse, userRead } from "../test/auth";
 import UserStats from "./UserStats";
@@ -188,22 +189,52 @@ test("sorting reorders the songs without touching the grouping", async () => {
   expect(screen.queryAllByTestId("score-group")).toHaveLength(2);
 });
 
-test("a spread of two songs is worth a chart", async () => {
+test("the whole record is one strip of every score, the best in gold", async () => {
   renderStats();
 
   expect(
-    await screen.findByRole("img", { name: "Score spread per song" }),
+    await screen.findByRole("img", { name: "Every score you ever got" }),
   ).toBeInTheDocument();
   expect(
-    screen.getByRole("heading", { name: "Score spread" }),
+    screen.getByRole("heading", { name: "All scores" }),
   ).toBeInTheDocument();
-  // Every score in here is the reader's own, so the marks wear no initials —
-  // four scores over two songs, as plain dots on their rows.
-  expect(document.querySelector("[data-testid=spread-chip]")).toBeNull();
-  expect(screen.getAllByTestId("spread-dot")).toHaveLength(4);
+  // Every score, not every song: four runs over two songs are four dots, and
+  // exactly one of them — the 9500 — is the record's best.
+  const dots = screen.getAllByTestId("strip-dot");
+  expect(dots).toHaveLength(4);
+  expect(
+    dots.filter((dot) => dot.getAttribute("fill") === chartTheme.gold),
+  ).toHaveLength(1);
+  // The gold label is the bare number: every score here is the reader's own,
+  // so their name beside their best would be the same word this page never
+  // prints anywhere else. Scoped to the strip — the ranking row prints the
+  // same 9500 legitimately.
+  const strip = screen.getByRole("img", { name: "Every score you ever got" });
+  expect(within(strip).getByText("9500")).toBeInTheDocument();
+  expect(within(strip).queryByText(/9500 · /)).not.toBeInTheDocument();
 });
 
-test("a single song gets the list alone", async () => {
+test("one song sung twice is still a picture", async () => {
+  listPlayerScores.mockResolvedValue({
+    data: {
+      scores: [
+        score(1, 9500, bohemian, "sing-1"),
+        score(2, 3000, bohemian, "sing-2"),
+      ],
+    },
+  });
+  renderStats();
+
+  // The strip counts scores, not songs: a single song's two runs say something
+  // a spread of one row never could.
+  await waitFor(() => expect(groupLabels()).toHaveLength(1));
+  expect(
+    screen.getByRole("img", { name: "Every score you ever got" }),
+  ).toBeInTheDocument();
+  expect(screen.getAllByTestId("strip-dot")).toHaveLength(2);
+});
+
+test("a single score gets the list alone", async () => {
   listPlayerScores.mockResolvedValue({
     data: { scores: [score(1, 9500, bohemian, "sing-1")] },
   });
@@ -211,7 +242,7 @@ test("a single song gets the list alone", async () => {
 
   await waitFor(() => expect(groupLabels()).toHaveLength(1));
   expect(
-    screen.queryByRole("img", { name: "Score spread per song" }),
+    screen.queryByRole("img", { name: "Every score you ever got" }),
   ).not.toBeInTheDocument();
 });
 

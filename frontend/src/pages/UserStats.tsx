@@ -7,8 +7,8 @@ import Loading from "../components/Loading";
 import PageHeader from "../components/PageHeader";
 import ScoreGroupList from "../components/ScoreGroupList";
 import ScoresEmpty from "../components/ScoresEmpty";
+import ScoreStrip from "../components/ScoreStrip";
 import SongDetails from "../components/SongDetails";
-import SpreadRows from "../components/SpreadRows";
 import { errorMessage } from "../errors";
 import { groupScores, sortGroups, type Sorting } from "../stats";
 // The rules are the Scores page's; this view is the same list with one singer
@@ -78,19 +78,21 @@ function History({ playerId }: { playerId: string }) {
         </label>
       </div>
 
-      {/* One song's spread says nothing a single row does not. */}
-      {groups.length >= 2 && (
+      {/* The Scores page's headline picture, over one singer's whole record:
+          every score, not the groups — a song sung three times is a shape,
+          which is why the card counts scores rather than songs. A single score
+          is its own headline and no picture at all. Dated tooltips: two runs of
+          one song can be months apart, and a bare clock time would lie. */}
+      {rows.length >= 2 && (
         <div className="scores-chart">
-          <h2 className="scores-chart-title">Score spread</h2>
-          {/* No initials: every score in here is the reader's own, so every
-              mark would wear the same letter. Dated tooltips: two runs of one
-              song can be months apart, and a bare clock time would lie. */}
-          <SpreadRows
-            groups={groups}
-            grouping="song"
-            label="Score spread per song"
-            initials={false}
+          <h2 className="scores-chart-title">All scores</h2>
+          {/* Unnamed gold: the whole page is this one singer's record, and
+              their name on their own best says nothing (§1.5). */}
+          <ScoreStrip
+            scores={rows}
+            label="Every score you ever got"
             dated
+            named={false}
           />
         </div>
       )}
