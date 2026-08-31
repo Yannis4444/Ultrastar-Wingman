@@ -20,9 +20,9 @@ import User from "./pages/User";
 import UserAccounts from "./pages/UserAccounts";
 import UserPermissions from "./pages/UserPermissions";
 
-// Split out: the two stats pages are the only echarts users, and echarts is
-// larger than the rest of the app put together. Every other page stays eager —
-// they share the same handful of components anyway.
+// Split out: the two stats pages carry the chart drawing nothing else needs.
+// echarts is gone — the charts are hand-drawn SVG now — so the chunk is small,
+// but a visitor who never opens a scoreboard still skips it entirely.
 const Scores = lazy(() => import("./pages/Scores"));
 const UserStats = lazy(() => import("./pages/UserStats"));
 

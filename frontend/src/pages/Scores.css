@@ -97,8 +97,8 @@
 
 /* One row, two quiet selects: the reader touches these once an evening, so
    they are a line of the page and not a section of it. The row follows the
-   summary, whose hairline already sits 12px below the numbers — the same 12px
-   the controls and the chart keep between them. */
+   whole-session card and sits above the two things it reorders — the spread
+   card and the ranking — on the same 12px the top section is built on. */
 .scores-controls {
   display: flex;
   gap: 8px;
@@ -149,9 +149,9 @@
   }
 }
 
-/* The card follows the controls row, whose 36px selects carry no margin of
-   their own — 12px is the gap the whole top section is built on, and the
-   ranking below the card then reopens the page's 16px rhythm. */
+/* The two chart cards — the whole-session one under the summary, the spread
+   under the controls. 12px is the gap the whole top section is built on, and
+   the ranking below then reopens the page's 16px rhythm. */
 .scores-chart {
   margin: 12px 16px 0 16px;
   padding: 12px;
@@ -165,16 +165,51 @@
   color: var(--color-dark);
 }
 
-/* The chart stands its groups up, so it grows sideways rather than downwards:
-   eight singers need more width than a phone has. The box scrolls, the page
-   never does (§1.11). The value axis is part of the chart and scrolls off with
-   the first groups, which §7 accepts: what a box is worth is in its tooltip
-   and, in the same order, in the ranking row right under the card.
-   `overscroll-behavior-x` stops a swipe that runs out of chart from turning
-   into the browser's back gesture. */
-.scores-chart-scroll {
-  overflow-x: auto;
-  overscroll-behavior-x: contain;
+/* The top card's switcher — §4's pill pattern (hidden radio, visible span),
+   standing where the card's title would: the two views are what the card is
+   called. The label keeps the 40px touch floor while the pill itself stays a
+   title-sized line. */
+.scores-chart-switch {
+  display: flex;
+  gap: 6px;
+  margin: -7px 0 3px;
+  padding: 0;
+  border: none;
+}
+
+.scores-chart-tab {
+  display: inline-flex;
+  align-items: center;
+  min-height: 40px;
+  cursor: pointer;
+}
+
+.scores-chart-tab-text {
+  display: inline-flex;
+  align-items: center;
+  min-height: 26px;
+  padding: 0 12px;
+  font-size: 0.85em;
+  color: var(--color-darker);
+  border: 1px solid var(--input-border-color);
+  border-radius: 999px;
+}
+
+.scores-chart-tab input:checked ~ .scores-chart-tab-text {
+  color: var(--highlight-blue-light);
+  background-color: var(--highlight-blue-dark);
+  border-color: var(--highlight-blue-dark);
+}
+
+.scores-chart-tab input:focus-visible ~ .scores-chart-tab-text {
+  outline: 2px solid var(--highlight-blue-light);
+  outline-offset: 2px;
+}
+
+@media (hover: hover) {
+  .scores-chart-tab input:not(:checked) ~ .scores-chart-tab-text:hover {
+    color: var(--color-dark);
+  }
 }
 
 /* The page's own prose — the "not your role" line. Carries the page gutter the

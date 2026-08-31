@@ -2,15 +2,14 @@ import type { ReactNode } from "react";
 import type { PlayerRead, ScoreWithContext, SongRead } from "../api";
 import { shortDate, shortTime } from "../duration";
 import {
-  buildHistogramOption,
   groupValue,
   scorePlayer,
   type Grouping,
   type ScoreGroup,
   type Sorting,
 } from "../stats";
-import Chart from "./Chart";
 import IconStat from "./IconStat";
+import ScoreHistogram from "./ScoreHistogram";
 import { Icon } from "./icons";
 import PlayerAvatar from "./PlayerAvatar";
 import ScoreActions from "./ScoreActions";
@@ -137,8 +136,8 @@ function GroupSummary({ group, named }: { group: ScoreGroup; named: boolean }) {
       {/* A couple of bars across twenty buckets is noise, not a shape. */}
       {group.scores.length >= 4 && (
         <div className="score-group-chart">
-          <Chart
-            option={buildHistogramOption(group.scores)}
+          <ScoreHistogram
+            scores={group.scores}
             height={96}
             label={`Score distribution for ${group.label}`}
           />

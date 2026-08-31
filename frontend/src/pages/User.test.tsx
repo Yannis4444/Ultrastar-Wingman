@@ -6,13 +6,7 @@ import { meResponse, userRead } from "../test/auth";
 import { iconNames } from "../test/icons";
 import User from "./User";
 
-interface RenderedChart {
-  label: string;
-  option: { series?: { data?: number[] }[] };
-}
-
 const {
-  charts,
   listPlayers,
   listPlayerScores,
   listFavorites,
@@ -25,7 +19,6 @@ const {
   oidcConfig,
   health,
 } = vi.hoisted(() => ({
-  charts: [] as RenderedChart[],
   listPlayers: vi.fn(),
   listPlayerScores: vi.fn(),
   listFavorites: vi.fn(),
@@ -52,15 +45,6 @@ vi.mock("../api/sdk.gen", async (importOriginal) => ({
   listUsers,
   oidcConfig,
   health,
-}));
-
-// jsdom has no canvas, so the real chart cannot render; the option building is
-// covered in `stats.test.ts` and the mock only records what it was handed.
-vi.mock("../components/Chart", () => ({
-  default: ({ option, label }: RenderedChart) => {
-    charts.push({ option, label });
-    return <div data-testid="chart">{label}</div>;
-  },
 }));
 
 // What a plain account holds: no right over anybody else's player, and none is
@@ -130,7 +114,6 @@ function score(value: number, singId: string): ScoreWithContext {
 
 beforeEach(() => {
   vi.resetAllMocks();
-  charts.length = 0;
   listPlayers.mockResolvedValue({
     data: { players: [player("aaa", "Alice")] },
   });
@@ -427,11 +410,15 @@ test("the distribution sits between the numbers and the way into the list", asyn
   });
   renderUser();
 
-  // `findBy`, not `getBy`: echarts is a lazy chunk on this page.
-  const chart = await screen.findByTestId("chart");
-  expect(chart).toHaveTextContent("Your score distribution");
+  const chart = await screen.findByRole("img", {
+    name: "Your score distribution",
+  });
   // Twenty buckets of 500, so the four scores land in 18, 16, 14 and 4.
-  expect(charts[0].option.series?.[0].data).toEqual([
+  const heights = [
+    ...chart.querySelectorAll("[data-testid=histogram-bar]"),
+  ].map((bar) => Number(bar.getAttribute("height")));
+  expect(heights).toHaveLength(20);
+  expect(heights.map((height) => (height > 0 ? 1 : 0))).toEqual([
     0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 0, 1, 0, 1, 0,
   ]);
 
@@ -452,7 +439,9 @@ test("three scores are too few buckets to be a shape", async () => {
   renderUser();
 
   await screen.findByRole("link", { name: "All my scores" });
-  expect(screen.queryByTestId("chart")).toBeNull();
+  expect(
+    screen.queryByRole("img", { name: "Your score distribution" }),
+  ).toBeNull();
 });
 
 test("the whole history is one row below the numbers it totals", async () => {
@@ -488,7 +477,9 @@ test("a role that may not see statistics gets no way into them either", async ()
 
   await screen.findByRole("button", { name: "Log out" });
   expect(screen.queryByRole("link", { name: "All my scores" })).toBeNull();
-  expect(screen.queryByTestId("chart")).toBeNull();
+  expect(
+    screen.queryByRole("img", { name: "Your score distribution" }),
+  ).toBeNull();
 });
 
 test("the About footer signs the page with the mark, the name and the version", async () => {
