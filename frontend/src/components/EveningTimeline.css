@@ -1,0 +1,22 @@
+/* Who wears which hue — one chip per coloured singer, then the folded rest. */
+.timeline-legend {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px 14px;
+  margin: 0 0 8px;
+  font-size: 12px;
+  color: var(--color-dark);
+}
+
+.timeline-legend span {
+  display: inline-flex;
+  gap: 6px;
+  align-items: center;
+}
+
+.timeline-legend i {
+  flex: 0 0 auto;
+  width: 9px;
+  height: 9px;
+  border-radius: 50%;
+}
