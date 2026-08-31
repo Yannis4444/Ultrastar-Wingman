@@ -2,7 +2,7 @@ import type { ReactNode } from "react";
 import type { ScoreWithContext } from "../api";
 import { SCORE_TICKS, jitterOf, scoreTickLabel, swarm } from "../chartLayout";
 import { MAX_SCORE, chartTheme } from "../chartTheme";
-import { useChartTip } from "../hooks/useChartTip";
+import { useChartTip, type SurfaceMark } from "../hooks/useChartTip";
 import { useMeasuredWidth } from "../hooks/useMeasuredWidth";
 import { boxStats, scoreTipLines, type ScoreGroup } from "../stats";
 import ChartTip from "./ChartTip";
@@ -50,7 +50,7 @@ export default function SpreadRows({
   dated = false,
 }: SpreadRowsProps) {
   const [containerRef, width] = useMeasuredWidth<HTMLDivElement>(340);
-  const { tip, clear, markTip } = useChartTip(containerRef);
+  const { tip, clear, markTip, surfaceTip } = useChartTip(containerRef);
   const shown = groups.slice(0, CHART_GROUPS);
   // Chip rows stagger 17px marks, so they get a taller track than dot rows.
   const trackHeight = grouping === "song" && initials ? 46 : 38;
@@ -75,18 +75,23 @@ export default function SpreadRows({
         stroke={looks.ring === true ? chartTheme.surface : undefined}
         strokeWidth={looks.ring === true ? 2 : undefined}
       />
+      {/* The invisible target the dot answers hover on; taps resolve on
+          the row's SVG itself, to the nearest mark. */}
       <circle
         cx={x}
         cy={y}
         r={Math.max(looks.r, 8)}
         fill="transparent"
+        data-tipkey={`score:${score.id}`}
         {...markTip(`score:${score.id}`, scoreTipLines(score, dated))}
       />
     </g>
   );
 
   /** Tukey box with the raw scores jittered on top — the player rows. */
-  const boxMarks = (group: ScoreGroup): ReactNode => {
+  const boxRow = (
+    group: ScoreGroup,
+  ): { tappable: SurfaceMark[]; nodes: ReactNode } => {
     const box = boxStats(group);
     const tipLines = [
       group.label,
@@ -97,7 +102,27 @@ export default function SpreadRows({
       `Lower quartile: ${Math.round(box.q1)}`,
       `Worst: ${group.worst}`,
     ];
-    return (
+    const boxKey = `box:${group.key}`;
+    const dots = group.scores.map((score) => ({
+      score,
+      x: scoreX(score.score),
+      y: mid + jitterOf(score.id) * 11,
+    }));
+    const tappable: SurfaceMark[] = [
+      ...dots.map(({ score, x, y }) => ({
+        key: `score:${score.id}`,
+        x,
+        y,
+        lines: scoreTipLines(score, dated),
+      })),
+      {
+        key: boxKey,
+        x: (scoreX(box.q1) + scoreX(box.q3)) / 2,
+        y: mid,
+        lines: tipLines,
+      },
+    ];
+    const nodes = (
       <>
         {[
           [box.whiskerLow, box.q1],
@@ -136,7 +161,8 @@ export default function SpreadRows({
           fill={chartTheme.fill}
           stroke={chartTheme.accent}
           strokeWidth={1.25}
-          {...markTip(`box:${group.key}`, tipLines)}
+          data-tipkey={boxKey}
+          {...markTip(boxKey, tipLines)}
         />
         <line
           x1={scoreX(group.median)}
@@ -146,8 +172,8 @@ export default function SpreadRows({
           stroke={chartTheme.median}
           strokeWidth={2}
         />
-        {group.scores.map((score) =>
-          dot(score, scoreX(score.score), mid + jitterOf(score.id) * 11, {
+        {dots.map(({ score, x, y }) =>
+          dot(score, x, y, {
             r: 2,
             fill: chartTheme.dot,
             opacity: 0.65,
@@ -155,11 +181,15 @@ export default function SpreadRows({
         )}
       </>
     );
+    return { tappable, nodes };
   };
 
   /** A strip in miniature — the song rows, and a singer with too few scores
    * for a box. Near-ties stagger apart instead of hiding each other. */
-  const swarmMarks = (group: ScoreGroup, chips: boolean): ReactNode => {
+  const swarmRow = (
+    group: ScoreGroup,
+    chips: boolean,
+  ): { tappable: SurfaceMark[]; nodes: ReactNode } => {
     const ascending = [...group.scores].sort((a, b) => a.score - b.score);
     const marks = swarm(
       ascending,
@@ -168,7 +198,13 @@ export default function SpreadRows({
       chips ? 15 : 9,
       chips ? 15 : 9,
     );
-    return marks.map(({ item, x, y }) =>
+    const tappable: SurfaceMark[] = marks.map(({ item, x, y }) => ({
+      key: `score:${item.id}`,
+      x,
+      y,
+      lines: scoreTipLines(item, dated),
+    }));
+    const nodes = marks.map(({ item, x, y }) =>
       chips ? (
         <g key={item.id}>
           <circle
@@ -179,6 +215,7 @@ export default function SpreadRows({
             fill={chartTheme.chip}
             stroke={chartTheme.surface}
             strokeWidth={2}
+            data-tipkey={`score:${item.id}`}
             {...markTip(`score:${item.id}`, scoreTipLines(item, dated))}
           />
           <text
@@ -197,6 +234,7 @@ export default function SpreadRows({
         dot(item, x, y, { r: 3, fill: chartTheme.accent, ring: true })
       ),
     );
+    return { tappable, nodes };
   };
 
   return (
@@ -225,50 +263,55 @@ export default function SpreadRows({
         ))}
       </svg>
 
-      {shown.map((group) => (
-        <div className="spread-row" key={group.key}>
-          <div className="spread-row-top">
-            <span
-              className="spread-row-label"
-              title={`${group.label} — ${group.scores.length} scores`}
-            >
-              {group.label}{" "}
-              <small className="spread-row-count">
-                × {group.scores.length}
-              </small>
-            </span>
-            {/* The group's best — the number the ranking list ranks by, so
+      {shown.map((group) => {
+        const row =
+          grouping === "player" && group.scores.length >= BOX_MIN_SCORES
+            ? boxRow(group)
+            : swarmRow(
+                group,
+                grouping === "song" &&
+                  initials &&
+                  group.scores.length < INITIALS_MAX_SCORES,
+              );
+        return (
+          <div className="spread-row" key={group.key}>
+            <div className="spread-row-top">
+              <span
+                className="spread-row-label"
+                title={`${group.label} — ${group.scores.length} scores`}
+              >
+                {group.label}{" "}
+                <small className="spread-row-count">
+                  × {group.scores.length}
+                </small>
+              </span>
+              {/* The group's best — the number the ranking list ranks by, so
                 the chart can never disagree with the row below it. */}
-            <span className="spread-row-best">{group.best}</span>
+              <span className="spread-row-best">{group.best}</span>
+            </div>
+            <svg
+              width={width}
+              height={trackHeight}
+              viewBox={`0 0 ${width} ${trackHeight}`}
+              {...surfaceTip(row.tappable)}
+            >
+              {SCORE_TICKS.map((tick) => (
+                <line
+                  key={tick}
+                  x1={scoreX(tick)}
+                  x2={scoreX(tick)}
+                  y1={0}
+                  y2={trackHeight}
+                  stroke={chartTheme.grid}
+                  strokeWidth={1}
+                  opacity={tick === 0 || tick === MAX_SCORE ? 0.9 : 0.45}
+                />
+              ))}
+              {row.nodes}
+            </svg>
           </div>
-          <svg
-            width={width}
-            height={trackHeight}
-            viewBox={`0 0 ${width} ${trackHeight}`}
-          >
-            {SCORE_TICKS.map((tick) => (
-              <line
-                key={tick}
-                x1={scoreX(tick)}
-                x2={scoreX(tick)}
-                y1={0}
-                y2={trackHeight}
-                stroke={chartTheme.grid}
-                strokeWidth={1}
-                opacity={tick === 0 || tick === MAX_SCORE ? 0.9 : 0.45}
-              />
-            ))}
-            {grouping === "player" && group.scores.length >= BOX_MIN_SCORES
-              ? boxMarks(group)
-              : swarmMarks(
-                  group,
-                  grouping === "song" &&
-                    initials &&
-                    group.scores.length < INITIALS_MAX_SCORES,
-                )}
-          </svg>
-        </div>
-      ))}
+        );
+      })}
 
       {shown.length < groups.length && (
         <p className="spread-more">

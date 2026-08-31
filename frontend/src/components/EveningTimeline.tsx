@@ -36,7 +36,7 @@ export default function EveningTimeline({
   label,
 }: EveningTimelineProps) {
   const [containerRef, width] = useMeasuredWidth<HTMLDivElement>(340);
-  const { tip, clear, markTip } = useChartTip(containerRef);
+  const { tip, clear, markTip, surfaceTip } = useChartTip(containerRef);
   if (scores.length === 0) return null;
 
   // The five best singers wear the hues, strongest first — the same order the
@@ -70,6 +70,20 @@ export default function EveningTimeline({
     score.score > top.score ? score : top,
   );
 
+  // What a finger can land on: the whole SVG resolves a tap to the nearest of
+  // these, so nobody has to hit a dot exactly.
+  const placed = scores.map((score) => ({
+    score,
+    x: timeX(parseServerTime(score.recorded_at)),
+    y: scoreY(score.score),
+  }));
+  const tappable = placed.map(({ score, x, y }) => ({
+    key: `score:${score.id}`,
+    x,
+    y,
+    lines: scoreTipLines(score, false),
+  }));
+
   return (
     <div role="img" aria-label={label}>
       <div className="timeline-legend">
@@ -93,7 +107,12 @@ export default function EveningTimeline({
         )}
       </div>
       <div className="chart-plot" ref={containerRef} onClick={clear}>
-        <svg width={width} height={HEIGHT} viewBox={`0 0 ${width} ${HEIGHT}`}>
+        <svg
+          width={width}
+          height={HEIGHT}
+          viewBox={`0 0 ${width} ${HEIGHT}`}
+          {...surfaceTip(tappable)}
+        >
           {SCORE_TICKS.map((tick) => (
             <g key={tick}>
               <line
@@ -150,23 +169,25 @@ export default function EveningTimeline({
             {best.score}
           </text>
 
-          {scores.map((score) => (
+          {placed.map(({ score, x, y }) => (
             <g key={score.id}>
               <circle
                 data-testid="timeline-dot"
-                cx={timeX(parseServerTime(score.recorded_at))}
-                cy={scoreY(score.score)}
+                cx={x}
+                cy={y}
                 r={DOT_RADIUS}
                 fill={colorOf(score)}
                 stroke={chartTheme.surface}
                 strokeWidth={2}
               />
-              {/* The invisible, finger-sized target the dot answers on. */}
+              {/* The invisible target the dot answers hover on; taps resolve
+                  on the SVG itself, to the nearest mark. */}
               <circle
-                cx={timeX(parseServerTime(score.recorded_at))}
-                cy={scoreY(score.score)}
+                cx={x}
+                cy={y}
                 r={8}
                 fill="transparent"
+                data-tipkey={`score:${score.id}`}
                 {...markTip(`score:${score.id}`, scoreTipLines(score, false))}
               />
             </g>
