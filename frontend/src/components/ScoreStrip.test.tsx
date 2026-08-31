@@ -125,6 +125,40 @@ test("a near-miss tap answers with the nearest dot; a far one dismisses", () => 
   expect(document.querySelector(".chart-tip")).toBeNull();
 });
 
+test("the click's own pointerType is never trusted — the pointerdown's is", () => {
+  // WebKit stamps a tap's synthesized click "mouse"; the pointerdown before
+  // it says "touch" truthfully on every engine. A tap must show the tip even
+  // when its click lies, and a real mouse click must stay inert (hover owns
+  // the mouse tip).
+  const { container } = render(
+    <ScoreStrip scores={[score("Alice", 9000)]} label="All scores" />,
+  );
+  const svg = container.querySelector("svg") as SVGSVGElement;
+  const target = screen.getByTestId("strip-dot")
+    .nextElementSibling as SVGCircleElement;
+  // jsdom has no PointerEvent and drops `pointerType` from fireEvent's
+  // options — a plain event with the field assigned carries it through.
+  const pointerDown = (pointerType: string) =>
+    fireEvent(
+      svg,
+      Object.assign(new Event("pointerdown", { bubbles: true }), {
+        pointerType,
+      }),
+    );
+
+  pointerDown("touch");
+  fireEvent.click(target);
+  expect(document.querySelector(".chart-tip")).toHaveTextContent("Alice");
+
+  pointerDown("touch");
+  fireEvent.click(target);
+  expect(document.querySelector(".chart-tip")).toBeNull();
+
+  pointerDown("mouse");
+  fireEvent.click(target);
+  expect(document.querySelector(".chart-tip")).toBeNull();
+});
+
 test("a strip that spans parties dates its tooltips", () => {
   render(
     <ScoreStrip scores={[score("Alice", 9000)]} label="All scores" dated />,

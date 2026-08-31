@@ -1,4 +1,4 @@
-import { useState, type RefObject } from "react";
+import { useRef, useState, type RefObject } from "react";
 
 export interface ChartTipState {
   /** What the tip belongs to — a second tap on the same mark closes it. */
@@ -44,10 +44,16 @@ export function useChartTip(container: RefObject<HTMLElement | null>): {
   clear: () => void;
   markTip: (key: string, lines: string[]) => MarkTipProps;
   surfaceTip: (marks: SurfaceMark[]) => {
+    onPointerDown: (event: React.PointerEvent<SVGSVGElement>) => void;
     onClick: (event: React.MouseEvent<SVGSVGElement>) => void;
   };
 } {
   const [tip, setTip] = useState<ChartTipState | null>(null);
+  // What kind of pointer last went down on a chart. WebKit stamps the click
+  // a tap synthesizes with pointerType "mouse" (Chrome says "touch"), so the
+  // click's own pointerType cannot be trusted — the pointerdown that always
+  // precedes it can, on every engine.
+  const lastPointerType = useRef<string | undefined>(undefined);
 
   // Where a point of an SVG sits inside the container — the tip is absolutely
   // positioned in the container, but a card can hold several row SVGs.
@@ -89,9 +95,15 @@ export function useChartTip(container: RefObject<HTMLElement | null>): {
   });
 
   const surfaceTip = (marks: SurfaceMark[]) => ({
+    onPointerDown: (event: React.PointerEvent<SVGSVGElement>) => {
+      lastPointerType.current = event.pointerType;
+    },
     onClick: (event: React.MouseEvent<SVGSVGElement>) => {
-      const pointerType = (event.nativeEvent as PointerEvent).pointerType as
-        string | undefined;
+      // The tracked pointerdown type first; the click's own only for a
+      // browser without pointer events, where no pointerdown was seen.
+      const pointerType =
+        lastPointerType.current ??
+        ((event.nativeEvent as PointerEvent).pointerType as string | undefined);
       // What the click actually landed on, when it is a mark: exact hits stay
       // exact whatever the geometry says (and jsdom, which lays nothing out,
       // resolves clicks this way in tests).
