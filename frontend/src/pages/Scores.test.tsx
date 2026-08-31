@@ -122,7 +122,7 @@ function lastBoxplotCategories(): string[] | undefined {
 
 /** Open the session picker and hand the panel back. */
 async function openSessions(): Promise<HTMLElement> {
-  const opener = await screen.findByRole("button", { name: /^Session:/ });
+  const opener = await screen.findByRole("button", { name: /^Session/ });
   // A real press focuses the button before it clicks it, and that is what the
   // dialog reads to know where to give the focus back when it closes.
   opener.focus();
@@ -287,9 +287,12 @@ test("the picker lists every session and starts on the newest one", async () => 
     [],
     { hour: "2-digit", minute: "2-digit" },
   )}`;
-  // Newest first from the backend, so the bar opens on the first entry.
+  // Newest first from the backend, so the bar opens on the first entry. The
+  // name is the label and nothing else: a nameless party is already called
+  // "Session <date>", and a hidden "Session: " in front of it would be read
+  // out as "Session: Session 8/23/2026".
   expect(
-    await screen.findByRole("button", { name: `Session: ${label}` }),
+    await screen.findByRole("button", { name: label }),
   ).toBeInTheDocument();
 
   const panel = await openSessions();
@@ -355,7 +358,7 @@ test("picking another session loads that session's scores", async () => {
 
 test("choosing another party hands the focus back to the session button", async () => {
   renderScores();
-  const opener = await screen.findByRole("button", { name: /^Session:/ });
+  const opener = await screen.findByRole("button", { name: /^Session/ });
   const panel = await openSessions();
 
   listSessionScores.mockResolvedValue({ data: { scores: [] } });
@@ -370,6 +373,8 @@ test("choosing another party hands the focus back to the session button", async 
     ).not.toBeInTheDocument(),
   );
   expect(document.activeElement).toBe(opener);
+  // A party with a name of its own says nothing about what it is, so the
+  // hidden prefix stays there for it.
   expect(opener).toHaveAccessibleName("Session: New Year 2025");
 });
 
@@ -650,10 +655,12 @@ test("switching the grouping rebuilds the chart around the other axis", async ()
 
   choose("Group", "song");
 
+  // A song stands under its title alone: a category is 52px wide, and an
+  // artist in front of the title would eat every one of them.
   await waitFor(() =>
     expect(lastBoxplotCategories()).toEqual([
-      "Oasis – Wonderwall",
-      "Queen – Bohemian Rhapsody",
+      "Wonderwall",
+      "Bohemian Rhapsody",
     ]),
   );
 });
@@ -941,7 +948,7 @@ test("a session change drops an open rename draft instead of moving it", async (
   });
   // While renaming, the input takes the picker button's place in the row…
   expect(
-    screen.queryByRole("button", { name: /^Session:/ }),
+    screen.queryByRole("button", { name: /^Session/ }),
   ).not.toBeInTheDocument();
 
   // …so the session changes under the form: a websocket refresh reorders the
@@ -991,7 +998,9 @@ test("a failed score request says so instead of claiming nobody sang", async () 
   renderScores();
 
   const alert = await screen.findByRole("alert");
-  expect(alert).toHaveTextContent("Could not load this session's scores.");
+  // One party or every party at once: the bar above says which, so the line
+  // fits both rather than claiming a session that may not be one.
+  expect(alert).toHaveTextContent("Could not load the scores.");
   // The empty state would be a lie here: the session may be full of scores.
   expect(
     screen.queryByRole("heading", { name: "No scores yet" }),
@@ -1014,6 +1023,11 @@ test("the head row adds every party the reader may open into one list", async ()
   fireEvent.click(within(panel).getByText("All my scores"));
 
   await waitFor(() => expect(listAllScores).toHaveBeenCalled());
+  // "All my scores" says nothing about what the button picks, so the hidden
+  // prefix stays in front of it.
+  expect(
+    screen.getByRole("button", { name: "Session: All my scores" }),
+  ).toBeInTheDocument();
   // Five scores over two parties, grouped by player: Alice and Bob.
   const rows = await screen.findAllByTestId("score-group");
   expect(rows.map((row) => lines(summaryOf(row))[0])).toEqual(["Alice", "Bob"]);
@@ -1036,6 +1050,12 @@ test("the head row is All sessions for a reader who holds the history right", as
   expect(sessionRows(panel)).not.toContain("All my scores");
   // The whole history added up says so on its own line.
   expect(within(panel).getByText("2 sessions · 16 scores")).toBeInTheDocument();
+
+  // And this one names sessions itself, so it is read out as it is written.
+  fireEvent.click(within(panel).getByText("All sessions"));
+  expect(
+    await screen.findByRole("button", { name: "All sessions" }),
+  ).toBeInTheDocument();
 });
 
 test("a single party gets no head row — it would only repeat itself", async () => {

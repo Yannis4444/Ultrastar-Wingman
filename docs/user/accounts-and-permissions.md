@@ -158,9 +158,10 @@ What each role may do by default:
 
 Four things are in no row on purpose, because they are yours rather than
 granted: your **favorites**, the **picture** of the player you sing as, **your
-own scores** on *User → Your scores*, and **taking back a comment you wrote
-yourself**. Nobody has to give you those, and no administrator can take them
-away.
+own scores** — the **All my scores** page, and the parties you sang at yourself
+in the Scores tab's session list, whatever the host has done with the history
+right — and **taking back a comment you wrote yourself**. Nobody has to give you
+those, and no administrator can take them away.
 
 ## Manage players and accounts
 

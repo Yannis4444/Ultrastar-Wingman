@@ -690,6 +690,18 @@ test("a tag count still in flight is a dash, never a zero", async () => {
   expect(button).not.toHaveTextContent("0");
 });
 
+test("a tag count nobody could fetch is a dash too, never a zero", async () => {
+  listTags.mockResolvedValue({ data: { tags: [BROKEN] } });
+  // The tags themselves arrived, so the button is there; what is *on* this
+  // song is what nobody could look up, and "0" would answer for it anyway.
+  listTagAssignments.mockRejectedValue({ detail: "boom" });
+  renderDetails();
+
+  const button = await screen.findByRole("button", { name: /Tags/ });
+  await waitFor(() => expect(button).toHaveTextContent("—"));
+  expect(button).not.toHaveTextContent("0");
+});
+
 test("a tag set from the sub-view moves the strip's count", async () => {
   withTags([BROKEN]);
   renderDetails();

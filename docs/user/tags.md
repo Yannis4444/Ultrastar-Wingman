@@ -88,9 +88,9 @@ rows fill with icons.
 
 **Hide songs by default** keeps those songs out of the song list and out of the
 random reel's *All songs* until somebody asks for them in the filter — a wished
-song can still win the reel. It is a default, not a lock: everybody who may see
-the tag can still bring the songs back. To really hide songs from somebody,
-take *See songs* away from them instead.
+or hearted song can still win the reel. It is a default, not a lock: everybody
+who may see the tag can still bring the songs back. To really hide songs from
+somebody, take *See songs* away from them instead.
 
 ## Change or delete a tag
 

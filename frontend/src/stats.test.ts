@@ -196,14 +196,48 @@ test("the grouping decides the boxplot's categories and boxes", () => {
   const byPlayer = buildBoxplotOption(groupScores(scores, "player"));
   const bySong = buildBoxplotOption(groupScores(scores, "song"));
 
+  // A singer stands under their own name, which is what a name is.
   expect(axisLabels(byPlayer)).toEqual(["Alice", "Bob"]);
-  expect(axisLabels(bySong)).toEqual([
-    "Oasis – Wonderwall",
-    "Queen – Bohemian Rhapsody",
+  // A song stands under its title alone: a category is 52px wide, and "Nena –
+  // 99 Luftballons" would spend all of it on the artist.
+  expect(axisLabels(bySong)).toEqual(["Wonderwall", "Bohemian Rhapsody"]);
+  // Ungrouped rows are songs too, and truncate exactly the same way.
+  expect(axisLabels(buildBoxplotOption(groupScores(scores, "none")))).toEqual([
+    "Wonderwall",
+    "Bohemian Rhapsody",
+    "Wonderwall",
+    "Bohemian Rhapsody",
   ]);
+  // A song that left the library has no title to stand under.
+  expect(
+    axisLabels(
+      buildBoxplotOption(groupScores([score("Al", 10, null)], "song")),
+    ),
+  ).toEqual(["Unknown song"]);
 
   const boxes = (bySong.series as { data: number[][] }[])[0].data;
   expect(boxes[0]).toEqual([6000, 6750, 7500, 8250, 9000]);
+});
+
+test("the tooltip names a box in full, artist included", () => {
+  const formatterOf = (
+    option: ReturnType<typeof buildBoxplotOption>,
+  ): ((params: unknown) => string) =>
+    (option.tooltip as { formatter: (params: unknown) => string }).formatter;
+
+  // The box the axis calls "Wonderwall": [index, min, q1, median, q3, max].
+  const spread = formatterOf(buildBoxplotOption(groupScores(scores, "song")));
+  expect(
+    spread([{ dataIndex: 0, data: [0, 6000, 6750, 7500, 8250, 9000] }]),
+  ).toContain("<b>Oasis – Wonderwall</b>");
+
+  // And the bar a lone score is drawn as, which carries a plain number.
+  const single = formatterOf(
+    buildBoxplotOption(groupScores([score("Alice", 30, bohemian)], "song")),
+  );
+  expect(single([{ dataIndex: 0, data: 30 }])).toBe(
+    "<b>Queen – Bohemian Rhapsody</b><br/>Score: 30",
+  );
 });
 
 test("the groups stand on the x-axis, every one of them named", () => {

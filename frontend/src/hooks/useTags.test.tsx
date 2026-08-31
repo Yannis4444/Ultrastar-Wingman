@@ -101,8 +101,26 @@ it("asks nothing of a role that may not see the songs", async () => {
     expect(client.getQueryData(getMeQueryKey())).toBeDefined(),
   );
   expect(result.current.isPending).toBe(false);
+  // Settled, not failed: nothing was asked for, so "no tags" is the answer for
+  // this reader and not something still on its way.
+  expect(result.current.isSuccess).toBe(true);
+  expect(result.current.isError).toBe(false);
   expect(listTags).not.toHaveBeenCalled();
   expect(listTagAssignments).not.toHaveBeenCalled();
+});
+
+it("owns up to a listing that failed instead of looking empty", async () => {
+  // The expensive of the two, and the one a count depends on: the tags arrive,
+  // so every surface still draws them, but which song wears which is unknown.
+  listTagAssignments.mockRejectedValue({ detail: "boom" });
+  const { result } = render();
+
+  await waitFor(() => expect(result.current.isError).toBe(true));
+  expect(result.current.isSuccess).toBe(false);
+  // Nothing left to wait for either — a spinner would spin for good.
+  expect(result.current.isPending).toBe(false);
+  expect(result.current.tags).toEqual([ARCHIVE, BROKEN]);
+  expect(result.current.bySong.size).toBe(0);
 });
 
 it("reloads the tags when one changes", async () => {

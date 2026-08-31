@@ -168,6 +168,14 @@ function SessionBar({
       setError(errorMessage(failure, "Could not rename the session.")),
   });
 
+  // What the button stands on, and whether it needs saying what it is. The
+  // hidden prefix is there for a party called "Yannis' birthday"; a nameless
+  // one is already called "Session 8/23/2026, 20:00" and the head row "All
+  // sessions", and "Session: Session 8/23/2026" is what a screen reader would
+  // have to read out loud.
+  const name = session === null ? (metaLabel ?? "") : sessionLabel(session);
+  const namesItself = /session/i.test(name);
+
   return (
     <>
       {draft === null || session === null ? (
@@ -182,10 +190,8 @@ function SessionBar({
             aria-haspopup="dialog"
             onClick={() => setPicking(true)}
           >
-            <span className="visually-hidden">Session: </span>
-            <span className="scores-session-name">
-              {session === null ? metaLabel : sessionLabel(session)}
-            </span>
+            {!namesItself && <span className="visually-hidden">Session: </span>}
+            <span className="scores-session-name">{name}</span>
             <Icon name="chevron-right" className="scores-session-chevron" />
           </button>
           {/* Nothing to rename while the head row is selected: it is every
@@ -475,9 +481,10 @@ export default function Scores() {
       ) : scores.isError ? (
         /* Before the empty state, never instead of it: a failed request also
            leaves `rows` empty, and "Sing a song" is a lie about a session that
-           may be full of scores nobody could fetch. */
+           may be full of scores nobody could fetch. One party or every party at
+           once — the bar right above says which, so the line does not. */
         <p className="error-notice scores-session-error" role="alert">
-          {errorMessage(scores.error, "Could not load this session's scores.")}
+          {errorMessage(scores.error, "Could not load the scores.")}
         </p>
       ) : groups.length === 0 ? (
         <ScoresEmpty>

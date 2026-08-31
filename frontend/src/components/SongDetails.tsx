@@ -1126,13 +1126,16 @@ export default function SongDetails({ song, onClose }: SongDetailsProps) {
               className="song-summary-stat"
               onClick={() => setView("tags")}
             >
-              {/* The two listings answer separately, and the tags one first: a
-                  zero drawn between them would say "no tags on this song" about
-                  a song whose assignments are still in flight. */}
+              {/* The two listings answer separately, and the tags one first, so
+                  the count waits for both of them — exactly as the comments one
+                  below does. A zero drawn in between would say "no tags on this
+                  song" about a song whose assignments are still in flight, and
+                  a zero drawn after the assignments *failed* would say it about
+                  a song nobody could look up at all. */}
               <IconStat
                 icon="tag"
                 label="Tags"
-                value={tags.isPending ? UNKNOWN : carried.length}
+                value={tags.isSuccess ? carried.length : UNKNOWN}
               />
             </button>
           )}

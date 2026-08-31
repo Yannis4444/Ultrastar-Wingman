@@ -255,8 +255,11 @@ export default function PlayerSelection({
               <p className="player-selection-none">
                 {/* "Nobody yet" would be a lie with a roster full of hidden
                     players, and the way out of it is a different one. Both
-                    lines still split on the right, because the players page is
-                    shut to everybody under `players.manage`. */}
+                    lines split on `players.manage`, because that is the right
+                    behind the eye that shows somebody again and behind the row
+                    that adds one — the Players & accounts page itself opens on
+                    any of four rights, but the other three lead to nothing that
+                    would help here. */}
                 {(players.data?.players.length ?? 0) > 0
                   ? auth.can("players.manage")
                     ? "Everybody is hidden — show somebody on the players page."

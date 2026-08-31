@@ -53,6 +53,9 @@ step.
 - A song you already have is not downloaded twice. A failed row shows a warning
   icon — tap it to read what went wrong and to retry, which downloads the song
   even if Wingman thinks it is already in the library.
+- A song that arrives with a misspelt artist or no year is corrected in its own
+  view with [Edit details](singing.md#fix-a-songs-details); one that turns out to
+  be unusable is [deleted](singing.md#delete-a-song) with its files.
 - Downloads survive a restart: a queued one is picked up again, and one that was
   running when Wingman stopped is marked as failed so you can retry it.
 

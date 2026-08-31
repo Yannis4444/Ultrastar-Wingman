@@ -490,6 +490,22 @@ export function boxplotWidth(groupCount: number): number {
 }
 
 /**
+ * What a box is called under it. The axis below cuts every label to
+ * `CATEGORY_WIDTH` — about seven characters — and cuts it there whatever the
+ * chart's width: a box stretched past the width it asked for gets the room, its
+ * label does not. "Nena – 99 Luftballons" spends all seven on the artist and
+ * leaves "Nena –…" under a box whose song cannot be told from the next one's,
+ * so a song stands under its title alone, exactly as its row in the list below
+ * does; the tooltip still carries the artist. Grouped by player the label is a
+ * person's name and stays whole.
+ */
+function categoryLabel(group: ScoreGroup): string {
+  // `group.label` already reads "Unknown song" once a song has left the
+  // library, and a player group has no song at all.
+  return group.song?.title ?? group.label;
+}
+
+/**
  * Standing boxplot of every group's score spread: the group on the x-axis, the
  * score on the y, first group on the left. When no group has more than one
  * score a boxplot is just a row of hairlines, so each group's single score is
@@ -510,6 +526,10 @@ export function buildBoxplotOption(sorted: ScoreGroup[]): EChartsOption {
     best > MAX_SCORE * 0.4
       ? MAX_SCORE
       : Math.max(500, Math.ceil((best * 1.25) / 500) * 500);
+  // The axis is cut to about seven characters, the tooltip is not: what a box
+  // stands for is spelled out in full there, artist included, and a song that
+  // shares its title with another one is told apart by it.
+  const named = (index: number): string => groups[index]?.label ?? "";
   return {
     tooltip: {
       ...TOOLTIP,
@@ -517,10 +537,10 @@ export function buildBoxplotOption(sorted: ScoreGroup[]): EChartsOption {
       formatter: spread
         ? // `data` of a boxplot item is [index, min, q1, median, q3, max].
           (params: unknown) => {
-            const [item] = params as { name: string; data: number[] }[];
+            const [item] = params as { dataIndex: number; data: number[] }[];
             const [, min, q1, median, q3, top] = item.data;
             return [
-              `<b>${item.name}</b>`,
+              `<b>${named(item.dataIndex)}</b>`,
               `Best: ${top}`,
               `Upper quartile: ${Math.round(q3)}`,
               `Median: ${Math.round(median)}`,
@@ -529,8 +549,8 @@ export function buildBoxplotOption(sorted: ScoreGroup[]): EChartsOption {
             ].join("<br/>");
           }
         : (params: unknown) => {
-            const [item] = params as { name: string; data: number }[];
-            return `<b>${item.name}</b><br/>Score: ${item.data}`;
+            const [item] = params as { dataIndex: number; data: number }[];
+            return `<b>${named(item.dataIndex)}</b><br/>Score: ${item.data}`;
           },
     },
     grid: { top: 4, bottom: 4, left: 4, right: 8, containLabel: true },
@@ -539,9 +559,9 @@ export function buildBoxplotOption(sorted: ScoreGroup[]): EChartsOption {
       type: "category",
       // Every category keeps its label: echarts thins a crowded axis out by
       // dropping labels, and a box with no name under it says nothing. The
-      // width is `CATEGORY_WIDTH` minus the gap, so long song labels truncate
-      // instead of running into their neighbours — the tooltip still carries
-      // the full name.
+      // width is `CATEGORY_WIDTH` minus the gap, so a long title truncates
+      // instead of running into its neighbours — the tooltip still carries the
+      // full name.
       axisLabel: {
         ...AXIS.axisLabel,
         interval: 0,
@@ -549,7 +569,7 @@ export function buildBoxplotOption(sorted: ScoreGroup[]): EChartsOption {
         overflow: "truncate",
         ellipsis: "…",
       },
-      data: groups.map((group) => group.label),
+      data: groups.map(categoryLabel),
     },
     yAxis: {
       ...AXIS,

@@ -45,9 +45,9 @@ lists what it has played so far, including the songs nobody got a score for.
 
 ## Name a party
 
-Press **Rename session**, type something like "Yannis' birthday", and save. The
-name replaces the date everywhere the party is listed. Clearing the field brings
-the date back.
+Press the pencil beside the party's name, type something like "Yannis'
+birthday", and save. The name replaces the date everywhere the party is listed.
+Clearing the field brings the date back.
 
 Renaming needs the right to manage statistics — **trusted** and **admin** have it
 by default.
@@ -110,9 +110,10 @@ most of their scores sit, the line in it is the median, and the whiskers are the
 outliers. A singer with one lucky hit looks very different from a consistently
 good one. It draws the first eight rows of the list under it, in the same order,
 and on a phone that is wider than the screen — so the chart itself scrolls
-sideways inside its card while the page stays put. Resting the pointer on a box
-names it in full, which is where a long song title goes that the label under the
-box has no room for.
+sideways inside its card while the page stays put. Under a box stands a singer's
+name, or a song's title on its own — a column is too narrow for an artist in
+front of it. Resting the pointer on a box names it in full, artist included,
+along with the numbers behind it.
 
 ## Fix a wrong singer
 
@@ -148,9 +149,12 @@ That page is the same list, with one singer in it and every party at once. Your
 own scores are yours: they show up whatever the host has done with the history
 right — it is somebody *else's* record that needs it. It is
 always grouped by song — one row per song you ever sang — so the only control
-is **Sort**. Open a row for how often you sang it, your best, worst and average
-and the spread behind them, and under those every single run with the day and
-time it happened. A cover opens the song itself.
+is **Sort**, with four of the orders the Scores page has: *alphabetically*,
+*average score*, *best score* and *worst score*. *Chronological* is not among
+them — a row here is a song rather than a moment in one evening. Open a row for
+how often you sang it, your best, worst and average and the spread behind them,
+and under those every single run with the day and time it happened. A cover
+opens the song itself.
 
 The row only appears once you have been scored at least once, and only for a
 logged-in account that is linked to a player: scores belong to a player, and
