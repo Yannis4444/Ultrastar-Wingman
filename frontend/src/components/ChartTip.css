@@ -2,6 +2,10 @@
    against, and the click surface that dismisses it on touch. */
 .chart-plot {
   position: relative;
+  /* Two dots tapped in quick succession must be two taps, not a double-tap
+     zoom — the tip appearing "sometimes" on phones was largely this. Pinch
+     zoom is untouched. */
+  touch-action: manipulation;
 }
 
 /* Inline SVGs sit on the text baseline and leave phantom line-height gaps

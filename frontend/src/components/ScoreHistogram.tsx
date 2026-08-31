@@ -28,11 +28,23 @@ export default function ScoreHistogram({
   label,
 }: ScoreHistogramProps) {
   const [containerRef, width] = useMeasuredWidth<HTMLDivElement>(340);
-  const { tip, clear, markTip } = useChartTip(containerRef);
+  const { tip, clear, markTip, surfaceTip } = useChartTip(containerRef);
   const buckets = histogram(scores);
   const fullest = Math.max(...buckets, 1);
   const barWidth = width / HISTOGRAM_BUCKETS;
   const barSpace = height - PAD_BOTTOM - 4;
+  const bucketLines = (index: number) => [
+    `${index * BUCKET_WIDTH} – ${(index + 1) * BUCKET_WIDTH}`,
+    `${buckets[index]} score${buckets[index] === 1 ? "" : "s"}`,
+  ];
+  // The full-height columns tile the SVG, so every tap lands on one — the
+  // surface handler only needs them for the exact-hit resolution.
+  const tappable = buckets.map((_count, index) => ({
+    key: `bucket:${index}`,
+    x: index * barWidth + barWidth / 2,
+    y: height / 2,
+    lines: bucketLines(index),
+  }));
 
   return (
     <div
@@ -42,7 +54,12 @@ export default function ScoreHistogram({
       aria-label={label}
       onClick={clear}
     >
-      <svg width={width} height={height} viewBox={`0 0 ${width} ${height}`}>
+      <svg
+        width={width}
+        height={height}
+        viewBox={`0 0 ${width} ${height}`}
+        {...surfaceTip(tappable)}
+      >
         {buckets.map((count, index) => {
           const barHeight = (count / fullest) * barSpace;
           return (
@@ -63,10 +80,8 @@ export default function ScoreHistogram({
                 width={barWidth}
                 height={height}
                 fill="transparent"
-                {...markTip(`bucket:${index}`, [
-                  `${index * BUCKET_WIDTH} – ${(index + 1) * BUCKET_WIDTH}`,
-                  `${count} score${count === 1 ? "" : "s"}`,
-                ])}
+                data-tipkey={`bucket:${index}`}
+                {...markTip(`bucket:${index}`, bucketLines(index))}
               />
             </g>
           );

@@ -332,8 +332,11 @@ do it. Back is a `<Link>` to a fixed path (`backLink.ts` resolves a state-provid
   box; ungrouped there is no spread card, the strip already is that view. Rows lie down at
   full card width — nothing scrolls sideways, a song keeps its artist — the card draws the
   first eight groups of the list in the same order and owns up to the rest ("… n more in the
-  list below"), and every mark answers hover or tap with `ChartTip` (a mouse hovers, a finger
-  tap toggles, a tap beside dismisses). *Chronological* joins
+  list below"), and every mark answers hover or tap with `ChartTip` — a mouse hovers per mark; a
+  finger tap resolves on the chart surface to the nearest mark within ~28px (a fingertip covers
+  ~40px, a mark 6px — nobody pixel-hunts), toggles off on a repeat, and dismisses beside the
+  marks; `.chart-plot` carries `touch-action: manipulation` so two quick taps are two taps, not
+  a double-tap zoom. *Chronological* joins
   the sort select for every grouping but *group by player*, where an order in time says nothing:
   choosing it and then grouping by player falls back to *best score* — and it only orders the
   rows and the list, never swaps a chart.

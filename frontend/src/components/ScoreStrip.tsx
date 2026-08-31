@@ -49,7 +49,7 @@ export default function ScoreStrip({
   named = true,
 }: ScoreStripProps) {
   const [containerRef, width] = useMeasuredWidth<HTMLDivElement>(340);
-  const { tip, clear, markTip } = useChartTip(containerRef);
+  const { tip, clear, markTip, surfaceTip } = useChartTip(containerRef);
   if (scores.length === 0) return null;
 
   const scoreX = (value: number) => 8 + (value / MAX_SCORE) * (width - 16);
@@ -62,6 +62,14 @@ export default function ScoreStrip({
     MIN_GAP,
     MAX_OFFSET,
   );
+  // What a finger can land on: the whole SVG resolves a tap to the nearest of
+  // these, so nobody has to hit a 6px dot exactly.
+  const tappable = marks.map(({ item, x, y }) => ({
+    key: `score:${item.id}`,
+    x,
+    y,
+    lines: scoreTipLines(item, dated),
+  }));
   // Linear-interpolated, exactly as `groupScores` computes its medians.
   const position = (ascending.length - 1) / 2;
   const lower = ascending[Math.floor(position)].score;
@@ -77,7 +85,12 @@ export default function ScoreStrip({
       aria-label={label}
       onClick={clear}
     >
-      <svg width={width} height={HEIGHT} viewBox={`0 0 ${width} ${HEIGHT}`}>
+      <svg
+        width={width}
+        height={HEIGHT}
+        viewBox={`0 0 ${width} ${HEIGHT}`}
+        {...surfaceTip(tappable)}
+      >
         {SCORE_TICKS.map((tick) => (
           <g key={tick}>
             <line
@@ -134,12 +147,14 @@ export default function ScoreStrip({
               stroke={surface}
               strokeWidth={2}
             />
-            {/* The invisible, finger-sized target the 3px dot answers on. */}
+            {/* The invisible target the dot answers hover on; taps resolve on
+                the SVG itself, to the nearest mark. */}
             <circle
               cx={x}
               cy={y}
               r={8}
               fill="transparent"
+              data-tipkey={`score:${item.id}`}
               {...markTip(`score:${item.id}`, scoreTipLines(item, dated))}
             />
           </g>

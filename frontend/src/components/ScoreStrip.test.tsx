@@ -100,6 +100,31 @@ test("two near-identical scores stagger apart instead of overlapping", () => {
   expect(first.getAttribute("cy")).not.toBe(second.getAttribute("cy"));
 });
 
+test("a near-miss tap answers with the nearest dot; a far one dismisses", () => {
+  // A fingertip covers ~40px and a dot 6px: the SVG resolves the tap.
+  const { container } = render(
+    <ScoreStrip
+      scores={[score("Alice", 9000), score("Bob", 2000)]}
+      label="All scores"
+    />,
+  );
+  const svg = container.querySelector("svg") as SVGSVGElement;
+  // jsdom lays nothing out, so the SVG's rect is (0,0) and the click's client
+  // coordinates are chart coordinates. At the 340px fallback width the 9000
+  // dot sits at x = 8 + 0.9 × 324 ≈ 300, on the base line y ≈ 87.
+  fireEvent.click(svg, { clientX: 310, clientY: 100 });
+  expect(document.querySelector(".chart-tip")).toHaveTextContent("Alice");
+
+  // The same near-miss again toggles the tip away, like a tap on the dot.
+  fireEvent.click(svg, { clientX: 310, clientY: 100 });
+  expect(document.querySelector(".chart-tip")).toBeNull();
+
+  // Far from every dot the tap means "put it away", not the closest anyway.
+  fireEvent.click(svg, { clientX: 310, clientY: 100 });
+  fireEvent.click(svg, { clientX: 150, clientY: 20 });
+  expect(document.querySelector(".chart-tip")).toBeNull();
+});
+
 test("a strip that spans parties dates its tooltips", () => {
   render(
     <ScoreStrip scores={[score("Alice", 9000)]} label="All scores" dated />,
