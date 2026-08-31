@@ -11,6 +11,7 @@ import {
 import { errorDetail, errorMessage, missingPermission } from "../errors";
 import { parseSlots, recolored, resized } from "../karaokeSlots";
 import { Icon } from "./icons";
+import { SettingSaved } from "./SettingField";
 import "./SettingField.css";
 import "./KaraokeSlotsField.css";
 
@@ -83,10 +84,33 @@ export default function KaraokeSlotsField({ setting, readOnly }: Props) {
   return (
     <div className="karaoke-slots">
       <div className="setting-field">
-        <div className="setting-row setting-row-stacked">
+        <div className="setting-row">
           <label className="setting-label" htmlFor={countId}>
             Players
           </label>
+
+          <SettingSaved shown={save.isSuccess} />
+
+          {!readOnly && resettable && (
+            <button
+              type="button"
+              className="icon-button icon-button-bordered karaoke-slots-reset"
+              aria-label="Reset the player slots"
+              title={`Reset to ${String(setting.default)}`}
+              disabled={save.isPending}
+              onClick={() =>
+                save.mutate({
+                  path: { key: setting.key },
+                  body: { value: null },
+                })
+              }
+            >
+              <Icon name="refresh" />
+            </button>
+          )}
+        </div>
+
+        <div className="setting-control">
           <select
             className="text-input text-input-quiet setting-input"
             id={countId}
@@ -115,30 +139,6 @@ export default function KaraokeSlotsField({ setting, readOnly }: Props) {
               </option>
             ))}
           </select>
-
-          {!readOnly && resettable && (
-            <button
-              type="button"
-              className="icon-button icon-button-bordered karaoke-slots-reset"
-              aria-label="Reset the player slots"
-              title={`Reset to ${String(setting.default)}`}
-              disabled={save.isPending}
-              onClick={() =>
-                save.mutate({
-                  path: { key: setting.key },
-                  body: { value: null },
-                })
-              }
-            >
-              <Icon name="refresh" />
-            </button>
-          )}
-
-          {save.isSuccess && (
-            <span className="setting-saved" role="status">
-              Saved
-            </span>
-          )}
         </div>
 
         <p className="setting-description" id={describedBy}>
@@ -150,15 +150,21 @@ export default function KaraokeSlotsField({ setting, readOnly }: Props) {
         const slotId = `setting-${setting.key}-${index}`;
         return (
           <div className="setting-field" key={slotId}>
-            <div className="setting-row setting-row-stacked">
+            <div className="setting-row">
               <label className="setting-label" htmlFor={slotId}>
                 Slot {index + 1}
               </label>
+              {/* On the label's line, where a toggle ends its row: the line
+                  below is the box's, and one swatch in it would leave the
+                  slot selects narrower than every other input on the page. */}
               <span
                 className="karaoke-slot-swatch"
                 style={{ backgroundColor: hexOf(name) }}
                 aria-hidden="true"
               />
+            </div>
+
+            <div className="setting-control">
               <select
                 className="text-input text-input-quiet setting-input"
                 id={slotId}

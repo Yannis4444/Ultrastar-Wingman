@@ -39,6 +39,19 @@ export interface Tags {
    */
   builtIns: BuiltInTags;
   isPending: boolean;
+  /**
+   * One of the two listings came back with a failure. Everything above is then
+   * as empty as it would be for a party with no tags at all, which is why a
+   * surface that *counts* what is in here — the song modal's summary strip —
+   * has to ask before it prints a number.
+   */
+  isError: boolean;
+  /**
+   * Both listings answered, so the lists above are the whole truth. True as
+   * well for a reader who may not see songs at all: nothing was asked for, and
+   * "no tags" is the settled answer for them rather than one still in flight.
+   */
+  isSuccess: boolean;
 }
 
 const NO_TAGS: TagRead[] = [];
@@ -132,6 +145,12 @@ export function useTags(): Tags {
       isPending:
         !auth.loaded ||
         (available && (tags.isPending || assignments.isPending)),
+      // Nothing was asked for when the reader may not see songs, so there is
+      // nothing that can have failed — and nothing left to wait for either.
+      isError: available && (tags.isError || assignments.isError),
+      isSuccess:
+        auth.loaded &&
+        (!available || (tags.isSuccess && assignments.isSuccess)),
     };
   }, [
     allTags,
@@ -141,5 +160,9 @@ export function useTags(): Tags {
     available,
     tags.isPending,
     assignments.isPending,
+    tags.isError,
+    assignments.isError,
+    tags.isSuccess,
+    assignments.isSuccess,
   ]);
 }

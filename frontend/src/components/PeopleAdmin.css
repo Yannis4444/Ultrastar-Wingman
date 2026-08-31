@@ -45,6 +45,12 @@
   text-overflow: ellipsis;
 }
 
+/* Hidden is a state of the row, not a warning: the name goes quiet, exactly as
+   long as the eye stays pressed. */
+.people-name-hidden {
+  color: var(--color-darker);
+}
+
 .people-you {
   color: var(--color-darker);
   font-size: 0.9em;

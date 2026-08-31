@@ -9,6 +9,7 @@ from pydantic import BaseModel
 
 from .downloads.schema import DownloadRead
 from .karaoke.schema import CurrentSing, ScoreRead
+from .songs.schema import SongRead
 
 logger = logging.getLogger(__name__)
 
@@ -42,6 +43,23 @@ class SongsScanFinished(Event):
     total: int
 
 
+class SongDeleted(Event):
+    """One song was deleted from the library, files and all. The id alone: every listing
+    that carried it has to be fetched again anyway, and the row is gone from all of them."""
+
+    event: Literal["songs.deleted"] = "songs.deleted"
+    song_id: str
+
+
+class SongUpdated(Event):
+    """A song's metadata was corrected — a wrong title, a missing year. The whole song
+    rides along: every listing in the app draws it from a `SongRead`, so a listener can put
+    the new one straight where the old one was."""
+
+    event: Literal["songs.updated"] = "songs.updated"
+    song: SongRead
+
+
 class DownloadUpdated(Event):
     """Every state change of a download, plus throttled progress while it runs."""
 
@@ -66,6 +84,19 @@ class ScoresRecorded(Event):
     event: Literal["scores.recorded"] = "scores.recorded"
     sing_id: str
     scores: list[ScoreRead]
+
+
+class ScoresChanged(Event):
+    """A recorded score was put on another singer or removed (`stats.moderate`).
+
+    Deliberately not `scores.recorded`: nothing was just sung, and that event un-dismisses
+    the host screen's results panel — a correction hours later must not throw the last
+    song's scoreboard back onto the TV. Ids only, like the other "something changed" events:
+    every listener refetches whichever list it happens to have open.
+    """
+
+    event: Literal["scores.changed"] = "scores.changed"
+    sing_id: str
 
 
 class WishlistUpdated(Event):

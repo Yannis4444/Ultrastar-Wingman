@@ -1,3 +1,4 @@
+import type { ReactNode } from "react";
 import type { PlayerRead, ScoreWithContext, SongRead } from "../api";
 import { shortDate, shortTime } from "../duration";
 import {
@@ -12,6 +13,7 @@ import Chart from "./Chart";
 import IconStat from "./IconStat";
 import { Icon } from "./icons";
 import PlayerAvatar from "./PlayerAvatar";
+import ScoreActions from "./ScoreActions";
 import SongCover from "./SongCover";
 import "./ScoreGroupList.css";
 
@@ -35,6 +37,14 @@ interface ScoreGroupListProps {
    * run happened instead.
    */
   ownRows?: boolean;
+  /**
+   * Whether the reader may correct a score (`stats.moderate`): every row that
+   * *is* one score then carries the pencil and the trash. A group row never
+   * does — it stands for several scores, and there is nothing to move.
+   */
+  canModerate?: boolean;
+  /** A score was moved or deleted; the page refetches what it holds. */
+  onModerated?: () => void;
 }
 
 /**
@@ -156,7 +166,28 @@ export default function ScoreGroupList({
   // player it would repeat the name the row is already headed by.
   namedPeaks = grouping === "song",
   ownRows = false,
+  canModerate = false,
+  onModerated = () => {},
 }: ScoreGroupListProps) {
+  /**
+   * A score row plus the corrections that may be made to it. The buttons are
+   * the row's siblings and not its children: the row is itself a button (it
+   * opens the song), and nesting one inside it is invalid HTML.
+   */
+  const withActions = (row: ReactNode, score: ScoreWithContext) =>
+    !canModerate ? (
+      row
+    ) : (
+      <div className="score-row-with-actions">
+        {row}
+        <ScoreActions
+          score={score}
+          players={[...players.values()]}
+          onChanged={onModerated}
+        />
+      </div>
+    );
+
   // Ranks 1–3 are a podium only while the list is ordered best-first. Under
   // "alphabetically" or "worst score" the numerals are positions, nothing more.
   const podium = sorting === "best" || sorting === "average";
@@ -225,21 +256,26 @@ export default function ScoreGroupList({
         );
 
         if (!expandable) {
+          // Ungrouped a row *is* one score, so it is a score row: it carries
+          // the moderator's two buttons like the rows inside an open group.
           return (
             <li key={group.key}>
-              {song === null ? (
-                <div className="score-group-row" data-testid="score-group">
-                  {head}
-                </div>
-              ) : (
-                <button
-                  type="button"
-                  className="score-group-row score-group-row-button"
-                  data-testid="score-group"
-                  onClick={() => onOpenSong(song)}
-                >
-                  {head}
-                </button>
+              {withActions(
+                song === null ? (
+                  <div className="score-group-row" data-testid="score-group">
+                    {head}
+                  </div>
+                ) : (
+                  <button
+                    type="button"
+                    className="score-group-row score-group-row-button"
+                    data-testid="score-group"
+                    onClick={() => onOpenSong(song)}
+                  >
+                    {head}
+                  </button>
+                ),
+                group.scores[0],
               )}
             </li>
           );
@@ -304,16 +340,19 @@ export default function ScoreGroupList({
                     const entrySong = score.song;
                     return (
                       <li key={score.id} data-testid="score-row">
-                        {rowsAreSongs && entrySong !== null ? (
-                          <button
-                            type="button"
-                            className="score-entry score-entry-button"
-                            onClick={() => onOpenSong(entrySong)}
-                          >
-                            {body}
-                          </button>
-                        ) : (
-                          <div className="score-entry">{body}</div>
+                        {withActions(
+                          rowsAreSongs && entrySong !== null ? (
+                            <button
+                              type="button"
+                              className="score-entry score-entry-button"
+                              onClick={() => onOpenSong(entrySong)}
+                            >
+                              {body}
+                            </button>
+                          ) : (
+                            <div className="score-entry">{body}</div>
+                          ),
+                          score,
                         )}
                       </li>
                     );

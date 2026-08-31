@@ -8,6 +8,7 @@ import {
   usdxProblems,
 } from "../errors";
 import { Icon } from "./icons";
+import { SettingSaved } from "./SettingField";
 import "./SettingField.css";
 import "./RunUsdxRow.css";
 
@@ -45,9 +46,7 @@ export default function RunUsdxRow({ readOnly }: Props) {
     <div className="setting-field">
       <div className="setting-row">
         <Icon name="power" className="run-usdx-icon" />
-        <span className="setting-label run-usdx-label">
-          Run Ultrastar Deluxe
-        </span>
+        <span className="setting-label">Run Ultrastar Deluxe</span>
         {!readOnly && (
           <button
             type="button"
@@ -58,11 +57,11 @@ export default function RunUsdxRow({ readOnly }: Props) {
             {launch.isPending ? "Starting…" : "Launch"}
           </button>
         )}
-        {launch.isSuccess && (
-          <span className="setting-saved run-usdx-state" role="status">
-            {launch.data.started ? "Started" : "Running"}
-          </span>
-        )}
+        {/* The same slot every setting reserves for its "Saved", so the button
+            does not slide the moment the word appears. */}
+        <SettingSaved shown={launch.isSuccess} className="run-usdx-state">
+          {launch.data?.started === true ? "Started" : "Running"}
+        </SettingSaved>
       </div>
 
       <p className="setting-description">

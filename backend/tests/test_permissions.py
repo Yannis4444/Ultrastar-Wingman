@@ -34,10 +34,23 @@ ROUTES: list[tuple[str, str, str, dict[str, object] | None]] = [
     ("songs.view", "GET", "/api/v1/songs/usdb:1", None),
     ("songs.view", "GET", "/api/v1/songs/usdb:1/cover", None),
     ("songs.rescan", "POST", "/api/v1/songs/rescan", None),
+    # Fixing wrong metadata rewrites the song's txt headers, nothing else.
+    (
+        "songs.edit",
+        "PATCH",
+        "/api/v1/songs/usdb:1",
+        {
+            "values": {"title": "Uptown Funk", "artist": "Mark Ronson"},
+            "expected": {"title": "Uptown Funk", "artist": "Mark Ronson"},
+        },
+    ),
+    # Admin-only by default: the folder goes off the disk with the row.
+    ("songs.delete", "DELETE", "/api/v1/songs/usdb:1", None),
     ("players.view", "GET", "/api/v1/players", None),
     ("players.view", "GET", "/api/v1/players/nope/avatar", None),
     ("players.view", "GET", "/api/v1/karaoke/colors", None),
     ("players.manage", "POST", "/api/v1/players", {"name": "Someone"}),
+    ("players.manage", "PATCH", "/api/v1/players/nope", {"hidden": True}),
     ("players.manage", "DELETE", "/api/v1/players/nope", None),
     # Somebody else's picture. Your own needs no capability, which is why the id here is
     # one no caller in this matrix owns — see test_players_api for the identity half.
@@ -119,12 +132,18 @@ ROUTES: list[tuple[str, str, str, dict[str, object] | None]] = [
     ("stats.view", "GET", "/api/v1/stats/sessions", None),
     ("stats.view", "GET", "/api/v1/stats/sessions/current/sings", None),
     ("stats.view", "GET", "/api/v1/stats/latest", None),
+    # Every party at once — the same "holds what you may see" list as `/stats/sessions`,
+    # so it answers everybody and its content is `test_stats_api`'s business.
+    ("stats.view", "GET", "/api/v1/stats/scores", None),
     # No party is running in this fixture, so every session id here is an older one.
     ("stats.history", "GET", "/api/v1/stats/sessions/nope/scores", None),
     ("stats.history", "GET", "/api/v1/stats/songs/usdb:1/scores", None),
     # Somebody else's player; your own scores are identity — see test_stats_api.
     ("stats.history", "GET", "/api/v1/stats/players/nope/scores", None),
     ("stats.manage", "PATCH", "/api/v1/stats/sessions/nope", {"name": "Party"}),
+    # Admin-only by default: both rewrite what the party's record says happened.
+    ("stats.moderate", "PATCH", "/api/v1/stats/scores/1", {"player_id": "nope"}),
+    ("stats.moderate", "DELETE", "/api/v1/stats/scores/1", None),
     ("usdb.search", "GET", "/api/v1/sources/usdb/status", None),
     ("usdb.search", "GET", "/api/v1/sources/usdb/search", None),
     ("usdb.search", "GET", "/api/v1/sources/usdb/songs/1/cover", None),

@@ -30,8 +30,8 @@ type Assignment = Record<string, string>;
 
 /**
  * The last configuration, so the same group does not have to re-pick every
- * song. Unknown colors and deleted players fall out at render time, so a stale
- * entry can never resurrect a player who no longer exists.
+ * song. Unknown colors, deleted players and hidden ones fall out at render
+ * time, so a stale entry can never resurrect somebody who is not singing.
  */
 function readAssignment(): Assignment {
   try {
@@ -73,9 +73,14 @@ export default function PlayerSelection({
   const [setupProblems, setSetupProblems] = useState<string[] | null>(null);
 
   const colorNames = slots.data?.slots.map((color) => color.name) ?? [];
-  const byId = new Map(
-    (players.data?.players ?? []).map((player) => [player.id, player]),
+  // This is the one surface hiding a player is for: somebody put out of sight
+  // for the evening is not offered here and not standing on a slot either. The
+  // filter comes before `byId` on purpose — a stored assignment would otherwise
+  // put them straight back into a slot the grid no longer offers.
+  const roster = (players.data?.players ?? []).filter(
+    (player) => !player.hidden,
   );
+  const byId = new Map(roster.map((player) => [player.id, player]));
   const playerFor = (color: string): PlayerRead | null =>
     byId.get(assignment[color] ?? "") ?? null;
   const takenColor = (playerId: string): string | undefined =>
@@ -156,7 +161,6 @@ export default function PlayerSelection({
   };
 
   const chosen = colorNames.filter((color) => playerFor(color) !== null).length;
-  const roster = players.data?.players ?? [];
   const full = colorNames.length > 0 && chosen === colorNames.length;
 
   // Whether the field is offered is decided by the *whole* roster, so it cannot
@@ -249,9 +253,20 @@ export default function PlayerSelection({
           <div className="player-selection-pick">
             {players.isSuccess && roster.length === 0 ? (
               <p className="player-selection-none">
-                {auth.can("players.manage")
-                  ? "No players yet — add the first one below."
-                  : "No players yet — ask the host to add one."}
+                {/* "Nobody yet" would be a lie with a roster full of hidden
+                    players, and the way out of it is a different one. Both
+                    lines split on `players.manage`, because that is the right
+                    behind the eye that shows somebody again and behind the row
+                    that adds one — the Players & accounts page itself opens on
+                    any of four rights, but the other three lead to nothing that
+                    would help here. */}
+                {(players.data?.players.length ?? 0) > 0
+                  ? auth.can("players.manage")
+                    ? "Everybody is hidden — show somebody on the players page."
+                    : "Everybody is hidden — ask the host to show somebody."
+                  : auth.can("players.manage")
+                    ? "No players yet — add the first one below."
+                    : "No players yet — ask the host to add one."}
               </p>
             ) : (
               <>

@@ -7,7 +7,7 @@ from httpx import AsyncClient
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
 
-from conftest import ADMIN_TOKEN, ADMIN_USERNAME, add_session, add_user
+from conftest import ADMIN_PASSWORD, ADMIN_TOKEN, ADMIN_USERNAME, add_session, add_user
 from ultrastar_wingman.auth.deps import COOKIE_NAME
 from ultrastar_wingman.auth.model import User, UserSession, as_utc, utcnow
 from ultrastar_wingman.auth.permissions import ALL_CAPABILITIES, DEFAULT_ROLE_CAPABILITIES
@@ -109,6 +109,55 @@ async def test_register_links_an_existing_temporary_player(
     assert guest.registered is True
     assert guest.user_id == user["id"]
     assert len(list(await session.scalars(select(Player)))) == 1
+
+
+async def test_registering_over_a_hidden_guest_shows_them_again(
+    anonymous_client: AsyncClient, session: AsyncSession
+) -> None:
+    """The guest was put out of the picker when they left; registering says they are back."""
+    guest = Player(name="Yannis", hidden=True)
+    session.add(guest)
+    await session.commit()
+
+    user = await register(anonymous_client, "yannis")
+
+    assert user["player_id"] == guest.id
+    await session.refresh(guest)
+    assert guest.hidden is False
+
+
+async def test_logging_in_shows_a_hidden_player_again(
+    anonymous_client: AsyncClient, session: AsyncSession
+) -> None:
+    """ "If a player logs in, unhide them": hiding is for the evening, not for the account."""
+    user = await register(anonymous_client, "yannis")
+    player = await session.get(Player, user["player_id"])
+    assert player is not None
+    player.hidden = True
+    await session.commit()
+
+    response = await anonymous_client.post(
+        "/api/v1/auth/login", json={"username": "yannis", "password": PASSWORD}
+    )
+
+    assert response.status_code == 200
+    await session.refresh(player)
+    assert player.hidden is False
+
+
+async def test_logging_in_without_a_player_is_fine(
+    anonymous_client: AsyncClient, session_factory: async_sessionmaker[AsyncSession]
+) -> None:
+    """The fixture admin has no player row, and unhiding must not go looking for one."""
+    user_id = await add_user(session_factory, "playerless", "user")
+    async with session_factory() as session:
+        assert await session.scalar(select(Player).where(Player.user_id == user_id)) is None
+
+    response = await anonymous_client.post(
+        "/api/v1/auth/login", json={"username": "playerless", "password": ADMIN_PASSWORD}
+    )
+
+    assert response.status_code == 200
 
 
 @pytest.mark.parametrize(

@@ -20,6 +20,7 @@ const {
   createPlayer,
   deletePlayer,
   setPlayerAvatar,
+  updatePlayer,
 } = vi.hoisted(() => ({
   getMe: vi.fn(),
   listUsers: vi.fn(),
@@ -29,6 +30,7 @@ const {
   createPlayer: vi.fn(),
   deletePlayer: vi.fn(),
   setPlayerAvatar: vi.fn(),
+  updatePlayer: vi.fn(),
 }));
 
 vi.mock("../api/sdk.gen", async (importOriginal) => ({
@@ -41,6 +43,7 @@ vi.mock("../api/sdk.gen", async (importOriginal) => ({
   createPlayer,
   deletePlayer,
   setPlayerAvatar,
+  updatePlayer,
 }));
 
 // What `trusted` holds over the players: the roster, the pictures, and adding
@@ -52,8 +55,13 @@ const PLAYER_CAPABILITIES = [
 ];
 const ADMIN_CAPABILITIES = [...PLAYER_CAPABILITIES, "users.manage"];
 
-function player(id: string, name: string, registered = false): PlayerRead {
-  return { id, name, registered, has_avatar: false };
+function player(
+  id: string,
+  name: string,
+  registered = false,
+  hidden = false,
+): PlayerRead {
+  return { id, name, registered, hidden, has_avatar: false };
 }
 
 function renderPage() {
@@ -215,6 +223,77 @@ test("the own account is marked and a role can be changed", async () => {
   );
   // A guest has no account, so there is no role to pick for one.
   expect(screen.queryByLabelText("Role of Mallory")).not.toBeInTheDocument();
+});
+
+test("each heading explains itself", async () => {
+  renderPage();
+
+  await screen.findByText("Mallory");
+  // The way out of a forgotten password, and what registering a guest's name does.
+  expect(
+    screen.getByText(/delete the account and register the same name again/),
+  ).toBeInTheDocument();
+  expect(
+    screen.getByText(/taken over by whoever registers that name/),
+  ).toBeInTheDocument();
+});
+
+test("the eye takes a player out of the singer picker and back", async () => {
+  updatePlayer.mockResolvedValue({
+    data: player("mmm", "Mallory", false, true),
+  });
+  renderPage();
+
+  const eye = await screen.findByRole("button", {
+    name: "Hide Mallory from player selection",
+  });
+  expect(eye).toHaveAttribute("aria-pressed", "false");
+
+  listPlayers.mockResolvedValue({
+    data: {
+      players: [
+        player("aaa", "Alice", true),
+        player("bbb", "Bob", true),
+        player("mmm", "Mallory", false, true),
+      ],
+    },
+  });
+  fireEvent.click(eye);
+
+  await waitFor(() =>
+    expect(updatePlayer.mock.calls[0][0]).toMatchObject({
+      path: { player_id: "mmm" },
+      body: { hidden: true },
+    }),
+  );
+  // The row stays: hiding is not a deletion, and the name only goes quiet.
+  await waitFor(() =>
+    expect(
+      screen.getByRole("button", {
+        name: "Hide Mallory from player selection",
+      }),
+    ).toHaveAttribute("aria-pressed", "true"),
+  );
+  expect(screen.getByText("Mallory")).toHaveClass("people-name-hidden");
+
+  fireEvent.click(
+    screen.getByRole("button", { name: "Hide Mallory from player selection" }),
+  );
+  await waitFor(() =>
+    expect(updatePlayer.mock.calls[1][0].body).toEqual({ hidden: false }),
+  );
+});
+
+test("hiding somebody takes the player right", async () => {
+  getMe.mockResolvedValue(meResponse(["players.view", "players.avatar"]));
+  renderPage();
+
+  await screen.findByText("Mallory");
+  expect(
+    screen.queryByRole("button", {
+      name: "Hide Mallory from player selection",
+    }),
+  ).not.toBeInTheDocument();
 });
 
 test("removing the last admin is stopped with an explanation", async () => {

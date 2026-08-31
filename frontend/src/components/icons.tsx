@@ -119,7 +119,23 @@ export const ICON_PATHS = {
   // merge into one blob at 1em, since both are drawn in the one colour.
   "bookmark-off":
     "M7 3h11L6 15V4a1 1 0 0 1 1-1ZM18 9v12l-6-4-6 4ZM5.28 20.28 3.72 18.72 18.72 3.72 20.28 5.28Z",
+  // A player who is shown, in the people admin. The almond is two quadratics out
+  // and two back; the second one is counter-wound, so the white of the eye stays
+  // open under the nonzero fill and only the rim and the pupil are drawn.
+  eye: "M1 12Q12 1 23 12Q12 23 1 12ZM19.5 12Q12 4 4.5 12Q12 20 19.5 12ZM12 9.4a2.6 2.6 0 1 1 0 5.2 2.6 2.6 0 1 1 0-5.2Z",
+  // The same almond behind `bookmark-off`'s diagonal bar, cut along it with the
+  // same gap either side — the two subpaths are the rim's upper-left and
+  // lower-right halves, their cut ends meeting the bar's line at 21 and 27. The
+  // pupil goes with the cut: the bar crosses exactly where it sits, and what the
+  // gap would leave of it is two slivers nobody can read at 1em.
+  "eye-off":
+    "M5.45 15.55Q3.23 14.23 1 12Q7.63 5.37 14.27 6.73L12.94 8.06Q8.72 7.5 4.5 12Q5.69 13.26 6.87 14.13L5.45 15.55ZM18.55 8.45Q20.77 9.77 23 12Q16.37 18.63 9.73 17.27L11.06 15.94Q15.28 16.5 19.5 12Q18.31 10.74 17.13 9.87L18.55 8.45ZM5.28 20.28 3.72 18.72 18.72 3.72 20.28 5.28Z",
   chart: "M4 20h16v2H4v-2Zm1-8h3v7H5v-7Zm5.5-7h3v14h-3V5ZM16 9h3v10h-3V9Z",
+  // "everything at once" — the session picker's head row. Three stacked
+  // lozenges seen at an angle: the top one solid, the two under it only the
+  // thin V of their front edge, which is all a layer below the top one shows.
+  layers:
+    "M12 2 20.5 7 12 12 3.5 7ZM3.5 10.4 12 15.4 20.5 10.4 20.5 12.2 12 17.2 3.5 12.2ZM3.5 14.4 12 19.4 20.5 14.4 20.5 16.2 12 21.2 3.5 16.2Z",
   // The mean mark — the statistician's ⌀, which is what the old app's
   // `TbMathAvg` draws. Two things keep it off the "forbidden" sign: the ring is
   // a 2.4-unit hairline rather than a fat donut, and the slash *ascends* and

@@ -124,6 +124,90 @@ async def seeded(session: AsyncSession) -> dict[str, Any]:
     }
 
 
+async def sign_in(
+    client: AsyncClient,
+    session_factory: async_sessionmaker[AsyncSession],
+    session: AsyncSession,
+    username: str,
+    player: Player | None = None,
+    role: str = "user",
+) -> str:
+    """Log `client` in as a fresh account, optionally the one `player` sings as.
+
+    Linking the player is what makes the account a *singer*: a score carries a player id,
+    so that is the only thing tying an account to a party it was at.
+    """
+    user_id = await add_user(session_factory, username, role)
+    if player is not None:
+        player.user_id = user_id
+        player.registered = True
+    await session.commit()
+    await add_session(session_factory, f"{username}-token", user_id)
+    client.cookies.set(COOKIE_NAME, f"{username}-token", domain="wingman.test", path="/")
+    return user_id
+
+
+async def take_history_away(session: AsyncSession, role: str = "user") -> None:
+    """Drop `stats.history` from a role — what a host does who keeps the archive to
+    themselves. Everything below it is then identity, not a capability."""
+    await session.execute(
+        delete(RolePermission).where(
+            RolePermission.role == role, RolePermission.capability == "stats.history"
+        )
+    )
+    await session.commit()
+    permissions.invalidate_cache()
+
+
+@pytest.fixture
+async def parties(session: AsyncSession) -> dict[str, Any]:
+    """Three parties around one singer: one Yannis sang at, one he missed, and the one that
+    is still going (which he has not sung at either).
+
+    Clock-relative like `running` below, because "the party that is still going" is defined
+    against `datetime.now` and a fixed instant cannot express it.
+    """
+    await add_song(session, "usdb:1", "Song One")
+    await add_song(session, "usdb:2", "Song Two")
+
+    yannis = Player(name="Yannis")
+    mona = Player(name="Mona")
+    now = datetime.now(UTC)
+    mine = KaraokeSession(
+        name="My party",
+        started_at=now - timedelta(days=9),
+        last_activity_at=now - timedelta(days=9),
+    )
+    theirs = KaraokeSession(
+        name="Without me",
+        started_at=now - timedelta(days=3),
+        last_activity_at=now - timedelta(days=3),
+    )
+    live = KaraokeSession(
+        started_at=now - timedelta(minutes=40), last_activity_at=now - timedelta(minutes=10)
+    )
+    session.add_all([yannis, mona, mine, theirs, live])
+    await session.flush()
+    linked = {"Yannis": yannis.id, "Mona": mona.id}
+
+    mine_sing = await add_sing(
+        session, mine, "usdb:1", now - timedelta(days=9), [("Yannis", 5000), ("Mona", 4000)], linked
+    )
+    await add_sing(session, theirs, "usdb:2", now - timedelta(days=3), [("Mona", 6000)], linked)
+    live_sing = await add_sing(
+        session, live, "usdb:1", now - timedelta(minutes=10), [("Mona", 7000)], linked
+    )
+    return {
+        "mine": mine,
+        "theirs": theirs,
+        "live": live,
+        "mine_sing": mine_sing,
+        "live_sing": live_sing,
+        "yannis": yannis,
+        "mona": mona,
+    }
+
+
 async def test_the_sessions_are_listed_newest_first_with_their_counts(
     client: AsyncClient, seeded: dict[str, Any]
 ) -> None:
@@ -137,6 +221,9 @@ async def test_the_sessions_are_listed_newest_first_with_their_counts(
         (seeded["new"].id, None, 2, 3),
         (seeded["old"].id, "Last year", 1, 1),
     ]
+    # Yannis and Alex sang at the newer party, Yannis alone at the older one — the third
+    # figure of the picker's meta line. Alex is a walk-in and counts by name.
+    assert [row["singer_count"] for row in sessions] == [2, 1]
     # Serialized with the UTC offset SQLite dropped on write, not as a naive local-looking
     # timestamp the UI would render in the wrong time zone.
     assert sessions[1]["started_at"] == "2026-08-01T20:00:00Z"
@@ -461,6 +548,265 @@ async def test_your_own_scores_need_no_history_right_but_somebody_else_s_do(
     assert [score["score"] for score in own.json()["scores"]] == [8500, 5000]
     assert other.status_code == 403
     assert other.json() == {"detail": "missing_permission:stats.history"}
+
+
+async def test_a_singer_sees_the_parties_they_were_at_without_the_history_right(
+    anonymous_client: AsyncClient,
+    session_factory: async_sessionmaker[AsyncSession],
+    session: AsyncSession,
+    parties: dict[str, Any],
+) -> None:
+    """The party you sang at is yours: it is your own evening, and the same reasoning as
+    "your own scores" on the user page. The one you missed is still the archive."""
+    await sign_in(anonymous_client, session_factory, session, "yannis", parties["yannis"])
+    await take_history_away(session)
+
+    listed = await anonymous_client.get("/api/v1/stats/sessions")
+
+    assert listed.status_code == 200
+    # Newest first: the party going on right now, then the one he sang at nine days ago.
+    assert [row["id"] for row in listed.json()["sessions"]] == [
+        parties["live"].id,
+        parties["mine"].id,
+    ]
+
+    mine = await anonymous_client.get(f"/api/v1/stats/sessions/{parties['mine'].id}/scores")
+    theirs = await anonymous_client.get(f"/api/v1/stats/sessions/{parties['theirs'].id}/scores")
+
+    assert mine.status_code == 200
+    # The whole scoreboard of that evening, not only his own row: a party is what the room
+    # sang, and everybody who was there saw the same board.
+    assert [row["score"] for row in mine.json()["scores"]] == [4000, 5000]
+    assert theirs.status_code == 403
+    assert theirs.json() == {"detail": "missing_permission:stats.history"}
+
+
+async def test_a_signed_in_stranger_sees_only_the_running_party(
+    anonymous_client: AsyncClient,
+    session_factory: async_sessionmaker[AsyncSession],
+    session: AsyncSession,
+    parties: dict[str, Any],
+) -> None:
+    """An account is not a ticket to every past party — only to the ones it sang at. This
+    one has no player at all, so it was at none of them."""
+    await sign_in(anonymous_client, session_factory, session, "newcomer")
+    await take_history_away(session)
+
+    listed = await anonymous_client.get("/api/v1/stats/sessions")
+
+    assert [row["id"] for row in listed.json()["sessions"]] == [parties["live"].id]
+    assert (
+        await anonymous_client.get(f"/api/v1/stats/sessions/{parties['mine'].id}/scores")
+    ).status_code == 403
+
+
+async def test_the_history_right_still_opens_every_party(
+    client: AsyncClient, parties: dict[str, Any]
+) -> None:
+    listed = await client.get("/api/v1/stats/sessions")
+
+    assert [row["id"] for row in listed.json()["sessions"]] == [
+        parties["live"].id,
+        parties["theirs"].id,
+        parties["mine"].id,
+    ]
+    assert (
+        await client.get(f"/api/v1/stats/sessions/{parties['theirs'].id}/scores")
+    ).status_code == 200
+
+
+async def test_every_party_at_once_holds_the_whole_archive_for_a_history_reader(
+    client: AsyncClient, parties: dict[str, Any]
+) -> None:
+    response = await client.get("/api/v1/stats/scores")
+
+    assert response.status_code == 200
+    # Newest first across all three parties; the two of the oldest sing are one second apart.
+    assert [row["score"] for row in response.json()["scores"]] == [7000, 6000, 4000, 5000]
+
+
+async def test_every_party_at_once_leaves_out_a_sing_that_belongs_to_no_party(
+    client: AsyncClient, session: AsyncSession, parties: dict[str, Any]
+) -> None:
+    """Migration 0008 added `sings.session_id`, so every run recorded before it has none.
+    Such a score is in no session listing, and the head row has to agree with the parties it
+    claims to add up — otherwise "All sessions" would be more than all the sessions."""
+    orphan = Sing(song_id="usdb:1", session_id=None, started_at=datetime.now(UTC))
+    session.add(orphan)
+    await session.flush()
+    session.add(
+        Score(
+            sing_id=orphan.id,
+            player_id=parties["yannis"].id,
+            player_name="Yannis",
+            score=9999,
+            recorded_at=datetime.now(UTC),
+        )
+    )
+    await session.commit()
+
+    meta = (await client.get("/api/v1/stats/scores")).json()["scores"]
+    per_session: list[int] = []
+    for entry in (await client.get("/api/v1/stats/sessions")).json()["sessions"]:
+        listing = await client.get(f"/api/v1/stats/sessions/{entry['id']}/scores")
+        per_session += [row["id"] for row in listing.json()["scores"]]
+
+    assert 9999 not in [row["score"] for row in meta]
+    # The head row is exactly the visible sessions summed, which is the whole point of it.
+    assert sorted(row["id"] for row in meta) == sorted(per_session)
+    # It is still that player's own score, and still the last thing that happened.
+    own = await client.get(f"/api/v1/stats/players/{parties['yannis'].id}/scores")
+    assert 9999 in [row["score"] for row in own.json()["scores"]]
+
+
+async def test_every_party_at_once_holds_only_your_own_parties_without_history(
+    anonymous_client: AsyncClient,
+    session_factory: async_sessionmaker[AsyncSession],
+    session: AsyncSession,
+    parties: dict[str, Any],
+) -> None:
+    """The head row without the history right: the parties this reader may open, and
+    nothing from the one they were not at."""
+    await sign_in(anonymous_client, session_factory, session, "yannis", parties["yannis"])
+    await take_history_away(session)
+
+    response = await anonymous_client.get("/api/v1/stats/scores")
+
+    assert response.status_code == 200
+    assert [row["score"] for row in response.json()["scores"]] == [7000, 4000, 5000]
+
+
+async def test_every_party_at_once_is_tonight_alone_for_a_guest(
+    anonymous_client: AsyncClient, parties: dict[str, Any]
+) -> None:
+    """A guest phone has no identity, so it was at no party but the one it is standing in."""
+    response = await anonymous_client.get("/api/v1/stats/scores")
+
+    assert response.status_code == 200
+    assert [row["score"] for row in response.json()["scores"]] == [7000]
+
+
+async def test_a_score_moves_to_the_singer_it_belongs_to(
+    client: AsyncClient,
+    parties: dict[str, Any],
+    broadcast_events: list[dict[str, object]],
+) -> None:
+    """The fix for a wrongly picked player: the number and the song stay, the singer
+    changes."""
+    scores = (await client.get(f"/api/v1/stats/sessions/{parties['mine'].id}/scores")).json()
+    wrong = next(row for row in scores["scores"] if row["score"] == 5000)
+
+    response = await client.patch(
+        f"/api/v1/stats/scores/{wrong['id']}", json={"player_id": parties["mona"].id}
+    )
+
+    assert response.status_code == 200
+    body = response.json()
+    assert (body["player_id"], body["player_name"]) == (parties["mona"].id, "Mona")
+    # The sing it was scored in — and with it the party and the song — is untouched.
+    assert body["sing_id"] == wrong["sing_id"] == parties["mine_sing"].id
+    assert body["score"] == 5000
+    # It is Mona's record now and no longer Yannis's.
+    mona = await client.get(f"/api/v1/stats/players/{parties['mona'].id}/scores")
+    assert sorted(row["score"] for row in mona.json()["scores"]) == [4000, 5000, 6000, 7000]
+    yannis = await client.get(f"/api/v1/stats/players/{parties['yannis'].id}/scores")
+    assert yannis.json()["scores"] == []
+    # The other screens in the room hear about it — but not as a fresh sing, which would
+    # throw last song's results back onto the host TV.
+    assert [event for event in broadcast_events if event["event"] == "scores.recorded"] == []
+    assert [event for event in broadcast_events if event["event"] == "scores.changed"] == [
+        {"event": "scores.changed", "sing_id": parties["mine_sing"].id}
+    ]
+
+
+async def test_both_singers_of_a_duet_may_end_up_on_one_player(
+    client: AsyncClient, parties: dict[str, Any]
+) -> None:
+    """Nothing stops it, on purpose: swapping the two singers of a duet passes through
+    exactly this state, and a rule against it would block the correction it exists for."""
+    scores = (await client.get(f"/api/v1/stats/sessions/{parties['mine'].id}/scores")).json()
+    yannis_score = next(row for row in scores["scores"] if row["score"] == 5000)
+
+    response = await client.patch(
+        f"/api/v1/stats/scores/{yannis_score['id']}", json={"player_id": parties["mona"].id}
+    )
+
+    assert response.status_code == 200
+    after = (await client.get(f"/api/v1/stats/sessions/{parties['mine'].id}/scores")).json()
+    assert [row["player_name"] for row in after["scores"]] == ["Mona", "Mona"]
+    # One singer now, where there were two.
+    listed = (await client.get("/api/v1/stats/sessions")).json()["sessions"]
+    assert next(row for row in listed if row["id"] == parties["mine"].id)["singer_count"] == 1
+
+
+async def test_moving_a_score_needs_a_score_and_a_player_that_exist(
+    client: AsyncClient, parties: dict[str, Any]
+) -> None:
+    scores = (await client.get("/api/v1/stats/scores")).json()["scores"]
+
+    assert (
+        await client.patch("/api/v1/stats/scores/999999", json={"player_id": parties["mona"].id})
+    ).status_code == 404
+    unknown_player = await client.patch(
+        f"/api/v1/stats/scores/{scores[0]['id']}", json={"player_id": "nope"}
+    )
+    assert unknown_player.status_code == 404
+    assert unknown_player.json() == {"detail": "unknown player 'nope'"}
+
+
+async def test_deleting_a_score_leaves_the_sing_behind(
+    client: AsyncClient,
+    parties: dict[str, Any],
+    broadcast_events: list[dict[str, object]],
+) -> None:
+    """The score goes, the performance stays: the song *was* played, which is what the
+    Recent tab and a party's `sing_count` are counted from."""
+    live = (await client.get(f"/api/v1/stats/sessions/{parties['live'].id}/scores")).json()
+    only = live["scores"][0]
+
+    response = await client.delete(f"/api/v1/stats/scores/{only['id']}")
+
+    assert response.status_code == 204
+    assert (await client.get(f"/api/v1/stats/sessions/{parties['live'].id}/scores")).json() == {
+        "scores": []
+    }
+    listed = (await client.get("/api/v1/stats/sessions")).json()["sessions"]
+    live_row = next(row for row in listed if row["id"] == parties["live"].id)
+    # The sing is still counted, and so is the party itself.
+    assert (live_row["sing_count"], live_row["score_count"], live_row["singer_count"]) == (1, 0, 0)
+    sings = (await client.get("/api/v1/stats/sessions/current/sings")).json()["sings"]
+    assert [row["sing_id"] for row in sings] == [parties["live_sing"].id]
+    assert [event for event in broadcast_events if event["event"] == "scores.changed"] == [
+        {"event": "scores.changed", "sing_id": parties["live_sing"].id}
+    ]
+
+
+async def test_deleting_an_unknown_score_is_a_404(
+    client: AsyncClient, parties: dict[str, Any]
+) -> None:
+    assert (await client.delete("/api/v1/stats/scores/999999")).status_code == 404
+
+
+async def test_correcting_a_score_is_not_a_singers_own_right(
+    anonymous_client: AsyncClient,
+    session_factory: async_sessionmaker[AsyncSession],
+    session: AsyncSession,
+    parties: dict[str, Any],
+) -> None:
+    """Being at the party lets you read its scoreboard, never rewrite it — `stats.moderate`
+    starts with the administrator alone."""
+    await sign_in(anonymous_client, session_factory, session, "yannis", parties["yannis"])
+    scores = (await anonymous_client.get("/api/v1/stats/scores")).json()["scores"]
+    own = next(row for row in scores if row["score"] == 5000)
+
+    moved = await anonymous_client.patch(
+        f"/api/v1/stats/scores/{own['id']}", json={"player_id": parties["mona"].id}
+    )
+    deleted = await anonymous_client.delete(f"/api/v1/stats/scores/{own['id']}")
+
+    assert moved.status_code == 403
+    assert moved.json() == {"detail": "missing_permission:stats.moderate"}
+    assert deleted.status_code == 403
 
 
 def _upgrade(database_url: str, revision: str) -> None:

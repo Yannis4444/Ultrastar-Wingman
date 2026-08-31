@@ -9,6 +9,8 @@ Open the **Songs** tab. It lists everything Wingman found in your song folders,
 with the number of songs at the top.
 
 - The search box matches title and artist while you type. A song id also works.
+  The **×** at its right end appears as soon as you type and empties the box
+  again in one tap.
 - The chips below it narrow the list: **All**, **♥ Favorites**, **Recent**,
   **Sung** and the funnel, **Filter**. Only the chip you are standing on spells
   its name out; the others shrink to their icon so the row keeps fitting a
@@ -17,10 +19,15 @@ with the number of songs at the top.
 - The reload button next to the song count scans the song folders again.
 - Tap a song to open it: the cover, a listen-in preview, and the buttons for
   favorite, sing and wish. Below them, **Details** unfolds language, genre,
-  year, edition and who made it; **Best scores** lists the best runs ever sung
-  on it; **Add to playlist** puts the song on one of the playlists you may edit;
-  **Tags** shows the labels the party has put on it, and lets you set the ones
-  you are allowed to; **Comments** is what the room has said about it.
+  year, edition and who made it, and **Add to playlist** puts the song on one of
+  the playlists you may edit.
+- At the very bottom sit up to three icons, each with a number under it, and each
+  opening what it counts. The **trophy** is the best score anybody ever got on
+  the song and opens the whole ranking; the **tag** is how many labels the song
+  wears and opens the view where you set them; the **speech bubble** is how many
+  comments there are and opens them. Tag and speech bubble stand at **0** too —
+  putting the first tag on a song and being the first to say something are
+  exactly what they lead to — while the trophy waits until somebody has sung it.
 
 ## Filter by more than one thing
 
@@ -132,10 +139,9 @@ pretending you have no favorites. See [Tags](tags.md) for the whole picture.
 
 ## Comments
 
-Every song has a **Comments** row at the bottom of its view, carrying the
-number of comments once there is one. Open it and you get what everybody said
-about the song, oldest first: who said it, how long ago, and the text
-underneath.
+Every song carries a speech bubble at the bottom of its view with the number of
+comments under it — **0** included. Tap it and you get what everybody said about
+the song, oldest first: who said it, how long ago, and the text underneath.
 
 **Reading is open to everybody.** A guest phone that can see the song list can
 read the comments too — knowing that a song is in the wrong key, or that it is
@@ -162,6 +168,74 @@ comment is gone for good; there is no undo.
 
 If the account behind a comment is deleted, its comments go with it.
 
+## Fix a song's details
+
+Downloaded songs arrive with whatever whoever made them typed: a misspelt
+artist, no year, a genre in the wrong language, a title with the karaoke site's
+name stuck to it. **Edit details** in the song's view is where that is put
+right. *Trusted* and *admin* hold the right by default, and it is the row **Fix
+a song's details** on
+[Accounts and permissions](accounts-and-permissions.md).
+
+Six things can be changed: **title**, **artist**, **language**, **genre**,
+**year** and **edition** — the values that show up in **Details**, in the song
+list and in the filter. A title and an artist have to say something; the other
+four may be left empty, which means the song simply has no year (or no genre,
+or …), and the filter treats it accordingly.
+
+What is written is the **song's own file**, not just Wingman's copy of it, so
+Ultrastar Deluxe shows the corrected title too, and the next library scan
+agrees with what you typed instead of putting the old value back. Only those
+few lines of the file are touched: the lyrics, the timing, the audio, the video
+and the cover are exactly as they were, and everything the party did with the
+song — its tags, favorites, wishes, playlist entries, comments and scores —
+stays with it.
+
+Two answers are worth knowing:
+
+- **"This song's file changed while the editor was open."** Somebody downloaded
+  the song again, or edited its file by hand, after you opened the editor.
+  Saving would put your older values over theirs, so Wingman does not. Close the
+  song, open it again, and you will see what the file says now.
+- **"Its file is still open."** Ultrastar Deluxe is holding the song — usually
+  because it is the one on the TV. Close USDX (or finish the song) and save
+  again. Nothing was written.
+
+A file written in a very old encoding can refuse a letter it has no way to
+spell; Wingman says so rather than rewriting the whole file into another
+alphabet.
+
+## Delete a song
+
+A song that will never be sung again — a broken file, a duplicate, a download
+that went wrong — can be taken out of the library for good. The last row of the
+song's view is **Delete song**, and only **admin** holds the right by default.
+It is on [Accounts and permissions](accounts-and-permissions.md) as *Delete a
+song*, so the host can hand it to **trusted** as well.
+
+Wingman asks first, naming the song, and then deletes **the whole song folder
+from the disk** — the txt, the audio, the video, the cover. There is no undo and
+there is no bin: the files are gone. Deleting the database row alone would not
+help anyway, because the next start would find the folder and read it back in.
+
+What stays is everything the party *did* with the song:
+
+- The **scores** and the parties they were sung at. A score of a deleted song
+  still counts towards a singer's record; it simply has no song to name any more.
+- The **comments** and the **tags** on it, the **favorites** that pointed at it
+  and its place in a **playlist**. None of them shows up anywhere while the song
+  is gone — and if the very same song is downloaded again from USDB, it comes
+  back under the same name and finds all of it again.
+
+The **wishes** are the exception, and they go: a wish is "somebody should sing
+this tonight", and after the file is gone nobody can.
+
+A deletion can be stopped, always with a sentence saying why: the song is
+**playing right now** (stop it first), Ultrastar Deluxe still has its files open
+(close it and try again), or the song's folder is — or holds — your songs
+folder itself rather than being one song inside it, which would take the whole
+library with it. In every case nothing at all is deleted.
+
 ## Choose the players
 
 Press **Sing** in the song details. The player selection opens.
@@ -185,6 +259,10 @@ colours and avatars already set up. At least one slot needs a player.
     Your slot assignment is remembered in your browser. The same group does not
     have to pick again for every song.
 
+Somebody [hidden](accounts-and-permissions.md#manage-players-and-accounts) is not
+in this list, and a stored slot does not bring them back either — the same as for
+a player who was deleted.
+
 ## Players, colours and avatars
 
 Players live under **User → Players & accounts**, in two groups: the people with
@@ -194,6 +272,9 @@ an account, and the guests who only sing.
 - Tapping a player's picture uploads a new one — jpeg, png or webp, up to 5 MB
   and 50 megapixels. Ultrastar Deluxe shows it next to the name while singing.
   Your own picture can also be changed by tapping it on the **User** tab.
+- The **eye** hides somebody for the evening: they drop out of the player
+  selection, and out of nothing else. See
+  [Manage players and accounts](accounts-and-permissions.md#manage-players-and-accounts).
 - The bin removes a guest. Scores that player already earned keep the name.
   Somebody with an account is removed by deleting the account, which turns them
   into a guest first.

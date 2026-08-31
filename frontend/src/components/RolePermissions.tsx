@@ -54,11 +54,15 @@ const GROUP_NAMES: Record<string, string> = { usdb: "USDB" };
 const DESCRIPTIONS: Record<string, string> = {
   "songs.view": "See the song list and open a song.",
   "songs.rescan": "Read the song folders again to pick up new files.",
+  "songs.edit":
+    "Fix a song's title, artist, language, genre, year or edition. It is written into the song's own file, so Ultrastar Deluxe shows it too.",
+  "songs.delete":
+    "Delete a song for good, its folder on the disk included. Nothing can undo it.",
   "karaoke.sing": "Start a song on the Ultrastar Deluxe machine.",
   "karaoke.stop": "Stop the song that is running now.",
   "players.view": "See the players, and pick who is singing.",
   "players.avatar": "Change anybody's picture. Your own never needs a right.",
-  "players.manage": "Add and delete players.",
+  "players.manage": "Add players, hide them for the evening, and delete them.",
   "wishlist.view": "See what everybody wished for.",
   "wishlist.add": "Put a song on the wishlist, and take it off again.",
   "wishlist.manage": "Take a song off the wishlist for everybody.",
@@ -79,6 +83,8 @@ const DESCRIPTIONS: Record<string, string> = {
   "stats.history":
     "See the parties before tonight, and anybody's whole record.",
   "stats.manage": "Rename a party in the statistics.",
+  "stats.moderate":
+    "Put a recorded score on another singer, or delete it. The score itself and the song stay as Ultrastar Deluxe reported them.",
   "settings.view": "See Wingman's settings.",
   "settings.manage": "Change every setting, the USDB login included.",
   "users.view": "See who has an account and what role they hold.",

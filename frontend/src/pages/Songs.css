@@ -34,7 +34,17 @@
   border-radius: var(--border-radius);
 }
 
-.songs-search .icon {
+/* The glyph and the field are one label, so tapping the magnifier focuses the
+   input; the clear button sits next to that label, not inside it. */
+.songs-search-field {
+  display: flex;
+  flex: 1 1 auto;
+  min-width: 0;
+  align-items: center;
+  gap: 8px;
+}
+
+.songs-search-field .icon {
   font-size: 1.1em;
   color: var(--color-darker);
 }
@@ -50,6 +60,12 @@
   border: none;
 }
 
+/* WebKit draws its own cancel button inside a search field; ours is the one the
+   field gets, so there is never a second X. */
+.songs-search input::-webkit-search-cancel-button {
+  display: none;
+}
+
 /* The wrapper carries the focus cue instead of the borderless input. */
 .songs-search input:focus {
   outline: none;
@@ -57,6 +73,14 @@
 
 .songs-search:focus-within {
   border-color: var(--highlight-blue-light);
+}
+
+/* The 40px target eats into the field's right padding, so the glyph sits 14px
+   inside the border instead of the 22px a full 40px button would leave —
+   near enough the magnifier's 12px on the other side. Not the whole 12px: the
+   remaining 4px keep the hover fill's rounded corner off the field's own. */
+.songs-search-clear {
+  margin-right: -8px;
 }
 
 .songs-tool-spin {

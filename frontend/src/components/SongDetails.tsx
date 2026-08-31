@@ -1,12 +1,20 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useEffect, useRef, useState } from "react";
-import type { CommentAuthor, CommentRead, PlayerRead, SongRead } from "../api";
+import type {
+  CommentAuthor,
+  CommentRead,
+  PlayerRead,
+  SongMetadata,
+  SongRead,
+} from "../api";
 import {
   addPlaylistEntryMutation,
   addSongCommentMutation,
   assignTagMutation,
   createPlaylistMutation,
   deleteSongCommentMutation,
+  deleteSongMutation,
+  editSongMutation,
   getPlaylistQueryKey,
   listPlaylistsOptions,
   listPlaylistsQueryKey,
@@ -67,8 +75,96 @@ const COMMENT_MAX_LENGTH = 1000;
 /** How far the composer grows with what is typed — about five lines. */
 const COMPOSER_MAX_HEIGHT = 132;
 
+/**
+ * A count the listing behind it has not delivered yet — or never will. The
+ * app's no-value mark everywhere a number is expected (§1.3), and not "0",
+ * which would be an answer rather than the absence of one.
+ */
+const UNKNOWN = "—";
+
 /** A comment whose account is gone still says something worth reading. */
 const FORMER_MEMBER = "Former member";
+
+/**
+ * Why the backend refused to delete a song. Each of these is something the
+ * person in front of the screen can act on, which a generic "could not delete"
+ * would not be.
+ */
+/**
+ * Why the backend refused to save the metadata. The editor writes the song's
+ * `.txt` — the file USDX itself reads — so every one of these is about that
+ * file, and every one of them is something the person can do something about.
+ */
+const EDIT_REFUSALS: Record<string, string> = {
+  song_file_changed:
+    "This song's file changed while the editor was open — it was downloaded again, or somebody edited it by hand. Close this and open it again to see what it says now.",
+  song_txt_missing:
+    "The song's file is not there any more. Rescan the library to find out what happened to it.",
+  song_txt_unreadable:
+    "Wingman cannot write this file back without garbling the rest of it — its encoding is one nothing here can reproduce.",
+  song_files_in_use:
+    "Its file is still open — close Ultrastar Deluxe and try again.",
+  value_not_encodable:
+    "This file cannot spell one of those values: it was written in an old encoding that has no such letters.",
+};
+
+/** The song's fields the editor writes, as the form holds them: all text. */
+type EditForm = Record<
+  "title" | "artist" | "language" | "genre" | "year" | "edition",
+  string
+>;
+
+/** The form filled in with what a song says now. */
+function formOf(song: SongRead): EditForm {
+  return {
+    title: song.title,
+    artist: song.artist,
+    language: song.language ?? "",
+    genre: song.genre ?? "",
+    year: song.year === null ? "" : String(song.year),
+    edition: song.edition ?? "",
+  };
+}
+
+/** An emptied field is no value at all — in a txt, no header rather than an
+ * empty one, which is what the backend does with a `null`. */
+function said(value: string): string | null {
+  return value.trim() === "" ? null : value.trim();
+}
+
+/** What the form is asking for. */
+function valuesOf(form: EditForm): SongMetadata {
+  return {
+    title: form.title,
+    artist: form.artist,
+    language: said(form.language),
+    genre: said(form.genre),
+    year: form.year.trim() === "" ? null : Number(form.year),
+    edition: said(form.edition),
+  };
+}
+
+/** What the editor was opened on. The backend compares it against the file as
+ * it is *now* and refuses when the two have drifted apart, so a save can never
+ * put these values back over a download that happened in the meantime. */
+function metadataOf(song: SongRead): SongMetadata {
+  return {
+    title: song.title,
+    artist: song.artist,
+    language: song.language,
+    genre: song.genre,
+    year: song.year,
+    edition: song.edition,
+  };
+}
+
+const DELETE_REFUSALS: Record<string, string> = {
+  song_is_playing: "That song is playing right now. Stop it first.",
+  song_files_in_use:
+    "Its files are still open — close Ultrastar Deluxe and try again.",
+  song_directory_is_a_library_root:
+    "This song's folder holds your whole song library, so deleting it would take every other song with it. Fix the folder first.",
+};
 
 function authorName(author: CommentAuthor | null): string {
   return author?.username ?? FORMER_MEMBER;
@@ -97,21 +193,20 @@ function grow(field: HTMLTextAreaElement): void {
   field.style.height = wanted > 0 ? `${wanted}px` : "";
 }
 
-/**
- * How many tag glyphs the Tags row draws before it gives up and counts them
- * instead (§5). Past three the glyphs stop being recognisable at a glance and
- * start crowding the row's label.
- */
-const TAG_GLYPHS = 3;
-
 export default function SongDetails({ song, onClose }: SongDetailsProps) {
   const [selectingPlayers, setSelectingPlayers] = useState(false);
   // Sub-views swap the modal content; closing them returns to the song. Always
   // from the song itself: the one caller that opened straight into the picker
   // was Currently Playing's playlist button, and that button is gone.
   const [view, setView] = useState<
-    "main" | "scores" | "playlists" | "tags" | "comments"
+    "main" | "scores" | "playlists" | "tags" | "comments" | "edit"
   >("main");
+  // The song as the editor last saved it. The song itself is a prop — a row out
+  // of whatever listing opened this modal — so without this the hero would go
+  // on showing the old title until that listing has fetched itself again.
+  const [saved, setSaved] = useState<SongRead | null>(null);
+  // What is in the editor's fields. Filled from the song when it opens.
+  const [form, setForm] = useState<EditForm | null>(null);
   const [notice, setNotice] = useState<string | null>(null);
   // There is no has_audio flag; the preview 404s for songs without audio and
   // the element's error event is the only signal.
@@ -123,12 +218,20 @@ export default function SongDetails({ song, onClose }: SongDetailsProps) {
   // The composer's text, and the comment whose deletion is being confirmed.
   const [draft, setDraft] = useState("");
   const [deleting, setDeleting] = useState<CommentRead | null>(null);
+  // Whether the song's own deletion is waiting for a yes.
+  const [confirmingDelete, setConfirmingDelete] = useState(false);
   const composer = useRef<HTMLTextAreaElement>(null);
   const auth = useAuth();
   const queryClient = useQueryClient();
   const wishlist = useWishlist();
   const favorites = useFavorites();
   const tags = useTags();
+
+  // Everything the modal *shows* comes from here: the song it was opened with
+  // until somebody corrects it, and what the backend answered after that. The
+  // id never changes with an edit, so everything the modal *does* still goes
+  // through `song`.
+  const shown = saved ?? song;
 
   // What this reader may know about the song's tags, and what they may change.
   // `bySong` also carries the tags a `tags.manage` holder may not view; those
@@ -305,6 +408,48 @@ export default function SongDetails({ song, onClose }: SongDetailsProps) {
       setNotice(errorMessage(error, "Could not post your comment.")),
   });
 
+  // The song itself, files and all. Only an administrator holds `songs.delete`
+  // by default, and the weight of it sits in the confirmation, not in a red row.
+  const removeSong = useMutation({
+    ...deleteSongMutation(),
+    onSuccess: () => {
+      // Every listing in the app carried this song — the library, the wishlist,
+      // the playlists, the reel. Naming them one by one here would go stale the
+      // next time one is added, so the whole cache is asked again.
+      void queryClient.invalidateQueries();
+      onClose();
+    },
+    onError: (error) => {
+      const refusal = DELETE_REFUSALS[errorDetail(error) ?? ""];
+      setNotice(refusal ?? errorMessage(error, "Could not delete the song."));
+    },
+  });
+
+  // Wrong or missing metadata, corrected. It goes into the song's `.txt` rather
+  // than into the row alone: the file is what USDX reads and what the next
+  // library scan re-imports, so a row-only edit would last until the next start.
+  const saveDetails = useMutation({
+    ...editSongMutation(),
+    onSuccess: (updated) => {
+      // The modal shows the new values at once; every listing behind it — the
+      // library, the playlists, the wishlist, the reel — is asked again, since
+      // each of them carries its own copy of the row.
+      setSaved(updated);
+      void queryClient.invalidateQueries();
+      setView("main");
+    },
+    onError: (error) => {
+      const refusal = EDIT_REFUSALS[errorDetail(error) ?? ""];
+      setNotice(
+        refusal ??
+          errorMessage(
+            error,
+            "Could not save the details. A title and an artist are needed, and neither may run over one line.",
+          ),
+      );
+    },
+  });
+
   const unsay = useMutation({
     ...deleteSongCommentMutation(),
     onSuccess: refreshComments,
@@ -323,22 +468,98 @@ export default function SongDetails({ song, onClose }: SongDetailsProps) {
   // details keep only what the modal does not show anyway.
   const rows: { icon: IconName; label: string; value: string | null }[] = [
     // `flag` is "a language or a country" (§3); `globe` means global sharing.
-    { icon: "flag", label: "Language", value: song.language },
+    { icon: "flag", label: "Language", value: shown.language },
     // Not `tag`: that glyph is the tags feature's, one row further down (§3).
-    { icon: "music", label: "Genre", value: song.genre },
+    { icon: "music", label: "Genre", value: shown.genre },
     {
       icon: "calendar",
       label: "Year",
-      value: song.year === null ? null : String(song.year),
+      value: shown.year === null ? null : String(shown.year),
     },
-    { icon: "disc", label: "Edition", value: song.edition },
-    { icon: "user", label: "Creator", value: song.creator },
+    { icon: "disc", label: "Edition", value: shown.edition },
+    { icon: "user", label: "Creator", value: shown.creator },
     // The id already names the source ("usdb:24435"), so one row covers both.
-    { icon: "database", label: "Source", value: song.id },
+    { icon: "database", label: "Source", value: shown.id },
+  ];
+
+  // The fields the editor writes, in the order §5 fixes. The creator is not
+  // among them: it says who built the karaoke file, which is not a fact about
+  // the song anybody here is fixing.
+  const fields: { name: keyof EditForm; label: string; numeric?: boolean }[] = [
+    { name: "title", label: "Title" },
+    { name: "artist", label: "Artist" },
+    { name: "language", label: "Language" },
+    { name: "genre", label: "Genre" },
+    { name: "year", label: "Year", numeric: true },
+    { name: "edition", label: "Edition" },
   ];
 
   if (selectingPlayers) {
-    return <PlayerSelection song={song} onClose={onClose} />;
+    return <PlayerSelection song={shown} onClose={onClose} />;
+  }
+
+  if (view === "edit" && form !== null) {
+    const incomplete = form.title.trim() === "" || form.artist.trim() === "";
+    return (
+      <Modal
+        title="Edit details"
+        bare
+        onClose={() => {
+          setNotice(null);
+          setForm(null);
+          setView("main");
+        }}
+      >
+        <form
+          className="song-edit"
+          onSubmit={(event) => {
+            event.preventDefault();
+            if (incomplete || saveDetails.isPending) return;
+            setNotice(null);
+            saveDetails.mutate({
+              path: { song_id: song.id },
+              // What the fields say, and what they were filled from: the second
+              // is how the backend knows whether the file moved on meanwhile.
+              body: { values: valuesOf(form), expected: metadataOf(shown) },
+            });
+          }}
+        >
+          {fields.map(({ name, label, numeric }) => (
+            <label className="song-edit-field" key={name}>
+              <span>{label}</span>
+              <input
+                className="text-input text-input-quiet"
+                type={numeric ? "number" : "text"}
+                inputMode={numeric ? "numeric" : undefined}
+                min={numeric ? 0 : undefined}
+                max={numeric ? 9999 : undefined}
+                value={form[name]}
+                disabled={saveDetails.isPending}
+                onChange={(event) =>
+                  setForm({ ...form, [name]: event.target.value })
+                }
+              />
+            </label>
+          ))}
+          <p className="song-details-notice">
+            The values go into the song's own file, so Ultrastar Deluxe shows
+            them too. Its lyrics and its music are not touched.
+          </p>
+          {notice && (
+            <p className="song-details-notice" role="alert">
+              {notice}
+            </p>
+          )}
+          <button
+            type="submit"
+            className="button button-primary song-edit-save"
+            disabled={incomplete || saveDetails.isPending}
+          >
+            Save
+          </button>
+        </form>
+      </Modal>
+    );
   }
 
   if (view === "scores") {
@@ -707,192 +928,254 @@ export default function SongDetails({ song, onClose }: SongDetailsProps) {
     favorites.available || auth.can("karaoke.sing") || auth.can("wishlist.add");
 
   return (
-    <Modal title={song.title} hideTitle bare onClose={onClose}>
-      <div className="song-hero">
-        <SongCover song={song} className="song-hero-cover" />
-        <h3 className="song-hero-title">{song.title}</h3>
-        <p className="song-hero-artist">{song.artist}</p>
-      </div>
+    <>
+      <Modal title={shown.title} hideTitle bare onClose={onClose}>
+        <div className="song-hero">
+          <SongCover song={shown} className="song-hero-cover" />
+          <h3 className="song-hero-title">{shown.title}</h3>
+          <p className="song-hero-artist">{shown.artist}</p>
+        </div>
 
-      {!noAudio && (
-        <audio
-          className="song-preview"
-          controls
-          preload="metadata"
-          src={`/api/v1/songs/${encodeURIComponent(song.id)}/audio`}
-          onError={() => setNoAudio(true)}
-        />
-      )}
+        {!noAudio && (
+          <audio
+            className="song-preview"
+            controls
+            preload="metadata"
+            src={`/api/v1/songs/${encodeURIComponent(song.id)}/audio`}
+            onError={() => setNoAudio(true)}
+          />
+        )}
 
-      {hasControls && (
-        <div className="song-details-controls">
-          {favorites.available && (
+        {hasControls && (
+          <div className="song-details-controls">
+            {favorites.available && (
+              <button
+                type="button"
+                className={
+                  favorite
+                    ? "song-control song-control-favorite song-control-favorite-on"
+                    : "song-control song-control-favorite"
+                }
+                aria-pressed={favorite}
+                aria-label={
+                  favorite ? "Remove from favorites" : "Add to favorites"
+                }
+                onClick={() => favorites.toggle(song.id)}
+              >
+                <Icon name="heart" />
+              </button>
+            )}
+            {auth.can("karaoke.sing") && (
+              <button
+                type="button"
+                className="song-control song-control-lead song-control-sing"
+                aria-label="Sing"
+                onClick={() => setSelectingPlayers(true)}
+              >
+                <Icon name="play" />
+              </button>
+            )}
+            {auth.can("wishlist.add") && (
+              <button
+                type="button"
+                className={
+                  wished
+                    ? "song-control song-control-wish song-control-wish-on"
+                    : "song-control song-control-wish"
+                }
+                aria-pressed={wished}
+                aria-label={wished ? "Remove wish" : "Wish"}
+                onClick={() => {
+                  setNotice(null);
+                  if (wished) wishlist.unwish(song.id);
+                  else wishlist.wish(song.id);
+                }}
+              >
+                <Icon name={wished ? "playlist-check" : "playlist-plus"} />
+              </button>
+            )}
+          </div>
+        )}
+
+        {(notice || wishlist.error !== null) && (
+          <p className="song-details-notice" role="alert">
+            {notice ??
+              errorMessage(
+                wishlist.error,
+                "Could not change your wish. Log in or ask the host for access.",
+              )}
+          </p>
+        )}
+
+        <div className="song-options">
+          <button
+            type="button"
+            className="song-option"
+            aria-expanded={detailsOpen}
+            onClick={() => setDetailsOpen(!detailsOpen)}
+          >
+            <Icon name="info" className="song-option-icon" />
+            <span className="song-option-label">Details</span>
+            {/* A glyph swap, not a rotation: every collapsed option row points
+                right, whether it expands inline or opens a sub-view, and
+                rotating `chevron-down` by 180° would point it up. */}
+            <Icon
+              name={detailsOpen ? "chevron-down" : "chevron-right"}
+              className="song-option-chevron"
+            />
+          </button>
+          {/* Always in the DOM: `hidden` keeps the metadata findable (search,
+              screen-reader "show all") without conditional rendering. */}
+          <ul className="song-details-list" hidden={!detailsOpen}>
+            {rows.map(({ icon, label, value }) => (
+              <li key={label} title={label}>
+                <Icon name={icon} />
+                <span>{value ?? "unknown"}</span>
+              </li>
+            ))}
+          </ul>
+
+          {/* Offered on the strength of the right alone, not of the listing: a
+              reader with no list yet is exactly who the "New playlist…" row
+              inside is for, and the listing has not been asked for at this
+              point anyway. */}
+          {canManagePlaylists && (
             <button
               type="button"
-              className={
-                favorite
-                  ? "song-control song-control-favorite song-control-favorite-on"
-                  : "song-control song-control-favorite"
-              }
-              aria-pressed={favorite}
-              aria-label={
-                favorite ? "Remove from favorites" : "Add to favorites"
-              }
-              onClick={() => favorites.toggle(song.id)}
+              className="song-option"
+              onClick={() => setView("playlists")}
             >
-              <Icon name="heart" />
+              <Icon name="list-plus" className="song-option-icon" />
+              <span className="song-option-label">Add to playlist</span>
+              <Icon name="chevron-right" className="song-option-chevron" />
             </button>
           )}
-          {auth.can("karaoke.sing") && (
+
+          {/* Between the playlist row and the delete (§5). Waits for `/auth/me`
+              for the same reason the row below it does: an editor offered to
+              somebody who turns out not to hold the right is a form that can
+              only end in a refusal. */}
+          {auth.loaded && auth.can("songs.edit") && (
             <button
               type="button"
-              className="song-control song-control-lead song-control-sing"
-              aria-label="Sing"
-              onClick={() => setSelectingPlayers(true)}
-            >
-              <Icon name="play" />
-            </button>
-          )}
-          {auth.can("wishlist.add") && (
-            <button
-              type="button"
-              className={
-                wished
-                  ? "song-control song-control-wish song-control-wish-on"
-                  : "song-control song-control-wish"
-              }
-              aria-pressed={wished}
-              aria-label={wished ? "Remove wish" : "Wish"}
+              className="song-option"
               onClick={() => {
                 setNotice(null);
-                if (wished) wishlist.unwish(song.id);
-                else wishlist.wish(song.id);
+                // Filled from what is on screen — which is what the backend is
+                // told the edit was based on when it is saved.
+                setForm(formOf(shown));
+                setView("edit");
               }}
             >
-              <Icon name={wished ? "playlist-check" : "playlist-plus"} />
+              <Icon name="pencil" className="song-option-icon" />
+              <span className="song-option-label">Edit details</span>
+              <Icon name="chevron-right" className="song-option-chevron" />
+            </button>
+          )}
+
+          {/* The last row, and an ordinary one: nothing here is red (§1.6). What
+              it costs is said in the confirmation, which is where it can be read
+              before anything happens. Waits for `/auth/me` rather than assuming
+              the right the way the rest of the modal does — a delete offered to
+              somebody who turns out not to hold it is the one wrong guess here. */}
+          {auth.loaded && auth.can("songs.delete") && (
+            <button
+              type="button"
+              className="song-option"
+              disabled={removeSong.isPending}
+              onClick={() => {
+                setNotice(null);
+                setConfirmingDelete(true);
+              }}
+            >
+              <Icon name="trash" className="song-option-icon" />
+              <span className="song-option-label">Delete song</span>
+              <Icon name="chevron-right" className="song-option-chevron" />
             </button>
           )}
         </div>
-      )}
 
-      {(notice || wishlist.error !== null) && (
-        <p className="song-details-notice" role="alert">
-          {notice ??
-            errorMessage(
-              wishlist.error,
-              "Could not change your wish. Log in or ask the host for access.",
-            )}
-        </p>
-      )}
-
-      <div className="song-options">
-        <button
-          type="button"
-          className="song-option"
-          aria-expanded={detailsOpen}
-          onClick={() => setDetailsOpen(!detailsOpen)}
-        >
-          <Icon name="info" className="song-option-icon" />
-          <span className="song-option-label">Details</span>
-          {/* A glyph swap, not a rotation: every collapsed option row points
-              right, whether it expands inline or opens a sub-view, and
-              rotating `chevron-down` by 180° would point it up. */}
-          <Icon
-            name={detailsOpen ? "chevron-down" : "chevron-right"}
-            className="song-option-chevron"
-          />
-        </button>
-        {/* Always in the DOM: `hidden` keeps the metadata findable (search,
-            screen-reader "show all") without conditional rendering. */}
-        <ul className="song-details-list" hidden={!detailsOpen}>
-          {rows.map(({ icon, label, value }) => (
-            <li key={label} title={label}>
-              <Icon name={icon} />
-              <span>{value ?? "unknown"}</span>
-            </li>
-          ))}
-        </ul>
-
-        {best.length > 0 && (
-          <button
-            type="button"
-            className="song-option"
-            onClick={() => setView("scores")}
-          >
-            <Icon
-              name="trophy"
-              className="song-option-icon song-option-trophy"
-            />
-            <span className="song-option-label">Best scores</span>
-            <span className="song-option-score">{best[0].score}</span>
-            <Icon name="chevron-right" className="song-option-chevron" />
-          </button>
-        )}
-
-        {/* Offered on the strength of the right alone, not of the listing: a
-            reader with no list yet is exactly who the "New playlist…" row
-            inside is for, and the listing has not been asked for at this
-            point anyway. */}
-        {canManagePlaylists && (
-          <button
-            type="button"
-            className="song-option"
-            onClick={() => setView("playlists")}
-          >
-            <Icon name="list-plus" className="song-option-icon" />
-            <span className="song-option-label">Add to playlist</span>
-            <Icon name="chevron-right" className="song-option-chevron" />
-          </button>
-        )}
-
-        {/* Absent when the reader may not view a single tag: a row leading into
-            an empty list is worse than no row (§5). It is the tags this reader
-            knows about that decide, not the ones on this song — putting the
-            first tag on a song is the point of the sub-view. */}
-        {tags.tags.length > 0 && (
-          <button
-            type="button"
-            className="song-option"
-            onClick={() => setView("tags")}
-          >
-            <Icon name="tag" className="song-option-icon" />
-            <span className="song-option-label">Tags</span>
-            {carried.length > 0 && (
-              <span className="song-option-tags">
-                {carried.length > TAG_GLYPHS
-                  ? `${carried.length} tags`
-                  : carried.map((tag) => (
-                      <Icon
-                        key={tag.id}
-                        name={tagGlyph(tag.icon)}
-                        className={tagColorClass(tag.color)}
-                      />
-                    ))}
-              </span>
-            )}
-            <Icon name="chevron-right" className="song-option-chevron" />
-          </button>
-        )}
-
-        {/* Last of the option rows (§5), and the one row nobody is kept out
-            of: reading what the room said about a song is part of looking at
-            it. Writing is what needs an account, and that is said inside. */}
-        <button
-          type="button"
-          className="song-option"
-          onClick={() => {
-            setNotice(null);
-            setView("comments");
-          }}
-        >
-          <Icon name="comment" className="song-option-icon" />
-          <span className="song-option-label">Comments</span>
-          {said.length > 0 && (
-            <span className="song-option-count">{said.length}</span>
+        {/* The summary strip closes the modal (§5): the three counted things as
+            a glyph over its number, each opening the sub-view it counts. The
+            rows above hold content and actions; these hold numbers. */}
+        <div className="song-summary">
+          {/* A trophy with nothing behind it would be a promise the song cannot
+              keep — unlike a tag or a comment, nobody can put the first score on
+              a song from here. Without `stats.history` the query never runs, so
+              the button is absent for the same reason the old row was. */}
+          {best.length > 0 && (
+            <button
+              type="button"
+              className="song-summary-stat song-summary-scores"
+              onClick={() => setView("scores")}
+            >
+              <IconStat
+                icon="trophy"
+                label="Best scores"
+                value={best[0].score}
+              />
+            </button>
           )}
-          <Icon name="chevron-right" className="song-option-chevron" />
-        </button>
-      </div>
-    </Modal>
+
+          {/* Absent only when the reader may neither see nor set a single tag: a
+              button leading into an empty list is worse than no button (§5). At
+              zero it stays — putting the first tag on a song is what it is for. */}
+          {tags.tags.length > 0 && (
+            <button
+              type="button"
+              className="song-summary-stat"
+              onClick={() => setView("tags")}
+            >
+              {/* The two listings answer separately, and the tags one first, so
+                  the count waits for both of them — exactly as the comments one
+                  below does. A zero drawn in between would say "no tags on this
+                  song" about a song whose assignments are still in flight, and
+                  a zero drawn after the assignments *failed* would say it about
+                  a song nobody could look up at all. */}
+              <IconStat
+                icon="tag"
+                label="Tags"
+                value={tags.isSuccess ? carried.length : UNKNOWN}
+              />
+            </button>
+          )}
+
+          {/* Nobody is kept out of this one: reading what the room said about a
+              song is part of looking at it, and being the first to say something
+              is exactly what a zero leads to. Writing needs an account, and that
+              is said inside. */}
+          <button
+            type="button"
+            className="song-summary-stat"
+            onClick={() => {
+              setNotice(null);
+              setView("comments");
+            }}
+          >
+            {/* Zero once the listing says so, and not a moment earlier: while it
+                is in flight — or after it failed, when `said` stays empty for
+                good — "0" would be a claim nobody checked. */}
+            <IconStat
+              icon="comment"
+              label="Comments"
+              value={comments.isSuccess ? said.length : UNKNOWN}
+            />
+          </button>
+        </div>
+      </Modal>
+      {confirmingDelete && (
+        <ConfirmModal
+          title="Delete song"
+          message={`“${shown.title}” by ${shown.artist} leaves the library and its folder is deleted from the disk. There is no undo.`}
+          confirmLabel="Delete"
+          danger
+          onConfirm={() => {
+            setConfirmingDelete(false);
+            removeSong.mutate({ path: { song_id: song.id } });
+          }}
+          onCancel={() => setConfirmingDelete(false)}
+        />
+      )}
+    </>
   );
 }

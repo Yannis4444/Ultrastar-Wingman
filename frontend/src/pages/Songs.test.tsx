@@ -206,7 +206,7 @@ test("the reload button sits next to the song count, not in the toolbar", async 
   // The toolbar is the search field, nothing else.
   const toolbar = screen
     .getByRole("searchbox", { name: "Search songs" })
-    .closest("div") as HTMLElement;
+    .closest(".songs-toolbar") as HTMLElement;
   expect(
     within(toolbar).queryByRole("button", { name: "Rescan" }),
   ).not.toBeInTheDocument();
@@ -278,6 +278,29 @@ test("the search box filters by title, artist and exact id", async () => {
   expect(
     screen.getByText('No song matches "nothing matches this".'),
   ).toBeInTheDocument();
+});
+
+test("the X clears the search and only stands while something is typed", async () => {
+  renderSongs([
+    song(),
+    song({ id: "local:abc", title: "Africa", artist: "Toto" }),
+  ]);
+  await screen.findByText("Dancing Queen");
+
+  // An X on an empty field would be a control that does nothing.
+  expect(screen.queryByRole("button", { name: "Clear search" })).toBeNull();
+
+  searchFor("toT");
+  expect(screen.queryByText("Dancing Queen")).not.toBeInTheDocument();
+
+  fireEvent.click(screen.getByRole("button", { name: "Clear search" }));
+  const box = screen.getByRole("searchbox", { name: "Search songs" });
+  expect(box).toHaveValue("");
+  // The whole library is back, and the caret stays where typing goes on.
+  expect(screen.getByText("Dancing Queen")).toBeInTheDocument();
+  expect(screen.getByText("Africa")).toBeInTheDocument();
+  expect(box).toHaveFocus();
+  expect(screen.queryByRole("button", { name: "Clear search" })).toBeNull();
 });
 
 test("an empty library says so instead of showing an empty list", async () => {
@@ -395,6 +418,39 @@ test("a finished scan refetches the song list", async () => {
   });
 
   expect(await screen.findByText("Waterloo")).toBeInTheDocument();
+});
+
+test("a song somebody deleted leaves the list", async () => {
+  renderSongs([song(), song({ id: "usdb:2", title: "Waterloo" })]);
+  await screen.findByText("Waterloo");
+
+  listSongs.mockResolvedValue({ data: { songs: [song()] } });
+  // What the backend broadcasts once a `songs.delete` holder removed one.
+  FakeSocket.deliver({ event: "songs.deleted", song_id: "usdb:2" });
+
+  await waitFor(() =>
+    expect(screen.queryByText("Waterloo")).not.toBeInTheDocument(),
+  );
+  expect(screen.getByText("Dancing Queen")).toBeInTheDocument();
+});
+
+test("a song somebody corrected shows its new title", async () => {
+  renderSongs([song(), song({ id: "usdb:2", title: "Watrloo" })]);
+  await screen.findByText("Watrloo");
+
+  listSongs.mockResolvedValue({
+    data: { songs: [song(), song({ id: "usdb:2", title: "Waterloo" })] },
+  });
+  // What the backend broadcasts once a `songs.edit` holder fixed the metadata.
+  // The row carries the title, the artist and every facet the filter reads, so
+  // the list is fetched again exactly as after a delete.
+  FakeSocket.deliver({
+    event: "songs.updated",
+    song: song({ id: "usdb:2", title: "Waterloo" }),
+  });
+
+  expect(await screen.findByText("Waterloo")).toBeInTheDocument();
+  expect(screen.queryByText("Watrloo")).not.toBeInTheDocument();
 });
 
 test("the privileged buttons are gone for a role without the capability", async () => {

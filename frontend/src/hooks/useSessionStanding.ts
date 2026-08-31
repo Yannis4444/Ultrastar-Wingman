@@ -62,7 +62,7 @@ export function useSessionStanding(order: LeaderboardOrder): SessionStanding {
     enabled: auth.loaded && auth.can("players.view"),
   });
 
-  useWingmanEvent("scores.recorded", () => {
+  const refresh = () => {
     // A finished song changes both which session is the newest and what it
     // holds; a stale standing next to fresh score bars is worse than none.
     void queryClient.invalidateQueries({ queryKey: listSessionsQueryKey() });
@@ -73,7 +73,12 @@ export function useSessionStanding(order: LeaderboardOrder): SessionStanding {
         }),
       });
     }
-  });
+  };
+
+  useWingmanEvent("scores.recorded", refresh);
+  // A moderator put a score on another singer, or took one off the record: the
+  // ranking on the TV is exactly what that correction was made for.
+  useWingmanEvent("scores.changed", refresh);
 
   const scores = sessionScores.data?.scores;
   const roster = playerList.data?.players;

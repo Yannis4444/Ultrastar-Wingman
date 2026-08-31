@@ -10,6 +10,7 @@ import {
   listUsersOptions,
   listUsersQueryKey,
   setPlayerAvatarMutation,
+  updatePlayerMutation,
   updateUserMutation,
 } from "../api/@tanstack/react-query.gen";
 import { useAuth } from "../auth";
@@ -140,6 +141,18 @@ export default function PeopleAdmin() {
     onSuccess: refreshPlayers,
   });
 
+  // Hiding is for the evening: it takes the player out of the singer picker and
+  // out of nothing else, and their next login clears it again.
+  const setHidden = useMutation({
+    ...updatePlayerMutation(),
+    onSuccess: () => {
+      setAccountError(null);
+      refreshPlayers();
+    },
+    onError: (cause) =>
+      setAccountError(errorMessage(cause, "Could not change that player.")),
+  });
+
   const setAvatar = useMutation({
     ...setPlayerAvatarMutation(),
     onSuccess: () => {
@@ -236,12 +249,36 @@ export default function PeopleAdmin() {
           ) : (
             <PlayerAvatar player={player} />
           )}
-          <span className="people-name">
+          <span
+            className={
+              player?.hidden ? "people-name people-name-hidden" : "people-name"
+            }
+          >
             {name}
             {account !== null && account.id === auth.user?.id && (
               <span className="people-you"> (you)</span>
             )}
           </span>
+          {/* Out of sight for the evening: gone from the singer picker and from
+              nothing else — the scores, the sessions and the statistics all keep
+              naming them, and logging in puts them back. */}
+          {player !== null && mayManagePlayers && (
+            <button
+              type="button"
+              className="icon-button"
+              aria-label={`Hide ${name} from player selection`}
+              aria-pressed={player.hidden}
+              disabled={setHidden.isPending}
+              onClick={() =>
+                setHidden.mutate({
+                  path: { player_id: player.id },
+                  body: { hidden: !player.hidden },
+                })
+              }
+            >
+              <Icon name={player.hidden ? "eye-off" : "eye"} />
+            </button>
+          )}
           {account !== null && mayManageUsers && (
             <span className="people-role-wrap">
               <select
@@ -324,6 +361,12 @@ export default function PeopleAdmin() {
           {/* The heading names its list, so which section a row stands in is
               read out and not only seen. */}
           <h2 id="people-accounts">Accounts</h2>
+          {/* The way out of a forgotten password, which has no reset flow: the
+              player row survives the account and is picked up again by name. */}
+          <p className="section-note">
+            A forgotten password is no disaster: delete the account and register
+            the same name again — the player keeps every score.
+          </p>
           {accounts.length > 0 ? (
             <ul className="people-list" aria-labelledby="people-accounts">
               {accounts.map(row)}
@@ -339,6 +382,13 @@ export default function PeopleAdmin() {
       {showGuests && (
         <>
           <h2 id="people-guests">Guests</h2>
+          {/* Registering that name links this very player row, scores and all —
+              `_attach_player` on the backend. Nobody has to be told to delete
+              the guest first, so the note says so. */}
+          <p className="section-note">
+            A guest is taken over by whoever registers that name — the scores
+            they sang tonight come along.
+          </p>
           {mayManagePlayers && <AddPlayerForm />}
           {guests.length > 0 ? (
             <ul className="people-list" aria-labelledby="people-guests">

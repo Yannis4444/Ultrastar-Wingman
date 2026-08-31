@@ -15,20 +15,13 @@
   font-size: 0.8em;
 }
 
+/* The box itself is `.text-input-quiet`'s; this column stretches it to the
+   width of the field, which is what every input on the page does now that
+   "Saved" and the reset sit on the label's line. */
 .video-quality-custom {
   display: flex;
   flex-direction: column;
   margin-top: 8px;
-}
-
-/* The box itself is `.text-input-quiet`'s. The column stretches it to the
-   width of the field; the margin holds back the same slot `.setting-row`
-   reserves for "Saved" (3.5em at 0.85em plus the 8px row gap), so this box
-   stops on the same right rail as every settings row above it. In `rem`, not
-   `em`: a margin in `em` would resolve against the quiet input's own smaller
-   font-size and land 5px short. */
-.video-quality-input {
-  margin-right: calc(3.5 * 0.85rem + 8px);
 }
 
 /* The value the presets write, spelled out: no preset hides what yt-dlp is
@@ -38,8 +31,4 @@
   color: var(--color-darker);
   font-size: 0.8em;
   overflow-wrap: anywhere;
-}
-
-.video-quality-reset {
-  margin-left: auto;
 }

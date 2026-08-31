@@ -83,6 +83,17 @@ Three things get in the way:
     The library is also scanned once every time Wingman starts, in the
     background.
 
+## Somebody is missing from the player selection
+
+They are hidden, or they are gone. The **eye** on their row under
+**User → Players & accounts** takes a player out of the selection for the
+evening and puts them back — see
+[Manage players and accounts](accounts-and-permissions.md#manage-players-and-accounts).
+Their name goes quiet in that list while it lasts, and logging in unhides them.
+With every player hidden the selection says so, rather than claiming there is
+nobody. If the row is not on that page at all, the player was deleted — add the
+name again, or let them register it.
+
 ## The USDB login fails
 
 The **USDB** page (**Songs → + → USDB**) says what went wrong:
@@ -114,8 +125,9 @@ Read the reason in the download row.
 - **A YouTube error** — the video is gone, private, or region-locked. Nothing
   Wingman can do; pick another version of the song.
 - **The song directory already exists** — that folder is already in your song
-  library. Wingman never writes over it. Delete the folder yourself if it is a
-  broken leftover, then retry; a rescan afterwards is a good idea either way.
+  library. Wingman never writes over it. If Wingman lists it as a song,
+  [delete the song](singing.md#delete-a-song); otherwise delete the folder
+  yourself. Then retry; a rescan afterwards is a good idea either way.
 - **Interrupted** — Wingman was restarted while the download ran. Press download
   again.
 

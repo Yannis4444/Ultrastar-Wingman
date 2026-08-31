@@ -159,6 +159,7 @@ function asPlayer(person: Person): PlayerRead {
     id: person.playerId ?? "",
     name: person.username ?? "?",
     registered: true,
+    hidden: false,
     has_avatar: person.playerId !== null && person.avatarVersion !== null,
     avatar_version: person.avatarVersion,
   };

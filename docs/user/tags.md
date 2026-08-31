@@ -88,9 +88,9 @@ rows fill with icons.
 
 **Hide songs by default** keeps those songs out of the song list and out of the
 random reel's *All songs* until somebody asks for them in the filter — a wished
-song can still win the reel. It is a default, not a lock: everybody who may see
-the tag can still bring the songs back. To really hide songs from somebody,
-take *See songs* away from them instead.
+or hearted song can still win the reel. It is a default, not a lock: everybody
+who may see the tag can still bring the songs back. To really hide songs from
+somebody, take *See songs* away from them instead.
 
 ## Change or delete a tag
 
@@ -170,10 +170,10 @@ about it to colour.
 ## Putting a tag on a song
 
 Tags are set up here and used on the song itself. Open a song — from **Songs**,
-from a playlist, from the random reel — and tap its **Tags** row, under *Add to
-playlist*. The row shows the icons of the tags the song already wears, so you
-can see how it is marked without opening anything; past three of them it says
-how many there are instead.
+from a playlist, from the random reel — and tap the **tag** icon at the bottom
+of it, next to the speech bubble. The number under it is how many tags the song
+already wears, **0** included: a song with no tag on it yet is exactly the one
+you came to tag.
 
 Inside, every tag you may see is one row:
 
@@ -184,7 +184,7 @@ Inside, every tag you may see is one row:
 - A tag you may only **see** carries a padlock and does nothing. Somebody
   holding *Tag songs* on it has to make that change.
 
-If you may not see a single tag, the row is not there at all. If none of the
+If you may not see a single tag, the icon is not there at all. If none of the
 tags is yours to set and none is on the song, the list is replaced by one
 sentence — a screen full of padlocks would say the same thing more slowly.
 

@@ -1,19 +1,23 @@
-"""Statistics endpoints. Read-only apart from naming a session.
+"""Statistics endpoints. Read-only apart from naming a session and the two corrections
+`stats.moderate` may make to a recorded score.
 
-There are no statistics events: the frontend already listens to `scores.recorded` and
-`karaoke.ended` and refreshes from these routes when one arrives.
+The read routes fire no events: the frontend already listens to `scores.recorded` and
+`karaoke.ended` and refreshes from these routes when one arrives. The two moderation routes
+broadcast `scores.changed` (see `events.py`), because nothing else tells the other screens
+in the room that a score just moved.
 """
 
 import logging
-from typing import Any
+from typing import Annotated, Any
 
 from fastapi import APIRouter, Depends, HTTPException, Query
 from pydantic import BaseModel
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from ..auth.deps import HiddenSongsDep, PrincipalDep, missing_permission, require
+from ..auth.deps import HiddenSongsDep, Principal, PrincipalDep, missing_permission, require
 from ..db import SessionDep
-from ..karaoke.model import KaraokeSession
+from ..karaoke.model import KaraokeSession, Score
+from ..karaoke.schema import ScoreRead
 from ..players import service as players
 from ..players.model import Player
 from ..songs.api import song_or_404
@@ -25,6 +29,7 @@ logger = logging.getLogger(__name__)
 router = APIRouter(tags=["stats"])
 
 UNKNOWN_SESSION: dict[int | str, dict[str, Any]] = {404: {"description": "Unknown session."}}
+UNKNOWN_SCORE: dict[int | str, dict[str, Any]] = {404: {"description": "Unknown score."}}
 
 
 class SessionUpdate(BaseModel):
@@ -33,22 +38,66 @@ class SessionUpdate(BaseModel):
     name: str | None
 
 
+class ScoreUpdate(BaseModel):
+    """Who really sang it. Neither the number nor the song is editable: USDX awarded that
+    score for that song, and the only thing Wingman can get wrong is which player was on the
+    microphone."""
+
+    player_id: str
+
+
+async def visible_session_ids(session: SessionDep, principal: PrincipalDep) -> frozenset[str]:
+    """The parties this caller may open — `None` in spirit for a `stats.history` holder,
+    who may open every one; see `may_see_every_session` below.
+
+    Three ways in, in order of how much they say about the caller:
+
+    * the party that is still going is `stats.view`, which even an anonymous phone holds —
+      tonight's scoreboard is what the Scores page is opened for at a party;
+    * a party the caller sang in themselves, which is identity rather than a capability:
+      the same reasoning as "your own scores" on the user page. The link is a score row
+      carrying their player id (`service.sessions_of_player`), so it needs an account that
+      is linked to a player — a guest phone has no identity at all and gets tonight alone;
+    * every party ever, which is `stats.history`.
+    """
+    ids: set[str] = set()
+    current = await service.current_session(session)
+    if current is not None:
+        ids.add(current.id)
+    player_id = (
+        None
+        if principal.user is None
+        else await players.player_id_of_user(session, principal.user.id)
+    )
+    if player_id is not None:
+        ids |= await service.sessions_of_player(session, player_id)
+    return frozenset(ids)
+
+
+VisibleSessionsDep = Annotated[frozenset[str], Depends(visible_session_ids)]
+
+
+def may_see_every_session(principal: Principal) -> bool:
+    return "stats.history" in principal.capabilities
+
+
 @router.get(
     "/stats/sessions", response_model=SessionList, dependencies=[Depends(require("stats.view"))]
 )
-async def list_sessions(session: SessionDep, principal: PrincipalDep) -> SessionList:
-    """Every recorded party, newest first — or only the one still going, for a caller
-    without `stats.history`.
+async def list_sessions(
+    session: SessionDep, principal: PrincipalDep, visible: VisibleSessionsDep
+) -> SessionList:
+    """Every recorded party, newest first — or, without `stats.history`, the one still going
+    plus the ones this caller sang in.
 
     A short list rather than a 403: tonight's scoreboard is what a guest phone opens the
-    Scores page for, and the page keeps working with a session picker of one.
+    Scores page for, and the page keeps working with a session picker of one. The list holds
+    exactly the parties the caller may open, so it never names one only to say no to it.
     """
-    if "stats.history" in principal.capabilities:
-        return SessionList(sessions=await service.sessions(session))
-    current = await service.current_session(session)
-    return SessionList(
-        sessions=[] if current is None else [await service.read_session(session, current)]
-    )
+    rows = await service.sessions(session)
+    if may_see_every_session(principal):
+        return SessionList(sessions=rows)
+    return SessionList(sessions=[row for row in rows if row.id in visible])
 
 
 @router.get(
@@ -90,24 +139,89 @@ async def rename_session(session_id: str, body: SessionUpdate, session: SessionD
     )
 
 
-async def current_session_or_history_right(
-    session_id: str, session: SessionDep, principal: PrincipalDep
+async def readable_session(
+    session_id: str, principal: PrincipalDep, visible: VisibleSessionsDep
 ) -> None:
-    """The party that is still going is `stats.view`; every one before it is
-    `stats.history`. Checked before the session is looked up, so which parties were ever
-    recorded stays out of reach as well."""
-    if "stats.history" in principal.capabilities:
-        return
-    current = await service.current_session(session)
-    if current is None or current.id != session_id:
+    """A party the caller may open: the one still going, one they sang in themselves, or —
+    with `stats.history` — any of them. Checked before the session is looked up, so which
+    parties were ever recorded stays out of reach as well."""
+    if not may_see_every_session(principal) and session_id not in visible:
         raise missing_permission("stats.history")
+
+
+@router.get(
+    "/stats/scores",
+    response_model=ScoreList,
+    dependencies=[Depends(require("stats.view"))],
+)
+async def list_all_scores(
+    session: SessionDep, principal: PrincipalDep, visible: VisibleSessionsDep
+) -> ScoreList:
+    """Every score of every party this caller may open, newest first — the session picker's
+    head row ("All sessions", or "All my scores" for a reader without `stats.history`).
+
+    Its own route rather than a reserved session id: it pairs with the two `/stats/scores/…`
+    corrections below, and a route that answers "every party at once" is not a party — it
+    has no name, no date and nothing to rename.
+
+    What it holds is exactly the parties above it added up: a sing that belongs to no party
+    (`sings.session_id` is NULL, which only rows older than migration 0008 are) is in no
+    session listing and is left out here too, or the head row would not agree with the
+    sessions it claims to sum.
+
+    Not filtered by `HiddenSongsDep`, deliberately and like every other score list: a score
+    belongs to its singer, and dropping rows per reader would make two people at the same
+    party disagree about the same scoreboard (`test_tags_api.test_the_leaks_we_accept`).
+    """
+    return ScoreList(
+        scores=await service.all_scores(
+            session, None if may_see_every_session(principal) else visible
+        )
+    )
+
+
+@router.patch(
+    "/stats/scores/{score_id}",
+    response_model=ScoreRead,
+    dependencies=[Depends(require("stats.moderate"))],
+    responses={404: {"description": "Unknown score or player."}},
+)
+async def reassign_score(score_id: int, body: ScoreUpdate, session: SessionDep) -> ScoreRead:
+    """Put a score on the singer it belongs to — the fix for a wrongly picked player.
+
+    The sing, its session and the number itself are untouched. Nothing stops two scores of
+    the same sing from ending up on one player: swapping the two singers of a duet goes
+    through that state on its way, and a rule against it would block the very correction
+    this route exists for.
+    """
+    score = await _score_or_404(score_id, session)
+    player = await session.get(Player, body.player_id)
+    if player is None:
+        raise HTTPException(status_code=404, detail=f"unknown player '{body.player_id}'")
+    return await service.reassign_score(session, score, player)
+
+
+@router.delete(
+    "/stats/scores/{score_id}",
+    status_code=204,
+    dependencies=[Depends(require("stats.moderate"))],
+    responses=UNKNOWN_SCORE,
+)
+async def delete_score(score_id: int, session: SessionDep) -> None:
+    """Take one score off the record. The sing it belonged to stays, even when it was the
+    last score on it — the song *was* played, and that is what the Recent tab and a party's
+    `sing_count` are counted from."""
+    await service.delete_score(session, await _score_or_404(score_id, session))
 
 
 @router.get(
     "/stats/sessions/{session_id}/scores",
     response_model=ScoreList,
-    dependencies=[Depends(require("stats.view")), Depends(current_session_or_history_right)],
-    responses={**UNKNOWN_SESSION, 403: {"description": "An older party, without history."}},
+    dependencies=[Depends(require("stats.view")), Depends(readable_session)],
+    responses={
+        **UNKNOWN_SESSION,
+        403: {"description": "A party this caller was not at, without history."},
+    },
 )
 async def list_session_scores(session_id: str, session: SessionDep) -> ScoreList:
     """What was scored during one session, newest first."""
@@ -175,3 +289,10 @@ async def _session_or_404(session_id: str, session: AsyncSession) -> KaraokeSess
     if karaoke_session is None:
         raise HTTPException(status_code=404, detail=f"unknown session '{session_id}'")
     return karaoke_session
+
+
+async def _score_or_404(score_id: int, session: AsyncSession) -> Score:
+    score = await session.get(Score, score_id)
+    if score is None:
+        raise HTTPException(status_code=404, detail=f"unknown score '{score_id}'")
+    return score

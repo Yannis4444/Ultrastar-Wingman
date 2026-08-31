@@ -6,12 +6,14 @@ import { meResponse, userRead } from "../test/auth";
 import { FakeSocket } from "../test/fakeSocket";
 import PlaylistSpinner from "./PlaylistSpinner";
 
-const { getMe, getPlaylist, listSongs, listWishlist } = vi.hoisted(() => ({
-  getMe: vi.fn(),
-  getPlaylist: vi.fn(),
-  listSongs: vi.fn(),
-  listWishlist: vi.fn(),
-}));
+const { getMe, getPlaylist, listSongs, listWishlist, listFavorites } =
+  vi.hoisted(() => ({
+    getMe: vi.fn(),
+    getPlaylist: vi.fn(),
+    listSongs: vi.fn(),
+    listWishlist: vi.fn(),
+    listFavorites: vi.fn(),
+  }));
 
 vi.mock("../api/sdk.gen", async (importOriginal) => ({
   ...(await importOriginal<typeof import("../api/sdk.gen")>()),
@@ -19,6 +21,7 @@ vi.mock("../api/sdk.gen", async (importOriginal) => ({
   getPlaylist,
   listSongs,
   listWishlist,
+  listFavorites,
 }));
 
 const LIBRARY = ["songs.view", "playlists.view", "wishlist.view"];
@@ -99,6 +102,7 @@ beforeEach(() => {
   vi.stubGlobal("WebSocket", FakeSocket);
   listSongs.mockResolvedValue({ data: { songs: [] } });
   listWishlist.mockResolvedValue({ data: { wishes: [] } });
+  listFavorites.mockResolvedValue({ data: { song_ids: [] } });
 });
 
 afterEach(() => vi.unstubAllGlobals());
@@ -121,10 +125,13 @@ test("the playlist is the scope, so no scope is offered", async () => {
   renderPage();
 
   await screen.findByRole("button", { name: "Spin" });
-  expect(screen.queryByLabelText("All songs")).not.toBeInTheDocument();
-  expect(screen.queryByLabelText("Wishlist")).not.toBeInTheDocument();
-  // The songs came with the playlist — the library is never asked for.
+  expect(
+    screen.queryByRole("combobox", { name: "Pick from" }),
+  ).not.toBeInTheDocument();
+  // The songs came with the playlist — neither the library nor the favorites
+  // are asked for.
   expect(listSongs).not.toHaveBeenCalled();
+  expect(listFavorites).not.toHaveBeenCalled();
 });
 
 test("a deleted playlist points back at the list", async () => {

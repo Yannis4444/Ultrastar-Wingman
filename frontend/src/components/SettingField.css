@@ -6,58 +6,31 @@
   border-bottom: 1px solid var(--input-border-color);
 }
 
-/* One line per setting: label, control, icon button. Rows that hold no input —
-   a toggle, an action — keep everything on that one line. */
+/* The label's line: the name of the setting, then "Saved" and the controls
+   that belong to the setting as a whole — a reset, and the checkbox of a
+   `bool`, which has no second line to stand on. */
 .setting-row {
   display: flex;
   align-items: center;
   gap: 8px;
 }
 
+/* The line is the label's, so it wraps rather than truncating. */
 .setting-label {
-  flex: 0 1 auto;
+  flex: 1 1 auto;
   min-width: 0;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
+  overflow-wrap: anywhere;
   cursor: pointer;
 }
 
-/* Labels differ far more in length than the values do, so a shared line gave
-   every box a different width. The label takes the first line alone and the
-   input the second, which makes every input on the page the same width. */
-.setting-row-stacked {
-  flex-wrap: wrap;
-  row-gap: 4px;
-}
-
-/* Full width is the wrap: what follows the label is pushed to the next line.
-   With the whole line to itself the label wraps rather than truncating. */
-.setting-row-stacked > .setting-label {
-  flex: 1 1 100%;
-  overflow: visible;
-  white-space: normal;
-}
-
-/* The acknowledgement sits at the right end of every settings row; a spacer of
-   its width holds that end while there is nothing to acknowledge, so nothing
-   resizes or jumps the moment "Saved" appears. Because every row reserves it,
-   inputs, toggles and buttons all stop on the same right rail. */
-.setting-row::after {
-  content: "";
-  /* The slot it holds is `.setting-saved`'s: same font-size, same 3.5em. */
-  font-size: 0.85em;
-  flex: 0 0 3.5em;
-}
-
-.setting-row:has(.setting-saved)::after {
-  display: none;
-}
-
-/* A three-row box makes a tall line: the button belongs at its top edge
-   instead of floating halfway down it. */
-.setting-row-stacked:has(.setting-textarea) {
-  align-items: flex-start;
+/* The input's line. Labels differ far more in length than the values do, so a
+   shared line gave every box a different width; with the line to itself every
+   input on the page is one width. */
+.setting-control {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-top: 4px;
 }
 
 .setting-input {
@@ -73,16 +46,17 @@
 }
 
 /* The 20px box plus its vertical margin makes a 40px-tall slot; the row's
-   `htmlFor` label is the second, much larger target. No right margin: the box
-   ends on the same rail as the inputs above and below it. */
+   `htmlFor` label is the second, much larger target. No `margin-left: auto`:
+   the label grows, so the box already ends the line. */
 .setting-toggle {
   width: 20px;
   height: 20px;
-  margin: 10px 0 10px auto;
+  margin: 10px 0;
   accent-color: var(--highlight-blue-light);
 }
 
-/* Fixed width, so the acknowledgement never re-flows the row. */
+/* Fixed width, so the acknowledgement never re-flows the row — the empty slot
+   `SettingSaved` leaves behind holds exactly the same box. */
 .setting-saved {
   flex: 0 0 auto;
   width: 3.5em;

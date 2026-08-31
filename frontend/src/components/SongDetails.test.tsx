@@ -30,6 +30,8 @@ const {
   listSongComments,
   addSongComment,
   deleteSongComment,
+  deleteSong,
+  editSong,
 } = vi.hoisted(() => ({
   getMe: vi.fn(),
   listSongScores: vi.fn(),
@@ -47,6 +49,8 @@ const {
   listSongComments: vi.fn(),
   addSongComment: vi.fn(),
   deleteSongComment: vi.fn(),
+  deleteSong: vi.fn(),
+  editSong: vi.fn(),
 }));
 
 vi.mock("../api/sdk.gen", async (importOriginal) => ({
@@ -67,6 +71,8 @@ vi.mock("../api/sdk.gen", async (importOriginal) => ({
   listSongComments,
   addSongComment,
   deleteSongComment,
+  deleteSong,
+  editSong,
 }));
 
 const song: SongRead = {
@@ -120,13 +126,13 @@ const history = [
   score(1, "Alice", 9500),
 ];
 
-function renderDetails() {
+function renderDetails(onClose: () => void = () => {}) {
   const client = new QueryClient({
     defaultOptions: { queries: { retry: false } },
   });
   return render(
     <QueryClientProvider client={client}>
-      <SongDetails song={song} onClose={() => {}} />
+      <SongDetails song={song} onClose={onClose} />
     </QueryClientProvider>,
   );
 }
@@ -166,16 +172,23 @@ beforeEach(() => {
   listPlayers.mockResolvedValue({ data: { players: [] } });
   for (const mock of [listSongComments, addSongComment, deleteSongComment])
     mock.mockReset();
+  deleteSong.mockReset();
+  deleteSong.mockResolvedValue({ data: undefined });
+  editSong.mockReset();
+  editSong.mockResolvedValue({ data: song });
   // The count query runs as the modal opens, so every test needs an answer.
   listSongComments.mockResolvedValue({ data: { comments: [] } });
   deleteSongComment.mockResolvedValue({ data: undefined });
 });
 
-test("the best-scores row carries the top score and opens the ranked view", async () => {
+test("the strip's trophy carries the top score and opens the ranked view", async () => {
   renderDetails();
 
   const row = await screen.findByRole("button", { name: /Best scores/ });
   expect(row).toHaveTextContent("9500");
+  // A glyph over its number, and no chevron: the strip is not a row (§5).
+  expect(iconNames(row)).toEqual(["trophy"]);
+  expect(row.closest(".song-summary")).not.toBeNull();
 
   fireEvent.click(row);
   const dialog = screen.getByRole("dialog", { name: "Best scores" });
@@ -270,7 +283,7 @@ test("without players.view the ranking still draws initials", async () => {
   ).toEqual(["A", "B", "C", "D", "E", "F"]);
 });
 
-test("a song nobody has sung shows no scores section", async () => {
+test("a song nobody has sung carries no trophy", async () => {
   listSongScores.mockResolvedValue({ data: { scores: [] } });
   renderDetails();
 
@@ -302,6 +315,37 @@ test("the details section starts collapsed and toggles open", async () => {
 
   fireEvent.click(toggle);
   expect(toggle).toHaveAttribute("aria-expanded", "false");
+});
+
+test("the rows hold the content and the actions, the strip the numbers", async () => {
+  withPlaylist(false);
+  // Everything the modal can offer at once, so the order is the whole order.
+  getMe.mockResolvedValue(
+    meResponse(["songs.view", "playlists.manage", "stats.history"], {
+      user: userRead(),
+      role: "user",
+    }),
+  );
+  withTags([BROKEN], ["t-broken"]);
+  listSongComments.mockResolvedValue({
+    data: { comments: [comment(1, "Bob", "Banger.")] },
+  });
+  renderDetails();
+
+  // Details first, Add to playlist second — the order §5 prescribes, with the
+  // places after it reserved for Edit details and Delete song.
+  await screen.findByRole("button", { name: "Add to playlist" });
+  expect(
+    [...document.querySelectorAll(".song-option .song-option-label")].map(
+      (label) => label.textContent,
+    ),
+  ).toEqual(["Details", "Add to playlist"]);
+
+  // Everything with a number to show sits in the strip instead, in one order.
+  const strip = document.querySelector(".song-summary") as HTMLElement;
+  await waitFor(() =>
+    expect(iconNames(strip)).toEqual(["trophy", "tag", "comment"]),
+  );
 });
 
 test("the collapsed details row points right and only turns down when open", async () => {
@@ -593,7 +637,7 @@ test("the language row wears the flag, the glyph the Language facet wears", asyn
   expect(iconNames(screen.getByTitle("Language"))).toEqual(["flag"]);
 });
 
-test("there is no tags row when the reader may not view a single tag", async () => {
+test("there is no tag button when the reader may not view a single tag", async () => {
   renderDetails();
 
   await screen.findByRole("button", { name: "Details" });
@@ -602,33 +646,80 @@ test("there is no tags row when the reader may not view a single tag", async () 
   ).not.toBeInTheDocument();
 });
 
-test("the tags row draws the song's tags and opens the sub-view", async () => {
-  withTags([BROKEN, ARCHIVE], ["t-broken"]);
-  renderDetails();
-
-  const row = await screen.findByRole("button", { name: /Tags/ });
-  // The feature's glyph, then the one tag this song wears, then the chevron.
-  expect(iconNames(row)).toEqual(["tag", "alert", "chevron-right"]);
-
-  fireEvent.click(row);
-  const dialog = screen.getByRole("dialog", { name: "Tags" });
-  expect(within(dialog).getByText("broken")).toBeInTheDocument();
-  expect(within(dialog).getByText("archive")).toBeInTheDocument();
-});
-
-test("past three tags the row counts them instead", async () => {
+test("the strip counts the song's tags and opens the sub-view", async () => {
   const many = [1, 2, 3, 4].map((n) =>
     tagRead({ id: `t${n}`, name: `tag ${n}`, icon: "music" }),
   );
-  withTags(
-    many,
-    many.map((tag) => tag.id),
-  );
+  withTags([...many, ARCHIVE], [...many.map((tag) => tag.id), "t-archive"]);
   renderDetails();
 
-  const row = await screen.findByRole("button", { name: /Tags/ });
-  expect(row).toHaveTextContent("4 tags");
-  expect(iconNames(row)).toEqual(["tag", "chevron-right"]);
+  const button = await screen.findByRole("button", { name: /Tags/ });
+  // The feature's glyph and how many the song wears — never the tags' own
+  // glyphs, which stopped being recognisable past three of them.
+  await waitFor(() => expect(button).toHaveTextContent("5"));
+  expect(iconNames(button)).toEqual(["tag"]);
+
+  fireEvent.click(button);
+  const dialog = screen.getByRole("dialog", { name: "Tags" });
+  expect(within(dialog).getByText("tag 1")).toBeInTheDocument();
+  expect(within(dialog).getByText("archive")).toBeInTheDocument();
+});
+
+test("a song wearing no tag still gets the button, standing at zero", async () => {
+  withTags([BROKEN]);
+  renderDetails();
+
+  // Putting the first tag on a song is exactly what the button leads to (§5).
+  const button = await screen.findByRole("button", { name: /Tags/ });
+  await waitFor(() => expect(button).toHaveTextContent("0"));
+
+  fireEvent.click(button);
+  expect(
+    within(screen.getByRole("dialog", { name: "Tags" })).getByText("broken"),
+  ).toBeInTheDocument();
+});
+
+test("a tag count still in flight is a dash, never a zero", async () => {
+  listTags.mockResolvedValue({ data: { tags: [BROKEN] } });
+  // The two listings answer separately; this is the window between them.
+  listTagAssignments.mockReturnValue(new Promise(() => {}));
+  renderDetails();
+
+  const button = await screen.findByRole("button", { name: /Tags/ });
+  expect(button).toHaveTextContent("—");
+  expect(button).not.toHaveTextContent("0");
+});
+
+test("a tag count nobody could fetch is a dash too, never a zero", async () => {
+  listTags.mockResolvedValue({ data: { tags: [BROKEN] } });
+  // The tags themselves arrived, so the button is there; what is *on* this
+  // song is what nobody could look up, and "0" would answer for it anyway.
+  listTagAssignments.mockRejectedValue({ detail: "boom" });
+  renderDetails();
+
+  const button = await screen.findByRole("button", { name: /Tags/ });
+  await waitFor(() => expect(button).toHaveTextContent("—"));
+  expect(button).not.toHaveTextContent("0");
+});
+
+test("a tag set from the sub-view moves the strip's count", async () => {
+  withTags([BROKEN]);
+  renderDetails();
+
+  const button = await screen.findByRole("button", { name: /Tags/ });
+  await waitFor(() => expect(button).toHaveTextContent("0"));
+
+  fireEvent.click(button);
+  // The refetched assignments are what the count is read off, so the listing
+  // answers with the tag on before the row is pressed.
+  withTags([BROKEN], ["t-broken"]);
+  fireEvent.click(screen.getByRole("button", { name: /broken/ }));
+  await waitFor(() => expect(assignTag).toHaveBeenCalled());
+
+  fireEvent.click(screen.getByRole("button", { name: "Close" }));
+  await waitFor(() =>
+    expect(screen.getByRole("button", { name: /Tags/ })).toHaveTextContent("1"),
+  );
 });
 
 test("a tag the reader may set toggles on and off", async () => {
@@ -765,7 +856,7 @@ async function openComments(): Promise<HTMLElement> {
   return screen.getByRole("dialog", { name: "Comments" });
 }
 
-test("the comments row counts what was said and opens the sub-view", async () => {
+test("the strip counts what was said and opens the sub-view", async () => {
   listSongComments.mockResolvedValue({
     data: {
       comments: [comment(1, "Bob", "Banger."), comment(2, "Cara", "No")],
@@ -775,7 +866,7 @@ test("the comments row counts what was said and opens the sub-view", async () =>
 
   const row = await screen.findByRole("button", { name: /Comments/ });
   await waitFor(() => expect(row).toHaveTextContent("2"));
-  expect(iconNames(row)).toEqual(["comment", "chevron-right"]);
+  expect(iconNames(row)).toEqual(["comment"]);
   expect(listSongComments.mock.calls[0][0]).toMatchObject({
     path: { song_id: "usdb:1" },
   });
@@ -784,17 +875,70 @@ test("the comments row counts what was said and opens the sub-view", async () =>
   expect(screen.getByRole("dialog", { name: "Comments" })).toBeInTheDocument();
 });
 
-test("a song nobody has commented on still has the row, without a count", async () => {
+test("a song nobody has commented on stands at zero, not without a number", async () => {
   renderDetails();
 
   const row = await screen.findByRole("button", { name: /Comments/ });
-  await waitFor(() => expect(listSongComments).toHaveBeenCalled());
-  expect(row.querySelector(".song-option-count")).toBeNull();
+  // Being the first to say something is what the zero leads to (§5).
+  await waitFor(() => expect(row).toHaveTextContent("0"));
 
   fireEvent.click(row);
   expect(
     await screen.findByText("Nobody has said anything about this song yet."),
   ).toBeInTheDocument();
+});
+
+test("a comment count nobody has yet is a dash, never a zero", async () => {
+  // Never answers: the state the strip is in for as long as the request runs.
+  listSongComments.mockReturnValue(new Promise(() => {}));
+  renderDetails();
+
+  const button = await screen.findByRole("button", { name: /Comments/ });
+  await waitFor(() => expect(listSongComments).toHaveBeenCalled());
+  expect(button).toHaveTextContent("—");
+  expect(button).not.toHaveTextContent("0");
+});
+
+test("a comment listing that failed stays a dash rather than settling on zero", async () => {
+  listSongComments.mockRejectedValue({ detail: "nope" });
+  renderDetails();
+
+  const button = await screen.findByRole("button", { name: /Comments/ });
+  await waitFor(() => expect(listSongComments).toHaveBeenCalled());
+  // "0 comments" about a list that never arrived is a claim nobody checked.
+  expect(button).toHaveTextContent("—");
+  expect(button).not.toHaveTextContent("0");
+});
+
+test("a comment posted from the sub-view moves the strip's count", async () => {
+  asAccount(["comments.write"]);
+  addSongComment.mockResolvedValue({ data: {} });
+  renderDetails();
+
+  const button = await screen.findByRole("button", { name: /Comments/ });
+  await waitFor(() => expect(button).toHaveTextContent("0"));
+
+  const dialog = await openComments();
+  fireEvent.change(
+    within(dialog).getByRole("textbox", {
+      name: "Say something about this song",
+    }),
+    { target: { value: "Banger" } },
+  );
+  // What the refetch after the post finds.
+  listSongComments.mockResolvedValue({
+    data: { comments: [comment(1, "Alice", "Banger", { mine: true })] },
+  });
+  fireEvent.click(within(dialog).getByRole("button", { name: "Send" }));
+  await waitFor(() => expect(addSongComment).toHaveBeenCalled());
+
+  // Back on the song, the strip counts what was just said.
+  fireEvent.click(within(dialog).getByRole("button", { name: "Close" }));
+  await waitFor(() =>
+    expect(screen.getByRole("button", { name: /Comments/ })).toHaveTextContent(
+      "1",
+    ),
+  );
 });
 
 test("a listing that will not load says so rather than reading as empty", async () => {
@@ -1123,4 +1267,271 @@ test("somebody else commenting refetches this song's list, and only this song's"
     count: 1,
   });
   await waitFor(() => expect(listSongComments).toHaveBeenCalledTimes(2));
+});
+
+test("no Delete song row without the right", async () => {
+  renderDetails();
+
+  // The trophy waits for `/auth/me`, so by the time it is here the row has had
+  // its answer too — and the answer is no.
+  await screen.findByRole("button", { name: /Best scores/ });
+  expect(
+    screen.queryByRole("button", { name: "Delete song" }),
+  ).not.toBeInTheDocument();
+});
+
+test("Delete song is the last row and looks like every other one", async () => {
+  asAccount(["songs.delete"]);
+  renderDetails();
+
+  const row = await screen.findByRole("button", { name: "Delete song" });
+  // A row, not a red button: the weight is in the confirmation (§1.6, §5).
+  expect(row.className).toBe("song-option");
+  expect(iconNames(row)).toEqual(["trash", "chevron-right"]);
+  const rows = Array.from(
+    row.closest(".song-options")?.querySelectorAll(".song-option") ?? [],
+  );
+  expect(rows[rows.length - 1]).toBe(row);
+});
+
+test("deleting asks first, names the song and says the files go", async () => {
+  asAccount(["songs.delete"]);
+  const onClose = vi.fn();
+  renderDetails(onClose);
+
+  fireEvent.click(await screen.findByRole("button", { name: "Delete song" }));
+  const confirm = screen.getByRole("dialog", { name: "Delete song" });
+  expect(confirm).toHaveTextContent("Bohemian Rhapsody");
+  expect(confirm).toHaveTextContent("Queen");
+  expect(confirm).toHaveTextContent(/folder is deleted from the disk/);
+  // Nothing has happened yet — the question is the whole point of the dialog.
+  expect(deleteSong).not.toHaveBeenCalled();
+
+  fireEvent.click(within(confirm).getByRole("button", { name: "Delete" }));
+
+  await waitFor(() =>
+    expect(deleteSong).toHaveBeenCalledWith(
+      expect.objectContaining({ path: { song_id: "usdb:1" } }),
+    ),
+  );
+  // The song it was about is gone, so the modal closes behind it.
+  await waitFor(() => expect(onClose).toHaveBeenCalled());
+});
+
+test("backing out of the confirmation leaves the song alone", async () => {
+  asAccount(["songs.delete"]);
+  const onClose = vi.fn();
+  renderDetails(onClose);
+
+  fireEvent.click(await screen.findByRole("button", { name: "Delete song" }));
+  fireEvent.click(
+    within(screen.getByRole("dialog", { name: "Delete song" })).getByRole(
+      "button",
+      { name: "Cancel" },
+    ),
+  );
+
+  expect(deleteSong).not.toHaveBeenCalled();
+  expect(onClose).not.toHaveBeenCalled();
+  expect(
+    screen.getByRole("dialog", { name: "Bohemian Rhapsody" }),
+  ).toBeInTheDocument();
+});
+
+test("a song that is playing cannot be deleted, and the modal says why", async () => {
+  asAccount(["songs.delete"]);
+  deleteSong.mockRejectedValue({ detail: "song_is_playing" });
+  const onClose = vi.fn();
+  renderDetails(onClose);
+
+  fireEvent.click(await screen.findByRole("button", { name: "Delete song" }));
+  fireEvent.click(
+    within(screen.getByRole("dialog", { name: "Delete song" })).getByRole(
+      "button",
+      { name: "Delete" },
+    ),
+  );
+
+  expect(await screen.findByRole("alert")).toHaveTextContent(
+    "That song is playing right now. Stop it first.",
+  );
+  // The song is still there, so the modal stays open on it.
+  expect(onClose).not.toHaveBeenCalled();
+});
+
+test("no Edit details row without the right", async () => {
+  renderDetails();
+
+  // The trophy waits for `/auth/me`, so by the time it is here the row has had
+  // its answer too — and the answer is no.
+  await screen.findByRole("button", { name: /Best scores/ });
+  expect(
+    screen.queryByRole("button", { name: "Edit details" }),
+  ).not.toBeInTheDocument();
+});
+
+test("Edit details sits between the playlist row and the delete", async () => {
+  asAccount(["playlists.manage", "songs.edit", "songs.delete"]);
+  renderDetails();
+
+  const row = await screen.findByRole("button", { name: "Edit details" });
+  // An ordinary row with the pencil (§3), like the three around it.
+  expect(row.className).toBe("song-option");
+  expect(iconNames(row)).toEqual(["pencil", "chevron-right"]);
+  expect(
+    [...document.querySelectorAll(".song-option .song-option-label")].map(
+      (label) => label.textContent,
+    ),
+  ).toEqual(["Details", "Add to playlist", "Edit details", "Delete song"]);
+});
+
+/** Opens the editor and hands back its dialog. */
+async function openEditor(): Promise<HTMLElement> {
+  fireEvent.click(await screen.findByRole("button", { name: "Edit details" }));
+  return screen.getByRole("dialog", { name: "Edit details" });
+}
+
+test("the editor opens on what the song says, in the order §5 fixes", async () => {
+  asAccount(["songs.edit"]);
+  renderDetails();
+
+  const dialog = await openEditor();
+
+  expect(
+    within(dialog)
+      .getAllByRole("textbox")
+      .concat(within(dialog).getAllByRole("spinbutton"))
+      .map((field) => (field as HTMLInputElement).value),
+  ).toEqual(["Bohemian Rhapsody", "Queen", "English", "", "", "1975"]);
+  expect(
+    [...dialog.querySelectorAll(".song-edit-field > span")].map(
+      (caption) => caption.textContent,
+    ),
+  ).toEqual(["Title", "Artist", "Language", "Genre", "Year", "Edition"]);
+});
+
+test("saving sends the new values and what they were based on", async () => {
+  asAccount(["songs.edit"]);
+  editSong.mockResolvedValue({ data: { ...song, genre: "Rock", year: 1976 } });
+  renderDetails();
+
+  const dialog = await openEditor();
+  fireEvent.change(within(dialog).getByLabelText("Genre"), {
+    target: { value: "Rock" },
+  });
+  fireEvent.change(within(dialog).getByLabelText("Year"), {
+    target: { value: "1976" },
+  });
+  fireEvent.click(within(dialog).getByRole("button", { name: "Save" }));
+
+  await waitFor(() =>
+    expect(editSong).toHaveBeenCalledWith(
+      expect.objectContaining({
+        path: { song_id: "usdb:1" },
+        body: {
+          values: {
+            title: "Bohemian Rhapsody",
+            artist: "Queen",
+            language: "English",
+            genre: "Rock",
+            year: 1976,
+            edition: null,
+          },
+          // What the form was filled from: the backend refuses the save if the
+          // file has moved on from it.
+          expected: {
+            title: "Bohemian Rhapsody",
+            artist: "Queen",
+            language: "English",
+            genre: null,
+            year: 1975,
+            edition: null,
+          },
+        },
+      }),
+    ),
+  );
+  // Back on the song, showing what was just saved rather than the row the
+  // listing behind the modal still holds.
+  const song_modal = await screen.findByRole("dialog", {
+    name: "Bohemian Rhapsody",
+  });
+  fireEvent.click(within(song_modal).getByRole("button", { name: "Details" }));
+  expect(within(song_modal).getByText("Rock")).toBeVisible();
+});
+
+test("an emptied field is saved as no value at all", async () => {
+  asAccount(["songs.edit"]);
+  renderDetails();
+
+  const dialog = await openEditor();
+  fireEvent.change(within(dialog).getByLabelText("Language"), {
+    target: { value: "   " },
+  });
+  fireEvent.click(within(dialog).getByRole("button", { name: "Save" }));
+
+  await waitFor(() =>
+    expect(editSong).toHaveBeenCalledWith(
+      expect.objectContaining({
+        // Not an empty string: in a song txt "no language" is no header at all.
+        body: expect.objectContaining({
+          values: expect.objectContaining({ language: null }),
+        }),
+      }),
+    ),
+  );
+});
+
+test("a song cannot be saved without a title or an artist", async () => {
+  asAccount(["songs.edit"]);
+  renderDetails();
+
+  const dialog = await openEditor();
+  fireEvent.change(within(dialog).getByLabelText("Title"), {
+    target: { value: "  " },
+  });
+
+  expect(within(dialog).getByRole("button", { name: "Save" })).toBeDisabled();
+  fireEvent.change(within(dialog).getByLabelText("Title"), {
+    target: { value: "Bohemian Rhapsody" },
+  });
+  fireEvent.change(within(dialog).getByLabelText("Artist"), {
+    target: { value: "" },
+  });
+  expect(within(dialog).getByRole("button", { name: "Save" })).toBeDisabled();
+  expect(editSong).not.toHaveBeenCalled();
+});
+
+test("a file that moved on under the editor says so and keeps the form", async () => {
+  asAccount(["songs.edit"]);
+  editSong.mockRejectedValue({ detail: "song_file_changed" });
+  renderDetails();
+
+  const dialog = await openEditor();
+  fireEvent.change(within(dialog).getByLabelText("Genre"), {
+    target: { value: "Rock" },
+  });
+  fireEvent.click(within(dialog).getByRole("button", { name: "Save" }));
+
+  expect(await screen.findByRole("alert")).toHaveTextContent(
+    /changed while the editor was open/,
+  );
+  // Still in the editor, with what was typed: the reader has to decide what to
+  // do about it, and retyping it first would be the wrong ask.
+  expect(
+    (within(dialog).getByLabelText("Genre") as HTMLInputElement).value,
+  ).toBe("Rock");
+});
+
+test("a file Wingman cannot write back says which of its problems it is", async () => {
+  asAccount(["songs.edit"]);
+  editSong.mockRejectedValue({ detail: "value_not_encodable" });
+  renderDetails();
+
+  const dialog = await openEditor();
+  fireEvent.click(within(dialog).getByRole("button", { name: "Save" }));
+
+  expect(await screen.findByRole("alert")).toHaveTextContent(
+    /cannot spell one of those values/,
+  );
 });

@@ -452,6 +452,10 @@ export type PlayerRead = {
      */
     registered: boolean;
     /**
+     * Hidden
+     */
+    hidden: boolean;
+    /**
      * Has Avatar
      */
     has_avatar: boolean;
@@ -459,6 +463,16 @@ export type PlayerRead = {
      * Avatar Version
      */
     avatar_version?: number | null;
+};
+
+/**
+ * PlayerUpdate
+ */
+export type PlayerUpdate = {
+    /**
+     * Hidden
+     */
+    hidden: boolean;
 };
 
 /**
@@ -777,6 +791,54 @@ export type ScoreList = {
 };
 
 /**
+ * ScoreRead
+ */
+export type ScoreRead = {
+    /**
+     * Id
+     */
+    id: number;
+    /**
+     * Sing Id
+     */
+    sing_id: string;
+    /**
+     * Player Id
+     */
+    player_id: string | null;
+    /**
+     * Player Name
+     */
+    player_name: string;
+    /**
+     * Score
+     */
+    score: number;
+    /**
+     * Difficulty
+     */
+    difficulty: number | null;
+    /**
+     * Recorded At
+     */
+    recorded_at: string;
+};
+
+/**
+ * ScoreUpdate
+ *
+ * Who really sang it. Neither the number nor the song is editable: USDX awarded that
+ * score for that song, and the only thing Wingman can get wrong is which player was on the
+ * microphone.
+ */
+export type ScoreUpdate = {
+    /**
+     * Player Id
+     */
+    player_id: string;
+};
+
+/**
  * ScoreWithContext
  *
  * A score plus what it was scored on. `song` is NULL when that song left the library —
@@ -858,6 +920,10 @@ export type SessionRead = {
      * Score Count
      */
     score_count: number;
+    /**
+     * Singer Count
+     */
+    singer_count: number;
 };
 
 /**
@@ -1020,6 +1086,21 @@ export type SlotRead = {
 };
 
 /**
+ * SongEdit
+ *
+ * What the editor sends: the new metadata, and the metadata it was opened on.
+ *
+ * `expected` is how a lost edit is caught. The file may have been re-downloaded or edited
+ * by hand since the form was filled in, and the request that arrives afterwards would
+ * otherwise put the old values back over the new ones — so the service compares
+ * `expected` against what the txt says *now* and refuses when the two have drifted apart.
+ */
+export type SongEdit = {
+    values: SongMetadata;
+    expected: SongMetadata;
+};
+
+/**
  * SongList
  */
 export type SongList = {
@@ -1027,6 +1108,50 @@ export type SongList = {
      * Songs
      */
     songs: Array<SongRead>;
+};
+
+/**
+ * SongMetadata
+ *
+ * The headers the song editor writes, and nothing else.
+ *
+ * Deliberately not every column of `SongRead`: `duration_seconds`, `has_video` and
+ * `is_duet` are facts about the files rather than values anybody types, and the txt's
+ * `#CREATOR` says who built the karaoke file — not something to fix about the song.
+ * Title and artist have to say something, everything else may be emptied, and an emptied
+ * value is `None`: in a txt "no genre" is no `#GENRE` header at all.
+ *
+ * The model says what a file *may say*, not what may be written into one — it describes
+ * `expected`, the values the editor was opened on, as much as the new ones. So the year
+ * carries no bound here: real libraries hold `#YEAR:20144`, and a bound on both halves
+ * would make that very song the one song this editor cannot fix. `SongEdit` bounds the
+ * half that is written.
+ */
+export type SongMetadata = {
+    /**
+     * Title
+     */
+    title: string;
+    /**
+     * Artist
+     */
+    artist: string;
+    /**
+     * Language
+     */
+    language?: string | null;
+    /**
+     * Genre
+     */
+    genre?: string | null;
+    /**
+     * Year
+     */
+    year?: number | null;
+    /**
+     * Edition
+     */
+    edition?: string | null;
 };
 
 /**
@@ -1961,6 +2086,40 @@ export type RescanSongsResponses = {
 
 export type RescanSongsResponse = RescanSongsResponses[keyof RescanSongsResponses];
 
+export type DeleteSongData = {
+    body?: never;
+    path: {
+        /**
+         * Song Id
+         */
+        song_id: string;
+    };
+    query?: never;
+    url: '/api/v1/songs/{song_id}';
+};
+
+export type DeleteSongErrors = {
+    /**
+     * The song is playing, or its files could not be removed.
+     */
+    409: unknown;
+    /**
+     * Validation Error
+     */
+    422: HttpValidationError;
+};
+
+export type DeleteSongError = DeleteSongErrors[keyof DeleteSongErrors];
+
+export type DeleteSongResponses = {
+    /**
+     * Successful Response
+     */
+    204: void;
+};
+
+export type DeleteSongResponse = DeleteSongResponses[keyof DeleteSongResponses];
+
 export type GetSongData = {
     body?: never;
     path: {
@@ -1990,6 +2149,38 @@ export type GetSongResponses = {
 };
 
 export type GetSongResponse = GetSongResponses[keyof GetSongResponses];
+
+export type EditSongData = {
+    body: SongEdit;
+    path: {
+        /**
+         * Song Id
+         */
+        song_id: string;
+    };
+    query?: never;
+    url: '/api/v1/songs/{song_id}';
+};
+
+export type EditSongErrors = {
+    /**
+     * The file moved on, is unreadable, or could not be written.
+     */
+    409: unknown;
+    /**
+     * A value is empty, or cannot be written in the file's encoding.
+     */
+    422: unknown;
+};
+
+export type EditSongResponses = {
+    /**
+     * Successful Response
+     */
+    200: SongRead;
+};
+
+export type EditSongResponse = EditSongResponses[keyof EditSongResponses];
 
 export type GetSongCoverData = {
     body?: never;
@@ -2121,6 +2312,40 @@ export type DeletePlayerResponses = {
 };
 
 export type DeletePlayerResponse = DeletePlayerResponses[keyof DeletePlayerResponses];
+
+export type UpdatePlayerData = {
+    body: PlayerUpdate;
+    path: {
+        /**
+         * Player Id
+         */
+        player_id: string;
+    };
+    query?: never;
+    url: '/api/v1/players/{player_id}';
+};
+
+export type UpdatePlayerErrors = {
+    /**
+     * Unknown player.
+     */
+    404: unknown;
+    /**
+     * Validation Error
+     */
+    422: HttpValidationError;
+};
+
+export type UpdatePlayerError = UpdatePlayerErrors[keyof UpdatePlayerErrors];
+
+export type UpdatePlayerResponses = {
+    /**
+     * Successful Response
+     */
+    200: PlayerRead;
+};
+
+export type UpdatePlayerResponse = UpdatePlayerResponses[keyof UpdatePlayerResponses];
 
 export type GetPlayerAvatarData = {
     body?: never;
@@ -3359,6 +3584,90 @@ export type RenameSessionResponses = {
 
 export type RenameSessionResponse = RenameSessionResponses[keyof RenameSessionResponses];
 
+export type ListAllScoresData = {
+    body?: never;
+    path?: never;
+    query?: never;
+    url: '/api/v1/stats/scores';
+};
+
+export type ListAllScoresResponses = {
+    /**
+     * Successful Response
+     */
+    200: ScoreList;
+};
+
+export type ListAllScoresResponse = ListAllScoresResponses[keyof ListAllScoresResponses];
+
+export type DeleteScoreData = {
+    body?: never;
+    path: {
+        /**
+         * Score Id
+         */
+        score_id: number;
+    };
+    query?: never;
+    url: '/api/v1/stats/scores/{score_id}';
+};
+
+export type DeleteScoreErrors = {
+    /**
+     * Unknown score.
+     */
+    404: unknown;
+    /**
+     * Validation Error
+     */
+    422: HttpValidationError;
+};
+
+export type DeleteScoreError = DeleteScoreErrors[keyof DeleteScoreErrors];
+
+export type DeleteScoreResponses = {
+    /**
+     * Successful Response
+     */
+    204: void;
+};
+
+export type DeleteScoreResponse = DeleteScoreResponses[keyof DeleteScoreResponses];
+
+export type ReassignScoreData = {
+    body: ScoreUpdate;
+    path: {
+        /**
+         * Score Id
+         */
+        score_id: number;
+    };
+    query?: never;
+    url: '/api/v1/stats/scores/{score_id}';
+};
+
+export type ReassignScoreErrors = {
+    /**
+     * Unknown score or player.
+     */
+    404: unknown;
+    /**
+     * Validation Error
+     */
+    422: HttpValidationError;
+};
+
+export type ReassignScoreError = ReassignScoreErrors[keyof ReassignScoreErrors];
+
+export type ReassignScoreResponses = {
+    /**
+     * Successful Response
+     */
+    200: ScoreRead;
+};
+
+export type ReassignScoreResponse = ReassignScoreResponses[keyof ReassignScoreResponses];
+
 export type ListSessionScoresData = {
     body?: never;
     path: {
@@ -3373,7 +3682,7 @@ export type ListSessionScoresData = {
 
 export type ListSessionScoresErrors = {
     /**
-     * An older party, without history.
+     * A party this caller was not at, without history.
      */
     403: unknown;
     /**

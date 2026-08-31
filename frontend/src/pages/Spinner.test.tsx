@@ -53,7 +53,9 @@ test("the page carries the reel and a back link to home", async () => {
     "/",
   );
   expect(await screen.findByRole("button", { name: "Spin" })).toBeDisabled();
-  expect(screen.getByLabelText("All songs")).toBeChecked();
+  expect(screen.getByRole("combobox", { name: "Pick from" })).toHaveValue(
+    "all",
+  );
 });
 
 test("without songs.view the page says so and asks for nothing", async () => {

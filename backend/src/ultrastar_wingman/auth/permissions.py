@@ -19,6 +19,8 @@ logger = logging.getLogger(__name__)
 CAPABILITIES: tuple[str, ...] = (
     "songs.view",
     "songs.rescan",
+    "songs.edit",
+    "songs.delete",
     "karaoke.sing",
     "karaoke.stop",
     "players.view",
@@ -39,6 +41,7 @@ CAPABILITIES: tuple[str, ...] = (
     "stats.view",
     "stats.history",
     "stats.manage",
+    "stats.moderate",
     "settings.view",
     "settings.manage",
     "users.view",
@@ -100,6 +103,11 @@ _TRUSTED_CAPABILITIES = _USER_CAPABILITIES | {
     "downloads.manage",
     "usdb.search",
     "songs.rescan",
+    # Fixing a wrong title or a missing year. It rewrites the song's txt, which is the file
+    # USDX reads — but only its headers, and nothing it does is a deletion: the lyrics, the
+    # media and the song's whole history are out of its reach. A helper who may add songs
+    # to the library may as well correct the ones that came in wrong.
+    "songs.edit",
     "stats.manage",
     # Tidying up the party's global playlists is a helper's job, not only the host's. It
     # never reaches a list the holder cannot already see, so it opens no private one.
@@ -112,7 +120,15 @@ _TRUSTED_CAPABILITIES = _USER_CAPABILITIES | {
     "comments.moderate",
 }
 
-# What migrations 0006 to 0014 seed. Kept here as well so a test can prove the two never
+# Nobody but an administrator: `songs.delete` erases a song folder from the disk, which no
+# role below the host can undo — so it is in `CAPABILITIES` and in no bundle above. An
+# administrator holds it because `ADMIN` is `ALL_CAPABILITIES`, not because a set names it;
+# the host can still hand it to `trusted` in the permissions table like any other right.
+# `stats.moderate` is the second one: rewriting a recorded score's singer, or deleting the
+# score outright, edits the party's own record after the fact. Renaming a party
+# (`stats.manage`) changes a label; this changes what happened, so it starts with nobody.
+
+# What migrations 0006 to 0020 seed. Kept here as well so a test can prove the two never
 # drift.
 DEFAULT_ROLE_CAPABILITIES: dict[str, frozenset[str]] = {
     GUEST: _GUEST_CAPABILITIES,

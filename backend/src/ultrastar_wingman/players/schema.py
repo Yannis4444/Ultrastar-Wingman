@@ -12,6 +12,9 @@ class PlayerRead(BaseModel):
     id: str
     name: str
     registered: bool
+    # Out of the singer picker for the evening, and out of nothing else: the flag rides on
+    # every listing so the picker can drop the row while the scoreboard still draws it.
+    hidden: bool
     has_avatar: bool
     # Replacing a picture changes neither the id, the avatar URL nor `has_avatar`, so this
     # is the only thing a client can hang a cache buster on. Milliseconds of the file's
@@ -28,6 +31,7 @@ def read_player(player: Player) -> PlayerRead:
         id=player.id,
         name=player.name,
         registered=player.registered,
+        hidden=player.hidden,
         # File paths stay server-side; the UI only needs to know whether to request the image.
         has_avatar=player.avatar_file is not None,
         avatar_version=avatar_version(player.avatar_file),

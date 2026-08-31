@@ -29,8 +29,8 @@ Once you are logged in, the **User** tab shows you instead of the login form.
   generic icon on the User tab itself, so you can see at a glance who this phone
   is logged in as.
 - Under your name stand your totals over every party you ever sang at: how many
-  performances were scored, your best score, your average, how many different
-  songs you sang and how many songs you marked as favorites.
+  performances were scored, how many different songs you sang, your best score
+  and your average.
 - **All my scores** under those numbers opens
   [your whole history](statistics.md#all-your-own-scores) — every song you ever
   sang, not just tonight's.
@@ -138,7 +138,7 @@ What each role may do by default:
 | Create and edit own playlists | – | yes | yes | yes |
 | See the parties before tonight | – | yes | yes | yes |
 | [Comment on songs](singing.md#comments) | – | yes | yes | yes |
-| Add and delete players | – | – | yes | yes |
+| Add, hide and delete players | – | – | yes | yes |
 | Change somebody else's picture | – | – | yes | yes |
 | Clear a song off the wishlist | – | – | yes | yes |
 | See who has an account | – | – | yes | yes |
@@ -149,15 +149,19 @@ What each role may do by default:
 | Change a playlist somebody else shared | – | – | yes | yes |
 | [Manage tags](tags.md) and the built-in marks and facets | – | – | yes | yes |
 | Delete anybody's comments | – | – | yes | yes |
+| [Fix a song's details](singing.md#fix-a-songs-details) | – | – | yes | yes |
+| [Correct or delete a score](statistics.md#fix-a-wrong-singer) | – | – | – | yes |
+| [Delete a song](singing.md#delete-a-song) | – | – | – | yes |
 | See and change the settings | – | – | – | yes |
 | Manage users | – | – | – | yes |
 | Change these permissions | – | – | – | yes |
 
 Four things are in no row on purpose, because they are yours rather than
 granted: your **favorites**, the **picture** of the player you sing as, **your
-own scores** on *User → Your scores*, and **taking back a comment you wrote
-yourself**. Nobody has to give you those, and no administrator can take them
-away.
+own scores** — the **All my scores** page, and the parties you sang at yourself
+in the Scores tab's session list, whatever the host has done with the history
+right — and **taking back a comment you wrote yourself**. Nobody has to give you
+those, and no administrator can take them away.
 
 ## Manage players and accounts
 
@@ -168,11 +172,33 @@ rights behind it — the pictures for *avatar*, the new player and the guest
 deletions for *manage*, the names of the account holders for *users → view*, and
 their roles and deletions for *users → manage*.
 
+Each group says in one line what it is about: a forgotten password is no
+disaster, and a guest is taken over by whoever registers that name.
+
+- The **eye** on a row hides that player for the evening. Hidden means gone from
+  the player selection that opens when a song is started — and gone from nothing
+  else: the scoreboard, the statistics and every past party still name them, and
+  their scores are untouched. The name goes quiet while it lasts, the eye shows a
+  bar through it, and tapping it again brings them back. **Somebody logging in
+  unhides themselves**, so a singer who comes back after all does not have to ask
+  anybody. Hiding takes the same right as adding and deleting players.
 - A role can be set to **user**, **trusted** or **admin**. Nobody is put back to
   **guest** — that is the role for people without an account. Take the account
   away instead.
 - The last administrator cannot be demoted or deleted. Wingman would lock
   everybody out.
+- **A forgotten password is not the end of that singer.** There is no reset
+  flow — instead, delete the account and register the same name again. The player
+  row survives the deletion and is picked up by the new account, so every score
+  it ever sang comes along; what the account itself held is gone, as under
+  *Deleting an account* below. The one account this does not work for is the
+  **last administrator**, who cannot be deleted: make somebody else an
+  administrator first — the [host screen's browser](#the-host-screen) can do
+  that without logging in at all.
+- **Registering a guest's name takes that guest over.** Somebody who sang all
+  evening as *Jörg* and then registers as *Jörg* keeps everything they sang: the
+  guest player is not duplicated, it becomes their player. Capitalisation makes
+  no difference.
 - Deleting an account keeps its player and its scores, under the same name, and
   removes its wishes, favorites, comments and playlists — except a playlist
   with an [admin member](wishlist-and-playlists.md#manage-a-playlist), which is
@@ -196,8 +222,9 @@ Useful in practice:
 - A helper who should download songs: give their account the **trusted** role, or
   tick the download rights for **user**.
 - A private archive: untick *history* under **stats** for **guest** and **user**.
-  Tonight's scoreboard stays open to the whole party — the Scores page simply
-  stops offering the parties before it.
+  Tonight's scoreboard stays open to the whole party — the Scores page then
+  offers a logged-in singer the parties they sang at themselves, and nothing
+  else.
 - A helper who fixes pictures but touches nothing else: tick *avatar* under
   **players** for their role. *manage* beside it is the one that deletes people.
 

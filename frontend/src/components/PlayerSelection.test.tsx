@@ -8,20 +8,21 @@ import {
 } from "@testing-library/react";
 import { MemoryRouter } from "react-router-dom";
 import type { PlayerRead, SongRead } from "../api";
+import { meResponse } from "../test/auth";
 import { FakeSocket } from "../test/fakeSocket";
 import PlayerSelection from "./PlayerSelection";
 import SongDetails from "./SongDetails";
 
 // Same seam as the songs tests: the real TanStack wiring runs, only the
 // transport is faked.
-const { listKaraokeSlots, listPlayers, singSong, createPlayer } = vi.hoisted(
-  () => ({
+const { listKaraokeSlots, listPlayers, singSong, createPlayer, getMe } =
+  vi.hoisted(() => ({
     listKaraokeSlots: vi.fn(),
     listPlayers: vi.fn(),
     singSong: vi.fn(),
     createPlayer: vi.fn(),
-  }),
-);
+    getMe: vi.fn(),
+  }));
 
 vi.mock("../api/sdk.gen", async (importOriginal) => ({
   ...(await importOriginal<typeof import("../api/sdk.gen")>()),
@@ -29,6 +30,7 @@ vi.mock("../api/sdk.gen", async (importOriginal) => ({
   listPlayers,
   singSong,
   createPlayer,
+  getMe,
 }));
 
 const SONG: SongRead = {
@@ -46,8 +48,8 @@ const SONG: SongRead = {
   creator: null,
 };
 
-function player(id: string, name: string): PlayerRead {
-  return { id, name, registered: false, has_avatar: false };
+function player(id: string, name: string, hidden = false): PlayerRead {
+  return { id, name, registered: false, hidden, has_avatar: false };
 }
 
 const PLAYERS = [player("aaa", "Alice"), player("bbb", "Bob")];
@@ -112,6 +114,9 @@ beforeEach(() => {
     data: { slots: SLOTS, player_counts: [1, 2, 3, 4, 6] },
   });
   listPlayers.mockResolvedValue({ data: { players: PLAYERS } });
+  // Unanswered by default, which is what `useAuth` reads as "allow": every test
+  // that does not care about a right sees the same component the host does.
+  getMe.mockRejectedValue(new Error("no /auth/me in this test"));
   singSong.mockReset();
   createPlayer.mockReset();
 });
@@ -279,6 +284,60 @@ test("a deleted player is not restored from the stored configuration", async () 
     await screen.findByRole("button", { name: "Slot red: Bob" }),
   ).toBeInTheDocument();
   expect(slot("blue")).toHaveAccessibleName("Slot blue: empty");
+});
+
+test("a hidden player is not offered", async () => {
+  listPlayers.mockResolvedValue({
+    data: { players: [player("aaa", "Alice"), player("bbb", "Bob", true)] },
+  });
+  renderSelection();
+
+  expect(await screen.findByRole("button", { name: "Alice" })).toBeVisible();
+  expect(screen.queryByRole("button", { name: "Bob" })).toBeNull();
+});
+
+test("a hidden player is not restored from the stored configuration either", async () => {
+  // The same trap a deleted player is: the assignment outlives the roster.
+  window.localStorage.setItem(
+    "wingman.playerSlots",
+    JSON.stringify({ blue: "bbb", red: "aaa" }),
+  );
+  listPlayers.mockResolvedValue({
+    data: { players: [player("aaa", "Alice"), player("bbb", "Bob", true)] },
+  });
+  renderSelection();
+
+  expect(
+    await screen.findByRole("button", { name: "Slot red: Alice" }),
+  ).toBeInTheDocument();
+  expect(slot("blue")).toHaveAccessibleName("Slot blue: empty");
+});
+
+test("a roster that is entirely hidden says so, not 'no players yet'", async () => {
+  listPlayers.mockResolvedValue({
+    data: { players: [player("aaa", "Alice", true)] },
+  });
+  renderSelection();
+  await screen.findByRole("button", { name: "Slot blue: empty" });
+
+  expect(
+    await screen.findByText(/Everybody is hidden — show somebody/),
+  ).toBeInTheDocument();
+});
+
+test("somebody who cannot reach the players page is not sent to it", async () => {
+  // The page is shut under `players.manage`, so both empty lines have to split
+  // on that right — "show somebody there" would be an errand this reader cannot
+  // run.
+  getMe.mockResolvedValue(meResponse(["players.view", "karaoke.sing"]));
+  listPlayers.mockResolvedValue({
+    data: { players: [player("aaa", "Alice", true)] },
+  });
+  renderSelection();
+
+  expect(
+    await screen.findByText(/Everybody is hidden — ask the host/),
+  ).toBeInTheDocument();
 });
 
 test("a new player is created and put straight on the active slot", async () => {

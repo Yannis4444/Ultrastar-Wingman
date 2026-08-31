@@ -45,15 +45,20 @@ export function useSungSongs(): SungSongs {
   });
 
   // A score of the reader's own lands mid-party, and the row it belongs to is
-  // on screen while it does.
-  useWingmanEvent("scores.recorded", () => {
+  // on screen while it does. A moderator's correction is the same thing from
+  // the other side: a score moved onto — or off — this reader changes which
+  // songs carry their "sung" mark.
+  const refresh = () => {
     if (!available) return;
     void queryClient.invalidateQueries({
       queryKey: listPlayerScoresQueryKey({
         path: { player_id: playerId ?? "" },
       }),
     });
-  });
+  };
+
+  useWingmanEvent("scores.recorded", refresh);
+  useWingmanEvent("scores.changed", refresh);
 
   const rows = scores.data?.scores;
   return useMemo(

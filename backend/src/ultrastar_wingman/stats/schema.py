@@ -17,6 +17,11 @@ class SessionRead(BaseModel):
     last_activity_at: datetime
     sing_count: int
     score_count: int
+    # How many different people were scored in it — the third figure of the session
+    # picker's meta line ("12 Aug 2026 · 5 singers · 23 scores"). A walk-in counts by the
+    # name USDX scored them under, a registered player by their id, so one person who sang
+    # both ways is two singers: the name is all Wingman knows about the walk-in half.
+    singer_count: int
 
 
 class SessionList(BaseModel):

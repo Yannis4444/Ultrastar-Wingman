@@ -60,7 +60,8 @@
   color: var(--color-dark);
 }
 
-/* Icon + title rows guiding to details, scores and playlists. */
+/* Icon + title rows: the content and the actions (§5). What is counted sits in
+   the summary strip below them instead. */
 .song-options {
   margin: 4px 16px 0 16px;
 }
@@ -88,10 +89,6 @@
   color: var(--color-darker);
 }
 
-.song-option-trophy {
-  color: var(--highlight-gold-light);
-}
-
 .song-option-label {
   flex: 1 1 auto;
   min-width: 0;
@@ -101,32 +98,62 @@
   text-overflow: ellipsis;
 }
 
-.song-option-score {
-  color: var(--highlight-gold-light);
-  font-variant-numeric: tabular-nums;
-}
-
 .song-option-chevron {
   color: var(--color-darker);
 }
 
-/* The Tags row's value: the song's tag glyphs, each painted by its own
-   `.tag-color-*` class, or — past three of them — how many there are. */
-.song-option-tags {
+/* The summary strip (§5): the counted things as one centred flat row under the
+   option rows, held to them by the same hairline every row carries. */
+.song-summary {
   display: flex;
-  flex: 0 0 auto;
-  align-items: center;
-  gap: 4px;
-  font-size: 0.9em;
-  color: var(--color-darker);
+  justify-content: center;
+  gap: 8px;
+  margin: 0 16px;
+  padding: 4px 0 0 0;
+  border-top: 1px solid var(--input-border-color);
 }
 
-/* The Comments row's value: how many there are. In the row's own colour, not
-   the score row's gold — a count is a fact, not an accolade. */
-.song-option-count {
-  flex: 0 0 auto;
-  color: var(--color-darker);
-  font-variant-numeric: tabular-nums;
+/* One counted thing: a 40px-floor button (§1.10) whose whole content is the
+   glyph over its number. Flat like everything else in the bare modal. */
+.song-summary-stat {
+  display: flex;
+  min-width: 64px;
+  min-height: 56px;
+  align-items: center;
+  justify-content: center;
+  padding: 8px;
+  font: inherit;
+  background: none;
+  border: none;
+  border-radius: var(--border-radius-small);
+  cursor: pointer;
+}
+
+/* Pointers only: a tap fakes a hover that outlives the finger (§1.12). */
+@media (hover: hover) {
+  .song-summary-stat:hover {
+    background-color: var(--highlight-blue-dark);
+  }
+}
+
+/* The `IconStat` idiom stood on end — glyph over number rather than beside it,
+   because the strip is a row of them and each has to read as one token. */
+.song-summary-stat .icon-stat {
+  flex-direction: column;
+  gap: 2px;
+}
+
+.song-summary-stat .icon-stat-icon {
+  font-size: 1.4em;
+}
+
+.song-summary-stat .icon-stat-value {
+  font-size: 0.85em;
+}
+
+/* A score is an accolade, and gold is what says so wherever one appears (§2). */
+.song-summary-scores .icon-stat-icon {
+  color: var(--highlight-gold-light);
 }
 
 /* Comments (§5). One row per comment on the same axis as every other list in
@@ -248,6 +275,38 @@
 .song-details-list .icon {
   font-size: 1.1em;
   color: var(--color-darker);
+}
+
+/* Edit details (§5): the details list as fields, on the modal's own gutter. */
+.song-edit {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  margin: 4px 16px 0 16px;
+}
+
+/* The caption over its field, like every other labelled quiet input in the app.
+   The 0.85em sits on the caption alone: sizing the label would shrink the input
+   inside it, and a quiet input is 0.9em of whatever it sits in. */
+.song-edit-field {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.song-edit-field > span {
+  font-size: 0.85em;
+  color: var(--color-darker);
+}
+
+.song-edit-field .text-input {
+  width: 100%;
+  box-sizing: border-box;
+}
+
+/* The sub-view's one primary (§4), full width at the foot of the form. */
+.song-edit-save {
+  width: 100%;
 }
 
 /* Best-scores sub-view: the song's history over the ranking, as one wrapping

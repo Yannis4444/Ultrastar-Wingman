@@ -1,5 +1,5 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { type ReactNode, useMemo, useState } from "react";
+import { type ReactNode, useMemo, useRef, useState } from "react";
 import { Link } from "react-router-dom";
 import type { SongRead } from "../api";
 import {
@@ -139,6 +139,9 @@ export default function Songs() {
   const sung = useSungSongs();
   const tags = useTags();
   const [search, setSearch] = useState("");
+  // Only so clearing can hand the caret back: the X disappears with the text it
+  // clears, and focus would otherwise land nowhere.
+  const searchInput = useRef<HTMLInputElement>(null);
   const [overrides, setOverrides] = useState<CriteriaOverrides>(NO_OVERRIDES);
   const [recentMode, setRecentMode] = useState(false);
   const [filtering, setFiltering] = useState(false);
@@ -171,6 +174,17 @@ export default function Songs() {
   });
   useWingmanEvent("songs.scan_finished", () => {
     setScanning(false);
+    void queryClient.invalidateQueries({ queryKey: listSongsQueryKey() });
+  });
+  // Somebody with `songs.delete` took a song out of the library. Same treatment
+  // as a finished scan: the list this page shows is what changed.
+  useWingmanEvent("songs.deleted", () => {
+    void queryClient.invalidateQueries({ queryKey: listSongsQueryKey() });
+  });
+  // And somebody with `songs.edit` fixed a song's metadata. The row this page
+  // draws — its title, and the facets the filter reads off it — is what moved,
+  // so the list is asked again exactly as above.
+  useWingmanEvent("songs.updated", () => {
     void queryClient.invalidateQueries({ queryKey: listSongsQueryKey() });
   });
 
@@ -396,16 +410,40 @@ export default function Songs() {
           document outline and for screen readers. */}
       <h1 className="visually-hidden">Songs</h1>
       <div className="songs-toolbar">
-        <label className="songs-search">
-          <Icon name="search" />
-          <input
-            type="search"
-            value={search}
-            placeholder="Search songs"
-            aria-label="Search songs"
-            onChange={(event) => setSearch(event.target.value)}
-          />
-        </label>
+        <div className="songs-search">
+          {/* A label around the icon and the field, so the glyph is part of the
+              tap target that focuses it — the clear button beside it must stay
+              outside, or every click on it would focus the input as well. */}
+          <label className="songs-search-field">
+            <Icon name="search" />
+            <input
+              ref={searchInput}
+              type="search"
+              value={search}
+              placeholder="Search songs"
+              aria-label="Search songs"
+              onChange={(event) => setSearch(event.target.value)}
+            />
+          </label>
+          {/* Only while something is typed: an X on an empty field is a
+              control that does nothing. */}
+          {search !== "" && (
+            <button
+              type="button"
+              className="icon-button songs-search-clear"
+              aria-label="Clear search"
+              title="Clear search"
+              onClick={() => {
+                setSearch("");
+                // The button vanishes with the text, so the focus it held would
+                // fall back to the document; the field is where typing goes on.
+                searchInput.current?.focus();
+              }}
+            >
+              <Icon name="close" />
+            </button>
+          )}
+        </div>
       </div>
 
       {(canFilter || canBrowsePlaylists) && (

@@ -102,6 +102,7 @@ const SESSION: SessionRead = {
   last_activity_at: "2026-08-23T20:00:00Z",
   sing_count: 2,
   score_count: 2,
+  singer_count: 2,
 };
 
 /** Two sings, so the rail carries a standing next to the QR code. */
