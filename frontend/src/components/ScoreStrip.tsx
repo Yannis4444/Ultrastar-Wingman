@@ -27,6 +27,12 @@ interface ScoreStripProps {
   label: string;
   /** Whether the tooltips date a score: on for a strip that spans parties. */
   dated?: boolean;
+  /** The colour behind the chart, which the dot rings stroke so two piled
+   * marks still read as two — a ring painted for the wrong ground haloes. */
+  surface?: string;
+  /** Whether the gold label names the best score's singer. Off for a page
+   * that is one singer's own record: their name on it says nothing. */
+  named?: boolean;
 }
 
 /**
@@ -39,6 +45,8 @@ export default function ScoreStrip({
   scores,
   label,
   dated = false,
+  surface = chartTheme.surface,
+  named = true,
 }: ScoreStripProps) {
   const [containerRef, width] = useMeasuredWidth<HTMLDivElement>(340);
   const { tip, clear, markTip } = useChartTip(containerRef);
@@ -123,7 +131,7 @@ export default function ScoreStrip({
               cy={y}
               r={DOT_RADIUS}
               fill={item === best ? chartTheme.gold : chartTheme.accent}
-              stroke={chartTheme.surface}
+              stroke={surface}
               strokeWidth={2}
             />
             {/* The invisible, finger-sized target the 3px dot answers on. */}
@@ -145,7 +153,7 @@ export default function ScoreStrip({
           fontWeight={600}
           fill={chartTheme.gold}
         >
-          {best.score} · {best.player_name}
+          {named ? `${best.score} · ${best.player_name}` : best.score}
         </text>
       </svg>
       <ChartTip tip={tip} />

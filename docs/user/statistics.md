@@ -201,10 +201,12 @@ right — it is somebody *else's* record that needs it. It is
 always grouped by song — one row per song you ever sang — so the only control
 is **Sort**, with four of the orders the Scores page has: *alphabetically*,
 *average score*, *best score* and *worst score*. *Chronological* is not among
-them — a row here is a song rather than a moment in one evening. The spread
-chart draws each song's scores as plain dots on its line — every score here is
-yours, so initials would all say the same letter — and their labels carry the
-day: two runs of one song can be months apart. Open a row for
+them — a row here is a song rather than a moment in one evening. The chart is
+the same picture the **Scores** tab leads with, over your whole record: every
+score you ever got as one dot on the 0 to 10000 scale, your best in gold, your
+median the dashed line with half your scores on either side. Its labels carry
+the day rather than the time, because this record spans parties: two runs of
+one song can be months apart. Open a row for
 how often you sang it, your best, worst and average and the spread behind them,
 and under those every single run with the day and time it happened. A cover
 opens the song itself.
@@ -220,6 +222,11 @@ the number under it is the best anybody ever got — to see its ten best runs of
 all time: how often it was sung, the best, worst and average score over its
 whole history, and then the ranking itself — the singer's picture, how hard they
 sang it and when, and what they got.
+
+Above the ranking the whole history is drawn as the same all-scores picture the
+**Scores** tab uses: one dot for every score the song ever got, the record in
+gold with the singer rank 1 names, the middle of the field as a dashed line, and
+a label on every dot that also says which day it was.
 
 It reaches back over every party, so it needs the same right as the parties
 before tonight. A role without it does not get the trophy at all, and neither
