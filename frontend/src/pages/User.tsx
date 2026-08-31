@@ -1,5 +1,5 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { Suspense, lazy, useEffect, useState } from "react";
+import { useEffect, useState } from "react";
 import { Link, useSearchParams } from "react-router-dom";
 import type { PlayerRead } from "../api";
 import {
@@ -16,16 +16,12 @@ import { Icon } from "../components/icons";
 import LoginForm from "../components/LoginForm";
 import ManageMenu from "../components/ManageMenu";
 import PlayerAvatar from "../components/PlayerAvatar";
+import ScoreHistogram from "../components/ScoreHistogram";
 import { errorDetail, errorMessage } from "../errors";
 import { REPOSITORY_URL } from "../links";
 import { manageEntries } from "../manage";
-import { buildHistogramOption, playerSummary } from "../stats";
+import { playerSummary } from "../stats";
 import "./User.css";
-
-// Lazily, unlike everywhere else it is drawn: this page is in the eager bundle
-// and echarts is about a megabyte, so a static import would make every visitor
-// pay for a chart most of them never scroll to.
-const Chart = lazy(() => import("../components/Chart"));
 
 /** Mirrors the backend's limit so an oversized file never leaves the browser. */
 const MAX_AVATAR_BYTES = 5 * 1024 * 1024;
@@ -128,17 +124,13 @@ function UserStats({ playerId }: { playerId: string | null }) {
           across the full 0–10000 range. Flat on the page like the stat bar
           above it — the identity card is this page's one surface. */}
       {scores.data.scores.length >= HISTOGRAM_MIN_SCORES && (
-        // Only the chart waits for the chunk; the numbers above and the row
-        // below are already there, so neither may hang on it.
-        <Suspense fallback={null}>
-          <div className="user-stats-chart">
-            <Chart
-              option={buildHistogramOption(scores.data.scores)}
-              height={96}
-              label="Your score distribution"
-            />
-          </div>
-        </Suspense>
+        <div className="user-stats-chart">
+          <ScoreHistogram
+            scores={scores.data.scores}
+            height={96}
+            label="Your score distribution"
+          />
+        </div>
       )}
       {/* Inside this component on purpose: it is the only place that knows the
           four numbers have something behind them, so the row can never lead to

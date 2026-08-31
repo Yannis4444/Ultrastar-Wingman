@@ -9,19 +9,12 @@ import {
 } from "@testing-library/react";
 import { MemoryRouter } from "react-router-dom";
 import type { ScoreWithContext, SessionRead, SongRead } from "../api";
+import { chartTheme } from "../chartTheme";
 import { shortDate } from "../duration";
 import { meResponse } from "../test/auth";
 import { FakeSocket } from "../test/fakeSocket";
 import { iconNames } from "../test/icons";
 import Scores from "./Scores";
-
-interface RenderedChart {
-  label: string;
-  /** The groups sit on the category axis, which is the x-axis now. */
-  option: { xAxis?: { data?: string[] } };
-  /** What the page asks the chart to be wide, for the box that scrolls it. */
-  width?: number;
-}
 
 const {
   getMe,
@@ -32,7 +25,6 @@ const {
   renameSession,
   reassignScore,
   deleteScore,
-  charts,
 } = vi.hoisted(() => ({
   getMe: vi.fn(),
   listSessions: vi.fn(),
@@ -42,12 +34,6 @@ const {
   renameSession: vi.fn(),
   reassignScore: vi.fn(),
   deleteScore: vi.fn(),
-  // Every option object the page hands to echarts, in render order.
-  charts: [] as {
-    label: string;
-    option: { xAxis?: { data?: string[] } };
-    width?: number;
-  }[],
 }));
 
 vi.mock("../api/sdk.gen", async (importOriginal) => ({
@@ -60,15 +46,6 @@ vi.mock("../api/sdk.gen", async (importOriginal) => ({
   renameSession,
   reassignScore,
   deleteScore,
-}));
-
-// jsdom has no canvas, so the real chart cannot render. The option building is
-// covered in `stats.test.ts`; here the mock only records what it was given.
-vi.mock("../components/Chart", () => ({
-  default: ({ option, label, width }: RenderedChart) => {
-    charts.push({ option, label, width });
-    return <div data-testid="chart">{label}</div>;
-  },
 }));
 
 // The song modal has a page's worth of queries of its own and is tested where
@@ -105,19 +82,6 @@ function stats(panel: HTMLElement): (string | null)[][] {
     stat.querySelector(".icon-stat-label")?.textContent ?? null,
     stat.querySelector(".icon-stat-value")?.textContent ?? null,
   ]);
-}
-
-/** The most recent boxplot — the per-group histograms are charts too. */
-function lastBoxplot(): RenderedChart | undefined {
-  const boxplots = charts.filter((chart) =>
-    chart.label.startsWith("Score spread"),
-  );
-  return boxplots[boxplots.length - 1];
-}
-
-/** Category axis of the most recent boxplot: the groups, standing on the x. */
-function lastBoxplotCategories(): string[] | undefined {
-  return lastBoxplot()?.option.xAxis?.data;
 }
 
 /** Open the session picker and hand the panel back. */
@@ -253,7 +217,6 @@ function renderScores() {
 
 beforeEach(() => {
   vi.stubGlobal("WebSocket", FakeSocket);
-  charts.length = 0;
   getMe.mockReset();
   listSessions.mockReset();
   listSessionScores.mockReset();
@@ -507,27 +470,29 @@ test("a session whose sings were all scored says only 'Sings'", async () => {
   );
 });
 
-test("the compact controls sit above both the chart and the list they reorder", async () => {
+test("summary, whole-session card, controls, spread, ranking — in that order", async () => {
   renderScores();
-  await screen.findAllByTestId("chart");
+  await screen.findAllByTestId("score-group");
 
-  // Summary, then the two dropdowns, then the picture and the ranking they
-  // both rebuild — the selects rewrite the chart's title as well as its bars.
+  // The switcher card is the session's headline and no select touches it; the
+  // two dropdowns sit above the two things they reorder — spread and ranking.
   const summary = document.querySelector(".session-summary");
-  const title = document.querySelector(".scores-chart-title");
+  const switcher = document.querySelector(".scores-chart-switch");
   const controls = document.querySelector(".scores-controls");
+  const spread = document.querySelector(".spread-rows");
   const list = document.querySelector(".score-groups");
-  expect(summary).not.toBeNull();
-  expect(title).not.toBeNull();
-  expect(controls).not.toBeNull();
-  expect(list).not.toBeNull();
-  const follows = (first: Element, second: Element): boolean =>
+  for (const element of [summary, switcher, controls, spread, list]) {
+    expect(element).not.toBeNull();
+  }
+  const follows = (first: Element | null, second: Element | null): boolean =>
     Boolean(
-      first.compareDocumentPosition(second) & Node.DOCUMENT_POSITION_FOLLOWING,
+      (first as Element).compareDocumentPosition(second as Element) &
+      Node.DOCUMENT_POSITION_FOLLOWING,
     );
-  expect(follows(summary as Element, controls as Element)).toBe(true);
-  expect(follows(controls as Element, title as Element)).toBe(true);
-  expect(follows(title as Element, list as Element)).toBe(true);
+  expect(follows(summary, switcher)).toBe(true);
+  expect(follows(switcher, controls)).toBe(true);
+  expect(follows(controls, spread)).toBe(true);
+  expect(follows(spread, list)).toBe(true);
 });
 
 test("both controls are quiet selects carrying the old wordings", async () => {
@@ -557,7 +522,7 @@ test("both controls are quiet selects carrying the old wordings", async () => {
 
 test("chronological joins the sort list for every grouping but by player", async () => {
   renderScores();
-  await screen.findAllByTestId("chart");
+  await screen.findAllByTestId("score-group");
 
   choose("Group", "song");
   await waitFor(() =>
@@ -576,7 +541,7 @@ test("chronological joins the sort list for every grouping but by player", async
 
 test("going back to group by player takes chronological's place, not just its option", async () => {
   renderScores();
-  await screen.findAllByTestId("chart");
+  await screen.findAllByTestId("score-group");
   choose("Group", "song");
   choose("Sort", "chronological");
   await waitFor(() =>
@@ -626,41 +591,59 @@ test("chronological reads the party forwards, from the song sung first", async (
   await waitFor(() =>
     expect(groupLabels()).toEqual(["Wonderwall", "Bohemian Rhapsody"]),
   );
-  // The head of that list is no ranking, so the chart may not call it one.
-  choose("Group", "none");
-  await waitFor(() =>
-    expect(document.querySelector(".scores-chart-title")?.textContent).toBe(
-      "Scores",
-    ),
-  );
 });
 
-test("the chart stands its groups up in a box that scrolls sideways", async () => {
+test("the whole session is one strip card — every score a dot, the best in gold", async () => {
   renderScores();
-  await screen.findAllByTestId("chart");
+  await screen.findAllByTestId("score-group");
 
-  // The groups are the category axis, and the category axis is the x-axis.
-  expect(lastBoxplotCategories()).toEqual(["Alice", "Bob"]);
-  // Two groups, 56px each plus the value axis' gutter — the page states the
-  // width so the box around it knows when to scroll (§1.11).
-  expect(lastBoxplot()?.width).toBe(156);
-  expect(document.querySelector(".scores-chart-scroll")).not.toBeNull();
+  // Four scores, four dots; nothing scrolls sideways any more — the spread
+  // rows below lie down instead of standing up.
+  const dots = screen.getAllByTestId("strip-dot");
+  expect(dots).toHaveLength(4);
+  expect(
+    dots.filter((dot) => dot.getAttribute("fill") === chartTheme.gold),
+  ).toHaveLength(1);
+  expect(screen.getByText("9000 · Alice")).toBeInTheDocument();
+  expect(document.querySelector(".scores-chart-scroll")).toBeNull();
 });
 
-test("switching the grouping rebuilds the chart around the other axis", async () => {
+test("the switcher swaps the strip for the evening and back", async () => {
   renderScores();
-  await screen.findAllByTestId("chart");
+  await screen.findAllByTestId("score-group");
 
-  expect(lastBoxplotCategories()).toEqual(["Alice", "Bob"]);
+  expect(screen.getByRole("radio", { name: "All scores" })).toBeChecked();
+  fireEvent.click(screen.getByRole("radio", { name: "The evening" }));
+
+  expect(screen.getAllByTestId("timeline-dot")).toHaveLength(4);
+  expect(screen.queryByTestId("strip-dot")).not.toBeInTheDocument();
+  expect(document.querySelector(".timeline-legend")).toHaveTextContent("Alice");
+
+  fireEvent.click(screen.getByRole("radio", { name: "All scores" }));
+  expect(screen.getAllByTestId("strip-dot")).toHaveLength(4);
+  expect(screen.queryByTestId("timeline-dot")).not.toBeInTheDocument();
+});
+
+test("switching the grouping redraws the spread rows", async () => {
+  renderScores();
+  await screen.findAllByTestId("score-group");
+
+  const rowLabels = () =>
+    [...document.querySelectorAll(".spread-row-label")].map((label) =>
+      label.textContent?.replace(/\s+/g, " ").trim(),
+    );
+  // Too few scores each for a box, so the rows are plain marks — but they are
+  // the singers', best first, exactly like the ranking below.
+  expect(rowLabels()).toEqual(["Alice × 2", "Bob × 2"]);
 
   choose("Group", "song");
 
-  // A song stands under its title alone: a category is 52px wide, and an
-  // artist in front of the title would eat every one of them.
+  // A row is as wide as the card, so a song keeps its artist — the seven
+  // characters a standing column allowed are history.
   await waitFor(() =>
-    expect(lastBoxplotCategories()).toEqual([
-      "Wonderwall",
-      "Bohemian Rhapsody",
+    expect(rowLabels()).toEqual([
+      "Oasis – Wonderwall × 2",
+      "Queen – Bohemian Rhapsody × 2",
     ]),
   );
 });
@@ -680,7 +663,7 @@ test("sorting by worst score puts the evening's flop first", async () => {
 
 test("'don't group' leaves every score standing on its own", async () => {
   renderScores();
-  await screen.findAllByTestId("chart");
+  await screen.findAllByTestId("score-group");
 
   choose("Group", "none");
 
@@ -703,7 +686,7 @@ test("'don't group' leaves every score standing on its own", async () => {
 
 test("an ungrouped row opens the song it is a score of", async () => {
   renderScores();
-  await screen.findAllByTestId("chart");
+  await screen.findAllByTestId("score-group");
   choose("Group", "none");
 
   // No disclosure on these rows, so the whole row is the way into the song —
@@ -720,23 +703,38 @@ test("an ungrouped row opens the song it is a score of", async () => {
   );
 });
 
-test("the ungrouped chart never claims a ranking the order does not have", async () => {
+test("ungrouped there is no spread card — the strip already shows every score", async () => {
   renderScores();
-  await screen.findAllByTestId("chart");
+  await screen.findAllByTestId("score-group");
   choose("Group", "none");
 
-  const title = (): string | undefined =>
-    document.querySelector(".scores-chart-title")?.textContent ?? undefined;
+  await waitFor(() =>
+    expect(screen.getAllByTestId("score-group")).toHaveLength(4),
+  );
+  expect(document.querySelector(".spread-rows")).toBeNull();
+  expect(
+    screen.queryByRole("heading", { name: "Score spread" }),
+  ).not.toBeInTheDocument();
+  // The whole-session card stays: it *is* the ungrouped view.
+  expect(screen.getAllByTestId("strip-dot")).toHaveLength(4);
+});
 
-  await waitFor(() => expect(title()).toBe("Top scores"));
+test("every party at once keeps the strip alone — a heap of parties is no evening", async () => {
+  renderScores();
+  const panel = await openSessions();
+  fireEvent.click(within(panel).getByText("All my scores"));
 
-  // "worst score" sorts ascending, so the drawn head of the list is the
-  // session's *lowest* scores — calling that "Top scores" would be a lie.
-  choose("Sort", "worst");
-  await waitFor(() => expect(title()).toBe("Lowest scores"));
-
-  choose("Sort", "alphabetically");
-  await waitFor(() => expect(title()).toBe("Scores"));
+  await screen.findAllByTestId("score-group");
+  // No switcher and no timeline to switch to; a plain title stands instead,
+  // and the tooltips date their scores — the strip spans parties now.
+  expect(
+    screen.queryByRole("radio", { name: "The evening" }),
+  ).not.toBeInTheDocument();
+  expect(
+    screen.getByRole("heading", { name: "All scores" }),
+  ).toBeInTheDocument();
+  // Five scores over two parties, all on the one strip.
+  expect(screen.getAllByTestId("strip-dot")).toHaveLength(5);
 });
 
 test("a score whose song has left the library keeps its place in the row", async () => {
@@ -749,7 +747,7 @@ test("a score whose song has left the library keeps its place in the row", async
     },
   });
   renderScores();
-  await screen.findAllByTestId("chart");
+  await screen.findAllByTestId("score-group");
   choose("Group", "song");
 
   // No cover to show and no modal to open, but the 40px square stays so the
@@ -778,7 +776,7 @@ test("a group's scores are listed as the song rows they are", async () => {
 
 test("under a song, the scores are the singers behind them", async () => {
   renderScores();
-  await screen.findAllByTestId("chart");
+  await screen.findAllByTestId("score-group");
   choose("Group", "song");
 
   // A name is a name: no second line under it, and an avatar in front of it.
@@ -825,7 +823,7 @@ test("an opened group states its whole spread in one tile", async () => {
 
 test("under a song, best and worst still name the singer who managed them", async () => {
   renderScores();
-  await screen.findAllByTestId("chart");
+  await screen.findAllByTestId("score-group");
   choose("Group", "song");
 
   // The account's own history switches this off — every score there is the
@@ -868,7 +866,7 @@ test("a collapsed group row points its chevron right, like every other row", asy
 
 test("a song's cover opens its details instead of expanding the row", async () => {
   renderScores();
-  await screen.findAllByTestId("chart");
+  await screen.findAllByTestId("score-group");
   choose("Group", "song");
 
   const cover = await screen.findByRole("button", {
@@ -977,7 +975,7 @@ test("a role without stats.view gets an explanation, not a chart", async () => {
 
 test("a finished song refreshes the session list and its scores", async () => {
   renderScores();
-  await screen.findAllByTestId("chart");
+  await screen.findAllByTestId("score-group");
   const scoreCalls = listSessionScores.mock.calls.length;
   const sessionCalls = listSessions.mock.calls.length;
 
@@ -1132,7 +1130,7 @@ test("without stats.moderate a score row carries no corrections", async () => {
 
 test("a moved score reaches the other screens in the room", async () => {
   renderScores();
-  await screen.findAllByTestId("chart");
+  await screen.findAllByTestId("score-group");
   const scoreCalls = listSessionScores.mock.calls.length;
 
   FakeSocket.deliver({ event: "scores.changed", sing_id: "sing-bohemian" });

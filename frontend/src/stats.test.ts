@@ -2,9 +2,7 @@ import type { ScoreWithContext, SessionRead, SongRead } from "./api";
 import { parseServerTime, shortDate } from "./duration";
 import {
   allSessionsMeta,
-  boxplotWidth,
-  buildBoxplotOption,
-  buildHistogramOption,
+  boxStats,
   difficultyLabel,
   evaluationLabel,
   groupScores,
@@ -13,6 +11,7 @@ import {
   isNewHighscore,
   playerSummary,
   scorePlayer,
+  scorePlayerKey,
   sessionLabel,
   sessionLeaderboard,
   sessionMeta,
@@ -71,12 +70,6 @@ const scores = [
   score("Bob", 4000, bohemian),
   score("Bob", 6000, wonderwall),
 ];
-
-/** The group names of a boxplot. They sit on the *x*-axis: the chart stands
- * its groups up, score on the y. */
-function axisLabels(option: ReturnType<typeof buildBoxplotOption>): unknown {
-  return (option.xAxis as { data: string[] }).data;
-}
 
 test("a session shows its own name, and its start time when it has none", () => {
   const base: SessionRead = {
@@ -192,93 +185,52 @@ test("ungrouped, every score stands alone under its own song", () => {
   expect(groups[0]).toMatchObject({ best: 9000, worst: 9000, average: 9000 });
 });
 
-test("the grouping decides the boxplot's categories and boxes", () => {
-  const byPlayer = buildBoxplotOption(groupScores(scores, "player"));
-  const bySong = buildBoxplotOption(groupScores(scores, "song"));
-
-  // A singer stands under their own name, which is what a name is.
-  expect(axisLabels(byPlayer)).toEqual(["Alice", "Bob"]);
-  // A song stands under its title alone: a category is 52px wide, and "Nena –
-  // 99 Luftballons" would spend all of it on the artist.
-  expect(axisLabels(bySong)).toEqual(["Wonderwall", "Bohemian Rhapsody"]);
-  // Ungrouped rows are songs too, and truncate exactly the same way.
-  expect(axisLabels(buildBoxplotOption(groupScores(scores, "none")))).toEqual([
-    "Wonderwall",
-    "Bohemian Rhapsody",
-    "Wonderwall",
-    "Bohemian Rhapsody",
-  ]);
-  // A song that left the library has no title to stand under.
-  expect(
-    axisLabels(
-      buildBoxplotOption(groupScores([score("Al", 10, null)], "song")),
+test("a bombed song becomes an outlier instead of stretching the whisker", () => {
+  const [group] = groupScores(
+    [8000, 8200, 8400, 8600, 2000].map((value) =>
+      score("Alice", value, bohemian),
     ),
-  ).toEqual(["Unknown song"]);
+    "player",
+  );
 
-  const boxes = (bySong.series as { data: number[][] }[])[0].data;
-  expect(boxes[0]).toEqual([6000, 6750, 7500, 8250, 9000]);
+  const box = boxStats(group);
+  // Ascending [2000, 8000, 8200, 8400, 8600]: quartiles by interpolation.
+  expect(box).toMatchObject({ q1: 8000, median: 8200, q3: 8400 });
+  // 1.5 × IQR = 600 — the 2000 lies far below the fence, so the whisker ends
+  // on the lowest score still inside it, never on the fence itself.
+  expect(box.whiskerLow).toBe(8000);
+  expect(box.whiskerHigh).toBe(8600);
+  expect(box.outliers.map((entry) => entry.score)).toEqual([2000]);
 });
 
-test("the tooltip names a box in full, artist included", () => {
-  const formatterOf = (
-    option: ReturnType<typeof buildBoxplotOption>,
-  ): ((params: unknown) => string) =>
-    (option.tooltip as { formatter: (params: unknown) => string }).formatter;
+test("outliers flag on both ends — a surprise hit counts like a flop", () => {
+  const [group] = groupScores(
+    [5000, 5100, 5200, 5300, 9900].map((value) =>
+      score("Alice", value, bohemian),
+    ),
+    "player",
+  );
 
-  // The box the axis calls "Wonderwall": [index, min, q1, median, q3, max].
-  const spread = formatterOf(buildBoxplotOption(groupScores(scores, "song")));
+  const box = boxStats(group);
+  expect(box.outliers.map((entry) => entry.score)).toEqual([9900]);
+  expect(box.whiskerHigh).toBe(5300);
+});
+
+test("a tight group has no outliers and whiskers at its extremes", () => {
+  const [alice] = groupScores(scores, "player");
+
+  expect(boxStats(alice)).toMatchObject({
+    whiskerLow: 8000,
+    whiskerHigh: 9000,
+    outliers: [],
+  });
+});
+
+test("the timeline tells two same-named guests apart by their player id", () => {
   expect(
-    spread([{ dataIndex: 0, data: [0, 6000, 6750, 7500, 8250, 9000] }]),
-  ).toContain("<b>Oasis – Wonderwall</b>");
-
-  // And the bar a lone score is drawn as, which carries a plain number.
-  const single = formatterOf(
-    buildBoxplotOption(groupScores([score("Alice", 30, bohemian)], "song")),
-  );
-  expect(single([{ dataIndex: 0, data: 30 }])).toBe(
-    "<b>Queen – Bohemian Rhapsody</b><br/>Score: 30",
-  );
-});
-
-test("the groups stand on the x-axis, every one of them named", () => {
-  const option = buildBoxplotOption(groupScores(scores, "player"));
-
-  // Standing up, strongest on the left: a category axis on x counts left to
-  // right by itself, so nothing inverts it any more.
-  expect((option.xAxis as { type: string }).type).toBe("category");
-  expect((option.yAxis as { type: string }).type).toBe("value");
-  expect(option.xAxis).not.toHaveProperty("inverse");
-  // echarts thins a crowded category axis out by dropping labels; a box with
-  // no name under it says nothing, and the chart scrolls instead.
-  expect(
-    (option.xAxis as { axisLabel: { interval: number } }).axisLabel,
-  ).toMatchObject({ interval: 0, overflow: "truncate" });
-});
-
-test("the chart gets wider with its groups, and stops at the eight it draws", () => {
-  // 56px per group plus the value axis' gutter — what the scrolling box in
-  // `Scores.css` scrolls when that is more than the page has.
-  expect(boxplotWidth(2)).toBe(156);
-  expect(boxplotWidth(8)).toBe(492);
-  expect(boxplotWidth(40)).toBe(boxplotWidth(8));
-});
-
-test("groups of single scores get bars on an adaptive axis, not boxplots", () => {
-  const option = buildBoxplotOption(
-    groupScores([score("Alice", 30, bohemian)], "player"),
-  );
-
-  // A boxplot of one score is a hairline; a fixed 0–10000 axis makes it 1px.
-  expect((option.series as { type: string }[])[0].type).toBe("bar");
-  expect((option.yAxis as { min: number; max: number }).min).toBe(0);
-  expect((option.yAxis as { min: number; max: number }).max).toBe(500);
-});
-
-test("the score axis keeps the full range once scores pass 40% of perfect", () => {
-  const option = buildBoxplotOption(groupScores(scores, "player"));
-
-  expect((option.series as { type: string }[])[0].type).toBe("boxplot");
-  expect((option.yAxis as { max: number }).max).toBe(10000);
+    scorePlayerKey(score("Chris", 9000, bohemian, { player_id: "player-a" })),
+  ).toBe("player-a");
+  expect(scorePlayerKey(score("Chris", 9000, bohemian))).toBe("name:Chris");
 });
 
 test("histogram buckets cover the whole score range, 10000 included", () => {
@@ -293,13 +245,6 @@ test("histogram buckets cover the whole score range, 10000 included", () => {
   expect(buckets[0]).toBe(2);
   expect(buckets[19]).toBe(2);
   expect(buckets.reduce((sum, count) => sum + count, 0)).toBe(4);
-});
-
-test("the histogram option carries one bar per bucket and a labelled range", () => {
-  const option = buildHistogramOption([score("Alice", 5000, bohemian)]);
-
-  expect((option.series as { data: number[] }[])[0].data[10]).toBe(1);
-  expect((option.xAxis as { data: string[] }).data[10]).toBe("5000 – 5500");
 });
 
 test("the summary counts distinct songs and singers and finds the top score", () => {
@@ -329,7 +274,6 @@ test("an empty session summarizes to nothing rather than crashing", () => {
     top: null,
   });
   expect(groupScores([], "player")).toEqual([]);
-  expect(axisLabels(buildBoxplotOption([]))).toEqual([]);
 });
 
 test("each sorting orders the groups the way the old app did", () => {

@@ -76,10 +76,43 @@ If more songs were started than were scored, the **Sings** symbol says so: its
 word becomes "Sings — 2 scored of 4 started". A song that was stopped early is a
 sing without a score.
 
-Below the numbers come two dropdowns, then a chart of the score spread, then
-the list itself.
+Below the numbers comes the party's own picture, then two dropdowns, then a
+chart of the score spread, then the list itself.
 
-**Group** rearranges both the chart and the list:
+## The whole party in one picture
+
+The first chart shows **every score of the party at once**, each as one dot on
+a scale from 0 to 10000. Two scores that came out nearly the same stack beside
+each other instead of hiding one another, so a busy evening reads as a cloud
+with a shape: where the room usually lands, and how far the outliers strayed.
+The dashed line is the party's median — half the scores above, half below —
+and the gold dot is the evening's best, with the number and the singer written
+beside it.
+
+The two buttons at the top of that card switch what it shows:
+
+- **All scores** — the cloud just described.
+- **The evening** — the same scores spread over the clock: every dot at the
+  time it was sung, so you can see the warm-up, the run somebody went on, and
+  the record that fell at half past midnight. The five singers with the best
+  scores each get their own colour (the legend above names them); everybody
+  else shares grey. A duet's dots stand on the same minute, because that is
+  when it happened.
+
+Resting the pointer on any dot — or tapping it on a phone — names the singer,
+the song, the score and the time. Tapping the same dot again, or anywhere
+beside the dots, puts the label away.
+
+On the **All sessions** / **All my scores** page there is no evening to draw,
+so the card shows the cloud alone, and its labels carry the date as well as
+the time.
+
+## Grouping and sorting
+
+Under the party picture come the two dropdowns, and below them the score
+spread and the list they both rearrange.
+
+**Group** rearranges both the spread chart and the list:
 
 - **group by player** — one row per singer. Who was on form, with how many
   scores they have under their name.
@@ -87,13 +120,15 @@ the list itself.
   Which song the room actually nails.
 - **don't group** — one row per single score, nothing merged; the line under
   the title names the artist and whoever sang it. Nothing to open here, so the
-  row goes straight to the song.
+  row goes straight to the song. There is no spread chart in this mode — the
+  party picture above already shows every single score.
 
 **Sort** decides the order: *alphabetically*, by *average score*, *best score*
 or *worst score*, or *chronological* — the evening read forwards, from the song
 that was sung first. Grouped by player, *chronological* is not offered: a singer
 is not a moment in the evening. Picking it and then grouping by player puts the
-order back to *best score*.
+order back to *best score*. Sorting only reorders the rows — the evening as a
+picture is the **The evening** view of the card at the top.
 
 The number printed at the right of each row is the one being sorted on, so a
 ranking can never disagree with itself; *alphabetically* and *chronological*
@@ -105,15 +140,30 @@ with the name of whoever managed the best and the worst — plus the shape of
 those scores once there are at least four of them. Under that, every single
 score behind the row: the songs that singer sang, or the singers of that song.
 
-The chart is a box plot, one standing box per singer (or song): the box is where
-most of their scores sit, the line in it is the median, and the whiskers are the
-outliers. A singer with one lucky hit looks very different from a consistently
-good one. It draws the first eight rows of the list under it, in the same order,
-and on a phone that is wider than the screen — so the chart itself scrolls
-sideways inside its card while the page stays put. Under a box stands a singer's
-name, or a song's title on its own — a column is too narrow for an artist in
-front of it. Resting the pointer on a box names it in full, artist included,
-along with the numbers behind it.
+The spread chart gives each of the first eight rows of the list a full-width
+line of its own, in the same order, with the row's score count and best score
+at its ends — nothing scrolls sideways, and a song keeps its whole name,
+artist and all.
+
+What a line shows depends on what it stands for:
+
+- **A singer** with a real pile of scores gets a box plot: the box is where the
+  middle half of their scores sit, the line in it is the median, the whiskers
+  reach to their ordinary best and worst — and a score far outside all of that,
+  a bombed song or a freak hit, stands alone as a dot past the whisker instead
+  of stretching the picture. Every single score is also there as a small grey
+  dot, so a consistently good singer and one lucky hit look nothing alike.
+  A singer with only a handful of scores gets the dots alone: four scores are
+  four scores, not a distribution.
+- **A song** is usually one performance — a few people on the microphones at
+  the same time — so its line shows exactly who: one round mark per score,
+  wearing the singer's initial, near-ties stepping aside so both stay visible.
+  A duet reads as the head-to-head it was. Once a song has more scores than
+  initials can carry (sung again and again, or seen across all sessions), the
+  initials give way to plain dots on the same line.
+
+Everything answers the pointer, or a tap: a dot or an initial with its singer,
+song, score and time; a box with the numbers behind it.
 
 ## Fix a wrong singer
 
@@ -151,7 +201,10 @@ right — it is somebody *else's* record that needs it. It is
 always grouped by song — one row per song you ever sang — so the only control
 is **Sort**, with four of the orders the Scores page has: *alphabetically*,
 *average score*, *best score* and *worst score*. *Chronological* is not among
-them — a row here is a song rather than a moment in one evening. Open a row for
+them — a row here is a song rather than a moment in one evening. The spread
+chart draws each song's scores as plain dots on its line — every score here is
+yours, so initials would all say the same letter — and their labels carry the
+day: two runs of one song can be months apart. Open a row for
 how often you sang it, your best, worst and average and the spread behind them,
 and under those every single run with the day and time it happened. A cover
 opens the song itself.

@@ -3,21 +3,14 @@ import { useState } from "react";
 import type { SongRead } from "../api";
 import { listPlayerScoresOptions } from "../api/@tanstack/react-query.gen";
 import { useAuth } from "../auth";
-import Chart from "../components/Chart";
 import Loading from "../components/Loading";
 import PageHeader from "../components/PageHeader";
 import ScoreGroupList from "../components/ScoreGroupList";
 import ScoresEmpty from "../components/ScoresEmpty";
 import SongDetails from "../components/SongDetails";
+import SpreadRows from "../components/SpreadRows";
 import { errorMessage } from "../errors";
-import {
-  BOXPLOT_HEIGHT,
-  boxplotWidth,
-  buildBoxplotOption,
-  groupScores,
-  sortGroups,
-  type Sorting,
-} from "../stats";
+import { groupScores, sortGroups, type Sorting } from "../stats";
 // The rules are the Scores page's; this view is the same list with one singer
 // in it, so it shares the stylesheet instead of restating it.
 import "./Scores.css";
@@ -85,20 +78,20 @@ function History({ playerId }: { playerId: string }) {
         </label>
       </div>
 
-      {/* One song's box says nothing a single row does not. */}
+      {/* One song's spread says nothing a single row does not. */}
       {groups.length >= 2 && (
         <div className="scores-chart">
           <h2 className="scores-chart-title">Score spread</h2>
-          {/* A whole history is many songs, so this is the chart that grows
-              widest — it scrolls in its box rather than squeezing the boxes. */}
-          <div className="scores-chart-scroll">
-            <Chart
-              option={buildBoxplotOption(groups)}
-              height={BOXPLOT_HEIGHT}
-              width={boxplotWidth(groups.length)}
-              label="Score spread per song"
-            />
-          </div>
+          {/* No initials: every score in here is the reader's own, so every
+              mark would wear the same letter. Dated tooltips: two runs of one
+              song can be months apart, and a bare clock time would lie. */}
+          <SpreadRows
+            groups={groups}
+            grouping="song"
+            label="Score spread per song"
+            initials={false}
+            dated
+          />
         </div>
       )}
 

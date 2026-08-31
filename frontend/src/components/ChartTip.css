@@ -1,0 +1,45 @@
+/* The container every SVG chart wraps itself in: what the tip is positioned
+   against, and the click surface that dismisses it on touch. */
+.chart-plot {
+  position: relative;
+}
+
+/* Inline SVGs sit on the text baseline and leave phantom line-height gaps
+   under themselves; a chart is a block of its card. Scoped here so the
+   app's inline icons are untouched. */
+.chart-plot svg {
+  display: block;
+}
+
+.chart-tip {
+  position: absolute;
+  z-index: 5;
+  padding: 6px 10px;
+  pointer-events: none;
+  background-color: var(--tile-bg);
+  border: 1px solid var(--input-border-color);
+  border-radius: var(--border-radius-small);
+  box-shadow: 0 4px 16px rgb(0 0 0 / 50%);
+  transform: translate(-50%, -100%) translateY(-10px);
+  font-size: 12.5px;
+  line-height: 1.45;
+  max-width: 220px;
+}
+
+/* Too close to the card's top edge to stand above the mark: flip below it. */
+.chart-tip-below {
+  transform: translate(-50%, 12px);
+}
+
+.chart-tip-line {
+  overflow: hidden;
+  color: var(--color-dark);
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+
+/* The first line names the mark — a singer, a song — and leads. */
+.chart-tip-line:first-child {
+  color: var(--color);
+  font-weight: 600;
+}

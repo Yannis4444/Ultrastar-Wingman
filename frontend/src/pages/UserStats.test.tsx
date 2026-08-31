@@ -12,16 +12,10 @@ import { shortDate } from "../duration";
 import { meResponse, userRead } from "../test/auth";
 import UserStats from "./UserStats";
 
-interface RenderedChart {
-  label: string;
-  option: { yAxis?: { data?: string[] } };
-}
-
-const { getMe, listPlayerScores, listPlayers, charts } = vi.hoisted(() => ({
+const { getMe, listPlayerScores, listPlayers } = vi.hoisted(() => ({
   getMe: vi.fn(),
   listPlayerScores: vi.fn(),
   listPlayers: vi.fn(),
-  charts: [] as { label: string; option: { yAxis?: { data?: string[] } } }[],
 }));
 
 vi.mock("../api/sdk.gen", async (importOriginal) => ({
@@ -29,15 +23,6 @@ vi.mock("../api/sdk.gen", async (importOriginal) => ({
   getMe,
   listPlayerScores,
   listPlayers,
-}));
-
-// jsdom has no canvas, so the real chart cannot render; the option building is
-// covered in `stats.test.ts` and the mock only records what it was handed.
-vi.mock("../components/Chart", () => ({
-  default: ({ option, label }: RenderedChart) => {
-    charts.push({ option, label });
-    return <div data-testid="chart">{label}</div>;
-  },
 }));
 
 vi.mock("../components/SongDetails", () => ({
@@ -132,7 +117,6 @@ function groupLabels(): (string | null)[] {
 
 beforeEach(() => {
   vi.resetAllMocks();
-  charts.length = 0;
   loggedIn();
   listPlayerScores.mockResolvedValue({ data: { scores: HISTORY } });
   listPlayers.mockResolvedValue({
@@ -207,12 +191,16 @@ test("sorting reorders the songs without touching the grouping", async () => {
 test("a spread of two songs is worth a chart", async () => {
   renderStats();
 
-  expect(await screen.findByTestId("chart")).toHaveTextContent(
-    "Score spread per song",
-  );
+  expect(
+    await screen.findByRole("img", { name: "Score spread per song" }),
+  ).toBeInTheDocument();
   expect(
     screen.getByRole("heading", { name: "Score spread" }),
   ).toBeInTheDocument();
+  // Every score in here is the reader's own, so the marks wear no initials —
+  // four scores over two songs, as plain dots on their rows.
+  expect(document.querySelector("[data-testid=spread-chip]")).toBeNull();
+  expect(screen.getAllByTestId("spread-dot")).toHaveLength(4);
 });
 
 test("a single song gets the list alone", async () => {
@@ -222,7 +210,9 @@ test("a single song gets the list alone", async () => {
   renderStats();
 
   await waitFor(() => expect(groupLabels()).toHaveLength(1));
-  expect(screen.queryByTestId("chart")).not.toBeInTheDocument();
+  expect(
+    screen.queryByRole("img", { name: "Score spread per song" }),
+  ).not.toBeInTheDocument();
 });
 
 test("a singer without a single score is asked to sing, not shown an empty list", async () => {

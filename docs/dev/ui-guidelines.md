@@ -318,11 +318,25 @@ do it. Back is a `<Link>` to a fixed path (`backLink.ts` resolves a state-provid
   name. A party row has no lead, so the head row's `layers` sits in the line of its name rather
   than in a 40px square that would set one title 52px off all the others. The list
   holds exactly the sessions that reader may open, so it never names a party to say no to it.
-  The chart stands its groups up — group on the x-axis, score on the y — inside an `overflow-x:
-  auto` wrapper giving every category about 56px, so a wide chart scrolls in its own box
-  (§1.11), value axis and all, and it draws no more groups than before. *Chronological* joins
+  Two chart cards, both `.scores-chart` (§1.2), every mark hand-drawn SVG. The whole-session
+  card comes first: every score on one staggered strip (`ScoreStrip` — near-ties step aside
+  instead of hiding, the best is gold and named, the median a dashed line), with §4's
+  hidden-radio pills standing where its title would — **All scores ⇄ The evening** — swapping
+  in the timeline (`EveningTimeline`: score over wall-clock time, `chartTheme.categorical`'s
+  five CVD-safe hues on the session's five best singers, grey beyond, never a sixth hue).
+  Every-party-at-once keeps the strip alone under a plain title: a heap of parties is no
+  evening. Under the two selects, the spread card (`SpreadRows`) follows the grouping alone:
+  a player with ≥ 5 scores gets a Tukey box (whiskers end on real scores, outliers flagged on
+  both sides) with every raw score as a 2px neutral-grey dot on top, fewer stagger as plain
+  marks; a song row is a swarm wearing singer initials until 8 scores, then dots — never a
+  box; ungrouped there is no spread card, the strip already is that view. Rows lie down at
+  full card width — nothing scrolls sideways, a song keeps its artist — the card draws the
+  first eight groups of the list in the same order and owns up to the rest ("… n more in the
+  list below"), and every mark answers hover or tap with `ChartTip` (a mouse hovers, a finger
+  tap toggles, a tap beside dismisses). *Chronological* joins
   the sort select for every grouping but *group by player*, where an order in time says nothing:
-  choosing it and then grouping by player falls back to *best score*.
+  choosing it and then grouping by player falls back to *best score* — and it only orders the
+  rows and the list, never swaps a chart.
 - **Score rows** are flat `<details>` groups: rank numeral (pink top 3), cover or avatar, two
   lines of text, score, chevron. The two lines are a list row's: title over artist for a song,
   name over "N scores" for a singer. An open row is one tile (`.score-group-panel`) — the

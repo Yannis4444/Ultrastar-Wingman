@@ -12,21 +12,20 @@ import {
   renameSessionMutation,
 } from "../api/@tanstack/react-query.gen";
 import { useAuth } from "../auth";
-import Chart from "../components/Chart";
+import EveningTimeline from "../components/EveningTimeline";
 import { Icon } from "../components/icons";
 import Modal from "../components/Modal";
 import ScoreGroupList from "../components/ScoreGroupList";
 import ScoresEmpty from "../components/ScoresEmpty";
+import ScoreStrip from "../components/ScoreStrip";
 import SessionSummaryRow from "../components/SessionSummaryRow";
 import SongDetails from "../components/SongDetails";
+import SpreadRows from "../components/SpreadRows";
 import Loading from "../components/Loading";
 import { errorMessage } from "../errors";
 import { useWingmanEvent } from "../hooks/useWingmanEvents";
 import {
-  BOXPLOT_HEIGHT,
   allSessionsMeta,
-  boxplotWidth,
-  buildBoxplotOption,
   groupScores,
   sessionLabel,
   sessionMeta,
@@ -295,6 +294,9 @@ function SessionBar({
   );
 }
 
+/** The two whole-session views behind the top card's switcher. */
+type SessionChart = "scores" | "evening";
+
 /** Statistics of one party: who sang what and how well it went. */
 export default function Scores() {
   const auth = useAuth();
@@ -303,6 +305,9 @@ export default function Scores() {
   const [grouping, setGrouping] = useState<Grouping>("player");
   // The old app's default order, and the one a scoreboard is read for.
   const [sorting, setSorting] = useState<Sorting>("best");
+  // The top card's view. Sticks across session changes on purpose: whoever
+  // switched to the timeline is reading evenings, not one evening.
+  const [sessionChart, setSessionChart] = useState<SessionChart>("scores");
   const [openSong, setOpenSong] = useState<SongRead | null>(null);
 
   const canView = auth.can("stats.view");
@@ -390,25 +395,6 @@ export default function Scores() {
 
   const rows = scores.data?.scores ?? [];
   const groups = sortGroups(groupScores(rows, grouping), sorting);
-  // One group's chart says nothing the single ranking row does not.
-  const showChart = groups.length >= 2;
-  // Ungrouped there is no spread to draw — the chart becomes a plain ranking of
-  // the head of the list. It therefore may not claim a ranking the reader's
-  // order does not have: "worst score" puts the *lowest* scores first, and
-  // alphabetically or chronologically the eight drawn bars are no ranking at
-  // all.
-  const chartTitle =
-    grouping !== "none"
-      ? "Score spread"
-      : sorting === "worst"
-        ? "Lowest scores"
-        : sorting === "alphabetically" || sorting === "chronological"
-          ? "Scores"
-          : "Top scores";
-  const chartLabel =
-    grouping === "none"
-      ? `${chartTitle} in ${meta ? "every session" : "this session"}`
-      : `Score spread per ${grouping}`;
 
   // A time order says nothing about a *singer* — a player is not an event, and
   // "who sang first" is not a property of a person — so grouped by player the
@@ -503,23 +489,73 @@ export default function Scores() {
             <SessionSummaryRow session={session} scores={rows} />
           )}
 
-          {/* Above both things they reorder: the two selects rebuild the chart
-              — its title included — as well as the ranking below it. */}
+          {/* The whole session at a glance, before any grouping: every score
+              on one strip, or — behind the switcher, where a card title would
+              stand — the evening read forwards. Every party at once is no
+              evening, so the meta view keeps the strip alone under a plain
+              title. A single score is its own headline; the strip waits for a
+              second one. */}
+          {rows.length >= 2 && (
+            <div className="scores-chart">
+              {meta ? (
+                <h2 className="scores-chart-title">All scores</h2>
+              ) : (
+                <fieldset className="scores-chart-switch">
+                  <legend className="visually-hidden">Session chart</legend>
+                  {(
+                    [
+                      ["scores", "All scores"],
+                      ["evening", "The evening"],
+                    ] as const
+                  ).map(([value, wording]) => (
+                    <label key={value} className="scores-chart-tab">
+                      <input
+                        type="radio"
+                        name="session-chart"
+                        className="visually-hidden"
+                        checked={sessionChart === value}
+                        onChange={() => setSessionChart(value)}
+                      />
+                      <span className="scores-chart-tab-text">{wording}</span>
+                    </label>
+                  ))}
+                </fieldset>
+              )}
+              {sessionChart === "evening" && !meta ? (
+                <EveningTimeline
+                  scores={rows}
+                  label="The session's scores over the evening"
+                />
+              ) : (
+                <ScoreStrip
+                  scores={rows}
+                  label={
+                    meta
+                      ? "Every score, all sessions"
+                      : "Every score of the session"
+                  }
+                  dated={meta}
+                />
+              )}
+            </div>
+          )}
+
+          {/* Above both things they reorder: the two selects rebuild the
+              spread card as well as the ranking below it. */}
           {controls}
 
-          {showChart && (
+          {/* One group's spread says nothing the single ranking row does not
+              — and ungrouped the strip above already is the whole picture,
+              so no second card repeats it. */}
+          {grouping !== "none" && groups.length >= 2 && (
             <div className="scores-chart">
-              <h2 className="scores-chart-title">{chartTitle}</h2>
-              {/* The groups stand up, so a wide chart grows sideways. It
-                  scrolls inside its own box — the page never does (§1.11). */}
-              <div className="scores-chart-scroll">
-                <Chart
-                  option={buildBoxplotOption(groups)}
-                  height={BOXPLOT_HEIGHT}
-                  width={boxplotWidth(groups.length)}
-                  label={chartLabel}
-                />
-              </div>
+              <h2 className="scores-chart-title">Score spread</h2>
+              <SpreadRows
+                groups={groups}
+                grouping={grouping}
+                label={`Score spread per ${grouping}`}
+                dated={meta}
+              />
             </div>
           )}
 

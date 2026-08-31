@@ -15,8 +15,6 @@
   },
   "dependencies": {
     "@tanstack/react-query": "^5.102.1",
-    "echarts": "^6.1.0",
-    "echarts-for-react": "^3.0.6",
     "react": "^19.1.0",
     "react-dom": "^19.1.0",
     "react-qr-code": "^2.2.0",
