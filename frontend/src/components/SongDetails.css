@@ -320,6 +320,12 @@
   font-variant-numeric: tabular-nums;
 }
 
+/* The whole history as the Scores page's strip, in the page gutter and flat on
+   `--bg` — no tile (§1.2), the ranking below carries on at the same 16px. */
+.song-scores-strip {
+  margin: 0 16px 12px 16px;
+}
+
 /* The "New playlist…" row of the picker, expanded: the name field and the
    plus that commits it, on the same axis as the rows above (the 8px of the
    list plus the 8px a `.picker-row` pads itself with). */

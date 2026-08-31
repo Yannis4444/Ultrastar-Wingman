@@ -52,6 +52,20 @@ test("every score is a dot, and only the session's best is gold", () => {
   expect(screen.getByText("9000 · Alice")).toBeInTheDocument();
 });
 
+test("an unnamed strip keeps the number and drops the singer", () => {
+  // One singer's own record: their name on their own best says nothing.
+  render(
+    <ScoreStrip
+      scores={[score("Alice", 9000), score("Alice", 4000)]}
+      label="All scores"
+      named={false}
+    />,
+  );
+
+  expect(screen.getByText("9000")).toBeInTheDocument();
+  expect(screen.queryByText("9000 · Alice")).not.toBeInTheDocument();
+});
+
 test("the session median stands as a labelled line", () => {
   render(
     <ScoreStrip
@@ -99,6 +113,31 @@ test("a strip that spans parties dates its tooltips", () => {
   const tip = document.querySelector(".chart-tip") as HTMLElement;
   expect(tip).toHaveTextContent("Alice");
   expect(tip).toHaveTextContent(shortDate("2026-08-23T20:00:00Z"));
+});
+
+test("the dot rings are painted for the ground the strip is given", () => {
+  const { rerender } = render(
+    <ScoreStrip
+      scores={[score("Alice", 9000), score("Bob", 4000)]}
+      label="All scores"
+    />,
+  );
+
+  // A card's strip: the ring is the tile it sits on.
+  for (const dot of screen.getAllByTestId("strip-dot"))
+    expect(dot).toHaveAttribute("stroke", chartTheme.surface);
+
+  rerender(
+    <ScoreStrip
+      scores={[score("Alice", 9000), score("Bob", 4000)]}
+      label="All scores"
+      surface={chartTheme.pageBg}
+    />,
+  );
+
+  // Flat on the page — the song modal — and the ring follows it.
+  for (const dot of screen.getAllByTestId("strip-dot"))
+    expect(dot).toHaveAttribute("stroke", chartTheme.pageBg);
 });
 
 test("nothing to draw, nothing drawn", () => {

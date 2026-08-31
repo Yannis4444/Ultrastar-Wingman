@@ -26,6 +26,8 @@ export const chartTheme = {
   median: "#e8f2fa",
   /** --tile-bg — the ring that keeps two piled marks readable as two. */
   surface: "#1b3347",
+  /** --bg — the same ring for a chart that sits flat on the page, not on a tile. */
+  pageBg: "#021720",
   /** A singer-initial chip on a song row, and the ink on it. */
   chip: "#2c516d",
   chipText: "#dcebf7",

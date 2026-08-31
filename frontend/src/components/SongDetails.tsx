@@ -28,6 +28,7 @@ import {
 } from "../api/@tanstack/react-query.gen";
 import { useAuth } from "../auth";
 import { asPlayer } from "../avatars";
+import { chartTheme } from "../chartTheme";
 import { timeAgo } from "../duration";
 import { errorDetail, errorMessage } from "../errors";
 import { useFavorites } from "../hooks/useFavorites";
@@ -46,6 +47,7 @@ import PlayerAvatar from "./PlayerAvatar";
 import PlayerSelection from "./PlayerSelection";
 import PlaylistCover from "./PlaylistCover";
 import RankedScoreList from "./RankedScoreList";
+import ScoreStrip from "./ScoreStrip";
 import SongCover from "./SongCover";
 // The control row is shared with the Home stage.
 import "./SongControls.css";
@@ -575,6 +577,19 @@ export default function SongDetails({ song, onClose }: SongDetailsProps) {
             <IconStat icon="arrow-down" label="Worst" value={history.worst} />
             <IconStat icon="average" label="Average" value={history.average} />
           </p>
+        )}
+        {/* Two scores are the fewest that make a picture: one dot has no
+            spread to show and no median worth drawing a line for. The modal is
+            flat on `--bg`, so the rings are painted for that ground (§1.1). */}
+        {allScores.length >= 2 && (
+          <div className="song-scores-strip">
+            <ScoreStrip
+              scores={allScores}
+              label="Every score this song ever got"
+              dated
+              surface={chartTheme.pageBg}
+            />
+          </div>
         )}
         <RankedScoreList scores={best} players={players} label="Best scores" />
       </Modal>

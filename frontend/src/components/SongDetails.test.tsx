@@ -240,6 +240,39 @@ test("the ranking summarises the song's whole history above the rows", async () 
   );
 });
 
+test("the whole history is drawn as the all-scores strip above the ranking", async () => {
+  renderDetails();
+
+  fireEvent.click(await screen.findByRole("button", { name: /Best scores/ }));
+  const dialog = screen.getByRole("dialog", { name: "Best scores" });
+
+  const strip = within(dialog).getByRole("img", {
+    name: "Every score this song ever got",
+  });
+  // One dot per score ever, not per listed row.
+  expect(within(strip).getAllByTestId("strip-dot")).toHaveLength(6);
+  // It sits between the summary line and the ranking, flat on the page.
+  expect(strip.closest(".song-scores-strip")).not.toBeNull();
+});
+
+test("one score alone is no picture, so no strip is drawn", async () => {
+  listSongScores.mockResolvedValue({
+    data: { scores: [score(1, "Alice", 9500)] },
+  });
+  renderDetails();
+
+  fireEvent.click(await screen.findByRole("button", { name: /Best scores/ }));
+  const dialog = screen.getByRole("dialog", { name: "Best scores" });
+  // Wait for the view itself before asserting the strip's absence.
+  await within(dialog).findByRole("list", { name: "Best scores" });
+
+  expect(
+    within(dialog).queryByRole("img", {
+      name: "Every score this song ever got",
+    }),
+  ).not.toBeInTheDocument();
+});
+
 test("a singer with a player record gets their avatar, a guest their initial", async () => {
   getMe.mockResolvedValue(
     meResponse(["songs.view", "stats.history", "players.view"]),
