@@ -259,6 +259,10 @@ colours and avatars already set up. At least one slot needs a player.
     Your slot assignment is remembered in your browser. The same group does not
     have to pick again for every song.
 
+Somebody [hidden](accounts-and-permissions.md#manage-players-and-accounts) is not
+in this list, and a stored slot does not bring them back either — the same as for
+a player who was deleted.
+
 ## Players, colours and avatars
 
 Players live under **User → Players & accounts**, in two groups: the people with
@@ -268,6 +272,9 @@ an account, and the guests who only sing.
 - Tapping a player's picture uploads a new one — jpeg, png or webp, up to 5 MB
   and 50 megapixels. Ultrastar Deluxe shows it next to the name while singing.
   Your own picture can also be changed by tapping it on the **User** tab.
+- The **eye** hides somebody for the evening: they drop out of the player
+  selection, and out of nothing else. See
+  [Manage players and accounts](accounts-and-permissions.md#manage-players-and-accounts).
 - The bin removes a guest. Scores that player already earned keep the name.
   Somebody with an account is removed by deleting the account, which turns them
   into a guest first.

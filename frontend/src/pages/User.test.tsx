@@ -90,7 +90,7 @@ const ADMIN_CAPABILITIES = [
 ];
 
 function player(id: string, name: string): PlayerRead {
-  return { id, name, registered: false, has_avatar: false };
+  return { id, name, registered: false, hidden: false, has_avatar: false };
 }
 
 /** Shows what the router thinks the URL is, so a stripped parameter is visible. */

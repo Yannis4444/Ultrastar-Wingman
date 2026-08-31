@@ -138,7 +138,7 @@ What each role may do by default:
 | Create and edit own playlists | – | yes | yes | yes |
 | See the parties before tonight | – | yes | yes | yes |
 | [Comment on songs](singing.md#comments) | – | yes | yes | yes |
-| Add and delete players | – | – | yes | yes |
+| Add, hide and delete players | – | – | yes | yes |
 | Change somebody else's picture | – | – | yes | yes |
 | Clear a song off the wishlist | – | – | yes | yes |
 | See who has an account | – | – | yes | yes |
@@ -171,11 +171,33 @@ rights behind it — the pictures for *avatar*, the new player and the guest
 deletions for *manage*, the names of the account holders for *users → view*, and
 their roles and deletions for *users → manage*.
 
+Each group says in one line what it is about: a forgotten password is no
+disaster, and a guest is taken over by whoever registers that name.
+
+- The **eye** on a row hides that player for the evening. Hidden means gone from
+  the player selection that opens when a song is started — and gone from nothing
+  else: the scoreboard, the statistics and every past party still name them, and
+  their scores are untouched. The name goes quiet while it lasts, the eye shows a
+  bar through it, and tapping it again brings them back. **Somebody logging in
+  unhides themselves**, so a singer who comes back after all does not have to ask
+  anybody. Hiding takes the same right as adding and deleting players.
 - A role can be set to **user**, **trusted** or **admin**. Nobody is put back to
   **guest** — that is the role for people without an account. Take the account
   away instead.
 - The last administrator cannot be demoted or deleted. Wingman would lock
   everybody out.
+- **A forgotten password is not the end of that singer.** There is no reset
+  flow — instead, delete the account and register the same name again. The player
+  row survives the deletion and is picked up by the new account, so every score
+  it ever sang comes along; what the account itself held is gone, as under
+  *Deleting an account* below. The one account this does not work for is the
+  **last administrator**, who cannot be deleted: make somebody else an
+  administrator first — the [host screen's browser](#the-host-screen) can do
+  that without logging in at all.
+- **Registering a guest's name takes that guest over.** Somebody who sang all
+  evening as *Jörg* and then registers as *Jörg* keeps everything they sang: the
+  guest player is not duplicated, it becomes their player. Capitalisation makes
+  no difference.
 - Deleting an account keeps its player and its scores, under the same name, and
   removes its wishes, favorites, comments and playlists — except a playlist
   with an [admin member](wishlist-and-playlists.md#manage-a-playlist), which is

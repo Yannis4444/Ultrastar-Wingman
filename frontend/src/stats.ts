@@ -280,6 +280,7 @@ export function scorePlayer(
       id: score.player_id ?? `name:${score.player_name}`,
       name: score.player_name,
       registered: false,
+      hidden: false,
       has_avatar: false,
     }
   );

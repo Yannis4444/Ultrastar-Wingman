@@ -125,9 +125,40 @@ async def test_a_duplicate_name_is_409_regardless_of_case(client: AsyncClient) -
 async def test_unknown_player_is_404(client: AsyncClient) -> None:
     assert (await client.get("/api/v1/players/nope/avatar")).status_code == 404
     assert (await client.delete("/api/v1/players/nope")).status_code == 404
+    assert (await client.patch("/api/v1/players/nope", json={"hidden": True})).status_code == 404
     assert (
         await client.put("/api/v1/players/nope/avatar", files=upload(PNG, "a.png", "image/png"))
     ).status_code == 404
+
+
+async def test_a_player_can_be_hidden_and_shown_again(client: AsyncClient) -> None:
+    """Hiding is a flag on the row, not a deletion: the player stays in every listing and
+    the singer picker is the one surface that drops them."""
+    player = await create(client, "Yannis")
+    assert player["hidden"] is False
+
+    hidden = await client.patch(f"/api/v1/players/{player['id']}", json={"hidden": True})
+
+    assert hidden.status_code == 200
+    assert hidden.json() == {**player, "hidden": True}
+    assert (await client.get("/api/v1/players")).json() == {"players": [{**player, "hidden": True}]}
+
+    shown = await client.patch(f"/api/v1/players/{player['id']}", json={"hidden": False})
+
+    assert shown.json()["hidden"] is False
+    assert (await client.get("/api/v1/players")).json() == {"players": [player]}
+
+
+async def test_hiding_a_player_survives_a_restart(
+    bootstrap_settings: BootstrapSettings,
+) -> None:
+    """The flag is a column, so an evening's hiding outlives the app that wrote it."""
+    async for first in _client(bootstrap_settings):
+        player = await create(first, "Yannis")
+        await first.patch(f"/api/v1/players/{player['id']}", json={"hidden": True})
+
+    async for second in _client(bootstrap_settings):
+        assert (await second.get("/api/v1/players")).json()["players"][0]["hidden"] is True
 
 
 @pytest.mark.parametrize(

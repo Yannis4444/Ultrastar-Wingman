@@ -46,6 +46,8 @@ export function asPlayer(
     id: playerId ?? "",
     name: username,
     registered: true,
+    // Hiding is a state of a player row in the picker; a stand-in is never one.
+    hidden: false,
     has_avatar:
       playerId !== null &&
       (avatarVersion === undefined || avatarVersion !== null),

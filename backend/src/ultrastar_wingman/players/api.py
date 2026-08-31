@@ -33,6 +33,10 @@ class PlayerCreate(BaseModel):
     name: Annotated[str, StringConstraints(strip_whitespace=True, min_length=1, max_length=64)]
 
 
+class PlayerUpdate(BaseModel):
+    hidden: bool
+
+
 @router.get("/players", response_model=PlayerList, dependencies=[Depends(require("players.view"))])
 async def list_players(session: SessionDep) -> PlayerList:
     return PlayerList(
@@ -52,6 +56,24 @@ async def create_player(new_player: PlayerCreate, session: SessionDep) -> Player
         return read_player(await service.create_player(session, new_player.name))
     except service.DuplicatePlayerNameError as error:
         raise HTTPException(status_code=409, detail="duplicate_name") from error
+
+
+@router.patch(
+    "/players/{player_id}",
+    response_model=PlayerRead,
+    dependencies=[Depends(require("players.manage"))],
+    responses={404: {"description": "Unknown player."}},
+)
+async def update_player(player_id: str, body: PlayerUpdate, session: SessionDep) -> PlayerRead:
+    """Hide a player for the evening, or show them again.
+
+    Hidden takes them out of the singer picker and out of nothing else — the scoreboard, the
+    statistics and every past session still name them. The next time the account behind the
+    player logs in, the flag clears itself.
+    """
+    return read_player(
+        await service.set_hidden(session, await _player(player_id, session), body.hidden)
+    )
 
 
 @router.delete(

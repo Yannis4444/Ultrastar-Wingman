@@ -452,6 +452,10 @@ export type PlayerRead = {
      */
     registered: boolean;
     /**
+     * Hidden
+     */
+    hidden: boolean;
+    /**
      * Has Avatar
      */
     has_avatar: boolean;
@@ -459,6 +463,16 @@ export type PlayerRead = {
      * Avatar Version
      */
     avatar_version?: number | null;
+};
+
+/**
+ * PlayerUpdate
+ */
+export type PlayerUpdate = {
+    /**
+     * Hidden
+     */
+    hidden: boolean;
 };
 
 /**
@@ -2298,6 +2312,40 @@ export type DeletePlayerResponses = {
 };
 
 export type DeletePlayerResponse = DeletePlayerResponses[keyof DeletePlayerResponses];
+
+export type UpdatePlayerData = {
+    body: PlayerUpdate;
+    path: {
+        /**
+         * Player Id
+         */
+        player_id: string;
+    };
+    query?: never;
+    url: '/api/v1/players/{player_id}';
+};
+
+export type UpdatePlayerErrors = {
+    /**
+     * Unknown player.
+     */
+    404: unknown;
+    /**
+     * Validation Error
+     */
+    422: HttpValidationError;
+};
+
+export type UpdatePlayerError = UpdatePlayerErrors[keyof UpdatePlayerErrors];
+
+export type UpdatePlayerResponses = {
+    /**
+     * Successful Response
+     */
+    200: PlayerRead;
+};
+
+export type UpdatePlayerResponse = UpdatePlayerResponses[keyof UpdatePlayerResponses];
 
 export type GetPlayerAvatarData = {
     body?: never;

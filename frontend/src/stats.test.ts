@@ -388,7 +388,13 @@ test("the number a row shows is the number it is sorted by", () => {
 });
 
 test("a singer without a player record still gets an avatar to fall back on", () => {
-  const known = { id: "p1", name: "Alice", registered: true, has_avatar: true };
+  const known = {
+    id: "p1",
+    name: "Alice",
+    registered: true,
+    hidden: false,
+    has_avatar: true,
+  };
   const players = new Map([[known.id, known]]);
 
   expect(

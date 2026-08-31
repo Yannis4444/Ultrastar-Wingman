@@ -73,6 +73,14 @@ p {
   margin: 16px 16px;
 }
 
+/* The line that explains an `h2` to the reader: it belongs to the heading above
+   it, so it sits tight under it and the section's own 16px rhythm follows. */
+.section-note {
+  margin: 4px 16px 0 16px;
+  font-size: 0.85em;
+  color: var(--color-darker);
+}
+
 /* Shared button and text-input looks, so every dialog and form matches. */
 .button {
   padding: 10px 16px;

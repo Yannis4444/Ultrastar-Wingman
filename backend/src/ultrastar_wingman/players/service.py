@@ -83,6 +83,32 @@ async def player_id_of_user(session: AsyncSession, user_id: str) -> str | None:
     return await session.scalar(select(Player.id).where(Player.user_id == user_id))
 
 
+async def set_hidden(session: AsyncSession, player: Player, hidden: bool) -> Player:
+    """Take a player out of the singer picker, or put them back.
+
+    Nothing else reads the flag: the scores, the sessions and the statistics are the record
+    of what happened and keep naming them.
+    """
+    player.hidden = hidden
+    await session.commit()
+    logger.info("player '%s' is now %s", player.name, "hidden" if hidden else "shown")
+    return player
+
+
+async def unhide_player_of_user(session: AsyncSession, user_id: str) -> None:
+    """Whoever just logged in is here, so they belong in the picker again.
+
+    A no-op — and no commit — while the account has no player of its own, or while its
+    player was never hidden: logging in must not write a row for nothing.
+    """
+    player = await session.scalar(select(Player).where(Player.user_id == user_id))
+    if player is None or not player.hidden:
+        return
+    player.hidden = False
+    await session.commit()
+    logger.info("player '%s' is shown again after a login", player.name)
+
+
 async def delete_player(session: AsyncSession, player: Player, avatars_dir: Path) -> None:
     await _remove_avatar_files(player.id, avatars_dir)
     await session.delete(player)

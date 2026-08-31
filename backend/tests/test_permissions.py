@@ -50,6 +50,7 @@ ROUTES: list[tuple[str, str, str, dict[str, object] | None]] = [
     ("players.view", "GET", "/api/v1/players/nope/avatar", None),
     ("players.view", "GET", "/api/v1/karaoke/colors", None),
     ("players.manage", "POST", "/api/v1/players", {"name": "Someone"}),
+    ("players.manage", "PATCH", "/api/v1/players/nope", {"hidden": True}),
     ("players.manage", "DELETE", "/api/v1/players/nope", None),
     # Somebody else's picture. Your own needs no capability, which is why the id here is
     # one no caller in this matrix owns — see test_players_api for the identity half.

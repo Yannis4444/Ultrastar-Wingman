@@ -62,7 +62,7 @@ const DESCRIPTIONS: Record<string, string> = {
   "karaoke.stop": "Stop the song that is running now.",
   "players.view": "See the players, and pick who is singing.",
   "players.avatar": "Change anybody's picture. Your own never needs a right.",
-  "players.manage": "Add and delete players.",
+  "players.manage": "Add players, hide them for the evening, and delete them.",
   "wishlist.view": "See what everybody wished for.",
   "wishlist.add": "Put a song on the wishlist, and take it off again.",
   "wishlist.manage": "Take a song off the wishlist for everybody.",

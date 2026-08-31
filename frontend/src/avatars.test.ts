@@ -18,6 +18,8 @@ test("a known version is carried into the avatar's URL", () => {
     id: "p1",
     name: "alice",
     registered: true,
+    // A stand-in is never in the singer picker, so it is never hidden from it.
+    hidden: false,
     has_avatar: true,
     avatar_version: 4,
   });

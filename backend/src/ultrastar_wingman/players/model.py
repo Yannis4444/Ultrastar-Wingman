@@ -28,6 +28,10 @@ class Player(Base):
     # account unlinks the player (it becomes a temporary one again) instead of deleting it.
     registered: Mapped[bool] = mapped_column(Boolean, default=False)
     user_id: Mapped[str | None] = mapped_column(String(32), nullable=True, unique=True)
+    # Put out of sight for the evening: the player is gone from the singer picker and from
+    # nowhere else — every score, session and statistic still names them. Logging in clears
+    # it again, so somebody hidden after they went home is back the moment they return.
+    hidden: Mapped[bool] = mapped_column(Boolean, default=False, server_default=text("0"))
     # Absolute path of the stored avatar image, `<data_dir>/avatars/<id>.<ext>`.
     avatar_file: Mapped[str | None] = mapped_column(Text, nullable=True)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=_now)

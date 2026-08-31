@@ -83,6 +83,7 @@ const SING: CurrentSing = {
         id: "aaa",
         name: "Alice",
         registered: false,
+        hidden: false,
         has_avatar: false,
       },
     },

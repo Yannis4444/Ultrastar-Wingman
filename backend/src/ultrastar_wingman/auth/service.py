@@ -12,6 +12,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from ..comments import service as comments
 from ..library import service as library
+from ..players import service as players
 from ..players.model import Player
 from ..tags import service as tags
 from .model import User, UserSession, as_utc, utcnow
@@ -97,6 +98,12 @@ async def start_session(
     session: AsyncSession, user_id: str | None = None, is_host: bool = False
 ) -> str:
     """Create a session and return its raw token — the only time it exists in clear."""
+    if user_id is not None:
+        # Every way into an account ends here — registering, logging in locally, coming back
+        # from the identity provider — so this is the one place "if a player logs in, unhide
+        # them" has to live. The host token creates a session with no account and no player,
+        # and hides nothing.
+        await players.unhide_player_of_user(session, user_id)
     raw_token = new_token()
     now = utcnow()
     session.add(

@@ -23,6 +23,7 @@ function player(overrides: Partial<PlayerRead> = {}): PlayerRead {
     id: "aaa",
     name: "Alice",
     registered: true,
+    hidden: false,
     has_avatar: true,
     avatar_version: 1700,
     ...overrides,
