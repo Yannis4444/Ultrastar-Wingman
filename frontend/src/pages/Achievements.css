@@ -1,0 +1,93 @@
+/* Achievements admin: the sibling of the Tags admin (§7) and the same flat
+   sub-page — hairline rows on `--bg`, no card anywhere. The reading column and
+   every row metric match it, so walking from one manage surface into the other
+   moves nothing.
+
+   The three settings rows above the lists are `SettingField`'s own classes,
+   which come with the `SettingSaved` this page imports. */
+.achievements-page {
+  max-width: 720px;
+  margin: 0 auto;
+}
+
+.achievements-notice {
+  margin: 16px;
+}
+
+/* ----------------------------------------------------------- the two listings
+   One row per achievement: the medallion, the name over its meta line, a
+   chevron. `AchievementBadge` is sized by this row's `font-size` (§3), so the
+   40px square needs no width here. */
+
+.achievements-list {
+  display: flex;
+  flex-direction: column;
+
+  /* 8px here plus 8px of row padding: the text lands on the page gutter while
+     the hover band bleeds past it (§2). */
+  margin: 8px 8px 0 8px;
+  padding: 0;
+  list-style: none;
+}
+
+.achievements-list li {
+  border-bottom: 1px solid var(--input-border-color);
+}
+
+.achievements-list > :last-child {
+  border-bottom: none;
+}
+
+.achievements-open {
+  display: flex;
+  gap: 12px;
+  align-items: center;
+  min-width: 0;
+  min-height: 56px;
+  padding: 6px 8px;
+  color: var(--color);
+  text-decoration: none;
+  border-radius: var(--border-radius-small);
+  transition: 0.1s background-color;
+}
+
+/* Pointers only (§1.12): a touch screen fakes a hover on tap and leaves the row
+   lit long after the finger has scrolled on. */
+@media (hover: hover) {
+  .achievements-open:hover {
+    background-color: var(--highlight-blue-dark);
+  }
+}
+
+.achievements-text {
+  flex: 1 1 auto;
+  min-width: 0;
+}
+
+/* Both lines are one line each, ellipsised (§2). */
+.achievements-name {
+  display: block;
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+
+.achievements-meta {
+  display: block;
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+  font-size: 0.85em;
+  color: var(--color-darker);
+}
+
+.achievements-chevron {
+  flex: 0 0 auto;
+  color: var(--color-darker);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .achievements-open {
+    transition: none;
+  }
+}

@@ -45,6 +45,12 @@ export const MANAGE_ENTRIES: ManageEntry[] = [
     icon: "tag",
   },
   {
+    capabilities: ["achievements.manage"],
+    label: "Achievements",
+    to: "/user/achievements",
+    icon: "trophy",
+  },
+  {
     capabilities: ["permissions.manage"],
     label: "Permissions",
     to: "/user/permissions",
