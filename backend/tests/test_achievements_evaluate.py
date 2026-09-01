@@ -15,7 +15,7 @@ from typing import Any
 
 import pytest
 from pydantic import ValidationError
-from sqlalchemy import select
+from sqlalchemy import delete, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from ultrastar_wingman.achievements import service
@@ -559,6 +559,13 @@ async def add_achievement(
     *,
     enabled: bool = True,
 ) -> None:
+    """One hand-built achievement, on a catalogue holding nothing else.
+
+    Migration 0023 seeds the seventeen Wingman ships, and a pass looks at every enabled one —
+    so they are dropped first. What they mean is `test_achievements_triggers`' business;
+    these tests are about the engine, and the assertions here name every row a pass wrote.
+    """
+    await session.execute(delete(Achievement).where(Achievement.built_in.is_(True)))
     session.add(
         Achievement(
             id=achievement_id,

@@ -39,7 +39,7 @@ import a round trip.
 | `metric` | What is measured over the scores the filters left. See the table below. |
 | `comparator` | `>` `>=` `=` `<=` `<` |
 | `value` | The number compared against. |
-| `score_filter` | Optional `min` / `max` — drops scores outside the range **before** the metric is computed. "Ten scores above 9000" is `number_of_scores >= 10` with `score_filter.min = 9000`. |
+| `score_filter` | Optional `min` / `max` — drops scores outside the range **before** the metric is computed. "Ten scores above 9000" is `number_of_scores >= 10` with `score_filter.min = 9000`. A `min` above the `max` is refused: no score survives it, so the condition could never be satisfied by anybody. |
 | `songs` | Optional. An explicit list of song ids the scores must be on. |
 | `match` | Optional. A selector over song metadata instead of a list. `songs` and `match` are mutually exclusive — the editor switches between them. |
 
@@ -107,8 +107,28 @@ following correct for free — a counter would drift on every one of them:
 | A sing finishes (`karaoke.service._finish`, right after `scores.recorded`) | Every player scored in that sing. |
 | A score is reassigned (`PATCH /stats/scores/{id}`) | The old player **and** the new one. |
 | A score is deleted (`DELETE /stats/scores/{id}`) | The player it was on. |
-| An achievement is created, edited, deleted, imported, enabled or disabled | Every player, as a background pass. |
-| The global toggle is switched | Every player, as a background pass. |
+| An achievement is created, edited, imported, enabled or disabled | Every player, as a background pass. |
+| The global toggle is switched **on** | Every player, as a background pass. |
+
+Three of those are worth spelling out.
+
+* **Deleting** one starts no pass: its `player_achievements` rows go with it,
+  and nothing about anybody else changed.
+* **An icon** — uploaded or removed — starts none either. What an achievement
+  looks like has nothing to do with who has earned it.
+* Switching the toggle **off** starts none: nothing is evaluated while it is
+  off, and the badges are kept. Switching it back on is the pass that brings
+  them up to date.
+
+The background pass is a tracked `asyncio.Task` per write (`start_full_pass`),
+logged on failure and cancelled at shutdown before the engine goes — never
+fire-and-forget. A module-level `asyncio.Lock` serialises the write half of
+every pass: a finishing sing and a `stats.moderate` correction can otherwise
+both find no row for a player and both insert the same composite primary key.
+
+Nothing is broadcast when a pass *finishes*. `achievements.earned` belongs to a
+sing, and a pass over the whole record has no sing to name — the write that
+started it has already said what a client needs to hear.
 
 ### The pass
 
@@ -157,9 +177,30 @@ a lie.
 ## Hidden achievements
 
 `hidden` is enforced by the API, not by the UI. `GET /achievements` blanks
-`name`, `description` and `icon` on a hidden achievement the caller has not
-earned, unless the caller holds `achievements.manage`. A client that ignored
-the flag would otherwise spoil every surprise.
+`name`, `description` and `icon` (and `has_image`) on a hidden achievement the
+caller has not earned, unless the caller holds `achievements.manage`. A client
+that ignored the flag would otherwise spoil every surprise.
+
+"The caller" is the caller's **own player**, resolved the way `stats/api.py`
+resolves one: an account linked to a player. A guest phone and the host screen
+have no player and have therefore earned nothing.
+
+`GET /players/{id}/achievements` masks over the **subject** instead — it is
+that player's record, not the reader's — and nulls `progress_current` /
+`progress_target` on a masked row as well, because a bar that filled would say
+what the badge is for as loudly as its name would.
+
+`definition` is never in a masked row, and never on the event bus either: the
+bus is open to anonymous clients, and what a hidden achievement asks for is the
+surprise itself.
+
+`GET /achievements/{id}/icon` is masked as well — a masked row still carries
+its id, so "you would have to know the id" protects nothing, and an uploaded
+picture gives the surprise away as loudly as the name would. It is the one
+place where the rule is "once **anybody** has earned it" rather than "once the
+caller has": earning one announces it to every socket, and a phone drawing
+somebody else's badges has to be able to draw this one. A kept-back picture is
+the same 404 as no picture at all.
 
 ## Settings
 
@@ -181,10 +222,19 @@ One capability, `achievements.manage`, in no role bundle — like
 administrator. Reading the catalogue and a player's badges needs no capability
 at all: the host screen and every guest phone draw them.
 
-## The event
+It still needs a seeding migration (0024). An administrator holds every
+capability because `ADMIN` is `ALL_CAPABILITIES` and not because a row says so,
+but `role_permissions` is seeded literally for every role including `admin`
+(migrations 0006 to 0020 do the same), and `test_permissions` compares the two.
 
-One `achievements.earned` per **sing**, not per player, so the host screen's
-choreography cannot race:
+## The events
+
+Two of them, and they say different things. `achievements.earned` says somebody
+*reached* one; `achievements.changed` says the catalogue itself is different now.
+
+### `achievements.earned`
+
+One per **sing**, not per player, so the host screen's choreography cannot race:
 
 ```json
 {
@@ -199,6 +249,35 @@ choreography cannot race:
 Broadcast from `_finish` after `scores.recorded`. It goes to every socket:
 earning a hidden achievement reveals it, and the scores it was earned from are
 already on the bus.
+
+### `achievements.changed`
+
+```json
+{ "event": "achievements.changed" }
+```
+
+No payload at all, for the same reason `tags.changed` has none: what a listener
+may see of the catalogue is masked **per caller**, and the bus does not know who
+is on the other end. A row that is whole for the player who earned it is blank
+for the stranger beside them, so there is nothing one payload could carry that
+would be right for both. Every client refetches `GET /achievements`, which masks
+for whoever asks.
+
+Broadcast from every write that changes what `GET /achievements` answers, and
+from nothing else:
+
+| Write | Why it changes the answer |
+|---|---|
+| `POST /achievements` | A row appeared. |
+| `PATCH /achievements/{id}` | Any field of it, the `enabled` flag included. |
+| `DELETE /achievements/{id}` | A row went. |
+| `PUT /achievements/{id}/icon` | `has_image` flipped, and the picture behind it is a different one. |
+| `DELETE /achievements/{id}/icon` | `has_image` flipped back. |
+| `PATCH /achievements/settings` | The settings ride along in the same answer — and `enabled` decides whether anything is drawn at all. |
+
+A refused write sends nothing: a 409 on a built-in delete, a 422 on a definition
+the models reject and a 404 on an unknown id all changed no row. Neither does a
+settings PATCH that named no field.
 
 ## Import and export
 
@@ -225,8 +304,11 @@ few lines of code and the project takes no dependency it can avoid
 
 An achievement's icon is either one of the app's own glyphs (`ICON_PATHS`) in
 one of the four tag colours, or an uploaded image that replaces it. Uploads go
-through the same validation as player avatars (`players/service.py`): a
-content-type allowlist, a byte cap and a pixel cap, no image library.
+through the same validation as player avatars — the same code, factored into
+`images.py`: a content-type allowlist the bytes have to agree with, a byte cap
+and a pixel cap read out of the file's own header, and no image library. One
+file per achievement under `<data dir>/achievement_icons`, the previous one
+dropped even when it had another extension.
 
 The badge is a medallion: a plate in the achievement's colour with the glyph
 centred. Earned draws it in full colour; unearned draws `--color-darkerer` on
@@ -235,7 +317,12 @@ the name would be.
 
 ## The included set
 
-Seeded by a migration as ordinary rows with `built_in = true` and **stable
-slug ids** (`builtin-score-9000`), which is what import/export needs to
-recognise one. A built-in can be edited and switched off; it cannot be
-deleted.
+Seventeen of them, declared as data in `achievements/builtin.py` and seeded by
+migration 0023 as ordinary rows with `built_in = true` and **stable slug ids**
+(`builtin-score-9000`), which is what import/export needs to recognise one. A
+built-in can be edited and switched off; deleting one is a 409.
+
+The migration reads `builtin.py` rather than repeating the list, so the set
+exists once — but it names its own columns, and what it seeds is what a
+**fresh** database starts with. Adding a built-in later needs its own
+revision.

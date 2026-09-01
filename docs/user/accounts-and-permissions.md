@@ -151,6 +151,7 @@ What each role may do by default:
 | Delete anybody's comments | – | – | yes | yes |
 | [Fix a song's details](singing.md#fix-a-songs-details) | – | – | yes | yes |
 | [Correct or delete a score](statistics.md#fix-a-wrong-singer) | – | – | – | yes |
+| Create and edit achievements | – | – | – | yes |
 | [Delete a song](singing.md#delete-a-song) | – | – | – | yes |
 | See and change the settings | – | – | – | yes |
 | Manage users | – | – | – | yes |
@@ -209,11 +210,12 @@ disaster, and a guest is taken over by whoever registers that name.
 
 **User → Permissions** is the table above made editable, all of it at once: one
 row per right, one column for **guest**, **user** and **trusted**. Rights that
-belong together stand under one heading, in alphabetical order — *comments*,
-*downloads*, *karaoke*, *permissions*, *players*, *playlists*, *settings*,
-*songs*, *stats*, *tags*, *USDB*, *users*, *wishlist* — and under each row
-stands in one line what it allows. Every tick is saved right away and takes
-effect immediately, for everybody who is already looking at a page.
+belong together stand under one heading, in alphabetical order —
+*achievements*, *comments*, *downloads*, *karaoke*, *permissions*, *players*,
+*playlists*, *settings*, *songs*, *stats*, *tags*, *USDB*, *users*, *wishlist*
+— and under each row stands in one line what it allows. Every tick is saved
+right away and takes effect immediately, for everybody who is already looking
+at a page.
 
 Useful in practice:
 

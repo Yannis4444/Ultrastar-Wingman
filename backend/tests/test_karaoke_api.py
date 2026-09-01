@@ -334,7 +334,16 @@ async def test_a_finished_song_records_scores_for_the_players_who_sang(
     assert configured.config()["Game"]["Players"] == "2"
 
     events = [event["event"] for event in broadcast_events]
-    assert events == ["karaoke.started", "karaoke.ended", "scores.recorded"]
+    # `achievements.earned` closes the sequence: both singers just crossed a built-in
+    # (*First Time on the Mic* at the very least). What is in it is
+    # `test_achievements_triggers`' business — here it only has to come last, after the
+    # scores it was earned from.
+    assert events == [
+        "karaoke.started",
+        "karaoke.ended",
+        "scores.recorded",
+        "achievements.earned",
+    ]
     recorded = broadcast_events[2]
     assert recorded["sing_id"] == started["sing_id"]
     recorded_scores = cast(list[dict[str, Any]], recorded["scores"])

@@ -8,6 +8,7 @@ from fastapi import APIRouter, Depends, HTTPException, Request, WebSocket, WebSo
 from pydantic import BaseModel
 
 from . import APP_NAME, __version__
+from .achievements.api import router as achievements_router
 from .auth.api import router as auth_router
 from .auth.deps import require
 from .comments.api import router as comments_router
@@ -45,6 +46,7 @@ router.include_router(library_router)
 router.include_router(stats_router)
 router.include_router(tags_router)
 router.include_router(comments_router)
+router.include_router(achievements_router)
 
 
 class Health(BaseModel):

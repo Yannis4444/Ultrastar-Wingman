@@ -15,6 +15,9 @@ from typing import Literal
 
 from pydantic import BaseModel, ValidationError, model_validator
 
+from ..players.schema import PlayerRead
+from .model import Achievement
+
 logger = logging.getLogger(__name__)
 
 # `global` — every score the player ever got. `session` — the condition has to hold inside
@@ -64,6 +67,15 @@ class ScoreFilter(BaseModel):
 
     min: int | None = None
     max: int | None = None
+
+    @model_validator(mode="after")
+    def _the_range_has_to_hold_something(self) -> "ScoreFilter":
+        if self.min is not None and self.max is not None and self.min > self.max:
+            # No score survives it, so the condition can never be satisfied by anybody. A
+            # transposed pair is the one mistake this shape invites, and a badge nobody can
+            # ever earn is indistinguishable from a badge nobody has earned *yet*.
+            raise ValueError("a score filter's 'min' cannot be above its 'max'")
+        return self
 
 
 class SongIds(BaseModel):
@@ -165,6 +177,72 @@ class PlayerAchievementRead(BaseModel):
     session_id: str | None
     progress_current: int | None
     progress_target: int | None
+    # The achievement itself, so a page that draws somebody's badges needs one request. The
+    # same masking as the catalogue applies to it, decided over the *subject* player: this is
+    # that player's record, not the reader's.
+    achievement: AchievementRead
+
+
+class AchievementSettings(BaseModel):
+    """The three knobs, handed to every reader of the catalogue: whether badges exist at all,
+    and how long the host screen holds a row of them."""
+
+    enabled: bool
+    host_seconds_base: int
+    host_seconds_per_badge: int
+
+
+class AchievementList(BaseModel):
+    """`GET /achievements`. The settings ride along because every surface that draws a badge
+    needs both, and one request is one request."""
+
+    achievements: list[AchievementRead]
+    settings: AchievementSettings
+
+
+class PlayerAchievementList(BaseModel):
+    achievements: list[PlayerAchievementRead]
+
+
+class EarnedByPlayer(BaseModel):
+    """One singer and what they just earned — the unit the `achievements.earned` event is a
+    list of. `PlayerRead` and not an id: the host screen draws the picture and the name
+    beside the badge, and the bus is what it draws from."""
+
+    player: PlayerRead
+    achievements: list[AchievementRead]
+
+
+def read_achievement(
+    achievement: Achievement, *, definition: bool = False, mask: bool = False
+) -> AchievementRead:
+    """One catalogue entry.
+
+    `mask` blanks what a hidden achievement keeps back — its name, its sentence and its
+    glyph — and it is the API that decides when, never the client: a reader that ignored the
+    flag would otherwise spoil every surprise in the list. What is left is the shape of a
+    badge (the colour, the sort order, that it exists at all), which is what lets the UI draw
+    a locked slot without knowing what is behind it.
+
+    `definition` is handed only to a caller holding `achievements.manage`. It says what a
+    hidden achievement asks for, which is the surprise itself.
+    """
+    return AchievementRead(
+        id=achievement.id,
+        name="" if mask else achievement.name,
+        description="" if mask else achievement.description,
+        icon=None if mask else achievement.icon,
+        # File paths stay server-side, like a player's avatar: a client only needs to know
+        # whether to ask the image endpoint for one.
+        has_image=not mask and achievement.icon_file is not None,
+        color=achievement.color,
+        hidden=achievement.hidden,
+        enabled=achievement.enabled,
+        built_in=achievement.built_in,
+        sort_order=achievement.sort_order,
+        # Never on a masked row, and never on the event bus either — that one is anonymous.
+        definition=parse_definition(achievement.id, achievement.definition) if definition else None,
+    )
 
 
 def parse_definition(achievement_id: str, definition: object) -> list[Condition] | None:

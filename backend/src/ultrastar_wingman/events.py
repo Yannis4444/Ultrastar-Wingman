@@ -7,6 +7,7 @@ from typing import Literal
 from fastapi import WebSocket
 from pydantic import BaseModel
 
+from .achievements.schema import EarnedByPlayer
 from .downloads.schema import DownloadRead
 from .karaoke.schema import CurrentSing, ScoreRead
 from .songs.schema import SongRead
@@ -97,6 +98,45 @@ class ScoresChanged(Event):
 
     event: Literal["scores.changed"] = "scores.changed"
     sing_id: str
+
+
+class AchievementsEarned(Event):
+    """What a finished sing just earned, for everybody it earned something.
+
+    One event per **sing**, not per player: the host screen choreographs the whole sequence
+    out of one payload — whose badges come first, how long the row stays — and a stream of
+    per-player events would make that animation racy, with the second singer's arrival
+    landing in the middle of the first singer's row.
+
+    The achievements in it are **unmasked**, `hidden` ones included: earning one is what
+    reveals it, and the scores it was earned from are already on the bus. `definition` is
+    left out all the same — the bus is open to anonymous clients, and what a hidden
+    achievement asks for is the surprise itself.
+
+    Sent only when something was newly earned; a party where nobody crossed a line is silent.
+    """
+
+    event: Literal["achievements.earned"] = "achievements.earned"
+    sing_id: str
+    players: list[EarnedByPlayer]
+
+
+class AchievementsChanged(Event):
+    """The catalogue itself changed: one was created, edited, deleted, had its picture
+    replaced or removed, or the three options were retimed.
+
+    No payload, for the same reason `tags.changed` has none: what a listener may see of the
+    catalogue is masked per caller — a `hidden` one is blank for everybody who has not earned
+    it — and the bus does not know who is on the other end. Every client refetches
+    `GET /achievements`, which masks for whoever asks.
+
+    Not the same event as `achievements.earned`: that one says somebody *reached* something
+    and belongs to a sing. This one says the thing itself is different now. A recomputation
+    pass finishing broadcasts neither — it has no sing to name, and the write that started it
+    already sent this.
+    """
+
+    event: Literal["achievements.changed"] = "achievements.changed"
 
 
 class WishlistUpdated(Event):

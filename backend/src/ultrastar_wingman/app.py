@@ -11,6 +11,7 @@ from fastapi.routing import APIRoute
 from sqlalchemy.ext.asyncio import async_sessionmaker, create_async_engine
 
 from . import APP_NAME, __version__
+from .achievements import service as achievements
 from .api import router
 from .auth import permissions
 from .auth import service as auth
@@ -54,6 +55,9 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
         # dead connection pool. Ending the karaoke session kills a running song — the
         # alternative is losing its scores, which is worse.
         await scanner.stop_scan()
+        # Same reason: a full achievement pass kicked off by the last edit would fail on a
+        # dead connection pool, and nobody is waiting for its answer.
+        await achievements.stop_passes()
         await karaoke.shutdown()
         await engine.dispose()
 
