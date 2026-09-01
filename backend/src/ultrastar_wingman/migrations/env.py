@@ -12,6 +12,7 @@ from sqlalchemy import Connection, pool
 from sqlalchemy.ext.asyncio import async_engine_from_config
 
 from ultrastar_wingman import settings as _settings  # noqa: F401  registers the settings table
+from ultrastar_wingman.achievements import model as _achievements  # noqa: F401  achievements
 from ultrastar_wingman.auth import model as _auth  # noqa: F401  users, sessions, permissions
 from ultrastar_wingman.comments import model as _comments  # noqa: F401  song comments table
 from ultrastar_wingman.db import Base
