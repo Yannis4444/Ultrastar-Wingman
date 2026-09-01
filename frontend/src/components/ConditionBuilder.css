@@ -1,0 +1,286 @@
+/* The conditions of an achievement. One condition is one flat block on `--bg`,
+   told from the next by a hairline and 16px (§1.1) — no card and no
+   `--tile-bg`, the whitelist being closed. The block carries the page's 16px
+   gutter itself, so every caption, control and note inside it sits on 0. */
+
+.condition-builder {
+  display: flex;
+  flex-direction: column;
+}
+
+.condition-block {
+  display: flex;
+  flex-direction: column;
+  padding: 16px;
+}
+
+.condition-block + .condition-block {
+  border-top: 1px solid var(--input-border-color);
+}
+
+/* -------------------------------------------------------------- the head
+   The name of the block and the way out of it. 40px on the button is the touch
+   floor (§1.10); the heading gives up the room, never the button. */
+.condition-head {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+  min-height: 40px;
+}
+
+.condition-title {
+  flex: 1 1 auto;
+  min-width: 0;
+  margin: 0;
+  overflow: hidden;
+  font-size: 1em;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+
+/* -------------------------------------------------------- the one sentence
+   What the block adds up to. It leans on the blue accent and a rule rather than
+   a fill: it is the reader's confirmation, not a warning (the gold-ruled
+   `.tag-warning` is that shape for the other job). */
+.condition-sentence {
+  margin: 8px 0 0 0;
+  padding-left: 10px;
+  font-size: 0.9em;
+  color: var(--color);
+  border-left: 2px solid var(--highlight-blue-light);
+  /* A song id or a pasted title has no spaces to break at. */
+  overflow-wrap: anywhere;
+}
+
+/* --------------------------------------------------------------- the parts
+   A labelled quiet field, the tag editor's `.tag-editor-field` shape without
+   its gutter — the block already carries one. */
+.condition-field {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  min-width: 0;
+  margin-top: 12px;
+}
+
+.condition-field > span {
+  font-size: 0.85em;
+  color: var(--color-darker);
+}
+
+.condition-field .text-input {
+  width: 100%;
+  box-sizing: border-box;
+}
+
+/* The quiet line under a control: what a metric counts, what an empty filter
+   means, what the two scopes differ in. `.section-note`'s look without its
+   gutter, for the same reason `.condition-field` drops it. */
+.condition-help {
+  margin: 4px 0 0 0;
+  font-size: 0.85em;
+  color: var(--color-darker);
+}
+
+.condition-subhead {
+  margin: 20px 0 0 0;
+  font-size: 1em;
+}
+
+.condition-error {
+  margin: 12px 0 0 0;
+  font-size: 0.9em;
+}
+
+/* Two fields on one line where they belong together — the comparator and its
+   number, the two ends of the score filter. They wrap before they squeeze:
+   a 140px basis means 360px keeps both, and a narrower box than that gets a
+   line each rather than a three-character number field.
+
+   The basis belongs to the row and not to `.condition-field` itself: the block
+   around it is a column, where a flex basis would be a *height* and every field
+   in it 140px tall. */
+.condition-pair {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.condition-pair > .condition-field {
+  flex: 1 1 140px;
+}
+
+/* ----------------------------------------------------------------- scope
+   §4's segmented pill at two options: a visually-hidden radio in a label and
+   the span that is actually drawn. Same metrics as `.tri-state`, which is this
+   pattern at three. */
+.condition-pills {
+  display: flex;
+  gap: 6px;
+  margin: 16px 0 0 0;
+  padding: 0;
+  border: none;
+}
+
+.condition-pill {
+  display: flex;
+  min-width: 0;
+}
+
+.condition-pill-text {
+  display: flex;
+  box-sizing: border-box;
+  align-items: center;
+  min-height: 40px;
+  padding: 0 14px;
+  font-size: 0.85em;
+  white-space: nowrap;
+  color: var(--color-dark);
+  background-color: transparent;
+  border: 1px solid var(--input-border-color);
+  border-radius: var(--border-radius);
+  cursor: pointer;
+  transition:
+    color 0.15s,
+    background-color 0.15s,
+    border-color 0.15s;
+}
+
+.condition-pill:hover input ~ .condition-pill-text {
+  color: var(--color);
+  border-color: var(--color-darker);
+}
+
+/* After the hover rule at equal specificity, so a hovered chosen pill keeps the
+   accent — the same ordering `.tri-state` needs. */
+.condition-pills input:checked ~ .condition-pill-text {
+  color: var(--highlight-blue-light);
+  background-color: var(--highlight-blue-dark);
+  border-color: var(--highlight-blue-light);
+}
+
+.condition-pills input:focus-visible ~ .condition-pill-text {
+  outline: 2px solid var(--highlight-blue-light);
+  outline-offset: 2px;
+}
+
+/* ---------------------------------------------------------- chosen songs
+   The hits are `PickerRow`s on the list the app lays every picker out on; the
+   chosen ones below are the people-row shape of §4 — a 40px square, two lines
+   and one trailing control. The negative margin puts both back on the block's
+   own gutter, the way `.picker-list` sits on a modal's. */
+.condition-hits,
+.condition-chosen {
+  margin: 8px -8px 0 -8px;
+  padding: 0;
+  list-style: none;
+}
+
+.condition-chosen-row {
+  display: flex;
+  gap: 12px;
+  align-items: center;
+  min-height: 48px;
+  padding: 4px 8px;
+  border-bottom: 1px solid var(--input-border-color);
+}
+
+.condition-chosen > :last-child {
+  border-bottom: none;
+}
+
+.condition-chosen-text {
+  flex: 1 1 auto;
+  min-width: 0;
+}
+
+.condition-chosen-title,
+.condition-chosen-meta {
+  display: block;
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+
+.condition-chosen-meta {
+  font-size: 0.85em;
+  color: var(--color-darker);
+}
+
+/* ------------------------------------------------------------- the clauses
+   Field · test · value · the way off, one flat list. Three controls and a
+   button do not fit 328px, so they wrap: the two selects take the first line
+   and the value and its button the second. Wrapping is the point — nothing
+   here may scroll the page sideways (§1.11). */
+.condition-clauses {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin: 12px 0 0 0;
+  padding: 0;
+  list-style: none;
+}
+
+.condition-clause {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  align-items: center;
+  padding-bottom: 12px;
+  border-bottom: 1px solid var(--input-border-color);
+}
+
+.condition-clauses > :last-child {
+  padding-bottom: 0;
+  border-bottom: none;
+}
+
+.condition-clause-field,
+.condition-clause-op {
+  flex: 1 1 120px;
+  min-width: 0;
+}
+
+/* The value carries a `.condition-field` wrapper when it is a number box and is
+   the bare control otherwise, so the rule has to reach both. */
+.condition-clause .condition-clause-value {
+  flex: 1 1 120px;
+  min-width: 0;
+  margin-top: 0;
+}
+
+/* ------------------------------------------------------------------- adds
+   "Add condition" and "Add song rule": a text row with the plus in front, the
+   way the playlist page's "Save a copy" is a row and not a button. 40px tall
+   (§1.10) and left on the block's own gutter. */
+.condition-add {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+  min-height: 40px;
+  margin: 12px 0 0 0;
+  padding: 0;
+  font: inherit;
+  font-size: 0.9em;
+  color: var(--highlight-blue-light);
+  text-align: left;
+  background: none;
+  border: none;
+  cursor: pointer;
+}
+
+.condition-add:hover {
+  color: var(--color);
+}
+
+/* The one that adds a whole block sits outside them, on the page gutter the
+   blocks carry inside their own padding. */
+.condition-add-outer {
+  margin: 16px 16px 0 16px;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .condition-pill-text {
+    transition: none;
+  }
+}

@@ -1,3 +1,4 @@
+import type { Condition, SelectorClause } from "./api";
 import {
   achievementColorClass,
   achievementDescription,
@@ -7,6 +8,8 @@ import {
   COMPARATOR_LABELS,
   COMPARATORS,
   conditionHasProgress,
+  conditionProblem,
+  conditionSentence,
   conditionTarget,
   isMasked,
   METRIC_LABELS,
@@ -17,6 +20,7 @@ import {
   SELECTOR_FIELD_OPS,
   SELECTOR_FIELDS,
   selectorOpFor,
+  songMode,
 } from "./achievements";
 import {
   achievementRead,
@@ -185,5 +189,235 @@ describe("selectorOpFor", () => {
     // Genre `contains …` switched to Year: `contains` is not a year question.
     expect(selectorOpFor("year", "contains")).toBe("=");
     expect(selectorOpFor("is_duet", "contains")).toBe("equals");
+  });
+});
+
+describe("songMode", () => {
+  it("is 'all' while a condition names neither songs nor a match", () => {
+    expect(songMode(condition())).toBe("all");
+  });
+
+  it("reads the mode off the data, never off a flag beside it", () => {
+    expect(songMode(condition({ songs: { ids: [] } }))).toBe("ids");
+    expect(
+      songMode(condition({ match: { combine: "all", clauses: [] } })),
+    ).toBe("match");
+  });
+});
+
+describe("conditionProblem", () => {
+  it("finds nothing wrong with an ordinary condition", () => {
+    expect(conditionProblem(condition())).toBeNull();
+    expect(
+      conditionProblem(condition({ score_filter: { min: 9000, max: null } })),
+    ).toBeNull();
+    // The ends may meet: exactly 9000 is one score, not none.
+    expect(
+      conditionProblem(condition({ score_filter: { min: 9000, max: 9000 } })),
+    ).toBeNull();
+  });
+
+  it("refuses a minimum above the maximum, the way the models do", () => {
+    expect(
+      conditionProblem(condition({ score_filter: { min: 9000, max: 5000 } })),
+    ).toMatch(/at most/i);
+  });
+
+  it("refuses a condition that picks songs both ways", () => {
+    expect(
+      conditionProblem(
+        condition({
+          songs: { ids: ["local:a"] },
+          match: { combine: "all", clauses: [] },
+        }),
+      ),
+    ).toMatch(/never both/i);
+  });
+});
+
+describe("conditionSentence", () => {
+  it("says which scope it is over", () => {
+    expect(conditionSentence(condition())).toBe(
+      "Over all time, some score of 9000 or more.",
+    );
+    expect(conditionSentence(condition({ scope: "session" }))).toBe(
+      "In one party, some score of 9000 or more.",
+    );
+  });
+
+  it("treats a missing scope as the default the models give it", () => {
+    // What a hand-edited export that left the field out parses back as.
+    const scopeless = condition();
+    delete scopeless.scope;
+    expect(conditionSentence(scopeless)).toMatch(/^Over all time, /);
+  });
+
+  it("spells out `any score` for every comparator", () => {
+    const say = (comparator: Condition["comparator"]) =>
+      conditionSentence(condition({ comparator }));
+    expect(say(">=")).toContain("some score of 9000 or more");
+    expect(say(">")).toContain("some score above 9000");
+    expect(say("=")).toContain("some score of exactly 9000");
+    expect(say("<=")).toContain("some score of 9000 or less");
+    expect(say("<")).toContain("some score below 9000");
+  });
+
+  it("counts in the singular when there is one of the thing", () => {
+    expect(
+      conditionSentence(
+        condition({ metric: "number_of_sings", comparator: ">=", value: 1 }),
+      ),
+    ).toBe("Over all time, at least 1 sing.");
+    expect(
+      conditionSentence(
+        condition({ metric: "number_of_sings", comparator: ">=", value: 3 }),
+      ),
+    ).toBe("Over all time, at least 3 sings.");
+  });
+
+  it("says what the other metrics measure", () => {
+    expect(
+      conditionSentence(
+        condition({ metric: "sum_of_scores", value: 50000, scope: "session" }),
+      ),
+    ).toBe("In one party, scores adding up to at least 50000.");
+    expect(
+      conditionSentence(
+        condition({ metric: "average_score", comparator: ">", value: 8000 }),
+      ),
+    ).toBe("Over all time, an average score of more than 8000.");
+    expect(
+      conditionSentence(
+        condition({ metric: "different_artists", comparator: "<", value: 4 }),
+      ),
+    ).toBe("Over all time, less than 4 different artists.");
+  });
+
+  it("folds a score filter into the noun a count counts", () => {
+    expect(
+      conditionSentence(
+        condition({
+          scope: "session",
+          metric: "number_of_scores",
+          comparator: ">=",
+          value: 3,
+          score_filter: { min: 9000, max: null },
+        }),
+      ),
+    ).toBe("In one party, at least 3 scores of 9000 or more.");
+  });
+
+  it("hangs it off the end where the metric is not a count of scores", () => {
+    expect(
+      conditionSentence(
+        condition({
+          metric: "different_songs",
+          value: 5,
+          score_filter: { min: null, max: 4000 },
+        }),
+      ),
+    ).toBe(
+      "Over all time, at least 5 different songs, counting only scores of 4000 or less.",
+    );
+    // `any_score` spends its own comparator on the number, so the filter can
+    // never fold in — it would read as two thresholds on one score.
+    expect(
+      conditionSentence(condition({ score_filter: { min: 5000, max: 9500 } })),
+    ).toBe(
+      "Over all time, some score of 9000 or more, counting only scores of between 5000 and 9500.",
+    );
+  });
+
+  it("spells a transposed filter out as written", () => {
+    // The sentence says what the definition says. `conditionProblem` is what
+    // calls it a mistake, and the editor draws both.
+    expect(
+      conditionSentence(condition({ score_filter: { min: 9000, max: 5000 } })),
+    ).toContain("counting only scores of between 9000 and 5000");
+  });
+
+  it("counts the chosen songs, and names an empty list for what it is", () => {
+    expect(
+      conditionSentence(condition({ songs: { ids: ["local:a"] } })),
+    ).toContain(", on one chosen song.");
+    expect(
+      conditionSentence(condition({ songs: { ids: ["local:a", "local:b"] } })),
+    ).toContain(", on one of 2 chosen songs.");
+    expect(conditionSentence(condition({ songs: { ids: [] } }))).toContain(
+      ", on no song — none is chosen yet.",
+    );
+  });
+
+  it("joins the clauses of a selector the way they are combined", () => {
+    expect(
+      conditionSentence(
+        condition({
+          scope: "session",
+          metric: "number_of_scores",
+          value: 3,
+          score_filter: { min: 9000, max: null },
+          match: {
+            combine: "all",
+            clauses: [{ field: "genre", op: "equals", value: "Rock" }],
+          },
+        }),
+      ),
+    ).toBe(
+      "In one party, at least 3 scores of 9000 or more, on songs where the genre is “Rock”.",
+    );
+    expect(
+      conditionSentence(
+        condition({
+          match: {
+            combine: "any",
+            clauses: [
+              { field: "title", op: "contains", value: "love" },
+              { field: "artist", op: "starts_with", value: "A" },
+            ],
+          },
+        }),
+      ),
+    ).toContain(
+      "on songs where the title contains “love” or the artist starts with “A”",
+    );
+  });
+
+  it("says a boolean clause in words rather than as a value", () => {
+    expect(
+      conditionSentence(
+        condition({
+          match: {
+            combine: "all",
+            clauses: [
+              { field: "is_duet", op: "equals", value: true },
+              { field: "has_video", op: "equals", value: false },
+            ],
+          },
+        }),
+      ),
+    ).toContain("on songs where it is a duet and it has no video");
+  });
+
+  it("reads a year clause as a year", () => {
+    const say = (op: SelectorClause["op"]) =>
+      conditionSentence(
+        condition({
+          match: {
+            combine: "all",
+            clauses: [{ field: "year", op, value: 1985 }],
+          },
+        }),
+      );
+    expect(say("=")).toContain("the year is 1985.");
+    expect(say(">=")).toContain("the year is 1985 or later.");
+    expect(say("<=")).toContain("the year is 1985 or earlier.");
+  });
+
+  it("says nothing about songs when nothing narrows them", () => {
+    // No clauses is no restriction, whichever way they would have combined —
+    // `evaluate._matches` says the same, so the sentence must not imply one.
+    expect(
+      conditionSentence(condition({ match: { combine: "any", clauses: [] } })),
+    ).toBe("Over all time, some score of 9000 or more.");
   });
 });

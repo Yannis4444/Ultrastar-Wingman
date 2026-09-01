@@ -116,18 +116,18 @@ export function progressLabel(
 export const CONDITION_SCOPES = ["global", "session"] as const;
 
 export const SCOPE_LABELS: Record<NonNullable<Condition["scope"]>, string> = {
-  global: "Ever",
-  session: "In one party",
+  global: "All time",
+  session: "One party",
 };
 
-/** What each scope means, for the line under the select. */
-export const SCOPE_DESCRIPTIONS: Record<
-  NonNullable<Condition["scope"]>,
-  string
-> = {
-  global: "Every score the singer has ever got.",
-  session: "It has to happen inside one party.",
-};
+/**
+ * The one line under the scope pills. Static, not one sentence per scope: what
+ * the reader needs is the *difference*, and a note that changed as they pressed
+ * the pills would only ever show them half of it.
+ */
+export const SCOPE_NOTE =
+  "One party has to happen inside a single evening — the difference between " +
+  "“sing 10 songs” and “sing 10 songs tonight”.";
 
 /** The metrics, in the order the editor offers them: the score ones first, then
  *  the counting ones, and the mean last — it is the one that needs a thought. */
@@ -153,7 +153,9 @@ export const METRIC_LABELS: Record<Condition["metric"], string> = {
 
 /** One line each on what is actually counted — the traps are all in here. */
 export const METRIC_DESCRIPTIONS: Record<Condition["metric"], string> = {
-  any_score: "Some one score. Which end is meant is what the comparator says.",
+  any_score:
+    "One single score. With “more than” or “at least” that is the singer's " +
+    "best; with “less than” or “at most”, their worst.",
   sum_of_scores: "Every score added up.",
   number_of_sings: "How many songs were sung. A duet scored twice is one.",
   number_of_scores: "How many scores there are.",
@@ -285,4 +287,185 @@ export function selectorOpFor(
 ): SelectorClause["op"] {
   const allowed = SELECTOR_FIELD_OPS[field];
   return allowed.includes(op) ? op : allowed[0];
+}
+
+/**
+ * The three ways a condition may narrow which songs count. Not a field of the
+ * condition — it is `songs` and `match`, which the models keep mutually
+ * exclusive — so the editor reads the mode off the data rather than keeping a
+ * fourth piece of state that could disagree with it.
+ */
+export const SONG_MODES = ["all", "ids", "match"] as const;
+
+export type SongMode = (typeof SONG_MODES)[number];
+
+export const SONG_MODE_LABELS: Record<SongMode, string> = {
+  all: "All songs",
+  ids: "Chosen songs",
+  match: "Songs matching",
+};
+
+export function songMode(condition: Condition): SongMode {
+  if (condition.songs) return "ids";
+  if (condition.match) return "match";
+  return "all";
+}
+
+/**
+ * What is wrong with a condition, in a sentence, or `null` when nothing is —
+ * the same refusals the backend's models make, so the editor can say so beside
+ * the box rather than letting Save come back a 422.
+ *
+ * Not a full validator: an empty song list and a value of zero are legal, if
+ * unsatisfiable, and the summary sentence is what says so.
+ */
+export function conditionProblem(condition: Condition): string | null {
+  const filter = condition.score_filter;
+  if (
+    filter &&
+    filter.min !== null &&
+    filter.min !== undefined &&
+    filter.max !== null &&
+    filter.max !== undefined &&
+    filter.min > filter.max
+  )
+    return "“At least” cannot be above “at most” — no score would be left to count.";
+  // Unreachable from this editor, which switches between the two. It is here
+  // for a definition that arrived from an import or a hand-edited archive.
+  if (condition.songs && condition.match)
+    return "A condition picks songs by a list or by a match, never both.";
+  return null;
+}
+
+/* ------------------------------------------------------- the sentence
+   A condition in words. The editor draws it under every block, because a host
+   who assembled four selects has no other way of knowing whether what they
+   built means what they intended. Pure and here rather than in the component:
+   the same sentence belongs on any surface that ever shows a definition. */
+
+/** "at least 3 scores", "exactly 1 sing" — the comparator, the number and the
+ *  noun it counts, singular when there is one of it. */
+function counted(
+  condition: Condition,
+  singular: string,
+  plural: string,
+): string {
+  const noun = condition.value === 1 ? singular : plural;
+  // Plain numbers, no grouping — the app's convention (see `progressLabel`).
+  return `${COMPARATOR_LABELS[condition.comparator]} ${condition.value} ${noun}`;
+}
+
+/** "9000 or more", "between 9000 and 9500" — a score filter's range, or `null`
+ *  when both ends are open and every score counts. */
+function rangeWords(condition: Condition): string | null {
+  const min = condition.score_filter?.min ?? null;
+  const max = condition.score_filter?.max ?? null;
+  if (min !== null && max !== null) return `between ${min} and ${max}`;
+  if (min !== null) return `${min} or more`;
+  if (max !== null) return `${max} or less`;
+  return null;
+}
+
+/** What is measured, filter included. */
+function measured(condition: Condition): string {
+  const range = rangeWords(condition);
+  if (condition.metric === "any_score") {
+    // `any_score` spends its own comparator on the number, so a filter can
+    // never fold into the noun the way a count's does.
+    const value = condition.value;
+    const phrase =
+      condition.comparator === ">="
+        ? `some score of ${value} or more`
+        : condition.comparator === ">"
+          ? `some score above ${value}`
+          : condition.comparator === "="
+            ? `some score of exactly ${value}`
+            : condition.comparator === "<="
+              ? `some score of ${value} or less`
+              : `some score below ${value}`;
+    return range === null
+      ? phrase
+      : `${phrase}, counting only scores of ${range}`;
+  }
+
+  if (condition.metric === "number_of_scores") {
+    // The one metric whose noun *is* the filtered thing, so the range reads as
+    // part of it: "at least 3 scores of 9000 or more".
+    const phrase = counted(condition, "score", "scores");
+    return range === null ? phrase : `${phrase} of ${range}`;
+  }
+
+  const phrase =
+    condition.metric === "number_of_sings"
+      ? counted(condition, "sing", "sings")
+      : condition.metric === "different_songs"
+        ? counted(condition, "different song", "different songs")
+        : condition.metric === "different_artists"
+          ? counted(condition, "different artist", "different artists")
+          : condition.metric === "sum_of_scores"
+            ? `scores adding up to ${COMPARATOR_LABELS[condition.comparator]} ${condition.value}`
+            : `an average score of ${COMPARATOR_LABELS[condition.comparator]} ${condition.value}`;
+  return range === null
+    ? phrase
+    : `${phrase}, counting only scores of ${range}`;
+}
+
+/** One clause of a selector, in words. */
+function clauseWords(clause: SelectorClause): string {
+  if (clause.field === "is_duet")
+    return clause.value === true ? "it is a duet" : "it is not a duet";
+  if (clause.field === "has_video")
+    return clause.value === true ? "it has a video" : "it has no video";
+  if (clause.field === "year")
+    return clause.op === ">="
+      ? `the year is ${clause.value} or later`
+      : clause.op === "<="
+        ? `the year is ${clause.value} or earlier`
+        : `the year is ${clause.value}`;
+  const field = SELECTOR_FIELD_LABELS[clause.field].toLowerCase();
+  const verb =
+    clause.op === "contains"
+      ? "contains"
+      : clause.op === "starts_with"
+        ? "starts with"
+        : "is";
+  // Quoted: a value of "Hard Rock" is two words, and an empty one is a hole the
+  // reader has to be able to see.
+  return `the ${field} ${verb} “${String(clause.value)}”`;
+}
+
+/** Which songs count, or `""` when the condition narrows them not at all. */
+function songWords(condition: Condition): string {
+  if (condition.songs) {
+    const count = condition.songs.ids.length;
+    // An empty list matches no score at all (`evaluate._on_a_chosen_song`), so
+    // it is a state the sentence has to name rather than skip.
+    if (count === 0) return ", on no song — none is chosen yet";
+    return count === 1
+      ? ", on one chosen song"
+      : `, on one of ${count} chosen songs`;
+  }
+  const clauses = condition.match?.clauses ?? [];
+  // No clauses is no restriction, whichever way they would have been combined —
+  // the backend says so too, so the sentence says nothing about songs.
+  if (clauses.length === 0) return "";
+  const joiner = condition.match?.combine === "any" ? " or " : " and ";
+  return `, on songs where ${clauses.map(clauseWords).join(joiner)}`;
+}
+
+/**
+ * The whole condition as one sentence: *"In one party, at least 3 scores of
+ * 9000 or more, on songs where the genre is “Rock”."*
+ *
+ * It says what the definition says and never what it ought to say — a filter
+ * whose ends are the wrong way round is spelled out as written, because the
+ * point of the sentence is to make exactly that visible (`conditionProblem` is
+ * what names it as a mistake).
+ */
+export function conditionSentence(condition: Condition): string {
+  const scope =
+    (condition.scope ?? "global") === "session"
+      ? "In one party, "
+      : "Over all time, ";
+  return `${scope}${measured(condition)}${songWords(condition)}.`;
 }
