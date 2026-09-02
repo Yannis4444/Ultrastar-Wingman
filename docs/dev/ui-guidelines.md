@@ -49,6 +49,11 @@ request does not override are the accessibility and dependency floors in §1.8�
     `--highlight-blue-dark` band, a lit label — sits inside `@media (hover: hover)`, because
     touch fakes a hover on tap that outlives the finger. Focus rings, `:active` and control
     hovers are untouched.
+13. **Words follow the documentation guidelines.** Every string the app shows (labels,
+    explaining lines, empty states, error sentences, setting names and descriptions, and
+    confirm dialogs) obeys [documentation.md](documentation.md): American English, short
+    sentences, no em-dashes, the terminology table. Section 11 there lists the three UI-only
+    exceptions, and the labels that break the rules today.
 
 ## 2. Tokens, spacing, typography
 
