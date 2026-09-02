@@ -6,10 +6,23 @@ score to another singer. Nothing in here touches the database or the clock, so e
 `docs/dev/achievements.md` states is testable against a handful of hand-built `ScoreRow`s.
 """
 
+import logging
+import re
 from collections.abc import Mapping, Sequence
 from dataclasses import dataclass
 
-from .schema import Comparator, Condition, ScoreFilter, SelectorClause, SelectorOp, SongSelector
+from .schema import (
+    MAX_SUBJECT_LENGTH,
+    PATTERN_FLAGS,
+    Comparator,
+    Condition,
+    ScoreFilter,
+    SelectorClause,
+    SelectorOp,
+    SongSelector,
+)
+
+logger = logging.getLogger(__name__)
 
 
 @dataclass(frozen=True)
@@ -201,7 +214,12 @@ def _clause_matches(clause: SelectorClause, row: ScoreRow) -> bool:
 
 
 def _matches_text(actual: str, op: SelectorOp, wanted: str) -> bool:
-    """All three text operators are case-insensitive."""
+    """All four text operators are case-insensitive."""
+    if op == "regex":
+        # Before the fold, and this is not a nicety: `"\\D".casefold()` is `"\\d"`, so a
+        # folded pattern would quietly mean the opposite of what it says. A regular
+        # expression carries its own case-insensitivity in `PATTERN_FLAGS` instead.
+        return _matches_pattern(actual, wanted)
     folded, sought = actual.casefold(), wanted.casefold()
     match op:
         case "contains":
@@ -211,6 +229,33 @@ def _matches_text(actual: str, op: SelectorOp, wanted: str) -> bool:
         case _:
             # `equals`; the clause model allows no other operator on a text field.
             return folded == sought
+
+
+def _matches_pattern(actual: str, pattern: str) -> bool:
+    """The `regex` operator: a search, so it matches *anywhere* in the field the way
+    `contains` does — `^` and `$` are how an author asks for the whole of it.
+
+    `re.search` and not a compiled object kept somewhere: `re` caches compiled patterns
+    itself, and a cache of our own would be one more thing to invalidate when a definition
+    is edited.
+
+    Only the first `MAX_SUBJECT_LENGTH` characters of the field are searched. No real title
+    or edition comes near that, and it is what makes `schema.MAX_PATTERN_COMBINATIONS` a
+    real bound: what an open-ended repetition costs is the length of what it is repeated
+    over, so the pattern's budget only means anything if the field has a length too.
+
+    A pattern that cannot compile never matches, and never raises. `SelectorClause` refuses
+    one at every door a definition comes in by, so this can only be a row edited straight
+    into the database — and one such row must no more break the pass for every other
+    achievement than an unreadable definition does (`schema.parse_definition`).
+    """
+    try:
+        return re.search(pattern, actual[:MAX_SUBJECT_LENGTH], PATTERN_FLAGS) is not None
+    # The same three as `schema.check_pattern`, and for the same reason: an evaluation pass
+    # answers "no" for a rule it cannot read, and never raises out of itself.
+    except (re.error, OverflowError, RecursionError) as error:
+        logger.warning("a song rule holds a pattern that cannot be compiled: %s", error)
+        return False
 
 
 def _compare(left: int, comparator: Comparator | SelectorOp, right: int) -> bool:
@@ -226,8 +271,8 @@ def _compare(left: int, comparator: Comparator | SelectorOp, right: int) -> bool
         case "<":
             return left < right
         case _:
-            # `contains` and `starts_with` never arrive here — the clause model allows them
-            # on the text fields only, and those are compared by `_matches_text`.
+            # `contains`, `starts_with` and `regex` never arrive here — the clause model
+            # allows them on the text fields only, and those go through `_matches_text`.
             return False
 
 

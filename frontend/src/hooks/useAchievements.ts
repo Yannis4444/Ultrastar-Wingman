@@ -24,9 +24,13 @@ export const DEFAULT_ACHIEVEMENT_SETTINGS: AchievementSettings = {
 
 export interface Achievements {
   /**
-   * The catalogue in the order the API returns it (`sort_order`, then name).
+   * The catalogue in the order the API returns it — `sort_order`, the host's
+   * own arrangement, and `created_at` where two rows are sorted the same.
    * A `hidden` one this reader has not earned arrives masked — no name, no
    * sentence, no glyph — so every surface drawing a row has to ask `isMasked`.
+   * Masked for *whoever* is reading, an administrator on their own user page
+   * and the host screen included: unmasking is `?manage=true`, which only the
+   * two management pages ask for (`achievements.MANAGE_CATALOGUE`).
    */
   achievements: AchievementRead[];
   /** The three knobs, never null: the defaults stand in until the answer. */
@@ -50,9 +54,10 @@ const NO_ACHIEVEMENTS: AchievementRead[] = [];
  * already carries. Logging in invalidates every query, so the mask is redrawn
  * for whoever the browser has become.
  *
- * The admin page does **not** use this: it is gated on `achievements.manage` and
- * has to make no request at all for somebody who has not got it, exactly the way
- * `Tags.tsx` keeps its own gated query rather than calling `useTags`.
+ * The admin page does **not** use this: it is gated on `achievements.manage`,
+ * has to make no request at all for somebody who has not got it (exactly the way
+ * `Tags.tsx` keeps its own gated query rather than calling `useTags`) — and it
+ * asks `?manage=true`, which is a second cache entry and the only unmasked one.
  */
 export function useAchievements(): Achievements {
   const queryClient = useQueryClient();

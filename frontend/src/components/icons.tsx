@@ -25,6 +25,11 @@ export const ICON_PATHS = {
   "arrow-down": "M12 21l-6-7h4V3h4v11h4l-6 7Z",
   download:
     "M11 3h2v8.2l3.1-3.1 1.4 1.4L12 15 6.5 9.5 7.9 8.1 11 11.2V3Zm-6 15h14v2H5v-2Z",
+  // `download` mirrored: the same shaft, arrowhead and tray bar, the arrow
+  // coming up out of the bar instead of down into it. The pair is what makes
+  // "in" and "out" readable at a glance on the two archive buttons.
+  upload:
+    "M11 21h2v-8.2l3.1 3.1 1.4-1.4L12 9l-5.5 5.5 1.4 1.4L11 12.8V21Zm-6-15h14V4H5v2Z",
   clock:
     "M12 3a9 9 0 1 0 0 18 9 9 0 0 0 0-18Zm0 2a7 7 0 1 1 0 14 7 7 0 0 1 0-14Zm1 2v5.4l4 2.4-1 1.7-5-3V7h2Z",
   alert: "M1 21h22L12 2 1 21Zm12-3h-2v-2h2v2Zm0-4h-2v-4h2v4Z",

@@ -62,8 +62,20 @@
 }
 
 /* ------------------------------------------------------------------ the foot
-   A built-in has no Delete; the line in its place stands where the button
-   would, with the same air around it. */
+   Save and the other way out ride in the sticky `EditorActions` row, so what is
+   left here is the line that says what a built-in is — the last reading matter
+   of the form, ending it where a Delete used to stand. It keeps the air the
+   button had above it and leaves the space below to the row's own margin. */
 .achievement-builtin-note {
-  margin: 24px 16px;
+  margin: 24px 16px 0 16px;
+}
+
+/* A plain `.button` and never `.button-danger`: a reset restores rather than
+   destroys, and the weight of "this throws your edits away" sits in the
+   `ConfirmModal` (§5 — a replace). It lays its glyph out like the upload label
+   above. */
+.achievement-reset {
+  display: inline-flex;
+  gap: 8px;
+  align-items: center;
 }

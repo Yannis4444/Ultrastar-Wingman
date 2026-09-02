@@ -22,10 +22,10 @@ export function condition(overrides: Partial<Condition> = {}): Condition {
 
 /**
  * One achievement as `GET /achievements` returns it to somebody who may manage
- * them: whole, enabled, not hidden, with a definition of one condition — the
- * count on a row's meta line always has something to count. Every test that
- * needs an achievement starts here and overrides the field it is about, so a
- * new field on `AchievementRead` is added in one place.
+ * them: whole, enabled, not hidden, with a description to read and a definition
+ * of one condition. Every test that needs an achievement starts here and
+ * overrides the field it is about, so a new field on `AchievementRead` is added
+ * in one place.
  */
 export function achievementRead(
   overrides: Partial<AchievementRead> = {},

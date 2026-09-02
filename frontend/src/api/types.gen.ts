@@ -9,6 +9,9 @@ export type ClientOptions = {
  *
  * `definition` is parsed by the condition models on the way in, so an achievement that
  * could never be satisfied is a 422 here rather than a stored row nobody can earn.
+ *
+ * No `sort_order`: a new achievement lands at the end of the list, and where it sits after
+ * that is `PUT /achievements/order`'s alone — see `AchievementUpdate`.
  */
 export type AchievementCreate = {
     /**
@@ -35,10 +38,6 @@ export type AchievementCreate = {
      * Enabled
      */
     enabled?: boolean;
-    /**
-     * Sort Order
-     */
-    sort_order?: number | null;
     /**
      * Definition
      */
@@ -90,6 +89,19 @@ export type AchievementList = {
      */
     achievements: Array<AchievementRead>;
     settings: AchievementSettings;
+};
+
+/**
+ * AchievementOrder
+ *
+ * The whole catalogue in the order it is to be listed in. Every id exactly once —
+ * anything else is a 422, the way a playlist's reorder refuses a partial order.
+ */
+export type AchievementOrder = {
+    /**
+     * Ids
+     */
+    ids: Array<string>;
 };
 
 /**
@@ -195,6 +207,15 @@ export type AchievementSettingsUpdate = {
  *
  * Every field optional: a PATCH only touches what it names. An explicit `"icon": null`
  * clears the glyph — leaving the field out keeps it.
+ *
+ * **No `sort_order`.** Where a row sits is written by `PUT /achievements/order` and by
+ * nothing else: that route takes the whole catalogue as one permutation and hands out
+ * 0, 1, 2 …, so the column is always one sequence, while a PATCH could put two rows on the
+ * same number. The order is the host's arrangement of the catalogue rather than a field of
+ * one achievement, which is also why a reset leaves it alone. The field is simply ignored
+ * where an older client still sends it — the models take no `extra="forbid"`, and refusing
+ * a whole edit over a number the route would have written the same way twice is no help to
+ * anybody.
  */
 export type AchievementUpdate = {
     /**
@@ -221,10 +242,6 @@ export type AchievementUpdate = {
      * Enabled
      */
     enabled?: boolean | null;
-    /**
-     * Sort Order
-     */
-    sort_order?: number | null;
     /**
      * Definition
      */
@@ -1237,7 +1254,7 @@ export type SelectorClause = {
     /**
      * Op
      */
-    op: 'contains' | 'equals' | 'starts_with' | '=' | '>=' | '<=';
+    op: 'contains' | 'equals' | 'starts_with' | 'regex' | '=' | '>=' | '<=';
     /**
      * Value
      */
@@ -4593,9 +4610,29 @@ export type DeleteSongCommentResponse = DeleteSongCommentResponses[keyof DeleteS
 export type ListAchievementsData = {
     body?: never;
     path?: never;
-    query?: never;
+    query?: {
+        /**
+         * Manage
+         *
+         * Answer for the management page: every hidden achievement spelled out, and each row's definition. Takes `achievements.manage`.
+         */
+        manage?: boolean;
+    };
     url: '/api/v1/achievements';
 };
+
+export type ListAchievementsErrors = {
+    /**
+     * `manage=true` without `achievements.manage`.
+     */
+    403: unknown;
+    /**
+     * Validation Error
+     */
+    422: HttpValidationError;
+};
+
+export type ListAchievementsError = ListAchievementsErrors[keyof ListAchievementsErrors];
 
 export type ListAchievementsResponses = {
     /**
@@ -4651,6 +4688,29 @@ export type UpdateAchievementSettingsResponses = {
 };
 
 export type UpdateAchievementSettingsResponse = UpdateAchievementSettingsResponses[keyof UpdateAchievementSettingsResponses];
+
+export type ReorderAchievementsData = {
+    body: AchievementOrder;
+    path?: never;
+    query?: never;
+    url: '/api/v1/achievements/order';
+};
+
+export type ReorderAchievementsErrors = {
+    /**
+     * An order that is not a permutation of the catalogue.
+     */
+    422: unknown;
+};
+
+export type ReorderAchievementsResponses = {
+    /**
+     * Successful Response
+     */
+    200: AchievementList;
+};
+
+export type ReorderAchievementsResponse = ReorderAchievementsResponses[keyof ReorderAchievementsResponses];
 
 export type ExportAchievementsData = {
     body: AchievementExport;
@@ -4764,6 +4824,10 @@ export type UpdateAchievementErrors = {
      */
     404: unknown;
     /**
+     * A definition on one of the built-in achievements.
+     */
+    409: unknown;
+    /**
      * A definition the condition models refuse.
      */
     422: unknown;
@@ -4777,6 +4841,44 @@ export type UpdateAchievementResponses = {
 };
 
 export type UpdateAchievementResponse = UpdateAchievementResponses[keyof UpdateAchievementResponses];
+
+export type ResetAchievementData = {
+    body?: never;
+    path: {
+        /**
+         * Achievement Id
+         */
+        achievement_id: string;
+    };
+    query?: never;
+    url: '/api/v1/achievements/{achievement_id}/reset';
+};
+
+export type ResetAchievementErrors = {
+    /**
+     * Unknown achievement.
+     */
+    404: unknown;
+    /**
+     * Not one of the built-in achievements.
+     */
+    409: unknown;
+    /**
+     * Validation Error
+     */
+    422: HttpValidationError;
+};
+
+export type ResetAchievementError = ResetAchievementErrors[keyof ResetAchievementErrors];
+
+export type ResetAchievementResponses = {
+    /**
+     * Successful Response
+     */
+    200: AchievementRead;
+};
+
+export type ResetAchievementResponse = ResetAchievementResponses[keyof ResetAchievementResponses];
 
 export type DeleteAchievementIconData = {
     body?: never;

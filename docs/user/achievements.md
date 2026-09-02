@@ -45,9 +45,11 @@ show up on the host screen either way.
 
 ## What the party already has
 
-Wingman ships with seventeen. They are ordinary achievements: the host can
-rename them, recolour them, change what they ask for and switch them off. They
-cannot be deleted.
+Wingman ships with seventeen. The host can rename them, give them another icon
+or colour, hide one until it is earned and switch any of them off. Two things
+about them are not the party's to change: **what they ask for**, so that
+*Golden Voice* means the same thing at every party — and they cannot be deleted.
+Anything you have changed can be put back with **Reset** (below).
 
 | Achievement | What it takes |
 |---|---|
@@ -71,10 +73,41 @@ cannot be deleted.
 The seventeenth is hidden, so singers meet it as a padlock until somebody earns
 it — which is the whole joke, and why it is not written down here. The host
 sees it like any other on **User → Achievements**, and can switch it off there
-if the party would not find it funny.
+if the party would not find it funny — but *only* there. On the host's own badge
+list it is the same padlock everybody else gets: being able to edit a surprise is
+no reason to have it spoiled. The host screen never gives it away either — it
+throws up the badges a song has just earned and nothing else, so a hidden one
+first appears there the moment somebody has it.
 
 "One party" means one evening — one run of Wingman, the same party the
 [Scores](statistics.md) tab lists.
+
+### What a row tells you
+
+On **User → Achievements**, every row shows the badge, its name and the line a
+singer reads under it. Beyond that a row only says what is unusual about it:
+
+- a **padlock** after the name — this one is hidden until it is earned;
+- **Included** after the name — one of the seventeen Wingman brings with it;
+- the whole row **greyed out** — it is switched off, and nothing is being earned
+  on it.
+
+### Change the order
+
+The order of this list is the order badges appear in everywhere else too — on a
+singer's page and on the host screen — so it is worth putting the ones your
+party cares about first.
+
+Press the **grip** in the top right of the page. Every row grows a handle to
+drag it by and a pair of arrows to move it a place at a time; each move is saved
+as you make it. Press the grip again when you are done.
+
+The ones your party made and the **Included** ones are arranged separately: a
+row moves within its own group, and your own always come first.
+
+If somebody else adds, imports or deletes an achievement while you are
+arranging, Wingman puts the rows back where they were saved and says so — the
+list refreshes itself, and you can arrange it again.
 
 ## On the host screen
 
@@ -108,9 +141,36 @@ Both take whole seconds, 0 to 60.
 6. Add the **conditions** — what it actually takes.
 7. **Save**.
 
-Tap a row to open it again; everything is editable. **Delete achievement** at the
-foot removes it and everybody's badge for it. One of the seventeen included ones
-cannot be deleted — switch it off instead.
+**Save** and the way out of an achievement sit in one row at the bottom of the
+screen wherever you have scrolled to, so a long list of conditions never has to
+be scrolled back through to save it. When Save is grey, the line above it says
+why.
+
+Tap a row to open it again; everything about an achievement your party made is
+editable. **Delete achievement**, beside Save, removes it and everybody's badge
+for it.
+
+One of the seventeen **included** ones opens in the same editor with two
+differences. Its conditions are shown as the sentences they mean rather than as
+boxes — what Wingman's own achievements ask for is the same everywhere, so there
+is nothing to fill in there. And where Delete would be, beside Save, it has
+**Reset achievement**:
+
+- **Reset** puts the name, description, icon, colour, conditions and whether it
+  is *hidden until earned* back the way Wingman ships them, and removes an
+  uploaded picture. (So the one included achievement that ships hidden becomes a
+  surprise again, even if you had revealed it.)
+- Whether it is **switched on** is left exactly as you set it. Switching one off
+  is meant to stick, so a reset never turns it back on. Its **place in the
+  list** stays where you put it too — the order is yours, not the
+  achievement's.
+- Everybody's badges are worked out again afterwards. If you had made an
+  achievement easier than Wingman ships it, resetting it can take that badge
+  away again.
+
+It asks before it does any of that, because it throws your changes away. The
+form fills itself in again with what Wingman ships, and the line by **Save**
+says the shipped achievement is back.
 
 !!! note
     Every change re-checks everybody in the background. An achievement that is
@@ -164,6 +224,48 @@ At least 9000*. Leave both empty and every score counts.
     takes all songs — it was a score somebody got. It counts for nothing in a
     condition that picks songs, because the file that said what it was is gone.
 
+#### Rules that take a pattern
+
+The text rules — title, artist, genre, language and edition — offer **matches
+regex** beside *contains*, *is* and *starts with*. It is for the song rule the
+other three cannot say: *"a title that ends in a year"*, *"either Queen or
+ABBA"*, *"anything but a live recording"*.
+
+```
+Title · matches regex · ^(Live|Unplugged)
+```
+
+Three things are worth knowing, and none of them can be guessed:
+
+- **The pattern may match anywhere in the field**, exactly as *contains* does.
+  `Love` matches *Endless Love*. Put `^` in front and `$` behind to mean the
+  whole of it: `^Love$` matches only a song actually called *Love*.
+- **Capitals are ignored**, exactly as in the other three rules. `love` matches
+  *LOVE*. If one part has to keep its capitals, wrap it: `(?-i:Live) at` matches
+  *Live at Wembley* and not *live at home*.
+- **A song whose file says nothing about the field never matches**, patterns
+  included. `^$` is not a way to find the songs with no genre — it finds
+  nothing at all.
+
+Patterns are Python's flavour — the usual `.` `*` `+` `?` `|` `()` `[]` `\d`
+`\b`, `\.` for a full stop that has to be a full stop, and `(?!…)` for *not*
+followed by: `^(?!.*Live)` is the third rule above, every title with no *Live*
+anywhere in it. Wingman refuses a pattern it cannot read when you save and tells
+you what is wrong with it, so a pattern you got wrong never quietly matches
+nothing. A pattern may be 200 characters long.
+
+!!! note "Patterns that ask for too much"
+    A pattern is tried against every score of everybody being brought up to date
+    — whoever just sang, after a song, and everybody at once after an
+    achievement is edited. Some shapes ask the computer to try every combination
+    there is, and would take practically forever: a repetition inside another
+    repetition, like `(a+)+b`, or a long row of `.*`. Wingman works out what a
+    pattern is asking for and refuses one like that when you save, saying so, so
+    the shape to avoid is one you cannot accidentally keep. In practice: at most
+    two open-ended repetitions (`*`, `+`), and never one wrapped around another
+    — and since a pattern already matches anywhere in the field, a `.*` at the
+    very start or end does nothing anyway.
+
 The progress bar a singer sees comes out of the conditions on its own: it can
 only be drawn for one that counts *upwards* — *at least* or *more than* — and an
 achievement's bar shows its least complete condition, since all of them have to
@@ -210,7 +312,14 @@ words what happened — *"Added Golden Voice and updated 14 achievements."*
 Import matches **by id**, which is the folder name inside the archive:
 
 - An achievement this Wingman already has is **updated** — name, description,
-  colour, conditions and all — exactly as if you had edited it.
+  colour, conditions and all — exactly as if you had edited it, and it moves to
+  the place in the list the archive gives it. An archive carries the order it
+  was exported in, and that place is the one thing the editor itself cannot
+  touch — [the grip](#change-the-order) is where the order is changed by hand;
+  leave `sort_order` out of a file and the achievement keeps the place it has.
+- One of the **seventeen included** ones is updated too, but its conditions are
+  left alone, exactly as in the editor: what Wingman's own achievements ask for
+  is not something an archive may change. Everything else in the file takes.
 - One it does not have is **added**.
 - Importing the same archive twice is therefore not a way to get two copies. It
   is a way to put things back the way the archive has them.
@@ -256,6 +365,26 @@ be the same as the `id` in the file — that is what says which achievement it i
 And a key Wingman does not know is refused rather than ignored: a `"colour"` that
 was quietly dropped is exactly the mistake a hand-edited file invites, so it is
 named instead. Pack the folders back into a `.tar.gz` and import it.
+
+A song rule is written the way the editor builds it, and a pattern is one more
+operator among them:
+
+```json
+"match": {
+  "combine": "all",
+  "clauses": [{ "field": "title", "op": "regex", "value": "^Live at .*\\d{4}$" }]
+}
+```
+
+Mind the doubled backslash: that is JSON's own rule, not Wingman's — `\d` in a
+file has to be written `\\d`, or the file is not JSON at all. A pattern Wingman
+cannot read is refused on import like any other mistake, naming the achievement
+it is in and what Python made of it.
+
+The example above is one of the included seventeen — you can tell by the
+`builtin-` in front of its id — so `definition` is the one thing in it an import
+will ignore. Everything else in that file takes. Editing conditions by hand is
+for the achievements your party made itself.
 
 ## See also
 

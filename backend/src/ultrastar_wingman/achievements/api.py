@@ -11,6 +11,12 @@ by the whole room, so editing one rewrites what everybody has.
 surprise, so the blanking happens before the row leaves the server — over the *caller's* own
 player in the catalogue, and over the *subject's* on a player's page, because that one is
 that player's record and not the reader's.
+
+Holding `achievements.manage` is not what unmasks it: the administrator and the host screen
+hold every capability, and they read this catalogue on the singer-facing surfaces too — the
+user page and the TV — where a hidden achievement spelled out is the surprise gone for the
+whole room. Unmasking is something a caller *asks* for, `GET /achievements?manage=true`, and
+only the management page asks. What the capability decides is whether the answer is given.
 """
 
 import logging
@@ -18,7 +24,7 @@ from datetime import UTC, datetime
 from pathlib import Path
 from typing import Annotated
 
-from fastapi import APIRouter, Depends, File, HTTPException, Request, UploadFile
+from fastapi import APIRouter, Depends, File, HTTPException, Query, Request, UploadFile
 from fastapi.responses import FileResponse, Response
 from pydantic import BaseModel, Field
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
@@ -85,7 +91,11 @@ SessionFactoryDep = Annotated[async_sessionmaker[AsyncSession], Depends(get_sess
 
 class AchievementCreate(BaseModel):
     """`definition` is parsed by the condition models on the way in, so an achievement that
-    could never be satisfied is a 422 here rather than a stored row nobody can earn."""
+    could never be satisfied is a 422 here rather than a stored row nobody can earn.
+
+    No `sort_order`: a new achievement lands at the end of the list, and where it sits after
+    that is `PUT /achievements/order`'s alone — see `AchievementUpdate`.
+    """
 
     name: AchievementName
     description: AchievementDescription = ""
@@ -93,14 +103,22 @@ class AchievementCreate(BaseModel):
     color: TagColor = "neutral"
     hidden: bool = False
     enabled: bool = True
-    # Left out: at the end of the list. The editor reorders by sending them.
-    sort_order: int | None = None
     definition: list[Condition]
 
 
 class AchievementUpdate(BaseModel):
     """Every field optional: a PATCH only touches what it names. An explicit `"icon": null`
-    clears the glyph — leaving the field out keeps it."""
+    clears the glyph — leaving the field out keeps it.
+
+    **No `sort_order`.** Where a row sits is written by `PUT /achievements/order` and by
+    nothing else: that route takes the whole catalogue as one permutation and hands out
+    0, 1, 2 …, so the column is always one sequence, while a PATCH could put two rows on the
+    same number. The order is the host's arrangement of the catalogue rather than a field of
+    one achievement, which is also why a reset leaves it alone. The field is simply ignored
+    where an older client still sends it — the models take no `extra="forbid"`, and refusing
+    a whole edit over a number the route would have written the same way twice is no help to
+    anybody.
+    """
 
     name: AchievementName | None = None
     description: AchievementDescription | None = None
@@ -108,7 +126,6 @@ class AchievementUpdate(BaseModel):
     color: TagColor | None = None
     hidden: bool | None = None
     enabled: bool | None = None
-    sort_order: int | None = None
     definition: list[Condition] | None = None
 
 
@@ -119,6 +136,13 @@ class AchievementExport(BaseModel):
     ids: Annotated[list[str], Field(min_length=1)]
 
 
+class AchievementOrder(BaseModel):
+    """The whole catalogue in the order it is to be listed in. Every id exactly once —
+    anything else is a 422, the way a playlist's reorder refuses a partial order."""
+
+    ids: list[str]
+
+
 class AchievementSettingsUpdate(BaseModel):
     """The three knobs, all optional like every other PATCH here."""
 
@@ -127,28 +151,46 @@ class AchievementSettingsUpdate(BaseModel):
     host_seconds_per_badge: int | None = None
 
 
-@router.get("/achievements", response_model=AchievementList)
-async def list_achievements(session: SessionDep, principal: PrincipalDep) -> AchievementList:
+@router.get(
+    "/achievements",
+    response_model=AchievementList,
+    responses={403: {"description": "`manage=true` without `achievements.manage`."}},
+)
+async def list_achievements(
+    session: SessionDep,
+    principal: PrincipalDep,
+    manage: Annotated[
+        bool,
+        Query(
+            description=(
+                "Answer for the management page: every hidden achievement spelled out, and "
+                "each row's definition. Takes `achievements.manage`."
+            )
+        ),
+    ] = False,
+) -> AchievementList:
     """The whole catalogue, in `sort_order`, with the three settings beside it.
 
     No capability: a badge is drawn on the TV and on every phone, and the settings decide
     whether anything is drawn at all — a guest that could not read them could not draw.
 
     A `hidden` achievement the caller's own player has not earned comes back blank: no name,
-    no sentence, no glyph. A caller holding `achievements.manage` sees all of it, plus each
-    row's `definition`.
+    no sentence, no glyph — and that is what *everybody* gets, an administrator and the host
+    screen included. Holding the capability is not the same as using it: the same catalogue
+    feeds the user page and the TV, and the surprise has to survive being read there by
+    somebody who could edit it.
+
+    `manage=true` is the management page asking for the other answer — every row whole, plus
+    its `definition` — and takes `achievements.manage`, else 403.
     """
-    manages = _manages(principal)
-    earned = (
-        frozenset()
-        if manages
-        else await service.earned_ids(session, await _own_player_id(session, principal))
-    )
-    rows = await service.list_achievements(session)
+    if manage:
+        principal.require(service.MANAGE_CAPABILITY)
+        return await _manage_list(session)
+    earned = await service.earned_ids(session, await _own_player_id(session, principal))
     return AchievementList(
         achievements=[
-            read_achievement(row, definition=manages, mask=_masked(row, manages, row.id in earned))
-            for row in rows
+            read_achievement(row, mask=_masked(row, row.id in earned))
+            for row in await service.list_achievements(session)
         ],
         settings=_settings_read(await achievement_settings.read_all(session)),
     )
@@ -195,6 +237,37 @@ async def update_achievement_settings(
     return _settings_read(await achievement_settings.read_all(session))
 
 
+@router.put(
+    "/achievements/order",
+    response_model=AchievementList,
+    dependencies=[Depends(require("achievements.manage"))],
+    responses={422: {"description": "An order that is not a permutation of the catalogue."}},
+)
+async def reorder_achievements(body: AchievementOrder, session: SessionDep) -> AchievementList:
+    """Put the catalogue in the order the ids are sent in.
+
+    The whole catalogue in one body — every id exactly once, else a 422 `order_mismatch` and
+    nothing is written. The management page is the only caller and it holds every row, so
+    demanding the lot costs it nothing and spares the route from guessing where the ids it
+    was not told about belong. Nothing per caller about it either: `sort_order` is one
+    column over the whole table, and a manager sees all of it.
+
+    Registered before `/achievements/{achievement_id}` for the same reason the settings PATCH
+    is: FastAPI matches in registration order, and "order" is a word an achievement id route
+    would happily swallow.
+
+    Answers the managing listing, so the page that reordered can hold what it drew without a
+    second request. Broadcasts `achievements.changed` like every other catalogue write — the
+    order is what every badge surface lists in. No background pass: where an achievement sits
+    in the list has nothing to do with who earned it.
+    """
+    try:
+        await service.reorder_achievements(session, body.ids)
+    except service.OrderMismatchError as error:
+        raise HTTPException(status_code=422, detail="order_mismatch") from error
+    return await _manage_list(session)
+
+
 @router.post(
     "/achievements",
     response_model=AchievementRead,
@@ -215,7 +288,6 @@ async def create_achievement(
         color=body.color,
         hidden=body.hidden,
         enabled=body.enabled,
-        sort_order=body.sort_order,
         definition=body.definition,
     )
     service.start_full_pass(factory, f"achievement '{achievement.id}' was created")
@@ -276,8 +348,10 @@ async def import_achievements(
     Matched **by id**: a known id is updated in place, an unknown one is created — which is
     what makes export → hand-edit → import a round trip, and what lets a built-in be shared
     between instances. A built-in is updated exactly the way `PATCH` updates one and keeps
-    its flag; a row the import *creates* is a built-in only if its id is one of the ids
-    Wingman ships, so an archive cannot mint an undeletable achievement of its own.
+    its flag, its **conditions left alone**; a row the import *creates* is a built-in only if
+    its id is one of the ids Wingman ships, so an archive cannot mint an undeletable
+    achievement of its own, and one created under a shipped id gets the shipped conditions.
+    An archive is therefore never a way round the 409 `PATCH` gives.
 
     The answer names what happened — which ids were created and which updated — so the page
     that ran it can say something true rather than "done".
@@ -306,31 +380,85 @@ async def import_achievements(
     dependencies=[Depends(require("achievements.manage"))],
     responses={
         **UNKNOWN_ACHIEVEMENT,
+        409: {"description": "A definition on one of the built-in achievements."},
         422: {"description": "A definition the condition models refuse."},
     },
 )
 async def update_achievement(
     achievement_id: str, body: AchievementUpdate, session: SessionDep, factory: SessionFactoryDep
 ) -> AchievementRead:
-    """Change one, a built-in included: they may be edited and switched off like any other.
+    """Change one, a built-in included: they may be renamed, recoloured and switched off like
+    any other.
+
+    What it may **not** move is where the row sits: `sort_order` is not a field of this
+    body, because `PUT /achievements/order` writes that column and nothing else does. See
+    `AchievementUpdate`.
+
+    What a built-in **asks for** is the exception. A `definition` on one is a 409 and nothing
+    is written: `builtin.py` is the one place that says what *Golden Voice* means, and the
+    only write that touches those conditions is `POST /achievements/{id}/reset`, which puts
+    the shipped ones back. A `definition` repeating what the row already holds is let through
+    as the no-op it is, so a client that sends the whole achievement back unchanged is not
+    refused for a field it never meant to touch.
+
+    409 rather than 422: the body is one the condition models parsed happily, and what
+    refuses it is the row it was sent to — the same reasoning as the 409 on deleting a
+    built-in.
 
     Recomputation follows every edit, not only an edited definition — switching one on or off
     changes who holds a row for it just as much as a raised target does.
     """
     achievement = await _achievement_or_404(achievement_id, session)
-    await service.update_achievement(
-        session,
-        achievement,
-        name=body.name,
-        description=body.description,
-        icon=body.icon if "icon" in body.model_fields_set else service.UNSET,
-        color=body.color,
-        hidden=body.hidden,
-        enabled=body.enabled,
-        sort_order=body.sort_order,
-        definition=body.definition,
-    )
+    try:
+        await service.update_achievement(
+            session,
+            achievement,
+            name=body.name,
+            description=body.description,
+            icon=body.icon if "icon" in body.model_fields_set else service.UNSET,
+            color=body.color,
+            hidden=body.hidden,
+            enabled=body.enabled,
+            definition=body.definition,
+        )
+    except service.BuiltInDefinitionError as error:
+        raise HTTPException(status_code=409, detail="built_in_definition") from error
     service.start_full_pass(factory, f"achievement '{achievement.id}' was edited")
+    return read_achievement(achievement, definition=True)
+
+
+@router.post(
+    "/achievements/{achievement_id}/reset",
+    response_model=AchievementRead,
+    dependencies=[Depends(require("achievements.manage"))],
+    responses={
+        **UNKNOWN_ACHIEVEMENT,
+        409: {"description": "Not one of the built-in achievements."},
+    },
+)
+async def reset_achievement(
+    achievement_id: str, session: SessionDep, icons_dir: IconsDirDep, factory: SessionFactoryDep
+) -> AchievementRead:
+    """Put one of the built-in achievements back the way Wingman ships it.
+
+    The name, the description, the glyph, the colour, `hidden` and the conditions all come
+    back out of `builtin.py`, and an uploaded picture is dropped so the restored glyph is
+    what is drawn. Two fields are left as they stand: `enabled`, because switching a built-in
+    off is the one thing a party is told it may do to one, and its place in the list, which
+    the host arranged with `PUT /achievements/order` and did not ask to have undone.
+
+    Anything else in the catalogue is a 409 — an achievement somebody made here has nothing
+    to be put back to.
+
+    Recomputation follows, because the restored conditions can award a badge and can take one
+    away.
+    """
+    achievement = await _achievement_or_404(achievement_id, session)
+    try:
+        await service.reset_built_in(session, achievement, icons_dir)
+    except service.NotBuiltInError as error:
+        raise HTTPException(status_code=409, detail="not_built_in") from error
+    service.start_full_pass(factory, f"achievement '{achievement.id}' was reset")
     return read_achievement(achievement, definition=True)
 
 
@@ -432,6 +560,11 @@ async def get_achievement_icon(
 
     A kept-back picture is the same 404 as no picture at all, so a stranger cannot tell the
     two apart.
+
+    The one place where holding `achievements.manage` is still enough on its own: an `<img>`
+    src carries no `manage=true`, and the management page has to be able to draw the picture
+    of the achievement it is editing. Nothing leaks by it — a masked row says `has_image:
+    false`, so no singer-facing surface ever builds this URL for a hidden achievement.
     """
     achievement = await _achievement_or_404(achievement_id, session)
     missing = HTTPException(status_code=404, detail=f"achievement '{achievement_id}' has no icon")
@@ -452,9 +585,7 @@ async def get_achievement_icon(
     response_model=PlayerAchievementList,
     responses={404: {"description": "Unknown player."}},
 )
-async def list_player_achievements(
-    player_id: str, session: SessionDep, principal: PrincipalDep
-) -> PlayerAchievementList:
+async def list_player_achievements(player_id: str, session: SessionDep) -> PlayerAchievementList:
     """What one player has earned and how far along they are on the rest.
 
     No capability, like the catalogue: this is what the host screen shows beside a singer and
@@ -462,24 +593,22 @@ async def list_player_achievements(
     is an empty list and not a 404.
 
     Masked over the **subject**: a hidden achievement *this player* has not earned is blank
-    here whoever is reading, and its progress numbers are left out with it — a bar that
+    here whoever is reading — a manager included, because this is a singer's record and there
+    is nothing to manage on it — and its progress numbers are left out with it. A bar that
     filled would say what the badge is for just as loudly as its name would.
     """
     if await session.get(Player, player_id) is None:
         raise HTTPException(status_code=404, detail=f"unknown player '{player_id}'")
-    manages = _manages(principal)
     return PlayerAchievementList(
         achievements=[
-            _read_row(row, achievement, manages)
+            _read_row(row, achievement)
             for row, achievement in await service.rows_of_player(session, player_id)
         ]
     )
 
 
-def _read_row(
-    row: PlayerAchievement, achievement: Achievement, manages: bool
-) -> PlayerAchievementRead:
-    mask = _masked(achievement, manages, row.earned_at is not None)
+def _read_row(row: PlayerAchievement, achievement: Achievement) -> PlayerAchievementRead:
+    mask = _masked(achievement, row.earned_at is not None)
     return PlayerAchievementRead(
         achievement_id=row.achievement_id,
         player_id=row.player_id,
@@ -487,17 +616,21 @@ def _read_row(
         session_id=row.session_id,
         progress_current=None if mask else row.progress_current,
         progress_target=None if mask else row.progress_target,
-        achievement=read_achievement(achievement, definition=manages, mask=mask),
+        # No definition on anybody's record: what an achievement asks for is the management
+        # page's business, and that page reads the catalogue.
+        achievement=read_achievement(achievement, mask=mask),
     )
 
 
-def _masked(achievement: Achievement, manages: bool, earned: bool) -> bool:
-    """A hidden achievement stays a secret until it is earned. A manager sees everything —
-    somebody has to be able to write the thing."""
-    return achievement.hidden and not manages and not earned
+def _masked(achievement: Achievement, earned: bool) -> bool:
+    """A hidden achievement stays a secret until it is earned — by the caller's own player in
+    the catalogue, by the subject on a player's record."""
+    return achievement.hidden and not earned
 
 
 def _manages(principal: Principal) -> bool:
+    """Only the icon endpoint asks: everywhere else unmasking is `manage=true`, which the
+    caller has to ask for, rather than a capability they happen to hold."""
     return service.MANAGE_CAPABILITY in principal.capabilities
 
 
@@ -507,6 +640,18 @@ async def _own_player_id(session: AsyncSession, principal: Principal) -> str | N
     if principal.user is None:
         return None
     return await players.player_id_of_user(session, principal.user.id)
+
+
+async def _manage_list(session: AsyncSession) -> AchievementList:
+    """The managing answer: every row whole, its `definition` with it, nothing masked. What
+    `GET /achievements?manage=true` and the reorder route both hand back."""
+    return AchievementList(
+        achievements=[
+            read_achievement(row, definition=True)
+            for row in await service.list_achievements(session)
+        ],
+        settings=_settings_read(await achievement_settings.read_all(session)),
+    )
 
 
 def _settings_read(values: dict[str, SettingValue]) -> AchievementSettings:

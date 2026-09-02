@@ -2,12 +2,14 @@
 
 Reading takes no capability at all, which is the point: the host screen and every guest
 phone draw badges. Writing takes `achievements.manage`, and the matrix in
-`test_permissions.py` is what proves the five write routes really demand it.
+`test_permissions.py` is what proves every one of the write routes really demands it.
 
 The half worth the most attention here is the masking. `hidden` is enforced by the API and
-never by the UI, so it is checked from all three sides — the manager who has to be able to
-edit the thing, the player who has earned it, and the stranger who must learn nothing about
-it but that a locked slot is there.
+never by the UI, so it is checked from all four sides — the management page, which has to be
+able to edit the thing and says so with `manage=true`; the player who has earned it; the
+stranger who must learn nothing about it but that a locked slot is there; and the
+administrator who is merely *reading*, on their own user page or on the TV, and gets the
+stranger's answer because holding the capability is not the same as using it.
 """
 
 from collections.abc import AsyncIterator
@@ -23,7 +25,7 @@ from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
 
 from conftest import BASE_URL, add_session, add_user
 from ultrastar_wingman.achievements import service
-from ultrastar_wingman.achievements.builtin import BUILT_INS
+from ultrastar_wingman.achievements.builtin import BUILT_INS, BY_ID
 from ultrastar_wingman.achievements.model import Achievement, PlayerAchievement
 from ultrastar_wingman.achievements.schema import Condition
 from ultrastar_wingman.app import create_app
@@ -107,8 +109,11 @@ async def party(bootstrap_settings: BootstrapSettings) -> AsyncIterator[Party]:
                 await client.aclose()
 
 
-async def catalogue(client: AsyncClient) -> list[dict[str, Any]]:
-    response = await client.get("/api/v1/achievements")
+async def catalogue(client: AsyncClient, *, manage: bool = False) -> list[dict[str, Any]]:
+    """`manage=True` is the management page's answer — every row whole and its definition —
+    and takes `achievements.manage`. Everything else gets the masked one, whatever it holds."""
+    query = {"manage": "true"} if manage else None
+    response = await client.get("/api/v1/achievements", params=query)
     assert response.status_code == 200, response.text
     rows: list[dict[str, Any]] = response.json()["achievements"]
     return rows
@@ -159,6 +164,16 @@ def icon_files(icons_dir: Path) -> list[str]:
     return sorted(path.name for path in icons_dir.iterdir()) if icons_dir.is_dir() else []
 
 
+async def stored_definition(party: Party, achievement_id: str) -> object:
+    """The `definition` column as it stands. The API's own answer is the parsed models spelled
+    out in full, so the column is what a claim about the stored JSON has to be made against —
+    and it is the shape `builtin.py` declares and the seed migration writes."""
+    async with party.factory() as session:
+        row = await session.get(Achievement, achievement_id)
+        assert row is not None
+        return row.definition
+
+
 def touch_and_read_version(icon: Path) -> int:
     """Move the file's modification time on and report the version the API should now serve.
     Sync for the same reason as `icon_files`."""
@@ -177,10 +192,21 @@ async def test_the_seventeen_built_ins_are_seeded_in_order(party: Party) -> None
 async def test_every_built_in_definition_is_one_the_engine_can_read(party: Party) -> None:
     """The seed is hand-written JSON, so the models are what stand between a typo in it and
     seventeen badges nobody can earn."""
-    for row in await catalogue(party["admin"]):
+    for row in await catalogue(party["admin"], manage=True):
         assert row["definition"], row["id"]
         for condition in row["definition"]:
             Condition.model_validate(condition)
+
+
+async def test_every_built_in_definition_is_written_the_way_the_models_write_it() -> None:
+    """`builtin.py` is hand-written JSON, and three things have to agree on it: what the seed
+    migration inserts (that file, raw), what a reset writes back (that file, raw) and what
+    `dump_definition` makes of a definition sent to the API — which is what the refusal on
+    `PATCH` compares against. A condition spelled with a field the models default would make
+    those three drift apart silently."""
+    for built_in in BUILT_INS:
+        parsed = [Condition.model_validate(condition) for condition in built_in.definition]
+        assert service.dump_definition(parsed) == built_in.definition, built_in.id
 
 
 async def test_the_catalogue_carries_the_three_settings_at_their_defaults(party: Party) -> None:
@@ -258,10 +284,280 @@ async def test_deleting_a_built_in_is_a_conflict(party: Party) -> None:
     assert switched_off.json()["enabled"] is False
 
 
+async def test_a_built_ins_conditions_cannot_be_changed(party: Party) -> None:
+    """What one of the shipped seventeen asks for is `builtin.py`'s. 409 and not 422: the
+    body is one the condition models parsed happily, and what refuses it is the row it was
+    sent to — the same reasoning as the 409 on deleting one."""
+    refused = await party["admin"].patch(
+        "/api/v1/achievements/builtin-score-9000",
+        json={
+            "name": "Renamed",
+            "definition": [{"metric": "any_score", "comparator": ">=", "value": 1}],
+        },
+    )
+
+    assert refused.status_code == 409, refused.text
+    # A slug and not a sentence, like every other 409 in the app: the client that has to
+    # explain a refusal is the one that speaks the reader's language (`errors.ts`).
+    assert refused.json() == {"detail": "built_in_definition"}
+    # Nothing at all was written — not the conditions, and not the name beside them.
+    assert (
+        await stored_definition(party, "builtin-score-9000")
+        == BY_ID["builtin-score-9000"].definition
+    )
+    rows = {row["id"]: row for row in await catalogue(party["admin"], manage=True)}
+    assert rows["builtin-score-9000"]["name"] == "Golden Voice"
+
+
+async def test_a_patch_repeating_a_built_ins_own_conditions_is_no_refusal(party: Party) -> None:
+    """A client that sends the whole achievement back — the shipped definition included —
+    changed nothing about the conditions, and is not refused for a field it never meant to
+    touch."""
+    response = await party["admin"].patch(
+        "/api/v1/achievements/builtin-score-9000",
+        json={
+            "name": "Goldene Stimme",
+            "definition": BY_ID["builtin-score-9000"].definition,
+        },
+    )
+
+    assert response.status_code == 200, response.text
+    assert response.json()["name"] == "Goldene Stimme"
+    assert (
+        await stored_definition(party, "builtin-score-9000")
+        == BY_ID["builtin-score-9000"].definition
+    )
+
+
+async def test_the_catalogues_own_definition_patches_back_onto_every_built_in(
+    party: Party,
+) -> None:
+    """The no-op above, but with the definition a real client actually holds.
+
+    `builtin.py`'s raw JSON leaves every defaulted field out; the API answers with the parsed
+    models spelled out in full, nulls included. Both have to dump to the stored column, or a
+    client that reads the catalogue and PATCHes a renamed row straight back gets a 409 for a
+    field it never touched — on some subset of the seventeen, silently.
+    """
+    rows = {row["id"]: row for row in await catalogue(party["admin"], manage=True)}
+    for built_in in BUILT_INS:
+        response = await party["admin"].patch(
+            f"/api/v1/achievements/{built_in.id}",
+            json={"name": rows[built_in.id]["name"], "definition": rows[built_in.id]["definition"]},
+        )
+        assert response.status_code == 200, (built_in.id, response.text)
+        assert await stored_definition(party, built_in.id) == built_in.definition, built_in.id
+
+
+async def test_resetting_a_built_in_puts_back_everything_but_whether_it_is_on(
+    party: Party,
+) -> None:
+    """The improvement asked for "reset title etc.": every field `builtin.py` declares comes
+    back out of that file, an uploaded picture is dropped so the restored glyph is what is
+    drawn — and two fields are left exactly as they stand. `enabled`, because switching a
+    built-in off is the one thing a party is told it may do to one; and `sort_order`, because
+    the order of the catalogue is the host's (`PUT /achievements/order`) and not a fact about
+    this achievement — see the test below."""
+    client = party["admin"]
+    await client.patch(
+        "/api/v1/achievements/builtin-score-9000",
+        json={
+            "name": "Nine Thousand",
+            "description": "Something else entirely.",
+            "icon": "beer",
+            "color": "pink",
+            "hidden": True,
+            "enabled": False,
+        },
+    )
+    await client.put(
+        "/api/v1/achievements/builtin-score-9000/icon", files=upload(PNG, "a.png", "image/png")
+    )
+    # Two columns no single-row route can move any more, written here directly. `definition`
+    # because a database seeded before the conditions were frozen can still hold a
+    # hand-edited one, and putting it right is what reset is for; `sort_order` because only
+    # `PUT /achievements/order` writes it, and this test is about the field being left where
+    # it stands rather than about how it got there.
+    async with party.factory() as session:
+        row = await session.get(Achievement, "builtin-score-9000")
+        assert row is not None
+        row.definition = [{"metric": "any_score", "comparator": ">=", "value": 1}]
+        row.sort_order = 99
+        await session.commit()
+
+    response = await client.post("/api/v1/achievements/builtin-score-9000/reset")
+
+    assert response.status_code == 200, response.text
+    shipped = BY_ID["builtin-score-9000"]
+    restored = response.json()
+    assert restored["name"] == shipped.name
+    assert restored["description"] == shipped.description
+    assert restored["icon"] == shipped.icon
+    assert restored["color"] == shipped.color
+    assert restored["hidden"] == shipped.hidden
+    assert restored["has_image"] is False
+    # Kept: somebody who switched this one off did it on purpose, and somebody put this row
+    # where it is on purpose too.
+    assert restored["enabled"] is False
+    assert restored["sort_order"] == 99
+    assert await stored_definition(party, "builtin-score-9000") == shipped.definition
+    assert icon_files(party.icons) == []
+
+
+async def test_resetting_one_is_the_cure_for_a_definition_nothing_can_read(
+    party: Party,
+) -> None:
+    """The one repair there is. A column hand-edited into a shape the models refuse evaluates
+    as "never satisfied", and `PATCH` cannot put it right — a definition on a built-in is a
+    409 whatever it says. Reset writes the shipped JSON over it without reading what was
+    there, which is what makes the claim in `docs/dev/achievements.md` true."""
+    async with party.factory() as session:
+        row = await session.get(Achievement, "builtin-score-9000")
+        assert row is not None
+        row.definition = "nonsense"  # type: ignore[assignment]
+        await session.commit()
+    refused = await party["admin"].patch(
+        "/api/v1/achievements/builtin-score-9000",
+        json={"definition": BY_ID["builtin-score-9000"].definition},
+    )
+    assert refused.status_code == 409, refused.text
+
+    response = await party["admin"].post("/api/v1/achievements/builtin-score-9000/reset")
+
+    assert response.status_code == 200, response.text
+    shipped = BY_ID["builtin-score-9000"]
+    assert await stored_definition(party, "builtin-score-9000") == shipped.definition
+    assert response.json()["definition"][0]["value"] == shipped.definition[0]["value"]
+
+
+async def test_resetting_an_achievement_nobody_ships_is_a_conflict(party: Party) -> None:
+    """One somebody made here has nothing to be put back to — `builtin.py` never heard of
+    it."""
+    created = await create(party["admin"], name="Encore")
+
+    refused = await party["admin"].post(f"/api/v1/achievements/{created['id']}/reset")
+
+    assert refused.status_code == 409, refused.text
+    assert refused.json() == {"detail": "not_built_in"}
+    assert (await catalogue(party["admin"]))[-1]["name"] == "Encore"
+
+
+async def test_a_reset_definition_is_worked_out_for_everybody_again(party: Party) -> None:
+    """A reset can take a badge away: the conditions it puts back are stricter than the ones
+    somebody had loosened, and recomputation is the truth."""
+    player_id = await add_player(party, None, "Guest")
+    await _add_score(party, player_id, 500)
+    await award(party, "builtin-score-9000", player_id)
+
+    response = await party["admin"].post("/api/v1/achievements/builtin-score-9000/reset")
+    assert response.status_code == 200, response.text
+    await service.wait_for_passes()
+
+    record = await party["anonymous"].get(f"/api/v1/players/{player_id}/achievements")
+    rows = {row["achievement_id"]: row for row in record.json()["achievements"]}
+    assert rows["builtin-score-9000"]["earned_at"] is None
+
+
+async def test_the_catalogue_takes_the_order_it_is_sent(party: Party) -> None:
+    """The improvement asked for a sortable list. One sequence over the whole table: the
+    numbers are handed out 0, 1, 2 … in the order sent, so what comes back is the order and
+    not an arithmetic accident of what the rows held before."""
+    made = await create(party["admin"], name="Encore")
+    ids = [row["id"] for row in await catalogue(party["admin"])]
+    assert ids[-1] == made["id"]
+    wanted = [made["id"], *ids[:-1]]
+
+    response = await party["admin"].put("/api/v1/achievements/order", json={"ids": wanted})
+
+    assert response.status_code == 200, response.text
+    answered = response.json()["achievements"]
+    assert [row["id"] for row in answered] == wanted
+    assert [row["sort_order"] for row in answered] == list(range(len(wanted)))
+    # The managing answer, so the page that reordered can hold what it drew: every row's
+    # definition is on it, the hidden ones spelled out.
+    assert all(row["definition"] is not None for row in answered)
+    assert all(row["name"] != "" for row in answered)
+    # And it stuck: the next listing, for anybody, is in that order.
+    assert [row["id"] for row in await catalogue(party["anonymous"])] == wanted
+
+
+@pytest.mark.parametrize(
+    "sent",
+    [
+        pytest.param("short", id="one left out"),
+        pytest.param("extra", id="an id nothing holds"),
+        pytest.param("twice", id="the same id twice"),
+        pytest.param("empty", id="nothing at all"),
+    ],
+)
+async def test_an_order_that_is_not_a_permutation_is_refused(party: Party, sent: str) -> None:
+    """A partial order would silently decide where everything it left out belongs, and a list
+    naming a row twice is no order at all. Nothing is renumbered — the same refusal a
+    playlist's reorder gives."""
+    before = [row["id"] for row in await catalogue(party["admin"])]
+    bodies = {
+        "short": before[:-1],
+        "extra": [*before, "nope"],
+        "twice": [before[0], *before],
+        "empty": [],
+    }
+
+    refused = await party["admin"].put("/api/v1/achievements/order", json={"ids": bodies[sent]})
+
+    assert refused.status_code == 422, refused.text
+    assert refused.json() == {"detail": "order_mismatch"}
+    assert [row["id"] for row in await catalogue(party["admin"])] == before
+
+
+async def test_no_other_route_writes_where_a_row_sits(party: Party) -> None:
+    """`PUT /achievements/order` is the one write over `sort_order`, and it takes the whole
+    catalogue as one permutation — so the column is always one sequence, 0, 1, 2 … A second
+    writer over a single row could put two rows on the same number, which is why neither the
+    PATCH nor the create body carries the field at all. A body that names it anyway is the
+    no-op the models make of a field they do not declare, not a refused write: refusing a
+    whole edit over a number is no help to anybody, and an older client is the likeliest
+    sender."""
+    client = party["admin"]
+    before = [row["id"] for row in await catalogue(client)]
+
+    edited = await client.patch(
+        f"/api/v1/achievements/{before[-1]}", json={"name": "Renamed", "sort_order": 0}
+    )
+
+    assert edited.status_code == 200, edited.text
+    assert edited.json()["name"] == "Renamed"
+    assert edited.json()["sort_order"] == len(before) - 1
+    assert [row["id"] for row in await catalogue(client)] == before
+
+    # And a create lands at the end of the list whatever it asks for.
+    made = await create(client, name="Encore", sort_order=0)
+
+    assert made["sort_order"] == len(before)
+    assert [row["id"] for row in await catalogue(client)] == [*before, made["id"]]
+
+
+async def test_a_reset_leaves_a_built_in_where_the_host_put_it(party: Party) -> None:
+    """The interaction between the two: a reset restores what an achievement *is*, not where
+    it is filed. Putting `BUILT_INS.index()` back after the whole table has been renumbered
+    would drop the row at an arbitrary spot rather than "where Wingman had it"."""
+    ids = [row["id"] for row in await catalogue(party["admin"])]
+    moved = [ids[-1], *ids[:-1]]
+    assert (
+        await party["admin"].put("/api/v1/achievements/order", json={"ids": moved})
+    ).status_code == 200
+
+    response = await party["admin"].post(f"/api/v1/achievements/{moved[0]}/reset")
+
+    assert response.status_code == 200, response.text
+    assert response.json()["sort_order"] == 0
+    assert [row["id"] for row in await catalogue(party["admin"])] == moved
+
+
 async def test_an_unknown_achievement_is_404(party: Party) -> None:
     client = party["admin"]
     assert (await client.patch("/api/v1/achievements/nope", json={"name": "x"})).status_code == 404
     assert (await client.delete("/api/v1/achievements/nope")).status_code == 404
+    assert (await client.post("/api/v1/achievements/nope/reset")).status_code == 404
     assert (await client.get("/api/v1/achievements/nope/icon")).status_code == 404
     assert (await client.delete("/api/v1/achievements/nope/icon")).status_code == 404
     assert (
@@ -300,6 +596,50 @@ async def test_an_unknown_achievement_is_404(party: Party) -> None:
             ],
             id="an operator the field cannot answer",
         ),
+        pytest.param(
+            [
+                {
+                    "metric": "any_score",
+                    "comparator": ">=",
+                    "value": 1,
+                    "match": {
+                        "combine": "all",
+                        "clauses": [{"field": "title", "op": "regex", "value": "(a+"}],
+                    },
+                }
+            ],
+            id="a regular expression that cannot compile",
+        ),
+        pytest.param(
+            [
+                {
+                    "metric": "any_score",
+                    "comparator": ">=",
+                    "value": 1,
+                    "match": {
+                        "combine": "all",
+                        "clauses": [{"field": "title", "op": "regex", "value": "(a+)+$"}],
+                    },
+                }
+            ],
+            id="a regular expression that would never finish",
+        ),
+        pytest.param(
+            [
+                {
+                    "metric": "any_score",
+                    "comparator": ">=",
+                    "value": 1,
+                    "match": {
+                        "combine": "all",
+                        # `re.compile` answers this one with an `OverflowError`, which used
+                        # to escape the validator and be a 500 instead of a refusal.
+                        "clauses": [{"field": "title", "op": "regex", "value": "(a){4294967296}"}],
+                    },
+                }
+            ],
+            id="a regular expression whose repetition count is absurd",
+        ),
     ],
 )
 async def test_a_definition_the_models_refuse_is_422(
@@ -335,6 +675,38 @@ async def test_a_score_filter_whose_min_is_above_its_max_is_422(party: Party) ->
     # The same range the other way round is an ordinary window and is accepted.
     body["definition"][0]["score_filter"] = {"min": 1000, "max": 9000}  # type: ignore[index]
     assert (await party["admin"].post("/api/v1/achievements", json=body)).status_code == 201
+
+
+async def test_a_song_rule_takes_a_regular_expression_and_hands_it_back(party: Party) -> None:
+    """Stored as written — a pattern is bytes the author chose, and a definition that came
+    back normalised would be a definition they cannot edit. The 422 for a pattern Python
+    refuses carries its own words, which is what tells somebody *where* to look."""
+    pattern = r"^(?-i:Live) at .*\d{4}$"
+    body = {
+        "name": "Live and loud",
+        "color": "gold",
+        "definition": [
+            {
+                "metric": "number_of_scores",
+                "comparator": ">=",
+                "value": 5,
+                "match": {
+                    "combine": "all",
+                    "clauses": [{"field": "title", "op": "regex", "value": pattern}],
+                },
+            }
+        ],
+    }
+
+    response = await party["admin"].post("/api/v1/achievements", json=body)
+    assert response.status_code == 201, response.text
+    clause = response.json()["definition"][0]["match"]["clauses"][0]
+    assert clause == {"field": "title", "op": "regex", "value": pattern}
+
+    body["definition"][0]["match"]["clauses"][0]["value"] = "(a+"  # type: ignore[index]
+    refused = await party["admin"].post("/api/v1/achievements", json=body)
+    assert refused.status_code == 422
+    assert "unterminated subpattern" in refused.text
 
 
 @pytest.mark.parametrize(
@@ -413,7 +785,9 @@ async def test_a_hidden_achievement_gives_away_no_version_of_the_picture_it_has(
     )
 
     (blank,) = [one for one in await catalogue(party["anonymous"]) if one["id"] == created["id"]]
-    (whole,) = [one for one in await catalogue(party["admin"]) if one["id"] == created["id"]]
+    (whole,) = [
+        one for one in await catalogue(party["admin"], manage=True) if one["id"] == created["id"]
+    ]
 
     assert blank["has_image"] is False
     assert blank["icon_version"] is None
@@ -616,11 +990,15 @@ async def test_a_hidden_achievement_is_whole_for_the_player_who_earned_it(party:
     assert theirs["name"] == ""
 
 
-async def test_a_manager_sees_every_hidden_achievement_and_its_definition(party: Party) -> None:
-    """Somebody has to be able to write the thing."""
+async def test_the_management_page_sees_every_hidden_achievement_and_its_definition(
+    party: Party,
+) -> None:
+    """Somebody has to be able to write the thing — and asking is what says they are."""
     created = await create(party["admin"], **SECRET)
 
-    (row,) = [one for one in await catalogue(party["admin"]) if one["id"] == created["id"]]
+    (row,) = [
+        one for one in await catalogue(party["admin"], manage=True) if one["id"] == created["id"]
+    ]
 
     assert row["name"] == "Brave Soul"
     (condition,) = row["definition"]
@@ -629,6 +1007,70 @@ async def test_a_manager_sees_every_hidden_achievement_and_its_definition(party:
         "<=",
         2000,
     )
+
+
+async def test_a_manager_who_did_not_ask_to_manage_is_masked_like_anybody_else(
+    party: Party,
+) -> None:
+    """The bug this is here for: the administrator and the host screen hold every capability
+    and read this very listing on the user page and on the TV. A hidden achievement spelled
+    out there is the surprise gone for the whole room, so holding the capability unmasks
+    nothing — only using it does."""
+    created = await create(party["admin"], **SECRET)
+    await add_player(party, "admin", "Yannis")
+
+    (row,) = [one for one in await catalogue(party["admin"]) if one["id"] == created["id"]]
+
+    assert row["name"] == ""
+    assert row["description"] == ""
+    assert row["icon"] is None
+    assert row["has_image"] is False
+    assert row["definition"] is None
+
+
+async def test_earning_it_reveals_it_to_a_manager_too(party: Party) -> None:
+    """The unmasking rule is one rule for everybody: the caller's own player has it."""
+    created = await create(party["admin"], **SECRET)
+    await award(party, created["id"], await add_player(party, "admin", "Yannis"))
+
+    (row,) = [one for one in await catalogue(party["admin"]) if one["id"] == created["id"]]
+
+    assert row["name"] == "Brave Soul"
+    # Revealed, not managed: what it asks for still takes asking to manage.
+    assert row["definition"] is None
+
+
+async def test_asking_to_manage_without_the_capability_is_refused(party: Party) -> None:
+    """Not "masked anyway": a listing that quietly ignored the question would tell a client
+    nothing about why it got a locked slot back."""
+    await create(party["admin"], **SECRET)
+
+    for identity in ("anonymous", "user", "trusted"):
+        response = await party[identity].get("/api/v1/achievements", params={"manage": "true"})
+        assert response.status_code == 403, identity
+        assert response.json()["detail"] == "missing_permission:achievements.manage"
+
+
+async def test_the_host_screen_is_masked_like_anybody_else(party: Party) -> None:
+    """The other caller that holds every capability without ever managing anything: the host
+    session is trusted by device and is an administrator (`auth/deps.py`), and the stage
+    reads this very catalogue. A hidden achievement spelled out on the projector is the
+    surprise gone for the whole room, so the TV gets the stranger's answer — it is nobody's
+    player and has earned nothing."""
+    created = await create(party["admin"], **SECRET)
+    await add_session(party.factory, "host-token", None, is_host=True)
+    host = _client(party.app, "host-token")
+    try:
+        (row,) = [one for one in await catalogue(host) if one["id"] == created["id"]]
+
+        assert row["name"] == ""
+        assert row["definition"] is None
+        # It could ask — it holds the capability — and nothing on the stage does.
+        assert (
+            await host.get("/api/v1/achievements", params={"manage": "true"})
+        ).status_code == 200
+    finally:
+        await host.aclose()
 
 
 async def test_a_players_badges_are_masked_over_that_player_not_the_reader(party: Party) -> None:
@@ -661,16 +1103,20 @@ async def test_a_players_badges_are_masked_over_that_player_not_the_reader(party
         )
         await session.commit()
 
-    response = await party["user"].get(f"/api/v1/players/{player_id}/achievements")
+    # A manager reading it is a reader like any other: a singer's record is not something to
+    # manage, and this is the page an administrator's own phone opens.
+    for identity in ("user", "anonymous", "admin"):
+        response = await party[identity].get(f"/api/v1/players/{player_id}/achievements")
 
-    assert response.status_code == 200, response.text
-    rows = {row["achievement_id"]: row for row in response.json()["achievements"]}
-    assert rows[secret["id"]]["achievement"]["name"] == ""
-    assert rows[secret["id"]]["progress_current"] is None
-    assert rows[secret["id"]]["progress_target"] is None
-    # An achievement that is not hidden keeps its bar.
-    assert rows[open_one["id"]]["progress_current"] == 3
-    assert rows[open_one["id"]]["progress_target"] == 10
+        assert response.status_code == 200, response.text
+        rows = {row["achievement_id"]: row for row in response.json()["achievements"]}
+        assert rows[secret["id"]]["achievement"]["name"] == "", identity
+        assert rows[secret["id"]]["achievement"]["definition"] is None, identity
+        assert rows[secret["id"]]["progress_current"] is None, identity
+        assert rows[secret["id"]]["progress_target"] is None, identity
+        # An achievement that is not hidden keeps its bar.
+        assert rows[open_one["id"]]["progress_current"] == 3, identity
+        assert rows[open_one["id"]]["progress_target"] == 10, identity
 
 
 async def test_a_players_badges_are_whole_once_they_are_earned(party: Party) -> None:
@@ -746,6 +1192,15 @@ async def test_every_catalogue_write_tells_the_room_the_catalogue_changed(
         ),
         party["admin"].delete(f"/api/v1/achievements/{created['id']}/icon"),
         party["admin"].patch("/api/v1/achievements/settings", json={"host_seconds_base": 7}),
+        # A reset can rename, recolour and re-condition a badge in one go, so it is as much a
+        # catalogue change as an edit is.
+        party["admin"].post("/api/v1/achievements/builtin-score-9000/reset"),
+        # The order is what every badge surface lists in, so moving it moves what a client
+        # holding the catalogue open draws.
+        party["admin"].put(
+            "/api/v1/achievements/order",
+            json={"ids": [row["id"] for row in reversed(await catalogue(party["admin"]))]},
+        ),
         party["admin"].delete(f"/api/v1/achievements/{created['id']}"),
     ):
         before = changed(broadcast_events)
@@ -760,10 +1215,18 @@ async def test_a_refused_write_changes_nothing_and_says_nothing(
     """The event means the catalogue moved. A 404, a 409 and a 422 all left it where it was."""
     await party["admin"].delete("/api/v1/achievements/builtin-score-9000")
     await party["admin"].patch("/api/v1/achievements/nope", json={"name": "x"})
+    # The conditions of a built-in, and a reset of something nobody ships: both 409s.
+    await party["admin"].patch(
+        "/api/v1/achievements/builtin-score-9000",
+        json={"definition": [{"metric": "any_score", "comparator": ">=", "value": 1}]},
+    )
+    await party["admin"].post("/api/v1/achievements/nope/reset")
     await party["admin"].post(
         "/api/v1/achievements",
         json={"name": "Broken", "color": "gold", "definition": [{"metric": "nonsense"}]},
     )
+    # An order that is not a permutation of the catalogue: nothing was renumbered.
+    await party["admin"].put("/api/v1/achievements/order", json={"ids": ["nope"]})
     # A PATCH that names no field is not a change either.
     await party["admin"].patch("/api/v1/achievements/settings", json={})
 

@@ -2,7 +2,8 @@
 
 Every rule lives in `evaluate.py`; this module reads the rows the engine needs, writes the
 `player_achievements` its answer implies, and owns the handful of writes the catalogue itself
-takes (a new achievement, an edited one, an uploaded icon). Each of those broadcasts
+takes (a new achievement, an edited one, an uploaded icon, a built-in put back the way
+Wingman ships it). Each of those broadcasts
 `achievements.changed` — a client holding the catalogue open would otherwise draw an edited
 badge until it happened to refetch.
 
@@ -18,6 +19,7 @@ import logging
 import shutil
 import uuid
 from collections.abc import Collection, Iterable
+from copy import deepcopy
 from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any
@@ -87,12 +89,51 @@ UNSET = _Unset()
 
 
 class BuiltInAchievementError(ValueError):
-    """A built-in cannot be deleted. It may be edited and switched off like any other — but
-    an instance always has the set the import format's stable slug ids name."""
+    """A built-in cannot be deleted. Its presentation may be edited and it may be switched
+    off like any other — but an instance always has the set the import format's stable slug
+    ids name."""
 
     def __init__(self, achievement_id: str) -> None:
         super().__init__(f"'{achievement_id}' is one of the built-in achievements")
         self.achievement_id = achievement_id
+
+
+class BuiltInDefinitionError(ValueError):
+    """What one of the shipped achievements asks for is Wingman's own.
+
+    `builtin.py` is the one place that says what *Golden Voice* means, and a party that
+    renamed it into something else entirely still has an achievement whose conditions every
+    other instance agrees on. The only write that touches them is `reset_built_in`, which
+    puts the shipped ones back.
+    """
+
+    def __init__(self, achievement_id: str) -> None:
+        super().__init__(
+            f"the conditions of '{achievement_id}' are Wingman's own and cannot be changed"
+        )
+        self.achievement_id = achievement_id
+
+
+class NotBuiltInError(ValueError):
+    """Only a built-in can be reset. An achievement somebody made here has nothing to be put
+    back to — `builtin.py` never heard of it."""
+
+    def __init__(self, achievement_id: str) -> None:
+        super().__init__(f"'{achievement_id}' is not one of the built-in achievements")
+        self.achievement_id = achievement_id
+
+
+class OrderMismatchError(ValueError):
+    """The order sent is not a permutation of the catalogue.
+
+    The same refusal a playlist's reorder gives (`library.service.reorder_entries`): a
+    partial list would silently decide where everything it left out belongs, and a list
+    naming an id twice has no order at all. The management page holds the whole catalogue,
+    so sending all of it costs it nothing.
+    """
+
+    def __init__(self) -> None:
+        super().__init__("the order must name every achievement exactly once")
 
 
 class UnknownAchievementError(LookupError):
@@ -417,10 +458,12 @@ async def create_achievement(
     color: str,
     hidden: bool,
     enabled: bool,
-    sort_order: int | None,
     definition: list[Condition],
 ) -> Achievement:
-    """A new achievement, at the end of the list unless the caller placed it.
+    """A new achievement, at the end of the list.
+
+    Where it sits after that is `reorder_achievements`' business and nobody else's, so
+    there is nothing to place it with here.
 
     A uuid4 hex id: the stable slugs belong to the set Wingman ships, and one an operator
     made here has no meaning another instance could recognise.
@@ -433,7 +476,7 @@ async def create_achievement(
         color=color,
         hidden=hidden,
         enabled=enabled,
-        sort_order=await _next_sort_order(session) if sort_order is None else sort_order,
+        sort_order=await _next_sort_order(session),
         definition=dump_definition(definition),
     )
     session.add(achievement)
@@ -453,11 +496,29 @@ async def update_achievement(
     color: str | None = None,
     hidden: bool | None = None,
     enabled: bool | None = None,
-    sort_order: int | None = None,
     definition: list[Condition] | None = None,
 ) -> Achievement:
-    """Change what an achievement is, or what it asks for. A built-in may be edited like any
-    other — only deleting one is refused."""
+    """Change what an achievement is, or what it asks for.
+
+    Not where it sits: `sort_order` is `reorder_achievements`' column alone, which renumbers
+    the whole catalogue 0, 1, 2 … from one permutation. A second writer with a different
+    rule — one row, any number, duplicates allowed — is a bug waiting for the day two rows
+    share a number, and the order is the host's arrangement of the catalogue rather than a
+    field of one achievement anyway.
+
+    A built-in's presentation is as editable as anybody else's — only its **conditions** are
+    not: a `definition` that would move them raises `BuiltInDefinitionError` and nothing at
+    all is written. A `definition` that repeats what the row already holds is let through as
+    the no-op it is, so a client that sends the whole achievement back unchanged is not
+    refused for a field it never meant to touch.
+    """
+    if definition is not None and achievement.built_in:
+        # Checked before a single field is applied, so a refusal leaves the row untouched
+        # rather than dirty in the session. The stored column is what `dump_definition`
+        # writes, so comparing the dumped form is an exact comparison and not a guess.
+        if dump_definition(definition) != achievement.definition:
+            raise BuiltInDefinitionError(achievement.id)
+        definition = None
     if name is not None:
         achievement.name = name
     if description is not None:
@@ -471,12 +532,77 @@ async def update_achievement(
         achievement.hidden = hidden
     if enabled is not None:
         achievement.enabled = enabled
-    if sort_order is not None:
-        achievement.sort_order = sort_order
     if definition is not None:
         achievement.definition = dump_definition(definition)
     await session.commit()
     logger.info("achievement '%s' updated (%s)", achievement.name, achievement.id)
+    await event_bus.broadcast(AchievementsChanged())
+    return achievement
+
+
+async def reorder_achievements(session: AsyncSession, achievement_ids: list[str]) -> None:
+    """Rewrite the whole catalogue's order: the ids in the order they are to be listed in.
+
+    Raises `OrderMismatchError` unless the list is a permutation of every achievement there
+    is. One sequence over one column, so there is nothing per caller about it — a manager
+    sees the whole catalogue, disabled and hidden rows included, and the numbers are handed
+    out 0, 1, 2 … in the order sent rather than nudged, so the result is the order and not an
+    arithmetic accident of what the rows held before.
+
+    No recomputation follows: where an achievement sits in the list has nothing to do with
+    who has earned it.
+    """
+    rows = {row.id: row for row in await list_achievements(session)}
+    if sorted(achievement_ids) != sorted(rows):
+        raise OrderMismatchError
+    for position, achievement_id in enumerate(achievement_ids):
+        rows[achievement_id].sort_order = position
+    await session.commit()
+    logger.info("the achievement catalogue was reordered (%d rows)", len(achievement_ids))
+    await event_bus.broadcast(AchievementsChanged())
+
+
+async def reset_built_in(
+    session: AsyncSession, achievement: Achievement, icons_dir: Path
+) -> Achievement:
+    """Put one of the shipped achievements back the way Wingman ships it.
+
+    Everything `builtin.py` declares is written back from that file — the name, the
+    description, the glyph, the colour, `hidden` and the conditions — and an uploaded picture
+    is dropped, so the restored glyph is what is drawn rather than a picture standing in
+    front of it. The definition is written exactly as the seed migration writes it, so a
+    reset row and a freshly seeded one are the same row.
+
+    Two things are deliberately **left alone**. `enabled`, because switching a built-in off
+    is the one thing the documentation promises a party may do to it, and somebody who
+    switched *Brave Soul* off did it on purpose. And `sort_order`, because the order of the
+    catalogue is the host's: `reorder_achievements` hands out 0, 1, 2 … over the whole table,
+    so this row's index in `BUILT_INS` means nothing beside the numbers the others now hold —
+    putting it back would drop the row at an arbitrary spot rather than at "where Wingman had
+    it". A reset restores what an achievement *is*, not where it was filed.
+
+    Restoring the conditions is also the only way an improved shipped definition ever reaches
+    a database that was seeded with the old one: the seed runs once, and no other write may
+    touch a built-in's conditions.
+
+    Raises `NotBuiltInError` for anything else in the catalogue — there is nothing to put it
+    back to.
+    """
+    built_in = builtin.BY_ID.get(achievement.id)
+    if built_in is None or not achievement.built_in:
+        raise NotBuiltInError(achievement.id)
+    await remove_images(icons_dir, achievement.id)
+    achievement.name = built_in.name
+    achievement.description = built_in.description
+    achievement.icon = built_in.icon
+    achievement.icon_file = None
+    achievement.color = built_in.color
+    achievement.hidden = built_in.hidden
+    # A copy: the column would otherwise hold the very list `builtin.py` declares, and a JSON
+    # column is a mutable the ORM hands out again on the next read.
+    achievement.definition = deepcopy(built_in.definition)
+    await session.commit()
+    logger.info("achievement '%s' reset to the one Wingman ships", achievement.id)
     await event_bus.broadcast(AchievementsChanged())
     return achievement
 
@@ -585,9 +711,12 @@ async def import_archive(
     between instances.
 
     `built_in` is not in the archive and is never written by one. An existing row keeps the
-    flag it has — a built-in is updated by an import exactly the way `PATCH` updates it, and
-    stays undeletable. A row an import *creates* is a built-in if and only if its id is one
-    of the ids Wingman ships, so an archive cannot mint an undeletable achievement of its own.
+    flag it has — a built-in is updated by an import exactly the way `PATCH` updates it, its
+    **conditions left alone**, and stays undeletable. A row an import *creates* is a built-in
+    if and only if its id is one of the ids Wingman ships, so an archive cannot mint an
+    undeletable achievement of its own — and one it creates under a shipped id is given the
+    shipped conditions rather than the file's, so an `achievement.json` is never a way past
+    the refusal `PATCH` gives.
 
     The archive is the whole description of the achievement it names, so an entry that
     brought no picture **clears** whatever picture the row had. Anything else would make
@@ -622,18 +751,43 @@ async def import_archive(
         for entry in parsed:
             file = entry.achievement
             achievement = await session.get(Achievement, file.id)
+            shipped = builtin.BY_ID.get(file.id)
             if achievement is None:
                 achievement = Achievement(
                     id=file.id,
                     # The id is the only thing that may say a row is one of the shipped set.
-                    built_in=file.id in builtin.BY_ID,
+                    built_in=shipped is not None,
                     sort_order=next_order,
                 )
                 next_order += 1
                 session.add(achievement)
                 created.append(file.id)
+                # A built-in this import *creates* — a row somebody removed behind Wingman's
+                # back — is given the conditions Wingman ships rather than the archive's, so
+                # the shipped seventeen mean the same thing in every instance whichever way
+                # they got there.
+                achievement.definition = (
+                    dump_definition(file.definition)
+                    if shipped is None
+                    else deepcopy(shipped.definition)
+                )
             else:
                 updated.append(file.id)
+                if achievement.built_in:
+                    # An archive never rewrites what a built-in asks for: an
+                    # `achievement.json` in a text file would otherwise be a way straight
+                    # past the refusal `PATCH` gives. Said out loud in the log when the file
+                    # really did carry other conditions, because the answer only counts the
+                    # row as updated.
+                    if achievement.definition != dump_definition(file.definition):
+                        logger.info(
+                            "the archive's conditions for the built-in '%s' were left "
+                            "alone: what one of the shipped achievements asks for is not "
+                            "something an import may change",
+                            file.id,
+                        )
+                else:
+                    achievement.definition = dump_definition(file.definition)
             achievement.name = file.name
             achievement.description = file.description
             achievement.icon = file.icon
@@ -641,8 +795,15 @@ async def import_archive(
             achievement.hidden = file.hidden
             achievement.enabled = file.enabled
             if file.sort_order is not None:
+                # The one other write over `sort_order` besides `reorder_achievements`, and
+                # it stays one: an archive is a whole set of rows carrying a coherent order
+                # from the instance that exported them — the same kind of write as a
+                # permutation, not the single-row poke `PATCH` no longer allows. What it can
+                # leave behind is two rows on one number, which the listings already settle
+                # the same way every time (`sort_order`, then `created_at`) and which the
+                # next arrangement washes out. Dropping the field instead would make
+                # export → import stop being a fixed point over the order.
                 achievement.sort_order = file.sort_order
-            achievement.definition = dump_definition(file.definition)
             picture = staged.get(file.id)
             achievement.icon_file = None if picture is None else str(icons_dir / picture.name)
         await session.commit()

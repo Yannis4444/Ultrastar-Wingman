@@ -95,11 +95,13 @@ somebody, take *See songs* away from them instead.
 ## Change or delete a tag
 
 Tap a tag on **User → Tags** to open it again. Everything is editable, the
-permissions included; **Save** sends only what you changed.
+permissions included; **Save** sends only what you changed. It sits with
+**Delete tag** in one row at the bottom of the screen wherever you have scrolled
+to, and when Save is grey the line above it says why.
 
-**Delete tag** at the foot removes the tag from every song that carries it and
-from everybody it was granted to. The songs themselves stay in the library —
-only the label goes.
+**Delete tag** removes the tag from every song that carries it and from
+everybody it was granted to. The songs themselves stay in the library — only the
+label goes.
 
 ## Built-in marks and facets
 

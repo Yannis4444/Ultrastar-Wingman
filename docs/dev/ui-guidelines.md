@@ -95,12 +95,13 @@ may wear is the picker's list below, never this table.
 | Glyph | Means | Drawing note |
 |---|---|---|
 | `playlist-plus` / `playlist-check` · `list-plus` / `list` / `list-check` | wish off / wish on, `playlist-plus` also heading the wishlist · add to playlist / picker row not in it / already in it, `list` also the "Playlists" link | solid bars · bulleted rows |
-| `filter` / `comment` / `drag-handle` / `copy` / `send` / `user-plus` | the Songs Filter chip and its panel · comments: the song modal's summary strip, the sub-view, the empty state · the reorder grip in playlist edit mode · "Save a copy" of a playlist · submit in the comment composer · add a member, add a person to a tag | solid funnel, a wide bar tapering into a short stem · one rounded speech bubble, tail at the bottom left · six dots in two columns of three · two offset rounded squares, the front one solid · a paper plane, one triangle with the fold cut out · the `user` bust with a plus at its shoulder |
-| `lock` / `bookmark` / `bookmark-off` / `eye` / `eye-off` / `layers` | a tag row nobody assigns here (no `assign`) · follow / unfollow a playlist, `bookmark-off` also labelling the collapsed *Hidden* group · a player who is shown / one who is hidden, in the people admin · the session picker's row for every session at once | padlock, solid body under a counter-wound shackle so the nonzero fill leaves the hole · ribbon with a notched foot · the same ribbon behind a diagonal bar · an almond outline around a pupil disc, the almond counter-wound so the white of the eye stays open · the same almond behind a diagonal bar · three stacked lozenges, the top one solid and the two beneath it thin bars |
-| `archive` / `flame` / `moon` / `snowflake` / `gift` / `cake` / `child` | a tag for put-away songs · for party songs · for slow songs and ballads · tags for christmas: the winter half · presents · a tag for birthdays · for songs for kids | a lid bar over a box body, one notch in the lid · one teardrop tongue, notched at the foot · a crescent as one contour, the rim the long way round and back along the cutting circle — a cut-out cannot do it, the cutting disc has to reach past the rim · three crossed bars, a short fork at each of the six tips · a box under a lid bar, one ribbon band down the middle of the box and a two-petal bow on the lid · a slab on a plate, three candles · a round head over a body, arms out and legs apart, never `user` |
+| `filter` / `comment` / `drag-handle` / `copy` / `send` / `user-plus` | the Songs Filter chip and its panel · comments: the song modal's summary strip, the sub-view, the empty state · reordering — the grip on a row and, on the Achievements admin, the header control that opens the mode · "Save a copy" of a playlist · submit in the comment composer · add a member, add a person to a tag | solid funnel, a wide bar tapering into a short stem · one rounded speech bubble, tail at the bottom left · six dots in two columns of three · two offset rounded squares, the front one solid · a paper plane, one triangle with the fold cut out · the `user` bust with a plus at its shoulder |
+| `lock` / `bookmark` / `bookmark-off` / `eye` / `eye-off` / `layers` | kept back: a tag row nobody assigns here (no `assign`), an achievement that is hidden until it is earned — the masked badge and the mark on its admin row are one glyph — and a built-in achievement's conditions, which are Wingman's own · follow / unfollow a playlist, `bookmark-off` also labelling the collapsed *Hidden* group · a player who is shown / one who is hidden, in the people admin · the session picker's row for every session at once | padlock, solid body under a counter-wound shackle so the nonzero fill leaves the hole · ribbon with a notched foot · the same ribbon behind a diagonal bar · an almond outline around a pupil disc, the almond counter-wound so the white of the eye stays open · the same almond behind a diagonal bar · three stacked lozenges, the top one solid and the two beneath it thin bars |
+| `archive` / `flame` / `moon` / `snowflake` / `gift` / `cake` / `child` | a tag for put-away songs, and the Achievements admin's *Import and export* heading — that section is about archive files · for party songs · for slow songs and ballads · tags for christmas: the winter half · presents, and the Achievements admin's *Included* heading — the set Wingman brings with it · a tag for birthdays · for songs for kids | a lid bar over a box body, one notch in the lid · one teardrop tongue, notched at the foot · a crescent as one contour, the rim the long way round and back along the cutting circle — a cut-out cannot do it, the cutting disc has to reach past the rim · three crossed bars, a short fork at each of the six tips · a box under a lid bar, one ribbon band down the middle of the box and a two-petal bow on the lid · a slab on a plate, three candles · a round head over a body, arms out and legs apart, never `user` |
 | `guitar` / `crown` / `film` / `gamepad` / `flag` / `skull` / `sun` / `umbrella` | a tag for rock · for the classics everybody knows · for movies and musicals · for game music · for a language or country, which the song details list's **Language** row takes too · for hard to sing · tags for summer · for rainy songs | two bouts with a waist between them, sound hole cut out of the upper one, neck to the top right · three points over a solid band · an upright strip with a column of sprocket holes down each edge, `video` staying the camera · a lozenge, d-pad cross and two buttons cut out · a triangular pennant on a staff · a cranium over a jaw, the eye sockets and a nose cut out · a disc under eight detached tapered rays, nine subpaths, nothing cut out · a scalloped half-disc canopy over a stem that hooks left at the foot |
 | `beer` / `car` / `plane` / `bolt` / `bell` / `ghost` / `ring` / `graduation-cap` | tags for drinking songs · for road songs · for holidays · for the loud fast ones · for new year · for halloween · for weddings · for school and graduation | a tankard under a three-lobe foam cap, the handle loop counter-wound · a cabin stepped onto a body over two wheel discs, the windows counter-wound · one outline — fuselage, swept wings, tailplane — nose to the top right · a single zigzag contour · a dome on a flared rim over a clapper disc · a dome over a three-lobe hem, the two eyes counter-wound · two concentric circles, the inner one counter-wound, a gem lozenge on top · a rhombus board on a trapezoid cap, a tassel cord down the right |
 | `headphones` / `drum` / `piano` / `rocket` / `anchor` / `tree` / `paw` / `smile` | tags for songs to play rather than sing · for the drum-driven ones · for songs at the keys · for the night's openers · for sea shanties · for folk · for animal songs · for the funny ones | a headband arc, its inner edge counter-wound, and two capsule earcups · a cylinder between two overhanging rim bars, one three-V zigzag band counter-wound out of the shell · a keybed bar over five keys, the four black ones counter-wound out of it · a pointed body between two fins over a flame, the porthole counter-wound · a ring over a shank crossed by a stock, above one curved fluke bar, the ring's hole counter-wound · three stacked triangles on a short trunk · a pad disc under four toe discs, five subpaths, nothing cut out · a disc with two eyes and a crescent mouth counter-wound out of it |
+| `upload` / `download` | the Achievements admin's two archive buttons: one in, one out | `download` mirrored — the same shaft, arrowhead and tray bar, the arrow coming up out of the bar instead of down into it. Neither is pickable: an archive is not a thing a tag or an achievement is about |
 | `thumbs-up` / `hourglass` / `balloon` / `dumbbell` / `tv` | tags for the crowd-pleasers · for the long ones · for carnival · for the gym set · for series and anime — labelling the Host settings group is a job, not a meaning | a fist block with the thumb up over a separate cuff bar · two triangles meeting at the waist between two cap bars · a teardrop bulb over a short zigzag string · a bar between two pairs of stacked plates · a rounded case, the screen counter-wound, on a stand bar |
 
 The **icon picker** (tag editor) offers `PICKER_ICON_NAMES`, an allowlist in `icons.tsx` — the
@@ -125,6 +126,24 @@ exception). Tests identify glyphs with `iconNames()` from `src/test/icons.ts`.
   hover `--highlight-blue-dark` fill; `.icon-button-bordered` beside an input on the page
   background, `.icon-button-danger` for destructive. Always `aria-label`, `title` on
   toolbar-level buttons.
+- **The editor action row** (`components/EditorActions.tsx`) ends a full-page editor: one
+  sticky row on `--bg` under a hairline `border-top`, carrying the view's one primary Save,
+  one quiet 0.85em line, and the editor's other action — a danger Delete, a plain Reset — at
+  the far end of that same line. It sits **inside** the `<form>` (Save is its submit) and
+  sticks at `calc(50px + max(10px, env(safe-area-inset-bottom)))`, exactly the bottom nav's
+  own height, so it rides on the nav, counts the safe-area inset once, and settles into the
+  flow at the true end of the form — nothing is ever hidden behind it. The page's focusables
+  carry a matching `scroll-margin-bottom` the way `Settings.css` carries `scroll-margin-top`,
+  and it has to clear **the nav plus the row plus a control's own height**: the browser
+  honours the margin exactly and scrolls the focused element's own box, which for a radio pill
+  is the `visually-hidden` input at the top edge of its label. The quiet line is why a
+  permanently visible disabled Save does not read as a broken app: it says why Save will not
+  go — and, because Save can now be pressed from anywhere in the form, that a press went
+  nowhere and where the `role="alert"` sentence for it is — with *Saved* in
+  `--highlight-blue-light` when one landed. That accent slot takes any write's
+  acknowledgement, not only a save's: `savedLabel` is what a reset says in it instead
+  (*"Reset — the shipped achievement is back."*), because a reset settles the form with
+  nothing pending and *Saved* is not what happened.
 - **Text inputs, loud and quiet:** `.text-input` (16px radius, `--input-bg`, ≥40px) is for the
   page's one main control (the Songs search); `.text-input-quiet` (36px, hairline, transparent)
   is everything else — settings fields, selects, filters, forms. At most one loud input per
@@ -228,6 +247,12 @@ do it. Back is a `<Link>` to a fixed path (`backLink.ts` resolves a state-provid
 `history.back()`. Every new route is registered in `App.tsx` **and** in `COVERS`
 (`BottomNav.tsx`) so the owning tab stays lit; `/host*` renders no bottom nav.
 
+**A page opened starts at the top of itself.** `App.tsx`'s `ScrollToTop` does it once for
+the whole app on every PUSH navigation, so no page scrolls itself on entry. POP is left
+alone — the offset a reader had in a list is exactly what going back should restore — and so
+is REPLACE, one page standing in for another (an editor swapping `/new` for the id it just
+saved) where a jump to the top would throw away the place they were working in.
+
 ## 7. Page conventions
 
 - **Song list rows** (`SongListItem`): 40×40 cover, title + passive marks, artist in
@@ -298,14 +323,67 @@ do it. Back is a `<Link>` to a fixed path (`backLink.ts` resolves a state-provid
   list" and "Hide songs by default", each with a one-line explanation of its effect on other
   people, the permission matrix (rows *See tag* / *See songs* / *Tag songs* × columns Guest /
   User / Trusted, admin always on), then "Specific people" — people-rows with the same three
-  checkboxes. Save is the page's one primary; an existing tag ends with a danger Delete whose
-  `ConfirmModal` says how many songs lose it. A **built-in** opens that editor on a reserved id
+  checkboxes. Save is the page's one primary and, with the danger Delete an existing tag has —
+  whose `ConfirmModal` says how many songs lose it — rides in the sticky action row of §4. A **built-in** opens that editor on a reserved id
   (`/user/tags/favorites`, `/user/tags/duet`, …) — one row idiom, one editor, and a 32-hex tag
   id cannot collide with a word. A mark keeps Colour and "Show in song list" (`heart` pink,
   `mic` blue, both shown in the list by default); a boolean facet those two plus "Show in
   filter" (neutral, off the rows, in the filter); a valued facet "Show in filter" alone, on by
   default too. Every checkbox keeps its explaining line, Save is the usual one, and one line
   says why the rest is gone: no name, icon, hiding, permissions, people or Delete.
+- **Achievements admin** (`/user/achievements`, a `ManageMenu` entry gated on
+  `achievements.manage`): the three private settings at the head — no glyph on any of them,
+  the Settings page's own idiom being one icon per group and none per field — then the
+  party's own achievements as rows of the `AchievementBadge` medallion, the name over the
+  achievement's own description and a chevron, then an `h2` *Included* over the seventeen
+  Wingman ships in the same shape, and an `h2` *Import and export* at the foot. Both
+  headings carry a glyph the way a Settings group's header does: `gift` for the set Wingman
+  brings with it, `archive` for the section that is about archive files, and the two buttons
+  under it lead with `upload` and `download` — the pair is what says which way each goes.
+  A row says the name and the description and then only what is unusual: `lock` on the title
+  line for one that is hidden until it is earned (the glyph its masked badge wears, so one
+  achievement wears one glyph everywhere), a quiet 0.8em *Included* after it for one Wingman
+  ships — a word, never a chip — and, for a switched-off one, the whole row in
+  `--color-darkerer` with the medallion on its own off plate and a `visually-hidden` word,
+  because a state is never a colour alone. Never a count of conditions: what an achievement
+  asks for is read in the editor, not compared between rows. A row with no description draws
+  no second line at all. The header carries `+` into `/user/achievements/new` and, before
+  it, an `aria-pressed` `drag-handle` into **reorder mode**: the playlist's idiom on this
+  page's own rows — a grip in front of each row for the pointer and an `arrow-up` /
+  `arrow-down` pair behind it for the keyboard, both beside the link and never inside it,
+  one `.section-note` saying what the order is for, and one `PUT /achievements/order` per
+  gesture carrying the whole catalogue. **One gesture at a time:** while that request is in
+  flight the arrows are `disabled` and the grip starts no drag — two orders sent from one
+  list can land in either sequence, and the loser is what the catalogue keeps. The grip is
+  not dimmed for it, being `aria-hidden` scenery rather than a control, so the disabled
+  arrows are what the reader sees. The two sections stay two: a row moves inside its
+  own, and what is sent is the party's own rows then the included ones — one sequence over
+  one column, which is exactly the order the page draws and the order every badge surface
+  lists in. A refused order puts the rows back where the server still has them — not where
+  they stood before the move, which for a drag is the move that was refused — and says so;
+  one that no longer fits the catalogue says somebody else changed it and asks for the
+  catalogue again. Resetting a built-in therefore
+  leaves its place alone: the order is the host's, not the achievement's. The
+  **achievement editor** (`/user/achievements/:achievementId`) runs in the tag editor's
+  order: Name and Description (quiet inputs), Icon — the picker grid *or* the uploaded
+  picture, never both, and an upload needs a saved achievement — Colour (radio pills),
+  *Hidden until earned* and *Enabled* each with its explaining line, then Conditions as one
+  flat `ConditionBuilder` block apiece, every block headed by the plain sentence it means, and
+  §4's sticky action row — Save gated on `conditionProblem` (the row's line saying which of the
+  reasons is keeping it shut) with the danger Delete beside it. Inside a condition,
+  *Songs matching* reads as the list it is: the *All of them / Any of them* select is the
+  list's header, on the block's own gutter above the list's hairline, and each rule under it
+  is a group — *Rule 2* with the way off it on a head line of its own, the field, the test and
+  the value beneath, the lot indented behind a hairline rail, 8px inside a rule and 16px
+  between them, so no rule ever reads as the next one's. A **built-in** keeps all
+  of that except its conditions: they are Wingman's own, so the builder is drawn **locked** —
+  heading, sentence, a `lock` glyph where the remove button stands, no control at all — with
+  one quiet `.section-note` line saying why: a form must say "you may not" before the press,
+  never as a refusal after it. In the action row Delete gives way to a plain `.button`
+  **Reset achievement** (`refresh` — the app's reset glyph; never `.button-danger`, a reset
+  restores) whose `ConfirmModal` is `danger` (§5: a replace), names what comes back and says
+  the badges are worked out again; the line saying what a built-in is ends the form above the
+  row, where the reader meets it on the way down.
 - **Scores** opens on the session bar: the session's name and a `chevron-right` in one wide flat
   button, the rename `pencil` (`stats.manage`) beside it. The button opens a panel modal, never
   a `<select>` — a party is more than its name: one row per session, `aria-pressed` on the

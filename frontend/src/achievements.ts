@@ -58,6 +58,24 @@ export function achievementColorClass(color: string): string {
   return tagColorClass(color);
 }
 
+/**
+ * How the two management pages ask for the catalogue — and the only place in
+ * the app that asks this way.
+ *
+ * `GET /achievements` is masked for **everybody**: a `hidden` achievement the
+ * caller's own player has not earned comes back blank, an administrator and the
+ * host screen included, because the same listing feeds the user page and the TV
+ * and holding `achievements.manage` is not the same as using it
+ * (achievements.md, *Hidden achievements*). `?manage=true` is the other answer —
+ * every row whole, plus its `definition` — and takes the capability, else 403.
+ *
+ * It is a query of its own, so the masked catalogue and the managing one are two
+ * cache entries rather than one overwriting the other. `invalidateQueries` on
+ * the bare `listAchievementsQueryKey()` still reaches both — it matches keys
+ * partially — but a `setQueryData` has to name this one.
+ */
+export const MANAGE_CATALOGUE = { query: { manage: true } } as const;
+
 /** What a masked row is called, since its own name is what is being kept back. */
 export const MASKED_NAME = "Hidden achievement";
 
@@ -287,10 +305,41 @@ export const SELECTOR_OP_LABELS: Record<SelectorClause["op"], string> = {
   contains: "contains",
   equals: "is",
   starts_with: "starts with",
+  regex: "matches regex",
   "=": "is",
   ">=": "at least",
   "<=": "at most",
 };
+
+/**
+ * How long a pattern may be — `schema.MAX_PATTERN_LENGTH`, mirrored so Save can
+ * say so instead of coming back a 422. It is one of the two things about a
+ * pattern this side may judge; the other is that it is not empty.
+ */
+export const MAX_PATTERN_LENGTH = 200;
+
+/**
+ * The line under a clause list holding a pattern. Nobody can guess any of the
+ * three things it says — that case is ignored, that a pattern matches anywhere
+ * in the field, and that Python's flavour is the one that counts — so all three
+ * are said.
+ *
+ * The last sentence is not a hedge but the honest division of labour: this
+ * editor is TypeScript and the engine is Python, and the two dialects disagree
+ * (`(?P<name>…)` is Python's and throws in a browser; `(?<name>…)` is the
+ * browser's and Python refuses it). So the backend is the authority, and the
+ * only refusals `conditionProblem` mirrors are the two that hold in both. It
+ * names the third refusal — a pattern whose shape could take practically
+ * forever, `schema.MAX_PATTERN_COMBINATIONS` — as a rule to write by rather
+ * than mirroring it: deciding it needs a regex parser, and a second one here
+ * would be wrong in exactly the cases it exists to catch.
+ */
+export const REGEX_NOTE =
+  "A pattern matches anywhere in the field and ignores case: use ^ and $ to " +
+  "pin it to the whole field, and (?-i:Love) for a part that has to keep its " +
+  "capitals. When you save, Wingman refuses a pattern it cannot read, and one " +
+  "whose repetitions would take too long to try — at most two of * and +, and " +
+  "never one wrapped around another.";
 
 /** What kind of box a clause's value needs. */
 export type SelectorFieldKind = "text" | "number" | "boolean";
@@ -309,7 +358,10 @@ export const SELECTOR_FIELD_KINDS: Record<
   has_video: "boolean",
 };
 
-const TEXT_OPS = ["contains", "equals", "starts_with"] as const;
+// `regex` last: it is the specialist, and the first three are what a host reaches
+// for. Switching a field keeps whichever is already chosen (`selectorOpFor`), so
+// the order only decides what a fresh text clause starts on.
+const TEXT_OPS = ["contains", "equals", "starts_with", "regex"] as const;
 const YEAR_OPS = ["=", ">=", "<="] as const;
 const BOOLEAN_OPS = ["equals"] as const;
 
@@ -367,6 +419,24 @@ export function songMode(condition: Condition): SongMode {
 }
 
 /**
+ * What is wrong with a clause's pattern, or `null` — and only ever something
+ * that is wrong in *both* dialects.
+ *
+ * Whether a pattern compiles is Python's answer, not this browser's: `new
+ * RegExp` accepts patterns Python refuses and refuses patterns Python accepts,
+ * so gating Save on it would block a rule the backend would have taken. Empty
+ * and too long are the two refusals `schema.check_pattern` makes that no
+ * dialect can disagree about (achievements.md, *The song selector*).
+ */
+function patternProblem(pattern: string): string | null {
+  if (pattern === "")
+    return "A song rule's regular expression cannot be empty — every song would match it.";
+  if (pattern.length > MAX_PATTERN_LENGTH)
+    return `A song rule's regular expression cannot be longer than ${MAX_PATTERN_LENGTH} characters.`;
+  return null;
+}
+
+/**
  * What is wrong with a condition, in a sentence, or `null` when nothing is —
  * the same refusals the backend's models make, so the editor can say so beside
  * the box rather than letting Save come back a 422.
@@ -389,6 +459,11 @@ export function conditionProblem(condition: Condition): string | null {
   // for a definition that arrived from an import or a hand-edited archive.
   if (condition.songs && condition.match)
     return "A condition picks songs by a list or by a match, never both.";
+  for (const clause of condition.match?.clauses ?? []) {
+    if (clause.op !== "regex") continue;
+    const problem = patternProblem(String(clause.value));
+    if (problem) return problem;
+  }
   return null;
 }
 
@@ -483,7 +558,12 @@ function clauseWords(clause: SelectorClause): string {
       ? "contains"
       : clause.op === "starts_with"
         ? "starts with"
-        : "is";
+        : clause.op === "regex"
+          ? // Spelled out rather than "matches regex": the sentence is what a host
+            // reads to check they built what they meant, and the select's own
+            // shorthand is no help there.
+            "matches the regular expression"
+          : "is";
   // Quoted: a value of "Hard Rock" is two words, and an empty one is a hole the
   // reader has to be able to see.
   return `the ${field} ${verb} “${String(clause.value)}”`;

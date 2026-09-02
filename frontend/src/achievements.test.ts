@@ -13,13 +13,16 @@ import {
   conditionTarget,
   importSummary,
   isMasked,
+  MAX_PATTERN_LENGTH,
   METRIC_LABELS,
   METRICS,
   progressFraction,
   progressLabel,
+  REGEX_NOTE,
   SELECTOR_FIELD_KINDS,
   SELECTOR_FIELD_OPS,
   SELECTOR_FIELDS,
+  SELECTOR_OP_LABELS,
   selectorOpFor,
   songMode,
 } from "./achievements";
@@ -227,6 +230,39 @@ describe("the editor's vocabulary", () => {
     expect([...SELECTOR_FIELD_OPS.year]).toEqual(["=", ">=", "<="]);
     expect([...SELECTOR_FIELD_OPS.is_duet]).toEqual(["equals"]);
   });
+
+  it("offers a pattern on every text field and on no other", () => {
+    for (const field of [
+      "title",
+      "artist",
+      "genre",
+      "language",
+      "edition",
+    ] as const)
+      expect(SELECTOR_FIELD_OPS[field]).toContain("regex");
+    for (const field of ["year", "is_duet", "has_video"] as const)
+      expect(SELECTOR_FIELD_OPS[field]).not.toContain("regex");
+    // Last of the four, being the specialist: a fresh text clause starts on
+    // `contains`, which is what a host reaches for.
+    expect([...SELECTOR_FIELD_OPS.title]).toEqual([
+      "contains",
+      "equals",
+      "starts_with",
+      "regex",
+    ]);
+    expect(SELECTOR_OP_LABELS.regex).toBe("matches regex");
+  });
+
+  it("says all four things nobody can guess about a pattern", () => {
+    // Where it matches, whether case counts, who has the last word, and the one
+    // shape the backend refuses outright — that last one said here rather than
+    // checked, because deciding it needs a regex parser.
+    expect(REGEX_NOTE).toContain("anywhere in the field");
+    expect(REGEX_NOTE).toContain("ignores case");
+    expect(REGEX_NOTE).toContain("(?-i:Love)");
+    expect(REGEX_NOTE).toContain("refuses");
+    expect(REGEX_NOTE).toContain("wrapped around another");
+  });
 });
 
 describe("selectorOpFor", () => {
@@ -270,6 +306,41 @@ describe("conditionProblem", () => {
     expect(
       conditionProblem(condition({ score_filter: { min: 9000, max: 5000 } })),
     ).toMatch(/at most/i);
+  });
+
+  it("refuses an empty pattern and one past the cap", () => {
+    const withPattern = (value: string) =>
+      conditionProblem(
+        condition({
+          match: {
+            combine: "all",
+            clauses: [{ field: "title", op: "regex", value }],
+          },
+        }),
+      );
+    expect(withPattern("")).toMatch(/cannot be empty/i);
+    expect(withPattern("a".repeat(MAX_PATTERN_LENGTH + 1))).toMatch(
+      /longer than 200/i,
+    );
+    expect(withPattern("a".repeat(MAX_PATTERN_LENGTH))).toBeNull();
+  });
+
+  it("lets a pattern this browser cannot compile through, Python being the judge", () => {
+    // `(?P<name>…)` is Python's named group and throws in `new RegExp`;
+    // `(?<name>…)` is the browser's and Python refuses it. Neither may be
+    // refused here: Save is gated on this function, and a refusal for the first
+    // would block a rule the backend accepts. The backend answers for both.
+    for (const value of ["(?P<song>Love)", "(?<song>Love)", "(a+", "*nope"])
+      expect(
+        conditionProblem(
+          condition({
+            match: {
+              combine: "all",
+              clauses: [{ field: "title", op: "regex", value }],
+            },
+          }),
+        ),
+      ).toBeNull();
   });
 
   it("refuses a condition that picks songs both ways", () => {
@@ -428,6 +499,21 @@ describe("conditionSentence", () => {
       ),
     ).toContain(
       "on songs where the title contains “love” or the artist starts with “A”",
+    );
+  });
+
+  it("spells a pattern clause out rather than repeating the select's shorthand", () => {
+    expect(
+      conditionSentence(
+        condition({
+          match: {
+            combine: "all",
+            clauses: [{ field: "title", op: "regex", value: "^Love" }],
+          },
+        }),
+      ),
+    ).toContain(
+      "on songs where the title matches the regular expression “^Love”",
     );
   });
 

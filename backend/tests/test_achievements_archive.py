@@ -9,7 +9,8 @@ clean 4xx naming the problem, never a 500 and never a byte written outside the d
 
 The happy half is the round trip the format exists for: export the seventeen built-ins,
 import them back, nothing changed; export, edit the JSON in a text editor, import, the edit
-took.
+took — with the one exception the format has, a built-in's `definition`, which is
+`builtin.py`'s and which an import therefore leaves exactly where it is.
 """
 
 import gzip
@@ -37,7 +38,7 @@ from ultrastar_wingman.achievements.archive import (
     ArchiveTooLargeError,
     build_archive,
 )
-from ultrastar_wingman.achievements.builtin import BUILT_INS
+from ultrastar_wingman.achievements.builtin import BUILT_INS, BY_ID
 from ultrastar_wingman.achievements.model import Achievement
 from ultrastar_wingman.app import create_app
 from ultrastar_wingman.config import BootstrapSettings
@@ -189,7 +190,11 @@ async def upload(client: AsyncClient, data: bytes) -> Any:
 
 
 async def catalogue(client: AsyncClient) -> list[dict[str, Any]]:
-    response = await client.get("/api/v1/achievements")
+    """The managing copy — `manage=true`, behind `achievements.manage`. What an import stored
+    is read the way the achievements page reads it: every row whole, definition included.
+    Without it a hidden achievement comes back blank and a definition comes back `None`, for
+    a manager as much as for anybody (`achievements/api.py`)."""
+    response = await client.get("/api/v1/achievements", params={"manage": "true"})
     assert response.status_code == 200, response.text
     rows: list[dict[str, Any]] = response.json()["achievements"]
     return rows
@@ -406,13 +411,16 @@ async def test_an_achievement_with_every_field_set_comes_back_column_for_column(
 
 
 async def test_an_edit_to_the_json_is_what_the_import_stores(instance: Instance) -> None:
-    data = await export(instance.client, ["builtin-score-9000"])
+    created = await instance.client.post("/api/v1/achievements", json=MAXIMAL)
+    assert created.status_code == 201, created.text
+    achievement_id = created.json()["id"]
+    data = await export(instance.client, [achievement_id])
 
     response = await upload(
         instance.client,
         edited(
             data,
-            "builtin-score-9000",
+            achievement_id,
             name="Golden Larynx",
             definition=[
                 {"scope": "global", "metric": "any_score", "comparator": ">=", "value": 9800}
@@ -421,10 +429,41 @@ async def test_an_edit_to_the_json_is_what_the_import_stores(instance: Instance)
     )
 
     assert response.status_code == 200, response.text
-    row = next(one for one in await catalogue(instance.client) if one["id"] == "builtin-score-9000")
+    row = next(one for one in await catalogue(instance.client) if one["id"] == achievement_id)
     assert row["name"] == "Golden Larynx"
     assert row["definition"][0]["value"] == 9800
+
+
+async def test_an_archive_may_rename_a_built_in_but_never_re_condition_one(
+    instance: Instance,
+) -> None:
+    """The bypass nobody would think of. `PATCH` refuses a definition on one of the shipped
+    seventeen with a 409, and an `achievement.json` in a text file would otherwise be the way
+    straight round it — so an import writes every other field of a built-in and leaves its
+    conditions exactly where they were."""
+    before = await stored_rows(instance, ["builtin-score-9000"])
+    data = await export(instance.client, ["builtin-score-9000"])
+
+    response = await upload(
+        instance.client,
+        edited(
+            data,
+            "builtin-score-9000",
+            name="Golden Larynx",
+            color="pink",
+            definition=[{"scope": "global", "metric": "any_score", "comparator": ">=", "value": 1}],
+        ),
+    )
+
+    assert response.status_code == 200, response.text
+    # Counted as updated all the same: the row really did change, only not there.
+    assert response.json() == {"created": [], "updated": ["builtin-score-9000"]}
+    stored = await stored_rows(instance, ["builtin-score-9000"])
+    assert stored["builtin-score-9000"]["name"] == "Golden Larynx"
+    assert stored["builtin-score-9000"]["color"] == "pink"
+    assert stored["builtin-score-9000"]["definition"] == before["builtin-score-9000"]["definition"]
     # Still one of the shipped set: the flag is the row's, never the archive's.
+    row = next(one for one in await catalogue(instance.client) if one["id"] == "builtin-score-9000")
     assert row["built_in"] is True
 
 
@@ -444,6 +483,41 @@ async def test_an_unknown_id_in_the_archive_is_created(instance: Instance) -> No
     assert row["built_in"] is False
     # And it landed at the end of the catalogue rather than on top of a built-in's place.
     assert row["sort_order"] == len(BUILT_INS)
+
+
+async def test_where_a_row_sits_is_the_one_write_an_archive_still_makes(
+    instance: Instance,
+) -> None:
+    """`sort_order` is in no `POST`/`PATCH` body — `PUT /achievements/order` writes that
+    column and an archive, and nothing else (`docs/dev/achievements.md`, *The order of the
+    catalogue*). The archive keeps it because it carries a whole set of rows with the order
+    the instance that exported them had, so export → import is a fixed point over the order
+    as well: a file that names a place takes it, and a file that names none leaves the row
+    exactly where it stands.
+    """
+    made = one_achievement("brand-new", name="Brand New")
+    del made["sort_order"]
+    first = await upload(instance.client, tar_gz([json_member("brand-new", made)]))
+    assert first.status_code == 200, first.text
+    # The end of the catalogue, the only place a create ever lands.
+    end = len(BUILT_INS)
+    assert (await stored_rows(instance, ["brand-new"]))["brand-new"]["sort_order"] == end
+
+    # The same file again: it says nothing about the place, so the place is left alone.
+    again = await upload(instance.client, tar_gz([json_member("brand-new", made)]))
+    assert again.status_code == 200, again.text
+    assert again.json() == {"created": [], "updated": ["brand-new"]}
+    assert (await stored_rows(instance, ["brand-new"]))["brand-new"]["sort_order"] == end
+
+    # And one that does name a place moves the row there. The stored column and not the
+    # position in the listing: the number this asks for is one a built-in already holds, and
+    # which of two rows sorted the same comes first is the `created_at` tiebreak's business.
+    placed = one_achievement("brand-new", name="Brand New", sort_order=0)
+    moved = await upload(instance.client, tar_gz([json_member("brand-new", placed)]))
+
+    assert moved.status_code == 200, moved.text
+    assert moved.json() == {"created": [], "updated": ["brand-new"]}
+    assert (await stored_rows(instance, ["brand-new"]))["brand-new"]["sort_order"] == 0
 
 
 async def test_a_definition_the_models_cannot_read_is_exported_as_it_stands(
@@ -470,7 +544,11 @@ async def test_a_definition_the_models_cannot_read_is_exported_as_it_stands(
 
 async def test_an_id_wingman_ships_comes_back_as_a_built_in(instance: Instance) -> None:
     """The one case where an import creates a built-in: the id itself is what says so, which
-    is what lets a shipped achievement be handed from one instance to another."""
+    is what lets a shipped achievement be handed from one instance to another.
+
+    Its conditions come out of `builtin.py` and not out of the file, so a created built-in is
+    the same achievement here as it is in a freshly seeded database — an archive is no way
+    round the refusal `PATCH` gives, creating included."""
     async with instance.app.state.session_factory() as session:
         # Straight out of the table: the API refuses to delete a built-in, and this is the
         # instance that never had it rather than one that threw it away.
@@ -490,6 +568,8 @@ async def test_an_id_wingman_ships_comes_back_as_a_built_in(instance: Instance) 
     assert response.json()["created"] == ["builtin-score-9000"]
     row = next(one for one in await catalogue(instance.client) if one["id"] == "builtin-score-9000")
     assert row["built_in"] is True
+    stored = await stored_rows(instance, ["builtin-score-9000"])
+    assert stored["builtin-score-9000"]["definition"] == BY_ID["builtin-score-9000"].definition
 
 
 async def test_an_uploaded_picture_travels_with_it(instance: Instance) -> None:
@@ -594,6 +674,29 @@ def test_a_directory_member_is_allowed_because_other_tar_writers_emit_one() -> N
     assert [one.achievement.id for one in parsed] == ["one"]
 
 
+def test_a_song_rule_with_a_regular_expression_survives_the_round_trip() -> None:
+    """A pattern is the one clause value the format cannot normalise: backslashes and
+    inline flags have to come out of the JSON exactly as they went in, or an archive is no
+    longer something to hand-edit."""
+    clause = {"field": "title", "op": "regex", "value": r"^(?-i:Live) at .*\d{4}$"}
+    definition = [
+        {
+            "scope": "global",
+            "metric": "number_of_scores",
+            "comparator": ">=",
+            "value": 5,
+            "match": {"combine": "all", "clauses": [clause]},
+        }
+    ]
+
+    parsed = archive.read_archive(archive.build_archive([entry("one", definition=definition)]))
+
+    assert [one.achievement.id for one in parsed] == ["one"]
+    stored = parsed[0].achievement.definition[0]
+    assert stored.match is not None
+    assert stored.match.clauses[0].model_dump() == clause
+
+
 @pytest.mark.parametrize(
     ("problem", "document"),
     [
@@ -618,6 +721,44 @@ def test_a_directory_member_is_allowed_because_other_tar_writers_emit_one() -> N
                         "comparator": ">=",
                         "value": 1,
                         "score_filter": {"min": 9000, "max": 100},
+                    }
+                ],
+            ),
+        ),
+        (
+            # The door the API's validator cannot guard: a pattern typed into an unpacked
+            # file. It is refused here, naming the achievement it is in.
+            "a regular expression Python cannot read",
+            one_achievement(
+                "one",
+                definition=[
+                    {
+                        "metric": "number_of_scores",
+                        "comparator": ">=",
+                        "value": 1,
+                        "match": {
+                            "combine": "all",
+                            "clauses": [{"field": "title", "op": "regex", "value": "(a+"}],
+                        },
+                    }
+                ],
+            ),
+        ),
+        (
+            # An archive is something a party is handed by somebody else, so this is the
+            # one door a pattern that could hang the evaluation pass would arrive by.
+            "a regular expression that would never finish",
+            one_achievement(
+                "one",
+                definition=[
+                    {
+                        "metric": "number_of_scores",
+                        "comparator": ">=",
+                        "value": 1,
+                        "match": {
+                            "combine": "all",
+                            "clauses": [{"field": "title", "op": "regex", "value": "(a+)+$"}],
+                        },
                     }
                 ],
             ),

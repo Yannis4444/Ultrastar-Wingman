@@ -1,5 +1,11 @@
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import { fireEvent, render, screen, waitFor } from "@testing-library/react";
+import {
+  fireEvent,
+  render,
+  screen,
+  waitFor,
+  within,
+} from "@testing-library/react";
 import { MemoryRouter, Route, Routes, useLocation } from "react-router-dom";
 import type {
   BuiltInTagRead,
@@ -225,6 +231,25 @@ it("creates a tag with the rights the form was left on", async () => {
     "view_songs user",
   ]);
   expect(await screen.findByText("at /user/tags/t-new")).toBeInTheDocument();
+});
+
+it("acknowledges a create in the row of the tag it just made", async () => {
+  // The route changes, so React is free to remount the editor: the press is
+  // acknowledged through the navigation, never as "Nothing has changed yet."
+  // on the tag it has this second created.
+  const made = tag({ id: "t-new", name: "duet" });
+  createTag.mockResolvedValue({ data: made });
+  renderEditor({ path: "/user/tags/new", tags: [made] });
+
+  await screen.findByLabelText("Name");
+  fireEvent.change(screen.getByLabelText("Name"), {
+    target: { value: "duet" },
+  });
+  fireEvent.click(screen.getByRole("button", { name: "Save" }));
+
+  expect(await screen.findByText("at /user/tags/t-new")).toBeInTheDocument();
+  expect(await screen.findByText("Saved")).toBeInTheDocument();
+  expect(screen.queryByText("Nothing has changed yet.")).toBeNull();
 });
 
 it("sends only the fields that changed, and no permissions", async () => {
@@ -519,6 +544,27 @@ it("explains a name another tag already has", async () => {
   expect(await screen.findByRole("alert")).toHaveTextContent(
     'A tag called "archive" already exists.',
   );
+  // Save can be pressed from anywhere in the form now, so the row it was
+  // pressed in has to say the press went nowhere and where the sentence is.
+  expect(
+    await screen.findByText(
+      "It did not go through — the message at the top of the page says why.",
+    ),
+  ).toBeInTheDocument();
+});
+
+it("keeps Save and Delete tag on the one action row", async () => {
+  renderEditor();
+
+  await screen.findByDisplayValue("broken");
+  const row = screen.getByRole("button", { name: "Save" }).parentElement!;
+  expect(row).toHaveClass("editor-actions-row");
+  expect(
+    within(row).getByRole("button", { name: "Delete tag" }),
+  ).toBeInTheDocument();
+  // Nothing touched yet, and the row says so rather than leaving a grey button
+  // to be guessed at.
+  expect(screen.getByText("Nothing has changed yet.")).toBeInTheDocument();
 });
 
 it("names the songs that lose the tag before deleting it", async () => {
@@ -646,6 +692,13 @@ it("says so when a built-in cannot be saved", async () => {
   expect(await screen.findByRole("alert")).toHaveTextContent(
     "Could not save the built-in.",
   );
+  // And the row Save was pressed in says the press went nowhere: the sentence
+  // itself is at the head of the form, which a long one has scrolled past.
+  expect(
+    await screen.findByText(
+      "It did not go through — the message at the top of the page says why.",
+    ),
+  ).toBeInTheDocument();
 });
 
 it("keeps a built-in from a role that may not manage tags", async () => {

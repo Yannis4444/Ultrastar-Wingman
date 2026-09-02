@@ -1,6 +1,6 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useMemo, useState } from "react";
-import { Link, useNavigate, useParams } from "react-router-dom";
+import { Link, useLocation, useNavigate, useParams } from "react-router-dom";
 import type {
   AchievementList,
   AchievementRead,
@@ -13,18 +13,24 @@ import {
   deleteAchievementMutation,
   listAchievementsOptions,
   listAchievementsQueryKey,
+  resetAchievementMutation,
   setAchievementIconMutation,
   updateAchievementMutation,
 } from "../api/@tanstack/react-query.gen";
-import { achievementGlyph, conditionProblem } from "../achievements";
+import {
+  achievementGlyph,
+  conditionProblem,
+  MANAGE_CATALOGUE,
+} from "../achievements";
 import { useAuth } from "../auth";
 import AchievementBadge from "../components/AchievementBadge";
 import ConditionBuilder from "../components/ConditionBuilder";
 import ConfirmModal from "../components/ConfirmModal";
+import EditorActions from "../components/EditorActions";
 import { Icon, PICKER_ICON_NAMES } from "../components/icons";
 import Loading from "../components/Loading";
 import PageHeader from "../components/PageHeader";
-import { errorDetail, errorMessage } from "../errors";
+import { errorDetail, errorMessage, validationMessage } from "../errors";
 import { useWingmanEvent } from "../hooks/useWingmanEvents";
 import { tagColorClass, TAG_COLORS, type TagColor } from "../tags";
 // The tag editor is the same page (§7): a name, the icon picker, the colour
@@ -88,9 +94,12 @@ const NEW_DRAFT: Draft = {
  * only the way out differs (create and go to it, or save and stay). A §6
  * sub-page gated on `achievements.manage`.
  *
- * A built-in opens in the very same form: every field of one may be edited and
- * it may be switched off (achievements.md), so the only thing missing at the
- * foot is Delete.
+ * A built-in opens in the same form with two differences (achievements.md):
+ * what it looks like is as editable as anybody else's and it may be switched
+ * off, but its **conditions** are Wingman's own — so the builder is drawn
+ * locked, the section note says why, and the foot carries a Reset that puts
+ * everything but `enabled` back the way Wingman ships it, in the place where
+ * another achievement's Delete stands.
  */
 export default function AchievementEditor() {
   const { achievementId } = useParams();
@@ -101,13 +110,22 @@ export default function AchievementEditor() {
   const auth = useAuth();
   const allowed = auth.loaded && auth.can("achievements.manage");
 
+  // A create ends on the achievement it made, at a route of its own — so React
+  // is free to remount this component and the fact that the press landed has to
+  // travel with the navigation rather than in a `useState`. Without it the row
+  // falls through to "Nothing has changed yet." on the achievement that press
+  // has just made, which reads as a Save that did nothing.
+  const justCreated =
+    (useLocation().state as { created?: boolean } | null)?.created === true;
+
   const catalogue = useQuery({
-    ...listAchievementsOptions(),
+    ...listAchievementsOptions(MANAGE_CATALOGUE),
     enabled: allowed,
   });
 
-  // There is no GET /achievements/{id}: the listing is the one request, and a
-  // manager's copy of it carries every row's definition.
+  // There is no GET /achievements/{id}: the listing is the one request, and the
+  // managing copy of it carries every row's definition — and the name of a
+  // hidden one, which this page has to be able to show.
   const found = catalogue.data?.achievements.find(
     (achievement) => achievement.id === achievementId,
   );
@@ -133,8 +151,16 @@ export default function AchievementEditor() {
   const [error, setError] = useState<string | null>(null);
   const [iconError, setIconError] = useState<string | null>(null);
   const [saved, setSaved] = useState(false);
+  /** What the acknowledgement in the action row says when what landed was not a
+   *  save. Only a reset sets it; every other write that lands puts it back to
+   *  the ordinary word first — `save` before the request goes out, `tookIcon`
+   *  when a picture lands — and it is read only while `acknowledged` holds. So
+   *  it can never linger as a stale line over a form the reset no longer
+   *  describes. */
+  const [savedLabel, setSavedLabel] = useState<string | undefined>(undefined);
   const [saving, setSaving] = useState(false);
   const [deleting, setDeleting] = useState(false);
+  const [resetting, setResetting] = useState(false);
 
   /** Take the draft from an achievement the server answered with. */
   const seedFrom = (achievement: AchievementRead) => {
@@ -209,12 +235,36 @@ export default function AchievementEditor() {
       setError(errorMessage(cause, "Could not delete the achievement.")),
   });
 
+  // The whole row comes back out of the answer, so the form is re-seeded from it
+  // the way a save re-seeds it: a reset that left the draft standing would show
+  // the discarded name over the restored achievement.
+  const reset = useMutation({
+    ...resetAchievementMutation(),
+    onSuccess: (achievement) => {
+      seedFrom(achievement);
+      // After `seedFrom`, which clears the acknowledgement along with the rest
+      // of the draft: a reset settles with nothing pending, and the row's
+      // truthful default line — "Nothing has changed yet." — reads a second
+      // after the confirmation as though the reset had done nothing.
+      setSaved(true);
+      setSavedLabel("Reset — the shipped achievement is back.");
+      refresh();
+    },
+    onError: (cause) =>
+      setError(errorMessage(cause, "Could not reset the achievement.")),
+  });
+
   /** What an icon write answers with, taken **without** reseeding the form: the
    *  response is a whole achievement, and adopting it would wipe the name and
    *  the conditions somebody has typed and not yet saved. Only the picture
    *  moved, so only the picture is read off it. */
   const tookIcon = (achievement: AchievementRead) => {
     setIconError(null);
+    // An icon write is a save of its own, and it is not the reset the row may
+    // still be acknowledging: a reset drops the uploaded picture, so leaving
+    // "the shipped achievement is back" standing over a picture that has just
+    // been put on it would be a line saying the opposite of what happened.
+    setSavedLabel(undefined);
     setHasImage(achievement.has_image);
     // The version of the file as it now stands — `null` once the picture is
     // gone, and a new number after a replacement, which is what makes the
@@ -284,7 +334,9 @@ export default function AchievementEditor() {
     if (color !== base.color) body.color = color;
     if (hidden !== base.hidden) body.hidden = hidden;
     if (enabled !== base.enabled) body.enabled = enabled;
-    if (JSON.stringify(conditions) !== base.definition)
+    // Never for a built-in: its conditions are Wingman's, the builder is locked
+    // and `PATCH` answers a definition on one with a 409.
+    if (!builtIn && JSON.stringify(conditions) !== base.definition)
       body.definition = conditions;
     return body;
   };
@@ -292,15 +344,51 @@ export default function AchievementEditor() {
   // What the backend would refuse, said beside the box instead: Save is shut
   // while any block is wrong. An achievement with *no* conditions is not one of
   // those — the backend takes it — so it is a warning and Save stays open.
-  const broken = conditions.some(
-    (condition) => conditionProblem(condition) !== null,
-  );
+  // Nothing a reader cannot touch may ever shut Save, so a built-in's locked
+  // conditions are not weighed at all.
+  const broken =
+    !builtIn &&
+    conditions.some((condition) => conditionProblem(condition) !== null);
   const pending = creating || Object.keys(changes()).length > 0;
+  const blocked = trimmed === "" || broken || !pending || saving;
+  /** A save that landed: this one, or the create this page was arrived at by. */
+  const acknowledged = saved || (justCreated && !pending && !saving);
+
+  /** Why Save is grey, said in the action row that is always on screen — a
+   *  permanently visible disabled button that does not say why reads as a
+   *  broken app. In the order the reader would fix them, and the
+   *  acknowledgement the row says for itself — *Saved*, or what a reset just
+   *  did — wins over the "nothing has changed" that is true of the same
+   *  moment.
+   *
+   *  The refusal from the backend is in the row too, as a pointer and not as a
+   *  copy: the `role="alert"` notice that carries the sentence itself is at the
+   *  head of the form, and now that Save can be pressed from anywhere in a form
+   *  this long, a press that goes nowhere with no word in the row is the same
+   *  broken app the line exists to prevent. */
+  const saveNote = reset.isPending
+    ? // The modal is gone by now and a reset takes a round trip and a
+      // background pass with it, so the row is the only place left to say that
+      // something is happening.
+      "Resetting…"
+    : saving
+      ? "Saving…"
+      : trimmed === ""
+        ? "It needs a name before it can be saved."
+        : broken
+          ? "A condition above needs putting right before this can be saved."
+          : error !== null
+            ? "It did not go through — the message at the top of the page says why."
+            : !pending && !acknowledged
+              ? "Nothing has changed yet."
+              : null;
 
   const save = async () => {
     if (trimmed === "" || broken || !pending) return;
     setSaving(true);
     setError(null);
+    // Whatever the row was acknowledging, it is about to acknowledge a save.
+    setSavedLabel(undefined);
     try {
       if (creating) {
         const made = await create.mutateAsync({
@@ -318,7 +406,9 @@ export default function AchievementEditor() {
         // has its achievement whether or not React kept this component mounted
         // and whether or not the refetch below has landed.
         queryClient.setQueryData<AchievementList>(
-          listAchievementsQueryKey(),
+          // The managing entry, the one this page reads: `setQueryData` matches
+          // a key exactly, so the bare one would land in the masked listing.
+          listAchievementsQueryKey(MANAGE_CATALOGUE),
           (old) =>
             old === undefined
               ? old
@@ -335,8 +425,11 @@ export default function AchievementEditor() {
         refresh();
         // `replace`, so Back from the achievement that now exists leads to the
         // list rather than to an empty `new` form that would seed itself again.
+        // `created`, so the action row acknowledges the press on the other side
+        // of the navigation (`justCreated`).
         void navigate(`/user/achievements/${encodeURIComponent(made.id)}`, {
           replace: true,
+          state: { created: true },
         });
         return;
       }
@@ -352,10 +445,13 @@ export default function AchievementEditor() {
       refresh();
     } catch (cause) {
       setSaved(false);
-      // A 422 from the condition models says which field of which condition it
-      // refused; nothing this page could write would be more use than that.
+      // A 422 from the condition models says in words what it refused —
+      // a regular expression Python cannot read above all, which is the one
+      // refusal `conditionProblem` may not make for itself. Nothing this page
+      // could write instead would be of more use than that sentence.
       setError(
         errorDetail(cause) ??
+          validationMessage(cause) ??
           errorMessage(cause, "Could not save the achievement."),
       );
     } finally {
@@ -366,7 +462,7 @@ export default function AchievementEditor() {
   const submit = () => {
     // The same door `save` keeps: a save that would turn straight around again
     // is nothing to press.
-    if (trimmed === "" || broken || !pending || saving) return;
+    if (blocked) return;
     void save();
   };
 
@@ -684,10 +780,12 @@ export default function AchievementEditor() {
 
                     <h2>Conditions</h2>
                     <p className="section-note">
-                      All of them have to hold before anybody earns it.
+                      {builtIn
+                        ? "All of them have to hold before anybody earns it. What one of Wingman's own achievements asks for cannot be changed — the same badge means the same thing at every party. Reset below puts everything else back too."
+                        : "All of them have to hold before anybody earns it."}
                     </p>
 
-                    {conditions.length === 0 && (
+                    {!builtIn && conditions.length === 0 && (
                       <p className="tag-warning">
                         With no conditions at all, nobody can ever earn this.
                         Add one — it can be saved as it stands, and it will
@@ -697,52 +795,65 @@ export default function AchievementEditor() {
 
                     <ConditionBuilder
                       value={conditions}
+                      readOnly={builtIn}
                       onChange={(next) => {
                         setSaved(false);
                         setConditions(next);
                       }}
                     />
 
-                    <div className="tag-editor-save">
-                      <button
-                        type="submit"
-                        className="button button-primary"
-                        disabled={
-                          trimmed === "" || broken || !pending || saving
-                        }
-                      >
-                        Save
-                      </button>
-                      {/* An acknowledgement, not a state: the page stays where
-                          it is, so something has to say the save landed. */}
-                      {saved && (
-                        <span className="tag-editor-saved" role="status">
-                          Saved
-                        </span>
-                      )}
-                    </div>
-                  </form>
-
-                  {!creating &&
-                    (builtIn ? (
+                    {/* What a built-in is, and what the Reset in the row below
+                        will do. It stays in the flow and ends the form: it is
+                        reading matter rather than a control, and the press
+                        itself asks again through a `ConfirmModal` that names
+                        everything coming back. */}
+                    {!creating && builtIn && (
                       <p className="tag-editor-hint achievement-builtin-note">
                         This is one of the achievements Wingman brings with it.
-                        Everything above can be changed and it can be switched
-                        off, but it cannot be deleted — an instance always has
-                        the set it ships with.
+                        What it looks like is yours to change and it can be
+                        switched off, but its conditions are Wingman's own and
+                        it cannot be deleted — an instance always has the set it
+                        ships with. Reset puts the name, description, icon,
+                        colour, conditions and whether it is hidden back the way
+                        Wingman ships them; whether it is switched on stays as
+                        it is.
                       </p>
-                    ) : (
-                      <div className="tag-editor-delete">
-                        <button
-                          type="button"
-                          className="button button-danger"
-                          disabled={remove.isPending}
-                          onClick={() => setDeleting(true)}
-                        >
-                          Delete achievement
-                        </button>
-                      </div>
-                    ))}
+                    )}
+
+                    {/* Save and the other way out, on one line at the bottom of
+                        the screen: a form this long must never have to be
+                        scrolled to be saved. Inside the form, because Save is
+                        its submit button and because anything after it would
+                        end up below the row. */}
+                    <EditorActions
+                      note={saveNote}
+                      saved={acknowledged}
+                      savedLabel={savedLabel}
+                      saveDisabled={blocked}
+                    >
+                      {!creating &&
+                        (builtIn ? (
+                          <button
+                            type="button"
+                            className="button achievement-reset"
+                            disabled={reset.isPending}
+                            onClick={() => setResetting(true)}
+                          >
+                            <Icon name="refresh" />
+                            <span>Reset achievement</span>
+                          </button>
+                        ) : (
+                          <button
+                            type="button"
+                            className="button button-danger"
+                            disabled={remove.isPending}
+                            onClick={() => setDeleting(true)}
+                          >
+                            Delete achievement
+                          </button>
+                        ))}
+                    </EditorActions>
+                  </form>
                 </>
               )}
             </>
@@ -763,6 +874,22 @@ export default function AchievementEditor() {
             });
           }}
           onCancel={() => setDeleting(false)}
+        />
+      )}
+
+      {resetting && (
+        <ConfirmModal
+          title="Reset achievement"
+          message={`Put "${base.name}" back the way Wingman ships it? Its name, description, icon, colour, conditions and whether it is hidden all return to the original, and an uploaded picture is removed. Whether it is switched on stays as it is. Everybody's badges are worked out again afterwards, which can take one away.`}
+          confirmLabel="Reset"
+          danger
+          onConfirm={() => {
+            setResetting(false);
+            reset.mutate({
+              path: { achievement_id: achievementId ?? "" },
+            });
+          }}
+          onCancel={() => setResetting(false)}
         />
       )}
     </div>

@@ -1,10 +1,16 @@
 """The seventeen achievements Wingman ships.
 
-Data, not rows: the list below is what migration 0023 seeds and what a future "reset the
-built-ins" would read back, so there is one place that says what *First Time on the Mic*
-means. Once seeded they are ordinary rows — `built_in = True` is the only difference, and it
-buys exactly one thing: a `DELETE` on one is a 409. Everything else about them is editable,
-switching one off included, because a party is not obliged to want *Brave Soul*.
+Data, not rows: the list below is what migration 0023 seeds and what `service.reset_built_in`
+reads back, so there is one place that says what *First Time on the Mic* means. Once seeded
+they are ordinary rows, and `built_in = True` buys exactly three things: a `DELETE` on one is
+a 409; its **conditions** are this file's, which no `PATCH` and no import may move; and only
+a built-in has a `POST /achievements/{id}/reset`, which puts everything here back. What a
+built-in looks like and whether it is on at all stay as editable as anybody else's, because a
+party is not obliged to want *Brave Soul*.
+
+That makes this file the only place a shipped definition is ever improved — and, because the
+seed migration runs once, a reset is the only way an improvement here reaches a database that
+already holds the old one.
 
 The ids are stable slugs (`builtin-score-9000`) rather than uuids: import matches by id, so a
 slug is what lets an instance recognise a built-in that came from somewhere else, and what

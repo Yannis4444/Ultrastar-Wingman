@@ -38,6 +38,16 @@
   text-overflow: ellipsis;
 }
 
+/* The lock a built-in's conditions wear, standing where the remove button
+   stands on a block somebody may edit — a glyph and not a button, there being
+   nothing here to press. `margin` rather than a 40px box: it is not a control
+   and must not read as one. */
+.condition-locked {
+  margin: 0 12px;
+  font-size: 1.15em;
+  color: var(--color-darker);
+}
+
 /* -------------------------------------------------------- the one sentence
    What the block adds up to. It leans on the blue accent and a rule rather than
    a fill: it is the reader's confirmation, not a warning (the gold-ruled
@@ -208,31 +218,70 @@
 }
 
 /* ------------------------------------------------------------- the clauses
-   Field · test · value · the way off, one flat list. Three controls and a
-   button do not fit 328px, so they wrap: the two selects take the first line
-   and the value and its button the second. Wrapping is the point — nothing
-   here may scroll the page sideways (§1.11). */
+   One song rule is one thing to read. Three controls in a row at 360px is what
+   shapes this: they cannot also carry an index and a remove button on the same
+   line, and a flat list of wrapped selects is exactly what makes two rules run
+   into each other. So a rule is a little block — *Rule 2* and the way off it on
+   the first line (`.condition-head`'s idiom one level down), the field, the test
+   and the value under it — held together by a hairline down its left and the
+   indent that hairline gives it (§1.1: hairlines and spacing, never a card).
+   Spacing does the rest of the work: 8px inside a rule, 16px between them. */
+
+/* The switch above the list belongs to all the rules, so it stays on the
+   block's own gutter, outside the indent, and the list's hairline separates it
+   from what it governs. */
+.condition-combine {
+  margin-bottom: 12px;
+}
+
 .condition-clauses {
   display: flex;
   flex-direction: column;
-  gap: 8px;
-  margin: 12px 0 0 0;
-  padding: 0;
+  gap: 16px;
+  margin: 0;
+  padding: 12px 0 0 0;
+  border-top: 1px solid var(--input-border-color);
   list-style: none;
 }
 
 .condition-clause {
   display: flex;
+  flex-direction: column;
+  gap: 8px;
+
+  /* The rail: the house hairline rather than one of the two accent rules
+     (`.condition-sentence` is blue because it is the sentence, `.tag-warning`
+     gold because it warns) — this one is structure and says nothing else. The
+     10px keeps the indent of both. */
+  padding-left: 10px;
+  border-left: 1px solid var(--input-border-color);
+}
+
+/* Which rule this is, and the way off it. The index is quiet — it is there to
+   be counted, not read — and the 40px button beside it is the touch floor
+   (§1.10). */
+.condition-clause-head {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.condition-clause-index {
+  font-size: 0.85em;
+  white-space: nowrap;
+  color: var(--color-darker);
+  font-variant-numeric: tabular-nums;
+}
+
+/* Field · test · value. They wrap before they squeeze, and the value's larger
+   basis is what keeps a long one — a pattern, a long artist name — on a line of
+   its own until the screen is wide enough for all three. */
+.condition-clause-controls {
+  display: flex;
   flex-wrap: wrap;
   gap: 8px;
   align-items: center;
-  padding-bottom: 12px;
-  border-bottom: 1px solid var(--input-border-color);
-}
-
-.condition-clauses > :last-child {
-  padding-bottom: 0;
-  border-bottom: none;
 }
 
 .condition-clause-field,
@@ -244,7 +293,7 @@
 /* The value carries a `.condition-field` wrapper when it is a number box and is
    the bare control otherwise, so the rule has to reach both. */
 .condition-clause .condition-clause-value {
-  flex: 1 1 120px;
+  flex: 1 1 200px;
   min-width: 0;
   margin-top: 0;
 }

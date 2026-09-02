@@ -1,7 +1,15 @@
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import { fireEvent, render, screen, waitFor } from "@testing-library/react";
+import {
+  fireEvent,
+  render,
+  screen,
+  waitFor,
+  within,
+} from "@testing-library/react";
 import { MemoryRouter, Route, Routes, useLocation } from "react-router-dom";
+import { MANAGE_CATALOGUE } from "../achievements";
 import type { AchievementRead, MeRead } from "../api";
+import { listAchievementsQueryKey } from "../api/@tanstack/react-query.gen";
 import {
   achievementRead,
   achievementSettings,
@@ -17,6 +25,7 @@ const {
   createAchievement,
   updateAchievement,
   deleteAchievement,
+  resetAchievement,
   setAchievementIcon,
   deleteAchievementIcon,
   listSongs,
@@ -26,6 +35,7 @@ const {
   createAchievement: vi.fn(),
   updateAchievement: vi.fn(),
   deleteAchievement: vi.fn(),
+  resetAchievement: vi.fn(),
   setAchievementIcon: vi.fn(),
   deleteAchievementIcon: vi.fn(),
   listSongs: vi.fn(),
@@ -38,12 +48,25 @@ vi.mock("../api/sdk.gen", async (importOriginal) => ({
   createAchievement,
   updateAchievement,
   deleteAchievement,
+  resetAchievement,
   setAchievementIcon,
   deleteAchievementIcon,
   listSongs,
 }));
 
 const MANAGER = ["songs.view", "achievements.manage"];
+
+/** One of the seventeen Wingman ships, as the managing listing answers with it:
+ *  everything editable except what it asks for. */
+function builtIn(overrides: Partial<AchievementRead> = {}): AchievementRead {
+  return achievementRead({
+    id: "builtin-score-9000",
+    built_in: true,
+    ...overrides,
+  });
+}
+
+const BUILT_IN_PATH = "/user/achievements/builtin-score-9000";
 const ACCOUNT: Partial<MeRead> = { user: userRead(), role: "trusted" };
 
 /** Where a create or a delete has taken the reader. */
@@ -55,10 +78,14 @@ function renderEditor({
   path = "/user/achievements/a-golden",
   achievements = [achievementRead()],
   capabilities = MANAGER,
+  cached,
 }: {
   path?: string;
   achievements?: AchievementRead[];
   capabilities?: string[];
+  /** A managing listing already in the cache when the page opens — the browser
+   *  a manager used before whoever is reading now. */
+  cached?: AchievementRead[];
 } = {}) {
   getMe.mockResolvedValue(meResponse(capabilities, ACCOUNT));
   listAchievements.mockResolvedValue({
@@ -68,6 +95,11 @@ function renderEditor({
   const client = new QueryClient({
     defaultOptions: { queries: { retry: false } },
   });
+  if (cached !== undefined)
+    client.setQueryData(listAchievementsQueryKey(MANAGE_CATALOGUE), {
+      achievements: cached,
+      settings: achievementSettings(),
+    });
   return render(
     <QueryClientProvider client={client}>
       <MemoryRouter initialEntries={[path]}>
@@ -116,6 +148,7 @@ beforeEach(() => {
     createAchievement,
     updateAchievement,
     deleteAchievement,
+    resetAchievement,
     setAchievementIcon,
     deleteAchievementIcon,
     listSongs,
@@ -207,6 +240,27 @@ it("creates an achievement with exactly what the form was left on", async () => 
   ).toBeInTheDocument();
 });
 
+it("acknowledges a create in the row of the achievement it just made", async () => {
+  // The route changes, so React is free to remount the editor: the press is
+  // acknowledged through the navigation, never as "Nothing has changed yet."
+  // on the achievement it has this second created.
+  const made = achievementRead({ id: "a-new", name: "Karaoke Hero" });
+  createAchievement.mockResolvedValue({ data: made });
+  renderEditor({ path: "/user/achievements/new", achievements: [made] });
+
+  await screen.findByLabelText("Name");
+  fireEvent.change(screen.getByLabelText("Name"), {
+    target: { value: "Karaoke Hero" },
+  });
+  fireEvent.click(screen.getByRole("button", { name: "Save" }));
+
+  expect(
+    await screen.findByText("at /user/achievements/a-new"),
+  ).toBeInTheDocument();
+  expect(await screen.findByText("Saved")).toBeInTheDocument();
+  expect(screen.queryByText("Nothing has changed yet.")).toBeNull();
+});
+
 it("sends only the fields that changed", async () => {
   updateAchievement.mockResolvedValue({
     data: achievementRead({ name: "Silver Voice" }),
@@ -267,6 +321,13 @@ it("refuses to save a condition the backend would reject", async () => {
     await screen.findByText(/cannot be above .at most./),
   ).toBeInTheDocument();
   expect(screen.getByRole("button", { name: "Save" })).toBeDisabled();
+  // And the always-visible row says why, so a grey Save is never a mystery to
+  // somebody who has not scrolled back up to the condition.
+  expect(
+    screen.getByText(
+      "A condition above needs putting right before this can be saved.",
+    ),
+  ).toBeInTheDocument();
 
   // Put it right and the way out opens again.
   fireEvent.change(screen.getByLabelText("At most"), {
@@ -303,8 +364,47 @@ it("says nothing can be typed away without a name", async () => {
   renderEditor();
 
   await screen.findByDisplayValue("Golden Voice");
+  // Nothing touched yet, and the row says so rather than leaving a grey button
+  // to be guessed at.
+  expect(screen.getByText("Nothing has changed yet.")).toBeInTheDocument();
+
   fireEvent.change(screen.getByLabelText("Name"), { target: { value: "   " } });
   expect(screen.getByRole("button", { name: "Save" })).toBeDisabled();
+  expect(
+    screen.getByText("It needs a name before it can be saved."),
+  ).toBeInTheDocument();
+});
+
+it("keeps the action row to Save and Reset on a built-in", async () => {
+  renderEditor({ achievements: [builtIn()], path: BUILT_IN_PATH });
+
+  await screen.findByDisplayValue("Golden Voice");
+  const row = screen.getByRole("button", { name: "Save" }).parentElement!;
+  // One line, and the way out of a built-in is the reset — never a delete.
+  expect(
+    within(row).getByRole("button", { name: "Reset achievement" }),
+  ).toBeInTheDocument();
+  expect(
+    within(row).queryByRole("button", { name: "Delete achievement" }),
+  ).not.toBeInTheDocument();
+  // The line that says what a built-in is has not been orphaned by the buttons
+  // leaving the flow: it still ends the form.
+  expect(
+    screen.getByText(/one of the achievements Wingman brings with it/),
+  ).toBeInTheDocument();
+});
+
+it("keeps the action row to Save and Delete on an achievement the party made", async () => {
+  renderEditor();
+
+  await screen.findByDisplayValue("Golden Voice");
+  const row = screen.getByRole("button", { name: "Save" }).parentElement!;
+  expect(
+    within(row).getByRole("button", { name: "Delete achievement" }),
+  ).toBeInTheDocument();
+  expect(
+    within(row).queryByRole("button", { name: "Reset achievement" }),
+  ).not.toBeInTheDocument();
 });
 
 it("shows what the backend refused", async () => {
@@ -321,6 +421,38 @@ it("shows what the backend refused", async () => {
 
   expect(await screen.findByRole("alert")).toHaveTextContent(
     "value is not a valid integer",
+  );
+  // Save can be pressed from anywhere in a long form now, so the row it was
+  // pressed in has to say the press went nowhere and where the sentence is.
+  expect(
+    await screen.findByText(
+      "It did not go through — the message at the top of the page says why.",
+    ),
+  ).toBeInTheDocument();
+});
+
+it("shows what a pattern the models refused was wrong with", async () => {
+  // The one refusal the form cannot make for itself: whether a pattern is one
+  // is Python's answer, so its words are what the page has to show.
+  updateAchievement.mockRejectedValue({
+    detail: [
+      {
+        type: "value_error",
+        loc: ["body", "definition", 0],
+        msg: "Value error, '(a+' is not a valid regular expression: missing ), unterminated subpattern at position 0",
+      },
+    ],
+  });
+  renderEditor();
+
+  await screen.findByDisplayValue("Golden Voice");
+  fireEvent.change(screen.getByLabelText("Name"), {
+    target: { value: "Live and loud" },
+  });
+  fireEvent.click(screen.getByRole("button", { name: "Save" }));
+
+  expect(await screen.findByRole("alert")).toHaveTextContent(
+    "'(a+' is not a valid regular expression",
   );
 });
 
@@ -354,15 +486,7 @@ it("offers no delete for an achievement that does not exist yet", async () => {
 
 it("lets a built-in be edited but never deleted", async () => {
   updateAchievement.mockResolvedValue({ data: achievementRead() });
-  renderEditor({
-    achievements: [
-      achievementRead({
-        id: "builtin-score-9000",
-        built_in: true,
-      }),
-    ],
-    path: "/user/achievements/builtin-score-9000",
-  });
+  renderEditor({ achievements: [builtIn()], path: BUILT_IN_PATH });
 
   await screen.findByDisplayValue("Golden Voice");
   expect(
@@ -378,6 +502,151 @@ it("lets a built-in be edited but never deleted", async () => {
 
   await waitFor(() => expect(updateAchievement).toHaveBeenCalled());
   expect(updateAchievement.mock.calls[0][0].body).toEqual({ enabled: false });
+});
+
+it("draws a built-in's conditions as locked, not as controls that fail", async () => {
+  renderEditor({ achievements: [builtIn()], path: BUILT_IN_PATH });
+
+  await screen.findByDisplayValue("Golden Voice");
+  // The sentence is still there: what it asks for is not a secret, it is simply
+  // not the party's to change.
+  expect(
+    screen.getByText("Over all time, some score of 9000 or more."),
+  ).toBeInTheDocument();
+  // And not one control of the builder — a refusal after pressing Save is what
+  // this replaces.
+  expect(screen.queryByLabelText("What is measured")).not.toBeInTheDocument();
+  expect(
+    screen.queryByRole("button", { name: "Add condition" }),
+  ).not.toBeInTheDocument();
+  expect(
+    screen.queryByRole("button", { name: "Remove condition 1" }),
+  ).not.toBeInTheDocument();
+  // One quiet line says why, where the reader is looking.
+  expect(
+    screen.getByText(/cannot be changed — the same badge means the same thing/),
+  ).toBeInTheDocument();
+});
+
+it("puts a built-in back the way Wingman ships it, once it is confirmed", async () => {
+  resetAchievement.mockResolvedValue({
+    data: builtIn({ name: "Golden Voice", color: "gold" }),
+  });
+  renderEditor({
+    achievements: [builtIn({ name: "Renamed", color: "pink" })],
+    path: BUILT_IN_PATH,
+  });
+
+  await screen.findByDisplayValue("Renamed");
+  fireEvent.click(screen.getByRole("button", { name: "Reset achievement" }));
+  // A reset throws edits away, so it asks first (§5).
+  expect(screen.getByText(/back the way Wingman ships it/)).toBeInTheDocument();
+  expect(resetAchievement).not.toHaveBeenCalled();
+
+  fireEvent.click(screen.getByRole("button", { name: "Reset" }));
+
+  await waitFor(() => expect(resetAchievement).toHaveBeenCalled());
+  expect(resetAchievement.mock.calls[0][0].path).toEqual({
+    achievement_id: "builtin-score-9000",
+  });
+  // The form is re-seeded from the restored row rather than left showing the
+  // name that was just thrown away.
+  expect(await screen.findByDisplayValue("Golden Voice")).toBeInTheDocument();
+  // And the action row acknowledges the reset. A re-seeded form has nothing
+  // pending, and the line that is true of that moment — "Nothing has changed
+  // yet." — would read as though the reset had done nothing at all.
+  expect(screen.getByRole("status")).toHaveTextContent(
+    "Reset — the shipped achievement is back.",
+  );
+
+  // And it stops saying so the moment the form moves on: the acknowledgement is
+  // about the write that landed, not a badge the page keeps wearing.
+  fireEvent.change(screen.getByLabelText("Name"), {
+    target: { value: "Golden Larynx" },
+  });
+  expect(screen.getByRole("status")).not.toHaveTextContent("Reset —");
+});
+
+it("says nothing about a reset that did not go through", async () => {
+  // The other half of the acknowledgement: a line saying the shipped
+  // achievement is back over a form that still holds the edits would be the one
+  // lie this row must never tell.
+  resetAchievement.mockRejectedValue({ status: 500 });
+  renderEditor({
+    achievements: [builtIn({ name: "Renamed", color: "pink" })],
+    path: BUILT_IN_PATH,
+  });
+
+  await screen.findByDisplayValue("Renamed");
+  fireEvent.click(screen.getByRole("button", { name: "Reset achievement" }));
+  fireEvent.click(screen.getByRole("button", { name: "Reset" }));
+
+  expect(await screen.findByRole("alert")).toHaveTextContent(
+    "Could not reset the achievement.",
+  );
+  const line = screen.getByRole("status");
+  expect(line).toHaveTextContent(
+    "It did not go through — the message at the top of the page says why.",
+  );
+  expect(line).not.toHaveTextContent("Reset —");
+  // Nothing was re-seeded either: the name the reader had is still theirs.
+  expect(screen.getByDisplayValue("Renamed")).toBeInTheDocument();
+});
+
+it("says a reset is happening while it is in flight", async () => {
+  // Never answers: the round trip and the background pass behind it, held open.
+  resetAchievement.mockReturnValue(new Promise(() => {}));
+  renderEditor({
+    achievements: [builtIn({ name: "Renamed" })],
+    path: BUILT_IN_PATH,
+  });
+
+  await screen.findByDisplayValue("Renamed");
+  fireEvent.click(screen.getByRole("button", { name: "Reset achievement" }));
+  fireEvent.click(screen.getByRole("button", { name: "Reset" }));
+
+  // The modal is gone, so the row is the only place left that can say it.
+  expect(await screen.findByText("Resetting…")).toBeInTheDocument();
+});
+
+it("stops acknowledging a reset once a picture is put on it", async () => {
+  // A reset removes an uploaded picture, so the row may not go on saying the
+  // shipped achievement is back once one is back on it.
+  resetAchievement.mockResolvedValue({
+    data: builtIn({ name: "Golden Voice" }),
+  });
+  setAchievementIcon.mockResolvedValue({
+    data: builtIn({ name: "Golden Voice", has_image: true, icon_version: 2 }),
+  });
+  renderEditor({
+    achievements: [builtIn({ name: "Renamed" })],
+    path: BUILT_IN_PATH,
+  });
+
+  await screen.findByDisplayValue("Renamed");
+  fireEvent.click(screen.getByRole("button", { name: "Reset achievement" }));
+  fireEvent.click(screen.getByRole("button", { name: "Reset" }));
+  await screen.findByDisplayValue("Golden Voice");
+  expect(screen.getByRole("status")).toHaveTextContent("Reset —");
+
+  fireEvent.change(screen.getByLabelText("Use a picture instead"), {
+    target: { files: [picture()] },
+  });
+
+  await waitFor(() => expect(setAchievementIcon).toHaveBeenCalled());
+  expect(screen.getByRole("status")).not.toHaveTextContent("Reset —");
+});
+
+it("offers no reset for an achievement the party made itself", async () => {
+  renderEditor();
+
+  await screen.findByDisplayValue("Golden Voice");
+  expect(
+    screen.queryByRole("button", { name: "Reset achievement" }),
+  ).not.toBeInTheDocument();
+  expect(
+    screen.getByRole("button", { name: "Delete achievement" }),
+  ).toBeInTheDocument();
 });
 
 it("paints only the chosen glyph and keeps one the picker does not offer", async () => {
@@ -526,4 +795,32 @@ it("goes back to a glyph from a picture", async () => {
   expect(
     screen.getByRole("radiogroup", { name: "Colour" }),
   ).toBeInTheDocument();
+});
+
+it("asks for the managing copy of the catalogue", async () => {
+  renderEditor();
+
+  await screen.findByDisplayValue("Golden Voice");
+  // Without it the listing would come back masked, and the editor would open a
+  // hidden achievement on the stand-in words instead of its own.
+  expect(listAchievements).toHaveBeenCalledWith(
+    expect.objectContaining({ query: { manage: true } }),
+  );
+});
+
+it("draws no form for a reader who may not manage, warm cache or not", async () => {
+  // The other half of the same worry as on the list page: the managing entry
+  // outlives the manager who filled it, and this page seeds its draft off it
+  // during render. Nothing of it may reach the screen for the next person on
+  // that browser.
+  renderEditor({
+    cached: [achievementRead({ name: "Brave Soul", hidden: true })],
+    capabilities: ["songs.view"],
+  });
+
+  expect(
+    await screen.findByText(/Achievements are looked after by the host/),
+  ).toBeInTheDocument();
+  expect(screen.queryByDisplayValue("Brave Soul")).not.toBeInTheDocument();
+  expect(screen.queryByText("Brave Soul")).not.toBeInTheDocument();
 });

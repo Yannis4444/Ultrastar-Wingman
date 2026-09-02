@@ -9,6 +9,40 @@ export function errorDetail(error: unknown): string | null {
   return typeof detail === "string" ? detail : null;
 }
 
+/** What pydantic puts in front of a message its own validator raised. */
+const VALUE_ERROR = /^Value error, /;
+
+/**
+ * The sentence behind a 422, or `null` when the error is not one.
+ *
+ * FastAPI's validation body is `{detail: [{loc, msg, type}, …]}` — a list, so
+ * `errorDetail` reports it as `null`, there being no slug in it. The first
+ * `msg` is the refusal itself, and for a refusal a model raised by hand it is a
+ * sentence somebody can act on: *"'(a+' is not a valid regular expression:
+ * missing ), unterminated subpattern at position 0"*. There is exactly one
+ * refusal a form cannot make for itself — a regular expression, Python's
+ * dialect being the only authority on one (`achievements.ts`, `REGEX_NOTE`) —
+ * and a generic "could not save" would leave its author with nothing to fix.
+ *
+ * The first message and not all of them: pydantic reports one entry per failed
+ * union member as well, and a page has room for the thing that went wrong, not
+ * for a schema.
+ */
+export function validationMessage(error: unknown): string | null {
+  const detail = (error as { detail?: unknown } | null | undefined)?.detail;
+  if (!Array.isArray(detail)) return null;
+  const first = detail.find(
+    (item): item is { msg: string } =>
+      typeof (item as { msg?: unknown } | null)?.msg === "string",
+  );
+  const message = first?.msg.replace(VALUE_ERROR, "").trim() ?? "";
+  if (message === "") return null;
+  // Sentence-cased and stopped: it is written as a clause ("a regular
+  // expression cannot be empty") and read as a notice.
+  const stopped = /[.!?]$/.test(message) ? message : `${message}.`;
+  return `${stopped[0].toUpperCase()}${stopped.slice(1)}`;
+}
+
 const MISSING_PERMISSION = "missing_permission:";
 
 /** The capability a 403 was denied for, `null` for every other error. */

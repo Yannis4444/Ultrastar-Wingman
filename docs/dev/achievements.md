@@ -70,11 +70,91 @@ import a round trip.
 `combine` is `all` or `any` — one flat list, no nesting. Fields are the ones
 `SongRead` already carries: `title`, `artist`, `genre`, `language`, `edition`,
 `year`, `is_duet`, `has_video`. Operators are `contains`, `equals`,
-`starts_with` for text (all case-insensitive), `equals` for the two booleans,
-and `=` `>=` `<=` for `year`.
+`starts_with`, `regex` for text (all case-insensitive), `equals` for the two
+booleans, and `=` `>=` `<=` for `year`.
 
 A clause whose field is missing on the song never matches — a song with no
-genre is not "genre equals anything".
+genre is not "genre equals anything". That holds for `regex` too: `^$` matches
+no song, rather than every song without a genre.
+
+#### `regex`
+
+```json
+{ "field": "title", "op": "regex", "value": "^(?-i:Live) at .*\\d{4}$" }
+```
+
+**Python's dialect**, `re`, and nothing else — the editor is TypeScript and the
+two disagree (`(?P<name>…)` is Python's named group and throws in a browser;
+`(?<name>…)` is the browser's and `re` refuses it), so the backend is the only
+authority on whether a pattern is one. `achievements.ts`'s `conditionProblem`
+therefore mirrors only the two refusals no dialect can disagree about — empty,
+and longer than `MAX_PATTERN_LENGTH` — and never compiles the pattern to decide.
+
+* **`re.search`, not `fullmatch`**: it matches anywhere in the field, which is
+  what makes it the analogue of `contains`. `^` and `$` are how the whole field
+  is asked for.
+* **`re.IGNORECASE`** (`schema.PATTERN_FLAGS`), because the other three text
+  operators casefold both sides and a fourth that alone cared about capitals
+  would be a trap. An author who does care writes `(?-i:Live)` — the *scoped*
+  form, a bare `(?-i)` being something `re` does not accept.
+* The pattern is **never casefolded**. `"\D".casefold()` is `"\d"`: folding a
+  pattern the way `contains` folds its value would silently invert it.
+* `SelectorClause` **checks it at validation time** (`schema.check_pattern`), so
+  the API answers 422 and an archive names the achievement its bad pattern is
+  in — carrying `re`'s own message, which is the only thing that says *where*.
+  Note that `re.compile` does not refuse only with `re.error`:
+  `(a){4294967296}` raises `OverflowError` and a deeply nested pattern can raise
+  `RecursionError`, and either escaping would be a 500 at the API and an
+  exception thrown out of `parse_definition`, whose whole contract is that it
+  throws none. A pattern that reaches `evaluate` uncompilable — a row edited
+  straight into the database, the one door a validator cannot guard — never
+  matches and is logged, exactly as an unreadable definition is "never
+  satisfied".
+
+### What stops a pattern that never finishes
+
+`(a+)+b` is eleven characters and `.*` twelve times over is twenty-six, and
+either of them on a subject of a couple of dozen characters asks `re` for more
+steps than there are seconds in a year. Python's `re` cannot be interrupted:
+there is no timeout, and a thread running a match holds the GIL, so the rest of
+the process does not even tick while it runs (measured — the main thread got
+zero of three seconds). One such pattern in a definition would therefore hold
+`service._write_lock` and the event loop for good, on every pass, past every
+restart — and an *imported archive* is a definition somebody else wrote.
+
+So a pattern is refused by its **shape**, at the same door, and there are three
+numbers behind it:
+
+* `MAX_PATTERN_LENGTH` (200) — a bound in the spirit of `archive.py`'s caps.
+  Length says nothing about cost on its own.
+* `MAX_SUBJECT_LENGTH` (200) — how much of a field `_matches_pattern` searches.
+  What an open-ended repetition costs is the length of what it repeats over, so
+  the budget below only means something if the field has a length too.
+* `MAX_PATTERN_COMBINATIONS` (1 000 000) — `schema._combinations` walks `re`'s
+  own parse tree and multiplies out how many ways the pattern can try to match
+  one field: one per literal, class or anchor; a sum over an alternation's
+  branches; and for a repetition, the lengths it may consume times what it
+  repeats, once per repetition (saturating, so `(a+)+` is not actually computed
+  to `200²⁰⁰`). Anything unrecognised — a backreference, whatever a later Python
+  adds — counts as past the budget rather than as free.
+
+That refuses every shape of catastrophic backtracking there is (a repetition
+around a repetition, a repetition around an overlapping alternation, a chain of
+`.*`, a chain of `a?`) and leaves everything an ordinary rule wants: two
+open-ended repetitions and an alternation between them is ~200 000. The parse
+tree is walked rather than the pattern's characters because a `*` inside `[…]`
+read as a repetition would be a hole, and only the engine's parser cannot
+misread the engine's syntax. It is a private module (`re._parser`, `sre_parse`
+before 3.11); the tests fail loudly if a future Python moves it.
+
+What is left is a bound, not a promise of speed: the slowest pattern that gets
+past the budget takes a couple of seconds against a 200-character field
+(`a?` nineteen times, measured), and a pass runs a clause per score. Seconds per
+field rather than never, which is the whole difference. `conditionProblem` in
+`achievements.ts` does not mirror this refusal — it is structural, not textual,
+and a second regex parser in TypeScript would be the hole again — so it is one
+of the refusals an author meets on Save, in the sentence `validationMessage`
+puts on the page.
 
 ## Who earns them
 
@@ -107,7 +187,7 @@ following correct for free — a counter would drift on every one of them:
 | A sing finishes (`karaoke.service._finish`, right after `scores.recorded`) | Every player scored in that sing. |
 | A score is reassigned (`PATCH /stats/scores/{id}`) | The old player **and** the new one. |
 | A score is deleted (`DELETE /stats/scores/{id}`) | The player it was on. |
-| An achievement is created, edited, imported, enabled or disabled | Every player, as a background pass. |
+| An achievement is created, edited, imported, reset, enabled or disabled | Every player, as a background pass. |
 | The global toggle is switched **on** | Every player, as a background pass. |
 
 Three of those are worth spelling out.
@@ -178,18 +258,35 @@ a lie.
 
 `hidden` is enforced by the API, not by the UI. `GET /achievements` blanks
 `name`, `description` and `icon` (and `has_image` / `icon_version`) on a hidden
-achievement the caller has not earned, unless the caller holds
-`achievements.manage`. A client that ignored the flag would otherwise spoil
-every surprise.
+achievement the caller has not earned. A client that ignored the flag would
+otherwise spoil every surprise.
 
 "The caller" is the caller's **own player**, resolved the way `stats/api.py`
 resolves one: an account linked to a player. A guest phone and the host screen
 have no player and have therefore earned nothing.
 
+That is the answer **everybody** gets, an administrator and the host screen
+included. Holding `achievements.manage` is not the same as using it: the same
+listing feeds the user page and the TV, and a hidden achievement spelled out
+there — on the phone of the one person who is always signed in as an
+administrator, or across the room on the projector — is the surprise gone for
+the whole party.
+
+Unmasking is therefore something a caller *asks* for:
+`GET /achievements?manage=true` answers with every row whole and every row's
+`definition`, takes `achievements.manage` (403 without it), and is asked for by
+exactly two surfaces — the achievements admin page and its editor
+(`achievements.MANAGE_CATALOGUE` in the frontend). It is a separate query, so
+the masked listing and the managing one are two cache entries rather than one
+overwriting the other.
+
 `GET /players/{id}/achievements` masks over the **subject** instead — it is
-that player's record, not the reader's — and nulls `progress_current` /
-`progress_target` on a masked row as well, because a bar that filled would say
-what the badge is for as loudly as its name would.
+that player's record, not the reader's, and a manager reading it is a reader
+like any other — and nulls `progress_current` / `progress_target` on a masked
+row as well, because a bar that filled would say what the badge is for as
+loudly as its name would. It carries no `definition` for anybody: what an
+achievement asks for is the management page's business, and that page reads the
+catalogue.
 
 `definition` is never in a masked row, and never on the event bus either: the
 bus is open to anonymous clients, and what a hidden achievement asks for is the
@@ -202,6 +299,79 @@ place where the rule is "once **anybody** has earned it" rather than "once the
 caller has": earning one announces it to every socket, and a phone drawing
 somebody else's badges has to be able to draw this one. A kept-back picture is
 the same 404 as no picture at all.
+
+It is also the one place where holding `achievements.manage` is still enough on
+its own, with no `manage=true` to ask with: an `<img>` src carries no query of
+the client's, and the management page has to be able to draw the picture of the
+achievement it is editing. Nothing leaks by it — a masked row answers
+`has_image: false`, so no singer-facing surface ever builds this URL for a
+hidden achievement.
+
+## The order of the catalogue
+
+`achievements.sort_order` is one integer column over the whole table, and every
+listing reads it: `GET /achievements`, a player's own record
+(`rows_of_player`), and the ids an `achievements.earned` payload names
+(`by_ids`). There is one order, and it is the order badges appear in everywhere.
+`created_at` breaks a tie, so two rows sorted the same keep the order they were
+made in instead of shuffling between requests.
+
+`PUT /achievements/order`, `achievements.manage`:
+
+```json
+{ "ids": ["a-own", "builtin-first-song", "…"] }
+```
+
+The **whole** catalogue, every id exactly once. Anything else — one left out, an
+id nothing holds, the same id twice — is a 422 `order_mismatch` and nothing is
+renumbered, the same refusal `PUT /playlists/{id}/entries/order` gives for the
+same reason: a partial order would silently decide where everything it left out
+belongs. The management page holds every row already, so sending the lot costs
+it nothing, and there is nothing per caller to work out — a manager sees the
+catalogue whole, disabled and hidden rows included.
+
+The numbers are handed out 0, 1, 2 … in the order sent rather than nudged, so
+the stored column *is* the order rather than an arithmetic accident of what the
+rows held before. The route answers the managing listing, so the page that
+reordered can hold what it drew, and broadcasts `achievements.changed` like
+every other catalogue write. **No background pass:** where an achievement sits
+in the list has nothing to do with who has earned it.
+
+**It is the only write a caller aims at one row.** Neither `POST /achievements`
+nor `PATCH /achievements/{id}` carries a `sort_order`: a new achievement lands at
+the end of the list (`_next_sort_order`), and where a row sits after that is this
+route's business alone. Two writers of one column with different rules — one permutation of the
+whole table against one row set to any number — is a bug waiting for the day two
+rows share a number, and the order is the host's arrangement of the catalogue
+rather than a field of one achievement anyway. A body that names the field is
+the no-op Pydantic makes of a field the model does not declare, not a 422:
+refusing a whole edit over a number is no help to anybody, and an older client
+is the likeliest sender.
+
+One write over the column is left besides it, and deliberately: an **import**
+takes the places its archive carries (see [Import](#import)). That is the same
+kind of write as a permutation — a whole set of rows with a coherent order, carried over from the
+instance that exported them — rather than a single-row poke, and dropping it
+would make export → import stop being a fixed point over the order. What it can
+leave behind is two rows on one number, which every listing settles the same way
+each time (`sort_order`, then `created_at`) and which the next arrangement
+washes out.
+
+The admin page draws the catalogue as two sections — the party's own, then the
+included ones — and sends them as one sequence in that order, so a built-in
+never lands between two rows somebody made here. That is the page's own reading
+of a single column, not a second rule in the model.
+
+Undoing a refused order is the page's business, and what it goes back to is the
+order **the server still has** — never "the order before this move": a drag
+rearranges the rows as the finger crosses them and saves once, at the end, so
+the move before the refused one *is* the refused one. On `order_mismatch` it
+also asks for the catalogue again, that refusal meaning somebody else created,
+imported or deleted an achievement while this page held the old list; without
+the fresh listing every further gesture is refused for the same stale reason.
+
+A **reset** therefore leaves `sort_order` alone (see below): the order belongs
+to the host, not to the achievement.
 
 ## Settings
 
@@ -271,13 +441,17 @@ from nothing else:
 |---|---|
 | `POST /achievements` | A row appeared. |
 | `PATCH /achievements/{id}` | Any field of it, the `enabled` flag included. |
+| `POST /achievements/{id}/reset` | A built-in is back to what Wingman ships — a new name, a new colour and new conditions in one write. |
 | `DELETE /achievements/{id}` | A row went. |
 | `PUT /achievements/{id}/icon` | `has_image` flipped, and the picture behind it is a different one. |
 | `DELETE /achievements/{id}/icon` | `has_image` flipped back. |
+| `PUT /achievements/order` | The listing is in `sort_order`, so the answer's own order moved. |
 | `PATCH /achievements/settings` | The settings ride along in the same answer — and `enabled` decides whether anything is drawn at all. |
 
-A refused write sends nothing: a 409 on a built-in delete, a 422 on a definition
-the models reject and a 404 on an unknown id all changed no row. Neither does a
+A refused write sends nothing: a 409 on a built-in delete, a 409 on a
+`definition` sent to a built-in, a 409 on a reset of something nobody ships, a
+422 on a definition the models reject, a 422 on an order that is no permutation
+of the catalogue and a 404 on an unknown id all changed no row. Neither does a
 settings PATCH that named no field.
 
 ## Import and export
@@ -364,13 +538,20 @@ built-in be shared between instances. The answer names what happened —
 `{"created": [...], "updated": [...]}` — so the page can say something true
 rather than "done".
 
+The one field an archive cannot carry into the catalogue is a **built-in's**
+`definition`. It is still in the file — an export is a faithful copy of the row,
+and that is what keeps the round trip a fixed point — it simply has no effect on
+one of the seventeen shipped ids. See the table.
+
 | What it meets | What it does |
 |---|---|
-| An existing row, built-in or not | Updates every presentation field and the definition, exactly as `PATCH` would. `built_in` is never written by an import: a built-in stays one and stays undeletable. |
-| An unknown id that Wingman ships | Creates it **as a built-in**. The id is the only thing that may say so, which is what lets a shipped achievement be handed from one instance to another. |
+| An existing ordinary row | Updates every presentation field **and** the definition, exactly as `PATCH` would — plus, where the file carries one, the place in the list a `PATCH` cannot touch (below). |
+| An existing **built-in** | Updates every presentation field the same way and **leaves its conditions where they are**, `built_in` included: what one of the shipped seventeen asks for is `builtin.py`'s, and an `achievement.json` in a text file would otherwise be the way straight round the 409 `PATCH` gives. The row still counts as updated — it really did change, only not there — and the skipped definition is logged. |
+| An unknown id that Wingman ships | Creates it **as a built-in**, with the conditions out of `builtin.py` rather than out of the file. The id is the only thing that may say a row is one of the shipped set, which is what lets a shipped achievement be handed from one instance to another. |
 | Any other unknown id | Creates it as an ordinary row. An archive cannot mint an undeletable achievement of its own. |
 | An entry with an `icon.<ext>` | Stores it through `images.py` — the same allowlist, byte cap and pixel cap an upload goes through. |
 | An entry **without** one | **Clears** whatever picture the row had. The archive is the whole description of the achievement it names, and anything else would make importing the same archive twice mean two different things. |
+| A `sort_order` in the file | **Taken.** An existing row moves to the place the archive gives it, a created one starts there. The one write over that column besides `PUT /achievements/order` — see [The order of the catalogue](#the-order-of-the-catalogue) for why an archive is allowed it where a `PATCH` is not. |
 | `sort_order` left out of the file | A new achievement lands at the end of the list; an existing one keeps the place it has. |
 
 The whole archive is parsed and every picture validated **before a row is
@@ -460,10 +641,46 @@ the name would be.
 
 Seventeen of them, declared as data in `achievements/builtin.py` and seeded by
 migration 0023 as ordinary rows with `built_in = true` and **stable slug ids**
-(`builtin-score-9000`), which is what import/export needs to recognise one. A
-built-in can be edited and switched off; deleting one is a 409.
+(`builtin-score-9000`), which is what import/export needs to recognise one.
+
+`built_in = true` buys exactly three things:
+
+| | |
+|---|---|
+| `DELETE /achievements/{id}` | A 409. An instance always has the set it ships with; it may switch one off instead. |
+| Its **conditions** | `builtin.py`'s, and nothing else's. A `definition` on one is a 409 from `PATCH`, and an import writes every other field of a built-in but leaves its stored conditions alone. *Golden Voice* therefore means the same thing at every party, whatever it has been renamed to. |
+| `POST /achievements/{id}/reset` | Only a built-in has one — see below. |
+
+Everything else about one is as editable as any other achievement's: the name,
+the description, the glyph, an uploaded picture, the colour, `hidden`, the place
+in the list and whether it is on at all.
 
 The migration reads `builtin.py` rather than repeating the list, so the set
 exists once — but it names its own columns, and what it seeds is what a
 **fresh** database starts with. Adding a built-in later needs its own
 revision.
+
+### Reset
+
+`POST /achievements/{achievement_id}/reset`, `achievements.manage`. Puts one of
+the shipped seventeen back the way Wingman ships it. Anything else in the
+catalogue is a 409: an achievement somebody made here has nothing to be put
+back to.
+
+| Field | What a reset does |
+|---|---|
+| `name`, `description`, `icon`, `color`, `hidden` | Back to `builtin.py`. |
+| `definition` | Back to `builtin.py`, written raw exactly as the seed migration writes it — so a reset row and a freshly seeded one are the same row. |
+| `sort_order` | **Left exactly as it is.** The order of the catalogue is the host's — they arranged it with `PUT /achievements/order`, which numbers the whole table — so this row's index in `BUILT_INS` means nothing beside the numbers the others now hold, and putting it back would drop the row at an arbitrary spot rather than "where Wingman had it". A reset restores what an achievement *is*, not where it is filed. |
+| `icon_file` | **Dropped**, file and all. The shipped set has no pictures, and one left standing in front of the restored glyph would make the reset look as though it had done nothing. |
+| `enabled` | **Left exactly as it is.** Switching a built-in off is the one thing a party is told it may do to one, and undoing that would be unwelcome. |
+
+Then `achievements.changed` and a background pass over every player, like any
+other catalogue write: restored conditions can award a badge and can take one
+away.
+
+Because no other write may touch a built-in's conditions, a reset is also the
+**only** way an improved definition in `builtin.py` ever reaches a database that
+was seeded with the old one — the seed migration runs once. That is a known
+limitation of shipping the set as ordinary rows, and reset is what an operator
+does about it.
