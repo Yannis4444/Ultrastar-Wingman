@@ -11,6 +11,12 @@ by the whole room, so editing one rewrites what everybody has.
 surprise, so the blanking happens before the row leaves the server — over the *caller's* own
 player in the catalogue, and over the *subject's* on a player's page, because that one is
 that player's record and not the reader's.
+
+Holding `achievements.manage` is not what unmasks it: the administrator and the host screen
+hold every capability, and they read this catalogue on the singer-facing surfaces too — the
+user page and the TV — where a hidden achievement spelled out is the surprise gone for the
+whole room. Unmasking is something a caller *asks* for, `GET /achievements?manage=true`, and
+only the management page asks. What the capability decides is whether the answer is given.
 """
 
 import logging
@@ -18,7 +24,7 @@ from datetime import UTC, datetime
 from pathlib import Path
 from typing import Annotated
 
-from fastapi import APIRouter, Depends, File, HTTPException, Request, UploadFile
+from fastapi import APIRouter, Depends, File, HTTPException, Query, Request, UploadFile
 from fastapi.responses import FileResponse, Response
 from pydantic import BaseModel, Field
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
@@ -127,27 +133,51 @@ class AchievementSettingsUpdate(BaseModel):
     host_seconds_per_badge: int | None = None
 
 
-@router.get("/achievements", response_model=AchievementList)
-async def list_achievements(session: SessionDep, principal: PrincipalDep) -> AchievementList:
+@router.get(
+    "/achievements",
+    response_model=AchievementList,
+    responses={403: {"description": "`manage=true` without `achievements.manage`."}},
+)
+async def list_achievements(
+    session: SessionDep,
+    principal: PrincipalDep,
+    manage: Annotated[
+        bool,
+        Query(
+            description=(
+                "Answer for the management page: every hidden achievement spelled out, and "
+                "each row's definition. Takes `achievements.manage`."
+            )
+        ),
+    ] = False,
+) -> AchievementList:
     """The whole catalogue, in `sort_order`, with the three settings beside it.
 
     No capability: a badge is drawn on the TV and on every phone, and the settings decide
     whether anything is drawn at all — a guest that could not read them could not draw.
 
     A `hidden` achievement the caller's own player has not earned comes back blank: no name,
-    no sentence, no glyph. A caller holding `achievements.manage` sees all of it, plus each
-    row's `definition`.
+    no sentence, no glyph — and that is what *everybody* gets, an administrator and the host
+    screen included. Holding the capability is not the same as using it: the same catalogue
+    feeds the user page and the TV, and the surprise has to survive being read there by
+    somebody who could edit it.
+
+    `manage=true` is the management page asking for the other answer — every row whole, plus
+    its `definition` — and takes `achievements.manage`, else 403.
     """
-    manages = _manages(principal)
+    if manage:
+        principal.require(service.MANAGE_CAPABILITY)
     earned = (
         frozenset()
-        if manages
+        if manage
         else await service.earned_ids(session, await _own_player_id(session, principal))
     )
     rows = await service.list_achievements(session)
     return AchievementList(
         achievements=[
-            read_achievement(row, definition=manages, mask=_masked(row, manages, row.id in earned))
+            read_achievement(
+                row, definition=manage, mask=not manage and _masked(row, row.id in earned)
+            )
             for row in rows
         ],
         settings=_settings_read(await achievement_settings.read_all(session)),
@@ -432,6 +462,11 @@ async def get_achievement_icon(
 
     A kept-back picture is the same 404 as no picture at all, so a stranger cannot tell the
     two apart.
+
+    The one place where holding `achievements.manage` is still enough on its own: an `<img>`
+    src carries no `manage=true`, and the management page has to be able to draw the picture
+    of the achievement it is editing. Nothing leaks by it — a masked row says `has_image:
+    false`, so no singer-facing surface ever builds this URL for a hidden achievement.
     """
     achievement = await _achievement_or_404(achievement_id, session)
     missing = HTTPException(status_code=404, detail=f"achievement '{achievement_id}' has no icon")
@@ -452,9 +487,7 @@ async def get_achievement_icon(
     response_model=PlayerAchievementList,
     responses={404: {"description": "Unknown player."}},
 )
-async def list_player_achievements(
-    player_id: str, session: SessionDep, principal: PrincipalDep
-) -> PlayerAchievementList:
+async def list_player_achievements(player_id: str, session: SessionDep) -> PlayerAchievementList:
     """What one player has earned and how far along they are on the rest.
 
     No capability, like the catalogue: this is what the host screen shows beside a singer and
@@ -462,24 +495,22 @@ async def list_player_achievements(
     is an empty list and not a 404.
 
     Masked over the **subject**: a hidden achievement *this player* has not earned is blank
-    here whoever is reading, and its progress numbers are left out with it — a bar that
+    here whoever is reading — a manager included, because this is a singer's record and there
+    is nothing to manage on it — and its progress numbers are left out with it. A bar that
     filled would say what the badge is for just as loudly as its name would.
     """
     if await session.get(Player, player_id) is None:
         raise HTTPException(status_code=404, detail=f"unknown player '{player_id}'")
-    manages = _manages(principal)
     return PlayerAchievementList(
         achievements=[
-            _read_row(row, achievement, manages)
+            _read_row(row, achievement)
             for row, achievement in await service.rows_of_player(session, player_id)
         ]
     )
 
 
-def _read_row(
-    row: PlayerAchievement, achievement: Achievement, manages: bool
-) -> PlayerAchievementRead:
-    mask = _masked(achievement, manages, row.earned_at is not None)
+def _read_row(row: PlayerAchievement, achievement: Achievement) -> PlayerAchievementRead:
+    mask = _masked(achievement, row.earned_at is not None)
     return PlayerAchievementRead(
         achievement_id=row.achievement_id,
         player_id=row.player_id,
@@ -487,17 +518,21 @@ def _read_row(
         session_id=row.session_id,
         progress_current=None if mask else row.progress_current,
         progress_target=None if mask else row.progress_target,
-        achievement=read_achievement(achievement, definition=manages, mask=mask),
+        # No definition on anybody's record: what an achievement asks for is the management
+        # page's business, and that page reads the catalogue.
+        achievement=read_achievement(achievement, mask=mask),
     )
 
 
-def _masked(achievement: Achievement, manages: bool, earned: bool) -> bool:
-    """A hidden achievement stays a secret until it is earned. A manager sees everything —
-    somebody has to be able to write the thing."""
-    return achievement.hidden and not manages and not earned
+def _masked(achievement: Achievement, earned: bool) -> bool:
+    """A hidden achievement stays a secret until it is earned — by the caller's own player in
+    the catalogue, by the subject on a player's record."""
+    return achievement.hidden and not earned
 
 
 def _manages(principal: Principal) -> bool:
+    """Only the icon endpoint asks: everywhere else unmasking is `manage=true`, which the
+    caller has to ask for, rather than a capability they happen to hold."""
     return service.MANAGE_CAPABILITY in principal.capabilities
 
 

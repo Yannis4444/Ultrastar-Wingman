@@ -1,7 +1,7 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { type ReactNode, useEffect, useState } from "react";
 import { Link } from "react-router-dom";
-import { importSummary } from "../achievements";
+import { importSummary, MANAGE_CATALOGUE } from "../achievements";
 import type {
   AchievementImportResult,
   AchievementList,
@@ -360,17 +360,22 @@ function ExportPanel({
  * made, then the seventeen Wingman brings with it. A row leads into the editor;
  * the header's `+` starts a new one.
  *
- * Both lists come from the one `GET /achievements` every badge surface makes, so
- * the page costs nothing new — and a manager's copy of it carries each row's
- * `definition`, which is what the meta line counts.
+ * Both lists come from `GET /achievements?manage=true` — the managing answer,
+ * every hidden achievement spelled out and every row's `definition`, which is
+ * what the meta line counts. That is a request of its own, made only by this
+ * page and its editor: the listing every badge surface shares is masked for
+ * whoever asks, this one included, and is left exactly as it is.
  */
 export default function Achievements() {
   const auth = useAuth();
   const queryClient = useQueryClient();
   const allowed = auth.loaded && auth.can("achievements.manage");
 
+  // The managing copy: every hidden achievement spelled out and every row's
+  // definition, which is what this page edits and exports. Its own cache entry,
+  // so the masked listing every other surface reads is left alone.
   const catalogue = useQuery({
-    ...listAchievementsOptions(),
+    ...listAchievementsOptions(MANAGE_CATALOGUE),
     enabled: allowed,
   });
 
@@ -383,10 +388,18 @@ export default function Achievements() {
   const save = useMutation({
     ...updateAchievementSettingsMutation(),
     onSuccess: (settings) => {
-      queryClient.setQueryData<AchievementList>(
+      // Both entries, because `setQueryData` matches a key exactly: this page
+      // reads the managing one and every badge surface the masked one, and the
+      // same three settings ride along in both. The `achievements.changed` this
+      // PATCH broadcasts refetches them anyway — this is what keeps a browser
+      // whose socket is down from drawing badges by yesterday's toggle.
+      for (const key of [
+        listAchievementsQueryKey(MANAGE_CATALOGUE),
         listAchievementsQueryKey(),
-        (old) => (old === undefined ? old : { ...old, settings }),
-      );
+      ])
+        queryClient.setQueryData<AchievementList>(key, (old) =>
+          old === undefined ? old : { ...old, settings },
+        );
     },
   });
 

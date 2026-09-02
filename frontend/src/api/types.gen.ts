@@ -4593,9 +4593,29 @@ export type DeleteSongCommentResponse = DeleteSongCommentResponses[keyof DeleteS
 export type ListAchievementsData = {
     body?: never;
     path?: never;
-    query?: never;
+    query?: {
+        /**
+         * Manage
+         *
+         * Answer for the management page: every hidden achievement spelled out, and each row's definition. Takes `achievements.manage`.
+         */
+        manage?: boolean;
+    };
     url: '/api/v1/achievements';
 };
+
+export type ListAchievementsErrors = {
+    /**
+     * `manage=true` without `achievements.manage`.
+     */
+    403: unknown;
+    /**
+     * Validation Error
+     */
+    422: HttpValidationError;
+};
+
+export type ListAchievementsError = ListAchievementsErrors[keyof ListAchievementsErrors];
 
 export type ListAchievementsResponses = {
     /**

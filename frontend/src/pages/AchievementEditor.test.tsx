@@ -1,7 +1,9 @@
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { MemoryRouter, Route, Routes, useLocation } from "react-router-dom";
+import { MANAGE_CATALOGUE } from "../achievements";
 import type { AchievementRead, MeRead } from "../api";
+import { listAchievementsQueryKey } from "../api/@tanstack/react-query.gen";
 import {
   achievementRead,
   achievementSettings,
@@ -55,10 +57,14 @@ function renderEditor({
   path = "/user/achievements/a-golden",
   achievements = [achievementRead()],
   capabilities = MANAGER,
+  cached,
 }: {
   path?: string;
   achievements?: AchievementRead[];
   capabilities?: string[];
+  /** A managing listing already in the cache when the page opens — the browser
+   *  a manager used before whoever is reading now. */
+  cached?: AchievementRead[];
 } = {}) {
   getMe.mockResolvedValue(meResponse(capabilities, ACCOUNT));
   listAchievements.mockResolvedValue({
@@ -68,6 +74,11 @@ function renderEditor({
   const client = new QueryClient({
     defaultOptions: { queries: { retry: false } },
   });
+  if (cached !== undefined)
+    client.setQueryData(listAchievementsQueryKey(MANAGE_CATALOGUE), {
+      achievements: cached,
+      settings: achievementSettings(),
+    });
   return render(
     <QueryClientProvider client={client}>
       <MemoryRouter initialEntries={[path]}>
@@ -526,4 +537,32 @@ it("goes back to a glyph from a picture", async () => {
   expect(
     screen.getByRole("radiogroup", { name: "Colour" }),
   ).toBeInTheDocument();
+});
+
+it("asks for the managing copy of the catalogue", async () => {
+  renderEditor();
+
+  await screen.findByDisplayValue("Golden Voice");
+  // Without it the listing would come back masked, and the editor would open a
+  // hidden achievement on the stand-in words instead of its own.
+  expect(listAchievements).toHaveBeenCalledWith(
+    expect.objectContaining({ query: { manage: true } }),
+  );
+});
+
+it("draws no form for a reader who may not manage, warm cache or not", async () => {
+  // The other half of the same worry as on the list page: the managing entry
+  // outlives the manager who filled it, and this page seeds its draft off it
+  // during render. Nothing of it may reach the screen for the next person on
+  // that browser.
+  renderEditor({
+    cached: [achievementRead({ name: "Brave Soul", hidden: true })],
+    capabilities: ["songs.view"],
+  });
+
+  expect(
+    await screen.findByText(/Achievements are looked after by the host/),
+  ).toBeInTheDocument();
+  expect(screen.queryByDisplayValue("Brave Soul")).not.toBeInTheDocument();
+  expect(screen.queryByText("Brave Soul")).not.toBeInTheDocument();
 });

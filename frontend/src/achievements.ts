@@ -58,6 +58,24 @@ export function achievementColorClass(color: string): string {
   return tagColorClass(color);
 }
 
+/**
+ * How the two management pages ask for the catalogue — and the only place in
+ * the app that asks this way.
+ *
+ * `GET /achievements` is masked for **everybody**: a `hidden` achievement the
+ * caller's own player has not earned comes back blank, an administrator and the
+ * host screen included, because the same listing feeds the user page and the TV
+ * and holding `achievements.manage` is not the same as using it
+ * (achievements.md, *Hidden achievements*). `?manage=true` is the other answer —
+ * every row whole, plus its `definition` — and takes the capability, else 403.
+ *
+ * It is a query of its own, so the masked catalogue and the managing one are two
+ * cache entries rather than one overwriting the other. `invalidateQueries` on
+ * the bare `listAchievementsQueryKey()` still reaches both — it matches keys
+ * partially — but a `setQueryData` has to name this one.
+ */
+export const MANAGE_CATALOGUE = { query: { manage: true } } as const;
+
 /** What a masked row is called, since its own name is what is being kept back. */
 export const MASKED_NAME = "Hidden achievement";
 

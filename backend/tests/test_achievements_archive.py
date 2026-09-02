@@ -189,7 +189,11 @@ async def upload(client: AsyncClient, data: bytes) -> Any:
 
 
 async def catalogue(client: AsyncClient) -> list[dict[str, Any]]:
-    response = await client.get("/api/v1/achievements")
+    """The managing copy — `manage=true`, behind `achievements.manage`. What an import stored
+    is read the way the achievements page reads it: every row whole, definition included.
+    Without it a hidden achievement comes back blank and a definition comes back `None`, for
+    a manager as much as for anybody (`achievements/api.py`)."""
+    response = await client.get("/api/v1/achievements", params={"manage": "true"})
     assert response.status_code == 200, response.text
     rows: list[dict[str, Any]] = response.json()["achievements"]
     return rows

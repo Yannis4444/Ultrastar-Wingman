@@ -5,9 +5,11 @@ phone draw badges. Writing takes `achievements.manage`, and the matrix in
 `test_permissions.py` is what proves the five write routes really demand it.
 
 The half worth the most attention here is the masking. `hidden` is enforced by the API and
-never by the UI, so it is checked from all three sides — the manager who has to be able to
-edit the thing, the player who has earned it, and the stranger who must learn nothing about
-it but that a locked slot is there.
+never by the UI, so it is checked from all four sides — the management page, which has to be
+able to edit the thing and says so with `manage=true`; the player who has earned it; the
+stranger who must learn nothing about it but that a locked slot is there; and the
+administrator who is merely *reading*, on their own user page or on the TV, and gets the
+stranger's answer because holding the capability is not the same as using it.
 """
 
 from collections.abc import AsyncIterator
@@ -107,8 +109,11 @@ async def party(bootstrap_settings: BootstrapSettings) -> AsyncIterator[Party]:
                 await client.aclose()
 
 
-async def catalogue(client: AsyncClient) -> list[dict[str, Any]]:
-    response = await client.get("/api/v1/achievements")
+async def catalogue(client: AsyncClient, *, manage: bool = False) -> list[dict[str, Any]]:
+    """`manage=True` is the management page's answer — every row whole and its definition —
+    and takes `achievements.manage`. Everything else gets the masked one, whatever it holds."""
+    query = {"manage": "true"} if manage else None
+    response = await client.get("/api/v1/achievements", params=query)
     assert response.status_code == 200, response.text
     rows: list[dict[str, Any]] = response.json()["achievements"]
     return rows
@@ -177,7 +182,7 @@ async def test_the_seventeen_built_ins_are_seeded_in_order(party: Party) -> None
 async def test_every_built_in_definition_is_one_the_engine_can_read(party: Party) -> None:
     """The seed is hand-written JSON, so the models are what stand between a typo in it and
     seventeen badges nobody can earn."""
-    for row in await catalogue(party["admin"]):
+    for row in await catalogue(party["admin"], manage=True):
         assert row["definition"], row["id"]
         for condition in row["definition"]:
             Condition.model_validate(condition)
@@ -413,7 +418,9 @@ async def test_a_hidden_achievement_gives_away_no_version_of_the_picture_it_has(
     )
 
     (blank,) = [one for one in await catalogue(party["anonymous"]) if one["id"] == created["id"]]
-    (whole,) = [one for one in await catalogue(party["admin"]) if one["id"] == created["id"]]
+    (whole,) = [
+        one for one in await catalogue(party["admin"], manage=True) if one["id"] == created["id"]
+    ]
 
     assert blank["has_image"] is False
     assert blank["icon_version"] is None
@@ -616,11 +623,15 @@ async def test_a_hidden_achievement_is_whole_for_the_player_who_earned_it(party:
     assert theirs["name"] == ""
 
 
-async def test_a_manager_sees_every_hidden_achievement_and_its_definition(party: Party) -> None:
-    """Somebody has to be able to write the thing."""
+async def test_the_management_page_sees_every_hidden_achievement_and_its_definition(
+    party: Party,
+) -> None:
+    """Somebody has to be able to write the thing — and asking is what says they are."""
     created = await create(party["admin"], **SECRET)
 
-    (row,) = [one for one in await catalogue(party["admin"]) if one["id"] == created["id"]]
+    (row,) = [
+        one for one in await catalogue(party["admin"], manage=True) if one["id"] == created["id"]
+    ]
 
     assert row["name"] == "Brave Soul"
     (condition,) = row["definition"]
@@ -629,6 +640,70 @@ async def test_a_manager_sees_every_hidden_achievement_and_its_definition(party:
         "<=",
         2000,
     )
+
+
+async def test_a_manager_who_did_not_ask_to_manage_is_masked_like_anybody_else(
+    party: Party,
+) -> None:
+    """The bug this is here for: the administrator and the host screen hold every capability
+    and read this very listing on the user page and on the TV. A hidden achievement spelled
+    out there is the surprise gone for the whole room, so holding the capability unmasks
+    nothing — only using it does."""
+    created = await create(party["admin"], **SECRET)
+    await add_player(party, "admin", "Yannis")
+
+    (row,) = [one for one in await catalogue(party["admin"]) if one["id"] == created["id"]]
+
+    assert row["name"] == ""
+    assert row["description"] == ""
+    assert row["icon"] is None
+    assert row["has_image"] is False
+    assert row["definition"] is None
+
+
+async def test_earning_it_reveals_it_to_a_manager_too(party: Party) -> None:
+    """The unmasking rule is one rule for everybody: the caller's own player has it."""
+    created = await create(party["admin"], **SECRET)
+    await award(party, created["id"], await add_player(party, "admin", "Yannis"))
+
+    (row,) = [one for one in await catalogue(party["admin"]) if one["id"] == created["id"]]
+
+    assert row["name"] == "Brave Soul"
+    # Revealed, not managed: what it asks for still takes asking to manage.
+    assert row["definition"] is None
+
+
+async def test_asking_to_manage_without_the_capability_is_refused(party: Party) -> None:
+    """Not "masked anyway": a listing that quietly ignored the question would tell a client
+    nothing about why it got a locked slot back."""
+    await create(party["admin"], **SECRET)
+
+    for identity in ("anonymous", "user", "trusted"):
+        response = await party[identity].get("/api/v1/achievements", params={"manage": "true"})
+        assert response.status_code == 403, identity
+        assert response.json()["detail"] == "missing_permission:achievements.manage"
+
+
+async def test_the_host_screen_is_masked_like_anybody_else(party: Party) -> None:
+    """The other caller that holds every capability without ever managing anything: the host
+    session is trusted by device and is an administrator (`auth/deps.py`), and the stage
+    reads this very catalogue. A hidden achievement spelled out on the projector is the
+    surprise gone for the whole room, so the TV gets the stranger's answer — it is nobody's
+    player and has earned nothing."""
+    created = await create(party["admin"], **SECRET)
+    await add_session(party.factory, "host-token", None, is_host=True)
+    host = _client(party.app, "host-token")
+    try:
+        (row,) = [one for one in await catalogue(host) if one["id"] == created["id"]]
+
+        assert row["name"] == ""
+        assert row["definition"] is None
+        # It could ask — it holds the capability — and nothing on the stage does.
+        assert (
+            await host.get("/api/v1/achievements", params={"manage": "true"})
+        ).status_code == 200
+    finally:
+        await host.aclose()
 
 
 async def test_a_players_badges_are_masked_over_that_player_not_the_reader(party: Party) -> None:
@@ -661,16 +736,20 @@ async def test_a_players_badges_are_masked_over_that_player_not_the_reader(party
         )
         await session.commit()
 
-    response = await party["user"].get(f"/api/v1/players/{player_id}/achievements")
+    # A manager reading it is a reader like any other: a singer's record is not something to
+    # manage, and this is the page an administrator's own phone opens.
+    for identity in ("user", "anonymous", "admin"):
+        response = await party[identity].get(f"/api/v1/players/{player_id}/achievements")
 
-    assert response.status_code == 200, response.text
-    rows = {row["achievement_id"]: row for row in response.json()["achievements"]}
-    assert rows[secret["id"]]["achievement"]["name"] == ""
-    assert rows[secret["id"]]["progress_current"] is None
-    assert rows[secret["id"]]["progress_target"] is None
-    # An achievement that is not hidden keeps its bar.
-    assert rows[open_one["id"]]["progress_current"] == 3
-    assert rows[open_one["id"]]["progress_target"] == 10
+        assert response.status_code == 200, response.text
+        rows = {row["achievement_id"]: row for row in response.json()["achievements"]}
+        assert rows[secret["id"]]["achievement"]["name"] == "", identity
+        assert rows[secret["id"]]["achievement"]["definition"] is None, identity
+        assert rows[secret["id"]]["progress_current"] is None, identity
+        assert rows[secret["id"]]["progress_target"] is None, identity
+        # An achievement that is not hidden keeps its bar.
+        assert rows[open_one["id"]]["progress_current"] == 3, identity
+        assert rows[open_one["id"]]["progress_target"] == 10, identity
 
 
 async def test_a_players_badges_are_whole_once_they_are_earned(party: Party) -> None:

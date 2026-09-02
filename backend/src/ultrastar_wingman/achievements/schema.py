@@ -179,9 +179,10 @@ class AchievementRead(BaseModel):
     enabled: bool
     built_in: bool
     sort_order: int
-    # Filled for a caller who holds `achievements.manage`, None for everybody else, exactly
-    # like `TagRead.permissions`. What a hidden achievement asks for is the surprise
-    # `hidden` exists to keep.
+    # Filled for the management page — `GET /achievements?manage=true`, which takes
+    # `achievements.manage` — and None for every other answer, exactly like
+    # `TagRead.permissions`. What a hidden achievement asks for is the surprise `hidden`
+    # exists to keep, so it is not handed to the user page of somebody who could edit it.
     definition: list[Condition] | None = None
 
 
@@ -255,8 +256,9 @@ def read_achievement(
     badge (the colour, the sort order, that it exists at all), which is what lets the UI draw
     a locked slot without knowing what is behind it.
 
-    `definition` is handed only to a caller holding `achievements.manage`. It says what a
-    hidden achievement asks for, which is the surprise itself.
+    `definition` is handed only to the management page — `GET /achievements?manage=true`,
+    behind `achievements.manage`. It says what a hidden achievement asks for, which is the
+    surprise itself, so a manager reading a singer-facing listing does not get it either.
     """
     return AchievementRead(
         id=achievement.id,

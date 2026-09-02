@@ -1,7 +1,9 @@
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { MemoryRouter } from "react-router-dom";
+import { MANAGE_CATALOGUE } from "../achievements";
 import type { AchievementRead, AchievementSettings, MeRead } from "../api";
+import { listAchievementsQueryKey } from "../api/@tanstack/react-query.gen";
 import {
   achievementRead,
   achievementSettings,
@@ -501,4 +503,45 @@ it("says what the backend refused about an archive it would not make", async () 
   );
   // Still open, with the choice intact: the reader has something to fix.
   expect(pickerRows()).toHaveLength(1);
+});
+
+it("asks for the managing copy of the catalogue", async () => {
+  renderPage();
+
+  await screen.findByText("Golden Voice");
+  // `GET /achievements` is masked for everybody now, an administrator reading
+  // their own user page included — a hidden achievement spelled out there is the
+  // surprise gone. This page is the one that says it is managing, and the 403
+  // for anybody who is not is the backend's.
+  expect(listAchievements).toHaveBeenCalledWith(
+    expect.objectContaining({ query: { manage: true } }),
+  );
+});
+
+it("draws nothing of the managing catalogue a manager left in the cache", async () => {
+  // The browser an administrator used and then logged out of: the managing
+  // entry is still in memory, unmasked, and whoever signs in next may not
+  // manage anything. `enabled` only stops the *request* — a disabled query
+  // still hands back the data it has — so the render gate is what keeps a
+  // hidden achievement's name off this page.
+  getMe.mockResolvedValue(meResponse(["songs.view"], ACCOUNT));
+  const client = new QueryClient({
+    defaultOptions: { queries: { retry: false } },
+  });
+  client.setQueryData(listAchievementsQueryKey(MANAGE_CATALOGUE), {
+    achievements: [achievementRead({ name: "Brave Soul", hidden: true })],
+    settings: achievementSettings(),
+  });
+  render(
+    <QueryClientProvider client={client}>
+      <MemoryRouter initialEntries={["/user/achievements"]}>
+        <Achievements />
+      </MemoryRouter>
+    </QueryClientProvider>,
+  );
+
+  expect(
+    await screen.findByText(/Achievements are looked after by the host/),
+  ).toBeInTheDocument();
+  expect(screen.queryByText("Brave Soul")).not.toBeInTheDocument();
 });

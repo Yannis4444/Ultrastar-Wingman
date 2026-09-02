@@ -16,7 +16,11 @@ import {
   setAchievementIconMutation,
   updateAchievementMutation,
 } from "../api/@tanstack/react-query.gen";
-import { achievementGlyph, conditionProblem } from "../achievements";
+import {
+  achievementGlyph,
+  conditionProblem,
+  MANAGE_CATALOGUE,
+} from "../achievements";
 import { useAuth } from "../auth";
 import AchievementBadge from "../components/AchievementBadge";
 import ConditionBuilder from "../components/ConditionBuilder";
@@ -102,12 +106,13 @@ export default function AchievementEditor() {
   const allowed = auth.loaded && auth.can("achievements.manage");
 
   const catalogue = useQuery({
-    ...listAchievementsOptions(),
+    ...listAchievementsOptions(MANAGE_CATALOGUE),
     enabled: allowed,
   });
 
-  // There is no GET /achievements/{id}: the listing is the one request, and a
-  // manager's copy of it carries every row's definition.
+  // There is no GET /achievements/{id}: the listing is the one request, and the
+  // managing copy of it carries every row's definition — and the name of a
+  // hidden one, which this page has to be able to show.
   const found = catalogue.data?.achievements.find(
     (achievement) => achievement.id === achievementId,
   );
@@ -318,7 +323,9 @@ export default function AchievementEditor() {
         // has its achievement whether or not React kept this component mounted
         // and whether or not the refetch below has landed.
         queryClient.setQueryData<AchievementList>(
-          listAchievementsQueryKey(),
+          // The managing entry, the one this page reads: `setQueryData` matches
+          // a key exactly, so the bare one would land in the masked listing.
+          listAchievementsQueryKey(MANAGE_CATALOGUE),
           (old) =>
             old === undefined
               ? old

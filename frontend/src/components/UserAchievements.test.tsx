@@ -275,3 +275,14 @@ it("leaves the record alone when somebody else earned something", async () => {
 
   await waitFor(() => expect(listPlayerAchievements).toHaveBeenCalledTimes(1));
 });
+
+it("asks for the catalogue as a singer, never as a manager", async () => {
+  renderSection([achievementRead()], []);
+
+  await screen.findByText("Golden Voice");
+  // The singer's own page, drawn from the same listing the management page reads
+  // — and this is the one the administrator opens on their phone. Asking to
+  // manage here is what spelled a hidden achievement out for them.
+  for (const [options] of listAchievements.mock.calls)
+    expect(options?.query?.manage).toBeUndefined();
+});

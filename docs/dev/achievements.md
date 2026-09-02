@@ -178,18 +178,35 @@ a lie.
 
 `hidden` is enforced by the API, not by the UI. `GET /achievements` blanks
 `name`, `description` and `icon` (and `has_image` / `icon_version`) on a hidden
-achievement the caller has not earned, unless the caller holds
-`achievements.manage`. A client that ignored the flag would otherwise spoil
-every surprise.
+achievement the caller has not earned. A client that ignored the flag would
+otherwise spoil every surprise.
 
 "The caller" is the caller's **own player**, resolved the way `stats/api.py`
 resolves one: an account linked to a player. A guest phone and the host screen
 have no player and have therefore earned nothing.
 
+That is the answer **everybody** gets, an administrator and the host screen
+included. Holding `achievements.manage` is not the same as using it: the same
+listing feeds the user page and the TV, and a hidden achievement spelled out
+there — on the phone of the one person who is always signed in as an
+administrator, or across the room on the projector — is the surprise gone for
+the whole party.
+
+Unmasking is therefore something a caller *asks* for:
+`GET /achievements?manage=true` answers with every row whole and every row's
+`definition`, takes `achievements.manage` (403 without it), and is asked for by
+exactly two surfaces — the achievements admin page and its editor
+(`achievements.MANAGE_CATALOGUE` in the frontend). It is a separate query, so
+the masked listing and the managing one are two cache entries rather than one
+overwriting the other.
+
 `GET /players/{id}/achievements` masks over the **subject** instead — it is
-that player's record, not the reader's — and nulls `progress_current` /
-`progress_target` on a masked row as well, because a bar that filled would say
-what the badge is for as loudly as its name would.
+that player's record, not the reader's, and a manager reading it is a reader
+like any other — and nulls `progress_current` / `progress_target` on a masked
+row as well, because a bar that filled would say what the badge is for as
+loudly as its name would. It carries no `definition` for anybody: what an
+achievement asks for is the management page's business, and that page reads the
+catalogue.
 
 `definition` is never in a masked row, and never on the event bus either: the
 bus is open to anonymous clients, and what a hidden achievement asks for is the
@@ -202,6 +219,13 @@ place where the rule is "once **anybody** has earned it" rather than "once the
 caller has": earning one announces it to every socket, and a phone drawing
 somebody else's badges has to be able to draw this one. A kept-back picture is
 the same 404 as no picture at all.
+
+It is also the one place where holding `achievements.manage` is still enough on
+its own, with no `manage=true` to ask with: an `<img>` src carries no query of
+the client's, and the management page has to be able to draw the picture of the
+achievement it is editing. Nothing leaks by it — a masked row answers
+`has_image: false`, so no singer-facing surface ever builds this URL for a
+hidden achievement.
 
 ## Settings
 

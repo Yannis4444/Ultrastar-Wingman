@@ -71,7 +71,9 @@ cannot be deleted.
 The seventeenth is hidden, so singers meet it as a padlock until somebody earns
 it — which is the whole joke, and why it is not written down here. The host
 sees it like any other on **User → Achievements**, and can switch it off there
-if the party would not find it funny.
+if the party would not find it funny — but *only* there. On the host's own
+badge list, and on the host screen, it is the same padlock everybody else gets:
+being able to edit a surprise is no reason to have it spoiled.
 
 "One party" means one evening — one run of Wingman, the same party the
 [Scores](statistics.md) tab lists.
