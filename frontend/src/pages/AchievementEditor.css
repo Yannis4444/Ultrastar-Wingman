@@ -62,11 +62,12 @@
 }
 
 /* ------------------------------------------------------------------ the foot
-   A built-in has no Delete; the line in its place says why, and under it stands
-   the Reset that is what a built-in has instead. The line keeps the air the
-   button would have had above it and gives its lower half to the Reset. */
+   Save and the other way out ride in the sticky `EditorActions` row, so what is
+   left here is the line that says what a built-in is — the last reading matter
+   of the form, ending it where a Delete used to stand. It keeps the air the
+   button had above it and leaves the space below to the row's own margin. */
 .achievement-builtin-note {
-  margin: 24px 16px 12px 16px;
+  margin: 24px 16px 0 16px;
 }
 
 /* A plain `.button` and never `.button-danger`: a reset restores rather than

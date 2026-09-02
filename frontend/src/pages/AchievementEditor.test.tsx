@@ -1,5 +1,11 @@
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import { fireEvent, render, screen, waitFor } from "@testing-library/react";
+import {
+  fireEvent,
+  render,
+  screen,
+  waitFor,
+  within,
+} from "@testing-library/react";
 import { MemoryRouter, Route, Routes, useLocation } from "react-router-dom";
 import { MANAGE_CATALOGUE } from "../achievements";
 import type { AchievementRead, MeRead } from "../api";
@@ -234,6 +240,27 @@ it("creates an achievement with exactly what the form was left on", async () => 
   ).toBeInTheDocument();
 });
 
+it("acknowledges a create in the row of the achievement it just made", async () => {
+  // The route changes, so React is free to remount the editor: the press is
+  // acknowledged through the navigation, never as "Nothing has changed yet."
+  // on the achievement it has this second created.
+  const made = achievementRead({ id: "a-new", name: "Karaoke Hero" });
+  createAchievement.mockResolvedValue({ data: made });
+  renderEditor({ path: "/user/achievements/new", achievements: [made] });
+
+  await screen.findByLabelText("Name");
+  fireEvent.change(screen.getByLabelText("Name"), {
+    target: { value: "Karaoke Hero" },
+  });
+  fireEvent.click(screen.getByRole("button", { name: "Save" }));
+
+  expect(
+    await screen.findByText("at /user/achievements/a-new"),
+  ).toBeInTheDocument();
+  expect(await screen.findByText("Saved")).toBeInTheDocument();
+  expect(screen.queryByText("Nothing has changed yet.")).toBeNull();
+});
+
 it("sends only the fields that changed", async () => {
   updateAchievement.mockResolvedValue({
     data: achievementRead({ name: "Silver Voice" }),
@@ -294,6 +321,13 @@ it("refuses to save a condition the backend would reject", async () => {
     await screen.findByText(/cannot be above .at most./),
   ).toBeInTheDocument();
   expect(screen.getByRole("button", { name: "Save" })).toBeDisabled();
+  // And the always-visible row says why, so a grey Save is never a mystery to
+  // somebody who has not scrolled back up to the condition.
+  expect(
+    screen.getByText(
+      "A condition above needs putting right before this can be saved.",
+    ),
+  ).toBeInTheDocument();
 
   // Put it right and the way out opens again.
   fireEvent.change(screen.getByLabelText("At most"), {
@@ -330,8 +364,47 @@ it("says nothing can be typed away without a name", async () => {
   renderEditor();
 
   await screen.findByDisplayValue("Golden Voice");
+  // Nothing touched yet, and the row says so rather than leaving a grey button
+  // to be guessed at.
+  expect(screen.getByText("Nothing has changed yet.")).toBeInTheDocument();
+
   fireEvent.change(screen.getByLabelText("Name"), { target: { value: "   " } });
   expect(screen.getByRole("button", { name: "Save" })).toBeDisabled();
+  expect(
+    screen.getByText("It needs a name before it can be saved."),
+  ).toBeInTheDocument();
+});
+
+it("keeps the action row to Save and Reset on a built-in", async () => {
+  renderEditor({ achievements: [builtIn()], path: BUILT_IN_PATH });
+
+  await screen.findByDisplayValue("Golden Voice");
+  const row = screen.getByRole("button", { name: "Save" }).parentElement!;
+  // One line, and the way out of a built-in is the reset — never a delete.
+  expect(
+    within(row).getByRole("button", { name: "Reset achievement" }),
+  ).toBeInTheDocument();
+  expect(
+    within(row).queryByRole("button", { name: "Delete achievement" }),
+  ).not.toBeInTheDocument();
+  // The line that says what a built-in is has not been orphaned by the buttons
+  // leaving the flow: it still ends the form.
+  expect(
+    screen.getByText(/one of the achievements Wingman brings with it/),
+  ).toBeInTheDocument();
+});
+
+it("keeps the action row to Save and Delete on an achievement the party made", async () => {
+  renderEditor();
+
+  await screen.findByDisplayValue("Golden Voice");
+  const row = screen.getByRole("button", { name: "Save" }).parentElement!;
+  expect(
+    within(row).getByRole("button", { name: "Delete achievement" }),
+  ).toBeInTheDocument();
+  expect(
+    within(row).queryByRole("button", { name: "Reset achievement" }),
+  ).not.toBeInTheDocument();
 });
 
 it("shows what the backend refused", async () => {
@@ -349,6 +422,13 @@ it("shows what the backend refused", async () => {
   expect(await screen.findByRole("alert")).toHaveTextContent(
     "value is not a valid integer",
   );
+  // Save can be pressed from anywhere in a long form now, so the row it was
+  // pressed in has to say the press went nowhere and where the sentence is.
+  expect(
+    await screen.findByText(
+      "It did not go through — the message at the top of the page says why.",
+    ),
+  ).toBeInTheDocument();
 });
 
 it("shows what a pattern the models refused was wrong with", async () => {

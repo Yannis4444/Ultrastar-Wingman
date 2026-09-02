@@ -263,22 +263,10 @@
   padding: 4px 8px;
 }
 
-/* ------------------------------------------------------------------- foot */
-.tag-editor-save {
-  display: flex;
-  gap: 12px;
-  align-items: center;
-  margin: 24px 16px 0 16px;
-}
-
-.tag-editor-saved {
-  font-size: 0.85em;
-  color: var(--highlight-blue-light);
-}
-
-.tag-editor-delete {
-  margin: 24px 16px;
-}
+/* ------------------------------------------------------------------- foot
+   Save, what it is doing, and Delete are the shared `EditorActions` row stuck
+   to the bottom of the screen (`components/EditorActions.css`) — this page has
+   nothing of its own left down there. */
 
 @media (prefers-reduced-motion: reduce) {
   .tag-colour-text {

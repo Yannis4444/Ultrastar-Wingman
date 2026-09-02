@@ -70,6 +70,7 @@ function renderBuilderWith(value: Condition) {
     </QueryClientProvider>,
   );
   return {
+    container: view.container,
     rerender: (next: Condition) =>
       view.rerender(
         <QueryClientProvider client={client}>
@@ -321,6 +322,70 @@ describe("the song rules", () => {
     });
 
     expect(emitted(onChange).match?.combine).toBe("any");
+  });
+
+  it("gives every rule its own index and its own way off", () => {
+    const { container } = renderBuilderWith(
+      condition({
+        match: {
+          combine: "all",
+          clauses: [
+            { field: "title", op: "contains", value: "love" },
+            { field: "artist", op: "equals", value: "Toto" },
+            { field: "year", op: ">=", value: 1990 },
+          ],
+        },
+      }),
+    );
+
+    // Three rules, each numbered, so which field, test and value belong
+    // together is on the screen and not a matter of counting selects.
+    expect(
+      [...container.querySelectorAll(".condition-clause-index")].map(
+        (element) => element.textContent,
+      ),
+    ).toEqual(["Rule 1", "Rule 2", "Rule 3"]);
+
+    // And each rule's controls sit inside that rule, under its own head.
+    const rules = [
+      ...container.querySelectorAll<HTMLElement>(".condition-clause"),
+    ];
+    expect(rules).toHaveLength(3);
+    for (const [position, rule] of rules.entries()) {
+      const name = `Song rule ${position + 1}`;
+      expect(within(rule).getByLabelText(`${name} field`)).toBeVisible();
+      expect(within(rule).getByLabelText(`${name} test`)).toBeVisible();
+      expect(within(rule).getByLabelText(`${name} value`)).toBeVisible();
+      expect(
+        within(rule).getByRole("button", {
+          name: `Remove ${name.toLowerCase()}`,
+        }),
+      ).toBeVisible();
+    }
+  });
+
+  it("keeps the all/any switch outside the rules it governs", () => {
+    const { container } = renderBuilderWith(MATCHING);
+
+    // It is the list's header, not the first rule's field: no rule contains it.
+    const combine = screen.getByLabelText("Songs have to match");
+    for (const rule of container.querySelectorAll<HTMLElement>(
+      ".condition-clause",
+    ))
+      expect(rule).not.toContainElement(combine);
+    // And the list it heads is only drawn once there is a rule in it.
+    expect(container.querySelector(".condition-clauses")).not.toBeNull();
+  });
+
+  it("draws no rule list at all while there is no rule", () => {
+    const { container } = renderBuilderWith(
+      condition({ match: { combine: "all", clauses: [] } }),
+    );
+
+    expect(container.querySelector(".condition-clauses")).toBeNull();
+    expect(
+      screen.getByRole("button", { name: "Add song rule" }),
+    ).toBeInTheDocument();
   });
 
   it("offers only the operators the field takes", () => {

@@ -1,6 +1,6 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useMemo, useState } from "react";
-import { Link, useNavigate, useParams } from "react-router-dom";
+import { Link, useLocation, useNavigate, useParams } from "react-router-dom";
 import type {
   AchievementList,
   AchievementRead,
@@ -26,6 +26,7 @@ import { useAuth } from "../auth";
 import AchievementBadge from "../components/AchievementBadge";
 import ConditionBuilder from "../components/ConditionBuilder";
 import ConfirmModal from "../components/ConfirmModal";
+import EditorActions from "../components/EditorActions";
 import { Icon, PICKER_ICON_NAMES } from "../components/icons";
 import Loading from "../components/Loading";
 import PageHeader from "../components/PageHeader";
@@ -108,6 +109,14 @@ export default function AchievementEditor() {
   const navigate = useNavigate();
   const auth = useAuth();
   const allowed = auth.loaded && auth.can("achievements.manage");
+
+  // A create ends on the achievement it made, at a route of its own — so React
+  // is free to remount this component and the fact that the press landed has to
+  // travel with the navigation rather than in a `useState`. Without it the row
+  // falls through to "Nothing has changed yet." on the achievement that press
+  // has just made, which reads as a Save that did nothing.
+  const justCreated =
+    (useLocation().state as { created?: boolean } | null)?.created === true;
 
   const catalogue = useQuery({
     ...listAchievementsOptions(MANAGE_CATALOGUE),
@@ -323,6 +332,32 @@ export default function AchievementEditor() {
     !builtIn &&
     conditions.some((condition) => conditionProblem(condition) !== null);
   const pending = creating || Object.keys(changes()).length > 0;
+  const blocked = trimmed === "" || broken || !pending || saving;
+  /** A save that landed: this one, or the create this page was arrived at by. */
+  const acknowledged = saved || (justCreated && !pending && !saving);
+
+  /** Why Save is grey, said in the action row that is always on screen — a
+   *  permanently visible disabled button that does not say why reads as a
+   *  broken app. In the order the reader would fix them, and "Saved" (which the
+   *  row says for itself) wins over the "nothing has changed" that is true of
+   *  the same moment.
+   *
+   *  The refusal from the backend is in the row too, as a pointer and not as a
+   *  copy: the `role="alert"` notice that carries the sentence itself is at the
+   *  head of the form, and now that Save can be pressed from anywhere in a form
+   *  this long, a press that goes nowhere with no word in the row is the same
+   *  broken app the line exists to prevent. */
+  const saveNote = saving
+    ? "Saving…"
+    : trimmed === ""
+      ? "It needs a name before it can be saved."
+      : broken
+        ? "A condition above needs putting right before this can be saved."
+        : error !== null
+          ? "It did not go through — the message at the top of the page says why."
+          : !pending && !acknowledged
+            ? "Nothing has changed yet."
+            : null;
 
   const save = async () => {
     if (trimmed === "" || broken || !pending) return;
@@ -364,8 +399,11 @@ export default function AchievementEditor() {
         refresh();
         // `replace`, so Back from the achievement that now exists leads to the
         // list rather than to an empty `new` form that would seed itself again.
+        // `created`, so the action row acknowledges the press on the other side
+        // of the navigation (`justCreated`).
         void navigate(`/user/achievements/${encodeURIComponent(made.id)}`, {
           replace: true,
+          state: { created: true },
         });
         return;
       }
@@ -398,7 +436,7 @@ export default function AchievementEditor() {
   const submit = () => {
     // The same door `save` keeps: a save that would turn straight around again
     // is nothing to press.
-    if (trimmed === "" || broken || !pending || saving) return;
+    if (blocked) return;
     void save();
   };
 
@@ -738,40 +776,36 @@ export default function AchievementEditor() {
                       }}
                     />
 
-                    <div className="tag-editor-save">
-                      <button
-                        type="submit"
-                        className="button button-primary"
-                        disabled={
-                          trimmed === "" || broken || !pending || saving
-                        }
-                      >
-                        Save
-                      </button>
-                      {/* An acknowledgement, not a state: the page stays where
-                          it is, so something has to say the save landed. */}
-                      {saved && (
-                        <span className="tag-editor-saved" role="status">
-                          Saved
-                        </span>
-                      )}
-                    </div>
-                  </form>
+                    {/* What a built-in is, and what the Reset in the row below
+                        will do. It stays in the flow and ends the form: it is
+                        reading matter rather than a control, and the press
+                        itself asks again through a `ConfirmModal` that names
+                        everything coming back. */}
+                    {!creating && builtIn && (
+                      <p className="tag-editor-hint achievement-builtin-note">
+                        This is one of the achievements Wingman brings with it.
+                        What it looks like is yours to change and it can be
+                        switched off, but its conditions are Wingman's own and
+                        it cannot be deleted — an instance always has the set it
+                        ships with. Reset puts the name, description, icon,
+                        colour, conditions and whether it is hidden back the way
+                        Wingman ships them; whether it is switched on stays as
+                        it is.
+                      </p>
+                    )}
 
-                  {!creating &&
-                    (builtIn ? (
-                      <>
-                        <p className="tag-editor-hint achievement-builtin-note">
-                          This is one of the achievements Wingman brings with
-                          it. What it looks like is yours to change and it can
-                          be switched off, but its conditions are Wingman's own
-                          and it cannot be deleted — an instance always has the
-                          set it ships with. Reset puts the name, description,
-                          icon, colour, conditions and whether it is hidden back
-                          the way Wingman ships them; whether it is switched on
-                          stays as it is.
-                        </p>
-                        <div className="tag-editor-delete">
+                    {/* Save and the other way out, on one line at the bottom of
+                        the screen: a form this long must never have to be
+                        scrolled to be saved. Inside the form, because Save is
+                        its submit button and because anything after it would
+                        end up below the row. */}
+                    <EditorActions
+                      note={saveNote}
+                      saved={acknowledged}
+                      saveDisabled={blocked}
+                    >
+                      {!creating &&
+                        (builtIn ? (
                           <button
                             type="button"
                             className="button achievement-reset"
@@ -781,20 +815,18 @@ export default function AchievementEditor() {
                             <Icon name="refresh" />
                             <span>Reset achievement</span>
                           </button>
-                        </div>
-                      </>
-                    ) : (
-                      <div className="tag-editor-delete">
-                        <button
-                          type="button"
-                          className="button button-danger"
-                          disabled={remove.isPending}
-                          onClick={() => setDeleting(true)}
-                        >
-                          Delete achievement
-                        </button>
-                      </div>
-                    ))}
+                        ) : (
+                          <button
+                            type="button"
+                            className="button button-danger"
+                            disabled={remove.isPending}
+                            onClick={() => setDeleting(true)}
+                          >
+                            Delete achievement
+                          </button>
+                        ))}
+                    </EditorActions>
+                  </form>
                 </>
               )}
             </>

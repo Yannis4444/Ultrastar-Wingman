@@ -1,0 +1,91 @@
+/* The action row of a full-page editor: the one primary Save, the line that
+   says what Save is doing or why it will not, and — when the editor has one —
+   the destructive or restoring action beside it.
+
+   It sticks to the bottom of the screen so a long form never has to be scrolled
+   to be saved. `position: sticky` and not `fixed`, the idiom the page's toolbars
+   already use (`Songs.css`, `Usdb.css`, `Settings.css`): the row is the last
+   thing in the form, so once the reader reaches the end of the form it settles
+   into its own place in the flow, and nothing can ever be left hidden behind
+   it. */
+.editor-actions {
+  position: sticky;
+
+  /* Exactly the bottom nav's own height — 50px plus the device's safe area,
+     the same term `#root` reserves in `index.css` — so the row sits directly
+     on top of the nav and never under it. The inset is counted once: it is
+     inside that term, and the nav below is what actually covers it. */
+  bottom: calc(50px + max(10px, env(safe-area-inset-bottom)));
+
+  /* Above the page's own content, below the bottom nav (1000) and well below a
+     modal backdrop (2000): a confirmation covers it, the nav is never covered
+     by it. */
+  z-index: 100;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+
+  /* Full-bleed: the page background is repainted (§2) because the form scrolls
+     underneath, and a side margin would let content show past the row's edges.
+     The gutter is the padding instead. */
+  margin: 24px 0 0 0;
+  padding: 8px 16px;
+  background-color: var(--bg);
+  border-top: 1px solid var(--input-border-color);
+}
+
+/* One line, always: Save at the reading edge and the danger or reset action at
+   the far one, so the two are never adjacent under a thumb. `space-between`
+   rather than a margin trick — with Save alone it simply sits where it is. */
+.editor-actions-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  align-items: center;
+  justify-content: space-between;
+}
+
+/* A permanently visible Save has to say why it is off without the reader
+   scrolling for it, and a save that landed has to be acknowledged; both are
+   one quiet line in the same slot. `:empty` because the slot is a live region
+   that stays in the document — an empty `<p>` would otherwise keep the row's
+   4px gap and a screen reader might miss a region that appears with its text. */
+.editor-actions-note {
+  margin: 0;
+  font-size: 0.85em;
+  color: var(--color-darker);
+}
+
+.editor-actions-note:empty {
+  display: none;
+}
+
+/* The acknowledgement is the accent, the refusals stay quiet. */
+.editor-actions-saved {
+  color: var(--highlight-blue-light);
+}
+
+/* A row stuck to the bottom edge hides whatever the browser scrolls *to* that
+   edge — tabbing forwards through a long form, or a phone lifting a focused box
+   above its keyboard. The mirror of `Settings.css`'s `scroll-margin-top`, and
+   like it the margin has to sit on the focusable itself, the scroll being
+   computed from that element.
+
+   Three terms, and every one of them is needed: the nav the row rides on (the
+   same expression the row sticks at), the row itself at its tallest — a note
+   line over a 40px button, 100px — and 40px for the control's own height (plus
+   8px of air),
+   because the focusable of a radio pill is the `.visually-hidden` input at the
+   *top* edge of a 40px label and the browser scrolls that 1px box, not the
+   label the reader is looking at. Leaving a term out is not a rounding error:
+   Chrome honours the margin exactly, so 96px parked a focused control at 96px
+   off the bottom, which is squarely behind this row.
+
+   The two pages that carry the row name themselves here rather than every form
+   in the app paying for it. */
+.achievement-editor :is(input, select, textarea, button, summary, a),
+.tag-editor :is(input, select, textarea, button, summary, a) {
+  scroll-margin-bottom: calc(
+    50px + max(10px, env(safe-area-inset-bottom)) + 148px
+  );
+}

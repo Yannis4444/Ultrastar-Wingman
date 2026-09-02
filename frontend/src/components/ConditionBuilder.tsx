@@ -508,7 +508,10 @@ export default function ConditionBuilder({
 
             {mode === "match" && (
               <>
-                <label className="condition-field">
+                {/* The switch for the whole list, above the list's own rule
+                    and outside the indent the rules sit in — it governs all of
+                    them, not the first one. */}
+                <label className="condition-field condition-combine">
                   <span>Songs have to match</span>
                   <select
                     className="text-input text-input-quiet"
@@ -531,129 +534,147 @@ export default function ConditionBuilder({
                   </select>
                 </label>
 
-                <ul className="condition-clauses">
-                  {clauses.map((clause, position) => {
-                    const kind = SELECTOR_FIELD_KINDS[clause.field];
-                    const name = `Song rule ${position + 1}`;
-                    const replace = (next: SelectorClause) =>
-                      setClauses(
-                        index,
-                        clauses.map((other, i) =>
-                          i === position ? next : other,
-                        ),
+                {clauses.length > 0 && (
+                  <ul className="condition-clauses">
+                    {clauses.map((clause, position) => {
+                      const kind = SELECTOR_FIELD_KINDS[clause.field];
+                      const name = `Song rule ${position + 1}`;
+                      const replace = (next: SelectorClause) =>
+                        setClauses(
+                          index,
+                          clauses.map((other, i) =>
+                            i === position ? next : other,
+                          ),
+                        );
+
+                      return (
+                        <li key={position} className="condition-clause">
+                          {/* Which rule this is and the way off it, the
+                              `.condition-head` idiom one level down: the three
+                              controls below it are then plainly this rule's and
+                              the value gets the whole width to be read in. */}
+                          <div className="condition-clause-head">
+                            <span className="condition-clause-index">
+                              Rule {position + 1}
+                            </span>
+                            <button
+                              type="button"
+                              className="icon-button icon-button-danger"
+                              aria-label={`Remove ${name.toLowerCase()}`}
+                              onClick={() =>
+                                setClauses(
+                                  index,
+                                  clauses.filter((_, i) => i !== position),
+                                )
+                              }
+                            >
+                              <Icon name="close" />
+                            </button>
+                          </div>
+
+                          <div className="condition-clause-controls">
+                            <select
+                              className="text-input text-input-quiet condition-clause-field"
+                              aria-label={`${name} field`}
+                              value={clause.field}
+                              onChange={(event) => {
+                                const field = event.target
+                                  .value as SelectorClause["field"];
+                                replace({
+                                  field,
+                                  op: selectorOpFor(field, clause.op),
+                                  value: valueFor(field, clause.value),
+                                });
+                              }}
+                            >
+                              {SELECTOR_FIELDS.map((field) => (
+                                <option key={field} value={field}>
+                                  {SELECTOR_FIELD_LABELS[field]}
+                                </option>
+                              ))}
+                            </select>
+
+                            <select
+                              className="text-input text-input-quiet condition-clause-op"
+                              aria-label={`${name} test`}
+                              value={clause.op}
+                              onChange={(event) =>
+                                replace({
+                                  ...clause,
+                                  op: event.target
+                                    .value as SelectorClause["op"],
+                                })
+                              }
+                            >
+                              {SELECTOR_FIELD_OPS[clause.field].map((op) => (
+                                <option key={op} value={op}>
+                                  {SELECTOR_OP_LABELS[op]}
+                                </option>
+                              ))}
+                            </select>
+
+                            {kind === "boolean" ? (
+                              <select
+                                className="text-input text-input-quiet condition-clause-value"
+                                aria-label={`${name} value`}
+                                value={clause.value === true ? "yes" : "no"}
+                                onChange={(event) =>
+                                  replace({
+                                    ...clause,
+                                    value: event.target.value === "yes",
+                                  })
+                                }
+                              >
+                                <option value="yes">Yes</option>
+                                <option value="no">No</option>
+                              </select>
+                            ) : kind === "number" ? (
+                              <NumberField
+                                label={`${name} value`}
+                                hideLabel
+                                className="condition-clause-value"
+                                value={
+                                  typeof clause.value === "number"
+                                    ? clause.value
+                                    : 0
+                                }
+                                whenEmpty={0}
+                                onChange={(next) =>
+                                  replace({ ...clause, value: next ?? 0 })
+                                }
+                              />
+                            ) : (
+                              <input
+                                className="text-input text-input-quiet condition-clause-value"
+                                aria-label={`${name} value`}
+                                /* The one operator whose box needs telling
+                                   apart: a pattern is not the words a title
+                                   contains, and an empty box is refused
+                                   rather than ignored. */
+                                placeholder={
+                                  clause.op === "regex" ? "^Love" : undefined
+                                }
+                                value={String(clause.value)}
+                                onChange={(event) =>
+                                  replace({
+                                    ...clause,
+                                    value: event.target.value,
+                                  })
+                                }
+                              />
+                            )}
+                          </div>
+                        </li>
                       );
+                    })}
+                  </ul>
+                )}
 
-                    return (
-                      <li key={position} className="condition-clause">
-                        <select
-                          className="text-input text-input-quiet condition-clause-field"
-                          aria-label={`${name} field`}
-                          value={clause.field}
-                          onChange={(event) => {
-                            const field = event.target
-                              .value as SelectorClause["field"];
-                            replace({
-                              field,
-                              op: selectorOpFor(field, clause.op),
-                              value: valueFor(field, clause.value),
-                            });
-                          }}
-                        >
-                          {SELECTOR_FIELDS.map((field) => (
-                            <option key={field} value={field}>
-                              {SELECTOR_FIELD_LABELS[field]}
-                            </option>
-                          ))}
-                        </select>
-
-                        <select
-                          className="text-input text-input-quiet condition-clause-op"
-                          aria-label={`${name} test`}
-                          value={clause.op}
-                          onChange={(event) =>
-                            replace({
-                              ...clause,
-                              op: event.target.value as SelectorClause["op"],
-                            })
-                          }
-                        >
-                          {SELECTOR_FIELD_OPS[clause.field].map((op) => (
-                            <option key={op} value={op}>
-                              {SELECTOR_OP_LABELS[op]}
-                            </option>
-                          ))}
-                        </select>
-
-                        {kind === "boolean" ? (
-                          <select
-                            className="text-input text-input-quiet condition-clause-value"
-                            aria-label={`${name} value`}
-                            value={clause.value === true ? "yes" : "no"}
-                            onChange={(event) =>
-                              replace({
-                                ...clause,
-                                value: event.target.value === "yes",
-                              })
-                            }
-                          >
-                            <option value="yes">Yes</option>
-                            <option value="no">No</option>
-                          </select>
-                        ) : kind === "number" ? (
-                          <NumberField
-                            label={`${name} value`}
-                            hideLabel
-                            className="condition-clause-value"
-                            value={
-                              typeof clause.value === "number"
-                                ? clause.value
-                                : 0
-                            }
-                            whenEmpty={0}
-                            onChange={(next) =>
-                              replace({ ...clause, value: next ?? 0 })
-                            }
-                          />
-                        ) : (
-                          <input
-                            className="text-input text-input-quiet condition-clause-value"
-                            aria-label={`${name} value`}
-                            /* The one operator whose box needs telling apart:
-                               a pattern is not the words a title contains, and
-                               an empty box is refused rather than ignored. */
-                            placeholder={
-                              clause.op === "regex" ? "^Love" : undefined
-                            }
-                            value={String(clause.value)}
-                            onChange={(event) =>
-                              replace({ ...clause, value: event.target.value })
-                            }
-                          />
-                        )}
-
-                        <button
-                          type="button"
-                          className="icon-button icon-button-danger"
-                          aria-label={`Remove ${name.toLowerCase()}`}
-                          onClick={() =>
-                            setClauses(
-                              index,
-                              clauses.filter((_, i) => i !== position),
-                            )
-                          }
-                        >
-                          <Icon name="close" />
-                        </button>
-                      </li>
-                    );
-                  })}
-                </ul>
-
-                {/* Under the list and not inside a clause: the clause is a
-                    flex row that wraps, and a third line of prose in it would
-                    fight the two selects for the basis. It appears only once a
+                {/* Under the list and not inside a rule: a third line of prose
+                    in one would fight the two selects for the basis, and it
+                    speaks for every pattern in the list. It appears only once a
                     pattern is actually being written — three sentences over
-                    every clause list would be noise on the four ordinary
+                    every rule list would be noise on the four ordinary
                     tests. */}
                 {clauses.some((clause) => clause.op === "regex") && (
                   <p className="condition-help">{REGEX_NOTE}</p>

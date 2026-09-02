@@ -125,6 +125,21 @@ exception). Tests identify glyphs with `iconNames()` from `src/test/icons.ts`.
   hover `--highlight-blue-dark` fill; `.icon-button-bordered` beside an input on the page
   background, `.icon-button-danger` for destructive. Always `aria-label`, `title` on
   toolbar-level buttons.
+- **The editor action row** (`components/EditorActions.tsx`) ends a full-page editor: one
+  sticky row on `--bg` under a hairline `border-top`, carrying the view's one primary Save,
+  one quiet 0.85em line, and the editor's other action — a danger Delete, a plain Reset — at
+  the far end of that same line. It sits **inside** the `<form>` (Save is its submit) and
+  sticks at `calc(50px + max(10px, env(safe-area-inset-bottom)))`, exactly the bottom nav's
+  own height, so it rides on the nav, counts the safe-area inset once, and settles into the
+  flow at the true end of the form — nothing is ever hidden behind it. The page's focusables
+  carry a matching `scroll-margin-bottom` the way `Settings.css` carries `scroll-margin-top`,
+  and it has to clear **the nav plus the row plus a control's own height**: the browser
+  honours the margin exactly and scrolls the focused element's own box, which for a radio pill
+  is the `visually-hidden` input at the top edge of its label. The quiet line is why a
+  permanently visible disabled Save does not read as a broken app: it says why Save will not
+  go — and, because Save can now be pressed from anywhere in the form, that a press went
+  nowhere and where the `role="alert"` sentence for it is — with *Saved* in
+  `--highlight-blue-light` when one landed.
 - **Text inputs, loud and quiet:** `.text-input` (16px radius, `--input-bg`, ≥40px) is for the
   page's one main control (the Songs search); `.text-input-quiet` (36px, hairline, transparent)
   is everything else — settings fields, selects, filters, forms. At most one loud input per
@@ -298,8 +313,8 @@ do it. Back is a `<Link>` to a fixed path (`backLink.ts` resolves a state-provid
   list" and "Hide songs by default", each with a one-line explanation of its effect on other
   people, the permission matrix (rows *See tag* / *See songs* / *Tag songs* × columns Guest /
   User / Trusted, admin always on), then "Specific people" — people-rows with the same three
-  checkboxes. Save is the page's one primary; an existing tag ends with a danger Delete whose
-  `ConfirmModal` says how many songs lose it. A **built-in** opens that editor on a reserved id
+  checkboxes. Save is the page's one primary and, with the danger Delete an existing tag has —
+  whose `ConfirmModal` says how many songs lose it — rides in the sticky action row of §4. A **built-in** opens that editor on a reserved id
   (`/user/tags/favorites`, `/user/tags/duet`, …) — one row idiom, one editor, and a 32-hex tag
   id cannot collide with a word. A mark keeps Colour and "Show in song list" (`heart` pink,
   `mic` blue, both shown in the list by default); a boolean facet those two plus "Show in
@@ -316,15 +331,22 @@ do it. Back is a `<Link>` to a fixed path (`backLink.ts` resolves a state-provid
   order: Name and Description (quiet inputs), Icon — the picker grid *or* the uploaded
   picture, never both, and an upload needs a saved achievement — Colour (radio pills),
   *Hidden until earned* and *Enabled* each with its explaining line, then Conditions as one
-  flat `ConditionBuilder` block apiece, every block headed by the plain sentence it means,
-  one primary Save gated on `conditionProblem`, and a danger Delete. A **built-in** keeps all
+  flat `ConditionBuilder` block apiece, every block headed by the plain sentence it means, and
+  §4's sticky action row — Save gated on `conditionProblem` (the row's line saying which of the
+  reasons is keeping it shut) with the danger Delete beside it. Inside a condition,
+  *Songs matching* reads as the list it is: the *All of them / Any of them* select is the
+  list's header, on the block's own gutter above the list's hairline, and each rule under it
+  is a group — *Rule 2* with the way off it on a head line of its own, the field, the test and
+  the value beneath, the lot indented behind a hairline rail, 8px inside a rule and 16px
+  between them, so no rule ever reads as the next one's. A **built-in** keeps all
   of that except its conditions: they are Wingman's own, so the builder is drawn **locked** —
   heading, sentence, a `lock` glyph where the remove button stands, no control at all — with
   one quiet `.section-note` line saying why: a form must say "you may not" before the press,
-  never as a refusal after it. Its foot swaps Delete for the line saying what a built-in is
-  and, under it, a plain `.button` **Reset achievement** (`refresh` — the app's reset glyph;
-  never `.button-danger`, a reset restores) whose `ConfirmModal` is `danger` (§5: a replace),
-  names what comes back and says the badges are worked out again.
+  never as a refusal after it. In the action row Delete gives way to a plain `.button`
+  **Reset achievement** (`refresh` — the app's reset glyph; never `.button-danger`, a reset
+  restores) whose `ConfirmModal` is `danger` (§5: a replace), names what comes back and says
+  the badges are worked out again; the line saying what a built-in is ends the form above the
+  row, where the reader meets it on the way down.
 - **Scores** opens on the session bar: the session's name and a `chevron-right` in one wide flat
   button, the rename `pencil` (`stats.manage`) beside it. The button opens a panel modal, never
   a `<select>` — a party is more than its name: one row per session, `aria-pressed` on the

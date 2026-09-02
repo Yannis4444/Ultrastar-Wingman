@@ -112,15 +112,20 @@ Both take whole seconds, 0 to 60.
 6. Add the **conditions** — what it actually takes.
 7. **Save**.
 
+**Save** and the way out of an achievement sit in one row at the bottom of the
+screen wherever you have scrolled to, so a long list of conditions never has to
+be scrolled back through to save it. When Save is grey, the line above it says
+why.
+
 Tap a row to open it again; everything about an achievement your party made is
-editable. **Delete achievement** at the foot removes it and everybody's badge
+editable. **Delete achievement**, beside Save, removes it and everybody's badge
 for it.
 
 One of the seventeen **included** ones opens in the same editor with two
 differences. Its conditions are shown as the sentences they mean rather than as
 boxes — what Wingman's own achievements ask for is the same everywhere, so there
-is nothing to fill in there. And in place of Delete it has **Reset
-achievement**:
+is nothing to fill in there. And where Delete would be, beside Save, it has
+**Reset achievement**:
 
 - **Reset** puts the name, description, icon, colour, conditions and whether it
   is *hidden until earned* back the way Wingman ships them, and removes an

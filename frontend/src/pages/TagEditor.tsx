@@ -1,6 +1,6 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useMemo, useState, type CSSProperties } from "react";
-import { Link, useNavigate, useParams } from "react-router-dom";
+import { Link, useLocation, useNavigate, useParams } from "react-router-dom";
 import type {
   BuiltInTagUpdate,
   PlayerRead,
@@ -20,6 +20,7 @@ import {
 } from "../api/@tanstack/react-query.gen";
 import { useAuth } from "../auth";
 import ConfirmModal from "../components/ConfirmModal";
+import EditorActions from "../components/EditorActions";
 import { Icon, PICKER_ICON_NAMES } from "../components/icons";
 import Loading from "../components/Loading";
 import PageHeader from "../components/PageHeader";
@@ -200,6 +201,14 @@ function RealTagEditor() {
   const auth = useAuth();
   const allowed = auth.loaded && auth.can("tags.manage");
 
+  // A create ends on the tag it made, at a route of its own — so React is free
+  // to remount this component and the fact that the press landed has to travel
+  // with the navigation rather than in a `useState`. Without it the row falls
+  // through to "Nothing has changed yet." on the tag that press has just made,
+  // which reads as a Save that did nothing.
+  const justCreated =
+    (useLocation().state as { created?: boolean } | null)?.created === true;
+
   const tags = useQuery({ ...listTagsOptions(), enabled: allowed });
 
   // There is no GET /tags/{id}: the listing is the one request, and it is the
@@ -375,6 +384,23 @@ function RealTagEditor() {
   const fieldsChanged = Object.keys(changes()).length > 0;
   const grantsChanged = !sameGrants(grants, baseGrants);
   const pending = creating || fieldsChanged || grantsChanged;
+  /** A save that landed: this one, or the create this page was arrived at by. */
+  const acknowledged = saved || (justCreated && !pending && !saving);
+
+  /** Why Save is grey, in the row that is always on screen: a disabled button
+   *  that does not say why reads as a broken app — and so is a Save that can be
+   *  pressed from anywhere in the form and goes nowhere without a word, which
+   *  is what the `error` line points at (the sentence itself is the
+   *  `role="alert"` notice at the head of the form, not a copy in here). */
+  const saveNote = saving
+    ? "Saving…"
+    : trimmed === ""
+      ? "It needs a name before it can be saved."
+      : error !== null
+        ? "It did not go through — the message at the top of the page says why."
+        : !pending && !acknowledged
+          ? "Nothing has changed yet."
+          : null;
 
   const save = async () => {
     if (trimmed === "" || !pending) return;
@@ -409,8 +435,11 @@ function RealTagEditor() {
         setSeeded(made.id);
         seedFrom(made);
         refresh();
+        // `created`, so the action row acknowledges the press on the other side
+        // of the navigation (`justCreated`).
         void navigate(`/user/tags/${encodeURIComponent(made.id)}`, {
           replace: true,
+          state: { created: true },
         });
         return;
       }
@@ -894,36 +923,28 @@ function RealTagEditor() {
                       </div>
                     )}
 
-                    <div className="tag-editor-save">
-                      <button
-                        type="submit"
-                        className="button button-primary"
-                        disabled={trimmed === "" || !pending || saving}
-                      >
-                        Save
-                      </button>
-                      {/* An acknowledgement, not a state: the page stays where
-                          it is, so something has to say the save landed. */}
-                      {saved && (
-                        <span className="tag-editor-saved" role="status">
-                          Saved
-                        </span>
+                    {/* Save and Delete on one line at the bottom of the screen,
+                        the shared row of every full-page editor. Inside the
+                        form: Save is its submit button, and anything after it
+                        would end up below the row once the reader reaches the
+                        foot. */}
+                    <EditorActions
+                      note={saveNote}
+                      saved={acknowledged}
+                      saveDisabled={trimmed === "" || !pending || saving}
+                    >
+                      {!creating && (
+                        <button
+                          type="button"
+                          className="button button-danger"
+                          disabled={remove.isPending}
+                          onClick={() => setDeleting(true)}
+                        >
+                          Delete tag
+                        </button>
                       )}
-                    </div>
+                    </EditorActions>
                   </form>
-
-                  {!creating && (
-                    <div className="tag-editor-delete">
-                      <button
-                        type="button"
-                        className="button button-danger"
-                        disabled={remove.isPending}
-                        onClick={() => setDeleting(true)}
-                      >
-                        Delete tag
-                      </button>
-                    </div>
-                  )}
                 </>
               )}
             </>
@@ -1207,22 +1228,21 @@ function BuiltInTagEditor({ builtInId }: { builtInId: BuiltInTagId }) {
                       )}
                     </div>
 
-                    <div className="tag-editor-save">
-                      <button
-                        type="submit"
-                        className="button button-primary"
-                        disabled={!pending || update.isPending}
-                      >
-                        Save
-                      </button>
-                      {/* An acknowledgement, not a state: the page stays where
-                          it is, so something has to say the save landed. */}
-                      {saved && (
-                        <span className="tag-editor-saved" role="status">
-                          Saved
-                        </span>
-                      )}
-                    </div>
+                    {/* The same sticky row as every other editor, with nothing
+                        beside Save: a built-in cannot be deleted. */}
+                    <EditorActions
+                      note={
+                        update.isPending
+                          ? "Saving…"
+                          : error !== null
+                            ? "It did not go through — the message at the top of the page says why."
+                            : !pending && !saved
+                              ? "Nothing has changed yet."
+                              : null
+                      }
+                      saved={saved}
+                      saveDisabled={!pending || update.isPending}
+                    />
                   </form>
                 </>
               )}
