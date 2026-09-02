@@ -351,6 +351,31 @@ it("shows what the backend refused", async () => {
   );
 });
 
+it("shows what a pattern the models refused was wrong with", async () => {
+  // The one refusal the form cannot make for itself: whether a pattern is one
+  // is Python's answer, so its words are what the page has to show.
+  updateAchievement.mockRejectedValue({
+    detail: [
+      {
+        type: "value_error",
+        loc: ["body", "definition", 0],
+        msg: "Value error, '(a+' is not a valid regular expression: missing ), unterminated subpattern at position 0",
+      },
+    ],
+  });
+  renderEditor();
+
+  await screen.findByDisplayValue("Golden Voice");
+  fireEvent.change(screen.getByLabelText("Name"), {
+    target: { value: "Live and loud" },
+  });
+  fireEvent.click(screen.getByRole("button", { name: "Save" }));
+
+  expect(await screen.findByRole("alert")).toHaveTextContent(
+    "'(a+' is not a valid regular expression",
+  );
+});
+
 it("names what a delete takes with it and then deletes", async () => {
   deleteAchievement.mockResolvedValue({ data: undefined });
   renderEditor();

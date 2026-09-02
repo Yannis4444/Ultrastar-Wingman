@@ -21,7 +21,14 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from ultrastar_wingman.achievements import service
 from ultrastar_wingman.achievements.evaluate import Outcome, ScoreRow, evaluate
 from ultrastar_wingman.achievements.model import Achievement, PlayerAchievement
-from ultrastar_wingman.achievements.schema import Condition, parse_definition
+from ultrastar_wingman.achievements.schema import (
+    MAX_PATTERN_LENGTH,
+    MAX_SUBJECT_LENGTH,
+    Condition,
+    SelectorClause,
+    SongSelector,
+    parse_definition,
+)
 from ultrastar_wingman.auth.model import as_utc
 from ultrastar_wingman.karaoke.model import Score, Sing
 from ultrastar_wingman.songs.model import Song
@@ -113,11 +120,141 @@ def test_a_condition_chooses_songs_by_ids_or_by_a_selector_but_not_both() -> Non
         {"field": "genre", "op": "equals", "value": True},
         # Only `equals` says anything about a yes/no field.
         {"field": "has_video", "op": "contains", "value": True},
+        # A pattern is a test on text and on nothing else.
+        {"field": "year", "op": "regex", "value": "19[0-9]{2}"},
+        {"field": "is_duet", "op": "regex", "value": True},
+        # And a pattern is text: a number or a yes/no is refused before anything tries to
+        # compile it, the way it is for the other three text operators.
+        {"field": "title", "op": "regex", "value": 1975},
+        {"field": "title", "op": "regex", "value": True},
     ],
 )
 def test_a_clause_its_field_cannot_answer_is_refused(clause: dict[str, Any]) -> None:
     with pytest.raises(ValidationError):
         condition(metric="number_of_scores", comparator=">=", value=1, match={"clauses": [clause]})
+
+
+@pytest.mark.parametrize(
+    "pattern",
+    [
+        # `re.search("", …)` matches everything, so an empty pattern is not a rule.
+        "",
+        # Past the cap. Perfectly compilable, and still not something anybody typed.
+        "a" * (MAX_PATTERN_LENGTH + 1),
+        # Python's own refusals, which are what makes the operator worth checking at all.
+        "(a+",
+        "[a-",
+        "*nope",
+        # Valid in some other dialect, not in Python's — the backend is the authority.
+        "(?<name>x)",
+        # Refused by `re.compile` with an `OverflowError` and not an `re.error`: fifteen
+        # characters that used to be a 500 at the API and an exception thrown out of
+        # `parse_definition`, whose contract is that it never throws one.
+        "(a){4294967296}",
+    ],
+)
+def test_a_pattern_python_cannot_read_is_refused_at_the_door(pattern: str) -> None:
+    """Every way in goes through these models, so this one refusal is the API's 422, the
+    archive's named rejection and a `PATCH`'s alike."""
+    with pytest.raises(ValidationError):
+        condition(
+            metric="number_of_scores",
+            comparator=">=",
+            value=1,
+            match={"clauses": [{"field": "title", "op": "regex", "value": pattern}]},
+        )
+
+
+def test_a_pattern_at_the_cap_is_still_accepted() -> None:
+    condition(
+        metric="number_of_scores",
+        comparator=">=",
+        value=1,
+        match={"clauses": [{"field": "title", "op": "regex", "value": "a" * MAX_PATTERN_LENGTH}]},
+    )
+
+
+# Every shape of catastrophic backtracking there is: a repetition wrapped around a
+# repetition, a repetition around an alternation whose branches overlap, a chain of
+# open-ended repetitions, and a chain of optional ones. Each of them, on a subject of a few
+# dozen characters, asks `re` for more steps than there are seconds in a year — and `re`
+# cannot be interrupted, so one reaching an evaluation pass would hold the event loop for
+# good. None of them may get in.
+CATASTROPHIC_PATTERNS = [
+    "(a+)+b",
+    "(a*)*b",
+    "((a)*)*b",
+    "(x+x+)+y",
+    "(a|a)+b",
+    "(?:a|aa)+$",
+    "([a-z]+)*z",
+    r"(\s*)+$",
+    "a*" * 20 + "b",
+    ".*" * 12 + "zz",
+    "a?" * 30 + "b",
+]
+
+
+@pytest.mark.parametrize("pattern", CATASTROPHIC_PATTERNS)
+def test_a_pattern_that_would_never_finish_is_refused_at_every_door(
+    pattern: str, caplog: pytest.LogCaptureFixture
+) -> None:
+    """The two doors that validate — the API's `POST`/`PATCH` and an imported archive, both
+    of them these models — and the third that cannot, a definition somebody wrote straight
+    into the SQLite column: that one is read back by `parse_definition`, which puts the same
+    models in front of it, so the row is unreadable and therefore never satisfied.
+
+    Nothing here ever *runs* the pattern, which is the point: a test that did would be the
+    hang it is testing for.
+    """
+    clause = {"field": "title", "op": "regex", "value": pattern}
+    with pytest.raises(ValidationError):
+        condition(metric="number_of_scores", comparator=">=", value=1, match={"clauses": [clause]})
+
+    stored = [
+        {
+            "metric": "number_of_scores",
+            "comparator": ">=",
+            "value": 1,
+            "match": {"clauses": [clause]},
+        }
+    ]
+    with caplog.at_level(logging.WARNING):
+        assert parse_definition("the-hand-edited-one", stored) is None
+    assert "the-hand-edited-one" in caplog.text
+
+
+@pytest.mark.parametrize(
+    "pattern",
+    [
+        # Everything the documentation offers a host, and everything the tests below build
+        # on: the budget is worthless if it refuses the rules the operator exists for.
+        "^Love",
+        "^Love$",
+        "^(Live|Unplugged)",
+        r"^(?-i:Live) at .*\d{4}$",
+        r"^\D+$",
+        r"\bLove\b",
+        "^(?:The )?Love$",
+        ".*Live.*",
+        "^(queen|abba)$",
+        # A look-around costs like anything else and is not refused: "every song except a
+        # live recording" is a song rule there is no other way to write.
+        "^(?!.*Live)",
+        # Two open-ended repetitions and a five-way alternation between them — comfortably
+        # the most an ordinary rule asks for.
+        ".*(Live|Unplugged|Acoustic|Session|Demo).*",
+        "^[A-Z][a-z]+ [A-Z][a-z]+$",
+        "19[0-9]{2}",
+    ],
+)
+def test_the_budget_leaves_every_pattern_a_song_rule_actually_wants(pattern: str) -> None:
+    condition(
+        metric="number_of_scores",
+        comparator=">=",
+        value=1,
+        match={"clauses": [{"field": "title", "op": "regex", "value": pattern}]},
+    )
 
 
 def test_an_unreadable_definition_is_never_satisfied_rather_than_an_exception(
@@ -257,7 +394,7 @@ SELECTOR_SONG = row(
 @pytest.mark.parametrize(
     ("clause", "matches"),
     [
-        # Text: three operators, all case-insensitive.
+        # Text: four operators, all case-insensitive.
         ({"field": "title", "op": "contains", "value": "RHAPSODY"}, True),
         ({"field": "title", "op": "contains", "value": "waltz"}, False),
         ({"field": "title", "op": "starts_with", "value": "bohemian"}, True),
@@ -267,6 +404,20 @@ SELECTOR_SONG = row(
         ({"field": "genre", "op": "contains", "value": "roc"}, True),
         ({"field": "language", "op": "equals", "value": "english"}, True),
         ({"field": "edition", "op": "starts_with", "value": "BEST"}, True),
+        # A pattern searches, so it matches anywhere in the field the way `contains` does,
+        # and `^` / `$` are how the whole of it is asked for.
+        ({"field": "title", "op": "regex", "value": "rhaps"}, True),
+        ({"field": "title", "op": "regex", "value": "^bohemian"}, True),
+        ({"field": "title", "op": "regex", "value": "^rhapsody"}, False),
+        ({"field": "title", "op": "regex", "value": "^Bohemian Rhapsody$"}, True),
+        ({"field": "title", "op": "regex", "value": "^Bohemian$"}, False),
+        ({"field": "artist", "op": "regex", "value": "^(queen|abba)$"}, True),
+        ({"field": "artist", "op": "regex", "value": "^(kiss|abba)$"}, False),
+        # An uppercase metacharacter means what it says. Were the pattern casefolded the
+        # way the other three operators fold their value, `\D` would become `\d` and these
+        # two would answer the other way round.
+        ({"field": "title", "op": "regex", "value": r"^\D+$"}, True),
+        ({"field": "title", "op": "regex", "value": r"^\d+$"}, False),
         # The year takes the three number operators.
         ({"field": "year", "op": "=", "value": 1975}, True),
         ({"field": "year", "op": ">=", "value": 1975}, True),
@@ -305,6 +456,120 @@ def test_combine_all_wants_every_clause_and_any_wants_one() -> None:
     )
     assert not evaluate([both], [SELECTOR_SONG]).earned
     assert evaluate([either], [SELECTOR_SONG]).earned
+
+
+def test_a_pattern_combines_with_its_neighbours_like_any_other_clause() -> None:
+    """`regex` is one more operator, not a second kind of rule: `all` and `any` weigh it
+    exactly as they weigh an `equals` beside it."""
+    a_pattern_and_a_wrong_one = [
+        {"field": "title", "op": "regex", "value": "^Bohemian"},
+        {"field": "artist", "op": "equals", "value": "ABBA"},
+    ]
+    both = condition(
+        metric="number_of_scores",
+        comparator=">=",
+        value=1,
+        match={"combine": "all", "clauses": a_pattern_and_a_wrong_one},
+    )
+    either = condition(
+        metric="number_of_scores",
+        comparator=">=",
+        value=1,
+        match={"combine": "any", "clauses": a_pattern_and_a_wrong_one},
+    )
+    assert not evaluate([both], [SELECTOR_SONG]).earned
+    assert evaluate([either], [SELECTOR_SONG]).earned
+
+
+def _matching(clause: dict[str, Any], rows: list[ScoreRow]) -> bool:
+    """Whether one clause matches at least one of these rows."""
+    return evaluate(
+        [
+            condition(
+                metric="number_of_scores", comparator=">=", value=1, match={"clauses": [clause]}
+            )
+        ],
+        rows,
+    ).earned
+
+
+def test_a_pattern_ignores_case_unless_it_says_otherwise() -> None:
+    """The other three text operators casefold both sides, so this one is case-insensitive
+    too — and an author who does care says so with the scoped flag, which is the whole
+    reason a bare `(?-i)` is not the form the editor names."""
+    assert _matching({"field": "title", "op": "regex", "value": "BOHEMIAN"}, [SELECTOR_SONG])
+    assert _matching({"field": "title", "op": "regex", "value": "(?-i:Bohemian)"}, [SELECTOR_SONG])
+    assert not _matching(
+        {"field": "title", "op": "regex", "value": "(?-i:bohemian)"}, [SELECTOR_SONG]
+    )
+
+
+def test_a_pattern_on_a_field_the_song_does_not_have_never_matches() -> None:
+    """The rule every operator obeys: a song whose file says nothing about a field never
+    matches a rule about it. `^$` is the one that would break it — an empty genre is not an
+    empty string, it is no genre at all."""
+    no_genre = [row(5000, genre=None)]
+    assert not _matching({"field": "genre", "op": "regex", "value": "^$"}, no_genre)
+    assert not _matching({"field": "genre", "op": "regex", "value": ".*"}, no_genre)
+
+
+def test_a_pattern_is_run_against_the_front_of_a_field_and_no_further() -> None:
+    """`MAX_SUBJECT_LENGTH`, which is what makes the pattern budget a real bound rather
+    than an estimate. No title anybody has comes near it, and a pass over rows that do is
+    still quick — the whole reason the cap is here."""
+    long_title = "Love" + "!" * 400
+    assert _matching(
+        {"field": "title", "op": "regex", "value": "^Love"}, [row(9000, title=long_title)]
+    )
+    # Past the cap, so as far as a pattern is concerned it is not in the field at all.
+    beyond = "!" * MAX_SUBJECT_LENGTH + "Love"
+    assert not _matching(
+        {"field": "title", "op": "regex", "value": "Love"}, [row(9000, title=beyond)]
+    )
+    # And an open-ended repetition over a field that long is still an ordinary match.
+    assert _matching(
+        {"field": "title", "op": "regex", "value": "^.*!$"}, [row(9000, title=long_title)]
+    )
+
+
+def test_a_pattern_that_cannot_compile_never_matches_and_never_raises(
+    caplog: pytest.LogCaptureFixture,
+) -> None:
+    """`SelectorClause` refuses one at every door, so this is the row somebody edited
+    straight into the database — and one such row must no more break the pass for every
+    other achievement than an unreadable definition does. Hence `model_construct`: there is
+    no other way to get a pattern this bad past the models."""
+    unreadable = Condition.model_construct(
+        scope="global",
+        metric="number_of_scores",
+        comparator=">=",
+        value=1,
+        match=SongSelector.model_construct(
+            combine="all",
+            clauses=[SelectorClause.model_construct(field="title", op="regex", value="(a+")],
+        ),
+    )
+    with caplog.at_level(logging.WARNING):
+        assert not evaluate([unreadable], [SELECTOR_SONG]).earned
+    assert "unterminated" in caplog.text
+
+
+def test_a_stored_definition_with_an_unreadable_pattern_is_never_satisfied(
+    caplog: pytest.LogCaptureFixture,
+) -> None:
+    """The same row read the way an evaluation pass reads it: `None`, a warning naming the
+    achievement, and no exception."""
+    stored = [
+        {
+            "metric": "number_of_scores",
+            "comparator": ">=",
+            "value": 1,
+            "match": {"clauses": [{"field": "title", "op": "regex", "value": "(a+"}]},
+        }
+    ]
+    with caplog.at_level(logging.WARNING):
+        assert parse_definition("the-hand-edited-one", stored) is None
+    assert "the-hand-edited-one" in caplog.text
 
 
 def test_a_clause_on_a_field_the_song_does_not_have_never_matches() -> None:

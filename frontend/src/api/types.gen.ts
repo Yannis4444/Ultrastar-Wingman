@@ -1237,7 +1237,7 @@ export type SelectorClause = {
     /**
      * Op
      */
-    op: 'contains' | 'equals' | 'starts_with' | '=' | '>=' | '<=';
+    op: 'contains' | 'equals' | 'starts_with' | 'regex' | '=' | '>=' | '<=';
     /**
      * Value
      */

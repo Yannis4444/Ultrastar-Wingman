@@ -12,6 +12,7 @@ import {
   METRIC_DESCRIPTIONS,
   METRIC_LABELS,
   METRICS,
+  REGEX_NOTE,
   SCOPE_LABELS,
   SCOPE_NOTE,
   SELECTOR_FIELD_KINDS,
@@ -617,6 +618,12 @@ export default function ConditionBuilder({
                           <input
                             className="text-input text-input-quiet condition-clause-value"
                             aria-label={`${name} value`}
+                            /* The one operator whose box needs telling apart:
+                               a pattern is not the words a title contains, and
+                               an empty box is refused rather than ignored. */
+                            placeholder={
+                              clause.op === "regex" ? "^Love" : undefined
+                            }
                             value={String(clause.value)}
                             onChange={(event) =>
                               replace({ ...clause, value: event.target.value })
@@ -641,6 +648,16 @@ export default function ConditionBuilder({
                     );
                   })}
                 </ul>
+
+                {/* Under the list and not inside a clause: the clause is a
+                    flex row that wraps, and a third line of prose in it would
+                    fight the two selects for the basis. It appears only once a
+                    pattern is actually being written — three sentences over
+                    every clause list would be noise on the four ordinary
+                    tests. */}
+                {clauses.some((clause) => clause.op === "regex") && (
+                  <p className="condition-help">{REGEX_NOTE}</p>
+                )}
 
                 <button
                   type="button"

@@ -70,11 +70,91 @@ import a round trip.
 `combine` is `all` or `any` — one flat list, no nesting. Fields are the ones
 `SongRead` already carries: `title`, `artist`, `genre`, `language`, `edition`,
 `year`, `is_duet`, `has_video`. Operators are `contains`, `equals`,
-`starts_with` for text (all case-insensitive), `equals` for the two booleans,
-and `=` `>=` `<=` for `year`.
+`starts_with`, `regex` for text (all case-insensitive), `equals` for the two
+booleans, and `=` `>=` `<=` for `year`.
 
 A clause whose field is missing on the song never matches — a song with no
-genre is not "genre equals anything".
+genre is not "genre equals anything". That holds for `regex` too: `^$` matches
+no song, rather than every song without a genre.
+
+#### `regex`
+
+```json
+{ "field": "title", "op": "regex", "value": "^(?-i:Live) at .*\\d{4}$" }
+```
+
+**Python's dialect**, `re`, and nothing else — the editor is TypeScript and the
+two disagree (`(?P<name>…)` is Python's named group and throws in a browser;
+`(?<name>…)` is the browser's and `re` refuses it), so the backend is the only
+authority on whether a pattern is one. `achievements.ts`'s `conditionProblem`
+therefore mirrors only the two refusals no dialect can disagree about — empty,
+and longer than `MAX_PATTERN_LENGTH` — and never compiles the pattern to decide.
+
+* **`re.search`, not `fullmatch`**: it matches anywhere in the field, which is
+  what makes it the analogue of `contains`. `^` and `$` are how the whole field
+  is asked for.
+* **`re.IGNORECASE`** (`schema.PATTERN_FLAGS`), because the other three text
+  operators casefold both sides and a fourth that alone cared about capitals
+  would be a trap. An author who does care writes `(?-i:Live)` — the *scoped*
+  form, a bare `(?-i)` being something `re` does not accept.
+* The pattern is **never casefolded**. `"\D".casefold()` is `"\d"`: folding a
+  pattern the way `contains` folds its value would silently invert it.
+* `SelectorClause` **checks it at validation time** (`schema.check_pattern`), so
+  the API answers 422 and an archive names the achievement its bad pattern is
+  in — carrying `re`'s own message, which is the only thing that says *where*.
+  Note that `re.compile` does not refuse only with `re.error`:
+  `(a){4294967296}` raises `OverflowError` and a deeply nested pattern can raise
+  `RecursionError`, and either escaping would be a 500 at the API and an
+  exception thrown out of `parse_definition`, whose whole contract is that it
+  throws none. A pattern that reaches `evaluate` uncompilable — a row edited
+  straight into the database, the one door a validator cannot guard — never
+  matches and is logged, exactly as an unreadable definition is "never
+  satisfied".
+
+### What stops a pattern that never finishes
+
+`(a+)+b` is eleven characters and `.*` twelve times over is twenty-six, and
+either of them on a subject of a couple of dozen characters asks `re` for more
+steps than there are seconds in a year. Python's `re` cannot be interrupted:
+there is no timeout, and a thread running a match holds the GIL, so the rest of
+the process does not even tick while it runs (measured — the main thread got
+zero of three seconds). One such pattern in a definition would therefore hold
+`service._write_lock` and the event loop for good, on every pass, past every
+restart — and an *imported archive* is a definition somebody else wrote.
+
+So a pattern is refused by its **shape**, at the same door, and there are three
+numbers behind it:
+
+* `MAX_PATTERN_LENGTH` (200) — a bound in the spirit of `archive.py`'s caps.
+  Length says nothing about cost on its own.
+* `MAX_SUBJECT_LENGTH` (200) — how much of a field `_matches_pattern` searches.
+  What an open-ended repetition costs is the length of what it repeats over, so
+  the budget below only means something if the field has a length too.
+* `MAX_PATTERN_COMBINATIONS` (1 000 000) — `schema._combinations` walks `re`'s
+  own parse tree and multiplies out how many ways the pattern can try to match
+  one field: one per literal, class or anchor; a sum over an alternation's
+  branches; and for a repetition, the lengths it may consume times what it
+  repeats, once per repetition (saturating, so `(a+)+` is not actually computed
+  to `200²⁰⁰`). Anything unrecognised — a backreference, whatever a later Python
+  adds — counts as past the budget rather than as free.
+
+That refuses every shape of catastrophic backtracking there is (a repetition
+around a repetition, a repetition around an overlapping alternation, a chain of
+`.*`, a chain of `a?`) and leaves everything an ordinary rule wants: two
+open-ended repetitions and an alternation between them is ~200 000. The parse
+tree is walked rather than the pattern's characters because a `*` inside `[…]`
+read as a repetition would be a hole, and only the engine's parser cannot
+misread the engine's syntax. It is a private module (`re._parser`, `sre_parse`
+before 3.11); the tests fail loudly if a future Python moves it.
+
+What is left is a bound, not a promise of speed: the slowest pattern that gets
+past the budget takes a couple of seconds against a 200-character field
+(`a?` nineteen times, measured), and a pass runs a clause per score. Seconds per
+field rather than never, which is the whole difference. `conditionProblem` in
+`achievements.ts` does not mirror this refusal — it is structural, not textual,
+and a second regex parser in TypeScript would be the hole again — so it is one
+of the refusals an author meets on Save, in the sentence `validationMessage`
+puts on the page.
 
 ## Who earns them
 

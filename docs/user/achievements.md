@@ -186,6 +186,48 @@ At least 9000*. Leave both empty and every score counts.
     takes all songs — it was a score somebody got. It counts for nothing in a
     condition that picks songs, because the file that said what it was is gone.
 
+#### Rules that take a pattern
+
+The text rules — title, artist, genre, language and edition — offer **matches
+regex** beside *contains*, *is* and *starts with*. It is for the song rule the
+other three cannot say: *"a title that ends in a year"*, *"either Queen or
+ABBA"*, *"anything but a live recording"*.
+
+```
+Title · matches regex · ^(Live|Unplugged)
+```
+
+Three things are worth knowing, and none of them can be guessed:
+
+- **The pattern may match anywhere in the field**, exactly as *contains* does.
+  `Love` matches *Endless Love*. Put `^` in front and `$` behind to mean the
+  whole of it: `^Love$` matches only a song actually called *Love*.
+- **Capitals are ignored**, exactly as in the other three rules. `love` matches
+  *LOVE*. If one part has to keep its capitals, wrap it: `(?-i:Live) at` matches
+  *Live at Wembley* and not *live at home*.
+- **A song whose file says nothing about the field never matches**, patterns
+  included. `^$` is not a way to find the songs with no genre — it finds
+  nothing at all.
+
+Patterns are Python's flavour — the usual `.` `*` `+` `?` `|` `()` `[]` `\d`
+`\b`, `\.` for a full stop that has to be a full stop, and `(?!…)` for *not*
+followed by: `^(?!.*Live)` is the third rule above, every title with no *Live*
+anywhere in it. Wingman refuses a pattern it cannot read when you save and tells
+you what is wrong with it, so a pattern you got wrong never quietly matches
+nothing. A pattern may be 200 characters long.
+
+!!! note "Patterns that ask for too much"
+    A pattern is tried against every score of everybody being brought up to date
+    — whoever just sang, after a song, and everybody at once after an
+    achievement is edited. Some shapes ask the computer to try every combination
+    there is, and would take practically forever: a repetition inside another
+    repetition, like `(a+)+b`, or a long row of `.*`. Wingman works out what a
+    pattern is asking for and refuses one like that when you save, saying so, so
+    the shape to avoid is one you cannot accidentally keep. In practice: at most
+    two open-ended repetitions (`*`, `+`), and never one wrapped around another
+    — and since a pattern already matches anywhere in the field, a `.*` at the
+    very start or end does nothing anyway.
+
 The progress bar a singer sees comes out of the conditions on its own: it can
 only be drawn for one that counts *upwards* — *at least* or *more than* — and an
 achievement's bar shows its least complete condition, since all of them have to
@@ -281,6 +323,21 @@ be the same as the `id` in the file — that is what says which achievement it i
 And a key Wingman does not know is refused rather than ignored: a `"colour"` that
 was quietly dropped is exactly the mistake a hand-edited file invites, so it is
 named instead. Pack the folders back into a `.tar.gz` and import it.
+
+A song rule is written the way the editor builds it, and a pattern is one more
+operator among them:
+
+```json
+"match": {
+  "combine": "all",
+  "clauses": [{ "field": "title", "op": "regex", "value": "^Live at .*\\d{4}$" }]
+}
+```
+
+Mind the doubled backslash: that is JSON's own rule, not Wingman's — `\d` in a
+file has to be written `\\d`, or the file is not JSON at all. A pattern Wingman
+cannot read is refused on import like any other mistake, naming the achievement
+it is in and what Python made of it.
 
 The example above is one of the included seventeen — you can tell by the
 `builtin-` in front of its id — so `definition` is the one thing in it an import

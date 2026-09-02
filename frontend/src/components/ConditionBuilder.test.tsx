@@ -330,7 +330,12 @@ describe("the song rules", () => {
         .map((option) => option.textContent);
 
     const { rerender } = renderBuilderWith(MATCHING);
-    expect(options()).toEqual(["contains", "is", "starts with"]);
+    expect(options()).toEqual([
+      "contains",
+      "is",
+      "starts with",
+      "matches regex",
+    ]);
 
     rerender(
       condition({
@@ -387,6 +392,60 @@ describe("the song rules", () => {
     });
 
     expect(emittedClause(onChange).value).toBe("moon");
+  });
+
+  it("switches a text rule to a pattern and keeps the box it was typed in", () => {
+    const onChange = renderBuilder([MATCHING]);
+
+    fireEvent.change(screen.getByLabelText("Song rule 1 test"), {
+      target: { value: "regex" },
+    });
+
+    // The operator alone changes: a pattern is the same text field asked a
+    // different question, not a control of its own.
+    expect(emittedClause(onChange)).toEqual({
+      field: "title",
+      op: "regex",
+      value: "love",
+    });
+  });
+
+  const PATTERN = (value: string) =>
+    condition({
+      match: {
+        combine: "all",
+        clauses: [{ field: "title", op: "regex", value }],
+      },
+    });
+
+  it("emits a pattern exactly as it is typed", () => {
+    const onChange = renderBuilder([PATTERN("^Love")]);
+
+    fireEvent.change(screen.getByLabelText("Song rule 1 value"), {
+      target: { value: String.raw`^(?-i:Live) at .*\d{4}$` },
+    });
+
+    expect(emittedClause(onChange).value).toBe(
+      String.raw`^(?-i:Live) at .*\d{4}$`,
+    );
+  });
+
+  it("says how a pattern behaves, and only while one is being written", () => {
+    const { rerender } = renderBuilderWith(MATCHING);
+    expect(screen.queryByText(/ignores case/)).not.toBeInTheDocument();
+
+    rerender(PATTERN("^Love"));
+    expect(screen.getByText(/ignores case/)).toBeVisible();
+  });
+
+  it("names an empty pattern before Save can, and nothing a browser alone dislikes", () => {
+    const { rerender } = renderBuilderWith(PATTERN(""));
+    expect(screen.getByRole("alert")).toHaveTextContent(/cannot be empty/i);
+
+    // Python's own named group, which `new RegExp` refuses. Save is gated on
+    // this notice, so claiming it is broken would block a rule that works.
+    rerender(PATTERN("(?P<song>Love)"));
+    expect(screen.queryByRole("alert")).not.toBeInTheDocument();
   });
 });
 

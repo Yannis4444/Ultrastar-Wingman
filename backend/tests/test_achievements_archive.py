@@ -639,6 +639,29 @@ def test_a_directory_member_is_allowed_because_other_tar_writers_emit_one() -> N
     assert [one.achievement.id for one in parsed] == ["one"]
 
 
+def test_a_song_rule_with_a_regular_expression_survives_the_round_trip() -> None:
+    """A pattern is the one clause value the format cannot normalise: backslashes and
+    inline flags have to come out of the JSON exactly as they went in, or an archive is no
+    longer something to hand-edit."""
+    clause = {"field": "title", "op": "regex", "value": r"^(?-i:Live) at .*\d{4}$"}
+    definition = [
+        {
+            "scope": "global",
+            "metric": "number_of_scores",
+            "comparator": ">=",
+            "value": 5,
+            "match": {"combine": "all", "clauses": [clause]},
+        }
+    ]
+
+    parsed = archive.read_archive(archive.build_archive([entry("one", definition=definition)]))
+
+    assert [one.achievement.id for one in parsed] == ["one"]
+    stored = parsed[0].achievement.definition[0]
+    assert stored.match is not None
+    assert stored.match.clauses[0].model_dump() == clause
+
+
 @pytest.mark.parametrize(
     ("problem", "document"),
     [
@@ -663,6 +686,44 @@ def test_a_directory_member_is_allowed_because_other_tar_writers_emit_one() -> N
                         "comparator": ">=",
                         "value": 1,
                         "score_filter": {"min": 9000, "max": 100},
+                    }
+                ],
+            ),
+        ),
+        (
+            # The door the API's validator cannot guard: a pattern typed into an unpacked
+            # file. It is refused here, naming the achievement it is in.
+            "a regular expression Python cannot read",
+            one_achievement(
+                "one",
+                definition=[
+                    {
+                        "metric": "number_of_scores",
+                        "comparator": ">=",
+                        "value": 1,
+                        "match": {
+                            "combine": "all",
+                            "clauses": [{"field": "title", "op": "regex", "value": "(a+"}],
+                        },
+                    }
+                ],
+            ),
+        ),
+        (
+            # An archive is something a party is handed by somebody else, so this is the
+            # one door a pattern that could hang the evaluation pass would arrive by.
+            "a regular expression that would never finish",
+            one_achievement(
+                "one",
+                definition=[
+                    {
+                        "metric": "number_of_scores",
+                        "comparator": ">=",
+                        "value": 1,
+                        "match": {
+                            "combine": "all",
+                            "clauses": [{"field": "title", "op": "regex", "value": "(a+)+$"}],
+                        },
                     }
                 ],
             ),

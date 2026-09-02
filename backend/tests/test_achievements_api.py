@@ -495,6 +495,50 @@ async def test_an_unknown_achievement_is_404(party: Party) -> None:
             ],
             id="an operator the field cannot answer",
         ),
+        pytest.param(
+            [
+                {
+                    "metric": "any_score",
+                    "comparator": ">=",
+                    "value": 1,
+                    "match": {
+                        "combine": "all",
+                        "clauses": [{"field": "title", "op": "regex", "value": "(a+"}],
+                    },
+                }
+            ],
+            id="a regular expression that cannot compile",
+        ),
+        pytest.param(
+            [
+                {
+                    "metric": "any_score",
+                    "comparator": ">=",
+                    "value": 1,
+                    "match": {
+                        "combine": "all",
+                        "clauses": [{"field": "title", "op": "regex", "value": "(a+)+$"}],
+                    },
+                }
+            ],
+            id="a regular expression that would never finish",
+        ),
+        pytest.param(
+            [
+                {
+                    "metric": "any_score",
+                    "comparator": ">=",
+                    "value": 1,
+                    "match": {
+                        "combine": "all",
+                        # `re.compile` answers this one with an `OverflowError`, which used
+                        # to escape the validator and be a 500 instead of a refusal.
+                        "clauses": [{"field": "title", "op": "regex", "value": "(a){4294967296}"}],
+                    },
+                }
+            ],
+            id="a regular expression whose repetition count is absurd",
+        ),
     ],
 )
 async def test_a_definition_the_models_refuse_is_422(
@@ -530,6 +574,38 @@ async def test_a_score_filter_whose_min_is_above_its_max_is_422(party: Party) ->
     # The same range the other way round is an ordinary window and is accepted.
     body["definition"][0]["score_filter"] = {"min": 1000, "max": 9000}  # type: ignore[index]
     assert (await party["admin"].post("/api/v1/achievements", json=body)).status_code == 201
+
+
+async def test_a_song_rule_takes_a_regular_expression_and_hands_it_back(party: Party) -> None:
+    """Stored as written — a pattern is bytes the author chose, and a definition that came
+    back normalised would be a definition they cannot edit. The 422 for a pattern Python
+    refuses carries its own words, which is what tells somebody *where* to look."""
+    pattern = r"^(?-i:Live) at .*\d{4}$"
+    body = {
+        "name": "Live and loud",
+        "color": "gold",
+        "definition": [
+            {
+                "metric": "number_of_scores",
+                "comparator": ">=",
+                "value": 5,
+                "match": {
+                    "combine": "all",
+                    "clauses": [{"field": "title", "op": "regex", "value": pattern}],
+                },
+            }
+        ],
+    }
+
+    response = await party["admin"].post("/api/v1/achievements", json=body)
+    assert response.status_code == 201, response.text
+    clause = response.json()["definition"][0]["match"]["clauses"][0]
+    assert clause == {"field": "title", "op": "regex", "value": pattern}
+
+    body["definition"][0]["match"]["clauses"][0]["value"] = "(a+"  # type: ignore[index]
+    refused = await party["admin"].post("/api/v1/achievements", json=body)
+    assert refused.status_code == 422
+    assert "unterminated subpattern" in refused.text
 
 
 @pytest.mark.parametrize(

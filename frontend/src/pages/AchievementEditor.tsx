@@ -29,7 +29,7 @@ import ConfirmModal from "../components/ConfirmModal";
 import { Icon, PICKER_ICON_NAMES } from "../components/icons";
 import Loading from "../components/Loading";
 import PageHeader from "../components/PageHeader";
-import { errorDetail, errorMessage } from "../errors";
+import { errorDetail, errorMessage, validationMessage } from "../errors";
 import { useWingmanEvent } from "../hooks/useWingmanEvents";
 import { tagColorClass, TAG_COLORS, type TagColor } from "../tags";
 // The tag editor is the same page (§7): a name, the icon picker, the colour
@@ -381,10 +381,13 @@ export default function AchievementEditor() {
       refresh();
     } catch (cause) {
       setSaved(false);
-      // A 422 from the condition models says which field of which condition it
-      // refused; nothing this page could write would be more use than that.
+      // A 422 from the condition models says in words what it refused —
+      // a regular expression Python cannot read above all, which is the one
+      // refusal `conditionProblem` may not make for itself. Nothing this page
+      // could write instead would be of more use than that sentence.
       setError(
         errorDetail(cause) ??
+          validationMessage(cause) ??
           errorMessage(cause, "Could not save the achievement."),
       );
     } finally {

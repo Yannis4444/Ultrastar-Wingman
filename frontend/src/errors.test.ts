@@ -4,7 +4,34 @@ import {
   explainUsdxProblem,
   missingPermission,
   usdxProblems,
+  validationMessage,
 } from "./errors";
+
+test("a 422 is read as the sentence the model refused it with", () => {
+  const refusal = {
+    detail: [
+      {
+        type: "value_error",
+        loc: ["body", "definition", 0],
+        msg: "Value error, '(a+' is not a valid regular expression: missing ), unterminated subpattern at position 0",
+      },
+    ],
+  };
+
+  expect(validationMessage(refusal)).toBe(
+    "'(a+' is not a valid regular expression: missing ), unterminated subpattern at position 0.",
+  );
+  // The slug path must not read a list as one, and this path must not read a
+  // slug or the USDX report as a validation error.
+  expect(errorDetail(refusal)).toBeNull();
+  expect(validationMessage({ detail: "already_playing" })).toBeNull();
+  expect(
+    validationMessage({ detail: { error: "usdx_not_configured" } }),
+  ).toBeNull();
+  expect(validationMessage(null)).toBeNull();
+  expect(validationMessage({ detail: [] })).toBeNull();
+  expect(validationMessage({ detail: [{ loc: ["body"] }] })).toBeNull();
+});
 
 test("a string detail is passed through, a permission denial is named", () => {
   expect(errorDetail({ detail: "already_playing" })).toBe("already_playing");
