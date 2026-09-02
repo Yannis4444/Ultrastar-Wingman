@@ -144,6 +144,36 @@ ROUTES: list[tuple[str, str, str, dict[str, object] | None]] = [
     # Admin-only by default: both rewrite what the party's record says happened.
     ("stats.moderate", "PATCH", "/api/v1/stats/scores/1", {"player_id": "nope"}),
     ("stats.moderate", "DELETE", "/api/v1/stats/scores/1", None),
+    # Achievements: the three reading routes take no capability at all and so cannot be
+    # expressed here — `GET /achievements`, `GET /achievements/{id}/icon` and
+    # `GET /players/{id}/achievements` answer a guest phone, which test_achievements_api
+    # pins down. These five are the writes. Admin-only by default: an achievement is written
+    # once and earned by the whole room, so editing one rewrites what everybody has.
+    #
+    # Every body here is deliberately one a permitted caller still refuses (an unknown id, a
+    # definition the models reject), so an administrator running the matrix creates no row
+    # and starts no background pass halfway through it.
+    (
+        "achievements.manage",
+        "POST",
+        "/api/v1/achievements",
+        {"name": "Nope", "color": "gold", "definition": [{"metric": "nonsense"}]},
+    ),
+    ("achievements.manage", "PATCH", "/api/v1/achievements/nope", {"name": "Nope"}),
+    ("achievements.manage", "DELETE", "/api/v1/achievements/nope", None),
+    ("achievements.manage", "PUT", "/api/v1/achievements/nope/icon", None),
+    ("achievements.manage", "DELETE", "/api/v1/achievements/nope/icon", None),
+    # Export is a write's capability on a read, deliberately: an archive carries every
+    # `definition` and the unmasked name of a `hidden` achievement, which is exactly what
+    # `GET /achievements` keeps back. The id is an unknown one, so a permitted caller gets a
+    # 404 and the matrix exports nothing.
+    ("achievements.manage", "POST", "/api/v1/achievements/export", {"ids": ["nope"]}),
+    # No multipart body from this matrix, so a permitted caller gets the 422 for a missing
+    # file — which is not a 403, and nothing is imported.
+    ("achievements.manage", "POST", "/api/v1/achievements/import", None),
+    # The literal segment is matched before `{achievement_id}`, so this is the settings route
+    # and not an achievement called "settings". A count outside 0 to 60 keeps it a 422.
+    ("achievements.manage", "PATCH", "/api/v1/achievements/settings", {"host_seconds_base": 999}),
     ("usdb.search", "GET", "/api/v1/sources/usdb/status", None),
     ("usdb.search", "GET", "/api/v1/sources/usdb/search", None),
     ("usdb.search", "GET", "/api/v1/sources/usdb/songs/1/cover", None),

@@ -15,8 +15,9 @@ from pathlib import Path
 from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
 
+from ..achievements import service as achievements
 from ..auth.model import as_utc
-from ..events import KaraokeEnded, KaraokeStarted, ScoresRecorded, event_bus
+from ..events import AchievementsEarned, KaraokeEnded, KaraokeStarted, ScoresRecorded, event_bus
 from ..library import service as library
 from ..players.model import Player
 from ..players.schema import read_player
@@ -423,7 +424,40 @@ async def _finish(running: _Running, session_factory: async_sessionmaker[AsyncSe
         )
         if scores:
             await event_bus.broadcast(ScoresRecorded(sing_id=running.sing.sing_id, scores=scores))
+            await _award_achievements(running, session_factory, scores)
         running.finished.set()
+
+
+async def _award_achievements(
+    running: _Running,
+    session_factory: async_sessionmaker[AsyncSession],
+    scores: list[ScoreRead],
+) -> None:
+    """Recompute everybody this sing scored, and announce whatever it earned.
+
+    Right after `scores.recorded`, so the badges arrive on a client that already has the
+    numbers behind them. One event for the whole sing, never one per singer: the host screen
+    choreographs the sequence out of one payload.
+
+    Wrapped like the score import above it, and for the same reason: this runs on the
+    launcher's exit path, and an achievement that cannot be evaluated must not be able to
+    swallow the end of a song. It is logged and the evening carries on without the badge.
+    """
+    player_ids = [score.player_id for score in scores if score.player_id is not None]
+    if not player_ids:
+        # Every score of this sing was filed under a name matching no launched slot: Wingman
+        # has no idea who sang, and nobody earned anything.
+        return
+    try:
+        async with session_factory() as session:
+            earned = await achievements.evaluate_players(session, player_ids)
+            players_earned = await achievements.earned_by_players(session, earned)
+        if players_earned:
+            await event_bus.broadcast(
+                AchievementsEarned(sing_id=running.sing.sing_id, players=players_earned)
+            )
+    except Exception:
+        logger.exception("evaluating the achievements of sing %s failed", running.sing.sing_id)
 
 
 async def _import_scores(

@@ -1,0 +1,58 @@
+/* The medallion (achievements.md, ui-guidelines §4). Not a tile: it is the row's
+   lead square in the shape a medal has, the same slot a tag's coloured square
+   and a playlist's cover mosaic sit in — round rather than 8px-rounded, because
+   that is what tells a badge from a tag at a glance and because a percentage
+   radius is the one that still looks right at four times the size.
+
+   Everything is in `em`, so the parent's `font-size` is the size control (§3):
+   16px of text gives the 40px square a list row leads with, and the host
+   screen's `clamp()` gives the same component a badge across the room. */
+.achievement-badge {
+  display: flex;
+  flex: 0 0 auto;
+  align-items: center;
+  justify-content: center;
+  width: 2.5em;
+  height: 2.5em;
+  overflow: hidden;
+  border-radius: 50%;
+}
+
+/* Earned: the plate carries the achievement's colour, which the `tag-color-*`
+   class beside this one puts on `color`. The glyph is cut out of it in the page
+   background, so one class paints both halves and there is no second colour
+   vocabulary to keep in step (§4: the four colours are the four colours). */
+.achievement-badge-earned {
+  background-color: currentColor;
+}
+
+.achievement-badge-earned .achievement-badge-glyph {
+  color: var(--bg);
+}
+
+/* Unearned, and masked — the same thing drawn the same way, because a masked
+   row is one the reader has not earned. `--input-bg` under a `--color-darkerer`
+   glyph is the app's off state everywhere else (§2). */
+.achievement-badge-off {
+  color: var(--color-darkerer);
+  background-color: var(--input-bg);
+}
+
+.achievement-badge-glyph {
+  font-size: 1.25em;
+}
+
+/* An uploaded picture replaces the glyph and fills the plate. Square or not,
+   the medallion crops it — a badge is a badge's shape. */
+.achievement-badge-image {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+/* A picture cannot be redrawn in the off colour, so it is drained instead: the
+   same "you have not got this one" the grey glyph says. */
+.achievement-badge-off .achievement-badge-image {
+  filter: grayscale(1);
+  opacity: 0.45;
+}

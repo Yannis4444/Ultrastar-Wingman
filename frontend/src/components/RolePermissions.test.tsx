@@ -18,7 +18,13 @@ const ROLES = {
   guest: ["songs.view"],
   user: ["songs.view", "karaoke.stop", "playlists.manage"],
   trusted: ["songs.view", "karaoke.stop", "playlists.manage"],
-  admin: ["songs.view", "karaoke.stop", "playlists.manage", "users.manage"],
+  admin: [
+    "songs.view",
+    "karaoke.stop",
+    "playlists.manage",
+    "users.manage",
+    "achievements.manage",
+  ],
 };
 
 function renderPermissions() {
@@ -59,6 +65,15 @@ test("every editable role is a column of the one matrix, admin is not", async ()
   expect(screen.getByText("stop")).toBeInTheDocument();
   expect(
     screen.getByText("Stop the song that is running now."),
+  ).toBeInTheDocument();
+
+  // A capability the backend grew renders either way, so what has to be checked
+  // is that it arrived with its sentence — the handbook promises every row one.
+  expect(
+    screen.getByRole("heading", { name: "achievements" }),
+  ).toBeInTheDocument();
+  expect(
+    screen.getByText(/Create achievements, edit what they ask for/),
   ).toBeInTheDocument();
 });
 

@@ -2,7 +2,7 @@
 
 import { type Client, type ClientMeta, formDataBodySerializer, type Options as Options2, type RequestResult, type TDataShape } from './client';
 import { client } from './client.gen';
-import type { AddFavoriteData, AddFavoriteErrors, AddFavoriteResponses, AddPlaylistEntryData, AddPlaylistEntryErrors, AddPlaylistEntryResponses, AddSongCommentData, AddSongCommentErrors, AddSongCommentResponses, AddWishData, AddWishErrors, AddWishResponses, AssignTagData, AssignTagErrors, AssignTagResponses, ClearWishesData, ClearWishesErrors, ClearWishesResponses, CopyPlaylistData, CopyPlaylistErrors, CopyPlaylistResponses, CreateDownloadData, CreateDownloadErrors, CreateDownloadResponses, CreatePlayerData, CreatePlayerErrors, CreatePlayerResponses, CreatePlaylistData, CreatePlaylistErrors, CreatePlaylistResponses, CreateTagData, CreateTagErrors, CreateTagResponses, DeletePlayerData, DeletePlayerErrors, DeletePlayerResponses, DeletePlaylistData, DeletePlaylistErrors, DeletePlaylistResponses, DeleteScoreData, DeleteScoreErrors, DeleteScoreResponses, DeleteSongCommentData, DeleteSongCommentErrors, DeleteSongCommentResponses, DeleteSongData, DeleteSongErrors, DeleteSongResponses, DeleteTagData, DeleteTagErrors, DeleteTagResponses, DeleteUserData, DeleteUserErrors, DeleteUserResponses, DismissDownloadData, DismissDownloadErrors, DismissDownloadResponses, DismissFinishedDownloadsData, DismissFinishedDownloadsResponses, EditSongData, EditSongErrors, EditSongResponses, ExchangeHostTokenData, ExchangeHostTokenErrors, ExchangeHostTokenResponses, FollowPlaylistData, FollowPlaylistErrors, FollowPlaylistResponses, GetCurrentSingData, GetCurrentSingResponses, GetJoinInfoData, GetJoinInfoResponses, GetMeData, GetMeResponses, GetPermissionsData, GetPermissionsResponses, GetPlayerAvatarData, GetPlayerAvatarErrors, GetPlayerAvatarResponses, GetPlaylistData, GetPlaylistErrors, GetPlaylistResponses, GetSongAudioData, GetSongAudioErrors, GetSongAudioResponses, GetSongCoverData, GetSongCoverErrors, GetSongCoverResponses, GetSongData, GetSongErrors, GetSongResponses, HealthData, HealthResponses, LaunchUsdxData, LaunchUsdxErrors, LaunchUsdxResponses, ListAllScoresData, ListAllScoresResponses, ListCurrentSessionSingsData, ListCurrentSessionSingsResponses, ListDownloadsData, ListDownloadsResponses, ListFavoritesData, ListFavoritesResponses, ListKaraokeColorsData, ListKaraokeColorsResponses, ListKaraokeSlotsData, ListKaraokeSlotsResponses, ListLatestScoresData, ListLatestScoresErrors, ListLatestScoresResponses, ListPlayerScoresData, ListPlayerScoresErrors, ListPlayerScoresResponses, ListPlayersData, ListPlayersResponses, ListPlaylistMembersData, ListPlaylistMembersErrors, ListPlaylistMembersResponses, ListPlaylistsData, ListPlaylistsErrors, ListPlaylistsResponses, ListSessionScoresData, ListSessionScoresErrors, ListSessionScoresResponses, ListSessionsData, ListSessionsResponses, ListSettingsData, ListSettingsResponses, ListSongCommentsData, ListSongCommentsErrors, ListSongCommentsResponses, ListSongScoresData, ListSongScoresErrors, ListSongScoresResponses, ListSongsData, ListSongsResponses, ListTagAssignmentsData, ListTagAssignmentsResponses, ListTagsData, ListTagsResponses, ListUsersData, ListUsersResponses, ListVideoQualityPresetsData, ListVideoQualityPresetsResponses, ListWishlistData, ListWishlistResponses, LoginData, LoginErrors, LoginResponses, LogoutData, LogoutErrors, LogoutResponses, LookupUsersData, LookupUsersErrors, LookupUsersResponses, OidcCallbackData, OidcCallbackErrors, OidcConfigData, OidcConfigResponses, OidcLoginData, OidcLoginErrors, ReassignScoreData, ReassignScoreErrors, ReassignScoreResponses, RegisterData, RegisterErrors, RegisterResponses, RemoveFavoriteData, RemoveFavoriteErrors, RemoveFavoriteResponses, RemovePlaylistEntryData, RemovePlaylistEntryErrors, RemovePlaylistEntryResponses, RemovePlaylistMemberData, RemovePlaylistMemberErrors, RemovePlaylistMemberResponses, RemoveWishData, RemoveWishErrors, RemoveWishResponses, RenameSessionData, RenameSessionErrors, RenameSessionResponses, ReorderPlaylistEntriesData, ReorderPlaylistEntriesErrors, ReorderPlaylistEntriesResponses, ReplaceTagPermissionsData, ReplaceTagPermissionsErrors, ReplaceTagPermissionsResponses, RescanSongsData, RescanSongsErrors, RescanSongsResponses, SetPlayerAvatarData, SetPlayerAvatarErrors, SetPlayerAvatarResponses, SetPlaylistMemberData, SetPlaylistMemberErrors, SetPlaylistMemberResponses, SingSongData, SingSongErrors, SingSongResponses, StopSingingData, StopSingingResponses, UnassignTagData, UnassignTagErrors, UnassignTagResponses, UnfollowPlaylistData, UnfollowPlaylistErrors, UnfollowPlaylistResponses, UpdateBuiltInTagData, UpdateBuiltInTagErrors, UpdateBuiltInTagResponses, UpdatePlayerData, UpdatePlayerErrors, UpdatePlayerResponses, UpdatePlaylistData, UpdatePlaylistErrors, UpdatePlaylistResponses, UpdateRolePermissionsData, UpdateRolePermissionsErrors, UpdateRolePermissionsResponses, UpdateSettingData, UpdateSettingErrors, UpdateSettingResponses, UpdateTagData, UpdateTagErrors, UpdateTagResponses, UpdateUserData, UpdateUserErrors, UpdateUserResponses, UsdbCoverData, UsdbCoverErrors, UsdbCoverResponses, UsdbSearchData, UsdbSearchErrors, UsdbSearchResponses, UsdbStatusData, UsdbStatusErrors, UsdbStatusResponses, UsdxStatusData, UsdxStatusResponses } from './types.gen';
+import type { AddFavoriteData, AddFavoriteErrors, AddFavoriteResponses, AddPlaylistEntryData, AddPlaylistEntryErrors, AddPlaylistEntryResponses, AddSongCommentData, AddSongCommentErrors, AddSongCommentResponses, AddWishData, AddWishErrors, AddWishResponses, AssignTagData, AssignTagErrors, AssignTagResponses, ClearWishesData, ClearWishesErrors, ClearWishesResponses, CopyPlaylistData, CopyPlaylistErrors, CopyPlaylistResponses, CreateAchievementData, CreateAchievementErrors, CreateAchievementResponses, CreateDownloadData, CreateDownloadErrors, CreateDownloadResponses, CreatePlayerData, CreatePlayerErrors, CreatePlayerResponses, CreatePlaylistData, CreatePlaylistErrors, CreatePlaylistResponses, CreateTagData, CreateTagErrors, CreateTagResponses, DeleteAchievementData, DeleteAchievementErrors, DeleteAchievementIconData, DeleteAchievementIconErrors, DeleteAchievementIconResponses, DeleteAchievementResponses, DeletePlayerData, DeletePlayerErrors, DeletePlayerResponses, DeletePlaylistData, DeletePlaylistErrors, DeletePlaylistResponses, DeleteScoreData, DeleteScoreErrors, DeleteScoreResponses, DeleteSongCommentData, DeleteSongCommentErrors, DeleteSongCommentResponses, DeleteSongData, DeleteSongErrors, DeleteSongResponses, DeleteTagData, DeleteTagErrors, DeleteTagResponses, DeleteUserData, DeleteUserErrors, DeleteUserResponses, DismissDownloadData, DismissDownloadErrors, DismissDownloadResponses, DismissFinishedDownloadsData, DismissFinishedDownloadsResponses, EditSongData, EditSongErrors, EditSongResponses, ExchangeHostTokenData, ExchangeHostTokenErrors, ExchangeHostTokenResponses, ExportAchievementsData, ExportAchievementsErrors, ExportAchievementsResponses, FollowPlaylistData, FollowPlaylistErrors, FollowPlaylistResponses, GetAchievementIconData, GetAchievementIconErrors, GetAchievementIconResponses, GetCurrentSingData, GetCurrentSingResponses, GetJoinInfoData, GetJoinInfoResponses, GetMeData, GetMeResponses, GetPermissionsData, GetPermissionsResponses, GetPlayerAvatarData, GetPlayerAvatarErrors, GetPlayerAvatarResponses, GetPlaylistData, GetPlaylistErrors, GetPlaylistResponses, GetSongAudioData, GetSongAudioErrors, GetSongAudioResponses, GetSongCoverData, GetSongCoverErrors, GetSongCoverResponses, GetSongData, GetSongErrors, GetSongResponses, HealthData, HealthResponses, ImportAchievementsData, ImportAchievementsErrors, ImportAchievementsResponses, LaunchUsdxData, LaunchUsdxErrors, LaunchUsdxResponses, ListAchievementsData, ListAchievementsResponses, ListAllScoresData, ListAllScoresResponses, ListCurrentSessionSingsData, ListCurrentSessionSingsResponses, ListDownloadsData, ListDownloadsResponses, ListFavoritesData, ListFavoritesResponses, ListKaraokeColorsData, ListKaraokeColorsResponses, ListKaraokeSlotsData, ListKaraokeSlotsResponses, ListLatestScoresData, ListLatestScoresErrors, ListLatestScoresResponses, ListPlayerAchievementsData, ListPlayerAchievementsErrors, ListPlayerAchievementsResponses, ListPlayerScoresData, ListPlayerScoresErrors, ListPlayerScoresResponses, ListPlayersData, ListPlayersResponses, ListPlaylistMembersData, ListPlaylistMembersErrors, ListPlaylistMembersResponses, ListPlaylistsData, ListPlaylistsErrors, ListPlaylistsResponses, ListSessionScoresData, ListSessionScoresErrors, ListSessionScoresResponses, ListSessionsData, ListSessionsResponses, ListSettingsData, ListSettingsResponses, ListSongCommentsData, ListSongCommentsErrors, ListSongCommentsResponses, ListSongScoresData, ListSongScoresErrors, ListSongScoresResponses, ListSongsData, ListSongsResponses, ListTagAssignmentsData, ListTagAssignmentsResponses, ListTagsData, ListTagsResponses, ListUsersData, ListUsersResponses, ListVideoQualityPresetsData, ListVideoQualityPresetsResponses, ListWishlistData, ListWishlistResponses, LoginData, LoginErrors, LoginResponses, LogoutData, LogoutErrors, LogoutResponses, LookupUsersData, LookupUsersErrors, LookupUsersResponses, OidcCallbackData, OidcCallbackErrors, OidcConfigData, OidcConfigResponses, OidcLoginData, OidcLoginErrors, ReassignScoreData, ReassignScoreErrors, ReassignScoreResponses, RegisterData, RegisterErrors, RegisterResponses, RemoveFavoriteData, RemoveFavoriteErrors, RemoveFavoriteResponses, RemovePlaylistEntryData, RemovePlaylistEntryErrors, RemovePlaylistEntryResponses, RemovePlaylistMemberData, RemovePlaylistMemberErrors, RemovePlaylistMemberResponses, RemoveWishData, RemoveWishErrors, RemoveWishResponses, RenameSessionData, RenameSessionErrors, RenameSessionResponses, ReorderPlaylistEntriesData, ReorderPlaylistEntriesErrors, ReorderPlaylistEntriesResponses, ReplaceTagPermissionsData, ReplaceTagPermissionsErrors, ReplaceTagPermissionsResponses, RescanSongsData, RescanSongsErrors, RescanSongsResponses, SetAchievementIconData, SetAchievementIconErrors, SetAchievementIconResponses, SetPlayerAvatarData, SetPlayerAvatarErrors, SetPlayerAvatarResponses, SetPlaylistMemberData, SetPlaylistMemberErrors, SetPlaylistMemberResponses, SingSongData, SingSongErrors, SingSongResponses, StopSingingData, StopSingingResponses, UnassignTagData, UnassignTagErrors, UnassignTagResponses, UnfollowPlaylistData, UnfollowPlaylistErrors, UnfollowPlaylistResponses, UpdateAchievementData, UpdateAchievementErrors, UpdateAchievementResponses, UpdateAchievementSettingsData, UpdateAchievementSettingsErrors, UpdateAchievementSettingsResponses, UpdateBuiltInTagData, UpdateBuiltInTagErrors, UpdateBuiltInTagResponses, UpdatePlayerData, UpdatePlayerErrors, UpdatePlayerResponses, UpdatePlaylistData, UpdatePlaylistErrors, UpdatePlaylistResponses, UpdateRolePermissionsData, UpdateRolePermissionsErrors, UpdateRolePermissionsResponses, UpdateSettingData, UpdateSettingErrors, UpdateSettingResponses, UpdateTagData, UpdateTagErrors, UpdateTagResponses, UpdateUserData, UpdateUserErrors, UpdateUserResponses, UsdbCoverData, UsdbCoverErrors, UsdbCoverResponses, UsdbSearchData, UsdbSearchErrors, UsdbSearchResponses, UsdbStatusData, UsdbStatusErrors, UsdbStatusResponses, UsdxStatusData, UsdxStatusResponses } from './types.gen';
 
 export type Options<TData extends TDataShape = TDataShape, ThrowOnError extends boolean = boolean, TResponse = unknown> = Options2<TData, ThrowOnError, TResponse> & {
     /**
@@ -850,6 +850,196 @@ export const addSongComment = <ThrowOnError extends boolean = false>(options: Op
  * Take a comment back, or moderate one away.
  */
 export const deleteSongComment = <ThrowOnError extends boolean = false>(options: Options<DeleteSongCommentData, ThrowOnError>): RequestResult<DeleteSongCommentResponses, DeleteSongCommentErrors, ThrowOnError> => (options.client ?? client).delete<DeleteSongCommentResponses, DeleteSongCommentErrors, ThrowOnError>({ url: '/api/v1/songs/{song_id}/comments/{comment_id}', ...options });
+
+/**
+ * List Achievements
+ *
+ * The whole catalogue, in `sort_order`, with the three settings beside it.
+ *
+ * No capability: a badge is drawn on the TV and on every phone, and the settings decide
+ * whether anything is drawn at all — a guest that could not read them could not draw.
+ *
+ * A `hidden` achievement the caller's own player has not earned comes back blank: no name,
+ * no sentence, no glyph. A caller holding `achievements.manage` sees all of it, plus each
+ * row's `definition`.
+ */
+export const listAchievements = <ThrowOnError extends boolean = false>(options?: Options<ListAchievementsData, ThrowOnError>): RequestResult<ListAchievementsResponses, unknown, ThrowOnError> => (options?.client ?? client).get<ListAchievementsResponses, unknown, ThrowOnError>({ url: '/api/v1/achievements', ...options });
+
+/**
+ * Create Achievement
+ *
+ * Add one. Everybody who ever sang is recomputed against it in the background — an
+ * achievement that is true of what somebody already did is earned the moment it exists.
+ */
+export const createAchievement = <ThrowOnError extends boolean = false>(options: Options<CreateAchievementData, ThrowOnError>): RequestResult<CreateAchievementResponses, CreateAchievementErrors, ThrowOnError> => (options.client ?? client).post<CreateAchievementResponses, CreateAchievementErrors, ThrowOnError>({
+    url: '/api/v1/achievements',
+    ...options,
+    headers: {
+        'Content-Type': 'application/json',
+        ...options.headers
+    }
+});
+
+/**
+ * Update Achievement Settings
+ *
+ * Switch achievements off for the whole instance, or retime the host screen's row.
+ *
+ * Registered before `PATCH /achievements/{achievement_id}` on purpose: FastAPI matches in
+ * registration order, and the other way round "settings" would be read as an achievement id.
+ *
+ * Switching the feature back on recomputes everybody in the background — while it was off
+ * nothing was evaluated, so the rows are as stale as the evening was long. Switching it
+ * *off* recomputes nothing and deletes nothing: the badges are kept exactly as they were.
+ *
+ * Broadcasts `achievements.changed` when it actually changed something: the toggle decides
+ * whether a phone draws badges at all, so a client holding the catalogue open has to hear
+ * about it. A PATCH that named nothing is silent.
+ */
+export const updateAchievementSettings = <ThrowOnError extends boolean = false>(options: Options<UpdateAchievementSettingsData, ThrowOnError>): RequestResult<UpdateAchievementSettingsResponses, UpdateAchievementSettingsErrors, ThrowOnError> => (options.client ?? client).patch<UpdateAchievementSettingsResponses, UpdateAchievementSettingsErrors, ThrowOnError>({
+    url: '/api/v1/achievements/settings',
+    ...options,
+    headers: {
+        'Content-Type': 'application/json',
+        ...options.headers
+    }
+});
+
+/**
+ * Export Achievements
+ *
+ * The named achievements as one `.tar.gz`, ready to be imported somewhere else.
+ *
+ * `achievements.manage` and not the open reading right the catalogue has, because an
+ * archive carries the two things `GET /achievements` deliberately keeps back: every
+ * achievement's `definition`, and the unmasked name and description of a `hidden` one. A
+ * download anybody could ask for would spoil every surprise in the list.
+ *
+ * An id the catalogue does not hold is a 404 naming it, rather than an archive quietly
+ * missing one of the achievements that were asked for.
+ */
+export const exportAchievements = <ThrowOnError extends boolean = false>(options: Options<ExportAchievementsData, ThrowOnError>): RequestResult<ExportAchievementsResponses, ExportAchievementsErrors, ThrowOnError> => (options.client ?? client).post<ExportAchievementsResponses, ExportAchievementsErrors, ThrowOnError>({
+    url: '/api/v1/achievements/export',
+    ...options,
+    headers: {
+        'Content-Type': 'application/json',
+        ...options.headers
+    }
+});
+
+/**
+ * Import Achievements
+ *
+ * Read one archive into the catalogue (multipart form field `file`).
+ *
+ * Matched **by id**: a known id is updated in place, an unknown one is created — which is
+ * what makes export → hand-edit → import a round trip, and what lets a built-in be shared
+ * between instances. A built-in is updated exactly the way `PATCH` updates one and keeps
+ * its flag; a row the import *creates* is a built-in only if its id is one of the ids
+ * Wingman ships, so an archive cannot mint an undeletable achievement of its own.
+ *
+ * The answer names what happened — which ids were created and which updated — so the page
+ * that ran it can say something true rather than "done".
+ *
+ * Everybody is recomputed in the background afterwards, exactly as after a create or an
+ * edit: an imported achievement that is already true of what somebody sang is earned the
+ * moment it exists. The whole archive is validated before a row is written, so a broken
+ * file changes nothing at all.
+ */
+export const importAchievements = <ThrowOnError extends boolean = false>(options: Options<ImportAchievementsData, ThrowOnError>): RequestResult<ImportAchievementsResponses, ImportAchievementsErrors, ThrowOnError> => (options.client ?? client).post<ImportAchievementsResponses, ImportAchievementsErrors, ThrowOnError>({
+    ...formDataBodySerializer,
+    url: '/api/v1/achievements/import',
+    ...options,
+    headers: {
+        'Content-Type': null,
+        ...options.headers
+    }
+});
+
+/**
+ * Delete Achievement
+ *
+ * Delete one, what everybody reached on it, and its uploaded picture.
+ *
+ * A built-in is a 409: import and export recognise the shipped set by its slug ids, so one
+ * may be switched off but never taken away. No background pass follows — the rows that
+ * mentioned it went with it, and nothing about anybody else changed.
+ */
+export const deleteAchievement = <ThrowOnError extends boolean = false>(options: Options<DeleteAchievementData, ThrowOnError>): RequestResult<DeleteAchievementResponses, DeleteAchievementErrors, ThrowOnError> => (options.client ?? client).delete<DeleteAchievementResponses, DeleteAchievementErrors, ThrowOnError>({ url: '/api/v1/achievements/{achievement_id}', ...options });
+
+/**
+ * Update Achievement
+ *
+ * Change one, a built-in included: they may be edited and switched off like any other.
+ *
+ * Recomputation follows every edit, not only an edited definition — switching one on or off
+ * changes who holds a row for it just as much as a raised target does.
+ */
+export const updateAchievement = <ThrowOnError extends boolean = false>(options: Options<UpdateAchievementData, ThrowOnError>): RequestResult<UpdateAchievementResponses, UpdateAchievementErrors, ThrowOnError> => (options.client ?? client).patch<UpdateAchievementResponses, UpdateAchievementErrors, ThrowOnError>({
+    url: '/api/v1/achievements/{achievement_id}',
+    ...options,
+    headers: {
+        'Content-Type': 'application/json',
+        ...options.headers
+    }
+});
+
+/**
+ * Delete Achievement Icon
+ *
+ * Back to the glyph. Idempotent — an achievement that had no picture is already there.
+ */
+export const deleteAchievementIcon = <ThrowOnError extends boolean = false>(options: Options<DeleteAchievementIconData, ThrowOnError>): RequestResult<DeleteAchievementIconResponses, DeleteAchievementIconErrors, ThrowOnError> => (options.client ?? client).delete<DeleteAchievementIconResponses, DeleteAchievementIconErrors, ThrowOnError>({ url: '/api/v1/achievements/{achievement_id}/icon', ...options });
+
+/**
+ * Get Achievement Icon
+ *
+ * The uploaded picture. Open like the catalogue itself: a badge on the TV is an image
+ * the TV has to be able to fetch.
+ *
+ * Masked too, because the id of a hidden achievement is in every catalogue answer — the
+ * locked slot carries it — so "you would have to know the id" protects nothing, and the
+ * picture is as much of the surprise as the name is. It is revealed once **anybody** has
+ * earned it rather than once the caller has: earning one announces it to every socket, and
+ * a phone drawing somebody else's badges has to be able to draw this one.
+ *
+ * A kept-back picture is the same 404 as no picture at all, so a stranger cannot tell the
+ * two apart.
+ */
+export const getAchievementIcon = <ThrowOnError extends boolean = false>(options: Options<GetAchievementIconData, ThrowOnError>): RequestResult<GetAchievementIconResponses, GetAchievementIconErrors, ThrowOnError> => (options.client ?? client).get<GetAchievementIconResponses, GetAchievementIconErrors, ThrowOnError>({ url: '/api/v1/achievements/{achievement_id}/icon', ...options });
+
+/**
+ * Set Achievement Icon
+ *
+ * Upload a picture to draw instead of the glyph (multipart form field `file`).
+ *
+ * The same rules as a player's avatar, out of the same module. No recomputation: what an
+ * achievement looks like has nothing to do with who has earned it.
+ */
+export const setAchievementIcon = <ThrowOnError extends boolean = false>(options: Options<SetAchievementIconData, ThrowOnError>): RequestResult<SetAchievementIconResponses, SetAchievementIconErrors, ThrowOnError> => (options.client ?? client).put<SetAchievementIconResponses, SetAchievementIconErrors, ThrowOnError>({
+    ...formDataBodySerializer,
+    url: '/api/v1/achievements/{achievement_id}/icon',
+    ...options,
+    headers: {
+        'Content-Type': null,
+        ...options.headers
+    }
+});
+
+/**
+ * List Player Achievements
+ *
+ * What one player has earned and how far along they are on the rest.
+ *
+ * No capability, like the catalogue: this is what the host screen shows beside a singer and
+ * what a phone shows on the user page. A player who never sang holds no rows at all, which
+ * is an empty list and not a 404.
+ *
+ * Masked over the **subject**: a hidden achievement *this player* has not earned is blank
+ * here whoever is reading, and its progress numbers are left out with it — a bar that
+ * filled would say what the badge is for just as loudly as its name would.
+ */
+export const listPlayerAchievements = <ThrowOnError extends boolean = false>(options: Options<ListPlayerAchievementsData, ThrowOnError>): RequestResult<ListPlayerAchievementsResponses, ListPlayerAchievementsErrors, ThrowOnError> => (options.client ?? client).get<ListPlayerAchievementsResponses, ListPlayerAchievementsErrors, ThrowOnError>({ url: '/api/v1/players/{player_id}/achievements', ...options });
 
 /**
  * Health

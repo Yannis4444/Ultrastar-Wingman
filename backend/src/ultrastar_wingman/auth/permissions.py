@@ -42,6 +42,7 @@ CAPABILITIES: tuple[str, ...] = (
     "stats.history",
     "stats.manage",
     "stats.moderate",
+    "achievements.manage",
     "settings.view",
     "settings.manage",
     "users.view",
@@ -127,8 +128,13 @@ _TRUSTED_CAPABILITIES = _USER_CAPABILITIES | {
 # `stats.moderate` is the second one: rewriting a recorded score's singer, or deleting the
 # score outright, edits the party's own record after the fact. Renaming a party
 # (`stats.manage`) changes a label; this changes what happened, so it starts with nobody.
+# `achievements.manage` is the third: an achievement is written once and earned by everybody
+# who ever sings, so editing one rewrites what the whole room has — a definition changed
+# mid-party revokes badges from people who did nothing wrong, and a `hidden` one only stays a
+# surprise while the few who may read it keep it. Reading the catalogue and a player's badges
+# needs no capability at all: the host screen and every guest phone draw them.
 
-# What migrations 0006 to 0020 seed. Kept here as well so a test can prove the two never
+# What migrations 0006 to 0024 seed. Kept here as well so a test can prove the two never
 # drift.
 DEFAULT_ROLE_CAPABILITIES: dict[str, frozenset[str]] = {
     GUEST: _GUEST_CAPABILITIES,

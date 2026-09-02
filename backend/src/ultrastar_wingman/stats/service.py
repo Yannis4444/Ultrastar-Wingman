@@ -12,6 +12,7 @@ from datetime import UTC, datetime
 from sqlalchemy import Select, func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from ..achievements import service as achievements
 from ..auth.model import as_utc
 from ..events import ScoresChanged, event_bus
 from ..karaoke.model import SESSION_GAP, KaraokeSession, Score, Sing
@@ -226,10 +227,18 @@ async def reassign_score(session: AsyncSession, score: Score, player: Player) ->
     the id because it is the durable label (a score outlives the player row), and leaving
     the old name on it would make the same score say two different things.
     """
+    previous_player_id = score.player_id
     score.player_id = player.id
     score.player_name = player.name
     await session.commit()
     logger.info("score %d reassigned to player '%s' (%s)", score.id, player.name, player.id)
+    # Both ends of the move: the one who lost the score may lose a badge with it, and the one
+    # who gained it may have just earned one. Recomputation is what makes that correct — a
+    # counter would only ever have grown.
+    await achievements.evaluate_players(
+        session,
+        [player_id for player_id in (previous_player_id, player.id) if player_id is not None],
+    )
     await event_bus.broadcast(ScoresChanged(sing_id=score.sing_id))
     return read_score(score)
 
@@ -243,7 +252,13 @@ async def delete_score(session: AsyncSession, score: Score) -> None:
     stopped early either.
     """
     sing_id = score.sing_id
+    player_id = score.player_id
     await session.delete(score)
     await session.commit()
     logger.info("score %d deleted", score.id)
+    # A badge earned on a score that is no longer on the record is revoked here. Nothing is
+    # announced beyond `scores.changed`: `achievements.earned` is what a *sing* earned, and
+    # a correction hours later is not one.
+    if player_id is not None:
+        await achievements.evaluate_players(session, [player_id])
     await event_bus.broadcast(ScoresChanged(sing_id=sing_id))

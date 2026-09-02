@@ -5,6 +5,253 @@ export type ClientOptions = {
 };
 
 /**
+ * AchievementCreate
+ *
+ * `definition` is parsed by the condition models on the way in, so an achievement that
+ * could never be satisfied is a 422 here rather than a stored row nobody can earn.
+ */
+export type AchievementCreate = {
+    /**
+     * Name
+     */
+    name: string;
+    /**
+     * Description
+     */
+    description?: string;
+    /**
+     * Icon
+     */
+    icon?: string | null;
+    /**
+     * Color
+     */
+    color?: 'neutral' | 'blue' | 'pink' | 'gold';
+    /**
+     * Hidden
+     */
+    hidden?: boolean;
+    /**
+     * Enabled
+     */
+    enabled?: boolean;
+    /**
+     * Sort Order
+     */
+    sort_order?: number | null;
+    /**
+     * Definition
+     */
+    definition: Array<Condition>;
+};
+
+/**
+ * AchievementExport
+ *
+ * Which achievements go into the archive. At least one — an empty archive is nothing
+ * anybody wanted, and "all of them" is a list the caller already holds.
+ */
+export type AchievementExport = {
+    /**
+     * Ids
+     */
+    ids: Array<string>;
+};
+
+/**
+ * AchievementImportResult
+ *
+ * What an imported archive did. Both lists in the archive's own order.
+ *
+ * Two lists rather than a count, so the page that ran the import can say something true —
+ * "three added, fourteen updated" — instead of "done". Import matches by id, so every
+ * achievement in the archive is in exactly one of them.
+ */
+export type AchievementImportResult = {
+    /**
+     * Created
+     */
+    created: Array<string>;
+    /**
+     * Updated
+     */
+    updated: Array<string>;
+};
+
+/**
+ * AchievementList
+ *
+ * `GET /achievements`. The settings ride along because every surface that draws a badge
+ * needs both, and one request is one request.
+ */
+export type AchievementList = {
+    /**
+     * Achievements
+     */
+    achievements: Array<AchievementRead>;
+    settings: AchievementSettings;
+};
+
+/**
+ * AchievementRead
+ *
+ * The catalogue entry. Everybody may read it — the host screen and every guest phone
+ * draw badges — which is why `definition` is not part of what everybody gets.
+ */
+export type AchievementRead = {
+    /**
+     * Id
+     */
+    id: string;
+    /**
+     * Name
+     */
+    name: string;
+    /**
+     * Description
+     */
+    description: string;
+    /**
+     * Icon
+     */
+    icon: string | null;
+    /**
+     * Has Image
+     */
+    has_image: boolean;
+    /**
+     * Icon Version
+     */
+    icon_version?: number | null;
+    /**
+     * Color
+     */
+    color: string;
+    /**
+     * Hidden
+     */
+    hidden: boolean;
+    /**
+     * Enabled
+     */
+    enabled: boolean;
+    /**
+     * Built In
+     */
+    built_in: boolean;
+    /**
+     * Sort Order
+     */
+    sort_order: number;
+    /**
+     * Definition
+     */
+    definition?: Array<Condition> | null;
+};
+
+/**
+ * AchievementSettings
+ *
+ * The three knobs, handed to every reader of the catalogue: whether badges exist at all,
+ * and how long the host screen holds a row of them.
+ */
+export type AchievementSettings = {
+    /**
+     * Enabled
+     */
+    enabled: boolean;
+    /**
+     * Host Seconds Base
+     */
+    host_seconds_base: number;
+    /**
+     * Host Seconds Per Badge
+     */
+    host_seconds_per_badge: number;
+};
+
+/**
+ * AchievementSettingsUpdate
+ *
+ * The three knobs, all optional like every other PATCH here.
+ */
+export type AchievementSettingsUpdate = {
+    /**
+     * Enabled
+     */
+    enabled?: boolean | null;
+    /**
+     * Host Seconds Base
+     */
+    host_seconds_base?: number | null;
+    /**
+     * Host Seconds Per Badge
+     */
+    host_seconds_per_badge?: number | null;
+};
+
+/**
+ * AchievementUpdate
+ *
+ * Every field optional: a PATCH only touches what it names. An explicit `"icon": null`
+ * clears the glyph — leaving the field out keeps it.
+ */
+export type AchievementUpdate = {
+    /**
+     * Name
+     */
+    name?: string | null;
+    /**
+     * Description
+     */
+    description?: string | null;
+    /**
+     * Icon
+     */
+    icon?: string | null;
+    /**
+     * Color
+     */
+    color?: 'neutral' | 'blue' | 'pink' | 'gold' | null;
+    /**
+     * Hidden
+     */
+    hidden?: boolean | null;
+    /**
+     * Enabled
+     */
+    enabled?: boolean | null;
+    /**
+     * Sort Order
+     */
+    sort_order?: number | null;
+    /**
+     * Definition
+     */
+    definition?: Array<Condition> | null;
+};
+
+/**
+ * Body_import_achievements
+ */
+export type BodyImportAchievements = {
+    /**
+     * File
+     */
+    file: Blob | File;
+};
+
+/**
+ * Body_set_achievement_icon
+ */
+export type BodySetAchievementIcon = {
+    /**
+     * File
+     */
+    file: Blob | File;
+};
+
+/**
  * Body_set_player_avatar
  */
 export type BodySetPlayerAvatar = {
@@ -175,6 +422,36 @@ export type CommentRead = {
      * Can Delete
      */
     can_delete: boolean;
+};
+
+/**
+ * Condition
+ *
+ * One thing that has to be true. An achievement is a list of them, all of which hold.
+ *
+ * `value` is a whole number: scores are, counts are, and an average is floored before it
+ * is compared, so a fractional target could only ever mean the number next to it.
+ */
+export type Condition = {
+    /**
+     * Scope
+     */
+    scope?: 'global' | 'session';
+    /**
+     * Metric
+     */
+    metric: 'any_score' | 'sum_of_scores' | 'average_score' | 'number_of_scores' | 'number_of_sings' | 'different_songs' | 'different_artists';
+    /**
+     * Comparator
+     */
+    comparator: '>' | '>=' | '=' | '<=' | '<';
+    /**
+     * Value
+     */
+    value: number;
+    score_filter?: ScoreFilter | null;
+    songs?: SongIds | null;
+    match?: SongSelector | null;
 };
 
 /**
@@ -413,6 +690,50 @@ export type PermissionsRead = {
     roles: {
         [key: string]: Array<string>;
     };
+};
+
+/**
+ * PlayerAchievementList
+ */
+export type PlayerAchievementList = {
+    /**
+     * Achievements
+     */
+    achievements: Array<PlayerAchievementRead>;
+};
+
+/**
+ * PlayerAchievementRead
+ *
+ * Where one player stands on one achievement. Not a badge on its own: a row with no
+ * `earned_at` carries progress only.
+ */
+export type PlayerAchievementRead = {
+    /**
+     * Achievement Id
+     */
+    achievement_id: string;
+    /**
+     * Player Id
+     */
+    player_id: string;
+    /**
+     * Earned At
+     */
+    earned_at: string | null;
+    /**
+     * Session Id
+     */
+    session_id: string | null;
+    /**
+     * Progress Current
+     */
+    progress_current: number | null;
+    /**
+     * Progress Target
+     */
+    progress_target: number | null;
+    achievement: AchievementRead;
 };
 
 /**
@@ -781,6 +1102,25 @@ export type ScanStatus = {
 };
 
 /**
+ * ScoreFilter
+ *
+ * Which scores the metric is computed over. Both ends inclusive, both optional.
+ *
+ * "Ten scores above 9000" is `number_of_scores >= 10` with `min = 9000` — the filter runs
+ * *before* the metric, which is what makes counting a filtered set expressible at all.
+ */
+export type ScoreFilter = {
+    /**
+     * Min
+     */
+    min?: number | null;
+    /**
+     * Max
+     */
+    max?: number | null;
+};
+
+/**
  * ScoreList
  */
 export type ScoreList = {
@@ -878,6 +1218,30 @@ export type ScoreWithContext = {
      * Sing Started At
      */
     sing_started_at: string;
+};
+
+/**
+ * SelectorClause
+ *
+ * One test against one song field.
+ *
+ * Which operators and which kind of value a field takes is checked here rather than at
+ * evaluation time: an impossible clause inside an `any` selector would otherwise just
+ * never match, and the person who wrote it would never learn why.
+ */
+export type SelectorClause = {
+    /**
+     * Field
+     */
+    field: 'title' | 'artist' | 'genre' | 'language' | 'edition' | 'year' | 'is_duet' | 'has_video';
+    /**
+     * Op
+     */
+    op: 'contains' | 'equals' | 'starts_with' | '=' | '>=' | '<=';
+    /**
+     * Value
+     */
+    value: boolean | number | string;
 };
 
 /**
@@ -1101,6 +1465,18 @@ export type SongEdit = {
 };
 
 /**
+ * SongIds
+ *
+ * An explicit list of song ids the scores must be on.
+ */
+export type SongIds = {
+    /**
+     * Ids
+     */
+    ids: Array<string>;
+};
+
+/**
  * SongList
  */
 export type SongList = {
@@ -1206,6 +1582,23 @@ export type SongRead = {
      * Creator
      */
     creator: string | null;
+};
+
+/**
+ * SongSelector
+ *
+ * A test over song metadata instead of a list of ids. One flat list, no nesting —
+ * `combine` says whether every clause has to match or only one of them.
+ */
+export type SongSelector = {
+    /**
+     * Combine
+     */
+    combine?: 'all' | 'any';
+    /**
+     * Clauses
+     */
+    clauses?: Array<SelectorClause>;
 };
 
 /**
@@ -4196,6 +4589,336 @@ export type DeleteSongCommentResponses = {
 };
 
 export type DeleteSongCommentResponse = DeleteSongCommentResponses[keyof DeleteSongCommentResponses];
+
+export type ListAchievementsData = {
+    body?: never;
+    path?: never;
+    query?: never;
+    url: '/api/v1/achievements';
+};
+
+export type ListAchievementsResponses = {
+    /**
+     * Successful Response
+     */
+    200: AchievementList;
+};
+
+export type ListAchievementsResponse = ListAchievementsResponses[keyof ListAchievementsResponses];
+
+export type CreateAchievementData = {
+    body: AchievementCreate;
+    path?: never;
+    query?: never;
+    url: '/api/v1/achievements';
+};
+
+export type CreateAchievementErrors = {
+    /**
+     * A definition the condition models refuse.
+     */
+    422: unknown;
+};
+
+export type CreateAchievementResponses = {
+    /**
+     * Successful Response
+     */
+    201: AchievementRead;
+};
+
+export type CreateAchievementResponse = CreateAchievementResponses[keyof CreateAchievementResponses];
+
+export type UpdateAchievementSettingsData = {
+    body: AchievementSettingsUpdate;
+    path?: never;
+    query?: never;
+    url: '/api/v1/achievements/settings';
+};
+
+export type UpdateAchievementSettingsErrors = {
+    /**
+     * A second count outside 0 to 60.
+     */
+    422: unknown;
+};
+
+export type UpdateAchievementSettingsResponses = {
+    /**
+     * Successful Response
+     */
+    200: AchievementSettings;
+};
+
+export type UpdateAchievementSettingsResponse = UpdateAchievementSettingsResponses[keyof UpdateAchievementSettingsResponses];
+
+export type ExportAchievementsData = {
+    body: AchievementExport;
+    path?: never;
+    query?: never;
+    url: '/api/v1/achievements/export';
+};
+
+export type ExportAchievementsErrors = {
+    /**
+     * Unknown achievement.
+     */
+    404: unknown;
+    /**
+     * Validation Error
+     */
+    422: HttpValidationError;
+};
+
+export type ExportAchievementsError = ExportAchievementsErrors[keyof ExportAchievementsErrors];
+
+export type ExportAchievementsResponses = {
+    /**
+     * The archive.
+     */
+    200: Blob | File;
+};
+
+export type ExportAchievementsResponse = ExportAchievementsResponses[keyof ExportAchievementsResponses];
+
+export type ImportAchievementsData = {
+    body: BodyImportAchievements;
+    path?: never;
+    query?: never;
+    url: '/api/v1/achievements/import';
+};
+
+export type ImportAchievementsErrors = {
+    /**
+     * The archive, or what it unpacks to, is past its cap.
+     */
+    413: unknown;
+    /**
+     * The archive, or something in it, is not one this format allows.
+     */
+    422: unknown;
+};
+
+export type ImportAchievementsResponses = {
+    /**
+     * Successful Response
+     */
+    200: AchievementImportResult;
+};
+
+export type ImportAchievementsResponse = ImportAchievementsResponses[keyof ImportAchievementsResponses];
+
+export type DeleteAchievementData = {
+    body?: never;
+    path: {
+        /**
+         * Achievement Id
+         */
+        achievement_id: string;
+    };
+    query?: never;
+    url: '/api/v1/achievements/{achievement_id}';
+};
+
+export type DeleteAchievementErrors = {
+    /**
+     * Unknown achievement.
+     */
+    404: unknown;
+    /**
+     * A built-in achievement cannot be deleted.
+     */
+    409: unknown;
+    /**
+     * Validation Error
+     */
+    422: HttpValidationError;
+};
+
+export type DeleteAchievementError = DeleteAchievementErrors[keyof DeleteAchievementErrors];
+
+export type DeleteAchievementResponses = {
+    /**
+     * Successful Response
+     */
+    204: void;
+};
+
+export type DeleteAchievementResponse = DeleteAchievementResponses[keyof DeleteAchievementResponses];
+
+export type UpdateAchievementData = {
+    body: AchievementUpdate;
+    path: {
+        /**
+         * Achievement Id
+         */
+        achievement_id: string;
+    };
+    query?: never;
+    url: '/api/v1/achievements/{achievement_id}';
+};
+
+export type UpdateAchievementErrors = {
+    /**
+     * Unknown achievement.
+     */
+    404: unknown;
+    /**
+     * A definition the condition models refuse.
+     */
+    422: unknown;
+};
+
+export type UpdateAchievementResponses = {
+    /**
+     * Successful Response
+     */
+    200: AchievementRead;
+};
+
+export type UpdateAchievementResponse = UpdateAchievementResponses[keyof UpdateAchievementResponses];
+
+export type DeleteAchievementIconData = {
+    body?: never;
+    path: {
+        /**
+         * Achievement Id
+         */
+        achievement_id: string;
+    };
+    query?: never;
+    url: '/api/v1/achievements/{achievement_id}/icon';
+};
+
+export type DeleteAchievementIconErrors = {
+    /**
+     * Unknown achievement.
+     */
+    404: unknown;
+    /**
+     * Validation Error
+     */
+    422: HttpValidationError;
+};
+
+export type DeleteAchievementIconError = DeleteAchievementIconErrors[keyof DeleteAchievementIconErrors];
+
+export type DeleteAchievementIconResponses = {
+    /**
+     * Successful Response
+     */
+    200: AchievementRead;
+};
+
+export type DeleteAchievementIconResponse = DeleteAchievementIconResponses[keyof DeleteAchievementIconResponses];
+
+export type GetAchievementIconData = {
+    body?: never;
+    path: {
+        /**
+         * Achievement Id
+         */
+        achievement_id: string;
+    };
+    query?: never;
+    url: '/api/v1/achievements/{achievement_id}/icon';
+};
+
+export type GetAchievementIconErrors = {
+    /**
+     * Unknown achievement.
+     */
+    404: unknown;
+    /**
+     * Validation Error
+     */
+    422: HttpValidationError;
+};
+
+export type GetAchievementIconError = GetAchievementIconErrors[keyof GetAchievementIconErrors];
+
+export type GetAchievementIconResponses = {
+    /**
+     * The uploaded icon image.
+     */
+    200: unknown;
+};
+
+export type SetAchievementIconData = {
+    body: BodySetAchievementIcon;
+    path: {
+        /**
+         * Achievement Id
+         */
+        achievement_id: string;
+    };
+    query?: never;
+    url: '/api/v1/achievements/{achievement_id}/icon';
+};
+
+export type SetAchievementIconErrors = {
+    /**
+     * Unknown achievement.
+     */
+    404: unknown;
+    /**
+     * The image is larger than 5 MB, or its canvas has too many pixels.
+     */
+    413: unknown;
+    /**
+     * Not a jpeg, png or webp image.
+     */
+    415: unknown;
+    /**
+     * Validation Error
+     */
+    422: HttpValidationError;
+};
+
+export type SetAchievementIconError = SetAchievementIconErrors[keyof SetAchievementIconErrors];
+
+export type SetAchievementIconResponses = {
+    /**
+     * Successful Response
+     */
+    200: AchievementRead;
+};
+
+export type SetAchievementIconResponse = SetAchievementIconResponses[keyof SetAchievementIconResponses];
+
+export type ListPlayerAchievementsData = {
+    body?: never;
+    path: {
+        /**
+         * Player Id
+         */
+        player_id: string;
+    };
+    query?: never;
+    url: '/api/v1/players/{player_id}/achievements';
+};
+
+export type ListPlayerAchievementsErrors = {
+    /**
+     * Unknown player.
+     */
+    404: unknown;
+    /**
+     * Validation Error
+     */
+    422: HttpValidationError;
+};
+
+export type ListPlayerAchievementsError = ListPlayerAchievementsErrors[keyof ListPlayerAchievementsErrors];
+
+export type ListPlayerAchievementsResponses = {
+    /**
+     * Successful Response
+     */
+    200: PlayerAchievementList;
+};
+
+export type ListPlayerAchievementsResponse = ListPlayerAchievementsResponses[keyof ListPlayerAchievementsResponses];
 
 export type HealthData = {
     body?: never;

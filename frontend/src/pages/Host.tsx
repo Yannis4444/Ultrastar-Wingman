@@ -14,6 +14,9 @@ import {
 import { useAuth } from "../auth";
 import ConfirmModal from "../components/ConfirmModal";
 import CurrentlyPlaying from "../components/CurrentlyPlaying";
+import HostAchievements, {
+  type HostAchievementsPhase,
+} from "../components/HostAchievements";
 import HostResults from "../components/HostResults";
 import { Icon } from "../components/icons";
 import SessionLeaderboard from "../components/SessionLeaderboard";
@@ -140,6 +143,9 @@ export default function Host() {
   const [askStop, setAskStop] = useState(false);
   // What a scoreboard is read for, and the Scores page's default too.
   const [order, setOrder] = useState<LeaderboardOrder>("best");
+  // Whose turn the stage is between songs: the badges a finished song earned
+  // play first, and the results follow them.
+  const [earned, setEarned] = useState<HostAchievementsPhase>("idle");
 
   const exchange = useMutation({
     ...exchangeHostTokenMutation(),
@@ -200,7 +206,18 @@ export default function Host() {
     <div className={`host-page${idle ? " host-idle" : ""}`}>
       <div className="host-stage">
         <CurrentlyPlaying variant="host" />
-        <HostResults players={standing.players} fallback={<HostBrand />} />
+        {/* The badges a finished song earned take the stage before its scores
+            do. `HostResults` stays mounted underneath them the whole time —
+            it is what listens for the next scores and for the next song — and
+            simply waits its turn; the brand stands in while the stage is
+            holding for badges that may follow, and nothing at all while they
+            are actually on it. */}
+        <HostAchievements onPhase={setEarned} />
+        <HostResults
+          players={standing.players}
+          fallback={earned === "playing" ? null : <HostBrand />}
+          suppressed={earned !== "idle"}
+        />
       </div>
 
       <div className="host-rail">

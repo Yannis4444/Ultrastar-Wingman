@@ -26,6 +26,7 @@ const ROLE_ORDER = ["guest", "user", "trusted"];
 /** One glyph per section, so a group is found by shape before it is read.
  * Existing icon names only. */
 const GROUP_ICONS: Record<string, IconName> = {
+  achievements: "trophy",
   songs: "music",
   karaoke: "mic",
   players: "users",
@@ -52,6 +53,8 @@ const GROUP_NAMES: Record<string, string> = { usdb: "USDB" };
  * still editable, just without the sentence.
  */
 const DESCRIPTIONS: Record<string, string> = {
+  "achievements.manage":
+    "Create achievements, edit what they ask for, and switch them — the shipped ones included — off and on. Everybody sees the badges.",
   "songs.view": "See the song list and open a song.",
   "songs.rescan": "Read the song folders again to pick up new files.",
   "songs.edit":

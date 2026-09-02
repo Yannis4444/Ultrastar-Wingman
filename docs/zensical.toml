@@ -15,6 +15,7 @@ nav = [
   { "Sing a song" = "singing.md" },
   { "Wishes, favorites and playlists" = "wishlist-and-playlists.md" },
   { "Tags" = "tags.md" },
+  { "Achievements" = "achievements.md" },
   { "Let the reel pick" = "the-spinner.md" },
   { "Accounts and permissions" = "accounts-and-permissions.md" },
   { "Statistics" = "statistics.md" },

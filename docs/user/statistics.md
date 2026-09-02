@@ -215,6 +215,18 @@ The row only appears once you have been scored at least once, and only for a
 logged-in account that is linked to a player: scores belong to a player, and
 that is the one Wingman can total up for you.
 
+## What those scores earned
+
+On the same **User** tab, under your totals, stands **Achievements** with a count
+— *7 of 17* — and the badges you hold beside it. Tap the line and it folds out
+into every achievement the party has: the ones you have earned with the day you
+got them, the ones you have not with how far along you are, and a padlock for the
+ones the host is keeping back.
+
+They are worked out from exactly the scores this page shows, so a correction here
+moves them too. [Achievements](achievements.md) has the whole story, including
+how the host makes one.
+
 ## One song's best runs
 
 Open a song from the **Songs** tab and tap the **trophy** at the bottom of it —

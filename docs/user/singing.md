@@ -304,6 +304,10 @@ shows both. The tile keeps its size either way, so nothing under it jumps.
 - The scores appear on the **Scores** tab shortly after Ultrastar Deluxe closes.
   Wingman reads them from Ultrastar Deluxe and files them under the players it
   put on the slots.
+- The host screen holds the results back for a moment first and throws up any
+  new [achievements](achievements.md): one singer at a time, their badges flying
+  in with the name and the line under it. A song where nobody earned anything
+  goes straight to the results.
 
 !!! warning
     An unfinished song scores nothing. Ultrastar Deluxe only writes a score when

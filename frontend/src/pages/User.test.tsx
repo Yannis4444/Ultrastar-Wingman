@@ -2,7 +2,13 @@ import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { MemoryRouter, useLocation } from "react-router-dom";
 import type { PlayerRead, ScoreWithContext } from "../api";
+import {
+  achievementRead,
+  achievementSettings,
+  playerAchievementRead,
+} from "../test/achievements";
 import { meResponse, userRead } from "../test/auth";
+import { FakeSocket } from "../test/fakeSocket";
 import { iconNames } from "../test/icons";
 import User from "./User";
 
@@ -18,6 +24,8 @@ const {
   listUsers,
   oidcConfig,
   health,
+  listAchievements,
+  listPlayerAchievements,
 } = vi.hoisted(() => ({
   listPlayers: vi.fn(),
   listPlayerScores: vi.fn(),
@@ -30,6 +38,8 @@ const {
   listUsers: vi.fn(),
   oidcConfig: vi.fn(),
   health: vi.fn(),
+  listAchievements: vi.fn(),
+  listPlayerAchievements: vi.fn(),
 }));
 
 vi.mock("../api/sdk.gen", async (importOriginal) => ({
@@ -45,6 +55,8 @@ vi.mock("../api/sdk.gen", async (importOriginal) => ({
   listUsers,
   oidcConfig,
   health,
+  listAchievements,
+  listPlayerAchievements,
 }));
 
 // What a plain account holds: no right over anybody else's player, and none is
@@ -114,9 +126,21 @@ function score(value: number, singId: string): ScoreWithContext {
 
 beforeEach(() => {
   vi.resetAllMocks();
+  // The badge section listens on the socket, and no test may open a real one.
+  FakeSocket.last = undefined;
+  vi.stubGlobal("WebSocket", FakeSocket);
   listPlayers.mockResolvedValue({
     data: { players: [player("aaa", "Alice")] },
   });
+  // An instance with achievements switched on and one to reach for; the
+  // singer's own record is empty until a test says otherwise.
+  listAchievements.mockResolvedValue({
+    data: {
+      achievements: [achievementRead()],
+      settings: achievementSettings(),
+    },
+  });
+  listPlayerAchievements.mockResolvedValue({ data: { achievements: [] } });
   listPlayerScores.mockResolvedValue({ data: { scores: [] } });
   listFavorites.mockResolvedValue({ data: { song_ids: ["usdb:1", "usdb:2"] } });
   // A logged-in ordinary account: nothing to manage, no admin sections.
@@ -134,6 +158,8 @@ beforeEach(() => {
     data: { name: "Ultrastar Wingman", version: "0.4.2" },
   });
 });
+
+afterEach(() => vi.unstubAllGlobals());
 
 test("an anonymous visitor gets the login form and the profile after logging in", async () => {
   // `players.view` is a guest capability, so this is what a stranger holds.
@@ -469,6 +495,40 @@ test("nothing links to an empty history", async () => {
     await screen.findByText("Sing a song and your stats appear here."),
   ).toBeInTheDocument();
   expect(screen.queryByRole("link", { name: "All my scores" })).toBeNull();
+});
+
+test("the badges belong to the record, between the scores and the errands", async () => {
+  loggedInAsAlice(ADMIN_CAPABILITIES);
+  listPlayerScores.mockResolvedValue({ data: { scores: [score(9000, "s1")] } });
+  listPlayerAchievements.mockResolvedValue({
+    data: { achievements: [playerAchievementRead()] },
+  });
+  const { container } = renderUser();
+
+  const section = await waitFor(() => {
+    const found = container.querySelector(".user-achievements");
+    expect(found).not.toBeNull();
+    return found as HTMLElement;
+  });
+  expect(screen.getByText("1 of 1")).toBeInTheDocument();
+  // Under the way into the scores, and above the Manage heading: still the
+  // singer's own record, not one of the errands.
+  expect(section.previousElementSibling).toHaveClass("user-stats-link");
+  expect(section.nextElementSibling?.textContent).toBe("Manage");
+});
+
+test("no badges are drawn for a singer with no player of their own", async () => {
+  getMe.mockResolvedValue(
+    meResponse(USER_CAPABILITIES, {
+      user: userRead({ username: "Alice", player_id: null }),
+      role: "user",
+    }),
+  );
+  const { container } = renderUser();
+
+  await screen.findByRole("button", { name: "Log out" });
+  expect(container.querySelector(".user-achievements")).toBeNull();
+  expect(listPlayerAchievements).not.toHaveBeenCalled();
 });
 
 test("a role that may not see statistics gets no way into them either", async () => {

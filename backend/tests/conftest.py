@@ -10,6 +10,7 @@ from httpx import ASGITransport, AsyncClient
 from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker, create_async_engine
 
+from ultrastar_wingman.achievements import service as achievements
 from ultrastar_wingman.app import create_app
 from ultrastar_wingman.auth import oidc, permissions
 from ultrastar_wingman.auth.deps import COOKIE_NAME
@@ -185,6 +186,16 @@ def fresh_scan_lock() -> None:
     pytest-asyncio gives every test its own loop — one shared lock would poison every
     later test that contends for it."""
     scanner._scan_lock = asyncio.Lock()
+
+
+@pytest.fixture(autouse=True)
+def fresh_achievement_pass_state() -> None:
+    """Same reasoning as the scan lock above — the write lock that serialises the achievement
+    passes is module-global, and so is the set of passes still running. A task left over from
+    a previous test belongs to a loop that is gone.
+    """
+    achievements._write_lock = asyncio.Lock()
+    achievements._passes.clear()
 
 
 @pytest.fixture(autouse=True)

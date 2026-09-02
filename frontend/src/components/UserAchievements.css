@@ -1,0 +1,182 @@
+/* The singer's badges on their own page (ui-guidelines §7's *User*): part of
+   the record above *Manage*, so it is flat on the page like the stat bar and
+   the chart, held to them by one hairline and sitting on the same 16px column.
+
+   Closed at rest: the strip and the count are what the page shows, and the
+   whole list is behind them — the errands below have to stay reachable. */
+.user-achievements {
+  margin: 12px 16px 0 16px;
+  border-top: 1px solid var(--input-border-color);
+}
+
+/* The `<details>` control itself, and a two-line one: the name with the count
+   and the chevron, then the badges under it. `list-style` and the WebKit
+   pseudo-element both go — a flex summary drops the marker in Blink and Safari
+   only, and Firefox would otherwise draw a triangle beside the chevron. */
+.user-achievements-summary {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  /* The app is content-box, so the padding would be added on top of a bare
+     `min-height` and make this taller than the 44px it is meant to be. */
+  box-sizing: border-box;
+  min-height: 44px;
+  padding: 8px 0;
+  list-style: none;
+  cursor: pointer;
+}
+
+.user-achievements-summary::-webkit-details-marker {
+  display: none;
+}
+
+.user-achievements-heading {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+/* A section name, at the size an `h2` on this page carries — the element is a
+   summary, so the weight comes from the size and not from a heading. */
+.user-achievements-label {
+  flex: 1 1 auto;
+  min-width: 0;
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+
+.user-achievements-count {
+  flex: 0 0 auto;
+  font-size: 0.85em;
+  color: var(--color-darker);
+  font-variant-numeric: tabular-nums;
+}
+
+.user-achievements-chevron {
+  flex: 0 0 auto;
+  font-size: 0.85em;
+  color: var(--color-darker);
+}
+
+/* Which of the two glyphs is drawn is the open state, never a rotation (§5). */
+.user-achievements-chevron-open {
+  display: none;
+}
+
+.user-achievements[open] .user-achievements-chevron-open {
+  display: inline-block;
+}
+
+.user-achievements[open] .user-achievements-chevron-closed {
+  display: none;
+}
+
+/* Pointers only: a touch screen fakes a hover on tap and leaves the line lit
+   long after the finger has scrolled on (§1.12). */
+@media (hover: hover) {
+  .user-achievements-summary:hover .user-achievements-chevron {
+    color: var(--highlight-blue-light);
+  }
+}
+
+/* The badges at rest. 0.75em makes the medallion 30px, which puts nine of them
+   across a 390px phone and a full seventeen in two rows — a strip, not a wall
+   that would push *Manage* off the screen. They are not controls: the summary
+   around them is the one thing here that is tapped. */
+.user-achievements-strip {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  font-size: 0.75em;
+}
+
+.user-achievements-none {
+  font-size: 0.85em;
+  color: var(--color-darker);
+}
+
+.user-achievements-list {
+  margin: 0;
+  padding: 0 0 8px 0;
+  list-style: none;
+}
+
+/* A row of the list: the 40px medallion the parent's 1em gives it, then the
+   name, the sentence and either the date or the bar. Hairlines between, the
+   first row separated from the strip above it the same way. */
+.user-achievement {
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+  padding: 10px 0;
+  border-top: 1px solid var(--input-border-color);
+}
+
+.user-achievement-text {
+  display: flex;
+  flex: 1 1 auto;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+}
+
+/* A name is somebody's own words and can be one long unbreakable string; it
+   wraps mid-word rather than pushing the page sideways (§1.11). */
+.user-achievement-name {
+  overflow-wrap: anywhere;
+}
+
+.user-achievement-description {
+  font-size: 0.85em;
+  color: var(--color-darker);
+  overflow-wrap: anywhere;
+}
+
+/* Not earned: the app's off state, the same step down the medallion beside it
+   takes. Never greyed out to the point of being unreadable — the list is there
+   to be read for what is still out there. */
+.user-achievement-off .user-achievement-name {
+  color: var(--color-darker);
+}
+
+.user-achievement-off .user-achievement-description {
+  color: var(--color-darkerer);
+}
+
+.user-achievement-meta {
+  font-size: 0.8em;
+  color: var(--color-darker);
+  font-variant-numeric: tabular-nums;
+}
+
+.user-achievement-progress {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-top: 2px;
+}
+
+/* The house progress bar: the `--input-bg` track of §2 under a blue fill, the
+   same one the host screen's song bar draws. No transition — the numbers move
+   once a sing, and a bar that slid would be animating a jump. */
+.user-achievement-bar {
+  flex: 1 1 auto;
+  height: 6px;
+  overflow: hidden;
+  background-color: var(--input-bg);
+  border-radius: 999px;
+}
+
+.user-achievement-bar > span {
+  display: block;
+  height: 100%;
+  background-color: var(--highlight-blue-light);
+}
+
+.user-achievement-progress-label {
+  flex: 0 0 auto;
+  font-size: 0.8em;
+  color: var(--color-darker);
+  font-variant-numeric: tabular-nums;
+}

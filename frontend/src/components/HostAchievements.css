@@ -1,0 +1,219 @@
+/* What a finished song just earned, on the host TV (ui-guidelines §7, *Host*):
+   flat on `--bg`, no tile anywhere, and every size in `clamp()`/`vh` because the
+   room reads this from the sofa. The stage is a centred column, so this block
+   only has to say how tall its own parts are.
+
+   Every animation here has a `prefers-reduced-motion` branch at the foot of the
+   file (§1.9), and it keeps the same order and the same delays: somebody who
+   asked for less movement still has to be able to read what was earned. */
+.host-achievements {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: clamp(16px, 3vh, 48px);
+  min-width: 0;
+}
+
+/* Whose badges these are. It rises first and the first badge follows a beat
+   later, so the room is looking at the name before anything lands. */
+.host-achievement-player {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: clamp(6px, 1vh, 16px);
+  text-align: center;
+}
+
+/* Two classes: beats `.player-avatar`'s own size whatever the import order. */
+.host-achievement-player .host-achievement-avatar {
+  flex: 0 0 auto;
+  width: clamp(56px, 9vh, 132px);
+  height: clamp(56px, 9vh, 132px);
+  font-size: clamp(24px, 4vh, 56px);
+}
+
+.host-achievement-player-name {
+  margin: 0;
+  font-size: clamp(26px, 4.2vh, 60px);
+  font-weight: 700;
+  line-height: 1.1;
+  color: var(--color);
+  overflow-wrap: anywhere;
+}
+
+/* The row of badges. `--badge` is the one size control: the medallion is 2.5em
+   of it and the two lines under it are sized from the same scale, so a row of
+   one and a row of four differ by a number rather than by a second ruleset. */
+.host-achievement-row {
+  --badge: clamp(26px, 4.6vh, 52px);
+  --column: clamp(150px, 19vw, 300px);
+
+  display: flex;
+  align-items: flex-start;
+  justify-content: center;
+  gap: clamp(12px, 2vw, 44px);
+  margin: 0;
+  /* Room for a badge still in flight: it arrives at more than twice its size
+     and the stage clips (`.host-stage` is `overflow: hidden`). */
+  padding: 0 clamp(8px, 1.5vw, 32px);
+  list-style: none;
+}
+
+/* A single badge alone in the middle of a TV would be lost at the size four of
+   them share, so the fewer there are the larger they land — and the wider the
+   column under each one, which is what keeps a one-line sentence on one line
+   instead of breaking it over three. */
+.host-achievement-row[data-count="1"] {
+  --badge: clamp(34px, 6.4vh, 74px);
+  --column: clamp(240px, 34vw, 560px);
+}
+
+.host-achievement-row[data-count="2"] {
+  --badge: clamp(30px, 5.6vh, 64px);
+  --column: clamp(200px, 26vw, 440px);
+}
+
+.host-achievement-row[data-count="3"] {
+  --badge: clamp(28px, 5vh, 58px);
+  --column: clamp(170px, 22vw, 340px);
+}
+
+.host-achievement {
+  display: flex;
+  flex: 0 1 var(--column);
+  flex-direction: column;
+  align-items: center;
+  gap: calc(var(--badge) * 0.32);
+  min-width: 0;
+}
+
+/* Two classes again, and the medallion's own `em` sizing does the rest: the
+   plate is 2.5em of the font-size it is given (AchievementBadge.css). */
+.host-achievement .host-achievement-badge {
+  font-size: var(--badge);
+}
+
+.host-achievement-text {
+  display: flex;
+  flex-direction: column;
+  gap: calc(var(--badge) * 0.12);
+  min-width: 0;
+  text-align: center;
+}
+
+.host-achievement-name {
+  display: -webkit-box;
+  margin: 0;
+  overflow: hidden;
+  font-size: calc(var(--badge) * 0.62);
+  font-weight: 700;
+  line-height: 1.15;
+  color: var(--color);
+  overflow-wrap: anywhere;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
+}
+
+/* The smallest thing on the screen and still a sofa away: the floor is what
+   keeps it legible, not the ratio. */
+.host-achievement-description {
+  display: -webkit-box;
+  margin: 0;
+  overflow: hidden;
+  font-size: max(16px, calc(var(--badge) * 0.44));
+  line-height: 1.25;
+  color: var(--color-dark);
+  overflow-wrap: anywhere;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 3;
+}
+
+@media (prefers-reduced-motion: no-preference) {
+  /* Up from below, and only a little: the name arriving is the cue that the
+     badges are about to. */
+  .host-achievement-player {
+    animation: host-achievement-rise 480ms cubic-bezier(0.22, 1, 0.36, 1)
+      backwards;
+  }
+
+  /* The throw. It enters big and off-centre, travels in and scales *past* its
+     place before settling back onto it — the weight of something landing,
+     rather than a linear stop. One gesture per badge, staggered by the delay
+     the component puts on each `li`, so they land in sequence. */
+  .host-achievement .host-achievement-badge {
+    animation: host-achievement-throw 640ms both;
+    animation-delay: var(--enter-delay, 0ms);
+  }
+
+  /* The words follow their badge down rather than riding it in: at two and a
+     half times the size they would be unreadable in flight and would overrun
+     the row. */
+  .host-achievement-text {
+    animation: host-achievement-rise 320ms cubic-bezier(0.22, 1, 0.36, 1)
+      backwards;
+    animation-delay: calc(var(--enter-delay, 0ms) + 420ms);
+  }
+
+  @keyframes host-achievement-rise {
+    from {
+      opacity: 0;
+      transform: translate3d(0, 18%, 0);
+    }
+    to {
+      opacity: 1;
+      transform: none;
+    }
+  }
+
+  @keyframes host-achievement-throw {
+    0% {
+      opacity: 0;
+      transform: translate3d(var(--throw-x, 0), var(--throw-y, 0), 0) scale(2.2);
+      animation-timing-function: cubic-bezier(0.15, 0.75, 0.25, 1);
+    }
+    25% {
+      opacity: 1;
+    }
+    68% {
+      opacity: 1;
+      transform: translate3d(0, 0, 0) scale(0.88);
+      animation-timing-function: cubic-bezier(0.33, 0, 0.2, 1);
+    }
+    84% {
+      transform: translate3d(0, 0, 0) scale(1.05);
+    }
+    100% {
+      opacity: 1;
+      transform: none;
+    }
+  }
+}
+
+/* Reduced motion: the same sequence, the same order and the same delays, with
+   the movement taken out. Not "no animation" — that would put every badge on
+   the screen at once and take the sequence away from the one reader who asked
+   for less of it (§1.9). They appear in place instead. */
+@media (prefers-reduced-motion: reduce) {
+  .host-achievement-player {
+    animation: host-achievement-appear 240ms linear backwards;
+  }
+
+  .host-achievement .host-achievement-badge {
+    animation: host-achievement-appear 240ms linear backwards;
+    animation-delay: var(--enter-delay, 0ms);
+  }
+
+  .host-achievement-text {
+    animation: host-achievement-appear 200ms linear backwards;
+    animation-delay: calc(var(--enter-delay, 0ms) + 420ms);
+  }
+
+  @keyframes host-achievement-appear {
+    from {
+      opacity: 0;
+    }
+    to {
+      opacity: 1;
+    }
+  }
+}
