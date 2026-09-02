@@ -1,13 +1,17 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { type ReactNode, useEffect, useState } from "react";
 import { Link } from "react-router-dom";
+import { importSummary } from "../achievements";
 import type {
+  AchievementImportResult,
   AchievementList,
   AchievementRead,
   AchievementSettings,
   AchievementSettingsUpdate,
 } from "../api";
+import { exportAchievements } from "../api";
 import {
+  importAchievementsMutation,
   listAchievementsOptions,
   listAchievementsQueryKey,
   updateAchievementSettingsMutation,
@@ -17,7 +21,9 @@ import AchievementBadge from "../components/AchievementBadge";
 import EmptyState from "../components/EmptyState";
 import { Icon } from "../components/icons";
 import Loading from "../components/Loading";
+import Modal from "../components/Modal";
 import PageHeader from "../components/PageHeader";
+import PickerRow from "../components/PickerRow";
 import { SettingSaved } from "../components/SettingField";
 import { errorDetail, errorMessage, missingPermission } from "../errors";
 import { useWingmanEvent } from "../hooks/useWingmanEvents";
@@ -197,12 +203,155 @@ function SecondsField({
   );
 }
 
-/** A 422 carries the backend's own complaint — worth showing verbatim. */
-function saveError(error: unknown): string {
+/**
+ * A 4xx carries the backend's own complaint — worth showing verbatim. A refused
+ * archive is the case this matters most for: the message names *which*
+ * achievement was wrong and *what* about it (achievements.md), which is the
+ * difference between a fixable file and "invalid archive".
+ *
+ * A permission denial is the exception: it explains itself, and its slug is not
+ * a sentence.
+ */
+function complaint(error: unknown, fallback: string): string {
   const detail = errorDetail(error);
   return detail !== null && missingPermission(error) === null
     ? detail
-    : errorMessage(error, "Could not save the setting.");
+    : errorMessage(error, fallback);
+}
+
+/** The cap `archive.MAX_ARCHIVE_BYTES` puts on an upload. Checked here as well,
+ *  so an archive that could never be read is not sent at all — the same
+ *  courtesy the editor does an oversized picture. */
+const MAX_ARCHIVE_BYTES = 32 * 1024 * 1024;
+
+/** What the backend called the archive it just made. Same-origin, so the header
+ *  it set is readable; a proxy that dropped it leaves the shape it uses. */
+function archiveName(response: Response): string {
+  const disposition = response.headers.get("Content-Disposition") ?? "";
+  const quoted = /filename="?([^";\r\n]+)"?/i.exec(disposition)?.[1]?.trim();
+  // The last segment only: what goes on a download is a name, never a path.
+  const name = quoted?.split(/[\\/]/).pop();
+  return name !== undefined && name !== ""
+    ? name
+    : `achievements-${new Date().toISOString().slice(0, 10)}.tar.gz`;
+}
+
+/**
+ * Hand the archive to the browser. The bytes come back from a POST, which
+ * cannot be a link, so they become an object URL that a synthetic anchor clicks.
+ *
+ * The anchor goes into the document because a click on a detached one does
+ * nothing in some browsers, and the URL is released on the next tick: an object
+ * URL pins its blob in memory until it is revoked, and revoking it before the
+ * click would cancel the download rather than start it.
+ */
+function saveArchive(blob: Blob, filename: string): void {
+  const url = URL.createObjectURL(blob);
+  const link = document.createElement("a");
+  link.href = url;
+  link.download = filename;
+  document.body.appendChild(link);
+  link.click();
+  link.remove();
+  setTimeout(() => URL.revokeObjectURL(url), 0);
+}
+
+interface ExportProps {
+  /** Everything the archive could hold, in the order the page lists it. */
+  achievements: AchievementRead[];
+  pending: boolean;
+  error: string | null;
+  onExport: (ids: string[]) => void;
+  onClose: () => void;
+}
+
+/**
+ * Which achievements go into the archive: a panel modal of `PickerRow`s (§5).
+ *
+ * A picker rather than a selection mode over the page's own rows, which are
+ * links into the editor and carry marks, not controls (§1.3/§1.4). "Is this
+ * achievement in the archive I am building?" is exactly the question
+ * `PickerRow` was written for, so the archive's contents are picked with the
+ * same row, the same `aria-pressed` and the same `list`/`list-check` mark as a
+ * playlist's are.
+ *
+ * The built-ins are in the list too: sharing one between instances is what the
+ * format is for (achievements.md), so nothing here may hold them back.
+ *
+ * The selection lives here and goes with the panel — an archive is one act, and
+ * a half-made choice is not something a page should keep.
+ */
+function ExportPanel({
+  achievements,
+  pending,
+  error,
+  onExport,
+  onClose,
+}: ExportProps) {
+  const [chosen, setChosen] = useState<string[]>([]);
+  const every =
+    achievements.length > 0 && chosen.length === achievements.length;
+
+  const toggle = (id: string): void =>
+    setChosen((ids) =>
+      ids.includes(id) ? ids.filter((other) => other !== id) : [...ids, id],
+    );
+
+  return (
+    <Modal title="Export achievements" onClose={onClose}>
+      <p className="section-note">
+        The ones you pick go into one archive — a file per achievement with its
+        settings, its conditions and its picture.
+      </p>
+
+      <ul className="picker-list achievements-export-list">
+        {achievements.map((achievement) => (
+          <PickerRow
+            key={achievement.id}
+            lead={<AchievementBadge achievement={achievement} />}
+            title={achievement.name}
+            meta={
+              achievement.built_in
+                ? `included · ${meta(achievement)}`
+                : meta(achievement)
+            }
+            pressed={chosen.includes(achievement.id)}
+            onClick={() => toggle(achievement.id)}
+          />
+        ))}
+      </ul>
+
+      {error !== null && (
+        <p className="error-notice achievements-notice" role="alert">
+          {error}
+        </p>
+      )}
+
+      <div className="achievements-export-footer">
+        <button
+          type="button"
+          className="button"
+          onClick={() =>
+            setChosen(every ? [] : achievements.map(({ id }) => id))
+          }
+        >
+          {every ? "Select none" : "Select all"}
+        </button>
+        <button
+          type="button"
+          className="button button-primary"
+          disabled={chosen.length === 0 || pending}
+          onClick={() => onExport(chosen)}
+        >
+          {pending
+            ? "Exporting…"
+            : chosen.length === 0
+              ? "Export"
+              : `Export · ${chosen.length}`}
+        </button>
+      </div>
+    </Modal>
+  );
 }
 
 /**
@@ -260,10 +409,78 @@ export default function Achievements() {
     save.mutate({ body });
   };
 
+  /* ------------------------------------------------------ the archive */
+
+  // Whether the export picker is open. What is picked in it lives inside it.
+  const [picking, setPicking] = useState(false);
+  // What the last import did, kept as the two lists the backend answered with
+  // so the names are looked up once the refetch has landed.
+  const [imported, setImported] = useState<AchievementImportResult | null>(
+    null,
+  );
+  // Set from the backend's refusal and from the one refusal made here.
+  const [importError, setImportError] = useState<string | null>(null);
+
+  const bring = useMutation({
+    ...importAchievementsMutation(),
+    onSuccess: (result) => {
+      setImportError(null);
+      setImported(result);
+      // The backend broadcasts `achievements.changed` as well; asking here does
+      // not depend on a socket being up, and both land on the same query.
+      void queryClient.invalidateQueries({
+        queryKey: listAchievementsQueryKey(),
+      });
+    },
+    onError: (cause) =>
+      setImportError(complaint(cause, "Could not read that archive.")),
+  });
+
+  const send = useMutation({
+    // The generated mutation option hands back the body alone, and the name the
+    // archive should be saved under is a header on the response — so this one
+    // calls the generated request itself rather than its options object.
+    mutationFn: async (ids: string[]) => {
+      const { data, response } = await exportAchievements({
+        body: { ids },
+        // `application/gzip` already parses as a blob; saying so keeps bytes
+        // bytes whatever a proxy in between labels them.
+        parseAs: "blob",
+        throwOnError: true,
+      });
+      return { archive: data as Blob, filename: archiveName(response) };
+    },
+    onSuccess: ({ archive, filename }) => {
+      saveArchive(archive, filename);
+      setPicking(false);
+    },
+  });
+
+  const bringIn = (input: HTMLInputElement): void => {
+    const file = input.files?.[0];
+    // Cleared right away, so picking the very same file again after a rejection
+    // is another change event and not a click that does nothing.
+    input.value = "";
+    if (!file) return;
+    setImported(null);
+    setImportError(null);
+    bring.reset();
+    if (file.size > MAX_ARCHIVE_BYTES) {
+      setImportError("That archive is larger than 32 MB.");
+      return;
+    }
+    bring.mutate({ body: { file } });
+  };
+
   const settings: AchievementSettings | undefined = catalogue.data?.settings;
   const rows = catalogue.data?.achievements ?? [];
   const own = rows.filter((achievement) => !achievement.built_in);
   const included = rows.filter((achievement) => achievement.built_in);
+
+  /** What to call an achievement an import named. An id the catalogue has not
+   *  got yet — a just-created one, before the refetch — stands for itself. */
+  const nameOf = (id: string): string =>
+    rows.find((achievement) => achievement.id === id)?.name ?? id;
 
   return (
     <div className="achievements-page">
@@ -351,7 +568,7 @@ export default function Achievements() {
                       className="error-notice achievements-notice"
                       role="alert"
                     >
-                      {saveError(save.error)}
+                      {complaint(save.error, "Could not save the setting.")}
                     </p>
                   )}
                 </>
@@ -378,6 +595,75 @@ export default function Achievements() {
                       but never deleted, so nothing here removes one. */}
                   <h2>Included</h2>
                   <AchievementRows achievements={included} />
+
+                  {/* Last on the page, the way a playlist's "Save a copy" is:
+                      carrying achievements between parties is a thing a host
+                      does now and then, not the errand they came for (§7). */}
+                  <h2>Import and export</h2>
+                  <p className="section-note">
+                    An archive carries achievements from one Wingman to another
+                    — a file per achievement, with its conditions and its
+                    picture. Importing one adds what this party has not got and
+                    updates what it has.
+                  </p>
+
+                  <div className="achievements-share">
+                    <label className="button achievements-share-action">
+                      <span>
+                        {bring.isPending ? "Importing…" : "Import archive…"}
+                      </span>
+                      <input
+                        type="file"
+                        className="visually-hidden"
+                        accept=".gz,.tgz,application/gzip"
+                        aria-label="Import archive"
+                        disabled={bring.isPending}
+                        onChange={(event) => bringIn(event.target)}
+                      />
+                    </label>
+                    <button
+                      type="button"
+                      className="button achievements-share-action"
+                      onClick={() => {
+                        send.reset();
+                        setPicking(true);
+                      }}
+                    >
+                      Export…
+                    </button>
+                  </div>
+
+                  {imported !== null && (
+                    <p className="achievements-share-result" role="status">
+                      {importSummary(imported, nameOf)}
+                    </p>
+                  )}
+
+                  {importError !== null && (
+                    <p
+                      className="error-notice achievements-notice"
+                      role="alert"
+                    >
+                      {importError}
+                    </p>
+                  )}
+
+                  {picking && (
+                    <ExportPanel
+                      achievements={[...own, ...included]}
+                      pending={send.isPending}
+                      error={
+                        send.isError
+                          ? complaint(
+                              send.error,
+                              "Could not make that archive.",
+                            )
+                          : null
+                      }
+                      onExport={(ids) => send.mutate(ids)}
+                      onClose={() => setPicking(false)}
+                    />
+                  )}
                 </>
               )}
             </>

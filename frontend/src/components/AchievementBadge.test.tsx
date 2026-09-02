@@ -62,17 +62,34 @@ it("shows the uploaded picture in place of the glyph", () => {
   expect(iconNames(badge(container))).toEqual([]);
 });
 
-it("asks for the new bytes when the caller knows the picture moved", () => {
+it("asks for the picture at the version the row carries", () => {
   const { container } = render(
     <AchievementBadge
-      achievement={achievementRead({ has_image: true })}
-      iconVersion={7}
+      achievement={achievementRead({ has_image: true, icon_version: 7 })}
     />,
   );
 
   expect(container.querySelector("img")).toHaveAttribute(
     "src",
     "/api/v1/achievements/a-golden/icon?v=7",
+  );
+});
+
+it("draws the replaced picture, not the browser's copy of the old one", () => {
+  const achievement = achievementRead({ has_image: true, icon_version: 7 });
+  const { container, rerender } = render(
+    <AchievementBadge achievement={achievement} />,
+  );
+
+  // What a replacement looks like from here: same id, same `has_image`, a new
+  // `icon_version` — and that is the whole of what moves the URL.
+  rerender(
+    <AchievementBadge achievement={{ ...achievement, icon_version: 9 }} />,
+  );
+
+  expect(container.querySelector("img")).toHaveAttribute(
+    "src",
+    "/api/v1/achievements/a-golden/icon?v=9",
   );
 });
 

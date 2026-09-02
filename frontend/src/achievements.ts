@@ -8,7 +8,12 @@
  * truth behind every sentence here.
  */
 
-import type { AchievementRead, Condition, SelectorClause } from "./api";
+import type {
+  AchievementImportResult,
+  AchievementRead,
+  Condition,
+  SelectorClause,
+} from "./api";
 import { ICON_PATHS, type IconName } from "./components/icons";
 import { tagColorClass } from "./tags";
 
@@ -16,12 +21,12 @@ import { tagColorClass } from "./tags";
  * The icon endpoint of one achievement, with the same cache-busting shape
  * `avatarUrl` has.
  *
- * Unlike a player, an achievement carries **no version**: `AchievementRead` has
- * `has_image` and nothing else, and the endpoint sets no cache headers. So the
- * URL is stable and a replaced picture appears once the browser's copy goes
- * stale — the "not knowing" case of `avatars.asPlayer`. A caller that has just
- * uploaded one and knows the picture moved passes a `version` of its own to get
- * the new bytes at once.
+ * The version is `AchievementRead.icon_version` — the stored file's mtime in
+ * milliseconds, exactly what `PlayerRead.avatar_version` is for an avatar
+ * (achievements.md, *Icons*). Replacing a picture changes neither the URL nor
+ * `has_image`, so without it a browser goes on drawing the copy it already has.
+ * `null` or left out — no picture, a file that has gone, or a masked row — is
+ * the bare URL: the "not knowing" case of `avatars.asPlayer`.
  */
 export function achievementIconUrl(
   achievementId: string,
@@ -104,6 +109,56 @@ export function progressLabel(
 ): string | null {
   if (current === null || target === null || target <= 0) return null;
   return `${Math.min(current, target)} / ${target}`;
+}
+
+/* ------------------------------------------------------------ the archive
+   What an import did, in a sentence. The backend answers with two lists of ids
+   precisely so the page can say something true instead of "done"
+   (achievements.md, *Import*), and turning those ids into names is the same job
+   on whichever surface ever runs an import. */
+
+/** Past this many, a list of names stops being something anybody reads. */
+const NAMED_AT_MOST = 3;
+
+/** "Golden Voice", "Golden Voice and Duettist", "A, B and C". */
+function listWords(names: readonly string[]): string {
+  if (names.length <= 1) return names[0] ?? "";
+  return `${names.slice(0, -1).join(", ")} and ${names[names.length - 1]}`;
+}
+
+/** One half of the sentence, or `null` when nothing happened on that side. */
+function importPhrase(
+  ids: readonly string[],
+  verb: string,
+  nameOf: (id: string) => string,
+): string | null {
+  if (ids.length === 0) return null;
+  if (ids.length <= NAMED_AT_MOST)
+    return `${verb} ${listWords(ids.map(nameOf))}`;
+  return `${verb} ${ids.length} achievements`;
+}
+
+/**
+ * What an imported archive did: *"Added Golden Voice and updated 14
+ * achievements."*
+ *
+ * `nameOf` looks an id up in the catalogue as the page has it — an id it does
+ * not know yet stands for itself, which is what a just-created achievement is
+ * until the refetch lands, and is still a truthful thing to name.
+ */
+export function importSummary(
+  result: AchievementImportResult,
+  nameOf: (id: string) => string,
+): string {
+  const parts = [
+    importPhrase(result.created, "added", nameOf),
+    importPhrase(result.updated, "updated", nameOf),
+  ].filter((part): part is string => part !== null);
+  // The backend refuses an archive holding no achievement at all, so this is
+  // only ever a backend that grew a third outcome — still not "done".
+  if (parts.length === 0) return "The archive held nothing to import.";
+  const sentence = parts.join(" and ");
+  return `${sentence[0].toUpperCase()}${sentence.slice(1)}.`;
 }
 
 /* --------------------------------------------------------- the editor's words

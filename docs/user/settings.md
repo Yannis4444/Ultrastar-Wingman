@@ -11,6 +11,17 @@ puts the default back.
 Two fields are all Wingman really needs: the USDX base path and the songs
 directory. The rest has sensible defaults.
 
+Not everything a host configures is here. Two features keep their own options on
+their own page, because they belong to whoever looks after that feature rather
+than to whoever sets Wingman up:
+
+- **Achievements** — whether badges exist at all, and how long the host screen
+  holds a row of them — are at the top of **User → Achievements**. See
+  [Achievements](achievements.md#switch-one-off).
+- The **built-in marks and facets** — the heart, the microphone, genre, language,
+  edition, decade — are under **Built-in** on **User → Tags**. See
+  [Tags](tags.md#built-in-marks-and-facets).
+
 The settings are grouped by area, and each field carries its own one-line
 explanation. A group whose fields include ones a normal setup never touches —
 overrides of paths Wingman works out on its own, above all — ends in an

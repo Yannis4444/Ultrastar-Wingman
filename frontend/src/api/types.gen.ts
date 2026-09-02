@@ -46,6 +46,39 @@ export type AchievementCreate = {
 };
 
 /**
+ * AchievementExport
+ *
+ * Which achievements go into the archive. At least one — an empty archive is nothing
+ * anybody wanted, and "all of them" is a list the caller already holds.
+ */
+export type AchievementExport = {
+    /**
+     * Ids
+     */
+    ids: Array<string>;
+};
+
+/**
+ * AchievementImportResult
+ *
+ * What an imported archive did. Both lists in the archive's own order.
+ *
+ * Two lists rather than a count, so the page that ran the import can say something true —
+ * "three added, fourteen updated" — instead of "done". Import matches by id, so every
+ * achievement in the archive is in exactly one of them.
+ */
+export type AchievementImportResult = {
+    /**
+     * Created
+     */
+    created: Array<string>;
+    /**
+     * Updated
+     */
+    updated: Array<string>;
+};
+
+/**
  * AchievementList
  *
  * `GET /achievements`. The settings ride along because every surface that draws a badge
@@ -86,6 +119,10 @@ export type AchievementRead = {
      * Has Image
      */
     has_image: boolean;
+    /**
+     * Icon Version
+     */
+    icon_version?: number | null;
     /**
      * Color
      */
@@ -192,6 +229,16 @@ export type AchievementUpdate = {
      * Definition
      */
     definition?: Array<Condition> | null;
+};
+
+/**
+ * Body_import_achievements
+ */
+export type BodyImportAchievements = {
+    /**
+     * File
+     */
+    file: Blob | File;
 };
 
 /**
@@ -4604,6 +4651,62 @@ export type UpdateAchievementSettingsResponses = {
 };
 
 export type UpdateAchievementSettingsResponse = UpdateAchievementSettingsResponses[keyof UpdateAchievementSettingsResponses];
+
+export type ExportAchievementsData = {
+    body: AchievementExport;
+    path?: never;
+    query?: never;
+    url: '/api/v1/achievements/export';
+};
+
+export type ExportAchievementsErrors = {
+    /**
+     * Unknown achievement.
+     */
+    404: unknown;
+    /**
+     * Validation Error
+     */
+    422: HttpValidationError;
+};
+
+export type ExportAchievementsError = ExportAchievementsErrors[keyof ExportAchievementsErrors];
+
+export type ExportAchievementsResponses = {
+    /**
+     * The archive.
+     */
+    200: Blob | File;
+};
+
+export type ExportAchievementsResponse = ExportAchievementsResponses[keyof ExportAchievementsResponses];
+
+export type ImportAchievementsData = {
+    body: BodyImportAchievements;
+    path?: never;
+    query?: never;
+    url: '/api/v1/achievements/import';
+};
+
+export type ImportAchievementsErrors = {
+    /**
+     * The archive, or what it unpacks to, is past its cap.
+     */
+    413: unknown;
+    /**
+     * The archive, or something in it, is not one this format allows.
+     */
+    422: unknown;
+};
+
+export type ImportAchievementsResponses = {
+    /**
+     * Successful Response
+     */
+    200: AchievementImportResult;
+};
+
+export type ImportAchievementsResponse = ImportAchievementsResponses[keyof ImportAchievementsResponses];
 
 export type DeleteAchievementData = {
     body?: never;

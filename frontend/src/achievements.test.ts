@@ -11,6 +11,7 @@ import {
   conditionProblem,
   conditionSentence,
   conditionTarget,
+  importSummary,
   isMasked,
   METRIC_LABELS,
   METRICS,
@@ -41,15 +42,15 @@ describe("achievementIconUrl", () => {
     );
   });
 
-  it("keeps one stable URL when nothing says the picture moved", () => {
-    // The API carries no version for an achievement's icon, so an omitted one
-    // is the ordinary case and must not bust the cache on every render.
+  it("keeps one stable URL when there is no version to add", () => {
+    // No picture, a file that has gone, or a masked row: `icon_version` is
+    // null, and the URL must not gain a query that changes on every render.
     expect(achievementIconUrl("a-golden", null)).toBe(
       achievementIconUrl("a-golden"),
     );
   });
 
-  it("busts the cache for a caller that knows it did", () => {
+  it("carries the row's version, so a replaced picture is fetched again", () => {
     expect(achievementIconUrl("a-golden", 3)).toBe(
       "/api/v1/achievements/a-golden/icon?v=3",
     );
@@ -123,6 +124,54 @@ describe("progress", () => {
   it("draws none for a target nobody has to reach", () => {
     expect(progressFraction(0, 0)).toBeNull();
     expect(progressLabel(2, -1)).toBeNull();
+  });
+});
+
+describe("importSummary", () => {
+  const NAMES: Record<string, string> = {
+    "a-golden": "Golden Voice",
+    "a-duet": "Duettist",
+    "a-night": "Night Owl",
+    "a-early": "Early Bird",
+  };
+  const nameOf = (id: string): string => NAMES[id] ?? id;
+
+  it("names both halves while there are few enough to read", () => {
+    expect(
+      importSummary({ created: ["a-golden"], updated: ["a-duet"] }, nameOf),
+    ).toBe("Added Golden Voice and updated Duettist.");
+  });
+
+  it("counts instead of listing once a side runs long", () => {
+    expect(
+      importSummary(
+        {
+          created: [],
+          updated: ["a-golden", "a-duet", "a-night", "a-early"],
+        },
+        nameOf,
+      ),
+    ).toBe("Updated 4 achievements.");
+  });
+
+  it("says nothing about a side nothing happened on", () => {
+    expect(
+      importSummary({ created: ["a-golden", "a-duet"], updated: [] }, nameOf),
+    ).toBe("Added Golden Voice and Duettist.");
+  });
+
+  it("falls back to the id of an achievement the page has not seen yet", () => {
+    // What a just-created one is until the refetch lands — and an id is still
+    // truer than a blank.
+    expect(
+      importSummary({ created: ["a-stranger"], updated: [] }, nameOf),
+    ).toBe("Added a-stranger.");
+  });
+
+  it("never answers with nothing at all", () => {
+    expect(importSummary({ created: [], updated: [] }, nameOf)).toBe(
+      "The archive held nothing to import.",
+    );
   });
 });
 

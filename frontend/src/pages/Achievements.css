@@ -86,6 +86,48 @@
   color: var(--color-darker);
 }
 
+/* ------------------------------------------------------- import and export
+   Two plain buttons at the foot of the page — neither is the page's primary,
+   because carrying achievements out is exactly as much of an errand as
+   carrying them in. They share the row evenly and wrap at a narrow width
+   rather than shrinking their labels. */
+
+.achievements-share {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin: 8px 16px 0 16px;
+}
+
+.achievements-share-action {
+  flex: 1 1 140px;
+}
+
+/* What the import did, in words. Full-strength text, not a caption: it is an
+   answer to something the reader just did. */
+.achievements-share-result {
+  margin: 8px 16px 0 16px;
+  font-size: 0.85em;
+}
+
+/* The export picker's own list sits on the panel surface, so it keeps the
+   modal's bottom padding off the last row. */
+.achievements-export-list {
+  margin-top: 8px;
+}
+
+/* The Filter panel's footer, on a picker that ends the same way: two buttons
+   sharing the width, the primary one on the right (§4, §5). */
+.achievements-export-footer {
+  display: flex;
+  gap: 8px;
+  margin: 16px 16px 0 16px;
+}
+
+.achievements-export-footer .button {
+  flex: 1 1 0;
+}
+
 @media (prefers-reduced-motion: reduce) {
   .achievements-open {
     transition: none;

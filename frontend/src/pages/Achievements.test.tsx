@@ -12,19 +12,27 @@ import { meResponse, userRead } from "../test/auth";
 import { FakeSocket } from "../test/fakeSocket";
 import Achievements from "./Achievements";
 
-const { getMe, listAchievements, updateAchievementSettings } = vi.hoisted(
-  () => ({
-    getMe: vi.fn(),
-    listAchievements: vi.fn(),
-    updateAchievementSettings: vi.fn(),
-  }),
-);
+const {
+  getMe,
+  listAchievements,
+  updateAchievementSettings,
+  exportAchievements,
+  importAchievements,
+} = vi.hoisted(() => ({
+  getMe: vi.fn(),
+  listAchievements: vi.fn(),
+  updateAchievementSettings: vi.fn(),
+  exportAchievements: vi.fn(),
+  importAchievements: vi.fn(),
+}));
 
 vi.mock("../api/sdk.gen", async (importOriginal) => ({
   ...(await importOriginal<typeof import("../api/sdk.gen")>()),
   getMe,
   listAchievements,
   updateAchievementSettings,
+  exportAchievements,
+  importAchievements,
 }));
 
 const MANAGER = ["songs.view", "achievements.manage"];
@@ -65,14 +73,68 @@ function rowsUnder(container: HTMLElement, index: number): HTMLAnchorElement[] {
   ];
 }
 
+/** An archive as the file input hands one over. */
+function archive(size = 2048): File {
+  const file = new File(["x"], "achievements.tar.gz", {
+    type: "application/gzip",
+  });
+  Object.defineProperty(file, "size", { value: size });
+  return file;
+}
+
+/** What the export endpoint answers with: the bytes, and the name the backend
+ *  put on them. */
+function exported(
+  filename = 'attachment; filename="achievements-2026-09-02.tar.gz"',
+) {
+  return {
+    data: new Blob(["archive bytes"]),
+    response: { headers: new Headers({ "Content-Disposition": filename }) },
+  };
+}
+
+/** The rows of the export picker. */
+function pickerRows(): HTMLElement[] {
+  return [...document.querySelectorAll<HTMLElement>(".picker-row")];
+}
+
+const createObjectURL = vi.fn(() => "blob:the-archive");
+const revokeObjectURL = vi.fn();
+/** The anchor the page synthesises to save the archive; its click never leaves
+ *  jsdom, so this is where the download's name and href are read. */
+let saved: HTMLAnchorElement | undefined;
+
 beforeEach(() => {
   FakeSocket.last = undefined;
   vi.stubGlobal("WebSocket", FakeSocket);
-  for (const mock of [getMe, listAchievements, updateAchievementSettings])
+  for (const mock of [
+    getMe,
+    listAchievements,
+    updateAchievementSettings,
+    exportAchievements,
+    importAchievements,
+    createObjectURL,
+    revokeObjectURL,
+  ])
     mock.mockReset();
+  createObjectURL.mockReturnValue("blob:the-archive");
+  // jsdom has neither, and a real one would need a real blob store.
+  URL.createObjectURL = createObjectURL;
+  URL.revokeObjectURL = revokeObjectURL;
+  saved = undefined;
+  vi.spyOn(HTMLAnchorElement.prototype, "click").mockImplementation(() => {
+    // The page puts the link in the document before clicking it, and takes it
+    // out again straight after — so it is only here that it can be read.
+    saved =
+      document.body.querySelector<HTMLAnchorElement>("a[download]") ??
+      undefined;
+  });
 });
 
-afterEach(() => vi.unstubAllGlobals());
+afterEach(() => {
+  vi.unstubAllGlobals();
+  vi.restoreAllMocks();
+});
 
 it("keeps the page from a role that may not manage achievements", async () => {
   renderPage([achievementRead()], ["songs.view"]);
@@ -277,4 +339,166 @@ it("draws each achievement in its own colour", async () => {
   expect(rows[1].querySelector(".achievement-badge")).toHaveClass(
     "tag-color-blue",
   );
+});
+
+/* --------------------------------------------------------- import and export */
+
+it("imports an archive and says what it did to which achievement", async () => {
+  importAchievements.mockResolvedValue({
+    data: { created: ["a-new"], updated: ["a-golden"] },
+  });
+  renderPage();
+
+  await screen.findByText("Golden Voice");
+  fireEvent.change(screen.getByLabelText("Import archive"), {
+    target: { files: [archive()] },
+  });
+
+  await waitFor(() => expect(importAchievements).toHaveBeenCalled());
+  expect(importAchievements.mock.calls[0][0].body.file.name).toBe(
+    "achievements.tar.gz",
+  );
+  // Names for what the catalogue holds, the id for what it has not seen yet.
+  expect(await screen.findByRole("status")).toHaveTextContent(
+    "Added a-new and updated Golden Voice.",
+  );
+  // And the catalogue is asked for again, socket or no socket.
+  await waitFor(() => expect(listAchievements.mock.calls.length).toBe(2));
+});
+
+it("shows what a refused archive was refused for", async () => {
+  importAchievements.mockRejectedValue({
+    detail: "'builtin-duet/achievement.json' names an unknown key 'colour'",
+  });
+  renderPage();
+
+  await screen.findByText("Golden Voice");
+  fireEvent.change(screen.getByLabelText("Import archive"), {
+    target: { files: [archive()] },
+  });
+
+  expect(await screen.findByRole("alert")).toHaveTextContent(
+    "'builtin-duet/achievement.json' names an unknown key 'colour'",
+  );
+});
+
+it("keeps an oversized archive in the browser", async () => {
+  renderPage();
+
+  await screen.findByText("Golden Voice");
+  fireEvent.change(screen.getByLabelText("Import archive"), {
+    target: { files: [archive(33 * 1024 * 1024)] },
+  });
+
+  expect(await screen.findByRole("alert")).toHaveTextContent(
+    "larger than 32 MB",
+  );
+  expect(importAchievements).not.toHaveBeenCalled();
+});
+
+it("picks what goes into the archive without touching the rows", async () => {
+  const { container } = renderPage([
+    achievementRead({ id: "a-own", name: "Karaoke Hero" }),
+    ...builtInAchievementReads(),
+  ]);
+
+  await screen.findByText("Karaoke Hero");
+  // Nothing on the page's own rows selects anything: they are links into the
+  // editor and stay that way.
+  expect(rowsUnder(container, 0)[0].querySelector("input")).toBeNull();
+
+  fireEvent.click(screen.getByRole("button", { name: "Export…" }));
+
+  const rows = pickerRows();
+  // Everything is offered, the seventeen included: sharing one of those is
+  // what the format is for.
+  expect(rows).toHaveLength(18);
+  expect(rows[0]).toHaveTextContent("Karaoke Hero");
+  expect(rows[1]).toHaveTextContent("included");
+  expect(
+    rows.every((row) => row.getAttribute("aria-pressed") === "false"),
+  ).toBe(true);
+  expect(screen.getByRole("button", { name: "Export" })).toBeDisabled();
+});
+
+it("exports the chosen ones and saves the file the backend named", async () => {
+  exportAchievements.mockResolvedValue(exported());
+  renderPage([
+    achievementRead({ id: "a-own", name: "Karaoke Hero" }),
+    achievementRead({ id: "a-other", name: "Second Voice" }),
+  ]);
+
+  await screen.findByText("Karaoke Hero");
+  fireEvent.click(screen.getByRole("button", { name: "Export…" }));
+  fireEvent.click(pickerRows()[1]);
+
+  const button = screen.getByRole("button", { name: "Export · 1" });
+  fireEvent.click(button);
+
+  await waitFor(() => expect(exportAchievements).toHaveBeenCalled());
+  expect(exportAchievements.mock.calls[0][0].body).toEqual({
+    ids: ["a-other"],
+  });
+
+  // The bytes reach the browser as a blob URL on a synthetic link, under the
+  // name the response's Content-Disposition gave them.
+  expect(createObjectURL).toHaveBeenCalled();
+  expect(saved?.getAttribute("href")).toBe("blob:the-archive");
+  expect(saved?.getAttribute("download")).toBe(
+    "achievements-2026-09-02.tar.gz",
+  );
+  // And the URL is let go again, or the blob would be held for the session.
+  await waitFor(() =>
+    expect(revokeObjectURL).toHaveBeenCalledWith("blob:the-archive"),
+  );
+  // The picker closes on its own once the file is on its way.
+  await waitFor(() => expect(pickerRows()).toHaveLength(0));
+});
+
+it("names the archive itself when nothing else does", async () => {
+  exportAchievements.mockResolvedValue(exported(""));
+  renderPage();
+
+  await screen.findByText("Golden Voice");
+  fireEvent.click(screen.getByRole("button", { name: "Export…" }));
+  fireEvent.click(pickerRows()[0]);
+  fireEvent.click(screen.getByRole("button", { name: "Export · 1" }));
+
+  await waitFor(() => expect(saved).toBeDefined());
+  expect(saved?.getAttribute("download")).toMatch(
+    /^achievements-\d{4}-\d{2}-\d{2}\.tar\.gz$/,
+  );
+});
+
+it("takes the lot and puts it back down again", async () => {
+  renderPage([
+    achievementRead({ id: "a1", name: "One" }),
+    achievementRead({ id: "a2", name: "Two" }),
+  ]);
+
+  await screen.findByText("One");
+  fireEvent.click(screen.getByRole("button", { name: "Export…" }));
+  fireEvent.click(screen.getByRole("button", { name: "Select all" }));
+
+  expect(screen.getByRole("button", { name: "Export · 2" })).toBeEnabled();
+  fireEvent.click(screen.getByRole("button", { name: "Select none" }));
+  expect(screen.getByRole("button", { name: "Export" })).toBeDisabled();
+});
+
+it("says what the backend refused about an archive it would not make", async () => {
+  exportAchievements.mockRejectedValue({
+    detail: "there is no achievement 'a-golden'",
+  });
+  renderPage();
+
+  await screen.findByText("Golden Voice");
+  fireEvent.click(screen.getByRole("button", { name: "Export…" }));
+  fireEvent.click(pickerRows()[0]);
+  fireEvent.click(screen.getByRole("button", { name: "Export · 1" }));
+
+  expect(await screen.findByRole("alert")).toHaveTextContent(
+    "there is no achievement 'a-golden'",
+  );
+  // Still open, with the choice intact: the reader has something to fix.
+  expect(pickerRows()).toHaveLength(1);
 });

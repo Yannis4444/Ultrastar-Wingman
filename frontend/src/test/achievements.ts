@@ -36,6 +36,9 @@ export function achievementRead(
     description: "Score 9,000 or more in a song.",
     icon: "trophy",
     has_image: false,
+    // No picture, so no version to bust a cache with — a test about an uploaded
+    // one overrides both together, the way the API only ever sends them together.
+    icon_version: null,
     color: "gold",
     hidden: false,
     enabled: true,
@@ -61,6 +64,9 @@ export function maskedAchievementRead(
     description: "",
     icon: null,
     has_image: false,
+    // Blanked with `has_image`: a version that moved would say a hidden
+    // achievement has a picture, and having one is part of the surprise.
+    icon_version: null,
     hidden: true,
     definition: null,
     ...overrides,

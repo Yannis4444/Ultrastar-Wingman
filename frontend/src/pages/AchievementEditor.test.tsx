@@ -447,6 +447,34 @@ it("uploads a picture and puts it where the glyph was", async () => {
   expect(screen.getByRole("button", { name: "Save" })).toBeDisabled();
 });
 
+it("draws the replacement rather than the picture it replaced", async () => {
+  const { container } = renderEditor({
+    achievements: [achievementRead({ has_image: true, icon_version: 100 })],
+  });
+
+  await screen.findByDisplayValue("Golden Voice");
+  expect(container.querySelector("img")).toHaveAttribute(
+    "src",
+    "/api/v1/achievements/a-golden/icon?v=100",
+  );
+
+  // The URL and `has_image` do not move when a picture is replaced — the
+  // version off the answer is the whole of what tells the browser to fetch it.
+  setAchievementIcon.mockResolvedValue({
+    data: achievementRead({ has_image: true, icon_version: 200 }),
+  });
+  fireEvent.change(screen.getByLabelText("Replace picture"), {
+    target: { files: [picture()] },
+  });
+
+  await waitFor(() =>
+    expect(container.querySelector("img")).toHaveAttribute(
+      "src",
+      "/api/v1/achievements/a-golden/icon?v=200",
+    ),
+  );
+});
+
 it("keeps an oversized picture in the browser", async () => {
   renderEditor();
 

@@ -151,7 +151,7 @@ What each role may do by default:
 | Delete anybody's comments | – | – | yes | yes |
 | [Fix a song's details](singing.md#fix-a-songs-details) | – | – | yes | yes |
 | [Correct or delete a score](statistics.md#fix-a-wrong-singer) | – | – | – | yes |
-| Create and edit achievements | – | – | – | yes |
+| [Create and edit achievements](achievements.md) | – | – | – | yes |
 | [Delete a song](singing.md#delete-a-song) | – | – | – | yes |
 | See and change the settings | – | – | – | yes |
 | Manage users | – | – | – | yes |

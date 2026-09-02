@@ -121,10 +121,11 @@ export default function AchievementEditor() {
   const [conditions, setConditions] = useState<Condition[]>([]);
   // The picture is not part of the form: it is its own endpoint and lands the
   // moment it is picked, so it is state of its own rather than a field of the
-  // draft. `iconVersion` is only there to get the new bytes past the browser's
-  // copy of the old ones (`achievementIconUrl`).
+  // draft. `iconVersion` is the stored file's own version, taken off whatever
+  // the icon endpoint last answered with, and it is what gets the new bytes
+  // past the browser's copy of the old ones (`achievementIconUrl`).
   const [hasImage, setHasImage] = useState(false);
-  const [iconVersion, setIconVersion] = useState(0);
+  const [iconVersion, setIconVersion] = useState<number | null>(null);
   const [builtIn, setBuiltIn] = useState(false);
   const [base, setBase] = useState<Draft>(NEW_DRAFT);
   const [seeded, setSeeded] = useState<string | null>(null);
@@ -146,6 +147,7 @@ export default function AchievementEditor() {
     setEnabled(achievement.enabled);
     setConditions(definition);
     setHasImage(achievement.has_image);
+    setIconVersion(achievement.icon_version ?? null);
     setBuiltIn(achievement.built_in);
     setBase({
       name: achievement.name.trim(),
@@ -176,7 +178,7 @@ export default function AchievementEditor() {
       setEnabled(true);
       setConditions([]);
       setHasImage(false);
-      setIconVersion(0);
+      setIconVersion(null);
       setBuiltIn(false);
       setBase(NEW_DRAFT);
       setError(null);
@@ -184,7 +186,6 @@ export default function AchievementEditor() {
       setSaved(false);
     } else if (found !== undefined) {
       setSeeded(draftId);
-      setIconVersion(0);
       seedFrom(found);
     }
   }
@@ -215,7 +216,10 @@ export default function AchievementEditor() {
   const tookIcon = (achievement: AchievementRead) => {
     setIconError(null);
     setHasImage(achievement.has_image);
-    setIconVersion((version) => version + 1);
+    // The version of the file as it now stands — `null` once the picture is
+    // gone, and a new number after a replacement, which is what makes the
+    // browser fetch the bytes it has just been sent instead of the old ones.
+    setIconVersion(achievement.icon_version ?? null);
     refresh();
   };
 
@@ -375,6 +379,9 @@ export default function AchievementEditor() {
     description: trimmedDescription,
     icon,
     has_image: hasImage,
+    // The one field of the preview the draft cannot make up: the picture on
+    // disk is whatever the last icon write left there.
+    icon_version: iconVersion,
     color,
     hidden,
     enabled,
@@ -480,7 +487,6 @@ export default function AchievementEditor() {
                       <div className="achievement-picture">
                         <AchievementBadge
                           achievement={preview}
-                          iconVersion={iconVersion}
                           className="achievement-picture-badge"
                         />
                         <p className="tag-editor-hint achievement-picture-note">

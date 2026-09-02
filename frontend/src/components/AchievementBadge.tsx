@@ -16,8 +16,6 @@ interface Props {
    * and gets the full-colour one; a player's record says so per row.
    */
   earned?: boolean;
-  /** The version of a picture the caller knows has just been replaced. */
-  iconVersion?: number | null;
   className?: string;
 }
 
@@ -31,6 +29,10 @@ interface Props {
  * says about it. Earned is full colour, unearned is the plate in `--input-bg`
  * with a `--color-darkerer` glyph — the same "off" the app draws everywhere.
  *
+ * An uploaded picture is asked for at the row's own `icon_version`, so a
+ * replaced one is drawn the moment the listing carries the new version and no
+ * caller has to say that the bytes moved.
+ *
  * It takes no size: the medallion is 2.5em and its glyph 1.25em of that, so the
  * parent's `font-size` sizes it (§3). A row's 16px makes the 40px square every
  * other list row leads with; the host screen's `clamp()` makes it a badge across
@@ -43,7 +45,6 @@ interface Props {
 export default function AchievementBadge({
   achievement,
   earned = true,
-  iconVersion,
   className,
 }: Props) {
   const masked = isMasked(achievement);
@@ -66,7 +67,7 @@ export default function AchievementBadge({
       ) : achievement.has_image ? (
         <img
           className="achievement-badge-image"
-          src={achievementIconUrl(achievement.id, iconVersion)}
+          src={achievementIconUrl(achievement.id, achievement.icon_version)}
           alt=""
         />
       ) : (

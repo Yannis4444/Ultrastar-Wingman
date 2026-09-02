@@ -38,7 +38,7 @@ and the rights the host hands out.
 | **Home** | What is playing, the way into the random-song reel, the wishlist |
 | **Songs** | The whole song list, search, favorites, the filter over tags and what the song files say, what has been sung tonight, playlists, and the way into a song |
 | **Scores** | The statistics of every party |
-| **User** | Log in, your own scores, players and their avatars, and (for the host) users, tags and permissions |
+| **User** | Log in, your own scores and badges, players and their avatars, and (for the host) users, tags, achievements and permissions |
 
 Two more pages are linked from there: **USDB** — behind the **+** button on the
 Songs page — for downloading new songs, and **Settings** for everything the host
