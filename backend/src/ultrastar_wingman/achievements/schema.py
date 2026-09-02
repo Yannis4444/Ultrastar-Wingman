@@ -11,14 +11,27 @@ inside an `any` selector.
 
 import logging
 from datetime import datetime
-from typing import Literal
+from typing import Annotated, Literal
 
-from pydantic import BaseModel, ValidationError, model_validator
+from pydantic import BaseModel, StringConstraints, ValidationError, model_validator
 
+from ..images import image_version
 from ..players.schema import PlayerRead
 from .model import Achievement
 
 logger = logging.getLogger(__name__)
+
+# The three presentation fields that are text, with the shape every way in has to agree on.
+# They live here rather than in `api.py` because an archive is a second way in
+# (`archive.AchievementFile`) and it is FastAPI-free: two copies of the constraints would
+# drift, and an import that accepted a ten-kilobyte name the API refuses is a hole.
+AchievementName = Annotated[
+    str, StringConstraints(strip_whitespace=True, min_length=1, max_length=128)
+]
+AchievementDescription = Annotated[str, StringConstraints(strip_whitespace=True, max_length=512)]
+# The name of an entry in the frontend's `ICON_PATHS`, exactly like `tags.icon`. Only the
+# shape is checked: the backend ships no icon list, and one the UI does not know draws nothing.
+AchievementIcon = Annotated[str, StringConstraints(pattern=r"^[a-z][a-z0-9-]{0,31}$")]
 
 # `global` — every score the player ever got. `session` — the condition has to hold inside
 # *one* party, and it is the same party for every session-scoped condition of the
@@ -155,6 +168,12 @@ class AchievementRead(BaseModel):
     # An uploaded image replaces the glyph. The path stays server-side, like a player's
     # avatar: the client only has to know one exists and asks the image endpoint for it.
     has_image: bool
+    # The cache buster for that endpoint, exactly like `PlayerRead.avatar_version`: replacing
+    # a picture changes neither the URL nor `has_image`, so this is the only thing that says
+    # the picture is a different one. `None` on a masked row, with `has_image` — a version
+    # that moved would say a hidden achievement has a picture, and having one is part of the
+    # surprise.
+    icon_version: int | None = None
     color: str
     hidden: bool
     enabled: bool
@@ -204,6 +223,18 @@ class PlayerAchievementList(BaseModel):
     achievements: list[PlayerAchievementRead]
 
 
+class AchievementImportResult(BaseModel):
+    """What an imported archive did. Both lists in the archive's own order.
+
+    Two lists rather than a count, so the page that ran the import can say something true —
+    "three added, fourteen updated" — instead of "done". Import matches by id, so every
+    achievement in the archive is in exactly one of them.
+    """
+
+    created: list[str]
+    updated: list[str]
+
+
 class EarnedByPlayer(BaseModel):
     """One singer and what they just earned — the unit the `achievements.earned` event is a
     list of. `PlayerRead` and not an id: the host screen draws the picture and the name
@@ -235,6 +266,7 @@ def read_achievement(
         # File paths stay server-side, like a player's avatar: a client only needs to know
         # whether to ask the image endpoint for one.
         has_image=not mask and achievement.icon_file is not None,
+        icon_version=None if mask else image_version(achievement.icon_file),
         color=achievement.color,
         hidden=achievement.hidden,
         enabled=achievement.enabled,

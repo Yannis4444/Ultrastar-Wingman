@@ -159,6 +159,13 @@ def icon_files(icons_dir: Path) -> list[str]:
     return sorted(path.name for path in icons_dir.iterdir()) if icons_dir.is_dir() else []
 
 
+def touch_and_read_version(icon: Path) -> int:
+    """Move the file's modification time on and report the version the API should now serve.
+    Sync for the same reason as `icon_files`."""
+    icon.touch()
+    return icon.stat().st_mtime_ns // 1_000_000
+
+
 async def test_the_seventeen_built_ins_are_seeded_in_order(party: Party) -> None:
     rows = await catalogue(party["anonymous"])
 
@@ -393,6 +400,51 @@ async def test_a_hidden_achievements_picture_is_kept_back_until_somebody_earns_i
     assert (
         await party["anonymous"].get(f"/api/v1/achievements/{created['id']}/icon")
     ).status_code == 200
+
+
+async def test_a_hidden_achievement_gives_away_no_version_of_the_picture_it_has(
+    party: Party,
+) -> None:
+    """A version that moved would say a hidden achievement has a picture just as loudly as
+    `has_image` would — and having one is part of the surprise."""
+    created = await create(party["admin"], **SECRET)
+    await party["admin"].put(
+        f"/api/v1/achievements/{created['id']}/icon", files=upload(PNG, "a.png", "image/png")
+    )
+
+    (blank,) = [one for one in await catalogue(party["anonymous"]) if one["id"] == created["id"]]
+    (whole,) = [one for one in await catalogue(party["admin"]) if one["id"] == created["id"]]
+
+    assert blank["has_image"] is False
+    assert blank["icon_version"] is None
+    # The picture really is there, so the two None answers above are the masking and not the
+    # absence of one.
+    assert whole["has_image"] is True
+    assert isinstance(whole["icon_version"], int)
+
+
+async def test_the_icon_version_moves_only_when_the_picture_does(party: Party) -> None:
+    """Replacing a picture changes neither the icon URL nor `has_image`, so this is the only
+    field a client can hang a cache buster on."""
+    created = await create(party["admin"])
+    assert created["icon_version"] is None
+    url = f"/api/v1/achievements/{created['id']}/icon"
+
+    uploaded = (await party["admin"].put(url, files=upload(PNG, "a.png", "image/png"))).json()
+    assert isinstance(uploaded["icon_version"], int)
+    # Reading the catalogue again reports the same version: nothing but a write moves it.
+    (listed,) = [one for one in await catalogue(party["admin"]) if one["id"] == created["id"]]
+    assert listed["icon_version"] == uploaded["icon_version"]
+
+    # A touch of the stored file stands in for a second upload a moment later.
+    touched = touch_and_read_version(party.icons / f"{created['id']}.png")
+    (replaced,) = [one for one in await catalogue(party["admin"]) if one["id"] == created["id"]]
+    assert replaced["icon_version"] == touched
+
+    removed = await party["admin"].delete(url)
+
+    assert removed.json()["has_image"] is False
+    assert removed.json()["icon_version"] is None
 
 
 async def test_replacing_an_icon_leaves_exactly_one_file(party: Party) -> None:

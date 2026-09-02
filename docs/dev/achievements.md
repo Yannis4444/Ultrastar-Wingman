@@ -177,9 +177,10 @@ a lie.
 ## Hidden achievements
 
 `hidden` is enforced by the API, not by the UI. `GET /achievements` blanks
-`name`, `description` and `icon` (and `has_image`) on a hidden achievement the
-caller has not earned, unless the caller holds `achievements.manage`. A client
-that ignored the flag would otherwise spoil every surprise.
+`name`, `description` and `icon` (and `has_image` / `icon_version`) on a hidden
+achievement the caller has not earned, unless the caller holds
+`achievements.manage`. A client that ignored the flag would otherwise spoil
+every surprise.
 
 "The caller" is the caller's **own player**, resolved the way `stats/api.py`
 resolves one: an account linked to a player. A guest phone and the host screen
@@ -284,8 +285,8 @@ settings PATCH that named no field.
 A `.tar.gz` holding one directory per achievement:
 
 ```
-score-9000/achievement.json
-score-9000/icon.png          (only when the achievement has an uploaded icon)
+builtin-score-9000/achievement.json
+builtin-score-9000/icon.png          (only when the achievement has an uploaded icon)
 ```
 
 `achievement.json` is the presentation fields plus the definition, in the
@@ -293,12 +294,140 @@ shape this document describes. **JSON, not YAML** — a YAML emitter is not a
 few lines of code and the project takes no dependency it can avoid
 (code-style.md).
 
-* **Export** takes a list of ids and answers with one archive.
-* **Import** takes one archive and matches **by id**: a known id is updated in
-  place, an unknown one is created. That is what makes export → edit → import
-  a round trip, and what lets a built-in be shared between instances.
-* Members are read **in memory** with a size cap per member and per archive —
-  nothing is ever extracted to a path from the tar.
+The format layer is `achievements/archive.py` and knows nothing of FastAPI, of
+the database or of the filesystem: it turns rows into bytes and a stranger's
+bytes back into achievements. `service.export_archive` /
+`service.import_archive` are what read the icons off the disk and write the
+rows; `POST /achievements/export` and `POST /achievements/import` are the two
+routes over them.
+
+### The file
+
+```json
+{
+  "id": "builtin-score-9000",
+  "name": "Golden Voice",
+  "description": "Score 9,000 or more in a song.",
+  "icon": "trophy",
+  "color": "gold",
+  "hidden": false,
+  "enabled": true,
+  "sort_order": 3,
+  "definition": [ … ]
+}
+```
+
+Two spaces of indent, no escaped non-ASCII and a trailing newline: the point
+of a directory of small files is that a person opens one, understands it and
+edits it. Unknown keys are **refused**, not ignored — a `"colour"` that was
+quietly dropped is exactly the mistake a hand-edited file invites, and a
+rejection that names the key is one keystroke from a fix. A UTF-8 BOM is read
+past rather than refused — a Windows editor writes one in front of what it
+saved, and a format meant to be hand-edited cannot fall over it.
+
+The directory name is the id and has to equal the `id` in the file. That is
+what stops two directories being the same achievement, and what catches a
+directory copied to make a new achievement whose id was never changed with it.
+
+`built_in` is **not a field**. An imported achievement is one of the shipped
+set if and only if its *id* is one Wingman ships (`builtin.BY_ID`) — a flag in
+a file a stranger wrote would otherwise be a way to mint an undeletable row.
+Writing `"built_in"` into the JSON is therefore a rejection like any other
+unknown key rather than a field that silently does nothing.
+
+Export is **deterministic**: members sorted by id, no gzip filename, and a
+zeroed mtime, owner and mode on every tar header. The same catalogue exported
+twice is the same bytes, so two archives are diffable.
+
+### Export
+
+`POST /achievements/export`, `achievements.manage`. The body names the ids
+(at least one); an id the catalogue does not hold is a 404 naming it, rather
+than an archive quietly missing one of the achievements that were asked for.
+The answer is the archive as an attachment.
+
+It needs the *write* capability although it only reads, because an archive
+carries the two things `GET /achievements` deliberately keeps back: every
+achievement's `definition`, and the unmasked name and description of a
+`hidden` one.
+
+An export is a faithful copy of the row, definition column included — one
+somebody hand-edited into a shape the condition models refuse comes out as it
+stands, so it can be fixed in the archive.
+
+### Import
+
+`POST /achievements/import`, `achievements.manage`, one multipart file.
+Matched **by id**: a known id is updated in place, an unknown one is created.
+That is what makes export → hand-edit → import a round trip and what lets a
+built-in be shared between instances. The answer names what happened —
+`{"created": [...], "updated": [...]}` — so the page can say something true
+rather than "done".
+
+| What it meets | What it does |
+|---|---|
+| An existing row, built-in or not | Updates every presentation field and the definition, exactly as `PATCH` would. `built_in` is never written by an import: a built-in stays one and stays undeletable. |
+| An unknown id that Wingman ships | Creates it **as a built-in**. The id is the only thing that may say so, which is what lets a shipped achievement be handed from one instance to another. |
+| Any other unknown id | Creates it as an ordinary row. An archive cannot mint an undeletable achievement of its own. |
+| An entry with an `icon.<ext>` | Stores it through `images.py` — the same allowlist, byte cap and pixel cap an upload goes through. |
+| An entry **without** one | **Clears** whatever picture the row had. The archive is the whole description of the achievement it names, and anything else would make importing the same archive twice mean two different things. |
+| `sort_order` left out of the file | A new achievement lands at the end of the list; an existing one keeps the place it has. |
+
+The whole archive is parsed and every picture validated **before a row is
+written**, so a broken file changes nothing at all. One
+`achievements.changed` for the whole archive, not one per row, and then the
+same background re-evaluation pass a create or an edit starts: an imported
+achievement that is already true of what somebody sang is earned the moment it
+exists.
+
+Icons cannot join that transaction, so they are **staged**: every picture the
+archive brought is written to a directory of its own beside the icons *before*
+the commit, and moved into place after it. Nothing that is already being
+served is touched until the commit has gone through. Writing is the step that
+runs out of disk, so it has to be the one that happens while rolling back is
+still free — otherwise a full disk on the fifteenth achievement answers
+"nothing happened" having already deleted the first fourteen pictures. A
+rename that fails *after* the commit leaves a row naming a file that is not
+there, which is the state a picture deleted behind Wingman's back already
+leaves: the icon endpoint answers 404 and re-importing puts it right. Failing
+the request instead would say the import did not happen, which by then would
+be untrue.
+
+### Reading a stranger's archive
+
+The upload is a file somebody else wrote, so the reader is the defensive half:
+
+* **nothing is ever extracted to a path from the tar** — members are read in
+  memory with `extractfile`, so no member name can become a path on this
+  machine;
+* a member that is not a regular file — a symlink, a hardlink, a device, a
+  fifo — is refused. A *directory* member is skipped, because other tar
+  writers emit one per directory;
+* a member name that is absolute, that names a drive, that holds a backslash,
+  a `..` or a `.`, or that has anything but the two segments this format
+  allows, is refused; so is the same member twice;
+* an id is checked as strictly as a filename, because it *is* one: it is the
+  directory in the archive and the stem of the icon file on disk. Lowercase
+  letters, digits and dashes, at most 64 of them, no dots and no separators —
+  and not one of the names Windows resolves to a device in every directory
+  (`con`, `nul`, `com1`, …), which would send `con.png` to the console rather
+  than to the icons directory.
+
+The caps, all in `archive.py` as module attributes:
+
+| Cap | Value | Why |
+|---|---|---|
+| `MAX_ARCHIVE_BYTES` | 32 MB | The upload. Icons are 5 MB apiece at most, so this is a few dozen of them and every JSON beside them. The route reads one byte past it, so an oversized upload is never buffered whole. |
+| `MAX_UNCOMPRESSED_BYTES` | 128 MB | What it may **decompress** to, counted *while* it is read. This is the cap that matters: the ratio between the two is where a gzip bomb lives, and a limit checked afterwards is not a limit. |
+| `MAX_MEMBERS` | 512 | Two per achievement plus a directory entry apiece — well past any catalogue somebody hand-maintains. |
+| `MAX_JSON_BYTES` | 256 KB | One `achievement.json`. A definition is a few hundred bytes; this only stops one member eating the whole budget. |
+| `images.MAX_IMAGE_BYTES` / `MAX_IMAGE_PIXELS` | 5 MB / 50 MP | One icon, through the very same rules an upload goes through. |
+
+Every refusal is a specific exception (`ArchiveTooLargeError` → 413,
+everything else under `ArchiveError` → 422) carrying a sentence that names the
+member or the achievement it was about. Somebody who exported from one
+instance and imported into another has to be told *which* achievement and
+*what* was wrong, never "invalid archive".
 
 ## Icons
 
@@ -309,6 +438,18 @@ through the same validation as player avatars — the same code, factored into
 and a pixel cap read out of the file's own header, and no image library. One
 file per achievement under `<data dir>/achievement_icons`, the previous one
 dropped even when it had another extension.
+
+`AchievementRead.icon_version` is the cache buster for
+`GET /achievements/{id}/icon`, the same field `PlayerRead.avatar_version` is
+for an avatar and out of the same helper (`images.image_version`). Replacing a
+picture changes neither the URL nor `has_image`, so without it a browser draws
+the copy it already has until that copy goes stale. It is the stored file's
+modification time in milliseconds — **derived, not a column**: a column would
+have to be moved by hand at every write, and a picture that arrived through an
+archive import or a restored data directory would leave it lying. `None` when
+there is no picture, when the file behind it is gone, and on a **masked** row:
+a version that moved would say a hidden achievement has a picture just as
+loudly as `has_image` would.
 
 The badge is a medallion: a plate in the achievement's colour with the glyph
 centred. Earned draws it in full colour; unearned draws `--color-darkerer` on

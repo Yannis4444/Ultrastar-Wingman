@@ -15,25 +15,50 @@ back on is the full pass that brings them up to date rather than an evening eras
 import asyncio
 import contextlib
 import logging
+import shutil
 import uuid
 from collections.abc import Collection, Iterable
 from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any
 
+import anyio
 from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
 
 from ..events import AchievementsChanged, event_bus
-from ..images import remove_images, store_image, validate_image
+from ..images import (
+    IMAGE_MEDIA_TYPES,
+    ImageTooLargeError,
+    ImageTooManyPixelsError,
+    ImageTypeError,
+    remove_images,
+    store_image,
+    validate_image,
+)
 from ..karaoke.model import Score, Sing
 from ..players.model import Player
 from ..players.schema import read_player
 from ..songs.model import Song
+from . import builtin
 from . import settings as achievement_settings
+from .archive import (
+    ArchivedAchievement,
+    ArchiveEntry,
+    ArchiveIconError,
+    ArchiveImage,
+    build_archive,
+    read_archive,
+)
 from .evaluate import NOT_EARNED, ScoreRow, evaluate
 from .model import Achievement, PlayerAchievement
-from .schema import Condition, EarnedByPlayer, parse_definition, read_achievement
+from .schema import (
+    AchievementImportResult,
+    Condition,
+    EarnedByPlayer,
+    parse_definition,
+    read_achievement,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -67,6 +92,16 @@ class BuiltInAchievementError(ValueError):
 
     def __init__(self, achievement_id: str) -> None:
         super().__init__(f"'{achievement_id}' is one of the built-in achievements")
+        self.achievement_id = achievement_id
+
+
+class UnknownAchievementError(LookupError):
+    """An export named an id the catalogue does not hold. Named rather than skipped: an
+    archive quietly missing one of the achievements somebody asked for would only be found
+    out much later, in another instance."""
+
+    def __init__(self, achievement_id: str) -> None:
+        super().__init__(f"unknown achievement '{achievement_id}'")
         self.achievement_id = achievement_id
 
 
@@ -501,6 +536,204 @@ async def remove_icon(
     await session.commit()
     await event_bus.broadcast(AchievementsChanged())
     return achievement
+
+
+async def export_archive(session: AsyncSession, achievement_ids: list[str]) -> bytes:
+    """The named achievements as one `.tar.gz`, uploaded pictures included.
+
+    An id that is not in the catalogue raises `UnknownAchievementError` rather than being
+    skipped: an export that quietly held sixteen of the seventeen ids somebody asked for
+    would be found out much later, in another instance.
+
+    A `icon_file` column pointing at a file that is no longer there exports as an
+    achievement with no picture. That is a broken row, not a broken request, and the archive
+    is still exactly what this instance can show.
+    """
+    achievements = {row.id: row for row in await by_ids(session, achievement_ids)}
+    missing = [one for one in achievement_ids if one not in achievements]
+    if missing:
+        raise UnknownAchievementError(missing[0])
+    entries = []
+    for achievement in achievements.values():
+        entries.append(
+            ArchiveEntry(
+                id=achievement.id,
+                name=achievement.name,
+                description=achievement.description,
+                icon=achievement.icon,
+                color=achievement.color,
+                hidden=achievement.hidden,
+                enabled=achievement.enabled,
+                sort_order=achievement.sort_order,
+                # The stored column rather than parsed conditions: an export is a faithful
+                # copy of the row, so one somebody hand-edited into a shape the models refuse
+                # comes out as it stands and can be fixed in the archive.
+                definition=achievement.definition,
+                icon_image=await _icon_image(achievement),
+            )
+        )
+    return await anyio.to_thread.run_sync(build_archive, entries)
+
+
+async def import_archive(
+    session: AsyncSession, data: bytes, icons_dir: Path
+) -> AchievementImportResult:
+    """Read an archive and put every achievement in it into the catalogue.
+
+    Matched **by id**: a known id is updated in place, an unknown one is created. That is
+    what makes export → hand-edit → import a round trip, and what lets a built-in be shared
+    between instances.
+
+    `built_in` is not in the archive and is never written by one. An existing row keeps the
+    flag it has — a built-in is updated by an import exactly the way `PATCH` updates it, and
+    stays undeletable. A row an import *creates* is a built-in if and only if its id is one
+    of the ids Wingman ships, so an archive cannot mint an undeletable achievement of its own.
+
+    The archive is the whole description of the achievement it names, so an entry that
+    brought no picture **clears** whatever picture the row had. Anything else would make
+    importing the same archive twice mean two different things.
+
+    Raises `ArchiveError` (from `archive.py`) for anything wrong with the file. The whole
+    archive is parsed before a single row is written, so an import either happens or does
+    not: there is no half-imported catalogue.
+
+    Icons cannot join that transaction, so they are staged instead: every new picture is
+    written beside the icons directory *before* the commit and moved in afterwards, and no
+    picture that is already being served is touched until the commit has gone through. That
+    is what makes a disk that fills up on the fifteenth achievement a request that changed
+    nothing, rather than one that answers "nothing happened" having already deleted the first
+    fourteen pictures.
+    """
+    # In a thread like `build_archive`: unpacking is up to `MAX_UNCOMPRESSED_BYTES` of
+    # decompression, and the event loop is what carries the host screen's socket.
+    parsed = await anyio.to_thread.run_sync(read_archive, data)
+    # Every picture checked before a single row is written, so a bad one in the last
+    # directory cannot leave the first sixteen achievements imported.
+    extensions = {entry.achievement.id: _icon_extension(entry) for entry in parsed}
+    staging = icons_dir / f".importing-{uuid.uuid4().hex}"
+    try:
+        staged = await _stage_icons(staging, parsed, extensions)
+        created: list[str] = []
+        updated: list[str] = []
+        # One query rather than one per created row: the rows this loop adds are not flushed,
+        # so asking the database again would give every one of them the same place in the
+        # list.
+        next_order = await _next_sort_order(session)
+        for entry in parsed:
+            file = entry.achievement
+            achievement = await session.get(Achievement, file.id)
+            if achievement is None:
+                achievement = Achievement(
+                    id=file.id,
+                    # The id is the only thing that may say a row is one of the shipped set.
+                    built_in=file.id in builtin.BY_ID,
+                    sort_order=next_order,
+                )
+                next_order += 1
+                session.add(achievement)
+                created.append(file.id)
+            else:
+                updated.append(file.id)
+            achievement.name = file.name
+            achievement.description = file.description
+            achievement.icon = file.icon
+            achievement.color = file.color
+            achievement.hidden = file.hidden
+            achievement.enabled = file.enabled
+            if file.sort_order is not None:
+                achievement.sort_order = file.sort_order
+            achievement.definition = dump_definition(file.definition)
+            picture = staged.get(file.id)
+            achievement.icon_file = None if picture is None else str(icons_dir / picture.name)
+        await session.commit()
+        await _apply_icons(icons_dir, staged, [entry.achievement.id for entry in parsed])
+    finally:
+        await _discard_staging(staging)
+    logger.info("imported %d achievement(s) from an archive", len(parsed))
+    # One broadcast for the whole archive, not one per row: every client refetches the
+    # catalogue on it, and seventeen of those would be sixteen wasted round trips.
+    await event_bus.broadcast(AchievementsChanged())
+    return AchievementImportResult(created=created, updated=updated)
+
+
+async def _stage_icons(
+    staging: Path, parsed: list[ArchivedAchievement], extensions: dict[str, str | None]
+) -> dict[str, Path]:
+    """Every picture the archive brought, written where nothing serves it yet.
+
+    Writing is the step that runs out of disk, so it happens while rolling the transaction
+    back is still free. A directory of its own rather than a temporary suffix beside the real
+    files: `images.remove_images` drops everything matching `<id>.*`, and a half-written
+    `<id>.png.part` is exactly what that would sweep away.
+    """
+    staged: dict[str, Path] = {}
+    for entry in parsed:
+        extension = extensions[entry.achievement.id]
+        if entry.icon_image is None or extension is None:
+            continue
+        staged[entry.achievement.id] = await store_image(
+            staging, entry.achievement.id, extension, entry.icon_image.data
+        )
+    return staged
+
+
+async def _apply_icons(icons_dir: Path, staged: dict[str, Path], imported: list[str]) -> None:
+    """Move the staged pictures to where they are served from, and drop the ones the archive
+    replaced with nothing.
+
+    After the commit, so what is left to go wrong is a rename rather than a write. One that
+    does fail leaves a row naming a file that is not there — the state a picture deleted
+    behind Wingman's back already leaves, which every reader of an icon answers with a 404
+    and which re-importing the archive puts right. Raising here instead would fail a request
+    whose achievements are already in the catalogue, which would be the less true answer.
+    """
+    for achievement_id in imported:
+        try:
+            await remove_images(icons_dir, achievement_id)
+            picture = staged.get(achievement_id)
+            if picture is not None:
+                await anyio.to_thread.run_sync(picture.replace, icons_dir / picture.name)
+        except OSError:
+            logger.exception("could not put the imported icon of '%s' in place", achievement_id)
+
+
+async def _discard_staging(staging: Path) -> None:
+    """Whatever is left of the staging directory, whether the import got through or not."""
+    await anyio.to_thread.run_sync(lambda: shutil.rmtree(staging, ignore_errors=True))
+
+
+def _icon_extension(entry: ArchivedAchievement) -> str | None:
+    """The extension one archived picture may be stored under, or `None` when it brought
+    none.
+
+    A picture out of an archive goes through exactly the rules an upload does — the same
+    allowlist, the same byte cap and the same pixel cap, out of `images.py`. The member's own
+    extension says which content type its bytes claim to be, and `validate_image` is what
+    makes the bytes agree with it: an `icon.png` holding something else is refused here
+    rather than served as a png later.
+    """
+    if entry.icon_image is None:
+        return None
+    try:
+        return validate_image(IMAGE_MEDIA_TYPES[entry.icon_image.extension], entry.icon_image.data)
+    except (ImageTypeError, ImageTooLargeError, ImageTooManyPixelsError) as error:
+        raise ArchiveIconError(entry.achievement.id, str(error)) from error
+
+
+async def _icon_image(achievement: Achievement) -> ArchiveImage | None:
+    """The uploaded picture behind one row, read off the disk for an export."""
+    if achievement.icon_file is None:
+        return None
+    path = Path(achievement.icon_file)
+    extension = path.suffix.lower()
+    if extension not in IMAGE_MEDIA_TYPES:
+        return None
+    data = await anyio.to_thread.run_sync(_read_if_file, path)
+    return None if data is None else ArchiveImage(extension=extension, data=data)
+
+
+def _read_if_file(path: Path) -> bytes | None:
+    return path.read_bytes() if path.is_file() else None
 
 
 async def _next_sort_order(session: AsyncSession) -> int:

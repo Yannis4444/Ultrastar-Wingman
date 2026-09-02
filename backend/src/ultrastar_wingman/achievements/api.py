@@ -14,12 +14,13 @@ that player's record and not the reader's.
 """
 
 import logging
+from datetime import UTC, datetime
 from pathlib import Path
 from typing import Annotated
 
 from fastapi import APIRouter, Depends, File, HTTPException, Request, UploadFile
-from fastapi.responses import FileResponse
-from pydantic import BaseModel, StringConstraints
+from fastapi.responses import FileResponse, Response
+from pydantic import BaseModel, Field
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
 
 from ..auth.deps import Principal, PrincipalDep, require
@@ -39,9 +40,14 @@ from ..settings import SettingTypeError, SettingValue, SettingValueError
 from ..tags.schema import TagColor
 from . import service
 from . import settings as achievement_settings
+from .archive import MAX_ARCHIVE_BYTES, ArchiveError, ArchiveTooLargeError
 from .model import Achievement, PlayerAchievement
 from .schema import (
+    AchievementDescription,
+    AchievementIcon,
+    AchievementImportResult,
     AchievementList,
+    AchievementName,
     AchievementRead,
     AchievementSettings,
     Condition,
@@ -57,14 +63,6 @@ router = APIRouter(tags=["achievements"])
 UNKNOWN_ACHIEVEMENT: dict[int | str, dict[str, object]] = {
     404: {"description": "Unknown achievement."}
 }
-
-AchievementName = Annotated[
-    str, StringConstraints(strip_whitespace=True, min_length=1, max_length=128)
-]
-AchievementDescription = Annotated[str, StringConstraints(strip_whitespace=True, max_length=512)]
-# The name of an entry in the frontend's `ICON_PATHS`, exactly like `tags.icon`. Only the
-# shape is checked: the backend ships no icon list, and one the UI does not know draws nothing.
-AchievementIcon = Annotated[str, StringConstraints(pattern=r"^[a-z][a-z0-9-]{0,31}$")]
 
 
 def get_icons_dir(request: Request) -> Path:
@@ -112,6 +110,13 @@ class AchievementUpdate(BaseModel):
     enabled: bool | None = None
     sort_order: int | None = None
     definition: list[Condition] | None = None
+
+
+class AchievementExport(BaseModel):
+    """Which achievements go into the archive. At least one — an empty archive is nothing
+    anybody wanted, and "all of them" is a list the caller already holds."""
+
+    ids: Annotated[list[str], Field(min_length=1)]
 
 
 class AchievementSettingsUpdate(BaseModel):
@@ -215,6 +220,84 @@ async def create_achievement(
     )
     service.start_full_pass(factory, f"achievement '{achievement.id}' was created")
     return read_achievement(achievement, definition=True)
+
+
+@router.post(
+    "/achievements/export",
+    response_class=Response,
+    dependencies=[Depends(require("achievements.manage"))],
+    responses={
+        **UNKNOWN_ACHIEVEMENT,
+        200: {"content": {"application/gzip": {}}, "description": "The archive."},
+    },
+)
+async def export_achievements(body: AchievementExport, session: SessionDep) -> Response:
+    """The named achievements as one `.tar.gz`, ready to be imported somewhere else.
+
+    `achievements.manage` and not the open reading right the catalogue has, because an
+    archive carries the two things `GET /achievements` deliberately keeps back: every
+    achievement's `definition`, and the unmasked name and description of a `hidden` one. A
+    download anybody could ask for would spoil every surprise in the list.
+
+    An id the catalogue does not hold is a 404 naming it, rather than an archive quietly
+    missing one of the achievements that were asked for.
+    """
+    try:
+        data = await service.export_archive(session, body.ids)
+    except service.UnknownAchievementError as error:
+        raise HTTPException(status_code=404, detail=str(error)) from error
+    day = datetime.now(UTC).strftime("%Y-%m-%d")
+    return Response(
+        content=data,
+        media_type="application/gzip",
+        # So a browser saves it under a name that says what it is and when it was taken,
+        # instead of "export".
+        headers={"Content-Disposition": f'attachment; filename="achievements-{day}.tar.gz"'},
+    )
+
+
+@router.post(
+    "/achievements/import",
+    response_model=AchievementImportResult,
+    dependencies=[Depends(require("achievements.manage"))],
+    responses={
+        413: {"description": "The archive, or what it unpacks to, is past its cap."},
+        422: {"description": "The archive, or something in it, is not one this format allows."},
+    },
+)
+async def import_achievements(
+    session: SessionDep,
+    icons_dir: IconsDirDep,
+    factory: SessionFactoryDep,
+    file: Annotated[UploadFile, File()],
+) -> AchievementImportResult:
+    """Read one archive into the catalogue (multipart form field `file`).
+
+    Matched **by id**: a known id is updated in place, an unknown one is created — which is
+    what makes export → hand-edit → import a round trip, and what lets a built-in be shared
+    between instances. A built-in is updated exactly the way `PATCH` updates one and keeps
+    its flag; a row the import *creates* is a built-in only if its id is one of the ids
+    Wingman ships, so an archive cannot mint an undeletable achievement of its own.
+
+    The answer names what happened — which ids were created and which updated — so the page
+    that ran it can say something true rather than "done".
+
+    Everybody is recomputed in the background afterwards, exactly as after a create or an
+    edit: an imported achievement that is already true of what somebody sang is earned the
+    moment it exists. The whole archive is validated before a row is written, so a broken
+    file changes nothing at all.
+    """
+    # One byte over the limit is enough to reject, so an oversized upload is never buffered
+    # whole — the same reasoning as the icon upload above.
+    data = await file.read(MAX_ARCHIVE_BYTES + 1)
+    try:
+        result = await service.import_archive(session, data, icons_dir)
+    except ArchiveTooLargeError as error:
+        raise HTTPException(status_code=413, detail=str(error)) from error
+    except ArchiveError as error:
+        raise HTTPException(status_code=422, detail=str(error)) from error
+    service.start_full_pass(factory, "an archive was imported")
+    return result
 
 
 @router.patch(

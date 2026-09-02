@@ -91,6 +91,27 @@ async def store_image(directory: Path, stem: str, extension: str, data: bytes) -
     return path
 
 
+def image_version(path: str | None) -> int | None:
+    """A number for a client to hang a cache buster on, or `None` when there is no picture.
+
+    Replacing a picture changes neither its URL nor the flag that says one exists, so a
+    browser would go on drawing the copy it already has until that copy went stale. The
+    file's modification time in milliseconds moves exactly when the image does and never
+    otherwise, which is what keeps an *unchanged* picture on one stable, cacheable URL.
+
+    Derived rather than stored: a column would have to be moved by hand at every write, and
+    an import or a restore that put a file in place without going through that write would
+    leave it lying. `None` when the file is gone, which the serving endpoints answer with a
+    404 anyway.
+    """
+    if path is None:
+        return None
+    try:
+        return Path(path).stat().st_mtime_ns // 1_000_000
+    except OSError:
+        return None
+
+
 async def remove_images(directory: Path, stem: str) -> None:
     def remove() -> None:
         # The stems are ids we minted (a uuid4 hex, or a slug): no glob metacharacters, and

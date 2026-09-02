@@ -163,6 +163,14 @@ ROUTES: list[tuple[str, str, str, dict[str, object] | None]] = [
     ("achievements.manage", "DELETE", "/api/v1/achievements/nope", None),
     ("achievements.manage", "PUT", "/api/v1/achievements/nope/icon", None),
     ("achievements.manage", "DELETE", "/api/v1/achievements/nope/icon", None),
+    # Export is a write's capability on a read, deliberately: an archive carries every
+    # `definition` and the unmasked name of a `hidden` achievement, which is exactly what
+    # `GET /achievements` keeps back. The id is an unknown one, so a permitted caller gets a
+    # 404 and the matrix exports nothing.
+    ("achievements.manage", "POST", "/api/v1/achievements/export", {"ids": ["nope"]}),
+    # No multipart body from this matrix, so a permitted caller gets the 422 for a missing
+    # file — which is not a 403, and nothing is imported.
+    ("achievements.manage", "POST", "/api/v1/achievements/import", None),
     # The literal segment is matched before `{achievement_id}`, so this is the settings route
     # and not an achievement called "settings". A count outside 0 to 60 keeps it a 422.
     ("achievements.manage", "PATCH", "/api/v1/achievements/settings", {"host_seconds_base": 999}),

@@ -1,10 +1,9 @@
 """Player read models. Separate from `api.py` so modules that must not import FastAPI
 (the karaoke service, the event bus) can still speak in player payloads."""
 
-from pathlib import Path
-
 from pydantic import BaseModel
 
+from ..images import image_version
 from .model import Player
 
 
@@ -40,10 +39,9 @@ def read_player(player: Player) -> PlayerRead:
 
 def avatar_version(avatar_file: str | None) -> int | None:
     """`None` when there is no avatar — or when the file behind it is gone, which the
-    avatar endpoint answers with a 404 anyway."""
-    if avatar_file is None:
-        return None
-    try:
-        return Path(avatar_file).stat().st_mtime_ns // 1_000_000
-    except OSError:
-        return None
+    avatar endpoint answers with a 404 anyway.
+
+    Kept under this name because `auth` and `comments` speak of avatars; the rule itself is
+    `images.image_version`, shared with an achievement's icon so the two cannot drift.
+    """
+    return image_version(avatar_file)
