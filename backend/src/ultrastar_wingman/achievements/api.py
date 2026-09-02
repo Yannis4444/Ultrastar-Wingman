@@ -306,8 +306,10 @@ async def import_achievements(
     Matched **by id**: a known id is updated in place, an unknown one is created — which is
     what makes export → hand-edit → import a round trip, and what lets a built-in be shared
     between instances. A built-in is updated exactly the way `PATCH` updates one and keeps
-    its flag; a row the import *creates* is a built-in only if its id is one of the ids
-    Wingman ships, so an archive cannot mint an undeletable achievement of its own.
+    its flag, its **conditions left alone**; a row the import *creates* is a built-in only if
+    its id is one of the ids Wingman ships, so an archive cannot mint an undeletable
+    achievement of its own, and one created under a shipped id gets the shipped conditions.
+    An archive is therefore never a way round the 409 `PATCH` gives.
 
     The answer names what happened — which ids were created and which updated — so the page
     that ran it can say something true rather than "done".
@@ -336,31 +338,81 @@ async def import_achievements(
     dependencies=[Depends(require("achievements.manage"))],
     responses={
         **UNKNOWN_ACHIEVEMENT,
+        409: {"description": "A definition on one of the built-in achievements."},
         422: {"description": "A definition the condition models refuse."},
     },
 )
 async def update_achievement(
     achievement_id: str, body: AchievementUpdate, session: SessionDep, factory: SessionFactoryDep
 ) -> AchievementRead:
-    """Change one, a built-in included: they may be edited and switched off like any other.
+    """Change one, a built-in included: they may be renamed, recoloured and switched off like
+    any other.
+
+    What a built-in **asks for** is the exception. A `definition` on one is a 409 and nothing
+    is written: `builtin.py` is the one place that says what *Golden Voice* means, and the
+    only write that touches those conditions is `POST /achievements/{id}/reset`, which puts
+    the shipped ones back. A `definition` repeating what the row already holds is let through
+    as the no-op it is, so a client that sends the whole achievement back unchanged is not
+    refused for a field it never meant to touch.
+
+    409 rather than 422: the body is one the condition models parsed happily, and what
+    refuses it is the row it was sent to — the same reasoning as the 409 on deleting a
+    built-in.
 
     Recomputation follows every edit, not only an edited definition — switching one on or off
     changes who holds a row for it just as much as a raised target does.
     """
     achievement = await _achievement_or_404(achievement_id, session)
-    await service.update_achievement(
-        session,
-        achievement,
-        name=body.name,
-        description=body.description,
-        icon=body.icon if "icon" in body.model_fields_set else service.UNSET,
-        color=body.color,
-        hidden=body.hidden,
-        enabled=body.enabled,
-        sort_order=body.sort_order,
-        definition=body.definition,
-    )
+    try:
+        await service.update_achievement(
+            session,
+            achievement,
+            name=body.name,
+            description=body.description,
+            icon=body.icon if "icon" in body.model_fields_set else service.UNSET,
+            color=body.color,
+            hidden=body.hidden,
+            enabled=body.enabled,
+            sort_order=body.sort_order,
+            definition=body.definition,
+        )
+    except service.BuiltInDefinitionError as error:
+        raise HTTPException(status_code=409, detail="built_in_definition") from error
     service.start_full_pass(factory, f"achievement '{achievement.id}' was edited")
+    return read_achievement(achievement, definition=True)
+
+
+@router.post(
+    "/achievements/{achievement_id}/reset",
+    response_model=AchievementRead,
+    dependencies=[Depends(require("achievements.manage"))],
+    responses={
+        **UNKNOWN_ACHIEVEMENT,
+        409: {"description": "Not one of the built-in achievements."},
+    },
+)
+async def reset_achievement(
+    achievement_id: str, session: SessionDep, icons_dir: IconsDirDep, factory: SessionFactoryDep
+) -> AchievementRead:
+    """Put one of the built-in achievements back the way Wingman ships it.
+
+    The name, the description, the glyph, the colour, `hidden`, the place in the list and the
+    conditions all come back out of `builtin.py`, and an uploaded picture is dropped so the
+    restored glyph is what is drawn. `enabled` is left as it stands: switching a built-in off
+    is the one thing a party is told it may do to one, and undoing that would be unwelcome.
+
+    Anything else in the catalogue is a 409 — an achievement somebody made here has nothing
+    to be put back to.
+
+    Recomputation follows, because the restored conditions can award a badge and can take one
+    away.
+    """
+    achievement = await _achievement_or_404(achievement_id, session)
+    try:
+        await service.reset_built_in(session, achievement, icons_dir)
+    except service.NotBuiltInError as error:
+        raise HTTPException(status_code=409, detail="not_built_in") from error
+    service.start_full_pass(factory, f"achievement '{achievement.id}' was reset")
     return read_achievement(achievement, definition=True)
 
 

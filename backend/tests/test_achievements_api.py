@@ -2,7 +2,7 @@
 
 Reading takes no capability at all, which is the point: the host screen and every guest
 phone draw badges. Writing takes `achievements.manage`, and the matrix in
-`test_permissions.py` is what proves the five write routes really demand it.
+`test_permissions.py` is what proves every one of the write routes really demands it.
 
 The half worth the most attention here is the masking. `hidden` is enforced by the API and
 never by the UI, so it is checked from all four sides — the management page, which has to be
@@ -25,7 +25,7 @@ from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
 
 from conftest import BASE_URL, add_session, add_user
 from ultrastar_wingman.achievements import service
-from ultrastar_wingman.achievements.builtin import BUILT_INS
+from ultrastar_wingman.achievements.builtin import BUILT_INS, BY_ID
 from ultrastar_wingman.achievements.model import Achievement, PlayerAchievement
 from ultrastar_wingman.achievements.schema import Condition
 from ultrastar_wingman.app import create_app
@@ -164,6 +164,16 @@ def icon_files(icons_dir: Path) -> list[str]:
     return sorted(path.name for path in icons_dir.iterdir()) if icons_dir.is_dir() else []
 
 
+async def stored_definition(party: Party, achievement_id: str) -> object:
+    """The `definition` column as it stands. The API's own answer is the parsed models spelled
+    out in full, so the column is what a claim about the stored JSON has to be made against —
+    and it is the shape `builtin.py` declares and the seed migration writes."""
+    async with party.factory() as session:
+        row = await session.get(Achievement, achievement_id)
+        assert row is not None
+        return row.definition
+
+
 def touch_and_read_version(icon: Path) -> int:
     """Move the file's modification time on and report the version the API should now serve.
     Sync for the same reason as `icon_files`."""
@@ -186,6 +196,17 @@ async def test_every_built_in_definition_is_one_the_engine_can_read(party: Party
         assert row["definition"], row["id"]
         for condition in row["definition"]:
             Condition.model_validate(condition)
+
+
+async def test_every_built_in_definition_is_written_the_way_the_models_write_it() -> None:
+    """`builtin.py` is hand-written JSON, and three things have to agree on it: what the seed
+    migration inserts (that file, raw), what a reset writes back (that file, raw) and what
+    `dump_definition` makes of a definition sent to the API — which is what the refusal on
+    `PATCH` compares against. A condition spelled with a field the models default would make
+    those three drift apart silently."""
+    for built_in in BUILT_INS:
+        parsed = [Condition.model_validate(condition) for condition in built_in.definition]
+        assert service.dump_definition(parsed) == built_in.definition, built_in.id
 
 
 async def test_the_catalogue_carries_the_three_settings_at_their_defaults(party: Party) -> None:
@@ -263,10 +284,179 @@ async def test_deleting_a_built_in_is_a_conflict(party: Party) -> None:
     assert switched_off.json()["enabled"] is False
 
 
+async def test_a_built_ins_conditions_cannot_be_changed(party: Party) -> None:
+    """What one of the shipped seventeen asks for is `builtin.py`'s. 409 and not 422: the
+    body is one the condition models parsed happily, and what refuses it is the row it was
+    sent to — the same reasoning as the 409 on deleting one."""
+    refused = await party["admin"].patch(
+        "/api/v1/achievements/builtin-score-9000",
+        json={
+            "name": "Renamed",
+            "definition": [{"metric": "any_score", "comparator": ">=", "value": 1}],
+        },
+    )
+
+    assert refused.status_code == 409, refused.text
+    # A slug and not a sentence, like every other 409 in the app: the client that has to
+    # explain a refusal is the one that speaks the reader's language (`errors.ts`).
+    assert refused.json() == {"detail": "built_in_definition"}
+    # Nothing at all was written — not the conditions, and not the name beside them.
+    assert (
+        await stored_definition(party, "builtin-score-9000")
+        == BY_ID["builtin-score-9000"].definition
+    )
+    rows = {row["id"]: row for row in await catalogue(party["admin"], manage=True)}
+    assert rows["builtin-score-9000"]["name"] == "Golden Voice"
+
+
+async def test_a_patch_repeating_a_built_ins_own_conditions_is_no_refusal(party: Party) -> None:
+    """A client that sends the whole achievement back — the shipped definition included —
+    changed nothing about the conditions, and is not refused for a field it never meant to
+    touch."""
+    response = await party["admin"].patch(
+        "/api/v1/achievements/builtin-score-9000",
+        json={
+            "name": "Goldene Stimme",
+            "definition": BY_ID["builtin-score-9000"].definition,
+        },
+    )
+
+    assert response.status_code == 200, response.text
+    assert response.json()["name"] == "Goldene Stimme"
+    assert (
+        await stored_definition(party, "builtin-score-9000")
+        == BY_ID["builtin-score-9000"].definition
+    )
+
+
+async def test_the_catalogues_own_definition_patches_back_onto_every_built_in(
+    party: Party,
+) -> None:
+    """The no-op above, but with the definition a real client actually holds.
+
+    `builtin.py`'s raw JSON leaves every defaulted field out; the API answers with the parsed
+    models spelled out in full, nulls included. Both have to dump to the stored column, or a
+    client that reads the catalogue and PATCHes a renamed row straight back gets a 409 for a
+    field it never touched — on some subset of the seventeen, silently.
+    """
+    rows = {row["id"]: row for row in await catalogue(party["admin"], manage=True)}
+    for built_in in BUILT_INS:
+        response = await party["admin"].patch(
+            f"/api/v1/achievements/{built_in.id}",
+            json={"name": rows[built_in.id]["name"], "definition": rows[built_in.id]["definition"]},
+        )
+        assert response.status_code == 200, (built_in.id, response.text)
+        assert await stored_definition(party, built_in.id) == built_in.definition, built_in.id
+
+
+async def test_resetting_a_built_in_puts_back_everything_but_whether_it_is_on(
+    party: Party,
+) -> None:
+    """The improvement asked for "reset title etc.": every field `builtin.py` declares comes
+    back out of that file, an uploaded picture is dropped so the restored glyph is what is
+    drawn — and `enabled` is left exactly as it stands, because switching a built-in off is
+    the one thing a party is told it may do to one."""
+    client = party["admin"]
+    await client.patch(
+        "/api/v1/achievements/builtin-score-9000",
+        json={
+            "name": "Nine Thousand",
+            "description": "Something else entirely.",
+            "icon": "beer",
+            "color": "pink",
+            "hidden": True,
+            "enabled": False,
+            "sort_order": 99,
+        },
+    )
+    await client.put(
+        "/api/v1/achievements/builtin-score-9000/icon", files=upload(PNG, "a.png", "image/png")
+    )
+    # The one field no route can move any more. A database seeded before the conditions were
+    # frozen can still hold a hand-edited one, and putting it right is what reset is for.
+    async with party.factory() as session:
+        row = await session.get(Achievement, "builtin-score-9000")
+        assert row is not None
+        row.definition = [{"metric": "any_score", "comparator": ">=", "value": 1}]
+        await session.commit()
+
+    response = await client.post("/api/v1/achievements/builtin-score-9000/reset")
+
+    assert response.status_code == 200, response.text
+    shipped = BY_ID["builtin-score-9000"]
+    restored = response.json()
+    assert restored["name"] == shipped.name
+    assert restored["description"] == shipped.description
+    assert restored["icon"] == shipped.icon
+    assert restored["color"] == shipped.color
+    assert restored["hidden"] == shipped.hidden
+    assert restored["sort_order"] == BUILT_INS.index(shipped)
+    assert restored["has_image"] is False
+    # Kept: somebody who switched this one off did it on purpose.
+    assert restored["enabled"] is False
+    assert await stored_definition(party, "builtin-score-9000") == shipped.definition
+    assert icon_files(party.icons) == []
+
+
+async def test_resetting_one_is_the_cure_for_a_definition_nothing_can_read(
+    party: Party,
+) -> None:
+    """The one repair there is. A column hand-edited into a shape the models refuse evaluates
+    as "never satisfied", and `PATCH` cannot put it right — a definition on a built-in is a
+    409 whatever it says. Reset writes the shipped JSON over it without reading what was
+    there, which is what makes the claim in `docs/dev/achievements.md` true."""
+    async with party.factory() as session:
+        row = await session.get(Achievement, "builtin-score-9000")
+        assert row is not None
+        row.definition = "nonsense"  # type: ignore[assignment]
+        await session.commit()
+    refused = await party["admin"].patch(
+        "/api/v1/achievements/builtin-score-9000",
+        json={"definition": BY_ID["builtin-score-9000"].definition},
+    )
+    assert refused.status_code == 409, refused.text
+
+    response = await party["admin"].post("/api/v1/achievements/builtin-score-9000/reset")
+
+    assert response.status_code == 200, response.text
+    shipped = BY_ID["builtin-score-9000"]
+    assert await stored_definition(party, "builtin-score-9000") == shipped.definition
+    assert response.json()["definition"][0]["value"] == shipped.definition[0]["value"]
+
+
+async def test_resetting_an_achievement_nobody_ships_is_a_conflict(party: Party) -> None:
+    """One somebody made here has nothing to be put back to — `builtin.py` never heard of
+    it."""
+    created = await create(party["admin"], name="Encore")
+
+    refused = await party["admin"].post(f"/api/v1/achievements/{created['id']}/reset")
+
+    assert refused.status_code == 409, refused.text
+    assert refused.json() == {"detail": "not_built_in"}
+    assert (await catalogue(party["admin"]))[-1]["name"] == "Encore"
+
+
+async def test_a_reset_definition_is_worked_out_for_everybody_again(party: Party) -> None:
+    """A reset can take a badge away: the conditions it puts back are stricter than the ones
+    somebody had loosened, and recomputation is the truth."""
+    player_id = await add_player(party, None, "Guest")
+    await _add_score(party, player_id, 500)
+    await award(party, "builtin-score-9000", player_id)
+
+    response = await party["admin"].post("/api/v1/achievements/builtin-score-9000/reset")
+    assert response.status_code == 200, response.text
+    await service.wait_for_passes()
+
+    record = await party["anonymous"].get(f"/api/v1/players/{player_id}/achievements")
+    rows = {row["achievement_id"]: row for row in record.json()["achievements"]}
+    assert rows["builtin-score-9000"]["earned_at"] is None
+
+
 async def test_an_unknown_achievement_is_404(party: Party) -> None:
     client = party["admin"]
     assert (await client.patch("/api/v1/achievements/nope", json={"name": "x"})).status_code == 404
     assert (await client.delete("/api/v1/achievements/nope")).status_code == 404
+    assert (await client.post("/api/v1/achievements/nope/reset")).status_code == 404
     assert (await client.get("/api/v1/achievements/nope/icon")).status_code == 404
     assert (await client.delete("/api/v1/achievements/nope/icon")).status_code == 404
     assert (
@@ -825,6 +1015,9 @@ async def test_every_catalogue_write_tells_the_room_the_catalogue_changed(
         ),
         party["admin"].delete(f"/api/v1/achievements/{created['id']}/icon"),
         party["admin"].patch("/api/v1/achievements/settings", json={"host_seconds_base": 7}),
+        # A reset can rename, recolour and re-condition a badge in one go, so it is as much a
+        # catalogue change as an edit is.
+        party["admin"].post("/api/v1/achievements/builtin-score-9000/reset"),
         party["admin"].delete(f"/api/v1/achievements/{created['id']}"),
     ):
         before = changed(broadcast_events)
@@ -839,6 +1032,12 @@ async def test_a_refused_write_changes_nothing_and_says_nothing(
     """The event means the catalogue moved. A 404, a 409 and a 422 all left it where it was."""
     await party["admin"].delete("/api/v1/achievements/builtin-score-9000")
     await party["admin"].patch("/api/v1/achievements/nope", json={"name": "x"})
+    # The conditions of a built-in, and a reset of something nobody ships: both 409s.
+    await party["admin"].patch(
+        "/api/v1/achievements/builtin-score-9000",
+        json={"definition": [{"metric": "any_score", "comparator": ">=", "value": 1}]},
+    )
+    await party["admin"].post("/api/v1/achievements/nope/reset")
     await party["admin"].post(
         "/api/v1/achievements",
         json={"name": "Broken", "color": "gold", "definition": [{"metric": "nonsense"}]},

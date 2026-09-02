@@ -306,6 +306,25 @@ do it. Back is a `<Link>` to a fixed path (`backLink.ts` resolves a state-provid
   filter" (neutral, off the rows, in the filter); a valued facet "Show in filter" alone, on by
   default too. Every checkbox keeps its explaining line, Save is the usual one, and one line
   says why the rest is gone: no name, icon, hiding, permissions, people or Delete.
+- **Achievements admin** (`/user/achievements`, a `ManageMenu` entry gated on
+  `achievements.manage`): the three private settings at the head, then the party's own
+  achievements as rows of the `AchievementBadge` medallion, the name over a meta line ("2
+  conditions · hidden · off", each part dropped when it has nothing to say) and a chevron,
+  then an `h2` *Included* over the seventeen Wingman ships in the same shape, and an `h2`
+  *Import and export* at the foot. The header `+` opens `/user/achievements/new`. The
+  **achievement editor** (`/user/achievements/:achievementId`) runs in the tag editor's
+  order: Name and Description (quiet inputs), Icon — the picker grid *or* the uploaded
+  picture, never both, and an upload needs a saved achievement — Colour (radio pills),
+  *Hidden until earned* and *Enabled* each with its explaining line, then Conditions as one
+  flat `ConditionBuilder` block apiece, every block headed by the plain sentence it means,
+  one primary Save gated on `conditionProblem`, and a danger Delete. A **built-in** keeps all
+  of that except its conditions: they are Wingman's own, so the builder is drawn **locked** —
+  heading, sentence, a `lock` glyph where the remove button stands, no control at all — with
+  one quiet `.section-note` line saying why: a form must say "you may not" before the press,
+  never as a refusal after it. Its foot swaps Delete for the line saying what a built-in is
+  and, under it, a plain `.button` **Reset achievement** (`refresh` — the app's reset glyph;
+  never `.button-danger`, a reset restores) whose `ConfirmModal` is `danger` (§5: a replace),
+  names what comes back and says the badges are worked out again.
 - **Scores** opens on the session bar: the session's name and a `chevron-right` in one wide flat
   button, the rename `pencil` (`stats.manage`) beside it. The button opens a panel modal, never
   a `<select>` — a party is more than its name: one row per session, `aria-pressed` on the

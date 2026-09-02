@@ -19,6 +19,7 @@ const {
   createAchievement,
   updateAchievement,
   deleteAchievement,
+  resetAchievement,
   setAchievementIcon,
   deleteAchievementIcon,
   listSongs,
@@ -28,6 +29,7 @@ const {
   createAchievement: vi.fn(),
   updateAchievement: vi.fn(),
   deleteAchievement: vi.fn(),
+  resetAchievement: vi.fn(),
   setAchievementIcon: vi.fn(),
   deleteAchievementIcon: vi.fn(),
   listSongs: vi.fn(),
@@ -40,12 +42,25 @@ vi.mock("../api/sdk.gen", async (importOriginal) => ({
   createAchievement,
   updateAchievement,
   deleteAchievement,
+  resetAchievement,
   setAchievementIcon,
   deleteAchievementIcon,
   listSongs,
 }));
 
 const MANAGER = ["songs.view", "achievements.manage"];
+
+/** One of the seventeen Wingman ships, as the managing listing answers with it:
+ *  everything editable except what it asks for. */
+function builtIn(overrides: Partial<AchievementRead> = {}): AchievementRead {
+  return achievementRead({
+    id: "builtin-score-9000",
+    built_in: true,
+    ...overrides,
+  });
+}
+
+const BUILT_IN_PATH = "/user/achievements/builtin-score-9000";
 const ACCOUNT: Partial<MeRead> = { user: userRead(), role: "trusted" };
 
 /** Where a create or a delete has taken the reader. */
@@ -127,6 +142,7 @@ beforeEach(() => {
     createAchievement,
     updateAchievement,
     deleteAchievement,
+    resetAchievement,
     setAchievementIcon,
     deleteAchievementIcon,
     listSongs,
@@ -365,15 +381,7 @@ it("offers no delete for an achievement that does not exist yet", async () => {
 
 it("lets a built-in be edited but never deleted", async () => {
   updateAchievement.mockResolvedValue({ data: achievementRead() });
-  renderEditor({
-    achievements: [
-      achievementRead({
-        id: "builtin-score-9000",
-        built_in: true,
-      }),
-    ],
-    path: "/user/achievements/builtin-score-9000",
-  });
+  renderEditor({ achievements: [builtIn()], path: BUILT_IN_PATH });
 
   await screen.findByDisplayValue("Golden Voice");
   expect(
@@ -389,6 +397,68 @@ it("lets a built-in be edited but never deleted", async () => {
 
   await waitFor(() => expect(updateAchievement).toHaveBeenCalled());
   expect(updateAchievement.mock.calls[0][0].body).toEqual({ enabled: false });
+});
+
+it("draws a built-in's conditions as locked, not as controls that fail", async () => {
+  renderEditor({ achievements: [builtIn()], path: BUILT_IN_PATH });
+
+  await screen.findByDisplayValue("Golden Voice");
+  // The sentence is still there: what it asks for is not a secret, it is simply
+  // not the party's to change.
+  expect(
+    screen.getByText("Over all time, some score of 9000 or more."),
+  ).toBeInTheDocument();
+  // And not one control of the builder — a refusal after pressing Save is what
+  // this replaces.
+  expect(screen.queryByLabelText("What is measured")).not.toBeInTheDocument();
+  expect(
+    screen.queryByRole("button", { name: "Add condition" }),
+  ).not.toBeInTheDocument();
+  expect(
+    screen.queryByRole("button", { name: "Remove condition 1" }),
+  ).not.toBeInTheDocument();
+  // One quiet line says why, where the reader is looking.
+  expect(
+    screen.getByText(/cannot be changed — the same badge means the same thing/),
+  ).toBeInTheDocument();
+});
+
+it("puts a built-in back the way Wingman ships it, once it is confirmed", async () => {
+  resetAchievement.mockResolvedValue({
+    data: builtIn({ name: "Golden Voice", color: "gold" }),
+  });
+  renderEditor({
+    achievements: [builtIn({ name: "Renamed", color: "pink" })],
+    path: BUILT_IN_PATH,
+  });
+
+  await screen.findByDisplayValue("Renamed");
+  fireEvent.click(screen.getByRole("button", { name: "Reset achievement" }));
+  // A reset throws edits away, so it asks first (§5).
+  expect(screen.getByText(/back the way Wingman ships it/)).toBeInTheDocument();
+  expect(resetAchievement).not.toHaveBeenCalled();
+
+  fireEvent.click(screen.getByRole("button", { name: "Reset" }));
+
+  await waitFor(() => expect(resetAchievement).toHaveBeenCalled());
+  expect(resetAchievement.mock.calls[0][0].path).toEqual({
+    achievement_id: "builtin-score-9000",
+  });
+  // The form is re-seeded from the restored row rather than left showing the
+  // name that was just thrown away.
+  expect(await screen.findByDisplayValue("Golden Voice")).toBeInTheDocument();
+});
+
+it("offers no reset for an achievement the party made itself", async () => {
+  renderEditor();
+
+  await screen.findByDisplayValue("Golden Voice");
+  expect(
+    screen.queryByRole("button", { name: "Reset achievement" }),
+  ).not.toBeInTheDocument();
+  expect(
+    screen.getByRole("button", { name: "Delete achievement" }),
+  ).toBeInTheDocument();
 });
 
 it("paints only the chosen glyph and keeps one the picker does not offer", async () => {

@@ -45,9 +45,11 @@ show up on the host screen either way.
 
 ## What the party already has
 
-Wingman ships with seventeen. They are ordinary achievements: the host can
-rename them, recolour them, change what they ask for and switch them off. They
-cannot be deleted.
+Wingman ships with seventeen. The host can rename them, give them another icon
+or colour, hide one until it is earned and switch any of them off. Two things
+about them are not the party's to change: **what they ask for**, so that
+*Golden Voice* means the same thing at every party — and they cannot be deleted.
+Anything you have changed can be put back with **Reset** (below).
 
 | Achievement | What it takes |
 |---|---|
@@ -110,9 +112,27 @@ Both take whole seconds, 0 to 60.
 6. Add the **conditions** — what it actually takes.
 7. **Save**.
 
-Tap a row to open it again; everything is editable. **Delete achievement** at the
-foot removes it and everybody's badge for it. One of the seventeen included ones
-cannot be deleted — switch it off instead.
+Tap a row to open it again; everything about an achievement your party made is
+editable. **Delete achievement** at the foot removes it and everybody's badge
+for it.
+
+One of the seventeen **included** ones opens in the same editor with two
+differences. Its conditions are shown as the sentences they mean rather than as
+boxes — what Wingman's own achievements ask for is the same everywhere, so there
+is nothing to fill in there. And in place of Delete it has **Reset
+achievement**:
+
+- **Reset** puts the name, description, icon, colour, conditions and whether it
+  is *hidden until earned* back the way Wingman ships them, and removes an
+  uploaded picture. (So the one included achievement that ships hidden becomes a
+  surprise again, even if you had revealed it.)
+- Whether it is **switched on** is left exactly as you set it. Switching one off
+  is meant to stick, so a reset never turns it back on.
+- Everybody's badges are worked out again afterwards. If you had made an
+  achievement easier than Wingman ships it, resetting it can take that badge
+  away again.
+
+It asks before it does any of that, because it throws your changes away.
 
 !!! note
     Every change re-checks everybody in the background. An achievement that is
@@ -213,6 +233,9 @@ Import matches **by id**, which is the folder name inside the archive:
 
 - An achievement this Wingman already has is **updated** — name, description,
   colour, conditions and all — exactly as if you had edited it.
+- One of the **seventeen included** ones is updated too, but its conditions are
+  left alone, exactly as in the editor: what Wingman's own achievements ask for
+  is not something an archive may change. Everything else in the file takes.
 - One it does not have is **added**.
 - Importing the same archive twice is therefore not a way to get two copies. It
   is a way to put things back the way the archive has them.
@@ -258,6 +281,11 @@ be the same as the `id` in the file — that is what says which achievement it i
 And a key Wingman does not know is refused rather than ignored: a `"colour"` that
 was quietly dropped is exactly the mistake a hand-edited file invites, so it is
 named instead. Pack the folders back into a `.tar.gz` and import it.
+
+The example above is one of the included seventeen — you can tell by the
+`builtin-` in front of its id — so `definition` is the one thing in it an import
+will ignore. Everything else in that file takes. Editing conditions by hand is
+for the achievements your party made itself.
 
 ## See also
 

@@ -13,6 +13,7 @@ import {
   deleteAchievementMutation,
   listAchievementsOptions,
   listAchievementsQueryKey,
+  resetAchievementMutation,
   setAchievementIconMutation,
   updateAchievementMutation,
 } from "../api/@tanstack/react-query.gen";
@@ -92,9 +93,12 @@ const NEW_DRAFT: Draft = {
  * only the way out differs (create and go to it, or save and stay). A §6
  * sub-page gated on `achievements.manage`.
  *
- * A built-in opens in the very same form: every field of one may be edited and
- * it may be switched off (achievements.md), so the only thing missing at the
- * foot is Delete.
+ * A built-in opens in the same form with two differences (achievements.md):
+ * what it looks like is as editable as anybody else's and it may be switched
+ * off, but its **conditions** are Wingman's own — so the builder is drawn
+ * locked, the section note says why, and the foot carries a Reset that puts
+ * everything but `enabled` back the way Wingman ships it, in the place where
+ * another achievement's Delete stands.
  */
 export default function AchievementEditor() {
   const { achievementId } = useParams();
@@ -140,6 +144,7 @@ export default function AchievementEditor() {
   const [saved, setSaved] = useState(false);
   const [saving, setSaving] = useState(false);
   const [deleting, setDeleting] = useState(false);
+  const [resetting, setResetting] = useState(false);
 
   /** Take the draft from an achievement the server answered with. */
   const seedFrom = (achievement: AchievementRead) => {
@@ -212,6 +217,19 @@ export default function AchievementEditor() {
     },
     onError: (cause) =>
       setError(errorMessage(cause, "Could not delete the achievement.")),
+  });
+
+  // The whole row comes back out of the answer, so the form is re-seeded from it
+  // the way a save re-seeds it: a reset that left the draft standing would show
+  // the discarded name over the restored achievement.
+  const reset = useMutation({
+    ...resetAchievementMutation(),
+    onSuccess: (achievement) => {
+      seedFrom(achievement);
+      refresh();
+    },
+    onError: (cause) =>
+      setError(errorMessage(cause, "Could not reset the achievement.")),
   });
 
   /** What an icon write answers with, taken **without** reseeding the form: the
@@ -289,7 +307,9 @@ export default function AchievementEditor() {
     if (color !== base.color) body.color = color;
     if (hidden !== base.hidden) body.hidden = hidden;
     if (enabled !== base.enabled) body.enabled = enabled;
-    if (JSON.stringify(conditions) !== base.definition)
+    // Never for a built-in: its conditions are Wingman's, the builder is locked
+    // and `PATCH` answers a definition on one with a 409.
+    if (!builtIn && JSON.stringify(conditions) !== base.definition)
       body.definition = conditions;
     return body;
   };
@@ -297,9 +317,11 @@ export default function AchievementEditor() {
   // What the backend would refuse, said beside the box instead: Save is shut
   // while any block is wrong. An achievement with *no* conditions is not one of
   // those — the backend takes it — so it is a warning and Save stays open.
-  const broken = conditions.some(
-    (condition) => conditionProblem(condition) !== null,
-  );
+  // Nothing a reader cannot touch may ever shut Save, so a built-in's locked
+  // conditions are not weighed at all.
+  const broken =
+    !builtIn &&
+    conditions.some((condition) => conditionProblem(condition) !== null);
   const pending = creating || Object.keys(changes()).length > 0;
 
   const save = async () => {
@@ -691,10 +713,12 @@ export default function AchievementEditor() {
 
                     <h2>Conditions</h2>
                     <p className="section-note">
-                      All of them have to hold before anybody earns it.
+                      {builtIn
+                        ? "All of them have to hold before anybody earns it. What one of Wingman's own achievements asks for cannot be changed — the same badge means the same thing at every party. Reset below puts everything else back too."
+                        : "All of them have to hold before anybody earns it."}
                     </p>
 
-                    {conditions.length === 0 && (
+                    {!builtIn && conditions.length === 0 && (
                       <p className="tag-warning">
                         With no conditions at all, nobody can ever earn this.
                         Add one — it can be saved as it stands, and it will
@@ -704,6 +728,7 @@ export default function AchievementEditor() {
 
                     <ConditionBuilder
                       value={conditions}
+                      readOnly={builtIn}
                       onChange={(next) => {
                         setSaved(false);
                         setConditions(next);
@@ -732,12 +757,29 @@ export default function AchievementEditor() {
 
                   {!creating &&
                     (builtIn ? (
-                      <p className="tag-editor-hint achievement-builtin-note">
-                        This is one of the achievements Wingman brings with it.
-                        Everything above can be changed and it can be switched
-                        off, but it cannot be deleted — an instance always has
-                        the set it ships with.
-                      </p>
+                      <>
+                        <p className="tag-editor-hint achievement-builtin-note">
+                          This is one of the achievements Wingman brings with
+                          it. What it looks like is yours to change and it can
+                          be switched off, but its conditions are Wingman's own
+                          and it cannot be deleted — an instance always has the
+                          set it ships with. Reset puts the name, description,
+                          icon, colour, conditions and whether it is hidden back
+                          the way Wingman ships them; whether it is switched on
+                          stays as it is.
+                        </p>
+                        <div className="tag-editor-delete">
+                          <button
+                            type="button"
+                            className="button achievement-reset"
+                            disabled={reset.isPending}
+                            onClick={() => setResetting(true)}
+                          >
+                            <Icon name="refresh" />
+                            <span>Reset achievement</span>
+                          </button>
+                        </div>
+                      </>
                     ) : (
                       <div className="tag-editor-delete">
                         <button
@@ -770,6 +812,22 @@ export default function AchievementEditor() {
             });
           }}
           onCancel={() => setDeleting(false)}
+        />
+      )}
+
+      {resetting && (
+        <ConfirmModal
+          title="Reset achievement"
+          message={`Put "${base.name}" back the way Wingman ships it? Its name, description, icon, colour, conditions and whether it is hidden all return to the original, and an uploaded picture is removed. Whether it is switched on stays as it is. Everybody's badges are worked out again afterwards, which can take one away.`}
+          confirmLabel="Reset"
+          danger
+          onConfirm={() => {
+            setResetting(false);
+            reset.mutate({
+              path: { achievement_id: achievementId ?? "" },
+            });
+          }}
+          onCancel={() => setResetting(false)}
         />
       )}
     </div>

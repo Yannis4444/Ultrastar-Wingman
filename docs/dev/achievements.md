@@ -107,7 +107,7 @@ following correct for free — a counter would drift on every one of them:
 | A sing finishes (`karaoke.service._finish`, right after `scores.recorded`) | Every player scored in that sing. |
 | A score is reassigned (`PATCH /stats/scores/{id}`) | The old player **and** the new one. |
 | A score is deleted (`DELETE /stats/scores/{id}`) | The player it was on. |
-| An achievement is created, edited, imported, enabled or disabled | Every player, as a background pass. |
+| An achievement is created, edited, imported, reset, enabled or disabled | Every player, as a background pass. |
 | The global toggle is switched **on** | Every player, as a background pass. |
 
 Three of those are worth spelling out.
@@ -295,14 +295,16 @@ from nothing else:
 |---|---|
 | `POST /achievements` | A row appeared. |
 | `PATCH /achievements/{id}` | Any field of it, the `enabled` flag included. |
+| `POST /achievements/{id}/reset` | A built-in is back to what Wingman ships — a new name, a new colour and new conditions in one write. |
 | `DELETE /achievements/{id}` | A row went. |
 | `PUT /achievements/{id}/icon` | `has_image` flipped, and the picture behind it is a different one. |
 | `DELETE /achievements/{id}/icon` | `has_image` flipped back. |
 | `PATCH /achievements/settings` | The settings ride along in the same answer — and `enabled` decides whether anything is drawn at all. |
 
-A refused write sends nothing: a 409 on a built-in delete, a 422 on a definition
-the models reject and a 404 on an unknown id all changed no row. Neither does a
-settings PATCH that named no field.
+A refused write sends nothing: a 409 on a built-in delete, a 409 on a
+`definition` sent to a built-in, a 409 on a reset of something nobody ships, a
+422 on a definition the models reject and a 404 on an unknown id all changed no
+row. Neither does a settings PATCH that named no field.
 
 ## Import and export
 
@@ -388,10 +390,16 @@ built-in be shared between instances. The answer names what happened —
 `{"created": [...], "updated": [...]}` — so the page can say something true
 rather than "done".
 
+The one field an archive cannot carry into the catalogue is a **built-in's**
+`definition`. It is still in the file — an export is a faithful copy of the row,
+and that is what keeps the round trip a fixed point — it simply has no effect on
+one of the seventeen shipped ids. See the table.
+
 | What it meets | What it does |
 |---|---|
-| An existing row, built-in or not | Updates every presentation field and the definition, exactly as `PATCH` would. `built_in` is never written by an import: a built-in stays one and stays undeletable. |
-| An unknown id that Wingman ships | Creates it **as a built-in**. The id is the only thing that may say so, which is what lets a shipped achievement be handed from one instance to another. |
+| An existing ordinary row | Updates every presentation field **and** the definition, exactly as `PATCH` would. |
+| An existing **built-in** | Updates every presentation field the same way and **leaves its conditions where they are**, `built_in` included: what one of the shipped seventeen asks for is `builtin.py`'s, and an `achievement.json` in a text file would otherwise be the way straight round the 409 `PATCH` gives. The row still counts as updated — it really did change, only not there — and the skipped definition is logged. |
+| An unknown id that Wingman ships | Creates it **as a built-in**, with the conditions out of `builtin.py` rather than out of the file. The id is the only thing that may say a row is one of the shipped set, which is what lets a shipped achievement be handed from one instance to another. |
 | Any other unknown id | Creates it as an ordinary row. An archive cannot mint an undeletable achievement of its own. |
 | An entry with an `icon.<ext>` | Stores it through `images.py` — the same allowlist, byte cap and pixel cap an upload goes through. |
 | An entry **without** one | **Clears** whatever picture the row had. The archive is the whole description of the achievement it names, and anything else would make importing the same archive twice mean two different things. |
@@ -484,10 +492,46 @@ the name would be.
 
 Seventeen of them, declared as data in `achievements/builtin.py` and seeded by
 migration 0023 as ordinary rows with `built_in = true` and **stable slug ids**
-(`builtin-score-9000`), which is what import/export needs to recognise one. A
-built-in can be edited and switched off; deleting one is a 409.
+(`builtin-score-9000`), which is what import/export needs to recognise one.
+
+`built_in = true` buys exactly three things:
+
+| | |
+|---|---|
+| `DELETE /achievements/{id}` | A 409. An instance always has the set it ships with; it may switch one off instead. |
+| Its **conditions** | `builtin.py`'s, and nothing else's. A `definition` on one is a 409 from `PATCH`, and an import writes every other field of a built-in but leaves its stored conditions alone. *Golden Voice* therefore means the same thing at every party, whatever it has been renamed to. |
+| `POST /achievements/{id}/reset` | Only a built-in has one — see below. |
+
+Everything else about one is as editable as any other achievement's: the name,
+the description, the glyph, an uploaded picture, the colour, `hidden`, the place
+in the list and whether it is on at all.
 
 The migration reads `builtin.py` rather than repeating the list, so the set
 exists once — but it names its own columns, and what it seeds is what a
 **fresh** database starts with. Adding a built-in later needs its own
 revision.
+
+### Reset
+
+`POST /achievements/{achievement_id}/reset`, `achievements.manage`. Puts one of
+the shipped seventeen back the way Wingman ships it. Anything else in the
+catalogue is a 409: an achievement somebody made here has nothing to be put
+back to.
+
+| Field | What a reset does |
+|---|---|
+| `name`, `description`, `icon`, `color`, `hidden` | Back to `builtin.py`. |
+| `definition` | Back to `builtin.py`, written raw exactly as the seed migration writes it — so a reset row and a freshly seeded one are the same row. |
+| `sort_order` | Back to the achievement's index in `BUILT_INS`. Nothing in the UI reorders the catalogue, so this only ever undoes an import that moved it. |
+| `icon_file` | **Dropped**, file and all. The shipped set has no pictures, and one left standing in front of the restored glyph would make the reset look as though it had done nothing. |
+| `enabled` | **Left exactly as it is.** Switching a built-in off is the one thing a party is told it may do to one, and undoing that would be unwelcome. |
+
+Then `achievements.changed` and a background pass over every player, like any
+other catalogue write: restored conditions can award a badge and can take one
+away.
+
+Because no other write may touch a built-in's conditions, a reset is also the
+**only** way an improved definition in `builtin.py` ever reaches a database that
+was seeded with the old one — the seed migration runs once. That is a known
+limitation of shipping the set as ordinary rows, and reset is what an operator
+does about it.

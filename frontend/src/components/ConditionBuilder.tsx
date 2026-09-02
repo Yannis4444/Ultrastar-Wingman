@@ -35,6 +35,11 @@ import "./ConditionBuilder.css";
 interface ConditionBuilderProps {
   value: Condition[];
   onChange: (conditions: Condition[]) => void;
+  /** Draw the conditions as they read and not as boxes: one of the built-in
+   *  achievements asks what Wingman says it asks, and the backend refuses a
+   *  definition on one with a 409. A control that failed on Save would be a
+   *  refusal after the press; this is the same thing said before it. */
+  readOnly?: boolean;
 }
 
 /** What "Add condition" adds: the plainest condition there is, the one a host
@@ -269,10 +274,17 @@ function valueFor(
  * `songs` and `match` are mutually exclusive in the models, so switching mode
  * clears the other one and there is no way to build a definition the backend
  * would refuse.
+ *
+ * `readOnly` is the built-in achievements' state: the blocks keep their heading
+ * and their sentence, wear a `lock` where the remove button was, and have no
+ * controls at all. A definition on one of the shipped seventeen is a 409, and a
+ * refusal a reader only meets after pressing Save is a bug in this project's
+ * book — so the form says it beforehand instead.
  */
 export default function ConditionBuilder({
   value,
   onChange,
+  readOnly = false,
 }: ConditionBuilderProps) {
   // The radio groups of one block must not answer to the radios of another, and
   // two builders could in principle share a document.
@@ -310,6 +322,24 @@ export default function ConditionBuilder({
       match: { combine: condition.match?.combine ?? "all", clauses },
     });
   }
+
+  if (readOnly)
+    // The sentence each block is headed by is the whole of it: it is what the
+    // four selects were there to add up to, so a locked condition says what it
+    // means without an inert copy of the controls to read it out of.
+    return (
+      <div className="condition-builder">
+        {value.map((condition, index) => (
+          <div className="condition-block" key={index}>
+            <div className="condition-head">
+              <h3 className="condition-title">Condition {index + 1}</h3>
+              <Icon name="lock" className="condition-locked" />
+            </div>
+            <p className="condition-sentence">{conditionSentence(condition)}</p>
+          </div>
+        ))}
+      </div>
+    );
 
   return (
     <div className="condition-builder">

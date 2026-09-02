@@ -147,7 +147,7 @@ ROUTES: list[tuple[str, str, str, dict[str, object] | None]] = [
     # Achievements: the three reading routes take no capability at all and so cannot be
     # expressed here — `GET /achievements`, `GET /achievements/{id}/icon` and
     # `GET /players/{id}/achievements` answer a guest phone, which test_achievements_api
-    # pins down. These five are the writes. Admin-only by default: an achievement is written
+    # pins down. The rest are the writes. Admin-only by default: an achievement is written
     # once and earned by the whole room, so editing one rewrites what everybody has.
     #
     # Every body here is deliberately one a permitted caller still refuses (an unknown id, a
@@ -163,6 +163,9 @@ ROUTES: list[tuple[str, str, str, dict[str, object] | None]] = [
     ("achievements.manage", "DELETE", "/api/v1/achievements/nope", None),
     ("achievements.manage", "PUT", "/api/v1/achievements/nope/icon", None),
     ("achievements.manage", "DELETE", "/api/v1/achievements/nope/icon", None),
+    # Putting one of the shipped seventeen back the way Wingman ships it: an unknown id, so a
+    # permitted caller gets a 404 and the matrix resets nothing.
+    ("achievements.manage", "POST", "/api/v1/achievements/nope/reset", None),
     # Export is a write's capability on a read, deliberately: an archive carries every
     # `definition` and the unmasked name of a `hidden` achievement, which is exactly what
     # `GET /achievements` keeps back. The id is an unknown one, so a permitted caller gets a

@@ -38,6 +38,16 @@
   text-overflow: ellipsis;
 }
 
+/* The lock a built-in's conditions wear, standing where the remove button
+   stands on a block somebody may edit — a glyph and not a button, there being
+   nothing here to press. `margin` rather than a 40px box: it is not a control
+   and must not read as one. */
+.condition-locked {
+  margin: 0 12px;
+  font-size: 1.15em;
+  color: var(--color-darker);
+}
+
 /* -------------------------------------------------------- the one sentence
    What the block adds up to. It leans on the blue accent and a rule rather than
    a fill: it is the reader's confirmation, not a warning (the gold-ruled

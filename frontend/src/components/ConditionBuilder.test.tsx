@@ -407,3 +407,43 @@ it("asks the library for nothing while no condition chooses songs", () => {
 
   expect(listSongs).not.toHaveBeenCalled();
 });
+
+describe("locked", () => {
+  /** What a built-in's conditions are drawn as: the sentences, and nothing to
+   *  press. */
+  function renderLocked(value: Condition[]) {
+    const client = new QueryClient({
+      defaultOptions: { queries: { retry: false } },
+    });
+    render(
+      <QueryClientProvider client={client}>
+        <ConditionBuilder value={value} onChange={() => {}} readOnly />
+      </QueryClientProvider>,
+    );
+  }
+
+  it("keeps every block's heading and its sentence", () => {
+    renderLocked([
+      condition(),
+      condition({ scope: "session", metric: "number_of_sings", value: 5 }),
+    ]);
+
+    expect(screen.getByRole("heading", { name: "Condition 1" })).toBeVisible();
+    expect(screen.getByRole("heading", { name: "Condition 2" })).toBeVisible();
+    expect(
+      screen.getByText("Over all time, some score of 9000 or more."),
+    ).toBeVisible();
+    expect(screen.getByText("In one party, at least 5 sings.")).toBeVisible();
+  });
+
+  it("draws no control at all, so nothing can fail on Save", () => {
+    renderLocked([condition({ songs: { ids: ["local:abc"] } })]);
+
+    expect(screen.queryByRole("button")).not.toBeInTheDocument();
+    expect(screen.queryByRole("combobox")).not.toBeInTheDocument();
+    expect(screen.queryByRole("textbox")).not.toBeInTheDocument();
+    expect(screen.queryByRole("radio")).not.toBeInTheDocument();
+    // And the library is left alone: there is no picker to fill.
+    expect(listSongs).not.toHaveBeenCalled();
+  });
+});

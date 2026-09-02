@@ -9,7 +9,8 @@ clean 4xx naming the problem, never a 500 and never a byte written outside the d
 
 The happy half is the round trip the format exists for: export the seventeen built-ins,
 import them back, nothing changed; export, edit the JSON in a text editor, import, the edit
-took.
+took — with the one exception the format has, a built-in's `definition`, which is
+`builtin.py`'s and which an import therefore leaves exactly where it is.
 """
 
 import gzip
@@ -37,7 +38,7 @@ from ultrastar_wingman.achievements.archive import (
     ArchiveTooLargeError,
     build_archive,
 )
-from ultrastar_wingman.achievements.builtin import BUILT_INS
+from ultrastar_wingman.achievements.builtin import BUILT_INS, BY_ID
 from ultrastar_wingman.achievements.model import Achievement
 from ultrastar_wingman.app import create_app
 from ultrastar_wingman.config import BootstrapSettings
@@ -410,13 +411,16 @@ async def test_an_achievement_with_every_field_set_comes_back_column_for_column(
 
 
 async def test_an_edit_to_the_json_is_what_the_import_stores(instance: Instance) -> None:
-    data = await export(instance.client, ["builtin-score-9000"])
+    created = await instance.client.post("/api/v1/achievements", json=MAXIMAL)
+    assert created.status_code == 201, created.text
+    achievement_id = created.json()["id"]
+    data = await export(instance.client, [achievement_id])
 
     response = await upload(
         instance.client,
         edited(
             data,
-            "builtin-score-9000",
+            achievement_id,
             name="Golden Larynx",
             definition=[
                 {"scope": "global", "metric": "any_score", "comparator": ">=", "value": 9800}
@@ -425,10 +429,41 @@ async def test_an_edit_to_the_json_is_what_the_import_stores(instance: Instance)
     )
 
     assert response.status_code == 200, response.text
-    row = next(one for one in await catalogue(instance.client) if one["id"] == "builtin-score-9000")
+    row = next(one for one in await catalogue(instance.client) if one["id"] == achievement_id)
     assert row["name"] == "Golden Larynx"
     assert row["definition"][0]["value"] == 9800
+
+
+async def test_an_archive_may_rename_a_built_in_but_never_re_condition_one(
+    instance: Instance,
+) -> None:
+    """The bypass nobody would think of. `PATCH` refuses a definition on one of the shipped
+    seventeen with a 409, and an `achievement.json` in a text file would otherwise be the way
+    straight round it — so an import writes every other field of a built-in and leaves its
+    conditions exactly where they were."""
+    before = await stored_rows(instance, ["builtin-score-9000"])
+    data = await export(instance.client, ["builtin-score-9000"])
+
+    response = await upload(
+        instance.client,
+        edited(
+            data,
+            "builtin-score-9000",
+            name="Golden Larynx",
+            color="pink",
+            definition=[{"scope": "global", "metric": "any_score", "comparator": ">=", "value": 1}],
+        ),
+    )
+
+    assert response.status_code == 200, response.text
+    # Counted as updated all the same: the row really did change, only not there.
+    assert response.json() == {"created": [], "updated": ["builtin-score-9000"]}
+    stored = await stored_rows(instance, ["builtin-score-9000"])
+    assert stored["builtin-score-9000"]["name"] == "Golden Larynx"
+    assert stored["builtin-score-9000"]["color"] == "pink"
+    assert stored["builtin-score-9000"]["definition"] == before["builtin-score-9000"]["definition"]
     # Still one of the shipped set: the flag is the row's, never the archive's.
+    row = next(one for one in await catalogue(instance.client) if one["id"] == "builtin-score-9000")
     assert row["built_in"] is True
 
 
@@ -474,7 +509,11 @@ async def test_a_definition_the_models_cannot_read_is_exported_as_it_stands(
 
 async def test_an_id_wingman_ships_comes_back_as_a_built_in(instance: Instance) -> None:
     """The one case where an import creates a built-in: the id itself is what says so, which
-    is what lets a shipped achievement be handed from one instance to another."""
+    is what lets a shipped achievement be handed from one instance to another.
+
+    Its conditions come out of `builtin.py` and not out of the file, so a created built-in is
+    the same achievement here as it is in a freshly seeded database — an archive is no way
+    round the refusal `PATCH` gives, creating included."""
     async with instance.app.state.session_factory() as session:
         # Straight out of the table: the API refuses to delete a built-in, and this is the
         # instance that never had it rather than one that threw it away.
@@ -494,6 +533,8 @@ async def test_an_id_wingman_ships_comes_back_as_a_built_in(instance: Instance) 
     assert response.json()["created"] == ["builtin-score-9000"]
     row = next(one for one in await catalogue(instance.client) if one["id"] == "builtin-score-9000")
     assert row["built_in"] is True
+    stored = await stored_rows(instance, ["builtin-score-9000"])
+    assert stored["builtin-score-9000"]["definition"] == BY_ID["builtin-score-9000"].definition
 
 
 async def test_an_uploaded_picture_travels_with_it(instance: Instance) -> None:

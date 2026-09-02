@@ -4784,6 +4784,10 @@ export type UpdateAchievementErrors = {
      */
     404: unknown;
     /**
+     * A definition on one of the built-in achievements.
+     */
+    409: unknown;
+    /**
      * A definition the condition models refuse.
      */
     422: unknown;
@@ -4797,6 +4801,44 @@ export type UpdateAchievementResponses = {
 };
 
 export type UpdateAchievementResponse = UpdateAchievementResponses[keyof UpdateAchievementResponses];
+
+export type ResetAchievementData = {
+    body?: never;
+    path: {
+        /**
+         * Achievement Id
+         */
+        achievement_id: string;
+    };
+    query?: never;
+    url: '/api/v1/achievements/{achievement_id}/reset';
+};
+
+export type ResetAchievementErrors = {
+    /**
+     * Unknown achievement.
+     */
+    404: unknown;
+    /**
+     * Not one of the built-in achievements.
+     */
+    409: unknown;
+    /**
+     * Validation Error
+     */
+    422: HttpValidationError;
+};
+
+export type ResetAchievementError = ResetAchievementErrors[keyof ResetAchievementErrors];
+
+export type ResetAchievementResponses = {
+    /**
+     * Successful Response
+     */
+    200: AchievementRead;
+};
+
+export type ResetAchievementResponse = ResetAchievementResponses[keyof ResetAchievementResponses];
 
 export type DeleteAchievementIconData = {
     body?: never;
