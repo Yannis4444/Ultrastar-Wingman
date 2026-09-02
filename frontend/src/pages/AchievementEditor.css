@@ -1,0 +1,69 @@
+/* The achievement editor (§6, §7's tag editor): Name, Description, Icon,
+   Colour, the two flags, the conditions, Save and Delete. The page frame comes
+   from `Achievements.css`, every form idiom from `TagEditor.css` and the
+   condition blocks from `ConditionBuilder.css`, all three of which the page
+   imports. Only the picture — the one thing a tag has not got — lives here. */
+
+/* --------------------------------------------------------------- the picture
+   What stands in the icon grid's place once a picture has been uploaded: the
+   medallion as it will really be drawn, one line saying so, and the two ways
+   out of it. Flat on `--bg` like everything else (§1.1). */
+.achievement-picture {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin: 8px 16px 0 16px;
+}
+
+/* `AchievementBadge` is sized by the font around it (§3), so 2em of text makes
+   the 80px medallion this preview wants. */
+.achievement-picture-badge {
+  font-size: 2em;
+}
+
+.achievement-picture-note {
+  margin: 0;
+}
+
+/* The upload and the way back to a glyph, side by side while there is room and
+   one under the other at 360px — nothing scrolls sideways (§1.11). */
+.achievement-picture-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin: 12px 16px 0 16px;
+}
+
+/* Inside `.achievement-picture` the actions sit on its own gutter already. */
+.achievement-picture .achievement-picture-actions {
+  margin: 4px 0 0 0;
+}
+
+/* A `.button` that is really a `<label>` around a hidden file input (the
+   avatar idiom of `User.tsx`), so it has to lay its glyph out itself. */
+.achievement-upload {
+  display: inline-flex;
+  gap: 8px;
+  align-items: center;
+  cursor: pointer;
+}
+
+/* A label cannot be `:disabled`, and the input it hides is invisible — so the
+   off state is drawn here, matching what `.button:disabled` does in
+   `index.css`. It is off for exactly one reason and the line beside it says
+   which.
+
+   `.button` is carried alongside it, so the pair is what the rule names: a
+   single class would tie with `.button`'s own `color` and `cursor` and lose to
+   whichever stylesheet the bundler happened to put last. */
+.button.achievement-upload-off {
+  color: var(--color-dark);
+  cursor: default;
+}
+
+/* ------------------------------------------------------------------ the foot
+   A built-in has no Delete; the line in its place stands where the button
+   would, with the same air around it. */
+.achievement-builtin-note {
+  margin: 24px 16px;
+}

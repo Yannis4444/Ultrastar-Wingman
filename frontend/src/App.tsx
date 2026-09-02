@@ -3,6 +3,7 @@ import { Route, Routes, useLocation } from "react-router-dom";
 import { backTarget } from "./backLink";
 import BottomNav from "./components/BottomNav";
 import Loading from "./components/Loading";
+import AchievementEditor from "./pages/AchievementEditor";
 import Achievements from "./pages/Achievements";
 import Home from "./pages/Home";
 import Host from "./pages/Host";
@@ -65,6 +66,14 @@ export default function App() {
           <Route path="/user/stats" element={<UserStats />} />
           <Route path="/user/permissions" element={<UserPermissions />} />
           <Route path="/user/achievements" element={<Achievements />} />
+          <Route
+            path="/user/achievements/new"
+            element={<AchievementEditor />}
+          />
+          <Route
+            path="/user/achievements/:achievementId"
+            element={<AchievementEditor />}
+          />
           <Route path="/user/tags" element={<Tags />} />
           <Route path="/user/tags/new" element={<TagEditor />} />
           <Route path="/user/tags/:tagId" element={<TagEditor />} />
