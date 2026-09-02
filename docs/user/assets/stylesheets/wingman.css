@@ -1,0 +1,100 @@
+/* Ultrastar Wingman's look, applied to the documentation site.
+
+   Every color below is a design token from frontend/src/index.css. The comment
+   beside each one names the token it comes from. The light scheme keeps the
+   theme's own surfaces and takes the branded colors only. The dark scheme takes
+   the app's background, surfaces and text colors, so the reader who never
+   touches the toggle sees what the app looks like.
+
+   Contrast ratios in the comments are computed, then read back out of the
+   rendered page. */
+
+:root {
+  /* The app's palette, once. */
+  --wm-blue: #4b92cd; /* --highlight-blue-light */
+  --wm-blue-ink: #2f6da3; /* --highlight-blue-light, darkened for a white page */
+  --wm-blue-pale: #6fb0e3; /* --highlight-blue-light, lightened */
+  --wm-pink: #9e3b95; /* --highlight-pink-light */
+  --wm-pink-pale: #c964bd; /* --highlight-pink-light, lightened for a dark page */
+  --wm-bg: #021720; /* --bg */
+  --wm-footer: #162e42; /* --footer-bg */
+  --wm-input: #1c2832; /* --input-bg */
+  --wm-border: #384a59; /* --input-border-color */
+  --wm-text: #ffffff; /* --color */
+  --wm-text-dim: #cccccc; /* --color-dark */
+  --wm-text-dimmer: #888888; /* --color-darker */
+  --wm-radius-small: 8px; /* --border-radius-small */
+
+  /* Branded primary and accent, both schemes. */
+  --md-primary-fg-color: var(--wm-blue);
+  --md-primary-fg-color--light: var(--wm-blue-pale);
+  --md-primary-fg-color--dark: var(--wm-blue-ink);
+  --md-primary-bg-color: var(--wm-text);
+  --md-primary-bg-color--light: #ffffffb3;
+  --md-accent-fg-color: var(--wm-pink);
+  --md-accent-fg-color--transparent: #9e3b951a;
+  --md-accent-bg-color: var(--wm-text);
+  --md-accent-bg-color--light: #ffffffb3;
+}
+
+/* Light scheme: the theme's own surfaces, branded text.
+   The brand blue reaches only 3.3:1 on white, so a link takes the darkened blue
+   at 5.5:1. The accent pink is 6.0:1 on white and stays as it is. */
+[data-md-color-scheme="default"] {
+  --md-typeset-a-color: var(--wm-blue-ink);
+}
+
+/* Dark scheme: the app's own surfaces. */
+[data-md-color-scheme="slate"] {
+  --md-default-bg-color: var(--wm-bg);
+  --md-default-bg-color--light: #0217208a;
+  --md-default-bg-color--lighter: #02172042;
+  --md-default-bg-color--lightest: #02172012;
+
+  /* Body text 18.3:1, the quieter steps 11.4:1 and 5.2:1 on that background.
+     The lightest step is the app's input border, which is what the theme draws
+     dividers, table rules and the footer bar in. */
+  --md-default-fg-color: var(--wm-text);
+  --md-default-fg-color--light: var(--wm-text-dim);
+  --md-default-fg-color--lighter: var(--wm-text-dimmer);
+  --md-default-fg-color--lightest: var(--wm-border);
+
+  /* 5.5:1 for a link, 5.3:1 for its hover. The unlightened pink would be
+     3.1:1 here, thinner than the link it replaces on hover. */
+  --md-typeset-a-color: var(--wm-blue);
+  --md-accent-fg-color: var(--wm-pink-pale);
+  --md-accent-fg-color--transparent: #c964bd1f;
+
+  /* Code and keyboard keys sit on the app's input surface, 9.4:1 for code. */
+  --md-code-fg-color: var(--wm-text-dim);
+  --md-code-bg-color: var(--wm-input);
+  --md-code-bg-color--light: #1c2832e6;
+  --md-code-bg-color--lighter: #1c28328a;
+  --md-typeset-kbd-color: var(--wm-input);
+  --md-typeset-kbd-accent-color: var(--wm-border);
+  --md-typeset-kbd-border-color: var(--wm-bg);
+
+  --md-typeset-table-color: var(--wm-border);
+  --md-typeset-table-color--light: #384a5959;
+
+  /* A search hit is marked in the brand blue instead of the theme's own. */
+  --md-typeset-mark-color: #4b92cd59;
+}
+
+/* The bar at the top and the bar at the foot carry the app's deeper surface, so
+   the page sits between them the way an app screen sits between its own bars.
+   White on it is 14.0:1. Dark scheme only: in the light scheme the theme paints
+   both bars, and its header text is near-black. */
+[data-md-color-scheme="slate"] .md-header,
+[data-md-color-scheme="slate"] .md-footer-meta {
+  background-color: var(--wm-footer);
+}
+
+/* The app rounds its cards and inputs. The same small radius on the blocks that
+   read as cards here, and nowhere else. */
+.md-typeset .admonition,
+.md-typeset details,
+.md-typeset pre > code,
+.md-typeset figure img {
+  border-radius: var(--wm-radius-small);
+}

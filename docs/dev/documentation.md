@@ -407,13 +407,17 @@ The song list. The chips under the search box are the quick filters.
 Every screenshot is taken against a scratch data directory on an alternate port. The user's
 own library, names, and scores never appear.
 
-- Players are Futurama characters. The roster is the pictures in
-  `docs/screenshots/avatars/`: Fry, Leela, Bender, Amy, Hermes, Farnsworth, Zapp, Kif, and
-  Zoidberg. Leela holds the administrator account, so management surfaces are reachable in a
-  shot. Fry and Bender have accounts. The rest are guests.
-- Those files are the avatars. The seeding script crops each one to a square around the face
-  and uploads it through the avatar endpoint. It draws nothing itself. Add a character by
-  putting a picture in that directory and naming the file after them.
+- Players are Futurama characters. The roster is the ten pictures in
+  `docs/screenshots/avatars/`: Fry, Leela, Bender, Zoidberg, Amy, Hermes, Farnsworth, Zapp,
+  Kif, and Scruffy. Leela holds the administrator account, so management surfaces are
+  reachable in a shot. Fry and Bender have accounts. The other seven are guests.
+- Those files are the avatars. The seeding script center-crops each picture to a square and
+  uploads it through the avatar endpoint. It draws nothing itself. Add a character by putting
+  a picture in that directory and naming the file after them.
+- A missing picture is not an error. The script prints which characters have no file, and
+  those players keep the app's own initials avatar.
+- The folder is gitignored, so the pictures never enter the repository. `docs/.gitignore`
+  carries the rule.
 - The song list is about 40 plausible entries. Four of them are fixed Easter eggs.
   "Sandstorm" by Darude and "Tequila" by The Champs are both terrible karaoke songs, and both
   are wished for. "Rap God" by Eminem carries an implausible 9,842 for Bender. The one duet is
@@ -498,7 +502,7 @@ seeded from the database alone. It needs the stand-in launcher running, describe
 | `user-achievements` | `achievements/index.md` | `/user` | Bender's seeded scores earn him several achievements | 390x844 | The open badge strip, its "N of 17" count, one row with a progress bar |
 | `achievements-admin` | `achievements/manage.md` | `/user/achievements` | Two of the party's own achievements, one switched off | 390x844 | The three settings, both sections, a lock mark, the off row |
 | `achievement-editor` | `achievements/create.md` | `/user/achievements/:id` | The 80s achievement from the worked example | 390x844 | Name, badge, the condition block, its plain sentence |
-| `people-admin` | `people/players.md` | `/user/accounts` | Three accounts, six guests, one of them hidden | 390x844 | Both groups, the role controls, a hidden row |
+| `people-admin` | `people/players.md` | `/user/accounts` | Three accounts, seven guests, one of them hidden | 390x844 | Both groups, the role controls, a hidden row |
 | `permissions` | `people/roles.md` | `/user/permissions` | Defaults | 390x844 | The three columns Guest, User, and Trusted, and the line saying admins are not in the table |
 | `login` | `people/index.md` | `/user` | Signed out | 390x844 | Name, Password, **Log in**, and the **New account** switch |
 | `settings` | `settings/index.md` | `/settings` | USDX group open, its Advanced block open | 390x844 | The group header and its icon, the Base path field, the Advanced block |
@@ -687,6 +691,10 @@ Config facts, all verified against the installed zensical (0.0.57):
   `pymdownx.keys`, `pymdownx.superfences`, `pymdownx.tabbed` with `alternate_style = true`,
   and `toc.permalink`. Keep `pymdownx.highlight` and `pymdownx.inlinehilite` on the list.
   Without them, fenced code loses its syntax highlighting.
+- Replacing the table also drops the options zensical sets on an extension. Give
+  `pymdownx.highlight` the three it ships with: `anchor_linenums = true`,
+  `line_spans = "__span"`, and `pygments_lang_class = true`. The theme's stylesheet styles
+  code lines through the `__span` ids, so a code block loses that styling without them.
 - `toc` and `tables` are always on, whatever the list says. Do not add them.
 - Custom icons go through the emoji extension's **`options`** table, not a top-level key:
   `"pymdownx.emoji" = { emoji_index = "zensical.extensions.emoji.twemoji", emoji_generator = "zensical.extensions.emoji.to_svg", options = { custom_icons = ["overrides/.icons"] } }`.
@@ -699,7 +707,8 @@ Config facts, all verified against the installed zensical (0.0.57):
   inlined, so `attr_list` classes color it.
 - The Wingman SVGs are generated from `ICON_PATHS` in `frontend/src/components/icons.tsx` by
   a script, and never copied by hand. One glyph in the docs means the same thing as in the
-  app.
+  app. The script is `docs/tools/export_icons.py`. Rerun it from the repository root with
+  `venv\Scripts\python.exe docs\tools\export_icons.py` whenever an icon changes.
 - The lightbox comes from the built-in glightbox extension: `[project.plugins]` with
   `glightbox = {}`. Each image is wrapped in an `<a class="glightbox">` automatically, and the
   theme's own bundle opens it.

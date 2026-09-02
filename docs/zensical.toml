@@ -8,45 +8,107 @@ site_description = "Karaoke companion for Ultrastar Deluxe: songs, players, wish
 docs_dir = "user"
 site_dir = "site"
 
+# Relative to `docs_dir`, so the stylesheet ships with the site.
+extra_css = ["assets/stylesheets/wingman.css"]
+
+# Sections are folders. The first entry of a section is its index page, which
+# `navigation.indexes` turns into the section's own landing page. Only files that
+# exist are listed here.
 nav = [
   { "Overview" = "index.md" },
-  { "Get started" = "getting-started.md" },
-  { "Download songs" = "downloading-songs.md" },
-  { "Sing a song" = "singing.md" },
-  { "Wishes, favorites and playlists" = "wishlist-and-playlists.md" },
-  { "Tags" = "tags.md" },
-  { "Achievements" = "achievements.md" },
-  { "Let the reel pick" = "the-spinner.md" },
-  { "Accounts and permissions" = "accounts-and-permissions.md" },
-  { "Statistics" = "statistics.md" },
-  { "Settings" = "settings.md" },
-  { "Troubleshooting" = "troubleshooting.md" },
+  { "Get started" = [
+    "start/index.md",
+  ] },
+  { "The song list" = [
+    "songs/index.md",
+    { "Download songs" = "songs/download.md" },
+    { "Tags" = "songs/tags.md" },
+  ] },
+  { "At the party" = [
+    "party/index.md",
+    { "Wish for a song" = "party/wishlist.md" },
+    { "Let the reel pick" = "party/reel.md" },
+  ] },
+  { "The host screen" = [
+    "host-screen/index.md",
+  ] },
+  { "Scores" = [
+    "scores/index.md",
+  ] },
+  { "Achievements" = [
+    "achievements/index.md",
+  ] },
+  { "People" = [
+    "people/index.md",
+  ] },
+  { "Settings" = [
+    "settings/index.md",
+  ] },
+  { "Fix a problem" = [
+    "help/index.md",
+  ] },
+  { "Integrations" = [
+    "integrate/index.md",
+  ] },
 ]
 
 [project.theme]
 language = "en"
+# Both files are relative to `docs_dir`. The logo is the app's own, the favicon
+# the app's own 32x32 icon.
+logo = "assets/logo.png"
+favicon = "assets/favicon.png"
 features = [
   "content.code.copy",
+  "content.tabs.link",
   "navigation.footer",
+  "navigation.indexes",
+  "navigation.path",
+  "navigation.sections",
   "navigation.top",
   "navigation.tracking",
   "search.highlight",
+  "toc.follow",
 ]
 
 # Dark first, matching the app's own theme; the toggle offers light for whoever wants it.
+# Both palettes take the branded primary and accent out of `wingman.css`.
 [[project.theme.palette]]
 scheme = "slate"
+primary = "custom"
+accent = "custom"
 toggle.icon = "lucide/moon"
 toggle.name = "Switch to light mode"
 
 [[project.theme.palette]]
 scheme = "default"
+primary = "custom"
+accent = "custom"
 toggle.icon = "lucide/sun"
 toggle.name = "Switch to dark mode"
 
-# Only what the pages actually use: admonitions, collapsible blocks, permalinks.
+# Setting this table replaces zensical's own defaults, so every extension the site
+# uses has to stand here. `toc` and `tables` are always on and are not listed.
 [project.markdown_extensions]
 admonition = {}
 attr_list = {}
-pymdownx.details = {}
-toc.permalink = true
+md_in_html = {}
+"pymdownx.blocks.caption" = {}
+"pymdownx.details" = {}
+# The app's glyphs, as `:wingman-<name>:` shortcodes. `custom_icons` belongs under
+# `options`; as a top-level key it raises a KeyError at build time. The path is
+# resolved against the working directory, so always build from `docs/`.
+"pymdownx.emoji" = { emoji_index = "zensical.extensions.emoji.twemoji", emoji_generator = "zensical.extensions.emoji.to_svg", options = { custom_icons = ["overrides/.icons"] } }
+# The three options zensical sets by default, which replacing the table drops.
+# The theme's own stylesheet styles code lines through the `__span` ids that
+# `line_spans` writes, so a code block loses that styling without them.
+"pymdownx.highlight" = { anchor_linenums = true, line_spans = "__span", pygments_lang_class = true }
+"pymdownx.inlinehilite" = {}
+"pymdownx.keys" = {}
+"pymdownx.superfences" = {}
+"pymdownx.tabbed" = { alternate_style = true }
+toc = { permalink = true }
+
+# The lightbox every screenshot opens in.
+[project.plugins]
+glightbox = {}

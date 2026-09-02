@@ -20,7 +20,7 @@ the same commit.
    songs everywhere, see [architecture](architecture.md#permissions).
 4. **Capability**: if none fits, add `<area>.<verb>` to `CAPABILITIES` in
    `auth/permissions.py` and to the role defaults there, and mention it in
-   `docs/user/accounts-and-permissions.md`. The permissions UI groups by the
+   `docs/user/people/index.md`. The permissions UI groups by the
    `<area>` prefix and shows the verb, so a new capability needs no frontend
    change beyond a group icon if the area is new (`RolePermissions.tsx`).
 5. **Tests** in `tests/test_<module>_api.py`: happy path with `client`
@@ -84,7 +84,7 @@ changed `input`. The output is identical to `npm run generate-api`.
    (`KaraokeSlotsField`, `VideoQualityField`) when the value needs structure
    a text/number/toggle cannot give — and register it in the page's field map.
 4. Test the validator in `tests/test_settings_service.py`; document the
-   setting in `docs/user/settings.md`.
+   setting in `docs/user/settings/index.md`.
 
 ## Add a WebSocket event
 

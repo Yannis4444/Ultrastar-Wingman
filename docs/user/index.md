@@ -46,8 +46,8 @@ configures.
 
 ## Where to go next
 
-- [Get started](getting-started.md) — run Wingman and connect Ultrastar Deluxe.
-- [Sing a song](singing.md) — the player selection and starting a song.
-- [Download songs](downloading-songs.md) — get new songs from USDB.
-- [Tags](tags.md) — label songs, and decide who may see which.
-- [Troubleshooting](troubleshooting.md) — when something does not work.
+- [Get started](start/index.md): run Wingman and connect Ultrastar Deluxe.
+- [The song list](songs/index.md): the player selection and starting a song.
+- [Download songs](songs/download.md): get new songs from USDB.
+- [Tags](songs/tags.md): label songs, and decide who may see which.
+- [Fix a problem](help/index.md): when something does not work.
