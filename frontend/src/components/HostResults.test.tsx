@@ -93,7 +93,7 @@ function bars(container: HTMLElement): (string | null)[][] {
   ]);
 }
 
-function renderResults(fallback?: ReactNode) {
+function renderResults(fallback?: ReactNode, suppressed = false) {
   const client = new QueryClient({
     defaultOptions: { queries: { retry: false } },
   });
@@ -101,7 +101,11 @@ function renderResults(fallback?: ReactNode) {
     <QueryClientProvider client={client}>
       {/* The avatars' source is the page's, not this component's — an empty
           map still draws every singer's initial. */}
-      <HostResults players={new Map()} fallback={fallback} />
+      <HostResults
+        players={new Map()}
+        fallback={fallback}
+        suppressed={suppressed}
+      />
     </QueryClientProvider>,
   );
 }
@@ -231,6 +235,15 @@ test("the block gets out of the way when the next song starts", async () => {
   await waitFor(() =>
     expect(screen.queryByLabelText("Last song")).not.toBeInTheDocument(),
   );
+});
+
+test("while the badges own the stage the results wait their turn", async () => {
+  renderResults(<p>idle fallback</p>, true);
+
+  // The scores are the right ones and everything is still being listened for —
+  // the achievements a finished song earned are simply on the stage first.
+  expect(await screen.findByText("idle fallback")).toBeInTheDocument();
+  expect(screen.queryByLabelText("Last song")).not.toBeInTheDocument();
 });
 
 test("a role without stats.view sees nothing and asks for nothing", async () => {

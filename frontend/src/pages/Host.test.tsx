@@ -15,6 +15,7 @@ import type {
   SongRead,
   WishRead,
 } from "../api";
+import { achievementRead, achievementSettings } from "../test/achievements";
 import { meResponse } from "../test/auth";
 import { FakeSocket } from "../test/fakeSocket";
 import Host from "./Host";
@@ -24,6 +25,7 @@ const {
   exchangeHostToken,
   getCurrentSing,
   getJoinInfo,
+  listAchievements,
   listKaraokeColors,
   listLatestScores,
   listPlayers,
@@ -36,6 +38,7 @@ const {
   exchangeHostToken: vi.fn(),
   getCurrentSing: vi.fn(),
   getJoinInfo: vi.fn(),
+  listAchievements: vi.fn(),
   listKaraokeColors: vi.fn(),
   listLatestScores: vi.fn(),
   listPlayers: vi.fn(),
@@ -51,6 +54,7 @@ vi.mock("../api/sdk.gen", async (importOriginal) => ({
   exchangeHostToken,
   getCurrentSing,
   getJoinInfo,
+  listAchievements,
   listKaraokeColors,
   listLatestScores,
   listPlayers,
@@ -178,6 +182,10 @@ beforeEach(() => {
   getMe.mockResolvedValue(meResponse(["songs.view"]));
   getCurrentSing.mockResolvedValue({ data: { sing: null } });
   getJoinInfo.mockResolvedValue({ data: { url: "http://192.168.0.10:8080" } });
+  listAchievements.mockReset();
+  listAchievements.mockResolvedValue({
+    data: { achievements: [], settings: achievementSettings() },
+  });
   listKaraokeColors.mockResolvedValue({ data: { colors: [] } });
   listLatestScores.mockResolvedValue({ data: { scores: [] } });
   listPlayers.mockResolvedValue({ data: { players: [] } });
@@ -393,6 +401,76 @@ test("the standing outlives the results the stage was showing", async () => {
   expect(await screen.findByText("Ultrastar Wingman")).toBeInTheDocument();
   expect(screen.queryByLabelText("Last song")).not.toBeInTheDocument();
   expect(screen.getByLabelText("Session leaderboard")).toBeInTheDocument();
+});
+
+test("what a song earned takes the stage, and the results follow it", async () => {
+  vi.useFakeTimers({ shouldAdvanceTime: true });
+  withScores();
+  const { container } = renderHost("/host");
+  await screen.findByLabelText("Last song");
+
+  act(() =>
+    FakeSocket.deliver({
+      event: "achievements.earned",
+      sing_id: "sing-2",
+      players: [
+        {
+          player: {
+            id: "p1",
+            name: "Alice",
+            registered: false,
+            hidden: false,
+            has_avatar: false,
+            avatar_version: null,
+          },
+          achievements: [achievementRead()],
+        },
+      ],
+    }),
+  );
+
+  // The badges own the stage alone: not next to the results, and not next to
+  // the brand that stands in for them.
+  const stage = await screen.findByLabelText("New achievements");
+  expect(container.querySelector(".host-stage")).toContainElement(stage);
+  expect(stage).toHaveTextContent("Golden Voice");
+  expect(screen.queryByLabelText("Last song")).not.toBeInTheDocument();
+  expect(screen.queryByText("Ultrastar Wingman")).not.toBeInTheDocument();
+  // The rail is not the stage's to take: the QR code stays where it was.
+  expect(screen.getByText("Scan to join")).toBeInTheDocument();
+
+  // 4 + 2 × 1 seconds at the default settings, and then the stage is handed
+  // back to the song that earned them.
+  act(() => vi.advanceTimersByTime(6_100));
+  expect(screen.queryByLabelText("New achievements")).not.toBeInTheDocument();
+  expect(screen.getByLabelText("Last song")).toBeInTheDocument();
+});
+
+test("the scores wait for the badges rather than flashing past them", async () => {
+  vi.useFakeTimers({ shouldAdvanceTime: true });
+  withScores();
+  renderHost("/host");
+  await screen.findByLabelText("Last song");
+  FakeSocket.deliver({ event: "karaoke.started", sing: null });
+  await waitFor(() =>
+    expect(screen.queryByLabelText("Last song")).not.toBeInTheDocument(),
+  );
+
+  // USDX has scored: the stage holds the brand for a beat rather than putting
+  // the scoreboard up in front of the badges that are about to land on it.
+  act(() =>
+    FakeSocket.deliver({
+      event: "scores.recorded",
+      sing_id: "sing-2",
+      scores: [],
+    }),
+  );
+  expect(screen.getByText("Ultrastar Wingman")).toBeInTheDocument();
+  expect(screen.queryByLabelText("Last song")).not.toBeInTheDocument();
+
+  // Nothing followed, so the beat runs out and the results take the stage.
+  act(() => vi.advanceTimersByTime(1_500));
+  expect(await screen.findByLabelText("Last song")).toBeInTheDocument();
 });
 
 test("the wishes sit in the rail and make room for the standing", async () => {
