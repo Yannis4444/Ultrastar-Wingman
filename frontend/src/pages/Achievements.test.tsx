@@ -714,6 +714,42 @@ it("puts the rows back when a dragged order is refused", async () => {
   expect(reorderAchievements).toHaveBeenCalledTimes(1);
 });
 
+it("starts no second gesture while an order is still in flight", async () => {
+  const { container } = renderPage(catalogue());
+  // Never answers: the moment between a gesture and its answer, held open.
+  reorderAchievements.mockReturnValue(new Promise(() => {}));
+
+  fireEvent.click(
+    await screen.findByRole("button", { name: "Arrange the order" }),
+  );
+  const list = container.querySelectorAll(".achievements-list")[0];
+  const grip = () => list.querySelector<HTMLElement>(".achievements-drag")!;
+
+  // One gesture, and its answer never comes.
+  layOutRows(list);
+  fireEvent.pointerDown(grip(), { pointerId: 1 });
+  fireEvent.pointerMove(grip(), { pointerId: 1, clientY: 100 });
+  fireEvent.pointerUp(grip(), { pointerId: 1 });
+  await waitFor(() => expect(reorderAchievements).toHaveBeenCalledTimes(1));
+  expect(names(container, 0)).toEqual(["Second Voice", "Karaoke Hero"]);
+
+  // The arrows are disabled for this moment; so is the grip, or a second
+  // gesture's order and this one's can land in either sequence and the loser is
+  // what the catalogue keeps.
+  expect(
+    screen.getByRole("button", { name: "Move Second Voice down" }),
+  ).toBeDisabled();
+  layOutRows(list);
+  fireEvent.pointerDown(grip(), { pointerId: 2 });
+  fireEvent.pointerMove(grip(), { pointerId: 2, clientY: 100 });
+  fireEvent.pointerUp(grip(), { pointerId: 2 });
+
+  // Nothing moved and nothing went out — the rows are where the first gesture
+  // left them.
+  expect(names(container, 0)).toEqual(["Second Voice", "Karaoke Hero"]);
+  expect(reorderAchievements).toHaveBeenCalledTimes(1);
+});
+
 it("asks for the managing copy of the catalogue", async () => {
   renderPage();
 

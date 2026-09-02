@@ -140,7 +140,10 @@ exception). Tests identify glyphs with `iconNames()` from `src/test/icons.ts`.
   permanently visible disabled Save does not read as a broken app: it says why Save will not
   go — and, because Save can now be pressed from anywhere in the form, that a press went
   nowhere and where the `role="alert"` sentence for it is — with *Saved* in
-  `--highlight-blue-light` when one landed.
+  `--highlight-blue-light` when one landed. That accent slot takes any write's
+  acknowledgement, not only a save's: `savedLabel` is what a reset says in it instead
+  (*"Reset — the shipped achievement is back."*), because a reset settles the form with
+  nothing pending and *Saved* is not what happened.
 - **Text inputs, loud and quiet:** `.text-input` (16px radius, `--input-bg`, ≥40px) is for the
   page's one main control (the Songs search); `.text-input-quiet` (36px, hairline, transparent)
   is everything else — settings fields, selects, filters, forms. At most one loud input per
@@ -244,6 +247,12 @@ do it. Back is a `<Link>` to a fixed path (`backLink.ts` resolves a state-provid
 `history.back()`. Every new route is registered in `App.tsx` **and** in `COVERS`
 (`BottomNav.tsx`) so the owning tab stays lit; `/host*` renders no bottom nav.
 
+**A page opened starts at the top of itself.** `App.tsx`'s `ScrollToTop` does it once for
+the whole app on every PUSH navigation, so no page scrolls itself on entry. POP is left
+alone — the offset a reader had in a list is exactly what going back should restore — and so
+is REPLACE, one page standing in for another (an editor swapping `/new` for the id it just
+saved) where a jump to the top would throw away the place they were working in.
+
 ## 7. Page conventions
 
 - **Song list rows** (`SongListItem`): 40×40 cover, title + passive marks, artist in
@@ -343,7 +352,11 @@ do it. Back is a `<Link>` to a fixed path (`backLink.ts` resolves a state-provid
   page's own rows — a grip in front of each row for the pointer and an `arrow-up` /
   `arrow-down` pair behind it for the keyboard, both beside the link and never inside it,
   one `.section-note` saying what the order is for, and one `PUT /achievements/order` per
-  gesture carrying the whole catalogue. The two sections stay two: a row moves inside its
+  gesture carrying the whole catalogue. **One gesture at a time:** while that request is in
+  flight the arrows are `disabled` and the grip starts no drag — two orders sent from one
+  list can land in either sequence, and the loser is what the catalogue keeps. The grip is
+  not dimmed for it, being `aria-hidden` scenery rather than a control, so the disabled
+  arrows are what the reader sees. The two sections stay two: a row moves inside its
   own, and what is sent is the party's own rows then the included ones — one sequence over
   one column, which is exactly the order the page draws and the order every badge surface
   lists in. A refused order puts the rows back where the server still has them — not where

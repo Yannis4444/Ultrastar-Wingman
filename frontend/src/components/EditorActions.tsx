@@ -8,6 +8,10 @@ interface EditorActionsProps {
   /** A save that landed. Said in the same slot as `note`, which wins: a page
    *  that has been saved and then broken says what is broken. */
   saved?: boolean;
+  /** What the acknowledgement says, for a write that is not a save — a reset
+   *  puts the form back and settles with nothing pending, and "Saved" is not
+   *  what happened. */
+  savedLabel?: string;
   saveDisabled?: boolean;
   saveLabel?: string;
   /** The editor's second action — a danger Delete, a plain Reset — or nothing.
@@ -30,11 +34,12 @@ interface EditorActionsProps {
 export default function EditorActions({
   note = null,
   saved = false,
+  savedLabel = "Saved",
   saveDisabled = false,
   saveLabel = "Save",
   children,
 }: EditorActionsProps) {
-  const line = note ?? (saved ? "Saved" : "");
+  const line = note ?? (saved ? savedLabel : "");
 
   return (
     <div className="editor-actions">

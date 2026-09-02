@@ -458,10 +458,12 @@ async def create_achievement(
     color: str,
     hidden: bool,
     enabled: bool,
-    sort_order: int | None,
     definition: list[Condition],
 ) -> Achievement:
-    """A new achievement, at the end of the list unless the caller placed it.
+    """A new achievement, at the end of the list.
+
+    Where it sits after that is `reorder_achievements`' business and nobody else's, so
+    there is nothing to place it with here.
 
     A uuid4 hex id: the stable slugs belong to the set Wingman ships, and one an operator
     made here has no meaning another instance could recognise.
@@ -474,7 +476,7 @@ async def create_achievement(
         color=color,
         hidden=hidden,
         enabled=enabled,
-        sort_order=await _next_sort_order(session) if sort_order is None else sort_order,
+        sort_order=await _next_sort_order(session),
         definition=dump_definition(definition),
     )
     session.add(achievement)
@@ -494,10 +496,15 @@ async def update_achievement(
     color: str | None = None,
     hidden: bool | None = None,
     enabled: bool | None = None,
-    sort_order: int | None = None,
     definition: list[Condition] | None = None,
 ) -> Achievement:
     """Change what an achievement is, or what it asks for.
+
+    Not where it sits: `sort_order` is `reorder_achievements`' column alone, which renumbers
+    the whole catalogue 0, 1, 2 … from one permutation. A second writer with a different
+    rule — one row, any number, duplicates allowed — is a bug waiting for the day two rows
+    share a number, and the order is the host's arrangement of the catalogue rather than a
+    field of one achievement anyway.
 
     A built-in's presentation is as editable as anybody else's — only its **conditions** are
     not: a `definition` that would move them raises `BuiltInDefinitionError` and nothing at
@@ -525,8 +532,6 @@ async def update_achievement(
         achievement.hidden = hidden
     if enabled is not None:
         achievement.enabled = enabled
-    if sort_order is not None:
-        achievement.sort_order = sort_order
     if definition is not None:
         achievement.definition = dump_definition(definition)
     await session.commit()
@@ -790,6 +795,14 @@ async def import_archive(
             achievement.hidden = file.hidden
             achievement.enabled = file.enabled
             if file.sort_order is not None:
+                # The one other write over `sort_order` besides `reorder_achievements`, and
+                # it stays one: an archive is a whole set of rows carrying a coherent order
+                # from the instance that exported them — the same kind of write as a
+                # permutation, not the single-row poke `PATCH` no longer allows. What it can
+                # leave behind is two rows on one number, which the listings already settle
+                # the same way every time (`sort_order`, then `created_at`) and which the
+                # next arrangement washes out. Dropping the field instead would make
+                # export → import stop being a fixed point over the order.
                 achievement.sort_order = file.sort_order
             picture = staged.get(file.id)
             achievement.icon_file = None if picture is None else str(icons_dir / picture.name)

@@ -73,9 +73,11 @@ Anything you have changed can be put back with **Reset** (below).
 The seventeenth is hidden, so singers meet it as a padlock until somebody earns
 it — which is the whole joke, and why it is not written down here. The host
 sees it like any other on **User → Achievements**, and can switch it off there
-if the party would not find it funny — but *only* there. On the host's own
-badge list, and on the host screen, it is the same padlock everybody else gets:
-being able to edit a surprise is no reason to have it spoiled.
+if the party would not find it funny — but *only* there. On the host's own badge
+list it is the same padlock everybody else gets: being able to edit a surprise is
+no reason to have it spoiled. The host screen never gives it away either — it
+throws up the badges a song has just earned and nothing else, so a hidden one
+first appears there the moment somebody has it.
 
 "One party" means one evening — one run of Wingman, the same party the
 [Scores](statistics.md) tab lists.
@@ -166,7 +168,9 @@ is nothing to fill in there. And where Delete would be, beside Save, it has
   achievement easier than Wingman ships it, resetting it can take that badge
   away again.
 
-It asks before it does any of that, because it throws your changes away.
+It asks before it does any of that, because it throws your changes away. The
+form fills itself in again with what Wingman ships, and the line by **Save**
+says the shipped achievement is back.
 
 !!! note
     Every change re-checks everybody in the background. An achievement that is
@@ -308,7 +312,11 @@ words what happened — *"Added Golden Voice and updated 14 achievements."*
 Import matches **by id**, which is the folder name inside the archive:
 
 - An achievement this Wingman already has is **updated** — name, description,
-  colour, conditions and all — exactly as if you had edited it.
+  colour, conditions and all — exactly as if you had edited it, and it moves to
+  the place in the list the archive gives it. An archive carries the order it
+  was exported in, and that place is the one thing the editor itself cannot
+  touch — [the grip](#change-the-order) is where the order is changed by hand;
+  leave `sort_order` out of a file and the achievement keeps the place it has.
 - One of the **seventeen included** ones is updated too, but its conditions are
   left alone, exactly as in the editor: what Wingman's own achievements ask for
   is not something an archive may change. Everything else in the file takes.

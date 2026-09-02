@@ -313,6 +313,8 @@ hidden achievement.
 listing reads it: `GET /achievements`, a player's own record
 (`rows_of_player`), and the ids an `achievements.earned` payload names
 (`by_ids`). There is one order, and it is the order badges appear in everywhere.
+`created_at` breaks a tie, so two rows sorted the same keep the order they were
+made in instead of shuffling between requests.
 
 `PUT /achievements/order`, `achievements.manage`:
 
@@ -334,6 +336,26 @@ rows held before. The route answers the managing listing, so the page that
 reordered can hold what it drew, and broadcasts `achievements.changed` like
 every other catalogue write. **No background pass:** where an achievement sits
 in the list has nothing to do with who has earned it.
+
+**It is the only write a caller aims at one row.** Neither `POST /achievements`
+nor `PATCH /achievements/{id}` carries a `sort_order`: a new achievement lands at
+the end of the list (`_next_sort_order`), and where a row sits after that is this
+route's business alone. Two writers of one column with different rules — one permutation of the
+whole table against one row set to any number — is a bug waiting for the day two
+rows share a number, and the order is the host's arrangement of the catalogue
+rather than a field of one achievement anyway. A body that names the field is
+the no-op Pydantic makes of a field the model does not declare, not a 422:
+refusing a whole edit over a number is no help to anybody, and an older client
+is the likeliest sender.
+
+One write over the column is left besides it, and deliberately: an **import**
+takes the places its archive carries (see [Import](#import)). That is the same
+kind of write as a permutation — a whole set of rows with a coherent order, carried over from the
+instance that exported them — rather than a single-row poke, and dropping it
+would make export → import stop being a fixed point over the order. What it can
+leave behind is two rows on one number, which every listing settles the same way
+each time (`sort_order`, then `created_at`) and which the next arrangement
+washes out.
 
 The admin page draws the catalogue as two sections — the party's own, then the
 included ones — and sends them as one sequence in that order, so a built-in
@@ -523,12 +545,13 @@ one of the seventeen shipped ids. See the table.
 
 | What it meets | What it does |
 |---|---|
-| An existing ordinary row | Updates every presentation field **and** the definition, exactly as `PATCH` would. |
+| An existing ordinary row | Updates every presentation field **and** the definition, exactly as `PATCH` would — plus, where the file carries one, the place in the list a `PATCH` cannot touch (below). |
 | An existing **built-in** | Updates every presentation field the same way and **leaves its conditions where they are**, `built_in` included: what one of the shipped seventeen asks for is `builtin.py`'s, and an `achievement.json` in a text file would otherwise be the way straight round the 409 `PATCH` gives. The row still counts as updated — it really did change, only not there — and the skipped definition is logged. |
 | An unknown id that Wingman ships | Creates it **as a built-in**, with the conditions out of `builtin.py` rather than out of the file. The id is the only thing that may say a row is one of the shipped set, which is what lets a shipped achievement be handed from one instance to another. |
 | Any other unknown id | Creates it as an ordinary row. An archive cannot mint an undeletable achievement of its own. |
 | An entry with an `icon.<ext>` | Stores it through `images.py` — the same allowlist, byte cap and pixel cap an upload goes through. |
 | An entry **without** one | **Clears** whatever picture the row had. The archive is the whole description of the achievement it names, and anything else would make importing the same archive twice mean two different things. |
+| A `sort_order` in the file | **Taken.** An existing row moves to the place the archive gives it, a created one starts there. The one write over that column besides `PUT /achievements/order` — see [The order of the catalogue](#the-order-of-the-catalogue) for why an archive is allowed it where a `PATCH` is not. |
 | `sort_order` left out of the file | A new achievement lands at the end of the list; an existing one keeps the place it has. |
 
 The whole archive is parsed and every picture validated **before a row is

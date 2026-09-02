@@ -552,6 +552,89 @@ it("puts a built-in back the way Wingman ships it, once it is confirmed", async 
   // The form is re-seeded from the restored row rather than left showing the
   // name that was just thrown away.
   expect(await screen.findByDisplayValue("Golden Voice")).toBeInTheDocument();
+  // And the action row acknowledges the reset. A re-seeded form has nothing
+  // pending, and the line that is true of that moment — "Nothing has changed
+  // yet." — would read as though the reset had done nothing at all.
+  expect(screen.getByRole("status")).toHaveTextContent(
+    "Reset — the shipped achievement is back.",
+  );
+
+  // And it stops saying so the moment the form moves on: the acknowledgement is
+  // about the write that landed, not a badge the page keeps wearing.
+  fireEvent.change(screen.getByLabelText("Name"), {
+    target: { value: "Golden Larynx" },
+  });
+  expect(screen.getByRole("status")).not.toHaveTextContent("Reset —");
+});
+
+it("says nothing about a reset that did not go through", async () => {
+  // The other half of the acknowledgement: a line saying the shipped
+  // achievement is back over a form that still holds the edits would be the one
+  // lie this row must never tell.
+  resetAchievement.mockRejectedValue({ status: 500 });
+  renderEditor({
+    achievements: [builtIn({ name: "Renamed", color: "pink" })],
+    path: BUILT_IN_PATH,
+  });
+
+  await screen.findByDisplayValue("Renamed");
+  fireEvent.click(screen.getByRole("button", { name: "Reset achievement" }));
+  fireEvent.click(screen.getByRole("button", { name: "Reset" }));
+
+  expect(await screen.findByRole("alert")).toHaveTextContent(
+    "Could not reset the achievement.",
+  );
+  const line = screen.getByRole("status");
+  expect(line).toHaveTextContent(
+    "It did not go through — the message at the top of the page says why.",
+  );
+  expect(line).not.toHaveTextContent("Reset —");
+  // Nothing was re-seeded either: the name the reader had is still theirs.
+  expect(screen.getByDisplayValue("Renamed")).toBeInTheDocument();
+});
+
+it("says a reset is happening while it is in flight", async () => {
+  // Never answers: the round trip and the background pass behind it, held open.
+  resetAchievement.mockReturnValue(new Promise(() => {}));
+  renderEditor({
+    achievements: [builtIn({ name: "Renamed" })],
+    path: BUILT_IN_PATH,
+  });
+
+  await screen.findByDisplayValue("Renamed");
+  fireEvent.click(screen.getByRole("button", { name: "Reset achievement" }));
+  fireEvent.click(screen.getByRole("button", { name: "Reset" }));
+
+  // The modal is gone, so the row is the only place left that can say it.
+  expect(await screen.findByText("Resetting…")).toBeInTheDocument();
+});
+
+it("stops acknowledging a reset once a picture is put on it", async () => {
+  // A reset removes an uploaded picture, so the row may not go on saying the
+  // shipped achievement is back once one is back on it.
+  resetAchievement.mockResolvedValue({
+    data: builtIn({ name: "Golden Voice" }),
+  });
+  setAchievementIcon.mockResolvedValue({
+    data: builtIn({ name: "Golden Voice", has_image: true, icon_version: 2 }),
+  });
+  renderEditor({
+    achievements: [builtIn({ name: "Renamed" })],
+    path: BUILT_IN_PATH,
+  });
+
+  await screen.findByDisplayValue("Renamed");
+  fireEvent.click(screen.getByRole("button", { name: "Reset achievement" }));
+  fireEvent.click(screen.getByRole("button", { name: "Reset" }));
+  await screen.findByDisplayValue("Golden Voice");
+  expect(screen.getByRole("status")).toHaveTextContent("Reset —");
+
+  fireEvent.change(screen.getByLabelText("Use a picture instead"), {
+    target: { files: [picture()] },
+  });
+
+  await waitFor(() => expect(setAchievementIcon).toHaveBeenCalled());
+  expect(screen.getByRole("status")).not.toHaveTextContent("Reset —");
 });
 
 it("offers no reset for an achievement the party made itself", async () => {

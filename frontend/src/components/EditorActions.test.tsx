@@ -53,6 +53,22 @@ it("acknowledges a save in the same line, and the refusal wins over it", () => {
   expect(screen.getByRole("status")).not.toHaveClass("editor-actions-saved");
 });
 
+it("says what landed in its own words when it was not a save", () => {
+  render(
+    <form>
+      <EditorActions
+        saved
+        savedLabel="Reset — the shipped achievement is back."
+      />
+    </form>,
+  );
+
+  const line = screen.getByRole("status");
+  expect(line).toHaveTextContent("Reset — the shipped achievement is back.");
+  // The same accent slot: what happened is acknowledged, whichever write it was.
+  expect(line).toHaveClass("editor-actions-saved");
+});
+
 it("keeps the live region in the document with nothing to say", () => {
   render(
     <form>

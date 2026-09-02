@@ -1009,6 +1009,10 @@ export const deleteAchievement = <ThrowOnError extends boolean = false>(options:
  * Change one, a built-in included: they may be renamed, recoloured and switched off like
  * any other.
  *
+ * What it may **not** move is where the row sits: `sort_order` is not a field of this
+ * body, because `PUT /achievements/order` writes that column and nothing else does. See
+ * `AchievementUpdate`.
+ *
  * What a built-in **asks for** is the exception. A `definition` on one is a 409 and nothing
  * is written: `builtin.py` is the one place that says what *Golden Voice* means, and the
  * only write that touches those conditions is `POST /achievements/{id}/reset`, which puts

@@ -485,6 +485,41 @@ async def test_an_unknown_id_in_the_archive_is_created(instance: Instance) -> No
     assert row["sort_order"] == len(BUILT_INS)
 
 
+async def test_where_a_row_sits_is_the_one_write_an_archive_still_makes(
+    instance: Instance,
+) -> None:
+    """`sort_order` is in no `POST`/`PATCH` body — `PUT /achievements/order` writes that
+    column and an archive, and nothing else (`docs/dev/achievements.md`, *The order of the
+    catalogue*). The archive keeps it because it carries a whole set of rows with the order
+    the instance that exported them had, so export → import is a fixed point over the order
+    as well: a file that names a place takes it, and a file that names none leaves the row
+    exactly where it stands.
+    """
+    made = one_achievement("brand-new", name="Brand New")
+    del made["sort_order"]
+    first = await upload(instance.client, tar_gz([json_member("brand-new", made)]))
+    assert first.status_code == 200, first.text
+    # The end of the catalogue, the only place a create ever lands.
+    end = len(BUILT_INS)
+    assert (await stored_rows(instance, ["brand-new"]))["brand-new"]["sort_order"] == end
+
+    # The same file again: it says nothing about the place, so the place is left alone.
+    again = await upload(instance.client, tar_gz([json_member("brand-new", made)]))
+    assert again.status_code == 200, again.text
+    assert again.json() == {"created": [], "updated": ["brand-new"]}
+    assert (await stored_rows(instance, ["brand-new"]))["brand-new"]["sort_order"] == end
+
+    # And one that does name a place moves the row there. The stored column and not the
+    # position in the listing: the number this asks for is one a built-in already holds, and
+    # which of two rows sorted the same comes first is the `created_at` tiebreak's business.
+    placed = one_achievement("brand-new", name="Brand New", sort_order=0)
+    moved = await upload(instance.client, tar_gz([json_member("brand-new", placed)]))
+
+    assert moved.status_code == 200, moved.text
+    assert moved.json() == {"created": [], "updated": ["brand-new"]}
+    assert (await stored_rows(instance, ["brand-new"]))["brand-new"]["sort_order"] == 0
+
+
 async def test_a_definition_the_models_cannot_read_is_exported_as_it_stands(
     instance: Instance,
 ) -> None:

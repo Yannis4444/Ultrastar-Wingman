@@ -24,7 +24,8 @@ export const DEFAULT_ACHIEVEMENT_SETTINGS: AchievementSettings = {
 
 export interface Achievements {
   /**
-   * The catalogue in the order the API returns it (`sort_order`, then name).
+   * The catalogue in the order the API returns it — `sort_order`, the host's
+   * own arrangement, and `created_at` where two rows are sorted the same.
    * A `hidden` one this reader has not earned arrives masked — no name, no
    * sentence, no glyph — so every surface drawing a row has to ask `isMasked`.
    * Masked for *whoever* is reading, an administrator on their own user page

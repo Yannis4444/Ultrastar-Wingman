@@ -91,7 +91,11 @@ SessionFactoryDep = Annotated[async_sessionmaker[AsyncSession], Depends(get_sess
 
 class AchievementCreate(BaseModel):
     """`definition` is parsed by the condition models on the way in, so an achievement that
-    could never be satisfied is a 422 here rather than a stored row nobody can earn."""
+    could never be satisfied is a 422 here rather than a stored row nobody can earn.
+
+    No `sort_order`: a new achievement lands at the end of the list, and where it sits after
+    that is `PUT /achievements/order`'s alone — see `AchievementUpdate`.
+    """
 
     name: AchievementName
     description: AchievementDescription = ""
@@ -99,16 +103,22 @@ class AchievementCreate(BaseModel):
     color: TagColor = "neutral"
     hidden: bool = False
     enabled: bool = True
-    # Left out: at the end of the list. Rearranging the catalogue is `PUT
-    # /achievements/order`, which sends the lot; this is here for an archive that carries a
-    # place with it.
-    sort_order: int | None = None
     definition: list[Condition]
 
 
 class AchievementUpdate(BaseModel):
     """Every field optional: a PATCH only touches what it names. An explicit `"icon": null`
-    clears the glyph — leaving the field out keeps it."""
+    clears the glyph — leaving the field out keeps it.
+
+    **No `sort_order`.** Where a row sits is written by `PUT /achievements/order` and by
+    nothing else: that route takes the whole catalogue as one permutation and hands out
+    0, 1, 2 …, so the column is always one sequence, while a PATCH could put two rows on the
+    same number. The order is the host's arrangement of the catalogue rather than a field of
+    one achievement, which is also why a reset leaves it alone. The field is simply ignored
+    where an older client still sends it — the models take no `extra="forbid"`, and refusing
+    a whole edit over a number the route would have written the same way twice is no help to
+    anybody.
+    """
 
     name: AchievementName | None = None
     description: AchievementDescription | None = None
@@ -116,7 +126,6 @@ class AchievementUpdate(BaseModel):
     color: TagColor | None = None
     hidden: bool | None = None
     enabled: bool | None = None
-    sort_order: int | None = None
     definition: list[Condition] | None = None
 
 
@@ -279,7 +288,6 @@ async def create_achievement(
         color=body.color,
         hidden=body.hidden,
         enabled=body.enabled,
-        sort_order=body.sort_order,
         definition=body.definition,
     )
     service.start_full_pass(factory, f"achievement '{achievement.id}' was created")
@@ -382,6 +390,10 @@ async def update_achievement(
     """Change one, a built-in included: they may be renamed, recoloured and switched off like
     any other.
 
+    What it may **not** move is where the row sits: `sort_order` is not a field of this
+    body, because `PUT /achievements/order` writes that column and nothing else does. See
+    `AchievementUpdate`.
+
     What a built-in **asks for** is the exception. A `definition` on one is a 409 and nothing
     is written: `builtin.py` is the one place that says what *Golden Voice* means, and the
     only write that touches those conditions is `POST /achievements/{id}/reset`, which puts
@@ -407,7 +419,6 @@ async def update_achievement(
             color=body.color,
             hidden=body.hidden,
             enabled=body.enabled,
-            sort_order=body.sort_order,
             definition=body.definition,
         )
     except service.BuiltInDefinitionError as error:

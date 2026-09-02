@@ -151,6 +151,13 @@ export default function AchievementEditor() {
   const [error, setError] = useState<string | null>(null);
   const [iconError, setIconError] = useState<string | null>(null);
   const [saved, setSaved] = useState(false);
+  /** What the acknowledgement in the action row says when what landed was not a
+   *  save. Only a reset sets it; every other write that lands puts it back to
+   *  the ordinary word first — `save` before the request goes out, `tookIcon`
+   *  when a picture lands — and it is read only while `acknowledged` holds. So
+   *  it can never linger as a stale line over a form the reset no longer
+   *  describes. */
+  const [savedLabel, setSavedLabel] = useState<string | undefined>(undefined);
   const [saving, setSaving] = useState(false);
   const [deleting, setDeleting] = useState(false);
   const [resetting, setResetting] = useState(false);
@@ -235,6 +242,12 @@ export default function AchievementEditor() {
     ...resetAchievementMutation(),
     onSuccess: (achievement) => {
       seedFrom(achievement);
+      // After `seedFrom`, which clears the acknowledgement along with the rest
+      // of the draft: a reset settles with nothing pending, and the row's
+      // truthful default line — "Nothing has changed yet." — reads a second
+      // after the confirmation as though the reset had done nothing.
+      setSaved(true);
+      setSavedLabel("Reset — the shipped achievement is back.");
       refresh();
     },
     onError: (cause) =>
@@ -247,6 +260,11 @@ export default function AchievementEditor() {
    *  moved, so only the picture is read off it. */
   const tookIcon = (achievement: AchievementRead) => {
     setIconError(null);
+    // An icon write is a save of its own, and it is not the reset the row may
+    // still be acknowledging: a reset drops the uploaded picture, so leaving
+    // "the shipped achievement is back" standing over a picture that has just
+    // been put on it would be a line saying the opposite of what happened.
+    setSavedLabel(undefined);
     setHasImage(achievement.has_image);
     // The version of the file as it now stands — `null` once the picture is
     // gone, and a new number after a replacement, which is what makes the
@@ -338,31 +356,39 @@ export default function AchievementEditor() {
 
   /** Why Save is grey, said in the action row that is always on screen — a
    *  permanently visible disabled button that does not say why reads as a
-   *  broken app. In the order the reader would fix them, and "Saved" (which the
-   *  row says for itself) wins over the "nothing has changed" that is true of
-   *  the same moment.
+   *  broken app. In the order the reader would fix them, and the
+   *  acknowledgement the row says for itself — *Saved*, or what a reset just
+   *  did — wins over the "nothing has changed" that is true of the same
+   *  moment.
    *
    *  The refusal from the backend is in the row too, as a pointer and not as a
    *  copy: the `role="alert"` notice that carries the sentence itself is at the
    *  head of the form, and now that Save can be pressed from anywhere in a form
    *  this long, a press that goes nowhere with no word in the row is the same
    *  broken app the line exists to prevent. */
-  const saveNote = saving
-    ? "Saving…"
-    : trimmed === ""
-      ? "It needs a name before it can be saved."
-      : broken
-        ? "A condition above needs putting right before this can be saved."
-        : error !== null
-          ? "It did not go through — the message at the top of the page says why."
-          : !pending && !acknowledged
-            ? "Nothing has changed yet."
-            : null;
+  const saveNote = reset.isPending
+    ? // The modal is gone by now and a reset takes a round trip and a
+      // background pass with it, so the row is the only place left to say that
+      // something is happening.
+      "Resetting…"
+    : saving
+      ? "Saving…"
+      : trimmed === ""
+        ? "It needs a name before it can be saved."
+        : broken
+          ? "A condition above needs putting right before this can be saved."
+          : error !== null
+            ? "It did not go through — the message at the top of the page says why."
+            : !pending && !acknowledged
+              ? "Nothing has changed yet."
+              : null;
 
   const save = async () => {
     if (trimmed === "" || broken || !pending) return;
     setSaving(true);
     setError(null);
+    // Whatever the row was acknowledging, it is about to acknowledge a save.
+    setSavedLabel(undefined);
     try {
       if (creating) {
         const made = await create.mutateAsync({
@@ -802,6 +828,7 @@ export default function AchievementEditor() {
                     <EditorActions
                       note={saveNote}
                       saved={acknowledged}
+                      savedLabel={savedLabel}
                       saveDisabled={blocked}
                     >
                       {!creating &&

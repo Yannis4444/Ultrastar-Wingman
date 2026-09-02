@@ -368,18 +368,21 @@ async def test_resetting_a_built_in_puts_back_everything_but_whether_it_is_on(
             "color": "pink",
             "hidden": True,
             "enabled": False,
-            "sort_order": 99,
         },
     )
     await client.put(
         "/api/v1/achievements/builtin-score-9000/icon", files=upload(PNG, "a.png", "image/png")
     )
-    # The one field no route can move any more. A database seeded before the conditions were
-    # frozen can still hold a hand-edited one, and putting it right is what reset is for.
+    # Two columns no single-row route can move any more, written here directly. `definition`
+    # because a database seeded before the conditions were frozen can still hold a
+    # hand-edited one, and putting it right is what reset is for; `sort_order` because only
+    # `PUT /achievements/order` writes it, and this test is about the field being left where
+    # it stands rather than about how it got there.
     async with party.factory() as session:
         row = await session.get(Achievement, "builtin-score-9000")
         assert row is not None
         row.definition = [{"metric": "any_score", "comparator": ">=", "value": 1}]
+        row.sort_order = 99
         await session.commit()
 
     response = await client.post("/api/v1/achievements/builtin-score-9000/reset")
@@ -504,6 +507,33 @@ async def test_an_order_that_is_not_a_permutation_is_refused(party: Party, sent:
     assert refused.status_code == 422, refused.text
     assert refused.json() == {"detail": "order_mismatch"}
     assert [row["id"] for row in await catalogue(party["admin"])] == before
+
+
+async def test_no_other_route_writes_where_a_row_sits(party: Party) -> None:
+    """`PUT /achievements/order` is the one write over `sort_order`, and it takes the whole
+    catalogue as one permutation — so the column is always one sequence, 0, 1, 2 … A second
+    writer over a single row could put two rows on the same number, which is why neither the
+    PATCH nor the create body carries the field at all. A body that names it anyway is the
+    no-op the models make of a field they do not declare, not a refused write: refusing a
+    whole edit over a number is no help to anybody, and an older client is the likeliest
+    sender."""
+    client = party["admin"]
+    before = [row["id"] for row in await catalogue(client)]
+
+    edited = await client.patch(
+        f"/api/v1/achievements/{before[-1]}", json={"name": "Renamed", "sort_order": 0}
+    )
+
+    assert edited.status_code == 200, edited.text
+    assert edited.json()["name"] == "Renamed"
+    assert edited.json()["sort_order"] == len(before) - 1
+    assert [row["id"] for row in await catalogue(client)] == before
+
+    # And a create lands at the end of the list whatever it asks for.
+    made = await create(client, name="Encore", sort_order=0)
+
+    assert made["sort_order"] == len(before)
+    assert [row["id"] for row in await catalogue(client)] == [*before, made["id"]]
 
 
 async def test_a_reset_leaves_a_built_in_where_the_host_put_it(party: Party) -> None:

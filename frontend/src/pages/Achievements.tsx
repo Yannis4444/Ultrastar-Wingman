@@ -150,8 +150,13 @@ function AchievementRows({ achievements, reorder }: RowsProps) {
     index: number,
   ) => {
     // Or the browser starts a text selection, follows the link, or scrolls the
-    // page instead of moving the row.
+    // page instead of moving the row. Before the guard below: a press on a grip
+    // that is not going to move anything must still not select the row.
     event.preventDefault();
+    // No second gesture while the last one is still in flight — the arrows are
+    // disabled for the same moment. Two orders sent from one list can land in
+    // either sequence, and the loser is what the catalogue keeps.
+    if (reorder === undefined || reorder.pending) return;
     event.currentTarget.setPointerCapture(event.pointerId);
     dragFrom.current = index;
     setDragged(ids[index]);
