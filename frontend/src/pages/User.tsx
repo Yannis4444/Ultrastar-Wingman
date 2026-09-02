@@ -17,6 +17,7 @@ import LoginForm from "../components/LoginForm";
 import ManageMenu from "../components/ManageMenu";
 import PlayerAvatar from "../components/PlayerAvatar";
 import ScoreHistogram from "../components/ScoreHistogram";
+import UserAchievements from "../components/UserAchievements";
 import { errorDetail, errorMessage } from "../errors";
 import { REPOSITORY_URL } from "../links";
 import { manageEntries } from "../manage";
@@ -262,6 +263,10 @@ export default function User() {
               </button>
             </div>
             <UserStats playerId={auth.user.player_id} />
+            {/* The rest of the record: what those scores earned. After the
+                numbers because it is what they add up to, and before *Manage*
+                because it is still the singer's own page and not an errand. */}
+            <UserAchievements playerId={auth.user.player_id} />
           </>
         ) : auth.isHost ? (
           <>
