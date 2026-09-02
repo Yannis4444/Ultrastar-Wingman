@@ -80,6 +80,33 @@ being able to edit a surprise is no reason to have it spoiled.
 "One party" means one evening — one run of Wingman, the same party the
 [Scores](statistics.md) tab lists.
 
+### What a row tells you
+
+On **User → Achievements**, every row shows the badge, its name and the line a
+singer reads under it. Beyond that a row only says what is unusual about it:
+
+- a **padlock** after the name — this one is hidden until it is earned;
+- **Included** after the name — one of the seventeen Wingman brings with it;
+- the whole row **greyed out** — it is switched off, and nothing is being earned
+  on it.
+
+### Change the order
+
+The order of this list is the order badges appear in everywhere else too — on a
+singer's page and on the host screen — so it is worth putting the ones your
+party cares about first.
+
+Press the **grip** in the top right of the page. Every row grows a handle to
+drag it by and a pair of arrows to move it a place at a time; each move is saved
+as you make it. Press the grip again when you are done.
+
+The ones your party made and the **Included** ones are arranged separately: a
+row moves within its own group, and your own always come first.
+
+If somebody else adds, imports or deletes an achievement while you are
+arranging, Wingman puts the rows back where they were saved and says so — the
+list refreshes itself, and you can arrange it again.
+
 ## On the host screen
 
 When a song is over, the host screen holds the scoreboard back for a moment and
@@ -132,7 +159,9 @@ is nothing to fill in there. And where Delete would be, beside Save, it has
   uploaded picture. (So the one included achievement that ships hidden becomes a
   surprise again, even if you had revealed it.)
 - Whether it is **switched on** is left exactly as you set it. Switching one off
-  is meant to stick, so a reset never turns it back on.
+  is meant to stick, so a reset never turns it back on. Its **place in the
+  list** stays where you put it too — the order is yours, not the
+  achievement's.
 - Everybody's badges are worked out again afterwards. If you had made an
   achievement easier than Wingman ships it, resetting it can take that badge
   away again.

@@ -93,6 +93,19 @@ export type AchievementList = {
 };
 
 /**
+ * AchievementOrder
+ *
+ * The whole catalogue in the order it is to be listed in. Every id exactly once —
+ * anything else is a 422, the way a playlist's reorder refuses a partial order.
+ */
+export type AchievementOrder = {
+    /**
+     * Ids
+     */
+    ids: Array<string>;
+};
+
+/**
  * AchievementRead
  *
  * The catalogue entry. Everybody may read it — the host screen and every guest phone
@@ -4671,6 +4684,29 @@ export type UpdateAchievementSettingsResponses = {
 };
 
 export type UpdateAchievementSettingsResponse = UpdateAchievementSettingsResponses[keyof UpdateAchievementSettingsResponses];
+
+export type ReorderAchievementsData = {
+    body: AchievementOrder;
+    path?: never;
+    query?: never;
+    url: '/api/v1/achievements/order';
+};
+
+export type ReorderAchievementsErrors = {
+    /**
+     * An order that is not a permutation of the catalogue.
+     */
+    422: unknown;
+};
+
+export type ReorderAchievementsResponses = {
+    /**
+     * Successful Response
+     */
+    200: AchievementList;
+};
+
+export type ReorderAchievementsResponse = ReorderAchievementsResponses[keyof ReorderAchievementsResponses];
 
 export type ExportAchievementsData = {
     body: AchievementExport;

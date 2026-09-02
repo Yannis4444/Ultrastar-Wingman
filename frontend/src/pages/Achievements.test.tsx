@@ -8,10 +8,10 @@ import {
   achievementRead,
   achievementSettings,
   builtInAchievementReads,
-  condition,
 } from "../test/achievements";
 import { meResponse, userRead } from "../test/auth";
 import { FakeSocket } from "../test/fakeSocket";
+import { iconNames } from "../test/icons";
 import Achievements from "./Achievements";
 
 const {
@@ -20,12 +20,14 @@ const {
   updateAchievementSettings,
   exportAchievements,
   importAchievements,
+  reorderAchievements,
 } = vi.hoisted(() => ({
   getMe: vi.fn(),
   listAchievements: vi.fn(),
   updateAchievementSettings: vi.fn(),
   exportAchievements: vi.fn(),
   importAchievements: vi.fn(),
+  reorderAchievements: vi.fn(),
 }));
 
 vi.mock("../api/sdk.gen", async (importOriginal) => ({
@@ -35,6 +37,7 @@ vi.mock("../api/sdk.gen", async (importOriginal) => ({
   updateAchievementSettings,
   exportAchievements,
   importAchievements,
+  reorderAchievements,
 }));
 
 const MANAGER = ["songs.view", "achievements.manage"];
@@ -74,6 +77,21 @@ function rowsUnder(container: HTMLElement, index: number): HTMLAnchorElement[] {
     ...lists[index].querySelectorAll<HTMLAnchorElement>(".achievements-open"),
   ];
 }
+
+/** jsdom has no layout, and a drag knows which row the finger is over from the
+ *  rows' own `bottom`: 60px each, top to bottom. */
+function layOutRows(list: Element, height = 60): void {
+  [...list.children].forEach((row, index) =>
+    vi.spyOn(row, "getBoundingClientRect").mockReturnValue({
+      top: index * height,
+      bottom: (index + 1) * height,
+    } as DOMRect),
+  );
+}
+
+/** Pointer capture, which jsdom does not implement at all — the grip takes it
+ *  so the gesture survives the row moving out from under it. */
+const POINTER_CAPTURE = ["setPointerCapture", "releasePointerCapture"] as const;
 
 /** An archive as the file input hands one over. */
 function archive(size = 2048): File {
@@ -115,6 +133,7 @@ beforeEach(() => {
     updateAchievementSettings,
     exportAchievements,
     importAchievements,
+    reorderAchievements,
     createObjectURL,
     revokeObjectURL,
   ])
@@ -124,6 +143,11 @@ beforeEach(() => {
   URL.createObjectURL = createObjectURL;
   URL.revokeObjectURL = revokeObjectURL;
   saved = undefined;
+  for (const method of POINTER_CAPTURE)
+    Object.defineProperty(Element.prototype, method, {
+      value: () => {},
+      configurable: true,
+    });
   vi.spyOn(HTMLAnchorElement.prototype, "click").mockImplementation(() => {
     // The page puts the link in the document before clicking it, and takes it
     // out again straight after — so it is only here that it can be read.
@@ -134,6 +158,8 @@ beforeEach(() => {
 });
 
 afterEach(() => {
+  for (const method of POINTER_CAPTURE)
+    Reflect.deleteProperty(Element.prototype, method);
   vi.unstubAllGlobals();
   vi.restoreAllMocks();
 });
@@ -226,7 +252,7 @@ it("keeps what people made apart from what Wingman brings", async () => {
   ).not.toBeInTheDocument();
 
   expect(rowsUnder(container, 0).map((row) => row.textContent)).toEqual([
-    "Karaoke Hero1 condition",
+    "Karaoke HeroScore 9,000 or more in a song.",
   ]);
   const included = rowsUnder(container, 1);
   expect(included).toHaveLength(17);
@@ -235,43 +261,45 @@ it("keeps what people made apart from what Wingman brings", async () => {
     "href",
     "/user/achievements/builtin-first-song",
   );
-  // The hidden one Wingman ships says so, and is the last of them.
-  expect(included[16]).toHaveTextContent("Brave Soul1 condition · hidden");
+  // The hidden one Wingman ships wears the lock, and is the last of them.
+  expect(included[16]).toHaveTextContent("Brave Soul");
+  expect(iconNames(included[16])).toContain("lock");
 });
 
-it("says only what is unusual about a row", async () => {
+it("says the name and the description, and only what is unusual", async () => {
   const { container } = renderPage([
     achievementRead({ id: "a1", name: "Plain" }),
-    achievementRead({
-      id: "a2",
-      name: "Three",
-      definition: [condition(), condition(), condition()],
-    }),
+    achievementRead({ id: "a2", name: "Wordless", description: "" }),
     achievementRead({ id: "a3", name: "Secret", hidden: true }),
     achievementRead({ id: "a4", name: "Paused", enabled: false }),
-    achievementRead({
-      id: "a5",
-      name: "Both",
-      hidden: true,
-      enabled: false,
-    }),
   ]);
 
   await screen.findByText("Plain");
+  const rows = rowsUnder(container, 0);
   expect(
-    rowsUnder(container, 0).map(
-      (row) => row.querySelector(".achievements-meta")?.textContent,
-    ),
-  ).toEqual([
-    "1 condition",
-    "3 conditions",
-    "1 condition · hidden",
-    "1 condition · off",
-    "1 condition · hidden · off",
-  ]);
+    rows.map((row) => row.querySelector(".achievements-name")?.textContent),
+  ).toEqual(["Plain", "Wordless", "Secret", "Paused"]);
+  // The description is the second line, and how much there is to read inside is
+  // not a number a row compares itself by any more.
+  expect(rows[0].querySelector(".achievements-description")?.textContent).toBe(
+    "Score 9,000 or more in a song.",
+  );
+  expect(rows.map((row) => row.textContent).join("")).not.toMatch(/condition/);
+  // No second line at all where the achievement has nothing on it.
+  expect(rows[1].querySelector(".achievements-description")).toBeNull();
+  // Hidden is the `lock` the masked badge wears, on the title line.
+  expect(iconNames(rows[2])).toContain("lock");
+  expect(iconNames(rows[0])).not.toContain("lock");
+  // Switched off greys the row — and says so for a reader who cannot see that.
+  expect(rows[3].className).toContain("achievements-row-off");
+  expect(rows[3]).toHaveTextContent("Switched off");
+  expect(rows[0].className).not.toContain("achievements-row-off");
+  expect(rows[0]).not.toHaveTextContent("Switched off");
+  // The label is for the set Wingman ships; nothing here is one of those.
+  expect(container.querySelector(".achievements-included")).toBeNull();
 });
 
-it("says a built-in is off in the same words", async () => {
+it("labels an included row and greys one that is switched off", async () => {
   const { container } = renderPage(
     builtInAchievementReads().map((row, index) =>
       index === 0 ? { ...row, enabled: false } : row,
@@ -279,9 +307,16 @@ it("says a built-in is off in the same words", async () => {
   );
 
   await screen.findByText("First Time on the Mic");
-  expect(rowsUnder(container, 0)[0]).toHaveTextContent(
-    "First Time on the Mic1 condition · off",
-  );
+  const rows = rowsUnder(container, 0);
+  expect(
+    rows.every(
+      (row) =>
+        row.querySelector(".achievements-included")?.textContent === "Included",
+    ),
+  ).toBe(true);
+  expect(rows[0].className).toContain("achievements-row-off");
+  expect(rows[0]).toHaveTextContent("Switched off");
+  expect(rows[1].className).not.toContain("achievements-row-off");
 });
 
 it("invites the first achievement when nobody has made one", async () => {
@@ -416,7 +451,7 @@ it("picks what goes into the archive without touching the rows", async () => {
   // what the format is for.
   expect(rows).toHaveLength(18);
   expect(rows[0]).toHaveTextContent("Karaoke Hero");
-  expect(rows[1]).toHaveTextContent("included");
+  expect(rows[1]).toHaveTextContent("Included");
   expect(
     rows.every((row) => row.getAttribute("aria-pressed") === "false"),
   ).toBe(true);
@@ -503,6 +538,180 @@ it("says what the backend refused about an archive it would not make", async () 
   );
   // Still open, with the choice intact: the reader has something to fix.
   expect(pickerRows()).toHaveLength(1);
+});
+
+/* ------------------------------------------------------------- the order */
+
+/** The party's own two rows in front of the seventeen Wingman ships. */
+function catalogue(): AchievementRead[] {
+  return [
+    achievementRead({ id: "a-own", name: "Karaoke Hero" }),
+    achievementRead({ id: "a-second", name: "Second Voice" }),
+    ...builtInAchievementReads(),
+  ];
+}
+
+it("arranges the catalogue and sends the whole order", async () => {
+  const rows = catalogue();
+  renderPage(rows);
+  reorderAchievements.mockResolvedValue({
+    data: { achievements: rows, settings: achievementSettings() },
+  });
+
+  fireEvent.click(
+    await screen.findByRole("button", { name: "Arrange the order" }),
+  );
+  fireEvent.click(
+    screen.getByRole("button", { name: "Move Karaoke Hero down" }),
+  );
+
+  await waitFor(() => expect(reorderAchievements).toHaveBeenCalled());
+  // One sequence over the whole table — the party's own rows, then the included
+  // ones — which is exactly the order the page draws them in.
+  expect(reorderAchievements.mock.calls[0][0].body.ids).toEqual([
+    "a-second",
+    "a-own",
+    ...builtInAchievementReads().map(({ id }) => id),
+  ]);
+  // A row moves inside its own section: the first of each has no way up, and
+  // an included one can never lead the party's own.
+  expect(
+    screen.getByRole("button", { name: "Move Second Voice up" }),
+  ).toBeDisabled();
+  expect(
+    screen.getByRole("button", { name: "Move First Time on the Mic up" }),
+  ).toBeDisabled();
+  expect(
+    screen.getByRole("button", { name: "Move Brave Soul down" }),
+  ).toBeDisabled();
+});
+
+it("holds the order the backend answered with", async () => {
+  const rows = catalogue();
+  const { container } = renderPage(rows);
+  // The answer is the managing listing, and it is what the page keeps: the
+  // listing mock still hands back the old order, so a page that asked again —
+  // or that only waited for the socket — would snap back to it.
+  reorderAchievements.mockResolvedValue({
+    data: {
+      achievements: [rows[1], rows[0], ...rows.slice(2)],
+      settings: achievementSettings(),
+    },
+  });
+
+  fireEvent.click(
+    await screen.findByRole("button", { name: "Arrange the order" }),
+  );
+  fireEvent.click(
+    screen.getByRole("button", { name: "Move Karaoke Hero down" }),
+  );
+  await waitFor(() => expect(reorderAchievements).toHaveBeenCalled());
+  fireEvent.click(screen.getByRole("button", { name: "Done arranging" }));
+
+  expect(
+    rowsUnder(container, 0).map(
+      (row) => row.querySelector(".achievements-name")?.textContent,
+    ),
+  ).toEqual(["Second Voice", "Karaoke Hero"]);
+});
+
+it("leaves the rows alone until the order is arranged", async () => {
+  const { container } = renderPage(catalogue());
+
+  await screen.findByText("Karaoke Hero");
+  expect(
+    screen.queryByRole("button", { name: "Move Karaoke Hero down" }),
+  ).not.toBeInTheDocument();
+  expect(container.querySelector(".achievements-drag")).toBeNull();
+
+  const arrange = screen.getByRole("button", { name: "Arrange the order" });
+  expect(arrange).toHaveAttribute("aria-pressed", "false");
+  fireEvent.click(arrange);
+
+  // The grip per row, and the mode says what it is for once.
+  expect(container.querySelectorAll(".achievements-drag")).toHaveLength(19);
+  expect(screen.getByText(/Drag a row, or use its arrows/)).toBeInTheDocument();
+  expect(
+    screen.getByRole("button", { name: "Done arranging" }),
+  ).toHaveAttribute("aria-pressed", "true");
+
+  fireEvent.click(screen.getByRole("button", { name: "Done arranging" }));
+  expect(container.querySelector(".achievements-drag")).toBeNull();
+});
+
+/** The names of one list's rows, in the order they are drawn. */
+function names(container: HTMLElement, index: number): (string | undefined)[] {
+  return rowsUnder(container, index).map(
+    (row) => row.querySelector(".achievements-name")?.textContent ?? undefined,
+  );
+}
+
+it("puts the rows back when the new order is refused", async () => {
+  const { container } = renderPage(catalogue());
+  reorderAchievements.mockRejectedValue({ detail: "something else" });
+
+  fireEvent.click(
+    await screen.findByRole("button", { name: "Arrange the order" }),
+  );
+  fireEvent.click(
+    screen.getByRole("button", { name: "Move Karaoke Hero down" }),
+  );
+
+  expect(await screen.findByRole("alert")).toHaveTextContent(
+    "Could not save the new order.",
+  );
+  expect(names(container, 0)).toEqual(["Karaoke Hero", "Second Voice"]);
+});
+
+it("says the catalogue moved when the order no longer fits it", async () => {
+  const { container } = renderPage(catalogue());
+  reorderAchievements.mockRejectedValue({ detail: "order_mismatch" });
+
+  fireEvent.click(
+    await screen.findByRole("button", { name: "Arrange the order" }),
+  );
+  const asked = listAchievements.mock.calls.length;
+  fireEvent.click(
+    screen.getByRole("button", { name: "Move Karaoke Hero down" }),
+  );
+
+  // Somebody else created, imported or deleted one while this page held the old
+  // list: not the host's mistake, so the notice says what happened.
+  expect(await screen.findByRole("alert")).toHaveTextContent(
+    "The achievements changed somewhere else",
+  );
+  expect(names(container, 0)).toEqual(["Karaoke Hero", "Second Voice"]);
+  // And the catalogue is asked for again, or every further gesture is refused
+  // for the same stale reason and the mode never recovers.
+  await waitFor(() =>
+    expect(listAchievements.mock.calls.length).toBeGreaterThan(asked),
+  );
+});
+
+it("puts the rows back when a dragged order is refused", async () => {
+  const { container } = renderPage(catalogue());
+  reorderAchievements.mockRejectedValue({ detail: "something else" });
+
+  fireEvent.click(
+    await screen.findByRole("button", { name: "Arrange the order" }),
+  );
+  const list = container.querySelectorAll(".achievements-list")[0];
+  layOutRows(list);
+  const grip = list.querySelector<HTMLElement>(".achievements-drag");
+
+  // A drag rearranges the rows as the finger crosses them and saves once, at
+  // the end — so what a refusal has to go back to is the order the server still
+  // holds. "The order before this move" is the move that was just refused.
+  fireEvent.pointerDown(grip as HTMLElement, { pointerId: 1 });
+  fireEvent.pointerMove(grip as HTMLElement, { pointerId: 1, clientY: 100 });
+  expect(names(container, 0)).toEqual(["Second Voice", "Karaoke Hero"]);
+  fireEvent.pointerUp(grip as HTMLElement, { pointerId: 1 });
+
+  expect(await screen.findByRole("alert")).toHaveTextContent(
+    "Could not save the new order.",
+  );
+  expect(names(container, 0)).toEqual(["Karaoke Hero", "Second Voice"]);
+  expect(reorderAchievements).toHaveBeenCalledTimes(1);
 });
 
 it("asks for the managing copy of the catalogue", async () => {

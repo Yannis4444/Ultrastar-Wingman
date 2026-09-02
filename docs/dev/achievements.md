@@ -307,6 +307,50 @@ achievement it is editing. Nothing leaks by it — a masked row answers
 `has_image: false`, so no singer-facing surface ever builds this URL for a
 hidden achievement.
 
+## The order of the catalogue
+
+`achievements.sort_order` is one integer column over the whole table, and every
+listing reads it: `GET /achievements`, a player's own record
+(`rows_of_player`), and the ids an `achievements.earned` payload names
+(`by_ids`). There is one order, and it is the order badges appear in everywhere.
+
+`PUT /achievements/order`, `achievements.manage`:
+
+```json
+{ "ids": ["a-own", "builtin-first-song", "…"] }
+```
+
+The **whole** catalogue, every id exactly once. Anything else — one left out, an
+id nothing holds, the same id twice — is a 422 `order_mismatch` and nothing is
+renumbered, the same refusal `PUT /playlists/{id}/entries/order` gives for the
+same reason: a partial order would silently decide where everything it left out
+belongs. The management page holds every row already, so sending the lot costs
+it nothing, and there is nothing per caller to work out — a manager sees the
+catalogue whole, disabled and hidden rows included.
+
+The numbers are handed out 0, 1, 2 … in the order sent rather than nudged, so
+the stored column *is* the order rather than an arithmetic accident of what the
+rows held before. The route answers the managing listing, so the page that
+reordered can hold what it drew, and broadcasts `achievements.changed` like
+every other catalogue write. **No background pass:** where an achievement sits
+in the list has nothing to do with who has earned it.
+
+The admin page draws the catalogue as two sections — the party's own, then the
+included ones — and sends them as one sequence in that order, so a built-in
+never lands between two rows somebody made here. That is the page's own reading
+of a single column, not a second rule in the model.
+
+Undoing a refused order is the page's business, and what it goes back to is the
+order **the server still has** — never "the order before this move": a drag
+rearranges the rows as the finger crosses them and saves once, at the end, so
+the move before the refused one *is* the refused one. On `order_mismatch` it
+also asks for the catalogue again, that refusal meaning somebody else created,
+imported or deleted an achievement while this page held the old list; without
+the fresh listing every further gesture is refused for the same stale reason.
+
+A **reset** therefore leaves `sort_order` alone (see below): the order belongs
+to the host, not to the achievement.
+
 ## Settings
 
 The global toggle and the host-screen timing are **not** on the Settings page.
@@ -379,12 +423,14 @@ from nothing else:
 | `DELETE /achievements/{id}` | A row went. |
 | `PUT /achievements/{id}/icon` | `has_image` flipped, and the picture behind it is a different one. |
 | `DELETE /achievements/{id}/icon` | `has_image` flipped back. |
+| `PUT /achievements/order` | The listing is in `sort_order`, so the answer's own order moved. |
 | `PATCH /achievements/settings` | The settings ride along in the same answer — and `enabled` decides whether anything is drawn at all. |
 
 A refused write sends nothing: a 409 on a built-in delete, a 409 on a
 `definition` sent to a built-in, a 409 on a reset of something nobody ships, a
-422 on a definition the models reject and a 404 on an unknown id all changed no
-row. Neither does a settings PATCH that named no field.
+422 on a definition the models reject, a 422 on an order that is no permutation
+of the catalogue and a 404 on an unknown id all changed no row. Neither does a
+settings PATCH that named no field.
 
 ## Import and export
 
@@ -602,7 +648,7 @@ back to.
 |---|---|
 | `name`, `description`, `icon`, `color`, `hidden` | Back to `builtin.py`. |
 | `definition` | Back to `builtin.py`, written raw exactly as the seed migration writes it — so a reset row and a freshly seeded one are the same row. |
-| `sort_order` | Back to the achievement's index in `BUILT_INS`. Nothing in the UI reorders the catalogue, so this only ever undoes an import that moved it. |
+| `sort_order` | **Left exactly as it is.** The order of the catalogue is the host's — they arranged it with `PUT /achievements/order`, which numbers the whole table — so this row's index in `BUILT_INS` means nothing beside the numbers the others now hold, and putting it back would drop the row at an arbitrary spot rather than "where Wingman had it". A reset restores what an achievement *is*, not where it is filed. |
 | `icon_file` | **Dropped**, file and all. The shipped set has no pictures, and one left standing in front of the restored glyph would make the reset look as though it had done nothing. |
 | `enabled` | **Left exactly as it is.** Switching a built-in off is the one thing a party is told it may do to one, and undoing that would be unwelcome. |
 

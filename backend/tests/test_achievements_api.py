@@ -354,8 +354,10 @@ async def test_resetting_a_built_in_puts_back_everything_but_whether_it_is_on(
 ) -> None:
     """The improvement asked for "reset title etc.": every field `builtin.py` declares comes
     back out of that file, an uploaded picture is dropped so the restored glyph is what is
-    drawn — and `enabled` is left exactly as it stands, because switching a built-in off is
-    the one thing a party is told it may do to one."""
+    drawn — and two fields are left exactly as they stand. `enabled`, because switching a
+    built-in off is the one thing a party is told it may do to one; and `sort_order`, because
+    the order of the catalogue is the host's (`PUT /achievements/order`) and not a fact about
+    this achievement — see the test below."""
     client = party["admin"]
     await client.patch(
         "/api/v1/achievements/builtin-score-9000",
@@ -390,10 +392,11 @@ async def test_resetting_a_built_in_puts_back_everything_but_whether_it_is_on(
     assert restored["icon"] == shipped.icon
     assert restored["color"] == shipped.color
     assert restored["hidden"] == shipped.hidden
-    assert restored["sort_order"] == BUILT_INS.index(shipped)
     assert restored["has_image"] is False
-    # Kept: somebody who switched this one off did it on purpose.
+    # Kept: somebody who switched this one off did it on purpose, and somebody put this row
+    # where it is on purpose too.
     assert restored["enabled"] is False
+    assert restored["sort_order"] == 99
     assert await stored_definition(party, "builtin-score-9000") == shipped.definition
     assert icon_files(party.icons) == []
 
@@ -450,6 +453,74 @@ async def test_a_reset_definition_is_worked_out_for_everybody_again(party: Party
     record = await party["anonymous"].get(f"/api/v1/players/{player_id}/achievements")
     rows = {row["achievement_id"]: row for row in record.json()["achievements"]}
     assert rows["builtin-score-9000"]["earned_at"] is None
+
+
+async def test_the_catalogue_takes_the_order_it_is_sent(party: Party) -> None:
+    """The improvement asked for a sortable list. One sequence over the whole table: the
+    numbers are handed out 0, 1, 2 … in the order sent, so what comes back is the order and
+    not an arithmetic accident of what the rows held before."""
+    made = await create(party["admin"], name="Encore")
+    ids = [row["id"] for row in await catalogue(party["admin"])]
+    assert ids[-1] == made["id"]
+    wanted = [made["id"], *ids[:-1]]
+
+    response = await party["admin"].put("/api/v1/achievements/order", json={"ids": wanted})
+
+    assert response.status_code == 200, response.text
+    answered = response.json()["achievements"]
+    assert [row["id"] for row in answered] == wanted
+    assert [row["sort_order"] for row in answered] == list(range(len(wanted)))
+    # The managing answer, so the page that reordered can hold what it drew: every row's
+    # definition is on it, the hidden ones spelled out.
+    assert all(row["definition"] is not None for row in answered)
+    assert all(row["name"] != "" for row in answered)
+    # And it stuck: the next listing, for anybody, is in that order.
+    assert [row["id"] for row in await catalogue(party["anonymous"])] == wanted
+
+
+@pytest.mark.parametrize(
+    "sent",
+    [
+        pytest.param("short", id="one left out"),
+        pytest.param("extra", id="an id nothing holds"),
+        pytest.param("twice", id="the same id twice"),
+        pytest.param("empty", id="nothing at all"),
+    ],
+)
+async def test_an_order_that_is_not_a_permutation_is_refused(party: Party, sent: str) -> None:
+    """A partial order would silently decide where everything it left out belongs, and a list
+    naming a row twice is no order at all. Nothing is renumbered — the same refusal a
+    playlist's reorder gives."""
+    before = [row["id"] for row in await catalogue(party["admin"])]
+    bodies = {
+        "short": before[:-1],
+        "extra": [*before, "nope"],
+        "twice": [before[0], *before],
+        "empty": [],
+    }
+
+    refused = await party["admin"].put("/api/v1/achievements/order", json={"ids": bodies[sent]})
+
+    assert refused.status_code == 422, refused.text
+    assert refused.json() == {"detail": "order_mismatch"}
+    assert [row["id"] for row in await catalogue(party["admin"])] == before
+
+
+async def test_a_reset_leaves_a_built_in_where_the_host_put_it(party: Party) -> None:
+    """The interaction between the two: a reset restores what an achievement *is*, not where
+    it is filed. Putting `BUILT_INS.index()` back after the whole table has been renumbered
+    would drop the row at an arbitrary spot rather than "where Wingman had it"."""
+    ids = [row["id"] for row in await catalogue(party["admin"])]
+    moved = [ids[-1], *ids[:-1]]
+    assert (
+        await party["admin"].put("/api/v1/achievements/order", json={"ids": moved})
+    ).status_code == 200
+
+    response = await party["admin"].post(f"/api/v1/achievements/{moved[0]}/reset")
+
+    assert response.status_code == 200, response.text
+    assert response.json()["sort_order"] == 0
+    assert [row["id"] for row in await catalogue(party["admin"])] == moved
 
 
 async def test_an_unknown_achievement_is_404(party: Party) -> None:
@@ -1094,6 +1165,12 @@ async def test_every_catalogue_write_tells_the_room_the_catalogue_changed(
         # A reset can rename, recolour and re-condition a badge in one go, so it is as much a
         # catalogue change as an edit is.
         party["admin"].post("/api/v1/achievements/builtin-score-9000/reset"),
+        # The order is what every badge surface lists in, so moving it moves what a client
+        # holding the catalogue open draws.
+        party["admin"].put(
+            "/api/v1/achievements/order",
+            json={"ids": [row["id"] for row in reversed(await catalogue(party["admin"]))]},
+        ),
         party["admin"].delete(f"/api/v1/achievements/{created['id']}"),
     ):
         before = changed(broadcast_events)
@@ -1118,6 +1195,8 @@ async def test_a_refused_write_changes_nothing_and_says_nothing(
         "/api/v1/achievements",
         json={"name": "Broken", "color": "gold", "definition": [{"metric": "nonsense"}]},
     )
+    # An order that is not a permutation of the catalogue: nothing was renumbered.
+    await party["admin"].put("/api/v1/achievements/order", json={"ids": ["nope"]})
     # A PATCH that names no field is not a change either.
     await party["admin"].patch("/api/v1/achievements/settings", json={})
 

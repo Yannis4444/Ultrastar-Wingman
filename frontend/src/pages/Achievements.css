@@ -14,10 +14,45 @@
   margin: 16px;
 }
 
+/* ------------------------------------------------------------- the headings
+   The two `h2`s carry a glyph, the way a Settings group's header does: the
+   glyph names the section at a glance and the word stays for what it cannot
+   say. 1em `h2` (§2), so a 1.25em glyph is the 20px that reads beside it. */
+
+.achievements-heading {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+}
+
+.achievements-heading-icon {
+  flex: 0 0 auto;
+  font-size: 1.25em;
+  color: var(--color-dark);
+}
+
+/* One line, while the order is being arranged. */
+.achievements-arranging {
+  margin-top: 16px;
+}
+
+/* The grip while the mode is open, lit the way the playlist page lights its
+   pressed Edit (§4) — the header is where the mode is switched, so that is
+   where it has to be visible. `.icon-button` carries no border to colour. */
+.achievements-page .page-header [aria-pressed="true"] {
+  color: var(--highlight-blue-light);
+  background-color: var(--highlight-blue-dark);
+}
+
 /* ----------------------------------------------------------- the two listings
-   One row per achievement: the medallion, the name over its meta line, a
-   chevron. `AchievementBadge` is sized by this row's `font-size` (§3), so the
-   40px square needs no width here. */
+   One row per achievement: the medallion, the name over the achievement's own
+   description, a chevron. `AchievementBadge` is sized by this row's `font-size`
+   (§3), so the 40px square needs no width here.
+
+   In reorder mode the row grows a grip in front and two arrows behind, both
+   beside the link rather than inside it — nested interactive elements are
+   invalid, the same reason `SongListItem` takes them as slots of its own. The
+   `li` is therefore the flex row and the link is what stretches. */
 
 .achievements-list {
   display: flex;
@@ -31,15 +66,29 @@
 }
 
 .achievements-list li {
+  display: flex;
+  align-items: center;
   border-bottom: 1px solid var(--input-border-color);
+
+  /* The lift under the finger fades in the way the playlist page's reorder row
+     does, so picking a row up is not a flash (§1.9's branch below). */
+  transition: 0.1s background-color;
 }
 
 .achievements-list > :last-child {
   border-bottom: none;
 }
 
+/* The row under the finger: lifted off the page so the gap it leaves behind
+   reads as where it will land (the playlist page's own answer). */
+.achievements-dragged {
+  background-color: var(--highlight-blue-dark);
+  border-radius: var(--border-radius-small);
+}
+
 .achievements-open {
   display: flex;
+  flex: 1 1 auto;
   gap: 12px;
   align-items: center;
   min-width: 0;
@@ -64,15 +113,39 @@
   min-width: 0;
 }
 
-/* Both lines are one line each, ellipsised (§2). */
+/* The name, then the marks that say what is unusual about the row: `lock` for
+   one kept back until it is earned, and the word for one Wingman ships. Both
+   `flex: 0 0 auto`, so the name is what the ellipsis eats into (§1.4, §2). */
+.achievements-title {
+  display: flex;
+  gap: 6px;
+  align-items: baseline;
+  min-width: 0;
+}
+
 .achievements-name {
-  display: block;
+  flex: 0 1 auto;
   overflow: hidden;
   white-space: nowrap;
   text-overflow: ellipsis;
 }
 
-.achievements-meta {
+.achievements-mark {
+  flex: 0 0 auto;
+  font-size: 0.8em;
+  color: var(--color-darker);
+}
+
+/* A word, never a chip (§1.3): no border, no fill, nothing but 0.8em of quiet
+   text after the name. */
+.achievements-included {
+  flex: 0 0 auto;
+  font-size: 0.8em;
+  color: var(--color-darker);
+}
+
+/* One line, ellipsised (§2). */
+.achievements-description {
   display: block;
   overflow: hidden;
   white-space: nowrap;
@@ -84,6 +157,51 @@
 .achievements-chevron {
   flex: 0 0 auto;
   color: var(--color-darker);
+}
+
+/* Switched off: the whole row in the off token (§2), medallion included — the
+   badge draws its own off plate. A `visually-hidden` word carries the state for
+   a reader who cannot see the colour. */
+.achievements-row-off,
+.achievements-row-off .achievements-description,
+.achievements-row-off .achievements-mark,
+.achievements-row-off .achievements-included,
+.achievements-row-off .achievements-chevron {
+  color: var(--color-darkerer);
+}
+
+/* ------------------------------------------------------------ reorder mode
+   The grip and the arrows of the playlist page's edit mode, on this page's own
+   row. */
+
+.achievements-drag {
+  display: flex;
+  flex: 0 0 auto;
+  align-items: center;
+  justify-content: center;
+  width: 40px;
+  height: 40px;
+  font-size: 1.25em;
+  color: var(--color-darker);
+  cursor: grab;
+
+  /* Or a touch drag scrolls the page instead of moving the row. */
+  touch-action: none;
+}
+
+.achievements-drag:active {
+  cursor: grabbing;
+  color: var(--color);
+}
+
+/* Layout only: the two arrows are shared `.icon-button`s (§1.7 — never a second
+   bespoke 40×40 rule), which is already the flat transparent target with the
+   hover fill and the dimmed disabled state a row wants. */
+.achievements-actions {
+  display: flex;
+  flex: 0 0 auto;
+  align-items: center;
+  padding-right: 4px;
 }
 
 /* ------------------------------------------------------- import and export
@@ -99,8 +217,15 @@
   margin: 8px 16px 0 16px;
 }
 
+/* Each carries its direction as a glyph before the label — `upload` in,
+   `download` out — which is what makes the pair readable without comparing two
+   similar sentences. */
 .achievements-share-action {
+  display: flex;
   flex: 1 1 140px;
+  gap: 8px;
+  align-items: center;
+  justify-content: center;
 }
 
 /* What the import did, in words. Full-strength text, not a caption: it is an
@@ -129,7 +254,8 @@
 }
 
 @media (prefers-reduced-motion: reduce) {
-  .achievements-open {
+  .achievements-open,
+  .achievements-list li {
     transition: none;
   }
 }

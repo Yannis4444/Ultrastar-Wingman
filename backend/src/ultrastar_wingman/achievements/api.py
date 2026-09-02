@@ -99,7 +99,9 @@ class AchievementCreate(BaseModel):
     color: TagColor = "neutral"
     hidden: bool = False
     enabled: bool = True
-    # Left out: at the end of the list. The editor reorders by sending them.
+    # Left out: at the end of the list. Rearranging the catalogue is `PUT
+    # /achievements/order`, which sends the lot; this is here for an archive that carries a
+    # place with it.
     sort_order: int | None = None
     definition: list[Condition]
 
@@ -123,6 +125,13 @@ class AchievementExport(BaseModel):
     anybody wanted, and "all of them" is a list the caller already holds."""
 
     ids: Annotated[list[str], Field(min_length=1)]
+
+
+class AchievementOrder(BaseModel):
+    """The whole catalogue in the order it is to be listed in. Every id exactly once —
+    anything else is a 422, the way a playlist's reorder refuses a partial order."""
+
+    ids: list[str]
 
 
 class AchievementSettingsUpdate(BaseModel):
@@ -167,18 +176,12 @@ async def list_achievements(
     """
     if manage:
         principal.require(service.MANAGE_CAPABILITY)
-    earned = (
-        frozenset()
-        if manage
-        else await service.earned_ids(session, await _own_player_id(session, principal))
-    )
-    rows = await service.list_achievements(session)
+        return await _manage_list(session)
+    earned = await service.earned_ids(session, await _own_player_id(session, principal))
     return AchievementList(
         achievements=[
-            read_achievement(
-                row, definition=manage, mask=not manage and _masked(row, row.id in earned)
-            )
-            for row in rows
+            read_achievement(row, mask=_masked(row, row.id in earned))
+            for row in await service.list_achievements(session)
         ],
         settings=_settings_read(await achievement_settings.read_all(session)),
     )
@@ -223,6 +226,37 @@ async def update_achievement_settings(
     if named.get("enabled") is True and not values[achievement_settings.ENABLED]:
         service.start_full_pass(factory, "achievements were switched on")
     return _settings_read(await achievement_settings.read_all(session))
+
+
+@router.put(
+    "/achievements/order",
+    response_model=AchievementList,
+    dependencies=[Depends(require("achievements.manage"))],
+    responses={422: {"description": "An order that is not a permutation of the catalogue."}},
+)
+async def reorder_achievements(body: AchievementOrder, session: SessionDep) -> AchievementList:
+    """Put the catalogue in the order the ids are sent in.
+
+    The whole catalogue in one body — every id exactly once, else a 422 `order_mismatch` and
+    nothing is written. The management page is the only caller and it holds every row, so
+    demanding the lot costs it nothing and spares the route from guessing where the ids it
+    was not told about belong. Nothing per caller about it either: `sort_order` is one
+    column over the whole table, and a manager sees all of it.
+
+    Registered before `/achievements/{achievement_id}` for the same reason the settings PATCH
+    is: FastAPI matches in registration order, and "order" is a word an achievement id route
+    would happily swallow.
+
+    Answers the managing listing, so the page that reordered can hold what it drew without a
+    second request. Broadcasts `achievements.changed` like every other catalogue write — the
+    order is what every badge surface lists in. No background pass: where an achievement sits
+    in the list has nothing to do with who earned it.
+    """
+    try:
+        await service.reorder_achievements(session, body.ids)
+    except service.OrderMismatchError as error:
+        raise HTTPException(status_code=422, detail="order_mismatch") from error
+    return await _manage_list(session)
 
 
 @router.post(
@@ -396,10 +430,11 @@ async def reset_achievement(
 ) -> AchievementRead:
     """Put one of the built-in achievements back the way Wingman ships it.
 
-    The name, the description, the glyph, the colour, `hidden`, the place in the list and the
-    conditions all come back out of `builtin.py`, and an uploaded picture is dropped so the
-    restored glyph is what is drawn. `enabled` is left as it stands: switching a built-in off
-    is the one thing a party is told it may do to one, and undoing that would be unwelcome.
+    The name, the description, the glyph, the colour, `hidden` and the conditions all come
+    back out of `builtin.py`, and an uploaded picture is dropped so the restored glyph is
+    what is drawn. Two fields are left as they stand: `enabled`, because switching a built-in
+    off is the one thing a party is told it may do to one, and its place in the list, which
+    the host arranged with `PUT /achievements/order` and did not ask to have undone.
 
     Anything else in the catalogue is a 409 — an achievement somebody made here has nothing
     to be put back to.
@@ -594,6 +629,18 @@ async def _own_player_id(session: AsyncSession, principal: Principal) -> str | N
     if principal.user is None:
         return None
     return await players.player_id_of_user(session, principal.user.id)
+
+
+async def _manage_list(session: AsyncSession) -> AchievementList:
+    """The managing answer: every row whole, its `definition` with it, nothing masked. What
+    `GET /achievements?manage=true` and the reorder route both hand back."""
+    return AchievementList(
+        achievements=[
+            read_achievement(row, definition=True)
+            for row in await service.list_achievements(session)
+        ],
+        settings=_settings_read(await achievement_settings.read_all(session)),
+    )
 
 
 def _settings_read(values: dict[str, SettingValue]) -> AchievementSettings:

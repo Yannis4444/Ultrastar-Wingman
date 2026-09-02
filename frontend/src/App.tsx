@@ -1,5 +1,10 @@
-import { Suspense, lazy } from "react";
-import { Route, Routes, useLocation } from "react-router-dom";
+import { Suspense, lazy, useLayoutEffect } from "react";
+import {
+  Route,
+  Routes,
+  useLocation,
+  useNavigationType,
+} from "react-router-dom";
 import { backTarget } from "./backLink";
 import BottomNav from "./components/BottomNav";
 import Loading from "./components/Loading";
@@ -28,6 +33,36 @@ import UserPermissions from "./pages/UserPermissions";
 const Scores = lazy(() => import("./pages/Scores"));
 const UserStats = lazy(() => import("./pages/UserStats"));
 
+/**
+ * Every page somebody opens starts at the top of itself.
+ *
+ * The browser keeps the window's scroll offset across a `pushState`
+ * navigation and React Router resets nothing, so a row at the foot of a long
+ * page — the *Manage* menu under the user page's own record — opened the next
+ * page already scrolled that far down. Nothing in the app did this before; the
+ * one `window.scrollTo` there was belongs to the USDB page's paging.
+ *
+ * **PUSH only.** POP is the way back into a list somebody had scrolled — the
+ * songs, the scores, a playlist — where the offset is exactly what they want
+ * kept, and the browser restores it itself. REPLACE is one page standing in for
+ * another (the editors swap `/new` for the id they just saved), where a jump to
+ * the top would throw away the place the reader was working in.
+ *
+ * A layout effect, so the new page is painted at the top rather than painted
+ * where the old one stood and moved a frame later.
+ */
+function ScrollToTop() {
+  const { pathname } = useLocation();
+  const navigation = useNavigationType();
+
+  useLayoutEffect(() => {
+    if (navigation !== "PUSH") return;
+    window.scrollTo({ top: 0 });
+  }, [pathname, navigation]);
+
+  return null;
+}
+
 export default function App() {
   const location = useLocation();
   // The host screen is a TV view, not a phone: no tab bar on it — and none on
@@ -44,6 +79,7 @@ export default function App() {
 
   return (
     <>
+      <ScrollToTop />
       <Suspense fallback={<Loading />}>
         <Routes>
           <Route path="/" element={<Home />} />

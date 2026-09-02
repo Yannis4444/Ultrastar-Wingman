@@ -1,5 +1,5 @@
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import { render, screen } from "@testing-library/react";
+import { fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { MemoryRouter } from "react-router-dom";
 import App from "./App";
 import { FakeSocket } from "./test/fakeSocket";
@@ -104,6 +104,18 @@ test("the host's manage view is a host page, so it has no tab bar", () => {
 
   expect(screen.getByRole("heading", { name: "Manage" })).toBeInTheDocument();
   expect(screen.queryByRole("link", { name: "Home" })).not.toBeInTheDocument();
+});
+
+test("a page somebody opens starts at the top of itself", async () => {
+  // The browser keeps the scroll offset across a pushState navigation, so a row
+  // at the foot of a long page used to open the next page already scrolled that
+  // far down. Arriving is not a navigation, and nothing is moved on it.
+  renderApp("/");
+  expect(window.scrollTo).not.toHaveBeenCalled();
+
+  fireEvent.click(screen.getByRole("link", { name: "User" }));
+
+  await waitFor(() => expect(window.scrollTo).toHaveBeenCalledWith({ top: 0 }));
 });
 
 test("a page opened from the host view keeps the phone chrome away", async () => {

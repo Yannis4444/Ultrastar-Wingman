@@ -123,6 +123,19 @@ class NotBuiltInError(ValueError):
         self.achievement_id = achievement_id
 
 
+class OrderMismatchError(ValueError):
+    """The order sent is not a permutation of the catalogue.
+
+    The same refusal a playlist's reorder gives (`library.service.reorder_entries`): a
+    partial list would silently decide where everything it left out belongs, and a list
+    naming an id twice has no order at all. The management page holds the whole catalogue,
+    so sending all of it costs it nothing.
+    """
+
+    def __init__(self) -> None:
+        super().__init__("the order must name every achievement exactly once")
+
+
 class UnknownAchievementError(LookupError):
     """An export named an id the catalogue does not hold. Named rather than skipped: an
     archive quietly missing one of the achievements somebody asked for would only be found
@@ -522,20 +535,46 @@ async def update_achievement(
     return achievement
 
 
+async def reorder_achievements(session: AsyncSession, achievement_ids: list[str]) -> None:
+    """Rewrite the whole catalogue's order: the ids in the order they are to be listed in.
+
+    Raises `OrderMismatchError` unless the list is a permutation of every achievement there
+    is. One sequence over one column, so there is nothing per caller about it — a manager
+    sees the whole catalogue, disabled and hidden rows included, and the numbers are handed
+    out 0, 1, 2 … in the order sent rather than nudged, so the result is the order and not an
+    arithmetic accident of what the rows held before.
+
+    No recomputation follows: where an achievement sits in the list has nothing to do with
+    who has earned it.
+    """
+    rows = {row.id: row for row in await list_achievements(session)}
+    if sorted(achievement_ids) != sorted(rows):
+        raise OrderMismatchError
+    for position, achievement_id in enumerate(achievement_ids):
+        rows[achievement_id].sort_order = position
+    await session.commit()
+    logger.info("the achievement catalogue was reordered (%d rows)", len(achievement_ids))
+    await event_bus.broadcast(AchievementsChanged())
+
+
 async def reset_built_in(
     session: AsyncSession, achievement: Achievement, icons_dir: Path
 ) -> Achievement:
     """Put one of the shipped achievements back the way Wingman ships it.
 
     Everything `builtin.py` declares is written back from that file — the name, the
-    description, the glyph, the colour, `hidden`, the place in the list and the conditions —
-    and an uploaded picture is dropped, so the restored glyph is what is drawn rather than a
-    picture standing in front of it. The definition is written exactly as the seed migration
-    writes it, so a reset row and a freshly seeded one are the same row.
+    description, the glyph, the colour, `hidden` and the conditions — and an uploaded picture
+    is dropped, so the restored glyph is what is drawn rather than a picture standing in
+    front of it. The definition is written exactly as the seed migration writes it, so a
+    reset row and a freshly seeded one are the same row.
 
-    `enabled` is deliberately **left alone**. Switching a built-in off is the one thing the
-    documentation promises a party may do to it, and somebody who switched *Brave Soul* off
-    did it on purpose.
+    Two things are deliberately **left alone**. `enabled`, because switching a built-in off
+    is the one thing the documentation promises a party may do to it, and somebody who
+    switched *Brave Soul* off did it on purpose. And `sort_order`, because the order of the
+    catalogue is the host's: `reorder_achievements` hands out 0, 1, 2 … over the whole table,
+    so this row's index in `BUILT_INS` means nothing beside the numbers the others now hold —
+    putting it back would drop the row at an arbitrary spot rather than at "where Wingman had
+    it". A reset restores what an achievement *is*, not where it was filed.
 
     Restoring the conditions is also the only way an improved shipped definition ever reaches
     a database that was seeded with the old one: the seed runs once, and no other write may
@@ -554,7 +593,6 @@ async def reset_built_in(
     achievement.icon_file = None
     achievement.color = built_in.color
     achievement.hidden = built_in.hidden
-    achievement.sort_order = builtin.BUILT_INS.index(built_in)
     # A copy: the column would otherwise hold the very list `builtin.py` declares, and a JSON
     # column is a mutable the ORM hands out again on the next read.
     achievement.definition = deepcopy(built_in.definition)

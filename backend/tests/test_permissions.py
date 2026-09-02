@@ -166,6 +166,9 @@ ROUTES: list[tuple[str, str, str, dict[str, object] | None]] = [
     # Putting one of the shipped seventeen back the way Wingman ships it: an unknown id, so a
     # permitted caller gets a 404 and the matrix resets nothing.
     ("achievements.manage", "POST", "/api/v1/achievements/nope/reset", None),
+    # The catalogue's order. Not a permutation of it, so a permitted caller gets the 422 for
+    # a mismatch and the matrix renumbers nothing.
+    ("achievements.manage", "PUT", "/api/v1/achievements/order", {"ids": ["nope"]}),
     # Export is a write's capability on a read, deliberately: an archive carries every
     # `definition` and the unmasked name of a `hidden` achievement, which is exactly what
     # `GET /achievements` keeps back. The id is an unknown one, so a permitted caller gets a
