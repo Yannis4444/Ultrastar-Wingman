@@ -99,13 +99,13 @@ const FORMER_MEMBER = "Former member";
  */
 const EDIT_REFUSALS: Record<string, string> = {
   song_file_changed:
-    "This song's file changed while the editor was open — it was downloaded again, or somebody edited it by hand. Close this and open it again to see what it says now.",
+    "This song's file changed while the editor was open. It was downloaded again, or somebody edited it by hand. Close this and open it again to see what it says now.",
   song_txt_missing:
     "The song's file is not there any more. Rescan the library to find out what happened to it.",
   song_txt_unreadable:
-    "Wingman cannot write this file back without garbling the rest of it — its encoding is one nothing here can reproduce.",
+    "Wingman cannot write this file back without garbling the rest of it. Its encoding is one nothing here can reproduce.",
   song_files_in_use:
-    "Its file is still open — close Ultrastar Deluxe and try again.",
+    "Its file is still open. Close Ultrastar Deluxe and try again.",
   value_not_encodable:
     "This file cannot spell one of those values: it was written in an old encoding that has no such letters.",
 };
@@ -163,7 +163,7 @@ function metadataOf(song: SongRead): SongMetadata {
 const DELETE_REFUSALS: Record<string, string> = {
   song_is_playing: "That song is playing right now. Stop it first.",
   song_files_in_use:
-    "Its files are still open — close Ultrastar Deluxe and try again.",
+    "Its files are still open. Close Ultrastar Deluxe and try again.",
   song_directory_is_a_library_root:
     "This song's folder holds your whole song library, so deleting it would take every other song with it. Fix the folder first.",
 };
@@ -806,7 +806,7 @@ export default function SongDetails({ song, onClose }: SongDetailsProps) {
     // the host screen is an administrator without one.
     const canWrite = auth.user !== null && auth.can("comments.write");
     const whoMayWrite = auth.isHost
-      ? "The host screen has no name to sign a comment with — say it from your own phone."
+      ? "The host screen has no name to sign a comment with. Say it from your own phone."
       : auth.user === null
         ? "Comments carry a name, so writing one takes an account. Log in to say something."
         : "Your role may not comment. Ask the host for access.";
@@ -1181,7 +1181,7 @@ export default function SongDetails({ song, onClose }: SongDetailsProps) {
       {confirmingDelete && (
         <ConfirmModal
           title="Delete song"
-          message={`“${shown.title}” by ${shown.artist} leaves the library and its folder is deleted from the disk. There is no undo.`}
+          message={`"${shown.title}" by ${shown.artist} leaves the library and its folder is deleted from the disk. There is no undo.`}
           confirmLabel="Delete"
           danger
           onConfirm={() => {

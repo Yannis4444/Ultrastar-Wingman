@@ -32,7 +32,7 @@ const AVATAR_MESSAGES: Record<string, string> = {
   avatar_too_many_pixels:
     "That picture has far too many pixels. Scale it down and try again.",
   unsupported_avatar_type:
-    "Only jpeg, png and webp images work — and the file has to really be one.",
+    "Only jpeg, png, and webp images work, and the file has to really be one.",
 };
 
 /**
@@ -365,7 +365,7 @@ export default function PeopleAdmin() {
               player row survives the account and is picked up again by name. */}
           <p className="section-note">
             A forgotten password is no disaster: delete the account and register
-            the same name again — the player keeps every score.
+            the same name again. The player keeps every score.
           </p>
           {accounts.length > 0 ? (
             <ul className="people-list" aria-labelledby="people-accounts">
@@ -386,7 +386,7 @@ export default function PeopleAdmin() {
               `_attach_player` on the backend. Nobody has to be told to delete
               the guest first, so the note says so. */}
           <p className="section-note">
-            A guest is taken over by whoever registers that name — the scores
+            A guest is taken over by whoever registers that name. The scores
             they sang tonight come along.
           </p>
           {mayManagePlayers && <AddPlayerForm />}

@@ -61,20 +61,25 @@ const SORTS: Sort[] = [
   { value: "id-asc", label: "Oldest first", order: "id", direction: "asc" },
   {
     value: "artist-asc",
-    label: "Artist A–Z",
+    label: "Artist A to Z",
     order: "artist",
     direction: "asc",
   },
   {
     value: "artist-desc",
-    label: "Artist Z–A",
+    label: "Artist Z to A",
     order: "artist",
     direction: "desc",
   },
-  { value: "title-asc", label: "Title A–Z", order: "title", direction: "asc" },
+  {
+    value: "title-asc",
+    label: "Title A to Z",
+    order: "title",
+    direction: "asc",
+  },
   {
     value: "title-desc",
-    label: "Title Z–A",
+    label: "Title Z to A",
     order: "title",
     direction: "desc",
   },
@@ -197,7 +202,7 @@ export default function Usdb() {
     onError: (error) =>
       setDownloadError(
         errorDetail(error) === "already_queued"
-          ? "That song is already in the queue."
+          ? "That song is already in the download queue."
           : errorMessage(error, "Could not start the download."),
       ),
   });

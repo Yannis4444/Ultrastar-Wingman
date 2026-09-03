@@ -108,8 +108,8 @@ export default function Tags() {
 
               {tags.isSuccess && rows.length === 0 && (
                 <EmptyState icon="tag" title="No tags yet">
-                  A tag marks songs — the broken ones, the ones nobody should
-                  find tonight — and you decide who it is for.
+                  A tag marks songs: the broken ones, the ones nobody should
+                  find tonight. You decide who it is for.
                 </EmptyState>
               )}
 

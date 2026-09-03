@@ -201,7 +201,7 @@ BUILT_INS: tuple[BuiltInAchievement, ...] = (
     ),
     BuiltInAchievement(
         id="builtin-artists-10",
-        name="Well Travelled",
+        name="Well Traveled",
         description="Sing songs by 10 different artists.",
         icon="plane",
         color="blue",

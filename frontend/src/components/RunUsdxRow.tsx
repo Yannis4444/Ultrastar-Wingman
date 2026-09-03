@@ -73,7 +73,7 @@ export default function RunUsdxRow({ readOnly }: Props) {
         <div className="error-notice setting-error" role="alert">
           {playing ? (
             <p className="run-usdx-problem">
-              A song is playing right now — Ultrastar Deluxe is busy with it.
+              A song is playing right now. Ultrastar Deluxe is busy with it.
             </p>
           ) : problems !== null ? (
             problems.map((problem) => (

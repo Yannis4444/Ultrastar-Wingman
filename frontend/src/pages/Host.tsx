@@ -153,7 +153,7 @@ export default function Host() {
     onSuccess: () => void queryClient.invalidateQueries(),
     onError: () =>
       setError(
-        "That host link does not work any more — it can only be used once. " +
+        "That host link does not work any more. It can only be used once. " +
           "Check the server log for the current one.",
       ),
   });
@@ -274,7 +274,9 @@ export default function Host() {
             <Icon name="stop" />
           </button>
         )}
-        {auth.isHost && <p className="host-active">Host session active</p>}
+        {auth.isHost && (
+          <p className="host-active">This browser holds host rights</p>
+        )}
         {error && (
           <p className="error-notice host-error" role="alert">
             {error}

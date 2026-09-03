@@ -538,7 +538,7 @@ test("a rejected avatar upload is reported next to that person", async () => {
   );
   const alerts = await screen.findAllByRole("alert");
   expect(alerts).toHaveLength(1);
-  expect(alerts[0]).toHaveTextContent("Only jpeg, png and webp images work");
+  expect(alerts[0]).toHaveTextContent("Only jpeg, png, and webp images work");
 });
 
 test("a roster that cannot be loaded says so", async () => {

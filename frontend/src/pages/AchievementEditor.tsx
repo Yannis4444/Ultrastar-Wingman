@@ -52,7 +52,7 @@ const ICON_MESSAGES: Record<string, string> = {
   icon_too_many_pixels:
     "That picture has far too many pixels. Scale it down and try again.",
   unsupported_icon_type:
-    "Only jpeg, png and webp images work — and the file has to really be one.",
+    "Only jpeg, png, and webp images work, and the file has to really be one.",
 };
 
 const COLOR_LABELS: Record<TagColor, string> = {
@@ -247,7 +247,7 @@ export default function AchievementEditor() {
       // truthful default line — "Nothing has changed yet." — reads a second
       // after the confirmation as though the reset had done nothing.
       setSaved(true);
-      setSavedLabel("Reset — the shipped achievement is back.");
+      setSavedLabel("Reset. The shipped achievement is back.");
       refresh();
     },
     onError: (cause) =>
@@ -378,7 +378,7 @@ export default function AchievementEditor() {
         : broken
           ? "A condition above needs putting right before this can be saved."
           : error !== null
-            ? "It did not go through — the message at the top of the page says why."
+            ? "It did not go through. The message at the top of the page says why."
             : !pending && !acknowledged
               ? "Nothing has changed yet."
               : null;
@@ -704,11 +704,11 @@ export default function AchievementEditor() {
                       </p>
                     )}
 
-                    <h2 id="achievement-colour">Colour</h2>
+                    <h2 id="achievement-colour">Color</h2>
                     {hasImage ? (
                       <p className="tag-editor-hint">
-                        A picture is drawn as it is, so there is no colour to
-                        set. Go back to a glyph and the four colours come with
+                        A picture is drawn as it is, so there is no color to
+                        set. Go back to a glyph and the four colors come with
                         it.
                       </p>
                     ) : (
@@ -772,7 +772,7 @@ export default function AchievementEditor() {
                       </label>
                       <p className="tag-flag-hint">
                         An achievement that is off is not worked out and not
-                        drawn anywhere — not on a singer's page, not on the host
+                        drawn anywhere: not on a singer's page, not on the host
                         screen. Switching it back on brings everybody's badges
                         up to date.
                       </p>
@@ -781,15 +781,15 @@ export default function AchievementEditor() {
                     <h2>Conditions</h2>
                     <p className="section-note">
                       {builtIn
-                        ? "All of them have to hold before anybody earns it. What one of Wingman's own achievements asks for cannot be changed — the same badge means the same thing at every party. Reset below puts everything else back too."
+                        ? "All of them have to hold before anybody earns it. What one of Wingman's own achievements asks for cannot be changed. The same badge means the same thing at every party. Reset below puts everything else back too."
                         : "All of them have to hold before anybody earns it."}
                     </p>
 
                     {!builtIn && conditions.length === 0 && (
                       <p className="tag-warning">
                         With no conditions at all, nobody can ever earn this.
-                        Add one — it can be saved as it stands, and it will
-                        simply sit on the list unearned.
+                        Add one. Wingman saves it either way, and without
+                        conditions it sits on the list unearned.
                       </p>
                     )}
 
@@ -810,12 +810,12 @@ export default function AchievementEditor() {
                     {!creating && builtIn && (
                       <p className="tag-editor-hint achievement-builtin-note">
                         This is one of the achievements Wingman brings with it.
-                        What it looks like is yours to change and it can be
-                        switched off, but its conditions are Wingman's own and
-                        it cannot be deleted — an instance always has the set it
+                        What it looks like is yours to change, and it can be
+                        switched off. Its conditions are Wingman's own, and it
+                        cannot be deleted. Every instance always has the set it
                         ships with. Reset puts the name, description, icon,
-                        colour, conditions and whether it is hidden back the way
-                        Wingman ships them; whether it is switched on stays as
+                        color, conditions, and whether it is hidden back the way
+                        Wingman ships them. Whether it is switched on stays as
                         it is.
                       </p>
                     )}
@@ -880,7 +880,7 @@ export default function AchievementEditor() {
       {resetting && (
         <ConfirmModal
           title="Reset achievement"
-          message={`Put "${base.name}" back the way Wingman ships it? Its name, description, icon, colour, conditions and whether it is hidden all return to the original, and an uploaded picture is removed. Whether it is switched on stays as it is. Everybody's badges are worked out again afterwards, which can take one away.`}
+          message={`Put "${base.name}" back the way Wingman ships it? Its name, description, icon, color, conditions, and whether it is hidden all return to the original. An uploaded picture is removed. Whether it is switched on stays as it is. Everybody's badges are worked out again afterwards, which can take one away.`}
           confirmLabel="Reset"
           danger
           onConfirm={() => {

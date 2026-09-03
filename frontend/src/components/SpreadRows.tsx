@@ -278,7 +278,7 @@ export default function SpreadRows({
             <div className="spread-row-top">
               <span
                 className="spread-row-label"
-                title={`${group.label} — ${group.scores.length} scores`}
+                title={`${group.label}: ${group.scores.length} scores`}
               >
                 {group.label}{" "}
                 <small className="spread-row-count">

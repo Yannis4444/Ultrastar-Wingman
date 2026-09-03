@@ -304,7 +304,7 @@ def read_archive(data: bytes) -> list[ArchivedAchievement]:
         raise AchievementFileError(orphan, f"the directory holds an icon but no {ACHIEVEMENT_FILE}")
     if not files:
         raise EmptyArchiveError(
-            "the archive holds no achievement at all — every one of them is a directory "
+            "the archive holds no achievement at all: every one of them is a directory "
             f"with an {ACHIEVEMENT_FILE} in it"
         )
     return [

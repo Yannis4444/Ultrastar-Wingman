@@ -87,7 +87,7 @@ test("a session shows its own name, and its start time when it has none", () => 
   // Node's locale decides the format, so the expectation is built the same way.
   // The time keeps two nameless parties on the same day apart.
   const started = new Date(parseServerTime(base.started_at));
-  const label = `Session ${started.toLocaleDateString()}, ${started.toLocaleTimeString(
+  const label = `Party ${started.toLocaleDateString()}, ${started.toLocaleTimeString(
     [],
     { hour: "2-digit", minute: "2-digit" },
   )}`;
@@ -119,9 +119,11 @@ test("a party's picker line is when it was and how much happened at it", () => {
   // The head row sums exactly the parties under it — the listing holds only
   // the ones this reader may open.
   expect(allSessionsMeta([party, { ...party, id: "s2", score_count: 4 }])).toBe(
-    "2 sessions · 27 scores",
+    "2 parties · 27 scores",
   );
-  expect(allSessionsMeta([])).toBe("0 sessions · 0 scores");
+  expect(allSessionsMeta([])).toBe("0 parties · 0 scores");
+  // Never "1 partys": the one count here whose plural is not the word plus "s".
+  expect(allSessionsMeta([party])).toBe("1 party · 23 scores");
 });
 
 test("a score whose song left the library still has a label", () => {

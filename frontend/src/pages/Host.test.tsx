@@ -117,7 +117,7 @@ const PARTY = [
 
 /** Rank, name and value of every leaderboard row, best first. */
 function ranking(): (string | null)[][] {
-  const board = screen.getByLabelText("Session leaderboard");
+  const board = screen.getByLabelText("Party leaderboard");
   return within(board)
     .getAllByRole("listitem")
     .map((row) => [
@@ -239,7 +239,9 @@ test("an established host session is shown as active", async () => {
   );
   renderHost("/host");
 
-  expect(await screen.findByText("Host session active")).toBeInTheDocument();
+  expect(
+    await screen.findByText("This browser holds host rights"),
+  ).toBeInTheDocument();
 });
 
 test("the QR encodes the server's join URL and prints it readably", async () => {
@@ -294,7 +296,7 @@ test("between songs the stage shows the last song and the rail the standing", as
   );
   // Each column has one job: the finished song is stage content, the party's
   // standing is rail content that outlives it.
-  const board = await screen.findByLabelText("Session leaderboard");
+  const board = await screen.findByLabelText("Party leaderboard");
   expect(container.querySelector(".host-stage")).toContainElement(
     screen.getByLabelText("Last song"),
   );
@@ -325,7 +327,7 @@ test("a playing song owns the stage and the rail carries on", async () => {
   expect(screen.queryByLabelText("Last song")).not.toBeInTheDocument();
   // The rail does not depend on the stage — that is the point of splitting it.
   expect(container.querySelector(".host-rail")).toContainElement(
-    await screen.findByLabelText("Session leaderboard"),
+    await screen.findByLabelText("Party leaderboard"),
   );
   expect(screen.getByText("Scan to join")).toBeInTheDocument();
 });
@@ -334,7 +336,7 @@ test("the leaderboard ranks the running session by best score by default", async
   withScores();
   renderHost("/host");
 
-  await screen.findByLabelText("Session leaderboard");
+  await screen.findByLabelText("Party leaderboard");
   expect(ranking()).toEqual([
     ["1", "Alice", "8500"],
     ["2", "Bob", "6000"],
@@ -354,7 +356,7 @@ test("the leaderboard order can be switched to average and to sings", async () =
   });
   renderHost("/host");
 
-  const board = await screen.findByLabelText("Session leaderboard");
+  const board = await screen.findByLabelText("Party leaderboard");
   expect(ranking()).toEqual([
     ["1", "Alice", "8500"],
     ["2", "Bob", "6000"],
@@ -382,16 +384,14 @@ test("one performance ranks nobody, so the first song gets no leaderboard", asyn
   renderHost("/host");
 
   expect(await screen.findByLabelText("Last song")).toBeInTheDocument();
-  expect(
-    screen.queryByLabelText("Session leaderboard"),
-  ).not.toBeInTheDocument();
+  expect(screen.queryByLabelText("Party leaderboard")).not.toBeInTheDocument();
 });
 
 test("the standing outlives the results the stage was showing", async () => {
   withScores();
   renderHost("/host");
   await screen.findByLabelText("Last song");
-  await screen.findByLabelText("Session leaderboard");
+  await screen.findByLabelText("Party leaderboard");
 
   FakeSocket.deliver({ event: "karaoke.started", sing: null });
 
@@ -400,7 +400,7 @@ test("the standing outlives the results the stage was showing", async () => {
   // rail content now precisely so it stays up through every stage change.
   expect(await screen.findByText("Ultrastar Wingman")).toBeInTheDocument();
   expect(screen.queryByLabelText("Last song")).not.toBeInTheDocument();
-  expect(screen.getByLabelText("Session leaderboard")).toBeInTheDocument();
+  expect(screen.getByLabelText("Party leaderboard")).toBeInTheDocument();
 });
 
 test("what a song earned takes the stage, and the results follow it", async () => {
@@ -485,7 +485,7 @@ test("the wishes sit in the rail and make room for the standing", async () => {
   const { container } = renderHost("/host");
 
   // The standing is a round trip behind the wishlist; the cap follows it.
-  await screen.findByLabelText("Session leaderboard");
+  await screen.findByLabelText("Party leaderboard");
   const wishes = await screen.findByLabelText("Most wished");
   expect(container.querySelector(".host-rail")).toContainElement(wishes);
   // Five wishes with a standing above them: the rail shows the top three.
@@ -543,7 +543,7 @@ test("the leaderboard order settings hide with the host chrome, the ranking stay
     name: "Leaderboard order",
   });
   const page = container.querySelector(".host-page");
-  const board = screen.getByLabelText("Session leaderboard");
+  const board = screen.getByLabelText("Party leaderboard");
 
   // The pills ride the page's one reveal-on-move mechanism — `.host-idle
   // .host-reveal` is what hides them. The ranking is not part of that chrome,

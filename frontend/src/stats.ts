@@ -236,7 +236,9 @@ export function sessionMeta(session: SessionRead): string {
  */
 export function allSessionsMeta(sessions: SessionRead[]): string {
   const scores = sessions.reduce((sum, entry) => sum + entry.score_count, 0);
-  return `${plural(sessions.length, "session")} · ${plural(scores, "score")}`;
+  // "party" is the one count here whose plural is not the word plus an "s".
+  const parties = `${sessions.length} ${sessions.length === 1 ? "party" : "parties"}`;
+  return `${parties} · ${plural(scores, "score")}`;
 }
 
 /** A session's own name, or when it started — the label the picker shows.
@@ -248,7 +250,7 @@ export function sessionLabel(session: SessionRead): string {
     hour: "2-digit",
     minute: "2-digit",
   });
-  return `Session ${started.toLocaleDateString()}, ${time}`;
+  return `Party ${started.toLocaleDateString()}, ${time}`;
 }
 
 /** The song a score was sung on — `song` is null once it has left the library. */

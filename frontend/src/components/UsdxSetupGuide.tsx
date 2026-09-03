@@ -38,8 +38,7 @@ export default function UsdxSetupGuide({
             <p>
               All of it lives in the <strong>USDX</strong> and{" "}
               <strong>Songs</strong> groups of the settings. Fill in the base
-              path and the songs directory first — the rest is derived from
-              them.
+              path and the songs directory first. The rest is derived from them.
             </p>
             <Link className="button button-primary" to="/settings">
               Open the settings
@@ -47,7 +46,7 @@ export default function UsdxSetupGuide({
           </>
         ) : (
           <p>
-            Ask the host to set it up — only they can change Wingman's settings.
+            Ask the host to set it up. Only they can change Wingman's settings.
           </p>
         )}
       </div>

@@ -135,7 +135,7 @@ it("says what each condition means in a sentence", () => {
 
   expect(
     screen.getByText(
-      "In one party, at least 3 scores of 9000 or more, on songs where the genre is “Rock”.",
+      'In one party, at least 3 scores of 9000 or more, on songs where the genre is "Rock".',
     ),
   ).toBeVisible();
 });

@@ -172,7 +172,7 @@ export default function UsdbSongItem({
         <button
           type="button"
           className="icon-button icon-button-danger usdb-state"
-          aria-label={`Download of ${label} failed — show the error`}
+          aria-label={`Download of ${label} failed, show the error`}
           onClick={() => setShowError(true)}
         >
           <Icon name="alert" />

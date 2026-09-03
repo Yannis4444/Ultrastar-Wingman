@@ -126,3 +126,51 @@ async def test_the_seed_reaches_a_database_that_already_stopped_at_0022(tmp_path
         assert ordered == [built_in.id for built_in in BUILT_INS]
     finally:
         await engine.dispose()
+
+
+async def _name_of(database_url: str, achievement_id: str) -> str | None:
+    engine = create_async_engine(database_url)
+    try:
+        async with engine.connect() as connection:
+            return await connection.scalar(
+                select(Achievement.name).where(Achievement.id == achievement_id)
+            )
+    finally:
+        await engine.dispose()
+
+
+async def _set_name(database_url: str, achievement_id: str, name: str) -> None:
+    engine = create_async_engine(database_url)
+    try:
+        async with engine.begin() as connection:
+            await connection.execute(
+                text("UPDATE achievements SET name = :name WHERE id = :id"),
+                {"name": name, "id": achievement_id},
+            )
+    finally:
+        await engine.dispose()
+
+
+async def test_0025_fixes_the_seeded_spelling(tmp_path: Path) -> None:
+    """0023 seeded *Well Travelled* into every database built before this change, and reading
+    `builtin.py` again is not something an existing instance ever does. So the American
+    spelling needs 0025 to reach one."""
+    database_url = f"sqlite+aiosqlite:///{tmp_path / 'spelling.db'}"
+
+    await _alembic(database_url, "0024")
+    await _set_name(database_url, "builtin-artists-10", "Well Travelled")
+
+    await _alembic(database_url, "head")
+    assert await _name_of(database_url, "builtin-artists-10") == "Well Traveled"
+
+
+async def test_0025_leaves_a_host_s_own_name_alone(tmp_path: Path) -> None:
+    """What a party called the badge is theirs. The update only touches a row still holding
+    the text 0023 wrote."""
+    database_url = f"sqlite+aiosqlite:///{tmp_path / 'renamed.db'}"
+
+    await _alembic(database_url, "0024")
+    await _set_name(database_url, "builtin-artists-10", "Jetsetter")
+
+    await _alembic(database_url, "head")
+    assert await _name_of(database_url, "builtin-artists-10") == "Jetsetter"

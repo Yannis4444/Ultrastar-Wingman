@@ -321,7 +321,7 @@ test("a roster that is entirely hidden says so, not 'no players yet'", async () 
   await screen.findByRole("button", { name: "Slot blue: empty" });
 
   expect(
-    await screen.findByText(/Everybody is hidden — show somebody/),
+    await screen.findByText(/Everybody is hidden. Show somebody/),
   ).toBeInTheDocument();
 });
 
@@ -336,7 +336,7 @@ test("somebody who cannot reach the players page is not sent to it", async () =>
   renderSelection();
 
   expect(
-    await screen.findByText(/Everybody is hidden — ask the host/),
+    await screen.findByText(/Everybody is hidden. Ask the host/),
   ).toBeInTheDocument();
 });
 
@@ -518,6 +518,6 @@ test("the sing button in the song details opens the player selection", async () 
   fireEvent.click(screen.getByRole("button", { name: "Sing" }));
 
   expect(
-    await screen.findByRole("dialog", { name: "Player Selection" }),
+    await screen.findByRole("dialog", { name: "Player selection" }),
   ).toHaveTextContent("Dancing Queen");
 });

@@ -45,7 +45,7 @@ export default function WishlistTile() {
           <p className="wishlist-empty">
             {wishlist.isPending
               ? "Loading the wishlist…"
-              : "Nobody wished for anything yet. Open a song and hit Wish — the more wishes a song has, the better its odds on the spinner."}
+              : "Nobody wished for anything yet. Open a song and hit Wish. The more wishes a song has, the better its odds on the reel."}
           </p>
         ) : (
           <ul className="wishlist-list">

@@ -147,7 +147,7 @@ test("the owner gets the fields, the members and the way back", async () => {
   expect(await screen.findByLabelText("Name")).toHaveValue("Party");
   expect(screen.getByLabelText("Description")).toHaveValue("The good ones");
   expect(
-    screen.getByLabelText("Global — everyone can see it"),
+    screen.getByLabelText("Global: everyone can see it"),
   ).not.toBeChecked();
   expect(screen.getByRole("link", { name: "Back" })).toHaveAttribute(
     "href",
@@ -243,7 +243,7 @@ test("emptying the description sends the explicit null that clears it", async ()
   fireEvent.change(await screen.findByLabelText("Description"), {
     target: { value: "  " },
   });
-  fireEvent.click(screen.getByLabelText("Global — everyone can see it"));
+  fireEvent.click(screen.getByLabelText("Global: everyone can see it"));
   fireEvent.click(screen.getByRole("button", { name: "Save" }));
 
   await waitFor(() => expect(updatePlaylist).toHaveBeenCalled());

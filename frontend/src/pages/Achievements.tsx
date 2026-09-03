@@ -53,7 +53,7 @@ const ORDER_MISMATCH = "order_mismatch";
  *  them. Anything else is `errorMessage`'s business. */
 function orderRefusal(cause: unknown): string {
   return errorDetail(cause) === ORDER_MISMATCH
-    ? "The achievements changed somewhere else, so this order no longer fits. The rows are back the way they are saved — arrange them again."
+    ? "The achievements changed somewhere else, so this order no longer fits. The rows are back the way they are saved. Arrange them again."
     : errorMessage(cause, "Could not save the new order.");
 }
 
@@ -499,8 +499,8 @@ function ExportPanel({
   return (
     <Modal title="Export achievements" onClose={onClose}>
       <p className="section-note">
-        The ones you pick go into one archive — a file per achievement with its
-        settings, its conditions and its picture.
+        The ones you pick go into one archive: a file per achievement with its
+        settings, its conditions, and its picture.
       </p>
 
       <ul className="picker-list achievements-export-list">
@@ -904,8 +904,8 @@ export default function Achievements() {
                   {arranging && (
                     <p className="section-note achievements-arranging">
                       Drag a row, or use its arrows. This is the order
-                      achievements are listed in everywhere — here, on a
-                      singer's page and on the host screen.
+                      achievements are listed in everywhere: here, on a singer's
+                      page, and on the host screen.
                     </p>
                   )}
 
@@ -924,9 +924,9 @@ export default function Achievements() {
                       earned rather than the ones made here. */}
                   {own.length === 0 ? (
                     <EmptyState icon="trophy" title="No achievements yet">
-                      An achievement is something to reach for — a score, a
-                      number of songs, a duet — and it lands on the singer's
-                      page the moment they get there.
+                      An achievement is something to reach for: a score, a
+                      number of songs, a duet. It lands on the singer's page the
+                      moment they get there.
                     </EmptyState>
                   ) : (
                     <AchievementRows
@@ -966,10 +966,10 @@ export default function Achievements() {
                     Import and export
                   </h2>
                   <p className="section-note">
-                    An archive carries achievements from one Wingman to another
-                    — a file per achievement, with its conditions and its
-                    picture. Importing one adds what this party has not got and
-                    updates what it has.
+                    An archive carries achievements from one Wingman to another:
+                    a file per achievement, with its conditions and its picture.
+                    Importing one adds what this party has not got and updates
+                    what it has.
                   </p>
 
                   {/* The pair of glyphs is the point: in and out, said by the
