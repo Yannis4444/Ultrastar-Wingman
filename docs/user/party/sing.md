@@ -41,7 +41,8 @@ without one. A guest sings under the name somebody typed for them.
   which Trusted and Admin hold by default.
 
 Somebody the host hid for the evening is not in this list, and a slot you set
-earlier does not bring them back. See [People](../people/index.md).
+earlier does not bring them back. See
+[Players and avatars](../people/players.md).
 
 !!! note
     Your slot assignment is remembered in your browser. The same group does not

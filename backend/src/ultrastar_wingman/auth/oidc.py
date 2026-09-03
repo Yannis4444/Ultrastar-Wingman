@@ -203,7 +203,7 @@ async def oidc_login(request: Request, session: SessionDep) -> RedirectResponse:
         # it Host-header derived: somebody who can make a browser send a Host of their
         # choosing can make Wingman advertise a redirect_uri pointing at their own server.
         # What stops the code from going there is the provider: the redirect URI has to be
-        # registered exactly (see the SSO section of docs/user/people/index.md —
+        # registered exactly (see docs/user/people/single-sign-on.md —
         # one exact URI, never a wildcard), and PKCE keeps the verifier here in any case.
         redirect_uri=str(request.url_for("oidc_callback")),
         started_at=time.monotonic(),

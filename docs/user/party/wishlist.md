@@ -36,7 +36,7 @@ The party's helpers get :wingman-trash: **Take off the wishlist for everybody**
 beside the row instead, for the wish the party is not going to sing. Trusted and
 Admin hold that by default. It never appears where your own wish is the only
 one, because taking your wish back already does exactly that. See
-[People](../people/index.md).
+[Roles and permissions](../people/roles.md).
 
 ## What a wish does
 

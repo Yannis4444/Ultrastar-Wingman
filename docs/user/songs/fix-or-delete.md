@@ -27,7 +27,7 @@ with the song: its tags, favorites, wishes, playlist entries, comments, and
 scores.
 
 Fixing details is a helper's job. Trusted and Admin hold the right by default.
-See [People](../people/index.md).
+See [Roles and permissions](../people/roles.md).
 
 ### When Wingman refuses to save
 
@@ -57,7 +57,7 @@ file, a duplicate, a download that went wrong.
 2. Read what the confirmation names, then tap **Delete**.
 
 Only Admin holds the right by default, and the host can hand it to Trusted as
-well. See [People](../people/index.md).
+well. See [Roles and permissions](../people/roles.md).
 
 !!! warning
     Deleting a song removes its whole folder from the disk: the lyrics file, the

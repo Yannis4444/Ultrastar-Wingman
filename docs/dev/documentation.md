@@ -624,21 +624,21 @@ Three UI-specific exceptions:
 - An explaining line stays under about 90 characters, so it fits on a phone in two lines.
   Cut the sentence rather than wrapping to three.
 
-Some labels in the app contradict section 4 today. The UI copy pass renames them, and it runs
-before the pages are written. A page always uses the target spelling, so no page has to bold
-a word this file forbids. What is confirmed in the code today:
+The app's own labels follow section 4, and a page uses the label the app renders. Neither
+side gets to drift: a label that breaks a rule here is a bug in the app, not a license for a
+page to bold a word this file forbids. Fix the label, then write the page against it.
 
-- **Colour** is the heading over the color picker in both editors, in `pages/TagEditor.tsx`
-  and `pages/AchievementEditor.tsx`. It becomes **Color**.
-- The Scores page calls a party a session: "All sessions", "Rename session", "Session name",
-  "Every score of the session", "Session chart". Those become party.
-- "Only this session" in the downloads panel is not a party. It filters the list down to the
-  downloads started since Wingman was last started. Rename it to say that, not to say party.
-- "Host session active" on the host screen is not a party either. It says this browser holds
-  host rights.
+The copy pass that made the two agree renamed four things. They are the labels a page written
+against an older draft still gets wrong:
 
-Renaming any of these changes the queries in `TagEditor.test.tsx`,
-`AchievementEditor.test.tsx`, and the scores tests. Update the tests, never delete them.
+- **Colour** over the color picker in both editors is **Color**.
+- The Scores page called a party a session. It says party.
+- The downloads panel's filter is **Since Wingman started**, not a party.
+- The host screen says **This browser holds host rights**, not "Host session active". The
+  user page has its own line for the same browser, **This browser has full access**.
+
+Renaming a label changes the queries in the tests that look for it. Update the tests, never
+delete them.
 
 An error sentence says what happened and what to do next, in that order, without blame:
 "That name is taken. Pick another one." A confirmation dialog names the consequence in one

@@ -18,14 +18,14 @@ view.
   [Settings](../settings/index.md).
 - :wingman-users: **Players & accounts**: the people at the party, their
   pictures, their roles, and who the singer picker offers. See
-  [People](../people/index.md).
+  [Players and avatars](../people/players.md).
 - :wingman-tag: **Tags**: the labels on songs, who may see them, and the
   built-in marks and facets. See [Tags](../songs/tags.md).
 - :wingman-trophy: **Achievements**: the badges this party hands out, and the
   three options behind them. See
   [Achievements](../achievements/index.md).
-- :wingman-shield: **Permissions**: what each role may do. The People page
-  above covers it too.
+- :wingman-shield: **Permissions**: what each role may do. See
+  [Roles and permissions](../people/roles.md).
 
 A row is only there when this browser may do something behind it. The host
 browser holds every right, so it sees all five.

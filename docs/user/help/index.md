@@ -101,7 +101,7 @@ They are hidden, or they are gone. Their row under **User** >
 **Players & accounts** carries :wingman-eye: **Hide from player selection**. It
 takes a player out of the selection for the evening, and puts them back. Their
 name goes quiet in that list while it lasts, and logging in unhides them. See
-[Manage players and accounts](../people/index.md#manage-players-and-accounts).
+[Players and avatars](../people/players.md#take-somebody-out-of-the-picker).
 
 If the row is not on that page at all, the player was deleted. Add the name
 again, or let them register it.

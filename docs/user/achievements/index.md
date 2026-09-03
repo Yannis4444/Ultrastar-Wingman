@@ -390,5 +390,5 @@ for the achievements your party made itself.
 
 - [Scores](../scores/index.md) — where the scores behind all of this are read.
 - [The song list](../songs/index.md) — what happens on the host screen around a song.
-- [People](../people/index.md) — who may create and
+- [Roles and permissions](../people/roles.md) — who may create and
   edit achievements.

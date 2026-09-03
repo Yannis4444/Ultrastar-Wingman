@@ -42,7 +42,7 @@ wish, and start a song. An account is only for personal things: favorites, your
 own playlists, your own record of scores, and the rights the host hands out.
 
 Every role is a bundle of rights, and the host can change what each one may do.
-See [People](people/index.md).
+See [Roles and permissions](people/roles.md).
 
 ## Where to go next
 

@@ -29,6 +29,7 @@ nav = [
     { "Playlists" = "songs/playlists.md" },
     { "Download songs" = "songs/download.md" },
     { "Tags" = "songs/tags.md" },
+    { "Built-in marks and facets" = "songs/built-in-tags.md" },
     { "Fix or delete a song" = "songs/fix-or-delete.md" },
   ] },
   { "At the party" = [
@@ -49,9 +50,13 @@ nav = [
   ] },
   { "People" = [
     "people/index.md",
+    { "Players and avatars" = "people/players.md" },
+    { "Roles and permissions" = "people/roles.md" },
+    { "Single sign-on" = "people/single-sign-on.md" },
   ] },
   { "Settings" = [
     "settings/index.md",
+    { "All settings" = "settings/reference.md" },
   ] },
   { "Fix a problem" = [
     "help/index.md",
