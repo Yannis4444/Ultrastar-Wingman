@@ -411,9 +411,11 @@ own library, names, and scores never appear.
   `docs/screenshots/avatars/`: Fry, Leela, Bender, Zoidberg, Amy, Hermes, Farnsworth, Zapp,
   Kif, and Scruffy. Leela holds the administrator account, so management surfaces are
   reachable in a shot. Fry and Bender have accounts. The other seven are guests.
-- Those files are the avatars. The seeding script center-crops each picture to a square and
-  uploads it through the avatar endpoint. It draws nothing itself. Add a character by putting
-  a picture in that directory and naming the file after them.
+- Those files are the avatars. The seeding script uploads each picture as it lies on disk,
+  through the avatar endpoint. It neither crops nor redraws: the repository has no image
+  library, and the app accepts a jpeg, png or webp of any shape. Add a character by putting
+  a picture in that directory and naming the file after them. Crop it yourself first if it
+  looks wrong in the round frame.
 - A missing picture is not an error. The script prints which characters have no file, and
   those players keep the app's own initials avatar.
 - The folder is gitignored, so the pictures never enter the repository. `docs/.gitignore`
@@ -438,8 +440,8 @@ own library, names, and scores never appear.
 Every screenshot comes from one repeatable procedure. Nobody captures one by hand. When a
 surface changes, the manifest row changes and the procedure runs again.
 
-The screenshots bundle writes that procedure to `docs/dev/screenshots.md`, next to the script
-it describes. It has to cover all of this:
+That procedure is [screenshots.md](screenshots.md), next to the scripts it describes. It
+covers all of this:
 
 1. The scratch `WINGMAN_DATA_DIR` and the alternate ports the run uses. The user's own data
    directory and the instance on port 8080 are never touched. See
@@ -474,13 +476,17 @@ The list of screenshots the site needs. Capture exactly these.
 Every row names a route and the state to put the app in. A row marked **launcher** cannot be
 seeded from the database alone. It needs the stand-in launcher running, described above.
 
+A row asks only for what one viewport holds. Nothing is stitched together and nothing is
+captured past the fold. A form several screens long is photographed at the part the page is
+about, and the **Must be visible** column names that part alone.
+
 | Id | Page | Route | State to seed | Viewport | Must be visible |
 |---|---|---|---|---|---|
 | `home` | `party/index.md` | `/` | Signed in as Leela, four wishes | 390x844 | Identity tile, wishlist, Random song entry |
 | `home-playing` | `party/sing.md` | `/` | **launcher**: a song playing | 390x844 | The stage showing cover, title, artist, song controls |
 | `songs-list` | `songs/index.md` | `/songs` | Seeded library, two favorites, two sung | 390x844 | Search box, chip row, rows with marks |
-| `songs-filter` | `songs/filter.md` | `/songs` | Filter panel open, Decade set to 1980s | 390x844 | The tri-state controls, one valued facet select, "Filter · 1" |
-| `song` | `songs/song.md` | `/songs` | Song modal open on "I Got You Babe" | 390x844 | Cover hero, marks, the wish and favorite toggles, and the summary strip |
+| `songs-filter` | `songs/filter.md` | `/songs` | Filter panel open, Decade set to 1980s | 390x844 | The tri-state controls and one valued facet select |
+| `song` | `songs/song.md` | `/songs` | Song modal open on "I Got You Babe" | 390x844 | Cover hero, the wish and favorite toggles, and the summary strip |
 | `song-comments` | `songs/song.md` | `/songs` | Song modal, comments sub-view, three comments | 390x844 | The comment list and the composer |
 | `song-edit` | `songs/fix-or-delete.md` | `/songs` | Song modal, details editor open | 390x844 | The six labeled inputs and the save row |
 | `player-selection` | `party/sing.md` | `/songs` | Song modal, player selection open | 390x844 | Two singers picked on their microphone colors |
@@ -492,16 +498,16 @@ seeded from the database alone. It needs the stand-in launcher running, describe
 | `playlist-reel` | `party/reel.md` | `/songs/playlists/:id/spinner` | The same playlist as `playlist`, landed on one of its eight songs | 390x844 | The playlist's name in the header, the landed frame |
 | `usdb-search` | `songs/download.md` | `/usdb` | Search results for a common artist | 390x844 | Result rows and the download buttons |
 | `usdb-downloads` | `songs/download.md` | `/usdb` | One download at 60 percent, one queued | 390x844 | The downloads panel with both bars |
-| `tags-admin` | `songs/tags.md` | `/user/tags` | Three tags of the party's own | 390x844 | Tag rows, the Built-in heading, the eight built-in rows |
-| `tag-editor` | `songs/tags.md` | `/user/tags/:id` | An existing tag with people rows | 390x844 | Name, icon picker, colors, the **Permissions** and **Specific people** sections |
+| `tags-admin` | `songs/tags.md` | `/user/tags` | Three tags of the party's own, beside Wingman's own `broken` | 390x844 | Tag rows, the Built-in heading, the eight built-in rows |
+| `tag-editor` | `songs/tags.md` | `/user/tags/:id` | An existing tag with people rows | 390x844 | The **Permissions** matrix and the **Specific people** row |
 | `built-in-tags` | `songs/built-in-tags.md` | `/user/tags/decade` | The Decade built-in | 390x844 | The reduced editor and the line saying why it is reduced |
 | `scores-party` | `scores/party.md` | `/scores` | One party, 23 scores, five singers | 390x844 | The party selector at the top, the strip chart, the score rows |
 | `scores-spread` | `scores/party.md` | `/scores` | Same party, grouped by player | 390x844 | The spread card with a box row and a stagger row |
 | `user` | `scores/your-scores.md` | `/user` | Signed in as Bender | 390x844 | Identity tile, the stat bar, the histogram |
 | `user-stats` | `scores/your-scores.md` | `/user/stats` | Bender's own record across both seeded parties | 390x844 | The **Your scores** header, the charts of his own record |
-| `user-achievements` | `achievements/index.md` | `/user` | Bender's seeded scores earn him several achievements | 390x844 | The open badge strip, its "N of 17" count, one row with a progress bar |
+| `user-achievements` | `achievements/index.md` | `/user` | Signed in as Fry, whose four badges leave room for a bar below them | 390x844 | The open badge strip, its count, one row with a progress bar |
 | `achievements-admin` | `achievements/manage.md` | `/user/achievements` | Two of the party's own achievements, one switched off | 390x844 | The three settings, both sections, a lock mark, the off row |
-| `achievement-editor` | `achievements/create.md` | `/user/achievements/:id` | The 80s achievement from the worked example | 390x844 | Name, badge, the condition block, its plain sentence |
+| `achievement-editor` | `achievements/create.md` | `/user/achievements/:id` | The 80s achievement from the worked example | 390x844 | The condition block and its plain sentence |
 | `people-admin` | `people/players.md` | `/user/accounts` | Three accounts, seven guests, one of them hidden | 390x844 | Both groups, the role controls, a hidden row |
 | `permissions` | `people/roles.md` | `/user/permissions` | Defaults | 390x844 | The three columns Guest, User, and Trusted, and the line saying admins are not in the table |
 | `login` | `people/index.md` | `/user` | Signed out | 390x844 | Name, Password, **Log in**, and the **New account** switch |

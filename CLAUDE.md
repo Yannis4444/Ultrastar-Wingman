@@ -106,6 +106,13 @@ live in `tests/fixtures/`.
 | `stats.ts`, `chartLayout.ts` (the geometry behind the SVG charts: the shared 0–10k ticks, the beeswarm stagger that keeps near-ties apart, wall-clock ticks, deterministic dot jitter), `karaokeSlots.ts`, `settings.ts`, `duration.ts`, `errors.ts`, `manage.ts`, `songSources.ts`, `links.ts`, `backLink.ts`, `dice.ts`, `avatars.ts` (a player's picture: the cache-busted URL, and `asPlayer` for the people who are not player rows — a comment's author, a playlist's members), `tags.ts` (a tag's glyph and colour class, the row marks; the eight built-ins — their fixed glyph/name/`kind`, `KIND_OPTIONS` mirroring the backend, and `builtInTags` normalising the `built_ins` rows so no option is ever null; one extractor per facet over `SongRead` plus `decadeLabel` and `facetValues`; and the criteria the song list filters on — `SongCriteria` (marks, `booleans`, `values`, tags), the reader's `CriteriaOverrides` and `effectiveCriteria`, which drops a facet whose `show_in_filter` is off), `achievements.ts` (a badge's icon URL at the row's own `icon_version`, glyph and colour class — the tags' four, not a second vocabulary; `isMasked` and the stand-in name and sentence of a masked row; `MANAGE_CATALOGUE`, the `?manage=true` the two management pages — and nothing else — ask the catalogue with, its own cache entry beside the masked one everybody reads; the progress fraction and its `"7 / 10"`; and the editor's vocabulary declared once — metrics, comparators, scopes, the selector's fields, operators and kinds, `conditionTarget` mirroring the backend's progress rule, `songMode` reading the three song modes off `songs`/`match`, `conditionProblem` making the models' refusals sayable before Save, and `conditionSentence` turning one condition into the plain sentence its editor block is headed by; and `importSummary`, which turns an import's two lists of ids into the sentence the admin page answers with) | plain helpers, each with its own test |
 | `test/` | `auth.ts` (`meResponse`, `userRead`), `tags.ts` (`tagRead`, `builtInTagRead`, `builtInTagReads` — all eight built-ins at their defaults), `achievements.ts` (`condition`, `achievementRead`, `maskedAchievementRead`, `achievementSettings`, `builtInAchievementReads` — the seventeen as `builtin.py` seeds them, `playerAchievementRead`), `fakeSocket.ts`, `icons.ts` (`iconNames`), `setup.ts` |
 
+### Docs — `docs/`
+
+| Path | Owns |
+|---|---|
+| `tools/` | one-off generators for site assets; `export_icons.py` writes the icon sheet the docs use out of `frontend/src/components/icons.tsx` |
+| `screenshots/` | the documentation screenshots, outside `docs_dir` so none of it ships: `seed.py` (a scratch Wingman filled from `scenario.py` + `songs.json` through `library.py`), `standin_usdx.py` and `fake_usdb.py` (the two stand-ins a screenshot run may not use for real), `capture.py` (headless Chrome over CDP, one row per manifest id, writing `docs/user/assets/screenshots/<section>/<id>.png`), and the gitignored `avatars/`. The procedure is [screenshots.md](docs/dev/screenshots.md) |
+
 Keep this map at module granularity and update it in the same commit when a
 module, page or route is added, renamed or removed.
 
@@ -121,5 +128,6 @@ module, page or route is added, renamed or removed.
 | Git workflow & commits | [docs/dev/git-workflow.md](docs/dev/git-workflow.md) |
 | Testing | [docs/dev/testing.md](docs/dev/testing.md) |
 | Writing documentation | [docs/dev/documentation.md](docs/dev/documentation.md) |
+| Taking the documentation screenshots | [docs/dev/screenshots.md](docs/dev/screenshots.md) |
 | Running & configuring each half in depth | [backend/README.md](backend/README.md), [frontend/README.md](frontend/README.md) |
 | Architecture decision records (the *why* behind the structure) | codebase-memory MCP: `manage_adr(mode='get', project='D-git-Ultrastar-Wingman-new')` — when a recorded decision changes, update the ADR alongside the code (`mode='update'` replaces the whole document) |
