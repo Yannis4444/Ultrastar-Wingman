@@ -49,6 +49,7 @@ for the visual look, never ground truth for code.
 | **Frontend checks** | `frontend/` | `npm run build` · `npm run lint` · `npm run format:check` · `npm test` |
 | Fix formatting | | `venv -m ruff format .` · `npm run format` |
 | **Docs build** | `docs/` | `..\venv\Scripts\python.exe -m zensical build --strict --clean` |
+| **Docs script checks** (`docs/screenshots`, `docs/tools`) | repo root | `venv -m ruff check --config backend/pyproject.toml docs/screenshots docs/tools` · same with `ruff format --check` |
 | One test | | `venv -m pytest tests/test_songs_api.py -k <name>` · `npx vitest run src/pages/Songs.test.tsx` |
 | Regenerate API client | `frontend/` | `npm run generate-api` (backend must be on :8080; offline variant in [recipes](docs/dev/recipes.md)) |
 | New migration | `backend/` | `venv -m alembic revision --autogenerate -m "<what>"` |
@@ -110,7 +111,7 @@ live in `tests/fixtures/`.
 
 | Path | Owns |
 |---|---|
-| `tools/` | one-off generators for site assets; `export_icons.py` writes the icon sheet the docs use out of `frontend/src/components/icons.tsx` |
+| `overrides/`, `tools/` | the site's non-page assets, outside `docs_dir`: `overrides/.icons/wingman/` is one SVG per app glyph, which a page writes as `:wingman-<name>:`, and `tools/export_icons.py` is what rewrites all of them out of `frontend/src/components/icons.tsx` |
 | `screenshots/` | the documentation screenshots, outside `docs_dir` so none of it ships: `seed.py` (a scratch Wingman filled from `scenario.py` + `songs.json` through `library.py`), `standin_usdx.py` and `fake_usdb.py` (the two stand-ins a screenshot run may not use for real), `capture.py` (headless Chrome over CDP, one row per manifest id, writing `docs/user/assets/screenshots/<section>/<id>.png`), and the gitignored `avatars/`. The procedure is [screenshots.md](docs/dev/screenshots.md) |
 
 Keep this map at module granularity and update it in the same commit when a

@@ -637,14 +637,17 @@ The app's own labels follow section 4, and a page uses the label the app renders
 side gets to drift: a label that breaks a rule here is a bug in the app, not a license for a
 page to bold a word this file forbids. Fix the label, then write the page against it.
 
-The copy pass that made the two agree renamed four things. They are the labels a page written
-against an older draft still gets wrong:
+The copy pass that made the two agree renamed labels as well as sentences. These are the
+ones a page written against an older draft still gets wrong:
 
 - **Colour** over the color picker in both editors is **Color**.
 - The Scores page called a party a session. It says party.
 - The downloads panel's filter is **Since Wingman started**, not a party.
 - The host screen says **This browser holds host rights**, not "Host session active". The
   user page has its own line for the same browser, **This browser has full access**.
+- The USDB sort options spell the range out: **Artist A to Z**, never an en dash.
+- The shipped achievement is **Well Traveled**. Migration 0025 renamed it in every database
+  that the built-in seed had already run on.
 
 Renaming a label changes the queries in the tests that look for it. Update the tests, never
 delete them.
