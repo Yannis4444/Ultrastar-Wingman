@@ -500,5 +500,6 @@ reads better at 40 px, and every later badge copies this one.
 | 11 | Living Legend | `builtin-songs-100.png` | done, second attempt. The first copied the reference too literally and stood the wreath on the trophy's pedestal with its red plaque — a second object and a second red, and a twin of Golden Voice in the list. One correction ("remove the base and the plaque, the wreath stands on its own, the star is the only red, everything else identical") fixed it. Lesson for the guide: when the reference badge and the new motif share a part, say so and forbid it |
 | 12 | Five in a Night | `builtin-evening-songs-5.png` | done — as specified; teal sand and stream, flat glass, ring behind |
 | 13 | Iron Lungs | `builtin-evening-songs-10.png` | done — red grip, chevrons behind. The model stacked two plates per end instead of one weight; kept on purpose (it reads as a dumbbell more, and two big plates are not a striped blur at 40 px), and entry 13 now says so |
-| the other four | | | production round, against the reference — in list order, Hat-trick next |
+| 14 | Hat-trick | `builtin-evening-hat-trick.png` | done — as specified; gold hat tipped, pink band, three arcs |
+| the other three | | | production round, against the reference — in list order, Better Together next |
 | — | blank plate | | optional |
