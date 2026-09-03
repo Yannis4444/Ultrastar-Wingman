@@ -1,3 +1,7 @@
+---
+icon: wingman/gear
+---
+
 # Settings
 
 **User** > **Settings** holds everything Wingman is configured with. Two fields
@@ -64,10 +68,10 @@ options next to the feature itself.
 
 - Whether badges exist at all, and how long the host screen holds a row of them,
   sit at the top of **User** > **Achievements**. See
-  [Manage achievements](../achievements/manage.md).
+  [Manage achievements](../achievements/manage/index.md).
 - The built-in marks and facets, such as the heart and the decade filter, sit
   under **Built-in** on **User** > **Tags**. See
-  [Built-in marks and facets](../songs/built-in-tags.md).
+  [Built-in marks and facets](../tags/built-in.md).
 
 ## The pages in this section
 

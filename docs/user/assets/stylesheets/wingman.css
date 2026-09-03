@@ -90,6 +90,42 @@
   background-color: var(--wm-footer);
 }
 
+/* Navigation selects in the brand blue. The theme paints the selected sidebar row and
+   its pill from the accent variables, so inside the sidebar the accent is the blue the
+   app selects things in, not the pink the rest of the site uses for emphasis. On white
+   the blue takes its darkened step (5.5:1); on the app background the brand blue itself
+   (5.5:1). The selected tab gets the same color and its underline. */
+.md-sidebar--primary {
+  --md-accent-fg-color: var(--wm-blue-ink);
+  --md-accent-fg-color--transparent: #2f6da31a;
+}
+[data-md-color-scheme="slate"] .md-sidebar--primary {
+  --md-accent-fg-color: var(--wm-blue);
+  --md-accent-fg-color--transparent: #4b92cd1f;
+}
+.md-tabs__item--active {
+  border-bottom-color: var(--wm-blue-ink);
+}
+.md-tabs__item--active .md-tabs__link {
+  color: var(--wm-blue-ink);
+}
+[data-md-color-scheme="slate"] .md-tabs__item--active {
+  border-bottom-color: var(--wm-blue);
+}
+[data-md-color-scheme="slate"] .md-tabs__item--active .md-tabs__link {
+  color: var(--wm-blue);
+}
+
+/* A chapter's glyph in the sidebar: the app's icon at text size, in the row's own
+   color, a little air before the label. */
+.md-sidebar--primary .md-nav__link svg {
+  width: 1.1em;
+  height: 1.1em;
+  flex: none;
+  margin-right: 0.45em;
+  fill: currentcolor;
+}
+
 /* The app rounds its cards and inputs. The same small radius on the blocks that
    read as cards here, and nowhere else. */
 .md-typeset .admonition,

@@ -44,8 +44,16 @@ own playlists, your own record of scores, and the rights the host hands out.
 Every role is a bundle of rights, and the host can change what each one may do.
 See [Roles and permissions](people/roles.md).
 
-## Where to go next
+## Which tab is yours
 
-- [Get started](start/index.md): run Wingman and connect Ultrastar Deluxe.
-- [At the party](party/index.md): the wishlist, the reel, and starting a song.
-- [The song list](songs/index.md): search, filter, and open a song.
+The tabs at the top sort the guide by what you are doing.
+
+- **Sing**: for everybody at the party. The wishlist, the song list, starting a
+  song, the scores, and your badges. Start at [At the party](party/index.md).
+- **Host**: for whoever runs the PC. Install Wingman, connect Ultrastar Deluxe,
+  let guests in, put the host screen on the TV, download songs, and fix what goes
+  wrong. Start at [Get started](start/index.md).
+- **Manage**: for the administrator. People and their roles, settings, tags, and
+  the achievements the party makes. Start at [People](people/index.md).
+- **Integrate**: for somebody building a bot or an overlay on top of Wingman.
+  Start at [Integrate](integrate/index.md).

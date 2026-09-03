@@ -1,3 +1,7 @@
+---
+icon: wingman/users
+---
+
 # People
 
 Wingman keeps three things apart: a guest, an account, and a player. A guest is

@@ -1,3 +1,7 @@
+---
+icon: wingman/tag
+---
+
 # Tags
 
 A tag is a label the whole party shares. A wish or a favorite belongs to one
@@ -16,13 +20,13 @@ default. Everybody else sees the result. See
 **User** > **Tags** lists every tag. Under each name stands a line saying how
 many songs carry it and which of its two options are on. Tap a row to open it.
 
-![The Tags page with rows for broken, Crowd pleaser, Late night, and Needs fixing over the Built-in heading and its own rows](../assets/screenshots/songs/tags-admin.png){ width="320" loading=lazy }
+![The Tags page with rows for broken, Crowd pleaser, Late night, and Needs fixing over the Built-in heading and its own rows](../assets/screenshots/tags/tags-admin.png){ width="320" loading=lazy }
 /// caption
 Each tag keeps its own glyph and color wherever Wingman draws it.
 ///
 
 Under **Built-in** stand eight more rows. They look like tags and are not. See
-[Built-in marks and facets](built-in-tags.md).
+[Built-in marks and facets](built-in.md).
 
 Wingman starts with one real tag, **broken**, for a song that does not work.
 Only Trusted and Admin may see it, so a song marked broken is invisible to
@@ -53,7 +57,7 @@ the rows fill with glyphs.
 **Hide songs by default** keeps those songs out of the song list and out of the
 reel until somebody asks for them in the filter. It is a default and not a lock.
 Everybody who may see the tag can bring the songs back. See
-[Filter the list](filter.md).
+[Filter the list](../songs/filter.md).
 
 ## Who sees what
 
@@ -80,7 +84,7 @@ anything from the host.
 Type into **Add people** to search by username, then tick the rights for that
 person.
 
-![The tag editor's Permissions matrix with its Guest, User, and Trusted columns, and a Specific people row giving Fry all three rights](../assets/screenshots/songs/tag-editor.png){ width="320" loading=lazy }
+![The tag editor's Permissions matrix with its Guest, User, and Trusted columns, and a Specific people row giving Fry all three rights](../assets/screenshots/tags/tag-editor.png){ width="320" loading=lazy }
 /// caption
 Fry may tag songs here, although his role on its own may not.
 ///
@@ -103,7 +107,7 @@ refusals, and Wingman saves either way:
 Tags are set up here and used on the song itself. Open a song, tap
 :wingman-tag: **Tags**, and tap a row to put the tag on or take it off. A tag
 you may see but not set carries :wingman-lock: and does nothing. See
-[Open a song](song.md).
+[Open a song](../songs/song.md).
 
 ## Change or delete a tag
 

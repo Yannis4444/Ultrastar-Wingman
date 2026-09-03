@@ -1,3 +1,7 @@
+---
+icon: wingman/trophy
+---
+
 # Achievements
 
 An achievement is something to reach for: sing your first song, break 9,000,
@@ -64,7 +68,7 @@ A song where nobody earned anything goes straight to the results.
 
 How long a row stays is up to the host, on the achievements page. It is a base
 count of seconds plus a few more for each badge in the row, four and two out of
-the box. See [Manage achievements](manage.md).
+the box. See [Manage achievements](manage/index.md).
 
 ## What Wingman brings with it
 
@@ -97,7 +101,7 @@ lists. See [Scores](../scores/index.md).
 
 ## The pages in this section
 
-- [Make an achievement](create.md): the editor, the conditions, and a worked
+- [Make an achievement](manage/create.md): the editor, the conditions, and a worked
   example.
-- [Manage achievements](manage.md): the three options, the order of the list,
+- [Manage achievements](manage/index.md): the three options, the order of the list,
   the ones Wingman ships, and archives.

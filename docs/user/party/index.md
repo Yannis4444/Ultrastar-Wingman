@@ -1,3 +1,7 @@
+---
+icon: wingman/mic
+---
+
 # At the party
 
 **Home** is the page everybody lands on. It shows what is playing right now, the

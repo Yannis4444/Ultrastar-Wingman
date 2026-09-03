@@ -53,52 +53,62 @@ never documents how Wingman is built.
 (`navigation.indexes`). Navigation labels are tasks or plain nouns, in sentence case, never
 component names.
 
+The navigation has two levels above the pages. **Tabs** across the top name what the reader
+is doing: Overview, Sing, Host, Manage, Integrate. A tab holds whole sections, and the
+sidebar shows only the sections of the open tab, so a guest never scrolls past the settings
+reference. A section is a **chapter** in the sidebar: its label links to its index page and
+carries the app's glyph for it, set as `icon: wingman/<name>` in the front matter of that
+index page (section 13 has the config). Pages inside a chapter carry no icon. The Tab
+column of the table below says where each section sits. A section belongs to exactly one
+tab, so a page that serves both a singer and an administrator is written for the reader of
+its tab and links to the other.
+
 Section index pages are short. They say what the section covers, who it is for, and link to
 its pages in reading order. A section index is allowed to hold real content when the section
 is small.
 
 ### Target structure
 
-| Folder | File | Nav label | Audience | Purpose | Type |
-|---|---|---|---|---|---|
-| (root) | `index.md` | Overview | Everyone | What Wingman is and how an evening runs | Explanation |
-| `start/` | `index.md` | Get started | Host | What you need, in the order to do it | Index |
-| `start/` | `install.md` | Install and run | Host | The exe, running from source, first launch | How-to |
-| `start/` | `ultrastar-deluxe.md` | Connect Ultrastar Deluxe | Host | Point Wingman at the installation | How-to |
-| `start/` | `join.md` | Let guests in | Host | The QR code, the address, what a guest may do | How-to |
-| `songs/` | `index.md` | The song list | Everyone | The list, the marks, search, the chips | Index |
-| `songs/` | `filter.md` | Filter the list | Everyone | The Filter panel, facets, tags | How-to |
-| `songs/` | `song.md` | Open a song | Everyone | The song view: details, best scores, comments | How-to |
-| `songs/` | `playlists.md` | Playlists | Everyone | Make one, fill it, manage it, share it, follow one, spin it | How-to |
-| `songs/` | `download.md` | Download songs | Host | The USDB account, search, download, the queue | How-to |
-| `songs/` | `tags.md` | Tags | Administrator | What a tag is, who sees it, and how to make one | How-to |
-| `songs/` | `built-in-tags.md` | Built-in marks and facets | Administrator | The eight built-ins and their options | Reference |
-| `songs/` | `fix-or-delete.md` | Fix or delete a song | Administrator | The details editor, deleting a song folder | How-to |
-| `party/` | `index.md` | At the party | Everyone | The Home page and how an evening runs | Index |
-| `party/` | `wishlist.md` | Wish for a song | Everyone | Add a wish, read the list, take one back | How-to |
-| `party/` | `sing.md` | Sing a song | Everyone | Pick singers and colors, start it, what happens then | How-to |
-| `party/` | `reel.md` | Let the reel pick | Everyone | The random reel and what it picks from | How-to |
-| `host-screen/` | `index.md` | The host screen | Host | What stands on the TV, and how to put it there | Index |
-| `host-screen/` | `manage.md` | Manage from the TV | Host | The Manage page behind the host screen | How-to |
-| `scores/` | `index.md` | Scores | Everyone | Where scores come from, which parties you see | Index |
-| `scores/` | `party.md` | A party's scores | Everyone | The Scores page, its charts, its groupings, naming a party, correcting a score | How-to |
-| `scores/` | `your-scores.md` | Your own scores | Singer | The record on the user page, the Your scores page, and All my scores | How-to |
-| `achievements/` | `index.md` | Achievements | Everyone | What a badge is, your badges, the TV moment | Index |
-| `achievements/` | `create.md` | Make an achievement | Administrator | The editor and its conditions, with the worked example | How-to |
-| `achievements/` | `manage.md` | Manage achievements | Administrator | Settings, order, hiding, switching off, archives | How-to |
-| `people/` | `index.md` | People | Everyone | Accounts, guests, players, and logging in | Index |
-| `people/` | `players.md` | Players and avatars | Host | Guests, pictures, taking somebody out of the picker | How-to |
-| `people/` | `roles.md` | Roles and permissions | Administrator | What a role is, the four of them, and where the exact rights live | Reference |
-| `people/` | `single-sign-on.md` | Single sign-on | Administrator | Logging in through an identity provider | How-to |
-| `settings/` | `index.md` | Settings | Host | How settings work, who may change them | Index |
-| `settings/` | `reference.md` | All settings | Host | Every setting, one table per group | Reference |
-| `help/` | `index.md` | Fix a problem | Everyone | Symptom, cause, fix | Index |
-| `help/` | `ultrastar-deluxe.md` | Ultrastar Deluxe problems | Host | The setup and launch failures | How-to |
-| `integrate/` | `index.md` | Integrations | Integrator | Who this section is for, and what it promises | Index |
-| `integrate/` | `rest-api.md` | The REST API | Integrator | Base path, the OpenAPI schema, reading the API | Reference |
-| `integrate/` | `authentication.md` | Authenticate a script | Integrator | Sessions, the host token, capabilities | How-to |
-| `integrate/` | `events.md` | Live events | Integrator | The WebSocket endpoint and its events | Reference |
-| `integrate/` | `files.md` | Files and configuration | Integrator | Data directory, database, song files, environment | Reference |
+| Tab | Folder | File | Nav label | Audience | Purpose | Type |
+|---|---|---|---|---|---|---|
+| Overview | (root) | `index.md` | Overview | Everyone | What Wingman is, how an evening runs, which tab is yours | Explanation |
+| Sing | `party/` | `index.md` | At the party | Everyone | The Home page and how an evening runs | Index |
+| Sing | `party/` | `wishlist.md` | Wish for a song | Everyone | Add a wish, read the list, take one back | How-to |
+| Sing | `party/` | `sing.md` | Sing a song | Everyone | Pick singers and colors, start it, what happens then | How-to |
+| Sing | `party/` | `reel.md` | Let the reel pick | Everyone | The random reel and what it picks from | How-to |
+| Sing | `songs/` | `index.md` | The song list | Everyone | The list, the marks, search, the chips | Index |
+| Sing | `songs/` | `filter.md` | Filter the list | Everyone | The Filter panel, facets, tags | How-to |
+| Sing | `songs/` | `song.md` | Open a song | Everyone | The song view: details, best scores, comments | How-to |
+| Sing | `songs/` | `playlists.md` | Playlists | Everyone | Make one, fill it, manage it, share it, follow one, spin it | How-to |
+| Sing | `songs/` | `fix-or-delete.md` | Fix or delete a song | Administrator | The details editor, deleting a song folder | How-to |
+| Sing | `scores/` | `index.md` | Scores | Everyone | Where scores come from, which parties you see | Index |
+| Sing | `scores/` | `party.md` | A party's scores | Everyone | The Scores page, its charts, its groupings, naming a party, correcting a score | How-to |
+| Sing | `scores/` | `your-scores.md` | Your own scores | Singer | The record on the user page, the Your scores page, and All my scores | How-to |
+| Sing | `achievements/` | `index.md` | Achievements | Everyone | What a badge is, your badges, the TV moment | Index |
+| Host | `start/` | `index.md` | Get started | Host | What you need, in the order to do it | Index |
+| Host | `start/` | `install.md` | Install and run | Host | The exe, running from source, first launch | How-to |
+| Host | `start/` | `ultrastar-deluxe.md` | Connect Ultrastar Deluxe | Host | Point Wingman at the installation | How-to |
+| Host | `start/` | `join.md` | Let guests in | Host | The QR code, the address, what a guest may do | How-to |
+| Host | `host-screen/` | `index.md` | The host screen | Host | What stands on the TV, and how to put it there | Index |
+| Host | `host-screen/` | `manage.md` | Manage from the TV | Host | The Manage page behind the host screen | How-to |
+| Host | `songs/` | `download.md` | Download songs | Host | The USDB account, search, download, the queue. A page on its own in the tab, with its own icon | How-to |
+| Host | `help/` | `index.md` | Fix a problem | Everyone | Symptom, cause, fix | Index |
+| Host | `help/` | `ultrastar-deluxe.md` | Ultrastar Deluxe problems | Host | The setup and launch failures | How-to |
+| Manage | `people/` | `index.md` | People | Everyone | Accounts, guests, players, and logging in | Index |
+| Manage | `people/` | `players.md` | Players and avatars | Host | Guests, pictures, taking somebody out of the picker | How-to |
+| Manage | `people/` | `roles.md` | Roles and permissions | Administrator | What a role is, the four of them, and where the exact rights live | Reference |
+| Manage | `people/` | `single-sign-on.md` | Single sign-on | Administrator | Logging in through an identity provider | How-to |
+| Manage | `settings/` | `index.md` | Settings | Host | How settings work, who may change them | Index |
+| Manage | `settings/` | `reference.md` | All settings | Host | Every setting, one table per group | Reference |
+| Manage | `tags/` | `index.md` | Tags | Administrator | What a tag is, who sees it, and how to make one | Index |
+| Manage | `tags/` | `built-in.md` | Built-in marks and facets | Administrator | The eight built-ins and their options | Reference |
+| Manage | `achievements/manage/` | `index.md` | Achievements | Administrator | Settings, order, hiding, switching off, archives | Index |
+| Manage | `achievements/manage/` | `create.md` | Make an achievement | Administrator | The editor and its conditions, with the worked example | How-to |
+| Integrate | `integrate/` | `index.md` | Integrate | Integrator | Who this section is for, and what it promises | Index |
+| Integrate | `integrate/` | `rest-api.md` | The REST API | Integrator | Base path, the OpenAPI schema, reading the API | Reference |
+| Integrate | `integrate/` | `authentication.md` | Authenticate a script | Integrator | Sessions, the host token, capabilities | How-to |
+| Integrate | `integrate/` | `events.md` | Live events | Integrator | The WebSocket endpoint and its events | Reference |
+| Integrate | `integrate/` | `files.md` | Files and configuration | Integrator | Data directory, database, song files, environment | Reference |
 
 A page with less than about 25 lines of real content folds into its section index. Say so in
 the bundle report instead of shipping a stub. Do not add a page outside this table without
@@ -123,8 +133,8 @@ list before you claim a section is done:
 | `/user/stats` | `scores/your-scores.md` |
 | `/user/accounts` | `people/players.md` |
 | `/user/permissions` | `people/roles.md` |
-| `/user/tags`, `/user/tags/new`, `/user/tags/:id` | `songs/tags.md`, and `songs/built-in-tags.md` for a built-in |
-| `/user/achievements`, `/user/achievements/new`, `/user/achievements/:id` | `achievements/manage.md` and `achievements/create.md` |
+| `/user/tags`, `/user/tags/new`, `/user/tags/:id` | `tags/index.md`, and `tags/built-in.md` for a built-in |
+| `/user/achievements`, `/user/achievements/new`, `/user/achievements/:id` | `achievements/manage/index.md` and `achievements/manage/create.md` |
 | `/settings` | `settings/index.md` and `settings/reference.md` |
 | `/host` | `host-screen/index.md` |
 | `/host/manage` | `host-screen/manage.md` |
@@ -147,8 +157,8 @@ Three things happen across several pages. Each has one owner, and the other page
 | `downloading-songs.md` | `songs/download.md` |
 | `singing.md` | `songs/index.md`, `songs/filter.md`, `songs/song.md`, `songs/fix-or-delete.md`, `party/sing.md` |
 | `wishlist-and-playlists.md` | `party/wishlist.md`, `songs/playlists.md` (favorites become part of `songs/index.md` and `songs/song.md`) |
-| `tags.md` | `songs/tags.md`, `songs/built-in-tags.md` |
-| `achievements.md` | `achievements/index.md`, `achievements/create.md`, `achievements/manage.md` |
+| `tags.md` | `tags/index.md`, `tags/built-in.md` |
+| `achievements.md` | `achievements/index.md`, `achievements/manage/create.md`, `achievements/manage/index.md` |
 | `the-spinner.md` | `party/reel.md` |
 | `accounts-and-permissions.md` | `people/index.md`, `people/players.md`, `people/roles.md`, `people/single-sign-on.md` |
 | `statistics.md` | `scores/index.md`, `scores/party.md`, `scores/your-scores.md` |
@@ -359,7 +369,7 @@ Rules:
   `abstract`, `question`, and the rest stay out.
 - Examples only where they explain something a sentence cannot. An example always sits in an
   `example` admonition, with a title naming the case.
-- `achievements/create.md` carries the worked example "Sing 10 songs from the 80s in one
+- `achievements/manage/create.md` carries the worked example "Sing 10 songs from the 80s in one
   evening", built condition by condition, in one `example` admonition.
 
 ## 6. Screenshots
@@ -502,16 +512,16 @@ about, and the **Must be visible** column names that part alone.
 | `playlist-reel` | `party/reel.md` | `/songs/playlists/:id/spinner` | The same playlist as `playlist`, landed on one of its eight songs | 390x844 | The playlist's name in the header, the landed frame |
 | `usdb-search` | `songs/download.md` | `/usdb` | Search results for a common artist | 390x844 | Result rows and the download buttons |
 | `usdb-downloads` | `songs/download.md` | `/usdb` | One download at 60 percent, one queued | 390x844 | The downloads panel with both bars |
-| `tags-admin` | `songs/tags.md` | `/user/tags` | Three tags of the party's own, beside Wingman's own `broken` | 390x844 | Tag rows, the Built-in heading, the eight built-in rows |
-| `tag-editor` | `songs/tags.md` | `/user/tags/:id` | An existing tag with people rows | 390x844 | The **Permissions** matrix and the **Specific people** row |
-| `built-in-tags` | `songs/built-in-tags.md` | `/user/tags/decade` | The Decade built-in | 390x844 | The reduced editor and the line saying why it is reduced |
+| `tags-admin` | `tags/index.md` | `/user/tags` | Three tags of the party's own, beside Wingman's own `broken` | 390x844 | Tag rows, the Built-in heading, the eight built-in rows |
+| `tag-editor` | `tags/index.md` | `/user/tags/:id` | An existing tag with people rows | 390x844 | The **Permissions** matrix and the **Specific people** row |
+| `built-in-tags` | `tags/built-in.md` | `/user/tags/decade` | The Decade built-in | 390x844 | The reduced editor and the line saying why it is reduced |
 | `scores-party` | `scores/party.md` | `/scores` | One party, 23 scores, five singers | 390x844 | The party selector at the top, the strip chart, the score rows |
 | `scores-spread` | `scores/party.md` | `/scores` | Same party, grouped by player | 390x844 | The spread card with a box row and a stagger row |
 | `user` | `scores/your-scores.md` | `/user` | Signed in as Bender | 390x844 | Identity tile, the stat bar, the histogram |
 | `user-stats` | `scores/your-scores.md` | `/user/stats` | Bender's own record across both seeded parties | 390x844 | The **Your scores** header, the charts of his own record |
 | `user-achievements` | `achievements/index.md` | `/user` | Signed in as Fry, whose four badges leave room for a bar below them | 390x844 | The open badge strip, its count, one row with a progress bar |
-| `achievements-admin` | `achievements/manage.md` | `/user/achievements` | Two of the party's own achievements, one switched off | 390x844 | The three settings, both sections, a lock mark, the off row |
-| `achievement-editor` | `achievements/create.md` | `/user/achievements/:id` | The 80s achievement from the worked example | 390x844 | The condition block and its plain sentence |
+| `achievements-admin` | `achievements/manage/index.md` | `/user/achievements` | Two of the party's own achievements, one switched off | 390x844 | The three settings, both sections, a lock mark, the off row |
+| `achievement-editor` | `achievements/manage/create.md` | `/user/achievements/:id` | The 80s achievement from the worked example | 390x844 | The condition block and its plain sentence |
 | `people-admin` | `people/players.md` | `/user/accounts` | Three accounts, seven guests, one of them hidden | 390x844 | Both groups, the role controls, a hidden row |
 | `permissions` | `people/roles.md` | `/user/permissions` | Defaults | 390x844 | The three columns Guest, User, and Trusted, and the line saying admins are not in the table |
 | `login` | `people/index.md` | `/user` | Signed out | 390x844 | Name, Password, **Log in**, and the **New account** switch |
@@ -739,9 +749,21 @@ Config facts, all verified against the installed zensical (0.0.57):
   text is near-black. An admonition is the same story with one extra trap. The stylesheet
   defines `--md-admonition-bg-color` and never reads it, so setting that variable does
   nothing at all.
-- Theme features to use: `navigation.sections`, `navigation.indexes`, `navigation.top`,
-  `navigation.footer`, `navigation.tracking`, `navigation.path`, `toc.follow`,
-  `content.code.copy`, `content.tabs.link`, `search.highlight`.
+- Theme features to use: `navigation.tabs`, `navigation.tabs.sticky`,
+  `navigation.sections`, `navigation.indexes`, `navigation.top`, `navigation.footer`,
+  `navigation.tracking`, `navigation.path`, `toc.follow`, `content.code.copy`,
+  `content.tabs.link`, `search.highlight`. With tabs and sections on together, the first
+  nav level is the tab row, the second level renders as the sidebar's chapters, and the
+  sidebar shows the open tab alone.
+- A chapter's icon is the `icon` key in the front matter of its index page, for example
+  `icon: wingman/music`. The sidebar template includes `.icons/<that path>.svg`, which
+  resolves through `theme.custom_dir = "overrides"` (relative to `zensical.toml`) into
+  `docs/overrides/.icons/wingman/`. A wrong name fails the build. The same key on a page
+  that is not an index puts the glyph on that page's own row, which only a page standing
+  alone in a tab gets (`songs/download.md`).
+- The selected tab, the selected sidebar row and the row under the pointer take the brand
+  blue, not the accent pink: `wingman.css` redefines the accent variables inside
+  `.md-sidebar--primary` and `.md-tabs`. Pink stays the accent everywhere else.
 - `extra_css` paths are relative to `docs_dir`, so the stylesheet lives in the built site.
   Put it at `docs/user/assets/stylesheets/wingman.css` and write
   `extra_css = ["assets/stylesheets/wingman.css"]`.

@@ -1,3 +1,7 @@
+---
+icon: wingman/rocket
+---
+
 # Get started
 
 Wingman runs on the PC that runs Ultrastar Deluxe. Everybody else opens it in a
