@@ -23,6 +23,12 @@ marks can sit after a title:
 A song more than one person wants carries its count after the artist, as
 **· 3×**. Tap a row to open the song.
 
+![The wishlist on Home holding six songs, two of them with a count after the artist and two with a check after the title](../assets/screenshots/party/wishlist.png){ width="320" loading=lazy }
+/// caption
+Sandstorm and Bohemian Rhapsody each carry a count, because two people asked
+for them.
+///
+
 The host screen carries the most wished songs beside the QR code, under **Most
 wished**. The room can see what it asked for without looking at a phone. See
 [The host screen](../host-screen/index.md).

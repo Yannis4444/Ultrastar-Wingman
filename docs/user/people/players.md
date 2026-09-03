@@ -18,6 +18,11 @@ The page lists everybody in two groups.
 - **Guests** holds the people who only sing. A guest is taken over by whoever
   registers that name, and the scores come along.
 
+![The Players and accounts page with Bender, Fry, and Leela under Accounts, the guests under that, and Scruffy's row grayed out](../assets/screenshots/people/people-admin.png){ width="320" loading=lazy }
+/// caption
+Leela is the administrator here, which her row's role picker says.
+///
+
 ## Add a player
 
 Type the name into **New player** and tap **Add**. The name may be up to 64

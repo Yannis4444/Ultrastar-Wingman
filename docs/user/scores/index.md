@@ -13,6 +13,13 @@ to type a name. A name typed inside Ultrastar Deluxe instead of picked in
 Wingman is recorded too. It stays a bare name and belongs to no player, so it
 counts toward nothing else. See [Sing a song](../party/sing.md).
 
+The host screen puts the result of the song that just finished on the TV.
+
+![The host screen after Rolling in the Deep, with Fry on 7,900 marked New Highscore and Leela on 5,730 under the song's own figures](../assets/screenshots/scores/host-results.png){ width="720" loading=lazy }
+/// caption
+The four figures on the left are the song's whole record, not tonight's.
+///
+
 !!! warning
     A song that was stopped before the end scores nothing. That is Ultrastar
     Deluxe's rule, not Wingman's. The song still counts as played.

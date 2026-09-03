@@ -3,6 +3,11 @@
 **All**, **Favorites**, and **Sung** are shortcuts. The **Filter** panel is the
 long way round, and it is where the tags live.
 
+![The Filter panel with tri-state rows for the marks and the two file facets, value selects with Decade on 1980s, and four tag rows](../assets/screenshots/songs/songs-filter.png){ width="320" loading=lazy }
+/// caption
+**Decade** is set to 1980s, so only the 80s songs are left behind the panel.
+///
+
 ## Set a filter
 
 1. Open the **Songs** tab and tap :wingman-filter: **Filter**.

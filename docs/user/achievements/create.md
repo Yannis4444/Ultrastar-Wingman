@@ -43,6 +43,11 @@ or three boxes.
 Under that number stands the sentence the block means. If the sentence says
 what you meant, the condition does too.
 
+![Condition 1 of the 80s achievement, headed by its plain sentence, over One party, Number of sings, at least, and 10](../assets/screenshots/achievements/achievement-editor.png){ width="320" loading=lazy }
+/// caption
+The block below builds the sentence at the top of it, box by box.
+///
+
 **All time** or **One party**. The first looks at everything the singer ever
 did. The second has to come true inside a single evening. If several conditions
 say **One party**, they all have to come true in the same one.

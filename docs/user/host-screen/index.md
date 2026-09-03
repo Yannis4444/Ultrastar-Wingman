@@ -35,6 +35,11 @@ The screen has two columns. The left one is the stage, and it always shows what
 the party is doing right now. The right one is the rail, and it is how to take
 part.
 
+![The host screen on a TV, with the last song's result on the left and the QR card, Tonight, and Most wished down the right](../assets/screenshots/host-screen/host-screen.png){ width="720" loading=lazy }
+/// caption
+The rail stays up all evening, whatever the stage is showing.
+///
+
 The rail holds three blocks, top to bottom:
 
 - The QR code, under **Scan to join**, with the same address written out below
@@ -57,6 +62,11 @@ The stage shows the cover, the title, and the artist. Under them stand the time
 played against the song's length, a progress bar, and every singer on the color
 of their microphone. The rail carries on beside it, so the QR code and the
 standing stay up the whole time.
+
+![The host screen while Rolling in the Deep plays, with the cover, the elapsed time, a progress bar, and Fry and Leela on their colors](../assets/screenshots/host-screen/host-playing.png){ width="720" loading=lazy }
+/// caption
+Fry sings on blue and Leela on red, the colors they were given.
+///
 
 ## When a song ends
 

@@ -10,6 +10,11 @@ them stand the name, how many songs are on it, and how long they run. A row that
 is not yours also names its owner. :wingman-globe: beside the name means
 everybody in the party can see the list.
 
+![The Playlists page with Planet Express party mix under Your playlists and two more under Shared with you, each with a cover mosaic](../assets/screenshots/songs/playlists.png){ width="320" loading=lazy }
+/// caption
+The globe after a name is the mark of a list the whole party can see.
+///
+
 The page sorts what you can see into groups. A group with nothing in it is not
 shown.
 
@@ -37,6 +42,11 @@ Open the playlist. Under its name stands one line saying how big the list is and
 whether it is global. It also names who shared it and what you may do with it.
 The buttons below it are the ones you may use.
 
+![The Planet Express party mix playlist, with the dice and the gear in its header, the two action buttons, and its eight songs](../assets/screenshots/songs/playlist.png){ width="320" loading=lazy }
+/// caption
+The dice in the header spins the reel over this list alone.
+///
+
 - :wingman-list-plus: **Add songs** searches the whole library. Tap a song to
   put it on the list, tap it again to take it off.
 - :wingman-pencil: **Edit** turns every row into a reorder row. Drag it by the
@@ -60,6 +70,11 @@ on a private list of its own.
 sharing happens. It is there on the lists you made and on a list somebody shared
 with you as an admin. A playlist moderator gets it on any list they can already
 see.
+
+![The Manage playlist page with Name, Description, the Global checkbox, and member rows for Leela as owner, Fry on write, and Bender on read](../assets/screenshots/songs/playlist-manage.png){ width="320" loading=lazy }
+/// caption
+The drop-down on a member's row is what that person may do with the list.
+///
 
 **Name**, **Description**, and **Global: everyone can see it** are the top of
 the page. **Save** sends only what you changed. Seeing a list is not changing

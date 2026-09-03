@@ -5,6 +5,11 @@ the three options the feature has, the achievements somebody here made, and the
 seventeen Wingman brings with it. It takes the right to manage achievements,
 which Admin holds by default.
 
+![The Achievements page with the three options at the top, two achievements the party made, and the Included list under them](../assets/screenshots/achievements/achievements-admin.png){ width="320" loading=lazy }
+/// caption
+**Sandstorm Survivor** is drawn in gray, so nothing is being earned on it.
+///
+
 ## The three options
 
 They sit at the top of the page and save as you set them. They are not on the

@@ -19,10 +19,20 @@ From four scores on, a bar chart under the figures shows where your scores
 land across the full range. Before your first score the page says "Sing a song
 and your stats appear here" instead.
 
+![Bender's User tab with his picture, the four figures, a best of 9,842, and the bar chart of where his scores land](../assets/screenshots/scores/user.png){ width="320" loading=lazy }
+/// caption
+The lone bar at the right of the chart is that best of 9,842.
+///
+
 ## Your scores, party after party
 
 Tap **All my scores** under the figures. The page is called **Your scores**,
 and it holds every score you ever got.
+
+![The Your scores page for Bender, with the All scores chart over his whole record and Rap God at 9,842 on top](../assets/screenshots/scores/user-stats.png){ width="320" loading=lazy }
+/// caption
+Rap God at 9,842 sits a long way past his median of 7,205.
+///
 
 One row is one song you sang, so the only control is **Sort**:
 **alphabetically**, **average score**, **best score**, or **worst score**.

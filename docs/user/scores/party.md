@@ -3,6 +3,11 @@
 The **Scores** tab shows one party at a time: what the room sang, how it went,
 and who came out on top. Anybody at the party can read it.
 
+![The Scores tab with the party button, the figures under it, the All scores chart with its median line, and the ranked score rows](../assets/screenshots/scores/scores-party.png){ width="320" loading=lazy }
+/// caption
+Bender's 8,662 is the evening's best, so the chart draws it in gold.
+///
+
 ## Pick a party
 
 The wide button at the top names the party you are on, and the tab opens on the
@@ -92,6 +97,11 @@ evening. The number at the right of a row is the one being sorted on. Under
 With two groups or more, a **Score spread** card draws the first eight rows of
 the list. They keep the order the list has, one full-width line each. Ungrouped
 the card stays away, because the picture at the top already shows every score.
+
+![The Score spread card grouped by player, with a box for Bender and for Fry and plain dots for Amy, Leela, and Zoidberg](../assets/screenshots/scores/scores-spread.png){ width="320" loading=lazy }
+/// caption
+Bender's nine scores earn a box, and Leela's two get plain dots instead.
+///
 
 - A singer with five scores or more gets a box plot. The box holds the middle
   half of their scores, the line in it is the median, and the whiskers reach

@@ -21,6 +21,11 @@ your first one it says "Nothing yet. The first one is a song away".
 Tap the line to fold out the whole list. The ones you earned come first, newest
 first. The rest follow in the order the host arranged them in.
 
+![Fry's achievements folded out, with four earned badges and their dates, a locked hidden row, and progress bars under the rest](../assets/screenshots/achievements/user-achievements.png){ width="320" loading=lazy }
+/// caption
+The bar under **In Tune** says Fry has 7,103 of the 8,000 it asks for.
+///
+
 | A row | What it means |
 |---|---|
 | In color, with a date | Earned, on the day it says |
@@ -49,6 +54,11 @@ When a song is over, the host screen holds the results back and throws the new
 badges up first. One singer at a time: their picture and their name, and their
 badges flying in beside the name and the one-line description. At most four
 badges land in a row. Then the next singer, then the results as usual.
+
+![The host screen with Bender's picture and name over two badges, Iron Lungs and Eighties Marathon, each under its description](../assets/screenshots/achievements/host-achievements.png){ width="720" loading=lazy }
+/// caption
+The results of the song wait until the badges have had their moment.
+///
 
 A song where nobody earned anything goes straight to the results.
 

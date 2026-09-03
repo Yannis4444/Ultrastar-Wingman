@@ -3,6 +3,11 @@
 The **Songs** tab holds every song Wingman found in your song folders. It is
 where you search, narrow the list down, and open the song you want to sing.
 
+![The Songs tab with the search box, the chip row, the song count, and song rows carrying a gold tag mark](../assets/screenshots/songs/songs-list.png){ width="320" loading=lazy }
+/// caption
+The chips under the search box switch what the list holds.
+///
+
 ## Find a song
 
 The list is ordered by artist, then by title.

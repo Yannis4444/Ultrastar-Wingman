@@ -98,3 +98,13 @@
 .md-typeset figure img {
   border-radius: var(--wm-radius-small);
 }
+
+/* The frame section 13 asks a screenshot to carry. Every picture on the site is
+   the app on its own background, which is the dark scheme's page background as
+   well, so the edge of a screenshot falls exactly on the page behind it and its
+   buttons read as buttons of this page. A hairline in the color the theme draws
+   its dividers in says where the picture stops. It is a ring rather than a
+   border, so it costs the image no width and the figure still fits its column. */
+.md-typeset figure img {
+  box-shadow: 0 0 0 1px var(--md-default-fg-color--lightest);
+}

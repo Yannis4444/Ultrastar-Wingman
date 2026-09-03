@@ -16,6 +16,11 @@ default. Everybody else sees the result. See
 **User** > **Tags** lists every tag. Under each name stands a line saying how
 many songs carry it and which of its two options are on. Tap a row to open it.
 
+![The Tags page with rows for broken, Crowd pleaser, Late night, and Needs fixing over the Built-in heading and its own rows](../assets/screenshots/songs/tags-admin.png){ width="320" loading=lazy }
+/// caption
+Each tag keeps its own glyph and color wherever Wingman draws it.
+///
+
 Under **Built-in** stand eight more rows. They look like tags and are not. See
 [Built-in marks and facets](built-in-tags.md).
 
@@ -74,6 +79,11 @@ anything from the host.
 **Specific people** under the table gives one account more than its role holds.
 Type into **Add people** to search by username, then tick the rights for that
 person.
+
+![The tag editor's Permissions matrix with its Guest, User, and Trusted columns, and a Specific people row giving Fry all three rights](../assets/screenshots/songs/tag-editor.png){ width="320" loading=lazy }
+/// caption
+Fry may tag songs here, although his role on its own may not.
+///
 
 Two sentences may appear under the table while you tick. They are warnings, not
 refusals, and Wingman saves either way:

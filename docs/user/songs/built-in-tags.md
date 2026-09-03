@@ -55,6 +55,11 @@ genre list on its own.
 Tap a built-in row on **User** > **Tags**. The editor holds only the options its
 kind has, over a line saying why it holds no more.
 
+![The Decade built-in in its reduced editor, with the line explaining it and the single Show in filter option under that](../assets/screenshots/songs/built-in-tags.png){ width="320" loading=lazy }
+/// caption
+**Decade** has one option, because there is nothing else about it to set.
+///
+
 A change applies to everybody at once and takes the right to manage tags, the
 same as a tag. See [Tags](tags.md).
 

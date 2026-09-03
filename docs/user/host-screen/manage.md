@@ -11,6 +11,11 @@ Move the mouse to bring the corner controls back, then click :wingman-gear:
 screen. So does every page you open from here, which is the whole point of this
 view.
 
+![The Manage page on the TV, with Back at the top and rows for Settings, Players & accounts, Tags, Achievements, and Permissions](../assets/screenshots/host-screen/host-manage.png){ width="720" loading=lazy }
+/// caption
+The host browser holds every right, so it gets all five rows.
+///
+
 ## The rows
 
 - :wingman-gear: **Settings**: everything Wingman is configured with, from the

@@ -12,6 +12,11 @@ a website's name stuck to it. Both repairs start in the song's own view. See
    **Edition**.
 3. Tap **Save**.
 
+![The Edit details form on I Got You Babe, with Title, Artist, Language, Genre, Year, and Edition filled in over Save](../assets/screenshots/songs/song-edit.png){ width="320" loading=lazy }
+/// caption
+Six values, and Wingman writes them into the song's own file.
+///
+
 **Title** and **Artist** have to say something. The other four may be left
 empty, which means the song has no year (or no genre, and so on). The filter
 then treats it as a song with nothing to match. **Year** takes a number from 0

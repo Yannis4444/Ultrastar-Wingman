@@ -29,6 +29,11 @@ are four: blue, red, green, and yellow. The host sets how many slots there are
 and which colors they use, in the **Karaoke** group of the settings. See
 [Settings](../settings/index.md).
 
+![The player selection for I Got You Babe, with Fry on the blue slot, Leela on the red slot, and the roster below](../assets/screenshots/party/player-selection.png){ width="320" loading=lazy }
+/// caption
+The bar down the left edge of a slot is its microphone color.
+///
+
 The roster below the slots holds everybody Wingman knows, with an account or
 without one. A guest sings under the name somebody typed for them.
 
@@ -54,6 +59,11 @@ earlier does not bring them back. See
 title, the artist, and the buttons under them. The elapsed time and the singers
 are not repeated there, because the Ultrastar Deluxe screen in the same room
 already shows both.
+
+![Home while Rolling in the Deep by Adele plays, with its cover and the song controls where the Wingman tile usually is](../assets/screenshots/party/home-playing.png){ width="320" loading=lazy }
+/// caption
+The wishlist stays below the stage, so the room can keep reading it.
+///
 
 - :wingman-heart: **Add to favorites** and :wingman-playlist-plus: **Wish** do
   the same as in the song's own view.

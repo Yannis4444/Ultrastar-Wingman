@@ -3,6 +3,11 @@
 Nobody can decide what to sing? The reel picks for you. A stack of covers
 scrolls past for a few seconds and stops on the winner.
 
+![The Random song page with Pick from on All songs, 42 songs under it, and the reel landed on Sandstorm by Darude](../assets/screenshots/party/reel.png){ width="320" loading=lazy }
+/// caption
+The line under **Pick from** counts the songs in the running.
+///
+
 There are two ways in:
 
 - **Random song** on **Home** opens the reel over the library.
@@ -48,6 +53,11 @@ altogether can win in none of the four. See
 Opened from a playlist, the reel picks from that playlist and nothing else.
 There is no **Pick from** list above it, only the number of songs it can land
 on, and the playlist's name stands in the header.
+
+![The reel opened from Planet Express party mix, with the playlist name in the header, 8 songs under it, and Sandstorm landed](../assets/screenshots/party/playlist-reel.png){ width="320" loading=lazy }
+/// caption
+The header names the playlist, so the reel picks from its eight songs alone.
+///
 
 The dice appears once the playlist has a song in it. A song only folded away by
 a tag can win here, the same way the playlist itself still lists it. Somebody

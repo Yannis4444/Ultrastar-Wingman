@@ -50,6 +50,11 @@ deletes anybody's. See [Open a song](../songs/song.md).
 grouped by the part of the app it belongs to, with a line under it saying what
 it allows. The columns are **Guest**, **User**, and **Trusted**.
 
+![The Permissions page with the Guest, User, and Trusted columns and the achievements, comments, and downloads groups of rights](../assets/screenshots/people/permissions.png){ width="320" loading=lazy }
+/// caption
+Each right carries a line saying what it lets somebody do.
+///
+
 Every tick saves as it is made and says *Saved* next to the right it changed.
 The rule holds from the next thing anybody does in the app.
 

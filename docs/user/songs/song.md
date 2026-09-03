@@ -8,6 +8,11 @@ At the top stand the cover, the title, and the artist. Under them sits an audio
 preview, so you can hear which version this is before the room does. A song
 whose folder holds no audio has no player.
 
+![The song view for I Got You Babe, with the cover, the three buttons, the rows under them, and the summary strip](../assets/screenshots/songs/song.png){ width="320" loading=lazy }
+/// caption
+The three glyphs at the foot count the best score, the tags, and the comments.
+///
+
 ## The three buttons
 
 | Button | What it does |
@@ -75,6 +80,11 @@ tapped. Who may set which tag is decided per tag. See [Tags](tags.md).
 
 **Comments** opens what everybody said about the song, oldest first: who said
 it, how long ago, and the text underneath.
+
+![The comments on I Got You Babe, with three of them from Fry, Leela, and Bender over the box that reads Say something](../assets/screenshots/songs/song-comments.png){ width="320" loading=lazy }
+/// caption
+Every comment carries the picture and the name of whoever wrote it.
+///
 
 Reading is open to everybody. A guest phone that can see the song list can read
 the comments too. Knowing that a song is in the wrong key is worth more shared

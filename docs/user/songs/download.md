@@ -31,6 +31,11 @@ stored and never shown again: the field only says whether one is set. See
 Fill in **Artist**, **Title**, or both, and tap **Search**. Best rated songs
 come first.
 
+![The USDB page with Queen in the artist box, over 9 results that each carry a cover, a star rating, and a mark](../assets/screenshots/songs/usdb-search.png){ width="320" loading=lazy }
+/// caption
+Bohemian Rhapsody carries a check, so that one is already in the library.
+///
+
 **More filters** holds two more controls. **Results per page** offers 30, 50,
 or 100. **Sort by** offers ten orders, in five pairs:
 
@@ -76,6 +81,11 @@ opens the queue. It turns into a ring while something is running, and into
 The panel lists what this run of Wingman has been doing. Each row carries its
 state, the song's name, the step it is on with a percentage, and a progress
 bar. A failed row carries the reason, which unfolds into the full text.
+
+![The Downloads panel with one song waiting in the queue and another downloading the video at 60 percent](../assets/screenshots/songs/usdb-downloads.png){ width="320" loading=lazy }
+/// caption
+The clock marks a queued download, and the ring beside it marks the one running.
+///
 
 - :wingman-refresh: **Retry download** fetches the song again, even if Wingman
   thinks it already has it.

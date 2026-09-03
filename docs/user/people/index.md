@@ -27,6 +27,13 @@ An account also holds a role, and a role is how the host hands rights out.
 
 ## Log in or register
 
+Signed out, the **User** tab is the login form.
+
+![The User tab signed out, with the Existing account and New account tabs over the Name and Password boxes and the Log in button](../assets/screenshots/people/login.png){ width="320" loading=lazy }
+/// caption
+**New account**, beside the tab you land on, is the way to register instead.
+///
+
 1. Open the **User** tab.
 2. To register, tap **New account**. **Existing account** is the way back to
    logging in.
