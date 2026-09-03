@@ -31,6 +31,7 @@ nav = [
       { "Filter the list" = "songs/filter.md" },
       { "Open a song" = "songs/song.md" },
       { "Playlists" = "songs/playlists.md" },
+      { "Download songs" = "songs/download.md" },
       { "Fix or delete a song" = "songs/fix-or-delete.md" },
     ] },
     { "Scores" = [
@@ -53,7 +54,6 @@ nav = [
       "host-screen/index.md",
       { "Manage from the TV" = "host-screen/manage.md" },
     ] },
-    { "Download songs" = "songs/download.md" },
     { "Fix a problem" = [
       "help/index.md",
       { "Ultrastar Deluxe problems" = "help/ultrastar-deluxe.md" },

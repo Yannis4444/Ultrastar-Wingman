@@ -80,6 +80,7 @@ is small.
 | Sing | `songs/` | `filter.md` | Filter the list | Everyone | The Filter panel, facets, tags | How-to |
 | Sing | `songs/` | `song.md` | Open a song | Everyone | The song view: details, best scores, comments | How-to |
 | Sing | `songs/` | `playlists.md` | Playlists | Everyone | Make one, fill it, manage it, share it, follow one, spin it | How-to |
+| Sing | `songs/` | `download.md` | Download songs | Host | The USDB account, search, download, the queue | How-to |
 | Sing | `songs/` | `fix-or-delete.md` | Fix or delete a song | Administrator | The details editor, deleting a song folder | How-to |
 | Sing | `scores/` | `index.md` | Scores | Everyone | Where scores come from, which parties you see | Index |
 | Sing | `scores/` | `party.md` | A party's scores | Everyone | The Scores page, its charts, its groupings, naming a party, correcting a score | How-to |
@@ -91,7 +92,6 @@ is small.
 | Host | `start/` | `join.md` | Let guests in | Host | The QR code, the address, what a guest may do | How-to |
 | Host | `host-screen/` | `index.md` | The host screen | Host | What stands on the TV, and how to put it there | Index |
 | Host | `host-screen/` | `manage.md` | Manage from the TV | Host | The Manage page behind the host screen | How-to |
-| Host | `songs/` | `download.md` | Download songs | Host | The USDB account, search, download, the queue. A page on its own in the tab, with its own icon | How-to |
 | Host | `help/` | `index.md` | Fix a problem | Everyone | Symptom, cause, fix | Index |
 | Host | `help/` | `ultrastar-deluxe.md` | Ultrastar Deluxe problems | Host | The setup and launch failures | How-to |
 | Manage | `people/` | `index.md` | People | Everyone | Accounts, guests, players, and logging in | Index |
@@ -759,8 +759,7 @@ Config facts, all verified against the installed zensical (0.0.57):
   `icon: wingman/music`. The sidebar template includes `.icons/<that path>.svg`, which
   resolves through `theme.custom_dir = "overrides"` (relative to `zensical.toml`) into
   `docs/overrides/.icons/wingman/`. A wrong name fails the build. The same key on a page
-  that is not an index puts the glyph on that page's own row, which only a page standing
-  alone in a tab gets (`songs/download.md`).
+  that is not an index would put the glyph on that page's own row; no page uses it.
 - The selected tab, the selected sidebar row and the row under the pointer take the brand
   blue, not the accent pink: `wingman.css` redefines the accent variables inside
   `.md-sidebar--primary` and `.md-tabs`. Pink stays the accent everywhere else.
