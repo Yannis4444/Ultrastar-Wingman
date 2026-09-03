@@ -68,6 +68,10 @@ nav = [
   ] },
   { "Integrations" = [
     "integrate/index.md",
+    { "The REST API" = "integrate/rest-api.md" },
+    { "Authenticate a script" = "integrate/authentication.md" },
+    { "Live events" = "integrate/events.md" },
+    { "Files and configuration" = "integrate/files.md" },
   ] },
 ]
 
