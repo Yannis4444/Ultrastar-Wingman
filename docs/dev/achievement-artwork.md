@@ -4,9 +4,9 @@ How the badge pictures of the seventeen built-in achievements are made: one
 consistent set, generated with ChatGPT from the prompt kit below, and the same
 kit is what makes a matching badge for a custom achievement later. The
 finished files live in `backend/src/ultrastar_wingman/achievements/images/`,
-one 512 px PNG per built-in, named by its id (`builtin-score-9000.png`); the
-full-size masters are kept out of git in `artwork/achievements/masters/`.
-§9 says which badges exist. §8 is the UI work the pictures still need.
+one PNG per built-in, named by its id (`builtin-score-9000.png`) — ChatGPT's
+own download, full size, unchanged, so the file in the package is also the
+master. §9 says which badges exist. §8 is the UI work the pictures still need.
 
 ## 1. What the app does with a picture
 
@@ -21,7 +21,7 @@ the host screen, and every guideline below follows from one of them.
 | Earned glyph medallions are a solid plate in the tier colour with a cut-out glyph; the four tier colours are the tag colours: neutral `#ccc`, blue `#4b92cd`, pink `#9e3b95`, gold `#faa636`. | The tier has to stay visible in the picture, or the ladders (6 000 → 8 000 → 9 000 → 9 500) lose their colour story. |
 | Row avatars, a tag's colour square and a playlist's cover are 8 px rounded squares (`--border-radius-small`); round was what told a badge from a tag. | With square badges the enamel-pin drawing itself is what tells a badge apart from a flat glyph square. §8 notes the tag square as something to look at again. |
 | The app is dark-only: page `#021720`, tiles `#1b3347`, inputs `#1c2832`. | **Decision (2026-09-03): the plate is a monochrome dark grey, not a navy.** A neutral grey sits under all four tier colours without tinting them, keeps the picture's hue entirely on the motif, and is dark enough that the badge still reads as a dark object on the dark page. Some structure in the grey is fine, one fixed kind of it (§2). |
-| Upload: PNG/JPEG/WebP, ≤ 5 MB, ≤ 50 MP. | 512×512 PNG is plenty (a flat-vector badge is 30–80 KB). ChatGPT renders 1024×1024; downscale. |
+| Upload: PNG/JPEG/WebP, ≤ 5 MB, ≤ 50 MP. | ChatGPT's download is a 1254×1254 PNG of 1–1.3 MB — the soft falloff and the model's noise defeat PNG's compression — comfortably inside both caps. **Decision (2026-09-03): ship that file as it is**, no downscale, so a larger badge view later has the pixels; a smaller variant for the rows is the serving side's job (§8, item 6), not a second set of files made by hand. |
 | `Reset` on a built-in **drops** its uploaded picture. | The pictures are instance data loaded through the editor or an archive import — not something Wingman ships. Shipping them would be a separate feature (see §7). |
 | An import archive may carry `<id>/icon.png` per achievement and stores it through the same rules. | The intended loading route: export the catalogue, drop one `icon.png` into each folder, import. One upload instead of seventeen. |
 
@@ -360,28 +360,14 @@ grey and falloff during QA, and the fallback picture if a badge ever needs one.
    style; the text alone will not.
 4. **QA** every result against §6. Regenerate, never retouch — a retouched
    badge is the one that later looks different.
-5. **Post-process** — check the plate runs to all four edges (if the model
-   drew a border or a margin of another colour, crop it away) and that the
-   corners sit near `#1e2124`. Keep the full-size file as
-   `artwork/achievements/masters/<id>.png`, then downscale to 512×512 into the
-   package. The venv has no image library and the app gets none for this
-   (`code-style.md`); Windows has one built in — from the repo root:
-
-   ```powershell
-   $id = "builtin-score-9000"
-   Add-Type -AssemblyName System.Drawing
-   $src = [System.Drawing.Image]::FromFile("$PWD\artwork\achievements\masters\$id.png")
-   $bmp = New-Object System.Drawing.Bitmap 512, 512
-   $g = [System.Drawing.Graphics]::FromImage($bmp)
-   $g.InterpolationMode = [System.Drawing.Drawing2D.InterpolationMode]::HighQualityBicubic
-   $g.SmoothingMode = [System.Drawing.Drawing2D.SmoothingMode]::HighQuality
-   $g.PixelOffsetMode = [System.Drawing.Drawing2D.PixelOffsetMode]::HighQuality
-   $g.DrawImage($src, 0, 0, 512, 512)
-   $bmp.Save("$PWD\backend\src\ultrastar_wingman\achievements\images\$id.png", [System.Drawing.Imaging.ImageFormat]::Png)
-   $g.Dispose(); $bmp.Dispose(); $src.Dispose()
-   ```
-
-   A flat badge comes out at roughly 300 KB, well under the 5 MB upload cap.
+5. **File it** — check the plate runs to all four edges (if the model drew a
+   border or a margin of another colour, the image is a reject, not a crop
+   job) and that the corners sit near `#1e2124`. Download ChatGPT's file
+   (*not* a copy pasted through another program, which re-encodes it) and
+   save it unchanged as
+   `backend/src/ultrastar_wingman/achievements/images/<id>.png`. Nothing is
+   resized: the venv has no image library and the app gets none for this
+   (`code-style.md`), and the file is the master.
 6. **Load** — on a scratch instance: export the seventeen from
    `/user/achievements`, put each file into its folder as `icon.png`, import
    the archive. Check the list at 40 px, the user page, and the host screen
@@ -429,8 +415,8 @@ grey and falloff during QA, and the fallback picture if a badge ever needs one.
   configuration (the wheel takes every file under `src/ultrastar_wingman`);
   the installer will need one more `datas` line in
   `installer/UltrastarWingman.spec`, which lists its data directories by hand
-  (§8, item 6). The full-size masters stay out of git, in the ignored
-  `artwork/achievements/masters/`.
+  (§8, item 6). There is no separate masters folder: the packaged file is
+  ChatGPT's original and therefore the master.
 
 **Still open:**
 
@@ -482,7 +468,13 @@ pictures exist to look at. Plan and discuss before implementing.
    (so `has_image` is true for a built-in from the start), `Reset` returns to
    the packaged picture instead of to none, and the export writes the packaged
    file into the archive so an import elsewhere carries it. The frozen build
-   needs the directory in the installer's `datas`. After this, the glyph
+   needs the directory in the installer's `datas`. The packaged files are the
+   full-size originals (1–1.3 MB each), and the user page draws all seventeen
+   in 40 px rows — so this feature also decides how a row gets a small one:
+   a size parameter on the icon endpoint with a downscaled variant made once
+   and cached in the data directory, or the browser scaling the original and
+   paying the bytes on first load. A large badge view (tapping a badge) is
+   what the full size is kept for. After this, the glyph
    medallion is the look of custom achievements only.
 
 ## 9. Status
@@ -496,7 +488,7 @@ reads better at 40 px, and every later badge copies this one.
 | # | Badge | File in `achievements/images/` | State |
 |---|---|---|---|
 | 4 | Golden Voice | `builtin-score-9000.png` | done — the reference |
-| 3 | In Tune | | next — locks the blue tier |
-| 1 | First Time on the Mic | | after that — locks the neutral tier |
+| 3 | In Tune | `builtin-score-8000.png` | done — first try against the reference; the blue tier is locked |
+| 1 | First Time on the Mic | | next — locks the neutral tier |
 | the other fourteen | | | production round, against the reference |
 | — | blank plate | | optional |
