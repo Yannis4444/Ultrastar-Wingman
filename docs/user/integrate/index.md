@@ -1,4 +1,8 @@
-# Integrations
+---
+icon: wingman/database
+---
+
+# Integrate
 
 This section is for people building something around Wingman: a Discord bot, a
 stream overlay, a bulk importer. It assumes you know HTTP and JSON, and that

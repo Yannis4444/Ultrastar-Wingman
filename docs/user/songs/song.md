@@ -74,7 +74,7 @@ color, and a tag it does not wear is gray. Tap a row to put the tag on the song
 or take it off.
 
 A tag you may see but not set carries :wingman-lock: and does nothing when
-tapped. Who may set which tag is decided per tag. See [Tags](tags.md).
+tapped. Who may set which tag is decided per tag. See [Tags](../tags/index.md).
 
 ## Comments
 

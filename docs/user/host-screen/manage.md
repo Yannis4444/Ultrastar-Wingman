@@ -25,10 +25,10 @@ The host browser holds every right, so it gets all five rows.
   pictures, their roles, and who the singer picker offers. See
   [Players and avatars](../people/players.md).
 - :wingman-tag: **Tags**: the labels on songs, who may see them, and the
-  built-in marks and facets. See [Tags](../songs/tags.md).
+  built-in marks and facets. See [Tags](../tags/index.md).
 - :wingman-trophy: **Achievements**: the badges this party hands out, and the
   three options behind them. See
-  [Manage achievements](../achievements/manage.md).
+  [Manage achievements](../achievements/manage/index.md).
 - :wingman-shield: **Permissions**: what each role may do. See
   [Roles and permissions](../people/roles.md).
 

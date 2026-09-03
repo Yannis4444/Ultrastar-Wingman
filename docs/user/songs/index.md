@@ -1,3 +1,7 @@
+---
+icon: wingman/music
+---
+
 # The song list
 
 The **Songs** tab holds every song Wingman found in your song folders. It is
@@ -66,7 +70,7 @@ row. The song's own view is where each state is changed.
 The duet and video marks are off until the party turns them on. Most libraries
 hold so many of each that the glyphs would say nothing. The colors and the
 on-off switches are the party's, and so is which tags reach a row. See
-[Tags](tags.md).
+[Tags](../tags/index.md).
 
 Genre, language, edition, and year are never marks. They live in the song's own
 **Details** and in the filter.
@@ -97,7 +101,7 @@ Some songs are deliberately kept out of the list.
   in the reel, and not on a playlist or the wishlist either.
 
 If a filter comes up empty because of the first kind, the page says so instead
-of claiming you have no favorites. See [Tags](tags.md) for the whole picture.
+of claiming you have no favorites. See [Tags](../tags/index.md) for the whole picture.
 
 ## The rest of this section
 
@@ -105,6 +109,6 @@ of claiming you have no favorites. See [Tags](tags.md) for the whole picture.
 - [Open a song](song.md): the song view, best scores, and comments.
 - [Playlists](playlists.md): make one, fill it, share it, and spin it.
 - [Download songs](download.md): get new songs from USDB.
-- [Tags](tags.md): label songs, and decide who may see which.
+- [Tags](../tags/index.md): label songs, and decide who may see which.
 - [Fix or delete a song](fix-or-delete.md): correct the details, or take a song
   off the disk.

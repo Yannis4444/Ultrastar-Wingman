@@ -1,3 +1,7 @@
+---
+icon: wingman/chart
+---
+
 # Scores
 
 Ultrastar Deluxe scores the singing. Wingman reads the result and files it under

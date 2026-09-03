@@ -14,59 +14,72 @@ extra_css = ["assets/stylesheets/wingman.css"]
 # Sections are folders. The first entry of a section is its index page, which
 # `navigation.indexes` turns into the section's own landing page. Only files that
 # exist are listed here.
+# Five tabs, named by what the reader is doing (documentation.md section 2). Inside a
+# tab the sidebar shows only that tab's chapters; a chapter's glyph comes from the
+# `icon` in its index page's front matter.
 nav = [
   { "Overview" = "index.md" },
-  { "Get started" = [
-    "start/index.md",
-    { "Install and run" = "start/install.md" },
-    { "Connect Ultrastar Deluxe" = "start/ultrastar-deluxe.md" },
-    { "Let guests in" = "start/join.md" },
+  { "Sing" = [
+    { "At the party" = [
+      "party/index.md",
+      { "Wish for a song" = "party/wishlist.md" },
+      { "Sing a song" = "party/sing.md" },
+      { "Let the reel pick" = "party/reel.md" },
+    ] },
+    { "The song list" = [
+      "songs/index.md",
+      { "Filter the list" = "songs/filter.md" },
+      { "Open a song" = "songs/song.md" },
+      { "Playlists" = "songs/playlists.md" },
+      { "Fix or delete a song" = "songs/fix-or-delete.md" },
+    ] },
+    { "Scores" = [
+      "scores/index.md",
+      { "A party's scores" = "scores/party.md" },
+      { "Your own scores" = "scores/your-scores.md" },
+    ] },
+    { "Achievements" = [
+      "achievements/index.md",
+    ] },
   ] },
-  { "The song list" = [
-    "songs/index.md",
-    { "Filter the list" = "songs/filter.md" },
-    { "Open a song" = "songs/song.md" },
-    { "Playlists" = "songs/playlists.md" },
+  { "Host" = [
+    { "Get started" = [
+      "start/index.md",
+      { "Install and run" = "start/install.md" },
+      { "Connect Ultrastar Deluxe" = "start/ultrastar-deluxe.md" },
+      { "Let guests in" = "start/join.md" },
+    ] },
+    { "The host screen" = [
+      "host-screen/index.md",
+      { "Manage from the TV" = "host-screen/manage.md" },
+    ] },
     { "Download songs" = "songs/download.md" },
-    { "Tags" = "songs/tags.md" },
-    { "Built-in marks and facets" = "songs/built-in-tags.md" },
-    { "Fix or delete a song" = "songs/fix-or-delete.md" },
+    { "Fix a problem" = [
+      "help/index.md",
+      { "Ultrastar Deluxe problems" = "help/ultrastar-deluxe.md" },
+    ] },
   ] },
-  { "At the party" = [
-    "party/index.md",
-    { "Wish for a song" = "party/wishlist.md" },
-    { "Sing a song" = "party/sing.md" },
-    { "Let the reel pick" = "party/reel.md" },
+  { "Manage" = [
+    { "People" = [
+      "people/index.md",
+      { "Players and avatars" = "people/players.md" },
+      { "Roles and permissions" = "people/roles.md" },
+      { "Single sign-on" = "people/single-sign-on.md" },
+    ] },
+    { "Settings" = [
+      "settings/index.md",
+      { "All settings" = "settings/reference.md" },
+    ] },
+    { "Tags" = [
+      "tags/index.md",
+      { "Built-in marks and facets" = "tags/built-in.md" },
+    ] },
+    { "Achievements" = [
+      "achievements/manage/index.md",
+      { "Make an achievement" = "achievements/manage/create.md" },
+    ] },
   ] },
-  { "The host screen" = [
-    "host-screen/index.md",
-    { "Manage from the TV" = "host-screen/manage.md" },
-  ] },
-  { "Scores" = [
-    "scores/index.md",
-    { "A party's scores" = "scores/party.md" },
-    { "Your own scores" = "scores/your-scores.md" },
-  ] },
-  { "Achievements" = [
-    "achievements/index.md",
-    { "Make an achievement" = "achievements/create.md" },
-    { "Manage achievements" = "achievements/manage.md" },
-  ] },
-  { "People" = [
-    "people/index.md",
-    { "Players and avatars" = "people/players.md" },
-    { "Roles and permissions" = "people/roles.md" },
-    { "Single sign-on" = "people/single-sign-on.md" },
-  ] },
-  { "Settings" = [
-    "settings/index.md",
-    { "All settings" = "settings/reference.md" },
-  ] },
-  { "Fix a problem" = [
-    "help/index.md",
-    { "Ultrastar Deluxe problems" = "help/ultrastar-deluxe.md" },
-  ] },
-  { "Integrations" = [
+  { "Integrate" = [
     "integrate/index.md",
     { "The REST API" = "integrate/rest-api.md" },
     { "Authenticate a script" = "integrate/authentication.md" },
@@ -77,6 +90,9 @@ nav = [
 
 [project.theme]
 language = "en"
+# Template overrides and the Wingman icon set (`overrides/.icons/wingman/`). Relative to
+# this file. The sidebar reads a chapter's `icon` front matter through it.
+custom_dir = "overrides"
 # Both files are relative to `docs_dir`. The logo is the app's own, the favicon
 # the app's own 32x32 icon.
 logo = "assets/logo.png"
@@ -88,6 +104,8 @@ features = [
   "navigation.indexes",
   "navigation.path",
   "navigation.sections",
+  "navigation.tabs",
+  "navigation.tabs.sticky",
   "navigation.top",
   "navigation.tracking",
   "search.highlight",

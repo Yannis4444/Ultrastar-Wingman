@@ -30,7 +30,7 @@ one or the other and a mark most songs wear says nothing at a glance.
 
 **Show in filter** decides whether the **Filter** panel offers the row. Turn it
 off and nobody can filter by that fact. The six facets start on. See
-[Filter the list](filter.md).
+[Filter the list](../songs/filter.md).
 
 ## Why they are not tags
 
@@ -55,13 +55,13 @@ genre list on its own.
 Tap a built-in row on **User** > **Tags**. The editor holds only the options its
 kind has, over a line saying why it holds no more.
 
-![The Decade built-in in its reduced editor, with the line explaining it and the single Show in filter option under that](../assets/screenshots/songs/built-in-tags.png){ width="320" loading=lazy }
+![The Decade built-in in its reduced editor, with the line explaining it and the single Show in filter option under that](../assets/screenshots/tags/built-in-tags.png){ width="320" loading=lazy }
 /// caption
 **Decade** has one option, because there is nothing else about it to set.
 ///
 
 A change applies to everybody at once and takes the right to manage tags, the
-same as a tag. See [Tags](tags.md).
+same as a tag. See [Tags](index.md).
 
 !!! note
     **Recent** is not on this page. It is not a mark. It is a way of ordering

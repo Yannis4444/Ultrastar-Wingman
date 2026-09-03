@@ -1,3 +1,7 @@
+---
+icon: wingman/alert
+---
+
 # Fix a problem
 
 The things that actually go wrong at a party, and what fixes them. Find your

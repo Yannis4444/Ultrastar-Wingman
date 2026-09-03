@@ -32,7 +32,7 @@ order:
 **Favorites** and **Sung** are yours alone, so they only appear once you are
 logged in. Rows two and three are the built-in facets, and the party
 decides which of them the panel offers at all. A facet you read about here may
-be switched off. See [Tags](tags.md).
+be switched off. See [Tags](../tags/index.md).
 
 ## Yes, no, or any
 

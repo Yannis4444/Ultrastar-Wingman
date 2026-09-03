@@ -1,3 +1,7 @@
+---
+icon: wingman/download
+---
+
 # Download songs
 
 New songs come from USDB, the community song database at usdb.animux.de.

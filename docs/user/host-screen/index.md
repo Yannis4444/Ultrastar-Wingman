@@ -1,3 +1,7 @@
+---
+icon: wingman/tv
+---
+
 # The host screen
 
 The host screen is the Wingman page on the TV, next to Ultrastar Deluxe. It is
@@ -87,7 +91,7 @@ Badges come before all of that. If the song earned somebody an achievement, the
 stage holds the results back and throws the badges up first. They come one
 singer at a time, four badges to a row. How long a row stays is set on
 **User** > **Achievements**. See
-[Manage achievements](../achievements/manage.md).
+[Manage achievements](../achievements/manage/index.md).
 
 ## While nothing plays
 
