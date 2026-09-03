@@ -49,21 +49,14 @@
 
 /* A picture — uploaded, or the one Wingman ships with a built-in — replaces the
    glyph and fills the plate. Square or not, the badge crops it to its own
-   shape, and the rounding takes the corners off a square one.
-
-   Drawn at 112%: the shipped pictures keep an 8% margin of plate around the
-   motif (achievement-artwork.md §2), which made them sit visibly smaller than
-   a glyph on its plate in the same 40px slot. Scaling them past the edge crops
-   most of that margin away — what is left (~7% of the side) still clears the
-   ~6% the corner rounding takes off the diagonal, so no motif loses a corner.
-   `object-fit: cover` keeps an upload of another aspect ratio centred. */
+   shape, and the rounding takes the corners off a square one. Drawn whole:
+   the shipped pictures keep an 8% margin of plate around the motif
+   (achievement-artwork.md §2), and that margin is part of the picture — a
+   surface that wants the badge bigger sizes the badge (its `font-size`), it
+   does not crop the picture. */
 .achievement-badge-image {
-  /* `flex: none`: the badge is a flex box, and a flex item that overflows it
-     would otherwise be shrunk straight back to 100%. */
-  flex: none;
-  width: 112%;
-  height: 112%;
-  max-width: none;
+  width: 100%;
+  height: 100%;
   object-fit: cover;
 }
 
