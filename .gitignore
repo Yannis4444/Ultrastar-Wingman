@@ -224,3 +224,7 @@ __marimo__/
 installer/build/
 installer/dist/
 !installer/*.spec
+
+# Achievement artwork: the full-size generated masters; the 512 px files in
+# backend/src/ultrastar_wingman/achievements/images/ are what is versioned.
+artwork/achievements/masters/
