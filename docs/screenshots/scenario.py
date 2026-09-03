@@ -117,10 +117,13 @@ OLDER_PARTY = PartyPlan(
 )
 
 # Tonight, still going. Twenty-three scores over five singers, which is what the scores
-# page and the host screen are photographed against.
+# page and the host screen are photographed against. Named, because the picture of the
+# party button would otherwise read "Party 9/3/2026, 05:18 AM": the seed runs relative to
+# the clock, so an unnamed party looks like it started at whatever hour the run happened.
+# Short enough that the button does not have to ellipsize it at 390px.
 TONIGHT = PartyPlan(
     key="tonight",
-    name=None,
+    name="Robot Hell karaoke",
     days_ago=0,
     ends_minutes_ago=5,
     sings=(

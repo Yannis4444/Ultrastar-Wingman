@@ -292,7 +292,8 @@ saved) where a jump to the top would throw away the place they were working in.
   passive `globe` mark when global, a meta line "12 songs · 48 min · by alice" (the owner named
   outside *Your playlists*) and a chevron. The header `+` opens the New playlist panel and
   navigates into what it creates. No edit or delete control on a row — management lives behind
-  the detail page's gear — and each group carries its own `EmptyState`.
+  the detail page's gear. One `EmptyState` for the page, not one per group: three of them
+  stacked on a fresh install would say the same thing three times.
 - **Playlist** (`/songs/playlists/:id`): `PageHeader` with the name, `back` to the list,
   trailing the gradient dice and, for `can_manage`, a `gear` into the manage page. Then a
   summary line (description; "12 songs · 48 min · Global · shared by alice · your access") and

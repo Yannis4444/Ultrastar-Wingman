@@ -50,7 +50,7 @@ DEFINITIONS: dict[str, SettingDefinition] = {
         default=True,
         group="Achievements",
         description=(
-            "Achievements for the whole instance. Off: nothing is evaluated and nothing is drawn."
+            "Achievements for the whole app. Off: nobody earns anything and no badge is drawn."
         ),
     ),
     HOST_SECONDS_BASE: SettingDefinition(

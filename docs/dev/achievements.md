@@ -382,7 +382,7 @@ screen and every phone need them), written only through `achievements.manage`.
 
 | Key | Default | What |
 |---|---|---|
-| `achievements.enabled` | `true` | Achievements off for the whole instance: nothing is evaluated, nothing is drawn. |
+| `achievements.enabled` | `true` | Achievements for the whole app. Off: nobody earns anything and no badge is drawn. |
 | `achievements.host_seconds_base` | `4` | Seconds a row of badges stays on the host screen. |
 | `achievements.host_seconds_per_badge` | `2` | Added to it for each badge in the row. |
 

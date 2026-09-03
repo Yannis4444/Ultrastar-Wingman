@@ -56,6 +56,7 @@ default does not fit, and leave the others alone.
 | `WINGMAN_PORT` | The port to listen on | `8080` |
 | `WINGMAN_HOST` | The address to listen on | `0.0.0.0`, meaning every address the PC has |
 | `WINGMAN_OPEN_BROWSER` | Open the host screen at startup | `true` |
+| `WINGMAN_FRONTEND_DIR` | The web app Wingman serves. Only needed if you built it yourself | The copy inside the exe, or `frontend/dist` when you run from source |
 
 Wingman also reads a file called `.env` in the folder you start it from, so a
 double-click can carry these too. One name and value per line:

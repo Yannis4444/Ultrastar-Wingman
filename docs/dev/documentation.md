@@ -188,8 +188,11 @@ half-line each. An index may carry real content when its section has one or two 
 Rules for every type:
 
 - One topic per page. The title has to name it in under six words.
-- A page over about 120 lines is two pages. A page under about 25 lines belongs in its
-  section index.
+- A page over about 120 lines is two pages. Count the lines of the Markdown source, blank
+  lines included. A page that section 2 hands one whole subject may run to about 160 rather
+  than shed half of it. Past 160 it splits, and a split that adds a page needs the user's
+  agreement.
+- A page under about 25 lines belongs in its section index.
 - At most two heading levels (`##`, then `###` only when a `##` really splits).
 - End a page with content, not with a summary of itself. A "See also" list of two or three
   links is allowed when the next step lives elsewhere.
@@ -427,7 +430,8 @@ own library, names, and scores never appear.
 - Scores are believable otherwise: most between 3,000 and 8,000, Zoidberg last.
 - Two parties, not one. An older one from a week ago, and the one going tonight. A singer
   needs a history before "All my scores" and a progress bar mean anything. The Scores page
-  needs a second party before its party selector is worth a look.
+  needs a second party before its party selector is worth a look. Both carry a name, so a
+  picture never reads back the hour the seed happened to run at.
 - One achievement is left one song short for Bender. The sing captured for
   `host-achievements` is the one that completes it.
 - Ultrastar Deluxe is set up on the scratch instance, so the setup banner on Home stays
@@ -522,7 +526,7 @@ about, and the **Must be visible** column names that part alone.
 
 - Relative Markdown links between pages, with the `.md` extension:
   `[Download songs](../songs/download.md)`. They work on the site and on GitHub.
-- Link text names the target: "see [Roles and permissions](../people/roles.md)". Never "click
+- Link text names the target: `see [Roles and permissions](../people/roles.md)`. Never "click
   here", never a bare URL, never the whole sentence.
 - Link a page the first time it is relevant on the current page, then stop. Three links to
   the same page is two too many.
@@ -578,9 +582,8 @@ about, and the **Must be visible** column names that part alone.
 
 ## 10. The integration section
 
-The site carries one section for developers. That is the answer to the question the
-improvements file asks. It documents what somebody can build on, and nothing about how
-Wingman is built. No module names, no class names, no code walkthroughs.
+The site carries one section for developers. It documents what somebody can build on, and
+nothing about how Wingman is built. No module names, no class names, no code walkthroughs.
 
 It lives inside `docs_dir` because zensical has one build root, so a second site is not an
 option. Separation is by section instead: its own top-level nav folder, its own audience
@@ -689,6 +692,12 @@ its page, but it forces one appearance on readers who need a bright screen. The 
 accept instead: dark screenshots sit on a light page for those readers. Captions and the
 figure frame keep them readable as pictures of the app.
 
+That frame is a ring, not a border: a
+`box-shadow: 0 0 0 1px var(--md-default-fg-color--lightest)` on `.md-typeset figure img`. A
+ring costs the picture no width, so the figure still fits its column. It earns its place on
+the dark scheme, where a dark screenshot sits on a background of almost the same color and
+would otherwise have no edge at all.
+
 Config facts, all verified against the installed zensical (0.0.57):
 
 - Setting `[project.markdown_extensions]` replaces zensical's defaults completely. List every
@@ -718,6 +727,15 @@ Config facts, all verified against the installed zensical (0.0.57):
 - The lightbox comes from the built-in glightbox extension: `[project.plugins]` with
   `glightbox = {}`. Each image is wrapped in an `<a class="glightbox">` automatically, and the
   theme's own bundle opens it.
+- The modern theme paints its bars and its admonitions from its own surfaces, and gives
+  neither one a variable of its own. `.md-header` takes `--md-default-bg-color--light` and
+  `.md-footer-meta` takes `--md-default-fg-color--lightest`, both shared with other elements,
+  so there is no header color to set. That is why `wingman.css` overrides `background-color`
+  on those two selectors directly, and scopes the override to
+  `[data-md-color-scheme="slate"]`: the light scheme keeps the theme's own bars, whose header
+  text is near-black. An admonition is the same story with one extra trap. The stylesheet
+  defines `--md-admonition-bg-color` and never reads it, so setting that variable does
+  nothing at all.
 - Theme features to use: `navigation.sections`, `navigation.indexes`, `navigation.top`,
   `navigation.footer`, `navigation.tracking`, `navigation.path`, `toc.follow`,
   `content.code.copy`, `content.tabs.link`, `search.highlight`.

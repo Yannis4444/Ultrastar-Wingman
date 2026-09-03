@@ -14,9 +14,9 @@ default. See [Roles and permissions](../people/roles.md).
 
 ## Your badges on your own page
 
-Log in and open **User**. Under your scores stands **Achievements** with a
-count, such as *7 of 17*, and the badges you already hold beside it. Before
-your first one it says "Nothing yet. The first one is a song away".
+Log in and open **User**. Under your scores stands **Achievements** with your
+badges beside it. The count says how many you hold out of how many there are.
+Before your first one it says "Nothing yet. The first one is a song away".
 
 Tap the line to fold out the whole list. The ones you earned come first, newest
 first. The rest follow in the order the host arranged them in.

@@ -992,7 +992,7 @@ const BUILT_IN_WHY: Record<BuiltInTagId, string> = {
   edition:
     "Edition comes out of the song file itself, and it is one word out of hundreds. It is never a mark on a row, where it would say nothing at a glance. So the one thing to decide is whether the Filter panel offers it. The song's own view lists the value either way.",
   decade:
-    "Decade is the song's year, rounded down: 1985 is the 1980s. It comes out of the file, and it is never a mark on a row. The one thing to decide is whether the Filter panel offers it. A song whose file names no year is in no decade and only ever matches *Any*.",
+    "Decade is the song's year, rounded down: 1985 is the 1980s. It comes out of the file, and it is never a mark on a row. The one thing to decide is whether the Filter panel offers it. A song whose file names no year is in no decade and only ever matches Any.",
 };
 
 /** What *Show in song list* does, per kind. A mark is one reader's own; a facet

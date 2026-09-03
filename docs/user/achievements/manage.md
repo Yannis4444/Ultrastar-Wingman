@@ -18,7 +18,7 @@ than to whoever configures Wingman.
 
 | Option | What it does | Default |
 |---|---|---|
-| **Enabled** | Achievements for the whole app. Off means nothing is earned and no badge is drawn anywhere | On |
+| **Enabled** | Achievements for the whole app. Off means nobody earns anything and no badge is drawn | On |
 | **How long a row of badges stays on the host screen** | Seconds, 0 to 60 | 4 |
 | **Added for each badge in the row** | Seconds added to that for every badge the row holds | 2 |
 

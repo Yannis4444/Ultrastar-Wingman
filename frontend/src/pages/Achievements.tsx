@@ -845,7 +845,7 @@ export default function Achievements() {
                   <AchievementSettingRow
                     id="enabled"
                     label="Enabled"
-                    description="Off for the whole instance: nothing is earned and no badge is drawn anywhere."
+                    description="Off for the whole app: nobody earns anything and no badge is drawn."
                     saved={savedField === "enabled"}
                     inline
                   >

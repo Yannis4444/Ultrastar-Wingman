@@ -10,8 +10,10 @@ site build root, so none of them ever ships as a site asset.
 ## Prerequisites
 
 - The repo venv: `D:\git\Ultrastar-Wingman-new\venv\Scripts\python.exe`. Never system
-  Python. No extra package is needed: `httpx`, `websockets` and SQLAlchemy come with the
-  backend, which `pip install -e "backend[dev]"` already put there.
+  Python. Every Python command on this page runs from the repository root, where the
+  relative `venv\Scripts\python.exe` is that same file. No extra package is needed: `httpx`,
+  `websockets` and SQLAlchemy come with the backend, which `pip install -e "backend[dev]"`
+  already put there.
 - A built frontend. Run `npm run build` in `frontend/` once. The scratch backend serves
   `frontend/dist`, so there is no vite in this loop.
 - Chrome at `C:\Program Files (x86)\Google\Chrome\Application\chrome.exe`. Pass
@@ -19,8 +21,6 @@ site build root, so none of them ever ships as a site asset.
 - The character pictures in `docs/screenshots/avatars/` (see [Avatars](#avatars)).
 
 ## The one command
-
-From the repository root:
 
 ```powershell
 venv\Scripts\python.exe docs\screenshots\capture.py --all
@@ -105,9 +105,8 @@ be taken of a song that is playing. `capture.py` runs two takes:
    completes two achievements, and the badges take the stage before the results do,
    which is `host-achievements`.
 
-Release, never kill. A killed stand-in is still waiting for its sentinel.
-
-Both takes are rewound afterwards, so the instance ends where it started.
+Release, never kill: a killed stand-in is still waiting for its sentinel. Both takes are
+rewound afterwards, so the instance ends where it started.
 
 ## Capturing one id
 
@@ -125,17 +124,7 @@ leaves it standing.
 segment of the manifest row's **Page** column. `home` belongs to `party/index.md`, so it
 is written to `party/home.png`. Only the captured PNGs go under `docs/user/`.
 
-A page references one like this:
-
-```markdown
-![The song list with the filter chips](../assets/screenshots/songs/songs-list.png){ width="320" loading=lazy }
-/// caption
-The song list. The chips under the search box are the quick filters.
-///
-```
-
-`width="320"` for a phone shot, `width="720"` for a host shot. Section 6 has the rest of
-the in-page rules.
+Section 6 owns what a page does with it: the markup, the width, the alt text, the caption.
 
 ## Avatars
 
@@ -144,11 +133,10 @@ the in-page rules.
 `zoidberg`, each as `.jpg`, `.jpeg`, `.png` or `.webp`.
 
 The folder is gitignored, so the pictures are never repository content. Each one is
-uploaded as it lies on disk. Nothing is cropped or re-encoded, so crop a picture by hand
-if it looks wrong in the round frame.
-
-A missing picture is not an error. The seed prints a line naming the characters it found
-no file for, and those players keep the app's own initials avatar.
+uploaded as it lies on disk, never cropped or re-encoded, so crop a picture by hand if it
+looks wrong in the round frame. A missing picture is not an error: the seed prints a line
+naming the characters it found no file for, and those players keep the app's own initials
+avatar.
 
 ## Adding a manifest row
 
@@ -201,12 +189,8 @@ venv\Scripts\python.exe docs\screenshots\seed.py teardown
 That kills the backend and the stand-in USDB by the process ids in `screenshots.json`,
 reaps any stand-in launcher still waiting, and deletes the scratch directory.
 
-`seed.py` takes `--data-dir` **before** the subcommand, unlike `capture.py`. A run on
-another directory is torn down like this:
-
-```powershell
-venv\Scripts\python.exe docs\screenshots\seed.py --data-dir <path> teardown
-```
+`seed.py` takes `--data-dir` **before** the subcommand, unlike `capture.py`, so a run on
+another directory ends with `seed.py --data-dir <path> teardown`.
 
 Chrome is not in the state file, but `capture.py` prints its process id on the way up. Look
 for a leftover on the ports the run used, `netstat -ano | findstr ":8091 :8092 :9346"` for

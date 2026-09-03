@@ -100,7 +100,7 @@ Everything else it is configured with is a setting inside the app.
 | `WINGMAN_PORT` | The port to listen on | `8080` |
 | `WINGMAN_HOST` | The address to listen on | `0.0.0.0`, meaning every address the PC has |
 | `WINGMAN_OPEN_BROWSER` | Open the host screen in a browser at startup | `true` |
-| `WINGMAN_FRONTEND_DIR` | The built web app to serve | The one shipped with Wingman |
+| `WINGMAN_FRONTEND_DIR` | The built web app to serve | The copy inside the exe, or `frontend/dist` when you run from source |
 
 A file called `.env` in the folder Wingman is started from does the same, one
 name and value per line:
