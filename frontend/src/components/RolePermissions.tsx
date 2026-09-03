@@ -54,7 +54,7 @@ const GROUP_NAMES: Record<string, string> = { usdb: "USDB" };
  */
 const DESCRIPTIONS: Record<string, string> = {
   "achievements.manage":
-    "Create achievements, edit what they ask for, and switch them — the shipped ones included — off and on. Everybody sees the badges.",
+    "Create achievements, edit what they ask for, and switch them off and on. That includes the ones Wingman ships. Everybody sees the badges.",
   "songs.view": "See the song list and open a song.",
   "songs.rescan": "Read the song folders again to pick up new files.",
   "songs.edit":
@@ -72,15 +72,15 @@ const DESCRIPTIONS: Record<string, string> = {
   "playlists.view": "See shared playlists and the songs in them.",
   "playlists.manage": "Create and edit own playlists.",
   "playlists.moderate":
-    "Change and delete somebody else's playlists — the global ones, and the ones shared with you. Needs manage too.",
+    "Change and delete somebody else's playlists: the global ones, and the ones shared with you. Needs manage too.",
   "tags.manage":
     "Create tags, say who each one is for, and delete them. Putting a tag on a song is granted per tag.",
   "comments.write":
-    "Say something under a song. Needs an account — a comment carries your name.",
+    "Say something under a song. Needs an account, because a comment carries your name.",
   "comments.moderate":
     "Delete anybody's comment. Taking your own back never needs a right.",
   "downloads.view": "See the download queue.",
-  "downloads.manage": "Start downloads, retry and clear them.",
+  "downloads.manage": "Start downloads, retry them, and clear them.",
   "usdb.search": "Search usdb.animux.de for new songs.",
   "stats.view": "See the scoreboard of the party that is running.",
   "stats.history":

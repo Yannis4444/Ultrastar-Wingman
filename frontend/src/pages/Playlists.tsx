@@ -303,7 +303,7 @@ export default function Playlists() {
                 checked={isGlobal}
                 onChange={(event) => setIsGlobal(event.target.checked)}
               />
-              <span>Global — everyone can see it</span>
+              <span>Global: everyone can see it</span>
             </label>
             {error && (
               <p className="error-notice" role="alert">

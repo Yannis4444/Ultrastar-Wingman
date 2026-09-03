@@ -226,7 +226,7 @@ export default function UserAchievements({
           // An invitation, not a verdict: nothing has gone wrong, the evening
           // simply has not started yet.
           <span className="user-achievements-none">
-            Nothing yet — the first one is a song away.
+            Nothing yet. The first one is a song away.
           </span>
         )}
       </summary>

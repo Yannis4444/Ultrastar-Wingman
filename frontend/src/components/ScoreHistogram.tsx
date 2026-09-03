@@ -34,7 +34,7 @@ export default function ScoreHistogram({
   const barWidth = width / HISTOGRAM_BUCKETS;
   const barSpace = height - PAD_BOTTOM - 4;
   const bucketLines = (index: number) => [
-    `${index * BUCKET_WIDTH} – ${(index + 1) * BUCKET_WIDTH}`,
+    `${index * BUCKET_WIDTH} to ${(index + 1) * BUCKET_WIDTH}`,
     `${buckets[index]} score${buckets[index] === 1 ? "" : "s"}`,
   ];
   // The full-height columns tile the SVG, so every tap lands on one — the

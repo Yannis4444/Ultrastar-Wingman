@@ -651,7 +651,7 @@ test("a rejected own picture is reported in the tile, not twice", async () => {
   const alerts = await screen.findAllByRole("alert");
   // One uploader, one failure: the tile says it once.
   expect(alerts).toHaveLength(1);
-  expect(alerts[0]).toHaveTextContent("Only jpeg, png and webp images work");
+  expect(alerts[0]).toHaveTextContent("Only jpeg, png, and webp images work");
 });
 
 test("an oversized own picture never leaves the browser", async () => {

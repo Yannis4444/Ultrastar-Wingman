@@ -548,7 +548,7 @@ it("explains a name another tag already has", async () => {
   // pressed in has to say the press went nowhere and where the sentence is.
   expect(
     await screen.findByText(
-      "It did not go through — the message at the top of the page says why.",
+      "It did not go through. The message at the top of the page says why.",
     ),
   ).toBeInTheDocument();
 });
@@ -609,15 +609,13 @@ it("opens a mark on two controls and nothing else", async () => {
   renderEditor({ path: "/user/tags/favorites" });
 
   expect(
-    await screen.findByRole("radiogroup", { name: "Colour" }),
+    await screen.findByRole("radiogroup", { name: "Color" }),
   ).toBeInTheDocument();
   expect(
     screen.getByRole("heading", { name: "Favorites" }),
   ).toBeInTheDocument();
   // A colour, a flag, Save — and none of what belongs to a `tags` row.
-  expect(
-    screen.getByRole("radiogroup", { name: "Colour" }),
-  ).toBeInTheDocument();
+  expect(screen.getByRole("radiogroup", { name: "Color" })).toBeInTheDocument();
   expect(
     screen.getByRole("checkbox", { name: "Show in song list" }),
   ).toBeInTheDocument();
@@ -648,15 +646,18 @@ it("draws the colour pills of a built-in with its own glyph", async () => {
     ],
   });
 
-  await screen.findByRole("radiogroup", { name: "Colour" });
+  await screen.findByRole("radiogroup", { name: "Color" });
   expect(screen.getByRole("radio", { name: /Gold/ })).toBeChecked();
   expect(
     screen.getByRole("checkbox", { name: "Show in song list" }),
   ).not.toBeChecked();
   // Every pill previews the mark itself, never the tag glyph.
-  expect(iconNames(screen.getByRole("radiogroup", { name: "Colour" }))).toEqual(
-    ["mic", "mic", "mic", "mic"],
-  );
+  expect(iconNames(screen.getByRole("radiogroup", { name: "Color" }))).toEqual([
+    "mic",
+    "mic",
+    "mic",
+    "mic",
+  ]);
 });
 
 it("saves a built-in's colour and flag together", async () => {
@@ -665,7 +666,7 @@ it("saves a built-in's colour and flag together", async () => {
   });
   renderEditor({ path: "/user/tags/favorites" });
 
-  await screen.findByRole("radiogroup", { name: "Colour" });
+  await screen.findByRole("radiogroup", { name: "Color" });
   expect(screen.getByRole("button", { name: "Save" })).toBeDisabled();
   fireEvent.click(screen.getByRole("radio", { name: /Gold/ }));
   fireEvent.click(screen.getByRole("checkbox", { name: "Show in song list" }));
@@ -685,7 +686,7 @@ it("says so when a built-in cannot be saved", async () => {
   updateBuiltInTag.mockRejectedValue(new Error("nope"));
   renderEditor({ path: "/user/tags/sung" });
 
-  await screen.findByRole("radiogroup", { name: "Colour" });
+  await screen.findByRole("radiogroup", { name: "Color" });
   fireEvent.click(screen.getByRole("radio", { name: /Neutral/ }));
   fireEvent.click(screen.getByRole("button", { name: "Save" }));
 
@@ -696,7 +697,7 @@ it("says so when a built-in cannot be saved", async () => {
   // itself is at the head of the form, which a long one has scrolled past.
   expect(
     await screen.findByText(
-      "It did not go through — the message at the top of the page says why.",
+      "It did not go through. The message at the top of the page says why.",
     ),
   ).toBeInTheDocument();
 });
@@ -714,7 +715,7 @@ it("opens a boolean facet on its colour and its two flags", async () => {
   renderEditor({ path: "/user/tags/duet" });
 
   expect(
-    await screen.findByRole("radiogroup", { name: "Colour" }),
+    await screen.findByRole("radiogroup", { name: "Color" }),
   ).toBeInTheDocument();
   expect(screen.getByRole("heading", { name: "Duet" })).toBeInTheDocument();
   // Colour, both flags, Save — and every flag with its explaining line.
@@ -732,9 +733,12 @@ it("opens a boolean facet on its colour and its two flags", async () => {
     screen.getByText(/Duet comes out of the song file/),
   ).toBeInTheDocument();
   // The pills preview the facet's own glyph, never the tag one.
-  expect(iconNames(screen.getByRole("radiogroup", { name: "Colour" }))).toEqual(
-    ["users", "users", "users", "users"],
-  );
+  expect(iconNames(screen.getByRole("radiogroup", { name: "Color" }))).toEqual([
+    "users",
+    "users",
+    "users",
+    "users",
+  ]);
   expect(screen.queryByLabelText("Name")).not.toBeInTheDocument();
   expect(
     screen.queryByRole("checkbox", { name: "Hide songs by default" }),
@@ -754,7 +758,7 @@ it("opens a valued facet on the one thing there is to decide", async () => {
   // No colour to set and never a mark on a row (§1.3), so neither control is
   // here — and one line says why the rest is gone.
   expect(
-    screen.queryByRole("radiogroup", { name: "Colour" }),
+    screen.queryByRole("radiogroup", { name: "Color" }),
   ).not.toBeInTheDocument();
   expect(
     screen.queryByRole("checkbox", { name: "Show in song list" }),
@@ -779,7 +783,7 @@ it("sends a boolean facet every option its kind has", async () => {
   });
   renderEditor({ path: "/user/tags/video" });
 
-  await screen.findByRole("radiogroup", { name: "Colour" });
+  await screen.findByRole("radiogroup", { name: "Color" });
   fireEvent.click(screen.getByRole("radio", { name: /Pink/ }));
   fireEvent.click(screen.getByRole("checkbox", { name: "Show in song list" }));
   fireEvent.click(screen.getByRole("checkbox", { name: "Show in filter" }));
@@ -830,7 +834,7 @@ it("sends a mark nothing about the filter", async () => {
   });
   renderEditor({ path: "/user/tags/sung" });
 
-  await screen.findByRole("radiogroup", { name: "Colour" });
+  await screen.findByRole("radiogroup", { name: "Color" });
   expect(
     screen.queryByRole("checkbox", { name: "Show in filter" }),
   ).not.toBeInTheDocument();

@@ -630,7 +630,7 @@ async def test_every_party_at_once_leaves_out_a_sing_that_belongs_to_no_party(
 ) -> None:
     """Migration 0008 added `sings.session_id`, so every run recorded before it has none.
     Such a score is in no session listing, and the head row has to agree with the parties it
-    claims to add up — otherwise "All sessions" would be more than all the sessions."""
+    claims to add up — otherwise "All parties" would be more than all the sessions."""
     orphan = Sing(song_id="usdb:1", session_id=None, started_at=datetime.now(UTC))
     session.add(orphan)
     await session.flush()

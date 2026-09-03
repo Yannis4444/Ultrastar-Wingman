@@ -92,7 +92,7 @@ export function usdxProblems(error: unknown): string[] | null {
 const USDX_EXPLANATIONS: [RegExp, string][] = [
   [
     /^'usdx\.executable' is not set/,
-    "Wingman does not know where Ultrastar Deluxe is installed. Fill in the USDX base path — the folder that contains ultrastardx.exe.",
+    "Wingman does not know where Ultrastar Deluxe is installed. Fill in the USDX base path, the folder that contains ultrastardx.exe.",
   ],
   [
     /^'usdx\.executable' is not a file/,

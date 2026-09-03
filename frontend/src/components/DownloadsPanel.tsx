@@ -115,7 +115,7 @@ export default function DownloadsPanel({
       <div className="downloads-controls">
         <CheckOption
           type="checkbox"
-          label="Only this session"
+          label="Since Wingman started"
           checked={sessionOnly}
           onChange={() => setSessionOnly((old) => !old)}
         />
@@ -126,7 +126,7 @@ export default function DownloadsPanel({
           of the history went. */}
       {visible.length === 0 ? (
         <p className="downloads-empty">
-          Nothing downloaded since Wingman started — turn the filter off for the
+          Nothing downloaded since Wingman started. Turn the filter off for the
           older history.
         </p>
       ) : (

@@ -69,7 +69,7 @@ test("a column answers with its range and count — the empty ones too", () => {
   fireEvent.click(column);
 
   const tip = document.querySelector(".chart-tip") as HTMLElement;
-  expect(tip).toHaveTextContent("5000 – 5500");
+  expect(tip).toHaveTextContent("5000 to 5500");
   expect(tip).toHaveTextContent("1 score");
 });
 

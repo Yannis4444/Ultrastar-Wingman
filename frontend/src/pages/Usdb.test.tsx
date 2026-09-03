@@ -487,7 +487,7 @@ test("a failed row explains itself and retries with force", async () => {
 
   fireEvent.click(
     await screen.findByRole("button", {
-      name: "Download of ABBA – Dancing Queen failed — show the error",
+      name: "Download of ABBA – Dancing Queen failed, show the error",
     }),
   );
   const dialog = await screen.findByRole("dialog", {
@@ -560,7 +560,7 @@ test("the panel shows this run and keeps the older history one click away", asyn
   expect(within(dialog).queryByText("ABBA – Waterloo")).toBeNull();
 
   // Hidden, not gone.
-  fireEvent.click(within(dialog).getByLabelText("Only this session"));
+  fireEvent.click(within(dialog).getByLabelText("Since Wingman started"));
   expect(within(dialog).getByText("ABBA – Waterloo")).toBeInTheDocument();
 });
 
@@ -712,7 +712,7 @@ test("a download that is already queued is reported", async () => {
   );
 
   expect(
-    await screen.findByText("That song is already in the queue."),
+    await screen.findByText("That song is already in the download queue."),
   ).toBeInTheDocument();
 });
 

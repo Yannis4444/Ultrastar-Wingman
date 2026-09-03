@@ -104,9 +104,9 @@ register(
         default="",
         group="Songs",
         description=(
-            "The folder Wingman scans for songs — usually the one Ultrastar Deluxe already "
-            "uses, but any folder works. Ultrastar Deluxe's own songs folder is the separate "
-            "USDX → Songs directory setting."
+            "The folder Wingman scans for songs. Usually that is the one Ultrastar Deluxe "
+            "already uses, but any folder works. Ultrastar Deluxe's own songs folder is the "
+            "separate Songs directory setting in the USDX group, behind Advanced."
         ),
     )
 )
@@ -128,8 +128,8 @@ register(
         group="Karaoke",
         description=(
             "The singing slots, as Ultrastar Deluxe color names separated by commas. How "
-            "many there are is how many players sing at once — 1, 2, 3, 4 or 6, the counts "
-            "Ultrastar Deluxe plays on one screen."
+            "many there are is how many players sing at once: 1, 2, 3, 4, or 6. Those are "
+            "the counts Ultrastar Deluxe plays on one screen."
         ),
         validate=validate_slot_colors,
     )
@@ -141,9 +141,9 @@ register(
         default="",
         group="Host",
         description=(
-            "The address guests open on their phones, e.g. http://192.168.0.5:1234 — it is "
+            "The address guests open on their phones, e.g. http://192.168.0.5:1234. It is "
             "what the QR code on the host screen encodes. Empty picks the machine's LAN "
-            "address automatically, which is right unless a VPN or a second network card "
+            "address automatically. That is right unless a VPN or a second network card "
             "makes Wingman guess wrong."
         ),
         validate=validate_join_url,
@@ -157,7 +157,7 @@ register(
         group="USDX",
         description=(
             "Ultrastar Deluxe installation directory. The executable, config.ini, avatars "
-            "directory, songs directory and Ultrastar.db are derived from it unless "
+            "directory, songs directory, and Ultrastar.db are derived from it unless "
             "overridden below."
         ),
     )
@@ -188,7 +188,9 @@ register(
         value_type=str,
         default="",
         group="USDX",
-        description="Overrides the derived <base path>/avatars (USDX reads avatars from here).",
+        description=(
+            "Overrides the derived <base path>/avatars. Ultrastar Deluxe reads avatars from here."
+        ),
         advanced=True,
     )
 )
@@ -199,10 +201,10 @@ register(
         default="",
         group="USDX",
         description=(
-            "Overrides the derived <base path>/songs — Ultrastar Deluxe's own songs directory. "
-            "A song Wingman starts has to be launched from inside it, otherwise Ultrastar "
-            "Deluxe loads the whole library next to it. This is not 'songs.directory': that "
-            "one only says where Wingman looks for songs."
+            "Overrides the derived <base path>/songs, Ultrastar Deluxe's own songs "
+            "directory. A song Wingman starts has to be launched from inside it. Otherwise "
+            "Ultrastar Deluxe loads the whole library next to it. This is not "
+            "'songs.directory': that one only says where Wingman looks for songs."
         ),
         advanced=True,
     )
@@ -215,7 +217,7 @@ register(
         group="USDX",
         description=(
             "Overrides the derived <base path>/Ultrastar.db. Wingman only reads it, to import "
-            "the scores USDX wrote after a song."
+            "the scores Ultrastar Deluxe wrote after a song."
         ),
         advanced=True,
     )
@@ -302,8 +304,8 @@ register(
         default="openid profile",
         group="Auth",
         description=(
-            "Space-separated scopes requested at login. `openid` is required; `profile` and "
-            "`email` are what the username is taken from."
+            "Space-separated scopes requested at login. `openid` is required. The username "
+            "is taken from `profile` and `email`."
         ),
         advanced=True,
     )
@@ -340,7 +342,7 @@ register(
         # the screen; repeating them here would only be the same list twice.
         description=(
             "Which YouTube stream yt-dlp downloads, as a yt-dlp format string. A video is "
-            "always downloaded — Ultrastar Deluxe plays it, and the mp3 is extracted from it."
+            "always downloaded: Ultrastar Deluxe plays it, and the mp3 is extracted from it."
         ),
         validate=validate_video_format,
     )

@@ -10,7 +10,7 @@ karaoke PC.
 1. Download `UltrastarWingman.exe` and start it. It opens the host page in your
    browser and prints its address for the phones on the same network.
 2. Tell Wingman where your songs are, and let it connect Ultrastar Deluxe:
-   [Get started](docs/user/getting-started.md).
+   [Get started](docs/user/start/index.md).
 
 The user guide lives in [`docs/user/`](docs/user/index.md) — songs, wishes,
 accounts, statistics, troubleshooting.

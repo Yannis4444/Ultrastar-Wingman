@@ -36,7 +36,7 @@ const AVATAR_MESSAGES: Record<string, string> = {
   avatar_too_many_pixels:
     "That picture has far too many pixels. Scale it down and try again.",
   unsupported_avatar_type:
-    "Only jpeg, png and webp images work — and the file has to really be one.",
+    "Only jpeg, png, and webp images work, and the file has to really be one.",
 };
 
 const SSO_ERROR_PREFIX = "error:";

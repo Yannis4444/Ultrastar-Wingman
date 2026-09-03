@@ -64,7 +64,7 @@ const ACTIONS: { action: Action; label: string; description: string }[] = [
     action: "view_songs",
     label: "See songs",
     description:
-      "They may see the songs carrying it at all. Untick it and those songs are gone from the list, the search and the reel.",
+      "They may see the songs carrying it at all. Untick it and those songs are gone from the list, the search, and the reel.",
   },
   {
     action: "assign",
@@ -397,7 +397,7 @@ function RealTagEditor() {
     : trimmed === ""
       ? "It needs a name before it can be saved."
       : error !== null
-        ? "It did not go through — the message at the top of the page says why."
+        ? "It did not go through. The message at the top of the page says why."
         : !pending && !acknowledged
           ? "Nothing has changed yet."
           : null;
@@ -623,7 +623,7 @@ function RealTagEditor() {
                       ))}
                     </div>
 
-                    <h2 id="tag-colour">Colour</h2>
+                    <h2 id="tag-colour">Color</h2>
                     <div
                       className="tag-colours"
                       role="radiogroup"
@@ -851,7 +851,7 @@ function RealTagEditor() {
 
                     {people.length === 0 ? (
                       <p className="tag-editor-hint">
-                        Nobody is named on this tag on their own — the roles
+                        Nobody is named on this tag on their own. The roles
                         above decide.
                       </p>
                     ) : (
@@ -957,7 +957,7 @@ function RealTagEditor() {
           title="Delete tag"
           message={
             songs === 0
-              ? `Delete "${base.name}"? No song carries it, so nothing but the tag itself goes — and everybody it was granted to loses it.`
+              ? `Delete "${base.name}"? No song carries it, so nothing but the tag itself goes. Everybody it was granted to loses it.`
               : `Delete "${base.name}"? It comes off the ${songs === 1 ? "one song" : `${songs} songs`} carrying it and everybody it was granted to loses it. The songs themselves stay in the library.`
           }
           confirmLabel="Delete"
@@ -980,27 +980,27 @@ function RealTagEditor() {
  */
 const BUILT_IN_WHY: Record<BuiltInTagId, string> = {
   favorites:
-    "Favorites are one person's own: everybody sees a heart on the songs they favorited and on nobody else's. So there is nothing to name, no icon to pick, nobody to grant it to and nothing to delete — only what the mark looks like, and whether it belongs on a song row at all.",
-  sung: "Sung is one person's own: everybody sees a microphone on the songs they have sung and on nobody else's. So there is nothing to name, no icon to pick, nobody to grant it to and nothing to delete — only what the mark looks like, and whether it belongs on a song row at all.",
-  duet: "Duet comes out of the song file itself: a song written for two singers is one, and nobody tags it. So there is nothing to name, no icon to pick, no songs to hide, nobody to grant it to and nothing to delete — only what the mark looks like, whether it belongs on a song row, and whether the filter offers it.",
+    "Favorites are one person's own: everybody sees a heart on the songs they favorited and on nobody else's. So there is nothing to name, no icon to pick, nobody to grant it to, and nothing to delete. All you set is what the mark looks like, and whether it belongs on a song row at all.",
+  sung: "Sung is one person's own: everybody sees a microphone on the songs they have sung and on nobody else's. So there is nothing to name, no icon to pick, nobody to grant it to, and nothing to delete. All you set is what the mark looks like, and whether it belongs on a song row at all.",
+  duet: "Duet comes out of the song file itself: a song written for two singers is one, and nobody tags it. So there is nothing to name, no icon to pick, no songs to hide, nobody to grant it to, and nothing to delete. All you set is what the mark looks like, whether it belongs on a song row, and whether the filter offers it.",
   video:
-    "Video comes out of the song folder itself: a song with a video file beside it has one, and nobody tags it. So there is nothing to name, no icon to pick, no songs to hide, nobody to grant it to and nothing to delete — only what the mark looks like, whether it belongs on a song row, and whether the filter offers it.",
+    "Video comes out of the song folder itself: a song with a video file beside it has one, and nobody tags it. So there is nothing to name, no icon to pick, no songs to hide, nobody to grant it to, and nothing to delete. All you set is what the mark looks like, whether it belongs on a song row, and whether the filter offers it.",
   genre:
-    "Genre comes out of the song file itself, and it is one word out of hundreds — never a mark on a row, where it would say nothing at a glance. So the one thing to decide is whether the Filter panel offers it; the song's own view lists the value either way.",
+    "Genre comes out of the song file itself, and it is one word out of hundreds. It is never a mark on a row, where it would say nothing at a glance. So the one thing to decide is whether the Filter panel offers it. The song's own view lists the value either way.",
   language:
-    "Language comes out of the song file itself, and it is one word out of hundreds — never a mark on a row, where it would say nothing at a glance. So the one thing to decide is whether the Filter panel offers it; the song's own view lists the value either way.",
+    "Language comes out of the song file itself, and it is one word out of hundreds. It is never a mark on a row, where it would say nothing at a glance. So the one thing to decide is whether the Filter panel offers it. The song's own view lists the value either way.",
   edition:
-    "Edition comes out of the song file itself, and it is one word out of hundreds — never a mark on a row, where it would say nothing at a glance. So the one thing to decide is whether the Filter panel offers it; the song's own view lists the value either way.",
+    "Edition comes out of the song file itself, and it is one word out of hundreds. It is never a mark on a row, where it would say nothing at a glance. So the one thing to decide is whether the Filter panel offers it. The song's own view lists the value either way.",
   decade:
-    "Decade is the song's year, rounded down: 1985 is the 1980s. It comes out of the file, it is never a mark on a row, and the one thing to decide is whether the Filter panel offers it. A song whose file names no year is in no decade and only ever matches *Any*.",
+    "Decade is the song's year, rounded down: 1985 is the 1980s. It comes out of the file, and it is never a mark on a row. The one thing to decide is whether the Filter panel offers it. A song whose file names no year is in no decade and only ever matches Any.",
 };
 
 /** What *Show in song list* does, per kind. A mark is one reader's own; a facet
  *  is a fact about the song and is off the rows until somebody wants it. */
 const SHOW_IN_LIST_HINT: Record<"mark" | "boolean", string> = {
-  mark: "Everybody wears the mark on their own songs in the song list, next to the tags. Off, the mark is gone from the rows — the filter and the chip above them stay.",
+  mark: "Everybody wears the mark on their own songs in the song list, next to the tags. Off, the mark is gone from the rows. The filter and the chip above them stay.",
   boolean:
-    "The mark goes on every song in the library the file says yes about, next to the tags. Off — which is how it starts — the rows stay clean and the fact lives in the song's own view and in the filter.",
+    "The mark goes on every song in the library the file says yes about, next to the tags. It is off to begin with. Off, the rows stay clean and the fact lives in the song's own view and in the filter.",
 };
 
 /**
@@ -1152,7 +1152,7 @@ function BuiltInTagEditor({ builtInId }: { builtInId: BuiltInTagId }) {
 
                     {hasColor && (
                       <>
-                        <h2 id="tag-colour">Colour</h2>
+                        <h2 id="tag-colour">Color</h2>
                         <div
                           className="tag-colours"
                           role="radiogroup"
@@ -1222,7 +1222,7 @@ function BuiltInTagEditor({ builtInId }: { builtInId: BuiltInTagId }) {
                           <p className="tag-flag-hint">
                             {kind === "valued"
                               ? `The Filter panel offers ${name} as a row of its own, listing the values the library actually holds. Off, the row is gone and nobody can filter by it.`
-                              : `The Filter panel offers ${name} as a row of its own — Any, Yes or No. Off, the row is gone and nobody can filter by it.`}
+                              : `The Filter panel offers ${name} as a row of its own: Any, Yes, or No. Off, the row is gone and nobody can filter by it.`}
                           </p>
                         </>
                       )}
@@ -1235,7 +1235,7 @@ function BuiltInTagEditor({ builtInId }: { builtInId: BuiltInTagId }) {
                         update.isPending
                           ? "Saving…"
                           : error !== null
-                            ? "It did not go through — the message at the top of the page says why."
+                            ? "It did not go through. The message at the top of the page says why."
                             : !pending && !saved
                               ? "Nothing has changed yet."
                               : null

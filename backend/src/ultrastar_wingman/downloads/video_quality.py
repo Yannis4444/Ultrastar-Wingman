@@ -45,7 +45,7 @@ PRESETS: tuple[VideoQualityPreset, ...] = (
     VideoQualityPreset(
         key="best",
         label="Best available",
-        description="Whatever YouTube has, with no size limit — large files, not always mp4.",
+        description="Whatever YouTube has, at any size. Large files, and not always mp4.",
         video_format="bestvideo*+bestaudio/best",
     ),
     VideoQualityPreset(
@@ -80,7 +80,7 @@ def validate_video_format(value: object) -> None:
     """
     text = str(value).strip()
     if not text:
-        raise ValueError("a format string is required — reset the setting for the default")
+        raise ValueError("a format string is required (reset the setting for the default)")
     if len(text) > MAX_FORMAT_LENGTH:
         raise ValueError(f"a format string is at most {MAX_FORMAT_LENGTH} characters")
     refused = sorted({character for character in text if not _is_allowed(character)})

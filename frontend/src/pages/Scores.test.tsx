@@ -86,12 +86,12 @@ function stats(panel: HTMLElement): (string | null)[][] {
 
 /** Open the session picker and hand the panel back. */
 async function openSessions(): Promise<HTMLElement> {
-  const opener = await screen.findByRole("button", { name: /^Session/ });
+  const opener = await screen.findByRole("button", { name: /^Party/ });
   // A real press focuses the button before it clicks it, and that is what the
   // dialog reads to know where to give the focus back when it closes.
   opener.focus();
   fireEvent.click(opener);
-  return screen.findByRole("dialog", { name: "Session" });
+  return screen.findByRole("dialog", { name: "Party" });
 }
 
 /** The picker's rows: the first line of each, in order. */
@@ -246,14 +246,14 @@ test("the picker lists every session and starts on the newest one", async () => 
   renderScores();
 
   const started = new Date("2026-08-23T18:00:00Z");
-  const label = `Session ${started.toLocaleDateString()}, ${started.toLocaleTimeString(
+  const label = `Party ${started.toLocaleDateString()}, ${started.toLocaleTimeString(
     [],
     { hour: "2-digit", minute: "2-digit" },
   )}`;
   // Newest first from the backend, so the bar opens on the first entry. The
   // name is the label and nothing else: a nameless party is already called
-  // "Session <date>", and a hidden "Session: " in front of it would be read
-  // out as "Session: Session 8/23/2026".
+  // "Party <date>", and a hidden "Party: " in front of it would be read
+  // out as "Party: Party 8/23/2026".
   expect(
     await screen.findByRole("button", { name: label }),
   ).toBeInTheDocument();
@@ -287,7 +287,7 @@ test("a party's row says when it was and how big it was", async () => {
   ).toBeInTheDocument();
   // The head row adds those two parties up rather than dating itself, and the
   // stack of layers is what marks it as the row that is not a party.
-  expect(within(panel).getByText("2 sessions · 16 scores")).toBeInTheDocument();
+  expect(within(panel).getByText("2 parties · 16 scores")).toBeInTheDocument();
   const rows = [...panel.querySelectorAll<HTMLElement>(".picker-row")];
   expect(iconNames(rows[0])).toEqual(["layers"]);
   expect(iconNames(rows[1])).toEqual([]);
@@ -314,14 +314,14 @@ test("picking another session loads that session's scores", async () => {
   );
   // The choice made, the panel is done: it closes behind it.
   expect(
-    screen.queryByRole("dialog", { name: "Session" }),
+    screen.queryByRole("dialog", { name: "Party" }),
   ).not.toBeInTheDocument();
   expect(await screen.findByText(/no scores yet/i)).toBeInTheDocument();
 });
 
 test("choosing another party hands the focus back to the session button", async () => {
   renderScores();
-  const opener = await screen.findByRole("button", { name: /^Session/ });
+  const opener = await screen.findByRole("button", { name: /^Party/ });
   const panel = await openSessions();
 
   listSessionScores.mockResolvedValue({ data: { scores: [] } });
@@ -332,13 +332,26 @@ test("choosing another party hands the focus back to the session button", async 
   // instead of re-tabbing from the top of the page.
   await waitFor(() =>
     expect(
-      screen.queryByRole("dialog", { name: "Session" }),
+      screen.queryByRole("dialog", { name: "Party" }),
     ).not.toBeInTheDocument(),
   );
   expect(document.activeElement).toBe(opener);
   // A party with a name of its own says nothing about what it is, so the
   // hidden prefix stays there for it.
-  expect(opener).toHaveAccessibleName("Session: New Year 2025");
+  expect(opener).toHaveAccessibleName("Party: New Year 2025");
+});
+
+test("a party whose own name holds the word still gets the hidden prefix", async () => {
+  // The prefix is decided by whether the party is named at all, never by the
+  // words in the name: "Christmas party" is exactly the case it exists for.
+  listSessions.mockResolvedValue({
+    data: { sessions: [{ ...tonight, name: "Christmas party" }] },
+  });
+  renderScores();
+
+  expect(
+    await screen.findByRole("button", { name: "Party: Christmas party" }),
+  ).toBeInTheDocument();
 });
 
 test("picking the session already shown closes the picker anyway", async () => {
@@ -346,11 +359,11 @@ test("picking the session already shown closes the picker anyway", async () => {
   const panel = await openSessions();
 
   // Nothing changes, so nothing re-renders: the panel has to close itself.
-  fireEvent.click(within(panel).getAllByText(/^Session /)[0]);
+  fireEvent.click(within(panel).getAllByText(/^Party /)[0]);
 
   await waitFor(() =>
     expect(
-      screen.queryByRole("dialog", { name: "Session" }),
+      screen.queryByRole("dialog", { name: "Party" }),
     ).not.toBeInTheDocument(),
   );
 });
@@ -375,10 +388,10 @@ test("the summary counts scored performances, not songs started", async () => {
   });
   renderScores();
 
-  const summary = await screen.findByLabelText("Session summary");
+  const summary = await screen.findByLabelText("Party summary");
   await waitFor(() =>
     expect(
-      within(summary).getByTitle("Sings — 3 scored of 4 started"),
+      within(summary).getByTitle("Sings: 3 scored of 4 started"),
     ).toHaveTextContent("3"),
   );
   expect(within(summary).getByTitle("Songs")).toHaveTextContent(/^Songs2$/);
@@ -390,7 +403,7 @@ test("the summary leaves out the sing count while it equals the song count", asy
 
   // Two sings of two songs: the same figure twice would only look like a
   // mistake, so the row starts with the songs.
-  const summary = await screen.findByLabelText("Session summary");
+  const summary = await screen.findByLabelText("Party summary");
   await waitFor(() =>
     expect(within(summary).getByTitle("Songs")).toHaveTextContent(/^Songs2$/),
   );
@@ -403,7 +416,7 @@ test("an older session is dated in the summary; today's is not", async () => {
   // `tonight` is a fixture from August 2026 — by the time anybody runs this it
   // is a party from another day, and nothing else on the page would say when
   // it was: the picker prints a *named* session's name, not its date.
-  const summary = await screen.findByLabelText("Session summary");
+  const summary = await screen.findByLabelText("Party summary");
   await waitFor(() =>
     expect(within(summary).getByTitle("Started")).toHaveTextContent(
       shortDate(tonight.started_at),
@@ -418,7 +431,7 @@ test("an older session is dated in the summary; today's is not", async () => {
   cleanup();
   renderScores();
 
-  const running = await screen.findByLabelText("Session summary");
+  const running = await screen.findByLabelText("Party summary");
   await waitFor(() =>
     expect(within(running).getByTitle("Songs")).toBeInTheDocument(),
   );
@@ -428,7 +441,7 @@ test("an older session is dated in the summary; today's is not", async () => {
 test("the summary names the evening's best score but not who sang it", async () => {
   renderScores();
 
-  const summary = await screen.findByLabelText("Session summary");
+  const summary = await screen.findByLabelText("Party summary");
   // The number is the headline; who got it and on what is the first row of the
   // ranking below, which is where the reader looks for a name.
   await waitFor(() =>
@@ -464,7 +477,7 @@ test("a session whose sings were all scored says only 'Sings'", async () => {
   });
   renderScores();
 
-  const summary = await screen.findByLabelText("Session summary");
+  const summary = await screen.findByLabelText("Party summary");
   await waitFor(() =>
     expect(within(summary).getByTitle("Sings")).toHaveTextContent(/^Sings3$/),
   );
@@ -899,10 +912,8 @@ test("renaming a session patches it and shows the new name", async () => {
   });
   renderScores();
 
-  fireEvent.click(
-    await screen.findByRole("button", { name: "Rename session" }),
-  );
-  fireEvent.change(screen.getByRole("textbox", { name: "Session name" }), {
+  fireEvent.click(await screen.findByRole("button", { name: "Rename party" }));
+  fireEvent.change(screen.getByRole("textbox", { name: "Party name" }), {
     target: { value: "Yannis' birthday" },
   });
   fireEvent.click(screen.getByRole("button", { name: "Save" }));
@@ -914,7 +925,7 @@ test("renaming a session patches it and shows the new name", async () => {
     }),
   );
   expect(
-    await screen.findByRole("button", { name: "Session: Yannis' birthday" }),
+    await screen.findByRole("button", { name: "Party: Yannis' birthday" }),
   ).toBeInTheDocument();
 });
 
@@ -924,8 +935,8 @@ test("clearing the name sends null, not an empty string", async () => {
 
   const panel = await openSessions();
   fireEvent.click(within(panel).getByText("New Year 2025"));
-  fireEvent.click(screen.getByRole("button", { name: "Rename session" }));
-  fireEvent.change(screen.getByRole("textbox", { name: "Session name" }), {
+  fireEvent.click(screen.getByRole("button", { name: "Rename party" }));
+  fireEvent.change(screen.getByRole("textbox", { name: "Party name" }), {
     target: { value: "  " },
   });
   fireEvent.click(screen.getByRole("button", { name: "Save" }));
@@ -938,15 +949,13 @@ test("clearing the name sends null, not an empty string", async () => {
 test("a session change drops an open rename draft instead of moving it", async () => {
   renderScores();
 
-  fireEvent.click(
-    await screen.findByRole("button", { name: "Rename session" }),
-  );
-  fireEvent.change(screen.getByRole("textbox", { name: "Session name" }), {
+  fireEvent.click(await screen.findByRole("button", { name: "Rename party" }));
+  fireEvent.change(screen.getByRole("textbox", { name: "Party name" }), {
     target: { value: "Yannis' birthday" },
   });
   // While renaming, the input takes the picker button's place in the row…
   expect(
-    screen.queryByRole("button", { name: /^Session/ }),
+    screen.queryByRole("button", { name: /^Party/ }),
   ).not.toBeInTheDocument();
 
   // …so the session changes under the form: a websocket refresh reorders the
@@ -957,11 +966,11 @@ test("a session change drops an open rename draft instead of moving it", async (
   // Otherwise Save would rename the other session with this session's name.
   await waitFor(() =>
     expect(
-      screen.queryByRole("textbox", { name: "Session name" }),
+      screen.queryByRole("textbox", { name: "Party name" }),
     ).not.toBeInTheDocument(),
   );
   expect(
-    screen.getByRole("button", { name: "Rename session" }),
+    screen.getByRole("button", { name: "Rename party" }),
   ).toBeInTheDocument();
 });
 
@@ -1024,7 +1033,7 @@ test("the head row adds every party the reader may open into one list", async ()
   // "All my scores" says nothing about what the button picks, so the hidden
   // prefix stays in front of it.
   expect(
-    screen.getByRole("button", { name: "Session: All my scores" }),
+    screen.getByRole("button", { name: "Party: All my scores" }),
   ).toBeInTheDocument();
   // Five scores over two parties, grouped by player: Alice and Bob.
   const rows = await screen.findAllByTestId("score-group");
@@ -1032,27 +1041,27 @@ test("the head row adds every party the reader may open into one list", async ()
   // Every party at once is no party: nothing to rename, and no evening's
   // figures to head the list with.
   expect(
-    screen.queryByRole("button", { name: "Rename session" }),
+    screen.queryByRole("button", { name: "Rename party" }),
   ).not.toBeInTheDocument();
   expect(document.querySelector(".session-summary")).toBeNull();
 });
 
-test("the head row is All sessions for a reader who holds the history right", async () => {
+test("the head row is All parties for a reader who holds the history right", async () => {
   getMe.mockResolvedValue(
     meResponse(["stats.view", "stats.history", "players.view"]),
   );
   renderScores();
 
   const panel = await openSessions();
-  expect(sessionRows(panel)).toContain("All sessions");
+  expect(sessionRows(panel)).toContain("All parties");
   expect(sessionRows(panel)).not.toContain("All my scores");
   // The whole history added up says so on its own line.
-  expect(within(panel).getByText("2 sessions · 16 scores")).toBeInTheDocument();
+  expect(within(panel).getByText("2 parties · 16 scores")).toBeInTheDocument();
 
   // And this one names sessions itself, so it is read out as it is written.
-  fireEvent.click(within(panel).getByText("All sessions"));
+  fireEvent.click(within(panel).getByText("All parties"));
   expect(
-    await screen.findByRole("button", { name: "All sessions" }),
+    await screen.findByRole("button", { name: "All parties" }),
   ).toBeInTheDocument();
 });
 

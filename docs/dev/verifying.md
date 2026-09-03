@@ -3,7 +3,8 @@
 Unit tests come first (see [testing.md](testing.md)); this guide is for the
 part they cannot cover — seeing a change in the real UI, on a phone-sized
 viewport and on the host TV layout — and for leaving the machine as you found
-it afterwards.
+it afterwards. The documentation screenshots are a run of their own, with their
+own scratch instance, ports and script: see [screenshots.md](screenshots.md).
 
 ## The user's instances are off limits
 

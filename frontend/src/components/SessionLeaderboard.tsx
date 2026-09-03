@@ -45,7 +45,7 @@ export default function SessionLeaderboard({
   const rows = entries.slice(0, MAX_ROWS);
 
   return (
-    <section className="host-leaderboard" aria-label="Session leaderboard">
+    <section className="host-leaderboard" aria-label="Party leaderboard">
       <div className="host-leaderboard-head">
         <h2>Tonight</h2>
         <fieldset className="host-leaderboard-order host-reveal">

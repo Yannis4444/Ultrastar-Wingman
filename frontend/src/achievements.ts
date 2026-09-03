@@ -199,8 +199,8 @@ export const SCOPE_LABELS: Record<NonNullable<Condition["scope"]>, string> = {
  * the pills would only ever show them half of it.
  */
 export const SCOPE_NOTE =
-  "One party has to happen inside a single evening — the difference between " +
-  "“sing 10 songs” and “sing 10 songs tonight”.";
+  "One party has to happen inside a single evening: the difference between " +
+  '"sing 10 songs" and "sing 10 songs tonight".';
 
 /** The metrics, in the order the editor offers them: the score ones first, then
  *  the counting ones, and the mean last — it is the one that needs a thought. */
@@ -227,8 +227,8 @@ export const METRIC_LABELS: Record<Condition["metric"], string> = {
 /** One line each on what is actually counted — the traps are all in here. */
 export const METRIC_DESCRIPTIONS: Record<Condition["metric"], string> = {
   any_score:
-    "One single score. With “more than” or “at least” that is the singer's " +
-    "best; with “less than” or “at most”, their worst.",
+    'One single score. With "more than" or "at least" that is the singer\'s ' +
+    'best. With "less than" or "at most" it is their worst.',
   sum_of_scores: "Every score added up.",
   number_of_sings: "How many songs were sung. A duet scored twice is one.",
   number_of_scores: "How many scores there are.",
@@ -335,11 +335,11 @@ export const MAX_PATTERN_LENGTH = 200;
  * would be wrong in exactly the cases it exists to catch.
  */
 export const REGEX_NOTE =
-  "A pattern matches anywhere in the field and ignores case: use ^ and $ to " +
-  "pin it to the whole field, and (?-i:Love) for a part that has to keep its " +
-  "capitals. When you save, Wingman refuses a pattern it cannot read, and one " +
-  "whose repetitions would take too long to try — at most two of * and +, and " +
-  "never one wrapped around another.";
+  "A pattern matches anywhere in the field and ignores case. Use ^ and $ to " +
+  "pin it to the whole field. Use (?-i:Love) for a part that has to keep its " +
+  "capitals. When you save, Wingman refuses a pattern it cannot read. It also " +
+  "refuses one whose repetitions would take too long to try. Use at most two " +
+  "of * and +, and never wrap one around another.";
 
 /** What kind of box a clause's value needs. */
 export type SelectorFieldKind = "text" | "number" | "boolean";
@@ -430,7 +430,7 @@ export function songMode(condition: Condition): SongMode {
  */
 function patternProblem(pattern: string): string | null {
   if (pattern === "")
-    return "A song rule's regular expression cannot be empty — every song would match it.";
+    return "A song rule's regular expression cannot be empty. Every song would match it.";
   if (pattern.length > MAX_PATTERN_LENGTH)
     return `A song rule's regular expression cannot be longer than ${MAX_PATTERN_LENGTH} characters.`;
   return null;
@@ -454,7 +454,7 @@ export function conditionProblem(condition: Condition): string | null {
     filter.max !== undefined &&
     filter.min > filter.max
   )
-    return "“At least” cannot be above “at most” — no score would be left to count.";
+    return '"At least" cannot be above "at most". No score would be left to count.';
   // Unreachable from this editor, which switches between the two. It is here
   // for a definition that arrived from an import or a hand-edited archive.
   if (condition.songs && condition.match)
@@ -566,7 +566,7 @@ function clauseWords(clause: SelectorClause): string {
           : "is";
   // Quoted: a value of "Hard Rock" is two words, and an empty one is a hole the
   // reader has to be able to see.
-  return `the ${field} ${verb} “${String(clause.value)}”`;
+  return `the ${field} ${verb} "${String(clause.value)}"`;
 }
 
 /** Which songs count, or `""` when the condition narrows them not at all. */
@@ -575,7 +575,7 @@ function songWords(condition: Condition): string {
     const count = condition.songs.ids.length;
     // An empty list matches no score at all (`evaluate._on_a_chosen_song`), so
     // it is a state the sentence has to name rather than skip.
-    if (count === 0) return ", on no song — none is chosen yet";
+    if (count === 0) return ", on no song (none is chosen yet)";
     return count === 1
       ? ", on one chosen song"
       : `, on one of ${count} chosen songs`;
@@ -590,7 +590,7 @@ function songWords(condition: Condition): string {
 
 /**
  * The whole condition as one sentence: *"In one party, at least 3 scores of
- * 9000 or more, on songs where the genre is “Rock”."*
+ * 9000 or more, on songs where the genre is "Rock"."*
  *
  * It says what the definition says and never what it ought to say — a filter
  * whose ends are the wrong way round is spelled out as written, because the

@@ -240,7 +240,7 @@ async def ensure_ffmpeg(
         # No managed download elsewhere: the packaged app targets Windows, and every other
         # platform installs ffmpeg with one package-manager line.
         raise DownloadError(
-            "ffmpeg not found — install it (e.g. apt/brew) or set the downloads.ffmpeg setting"
+            "ffmpeg not found. Install it (e.g. apt/brew) or set the downloads.ffmpeg setting"
         )
     binary = managed_ffmpeg_path(data_dir)
     async with _ffmpeg_lock:

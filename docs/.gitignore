@@ -1,3 +1,5 @@
 # Built docs site and zensical's build cache.
 site/
 .cache/
+# Screenshot source pictures: inputs for the seeding script, never repository content.
+screenshots/avatars/

@@ -64,6 +64,10 @@ const SORTINGS: { value: Sorting; label: string }[] = [
  */
 export const ALL_SESSIONS = "all";
 
+/** What that head row is called for a reader who may open every party. It says
+ *  what it is on its own, so the bar's hidden "Party: " prefix stays off it. */
+const ALL_PARTIES = "All parties";
+
 interface SessionRowProps {
   /**
    * Whether this is the head row — the one that is every party at once. It
@@ -164,16 +168,21 @@ function SessionBar({
       );
     },
     onError: (failure) =>
-      setError(errorMessage(failure, "Could not rename the session.")),
+      setError(errorMessage(failure, "Could not rename the party.")),
   });
 
   // What the button stands on, and whether it needs saying what it is. The
-  // hidden prefix is there for a party called "Yannis' birthday"; a nameless
-  // one is already called "Session 8/23/2026, 20:00" and the head row "All
-  // sessions", and "Session: Session 8/23/2026" is what a screen reader would
-  // have to read out loud.
+  // hidden prefix is there for a party called "Yannis' birthday". A nameless
+  // one is already called "Party 8/23/2026, 20:00" and the head row "All
+  // parties", and "Party: Party 8/23/2026" is what a screen reader would
+  // have to read out loud. Asked of the *source* rather than of the rendered
+  // words: a party a host called "Christmas party" holds the word too, and
+  // would lose the prefix that is there for exactly that case.
   const name = session === null ? (metaLabel ?? "") : sessionLabel(session);
-  const namesItself = /session/i.test(name);
+  const namesItself =
+    session === null
+      ? metaLabel === ALL_PARTIES
+      : session.name === null || session.name === "";
 
   return (
     <>
@@ -189,7 +198,7 @@ function SessionBar({
             aria-haspopup="dialog"
             onClick={() => setPicking(true)}
           >
-            {!namesItself && <span className="visually-hidden">Session: </span>}
+            {!namesItself && <span className="visually-hidden">Party: </span>}
             <span className="scores-session-name">{name}</span>
             <Icon name="chevron-right" className="scores-session-chevron" />
           </button>
@@ -199,7 +208,7 @@ function SessionBar({
             <button
               type="button"
               className="icon-button icon-button-bordered"
-              aria-label="Rename session"
+              aria-label="Rename party"
               onClick={() => {
                 setError(null);
                 setDraft(session.name ?? "");
@@ -223,11 +232,11 @@ function SessionBar({
           }}
         >
           <label>
-            <span className="visually-hidden">Session name</span>
+            <span className="visually-hidden">Party name</span>
             <input
               className="text-input"
               value={draft}
-              placeholder="Yannis’ birthday"
+              placeholder="Yannis' birthday"
               onChange={(event) => setDraft(event.target.value)}
               autoFocus
             />
@@ -257,7 +266,7 @@ function SessionBar({
       )}
 
       {picking && (
-        <Modal title="Session" onClose={() => setPicking(false)}>
+        <Modal title="Party" onClose={() => setPicking(false)}>
           <ul className="picker-list">
             {/* At the head, so "everything at once" is where the list starts
                 rather than something to scroll past. */}
@@ -336,7 +345,7 @@ export default function Scores() {
     all.length < 2
       ? null
       : auth.can("stats.history")
-        ? "All sessions"
+        ? ALL_PARTIES
         : "All my scores";
   const meta = metaLabel !== null && selectedId === ALL_SESSIONS;
   const session = meta
@@ -387,7 +396,7 @@ export default function Scores() {
       <div className="scores-page">
         <h1 className="visually-hidden">Scores</h1>
         <ScoresEmpty>
-          Sing a song and the results land here — one page per party.
+          Sing a song and the results land here. One page per party.
         </ScoresEmpty>
       </div>
     );
@@ -477,7 +486,7 @@ export default function Scores() {
           {/* `sing_count` counts songs *started*, which is exactly the right
               number here: every one of them ended without a score. */}
           {session !== null && session.sing_count > 0
-            ? `${session.sing_count} songs started so far, none scored — ` +
+            ? `${session.sing_count} songs started so far, none scored. ` +
               "Ultrastar Deluxe reports a score when a song runs to the end."
             : "Pick a song, sing it, and the ranking builds itself."}
         </ScoresEmpty>
@@ -501,7 +510,7 @@ export default function Scores() {
                 <h2 className="scores-chart-title">All scores</h2>
               ) : (
                 <fieldset className="scores-chart-switch">
-                  <legend className="visually-hidden">Session chart</legend>
+                  <legend className="visually-hidden">Party chart</legend>
                   {(
                     [
                       ["scores", "All scores"],
@@ -524,15 +533,15 @@ export default function Scores() {
               {sessionChart === "evening" && !meta ? (
                 <EveningTimeline
                   scores={rows}
-                  label="The session's scores over the evening"
+                  label="The party's scores over the evening"
                 />
               ) : (
                 <ScoreStrip
                   scores={rows}
                   label={
                     meta
-                      ? "Every score, all sessions"
-                      : "Every score of the session"
+                      ? "Every score, all parties"
+                      : "Every score of the party"
                   }
                   dated={meta}
                 />

@@ -67,7 +67,7 @@ class UnconfiguredColorError(ValueError):
 
     def __init__(self, color: str) -> None:
         super().__init__(
-            f"'{color}' is not one of the configured player slots — reopen the player selection"
+            f"'{color}' is not one of the configured player slots. Reopen the player selection"
         )
         self.color = color
 
@@ -77,7 +77,7 @@ class DuplicateColorError(ValueError):
     apart, on the TV no more than in the scores."""
 
     def __init__(self, color: str) -> None:
-        super().__init__(f"'{color}' was picked twice — every singer needs a color of their own")
+        super().__init__(f"'{color}' was picked twice. Every singer needs a color of their own")
         self.color = color
 
 

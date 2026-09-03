@@ -135,7 +135,7 @@ def _validate_color(value: SettingValue) -> None:
 
 # What each option is, once, for every built-in that has it.
 _DESCRIPTIONS: dict[str, str] = {
-    COLOR: "The colour {name} is drawn in.",
+    COLOR: "The color {name} is drawn in.",
     SHOW_IN_LIST: "Whether the {name} mark goes on the song rows it applies to.",
     SHOW_IN_FILTER: "Whether the Filter panel offers {name} as a row.",
 }

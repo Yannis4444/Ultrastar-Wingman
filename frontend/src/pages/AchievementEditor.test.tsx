@@ -426,7 +426,7 @@ it("shows what the backend refused", async () => {
   // pressed in has to say the press went nowhere and where the sentence is.
   expect(
     await screen.findByText(
-      "It did not go through — the message at the top of the page says why.",
+      "It did not go through. The message at the top of the page says why.",
     ),
   ).toBeInTheDocument();
 });
@@ -524,7 +524,7 @@ it("draws a built-in's conditions as locked, not as controls that fail", async (
   ).not.toBeInTheDocument();
   // One quiet line says why, where the reader is looking.
   expect(
-    screen.getByText(/cannot be changed — the same badge means the same thing/),
+    screen.getByText(/cannot be changed. The same badge means the same thing/),
   ).toBeInTheDocument();
 });
 
@@ -556,7 +556,7 @@ it("puts a built-in back the way Wingman ships it, once it is confirmed", async 
   // pending, and the line that is true of that moment — "Nothing has changed
   // yet." — would read as though the reset had done nothing at all.
   expect(screen.getByRole("status")).toHaveTextContent(
-    "Reset — the shipped achievement is back.",
+    "Reset. The shipped achievement is back.",
   );
 
   // And it stops saying so the moment the form moves on: the acknowledgement is
@@ -564,7 +564,7 @@ it("puts a built-in back the way Wingman ships it, once it is confirmed", async 
   fireEvent.change(screen.getByLabelText("Name"), {
     target: { value: "Golden Larynx" },
   });
-  expect(screen.getByRole("status")).not.toHaveTextContent("Reset —");
+  expect(screen.getByRole("status")).not.toHaveTextContent("Reset.");
 });
 
 it("says nothing about a reset that did not go through", async () => {
@@ -586,9 +586,9 @@ it("says nothing about a reset that did not go through", async () => {
   );
   const line = screen.getByRole("status");
   expect(line).toHaveTextContent(
-    "It did not go through — the message at the top of the page says why.",
+    "It did not go through. The message at the top of the page says why.",
   );
-  expect(line).not.toHaveTextContent("Reset —");
+  expect(line).not.toHaveTextContent("Reset.");
   // Nothing was re-seeded either: the name the reader had is still theirs.
   expect(screen.getByDisplayValue("Renamed")).toBeInTheDocument();
 });
@@ -627,14 +627,14 @@ it("stops acknowledging a reset once a picture is put on it", async () => {
   fireEvent.click(screen.getByRole("button", { name: "Reset achievement" }));
   fireEvent.click(screen.getByRole("button", { name: "Reset" }));
   await screen.findByDisplayValue("Golden Voice");
-  expect(screen.getByRole("status")).toHaveTextContent("Reset —");
+  expect(screen.getByRole("status")).toHaveTextContent("Reset.");
 
   fireEvent.change(screen.getByLabelText("Use a picture instead"), {
     target: { files: [picture()] },
   });
 
   await waitFor(() => expect(setAchievementIcon).toHaveBeenCalled());
-  expect(screen.getByRole("status")).not.toHaveTextContent("Reset —");
+  expect(screen.getByRole("status")).not.toHaveTextContent("Reset.");
 });
 
 it("offers no reset for an achievement the party made itself", async () => {
@@ -709,9 +709,9 @@ it("uploads a picture and puts it where the glyph was", async () => {
   ).toBeInTheDocument();
   expect(screen.queryByLabelText("No icon")).not.toBeInTheDocument();
   expect(
-    screen.queryByRole("radiogroup", { name: "Colour" }),
+    screen.queryByRole("radiogroup", { name: "Color" }),
   ).not.toBeInTheDocument();
-  expect(screen.getByText(/no colour to set/)).toBeInTheDocument();
+  expect(screen.getByText(/no color to set/)).toBeInTheDocument();
   // Nothing about the form was touched by an upload — it is its own endpoint.
   expect(screen.getByRole("button", { name: "Save" })).toBeDisabled();
 });
@@ -768,7 +768,7 @@ it("says what the backend refused about a picture", async () => {
   });
 
   expect(await screen.findByRole("alert")).toHaveTextContent(
-    "Only jpeg, png and webp images work",
+    "Only jpeg, png, and webp images work",
   );
 });
 
@@ -792,9 +792,7 @@ it("goes back to a glyph from a picture", async () => {
     "aria-pressed",
     "true",
   );
-  expect(
-    screen.getByRole("radiogroup", { name: "Colour" }),
-  ).toBeInTheDocument();
+  expect(screen.getByRole("radiogroup", { name: "Color" })).toBeInTheDocument();
 });
 
 it("asks for the managing copy of the catalogue", async () => {

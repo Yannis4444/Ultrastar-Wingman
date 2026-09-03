@@ -5,49 +5,47 @@ title: Overview
 # Ultrastar Wingman
 
 Wingman is the karaoke helper that sits next to Ultrastar Deluxe. Ultrastar
-Deluxe plays the song and scores the singing. Wingman does everything around it:
-it holds the song list, collects what the party wants to sing, sets up the
-players, starts the song, and keeps the scores of the evening.
+Deluxe plays the song and scores the singing. Wingman does everything around it.
+It holds the song list and collects what the room wants to sing. It sets up the
+singers, starts the song, and keeps the scores of the evening.
 
 Everybody uses it from a browser. There is nothing to install on a phone.
 
-## How a party works
+## How an evening runs
 
-1. One person is the **host**. They run Wingman on the PC that runs Ultrastar
-   Deluxe, and connect it to their Ultrastar Deluxe installation once.
-2. The host opens the **host screen** on that PC. On the left it shows what is
-   playing, or the scores of the song that just finished; down the right side
-   stand the QR code with the address of Wingman, the standing of the party so
-   far, and what the room wished for.
-3. Guests scan that QR code, or type the address into their browser. They land
-   on the same Wingman, on their own phone.
-4. Anyone can browse the songs, add a song to the wishlist, and start a song:
-   pick who sings on which microphone colour, hit **Play**, and Ultrastar Deluxe
-   opens with that song on the TV.
+1. One person runs Wingman on the PC that runs Ultrastar Deluxe, and connects it
+   to their Ultrastar Deluxe installation once.
+2. They open the host screen on that PC. It carries the QR code with Wingman's
+   address, the standing of the party so far, and what the room wished for.
+3. Everybody else scans that QR code, or types the address into a browser. They
+   land on the same Wingman, on their own phone.
+4. Anyone can browse the songs, put a song on the wishlist, and start one. Pick
+   who sings on which microphone color and tap **Play**. Ultrastar Deluxe opens
+   with that song on the TV.
 5. When the song ends, Wingman reads the scores Ultrastar Deluxe gave out and
-   files them under the players who actually sang.
+   files them under the people who sang.
 
-Guests need no account. Their phone gets a cookie, which is enough to wish for
-songs. An account is only needed for personal things: favorites, own playlists,
-and the rights the host hands out.
+Six hours without a song ends the party. The next song starts a new one, with
+scores of its own.
 
-## What the tabs do
+## Who is who
 
-| Tab | What you find there |
+| Word | Who it means |
 |---|---|
-| **Home** | What is playing, the way into the random-song reel, the wishlist |
-| **Songs** | The whole song list, search, favorites, the filter over tags and what the song files say, what has been sung tonight, playlists, and the way into a song |
-| **Scores** | The statistics of every party |
-| **User** | Log in, your own scores and badges, players and their avatars, and (for the host) users, tags, achievements and permissions |
+| **host** | The person running Wingman on the karaoke PC |
+| **guest** | Somebody at the party without an account |
+| **singer** | Whoever is singing a song right now |
+| **administrator** | Somebody holding the Admin role, who sets the party up |
 
-Two more pages are linked from there: **USDB** — behind the **+** button on the
-Songs page — for downloading new songs, and **Settings** for everything the host
-configures.
+A guest needs no account. Their phone gets a cookie, which is enough to browse,
+wish, and start a song. An account is only for personal things: favorites, your
+own playlists, your own record of scores, and the rights the host hands out.
+
+Every role is a bundle of rights, and the host can change what each one may do.
+See [Roles and permissions](people/roles.md).
 
 ## Where to go next
 
-- [Get started](getting-started.md) — run Wingman and connect Ultrastar Deluxe.
-- [Sing a song](singing.md) — the player selection and starting a song.
-- [Download songs](downloading-songs.md) — get new songs from USDB.
-- [Tags](tags.md) — label songs, and decide who may see which.
-- [Troubleshooting](troubleshooting.md) — when something does not work.
+- [Get started](start/index.md): run Wingman and connect Ultrastar Deluxe.
+- [At the party](party/index.md): the wishlist, the reel, and starting a song.
+- [The song list](songs/index.md): search, filter, and open a song.

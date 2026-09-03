@@ -432,7 +432,7 @@ async def test_ffmpeg_is_not_downloaded_off_windows(
     monkeypatch.setattr(shutil, "which", lambda name: None)
 
     async with ffmpeg_github(requests) as client:
-        with pytest.raises(DownloadError, match="install it"):
+        with pytest.raises(DownloadError, match="Install it"):
             await media.ensure_ffmpeg(session, tmp_path, client)
 
     assert requests == []

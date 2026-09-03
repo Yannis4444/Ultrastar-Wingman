@@ -314,7 +314,7 @@ export default function PlaylistManage() {
                       setIsGlobal(event.target.checked);
                     }}
                   />
-                  <span>Global — everyone can see it</span>
+                  <span>Global: everyone can see it</span>
                 </label>
                 <div className="playlist-manage-save">
                   <button
@@ -337,7 +337,7 @@ export default function PlaylistManage() {
               <h2 id="playlist-members">Members</h2>
               <p className="playlist-manage-hint">
                 Read may look at the list, write may change its songs, and admin
-                may also rename, share and delete it.
+                may also rename, share, and delete it.
               </p>
 
               <label className="playlists-field playlist-manage-search">
@@ -530,7 +530,7 @@ export default function PlaylistManage() {
       {deleting && loaded !== undefined && (
         <ConfirmModal
           title="Delete playlist"
-          message={`Delete "${loaded.name}"? The list and everybody's access to it are gone; the songs themselves stay in the library.`}
+          message={`Delete "${loaded.name}"? The list and everybody's access to it are gone. The songs themselves stay in the library.`}
           confirmLabel="Delete"
           danger
           onConfirm={() => {

@@ -175,7 +175,7 @@ it("invites a singer who has earned nothing yet", async () => {
 
   expect(await screen.findByText("0 of 3")).toBeInTheDocument();
   expect(
-    screen.getByText("Nothing yet — the first one is a song away."),
+    screen.getByText("Nothing yet. The first one is a song away."),
   ).toBeInTheDocument();
   // The list behind it still says what is out there.
   expect(screen.getByText("First Time on the Mic")).toBeInTheDocument();

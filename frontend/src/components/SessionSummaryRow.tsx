@@ -38,11 +38,11 @@ export default function SessionSummaryRow({
   const { sings, songs, singers, top } = summarize(scores);
   const singsLabel =
     session.sing_count > sings
-      ? `Sings — ${sings} scored of ${session.sing_count} started`
+      ? `Sings: ${sings} scored of ${session.sing_count} started`
       : "Sings";
 
   return (
-    <section className="session-summary" aria-label="Session summary">
+    <section className="session-summary" aria-label="Party summary">
       <p className="session-summary-stats">
         {!isToday(session.started_at) && (
           <IconStat

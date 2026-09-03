@@ -49,6 +49,11 @@ request does not override are the accessibility and dependency floors in §1.8�
     `--highlight-blue-dark` band, a lit label — sits inside `@media (hover: hover)`, because
     touch fakes a hover on tap that outlives the finger. Focus rings, `:active` and control
     hovers are untouched.
+13. **Words follow the documentation guidelines.** Every string the app shows (labels,
+    explaining lines, empty states, error sentences, setting names and descriptions, and
+    confirm dialogs) obeys [documentation.md](documentation.md): American English, short
+    sentences, no em-dashes, the terminology table. Section 11 there lists the three UI-only
+    exceptions, and the labels that break the rules today.
 
 ## 2. Tokens, spacing, typography
 
@@ -287,7 +292,8 @@ saved) where a jump to the top would throw away the place they were working in.
   passive `globe` mark when global, a meta line "12 songs · 48 min · by alice" (the owner named
   outside *Your playlists*) and a chevron. The header `+` opens the New playlist panel and
   navigates into what it creates. No edit or delete control on a row — management lives behind
-  the detail page's gear — and each group carries its own `EmptyState`.
+  the detail page's gear. One `EmptyState` for the page, not one per group: three of them
+  stacked on a fresh install would say the same thing three times.
 - **Playlist** (`/songs/playlists/:id`): `PageHeader` with the name, `back` to the list,
   trailing the gradient dice and, for `can_manage`, a `gear` into the manage page. Then a
   summary line (description; "12 songs · 48 min · Global · shared by alice · your access") and
@@ -319,14 +325,14 @@ saved) where a jump to the top would throw away the place they were working in.
   and what is off is dropped; never a song count — a mark's differs per reader, a facet's is
   one number per value. A valued facet's square is neutral: no colour to set. *Recent* is a
   mode, not a tag, and has no row. The **tag editor** (`/user/tags/:id`) runs in one order: Name
-  (quiet input), Icon (the picker grid), Colour (radio pills), the checkboxes "Show in song
+  (quiet input), Icon (the picker grid), Color (radio pills), the checkboxes "Show in song
   list" and "Hide songs by default", each with a one-line explanation of its effect on other
   people, the permission matrix (rows *See tag* / *See songs* / *Tag songs* × columns Guest /
   User / Trusted, admin always on), then "Specific people" — people-rows with the same three
   checkboxes. Save is the page's one primary and, with the danger Delete an existing tag has —
   whose `ConfirmModal` says how many songs lose it — rides in the sticky action row of §4. A **built-in** opens that editor on a reserved id
   (`/user/tags/favorites`, `/user/tags/duet`, …) — one row idiom, one editor, and a 32-hex tag
-  id cannot collide with a word. A mark keeps Colour and "Show in song list" (`heart` pink,
+  id cannot collide with a word. A mark keeps Color and "Show in song list" (`heart` pink,
   `mic` blue, both shown in the list by default); a boolean facet those two plus "Show in
   filter" (neutral, off the rows, in the filter); a valued facet "Show in filter" alone, on by
   default too. Every checkbox keeps its explaining line, Save is the usual one, and one line
@@ -366,7 +372,7 @@ saved) where a jump to the top would throw away the place they were working in.
   leaves its place alone: the order is the host's, not the achievement's. The
   **achievement editor** (`/user/achievements/:achievementId`) runs in the tag editor's
   order: Name and Description (quiet inputs), Icon — the picker grid *or* the uploaded
-  picture, never both, and an upload needs a saved achievement — Colour (radio pills),
+  picture, never both, and an upload needs a saved achievement — Color (radio pills),
   *Hidden until earned* and *Enabled* each with its explaining line, then Conditions as one
   flat `ConditionBuilder` block apiece, every block headed by the plain sentence it means, and
   §4's sticky action row — Save gated on `conditionProblem` (the row's line saying which of the
@@ -388,9 +394,9 @@ saved) where a jump to the top would throw away the place they were working in.
   button, the rename `pencil` (`stats.manage`) beside it. The button opens a panel modal, never
   a `<select>` — a party is more than its name: one row per session, `aria-pressed` on the
   current one, the name (or its date when unnamed) over a meta line "12 Aug 2026 · 5 singers ·
-  23 scores", and at the head one row for everything at once (`layers`) — *All sessions* with
+  23 scores", and at the head one row for everything at once (`layers`) — *All parties* with
   `stats.history`, *All my scores* for a reader who only sees the parties they sang in, over the
-  same line for the lot ("3 sessions · 60 scores"). The rows are `PickerRow`'s shape — its
+  same line for the lot ("3 parties · 60 scores"). The rows are `PickerRow`'s shape — its
   stylesheet, not the component: a party is not something a song is *on*, so no membership mark —
   and the pressed one wears the `--highlight-blue-dark` band under a `--highlight-blue-light`
   name. A party row has no lead, so the head row's `layers` sits in the line of its name rather

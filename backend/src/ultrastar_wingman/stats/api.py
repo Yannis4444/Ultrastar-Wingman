@@ -158,7 +158,7 @@ async def list_all_scores(
     session: SessionDep, principal: PrincipalDep, visible: VisibleSessionsDep
 ) -> ScoreList:
     """Every score of every party this caller may open, newest first — the session picker's
-    head row ("All sessions", or "All my scores" for a reader without `stats.history`).
+    head row ("All parties", or "All my scores" for a reader without `stats.history`).
 
     Its own route rather than a reserved session id: it pairs with the two `/stats/scores/…`
     corrections below, and a route that answers "every party at once" is not a party — it

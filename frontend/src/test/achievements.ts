@@ -107,7 +107,7 @@ const BUILT_INS: [string, string, string, string, boolean][] = [
   ["builtin-evening-songs-10", "Iron Lungs", "dumbbell", "blue", false],
   ["builtin-evening-hat-trick", "Hat-trick", "drum", "gold", false],
   ["builtin-first-duet", "Better Together", "users", "neutral", false],
-  ["builtin-artists-10", "Well Travelled", "plane", "blue", false],
+  ["builtin-artists-10", "Well Traveled", "plane", "blue", false],
   ["builtin-brave-soul", "Brave Soul", "ghost", "neutral", true],
 ];
 

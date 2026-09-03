@@ -261,7 +261,7 @@ describe("the editor's vocabulary", () => {
     expect(REGEX_NOTE).toContain("ignores case");
     expect(REGEX_NOTE).toContain("(?-i:Love)");
     expect(REGEX_NOTE).toContain("refuses");
-    expect(REGEX_NOTE).toContain("wrapped around another");
+    expect(REGEX_NOTE).toContain("wrap one around another");
   });
 });
 
@@ -464,7 +464,7 @@ describe("conditionSentence", () => {
       conditionSentence(condition({ songs: { ids: ["local:a", "local:b"] } })),
     ).toContain(", on one of 2 chosen songs.");
     expect(conditionSentence(condition({ songs: { ids: [] } }))).toContain(
-      ", on no song — none is chosen yet.",
+      ", on no song (none is chosen yet).",
     );
   });
 
@@ -483,7 +483,7 @@ describe("conditionSentence", () => {
         }),
       ),
     ).toBe(
-      "In one party, at least 3 scores of 9000 or more, on songs where the genre is “Rock”.",
+      'In one party, at least 3 scores of 9000 or more, on songs where the genre is "Rock".',
     );
     expect(
       conditionSentence(
@@ -498,7 +498,7 @@ describe("conditionSentence", () => {
         }),
       ),
     ).toContain(
-      "on songs where the title contains “love” or the artist starts with “A”",
+      'on songs where the title contains "love" or the artist starts with "A"',
     );
   });
 
@@ -513,7 +513,7 @@ describe("conditionSentence", () => {
         }),
       ),
     ).toContain(
-      "on songs where the title matches the regular expression “^Love”",
+      'on songs where the title matches the regular expression "^Love"',
     );
   });
 

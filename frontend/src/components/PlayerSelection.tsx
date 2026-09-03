@@ -130,7 +130,7 @@ export default function PlayerSelection({
       if (errorDetail(error) === "already_playing") {
         // Replacing means stopping the running song, which is its own capability.
         if (auth.can("karaoke.stop")) setAskReplace(true);
-        else setNotice("Another song is playing — ask the host to stop it.");
+        else setNotice("Another song is playing. Ask the host to stop it.");
         return;
       }
       // USDX not being set up is not the singer's mistake to read as an error —
@@ -144,7 +144,7 @@ export default function PlayerSelection({
         errorMessage(
           error,
           errorDetail(error) ??
-            "Could not start the song — check the USDX settings.",
+            "Could not start the song. Check the USDX settings.",
         ),
       );
     },
@@ -185,12 +185,12 @@ export default function PlayerSelection({
     activeColor !== null
       ? "Pick a player for the outlined slot."
       : full
-        ? "All slots are full — tap a slot to change it."
+        ? "All slots are full. Tap a slot to change it."
         : "Tap a player to fill the next free slot.";
 
   return (
     <>
-      <Modal title="Player Selection" onClose={onClose} fullscreen>
+      <Modal title="Player selection" onClose={onClose} fullscreen>
         <div className="player-selection">
           <div className="player-selection-head">
             <p className="player-selection-song">{song.title}</p>
@@ -262,11 +262,11 @@ export default function PlayerSelection({
                     would help here. */}
                 {(players.data?.players.length ?? 0) > 0
                   ? auth.can("players.manage")
-                    ? "Everybody is hidden — show somebody on the players page."
-                    : "Everybody is hidden — ask the host to show somebody."
+                    ? "Everybody is hidden. Show somebody on the players page."
+                    : "Everybody is hidden. Ask the host to show somebody."
                   : auth.can("players.manage")
-                    ? "No players yet — add the first one below."
-                    : "No players yet — ask the host to add one."}
+                    ? "No players yet. Add the first one below."
+                    : "No players yet. Ask the host to add one."}
               </p>
             ) : (
               <>
@@ -343,7 +343,7 @@ export default function PlayerSelection({
       {askReplace && (
         <ConfirmModal
           title="Already playing"
-          message="Another song is playing — replace it?"
+          message="Another song is playing. Replace it?"
           confirmLabel="Replace"
           danger
           onConfirm={() => {
