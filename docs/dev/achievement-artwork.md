@@ -493,5 +493,6 @@ reads better at 40 px, and every later badge copies this one.
 | 2 | Warmed Up | `builtin-score-6000.png` | done. As on the mic, the steam came out as the grey background element rather than as silver curls of the motif — the model merges the cue into the background when both are the same shape, and that reads fine |
 | 5 | Untouchable | `builtin-score-9500.png` | done — as specified, five pink gems, halo ring |
 | 6 | A Good Evening | `builtin-evening-50k.png` | done — as specified; tankard, foam spilling, four bubbles |
-| the other eleven | | | production round, against the reference — in list order, Big Night next |
+| 7 | Big Night | `builtin-evening-100k.png` | done — blue flame, cream core, heat lines; the "small flat base" was dropped by the model and is better gone |
+| the other ten | | | production round, against the reference — in list order, Marathon next |
 | — | blank plate | | optional |
