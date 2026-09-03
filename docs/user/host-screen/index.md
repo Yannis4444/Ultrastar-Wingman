@@ -67,7 +67,7 @@ played against the song's length, a progress bar, and every singer on the color
 of their microphone. The rail carries on beside it, so the QR code and the
 standing stay up the whole time.
 
-![The host screen while Rolling in the Deep plays, with the cover, the elapsed time, a progress bar, and Fry and Leela on their colors](../assets/screenshots/host-screen/host-playing.png){ width="720" loading=lazy }
+![The host screen while Walking on Sunshine plays, with the cover, the elapsed time, a progress bar, and Fry and Leela on their colors](../assets/screenshots/host-screen/host-playing.png){ width="720" loading=lazy }
 /// caption
 Fry sings on blue and Leela on red, the colors they were given.
 ///

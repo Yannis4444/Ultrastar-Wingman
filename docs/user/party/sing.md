@@ -60,7 +60,7 @@ title, the artist, and the buttons under them. The elapsed time and the singers
 are not repeated there, because the Ultrastar Deluxe screen in the same room
 already shows both.
 
-![Home while Rolling in the Deep by Adele plays, with its cover and the song controls where the Wingman tile usually is](../assets/screenshots/party/home-playing.png){ width="320" loading=lazy }
+![Home while Walking on Sunshine by Katrina and the Waves plays, with its cover and the song controls where the Wingman tile usually is](../assets/screenshots/party/home-playing.png){ width="320" loading=lazy }
 /// caption
 The wishlist stays below the stage, so the room can keep reading it.
 ///

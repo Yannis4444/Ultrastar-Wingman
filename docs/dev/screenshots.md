@@ -98,7 +98,7 @@ program for a screenshot. `docs/screenshots/standin_usdx.py` takes its place, an
 The stand-in holds the song until a sentinel file appears, which is what lets a picture
 be taken of a song that is playing. `capture.py` runs two takes:
 
-1. Fry and Leela sing a song from 2010, which earns nobody anything. `home-playing` and
+1. Fry and Leela sing "Walking on Sunshine", which earns nobody anything. `home-playing` and
    `host-playing` are taken while it holds. Then the song is released, and the results
    appear at once, which is `host-results`.
 2. The history is rewound, and Bender sings a song from the eighties on his own. That
