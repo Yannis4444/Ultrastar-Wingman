@@ -327,7 +327,7 @@ BACKGROUND: two large overlapping rings behind the crossing point.
 
 **16 · Well Traveled** — blue — `builtin-artists-10` — glyph `plane`
 ```
-MOTIF: a single small passenger airplane seen from the side, climbing up and to the right at 20 degrees, with one wing and a tail fin and one thick contrail behind it.
+MOTIF: a single small passenger airplane seen from the side, climbing up and to the right at 20 degrees, with one wing and a tail fin; no contrail, the climb is the action.
 ACCENT: red #d9534f, on the tail fin.
 BACKGROUND: one wide globe arc across the lower part of the plate.
 ```
@@ -502,5 +502,6 @@ reads better at 40 px, and every later badge copies this one.
 | 13 | Iron Lungs | `builtin-evening-songs-10.png` | done — red grip, chevrons behind. The model stacked two plates per end instead of one weight; kept on purpose (it reads as a dumbbell more, and two big plates are not a striped blur at 40 px), and entry 13 now says so |
 | 14 | Hat-trick | `builtin-evening-hat-trick.png` | done — as specified; gold hat tipped, pink band, three arcs |
 | 15 | Better Together | `builtin-first-duet.png` | done — two matching mics crossed at the middle, teal bands, grid heads like badge 1 (siblings on purpose), one grey arc per head over the two rings |
-| the other two | | | production round, against the reference — in list order, Well Traveled next |
+| 16 | Well Traveled | `builtin-artists-10.png` | done — red tail fin, globe arc. The contrail was dropped by hand (it looked wrong; entry 16 now says no contrail). Two liberties kept: a row of small dark windows (they collapse to a dashed line at 40 px, harmlessly) and continents on the globe arc, grey and low-contrast |
+| the last one | | | production round, against the reference — Brave Soul next |
 | — | blank plate | | optional |
