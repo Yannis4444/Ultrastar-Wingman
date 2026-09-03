@@ -491,5 +491,6 @@ reads better at 40 px, and every later badge copies this one.
 | 3 | In Tune | `builtin-score-8000.png` | done — first try against the reference; the blue tier is locked |
 | 1 | First Time on the Mic | `builtin-first-song.png` | done — the neutral tier is locked. Two liberties accepted: the mesh head is a fine grid (it reads as a textured ball at 40 px), and the tilt is nearer 35° than 15°; the motif's own sound arcs did not appear, the background arcs stand in for them |
 | 2 | Warmed Up | `builtin-score-6000.png` | done. As on the mic, the steam came out as the grey background element rather than as silver curls of the motif — the model merges the cue into the background when both are the same shape, and that reads fine |
-| the other thirteen | | | production round, against the reference — in list order, Untouchable next |
+| 5 | Untouchable | `builtin-score-9500.png` | done — as specified, five pink gems, halo ring |
+| the other twelve | | | production round, against the reference — in list order, A Good Evening next |
 | — | blank plate | | optional |
