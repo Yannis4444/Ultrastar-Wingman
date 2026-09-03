@@ -54,8 +54,8 @@ step.
   icon — tap it to read what went wrong and to retry, which downloads the song
   even if Wingman thinks it is already in the library.
 - A song that arrives with a misspelt artist or no year is corrected in its own
-  view with [Edit details](index.md#fix-a-songs-details); one that turns out to
-  be unusable is [deleted](index.md#delete-a-song) with its files.
+  view with [Edit details](fix-or-delete.md); one that turns out to be unusable
+  is deleted with its files on the same page.
 - Downloads survive a restart: a queued one is picked up again, and one that was
   running when Wingman stopped is marked as failed so you can retry it.
 

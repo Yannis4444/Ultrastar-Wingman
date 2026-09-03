@@ -126,7 +126,7 @@ Read the reason in the download row.
   Wingman can do; pick another version of the song.
 - **The song directory already exists** — that folder is already in your song
   library. Wingman never writes over it. If Wingman lists it as a song,
-  [delete the song](../songs/index.md#delete-a-song); otherwise delete the folder
+  [delete the song](../songs/fix-or-delete.md); otherwise delete the folder
   yourself. Then retry; a rescan afterwards is a good idea either way.
 - **Interrupted** — Wingman was restarted while the download ran. Press download
   again.

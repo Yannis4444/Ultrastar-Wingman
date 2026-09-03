@@ -137,7 +137,7 @@ What each role may do by default:
 | Stop a running song | – | yes | yes | yes |
 | Create and edit own playlists | – | yes | yes | yes |
 | See the parties before tonight | – | yes | yes | yes |
-| [Comment on songs](../songs/index.md#comments) | – | yes | yes | yes |
+| [Comment on songs](../songs/song.md) | – | yes | yes | yes |
 | Add, hide and delete players | – | – | yes | yes |
 | Change somebody else's picture | – | – | yes | yes |
 | Clear a song off the wishlist | – | – | yes | yes |
@@ -149,10 +149,10 @@ What each role may do by default:
 | Change a playlist somebody else shared | – | – | yes | yes |
 | [Manage tags](../songs/tags.md) and the built-in marks and facets | – | – | yes | yes |
 | Delete anybody's comments | – | – | yes | yes |
-| [Fix a song's details](../songs/index.md#fix-a-songs-details) | – | – | yes | yes |
+| [Fix a song's details](../songs/fix-or-delete.md) | – | – | yes | yes |
 | [Correct or delete a score](../scores/index.md#fix-a-wrong-singer) | – | – | – | yes |
 | [Create and edit achievements](../achievements/index.md) | – | – | – | yes |
-| [Delete a song](../songs/index.md#delete-a-song) | – | – | – | yes |
+| [Delete a song](../songs/fix-or-delete.md) | – | – | – | yes |
 | See and change the settings | – | – | – | yes |
 | Manage users | – | – | – | yes |
 | Change these permissions | – | – | – | yes |
@@ -202,9 +202,8 @@ disaster, and a guest is taken over by whoever registers that name.
   no difference.
 - Deleting an account keeps its player and its scores, under the same name, and
   removes its wishes, favorites, comments and playlists — except a playlist
-  with an [admin member](../party/wishlist.md#manage-a-playlist), which is
-  handed to that person. The player moves down to the guests, and can be
-  deleted there.
+  with an [admin member](../songs/playlists.md), which is handed to that
+  person. The player moves down to the guests, and can be deleted there.
 
 ## Change what a role may do
 

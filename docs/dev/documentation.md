@@ -292,9 +292,9 @@ Never carry the word into a user page without saying which one you mean:
 
 | Where the app says it | What it means | Word to use |
 |---|---|---|
-| The Scores page ("All sessions", "Rename session") | One evening of singing | party |
-| The downloads panel ("Only this session") | Downloads since Wingman was started | this run of Wingman |
-| The host screen ("Host session active") | This browser holds host rights | host rights |
+| The Scores page ("All parties", "Rename party", "Party name") | One evening of singing | party |
+| The downloads panel ("Since Wingman started") | Downloads since Wingman was started | this run of Wingman |
+| The host screen ("This browser holds host rights") | This browser holds host rights | host rights |
 
 The UI copy pass fixes the first one. The other two need their own words, not "party". See
 section 11.

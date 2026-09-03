@@ -21,12 +21,17 @@ nav = [
   ] },
   { "The song list" = [
     "songs/index.md",
+    { "Filter the list" = "songs/filter.md" },
+    { "Open a song" = "songs/song.md" },
+    { "Playlists" = "songs/playlists.md" },
     { "Download songs" = "songs/download.md" },
     { "Tags" = "songs/tags.md" },
+    { "Fix or delete a song" = "songs/fix-or-delete.md" },
   ] },
   { "At the party" = [
     "party/index.md",
     { "Wish for a song" = "party/wishlist.md" },
+    { "Sing a song" = "party/sing.md" },
     { "Let the reel pick" = "party/reel.md" },
   ] },
   { "The host screen" = [
