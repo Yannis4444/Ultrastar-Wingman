@@ -52,10 +52,15 @@ export default function AchievementBadge({
   // A masked row is drawn like an unearned one because that is what it is: the
   // API only ever blanks an achievement the reader has not got.
   const lit = earned && !masked;
+  const picture = !masked && achievement.has_image;
   const classes = [
     "achievement-badge",
     lit ? "achievement-badge-earned" : "achievement-badge-off",
     lit ? achievementColorClass(achievement.color) : "",
+    // A picture fills the plate, so the plate is not painted under it: the
+    // rounded corners would otherwise show a hairline of the plate's colour
+    // around the picture's edge.
+    picture ? "achievement-badge-picture" : "",
     className ?? "",
   ]
     .filter((name) => name !== "")

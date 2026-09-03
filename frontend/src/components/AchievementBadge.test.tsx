@@ -117,3 +117,30 @@ it("takes its size from the parent rather than from a prop", () => {
   expect(badge(container).getAttribute("style")).toBeNull();
   expect(badge(container).className).not.toMatch(/small|large/);
 });
+
+it("paints no plate under a picture", () => {
+  // The picture covers the square; a plate beneath it showed as a hairline of
+  // the achievement's colour around the rounded corners.
+  const { container } = render(
+    <AchievementBadge
+      achievement={achievementRead({ color: "gold", has_image: true })}
+    />,
+  );
+
+  expect(badge(container)).toHaveClass("achievement-badge-picture");
+  // Still the earned plate class and the colour: the off state and the masked
+  // lock are decided the same way whether or not there is a picture.
+  expect(badge(container)).toHaveClass("achievement-badge-earned");
+});
+
+it("keeps the plate for a glyph and for a masked badge", () => {
+  const glyph = render(<AchievementBadge achievement={achievementRead()} />);
+  expect(badge(glyph.container)).not.toHaveClass("achievement-badge-picture");
+
+  const masked = render(
+    <AchievementBadge
+      achievement={maskedAchievementRead({ has_image: true })}
+    />,
+  );
+  expect(badge(masked.container)).not.toHaveClass("achievement-badge-picture");
+});
