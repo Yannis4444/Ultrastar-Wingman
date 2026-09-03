@@ -304,7 +304,7 @@ BACKGROUND: one large soft ring behind the hourglass, like a clock face without 
 
 **13 · Iron Lungs** — blue — `builtin-evening-songs-10` — glyph `dumbbell`
 ```
-MOTIF: a single dumbbell with a short bar and one thick round weight at each end, tilted 15 degrees as if mid-lift; no action cue.
+MOTIF: a single dumbbell with a short bar and two thick round plates stacked at each end, the outer one smaller, tilted 15 degrees as if mid-lift; no action cue.
 ACCENT: red #d9534f, on the grip in the middle of the bar.
 BACKGROUND: two large chevrons pointing up, stacked, behind the dumbbell.
 ```
@@ -499,5 +499,6 @@ reads better at 40 px, and every later badge copies this one.
 | 10 | Resident | `builtin-songs-50.png` | done — red pickguard, sound-wave band; the strum swoosh did not appear and the strings are thin (harmless: they vanish at 40 px); the hardware came out in the highlight white, which is still a tier tone |
 | 11 | Living Legend | `builtin-songs-100.png` | done, second attempt. The first copied the reference too literally and stood the wreath on the trophy's pedestal with its red plaque — a second object and a second red, and a twin of Golden Voice in the list. One correction ("remove the base and the plaque, the wreath stands on its own, the star is the only red, everything else identical") fixed it. Lesson for the guide: when the reference badge and the new motif share a part, say so and forbid it |
 | 12 | Five in a Night | `builtin-evening-songs-5.png` | done — as specified; teal sand and stream, flat glass, ring behind |
-| the other five | | | production round, against the reference — in list order, Iron Lungs next |
+| 13 | Iron Lungs | `builtin-evening-songs-10.png` | done — red grip, chevrons behind. The model stacked two plates per end instead of one weight; kept on purpose (it reads as a dumbbell more, and two big plates are not a striped blur at 40 px), and entry 13 now says so |
+| the other four | | | production round, against the reference — in list order, Hat-trick next |
 | — | blank plate | | optional |
