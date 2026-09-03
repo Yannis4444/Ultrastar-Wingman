@@ -433,10 +433,11 @@ own library, names, and scores never appear.
   those players keep the app's own initials avatar.
 - The folder is gitignored, so the pictures never enter the repository. `docs/.gitignore`
   carries the rule.
-- The song list is about 40 plausible entries. Four of them are fixed Easter eggs.
+- The song list is about 40 plausible entries. Five of them are fixed Easter eggs.
   "Sandstorm" by Darude and "Tequila" by The Champs are both terrible karaoke songs, and both
   are wished for. "Rap God" by Eminem carries an implausible 9,842 for Bender. The one duet is
-  "I Got You Babe" by Sonny and Cher, sung by Fry and Leela.
+  "I Got You Babe" by Sonny and Cher, sung by Fry and Leela. "Walking on Sunshine" by Katrina
+  and the Waves is the song Fry sings on the TV in the launcher pictures.
 - Scores are believable otherwise: most between 3,000 and 8,000, Zoidberg last.
 - Two parties, not one. An older one from a week ago, and the one going tonight. A singer
   needs a history before "All my scores" and a progress bar mean anything. The Scores page

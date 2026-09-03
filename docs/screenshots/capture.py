@@ -61,7 +61,7 @@ READY_TIMEOUT = 30.0
 LAUNCHER_TIMEOUT = 180.0
 
 # The launcher takes. Which song and which singers matters; see docs/dev/screenshots.md.
-RESULTS_SONG = 1503
+RESULTS_SONG = 1218  # Walking on Sunshine: Fry sings it, and earns nothing by it
 RESULTS_SINGERS = ("Fry", "Leela")
 BADGE_SONG = scenario.FINISHING_SONG
 BADGE_SINGER = scenario.PENDING_SINGER

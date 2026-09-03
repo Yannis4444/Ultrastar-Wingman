@@ -19,7 +19,7 @@ counts toward nothing else. See [Sing a song](../party/sing.md).
 
 The host screen puts the result of the song that just finished on the TV.
 
-![The host screen after Rolling in the Deep, with Fry on 7,900 marked New Highscore and Leela on 5,730 under the song's own figures](../assets/screenshots/scores/host-results.png){ width="720" loading=lazy }
+![The host screen after Walking on Sunshine, with Fry's score marked New Highscore and Leela's under it, beside the song's own figures](../assets/screenshots/scores/host-results.png){ width="720" loading=lazy }
 /// caption
 The four figures on the left are the song's whole record, not tonight's.
 ///
