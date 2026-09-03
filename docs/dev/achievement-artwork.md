@@ -497,5 +497,6 @@ reads better at 40 px, and every later badge copies this one.
 | 8 | Marathon | `builtin-evening-250k.png` | done — red nose, gold exhaust, trail and horizon; the trail runs beside the rocket rather than behind it, which is the stronger diagonal anyway |
 | 9 | Regular | `builtin-songs-10.png` | done — as specified; teal beam, two staff bands |
 | 10 | Resident | `builtin-songs-50.png` | done — red pickguard, sound-wave band; the strum swoosh did not appear and the strings are thin (harmless: they vanish at 40 px); the hardware came out in the highlight white, which is still a tier tone |
-| the other seven | | | production round, against the reference — in list order, Living Legend next |
+| 11 | Living Legend | `builtin-songs-100.png` | done, second attempt. The first copied the reference too literally and stood the wreath on the trophy's pedestal with its red plaque — a second object and a second red, and a twin of Golden Voice in the list. One correction ("remove the base and the plaque, the wreath stands on its own, the star is the only red, everything else identical") fixed it. Lesson for the guide: when the reference badge and the new motif share a part, say so and forbid it |
+| the other six | | | production round, against the reference — in list order, Five in a Night next |
 | — | blank plate | | optional |
