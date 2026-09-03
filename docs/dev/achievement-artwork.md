@@ -501,5 +501,6 @@ reads better at 40 px, and every later badge copies this one.
 | 12 | Five in a Night | `builtin-evening-songs-5.png` | done — as specified; teal sand and stream, flat glass, ring behind |
 | 13 | Iron Lungs | `builtin-evening-songs-10.png` | done — red grip, chevrons behind. The model stacked two plates per end instead of one weight; kept on purpose (it reads as a dumbbell more, and two big plates are not a striped blur at 40 px), and entry 13 now says so |
 | 14 | Hat-trick | `builtin-evening-hat-trick.png` | done — as specified; gold hat tipped, pink band, three arcs |
-| the other three | | | production round, against the reference — in list order, Better Together next |
+| 15 | Better Together | `builtin-first-duet.png` | done — two matching mics crossed at the middle, teal bands, grid heads like badge 1 (siblings on purpose), one grey arc per head over the two rings |
+| the other two | | | production round, against the reference — in list order, Well Traveled next |
 | — | blank plate | | optional |
