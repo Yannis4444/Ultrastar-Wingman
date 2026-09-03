@@ -102,15 +102,24 @@
   list-style: none;
 }
 
-/* A row of the list: the 40px badge the parent's 1em gives it, then the
-   name, the sentence and either the date or the bar. Hairlines between, the
-   first row separated from the strip above it the same way. */
+/* A row of the list: the badge, then the name, the sentence and either the
+   date or the bar. Hairlines between, the first row separated from the strip
+   above it the same way. */
 .user-achievement {
   display: flex;
   align-items: flex-start;
   gap: 12px;
   padding: 10px 0;
   border-top: 1px solid var(--input-border-color);
+}
+
+/* The badge is 60px here rather than the 40px every other row leads with: a
+   row is three lines tall anyway (name, sentence, date or bar), and this is
+   the one place a singer looks at their own badges rather than picks one out
+   of a list — the picture is the point. The badge sizes by its `font-size`
+   (AchievementBadge.css); 1.5em of the row's 16px is 60px. */
+.user-achievement > .achievement-badge {
+  font-size: 1.5em;
 }
 
 .user-achievement-text {
