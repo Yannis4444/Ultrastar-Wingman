@@ -28,14 +28,21 @@ import { tagColorClass } from "./tags";
  * `null` or left out — no picture, a file that has gone, or a masked row — is
  * the bare URL: the "not knowing" case of `avatars.asPlayer`.
  */
+export type AchievementIconSize = "small" | "full";
+
 export function achievementIconUrl(
   achievementId: string,
   version?: number | null,
+  size: AchievementIconSize = "small",
 ): string {
-  const url = `/api/v1/achievements/${encodeURIComponent(achievementId)}/icon`;
+  // `small` is the 256px variant of a shipped picture, for the 40px rows and
+  // the TV — the originals are over a megabyte each and the user page draws
+  // seventeen. An upload has no variant and answers either size with itself.
+  // `full` is for a view that shows one badge large; nothing does yet.
+  const url = `/api/v1/achievements/${encodeURIComponent(achievementId)}/icon?size=${size}`;
   return version === undefined || version === null
     ? url
-    : `${url}?v=${version}`;
+    : `${url}&v=${version}`;
 }
 
 /**

@@ -48,6 +48,7 @@ from . import service
 from . import settings as achievement_settings
 from .archive import MAX_ARCHIVE_BYTES, ArchiveError, ArchiveTooLargeError
 from .model import Achievement, PlayerAchievement
+from .pictures import PictureSize, picture_of
 from .schema import (
     AchievementDescription,
     AchievementIcon,
@@ -543,14 +544,22 @@ async def delete_achievement_icon(
     response_class=FileResponse,
     responses={
         **UNKNOWN_ACHIEVEMENT,
-        200: {"content": {"image/*": {}}, "description": "The uploaded icon image."},
+        200: {"content": {"image/*": {}}, "description": "The badge picture."},
     },
 )
 async def get_achievement_icon(
-    achievement_id: str, session: SessionDep, principal: PrincipalDep
+    achievement_id: str,
+    session: SessionDep,
+    principal: PrincipalDep,
+    size: PictureSize = "full",
 ) -> FileResponse:
-    """The uploaded picture. Open like the catalogue itself: a badge on the TV is an image
-    the TV has to be able to fetch.
+    """The picture: the upload, or for a built-in the one Wingman ships (`pictures.py`). Open
+    like the catalogue itself: a badge on the TV is an image the TV has to be able to fetch.
+
+    `size=small` is for the 40 px rows and the TV — the shipped pictures are 1254 px and over
+    a megabyte each, and the user page draws seventeen of them. Only the shipped pictures
+    have a small variant; an upload answers every size with itself, and the browser scales
+    it, because nothing here resizes (`images.py`).
 
     Masked too, because the id of a hidden achievement is in every catalogue answer — the
     locked slot carries it — so "you would have to know the id" protects nothing, and the
@@ -574,10 +583,10 @@ async def get_achievement_icon(
         and not await service.earned_by_anybody(session, achievement_id)
     ):
         raise missing
-    icon = None if achievement.icon_file is None else Path(achievement.icon_file)
-    if icon is None or not icon.is_file():
+    picture = picture_of(achievement, size)
+    if picture is None or not picture.path.is_file():
         raise missing
-    return FileResponse(icon, media_type=IMAGE_MEDIA_TYPES.get(icon.suffix))
+    return FileResponse(picture.path, media_type=IMAGE_MEDIA_TYPES.get(picture.path.suffix))
 
 
 @router.get(

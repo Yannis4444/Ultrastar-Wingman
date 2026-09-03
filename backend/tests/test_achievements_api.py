@@ -24,7 +24,7 @@ from httpx import ASGITransport, AsyncClient
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
 
 from conftest import BASE_URL, add_session, add_user
-from ultrastar_wingman.achievements import service
+from ultrastar_wingman.achievements import pictures, service
 from ultrastar_wingman.achievements.builtin import BUILT_INS, BY_ID
 from ultrastar_wingman.achievements.model import Achievement, PlayerAchievement
 from ultrastar_wingman.achievements.schema import Condition
@@ -395,7 +395,10 @@ async def test_resetting_a_built_in_puts_back_everything_but_whether_it_is_on(
     assert restored["icon"] == shipped.icon
     assert restored["color"] == shipped.color
     assert restored["hidden"] == shipped.hidden
-    assert restored["has_image"] is False
+    # The upload is gone and the picture Wingman ships is drawn again.
+    assert restored["has_image"] is True
+    assert restored["image_shipped"] is True
+    assert icon_files(party.icons) == []
     # Kept: somebody who switched this one off did it on purpose, and somebody put this row
     # where it is on purpose too.
     assert restored["enabled"] is False
@@ -1160,10 +1163,10 @@ async def test_the_reading_routes_answer_a_guest_phone(party: Party) -> None:
     assert (
         await party["anonymous"].get(f"/api/v1/players/{player_id}/achievements")
     ).status_code == 200
-    # No icon on this one, so a 404 — which is still not a 403.
+    # The shipped picture, served to a phone that never logged in.
     assert (
         await party["anonymous"].get("/api/v1/achievements/builtin-score-9000/icon")
-    ).status_code == 404
+    ).status_code == 200
 
 
 def changed(events: list[dict[str, object]]) -> int:
@@ -1270,3 +1273,90 @@ async def _add_score(party: Party, player_id: str, score: int) -> None:
             )
         )
         await session.commit()
+
+
+# --- The pictures Wingman ships ------------------------------------------------------------
+
+
+def test_every_built_in_ships_a_picture_in_both_sizes() -> None:
+    """What `docs/dev/achievement-artwork.md` promises: one full-size and one small PNG per
+    built-in, named by its id, and nothing else in either directory — a stray file there
+    would ship in every wheel and every installer."""
+    directory = pictures.images_dir()
+    expected = {f"{built_in.id}.png" for built_in in BUILT_INS}
+
+    assert {path.name for path in directory.glob("*.png")} == expected
+    assert {path.name for path in (directory / "small").glob("*.png")} == expected
+
+
+async def test_a_fresh_built_in_is_drawn_with_its_shipped_picture(party: Party) -> None:
+    """Nobody uploaded anything, and every built-in has a picture anyway; an achievement
+    somebody made has none until they give it one."""
+    rows = {row["id"]: row for row in await catalogue(party["anonymous"])}
+    golden = rows["builtin-score-9000"]
+    assert golden["has_image"] is True
+    assert golden["image_shipped"] is True
+    # The shipped file's own version, so a reinstall with new artwork busts the cache too.
+    assert isinstance(golden["icon_version"], int)
+
+    created = await create(party["admin"])
+    assert created["has_image"] is False
+    assert created["image_shipped"] is False
+    assert created["icon_version"] is None
+
+
+async def test_the_shipped_picture_is_served_in_two_sizes(party: Party) -> None:
+    """`size=small` is the row's and the TV's; the default is the whole picture."""
+    url = "/api/v1/achievements/builtin-score-9000/icon"
+
+    full = await party["anonymous"].get(url)
+    assert full.status_code == 200
+    assert full.headers["content-type"] == "image/png"
+    assert full.content == (pictures.images_dir() / "builtin-score-9000.png").read_bytes()
+
+    small = await party["anonymous"].get(url, params={"size": "small"})
+    assert small.status_code == 200
+    assert (
+        small.content == (pictures.images_dir() / "small" / "builtin-score-9000.png").read_bytes()
+    )
+    assert len(small.content) < len(full.content)
+
+    assert (await party["anonymous"].get(url, params={"size": "huge"})).status_code == 422
+
+
+async def test_an_upload_stands_in_front_of_the_shipped_picture_until_it_is_removed(
+    party: Party,
+) -> None:
+    """An upload wins, at every size — nothing resizes it, so a row asking for `small` gets
+    the upload itself — and removing it is the way back to the shipped picture, which is
+    what `image_shipped` tells the editor to call that button."""
+    url = "/api/v1/achievements/builtin-score-9000/icon"
+
+    uploaded = await party["admin"].put(url, files=upload(PNG, "a.png", "image/png"))
+    assert uploaded.status_code == 200, uploaded.text
+    assert uploaded.json()["has_image"] is True
+    assert uploaded.json()["image_shipped"] is False
+    assert (await party["anonymous"].get(url, params={"size": "small"})).content == PNG
+
+    removed = await party["admin"].delete(url)
+    assert removed.status_code == 200
+    assert removed.json()["has_image"] is True
+    assert removed.json()["image_shipped"] is True
+    assert icon_files(party.icons) == []
+    served = await party["anonymous"].get(url)
+    assert served.content == (pictures.images_dir() / "builtin-score-9000.png").read_bytes()
+
+
+async def test_a_hidden_built_in_keeps_its_shipped_picture_back_too(party: Party) -> None:
+    """Brave Soul ships hidden and ships a picture. A stranger gets neither the flag nor the
+    file until somebody has earned it; a manager, who may edit it, gets the file."""
+    (row,) = [
+        one for one in await catalogue(party["anonymous"]) if one["id"] == "builtin-brave-soul"
+    ]
+    assert row["has_image"] is False
+    assert row["image_shipped"] is False
+    assert row["icon_version"] is None
+
+    url = "/api/v1/achievements/builtin-brave-soul/icon"
+    assert (await party["anonymous"].get(url)).status_code == 404
+    assert (await party["admin"].get(url)).status_code == 200

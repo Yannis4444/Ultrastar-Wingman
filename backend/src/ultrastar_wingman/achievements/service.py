@@ -569,9 +569,9 @@ async def reset_built_in(
 
     Everything `builtin.py` declares is written back from that file — the name, the
     description, the glyph, the colour, `hidden` and the conditions — and an uploaded picture
-    is dropped, so the restored glyph is what is drawn rather than a picture standing in
-    front of it. The definition is written exactly as the seed migration writes it, so a
-    reset row and a freshly seeded one are the same row.
+    is dropped, so the shipped picture (`pictures.py`) is what is drawn again rather than a
+    picture standing in front of it. The definition is written exactly as the seed migration
+    writes it, so a reset row and a freshly seeded one are the same row.
 
     Two things are deliberately **left alone**. `enabled`, because switching a built-in off
     is the one thing the documentation promises a party may do to it, and somebody who
@@ -656,7 +656,8 @@ async def store_icon(
 async def remove_icon(
     session: AsyncSession, achievement: Achievement, icons_dir: Path
 ) -> Achievement:
-    """Back to the glyph. A no-op when there was no picture — asking twice is not a mistake."""
+    """Back to the glyph — or, for a built-in, back to the picture Wingman ships
+    (`pictures.py`). A no-op when there was no upload: asking twice is not a mistake."""
     await remove_images(icons_dir, achievement.id)
     achievement.icon_file = None
     await session.commit()
@@ -882,7 +883,12 @@ def _icon_extension(entry: ArchivedAchievement) -> str | None:
 
 
 async def _icon_image(achievement: Achievement) -> ArchiveImage | None:
-    """The uploaded picture behind one row, read off the disk for an export."""
+    """The uploaded picture behind one row, read off the disk for an export.
+
+    Uploads only, never the shipped picture of a built-in (`pictures.py`): every instance
+    already has those, and carrying one would turn export → import on the same instance
+    from the fixed point the archive promises into an uploaded copy of a shipped file.
+    """
     if achievement.icon_file is None:
         return None
     path = Path(achievement.icon_file)

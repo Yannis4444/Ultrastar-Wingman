@@ -143,6 +143,10 @@ export default function AchievementEditor() {
   // the icon endpoint last answered with, and it is what gets the new bytes
   // past the browser's copy of the old ones (`achievementIconUrl`).
   const [hasImage, setHasImage] = useState(false);
+  // Whether that picture is the one Wingman ships with a built-in rather than
+  // an upload: a built-in is never drawn with a glyph, so the way back from an
+  // upload is the shipped picture, and the button has to say so.
+  const [imageShipped, setImageShipped] = useState(false);
   const [iconVersion, setIconVersion] = useState<number | null>(null);
   const [builtIn, setBuiltIn] = useState(false);
   const [base, setBase] = useState<Draft>(NEW_DRAFT);
@@ -173,6 +177,7 @@ export default function AchievementEditor() {
     setEnabled(achievement.enabled);
     setConditions(definition);
     setHasImage(achievement.has_image);
+    setImageShipped(achievement.image_shipped ?? false);
     setIconVersion(achievement.icon_version ?? null);
     setBuiltIn(achievement.built_in);
     setBase({
@@ -266,9 +271,11 @@ export default function AchievementEditor() {
     // been put on it would be a line saying the opposite of what happened.
     setSavedLabel(undefined);
     setHasImage(achievement.has_image);
+    setImageShipped(achievement.image_shipped ?? false);
     // The version of the file as it now stands — `null` once the picture is
-    // gone, and a new number after a replacement, which is what makes the
-    // browser fetch the bytes it has just been sent instead of the old ones.
+    // gone, the shipped file's own once a built-in is back on it, and a new
+    // number after a replacement, which is what makes the browser fetch the
+    // bytes it has just been sent instead of the old ones.
     setIconVersion(achievement.icon_version ?? null);
     refresh();
   };
@@ -466,7 +473,7 @@ export default function AchievementEditor() {
     void save();
   };
 
-  /** The medallion as it will be drawn, for the one case the form cannot show
+  /** The badge as it will be drawn, for the one case the form cannot show
    *  by itself: an uploaded picture. Never masked — `isMasked` reads an empty
    *  name, and a draft on its way to being named is not a secret. */
   const preview: AchievementRead = {
@@ -586,8 +593,9 @@ export default function AchievementEditor() {
                           className="achievement-picture-badge"
                         />
                         <p className="tag-editor-hint achievement-picture-note">
-                          A picture is drawn instead of a glyph, exactly as it
-                          was uploaded.
+                          {imageShipped
+                            ? "The picture Wingman includes for this achievement. Upload your own to replace it."
+                            : "A picture is drawn instead of a glyph, exactly as it was uploaded."}
                         </p>
                         <div className="achievement-picture-actions">
                           <label className="button achievement-upload">
@@ -602,21 +610,30 @@ export default function AchievementEditor() {
                               onChange={(event) => upload(event.target)}
                             />
                           </label>
-                          <button
-                            type="button"
-                            className="button"
-                            disabled={dropIconImage.isPending}
-                            onClick={() => {
-                              setIconError(null);
-                              dropIconImage.mutate({
-                                path: {
-                                  achievement_id: achievementId ?? "",
-                                },
-                              });
-                            }}
-                          >
-                            Use a glyph instead
-                          </button>
+                          {/* The way back from an upload: a glyph for somebody's
+                              own achievement, the included picture for a
+                              built-in — and nothing at all while the included
+                              picture is what is drawn, because there is
+                              nothing to go back to. */}
+                          {!imageShipped && (
+                            <button
+                              type="button"
+                              className="button"
+                              disabled={dropIconImage.isPending}
+                              onClick={() => {
+                                setIconError(null);
+                                dropIconImage.mutate({
+                                  path: {
+                                    achievement_id: achievementId ?? "",
+                                  },
+                                });
+                              }}
+                            >
+                              {builtIn
+                                ? "Back to the included picture"
+                                : "Use a glyph instead"}
+                            </button>
+                          )}
                         </div>
                       </div>
                     ) : (

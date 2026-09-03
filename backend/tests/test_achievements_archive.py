@@ -618,9 +618,31 @@ async def test_an_archive_without_a_picture_clears_the_one_that_is_there(
 
     assert response.status_code == 200, response.text
     row = next(one for one in await catalogue(instance.client) if one["id"] == "builtin-score-9000")
-    assert row["has_image"] is False
-    assert row["icon_version"] is None
+    # The upload is gone; what is drawn is the picture Wingman ships with this built-in.
+    assert row["has_image"] is True
+    assert row["image_shipped"] is True
+    assert isinstance(row["icon_version"], int)
     assert stored_icons(instance.icons) == {}
+
+
+async def test_an_export_carries_uploads_and_never_the_shipped_picture(
+    instance: Instance,
+) -> None:
+    """Every instance already has the shipped pictures, and an archive that carried one would
+    come back through import as an uploaded copy — export → import would no longer be a
+    fixed point. So a built-in drawn with its shipped picture exports without an icon entry,
+    and one somebody put their own picture on exports with it."""
+    plain = await export(instance.client, ["builtin-score-9000"])
+    assert "builtin-score-9000/icon.png" not in members_of(plain)
+
+    stored = await instance.client.put(
+        "/api/v1/achievements/builtin-score-9000/icon",
+        files={"file": ("icon.png", PNG, "image/png")},
+    )
+    assert stored.status_code == 200, stored.text
+
+    uploaded = await export(instance.client, ["builtin-score-9000"])
+    assert members_of(uploaded)["builtin-score-9000/icon.png"] == PNG
 
 
 # --- reading: what a stranger's archive is refused for ------------------------------------
