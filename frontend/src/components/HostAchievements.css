@@ -41,7 +41,7 @@
   overflow-wrap: anywhere;
 }
 
-/* The row of badges. `--badge` is the one size control: the medallion is 2.5em
+/* The row of badges. `--badge` is the one size control: the badge is 2.5em
    of it and the two lines under it are sized from the same scale, so a row of
    one and a row of four differ by a number rather than by a second ruleset. */
 .host-achievement-row {
@@ -87,7 +87,7 @@
   min-width: 0;
 }
 
-/* Two classes again, and the medallion's own `em` sizing does the rest: the
+/* Two classes again, and the badge's own `em` sizing does the rest: the
    plate is 2.5em of the font-size it is given (AchievementBadge.css). */
 .host-achievement .host-achievement-badge {
   font-size: var(--badge);

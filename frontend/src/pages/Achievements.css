@@ -45,7 +45,7 @@
 }
 
 /* ----------------------------------------------------------- the two listings
-   One row per achievement: the medallion, the name over the achievement's own
+   One row per achievement: the badge, the name over the achievement's own
    description, a chevron. `AchievementBadge` is sized by this row's `font-size`
    (§3), so the 40px square needs no width here.
 
@@ -159,7 +159,7 @@
   color: var(--color-darker);
 }
 
-/* Switched off: the whole row in the off token (§2), medallion included — the
+/* Switched off: the whole row in the off token (§2), badge included — the
    badge draws its own off plate. A `visually-hidden` word carries the state for
    a reader who cannot see the colour. */
 .achievements-row-off,

@@ -6,7 +6,7 @@
 
 /* --------------------------------------------------------------- the picture
    What stands in the icon grid's place once a picture has been uploaded: the
-   medallion as it will really be drawn, one line saying so, and the two ways
+   badge as it will really be drawn, one line saying so, and the two ways
    out of it. Flat on `--bg` like everything else (§1.1). */
 .achievement-picture {
   display: flex;
@@ -16,7 +16,7 @@
 }
 
 /* `AchievementBadge` is sized by the font around it (§3), so 2em of text makes
-   the 80px medallion this preview wants. */
+   the 80px badge this preview wants. */
 .achievement-picture-badge {
   font-size: 2em;
 }

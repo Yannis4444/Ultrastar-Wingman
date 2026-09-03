@@ -1,8 +1,13 @@
-/* The medallion (achievements.md, ui-guidelines §4). Not a tile: it is the row's
-   lead square in the shape a medal has, the same slot a tag's coloured square
-   and a playlist's cover mosaic sit in — round rather than 8px-rounded, because
-   that is what tells a badge from a tag at a glance and because a percentage
-   radius is the one that still looks right at four times the size.
+/* The badge (achievements.md, ui-guidelines §4). Not a tile: it is the row's
+   lead square, the same slot a tag's coloured square and a playlist's cover
+   mosaic sit in. A rounded square rather than a circle, because the pictures
+   are square (docs/dev/achievement-artwork.md: a full-bleed plate with the
+   motif filling it, and a circle would cut the corners off every one of them).
+   The radius is a fifth of the side — the 8px of `--border-radius-small` at the
+   40px row size, and still the same proportion at four times that on the TV,
+   which a fixed 8px would not be. What tells a badge from a tag now is the
+   plate: a glyph badge's is the achievement's own colour, a tag's is
+   `--input-bg` (Tags.css), and a picture badge is a picture.
 
    Everything is in `em`, so the parent's `font-size` is the size control (§3):
    16px of text gives the 40px square a list row leads with, and the host
@@ -15,7 +20,7 @@
   width: 2.5em;
   height: 2.5em;
   overflow: hidden;
-  border-radius: 50%;
+  border-radius: 0.5em;
 }
 
 /* Earned: the plate carries the achievement's colour, which the `tag-color-*`
@@ -42,8 +47,9 @@
   font-size: 1.25em;
 }
 
-/* An uploaded picture replaces the glyph and fills the plate. Square or not,
-   the medallion crops it — a badge is a badge's shape. */
+/* A picture — uploaded, or the one Wingman ships with a built-in — replaces the
+   glyph and fills the plate. Square or not, the badge crops it to its own
+   shape, and the rounding takes the corners off a square one. */
 .achievement-badge-image {
   width: 100%;
   height: 100%;
