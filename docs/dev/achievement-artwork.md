@@ -496,5 +496,6 @@ reads better at 40 px, and every later badge copies this one.
 | 7 | Big Night | `builtin-evening-100k.png` | done — blue flame, cream core, heat lines; the "small flat base" was dropped by the model and is better gone |
 | 8 | Marathon | `builtin-evening-250k.png` | done — red nose, gold exhaust, trail and horizon; the trail runs beside the rocket rather than behind it, which is the stronger diagonal anyway |
 | 9 | Regular | `builtin-songs-10.png` | done — as specified; teal beam, two staff bands |
-| the other eight | | | production round, against the reference — in list order, Resident next |
+| 10 | Resident | `builtin-songs-50.png` | done — red pickguard, sound-wave band; the strum swoosh did not appear and the strings are thin (harmless: they vanish at 40 px); the hardware came out in the highlight white, which is still a tier tone |
+| the other seven | | | production round, against the reference — in list order, Living Legend next |
 | — | blank plate | | optional |
