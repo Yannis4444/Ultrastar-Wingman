@@ -494,5 +494,6 @@ reads better at 40 px, and every later badge copies this one.
 | 5 | Untouchable | `builtin-score-9500.png` | done — as specified, five pink gems, halo ring |
 | 6 | A Good Evening | `builtin-evening-50k.png` | done — as specified; tankard, foam spilling, four bubbles |
 | 7 | Big Night | `builtin-evening-100k.png` | done — blue flame, cream core, heat lines; the "small flat base" was dropped by the model and is better gone |
-| the other ten | | | production round, against the reference — in list order, Marathon next |
+| 8 | Marathon | `builtin-evening-250k.png` | done — red nose, gold exhaust, trail and horizon; the trail runs beside the rocket rather than behind it, which is the stronger diagonal anyway |
+| the other nine | | | production round, against the reference — in list order, Regular next |
 | — | blank plate | | optional |
