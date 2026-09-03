@@ -32,6 +32,12 @@ tap **Use a picture instead** and pick a jpeg, png, or webp file of at most
 5 MB. The picture replaces the glyph, and **Color** has nothing left to set.
 **Replace picture** swaps it, and **Use a glyph instead** drops it again.
 
+The seventeen included achievements come with a picture each, drawn in one
+style. To make a picture for your own achievement that matches them, see
+[Make a badge picture](picture.md). An included achievement always has a
+picture: upload your own to replace it, and **Back to the included picture**
+brings Wingman's back.
+
 ## What a condition says
 
 An achievement is a list of conditions, and all of them have to hold. Tap

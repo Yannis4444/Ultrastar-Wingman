@@ -340,7 +340,7 @@ saved) where a jump to the top would throw away the place they were working in.
 - **Achievements admin** (`/user/achievements`, a `ManageMenu` entry gated on
   `achievements.manage`): the three private settings at the head — no glyph on any of them,
   the Settings page's own idiom being one icon per group and none per field — then the
-  party's own achievements as rows of the `AchievementBadge` medallion, the name over the
+  party's own achievements as rows of the `AchievementBadge` square, the name over the
   achievement's own description and a chevron, then an `h2` *Included* over the seventeen
   Wingman ships in the same shape, and an `h2` *Import and export* at the foot. Both
   headings carry a glyph the way a Settings group's header does: `gift` for the set Wingman
@@ -350,7 +350,7 @@ saved) where a jump to the top would throw away the place they were working in.
   line for one that is hidden until it is earned (the glyph its masked badge wears, so one
   achievement wears one glyph everywhere), a quiet 0.8em *Included* after it for one Wingman
   ships — a word, never a chip — and, for a switched-off one, the whole row in
-  `--color-darkerer` with the medallion on its own off plate and a `visually-hidden` word,
+  `--color-darkerer` with the badge on its own off plate and a `visually-hidden` word,
   because a state is never a colour alone. Never a count of conditions: what an achievement
   asks for is read in the editor, not compared between rows. A row with no description draws
   no second line at all. The header carries `+` into `/user/achievements/new` and, before

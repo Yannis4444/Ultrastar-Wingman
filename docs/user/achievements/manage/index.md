@@ -73,8 +73,9 @@ like any other. Two things are not yours to change.
 
 Where **Delete achievement** would be, an included one has :wingman-refresh:
 **Reset achievement**. It asks first. Then it puts the name, the description,
-the icon, the color, the conditions, and whether it is hidden back the way
-Wingman ships them. An uploaded picture is dropped.
+the color, the conditions, and whether it is hidden back the way Wingman ships
+them. A picture you uploaded is dropped, and the badge Wingman brings with it
+is drawn again.
 
 Two things a reset leaves alone: whether the achievement is switched on, and
 where it sits in the list. Switching one off is meant to stick, and the order
@@ -114,8 +115,10 @@ Importing the same archive twice is not a way to get two copies. It is a way to
 put things back the way the archive has them.
 
 !!! warning
-    An entry with no picture in it clears the picture of the achievement it
-    updates. The archive is the whole description of what it names.
+    An entry with no picture in it clears the uploaded picture of the
+    achievement it updates. The archive is the whole description of what it
+    names. An included achievement goes back to the badge Wingman brings with
+    it, which an archive never carries because every Wingman has it.
 
 Nothing is written until the whole archive has been read and every picture
 checked, so a broken file changes nothing at all. Wingman names which

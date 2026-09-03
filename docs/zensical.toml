@@ -77,6 +77,7 @@ nav = [
     { "Achievements" = [
       "achievements/manage/index.md",
       { "Make an achievement" = "achievements/manage/create.md" },
+      { "Make a badge picture" = "achievements/manage/picture.md" },
     ] },
   ] },
   { "Integrate" = [

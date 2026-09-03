@@ -613,12 +613,38 @@ instance and imported into another has to be told *which* achievement and
 ## Icons
 
 An achievement's icon is either one of the app's own glyphs (`ICON_PATHS`) in
-one of the four tag colours, or an uploaded image that replaces it. Uploads go
-through the same validation as player avatars — the same code, factored into
-`images.py`: a content-type allowlist the bytes have to agree with, a byte cap
-and a pixel cap read out of the file's own header, and no image library. One
-file per achievement under `<data dir>/achievement_icons`, the previous one
-dropped even when it had another extension.
+one of the four tag colours, or a picture that replaces it: an uploaded one,
+or — for a built-in — the one Wingman ships. Uploads go through the same
+validation as player avatars — the same code, factored into `images.py`: a
+content-type allowlist the bytes have to agree with, a byte cap and a pixel
+cap read out of the file's own header, and no image library. One file per
+achievement under `<data dir>/achievement_icons`, the previous one dropped
+even when it had another extension.
+
+**The shipped pictures** (`pictures.py`) live in the package at
+`achievements/images/<id>.png`, full size, with `images/small/` the same at
+256 px; how they are made is [achievement-artwork.md](achievement-artwork.md).
+`picture_of(achievement, size)` is the one rule: the upload if the row has
+one, else the shipped file if the row is a built-in and the file exists, else
+nothing. That rule feeds `has_image`, `icon_version` and the icon endpoint, so
+a fresh database draws every built-in with its artwork, an upload stands in
+front of it, and removing the upload (or a reset) goes *back* to it rather
+than to a glyph — a built-in is never drawn with a glyph while its picture
+ships. `AchievementRead.image_shipped` says which of the two is drawn, which
+is what lets the editor offer **Back to the included picture** instead of a
+glyph. Export carries uploads only: every instance has the shipped files, and
+an archive that carried one would come back through import as an uploaded
+copy, breaking the fixed point the archive promises. The frozen build lists
+the directory in the installer's `datas`; `images_dir()` looks in the unpacked
+bundle first, the way `db.migrations_dir()` does.
+
+`GET /achievements/{id}/icon?size=small|full` (default `full`) picks the
+variant: `small` is what every badge the app draws asks for
+(`achievementIconUrl`'s default), because the originals are over a megabyte
+each and the user page draws seventeen; an upload has no variant and answers
+either size with itself, the browser scaling it — nothing resizes on the
+server, that would take an image library. `full` is for a view that shows one
+badge large; nothing does yet.
 
 `AchievementRead.icon_version` is the cache buster for
 `GET /achievements/{id}/icon`, the same field `PlayerRead.avatar_version` is
@@ -632,10 +658,16 @@ there is no picture, when the file behind it is gone, and on a **masked** row:
 a version that moved would say a hidden achievement has a picture just as
 loudly as `has_image` would.
 
-The badge is a medallion: a plate in the achievement's colour with the glyph
-centred. Earned draws it in full colour; unearned draws `--color-darkerer` on
-`--input-bg`; hidden-and-unearned draws `lock` with "Hidden achievement" where
-the name would be.
+The badge is a rounded square (`border-radius: 0.5em` on a 2.5em side, so the
+proportion holds from a 40 px row to the TV): a plate in the achievement's
+colour with the glyph centred, or the picture cropped to that shape. Square
+rather than round because the pictures are full-bleed squares
+([achievement-artwork.md](achievement-artwork.md)); a glyph badge keeps its
+coloured plate because a tag's square is `--input-bg` under a coloured glyph,
+and the plate is what tells the two apart. Earned draws it in full colour;
+unearned draws `--color-darkerer` on `--input-bg`, a picture drained to grey;
+hidden-and-unearned draws `lock` with "Hidden achievement" where the name would
+be.
 
 ## The included set
 
