@@ -15,15 +15,15 @@ the host screen, and every guideline below follows from one of them.
 
 | Fact | Consequence for the artwork |
 |---|---|
-| Today the image is drawn inside a **circle** (`border-radius: 50%`, `object-fit: cover`). **Decision (2026-09-03): badges become rounded squares**, the UI change is listed in §8. Until then a square picture is cropped to its inscribed circle. | Design a **full-bleed square**: a dark grey plate edge to edge with square corners, the motif large on it, no drawn frame or medallion. The UI rounds the corners when it crops, exactly as it does for the square avatar pictures, so the radius is a CSS decision that can change later without regenerating a single image. |
+| The badge is a **rounded square** (`border-radius: 0.5em` on a 2.5em side, `object-fit: cover`) since 2026-09-04; it was a circle before, and the decision to square it was taken for this artwork (§8). | Design a **full-bleed square**: a dark grey plate edge to edge with square corners, the motif large on it, no drawn frame or medallion. The UI rounds the corners when it crops, exactly as it does for the square avatar pictures, so the radius is a CSS decision that can change later without regenerating a single image. |
 | **40 px** in every list row, 26–74 px on the TV. | One bold silhouette per badge. No text, no numbers, no secondary objects, no fine lines. Anything that needs more than ~1/40 of the width to read is gone. |
 | Unearned: `filter: grayscale(1); opacity: 0.45`. | The motif must read by **brightness** against its plate, not by hue. Light motif on a dark plate. |
 | Earned glyph medallions are a solid plate in the tier colour with a cut-out glyph; the four tier colours are the tag colours: neutral `#ccc`, blue `#4b92cd`, pink `#9e3b95`, gold `#faa636`. | The tier has to stay visible in the picture, or the ladders (6 000 → 8 000 → 9 000 → 9 500) lose their colour story. |
 | Row avatars, a tag's colour square and a playlist's cover are 8 px rounded squares (`--border-radius-small`); round was what told a badge from a tag. | With square badges the enamel-pin drawing itself is what tells a badge apart from a flat glyph square. §8 notes the tag square as something to look at again. |
 | The app is dark-only: page `#021720`, tiles `#1b3347`, inputs `#1c2832`. | **Decision (2026-09-03): the plate is a monochrome dark grey, not a navy.** A neutral grey sits under all four tier colours without tinting them, keeps the picture's hue entirely on the motif, and is dark enough that the badge still reads as a dark object on the dark page. Some structure in the grey is fine, one fixed kind of it (§2). |
 | Upload: PNG/JPEG/WebP, ≤ 5 MB, ≤ 50 MP. | ChatGPT's download is a 1254×1254 PNG of 1–1.3 MB — the soft falloff and the model's noise defeat PNG's compression — comfortably inside both caps. **Decision (2026-09-03): ship that file as it is**, no downscale, so a larger badge view later has the pixels; a smaller variant for the rows is the serving side's job (§8, item 6), not a second set of files made by hand. |
-| `Reset` on a built-in **drops** its uploaded picture. | The pictures are instance data loaded through the editor or an archive import — not something Wingman ships. Shipping them would be a separate feature (see §7). |
-| An import archive may carry `<id>/icon.png` per achievement and stores it through the same rules. | The intended loading route: export the catalogue, drop one `icon.png` into each folder, import. One upload instead of seventeen. |
+| A built-in is drawn with its **shipped picture** unless the host uploaded one (`achievements/pictures.py`, since 2026-09-04): `Reset` and removing an upload go back to it, `image_shipped` tells the editor so, and export carries uploads only. | The files in `images/` *are* the badges every fresh install shows. A stray or misnamed file there ships in every wheel and installer, and `test_every_built_in_ships_a_picture_in_both_sizes` refuses one. |
+| `GET /achievements/{id}/icon?size=small` serves `images/small/<id>.png`; every badge the app draws asks for it. | Each badge is two files: the original and a 256 px variant made from it (§5, step 5). An upload has no variant and is served whole at either size. |
 
 ## 2. Design guidelines
 
@@ -161,6 +161,12 @@ invert to the same dark-plate look when it goes square.
 ## 3. The master prompt
 
 Paste this whole block. Replace the two `{…}` slots from §4.
+
+This block is **canonical**. The user docs carry a copy for hosts making their
+own badge — `docs/user/achievements/manage/picture.md`, in American spelling
+and without em-dashes per `documentation.md`, with the reference trophy as
+`docs/user/assets/achievements/badge-reference.png` — and the two change
+together: a prompt tweak that lands here and not there is a set that drifts.
 
 ```
 Create a square 1024×1024 achievement badge illustration in a flat vector enamel-pin style. Follow every instruction literally.
@@ -365,9 +371,32 @@ grey and falloff during QA, and the fallback picture if a badge ever needs one.
    job) and that the corners sit near `#1e2124`. Download ChatGPT's file
    (*not* a copy pasted through another program, which re-encodes it) and
    save it unchanged as
-   `backend/src/ultrastar_wingman/achievements/images/<id>.png`. Nothing is
-   resized: the venv has no image library and the app gets none for this
-   (`code-style.md`), and the file is the master.
+   `backend/src/ultrastar_wingman/achievements/images/<id>.png`. The original
+   is the master, and the app resizes nothing: the venv has no image library
+   and the app gets none for this (`code-style.md`). The 256 px variant the
+   rows and the TV are served (`?size=small`) is made once, by hand, with what
+   Windows has built in — from the repo root, for one id or for all of them:
+
+   ```powershell
+   Add-Type -AssemblyName System.Drawing
+   $dir = "$PWD\backend\src\ultrastar_wingman\achievements\images"
+   Get-ChildItem "$dir\*.png" | ForEach-Object {
+     $src = [System.Drawing.Image]::FromFile($_.FullName)
+     $bmp = New-Object System.Drawing.Bitmap 256, 256
+     $g = [System.Drawing.Graphics]::FromImage($bmp)
+     $g.InterpolationMode = [System.Drawing.Drawing2D.InterpolationMode]::HighQualityBicubic
+     $g.SmoothingMode = [System.Drawing.Drawing2D.SmoothingMode]::HighQuality
+     $g.PixelOffsetMode = [System.Drawing.Drawing2D.PixelOffsetMode]::HighQuality
+     $g.DrawImage($src, 0, 0, 256, 256)
+     $bmp.Save("$dir\small\$($_.Name)", [System.Drawing.Imaging.ImageFormat]::Png)
+     $g.Dispose(); $bmp.Dispose(); $src.Dispose()
+   }
+   ```
+
+   Both files are named by the id and nothing else may be in either directory:
+   `test_every_built_in_ships_a_picture_in_both_sizes` pins the two listings to
+   `BUILT_INS`, so a new built-in without its two files, or a stray file, is a
+   failing test rather than a missing badge or a bigger installer.
 6. **Load** — on a scratch instance: export the seventeen from
    `/user/achievements`, put each file into its folder as `icon.png`, import
    the archive. Check the list at 40 px, the user page, and the host screen
@@ -431,10 +460,18 @@ grey and falloff during QA, and the fallback picture if a badge ever needs one.
    pictures is §8, item 6. Until it exists, the packaged files are the source
    the import archive is built from, and nothing more.
 
-## 8. UI changes this needs — later, its own feature
+## 8. UI changes this needed — done 2026-09-04 (`feat/square-badges`)
 
-Not part of the artwork job; a `feat/square-badges` branch once the first
-pictures exist to look at. Plan and discuss before implementing.
+Kept as the record of what the pictures asked of the app and how each point
+was settled. Every item below is built; the *how* is in
+[achievements.md](achievements.md) ("Icons") and `achievements/pictures.py`.
+Item 2 was settled by looking at `Tags.css`: a tag's square is `--input-bg`
+under a coloured glyph, so a glyph badge keeps its **coloured plate** — that
+is what tells the two apart once round is gone — and item 3 needed nothing
+more. Item 6 became `pictures.py` (the fallback, `image_shipped`, the `size`
+parameter with committed 256 px variants, export carrying uploads only) plus
+the installer's `datas` line, and the user docs gained
+`achievements/manage/picture.md`, the prompt kit for a host's own badge.
 
 1. **`AchievementBadge.css`: round → rounded square.** `border-radius: 50%`
    becomes a percentage rounded square (about 20 %, which is the 8 px of

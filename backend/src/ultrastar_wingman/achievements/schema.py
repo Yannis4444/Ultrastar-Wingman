@@ -24,6 +24,7 @@ from pydantic import BaseModel, StringConstraints, ValidationError, model_valida
 from ..images import image_version
 from ..players.schema import PlayerRead
 from .model import Achievement
+from .pictures import picture_of
 
 logger = logging.getLogger(__name__)
 
@@ -341,9 +342,14 @@ class AchievementRead(BaseModel):
     name: str
     description: str
     icon: str | None
-    # An uploaded image replaces the glyph. The path stays server-side, like a player's
-    # avatar: the client only has to know one exists and asks the image endpoint for it.
+    # A picture replaces the glyph: an uploaded one, or for a built-in the one Wingman ships
+    # (`pictures.py`). The path stays server-side, like a player's avatar: the client only
+    # has to know one exists and asks the image endpoint for it.
     has_image: bool
+    # Whether that picture is the shipped one rather than an upload. It is what lets the
+    # editor say "back to the included picture" instead of offering a glyph a built-in
+    # cannot be drawn with. False whenever `has_image` is.
+    image_shipped: bool = False
     # The cache buster for that endpoint, exactly like `PlayerRead.avatar_version`: replacing
     # a picture changes neither the URL nor `has_image`, so this is the only thing that says
     # the picture is a different one. `None` on a masked row, with `has_image` — a version
@@ -436,15 +442,18 @@ def read_achievement(
     behind `achievements.manage`. It says what a hidden achievement asks for, which is the
     surprise itself, so a manager reading a singer-facing listing does not get it either.
     """
+    # The upload, or the shipped picture of a built-in (`pictures.py`). File paths stay
+    # server-side, like a player's avatar: a client only needs to know whether to ask the
+    # image endpoint for one, and which of the two it would get.
+    picture = None if mask else picture_of(achievement)
     return AchievementRead(
         id=achievement.id,
         name="" if mask else achievement.name,
         description="" if mask else achievement.description,
         icon=None if mask else achievement.icon,
-        # File paths stay server-side, like a player's avatar: a client only needs to know
-        # whether to ask the image endpoint for one.
-        has_image=not mask and achievement.icon_file is not None,
-        icon_version=None if mask else image_version(achievement.icon_file),
+        has_image=picture is not None,
+        image_shipped=picture is not None and picture.shipped,
+        icon_version=None if picture is None else image_version(str(picture.path)),
         color=achievement.color,
         hidden=achievement.hidden,
         enabled=achievement.enabled,

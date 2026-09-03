@@ -80,7 +80,7 @@
   }
 }
 
-/* The badges at rest. 0.75em makes the medallion 30px, which puts nine of them
+/* The badges at rest. 0.75em makes the badge 30px, which puts nine of them
    across a 390px phone and a full seventeen in two rows — a strip, not a wall
    that would push *Manage* off the screen. They are not controls: the summary
    around them is the one thing here that is tapped. */
@@ -102,7 +102,7 @@
   list-style: none;
 }
 
-/* A row of the list: the 40px medallion the parent's 1em gives it, then the
+/* A row of the list: the 40px badge the parent's 1em gives it, then the
    name, the sentence and either the date or the bar. Hairlines between, the
    first row separated from the strip above it the same way. */
 .user-achievement {
@@ -133,7 +133,7 @@
   overflow-wrap: anywhere;
 }
 
-/* Not earned: the app's off state, the same step down the medallion beside it
+/* Not earned: the app's off state, the same step down the badge beside it
    takes. Never greyed out to the point of being unreadable — the list is there
    to be read for what is still out there. */
 .user-achievement-off .user-achievement-name {

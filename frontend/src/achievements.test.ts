@@ -33,15 +33,17 @@ import {
 } from "./test/achievements";
 
 describe("achievementIconUrl", () => {
-  it("names the icon endpoint of the achievement", () => {
+  it("names the icon endpoint of the achievement, at the row size", () => {
+    // Every badge the app draws today is a row's 40px or the TV's, and the
+    // shipped pictures are over a megabyte each, so `small` is the default.
     expect(achievementIconUrl("a-golden")).toBe(
-      "/api/v1/achievements/a-golden/icon",
+      "/api/v1/achievements/a-golden/icon?size=small",
     );
   });
 
   it("escapes an id that would otherwise change the path", () => {
     expect(achievementIconUrl("a/b?c")).toBe(
-      "/api/v1/achievements/a%2Fb%3Fc/icon",
+      "/api/v1/achievements/a%2Fb%3Fc/icon?size=small",
     );
   });
 
@@ -55,7 +57,13 @@ describe("achievementIconUrl", () => {
 
   it("carries the row's version, so a replaced picture is fetched again", () => {
     expect(achievementIconUrl("a-golden", 3)).toBe(
-      "/api/v1/achievements/a-golden/icon?v=3",
+      "/api/v1/achievements/a-golden/icon?size=small&v=3",
+    );
+  });
+
+  it("asks for the whole picture when a view wants one badge large", () => {
+    expect(achievementIconUrl("a-golden", 3, "full")).toBe(
+      "/api/v1/achievements/a-golden/icon?size=full&v=3",
     );
   });
 });

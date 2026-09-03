@@ -60,7 +60,7 @@ function earnedAt(row: PlayerAchievementRead): number {
   return row.earned_at === null ? 0 : parseServerTime(row.earned_at);
 }
 
-/** One achievement on the singer's record: the medallion, the name and the
+/** One achievement on the singer's record: the badge, the name and the
  *  sentence, and then either the day it was earned or how far along they are. */
 function AchievementRow({ row }: { row: PlayerAchievementRead }) {
   const earned = row.earned_at !== null;

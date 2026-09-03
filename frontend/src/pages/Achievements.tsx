@@ -109,14 +109,14 @@ interface RowsProps {
 }
 
 /**
- * One list of achievements, whoever made them: the medallion, the name over the
+ * One list of achievements, whoever made them: the badge, the name over the
  * achievement's own description, a chevron, the whole row leading into the
  * editor.
  *
  * What the row says beyond that is only what is unusual about it. `hidden` is a
  * `lock` mark on the title line — the same glyph `AchievementBadge` draws over
  * a masked badge, so one achievement wears one glyph wherever it appears — and
- * a switched-off one is drawn in the off token throughout, the medallion
+ * a switched-off one is drawn in the off token throughout, the badge
  * included, with a word for a screen reader that cannot see the colour. Never a
  * count of conditions: what an achievement asks for is a thing to read in the
  * editor, not a number to compare rows by.
@@ -213,7 +213,7 @@ function AchievementRows({ achievements, reorder }: RowsProps) {
             }
             to={`/user/achievements/${encodeURIComponent(achievement.id)}`}
           >
-            {/* The medallion's own off plate says "switched off" the way the
+            {/* The badge's own off plate says "switched off" the way the
                 app says it everywhere else; in the catalogue nothing is
                 anybody's record, so nothing else is claimed by it. */}
             <AchievementBadge

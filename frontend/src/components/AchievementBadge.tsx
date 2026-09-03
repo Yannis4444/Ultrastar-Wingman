@@ -21,8 +21,9 @@ interface Props {
 
 /**
  * The one place a badge is drawn: the admin list, a player's record, the host
- * screen. A medallion — a plate in the achievement's colour with the glyph
- * centred, or the uploaded picture when there is one.
+ * screen. A rounded square — a plate in the achievement's colour with the
+ * glyph centred, or the picture when there is one: an uploaded one, or the one
+ * Wingman ships with a built-in (`has_image` covers both).
  *
  * Three states, and masked wins over every other: a `hidden` achievement the
  * reader has not earned is a `lock` and nothing else, whatever else the row
@@ -33,7 +34,7 @@ interface Props {
  * replaced one is drawn the moment the listing carries the new version and no
  * caller has to say that the bytes moved.
  *
- * It takes no size: the medallion is 2.5em and its glyph 1.25em of that, so the
+ * It takes no size: the badge is 2.5em and its glyph 1.25em of that, so the
  * parent's `font-size` sizes it (§3). A row's 16px makes the 40px square every
  * other list row leads with; the host screen's `clamp()` makes it a badge across
  * the room, and neither needs a prop.

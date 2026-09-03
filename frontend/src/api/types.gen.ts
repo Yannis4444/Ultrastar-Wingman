@@ -132,6 +132,10 @@ export type AchievementRead = {
      */
     has_image: boolean;
     /**
+     * Image Shipped
+     */
+    image_shipped?: boolean;
+    /**
      * Icon Version
      */
     icon_version?: number | null;
@@ -4922,7 +4926,12 @@ export type GetAchievementIconData = {
          */
         achievement_id: string;
     };
-    query?: never;
+    query?: {
+        /**
+         * Size
+         */
+        size?: 'small' | 'full';
+    };
     url: '/api/v1/achievements/{achievement_id}/icon';
 };
 
@@ -4941,7 +4950,7 @@ export type GetAchievementIconError = GetAchievementIconErrors[keyof GetAchievem
 
 export type GetAchievementIconResponses = {
     /**
-     * The uploaded icon image.
+     * The badge picture.
      */
     200: unknown;
 };

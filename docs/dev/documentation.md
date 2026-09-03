@@ -104,6 +104,7 @@ is small.
 | Manage | `tags/` | `built-in.md` | Built-in marks and facets | Administrator | The eight built-ins and their options | Reference |
 | Manage | `achievements/manage/` | `index.md` | Achievements | Administrator | Settings, order, hiding, switching off, archives | Index |
 | Manage | `achievements/manage/` | `create.md` | Make an achievement | Administrator | The editor and its conditions, with the worked example | How-to |
+| Manage | `achievements/manage/` | `picture.md` | Make a badge picture | Administrator | The prompt kit and the reference badge for a picture that matches the included set | How-to |
 | Integrate | `integrate/` | `index.md` | Integrate | Integrator | Who this section is for, and what it promises | Index |
 | Integrate | `integrate/` | `rest-api.md` | The REST API | Integrator | Base path, the OpenAPI schema, reading the API | Reference |
 | Integrate | `integrate/` | `authentication.md` | Authenticate a script | Integrator | Sessions, the host token, capabilities | How-to |

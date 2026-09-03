@@ -724,7 +724,7 @@ it("draws the replacement rather than the picture it replaced", async () => {
   await screen.findByDisplayValue("Golden Voice");
   expect(container.querySelector("img")).toHaveAttribute(
     "src",
-    "/api/v1/achievements/a-golden/icon?v=100",
+    "/api/v1/achievements/a-golden/icon?size=small&v=100",
   );
 
   // The URL and `has_image` do not move when a picture is replaced — the
@@ -739,7 +739,7 @@ it("draws the replacement rather than the picture it replaced", async () => {
   await waitFor(() =>
     expect(container.querySelector("img")).toHaveAttribute(
       "src",
-      "/api/v1/achievements/a-golden/icon?v=200",
+      "/api/v1/achievements/a-golden/icon?size=small&v=200",
     ),
   );
 });
@@ -821,4 +821,63 @@ it("draws no form for a reader who may not manage, warm cache or not", async () 
   ).toBeInTheDocument();
   expect(screen.queryByDisplayValue("Brave Soul")).not.toBeInTheDocument();
   expect(screen.queryByText("Brave Soul")).not.toBeInTheDocument();
+});
+
+it("names the included picture of a built-in and offers no way back from it", async () => {
+  // Every built-in ships with a picture, so the row is never on a glyph: the
+  // note says whose picture it is, and there is nothing to go "back" to.
+  renderEditor({
+    achievements: [
+      builtIn({ has_image: true, image_shipped: true, icon_version: 5 }),
+    ],
+    path: BUILT_IN_PATH,
+  });
+
+  await screen.findByDisplayValue("Golden Voice");
+  expect(
+    screen.getByText(/The picture Wingman includes for this achievement/),
+  ).toBeInTheDocument();
+  expect(screen.getByLabelText("Replace picture")).toBeInTheDocument();
+  expect(
+    screen.queryByRole("button", { name: "Use a glyph instead" }),
+  ).not.toBeInTheDocument();
+  expect(
+    screen.queryByRole("button", { name: "Back to the included picture" }),
+  ).not.toBeInTheDocument();
+});
+
+it("goes back to the included picture from an upload on a built-in", async () => {
+  deleteAchievementIcon.mockResolvedValue({
+    data: builtIn({ has_image: true, image_shipped: true, icon_version: 5 }),
+  });
+  renderEditor({
+    achievements: [
+      builtIn({ has_image: true, image_shipped: false, icon_version: 9 }),
+    ],
+    path: BUILT_IN_PATH,
+  });
+
+  await screen.findByDisplayValue("Golden Voice");
+  // An upload on a built-in: the way back is the shipped picture, never a glyph.
+  expect(
+    screen.queryByRole("button", { name: "Use a glyph instead" }),
+  ).not.toBeInTheDocument();
+  fireEvent.click(
+    screen.getByRole("button", { name: "Back to the included picture" }),
+  );
+
+  await waitFor(() => expect(deleteAchievementIcon).toHaveBeenCalled());
+  expect(deleteAchievementIcon.mock.calls[0][0].path).toEqual({
+    achievement_id: "builtin-score-9000",
+  });
+  // Still a picture — the shipped one — and the button is gone with the upload.
+  expect(
+    await screen.findByText(
+      /The picture Wingman includes for this achievement/,
+    ),
+  ).toBeInTheDocument();
+  expect(
+    screen.queryByRole("button", { name: "Back to the included picture" }),
+  ).not.toBeInTheDocument();
+  expect(screen.queryByLabelText("No icon")).not.toBeInTheDocument();
 });

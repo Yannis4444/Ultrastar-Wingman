@@ -58,7 +58,12 @@ it("shows the uploaded picture in place of the glyph", () => {
   );
 
   const image = container.querySelector("img");
-  expect(image).toHaveAttribute("src", "/api/v1/achievements/a-golden/icon");
+  // At the row size: the badge is 40px here and 74px at most on the TV, and the
+  // shipped pictures are over a megabyte each at full size.
+  expect(image).toHaveAttribute(
+    "src",
+    "/api/v1/achievements/a-golden/icon?size=small",
+  );
   expect(iconNames(badge(container))).toEqual([]);
 });
 
@@ -71,7 +76,7 @@ it("asks for the picture at the version the row carries", () => {
 
   expect(container.querySelector("img")).toHaveAttribute(
     "src",
-    "/api/v1/achievements/a-golden/icon?v=7",
+    "/api/v1/achievements/a-golden/icon?size=small&v=7",
   );
 });
 
@@ -89,7 +94,7 @@ it("draws the replaced picture, not the browser's copy of the old one", () => {
 
   expect(container.querySelector("img")).toHaveAttribute(
     "src",
-    "/api/v1/achievements/a-golden/icon?v=9",
+    "/api/v1/achievements/a-golden/icon?size=small&v=9",
   );
 });
 

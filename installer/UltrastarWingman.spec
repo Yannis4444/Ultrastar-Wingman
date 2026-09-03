@@ -13,6 +13,9 @@ datas = [
     (str(PACKAGE / "migrations"), "ultrastar_wingman/migrations"),
     # For running the alembic CLI against a bundled copy; the app builds its config in code.
     (str(ROOT / "backend" / "alembic.ini"), "."),
+    # The shipped badge pictures — where `achievements.pictures.images_dir()` looks when
+    # frozen. Data files, so `collect_submodules` does not pick them up.
+    (str(PACKAGE / "achievements" / "images"), "ultrastar_wingman/achievements/images"),
     # Where `frontend.resolve_frontend_dir()` looks when frozen.
     (str(ROOT / "frontend" / "dist"), "frontend"),
     # `ultrastar_wingman.__version__` reads the installed distribution's metadata.
