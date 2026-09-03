@@ -18,6 +18,9 @@ nav = [
   { "Overview" = "index.md" },
   { "Get started" = [
     "start/index.md",
+    { "Install and run" = "start/install.md" },
+    { "Connect Ultrastar Deluxe" = "start/ultrastar-deluxe.md" },
+    { "Let guests in" = "start/join.md" },
   ] },
   { "The song list" = [
     "songs/index.md",
@@ -36,6 +39,7 @@ nav = [
   ] },
   { "The host screen" = [
     "host-screen/index.md",
+    { "Manage from the TV" = "host-screen/manage.md" },
   ] },
   { "Scores" = [
     "scores/index.md",
@@ -51,6 +55,7 @@ nav = [
   ] },
   { "Fix a problem" = [
     "help/index.md",
+    { "Ultrastar Deluxe problems" = "help/ultrastar-deluxe.md" },
   ] },
   { "Integrations" = [
     "integrate/index.md",

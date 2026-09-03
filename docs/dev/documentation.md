@@ -296,8 +296,8 @@ Never carry the word into a user page without saying which one you mean:
 | The downloads panel ("Since Wingman started") | Downloads since Wingman was started | this run of Wingman |
 | The host screen ("This browser holds host rights") | This browser holds host rights | host rights |
 
-The UI copy pass fixes the first one. The other two need their own words, not "party". See
-section 11.
+The UI copy pass has renamed all three, so the labels above are what the app says today.
+Only the first row is a party. Write the third column, never "session".
 
 ### Naming what the reader touches
 
