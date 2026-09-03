@@ -503,5 +503,10 @@ reads better at 40 px, and every later badge copies this one.
 | 14 | Hat-trick | `builtin-evening-hat-trick.png` | done — as specified; gold hat tipped, pink band, three arcs |
 | 15 | Better Together | `builtin-first-duet.png` | done — two matching mics crossed at the middle, teal bands, grid heads like badge 1 (siblings on purpose), one grey arc per head over the two rings |
 | 16 | Well Traveled | `builtin-artists-10.png` | done — red tail fin, globe arc. The contrail was dropped by hand (it looked wrong; entry 16 now says no contrail). Two liberties kept: a row of small dark windows (they collapse to a dashed line at 40 px, harmlessly) and continents on the globe arc, grey and low-contrast |
-| the last one | | | production round, against the reference — Brave Soul next |
-| — | blank plate | | optional |
+| 17 | Brave Soul | `builtin-brave-soul.png` | done — as specified; fleeing tilt, arms up, two pink cheeks, grey trail behind the hem |
+| — | blank plate | | not made; nothing has needed it |
+
+The set is complete (2026-09-03): seventeen files, about 25 MB, one ChatGPT
+session, two corrections in total (the wreath's pedestal, the airplane's
+contrail). Every deviation kept is in the table above and, where it changes
+what a rerun should produce, in the entry itself (13, 16).
