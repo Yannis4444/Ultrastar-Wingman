@@ -44,9 +44,13 @@ nav = [
   ] },
   { "Scores" = [
     "scores/index.md",
+    { "A party's scores" = "scores/party.md" },
+    { "Your own scores" = "scores/your-scores.md" },
   ] },
   { "Achievements" = [
     "achievements/index.md",
+    { "Make an achievement" = "achievements/create.md" },
+    { "Manage achievements" = "achievements/manage.md" },
   ] },
   { "People" = [
     "people/index.md",

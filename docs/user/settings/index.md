@@ -59,7 +59,7 @@ options next to the feature itself.
 
 - Whether badges exist at all, and how long the host screen holds a row of them,
   sit at the top of **User** > **Achievements**. See
-  [Achievements](../achievements/index.md).
+  [Manage achievements](../achievements/manage.md).
 - The built-in marks and facets, such as the heart and the decade filter, sit
   under **Built-in** on **User** > **Tags**. See
   [Built-in marks and facets](../songs/built-in-tags.md).

@@ -23,7 +23,7 @@ view.
   built-in marks and facets. See [Tags](../songs/tags.md).
 - :wingman-trophy: **Achievements**: the badges this party hands out, and the
   three options behind them. See
-  [Achievements](../achievements/index.md).
+  [Manage achievements](../achievements/manage.md).
 - :wingman-shield: **Permissions**: what each role may do. See
   [Roles and permissions](../people/roles.md).
 

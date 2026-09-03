@@ -113,5 +113,6 @@ connection. It reconnects on its own after a moment. Reload if it does not.
 
 ## Somebody cannot do something they should
 
-Check the role, not the button. **User** > **Players & accounts** shows every
-account's role, and **Permissions** decides what each role may do.
+Check the role, not the button. **User** > **Players & accounts** shows who has
+an account, and whoever may manage accounts sees each one's role there.
+**Permissions** decides what each role may do.

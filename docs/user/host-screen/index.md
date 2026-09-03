@@ -76,7 +76,8 @@ you can see at a glance where tonight's run landed.
 Badges come before all of that. If the song earned somebody an achievement, the
 stage holds the results back and throws the badges up first. They come one
 singer at a time, four badges to a row. How long a row stays is set on
-**User** > **Achievements**. See [Achievements](../achievements/index.md).
+**User** > **Achievements**. See
+[Manage achievements](../achievements/manage.md).
 
 ## While nothing plays
 
