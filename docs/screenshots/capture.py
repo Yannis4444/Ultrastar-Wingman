@@ -677,8 +677,25 @@ ROWS: dict[str, Row] = {
             ),
         ),
         ready='q(".user-achievements[open]") && q(".user-achievements-strip")'
-        ' && q(".user-achievements-count") && q(".user-achievement-bar")',
+        ' && q(".user-achievements-count") && q(".achievement-progress-bar")',
         scroll='show(q(".user-achievements"))',
+    ),
+    "achievement-modal": Row(
+        # Fry again, and his newest badge: the strip is in the summary, so the picture is
+        # taken with the list still folded away and the modal over it. The first badge of
+        # the strip is the one he earned last, and it is a built-in with a picture.
+        identity="Fry",
+        viewport="phone",
+        route="/user",
+        steps=(
+            (
+                'click(qa(".user-achievements-badge-button")[0])',
+                'q(".achievement-modal")',
+            ),
+        ),
+        # The full-resolution file, which is the whole point of the view.
+        ready='q(".achievement-modal") && q(".achievement-modal-name")'
+        " && q('.achievement-modal img[src*=\"size=full\"]')",
     ),
     "achievements-admin": Row(
         identity="host",

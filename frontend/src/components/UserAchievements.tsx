@@ -1,5 +1,5 @@
 import { useQuery, useQueryClient } from "@tanstack/react-query";
-import { useMemo } from "react";
+import { useMemo, useState } from "react";
 import type {
   AchievementRead,
   PlayerAchievementRead,
@@ -9,16 +9,13 @@ import {
   listPlayerAchievementsOptions,
   listPlayerAchievementsQueryKey,
 } from "../api/@tanstack/react-query.gen";
-import {
-  achievementDescription,
-  achievementName,
-  progressFraction,
-  progressLabel,
-} from "../achievements";
+import { achievementDescription, achievementName } from "../achievements";
 import { parseServerTime, shortDate } from "../duration";
 import { useAchievements } from "../hooks/useAchievements";
 import { useWingmanEvent, type WingmanEvent } from "../hooks/useWingmanEvents";
 import AchievementBadge from "./AchievementBadge";
+import AchievementModal from "./AchievementModal";
+import AchievementProgress from "./AchievementProgress";
 import { Icon } from "./icons";
 import "./UserAchievements.css";
 
@@ -61,11 +58,17 @@ function earnedAt(row: PlayerAchievementRead): number {
 }
 
 /** One achievement on the singer's record: the badge, the name and the
- *  sentence, and then either the day it was earned or how far along they are. */
-function AchievementRow({ row }: { row: PlayerAchievementRead }) {
+ *  sentence, and then either the day it was earned or how far along they are.
+ *  The whole row is the button that opens it large — the badge is decorative,
+ *  so what a screen reader announces is the row's own words (§5). */
+function AchievementRow({
+  row,
+  onOpen,
+}: {
+  row: PlayerAchievementRead;
+  onOpen: () => void;
+}) {
   const earned = row.earned_at !== null;
-  const fraction = progressFraction(row.progress_current, row.progress_target);
-  const label = progressLabel(row.progress_current, row.progress_target);
 
   return (
     <li
@@ -73,34 +76,31 @@ function AchievementRow({ row }: { row: PlayerAchievementRead }) {
         earned ? "user-achievement" : "user-achievement user-achievement-off"
       }
     >
-      <AchievementBadge achievement={row.achievement} earned={earned} />
-      <span className="user-achievement-text">
-        <span className="user-achievement-name">
-          {achievementName(row.achievement)}
-        </span>
-        <span className="user-achievement-description">
-          {achievementDescription(row.achievement)}
-        </span>
-        {row.earned_at !== null ? (
-          <span className="user-achievement-meta">
-            Earned {shortDate(row.earned_at)}
+      <button
+        type="button"
+        className="user-achievement-button"
+        onClick={onOpen}
+      >
+        <AchievementBadge achievement={row.achievement} earned={earned} />
+        <span className="user-achievement-text">
+          <span className="user-achievement-name">
+            {achievementName(row.achievement)}
           </span>
-        ) : (
-          // No bar where there is no target: `=`, `<` and `<=` have nothing to
-          // progress towards, and a masked row is deliberately given none at
-          // all — a bar that filled would say what the badge is for.
-          fraction !== null &&
-          label !== null && (
-            <span className="user-achievement-progress">
-              {/* The words carry it; the bar is the same picture in colour. */}
-              <span className="user-achievement-bar" aria-hidden="true">
-                <span style={{ width: `${fraction * 100}%` }} />
-              </span>
-              <span className="user-achievement-progress-label">{label}</span>
+          <span className="user-achievement-description">
+            {achievementDescription(row.achievement)}
+          </span>
+          {row.earned_at !== null ? (
+            <span className="user-achievement-meta">
+              Earned {shortDate(row.earned_at)}
             </span>
-          )
-        )}
-      </span>
+          ) : (
+            <AchievementProgress
+              current={row.progress_current}
+              target={row.progress_target}
+            />
+          )}
+        </span>
+      </button>
     </li>
   );
 }
@@ -118,6 +118,10 @@ function AchievementRow({ row }: { row: PlayerAchievementRead }) {
  * request is in flight or after one failed: a badge strip is a bonus on this
  * page, exactly as the stat bar above it is, and neither is worth a loading bar
  * or an alert of its own.
+ *
+ * Every badge and every row opens the same modal, the strip's included — a
+ * badge is a picture, and a picture 30px across is a thing to tap rather than a
+ * thing to look at.
  */
 export default function UserAchievements({
   playerId,
@@ -125,6 +129,11 @@ export default function UserAchievements({
   playerId: string | null;
 }) {
   const queryClient = useQueryClient();
+  // The achievement being shown large, by id rather than by row: a refetch
+  // while the modal is open — the singer earned it a moment ago, the host
+  // renamed it — then redraws what is open instead of holding a snapshot from
+  // the moment it was tapped, and one that has gone closes it.
+  const [shownId, setShownId] = useState<string | null>(null);
   // Behind no capability: reading achievements needs none, and the API masks
   // per caller. The catalogue rides on the one request every badge surface
   // makes, and is what says how many there are to reach.
@@ -191,51 +200,79 @@ export default function UserAchievements({
   if (ordered.length === 0) return null;
 
   const earned = ordered.filter((row) => row.earned_at !== null);
+  const shown = ordered.find((row) => row.achievement_id === shownId);
 
   return (
-    <details className="user-achievements">
-      {/* The strip is the control: the whole summary opens the list, is a tab
-          stop of its own and says "Achievements, 7 of 17" when it is read out. */}
-      <summary className="user-achievements-summary">
-        <span className="user-achievements-heading">
-          <span className="user-achievements-label">Achievements</span>
-          <span className="user-achievements-count">
-            {earned.length} of {ordered.length}
+    <>
+      <details className="user-achievements">
+        {/* The line is the control: the heading opens the list, is a tab stop
+            of its own and says "Achievements, 7 of 17" when it is read out.
+            The badges under it are their own buttons — see below. */}
+        <summary className="user-achievements-summary">
+          <span className="user-achievements-heading">
+            <span className="user-achievements-label">Achievements</span>
+            <span className="user-achievements-count">
+              {earned.length} of {ordered.length}
+            </span>
+            {/* Two glyphs, one drawn: a chevron that turns would be the rotation
+                §5 rules out, and the state is the stylesheet's to read. */}
+            <Icon
+              name="chevron-right"
+              className="user-achievements-chevron user-achievements-chevron-closed"
+            />
+            <Icon
+              name="chevron-down"
+              className="user-achievements-chevron user-achievements-chevron-open"
+            />
           </span>
-          {/* Two glyphs, one drawn: a chevron that turns would be the rotation
-              §5 rules out, and the state is the stylesheet's to read. */}
-          <Icon
-            name="chevron-right"
-            className="user-achievements-chevron user-achievements-chevron-closed"
-          />
-          <Icon
-            name="chevron-down"
-            className="user-achievements-chevron user-achievements-chevron-open"
-          />
-        </span>
-        {earned.length > 0 ? (
-          <span className="user-achievements-strip">
-            {earned.map((row) => (
-              <AchievementBadge
-                key={row.achievement_id}
-                achievement={row.achievement}
-              />
-            ))}
-          </span>
-        ) : (
-          // An invitation, not a verdict: nothing has gone wrong, the evening
-          // simply has not started yet.
-          <span className="user-achievements-none">
-            Nothing yet. The first one is a song away.
-          </span>
-        )}
-      </summary>
+          {earned.length > 0 ? (
+            <span className="user-achievements-strip">
+              {earned.map((row) => (
+                <button
+                  key={row.achievement_id}
+                  type="button"
+                  className="user-achievements-badge-button"
+                  // The badge is `aria-hidden`, so the button says what it is.
+                  aria-label={achievementName(row.achievement)}
+                  onClick={(event) => {
+                    // The press is inside the `<summary>`, whose activation
+                    // behaviour would fold the list out behind the modal.
+                    // Cancelling the click's default action is what stops it —
+                    // the toggle is the default action, not a listener, so
+                    // holding the event back from the summary would not do.
+                    event.preventDefault();
+                    setShownId(row.achievement_id);
+                  }}
+                >
+                  <AchievementBadge achievement={row.achievement} />
+                </button>
+              ))}
+            </span>
+          ) : (
+            // An invitation, not a verdict: nothing has gone wrong, the evening
+            // simply has not started yet.
+            <span className="user-achievements-none">
+              Nothing yet. The first one is a song away.
+            </span>
+          )}
+        </summary>
 
-      <ul className="user-achievements-list">
-        {ordered.map((row) => (
-          <AchievementRow key={row.achievement_id} row={row} />
-        ))}
-      </ul>
-    </details>
+        <ul className="user-achievements-list">
+          {ordered.map((row) => (
+            <AchievementRow
+              key={row.achievement_id}
+              row={row}
+              onOpen={() => setShownId(row.achievement_id)}
+            />
+          ))}
+        </ul>
+      </details>
+      {/* Outside the `<details>`, not inside it: every click in the modal
+          bubbles, and a modal rendered under the summary would toggle the list
+          each time somebody pressed its close button. */}
+      {shown !== undefined && (
+        <AchievementModal row={shown} onClose={() => setShownId(null)} />
+      )}
+    </>
   );
 }

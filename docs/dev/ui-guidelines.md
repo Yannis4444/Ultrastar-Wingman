@@ -210,7 +210,8 @@ exception). Tests identify glyphs with `iconNames()` from `src/test/icons.ts`.
 carries besides its heading and that close. It is for a control that changes what the whole
 panel holds (the party picker's *show all*), never for a row's own action.
 
-- **Bare modal** (`bare` + `hideTitle`) — the song modal (`SongDetails`) and its sub-views.
+- **Bare modal** (`bare` + `hideTitle`) — the song modal (`SongDetails`), its sub-views, and the
+  achievement modal (`AchievementModal`), which has its own bullet below.
   Structure: hero (`.song-hero`: cover, title 1.15em, artist 0.85em `--color-darker`) → optional
   preview `<audio>` → the song controls row → option rows (`.song-option`, 44px, hairline
   `border-top`: icon, label in `--color-darker`, optional accent value, chevron) → the summary

@@ -38,7 +38,8 @@ export function achievementIconUrl(
   // `small` is the 256px variant of a shipped picture, for the 40px rows and
   // the TV — the originals are over a megabyte each and the user page draws
   // seventeen. An upload has no variant and answers either size with itself.
-  // `full` is for a view that shows one badge large; nothing does yet.
+  // `full` is for the one view that shows a single badge large: the achievement
+  // modal, which asks for it only while it is open (ui-guidelines §5).
   const url = `/api/v1/achievements/${encodeURIComponent(achievementId)}/icon?size=${size}`;
   return version === undefined || version === null
     ? url

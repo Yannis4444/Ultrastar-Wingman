@@ -52,6 +52,20 @@ and meets the new ones on the TV.
     as you go. If somebody moves a score to the right singer or deletes one,
     the badges follow. Earn one again and it is stamped with the new day.
 
+## One badge, large
+
+Tap a badge, on the strip or in a row, and it opens large over the blurred
+page. You see the picture at the size it was drawn for, the name, the
+description, and the same line the row carries. An earned one says the day.
+One still out there shows its bar and its numbers, or nothing where there is
+nothing to fill up. A hidden one opens as well, and says exactly what its row
+says.
+
+![One badge over the blurred page, with its name, its description and the day it was earned](../assets/screenshots/achievements/achievement-modal.png){ width="320" loading=lazy }
+/// caption
+Tap the darkened page above or below it, or :wingman-close: in the corner.
+///
+
 ## The moment on the host screen
 
 When a song is over, the host screen holds the results back and throws the new
