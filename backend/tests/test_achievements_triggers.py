@@ -621,25 +621,46 @@ async def test_a_scoreful_night_below_the_line_is_no_hat_trick(session: AsyncSes
     assert "builtin-evening-hat-trick" not in await earned_of(session, player_id)
 
 
-async def test_well_travelled_counts_ten_distinct_artists_case_blind(
+async def test_well_travelled_counts_twenty_distinct_artists_case_blind(
     session: AsyncSession,
 ) -> None:
     """`different_artists`, compared case-insensitively — so singing *Abba* and *ABBA* is one
-    artist and not two, and nine artists is not ten."""
-    artists = ["Abba", "Queen", "Nirvana", "Blur", "Oasis", "Pulp", "Suede", "Ash", "Doves"]
+    artist and not two, and nineteen artists is not twenty (the bar since 2026-09-04)."""
+    artists = [
+        "Abba",
+        "Queen",
+        "Nirvana",
+        "Blur",
+        "Oasis",
+        "Pulp",
+        "Suede",
+        "Ash",
+        "Doves",
+        "Elbow",
+        "Muse",
+        "Keane",
+        "Travis",
+        "Feeder",
+        "Placebo",
+        "Garbage",
+        "Texas",
+        "Cast",
+        "Kula Shaker",
+    ]
     for index, artist in enumerate(artists):
         await add_song(session, f"usdb:{index}", artist)
-    # A tenth song by the first artist under another spelling: still nine artists.
-    await add_song(session, "usdb:9", "ABBA")
+    # A twentieth song by the first artist under another spelling: still nineteen artists.
+    await add_song(session, f"usdb:{len(artists)}", "ABBA")
     player_id = await add_player_row(session, "Yannis")
+    sung = len(artists) + 1
     await sing_through(
-        session, player_id, [(f"usdb:{index}", 5000, "party-a") for index in range(10)]
+        session, player_id, [(f"usdb:{index}", 5000, "party-a") for index in range(sung)]
     )
     await service.evaluate_player(session, player_id, now=START)
     assert "builtin-artists-10" not in await earned_of(session, player_id)
 
-    await add_song(session, "usdb:10", "Radiohead")
-    await sing_through(session, player_id, [("usdb:10", 5000, "party-a")], first=10)
+    await add_song(session, f"usdb:{sung}", "Radiohead")
+    await sing_through(session, player_id, [(f"usdb:{sung}", 5000, "party-a")], first=sung)
     await service.evaluate_player(session, player_id, now=START)
 
     assert "builtin-artists-10" in await earned_of(session, player_id)

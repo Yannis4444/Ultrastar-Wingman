@@ -198,6 +198,53 @@ async def test_the_built_ins_are_seeded_in_order(party: Party) -> None:
     assert [row["sort_order"] for row in rows] == list(range(len(BUILT_INS)))
 
 
+def test_the_hidden_built_ins_come_last_in_the_default_order() -> None:
+    """Since 2026-09-04 every built-in that is hidden until earned stands at the end of
+    `BUILT_INS`: the catalogue is read as a list of things to go for, and a locked row in the
+    middle of it is a hole. The order of a database that has already been seeded is the
+    host's, so this is a claim about the file — and, through the test above, about what a
+    fresh instance starts with.
+    """
+    hidden = [index for index, built_in in enumerate(BUILT_INS) if built_in.hidden]
+    visible = [index for index, built_in in enumerate(BUILT_INS) if not built_in.hidden]
+
+    assert hidden and visible
+    assert min(hidden) > max(visible)
+    # Spelled out, because which ones are hidden is a decision and not an accident: each half
+    # keeps the order the achievements arrived in.
+    assert [BUILT_INS[index].id for index in hidden] == [
+        "builtin-artists-10",
+        "builtin-brave-soul",
+        "builtin-time-traveler",
+        "builtin-mixtape",
+        "builtin-full-commitment",
+        "builtin-groundhog-day",
+    ]
+
+
+def test_the_tuned_built_ins_ask_for_what_their_descriptions_say() -> None:
+    """What the 2026-09-04 tuning settled, pinned in the one place the two halves of a badge
+    can disagree: the sentence and the number its condition compares against are written by
+    hand, so one asking for 20,000 points while the other asks for 15,000 is a bug nothing
+    outside this file could see. *Groundhog Day* is here for its flag alone.
+    """
+    assert BY_ID["builtin-artists-10"].description == "Sing songs by 20 different artists."
+    assert BY_ID["builtin-artists-10"].definition[0]["value"] == 20
+    assert (
+        BY_ID["builtin-soundtrack"].description
+        == "Collect 20,000 points from soundtrack songs in one party."
+    )
+    assert BY_ID["builtin-soundtrack"].definition[0]["value"] == 20000
+    assert BY_ID["builtin-groundhog-day"].hidden
+    # "Win", because *Beat another singer on a song (50 times)* read as a puzzle. What a win
+    # is stays `number_of_wins`'s business.
+    assert [BY_ID[f"builtin-wins-{count}"].description for count in (1, 10, 50)] == [
+        "Win a song against another singer.",
+        "Win 10 songs against other singers.",
+        "Win 50 songs against other singers.",
+    ]
+
+
 async def test_every_built_in_definition_is_one_the_engine_can_read(party: Party) -> None:
     """The seed is hand-written JSON, so the models are what stand between a typo in it and
     a catalogue of badges nobody can earn."""

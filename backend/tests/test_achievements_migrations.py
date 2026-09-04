@@ -10,7 +10,9 @@ insert the shipped set a second time, and a primary key is the only thing that w
 """
 
 import asyncio
+import importlib.util
 from pathlib import Path
+from types import ModuleType
 
 from alembic import command
 from alembic.config import Config
@@ -228,17 +230,41 @@ async def test_0029_gives_the_progress_already_stored_no_party(tmp_path: Path) -
 
 # --- 0030, the second batch of built-ins ---------------------------------------------------
 
-# Where the two seeding revisions divide `BUILT_INS`: 0023 seeded up to and including *Brave
-# Soul*, 0030 everything after it. Written as the boundary rather than as a number so that a
-# built-in inserted in the *middle* of the file — which 0030's frozen `NEW_IDS` would not
-# seed — reads here as a wrong split rather than as a passing test.
+# A row 0023 seeded and 0030 therefore may not touch, used below as the one a host moved a
+# long way. It is `BUILT_INS`'s last first-batch id, which is what makes the "nothing that was
+# already there moves" assertion read in order.
 LAST_SEEDED_BY_0023 = "builtin-brave-soul"
 
 
+def _revision_0030() -> ModuleType:
+    """0030's own module, loaded by its path: a file name that starts with a digit is not an
+    importable module name, and `NEW_IDS` is the only place that says which ids that revision
+    is responsible for."""
+    path = migrations_dir() / "versions" / "0030_more_builtin_achievements.py"
+    spec = importlib.util.spec_from_file_location("wingman_revision_0030", path)
+    assert spec is not None and spec.loader is not None
+    module = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(module)
+    return module
+
+
 def _split() -> tuple[list[str], list[str]]:
+    """The ids 0023 seeded and the ids 0030 seeded, each in `BUILT_INS` order — which is the
+    order 0030 inserts its own in, because it filters `seed_rows()`.
+
+    Read off that revision's frozen `NEW_IDS` and not off a slice of `BUILT_INS`: the two
+    batches are no longer contiguous in the file, whose hidden built-ins stand at its end
+    whichever batch they came with. A built-in added to the file without a revision of its
+    own therefore lands in the *first* list here and fails the counts below, which is the
+    warning that was wanted — both halves are counted for exactly that reason.
+    """
+    second_batch: tuple[str, ...] = _revision_0030().NEW_IDS
+    seeded_by_0030 = set(second_batch)
     ids = [built_in.id for built_in in BUILT_INS]
-    boundary = ids.index(LAST_SEEDED_BY_0023) + 1
-    return ids[:boundary], ids[boundary:]
+    return (
+        [one for one in ids if one not in seeded_by_0030],
+        [one for one in ids if one in seeded_by_0030],
+    )
 
 
 async def _catalogue(database_url: str) -> list[tuple[str, int]]:
@@ -273,7 +299,10 @@ async def test_0030_adds_its_seventeen_behind_whatever_the_host_arranged(tmp_pat
     """
     database_url = f"sqlite+aiosqlite:///{tmp_path / 'existing.db'}"
     first, second = _split()
-    assert len(second) == 17
+    # Both halves, because only the second is filtered by 0030's frozen `NEW_IDS`: a
+    # thirty-fifth built-in added to `builtin.py` without a seed revision of its own lands in
+    # `first` and would otherwise pass here unnoticed.
+    assert (len(first), len(second)) == (17, 17)
 
     # 0023 imports `builtin.py` live, so migrating there seeds all thirty-four. Taking the
     # second batch back off is what leaves the database an instance from before really has.

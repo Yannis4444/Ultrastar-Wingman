@@ -225,6 +225,12 @@ have been made yet — §9 is the list. What each achievement asks for is
 `achievements/builtin.py`'s and is not repeated here: an entry is the artwork,
 and a definition copied into a second place is a definition that drifts.
 
+The numbers are these entries' own and they stay put. They were `builtin.py`'s
+order when they were written and are not any more — that file moved its hidden
+achievements to the end on 2026-09-04 — but §9, every note in this guide and
+the prompt runs outside it name a badge by its number, so renumbering would
+cost more than the coincidence was worth.
+
 Accents over the set: red ×14, teal ×9, cream ×6, pink ×5 — red is the
 workhorse, the others keep neighbouring badges apart.
 
@@ -340,6 +346,8 @@ BACKGROUND: two large overlapping rings behind the crossing point.
 ```
 
 **16 · Well Traveled** — blue — `builtin-artists-10` — glyph `plane`
+*Hidden until it is earned since 2026-09-04, so this is a plane most people
+meet only once it is theirs.*
 ```
 MOTIF: a single small passenger airplane seen from the side, climbing up and to the right at 20 degrees, with one wing and a tail fin; no contrail, the climb is the action.
 ACCENT: red #d9534f, on the tail fin.
@@ -347,7 +355,8 @@ BACKGROUND: one wide globe arc across the lower part of the plate.
 ```
 
 **17 · Brave Soul** — neutral — `builtin-brave-soul` — glyph `ghost`
-*The one face; kept because a ghost is two ovals.*
+*Hidden until it is earned, as it has been since it shipped. The one face;
+kept because a ghost is two ovals.*
 ```
 MOTIF: a single friendly cartoon ghost with two oval eyes and no mouth, tilted 15 degrees with both stubby arms up and its wavy hem trailing to the left as if fleeing.
 ACCENT: pink #c85bbd, on two round cheeks.
@@ -490,8 +499,9 @@ BACKGROUND: two large chevrons pointing up, stacked, behind the clapperboard.
 ```
 
 **34 · Groundhog Day** — pink — `builtin-groundhog-day` — glyph `refresh`
-*The repeat arrow is the whole idea, so it is the one action cue and it has to
-survive 40 px: thick, and clear of the label.*
+*Hidden until it is earned since 2026-09-04. The repeat arrow is the whole
+idea, so it is the one action cue and it has to survive 40 px: thick, and clear
+of the label.*
 ```
 MOTIF: a single vinyl record seen face on with a wide flat centre label, tilted 12 degrees, with one thick curved repeat arrow sweeping around its upper edge.
 ACCENT: teal #3fb8a8, on the centre label.

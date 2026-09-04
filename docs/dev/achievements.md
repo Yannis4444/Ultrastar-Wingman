@@ -734,6 +734,17 @@ migrations seed them, in two batches: 0023 the first seventeen, 0030 the
 seventeen added on 2026-09-04 — a ladder of wins, one badge per decade, two
 hidden ones about the range of an evening, and eight nods to songs and bands.
 
+The order the file lists them in is what a **fresh** database is seeded with,
+and it is no longer the order they arrived in: the six that are **hidden until
+earned** stand at the end of it, each half keeping its own arrival order, so
+*Brave Soul* — first batch — sits behind the second. A catalogue read as a list
+of things to go for should not have locked holes in the middle of it. Which ids
+a seed revision is responsible for was already frozen in that revision (0030's
+`NEW_IDS`) rather than read as a slice of `BUILT_INS`, and that is what makes
+reordering the file safe; what a reordering may not do is renumber the rows an
+older revision already seeded, and it does not — the order of an existing
+catalogue is the host's.
+
 `built_in = true` buys exactly three things:
 
 | | |
@@ -791,3 +802,19 @@ Because no other write may touch a built-in's conditions, a reset is also the
 was seeded with the old one — the seed migration runs once. That is a known
 limitation of shipping the set as ordinary rows, and reset is what an operator
 does about it.
+
+The presentation half of an improvement travels the same way, and deliberately:
+`description` and `hidden` are the host's to edit, so a migration rewriting them
+would overwrite a party's own words, while one rewriting the definition alone
+would leave a sentence asking for a number the conditions no longer compare
+against. And a definition raised in a migration would revoke the badge from
+everybody who earned it under the old number without a host ever pressing
+anything. So a **tuning of the shipped set is `builtin.py` and nothing else**,
+and an existing party picks it up one reset at a time. The 2026-09-04 tuning is
+the worked example: two raised numbers (*Well Traveled* 10 → 20 artists, *Roll
+the Credits* 15,000 → 20,000 points), two new `hidden` flags (*Well Traveled*,
+*Groundhog Day*), five reworded descriptions and the hidden-last order — no
+revision, and the migration head stayed at 0030. The one thing that has ever
+travelled by revision is a **name**: 0025's *Well Travelled* → *Well Traveled*,
+which revokes nothing and is conditional on the row still holding the seeded
+spelling.
