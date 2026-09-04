@@ -63,10 +63,16 @@ song and being the first to say something are exactly what they lead to.
 
 ## Best scores
 
-**Best scores** opens the song's whole record. It says how often the song was
-sung, the best and the worst run, and the average. Under that stands the
-ranking, best first, up to ten singers deep. From four scores on, a picture of
-every score the song ever got stands over that ranking.
+**Best scores** opens the song's whole record. It is headed by the same figures
+the **User** tab and the **Scores** tab print: :wingman-hash: **Sings**,
+:wingman-arrow-up: **Best**, :wingman-average: **Average**, and
+:wingman-arrow-down: **Worst**. There is no **Songs** figure here, because every
+score in the view is this one song. **Best** and **Worst** name the singer who
+holds them.
+
+Under the figures stands the ranking, best first, up to ten singers deep. From
+four scores on, a picture of every score the song ever got stands between the
+two.
 
 ## Tags
 

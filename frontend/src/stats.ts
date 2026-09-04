@@ -43,16 +43,31 @@ export interface ScoreGroup {
   firstAt: number;
 }
 
-/** One singer's totals over their whole history, for the user page. */
-export interface PlayerSummary {
-  /** Performances that were scored, not scores: a duet counts once. */
+/**
+ * What a set of scores adds up to: the five numbers `ScoreSummary` prints
+ * wherever scores are totalled — the user page, an open score group, a song's
+ * best scores.
+ */
+export interface ScoreSummaryStats {
+  /** Performances that were scored, not scores: one duet run counts once. */
   sings: number;
-  best: number;
-  average: number;
   /** Distinct songs behind those performances; the ones that have left the
    * library are lumped into one, exactly as `summarize` counts them. */
   songs: number;
+  best: number;
+  /** Who holds `best` — the name the summary prints beside it. */
+  bestBy: string;
+  /** The mean over the scores, not over the sings, as a whole number. */
+  average: number;
+  worst: number;
+  /** Who holds `worst`. */
+  worstBy: string;
 }
+
+/** How many scores a summary needs before a chart is drawn under it (§7): a
+ * couple of dots have no spread and a handful of bars across twenty buckets is
+ * noise. The list under a summary is drawn either way. */
+export const CHART_MIN_SCORES = 4;
 
 export interface SessionSummary {
   /** Performances that produced a score — distinct `sing_id`s among them. */
@@ -497,32 +512,56 @@ export function summarize(scores: ScoreWithContext[]): SessionSummary {
 }
 
 /**
- * What one singer's scores add up to, or `null` when there are none — a page
- * with nothing to show should say so rather than print four zeroes.
+ * What a set of scores adds up to, or `null` when there are none — a surface
+ * with nothing to total should say so rather than print five zeroes.
  *
- * Deliberately the same shape as `summarize`: the numbers are derived from the
- * scores themselves, so every one of them can be checked against the score list
- * on the Scores page.
+ * Deliberately the same shape as `summarize`: every number is derived from the
+ * scores themselves, so each one can be checked against the rows below it.
+ *
+ * A peak that several people share is held by whoever got there first: the
+ * earliest run wins, and two scores of one and the same run fall back to the
+ * row id, so the name never depends on the order the scores arrive in.
  */
-export function playerSummary(
+export function scoreSummary(
   scores: ScoreWithContext[],
-): PlayerSummary | null {
+): ScoreSummaryStats | null {
   if (scores.length === 0) return null;
   const sings = new Set<string>();
   const songs = new Set<string>();
-  let best = scores[0].score;
+  let best = scores[0];
+  let worst = scores[0];
   let total = 0;
+  // The row id settles a tie the clock cannot: a duet's two scores are one
+  // import and share a `recorded_at` to the second, so without it the name
+  // would come down to the order the list happened to arrive in.
+  const earlier = (a: ScoreWithContext, b: ScoreWithContext): boolean => {
+    const at = parseServerTime(a.recorded_at);
+    const bt = parseServerTime(b.recorded_at);
+    return at === bt ? a.id < b.id : at < bt;
+  };
   for (const score of scores) {
     sings.add(score.sing_id);
     songs.add(groupKey(score, "song"));
-    if (score.score > best) best = score.score;
+    if (
+      score.score > best.score ||
+      (score.score === best.score && earlier(score, best))
+    )
+      best = score;
+    if (
+      score.score < worst.score ||
+      (score.score === worst.score && earlier(score, worst))
+    )
+      worst = score;
     total += score.score;
   }
   return {
     sings: sings.size,
-    best,
-    average: Math.round(total / scores.length),
     songs: songs.size,
+    best: best.score,
+    bestBy: best.player_name,
+    average: Math.round(total / scores.length),
+    worst: worst.score,
+    worstBy: worst.player_name,
   };
 }
 

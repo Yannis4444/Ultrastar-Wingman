@@ -2,14 +2,15 @@ import type { ReactNode } from "react";
 import type { PlayerRead, ScoreWithContext, SongRead } from "../api";
 import { shortDate, shortTime } from "../duration";
 import {
+  CHART_MIN_SCORES,
   groupValue,
   scorePlayer,
   type Grouping,
   type ScoreGroup,
   type Sorting,
 } from "../stats";
-import IconStat from "./IconStat";
 import ScoreHistogram from "./ScoreHistogram";
+import ScoreSummary from "./ScoreSummary";
 import { Icon } from "./icons";
 import PlayerAvatar from "./PlayerAvatar";
 import ScoreActions from "./ScoreActions";
@@ -94,47 +95,29 @@ function rowLines(
 }
 
 /**
- * What an opened group adds up to: the four numbers the row no longer carries,
- * and the shape behind them. Sits at the head of the tile the row unfolds; one
+ * What an opened group adds up to: the numbers the row no longer carries, and
+ * the shape behind them. Sits at the head of the tile the row unfolds; one
  * score is its own best, worst and average, so a group of one has no summary
  * to show and the tile opens on its single row instead.
+ *
+ * A song group leaves the Songs stat out — it would read "1" on every row of
+ * the list; a player group keeps it, that being what their evening was made
+ * of.
  */
-function GroupSummary({ group, named }: { group: ScoreGroup; named: boolean }) {
-  const worst = group.scores[group.scores.length - 1];
+function GroupSummary({
+  group,
+  named,
+  songs,
+}: {
+  group: ScoreGroup;
+  named: boolean;
+  songs: boolean;
+}) {
   return (
     <>
-      <div className="score-group-stats">
-        <IconStat
-          className="score-group-stat"
-          icon="hash"
-          label="Scores"
-          value={group.scores.length}
-          showLabel
-        />
-        <IconStat
-          className="score-group-stat"
-          icon="arrow-up"
-          label={named ? `Best · ${group.scores[0].player_name}` : "Best"}
-          value={group.best}
-          showLabel
-        />
-        <IconStat
-          className="score-group-stat"
-          icon="arrow-down"
-          label={named ? `Worst · ${worst.player_name}` : "Worst"}
-          value={group.worst}
-          showLabel
-        />
-        <IconStat
-          className="score-group-stat"
-          icon="average"
-          label="Average"
-          value={group.average}
-          showLabel
-        />
-      </div>
+      <ScoreSummary scores={group.scores} songs={songs} named={named} />
       {/* A couple of bars across twenty buckets is noise, not a shape. */}
-      {group.scores.length >= 4 && (
+      {group.scores.length >= CHART_MIN_SCORES && (
         <div className="score-group-chart">
           <ScoreHistogram
             scores={group.scores}
@@ -291,7 +274,11 @@ export default function ScoreGroupList({
                 {/* One score is its own best, worst and average — four times
                     the same number says nothing the row below it does not. */}
                 {group.scores.length > 1 && (
-                  <GroupSummary group={group} named={namedPeaks} />
+                  <GroupSummary
+                    group={group}
+                    named={namedPeaks}
+                    songs={grouping === "player"}
+                  />
                 )}
 
                 <ul className="score-group-scores">

@@ -35,7 +35,7 @@ import { useFavorites } from "../hooks/useFavorites";
 import { useTags } from "../hooks/useTags";
 import { useWingmanEvent, type WingmanEvent } from "../hooks/useWingmanEvents";
 import { useWishlist } from "../hooks/useWishlist";
-import { songHistory } from "../stats";
+import { CHART_MIN_SCORES } from "../stats";
 import { tagColorClass, tagGlyph } from "../tags";
 import ConfirmModal from "./ConfirmModal";
 import IconStat from "./IconStat";
@@ -48,6 +48,7 @@ import PlayerSelection from "./PlayerSelection";
 import PlaylistCover from "./PlaylistCover";
 import RankedScoreList from "./RankedScoreList";
 import ScoreStrip from "./ScoreStrip";
+import ScoreSummary from "./ScoreSummary";
 import SongCover from "./SongCover";
 // The control row is shared with the Home stage.
 import "./SongControls.css";
@@ -70,13 +71,6 @@ interface CommentsChanged extends WingmanEvent {
 
 /** How many all-time scores the best-scores view lists. */
 const BEST_SCORES = 10;
-
-/**
- * How many scores a summary needs before a chart is drawn under it (§7). The
- * same number the user page and an open score group use; the list itself is
- * drawn either way.
- */
-const CHART_MIN_SCORES = 4;
 
 /** What the backend accepts in one comment; the field stops there too. */
 const COMMENT_MAX_LENGTH = 1000;
@@ -280,9 +274,9 @@ export default function SongDetails({ song, onClose }: SongDetailsProps) {
   });
   const allScores = songScores.data?.scores ?? [];
   const ranked = [...allScores].sort((a, b) => b.score - a.score);
+  // The ranking lists ten; the summary and the strip take the whole history,
+  // which is what describes the song.
   const best = ranked.slice(0, BEST_SCORES);
-  // The whole history, not the listed ten: the summary describes the song.
-  const history = songHistory(allScores);
 
   // Only for the avatars in the ranking, so it waits for the sub-view. A singer
   // without a player record — a guest, a deleted player, or a caller who may
@@ -627,17 +621,12 @@ export default function SongDetails({ song, onClose }: SongDetailsProps) {
   if (view === "scores") {
     return (
       <Modal title="Best scores" bare onClose={() => setView("main")}>
-        {/* The song's whole history in the scores page's idiom, so the ranking
-            below has something to be read against. The best and worst singers
-            are left out of it: rank 1 names one of them one row further down. */}
-        {history !== null && (
-          <p className="song-scores-stats">
-            <IconStat icon="hash" label="Times sung" value={history.sings} />
-            <IconStat icon="arrow-up" label="Best" value={history.best} />
-            <IconStat icon="arrow-down" label="Worst" value={history.worst} />
-            <IconStat icon="average" label="Average" value={history.average} />
-          </p>
-        )}
+        {/* The song's whole history in the app's one score summary (§7), so
+            the ranking below has something to be read against. Best and Worst
+            name the singer who holds them — rank 1 says it again one row
+            further down, and one shape everywhere beats one line saved. No
+            Songs stat: every score in here is this one song. */}
+        <ScoreSummary scores={allScores} named className="song-scores-stats" />
         {/* Four scores are the fewest that make a picture (§7): a couple of
             dots have no spread to show and no median worth drawing a line for,
             and the ranking below says everything they do. The modal is flat on

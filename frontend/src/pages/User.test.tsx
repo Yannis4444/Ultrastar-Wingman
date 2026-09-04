@@ -412,16 +412,32 @@ test("the account's own totals are summed up under the identity", async () => {
   expect(screen.getByText("Sings").previousSibling).toHaveTextContent("2");
   expect(screen.getByText("Best").previousSibling).toHaveTextContent("9000");
   expect(screen.getByText("Average").previousSibling).toHaveTextContent("8500");
+  expect(screen.getByText("Worst").previousSibling).toHaveTextContent("8000");
   // Both scores are on songs that have left the library: one unknown song.
   expect(screen.getByText("Songs").previousSibling).toHaveTextContent("1");
-  // What was sung before how well it went.
+  // The app's one score summary (§7): what was sung before how well it went,
+  // and the three score numbers reading down from the best.
   expect(
-    [...document.querySelectorAll(".user-stat .icon-stat-label")].map(
+    [...document.querySelectorAll(".score-summary-stat .icon-stat-label")].map(
       (label) => label.textContent,
     ),
-  ).toEqual(["Sings", "Songs", "Best", "Average"]);
-  // Not on the user's own page: nobody needs their flops counted for them.
-  expect(screen.queryByText("Worst")).not.toBeInTheDocument();
+  ).toEqual(["Sings", "Songs", "Best", "Average", "Worst"]);
+  // Every score on this page is the reader's own, so the peaks name nobody.
+  expect(screen.getByText("Best").textContent).toBe("Best");
+  expect(screen.getByText("Worst").textContent).toBe("Worst");
+});
+
+test("the best on the user page wears the arrow, never the cup", async () => {
+  loggedInAsAlice();
+  listPlayerScores.mockResolvedValue({
+    data: { scores: [score(9000, "s1"), score(8000, "s2")] },
+  });
+  renderUser();
+
+  // `trophy` is the song modal's summary strip, where the best score is a
+  // thing to open. Inside a score summary it is a number like any other.
+  const stat = (await screen.findByText("Best")).parentElement!;
+  expect(iconNames(stat)).toEqual(["arrow-up"]);
 });
 
 test("the distribution sits between the numbers and the way into the list", async () => {

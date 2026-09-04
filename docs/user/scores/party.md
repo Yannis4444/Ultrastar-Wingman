@@ -149,12 +149,21 @@ the top. Under **best score** and **average score** the first three numbers
 stand out, because the order really is a ranking. Tap a grouped row and it
 unfolds into a card.
 
-A row with more than one score behind it is headed by four numbers:
-:wingman-hash: **Scores**, :wingman-arrow-up: **Best**,
-:wingman-arrow-down: **Worst**, and :wingman-average: **Average**. Under a
-song, **Best** and **Worst** name the singer who managed them. From four scores
-on, a bar chart shows where they land. Under all of it stands every single
-score behind the row: the songs that singer sang, or the singers of that song.
+A row with more than one score behind it is headed by the same figures the
+**User** tab prints over your own record: :wingman-hash: **Sings**,
+:wingman-music: **Songs**, :wingman-arrow-up: **Best**,
+:wingman-average: **Average**, and :wingman-arrow-down: **Worst**.
+
+- **Sings** counts performances, not scores. A duet two people sang together
+  is one sing and two rows in the list below it.
+- **Songs** stands under a singer only. Under a song it would read **1** on
+  every row, so it is left out there.
+- Under a song, **Best** and **Worst** name the singer who managed them. Under
+  a singer they name nobody: the row above is already their name.
+
+From four scores on, a bar chart shows where they land. Under all of it stands
+every single score behind the row: the songs that singer sang, or the singers
+of that song.
 
 Grouped by song, the cover on a row opens the song. Grouped by player, the rows
 inside the card do. Ungrouped, the whole row does.

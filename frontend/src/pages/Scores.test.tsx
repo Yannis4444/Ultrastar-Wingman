@@ -82,7 +82,7 @@ function lines(row: HTMLElement): (string | null)[] {
 
 /** The tile's stats as `[label, value]` pairs, in the order it prints them. */
 function stats(panel: HTMLElement): (string | null)[][] {
-  return [...panel.querySelectorAll(".score-group-stat")].map((stat) => [
+  return [...panel.querySelectorAll(".score-summary-stat")].map((stat) => [
     stat.querySelector(".icon-stat-label")?.textContent ?? null,
     stat.querySelector(".icon-stat-value")?.textContent ?? null,
   ]);
@@ -838,7 +838,7 @@ test("a collapsed row carries a list row's two lines, not a spread", async () =>
 
   const alice = (await screen.findAllByTestId("score-group"))[0];
   expect(lines(summaryOf(alice))).toEqual(["Alice", "2 scores", "9000"]);
-  // The four stats moved into the tile the row unfolds.
+  // The five stats moved into the tile the row unfolds.
   expect(within(summaryOf(alice)).queryByText("Average")).toBeNull();
 
   choose("Group", "song");
@@ -855,11 +855,14 @@ test("an opened group states its whole spread in one tile", async () => {
   fireEvent.click(within(summaryOf(alice)).getByText("Alice"));
 
   const panel = alice.querySelector(".score-group-panel") as HTMLElement;
+  // A singer's evening was made of songs, so their summary counts them; the
+  // peaks stay unnamed, the row above already being her name.
   expect(stats(panel)).toEqual([
-    ["Scores", "2"],
+    ["Sings", "2"],
+    ["Songs", "2"],
     ["Best", "9000"],
-    ["Worst", "8000"],
     ["Average", "8500"],
+    ["Worst", "8000"],
   ]);
   // The scores are part of that tile, not a list left behind under it.
   expect(panel.querySelector(".score-group-scores")).not.toBeNull();
@@ -894,10 +897,11 @@ test("the tile's chart waits for the fourth score, its rows do not", async () =>
   expect(bob.querySelectorAll(".score-entry")).toHaveLength(3);
   expect(stats(bob.querySelector(".score-group-panel") as HTMLElement)).toEqual(
     [
-      ["Scores", "3"],
+      ["Sings", "3"],
+      ["Songs", "2"],
       ["Best", "6000"],
-      ["Worst", "3000"],
       ["Average", "4333"],
+      ["Worst", "3000"],
     ],
   );
 });
@@ -914,10 +918,12 @@ test("under a song, best and worst still name the singer who managed them", asyn
     expect(
       stats(wonderwall.querySelector(".score-group-panel") as HTMLElement),
     ).toEqual([
-      ["Scores", "2"],
+      // One run of Wonderwall with two people on it: one sing, two scores.
+      // And no Songs stat under a song, which would read "1" on every row.
+      ["Sings", "1"],
       ["Best · Alice", "9000"],
-      ["Worst · Bob", "6000"],
       ["Average", "7500"],
+      ["Worst · Bob", "6000"],
     ]),
   );
 });

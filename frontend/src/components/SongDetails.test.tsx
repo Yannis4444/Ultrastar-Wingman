@@ -237,8 +237,10 @@ test("the ranking summarises the song's whole history above the rows", async () 
   const dialog = screen.getByRole("dialog", { name: "Best scores" });
 
   // Six sings, and the average over every score — not over the listed ten.
+  // No Songs stat: every score in here is this one song. Best and Worst name
+  // the singer who holds them, rank 1 one row below saying it again.
   expect(dialog.querySelector(".song-scores-stats")).toHaveTextContent(
-    "Times sung6Best9500Worst1000Average4083",
+    "6Sings9500Best · Alice4083Average1000Worst · Frank",
   );
 });
 

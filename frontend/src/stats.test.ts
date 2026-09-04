@@ -10,9 +10,9 @@ import {
   histogram,
   isNewHighscore,
   isTucked,
-  playerSummary,
   scorePlayer,
   scorePlayerKey,
+  scoreSummary,
   sessionLabel,
   sessionLeaderboard,
   sessionMeta,
@@ -402,35 +402,75 @@ test("a singer without a player record still gets an avatar to fall back on", ()
   });
 });
 
-test("one singer's totals come out of their own scores", () => {
+test("a summary's totals come out of the scores it is given", () => {
   const mine = [
     score("Alice", 8000, bohemian),
     score("Alice", 9000, wonderwall),
     score("Alice", 4900, bohemian, { sing_id: "sing-again" }),
   ];
 
-  expect(playerSummary(mine)).toEqual({
+  expect(scoreSummary(mine)).toEqual({
     sings: 3,
-    best: 9000,
-    // 21900 / 3 = 7300 exactly; the rounding is what a third score would need.
-    average: 7300,
     // Three performances, but the same song twice.
     songs: 2,
+    best: 9000,
+    bestBy: "Alice",
+    // 21900 / 3 = 7300 exactly; the rounding is what a third score would need.
+    average: 7300,
+    worst: 4900,
+    worstBy: "Alice",
   });
 });
 
 test("a duet counts as one sing, and the average is rounded", () => {
   const duet = [
     score("Alice", 8000, bohemian, { sing_id: "sing-duet" }),
-    score("Alice", 7001, bohemian, { sing_id: "sing-duet" }),
+    score("Bob", 7001, bohemian, { sing_id: "sing-duet" }),
   ];
 
-  expect(playerSummary(duet)).toEqual({
+  // Two scores, one run of one song — and the average is over the scores.
+  expect(scoreSummary(duet)).toMatchObject({
     sings: 1,
-    best: 8000,
-    average: 7501,
     songs: 1,
+    average: 7501,
   });
+});
+
+test("the best and the worst carry the name of whoever holds them", () => {
+  const both = [
+    score("Alice", 8000, bohemian),
+    score("Bob", 4000, bohemian, { sing_id: "sing-bob" }),
+  ];
+
+  expect(scoreSummary(both)).toMatchObject({
+    best: 8000,
+    bestBy: "Alice",
+    worst: 4000,
+    worstBy: "Bob",
+  });
+});
+
+test("a peak two people share is held by whoever got there first", () => {
+  // Deliberately out of order: the name must not depend on the order the
+  // scores arrive in, only on when they were sung.
+  const tied = [
+    score("Bob", 9000, bohemian, { recorded_at: "2026-08-23T21:00:00Z" }),
+    score("Alice", 9000, wonderwall, { recorded_at: "2026-08-23T20:00:00Z" }),
+  ];
+
+  expect(scoreSummary(tied)).toMatchObject({ best: 9000, bestBy: "Alice" });
+  // The same run of scores is its own worst, and the same rule names it.
+  expect(scoreSummary(tied)).toMatchObject({ worst: 9000, worstBy: "Alice" });
+});
+
+test("a tie inside one run is settled by the row, not by the order it arrives", () => {
+  // A duet: two scores of one sing, imported together and stamped the same
+  // second. The clock cannot separate them, so the row id has to.
+  const alice = score("Alice", 9000, bohemian, { sing_id: "sing-duet" });
+  const bob = score("Bob", 9000, bohemian, { sing_id: "sing-duet" });
+
+  expect(scoreSummary([alice, bob])).toMatchObject({ bestBy: "Alice" });
+  expect(scoreSummary([bob, alice])).toMatchObject({ bestBy: "Alice" });
 });
 
 test("songs that have left the library count as one unknown song, as elsewhere", () => {
@@ -441,12 +481,12 @@ test("songs that have left the library count as one unknown song, as elsewhere",
     score("Alice", 6000, bohemian, { sing_id: "sing-3" }),
   ];
 
-  expect(playerSummary(gone)).toMatchObject({ sings: 3, songs: 2 });
+  expect(scoreSummary(gone)).toMatchObject({ sings: 3, songs: 2 });
 });
 
-test("a singer without a single score has no summary at all", () => {
-  // Null, not four zeroes: the page says "sing something" instead of lying.
-  expect(playerSummary([])).toBeNull();
+test("a set without a single score has no summary at all", () => {
+  // Null, not five zeroes: the surface says "sing something" instead of lying.
+  expect(scoreSummary([])).toBeNull();
 });
 
 test("every USDX rating word is reachable at its own threshold", () => {
