@@ -14,7 +14,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from ..achievements import service as achievements
 from ..auth.model import as_utc
-from ..events import ScoresChanged, event_bus
+from ..events import ScoresChanged, SessionsChanged, event_bus
 from ..karaoke.model import SESSION_GAP, KaraokeSession, Score, Sing
 from ..karaoke.schema import ScoreRead, read_score
 from ..players.model import Player
@@ -26,7 +26,14 @@ logger = logging.getLogger(__name__)
 
 
 async def sessions(session: AsyncSession) -> list[SessionRead]:
-    """Every recorded session, newest first, with how much happened in it."""
+    """Every recorded session, newest first, with how much happened in it.
+
+    `hidden` is the stored flag and `current` says whether it is in force: the party being
+    sung is never kept out of the picker, so a hidden one that is sung into again is back
+    while the evening lasts. Nothing here filters — which rows a caller sees is
+    `api.list_sessions`'s decision, over the parties they may open.
+    """
+    running = await current_session(session)
     rows = await session.execute(
         select(
             KaraokeSession,
@@ -53,6 +60,8 @@ async def sessions(session: AsyncSession) -> list[SessionRead]:
             sing_count=sing_count,
             score_count=score_count,
             singer_count=singer_count,
+            hidden=row.hidden,
+            current=running is not None and running.id == row.id,
         )
         for row, sing_count, score_count, singer_count in rows
     ]
@@ -142,6 +151,47 @@ async def rename_session(
     await session.commit()
     logger.info("karaoke session %s renamed to %r", karaoke_session.id, name)
     return await read_session(session, karaoke_session)
+
+
+class SessionRunningError(RuntimeError):
+    """Raised by `set_session_hidden` when asked to hide the party being sung."""
+
+    def __init__(self, session_id: str) -> None:
+        super().__init__(f"session '{session_id}' is the party being sung")
+        self.session_id = session_id
+
+
+async def set_session_hidden(
+    session: AsyncSession, karaoke_session: KaraokeSession, hidden: bool
+) -> SessionRead:
+    """Keep a party out of the Scores page's party picker, or put it back.
+
+    **This changes what one list holds and nothing else.** The party keeps every score it
+    has: in the singer's own record, in a song's best scores, in the all-parties total
+    (`all_scores`), in what a reader may open (`api.visible_session_ids`) and in what an
+    achievement is worked out from. Hiding is a tidy-up of a long list, not a deletion, and
+    nobody's badge or best score may move because somebody tidied.
+
+    The party being sung cannot be hidden — the evening in progress is what the Scores page
+    is for, and a phone at that party would be left with an empty page. Unhiding it is
+    always allowed: it is the way back out of a flag that was set before the room started
+    singing into that party again.
+    """
+    running = await current_session(session) if hidden else None
+    if running is not None and running.id == karaoke_session.id:
+        raise SessionRunningError(karaoke_session.id)
+    karaoke_session.hidden = hidden
+    await session.commit()
+    logger.info(
+        "karaoke session %s %s the party picker",
+        karaoke_session.id,
+        "hidden from" if hidden else "shown in",
+    )
+    read = await read_session(session, karaoke_session)
+    # Ids say nothing here: which parties a listener sees depends on whether they hold
+    # `stats.hide`, so every screen refetches the listing for itself.
+    await event_bus.broadcast(SessionsChanged())
+    return read
 
 
 async def read_session(session: AsyncSession, karaoke_session: KaraokeSession) -> SessionRead:

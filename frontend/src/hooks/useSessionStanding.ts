@@ -40,7 +40,15 @@ export function useSessionStanding(order: LeaderboardOrder): SessionStanding {
   const queryClient = useQueryClient();
   const canView = auth.loaded && auth.can("stats.view");
 
-  const sessions = useQuery({ ...listSessionsOptions(), enabled: canView });
+  // `include_hidden` so that taking a party off the Scores page's list reaches
+  // that list and nothing else: without it, a host who tidied away the newest
+  // party would find the TV's standing fall back to the party before it once
+  // the room stopped singing. The backend ignores the parameter for a caller
+  // without `stats.hide`, who was never handed a hidden party anyway.
+  const sessions = useQuery({
+    ...listSessionsOptions({ query: { include_hidden: true } }),
+    enabled: canView,
+  });
   // The party the backend would attach the next song to — `attach_to_session`
   // picks the session with the latest activity, so the standing does too.
   const session =

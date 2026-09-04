@@ -18,10 +18,11 @@ how many people sang, and how many scores it holds.
 With two parties or more, one extra row sits at the head of the panel and adds
 them all up. It is called **All parties** for a reader who may open past
 parties, and **All my scores** for everybody else. Its line says how many
-parties that is and how many scores they hold together. Pick it and the whole
-page reads that wider list. It is no single evening, so the figures below and
-the rename button stay away. The panel holds exactly the parties you may open.
-See [Scores](index.md#which-parties-you-can-open).
+parties that is and how many scores they hold together, the ones taken off the
+list included, because picking it reads them too. Pick it and the whole page
+reads that wider list. It is no single evening, so the figures below and the
+rename button stay away. The panel holds exactly the parties you may open. See
+[Scores](index.md#which-parties-you-can-open).
 
 ### Name a party
 
@@ -36,6 +37,32 @@ hold by default.
 The name replaces the date everywhere the party is listed. To bring the date
 back, empty the box and save again. :wingman-close: **Cancel** leaves the name
 as it was.
+
+### Take a party off the list
+
+After a year of karaoke the panel is long. Taking a party off it takes the
+right to hide parties, which Admin alone holds by default.
+
+1. Open the panel.
+2. Tap :wingman-eye-off: **Show every party** in the panel's header. The list
+   now holds every party you may open, and each one carries an eye.
+3. Tap :wingman-eye: beside a party to take it off the list. It turns into
+   :wingman-eye-off: and the party's name goes quiet.
+4. Tap it again to put the party back.
+
+:wingman-eye: **Show every party** is the way out of that view: tap it and the
+list is the short one again.
+
+**Only that list changes.** The party keeps every score it has. It is still in
+**All parties**, in each singer's own record, in a song's best scores, in every
+total, and in what the achievements are worked out from. Nobody loses a badge
+and nobody's best score moves.
+
+The party going on right now can never be taken off the list. Tonight's
+scoreboard is what the tab is for, and a phone at the party would be left with
+an empty page.
+
+Everybody in the room sees the change at once.
 
 ## The figures at the top
 

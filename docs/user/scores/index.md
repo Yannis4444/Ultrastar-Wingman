@@ -55,6 +55,12 @@ The party picker holds exactly the parties you may open, so it never names one
 only to refuse it. A guest phone has no player to go by and gets tonight alone.
 See [Roles and permissions](../people/roles.md).
 
+A party can also be taken off that list to keep it short. That reaches the
+picker and nothing else: the party keeps every score it has, in your own
+record, in a song's best scores, in the totals, and in what the achievements
+are worked out from. See
+[Take a party off the list](party.md#take-a-party-off-the-list).
+
 ## The pages in this section
 
 - [A party's scores](party.md): the party picker, the charts, the ranking, and

@@ -42,6 +42,7 @@ CAPABILITIES: tuple[str, ...] = (
     "stats.history",
     "stats.manage",
     "stats.moderate",
+    "stats.hide",
     "achievements.manage",
     "settings.view",
     "settings.manage",
@@ -133,8 +134,14 @@ _TRUSTED_CAPABILITIES = _USER_CAPABILITIES | {
 # mid-party revokes badges from people who did nothing wrong, and a `hidden` one only stays a
 # surprise while the few who may read it keep it. Reading the catalogue and a player's badges
 # needs no capability at all: the host screen and every guest phone draw them.
+# `stats.hide` is the fourth: it takes a party out of the Scores page's picker for *everybody*
+# — a guest's phone included — so, like renaming, it is a decision about the party's shelf
+# rather than about one reader's view. It is fully reversible and reaches that one list (see
+# `stats.service.set_session_hidden`), so `trusted` is a defensible home for it; it starts
+# with the administrator all the same, because deciding which evenings the room still gets to
+# look at is the host's call, and handing it to `trusted` is one tick in the permissions table.
 
-# What migrations 0006 to 0024 seed. Kept here as well so a test can prove the two never
+# What migrations 0006 to 0028 seed. Kept here as well so a test can prove the two never
 # drift.
 DEFAULT_ROLE_CAPABILITIES: dict[str, frozenset[str]] = {
     GUEST: _GUEST_CAPABILITIES,

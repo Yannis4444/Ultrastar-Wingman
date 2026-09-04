@@ -100,6 +100,21 @@ class ScoresChanged(Event):
     sing_id: str
 
 
+class SessionsChanged(Event):
+    """A party was kept out of the Scores page's party picker, or put back (`stats.hide`).
+
+    No payload, for the same reason `tags.changed` has none: what the listing holds is
+    decided per caller — a reader without `stats.hide` never sees a hidden party, and one
+    who holds it can ask for them — and the bus does not know who is on the other end.
+    Every client fetches `GET /stats/sessions` again and gets its own answer.
+
+    Deliberately not `scores.changed`: no score moved, and nothing about any party's
+    numbers is different. Hiding reaches one list and nothing else.
+    """
+
+    event: Literal["sessions.changed"] = "sessions.changed"
+
+
 class AchievementsEarned(Event):
     """What a finished sing just earned, for everybody it earned something.
 

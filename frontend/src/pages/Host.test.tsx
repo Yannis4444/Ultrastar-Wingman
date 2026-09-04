@@ -109,6 +109,8 @@ const SESSION: SessionRead = {
   sing_count: 2,
   score_count: 2,
   singer_count: 2,
+  hidden: false,
+  current: true,
 };
 
 /** Two sings, so the rail carries a standing next to the QR code. */
@@ -305,6 +307,20 @@ test("between songs the stage shows the last song and the rail the standing", as
   expect(container.querySelector(".host-rail")).toContainElement(board);
   // The QR card is the rail's anchor and does not move for the results.
   expect(screen.getByText("Scan to join")).toBeInTheDocument();
+});
+
+test("the standing reads every party, the ones off the Scores list included", async () => {
+  // The standing is the newest party by activity, and a party the host took
+  // off the Scores page's picker is still a party the room sang at. Without
+  // this the TV would fall back to the evening before it once the room went
+  // home. The backend ignores the parameter for whoever may not hold it.
+  withScores();
+  renderHost("/host");
+
+  await screen.findByLabelText("Party leaderboard");
+  expect(listSessions.mock.calls[0][0]).toMatchObject({
+    query: { include_hidden: true },
+  });
 });
 
 test("the idle stage is the brand, and only the idle stage", async () => {

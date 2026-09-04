@@ -9,6 +9,7 @@ import {
   groupValue,
   histogram,
   isNewHighscore,
+  isTucked,
   playerSummary,
   scorePlayer,
   scorePlayerKey,
@@ -84,6 +85,8 @@ test("a session shows its own name, and its start time when it has none", () => 
     sing_count: 4,
     score_count: 6,
     singer_count: 3,
+    hidden: false,
+    current: false,
   };
   expect(sessionLabel({ ...base, name: "Yannis' birthday" })).toBe(
     "Yannis' birthday",
@@ -109,6 +112,8 @@ test("a party's picker line is when it was and how much happened at it", () => {
     sing_count: 30,
     score_count: 23,
     singer_count: 5,
+    hidden: false,
+    current: false,
   };
 
   // Node's locale decides the date's format, so the expectation borrows it.
@@ -120,14 +125,19 @@ test("a party's picker line is when it was and how much happened at it", () => {
     `${shortDate(party.started_at)} · 1 singer · 1 score`,
   );
 
-  // The head row sums exactly the parties under it — the listing holds only
-  // the ones this reader may open.
-  expect(allSessionsMeta([party, { ...party, id: "s2", score_count: 4 }])).toBe(
-    "2 parties · 27 scores",
-  );
-  expect(allSessionsMeta([])).toBe("0 parties · 0 scores");
+  // The head row stands for every party this reader may open, so it is handed
+  // the listing's own figures rather than a sum over the rows it drew: a party
+  // kept out of the picker is still in what the head row opens.
+  expect(allSessionsMeta(2, 27)).toBe("2 parties · 27 scores");
+  expect(allSessionsMeta(0, 0)).toBe("0 parties · 0 scores");
   // Never "1 partys": the one count here whose plural is not the word plus "s".
-  expect(allSessionsMeta([party])).toBe("1 party · 23 scores");
+  expect(allSessionsMeta(1, 23)).toBe("1 party · 23 scores");
+
+  // The party being sung is on the list whatever its flag says: the flag is
+  // dormant until the room goes home.
+  expect(isTucked(party)).toBe(false);
+  expect(isTucked({ ...party, hidden: true })).toBe(true);
+  expect(isTucked({ ...party, hidden: true, current: true })).toBe(false);
 });
 
 test("a score whose song left the library still has a label", () => {

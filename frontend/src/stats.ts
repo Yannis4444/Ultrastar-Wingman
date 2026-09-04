@@ -231,14 +231,28 @@ export function sessionMeta(session: SessionRead): string {
 
 /**
  * The picker's head row under its name: what "everything at once" adds up to.
- * The listing holds exactly the parties the reader may open, so summing it is
- * summing precisely what the head row will show.
+ *
+ * The two figures come from the listing's own `session_count` and
+ * `score_count` rather than from the rows it carries, because the head row
+ * stands for `GET /stats/scores` — every party this reader may open, the ones
+ * kept out of the picker included, since opening it opens them.
  */
-export function allSessionsMeta(sessions: SessionRead[]): string {
-  const scores = sessions.reduce((sum, entry) => sum + entry.score_count, 0);
+export function allSessionsMeta(sessions: number, scores: number): string {
   // "party" is the one count here whose plural is not the word plus an "s".
-  const parties = `${sessions.length} ${sessions.length === 1 ? "party" : "parties"}`;
+  const parties = `${sessions} ${sessions === 1 ? "party" : "parties"}`;
   return `${parties} · ${plural(scores, "score")}`;
+}
+
+/**
+ * Whether this party is kept out of the party picker's list (`stats.hide`).
+ *
+ * The stored flag alone is not enough: it is dormant on the party being sung —
+ * the evening in progress is what the Scores page is for, and the backend never
+ * drops that one from the listing either — so a party that was tucked away and
+ * is then sung into again reads as an ordinary row until the room goes home.
+ */
+export function isTucked(session: SessionRead): boolean {
+  return session.hidden && !session.current;
 }
 
 /** A session's own name, or when it started — the label the picker shows.

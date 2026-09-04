@@ -199,7 +199,9 @@ exception). Tests identify glyphs with `iconNames()` from `src/test/icons.ts`.
 ## 5. Modals
 
 `components/Modal.tsx` props: `title` (accessible name), `onClose`, `fullscreen`, `hideTitle`,
-`bare`.
+`bare`, `headerAction` — **one** control beside the close, and the only thing a panel header
+carries besides its heading and that close. It is for a control that changes what the whole
+panel holds (the party picker's *show all*), never for a row's own action.
 
 - **Bare modal** (`bare` + `hideTitle`) — the song modal (`SongDetails`) and its sub-views.
   Structure: hero (`.song-hero`: cover, title 1.15em, artist 0.85em `--color-darker`) → optional

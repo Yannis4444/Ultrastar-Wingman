@@ -235,3 +235,41 @@ test("swapping to a sub-view moves focus back into the dialog", () => {
   rerender({ title: "Add to playlist", body: <p>Pick a playlist</p> });
   expect(document.activeElement).toBe(panel);
 });
+
+test("a header action stands beside the close button, and nowhere else", () => {
+  const { container } = render(
+    <Modal
+      title="Party"
+      onClose={vi.fn()}
+      headerAction={
+        <button type="button" aria-label="Show every party">
+          eye
+        </button>
+      }
+    >
+      <p>Pick one</p>
+    </Modal>,
+  );
+
+  const header = container.querySelector(".modal-header") as HTMLElement;
+  // The heading keeps the left; the two controls sit together at the far end,
+  // the close last (ui-guidelines §5).
+  expect(
+    within(header)
+      .getAllByRole("button")
+      .map((button) => button.getAttribute("aria-label")),
+  ).toEqual(["Show every party", "Close"]);
+  expect(within(header).getByLabelText("Show every party").parentElement).toBe(
+    header.querySelector(".modal-header-actions"),
+  );
+});
+
+test("without one the header is the heading and the close alone", () => {
+  const { panel } = renderModal();
+
+  expect(
+    within(panel.querySelector(".modal-header") as HTMLElement).getAllByRole(
+      "button",
+    ),
+  ).toHaveLength(1);
+});

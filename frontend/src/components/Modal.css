@@ -101,6 +101,17 @@
   white-space: nowrap;
 }
 
+/* The close button, and at most one control beside it (ui-guidelines §5). The
+   margin lives here rather than on the buttons, so a second one sits flush
+   against the first instead of 8px off the panel's edge. */
+.modal-header-actions {
+  display: flex;
+  align-items: center;
+  flex: 0 0 auto;
+  gap: 4px;
+  margin: 8px 8px 0 0;
+}
+
 .modal-header button {
   display: flex;
   align-items: center;
@@ -108,7 +119,6 @@
   flex: 0 0 auto;
   width: 40px;
   height: 40px;
-  margin: 8px 8px 0 0;
   padding: 0;
   font-size: 1.2em;
   color: var(--color-dark);

@@ -10,7 +10,7 @@ import uuid
 from collections.abc import Sequence
 from datetime import UTC, datetime, timedelta
 
-from sqlalchemy import DateTime, ForeignKey, Integer, String, Text
+from sqlalchemy import Boolean, DateTime, ForeignKey, Integer, String, Text, text
 from sqlalchemy.orm import Mapped, mapped_column
 
 from ..db import Base
@@ -40,6 +40,12 @@ class KaraokeSession(Base):
     # When the last sing of this session started. Bumped on every attachment; what the
     # `SESSION_GAP` rule compares against.
     last_activity_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=_now)
+    # Kept out of the Scores page's party picker (`stats.hide`) and out of nothing else:
+    # every score of this party stays in a singer's record, in a song's best scores, in the
+    # all-parties total and in what an achievement is worked out from. Dormant while this is
+    # the party being sung — the evening in progress is what the Scores page is for — so a
+    # party that was hidden and is then sung into again comes back until it is over.
+    hidden: Mapped[bool] = mapped_column(Boolean, default=False, server_default=text("0"))
 
 
 class Sing(Base):

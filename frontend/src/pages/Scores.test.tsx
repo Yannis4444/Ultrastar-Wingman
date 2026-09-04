@@ -11,6 +11,7 @@ import { MemoryRouter } from "react-router-dom";
 import type { ScoreWithContext, SessionRead, SongRead } from "../api";
 import { chartTheme } from "../chartTheme";
 import { shortDate } from "../duration";
+import { sessionLabel } from "../stats";
 import { meResponse } from "../test/auth";
 import { FakeSocket } from "../test/fakeSocket";
 import { iconNames } from "../test/icons";
@@ -23,6 +24,7 @@ const {
   listAllScores,
   listPlayers,
   renameSession,
+  setSessionHidden,
   reassignScore,
   deleteScore,
 } = vi.hoisted(() => ({
@@ -32,6 +34,7 @@ const {
   listAllScores: vi.fn(),
   listPlayers: vi.fn(),
   renameSession: vi.fn(),
+  setSessionHidden: vi.fn(),
   reassignScore: vi.fn(),
   deleteScore: vi.fn(),
 }));
@@ -44,6 +47,7 @@ vi.mock("../api/sdk.gen", async (importOriginal) => ({
   listAllScores,
   listPlayers,
   renameSession,
+  setSessionHidden,
   reassignScore,
   deleteScore,
 }));
@@ -168,6 +172,8 @@ const tonight: SessionRead = {
   sing_count: 4,
   score_count: 4,
   singer_count: 3,
+  hidden: false,
+  current: true,
 };
 const lastYear: SessionRead = {
   id: "session-old",
@@ -177,7 +183,29 @@ const lastYear: SessionRead = {
   sing_count: 9,
   score_count: 12,
   singer_count: 5,
+  hidden: false,
+  current: false,
 };
+
+/**
+ * The listing as the backend answers it. The two figures count every party
+ * this reader may open, the ones kept out of the picker included — pass them
+ * by hand when the rows are not all of them.
+ */
+function sessionList(
+  sessions: SessionRead[],
+  totals?: { session_count: number; score_count: number },
+) {
+  return {
+    data: {
+      sessions,
+      session_count: totals?.session_count ?? sessions.length,
+      score_count:
+        totals?.score_count ??
+        sessions.reduce((sum, entry) => sum + entry.score_count, 0),
+    },
+  };
+}
 
 // Two duets: four scores out of two runs of a song. Two more songs were
 // started and never scored, which is what `sing_count: 4` counts.
@@ -225,12 +253,13 @@ beforeEach(() => {
   listAllScores.mockReset();
   listPlayers.mockReset();
   renameSession.mockReset();
+  setSessionHidden.mockReset();
   reassignScore.mockReset();
   deleteScore.mockReset();
   getMe.mockResolvedValue(
     meResponse(["stats.view", "stats.manage", "players.view"]),
   );
-  listSessions.mockResolvedValue({ data: { sessions: [tonight, lastYear] } });
+  listSessions.mockResolvedValue(sessionList([tonight, lastYear]));
   listSessionScores.mockResolvedValue({ data: { scores: tonightScores } });
   listAllScores.mockResolvedValue({
     data: { scores: [...tonightScores, lastYearScore] },
@@ -346,9 +375,9 @@ test("choosing another party hands the focus back to the session button", async 
 test("a party whose own name holds the word still gets the hidden prefix", async () => {
   // The prefix is decided by whether the party is named at all, never by the
   // words in the name: "Christmas party" is exactly the case it exists for.
-  listSessions.mockResolvedValue({
-    data: { sessions: [{ ...tonight, name: "Christmas party" }] },
-  });
+  listSessions.mockResolvedValue(
+    sessionList([{ ...tonight, name: "Christmas party" }]),
+  );
   renderScores();
 
   expect(
@@ -427,9 +456,9 @@ test("an older session is dated in the summary; today's is not", async () => {
 
   // A party that is happening today needs no date: the reader is at it.
   const today = new Date().toISOString();
-  listSessions.mockResolvedValue({
-    data: { sessions: [{ ...tonight, started_at: today }] },
-  });
+  listSessions.mockResolvedValue(
+    sessionList([{ ...tonight, started_at: today }]),
+  );
   cleanup();
   renderScores();
 
@@ -459,9 +488,9 @@ test("the summary names the evening's best score but not who sang it", async () 
 });
 
 test("a session whose sings were all scored says only 'Sings'", async () => {
-  listSessions.mockResolvedValue({
-    data: { sessions: [{ ...tonight, sing_count: 3 }, lastYear] },
-  });
+  listSessions.mockResolvedValue(
+    sessionList([{ ...tonight, sing_count: 3 }, lastYear]),
+  );
   listSessionScores.mockResolvedValue({
     data: {
       scores: [
@@ -962,7 +991,7 @@ test("a session change drops an open rename draft instead of moving it", async (
 
   // …so the session changes under the form: a websocket refresh reorders the
   // list and another session becomes the default selection.
-  listSessions.mockResolvedValue({ data: { sessions: [lastYear, tonight] } });
+  listSessions.mockResolvedValue(sessionList([lastYear, tonight]));
   FakeSocket.deliver({ event: "scores.recorded", sing_id: "sing-5" });
 
   // Otherwise Save would rename the other session with this session's name.
@@ -1068,12 +1097,199 @@ test("the head row is All parties for a reader who holds the history right", asy
 });
 
 test("a single party gets no head row — it would only repeat itself", async () => {
-  listSessions.mockResolvedValue({ data: { sessions: [tonight] } });
+  listSessions.mockResolvedValue(sessionList([tonight]));
   renderScores();
 
   const panel = await openSessions();
   expect(sessionRows(panel)).toHaveLength(1);
   expect(screen.queryByText("All my scores")).not.toBeInTheDocument();
+});
+
+/** A party somebody kept out of the picker. Only a `stats.hide` holder is ever
+ *  handed one — the backend leaves it out of everybody else's listing. */
+const tucked: SessionRead = {
+  ...lastYear,
+  id: "session-tucked",
+  name: "Tucked away",
+  score_count: 3,
+  hidden: true,
+};
+
+/** Ask the listing the way a `stats.hide` holder does, and answer with all of
+ *  it: the panel is what decides which of the rows it draws. */
+function withTuckedParty(): void {
+  getMe.mockResolvedValue(
+    meResponse(["stats.view", "stats.history", "stats.hide", "players.view"]),
+  );
+  listSessions.mockResolvedValue(sessionList([tonight, lastYear, tucked]));
+}
+
+/** The panel's header toggle, or `null` for a reader who may not use it. */
+function showAllToggle(panel: HTMLElement): HTMLElement | null {
+  return within(panel).queryByRole("button", { name: "Show every party" });
+}
+
+test("without stats.hide the picker has no way to show every party", async () => {
+  renderScores();
+
+  const panel = await openSessions();
+
+  expect(showAllToggle(panel)).toBeNull();
+  // And the listing was never asked for the parties that are off it.
+  expect(listSessions.mock.calls[0][0]).toMatchObject({
+    query: { include_hidden: false },
+  });
+});
+
+test("stats.hide switches the panel to every party, off the list included", async () => {
+  withTuckedParty();
+  renderScores();
+  const panel = await openSessions();
+
+  // Off the list to begin with, however the backend answered.
+  expect(sessionRows(panel)).toEqual([
+    "All parties",
+    sessionLabel(tonight),
+    "New Year 2025",
+  ]);
+  expect(listSessions.mock.calls[0][0]).toMatchObject({
+    query: { include_hidden: true },
+  });
+
+  const toggle = showAllToggle(panel);
+  expect(toggle).not.toBeNull();
+  expect(toggle).toHaveAttribute("aria-pressed", "false");
+  expect(iconNames(toggle as HTMLElement)).toEqual(["eye-off"]);
+
+  fireEvent.click(toggle as HTMLElement);
+
+  expect(sessionRows(panel)).toContain("Tucked away");
+  expect(showAllToggle(panel)).toHaveAttribute("aria-pressed", "true");
+  expect(iconNames(showAllToggle(panel) as HTMLElement)).toEqual(["eye"]);
+  // The one that is off the list says so by being quiet.
+  expect(within(panel).getByText("Tucked away").className).toContain(
+    "session-row-title-tucked",
+  );
+});
+
+test("the eye beside a party takes it off the list and asks the listing again", async () => {
+  withTuckedParty();
+  setSessionHidden.mockResolvedValue({ data: { ...lastYear, hidden: true } });
+  renderScores();
+  const panel = await openSessions();
+  fireEvent.click(showAllToggle(panel) as HTMLElement);
+  const calls = listSessions.mock.calls.length;
+
+  fireEvent.click(
+    within(panel).getByRole("button", {
+      name: "Hide New Year 2025 from the list",
+    }),
+  );
+
+  await waitFor(() =>
+    expect(setSessionHidden.mock.calls[0][0]).toMatchObject({
+      path: { session_id: "session-old" },
+      body: { hidden: true },
+    }),
+  );
+  // What the default list holds changed, and so did the head row's figures.
+  await waitFor(() =>
+    expect(listSessions.mock.calls.length).toBeGreaterThan(calls),
+  );
+});
+
+test("the eye on a party that is off the list puts it back", async () => {
+  withTuckedParty();
+  setSessionHidden.mockResolvedValue({ data: { ...tucked, hidden: false } });
+  renderScores();
+  const panel = await openSessions();
+  fireEvent.click(showAllToggle(panel) as HTMLElement);
+
+  const control = within(panel).getByRole("button", {
+    name: "Hide Tucked away from the list",
+  });
+  expect(control).toHaveAttribute("aria-pressed", "true");
+  expect(iconNames(control)).toEqual(["eye-off"]);
+
+  fireEvent.click(control);
+
+  await waitFor(() =>
+    expect(setSessionHidden.mock.calls[0][0]).toMatchObject({
+      path: { session_id: "session-tucked" },
+      body: { hidden: false },
+    }),
+  );
+});
+
+test("the party being sung carries no eye — it is what the page is for", async () => {
+  withTuckedParty();
+  renderScores();
+  const panel = await openSessions();
+
+  fireEvent.click(showAllToggle(panel) as HTMLElement);
+
+  expect(
+    within(panel).queryByRole("button", {
+      name: `Hide ${sessionLabel(tonight)} from the list`,
+    }),
+  ).toBeNull();
+  // The other two are still there to be tucked away.
+  expect(
+    within(panel).getAllByRole("button", { name: /from the list$/ }),
+  ).toHaveLength(2);
+});
+
+test("the head row counts the parties that are off the list too", async () => {
+  // One row for this reader, two parties behind "All my scores": the head row
+  // stands for every party they may open, and opening it opens them.
+  listSessions.mockResolvedValue(
+    sessionList([tonight], { session_count: 2, score_count: 16 }),
+  );
+  renderScores();
+
+  const panel = await openSessions();
+
+  expect(sessionRows(panel)).toEqual(["All my scores", sessionLabel(tonight)]);
+  expect(within(panel).getByText("2 parties · 16 scores")).toBeInTheDocument();
+});
+
+test("with every party off the list the page opens on the head row", async () => {
+  // The morning after a tidy-up: a reader without `stats.hide` is handed no
+  // party row at all, and their whole record is still behind "All my scores".
+  listSessions.mockResolvedValue(
+    sessionList([], { session_count: 2, score_count: 16 }),
+  );
+  renderScores();
+
+  expect(
+    await screen.findByRole("button", { name: /All my scores$/ }),
+  ).toBeInTheDocument();
+  await waitFor(() => expect(listAllScores).toHaveBeenCalled());
+  // Never the "sing a song and the results land here" line over a full record.
+  expect(screen.queryByText(/Sing a song/)).not.toBeInTheDocument();
+});
+
+test("a party taken off the list elsewhere stays on the page it is open on", async () => {
+  renderScores();
+  const panel = await openSessions();
+  fireEvent.click(within(panel).getByText("New Year 2025"));
+  expect(
+    await screen.findByRole("button", { name: "Party: New Year 2025" }),
+  ).toBeInTheDocument();
+
+  listSessions.mockResolvedValue(
+    sessionList([tonight], { session_count: 2, score_count: 16 }),
+  );
+  FakeSocket.deliver({ event: "sessions.changed" });
+
+  await waitFor(() =>
+    expect(listSessions.mock.calls.length).toBeGreaterThan(1),
+  );
+  // Still reading last year's party: a tidy-up on another screen does not move
+  // the reader off the evening they are looking at.
+  expect(
+    screen.getByRole("button", { name: "Party: New Year 2025" }),
+  ).toBeInTheDocument();
 });
 
 test("a moderator moves a score to the singer who really sang it", async () => {
