@@ -13,7 +13,7 @@ song's own view, :wingman-pencil: **Edit details**. See
    **Edition**.
 3. Tap **Save**.
 
-![The Edit details form on I Got You Babe, with Title, Artist, Language, Genre, Year, and Edition filled in over Save](../assets/screenshots/songs/song-edit.png){ width="320" loading=lazy }
+![The Edit details form on I Got You Babe, with Title, Artist, Language, Genre, Year, and Edition filled in over Save and Delete song](../assets/screenshots/songs/song-edit.png){ width="320" loading=lazy }
 /// caption
 Six values, and Wingman writes them into the song's own file.
 ///

@@ -513,7 +513,10 @@ ROWS: dict[str, Row] = {
             ('click(byText(".song-list-item", "I Got You Babe"))', 'q(".song-options")'),
             ('click(byText(".song-option", "Edit details"))', 'q(".song-edit")'),
         ),
-        ready='qa(".song-edit-field").length === 6 && q(".song-edit-save")',
+        # The delete row too: the page this picture serves is *Fix or delete a song*,
+        # and deleting one lives at the foot of this same form.
+        ready='qa(".song-edit-field").length === 6 && q(".song-edit-save")'
+        ' && q(".song-edit .delete-row")',
     ),
     "player-selection": Row(
         identity="host",

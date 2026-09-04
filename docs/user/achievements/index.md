@@ -75,7 +75,7 @@ are done. One singer at a time: their picture and their name, and their badges
 flying in beside the name and the one-line description. At most four badges
 land in a row. Then the next singer, then the results as usual.
 
-![The host screen with Bender's picture and name over two badges, Iron Lungs and Eighties Marathon, each under its description](../assets/screenshots/achievements/host-achievements.png){ width="720" loading=lazy }
+![The host screen with Bender's picture and name over two badges, Eighties Marathon and Iron Lungs, each with its description under it](../assets/screenshots/achievements/host-achievements.png){ width="720" loading=lazy }
 /// caption
 The results of the song wait until the badges have had their moment.
 ///
