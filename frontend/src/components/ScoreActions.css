@@ -30,11 +30,6 @@
   color: var(--color-darker);
 }
 
-/* The panel's own deletion, at its foot and away from the players it would
-   otherwise sit among — 24px off the last of them, the Manage page's own gap
-   under a member list, so no thumb reaching for a player finds this instead. */
-.score-actions-delete {
-  display: flex;
-  justify-content: center;
-  margin: 24px 8px 0;
-}
+/* The panel's own deletion is `.delete-row` (index.css): at the foot and away
+   from the players it would otherwise sit among, so no thumb reaching for a
+   player finds this instead. */

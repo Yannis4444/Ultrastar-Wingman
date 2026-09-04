@@ -33,6 +33,10 @@ import PageHeader from "../components/PageHeader";
 import PickerRow from "../components/PickerRow";
 import { SettingSaved } from "../components/SettingField";
 import { errorDetail, errorMessage, missingPermission } from "../errors";
+import {
+  useReorderFocus,
+  type ReorderDirection,
+} from "../hooks/useReorderFocus";
 import { useWingmanEvent } from "../hooks/useWingmanEvents";
 import "./Achievements.css";
 
@@ -68,8 +72,9 @@ function pickerMeta(achievement: AchievementRead): string {
 }
 
 /** The array with the item at `from` put at `to` — the playlist page's own two
- *  lines, kept here rather than shared: the two reorder flows have nothing else
- *  in common (this one has no hidden rows and no membership). */
+ *  lines, kept here rather than shared: what the two reorder flows really have
+ *  in common is where the keyboard goes after a move, and that is a hook
+ *  (`useReorderFocus`); this one has no hidden rows and no membership. */
 function moved(ids: string[], from: number, to: number): string[] {
   const next = [...ids];
   next.splice(to, 0, ...next.splice(from, 1));
@@ -84,16 +89,6 @@ function sameOrder(left: string[], right: string[]): boolean {
  *  says an arrangement in progress is still about the catalogue as it stands. */
 function sameRows(left: string[], right: string[]): boolean {
   return sameOrder([...left].sort(), [...right].sort());
-}
-
-/** The two ways a row moves one place. */
-type Direction = "up" | "down";
-
-/** One row's one arrow, as the focus goes looking for it after a move. An id
- *  may hold anything a slug may, so the direction leads: what follows the one
- *  space is the id, whatever is in it. */
-function arrowKey(id: string, direction: Direction): string {
-  return `${direction} ${id}`;
 }
 
 /** How one list hands the order it now has back to the page. `save` is false
@@ -137,57 +132,12 @@ function AchievementRows({ achievements, reorder }: RowsProps) {
   const dragFrom = useRef<number | null>(null);
   const [dragged, setDragged] = useState<string | null>(null);
   const ids = achievements.map(({ id }) => id);
-
-  /** Every arrow there is, by row and direction: what the focus goes back to
-   *  after a move. Kept by id rather than by index, because the row the reader
-   *  pressed is the one that moved. */
-  const arrows = useRef(new Map<string, HTMLButtonElement>());
-  /** Which arrow the last move was made with, until the focus is back on it. */
-  const pressed = useRef<{ id: string; direction: Direction } | null>(null);
-  /** Whether that move's request has been seen in flight. */
-  const held = useRef(false);
   const pending = reorder?.pending ?? false;
 
-  // A move costs the reader their place: the row's own node is moved in the
-  // DOM and both its arrows are disabled for the length of the request, and a
-  // disabled control cannot hold the focus — so the keyboard is dropped at the
-  // top of the page after every single press. Put it back on the arrow that
-  // was pressed, or on the row's other one where the move used the last of
-  // them up (the row is now first or last, and that arrow is disabled for
-  // good). The pointer's own gesture never comes through here: the grip is
-  // `aria-hidden` scenery and takes no focus to lose.
-  useEffect(() => {
-    if (pending) {
-      held.current = true;
-      return;
-    }
-    const move = pressed.current;
-    if (move === null) return;
-    const active = document.activeElement;
-    // Nothing is holding the focus any more: the browser dropped it on the
-    // body when the row moved or its arrow went `disabled`, or it is sitting
-    // on a control that can no longer be used (the arrow this move used up,
-    // which some browsers leave it on rather than dropping it).
-    const lost =
-      !(active instanceof HTMLElement) ||
-      active === document.body ||
-      (active instanceof HTMLButtonElement && active.disabled);
-    // Nothing to put back until the move has run its course — the request has
-    // been seen in flight, or the focus is already gone.
-    if (!held.current && !lost) return;
-    held.current = false;
-    pressed.current = null;
-    // And nothing to put back where the move never cost it: the reader moved
-    // the focus themselves while the order was saving, and taking that off
-    // them would be worse than the walk this is here to save.
-    if (!lost) return;
-    const same = arrows.current.get(arrowKey(move.id, move.direction));
-    const other = arrows.current.get(
-      arrowKey(move.id, move.direction === "up" ? "down" : "up"),
-    );
-    const target = same !== undefined && !same.disabled ? same : other;
-    if (target !== undefined && !target.disabled) target.focus();
-  }, [pending, achievements]);
+  // A move costs the reader their place — the row's own node moves and both its
+  // arrows go `disabled` — so the keyboard goes back onto the arrow it was
+  // pressed with. The playlist's edit mode does the same, out of the same hook.
+  const focus = useReorderFocus(pending, ids);
 
   /** Which row the pointer is over, so a drag needs no library. */
   const rowAt = (clientY: number): number | null => {
@@ -233,23 +183,18 @@ function AchievementRows({ achievements, reorder }: RowsProps) {
   const arrow = (
     achievement: AchievementRead,
     index: number,
-    direction: Direction,
+    direction: ReorderDirection,
   ) => {
-    const key = arrowKey(achievement.id, direction);
     const to = direction === "up" ? index - 1 : index + 1;
     return (
       <button
         type="button"
         className="icon-button"
-        ref={(node) => {
-          if (node === null) arrows.current.delete(key);
-          else arrows.current.set(key, node);
-        }}
+        ref={focus.register(achievement.id, direction)}
         aria-label={`Move ${achievement.name} ${direction}`}
         disabled={to < 0 || to >= ids.length || pending}
         onClick={() => {
-          pressed.current = { id: achievement.id, direction };
-          held.current = false;
+          focus.press(achievement.id, direction);
           reorder?.onOrder(moved(ids, index, to), true);
         }}
       >

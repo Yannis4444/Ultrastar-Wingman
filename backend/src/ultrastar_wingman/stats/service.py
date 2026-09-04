@@ -150,7 +150,12 @@ async def rename_session(
     karaoke_session.name = name
     await session.commit()
     logger.info("karaoke session %s renamed to %r", karaoke_session.id, name)
-    return await read_session(session, karaoke_session)
+    read = await read_session(session, karaoke_session)
+    # The party picker in the room is now naming that evening something else. Same event as
+    # hiding one, and for the same reason: it is the listing that changed, and what the
+    # listing holds is worked out per caller.
+    await event_bus.broadcast(SessionsChanged())
+    return read
 
 
 class SessionRunningError(RuntimeError):

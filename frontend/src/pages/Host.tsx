@@ -87,13 +87,17 @@ function useIdle(delay = 3000): boolean {
  * is, and what to do about it. It is the only state that says the name — a TV
  * playing a song does not need to be told which app it is, and the rail needs
  * the room.
+ *
+ * `scan` is false where there is no code to scan: the beat between two singers
+ * of the achievements takeover shows the brand, and the rail with the QR in it
+ * is not on the screen for those seconds.
  */
-function HostBrand() {
+function HostBrand({ scan = true }: { scan?: boolean }) {
   return (
     <div className="host-brand">
       <img className="host-logo" src="/logo.png" alt="" />
       <span className="host-brand-name">Ultrastar Wingman</span>
-      <p className="host-scan-hint">Scan the code to pick a song</p>
+      {scan && <p className="host-scan-hint">Scan the code to pick a song</p>}
     </div>
   );
 }
@@ -220,8 +224,14 @@ export default function Host() {
             it is what listens for the next scores and for the next song — and
             simply waits its turn; the brand stands in while the stage is
             holding for badges that may follow, and nothing at all while they
-            are actually on it. */}
-        <HostAchievements onPhase={setEarned} />
+            are actually on it. The blank beat between two singers is the
+            takeover's own, and it hands the stage the brand rather than
+            leaving the TV empty for it — without the scan line, the rail
+            holding the code being down for those seconds. */}
+        <HostAchievements
+          onPhase={setEarned}
+          fallback={<HostBrand scan={false} />}
+        />
         <HostResults
           players={standing.players}
           fallback={takeover ? null : <HostBrand />}

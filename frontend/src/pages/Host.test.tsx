@@ -473,6 +473,61 @@ test("what a song earned takes the stage, and the results follow it", async () =
   expect(await screen.findByText("Scan to join")).toBeInTheDocument();
 });
 
+test("the beat between two singers shows the brand, not an empty screen", async () => {
+  vi.useFakeTimers({ shouldAdvanceTime: true });
+  withScores();
+  const { container } = renderHost("/host");
+  await screen.findByLabelText("Last song");
+
+  const singer = (id: string, name: string) => ({
+    id,
+    name,
+    registered: false,
+    hidden: false,
+    has_avatar: false,
+    avatar_version: null,
+  });
+  act(() =>
+    FakeSocket.deliver({
+      event: "achievements.earned",
+      sing_id: "sing-2",
+      players: [
+        {
+          player: singer("p1", "Alice"),
+          achievements: [achievementRead({ id: "a1", name: "Golden Voice" })],
+        },
+        {
+          player: singer("p2", "Bob"),
+          achievements: [achievementRead({ id: "a2", name: "Brave Soul" })],
+        },
+      ],
+    }),
+  );
+  await screen.findByLabelText("New achievements");
+
+  // Alice's row has had its 4 + 2 × 1 seconds: what follows is the beat before
+  // Bob, and the sequence still owns the whole screen for it. The stage shows
+  // the brand rather than going blank on a TV across the room (§7) — without
+  // the scan line, the rail holding the code being down.
+  act(() => vi.advanceTimersByTime(6_100));
+  expect(screen.queryByLabelText("New achievements")).not.toBeInTheDocument();
+  expect(screen.getByText("Ultrastar Wingman")).toBeInTheDocument();
+  expect(
+    screen.queryByText("Scan the code to pick a song"),
+  ).not.toBeInTheDocument();
+  expect(container.querySelector(".host-page")).toHaveClass("host-takeover");
+  expect(container.querySelector(".host-rail")).toBeNull();
+  // The results are still waiting their turn behind it.
+  expect(screen.queryByLabelText("Last song")).not.toBeInTheDocument();
+
+  // And the beat ends on the next singer, not on the brand.
+  act(() => vi.advanceTimersByTime(800));
+  expect(await screen.findByLabelText("New achievements")).toHaveTextContent(
+    "Bob",
+  );
+  expect(screen.queryByText("Ultrastar Wingman")).not.toBeInTheDocument();
+});
+
 test("the scores wait for the badges rather than flashing past them", async () => {
   vi.useFakeTimers({ shouldAdvanceTime: true });
   withScores();

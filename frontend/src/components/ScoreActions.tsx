@@ -126,7 +126,7 @@ export default function ScoreActions({
           {/* The rarer correction, at the foot and out of the way of the
               players: the Manage page's idiom for a destructive action that
               belongs to the panel rather than to a row in it. */}
-          <div className="score-actions-delete">
+          <div className="delete-row">
             <button
               type="button"
               className="button button-danger"

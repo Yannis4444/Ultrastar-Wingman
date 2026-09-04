@@ -4,6 +4,7 @@ import {
   useRef,
   useState,
   type CSSProperties,
+  type ReactNode,
 } from "react";
 import { achievementDescription, achievementName } from "../achievements";
 import type { AchievementRead, AchievementSettings, PlayerRead } from "../api";
@@ -40,6 +41,14 @@ interface Props {
    * itself; on `idle` the stage belongs to the results again.
    */
   onPhase?: (phase: HostAchievementsPhase) => void;
+  /**
+   * What stands on the stage during the blank beat between two singers — the
+   * brand, the same thing the stage shows when nothing is playing. The sequence
+   * still owns the screen for that beat (the phase stays `playing`, so the page
+   * keeps the rail down), and a TV with nothing at all on it for most of a
+   * second reads as a fault rather than as a pause.
+   */
+  fallback?: ReactNode;
 }
 
 /** At most four badges land in one row; a fifth starts a fresh one. */
@@ -164,7 +173,7 @@ function throwFrom(index: number): { x: string; y: string } {
  * holds the results back — and hands it straight back when the last row is
  * done. A song starting cuts it short rather than playing over the next singer.
  */
-export default function HostAchievements({ onPhase }: Props) {
+export default function HostAchievements({ onPhase, fallback }: Props) {
   const { settings, enabled } = useAchievements();
   const [run, setRun] = useState<Run | null>(null);
   const [index, setIndex] = useState(0);
@@ -248,8 +257,10 @@ export default function HostAchievements({ onPhase }: Props) {
 
   if (run === null || !playing) return null;
   const step = run.steps[index];
-  // The beat between two singers: the stage is deliberately empty for it.
-  if (step.player === null) return null;
+  // The beat between two singers: no badges and no name, but the sequence still
+  // holds the screen — so the stage shows what it shows when nothing is
+  // playing rather than going blank for most of a second.
+  if (step.player === null) return <>{fallback}</>;
 
   const intro = step.lead ? LEAD_IN_MS : ROW_IN_MS;
 

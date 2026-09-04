@@ -532,9 +532,9 @@ export default function Scores() {
   // A moderator moved a score to another singer, or took one off the record —
   // possibly on another screen in the room.
   useWingmanEvent("scores.changed", refresh);
-  // A party was kept out of the list, or put back. What the listing holds is
-  // decided per reader, so the event carries nothing and every screen asks
-  // again for itself.
+  // A party was named, kept out of the list, or put back. What the listing
+  // holds is decided per reader, so the event carries nothing and every screen
+  // asks again for itself.
   useWingmanEvent("sessions.changed", () =>
     queryClient.invalidateQueries({ queryKey: listSessionsQueryKey() }),
   );

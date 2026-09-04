@@ -77,17 +77,12 @@ export interface SessionSummary {
   top: ScoreWithContext | null;
 }
 
-/** What a song's whole history adds up to — the lines the host stage prints
- * under the cover of the song that just finished. */
+/** What a song's whole history adds up to: the three numbers the host stage's
+ * marker strip is drawn from (`scoreMarkers`). The words under the cover are
+ * `ScoreSummary`'s, straight off the scores — nothing here is printed. */
 export interface SongHistory {
-  /** Performances that were scored, so a duet counts once. */
-  sings: number;
   best: number;
-  /** Everybody who ever hit `best`, deduplicated — a singer who managed it
-   * twice is one name, not two. */
-  bestPlayers: string[];
   worst: number;
-  worstPlayers: string[];
   average: number;
 }
 
@@ -132,17 +127,6 @@ export function evaluationLabel(score: number): string {
   return EVALUATIONS[EVALUATIONS.length - 1][1];
 }
 
-/** The names of everybody who scored exactly `value`, each name once. */
-function playersWith(scores: ScoreWithContext[], value: number): string[] {
-  return [
-    ...new Set(
-      scores
-        .filter((score) => score.score === value)
-        .map((score) => score.player_name),
-    ),
-  ];
-}
-
 /**
  * What one song's complete score history adds up to, or `null` when it has
  * none. Computed over *every* score the song ever got, across all sessions —
@@ -150,24 +134,15 @@ function playersWith(scores: ScoreWithContext[], value: number): string[] {
  */
 export function songHistory(scores: ScoreWithContext[]): SongHistory | null {
   if (scores.length === 0) return null;
-  const sings = new Set<string>();
   let best = scores[0].score;
   let worst = scores[0].score;
   let total = 0;
   for (const score of scores) {
-    sings.add(score.sing_id);
     if (score.score > best) best = score.score;
     if (score.score < worst) worst = score.score;
     total += score.score;
   }
-  return {
-    sings: sings.size,
-    best,
-    bestPlayers: playersWith(scores, best),
-    worst,
-    worstPlayers: playersWith(scores, worst),
-    average: Math.round(total / scores.length),
-  };
+  return { best, worst, average: Math.round(total / scores.length) };
 }
 
 /** Where a score sits on the 0…`MAX_SCORE` scale the host's bars are drawn on,

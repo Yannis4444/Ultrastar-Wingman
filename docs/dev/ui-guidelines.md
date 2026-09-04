@@ -36,6 +36,8 @@ request does not override are the accessibility and dependency floors in §1.8�
 7. **Reuse the shared classes** in `index.css`: `.button` / `.button-primary` /
    `.button-danger`, `.text-input[-quiet]`, `.icon-button[-bordered|-danger]`, `.error-notice`,
    `.section-note` (the 0.85em `--color-darker` line that explains an `h2` to the reader),
+   `.delete-row` (the one `.button-danger` that ends a list or a form, centered 24px under
+   it — the score panel's *Delete score*, the song editor's *Delete song*),
    `.visually-hidden`, `.icon`, the global `:focus-visible` ring. Extend with a modifier class;
    never write a second bespoke 40×40 icon-button rule.
 8. **No new dependencies** for UI (no icon library, no loader library, no CSS framework).
@@ -330,7 +332,11 @@ saved) where a jump to the top would throw away the place they were working in.
   `can_edit`), **Edit** (`pencil`, `can_edit`), **Follow/Unfollow** (`bookmark` /
   `bookmark-off`, members only). Edit mode makes each song row a reorder row — `drag-handle` for
   the pointer, `arrow-up` / `arrow-down` for the keyboard (both write the same order), `close`
-  to remove — and moves nothing else. "Save a copy" (`copy`), for `playlists.manage` holders, is
+  to remove — and moves nothing else. **The focus goes back to the arrow that was pressed**
+  once the answer lands, or to the row's other arrow where the move used that one up, and a
+  refused order puts it back the same way: the achievements admin's rule below, out of the
+  same `useReorderFocus` hook and written out there once.
+  "Save a copy" (`copy`), for `playlists.manage` holders, is
   a text row at the foot, not a fourth icon; song rows are `SongListItem`s. **Manage**
   (`/songs/playlists/:id/manage`) is a §6 sub-page gated on `can_manage`: Name and Description
   as quiet inputs, one "Global — everyone can see it" checkbox, the Members people-rows under a
@@ -397,7 +403,9 @@ saved) where a jump to the top would throw away the place they were working in.
   length of the request, and neither a moved nor a disabled control keeps the focus — or to
   the row's other arrow where the move used that one up (it now leads or ends the list), so
   arranging by keyboard is a run of presses rather than a walk back to the list after each
-  one. A refused order puts it back too, on the arrow that was pressed. The order is **one order over the whole catalogue**: a row
+  one — the playlist's edit mode and this one share the `useReorderFocus` hook that does it.
+  A refused order puts it back too, on the arrow that was pressed. The order is **one order
+  over the whole catalogue**: a row
   moves anywhere in the list, a party's own achievement above a shipped one included, and what
   is sent is the list exactly as drawn — one sequence over one column, which is the order
   every badge surface lists in and the order the export picker offers.
@@ -541,7 +549,10 @@ saved) where a jump to the top would throw away the place they were working in.
   **New achievements take the whole screen.** While `HostAchievements` is `playing` the rail is
   not rendered at all — no QR card, no standing, no wishes — the stage runs the full width of
   the page, and the results wait underneath as they already do. `playing` only: the `waiting`
-  beat, held for badges that may never come, leaves the rail where it is. Everything grows a
+  beat, held for badges that may never come, leaves the rail where it is. **The beat between
+  two singers shows the brand**, without its scan line — the code it names is in the rail that
+  is down — because a TV with nothing at all on it for most of a second reads as a fault, not
+  as a pause. Everything grows a
   step for those seconds — the singer's avatar to `clamp(96px, 16vh, 240px)` under a name in
   the same proportion, and the whole `--badge` ladder up one rung, the row of four taking
   today's one-badge `clamp(34px, 6.4vh, 74px)` and the rows of one to three keeping the lead

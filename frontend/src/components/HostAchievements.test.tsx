@@ -61,13 +61,16 @@ function row(): string[] {
 
 const onPhase = vi.fn();
 
+/** Standing in for the page's brand, which is what really goes here. */
+const FALLBACK = "Ultrastar Wingman";
+
 function renderSequence() {
   const client = new QueryClient({
     defaultOptions: { queries: { retry: false } },
   });
   return render(
     <QueryClientProvider client={client}>
-      <HostAchievements onPhase={onPhase} />
+      <HostAchievements onPhase={onPhase} fallback={<p>{FALLBACK}</p>} />
     </QueryClientProvider>,
   );
 }
@@ -142,11 +145,17 @@ test("one singer follows the other, with a beat in between", async () => {
   await screen.findByLabelText("New achievements");
   expect(screen.getByLabelText("New achievements")).toHaveTextContent("Alice");
 
-  // The row's 15s, and then the blank beat before the next singer.
+  // The row's 15s, and then the beat before the next singer: no badges and no
+  // name, but the stage is not empty — the sequence still owns the screen, so
+  // what stands there is what stands there when nothing is playing.
   act(() => vi.advanceTimersByTime(15_100));
   expect(screen.queryByLabelText("New achievements")).not.toBeInTheDocument();
+  expect(screen.getByText(FALLBACK)).toBeInTheDocument();
+  // And the page is not handed the stage back for those 700ms.
+  expect(onPhase).toHaveBeenLastCalledWith("playing");
 
   act(() => vi.advanceTimersByTime(800));
+  expect(screen.queryByText(FALLBACK)).not.toBeInTheDocument();
   expect(screen.getByLabelText("New achievements")).toHaveTextContent("Bob");
   expect(row()).toEqual(["Beta 1"]);
 });
@@ -229,6 +238,9 @@ test("the last row hands the stage back to the results", async () => {
 
   act(() => vi.advanceTimersByTime(15_100));
   expect(screen.queryByLabelText("New achievements")).not.toBeInTheDocument();
+  // The stand-in belongs to the beat between two singers, not to the way out:
+  // once the sequence is over the results own the stage again.
+  expect(screen.queryByText(FALLBACK)).not.toBeInTheDocument();
   expect(onPhase).toHaveBeenLastCalledWith("idle");
 });
 

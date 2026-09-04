@@ -531,28 +531,10 @@ test("a song's history is measured over every score it ever got", () => {
   ];
 
   expect(songHistory(history)).toEqual({
-    // A duet is one performance, so two sings and not three.
-    sings: 2,
     best: 8500,
-    bestPlayers: ["Alice"],
     worst: 4000,
-    worstPlayers: ["Chris"],
     // 18500 / 3 = 6166.67, rounded.
     average: 6167,
-  });
-});
-
-test("everybody who tied for best or worst is named once", () => {
-  const history = [
-    score("Alice", 9000, bohemian, { sing_id: "sing-1" }),
-    score("Alice", 9000, bohemian, { sing_id: "sing-2" }),
-    score("Bob", 9000, bohemian, { sing_id: "sing-3" }),
-  ];
-
-  // Alice managed it twice; the line names her once, not twice.
-  expect(songHistory(history)).toMatchObject({
-    bestPlayers: ["Alice", "Bob"],
-    worstPlayers: ["Alice", "Bob"],
   });
 });
 
@@ -562,7 +544,7 @@ test("a song nobody has scored yet has no history at all", () => {
 
 /** A history holding only the three numbers the markers are drawn from. */
 function marks(worst: number, average: number, best: number): SongHistory {
-  return { sings: 1, best, bestPlayers: [], worst, worstPlayers: [], average };
+  return { best, worst, average };
 }
 
 /** Which glyph each surviving mark wears, in the order they are drawn. */

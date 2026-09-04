@@ -263,6 +263,19 @@ a.icon-button:hover {
   padding: 8px 12px;
 }
 
+/* The one `.button-danger` that ends a list or a form, centered under it: the
+   score panel's Delete score, the song editor's Delete song. The 24px above is
+   what keeps it off the last row and off the form's own primary, so no thumb
+   reaching for either finds this instead, and so the two never read as a pair
+   of buttons. A list with a gap of its own makes up part of that 24 and takes
+   the rest off this margin (`.song-edit .delete-row` in `SongDetails.css`):
+   what has to be the same in both places is the 24px the reader sees. */
+.delete-row {
+  display: flex;
+  justify-content: center;
+  margin: 24px 8px 0;
+}
+
 /* Tag chrome (ui-guidelines §4): the four colours a tag may be drawn in, as one
    class each. The colour paints the tag's glyph wherever the tag appears — the
    admin list, the editor's pills, a song row's mark, the filter panel — so it

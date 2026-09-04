@@ -257,6 +257,18 @@ async def test_a_session_can_be_named_and_the_name_cleared(
     assert listed[0]["name"] is None
 
 
+async def test_naming_a_session_tells_the_room(
+    client: AsyncClient, seeded: dict[str, Any], broadcast_events: list[dict[str, object]]
+) -> None:
+    """A phone with the party picker open reads the new name without being reloaded — the
+    same event hiding a party sends, and with no payload for the same reason."""
+    await client.patch(
+        f"/api/v1/stats/sessions/{seeded['new'].id}", json={"name": "Yannis' birthday"}
+    )
+
+    assert broadcast_events[-1] == {"event": "sessions.changed"}
+
+
 async def test_an_unknown_session_is_a_404(client: AsyncClient, seeded: dict[str, Any]) -> None:
     assert (
         await client.patch("/api/v1/stats/sessions/nope", json={"name": "x"})

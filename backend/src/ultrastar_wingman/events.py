@@ -101,7 +101,8 @@ class ScoresChanged(Event):
 
 
 class SessionsChanged(Event):
-    """A party was kept out of the Scores page's party picker, or put back (`stats.hide`).
+    """A party was named (`stats.manage`), or kept out of the Scores page's party picker,
+    or put back (`stats.hide`).
 
     No payload, for the same reason `tags.changed` has none: what the listing holds is
     decided per caller — a reader without `stats.hide` never sees a hidden party, and one
@@ -109,7 +110,7 @@ class SessionsChanged(Event):
     Every client fetches `GET /stats/sessions` again and gets its own answer.
 
     Deliberately not `scores.changed`: no score moved, and nothing about any party's
-    numbers is different. Hiding reaches one list and nothing else.
+    numbers is different. Naming and hiding reach that one listing and nothing else.
     """
 
     event: Literal["sessions.changed"] = "sessions.changed"

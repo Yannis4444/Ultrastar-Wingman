@@ -667,7 +667,9 @@ delete them.
 
 An error sentence says what happened and what to do next, in that order, without blame:
 "That name is taken. Pick another one." A confirmation dialog names the consequence in one
-sentence, and its button says the action: **Delete song**, never **OK**.
+sentence, and its button is the bare verb of the action the dialog is titled after:
+**Delete**, never **OK** and never a second copy of the title ("Delete song"). The control
+that opened it is what says the whole thing — the form's own **Delete song** button.
 
 The look rules for the same surfaces live in [ui-guidelines.md](ui-guidelines.md).
 

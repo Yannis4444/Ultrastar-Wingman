@@ -640,6 +640,9 @@ export const listCurrentSessionSings = <ThrowOnError extends boolean = false>(op
  *
  * Name a session ("Yannis' birthday"). Sessions are recorded rows, so the name sticks
  * to the same party forever.
+ *
+ * Broadcasts `sessions.changed`, so a phone with the party picker open reads the new name
+ * without being reloaded.
  */
 export const renameSession = <ThrowOnError extends boolean = false>(options: Options<RenameSessionData, ThrowOnError>): RequestResult<RenameSessionResponses, RenameSessionErrors, ThrowOnError> => (options.client ?? client).patch<RenameSessionResponses, RenameSessionErrors, ThrowOnError>({
     url: '/api/v1/stats/sessions/{session_id}',

@@ -309,12 +309,12 @@
   width: 100%;
 }
 
-/* Under the primary and away from it: the fields correct the song, this one
-   ends it. Held off the form's own 12px rhythm so the two never read as a
-   pair of buttons. */
-.song-edit-delete {
-  display: flex;
-  justify-content: center;
+/* Under the primary and away from it — `.delete-row` (index.css): the fields
+   correct the song, this one ends it, and the gap is what keeps the two from
+   reading as a pair of buttons. That gap is 24px here as it is in the score
+   panel, but the form is a flex column with a 12px gap of its own, which the
+   class's own margin would land on top of. */
+.song-edit .delete-row {
   margin-top: 12px;
 }
 

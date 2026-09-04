@@ -37,6 +37,11 @@
   box-shadow: none;
 }
 
+/* Static, unlike the panel header above: a bare modal has no surface, so a
+   sticky header would be a close button — and, on the bare sub-views, an `h2`
+   — floating over the body scrolling under it with nothing behind them. The
+   way out of a long bare modal is Escape, the backdrop, or the panel's own
+   empty stretches, all of which work wherever the reader has scrolled to. */
 .modal-bare .modal-header {
   position: static;
   background: none;

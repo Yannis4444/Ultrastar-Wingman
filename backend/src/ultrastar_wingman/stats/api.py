@@ -4,8 +4,8 @@ picker, and the two corrections `stats.moderate` may make to a recorded score.
 The read routes fire no events: the frontend already listens to `scores.recorded` and
 `karaoke.ended` and refreshes from these routes when one arrives. The two moderation routes
 broadcast `scores.changed` (see `events.py`), because nothing else tells the other screens
-in the room that a score just moved, and hiding a party broadcasts `sessions.changed` for
-the same reason.
+in the room that a score just moved, and naming or hiding a party broadcasts
+`sessions.changed` for the same reason.
 """
 
 import logging
@@ -170,7 +170,10 @@ async def list_current_session_sings(session: SessionDep, hidden: HiddenSongsDep
 )
 async def rename_session(session_id: str, body: SessionUpdate, session: SessionDep) -> SessionRead:
     """Name a session ("Yannis' birthday"). Sessions are recorded rows, so the name sticks
-    to the same party forever."""
+    to the same party forever.
+
+    Broadcasts `sessions.changed`, so a phone with the party picker open reads the new name
+    without being reloaded."""
     return await service.rename_session(
         session, await _session_or_404(session_id, session), body.name
     )

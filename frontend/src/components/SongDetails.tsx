@@ -583,7 +583,7 @@ export default function SongDetails({ song, onClose }: SongDetailsProps) {
                 corrects it. Nothing on the way here is red (§1.6); the weight
                 sits in the confirmation and in this one button. */}
             {canDeleteSong && (
-              <div className="song-edit-delete">
+              <div className="delete-row">
                 <button
                   type="button"
                   className="button button-danger"

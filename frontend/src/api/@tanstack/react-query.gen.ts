@@ -1402,6 +1402,9 @@ export const listCurrentSessionSingsOptions = (options?: Options<ListCurrentSess
  *
  * Name a session ("Yannis' birthday"). Sessions are recorded rows, so the name sticks
  * to the same party forever.
+ *
+ * Broadcasts `sessions.changed`, so a phone with the party picker open reads the new name
+ * without being reloaded.
  */
 export const renameSessionMutation = (options?: Partial<Options<RenameSessionData>>): UseMutationOptions<RenameSessionResponse, RenameSessionError, Options<RenameSessionData>> => {
     const mutationOptions: UseMutationOptions<RenameSessionResponse, RenameSessionError, Options<RenameSessionData>> = {
