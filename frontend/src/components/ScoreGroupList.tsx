@@ -38,8 +38,8 @@ interface ScoreGroupListProps {
   ownRows?: boolean;
   /**
    * Whether the reader may correct a score (`stats.moderate`): every row that
-   * *is* one score then carries the pencil and the trash. A group row never
-   * does — it stands for several scores, and there is nothing to move.
+   * *is* one score then carries the pencil that opens both corrections. A group
+   * row never does — it stands for several scores, and there is nothing to move.
    */
   canModerate?: boolean;
   /** A score was moved or deleted; the page refetches what it holds. */
@@ -169,9 +169,9 @@ export default function ScoreGroupList({
   onModerated = () => {},
 }: ScoreGroupListProps) {
   /**
-   * A score row plus the corrections that may be made to it. The buttons are
-   * the row's siblings and not its children: the row is itself a button (it
-   * opens the song), and nesting one inside it is invalid HTML.
+   * A score row plus the corrections that may be made to it. The control is
+   * the row's sibling and not its child: the row is itself a button (it opens
+   * the song), and nesting one inside it is invalid HTML.
    */
   const withActions = (row: ReactNode, score: ScoreWithContext) =>
     !canModerate ? (
@@ -256,7 +256,7 @@ export default function ScoreGroupList({
 
         if (!expandable) {
           // Ungrouped a row *is* one score, so it is a score row: it carries
-          // the moderator's two buttons like the rows inside an open group.
+          // the moderator's pencil like the rows inside an open group.
           return (
             <li key={group.key}>
               {withActions(

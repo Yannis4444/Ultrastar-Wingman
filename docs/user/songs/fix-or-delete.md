@@ -2,7 +2,8 @@
 
 Downloaded songs arrive with whatever the person who built them typed. That can
 be a misspelled artist, no year, a genre in the wrong language, or a title with
-a website's name stuck to it. Both repairs start in the song's own view. See
+a website's name stuck to it. Both repairs live behind the same row of the
+song's own view, :wingman-pencil: **Edit details**. See
 [Open a song](song.md).
 
 ## Fix a song's details
@@ -58,11 +59,16 @@ Five answers are worth knowing. In every one of them nothing was written.
 A song nobody wants to sing again can leave the library for good: a broken
 file, a duplicate, a download that went wrong.
 
-1. Open the song and tap :wingman-trash: **Delete song**.
-2. Read what the confirmation names, then tap **Delete**.
+1. Open the song and tap :wingman-pencil: **Edit details**.
+2. Tap **Delete song** at the foot of the form.
+3. Read what the confirmation names, then tap **Delete**.
 
 Only Admin holds the right by default, and the host can hand it to Trusted as
 well. See [Roles and permissions](../people/roles.md).
+
+Deleting a song and correcting its details are the same errand, so they share
+one form. If your role may delete a song but not correct it, the fields are
+there to read. **Delete song** is then the only thing you can tap.
 
 !!! warning
     Deleting a song removes its whole folder from the disk: the lyrics file, the

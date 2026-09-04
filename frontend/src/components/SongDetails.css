@@ -309,6 +309,15 @@
   width: 100%;
 }
 
+/* Under the primary and away from it: the fields correct the song, this one
+   ends it. Held off the form's own 12px rhythm so the two never read as a
+   pair of buttons. */
+.song-edit-delete {
+  display: flex;
+  justify-content: center;
+  margin-top: 12px;
+}
+
 /* Best-scores sub-view: the song's history over the ranking, as one wrapping
    run of glyph+number pairs — 8px inside a pair's own gap, 16px between them. */
 .song-scores-stats {

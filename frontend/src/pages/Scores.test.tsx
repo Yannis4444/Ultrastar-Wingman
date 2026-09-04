@@ -865,6 +865,43 @@ test("an opened group states its whole spread in one tile", async () => {
   expect(panel.querySelector(".score-group-scores")).not.toBeNull();
 });
 
+test("the tile's chart waits for the fourth score, its rows do not", async () => {
+  // Alice sang four times, Bob three: one group over the threshold and one
+  // under it, in the same list (§7).
+  listSessionScores.mockResolvedValue({
+    data: {
+      scores: [
+        ...tonightScores,
+        score(5, "Alice", 7000, bohemian, "sing-3", "player-alice"),
+        score(6, "Alice", 5000, wonderwall, "sing-4", "player-alice"),
+        score(7, "Bob", 3000, bohemian, "sing-3"),
+      ],
+    },
+  });
+  renderScores();
+
+  const [alice, bob] = await screen.findAllByTestId("score-group");
+  fireEvent.click(within(summaryOf(alice)).getByText("Alice"));
+  fireEvent.click(within(summaryOf(bob)).getByText("Bob"));
+
+  expect(
+    within(alice).getByRole("img", { name: "Score distribution for Alice" }),
+  ).toBeInTheDocument();
+  expect(
+    within(bob).queryByRole("img", { name: "Score distribution for Bob" }),
+  ).toBeNull();
+  // The list under the summary is drawn either way, and so is the summary.
+  expect(bob.querySelectorAll(".score-entry")).toHaveLength(3);
+  expect(stats(bob.querySelector(".score-group-panel") as HTMLElement)).toEqual(
+    [
+      ["Scores", "3"],
+      ["Best", "6000"],
+      ["Worst", "3000"],
+      ["Average", "4333"],
+    ],
+  );
+});
+
 test("under a song, best and worst still name the singer who managed them", async () => {
   renderScores();
   await screen.findAllByTestId("score-group");
@@ -1302,10 +1339,12 @@ test("a moderator moves a score to the singer who really sang it", async () => {
   choose("Group", "none");
 
   fireEvent.click(
-    await screen.findByRole("button", { name: "Change who sang 4000" }),
+    await screen.findByRole("button", { name: "Correct the score 4000" }),
   );
-  // Inside the picker: the list behind it names Alice on her own rows too.
-  const picker = await screen.findByRole("dialog", { name: "Who sang this?" });
+  // Inside the panel: the list behind it names Alice on her own rows too.
+  const picker = await screen.findByRole("dialog", {
+    name: "Correct this score",
+  });
   fireEvent.click(within(picker).getByRole("button", { name: /Alice/ }));
   fireEvent.click(await screen.findByRole("button", { name: "Move" }));
 
@@ -1319,6 +1358,21 @@ test("a moderator moves a score to the singer who really sang it", async () => {
   );
 });
 
+test("a score row carries one control, and the panel holds both repairs", async () => {
+  getMe.mockResolvedValue(
+    meResponse(["stats.view", "stats.moderate", "players.view"]),
+  );
+  renderScores();
+  await screen.findAllByTestId("score-group");
+  choose("Group", "none");
+
+  // One 40px button per row (§7), never a pencil and a trash side by side.
+  const row = (
+    await screen.findByRole("button", { name: "Correct the score 4000" })
+  ).closest(".score-actions") as HTMLElement;
+  expect(within(row).getAllByRole("button")).toHaveLength(1);
+});
+
 test("deleting a score asks first and then takes it off the record", async () => {
   getMe.mockResolvedValue(
     meResponse(["stats.view", "stats.moderate", "players.view"]),
@@ -1328,16 +1382,97 @@ test("deleting a score asks first and then takes it off the record", async () =>
   choose("Group", "none");
 
   fireEvent.click(
-    await screen.findByRole("button", { name: "Delete the score 4000" }),
+    await screen.findByRole("button", { name: "Correct the score 4000" }),
   );
+  const panel = await screen.findByRole("dialog", {
+    name: "Correct this score",
+  });
+  fireEvent.click(within(panel).getByRole("button", { name: "Delete score" }));
   expect(await screen.findByText(/gone for good/i)).toBeInTheDocument();
-  fireEvent.click(screen.getByRole("button", { name: "Delete" }));
+  fireEvent.click(
+    within(
+      screen.getByRole("dialog", { name: "Delete this score?" }),
+    ).getByRole("button", { name: "Delete" }),
+  );
 
   await waitFor(() =>
     expect(deleteScore).toHaveBeenCalledWith(
       expect.objectContaining({ path: { score_id: 3 } }),
     ),
   );
+  // The row the panel belonged to is leaving the list, so both layers go with
+  // it rather than standing over a score that is no longer there.
+  await waitFor(() =>
+    expect(
+      screen.queryByRole("dialog", { name: "Correct this score" }),
+    ).toBeNull(),
+  );
+  expect(
+    screen.queryByRole("dialog", { name: "Delete this score?" }),
+  ).toBeNull();
+});
+
+test("a refused deletion says so inside the panel it started in", async () => {
+  getMe.mockResolvedValue(
+    meResponse(["stats.view", "stats.moderate", "players.view"]),
+  );
+  deleteScore.mockRejectedValue({ detail: "boom" });
+  renderScores();
+  await screen.findAllByTestId("score-group");
+  choose("Group", "none");
+
+  fireEvent.click(
+    await screen.findByRole("button", { name: "Correct the score 4000" }),
+  );
+  const panel = await screen.findByRole("dialog", {
+    name: "Correct this score",
+  });
+  fireEvent.click(within(panel).getByRole("button", { name: "Delete score" }));
+  fireEvent.click(
+    within(
+      screen.getByRole("dialog", { name: "Delete this score?" }),
+    ).getByRole("button", { name: "Delete" }),
+  );
+
+  // The confirmation goes, the panel stays, and the message lands where the
+  // reader can act on it: there is no other surface left to say it on.
+  expect(await within(panel).findByRole("alert")).toHaveTextContent(
+    "Could not delete that score.",
+  );
+  expect(
+    screen.queryByRole("dialog", { name: "Delete this score?" }),
+  ).toBeNull();
+  expect(
+    within(panel).getByRole("button", { name: "Delete score" }),
+  ).toBeEnabled();
+});
+
+test("backing out of the deletion comes back to the players", async () => {
+  getMe.mockResolvedValue(
+    meResponse(["stats.view", "stats.moderate", "players.view"]),
+  );
+  renderScores();
+  await screen.findAllByTestId("score-group");
+  choose("Group", "none");
+
+  fireEvent.click(
+    await screen.findByRole("button", { name: "Correct the score 4000" }),
+  );
+  const panel = await screen.findByRole("dialog", {
+    name: "Correct this score",
+  });
+  fireEvent.click(within(panel).getByRole("button", { name: "Delete score" }));
+  fireEvent.click(
+    within(
+      screen.getByRole("dialog", { name: "Delete this score?" }),
+    ).getByRole("button", { name: "Cancel" }),
+  );
+
+  expect(deleteScore).not.toHaveBeenCalled();
+  // The confirmation stood over the panel, so cancelling leaves it standing.
+  expect(
+    screen.getByRole("dialog", { name: "Correct this score" }),
+  ).toBeInTheDocument();
 });
 
 test("without stats.moderate a score row carries no corrections", async () => {
@@ -1348,11 +1483,9 @@ test("without stats.moderate a score row carries no corrections", async () => {
 
   expect(await screen.findAllByTestId("score-group")).not.toHaveLength(0);
   expect(
-    screen.queryByRole("button", { name: /Change who sang/ }),
+    screen.queryByRole("button", { name: /Correct the score/ }),
   ).not.toBeInTheDocument();
-  expect(
-    screen.queryByRole("button", { name: /Delete the score/ }),
-  ).not.toBeInTheDocument();
+  expect(document.querySelector(".score-actions")).toBeNull();
 });
 
 test("a moved score reaches the other screens in the room", async () => {

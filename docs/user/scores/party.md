@@ -164,15 +164,21 @@ inside the card do. Ungrouped, the whole row does.
 Ultrastar Deluxe files a score under whoever was on that microphone slot, and
 sometimes that was the wrong person. Correcting one takes the right to moderate
 statistics, which Admin alone holds by default. Everybody looking at the page
-sees the correction at once. A row that is one single score then carries two
-buttons. Set **Group** to **don't group**, or open a group, and every row is
-one score.
+sees the correction at once. A row that is one single score then carries
+:wingman-pencil: **Correct the score**. Set **Group** to **don't group**, or
+open a group, and every row is one score.
 
-- :wingman-pencil: **Change who sang** opens the list of players. Pick the one
-  who really sang it, then confirm with **Move**. The score keeps its number,
-  its song, and its place in the party.
-- :wingman-trash: **Delete the score** takes it off the record after a
-  confirmation. The song stays in what was played.
+Tap it and **Correct this score** opens. The panel names the score and holds
+both repairs.
+
+- The list of players stands first. Tap the one who really sang it, then
+  confirm with **Move**. The score keeps its number, its song, and its place in
+  the party.
+- **Delete score** at the foot takes it off the record after a confirmation.
+  The song stays in what was played.
+
+**Cancel** in either confirmation comes back to the panel, so a slip costs
+nothing.
 
 The number and the song are never editable. Those are what Ultrastar Deluxe
 reported.

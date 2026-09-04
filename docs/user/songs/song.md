@@ -40,8 +40,9 @@ on the list. See [Wish for a song](../party/wishlist.md).
 - :wingman-list-plus: **Add to playlist** lists the playlists you may edit. Tap
   one to add the song, tap it again to take it out. See
   [Playlists](playlists.md).
-- :wingman-pencil: **Edit details** and :wingman-trash: **Delete song** are the
-  two rows for the party's helpers. See
+- :wingman-pencil: **Edit details** is the row for the party's helpers. It
+  corrects what the song says about itself, and **Delete song** at the foot of
+  that form takes it out of the library. See
   [Fix or delete a song](fix-or-delete.md).
 
 You only see the rows your role may use.
@@ -64,8 +65,8 @@ song and being the first to say something are exactly what they lead to.
 
 **Best scores** opens the song's whole record. It says how often the song was
 sung, the best and the worst run, and the average. Under that stands the
-ranking, best first, up to ten singers deep. A song with more than one score
-also gets a picture of every score it ever got.
+ranking, best first, up to ten singers deep. From four scores on, a picture of
+every score the song ever got stands over that ranking.
 
 ## Tags
 

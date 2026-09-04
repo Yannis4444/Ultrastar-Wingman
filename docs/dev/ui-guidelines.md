@@ -219,16 +219,20 @@ panel holds (the party picker's *show all*), never for a row's own action.
   having a number to show.
 - **Sub-views** replace the modal body, the header's close acting as back: Best scores, Add to
   playlist, Tags, Comments, Edit details, Player selection, and Add songs (same mechanism, from
-  the playlist page). Row order: Details, Add to playlist, Edit details, Delete song. Inside
+  the playlist page). Row order: Details, Add to playlist, Edit details. Inside
   Tags, an assignable tag is a toggle row (`aria-pressed`), any other — one nobody assigns here
   — a `lock` row. **Add to playlist** gives `playlists.manage` holders one `aria-pressed` row
   per playlist they may edit (state from the listing's `contains` flag, not a fetch per row) and
-  a "New playlist…" row (`plus`). **Edit details** (`pencil`, `songs.edit`) is where wrong or
-  missing metadata is fixed: the details list as labelled quiet inputs in its own order — title,
+  a "New playlist…" row (`plus`). **Edit details** (`pencil`) is the last row and the one place
+  a song is changed at all — everything the party's helpers do to it, in one errand rather than
+  a row each. It carries the details as labelled quiet inputs in their own order — title,
   artist, Language, Genre, Year, Edition — one primary Save, `.song-details-notice` for what the
-  backend refused. **Delete song** (`trash`, `songs.delete`) is the last row and looks like any
-  other: nothing on it is red (§1.6), the weight sits in a `ConfirmModal` that names the song
-  and says the files go with it.
+  backend refused, and at the foot, held off the form's rhythm, a `.button-danger` **Delete
+  song** (`songs.delete`) through a `ConfirmModal` that names the song and says the files go
+  with it. Nothing on the way there is red (§1.6). The row appears for `songs.edit` or
+  `songs.delete`; a reader holding only the second finds the fields disabled over the line
+  saying why and the button live, an editor nobody may edit being the rarer half of a pair the
+  permission matrix allows and not worth a second row.
 - **Comment rows**, oldest first: 40px `PlayerAvatar` · username with a relative time (0.85em
   `--color-darker`) on one line · the body underneath, `overflow-wrap: anywhere` · a trailing
   `.icon-button-danger` `trash` for the author and `comments.moderate`, through `ConfirmModal`

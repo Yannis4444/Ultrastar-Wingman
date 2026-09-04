@@ -257,9 +257,15 @@ test("the whole history is drawn as the all-scores strip above the ranking", asy
   expect(strip.closest(".song-scores-strip")).not.toBeNull();
 });
 
-test("one score alone is no picture, so no strip is drawn", async () => {
+test("three scores are no picture, so no strip is drawn", async () => {
   listSongScores.mockResolvedValue({
-    data: { scores: [score(1, "Alice", 9500)] },
+    data: {
+      scores: [
+        score(1, "Alice", 9500),
+        score(2, "Bob", 5000),
+        score(3, "Chris", 4000),
+      ],
+    },
   });
   renderDetails();
 
@@ -273,6 +279,38 @@ test("one score alone is no picture, so no strip is drawn", async () => {
       name: "Every score this song ever got",
     }),
   ).not.toBeInTheDocument();
+  // The ranking is drawn either way (§7) — the threshold is the chart's alone.
+  expect(
+    rankedRows(
+      within(dialog).getByRole("list", { name: "Best scores" }),
+      ".ranked-score-value",
+    ),
+  ).toEqual(["9500", "5000", "4000"]);
+});
+
+test("the fourth score is where the strip starts", async () => {
+  listSongScores.mockResolvedValue({
+    data: {
+      scores: [
+        score(1, "Alice", 9500),
+        score(2, "Bob", 5000),
+        score(3, "Chris", 4000),
+        score(4, "Dan", 3000),
+      ],
+    },
+  });
+  renderDetails();
+
+  fireEvent.click(await screen.findByRole("button", { name: /Best scores/ }));
+  const dialog = screen.getByRole("dialog", { name: "Best scores" });
+
+  expect(
+    within(
+      await within(dialog).findByRole("img", {
+        name: "Every score this song ever got",
+      }),
+    ).getAllByTestId("strip-dot"),
+  ).toHaveLength(4);
 });
 
 test("a singer with a player record gets their avatar, a guest their initial", async () => {
@@ -368,7 +406,7 @@ test("the rows hold the content and the actions, the strip the numbers", async (
   renderDetails();
 
   // Details first, Add to playlist second — the order §5 prescribes, with the
-  // places after it reserved for Edit details and Delete song.
+  // place after it reserved for Edit details.
   await screen.findByRole("button", { name: "Add to playlist" });
   expect(
     [...document.querySelectorAll(".song-option .song-option-label")].map(
@@ -1304,37 +1342,47 @@ test("somebody else commenting refetches this song's list, and only this song's"
   await waitFor(() => expect(listSongComments).toHaveBeenCalledTimes(2));
 });
 
-test("no Delete song row without the right", async () => {
+test("no Delete inside the editor without the right", async () => {
+  asAccount(["songs.edit"]);
   renderDetails();
 
-  // The trophy waits for `/auth/me`, so by the time it is here the row has had
-  // its answer too — and the answer is no.
-  await screen.findByRole("button", { name: /Best scores/ });
+  const dialog = await openEditor();
   expect(
-    screen.queryByRole("button", { name: "Delete song" }),
+    within(dialog).queryByRole("button", { name: "Delete song" }),
   ).not.toBeInTheDocument();
+  // Nor does the row it used to be its own way in through.
+  expect(
+    [...document.querySelectorAll(".song-option .song-option-label")].map(
+      (label) => label.textContent,
+    ),
+  ).not.toContain("Delete song");
 });
 
-test("Delete song is the last row and looks like every other one", async () => {
-  asAccount(["songs.delete"]);
+test("Delete song is the danger button at the foot of the editor", async () => {
+  asAccount(["songs.edit", "songs.delete"]);
   renderDetails();
 
-  const row = await screen.findByRole("button", { name: "Delete song" });
-  // A row, not a red button: the weight is in the confirmation (§1.6, §5).
-  expect(row.className).toBe("song-option");
-  expect(iconNames(row)).toEqual(["trash", "chevron-right"]);
-  const rows = Array.from(
-    row.closest(".song-options")?.querySelectorAll(".song-option") ?? [],
-  );
-  expect(rows[rows.length - 1]).toBe(row);
+  const dialog = await openEditor();
+  const button = within(dialog).getByRole("button", { name: "Delete song" });
+  // The one red thing in the whole errand (§1.6): the rows that lead here are
+  // ordinary, and the weight is in this button and its confirmation.
+  expect(button.className).toBe("button button-danger");
+  // Under the primary Save, and the last thing in the form.
+  const buttons = [...dialog.querySelectorAll(".song-edit button")];
+  expect(buttons.map((each) => each.textContent)).toEqual([
+    "Save",
+    "Delete song",
+  ]);
+  expect(buttons[buttons.length - 1]).toBe(button);
 });
 
 test("deleting asks first, names the song and says the files go", async () => {
-  asAccount(["songs.delete"]);
+  asAccount(["songs.edit", "songs.delete"]);
   const onClose = vi.fn();
   renderDetails(onClose);
 
-  fireEvent.click(await screen.findByRole("button", { name: "Delete song" }));
+  const editor = await openEditor();
+  fireEvent.click(within(editor).getByRole("button", { name: "Delete song" }));
   const confirm = screen.getByRole("dialog", { name: "Delete song" });
   expect(confirm).toHaveTextContent("Bohemian Rhapsody");
   expect(confirm).toHaveTextContent("Queen");
@@ -1354,11 +1402,12 @@ test("deleting asks first, names the song and says the files go", async () => {
 });
 
 test("backing out of the confirmation leaves the song alone", async () => {
-  asAccount(["songs.delete"]);
+  asAccount(["songs.edit", "songs.delete"]);
   const onClose = vi.fn();
   renderDetails(onClose);
 
-  fireEvent.click(await screen.findByRole("button", { name: "Delete song" }));
+  const editor = await openEditor();
+  fireEvent.click(within(editor).getByRole("button", { name: "Delete song" }));
   fireEvent.click(
     within(screen.getByRole("dialog", { name: "Delete song" })).getByRole(
       "button",
@@ -1368,18 +1417,20 @@ test("backing out of the confirmation leaves the song alone", async () => {
 
   expect(deleteSong).not.toHaveBeenCalled();
   expect(onClose).not.toHaveBeenCalled();
+  // Back on the form the reader was looking at, not on the song behind it.
   expect(
-    screen.getByRole("dialog", { name: "Bohemian Rhapsody" }),
+    screen.getByRole("dialog", { name: "Edit details" }),
   ).toBeInTheDocument();
 });
 
-test("a song that is playing cannot be deleted, and the modal says why", async () => {
-  asAccount(["songs.delete"]);
+test("a song that is playing cannot be deleted, and the editor says why", async () => {
+  asAccount(["songs.edit", "songs.delete"]);
   deleteSong.mockRejectedValue({ detail: "song_is_playing" });
   const onClose = vi.fn();
   renderDetails(onClose);
 
-  fireEvent.click(await screen.findByRole("button", { name: "Delete song" }));
+  const editor = await openEditor();
+  fireEvent.click(within(editor).getByRole("button", { name: "Delete song" }));
   fireEvent.click(
     within(screen.getByRole("dialog", { name: "Delete song" })).getByRole(
       "button",
@@ -1390,11 +1441,68 @@ test("a song that is playing cannot be deleted, and the modal says why", async (
   expect(await screen.findByRole("alert")).toHaveTextContent(
     "That song is playing right now. Stop it first.",
   );
-  // The song is still there, so the modal stays open on it.
+  // The song is still there, so the editor stays open on it.
   expect(onClose).not.toHaveBeenCalled();
+  expect(
+    screen.getByRole("dialog", { name: "Edit details" }),
+  ).toBeInTheDocument();
 });
 
-test("no Edit details row without the right", async () => {
+test("a reader who may only delete gets the editor locked around it", async () => {
+  asAccount(["songs.delete"]);
+  renderDetails();
+
+  const dialog = await openEditor();
+  // Every field is the song as it stands, and none of them is typeable.
+  for (const field of [
+    ...within(dialog).getAllByRole("textbox"),
+    ...within(dialog).getAllByRole("spinbutton"),
+  ]) {
+    expect(field).toBeDisabled();
+  }
+  // No Save, and a line saying why the form does not offer one.
+  expect(
+    within(dialog).queryByRole("button", { name: "Save" }),
+  ).not.toBeInTheDocument();
+  expect(dialog).toHaveTextContent("Your role may not change these values.");
+  // The one thing they came for is live.
+  expect(
+    within(dialog).getByRole("button", { name: "Delete song" }),
+  ).toBeEnabled();
+});
+
+test("a deletion in flight locks the form it started in", async () => {
+  asAccount(["songs.edit", "songs.delete"]);
+  // Never answers: the editor is left in the state a slow backend leaves it in.
+  deleteSong.mockReturnValue(new Promise(() => {}));
+  renderDetails();
+
+  const dialog = await openEditor();
+  fireEvent.click(within(dialog).getByRole("button", { name: "Delete song" }));
+  fireEvent.click(
+    within(screen.getByRole("dialog", { name: "Delete song" })).getByRole(
+      "button",
+      { name: "Delete" },
+    ),
+  );
+
+  // Saving over a song that is being deleted is a 404 into a closing modal, so
+  // the whole form waits for the answer.
+  await waitFor(() =>
+    expect(within(dialog).getByRole("button", { name: "Save" })).toBeDisabled(),
+  );
+  for (const field of [
+    ...within(dialog).getAllByRole("textbox"),
+    ...within(dialog).getAllByRole("spinbutton"),
+  ]) {
+    expect(field).toBeDisabled();
+  }
+  expect(
+    within(dialog).getByRole("button", { name: "Delete song" }),
+  ).toBeDisabled();
+});
+
+test("no Edit details row without either right", async () => {
   renderDetails();
 
   // The trophy waits for `/auth/me`, so by the time it is here the row has had
@@ -1405,19 +1513,28 @@ test("no Edit details row without the right", async () => {
   ).not.toBeInTheDocument();
 });
 
-test("Edit details sits between the playlist row and the delete", async () => {
+test("the right to delete alone is enough for the Edit details row", async () => {
+  asAccount(["songs.delete"]);
+  renderDetails();
+
+  expect(
+    await screen.findByRole("button", { name: "Edit details" }),
+  ).toBeInTheDocument();
+});
+
+test("Edit details is the last row and looks like every other one", async () => {
   asAccount(["playlists.manage", "songs.edit", "songs.delete"]);
   renderDetails();
 
   const row = await screen.findByRole("button", { name: "Edit details" });
-  // An ordinary row with the pencil (§3), like the three around it.
+  // An ordinary row with the pencil (§3), like the two above it.
   expect(row.className).toBe("song-option");
   expect(iconNames(row)).toEqual(["pencil", "chevron-right"]);
   expect(
     [...document.querySelectorAll(".song-option .song-option-label")].map(
       (label) => label.textContent,
     ),
-  ).toEqual(["Details", "Add to playlist", "Edit details", "Delete song"]);
+  ).toEqual(["Details", "Add to playlist", "Edit details"]);
 });
 
 /** Opens the editor and hands back its dialog. */
