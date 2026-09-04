@@ -25,7 +25,7 @@ Before your first one it says "Nothing yet. The first one is a song away".
 Tap the line to fold out the whole list. The ones you earned come first, newest
 first. The rest follow in the order the host arranged them in.
 
-![Fry's achievements folded out, with four earned badges and their dates, a locked hidden row, and progress bars under the rest](../assets/screenshots/achievements/user-achievements.png){ width="320" loading=lazy }
+![Fry's achievements folded out, with the badges he has earned and their dates, a locked hidden row, and progress bars under the rest](../assets/screenshots/achievements/user-achievements.png){ width="320" loading=lazy }
 /// caption
 The bar under **In Tune** says Fry has 7,103 of the 8,000 it asks for.
 ///

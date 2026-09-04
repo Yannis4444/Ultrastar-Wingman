@@ -667,9 +667,9 @@ ROWS: dict[str, Row] = {
         ready='q(".scores-page") && q(".scores-chart") && q(".scores-controls")',
     ),
     "user-achievements": Row(
-        # Fry, not Bender. The list puts every earned badge first, so a singer with nine of
-        # them fills the viewport before the first progress bar and the manifest asks for
-        # one. Fry has four, which leaves both states and a bar on the same screen.
+        # Fry, not Bender. The list puts every earned badge first, so Bender's fill the
+        # viewport before the first progress bar and the manifest asks for one. Fry has
+        # fewer, which leaves both states and a bar on the same screen.
         identity="Fry",
         viewport="phone",
         route="/user",
