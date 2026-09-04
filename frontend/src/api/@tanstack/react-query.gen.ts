@@ -2168,7 +2168,7 @@ export const getAchievementIconQueryKey = (options: Options<GetAchievementIconDa
  * like the catalogue itself: a badge on the TV is an image the TV has to be able to fetch.
  *
  * `size=small` is for the 40 px rows and the TV — the shipped pictures are 1254 px and over
- * a megabyte each, and the user page draws seventeen of them. Only the shipped pictures
+ * a megabyte each, and the user page draws the whole catalogue. Only the shipped pictures
  * have a small variant; an upload answers every size with itself, and the browser scales
  * it, because nothing here resizes (`images.py`).
  *

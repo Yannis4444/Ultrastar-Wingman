@@ -47,9 +47,9 @@ START = datetime(2026, 9, 1, 20, 0, tzinfo=UTC)
 
 
 async def drop_built_ins(session: AsyncSession) -> None:
-    """Take the seventeen Wingman ships off the catalogue.
+    """Take the set Wingman ships off the catalogue.
 
-    Migration 0023 seeds them and a pass looks at every enabled one, so a test that names
+    Migrations 0023 and 0030 seed them and a pass looks at every enabled one, so a test that names
     exactly what somebody earned has to be run against a catalogue it built itself. What the
     shipped set means is checked on its own further down.
     """
@@ -662,14 +662,15 @@ async def test_brave_soul_is_earned_by_scoring_badly_and_draws_no_bar(
     row = await session.get(PlayerAchievement, ("builtin-brave-soul", player_id))
     assert row is not None
     assert (row.progress_current, row.progress_target) == (None, None)
-    # It is the hidden one, so the API is what keeps it a surprise until then.
+    # It is one of the hidden ones, so the API is what keeps it a surprise until then.
     assert (await session.get(Achievement, "builtin-brave-soul")).hidden is True  # type: ignore[union-attr]
 
 
 def test_every_shipped_definition_parses() -> None:
     """A definition `parse_definition` cannot read is "never satisfied" and not an exception,
     so a typo in `builtin.py` would ship as a badge nobody can ever earn — silently. This is
-    the only thing standing between the hand-written JSON in that file and seventeen of them.
+    the only thing standing between the hand-written JSON in that file and a catalogue of
+    them.
     """
     for built_in in BUILT_INS:
         assert parse_definition(built_in.id, built_in.definition) is not None, built_in.id

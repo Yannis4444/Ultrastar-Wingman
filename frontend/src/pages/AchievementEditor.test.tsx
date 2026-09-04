@@ -56,7 +56,7 @@ vi.mock("../api/sdk.gen", async (importOriginal) => ({
 
 const MANAGER = ["songs.view", "achievements.manage"];
 
-/** One of the seventeen Wingman ships, as the managing listing answers with it:
+/** One of the ones Wingman ships, as the managing listing answers with it:
  *  everything editable except what it asks for. */
 function builtIn(overrides: Partial<AchievementRead> = {}): AchievementRead {
   return achievementRead({

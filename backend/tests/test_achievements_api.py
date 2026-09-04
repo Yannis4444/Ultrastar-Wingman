@@ -190,7 +190,7 @@ def touch_and_read_version(icon: Path) -> int:
     return icon.stat().st_mtime_ns // 1_000_000
 
 
-async def test_the_seventeen_built_ins_are_seeded_in_order(party: Party) -> None:
+async def test_the_built_ins_are_seeded_in_order(party: Party) -> None:
     rows = await catalogue(party["anonymous"])
 
     assert [row["id"] for row in rows] == [built_in.id for built_in in BUILT_INS]
@@ -200,7 +200,7 @@ async def test_the_seventeen_built_ins_are_seeded_in_order(party: Party) -> None
 
 async def test_every_built_in_definition_is_one_the_engine_can_read(party: Party) -> None:
     """The seed is hand-written JSON, so the models are what stand between a typo in it and
-    seventeen badges nobody can earn."""
+    a catalogue of badges nobody can earn."""
     for row in await catalogue(party["admin"], manage=True):
         assert row["definition"], row["id"]
         for condition in row["definition"]:
@@ -238,7 +238,7 @@ async def test_create_edit_and_delete_one(party: Party) -> None:
     )
     assert created["name"] == "Encore"
     assert created["built_in"] is False
-    # At the end of the list, behind the seventeen it was added to.
+    # At the end of the list, behind the shipped set it was added to.
     assert created["sort_order"] == len(BUILT_INS)
     (condition,) = created["definition"]
     # `scope` was not sent: the models default it in, and what is stored is what they read.
@@ -294,7 +294,7 @@ async def test_deleting_a_built_in_is_a_conflict(party: Party) -> None:
 
 
 async def test_a_built_ins_conditions_cannot_be_changed(party: Party) -> None:
-    """What one of the shipped seventeen asks for is `builtin.py`'s. 409 and not 422: the
+    """What one of the shipped built-ins asks for is `builtin.py`'s. 409 and not 422: the
     body is one the condition models parsed happily, and what refuses it is the row it was
     sent to — the same reasoning as the 409 on deleting one."""
     refused = await party["admin"].patch(
@@ -346,7 +346,7 @@ async def test_the_catalogues_own_definition_patches_back_onto_every_built_in(
     `builtin.py`'s raw JSON leaves every defaulted field out; the API answers with the parsed
     models spelled out in full, nulls included. Both have to dump to the stored column, or a
     client that reads the catalogue and PATCHes a renamed row straight back gets a 409 for a
-    field it never touched — on some subset of the seventeen, silently.
+    field it never touched — on some subset of the shipped set, silently.
     """
     rows = {row["id"]: row for row in await catalogue(party["admin"], manage=True)}
     for built_in in BUILT_INS:
@@ -1403,21 +1403,78 @@ async def _add_score(party: Party, player_id: str, score: int) -> None:
 
 # --- The pictures Wingman ships ------------------------------------------------------------
 
+# The built-ins whose artwork does not exist yet. The pictures are drawn by hand, one at a
+# time, out of the motif entries in `docs/dev/achievement-artwork.md` (§4), and a badge without
+# its two PNGs is drawn with its glyph in the meantime — so the promise below is "every
+# built-in except these", and an id leaves this set in the same commit as its two files.
+#
+# Not a skip: the listings are still pinned, so a stray or misnamed file in either directory
+# fails just as it did, and a picture that lands while its id is still named here fails too.
+PICTURES_PENDING: frozenset[str] = frozenset(
+    {
+        "builtin-wins-1",
+        "builtin-wins-10",
+        "builtin-wins-50",
+        "builtin-decade-1970s",
+        "builtin-decade-1980s",
+        "builtin-decade-1990s",
+        "builtin-decade-2000s",
+        "builtin-time-traveler",
+        "builtin-mixtape",
+        "builtin-full-commitment",
+        "builtin-rap-god",
+        "builtin-queen-10",
+        "builtin-abba-5",
+        "builtin-beatles-4",
+        "builtin-christmas",
+        "builtin-soundtrack",
+        "builtin-groundhog-day",
+    }
+)
+
 
 def test_every_built_in_ships_a_picture_in_both_sizes() -> None:
     """What `docs/dev/achievement-artwork.md` promises: one full-size and one small PNG per
     built-in, named by its id, and nothing else in either directory — a stray file there
-    would ship in every wheel and every installer."""
+    would ship in every wheel and every installer. Except the ones whose artwork is still to
+    be drawn (`PICTURES_PENDING`), which ship no file at all."""
     directory = pictures.images_dir()
-    expected = {f"{built_in.id}.png" for built_in in BUILT_INS}
+    ids = {built_in.id for built_in in BUILT_INS}
+    # A renamed or misspelled id in the set would otherwise quietly excuse a real built-in.
+    assert ids >= PICTURES_PENDING
+    expected = {f"{built_in_id}.png" for built_in_id in ids - PICTURES_PENDING}
 
     assert {path.name for path in directory.glob("*.png")} == expected
     assert {path.name for path in (directory / "small").glob("*.png")} == expected
 
 
+@pytest.mark.parametrize("achievement_id", sorted(PICTURES_PENDING))
+async def test_a_built_in_whose_artwork_is_still_to_come_is_drawn_with_its_glyph(
+    party: Party, achievement_id: str
+) -> None:
+    """A built-in ships a picture "unless" — and until the file exists there is nothing to
+    serve, so the row says so and the badge falls back to the glyph it declares
+    (`AchievementBadge` draws the glyph whenever `has_image` is false).
+
+    `pictures.shipped_picture` asks the disk and not `builtin.py`, which is what makes this
+    the ordinary answer rather than a broken one. The test list empties itself as the pictures
+    land."""
+    rows = {row["id"]: row for row in await catalogue(party["admin"], manage=True)}
+    row = rows[achievement_id]
+
+    assert row["has_image"] is False
+    assert row["image_shipped"] is False
+    assert row["icon_version"] is None
+    # No file, so no picture to fetch — for a manager as much as for a stranger. `manage`
+    # lifts the masking of a hidden achievement, never the absence of a file.
+    url = f"/api/v1/achievements/{achievement_id}/icon"
+    assert (await party["admin"].get(url)).status_code == 404
+    assert (await party["anonymous"].get(url)).status_code == 404
+
+
 async def test_a_fresh_built_in_is_drawn_with_its_shipped_picture(party: Party) -> None:
-    """Nobody uploaded anything, and every built-in has a picture anyway; an achievement
-    somebody made has none until they give it one."""
+    """Nobody uploaded anything, and a built-in whose artwork exists has a picture anyway; an
+    achievement somebody made has none until they give it one."""
     rows = {row["id"]: row for row in await catalogue(party["anonymous"])}
     golden = rows["builtin-score-9000"]
     assert golden["has_image"] is True

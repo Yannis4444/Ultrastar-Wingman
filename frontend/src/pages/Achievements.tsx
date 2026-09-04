@@ -564,8 +564,8 @@ function ExportPanel({
 /**
  * The achievements of the party, behind the `achievements.manage` entry of the
  * manage menu: the three options the feature has, then the whole catalogue as
- * one list — the ones somebody here made and the seventeen Wingman brings with
- * it in one sequence, whichever order the host put them in. A row leads into
+ * one list — the ones somebody here made and the thirty-four Wingman brings
+ * with it in one sequence, whichever order the host put them in. A row leads into
  * the editor; the header's `+` starts a new one and its grip arranges the order
  * they are all listed in — here and on every surface that draws a badge.
  *

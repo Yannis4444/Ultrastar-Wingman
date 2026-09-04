@@ -593,12 +593,12 @@ rather than "done".
 The one field an archive cannot carry into the catalogue is a **built-in's**
 `definition`. It is still in the file — an export is a faithful copy of the row,
 and that is what keeps the round trip a fixed point — it simply has no effect on
-one of the seventeen shipped ids. See the table.
+one of the shipped ids. See the table.
 
 | What it meets | What it does |
 |---|---|
 | An existing ordinary row | Updates every presentation field **and** the definition, exactly as `PATCH` would — plus, where the file carries one, the place in the list a `PATCH` cannot touch (below). |
-| An existing **built-in** | Updates every presentation field the same way and **leaves its conditions where they are**, `built_in` included: what one of the shipped seventeen asks for is `builtin.py`'s, and an `achievement.json` in a text file would otherwise be the way straight round the 409 `PATCH` gives. The row still counts as updated — it really did change, only not there — and the skipped definition is logged. |
+| An existing **built-in** | Updates every presentation field the same way and **leaves its conditions where they are**, `built_in` included: what one of the shipped built-ins asks for is `builtin.py`'s, and an `achievement.json` in a text file would otherwise be the way straight round the 409 `PATCH` gives. The row still counts as updated — it really did change, only not there — and the skipped definition is logged. |
 | An unknown id that Wingman ships | Creates it **as a built-in**, with the conditions out of `builtin.py` rather than out of the file. The id is the only thing that may say a row is one of the shipped set, which is what lets a shipped achievement be handed from one instance to another. |
 | Any other unknown id | Creates it as an ordinary row. An archive cannot mint an undeletable achievement of its own. |
 | An entry with an `icon.<ext>` | Stores it through `images.py` — the same allowlist, byte cap and pixel cap an upload goes through. |
@@ -679,22 +679,26 @@ even when it had another extension.
 `picture_of(achievement, size)` is the one rule: the upload if the row has
 one, else the shipped file if the row is a built-in and the file exists, else
 nothing. That rule feeds `has_image`, `icon_version` and the icon endpoint, so
-a fresh database draws every built-in with its artwork, an upload stands in
-front of it, and removing the upload (or a reset) goes *back* to it rather
-than to a glyph — a built-in is never drawn with a glyph while its picture
-ships. `AchievementRead.image_shipped` says which of the two is drawn, which
-is what lets the editor offer **Back to the included picture** instead of a
-glyph. Export carries uploads only: every instance has the shipped files, and
-an archive that carried one would come back through import as an uploaded
-copy, breaking the fixed point the archive promises. The frozen build lists
-the directory in the installer's `datas`; `images_dir()` looks in the unpacked
-bundle first, the way `db.migrations_dir()` does.
+a fresh database draws a built-in whose artwork exists with that artwork, an
+upload stands in front of it, and removing the upload (or a reset) goes *back*
+to it rather than to a glyph — a built-in is never drawn with a glyph while its
+picture ships. "And the file exists" is not a formality: the built-ins added on
+2026-09-04 have no artwork yet, and each of those is drawn with its glyph until
+its two files land ([achievement-artwork.md](achievement-artwork.md) §9). The
+disk is asked and not `builtin.py`, which is what makes that the ordinary
+answer rather than a broken one. `AchievementRead.image_shipped` says which of
+the two is drawn, which is what lets the editor offer **Back to the included
+picture** instead of a glyph. Export carries uploads only: every instance has
+the shipped files, and an archive that carried one would come back through
+import as an uploaded copy, breaking the fixed point the archive promises. The
+frozen build lists the directory in the installer's `datas`; `images_dir()`
+looks in the unpacked bundle first, the way `db.migrations_dir()` does.
 
 `GET /achievements/{id}/icon?size=small|full` (default `full`) picks the
 variant: `small` is what every badge the app draws asks for
 (`achievementIconUrl`'s default), because the originals are over a megabyte
-each and the user page draws seventeen; an upload has no variant and answers
-either size with itself, the browser scaling it — nothing resizes on the
+each and the user page draws the whole catalogue; an upload has no variant and
+answers either size with itself, the browser scaling it — nothing resizes on the
 server, that would take an image library. `full` is for a view that shows one
 badge large; nothing does yet.
 
@@ -723,9 +727,12 @@ be.
 
 ## The included set
 
-Seventeen of them, declared as data in `achievements/builtin.py` and seeded by
-migration 0023 as ordinary rows with `built_in = true` and **stable slug ids**
-(`builtin-score-9000`), which is what import/export needs to recognise one.
+Thirty-four of them, declared as data in `achievements/builtin.py` and seeded as
+ordinary rows with `built_in = true` and **stable slug ids**
+(`builtin-score-9000`), which is what import/export needs to recognise one. Two
+migrations seed them, in two batches: 0023 the first seventeen, 0030 the
+seventeen added on 2026-09-04 — a ladder of wins, one badge per decade, two
+hidden ones about the range of an evening, and eight nods to songs and bands.
 
 `built_in = true` buys exactly three things:
 
@@ -739,15 +746,31 @@ Everything else about one is as editable as any other achievement's: the name,
 the description, the glyph, an uploaded picture, the colour, `hidden`, the place
 in the list and whether it is on at all.
 
-The migration reads `builtin.py` rather than repeating the list, so the set
+A seed migration reads `builtin.py` rather than repeating the list, so the set
 exists once — but it names its own columns, and what it seeds is what a
-**fresh** database starts with. Adding a built-in later needs its own
-revision.
+**fresh** database starts with. Adding a built-in later therefore needs its own
+revision, and that revision has to be **insert-if-absent**: 0023 imports the
+file live, so a database created after `builtin.py` grew was seeded with the
+whole of it there, while an older one holds only what the file said at its
+time. 0030 is the worked example — the ids it is responsible for are frozen in
+the revision itself, the values still come out of `builtin.py`, and
+`sort_order` continues after the highest in the table, because the order of the
+catalogue is the host's and the numbers already in it are theirs.
+
+A seed migration inserts rows and **starts no pass**, which matters the moment
+one runs on a database that already has a history. An achievement nobody has
+been measured against holds no `player_achievements` row, so it is drawn in the
+off state with no bar for everybody until something recomputes them, and
+nothing about starting the app does. Every catalogue write does
+(`start_full_pass`) — switching the feature off and on is the quickest of them
+— and a singer's next sing recomputes that singer over their whole record. So a
+badge somebody already deserved before the upgrade is awarded late rather than
+never.
 
 ### Reset
 
 `POST /achievements/{achievement_id}/reset`, `achievements.manage`. Puts one of
-the shipped seventeen back the way Wingman ships it. Anything else in the
+the shipped built-ins back the way Wingman ships it. Anything else in the
 catalogue is a 409: an achievement somebody made here has nothing to be put
 back to.
 
@@ -756,7 +779,7 @@ back to.
 | `name`, `description`, `icon`, `color`, `hidden` | Back to `builtin.py`. |
 | `definition` | Back to `builtin.py`, written raw exactly as the seed migration writes it — so a reset row and a freshly seeded one are the same row. |
 | `sort_order` | **Left exactly as it is.** The order of the catalogue is the host's — they arranged it with `PUT /achievements/order`, which numbers the whole table — so this row's index in `BUILT_INS` means nothing beside the numbers the others now hold, and putting it back would drop the row at an arbitrary spot rather than "where Wingman had it". A reset restores what an achievement *is*, not where it is filed. |
-| `icon_file` | **Dropped**, file and all. The shipped set has no pictures, and one left standing in front of the restored glyph would make the reset look as though it had done nothing. |
+| `icon_file` | **Dropped**, file and all — which is what puts the shipped picture back in front (or, for a built-in whose artwork does not exist yet, the restored glyph). An upload left standing would make the reset look as though it had done nothing. |
 | `enabled` | **Left exactly as it is.** Switching a built-in off is the one thing a party is told it may do to one, and undoing that would be unwelcome. |
 
 Then `achievements.changed` and a background pass over every player, like any

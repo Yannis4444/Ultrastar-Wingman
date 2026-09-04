@@ -32,11 +32,11 @@ tap **Use a picture instead** and pick a jpeg, png, or webp file of at most
 5 MB. The picture replaces the glyph, and **Color** has nothing left to set.
 **Replace picture** swaps it, and **Use a glyph instead** drops it again.
 
-The seventeen included achievements come with a picture each, drawn in one
-style. To make a picture for your own achievement that matches them, see
-[Make a badge picture](picture.md). An included achievement always has a
-picture: upload your own to replace it, and **Back to the included picture**
-brings Wingman's back.
+Many of the included achievements come with a picture, drawn in one style. The
+rest wear a glyph like your own. To make a picture that matches the drawn ones,
+see [Make a badge picture](picture.md). Where an included achievement has a
+picture, you can upload your own to replace it, and **Back to the included
+picture** brings Wingman's back.
 
 ## What a condition says
 
@@ -164,5 +164,5 @@ achievement your party made is editable. **Delete achievement**, beside
 **Save**, removes it and everybody's badge for it. Their scores stay exactly as
 they are.
 
-The seventeen Wingman ships behave differently. See
+The ones Wingman ships behave differently. See
 [Manage achievements](index.md).

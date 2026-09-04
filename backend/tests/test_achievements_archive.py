@@ -7,7 +7,7 @@ half — a `..` in a name, an absolute path, a symlink, a gzip bomb, a member th
 too many members, an `achievement.json` that is not JSON — and every one of them has to be a
 clean 4xx naming the problem, never a 500 and never a byte written outside the data dir.
 
-The happy half is the round trip the format exists for: export the seventeen built-ins,
+The happy half is the round trip the format exists for: export every built-in,
 import them back, nothing changed; export, edit the JSON in a text editor, import, the edit
 took — with the one exception the format has, a built-in's `definition`, which is
 `builtin.py`'s and which an import therefore leaves exactly where it is.
@@ -347,7 +347,7 @@ def test_the_same_achievements_give_the_same_bytes() -> None:
 # --- reading: the round trip ------------------------------------------------------------
 
 
-async def test_the_seventeen_built_ins_round_trip_unchanged(instance: Instance) -> None:
+async def test_the_shipped_built_ins_round_trip_unchanged(instance: Instance) -> None:
     before = await catalogue(instance.client)
     data = await export(instance.client, BUILT_IN_IDS)
 
@@ -438,7 +438,7 @@ async def test_an_archive_may_rename_a_built_in_but_never_re_condition_one(
     instance: Instance,
 ) -> None:
     """The bypass nobody would think of. `PATCH` refuses a definition on one of the shipped
-    seventeen with a 409, and an `achievement.json` in a text file would otherwise be the way
+    built-ins with a 409, and an `achievement.json` in a text file would otherwise be the way
     straight round it — so an import writes every other field of a built-in and leaves its
     conditions exactly where they were."""
     before = await stored_rows(instance, ["builtin-score-9000"])
@@ -1154,7 +1154,8 @@ async def test_an_import_broadcasts_it_once_for_the_whole_archive(
     instance: Instance, broadcast_events: list[dict[str, object]]
 ) -> None:
     """One refetch per import and not one per row: every client reloads the catalogue on the
-    event, and a seventeen-achievement archive would be sixteen wasted round trips."""
+    event, and an archive of the whole catalogue would waste one for every row but the
+    first."""
     data = tar_gz(
         [json_member(f"new-{index}", one_achievement(f"new-{index}")) for index in range(4)]
     )

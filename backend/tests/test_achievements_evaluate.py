@@ -1102,8 +1102,8 @@ async def add_achievement(
 ) -> None:
     """One hand-built achievement, on a catalogue holding nothing else.
 
-    Migration 0023 seeds the seventeen Wingman ships, and a pass looks at every enabled one —
-    so they are dropped first. What they mean is `test_achievements_triggers`' business;
+    Migrations 0023 and 0030 seed the set Wingman ships, and a pass looks at every enabled
+    one — so they are dropped first. What they mean is `test_achievements_triggers`' business;
     these tests are about the engine, and the assertions here name every row a pass wrote.
     """
     await session.execute(delete(Achievement).where(Achievement.built_in.is_(True)))

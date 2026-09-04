@@ -107,7 +107,7 @@ function AchievementRow({
 
 /**
  * What one singer has earned, on their own page: the badges they hold in a
- * wrapping strip with "7 of 17" beside them, and behind that strip the whole
+ * wrapping strip with "7 of 34" beside them, and behind that strip the whole
  * list — earned first, then the ones still out there.
  *
  * Part of the singer's record (§7's *User*), between the scores above it and
@@ -206,7 +206,7 @@ export default function UserAchievements({
     <>
       <details className="user-achievements">
         {/* The line is the control: the heading opens the list, is a tab stop
-            of its own and says "Achievements, 7 of 17" when it is read out.
+            of its own and says "Achievements, 7 of 34" when it is read out.
             The badges under it are their own buttons — see below. */}
         <summary className="user-achievements-summary">
           <span className="user-achievements-heading">
