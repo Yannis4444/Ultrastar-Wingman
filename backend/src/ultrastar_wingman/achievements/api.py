@@ -43,6 +43,7 @@ from ..images import (
 from ..players import service as players
 from ..players.model import Player
 from ..settings import SettingTypeError, SettingValue, SettingValueError
+from ..stats import service as stats
 from ..tags.schema import TagColor
 from . import service
 from . import settings as achievement_settings
@@ -605,30 +606,61 @@ async def list_player_achievements(player_id: str, session: SessionDep) -> Playe
     here whoever is reading — a manager included, because this is a singer's record and there
     is nothing to manage on it — and its progress numbers are left out with it. A bar that
     filled would say what the badge is for just as loudly as its name would.
+
+    `progress_current` for a condition that asks for one party is counted **in the party
+    being sung**: once that party is over it is answered as `0`, with `progress_target`
+    kept, because "ten songs in one evening" is ten songs again tomorrow. An earned
+    achievement keeps the numbers it was earned with.
     """
     if await session.get(Player, player_id) is None:
         raise HTTPException(status_code=404, detail=f"unknown player '{player_id}'")
+    # The party still going, or None when the last one is over. Asked once for the whole
+    # listing, and here rather than in `evaluate.py`: the engine is pure, and "is that party
+    # still going" is a question about the clock (`stats.service.current_session`, whose rule
+    # is the one a sing looking for a session to join applies).
+    running = await stats.current_session(session)
     return PlayerAchievementList(
         achievements=[
-            _read_row(row, achievement)
+            _read_row(row, achievement, running.id if running is not None else None)
             for row, achievement in await service.rows_of_player(session, player_id)
         ]
     )
 
 
-def _read_row(row: PlayerAchievement, achievement: Achievement) -> PlayerAchievementRead:
+def _read_row(
+    row: PlayerAchievement, achievement: Achievement, current_session_id: str | None
+) -> PlayerAchievementRead:
     mask = _masked(achievement, row.earned_at is not None)
     return PlayerAchievementRead(
         achievement_id=row.achievement_id,
         player_id=row.player_id,
         earned_at=row.earned_at,
         session_id=row.session_id,
-        progress_current=None if mask else row.progress_current,
+        progress_current=None if mask else _current(row, current_session_id),
         progress_target=None if mask else row.progress_target,
         # No definition on anybody's record: what an achievement asks for is the management
         # page's business, and that page reads the catalogue.
         achievement=read_achievement(achievement, mask=mask),
     )
+
+
+def _current(row: PlayerAchievement, current_session_id: str | None) -> int | None:
+    """`progress_current` as the singer's phone should read it.
+
+    Progress counted inside a party (`progress_session_id`) is about *that* party. While it
+    is the one still going, the stored number is what "9 of 10" means. Once it is over the
+    bar starts again: `0`, with the target kept, so the row still draws a bar at nothing —
+    **not** `None`, which is how a row with no progress at all (and a masked one) says it has
+    no bar to draw. "Sing ten songs in one evening" is ten songs again tomorrow, and a bar
+    frozen at 9 from an evening in September would say the opposite for ever.
+
+    An earned achievement is left exactly as it is: it was earned, and the number beside a
+    badge is a record of how it was reached rather than an invitation — which is why
+    `evaluate._progress` measures it in the party that earned it and not in tonight's.
+    """
+    if row.earned_at is not None or row.progress_session_id is None:
+        return row.progress_current
+    return row.progress_current if row.progress_session_id == current_session_id else 0
 
 
 def _masked(achievement: Achievement, earned: bool) -> bool:

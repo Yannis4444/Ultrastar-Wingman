@@ -696,6 +696,32 @@ def test_a_directory_member_is_allowed_because_other_tar_writers_emit_one() -> N
     assert [one.achievement.id for one in parsed] == ["one"]
 
 
+def test_an_archive_written_before_a_metric_existed_still_imports() -> None:
+    """The format has no version and needs none: `Condition` is one open set of metrics that
+    only ever grows, so an archive somebody exported last month names a subset of it.
+
+    Pinned because the reverse is the mistake this invites — an archive naming a metric this
+    build does *not* have is refused at the door (`AchievementFile`), which is right, and it
+    would be easy to make the same thing happen to the old file by mistake.
+    """
+    old = [
+        {"scope": "global", "metric": "number_of_sings", "comparator": ">=", "value": 10},
+        {"scope": "session", "metric": "sum_of_scores", "comparator": ">=", "value": 50000},
+    ]
+
+    parsed = archive.read_archive(archive.build_archive([entry("one", definition=old)]))
+
+    assert [one.model_dump() for one in parsed[0].achievement.definition] == [
+        {**one, "score_filter": None, "songs": None, "match": None} for one in old
+    ]
+    # And one from a build that has not been written yet is not silently stored.
+    future = [{"metric": "a_metric_from_the_future", "comparator": ">=", "value": 1}]
+    with pytest.raises(archive.ArchiveError):
+        archive.read_archive(
+            tar_gz([json_member("one", one_achievement("one", definition=future))])
+        )
+
+
 def test_a_song_rule_with_a_regular_expression_survives_the_round_trip() -> None:
     """A pattern is the one clause value the format cannot normalise: backslashes and
     inline flags have to come out of the JSON exactly as they went in, or an archive is no

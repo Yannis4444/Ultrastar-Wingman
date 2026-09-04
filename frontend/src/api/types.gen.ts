@@ -461,7 +461,7 @@ export type Condition = {
     /**
      * Metric
      */
-    metric: 'any_score' | 'sum_of_scores' | 'average_score' | 'number_of_scores' | 'number_of_sings' | 'different_songs' | 'different_artists' | 'number_of_wins';
+    metric: 'any_score' | 'sum_of_scores' | 'average_score' | 'number_of_scores' | 'number_of_sings' | 'different_songs' | 'different_artists' | 'different_genres' | 'different_decades' | 'most_sings_of_one_song' | 'number_of_wins';
     /**
      * Comparator
      */

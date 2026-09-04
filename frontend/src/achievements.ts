@@ -219,6 +219,9 @@ export const METRICS = [
   "number_of_scores",
   "different_songs",
   "different_artists",
+  "different_genres",
+  "different_decades",
+  "most_sings_of_one_song",
   "number_of_wins",
   "average_score",
 ] as const;
@@ -230,6 +233,9 @@ export const METRIC_LABELS: Record<Condition["metric"], string> = {
   number_of_scores: "Number of scores",
   different_songs: "Different songs",
   different_artists: "Different artists",
+  different_genres: "Different genres",
+  different_decades: "Different decades",
+  most_sings_of_one_song: "Sings of one song",
   number_of_wins: "Number of wins",
   average_score: "Average score",
 };
@@ -244,6 +250,15 @@ export const METRIC_DESCRIPTIONS: Record<Condition["metric"], string> = {
   number_of_scores: "How many scores there are.",
   different_songs: "How many different songs.",
   different_artists: "How many different artists.",
+  different_genres:
+    "How many different genres. A song whose file names no genre counts " +
+    "for nothing.",
+  different_decades:
+    "How many different decades the songs are from. A song whose file names " +
+    "no year counts for nothing.",
+  most_sings_of_one_song:
+    "How often the same song was sung. The song sung most often is the one " +
+    "counted, and other songs in between do not matter.",
   number_of_wins:
     "How many times the singer had the best score of a song. A song nobody " +
     "else sang is not a win. A tie for the top counts for both singers.",
@@ -509,6 +524,40 @@ function rangeWords(condition: Condition): string | null {
   return null;
 }
 
+/**
+ * The metrics whose sentence is "<comparator> <number> <noun>", and the noun
+ * each of them counts. Written out rather than derived from the label: *Sings
+ * of one song* is a select's entry and "3 sings of one and the same song" is a
+ * sentence, and the two do not want the same words.
+ *
+ * Keyed by every metric except the four that read their own way in `measured`,
+ * so a metric the backend adds is a type error here rather than a sentence
+ * quietly claiming an average score.
+ */
+const COUNTED_NOUNS: Record<
+  Exclude<
+    Condition["metric"],
+    "any_score" | "number_of_scores" | "sum_of_scores" | "average_score"
+  >,
+  readonly [string, string]
+> = {
+  number_of_sings: ["sing", "sings"],
+  different_songs: ["different song", "different songs"],
+  different_artists: ["different artist", "different artists"],
+  different_genres: ["different genre", "different genres"],
+  different_decades: ["different decade", "different decades"],
+  // "of one and the same song", because the number is not how many songs were
+  // sung that often — it is how often the most-sung one was, and the songs in
+  // between do not matter.
+  most_sings_of_one_song: [
+    "sing of one and the same song",
+    "sings of one and the same song",
+  ],
+  // "wins" and not "won songs": what is counted is the times the singer came
+  // first, and winning the same song twice is two of them rather than one song.
+  number_of_wins: ["win", "wins"],
+};
+
 /** What is measured, filter included. */
 function measured(condition: Condition): string {
   const range = rangeWords(condition);
@@ -539,20 +588,11 @@ function measured(condition: Condition): string {
   }
 
   const phrase =
-    condition.metric === "number_of_sings"
-      ? counted(condition, "sing", "sings")
-      : condition.metric === "different_songs"
-        ? counted(condition, "different song", "different songs")
-        : condition.metric === "different_artists"
-          ? counted(condition, "different artist", "different artists")
-          : condition.metric === "number_of_wins"
-            ? // "wins" and not "won songs": what is counted is the times the
-              // singer came first, and winning the same song twice is two of
-              // them rather than one song.
-              counted(condition, "win", "wins")
-            : condition.metric === "sum_of_scores"
-              ? `scores adding up to ${COMPARATOR_LABELS[condition.comparator]} ${condition.value}`
-              : `an average score of ${COMPARATOR_LABELS[condition.comparator]} ${condition.value}`;
+    condition.metric === "sum_of_scores"
+      ? `scores adding up to ${COMPARATOR_LABELS[condition.comparator]} ${condition.value}`
+      : condition.metric === "average_score"
+        ? `an average score of ${COMPARATOR_LABELS[condition.comparator]} ${condition.value}`
+        : counted(condition, ...COUNTED_NOUNS[condition.metric]);
   return range === null
     ? phrase
     : `${phrase}, counting only scores of ${range}`;

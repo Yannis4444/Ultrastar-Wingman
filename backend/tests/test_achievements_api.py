@@ -14,7 +14,7 @@ stranger's answer because holding the capability is not the same as using it.
 
 from collections.abc import AsyncIterator
 from dataclasses import dataclass
-from datetime import UTC, datetime
+from datetime import UTC, datetime, timedelta
 from pathlib import Path
 from typing import Any
 
@@ -32,7 +32,7 @@ from ultrastar_wingman.app import create_app
 from ultrastar_wingman.auth.deps import COOKIE_NAME
 from ultrastar_wingman.config import BootstrapSettings
 from ultrastar_wingman.images import MAX_IMAGE_BYTES
-from ultrastar_wingman.karaoke.model import Score, Sing
+from ultrastar_wingman.karaoke.model import SESSION_GAP, KaraokeSession, Score, Sing
 from ultrastar_wingman.players.model import Player
 from ultrastar_wingman.songs import scanner
 
@@ -55,6 +55,15 @@ SECRET = {
     "color": "neutral",
     "hidden": True,
     "definition": [{"metric": "any_score", "comparator": "<=", "value": 2000}],
+}
+
+# "Ten songs in one evening" — the shape of every condition whose bar counts the party being
+# sung rather than the whole record.
+SESSION_CONDITION = {
+    "scope": "session",
+    "metric": "number_of_sings",
+    "comparator": ">=",
+    "value": 10,
 }
 
 
@@ -1120,6 +1129,123 @@ async def test_a_players_badges_are_masked_over_that_player_not_the_reader(party
         # An achievement that is not hidden keeps its bar.
         assert rows[open_one["id"]]["progress_current"] == 3, identity
         assert rows[open_one["id"]]["progress_target"] == 10, identity
+
+
+async def add_party(party: Party, session_id: str, *, minutes_ago: float) -> None:
+    """One recorded party, last sung into `minutes_ago` minutes ago. What
+    `stats.service.current_session` reads to answer whether an evening is still going."""
+    moment = datetime.now(UTC) - timedelta(minutes=minutes_ago)
+    async with party.factory() as session:
+        session.add(KaraokeSession(id=session_id, started_at=moment, last_activity_at=moment))
+        await session.commit()
+
+
+async def standing(party: Party, player_id: str) -> dict[str, dict[str, Any]]:
+    response = await party["anonymous"].get(f"/api/v1/players/{player_id}/achievements")
+    assert response.status_code == 200, response.text
+    return {row["achievement_id"]: row for row in response.json()["achievements"]}
+
+
+async def test_progress_counted_at_a_party_that_is_over_starts_again_at_zero(
+    party: Party,
+) -> None:
+    """ "Sing ten songs in one evening" is ten songs again tomorrow.
+
+    The engine has no clock: it counts a session-scoped condition in the singer's newest
+    party and writes down which one that was. Here is where that number meets the time —
+    while that party is the one still going it is what the bar says, and once it is over the
+    bar reads `0 / N`. Zero and **not** null: null is how a row with no bar at all says so,
+    and a row that had one last night still has one tonight.
+    """
+    tonight = await create(party["admin"], name="Tonight", definition=[SESSION_CONDITION])
+    last_month = await create(party["admin"], name="Last month", definition=[SESSION_CONDITION])
+    global_one = await create(
+        party["admin"],
+        name="Over all time",
+        definition=[{"metric": "number_of_sings", "comparator": ">=", "value": 10}],
+    )
+    player_id = await add_player(party, "user", "Yannis")
+    await add_party(party, "party-now", minutes_ago=5)
+    await add_party(party, "party-old", minutes_ago=60 * 24 * 30)
+    async with party.factory() as session:
+        for achievement_id, progress_session_id in (
+            (tonight["id"], "party-now"),
+            (last_month["id"], "party-old"),
+            # Progress from a global condition names no party and is never zeroed.
+            (global_one["id"], None),
+        ):
+            session.add(
+                PlayerAchievement(
+                    achievement_id=achievement_id,
+                    player_id=player_id,
+                    progress_current=9,
+                    progress_target=10,
+                    progress_session_id=progress_session_id,
+                )
+            )
+        await session.commit()
+
+    rows = await standing(party, player_id)
+
+    assert rows[tonight["id"]]["progress_current"] == 9
+    assert rows[last_month["id"]]["progress_current"] == 0
+    # The target stays either way, which is what keeps the bar on the page.
+    assert rows[last_month["id"]]["progress_target"] == 10
+    assert rows[global_one["id"]]["progress_current"] == 9
+
+
+async def test_progress_from_the_last_party_is_zero_once_no_party_is_running(
+    party: Party,
+) -> None:
+    """Nothing has been sung for longer than the session gap, so there is no current party
+    at all and every party-scoped bar has started again."""
+    tonight = await create(party["admin"], name="Tonight", definition=[SESSION_CONDITION])
+    player_id = await add_player(party, "user", "Yannis")
+    await add_party(party, "party-now", minutes_ago=SESSION_GAP.total_seconds() / 60 + 1)
+    async with party.factory() as session:
+        session.add(
+            PlayerAchievement(
+                achievement_id=tonight["id"],
+                player_id=player_id,
+                progress_current=9,
+                progress_target=10,
+                progress_session_id="party-now",
+            )
+        )
+        await session.commit()
+
+    assert (await standing(party, player_id))[tonight["id"]]["progress_current"] == 0
+
+
+async def test_an_earned_badge_keeps_the_numbers_it_was_earned_with(party: Party) -> None:
+    """It was earned. The number beside a badge is a record of how it was reached, not an
+    invitation, so nothing about it starts again in the morning.
+
+    This is the reading half only — the row is written by hand. That the engine puts the
+    earning party's own number on such a row in the first place is
+    `test_an_earned_badge_counts_the_party_that_earned_it`.
+    """
+    earned = await create(party["admin"], name="Earned", definition=[SESSION_CONDITION])
+    player_id = await add_player(party, "user", "Yannis")
+    await add_party(party, "party-old", minutes_ago=60 * 24 * 30)
+    async with party.factory() as session:
+        session.add(
+            PlayerAchievement(
+                achievement_id=earned["id"],
+                player_id=player_id,
+                earned_at=datetime(2026, 8, 1, 20, 0, tzinfo=UTC),
+                session_id="party-old",
+                progress_current=10,
+                progress_target=10,
+                progress_session_id="party-old",
+            )
+        )
+        await session.commit()
+
+    row = (await standing(party, player_id))[earned["id"]]
+
+    assert row["progress_current"] == 10
+    assert row["earned_at"] is not None
 
 
 async def test_a_players_badges_are_whole_once_they_are_earned(party: Party) -> None:

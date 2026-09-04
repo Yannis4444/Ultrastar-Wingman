@@ -4,7 +4,7 @@
 from pydantic import BaseModel, field_validator
 
 from .model import Song
-from .txt import SongTxt
+from .txt import SongTxt, no_value
 
 # The largest year a four-digit `#YEAR` header can hold. Nothing older than the year 0 was
 # ever recorded either, so a year the editor *writes* is bounded on both ends rather than
@@ -70,7 +70,11 @@ class SongMetadata(BaseModel):
     @field_validator("language", "genre", "edition")
     @classmethod
     def _optional(cls, value: str | None) -> str | None:
-        return None if value is None else (_one_line(value).strip() or None)
+        # `txt.no_value`, so the editor cannot put back what the parser reads as nothing:
+        # a `None` typed into the genre box removes the header, exactly as an emptied box
+        # does. Without it, saving a song whose file says `#GENRE:None` would write the word
+        # again and the next scan would read it as no genre — a row that never settles.
+        return None if value is None else no_value(_one_line(value))
 
 
 class SongEdit(BaseModel):

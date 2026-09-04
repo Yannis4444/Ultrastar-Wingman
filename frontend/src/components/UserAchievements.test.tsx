@@ -186,6 +186,32 @@ it("draws a bar where there is progress and none where there is no target", asyn
   expect(bars[0].style.width).toBe("70%");
 });
 
+it("draws an empty bar for a party-scoped achievement between parties", async () => {
+  // The API answers `0` with the target kept for progress it counted at a party
+  // that is over ("ten songs in one evening" is ten songs again tomorrow), and
+  // `0` is not `null`: the row still has a bar, standing at nothing. A falsy
+  // check anywhere on the way here would hide it.
+  const tonight = achievementRead({ id: "a-party", name: "Ten in one night" });
+  const { container } = renderSection(
+    [tonight],
+    [
+      playerAchievementRead({
+        achievement: tonight,
+        earned_at: null,
+        progress_current: 0,
+        progress_target: 10,
+      }),
+    ],
+  );
+
+  expect(await screen.findByText("0 / 10")).toBeInTheDocument();
+  const bar = container.querySelector<HTMLElement>(
+    ".achievement-progress-bar > span",
+  );
+  expect(bar).not.toBeNull();
+  expect(bar?.style.width).toBe("0%");
+});
+
 it("invites a singer who has earned nothing yet", async () => {
   // What the API answers for a player who has never been scored: no rows at
   // all, so the catalogue is what says how many there are.

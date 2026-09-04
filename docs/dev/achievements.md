@@ -54,6 +54,9 @@ import a round trip.
 | `number_of_sings` | How many distinct sings they belong to. A duet scored twice is one sing. |
 | `different_songs` | How many distinct `song_id`s. |
 | `different_artists` | How many distinct artists, compared case-insensitively. A song that has left the library carries no artist and counts for nothing. |
+| `different_genres` | How many distinct genres, stripped and compared case-insensitively. A song with no genre counts for nothing — and so does one whose genre is the literal `None`, which is what USDB writes into a file it has no genre for. `songs/txt.py` reads that as no genre at parse time (`no_value`), and the metric refuses it a second time so that a row scanned before that rule existed does not become a genre of its own. |
+| `different_decades` | How many distinct decades, `year // 10 * 10`. A song with no year belongs to no decade and counts for nothing — "the unknowns" is not a decade. |
+| `most_sings_of_one_song` | How often the *most* sung song was sung: the highest number of sings any single `song_id` of the surviving scores has. "Sing the same song three times" is this metric at 3, over any number of parties, and the other songs in between do not matter. Sings and not scores, like `number_of_sings`. |
 | `number_of_wins` | How many of them came first in their own sing — `scores.placement == 1` with a `scores.field_size` of at least 2. A song nobody else sang is not a win (the field was one), and a tie for the top is a win for everybody holding it (standard competition ranking: both are `1`, and the next one is `3`). Both columns are written when the sing is scored and are never recomputed, so a win survives the losing score being deleted or moved to another singer — which is the whole reason they are stored. A score too old for migration 0026's backfill carries neither and is not a win. |
 
 ### The song selector
@@ -248,12 +251,59 @@ a lie.
 * A condition's progress is `min(current, target) / target`.
 * An achievement's progress is its **least complete** condition — all of them
   have to hold, so the weakest is the honest number.
-* For `session` scope it is the best any **single** session reached, the
-  current party included.
+* For `session` scope it is measured in **one** party: the party that satisfied
+  the session-scoped conditions, or the player's **newest** party while none
+  has. Never the best one they ever had. See below.
 * An achievement with no progressible condition stores `NULL` and draws no
   bar.
 * A `hidden` achievement draws no bar until it is earned — a bar would leak
   what it is for.
+
+### A party-scoped bar counts the party being sung
+
+"Ten songs in one evening" is ten songs again tomorrow, so its bar is about
+*this* evening. A bar stuck at 9 of 10 from an evening in September says the
+singer is one song away when they are ten, and it can never move again.
+
+The engine has no clock (nothing in `evaluate.py` does), so this is answered in
+two halves:
+
+1. `evaluate._progress` measures a session-scoped condition in the **last**
+   party in row order — the newest one the player has scores in, since
+   `service.load_rows` orders them chronologically and two parties never
+   interleave — and carries out which party that was as
+   `Outcome.progress_session_id`. `service._write` stores it in
+   `player_achievements.progress_session_id`. The exception is a party that has
+   already satisfied every session-scoped condition (`earned_in`): that party
+   is the one measured, for good, because the number beside an earned badge is
+   a record of how it was reached. An earned "ten songs in one evening"
+   therefore reads 10 of 10 whatever is sung tonight, and it is also what puts
+   the remaining global condition on the bar of a *mixed* achievement whose
+   one-evening half is already done.
+2. `achievements/api.py` (`_read_row` → `_current`) compares that against
+   `stats.service.current_session()`, the party that is still going. While
+   they are the same party the stored number is what the bar says; once the
+   party is over the answer is `0`, with `progress_target` kept — so the row
+   still draws a bar, at nothing.
+
+`0` and never `NULL`: `NULL` is how a row with no progress at all says it has
+no bar, and a row that had one last night still has one tonight. An **earned**
+achievement is left exactly as it is — the number beside a badge is a record of
+how it was reached, not an invitation.
+
+Two consequences worth knowing:
+
+* Progress from a **global** condition carries no `progress_session_id` and is
+  never zeroed. Where an achievement mixes the two scopes, the stored party is
+  the *weakest* condition's — so a mixed achievement can perfectly well read a
+  global number that stands still between parties. Progress is one condition's
+  number, and that is the condition it came from. (No shipped achievement
+  mixes scopes.)
+* A row written before migration 0029 carries `NULL` and therefore shows the
+  old best-party figure until the next pass rewrites it — a sing the player is
+  scored in, or any edit to the catalogue. Nothing runs a pass at startup, and
+  a migration inventing a party id would be a claim about an evening the
+  column was not written in.
 
 ## Hidden achievements
 

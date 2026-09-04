@@ -21,7 +21,9 @@ Six values, and Wingman writes them into the song's own file.
 **Title** and **Artist** have to say something. The other four may be left
 empty, which means the song has no year (or no genre, and so on). The filter
 then treats it as a song with nothing to match. **Year** takes a number from 0
-to 9999.
+to 9999. Typing the word `None` into **Language**, **Genre**, or **Edition**
+empties it as well: song files written by USDB use that word for "nothing
+here", so Wingman reads it that way too.
 
 What Wingman writes is the song's own file, not only its own copy of the row.
 Ultrastar Deluxe shows the corrected title too, and the next library scan agrees

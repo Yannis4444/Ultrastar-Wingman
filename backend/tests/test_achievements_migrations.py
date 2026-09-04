@@ -174,3 +174,53 @@ async def test_0025_leaves_a_host_s_own_name_alone(tmp_path: Path) -> None:
 
     await _alembic(database_url, "head")
     assert await _name_of(database_url, "builtin-artists-10") == "Jetsetter"
+
+
+async def test_0029_gives_the_progress_already_stored_no_party(tmp_path: Path) -> None:
+    """The column says which party `progress_current` was counted in, and progress written
+    before this revision was the best any single party ever reached — so it names none.
+
+    NULL is what the API reads as "not a party's number", which leaves such a row showing the
+    old figure until the next pass rewrites it. That is deliberate: a pass runs on the next
+    sing and on any edit to the catalogue, and inventing a party id in a migration would be a
+    claim about an evening the column was not written in.
+    """
+    database_url = f"sqlite+aiosqlite:///{tmp_path / 'progress.db'}"
+
+    await _alembic(database_url, "0028")
+    engine = create_async_engine(database_url)
+    try:
+        async with engine.begin() as connection:
+            await connection.execute(
+                text(
+                    "INSERT INTO player_achievements "
+                    "(achievement_id, player_id, earned_at, session_id, "
+                    "progress_current, progress_target) "
+                    "VALUES ('builtin-sings-10', 'a-player', NULL, NULL, 9, 10)"
+                )
+            )
+
+        await _alembic(database_url, "head")
+        async with engine.connect() as connection:
+            row = (
+                await connection.execute(
+                    select(
+                        PlayerAchievement.progress_current,
+                        PlayerAchievement.progress_target,
+                        PlayerAchievement.progress_session_id,
+                    )
+                )
+            ).one()
+        assert tuple(row) == (9, 10, None)
+
+        # And back off again: the column goes, the progress it was beside stays.
+        await _alembic(database_url, "0028", down=True)
+        async with engine.connect() as connection:
+            kept = (
+                await connection.execute(
+                    select(PlayerAchievement.progress_current, PlayerAchievement.progress_target)
+                )
+            ).one()
+        assert tuple(kept) == (9, 10)
+    finally:
+        await engine.dispose()

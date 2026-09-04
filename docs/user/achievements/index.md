@@ -41,6 +41,12 @@ Not every unearned row has a bar. An achievement asking for a score *below*
 something, or for exactly a number, has nothing to fill up. A hidden one never
 shows a bar either, because the bar would give the surprise away.
 
+A bar for something that has to happen **in one evening** counts tonight, not
+your best night ever. It fills up while the party runs, and between parties it
+reads *0 / 10* with the bar empty: ten songs in one evening is ten songs again
+next time. Bars for the all-time achievements keep counting up whatever night
+it is.
+
 The count is over the achievements that are switched on, so it doubles as the
 list of what is left to reach for. The block stays away when the host switched
 achievements off. It also stays away for an account with no player behind it,

@@ -126,6 +126,14 @@ describe("progress", () => {
     expect(progressLabel(14, 10)).toBe("10 / 10");
   });
 
+  it("draws an empty bar for nothing done yet", () => {
+    // The answer for a party-scoped bar between parties, and the reason the
+    // two functions test for `null` rather than for a falsy number: zero is a
+    // bar standing at nothing, which is not the same as having no bar.
+    expect(progressFraction(0, 10)).toBe(0);
+    expect(progressLabel(0, 10)).toBe("0 / 10");
+  });
+
   it("draws no bar when there is no progress to draw", () => {
     // A masked row, and one whose conditions are none of them monotone.
     expect(progressFraction(null, 10)).toBeNull();
@@ -219,9 +227,27 @@ describe("conditionTarget", () => {
 describe("the editor's vocabulary", () => {
   it("names every metric the backend has, once each", () => {
     expect([...METRICS].sort()).toEqual(Object.keys(METRIC_LABELS).sort());
+    // `METRIC_LABELS` and `METRIC_DESCRIPTIONS` are keyed by the generated
+    // `Condition["metric"]`, so a metric the backend added and this file has
+    // not is a type error rather than a missing option. This is the other
+    // half: one the editor offers and nothing describes.
+    expect([...METRICS].sort()).toEqual(
+      Object.keys(METRIC_DESCRIPTIONS).sort(),
+    );
     expect(METRIC_LABELS.any_score).toBe("Any score");
     expect(METRIC_LABELS.different_artists).toBe("Different artists");
     expect(METRIC_LABELS.number_of_wins).toBe("Number of wins");
+    expect(METRIC_LABELS.different_decades).toBe("Different decades");
+  });
+
+  it("says of the three counting metrics what does not count", () => {
+    // The traps: no year is no decade, no genre is no genre, and the same-song
+    // count is about one song rather than about a run of it.
+    expect(METRIC_DESCRIPTIONS.different_decades).toContain("no year");
+    expect(METRIC_DESCRIPTIONS.different_genres).toContain("no genre");
+    expect(METRIC_DESCRIPTIONS.most_sings_of_one_song).toContain(
+      "other songs in between",
+    );
   });
 
   it("says of a win the two things that are not obvious", () => {
@@ -439,6 +465,50 @@ describe("conditionSentence", () => {
         condition({ metric: "number_of_wins", scope: "session", value: 1 }),
       ),
     ).toBe("In one party, at least 1 win.");
+  });
+
+  it("says what the three counting metrics measure", () => {
+    expect(
+      conditionSentence(
+        condition({ metric: "different_genres", comparator: ">=", value: 5 }),
+      ),
+    ).toBe("Over all time, at least 5 different genres.");
+    expect(
+      conditionSentence(
+        condition({ metric: "different_decades", scope: "session", value: 1 }),
+      ),
+    ).toBe("In one party, at least 1 different decade.");
+    // "of one and the same song": the number is how often the most-sung song
+    // was sung, not how many songs reached it.
+    expect(
+      conditionSentence(
+        condition({
+          metric: "most_sings_of_one_song",
+          comparator: ">=",
+          value: 3,
+        }),
+      ),
+    ).toBe("Over all time, at least 3 sings of one and the same song.");
+  });
+
+  it("gives the three counting metrics a bar like any other count", () => {
+    // Nothing in `conditionTarget` knows one count from another: all three are
+    // counts compared upward, which is all the progress rule ever asks.
+    for (const metric of [
+      "different_genres",
+      "different_decades",
+      "most_sings_of_one_song",
+    ] as const) {
+      expect(
+        conditionTarget(condition({ metric, comparator: ">=", value: 3 })),
+      ).toBe(3);
+      expect(
+        conditionTarget(condition({ metric, comparator: ">", value: 3 })),
+      ).toBe(4);
+      expect(
+        conditionTarget(condition({ metric, comparator: "<=", value: 3 })),
+      ).toBeNull();
+    }
   });
 
   it("gives a win the same progress bar as any other count", () => {

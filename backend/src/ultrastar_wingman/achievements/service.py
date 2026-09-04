@@ -325,6 +325,7 @@ async def _write(
         row.session_id = outcome.session_id
         row.progress_current = outcome.progress_current
         row.progress_target = outcome.progress_target
+        row.progress_session_id = outcome.progress_session_id
 
     # Whatever is left named an achievement that is disabled or gone. Dropping the row is
     # what makes switching one back on a recomputation rather than a stale badge.
