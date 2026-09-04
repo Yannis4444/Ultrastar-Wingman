@@ -531,8 +531,8 @@ about, and the **Must be visible** column names that part alone.
 | `settings` | `settings/index.md` | `/settings` | USDX group open, its Advanced block open | 390x844 | The group header and its icon, the Base path field, the Advanced block |
 | `host-screen` | `host-screen/index.md` | `/host` | A party going, four wishes, five singers scored | 1280x720 | QR card, join address, standing, most wished |
 | `host-playing` | `host-screen/index.md` | `/host` | **launcher**: a song playing | 1280x720 | The stage with the cover and the singers |
-| `host-results` | `scores/index.md` | `/host` | **launcher**: the song just finished and its scores were written | 1280x720 | The results of the song that finished |
-| `host-achievements` | `achievements/index.md` | `/host` | **launcher**: the sing that completes the achievement the seed left one song short for Bender | 1280x720 | The badges landing for one singer, before the results appear |
+| `host-results` | `scores/index.md` | `/host` | **launcher**: the song just finished and its scores were written | 1280x720 | The results of the song that finished, the score summary beside its cover |
+| `host-achievements` | `achievements/index.md` | `/host` | **launcher**: the sing that completes the achievement the seed left one song short for Bender | 1280x720 | The badges landing for one singer, over the whole screen with no rail beside them, before the results appear |
 | `host-manage` | `host-screen/manage.md` | `/host/manage` | Host rights on that browser | 1280x720 | The management rows the host reaches from the TV |
 
 ## 7. Links and cross references

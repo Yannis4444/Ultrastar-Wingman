@@ -790,14 +790,18 @@ ROWS: dict[str, Row] = {
         viewport="host",
         route="/host",
         launcher=True,
-        ready=HOST_IDLE + ' && q(".last-song") && q(".last-song-title")',
+        # The summary beside the cover lands a round trip behind the bars, so it is
+        # what the shutter waits for rather than the title.
+        ready=HOST_IDLE + ' && q(".last-song") && q(".last-song-title") && q(".last-song-summary")',
     ),
     "host-achievements": Row(
         identity="host",
         viewport="host",
         route="/host",
         launcher=True,
-        ready=HOST_IDLE + ' && q(".host-achievements")'
+        # The badges take the whole screen, so the rail being *gone* is half of what this
+        # picture is of (ui-guidelines §7, *Host*).
+        ready=HOST_IDLE + ' && q(".host-achievements") && !q(".host-rail")'
         ' && qa(".host-achievement-badge").length >= 2 && q(".host-achievement-player-name")',
         # The badges are thrown in one by one, and the row holds for the two `host_seconds`
         # settings the seed raised. Long enough that they have all landed, far short of the

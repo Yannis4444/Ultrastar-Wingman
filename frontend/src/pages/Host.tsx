@@ -202,8 +202,17 @@ export default function Host() {
       queryClient.setQueryData(getCurrentSingQueryKey(), { sing: null }),
   });
 
+  // New achievements take the whole screen (§7): while they are actually on it
+  // the rail is not rendered at all — no QR card, no standing, no wishes — and
+  // the stage runs the full width. `waiting`, the beat held for badges that may
+  // never come, leaves the rail where it is; a rail that blinked out for every
+  // song that earned nobody anything would be the beat made visible.
+  const takeover = earned === "playing";
+
   return (
-    <div className={`host-page${idle ? " host-idle" : ""}`}>
+    <div
+      className={`host-page${takeover ? " host-takeover" : ""}${idle ? " host-idle" : ""}`}
+    >
       <div className="host-stage">
         <CurrentlyPlaying variant="host" />
         {/* The badges a finished song earned take the stage before its scores
@@ -215,39 +224,42 @@ export default function Host() {
         <HostAchievements onPhase={setEarned} />
         <HostResults
           players={standing.players}
-          fallback={earned === "playing" ? null : <HostBrand />}
+          fallback={takeover ? null : <HostBrand />}
           suppressed={earned !== "idle"}
         />
       </div>
 
-      <div className="host-rail">
-        {/* First in the rail because it is the one thing a guest is looking
-            for — nothing below it may push it off the top. */}
-        <div className="host-join">
-          <QRCode
-            value={joinUrl}
-            size={512}
-            viewBox="0 0 512 512"
-            bgColor="#ffffff"
-            fgColor="#021720"
-            style={{ width: "100%", height: "auto", display: "block" }}
-          />
-          <p className="host-join-label">Scan to join</p>
-          {/* Only `http://` is dropped — it is what a phone assumes anyway. An
-              `https://` join URL has to keep its scheme, or the guest who types
-              the line instead of scanning it lands on the wrong protocol. */}
-          <p className="host-join-url">{joinUrl.replace(/^http:\/\//, "")}</p>
+      {!takeover && (
+        <div className="host-rail">
+          {/* First in the rail because it is the one thing a guest is looking
+              for — nothing below it may push it off the top. */}
+          <div className="host-join">
+            <QRCode
+              value={joinUrl}
+              size={512}
+              viewBox="0 0 512 512"
+              bgColor="#ffffff"
+              fgColor="#021720"
+              style={{ width: "100%", height: "auto", display: "block" }}
+            />
+            <p className="host-join-label">Scan to join</p>
+            {/* Only `http://` is dropped — it is what a phone assumes anyway.
+                An `https://` join URL has to keep its scheme, or the guest who
+                types the line instead of scanning it lands on the wrong
+                protocol. */}
+            <p className="host-join-url">{joinUrl.replace(/^http:\/\//, "")}</p>
+          </div>
+          {showStanding && (
+            <SessionLeaderboard
+              entries={standing.entries}
+              order={order}
+              onOrder={setOrder}
+              players={standing.players}
+            />
+          )}
+          {wishes.length > 0 && <HostWishes wishes={wishes} />}
         </div>
-        {showStanding && (
-          <SessionLeaderboard
-            entries={standing.entries}
-            order={order}
-            onOrder={setOrder}
-            players={standing.players}
-          />
-        )}
-        {wishes.length > 0 && <HostWishes wishes={wishes} />}
-      </div>
+      )}
 
       {/* Everything mouse-only lives here; hiding is opacity-only so the
           strings stay in the DOM and Tab still reaches the buttons. */}

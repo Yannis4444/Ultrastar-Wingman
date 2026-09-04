@@ -170,6 +170,49 @@ export function songHistory(scores: ScoreWithContext[]): SongHistory | null {
   };
 }
 
+/** Where a score sits on the 0…`MAX_SCORE` scale the host's bars are drawn on,
+ * as a percentage of the bar. Anything off the scale sits on its end. */
+export function scoreOffset(score: number): number {
+  return Math.min(100, Math.max(0, (score / MAX_SCORE) * 100));
+}
+
+/** One of the three all-time marks above the host's score bars. */
+export interface ScoreMarker {
+  /** Which number it stands for, and therefore which glyph it wears. */
+  kind: "worst" | "average" | "best";
+  /** Where it sits on the bars' scale, as a percentage. */
+  offset: number;
+}
+
+/**
+ * The marks above the host's score bars, with the ones that would collide
+ * dropped (ui-guidelines §7, *Host*). `minGap` is that collision distance as a
+ * percentage of the strip — the caller measures it, because 2.5em of the
+ * marker's own font size is a share of the strip only once both are in pixels.
+ *
+ * The average yields first: it is the number the two ends already imply. When
+ * worst and best themselves fall inside the gap the three collapse into one
+ * mark wearing `average`, which is where a song sung once ends up. Nothing is
+ * lost by any of it — the strip is decoration for numbers the summary above it
+ * prints in full.
+ */
+export function scoreMarkers(
+  stats: SongHistory,
+  minGap: number,
+): ScoreMarker[] {
+  const worst = scoreOffset(stats.worst);
+  const average = scoreOffset(stats.average);
+  const best = scoreOffset(stats.best);
+  // Exactly the gap is far enough: it is a minimum, not a clearance.
+  if (best - worst < minGap) return [{ kind: "average", offset: average }];
+  const marks: ScoreMarker[] = [{ kind: "worst", offset: worst }];
+  if (average - worst >= minGap && best - average >= minGap) {
+    marks.push({ kind: "average", offset: average });
+  }
+  marks.push({ kind: "best", offset: best });
+  return marks;
+}
+
 /**
  * Whether the sing that just finished set the song's all-time record. The old
  * app's rule, ported: it is a record when *every* occurrence of the song's best

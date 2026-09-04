@@ -1,4 +1,10 @@
-import { useEffect, useRef, useState, type CSSProperties } from "react";
+import {
+  useEffect,
+  useLayoutEffect,
+  useRef,
+  useState,
+  type CSSProperties,
+} from "react";
 import { achievementDescription, achievementName } from "../achievements";
 import type { AchievementRead, AchievementSettings, PlayerRead } from "../api";
 import { useAchievements } from "../hooks/useAchievements";
@@ -232,7 +238,11 @@ export default function HostAchievements({ onPhase }: Props) {
     : arm !== null
       ? "waiting"
       : "idle";
-  useEffect(() => {
+  // Before the paint, not after it: the page takes the rail down for `playing`
+  // (§7), so a phase told one frame late would put this row on the screen once
+  // at the narrow width — and hand the stage back to a full-width results
+  // block for one frame when the next song cuts the sequence short.
+  useLayoutEffect(() => {
     onPhase?.(phase);
   }, [onPhase, phase]);
 

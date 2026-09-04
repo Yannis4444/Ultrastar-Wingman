@@ -454,20 +454,29 @@ test("what a song earned takes the stage, and the results follow it", async () =
   expect(stage).toHaveTextContent("Golden Voice");
   expect(screen.queryByLabelText("Last song")).not.toBeInTheDocument();
   expect(screen.queryByText("Ultrastar Wingman")).not.toBeInTheDocument();
-  // The rail is not the stage's to take: the QR code stays where it was.
-  expect(screen.getByText("Scan to join")).toBeInTheDocument();
+  // And the whole screen with it (§7): the rail is not rendered for those
+  // seconds — no QR card, no standing, no wishes — and the one column left is
+  // the stage.
+  expect(container.querySelector(".host-rail")).toBeNull();
+  expect(screen.queryByText("Scan to join")).not.toBeInTheDocument();
+  expect(screen.queryByLabelText("Party leaderboard")).not.toBeInTheDocument();
+  expect(container.querySelector(".host-page")).toHaveClass("host-takeover");
 
   // 4 + 2 × 1 seconds at the default settings, and then the stage is handed
-  // back to the song that earned them.
+  // back to the song that earned them — and the rail comes back with it.
   act(() => vi.advanceTimersByTime(6_100));
   expect(screen.queryByLabelText("New achievements")).not.toBeInTheDocument();
   expect(screen.getByLabelText("Last song")).toBeInTheDocument();
+  expect(container.querySelector(".host-page")).not.toHaveClass(
+    "host-takeover",
+  );
+  expect(await screen.findByText("Scan to join")).toBeInTheDocument();
 });
 
 test("the scores wait for the badges rather than flashing past them", async () => {
   vi.useFakeTimers({ shouldAdvanceTime: true });
   withScores();
-  renderHost("/host");
+  const { container } = renderHost("/host");
   await screen.findByLabelText("Last song");
   FakeSocket.deliver({ event: "karaoke.started", sing: null });
   await waitFor(() =>
@@ -485,6 +494,12 @@ test("the scores wait for the badges rather than flashing past them", async () =
   );
   expect(screen.getByText("Ultrastar Wingman")).toBeInTheDocument();
   expect(screen.queryByLabelText("Last song")).not.toBeInTheDocument();
+  // The beat is held for badges that may never come, so the rail stays where
+  // it is: only badges actually on the stage take the screen (§7).
+  expect(container.querySelector(".host-page")).not.toHaveClass(
+    "host-takeover",
+  );
+  expect(screen.getByText("Scan to join")).toBeInTheDocument();
 
   // Nothing followed, so the beat runs out and the results take the stage.
   act(() => vi.advanceTimersByTime(1_500));

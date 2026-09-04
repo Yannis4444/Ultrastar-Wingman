@@ -1,14 +1,17 @@
+import { useLayoutEffect, useRef, useState, type RefObject } from "react";
 import type { PlayerRead, ScoreWithContext, SongRead } from "../api";
-import { MAX_SCORE } from "../chartTheme";
 import {
   evaluationLabel,
   isNewHighscore,
+  scoreMarkers,
+  scoreOffset,
   scorePlayer,
   songHistory,
+  type ScoreMarker,
 } from "../stats";
-import { Icon } from "./icons";
-import IconStat from "./IconStat";
+import { Icon, type IconName } from "./icons";
 import PlayerAvatar from "./PlayerAvatar";
+import ScoreSummary from "./ScoreSummary";
 import SongCover from "./SongCover";
 import "./LastSong.css";
 
@@ -23,9 +26,58 @@ interface LastSongProps {
   players: Map<string, PlayerRead>;
 }
 
-/** Where a value sits on the 0…`MAX_SCORE` scale the bars are drawn on. */
-function offset(score: number): string {
-  return `${Math.min(100, Math.max(0, (score / MAX_SCORE) * 100))}%`;
+/** The glyph each of the three all-time marks wears. */
+const MARKER_ICONS: Record<ScoreMarker["kind"], IconName> = {
+  worst: "arrow-down",
+  average: "average",
+  best: "arrow-up",
+};
+
+/**
+ * The gap two markers keep, in em of their own font size (§7): one glyph, its
+ * pointer, and air.
+ */
+const MARKER_GAP_EM = 2.5;
+
+/**
+ * What that gap is worth on a strip nothing has measured yet — jsdom lays
+ * nothing out, and a TV strip is about this many percent wide per em.
+ */
+const FALLBACK_GAP = 4;
+
+/**
+ * The marker collision distance as a percentage of the strip: 2.5em of the
+ * marker's own font size, which is a share of the strip only once both are in
+ * pixels. The font size is read off the strip itself, which is why the clamp
+ * lives there rather than on the marks (LastSong.css).
+ *
+ * The strip is drawn whether or not there is a history to mark, so this
+ * measures once on mount and again whenever the element changes size — the
+ * height moves with `vh` alone, so a window resized only in height is caught
+ * too.
+ */
+function useMarkerGap(): [RefObject<HTMLDivElement | null>, number] {
+  const ref = useRef<HTMLDivElement | null>(null);
+  const [gap, setGap] = useState(FALLBACK_GAP);
+
+  useLayoutEffect(() => {
+    const element = ref.current;
+    if (element === null) return;
+    const measure = () => {
+      const width = element.clientWidth;
+      if (width <= 0) return;
+      const size = Number.parseFloat(getComputedStyle(element).fontSize);
+      if (!Number.isFinite(size) || size <= 0) return;
+      setGap(((MARKER_GAP_EM * size) / width) * 100);
+    };
+    measure();
+    if (typeof ResizeObserver === "undefined") return;
+    const observer = new ResizeObserver(measure);
+    observer.observe(element);
+    return () => observer.disconnect();
+  }, []);
+
+  return [ref, gap];
 }
 
 /**
@@ -33,7 +85,8 @@ function offset(score: number): string {
  * over its whole life, and a bar per singer of this run.
  *
  * The all-time numbers are the point of the block — a 7000 means something
- * different on a song nobody ever cleared 6000 on.
+ * different on a song nobody ever cleared 6000 on — and they are the phones'
+ * own score summary, in the naming column beside the cover (§7).
  */
 export default function LastSong({
   song,
@@ -43,6 +96,7 @@ export default function LastSong({
 }: LastSongProps) {
   const stats = songHistory(history);
   const record = isNewHighscore(history, scores);
+  const [strip, gap] = useMarkerGap();
 
   return (
     <section className="last-song" aria-label="Last song">
@@ -51,66 +105,33 @@ export default function LastSong({
         <div className="last-song-naming">
           <h2 className="last-song-title">{song?.title ?? "Unknown song"}</h2>
           {song !== null && <p className="last-song-artist">{song.artist}</p>}
+          {/* Every score is a different singer's, so the peaks are named; every
+              score is the same song, so the song count would be a fixed 1. */}
+          <ScoreSummary scores={history} named className="last-song-summary" />
         </div>
       </div>
 
-      {stats !== null && (
-        <div className="last-song-stats">
-          <IconStat
-            className="last-song-stat"
-            icon="hash"
-            label="Times sung"
-            value={stats.sings}
-          />
-          <IconStat
-            className="last-song-stat"
-            icon="arrow-up"
-            label="Best score"
-            value={`${stats.best} (${stats.bestPlayers.join(", ")})`}
-          />
-          <IconStat
-            className="last-song-stat"
-            icon="average"
-            label="Average score"
-            value={stats.average}
-          />
-          <IconStat
-            className="last-song-stat"
-            icon="arrow-down"
-            label="Worst score"
-            value={`${stats.worst} (${stats.worstPlayers.join(", ")})`}
-          />
-        </div>
-      )}
-
       <div className="last-song-bars">
-        {/* The same three numbers as the stat lines above, placed on the scale
-            the bars use — decoration for them, so it is not announced twice. */}
-        {stats !== null && (
-          <div className="last-song-markers" aria-hidden="true">
-            <span />
-            <div>
-              <span
-                className="last-song-marker"
-                style={{ left: offset(stats.worst) }}
-              >
-                <Icon name="arrow-down" />
-              </span>
-              <span
-                className="last-song-marker"
-                style={{ left: offset(stats.average) }}
-              >
-                <Icon name="average" />
-              </span>
-              <span
-                className="last-song-marker"
-                style={{ left: offset(stats.best) }}
-              >
-                <Icon name="arrow-up" />
-              </span>
-            </div>
+        {/* The same numbers as the summary above, placed on the scale the bars
+            use — decoration for them, so it is not announced twice. Drawn
+            whether or not the history has landed: the strip is what the
+            markers are measured against, and a band that appears a round trip
+            later would push the bars down in front of the room. */}
+        <div className="last-song-markers" aria-hidden="true">
+          <span />
+          <div ref={strip}>
+            {stats !== null &&
+              scoreMarkers(stats, gap).map((marker) => (
+                <span
+                  className="last-song-marker"
+                  key={marker.kind}
+                  style={{ left: `${marker.offset}%` }}
+                >
+                  <Icon name={MARKER_ICONS[marker.kind]} />
+                </span>
+              ))}
           </div>
-        )}
+        </div>
 
         {scores.map((score) => (
           <div className="last-song-row" key={score.id}>
@@ -121,7 +142,7 @@ export default function LastSong({
             <div className="last-song-bar">
               <span
                 className="last-song-percent"
-                style={{ width: offset(score.score) }}
+                style={{ width: `${scoreOffset(score.score)}%` }}
                 aria-hidden="true"
               />
               <span className="last-song-singer">

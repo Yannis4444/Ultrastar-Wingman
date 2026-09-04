@@ -69,9 +69,11 @@ Tap the darkened page above or below it, or :wingman-close: in the corner.
 ## The moment on the host screen
 
 When a song is over, the host screen holds the results back and throws the new
-badges up first. One singer at a time: their picture and their name, and their
-badges flying in beside the name and the one-line description. At most four
-badges land in a row. Then the next singer, then the results as usual.
+badges up first. They take the whole screen: the QR code, **Tonight** and
+**Most wished** are gone for those seconds, and come back the moment the badges
+are done. One singer at a time: their picture and their name, and their badges
+flying in beside the name and the one-line description. At most four badges
+land in a row. Then the next singer, then the results as usual.
 
 ![The host screen with Bender's picture and name over two badges, Iron Lungs and Eighties Marathon, each under its description](../assets/screenshots/achievements/host-achievements.png){ width="720" loading=lazy }
 /// caption

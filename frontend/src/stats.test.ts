@@ -10,6 +10,8 @@ import {
   histogram,
   isNewHighscore,
   isTucked,
+  scoreMarkers,
+  scoreOffset,
   scorePlayer,
   scorePlayerKey,
   scoreSummary,
@@ -20,6 +22,7 @@ import {
   songLabel,
   sortGroups,
   summarize,
+  type SongHistory,
 } from "./stats";
 
 function song(id: string, artist: string, title: string): SongRead {
@@ -555,6 +558,66 @@ test("everybody who tied for best or worst is named once", () => {
 
 test("a song nobody has scored yet has no history at all", () => {
   expect(songHistory([])).toBeNull();
+});
+
+/** A history holding only the three numbers the markers are drawn from. */
+function marks(worst: number, average: number, best: number): SongHistory {
+  return { sings: 1, best, bestPlayers: [], worst, worstPlayers: [], average };
+}
+
+/** Which glyph each surviving mark wears, in the order they are drawn. */
+function kinds(history: SongHistory, gap: number): string[] {
+  return scoreMarkers(history, gap).map((marker) => marker.kind);
+}
+
+test("a score sits on the bars' scale, and never off either end", () => {
+  expect(scoreOffset(2500)).toBe(25);
+  // USDX cannot award more than 10000, and a negative score is a parsing
+  // accident — either way the mark stays on the strip.
+  expect(scoreOffset(12000)).toBe(100);
+  expect(scoreOffset(-500)).toBe(0);
+});
+
+test("three numbers with room between them keep all three markers", () => {
+  expect(kinds(marks(2000, 5000, 9000), 5)).toEqual([
+    "worst",
+    "average",
+    "best",
+  ]);
+});
+
+test("the average yields to the end it is crowding", () => {
+  // 87% against 90%: three percent of the strip is not a glyph, its pointer
+  // and air. The two ends imply the number that goes.
+  expect(kinds(marks(2000, 8700, 9000), 5)).toEqual(["worst", "best"]);
+  // The same the other way round.
+  expect(kinds(marks(2000, 2300, 9000), 5)).toEqual(["worst", "best"]);
+});
+
+test("worst and best inside the gap collapse into one average mark", () => {
+  const collapsed = scoreMarkers(marks(8000, 8200, 8400), 5);
+
+  expect(collapsed).toEqual([{ kind: "average", offset: 82 }]);
+});
+
+test("a song sung exactly once wears one mark", () => {
+  // Every number is the same number: three glyphs on one spot say it three
+  // times over.
+  expect(kinds(marks(7300, 7300, 7300), 5)).toEqual(["average"]);
+});
+
+test("exactly the minimum gap is far enough for a marker to stay", () => {
+  // 20, 25 and 30 percent against a gap of five: a minimum is a minimum.
+  expect(kinds(marks(2000, 2500, 3000), 5)).toEqual([
+    "worst",
+    "average",
+    "best",
+  ]);
+  // A hundredth of a percent under it, and the average is the one that goes.
+  expect(kinds(marks(2000, 2499, 3000), 5)).toEqual(["worst", "best"]);
+  // The same boundary between the two ends: at the gap they both stay.
+  expect(kinds(marks(2000, 2250, 2500), 5)).toEqual(["worst", "best"]);
+  expect(kinds(marks(2000, 2250, 2499), 5)).toEqual(["average"]);
 });
 
 test("a record is one where the whole all-time best came out of this sing", () => {
