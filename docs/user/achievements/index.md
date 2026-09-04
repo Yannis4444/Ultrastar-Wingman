@@ -22,8 +22,8 @@ Log in and open **User**. Under your scores stands **Achievements** with your
 badges beside it. The count says how many you hold out of how many there are.
 Before your first one it says "Nothing yet. The first one is a song away".
 
-Tap the line to fold out the whole list. The ones you earned come first, newest
-first. The rest follow in the order the host arranged them in.
+Tap the line to fold out the whole list. The ones you earned come first, then
+the rest — both in the order the host arranged them in.
 
 ![Fry's achievements folded out, with the badges he has earned and their dates, a locked hidden row, and progress bars under the rest](../assets/screenshots/achievements/user-achievements.png){ width="320" loading=lazy }
 /// caption

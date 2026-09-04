@@ -684,9 +684,13 @@ ROWS: dict[str, Row] = {
         scroll='show(q(".user-achievements"))',
     ),
     "achievement-modal": Row(
-        # Fry again, and his newest badge: the strip is in the summary, so the picture is
-        # taken with the list still folded away and the modal over it. The first badge of
-        # the strip is the one he earned last, and it is a built-in with a picture.
+        # Fry again: the strip is in the summary, so the picture is taken with the list
+        # still folded away and the modal over it. The strip is in catalogue order, so its
+        # first badge is the first thing in that order Fry has earned — the party's own
+        # *Eighties Marathon* leads the list and he has not earned it, *Sandstorm Survivor*
+        # is switched off and so is not drawn at all, which leaves *First Time on the Mic*:
+        # a built-in, and one of the ones that ship a picture, which is what the
+        # full-resolution wait below needs.
         identity="Fry",
         viewport="phone",
         route="/user",

@@ -56,9 +56,9 @@ Every move is saved as you make it. It is one order over all of them, so an
 achievement your party made can sit above one Wingman ships, and one Wingman
 ships can lead the list.
 
-This order is what the host screen follows and what a singer's own page falls
-back on. On a singer's page the badges they earned come first, newest first,
-and the rest keep the order you set.
+This order is what the host screen and a singer's own page follow. On a
+singer's page the badges they earned come first and the rest follow them, both
+in the order you set.
 
 If somebody adds, imports, or deletes an achievement while you are arranging,
 Wingman says "The achievements changed somewhere else, so this order no longer

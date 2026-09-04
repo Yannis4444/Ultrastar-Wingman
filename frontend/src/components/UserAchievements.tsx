@@ -10,7 +10,7 @@ import {
   listPlayerAchievementsQueryKey,
 } from "../api/@tanstack/react-query.gen";
 import { achievementDescription, achievementName } from "../achievements";
-import { parseServerTime, shortDate } from "../duration";
+import { shortDate } from "../duration";
 import { useAchievements } from "../hooks/useAchievements";
 import { useWingmanEvent, type WingmanEvent } from "../hooks/useWingmanEvents";
 import AchievementBadge from "./AchievementBadge";
@@ -50,11 +50,6 @@ function unearned(
     progress_target: null,
     achievement,
   };
-}
-
-/** When it was earned, as a number to sort by; an unearned row sorts last. */
-function earnedAt(row: PlayerAchievementRead): number {
-  return row.earned_at === null ? 0 : parseServerTime(row.earned_at);
 }
 
 /** One achievement on the singer's record: the badge, the name and the
@@ -108,7 +103,8 @@ function AchievementRow({
 /**
  * What one singer has earned, on their own page: the badges they hold in a
  * wrapping strip with "7 of 34" beside them, and behind that strip the whole
- * list — earned first, then the ones still out there.
+ * list — earned first, then the ones still out there, both halves in the
+ * catalogue's own order.
  *
  * Part of the singer's record (§7's *User*), between the scores above it and
  * the *Manage* errands below, and closed at rest so it never pushes those off
@@ -186,12 +182,16 @@ export default function UserAchievements({
     for (const row of rows ?? [])
       if (!seen.has(row.achievement_id)) all.push(row);
 
-    // Newest first, because the one just earned is the one being looked for;
-    // the rest keep the catalogue's own order, which is the order the host
-    // arranged them in. Sorting is stable, so ties keep it too.
-    const earned = all.filter((row) => row.earned_at !== null);
-    earned.sort((first, second) => earnedAt(second) - earnedAt(first));
-    return [...earned, ...all.filter((row) => row.earned_at === null)];
+    // The catalogue's own order — `sort_order`, the arrangement the host made
+    // on /user/achievements — with the earned ones ahead of the rest. Not the
+    // day they were earned: badges read in the host's own order, so the same
+    // relative order reads on the TV, on the admin page and here. `all` is
+    // already in that order and both filters keep it, so the partition below is
+    // the only thing this does.
+    return [
+      ...all.filter((row) => row.earned_at !== null),
+      ...all.filter((row) => row.earned_at === null),
+    ];
   }, [known, rows, playerId]);
 
   if (playerId === null || !catalogue.enabled) return null;
