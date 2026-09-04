@@ -461,7 +461,7 @@ export type Condition = {
     /**
      * Metric
      */
-    metric: 'any_score' | 'sum_of_scores' | 'average_score' | 'number_of_scores' | 'number_of_sings' | 'different_songs' | 'different_artists';
+    metric: 'any_score' | 'sum_of_scores' | 'average_score' | 'number_of_scores' | 'number_of_sings' | 'different_songs' | 'different_artists' | 'number_of_wins';
     /**
      * Comparator
      */
@@ -1180,6 +1180,14 @@ export type ScoreRead = {
      */
     difficulty: number | null;
     /**
+     * Placement
+     */
+    placement: number | null;
+    /**
+     * Field Size
+     */
+    field_size: number | null;
+    /**
      * Recorded At
      */
     recorded_at: string;
@@ -1230,6 +1238,14 @@ export type ScoreWithContext = {
      * Difficulty
      */
     difficulty: number | null;
+    /**
+     * Placement
+     */
+    placement: number | null;
+    /**
+     * Field Size
+     */
+    field_size: number | null;
     /**
      * Recorded At
      */

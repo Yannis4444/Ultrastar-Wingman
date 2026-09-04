@@ -150,6 +150,19 @@ it("emits the metric that was chosen", () => {
   expect(emitted(onChange).metric).toBe("different_artists");
 });
 
+it("offers winning a song, and says what one is", () => {
+  const onChange = renderBuilder([condition()]);
+
+  fireEvent.change(screen.getByLabelText("What is measured"), {
+    target: { value: "number_of_wins" },
+  });
+  expect(emitted(onChange).metric).toBe("number_of_wins");
+
+  renderBuilder([condition({ metric: "number_of_wins", value: 3 })]);
+  expect(screen.getByText(/nobody else/)).toBeVisible();
+  expect(screen.getByText("Over all time, at least 3 wins.")).toBeVisible();
+});
+
 it("explains the metric that is chosen, `any score` above all", () => {
   renderBuilder([condition({ metric: "any_score" })]);
 

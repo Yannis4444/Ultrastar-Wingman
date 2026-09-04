@@ -54,6 +54,7 @@ import a round trip.
 | `number_of_sings` | How many distinct sings they belong to. A duet scored twice is one sing. |
 | `different_songs` | How many distinct `song_id`s. |
 | `different_artists` | How many distinct artists, compared case-insensitively. A song that has left the library carries no artist and counts for nothing. |
+| `number_of_wins` | How many of them came first in their own sing — `scores.placement == 1` with a `scores.field_size` of at least 2. A song nobody else sang is not a win (the field was one), and a tie for the top is a win for everybody holding it (standard competition ranking: both are `1`, and the next one is `3`). Both columns are written when the sing is scored and are never recomputed, so a win survives the losing score being deleted or moved to another singer — which is the whole reason they are stored. A score too old for migration 0026's backfill carries neither and is not a win. |
 
 ### The song selector
 

@@ -55,6 +55,8 @@ def row(
     year: int | None = None,
     is_duet: bool | None = False,
     has_video: bool | None = False,
+    placement: int | None = None,
+    field_size: int | None = None,
 ) -> ScoreRow:
     return ScoreRow(
         score=score,
@@ -69,7 +71,14 @@ def row(
         year=year,
         is_duet=is_duet,
         has_video=has_video,
+        placement=placement,
+        field_size=field_size,
     )
+
+
+def won(score: int, **fields: Any) -> ScoreRow:
+    """A score that came first against somebody — the ordinary shape of a win."""
+    return row(score, placement=1, field_size=2, **fields)
 
 
 def orphan(score: int, *, sing_id: str = "sing-9", session_id: str | None = "party-a") -> ScoreRow:
@@ -347,6 +356,85 @@ def test_average_score_over_nothing_is_not_satisfiable() -> None:
 def test_different_artists_ignores_a_song_that_left_the_library() -> None:
     rows = [row(1000, artist="Queen"), orphan(2000)]
     assert evaluate([condition(metric="different_artists", comparator="=", value=1)], rows).earned
+
+
+# --------------------------------------------------------------------------- the wins
+
+
+def wins(rows: list[ScoreRow], count: int) -> bool:
+    return evaluate([condition(metric="number_of_wins", comparator="=", value=count)], rows).earned
+
+
+def test_number_of_wins_counts_the_sings_this_singer_came_first_in() -> None:
+    rows = [
+        won(9000, sing_id="s1"),
+        row(4000, sing_id="s2", placement=2, field_size=3),
+        won(8000, sing_id="s3"),
+    ]
+    assert wins(rows, 2)
+
+
+def test_a_shared_first_place_is_a_win_for_everybody_who_holds_it() -> None:
+    """Standard competition ranking gives both singers a placement of 1, and both of them
+    came first: nobody came second to them."""
+    assert wins([row(9000, sing_id="s1", placement=1, field_size=2)], 1)
+
+
+def test_a_solo_sing_is_not_a_win() -> None:
+    """One score in the field means there was nobody to beat, and `field_size` is the only
+    thing that still says so once the evening is over."""
+    assert wins([row(9000, sing_id="s1", placement=1, field_size=1)], 0)
+
+
+def test_a_score_with_no_placement_recorded_is_not_a_win() -> None:
+    """Everything sung before migration 0026 that the backfill could not reach. Unknown is
+    not a win — the count is the honest floor rather than a guess."""
+    assert wins([row(9000), row(8000, placement=None, field_size=4)], 0)
+
+
+def test_number_of_wins_counts_only_the_scores_the_filters_left() -> None:
+    """The metric runs after the filters like every other one: "won a song by ABBA" and "won
+    with 9000 or more" are both built that way."""
+    rows = [won(9000, sing_id="s1", artist="ABBA"), won(4000, sing_id="s2", artist="Queen")]
+    high = condition(metric="number_of_wins", comparator=">=", value=1, score_filter={"min": 9000})
+    assert evaluate([high], rows).earned
+    assert not evaluate([high], [rows[1]]).earned
+    abba = condition(
+        metric="number_of_wins",
+        comparator=">=",
+        value=1,
+        match={"clauses": [{"field": "artist", "op": "equals", "value": "ABBA"}]},
+    )
+    assert evaluate([abba], rows).earned
+    assert not evaluate([abba], [rows[1]]).earned
+
+
+def test_wins_can_be_asked_for_inside_one_party() -> None:
+    """Two wins tonight, not two wins spread over two evenings."""
+    two_tonight = condition(scope="session", metric="number_of_wins", comparator=">=", value=2)
+    spread = [
+        won(9000, sing_id="s1", session_id="party-a"),
+        won(8000, sing_id="s2", session_id="party-b"),
+    ]
+    assert not evaluate([two_tonight], spread).earned
+    together = [
+        won(9000, sing_id="s1", session_id="party-a"),
+        won(8000, sing_id="s2", session_id="party-a"),
+    ]
+    outcome = evaluate([two_tonight], together)
+    assert outcome.earned
+    assert outcome.session_id == "party-a"
+
+
+def test_wins_progress_towards_their_target_like_any_other_count() -> None:
+    """`number_of_wins` needs nothing of its own in `_target`: it is a count compared
+    upward, so the progress rule already draws a bar for it."""
+    outcome = evaluate(
+        [condition(metric="number_of_wins", comparator=">=", value=5)],
+        [won(9000, sing_id="s1"), won(8000, sing_id="s2")],
+    )
+    assert not outcome.earned
+    assert (outcome.progress_current, outcome.progress_target) == (2, 5)
 
 
 # ------------------------------------------------------------------------- the filters

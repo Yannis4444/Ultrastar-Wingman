@@ -53,6 +53,10 @@ function score(
     player_name: playerName,
     score: value,
     difficulty: 2,
+    // Nothing in `stats.ts` reads them; a score old enough to carry neither is a
+    // shape the API really answers with, so it is the honest filler here.
+    placement: null,
+    field_size: null,
     recorded_at: "2026-08-23T20:00:00Z",
     song: songRead,
     sing_started_at: "2026-08-23T19:55:00Z",

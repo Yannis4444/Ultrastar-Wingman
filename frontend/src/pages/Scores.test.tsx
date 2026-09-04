@@ -149,6 +149,8 @@ function score(
     player_name: playerName,
     score: value,
     difficulty: 1,
+    placement: null,
+    field_size: null,
     recorded_at: recordedAt,
     song: songRead,
     sing_started_at: "2026-08-23T19:55:00Z",

@@ -348,6 +348,95 @@ async def test_a_finished_song_records_scores_for_the_players_who_sang(
     assert recorded["sing_id"] == started["sing_id"]
     recorded_scores = cast(list[dict[str, Any]], recorded["scores"])
     assert [score["player_name"] for score in recorded_scores] == ["Yannis", "Alex"]
+    # The placement rides along on the event, like every other column of the row.
+    assert [(score["placement"], score["field_size"]) for score in recorded_scores] == [
+        (1, 2),
+        (2, 2),
+    ]
+
+
+async def test_a_duet_records_who_came_first_and_how_big_the_field_was(
+    client: AsyncClient, session: AsyncSession, configured: FakeUsdx, song: str
+) -> None:
+    """Written when the scores are, and never worked out later: once one of these rows is
+    deleted, nothing could reconstruct that this was a duel rather than a solo."""
+    yannis = await add_player(client, "Yannis")
+    alex = await add_player(client, "Alex")
+    configured.behave(
+        scores=[("Yannis" + NUL * 10, 7000, 2000, 3), ("Alex" + NUL * 12, 8500, 2001, 3)]
+    )
+
+    await sing(
+        client,
+        song,
+        [{"color": "blue", "player_id": yannis["id"]}, {"color": "red", "player_id": alex["id"]}],
+    )
+    await service.wait_for_sing_end()
+
+    scores = list(await session.scalars(select(Score).order_by(Score.id)))
+    assert [
+        (score.player_name, score.score, score.placement, score.field_size) for score in scores
+    ] == [("Yannis", 7000, 2, 2), ("Alex", 8500, 1, 2)]
+
+    # And the correction that takes the loser off the record leaves the win standing, which
+    # is the whole reason the two columns are written down.
+    assert (await client.delete(f"/api/v1/stats/scores/{scores[0].id}")).status_code == 204
+    session.expire_all()
+    remaining = list(
+        await session.execute(select(Score.player_name, Score.placement, Score.field_size))
+    )
+    assert remaining == [("Alex", 1, 2)]
+
+
+async def test_two_singers_on_the_same_score_share_the_first_place(
+    client: AsyncClient, session: AsyncSession, configured: FakeUsdx, song: str
+) -> None:
+    """Standard competition ranking: both of them came first, and the third came third —
+    nobody came second to a tie."""
+    names = [await add_player(client, name) for name in ("Yannis", "Alex", "Mia")]
+    configured.behave(
+        scores=[
+            ("Yannis" + NUL * 10, 8500, 2000, 3),
+            ("Alex" + NUL * 12, 8500, 2001, 3),
+            ("Mia" + NUL * 13, 4000, 2002, 3),
+        ]
+    )
+
+    await sing(
+        client,
+        song,
+        [
+            {"color": color, "player_id": player["id"]}
+            for color, player in zip(("blue", "red", "green"), names, strict=True)
+        ],
+    )
+    await service.wait_for_sing_end()
+
+    scores = list(await session.scalars(select(Score).order_by(Score.id)))
+    assert [(score.player_name, score.placement, score.field_size) for score in scores] == [
+        ("Yannis", 1, 3),
+        ("Alex", 1, 3),
+        ("Mia", 3, 3),
+    ]
+
+
+async def test_a_walk_in_counts_in_the_field_of_the_sing(
+    client: AsyncClient, session: AsyncSession, configured: FakeUsdx, song: str
+) -> None:
+    """A name matching no launched slot is somebody Wingman cannot put a player row to — but
+    they were on a microphone, so they take a placement and the field is two."""
+    yannis = await add_player(client, "Yannis")
+    configured.behave(
+        scores=[("Yannis" + NUL * 10, 6000, 2000, 3), ("Someone else", 9000, 2001, 3)]
+    )
+
+    await sing(client, song, [{"color": "blue", "player_id": yannis["id"]}])
+    await service.wait_for_sing_end()
+
+    scores = list(await session.scalars(select(Score).order_by(Score.id)))
+    assert [
+        (score.player_id, score.player_name, score.placement, score.field_size) for score in scores
+    ] == [(yannis["id"], "Yannis", 2, 2), (None, "Someone else", 1, 2)]
 
 
 async def test_consecutive_sings_share_a_session_until_the_party_goes_quiet(
@@ -818,6 +907,9 @@ async def test_the_placeholder_of_an_empty_slot_is_not_a_singer(
 
     scores = list(await session.scalars(select(Score).order_by(Score.id)))
     assert [(score.player_name, score.score) for score in scores] == [("Alice", 8000)]
+    # And it is not part of the field either: Alice sang alone, whatever USDX filed under
+    # the placeholder. Counting it would turn every solo into a won duel.
+    assert [(score.placement, score.field_size) for score in scores] == [(1, 1)]
 
 
 async def test_an_unconfigured_usdx_is_a_clear_error(

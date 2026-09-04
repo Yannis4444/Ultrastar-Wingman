@@ -278,7 +278,7 @@ def write_history(
     Answers each party's session id, and the moment the last seeded sing started —
     ``rewind`` needs it to tell the seeded history from what a capture run added.
     """
-    from ultrastar_wingman.karaoke.model import KaraokeSession, Score, Sing
+    from ultrastar_wingman.karaoke.model import KaraokeSession, Score, Sing, placements
 
     maker = _session_maker(data_dir)
     now = datetime.now(UTC)
@@ -304,7 +304,11 @@ def write_history(
                 )
                 db.add(sing)
                 db.flush()
-                for name, score in sing_plan.scores:
+                # The same ranking a sing recorded through USDX gets, so a seeded evening
+                # carries the placements a real one does and an achievement counting wins
+                # reads the same rows here. `placements` is the one rule both go through.
+                ranks = placements([score for _, score in sing_plan.scores])
+                for (name, score), placement in zip(sing_plan.scores, ranks, strict=True):
                     db.add(
                         Score(
                             sing_id=sing.id,
@@ -312,6 +316,8 @@ def write_history(
                             player_name=name,
                             score=score,
                             difficulty=1,
+                            placement=placement,
+                            field_size=len(sing_plan.scores),
                             recorded_at=moment + timedelta(minutes=4),
                         )
                     )

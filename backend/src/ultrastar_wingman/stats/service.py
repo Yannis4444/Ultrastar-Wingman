@@ -226,6 +226,11 @@ async def reassign_score(session: AsyncSession, score: Score, player: Player) ->
     party — only *who* USDX filed it under was wrong. `player_name` is rewritten along with
     the id because it is the durable label (a score outlives the player row), and leaving
     the old name on it would make the same score say two different things.
+
+    `placement` and `field_size` are untouched too, on this row and on every other row of the
+    sing, **by design**: they say where the numbers came in when the song was scored, and the
+    numbers have not moved. The score that came first still came first; it is now on somebody
+    else's name, and so is the win.
     """
     previous_player_id = score.player_id
     score.player_id = player.id
@@ -250,6 +255,11 @@ async def delete_score(session: AsyncSession, score: Score) -> None:
     because a sing is the statement "this song was played" — it is what the Recent tab and
     a party's `sing_count` are built from, and USDX scores nothing for a song that was
     stopped early either.
+
+    The `placement` and `field_size` of the scores that remain are **not** recomputed, by
+    design and as the whole reason those columns exist: two people sang that song, and the
+    one who won it won it against somebody. Renumbering the survivors would turn last month's
+    duel into a solo the moment a wrong row was tidied away, and would do it silently.
     """
     sing_id = score.sing_id
     player_id = score.player_id

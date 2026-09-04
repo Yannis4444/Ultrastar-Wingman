@@ -189,10 +189,13 @@ async def list_all_scores(
 async def reassign_score(score_id: int, body: ScoreUpdate, session: SessionDep) -> ScoreRead:
     """Put a score on the singer it belongs to — the fix for a wrongly picked player.
 
-    The sing, its session and the number itself are untouched. Nothing stops two scores of
-    the same sing from ending up on one player: swapping the two singers of a duet goes
-    through that state on its way, and a rule against it would block the very correction
-    this route exists for.
+    The sing, its session and the number itself are untouched, and so are the `placement`
+    and `field_size` of every score of that sing — by design: the numbers did not move, only
+    the name on one of them, so the score that came first still came first.
+
+    Nothing stops two scores of the same sing from ending up on one player: swapping the two
+    singers of a duet goes through that state on its way, and a rule against it would block
+    the very correction this route exists for.
     """
     score = await _score_or_404(score_id, session)
     player = await session.get(Player, body.player_id)
@@ -210,7 +213,11 @@ async def reassign_score(score_id: int, body: ScoreUpdate, session: SessionDep) 
 async def delete_score(score_id: int, session: SessionDep) -> None:
     """Take one score off the record. The sing it belonged to stays, even when it was the
     last score on it — the song *was* played, and that is what the Recent tab and a party's
-    `sing_count` are counted from."""
+    `sing_count` are counted from.
+
+    The `placement` and `field_size` of the scores that remain stay as they were, by design:
+    they record the field the song was actually sung against, and that is exactly what is no
+    longer reconstructible once this row is gone."""
     await service.delete_score(session, await _score_or_404(score_id, session))
 
 
