@@ -94,7 +94,7 @@ the box. See [Manage achievements](manage/index.md).
 
 ## What Wingman brings with it
 
-Thirty-four achievements ship with Wingman. A party may rename them, recolor
+Thirty-five achievements ship with Wingman. A party may rename them, recolor
 them, hide one, and switch any of them off. What they ask for is fixed, so
 **Golden Voice** means the same thing at every party.
 
@@ -113,6 +113,7 @@ them, hide one, and switch any of them off. What they ask for is fixed, so
 | **Living Legend** | Sing 100 songs |
 | **Five in a Night** | Sing 5 songs in one party |
 | **Iron Lungs** | Sing 10 songs in one party |
+| **All Night Long** | Sing 20 songs in one party |
 | **Hat-trick** | Score 9,000 or more three times in one party |
 | **Better Together** | Sing a duet |
 | **First Place** | Win a song against another singer |
@@ -136,7 +137,7 @@ them, hide one, and switch any of them off. What they ask for is fixed, so
 | **Groundhog Day** | Hidden until it is earned |
 
 Six of them are hidden, and what earns one stays its own business. A new party
-gets them last, so its list starts with the twenty-eight everybody can read,
+gets them last, so its list starts with the twenty-nine everybody can read,
 and the host may rearrange the whole of it from there. Each hidden one has a
 locked line of its own on **User** > **Achievements**, and it says what it is
 the moment somebody earns it.

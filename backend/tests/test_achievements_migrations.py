@@ -2,8 +2,8 @@
 
 Every other test in the suite reaches the schema through `run_migrations`, which only ever
 goes forward — so `downgrade()` is the half of a revision nothing exercises, and a broken one
-is discovered by whoever first has to step a live database back. These tests walk 0023, 0024
-and 0030 up, down and up again, and assert the database is the same at both tops.
+is discovered by whoever first has to step a live database back. These tests walk 0023, 0024,
+0030 and 0031 up, down and up again, and assert the database is the same at both tops.
 
 The round trip is the point: a downgrade that forgets its rows makes the second upgrade
 insert the shipped set a second time, and a primary key is the only thing that would notice.
@@ -236,34 +236,40 @@ async def test_0029_gives_the_progress_already_stored_no_party(tmp_path: Path) -
 LAST_SEEDED_BY_0023 = "builtin-brave-soul"
 
 
-def _revision_0030() -> ModuleType:
-    """0030's own module, loaded by its path: a file name that starts with a digit is not an
-    importable module name, and `NEW_IDS` is the only place that says which ids that revision
-    is responsible for."""
-    path = migrations_dir() / "versions" / "0030_more_builtin_achievements.py"
-    spec = importlib.util.spec_from_file_location("wingman_revision_0030", path)
+def _revision(number: str) -> ModuleType:
+    """One seeding revision's own module, loaded by its path: a file name that starts with a
+    digit is not an importable module name, and `NEW_IDS` is the only place that says which
+    ids a revision is responsible for.
+
+    A module name of its own per revision, so two of them never share one.
+    """
+    (path,) = (migrations_dir() / "versions").glob(f"{number}_*.py")
+    spec = importlib.util.spec_from_file_location(f"wingman_revision_{number}", path)
     assert spec is not None and spec.loader is not None
     module = importlib.util.module_from_spec(spec)
     spec.loader.exec_module(module)
     return module
 
 
-def _split() -> tuple[list[str], list[str]]:
-    """The ids 0023 seeded and the ids 0030 seeded, each in `BUILT_INS` order — which is the
-    order 0030 inserts its own in, because it filters `seed_rows()`.
+def _split() -> tuple[list[str], list[str], list[str]]:
+    """The ids 0023 seeded, the ids 0030 seeded and the ids 0031 seeded, each in `BUILT_INS`
+    order — which is the order each of them inserts its own in, because all three read
+    `seed_rows()` and the later two only filter it.
 
-    Read off that revision's frozen `NEW_IDS` and not off a slice of `BUILT_INS`: the two
-    batches are no longer contiguous in the file, whose hidden built-ins stand at its end
-    whichever batch they came with. A built-in added to the file without a revision of its
-    own therefore lands in the *first* list here and fails the counts below, which is the
-    warning that was wanted — both halves are counted for exactly that reason.
+    Read off those revisions' frozen `NEW_IDS` and not off slices of `BUILT_INS`: the batches
+    are not contiguous in the file, whose hidden built-ins stand at its end whichever batch
+    they came with and whose *All Night Long* stands with the ladder it is the third rung of.
+    A built-in added to the file without a revision of its own therefore lands in the
+    **first** list here and fails the counts below, which is the warning that was wanted —
+    every batch is counted for exactly that reason.
     """
-    second_batch: tuple[str, ...] = _revision_0030().NEW_IDS
-    seeded_by_0030 = set(second_batch)
+    seeded_by_0030 = set(_revision("0030").NEW_IDS)
+    seeded_by_0031 = set(_revision("0031").NEW_IDS)
     ids = [built_in.id for built_in in BUILT_INS]
     return (
-        [one for one in ids if one not in seeded_by_0030],
+        [one for one in ids if one not in seeded_by_0030 | seeded_by_0031],
         [one for one in ids if one in seeded_by_0030],
+        [one for one in ids if one in seeded_by_0031],
     )
 
 
@@ -295,24 +301,27 @@ async def test_0030_adds_its_seventeen_behind_whatever_the_host_arranged(tmp_pat
     already in the table are theirs and say nothing about `BUILT_INS`.
 
     The new ones go behind the highest of them, all seventeen of them, in file order, and
-    nothing that was already there moves.
+    nothing that was already there moves. 0031's one row rides along at the end of the same
+    walk to head, which is what an instance that has been away for both revisions really
+    runs; 0031 on its own is below.
     """
     database_url = f"sqlite+aiosqlite:///{tmp_path / 'existing.db'}"
-    first, second = _split()
-    # Both halves, because only the second is filtered by 0030's frozen `NEW_IDS`: a
-    # thirty-fifth built-in added to `builtin.py` without a seed revision of its own lands in
+    first, second, third = _split()
+    # Every batch, because only the later ones are filtered by a frozen `NEW_IDS`: a
+    # thirty-sixth built-in added to `builtin.py` without a seed revision of its own lands in
     # `first` and would otherwise pass here unnoticed.
-    assert (len(first), len(second)) == (17, 17)
+    assert (len(first), len(second), len(third)) == (17, 17, 1)
 
-    # 0023 imports `builtin.py` live, so migrating there seeds all thirty-four. Taking the
-    # second batch back off is what leaves the database an instance from before really has.
+    # 0023 imports `builtin.py` live, so migrating there seeds all thirty-five. Taking
+    # everything the later revisions own back off is what leaves the database an instance
+    # from before this batch really has.
     await _alembic(database_url, "0029")
     engine = create_async_engine(database_url)
     try:
         async with engine.begin() as connection:
             await connection.execute(
                 text("DELETE FROM achievements WHERE id IN :ids").bindparams(
-                    bindparam("ids", value=second, expanding=True)
+                    bindparam("ids", value=second + third, expanding=True)
                 )
             )
             # And a host who moved one row a long way, so the highest place in the table is
@@ -329,30 +338,44 @@ async def test_0030_adds_its_seventeen_behind_whatever_the_host_arranged(tmp_pat
     await _alembic(database_url, "head")
     after = await _catalogue(database_url)
 
-    # Everything that was there is where it was, and the seventeen new ones follow the
-    # highest place — 40 — in the order the file lists them.
+    # Everything that was there is where it was, and the new ones follow the highest place —
+    # 40 — in the order the file lists them: 0030's seventeen, then 0031's one behind them.
     assert after[: len(before)] == before
-    assert after[len(before) :] == [(row_id, 41 + index) for index, row_id in enumerate(second)]
+    assert after[len(before) :] == [
+        (row_id, 41 + index) for index, row_id in enumerate(second + third)
+    ]
 
 
-async def test_0030_seeds_nothing_where_0023_already_seeded_everything(tmp_path: Path) -> None:
+async def test_the_later_revisions_seed_nothing_where_0023_seeded_everything(
+    tmp_path: Path,
+) -> None:
     """A database created after `builtin.py` grew: 0023 read the file live and inserted all
-    thirty-four itself, so 0030 has nothing to do — and must not do it anyway. A blind insert
-    would be a primary-key error on the way to a duplicated catalogue."""
+    thirty-five itself, so 0030 and 0031 have nothing to do — and must not do it anyway. A
+    blind insert would be a primary-key error on the way to a duplicated catalogue.
+
+    Which is also the whole claim about where a **fresh** database draws the new ones: in
+    `BUILT_INS` order, so *All Night Long* stands directly behind *Iron Lungs* there and not
+    at the end, as it does on a database that had been seeded already.
+    """
     database_url = f"sqlite+aiosqlite:///{tmp_path / 'fresh.db'}"
 
     await _alembic(database_url, "head")
     rows = await _catalogue(database_url)
 
-    assert [row[0] for row in rows] == [built_in.id for built_in in BUILT_INS]
+    ids = [row[0] for row in rows]
+    assert ids == [built_in.id for built_in in BUILT_INS]
     assert [row[1] for row in rows] == list(range(len(BUILT_INS)))
+    # Spelled out, because "where the ladder's third rung lands" is the decision `builtin.py`
+    # takes by listing it there and not at the end.
+    assert ids[ids.index("builtin-evening-songs-10") + 1] == "builtin-evening-songs-20"
 
 
 async def test_0030_takes_only_its_own_seventeen_back_off(tmp_path: Path) -> None:
     """Stepping back to 0029 leaves the database an instance from before this batch had: the
-    first seventeen, with what players earned on them, and no trace of the second."""
+    first seventeen, with what players earned on them, and no trace of the second — nor of
+    0031's one row, which the same step passes through."""
     database_url = f"sqlite+aiosqlite:///{tmp_path / 'stepped-back.db'}"
-    first, second = _split()
+    first, second, third = _split()
 
     await _alembic(database_url, "head")
     for achievement_id in (first[0], second[0]):
@@ -377,6 +400,85 @@ async def test_0030_takes_only_its_own_seventeen_back_off(tmp_path: Path) -> Non
     # The progress row of an achievement that is gone went with it; the other one stayed.
     assert progress == [first[0]]
 
-    # And forward again: the seventeen come back once, behind the seventeen that stayed.
+    # And forward again: the seventeen come back once, behind the seventeen that stayed, with
+    # 0031's row behind them.
     await _alembic(database_url, "head")
-    assert [row[0] for row in await _catalogue(database_url)] == first + second
+    assert [row[0] for row in await _catalogue(database_url)] == first + second + third
+
+
+# --- 0031, the ladder's third rung ---------------------------------------------------------
+
+
+async def test_0031_adds_its_row_behind_whatever_the_host_arranged(tmp_path: Path) -> None:
+    """The database an existing instance runs 0031 on: seeded through 0030 and arranged since.
+
+    *All Night Long* goes behind the highest place in the table and nothing else moves — so
+    the one place it stands directly behind *Iron Lungs* is a **fresh** database, and on this
+    one it is the last row of the host's own order.
+    """
+    database_url = f"sqlite+aiosqlite:///{tmp_path / 'seeded-through-0030.db'}"
+    _, _, third = _split()
+    (new_id,) = third
+
+    # 0023 imports `builtin.py` live, so a walk to 0030 seeds all thirty-five. Taking this
+    # revision's row back off is what leaves the database an instance from before it has.
+    await _alembic(database_url, "0030")
+    ids_before = [built_in.id for built_in in BUILT_INS if built_in.id != new_id]
+    engine = create_async_engine(database_url)
+    try:
+        async with engine.begin() as connection:
+            await connection.execute(
+                text("DELETE FROM achievements WHERE id = :id"), {"id": new_id}
+            )
+            # And a host who moved one row a long way, so the highest place in the table is
+            # nothing like "thirty-four".
+            await connection.execute(
+                text("UPDATE achievements SET sort_order = 40 WHERE id = :id"),
+                {"id": ids_before[0]},
+            )
+    finally:
+        await engine.dispose()
+    before = await _catalogue(database_url)
+    assert [row[0] for row in before] == ids_before[1:] + [ids_before[0]]
+
+    await _alembic(database_url, "head")
+
+    assert await _catalogue(database_url) == before + [(new_id, 41)]
+
+
+async def test_0031_takes_only_its_own_row_back_off(tmp_path: Path) -> None:
+    """Stepping back to 0030 leaves the database an instance from before this one had: the
+    thirty-four, with what players earned on them, and no trace of the thirty-fifth."""
+    database_url = f"sqlite+aiosqlite:///{tmp_path / 'stepped-back-to-0030.db'}"
+    first, second, third = _split()
+    (new_id,) = third
+    kept_ids = [built_in.id for built_in in BUILT_INS if built_in.id != new_id]
+
+    await _alembic(database_url, "head")
+    for achievement_id in (first[0], new_id):
+        await _execute(
+            database_url,
+            "INSERT INTO player_achievements "
+            "(achievement_id, player_id, earned_at, session_id, progress_current, "
+            "progress_target, progress_session_id) "
+            "VALUES (:id, 'a-player', NULL, NULL, 1, 2, NULL)",
+            {"id": achievement_id},
+        )
+
+    await _alembic(database_url, "0030", down=True)
+    engine = create_async_engine(database_url)
+    try:
+        async with engine.connect() as connection:
+            kept = list(await connection.scalars(select(Achievement.id)))
+            progress = list(await connection.scalars(select(PlayerAchievement.achievement_id)))
+    finally:
+        await engine.dispose()
+    assert sorted(kept) == sorted(kept_ids)
+    # The progress row of the achievement that is gone went with it; the other one stayed.
+    assert progress == [first[0]]
+
+    # And forward again: it comes back once, behind everything that stayed — the seeded
+    # numbers those thirty-four kept have a gap where it was, and the row lands after the
+    # highest of them rather than back in the gap.
+    await _alembic(database_url, "head")
+    assert [row[0] for row in await _catalogue(database_url)] == kept_ids + [new_id]

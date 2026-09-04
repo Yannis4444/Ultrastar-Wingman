@@ -6,7 +6,7 @@ icon: wingman/trophy
 
 **User** > **Achievements** is where a party looks after its badges. It holds
 the three options the feature has and then every achievement in one list: the
-ones somebody here made and the thirty-four Wingman brings with it, in whatever
+ones somebody here made and the thirty-five Wingman brings with it, in whatever
 order you put them. It takes the right to manage achievements, which Admin
 holds by default.
 
@@ -33,7 +33,7 @@ feature back on brings everybody's badges up to date.
 ## The list
 
 One list holds every achievement there is, the ones your party made and the
-thirty-four Wingman ships together, in the order you arranged them. A row shows
+thirty-five Wingman ships together, in the order you arranged them. A row shows
 the badge, the name, and the description a singer reads under it. Tap a row to
 open the editor. See [Make an achievement](create.md).
 

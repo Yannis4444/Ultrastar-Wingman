@@ -1,4 +1,4 @@
-"""The thirty-four achievements Wingman ships.
+"""The thirty-five achievements Wingman ships.
 
 Data, not rows: the list below is what the seed migrations insert and what
 `service.reset_built_in` reads back, so there is one place that says what *First Time on the
@@ -14,14 +14,18 @@ already holds the old one. That is deliberate: a definition improved in a migrat
 revoke the badge from everybody who earned it under the old number, without a host ever
 pressing anything.
 
-They arrived in two batches — the seventeen of 2026-09 seeded by 0023, then the seventeen of
-2026-09-04 seeded by 0030 — but the file is no longer in arrival order: since 2026-09-04 the
-**hidden** ones stand at the end (see the comment over `BUILT_INS`), so *Brave Soul*, which
-came with the first batch, sits behind the second. Which ids a seed migration is responsible
-for was already frozen in that migration (0030's `NEW_IDS`) rather than taken as a slice of
-this list, and that is what makes reordering the list safe. What a reordering may not do is
-renumber the rows an older revision seeded, and it does not: the order only decides what a
-**fresh** database starts with, and after that the order of the catalogue is the host's.
+They arrived in batches — the seventeen of 2026-09 seeded by 0023, the seventeen of
+2026-09-04 seeded by 0030, then *All Night Long* on top of them, seeded by 0031 — but the
+file is no longer in arrival order: since 2026-09-04 the **hidden** ones stand at the end
+(see the comment over `BUILT_INS`), so *Brave Soul*, which came with the first batch, sits
+behind the second, and *All Night Long* stands with the two rungs below it rather than at the
+end of the list. Which ids a seed migration is responsible for is frozen in that migration
+(0030's and 0031's `NEW_IDS`) rather than taken as a slice of this list, and that is what
+makes ordering the list by what it means rather than by when it arrived safe. What such an
+order may not do is renumber the rows an older revision seeded, and it does not: the order
+only decides what a **fresh** database starts with, and after that the order of the catalogue
+is the host's — which is why a fresh database has *All Night Long* behind *Iron Lungs* and a
+database that has been running since 2026-09-04 finds it at the end of its own arrangement.
 
 The ids are stable slugs (`builtin-score-9000`) rather than uuids: import matches by id, so a
 slug is what lets an instance recognise a built-in that came from somewhere else, and what
@@ -97,12 +101,13 @@ def _decade(start: int) -> list[dict[str, Any]]:
 
 
 # The order is the list a fresh instance is seeded with, and it is in two halves: the
-# twenty-eight a party can read in the catalogue from the start, then the six that are
+# twenty-nine a party can read in the catalogue from the start, then the six that are
 # **hidden until earned**, at the end. Hidden ones last because the catalogue is mostly read
 # as a list of things to go for, and six locked rows in the middle of it are six holes; each
-# half keeps the order the achievements arrived in.
+# half keeps the order the achievements arrived in, except that a rung added to a ladder
+# later stands with its ladder (*All Night Long*) rather than behind all of it.
 #
-# The visible twenty-eight: a ladder of scores, a ladder of counts, and the same two again
+# The visible twenty-nine: a ladder of scores, a ladder of counts, and the same two again
 # inside one party — then a duet, a ladder of wins, one badge per decade (a family, so all
 # four are blue whatever each costs), and six nods to the songs and bands a karaoke night
 # keeps coming back to. The colours climb with the achievement: neutral, blue, gold.
@@ -228,6 +233,19 @@ BUILT_INS: tuple[BuiltInAchievement, ...] = (
         color="blue",
         hidden=False,
         definition=_session("number_of_sings", 10),
+    ),
+    BuiltInAchievement(
+        id="builtin-evening-songs-20",
+        name="All Night Long",
+        description="Sing 20 songs in one party.",
+        icon="moon",
+        color="gold",
+        hidden=False,
+        # The third rung of *Five in a Night* → *Iron Lungs*, and gold like the top of every
+        # other three-step ladder here. It arrived after the two rungs below it and 0031 is
+        # what seeds it, but it stands with its ladder rather than at the end of the file: a
+        # fresh catalogue reads as a list of things to go for, and a ladder is read in order.
+        definition=_session("number_of_sings", 20),
     ),
     BuiltInAchievement(
         id="builtin-evening-hat-trick",

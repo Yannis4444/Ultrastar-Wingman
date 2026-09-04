@@ -94,7 +94,7 @@ it("counts what the singer holds against what there is to hold", async () => {
     ),
   );
 
-  expect(await screen.findByText("7 of 34")).toBeInTheDocument();
+  expect(await screen.findByText("7 of 35")).toBeInTheDocument();
 });
 
 it("puts the earned ones first and draws the rest in the off state", async () => {

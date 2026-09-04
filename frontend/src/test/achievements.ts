@@ -90,7 +90,7 @@ export function achievementSettings(
 }
 
 /**
- * The thirty-four Wingman ships, in `BUILT_INS` order — ids, names, glyphs and
+ * The thirty-five Wingman ships, in `BUILT_INS` order — ids, names, glyphs and
  * colours exactly as `achievements/builtin.py` seeds them, so a test that counts
  * the *Included* rows counts what a fresh instance really has. The last six are
  * the hidden ones — *Well Traveled*, *Brave Soul*, *Time Traveler*, *Mixtape*,
@@ -114,6 +114,7 @@ const BUILT_INS: [string, string, string, string, boolean][] = [
   ["builtin-songs-100", "Living Legend", "graduation-cap", "gold", false],
   ["builtin-evening-songs-5", "Five in a Night", "hourglass", "neutral", false],
   ["builtin-evening-songs-10", "Iron Lungs", "dumbbell", "blue", false],
+  ["builtin-evening-songs-20", "All Night Long", "moon", "gold", false],
   ["builtin-evening-hat-trick", "Hat-trick", "drum", "gold", false],
   ["builtin-first-duet", "Better Together", "users", "neutral", false],
   ["builtin-wins-1", "First Place", "star", "neutral", false],

@@ -375,7 +375,7 @@ saved) where a jump to the top would throw away the place they were working in.
 - **Achievements admin** (`/user/achievements`, a `ManageMenu` entry gated on
   `achievements.manage`): the three private settings at the head — no glyph on any of them,
   the Settings page's own idiom being one icon per group and none per field — then the
-  whole catalogue as **one list** — the party's own achievements and the thirty-four Wingman
+  whole catalogue as **one list** — the party's own achievements and the thirty-five Wingman
   ships in one sequence — as rows of the `AchievementBadge` square, the name over the
   achievement's own description and a chevron, and an `h2` *Import and export* at the foot,
   carrying `archive` the way a Settings group's header carries a glyph, its two buttons

@@ -650,7 +650,7 @@ def arrange_catalogue(api: Api) -> list[str]:
     The catalogue is **one** order over all of it — a party's own achievement may sit above
     one Wingman ships — and the management page is photographed at the top of that list.
     Left the way the seed makes it, an imported achievement lands at the end and the hidden
-    built-in *Brave Soul* sits near the end of a catalogue of thirty-four (`builtin.py` puts
+    built-in *Brave Soul* sits near the end of a catalogue of thirty-five (`builtin.py` puts
     every hidden one there), so the two rows and the lock that picture is of would be several
     screens apart. Arranging them is what a host does with two achievements of their own, and
     this order is what every badge surface lists in, the host screen included.

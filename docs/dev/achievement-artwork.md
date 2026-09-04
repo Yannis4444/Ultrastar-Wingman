@@ -1,6 +1,6 @@
 # Achievement artwork — guidelines and prompt kit
 
-How the badge pictures of the thirty-four built-in achievements are made: one
+How the badge pictures of the thirty-five built-in achievements are made: one
 consistent set, generated with ChatGPT from the prompt kit below, and the same
 kit is what makes a matching badge for a custom achievement later. The
 finished files live in `backend/src/ultrastar_wingman/achievements/images/`,
@@ -156,7 +156,7 @@ add little; and a bright motif on a dark plate is the combination that
 survives the greyscale state. The cost: in a mixed list, a picture badge (grey
 plate, coloured drawing) and a glyph badge (coloured plate) look like two
 families. That mixed list is exactly what the catalogue is again until the
-seventeen pictures of entries 18 to 34 exist (§9) — and after that it is only
+eighteen pictures of entries 18 to 35 exist (§9) — and after that it is only
 custom achievements, which get the prompt kit. §8 asks whether the glyph badge
 should invert to the same dark-plate look when it goes square.
 
@@ -211,7 +211,7 @@ approved, attach it to every request):
 Match the attached badge exactly — same layout, motif size and margin, plate greys and falloff, background subtlety, outline weight, shading style and colour tones. Change only the motif, its accent and its background element as stated, and, where stated, the tier colours.
 ```
 
-## 4. The thirty-four motif entries
+## 4. The thirty-five motif entries
 
 Every entry has the same three lines, each pasted into its slot of the master
 prompt: **MOTIF** (*a single* object, its pose, its one action cue), **ACCENT**
@@ -220,18 +220,21 @@ what the app draws today; ⚠ marks a motif that deviates from it, with the
 reason, so each can be vetoed back to the glyph.
 
 Entries 1 to 17 are the badges of 2026-09-03, all of which exist. Entries 18 to
-34 are the second batch of built-ins (2026-09-04) and none of their pictures
-have been made yet — §9 is the list. What each achievement asks for is
-`achievements/builtin.py`'s and is not repeated here: an entry is the artwork,
-and a definition copied into a second place is a definition that drifts.
+34 are the second batch of built-ins (2026-09-04) and 35 is the one that came
+after them; none of those eighteen pictures have been made yet — §9 is the
+list. What each achievement asks for is `achievements/builtin.py`'s and is not
+repeated here: an entry is the artwork, and a definition copied into a second
+place is a definition that drifts.
 
 The numbers are these entries' own and they stay put. They were `builtin.py`'s
 order when they were written and are not any more — that file moved its hidden
-achievements to the end on 2026-09-04 — but §9, every note in this guide and
-the prompt runs outside it name a badge by its number, so renumbering would
-cost more than the coincidence was worth.
+achievements to the end on 2026-09-04, and a built-in added later stands where
+it belongs in that file whatever its number here is — but §9, every note in
+this guide and the prompt runs outside it name a badge by its number, so
+renumbering would cost more than the coincidence was worth. A new badge is
+therefore **appended** with the next number, wherever `builtin.py` files it.
 
-Accents over the set: red ×14, teal ×9, cream ×6, pink ×5 — red is the
+Accents over the set: red ×14, teal ×10, cream ×6, pink ×5 — red is the
 workhorse, the others keep neighbouring badges apart.
 
 **1 · First Time on the Mic** — neutral — `builtin-first-song` — glyph `smile` ⚠
@@ -508,6 +511,20 @@ ACCENT: teal #3fb8a8, on the centre label.
 BACKGROUND: three wide concentric rings centred on the record.
 ```
 
+**35 · All Night Long** — gold — `builtin-evening-songs-20` — glyph `moon`
+*The third rung of 12 and 13 (five songs → ten → twenty), seeded by 0031, and
+gold like the top of every ladder. The moon rather than a third piece of gym
+equipment: the ladder is about an evening that would not end, and a crescent is
+the one shape in the set that says "still going" without a clock face — 12
+already owns the hourglass and the ring behind it. Two large craters carry the
+accent, the way 17's two cheeks do; nothing smaller, because a crater that
+needs 40 px to read is a smudge.*
+```
+MOTIF: a single thick crescent moon with rounded horns, seen straight on and tipped 20 degrees with its horns to the upper right, two large round craters on its surface; no action cue.
+ACCENT: teal #3fb8a8, on the two large craters.
+BACKGROUND: two wide flat cloud bands drifting horizontally across the plate behind the moon.
+```
+
 Optional extra: one **blank plate** (MOTIF, ACCENT and BACKGROUND lines: *none
 — leave the plate empty*), generated once. It is the reference for the plate's
 grey and falloff during QA, and the fallback picture if a badge ever needs one.
@@ -621,7 +638,7 @@ grey and falloff during QA, and the fallback picture if a badge ever needs one.
    deviates from a *rule* — the ban on faces — and its entry says why and how.
 2. **The accent assignments and background elements** in §4 — proposed per
    badge, easiest to judge on the calibration images. Settled for 1 to 17 by
-   the badges themselves; open again for 18 to 34.
+   the badges themselves; open again for 18 to 35.
 3. **Shipped defaults — when.** Putting the files into the backend package
    means they *are* shipped, but nothing reads them yet: today a picture is
    per-instance data, loaded through the editor or an import, and a `Reset`
@@ -727,6 +744,7 @@ reads better at 40 px, and every later badge copies this one.
 | 32 | Christmas Number One | `builtin-christmas.png` | **pending** |
 | 33 | Roll the Credits | `builtin-soundtrack.png` | **pending** |
 | 34 | Groundhog Day | `builtin-groundhog-day.png` | **pending** |
+| 35 | All Night Long | `builtin-evening-songs-20.png` | **pending** |
 | — | blank plate | | not made; nothing has needed it |
 
 The first seventeen are complete (2026-09-03): seventeen files, about 25 MB,
@@ -734,12 +752,13 @@ one ChatGPT session, two corrections in total (the wreath's pedestal, the
 airplane's contrail). Every deviation kept is in the table above and, where it
 changes what a rerun should produce, in the entry itself (13, 16).
 
-The seventeen of 2026-09-04 (18 to 34) ship **no file at all** for now, and a
-built-in with no picture is drawn with its glyph on a coloured plate — the
-`pictures.shipped_picture` fallback asks the disk, not `builtin.py`, so nothing
-breaks and nothing has to be stubbed. Two consequences while that lasts: the
-catalogue is the mixed list §2 describes, and the pending ids are named in
-`PICTURES_PENDING` in `backend/tests/test_achievements_api.py` — take an id out
-of that set, and off this table's pending list, in the same commit as its two
-PNGs. Make them from §5, starting from the *Golden Voice* reference so the
-second seventeen match the first.
+Entries 18 to 35 — the seventeen of 2026-09-04 and *All Night Long*, which came
+after them — ship **no file at all** for now, and a built-in with no picture is
+drawn with its glyph on a coloured plate: the `pictures.shipped_picture`
+fallback asks the disk, not `builtin.py`, so nothing breaks and nothing has to
+be stubbed. Two consequences while that lasts: the catalogue is the mixed list
+§2 describes, and the pending ids are named in `PICTURES_PENDING` in
+`backend/tests/test_achievements_api.py` — take an id out of that set, and off
+this table's pending list, in the same commit as its two PNGs. Make them from
+§5, starting from the *Golden Voice* reference so the ones still to come match
+the first seventeen.

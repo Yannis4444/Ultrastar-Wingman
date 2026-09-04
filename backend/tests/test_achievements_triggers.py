@@ -49,9 +49,9 @@ START = datetime(2026, 9, 1, 20, 0, tzinfo=UTC)
 async def drop_built_ins(session: AsyncSession) -> None:
     """Take the set Wingman ships off the catalogue.
 
-    Migrations 0023 and 0030 seed them and a pass looks at every enabled one, so a test that names
-    exactly what somebody earned has to be run against a catalogue it built itself. What the
-    shipped set means is checked on its own further down.
+    Migrations 0023, 0030 and 0031 seed them and a pass looks at every enabled one, so a test
+    that names exactly what somebody earned has to be run against a catalogue it built
+    itself. What the shipped set means is checked on its own further down.
     """
     await session.execute(delete(Achievement).where(Achievement.built_in.is_(True)))
     await session.commit()
@@ -519,6 +519,7 @@ async def test_switching_the_feature_back_on_recomputes_everybody(
         ("builtin-score-9500", False),
         ("builtin-evening-50k", False),
         ("builtin-evening-songs-5", False),
+        ("builtin-evening-songs-20", False),
         ("builtin-evening-hat-trick", False),
         ("builtin-first-duet", True),
         ("builtin-artists-10", False),
@@ -619,6 +620,35 @@ async def test_a_scoreful_night_below_the_line_is_no_hat_trick(session: AsyncSes
     await service.evaluate_player(session, player_id, now=START)
 
     assert "builtin-evening-hat-trick" not in await earned_of(session, player_id)
+
+
+async def test_all_night_long_wants_its_twenty_songs_in_the_same_party(
+    session: AsyncSession,
+) -> None:
+    """The third rung of *Five in a Night* → *Iron Lungs*: `number_of_sings >= 20`, `session`
+    scope, and nothing else — the same song twenty times counts, because the ladder is about
+    how long somebody held the microphone and not about how much of the library they got
+    through.
+
+    The near miss is what pins the scope: nineteen songs at one party and one at the next is
+    twenty sings and no badge, and it earns the two rungs below this one on the way.
+    """
+    await add_song(session, "usdb:1", "Abba")
+    one_night = await add_player_row(session, "Yannis")
+    await sing_through(session, one_night, [("usdb:1", 5000, "party-a")] * 20)
+    over_two = await add_player_row(session, "Alex")
+    await sing_through(
+        session,
+        over_two,
+        [("usdb:1", 5000, "party-a")] * 19 + [("usdb:1", 5000, "party-b")],
+    )
+
+    await service.evaluate_players(session, [one_night, over_two], now=START)
+
+    assert "builtin-evening-songs-20" in await earned_of(session, one_night)
+    earned = await earned_of(session, over_two)
+    assert "builtin-evening-songs-20" not in earned
+    assert {"builtin-evening-songs-5", "builtin-evening-songs-10"} <= earned
 
 
 async def test_well_travelled_counts_twenty_distinct_artists_case_blind(

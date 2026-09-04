@@ -210,7 +210,7 @@ def test_the_hidden_built_ins_come_last_in_the_default_order() -> None:
 
     assert hidden and visible
     assert min(hidden) > max(visible)
-    # Spelled out, because which ones are hidden is a decision and not an accident: each half
+    # Spelled out, because which ones are hidden is a decision and not an accident: this half
     # keeps the order the achievements arrived in.
     assert [BUILT_INS[index].id for index in hidden] == [
         "builtin-artists-10",
@@ -220,6 +220,29 @@ def test_the_hidden_built_ins_come_last_in_the_default_order() -> None:
         "builtin-full-commitment",
         "builtin-groundhog-day",
     ]
+
+
+def test_the_songs_in_one_party_ladder_is_five_ten_twenty() -> None:
+    """*Five in a Night* → *Iron Lungs* → *All Night Long*, the third rung, seeded by 0031.
+
+    One condition apart from its number, the colours climbing neutral → blue → gold like
+    every other three-step ladder here, none of them hidden, and the three standing in that
+    order in `BUILT_INS` — a rung filed anywhere but behind the one below it would read as a
+    hole in the ladder on a fresh instance.
+    """
+    ladder = [BY_ID[f"builtin-evening-songs-{count}"] for count in (5, 10, 20)]
+
+    assert [one.definition for one in ladder] == [
+        [{"scope": "session", "metric": "number_of_sings", "comparator": ">=", "value": count}]
+        for count in (5, 10, 20)
+    ]
+    assert [one.description for one in ladder] == [
+        f"Sing {count} songs in one party." for count in (5, 10, 20)
+    ]
+    assert [one.color for one in ladder] == ["neutral", "blue", "gold"]
+    assert not any(one.hidden for one in ladder)
+    places = [BUILT_INS.index(one) for one in ladder]
+    assert places == [places[0], places[0] + 1, places[0] + 2]
 
 
 def test_the_tuned_built_ins_ask_for_what_their_descriptions_say() -> None:
@@ -1476,6 +1499,8 @@ PICTURES_PENDING: frozenset[str] = frozenset(
         "builtin-christmas",
         "builtin-soundtrack",
         "builtin-groundhog-day",
+        # And the one that arrived after that batch (entry 35 of the guide).
+        "builtin-evening-songs-20",
     }
 )
 
