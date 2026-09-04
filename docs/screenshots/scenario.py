@@ -353,9 +353,10 @@ OWN_ACHIEVEMENTS: tuple[dict[str, object], ...] = (
     },
 )
 
-# The one achievement Wingman ships that is hidden until it is earned. The seed moves it to
-# the top of the included list so the lock the management page is photographed for is on the
-# first screen. Nothing else about it changes.
+# The one achievement Wingman ships that is hidden until it is earned. The catalogue is one
+# order over all of it, and the seed arranges the party's own two at the head of it with this
+# one just behind them, so the lock and the off row the management page is photographed for
+# are on the first screen. Nothing else about it changes.
 LOCKED_BUILT_IN = "builtin-brave-soul"
 
 # The achievement the seed leaves Bender one sing short of, and the song that finishes it.

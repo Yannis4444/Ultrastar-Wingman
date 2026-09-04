@@ -22,10 +22,28 @@ class SessionRead(BaseModel):
     # name USDX scored them under, a registered player by their id, so one person who sang
     # both ways is two singers: the name is all Wingman knows about the walk-in half.
     singer_count: int
+    # Kept out of the Scores page's party picker (`stats.hide`), and out of nothing else.
+    # The stored flag, always — `current` says whether it is in force.
+    hidden: bool
+    # Whether this is the party being sung right now (`service.current_session`). Reported
+    # so a client never has to re-derive `SESSION_GAP`, and because `hidden` is dormant on
+    # it: tonight's party is never kept out of the picker.
+    current: bool
 
 
 class SessionList(BaseModel):
+    """The parties this caller may open, newest first.
+
+    The two counts are over *every* one of them, hidden ones included, and so are not the
+    length and the sum of `sessions` whenever a hidden party dropped out of it. They are
+    what the picker's head row says ("3 parties · 60 scores"), and that row stands for
+    `GET /stats/scores` — which hiding does not touch, so the figures have to add up to
+    what opening it really shows.
+    """
+
     sessions: list[SessionRead]
+    session_count: int
+    score_count: int
 
 
 class ScoreWithContext(ScoreRead):

@@ -1,10 +1,11 @@
-"""Statistics endpoints. Read-only apart from naming a session and the two corrections
-`stats.moderate` may make to a recorded score.
+"""Statistics endpoints. Read-only apart from naming a session, keeping one out of the party
+picker, and the two corrections `stats.moderate` may make to a recorded score.
 
 The read routes fire no events: the frontend already listens to `scores.recorded` and
 `karaoke.ended` and refreshes from these routes when one arrives. The two moderation routes
 broadcast `scores.changed` (see `events.py`), because nothing else tells the other screens
-in the room that a score just moved.
+in the room that a score just moved, and naming or hiding a party broadcasts
+`sessions.changed` for the same reason.
 """
 
 import logging
@@ -36,6 +37,12 @@ class SessionUpdate(BaseModel):
     """`None` clears the name again."""
 
     name: str | None
+
+
+class SessionVisibility(BaseModel):
+    """Whether this party is kept out of the Scores page's party picker."""
+
+    hidden: bool
 
 
 class ScoreUpdate(BaseModel):
@@ -85,7 +92,16 @@ def may_see_every_session(principal: Principal) -> bool:
     "/stats/sessions", response_model=SessionList, dependencies=[Depends(require("stats.view"))]
 )
 async def list_sessions(
-    session: SessionDep, principal: PrincipalDep, visible: VisibleSessionsDep
+    session: SessionDep,
+    principal: PrincipalDep,
+    visible: VisibleSessionsDep,
+    include_hidden: bool = Query(
+        default=False,
+        description=(
+            "List the parties kept out of the picker as well. Honoured only for a caller "
+            "who holds `stats.hide`; everybody else gets the default list whatever they ask."
+        ),
+    ),
 ) -> SessionList:
     """Every recorded party, newest first — or, without `stats.history`, the one still going
     plus the ones this caller sang in.
@@ -93,11 +109,32 @@ async def list_sessions(
     A short list rather than a 403: tonight's scoreboard is what a guest phone opens the
     Scores page for, and the page keeps working with a session picker of one. The list holds
     exactly the parties the caller may open, so it never names one only to say no to it.
+
+    A party somebody kept out of the picker (`stats.hide`) drops out of `sessions` here, and
+    **out of nothing else**: `GET /stats/scores` still adds it up, `visible_session_ids`
+    still opens it, a singer's own scores and a song's best scores still hold it, and the
+    achievements pass never saw this flag at all. The party being sung is never dropped,
+    whatever the flag says — a phone at that party would otherwise be left with an empty
+    page — which is the same rule that stops it from being hidden in the first place.
+
+    `include_hidden` asks for the hidden ones too, and is honoured only for a caller who
+    holds `stats.hide`; anybody else gets the default list whatever they ask, without a 403,
+    the same way this route already answers a short list instead of refusing.
+
+    `session_count` and `score_count` count every party this caller may open, hidden ones
+    included, because they are what the picker's head row says and that row stands for
+    `GET /stats/scores` — which hiding does not touch.
     """
     rows = await service.sessions(session)
-    if may_see_every_session(principal):
-        return SessionList(sessions=rows)
-    return SessionList(sessions=[row for row in rows if row.id in visible])
+    if not may_see_every_session(principal):
+        rows = [row for row in rows if row.id in visible]
+    # Counted before the hidden ones drop out, and never again after: these two are the
+    # head row, and the head row is `GET /stats/scores`.
+    session_count = len(rows)
+    score_count = sum(row.score_count for row in rows)
+    if not (include_hidden and "stats.hide" in principal.capabilities):
+        rows = [row for row in rows if row.current or not row.hidden]
+    return SessionList(sessions=rows, session_count=session_count, score_count=score_count)
 
 
 @router.get(
@@ -133,10 +170,51 @@ async def list_current_session_sings(session: SessionDep, hidden: HiddenSongsDep
 )
 async def rename_session(session_id: str, body: SessionUpdate, session: SessionDep) -> SessionRead:
     """Name a session ("Yannis' birthday"). Sessions are recorded rows, so the name sticks
-    to the same party forever."""
+    to the same party forever.
+
+    Broadcasts `sessions.changed`, so a phone with the party picker open reads the new name
+    without being reloaded."""
     return await service.rename_session(
         session, await _session_or_404(session_id, session), body.name
     )
+
+
+@router.put(
+    "/stats/sessions/{session_id}/hidden",
+    response_model=SessionRead,
+    dependencies=[Depends(require("stats.hide"))],
+    responses={
+        **UNKNOWN_SESSION,
+        409: {"description": "The party being sung cannot be hidden."},
+    },
+)
+async def set_session_hidden(
+    session_id: str, body: SessionVisibility, session: SessionDep
+) -> SessionRead:
+    """Keep a party out of the Scores page's party picker, or put it back.
+
+    Its own route under its own capability rather than a second field on `PATCH
+    /stats/sessions/{id}`: naming a party is `stats.manage`, which the party's helpers hold,
+    and deciding which evenings the room still gets to look at is not the same right. One
+    route, one capability, so a holder of the one can never reach the other.
+
+    **Hiding changes what that one list holds and nothing else.** Every score of the party
+    stays exactly where it was: in `GET /stats/scores`, in the singer's own record, in a
+    song's best scores, in what a reader may open, and in what an achievement is worked out
+    from. Nobody's badge and nobody's best score moves because a list was tidied.
+
+    Hiding the party being sung is a 409: the evening in progress is what the Scores page is
+    for. Putting it back is always allowed, so a flag set before the room sang into that
+    party again has a way out.
+    """
+    try:
+        return await service.set_session_hidden(
+            session, await _session_or_404(session_id, session), body.hidden
+        )
+    except service.SessionRunningError as error:
+        raise HTTPException(
+            status_code=409, detail=f"session '{error.session_id}' is the party being sung"
+        ) from error
 
 
 async def readable_session(
@@ -189,10 +267,13 @@ async def list_all_scores(
 async def reassign_score(score_id: int, body: ScoreUpdate, session: SessionDep) -> ScoreRead:
     """Put a score on the singer it belongs to — the fix for a wrongly picked player.
 
-    The sing, its session and the number itself are untouched. Nothing stops two scores of
-    the same sing from ending up on one player: swapping the two singers of a duet goes
-    through that state on its way, and a rule against it would block the very correction
-    this route exists for.
+    The sing, its session and the number itself are untouched, and so are the `placement`
+    and `field_size` of every score of that sing — by design: the numbers did not move, only
+    the name on one of them, so the score that came first still came first.
+
+    Nothing stops two scores of the same sing from ending up on one player: swapping the two
+    singers of a duet goes through that state on its way, and a rule against it would block
+    the very correction this route exists for.
     """
     score = await _score_or_404(score_id, session)
     player = await session.get(Player, body.player_id)
@@ -210,7 +291,11 @@ async def reassign_score(score_id: int, body: ScoreUpdate, session: SessionDep) 
 async def delete_score(score_id: int, session: SessionDep) -> None:
     """Take one score off the record. The sing it belonged to stays, even when it was the
     last score on it — the song *was* played, and that is what the Recent tab and a party's
-    `sing_count` are counted from."""
+    `sing_count` are counted from.
+
+    The `placement` and `field_size` of the scores that remain stay as they were, by design:
+    they record the field the song was actually sung against, and that is exactly what is no
+    longer reconstructible once this row is gone."""
     await service.delete_score(session, await _score_or_404(score_id, session))
 
 

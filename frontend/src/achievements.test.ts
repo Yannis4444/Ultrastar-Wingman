@@ -14,6 +14,7 @@ import {
   importSummary,
   isMasked,
   MAX_PATTERN_LENGTH,
+  METRIC_DESCRIPTIONS,
   METRIC_LABELS,
   METRICS,
   progressFraction,
@@ -220,6 +221,14 @@ describe("the editor's vocabulary", () => {
     expect([...METRICS].sort()).toEqual(Object.keys(METRIC_LABELS).sort());
     expect(METRIC_LABELS.any_score).toBe("Any score");
     expect(METRIC_LABELS.different_artists).toBe("Different artists");
+    expect(METRIC_LABELS.number_of_wins).toBe("Number of wins");
+  });
+
+  it("says of a win the two things that are not obvious", () => {
+    // The traps the host cannot see in the label: a song nobody else sang is
+    // not a win, and a tie at the top is one for everybody who holds it.
+    expect(METRIC_DESCRIPTIONS.number_of_wins).toContain("nobody else");
+    expect(METRIC_DESCRIPTIONS.number_of_wins).toContain("both singers");
   });
 
   it("names every comparator, loosest first", () => {
@@ -419,6 +428,32 @@ describe("conditionSentence", () => {
         condition({ metric: "different_artists", comparator: "<", value: 4 }),
       ),
     ).toBe("Over all time, less than 4 different artists.");
+    expect(
+      conditionSentence(
+        condition({ metric: "number_of_wins", comparator: ">=", value: 5 }),
+      ),
+    ).toBe("Over all time, at least 5 wins.");
+    // One of them, singular — the same rule every other counted noun follows.
+    expect(
+      conditionSentence(
+        condition({ metric: "number_of_wins", scope: "session", value: 1 }),
+      ),
+    ).toBe("In one party, at least 1 win.");
+  });
+
+  it("gives a win the same progress bar as any other count", () => {
+    // Nothing in `conditionTarget` knows about wins: it is a count compared
+    // upward, which is all the progress rule ever asks.
+    expect(
+      conditionTarget(
+        condition({ metric: "number_of_wins", comparator: ">=", value: 5 }),
+      ),
+    ).toBe(5);
+    expect(
+      conditionTarget(
+        condition({ metric: "number_of_wins", comparator: ">", value: 5 }),
+      ),
+    ).toBe(6);
   });
 
   it("folds a score filter into the noun a count counts", () => {

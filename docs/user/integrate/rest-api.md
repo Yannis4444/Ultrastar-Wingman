@@ -78,7 +78,7 @@ what the writes take. Reads and writes that take no capability say so.
 | `/karaoke` | The running song: `sing`, `stop`, `current`, slots and colors | `songs.view` and `players.view` to read, then `karaoke.sing` and `karaoke.stop` |
 | `/downloads` | The download queue and what it is doing | `downloads.view`, then `downloads.manage` |
 | `/sources` | Searching USDB, the source those downloads come from | `usdb.search` |
-| `/stats` | Parties and their scores, and the two corrections to one | `stats.view` and `stats.history`, then `stats.manage` and `stats.moderate` |
+| `/stats` | Parties and their scores, and the two corrections to one | `stats.view` and `stats.history`, then `stats.manage`, `stats.hide` and `stats.moderate` |
 | `/achievements` | The catalog of achievements, and what a player earned | None to read, `achievements.manage` to write |
 | `/settings` | Every setting the app has | `settings.view`, then `settings.manage` |
 | `/auth`, `/users`, `/permissions` | Accounts, logging in, roles, and what a role may do | None for `/auth`, then `users.view`, `users.manage`, `permissions.manage` |
@@ -93,6 +93,14 @@ One name in the paths does not match the word the rest of the site uses. What
 the site calls a party is a `session`, in `/stats/sessions` and in every
 `session_id` field. One run of one song is a `sing` on both sides, and a score
 points at a `sing_id`.
+
+`GET /stats/sessions` leaves out the parties somebody took off the list on the
+Scores tab. `?include_hidden=true` asks for them too, and is answered only for a
+caller who holds `stats.hide`; anybody else gets the short list whatever they
+ask. `session_count` and `score_count` next to the rows count every party the
+caller may open, the ones off the list included, because `GET /stats/scores`
+adds all of them up. Taking a party off the list reaches that one listing and
+nothing else.
 
 In Windows PowerShell, `curl` is the name of a different command. Write
 `curl.exe` there.

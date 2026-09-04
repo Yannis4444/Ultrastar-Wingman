@@ -36,7 +36,8 @@ Trusted also creates tags, deletes them, and says who each tag is for.
 **Scores and achievements.** Everybody sees the scoreboard of the party that is
 running. An account also sees the parties before tonight and anybody's whole
 record. Trusted may name a party. Admin alone may put a recorded score on
-another singer or delete it, and Admin alone edits achievements.
+another singer or delete it, take a party off the list on the Scores tab, and
+edit achievements.
 
 **People and settings.** Trusted sees who has an account. Admin changes roles,
 deletes accounts, opens the settings, and edits this table.

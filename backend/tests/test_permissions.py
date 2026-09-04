@@ -141,6 +141,8 @@ ROUTES: list[tuple[str, str, str, dict[str, object] | None]] = [
     # Somebody else's player; your own scores are identity — see test_stats_api.
     ("stats.history", "GET", "/api/v1/stats/players/nope/scores", None),
     ("stats.manage", "PATCH", "/api/v1/stats/sessions/nope", {"name": "Party"}),
+    # Keeping a party out of the picker is not the naming right: `stats.manage` names one.
+    ("stats.hide", "PUT", "/api/v1/stats/sessions/nope/hidden", {"hidden": True}),
     # Admin-only by default: both rewrite what the party's record says happened.
     ("stats.moderate", "PATCH", "/api/v1/stats/scores/1", {"player_id": "nope"}),
     ("stats.moderate", "DELETE", "/api/v1/stats/scores/1", None),

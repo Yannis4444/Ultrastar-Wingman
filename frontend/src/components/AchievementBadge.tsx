@@ -1,5 +1,6 @@
 import type { AchievementRead } from "../api";
 import {
+  type AchievementIconSize,
   achievementColorClass,
   achievementGlyph,
   achievementIconUrl,
@@ -16,6 +17,14 @@ interface Props {
    * and gets the full-colour one; a player's record says so per row.
    */
   earned?: boolean;
+  /**
+   * Which file to ask the icon endpoint for — the picture's **resolution**,
+   * never its size on screen, which stays the parent's `font-size` (§3). Every
+   * surface that draws a list of badges keeps the 256px `small`; only the
+   * achievement modal, which fills a phone with one of them, asks for `full`,
+   * and only while it is open: a shipped picture is over a megabyte.
+   */
+  resolution?: AchievementIconSize;
   className?: string;
 }
 
@@ -37,7 +46,8 @@ interface Props {
  * It takes no size: the badge is 2.5em and its glyph 1.25em of that, so the
  * parent's `font-size` sizes it (§3). A row's 16px makes the 40px square every
  * other list row leads with; the host screen's `clamp()` makes it a badge across
- * the room, and neither needs a prop.
+ * the room, and neither needs a prop. `resolution` is not a size — it is which
+ * file the endpoint hands back, and the modal is the only caller that moves it.
  *
  * Decorative by construction (`aria-hidden`): every surface that draws one draws
  * the achievement's name beside it, and a screen reader announcing the picture
@@ -46,6 +56,7 @@ interface Props {
 export default function AchievementBadge({
   achievement,
   earned = true,
+  resolution = "small",
   className,
 }: Props) {
   const masked = isMasked(achievement);
@@ -73,7 +84,11 @@ export default function AchievementBadge({
       ) : achievement.has_image ? (
         <img
           className="achievement-badge-image"
-          src={achievementIconUrl(achievement.id, achievement.icon_version)}
+          src={achievementIconUrl(
+            achievement.id,
+            achievement.icon_version,
+            resolution,
+          )}
           alt=""
         />
       ) : (

@@ -174,6 +174,104 @@ async def test_a_finished_sing_awards_and_announces(
     assert await earned_of(session, str(alex["id"])) == set()
 
 
+async def test_winning_a_song_is_earned_off_the_placement_the_sing_recorded(
+    client: AsyncClient, session: AsyncSession, configured: FakeUsdx, song: str
+) -> None:
+    """`number_of_wins`, end to end: the placement `_finish` wrote is what the pass reads
+    back, so the badge lands on the singer who came first and on nobody else."""
+    await add_achievement(
+        session, "winner", [{"metric": "number_of_wins", "comparator": ">=", "value": 1}]
+    )
+    yannis = await add_player(client, "Yannis")
+    alex = await add_player(client, "Alex")
+    configured.behave(
+        scores=[("Yannis" + NUL * 10, 8500, 2000, 3), ("Alex" + NUL * 12, 7000, 2001, 3)]
+    )
+
+    await sing(
+        client,
+        song,
+        [{"color": "blue", "player_id": yannis["id"]}, {"color": "red", "player_id": alex["id"]}],
+    )
+    await karaoke.wait_for_sing_end()
+
+    assert await earned_of(session, str(yannis["id"])) == {"winner"}
+    assert await earned_of(session, str(alex["id"])) == set()
+
+    # And it survives the loser being taken off the record: the win was against somebody,
+    # and the columns that say so are never recomputed (`stats.service.delete_score`).
+    loser = await session.scalar(select(Score).where(Score.player_id == alex["id"]))
+    assert loser is not None
+    assert (await client.delete(f"/api/v1/stats/scores/{loser.id}")).status_code == 204
+    assert await earned_of(session, str(yannis["id"])) == {"winner"}
+
+
+async def test_a_reassigned_score_takes_its_win_with_it(
+    client: AsyncClient, session: AsyncSession, configured: FakeUsdx, song: str
+) -> None:
+    """The other `stats.moderate` correction: the win moves to whoever the score is put on.
+
+    Nothing about the sing is renumbered — both rows keep the placement and the field size
+    they were given — and the pass that follows the correction reads them back, so the badge
+    lands on the new owner and is taken off the old one. The new owner now holds *both*
+    scores of that sing, which is the state a duet swap goes through: one of them is
+    placement 1, so it is one win and not two.
+    """
+    await add_achievement(
+        session, "winner", [{"metric": "number_of_wins", "comparator": ">=", "value": 1}]
+    )
+    await add_achievement(
+        session, "double", [{"metric": "number_of_wins", "comparator": ">=", "value": 2}]
+    )
+    yannis = await add_player(client, "Yannis")
+    alex = await add_player(client, "Alex")
+    configured.behave(
+        scores=[("Yannis" + NUL * 10, 8500, 2000, 3), ("Alex" + NUL * 12, 7000, 2001, 3)]
+    )
+
+    await sing(
+        client,
+        song,
+        [{"color": "blue", "player_id": yannis["id"]}, {"color": "red", "player_id": alex["id"]}],
+    )
+    await karaoke.wait_for_sing_end()
+    assert await earned_of(session, str(yannis["id"])) == {"winner"}
+
+    winning = await session.scalar(select(Score).where(Score.player_id == yannis["id"]))
+    assert winning is not None
+    moved = await client.patch(f"/api/v1/stats/scores/{winning.id}", json={"player_id": alex["id"]})
+    assert moved.status_code == 200
+
+    session.expire_all()
+    rows = list(
+        await session.execute(
+            select(Score.player_name, Score.score, Score.placement, Score.field_size).order_by(
+                Score.score.desc()
+            )
+        )
+    )
+    assert rows == [("Alex", 8500, 1, 2), ("Alex", 7000, 2, 2)]
+    assert await earned_of(session, str(yannis["id"])) == set()
+    assert await earned_of(session, str(alex["id"])) == {"winner"}
+
+
+async def test_a_song_sung_alone_earns_no_win(
+    client: AsyncClient, session: AsyncSession, configured: FakeUsdx, song: str
+) -> None:
+    """The user's own question, answered: without the field size a solo and a victory would
+    be the same row, and everybody who ever sang would hold this badge."""
+    await add_achievement(
+        session, "winner", [{"metric": "number_of_wins", "comparator": ">=", "value": 1}]
+    )
+    yannis = await add_player(client, "Yannis")
+    configured.behave(scores=[("Yannis" + NUL * 10, 8500, 2000, 3)])
+
+    await sing(client, song, [{"color": "blue", "player_id": yannis["id"]}])
+    await karaoke.wait_for_sing_end()
+
+    assert await earned_of(session, str(yannis["id"])) == set()
+
+
 async def test_the_bus_reveals_a_hidden_badge_but_never_what_it_asked_for(
     client: AsyncClient,
     session: AsyncSession,

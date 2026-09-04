@@ -131,6 +131,19 @@ function pair(overrides: Partial<PlaylistDetail> = {}): PlaylistDetail {
   });
 }
 
+/** Three songs, so a row can be moved without running out of arrows. */
+function trio(overrides: Partial<PlaylistDetail> = {}): PlaylistDetail {
+  return detail({
+    song_count: 3,
+    entries: [
+      { song: song(), position: 0 },
+      { song: HEY, position: 1 },
+      { song: song({ id: "local:ghi", title: "Yesterday" }), position: 2 },
+    ],
+    ...overrides,
+  });
+}
+
 /** Bob's list, shared with the reader — a member row, not ownership. */
 const MEMBER: Partial<PlaylistDetail> = {
   my_access: "write",
@@ -396,6 +409,74 @@ test("the arrows save the whole new order", async () => {
   // And the rows swapped under the reader's hands, not only on the server.
   const rows = screen.getAllByRole("button", { name: /^Move / });
   expect(rows[0]).toHaveAccessibleName("Move Hey Jude up");
+});
+
+test("keeps the keyboard on the arrow a move was made with", async () => {
+  const rows = trio();
+  reorderPlaylistEntries.mockResolvedValue({ data: rows });
+  renderPlaylist(rows);
+
+  fireEvent.click(await screen.findByRole("button", { name: "Edit" }));
+  const down = screen.getByRole("button", { name: "Move Africa down" });
+  down.focus();
+  fireEvent.click(down);
+
+  // The row's own node moves and both its arrows are disabled while the order
+  // is saved, and neither a moved nor a disabled control keeps the focus — so
+  // without putting it back, a reader arranging by keyboard is dropped at the
+  // top of the page after every press.
+  await waitFor(() => expect(reorderPlaylistEntries).toHaveBeenCalled());
+  await waitFor(() =>
+    expect(
+      screen.getByRole("button", { name: "Move Africa down" }),
+    ).toBeEnabled(),
+  );
+  expect(document.activeElement).toBe(
+    screen.getByRole("button", { name: "Move Africa down" }),
+  );
+});
+
+test("leaves the focus where the reader took it while a move was saving", async () => {
+  const rows = trio();
+  reorderPlaylistEntries.mockResolvedValue({ data: rows });
+  renderPlaylist(rows);
+
+  fireEvent.click(await screen.findByRole("button", { name: "Edit" }));
+  const down = screen.getByRole("button", { name: "Move Africa down" });
+  down.focus();
+  fireEvent.click(down);
+  // Somewhere else, by hand, before the answer lands.
+  const done = screen.getByRole("button", { name: "Done" });
+  done.focus();
+
+  await waitFor(() => expect(reorderPlaylistEntries).toHaveBeenCalled());
+  await waitFor(() =>
+    expect(
+      screen.getByRole("button", { name: "Move Africa down" }),
+    ).toBeEnabled(),
+  );
+  expect(document.activeElement).toBe(done);
+});
+
+test("hands the keyboard the other arrow when a move uses one up", async () => {
+  reorderPlaylistEntries.mockResolvedValue({ data: pair() });
+  renderPlaylist(pair());
+
+  fireEvent.click(await screen.findByRole("button", { name: "Edit" }));
+  const down = screen.getByRole("button", { name: "Move Africa down" });
+  down.focus();
+  fireEvent.click(down);
+
+  // It now ends the list, so the arrow that got it there is disabled for good.
+  // The focus goes to the row's other one rather than nowhere.
+  await waitFor(() =>
+    expect(
+      screen.getByRole("button", { name: "Move Africa down" }),
+    ).toBeDisabled(),
+  );
+  expect(document.activeElement).toBe(
+    screen.getByRole("button", { name: "Move Africa up" }),
+  );
 });
 
 test("an order the server refuses goes back where it was", async () => {

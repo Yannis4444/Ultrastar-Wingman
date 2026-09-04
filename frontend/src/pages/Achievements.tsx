@@ -33,14 +33,19 @@ import PageHeader from "../components/PageHeader";
 import PickerRow from "../components/PickerRow";
 import { SettingSaved } from "../components/SettingField";
 import { errorDetail, errorMessage, missingPermission } from "../errors";
+import {
+  useReorderFocus,
+  type ReorderDirection,
+} from "../hooks/useReorderFocus";
 import { useWingmanEvent } from "../hooks/useWingmanEvents";
 import "./Achievements.css";
 
 /** The bound `achievements/settings.py` refuses a second count outside. */
 const MAX_HOST_SECONDS = 60;
 
-/** What the page calls the set Wingman ships — the word its own heading uses,
- *  so a row and the heading over it never name the same thing twice over. */
+/** What the page calls one of the achievements Wingman ships. There is one
+ *  list and no heading over a section of it, so this word on the row is the
+ *  whole of what tells a shipped achievement from a party's own. */
 const INCLUDED = "Included";
 
 /** The slug behind a refused order: what was sent is not a permutation of the
@@ -67,8 +72,9 @@ function pickerMeta(achievement: AchievementRead): string {
 }
 
 /** The array with the item at `from` put at `to` — the playlist page's own two
- *  lines, kept here rather than shared: the two reorder flows have nothing else
- *  in common (this one has no hidden rows and two sections). */
+ *  lines, kept here rather than shared: what the two reorder flows really have
+ *  in common is where the keyboard goes after a move, and that is a hook
+ *  (`useReorderFocus`); this one has no hidden rows and no membership. */
 function moved(ids: string[], from: number, to: number): string[] {
   const next = [...ids];
   next.splice(to, 0, ...next.splice(from, 1));
@@ -79,19 +85,10 @@ function sameOrder(left: string[], right: string[]): boolean {
   return left.length === right.length && left.every((id, i) => id === right[i]);
 }
 
-/** The two sequences the page arranges — one per section it draws. */
-interface CatalogueOrder {
-  own: string[];
-  included: string[];
-}
-
 /** Whether two orders are over the same rows, whatever order they are in: what
  *  says an arrangement in progress is still about the catalogue as it stands. */
-function sameRows(left: CatalogueOrder, right: CatalogueOrder): boolean {
-  return (
-    sameOrder([...left.own].sort(), [...right.own].sort()) &&
-    sameOrder([...left.included].sort(), [...right.included].sort())
-  );
+function sameRows(left: string[], right: string[]): boolean {
+  return sameOrder([...left].sort(), [...right].sort());
 }
 
 /** How one list hands the order it now has back to the page. `save` is false
@@ -123,7 +120,10 @@ interface RowsProps {
  *
  * In reorder mode each row grows a grip in front and an arrow pair behind, both
  * beside the link and never inside it (nested interactive elements). The arrows
- * are the real control; the grip is the pointer's convenience.
+ * are the real control; the grip is the pointer's convenience. Which is why the
+ * focus goes back to the arrow that was pressed once the move is saved: moving
+ * a row costs it, and a reader arranging a catalogue by keyboard would have to
+ * find their way back to the list after every press.
  */
 function AchievementRows({ achievements, reorder }: RowsProps) {
   const rows = useRef<HTMLUListElement>(null);
@@ -132,6 +132,12 @@ function AchievementRows({ achievements, reorder }: RowsProps) {
   const dragFrom = useRef<number | null>(null);
   const [dragged, setDragged] = useState<string | null>(null);
   const ids = achievements.map(({ id }) => id);
+  const pending = reorder?.pending ?? false;
+
+  // A move costs the reader their place — the row's own node moves and both its
+  // arrows go `disabled` — so the keyboard goes back onto the arrow it was
+  // pressed with. The playlist's edit mode does the same, out of the same hook.
+  const focus = useReorderFocus(pending, ids);
 
   /** Which row the pointer is over, so a drag needs no library. */
   const rowAt = (clientY: number): number | null => {
@@ -169,6 +175,32 @@ function AchievementRows({ achievements, reorder }: RowsProps) {
     if (to === null || to === from) return;
     dragFrom.current = to;
     reorder.onOrder(moved(ids, from, to), false);
+  };
+
+  /** One of a row's two arrows. Both are the same button but for the way they
+   *  move the row and the end of the list they run out at, and both remember
+   *  themselves so the focus can come back after the move. */
+  const arrow = (
+    achievement: AchievementRead,
+    index: number,
+    direction: ReorderDirection,
+  ) => {
+    const to = direction === "up" ? index - 1 : index + 1;
+    return (
+      <button
+        type="button"
+        className="icon-button"
+        ref={focus.register(achievement.id, direction)}
+        aria-label={`Move ${achievement.name} ${direction}`}
+        disabled={to < 0 || to >= ids.length || pending}
+        onClick={() => {
+          focus.press(achievement.id, direction);
+          reorder?.onOrder(moved(ids, index, to), true);
+        }}
+      >
+        <Icon name={direction === "up" ? "arrow-up" : "arrow-down"} />
+      </button>
+    );
   };
 
   const endDrag = (event: ReactPointerEvent<HTMLSpanElement>) => {
@@ -253,28 +285,8 @@ function AchievementRows({ achievements, reorder }: RowsProps) {
           </Link>
           {reorder !== undefined && (
             <span className="achievements-actions">
-              <button
-                type="button"
-                className="icon-button"
-                aria-label={`Move ${achievement.name} up`}
-                disabled={index === 0 || reorder.pending}
-                onClick={() =>
-                  reorder.onOrder(moved(ids, index, index - 1), true)
-                }
-              >
-                <Icon name="arrow-up" />
-              </button>
-              <button
-                type="button"
-                className="icon-button"
-                aria-label={`Move ${achievement.name} down`}
-                disabled={index === ids.length - 1 || reorder.pending}
-                onClick={() =>
-                  reorder.onOrder(moved(ids, index, index + 1), true)
-                }
-              >
-                <Icon name="arrow-down" />
-              </button>
+              {arrow(achievement, index, "up")}
+              {arrow(achievement, index, "down")}
             </span>
           )}
         </li>
@@ -551,12 +563,13 @@ function ExportPanel({
 
 /**
  * The achievements of the party, behind the `achievements.manage` entry of the
- * manage menu: the three options the feature has, then the ones somebody here
- * made, then the seventeen Wingman brings with it. A row leads into the editor;
- * the header's `+` starts a new one and its grip arranges the order they are all
- * listed in — here and on every surface that draws a badge.
+ * manage menu: the three options the feature has, then the whole catalogue as
+ * one list — the ones somebody here made and the seventeen Wingman brings with
+ * it in one sequence, whichever order the host put them in. A row leads into
+ * the editor; the header's `+` starts a new one and its grip arranges the order
+ * they are all listed in — here and on every surface that draws a badge.
  *
- * Both lists come from `GET /achievements?manage=true` — the managing answer,
+ * The list comes from `GET /achievements?manage=true` — the managing answer,
  * every hidden achievement spelled out and every row's `definition`, which is
  * what the editor and the archive need. That is a request of its own, made only
  * by this page and its editor: the listing every badge surface shares is masked
@@ -691,22 +704,17 @@ export default function Achievements() {
   // `achievements.changed`, and a list rearranging itself under a dragging
   // finger is worse than a moment of staleness.
   //
-  // Two sequences, because the page draws two sections: a row moves inside its
-  // own. What is *sent* is the whole catalogue as one order — the party's own
-  // rows, then the included ones — which is exactly the order the page lists
-  // them in, and `sort_order` is one column over the whole table.
-  const [order, setOrder] = useState<CatalogueOrder | null>(null);
+  // One sequence over the whole catalogue, because that is what the page draws
+  // and what `sort_order` is: one column over the whole table, so a party's own
+  // achievement may sit above a shipped one and what is sent is the list
+  // exactly as drawn.
+  const [order, setOrder] = useState<string[] | null>(null);
   const [orderError, setOrderError] = useState<string | null>(null);
 
   const byId = new Map(
     rows.map((achievement) => [achievement.id, achievement]),
   );
-  const section = (builtIn: boolean): AchievementRead[] =>
-    rows.filter((achievement) => achievement.built_in === builtIn);
-  const stored: CatalogueOrder = {
-    own: section(false).map(({ id }) => id),
-    included: section(true).map(({ id }) => id),
-  };
+  const stored = rows.map(({ id }) => id);
 
   // Somebody else created, imported or deleted an achievement while the mode
   // was open: reseed rather than go on claiming an order the backend would
@@ -714,13 +722,13 @@ export default function Achievements() {
   if (order !== null && !sameRows(order, stored)) setOrder(stored);
 
   const arranging = order !== null;
-  const arrange = (ids: string[]): AchievementRead[] =>
-    ids.flatMap((id) => {
-      const found = byId.get(id);
-      return found === undefined ? [] : [found];
-    });
-  const own = order === null ? section(false) : arrange(order.own);
-  const included = order === null ? section(true) : arrange(order.included);
+  const drawn =
+    order === null
+      ? rows
+      : order.flatMap((id) => {
+          const found = byId.get(id);
+          return found === undefined ? [] : [found];
+        });
 
   const put = useMutation({
     ...reorderAchievementsMutation(),
@@ -744,44 +752,41 @@ export default function Achievements() {
     },
   });
 
-  /** One section's new order. Saved unless a drag is still passing over rows. */
-  const apply =
-    (which: "own" | "included") =>
-    (ids: string[], save: boolean): void => {
-      if (order === null) return;
-      const next = { ...order, [which]: ids };
-      setOrder(next);
-      if (!save) return;
-      const sequence = [...next.own, ...next.included];
-      if (sameOrder(sequence, [...stored.own, ...stored.included])) return;
-      setOrderError(null);
-      // The order the server still has — not "the order before this move". A
-      // drag rearranges the rows as the finger crosses them and only saves at
-      // the end, so the move before the failed one *is* the failed one; going
-      // back to it would leave the list claiming exactly the order that was
-      // just refused.
-      const saved = stored;
-      put.mutate(
-        { body: { ids: sequence } },
-        {
-          // A refused move puts the rows back where the server still has them:
-          // the notice says what went wrong, and the list must not go on
-          // claiming an order it failed to save.
-          onError: (cause) => {
-            setOrder(saved);
-            setOrderError(orderRefusal(cause));
-            // A mismatch means the catalogue itself has moved on, so ask for it
-            // again: without that, every further gesture is refused for the
-            // same stale reason and the mode never recovers.
-            if (errorDetail(cause) === ORDER_MISMATCH)
-              void queryClient.invalidateQueries({
-                queryKey: listAchievementsQueryKey(MANAGE_CATALOGUE),
-                exact: true,
-              });
-          },
+  /** The catalogue's new order. Saved unless a drag is still passing over
+   *  rows: one request per gesture, not one per row the finger crossed. */
+  const apply = (ids: string[], save: boolean): void => {
+    if (order === null) return;
+    setOrder(ids);
+    if (!save) return;
+    if (sameOrder(ids, stored)) return;
+    setOrderError(null);
+    // The order the server still has — not "the order before this move". A
+    // drag rearranges the rows as the finger crosses them and only saves at
+    // the end, so the move before the failed one *is* the failed one; going
+    // back to it would leave the list claiming exactly the order that was
+    // just refused.
+    const saved = stored;
+    put.mutate(
+      { body: { ids } },
+      {
+        // A refused move puts the rows back where the server still has them:
+        // the notice says what went wrong, and the list must not go on
+        // claiming an order it failed to save.
+        onError: (cause) => {
+          setOrder(saved);
+          setOrderError(orderRefusal(cause));
+          // A mismatch means the catalogue itself has moved on, so ask for it
+          // again: without that, every further gesture is refused for the
+          // same stale reason and the mode never recovers.
+          if (errorDetail(cause) === ORDER_MISMATCH)
+            void queryClient.invalidateQueries({
+              queryKey: listAchievementsQueryKey(MANAGE_CATALOGUE),
+              exact: true,
+            });
         },
-      );
-    };
+      },
+    );
+  };
 
   /** What to call an achievement an import named. An id the catalogue has not
    *  got yet — a just-created one, before the refetch — stands for itself. */
@@ -918,11 +923,13 @@ export default function Achievements() {
                     </p>
                   )}
 
-                  {/* No heading over these, exactly as the Tags page leads
-                      with its own rows: on a page called Achievements, "Your
-                      achievements" would read as the badges the reader has
-                      earned rather than the ones made here. */}
-                  {own.length === 0 ? (
+                  {/* One list over the whole catalogue, and no heading over
+                      any part of it: the order is the host's, so a party's own
+                      achievement may stand above a shipped one and a section
+                      heading would be claiming an order the page does not
+                      keep. What tells a shipped one apart is the word on its
+                      own row. */}
+                  {drawn.length === 0 ? (
                     <EmptyState icon="trophy" title="No achievements yet">
                       An achievement is something to reach for: a score, a
                       number of songs, a duet. It lands on the singer's page the
@@ -930,30 +937,14 @@ export default function Achievements() {
                     </EmptyState>
                   ) : (
                     <AchievementRows
-                      achievements={own}
+                      achievements={drawn}
                       reorder={
                         arranging
-                          ? { onOrder: apply("own"), pending: put.isPending }
+                          ? { onOrder: apply, pending: put.isPending }
                           : undefined
                       }
                     />
                   )}
-
-                  {/* The ones Wingman brings with it, after the rows `+` and
-                      Delete govern: a built-in can be edited and switched off,
-                      but never deleted, so nothing here removes one. */}
-                  <h2 className="achievements-heading">
-                    <Icon name="gift" className="achievements-heading-icon" />
-                    {INCLUDED}
-                  </h2>
-                  <AchievementRows
-                    achievements={included}
-                    reorder={
-                      arranging
-                        ? { onOrder: apply("included"), pending: put.isPending }
-                        : undefined
-                    }
-                  />
 
                   {/* Last on the page, the way a playlist's "Save a copy" is:
                       carrying achievements between parties is a thing a host
@@ -1019,7 +1010,7 @@ export default function Achievements() {
 
                   {picking && (
                     <ExportPanel
-                      achievements={[...own, ...included]}
+                      achievements={drawn}
                       pending={send.isPending}
                       error={
                         send.isError

@@ -4,7 +4,11 @@ import "./ConfirmModal.css";
 interface ConfirmModalProps {
   title: string;
   message: string;
-  confirmLabel?: string;
+  /** The bare verb of the action, never "OK" and never a second copy of the
+   *  title (documentation.md §11): "Delete", "Stop", "Move". It has
+   *  no default for that reason — the button the reader pressed to get here is
+   *  what says the whole thing. */
+  confirmLabel: string;
   /** Paints the confirm button as destructive (delete, replace, stop). */
   danger?: boolean;
   onConfirm: () => void;
@@ -15,7 +19,7 @@ interface ConfirmModalProps {
 export default function ConfirmModal({
   title,
   message,
-  confirmLabel = "OK",
+  confirmLabel,
   danger,
   onConfirm,
   onCancel,

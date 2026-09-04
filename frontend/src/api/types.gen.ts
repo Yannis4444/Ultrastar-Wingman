@@ -461,7 +461,7 @@ export type Condition = {
     /**
      * Metric
      */
-    metric: 'any_score' | 'sum_of_scores' | 'average_score' | 'number_of_scores' | 'number_of_sings' | 'different_songs' | 'different_artists';
+    metric: 'any_score' | 'sum_of_scores' | 'average_score' | 'number_of_scores' | 'number_of_sings' | 'different_songs' | 'different_artists' | 'number_of_wins';
     /**
      * Comparator
      */
@@ -1180,6 +1180,14 @@ export type ScoreRead = {
      */
     difficulty: number | null;
     /**
+     * Placement
+     */
+    placement: number | null;
+    /**
+     * Field Size
+     */
+    field_size: number | null;
+    /**
      * Recorded At
      */
     recorded_at: string;
@@ -1231,6 +1239,14 @@ export type ScoreWithContext = {
      */
     difficulty: number | null;
     /**
+     * Placement
+     */
+    placement: number | null;
+    /**
+     * Field Size
+     */
+    field_size: number | null;
+    /**
      * Recorded At
      */
     recorded_at: string;
@@ -1267,12 +1283,28 @@ export type SelectorClause = {
 
 /**
  * SessionList
+ *
+ * The parties this caller may open, newest first.
+ *
+ * The two counts are over *every* one of them, hidden ones included, and so are not the
+ * length and the sum of `sessions` whenever a hidden party dropped out of it. They are
+ * what the picker's head row says ("3 parties · 60 scores"), and that row stands for
+ * `GET /stats/scores` — which hiding does not touch, so the figures have to add up to
+ * what opening it really shows.
  */
 export type SessionList = {
     /**
      * Sessions
      */
     sessions: Array<SessionRead>;
+    /**
+     * Session Count
+     */
+    session_count: number;
+    /**
+     * Score Count
+     */
+    score_count: number;
 };
 
 /**
@@ -1309,6 +1341,14 @@ export type SessionRead = {
      * Singer Count
      */
     singer_count: number;
+    /**
+     * Hidden
+     */
+    hidden: boolean;
+    /**
+     * Current
+     */
+    current: boolean;
 };
 
 /**
@@ -1321,6 +1361,18 @@ export type SessionUpdate = {
      * Name
      */
     name: string | null;
+};
+
+/**
+ * SessionVisibility
+ *
+ * Whether this party is kept out of the Scores page's party picker.
+ */
+export type SessionVisibility = {
+    /**
+     * Hidden
+     */
+    hidden: boolean;
 };
 
 /**
@@ -3935,9 +3987,25 @@ export type RemovePlaylistEntryResponse = RemovePlaylistEntryResponses[keyof Rem
 export type ListSessionsData = {
     body?: never;
     path?: never;
-    query?: never;
+    query?: {
+        /**
+         * Include Hidden
+         *
+         * List the parties kept out of the picker as well. Honoured only for a caller who holds `stats.hide`; everybody else gets the default list whatever they ask.
+         */
+        include_hidden?: boolean;
+    };
     url: '/api/v1/stats/sessions';
 };
+
+export type ListSessionsErrors = {
+    /**
+     * Validation Error
+     */
+    422: HttpValidationError;
+};
+
+export type ListSessionsError = ListSessionsErrors[keyof ListSessionsErrors];
 
 export type ListSessionsResponses = {
     /**
@@ -3997,6 +4065,44 @@ export type RenameSessionResponses = {
 };
 
 export type RenameSessionResponse = RenameSessionResponses[keyof RenameSessionResponses];
+
+export type SetSessionHiddenData = {
+    body: SessionVisibility;
+    path: {
+        /**
+         * Session Id
+         */
+        session_id: string;
+    };
+    query?: never;
+    url: '/api/v1/stats/sessions/{session_id}/hidden';
+};
+
+export type SetSessionHiddenErrors = {
+    /**
+     * Unknown session.
+     */
+    404: unknown;
+    /**
+     * The party being sung cannot be hidden.
+     */
+    409: unknown;
+    /**
+     * Validation Error
+     */
+    422: HttpValidationError;
+};
+
+export type SetSessionHiddenError = SetSessionHiddenErrors[keyof SetSessionHiddenErrors];
+
+export type SetSessionHiddenResponses = {
+    /**
+     * Successful Response
+     */
+    200: SessionRead;
+};
+
+export type SetSessionHiddenResponse = SetSessionHiddenResponses[keyof SetSessionHiddenResponses];
 
 export type ListAllScoresData = {
     body?: never;

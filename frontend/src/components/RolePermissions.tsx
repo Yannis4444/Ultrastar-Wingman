@@ -88,6 +88,8 @@ const DESCRIPTIONS: Record<string, string> = {
   "stats.manage": "Rename a party in the statistics.",
   "stats.moderate":
     "Put a recorded score on another singer, or delete it. The score itself and the song stay as Ultrastar Deluxe reported them.",
+  "stats.hide":
+    "Take a party off the list on the Scores tab, or put it back. It keeps every score it has.",
   "settings.view": "See Wingman's settings.",
   "settings.manage": "Change every setting, the USDB login included.",
   "users.view": "See who has an account and what role they hold.",

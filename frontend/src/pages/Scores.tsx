@@ -1,5 +1,5 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { useState } from "react";
+import { useState, type ReactNode } from "react";
 import type { SessionList, SessionRead, SongRead } from "../api";
 import {
   listAllScoresOptions,
@@ -10,6 +10,7 @@ import {
   listSessionsOptions,
   listSessionsQueryKey,
   renameSessionMutation,
+  setSessionHiddenMutation,
 } from "../api/@tanstack/react-query.gen";
 import { useAuth } from "../auth";
 import EveningTimeline from "../components/EveningTimeline";
@@ -27,6 +28,7 @@ import { useWingmanEvent } from "../hooks/useWingmanEvents";
 import {
   allSessionsMeta,
   groupScores,
+  isTucked,
   sessionLabel,
   sessionMeta,
   sortGroups,
@@ -64,6 +66,18 @@ const SORTINGS: { value: Sorting; label: string }[] = [
  */
 export const ALL_SESSIONS = "all";
 
+/**
+ * What this reader asks the listing for. A `stats.hide` holder takes the
+ * tucked-away parties along and filters them in the panel; everybody else gets
+ * the default list, and the backend ignores the parameter for them anyway.
+ *
+ * One place, because it is also the cache key: a rename writes its answer
+ * straight into the entry the page reads, and the two must be the same one.
+ */
+function sessionsRequest(canHide: boolean) {
+  return { query: { include_hidden: canHide } };
+}
+
 /** What that head row is called for a reader who may open every party. It says
  *  what it is on its own, so the bar's hidden "Party: " prefix stays off it. */
 const ALL_PARTIES = "All parties";
@@ -80,6 +94,14 @@ interface SessionRowProps {
   meta: string;
   /** Whether this is the row the page is currently showing. */
   pressed: boolean;
+  /** Whether the row is one the default list leaves out — drawn quiet. */
+  tucked?: boolean;
+  /**
+   * The eye pair, in show-all mode. Beside the row's button and never inside
+   * it: a button inside a button is not a thing, and picking the party and
+   * tucking it away are two different presses.
+   */
+  control?: ReactNode;
   onClick: () => void;
 }
 
@@ -89,10 +111,12 @@ function SessionRow({
   title,
   meta,
   pressed,
+  tucked,
+  control,
   onClick,
 }: SessionRowProps) {
   return (
-    <li>
+    <li className="session-row-line">
       <button
         type="button"
         className="picker-row session-row"
@@ -100,7 +124,14 @@ function SessionRow({
         onClick={onClick}
       >
         <span className="picker-row-text">
-          <span className="picker-row-title" title={title}>
+          <span
+            className={
+              tucked === true
+                ? "picker-row-title session-row-title-tucked"
+                : "picker-row-title"
+            }
+            title={title}
+          >
             {everything === true && (
               <Icon name="layers" className="session-row-glyph" />
             )}
@@ -109,6 +140,7 @@ function SessionRow({
           <span className="picker-row-meta">{meta}</span>
         </span>
       </button>
+      {control}
     </li>
   );
 }
@@ -118,11 +150,18 @@ interface SessionBarProps {
   session: SessionRead | null;
   /** What the picker stands on: a session id, or `ALL_SESSIONS`. */
   selected: string;
+  /** Every party this reader may open — the tucked-away ones included, for a
+   *  reader who holds `stats.hide`. The picker decides which of them it draws. */
   sessions: SessionRead[];
   /** The head row's wording, or `null` when there is no head row to draw. */
   metaLabel: string | null;
+  /** What the head row's line says: every party this reader may open added up,
+   *  tucked-away ones and all, because opening it opens them. */
+  metaLine: string;
   onSelect: (id: string) => void;
   canManage: boolean;
+  /** Whether this reader may keep a party out of the list (`stats.hide`). */
+  canHide: boolean;
 }
 
 /** The session bar, with an inline rename for whoever may manage stats. While
@@ -132,13 +171,19 @@ function SessionBar({
   selected,
   sessions,
   metaLabel,
+  metaLine,
   onSelect,
   canManage,
+  canHide,
 }: SessionBarProps) {
   const queryClient = useQueryClient();
   const [draft, setDraft] = useState<string | null>(null);
   const [picking, setPicking] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  // Whether the panel is showing every party or only the ones on the list.
+  // Held out here rather than inside the panel, so a host who tucked three
+  // parties away and closed the panel finds it as they left it.
+  const [showAll, setShowAll] = useState(false);
   // The bar stays mounted across a change of party — a remount would hand the
   // picker's focus back to a button that is no longer in the document, and a
   // keyboard reader would land on `document.body` and re-tab from the top of
@@ -157,19 +202,44 @@ function SessionBar({
     onSuccess: (updated) => {
       setDraft(null);
       // PATCH answers with the whole row, counts included — no refetch needed.
-      queryClient.setQueryData<SessionList>(listSessionsQueryKey(), (old) =>
-        old == null
-          ? old
-          : {
-              sessions: old.sessions.map((entry) =>
-                entry.id === updated.id ? updated : entry,
-              ),
-            },
+      queryClient.setQueryData<SessionList>(
+        listSessionsQueryKey(sessionsRequest(canHide)),
+        (old) =>
+          old == null
+            ? old
+            : {
+                ...old,
+                sessions: old.sessions.map((entry) =>
+                  entry.id === updated.id ? updated : entry,
+                ),
+              },
       );
     },
     onError: (failure) =>
       setError(errorMessage(failure, "Could not rename the party.")),
   });
+
+  const [hideError, setHideError] = useState<string | null>(null);
+  const setHidden = useMutation({
+    ...setSessionHiddenMutation(),
+    onSuccess: () => {
+      setHideError(null);
+      // Not a patch of the cached row: which parties the default list holds
+      // changes with the flag, and so do the head row's figures. The refetch
+      // is the same one `sessions.changed` triggers on every other screen.
+      void queryClient.invalidateQueries({ queryKey: listSessionsQueryKey() });
+    },
+    onError: (failure) =>
+      setHideError(errorMessage(failure, "Could not change the party.")),
+  });
+
+  // A refusal belongs to the panel it happened in: leaving takes it with it,
+  // the way the rename form drops its own notice. `showAll` stays — that is
+  // the mode this reader chose, not something that went wrong.
+  const closePicker = () => {
+    setHideError(null);
+    setPicking(false);
+  };
 
   // What the button stands on, and whether it needs saying what it is. The
   // hidden prefix is there for a party called "Yannis' birthday". A nameless
@@ -266,36 +336,94 @@ function SessionBar({
       )}
 
       {picking && (
-        <Modal title="Party" onClose={() => setPicking(false)}>
+        <Modal
+          title="Party"
+          onClose={closePicker}
+          headerAction={
+            canHide ? (
+              // The pair reads the state and not the action (ui-guidelines §3):
+              // `eye-off` while the tucked-away parties are out of the list,
+              // `eye` while they are in it.
+              <button
+                type="button"
+                className="icon-button"
+                aria-label="Show every party"
+                aria-pressed={showAll}
+                onClick={() => {
+                  setHideError(null);
+                  setShowAll(!showAll);
+                }}
+              >
+                <Icon name={showAll ? "eye" : "eye-off"} />
+              </button>
+            ) : undefined
+          }
+        >
+          {hideError !== null && (
+            <p className="error-notice scores-picker-error" role="alert">
+              {hideError}
+            </p>
+          )}
           <ul className="picker-list">
             {/* At the head, so "everything at once" is where the list starts
-                rather than something to scroll past. */}
+                rather than something to scroll past. Its line counts the
+                tucked-away parties too, because opening it opens them. */}
             {metaLabel !== null && (
               <SessionRow
                 everything
                 title={metaLabel}
-                meta={allSessionsMeta(sessions)}
+                meta={metaLine}
                 pressed={selected === ALL_SESSIONS}
                 onClick={() => {
                   onSelect(ALL_SESSIONS);
-                  setPicking(false);
+                  closePicker();
                 }}
               />
             )}
-            {sessions.map((entry) => (
-              <SessionRow
-                key={entry.id}
-                title={sessionLabel(entry)}
-                meta={sessionMeta(entry)}
-                pressed={selected === entry.id}
-                onClick={() => {
-                  // The choice made, the panel is done — and closing it is what
-                  // gives the focus back to the button that opened it.
-                  onSelect(entry.id);
-                  setPicking(false);
-                }}
-              />
-            ))}
+            {(showAll
+              ? sessions
+              : sessions.filter((entry) => !isTucked(entry))
+            ).map((entry) => {
+              const name = sessionLabel(entry);
+              return (
+                <SessionRow
+                  key={entry.id}
+                  title={name}
+                  meta={sessionMeta(entry)}
+                  pressed={selected === entry.id}
+                  tucked={isTucked(entry)}
+                  control={
+                    // Tonight's party is never hideable — the evening being
+                    // sung is what this page is for — but one carrying a flag
+                    // set before the room started singing into it again keeps
+                    // the way back out.
+                    showAll && (!entry.current || entry.hidden) ? (
+                      <button
+                        type="button"
+                        className="icon-button"
+                        aria-label={`Hide ${name} from the list`}
+                        aria-pressed={entry.hidden}
+                        disabled={setHidden.isPending}
+                        onClick={() =>
+                          setHidden.mutate({
+                            path: { session_id: entry.id },
+                            body: { hidden: !entry.hidden },
+                          })
+                        }
+                      >
+                        <Icon name={entry.hidden ? "eye-off" : "eye"} />
+                      </button>
+                    ) : undefined
+                  }
+                  onClick={() => {
+                    // The choice made, the panel is done — and closing it is
+                    // what gives the focus back to the button that opened it.
+                    onSelect(entry.id);
+                    closePicker();
+                  }}
+                />
+              );
+            })}
           </ul>
         </Modal>
       )}
@@ -320,8 +448,12 @@ export default function Scores() {
   const [openSong, setOpenSong] = useState<SongRead | null>(null);
 
   const canView = auth.can("stats.view");
+  const canHide = auth.can("stats.hide");
+  // A holder asks for every party in one go: the panel's show-all is then a
+  // filter over what is already here, so a party they tuck away does not
+  // vanish out from under the page they are reading.
   const sessions = useQuery({
-    ...listSessionsOptions(),
+    ...listSessionsOptions(sessionsRequest(canHide)),
     enabled: auth.loaded && canView,
   });
 
@@ -337,20 +469,44 @@ export default function Scores() {
 
   // Newest first from the backend, so the default selection is the first row.
   const all = sessions.data?.sessions ?? [];
+  // What the page opens on, and what the picker's default list holds: a party
+  // somebody tucked away is not where a reader lands.
+  const listed = all.filter((entry) => !isTucked(entry));
   // The backend hands over exactly the parties this reader may open, so the
   // head row adds them all up — every party for a reader with the history
-  // right, the ones they sang at for everybody else. With a single party in
-  // the list it would only repeat that party, so it stays away.
+  // right, the ones they sang at for everybody else. Counted by the backend
+  // rather than off this list, because it stands for `GET /stats/scores`,
+  // which the tucking away does not touch. With a single party it would only
+  // repeat that party, so it stays away.
+  const total = sessions.data?.session_count ?? 0;
   const metaLabel =
-    all.length < 2
+    total < 2
       ? null
       : auth.can("stats.history")
         ? ALL_PARTIES
         : "All my scores";
-  const meta = metaLabel !== null && selectedId === ALL_SESSIONS;
-  const session = meta
-    ? null
-    : (all.find((entry) => entry.id === selectedId) ?? all[0] ?? null);
+  const found = all.find((entry) => entry.id === selectedId) ?? null;
+  // The party the page is standing on, remembered across a listing that stops
+  // holding it: somebody tucking a party away on another screen must not yank
+  // a reader off the evening they are reading. It gives way the moment the
+  // reader picks another row. Kept in state rather than derived, and synced
+  // during render the way `SessionBar` syncs its draft.
+  const [kept, setKept] = useState<SessionRead | null>(null);
+  const standing =
+    found ??
+    (kept !== null && kept.id === selectedId ? kept : null) ??
+    listed[0] ??
+    all[0] ??
+    null;
+  // Every party at once — either because the reader picked that row, or
+  // because there is no party row left to stand on: a reader whose whole
+  // record was taken off the list still has a head row, and it still opens
+  // every score they may read. Without this the page would answer "sing a
+  // song and the results land here" over a full record.
+  const meta =
+    metaLabel !== null && (selectedId === ALL_SESSIONS || standing === null);
+  const session = meta ? null : standing;
+  if (session !== null && session !== kept) setKept(session);
 
   const sessionScores = useQuery({
     ...listSessionScoresOptions({ path: { session_id: session?.id ?? "" } }),
@@ -376,6 +532,12 @@ export default function Scores() {
   // A moderator moved a score to another singer, or took one off the record —
   // possibly on another screen in the room.
   useWingmanEvent("scores.changed", refresh);
+  // A party was named, kept out of the list, or put back. What the listing
+  // holds is decided per reader, so the event carries nothing and every screen
+  // asks again for itself.
+  useWingmanEvent("sessions.changed", () =>
+    queryClient.invalidateQueries({ queryKey: listSessionsQueryKey() }),
+  );
 
   if (!canView) {
     return (
@@ -467,8 +629,10 @@ export default function Scores() {
         selected={session?.id ?? ALL_SESSIONS}
         sessions={all}
         metaLabel={metaLabel}
+        metaLine={allSessionsMeta(total, sessions.data?.score_count ?? 0)}
         onSelect={setSelectedId}
         canManage={auth.can("stats.manage")}
+        canHide={canHide}
       />
 
       {scores.isPending ? (

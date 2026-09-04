@@ -1,5 +1,5 @@
-/* The two corrections a moderator may make, at the end of a score row. They sit
-   beside the row rather than inside it: the row itself is a button (it opens the
+/* The one control a moderator's score row carries, at its end. It sits beside
+   the row rather than inside it: the row itself is a button (it opens the
    song), and a button inside a button is invalid HTML. */
 .score-actions {
   display: flex;
@@ -30,6 +30,6 @@
   color: var(--color-darker);
 }
 
-.score-actions-error {
-  margin: 4px 8px;
-}
+/* The panel's own deletion is `.delete-row` (index.css): at the foot and away
+   from the players it would otherwise sit among, so no thumb reaching for a
+   player finds this instead. */

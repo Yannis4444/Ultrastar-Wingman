@@ -1,0 +1,154 @@
+import { fireEvent, render, screen } from "@testing-library/react";
+import {
+  achievementRead,
+  maskedAchievementRead,
+  playerAchievementRead,
+} from "../test/achievements";
+import { iconNames } from "../test/icons";
+import AchievementModal from "./AchievementModal";
+import type { PlayerAchievementRead } from "../api";
+
+/** The modal over one record row, with a spy on what closes it. */
+function renderModal(row: PlayerAchievementRead) {
+  const onClose = vi.fn();
+  const { container } = render(
+    <AchievementModal row={row} onClose={onClose} />,
+  );
+  return { onClose, container };
+}
+
+/** A press is a mousedown and a click on the same element (see Modal.tsx). */
+function press(target: Element) {
+  fireEvent.mouseDown(target);
+  fireEvent.click(target);
+}
+
+it("shows the picture large, the name, the sentence and the day", () => {
+  const { container } = renderModal(
+    playerAchievementRead({
+      achievement: achievementRead({ has_image: true, icon_version: 3 }),
+      earned_at: "2026-08-12T20:15:00Z",
+    }),
+  );
+
+  // The full-resolution file, which nothing else in the app asks for: this is
+  // the one view that fills a phone with a single badge.
+  expect(
+    container.querySelector(".achievement-modal-badge img"),
+  ).toHaveAttribute("src", "/api/v1/achievements/a-golden/icon?size=full&v=3");
+  expect(screen.getByText("Golden Voice")).toBeInTheDocument();
+  expect(
+    screen.getByText("Score 9,000 or more in a song."),
+  ).toBeInTheDocument();
+  // The app's own date helper, so the year is there once the party is old
+  // enough for it to matter and the test does not depend on which year it is.
+  expect(screen.getByText(/^Earned 12 Aug/)).toBeInTheDocument();
+  // Earned, so there is nothing left to progress towards.
+  expect(container.querySelector(".achievement-progress")).toBeNull();
+});
+
+it("bares the panel so the page behind it is only darkened and blurred", () => {
+  const { container } = renderModal(playerAchievementRead());
+
+  // The song modal's own mechanism, not a second copy of it (ui-guidelines §5).
+  expect(container.querySelector(".modal-backdrop-blur")).not.toBeNull();
+  expect(container.querySelector(".modal-bare")).not.toBeNull();
+  // The name is still the dialog's accessible name, even unwritten in a header.
+  expect(screen.getByRole("dialog")).toHaveAccessibleName("Golden Voice");
+});
+
+it("draws the glyph plate at the same size when there is no picture", () => {
+  const { container } = renderModal(
+    playerAchievementRead({
+      achievement: achievementRead({ icon: "crown", color: "gold" }),
+    }),
+  );
+
+  const badge = container.querySelector(".achievement-modal-badge");
+  // A glyph badge across half the screen is still the badge: the same plate,
+  // sized by the modal's own `font-size` rather than by a second component.
+  expect(iconNames(badge as HTMLElement)).toEqual(["crown"]);
+  expect(badge).toHaveClass("achievement-badge-earned");
+  expect(container.querySelector("img")).toBeNull();
+});
+
+it("shows the bar over its numbers while it is still out of reach", () => {
+  const { container } = renderModal(
+    playerAchievementRead({
+      achievement: achievementRead({ name: "Ten songs" }),
+      earned_at: null,
+      progress_current: 7,
+      progress_target: 10,
+    }),
+  );
+
+  expect(screen.getByText("7 / 10")).toBeInTheDocument();
+  expect(
+    container.querySelector<HTMLElement>(".achievement-progress-bar > span")
+      ?.style.width,
+  ).toBe("70%");
+  expect(screen.queryByText(/^Earned/)).not.toBeInTheDocument();
+  // The unearned badge, drained like the row's own.
+  expect(container.querySelector(".achievement-modal-badge")).toHaveClass(
+    "achievement-badge-off",
+  );
+});
+
+it("says the same nothing about a hidden one, at a bigger size", () => {
+  const { container } = renderModal(
+    playerAchievementRead({
+      achievement: maskedAchievementRead(),
+      earned_at: null,
+      progress_current: null,
+      progress_target: null,
+    }),
+  );
+
+  expect(screen.getByText("Hidden achievement")).toBeInTheDocument();
+  expect(
+    screen.getByText("Earn it to find out what this is."),
+  ).toBeInTheDocument();
+  expect(
+    iconNames(
+      container.querySelector(".achievement-modal-badge") as HTMLElement,
+    ),
+  ).toEqual(["lock"]);
+  // No bar, whatever numbers reach it: a modal is not a way around the masking.
+  expect(container.querySelector(".achievement-progress")).toBeNull();
+});
+
+it("keeps the bar off a masked row even if the numbers arrive anyway", () => {
+  // The API nulls both on a masked row; this is the belt to that braces.
+  const { container } = renderModal(
+    playerAchievementRead({
+      achievement: maskedAchievementRead(),
+      earned_at: null,
+      progress_current: 7,
+      progress_target: 10,
+    }),
+  );
+
+  expect(container.querySelector(".achievement-progress")).toBeNull();
+  expect(screen.queryByText("7 / 10")).not.toBeInTheDocument();
+});
+
+it("closes on Escape", () => {
+  const { onClose } = renderModal(playerAchievementRead());
+
+  fireEvent.keyDown(document, { key: "Escape" });
+  expect(onClose).toHaveBeenCalled();
+});
+
+it("closes on the backdrop", () => {
+  const { onClose, container } = renderModal(playerAchievementRead());
+
+  press(container.querySelector(".modal-backdrop")!);
+  expect(onClose).toHaveBeenCalled();
+});
+
+it("closes on its own close button", () => {
+  const { onClose } = renderModal(playerAchievementRead());
+
+  fireEvent.click(screen.getByRole("button", { name: "Close" }));
+  expect(onClose).toHaveBeenCalled();
+});

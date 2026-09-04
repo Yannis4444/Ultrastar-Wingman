@@ -1,10 +1,9 @@
 # Make a badge picture
 
-The seventeen included achievements each carry a picture drawn in one style: a
-dark gray square with one bold object on it, colored by the achievement's
-color. This page is how to make a picture in that style for an achievement of
-your own, with an image generator such as ChatGPT. It takes about five minutes
-per badge.
+The seventeen included achievements each carry a picture drawn in one style. It
+is a dark gray square, filled edge to edge, with one bold object on it in the
+achievement's color. This page makes a picture in that style for an achievement
+of your own, with an image generator such as ChatGPT.
 
 ![The included Golden Voice badge: a gold trophy with a red plaque on a dark gray plate](../../assets/achievements/badge-reference.png){ width="320" loading=lazy }
 /// caption
@@ -12,30 +11,10 @@ The reference badge. Save this file. Every picture you make is generated
 alongside it.
 ///
 
-## What a badge looks like
-
-Every badge follows the same rules, and the prompt below spells them out for
-the generator. Knowing them helps you judge a result.
-
-- **A square, filled edge to edge.** A dark gray plate with a soft lighter
-  spot behind the object. No frame, no border, no circle. Wingman rounds the
-  corners when it draws the badge.
-- **One object, big.** It fills about four fifths of the square and stands
-  alone. No scene, no second object, no text.
-- **The achievement's color on the object.** Neutral is silver, blue is blue,
-  gold is gold, pink is pink. The object is drawn in three tones of that color,
-  like a flat enamel pin with dark outlines.
-- **One small accent.** One extra color on one small part of the object: the
-  red plaque on the trophy, the cream ball on the tuning fork. It comes from a
-  set of four so the badges stay a family.
-- **A little life.** The object is tilted or in motion, with at most one
-  action cue that is part of its shape: steam off a mug, exhaust under a
-  rocket. No sparkles, no speed lines.
-- **One faint gray shape behind it.** Something that fits the object, in gray
-  only: sound waves behind a microphone, rings behind a tuning fork. It all but
-  disappears when the badge is small.
-
-The badge is drawn at 40 pixels in most lists. Anything you cannot make out at
+The object stands alone in three tones of the achievement's color, with one
+small accent on it and one faint gray shape behind it. The prompt below says
+all of that to the generator, so you write three lines and it does the rest. A
+badge is drawn at 40 pixels in most lists, and anything you cannot make out at
 that size is not worth drawing.
 
 ## Write the three lines
@@ -53,14 +32,6 @@ Pick the accent so it stands apart from the achievement's color: no teal on a
 blue badge, no cream on a neutral one. Avoid faces and hands. Generators draw
 them differently every time.
 
-!!! example "A badge for Sing 10 songs from the 80s in one evening"
-    The achievement is blue. A cassette tape is the 80s in one object.
-
-    - MOTIF: a single cassette tape seen straight on, tilted 15 degrees to the
-      right, with one loop of tape spilling out of its lower edge.
-    - ACCENT: red #d9534f, on the label across the top of the cassette.
-    - BACKGROUND: two wide horizontal bands sweeping behind the cassette.
-
 ## Generate the picture
 
 1. Open ChatGPT and start a new chat.
@@ -69,9 +40,8 @@ them differently every time.
    `{TIER LINE}`, and your three lines in place of `{MOTIF LINE}`,
    `{ACCENT LINE}`, and `{BACKGROUND LINE}`.
 4. Ask for a square 1024 by 1024 image.
-5. Check the result against the list in [Check the result](#check-the-result).
-   Fix one thing per reply, and end each reply with "everything else
-   identical".
+5. To correct something, say what is wrong and end the reply with "everything
+   else identical". Generators add sparkles and text unasked.
 6. Download the image. Do not screenshot it, and do not paste it through
    another program. Both change the file.
 
@@ -112,26 +82,6 @@ BACKGROUND: {BACKGROUND LINE} It is drawn only in the two flat background grays 
 FORBIDDEN: no text, letters, numbers, logos or signature; no scenery, no second object; no sparkles, stars, glows, rays, drop shadows or reflections; no speed lines, particles, drops or multiple motion strokes; no gradients on the motif; no textures, noise, grain, paper or brush strokes; no color on the background element; no 3D rendering or photorealism; no transparency; no faces or hands unless the MOTIF line names one.
 ```
 
-## Check the result
-
-Look at the picture small first. Shrink it to the size of a fingernail, or
-step back from the screen.
-
-- The object is recognizable at a glance, and the gray shape behind it has all
-  but disappeared.
-- The plate reaches all four edges. No frame, no border, no circle. A picture
-  with a border is a new attempt, not a crop.
-- The object keeps an empty margin on every side and touches no edge.
-- The only colors are the three tones of the achievement's color and the one
-  accent, where you put it.
-- No text, no sparkles, no glow, no extra objects. Generators add these
-  unasked. "Remove the sparkles, everything else identical" takes them away.
-
-!!! note
-    The generator borrows from the reference. If your badge comes back standing
-    on the trophy's pedestal with its red plaque, reply "remove the base and
-    the plaque, the object stands on its own, everything else identical".
-
 ## Put it on the achievement
 
 1. Open **User** > **Achievements** and tap the achievement.
@@ -139,7 +89,5 @@ step back from the screen.
    On an included achievement the button is **Replace picture**.
 3. The badge in the editor shows the new picture at once. Nothing else to save.
 
-The file is a png of about 1 MB, well under the 5 MB limit. Wingman draws it
-at 40 pixels in the lists and larger on the host screen. Keep the downloaded
-file: a picture that is lost cannot be generated again in exactly the same
-way.
+The file is a png of about 1 MB, well under the 5 MB limit. Keep it. A picture
+that is lost cannot be generated again in exactly the same way.

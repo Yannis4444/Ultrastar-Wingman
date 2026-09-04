@@ -54,7 +54,7 @@ Opened from a playlist, the reel picks from that playlist and nothing else.
 There is no **Pick from** list above it, only the number of songs it can land
 on, and the playlist's name stands in the header.
 
-![The reel opened from Planet Express party mix, with the playlist name in the header, 8 songs under it, and Sandstorm landed](../assets/screenshots/party/playlist-reel.png){ width="320" loading=lazy }
+![The reel opened from Planet Express party mix, with the playlist name in the header, 8 songs under it, and one of them landed in the frame](../assets/screenshots/party/playlist-reel.png){ width="320" loading=lazy }
 /// caption
 The header names the playlist, so the reel picks from its eight songs alone.
 ///

@@ -53,6 +53,12 @@ Metric = Literal[
     "number_of_sings",
     "different_songs",
     "different_artists",
+    # How often the singer came first. A win is `placement == 1` in a sing whose
+    # `field_size` is at least 2 — a song nobody else sang is not one won, and a shared
+    # first place is (both singers came first; neither came second). Both fields were
+    # written when the sing was scored and are never corrected afterwards
+    # (`karaoke.model.Score`), which is what makes the count survive a deleted score.
+    "number_of_wins",
 ]
 
 Comparator = Literal[">", ">=", "=", "<=", "<"]

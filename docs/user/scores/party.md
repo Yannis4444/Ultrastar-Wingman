@@ -18,10 +18,11 @@ how many people sang, and how many scores it holds.
 With two parties or more, one extra row sits at the head of the panel and adds
 them all up. It is called **All parties** for a reader who may open past
 parties, and **All my scores** for everybody else. Its line says how many
-parties that is and how many scores they hold together. Pick it and the whole
-page reads that wider list. It is no single evening, so the figures below and
-the rename button stay away. The panel holds exactly the parties you may open.
-See [Scores](index.md#which-parties-you-can-open).
+parties that is and how many scores they hold together, the ones taken off the
+list included, because picking it reads them too. Pick it and the whole page
+reads that wider list. It is no single evening, so the figures below and the
+rename button stay away. The panel holds exactly the parties you may open. See
+[Scores](index.md#which-parties-you-can-open).
 
 ### Name a party
 
@@ -36,6 +37,32 @@ hold by default.
 The name replaces the date everywhere the party is listed. To bring the date
 back, empty the box and save again. :wingman-close: **Cancel** leaves the name
 as it was.
+
+### Take a party off the list
+
+After a year of karaoke the panel is long. Taking a party off it takes the
+right to hide parties, which Admin alone holds by default.
+
+1. Open the panel.
+2. Tap :wingman-eye-off: **Show every party** in the panel's header. The list
+   now holds every party you may open, and each one carries an eye.
+3. Tap :wingman-eye: beside a party to take it off the list. It turns into
+   :wingman-eye-off: and the party's name goes quiet.
+4. Tap it again to put the party back.
+
+:wingman-eye: **Show every party** is the way out of that view: tap it and the
+list is the short one again.
+
+**Only that list changes.** The party keeps every score it has. It is still in
+**All parties**, in each singer's own record, in a song's best scores, in every
+total, and in what the achievements are worked out from. Nobody loses a badge
+and nobody's best score moves.
+
+The party going on right now can never be taken off the list. Tonight's
+scoreboard is what the tab is for, and a phone at the party would be left with
+an empty page.
+
+Everybody in the room sees the change at once.
 
 ## The figures at the top
 
@@ -122,12 +149,21 @@ the top. Under **best score** and **average score** the first three numbers
 stand out, because the order really is a ranking. Tap a grouped row and it
 unfolds into a card.
 
-A row with more than one score behind it is headed by four numbers:
-:wingman-hash: **Scores**, :wingman-arrow-up: **Best**,
-:wingman-arrow-down: **Worst**, and :wingman-average: **Average**. Under a
-song, **Best** and **Worst** name the singer who managed them. From four scores
-on, a bar chart shows where they land. Under all of it stands every single
-score behind the row: the songs that singer sang, or the singers of that song.
+A row with more than one score behind it is headed by the same figures the
+**User** tab prints over your own record: :wingman-hash: **Sings**,
+:wingman-music: **Songs**, :wingman-arrow-up: **Best**,
+:wingman-average: **Average**, and :wingman-arrow-down: **Worst**.
+
+- **Sings** counts performances, not scores. A duet two people sang together
+  is one sing and two rows in the list below it.
+- **Songs** stands under a singer only. Under a song it would read **1** on
+  every row, so it is left out there.
+- Under a song, **Best** and **Worst** name the singer who managed them. Under
+  a singer they name nobody: the row above is already their name.
+
+From four scores on, a bar chart shows where they land. Under all of it stands
+every single score behind the row: the songs that singer sang, or the singers
+of that song.
 
 Grouped by song, the cover on a row opens the song. Grouped by player, the rows
 inside the card do. Ungrouped, the whole row does.
@@ -137,15 +173,21 @@ inside the card do. Ungrouped, the whole row does.
 Ultrastar Deluxe files a score under whoever was on that microphone slot, and
 sometimes that was the wrong person. Correcting one takes the right to moderate
 statistics, which Admin alone holds by default. Everybody looking at the page
-sees the correction at once. A row that is one single score then carries two
-buttons. Set **Group** to **don't group**, or open a group, and every row is
-one score.
+sees the correction at once. A row that is one single score then carries
+:wingman-pencil: **Correct the score**. Set **Group** to **don't group**, or
+open a group, and every row is one score.
 
-- :wingman-pencil: **Change who sang** opens the list of players. Pick the one
-  who really sang it, then confirm with **Move**. The score keeps its number,
-  its song, and its place in the party.
-- :wingman-trash: **Delete the score** takes it off the record after a
-  confirmation. The song stays in what was played.
+Tap it and **Correct this score** opens. The panel names the score and holds
+both repairs.
+
+- The list of players stands first. Tap the one who really sang it, then
+  confirm with **Move**. The score keeps its number, its song, and its place in
+  the party.
+- **Delete score** at the foot takes it off the record after a confirmation.
+  The song stays in what was played.
+
+**Cancel** in either confirmation comes back to the panel, so a slip costs
+nothing.
 
 The number and the song are never editable. Those are what Ultrastar Deluxe
 reported.

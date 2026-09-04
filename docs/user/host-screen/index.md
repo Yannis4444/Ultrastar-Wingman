@@ -41,7 +41,8 @@ part.
 
 ![The host screen on a TV, with the last song's result on the left and the QR card, Tonight, and Most wished down the right](../assets/screenshots/host-screen/host-screen.png){ width="720" loading=lazy }
 /// caption
-The rail stays up all evening, whatever the stage is showing.
+The rail stays up while the stage changes. New badges are the one thing that
+takes the whole screen.
 ///
 
 The rail holds three blocks, top to bottom:
@@ -78,19 +79,23 @@ Wingman reads the scores and the stage turns into the result screen for the
 song that finished:
 
 - its cover, title, and artist,
-- **Times sung**, **Best score**, **Average score**, and **Worst score** over
-  the whole life of that song,
+- **Sings**, **Best**, **Average**, and **Worst** over the whole life of that
+  song, beside the cover and under the artist, with the name of whoever holds
+  the best and the worst,
 - one bar per singer of this run, with their name, their evaluation, and their
   number, best singer first.
 
 A singer who beat the song's own record gets **New Highscore** next to their
-score. The three all-time numbers are drawn onto the same scale as the bars, so
-you can see at a glance where tonight's run landed.
+score. The three all-time numbers are marked on the same scale as the bars, so
+you can see at a glance where tonight's run landed. Marks that would sit on top
+of each other are left out: a song everybody scores about the same on keeps one
+mark for the average, and the numbers themselves are printed above in full
+either way.
 
 Badges come before all of that. If the song earned somebody an achievement, the
-stage holds the results back and throws the badges up first. They come one
-singer at a time, four badges to a row. How long a row stays is set on
-**User** > **Achievements**. See
+stage holds the results back and throws the badges up first, over the whole
+screen. They come one singer at a time, four badges to a row. How long a row
+stays is set on **User** > **Achievements**. See
 [Manage achievements](../achievements/manage/index.md).
 
 ## While nothing plays

@@ -27,7 +27,7 @@ from ..songs.schema import read_song
 from . import usdx_scores
 from .colors import color_index
 from .launcher import KaraokeLauncher, LaunchSlot
-from .model import SESSION_GAP, KaraokeSession, Score, Sing
+from .model import SESSION_GAP, KaraokeSession, Score, Sing, placements
 from .schema import CurrentSing, ScoreRead, SlotRead, read_score
 from .slots import parse_slot_colors
 from .usdx import EMPTY_SLOT_NAME, UsdxLauncher
@@ -471,6 +471,14 @@ async def _import_scores(
         if score.player_name != EMPTY_SLOT_NAME
         or EMPTY_SLOT_NAME.casefold() in running.player_ids_by_name
     ]
+    # Who came in where, decided here and stored on the row: once one of these scores is
+    # deleted or moved to another singer, no query can work out what the field was any more,
+    # and "did they win this song" is a question the achievements ask months later. Computed
+    # after the empty-slot filter above, so the "-" USDX scores an unused microphone under
+    # never inflates the field. A walk-in (no `player_id`) does count in it and takes a
+    # placement of their own: they were on a microphone, whoever Wingman thinks they are.
+    ranks = placements([score.score for score in new_scores])
+    field_size = len(new_scores)
     async with session_factory() as session:
         sing = await session.get(Sing, running.sing.sing_id)
         if sing is not None:
@@ -484,9 +492,11 @@ async def _import_scores(
                 player_name=score.player_name,
                 score=score.score,
                 difficulty=score.difficulty,
+                placement=placement,
+                field_size=field_size,
                 recorded_at=datetime.fromtimestamp(score.date, UTC),
             )
-            for score in new_scores
+            for score, placement in zip(new_scores, ranks, strict=True)
         ]
         session.add_all(rows)
         await session.commit()

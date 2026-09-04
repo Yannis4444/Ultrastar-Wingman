@@ -4,6 +4,7 @@ import type { ReactNode } from "react";
 import type { CurrentSing, ScoreWithContext, SongRead } from "../api";
 import { meResponse } from "../test/auth";
 import { FakeSocket } from "../test/fakeSocket";
+import { iconNames } from "../test/icons";
 import HostResults from "./HostResults";
 
 const { getMe, getCurrentSing, listLatestScores, listSongScores } = vi.hoisted(
@@ -51,6 +52,8 @@ function score(
     player_name: playerName,
     score: value,
     difficulty: 2,
+    placement: null,
+    field_size: null,
     recorded_at: "2026-08-23T20:00:00Z",
     song: RHAPSODY,
     sing_started_at: "2026-08-23T19:55:00Z",
@@ -83,6 +86,21 @@ const RUNNING: CurrentSing = {
   },
   slots: [],
 };
+
+/** The summary beside the cover as `[value, word]` pairs, in printed order. */
+function summary(container: HTMLElement): (string | null)[][] {
+  return [...container.querySelectorAll(".score-summary-stat")].map((stat) => [
+    stat.querySelector(".icon-stat-value")?.textContent ?? null,
+    stat.querySelector(".icon-stat-label")?.textContent ?? null,
+  ]);
+}
+
+/** The glyph of every all-time marker still drawn above the bars. */
+function markers(container: HTMLElement): string[] {
+  return [...container.querySelectorAll(".last-song-marker")].flatMap((mark) =>
+    iconNames(mark),
+  );
+}
 
 /** Name, rating word and score of every bar, top bar first. */
 function bars(container: HTMLElement): (string | null)[][] {
@@ -149,22 +167,89 @@ test("the last song carries its album cover", async () => {
 });
 
 test("the song's whole history is on the screen, not just this run", async () => {
-  renderResults();
+  const { container } = renderResults();
 
-  // The all-time lines arrive with the song's own score list, one round trip
-  // behind the bars.
-  const block = await screen.findByLabelText("Last song");
-  await screen.findByTitle("Times sung");
+  // The all-time numbers arrive with the song's own score list, one round trip
+  // behind the bars, in the phones' own summary shape.
+  await screen.findByLabelText("Last song");
+  await waitFor(() => expect(summary(container)).toHaveLength(4));
   // Two performances ever, best 8500 by Alice, worst 4000 by Chris — who sang
-  // it before and never gets a bar of this sing.
-  expect(within(block).getByTitle("Times sung")).toHaveTextContent("2");
-  expect(within(block).getByTitle("Best score")).toHaveTextContent(
-    "8500 (Alice)",
+  // it before and never gets a bar of this sing. No Songs count: every score
+  // on this screen is the one song.
+  expect(summary(container)).toEqual([
+    ["2", "Sings"],
+    ["8500", "Best · Alice"],
+    ["6167", "Average"],
+    ["4000", "Worst · Chris"],
+  ]);
+});
+
+test("the summary stands in the naming column, beside the cover", async () => {
+  const { container } = renderResults();
+
+  await screen.findByLabelText("Last song");
+  await waitFor(() => expect(summary(container)).toHaveLength(4));
+  // Beside the cover and under the artist line (§7), not a column of its own.
+  const naming = container.querySelector(".last-song-naming");
+  expect(naming).toContainElement(
+    container.querySelector(".last-song-summary"),
   );
-  expect(within(block).getByTitle("Average score")).toHaveTextContent("6167");
-  expect(within(block).getByTitle("Worst score")).toHaveTextContent(
-    "4000 (Chris)",
+});
+
+test("the three all-time numbers are marked on the bars' own scale", async () => {
+  const { container } = renderResults();
+
+  await screen.findByLabelText("Last song");
+  // 4000, 6167 and 8500 are far enough apart for all three marks.
+  await waitFor(() =>
+    expect(markers(container)).toEqual(["arrow-down", "average", "arrow-up"]),
   );
+});
+
+test("the gap the marks keep is measured off the strip, not guessed", async () => {
+  // 2.5em of a 20px marker on a 1000px strip is 5% of the bars' scale, so a
+  // history whose two ends are 4% apart is inside the gap and collapses. With
+  // the unmeasured fallback the same pair would keep both marks, which is what
+  // makes this a test of the measuring and not of the helper.
+  listSongScores.mockResolvedValue({
+    data: {
+      scores: [
+        score(1, "sing-1", "Alice", 5000),
+        score(2, "sing-2", "Bob", 5400),
+      ],
+    },
+  });
+  const clientWidth = Object.getOwnPropertyDescriptor(
+    Element.prototype,
+    "clientWidth",
+  );
+  Object.defineProperty(Element.prototype, "clientWidth", {
+    configurable: true,
+    get: () => 1000,
+  });
+  const computed = window.getComputedStyle;
+  window.getComputedStyle = (() => ({ fontSize: "20px" })) as never;
+  try {
+    // The strip is drawn with the bars, a round trip before the history it
+    // marks, so the measuring is over well before there is anything to draw.
+    const { container } = renderResults();
+    await screen.findByLabelText("Last song");
+    await waitFor(() => expect(markers(container)).toEqual(["average"]));
+  } finally {
+    window.getComputedStyle = computed;
+    if (clientWidth !== undefined) {
+      Object.defineProperty(Element.prototype, "clientWidth", clientWidth);
+    }
+  }
+});
+
+test("a song sung once wears one mark, not three on top of each other", async () => {
+  listSongScores.mockResolvedValue({ data: { scores: [latest[0]] } });
+  const { container } = renderResults();
+
+  await screen.findByLabelText("Last song");
+  // Worst, average and best are the same number: the strip says it once.
+  await waitFor(() => expect(markers(container)).toEqual(["average"]));
 });
 
 test("a record set by the finished sing is called out once", async () => {
@@ -181,12 +266,11 @@ test("a song that was sung better before gets no record marker", async () => {
   listSongScores.mockResolvedValue({
     data: { scores: [...latest, score(9, "sing-0", "Dora", 9500)] },
   });
-  renderResults();
+  const { container } = renderResults();
 
   const block = await screen.findByLabelText("Last song");
-  expect(await screen.findByTitle("Best score")).toHaveTextContent(
-    "9500 (Dora)",
-  );
+  expect(await screen.findByText("Best · Dora")).toBeInTheDocument();
+  expect(summary(container)[1][0]).toBe("9500");
   expect(within(block).queryByText("New Highscore")).not.toBeInTheDocument();
 });
 

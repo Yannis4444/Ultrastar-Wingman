@@ -67,6 +67,25 @@ it("shows the uploaded picture in place of the glyph", () => {
   expect(iconNames(badge(container))).toEqual([]);
 });
 
+it("asks for the full file when the caller says which resolution it needs", () => {
+  // The achievement modal, and nothing else: one badge filling a phone wants
+  // the original, and `resolution` is what it asks for — not a size, which
+  // stays the parent's `font-size`.
+  const { container } = render(
+    <AchievementBadge
+      achievement={achievementRead({ has_image: true, icon_version: 7 })}
+      resolution="full"
+    />,
+  );
+
+  expect(container.querySelector("img")).toHaveAttribute(
+    "src",
+    "/api/v1/achievements/a-golden/icon?size=full&v=7",
+  );
+  // Still no inline size: the resolution moved, the square did not.
+  expect(badge(container).getAttribute("style")).toBeNull();
+});
+
 it("asks for the picture at the version the row carries", () => {
   const { container } = render(
     <AchievementBadge

@@ -9,9 +9,12 @@ import {
   groupValue,
   histogram,
   isNewHighscore,
-  playerSummary,
+  isTucked,
+  scoreMarkers,
+  scoreOffset,
   scorePlayer,
   scorePlayerKey,
+  scoreSummary,
   sessionLabel,
   sessionLeaderboard,
   sessionMeta,
@@ -19,6 +22,7 @@ import {
   songLabel,
   sortGroups,
   summarize,
+  type SongHistory,
 } from "./stats";
 
 function song(id: string, artist: string, title: string): SongRead {
@@ -53,6 +57,10 @@ function score(
     player_name: playerName,
     score: value,
     difficulty: 2,
+    // Nothing in `stats.ts` reads them; a score old enough to carry neither is a
+    // shape the API really answers with, so it is the honest filler here.
+    placement: null,
+    field_size: null,
     recorded_at: "2026-08-23T20:00:00Z",
     song: songRead,
     sing_started_at: "2026-08-23T19:55:00Z",
@@ -80,6 +88,8 @@ test("a session shows its own name, and its start time when it has none", () => 
     sing_count: 4,
     score_count: 6,
     singer_count: 3,
+    hidden: false,
+    current: false,
   };
   expect(sessionLabel({ ...base, name: "Yannis' birthday" })).toBe(
     "Yannis' birthday",
@@ -105,6 +115,8 @@ test("a party's picker line is when it was and how much happened at it", () => {
     sing_count: 30,
     score_count: 23,
     singer_count: 5,
+    hidden: false,
+    current: false,
   };
 
   // Node's locale decides the date's format, so the expectation borrows it.
@@ -116,14 +128,19 @@ test("a party's picker line is when it was and how much happened at it", () => {
     `${shortDate(party.started_at)} · 1 singer · 1 score`,
   );
 
-  // The head row sums exactly the parties under it — the listing holds only
-  // the ones this reader may open.
-  expect(allSessionsMeta([party, { ...party, id: "s2", score_count: 4 }])).toBe(
-    "2 parties · 27 scores",
-  );
-  expect(allSessionsMeta([])).toBe("0 parties · 0 scores");
+  // The head row stands for every party this reader may open, so it is handed
+  // the listing's own figures rather than a sum over the rows it drew: a party
+  // kept out of the picker is still in what the head row opens.
+  expect(allSessionsMeta(2, 27)).toBe("2 parties · 27 scores");
+  expect(allSessionsMeta(0, 0)).toBe("0 parties · 0 scores");
   // Never "1 partys": the one count here whose plural is not the word plus "s".
-  expect(allSessionsMeta([party])).toBe("1 party · 23 scores");
+  expect(allSessionsMeta(1, 23)).toBe("1 party · 23 scores");
+
+  // The party being sung is on the list whatever its flag says: the flag is
+  // dormant until the room goes home.
+  expect(isTucked(party)).toBe(false);
+  expect(isTucked({ ...party, hidden: true })).toBe(true);
+  expect(isTucked({ ...party, hidden: true, current: true })).toBe(false);
 });
 
 test("a score whose song left the library still has a label", () => {
@@ -388,35 +405,75 @@ test("a singer without a player record still gets an avatar to fall back on", ()
   });
 });
 
-test("one singer's totals come out of their own scores", () => {
+test("a summary's totals come out of the scores it is given", () => {
   const mine = [
     score("Alice", 8000, bohemian),
     score("Alice", 9000, wonderwall),
     score("Alice", 4900, bohemian, { sing_id: "sing-again" }),
   ];
 
-  expect(playerSummary(mine)).toEqual({
+  expect(scoreSummary(mine)).toEqual({
     sings: 3,
-    best: 9000,
-    // 21900 / 3 = 7300 exactly; the rounding is what a third score would need.
-    average: 7300,
     // Three performances, but the same song twice.
     songs: 2,
+    best: 9000,
+    bestBy: "Alice",
+    // 21900 / 3 = 7300 exactly; the rounding is what a third score would need.
+    average: 7300,
+    worst: 4900,
+    worstBy: "Alice",
   });
 });
 
 test("a duet counts as one sing, and the average is rounded", () => {
   const duet = [
     score("Alice", 8000, bohemian, { sing_id: "sing-duet" }),
-    score("Alice", 7001, bohemian, { sing_id: "sing-duet" }),
+    score("Bob", 7001, bohemian, { sing_id: "sing-duet" }),
   ];
 
-  expect(playerSummary(duet)).toEqual({
+  // Two scores, one run of one song — and the average is over the scores.
+  expect(scoreSummary(duet)).toMatchObject({
     sings: 1,
-    best: 8000,
-    average: 7501,
     songs: 1,
+    average: 7501,
   });
+});
+
+test("the best and the worst carry the name of whoever holds them", () => {
+  const both = [
+    score("Alice", 8000, bohemian),
+    score("Bob", 4000, bohemian, { sing_id: "sing-bob" }),
+  ];
+
+  expect(scoreSummary(both)).toMatchObject({
+    best: 8000,
+    bestBy: "Alice",
+    worst: 4000,
+    worstBy: "Bob",
+  });
+});
+
+test("a peak two people share is held by whoever got there first", () => {
+  // Deliberately out of order: the name must not depend on the order the
+  // scores arrive in, only on when they were sung.
+  const tied = [
+    score("Bob", 9000, bohemian, { recorded_at: "2026-08-23T21:00:00Z" }),
+    score("Alice", 9000, wonderwall, { recorded_at: "2026-08-23T20:00:00Z" }),
+  ];
+
+  expect(scoreSummary(tied)).toMatchObject({ best: 9000, bestBy: "Alice" });
+  // The same run of scores is its own worst, and the same rule names it.
+  expect(scoreSummary(tied)).toMatchObject({ worst: 9000, worstBy: "Alice" });
+});
+
+test("a tie inside one run is settled by the row, not by the order it arrives", () => {
+  // A duet: two scores of one sing, imported together and stamped the same
+  // second. The clock cannot separate them, so the row id has to.
+  const alice = score("Alice", 9000, bohemian, { sing_id: "sing-duet" });
+  const bob = score("Bob", 9000, bohemian, { sing_id: "sing-duet" });
+
+  expect(scoreSummary([alice, bob])).toMatchObject({ bestBy: "Alice" });
+  expect(scoreSummary([bob, alice])).toMatchObject({ bestBy: "Alice" });
 });
 
 test("songs that have left the library count as one unknown song, as elsewhere", () => {
@@ -427,12 +484,12 @@ test("songs that have left the library count as one unknown song, as elsewhere",
     score("Alice", 6000, bohemian, { sing_id: "sing-3" }),
   ];
 
-  expect(playerSummary(gone)).toMatchObject({ sings: 3, songs: 2 });
+  expect(scoreSummary(gone)).toMatchObject({ sings: 3, songs: 2 });
 });
 
-test("a singer without a single score has no summary at all", () => {
-  // Null, not four zeroes: the page says "sing something" instead of lying.
-  expect(playerSummary([])).toBeNull();
+test("a set without a single score has no summary at all", () => {
+  // Null, not five zeroes: the surface says "sing something" instead of lying.
+  expect(scoreSummary([])).toBeNull();
 });
 
 test("every USDX rating word is reachable at its own threshold", () => {
@@ -474,33 +531,75 @@ test("a song's history is measured over every score it ever got", () => {
   ];
 
   expect(songHistory(history)).toEqual({
-    // A duet is one performance, so two sings and not three.
-    sings: 2,
     best: 8500,
-    bestPlayers: ["Alice"],
     worst: 4000,
-    worstPlayers: ["Chris"],
     // 18500 / 3 = 6166.67, rounded.
     average: 6167,
   });
 });
 
-test("everybody who tied for best or worst is named once", () => {
-  const history = [
-    score("Alice", 9000, bohemian, { sing_id: "sing-1" }),
-    score("Alice", 9000, bohemian, { sing_id: "sing-2" }),
-    score("Bob", 9000, bohemian, { sing_id: "sing-3" }),
-  ];
-
-  // Alice managed it twice; the line names her once, not twice.
-  expect(songHistory(history)).toMatchObject({
-    bestPlayers: ["Alice", "Bob"],
-    worstPlayers: ["Alice", "Bob"],
-  });
-});
-
 test("a song nobody has scored yet has no history at all", () => {
   expect(songHistory([])).toBeNull();
+});
+
+/** A history holding only the three numbers the markers are drawn from. */
+function marks(worst: number, average: number, best: number): SongHistory {
+  return { best, worst, average };
+}
+
+/** Which glyph each surviving mark wears, in the order they are drawn. */
+function kinds(history: SongHistory, gap: number): string[] {
+  return scoreMarkers(history, gap).map((marker) => marker.kind);
+}
+
+test("a score sits on the bars' scale, and never off either end", () => {
+  expect(scoreOffset(2500)).toBe(25);
+  // USDX cannot award more than 10000, and a negative score is a parsing
+  // accident — either way the mark stays on the strip.
+  expect(scoreOffset(12000)).toBe(100);
+  expect(scoreOffset(-500)).toBe(0);
+});
+
+test("three numbers with room between them keep all three markers", () => {
+  expect(kinds(marks(2000, 5000, 9000), 5)).toEqual([
+    "worst",
+    "average",
+    "best",
+  ]);
+});
+
+test("the average yields to the end it is crowding", () => {
+  // 87% against 90%: three percent of the strip is not a glyph, its pointer
+  // and air. The two ends imply the number that goes.
+  expect(kinds(marks(2000, 8700, 9000), 5)).toEqual(["worst", "best"]);
+  // The same the other way round.
+  expect(kinds(marks(2000, 2300, 9000), 5)).toEqual(["worst", "best"]);
+});
+
+test("worst and best inside the gap collapse into one average mark", () => {
+  const collapsed = scoreMarkers(marks(8000, 8200, 8400), 5);
+
+  expect(collapsed).toEqual([{ kind: "average", offset: 82 }]);
+});
+
+test("a song sung exactly once wears one mark", () => {
+  // Every number is the same number: three glyphs on one spot say it three
+  // times over.
+  expect(kinds(marks(7300, 7300, 7300), 5)).toEqual(["average"]);
+});
+
+test("exactly the minimum gap is far enough for a marker to stay", () => {
+  // 20, 25 and 30 percent against a gap of five: a minimum is a minimum.
+  expect(kinds(marks(2000, 2500, 3000), 5)).toEqual([
+    "worst",
+    "average",
+    "best",
+  ]);
+  // A hundredth of a percent under it, and the average is the one that goes.
+  expect(kinds(marks(2000, 2499, 3000), 5)).toEqual(["worst", "best"]);
+  // The same boundary between the two ends: at the gap they both stay.
+  expect(kinds(marks(2000, 2250, 2500), 5)).toEqual(["worst", "best"]);
+  expect(kinds(marks(2000, 2250, 2499), 5)).toEqual(["average"]);
 });
 
 test("a record is one where the whole all-time best came out of this sing", () => {

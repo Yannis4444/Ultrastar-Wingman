@@ -68,7 +68,12 @@ say **One party**, they all have to come true in the same one.
 | **Number of scores** | How many scores there are |
 | **Different songs** | How many different songs |
 | **Different artists** | How many different artists |
+| **Number of wins** | How many times the singer had the best score of a song. A song nobody else sang is not a win. A tie for the top counts for both singers |
 | **Average score** | The mean, rounded down. Nobody with no scores has one |
+
+Wingman writes down who won a song the moment Ultrastar Deluxe scores it, and
+never works it out again. The win stays with the winning score. Take a losing
+score off the record, or put it on somebody else, and the winner still won.
 
 **Has to be** and the **Number** next to it: *at least*, *more than*,
 *exactly*, *at most*, or *less than*.

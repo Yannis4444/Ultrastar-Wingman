@@ -27,6 +27,8 @@ function score(value: number): ScoreWithContext {
     player_name: "Alice",
     score: value,
     difficulty: 2,
+    placement: null,
+    field_size: null,
     recorded_at: "2026-08-23T20:00:00Z",
     song: bohemian,
     sing_started_at: "2026-08-23T19:55:00Z",

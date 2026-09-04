@@ -168,6 +168,8 @@ async def load_rows(session: AsyncSession, player_id: str) -> list[ScoreRow]:
             Song.year,
             Song.is_duet,
             Song.video_file,
+            Score.placement,
+            Score.field_size,
         )
         .join(Sing, Sing.id == Score.sing_id)
         .outerjoin(Song, Song.id == Sing.song_id)
@@ -192,6 +194,11 @@ async def load_rows(session: AsyncSession, player_id: str) -> list[ScoreRow]:
             # File paths stay server-side, exactly like `songs.schema.read_song`. A song that
             # is gone says nothing about video rather than "no video".
             has_video=None if title is None else video_file is not None,
+            # Straight off the score row and never recomputed from the rows still standing:
+            # what `number_of_wins` counts is the evening as it was scored, which is the
+            # whole reason these two are columns (`karaoke.model.Score`).
+            placement=placement,
+            field_size=field_size,
         )
         for (
             score,
@@ -206,6 +213,8 @@ async def load_rows(session: AsyncSession, player_id: str) -> list[ScoreRow]:
             year,
             is_duet,
             video_file,
+            placement,
+            field_size,
         ) in rows
     ]
 

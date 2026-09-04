@@ -7,9 +7,10 @@ is why the old app's statistics were guesswork.
 """
 
 import uuid
+from collections.abc import Sequence
 from datetime import UTC, datetime, timedelta
 
-from sqlalchemy import DateTime, ForeignKey, Integer, String, Text
+from sqlalchemy import Boolean, DateTime, ForeignKey, Integer, String, Text, text
 from sqlalchemy.orm import Mapped, mapped_column
 
 from ..db import Base
@@ -39,6 +40,12 @@ class KaraokeSession(Base):
     # When the last sing of this session started. Bumped on every attachment; what the
     # `SESSION_GAP` rule compares against.
     last_activity_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=_now)
+    # Kept out of the Scores page's party picker (`stats.hide`) and out of nothing else:
+    # every score of this party stays in a singer's record, in a song's best scores, in the
+    # all-parties total and in what an achievement is worked out from. Dormant while this is
+    # the party being sung — the evening in progress is what the Scores page is for — so a
+    # party that was hidden and is then sung into again comes back until it is over.
+    hidden: Mapped[bool] = mapped_column(Boolean, default=False, server_default=text("0"))
 
 
 class Sing(Base):
@@ -71,4 +78,31 @@ class Score(Base):
     player_name: Mapped[str] = mapped_column(Text)
     score: Mapped[int] = mapped_column(Integer)
     difficulty: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    # Where this score came in among the scores of its own sing, `1` being the best, and how
+    # many scores that sing had. Written once, when the sing's scores are imported, and never
+    # touched again — that is the whole point of storing them (see `placements` below):
+    # deleting or reassigning one score of a sing months later must not be able to rewrite
+    # who won it at the time. They are therefore a snapshot and not a derived value, and a
+    # score list that has since lost a row still knows what the field was.
+    #
+    # Both NULL for a score recorded before migration 0026 that the backfill could not reach,
+    # and for anything else that cannot say — never 0. `field_size` is what tells a solo sing
+    # (`1`) from a win (`>= 2` with `placement == 1`); without it the two are the same row.
+    placement: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    field_size: Mapped[int | None] = mapped_column(Integer, nullable=True)
     recorded_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=_now)
+
+
+def placements(scores: Sequence[int]) -> list[int]:
+    """The placement of each score among them, `1` being the best.
+
+    Standard competition ranking: a score's placement is how many scores beat it, plus one.
+    Two singers tied for the top are both `1` and the next one is `3` — "nobody came second"
+    is the truth of what happened, and the dense alternative (1, 1, 2) would say that the
+    third singer came second to two people who did not.
+
+    Pure, and here beside the columns it fills, because migration 0026 backfills the same
+    rule in SQL: the two have to agree, or a party's history would rank differently from the
+    evening that follows it.
+    """
+    return [1 + sum(1 for other in scores if other > score) for score in scores]

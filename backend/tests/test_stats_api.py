@@ -230,7 +230,11 @@ async def test_the_sessions_are_listed_newest_first_with_their_counts(
 
 
 async def test_an_empty_installation_has_no_sessions(client: AsyncClient) -> None:
-    assert (await client.get("/api/v1/stats/sessions")).json() == {"sessions": []}
+    assert (await client.get("/api/v1/stats/sessions")).json() == {
+        "sessions": [],
+        "session_count": 0,
+        "score_count": 0,
+    }
 
 
 async def test_a_session_can_be_named_and_the_name_cleared(
@@ -251,6 +255,18 @@ async def test_a_session_can_be_named_and_the_name_cleared(
 
     listed = (await client.get("/api/v1/stats/sessions")).json()["sessions"]
     assert listed[0]["name"] is None
+
+
+async def test_naming_a_session_tells_the_room(
+    client: AsyncClient, seeded: dict[str, Any], broadcast_events: list[dict[str, object]]
+) -> None:
+    """A phone with the party picker open reads the new name without being reloaded — the
+    same event hiding a party sends, and with no payload for the same reason."""
+    await client.patch(
+        f"/api/v1/stats/sessions/{seeded['new'].id}", json={"name": "Yannis' birthday"}
+    )
+
+    assert broadcast_events[-1] == {"event": "sessions.changed"}
 
 
 async def test_an_unknown_session_is_a_404(client: AsyncClient, seeded: dict[str, Any]) -> None:
@@ -684,6 +700,160 @@ async def test_every_party_at_once_is_tonight_alone_for_a_guest(
 
     assert response.status_code == 200
     assert [row["score"] for row in response.json()["scores"]] == [7000]
+
+
+async def test_a_hidden_party_drops_out_of_the_listing(
+    client: AsyncClient, seeded: dict[str, Any], broadcast_events: list[dict[str, object]]
+) -> None:
+    hidden = await client.put(
+        f"/api/v1/stats/sessions/{seeded['old'].id}/hidden", json={"hidden": True}
+    )
+
+    assert hidden.status_code == 200
+    assert hidden.json()["hidden"] is True
+    # The whole row comes back, counts included, so the UI does not have to refetch.
+    assert hidden.json()["sing_count"] == 1
+
+    listed = (await client.get("/api/v1/stats/sessions")).json()
+    assert [row["id"] for row in listed["sessions"]] == [seeded["new"].id]
+    # The head row of the picker stands for `GET /stats/scores`, which hiding does not
+    # touch — so its two figures count the hidden party too.
+    assert (listed["session_count"], listed["score_count"]) == (2, 4)
+    # Ids say nothing about who may see what, so the event carries none.
+    assert broadcast_events[-1] == {"event": "sessions.changed"}
+
+
+async def test_hiding_a_party_changes_that_one_list_and_nothing_else(
+    client: AsyncClient, seeded: dict[str, Any]
+) -> None:
+    """The party keeps every score it has, everywhere a score is read back."""
+    before = {
+        path: (await client.get(path)).json()
+        for path in (
+            "/api/v1/stats/scores",
+            f"/api/v1/stats/sessions/{seeded['old'].id}/scores",
+            "/api/v1/stats/songs/usdb:1/scores",
+            f"/api/v1/stats/players/{seeded['yannis'].id}/scores",
+            "/api/v1/stats/latest",
+            f"/api/v1/players/{seeded['yannis'].id}/achievements",
+        )
+    }
+
+    await client.put(f"/api/v1/stats/sessions/{seeded['old'].id}/hidden", json={"hidden": True})
+
+    for path, answer in before.items():
+        assert (await client.get(path)).json() == answer, path
+
+
+async def test_a_hidden_party_comes_back_when_it_is_asked_for(
+    client: AsyncClient, seeded: dict[str, Any]
+) -> None:
+    await client.put(f"/api/v1/stats/sessions/{seeded['old'].id}/hidden", json={"hidden": True})
+
+    listed = (await client.get("/api/v1/stats/sessions?include_hidden=true")).json()
+
+    assert [(row["id"], row["hidden"]) for row in listed["sessions"]] == [
+        (seeded["new"].id, False),
+        (seeded["old"].id, True),
+    ]
+    # Asking for the hidden ones cannot change what the head row says.
+    assert (listed["session_count"], listed["score_count"]) == (2, 4)
+
+
+async def test_a_hidden_party_can_be_put_back(client: AsyncClient, seeded: dict[str, Any]) -> None:
+    await client.put(f"/api/v1/stats/sessions/{seeded['old'].id}/hidden", json={"hidden": True})
+    back = await client.put(
+        f"/api/v1/stats/sessions/{seeded['old'].id}/hidden", json={"hidden": False}
+    )
+
+    assert back.status_code == 200
+    assert back.json()["hidden"] is False
+    listed = (await client.get("/api/v1/stats/sessions")).json()["sessions"]
+    assert [row["id"] for row in listed] == [seeded["new"].id, seeded["old"].id]
+
+
+async def test_asking_for_the_hidden_parties_needs_the_capability(
+    client: AsyncClient,
+    anonymous_client: AsyncClient,
+    session: AsyncSession,
+    session_factory: async_sessionmaker[AsyncSession],
+    seeded: dict[str, Any],
+) -> None:
+    """A reader without `stats.hide` gets the default list whatever they ask — a short list
+    rather than a 403, the way this route already answers."""
+    await client.put(f"/api/v1/stats/sessions/{seeded['old'].id}/hidden", json={"hidden": True})
+    # An account that may read the whole archive, and still may not ask for the hidden ones.
+    await sign_in(anonymous_client, session_factory, session, "reader", role="trusted")
+
+    listed = (await anonymous_client.get("/api/v1/stats/sessions?include_hidden=true")).json()
+
+    assert [row["id"] for row in listed["sessions"]] == [seeded["new"].id]
+
+
+async def test_hiding_a_party_is_not_a_naming_right(
+    anonymous_client: AsyncClient,
+    session: AsyncSession,
+    session_factory: async_sessionmaker[AsyncSession],
+    seeded: dict[str, Any],
+) -> None:
+    """`stats.manage` names a party; deciding which evenings the room still gets to look at
+    is a right of its own."""
+    await sign_in(anonymous_client, session_factory, session, "helper", role="trusted")
+
+    named = await anonymous_client.patch(
+        f"/api/v1/stats/sessions/{seeded['old'].id}", json={"name": "Renamed"}
+    )
+    hidden = await anonymous_client.put(
+        f"/api/v1/stats/sessions/{seeded['old'].id}/hidden", json={"hidden": True}
+    )
+
+    assert named.status_code == 200
+    assert hidden.status_code == 403
+
+
+async def test_the_party_being_sung_cannot_be_hidden(
+    client: AsyncClient, parties: dict[str, Any], broadcast_events: list[dict[str, object]]
+) -> None:
+    """The evening in progress is what the Scores page is for."""
+    response = await client.put(
+        f"/api/v1/stats/sessions/{parties['live'].id}/hidden", json={"hidden": True}
+    )
+
+    assert response.status_code == 409
+    assert parties["live"].id in response.json()["detail"]
+    assert broadcast_events == []
+
+
+async def test_the_party_being_sung_stays_listed_and_can_be_put_back(
+    client: AsyncClient,
+    anonymous_client: AsyncClient,
+    session: AsyncSession,
+    parties: dict[str, Any],
+) -> None:
+    """A party hidden while it was over, and then sung into again: the flag is dormant while
+    the evening lasts, so a phone at that party is not left with an empty page — and it can
+    be taken off without waiting for the room to go home."""
+    live = await session.get(KaraokeSession, parties["live"].id)
+    assert live is not None
+    live.hidden = True
+    await session.commit()
+
+    guest = (await anonymous_client.get("/api/v1/stats/sessions")).json()["sessions"]
+    assert [(row["id"], row["hidden"], row["current"]) for row in guest] == [
+        (parties["live"].id, True, True)
+    ]
+
+    back = await client.put(
+        f"/api/v1/stats/sessions/{parties['live'].id}/hidden", json={"hidden": False}
+    )
+    assert back.status_code == 200
+    assert back.json()["hidden"] is False
+
+
+async def test_hiding_an_unknown_party_is_a_404(client: AsyncClient) -> None:
+    response = await client.put("/api/v1/stats/sessions/nope/hidden", json={"hidden": True})
+
+    assert response.status_code == 404
 
 
 async def test_a_score_moves_to_the_singer_it_belongs_to(

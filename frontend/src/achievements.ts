@@ -38,7 +38,8 @@ export function achievementIconUrl(
   // `small` is the 256px variant of a shipped picture, for the 40px rows and
   // the TV — the originals are over a megabyte each and the user page draws
   // seventeen. An upload has no variant and answers either size with itself.
-  // `full` is for a view that shows one badge large; nothing does yet.
+  // `full` is for the one view that shows a single badge large: the achievement
+  // modal, which asks for it only while it is open (ui-guidelines §5).
   const url = `/api/v1/achievements/${encodeURIComponent(achievementId)}/icon?size=${size}`;
   return version === undefined || version === null
     ? url
@@ -218,6 +219,7 @@ export const METRICS = [
   "number_of_scores",
   "different_songs",
   "different_artists",
+  "number_of_wins",
   "average_score",
 ] as const;
 
@@ -228,6 +230,7 @@ export const METRIC_LABELS: Record<Condition["metric"], string> = {
   number_of_scores: "Number of scores",
   different_songs: "Different songs",
   different_artists: "Different artists",
+  number_of_wins: "Number of wins",
   average_score: "Average score",
 };
 
@@ -241,6 +244,9 @@ export const METRIC_DESCRIPTIONS: Record<Condition["metric"], string> = {
   number_of_scores: "How many scores there are.",
   different_songs: "How many different songs.",
   different_artists: "How many different artists.",
+  number_of_wins:
+    "How many times the singer had the best score of a song. A song nobody " +
+    "else sang is not a win. A tie for the top counts for both singers.",
   average_score: "The mean, rounded down. Nobody with no scores has one.",
 };
 
@@ -539,9 +545,14 @@ function measured(condition: Condition): string {
         ? counted(condition, "different song", "different songs")
         : condition.metric === "different_artists"
           ? counted(condition, "different artist", "different artists")
-          : condition.metric === "sum_of_scores"
-            ? `scores adding up to ${COMPARATOR_LABELS[condition.comparator]} ${condition.value}`
-            : `an average score of ${COMPARATOR_LABELS[condition.comparator]} ${condition.value}`;
+          : condition.metric === "number_of_wins"
+            ? // "wins" and not "won songs": what is counted is the times the
+              // singer came first, and winning the same song twice is two of
+              // them rather than one song.
+              counted(condition, "win", "wins")
+            : condition.metric === "sum_of_scores"
+              ? `scores adding up to ${COMPARATOR_LABELS[condition.comparator]} ${condition.value}`
+              : `an average score of ${COMPARATOR_LABELS[condition.comparator]} ${condition.value}`;
   return range === null
     ? phrase
     : `${phrase}, counting only scores of ${range}`;

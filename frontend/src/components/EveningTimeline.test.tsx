@@ -32,6 +32,8 @@ function score(
     player_name: playerName,
     score: value,
     difficulty: 2,
+    placement: null,
+    field_size: null,
     recorded_at: recordedAt,
     song: bohemian,
     sing_started_at: recordedAt,

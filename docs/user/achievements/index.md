@@ -52,14 +52,30 @@ and meets the new ones on the TV.
     as you go. If somebody moves a score to the right singer or deletes one,
     the badges follow. Earn one again and it is stamped with the new day.
 
+## One badge, large
+
+Tap a badge, on the strip or in a row, and it opens large over the blurred
+page. You see the picture at the size it was drawn for, the name, the
+description, and the same line the row carries. An earned one says the day.
+One still out there shows its bar and its numbers, or nothing where there is
+nothing to fill up. A hidden one opens as well, and says exactly what its row
+says.
+
+![One badge over the blurred page, with its name, its description and the day it was earned](../assets/screenshots/achievements/achievement-modal.png){ width="320" loading=lazy }
+/// caption
+Tap the darkened page above or below it, or :wingman-close: in the corner.
+///
+
 ## The moment on the host screen
 
 When a song is over, the host screen holds the results back and throws the new
-badges up first. One singer at a time: their picture and their name, and their
-badges flying in beside the name and the one-line description. At most four
-badges land in a row. Then the next singer, then the results as usual.
+badges up first. They take the whole screen: the QR code, **Tonight** and
+**Most wished** are gone for those seconds, and come back the moment the badges
+are done. One singer at a time: their picture and their name, and their badges
+flying in beside the name and the one-line description. At most four badges
+land in a row. Then the next singer, then the results as usual.
 
-![The host screen with Bender's picture and name over two badges, Iron Lungs and Eighties Marathon, each under its description](../assets/screenshots/achievements/host-achievements.png){ width="720" loading=lazy }
+![The host screen with Bender's picture and name over two badges, Eighties Marathon and Iron Lungs, each with its description under it](../assets/screenshots/achievements/host-achievements.png){ width="720" loading=lazy }
 /// caption
 The results of the song wait until the badges have had their moment.
 ///

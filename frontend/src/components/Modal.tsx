@@ -18,6 +18,13 @@ interface ModalProps {
   hideTitle?: boolean;
   /** No panel surface: the content floats on a darkened, blurred backdrop. */
   bare?: boolean;
+  /**
+   * One control beside the close button, and the only thing besides the
+   * heading and the close a panel header may carry (ui-guidelines §5). The
+   * party picker's *show all* toggle is what it exists for: it changes what
+   * the whole list holds, so it belongs to the panel and not to a row in it.
+   */
+  headerAction?: ReactNode;
   children: ReactNode;
 }
 
@@ -46,6 +53,7 @@ export default function Modal({
   fullscreen,
   hideTitle,
   bare,
+  headerAction,
   children,
 }: ModalProps) {
   const panel = useRef<HTMLDivElement>(null);
@@ -166,9 +174,14 @@ export default function Modal({
           }
         >
           {!hideTitle && <h2>{title}</h2>}
-          <button type="button" onClick={onClose} aria-label="Close">
-            <Icon name="close" />
-          </button>
+          {/* Beside the close, at the far end of the header — the heading keeps
+              the left, and the two controls stay together. */}
+          <div className="modal-header-actions">
+            {headerAction}
+            <button type="button" onClick={onClose} aria-label="Close">
+              <Icon name="close" />
+            </button>
+          </div>
         </div>
         {children}
       </div>

@@ -1,0 +1,32 @@
+/* The progress bar of one achievement, shared by the row on the user page and
+   the modal that row opens. Layout only, no margin: where it sits is the
+   surface's business, and both set their own. */
+.achievement-progress {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+/* The house progress bar: the `--input-bg` track of §2 under a blue fill, the
+   same one the host screen's song bar draws. No transition — the numbers move
+   once a sing, and a bar that slid would be animating a jump. */
+.achievement-progress-bar {
+  flex: 1 1 auto;
+  height: 6px;
+  overflow: hidden;
+  background-color: var(--input-bg);
+  border-radius: 999px;
+}
+
+.achievement-progress-bar > span {
+  display: block;
+  height: 100%;
+  background-color: var(--highlight-blue-light);
+}
+
+.achievement-progress-label {
+  flex: 0 0 auto;
+  font-size: 0.8em;
+  color: var(--color-darker);
+  font-variant-numeric: tabular-nums;
+}

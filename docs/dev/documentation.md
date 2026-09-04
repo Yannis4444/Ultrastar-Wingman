@@ -498,13 +498,13 @@ about, and the **Must be visible** column names that part alone.
 
 | Id | Page | Route | State to seed | Viewport | Must be visible |
 |---|---|---|---|---|---|
-| `home` | `party/index.md` | `/` | Signed in as Leela, four wishes | 390x844 | Identity tile, wishlist, Random song entry |
+| `home` | `party/index.md` | `/` | Signed in as Leela, four wishes | 390x844 | The Wingman tile, the wishlist, the Random song entry |
 | `home-playing` | `party/sing.md` | `/` | **launcher**: a song playing | 390x844 | The stage showing cover, title, artist, song controls |
 | `songs-list` | `songs/index.md` | `/songs` | Seeded library, two favorites, two sung | 390x844 | Search box, chip row, rows with marks |
 | `songs-filter` | `songs/filter.md` | `/songs` | Filter panel open, Decade set to 1980s | 390x844 | The tri-state controls and one valued facet select |
 | `song` | `songs/song.md` | `/songs` | Song modal open on "I Got You Babe" | 390x844 | Cover hero, the wish and favorite toggles, and the summary strip |
 | `song-comments` | `songs/song.md` | `/songs` | Song modal, comments sub-view, three comments | 390x844 | The comment list and the composer |
-| `song-edit` | `songs/fix-or-delete.md` | `/songs` | Song modal, details editor open | 390x844 | The six labeled inputs and the save row |
+| `song-edit` | `songs/fix-or-delete.md` | `/songs` | Song modal, details editor open | 390x844 | The six labeled inputs, the save row, and **Delete song** under it |
 | `player-selection` | `party/sing.md` | `/songs` | Song modal, player selection open | 390x844 | Two singers picked on their microphone colors |
 | `wishlist` | `party/wishlist.md` | `/` | Six wishes, two of them wished twice | 390x844 | The wishlist rows, a wish count, the take-back button |
 | `playlists` | `songs/playlists.md` | `/songs/playlists` | Three playlists, one global | 390x844 | The cover mosaics, the meta lines, the globe mark |
@@ -522,7 +522,8 @@ about, and the **Must be visible** column names that part alone.
 | `user` | `scores/your-scores.md` | `/user` | Signed in as Bender | 390x844 | Identity tile, the stat bar, the histogram |
 | `user-stats` | `scores/your-scores.md` | `/user/stats` | Bender's own record across both seeded parties | 390x844 | The **Your scores** header, the charts of his own record |
 | `user-achievements` | `achievements/index.md` | `/user` | Signed in as Fry, whose four badges leave room for a bar below them | 390x844 | The open badge strip, its count, one row with a progress bar |
-| `achievements-admin` | `achievements/manage/index.md` | `/user/achievements` | Two of the party's own achievements, one switched off | 390x844 | The three settings, both sections, a lock mark, the off row |
+| `achievement-modal` | `achievements/index.md` | `/user` | Signed in as Fry, one of his badges opened large | 390x844 | The badge at hero size, its name, its sentence, the day it was earned |
+| `achievements-admin` | `achievements/manage/index.md` | `/user/achievements` | Two of the party's own achievements, one switched off | 390x844 | The three settings, the one list over the whole catalogue, an *Included* row, a lock mark, the off row |
 | `achievement-editor` | `achievements/manage/create.md` | `/user/achievements/:id` | The 80s achievement from the worked example | 390x844 | The condition block and its plain sentence |
 | `people-admin` | `people/players.md` | `/user/accounts` | Three accounts, seven guests, one of them hidden | 390x844 | Both groups, the role controls, a hidden row |
 | `permissions` | `people/roles.md` | `/user/permissions` | Defaults | 390x844 | The three columns Guest, User, and Trusted, and the line saying admins are not in the table |
@@ -530,8 +531,8 @@ about, and the **Must be visible** column names that part alone.
 | `settings` | `settings/index.md` | `/settings` | USDX group open, its Advanced block open | 390x844 | The group header and its icon, the Base path field, the Advanced block |
 | `host-screen` | `host-screen/index.md` | `/host` | A party going, four wishes, five singers scored | 1280x720 | QR card, join address, standing, most wished |
 | `host-playing` | `host-screen/index.md` | `/host` | **launcher**: a song playing | 1280x720 | The stage with the cover and the singers |
-| `host-results` | `scores/index.md` | `/host` | **launcher**: the song just finished and its scores were written | 1280x720 | The results of the song that finished |
-| `host-achievements` | `achievements/index.md` | `/host` | **launcher**: the sing that completes the achievement the seed left one song short for Bender | 1280x720 | The badges landing for one singer, before the results appear |
+| `host-results` | `scores/index.md` | `/host` | **launcher**: the song just finished and its scores were written | 1280x720 | The results of the song that finished, the score summary beside its cover |
+| `host-achievements` | `achievements/index.md` | `/host` | **launcher**: the sing that completes the achievement the seed left one song short for Bender | 1280x720 | The badges landing for one singer, over the whole screen with no rail beside them, before the results appear |
 | `host-manage` | `host-screen/manage.md` | `/host/manage` | Host rights on that browser | 1280x720 | The management rows the host reaches from the TV |
 
 ## 7. Links and cross references
@@ -666,7 +667,9 @@ delete them.
 
 An error sentence says what happened and what to do next, in that order, without blame:
 "That name is taken. Pick another one." A confirmation dialog names the consequence in one
-sentence, and its button says the action: **Delete song**, never **OK**.
+sentence, and its button is the bare verb of the action the dialog is titled after:
+**Delete**, never **OK** and never a second copy of the title ("Delete song"). The control
+that opened it is what says the whole thing — the form's own **Delete song** button.
 
 The look rules for the same surfaces live in [ui-guidelines.md](ui-guidelines.md).
 

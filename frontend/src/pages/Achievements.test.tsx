@@ -70,11 +70,11 @@ function renderPage(
   );
 }
 
-/** The rows of one list, in the order they are drawn. */
-function rowsUnder(container: HTMLElement, index: number): HTMLAnchorElement[] {
-  const lists = container.querySelectorAll(".achievements-list");
+/** The catalogue's rows, in the order they are drawn. One list over all of it,
+ *  so there is one place to read them from. */
+function listRows(container: HTMLElement): HTMLAnchorElement[] {
   return [
-    ...lists[index].querySelectorAll<HTMLAnchorElement>(".achievements-open"),
+    ...container.querySelectorAll<HTMLAnchorElement>(".achievements-open"),
   ];
 }
 
@@ -92,6 +92,17 @@ function layOutRows(list: Element, height = 60): void {
 /** Pointer capture, which jsdom does not implement at all — the grip takes it
  *  so the gesture survives the row moving out from under it. */
 const POINTER_CAPTURE = ["setPointerCapture", "releasePointerCapture"] as const;
+
+/** A finger moved to `clientY` over the list.
+ *
+ * `fireEvent.pointerMove` cannot do it: jsdom has no `PointerEvent`, so the
+ * event testing-library builds carries no coordinate at all and the drag reads
+ * `undefined` — which lands every row at the foot of the list rather than where
+ * the finger is. A `MouseEvent` under the same name carries `clientY`, and
+ * React reads it off the native event either way. */
+function dragTo(grip: Element, clientY: number): void {
+  fireEvent(grip, new MouseEvent("pointermove", { bubbles: true, clientY }));
+}
 
 /** An archive as the file input hands one over. */
 function archive(size = 2048): File {
@@ -237,33 +248,41 @@ it("shows what the backend refused verbatim", async () => {
   );
 });
 
-it("keeps what people made apart from what Wingman brings", async () => {
+it("draws the whole catalogue as one list, in the order it comes in", async () => {
   const { container } = renderPage([
+    builtInAchievementReads()[0],
     achievementRead({ id: "a-own", name: "Karaoke Hero" }),
-    ...builtInAchievementReads(),
+    ...builtInAchievementReads().slice(1),
   ]);
 
   await screen.findByText("Karaoke Hero");
-  // Only the second group is named: the rows people made lead the page without
-  // a heading, the way the Tags page leads with its own tags.
-  expect(screen.getByRole("heading", { name: "Included" })).toBeInTheDocument();
+  // One list and no section heading over any part of it: the order is the
+  // host's, so a party's own achievement may stand above a shipped one.
+  expect(container.querySelectorAll(".achievements-list")).toHaveLength(1);
+  expect(
+    screen.queryByRole("heading", { name: "Included" }),
+  ).not.toBeInTheDocument();
   expect(
     screen.queryByRole("heading", { name: /your achievements/i }),
   ).not.toBeInTheDocument();
 
-  expect(rowsUnder(container, 0).map((row) => row.textContent)).toEqual([
-    "Karaoke HeroScore 9,000 or more in a song.",
-  ]);
-  const included = rowsUnder(container, 1);
-  expect(included).toHaveLength(17);
-  expect(included[0]).toHaveTextContent("First Time on the Mic");
-  expect(included[0]).toHaveAttribute(
+  const rows = listRows(container);
+  expect(rows).toHaveLength(18);
+  expect(rows[0]).toHaveTextContent("First Time on the Mic");
+  expect(rows[0]).toHaveAttribute(
     "href",
     "/user/achievements/builtin-first-song",
   );
+  // The party's own row sits where the catalogue puts it, between two shipped
+  // ones, and is the one without the word.
+  expect(rows[1]).toHaveTextContent("Karaoke Hero");
+  expect(rows[1].querySelector(".achievements-included")).toBeNull();
+  expect(rows[0].querySelector(".achievements-included")?.textContent).toBe(
+    "Included",
+  );
   // The hidden one Wingman ships wears the lock, and is the last of them.
-  expect(included[16]).toHaveTextContent("Brave Soul");
-  expect(iconNames(included[16])).toContain("lock");
+  expect(rows[17]).toHaveTextContent("Brave Soul");
+  expect(iconNames(rows[17])).toContain("lock");
 });
 
 it("says the name and the description, and only what is unusual", async () => {
@@ -275,7 +294,7 @@ it("says the name and the description, and only what is unusual", async () => {
   ]);
 
   await screen.findByText("Plain");
-  const rows = rowsUnder(container, 0);
+  const rows = listRows(container);
   expect(
     rows.map((row) => row.querySelector(".achievements-name")?.textContent),
   ).toEqual(["Plain", "Wordless", "Secret", "Paused"]);
@@ -307,7 +326,7 @@ it("labels an included row and greys one that is switched off", async () => {
   );
 
   await screen.findByText("First Time on the Mic");
-  const rows = rowsUnder(container, 0);
+  const rows = listRows(container);
   expect(
     rows.every(
       (row) =>
@@ -319,12 +338,17 @@ it("labels an included row and greys one that is switched off", async () => {
   expect(rows[1].className).not.toContain("achievements-row-off");
 });
 
-it("invites the first achievement when nobody has made one", async () => {
-  renderPage(builtInAchievementReads());
+it("invites the first achievement when the catalogue is empty", async () => {
+  renderPage([]);
 
   expect(await screen.findByText("No achievements yet")).toBeInTheDocument();
-  // The seventeen are still there: the empty state is about the party's own.
-  expect(screen.getByText("Golden Voice")).toBeInTheDocument();
+});
+
+it("draws no empty state while the catalogue has rows", async () => {
+  renderPage(builtInAchievementReads());
+
+  expect(await screen.findByText("Golden Voice")).toBeInTheDocument();
+  expect(screen.queryByText("No achievements yet")).not.toBeInTheDocument();
 });
 
 it("leads each row into the editor and the header into a new one", async () => {
@@ -369,7 +393,7 @@ it("draws each achievement in its own colour", async () => {
   ]);
 
   await screen.findByText("Gold");
-  const rows = rowsUnder(container, 0);
+  const rows = listRows(container);
   expect(rows[0].querySelector(".achievement-badge")).toHaveClass(
     "tag-color-gold",
   );
@@ -442,7 +466,7 @@ it("picks what goes into the archive without touching the rows", async () => {
   await screen.findByText("Karaoke Hero");
   // Nothing on the page's own rows selects anything: they are links into the
   // editor and stay that way.
-  expect(rowsUnder(container, 0)[0].querySelector("input")).toBeNull();
+  expect(listRows(container)[0].querySelector("input")).toBeNull();
 
   fireEvent.click(screen.getByRole("button", { name: "Export…" }));
 
@@ -566,24 +590,137 @@ it("arranges the catalogue and sends the whole order", async () => {
   );
 
   await waitFor(() => expect(reorderAchievements).toHaveBeenCalled());
-  // One sequence over the whole table — the party's own rows, then the included
-  // ones — which is exactly the order the page draws them in.
+  // One sequence over the whole table, exactly the order the page draws.
   expect(reorderAchievements.mock.calls[0][0].body.ids).toEqual([
     "a-second",
     "a-own",
     ...builtInAchievementReads().map(({ id }) => id),
   ]);
-  // A row moves inside its own section: the first of each has no way up, and
-  // an included one can never lead the party's own.
+  // One list, so only the first row of all of them has no way up and only the
+  // last has no way down — no section boundary stops anything in between, and
+  // the first of the ones Wingman ships can be moved above a party's own.
   expect(
     screen.getByRole("button", { name: "Move Second Voice up" }),
   ).toBeDisabled();
   expect(
+    screen.getByRole("button", { name: "Move Karaoke Hero down" }),
+  ).toBeEnabled();
+  expect(
     screen.getByRole("button", { name: "Move First Time on the Mic up" }),
-  ).toBeDisabled();
+  ).toBeEnabled();
   expect(
     screen.getByRole("button", { name: "Move Brave Soul down" }),
   ).toBeDisabled();
+});
+
+it("moves a row past the ones Wingman ships", async () => {
+  const rows = catalogue();
+  const { container } = renderPage(rows);
+  reorderAchievements.mockResolvedValue({
+    data: { achievements: rows, settings: achievementSettings() },
+  });
+
+  fireEvent.click(
+    await screen.findByRole("button", { name: "Arrange the order" }),
+  );
+  // The last of the party's own rows, moved under the first shipped one: the
+  // two are in one order, so nothing holds it back.
+  fireEvent.click(
+    screen.getByRole("button", { name: "Move Second Voice down" }),
+  );
+
+  await waitFor(() => expect(reorderAchievements).toHaveBeenCalled());
+  expect(reorderAchievements.mock.calls[0][0].body.ids.slice(0, 3)).toEqual([
+    "a-own",
+    "builtin-first-song",
+    "a-second",
+  ]);
+  expect(names(container).slice(0, 3)).toEqual([
+    "Karaoke Hero",
+    "First Time on the Mic",
+    "Second Voice",
+  ]);
+});
+
+it("keeps the keyboard on the arrow a move was made with", async () => {
+  const rows = catalogue();
+  renderPage(rows);
+  reorderAchievements.mockResolvedValue({
+    data: { achievements: rows, settings: achievementSettings() },
+  });
+
+  fireEvent.click(
+    await screen.findByRole("button", { name: "Arrange the order" }),
+  );
+  const down = screen.getByRole("button", { name: "Move Second Voice down" });
+  down.focus();
+  fireEvent.click(down);
+
+  // The row's own node moves and both its arrows are disabled while the order
+  // is saved, and neither a moved nor a disabled control keeps the focus — so
+  // without putting it back, a reader arranging by keyboard is dropped at the
+  // top of the page after every press.
+  await waitFor(() => expect(reorderAchievements).toHaveBeenCalled());
+  await waitFor(() =>
+    expect(
+      screen.getByRole("button", { name: "Move Second Voice down" }),
+    ).toBeEnabled(),
+  );
+  expect(document.activeElement).toBe(
+    screen.getByRole("button", { name: "Move Second Voice down" }),
+  );
+});
+
+it("leaves the focus where the reader took it while a move was saving", async () => {
+  const rows = catalogue();
+  renderPage(rows);
+  reorderAchievements.mockResolvedValue({
+    data: { achievements: rows, settings: achievementSettings() },
+  });
+
+  fireEvent.click(
+    await screen.findByRole("button", { name: "Arrange the order" }),
+  );
+  const down = screen.getByRole("button", { name: "Move Second Voice down" });
+  down.focus();
+  fireEvent.click(down);
+  // Somewhere else, by hand, before the answer lands.
+  const done = screen.getByRole("button", { name: "Done arranging" });
+  done.focus();
+
+  await waitFor(() => expect(reorderAchievements).toHaveBeenCalled());
+  await waitFor(() =>
+    expect(
+      screen.getByRole("button", { name: "Move Second Voice down" }),
+    ).toBeEnabled(),
+  );
+  expect(document.activeElement).toBe(done);
+});
+
+it("hands the keyboard the other arrow when a move uses one up", async () => {
+  const rows = catalogue();
+  renderPage(rows);
+  reorderAchievements.mockResolvedValue({
+    data: { achievements: rows, settings: achievementSettings() },
+  });
+
+  fireEvent.click(
+    await screen.findByRole("button", { name: "Arrange the order" }),
+  );
+  const up = screen.getByRole("button", { name: "Move Second Voice up" });
+  up.focus();
+  fireEvent.click(up);
+
+  // It now leads the list, so the arrow that got it there is disabled for
+  // good. The focus goes to the row's other one rather than nowhere.
+  await waitFor(() =>
+    expect(
+      screen.getByRole("button", { name: "Move Second Voice up" }),
+    ).toBeDisabled(),
+  );
+  expect(document.activeElement).toBe(
+    screen.getByRole("button", { name: "Move Second Voice down" }),
+  );
 });
 
 it("holds the order the backend answered with", async () => {
@@ -608,11 +745,10 @@ it("holds the order the backend answered with", async () => {
   await waitFor(() => expect(reorderAchievements).toHaveBeenCalled());
   fireEvent.click(screen.getByRole("button", { name: "Done arranging" }));
 
-  expect(
-    rowsUnder(container, 0).map(
-      (row) => row.querySelector(".achievements-name")?.textContent,
-    ),
-  ).toEqual(["Second Voice", "Karaoke Hero"]);
+  expect(names(container).slice(0, 2)).toEqual([
+    "Second Voice",
+    "Karaoke Hero",
+  ]);
 });
 
 it("leaves the rows alone until the order is arranged", async () => {
@@ -639,9 +775,9 @@ it("leaves the rows alone until the order is arranged", async () => {
   expect(container.querySelector(".achievements-drag")).toBeNull();
 });
 
-/** The names of one list's rows, in the order they are drawn. */
-function names(container: HTMLElement, index: number): (string | undefined)[] {
-  return rowsUnder(container, index).map(
+/** The names of the catalogue's rows, in the order they are drawn. */
+function names(container: HTMLElement): (string | undefined)[] {
+  return listRows(container).map(
     (row) => row.querySelector(".achievements-name")?.textContent ?? undefined,
   );
 }
@@ -660,7 +796,10 @@ it("puts the rows back when the new order is refused", async () => {
   expect(await screen.findByRole("alert")).toHaveTextContent(
     "Could not save the new order.",
   );
-  expect(names(container, 0)).toEqual(["Karaoke Hero", "Second Voice"]);
+  expect(names(container).slice(0, 2)).toEqual([
+    "Karaoke Hero",
+    "Second Voice",
+  ]);
 });
 
 it("says the catalogue moved when the order no longer fits it", async () => {
@@ -680,7 +819,10 @@ it("says the catalogue moved when the order no longer fits it", async () => {
   expect(await screen.findByRole("alert")).toHaveTextContent(
     "The achievements changed somewhere else",
   );
-  expect(names(container, 0)).toEqual(["Karaoke Hero", "Second Voice"]);
+  expect(names(container).slice(0, 2)).toEqual([
+    "Karaoke Hero",
+    "Second Voice",
+  ]);
   // And the catalogue is asked for again, or every further gesture is refused
   // for the same stale reason and the mode never recovers.
   await waitFor(() =>
@@ -695,7 +837,7 @@ it("puts the rows back when a dragged order is refused", async () => {
   fireEvent.click(
     await screen.findByRole("button", { name: "Arrange the order" }),
   );
-  const list = container.querySelectorAll(".achievements-list")[0];
+  const list = container.querySelector(".achievements-list")!;
   layOutRows(list);
   const grip = list.querySelector<HTMLElement>(".achievements-drag");
 
@@ -703,14 +845,20 @@ it("puts the rows back when a dragged order is refused", async () => {
   // the end — so what a refusal has to go back to is the order the server still
   // holds. "The order before this move" is the move that was just refused.
   fireEvent.pointerDown(grip as HTMLElement, { pointerId: 1 });
-  fireEvent.pointerMove(grip as HTMLElement, { pointerId: 1, clientY: 100 });
-  expect(names(container, 0)).toEqual(["Second Voice", "Karaoke Hero"]);
+  dragTo(grip as HTMLElement, 100);
+  expect(names(container).slice(0, 2)).toEqual([
+    "Second Voice",
+    "Karaoke Hero",
+  ]);
   fireEvent.pointerUp(grip as HTMLElement, { pointerId: 1 });
 
   expect(await screen.findByRole("alert")).toHaveTextContent(
     "Could not save the new order.",
   );
-  expect(names(container, 0)).toEqual(["Karaoke Hero", "Second Voice"]);
+  expect(names(container).slice(0, 2)).toEqual([
+    "Karaoke Hero",
+    "Second Voice",
+  ]);
   expect(reorderAchievements).toHaveBeenCalledTimes(1);
 });
 
@@ -722,16 +870,19 @@ it("starts no second gesture while an order is still in flight", async () => {
   fireEvent.click(
     await screen.findByRole("button", { name: "Arrange the order" }),
   );
-  const list = container.querySelectorAll(".achievements-list")[0];
+  const list = container.querySelector(".achievements-list")!;
   const grip = () => list.querySelector<HTMLElement>(".achievements-drag")!;
 
   // One gesture, and its answer never comes.
   layOutRows(list);
   fireEvent.pointerDown(grip(), { pointerId: 1 });
-  fireEvent.pointerMove(grip(), { pointerId: 1, clientY: 100 });
+  dragTo(grip(), 100);
   fireEvent.pointerUp(grip(), { pointerId: 1 });
   await waitFor(() => expect(reorderAchievements).toHaveBeenCalledTimes(1));
-  expect(names(container, 0)).toEqual(["Second Voice", "Karaoke Hero"]);
+  expect(names(container).slice(0, 2)).toEqual([
+    "Second Voice",
+    "Karaoke Hero",
+  ]);
 
   // The arrows are disabled for this moment; so is the grip, or a second
   // gesture's order and this one's can land in either sequence and the loser is
@@ -741,12 +892,15 @@ it("starts no second gesture while an order is still in flight", async () => {
   ).toBeDisabled();
   layOutRows(list);
   fireEvent.pointerDown(grip(), { pointerId: 2 });
-  fireEvent.pointerMove(grip(), { pointerId: 2, clientY: 100 });
+  dragTo(grip(), 100);
   fireEvent.pointerUp(grip(), { pointerId: 2 });
 
   // Nothing moved and nothing went out — the rows are where the first gesture
   // left them.
-  expect(names(container, 0)).toEqual(["Second Voice", "Karaoke Hero"]);
+  expect(names(container).slice(0, 2)).toEqual([
+    "Second Voice",
+    "Karaoke Hero",
+  ]);
   expect(reorderAchievements).toHaveBeenCalledTimes(1);
 });
 

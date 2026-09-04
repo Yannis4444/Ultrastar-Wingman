@@ -42,6 +42,23 @@ class ScoreRow:
     year: int | None
     is_duet: bool | None
     has_video: bool | None
+    # Where this score came in among the scores of its own sing and how many there were,
+    # both as they were recorded that evening (`karaoke.model.Score`). Defaulted so the
+    # tests can build a row without them: both NULL is what a score older than migration
+    # 0026's reach really carries, and it is `won`'s "no" rather than a special case.
+    placement: int | None = None
+    field_size: int | None = None
+
+    @property
+    def won(self) -> bool:
+        """Whether this score came first in a sing there was somebody to come first *of*.
+
+        A shared first place counts for everybody who holds it: two singers tied at the top
+        both came first, and neither came second. A sing with one score is not a win at all —
+        a solo and a victory would otherwise be the same row, which is the one thing storing
+        `field_size` is for.
+        """
+        return self.placement == 1 and self.field_size is not None and self.field_size >= 2
 
     @property
     def song_known(self) -> bool:
@@ -157,6 +174,10 @@ def _measure(condition: Condition, rows: Sequence[ScoreRow]) -> int | None:
             # Case-insensitively, and a song that has left the library carries no artist and
             # counts for nothing.
             return len({row.artist.casefold() for row in kept if row.artist is not None})
+        case "number_of_wins":
+            # Scores, not sings: `won` is already a statement about one score's own sing, and
+            # one sing gives one singer at most one score to win it with.
+            return sum(1 for row in kept if row.won)
 
 
 def _upward(comparator: Comparator) -> bool:

@@ -309,15 +309,22 @@
   width: 100%;
 }
 
+/* Under the primary and away from it — `.delete-row` (index.css): the fields
+   correct the song, this one ends it, and the gap is what keeps the two from
+   reading as a pair of buttons. That gap is 24px here as it is in the score
+   panel, but the form is a flex column with a 12px gap of its own, which the
+   class's own margin would land on top of. */
+.song-edit .delete-row {
+  margin-top: 12px;
+}
+
 /* Best-scores sub-view: the song's history over the ranking, as one wrapping
    run of glyph+number pairs — 8px inside a pair's own gap, 16px between them. */
+/* The summary is `ScoreSummary`'s shape, layout included; the modal only puts
+   it in the page gutter, on the same 16px column as the strip and the ranking
+   under it. */
 .song-scores-stats {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 8px 16px;
   margin: 0 16px 12px 16px;
-  font-size: 0.9em;
-  font-variant-numeric: tabular-nums;
 }
 
 /* The whole history as the Scores page's strip, in the page gutter and flat on

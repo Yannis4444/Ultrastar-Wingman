@@ -31,6 +31,10 @@ import SongListItem from "../components/SongListItem";
 import { formatTotalDuration } from "../duration";
 import { errorDetail, errorMessage } from "../errors";
 import { useFavorites } from "../hooks/useFavorites";
+import {
+  useReorderFocus,
+  type ReorderDirection,
+} from "../hooks/useReorderFocus";
 import { useSungSongs } from "../hooks/useSungSongs";
 import { useTags } from "../hooks/useTags";
 import { useWingmanEvent, type WingmanEvent } from "../hooks/useWingmanEvents";
@@ -199,6 +203,12 @@ export default function Playlist() {
     : entries.map((entry) => entry.song);
   const holds = new Set(stored);
 
+  // A move costs the reader their place — the row's own node moves and both its
+  // arrows go `disabled` for the length of the request — so the keyboard goes
+  // back onto the arrow it was pressed with. The achievements admin's reorder
+  // mode does the same, out of the same hook.
+  const focus = useReorderFocus(reorder.isPending, order ?? stored);
+
   // Who may do what: the backend worked it out from the owner, the caller's
   // member row and `playlists.moderate`, so the page only has to check that the
   // role still holds `playlists.manage` at all.
@@ -248,6 +258,32 @@ export default function Playlist() {
     if (to < 0 || to >= order.length) return;
     save(moved(order, index, to));
   };
+
+  /** One of a reorder row's two arrows: the same button but for the way it
+   *  moves the song and the end of the list it runs out at. Both remember
+   *  themselves, so the keyboard comes back to the arrow the move was made
+   *  with rather than being dropped at the top of the page. */
+  const arrow = (
+    song: SongRead,
+    index: number,
+    direction: ReorderDirection,
+  ) => (
+    <button
+      type="button"
+      ref={focus.register(song.id, direction)}
+      aria-label={`Move ${song.title} ${direction}`}
+      disabled={
+        (direction === "up" ? index === 0 : index === songs.length - 1) ||
+        reorder.isPending
+      }
+      onClick={() => {
+        focus.press(song.id, direction);
+        step(index, direction === "up" ? -1 : 1);
+      }}
+    >
+      <Icon name={direction === "up" ? "arrow-up" : "arrow-down"} />
+    </button>
+  );
 
   /** Which row the pointer is over, so a drag needs no library. */
   const rowAt = (clientY: number): number | null => {
@@ -487,25 +523,8 @@ export default function Playlist() {
                           }
                           actions={
                             <>
-                              <button
-                                type="button"
-                                aria-label={`Move ${song.title} up`}
-                                disabled={index === 0 || reorder.isPending}
-                                onClick={() => step(index, -1)}
-                              >
-                                <Icon name="arrow-up" />
-                              </button>
-                              <button
-                                type="button"
-                                aria-label={`Move ${song.title} down`}
-                                disabled={
-                                  index === songs.length - 1 ||
-                                  reorder.isPending
-                                }
-                                onClick={() => step(index, 1)}
-                              >
-                                <Icon name="arrow-down" />
-                              </button>
+                              {arrow(song, index, "up")}
+                              {arrow(song, index, "down")}
                               <button
                                 type="button"
                                 aria-label={`Remove ${song.title} from the playlist`}

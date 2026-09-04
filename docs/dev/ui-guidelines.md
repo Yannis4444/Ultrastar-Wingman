@@ -36,6 +36,8 @@ request does not override are the accessibility and dependency floors in §1.8�
 7. **Reuse the shared classes** in `index.css`: `.button` / `.button-primary` /
    `.button-danger`, `.text-input[-quiet]`, `.icon-button[-bordered|-danger]`, `.error-notice`,
    `.section-note` (the 0.85em `--color-darker` line that explains an `h2` to the reader),
+   `.delete-row` (the one `.button-danger` that ends a list or a form, centered 24px under
+   it — the score panel's *Delete score*, the song editor's *Delete song*),
    `.visually-hidden`, `.icon`, the global `:focus-visible` ring. Extend with a modifier class;
    never write a second bespoke 40×40 icon-button rule.
 8. **No new dependencies** for UI (no icon library, no loader library, no CSS framework).
@@ -101,11 +103,12 @@ may wear is the picker's list below, never this table.
 |---|---|---|
 | `playlist-plus` / `playlist-check` · `list-plus` / `list` / `list-check` | wish off / wish on, `playlist-plus` also heading the wishlist · add to playlist / picker row not in it / already in it, `list` also the "Playlists" link | solid bars · bulleted rows |
 | `filter` / `comment` / `drag-handle` / `copy` / `send` / `user-plus` | the Songs Filter chip and its panel · comments: the song modal's summary strip, the sub-view, the empty state · reordering — the grip on a row and, on the Achievements admin, the header control that opens the mode · "Save a copy" of a playlist · submit in the comment composer · add a member, add a person to a tag | solid funnel, a wide bar tapering into a short stem · one rounded speech bubble, tail at the bottom left · six dots in two columns of three · two offset rounded squares, the front one solid · a paper plane, one triangle with the fold cut out · the `user` bust with a plus at its shoulder |
-| `lock` / `bookmark` / `bookmark-off` / `eye` / `eye-off` / `layers` | kept back: a tag row nobody assigns here (no `assign`), an achievement that is hidden until it is earned — the masked badge and the mark on its admin row are one glyph — and a built-in achievement's conditions, which are Wingman's own · follow / unfollow a playlist, `bookmark-off` also labelling the collapsed *Hidden* group · a player who is shown / one who is hidden, in the people admin · the session picker's row for every session at once | padlock, solid body under a counter-wound shackle so the nonzero fill leaves the hole · ribbon with a notched foot · the same ribbon behind a diagonal bar · an almond outline around a pupil disc, the almond counter-wound so the white of the eye stays open · the same almond behind a diagonal bar · three stacked lozenges, the top one solid and the two beneath it thin bars |
-| `archive` / `flame` / `moon` / `snowflake` / `gift` / `cake` / `child` | a tag for put-away songs, and the Achievements admin's *Import and export* heading — that section is about archive files · for party songs · for slow songs and ballads · tags for christmas: the winter half · presents, and the Achievements admin's *Included* heading — the set Wingman brings with it · a tag for birthdays · for songs for kids | a lid bar over a box body, one notch in the lid · one teardrop tongue, notched at the foot · a crescent as one contour, the rim the long way round and back along the cutting circle — a cut-out cannot do it, the cutting disc has to reach past the rim · three crossed bars, a short fork at each of the six tips · a box under a lid bar, one ribbon band down the middle of the box and a two-petal bow on the lid · a slab on a plate, three candles · a round head over a body, arms out and legs apart, never `user` |
+| `lock` / `bookmark` / `bookmark-off` / `eye` / `eye-off` / `layers` | kept back: a tag row nobody assigns here (no `assign`), an achievement that is hidden until it is earned — the masked badge and the mark on its admin row are one glyph — and a built-in achievement's conditions, which are Wingman's own · follow / unfollow a playlist, `bookmark-off` also labelling the collapsed *Hidden* group · a player who is shown / one who is hidden in the people admin, and a party in or out of the session picker's list — the pair reads the state, never the action · the session picker's row for every session at once | padlock, solid body under a counter-wound shackle so the nonzero fill leaves the hole · ribbon with a notched foot · the same ribbon behind a diagonal bar · an almond outline around a pupil disc, the almond counter-wound so the white of the eye stays open · the same almond behind a diagonal bar · three stacked lozenges, the top one solid and the two beneath it thin bars |
+| `archive` / `flame` / `moon` / `snowflake` / `gift` / `cake` / `child` | a tag for put-away songs, and the Achievements admin's *Import and export* heading — that section is about archive files · for party songs · for slow songs and ballads · tags for christmas: the winter half · presents · a tag for birthdays · for songs for kids | a lid bar over a box body, one notch in the lid · one teardrop tongue, notched at the foot · a crescent as one contour, the rim the long way round and back along the cutting circle — a cut-out cannot do it, the cutting disc has to reach past the rim · three crossed bars, a short fork at each of the six tips · a box under a lid bar, one ribbon band down the middle of the box and a two-petal bow on the lid · a slab on a plate, three candles · a round head over a body, arms out and legs apart, never `user` |
 | `guitar` / `crown` / `film` / `gamepad` / `flag` / `skull` / `sun` / `umbrella` | a tag for rock · for the classics everybody knows · for movies and musicals · for game music · for a language or country, which the song details list's **Language** row takes too · for hard to sing · tags for summer · for rainy songs | two bouts with a waist between them, sound hole cut out of the upper one, neck to the top right · three points over a solid band · an upright strip with a column of sprocket holes down each edge, `video` staying the camera · a lozenge, d-pad cross and two buttons cut out · a triangular pennant on a staff · a cranium over a jaw, the eye sockets and a nose cut out · a disc under eight detached tapered rays, nine subpaths, nothing cut out · a scalloped half-disc canopy over a stem that hooks left at the foot |
 | `beer` / `car` / `plane` / `bolt` / `bell` / `ghost` / `ring` / `graduation-cap` | tags for drinking songs · for road songs · for holidays · for the loud fast ones · for new year · for halloween · for weddings · for school and graduation | a tankard under a three-lobe foam cap, the handle loop counter-wound · a cabin stepped onto a body over two wheel discs, the windows counter-wound · one outline — fuselage, swept wings, tailplane — nose to the top right · a single zigzag contour · a dome on a flared rim over a clapper disc · a dome over a three-lobe hem, the two eyes counter-wound · two concentric circles, the inner one counter-wound, a gem lozenge on top · a rhombus board on a trapezoid cap, a tassel cord down the right |
 | `headphones` / `drum` / `piano` / `rocket` / `anchor` / `tree` / `paw` / `smile` | tags for songs to play rather than sing · for the drum-driven ones · for songs at the keys · for the night's openers · for sea shanties · for folk · for animal songs · for the funny ones | a headband arc, its inner edge counter-wound, and two capsule earcups · a cylinder between two overhanging rim bars, one three-V zigzag band counter-wound out of the shell · a keybed bar over five keys, the four black ones counter-wound out of it · a pointed body between two fins over a flame, the porthole counter-wound · a ring over a shank crossed by a stock, above one curved fluke bar, the ring's hole counter-wound · three stacked triangles on a short trunk · a pad disc under four toe discs, five subpaths, nothing cut out · a disc with two eyes and a crescent mouth counter-wound out of it |
+| `hash` / `music` / `arrow-up` / `average` / `arrow-down` · `trophy` | a score summary's five numbers, in that order — sings, songs, best, average, worst · the best score as a thing to open: the §5 summary strip's gold button, never a number inside a score summary | two upright bars crossed by two horizontal ones · one contour, a note head under a flagged stem · one solid contour, a shaft behind a triangular head, and the same mirrored · a ring struck corner to corner by a bar · a cup between two handles over a stem and a foot bar. The reorder pair on a playlist or achievement row is `arrow-up` / `arrow-down` doing a job, not a second meaning. None of them is pickable — a number is not a thing a song is about — `music` excepted: it is in the picker already, meaning genre, and wears this second meaning only inside a summary; `trophy` stays out with `clock`, `globe`, `star` and `tag` |
 | `upload` / `download` | the Achievements admin's two archive buttons: one in, one out | `download` mirrored — the same shaft, arrowhead and tray bar, the arrow coming up out of the bar instead of down into it. Neither is pickable: an archive is not a thing a tag or an achievement is about |
 | `thumbs-up` / `hourglass` / `balloon` / `dumbbell` / `tv` | tags for the crowd-pleasers · for the long ones · for carnival · for the gym set · for series and anime — labelling the Host settings group is a job, not a meaning | a fist block with the thumb up over a separate cuff bar · two triangles meeting at the waist between two cap bars · a teardrop bulb over a short zigzag string · a bar between two pairs of stacked plates · a rounded case, the screen counter-wound, on a stand bar |
 
@@ -135,9 +138,16 @@ exception). Tests identify glyphs with `iconNames()` from `src/test/icons.ts`.
   sticky row on `--bg` under a hairline `border-top`, carrying the view's one primary Save,
   one quiet 0.85em line, and the editor's other action — a danger Delete, a plain Reset — at
   the far end of that same line. It sits **inside** the `<form>` (Save is its submit) and
-  sticks at `calc(50px + max(10px, env(safe-area-inset-bottom)))`, exactly the bottom nav's
-  own height, so it rides on the nav, counts the safe-area inset once, and settles into the
-  flow at the true end of the form — nothing is ever hidden behind it. The page's focusables
+  sticks at `var(--bottom-nav-height)`, so it rides on the nav, counts the safe-area inset
+  once, and settles into the flow at the true end of the form — nothing is ever hidden
+  behind it. That term is **one token** (`index.css`), and `BottomNav.css` sets the nav's
+  `height` from it rather than growing into its own content — the caption's `line-height`
+  pinned so the 24px glyph and the 16px word are exactly the 40px the token leaves them.
+  It has to be declared, not measured: `line-height: normal` comes out of the font's own
+  metrics, so the same 12px caption is 16px tall in Segoe UI and 14px in Roboto, Arial or
+  SF, and a nav that measured itself left this row floating 1–2px above it on every phone
+  while looking flush on Windows. Everything that reckons with the nav — `#root`'s bottom
+  padding, this row, the scroll-margin under it — reads that one token. The page's focusables
   carry a matching `scroll-margin-bottom` the way `Settings.css` carries `scroll-margin-top`,
   and it has to clear **the nav plus the row plus a control's own height**: the browser
   honours the margin exactly and scrolls the focused element's own box, which for a radio pill
@@ -198,9 +208,12 @@ exception). Tests identify glyphs with `iconNames()` from `src/test/icons.ts`.
 ## 5. Modals
 
 `components/Modal.tsx` props: `title` (accessible name), `onClose`, `fullscreen`, `hideTitle`,
-`bare`.
+`bare`, `headerAction` — **one** control beside the close, and the only thing a panel header
+carries besides its heading and that close. It is for a control that changes what the whole
+panel holds (the party picker's *show all*), never for a row's own action.
 
-- **Bare modal** (`bare` + `hideTitle`) — the song modal (`SongDetails`) and its sub-views.
+- **Bare modal** (`bare` + `hideTitle`) — the song modal (`SongDetails`), its sub-views, and the
+  achievement modal (`AchievementModal`), which has its own bullet below.
   Structure: hero (`.song-hero`: cover, title 1.15em, artist 0.85em `--color-darker`) → optional
   preview `<audio>` → the song controls row → option rows (`.song-option`, 44px, hairline
   `border-top`: icon, label in `--color-darker`, optional accent value, chevron) → the summary
@@ -216,22 +229,40 @@ exception). Tests identify glyphs with `iconNames()` from `src/test/icons.ts`.
   having a number to show.
 - **Sub-views** replace the modal body, the header's close acting as back: Best scores, Add to
   playlist, Tags, Comments, Edit details, Player selection, and Add songs (same mechanism, from
-  the playlist page). Row order: Details, Add to playlist, Edit details, Delete song. Inside
+  the playlist page). Row order: Details, Add to playlist, Edit details. Inside
   Tags, an assignable tag is a toggle row (`aria-pressed`), any other — one nobody assigns here
   — a `lock` row. **Add to playlist** gives `playlists.manage` holders one `aria-pressed` row
   per playlist they may edit (state from the listing's `contains` flag, not a fetch per row) and
-  a "New playlist…" row (`plus`). **Edit details** (`pencil`, `songs.edit`) is where wrong or
-  missing metadata is fixed: the details list as labelled quiet inputs in its own order — title,
+  a "New playlist…" row (`plus`). **Edit details** (`pencil`) is the last row and the one place
+  a song is changed at all — everything the party's helpers do to it, in one errand rather than
+  a row each. It carries the details as labelled quiet inputs in their own order — title,
   artist, Language, Genre, Year, Edition — one primary Save, `.song-details-notice` for what the
-  backend refused. **Delete song** (`trash`, `songs.delete`) is the last row and looks like any
-  other: nothing on it is red (§1.6), the weight sits in a `ConfirmModal` that names the song
-  and says the files go with it.
+  backend refused, and at the foot, held off the form's rhythm, a `.button-danger` **Delete
+  song** (`songs.delete`) through a `ConfirmModal` that names the song and says the files go
+  with it. Nothing on the way there is red (§1.6). The row appears for `songs.edit` or
+  `songs.delete`; a reader holding only the second finds the fields disabled over the line
+  saying why and the button live, an editor nobody may edit being the rarer half of a pair the
+  permission matrix allows and not worth a second row.
 - **Comment rows**, oldest first: 40px `PlayerAvatar` · username with a relative time (0.85em
   `--color-darker`) on one line · the body underneath, `overflow-wrap: anywhere` · a trailing
   `.icon-button-danger` `trash` for the author and `comments.moderate`, through `ConfirmModal`
   (`danger`). The composer at the foot: a quiet `<textarea>` (2 rows) and a 40px `send`
   `.icon-button`, disabled while empty. Reading needs only `songs.view`; a reader without
   `comments.write` gets one line naming who may write in the composer's place.
+- **One achievement, large** — what a badge on the user page opens — is bare too: a picture
+  wants the page behind it darkened and blurred, not a tile drawn around it. In order: the
+  badge at the song hero's cover size (200px, `max-width: 60vw`), asking the icon endpoint for
+  `?size=full` through a prop naming the picture's **resolution** — never its size on screen,
+  which stays the parent's `font-size` (§3); the name at 1.15em; the description at 0.85em in
+  `--color-darker`; then the one line the row already carries — "Earned 12 Aug 2026", or the
+  progress bar over its "7 / 10". A **masked** one shows the `lock` badge over the stand-in
+  name and sentence and no bar at all: a modal is a bigger place to say the same nothing,
+  never a way around the masking. One with **no picture** shows its glyph plate at that same
+  size — a glyph badge across half the screen is still the badge. What opens it is a
+  `<button>` named after the achievement, the badge itself being `aria-hidden`, at §1.10's
+  touch floor — in the list and on the summary strip alike, where the press that opens the
+  modal must not also toggle the `<details>` it sits in. It closes like any modal: the
+  backdrop, Escape, its own close.
 - **Panel modal** (default): `--tile-bg`, `--border-radius`, sticky header with `h2` + close.
   Confirmations, pickers, admin dialogs, the download queue, and the two panels **Filter**
   (footer Reset `.button` then Done `.button-primary`, both `flex: 1 1 0`) and **New playlist**
@@ -301,7 +332,11 @@ saved) where a jump to the top would throw away the place they were working in.
   `can_edit`), **Edit** (`pencil`, `can_edit`), **Follow/Unfollow** (`bookmark` /
   `bookmark-off`, members only). Edit mode makes each song row a reorder row — `drag-handle` for
   the pointer, `arrow-up` / `arrow-down` for the keyboard (both write the same order), `close`
-  to remove — and moves nothing else. "Save a copy" (`copy`), for `playlists.manage` holders, is
+  to remove — and moves nothing else. **The focus goes back to the arrow that was pressed**
+  once the answer lands, or to the row's other arrow where the move used that one up, and a
+  refused order puts it back the same way: the achievements admin's rule below, out of the
+  same `useReorderFocus` hook and written out there once.
+  "Save a copy" (`copy`), for `playlists.manage` holders, is
   a text row at the foot, not a fourth icon; song rows are `SongListItem`s. **Manage**
   (`/songs/playlists/:id/manage`) is a §6 sub-page gated on `can_manage`: Name and Description
   as quiet inputs, one "Global — everyone can see it" checkbox, the Members people-rows under a
@@ -340,12 +375,13 @@ saved) where a jump to the top would throw away the place they were working in.
 - **Achievements admin** (`/user/achievements`, a `ManageMenu` entry gated on
   `achievements.manage`): the three private settings at the head — no glyph on any of them,
   the Settings page's own idiom being one icon per group and none per field — then the
-  party's own achievements as rows of the `AchievementBadge` square, the name over the
-  achievement's own description and a chevron, then an `h2` *Included* over the seventeen
-  Wingman ships in the same shape, and an `h2` *Import and export* at the foot. Both
-  headings carry a glyph the way a Settings group's header does: `gift` for the set Wingman
-  brings with it, `archive` for the section that is about archive files, and the two buttons
-  under it lead with `upload` and `download` — the pair is what says which way each goes.
+  whole catalogue as **one list** — the party's own achievements and the seventeen Wingman
+  ships in one sequence — as rows of the `AchievementBadge` square, the name over the
+  achievement's own description and a chevron, and an `h2` *Import and export* at the foot,
+  carrying `archive` the way a Settings group's header carries a glyph, its two buttons
+  leading with `upload` and `download` — the pair is what says which way each goes. There is
+  no *Included* heading and no second list, so `gift` is a tag's glyph again: what tells a
+  shipped achievement apart is the word on its own row.
   A row says the name and the description and then only what is unusual: `lock` on the title
   line for one that is hidden until it is earned (the glyph its masked badge wears, so one
   achievement wears one glyph everywhere), a quiet 0.8em *Included* after it for one Wingman
@@ -362,10 +398,18 @@ saved) where a jump to the top would throw away the place they were working in.
   flight the arrows are `disabled` and the grip starts no drag — two orders sent from one
   list can land in either sequence, and the loser is what the catalogue keeps. The grip is
   not dimmed for it, being `aria-hidden` scenery rather than a control, so the disabled
-  arrows are what the reader sees. The two sections stay two: a row moves inside its
-  own, and what is sent is the party's own rows then the included ones — one sequence over
-  one column, which is exactly the order the page draws and the order every badge surface
-  lists in. A refused order puts the rows back where the server still has them — not where
+  arrows are what the reader sees. **The focus goes back to the arrow that was pressed**
+  once the answer lands — the row's own node moves and both its arrows are disabled for the
+  length of the request, and neither a moved nor a disabled control keeps the focus — or to
+  the row's other arrow where the move used that one up (it now leads or ends the list), so
+  arranging by keyboard is a run of presses rather than a walk back to the list after each
+  one — the playlist's edit mode and this one share the `useReorderFocus` hook that does it.
+  A refused order puts it back too, on the arrow that was pressed. The order is **one order
+  over the whole catalogue**: a row
+  moves anywhere in the list, a party's own achievement above a shipped one included, and what
+  is sent is the list exactly as drawn — one sequence over one column, which is the order
+  every badge surface lists in and the order the export picker offers.
+  A refused order puts the rows back where the server still has them — not where
   they stood before the move, which for a drag is the move that was refused — and says so;
   one that no longer fits the catalogue says somebody else changed it and asks for the
   catalogue again. Resetting a built-in therefore
@@ -402,6 +446,17 @@ saved) where a jump to the top would throw away the place they were working in.
   name. A party row has no lead, so the head row's `layers` sits in the line of its name rather
   than in a 40px square that would set one title 52px off all the others. The list
   holds exactly the sessions that reader may open, so it never names a party to say no to it.
+  A party can also be kept out of that list. `stats.hide` puts one `aria-pressed`
+  `.icon-button` in the panel's header beside the close — the only control a panel header
+  carries besides its heading and its close (§5) — switching the list into **show all**:
+  `eye-off` on it while the hidden parties are out, `eye` while they are in, the state the
+  glyph reads in the people admin. In that mode the list holds every party the reader may
+  open, hidden ones included, each row carrying the same pair beside its button and never
+  inside it, and a hidden one wears `eye-off` and draws its name in `--color-darker`. The
+  hiding reaches this list and nothing else: the party keeps every score it has, in a
+  singer's record, in a song's best scores and in every total. Tonight's party is never
+  hideable — the evening being sung is what this page is for — and neither is the head row,
+  whose "3 parties · 60 scores" counts the hidden ones too, because opening it opens them.
   Two chart cards, both `.scores-chart` (§1.2), every mark hand-drawn SVG. The whole-session
   card comes first: every score on one staggered strip (`ScoreStrip` — near-ties step aside
   instead of hiding, the best is gold and named, the median a dashed line), with §4's
@@ -424,21 +479,41 @@ saved) where a jump to the top would throw away the place they were working in.
   the sort select for every grouping but *group by player*, where an order in time says nothing:
   choosing it and then grouping by player falls back to *best score* — and it only orders the
   rows and the list, never swaps a chart.
+- **Score summaries** are one shape wherever a set of scores is added up, drawn in one place
+  (`ScoreSummary`): Sings (`hash`) · Songs (`music`) · Best (`arrow-up`) · Average
+  (`average`) · Worst (`arrow-down`), in that order — what was sung before how well it went,
+  and the three score numbers reading down from the best — as `IconStat`s printing the word
+  under every number (`showLabel`), because a row of five glyphs is exactly where an icon
+  stops being self-evident (§1.5). Sings counts distinct sings, so one duet run is one of
+  them, not two; Songs is left out where every score is the same song. Best and Worst name the
+  singer who holds them ("Best · alice") unless every score in the summary belongs to the
+  reader: §1.5's rule against repeating a datum gives way here, a ranking below naming rank 1
+  again, one shape beating one line saved. One chart may follow, under one threshold: **fewer
+  than four scores draws none at all** — two dots have no spread and a handful of bars across
+  twenty buckets is noise — and the list, wherever there is one, is drawn either way. *Which*
+  chart stays the surface's own: the histogram where the reader is after a distribution (the
+  user page, an open score group), the dated `ScoreStrip` where they are after the scores
+  themselves (the song modal's Best scores, over its ranking). `SessionSummaryRow` is not one
+  of these and does not become one — it says what a party *was*, not how scores fell.
 - **Score rows** are flat `<details>` groups: rank numeral (pink top 3), cover or avatar, two
   lines of text, score, chevron. The two lines are a list row's: title over artist for a song,
-  name over "N scores" for a singer. An open row is one tile (`.score-group-panel`) — the
-  summary (`hash` / `arrow-up` / `arrow-down` / `average` as labelled `IconStat`s plus the
-  histogram) over a hairline, then the scores as ordinary list rows, `border-box` at the tile's
+  name over "N scores" for a singer. An open row is one tile (`.score-group-panel`) — the score
+  summary over a hairline, then the scores as ordinary list rows, `border-box` at the tile's
   width, their hover band lifting off `--tile-bg`. A one-score group drops the summary;
-  ungrouped, a row *is* a score and never unfolds. A score row carries, for `stats.moderate`, a
-  `pencil` that opens a panel of `PickerRow` players to put the score on the right singer and an
-  `.icon-button-danger` `trash`, both through `ConfirmModal`; the number and the song are never
-  editable — a wrongly picked singer is the mistake this fixes.
-- **User** (`/user`) is the identity tile, the singer's own record, then *Manage*. The stat bar
-  reads Sings (`hash`) · Songs (`music`) · Best (`trophy`) · Average (`average`) and carries no
-  favorites count — favorites are a filter, not an achievement. Under it the histogram, and
-  under that *All my scores*, which belongs to those stats and not to the errands below: a flat
-  full-width row held to them by a hairline `border-top`, 0.85em label in
+  ungrouped, a row *is* a score and never unfolds. A score row carries, for `stats.moderate`,
+  **one** control: a `pencil` opening the panel both corrections live in — the line naming the
+  score, the `PickerRow` players that put it on the singer who actually sang it, and at the
+  foot a `.button-danger` Delete through its own `ConfirmModal`, the Manage page's idiom. Two
+  40px buttons per row is chrome where the numbers belong, and deleting is the rarer of the
+  two. Both confirmations stand over the panel rather than instead of it, so cancelling comes
+  back to the players; its title and the pencil's label cover the pair, a panel that also
+  deletes not being "Who sang this?" alone. The number and the song are never editable — a
+  wrongly picked singer is the mistake this fixes.
+- **User** (`/user`) is the identity tile, the singer's own record, then *Manage*. The record
+  opens with the score summary above, its Best and Worst unnamed — every score on this page is
+  the reader's own — and no favorites count: favorites are a filter, not an achievement. Under
+  it the histogram, and under that *All my scores*, which belongs to those stats and not to the
+  errands below: a flat full-width row held to them by a hairline `border-top`, 0.85em label in
   `--highlight-blue-light` with a `chevron-right` — never `.home-entry`, whose 48px glyph row is
   `ManageMenu`'s idiom.
 - **People** (`/user/accounts`, `PeopleAdmin`) gives each of its two `h2`s one `.section-note`:
@@ -463,7 +538,26 @@ saved) where a jump to the top would throw away the place they were working in.
   `--bg`, the white QR card the only tile. Controls reveal on pointer movement through the
   page's single `useIdle` mechanism — never add a second idle timer. Verify at 1280×720 and up,
   and re-check it after touching any shared component (`CurrentlyPlaying`, `LastSong`,
-  `SongCover`, `SessionLeaderboard`).
+  `SongCover`, `SessionLeaderboard`). `LastSong` takes the same score summary as the phones,
+  in the naming column beside the cover and under the artist line, wrapping there instead of
+  standing as a column of its own; the cover keeps its size, and the marker strip and the
+  score bars follow underneath. **The markers keep a minimum gap** of about 2.5em of their own
+  font size — one glyph, its pointer, and air — and the average is what yields: inside that
+  gap it is not drawn, being the number the two ends already imply, and when worst and best
+  themselves fall inside it the three collapse into one mark wearing `average`. Nothing is
+  lost by it, the strip being decoration for numbers the summary prints in full above it.
+  **New achievements take the whole screen.** While `HostAchievements` is `playing` the rail is
+  not rendered at all — no QR card, no standing, no wishes — the stage runs the full width of
+  the page, and the results wait underneath as they already do. `playing` only: the `waiting`
+  beat, held for badges that may never come, leaves the rail where it is. **The beat between
+  two singers shows the brand**, without its scan line — the code it names is in the rail that
+  is down — because a TV with nothing at all on it for most of a second reads as a fault, not
+  as a pause. Everything grows a
+  step for those seconds — the singer's avatar to `clamp(96px, 16vh, 240px)` under a name in
+  the same proportion, and the whole `--badge` ladder up one rung, the row of four taking
+  today's one-badge `clamp(34px, 6.4vh, 74px)` and the rows of one to three keeping the lead
+  they hold over it today, `--column` and the gaps widening with them. The page keeps its one
+  `useIdle` mechanism, and every animation keeps its reduced-motion branch (§1.9).
 
 ## 8. Checklist before finishing UI work
 

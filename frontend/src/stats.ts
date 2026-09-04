@@ -43,16 +43,31 @@ export interface ScoreGroup {
   firstAt: number;
 }
 
-/** One singer's totals over their whole history, for the user page. */
-export interface PlayerSummary {
-  /** Performances that were scored, not scores: a duet counts once. */
+/**
+ * What a set of scores adds up to: the five numbers `ScoreSummary` prints
+ * wherever scores are totalled — the user page, an open score group, a song's
+ * best scores.
+ */
+export interface ScoreSummaryStats {
+  /** Performances that were scored, not scores: one duet run counts once. */
   sings: number;
-  best: number;
-  average: number;
   /** Distinct songs behind those performances; the ones that have left the
    * library are lumped into one, exactly as `summarize` counts them. */
   songs: number;
+  best: number;
+  /** Who holds `best` — the name the summary prints beside it. */
+  bestBy: string;
+  /** The mean over the scores, not over the sings, as a whole number. */
+  average: number;
+  worst: number;
+  /** Who holds `worst`. */
+  worstBy: string;
 }
+
+/** How many scores a summary needs before a chart is drawn under it (§7): a
+ * couple of dots have no spread and a handful of bars across twenty buckets is
+ * noise. The list under a summary is drawn either way. */
+export const CHART_MIN_SCORES = 4;
 
 export interface SessionSummary {
   /** Performances that produced a score — distinct `sing_id`s among them. */
@@ -62,17 +77,12 @@ export interface SessionSummary {
   top: ScoreWithContext | null;
 }
 
-/** What a song's whole history adds up to — the lines the host stage prints
- * under the cover of the song that just finished. */
+/** What a song's whole history adds up to: the three numbers the host stage's
+ * marker strip is drawn from (`scoreMarkers`). The words under the cover are
+ * `ScoreSummary`'s, straight off the scores — nothing here is printed. */
 export interface SongHistory {
-  /** Performances that were scored, so a duet counts once. */
-  sings: number;
   best: number;
-  /** Everybody who ever hit `best`, deduplicated — a singer who managed it
-   * twice is one name, not two. */
-  bestPlayers: string[];
   worst: number;
-  worstPlayers: string[];
   average: number;
 }
 
@@ -117,17 +127,6 @@ export function evaluationLabel(score: number): string {
   return EVALUATIONS[EVALUATIONS.length - 1][1];
 }
 
-/** The names of everybody who scored exactly `value`, each name once. */
-function playersWith(scores: ScoreWithContext[], value: number): string[] {
-  return [
-    ...new Set(
-      scores
-        .filter((score) => score.score === value)
-        .map((score) => score.player_name),
-    ),
-  ];
-}
-
 /**
  * What one song's complete score history adds up to, or `null` when it has
  * none. Computed over *every* score the song ever got, across all sessions —
@@ -135,24 +134,58 @@ function playersWith(scores: ScoreWithContext[], value: number): string[] {
  */
 export function songHistory(scores: ScoreWithContext[]): SongHistory | null {
   if (scores.length === 0) return null;
-  const sings = new Set<string>();
   let best = scores[0].score;
   let worst = scores[0].score;
   let total = 0;
   for (const score of scores) {
-    sings.add(score.sing_id);
     if (score.score > best) best = score.score;
     if (score.score < worst) worst = score.score;
     total += score.score;
   }
-  return {
-    sings: sings.size,
-    best,
-    bestPlayers: playersWith(scores, best),
-    worst,
-    worstPlayers: playersWith(scores, worst),
-    average: Math.round(total / scores.length),
-  };
+  return { best, worst, average: Math.round(total / scores.length) };
+}
+
+/** Where a score sits on the 0…`MAX_SCORE` scale the host's bars are drawn on,
+ * as a percentage of the bar. Anything off the scale sits on its end. */
+export function scoreOffset(score: number): number {
+  return Math.min(100, Math.max(0, (score / MAX_SCORE) * 100));
+}
+
+/** One of the three all-time marks above the host's score bars. */
+export interface ScoreMarker {
+  /** Which number it stands for, and therefore which glyph it wears. */
+  kind: "worst" | "average" | "best";
+  /** Where it sits on the bars' scale, as a percentage. */
+  offset: number;
+}
+
+/**
+ * The marks above the host's score bars, with the ones that would collide
+ * dropped (ui-guidelines §7, *Host*). `minGap` is that collision distance as a
+ * percentage of the strip — the caller measures it, because 2.5em of the
+ * marker's own font size is a share of the strip only once both are in pixels.
+ *
+ * The average yields first: it is the number the two ends already imply. When
+ * worst and best themselves fall inside the gap the three collapse into one
+ * mark wearing `average`, which is where a song sung once ends up. Nothing is
+ * lost by any of it — the strip is decoration for numbers the summary above it
+ * prints in full.
+ */
+export function scoreMarkers(
+  stats: SongHistory,
+  minGap: number,
+): ScoreMarker[] {
+  const worst = scoreOffset(stats.worst);
+  const average = scoreOffset(stats.average);
+  const best = scoreOffset(stats.best);
+  // Exactly the gap is far enough: it is a minimum, not a clearance.
+  if (best - worst < minGap) return [{ kind: "average", offset: average }];
+  const marks: ScoreMarker[] = [{ kind: "worst", offset: worst }];
+  if (average - worst >= minGap && best - average >= minGap) {
+    marks.push({ kind: "average", offset: average });
+  }
+  marks.push({ kind: "best", offset: best });
+  return marks;
 }
 
 /**
@@ -231,14 +264,28 @@ export function sessionMeta(session: SessionRead): string {
 
 /**
  * The picker's head row under its name: what "everything at once" adds up to.
- * The listing holds exactly the parties the reader may open, so summing it is
- * summing precisely what the head row will show.
+ *
+ * The two figures come from the listing's own `session_count` and
+ * `score_count` rather than from the rows it carries, because the head row
+ * stands for `GET /stats/scores` — every party this reader may open, the ones
+ * kept out of the picker included, since opening it opens them.
  */
-export function allSessionsMeta(sessions: SessionRead[]): string {
-  const scores = sessions.reduce((sum, entry) => sum + entry.score_count, 0);
+export function allSessionsMeta(sessions: number, scores: number): string {
   // "party" is the one count here whose plural is not the word plus an "s".
-  const parties = `${sessions.length} ${sessions.length === 1 ? "party" : "parties"}`;
+  const parties = `${sessions} ${sessions === 1 ? "party" : "parties"}`;
   return `${parties} · ${plural(scores, "score")}`;
+}
+
+/**
+ * Whether this party is kept out of the party picker's list (`stats.hide`).
+ *
+ * The stored flag alone is not enough: it is dormant on the party being sung —
+ * the evening in progress is what the Scores page is for, and the backend never
+ * drops that one from the listing either — so a party that was tucked away and
+ * is then sung into again reads as an ordinary row until the room goes home.
+ */
+export function isTucked(session: SessionRead): boolean {
+  return session.hidden && !session.current;
 }
 
 /** A session's own name, or when it started — the label the picker shows.
@@ -483,32 +530,56 @@ export function summarize(scores: ScoreWithContext[]): SessionSummary {
 }
 
 /**
- * What one singer's scores add up to, or `null` when there are none — a page
- * with nothing to show should say so rather than print four zeroes.
+ * What a set of scores adds up to, or `null` when there are none — a surface
+ * with nothing to total should say so rather than print five zeroes.
  *
- * Deliberately the same shape as `summarize`: the numbers are derived from the
- * scores themselves, so every one of them can be checked against the score list
- * on the Scores page.
+ * Deliberately the same shape as `summarize`: every number is derived from the
+ * scores themselves, so each one can be checked against the rows below it.
+ *
+ * A peak that several people share is held by whoever got there first: the
+ * earliest run wins, and two scores of one and the same run fall back to the
+ * row id, so the name never depends on the order the scores arrive in.
  */
-export function playerSummary(
+export function scoreSummary(
   scores: ScoreWithContext[],
-): PlayerSummary | null {
+): ScoreSummaryStats | null {
   if (scores.length === 0) return null;
   const sings = new Set<string>();
   const songs = new Set<string>();
-  let best = scores[0].score;
+  let best = scores[0];
+  let worst = scores[0];
   let total = 0;
+  // The row id settles a tie the clock cannot: a duet's two scores are one
+  // import and share a `recorded_at` to the second, so without it the name
+  // would come down to the order the list happened to arrive in.
+  const earlier = (a: ScoreWithContext, b: ScoreWithContext): boolean => {
+    const at = parseServerTime(a.recorded_at);
+    const bt = parseServerTime(b.recorded_at);
+    return at === bt ? a.id < b.id : at < bt;
+  };
   for (const score of scores) {
     sings.add(score.sing_id);
     songs.add(groupKey(score, "song"));
-    if (score.score > best) best = score.score;
+    if (
+      score.score > best.score ||
+      (score.score === best.score && earlier(score, best))
+    )
+      best = score;
+    if (
+      score.score < worst.score ||
+      (score.score === worst.score && earlier(score, worst))
+    )
+      worst = score;
     total += score.score;
   }
   return {
     sings: sings.size,
-    best,
-    average: Math.round(total / scores.length),
     songs: songs.size,
+    best: best.score,
+    bestBy: best.player_name,
+    average: Math.round(total / scores.length),
+    worst: worst.score,
+    worstBy: worst.player_name,
   };
 }
 

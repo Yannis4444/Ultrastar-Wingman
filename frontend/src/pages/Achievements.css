@@ -14,10 +14,11 @@
   margin: 16px;
 }
 
-/* ------------------------------------------------------------- the headings
-   The two `h2`s carry a glyph, the way a Settings group's header does: the
-   glyph names the section at a glance and the word stays for what it cannot
-   say. 1em `h2` (§2), so a 1.25em glyph is the 20px that reads beside it. */
+/* -------------------------------------------------------------- the heading
+   The page's one `h2` — *Import and export* — carries a glyph, the way a
+   Settings group's header does: the glyph names the section at a glance and the
+   word stays for what it cannot say. 1em `h2` (§2), so a 1.25em glyph is the
+   20px that reads beside it. */
 
 .achievements-heading {
   display: flex;
@@ -44,7 +45,10 @@
   background-color: var(--highlight-blue-dark);
 }
 
-/* ----------------------------------------------------------- the two listings
+/* ------------------------------------------------------------- the catalogue
+   One list over all of it, the party's own achievements and the ones Wingman
+   ships in whichever order the host arranged them.
+
    One row per achievement: the badge, the name over the achievement's own
    description, a chevron. `AchievementBadge` is sized by this row's `font-size`
    (§3), so the 40px square needs no width here.

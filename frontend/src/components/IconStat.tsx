@@ -8,20 +8,21 @@ interface IconStatProps {
   value: string | number;
   className?: string;
   /**
-   * Print the word under the value instead of only announcing it. For a stat
-   * row that appears once on a page there is room for it; a scoreboard that
-   * repeats the same stats on every row leaves it off.
+   * Print the word under the value instead of only announcing it. A row of
+   * five glyphs is exactly where an icon stops being self-evident, so the
+   * score summary (§7) sets it on every stat it draws; a strip of two or
+   * three whose glyphs each say one obvious thing leaves it off.
    */
   showLabel?: boolean;
 }
 
 /**
- * One number behind a glyph — by default no visible word, because a scoreboard
- * repeats the same four stats on every row and the labels would outweigh the
- * numbers.
+ * One number behind a glyph. `showLabel` decides whether the word is printed
+ * under it: `ScoreSummary` prints all five of its own, a summary strip of a
+ * couple of counts does not.
  *
- * The word is not lost: `title` shows it on hover and the visually hidden copy
- * is what a screen reader announces before the value.
+ * Unprinted, the word is not lost: `title` shows it on hover and the visually
+ * hidden copy is what a screen reader announces before the value.
  */
 export default function IconStat({
   icon,

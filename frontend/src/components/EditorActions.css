@@ -11,11 +11,12 @@
 .editor-actions {
   position: sticky;
 
-  /* Exactly the bottom nav's own height — 50px plus the device's safe area,
-     the same term `#root` reserves in `index.css` — so the row sits directly
-     on top of the nav and never under it. The inset is counted once: it is
-     inside that term, and the nav below is what actually covers it. */
-  bottom: calc(50px + max(10px, env(safe-area-inset-bottom)));
+  /* Exactly the bottom nav's own height — the term `BottomNav.css` sets that
+     height from and `#root` reserves at the foot of every page — so the row
+     sits directly on top of the nav and never under it or a pixel off it. The
+     inset is counted once: it is inside that term, and the nav below is what
+     actually covers it. */
+  bottom: var(--bottom-nav-height);
 
   /* Above the page's own content, below the bottom nav (1000) and well below a
      modal backdrop (2000): a confirmation covers it, the nav is never covered
@@ -72,8 +73,8 @@
    computed from that element.
 
    Three terms, and every one of them is needed: the nav the row rides on (the
-   same expression the row sticks at), the row itself at its tallest — a note
-   line over a 40px button, 100px — and 40px for the control's own height (plus
+   same term the row sticks at), the row itself at its tallest — a note line
+   over a 40px button, 100px — and 40px for the control's own height (plus
    8px of air),
    because the focusable of a radio pill is the `.visually-hidden` input at the
    *top* edge of a 40px label and the browser scrolls that 1px box, not the
@@ -85,7 +86,5 @@
    in the app paying for it. */
 .achievement-editor :is(input, select, textarea, button, summary, a),
 .tag-editor :is(input, select, textarea, button, summary, a) {
-  scroll-margin-bottom: calc(
-    50px + max(10px, env(safe-area-inset-bottom)) + 148px
-  );
+  scroll-margin-bottom: calc(var(--bottom-nav-height) + 148px);
 }

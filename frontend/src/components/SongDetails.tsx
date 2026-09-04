@@ -35,7 +35,7 @@ import { useFavorites } from "../hooks/useFavorites";
 import { useTags } from "../hooks/useTags";
 import { useWingmanEvent, type WingmanEvent } from "../hooks/useWingmanEvents";
 import { useWishlist } from "../hooks/useWishlist";
-import { songHistory } from "../stats";
+import { CHART_MIN_SCORES } from "../stats";
 import { tagColorClass, tagGlyph } from "../tags";
 import ConfirmModal from "./ConfirmModal";
 import IconStat from "./IconStat";
@@ -48,6 +48,7 @@ import PlayerSelection from "./PlayerSelection";
 import PlaylistCover from "./PlaylistCover";
 import RankedScoreList from "./RankedScoreList";
 import ScoreStrip from "./ScoreStrip";
+import ScoreSummary from "./ScoreSummary";
 import SongCover from "./SongCover";
 // The control row is shared with the Home stage.
 import "./SongControls.css";
@@ -245,6 +246,12 @@ export default function SongDetails({ song, onClose }: SongDetailsProps) {
   const carriedIds = new Set(carried.map((tag) => tag.id));
 
   const canManagePlaylists = auth.user !== null && auth.can("playlists.manage");
+  // Both wait for `/auth/me` rather than assuming the right the way the rest of
+  // the modal does: an editor offered to somebody who turns out not to hold the
+  // right is a form that can only end in a refusal, and the deletion inside it
+  // is the one wrong guess worth avoiding altogether.
+  const canEditSong = auth.loaded && auth.can("songs.edit");
+  const canDeleteSong = auth.loaded && auth.can("songs.delete");
   // One listing for the whole picker: `song_id` makes the backend fill each
   // row's `contains`, which is the check mark — never a detail request per row.
   // Nothing outside the sub-view needs it, so it waits for the sub-view.
@@ -267,9 +274,9 @@ export default function SongDetails({ song, onClose }: SongDetailsProps) {
   });
   const allScores = songScores.data?.scores ?? [];
   const ranked = [...allScores].sort((a, b) => b.score - a.score);
+  // The ranking lists ten; the summary and the strip take the whole history,
+  // which is what describes the song.
   const best = ranked.slice(0, BEST_SCORES);
-  // The whole history, not the listed ten: the summary describes the song.
-  const history = songHistory(allScores);
 
   // Only for the avatars in the ranking, so it waits for the sub-view. A singer
   // without a player record — a guest, a deleted player, or a caller who may
@@ -502,86 +509,129 @@ export default function SongDetails({ song, onClose }: SongDetailsProps) {
 
   if (view === "edit" && form !== null) {
     const incomplete = form.title.trim() === "" || form.artist.trim() === "";
+    // One request at a time: a save landing after the folder is gone is a 404
+    // into a modal that is already closing, and the other way round it would
+    // write values nobody will ever read.
+    const busy = saveDetails.isPending || removeSong.isPending;
     return (
-      <Modal
-        title="Edit details"
-        bare
-        onClose={() => {
-          setNotice(null);
-          setForm(null);
-          setView("main");
-        }}
-      >
-        <form
-          className="song-edit"
-          onSubmit={(event) => {
-            event.preventDefault();
-            if (incomplete || saveDetails.isPending) return;
+      <>
+        <Modal
+          title="Edit details"
+          bare
+          onClose={() => {
             setNotice(null);
-            saveDetails.mutate({
-              path: { song_id: song.id },
-              // What the fields say, and what they were filled from: the second
-              // is how the backend knows whether the file moved on meanwhile.
-              body: { values: valuesOf(form), expected: metadataOf(shown) },
-            });
+            setForm(null);
+            setView("main");
           }}
         >
-          {fields.map(({ name, label, numeric }) => (
-            <label className="song-edit-field" key={name}>
-              <span>{label}</span>
-              <input
-                className="text-input text-input-quiet"
-                type={numeric ? "number" : "text"}
-                inputMode={numeric ? "numeric" : undefined}
-                min={numeric ? 0 : undefined}
-                max={numeric ? 9999 : undefined}
-                value={form[name]}
-                disabled={saveDetails.isPending}
-                onChange={(event) =>
-                  setForm({ ...form, [name]: event.target.value })
-                }
-              />
-            </label>
-          ))}
-          <p className="song-details-notice">
-            The values go into the song's own file, so Ultrastar Deluxe shows
-            them too. Its lyrics and its music are not touched.
-          </p>
-          {notice && (
-            <p className="song-details-notice" role="alert">
-              {notice}
-            </p>
-          )}
-          <button
-            type="submit"
-            className="button button-primary song-edit-save"
-            disabled={incomplete || saveDetails.isPending}
+          <form
+            className="song-edit"
+            onSubmit={(event) => {
+              event.preventDefault();
+              if (!canEditSong || incomplete || busy) return;
+              setNotice(null);
+              saveDetails.mutate({
+                path: { song_id: song.id },
+                // What the fields say, and what they were filled from: the
+                // second is how the backend knows whether the file moved on
+                // meanwhile.
+                body: { values: valuesOf(form), expected: metadataOf(shown) },
+              });
+            }}
           >
-            Save
-          </button>
-        </form>
-      </Modal>
+            {fields.map(({ name, label, numeric }) => (
+              <label className="song-edit-field" key={name}>
+                <span>{label}</span>
+                <input
+                  className="text-input text-input-quiet"
+                  type={numeric ? "number" : "text"}
+                  inputMode={numeric ? "numeric" : undefined}
+                  min={numeric ? 0 : undefined}
+                  max={numeric ? 9999 : undefined}
+                  value={form[name]}
+                  disabled={!canEditSong || busy}
+                  onChange={(event) =>
+                    setForm({ ...form, [name]: event.target.value })
+                  }
+                />
+              </label>
+            ))}
+            {/* A locked form says why it is locked (§1). The reader who gets
+                here without `songs.edit` holds `songs.delete` alone, so the
+                fields are the song as it stands and the button below is the
+                only thing they came for. */}
+            <p className="song-details-notice">
+              {canEditSong
+                ? "The values go into the song's own file, so Ultrastar Deluxe shows them too. Its lyrics and its music are not touched."
+                : "Your role may not change these values. Ask the host for access."}
+            </p>
+            {notice && (
+              <p className="song-details-notice" role="alert">
+                {notice}
+              </p>
+            )}
+            {canEditSong && (
+              <button
+                type="submit"
+                className="button button-primary song-edit-save"
+                disabled={incomplete || busy}
+              >
+                Save
+              </button>
+            )}
+            {/* The whole song, at the foot and under everything that only
+                corrects it. Nothing on the way here is red (§1.6); the weight
+                sits in the confirmation and in this one button. */}
+            {canDeleteSong && (
+              <div className="delete-row">
+                <button
+                  type="button"
+                  className="button button-danger"
+                  disabled={busy}
+                  onClick={() => {
+                    setNotice(null);
+                    setConfirmingDelete(true);
+                  }}
+                >
+                  Delete song
+                </button>
+              </div>
+            )}
+          </form>
+        </Modal>
+        {/* Over the editor rather than instead of it: cancelling comes back to
+            the form the reader was looking at. */}
+        {confirmingDelete && (
+          <ConfirmModal
+            title="Delete song"
+            message={`"${shown.title}" by ${shown.artist} leaves the library and its folder is deleted from the disk. There is no undo.`}
+            confirmLabel="Delete"
+            danger
+            onConfirm={() => {
+              setConfirmingDelete(false);
+              removeSong.mutate({ path: { song_id: song.id } });
+            }}
+            onCancel={() => setConfirmingDelete(false)}
+          />
+        )}
+      </>
     );
   }
 
   if (view === "scores") {
     return (
       <Modal title="Best scores" bare onClose={() => setView("main")}>
-        {/* The song's whole history in the scores page's idiom, so the ranking
-            below has something to be read against. The best and worst singers
-            are left out of it: rank 1 names one of them one row further down. */}
-        {history !== null && (
-          <p className="song-scores-stats">
-            <IconStat icon="hash" label="Times sung" value={history.sings} />
-            <IconStat icon="arrow-up" label="Best" value={history.best} />
-            <IconStat icon="arrow-down" label="Worst" value={history.worst} />
-            <IconStat icon="average" label="Average" value={history.average} />
-          </p>
-        )}
-        {/* Two scores are the fewest that make a picture: one dot has no
-            spread to show and no median worth drawing a line for. The modal is
-            flat on `--bg`, so the rings are painted for that ground (§1.1). */}
-        {allScores.length >= 2 && (
+        {/* The song's whole history in the app's one score summary (§7), so
+            the ranking below has something to be read against. Best and Worst
+            name the singer who holds them — rank 1 says it again one row
+            further down, and one shape everywhere beats one line saved. No
+            Songs stat: every score in here is this one song. */}
+        <ScoreSummary scores={allScores} named className="song-scores-stats" />
+        {/* Four scores are the fewest that make a picture (§7): a couple of
+            dots have no spread to show and no median worth drawing a line for,
+            and the ranking below says everything they do. The modal is flat on
+            `--bg`, so the rings are painted for that ground (§1.1). */}
+        {allScores.length >= CHART_MIN_SCORES && (
           <div className="song-scores-strip">
             <ScoreStrip
               scores={allScores}
@@ -1066,11 +1116,12 @@ export default function SongDetails({ song, onClose }: SongDetailsProps) {
             </button>
           )}
 
-          {/* Between the playlist row and the delete (§5). Waits for `/auth/me`
-              for the same reason the row below it does: an editor offered to
-              somebody who turns out not to hold the right is a form that can
-              only end in a refusal. */}
-          {auth.loaded && auth.can("songs.edit") && (
+          {/* The last row, and the one place a song is changed at all: what
+              the details say, and — at the foot of that same form — whether
+              the song stays in the library. One row rather than two, because
+              both are the same errand, and a reader who holds only the right
+              to delete finds the fields locked and the button live. */}
+          {(canEditSong || canDeleteSong) && (
             <button
               type="button"
               className="song-option"
@@ -1084,27 +1135,6 @@ export default function SongDetails({ song, onClose }: SongDetailsProps) {
             >
               <Icon name="pencil" className="song-option-icon" />
               <span className="song-option-label">Edit details</span>
-              <Icon name="chevron-right" className="song-option-chevron" />
-            </button>
-          )}
-
-          {/* The last row, and an ordinary one: nothing here is red (§1.6). What
-              it costs is said in the confirmation, which is where it can be read
-              before anything happens. Waits for `/auth/me` rather than assuming
-              the right the way the rest of the modal does — a delete offered to
-              somebody who turns out not to hold it is the one wrong guess here. */}
-          {auth.loaded && auth.can("songs.delete") && (
-            <button
-              type="button"
-              className="song-option"
-              disabled={removeSong.isPending}
-              onClick={() => {
-                setNotice(null);
-                setConfirmingDelete(true);
-              }}
-            >
-              <Icon name="trash" className="song-option-icon" />
-              <span className="song-option-label">Delete song</span>
               <Icon name="chevron-right" className="song-option-chevron" />
             </button>
           )}
@@ -1178,19 +1208,6 @@ export default function SongDetails({ song, onClose }: SongDetailsProps) {
           </button>
         </div>
       </Modal>
-      {confirmingDelete && (
-        <ConfirmModal
-          title="Delete song"
-          message={`"${shown.title}" by ${shown.artist} leaves the library and its folder is deleted from the disk. There is no undo.`}
-          confirmLabel="Delete"
-          danger
-          onConfirm={() => {
-            setConfirmingDelete(false);
-            removeSong.mutate({ path: { song_id: song.id } });
-          }}
-          onCancel={() => setConfirmingDelete(false)}
-        />
-      )}
     </>
   );
 }

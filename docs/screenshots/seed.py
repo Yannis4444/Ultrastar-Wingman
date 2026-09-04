@@ -278,7 +278,7 @@ def write_history(
     Answers each party's session id, and the moment the last seeded sing started —
     ``rewind`` needs it to tell the seeded history from what a capture run added.
     """
-    from ultrastar_wingman.karaoke.model import KaraokeSession, Score, Sing
+    from ultrastar_wingman.karaoke.model import KaraokeSession, Score, Sing, placements
 
     maker = _session_maker(data_dir)
     now = datetime.now(UTC)
@@ -304,7 +304,11 @@ def write_history(
                 )
                 db.add(sing)
                 db.flush()
-                for name, score in sing_plan.scores:
+                # The same ranking a sing recorded through USDX gets, so a seeded evening
+                # carries the placements a real one does and an achievement counting wins
+                # reads the same rows here. `placements` is the one rule both go through.
+                ranks = placements([score for _, score in sing_plan.scores])
+                for (name, score), placement in zip(sing_plan.scores, ranks, strict=True):
                     db.add(
                         Score(
                             sing_id=sing.id,
@@ -312,6 +316,8 @@ def write_history(
                             player_name=name,
                             score=score,
                             difficulty=1,
+                            placement=placement,
+                            field_size=len(sing_plan.scores),
                             recorded_at=moment + timedelta(minutes=4),
                         )
                     )
@@ -638,23 +644,25 @@ def import_achievements(api: Api) -> dict[str, Any]:
 
 
 def arrange_catalogue(api: Api) -> list[str]:
-    """Move the one built-in that is hidden until it is earned up the included list.
+    """Put the party's own achievements at the head of the catalogue, with the one built-in
+    that is hidden until it is earned just behind them.
 
-    Where a badge sits in the catalogue is the host's arrangement, and the management page
-    is photographed at the top of it. The hidden one ships last of seventeen, so its lock —
-    the mark that picture is of — would be four screens down. Only that one id moves; every
-    other row keeps the place it had, because this order is what every badge surface lists
-    in, the host screen included.
+    The catalogue is **one** order over all of it — a party's own achievement may sit above
+    one Wingman ships — and the management page is photographed at the top of that list.
+    Left the way the seed makes it, an imported achievement lands at the end and the hidden
+    built-in ships seventeenth of seventeen, so the two rows and the lock that picture is of
+    would be four screens down. Arranging them is what a host does with two achievements of
+    their own, and this order is what every badge surface lists in, the host screen included.
     """
     rows = api.get("/achievements", params={"manage": "true"})["achievements"]
-    ids = [str(row["id"]) for row in rows]
+    was = [str(row["id"]) for row in rows]
     built_ins = [str(row["id"]) for row in rows if row["built_in"]]
-    if len(built_ins) < 2 or built_ins[0] == scenario.LOCKED_BUILT_IN:
+    if scenario.LOCKED_BUILT_IN in built_ins:
+        built_ins.remove(scenario.LOCKED_BUILT_IN)
+        built_ins.insert(1, scenario.LOCKED_BUILT_IN)
+    ids = [str(row["id"]) for row in rows if not row["built_in"]] + built_ins
+    if ids == was:
         return ids
-    if scenario.LOCKED_BUILT_IN not in built_ins:
-        return ids
-    ids.remove(scenario.LOCKED_BUILT_IN)
-    ids.insert(ids.index(built_ins[0]) + 1, scenario.LOCKED_BUILT_IN)
     api.put("/achievements/order", json={"ids": ids})
     return ids
 

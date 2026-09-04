@@ -133,3 +133,19 @@ test("a picture that fails to load falls back to the glyph", async () => {
   expect(userTab().querySelector("img")).toBeNull();
   expect(userTab().querySelector("svg")).not.toBeNull();
 });
+
+test("gives every tab one glyph over one caption", async () => {
+  const { container } = renderNav();
+
+  await waitFor(() => expect(listPlayers).toHaveBeenCalled());
+  const tabs = [...container.querySelectorAll(".bottom-nav a")];
+  expect(tabs).toHaveLength(4);
+  // The nav is `--bottom-nav-height` tall by declaration, and what fits in that
+  // is a 24px glyph over one 16px caption. A tab with a second line, or none,
+  // would either spill past the nav's edge or leave the gap the sticky editor
+  // action row rides on — so the stack itself is what is guarded here.
+  for (const tab of tabs) {
+    expect(tab.querySelectorAll("span")).toHaveLength(1);
+    expect(tab.querySelector("span")?.textContent).toMatch(/^\S+$/);
+  }
+});

@@ -49,21 +49,23 @@
   text-overflow: ellipsis;
 }
 
-/* The song's whole history, one line per number, as the old app had it. */
-.last-song-stats {
-  display: flex;
-  flex-direction: column;
-  gap: clamp(2px, 0.5vh, 8px);
-  min-width: 0;
-  /* The numbers the room reads across the room: never below 20px, and just
-     under the singer names below so they stay the louder line. */
+/* The song's whole history, in the phones' own summary shape (§7) — the same
+   component, in the naming column under the artist line, wrapping there
+   instead of standing as a column of its own. Only the size is this surface's:
+   the layout is `ScoreSummary`'s, and the numbers the room reads across the
+   room never fall below 20px. */
+.last-song .last-song-summary {
+  margin-top: clamp(6px, 1vh, 16px);
   font-size: clamp(20px, 2.1vh, 28px);
 }
 
-/* Secondary to the bars below: the numbers stay `--color-dark`, only the
-   glyphs carry the accent `.icon-stat` already gives them. */
-.last-song-stat .icon-stat-value {
-  color: var(--color-dark);
+/* The one pin in that component is its 20px glyph, which is a phone's measure:
+   on a TV the glyph reads with its number or not at all. Three classes, the
+   way the two above it are two: `.score-summary-stat .icon-stat-icon` is a
+   pair as well, so a selector of the same weight would come down to which of
+   the two stylesheets the bundler put first. */
+.last-song .last-song-summary .icon-stat-icon {
+  font-size: 1em;
 }
 
 .last-song-bars {
@@ -97,10 +99,15 @@
 }
 
 /* Tall enough for a glyph plus its pointer (about 1.6em together): a shorter
-   strip would let the markers lean up into the stat lines. */
+   strip would let the markers lean up into the summary above.
+
+   The marker size lives here rather than on the marks themselves: the minimum
+   gap two of them keep is 2.5em of it measured against this strip's width, and
+   the component reads both off this one element (LastSong.tsx). */
 .last-song-markers > div {
   position: relative;
   height: clamp(24px, 2.9vh, 40px);
+  font-size: clamp(14px, 1.8vh, 24px);
 }
 
 .last-song-marker {
@@ -109,7 +116,6 @@
   display: block;
   width: 0;
   color: var(--highlight-blue-light);
-  font-size: clamp(14px, 1.8vh, 24px);
 }
 
 .last-song-marker .icon {

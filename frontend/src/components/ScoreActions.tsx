@@ -24,7 +24,10 @@ interface ScoreActionsProps {
 
 /**
  * The two corrections `stats.moderate` may make to a recorded score: put it on
- * the singer who actually sang it, or take it off the record.
+ * the singer who actually sang it, or take it off the record. The row carries
+ * one control for both (§7) — two 40px buttons per row is chrome where the
+ * numbers belong, and deleting is the rarer of the two — so the pencil opens a
+ * panel that holds the players and, at its foot, the deletion.
  *
  * Neither the number nor the song is editable, on purpose — Ultrastar Deluxe
  * awarded that score for that song, and the only thing Wingman can get wrong is
@@ -60,6 +63,9 @@ export default function ScoreActions({
     ...deleteScoreMutation(),
     onSuccess: () => {
       setDeleting(false);
+      // The row this panel belongs to is about to leave the list, so the panel
+      // goes with it rather than standing over a score that is no longer there.
+      setPicking(false);
       onChanged();
     },
     onError: (failure) => {
@@ -73,10 +79,11 @@ export default function ScoreActions({
   return (
     <>
       <span className="score-actions">
+        {/* One button for both corrections, so the label names both (§7). */}
         <button
           type="button"
           className="icon-button"
-          aria-label={`Change who sang ${score.score}`}
+          aria-label={`Correct the score ${score.score}`}
           onClick={() => {
             setError(null);
             setPicking(true);
@@ -84,21 +91,10 @@ export default function ScoreActions({
         >
           <Icon name="pencil" />
         </button>
-        <button
-          type="button"
-          className="icon-button icon-button-danger"
-          aria-label={`Delete the score ${score.score}`}
-          onClick={() => {
-            setError(null);
-            setDeleting(true);
-          }}
-        >
-          <Icon name="trash" />
-        </button>
       </span>
 
       {picking && (
-        <Modal title="Who sang this?" onClose={() => setPicking(false)}>
+        <Modal title="Correct this score" onClose={() => setPicking(false)}>
           <p className="score-actions-note">
             {score.score} on {song}, recorded for {score.player_name}.
           </p>
@@ -127,6 +123,22 @@ export default function ScoreActions({
               ))}
             </ul>
           )}
+          {/* The rarer correction, at the foot and out of the way of the
+              players: the Manage page's idiom for a destructive action that
+              belongs to the panel rather than to a row in it. */}
+          <div className="delete-row">
+            <button
+              type="button"
+              className="button button-danger"
+              disabled={remove.isPending || reassign.isPending}
+              onClick={() => {
+                setError(null);
+                setDeleting(true);
+              }}
+            >
+              Delete score
+            </button>
+          </div>
         </Modal>
       )}
 
@@ -147,6 +159,8 @@ export default function ScoreActions({
         />
       )}
 
+      {/* Over the panel too, and for the same reason: cancelling comes back to
+          the players rather than closing the whole correction. */}
       {deleting && (
         <ConfirmModal
           title="Delete this score?"
@@ -156,14 +170,6 @@ export default function ScoreActions({
           onConfirm={() => remove.mutate({ path: { score_id: score.id } })}
           onCancel={() => setDeleting(false)}
         />
-      )}
-
-      {/* The picker carries its own copy while it is open; this one is for a
-          deletion that failed with no dialog left to say so in. */}
-      {error !== null && !picking && (
-        <p className="error-notice score-actions-error" role="alert">
-          {error}
-        </p>
       )}
     </>
   );

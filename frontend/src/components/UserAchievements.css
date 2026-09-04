@@ -80,15 +80,40 @@
   }
 }
 
-/* The badges at rest. 0.75em makes the badge 30px, which puts nine of them
-   across a 390px phone and a full seventeen in two rows — a strip, not a wall
-   that would push *Manage* off the screen. They are not controls: the summary
-   around them is the one thing here that is tapped. */
+/* The badges at rest. 0.75em makes the badge 30px, which keeps the strip a
+   strip rather than a wall that would push *Manage* off the screen. Each one
+   opens itself large, so each sits in a 40x40 button (§1.10's touch floor):
+   eight across a 390px phone, and a full seventeen in three rows. */
 .user-achievements-strip {
   display: flex;
   flex-wrap: wrap;
-  gap: 6px;
+  /* No gap: the buttons are 40px around a 30px badge, so they already leave
+     10px of air between the pictures and adding to it would cost a column. */
+  gap: 0;
   font-size: 0.75em;
+}
+
+.user-achievements-badge-button {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex: 0 0 auto;
+  width: 40px;
+  height: 40px;
+  padding: 0;
+  font: inherit;
+  background: none;
+  border: none;
+  border-radius: var(--border-radius-small);
+  cursor: pointer;
+}
+
+/* Pointers only (§1.12): a touch screen fakes a hover on tap and would leave
+   one badge lit long after the finger has gone. */
+@media (hover: hover) {
+  .user-achievements-badge-button:hover {
+    background-color: var(--highlight-blue-dark);
+  }
 }
 
 .user-achievements-none {
@@ -104,13 +129,39 @@
 
 /* A row of the list: the badge, then the name, the sentence and either the
    date or the bar. Hairlines between, the first row separated from the strip
-   above it the same way. */
+   above it the same way. The whole row is a button that opens the achievement
+   large, so the separator stays on the `<li>` and the layout moves inside. */
 .user-achievement {
+  border-top: 1px solid var(--input-border-color);
+}
+
+/* `box-sizing` because the app sets none globally and a `<button>` is
+   border-box by UA default; `font: inherit` because a button is not. */
+.user-achievement-button {
+  box-sizing: border-box;
   display: flex;
   align-items: flex-start;
   gap: 12px;
-  padding: 10px 0;
-  border-top: 1px solid var(--input-border-color);
+  /* 8px wider than the column on each side, pulled back by the margin: the
+     hover band bleeds past the gutter the way every other list's does (§2),
+     and the section's own 16px margin leaves room for it. */
+  width: calc(100% + 16px);
+  padding: 10px 8px;
+  margin: 0 -8px;
+  font: inherit;
+  text-align: left;
+  color: inherit;
+  background: none;
+  border: none;
+  border-radius: var(--border-radius-small);
+  cursor: pointer;
+}
+
+/* Pointers only (§1.12). */
+@media (hover: hover) {
+  .user-achievement-button:hover {
+    background-color: var(--highlight-blue-dark);
+  }
 }
 
 /* The badge is 60px here rather than the 40px every other row leads with: a
@@ -118,7 +169,7 @@
    the one place a singer looks at their own badges rather than picks one out
    of a list — the picture is the point. The badge sizes by its `font-size`
    (AchievementBadge.css); 1.5em of the row's 16px is 60px. */
-.user-achievement > .achievement-badge {
+.user-achievement .achievement-badge {
   font-size: 1.5em;
 }
 
@@ -159,33 +210,8 @@
   font-variant-numeric: tabular-nums;
 }
 
-.user-achievement-progress {
-  display: flex;
-  align-items: center;
-  gap: 8px;
+/* The bar itself is `AchievementProgress`, shared with the modal this row
+   opens; only where it sits belongs to the row. */
+.user-achievement .achievement-progress {
   margin-top: 2px;
-}
-
-/* The house progress bar: the `--input-bg` track of §2 under a blue fill, the
-   same one the host screen's song bar draws. No transition — the numbers move
-   once a sing, and a bar that slid would be animating a jump. */
-.user-achievement-bar {
-  flex: 1 1 auto;
-  height: 6px;
-  overflow: hidden;
-  background-color: var(--input-bg);
-  border-radius: 999px;
-}
-
-.user-achievement-bar > span {
-  display: block;
-  height: 100%;
-  background-color: var(--highlight-blue-light);
-}
-
-.user-achievement-progress-label {
-  flex: 0 0 auto;
-  font-size: 0.8em;
-  color: var(--color-darker);
-  font-variant-numeric: tabular-nums;
 }

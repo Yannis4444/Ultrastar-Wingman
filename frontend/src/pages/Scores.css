@@ -81,6 +81,31 @@
   color: var(--highlight-blue-light);
 }
 
+/* A picker row and, in show-all mode, the eye beside it. The eye is its own
+   press, so it stands next to the row's button and never inside it; the button
+   gives up the width and keeps its own ellipsis (`min-width: 0`). */
+.session-row-line {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.session-row-line .session-row {
+  flex: 1 1 auto;
+  min-width: 0;
+}
+
+/* A party kept out of the list, seen in show-all mode: quiet, the way a hidden
+   player's name is quiet in the people admin. The eye beside it says the rest. */
+.session-row-title-tucked {
+  color: var(--color-darker);
+}
+
+/* Above the list, so a refusal is read before the rows it is about. */
+.scores-picker-error {
+  margin: 0 8px 8px 8px;
+}
+
 /* The head row's mark. In the line of the name rather than a 40px square in
    front of it: the party rows below have no lead, and a square would leave the
    one row that is not a party reading 52px to the right of all of them. */

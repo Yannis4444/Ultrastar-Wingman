@@ -51,6 +51,7 @@ API answers with. The OpenAPI document at
 | `karaoke.ended` | The running song stopped | `sing_id`, `song_id` |
 | `scores.recorded` | Right after `karaoke.ended`, and only when Ultrastar Deluxe scored something | `sing_id`, and `scores`, one entry per singer with the number and the player |
 | `scores.changed` | A recorded score was put on another player, or taken off the record | `sing_id` |
+| `sessions.changed` | A party was named, taken off the list on the Scores tab, or put back | None. Fetch `GET /stats/sessions` again |
 | `achievements.earned` | A finished sing earned somebody a badge | `sing_id`, and `players`, one entry per player with the badges they earned |
 | `achievements.changed` | The catalog of achievements itself changed | None. Fetch `GET /achievements` again |
 | `wishlist.updated` | A song's wish count changed | `song_id`, `count`, and `latest`, the time of the newest wish or `null` |

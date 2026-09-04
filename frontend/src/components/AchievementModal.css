@@ -1,0 +1,51 @@
+/* One achievement, large (ui-guidelines §5). The song hero's column, because
+   it is the same shape: one picture centred over its two lines of text, on a
+   bare modal's blurred backdrop rather than on a tile. */
+.achievement-modal {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  width: max-content;
+  max-width: calc(100% - 32px);
+  margin: 0 auto;
+  text-align: center;
+}
+
+/* The song hero's cover size — 200px, or 60vw on a narrow phone. The badge
+   sizes by its own `font-size` (AchievementBadge.css) and is 2.5em of it, so
+   the size is set here as a fifth of those two: 80px, 24vw. Setting the
+   `font-size` rather than a width keeps it square at both ends, which a
+   `max-width` on the square alone would not. */
+.achievement-modal-badge {
+  font-size: min(80px, 24vw);
+}
+
+.achievement-modal-name {
+  margin: 10px 0 0 0;
+  font-size: 1.15em;
+  color: var(--color);
+  overflow-wrap: anywhere;
+}
+
+.achievement-modal-description {
+  margin: 2px 0 0 0;
+  font-size: 0.85em;
+  color: var(--color-darker);
+  overflow-wrap: anywhere;
+}
+
+.achievement-modal-meta {
+  margin: 10px 0 0 0;
+  font-size: 0.8em;
+  color: var(--color-darker);
+  font-variant-numeric: tabular-nums;
+}
+
+/* A fixed width rather than a share of the column: the column is `max-content`,
+   so a percentage here would be a circle — and a bar as wide as a one-word name
+   would read as a mark rather than as progress. */
+.achievement-modal .achievement-progress {
+  width: 240px;
+  max-width: 100%;
+  margin-top: 12px;
+}

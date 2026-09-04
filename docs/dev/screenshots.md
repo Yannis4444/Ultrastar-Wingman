@@ -26,7 +26,7 @@ site build root, so none of them ever ships as a site asset.
 venv\Scripts\python.exe docs\screenshots\capture.py --all
 ```
 
-That seeds a scratch Wingman, drives a headless Chrome through all 35 manifest rows,
+That seeds a scratch Wingman, drives a headless Chrome through every manifest row,
 writes the PNGs, then kills every process it started and deletes the scratch directory.
 It prints one summary line per id: who was looking, whether it worked, the pixel size,
 and the element it waited for. A failed id is named with its reason and no file is

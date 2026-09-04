@@ -5,11 +5,12 @@ icon: wingman/trophy
 # Manage achievements
 
 **User** > **Achievements** is where a party looks after its badges. It holds
-the three options the feature has, the achievements somebody here made, and the
-seventeen Wingman brings with it. It takes the right to manage achievements,
-which Admin holds by default.
+the three options the feature has and then every achievement in one list: the
+ones somebody here made and the seventeen Wingman brings with it, in whatever
+order you put them. It takes the right to manage achievements, which Admin
+holds by default.
 
-![The Achievements page with the three options at the top, two achievements the party made, and the Included list under them](../../assets/screenshots/achievements/achievements-admin.png){ width="320" loading=lazy }
+![The Achievements page with the three options at the top and one list of achievements under them, two the party made and then the ones Wingman ships](../../assets/screenshots/achievements/achievements-admin.png){ width="320" loading=lazy }
 /// caption
 **Sandstorm Survivor** is drawn in gray, so nothing is being earned on it.
 ///
@@ -29,12 +30,12 @@ than to whoever configures Wingman.
 So a row of three badges stands for ten seconds out of the box. Switching the
 feature back on brings everybody's badges up to date.
 
-## The two lists
+## The list
 
-The achievements your party made come first. Under :wingman-gift: **Included**
-stand the seventeen Wingman ships. A row shows the badge, the name, and the
-description a singer reads under it. Tap a row to open the editor. See
-[Make an achievement](create.md).
+One list holds every achievement there is, the ones your party made and the
+seventeen Wingman ships together, in the order you arranged them. A row shows
+the badge, the name, and the description a singer reads under it. Tap a row to
+open the editor. See [Make an achievement](create.md).
 
 Beyond that a row only says what is unusual about it.
 
@@ -51,8 +52,9 @@ Beyond that a row only says what is unusual about it.
    :wingman-arrow-down: to move it one place.
 3. Tap the same button again when you are done.
 
-Every move is saved as you make it. The two lists are arranged separately, and
-your own always come first.
+Every move is saved as you make it. It is one order over all of them, so an
+achievement your party made can sit above one Wingman ships, and one Wingman
+ships can lead the list.
 
 This order is what the host screen follows and what a singer's own page falls
 back on. On a singer's page the badges they earned come first, newest first,

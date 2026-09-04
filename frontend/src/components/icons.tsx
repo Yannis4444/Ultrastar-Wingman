@@ -19,8 +19,8 @@ export const ICON_PATHS = {
   "chevron-down": "M7.41 8.59 12 13.17l4.59-4.58L18 10l-6 6-6-6 1.41-1.41Z",
   "chevron-right": "M8.59 16.59 13.17 12 8.59 7.41 10 6l6 6-6 6-1.41-1.41Z",
   "chevron-left": "M15.41 7.41 10.83 12l4.58 4.59L14 18l-6-6 6-6 1.41 1.41Z",
-  // Long, thin arrows — the score list's "best" and "worst" markers. Slimmer
-  // than the chevrons so a caption run of four stats stays readable at 0.85em.
+  // Long, thin arrows — a score summary's "best" and "worst" markers. Slimmer
+  // than the chevrons so a run of five stats stays readable at 0.85em.
   "arrow-up": "M12 3l6 7h-4v11h-4V10H6l6-7Z",
   "arrow-down": "M12 21l-6-7h4V3h4v11h4l-6 7Z",
   download:

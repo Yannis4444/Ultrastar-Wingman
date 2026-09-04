@@ -19,6 +19,15 @@
   --border-radius-small: 8px;
   --input-border-color: #384a59;
 
+  /* How tall the fixed bottom nav is, and therefore how much of the bottom of
+     the screen no page may use: 10px of air over a 40px tab (a 24px glyph over
+     a 16px caption) over the same air again, and never less than the device's
+     safe area under it. `BottomNav.css` *is* this height rather than growing to
+     its own content, so everything that has to reckon with the nav — this
+     page's own bottom padding, the sticky editor action row and the
+     scroll-margin under it — reads the one term instead of restating it. */
+  --bottom-nav-height: calc(50px + max(10px, env(safe-area-inset-bottom)));
+
   color-scheme: dark;
 }
 
@@ -38,12 +47,12 @@ code {
     source-code-pro, Menlo, Monaco, Consolas, "Courier New", monospace;
 }
 
-/* Mobile-first: the bottom nav is fixed, so reserve its height plus the
-   device's safe area at the bottom of the page. */
+/* Mobile-first: the bottom nav is fixed, so reserve its height (safe area
+   included) at the bottom of the page. */
 #root {
   max-width: 1200px;
   margin: 0 auto;
-  padding-bottom: calc(50px + max(10px, env(safe-area-inset-bottom)));
+  padding-bottom: var(--bottom-nav-height);
 }
 
 @media only screen and (max-width: 1200px) and (orientation: landscape) {
@@ -252,6 +261,19 @@ a.icon-button:hover {
   background-color: var(--highlight-red-dark);
   border-radius: var(--border-radius);
   padding: 8px 12px;
+}
+
+/* The one `.button-danger` that ends a list or a form, centered under it: the
+   score panel's Delete score, the song editor's Delete song. The 24px above is
+   what keeps it off the last row and off the form's own primary, so no thumb
+   reaching for either finds this instead, and so the two never read as a pair
+   of buttons. A list with a gap of its own makes up part of that 24 and takes
+   the rest off this margin (`.song-edit .delete-row` in `SongDetails.css`):
+   what has to be the same in both places is the 24px the reader sees. */
+.delete-row {
+  display: flex;
+  justify-content: center;
+  margin: 24px 8px 0;
 }
 
 /* Tag chrome (ui-guidelines §4): the four colours a tag may be drawn in, as one

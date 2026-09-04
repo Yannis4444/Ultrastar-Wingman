@@ -513,7 +513,10 @@ ROWS: dict[str, Row] = {
             ('click(byText(".song-list-item", "I Got You Babe"))', 'q(".song-options")'),
             ('click(byText(".song-option", "Edit details"))', 'q(".song-edit")'),
         ),
-        ready='qa(".song-edit-field").length === 6 && q(".song-edit-save")',
+        # The delete row too: the page this picture serves is *Fix or delete a song*,
+        # and deleting one lives at the foot of this same form.
+        ready='qa(".song-edit-field").length === 6 && q(".song-edit-save")'
+        ' && q(".song-edit .delete-row")',
     ),
     "player-selection": Row(
         identity="host",
@@ -677,14 +680,31 @@ ROWS: dict[str, Row] = {
             ),
         ),
         ready='q(".user-achievements[open]") && q(".user-achievements-strip")'
-        ' && q(".user-achievements-count") && q(".user-achievement-bar")',
+        ' && q(".user-achievements-count") && q(".achievement-progress-bar")',
         scroll='show(q(".user-achievements"))',
+    ),
+    "achievement-modal": Row(
+        # Fry again, and his newest badge: the strip is in the summary, so the picture is
+        # taken with the list still folded away and the modal over it. The first badge of
+        # the strip is the one he earned last, and it is a built-in with a picture.
+        identity="Fry",
+        viewport="phone",
+        route="/user",
+        steps=(
+            (
+                'click(qa(".user-achievements-badge-button")[0])',
+                'q(".achievement-modal")',
+            ),
+        ),
+        # The full-resolution file, which is the whole point of the view.
+        ready='q(".achievement-modal") && q(".achievement-modal-name")'
+        " && q('.achievement-modal img[src*=\"size=full\"]')",
     ),
     "achievements-admin": Row(
         identity="host",
         viewport="phone",
         route="/user/achievements",
-        ready='qa(".achievements-list").length >= 2 && q(".achievements-included")'
+        ready='qa(".achievements-list").length === 1 && q(".achievements-included")'
         ' && q(".achievements-mark")',
         # The app's own timings for the length of the shot. The seed runs the host screen
         # at 30 and 15 so a badge row holds still for its own picture, and a reader of this
@@ -773,14 +793,18 @@ ROWS: dict[str, Row] = {
         viewport="host",
         route="/host",
         launcher=True,
-        ready=HOST_IDLE + ' && q(".last-song") && q(".last-song-title")',
+        # The summary beside the cover lands a round trip behind the bars, so it is
+        # what the shutter waits for rather than the title.
+        ready=HOST_IDLE + ' && q(".last-song") && q(".last-song-title") && q(".last-song-summary")',
     ),
     "host-achievements": Row(
         identity="host",
         viewport="host",
         route="/host",
         launcher=True,
-        ready=HOST_IDLE + ' && q(".host-achievements")'
+        # The badges take the whole screen, so the rail being *gone* is half of what this
+        # picture is of (ui-guidelines §7, *Host*).
+        ready=HOST_IDLE + ' && q(".host-achievements") && !q(".host-rail")'
         ' && qa(".host-achievement-badge").length >= 2 && q(".host-achievement-player-name")',
         # The badges are thrown in one by one, and the row holds for the two `host_seconds`
         # settings the seed raised. Long enough that they have all landed, far short of the

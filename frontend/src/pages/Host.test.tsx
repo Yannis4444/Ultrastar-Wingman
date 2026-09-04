@@ -93,6 +93,8 @@ function score(
     player_name: playerName,
     score: value,
     difficulty: 2,
+    placement: null,
+    field_size: null,
     recorded_at: "2026-08-23T20:00:00Z",
     song: RHAPSODY,
     sing_started_at: "2026-08-23T19:55:00Z",
@@ -107,6 +109,8 @@ const SESSION: SessionRead = {
   sing_count: 2,
   score_count: 2,
   singer_count: 2,
+  hidden: false,
+  current: true,
 };
 
 /** Two sings, so the rail carries a standing next to the QR code. */
@@ -305,6 +309,20 @@ test("between songs the stage shows the last song and the rail the standing", as
   expect(screen.getByText("Scan to join")).toBeInTheDocument();
 });
 
+test("the standing reads every party, the ones off the Scores list included", async () => {
+  // The standing is the newest party by activity, and a party the host took
+  // off the Scores page's picker is still a party the room sang at. Without
+  // this the TV would fall back to the evening before it once the room went
+  // home. The backend ignores the parameter for whoever may not hold it.
+  withScores();
+  renderHost("/host");
+
+  await screen.findByLabelText("Party leaderboard");
+  expect(listSessions.mock.calls[0][0]).toMatchObject({
+    query: { include_hidden: true },
+  });
+});
+
 test("the idle stage is the brand, and only the idle stage", async () => {
   const { container } = renderHost("/host");
 
@@ -436,20 +454,84 @@ test("what a song earned takes the stage, and the results follow it", async () =
   expect(stage).toHaveTextContent("Golden Voice");
   expect(screen.queryByLabelText("Last song")).not.toBeInTheDocument();
   expect(screen.queryByText("Ultrastar Wingman")).not.toBeInTheDocument();
-  // The rail is not the stage's to take: the QR code stays where it was.
-  expect(screen.getByText("Scan to join")).toBeInTheDocument();
+  // And the whole screen with it (§7): the rail is not rendered for those
+  // seconds — no QR card, no standing, no wishes — and the one column left is
+  // the stage.
+  expect(container.querySelector(".host-rail")).toBeNull();
+  expect(screen.queryByText("Scan to join")).not.toBeInTheDocument();
+  expect(screen.queryByLabelText("Party leaderboard")).not.toBeInTheDocument();
+  expect(container.querySelector(".host-page")).toHaveClass("host-takeover");
 
   // 4 + 2 × 1 seconds at the default settings, and then the stage is handed
-  // back to the song that earned them.
+  // back to the song that earned them — and the rail comes back with it.
   act(() => vi.advanceTimersByTime(6_100));
   expect(screen.queryByLabelText("New achievements")).not.toBeInTheDocument();
   expect(screen.getByLabelText("Last song")).toBeInTheDocument();
+  expect(container.querySelector(".host-page")).not.toHaveClass(
+    "host-takeover",
+  );
+  expect(await screen.findByText("Scan to join")).toBeInTheDocument();
+});
+
+test("the beat between two singers shows the brand, not an empty screen", async () => {
+  vi.useFakeTimers({ shouldAdvanceTime: true });
+  withScores();
+  const { container } = renderHost("/host");
+  await screen.findByLabelText("Last song");
+
+  const singer = (id: string, name: string) => ({
+    id,
+    name,
+    registered: false,
+    hidden: false,
+    has_avatar: false,
+    avatar_version: null,
+  });
+  act(() =>
+    FakeSocket.deliver({
+      event: "achievements.earned",
+      sing_id: "sing-2",
+      players: [
+        {
+          player: singer("p1", "Alice"),
+          achievements: [achievementRead({ id: "a1", name: "Golden Voice" })],
+        },
+        {
+          player: singer("p2", "Bob"),
+          achievements: [achievementRead({ id: "a2", name: "Brave Soul" })],
+        },
+      ],
+    }),
+  );
+  await screen.findByLabelText("New achievements");
+
+  // Alice's row has had its 4 + 2 × 1 seconds: what follows is the beat before
+  // Bob, and the sequence still owns the whole screen for it. The stage shows
+  // the brand rather than going blank on a TV across the room (§7) — without
+  // the scan line, the rail holding the code being down.
+  act(() => vi.advanceTimersByTime(6_100));
+  expect(screen.queryByLabelText("New achievements")).not.toBeInTheDocument();
+  expect(screen.getByText("Ultrastar Wingman")).toBeInTheDocument();
+  expect(
+    screen.queryByText("Scan the code to pick a song"),
+  ).not.toBeInTheDocument();
+  expect(container.querySelector(".host-page")).toHaveClass("host-takeover");
+  expect(container.querySelector(".host-rail")).toBeNull();
+  // The results are still waiting their turn behind it.
+  expect(screen.queryByLabelText("Last song")).not.toBeInTheDocument();
+
+  // And the beat ends on the next singer, not on the brand.
+  act(() => vi.advanceTimersByTime(800));
+  expect(await screen.findByLabelText("New achievements")).toHaveTextContent(
+    "Bob",
+  );
+  expect(screen.queryByText("Ultrastar Wingman")).not.toBeInTheDocument();
 });
 
 test("the scores wait for the badges rather than flashing past them", async () => {
   vi.useFakeTimers({ shouldAdvanceTime: true });
   withScores();
-  renderHost("/host");
+  const { container } = renderHost("/host");
   await screen.findByLabelText("Last song");
   FakeSocket.deliver({ event: "karaoke.started", sing: null });
   await waitFor(() =>
@@ -467,6 +549,12 @@ test("the scores wait for the badges rather than flashing past them", async () =
   );
   expect(screen.getByText("Ultrastar Wingman")).toBeInTheDocument();
   expect(screen.queryByLabelText("Last song")).not.toBeInTheDocument();
+  // The beat is held for badges that may never come, so the rail stays where
+  // it is: only badges actually on the stage take the screen (§7).
+  expect(container.querySelector(".host-page")).not.toHaveClass(
+    "host-takeover",
+  );
+  expect(screen.getByText("Scan to join")).toBeInTheDocument();
 
   // Nothing followed, so the beat runs out and the results take the stage.
   act(() => vi.advanceTimersByTime(1_500));

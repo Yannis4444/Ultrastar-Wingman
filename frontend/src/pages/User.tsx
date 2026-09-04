@@ -11,25 +11,21 @@ import {
   setPlayerAvatarMutation,
 } from "../api/@tanstack/react-query.gen";
 import { useAuth } from "../auth";
-import IconStat from "../components/IconStat";
 import { Icon } from "../components/icons";
 import LoginForm from "../components/LoginForm";
 import ManageMenu from "../components/ManageMenu";
 import PlayerAvatar from "../components/PlayerAvatar";
 import ScoreHistogram from "../components/ScoreHistogram";
+import ScoreSummary from "../components/ScoreSummary";
 import UserAchievements from "../components/UserAchievements";
 import { errorDetail, errorMessage } from "../errors";
 import { REPOSITORY_URL } from "../links";
 import { manageEntries } from "../manage";
-import { playerSummary } from "../stats";
+import { CHART_MIN_SCORES } from "../stats";
 import "./User.css";
 
 /** Mirrors the backend's limit so an oversized file never leaves the browser. */
 const MAX_AVATAR_BYTES = 5 * 1024 * 1024;
-
-/** The `ScoreGroupList` threshold, verbatim: a couple of bars across twenty
- * buckets is noise rather than a shape. */
-const HISTOGRAM_MIN_SCORES = 4;
 
 const AVATAR_MESSAGES: Record<string, string> = {
   avatar_too_large: "That image is larger than 5 MB.",
@@ -78,8 +74,7 @@ function UserStats({ playerId }: { playerId: string | null }) {
   // this page, not something worth a loading bar or an alert of its own.
   if (scores.data === undefined) return null;
 
-  const summary = playerSummary(scores.data.scores);
-  if (summary === null) {
+  if (scores.data.scores.length === 0) {
     return (
       <p className="user-stats-empty">
         Sing a song and your stats appear here.
@@ -89,42 +84,15 @@ function UserStats({ playerId }: { playerId: string | null }) {
 
   return (
     <>
-      {/* What was sung before how well it went, and no favorites count: a
-          favorite is a filter on the song list, not something achieved. */}
-      <div className="user-stats">
-        <IconStat
-          className="user-stat"
-          icon="hash"
-          label="Sings"
-          value={summary.sings}
-          showLabel
-        />
-        <IconStat
-          className="user-stat"
-          icon="music"
-          label="Songs"
-          value={summary.songs}
-          showLabel
-        />
-        <IconStat
-          className="user-stat"
-          icon="trophy"
-          label="Best"
-          value={summary.best}
-          showLabel
-        />
-        <IconStat
-          className="user-stat"
-          icon="average"
-          label="Average"
-          value={summary.average}
-          showLabel
-        />
-      </div>
+      {/* The same five numbers every other set of scores in the app is added
+          up into (§7), and no favorites count: a favorite is a filter on the
+          song list, not something achieved. Best and Worst go unnamed — every
+          score on this page is the reader's own. */}
+      <ScoreSummary scores={scores.data.scores} songs className="user-stats" />
       {/* The shape behind the numbers: where this singer's scores actually land
           across the full 0–10000 range. Flat on the page like the stat bar
           above it — the identity card is this page's one surface. */}
-      {scores.data.scores.length >= HISTOGRAM_MIN_SCORES && (
+      {scores.data.scores.length >= CHART_MIN_SCORES && (
         <div className="user-stats-chart">
           <ScoreHistogram
             scores={scores.data.scores}
@@ -134,7 +102,7 @@ function UserStats({ playerId }: { playerId: string | null }) {
         </div>
       )}
       {/* Inside this component on purpose: it is the only place that knows the
-          four numbers have something behind them, so the row can never lead to
+          five numbers have something behind them, so the row can never lead to
           an empty page. A quiet line tied to the block above by its hairline —
           no leading glyph, which is what made it read as a Manage errand. */}
       <Link className="user-stats-link" to="/user/stats">
