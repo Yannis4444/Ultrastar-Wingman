@@ -165,7 +165,7 @@ ROUTES: list[tuple[str, str, str, dict[str, object] | None]] = [
     ("achievements.manage", "DELETE", "/api/v1/achievements/nope", None),
     ("achievements.manage", "PUT", "/api/v1/achievements/nope/icon", None),
     ("achievements.manage", "DELETE", "/api/v1/achievements/nope/icon", None),
-    # Putting one of the shipped seventeen back the way Wingman ships it: an unknown id, so a
+    # Putting one of the shipped built-ins back the way Wingman ships it: an unknown id, so a
     # permitted caller gets a 404 and the matrix resets nothing.
     ("achievements.manage", "POST", "/api/v1/achievements/nope/reset", None),
     # The catalogue's order. Not a permutation of it, so a permitted caller gets the 422 for

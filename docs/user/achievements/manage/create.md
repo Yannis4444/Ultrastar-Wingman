@@ -32,11 +32,11 @@ tap **Use a picture instead** and pick a jpeg, png, or webp file of at most
 5 MB. The picture replaces the glyph, and **Color** has nothing left to set.
 **Replace picture** swaps it, and **Use a glyph instead** drops it again.
 
-The seventeen included achievements come with a picture each, drawn in one
-style. To make a picture for your own achievement that matches them, see
-[Make a badge picture](picture.md). An included achievement always has a
-picture: upload your own to replace it, and **Back to the included picture**
-brings Wingman's back.
+Many of the included achievements come with a picture, drawn in one style. The
+rest wear a glyph like your own. To make a picture that matches the drawn ones,
+see [Make a badge picture](picture.md). Where an included achievement has a
+picture, you can upload your own to replace it, and **Back to the included
+picture** brings Wingman's back.
 
 ## What a condition says
 
@@ -58,6 +58,10 @@ The block below builds the sentence at the top of it, box by box.
 did. The second has to come true inside a single evening. If several conditions
 say **One party**, they all have to come true in the same one.
 
+A **One party** condition also counts differently on a singer's own page: its
+bar is about the evening being sung, so it starts again at zero between
+parties. See [Achievements](../index.md#your-badges-on-your-own-page).
+
 **What is measured**, over the scores that survive the two filters below.
 
 | Measure | What it counts |
@@ -68,6 +72,9 @@ say **One party**, they all have to come true in the same one.
 | **Number of scores** | How many scores there are |
 | **Different songs** | How many different songs |
 | **Different artists** | How many different artists |
+| **Different genres** | How many different genres. A song whose file names no genre counts for nothing |
+| **Different decades** | How many different decades the songs are from. A song whose file names no year counts for nothing |
+| **Sings of one song** | How often the same song was sung. The song sung most often is the one counted, and other songs in between do not matter |
 | **Number of wins** | How many times the singer had the best score of a song. A song nobody else sang is not a win. A tie for the top counts for both singers |
 | **Average score** | The mean, rounded down. Nobody with no scores has one |
 
@@ -157,5 +164,5 @@ achievement your party made is editable. **Delete achievement**, beside
 **Save**, removes it and everybody's badge for it. Their scores stay exactly as
 they are.
 
-The seventeen Wingman ships behave differently. See
+The ones Wingman ships behave differently. See
 [Manage achievements](index.md).

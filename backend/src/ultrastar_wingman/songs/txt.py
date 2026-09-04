@@ -130,10 +130,11 @@ def parse_song_txt(text: str) -> SongTxt:
         cover=tags.get("COVER"),
         video=tags.get("VIDEO"),
         background=tags.get("BACKGROUND"),
-        language=tags.get("LANGUAGE"),
-        genre=tags.get("GENRE"),
+        # `no_value` and not `tags.get`: a file saying `#GENRE:None` says it has no genre.
+        language=no_value(tags.get("LANGUAGE")),
+        genre=no_value(tags.get("GENRE")),
         year=_year(tags.get("YEAR")),
-        edition=tags.get("EDITION"),
+        edition=no_value(tags.get("EDITION")),
         creator=tags.get("CREATOR"),
         is_duet=_is_duet(text, tags),
         start=_positive(_decimal(tags.get("START"))),
@@ -310,6 +311,33 @@ def _is_duet(text: str, tags: dict[str, str]) -> bool:
             if len(singers) > 1:
                 return True
     return False
+
+
+def no_value(value: str | None) -> str | None:
+    """One of the three free-text headers — `#LANGUAGE`, `#GENRE`, `#EDITION` — or `None`
+    when the file is really saying it has none.
+
+    USDB writes the literal word `None` into a file it was given no genre or edition for,
+    and it writes a great many of them: without this, a library offers *None* in the genre
+    drop-down as though it were a kind of music, an achievement counting different genres
+    counts it as one, and the song details of a hundred songs read "Genre  None". It is not
+    a value anybody set; it is the writer's way of leaving the header empty, so Wingman reads
+    it as the empty header it means. Case-insensitively and stripped: nothing but the tool
+    that wrote it spells it consistently.
+
+    All three headers, not the genre alone — the same writer fills them in the same way (a
+    real library holds `#EDITION:None` by the dozen) — and the year is not among them because
+    `_year` already refuses everything that is not digits.
+
+    **No migration goes with this.** The scanner re-parses every txt on every start, so a row
+    scanned before this rule existed puts itself right the next time Wingman starts. A song
+    genuinely called "None" is not a thing this can be wrong about: it is a genre, an edition
+    or a language, never a title.
+    """
+    if value is None:
+        return None
+    stripped = value.strip()
+    return None if not stripped or stripped.casefold() == "none" else stripped
 
 
 def _year(value: str | None) -> int | None:

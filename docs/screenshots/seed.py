@@ -644,15 +644,16 @@ def import_achievements(api: Api) -> dict[str, Any]:
 
 
 def arrange_catalogue(api: Api) -> list[str]:
-    """Put the party's own achievements at the head of the catalogue, with the one built-in
+    """Put the party's own achievements at the head of the catalogue, with the first built-in
     that is hidden until it is earned just behind them.
 
     The catalogue is **one** order over all of it — a party's own achievement may sit above
     one Wingman ships — and the management page is photographed at the top of that list.
     Left the way the seed makes it, an imported achievement lands at the end and the hidden
-    built-in ships seventeenth of seventeen, so the two rows and the lock that picture is of
-    would be four screens down. Arranging them is what a host does with two achievements of
-    their own, and this order is what every badge surface lists in, the host screen included.
+    built-in *Brave Soul* sits halfway down a catalogue of thirty-four, so the two rows and
+    the lock that picture is of would be several screens apart. Arranging them is what a host
+    does with two achievements of their own, and this order is what every badge surface lists
+    in, the host screen included.
     """
     rows = api.get("/achievements", params={"manage": "true"})["achievements"]
     was = [str(row["id"]) for row in rows]

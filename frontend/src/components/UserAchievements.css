@@ -83,7 +83,8 @@
 /* The badges at rest. 0.75em makes the badge 30px, which keeps the strip a
    strip rather than a wall that would push *Manage* off the screen. Each one
    opens itself large, so each sits in a 40x40 button (§1.10's touch floor):
-   eight across a 390px phone, and a full seventeen in three rows. */
+   eight across a 390px phone, so a singer who holds everything Wingman ships
+   fills five rows. */
 .user-achievements-strip {
   display: flex;
   flex-wrap: wrap;

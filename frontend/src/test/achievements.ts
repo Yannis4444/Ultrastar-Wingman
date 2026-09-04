@@ -90,10 +90,14 @@ export function achievementSettings(
 }
 
 /**
- * The seventeen Wingman ships, in `BUILT_INS` order — ids, names, glyphs and
+ * The thirty-four Wingman ships, in `BUILT_INS` order — ids, names, glyphs and
  * colours exactly as `achievements/builtin.py` seeds them, so a test that counts
- * the *Included* rows counts what a fresh instance really has. Only *Brave Soul*
- * is hidden, and it is the last of them.
+ * the *Included* rows counts what a fresh instance really has. Four of them are
+ * hidden: *Brave Soul*, which ends the first seventeen, then *Time Traveler*,
+ * *Mixtape* and *Rickrolled* among the second.
+ *
+ * `has_image` is false throughout, which is `achievementRead`'s default and not a
+ * claim about the artwork: a test about a shipped picture says so itself.
  */
 const BUILT_INS: [string, string, string, string, boolean][] = [
   ["builtin-first-song", "First Time on the Mic", "smile", "neutral", false],
@@ -113,6 +117,23 @@ const BUILT_INS: [string, string, string, string, boolean][] = [
   ["builtin-first-duet", "Better Together", "users", "neutral", false],
   ["builtin-artists-10", "Well Traveled", "plane", "blue", false],
   ["builtin-brave-soul", "Brave Soul", "ghost", "neutral", true],
+  ["builtin-wins-1", "First Place", "star", "neutral", false],
+  ["builtin-wins-10", "On a Roll", "flag", "blue", false],
+  ["builtin-wins-50", "Undisputed", "shield", "gold", false],
+  ["builtin-decade-1970s", "Back to the 70s", "disc", "blue", false],
+  ["builtin-decade-1980s", "Back to the 80s", "tv", "blue", false],
+  ["builtin-decade-1990s", "Back to the 90s", "bell", "blue", false],
+  ["builtin-decade-2000s", "Back to the 2000s", "headphones", "blue", false],
+  ["builtin-time-traveler", "Time Traveler", "clock", "pink", true],
+  ["builtin-mixtape", "Mixtape", "layers", "pink", true],
+  ["builtin-full-commitment", "Rickrolled", "gift", "gold", true],
+  ["builtin-rap-god", "Rap God", "mic", "gold", false],
+  ["builtin-queen-10", "Killer Queen", "crown", "gold", false],
+  ["builtin-abba-5", "Super Trouper", "sun", "blue", false],
+  ["builtin-beatles-4", "The Fab Four", "anchor", "neutral", false],
+  ["builtin-christmas", "Christmas Number One", "snowflake", "gold", false],
+  ["builtin-soundtrack", "Roll the Credits", "film", "blue", false],
+  ["builtin-groundhog-day", "Groundhog Day", "refresh", "pink", false],
 ];
 
 export function builtInAchievementReads(): AchievementRead[] {

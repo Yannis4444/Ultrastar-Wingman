@@ -84,6 +84,13 @@ fixed, because each step needs the one before it:
 Everything the seed learns is written to `<data dir>\screenshots.json`. `capture.py`
 reads playlist, tag, song and player ids from there and hardcodes none of them.
 
+The seeded clock is relative to the moment of seeding, and one thing goes stale: the
+second party ended five minutes ago, so it is the party that is still going, and a
+party-scoped progress bar counts it (`docs/dev/achievements.md`, *A party-scoped bar
+counts the party being sung*). More than `SESSION_GAP` — six hours — after `seed.py up`,
+that party is over and every such bar reads `0 / N`. Capture against a fresh instance, or
+seed again before the shots that show a bar.
+
 Identities are per browser context, so several can be open at once. The host uses the
 seed's cookie; Leela, Fry and Bender log in over `POST /auth/login` with the placeholder
 passwords in `scenario.py`; the guest browser carries no cookie at all.

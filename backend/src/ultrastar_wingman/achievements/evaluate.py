@@ -8,7 +8,7 @@ score to another singer. Nothing in here touches the database or the clock, so e
 
 import logging
 import re
-from collections.abc import Mapping, Sequence
+from collections.abc import Sequence
 from dataclasses import dataclass
 
 from .schema import (
@@ -74,9 +74,25 @@ class Outcome:
     session_id: str | None
     progress_current: int | None
     progress_target: int | None
+    # Which party `progress_current` was measured in, when the condition it came from was
+    # session-scoped — the party that satisfied every session-scoped condition, or the
+    # player's *newest* party while no party has (`_progress`). `None` when the progress is
+    # a global condition's, which belongs to no single party.
+    #
+    # The engine never asks whether that party is the one still going: nothing in here
+    # touches the clock. Whoever reads the stored number does (`achievements.api._read_row`),
+    # which is what lets a bar count tonight and read 0 the next morning without a pass
+    # having to run at midnight.
+    progress_session_id: str | None = None
 
 
-NOT_EARNED = Outcome(earned=False, session_id=None, progress_current=None, progress_target=None)
+NOT_EARNED = Outcome(
+    earned=False,
+    session_id=None,
+    progress_current=None,
+    progress_target=None,
+    progress_session_id=None,
+)
 
 
 def evaluate(conditions: Sequence[Condition], rows: Sequence[ScoreRow]) -> Outcome:
@@ -108,12 +124,21 @@ def evaluate(conditions: Sequence[Condition], rows: Sequence[ScoreRow]) -> Outco
         _holds(condition, rows) for condition in conditions if condition.scope == "global"
     )
     earned = globally and (not session_conditions or earned_in is not None)
-    current, target = _progress(conditions, rows, sessions)
+    current, target, progress_session = _progress(
+        conditions,
+        rows,
+        sessions,
+        # The party that satisfied the session-scoped conditions, for `_progress` to measure
+        # them in. Guarded by `session_conditions`, because `all(())` is True and would make
+        # `earned_in` the first party of a global-only achievement.
+        earned_in if session_conditions else None,
+    )
     return Outcome(
         earned=earned,
         session_id=earned_in if earned and session_conditions else None,
         progress_current=current,
         progress_target=target,
+        progress_session_id=progress_session,
     )
 
 
@@ -174,6 +199,31 @@ def _measure(condition: Condition, rows: Sequence[ScoreRow]) -> int | None:
             # Case-insensitively, and a song that has left the library carries no artist and
             # counts for nothing.
             return len({row.artist.casefold() for row in kept if row.artist is not None})
+        case "different_genres":
+            # Like `different_artists`, with one extra refusal: the literal "None". USDB
+            # writes `#GENRE:None` into a great many files and `songs.txt` now reads that as
+            # no genre — but a row scanned before that rule existed still holds the word, and
+            # a hundred and thirty of them agreeing on it would otherwise be a genre.
+            return len(
+                {
+                    folded
+                    for row in kept
+                    if row.genre is not None
+                    and (folded := row.genre.strip().casefold()) not in ("", "none")
+                }
+            )
+        case "different_decades":
+            # The decade a song belongs to, not the years themselves: 1984 and 1987 are one.
+            # A song with no year (or one that has left the library) belongs to no decade.
+            return len({row.year // 10 * 10 for row in kept if row.year is not None})
+        case "most_sings_of_one_song":
+            # The song that was sung most often, and how often that was — grouped by song,
+            # counted in sings, so a duet scored twice is one and the songs in between do not
+            # matter. Zero when nothing survived the filters, like every other count here.
+            sings_of: dict[str, set[str]] = {}
+            for row in kept:
+                sings_of.setdefault(row.song_id, set()).add(row.sing_id)
+            return max((len(sings) for sings in sings_of.values()), default=0)
         case "number_of_wins":
             # Scores, not sings: `won` is already a statement about one score's own sing, and
             # one sing gives one singer at most one score to win it with.
@@ -300,40 +350,61 @@ def _compare(left: int, comparator: Comparator | SelectorOp, right: int) -> bool
 def _progress(
     conditions: Sequence[Condition],
     rows: Sequence[ScoreRow],
-    sessions: Mapping[str, list[ScoreRow]],
-) -> tuple[int | None, int | None]:
-    """How far along the achievement is: its least complete condition.
+    sessions: dict[str, list[ScoreRow]],
+    earned_in: str | None,
+) -> tuple[int | None, int | None, str | None]:
+    """How far along the achievement is: its least complete condition, and the party that
+    number was measured in.
 
     All of them have to hold, so the weakest is the honest number. Only a condition compared
     with `>` or `>=` has one at all — there is no progressing toward *fewer*, and a bar that
     filled as somebody got worse would be a lie — and an achievement with no progressible
-    condition stores `(None, None)` and draws no bar.
+    condition stores `(None, None, None)` and draws no bar.
+
+    A session-scoped condition is measured in **one** party, never over the whole record,
+    and which party that is has two answers:
+
+    * `earned_in`, once some party has satisfied every session-scoped condition. That is
+      the number the badge was earned with, and it is what a record of it has to say — an
+      earned "ten songs in one evening" reads 10 of 10, not however many were sung tonight.
+      It also puts the honest number on a *mixed* achievement whose one-evening half is
+      already done: what is left of it is the global condition, so that is the bar.
+    * otherwise the player's **newest** party, and never their best one. "Sing ten songs in
+      one evening" is about *this* evening: a bar stuck at 9 of 10 from a night three months
+      ago says the singer is one song away when they are ten, and it can never move again.
+
+    The party it was measured in is carried out with the number, so a reader can tell
+    tonight's 9 from last month's — see `Outcome.progress_session_id`.
     """
-    weakest: tuple[float, int, int] | None = None
+    weakest: tuple[float, int, int, str | None] | None = None
+    # The party a session-scoped condition is counted in. Without an earning party it is the
+    # newest one the player has scores in: `_by_session` keeps the order the rows came in and
+    # `service.load_rows` orders them chronologically, so the last key is that party — a
+    # party's scores are recorded while it runs, so two of them never interleave.
+    counted_in = earned_in if earned_in is not None else next(reversed(sessions), None)
     for condition in conditions:
         target = _target(condition)
         if target is None:
             continue
+        progress_session: str | None = None
         if condition.scope == "session":
-            # The best any single session reached, the current party included. Per condition:
-            # earning still takes one party that satisfies every session-scoped condition,
-            # but a bar is drawn for a condition and not for a party.
-            current = max(
-                (_measure(condition, session_rows) or 0 for session_rows in sessions.values()),
-                default=0,
-            )
+            # That one party, whatever the best one ever reached. Per condition: earning
+            # still takes one party that satisfies every session-scoped condition, but a bar
+            # is drawn for a condition and not for a party.
+            progress_session = counted_in
+            current = 0 if counted_in is None else _measure(condition, sessions[counted_in]) or 0
         else:
             current = _measure(condition, rows) or 0
         fraction = min(current, target) / target
         # Strictly less, so a tie keeps the earlier condition and a re-run of an unchanged
         # record never rewrites the row.
         if weakest is None or fraction < weakest[0]:
-            weakest = (fraction, current, target)
+            weakest = (fraction, current, target, progress_session)
     if weakest is None:
-        return None, None
+        return None, None, None
     # Stored uncapped: `min(current, target) / target` is the bar, and the raw number is what
     # "9 of 10" wants to say.
-    return weakest[1], weakest[2]
+    return weakest[1], weakest[2], weakest[3]
 
 
 def _target(condition: Condition) -> int | None:

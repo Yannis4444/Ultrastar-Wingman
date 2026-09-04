@@ -14,7 +14,7 @@ stranger's answer because holding the capability is not the same as using it.
 
 from collections.abc import AsyncIterator
 from dataclasses import dataclass
-from datetime import UTC, datetime
+from datetime import UTC, datetime, timedelta
 from pathlib import Path
 from typing import Any
 
@@ -32,7 +32,7 @@ from ultrastar_wingman.app import create_app
 from ultrastar_wingman.auth.deps import COOKIE_NAME
 from ultrastar_wingman.config import BootstrapSettings
 from ultrastar_wingman.images import MAX_IMAGE_BYTES
-from ultrastar_wingman.karaoke.model import Score, Sing
+from ultrastar_wingman.karaoke.model import SESSION_GAP, KaraokeSession, Score, Sing
 from ultrastar_wingman.players.model import Player
 from ultrastar_wingman.songs import scanner
 
@@ -55,6 +55,15 @@ SECRET = {
     "color": "neutral",
     "hidden": True,
     "definition": [{"metric": "any_score", "comparator": "<=", "value": 2000}],
+}
+
+# "Ten songs in one evening" — the shape of every condition whose bar counts the party being
+# sung rather than the whole record.
+SESSION_CONDITION = {
+    "scope": "session",
+    "metric": "number_of_sings",
+    "comparator": ">=",
+    "value": 10,
 }
 
 
@@ -181,7 +190,7 @@ def touch_and_read_version(icon: Path) -> int:
     return icon.stat().st_mtime_ns // 1_000_000
 
 
-async def test_the_seventeen_built_ins_are_seeded_in_order(party: Party) -> None:
+async def test_the_built_ins_are_seeded_in_order(party: Party) -> None:
     rows = await catalogue(party["anonymous"])
 
     assert [row["id"] for row in rows] == [built_in.id for built_in in BUILT_INS]
@@ -191,7 +200,7 @@ async def test_the_seventeen_built_ins_are_seeded_in_order(party: Party) -> None
 
 async def test_every_built_in_definition_is_one_the_engine_can_read(party: Party) -> None:
     """The seed is hand-written JSON, so the models are what stand between a typo in it and
-    seventeen badges nobody can earn."""
+    a catalogue of badges nobody can earn."""
     for row in await catalogue(party["admin"], manage=True):
         assert row["definition"], row["id"]
         for condition in row["definition"]:
@@ -229,7 +238,7 @@ async def test_create_edit_and_delete_one(party: Party) -> None:
     )
     assert created["name"] == "Encore"
     assert created["built_in"] is False
-    # At the end of the list, behind the seventeen it was added to.
+    # At the end of the list, behind the shipped set it was added to.
     assert created["sort_order"] == len(BUILT_INS)
     (condition,) = created["definition"]
     # `scope` was not sent: the models default it in, and what is stored is what they read.
@@ -285,7 +294,7 @@ async def test_deleting_a_built_in_is_a_conflict(party: Party) -> None:
 
 
 async def test_a_built_ins_conditions_cannot_be_changed(party: Party) -> None:
-    """What one of the shipped seventeen asks for is `builtin.py`'s. 409 and not 422: the
+    """What one of the shipped built-ins asks for is `builtin.py`'s. 409 and not 422: the
     body is one the condition models parsed happily, and what refuses it is the row it was
     sent to — the same reasoning as the 409 on deleting one."""
     refused = await party["admin"].patch(
@@ -337,7 +346,7 @@ async def test_the_catalogues_own_definition_patches_back_onto_every_built_in(
     `builtin.py`'s raw JSON leaves every defaulted field out; the API answers with the parsed
     models spelled out in full, nulls included. Both have to dump to the stored column, or a
     client that reads the catalogue and PATCHes a renamed row straight back gets a 409 for a
-    field it never touched — on some subset of the seventeen, silently.
+    field it never touched — on some subset of the shipped set, silently.
     """
     rows = {row["id"]: row for row in await catalogue(party["admin"], manage=True)}
     for built_in in BUILT_INS:
@@ -1122,6 +1131,123 @@ async def test_a_players_badges_are_masked_over_that_player_not_the_reader(party
         assert rows[open_one["id"]]["progress_target"] == 10, identity
 
 
+async def add_party(party: Party, session_id: str, *, minutes_ago: float) -> None:
+    """One recorded party, last sung into `minutes_ago` minutes ago. What
+    `stats.service.current_session` reads to answer whether an evening is still going."""
+    moment = datetime.now(UTC) - timedelta(minutes=minutes_ago)
+    async with party.factory() as session:
+        session.add(KaraokeSession(id=session_id, started_at=moment, last_activity_at=moment))
+        await session.commit()
+
+
+async def standing(party: Party, player_id: str) -> dict[str, dict[str, Any]]:
+    response = await party["anonymous"].get(f"/api/v1/players/{player_id}/achievements")
+    assert response.status_code == 200, response.text
+    return {row["achievement_id"]: row for row in response.json()["achievements"]}
+
+
+async def test_progress_counted_at_a_party_that_is_over_starts_again_at_zero(
+    party: Party,
+) -> None:
+    """ "Sing ten songs in one evening" is ten songs again tomorrow.
+
+    The engine has no clock: it counts a session-scoped condition in the singer's newest
+    party and writes down which one that was. Here is where that number meets the time —
+    while that party is the one still going it is what the bar says, and once it is over the
+    bar reads `0 / N`. Zero and **not** null: null is how a row with no bar at all says so,
+    and a row that had one last night still has one tonight.
+    """
+    tonight = await create(party["admin"], name="Tonight", definition=[SESSION_CONDITION])
+    last_month = await create(party["admin"], name="Last month", definition=[SESSION_CONDITION])
+    global_one = await create(
+        party["admin"],
+        name="Over all time",
+        definition=[{"metric": "number_of_sings", "comparator": ">=", "value": 10}],
+    )
+    player_id = await add_player(party, "user", "Yannis")
+    await add_party(party, "party-now", minutes_ago=5)
+    await add_party(party, "party-old", minutes_ago=60 * 24 * 30)
+    async with party.factory() as session:
+        for achievement_id, progress_session_id in (
+            (tonight["id"], "party-now"),
+            (last_month["id"], "party-old"),
+            # Progress from a global condition names no party and is never zeroed.
+            (global_one["id"], None),
+        ):
+            session.add(
+                PlayerAchievement(
+                    achievement_id=achievement_id,
+                    player_id=player_id,
+                    progress_current=9,
+                    progress_target=10,
+                    progress_session_id=progress_session_id,
+                )
+            )
+        await session.commit()
+
+    rows = await standing(party, player_id)
+
+    assert rows[tonight["id"]]["progress_current"] == 9
+    assert rows[last_month["id"]]["progress_current"] == 0
+    # The target stays either way, which is what keeps the bar on the page.
+    assert rows[last_month["id"]]["progress_target"] == 10
+    assert rows[global_one["id"]]["progress_current"] == 9
+
+
+async def test_progress_from_the_last_party_is_zero_once_no_party_is_running(
+    party: Party,
+) -> None:
+    """Nothing has been sung for longer than the session gap, so there is no current party
+    at all and every party-scoped bar has started again."""
+    tonight = await create(party["admin"], name="Tonight", definition=[SESSION_CONDITION])
+    player_id = await add_player(party, "user", "Yannis")
+    await add_party(party, "party-now", minutes_ago=SESSION_GAP.total_seconds() / 60 + 1)
+    async with party.factory() as session:
+        session.add(
+            PlayerAchievement(
+                achievement_id=tonight["id"],
+                player_id=player_id,
+                progress_current=9,
+                progress_target=10,
+                progress_session_id="party-now",
+            )
+        )
+        await session.commit()
+
+    assert (await standing(party, player_id))[tonight["id"]]["progress_current"] == 0
+
+
+async def test_an_earned_badge_keeps_the_numbers_it_was_earned_with(party: Party) -> None:
+    """It was earned. The number beside a badge is a record of how it was reached, not an
+    invitation, so nothing about it starts again in the morning.
+
+    This is the reading half only — the row is written by hand. That the engine puts the
+    earning party's own number on such a row in the first place is
+    `test_an_earned_badge_counts_the_party_that_earned_it`.
+    """
+    earned = await create(party["admin"], name="Earned", definition=[SESSION_CONDITION])
+    player_id = await add_player(party, "user", "Yannis")
+    await add_party(party, "party-old", minutes_ago=60 * 24 * 30)
+    async with party.factory() as session:
+        session.add(
+            PlayerAchievement(
+                achievement_id=earned["id"],
+                player_id=player_id,
+                earned_at=datetime(2026, 8, 1, 20, 0, tzinfo=UTC),
+                session_id="party-old",
+                progress_current=10,
+                progress_target=10,
+                progress_session_id="party-old",
+            )
+        )
+        await session.commit()
+
+    row = (await standing(party, player_id))[earned["id"]]
+
+    assert row["progress_current"] == 10
+    assert row["earned_at"] is not None
+
+
 async def test_a_players_badges_are_whole_once_they_are_earned(party: Party) -> None:
     created = await create(party["admin"], **SECRET)
     player_id = await add_player(party, None, "Guest")
@@ -1277,21 +1403,78 @@ async def _add_score(party: Party, player_id: str, score: int) -> None:
 
 # --- The pictures Wingman ships ------------------------------------------------------------
 
+# The built-ins whose artwork does not exist yet. The pictures are drawn by hand, one at a
+# time, out of the motif entries in `docs/dev/achievement-artwork.md` (§4), and a badge without
+# its two PNGs is drawn with its glyph in the meantime — so the promise below is "every
+# built-in except these", and an id leaves this set in the same commit as its two files.
+#
+# Not a skip: the listings are still pinned, so a stray or misnamed file in either directory
+# fails just as it did, and a picture that lands while its id is still named here fails too.
+PICTURES_PENDING: frozenset[str] = frozenset(
+    {
+        "builtin-wins-1",
+        "builtin-wins-10",
+        "builtin-wins-50",
+        "builtin-decade-1970s",
+        "builtin-decade-1980s",
+        "builtin-decade-1990s",
+        "builtin-decade-2000s",
+        "builtin-time-traveler",
+        "builtin-mixtape",
+        "builtin-full-commitment",
+        "builtin-rap-god",
+        "builtin-queen-10",
+        "builtin-abba-5",
+        "builtin-beatles-4",
+        "builtin-christmas",
+        "builtin-soundtrack",
+        "builtin-groundhog-day",
+    }
+)
+
 
 def test_every_built_in_ships_a_picture_in_both_sizes() -> None:
     """What `docs/dev/achievement-artwork.md` promises: one full-size and one small PNG per
     built-in, named by its id, and nothing else in either directory — a stray file there
-    would ship in every wheel and every installer."""
+    would ship in every wheel and every installer. Except the ones whose artwork is still to
+    be drawn (`PICTURES_PENDING`), which ship no file at all."""
     directory = pictures.images_dir()
-    expected = {f"{built_in.id}.png" for built_in in BUILT_INS}
+    ids = {built_in.id for built_in in BUILT_INS}
+    # A renamed or misspelled id in the set would otherwise quietly excuse a real built-in.
+    assert ids >= PICTURES_PENDING
+    expected = {f"{built_in_id}.png" for built_in_id in ids - PICTURES_PENDING}
 
     assert {path.name for path in directory.glob("*.png")} == expected
     assert {path.name for path in (directory / "small").glob("*.png")} == expected
 
 
+@pytest.mark.parametrize("achievement_id", sorted(PICTURES_PENDING))
+async def test_a_built_in_whose_artwork_is_still_to_come_is_drawn_with_its_glyph(
+    party: Party, achievement_id: str
+) -> None:
+    """A built-in ships a picture "unless" — and until the file exists there is nothing to
+    serve, so the row says so and the badge falls back to the glyph it declares
+    (`AchievementBadge` draws the glyph whenever `has_image` is false).
+
+    `pictures.shipped_picture` asks the disk and not `builtin.py`, which is what makes this
+    the ordinary answer rather than a broken one. The test list empties itself as the pictures
+    land."""
+    rows = {row["id"]: row for row in await catalogue(party["admin"], manage=True)}
+    row = rows[achievement_id]
+
+    assert row["has_image"] is False
+    assert row["image_shipped"] is False
+    assert row["icon_version"] is None
+    # No file, so no picture to fetch — for a manager as much as for a stranger. `manage`
+    # lifts the masking of a hidden achievement, never the absence of a file.
+    url = f"/api/v1/achievements/{achievement_id}/icon"
+    assert (await party["admin"].get(url)).status_code == 404
+    assert (await party["anonymous"].get(url)).status_code == 404
+
+
 async def test_a_fresh_built_in_is_drawn_with_its_shipped_picture(party: Party) -> None:
-    """Nobody uploaded anything, and every built-in has a picture anyway; an achievement
-    somebody made has none until they give it one."""
+    """Nobody uploaded anything, and a built-in whose artwork exists has a picture anyway; an
+    achievement somebody made has none until they give it one."""
     rows = {row["id"]: row for row in await catalogue(party["anonymous"])}
     golden = rows["builtin-score-9000"]
     assert golden["has_image"] is True

@@ -249,10 +249,11 @@ it("shows what the backend refused verbatim", async () => {
 });
 
 it("draws the whole catalogue as one list, in the order it comes in", async () => {
+  const shipped = builtInAchievementReads();
   const { container } = renderPage([
-    builtInAchievementReads()[0],
+    shipped[0],
     achievementRead({ id: "a-own", name: "Karaoke Hero" }),
-    ...builtInAchievementReads().slice(1),
+    ...shipped.slice(1),
   ]);
 
   await screen.findByText("Karaoke Hero");
@@ -267,7 +268,7 @@ it("draws the whole catalogue as one list, in the order it comes in", async () =
   ).not.toBeInTheDocument();
 
   const rows = listRows(container);
-  expect(rows).toHaveLength(18);
+  expect(rows).toHaveLength(shipped.length + 1);
   expect(rows[0]).toHaveTextContent("First Time on the Mic");
   expect(rows[0]).toHaveAttribute(
     "href",
@@ -280,9 +281,10 @@ it("draws the whole catalogue as one list, in the order it comes in", async () =
   expect(rows[0].querySelector(".achievements-included")?.textContent).toBe(
     "Included",
   );
-  // The hidden one Wingman ships wears the lock, and is the last of them.
-  expect(rows[17]).toHaveTextContent("Brave Soul");
-  expect(iconNames(rows[17])).toContain("lock");
+  // A hidden one Wingman ships wears the lock, wherever in the list it sits.
+  const brave = rows.find((row) => row.textContent?.includes("Brave Soul"));
+  expect(brave).toBeDefined();
+  expect(iconNames(brave as HTMLElement)).toContain("lock");
 });
 
 it("says the name and the description, and only what is unusual", async () => {
@@ -458,9 +460,10 @@ it("keeps an oversized archive in the browser", async () => {
 });
 
 it("picks what goes into the archive without touching the rows", async () => {
+  const shipped = builtInAchievementReads();
   const { container } = renderPage([
     achievementRead({ id: "a-own", name: "Karaoke Hero" }),
-    ...builtInAchievementReads(),
+    ...shipped,
   ]);
 
   await screen.findByText("Karaoke Hero");
@@ -471,9 +474,9 @@ it("picks what goes into the archive without touching the rows", async () => {
   fireEvent.click(screen.getByRole("button", { name: "Export…" }));
 
   const rows = pickerRows();
-  // Everything is offered, the seventeen included: sharing one of those is
-  // what the format is for.
-  expect(rows).toHaveLength(18);
+  // Everything is offered, the ones Wingman ships included: sharing one of
+  // those is what the format is for.
+  expect(rows).toHaveLength(shipped.length + 1);
   expect(rows[0]).toHaveTextContent("Karaoke Hero");
   expect(rows[1]).toHaveTextContent("Included");
   expect(
@@ -566,7 +569,7 @@ it("says what the backend refused about an archive it would not make", async () 
 
 /* ------------------------------------------------------------- the order */
 
-/** The party's own two rows in front of the seventeen Wingman ships. */
+/** The party's own two rows in front of the ones Wingman ships. */
 function catalogue(): AchievementRead[] {
   return [
     achievementRead({ id: "a-own", name: "Karaoke Hero" }),
@@ -608,8 +611,9 @@ it("arranges the catalogue and sends the whole order", async () => {
   expect(
     screen.getByRole("button", { name: "Move First Time on the Mic up" }),
   ).toBeEnabled();
+  const last = rows[rows.length - 1].name;
   expect(
-    screen.getByRole("button", { name: "Move Brave Soul down" }),
+    screen.getByRole("button", { name: `Move ${last} down` }),
   ).toBeDisabled();
 });
 
@@ -765,7 +769,9 @@ it("leaves the rows alone until the order is arranged", async () => {
   fireEvent.click(arrange);
 
   // The grip per row, and the mode says what it is for once.
-  expect(container.querySelectorAll(".achievements-drag")).toHaveLength(19);
+  expect(container.querySelectorAll(".achievements-drag")).toHaveLength(
+    catalogue().length,
+  );
   expect(screen.getByText(/Drag a row, or use its arrows/)).toBeInTheDocument();
   expect(
     screen.getByRole("button", { name: "Done arranging" }),

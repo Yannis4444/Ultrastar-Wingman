@@ -57,7 +57,9 @@ answers. It offers **Any** and then the values your own library holds: the
 genres actually on the shelf, the decades in order.
 
 Pick one and the list keeps the songs with that value. A song whose file names
-no genre matches **Any** alone, and the same goes for a song with no year.
+no genre matches **Any** alone, and the same goes for a song with no year. A
+file that writes the word `None` where the genre goes is saying it has none, so
+those songs match **Any** alone too. *None* is never offered as a genre.
 
 These four come out of the song files, so they are the same for everybody in the
 room, account or not.

@@ -7,7 +7,7 @@ half — a `..` in a name, an absolute path, a symlink, a gzip bomb, a member th
 too many members, an `achievement.json` that is not JSON — and every one of them has to be a
 clean 4xx naming the problem, never a 500 and never a byte written outside the data dir.
 
-The happy half is the round trip the format exists for: export the seventeen built-ins,
+The happy half is the round trip the format exists for: export every built-in,
 import them back, nothing changed; export, edit the JSON in a text editor, import, the edit
 took — with the one exception the format has, a built-in's `definition`, which is
 `builtin.py`'s and which an import therefore leaves exactly where it is.
@@ -347,7 +347,7 @@ def test_the_same_achievements_give_the_same_bytes() -> None:
 # --- reading: the round trip ------------------------------------------------------------
 
 
-async def test_the_seventeen_built_ins_round_trip_unchanged(instance: Instance) -> None:
+async def test_the_shipped_built_ins_round_trip_unchanged(instance: Instance) -> None:
     before = await catalogue(instance.client)
     data = await export(instance.client, BUILT_IN_IDS)
 
@@ -438,7 +438,7 @@ async def test_an_archive_may_rename_a_built_in_but_never_re_condition_one(
     instance: Instance,
 ) -> None:
     """The bypass nobody would think of. `PATCH` refuses a definition on one of the shipped
-    seventeen with a 409, and an `achievement.json` in a text file would otherwise be the way
+    built-ins with a 409, and an `achievement.json` in a text file would otherwise be the way
     straight round it — so an import writes every other field of a built-in and leaves its
     conditions exactly where they were."""
     before = await stored_rows(instance, ["builtin-score-9000"])
@@ -694,6 +694,32 @@ def test_a_directory_member_is_allowed_because_other_tar_writers_emit_one() -> N
     )
 
     assert [one.achievement.id for one in parsed] == ["one"]
+
+
+def test_an_archive_written_before_a_metric_existed_still_imports() -> None:
+    """The format has no version and needs none: `Condition` is one open set of metrics that
+    only ever grows, so an archive somebody exported last month names a subset of it.
+
+    Pinned because the reverse is the mistake this invites — an archive naming a metric this
+    build does *not* have is refused at the door (`AchievementFile`), which is right, and it
+    would be easy to make the same thing happen to the old file by mistake.
+    """
+    old = [
+        {"scope": "global", "metric": "number_of_sings", "comparator": ">=", "value": 10},
+        {"scope": "session", "metric": "sum_of_scores", "comparator": ">=", "value": 50000},
+    ]
+
+    parsed = archive.read_archive(archive.build_archive([entry("one", definition=old)]))
+
+    assert [one.model_dump() for one in parsed[0].achievement.definition] == [
+        {**one, "score_filter": None, "songs": None, "match": None} for one in old
+    ]
+    # And one from a build that has not been written yet is not silently stored.
+    future = [{"metric": "a_metric_from_the_future", "comparator": ">=", "value": 1}]
+    with pytest.raises(archive.ArchiveError):
+        archive.read_archive(
+            tar_gz([json_member("one", one_achievement("one", definition=future))])
+        )
 
 
 def test_a_song_rule_with_a_regular_expression_survives_the_round_trip() -> None:
@@ -1128,7 +1154,8 @@ async def test_an_import_broadcasts_it_once_for_the_whole_archive(
     instance: Instance, broadcast_events: list[dict[str, object]]
 ) -> None:
     """One refetch per import and not one per row: every client reloads the catalogue on the
-    event, and a seventeen-achievement archive would be sixteen wasted round trips."""
+    event, and an archive of the whole catalogue would waste one for every row but the
+    first."""
     data = tar_gz(
         [json_member(f"new-{index}", one_achievement(f"new-{index}")) for index in range(4)]
     )

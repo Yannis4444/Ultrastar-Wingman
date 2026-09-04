@@ -22,8 +22,8 @@ would otherwise be a way to mint an undeletable row. Writing `"built_in"` into t
 therefore a rejection like any other unknown key, rather than a field with no effect.
 
 **A built-in's `definition` is read but never applied.** What one of the shipped achievements
-asks for is `builtin.py`'s, and `service.import_archive` leaves those seventeen ids' stored
-conditions alone. The format still carries the field — an export is a faithful copy of the
+asks for is `builtin.py`'s, and `service.import_archive` leaves those ids' stored conditions
+alone. The format still carries the field — an export is a faithful copy of the
 row, which is what makes the round trip work — it simply has no effect on a built-in, and
 that is where an archive would otherwise be a way past the 409 `PATCH` gives.
 

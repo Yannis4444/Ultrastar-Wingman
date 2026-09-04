@@ -84,6 +84,23 @@ def test_junk_lines_unknown_tags_and_crlf_are_tolerated() -> None:
     assert txt.genre is None
 
 
+@pytest.mark.parametrize("written", ["None", "none", "NONE", "  None  "])
+def test_the_word_usdb_writes_for_no_genre_is_read_as_no_genre(written: str) -> None:
+    """USDB fills `#GENRE`, `#LANGUAGE` and `#EDITION` with the literal `None` when it has
+    nothing to put there, and it writes a great many of them. Left alone, *None* would be a
+    kind of music in the genre filter and one an achievement could count."""
+    txt = parse_song_txt(
+        f"#TITLE:t\n#ARTIST:a\n#GENRE:{written}\n#LANGUAGE:{written}\n#EDITION:{written}\n"
+    )
+    assert (txt.genre, txt.language, txt.edition) == (None, None, None)
+
+
+def test_a_genre_that_merely_contains_the_word_is_a_genre() -> None:
+    """Only the whole value, so nothing real is thrown away with it."""
+    txt = parse_song_txt("#TITLE:t\n#ARTIST:a\n#GENRE:None More Black\n#LANGUAGE:Nonesuch\n")
+    assert (txt.genre, txt.language) == ("None More Black", "Nonesuch")
+
+
 def test_a_duet_is_recognized_by_its_body() -> None:
     assert read_song_txt(SONGS / "duet_body.txt").is_duet is True
 

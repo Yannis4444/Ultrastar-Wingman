@@ -54,6 +54,9 @@ import a round trip.
 | `number_of_sings` | How many distinct sings they belong to. A duet scored twice is one sing. |
 | `different_songs` | How many distinct `song_id`s. |
 | `different_artists` | How many distinct artists, compared case-insensitively. A song that has left the library carries no artist and counts for nothing. |
+| `different_genres` | How many distinct genres, stripped and compared case-insensitively. A song with no genre counts for nothing — and so does one whose genre is the literal `None`, which is what USDB writes into a file it has no genre for. `songs/txt.py` reads that as no genre at parse time (`no_value`), and the metric refuses it a second time so that a row scanned before that rule existed does not become a genre of its own. |
+| `different_decades` | How many distinct decades, `year // 10 * 10`. A song with no year belongs to no decade and counts for nothing — "the unknowns" is not a decade. |
+| `most_sings_of_one_song` | How often the *most* sung song was sung: the highest number of sings any single `song_id` of the surviving scores has. "Sing the same song three times" is this metric at 3, over any number of parties, and the other songs in between do not matter. Sings and not scores, like `number_of_sings`. |
 | `number_of_wins` | How many of them came first in their own sing — `scores.placement == 1` with a `scores.field_size` of at least 2. A song nobody else sang is not a win (the field was one), and a tie for the top is a win for everybody holding it (standard competition ranking: both are `1`, and the next one is `3`). Both columns are written when the sing is scored and are never recomputed, so a win survives the losing score being deleted or moved to another singer — which is the whole reason they are stored. A score too old for migration 0026's backfill carries neither and is not a win. |
 
 ### The song selector
@@ -248,12 +251,59 @@ a lie.
 * A condition's progress is `min(current, target) / target`.
 * An achievement's progress is its **least complete** condition — all of them
   have to hold, so the weakest is the honest number.
-* For `session` scope it is the best any **single** session reached, the
-  current party included.
+* For `session` scope it is measured in **one** party: the party that satisfied
+  the session-scoped conditions, or the player's **newest** party while none
+  has. Never the best one they ever had. See below.
 * An achievement with no progressible condition stores `NULL` and draws no
   bar.
 * A `hidden` achievement draws no bar until it is earned — a bar would leak
   what it is for.
+
+### A party-scoped bar counts the party being sung
+
+"Ten songs in one evening" is ten songs again tomorrow, so its bar is about
+*this* evening. A bar stuck at 9 of 10 from an evening in September says the
+singer is one song away when they are ten, and it can never move again.
+
+The engine has no clock (nothing in `evaluate.py` does), so this is answered in
+two halves:
+
+1. `evaluate._progress` measures a session-scoped condition in the **last**
+   party in row order — the newest one the player has scores in, since
+   `service.load_rows` orders them chronologically and two parties never
+   interleave — and carries out which party that was as
+   `Outcome.progress_session_id`. `service._write` stores it in
+   `player_achievements.progress_session_id`. The exception is a party that has
+   already satisfied every session-scoped condition (`earned_in`): that party
+   is the one measured, for good, because the number beside an earned badge is
+   a record of how it was reached. An earned "ten songs in one evening"
+   therefore reads 10 of 10 whatever is sung tonight, and it is also what puts
+   the remaining global condition on the bar of a *mixed* achievement whose
+   one-evening half is already done.
+2. `achievements/api.py` (`_read_row` → `_current`) compares that against
+   `stats.service.current_session()`, the party that is still going. While
+   they are the same party the stored number is what the bar says; once the
+   party is over the answer is `0`, with `progress_target` kept — so the row
+   still draws a bar, at nothing.
+
+`0` and never `NULL`: `NULL` is how a row with no progress at all says it has
+no bar, and a row that had one last night still has one tonight. An **earned**
+achievement is left exactly as it is — the number beside a badge is a record of
+how it was reached, not an invitation.
+
+Two consequences worth knowing:
+
+* Progress from a **global** condition carries no `progress_session_id` and is
+  never zeroed. Where an achievement mixes the two scopes, the stored party is
+  the *weakest* condition's — so a mixed achievement can perfectly well read a
+  global number that stands still between parties. Progress is one condition's
+  number, and that is the condition it came from. (No shipped achievement
+  mixes scopes.)
+* A row written before migration 0029 carries `NULL` and therefore shows the
+  old best-party figure until the next pass rewrites it — a sing the player is
+  scored in, or any edit to the catalogue. Nothing runs a pass at startup, and
+  a migration inventing a party id would be a claim about an evening the
+  column was not written in.
 
 ## Hidden achievements
 
@@ -543,12 +593,12 @@ rather than "done".
 The one field an archive cannot carry into the catalogue is a **built-in's**
 `definition`. It is still in the file — an export is a faithful copy of the row,
 and that is what keeps the round trip a fixed point — it simply has no effect on
-one of the seventeen shipped ids. See the table.
+one of the shipped ids. See the table.
 
 | What it meets | What it does |
 |---|---|
 | An existing ordinary row | Updates every presentation field **and** the definition, exactly as `PATCH` would — plus, where the file carries one, the place in the list a `PATCH` cannot touch (below). |
-| An existing **built-in** | Updates every presentation field the same way and **leaves its conditions where they are**, `built_in` included: what one of the shipped seventeen asks for is `builtin.py`'s, and an `achievement.json` in a text file would otherwise be the way straight round the 409 `PATCH` gives. The row still counts as updated — it really did change, only not there — and the skipped definition is logged. |
+| An existing **built-in** | Updates every presentation field the same way and **leaves its conditions where they are**, `built_in` included: what one of the shipped built-ins asks for is `builtin.py`'s, and an `achievement.json` in a text file would otherwise be the way straight round the 409 `PATCH` gives. The row still counts as updated — it really did change, only not there — and the skipped definition is logged. |
 | An unknown id that Wingman ships | Creates it **as a built-in**, with the conditions out of `builtin.py` rather than out of the file. The id is the only thing that may say a row is one of the shipped set, which is what lets a shipped achievement be handed from one instance to another. |
 | Any other unknown id | Creates it as an ordinary row. An archive cannot mint an undeletable achievement of its own. |
 | An entry with an `icon.<ext>` | Stores it through `images.py` — the same allowlist, byte cap and pixel cap an upload goes through. |
@@ -629,22 +679,26 @@ even when it had another extension.
 `picture_of(achievement, size)` is the one rule: the upload if the row has
 one, else the shipped file if the row is a built-in and the file exists, else
 nothing. That rule feeds `has_image`, `icon_version` and the icon endpoint, so
-a fresh database draws every built-in with its artwork, an upload stands in
-front of it, and removing the upload (or a reset) goes *back* to it rather
-than to a glyph — a built-in is never drawn with a glyph while its picture
-ships. `AchievementRead.image_shipped` says which of the two is drawn, which
-is what lets the editor offer **Back to the included picture** instead of a
-glyph. Export carries uploads only: every instance has the shipped files, and
-an archive that carried one would come back through import as an uploaded
-copy, breaking the fixed point the archive promises. The frozen build lists
-the directory in the installer's `datas`; `images_dir()` looks in the unpacked
-bundle first, the way `db.migrations_dir()` does.
+a fresh database draws a built-in whose artwork exists with that artwork, an
+upload stands in front of it, and removing the upload (or a reset) goes *back*
+to it rather than to a glyph — a built-in is never drawn with a glyph while its
+picture ships. "And the file exists" is not a formality: the built-ins added on
+2026-09-04 have no artwork yet, and each of those is drawn with its glyph until
+its two files land ([achievement-artwork.md](achievement-artwork.md) §9). The
+disk is asked and not `builtin.py`, which is what makes that the ordinary
+answer rather than a broken one. `AchievementRead.image_shipped` says which of
+the two is drawn, which is what lets the editor offer **Back to the included
+picture** instead of a glyph. Export carries uploads only: every instance has
+the shipped files, and an archive that carried one would come back through
+import as an uploaded copy, breaking the fixed point the archive promises. The
+frozen build lists the directory in the installer's `datas`; `images_dir()`
+looks in the unpacked bundle first, the way `db.migrations_dir()` does.
 
 `GET /achievements/{id}/icon?size=small|full` (default `full`) picks the
 variant: `small` is what every badge the app draws asks for
 (`achievementIconUrl`'s default), because the originals are over a megabyte
-each and the user page draws seventeen; an upload has no variant and answers
-either size with itself, the browser scaling it — nothing resizes on the
+each and the user page draws the whole catalogue; an upload has no variant and
+answers either size with itself, the browser scaling it — nothing resizes on the
 server, that would take an image library. `full` is for a view that shows one
 badge large; nothing does yet.
 
@@ -673,9 +727,12 @@ be.
 
 ## The included set
 
-Seventeen of them, declared as data in `achievements/builtin.py` and seeded by
-migration 0023 as ordinary rows with `built_in = true` and **stable slug ids**
-(`builtin-score-9000`), which is what import/export needs to recognise one.
+Thirty-four of them, declared as data in `achievements/builtin.py` and seeded as
+ordinary rows with `built_in = true` and **stable slug ids**
+(`builtin-score-9000`), which is what import/export needs to recognise one. Two
+migrations seed them, in two batches: 0023 the first seventeen, 0030 the
+seventeen added on 2026-09-04 — a ladder of wins, one badge per decade, two
+hidden ones about the range of an evening, and eight nods to songs and bands.
 
 `built_in = true` buys exactly three things:
 
@@ -689,15 +746,31 @@ Everything else about one is as editable as any other achievement's: the name,
 the description, the glyph, an uploaded picture, the colour, `hidden`, the place
 in the list and whether it is on at all.
 
-The migration reads `builtin.py` rather than repeating the list, so the set
+A seed migration reads `builtin.py` rather than repeating the list, so the set
 exists once — but it names its own columns, and what it seeds is what a
-**fresh** database starts with. Adding a built-in later needs its own
-revision.
+**fresh** database starts with. Adding a built-in later therefore needs its own
+revision, and that revision has to be **insert-if-absent**: 0023 imports the
+file live, so a database created after `builtin.py` grew was seeded with the
+whole of it there, while an older one holds only what the file said at its
+time. 0030 is the worked example — the ids it is responsible for are frozen in
+the revision itself, the values still come out of `builtin.py`, and
+`sort_order` continues after the highest in the table, because the order of the
+catalogue is the host's and the numbers already in it are theirs.
+
+A seed migration inserts rows and **starts no pass**, which matters the moment
+one runs on a database that already has a history. An achievement nobody has
+been measured against holds no `player_achievements` row, so it is drawn in the
+off state with no bar for everybody until something recomputes them, and
+nothing about starting the app does. Every catalogue write does
+(`start_full_pass`) — switching the feature off and on is the quickest of them
+— and a singer's next sing recomputes that singer over their whole record. So a
+badge somebody already deserved before the upgrade is awarded late rather than
+never.
 
 ### Reset
 
 `POST /achievements/{achievement_id}/reset`, `achievements.manage`. Puts one of
-the shipped seventeen back the way Wingman ships it. Anything else in the
+the shipped built-ins back the way Wingman ships it. Anything else in the
 catalogue is a 409: an achievement somebody made here has nothing to be put
 back to.
 
@@ -706,7 +779,7 @@ back to.
 | `name`, `description`, `icon`, `color`, `hidden` | Back to `builtin.py`. |
 | `definition` | Back to `builtin.py`, written raw exactly as the seed migration writes it — so a reset row and a freshly seeded one are the same row. |
 | `sort_order` | **Left exactly as it is.** The order of the catalogue is the host's — they arranged it with `PUT /achievements/order`, which numbers the whole table — so this row's index in `BUILT_INS` means nothing beside the numbers the others now hold, and putting it back would drop the row at an arbitrary spot rather than "where Wingman had it". A reset restores what an achievement *is*, not where it is filed. |
-| `icon_file` | **Dropped**, file and all. The shipped set has no pictures, and one left standing in front of the restored glyph would make the reset look as though it had done nothing. |
+| `icon_file` | **Dropped**, file and all — which is what puts the shipped picture back in front (or, for a built-in whose artwork does not exist yet, the restored glyph). An upload left standing would make the reset look as though it had done nothing. |
 | `enabled` | **Left exactly as it is.** Switching a built-in off is the one thing a party is told it may do to one, and undoing that would be unwelcome. |
 
 Then `achievements.changed` and a background pass over every player, like any

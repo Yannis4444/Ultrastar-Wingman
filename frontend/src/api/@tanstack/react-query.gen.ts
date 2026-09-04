@@ -2168,7 +2168,7 @@ export const getAchievementIconQueryKey = (options: Options<GetAchievementIconDa
  * like the catalogue itself: a badge on the TV is an image the TV has to be able to fetch.
  *
  * `size=small` is for the 40 px rows and the TV — the shipped pictures are 1254 px and over
- * a megabyte each, and the user page draws seventeen of them. Only the shipped pictures
+ * a megabyte each, and the user page draws the whole catalogue. Only the shipped pictures
  * have a small variant; an upload answers every size with itself, and the browser scales
  * it, because nothing here resizes (`images.py`).
  *
@@ -2236,6 +2236,11 @@ export const listPlayerAchievementsQueryKey = (options: Options<ListPlayerAchiev
  * here whoever is reading — a manager included, because this is a singer's record and there
  * is nothing to manage on it — and its progress numbers are left out with it. A bar that
  * filled would say what the badge is for just as loudly as its name would.
+ *
+ * `progress_current` for a condition that asks for one party is counted **in the party
+ * being sung**: once that party is over it is answered as `0`, with `progress_target`
+ * kept, because "ten songs in one evening" is ten songs again tomorrow. An earned
+ * achievement keeps the numbers it was earned with.
  */
 export const listPlayerAchievementsOptions = (options: Options<ListPlayerAchievementsData>) => queryOptions<ListPlayerAchievementsResponse, ListPlayerAchievementsError, ListPlayerAchievementsResponse, ReturnType<typeof listPlayerAchievementsQueryKey>>({
     queryFn: async ({ queryKey, signal }) => {

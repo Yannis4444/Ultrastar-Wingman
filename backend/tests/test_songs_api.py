@@ -329,6 +329,27 @@ async def test_an_emptied_value_takes_its_header_out_of_the_file(
     assert "#YEAR" not in text
 
 
+async def test_the_editor_cannot_write_back_the_word_that_means_no_genre(
+    client: AsyncClient, editable: Path
+) -> None:
+    """`None` typed into the genre box empties the header, exactly as clearing it does.
+
+    The parser reads `#GENRE:None` as no genre (`songs.txt.no_value`, USDB's own way of
+    writing an empty header), so a save that wrote the word back would give a row the next
+    scan disagrees with — a song that never settles.
+    """
+    response = await client.patch(
+        "/api/v1/songs/usdb:1234", json=an_edit(genre="None", edition="none")
+    )
+
+    assert response.status_code == 200
+    assert response.json()["genre"] is None
+    assert response.json()["edition"] is None
+    text = txt_bytes(editable).decode()
+    assert "#GENRE" not in text
+    assert "#EDITION" not in text
+
+
 async def test_an_edit_survives_the_next_scan(
     client: AsyncClient, editable: Path, session: AsyncSession
 ) -> None:

@@ -25,7 +25,7 @@ Before your first one it says "Nothing yet. The first one is a song away".
 Tap the line to fold out the whole list. The ones you earned come first, newest
 first. The rest follow in the order the host arranged them in.
 
-![Fry's achievements folded out, with four earned badges and their dates, a locked hidden row, and progress bars under the rest](../assets/screenshots/achievements/user-achievements.png){ width="320" loading=lazy }
+![Fry's achievements folded out, with the badges he has earned and their dates, a locked hidden row, and progress bars under the rest](../assets/screenshots/achievements/user-achievements.png){ width="320" loading=lazy }
 /// caption
 The bar under **In Tune** says Fry has 7,103 of the 8,000 it asks for.
 ///
@@ -40,6 +40,12 @@ The bar under **In Tune** says Fry has 7,103 of the 8,000 it asks for.
 Not every unearned row has a bar. An achievement asking for a score *below*
 something, or for exactly a number, has nothing to fill up. A hidden one never
 shows a bar either, because the bar would give the surprise away.
+
+A bar for something that has to happen **in one evening** counts tonight, not
+your best night ever. It fills up while the party runs, and between parties it
+reads *0 / 10* with the bar empty: ten songs in one evening is ten songs again
+next time. Bars for the all-time achievements keep counting up whatever night
+it is.
 
 The count is over the achievements that are switched on, so it doubles as the
 list of what is left to reach for. The block stays away when the host switched
@@ -88,7 +94,7 @@ the box. See [Manage achievements](manage/index.md).
 
 ## What Wingman brings with it
 
-Seventeen achievements ship with Wingman. A party may rename them, recolor
+Thirty-four achievements ship with Wingman. A party may rename them, recolor
 them, hide one, and switch any of them off. What they ask for is fixed, so
 **Golden Voice** means the same thing at every party.
 
@@ -110,10 +116,37 @@ them, hide one, and switch any of them off. What they ask for is fixed, so
 | **Hat-trick** | Score 9,000 or more three times in one party |
 | **Better Together** | Sing a duet |
 | **Well Traveled** | Sing songs by 10 different artists |
-| **Brave Soul** | Hidden until it is earned. Its own line is on **User** > **Achievements** |
+| **Brave Soul** | Hidden until it is earned |
+| **First Place** | Beat another singer on a song |
+| **On a Roll** | Beat another singer on a song 10 times |
+| **Undisputed** | Beat another singer on a song 50 times |
+| **Back to the 70s** | Sing 5 songs from the 1970s in one party |
+| **Back to the 80s** | Sing 5 songs from the 1980s in one party |
+| **Back to the 90s** | Sing 5 songs from the 1990s in one party |
+| **Back to the 2000s** | Sing 5 songs from the 2000s in one party |
+| **Time Traveler** | Hidden until it is earned |
+| **Mixtape** | Hidden until it is earned |
+| **Rickrolled** | Hidden until it is earned |
+| **Rap God** | Score 8,000 or more in a rap or hip-hop song |
+| **Killer Queen** | Sing 10 different Queen songs |
+| **Super Trouper** | Sing 5 different ABBA songs |
+| **The Fab Four** | Sing 4 different Beatles songs |
+| **Christmas Number One** | Score 8,000 or more in a Christmas song |
+| **Roll the Credits** | Collect 15,000 points from soundtrack songs in one party |
+| **Groundhog Day** | Sing the same song three times |
+
+Four of them are hidden, and what earns one stays its own business. Each has a
+locked line of its own on **User** > **Achievements**, and it says what it is
+the moment somebody earns it.
 
 "One party" means one evening of singing, the same party the **Scores** tab
 lists. See [Scores](../scores/index.md).
+
+Some of these read the song's own details. The four decade badges need the
+song's year, and **Rap God** and **Roll the Credits** need its genre.
+**Christmas Number One** takes either the genre or the word in the title. A
+song file that carries none of that cannot count toward them, whoever sings it.
+Open a song on the **Songs** tab to see what its file holds.
 
 ## The pages in this section
 

@@ -11,7 +11,7 @@ that is how they arrive — out of a JSON column, or off the wire.
 
 import logging
 from datetime import UTC, datetime, timedelta
-from typing import Any
+from typing import Any, get_args
 
 import pytest
 from pydantic import ValidationError
@@ -19,12 +19,13 @@ from sqlalchemy import delete, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from ultrastar_wingman.achievements import service
-from ultrastar_wingman.achievements.evaluate import Outcome, ScoreRow, evaluate
+from ultrastar_wingman.achievements.evaluate import Outcome, ScoreRow, _measure, evaluate
 from ultrastar_wingman.achievements.model import Achievement, PlayerAchievement
 from ultrastar_wingman.achievements.schema import (
     MAX_PATTERN_LENGTH,
     MAX_SUBJECT_LENGTH,
     Condition,
+    Metric,
     SelectorClause,
     SongSelector,
     parse_definition,
@@ -290,25 +291,34 @@ def test_an_achievement_that_asks_for_nothing_is_earned_by_nobody() -> None:
 # ------------------------------------------------------------------------- the metrics
 
 
-# Two scores in one sing (a duet), three songs, two artists once the case is folded.
+# Two scores in one sing (a duet), one song sung twice, three songs, two artists once the
+# case is folded, one genre once the case and the literal "None" are dealt with, and two
+# decades.
 METRIC_ROWS = [
-    row(1000, sing_id="s1", song_id="usdb:1", artist="Queen"),
-    row(2000, sing_id="s1", song_id="usdb:1", artist="Queen"),
-    row(3001, sing_id="s2", song_id="usdb:2", artist="queen"),
-    row(4000, sing_id="s3", song_id="usdb:3", artist="ABBA"),
+    row(1000, sing_id="s1", song_id="usdb:1", artist="Queen", genre="Rock", year=1985),
+    row(2000, sing_id="s1", song_id="usdb:1", artist="Queen", genre="Rock", year=1985),
+    row(3001, sing_id="s2", song_id="usdb:2", artist="queen", genre=" rock ", year=1989),
+    row(4000, sing_id="s3", song_id="usdb:3", artist="ABBA", genre="None", year=1977),
+    row(5000, sing_id="s4", song_id="usdb:1", artist="Queen", genre="Rock", year=1985),
 ]
 
 
 @pytest.mark.parametrize(
     ("metric", "expected"),
     [
-        ("sum_of_scores", 10001),
-        # Rounded down: 10001 / 4 is 2500.25.
-        ("average_score", 2500),
-        ("number_of_scores", 4),
-        ("number_of_sings", 3),
+        ("sum_of_scores", 15001),
+        # Rounded down: 15001 / 5 is 3000.2.
+        ("average_score", 3000),
+        ("number_of_scores", 5),
+        ("number_of_sings", 4),
         ("different_songs", 3),
         ("different_artists", 2),
+        # "Rock" and " rock " are one; the literal "None" is no genre at all.
+        ("different_genres", 1),
+        # 1985 and 1989 are the same decade; 1977 is another.
+        ("different_decades", 2),
+        # `usdb:1` was sung twice (`s1` and `s4`); its duet scores are still one sing.
+        ("most_sings_of_one_song", 2),
     ],
 )
 def test_each_metric_measures_what_it_says(metric: str, expected: int) -> None:
@@ -316,6 +326,96 @@ def test_each_metric_measures_what_it_says(metric: str, expected: int) -> None:
     assert not evaluate(
         [condition(metric=metric, comparator="=", value=expected + 1)], METRIC_ROWS
     ).earned
+
+
+def test_every_metric_the_vocabulary_names_is_actually_measured() -> None:
+    """`_measure`'s `match` has no default arm, so a metric added to the `Literal` without
+    one falls through as `None` — which never satisfies anything and never raises either. An
+    achievement asking for it would simply be unearnable, quietly, for everybody.
+
+    This is the net under that: every metric the schema names answers with a number over the
+    same handful of rows, and a metric added to one file and not the other fails here.
+    """
+    for metric in get_args(Metric):
+        measured = _measure(condition(metric=metric, comparator=">=", value=1), METRIC_ROWS)
+        assert isinstance(measured, int), f"{metric} measured nothing"
+        # And the whole way through, not only the private function: nobody has fewer than
+        # zero of anything, so every metric is satisfied at zero over rows that exist.
+        assert evaluate([condition(metric=metric, comparator=">=", value=0)], METRIC_ROWS).earned
+
+
+def test_different_genres_ignores_the_word_usdb_writes_for_no_genre() -> None:
+    """`#GENRE:None` is USDB's empty header (`songs.txt.no_value`) and a row scanned before
+    that rule existed still holds the word. Neither is a genre anybody sang."""
+    rows = [
+        row(1000, sing_id="s1", song_id="usdb:1", genre="None"),
+        row(1000, sing_id="s2", song_id="usdb:2", genre="none"),
+        row(1000, sing_id="s3", song_id="usdb:3", genre="  "),
+        row(1000, sing_id="s4", song_id="usdb:4", genre=None),
+        row(1000, sing_id="s5", song_id="usdb:5", genre="Schlager"),
+    ]
+    assert evaluate([condition(metric="different_genres", comparator="=", value=1)], rows).earned
+
+
+def test_a_genre_line_naming_two_kinds_of_music_is_one_genre() -> None:
+    """Whatever the file says is the value, commas included: the Genre facet offers
+    "Hip-Hop, Rap" as one entry of the drop-down, and this counts what that facet shows.
+    Splitting it here would make the two surfaces disagree about the same library."""
+    rows = [
+        row(1000, sing_id="s1", song_id="usdb:1", genre="Hip-Hop, Rap"),
+        row(1000, sing_id="s2", song_id="usdb:2", genre="Rap"),
+    ]
+    assert _measure(condition(metric="different_genres", comparator=">=", value=1), rows) == 2
+
+
+def test_different_decades_ignores_a_song_with_no_year() -> None:
+    """A song nobody wrote a year into belongs to no decade, and "the unknowns" is not one."""
+    rows = [
+        row(1000, sing_id="s1", song_id="usdb:1", year=None),
+        row(1000, sing_id="s2", song_id="usdb:2", year=1999),
+        row(1000, sing_id="s3", song_id="usdb:3", year=1990),
+    ]
+    assert evaluate([condition(metric="different_decades", comparator="=", value=1)], rows).earned
+
+
+def test_a_decade_ends_at_the_nine() -> None:
+    """Where the buckets are cut, since a year is a number and nothing about it says so:
+    1990 to 1999 is one decade and 2000 starts the next. The two years libraries really hold
+    at the edges of what `#YEAR` can say are in here too — a year of 0 is a decade like any
+    other, and a five-digit typo lands in its own instead of breaking the count."""
+    edges = [
+        row(1000, sing_id="s1", song_id="usdb:1", year=1999),
+        row(1000, sing_id="s2", song_id="usdb:2", year=2000),
+        row(1000, sing_id="s3", song_id="usdb:3", year=2009),
+        row(1000, sing_id="s4", song_id="usdb:4", year=2010),
+    ]
+    # 1990, 2000, 2000 again, 2010.
+    assert _measure(condition(metric="different_decades", comparator=">=", value=1), edges) == 3
+    odd = [
+        row(1000, sing_id="s1", song_id="usdb:1", year=0),
+        row(1000, sing_id="s2", song_id="usdb:2", year=20144),
+    ]
+    assert _measure(condition(metric="different_decades", comparator=">=", value=1), odd) == 2
+
+
+def test_most_sings_of_one_song_is_the_song_that_was_sung_most() -> None:
+    """The other songs in between do not matter — "sing the same song three times" is this
+    metric at three, over any number of parties."""
+    rows = [
+        row(1000, sing_id="s1", song_id="usdb:1"),
+        row(1000, sing_id="s2", song_id="usdb:2"),
+        row(1000, sing_id="s3", song_id="usdb:1"),
+        row(1000, sing_id="s4", song_id="usdb:2"),
+        row(1000, sing_id="s5", song_id="usdb:2"),
+    ]
+    assert evaluate(
+        [condition(metric="most_sings_of_one_song", comparator=">=", value=3)], rows
+    ).earned
+    assert not evaluate(
+        [condition(metric="most_sings_of_one_song", comparator=">=", value=4)], rows
+    ).earned
+    # Nothing at all is not one sing of one song.
+    assert _measure(condition(metric="most_sings_of_one_song", comparator=">=", value=1), []) == 0
 
 
 def test_any_score_reads_the_best_one_upward_and_the_worst_one_downward() -> None:
@@ -849,20 +949,108 @@ def test_progress_beside_a_condition_that_has_none() -> None:
     assert (outcome.progress_current, outcome.progress_target) == (2, 4)
 
 
-def test_session_progress_is_the_best_single_party() -> None:
+def test_session_progress_is_the_newest_party_and_not_the_best_one() -> None:
+    """Five scores in one evening is about the evening being sung, so the bar counts the
+    party the singer is in — even when a party months ago got further. A bar stuck at four
+    from last summer would say somebody is one score away when they are five."""
     rows = [
         row(9000, sing_id="s1", session_id="party-a"),
         row(9000, sing_id="s2", session_id="party-a"),
-        row(9000, sing_id="s3", session_id="party-b"),
-        row(9000, sing_id="s4", session_id="party-b"),
+        row(9000, sing_id="s3", session_id="party-a"),
+        row(9000, sing_id="s4", session_id="party-a"),
         row(9000, sing_id="s5", session_id="party-b"),
     ]
     outcome = evaluate(
         [condition(scope="session", metric="number_of_scores", comparator=">=", value=5)], rows
     )
     assert not outcome.earned
-    # Three in one party, not five over both.
-    assert (outcome.progress_current, outcome.progress_target) == (3, 5)
+    # One in the newest party, not the four the older one reached and not five over both.
+    assert (outcome.progress_current, outcome.progress_target) == (1, 5)
+    # And which party that was, so the API can tell tonight's number from last month's.
+    assert outcome.progress_session_id == "party-b"
+
+
+def test_an_earned_badge_counts_the_party_that_earned_it() -> None:
+    """Once a party has satisfied the session-scoped conditions, that is the party the bar
+    is measured in — for good.
+
+    The number beside an earned badge is a record of how it was reached, so an earned "three
+    scores in one evening" reads 3 of 3 whatever is being sung tonight. Measuring the newest
+    party instead would file "1 of 3" against a badge somebody already holds, and every
+    later party would rewrite it again.
+    """
+    rows = [
+        row(9000, sing_id="s1", session_id="party-a"),
+        row(9000, sing_id="s2", session_id="party-a"),
+        row(9000, sing_id="s3", session_id="party-a"),
+        row(9000, sing_id="s4", session_id="party-b"),
+    ]
+    outcome = evaluate(
+        [condition(scope="session", metric="number_of_scores", comparator=">=", value=3)], rows
+    )
+    assert outcome.earned
+    assert (outcome.progress_current, outcome.progress_target) == (3, 3)
+    assert (outcome.session_id, outcome.progress_session_id) == ("party-a", "party-a")
+
+
+def test_a_mixed_achievement_whose_evening_is_done_counts_what_is_left() -> None:
+    """The one-evening half holds in `party-a`, so what is left of this achievement is the
+    global condition — and that is the honest bar. Measuring the session condition in the
+    newest party would say "1 of 3" about an evening that already happened, and hide the
+    ninety-six scores the achievement is really waiting for."""
+    rows = [
+        row(9000, sing_id="s1", session_id="party-a"),
+        row(9000, sing_id="s2", session_id="party-a"),
+        row(9000, sing_id="s3", session_id="party-a"),
+        row(9000, sing_id="s4", session_id="party-b"),
+    ]
+    outcome = evaluate(
+        [
+            condition(scope="session", metric="number_of_scores", comparator=">=", value=3),
+            condition(metric="number_of_scores", comparator=">=", value=100),
+        ],
+        rows,
+    )
+    assert not outcome.earned
+    assert (outcome.progress_current, outcome.progress_target) == (4, 100)
+    # A global condition's number belongs to no party, so nothing zeroes it in the morning.
+    assert outcome.progress_session_id is None
+
+
+def test_progress_from_a_global_condition_names_no_party() -> None:
+    """Nothing to compare against a running party: it was counted over the whole record."""
+    outcome = evaluate(
+        [condition(metric="number_of_scores", comparator=">=", value=5)],
+        [row(9000, sing_id="s1", session_id="party-a")],
+    )
+    assert (outcome.progress_current, outcome.progress_session_id) == (1, None)
+
+
+def test_the_weakest_condition_is_the_one_whose_party_is_remembered() -> None:
+    """Progress is one condition's, so the party it names is that condition's too. The
+    session-scoped one is the weaker here, so the row counts tonight."""
+    conditions = [
+        condition(metric="number_of_scores", comparator=">=", value=2),
+        condition(scope="session", metric="number_of_scores", comparator=">=", value=4),
+    ]
+    rows = [
+        row(9000, sing_id="s1", session_id="party-a"),
+        row(9000, sing_id="s2", session_id="party-b"),
+    ]
+    outcome = evaluate(conditions, rows)
+    assert (outcome.progress_current, outcome.progress_target) == (1, 4)
+    assert outcome.progress_session_id == "party-b"
+
+
+def test_a_session_condition_over_scores_that_belong_to_no_party_starts_at_zero() -> None:
+    """A sing recorded before parties existed helps no session-scoped condition, so there is
+    no party to name and nothing counted in one."""
+    outcome = evaluate(
+        [condition(scope="session", metric="number_of_scores", comparator=">=", value=3)],
+        [row(9000, sing_id="s1", session_id=None)],
+    )
+    assert (outcome.progress_current, outcome.progress_target) == (0, 3)
+    assert outcome.progress_session_id is None
 
 
 # ------------------------------------------------------------------------ the DB pass
@@ -914,8 +1102,8 @@ async def add_achievement(
 ) -> None:
     """One hand-built achievement, on a catalogue holding nothing else.
 
-    Migration 0023 seeds the seventeen Wingman ships, and a pass looks at every enabled one —
-    so they are dropped first. What they mean is `test_achievements_triggers`' business;
+    Migrations 0023 and 0030 seed the set Wingman ships, and a pass looks at every enabled
+    one — so they are dropped first. What they mean is `test_achievements_triggers`' business;
     these tests are about the engine, and the assertions here name every row a pass wrote.
     """
     await session.execute(delete(Achievement).where(Achievement.built_in.is_(True)))
@@ -1023,8 +1211,49 @@ async def test_a_pass_writes_a_row_for_every_enabled_achievement(session: AsyncS
     assert (unearned.progress_current, unearned.progress_target) == (2, 10)
     assert earned.earned_at is not None
     assert as_utc(earned.earned_at) == START
-    # Global-only conditions belong to no party.
+    # Global-only conditions belong to no party — neither the one that earned it nor one the
+    # progress was counted in.
     assert earned.session_id is None
+    assert (unearned.progress_session_id, earned.progress_session_id) == (None, None)
+
+
+async def test_a_pass_writes_down_which_party_a_bar_was_counted_in(
+    session: AsyncSession,
+) -> None:
+    """The column the API reads to answer "is that party still going". A session-scoped
+    condition's bar names the newest party; a global one's names none."""
+    await add_achievement(
+        session, "five-tonight", [{**TWO_SCORES[0], "scope": "session", "value": 5}]
+    )
+    session.add(
+        Achievement(
+            id="five-ever",
+            name="five-ever",
+            color="gold",
+            definition=[{**TWO_SCORES[0], "value": 5}],
+        )
+    )
+    await session.commit()
+    await add_song(session, "usdb:1")
+    for index, party in enumerate(["party-a", "party-a", "party-b"]):
+        await add_score(
+            session,
+            sing_id=f"s{index}",
+            song_id="usdb:1",
+            session_id=party,
+            player_id=PLAYER,
+            score=9000,
+            at=START + timedelta(minutes=index),
+        )
+
+    assert await service.evaluate_player(session, PLAYER, now=START) == []
+
+    # `player_rows` is ordered by id, so "five-ever" comes first.
+    ever, tonight = await player_rows(session, PLAYER)
+    # One score in `party-b`, the newest — not the two `party-a` reached.
+    assert (tonight.progress_current, tonight.progress_target) == (1, 5)
+    assert tonight.progress_session_id == "party-b"
+    assert (ever.progress_current, ever.progress_session_id) == (3, None)
 
 
 async def test_a_second_pass_leaves_a_badge_that_still_holds_alone(session: AsyncSession) -> None:

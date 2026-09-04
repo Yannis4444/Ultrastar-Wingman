@@ -98,3 +98,13 @@ class PlayerAchievement(Base):
     # toward *fewer*, and a bar that fills as somebody gets worse would be a lie.
     progress_current: Mapped[int | None] = mapped_column(Integer, nullable=True)
     progress_target: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    # The party `progress_current` was counted in, when it came from a session-scoped
+    # condition — the party that satisfied it, or the player's newest party at the time of
+    # the pass while none has. NULL when the progress is a global condition's, which belongs
+    # to no single party.
+    #
+    # Stored because the engine has no clock: `achievements.api` compares this against the
+    # party that is still going, and answers 0 for a number counted at a party that is over.
+    # That is what makes a "ten songs in one evening" bar read 0 of 10 the next morning
+    # without a pass having to run at midnight.
+    progress_session_id: Mapped[str | None] = mapped_column(String(32), nullable=True)

@@ -325,6 +325,7 @@ async def _write(
         row.session_id = outcome.session_id
         row.progress_current = outcome.progress_current
         row.progress_target = outcome.progress_target
+        row.progress_session_id = outcome.progress_session_id
 
     # Whatever is left named an achievement that is disabled or gone. Dropping the row is
     # what makes switching one back on a recomputation rather than a stale badge.
@@ -678,8 +679,8 @@ async def export_archive(session: AsyncSession, achievement_ids: list[str]) -> b
     """The named achievements as one `.tar.gz`, uploaded pictures included.
 
     An id that is not in the catalogue raises `UnknownAchievementError` rather than being
-    skipped: an export that quietly held sixteen of the seventeen ids somebody asked for
-    would be found out much later, in another instance.
+    skipped: an export that quietly held all but one of the ids somebody asked for would be
+    found out much later, in another instance.
 
     A `icon_file` column pointing at a file that is no longer there exports as an
     achievement with no picture. That is a broken row, not a broken request, and the archive
@@ -774,8 +775,8 @@ async def import_archive(
                 created.append(file.id)
                 # A built-in this import *creates* — a row somebody removed behind Wingman's
                 # back — is given the conditions Wingman ships rather than the archive's, so
-                # the shipped seventeen mean the same thing in every instance whichever way
-                # they got there.
+                # the shipped set means the same thing in every instance whichever way they
+                # got there.
                 achievement.definition = (
                     dump_definition(file.definition)
                     if shipped is None
@@ -822,7 +823,7 @@ async def import_archive(
         await _discard_staging(staging)
     logger.info("imported %d achievement(s) from an archive", len(parsed))
     # One broadcast for the whole archive, not one per row: every client refetches the
-    # catalogue on it, and seventeen of those would be sixteen wasted round trips.
+    # catalogue on it, and one per row would waste a round trip for every row but the first.
     await event_bus.broadcast(AchievementsChanged())
     return AchievementImportResult(created=created, updated=updated)
 

@@ -53,6 +53,20 @@ Metric = Literal[
     "number_of_sings",
     "different_songs",
     "different_artists",
+    # The genre line of the song file, casefolded and stripped. A song with no genre counts
+    # for nothing, and so does one whose file says the literal "None" — USDB writes
+    # `#GENRE:None` into a great many files, and `songs.txt` reads that as no genre at all
+    # (`txt.no_value`). Counted here as well, so a row scanned before that rule existed does
+    # not quietly become a genre of its own.
+    "different_genres",
+    # The decade a song is from, `year // 10 * 10`. A song with no year counts for nothing:
+    # there is no decade to put it in, and "the unknowns" is not one.
+    "different_decades",
+    # How often the *most* sung song was sung — the highest number of sings any single song
+    # of the surviving scores has. "Sing the same song three times" is this metric at 3, and
+    # the songs in between do not matter. Sings and not scores, like `number_of_sings`: a
+    # duet scored twice is one.
+    "most_sings_of_one_song",
     # How often the singer came first. A win is `placement == 1` in a sing whose
     # `field_size` is at least 2 — a song nobody else sang is not one won, and a shared
     # first place is (both singers came first; neither came second). Both fields were

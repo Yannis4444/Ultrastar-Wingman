@@ -278,7 +278,7 @@ function valueFor(
  *
  * `readOnly` is the built-in achievements' state: the blocks keep their heading
  * and their sentence, wear a `lock` where the remove button was, and have no
- * controls at all. A definition on one of the shipped seventeen is a 409, and a
+ * controls at all. A definition on one of the shipped built-ins is a 409, and a
  * refusal a reader only meets after pressing Save is a bug in this project's
  * book — so the form says it beforehand instead.
  */
