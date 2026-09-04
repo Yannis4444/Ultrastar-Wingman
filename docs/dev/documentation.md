@@ -522,7 +522,7 @@ about, and the **Must be visible** column names that part alone.
 | `user` | `scores/your-scores.md` | `/user` | Signed in as Bender | 390x844 | Identity tile, the stat bar, the histogram |
 | `user-stats` | `scores/your-scores.md` | `/user/stats` | Bender's own record across both seeded parties | 390x844 | The **Your scores** header, the charts of his own record |
 | `user-achievements` | `achievements/index.md` | `/user` | Signed in as Fry, whose four badges leave room for a bar below them | 390x844 | The open badge strip, its count, one row with a progress bar |
-| `achievements-admin` | `achievements/manage/index.md` | `/user/achievements` | Two of the party's own achievements, one switched off | 390x844 | The three settings, both sections, a lock mark, the off row |
+| `achievements-admin` | `achievements/manage/index.md` | `/user/achievements` | Two of the party's own achievements, one switched off | 390x844 | The three settings, the one list over the whole catalogue, an *Included* row, a lock mark, the off row |
 | `achievement-editor` | `achievements/manage/create.md` | `/user/achievements/:id` | The 80s achievement from the worked example | 390x844 | The condition block and its plain sentence |
 | `people-admin` | `people/players.md` | `/user/accounts` | Three accounts, seven guests, one of them hidden | 390x844 | Both groups, the role controls, a hidden row |
 | `permissions` | `people/roles.md` | `/user/permissions` | Defaults | 390x844 | The three columns Guest, User, and Trusted, and the line saying admins are not in the table |

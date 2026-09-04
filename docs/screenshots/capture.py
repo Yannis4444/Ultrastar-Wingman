@@ -684,7 +684,7 @@ ROWS: dict[str, Row] = {
         identity="host",
         viewport="phone",
         route="/user/achievements",
-        ready='qa(".achievements-list").length >= 2 && q(".achievements-included")'
+        ready='qa(".achievements-list").length === 1 && q(".achievements-included")'
         ' && q(".achievements-mark")',
         # The app's own timings for the length of the shot. The seed runs the host screen
         # at 30 and 15 so a badge row holds still for its own picture, and a reader of this

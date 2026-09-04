@@ -1,8 +1,23 @@
+/* The nav is exactly `--bottom-nav-height` tall, declared and not grown into:
+   three other rules reserve that term (`#root`'s bottom padding, the sticky
+   editor action row and the scroll-margin under it), and a nav that measured
+   itself would make all three a guess. It measured itself before, and the guess
+   was off by the caption: `line-height: normal` is derived from the font's own
+   metrics, so a 12px label is 16px tall in Segoe UI but 14–14.7px in Roboto,
+   Arial or SF — which left the editor's action row floating 1–2px above the nav
+   on every phone, and the 50px here true on Windows alone.
+
+   Nothing is clipped by fixing it: the padding is 10px over the safe area (at
+   least 10px again), so the content box is 50px + inset − 10px − max(10px,
+   inset) = 40px whatever the device reserves, and a tab is a 24px glyph over a
+   caption pinned to 16px below — 40px, in every font. */
 .bottom-nav {
   position: fixed;
   bottom: 0;
   left: 0;
   width: 100%;
+  box-sizing: border-box;
+  height: var(--bottom-nav-height);
   padding: 10px 0 max(10px, env(safe-area-inset-bottom)) 0;
   background-color: var(--footer-bg);
   z-index: 1000;
@@ -58,7 +73,11 @@
   box-shadow: 0 0 0 1px currentColor;
 }
 
+/* The caption is 16px tall by declaration, not by whichever font the device
+   happens to hand it: that is what makes the 24px glyph and this one line add
+   up to the 40px the height above leaves for them. */
 .bottom-nav span {
   display: block;
   font-size: 12px;
+  line-height: 16px;
 }

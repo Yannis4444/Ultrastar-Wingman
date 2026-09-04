@@ -644,23 +644,25 @@ def import_achievements(api: Api) -> dict[str, Any]:
 
 
 def arrange_catalogue(api: Api) -> list[str]:
-    """Move the one built-in that is hidden until it is earned up the included list.
+    """Put the party's own achievements at the head of the catalogue, with the one built-in
+    that is hidden until it is earned just behind them.
 
-    Where a badge sits in the catalogue is the host's arrangement, and the management page
-    is photographed at the top of it. The hidden one ships last of seventeen, so its lock —
-    the mark that picture is of — would be four screens down. Only that one id moves; every
-    other row keeps the place it had, because this order is what every badge surface lists
-    in, the host screen included.
+    The catalogue is **one** order over all of it — a party's own achievement may sit above
+    one Wingman ships — and the management page is photographed at the top of that list.
+    Left the way the seed makes it, an imported achievement lands at the end and the hidden
+    built-in ships seventeenth of seventeen, so the two rows and the lock that picture is of
+    would be four screens down. Arranging them is what a host does with two achievements of
+    their own, and this order is what every badge surface lists in, the host screen included.
     """
     rows = api.get("/achievements", params={"manage": "true"})["achievements"]
-    ids = [str(row["id"]) for row in rows]
+    was = [str(row["id"]) for row in rows]
     built_ins = [str(row["id"]) for row in rows if row["built_in"]]
-    if len(built_ins) < 2 or built_ins[0] == scenario.LOCKED_BUILT_IN:
+    if scenario.LOCKED_BUILT_IN in built_ins:
+        built_ins.remove(scenario.LOCKED_BUILT_IN)
+        built_ins.insert(1, scenario.LOCKED_BUILT_IN)
+    ids = [str(row["id"]) for row in rows if not row["built_in"]] + built_ins
+    if ids == was:
         return ids
-    if scenario.LOCKED_BUILT_IN not in built_ins:
-        return ids
-    ids.remove(scenario.LOCKED_BUILT_IN)
-    ids.insert(ids.index(built_ins[0]) + 1, scenario.LOCKED_BUILT_IN)
     api.put("/achievements/order", json={"ids": ids})
     return ids
 

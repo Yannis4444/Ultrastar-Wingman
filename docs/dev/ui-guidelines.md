@@ -136,9 +136,16 @@ exception). Tests identify glyphs with `iconNames()` from `src/test/icons.ts`.
   sticky row on `--bg` under a hairline `border-top`, carrying the view's one primary Save,
   one quiet 0.85em line, and the editor's other action — a danger Delete, a plain Reset — at
   the far end of that same line. It sits **inside** the `<form>` (Save is its submit) and
-  sticks at `calc(50px + max(10px, env(safe-area-inset-bottom)))`, exactly the bottom nav's
-  own height, so it rides on the nav, counts the safe-area inset once, and settles into the
-  flow at the true end of the form — nothing is ever hidden behind it. The page's focusables
+  sticks at `var(--bottom-nav-height)`, so it rides on the nav, counts the safe-area inset
+  once, and settles into the flow at the true end of the form — nothing is ever hidden
+  behind it. That term is **one token** (`index.css`), and `BottomNav.css` sets the nav's
+  `height` from it rather than growing into its own content — the caption's `line-height`
+  pinned so the 24px glyph and the 16px word are exactly the 40px the token leaves them.
+  It has to be declared, not measured: `line-height: normal` comes out of the font's own
+  metrics, so the same 12px caption is 16px tall in Segoe UI and 14px in Roboto, Arial or
+  SF, and a nav that measured itself left this row floating 1–2px above it on every phone
+  while looking flush on Windows. Everything that reckons with the nav — `#root`'s bottom
+  padding, this row, the scroll-margin under it — reads that one token. The page's focusables
   carry a matching `scroll-margin-bottom` the way `Settings.css` carries `scroll-margin-top`,
   and it has to clear **the nav plus the row plus a control's own height**: the browser
   honours the margin exactly and scrolls the focused element's own box, which for a radio pill
@@ -384,7 +391,12 @@ saved) where a jump to the top would throw away the place they were working in.
   flight the arrows are `disabled` and the grip starts no drag — two orders sent from one
   list can land in either sequence, and the loser is what the catalogue keeps. The grip is
   not dimmed for it, being `aria-hidden` scenery rather than a control, so the disabled
-  arrows are what the reader sees. The order is **one order over the whole catalogue**: a row
+  arrows are what the reader sees. **The focus goes back to the arrow that was pressed**
+  once the answer lands — the row's own node moves and both its arrows are disabled for the
+  length of the request, and neither a moved nor a disabled control keeps the focus — or to
+  the row's other arrow where the move used that one up (it now leads or ends the list), so
+  arranging by keyboard is a run of presses rather than a walk back to the list after each
+  one. A refused order puts it back too, on the arrow that was pressed. The order is **one order over the whole catalogue**: a row
   moves anywhere in the list, a party's own achievement above a shipped one included, and what
   is sent is the list exactly as drawn — one sequence over one column, which is the order
   every badge surface lists in and the order the export picker offers.

@@ -96,3 +96,22 @@ it("puts the editor's other action beside Save on the one row", () => {
     "Delete tag",
   );
 });
+
+it("is one sticky row inside the form, the geometry hangs on it", () => {
+  const { container } = render(
+    <form>
+      <EditorActions note="Nothing has changed yet." />
+    </form>,
+  );
+
+  // `.editor-actions` is what sticks at `--bottom-nav-height` — the term the
+  // nav is that tall by and the page reserves at its foot — so the row rides on
+  // the nav rather than a pixel or two above it. It has to be the last thing in
+  // the form, or what follows scrolls behind it and ends up underneath.
+  const row = container.querySelector(".editor-actions");
+  expect(row).not.toBeNull();
+  const form = container.querySelector("form")!;
+  expect(form.lastElementChild).toBe(row);
+  expect(row?.querySelector(".editor-actions-note")).not.toBeNull();
+  expect(row?.querySelector(".editor-actions-row")).not.toBeNull();
+});

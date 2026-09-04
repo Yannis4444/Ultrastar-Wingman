@@ -358,10 +358,11 @@ leave behind is two rows on one number, which every listing settles the same way
 each time (`sort_order`, then `created_at`) and which the next arrangement
 washes out.
 
-The admin page draws the catalogue as two sections — the party's own, then the
-included ones — and sends them as one sequence in that order, so a built-in
-never lands between two rows somebody made here. That is the page's own reading
-of a single column, not a second rule in the model.
+The admin page draws the catalogue as **one list** over all of it and sends that
+list exactly as drawn, so a built-in may sit between two rows somebody made here
+and one of those may lead the whole catalogue. The page adds no rule of its own
+on top of the single column: what the host arranges is what is stored, and there
+is nowhere in the app a shipped achievement and a party's own are kept apart.
 
 Undoing a refused order is the page's business, and what it goes back to is the
 order **the server still has** — never "the order before this move": a drag
