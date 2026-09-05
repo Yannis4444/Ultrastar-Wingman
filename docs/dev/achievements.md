@@ -682,11 +682,12 @@ nothing. That rule feeds `has_image`, `icon_version` and the icon endpoint, so
 a fresh database draws a built-in whose artwork exists with that artwork, an
 upload stands in front of it, and removing the upload (or a reset) goes *back*
 to it rather than to a glyph — a built-in is never drawn with a glyph while its
-picture ships. "And the file exists" is not a formality: eighteen of the
-built-ins have no artwork yet, and each of those is drawn with its glyph until
-its two files land ([achievement-artwork.md](achievement-artwork.md) §9). The
-disk is asked and not `builtin.py`, which is what makes that the ordinary
-answer rather than a broken one. `AchievementRead.image_shipped` says which of
+picture ships. "And the file exists" is not a formality, even though all
+thirty-five have their artwork since 2026-09-05
+([achievement-artwork.md](achievement-artwork.md) §9): a built-in arrives
+before its picture does, and for that span it is drawn with its glyph. The disk
+is asked and not `builtin.py`, which is what makes that the ordinary answer
+rather than a broken one. `AchievementRead.image_shipped` says which of
 the two is drawn, which is what lets the editor offer **Back to the included
 picture** instead of a glyph. Export carries uploads only: every instance has
 the shipped files, and an archive that carried one would come back through
@@ -781,10 +782,11 @@ So adding a built-in is `builtin.py`, a revision in that shape — and then the
 `BUILT_INS` order — nothing compares it against `builtin.py`, so it drifts
 silently), `PICTURES_PENDING` in `backend/tests/test_achievements_api.py` until
 the two PNGs exist (the one mirror a test does hold to: the picture test asks
-the disk for every id outside that set), an entry in §4 of
-[achievement-artwork.md](achievement-artwork.md) with its row in §9, the table
-in `docs/user/achievements/index.md`, and every count in the documentation —
-thirty-five shipped, twenty-nine of them visible.
+the disk for every id outside that set — and the set is empty today, so a new
+built-in puts its id in and takes it out again a picture later), an entry in
+§4 of [achievement-artwork.md](achievement-artwork.md) with its row in §9, the
+table in `docs/user/achievements/index.md`, and every count in the
+documentation — thirty-five shipped, twenty-nine of them visible.
 
 A seed migration inserts rows and **starts no pass**, which matters the moment
 one runs on a database that already has a history. An achievement nobody has

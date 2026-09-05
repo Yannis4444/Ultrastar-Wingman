@@ -1473,36 +1473,20 @@ async def _add_score(party: Party, player_id: str, score: int) -> None:
 
 # --- The pictures Wingman ships ------------------------------------------------------------
 
-# The built-ins whose artwork does not exist yet. The pictures are drawn by hand, one at a
-# time, out of the motif entries in `docs/dev/achievement-artwork.md` (§4), and a badge without
-# its two PNGs is drawn with its glyph in the meantime — so the promise below is "every
-# built-in except these", and an id leaves this set in the same commit as its two files.
+# The built-ins whose artwork does not exist yet — **empty since 2026-09-05**, when the last
+# eighteen pictures landed: every built-in ships its two PNGs today. The set stays because the
+# next built-in arrives before its picture does: the pictures are drawn by hand, one at a time,
+# out of the motif entries in `docs/dev/achievement-artwork.md` (§4), and a badge without its
+# two PNGs is drawn with its glyph in the meantime — so the promise below is "every built-in
+# except these". An id lives here from the commit that adds it to `BUILT_INS` until the commit
+# that adds its two files, and leaves in that second one.
 #
-# Not a skip: the listings are still pinned, so a stray or misnamed file in either directory
-# fails just as it did, and a picture that lands while its id is still named here fails too.
-PICTURES_PENDING: frozenset[str] = frozenset(
-    {
-        "builtin-wins-1",
-        "builtin-wins-10",
-        "builtin-wins-50",
-        "builtin-decade-1970s",
-        "builtin-decade-1980s",
-        "builtin-decade-1990s",
-        "builtin-decade-2000s",
-        "builtin-time-traveler",
-        "builtin-mixtape",
-        "builtin-full-commitment",
-        "builtin-rap-god",
-        "builtin-queen-10",
-        "builtin-abba-5",
-        "builtin-beatles-4",
-        "builtin-christmas",
-        "builtin-soundtrack",
-        "builtin-groundhog-day",
-        # And the one that arrived after that batch (entry 35 of the guide).
-        "builtin-evening-songs-20",
-    }
-)
+# Emptying it skips nothing that was checking a file: the listings below are still pinned, so
+# a stray or misnamed file in either directory fails just as it did, and a picture that lands
+# while its id is still named here fails too. The one thing an empty set does skip is the
+# parametrized glyph test under it, which has no built-in left to ask about — pytest reports
+# it as `got empty parameter set`, and it comes back with the next built-in.
+PICTURES_PENDING: frozenset[str] = frozenset()
 
 
 def test_every_built_in_ships_a_picture_in_both_sizes() -> None:

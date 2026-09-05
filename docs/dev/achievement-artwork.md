@@ -6,8 +6,9 @@ kit is what makes a matching badge for a custom achievement later. The
 finished files live in `backend/src/ultrastar_wingman/achievements/images/`,
 one PNG per built-in whose picture has been made, named by its id
 (`builtin-score-9000.png`) — ChatGPT's own download, full size, unchanged, so
-the file in the package is also the master. §9 says which badges exist. §8 is
-the UI work the pictures still need.
+the file in the package is also the master. All thirty-five exist since
+2026-09-05; §9 is the record of how each came out, and of what a badge added
+later has to do. §8 is the UI work the pictures needed, and is done.
 
 ## 1. What the app does with a picture
 
@@ -22,7 +23,7 @@ the host screen, and every guideline below follows from one of them.
 | Earned glyph medallions are a solid plate in the tier colour with a cut-out glyph; the four tier colours are the tag colours: neutral `#ccc`, blue `#4b92cd`, pink `#9e3b95`, gold `#faa636`. | The tier has to stay visible in the picture, or the ladders (6 000 → 8 000 → 9 000 → 9 500) lose their colour story. |
 | Row avatars, a tag's colour square and a playlist's cover are 8 px rounded squares (`--border-radius-small`); round was what told a badge from a tag. | With square badges the enamel-pin drawing itself is what tells a badge apart from a flat glyph square. §8 notes the tag square as something to look at again. |
 | The app is dark-only: page `#021720`, tiles `#1b3347`, inputs `#1c2832`. | **Decision (2026-09-03): the plate is a monochrome dark grey, not a navy.** A neutral grey sits under all four tier colours without tinting them, keeps the picture's hue entirely on the motif, and is dark enough that the badge still reads as a dark object on the dark page. Some structure in the grey is fine, one fixed kind of it (§2). |
-| Upload: PNG/JPEG/WebP, ≤ 5 MB, ≤ 50 MP. | ChatGPT's download is a 1254×1254 PNG of 1–1.3 MB — the soft falloff and the model's noise defeat PNG's compression — comfortably inside both caps. **Decision (2026-09-03): ship that file as it is**, no downscale, so a larger badge view later has the pixels; a smaller variant for the rows is the serving side's job (§8, item 6), not a second set of files made by hand. |
+| Upload: PNG/JPEG/WebP, ≤ 5 MB, ≤ 50 MP. | ChatGPT's download is a 1254×1254 PNG of 1–1.6 MB — the soft falloff and the model's noise defeat PNG's compression — comfortably inside both caps. **Decision (2026-09-03): ship that file as it is**, no downscale, so a larger badge view later has the pixels; a smaller variant for the rows is the serving side's job (§8, item 6), not a second set of files made by hand. |
 | A built-in is drawn with its **shipped picture** unless the host uploaded one (`achievements/pictures.py`, since 2026-09-04): `Reset` and removing an upload go back to it, `image_shipped` tells the editor so, and export carries uploads only. | The files in `images/` *are* the badges every fresh install shows. A stray or misnamed file there ships in every wheel and installer, and `test_every_built_in_ships_a_picture_in_both_sizes` refuses one. |
 | `GET /achievements/{id}/icon?size=small` serves `images/small/<id>.png`; every badge the app draws asks for it. | Each badge is two files: the original and a 256 px variant made from it (§5, step 5). An upload has no variant and is served whole at either size. |
 
@@ -155,10 +156,12 @@ dark silhouette is what the glyph medallion already is, so the picture would
 add little; and a bright motif on a dark plate is the combination that
 survives the greyscale state. The cost: in a mixed list, a picture badge (grey
 plate, coloured drawing) and a glyph badge (coloured plate) look like two
-families. That mixed list is exactly what the catalogue is again until the
-eighteen pictures of entries 18 to 35 exist (§9) — and after that it is only
-custom achievements, which get the prompt kit. §8 asks whether the glyph badge
-should invert to the same dark-plate look when it goes square.
+families. Since 2026-09-05 the catalogue is no longer that mixed list — all
+thirty-five built-ins have their picture (§9) — so a glyph badge is a custom
+achievement, whose host gets the prompt kit through the user docs. §8 settled
+the other half of it: a glyph badge keeps its **tier-coloured plate** rather
+than inverting to a dark one, because that is what tells it from a tag's
+square now that both are rounded squares.
 
 ## 3. The master prompt
 
@@ -219,12 +222,13 @@ prompt: **MOTIF** (*a single* object, its pose, its one action cue), **ACCENT**
 what the app draws today; ⚠ marks a motif that deviates from it, with the
 reason, so each can be vetoed back to the glyph.
 
-Entries 1 to 17 are the badges of 2026-09-03, all of which exist. Entries 18 to
-34 are the second batch of built-ins (2026-09-04) and 35 is the one that came
-after them; none of those eighteen pictures have been made yet — §9 is the
-list. What each achievement asks for is `achievements/builtin.py`'s and is not
-repeated here: an entry is the artwork, and a definition copied into a second
-place is a definition that drifts.
+Entries 1 to 17 are the badges of 2026-09-03. Entries 18 to 34 are the second
+batch of built-ins (2026-09-04) and 35 is the one that came after them, drawn
+with them. **All thirty-five exist** since 2026-09-05 — §9 is the record, and
+five of these entries (29, 30, 31, 34, 35) were rewritten there and then to the
+picture that was actually made. What each achievement asks for is
+`achievements/builtin.py`'s and is not repeated here: an entry is the artwork,
+and a definition copied into a second place is a definition that drifts.
 
 The numbers are these entries' own and they stay put. They were `builtin.py`'s
 order when they were written and are not any more — that file moved its hidden
@@ -234,8 +238,12 @@ this guide and the prompt runs outside it name a badge by its number, so
 renumbering would cost more than the coincidence was worth. A new badge is
 therefore **appended** with the next number, wherever `builtin.py` files it.
 
-Accents over the set: red ×14, teal ×10, cream ×6, pink ×5 — red is the
-workhorse, the others keep neighbouring badges apart.
+Accents over the set: red ×13, teal ×9, cream ×7, pink ×5 — red is the
+workhorse, the others keep neighbouring badges apart — and 35 carries none at
+all, which is thirty-four accents over thirty-five badges. (The totals moved
+with the rewrites: 31 traded red for teal, 34 teal for cream, and 35 gave its
+teal up altogether.) 34's mound of earth is the one colour in the set that is
+in no palette, and its entry says why.
 
 **1 · First Time on the Mic** — neutral — `builtin-first-song` — glyph `smile` ⚠
 *A face drifts between runs; the name is about the mic.*
@@ -465,25 +473,42 @@ BACKGROUND: one wide curved sound-wave band sweeping behind the stand.
 ```
 
 **29 · Killer Queen** — gold — `builtin-queen-10` — glyph `crown`
+*The fourth microphone of the set (1, 15 and 28 are the others) and the one on a
+long stand: the diagonal pole and the looping cable are what tell it from 28's
+upright desk stand at 40 px, so the line asks for both.*
 ```
-MOTIF: a single vintage microphone head on a short stem with a wide flat foot, seen from the front and tilted 15 degrees, with one thick sound arc leaving the head to the right.
-ACCENT: pink #c85bbd, on the stem's collar band.
+MOTIF: a single microphone with a round mesh head on a long straight stand running diagonally from the lower left to the upper right, tilted about 40 degrees, its cable looping once below the head, with one thick sound arc leaving the head to the upper right.
+ACCENT: pink #c85bbd, on the collar band under the microphone head.
 BACKGROUND: three wide stage-light beams fanning up from behind the microphone.
 ```
 
-**30 · Super Trouper** — blue — `builtin-abba-5` — glyph `sun`
+**30 · Super Trouper** — blue — `builtin-abba-5` — glyph `sun` ⚠
+*Rewritten on 2026-09-05 to the picture drawn on 2026-09-04: a glam platform
+boot, not the follow-spot lamp this entry asked for. The boot is the better nod — it is ABBA
+on sight, where a follow-spot is stage hardware that says nothing about the
+band — and it keeps its beams as the background, so the "super trouper" reading
+survives behind it. Alternative if it is ever redrawn: the sun of the glyph, or
+the lamp this entry used to name.*
 ```
-MOTIF: a single follow-spot lamp on a short yoke mount, a wide cylindrical body pointing up and to the right at 30 degrees, with one thick beam leaving the lens.
-ACCENT: cream #f3ead6, on the lens at the front of the beam.
-BACKGROUND: three wide beams fanning up and to the right behind the lamp.
+MOTIF: a single knee-high platform boot seen from the side, its toe pointing to the right, with a thick block sole, a chunky block heel and a tall shaft that leans back to the left about 10 degrees, one large five-point star on the shaft; no action cue.
+ACCENT: cream #f3ead6, on the star on the shaft.
+BACKGROUND: three wide beams fanning up from behind the boot.
 ```
 
-**31 · The Fab Four** — neutral — `builtin-beatles-4` — glyph `anchor` ⚠
+**31 · The Fab Four** — gold — `builtin-beatles-4` — glyph `anchor` ⚠
 *The submarine is the nod; the anchor is only the nearest thing the icon set
 has. Alternative: an anchor, tilted, with one wave curve behind it.*
+
+*Drawn in the **gold** tier, not the neutral one this entry first named, and
+that is the point: the joke is a yellow submarine, and a silver one is a
+different vessel. It is the one badge whose tier is the artwork's rather than
+the achievement's — `builtin.py` keeps `color="neutral"`, which costs nothing
+while the picture ships, because `AchievementBadge` paints no plate under a
+picture. The accent moved with it: red on the conning tower would have been a
+second warm hue on a gold hull, so the porthole's teal carries it.*
 ```
 MOTIF: a single submarine seen from the side, a rounded hull with one round porthole and a short conning tower with a periscope, tilted 15 degrees nose-up, with one thick bubble trail leaving the tail.
-ACCENT: red #d9534f, on the conning tower.
+ACCENT: teal #3fb8a8, on the porthole glass and the bubbles of the trail.
 BACKGROUND: one wide wave curve across the lower part of the plate.
 ```
 
@@ -501,14 +526,24 @@ ACCENT: red #d9534f, on the hinge block at the end of the bar.
 BACKGROUND: two large chevrons pointing up, stacked, behind the clapperboard.
 ```
 
-**34 · Groundhog Day** — pink — `builtin-groundhog-day` — glyph `refresh`
+**34 · Groundhog Day** — pink — `builtin-groundhog-day` — glyph `refresh` ⚠
 *Hidden until it is earned since 2026-09-04. The repeat arrow is the whole
 idea, so it is the one action cue and it has to survive 40 px: thick, and clear
-of the label.*
+of the animal.*
+
+*Rewritten on 2026-09-05 to the picture drawn on 2026-09-04: the groundhog
+itself, not the vinyl record this entry asked for. The record was the safe motif and the wrong one —
+it says "a song again", where the badge is the film, and the set already has
+two discs in 21 and 23. The cost is two rule breaks, both kept because the
+motif does not exist without them: the animal has a **face** (§2 bans one
+"unless the MOTIF line names one", so this line names it, as 27's does), and
+its mound is an **earth brown** that is in none of the four accent palettes —
+the one picture in the set with a fifth hue. It is a hidden badge, met once it
+is somebody's, which is where an exception costs least.*
 ```
-MOTIF: a single vinyl record seen face on with a wide flat centre label, tilted 12 degrees, with one thick curved repeat arrow sweeping around its upper edge.
-ACCENT: teal #3fb8a8, on the centre label.
-BACKGROUND: three wide concentric rings centred on the record.
+MOTIF: a single friendly cartoon groundhog seen from the front, head and shoulders and two front paws rising out of a wide mound of earth, with two small round ears, two round eyes and a round snout, and one thick curved repeat arrow sweeping over it from the left and ending in an arrowhead at the lower right.
+ACCENT: cream #f3ead6, on the belly and the muzzle; the mound of earth is a flat mid-brown with a darker brown shadow, the one colour in the set outside the palette.
+BACKGROUND: one large soft ring behind the groundhog.
 ```
 
 **35 · All Night Long** — gold — `builtin-evening-songs-20` — glyph `moon`
@@ -516,12 +551,18 @@ BACKGROUND: three wide concentric rings centred on the record.
 gold like the top of every ladder. The moon rather than a third piece of gym
 equipment: the ladder is about an evening that would not end, and a crescent is
 the one shape in the set that says "still going" without a clock face — 12
-already owns the hourglass and the ring behind it. Two large craters carry the
-accent, the way 17's two cheeks do; nothing smaller, because a crater that
-needs 40 px to read is a smudge.*
+already owns the hourglass and the ring behind it.*
+
+*The craters this entry asked for — two large ones, carrying a teal accent the
+way 17's two cheeks do — **were removed on purpose** (the user, 2026-09-05).
+The crescent is the one badge in the set with **no accent at all**: three gold
+tones and nothing else, which is what a moon looks like and what leaves the
+clouds behind it the only other thing on the plate. It is the exception the
+"one accent" rule is stated against, not a badge that lost its accent by
+accident.*
 ```
-MOTIF: a single thick crescent moon with rounded horns, seen straight on and tipped 20 degrees with its horns to the upper right, two large round craters on its surface; no action cue.
-ACCENT: teal #3fb8a8, on the two large craters.
+MOTIF: a single thick crescent moon with rounded horns and a smooth unbroken surface, no craters and no markings, seen straight on and tipped 20 degrees with its horns to the upper right; no action cue.
+ACCENT: none — the moon is the three gold tones alone, the one badge in the set without an accent.
 BACKGROUND: two wide flat cloud bands drifting horizontally across the plate behind the moon.
 ```
 
@@ -579,10 +620,13 @@ grey and falloff during QA, and the fallback picture if a badge ever needs one.
    lands while its id is still named in that set. **Take the id out of
    `PICTURES_PENDING` in the same commit as its two PNGs**, and out of §9's
    pending list with it.
-6. **Load** — on a scratch instance: export the catalogue from
-   `/user/achievements`, put each file into its folder as `icon.png`, import
-   the archive. Check the list at 40 px, the user page, and the host screen
-   (both states: earned and drained). Then the same import on the live data.
+6. **Look at it in the app** — the two files *are* the badge since
+   `pictures.py` (2026-09-04), so nothing has to be imported: start a scratch
+   instance on the working tree and the new picture is already what the
+   built-in draws. Check the list at 40 px, the user page and the host screen,
+   in both states (earned, and drained to grey at 45 %). Nothing is loaded
+   into the live data — an installed Wingman gets the file with its next
+   build.
 
 ## 6. QA checklist per image
 
@@ -624,27 +668,32 @@ grey and falloff during QA, and the fallback picture if a badge ever needs one.
   `backend/src/ultrastar_wingman/achievements/images/<id>.png`, inside the
   existing achievements package, so hatchling ships them in the wheel without
   configuration (the wheel takes every file under `src/ultrastar_wingman`);
-  the installer will need one more `datas` line in
-  `installer/UltrastarWingman.spec`, which lists its data directories by hand
-  (§8, item 6). There is no separate masters folder: the packaged file is
-  ChatGPT's original and therefore the master.
+  the installer needed one more `datas` line in
+  `installer/UltrastarWingman.spec`, which lists its data directories by hand,
+  and has it since §8's item 6 — the directory, so `small/` goes with it.
+  There is no separate masters folder: the packaged file is ChatGPT's original
+  and therefore the master.
 
-**Still open:**
+**Were open, all settled** — nothing below is a question any more; the three
+stay as the record of what was decided and why:
 
 1. **The motif deviations** in §4 — take each or fall back to the glyph; each
    entry names its glyph alternative. Six in the first batch (1, 2, 3, 11, 14,
-   15), all taken and drawn, and three in the second (23, 27, 31), where the
-   glyph is only the nearest thing the icon set has. 27 is the one that also
-   deviates from a *rule* — the ban on faces — and its entry says why and how.
+   15) and five in the second (23, 27, 30, 31, 34): **all drawn and kept**
+   (2026-09-05), 30 and 34 having left their entries behind on the way, which
+   §9 records. Four badges break a *rule* as well as, or instead of, a glyph —
+   27 and 34 the ban on faces (34 the accent palette with it), 31 the tier,
+   which is the artwork's here and not the achievement's, and 35 the "one
+   accent" rule by carrying none — and each entry says why.
 2. **The accent assignments and background elements** in §4 — proposed per
-   badge, easiest to judge on the calibration images. Settled for 1 to 17 by
-   the badges themselves; open again for 18 to 35.
-3. **Shipped defaults — when.** Putting the files into the backend package
-   means they *are* shipped, but nothing reads them yet: today a picture is
-   per-instance data, loaded through the editor or an import, and a `Reset`
-   drops it. The feature that makes the packaged files the built-ins' default
-   pictures is §8, item 6. Until it exists, the packaged files are the source
-   the import archive is built from, and nothing more.
+   badge, easiest to judge on the calibration images. Settled for all
+   thirty-five by the badges themselves.
+3. **Shipped defaults — when.** Answered on 2026-09-04 by §8's item 6, which
+   became `achievements/pictures.py`: the packaged files are the built-ins'
+   pictures, read off the disk, with an upload standing in front of one and
+   `Reset` going back to it. They stopped being "the source an import archive
+   is built from" that day — an export carries uploads only, because every
+   instance already has these files.
 
 ## 8. UI changes this needed — done 2026-09-04 (`feat/square-badges`)
 
@@ -727,24 +776,24 @@ reads better at 40 px, and every later badge copies this one.
 | 15 | Better Together | `builtin-first-duet.png` | done — two matching mics crossed at the middle, teal bands, grid heads like badge 1 (siblings on purpose), one grey arc per head over the two rings |
 | 16 | Well Traveled | `builtin-artists-10.png` | done — red tail fin, globe arc. The contrail was dropped by hand (it looked wrong; entry 16 now says no contrail). Two liberties kept: a row of small dark windows (they collapse to a dashed line at 40 px, harmlessly) and continents on the globe arc, grey and low-contrast |
 | 17 | Brave Soul | `builtin-brave-soul.png` | done — as specified; fleeing tilt, arms up, two pink cheeks, grey trail behind the hem |
-| 18 | First Place | `builtin-wins-1.png` | **pending** |
-| 19 | On a Roll | `builtin-wins-10.png` | **pending** |
-| 20 | Undisputed | `builtin-wins-50.png` | **pending** |
-| 21 | Back to the 70s | `builtin-decade-1970s.png` | **pending** |
-| 22 | Back to the 80s | `builtin-decade-1980s.png` | **pending** |
-| 23 | Back to the 90s | `builtin-decade-1990s.png` | **pending** |
-| 24 | Back to the 2000s | `builtin-decade-2000s.png` | **pending** |
-| 25 | Time Traveler | `builtin-time-traveler.png` | **pending** |
-| 26 | Mixtape | `builtin-mixtape.png` | **pending** |
-| 27 | Rickrolled | `builtin-full-commitment.png` | **pending** — the face rule; read entry 27 before generating |
-| 28 | Rap God | `builtin-rap-god.png` | **pending** |
-| 29 | Killer Queen | `builtin-queen-10.png` | **pending** |
-| 30 | Super Trouper | `builtin-abba-5.png` | **pending** |
-| 31 | The Fab Four | `builtin-beatles-4.png` | **pending** |
-| 32 | Christmas Number One | `builtin-christmas.png` | **pending** |
-| 33 | Roll the Credits | `builtin-soundtrack.png` | **pending** |
-| 34 | Groundhog Day | `builtin-groundhog-day.png` | **pending** |
-| 35 | All Night Long | `builtin-evening-songs-20.png` | **pending** |
+| 18 | First Place | `builtin-wins-1.png` | done — as specified; silver rosette, teal button at its centre, two ribbon tails falling to the right, concentric rings behind. The pleats came out as one ring of broad petals rather than a fine fan, which is exactly what keeps the rosette from collapsing into a grey disc at 40 px |
+| 19 | On a Roll | `builtin-wins-10.png` | done — blue podium, red flag on a pole planted in the tallest block, stage-light beams behind. The 10° tilt did not appear and the podium stands square; kept, because three stepped blocks are their own diagonal and a tilt on top of them read as sliding |
+| 20 | Undisputed | `builtin-wins-50.png` | done — gold belt curved as if over a shoulder, pink oval centre plate, two chevrons behind. One liberty kept: two smaller round side plates flank the centre one. They are belt hardware, they are gold on gold, and they do not touch the pink's fifth |
+| 21 | Back to the 70s | `builtin-decade-1970s.png` | done — as specified; facetted blue ball on a straight cord, red cap at the cord, three rings behind. The two light arcs came out in the tier's highlight blue as part of the motif rather than merging into the grey background, which is what the entries ask for and what 1 and 2 did not manage |
+| 22 | Back to the 80s | `builtin-decade-1980s.png` | done — blue boombox tilted as if shouldered, cream cassette window, the wave band sweeping behind. The one sound arc off the right speaker came out pale rather than in a tier tone; harmless, and at 40 px it reads with the band behind it |
+| 23 | Back to the 90s | `builtin-decade-1990s.png` | done — the deviation taken: a portable CD player, not the glyph's bell. Blue case and raised lid, red play button on the front edge, rings behind. Two liberties kept: the disc is silver (the neutral tier's own tones, so no fifth hue) and two more transport buttons sit beside the red one, which is what makes that edge read as the front |
+| 24 | Back to the 2000s | `builtin-decade-2000s.png` | done — blue flip phone open in its L, cream screen, one wide arc behind. The two signal arcs came out cream as well, so the accent is the screen and the arcs together; still inside a fifth, and it ties the cue to the accent instead of splitting the eye between two colours |
+| 25 | Time Traveler | `builtin-time-traveler.png` | done — pink case, the three tubes meeting in a Y, teal at the junction, rings behind. The "thick energy arc across the meeting point" became the teal junction itself — the same merge the steam made on 2 — and two dark cable loops arch over the top, kept because they are what makes it a flux capacitor rather than a fan |
+| 26 | Mixtape | `builtin-mixtape.png` | done — as specified; pink cassette, cream label band, one thick tape loop spooling out of the lower edge, two staff lines curving behind |
+| 27 | Rickrolled | `builtin-full-commitment.png` | done, and the face rule held: a solid gold cut-out with no facial features and no visible hands, the swept quiff and the swinging coat tail carrying the whole likeness, over the three sound arcs. Two liberties: the stand mic's head is a vintage ribbon grille rather than a plain one (it is where the teal sits, so it wanted the detail), and the lean is nearer 25° than 15°. No fallback was needed — the figure did not drift |
+| 28 | Rap God | `builtin-rap-god.png` | done — gold mesh head, red band under it, heavy round base, two gold sound arcs to the upper right. The lean is nearer 35° than 20° and the base is the short desk kind rather than a floor stand's; both kept, and the heavy base is still what tells this mic from 1 and 15 at 40 px |
+| 29 | Killer Queen | `builtin-queen-10.png` | done, entry rewritten. The "short stem with a wide flat foot, seen from the front" came out as a long diagonal stand with the cable looping once under the head. Kept and written into entry 29, because this is the fourth microphone in the set and the diagonal and the cable are what tell it from 28's upright at 40 px, where a front-on stem would not have. Pink collar band, stage-light beams behind |
+| 30 | Super Trouper | `builtin-abba-5.png` | done, entry rewritten. The follow-spot lamp came out as a blue glam platform boot with a cream star on its shaft — not what was asked for, and better: the beams behind it still say "super trouper", while the lamp itself said nothing about ABBA. The star took the accent the lens was to have carried |
+| 31 | The Fab Four | `builtin-beatles-4.png` | done, entry rewritten. As specified in shape — rounded hull, porthole, conning tower with periscope, bubble trail, one wave curve behind — but drawn in the **gold** tier and not the neutral one, because a yellow submarine has to be yellow. `builtin.py` keeps the row's `neutral`, which nothing draws while a picture ships (no plate is painted under one). The accent moved with the tier: teal on the porthole and its bubbles rather than red on the tower, red on gold being no accent at all |
+| 32 | Christmas Number One | `builtin-christmas.png` | done — gold bauble, wide teal band around the middle, cap and curved hook, halo ring behind. The "thick swing arc beside it" did not appear; the hook's curve and the tilt carry the just-knocked pose on their own, and one stroke fewer is one thing fewer to blur at 40 px |
+| 33 | Roll the Credits | `builtin-soundtrack.png` | done — blue slate, red hinge block at the end of the open bar, one red motion arc above it, two chevrons behind. The clapper stripes came out white: that is the neutral tier's highlight tone rather than a fifth hue, and stripes are what make a clapperboard read as one |
+| 34 | Groundhog Day | `builtin-groundhog-day.png` | done, entry rewritten — the largest deviation in the set. The vinyl record became the animal itself: a pink groundhog rising out of a brown mound, the thick pink repeat arrow sweeping over it, one ring behind. It brings the set its third face (after 17 and 27) and its only colour outside the four palettes, the earth brown. Both kept, because the badge is named for the film and not for a song played twice, and because 21 and 23 already own the discs; entry 34 now names the face and the brown so a rerun keeps them |
+| 35 | All Night Long | `builtin-evening-songs-20.png` | done — gold crescent tipped with its horns to the upper right, two cloud bands drifting behind. The two craters and the teal they were to carry were **removed by the user on purpose**, which makes this the one badge in the set with no accent at all: three gold tones and nothing else, which is what a moon looks like. Entry 35 says so, and §4's totals now count thirty-four accents over thirty-five badges |
 | — | blank plate | | not made; nothing has needed it |
 
 The first seventeen are complete (2026-09-03): seventeen files, about 25 MB,
@@ -752,13 +801,23 @@ one ChatGPT session, two corrections in total (the wreath's pedestal, the
 airplane's contrail). Every deviation kept is in the table above and, where it
 changes what a rerun should produce, in the entry itself (13, 16).
 
-Entries 18 to 35 — the seventeen of 2026-09-04 and *All Night Long*, which came
-after them — ship **no file at all** for now, and a built-in with no picture is
-drawn with its glyph on a coloured plate: the `pictures.shipped_picture`
-fallback asks the disk, not `builtin.py`, so nothing breaks and nothing has to
-be stubbed. Two consequences while that lasts: the catalogue is the mixed list
-§2 describes, and the pending ids are named in `PICTURES_PENDING` in
-`backend/tests/test_achievements_api.py` — take an id out of that set, and off
-this table's pending list, in the same commit as its two PNGs. Make them from
-§5, starting from the *Golden Voice* reference so the ones still to come match
-the first seventeen.
+The remaining eighteen — entries 18 to 34 and *All Night Long*, which came
+after them — were drawn on 2026-09-04/05 against the same *Golden Voice*
+reference and filed on 2026-09-05: eighteen more files, about 24 MB, so the
+package now ships **thirty-five** full-size pictures (about 48 MB) and
+thirty-five 256 px variants (about 3 MB). Five entries were rewritten to what
+was actually made, the way 13 and 16 were in the first batch — 29 (the mic on a
+diagonal stand), 30 (the platform boot), 31 (the gold submarine), 34 (the
+groundhog) and 35 (no craters, no accent) — and the smaller liberties are in
+the table's rows rather than in the entries, because a rerun does not need
+them.
+
+**Every built-in therefore has its picture, and `PICTURES_PENDING` in
+`backend/tests/test_achievements_api.py` is empty.** The mechanism stays for
+the next one: a built-in with no picture is drawn with its glyph on a coloured
+plate — `pictures.shipped_picture` asks the disk and not `builtin.py`, so
+nothing breaks and nothing has to be stubbed — and a new built-in's id belongs
+in that set from the commit that adds it to `BUILT_INS` until the commit that
+adds its two PNGs, with a **pending** row here for the same span. Make the
+picture from §5, starting from the *Golden Voice* reference, so the next badge
+matches these thirty-five.

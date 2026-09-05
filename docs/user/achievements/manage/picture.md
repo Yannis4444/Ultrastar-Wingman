@@ -1,7 +1,7 @@
 # Make a badge picture
 
-Many of the included achievements carry a picture drawn in one style. It
-is a dark gray square, filled edge to edge, with one bold object on it in the
+Every included achievement carries a picture drawn in one style. It is a dark
+gray square, filled edge to edge, with one bold object on it in the
 achievement's color. This page makes a picture in that style for an achievement
 of your own, with an image generator such as ChatGPT.
 
@@ -86,8 +86,8 @@ FORBIDDEN: no text, letters, numbers, logos or signature; no scenery, no second 
 
 1. Open **User** > **Achievements** and tap the achievement.
 2. Under **Icon**, tap **Use a picture instead** and pick the downloaded file.
-   On an included achievement that already carries one, the button is
-   **Replace picture**.
+   On an included achievement the button is **Replace picture**, since each of
+   them already carries one.
 3. The badge in the editor shows the new picture at once. Nothing else to save.
 
 The file is a png of about 1 MB, well under the 5 MB limit. Keep it. A picture
