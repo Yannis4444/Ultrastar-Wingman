@@ -92,6 +92,10 @@ is small.
 | Host | `start/` | `join.md` | Let guests in | Host | The QR code, the address, what a guest may do | How-to |
 | Host | `host-screen/` | `index.md` | The host screen | Host | What stands on the TV, and how to put it there | Index |
 | Host | `host-screen/` | `manage.md` | Manage from the TV | Host | The Manage page behind the host screen | How-to |
+| Host | `selector/` | `index.md` | Player selector | Host | What the device is, and how an evening runs with it | Index |
+| Host | `selector/` | `build.md` | Build the device | Host | Parts, the wiring table, the layouts, the hardware that gives trouble | How-to |
+| Host | `selector/` | `setup.md` | Set up the device | Host | Flashing, Wi-Fi and server, the connection test, mapping readers and buttons | How-to |
+| Host | `selector/` | `cards.md` | Cards and players | Administrator | Assigning cards, several per person, unknown cards | How-to |
 | Host | `help/` | `index.md` | Fix a problem | Everyone | Symptom, cause, fix | Index |
 | Host | `help/` | `ultrastar-deluxe.md` | Ultrastar Deluxe problems | Host | The setup and launch failures | How-to |
 | Manage | `people/` | `index.md` | People | Everyone | Accounts, guests, players, and logging in | Index |
@@ -109,6 +113,7 @@ is small.
 | Integrate | `integrate/` | `rest-api.md` | The REST API | Integrator | Base path, the OpenAPI schema, reading the API | Reference |
 | Integrate | `integrate/` | `authentication.md` | Authenticate a script | Integrator | Sessions, the host token, capabilities | How-to |
 | Integrate | `integrate/` | `events.md` | Live events | Integrator | The WebSocket endpoint and its events | Reference |
+| Integrate | `integrate/` | `devices.md` | Player selector devices | Integrator | The device token, the report endpoint, and the serial console | Reference |
 | Integrate | `integrate/` | `files.md` | Files and configuration | Integrator | Data directory, database, song files, environment | Reference |
 
 A page with less than about 25 lines of real content folds into its section index. Say so in
@@ -136,6 +141,9 @@ list before you claim a section is done:
 | `/user/permissions` | `people/roles.md` |
 | `/user/tags`, `/user/tags/new`, `/user/tags/:id` | `tags/index.md`, and `tags/built-in.md` for a built-in |
 | `/user/achievements`, `/user/achievements/new`, `/user/achievements/:id` | `achievements/manage/index.md` and `achievements/manage/create.md` |
+| `/user/devices` | `selector/setup.md`, and `selector/cards.md` for the cards on it |
+| `/user/devices/new` | `selector/setup.md` |
+| `/user/devices/:id` | `selector/setup.md`, and `selector/cards.md` for the cards on it |
 | `/settings` | `settings/index.md` and `settings/reference.md` |
 | `/host` | `host-screen/index.md` |
 | `/host/manage` | `host-screen/manage.md` |
@@ -165,7 +173,7 @@ Three things happen across several pages. Each has one owner, and the other page
 | `statistics.md` | `scores/index.md`, `scores/party.md`, `scores/your-scores.md` |
 | `settings.md` | `settings/index.md`, `settings/reference.md` |
 | `troubleshooting.md` | `help/index.md`, `help/ultrastar-deluxe.md` |
-| (new) | `host-screen/index.md`, `host-screen/manage.md`, everything under `integrate/` |
+| (new) | `host-screen/index.md`, `host-screen/manage.md`, everything under `selector/` and `integrate/` |
 
 Keep the old text where it is still true and still short. Rewriting a correct paragraph into
 a different correct paragraph wastes review time.
