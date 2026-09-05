@@ -64,6 +64,7 @@ async def add_achievement(
     *,
     name: str | None = None,
     hidden: bool = False,
+    sort_order: int = 0,
 ) -> None:
     await drop_built_ins(session)
     session.add(
@@ -72,6 +73,7 @@ async def add_achievement(
             name=name or achievement_id,
             color="gold",
             hidden=hidden,
+            sort_order=sort_order,
             definition=definition,
         )
     )
@@ -172,6 +174,43 @@ async def test_a_finished_sing_awards_and_announces(
 
     assert await earned_of(session, str(yannis["id"])) == {"golden"}
     assert await earned_of(session, str(alex["id"])) == set()
+
+
+async def test_the_event_names_a_singer_s_badges_in_the_catalogue_s_order(
+    client: AsyncClient,
+    session: AsyncSession,
+    configured: FakeUsdx,
+    song: str,
+    broadcast_events: list[dict[str, object]],
+) -> None:
+    """A pass hands its badges over in the order it walked the catalogue, and that order
+    reaches the TV: the host screen throws them in the order this event names them.
+
+    So `sort_order` decides it. Both of the other candidates are made to disagree with it
+    here: the id, which the pass sorted on until 2026-09-05, and the moment the achievement
+    was made, which is what settles a tie in `sort_order` and nothing else.
+    """
+    await add_achievement(
+        session,
+        "aaa-warmed-up",
+        [{"metric": "any_score", "comparator": ">=", "value": 6000}],
+        sort_order=2,
+    )
+    await add_achievement(
+        session,
+        "zzz-golden",
+        [{"metric": "any_score", "comparator": ">=", "value": 8000}],
+        sort_order=1,
+    )
+    yannis = await add_player(client, "Yannis")
+    configured.behave(scores=[("Yannis" + NUL * 10, 8500, 2000, 3)])
+
+    await sing(client, song, [{"color": "blue", "player_id": yannis["id"]}])
+    await karaoke.wait_for_sing_end()
+
+    (earned,) = [event for event in broadcast_events if event["event"] == "achievements.earned"]
+    players = cast(list[dict[str, Any]], earned["players"])
+    assert [one["id"] for one in players[0]["achievements"]] == ["zzz-golden", "aaa-warmed-up"]
 
 
 async def test_winning_a_song_is_earned_off_the_placement_the_sing_recorded(
