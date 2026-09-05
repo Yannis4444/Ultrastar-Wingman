@@ -7,14 +7,8 @@
 #include <MFRC522v2.h>
 
 #include "CardTracker.h"
+#include "Report.h"
 #include "pins.h"
-
-// What the boot probe made of a reader position.
-enum class ReaderState : uint8_t {
-    NotWired, // VersionReg reads 0x00 or 0xFF: nothing on that chip select
-    Wired,    // a known version byte
-    Fault,    // an unknown byte, or two readings that disagree — a clone holding MISO
-};
 
 // One reader's objects. The library keeps references to the pin and the driver, so a Reader
 // is built in place and never copied.

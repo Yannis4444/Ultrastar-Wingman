@@ -27,6 +27,20 @@ bool append(char *out, size_t size, size_t &offset, const char *format, ...) {
     return true;
 }
 
+// A state the enum does not name is reported as a fault: the server refuses a role on
+// anything but `wired`, so the conservative answer is the safe one.
+const char *stateName(ReaderState state) {
+    switch (state) {
+    case ReaderState::NotWired:
+        return "none";
+    case ReaderState::Wired:
+        return "wired";
+    case ReaderState::Fault:
+        break;
+    }
+    return "fault";
+}
+
 } // namespace
 
 size_t buildReport(char *out, size_t size, const ReportState &state, const char *firmware,
@@ -44,8 +58,9 @@ size_t buildReport(char *out, size_t size, const ReportState &state, const char 
 
     for (uint8_t i = 0; i < kReaderCount && ok; ++i) {
         ok = append(out, size, offset,
-                    "%s{\"index\":%u,\"version\":\"%02x\",\"uid\":", i == 0 ? "" : ",",
-                    static_cast<unsigned>(i), static_cast<unsigned>(state.versions[i]));
+                    "%s{\"index\":%u,\"state\":\"%s\",\"version\":\"%02x\",\"uid\":",
+                    i == 0 ? "" : ",", static_cast<unsigned>(i), stateName(state.states[i]),
+                    static_cast<unsigned>(state.versions[i]));
         if (!ok) {
             break;
         }

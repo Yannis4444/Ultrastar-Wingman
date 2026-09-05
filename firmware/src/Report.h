@@ -7,17 +7,28 @@
 
 #include "pins.h"
 
+// What the boot probe made of a reader position — ReaderBus writes it, the report prints
+// it. NotWired is 0 so a default-constructed ReportState reads as an empty device.
+enum class ReaderState : uint8_t {
+    NotWired = 0, // VersionReg reads 0x00 or 0xFF: nothing on that chip select
+    Wired = 1,    // a known version byte
+    Fault = 2,    // an unknown byte, or two readings that disagree — a clone holding MISO
+};
+
 // One snapshot of what the device has to say. `uids` holds nullptr for a reader with
 // nothing on it; `versions` is the VersionReg byte the boot probe read (0x00 when the
-// position is not wired).
+// position is not wired) and `states` its verdict on that byte, which is what tells a
+// faulted reader from a wired one when the byte alone cannot.
 struct ReportState {
     const char *uids[kReaderCount] = {};
     uint8_t versions[kReaderCount] = {};
+    ReaderState states[kReaderCount] = {};
     uint32_t presses[kButtonCount] = {};
 };
 
-// Worst case: six readers with 20 hex digits each and four saturated counters, plus the
-// header. Rounded up so the JSON can grow a field without a new number here.
+// Worst case: six faulted readers with 20 hex digits each and four saturated counters, plus
+// the header — 658 bytes, measured by the native test. The rest is room for the JSON to
+// grow a field without a new number here.
 constexpr size_t kReportBufferSize = 768;
 
 // Writes the report into `out` and returns its length, or 0 when it did not fit.

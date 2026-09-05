@@ -44,6 +44,7 @@ ReportState currentState() {
     for (uint8_t i = 0; i < kReaderCount; ++i) {
         state.uids[i] = tracker.uid(i);
         state.versions[i] = readers.version(i);
+        state.states[i] = readers.state(i);
     }
     for (uint8_t i = 0; i < kButtonCount; ++i) {
         state.presses[i] = buttons.presses(i);

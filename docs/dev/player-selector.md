@@ -151,15 +151,21 @@ never build a `Principal`; `devices.deps.DeviceDep` resolves the token to its ro
 POST /api/v1/devices/report
 {
   "protocol": 1, "firmware": "0.1.0", "uptime_s": 1234, "rssi": -61,
-  "readers": [ {"index": 0, "version": "92", "uid": "A1B2C3D4"},
-               {"index": 1, "version": "92", "uid": null},
-               {"index": 2, "version": "00", "uid": null}, ... 6 entries ],
+  "readers": [ {"index": 0, "state": "wired", "version": "92", "uid": "A1B2C3D4"},
+               {"index": 1, "state": "wired", "version": "92", "uid": null},
+               {"index": 2, "state": "none",  "version": "00", "uid": null},
+               {"index": 3, "state": "fault", "version": "3a", "uid": null}, ... 6 entries ],
   "buttons": [ {"index": 0, "presses": 3}, ... 4 entries ]
 }
 200 {"ok": true, "protocol": 1, "interval_s": 5}     ← reserved for feedback later
 401 {"detail": "unknown_device"}
 426 {"detail": "protocol_unsupported", "supported": 1}
 ```
+
+`state` is the boot probe's verdict (§3.1): `wired`, `none` (nothing answered: `version`
+is `"00"`), or `fault` (two different or unknown version bytes: `version` is the raw first
+byte, and the reader is never polled). The server shows a fault as such and refuses a role
+on a reader that is not `wired`; the version byte alone cannot tell a fault from a clone.
 
 The server keeps the last report per device in memory (`devices.service`), diffs it against
 the previous one (a uid appeared / vanished / changed; a counter grew) and hands those
