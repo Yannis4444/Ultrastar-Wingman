@@ -271,12 +271,19 @@ async def evaluate_all(session: AsyncSession, now: datetime | None = None) -> di
 
 
 async def _enabled(session: AsyncSession) -> list[Achievement]:
-    """The achievements a pass looks at. The id breaks ties so two achievements sorted the
-    same keep a stable order between runs."""
+    """The achievements a pass looks at, in the catalogue's own order.
+
+    The order outlives the pass: `_write` walks this list and answers with what it newly
+    earned in the order it walked, `earned_by_players` keeps that order (it reads `by_ids`
+    for the rows, not for their order), and `HostAchievements` throws the badges onto the TV
+    in exactly that order. So this is the catalogue's order and not a second one of the
+    pass's own — `sort_order`, with `created_at` breaking a tie, the same as
+    `list_achievements`, `by_ids` and a player's record.
+    """
     rows = await session.scalars(
         select(Achievement)
         .where(Achievement.enabled.is_(True))
-        .order_by(Achievement.sort_order, Achievement.id)
+        .order_by(Achievement.sort_order, Achievement.created_at)
     )
     return list(rows)
 

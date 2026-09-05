@@ -1,4 +1,4 @@
-"""The thirty-four achievements Wingman ships.
+"""The thirty-five achievements Wingman ships.
 
 Data, not rows: the list below is what the seed migrations insert and what
 `service.reset_built_in` reads back, so there is one place that says what *First Time on the
@@ -10,12 +10,22 @@ as anybody else's, because a party is not obliged to want *Brave Soul*.
 
 That makes this file the only place a shipped definition is ever improved — and, because a
 seed migration runs once, a reset is the only way an improvement here reaches a database that
-already holds the old one.
+already holds the old one. That is deliberate: a definition improved in a migration would
+revoke the badge from everybody who earned it under the old number, without a host ever
+pressing anything.
 
-They arrived in two batches, and the file lists them in that order: the seventeen of 2026-09
-seeded by 0023, then the seventeen of 2026-09-04 seeded by 0030. Appending rather than
-inserting is what keeps a seed migration able to say which ids are *its* — and what keeps the
-order a fresh instance starts with the order the first hosts already arranged theirs in.
+They arrived in batches — the seventeen of 2026-09 seeded by 0023, the seventeen of
+2026-09-04 seeded by 0030, then *All Night Long* on top of them, seeded by 0031 — but the
+file is no longer in arrival order: since 2026-09-04 the **hidden** ones stand at the end
+(see the comment over `BUILT_INS`), so *Brave Soul*, which came with the first batch, sits
+behind the second, and *All Night Long* stands with the two rungs below it rather than at the
+end of the list. Which ids a seed migration is responsible for is frozen in that migration
+(0030's and 0031's `NEW_IDS`) rather than taken as a slice of this list, and that is what
+makes ordering the list by what it means rather than by when it arrived safe. What such an
+order may not do is renumber the rows an older revision seeded, and it does not: the order
+only decides what a **fresh** database starts with, and after that the order of the catalogue
+is the host's — which is why a fresh database has *All Night Long* behind *Iron Lungs* and a
+database that has been running since 2026-09-04 finds it at the end of its own arrangement.
 
 The ids are stable slugs (`builtin-score-9000`) rather than uuids: import matches by id, so a
 slug is what lets an instance recognise a built-in that came from somewhere else, and what
@@ -34,7 +44,8 @@ from typing import Any
 @dataclass(frozen=True)
 class BuiltInAchievement:
     """One shipped achievement. `sort_order` is its index in `BUILT_INS`, so the order this
-    file lists them in is the order they are drawn in."""
+    file lists them in is the order a **fresh** database is drawn in; after that the
+    catalogue's order is the host's."""
 
     id: str
     name: str
@@ -89,17 +100,22 @@ def _decade(start: int) -> list[dict[str, Any]]:
     )
 
 
-# The first seventeen: a ladder of scores, a ladder of counts, and the same two again inside
-# one party — plus the three that are about *what* was sung rather than how much (a duet, ten
-# artists) and its one hidden consolation prize. The colours climb with the achievement:
-# neutral, blue, gold.
+# The order is the list a fresh instance is seeded with, and it is in two halves: the
+# twenty-nine a party can read in the catalogue from the start, then the six that are
+# **hidden until earned**, at the end. Hidden ones last because the catalogue is mostly read
+# as a list of things to go for, and six locked rows in the middle of it are six holes; each
+# half keeps the order the achievements arrived in, except that a rung added to a ladder
+# later stands with its ladder (*All Night Long*) rather than behind all of it.
 #
-# Then the second seventeen, from `builtin-wins-1` on: a ladder of wins, one badge per decade
-# (a family, so all four are blue whatever each costs), two hidden ones about the *range* of
-# one evening, and eight nods to the songs and bands a karaoke night keeps coming back to —
-# one of those hidden too, because a nod that announces which song it wants is the joke told
-# before it happens. Pink arrives with this batch, on the three that are more joke than
-# ladder; no colour in the first seventeen was pink.
+# The visible twenty-nine: a ladder of scores, a ladder of counts, and the same two again
+# inside one party — then a duet, a ladder of wins, one badge per decade (a family, so all
+# four are blue whatever each costs), and six nods to the songs and bands a karaoke night
+# keeps coming back to. The colours climb with the achievement: neutral, blue, gold.
+#
+# The hidden six: a consolation prize, one long haul, two about the *range* of one evening,
+# and two more jokes at the singer's expense — one of which is a nod that names the song it
+# wants, and a joke told before it happens is not a joke. Pink belongs to this half: the
+# three that are more joke than ladder wear it, and nothing in the visible half is pink.
 BUILT_INS: tuple[BuiltInAchievement, ...] = (
     BuiltInAchievement(
         id="builtin-first-song",
@@ -219,6 +235,19 @@ BUILT_INS: tuple[BuiltInAchievement, ...] = (
         definition=_session("number_of_sings", 10),
     ),
     BuiltInAchievement(
+        id="builtin-evening-songs-20",
+        name="All Night Long",
+        description="Sing 20 songs in one party.",
+        icon="moon",
+        color="gold",
+        hidden=False,
+        # The third rung of *Five in a Night* → *Iron Lungs*, and gold like the top of every
+        # other three-step ladder here. It arrived after the two rungs below it and 0031 is
+        # what seeds it, but it stands with its ladder rather than at the end of the file: a
+        # fresh catalogue reads as a list of things to go for, and a ladder is read in order.
+        definition=_session("number_of_sings", 20),
+    ),
+    BuiltInAchievement(
         id="builtin-evening-hat-trick",
         name="Hat-trick",
         description="Score 9,000 or more three times in one party.",
@@ -247,46 +276,23 @@ BUILT_INS: tuple[BuiltInAchievement, ...] = (
         ),
     ),
     BuiltInAchievement(
-        id="builtin-artists-10",
-        name="Well Traveled",
-        description="Sing songs by 10 different artists.",
-        icon="plane",
-        color="blue",
-        hidden=False,
-        definition=_global("different_artists", ">=", 10),
-    ),
-    BuiltInAchievement(
-        id="builtin-brave-soul",
-        name="Brave Soul",
-        description="Finish a song with 2,000 points or fewer.",
-        icon="ghost",
-        color="neutral",
-        # The first hidden one, and the reason the other three are: it is a joke at the
-        # singer's expense, and a joke that announced itself in the catalogue beforehand
-        # would read as an instruction to sing badly.
-        #
-        # Which is also why the id is the name and not the condition: masking blanks the
-        # name and the description, but every masked row still carries its id, so a
-        # `builtin-low-score` would give the whole joke away to anybody reading the JSON.
-        hidden=True,
-        definition=_global("any_score", "<=", 2000),
-    ),
-    BuiltInAchievement(
         id="builtin-wins-1",
         name="First Place",
-        description="Beat another singer on a song.",
+        description="Win a song against another singer.",
         icon="star",
         color="neutral",
         hidden=False,
         # A win is a score that came first in a sing somebody else also sang, and the two
         # columns it is read off are written once and never corrected — so this one survives
-        # the beaten score being deleted (`achievements.md`, the metric table).
+        # the beaten score being deleted (`achievements.md`, the metric table). A song nobody
+        # else sang is not a win, which is what "against another singer" says in the
+        # description.
         definition=_global("number_of_wins", ">=", 1),
     ),
     BuiltInAchievement(
         id="builtin-wins-10",
         name="On a Roll",
-        description="Beat another singer on a song 10 times.",
+        description="Win 10 songs against other singers.",
         icon="flag",
         color="blue",
         hidden=False,
@@ -295,7 +301,7 @@ BUILT_INS: tuple[BuiltInAchievement, ...] = (
     BuiltInAchievement(
         id="builtin-wins-50",
         name="Undisputed",
-        description="Beat another singer on a song 50 times.",
+        description="Win 50 songs against other singers.",
         icon="shield",
         color="gold",
         hidden=False,
@@ -338,55 +344,6 @@ BUILT_INS: tuple[BuiltInAchievement, ...] = (
         color="blue",
         hidden=False,
         definition=_decade(2000),
-    ),
-    BuiltInAchievement(
-        id="builtin-time-traveler",
-        name="Time Traveler",
-        description="Sing songs from 5 different decades in one party.",
-        icon="clock",
-        color="pink",
-        # Hidden, and the id says the name rather than the condition, for Brave Soul's
-        # reason: a masked row still ships its id, so `builtin-five-decades` would hand the
-        # surprise to anybody reading the JSON. It sits behind the four decade badges on
-        # purpose — they are what teaches somebody that a year is a thing Wingman counts.
-        hidden=True,
-        definition=_session("different_decades", 5),
-    ),
-    BuiltInAchievement(
-        id="builtin-mixtape",
-        name="Mixtape",
-        description="Sing 10 different genres in one party.",
-        icon="layers",
-        color="pink",
-        # The other half of Time Traveler, and hidden for the same reason. Ten genres asks a
-        # lot of a library: a song whose file has no genre — or the literal `None` USDB
-        # writes — counts for nothing here, so this is an evening of well-tagged songs.
-        hidden=True,
-        definition=_session("different_genres", 10),
-    ),
-    BuiltInAchievement(
-        id="builtin-full-commitment",
-        name="Rickrolled",
-        description="Sing Never Gonna Give You Up.",
-        icon="gift",
-        color="gold",
-        # Hidden, and the id is deliberately not the song: the whole of this one is that
-        # nobody saw it coming, and a masked row still carries its id.
-        hidden=True,
-        definition=_global(
-            "number_of_sings",
-            ">=",
-            1,
-            match={
-                "combine": "all",
-                # Title *and* artist: the song has been covered by everybody, and the joke is
-                # the original. Not the genre — the file USDB ships has none.
-                "clauses": [
-                    {"field": "title", "op": "contains", "value": "never gonna give you up"},
-                    {"field": "artist", "op": "contains", "value": "astley"},
-                ],
-            },
-        ),
     ),
     BuiltInAchievement(
         id="builtin-rap-god",
@@ -470,18 +427,103 @@ BUILT_INS: tuple[BuiltInAchievement, ...] = (
     BuiltInAchievement(
         id="builtin-soundtrack",
         name="Roll the Credits",
-        description="Collect 15,000 points from soundtrack songs in one party.",
+        description="Collect 20,000 points from soundtrack songs in one party.",
         icon="film",
         color="blue",
         hidden=False,
         definition=_session(
             "sum_of_scores",
-            15000,
+            20000,
             match={
                 "combine": "any",
                 "clauses": [
                     {"field": "genre", "op": "contains", "value": "soundtrack"},
                     {"field": "genre", "op": "contains", "value": "musical"},
+                ],
+            },
+        ),
+    ),
+    # --- Hidden until earned -------------------------------------------------------------
+    BuiltInAchievement(
+        id="builtin-artists-10",
+        name="Well Traveled",
+        description="Sing songs by 20 different artists.",
+        icon="plane",
+        color="blue",
+        # Hidden since 2026-09-04: twenty artists is a long haul, and a locked row is a
+        # better companion to it than a bar that spends a year at "6 / 20".
+        #
+        # Its id is `builtin-artists-10`, which both names the condition and holds a number
+        # this achievement stopped asking for — the one place the "an id gives a hidden one
+        # away" rule below is broken, and knowingly: the id is frozen. Import matches by it,
+        # `images/builtin-artists-10.png` is named after it and 0025 renames by it, so the
+        # leak is cheaper than the rename.
+        hidden=True,
+        definition=_global("different_artists", ">=", 20),
+    ),
+    BuiltInAchievement(
+        id="builtin-brave-soul",
+        name="Brave Soul",
+        description="Finish a song with 2,000 points or fewer.",
+        icon="ghost",
+        color="neutral",
+        # The first hidden one there ever was, and the reason four of the others are: it is a
+        # joke at the singer's expense, and a joke that announced itself in the catalogue
+        # beforehand would read as an instruction to sing badly.
+        #
+        # Which is also why the id is the name and not the condition: masking blanks the
+        # name and the description, but every masked row still carries its id, so a
+        # `builtin-low-score` would give the whole joke away to anybody reading the JSON.
+        hidden=True,
+        definition=_global("any_score", "<=", 2000),
+    ),
+    BuiltInAchievement(
+        id="builtin-time-traveler",
+        name="Time Traveler",
+        description="Sing songs from 5 different decades in one party.",
+        icon="clock",
+        color="pink",
+        # Hidden, and the id says the name rather than the condition, for Brave Soul's
+        # reason: a masked row still ships its id, so `builtin-five-decades` would hand the
+        # surprise to anybody reading the JSON. The four decade badges are its hint — they
+        # are what teaches somebody that a year is a thing Wingman counts — and they stand
+        # in the visible half of the list, this one down here with the rest of the locked
+        # rows.
+        hidden=True,
+        definition=_session("different_decades", 5),
+    ),
+    BuiltInAchievement(
+        id="builtin-mixtape",
+        name="Mixtape",
+        description="Sing 10 different genres in one party.",
+        icon="layers",
+        color="pink",
+        # The other half of Time Traveler, and hidden for the same reason. Ten genres asks a
+        # lot of a library: a song whose file has no genre — or the literal `None` USDB
+        # writes — counts for nothing here, so this is an evening of well-tagged songs.
+        hidden=True,
+        definition=_session("different_genres", 10),
+    ),
+    BuiltInAchievement(
+        id="builtin-full-commitment",
+        name="Rickrolled",
+        description="Sing Never Gonna Give You Up.",
+        icon="gift",
+        color="gold",
+        # Hidden, and the id is deliberately not the song: the whole of this one is that
+        # nobody saw it coming, and a masked row still carries its id.
+        hidden=True,
+        definition=_global(
+            "number_of_sings",
+            ">=",
+            1,
+            match={
+                "combine": "all",
+                # Title *and* artist: the song has been covered by everybody, and the joke is
+                # the original. Not the genre — the file USDB ships has none.
+                "clauses": [
+                    {"field": "title", "op": "contains", "value": "never gonna give you up"},
+                    {"field": "artist", "op": "contains", "value": "astley"},
                 ],
             },
         ),
@@ -492,7 +534,10 @@ BUILT_INS: tuple[BuiltInAchievement, ...] = (
         description="Sing the same song three times.",
         icon="refresh",
         color="pink",
-        hidden=False,
+        # Hidden since 2026-09-04: it is the other joke at the singer's expense, and a
+        # catalogue that asked for it in advance would be asking somebody to bore the room
+        # on purpose.
+        hidden=True,
         # Over any number of parties, and the other songs in between do not matter: that is
         # what `most_sings_of_one_song` measures, and it is why this is one condition rather
         # than a count of sings beside a count of songs.

@@ -49,9 +49,9 @@ START = datetime(2026, 9, 1, 20, 0, tzinfo=UTC)
 async def drop_built_ins(session: AsyncSession) -> None:
     """Take the set Wingman ships off the catalogue.
 
-    Migrations 0023 and 0030 seed them and a pass looks at every enabled one, so a test that names
-    exactly what somebody earned has to be run against a catalogue it built itself. What the
-    shipped set means is checked on its own further down.
+    Migrations 0023, 0030 and 0031 seed them and a pass looks at every enabled one, so a test
+    that names exactly what somebody earned has to be run against a catalogue it built
+    itself. What the shipped set means is checked on its own further down.
     """
     await session.execute(delete(Achievement).where(Achievement.built_in.is_(True)))
     await session.commit()
@@ -64,6 +64,7 @@ async def add_achievement(
     *,
     name: str | None = None,
     hidden: bool = False,
+    sort_order: int = 0,
 ) -> None:
     await drop_built_ins(session)
     session.add(
@@ -72,6 +73,7 @@ async def add_achievement(
             name=name or achievement_id,
             color="gold",
             hidden=hidden,
+            sort_order=sort_order,
             definition=definition,
         )
     )
@@ -172,6 +174,43 @@ async def test_a_finished_sing_awards_and_announces(
 
     assert await earned_of(session, str(yannis["id"])) == {"golden"}
     assert await earned_of(session, str(alex["id"])) == set()
+
+
+async def test_the_event_names_a_singer_s_badges_in_the_catalogue_s_order(
+    client: AsyncClient,
+    session: AsyncSession,
+    configured: FakeUsdx,
+    song: str,
+    broadcast_events: list[dict[str, object]],
+) -> None:
+    """A pass hands its badges over in the order it walked the catalogue, and that order
+    reaches the TV: the host screen throws them in the order this event names them.
+
+    So `sort_order` decides it. Both of the other candidates are made to disagree with it
+    here: the id, which the pass sorted on until 2026-09-05, and the moment the achievement
+    was made, which is what settles a tie in `sort_order` and nothing else.
+    """
+    await add_achievement(
+        session,
+        "aaa-warmed-up",
+        [{"metric": "any_score", "comparator": ">=", "value": 6000}],
+        sort_order=2,
+    )
+    await add_achievement(
+        session,
+        "zzz-golden",
+        [{"metric": "any_score", "comparator": ">=", "value": 8000}],
+        sort_order=1,
+    )
+    yannis = await add_player(client, "Yannis")
+    configured.behave(scores=[("Yannis" + NUL * 10, 8500, 2000, 3)])
+
+    await sing(client, song, [{"color": "blue", "player_id": yannis["id"]}])
+    await karaoke.wait_for_sing_end()
+
+    (earned,) = [event for event in broadcast_events if event["event"] == "achievements.earned"]
+    players = cast(list[dict[str, Any]], earned["players"])
+    assert [one["id"] for one in players[0]["achievements"]] == ["zzz-golden", "aaa-warmed-up"]
 
 
 async def test_winning_a_song_is_earned_off_the_placement_the_sing_recorded(
@@ -519,6 +558,7 @@ async def test_switching_the_feature_back_on_recomputes_everybody(
         ("builtin-score-9500", False),
         ("builtin-evening-50k", False),
         ("builtin-evening-songs-5", False),
+        ("builtin-evening-songs-20", False),
         ("builtin-evening-hat-trick", False),
         ("builtin-first-duet", True),
         ("builtin-artists-10", False),
@@ -621,25 +661,75 @@ async def test_a_scoreful_night_below_the_line_is_no_hat_trick(session: AsyncSes
     assert "builtin-evening-hat-trick" not in await earned_of(session, player_id)
 
 
-async def test_well_travelled_counts_ten_distinct_artists_case_blind(
+async def test_all_night_long_wants_its_twenty_songs_in_the_same_party(
+    session: AsyncSession,
+) -> None:
+    """The third rung of *Five in a Night* → *Iron Lungs*: `number_of_sings >= 20`, `session`
+    scope, and nothing else — the same song twenty times counts, because the ladder is about
+    how long somebody held the microphone and not about how much of the library they got
+    through.
+
+    The near miss is what pins the scope: nineteen songs at one party and one at the next is
+    twenty sings and no badge, and it earns the two rungs below this one on the way.
+    """
+    await add_song(session, "usdb:1", "Abba")
+    one_night = await add_player_row(session, "Yannis")
+    await sing_through(session, one_night, [("usdb:1", 5000, "party-a")] * 20)
+    over_two = await add_player_row(session, "Alex")
+    await sing_through(
+        session,
+        over_two,
+        [("usdb:1", 5000, "party-a")] * 19 + [("usdb:1", 5000, "party-b")],
+    )
+
+    await service.evaluate_players(session, [one_night, over_two], now=START)
+
+    assert "builtin-evening-songs-20" in await earned_of(session, one_night)
+    earned = await earned_of(session, over_two)
+    assert "builtin-evening-songs-20" not in earned
+    assert {"builtin-evening-songs-5", "builtin-evening-songs-10"} <= earned
+
+
+async def test_well_travelled_counts_twenty_distinct_artists_case_blind(
     session: AsyncSession,
 ) -> None:
     """`different_artists`, compared case-insensitively — so singing *Abba* and *ABBA* is one
-    artist and not two, and nine artists is not ten."""
-    artists = ["Abba", "Queen", "Nirvana", "Blur", "Oasis", "Pulp", "Suede", "Ash", "Doves"]
+    artist and not two, and nineteen artists is not twenty (the bar since 2026-09-04)."""
+    artists = [
+        "Abba",
+        "Queen",
+        "Nirvana",
+        "Blur",
+        "Oasis",
+        "Pulp",
+        "Suede",
+        "Ash",
+        "Doves",
+        "Elbow",
+        "Muse",
+        "Keane",
+        "Travis",
+        "Feeder",
+        "Placebo",
+        "Garbage",
+        "Texas",
+        "Cast",
+        "Kula Shaker",
+    ]
     for index, artist in enumerate(artists):
         await add_song(session, f"usdb:{index}", artist)
-    # A tenth song by the first artist under another spelling: still nine artists.
-    await add_song(session, "usdb:9", "ABBA")
+    # A twentieth song by the first artist under another spelling: still nineteen artists.
+    await add_song(session, f"usdb:{len(artists)}", "ABBA")
     player_id = await add_player_row(session, "Yannis")
+    sung = len(artists) + 1
     await sing_through(
-        session, player_id, [(f"usdb:{index}", 5000, "party-a") for index in range(10)]
+        session, player_id, [(f"usdb:{index}", 5000, "party-a") for index in range(sung)]
     )
     await service.evaluate_player(session, player_id, now=START)
     assert "builtin-artists-10" not in await earned_of(session, player_id)
 
-    await add_song(session, "usdb:10", "Radiohead")
-    await sing_through(session, player_id, [("usdb:10", 5000, "party-a")], first=10)
+    await add_song(session, f"usdb:{sung}", "Radiohead")
+    await sing_through(session, player_id, [(f"usdb:{sung}", 5000, "party-a")], first=sung)
     await service.evaluate_player(session, player_id, now=START)
 
     assert "builtin-artists-10" in await earned_of(session, player_id)

@@ -10,10 +10,10 @@ exactly as 0023's docstring says.
 
 Which makes this revision the awkward one, and the reason it is written the way it is: 0023
 imports `seed_rows()` live, so a database created *after* `builtin.py` grew was already seeded
-with all thirty-four by 0023 itself, while a database created before it holds only the first
-seventeen. Both run this. So it is **insert-if-absent**: it asks which of its own seventeen
-ids are already there and inserts the rest. A blind insert would duplicate them on the first
-kind of database and fail on the primary key.
+with everything that file holds by 0023 itself, while a database created before it holds only
+the first seventeen. Both run this. So it is **insert-if-absent**: it asks which of its own
+seventeen ids are already there and inserts the rest. A blind insert would duplicate them on
+the first kind of database and fail on the primary key.
 
 `NEW_IDS` is spelled out here rather than derived from `builtin.py`, and that is the whole
 trick: the *values* come from `seed_rows()`, so a name still exists in one place, but which
@@ -86,7 +86,7 @@ def upgrade() -> None:
     )
     missing = [row for row in seed_rows() if row["id"] in NEW_IDS and row["id"] not in present]
     if not missing:
-        # A database built after `builtin.py` grew: 0023 seeded all thirty-four.
+        # A database built after `builtin.py` grew: 0023 seeded the whole of it.
         return
     # `None` on an empty table, which only a database whose achievements were all deleted by
     # hand can be — and there the new ones start at zero like any other first row.

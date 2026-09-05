@@ -198,6 +198,76 @@ async def test_the_built_ins_are_seeded_in_order(party: Party) -> None:
     assert [row["sort_order"] for row in rows] == list(range(len(BUILT_INS)))
 
 
+def test_the_hidden_built_ins_come_last_in_the_default_order() -> None:
+    """Since 2026-09-04 every built-in that is hidden until earned stands at the end of
+    `BUILT_INS`: the catalogue is read as a list of things to go for, and a locked row in the
+    middle of it is a hole. The order of a database that has already been seeded is the
+    host's, so this is a claim about the file — and, through the test above, about what a
+    fresh instance starts with.
+    """
+    hidden = [index for index, built_in in enumerate(BUILT_INS) if built_in.hidden]
+    visible = [index for index, built_in in enumerate(BUILT_INS) if not built_in.hidden]
+
+    assert hidden and visible
+    assert min(hidden) > max(visible)
+    # Spelled out, because which ones are hidden is a decision and not an accident: this half
+    # keeps the order the achievements arrived in.
+    assert [BUILT_INS[index].id for index in hidden] == [
+        "builtin-artists-10",
+        "builtin-brave-soul",
+        "builtin-time-traveler",
+        "builtin-mixtape",
+        "builtin-full-commitment",
+        "builtin-groundhog-day",
+    ]
+
+
+def test_the_songs_in_one_party_ladder_is_five_ten_twenty() -> None:
+    """*Five in a Night* → *Iron Lungs* → *All Night Long*, the third rung, seeded by 0031.
+
+    One condition apart from its number, the colours climbing neutral → blue → gold like
+    every other three-step ladder here, none of them hidden, and the three standing in that
+    order in `BUILT_INS` — a rung filed anywhere but behind the one below it would read as a
+    hole in the ladder on a fresh instance.
+    """
+    ladder = [BY_ID[f"builtin-evening-songs-{count}"] for count in (5, 10, 20)]
+
+    assert [one.definition for one in ladder] == [
+        [{"scope": "session", "metric": "number_of_sings", "comparator": ">=", "value": count}]
+        for count in (5, 10, 20)
+    ]
+    assert [one.description for one in ladder] == [
+        f"Sing {count} songs in one party." for count in (5, 10, 20)
+    ]
+    assert [one.color for one in ladder] == ["neutral", "blue", "gold"]
+    assert not any(one.hidden for one in ladder)
+    places = [BUILT_INS.index(one) for one in ladder]
+    assert places == [places[0], places[0] + 1, places[0] + 2]
+
+
+def test_the_tuned_built_ins_ask_for_what_their_descriptions_say() -> None:
+    """What the 2026-09-04 tuning settled, pinned in the one place the two halves of a badge
+    can disagree: the sentence and the number its condition compares against are written by
+    hand, so one asking for 20,000 points while the other asks for 15,000 is a bug nothing
+    outside this file could see. *Groundhog Day* is here for its flag alone.
+    """
+    assert BY_ID["builtin-artists-10"].description == "Sing songs by 20 different artists."
+    assert BY_ID["builtin-artists-10"].definition[0]["value"] == 20
+    assert (
+        BY_ID["builtin-soundtrack"].description
+        == "Collect 20,000 points from soundtrack songs in one party."
+    )
+    assert BY_ID["builtin-soundtrack"].definition[0]["value"] == 20000
+    assert BY_ID["builtin-groundhog-day"].hidden
+    # "Win", because *Beat another singer on a song (50 times)* read as a puzzle. What a win
+    # is stays `number_of_wins`'s business.
+    assert [BY_ID[f"builtin-wins-{count}"].description for count in (1, 10, 50)] == [
+        "Win a song against another singer.",
+        "Win 10 songs against other singers.",
+        "Win 50 songs against other singers.",
+    ]
+
+
 async def test_every_built_in_definition_is_one_the_engine_can_read(party: Party) -> None:
     """The seed is hand-written JSON, so the models are what stand between a typo in it and
     a catalogue of badges nobody can earn."""
@@ -1403,34 +1473,20 @@ async def _add_score(party: Party, player_id: str, score: int) -> None:
 
 # --- The pictures Wingman ships ------------------------------------------------------------
 
-# The built-ins whose artwork does not exist yet. The pictures are drawn by hand, one at a
-# time, out of the motif entries in `docs/dev/achievement-artwork.md` (§4), and a badge without
-# its two PNGs is drawn with its glyph in the meantime — so the promise below is "every
-# built-in except these", and an id leaves this set in the same commit as its two files.
+# The built-ins whose artwork does not exist yet — **empty since 2026-09-05**, when the last
+# eighteen pictures landed: every built-in ships its two PNGs today. The set stays because the
+# next built-in arrives before its picture does: the pictures are drawn by hand, one at a time,
+# out of the motif entries in `docs/dev/achievement-artwork.md` (§4), and a badge without its
+# two PNGs is drawn with its glyph in the meantime — so the promise below is "every built-in
+# except these". An id lives here from the commit that adds it to `BUILT_INS` until the commit
+# that adds its two files, and leaves in that second one.
 #
-# Not a skip: the listings are still pinned, so a stray or misnamed file in either directory
-# fails just as it did, and a picture that lands while its id is still named here fails too.
-PICTURES_PENDING: frozenset[str] = frozenset(
-    {
-        "builtin-wins-1",
-        "builtin-wins-10",
-        "builtin-wins-50",
-        "builtin-decade-1970s",
-        "builtin-decade-1980s",
-        "builtin-decade-1990s",
-        "builtin-decade-2000s",
-        "builtin-time-traveler",
-        "builtin-mixtape",
-        "builtin-full-commitment",
-        "builtin-rap-god",
-        "builtin-queen-10",
-        "builtin-abba-5",
-        "builtin-beatles-4",
-        "builtin-christmas",
-        "builtin-soundtrack",
-        "builtin-groundhog-day",
-    }
-)
+# Emptying it skips nothing that was checking a file: the listings below are still pinned, so
+# a stray or misnamed file in either directory fails just as it did, and a picture that lands
+# while its id is still named here fails too. The one thing an empty set does skip is the
+# parametrized glyph test under it, which has no built-in left to ask about — pytest reports
+# it as `got empty parameter set`, and it comes back with the next built-in.
+PICTURES_PENDING: frozenset[str] = frozenset()
 
 
 def test_every_built_in_ships_a_picture_in_both_sizes() -> None:

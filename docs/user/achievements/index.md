@@ -22,8 +22,8 @@ Log in and open **User**. Under your scores stands **Achievements** with your
 badges beside it. The count says how many you hold out of how many there are.
 Before your first one it says "Nothing yet. The first one is a song away".
 
-Tap the line to fold out the whole list. The ones you earned come first, newest
-first. The rest follow in the order the host arranged them in.
+Tap the line to fold out the whole list. The ones you earned come first, then
+the rest. Both halves keep the order the host arranged them in.
 
 ![Fry's achievements folded out, with the badges he has earned and their dates, a locked hidden row, and progress bars under the rest](../assets/screenshots/achievements/user-achievements.png){ width="320" loading=lazy }
 /// caption
@@ -94,7 +94,7 @@ the box. See [Manage achievements](manage/index.md).
 
 ## What Wingman brings with it
 
-Thirty-four achievements ship with Wingman. A party may rename them, recolor
+Thirty-five achievements ship with Wingman. A party may rename them, recolor
 them, hide one, and switch any of them off. What they ask for is fixed, so
 **Golden Voice** means the same thing at every party.
 
@@ -113,31 +113,42 @@ them, hide one, and switch any of them off. What they ask for is fixed, so
 | **Living Legend** | Sing 100 songs |
 | **Five in a Night** | Sing 5 songs in one party |
 | **Iron Lungs** | Sing 10 songs in one party |
+| **All Night Long** | Sing 20 songs in one party |
 | **Hat-trick** | Score 9,000 or more three times in one party |
 | **Better Together** | Sing a duet |
-| **Well Traveled** | Sing songs by 10 different artists |
-| **Brave Soul** | Hidden until it is earned |
-| **First Place** | Beat another singer on a song |
-| **On a Roll** | Beat another singer on a song 10 times |
-| **Undisputed** | Beat another singer on a song 50 times |
+| **First Place** | Win a song against another singer |
+| **On a Roll** | Win 10 songs against other singers |
+| **Undisputed** | Win 50 songs against other singers |
 | **Back to the 70s** | Sing 5 songs from the 1970s in one party |
 | **Back to the 80s** | Sing 5 songs from the 1980s in one party |
 | **Back to the 90s** | Sing 5 songs from the 1990s in one party |
 | **Back to the 2000s** | Sing 5 songs from the 2000s in one party |
-| **Time Traveler** | Hidden until it is earned |
-| **Mixtape** | Hidden until it is earned |
-| **Rickrolled** | Hidden until it is earned |
 | **Rap God** | Score 8,000 or more in a rap or hip-hop song |
 | **Killer Queen** | Sing 10 different Queen songs |
 | **Super Trouper** | Sing 5 different ABBA songs |
 | **The Fab Four** | Sing 4 different Beatles songs |
 | **Christmas Number One** | Score 8,000 or more in a Christmas song |
-| **Roll the Credits** | Collect 15,000 points from soundtrack songs in one party |
-| **Groundhog Day** | Sing the same song three times |
+| **Roll the Credits** | Collect 20,000 points from soundtrack songs in one party |
+| **Well Traveled** | Hidden until it is earned |
+| **Brave Soul** | Hidden until it is earned |
+| **Time Traveler** | Hidden until it is earned |
+| **Mixtape** | Hidden until it is earned |
+| **Rickrolled** | Hidden until it is earned |
+| **Groundhog Day** | Hidden until it is earned |
 
-Four of them are hidden, and what earns one stays its own business. Each has a
+Six of them are hidden, and what earns one stays its own business. A new party
+gets them last, so its list starts with the twenty-nine everybody can read.
+The host may rearrange the whole of it from there. Each hidden one has a
 locked line of its own on **User** > **Achievements**, and it says what it is
 the moment somebody earns it.
+
+The table above is what a **new** party gets. An update never rewrites an
+achievement a party is already using.
+
+A party that has had Wingman for a while keeps the wording, the number, the
+hidden-or-not, and the order it already had. Resetting that one row brings the
+new version to it. See
+[Manage achievements](manage/index.md#the-ones-wingman-ships).
 
 "One party" means one evening of singing, the same party the **Scores** tab
 lists. See [Scores](../scores/index.md).

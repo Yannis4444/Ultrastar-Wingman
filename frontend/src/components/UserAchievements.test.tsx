@@ -94,7 +94,7 @@ it("counts what the singer holds against what there is to hold", async () => {
     ),
   );
 
-  expect(await screen.findByText("7 of 34")).toBeInTheDocument();
+  expect(await screen.findByText("7 of 35")).toBeInTheDocument();
 });
 
 it("puts the earned ones first and draws the rest in the off state", async () => {
@@ -104,26 +104,31 @@ it("puts the earned ones first and draws the rest in the off state", async () =>
   const { container } = renderSection(
     [first, second, third],
     [
-      playerAchievementRead({ achievement: first, earned_at: null }),
-      // Earned last, so it leads: the one just reached is the one being
-      // looked for.
+      // The dates fight the catalogue: *First* was earned before *Third*, and
+      // still leads, because where a badge sits is the host's arrangement and
+      // not the day it was reached.
       playerAchievementRead({
-        achievement: second,
-        earned_at: "2026-09-01T22:00:00Z",
+        achievement: first,
+        earned_at: "2026-08-30T20:00:00Z",
       }),
+      playerAchievementRead({ achievement: second, earned_at: null }),
       playerAchievementRead({
         achievement: third,
-        earned_at: "2026-08-30T20:00:00Z",
+        earned_at: "2026-09-01T22:00:00Z",
       }),
     ],
   );
 
   await screen.findByText("2 of 3");
-  expect(rowNames(container)).toEqual(["Second", "Third", "First"]);
+  expect(rowNames(container)).toEqual(["First", "Third", "Second"]);
+  // And the strip says the same thing in the same order.
+  expect(
+    stripButtons(container).map((badge) => badge.getAttribute("aria-label")),
+  ).toEqual(["First", "Third"]);
   // The unearned one, and only it, carries the off styling.
   const off = [...container.querySelectorAll(".user-achievement-off")];
   expect(off).toHaveLength(1);
-  expect(off[0].textContent).toContain("First");
+  expect(off[0].textContent).toContain("Second");
 });
 
 it("says a hidden achievement is one without saying what it is", async () => {
@@ -288,6 +293,61 @@ it("picks up an achievement earned while the page is open", async () => {
   });
 
   expect(await screen.findByText("1 of 1")).toBeInTheDocument();
+});
+
+it("lands a freshly earned one at its catalogue place, not at the top", async () => {
+  const first = achievementRead({ id: "a-1", name: "First" });
+  const second = achievementRead({ id: "a-2", name: "Second" });
+  const third = achievementRead({ id: "a-3", name: "Third" });
+  const { container } = renderSection(
+    [first, second, third],
+    [
+      playerAchievementRead({ achievement: first, earned_at: EARNED_AT }),
+      playerAchievementRead({ achievement: second, earned_at: null }),
+      playerAchievementRead({ achievement: third, earned_at: null }),
+    ],
+  );
+
+  await screen.findByText("1 of 3");
+
+  // The refetch answers newest first, the reverse of the catalogue — and it
+  // makes no difference: the list is built by walking the catalogue and looking
+  // each row up, so what order the record arrives in is never read. The one
+  // just earned lands third, where the host put it.
+  listPlayerAchievements.mockResolvedValue({
+    data: {
+      achievements: [
+        playerAchievementRead({
+          achievement: third,
+          earned_at: "2026-09-02T21:00:00Z",
+        }),
+        playerAchievementRead({ achievement: first, earned_at: EARNED_AT }),
+        playerAchievementRead({ achievement: second, earned_at: null }),
+      ],
+    },
+  });
+  FakeSocket.deliver({
+    event: "achievements.earned",
+    sing_id: "sing-1",
+    players: [
+      {
+        player: {
+          id: "p1",
+          name: "Alice",
+          registered: true,
+          hidden: false,
+          has_avatar: false,
+        },
+        achievements: [third],
+      },
+    ],
+  });
+
+  await screen.findByText("2 of 3");
+  expect(rowNames(container)).toEqual(["First", "Third", "Second"]);
+  expect(
+    stripButtons(container).map((badge) => badge.getAttribute("aria-label")),
+  ).toEqual(["First", "Third"]);
 });
 
 it("leaves the record alone when somebody else earned something", async () => {

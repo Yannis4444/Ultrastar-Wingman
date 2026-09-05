@@ -6,7 +6,7 @@ icon: wingman/trophy
 
 **User** > **Achievements** is where a party looks after its badges. It holds
 the three options the feature has and then every achievement in one list: the
-ones somebody here made and the thirty-four Wingman brings with it, in whatever
+ones somebody here made and the thirty-five Wingman brings with it, in whatever
 order you put them. It takes the right to manage achievements, which Admin
 holds by default.
 
@@ -33,7 +33,7 @@ feature back on brings everybody's badges up to date.
 ## The list
 
 One list holds every achievement there is, the ones your party made and the
-thirty-four Wingman ships together, in the order you arranged them. A row shows
+thirty-five Wingman ships together, in the order you arranged them. A row shows
 the badge, the name, and the description a singer reads under it. Tap a row to
 open the editor. See [Make an achievement](create.md).
 
@@ -56,9 +56,9 @@ Every move is saved as you make it. It is one order over all of them, so an
 achievement your party made can sit above one Wingman ships, and one Wingman
 ships can lead the list.
 
-This order is what the host screen follows and what a singer's own page falls
-back on. On a singer's page the badges they earned come first, newest first,
-and the rest keep the order you set.
+This order is what the host screen and a singer's own page follow. On a
+singer's page the badges they earned come first and the rest follow them, both
+in the order you set.
 
 If somebody adds, imports, or deletes an achievement while you are arranging,
 Wingman says "The achievements changed somewhere else, so this order no longer
@@ -83,10 +83,17 @@ Two things a reset leaves alone: whether the achievement is switched on, and
 where it sits in the list. Switching one off is meant to stick, and the order
 is yours.
 
+A reset is also how a party picks up an improvement. An update never rewrites
+an achievement your party is already using, so your party keeps what it was
+given. A new version may reword an included achievement, change the number it
+asks for, or hide it until it is earned. Reset that one row and it reads the
+way the new version ships it.
+
 !!! warning
-    Everybody's badges are worked out again after a reset. If you had made an
-    achievement easier than Wingman ships it, resetting it takes that badge
-    away from whoever only met the easier version.
+    Everybody's badges are worked out again after a reset. Resetting takes a
+    badge away from whoever only met an easier version. That happens if you
+    made the achievement easier than Wingman ships it. It also happens if
+    Wingman has asked for more since your party first got it.
 
 ## Carry achievements to another party
 

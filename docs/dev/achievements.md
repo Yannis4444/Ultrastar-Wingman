@@ -362,10 +362,13 @@ hidden achievement.
 
 `achievements.sort_order` is one integer column over the whole table, and every
 listing reads it: `GET /achievements`, a player's own record
-(`rows_of_player`), and the ids an `achievements.earned` payload names
-(`by_ids`). There is one order, and it is the order badges appear in everywhere.
-`created_at` breaks a tie, so two rows sorted the same keep the order they were
-made in instead of shuffling between requests.
+(`rows_of_player`), and the achievements an `achievements.earned` payload
+carries (`by_ids`). The evaluation pass reads it too (`_enabled`), and that is
+what puts the payload's badges in this order rather than `by_ids` — a pass
+answers with what it newly earned in the order it walked, and the host screen
+throws them in exactly that order. There is one order, and it is the order
+badges appear in everywhere. `created_at` breaks a tie, so two rows sorted the
+same keep the order they were made in instead of shuffling between requests.
 
 `PUT /achievements/order`, `achievements.manage`:
 
@@ -682,11 +685,12 @@ nothing. That rule feeds `has_image`, `icon_version` and the icon endpoint, so
 a fresh database draws a built-in whose artwork exists with that artwork, an
 upload stands in front of it, and removing the upload (or a reset) goes *back*
 to it rather than to a glyph — a built-in is never drawn with a glyph while its
-picture ships. "And the file exists" is not a formality: the built-ins added on
-2026-09-04 have no artwork yet, and each of those is drawn with its glyph until
-its two files land ([achievement-artwork.md](achievement-artwork.md) §9). The
-disk is asked and not `builtin.py`, which is what makes that the ordinary
-answer rather than a broken one. `AchievementRead.image_shipped` says which of
+picture ships. "And the file exists" is not a formality, even though all
+thirty-five have their artwork since 2026-09-05
+([achievement-artwork.md](achievement-artwork.md) §9): a built-in arrives
+before its picture does, and for that span it is drawn with its glyph. The disk
+is asked and not `builtin.py`, which is what makes that the ordinary answer
+rather than a broken one. `AchievementRead.image_shipped` says which of
 the two is drawn, which is what lets the editor offer **Back to the included
 picture** instead of a glyph. Export carries uploads only: every instance has
 the shipped files, and an archive that carried one would come back through
@@ -700,7 +704,10 @@ variant: `small` is what every badge the app draws asks for
 each and the user page draws the whole catalogue; an upload has no variant and
 answers either size with itself, the browser scaling it — nothing resizes on the
 server, that would take an image library. `full` is for a view that shows one
-badge large; nothing does yet.
+badge large, and `AchievementModal` is the one that does — the only caller that
+passes `resolution="full"`, and only while it is open, so the megabyte is
+fetched when somebody has asked to look at one badge rather than on every page
+that draws a strip of them.
 
 `AchievementRead.icon_version` is the cache buster for
 `GET /achievements/{id}/icon`, the same field `PlayerRead.avatar_version` is
@@ -727,12 +734,30 @@ be.
 
 ## The included set
 
-Thirty-four of them, declared as data in `achievements/builtin.py` and seeded as
+Thirty-five of them, declared as data in `achievements/builtin.py` and seeded as
 ordinary rows with `built_in = true` and **stable slug ids**
-(`builtin-score-9000`), which is what import/export needs to recognise one. Two
-migrations seed them, in two batches: 0023 the first seventeen, 0030 the
-seventeen added on 2026-09-04 — a ladder of wins, one badge per decade, two
-hidden ones about the range of an evening, and eight nods to songs and bands.
+(`builtin-score-9000`), which is what import/export needs to recognise one.
+Three migrations seed them, in the batches they arrived in: 0023 the first
+seventeen, 0030 the seventeen added on 2026-09-04 — a ladder of wins, one badge
+per decade, two hidden ones about the range of an evening, and eight nods to
+songs and bands, two of those hidden as well, which makes four hidden in that
+batch — and 0031 *All Night Long*, twenty songs in one party, the third rung of
+*Five in a Night* → *Iron Lungs*.
+
+The order the file lists them in is what a **fresh** database is seeded with,
+and it is not the order they arrived in: the six that are **hidden until
+earned** stand at the end of it, so *Brave Soul* — first batch — sits behind the
+second, and a rung added to a ladder later stands with its ladder rather than
+behind everything (*All Night Long*, directly after *Iron Lungs*). A catalogue
+read as a list of things to go for should have neither locked holes nor a broken
+ladder in the middle of it. Which ids a seed revision is responsible for is
+frozen in that revision (0030's and 0031's `NEW_IDS`) rather than read as a
+slice of `BUILT_INS`, and that is what makes ordering the file by what it means
+safe; what such an order may not do is renumber the rows an older revision
+already seeded, and it does not — the order of an existing catalogue is the
+host's. So the same achievement lands in two different places depending on the
+database it reaches, and both are intended: behind *Iron Lungs* on a fresh one,
+at the end of the host's arrangement on one that was already seeded.
 
 `built_in = true` buys exactly three things:
 
@@ -755,7 +780,20 @@ whole of it there, while an older one holds only what the file said at its
 time. 0030 is the worked example — the ids it is responsible for are frozen in
 the revision itself, the values still come out of `builtin.py`, and
 `sort_order` continues after the highest in the table, because the order of the
-catalogue is the host's and the numbers already in it are theirs.
+catalogue is the host's and the numbers already in it are theirs. 0031 is that
+revision at one row.
+
+So adding a built-in is `builtin.py`, a revision in that shape — and then the
+**mirrors** of the list, which are where the time actually goes: the fixture
+`frontend/src/test/achievements.ts` (id, name, glyph, colour and `hidden`, in
+`BUILT_INS` order — nothing compares it against `builtin.py`, so it drifts
+silently), `PICTURES_PENDING` in `backend/tests/test_achievements_api.py` until
+the two PNGs exist (the one mirror a test does hold to: the picture test asks
+the disk for every id outside that set — and the set is empty today, so a new
+built-in puts its id in and takes it out again a picture later), an entry in
+§4 of [achievement-artwork.md](achievement-artwork.md) with its row in §9, the
+table in `docs/user/achievements/index.md`, and every count in the
+documentation — thirty-five shipped, twenty-nine of them visible.
 
 A seed migration inserts rows and **starts no pass**, which matters the moment
 one runs on a database that already has a history. An achievement nobody has
@@ -791,3 +829,19 @@ Because no other write may touch a built-in's conditions, a reset is also the
 was seeded with the old one — the seed migration runs once. That is a known
 limitation of shipping the set as ordinary rows, and reset is what an operator
 does about it.
+
+The presentation half of an improvement travels the same way, and deliberately:
+`description` and `hidden` are the host's to edit, so a migration rewriting them
+would overwrite a party's own words, while one rewriting the definition alone
+would leave a sentence asking for a number the conditions no longer compare
+against. And a definition raised in a migration would revoke the badge from
+everybody who earned it under the old number without a host ever pressing
+anything. So a **tuning of the shipped set is `builtin.py` and nothing else**,
+and an existing party picks it up one reset at a time. The 2026-09-04 tuning is
+the worked example: two raised numbers (*Well Traveled* 10 → 20 artists, *Roll
+the Credits* 15,000 → 20,000 points), two new `hidden` flags (*Well Traveled*,
+*Groundhog Day*), five reworded descriptions and the hidden-last order — all of
+it in `builtin.py` and no revision at all. A revision is for a built-in that is
+**new** (0023, 0030, 0031), never for one that changed. The one exception ever
+made is a **name**: 0025's *Well Travelled* → *Well Traveled*, which revokes
+nothing and is conditional on the row still holding the seeded spelling.
