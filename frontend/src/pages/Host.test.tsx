@@ -25,6 +25,7 @@ const {
   exchangeHostToken,
   getCurrentSing,
   getJoinInfo,
+  getPlayerSelection,
   listAchievements,
   listKaraokeColors,
   listLatestScores,
@@ -38,6 +39,7 @@ const {
   exchangeHostToken: vi.fn(),
   getCurrentSing: vi.fn(),
   getJoinInfo: vi.fn(),
+  getPlayerSelection: vi.fn(),
   listAchievements: vi.fn(),
   listKaraokeColors: vi.fn(),
   listLatestScores: vi.fn(),
@@ -54,6 +56,7 @@ vi.mock("../api/sdk.gen", async (importOriginal) => ({
   exchangeHostToken,
   getCurrentSing,
   getJoinInfo,
+  getPlayerSelection,
   listAchievements,
   listKaraokeColors,
   listLatestScores,
@@ -186,6 +189,8 @@ beforeEach(() => {
   getMe.mockResolvedValue(meResponse(["songs.view"]));
   getCurrentSing.mockResolvedValue({ data: { sing: null } });
   getJoinInfo.mockResolvedValue({ data: { url: "http://192.168.0.10:8080" } });
+  getPlayerSelection.mockReset();
+  getPlayerSelection.mockResolvedValue({ data: { selection: null } });
   listAchievements.mockReset();
   listAchievements.mockResolvedValue({
     data: { achievements: [], settings: achievementSettings() },
@@ -419,6 +424,35 @@ test("the standing outlives the results the stage was showing", async () => {
   expect(await screen.findByText("Ultrastar Wingman")).toBeInTheDocument();
   expect(screen.queryByLabelText("Last song")).not.toBeInTheDocument();
   expect(screen.getByLabelText("Party leaderboard")).toBeInTheDocument();
+});
+
+test("the room picking the next song takes the stage from the results", async () => {
+  withScores();
+  const { container } = renderHost("/host");
+  await screen.findByLabelText("Last song");
+
+  act(() =>
+    FakeSocket.deliver({
+      event: "selection.changed",
+      selection: {
+        song: { ...RHAPSODY, id: "usdb:3", title: "Waterloo" },
+        slots: [{ color: "blue", player: null, card_uid: null }],
+        opened_at: "2026-08-23T20:20:00Z",
+        updated_at: "2026-08-23T20:20:00Z",
+        auto_start_at: null,
+      },
+    }),
+  );
+
+  const stage = await screen.findByLabelText("Picking singers");
+  expect(container.querySelector(".host-stage")).toContainElement(stage);
+  expect(stage).toHaveTextContent("Waterloo");
+  // The results wait underneath it, and the brand does not stand in for them.
+  expect(screen.queryByLabelText("Last song")).not.toBeInTheDocument();
+  expect(screen.queryByText("Ultrastar Wingman")).not.toBeInTheDocument();
+  // Picking is not the badges' takeover: the rail with the code stays up.
+  expect(container.querySelector(".host-rail")).not.toBeNull();
+  expect(screen.getByText("Scan to join")).toBeInTheDocument();
 });
 
 test("what a song earned takes the stage, and the results follow it", async () => {

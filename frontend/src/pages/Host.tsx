@@ -18,6 +18,9 @@ import HostAchievements, {
   type HostAchievementsPhase,
 } from "../components/HostAchievements";
 import HostResults from "../components/HostResults";
+import HostSelection, {
+  type HostSelectionPhase,
+} from "../components/HostSelection";
 import { Icon } from "../components/icons";
 import SessionLeaderboard from "../components/SessionLeaderboard";
 import SongCover from "../components/SongCover";
@@ -150,6 +153,9 @@ export default function Host() {
   // Whose turn the stage is between songs: the badges a finished song earned
   // play first, and the results follow them.
   const [earned, setEarned] = useState<HostAchievementsPhase>("idle");
+  // The room picking the next song owns the stage too, between the badges above
+  // it and the results below.
+  const [picking, setPicking] = useState<HostSelectionPhase>("idle");
 
   const exchange = useMutation({
     ...exchangeHostTokenMutation(),
@@ -219,6 +225,12 @@ export default function Host() {
     >
       <div className="host-stage">
         <CurrentlyPlaying variant="host" />
+        {/* Somebody is picking singers for the next song: the stage shows the
+            song and its slots filling up. It gives way to the badges a finished
+            song earned, which take the whole screen, and it stands in front of
+            the results — the room is looking at what happens next, not at what
+            just happened. */}
+        <HostSelection onPhase={setPicking} suppressed={takeover} />
         {/* The badges a finished song earned take the stage before its scores
             do. `HostResults` stays mounted underneath them the whole time —
             it is what listens for the next scores and for the next song — and
@@ -234,8 +246,8 @@ export default function Host() {
         />
         <HostResults
           players={standing.players}
-          fallback={takeover ? null : <HostBrand />}
-          suppressed={earned !== "idle"}
+          fallback={takeover || picking === "selecting" ? null : <HostBrand />}
+          suppressed={earned !== "idle" || picking === "selecting"}
         />
       </div>
 

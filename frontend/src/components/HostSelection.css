@@ -1,0 +1,109 @@
+/* The stage while the room is picking singers. Same composition as the running
+   song next door — cover on the left, the song beside it, the slots under it —
+   so the TV does not change shape when the picking turns into a sing. The
+   cover, title and artist rules are CurrentlyPlaying's own; only what is new
+   here is written out. */
+.host-page .host-selection {
+  display: grid;
+  grid-template-areas:
+    "cover text"
+    "cover slots"
+    "note note";
+  grid-template-columns: auto minmax(0, 1fr);
+  column-gap: clamp(24px, 3vw, 56px);
+  row-gap: clamp(16px, 3vh, 40px);
+  align-items: center;
+  min-width: 0;
+  text-align: left;
+  /* Mounts when somebody picks a song, so there is nothing to transition from. */
+  animation: host-selection-in 200ms ease;
+}
+
+@keyframes host-selection-in {
+  from {
+    opacity: 0;
+  }
+}
+
+/* One line under the artist, in the elapsed time's place and its proportion:
+   it says what the room is doing, which is the one thing a TV across the room
+   has to make obvious. */
+.host-page .host-selection-what {
+  max-width: 100%;
+  margin: 0;
+  overflow: hidden;
+  font-size: clamp(16px, 2.2vh, 32px);
+  white-space: nowrap;
+  text-overflow: ellipsis;
+  color: var(--color-darker);
+}
+
+/* The slots in the host's order, wrapping like the singers of a running song.
+   Every configured slot is here, empty ones included: the row watches them
+   fill up, which is the whole point of the screen. */
+.host-page .host-selection-slots {
+  display: flex;
+  flex-wrap: wrap;
+  grid-area: slots;
+  justify-content: flex-start;
+  gap: clamp(16px, 2vw, 40px);
+  margin: 0;
+  padding: 0;
+  font-size: clamp(18px, 2.6vh, 36px);
+  list-style: none;
+}
+
+.host-page .host-selection-slot {
+  display: flex;
+  align-items: center;
+  gap: clamp(8px, 1vw, 16px);
+  max-width: 100%;
+}
+
+/* The slot's USDX color as a bar, not a dot: on a screen across the room a bar
+   the height of the avatar is what pairs the person with the microphone. */
+.host-page .host-selection-bar {
+  flex: 0 0 auto;
+  width: clamp(6px, 0.9vh, 12px);
+  height: clamp(40px, 6vh, 88px);
+  border-radius: 999px;
+}
+
+.host-page .host-selection-slots .player-avatar {
+  width: clamp(40px, 6vh, 88px);
+  height: clamp(40px, 6vh, 88px);
+}
+
+.host-page .host-selection-name {
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+
+/* An empty slot and a card nobody owns read the same way: nobody is on it yet.
+   Nothing red — a card the party has not assigned is not a fault. */
+.host-page .host-selection-empty {
+  color: var(--color-darkerer);
+}
+
+/* A card is somebody standing there, so the square is the one a player without
+   a picture gets rather than the darker well of an empty slot. */
+.host-page .host-selection-slot-card .player-avatar-empty {
+  background-color: var(--input-bg);
+}
+
+/* The selector's automatic start. Its own row under everything, because it is
+   the one thing on this screen that changes every second. */
+.host-page .host-selection-countdown {
+  grid-area: note;
+  margin: 0;
+  font-size: clamp(18px, 2.6vh, 36px);
+  color: var(--color-dark);
+  font-variant-numeric: tabular-nums;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .host-page .host-selection {
+    animation: none;
+  }
+}
