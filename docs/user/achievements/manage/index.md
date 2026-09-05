@@ -83,17 +83,17 @@ Two things a reset leaves alone: whether the achievement is switched on, and
 where it sits in the list. Switching one off is meant to stick, and the order
 is yours.
 
-A reset is also how a party picks up an improvement. When a new version of
-Wingman rewords an included achievement, changes the number it asks for, or
-hides it until it is earned, the parties that already have it keep what they
-were given: an update never rewrites an achievement your party is already
-using. Reset that one row and it reads the way the new version ships it.
+A reset is also how a party picks up an improvement. An update never rewrites
+an achievement your party is already using, so your party keeps what it was
+given. A new version may reword an included achievement, change the number it
+asks for, or hide it until it is earned. Reset that one row and it reads the
+way the new version ships it.
 
 !!! warning
-    Everybody's badges are worked out again after a reset. If you had made an
-    achievement easier than Wingman ships it — or Wingman has asked for more
-    since your party first got it — resetting it takes that badge away from
-    whoever only met the easier version.
+    Everybody's badges are worked out again after a reset. Resetting takes a
+    badge away from whoever only met an easier version. That happens if you
+    made the achievement easier than Wingman ships it. It also happens if
+    Wingman has asked for more since your party first got it.
 
 ## Carry achievements to another party
 

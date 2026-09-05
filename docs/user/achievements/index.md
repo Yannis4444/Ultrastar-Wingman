@@ -23,7 +23,7 @@ badges beside it. The count says how many you hold out of how many there are.
 Before your first one it says "Nothing yet. The first one is a song away".
 
 Tap the line to fold out the whole list. The ones you earned come first, then
-the rest — both in the order the host arranged them in.
+the rest. Both halves keep the order the host arranged them in.
 
 ![Fry's achievements folded out, with the badges he has earned and their dates, a locked hidden row, and progress bars under the rest](../assets/screenshots/achievements/user-achievements.png){ width="320" loading=lazy }
 /// caption
@@ -137,15 +137,17 @@ them, hide one, and switch any of them off. What they ask for is fixed, so
 | **Groundhog Day** | Hidden until it is earned |
 
 Six of them are hidden, and what earns one stays its own business. A new party
-gets them last, so its list starts with the twenty-nine everybody can read,
-and the host may rearrange the whole of it from there. Each hidden one has a
+gets them last, so its list starts with the twenty-nine everybody can read.
+The host may rearrange the whole of it from there. Each hidden one has a
 locked line of its own on **User** > **Achievements**, and it says what it is
 the moment somebody earns it.
 
 The table above is what a **new** party gets. An update never rewrites an
-achievement a party is already using, so a party that has had Wingman for a
-while keeps the wording, the number and the hidden-or-not it was given, in the
-order it already had — until the host resets that row. See
+achievement a party is already using.
+
+A party that has had Wingman for a while keeps the wording, the number, the
+hidden-or-not, and the order it already had. Resetting that one row brings the
+new version to it. See
 [Manage achievements](manage/index.md#the-ones-wingman-ships).
 
 "One party" means one evening of singing, the same party the **Scores** tab

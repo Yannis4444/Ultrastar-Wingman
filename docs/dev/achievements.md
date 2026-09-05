@@ -362,10 +362,13 @@ hidden achievement.
 
 `achievements.sort_order` is one integer column over the whole table, and every
 listing reads it: `GET /achievements`, a player's own record
-(`rows_of_player`), and the ids an `achievements.earned` payload names
-(`by_ids`). There is one order, and it is the order badges appear in everywhere.
-`created_at` breaks a tie, so two rows sorted the same keep the order they were
-made in instead of shuffling between requests.
+(`rows_of_player`), and the achievements an `achievements.earned` payload
+carries (`by_ids`). The evaluation pass reads it too (`_enabled`), and that is
+what puts the payload's badges in this order rather than `by_ids` — a pass
+answers with what it newly earned in the order it walked, and the host screen
+throws them in exactly that order. There is one order, and it is the order
+badges appear in everywhere. `created_at` breaks a tie, so two rows sorted the
+same keep the order they were made in instead of shuffling between requests.
 
 `PUT /achievements/order`, `achievements.manage`:
 
@@ -701,7 +704,10 @@ variant: `small` is what every badge the app draws asks for
 each and the user page draws the whole catalogue; an upload has no variant and
 answers either size with itself, the browser scaling it — nothing resizes on the
 server, that would take an image library. `full` is for a view that shows one
-badge large; nothing does yet.
+badge large, and `AchievementModal` is the one that does — the only caller that
+passes `resolution="full"`, and only while it is open, so the megabyte is
+fetched when somebody has asked to look at one badge rather than on every page
+that draws a strip of them.
 
 `AchievementRead.icon_version` is the cache buster for
 `GET /achievements/{id}/icon`, the same field `PlayerRead.avatar_version` is
@@ -734,8 +740,9 @@ ordinary rows with `built_in = true` and **stable slug ids**
 Three migrations seed them, in the batches they arrived in: 0023 the first
 seventeen, 0030 the seventeen added on 2026-09-04 — a ladder of wins, one badge
 per decade, two hidden ones about the range of an evening, and eight nods to
-songs and bands — and 0031 *All Night Long*, twenty songs in one party, the
-third rung of *Five in a Night* → *Iron Lungs*.
+songs and bands, two of those hidden as well, which makes four hidden in that
+batch — and 0031 *All Night Long*, twenty songs in one party, the third rung of
+*Five in a Night* → *Iron Lungs*.
 
 The order the file lists them in is what a **fresh** database is seeded with,
 and it is not the order they arrived in: the six that are **hidden until
