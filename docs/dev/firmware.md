@@ -14,18 +14,25 @@ not here.
 - **C++17**, warnings on (`-Wall -Wextra`), no exceptions, no RTTI-dependent code.
 - Run PlatformIO through the repo venv, like everything else Python:
   `D:\git\Ultrastar-Wingman-new\venv\Scripts\python.exe -m platformio <command>` from
-  `firmware/`. Never a globally installed `pio`.
+  `firmware/`. Never a globally installed `pio`. Both tools are pinned in
+  `firmware/requirements.txt` — PlatformIO and the `clang-format` wheel, which ships the
+  binary so nothing has to be installed system-wide.
+- Run them **from PowerShell, not from a Git Bash shell**: pioarduino installs its toolchain
+  through `idf_tools.py`, which refuses an MSYS environment ("MSys/Mingw is not supported")
+  and leaves the build without a compiler.
 
 | What | Command (cwd `firmware/`) |
 |---|---|
+| Install the tools | `venv -m pip install -r firmware/requirements.txt` (cwd repo root) |
 | Build the image | `venv -m platformio run -e esp32dev` |
 | Unit tests (no hardware) | `venv -m platformio test -e native` |
-| Static check | `venv -m platformio check -e esp32dev --skip-packages` |
-| Format check | `clang-format --dry-run -Werror src/*.cpp src/*.h test/test_native/*.cpp` |
+| Static check | `venv -m platformio check -e esp32dev --skip-packages` (CI adds `--fail-on-defect=high`; the low-severity style notes are not gating) |
+| Format check | `..\venv\Scripts\clang-format.exe --dry-run -Werror src/*.cpp src/*.h test/test_native/*.cpp` (clang-format expands the wildcards itself, so this is the same command in PowerShell and in CI's bash) |
 | Build and bundle into the backend | `venv firmware/build.py` (cwd repo root) |
 | Flash from the command line (dev only) | `venv -m platformio run -e esp32dev -t upload` |
 
-`installer/build.ps1` and the CI `firmware` job run the first four. They must all be green
+The CI `firmware` job runs the build, the tests, the static check and the format check;
+`installer/build.ps1` runs the build alone, through `build.py`. All four must be green
 before a firmware change is committed.
 
 ## Layout and boundaries
@@ -72,8 +79,11 @@ before a firmware change is committed.
 - `PROTOCOL_VERSION` (in `src/pins.h`, beside the map it describes) changes only when the
   report body or the serial console changes in a way an older server or wizard could not
   read. The server's `devices.protocol.SUPPORTED` moves with it in the same commit.
-- Both are compiled in from `platformio.ini` / `scripts/version.py`, consumed in exactly one
-  translation unit, so a version bump does not rebuild the whole tree.
+- `PROTOCOL_VERSION` is a header constant; the version and the commit come from
+  `scripts/version.py` as `-D` flags and are read in exactly one translation unit
+  (`main.cpp`), so nothing but that file knows what version it is. A `-D` is part of every
+  compiler command line, so bumping the version does rebuild the tree — a few seconds, and
+  the price of not writing the version into a file the build tracks.
 
 ## Tests
 

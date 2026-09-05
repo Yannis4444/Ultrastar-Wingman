@@ -27,6 +27,15 @@ Invoke-Step "install backend + pyinstaller" {
     & $python -m pip install -e "$root\backend[packaging]" --quiet
 }
 
+Invoke-Step "install firmware tools" {
+    & $python -m pip install -r (Join-Path $root "firmware\requirements.txt") --quiet
+}
+
+# The device firmware is never committed; it is built here and bundled by the spec below.
+Invoke-Step "firmware build" {
+    & $python (Join-Path $root "firmware\build.py")
+}
+
 Invoke-Step "pyinstaller" {
     & $python -m PyInstaller --noconfirm `
         --distpath (Join-Path $PSScriptRoot "dist") `

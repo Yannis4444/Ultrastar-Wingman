@@ -43,3 +43,40 @@ jobs:
       - run: npm run lint
       - run: npm run format:check
       - run: npm test
+
+  # The player selector's ESP32 firmware. `python` is the runner's own here — the venv rule
+  # of CLAUDE.md is about the development machine.
+  firmware:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          # scripts/version.py compiles `git describe` into the image.
+          fetch-depth: 0
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+      - run: pip install -r firmware/requirements.txt
+      # The toolchain is hundreds of megabytes and only moves when the pins in
+      # platformio.ini do.
+      - uses: actions/cache@v4
+        with:
+          path: ~/.platformio
+          key: platformio-${{ hashFiles('firmware/platformio.ini') }}
+          restore-keys: platformio-
+      # build.py runs the esp32dev build and writes the image and the manifest the app
+      # ships, which is what the artifact below is.
+      - run: python firmware/build.py
+      - run: python -m platformio test -e native
+        working-directory: firmware
+      - run: python -m platformio check -e esp32dev --skip-packages --fail-on-defect=high
+        working-directory: firmware
+      - run: clang-format --dry-run -Werror src/*.cpp src/*.h test/test_native/*.cpp
+        working-directory: firmware
+      - uses: actions/upload-artifact@v4
+        with:
+          name: wingman-esp32
+          path: |
+            backend/src/ultrastar_wingman/devices/firmware/wingman-esp32.bin
+            backend/src/ultrastar_wingman/devices/firmware/manifest.json
