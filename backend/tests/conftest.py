@@ -19,6 +19,7 @@ from ultrastar_wingman.auth.service import SESSION_TTL, token_hash
 from ultrastar_wingman.config import BootstrapSettings
 from ultrastar_wingman.db import run_migrations
 from ultrastar_wingman.events import event_bus
+from ultrastar_wingman.karaoke import selection
 from ultrastar_wingman.songs import scanner
 from ultrastar_wingman.sources import usdb
 
@@ -196,6 +197,19 @@ def fresh_achievement_pass_state() -> None:
     """
     achievements._write_lock = asyncio.Lock()
     achievements._passes.clear()
+
+
+@pytest.fixture(autouse=True)
+def fresh_selection_state() -> None:
+    """Same reasoning as the scan lock above — the open player selection, its lock and the
+    countdown it may have started are module-global, while every test brings its own event
+    loop and its own database. A selection left behind would lock the next test's room.
+    """
+    for task in selection._auto_start_tasks:
+        task.cancel()
+    selection._auto_start_tasks.clear()
+    selection._selection = None
+    selection._lock = asyncio.Lock()
 
 
 @pytest.fixture(autouse=True)

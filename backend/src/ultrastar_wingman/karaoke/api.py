@@ -1,6 +1,8 @@
 """Karaoke endpoints: the colors to pick from, starting a song, what is playing, stopping."""
 
+import contextlib
 import logging
+from collections.abc import Iterator
 
 from fastapi import APIRouter, Depends, HTTPException, Request
 from pydantic import BaseModel, Field
@@ -8,15 +10,60 @@ from pydantic import BaseModel, Field
 from ..auth.deps import HiddenSongsDep, PrincipalDep, require
 from ..db import SessionDep
 from ..songs.api import song_or_404
-from . import service
+from . import selection, service
 from .colors import COLORS, Color, ColorList, UnknownColorError
-from .schema import CurrentSing, CurrentSingRead
+from .schema import (
+    CurrentSelectionRead,
+    CurrentSing,
+    CurrentSingRead,
+    SelectionOpened,
+    SelectionRead,
+)
 from .slots import PLAYER_COUNTS
 from .usdx_paths import UsdxPathsError, resolve_usdx_paths
 
 logger = logging.getLogger(__name__)
 
 router = APIRouter(tags=["karaoke"])
+
+
+@contextlib.contextmanager
+def _sing_errors() -> Iterator[None]:
+    """What the sing flow refuses, as status codes.
+
+    A context manager rather than one `try` per handler: three routes hand slots to the same
+    service (a sing, opening a selection and starting one), and the phone has to get the same
+    answer whichever door it came through.
+    """
+    try:
+        yield
+    except (service.UnknownSongError, service.UnknownPlayerError) as error:
+        raise HTTPException(status_code=404, detail=str(error)) from error
+    except (
+        UnknownColorError,
+        service.UnconfiguredColorError,
+        service.DuplicateColorError,
+        service.NoPlayersError,
+    ) as error:
+        raise HTTPException(status_code=422, detail=str(error)) from error
+    except service.AlreadyPlayingError as error:
+        raise HTTPException(status_code=409, detail="already_playing") from error
+    except UsdxPathsError as error:
+        raise HTTPException(
+            status_code=400,
+            detail={"error": "usdx_not_configured", "problems": error.problems},
+        ) from error
+
+
+@contextlib.contextmanager
+def _selection_errors() -> Iterator[None]:
+    """The two ways a token can be worthless: the selection is over, or somebody took it."""
+    try:
+        yield
+    except selection.NoSelectionError as error:
+        raise HTTPException(status_code=404, detail="no_selection") from error
+    except selection.NotTheOpenerError as error:
+        raise HTTPException(status_code=409, detail="not_the_opener") from error
 
 
 class SlotCreate(BaseModel):
@@ -152,7 +199,11 @@ async def sing_song(
     # Here and not in the service: who the caller is decides which songs exist for them,
     # and the sing flow itself stays principal-free.
     await song_or_404(new_sing.song_id, session, hidden)
-    try:
+    # The room is picking singers for something: a phone (or a script) must not play over
+    # it. `force` already means "take the machine", so it comes through here as well.
+    if not new_sing.force and await selection.is_open():
+        raise HTTPException(status_code=409, detail="selection_open")
+    with _sing_errors():
         return await service.start_sing(
             session,
             request.app.state.session_factory,
@@ -163,22 +214,151 @@ async def sing_song(
             ],
             force=new_sing.force,
         )
-    except (service.UnknownSongError, service.UnknownPlayerError) as error:
-        raise HTTPException(status_code=404, detail=str(error)) from error
-    except (
-        UnknownColorError,
-        service.UnconfiguredColorError,
-        service.DuplicateColorError,
-        service.NoPlayersError,
-    ) as error:
-        raise HTTPException(status_code=422, detail=str(error)) from error
-    except service.AlreadyPlayingError as error:
-        raise HTTPException(status_code=409, detail="already_playing") from error
-    except UsdxPathsError as error:
-        raise HTTPException(
-            status_code=400,
-            detail={"error": "usdx_not_configured", "problems": error.problems},
-        ) from error
+
+
+class SelectionCreate(BaseModel):
+    song_id: str
+    # What the phone remembered from the last song. Empty is fine: at the device, the cards
+    # fill the slots and nobody sends anything at all.
+    slots: list[SlotCreate] = Field(default_factory=list, max_length=len(COLORS))
+    force: bool = False
+
+
+class SelectionSlotsUpdate(BaseModel):
+    token: str
+    slots: list[SlotCreate] = Field(default_factory=list, max_length=len(COLORS))
+
+
+class SelectionStart(BaseModel):
+    token: str
+    force: bool = False
+
+
+@router.post(
+    "/karaoke/selection",
+    response_model=SelectionOpened,
+    status_code=201,
+    dependencies=[Depends(require("karaoke.sing"))],
+    responses={
+        404: {"description": "Unknown song or player."},
+        409: {"description": "Somebody else is picking singers and `force` was not set."},
+    },
+)
+async def open_player_selection(
+    new_selection: SelectionCreate,
+    session: SessionDep,
+    hidden: HiddenSongsDep,
+) -> SelectionOpened:
+    """Start picking singers for a song, and lock the room while it lasts.
+
+    Answers the selection and the token that owns it: only that token moves the slots and
+    presses Play. `force` takes a selection somebody else opened over, which needs nothing
+    beyond `karaoke.sing` — the UI asks first.
+    """
+    # Same reasoning as the sing route: which songs exist depends on who is asking.
+    await song_or_404(new_selection.song_id, session, hidden)
+    try:
+        with _sing_errors():
+            opened, token = await selection.open_selection(
+                session,
+                new_selection.song_id,
+                [
+                    service.SlotRequest(color=slot.color, player_id=slot.player_id)
+                    for slot in new_selection.slots
+                ],
+                force=new_selection.force,
+            )
+    except selection.SelectionOpenError as error:
+        raise HTTPException(status_code=409, detail="selection_open") from error
+    return SelectionOpened(selection=opened, token=token)
+
+
+@router.get(
+    "/karaoke/selection",
+    response_model=CurrentSelectionRead,
+    # Whoever may see songs may see which one the room is setting up.
+    dependencies=[Depends(require("songs.view"))],
+)
+async def get_player_selection() -> CurrentSelectionRead:
+    """What the room is picking right now, without the opener's token. The host screen
+    draws this, and a phone that reloaded catches up with it."""
+    return CurrentSelectionRead(selection=await selection.current_selection())
+
+
+@router.put(
+    "/karaoke/selection/slots",
+    response_model=SelectionRead,
+    dependencies=[Depends(require("karaoke.sing"))],
+    responses={
+        404: {"description": "Nothing is being picked, or an unknown player."},
+        409: {"description": "Somebody else has taken the selection over."},
+    },
+)
+async def set_player_selection_slots(
+    update: SelectionSlotsUpdate, session: SessionDep
+) -> SelectionRead:
+    """Move the singers around. Only the phone that opened the selection may."""
+    with _selection_errors(), _sing_errors():
+        return await selection.set_slots(
+            session,
+            update.token,
+            [
+                service.SlotRequest(color=slot.color, player_id=slot.player_id)
+                for slot in update.slots
+            ],
+        )
+
+
+@router.post(
+    "/karaoke/selection/start",
+    response_model=CurrentSing,
+    status_code=202,
+    dependencies=[Depends(require("karaoke.sing"))],
+    responses={
+        400: {"description": "USDX is not configured (or configured wrongly)."},
+        403: {"description": "`force` was set without `karaoke.stop`."},
+        404: {"description": "Nothing is being picked, or an unknown song or player."},
+        409: {"description": "Somebody else has taken the selection over, or a song plays."},
+    },
+)
+async def start_player_selection(
+    start: SelectionStart,
+    request: Request,
+    session: SessionDep,
+    principal: PrincipalDep,
+) -> CurrentSing:
+    """Sing what is on the slots. The selection is over once USDX is up; an error leaves it
+    standing, so whoever opened it can fix what the message names."""
+    if start.force:
+        # Exactly like the sing route: a forced start kills the song that is playing.
+        principal.require("karaoke.stop")
+    with _selection_errors(), _sing_errors():
+        return await selection.start_selection(
+            session, request.app.state.session_factory, start.token, force=start.force
+        )
+
+
+@router.delete(
+    "/karaoke/selection", status_code=204, dependencies=[Depends(require("karaoke.sing"))]
+)
+async def close_player_selection(principal: PrincipalDep, token: str | None = None) -> None:
+    """Give the selection up. 204 even when there is nothing to give up, so an unmounting
+    phone never has to look first.
+
+    Somebody else's selection takes `karaoke.stop`: that is the host screen's cancel, and
+    the phone that opened it sends its token instead. A token that does not own the
+    selection any more is 409 `not_the_opener` for everybody, so a phone that was taken
+    over cannot close the selection that took its place.
+    """
+    try:
+        await selection.close_selection(token)
+    except selection.NotTheOpenerError as error:
+        if token is not None:
+            raise HTTPException(status_code=409, detail="not_the_opener") from error
+        # No token at all is the host screen's cancel: somebody else's selection, which
+        # takes the right to stop the room.
+        principal.require("karaoke.stop")
+        await selection.close_selection(any_opener=True)
 
 
 @router.get(

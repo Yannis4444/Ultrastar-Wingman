@@ -476,6 +476,13 @@ export type Condition = {
 };
 
 /**
+ * CurrentSelectionRead
+ */
+export type CurrentSelectionRead = {
+    selection: SelectionRead | null;
+};
+
+/**
  * CurrentSing
  */
 export type CurrentSing = {
@@ -1255,6 +1262,115 @@ export type ScoreWithContext = {
      * Sing Started At
      */
     sing_started_at: string;
+};
+
+/**
+ * SelectionCreate
+ */
+export type SelectionCreate = {
+    /**
+     * Song Id
+     */
+    song_id: string;
+    /**
+     * Slots
+     */
+    slots?: Array<SlotCreate>;
+    /**
+     * Force
+     */
+    force?: boolean;
+};
+
+/**
+ * SelectionOpened
+ *
+ * The answer to opening a selection: the selection, plus the token that owns it. The
+ * only time that token is readable.
+ */
+export type SelectionOpened = {
+    selection: SelectionRead;
+    /**
+     * Token
+     */
+    token: string;
+};
+
+/**
+ * SelectionRead
+ *
+ * Who is about to sing what, while the song is being set up.
+ *
+ * The opener's token is not in here: this is what the host screen and every other phone
+ * get, and whoever holds the token is the only one who may move the slots.
+ */
+export type SelectionRead = {
+    song: SongRead;
+    /**
+     * Slots
+     */
+    slots: Array<SelectionSlotRead>;
+    /**
+     * Opened At
+     */
+    opened_at: string;
+    /**
+     * Updated At
+     */
+    updated_at: string;
+    /**
+     * Auto Start At
+     */
+    auto_start_at: string | null;
+};
+
+/**
+ * SelectionSlotRead
+ *
+ * A singing position of the open player selection: its color, who stands on it, and
+ * the card lying on its reader.
+ *
+ * `card_uid` without a `player` is a card Wingman does not know — somebody put a tag on
+ * the selector that belongs to nobody, and the slot says so instead of staying empty.
+ */
+export type SelectionSlotRead = {
+    /**
+     * Color
+     */
+    color: string;
+    player: PlayerRead | null;
+    /**
+     * Card Uid
+     */
+    card_uid: string | null;
+};
+
+/**
+ * SelectionSlotsUpdate
+ */
+export type SelectionSlotsUpdate = {
+    /**
+     * Token
+     */
+    token: string;
+    /**
+     * Slots
+     */
+    slots?: Array<SlotCreate>;
+};
+
+/**
+ * SelectionStart
+ */
+export type SelectionStart = {
+    /**
+     * Token
+     */
+    token: string;
+    /**
+     * Force
+     */
+    force?: boolean;
 };
 
 /**
@@ -2998,6 +3114,159 @@ export type SingSongResponses = {
 };
 
 export type SingSongResponse = SingSongResponses[keyof SingSongResponses];
+
+export type ClosePlayerSelectionData = {
+    body?: never;
+    path?: never;
+    query?: {
+        /**
+         * Token
+         */
+        token?: string | null;
+    };
+    url: '/api/v1/karaoke/selection';
+};
+
+export type ClosePlayerSelectionErrors = {
+    /**
+     * Validation Error
+     */
+    422: HttpValidationError;
+};
+
+export type ClosePlayerSelectionError = ClosePlayerSelectionErrors[keyof ClosePlayerSelectionErrors];
+
+export type ClosePlayerSelectionResponses = {
+    /**
+     * Successful Response
+     */
+    204: void;
+};
+
+export type ClosePlayerSelectionResponse = ClosePlayerSelectionResponses[keyof ClosePlayerSelectionResponses];
+
+export type GetPlayerSelectionData = {
+    body?: never;
+    path?: never;
+    query?: never;
+    url: '/api/v1/karaoke/selection';
+};
+
+export type GetPlayerSelectionResponses = {
+    /**
+     * Successful Response
+     */
+    200: CurrentSelectionRead;
+};
+
+export type GetPlayerSelectionResponse = GetPlayerSelectionResponses[keyof GetPlayerSelectionResponses];
+
+export type OpenPlayerSelectionData = {
+    body: SelectionCreate;
+    path?: never;
+    query?: never;
+    url: '/api/v1/karaoke/selection';
+};
+
+export type OpenPlayerSelectionErrors = {
+    /**
+     * Unknown song or player.
+     */
+    404: unknown;
+    /**
+     * Somebody else is picking singers and `force` was not set.
+     */
+    409: unknown;
+    /**
+     * Validation Error
+     */
+    422: HttpValidationError;
+};
+
+export type OpenPlayerSelectionError = OpenPlayerSelectionErrors[keyof OpenPlayerSelectionErrors];
+
+export type OpenPlayerSelectionResponses = {
+    /**
+     * Successful Response
+     */
+    201: SelectionOpened;
+};
+
+export type OpenPlayerSelectionResponse = OpenPlayerSelectionResponses[keyof OpenPlayerSelectionResponses];
+
+export type SetPlayerSelectionSlotsData = {
+    body: SelectionSlotsUpdate;
+    path?: never;
+    query?: never;
+    url: '/api/v1/karaoke/selection/slots';
+};
+
+export type SetPlayerSelectionSlotsErrors = {
+    /**
+     * Nothing is being picked, or an unknown player.
+     */
+    404: unknown;
+    /**
+     * Somebody else has taken the selection over.
+     */
+    409: unknown;
+    /**
+     * Validation Error
+     */
+    422: HttpValidationError;
+};
+
+export type SetPlayerSelectionSlotsError = SetPlayerSelectionSlotsErrors[keyof SetPlayerSelectionSlotsErrors];
+
+export type SetPlayerSelectionSlotsResponses = {
+    /**
+     * Successful Response
+     */
+    200: SelectionRead;
+};
+
+export type SetPlayerSelectionSlotsResponse = SetPlayerSelectionSlotsResponses[keyof SetPlayerSelectionSlotsResponses];
+
+export type StartPlayerSelectionData = {
+    body: SelectionStart;
+    path?: never;
+    query?: never;
+    url: '/api/v1/karaoke/selection/start';
+};
+
+export type StartPlayerSelectionErrors = {
+    /**
+     * USDX is not configured (or configured wrongly).
+     */
+    400: unknown;
+    /**
+     * `force` was set without `karaoke.stop`.
+     */
+    403: unknown;
+    /**
+     * Nothing is being picked, or an unknown song or player.
+     */
+    404: unknown;
+    /**
+     * Somebody else has taken the selection over, or a song plays.
+     */
+    409: unknown;
+    /**
+     * Validation Error
+     */
+    422: HttpValidationError;
+};
+
+export type StartPlayerSelectionError = StartPlayerSelectionErrors[keyof StartPlayerSelectionErrors];
+
+export type StartPlayerSelectionResponses = {
+    /**
+     * Successful Response
+     */
+    202: CurrentSing;
+};
+
+export type StartPlayerSelectionResponse = StartPlayerSelectionResponses[keyof StartPlayerSelectionResponses];
 
 export type GetCurrentSingData = {
     body?: never;

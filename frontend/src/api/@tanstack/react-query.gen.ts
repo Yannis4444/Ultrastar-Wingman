@@ -3,8 +3,8 @@
 import { type DefaultError, type InfiniteData, infiniteQueryOptions, queryOptions, type UseMutationOptions } from '@tanstack/react-query';
 
 import { client } from '../client.gen';
-import { addFavorite, addPlaylistEntry, addSongComment, addWish, assignTag, clearWishes, copyPlaylist, createAchievement, createDownload, createPlayer, createPlaylist, createTag, deleteAchievement, deleteAchievementIcon, deletePlayer, deletePlaylist, deleteScore, deleteSong, deleteSongComment, deleteTag, deleteUser, dismissDownload, dismissFinishedDownloads, editSong, exchangeHostToken, exportAchievements, followPlaylist, getAchievementIcon, getCurrentSing, getJoinInfo, getMe, getPermissions, getPlayerAvatar, getPlaylist, getSong, getSongAudio, getSongCover, health, importAchievements, launchUsdx, listAchievements, listAllScores, listCurrentSessionSings, listDownloads, listFavorites, listKaraokeColors, listKaraokeSlots, listLatestScores, listPlayerAchievements, listPlayers, listPlayerScores, listPlaylistMembers, listPlaylists, listSessions, listSessionScores, listSettings, listSongComments, listSongs, listSongScores, listTagAssignments, listTags, listUsers, listVideoQualityPresets, listWishlist, login, logout, lookupUsers, oidcCallback, oidcConfig, oidcLogin, type Options, reassignScore, register, removeFavorite, removePlaylistEntry, removePlaylistMember, removeWish, renameSession, reorderAchievements, reorderPlaylistEntries, replaceTagPermissions, rescanSongs, resetAchievement, setAchievementIcon, setPlayerAvatar, setPlaylistMember, setSessionHidden, singSong, stopSinging, unassignTag, unfollowPlaylist, updateAchievement, updateAchievementSettings, updateBuiltInTag, updatePlayer, updatePlaylist, updateRolePermissions, updateSetting, updateTag, updateUser, usdbCover, usdbSearch, usdbStatus, usdxStatus } from '../sdk.gen';
-import type { AddFavoriteData, AddFavoriteError, AddFavoriteResponse, AddPlaylistEntryData, AddPlaylistEntryError, AddPlaylistEntryResponse, AddSongCommentData, AddSongCommentError, AddSongCommentResponse, AddWishData, AddWishError, AddWishResponse, AssignTagData, AssignTagError, AssignTagResponse, ClearWishesData, ClearWishesError, ClearWishesResponse, CopyPlaylistData, CopyPlaylistError, CopyPlaylistResponse, CreateAchievementData, CreateAchievementResponse, CreateDownloadData, CreateDownloadError, CreateDownloadResponse, CreatePlayerData, CreatePlayerError, CreatePlayerResponse, CreatePlaylistData, CreatePlaylistError, CreatePlaylistResponse, CreateTagData, CreateTagResponse, DeleteAchievementData, DeleteAchievementError, DeleteAchievementIconData, DeleteAchievementIconError, DeleteAchievementIconResponse, DeleteAchievementResponse, DeletePlayerData, DeletePlayerError, DeletePlayerResponse, DeletePlaylistData, DeletePlaylistError, DeletePlaylistResponse, DeleteScoreData, DeleteScoreError, DeleteScoreResponse, DeleteSongCommentData, DeleteSongCommentError, DeleteSongCommentResponse, DeleteSongData, DeleteSongError, DeleteSongResponse, DeleteTagData, DeleteTagError, DeleteTagResponse, DeleteUserData, DeleteUserError, DeleteUserResponse, DismissDownloadData, DismissDownloadError, DismissDownloadResponse, DismissFinishedDownloadsData, DismissFinishedDownloadsResponse, EditSongData, EditSongResponse, ExchangeHostTokenData, ExchangeHostTokenError, ExchangeHostTokenResponse, ExportAchievementsData, ExportAchievementsError, ExportAchievementsResponse, FollowPlaylistData, FollowPlaylistError, FollowPlaylistResponse, GetAchievementIconData, GetAchievementIconError, GetCurrentSingData, GetCurrentSingResponse, GetJoinInfoData, GetJoinInfoResponse, GetMeData, GetMeResponse, GetPermissionsData, GetPermissionsResponse, GetPlayerAvatarData, GetPlayerAvatarError, GetPlaylistData, GetPlaylistError, GetPlaylistResponse, GetSongAudioData, GetSongAudioError, GetSongCoverData, GetSongCoverError, GetSongData, GetSongError, GetSongResponse, HealthData, HealthResponse, ImportAchievementsData, ImportAchievementsResponse, LaunchUsdxData, LaunchUsdxResponse, ListAchievementsData, ListAchievementsError, ListAchievementsResponse, ListAllScoresData, ListAllScoresResponse, ListCurrentSessionSingsData, ListCurrentSessionSingsResponse, ListDownloadsData, ListDownloadsResponse, ListFavoritesData, ListFavoritesResponse, ListKaraokeColorsData, ListKaraokeColorsResponse, ListKaraokeSlotsData, ListKaraokeSlotsResponse, ListLatestScoresData, ListLatestScoresError, ListLatestScoresResponse, ListPlayerAchievementsData, ListPlayerAchievementsError, ListPlayerAchievementsResponse, ListPlayerScoresData, ListPlayerScoresError, ListPlayerScoresResponse, ListPlayersData, ListPlayersResponse, ListPlaylistMembersData, ListPlaylistMembersError, ListPlaylistMembersResponse, ListPlaylistsData, ListPlaylistsError, ListPlaylistsResponse, ListSessionScoresData, ListSessionScoresError, ListSessionScoresResponse, ListSessionsData, ListSessionsError, ListSessionsResponse, ListSettingsData, ListSettingsResponse, ListSongCommentsData, ListSongCommentsError, ListSongCommentsResponse, ListSongScoresData, ListSongScoresError, ListSongScoresResponse, ListSongsData, ListSongsResponse, ListTagAssignmentsData, ListTagAssignmentsResponse, ListTagsData, ListTagsResponse, ListUsersData, ListUsersResponse, ListVideoQualityPresetsData, ListVideoQualityPresetsResponse, ListWishlistData, ListWishlistResponse, LoginData, LoginError, LoginResponse, LogoutData, LogoutResponse, LookupUsersData, LookupUsersResponse, OidcCallbackData, OidcCallbackError, OidcConfigData, OidcConfigResponse, OidcLoginData, ReassignScoreData, ReassignScoreError, ReassignScoreResponse, RegisterData, RegisterError, RegisterResponse, RemoveFavoriteData, RemoveFavoriteError, RemoveFavoriteResponse, RemovePlaylistEntryData, RemovePlaylistEntryError, RemovePlaylistEntryResponse, RemovePlaylistMemberData, RemovePlaylistMemberError, RemovePlaylistMemberResponse, RemoveWishData, RemoveWishError, RemoveWishResponse, RenameSessionData, RenameSessionError, RenameSessionResponse, ReorderAchievementsData, ReorderAchievementsResponse, ReorderPlaylistEntriesData, ReorderPlaylistEntriesResponse, ReplaceTagPermissionsData, ReplaceTagPermissionsResponse, RescanSongsData, RescanSongsError, RescanSongsResponse, ResetAchievementData, ResetAchievementError, ResetAchievementResponse, SetAchievementIconData, SetAchievementIconError, SetAchievementIconResponse, SetPlayerAvatarData, SetPlayerAvatarError, SetPlayerAvatarResponse, SetPlaylistMemberData, SetPlaylistMemberError, SetPlaylistMemberResponse, SetSessionHiddenData, SetSessionHiddenError, SetSessionHiddenResponse, SingSongData, SingSongError, SingSongResponse, StopSingingData, StopSingingResponse, UnassignTagData, UnassignTagError, UnassignTagResponse, UnfollowPlaylistData, UnfollowPlaylistError, UnfollowPlaylistResponse, UpdateAchievementData, UpdateAchievementResponse, UpdateAchievementSettingsData, UpdateAchievementSettingsResponse, UpdateBuiltInTagData, UpdateBuiltInTagResponse, UpdatePlayerData, UpdatePlayerError, UpdatePlayerResponse, UpdatePlaylistData, UpdatePlaylistError, UpdatePlaylistResponse, UpdateRolePermissionsData, UpdateRolePermissionsResponse, UpdateSettingData, UpdateSettingError, UpdateSettingResponse, UpdateTagData, UpdateTagError, UpdateTagResponse, UpdateUserData, UpdateUserError, UpdateUserResponse, UsdbCoverData, UsdbCoverError, UsdbSearchData, UsdbSearchError, UsdbSearchResponse, UsdbStatusData, UsdbStatusError, UsdbStatusResponse, UsdxStatusData, UsdxStatusResponse } from '../types.gen';
+import { addFavorite, addPlaylistEntry, addSongComment, addWish, assignTag, clearWishes, closePlayerSelection, copyPlaylist, createAchievement, createDownload, createPlayer, createPlaylist, createTag, deleteAchievement, deleteAchievementIcon, deletePlayer, deletePlaylist, deleteScore, deleteSong, deleteSongComment, deleteTag, deleteUser, dismissDownload, dismissFinishedDownloads, editSong, exchangeHostToken, exportAchievements, followPlaylist, getAchievementIcon, getCurrentSing, getJoinInfo, getMe, getPermissions, getPlayerAvatar, getPlayerSelection, getPlaylist, getSong, getSongAudio, getSongCover, health, importAchievements, launchUsdx, listAchievements, listAllScores, listCurrentSessionSings, listDownloads, listFavorites, listKaraokeColors, listKaraokeSlots, listLatestScores, listPlayerAchievements, listPlayers, listPlayerScores, listPlaylistMembers, listPlaylists, listSessions, listSessionScores, listSettings, listSongComments, listSongs, listSongScores, listTagAssignments, listTags, listUsers, listVideoQualityPresets, listWishlist, login, logout, lookupUsers, oidcCallback, oidcConfig, oidcLogin, openPlayerSelection, type Options, reassignScore, register, removeFavorite, removePlaylistEntry, removePlaylistMember, removeWish, renameSession, reorderAchievements, reorderPlaylistEntries, replaceTagPermissions, rescanSongs, resetAchievement, setAchievementIcon, setPlayerAvatar, setPlayerSelectionSlots, setPlaylistMember, setSessionHidden, singSong, startPlayerSelection, stopSinging, unassignTag, unfollowPlaylist, updateAchievement, updateAchievementSettings, updateBuiltInTag, updatePlayer, updatePlaylist, updateRolePermissions, updateSetting, updateTag, updateUser, usdbCover, usdbSearch, usdbStatus, usdxStatus } from '../sdk.gen';
+import type { AddFavoriteData, AddFavoriteError, AddFavoriteResponse, AddPlaylistEntryData, AddPlaylistEntryError, AddPlaylistEntryResponse, AddSongCommentData, AddSongCommentError, AddSongCommentResponse, AddWishData, AddWishError, AddWishResponse, AssignTagData, AssignTagError, AssignTagResponse, ClearWishesData, ClearWishesError, ClearWishesResponse, ClosePlayerSelectionData, ClosePlayerSelectionError, ClosePlayerSelectionResponse, CopyPlaylistData, CopyPlaylistError, CopyPlaylistResponse, CreateAchievementData, CreateAchievementResponse, CreateDownloadData, CreateDownloadError, CreateDownloadResponse, CreatePlayerData, CreatePlayerError, CreatePlayerResponse, CreatePlaylistData, CreatePlaylistError, CreatePlaylistResponse, CreateTagData, CreateTagResponse, DeleteAchievementData, DeleteAchievementError, DeleteAchievementIconData, DeleteAchievementIconError, DeleteAchievementIconResponse, DeleteAchievementResponse, DeletePlayerData, DeletePlayerError, DeletePlayerResponse, DeletePlaylistData, DeletePlaylistError, DeletePlaylistResponse, DeleteScoreData, DeleteScoreError, DeleteScoreResponse, DeleteSongCommentData, DeleteSongCommentError, DeleteSongCommentResponse, DeleteSongData, DeleteSongError, DeleteSongResponse, DeleteTagData, DeleteTagError, DeleteTagResponse, DeleteUserData, DeleteUserError, DeleteUserResponse, DismissDownloadData, DismissDownloadError, DismissDownloadResponse, DismissFinishedDownloadsData, DismissFinishedDownloadsResponse, EditSongData, EditSongResponse, ExchangeHostTokenData, ExchangeHostTokenError, ExchangeHostTokenResponse, ExportAchievementsData, ExportAchievementsError, ExportAchievementsResponse, FollowPlaylistData, FollowPlaylistError, FollowPlaylistResponse, GetAchievementIconData, GetAchievementIconError, GetCurrentSingData, GetCurrentSingResponse, GetJoinInfoData, GetJoinInfoResponse, GetMeData, GetMeResponse, GetPermissionsData, GetPermissionsResponse, GetPlayerAvatarData, GetPlayerAvatarError, GetPlayerSelectionData, GetPlayerSelectionResponse, GetPlaylistData, GetPlaylistError, GetPlaylistResponse, GetSongAudioData, GetSongAudioError, GetSongCoverData, GetSongCoverError, GetSongData, GetSongError, GetSongResponse, HealthData, HealthResponse, ImportAchievementsData, ImportAchievementsResponse, LaunchUsdxData, LaunchUsdxResponse, ListAchievementsData, ListAchievementsError, ListAchievementsResponse, ListAllScoresData, ListAllScoresResponse, ListCurrentSessionSingsData, ListCurrentSessionSingsResponse, ListDownloadsData, ListDownloadsResponse, ListFavoritesData, ListFavoritesResponse, ListKaraokeColorsData, ListKaraokeColorsResponse, ListKaraokeSlotsData, ListKaraokeSlotsResponse, ListLatestScoresData, ListLatestScoresError, ListLatestScoresResponse, ListPlayerAchievementsData, ListPlayerAchievementsError, ListPlayerAchievementsResponse, ListPlayerScoresData, ListPlayerScoresError, ListPlayerScoresResponse, ListPlayersData, ListPlayersResponse, ListPlaylistMembersData, ListPlaylistMembersError, ListPlaylistMembersResponse, ListPlaylistsData, ListPlaylistsError, ListPlaylistsResponse, ListSessionScoresData, ListSessionScoresError, ListSessionScoresResponse, ListSessionsData, ListSessionsError, ListSessionsResponse, ListSettingsData, ListSettingsResponse, ListSongCommentsData, ListSongCommentsError, ListSongCommentsResponse, ListSongScoresData, ListSongScoresError, ListSongScoresResponse, ListSongsData, ListSongsResponse, ListTagAssignmentsData, ListTagAssignmentsResponse, ListTagsData, ListTagsResponse, ListUsersData, ListUsersResponse, ListVideoQualityPresetsData, ListVideoQualityPresetsResponse, ListWishlistData, ListWishlistResponse, LoginData, LoginError, LoginResponse, LogoutData, LogoutResponse, LookupUsersData, LookupUsersResponse, OidcCallbackData, OidcCallbackError, OidcConfigData, OidcConfigResponse, OidcLoginData, OpenPlayerSelectionData, OpenPlayerSelectionError, OpenPlayerSelectionResponse, ReassignScoreData, ReassignScoreError, ReassignScoreResponse, RegisterData, RegisterError, RegisterResponse, RemoveFavoriteData, RemoveFavoriteError, RemoveFavoriteResponse, RemovePlaylistEntryData, RemovePlaylistEntryError, RemovePlaylistEntryResponse, RemovePlaylistMemberData, RemovePlaylistMemberError, RemovePlaylistMemberResponse, RemoveWishData, RemoveWishError, RemoveWishResponse, RenameSessionData, RenameSessionError, RenameSessionResponse, ReorderAchievementsData, ReorderAchievementsResponse, ReorderPlaylistEntriesData, ReorderPlaylistEntriesResponse, ReplaceTagPermissionsData, ReplaceTagPermissionsResponse, RescanSongsData, RescanSongsError, RescanSongsResponse, ResetAchievementData, ResetAchievementError, ResetAchievementResponse, SetAchievementIconData, SetAchievementIconError, SetAchievementIconResponse, SetPlayerAvatarData, SetPlayerAvatarError, SetPlayerAvatarResponse, SetPlayerSelectionSlotsData, SetPlayerSelectionSlotsError, SetPlayerSelectionSlotsResponse, SetPlaylistMemberData, SetPlaylistMemberError, SetPlaylistMemberResponse, SetSessionHiddenData, SetSessionHiddenError, SetSessionHiddenResponse, SingSongData, SingSongError, SingSongResponse, StartPlayerSelectionData, StartPlayerSelectionError, StartPlayerSelectionResponse, StopSingingData, StopSingingResponse, UnassignTagData, UnassignTagError, UnassignTagResponse, UnfollowPlaylistData, UnfollowPlaylistError, UnfollowPlaylistResponse, UpdateAchievementData, UpdateAchievementResponse, UpdateAchievementSettingsData, UpdateAchievementSettingsResponse, UpdateBuiltInTagData, UpdateBuiltInTagResponse, UpdatePlayerData, UpdatePlayerError, UpdatePlayerResponse, UpdatePlaylistData, UpdatePlaylistError, UpdatePlaylistResponse, UpdateRolePermissionsData, UpdateRolePermissionsResponse, UpdateSettingData, UpdateSettingError, UpdateSettingResponse, UpdateTagData, UpdateTagError, UpdateTagResponse, UpdateUserData, UpdateUserError, UpdateUserResponse, UsdbCoverData, UsdbCoverError, UsdbSearchData, UsdbSearchError, UsdbSearchResponse, UsdbStatusData, UsdbStatusError, UsdbStatusResponse, UsdxStatusData, UsdxStatusResponse } from '../types.gen';
 
 export type QueryKey<TOptions extends Options> = [
     Pick<TOptions, 'baseUrl' | 'body' | 'headers' | 'path' | 'query'> & {
@@ -654,6 +654,112 @@ export const singSongMutation = (options?: Partial<Options<SingSongData>>): UseM
     const mutationOptions: UseMutationOptions<SingSongResponse, SingSongError, Options<SingSongData>> = {
         mutationFn: async (fnOptions) => {
             const { data } = await singSong({
+                ...options,
+                ...fnOptions,
+                throwOnError: true
+            });
+            return data;
+        }
+    };
+    return mutationOptions;
+};
+
+/**
+ * Close Player Selection
+ *
+ * Give the selection up. 204 even when there is nothing to give up, so an unmounting
+ * phone never has to look first.
+ *
+ * Somebody else's selection takes `karaoke.stop`: that is the host screen's cancel, and
+ * the phone that opened it sends its token instead.
+ */
+export const closePlayerSelectionMutation = (options?: Partial<Options<ClosePlayerSelectionData>>): UseMutationOptions<ClosePlayerSelectionResponse, ClosePlayerSelectionError, Options<ClosePlayerSelectionData>> => {
+    const mutationOptions: UseMutationOptions<ClosePlayerSelectionResponse, ClosePlayerSelectionError, Options<ClosePlayerSelectionData>> = {
+        mutationFn: async (fnOptions) => {
+            const { data } = await closePlayerSelection({
+                ...options,
+                ...fnOptions,
+                throwOnError: true
+            });
+            return data;
+        }
+    };
+    return mutationOptions;
+};
+
+export const getPlayerSelectionQueryKey = (options?: Options<GetPlayerSelectionData>) => createQueryKey('getPlayerSelection', options);
+
+/**
+ * Get Player Selection
+ *
+ * What the room is picking right now, without the opener's token. The host screen
+ * draws this, and a phone that reloaded catches up with it.
+ */
+export const getPlayerSelectionOptions = (options?: Options<GetPlayerSelectionData>) => queryOptions<GetPlayerSelectionResponse, DefaultError, GetPlayerSelectionResponse, ReturnType<typeof getPlayerSelectionQueryKey>>({
+    queryFn: async ({ queryKey, signal }) => {
+        const { data } = await getPlayerSelection({
+            ...options,
+            ...queryKey[0],
+            signal,
+            throwOnError: true
+        });
+        return data;
+    },
+    queryKey: getPlayerSelectionQueryKey(options)
+});
+
+/**
+ * Open Player Selection
+ *
+ * Start picking singers for a song, and lock the room while it lasts.
+ *
+ * Answers the selection and the token that owns it: only that token moves the slots and
+ * presses Play. `force` takes a selection somebody else opened over, which needs nothing
+ * beyond `karaoke.sing` — the UI asks first.
+ */
+export const openPlayerSelectionMutation = (options?: Partial<Options<OpenPlayerSelectionData>>): UseMutationOptions<OpenPlayerSelectionResponse, OpenPlayerSelectionError, Options<OpenPlayerSelectionData>> => {
+    const mutationOptions: UseMutationOptions<OpenPlayerSelectionResponse, OpenPlayerSelectionError, Options<OpenPlayerSelectionData>> = {
+        mutationFn: async (fnOptions) => {
+            const { data } = await openPlayerSelection({
+                ...options,
+                ...fnOptions,
+                throwOnError: true
+            });
+            return data;
+        }
+    };
+    return mutationOptions;
+};
+
+/**
+ * Set Player Selection Slots
+ *
+ * Move the singers around. Only the phone that opened the selection may.
+ */
+export const setPlayerSelectionSlotsMutation = (options?: Partial<Options<SetPlayerSelectionSlotsData>>): UseMutationOptions<SetPlayerSelectionSlotsResponse, SetPlayerSelectionSlotsError, Options<SetPlayerSelectionSlotsData>> => {
+    const mutationOptions: UseMutationOptions<SetPlayerSelectionSlotsResponse, SetPlayerSelectionSlotsError, Options<SetPlayerSelectionSlotsData>> = {
+        mutationFn: async (fnOptions) => {
+            const { data } = await setPlayerSelectionSlots({
+                ...options,
+                ...fnOptions,
+                throwOnError: true
+            });
+            return data;
+        }
+    };
+    return mutationOptions;
+};
+
+/**
+ * Start Player Selection
+ *
+ * Sing what is on the slots. The selection is over once USDX is up; an error leaves it
+ * standing, so whoever opened it can fix what the message names.
+ */
+export const startPlayerSelectionMutation = (options?: Partial<Options<StartPlayerSelectionData>>): UseMutationOptions<StartPlayerSelectionResponse, StartPlayerSelectionError, Options<StartPlayerSelectionData>> => {
+    const mutationOptions: UseMutationOptions<StartPlayerSelectionResponse, StartPlayerSelectionError, Options<StartPlayerSelectionData>> = {
+        mutationFn: async (fnOptions) => {
+            const { data } = await startPlayerSelection({
                 ...options,
                 ...fnOptions,
                 throwOnError: true

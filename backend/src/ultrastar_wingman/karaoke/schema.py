@@ -29,6 +29,47 @@ class CurrentSingRead(BaseModel):
     sing: CurrentSing | None
 
 
+class SelectionSlotRead(BaseModel):
+    """A singing position of the open player selection: its color, who stands on it, and
+    the card lying on its reader.
+
+    `card_uid` without a `player` is a card Wingman does not know — somebody put a tag on
+    the selector that belongs to nobody, and the slot says so instead of staying empty.
+    """
+
+    color: str
+    player: PlayerRead | None
+    card_uid: str | None
+
+
+class SelectionRead(BaseModel):
+    """Who is about to sing what, while the song is being set up.
+
+    The opener's token is not in here: this is what the host screen and every other phone
+    get, and whoever holds the token is the only one who may move the slots.
+    """
+
+    song: SongRead
+    slots: list[SelectionSlotRead]
+    opened_at: datetime
+    updated_at: datetime
+    # When the player selector will start the song by itself, while such a countdown is
+    # running. None whenever there is none.
+    auto_start_at: datetime | None
+
+
+class SelectionOpened(BaseModel):
+    """The answer to opening a selection: the selection, plus the token that owns it. The
+    only time that token is readable."""
+
+    selection: SelectionRead
+    token: str
+
+
+class CurrentSelectionRead(BaseModel):
+    selection: SelectionRead | None
+
+
 class ScoreRead(BaseModel):
     id: int
     sing_id: str

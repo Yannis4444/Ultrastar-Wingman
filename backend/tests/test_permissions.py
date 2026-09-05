@@ -71,6 +71,15 @@ ROUTES: list[tuple[str, str, str, dict[str, object] | None]] = [
         {"song_id": "usdb:1", "slots": [{"color": "blue"}], "force": True},
     ),
     ("karaoke.stop", "POST", "/api/v1/karaoke/stop", None),
+    # Picking singers for a song. Taking a selection over is `force` and needs nothing more:
+    # the phone asks the person holding it first.
+    ("karaoke.sing", "POST", "/api/v1/karaoke/selection", {"song_id": "usdb:1"}),
+    ("songs.view", "GET", "/api/v1/karaoke/selection", None),
+    ("karaoke.sing", "PUT", "/api/v1/karaoke/selection/slots", {"token": "nope", "slots": []}),
+    ("karaoke.sing", "POST", "/api/v1/karaoke/selection/start", {"token": "nope"}),
+    # With a token, giving a selection up is the opener's own business. Closing somebody
+    # else's takes `karaoke.stop`, which `test_karaoke_selection` covers.
+    ("karaoke.sing", "DELETE", "/api/v1/karaoke/selection?token=nope", None),
     ("wishlist.view", "GET", "/api/v1/wishlist", None),
     ("wishlist.add", "POST", "/api/v1/wishlist", {"song_id": "usdb:1"}),
     ("wishlist.add", "DELETE", "/api/v1/wishlist/usdb:1", None),
