@@ -131,17 +131,21 @@
 
 /* Equal shares of the row, with a ceiling: six of them fill 1280 at 184px each,
    and two of them stop at the ceiling and stand in the middle instead of
-   stretching into slabs. No hover state anywhere on this page: nobody touches
-   the TV. */
+   stretching into slabs. Taller than wide (3:4, the user's call of 2026-09-06):
+   a portrait card reads as a person, and the height comes out of the band the
+   song leaves empty above the row. No hover state anywhere on this page: nobody
+   touches the TV. */
 .host-page .host-selection-slot {
   display: flex;
   flex: 1 1 0;
   flex-direction: column;
   align-items: center;
-  gap: clamp(8px, 1.2vh, 20px);
+  justify-content: center;
+  gap: clamp(10px, 1.8vh, 28px);
   box-sizing: border-box;
   min-width: 0;
   max-width: clamp(180px, 22vw, 420px);
+  aspect-ratio: 3 / 4;
   padding: clamp(10px, 1.6vh, 24px) clamp(8px, 1vw, 20px);
   border: clamp(3px, 0.4vh, 4px) solid var(--slot, var(--color-darkerer));
   border-radius: var(--border-radius);
@@ -170,11 +174,11 @@
   );
 }
 
-/* The takeover avatar size the badges use, and their letter with it. `max-width`
-   keeps it inside a card that had to shrink; two classes beat PlayerAvatar's own
-   40px whatever the bundle order. */
+/* The face takes most of the card's width, so a wider card on a bigger TV is a
+   bigger face and not more air around one; the letter scales with the screen.
+   Two classes beat PlayerAvatar's own 40px whatever the bundle order. */
 .host-page .host-selection-avatar {
-  width: clamp(96px, 16vh, 240px);
+  width: 76%;
   max-width: 100%;
   height: auto;
   aspect-ratio: 1;

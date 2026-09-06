@@ -295,7 +295,7 @@ for the `devices` group in `RolePermissions.tsx`). Opening and driving a selecti
   plays it **takes the whole screen** like the badges do (no rail, no QR code — the user's
   decision, 2026-09-06): the song at the top (cover, title, artist, "Picking singers", and
   the auto-start countdown line under it), and at the bottom one **card per slot in a row**
-  — a colored outline in the slot's hex, the avatar at the top, the name below; an empty
+  — taller than wide (3:4), a colored outline in the slot's hex, the avatar at the top, the name below; an empty
   slot's card is filled with the slot color darkened towards `--bg`, an unknown card reads
   *Unknown card*. The cards are the one sanctioned departure from the flat rule, by request.
 - **Admin page** `/user/devices` (`ManageMenu` entry *Player selector*, `devices.manage`,
