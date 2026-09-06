@@ -57,6 +57,7 @@ nav = [
     { "Player selector" = [
       "selector/index.md",
       { "Build the device" = "selector/build.md" },
+      { "Set up the device" = "selector/setup.md" },
       { "Cards and players" = "selector/cards.md" },
     ] },
     { "Fix a problem" = [
