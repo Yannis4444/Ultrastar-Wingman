@@ -423,6 +423,11 @@ class Row:
     ready: str
     # ``(action, wait-for)`` pairs, run in order after the page is up.
     steps: tuple[tuple[str, str], ...] = field(default_factory=tuple)
+    # The same, run after the shutter and before the tab is closed: what a row holds open
+    # in the browser and has to give back itself. The room's selection lock is the one
+    # such thing — a phone holds it in a modal, and closing a headless tab is not the
+    # ``pagehide`` that would give it back.
+    after: tuple[tuple[str, str], ...] = field(default_factory=tuple)
     # Run once everything is ready, to put the surface in the viewport.
     scroll: str | None = None
     # How many wishes are on the list for this picture.
@@ -441,6 +446,8 @@ class Row:
     # Rows taken while the room is picking singers. The selection is opened before the page
     # and given up afterwards, or every launcher row would meet a 409.
     selection: bool = False
+    # A selection the server spun rather than one opened on a song: the reel on the TV.
+    spin: bool = False
 
 
 # The host screen fades its own chrome out three seconds after the last pointer event, and
@@ -587,7 +594,7 @@ ROWS: dict[str, Row] = {
                 'text(q(".spinner-winner-title")) === "Sandstorm"',
             ),
         ),
-        ready='q(".spinner-pick-select") && q(".spinner-spin")'
+        ready='q(".spinner-pick-select") && q(".spinner-spin") && q(".spinner-host")'
         ' && text(q(".spinner-winner-title")) === "Sandstorm"',
     ),
     "playlist-reel": Row(
@@ -596,7 +603,24 @@ ROWS: dict[str, Row] = {
         route="/songs/playlists/{playlist}/spinner",
         steps=(('click(q(".spinner-spin"))', 'q(".spinner-winner-title")'),),
         ready='q(".spinner-winner-title") && text(q(".page-header-title, h1"))!== ""'
-        ' && q(".spinner-spin")',
+        ' && q(".spinner-spin") && q(".spinner-host")',
+    ),
+    "reel-host-spin": Row(
+        identity="Leela",
+        viewport="phone",
+        route="/spinner",
+        steps=(
+            # The phone reveals the song when the reel on the TV lands, a fixed few seconds
+            # after the server's `spun_at`, reduced motion or not: this wait is the feature.
+            ('click(q(".spinner-host"))', 'q(".host-spin")'),
+            ("true", 'q(".host-spin-title")'),
+        ),
+        ready='q(".host-spin-title") && q(".host-spin-artist")'
+        ' && byText(".host-spin-actions button", "Spin again")'
+        ' && byText(".host-spin-actions button", "Play")',
+        # Cancel gives the room's lock back. Left open, the selection would answer every
+        # later `POST /karaoke/sing` with 409 until it idles out.
+        after=(('click(byText(".host-spin-actions button", "Cancel"))', '!q(".host-spin")'),),
     ),
     "usdb-search": Row(
         identity="host",
@@ -834,7 +858,7 @@ ROWS: dict[str, Row] = {
         route="/host/manage",
         ready='q(".host-manage-page") && qa(".manage-menu-row").length >= 3',
     ),
-    # The four selector rows stand last, and in this order, for a reason the manifest cannot
+    # The five selector rows stand last, and in this order, for a reason the manifest cannot
     # say: they are the only ones that hold a device online, and a device stays online for
     # fifteen seconds after the heartbeat stops. Nothing that is not about the selector may
     # follow them, and the launcher rows wait the fifteen seconds out (`run`).
@@ -881,6 +905,23 @@ ROWS: dict[str, Row] = {
         # `host-takeover`: the room picking singers owns the whole screen, so there is no
         # rail beside it. Two of the four slots are held by the two cards.
         ready='q(".host-page.host-takeover.host-idle") && q(".host-selection")'
+        f' && byText(".host-selection-name", "{scenario.CARD_HOLDER}")'
+        ' && byText(".host-selection-name", "Unknown card")',
+    ),
+    "host-reel": Row(
+        identity="host",
+        viewport="host",
+        route="/host",
+        device=True,
+        selection=True,
+        spin=True,
+        # The reel where the cover stands, landed: the title and the artist are held back
+        # while it runs, and the line under them reads *Spinning…* until then. Under the
+        # reduced motion every capture asks for, it lands the moment it is drawn, so this
+        # is a check and not a wait. No countdown, ever, on a spun selection.
+        ready='q(".host-page.host-takeover.host-idle") && q(".host-selection-reel")'
+        ' && !q(".host-selection-held") && !q(".host-selection-countdown")'
+        ' && text(q(".host-selection-what")) === "Picking singers"'
         f' && byText(".host-selection-name", "{scenario.CARD_HOLDER}")'
         ' && byText(".host-selection-name", "Unknown card")',
     ),
@@ -954,7 +995,7 @@ def capture_row(
         if row.device:
             stack.enter_context(device_online(state))
         if row.selection:
-            stack.enter_context(selection_open(state))
+            stack.enter_context(selection_open(state, spin=row.spin))
         page = browser.open(row.identity, row.viewport)
         try:
             page.navigate(browser.base_url + route_of(row, state))
@@ -965,6 +1006,13 @@ def capture_row(
         except CaptureError as error:
             result = Result(row.identity, False, "-", row.ready, str(error))
         finally:
+            # Whatever the page holds is given back even after a failed shot: a modal that
+            # never opened has nothing to click, and that is not a second failure.
+            with contextlib.suppress(CaptureError):
+                for action, wait_for in row.after:
+                    page.evaluate(action)
+                    if wait_for:
+                        page.await_ready(wait_for, f"'{wait_for}' after the shot")
             page.close()
             hold_settings(state, held)
     return result
@@ -1001,15 +1049,22 @@ def device_online(state: seed.State) -> Iterator[None]:
 
 
 @contextlib.contextmanager
-def selection_open(state: seed.State) -> Iterator[None]:
+def selection_open(state: seed.State, spin: bool = False) -> Iterator[None]:
     """Open a player selection for the scenario's song, and give it up afterwards.
+
+    With ``spin`` the server picks the song out of the whole library instead, which is what
+    puts the reel on the TV; which song it lands on is nobody's to choose.
 
     Given up in a ``finally`` because it has to be: a selection left open answers every
     later ``POST /karaoke/sing`` with 409, so the launcher rows would all fail behind it.
     """
     api = state.api
-    song_id = state.data["songs"][str(scenario.PICKING_SONG)]
-    opened = api.post("/karaoke/selection", json={"song_id": song_id, "slots": [], "force": True})
+    body: dict[str, Any] = {"slots": [], "force": True}
+    if spin:
+        body["spin"] = {"scope": "all"}
+    else:
+        body["song_id"] = state.data["songs"][str(scenario.PICKING_SONG)]
+    opened = api.post("/karaoke/selection", json=body)
     try:
         yield
     finally:

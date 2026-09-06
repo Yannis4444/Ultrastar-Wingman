@@ -47,7 +47,7 @@ API answers with. The OpenAPI document at
 | `songs.deleted` | A song was deleted, its folder included | `song_id` |
 | `songs.updated` | A song's metadata was corrected | `song`, the whole song as `GET /songs` returns one |
 | `download.updated` | A download changed state, and while it runs, its progress | `download`, the whole download as `GET /downloads` returns one |
-| `selection.changed` | Somebody started picking singers for a song, moved one, or finished picking | `selection`, the song with its colored slots and who stands on them, or `null` when nobody is picking |
+| `selection.changed` | Somebody started picking singers for a song, moved one, spun the reel on the host screen again, or finished picking | `selection`, the song with its colored slots and who stands on them, plus `spin` (its number, when it started, and what it picked from) when the reel on the host screen picked the song, or `null` when nobody is picking |
 | `karaoke.started` | A song started playing | `sing`: its id, the song, the time it started, and the singers in their microphone slots |
 | `karaoke.ended` | The running song stopped | `sing_id`, `song_id` |
 | `scores.recorded` | Right after `karaoke.ended`, and only when Ultrastar Deluxe scored something | `sing_id`, and `scores`, one entry per singer with the number and the player |

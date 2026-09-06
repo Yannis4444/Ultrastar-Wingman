@@ -102,15 +102,30 @@ says: *A phone that stopped picking gives the room back after this long.*
 
 ## When the start button is pressed with nothing open
 
-A press on a **Start the song** button while nobody is picking can start a song
-on its own. This setting says which one:
+A press on a **Start the song** button while nobody is picking can pick a song
+on its own. This setting says which one. Its line says: *The most wished song
+needs a card on a reader and starts at once. A random song spins the reel on
+the host screen first.*
 
 - **Nothing happens**, which is how a fresh Wingman is set.
-- **Start the most wished song** takes the top of the wishlist.
-- **Start a random song** takes anything in the library.
+- **Start the most wished song** takes the top of the wishlist. The singers are
+  the cards lying on the readers, and the song starts on the press. With no
+  card on a reader, the press does nothing at all.
+- **Start a random song** spins the reel on the TV, with or without a card on a
+  reader. The next press starts the song if a card stands on a slot, and spins
+  again if none does. A spun song never starts on its own, whatever **Start the
+  song on its own** says.
 
-Either song takes its singers from the cards lying on the readers. With no card
-on a reader, the press does nothing at all.
+Two settings appear under it for a random song. **Pick the random song from**
+is what the reel spins over: **All songs**, **Wishlist**, **Wishlist
+(weighted)**, or **A playlist**. Its line says: *The reel spins even with no
+card down. The next press starts the song if somebody stands on a slot, and
+spins again if nobody does.* **Playlist to pick from** appears for a playlist.
+Its line says: *A playlist that no longer exists falls back to all songs.* So
+does an empty one.
+
+The reel picks by the rules on [Let the reel pick](../party/reel.md), as a
+guest sees the library. A song a tag hides from guests cannot win.
 
 !!! note
     Cheap batches of cards sometimes repeat a number, and two cards with the

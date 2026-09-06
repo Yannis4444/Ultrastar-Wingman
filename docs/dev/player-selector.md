@@ -433,8 +433,12 @@ nobody requested never arrives.
 - **The start button with nothing open** (`devices.start_without_selection`: `"nothing"` |
   `"top_wish"` | `"random"`, default `"nothing"`): a `start` press while no selection is open
   opens one for the most-wished song (`library.service`'s wish ordering, the guest's view of
-  the library so a hidden song is never picked) or a random song, seeded from the cards, and
-  starts it at once. No card on any slot reader → nothing happens (logged). The selection it
+  the library so a hidden song is never picked), seeded from the cards, and starts it at
+  once. No card on any slot reader → nothing happens (logged). `"random"` no longer starts
+  anything: since the reel on the host screen (`host-reel.md` §2.4 and §6) it opens a
+  **spun** selection over the cards — card or none — out of `devices.random_scope` /
+  `devices.random_playlist`, and the next press starts the song if anybody stands on a slot
+  and respins otherwise; the automatic start never runs on it. The selection either mode
   opens has no opener token; a phone may take it over like any other.
 - **The idle expiry is a setting**: `devices.selection_idle_s` (int, default 120, 30–900),
   read by the devices watchdog into `selection.set_idle_ttl(seconds)` at startup and on every

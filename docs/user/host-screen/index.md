@@ -61,6 +61,26 @@ first three places carry a highlighted rank number.
 wishes beside each. It holds five songs on its own, and three while **Tonight**
 is up. See [Wish for a song](../party/wishlist.md).
 
+## While singers are picked
+
+When somebody taps **Sing** on a phone, or puts a card on the player selector,
+the room is picking singers. The stage takes the whole screen for it, and the
+rail is down until the song starts or the pick is given up. The song stands at
+the top over the line *Picking singers*. Along the foot stands one card per
+microphone slot, filling up as singers are picked. See
+[Sing a song](../party/sing.md) and [Player selector](../selector/index.md).
+
+When a phone spins the reel on the host screen, the reel stands where the cover
+would. The line reads *Spinning…* while the covers scroll past. The title and
+the artist appear when the reel lands, and every **Spin again** runs it once
+more. No countdown runs on a spun song. Whoever spun it presses **Play**. See
+[Let the reel pick](../party/reel.md).
+
+![The host screen picking singers with the reel at rest where the cover stands, the song beside it, and the slot cards along the foot](../assets/screenshots/host-screen/host-reel.png){ width="720" loading=lazy }
+/// caption
+The reel has landed. Two of the slots are held by cards on the player selector.
+///
+
 ## While a song plays
 
 The stage shows the cover, the title, and the artist. Under them stand the time

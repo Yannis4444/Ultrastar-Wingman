@@ -270,7 +270,10 @@ panel holds (the party picker's *show all*), never for a row's own action.
   (name, optional description, one "Global" checkbox). The **"Add songs from…" picker** is one
   too: a grid of source cards (`repeat(auto-fit, minmax(140px, 1fr))`, `--tile-bg`, icon ~48px,
   name, one-line description) — the sanctioned tile use, and the cards must read as buttons.
-- **Fullscreen** is player selection only. A backdrop click closes any modal; Escape and the Tab
+- **Fullscreen** is the room's selection lock and nothing else: the player selection and *Spin on
+  the host screen* (`HostSpin`), two modals over the one `useSelectionLock`, the second in the
+  first's idiom — a head, the middle, and a foot of `.button`s with one primary. A fullscreen
+  modal that holds no lock is a §6 route. A backdrop click closes any modal; Escape and the Tab
   trap belong to the topmost one alone (`Modal` keeps a stack), and closing restores the
   opener's focus. **Confirmations always use `ConfirmModal`** (`window.confirm` is banned):
   title, one-sentence consequence, `confirmLabel`, `danger` for stop/delete/replace.
@@ -349,7 +352,10 @@ saved) where a jump to the top would throw away the place they were working in.
   option the reader has nothing in is `disabled`, and the caption still says what the chosen
   pool holds. A fixed pool — a playlist's reel — drops the select and keeps the caption. Only
   *All songs* is filtered by the `hide_by_default` tags: a favorite, a wish and a playlist are
-  the reader's own choice, and hiding what they asked for would be a bug.
+  the reader's own choice, and hiding what they asked for would be a bug. Under SPIN, for
+  `karaoke.sing` and only with something to land on, one quiet `.button` *Spin on the host
+  screen* — never the gradient, never a second dice: SPIN stays the page's gesture, and the reel
+  it opens runs on the TV, the room's, while the phone shows the pick in words alone.
 - **Tags admin** (`/user/tags`, a `ManageMenu` entry gated on `tags.manage`): rows of the 40px
   coloured glyph square, the name, a meta line "N songs · hidden by default · shown in list" and
   a chevron; the header `+` opens `/user/tags/new`. Under them an `h2` *Built-in* over eight
