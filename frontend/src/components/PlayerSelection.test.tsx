@@ -1364,3 +1364,35 @@ test("an adopted selection taken over offers a fresh one on its song", async () 
   await waitFor(() => expect(setPlayerSelectionSlots).toHaveBeenCalledTimes(1));
   expect(setPlayerSelectionSlots.mock.calls[0][0].body.token).toBe(TOKEN);
 });
+
+test("a respin under an adopted selection renames the song the picker is about", async () => {
+  // The host spin's selection came with the reel's first pick on it.
+  const spun = (id: number, song: SongRead, slots: SelectionSlotRead[]) =>
+    selectionWith(slots, {
+      song,
+      spin: { id, spun_at: stamp(), scope: "all", playlist_id: null },
+    });
+  const AFRICA: SongRead = { ...SONG, id: "usdb:2", title: "Africa" };
+  renderAdopted(spun(1, SONG, adopted().slots));
+  await screen.findByRole("button", { name: "Slot red: Bob" });
+  expect(screen.getByText("Dancing Queen")).toBeInTheDocument();
+
+  // Nobody stood on a slot when the selector's start button was pressed, so
+  // the room spun again: the same selection, another song on it. Play starts
+  // *that* song, so the head must say so.
+  broadcast(
+    spun(2, AFRICA, [
+      { color: "blue", player: null, card_uid: null },
+      { color: "red", player: null, card_uid: null },
+      { color: "green", player: null, card_uid: null },
+    ]),
+  );
+
+  expect(screen.getByText("Africa")).toBeInTheDocument();
+  expect(screen.queryByText("Dancing Queen")).not.toBeInTheDocument();
+  // And a selection lost after that is picked again on the song that is up.
+  broadcast(null);
+  fireEvent.click(screen.getByRole("button", { name: "Pick again" }));
+  await waitFor(() => expect(openPlayerSelection).toHaveBeenCalledTimes(1));
+  expect(openPlayerSelection.mock.calls[0][0].body.song_id).toBe("usdb:2");
+});

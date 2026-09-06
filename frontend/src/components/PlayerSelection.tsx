@@ -407,6 +407,14 @@ export default function PlayerSelection({
   };
 
   /**
+   * The song Play starts: the selection's own once there is one. On a selection
+   * opened with a song the two never differ; on an adopted *spun* one the
+   * selector's start button can spin the reel again under this picker (nobody
+   * on a slot yet), and the head has to name the song the room is looking at.
+   */
+  const current = selection?.song ?? song;
+
+  /**
    * Take the room's lock, either from somebody else or after losing it. With a
    * selection on the screen its own slots are what comes back; without one —
    * nothing was ever drawn here — the stored configuration is.
@@ -422,7 +430,7 @@ export default function PlayerSelection({
     setNotice(null);
     setPhase("opening");
     openSelection({
-      body: { song_id: song.id, slots: slotBody(colors, next), force },
+      body: { song_id: current.id, slots: slotBody(colors, next), force },
     });
   };
 
@@ -481,7 +489,7 @@ export default function PlayerSelection({
       <Modal title="Player selection" onClose={cancel} fullscreen>
         <div className="player-selection">
           <div className="player-selection-head">
-            <p className="player-selection-song">{song.title}</p>
+            <p className="player-selection-song">{current.title}</p>
             {notice && (
               <p className="error-notice player-selection-error" role="alert">
                 {notice}

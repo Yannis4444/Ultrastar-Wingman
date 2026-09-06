@@ -388,6 +388,76 @@ test("a respin runs the reel again, and so does a fresh selection's first spin",
   expect(heading()).toBeNull();
 });
 
+test("a TV that comes in mid-spin holds the song back until its own reel lands", async () => {
+  vi.useFakeTimers({ shouldAdvanceTime: true });
+  // The reel started on the server three seconds ago; this TV's reel starts
+  // now and runs the full length from here.
+  const spunAt = Date.now() - 3000;
+  getPlayerSelection.mockResolvedValue({
+    data: { selection: spun(1, spunAt) },
+  });
+  renderStage();
+  await screen.findByText("Spinning…");
+
+  // Past the server's landing moment but short of this reel's, a card lands
+  // and redraws the stage. Read live, the clock would say the spin is over and
+  // put the title up under a reel that is still turning.
+  act(() => vi.advanceTimersByTime(REVEAL_MS - 3000 + 100));
+  broadcast(
+    spun(1, spunAt, {
+      slots: [
+        SLOTS[0],
+        {
+          color: "red",
+          player: { ...ALICE, id: "bbb", name: "Bob" },
+          card_uid: "B2",
+        },
+        SLOTS[2],
+      ],
+      updated_at: "2026-09-06T20:00:09.000Z",
+    }),
+  );
+  await waitFor(() => expect(rows()).toEqual(["Alice", "Bob", "Unknown card"]));
+  expect(heading()).toBeNull();
+  expect(screen.getByText("Spinning…")).toBeInTheDocument();
+
+  act(() => vi.advanceTimersByTime(3000));
+  expect(heading()).not.toBeNull();
+  expect(screen.getByText("Picking singers")).toBeInTheDocument();
+});
+
+test("a spin that landed while the stage was somebody else's is drawn settled", async () => {
+  vi.useFakeTimers({ shouldAdvanceTime: true });
+  getPlayerSelection.mockResolvedValue({
+    data: { selection: spun(1, Date.now()) },
+  });
+  const client = new QueryClient({
+    defaultOptions: { queries: { retry: false } },
+  });
+  const stage = (suppressed: boolean) => (
+    <QueryClientProvider client={client}>
+      <div className="host-page">
+        <div className="host-stage">
+          <HostSelection suppressed={suppressed} />
+        </div>
+      </div>
+    </QueryClientProvider>
+  );
+  // The badges of the last song hold the screen while the reel spins.
+  const { rerender } = render(stage(true));
+  await waitFor(() => expect(getPlayerSelection).toHaveBeenCalled());
+  expect(screen.queryByLabelText("Picking singers")).not.toBeInTheDocument();
+  act(() => vi.advanceTimersByTime(REVEAL_MS + 1000));
+
+  rerender(stage(false));
+
+  // Over before it was ever drawn here: the winner at rest, no replay.
+  expect(await screen.findByText("Picking singers")).toBeInTheDocument();
+  expect(heading()).not.toBeNull();
+  expect(screen.queryByText("Spinning…")).not.toBeInTheDocument();
+  expect(reelSongIds()).toEqual(["usdb:1"]);
+});
+
 test("no countdown ever shows on a spun selection", async () => {
   getPlayerSelection.mockResolvedValue({
     data: {

@@ -3,6 +3,7 @@ import {
   type CSSProperties,
   useEffect,
   useLayoutEffect,
+  useMemo,
   useState,
 } from "react";
 import type { SelectionRead } from "../api";
@@ -108,6 +109,26 @@ export default function HostSelection({
   const sing = current.data?.sing ?? null;
   const showing = selection !== null && sing === null && !current.isPending;
   const phase: HostSelectionPhase = showing ? "selecting" : "idle";
+  // Whether the reel is on the screen at all: a live song and the badges of a
+  // finished one both keep this block off it.
+  const visible = showing && !suppressed;
+
+  const spin = selection?.spin ?? null;
+  const spunAt = spin?.spun_at ?? null;
+  // Whether the spin was over before its reel was drawn here — a host turned on
+  // after it landed draws the reel at rest. Read *once* per spin, at the moment
+  // it arrives: read live it would flip on a re-render mid-spin (a card
+  // landing) and put the title up while the covers are still flying past — a
+  // TV that came in a moment late, or whose clock runs ahead of the server's.
+  // Read again on the visibility edge, because a spin that arrived while a
+  // song still played is drawn only once that song is over.
+  const over = useMemo(
+    () =>
+      visible &&
+      spunAt !== null &&
+      Date.now() >= parseServerTime(spunAt) + REVEAL_MS,
+    [spunAt, visible],
+  );
 
   // A layout effect, like the achievements stage: the page decides what else it
   // draws from this, and it must never paint a frame with two blocks on it.
@@ -126,12 +147,7 @@ export default function HostSelection({
   const hexFor = (name: string): string | undefined =>
     colors.data?.colors.find((color) => color.name === name)?.hex;
 
-  const spin = selection.spin ?? null;
   const spinKey = spin === null ? null : `${selection.opened_at}:${spin.id}`;
-  // A host turned on after the reel landed draws it at rest: read at the moment
-  // the spin's id arrives, which is the render that introduces it.
-  const over =
-    spin !== null && Date.now() >= parseServerTime(spin.spun_at) + REVEAL_MS;
   // The reel is running until it says it has landed — or was over before it
   // was ever drawn here. The title and the artist wait for it.
   const running = spin !== null && !over && landed !== spinKey;

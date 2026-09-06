@@ -66,27 +66,35 @@
 }
 
 /* The Random song page's result lines, a size up: this is the whole screen,
-   and there is no cover beside them to share it with. */
+   and there is no cover beside them to share it with. They wrap rather than
+   clip — the title *is* the screen here, and a phone is 360px wide — with a
+   line cap so a runaway title cannot push the actions off the foot. */
 .host-spin-title {
+  display: -webkit-box;
   max-width: 100%;
   margin: 0;
   overflow: hidden;
+  overflow-wrap: anywhere;
   font-size: 1.4em;
   font-weight: bold;
-  text-overflow: ellipsis;
-  white-space: nowrap;
+  line-height: 1.2;
   color: var(--color);
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 3;
   animation: host-spin-rise 0.3s ease-out;
 }
 
 .host-spin-artist {
+  display: -webkit-box;
   max-width: 100%;
   margin: 0;
   overflow: hidden;
+  overflow-wrap: anywhere;
   font-size: 1em;
-  text-overflow: ellipsis;
-  white-space: nowrap;
+  line-height: 1.25;
   color: var(--color-darker);
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
   animation: host-spin-rise 0.3s ease-out;
 }
 
