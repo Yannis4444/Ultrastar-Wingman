@@ -103,11 +103,14 @@ export default function MyCards() {
   // of the loose cards must not take the reader's own cards off the page with
   // it, but one still in flight would draw the invitation for a request and
   // then replace it with a row.
-  if (mine.data === undefined || unknown.isPending || !selector.isSuccess)
-    return null;
+  if (mine.data === undefined || unknown.isPending) return null;
   // A room with no selector in it and an account with no card has no business
-  // being told about either.
-  if (!selector.online && held.length === 0) return null;
+  // being told about either. Cards of their own are drawn whatever the status
+  // request did: `isSuccess` gates the invitation, so a role edited off
+  // `players.view` — or an answer still in flight — cannot take somebody's own
+  // cards off their page.
+  if (held.length === 0 && !(selector.isSuccess && selector.online))
+    return null;
 
   return (
     <>
@@ -166,7 +169,9 @@ export default function MyCards() {
                 <button
                   type="button"
                   className="icon-button icon-button-danger"
-                  aria-label="Forget card"
+                  // The uid is in the name: a list of them all called "Forget
+                  // card" is one row to a screen reader.
+                  aria-label={`Forget card ${card.uid}`}
                   title="Forget card"
                   disabled={forget.isPending}
                   onClick={() => {

@@ -458,10 +458,37 @@ export default function PlayerSelection({
     apply(next);
   });
 
+  /**
+   * What the next tap builds on: what this phone last asked for, with every
+   * slot a card holds put back the way the room has it.
+   *
+   * A card can land while a write is in flight, and the tap that follows is
+   * computed from what this phone asked for last — which knows nothing of it.
+   * The body of that write would leave the slot out, and a slot left out of a
+   * body is exactly how the backend is told the card is gone (`_keep_cards`):
+   * the singer their card put there would be taken off by somebody else's tap.
+   */
+  const baseAssignment = (): Assignment => {
+    const base: Assignment = { ...(desiredRef.current ?? assignment) };
+    for (const slot of drawn) {
+      if (slot.card_uid === null) continue;
+      if (slot.player === null) {
+        // An unknown card, which the phone can only send back as an empty slot.
+        delete base[slot.color];
+        continue;
+      }
+      // One person stands on one slot: theirs is the one the card is on.
+      for (const [color, id] of Object.entries(base))
+        if (id === slot.player.id) delete base[color];
+      base[slot.color] = slot.player.id;
+    }
+    return base;
+  };
+
   /** Puts a player on the active slot (or the first free one) and nowhere else. */
   const assign = (playerId: string): void => {
     setHeldNotice(false);
-    const base = desiredRef.current ?? assignment;
+    const base = baseAssignment();
     // The first free slot is the first with neither a player nor a card on it:
     // a card holds its slot, and a tap on a player skips past it.
     const target =
@@ -481,7 +508,7 @@ export default function PlayerSelection({
 
   const clear = (color: string): void => {
     setHeldNotice(false);
-    const next = { ...(desiredRef.current ?? assignment) };
+    const next = baseAssignment();
     delete next[color];
     send(next);
   };

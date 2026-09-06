@@ -476,6 +476,48 @@ test("the slot a card holds is sent back unchanged", async () => {
   ]);
 });
 
+test("a card that lands mid-write rides along in the tap that follows", async () => {
+  setRoster([...PLAYERS, player("ccc", "Cara")]);
+  let release: (() => void) | null = null;
+  setPlayerSelectionSlots.mockImplementationOnce(
+    async (options: { body: { slots?: SlotCreate[] } }) => {
+      await new Promise<void>((resolve) => {
+        release = resolve;
+      });
+      return { data: selectionFrom(options.body.slots) };
+    },
+  );
+  renderSelection();
+  await screen.findByRole("button", { name: "Slot blue: empty" });
+
+  fireEvent.click(screen.getByRole("button", { name: "Alice" }));
+  await waitFor(() => expect(setPlayerSelectionSlots).toHaveBeenCalledTimes(1));
+
+  // A card lands on red while that write is still in flight. The next tap is
+  // computed from what this phone asked for last, which knows nothing of it.
+  broadcast(
+    selectionWith([
+      { color: "blue", player: PLAYERS[0], card_uid: null },
+      { color: "red", player: PLAYERS[1], card_uid: "A1B2C3D4" },
+      { color: "green", player: null, card_uid: null },
+    ]),
+  );
+  fireEvent.click(screen.getByRole("button", { name: "Cara" }));
+
+  await act(async () => {
+    release?.();
+  });
+
+  // Bob is in the body: a slot left out of one is how the backend is told the
+  // card is gone, and the room would lose the singer their card put there.
+  await waitFor(() => expect(setPlayerSelectionSlots).toHaveBeenCalledTimes(2));
+  expect(putBody(1)).toEqual([
+    { color: "blue", player_id: "aaa" },
+    { color: "red", player_id: "bbb" },
+    { color: "green", player_id: "ccc" },
+  ]);
+});
+
 test("a singer their card put on a slot is not taken off by a tap", async () => {
   renderSelection();
   await screen.findByRole("button", { name: "Slot blue: empty" });

@@ -110,7 +110,7 @@ test("an unclaimed card on a reader can be taken", async () => {
     expect(claimCard.mock.calls[0][0].path).toEqual({ uid: "A1B2C3D4" }),
   );
   expect(
-    await screen.findByRole("button", { name: "Forget card" }),
+    await screen.findByRole("button", { name: "Forget card A1B2C3D4" }),
   ).toBeInTheDocument();
 });
 
@@ -135,7 +135,9 @@ test("forgetting a card asks first and says what it costs", async () => {
   forgetCard.mockResolvedValue({ data: undefined });
   renderCards();
 
-  fireEvent.click(await screen.findByRole("button", { name: "Forget card" }));
+  fireEvent.click(
+    await screen.findByRole("button", { name: "Forget card A1B2C3D4" }),
+  );
 
   const dialog = await screen.findByRole("dialog", {
     name: "Forget this card?",
@@ -152,7 +154,7 @@ test("forgetting a card asks first and says what it costs", async () => {
   );
   await waitFor(() =>
     expect(
-      screen.queryByRole("button", { name: "Forget card" }),
+      screen.queryByRole("button", { name: "Forget card A1B2C3D4" }),
     ).not.toBeInTheDocument(),
   );
 });
@@ -182,6 +184,19 @@ test("no selector and no card of your own, no block at all", async () => {
 
 test("a card of your own survives the selector being switched off", async () => {
   getDeviceStatus.mockResolvedValue({ data: { online: false } });
+  listMyCards.mockResolvedValue({ data: { cards: [card("A1B2C3D4")] } });
+  renderCards();
+
+  expect(
+    await screen.findByRole("heading", { name: HEADING }),
+  ).toBeInTheDocument();
+  expect(screen.getByText("A1B2C3D4")).toBeInTheDocument();
+});
+
+test("a status request that is refused does not hide your own cards", async () => {
+  // A role edited off `players.view` is answered 403 by `/devices/status`. It
+  // is the invitation that needs the answer, never the cards somebody holds.
+  getDeviceStatus.mockRejectedValue({ status: 403, detail: "forbidden" });
   listMyCards.mockResolvedValue({ data: { cards: [card("A1B2C3D4")] } });
   renderCards();
 
