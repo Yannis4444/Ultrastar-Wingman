@@ -636,6 +636,18 @@ export default function DeviceSetup() {
     setActions(proposeActions(buttonOrder));
   }, [step, readerOrder, buttonOrder, palette]);
 
+  // Leaving the Map step throws its proposal away. Going back is how a
+  // discovery that came out in the wrong order is redone, and a proposal made
+  // once would sit there over the new order — with a refusal about a mapping
+  // nobody is looking at any more still on the screen.
+  useEffect(() => {
+    if (step !== MAP) return;
+    return () => {
+      proposedRef.current = false;
+      setRefusal(null);
+    };
+  }, [step]);
+
   const readers = device?.readers ?? [];
   const buttons = device?.buttons ?? [];
   const roleOf = (index: number, stored: string): string =>

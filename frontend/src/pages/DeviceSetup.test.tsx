@@ -507,11 +507,45 @@ test("the whole wizard: flash, configure, connect, discover, map", async () => {
   expect(screen.getByLabelText("Reader 1 role")).toHaveValue("slot:red");
   expect(screen.getByLabelText("Button 1 action")).toHaveValue("start");
 
+  /* ---- back to step 5, and a second discovery ---------------------------- */
+  // Going back is how a discovery that came out wrong is redone, so the Map
+  // step has to propose again rather than keep the roles of the first pass.
+  fireEvent.click(screen.getByRole("button", { name: "Back" }));
+  expect(await screen.findByText("Find the readers")).toBeInTheDocument();
+
+  // Both cards are still lying on the box, and a fresh discovery counts what is
+  // already there: this time reader 1 comes first. The button counts from where
+  // it stands now, so it has to be pressed again.
+  expect(await screen.findByText("found second")).toBeInTheDocument();
+  expect(screen.getByText("not pressed yet")).toBeInTheDocument();
+  setListing([
+    device({
+      online: true,
+      readers: [
+        reader({ index: 0, uid: "BBBB" }),
+        reader({ index: 1, uid: "AAAA" }),
+      ],
+      buttons: [button({ index: 0, presses: 3 })],
+    }),
+  ]);
+  await waitFor(() =>
+    expect(screen.queryByText("not pressed yet")).not.toBeInTheDocument(),
+  );
+  next();
+
+  /* ---- step 6 again, the new proposal ------------------------------------ */
+  expect(await screen.findByText("What everything does")).toBeInTheDocument();
+  await waitFor(() =>
+    expect(screen.getByLabelText("Reader 1 role")).toHaveValue("slot:blue"),
+  );
+  expect(screen.getByLabelText("Reader 2 role")).toHaveValue("slot:red");
+  expect(screen.getByLabelText("Button 1 action")).toHaveValue("start");
+
   fireEvent.click(screen.getByRole("button", { name: "Save" }));
 
   await waitFor(() => expect(updateDevice).toHaveBeenCalledTimes(1));
   expect(updateDevice.mock.calls[0][0].body).toEqual({
-    reader_roles: { "0": "slot:red", "1": "slot:blue" },
+    reader_roles: { "0": "slot:blue", "1": "slot:red" },
     button_actions: { "0": "start" },
   });
   expect(await screen.findByText("The device page")).toBeInTheDocument();
