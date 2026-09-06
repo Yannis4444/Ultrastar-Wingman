@@ -298,3 +298,67 @@ Everything in §1 holds. The plan was silent on, or wrong about, the following.
 - `integrate/`: only the `selection.changed` payload cell in `events.md` mentions `spin`.
   `devices.md` lists no settings keys and `rest-api.md`'s `/karaoke` row never named the
   selection routes, so neither was touched.
+
+## 7. Third round (2026-09-06, after the user tested it)
+
+The user's five requests, verbatim in spirit, and how each is built. Rulings 1–7 of §1 stand.
+
+**R1. The TV shows the slot cards only for a spin the selector started.** A phone's spin
+shows the reel and its result alone; the slots belong to the next screen, the picker.
+
+- Backend: `_Spin.origin: "phone" | "device"`, on `SpinRead`. Set at open (`POST
+  /karaoke/selection` with `spin` → `phone`; `_spin_without_selection_locked` → `device`).
+- Backend: new token route `POST /karaoke/selection/pick` — the phone moving on from the
+  reel to picking singers. It clears `spin` (the selection is an ordinary one from here:
+  no respin, the device's press starts or refuses as before), touches `updated_at`,
+  broadcasts. 404 `no_selection`, 409 `not_the_opener`, 409 `not_a_spin`.
+- Frontend: `HostSpin`'s Play calls `/pick` first (then `forget()` and the adopted picker;
+  a failed `/pick` shows the sentence and does not move on). `HostSelection` hides the slot
+  row while `selection.spin?.origin === "phone"`, and centres the head in the freed space.
+
+**R2. The reel must not move with the title's length; the text goes under the cover.** The
+head of the picking screen becomes one column, centred: the cover (or the reel) on top,
+then the title, the artist and the line, each centred and wrapping inside a bounded width
+(`max-width` on the text block, `-webkit-line-clamp` 2 for the title). Same layout with and
+without the slot cards. The `host-picking` and `host-reel` screenshots change.
+
+**R3. Descenders of the title are cut off.** `.host-selection-title` clamps with
+`overflow: hidden` on `line-height: 1.05`; the fix is a line-height that holds the glyphs
+(≥ 1.15) with the clamp kept, and no other rule that clips vertically. Check the phone's
+`.host-spin-title` too.
+
+**R4. A press while the reel still runs skips the animation.** Both the selector's start
+button and the phone's *Spin again* — one rule, in the backend:
+
+- `_Spin.revealed: bool` (false on every spin and respin), on `SpinRead`. `REVEAL_SECONDS
+  = 5.5` in `selection.py`, the same figure as the frontend's `REVEAL_MS`; the design says
+  so in both places.
+- A press on a spun selection — `POST /karaoke/selection/spin` from the phone, or the
+  device's `start` press — first checks `not spin.revealed and now < spun_at +
+  REVEAL_SECONDS`: if so, it sets `revealed = True`, touches, broadcasts and returns the
+  selection (200) — no respin, nothing else. Otherwise the existing rules run (respin;
+  for the device: respin if nobody stands on a slot, else start).
+- Frontend: `settled` on both clients is `spin.revealed || now >= spun_at + REVEAL_MS`.
+  `SongReel` learns to cut a running spin short when `settled` turns true mid-spin: the
+  transition is removed, the transform set to the end, `onSettled` fires at once. The
+  phone's *Spin again* is **enabled while the TV spins** (it is the skip), and reads
+  *Show it* or stays *Spin again* — pick the clearer, say which. The die on it rolls while
+  the TV spins (`useDieRoll`).
+
+**R5. The phone's spin view is redesigned.** It reads as the reel page's sibling, not an
+empty sheet:
+
+- The song's cover, large (the picker's takeover size or the reel window's size), centred
+  in the upper half. While the TV spins, the reel's empty-window logo tile stands in its
+  place (no spoiler), and swaps to the cover on the reveal with the result's rise-in.
+- Title (wrapping, two lines) and artist under it, centred.
+- **Spin again** as the big gradient die button (`.spinner-spin`'s look, with the rolling
+  die), the primary of the view; **Play** as the next largest; **Cancel** quiet at the foot.
+  No button label wraps at 360 px.
+- Waiting line *Spinning on the host screen…* stays, under the tile, as `role="status"`;
+  the reveal gets a live region too (reviewer finding 4).
+
+Tests, docs and screenshots follow the existing rows: `reel.md` (skip, the new view),
+`host-screen/index.md` (the column head; a phone's spin shows no cards until Play),
+`selector/cards.md` (a press during the reel shows the result), the three screenshots
+recaptured, this section trimmed to what shipped afterwards.
