@@ -8,9 +8,11 @@ a fact about the database, and nothing of it should outlive the process.
 The report path is the whole point of the module: a snapshot arrives, it is diffed against
 the one before it, and the difference is handed to `karaoke.selection` as the four things
 that can happen in the room (a card put on a slot, a card taken off one, a card scanned in
-turn, a button pressed). The selection is the one that knows what any of it means; this
-module never reaches into it beyond those calls, and `karaoke.selection` never imports this
-module back.
+turn, a button pressed). The card table reaches it too, and for the same reason: naming the
+card lying on a slot, or forgetting it, changes who stands in the room without the device
+having anything new to report. The selection is the one that knows what any of it means;
+this module never reaches into it beyond those calls, and `karaoke.selection` never imports
+this module back.
 
 Knows nothing about FastAPI: the API layer maps these exceptions onto status codes.
 """
@@ -377,10 +379,19 @@ async def list_cards(session: AsyncSession) -> CardList:
     )
 
 
-async def assign_card(session: AsyncSession, uid: str, player_id: str) -> CardRead:
+async def assign_card(
+    session: AsyncSession,
+    session_factory: async_sessionmaker[AsyncSession],
+    uid: str,
+    player_id: str,
+) -> CardRead:
     """Give a card to a player. Assigning one that already belongs to somebody moves it,
     which is what a card handed on to the next guest needs. Raises `UnknownPlayerError` and,
-    for something that is not a card id, `InvalidUidError`."""
+    for something that is not a card id, `InvalidUidError`.
+
+    `session_factory` is for what the selection makes of the named card, which can outlive
+    this request: an automatic start counts down in a task of its own and opens its own
+    session when it fires."""
     normalised = uid.strip().upper()
     if not _UID.fullmatch(normalised):
         raise InvalidUidError(uid)
@@ -395,17 +406,27 @@ async def assign_card(session: AsyncSession, uid: str, player_id: str) -> CardRe
         card.player_id = player_id
     await session.commit()
     await event_bus.broadcast(DevicesChanged())
+    # The card the host just named may be lying on a slot right now, as the unknown card the
+    # naming was about. The device will not report it again — it has not moved — so this is
+    # the only moment the room can be told.
+    await selection.card_identified(
+        session_factory, normalised, player_id, auto_start=await auto_start_for(session)
+    )
     return CardRead(uid=card.uid, player=read_player(player), created_at=card.created_at)
 
 
 async def forget_card(session: AsyncSession, uid: str) -> None:
     """Take a card off the table. Raises `UnknownCardError`."""
-    card = await session.get(PlayerCard, uid.strip().upper())
+    normalised = uid.strip().upper()
+    card = await session.get(PlayerCard, normalised)
     if card is None:
         raise UnknownCardError(uid)
     await session.delete(card)
     await session.commit()
     await event_bus.broadcast(DevicesChanged())
+    # The other half of the same moment: a slot this card is holding somebody on becomes the
+    # unknown card it now is. Nobody is scored for a card that belongs to nobody.
+    await selection.card_forgotten(normalised)
 
 
 async def forget_cards_of(session: AsyncSession, player_id: str) -> None:

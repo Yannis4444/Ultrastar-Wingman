@@ -43,8 +43,8 @@ A card with no singer still fills a slot. During player selection the slot reads
 *Unknown card*, on the phone and on the TV. Nobody is scored for it, so the song
 does not start on its own while a slot reads that.
 
-Give the card a name under **On the readers now**, then take it off the reader
-and put it back. The slot fills with the singer.
+Give the card a name under **On the readers now**. The slot fills with the singer
+while the card lies where it is.
 
 ## Start the song on its own
 

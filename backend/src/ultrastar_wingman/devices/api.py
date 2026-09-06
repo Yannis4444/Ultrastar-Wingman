@@ -120,7 +120,9 @@ async def list_cards(session: SessionDep) -> CardList:
     dependencies=[Depends(require("devices.manage"))],
     responses={404: {"description": "Unknown player."}},
 )
-async def assign_card(uid: str, body: CardAssign, session: SessionDep) -> CardRead:
+async def assign_card(
+    uid: str, body: CardAssign, session: SessionDep, factory: SessionFactoryDep
+) -> CardRead:
     """Give a card to a player. A card that already belonged to somebody moves, which is
     what a card handed on to the next guest does.
 
@@ -128,7 +130,7 @@ async def assign_card(uid: str, body: CardAssign, session: SessionDep) -> CardRe
     rather than a row nothing will ever look up.
     """
     try:
-        return await service.assign_card(session, uid, body.player_id)
+        return await service.assign_card(session, factory, uid, body.player_id)
     except service.InvalidUidError as error:
         raise HTTPException(status_code=422, detail=error.detail) from error
     except service.UnknownPlayerError as error:

@@ -525,6 +525,127 @@ async def test_a_tap_elsewhere_leaves_an_unknown_card_where_it_lies(
     assert (await current_slots())[0]["card_uid"] is None
 
 
+async def test_naming_an_unknown_card_puts_its_player_on_the_slot_it_lies_on(
+    session: AsyncSession,
+    session_factory: async_sessionmaker[AsyncSession],
+    song: str,
+    broadcast_events: list[dict[str, object]],
+) -> None:
+    """The host names the card on the admin page while it lies on the reader. The device
+    reports nothing new — the card has not moved — so this is what fills the slot."""
+    alice = await add_player_row(session, "Alice")
+    await two_slot_selection(session, song)
+    await selection.card_placed_on_slot(session_factory, "blue", "A1")
+
+    await selection.card_identified(session_factory, "A1", alice)
+
+    slots = await current_slots()
+    assert player_names(slots) == ["Alice", None]
+    # Still her card's slot: lifting it now empties it, as it would have all along.
+    assert slots[0]["card_uid"] == "A1"
+    assert player_names(selection_events(broadcast_events)[-1]["selection"]["slots"]) == [
+        "Alice",
+        None,
+    ]
+
+
+async def test_naming_a_card_takes_its_player_off_the_slot_they_stood_on(
+    session: AsyncSession, session_factory: async_sessionmaker[AsyncSession], song: str
+) -> None:
+    """One person sings on one microphone: the same eviction a placed card makes."""
+    alice = await add_player_row(session, "Alice")
+    await two_slot_selection(session, song)
+    await selection.card_placed_on_slot(session_factory, "red", "A1", alice)
+    await selection.card_placed_on_slot(session_factory, "blue", "B2")
+
+    await selection.card_identified(session_factory, "B2", alice)
+
+    assert player_names(await current_slots()) == ["Alice", None]
+
+
+async def test_naming_a_card_no_slot_holds_changes_nothing(
+    session: AsyncSession,
+    session_factory: async_sessionmaker[AsyncSession],
+    song: str,
+    broadcast_events: list[dict[str, object]],
+) -> None:
+    alice = await add_player_row(session, "Alice")
+    await two_slot_selection(session, song)
+    await selection.card_placed_on_slot(session_factory, "blue", "A1", alice)
+    before = len(selection_events(broadcast_events))
+
+    # A card lying nowhere, and a card lying somewhere given to a player who is gone.
+    await selection.card_identified(session_factory, "C3", alice)
+    await selection.card_identified(session_factory, "A1", "nobody")
+
+    assert player_names(await current_slots()) == ["Alice", None]
+    assert len(selection_events(broadcast_events)) == before
+
+
+async def test_naming_the_last_unknown_card_starts_the_full_room(
+    session: AsyncSession,
+    session_factory: async_sessionmaker[AsyncSession],
+    configured: FakeUsdx,
+    song: str,
+) -> None:
+    """Two people at the selector, one card Wingman did not know. Naming it fills the room,
+    and a room that is full starts by itself."""
+    alice = await add_player_row(session, "Alice")
+    bob = await add_player_row(session, "Bob")
+    await two_slot_selection(session, song)
+    now = selection.AutoStart(delay_s=0)
+    await selection.card_placed_on_slot(session_factory, "blue", "A1", alice, auto_start=now)
+    await selection.card_placed_on_slot(session_factory, "red", "B2", auto_start=now)
+    counting = await selection.current_selection()
+    assert counting is not None and counting.auto_start_at is None
+
+    await selection.card_identified(session_factory, "B2", bob, auto_start=now)
+
+    await selection.wait_for_auto_start()
+    await wait_for(configured.argv_file)
+    assert await selection.current_selection() is None
+    await service.wait_for_sing_end()
+
+
+async def test_forgetting_a_card_leaves_it_lying_on_its_slot_as_an_unknown_one(
+    session: AsyncSession, session_factory: async_sessionmaker[AsyncSession], song: str
+) -> None:
+    """The host said the card is nobody's. It is still on the reader and its owner is still
+    standing there, so the slot holds the card and no longer holds a singer."""
+    alice = await add_player_row(session, "Alice")
+    await two_slot_selection(session, song)
+    await selection.card_placed_on_slot(session_factory, "blue", "A1", alice)
+
+    await selection.card_forgotten("A1")
+
+    slots = await current_slots()
+    assert player_names(slots) == [None, None]
+    assert slots[0]["card_uid"] == "A1"
+    await selection.card_removed_from_slot("blue", "A1")
+    assert (await current_slots())[0]["card_uid"] is None
+
+
+async def test_forgetting_a_card_stops_the_countdown(
+    session: AsyncSession,
+    session_factory: async_sessionmaker[AsyncSession],
+    configured: FakeUsdx,
+    song: str,
+) -> None:
+    alice = await add_player_row(session, "Alice")
+    bob = await add_player_row(session, "Bob")
+    await two_slot_selection(session, song)
+    later = selection.AutoStart(delay_s=30)
+    await selection.card_placed_on_slot(session_factory, "blue", "A1", alice, auto_start=later)
+    await selection.card_placed_on_slot(session_factory, "red", "B2", bob, auto_start=later)
+
+    await selection.card_forgotten("B2")
+
+    stopped = await selection.current_selection()
+    assert stopped is not None and stopped.auto_start_at is None
+    await asyncio.wait_for(selection.wait_for_auto_start(), timeout=5)
+    assert not configured.argv_file.exists()
+
+
 async def test_singers_in_turn_fill_the_slots_in_order(
     session: AsyncSession, session_factory: async_sessionmaker[AsyncSession], song: str
 ) -> None:

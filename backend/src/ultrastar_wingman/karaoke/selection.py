@@ -350,6 +350,63 @@ async def card_scanned(
         await _after_device_change(changed, auto_start, session_factory)
 
 
+async def card_identified(
+    session_factory: async_sessionmaker[AsyncSession],
+    uid: str,
+    player_id: str,
+    auto_start: AutoStart | None = None,
+) -> None:
+    """The host just said on the admin page whose card this is.
+
+    A card nobody owned stands on its slot as an unknown card, and the device says nothing
+    new about it — it has not moved. So the naming itself is what puts the person there;
+    without this the room would have to lift the card off the reader and put it back down.
+
+    Only a slot this very card is already on and that nobody stands on is filled: a slot the
+    phone has since pointed at somebody is the phone's choice, and a card the room does not
+    hold changes nothing at all.
+    """
+    async with _lock:
+        await _expire_locked()
+        if _selection is None:
+            return
+        slots = [slot for slot in _selection.slots if slot.card_uid == uid and slot.player is None]
+        if not slots:
+            # Nothing in this room: not even the idle clock is touched. A selection nobody
+            # is standing at must not be kept alive by somebody tidying the card table.
+            return
+        player = await _player(session_factory, player_id)
+        if player is None:
+            return
+        for slot in slots:
+            # Two readers reporting the same uid is a cloned card, not two people:
+            # `_put_on_slot` takes the player off the slot before, so the last one holds them.
+            _put_on_slot(_selection.slots, slot, player, uid)
+        await _after_device_change(True, auto_start, session_factory)
+
+
+async def card_forgotten(uid: str) -> None:
+    """The host took this card off the table: it belongs to nobody now.
+
+    The card is still lying on the reader and the person is still standing at it, so the slot
+    is not emptied — it becomes the unknown card it would be if the card were put down now.
+    Naming it again fills it back in, lifting it empties the slot, and a countdown ends,
+    because a room with an unknown card in it is not full.
+    """
+    async with _lock:
+        await _expire_locked()
+        if _selection is None:
+            return
+        changed = False
+        for slot in _selection.slots:
+            if slot.card_uid == uid and slot.player is not None:
+                slot.player = None
+                changed = True
+        if not changed:
+            return
+        await _after_device_change(True, None, None)
+
+
 async def button_pressed(
     session: AsyncSession,
     session_factory: async_sessionmaker[AsyncSession],

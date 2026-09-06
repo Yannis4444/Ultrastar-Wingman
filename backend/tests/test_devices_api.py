@@ -19,7 +19,12 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 import test_karaoke_api
 from test_karaoke_api import FakeUsdx, add_player, wait_for
-from test_karaoke_selection import current_slots, player_names, two_slot_selection
+from test_karaoke_selection import (
+    current_slots,
+    player_names,
+    selection_events,
+    two_slot_selection,
+)
 from ultrastar_wingman.devices import firmware
 from ultrastar_wingman.devices import service as devices
 from ultrastar_wingman.karaoke import selection
@@ -966,6 +971,55 @@ async def test_the_cards_of_a_deleted_player_go_with_them(client: AsyncClient) -
     assert (await client.delete(f"/api/v1/players/{alice['id']}")).status_code == 204
 
     assert (await client.get("/api/v1/devices/cards")).json()["cards"] == []
+
+
+async def test_naming_the_card_on_a_slot_fills_it_without_lifting_the_card(
+    client: AsyncClient,
+    session: AsyncSession,
+    song: str,
+    broadcast_events: list[dict[str, object]],
+) -> None:
+    """The admin page's own path: a card nobody owned lies on the blue reader and shows as
+    an unknown card. Naming it is what the room sees — the device reports nothing more,
+    because the card has not moved."""
+    alice = await add_player(client, "Alice")
+    _, token = await mapped_device(client, reader_roles={"0": "slot:blue"})
+    await two_slot_selection(session, song)
+    await post_report(client, token, readers=[reader(0, uid=OTHER_UID), reader(1)])
+    assert player_names(await current_slots()) == [None, None]
+
+    response = await client.put(
+        f"/api/v1/devices/cards/{OTHER_UID}", json={"player_id": alice["id"]}
+    )
+
+    assert response.status_code == 200, response.text
+    read = await client.get("/api/v1/karaoke/selection")
+    slots = read.json()["selection"]["slots"]
+    assert player_names(slots) == ["Alice", None]
+    assert slots[0]["card_uid"] == OTHER_UID
+    assert player_names(selection_events(broadcast_events)[-1]["selection"]["slots"]) == [
+        "Alice",
+        None,
+    ]
+
+
+async def test_forgetting_the_card_on_a_slot_makes_it_an_unknown_card_again(
+    client: AsyncClient, session: AsyncSession, song: str
+) -> None:
+    """The card is still on the reader, so the slot keeps it; nobody is scored for a card
+    that belongs to nobody."""
+    alice = await add_player(client, "Alice")
+    await client.put(f"/api/v1/devices/cards/{KNOWN_UID}", json={"player_id": alice["id"]})
+    _, token = await mapped_device(client, reader_roles={"0": "slot:blue"})
+    await two_slot_selection(session, song)
+    await post_report(client, token, readers=[reader(0, uid=KNOWN_UID), reader(1)])
+    assert player_names(await current_slots()) == ["Alice", None]
+
+    assert (await client.delete(f"/api/v1/devices/cards/{KNOWN_UID}")).status_code == 204
+
+    slots = (await client.get("/api/v1/karaoke/selection")).json()["selection"]["slots"]
+    assert player_names(slots) == [None, None]
+    assert slots[0]["card_uid"] == KNOWN_UID
 
 
 # --- the options ------------------------------------------------------------------------
