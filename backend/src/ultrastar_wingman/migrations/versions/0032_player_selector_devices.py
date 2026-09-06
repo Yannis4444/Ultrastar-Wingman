@@ -9,9 +9,7 @@ they mean. What lies on the readers is deliberately not a column: it is a person
 the room, and it lives in `devices.service` for as long as the process does. `reader_states`
 and `button_positions` are what a report leaves behind, so the mapping page works on a device
 that is unplugged: a role on a reader that never answered is refused, and a button set to
-*nothing* is still drawn as the row it is. `update_requested_at` is the one thing the host
-asks *of* a device: while it stands, the answer to the device's own reports carries the
-bundled firmware for it to fetch over Wi-Fi.
+*nothing* is still drawn as the row it is.
 
 `player_cards` is the card table: a uid, uppercase hex as the reader read it, and the player
 it belongs to. Several cards per player is the point (a fob on a keyring and a card in a
@@ -67,7 +65,6 @@ def upgrade() -> None:
         sa.Column("last_seen_at", sa.DateTime(timezone=True), nullable=True),
         sa.Column("firmware_version", sa.String(length=32), nullable=True),
         sa.Column("protocol", sa.Integer(), nullable=True),
-        sa.Column("update_requested_at", sa.DateTime(timezone=True), nullable=True),
         sa.Column("reader_states", sa.Text(), nullable=False),
         sa.Column("reader_roles", sa.Text(), nullable=False),
         sa.Column("button_actions", sa.Text(), nullable=False),

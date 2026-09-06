@@ -538,6 +538,14 @@ async def test_a_slot_a_card_holds_is_not_the_phones_to_repoint(
     await selection.card_removed_from_slot("blue", "A1")
     assert player_names(await current_slots()) == [None, None]
 
+    # With the card gone the slot is the phone's again, which is the other half of the rule:
+    # the cards hold what they lie on, and nothing more.
+    given = await selection.set_slots(
+        session, token, [service.SlotRequest(color="blue", player_id=bob)]
+    )
+    assert [slot.player.name for slot in given.slots if slot.player is not None] == ["Bob"]
+    assert given.slots[0].card_uid is None
+
 
 async def test_a_put_written_before_a_card_landed_does_not_take_the_singer_off(
     session: AsyncSession, session_factory: async_sessionmaker[AsyncSession], song: str

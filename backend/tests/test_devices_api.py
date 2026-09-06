@@ -1157,6 +1157,35 @@ async def test_the_card_table(client: AsyncClient) -> None:
     assert (await client.delete(f"/api/v1/devices/cards/{KNOWN_UID}")).status_code == 404
 
 
+def read_back(stamp: str) -> datetime:
+    """One timestamp out of an answer, as the browser reads it. A naive one is what SQLite
+    hands back, and `new Date()` would take it for a local time — so the assertion is that
+    it carries an offset at all, and that the offset is the right one."""
+    parsed = datetime.fromisoformat(stamp)
+    assert parsed.tzinfo is not None, stamp
+    return parsed
+
+
+async def test_every_timestamp_says_which_clock_it_is_on(client: AsyncClient) -> None:
+    """`DateTime(timezone=True)` is a no-op on SQLite, so a row read back is naive: the
+    device page would draw "last seen" hours out, on every machine that is not on UTC.
+
+    The row has to be read back out of the database for this to be the answer at all — the
+    one the writing request builds is still holding the aware value it wrote.
+    """
+    alice = await add_player(client, "Alice")
+    await client.put(f"/api/v1/devices/cards/{KNOWN_UID}", json={"player_id": alice["id"]})
+    _, token = await mapped_device(client)
+    await post_report(client, token)
+    before = datetime.now(UTC) - timedelta(minutes=1)
+
+    listed = await only_device(client)
+    cards = (await client.get("/api/v1/devices/cards")).json()["cards"]
+
+    for stamp in (listed["created_at"], listed["last_seen_at"], cards[0]["created_at"]):
+        assert before < read_back(stamp) < datetime.now(UTC), stamp
+
+
 async def test_a_card_of_an_unknown_player_is_refused(client: AsyncClient) -> None:
     response = await client.put(f"/api/v1/devices/cards/{KNOWN_UID}", json={"player_id": "nope"})
 
@@ -1617,7 +1646,8 @@ async def test_an_update_the_host_asked_for_rides_on_the_next_report(
     await request_update(client, device_id)
 
     assert len(device_events(broadcast_events)) == 1
-    assert (await only_device(client))["update_requested_at"] is not None
+    # Aware, so the page counting the ten minutes down counts the right ones.
+    assert read_back((await only_device(client))["update_requested_at"]) < datetime.now(UTC)
     answer = await post_report(client, token, readers=[reader(0)])
     assert answer.status_code == 200, answer.text
     # The bare application image and not the merged one: `HTTPUpdate` checks for the 0xE9
@@ -1658,6 +1688,26 @@ async def test_an_update_nobody_fetched_gives_up_after_ten_minutes(
     assert answer.status_code == 200, answer.text
     assert answer.json()["update"] is None
     assert (await only_device(client))["update_requested_at"] is None
+
+
+async def test_an_offer_nobody_came_back_for_stops_being_pending(
+    client: AsyncClient, no_firmware: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """The flag only comes off the row on a report, and a device that never returns sends
+    none — so the ten minutes are measured at the read as well, or the page would say
+    "Update requested" for the rest of the party."""
+    write_manifest(no_firmware)
+    device_id, _ = await mapped_device(client)
+    await request_update(client, device_id)
+    assert (await only_device(client))["update_requested_at"] is not None
+
+    monkeypatch.setattr(
+        devices, "_now", lambda: datetime.now(UTC) + devices.UPDATE_TTL + timedelta(minutes=1)
+    )
+
+    assert (await only_device(client))["update_requested_at"] is None
+    # And the host may ask again, which is what the ten minutes are for.
+    await request_update(client, device_id)
 
 
 async def test_an_update_there_is_none_of_is_refused(

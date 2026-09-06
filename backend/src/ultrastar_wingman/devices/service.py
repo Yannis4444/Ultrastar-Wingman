@@ -90,8 +90,11 @@ WATCHDOG_INTERVAL_S = 5.0
 REPORT_INTERVAL_S = 5
 
 # What a device is told to report at while the room is picking singers. The lights are the
-# reason: a slot somebody took on the phone has to light up before they wonder whether the
-# tap worked, and a second is as long as that may take.
+# reason: while one is open the strip says what the room is doing — the reader everybody
+# scans pulsing "scan now", every slot pulsing once the automatic start counts down — and
+# a second is as long as that may lag the phone that changed it. A slot the *phone* filled
+# is not one of those: a light says what lies on its own reader and never who stands on its
+# microphone, so it goes on under the card and not under the tap.
 PICKING_INTERVAL_S = 1
 
 # A reader with no color of its own. The one everybody scans in turn is white — it belongs
@@ -436,7 +439,12 @@ async def list_cards(session: AsyncSession) -> CardList:
     # row survives, harmless, and the next assignment of that uid overwrites it.
     return CardList(
         cards=[
-            CardRead(uid=card.uid, player=players[card.player_id], created_at=card.created_at)
+            CardRead(
+                uid=card.uid,
+                player=players[card.player_id],
+                # Naive coming out of SQLite; everything we write is UTC (see `as_utc`).
+                created_at=as_utc(card.created_at),
+            )
             for card in cards
             if card.player_id in players
         ]
@@ -476,7 +484,7 @@ async def assign_card(
     await selection.card_identified(
         session_factory, normalised, player_id, auto_start=await auto_start_for(session)
     )
-    return CardRead(uid=card.uid, player=read_player(player), created_at=card.created_at)
+    return CardRead(uid=card.uid, player=read_player(player), created_at=as_utc(card.created_at))
 
 
 async def forget_card(session: AsyncSession, uid: str) -> None:
@@ -537,7 +545,10 @@ async def cards_of_player(session: AsyncSession, player_id: str) -> CardList:
         .order_by(PlayerCard.created_at.desc())
     )
     return CardList(
-        cards=[CardRead(uid=card.uid, player=read, created_at=card.created_at) for card in cards]
+        cards=[
+            CardRead(uid=card.uid, player=read, created_at=as_utc(card.created_at))
+            for card in cards
+        ]
     )
 
 
@@ -916,9 +927,13 @@ async def request_update(session: AsyncSession, device_id: str) -> None:
     """Ask a device to fetch the bundled firmware over Wi-Fi.
 
     Nothing is pushed: the flag is what the device's own next report is answered with, so a
-    device that is unplugged simply picks the update up when it comes back. Raises
-    `UnknownDeviceError`, and `UpdateRefusedError` when there is no image to offer or the
-    device is already on it.
+    device that is unplugged picks the update up when it comes back — within the ten minutes
+    the offer stands. After that the offer is over: the device is answered nothing, the
+    listing stops saying one is pending, and the host asks again. Which is the point of the
+    ten minutes, a device that failed to flash being quiet about it.
+
+    Raises `UnknownDeviceError`, and `UpdateRefusedError` when there is no image to offer or
+    the device is already on it.
     """
     device = await get_device(session, device_id)
     manifest = firmware.read_manifest()
@@ -1172,6 +1187,26 @@ def _button_action(action: str) -> selection.ButtonAction:
 # --- reading the rows -------------------------------------------------------------------
 
 
+def _aware(value: datetime | None) -> datetime | None:
+    """A nullable column as an aware UTC timestamp. `as_utc` for the two of them a device
+    row may not have yet."""
+    return None if value is None else as_utc(value)
+
+
+def _standing_request(requested_at: datetime | None) -> datetime | None:
+    """The update the host asked for, while it is still on offer.
+
+    The same ten minutes `_update_offer` measures, applied at the read: the flag is only
+    taken *off* the row by a report, so a device that never comes back would otherwise leave
+    the page saying "Update requested" for the rest of the party. Read-time and not a write,
+    because the column is the record of when the host asked and the listing is not the place
+    to rewrite it.
+    """
+    if requested_at is None or _expired(requested_at):
+        return None
+    return as_utc(requested_at)
+
+
 def _read(
     device: Device,
     live: _Live | None = None,
@@ -1234,15 +1269,17 @@ def _read(
     return DeviceRead(
         id=device.id,
         name=device.name,
-        created_at=device.created_at,
-        last_seen_at=device.last_seen_at,
+        # Naive coming out of SQLite; everything we write is UTC (see `as_utc`). Without
+        # this the browser reads "last seen" as a local time and draws it hours out.
+        created_at=as_utc(device.created_at),
+        last_seen_at=_aware(device.last_seen_at),
         online=online,
         firmware_version=device.firmware_version,
         protocol=device.protocol,
         compatible=None if device.protocol is None else device.protocol == SUPPORTED,
         rssi=None if report is None or not online else report.rssi,
         uptime_s=None if report is None or not online else report.uptime_s,
-        update_requested_at=device.update_requested_at,
+        update_requested_at=_standing_request(device.update_requested_at),
         readers=readers,
         buttons=buttons,
     )
