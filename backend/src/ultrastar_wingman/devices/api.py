@@ -15,7 +15,7 @@ from typing import Annotated
 
 from fastapi import APIRouter, Depends, HTTPException, Request
 from fastapi.responses import FileResponse, JSONResponse
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, StringConstraints
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
 
 from ..auth.deps import require
@@ -44,7 +44,11 @@ router = APIRouter(tags=["devices"])
 
 UNKNOWN_DEVICE: dict[int | str, dict[str, object]] = {404: {"description": "Unknown device."}}
 
-DeviceName = Annotated[str, Field(min_length=1, max_length=MAX_NAME_LENGTH)]
+# Stripped before the length is counted, so a name of nothing but spaces is refused rather
+# than stored as the empty string the list would then draw a nameless row for.
+DeviceName = Annotated[
+    str, StringConstraints(strip_whitespace=True, min_length=1, max_length=MAX_NAME_LENGTH)
+]
 
 
 class DeviceCreate(BaseModel):

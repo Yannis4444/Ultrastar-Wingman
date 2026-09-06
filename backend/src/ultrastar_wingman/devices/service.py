@@ -17,6 +17,7 @@ Knows nothing about FastAPI: the API layer maps these exceptions onto status cod
 
 import asyncio
 import contextlib
+import itertools
 import json
 import logging
 import re
@@ -179,6 +180,8 @@ class _Live:
 
     report: DeviceReport
     received_at: datetime
+    # Which report this was, in the order they were *entered* — see `_sequence`.
+    sequence: int
     # The protocol of that report is one Wingman speaks. An incompatible report counts as a
     # heartbeat and nothing more: it is never diffed, and the first compatible report after
     # it starts from nothing, so cards already lying on the readers are placed and not
@@ -242,6 +245,13 @@ _UID = re.compile("[0-9A-F]{8,20}")
 _live: dict[str, _Live] = {}
 _lock = asyncio.Lock()
 _watchdog: asyncio.Task[None] | None = None
+
+# The order reports were taken in. A device that times out on the client side retries, so two
+# snapshots of the same readers can be in flight at once and the older one may reach the lock
+# second; whichever was *entered* last is the one the room is in. A counter and not a clock:
+# the coarse Windows timer would let two reports of the same millisecond tie, and a tie is
+# exactly the case the guard exists for.
+_sequence = itertools.count(1)
 
 
 def _now() -> datetime:
@@ -449,27 +459,42 @@ async def handle_report(
     still appears in the list as one that needs updating rather than as one that never
     arrived. Then `ProtocolUnsupportedError`, or the difference from the last report handed
     to the selection.
+
+    A report that was overtaken by a newer one from the same device is dropped whole — no
+    row write, no diff, no dispatch — and still answered with an ack: the device is fine, and
+    what it is saying is already in. That is what makes the firmware's retry after a
+    client-side timeout harmless; without it the older snapshot could land second and put a
+    card back on a slot the newer one had already emptied.
     """
+    received_at = _now()
+    sequence = next(_sequence)
     async with session_factory() as session:
+        # Read the row — and with it check a connection out of the pool — *before* the lock:
+        # everybody else takes the lock while already holding a session, so a lock held over
+        # a checkout that has to wait for one of them would be a deadlock.
         row = await session.get(Device, device.id)
         if row is None:
             # Deleted between the token lookup and here. Nothing to record and nothing to do.
             raise UnknownDeviceError(device.id)
         compatible = report.protocol == SUPPORTED
-        received_at = _now()
-        row.last_seen_at = received_at
-        row.firmware_version = report.firmware
-        row.protocol = report.protocol
-        row.reader_states = json.dumps(
-            {str(reader.index): reader.state for reader in report.readers}
-        )
-        row.button_positions = json.dumps(sorted(button.index for button in report.buttons))
         roles = _decode(row.reader_roles)
         actions = _decode(row.button_actions)
-        await session.commit()
 
+        # The row write is inside the lock as well, so it cannot go backwards either.
         async with _lock:
             previous = _live.get(device.id)
+            if previous is not None and sequence < previous.sequence:
+                logger.debug("player selector %s: dropping an overtaken report", device.id)
+                return ReportOutcome(changed=False)
+            row.last_seen_at = received_at
+            row.firmware_version = report.firmware
+            row.protocol = report.protocol
+            row.reader_states = json.dumps(
+                {str(reader.index): reader.state for reader in report.readers}
+            )
+            row.button_positions = json.dumps(sorted(button.index for button in report.buttons))
+            await session.commit()
+
             # An incompatible report is a heartbeat and nothing else, so the first good one
             # after it diffs against nothing: the cards lying on the readers are placed
             # rather than mistaken for cards that were already accounted for.
@@ -491,7 +516,12 @@ async def handle_report(
             ):
                 # It cannot be diffed, but "this device needs updating" is news all the same.
                 diff.visible = True
-            _live[device.id] = _Live(report=report, received_at=received_at, compatible=compatible)
+            _live[device.id] = _Live(
+                report=report,
+                received_at=received_at,
+                sequence=sequence,
+                compatible=compatible,
+            )
 
         if not compatible:
             if diff.visible:

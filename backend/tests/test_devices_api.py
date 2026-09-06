@@ -7,6 +7,7 @@ where a card on a reader ends up, and the starts run against the fake USDX of
 `test_karaoke_api` so a button that starts a song really starts one.
 """
 
+import asyncio
 import json
 from datetime import UTC, datetime, timedelta
 from pathlib import Path
@@ -120,6 +121,32 @@ async def only_device(client: AsyncClient) -> dict[str, Any]:
 
 def device_events(events: list[dict[str, object]]) -> list[dict[str, object]]:
     return [event for event in events if event["event"] == "devices.changed"]
+
+
+class HoldAtTheLock:
+    """Stands in for `devices._lock` so one report can be held at its door while another goes
+    all the way through — which is how two reports of one device are made to arrive in the
+    wrong order without waiting on a race to happen by itself.
+
+    Armed for exactly one entrant: the next coroutine to reach the lock waits until the test
+    lets it go, and everybody after it walks straight in.
+    """
+
+    def __init__(self, lock: asyncio.Lock) -> None:
+        self._lock = lock
+        self._armed = True
+        self.at_the_door = asyncio.Event()
+        self.let_go = asyncio.Event()
+
+    async def __aenter__(self) -> None:
+        if self._armed:
+            self._armed = False
+            self.at_the_door.set()
+            await self.let_go.wait()
+        await self._lock.acquire()
+
+    async def __aexit__(self, *error: object) -> None:
+        self._lock.release()
 
 
 # --- the token --------------------------------------------------------------------------
@@ -467,6 +494,53 @@ async def test_a_card_swapped_on_one_reader_takes_the_slot_over(
     await post_report(client, token, readers=[reader(0, uid=OTHER_UID), reader(1)])
 
     assert player_names(await current_slots()) == ["Bob", None]
+
+
+async def test_a_report_that_was_overtaken_by_a_newer_one_changes_nothing(
+    client: AsyncClient,
+    session: AsyncSession,
+    song: str,
+    broadcast_events: list[dict[str, object]],
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """The firmware retries after a client-side timeout, so two snapshots of one device can be
+    in flight at once and the older one can reach the lock second. It must not put the card
+    back on a slot the newer report has already emptied — nor its row back to what it said."""
+    clock = [datetime.now(UTC)]
+    monkeypatch.setattr(devices, "_now", lambda: clock[0])
+    yannis = await add_player(client, "Yannis")
+    await client.put(f"/api/v1/devices/cards/{KNOWN_UID}", json={"player_id": yannis["id"]})
+    _, token = await mapped_device(client, reader_roles={"0": "slot:blue"})
+    await two_slot_selection(session, song)
+    await post_report(client, token, readers=[reader(0, uid=KNOWN_UID), reader(1)])
+    assert player_names(await current_slots()) == ["Yannis", None]
+    stamped_first = (await only_device(client))["last_seen_at"]
+
+    gate = HoldAtTheLock(devices._lock)
+    monkeypatch.setattr(devices, "_lock", gate)
+    # The retry of the report above: entered first, and held at the lock's door.
+    retry = asyncio.create_task(
+        post_report(client, token, readers=[reader(0, uid=KNOWN_UID), reader(1)])
+    )
+    await asyncio.wait_for(gate.at_the_door.wait(), 5)
+
+    # The card is lifted while the retry stands there, and that report goes all the way in.
+    clock[0] += timedelta(seconds=1)
+    lifted = await post_report(client, token, readers=[reader(0), reader(1)])
+    assert lifted.status_code == 200, lifted.text
+    assert player_names(await current_slots()) == [None, None]
+    settled = await only_device(client)
+    assert settled["last_seen_at"] != stamped_first
+    said_so_far = len(broadcast_events)
+
+    # The device is fine and its newer state is already in, so the stale report is acked.
+    gate.let_go.set()
+    assert (await asyncio.wait_for(retry, 5)).status_code == 200
+
+    # And nothing of it reached the room, the live state or the row.
+    assert player_names(await current_slots()) == [None, None]
+    assert len(broadcast_events) == said_so_far
+    assert await only_device(client) == settled
 
 
 async def test_a_reader_everybody_scans_in_turn_fills_the_slots(
@@ -821,6 +895,25 @@ async def test_renaming_and_deleting_a_device(client: AsyncClient) -> None:
     assert (
         await client.patch(f"/api/v1/devices/{device_id}", json={"name": "x"})
     ).status_code == 404
+
+
+async def test_a_name_of_nothing_but_spaces_is_refused_and_a_padded_one_is_trimmed(
+    client: AsyncClient,
+) -> None:
+    """A name is counted after it is stripped, so the list can never draw a nameless row."""
+    assert (await client.post("/api/v1/devices", json={"name": "   "})).status_code == 422
+
+    created = await create_device(client, "  Living room  ")
+    assert created["device"]["name"] == "Living room"
+    device_id = created["device"]["id"]
+
+    renamed = await client.patch(f"/api/v1/devices/{device_id}", json={"name": "  By the TV  "})
+    assert renamed.status_code == 200, renamed.text
+    assert renamed.json()["name"] == "By the TV"
+
+    blank = await client.patch(f"/api/v1/devices/{device_id}", json={"name": " "})
+    assert blank.status_code == 422
+    assert (await only_device(client))["name"] == "By the TV"
 
 
 # --- the cards --------------------------------------------------------------------------
