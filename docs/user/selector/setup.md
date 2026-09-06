@@ -134,14 +134,24 @@ stands.
 
 ## Setting it up again later
 
-Open **User** > **Player selector** and click the box. Its page carries two
-buttons back into the wizard. Both want the USB cable and the `localhost` page
-again.
+Open **User** > **Player selector** and click the box. Its page is where a
+device is changed afterward.
 
-- **Update firmware** starts at the flash screen. It asks for the network and
-  the address again afterward, so have the Wi-Fi password ready.
+![The device page, with the lines saying what the box runs above the Update firmware, Update over Wi-Fi, and Change Wi-Fi or server buttons](../assets/screenshots/selector/selector-device.png){ width="320" loading=lazy }
+/// caption
+The lines above the buttons say what the device runs, and what Wingman has for it.
+///
+
+- **Update over Wi-Fi** sends the firmware over the network. It appears while
+  the device is online and Wingman carries a version the box does not run. The
+  page then reads *Update requested*. The device fetches the firmware on its
+  next report and restarts.
+- **Update firmware** does the same over the cable, and stays the fallback
+  whenever the other one fails. It starts at the flash screen, then asks for the
+  network and the address again, so have the Wi-Fi password ready.
 - **Change Wi-Fi or server** starts at the network screen. The name, the cards,
   and the mapping stay as they are.
 
+The last two want the USB cable and the `localhost` page again.
 :wingman-plus: **Set up a device** is for a second box. It always adds one, so a
 box that is already set up goes through its own page instead.

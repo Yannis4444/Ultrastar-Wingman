@@ -48,8 +48,21 @@ def read_manifest() -> FirmwareManifest | None:
         return None
 
 
+def ota_file() -> str | None:
+    """The bare application image a device flashes over Wi-Fi, or None.
+
+    None for a manifest built before the update existed: such a build can still be flashed
+    over the cable, and asking for one over Wi-Fi is refused rather than answered with the
+    merged image, which `HTTPUpdate` would reject at the first byte anyway.
+    """
+    manifest = read_manifest()
+    if manifest is None:
+        return None
+    return next((build.ota_file for build in manifest.builds if build.ota_file), None)
+
+
 def image_path(file: str) -> Path | None:
-    """The image the manifest names `file`, or None.
+    """The image the manifest names, as either `file` or `ota_file`, or None.
 
     The manifest is the allowlist: a name it does not carry is not served, whatever it looks
     like. That alone settles traversal — "../../secrets" is not in the manifest — and the
@@ -59,7 +72,11 @@ def image_path(file: str) -> Path | None:
     joined to; a plain file name is the only thing that survives this comparison.
     """
     manifest = read_manifest()
-    if manifest is None or file not in {build.file for build in manifest.builds}:
+    if manifest is None:
+        return None
+    named = {build.file for build in manifest.builds}
+    named |= {build.ota_file for build in manifest.builds if build.ota_file is not None}
+    if file not in named:
         return None
     if Path(file).name != file:
         logger.warning("the firmware manifest names a path and not a file: %r", file)

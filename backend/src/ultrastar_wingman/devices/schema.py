@@ -6,11 +6,17 @@ web layer.
 """
 
 from datetime import datetime
+from typing import Literal
 
 from pydantic import BaseModel
 
 from ..players.schema import PlayerRead
 from .protocol import ReaderState
+
+LedMode = Literal["off", "dim", "on", "blink", "pulse"]
+"""What one LED does until the next report is answered. `dim` is the slot saying it is
+there, `on` a card lying on it, `blink` a card nobody has claimed, and `pulse` either a
+countdown running or a reader asking to be scanned."""
 
 
 class ReaderRead(BaseModel):
@@ -54,6 +60,10 @@ class DeviceRead(BaseModel):
     compatible: bool | None = None
     rssi: int | None = None
     uptime_s: int | None = None
+    # When the host asked this device to fetch the bundled firmware over Wi-Fi. Set until
+    # the device reports the new version, or until ten minutes have passed and the attempt
+    # may be made again.
+    update_requested_at: datetime | None = None
     readers: list[ReaderRead]
     buttons: list[ButtonRead]
 
@@ -84,12 +94,34 @@ class DeviceSettings(BaseModel):
     auto_start: bool
     auto_start_delay_s: int
     rescan_removes: bool
+    selection_idle_s: int
+    start_without_selection: str
+
+
+class DeviceStatus(BaseModel):
+    """Whether the room has a player selector in it. What the phone's picker asks before it
+    says the cards are deciding, and the host rail before it says one has gone."""
+
+    online: bool
+
+
+class UnknownCardList(BaseModel):
+    """The uids lying on the readers that belong to nobody. Uids and nothing else: a card
+    nobody owns has nothing else to say about itself."""
+
+    uids: list[str]
 
 
 class FirmwareBuild(BaseModel):
     chip: str
     file: str
     size: int
+    # The bare application image, for the update over Wi-Fi: `HTTPUpdate` wants the `0xE9`
+    # magic at byte 0, and the merged image `file` names starts with the bootloader. Both
+    # are optional, because a manifest built before the update existed carries neither —
+    # which reads as "this build cannot be updated over Wi-Fi" and never as an error.
+    ota_file: str | None = None
+    ota_size: int | None = None
 
 
 class FirmwareManifest(BaseModel):
@@ -101,11 +133,37 @@ class FirmwareManifest(BaseModel):
     builds: list[FirmwareBuild]
 
 
+class LedState(BaseModel):
+    """What one LED of the optional strip shows until the next report is answered. LED *i*
+    is reader *i*, so `index` is a reader position and nothing else."""
+
+    index: int
+    # Six lowercase hex digits without a `#`: the firmware parses exactly that and leaves
+    # the LED black for anything else.
+    rgb: str
+    mode: LedMode
+
+
+class FirmwareUpdate(BaseModel):
+    """Fetch this image and flash it. Only in the answer while the host has asked for an
+    update and the device is not on that version yet."""
+
+    file: str
+    version: str
+
+
 class ReportAck(BaseModel):
-    """The answer to a report. The body is deliberately more than `{"ok": true}`: it is
-    where feedback for the device (lights, a buzzer) goes when that ships, and `interval_s`
-    already tells a device how often the server wants to hear from it."""
+    """The answer to a report, and the only thing Wingman ever says to a device.
+
+    `interval_s` is how often the server wants to hear from it: one second while the room
+    is picking singers, so the lights follow the phone, and five otherwise. `leds` is what
+    the optional strip shows until the next answer, one entry per reader position the
+    report carried. `update` is there only while an update over Wi-Fi is waiting to be
+    fetched; a device that has no strip and no updater ignores both.
+    """
 
     ok: bool = True
     protocol: int
     interval_s: int
+    leds: list[LedState] = []
+    update: FirmwareUpdate | None = None

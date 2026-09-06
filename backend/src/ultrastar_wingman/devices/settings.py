@@ -1,4 +1,4 @@
-"""The three knobs the player selector has, and where they live.
+"""The five knobs the player selector has, and where they live.
 
 Module-private definitions read through a `SettingsService` built on them, the
 `achievements/settings.py` pattern and for the first of its two reasons: `settings.manage`
@@ -22,10 +22,22 @@ logger = logging.getLogger(__name__)
 AUTO_START = "devices.auto_start"
 AUTO_START_DELAY = "devices.auto_start_delay_s"
 RESCAN_REMOVES = "devices.rescan_removes"
+SELECTION_IDLE = "devices.selection_idle_s"
+START_WITHOUT_SELECTION = "devices.start_without_selection"
+
+# What the start button does when nobody is picking anything. `nothing` is the default: a
+# button that starts a song out of a quiet room is a surprise, and the host asks for it.
+START_MODES: tuple[str, ...] = ("nothing", "top_wish", "random")
 
 # The delay is the room's chance to take a wrong card off the reader before the song starts.
 # Half a minute is already long enough that nobody would wait for it.
 MAX_AUTO_START_DELAY = 30
+
+# How long a selection nobody touches may stand. Half a minute at the bottom, because the
+# room needs time to find the singers; a quarter of an hour at the top, because a selection
+# that outlives the song it was opened for is a TV showing something nobody is doing.
+MIN_SELECTION_IDLE = 30
+MAX_SELECTION_IDLE = 900
 
 
 def _validate_delay(value: SettingValue) -> None:
@@ -33,6 +45,18 @@ def _validate_delay(value: SettingValue) -> None:
         raise ValueError("a whole number of seconds")
     if value < 0 or value > MAX_AUTO_START_DELAY:
         raise ValueError(f"between 0 and {MAX_AUTO_START_DELAY} seconds")
+
+
+def _validate_start_mode(value: SettingValue) -> None:
+    if not isinstance(value, str) or value not in START_MODES:
+        raise ValueError(f"one of {', '.join(START_MODES)}")
+
+
+def _validate_idle(value: SettingValue) -> None:
+    if not isinstance(value, int) or isinstance(value, bool):
+        raise ValueError("a whole number of seconds")
+    if value < MIN_SELECTION_IDLE or value > MAX_SELECTION_IDLE:
+        raise ValueError(f"between {MIN_SELECTION_IDLE} and {MAX_SELECTION_IDLE} seconds")
 
 
 # Not `settings.register`-ed on purpose, see the module docstring. `group` and `description`
@@ -68,6 +92,29 @@ DEFINITIONS: dict[str, SettingDefinition] = {
             "that singer off their slot. Off: a second scan does nothing."
         ),
     ),
+    SELECTION_IDLE: SettingDefinition(
+        key=SELECTION_IDLE,
+        value_type=int,
+        default=120,
+        group="Player selector",
+        description=(
+            "How long a song may stand with its singers half picked before Wingman drops "
+            "it and clears the screen."
+        ),
+        validate=_validate_idle,
+    ),
+    START_WITHOUT_SELECTION: SettingDefinition(
+        key=START_WITHOUT_SELECTION,
+        value_type=str,
+        default="nothing",
+        group="Player selector",
+        description=(
+            "What the start button does while nobody is picking singers. Off: nothing at "
+            "all. It can also sing the most wished for song, or a song at random, with "
+            "the cards lying on the readers on the slots."
+        ),
+        validate=_validate_start_mode,
+    ),
 }
 
 
@@ -76,5 +123,5 @@ def service(session: AsyncSession) -> SettingsService:
 
 
 async def read_all(session: AsyncSession) -> dict[str, SettingValue]:
-    """All three, one query — what a report reads before it diffs anything."""
+    """All five, one query — what a report reads before it diffs anything."""
     return await service(session).all()

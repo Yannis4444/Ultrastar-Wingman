@@ -1,0 +1,85 @@
+/* The singer's own cards on the User page (ui-guidelines §7's *User*): part of
+   the record above *Manage*, flat on the page like the badges and the stat bar
+   above it, and the rows built on the tag-row metrics the admin page's cards
+   already use — the same 40px glyph square, the same hairline between rows,
+   the same 8px of list margin plus 8px of row padding, so the uid lands on the
+   page's 16px gutter while the rule bleeds past it the way `ManageMenu`'s does.
+*/
+
+/* The same air *Manage* takes below it: this is a section of the page, not a
+   sub-heading of the badges above. */
+.my-cards-title {
+  margin-top: 32px;
+}
+
+.my-cards-notice {
+  margin: 8px 16px 0 16px;
+}
+
+.my-cards-empty {
+  margin-top: 8px;
+}
+
+.my-cards-list {
+  display: flex;
+  flex-direction: column;
+  margin: 8px 8px 0 8px;
+  padding: 0;
+  list-style: none;
+}
+
+.my-cards-list li {
+  border-bottom: 1px solid var(--input-border-color);
+}
+
+.my-cards-list > :last-child {
+  border-bottom: none;
+}
+
+/* The unclaimed list and the reader's own are two lists, so the second one
+   opens with a rule of its own rather than running into the first. */
+.my-cards-list + .my-cards-list {
+  margin-top: 0;
+  border-top: 1px solid var(--input-border-color);
+}
+
+.my-cards-row {
+  display: flex;
+  gap: 12px;
+  align-items: center;
+
+  /* The app is content-box (`index.css`), so the row padding would otherwise
+     be added outside a full width and push the page sideways (§1.11). */
+  box-sizing: border-box;
+  width: 100%;
+  min-width: 0;
+  min-height: 56px;
+  padding: 6px 8px;
+}
+
+.my-cards-square {
+  display: flex;
+  flex: 0 0 auto;
+  align-items: center;
+  justify-content: center;
+  width: 40px;
+  height: 40px;
+  font-size: 1.25em;
+  color: var(--color-darker);
+  background-color: var(--input-bg);
+  border-radius: var(--border-radius-small);
+}
+
+/* A uid is a run of hex read against the one printed on the card itself, so it
+   is set in figures of one width. It takes the room the row has left and wraps
+   rather than pushing the button off a 390px phone. */
+.my-cards-uid {
+  flex: 1 1 auto;
+  min-width: 0;
+  font-variant-numeric: tabular-nums;
+  overflow-wrap: anywhere;
+}
+
+.my-cards-row .button {
+  flex: 0 0 auto;
+}

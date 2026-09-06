@@ -116,10 +116,29 @@
   outline-offset: -2px;
 }
 
+/* The name and the card mark travel together, so the mark keeps its own 4px
+   icon-cluster gap instead of the 12px the avatar sits at, and the name is what
+   gives way when the row runs out of width. */
+.player-selection-slot-label {
+  flex: 1 1 auto;
+  min-width: 0;
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+
 .player-selection-slot-name {
   overflow: hidden;
   white-space: nowrap;
   text-overflow: ellipsis;
+}
+
+/* A card is lying on this slot's reader: a passive mark, never a control. The
+   clear button is gone for the same reason — the card decides, not the phone. */
+.player-selection-slot-held {
+  flex: 0 0 auto;
+  font-size: 0.8em;
+  color: var(--color-darker);
 }
 
 .player-selection-empty {
@@ -131,6 +150,16 @@
    empty slot draws. Nothing red: an unassigned card is not an error. */
 .player-selection-slot-card .player-avatar-empty {
   background-color: var(--input-bg);
+}
+
+/* Why somebody nobody tapped is standing on a slot: a player selector is in
+   the room. The quiet voice of a `.section-note`, under the slots it explains
+   and above the countdown that may follow it. */
+.player-selection-selector {
+  flex: 0 0 auto;
+  margin: 0;
+  font-size: 0.85em;
+  color: var(--color-darker);
 }
 
 /* The selector's automatic start, counting down under the slots. It ticks once

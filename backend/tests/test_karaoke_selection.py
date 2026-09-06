@@ -12,7 +12,7 @@ from pathlib import Path
 from typing import Any
 
 import pytest
-from httpx import ASGITransport, AsyncClient
+from httpx import ASGITransport, AsyncClient, Response
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
 
 import test_karaoke_api
@@ -58,6 +58,17 @@ async def open_selection(
     assert response.status_code == 201, response.text
     opened: dict[str, Any] = response.json()
     return opened
+
+
+async def close_selection(client: AsyncClient, token: str | bytes) -> Response:
+    """Give a selection up as its opener. The token rides in `X-Selection-Token` and never
+    in the query: a URL lands in every access log on the way.
+
+    Bytes are allowed because a header is bytes: that is how a token no browser would send
+    reaches the route at all.
+    """
+    header = token if isinstance(token, bytes) else token.encode()
+    return await client.delete("/api/v1/karaoke/selection", headers={b"X-Selection-Token": header})
 
 
 def selection_events(events: list[dict[str, object]]) -> list[dict[str, Any]]:
@@ -130,7 +141,7 @@ async def test_a_second_selection_needs_force_and_kills_the_first_token(
     )
     assert stale_start.status_code == 409
     assert stale_start.json() == {"detail": "not_the_opener"}
-    stale_close = await client.delete(f"/api/v1/karaoke/selection?token={first['token']}")
+    stale_close = await close_selection(client, first["token"])
     assert stale_close.status_code == 409
     assert stale_close.json() == {"detail": "not_the_opener"}
     # The selection that took over is standing, whatever the phone before it does.
@@ -293,12 +304,12 @@ async def test_a_sing_does_not_play_over_a_selection(
 async def test_the_opener_gives_the_selection_up(client: AsyncClient, song: str) -> None:
     opened = await open_selection(client, song)
 
-    response = await client.delete(f"/api/v1/karaoke/selection?token={opened['token']}")
+    response = await close_selection(client, opened["token"])
 
     assert response.status_code == 204
     assert (await client.get("/api/v1/karaoke/selection")).json() == {"selection": None}
     # An unmounting phone must not have to look first.
-    again = await client.delete(f"/api/v1/karaoke/selection?token={opened['token']}")
+    again = await close_selection(client, opened["token"])
     assert again.status_code == 204
 
 
@@ -337,23 +348,48 @@ async def test_nobody_closes_somebody_elses_selection_with_the_wrong_token(
             assert refused.status_code == 403
             assert refused.json() == {"detail": "missing_permission:karaoke.stop"}
             for client in (guest, owner):
-                stale = await client.delete("/api/v1/karaoke/selection?token=nope")
+                stale = await close_selection(client, "nope")
                 assert stale.status_code == 409
                 assert stale.json() == {"detail": "not_the_opener"}
             assert (await owner.get("/api/v1/karaoke/selection")).json()["selection"] is not None
+
+
+async def test_the_token_in_the_query_is_not_read(
+    bootstrap_settings: BootstrapSettings, song: str
+) -> None:
+    """`?token=` is gone: it landed in every access log on the way. A caller who may sing
+    but not stop the room is refused with their own token in the URL, which is the only way
+    to prove the query is nothing now."""
+    app = create_app(bootstrap_settings)
+    async with app.router.lifespan_context(app):
+        await authenticate_admin(app)
+        async with AsyncClient(transport=ASGITransport(app=app), base_url=BASE_URL) as guest:
+            opened = await open_selection(guest, song)
+
+            refused = await guest.delete(f"/api/v1/karaoke/selection?token={opened['token']}")
+
+            assert refused.status_code == 403
+            assert refused.json() == {"detail": "missing_permission:karaoke.stop"}
+            assert (await guest.get("/api/v1/karaoke/selection")).json()["selection"] is not None
+            # The same token in the header gives the selection up.
+            assert (await close_selection(guest, opened["token"])).status_code == 204
 
 
 async def test_a_token_that_is_not_ascii_is_refused_rather_than_a_crash(
     client: AsyncClient, song: str
 ) -> None:
     """`compare_digest` refuses to compare non-ASCII strings, and a phone can put anything
-    at all in that field."""
+    at all in that field.
+
+    The header carries its bytes: everything above ASCII arrives as the latin-1 string
+    Starlette decodes it to, which is non-ASCII all the same.
+    """
     await open_selection(client, song)
 
     for response in (
         await client.put("/api/v1/karaoke/selection/slots", json={"token": "ä", "slots": []}),
         await client.post("/api/v1/karaoke/selection/start", json={"token": "ä"}),
-        await client.delete("/api/v1/karaoke/selection?token=ä"),
+        await close_selection(client, "ä".encode()),
     ):
         assert response.status_code == 409, response.text
         assert response.json() == {"detail": "not_the_opener"}
@@ -367,7 +403,9 @@ async def test_a_selection_nobody_touches_is_dropped(
 ) -> None:
     await open_selection(client, song)
     monkeypatch.setattr(
-        selection, "_now", lambda: datetime.now(UTC) + selection.IDLE_TTL + timedelta(seconds=1)
+        selection,
+        "_now",
+        lambda: datetime.now(UTC) + selection.DEFAULT_IDLE_TTL + timedelta(seconds=1),
     )
 
     response = await client.get("/api/v1/karaoke/selection")
@@ -386,7 +424,9 @@ async def test_the_watchdog_drops_a_stale_selection_and_says_so_once(
     nobody asks anything at all. The room hears about it exactly once."""
     await open_selection(client, song)
     monkeypatch.setattr(
-        selection, "_now", lambda: datetime.now(UTC) + selection.IDLE_TTL + timedelta(seconds=1)
+        selection,
+        "_now",
+        lambda: datetime.now(UTC) + selection.DEFAULT_IDLE_TTL + timedelta(seconds=1),
     )
 
     await selection.expire_stale()
@@ -477,33 +517,68 @@ async def test_a_card_leaving_empties_only_the_slot_it_is_still_on(
     assert player_names(await current_slots()) == [None, None]
 
 
-async def test_a_slot_the_phone_repointed_survives_its_card_leaving(
+async def test_a_slot_a_card_holds_is_not_the_phones_to_repoint(
     session: AsyncSession, session_factory: async_sessionmaker[AsyncSession], song: str
 ) -> None:
+    """The card in somebody's hand decides that microphone. A tap that says otherwise is
+    answered with what the reader says, and refused nothing: the phone drew the slot as the
+    card's and its next redraw agrees again."""
     alice = await add_player_row(session, "Alice")
     bob = await add_player_row(session, "Bob")
     token = await two_slot_selection(session, song)
     await selection.card_placed_on_slot(session_factory, "blue", "A1", alice)
 
-    await selection.set_slots(session, token, [service.SlotRequest(color="blue", player_id=bob)])
+    answered = await selection.set_slots(
+        session, token, [service.SlotRequest(color="blue", player_id=bob)]
+    )
+
+    assert [slot.player.name for slot in answered.slots if slot.player is not None] == ["Alice"]
+    assert answered.slots[0].card_uid == "A1"
+    # And it is still the card's slot: lifting the card is what empties it.
     await selection.card_removed_from_slot("blue", "A1")
+    assert player_names(await current_slots()) == [None, None]
 
-    assert player_names(await current_slots()) == ["Bob", None]
+    # With the card gone the slot is the phone's again, which is the other half of the rule:
+    # the cards hold what they lie on, and nothing more.
+    given = await selection.set_slots(
+        session, token, [service.SlotRequest(color="blue", player_id=bob)]
+    )
+    assert [slot.player.name for slot in given.slots if slot.player is not None] == ["Bob"]
+    assert given.slots[0].card_uid is None
 
 
-async def test_a_card_lifted_after_the_phone_moved_its_singer_leaves_them_standing(
+async def test_a_put_written_before_a_card_landed_does_not_take_the_singer_off(
     session: AsyncSession, session_factory: async_sessionmaker[AsyncSession], song: str
 ) -> None:
-    """The phone put Alice on the other microphone while her card still lay on the first
-    reader. Lifting it is the card leaving that reader, not Alice leaving the room."""
-    alice = await add_player_row(session, "Alice")
+    """The phone sends the whole assignment on every tap. One already on the wire when a
+    card lands says nothing about that slot, and must not read as "the phone took them
+    off"."""
+    bob = await add_player_row(session, "Bob")
     token = await two_slot_selection(session, song)
-    await selection.card_placed_on_slot(session_factory, "blue", "A1", alice)
+    await selection.card_placed_on_slot(session_factory, "blue", "B2", bob)
 
-    await selection.set_slots(session, token, [service.SlotRequest(color="red", player_id=alice)])
-    await selection.card_removed_from_slot("blue", "A1")
+    # A body from a moment ago: no blue at all.
+    await selection.set_slots(session, token, [])
 
-    assert player_names(await current_slots()) == [None, "Alice"]
+    slots = await current_slots()
+    assert player_names(slots) == ["Bob", None]
+    assert slots[0]["card_uid"] == "B2"
+
+
+async def test_the_phone_cannot_put_a_cards_singer_on_a_second_microphone(
+    session: AsyncSession, session_factory: async_sessionmaker[AsyncSession], song: str
+) -> None:
+    """One person sings on one microphone, and the card is what decides which: the slot the
+    phone named goes empty rather than the room holding Bob twice."""
+    bob = await add_player_row(session, "Bob")
+    token = await two_slot_selection(session, song)
+    await selection.card_placed_on_slot(session_factory, "blue", "B2", bob)
+
+    await selection.set_slots(session, token, [service.SlotRequest(color="red", player_id=bob)])
+
+    slots = await current_slots()
+    assert player_names(slots) == ["Bob", None]
+    assert slots[0]["card_uid"] == "B2"
 
 
 async def test_a_tap_elsewhere_leaves_an_unknown_card_where_it_lies(
@@ -725,6 +800,41 @@ async def test_the_start_button_with_nobody_on_a_slot_is_logged_and_not_raised(
     await selection.button_pressed(session, session_factory, "start")
 
     assert await selection.current_selection() is not None
+
+
+async def test_the_selection_the_start_button_opens_belongs_to_nobody(
+    session: AsyncSession,
+    session_factory: async_sessionmaker[AsyncSession],
+    configured: FakeUsdx,
+    song: str,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """A press at a quiet room opens a selection and starts it in the same breath, so no
+    token is ever handed out. A start that fails leaves nothing standing either: the phone
+    finds an empty room, not a song nobody can press Play on.
+    """
+    alice = await add_player_row(session, "Alice")
+    await SettingsService(session).set("karaoke.player_colors", TWO_SLOTS)
+    # A launcher that refuses, so the start comes back without a selection to inspect.
+    monkeypatch.setattr(service, "start_sing", refuse_to_start)
+
+    await selection.button_pressed(
+        session,
+        session_factory,
+        "start",
+        without_selection=selection.StartWithoutSelection(
+            mode="random", cards={"blue": selection.CardOnSlot(uid="A1", player_id=alice)}
+        ),
+    )
+
+    assert await selection.current_selection() is None
+    # And the room is not locked: the next phone opens one without having to force it.
+    opened, _ = await selection.open_selection(session, song, [])
+    assert opened.song.id == song
+
+
+async def refuse_to_start(*args: Any, **kwargs: Any) -> None:
+    raise service.AlreadyPlayingError
 
 
 async def test_a_full_room_starts_by_itself(

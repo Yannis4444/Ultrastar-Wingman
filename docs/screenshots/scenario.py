@@ -12,6 +12,10 @@ Two rules the numbers below have to keep, because manifest rows depend on them:
   documentation walks through, so the one sing the capture harness starts through the
   stand-in launcher earns him two badges at once. Give him a tenth here and the
   ``host-achievements`` row has nothing to photograph.
+* **Only Leela holds a card.** The *My cards* block is drawn for any account that holds
+  one, and three manifest rows photograph Fry and Bender on their own user page. Give
+  either of them a card and a block that has nothing to do with those pictures grows into
+  them.
 
 Songs are named by their ``usdb_id`` from ``songs.json``, so a renamed title never
 silently drops a score.
@@ -371,6 +375,33 @@ FINISHING_SONG = 1210
 # The app's own defaults are 4 and 2 seconds.
 HOST_SECONDS_BASE = 30
 HOST_SECONDS_PER_BADGE = 15
+
+
+# --- the player selector -------------------------------------------------------------------
+
+# One device, so the selector pages have something on them. Six reader positions, the first
+# two wired with a card lying on each: one card belongs to a player, the other belongs to
+# nobody, which is the pair the admin page, the TV and the *My cards* block are all about.
+DEVICE_NAME = "The box by the TV"
+
+# One version behind the image this build of Wingman bundles, so the device page offers the
+# update over Wi-Fi. A device that already ran the bundled version would offer nothing.
+DEVICE_FIRMWARE = "0.2.0"
+
+# Leela holds the known card, and neither Fry nor Bender holds one. Those two are the ones
+# photographed on their own user page, and a card of their own would put a *My cards* block
+# into pictures that are not about it. Fry is therefore the one `user-my-cards` is taken as:
+# the block is on his page because a card is lying on the selector, not because he owns one.
+CARD_HOLDER = "Leela"
+CARD_CLAIMER = "Fry"
+
+# Uppercase hex, 8 to 20 characters, the way a reader reads a MIFARE Classic id.
+KNOWN_CARD = "04A1B2C3"
+UNKNOWN_CARD = "0B7E4419"
+
+# The song the TV is photographed picking singers for: the duet the phone's own player
+# selection is photographed with, so the two pictures tell one story.
+PICKING_SONG = 1104
 
 
 # --- the download queue ------------------------------------------------------------------

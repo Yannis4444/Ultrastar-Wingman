@@ -25,6 +25,7 @@ const {
   exchangeHostToken,
   getCurrentSing,
   getJoinInfo,
+  getDeviceStatus,
   getPlayerSelection,
   listAchievements,
   listKaraokeColors,
@@ -39,6 +40,7 @@ const {
   exchangeHostToken: vi.fn(),
   getCurrentSing: vi.fn(),
   getJoinInfo: vi.fn(),
+  getDeviceStatus: vi.fn(),
   getPlayerSelection: vi.fn(),
   listAchievements: vi.fn(),
   listKaraokeColors: vi.fn(),
@@ -56,6 +58,7 @@ vi.mock("../api/sdk.gen", async (importOriginal) => ({
   exchangeHostToken,
   getCurrentSing,
   getJoinInfo,
+  getDeviceStatus,
   getPlayerSelection,
   listAchievements,
   listKaraokeColors,
@@ -191,6 +194,9 @@ beforeEach(() => {
   getJoinInfo.mockResolvedValue({ data: { url: "http://192.168.0.10:8080" } });
   getPlayerSelection.mockReset();
   getPlayerSelection.mockResolvedValue({ data: { selection: null } });
+  // No player selector in the room unless a test puts one there.
+  getDeviceStatus.mockReset();
+  getDeviceStatus.mockResolvedValue({ data: { online: false } });
   listAchievements.mockReset();
   listAchievements.mockResolvedValue({
     data: { achievements: [], settings: achievementSettings() },
@@ -426,11 +432,8 @@ test("the standing outlives the results the stage was showing", async () => {
   expect(screen.getByLabelText("Party leaderboard")).toBeInTheDocument();
 });
 
-test("the room picking the next song takes the stage from the results", async () => {
-  withScores();
-  const { container } = renderHost("/host");
-  await screen.findByLabelText("Last song");
-
+/** The room opening a selection on the song it just picked. */
+function picks(): void {
   act(() =>
     FakeSocket.deliver({
       event: "selection.changed",
@@ -443,6 +446,14 @@ test("the room picking the next song takes the stage from the results", async ()
       },
     }),
   );
+}
+
+test("the room picking the next song takes the whole screen", async () => {
+  withScores();
+  const { container } = renderHost("/host");
+  await screen.findByLabelText("Last song");
+
+  picks();
 
   const stage = await screen.findByLabelText("Picking singers");
   expect(container.querySelector(".host-stage")).toContainElement(stage);
@@ -450,9 +461,65 @@ test("the room picking the next song takes the stage from the results", async ()
   // The results wait underneath it, and the brand does not stand in for them.
   expect(screen.queryByLabelText("Last song")).not.toBeInTheDocument();
   expect(screen.queryByText("Ultrastar Wingman")).not.toBeInTheDocument();
-  // Picking is not the badges' takeover: the rail with the code stays up.
-  expect(container.querySelector(".host-rail")).not.toBeNull();
-  expect(screen.getByText("Scan to join")).toBeInTheDocument();
+  // And the screen is the selection's, the way it is the badges': no rail at
+  // all — nobody is scanning the code while the slots are being filled.
+  expect(container.querySelector(".host-rail")).toBeNull();
+  expect(screen.queryByText("Scan to join")).not.toBeInTheDocument();
+  expect(screen.queryByLabelText("Party leaderboard")).not.toBeInTheDocument();
+  expect(container.querySelector(".host-page")).toHaveClass("host-takeover");
+
+  // And the rail comes back with the selection going away.
+  act(() =>
+    FakeSocket.deliver({ event: "selection.changed", selection: null }),
+  );
+  expect(await screen.findByText("Scan to join")).toBeInTheDocument();
+  expect(container.querySelector(".host-page")).not.toHaveClass(
+    "host-takeover",
+  );
+});
+
+test("badges take the stage from a selection, which comes back after them", async () => {
+  vi.useFakeTimers({ shouldAdvanceTime: true });
+  withScores();
+  const { container } = renderHost("/host");
+  await screen.findByLabelText("Last song");
+
+  picks();
+  await screen.findByLabelText("Picking singers");
+
+  act(() =>
+    FakeSocket.deliver({
+      event: "achievements.earned",
+      sing_id: "sing-2",
+      players: [
+        {
+          player: {
+            id: "p1",
+            name: "Alice",
+            registered: false,
+            hidden: false,
+            has_avatar: false,
+            avatar_version: null,
+          },
+          achievements: [achievementRead()],
+        },
+      ],
+    }),
+  );
+
+  // What a singer just earned wins the seconds: the cards wait for it.
+  expect(await screen.findByLabelText("New achievements")).toBeInTheDocument();
+  expect(screen.queryByLabelText("Picking singers")).not.toBeInTheDocument();
+  expect(container.querySelector(".host-rail")).toBeNull();
+
+  act(() => vi.advanceTimersByTime(6_100));
+
+  // And hands them back, with the rail still down: the room is still picking.
+  expect(screen.queryByLabelText("New achievements")).not.toBeInTheDocument();
+  expect(screen.getByLabelText("Picking singers")).toBeInTheDocument();
+  expect(screen.queryByLabelText("Last song")).not.toBeInTheDocument();
+  expect(container.querySelector(".host-rail")).toBeNull();
+  expect(container.querySelector(".host-page")).toHaveClass("host-takeover");
 });
 
 test("what a song earned takes the stage, and the results follow it", async () => {
@@ -684,4 +751,33 @@ test("the leaderboard order settings hide with the host chrome, the ranking stay
   // One moved mouse brings the whole cluster back.
   fireEvent.pointerMove(window);
   expect(page).not.toHaveClass("host-idle");
+});
+
+test("the rail says the player selector is gone, but only once it was there", async () => {
+  renderHost("/host");
+  await screen.findByText("Scan to join");
+
+  // Nothing yet: this party has never had a device, and a room that never had
+  // one must not be told all evening that it lost something. Waited for, so an
+  // implementation that drew the note on every offline answer could not pass
+  // this on the strength of the request not having landed yet.
+  await waitFor(() => expect(getDeviceStatus).toHaveBeenCalledTimes(1));
+  expect(screen.queryByText("Player selector offline")).not.toBeInTheDocument();
+
+  // One reports, then stops. `devices.changed` is what the watchdog broadcasts
+  // on that transition, and the rail refetches on it.
+  getDeviceStatus.mockResolvedValue({ data: { online: true } });
+  act(() => FakeSocket.deliver({ event: "devices.changed" }));
+  await waitFor(() => expect(getDeviceStatus).toHaveBeenCalledTimes(2));
+  // The answer has to land before the device goes away: an online answer that
+  // arrived after the offline one would leave the page having never seen a
+  // selector, and the note would rightly stay away for the wrong reason.
+  await act(async () => undefined);
+  expect(screen.queryByText("Player selector offline")).not.toBeInTheDocument();
+
+  getDeviceStatus.mockResolvedValue({ data: { online: false } });
+  act(() => FakeSocket.deliver({ event: "devices.changed" }));
+  await waitFor(() =>
+    expect(screen.getByText("Player selector offline")).toBeInTheDocument(),
+  );
 });

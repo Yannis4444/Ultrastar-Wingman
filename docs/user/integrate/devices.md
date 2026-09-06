@@ -57,9 +57,13 @@ indexes start at zero, so reader 1 on
 [Build the device](../selector/build.md) is `index` 0 here.
 
 A button entry carries its index and `presses`, a counter that grows over the
-life of the device. Wingman compares it with the last report and acts on a
-change. A device that reboots and starts at zero again is a change like any
-other.
+life of the device. Wingman compares it with the last report and acts only when
+the number grew. A number smaller than the last one is a device that rebooted.
+Wingman takes that number as the new count and acts on the next press.
+
+Let the counter run for as long as the device does. A bridge that sends `1` for
+every press and `0` in between never presses anything: only the step up counts,
+and the step back down is read as a reboot.
 
 ## When to send one
 
@@ -72,7 +76,7 @@ device offline once its last report is more than 15 seconds old.
 
 | Status | Body | Means |
 |---|---|---|
-| `200` | `{"ok": true, "protocol": 1, "interval_s": 5}` | Taken. `interval_s` is the heartbeat Wingman wants |
+| `200` | The answer below | Taken |
 | `401` | `{"detail": "unknown_device"}` | The token is wrong, or the device was deleted |
 | `426` | `{"detail": "protocol_unsupported", "supported": 1}` | Wingman speaks another version of this format |
 
@@ -81,6 +85,48 @@ Wingman keeps the last report of each device and compares the next one against
 it. A report is a snapshot, so nothing is queued and nothing is lost. A request
 that never arrives heals on the following one, which carries the whole state
 again. Send what is true now and forget what failed.
+
+### What a `200` says back
+
+```json
+{
+  "ok": true, "protocol": 1, "interval_s": 1,
+  "leds": [
+    {"index": 0, "rgb": "048bb9", "mode": "on"},
+    {"index": 1, "rgb": "d00000", "mode": "dim"},
+    {"index": 2, "rgb": "ffffff", "mode": "pulse"}
+  ],
+  "update": {"file": "wingman-esp32-ota.bin", "version": "0.3.0"}
+}
+```
+
+| Field | Holds |
+|---|---|
+| `interval_s` | The heartbeat Wingman wants, in seconds. `1` while somebody is picking singers, `5` the rest of the time |
+| `leds` | What each light shows until the next answer, one entry per reader position in the report |
+| `update` | The firmware to fetch and flash. Absent, or `null`, whenever there is nothing to fetch |
+
+Ignore any field you have no hardware for. A device with no lights and no
+updater reads `interval_s` and nothing else.
+
+**The lights.** Wingman assumes one light per reader position, so `index` 0 is
+the light beside reader 1. `rgb` is six lowercase hex digits without a `#`.
+`mode` is one of `off`, `dim`, `on`, `blink`, and `pulse`. A slot reader shows
+its microphone color: `dim` with nothing on it, `on` under a card Wingman knows,
+`blink` under a card nobody has claimed, and `pulse` for every slot while the
+song is about to start by itself. A reader everybody scans in turn shows white,
+pulsing while singers are being picked. Everything else is `off`, and so is the
+whole strip while a song plays. Turn off any position the list leaves out. It
+has nothing to show, and a light still on for a selection that ended says
+something untrue about the room.
+
+**The update.** Ask for one on the device's page in Wingman, under **Update over
+Wi-Fi**. The offer then rides on the answer to the next few reports. `file` is a
+file name to fetch from `GET /api/v1/devices/firmware/<file>` with the same
+bearer token, and `version` is what the device runs once it has flashed it.
+Report the new version to say the update landed: that is what takes the offer
+away. An offer nobody fetches expires after 10 minutes, so the host can ask
+again. Wait at least 10 minutes before retrying a flash that failed.
 
 !!! example "One report from a bridge"
     Two readers, a card on the first one, no button pressed.
@@ -91,6 +137,29 @@ again. Send what is true now and forget what failed.
       -H "Authorization: Bearer wd_0123456789abcdef0123456789abcdef01234567" \
       -d '{"protocol": 1, "firmware": "1.0.0", "uptime_s": 12, "rssi": -55, "readers": [{"index": 0, "state": "wired", "version": "92", "uid": "A1B2C3D4"}, {"index": 1, "state": "wired", "version": "92", "uid": null}, {"index": 2, "state": "none", "version": "00", "uid": null}, {"index": 3, "state": "none", "version": "00", "uid": null}, {"index": 4, "state": "none", "version": "00", "uid": null}, {"index": 5, "state": "none", "version": "00", "uid": null}], "buttons": [{"index": 0, "presses": 0}, {"index": 1, "presses": 0}, {"index": 2, "presses": 0}, {"index": 3, "presses": 0}]}'
     ```
+
+## The cards
+
+The card table is the host's, on **User** > **Player selector**. Four routes are
+open to anybody signed in, because the card in somebody's hand is their own.
+They take a session cookie and not a device token, and the answers are the card
+rows Wingman keeps.
+
+| Route | Does |
+|---|---|
+| `GET /api/v1/devices/cards/unknown` | The cards lying on the readers of an online device that belong to nobody: `{"uids": ["A1B2C3D4"]}` |
+| `POST /api/v1/devices/cards/{uid}/claim` | Says the card is yours. Your own again is the same answer, somebody else's is `409 {"detail": "card_taken"}` |
+| `GET /api/v1/devices/cards/mine` | Your own cards: `{"cards": [{"uid": "…", "player": {…}, "created_at": "…"}]}` |
+| `DELETE /api/v1/devices/cards/{uid}` | Gives a card back. Your own, or anybody's with the `devices.manage` capability |
+
+A uid is 8 to 20 hex characters and Wingman stores it in uppercase. Send it
+either way. An account that sings as no player answers `404 no_player` on a
+claim, and a caller signed in as nobody answers `401` on the first three. On the
+delete, a caller without `devices.manage` gets `403` for a card that is not
+their own and for one that does not exist, so the answer never says which.
+
+Claiming a card that is lying on a slot reader puts you on that slot at once.
+The card has not moved, so nothing else could say so.
 
 ## The serial console
 

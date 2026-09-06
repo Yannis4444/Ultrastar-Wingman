@@ -14,6 +14,11 @@ having anything new to report. The selection is the one that knows what any of i
 this module never reaches into it beyond those calls, and `karaoke.selection` never imports
 this module back.
 
+The other direction is the answer to that same report, which is everything Wingman ever
+says to a device: how often to report, what its lights show until the next answer, and the
+firmware to fetch while the host has asked for an update. All three are worked out here,
+and a device that has neither a strip nor an updater ignores two of them.
+
 Knows nothing about FastAPI: the API layer maps these exceptions onto status codes.
 """
 
@@ -30,12 +35,16 @@ from datetime import UTC, datetime, timedelta
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
 
+from ..auth.model import as_utc
 from ..auth.service import token_hash
 from ..events import DevicesChanged, event_bus
 from ..karaoke import selection
-from ..karaoke.colors import COLOR_NAMES
+from ..karaoke import service as karaoke
+from ..karaoke.colors import COLOR_NAMES, COLORS
+from ..karaoke.schema import SelectionRead
 from ..players.model import Player
 from ..players.schema import PlayerRead, read_player
+from . import firmware
 from . import settings as device_settings
 from .model import (
     BUTTON_ACTIONS,
@@ -63,6 +72,9 @@ from .schema import (
     DeviceList,
     DeviceRead,
     DeviceSettings,
+    FirmwareUpdate,
+    LedMode,
+    LedState,
     ReaderRead,
 )
 
@@ -76,6 +88,28 @@ OFFLINE_AFTER = timedelta(seconds=15)
 # How often the watchdog looks, and what a device is told to report at.
 WATCHDOG_INTERVAL_S = 5.0
 REPORT_INTERVAL_S = 5
+
+# What a device is told to report at while the room is picking singers. The lights are the
+# reason: while one is open the strip says what the room is doing — the reader everybody
+# scans pulsing "scan now", every slot pulsing once the automatic start counts down — and
+# a second is as long as that may lag the phone that changed it. A slot the *phone* filled
+# is not one of those: a light says what lies on its own reader and never who stands on its
+# microphone, so it goes on under the card and not under the tap.
+PICKING_INTERVAL_S = 1
+
+# A reader with no color of its own. The one everybody scans in turn is white — it belongs
+# to no slot, so it may not borrow a slot's color — and everything dark is black.
+WHITE = "ffffff"
+BLACK = "000000"
+
+# The slot colors as the strip wants them: six lowercase hex digits, no `#`. Read off the
+# one list USDX and the frontend already share, so a color cannot drift between the
+# microphone on the TV and the LED on the table.
+_SLOT_RGB: dict[str, str] = {color.name: color.hex.lstrip("#").lower() for color in COLORS}
+
+# How long an update the host asked for stays on offer. A device that failed to flash is
+# quiet about it, so the flag has to give up by itself for the host to be able to ask again.
+UPDATE_TTL = timedelta(minutes=10)
 
 
 class UnknownDeviceError(LookupError):
@@ -132,6 +166,22 @@ class DuplicateSlotError(MappingError):
         self.color = color
 
 
+class SlotTakenElsewhereError(MappingError):
+    """Another device already reads this slot color. One color is one microphone, and two
+    readers answering for it — on one device or on two — is two people on one slot.
+
+    Carries the other device's name because the page that refuses the mapping cannot know
+    it: the collision is with a row this host may not even have open.
+    """
+
+    detail = "slot_taken_elsewhere"
+
+    def __init__(self, color: str, device_name: str) -> None:
+        super().__init__(f"the {color} slot is already read by '{device_name}'")
+        self.color = color
+        self.device_name = device_name
+
+
 class UnknownRoleError(MappingError):
     detail = "unknown_role"
 
@@ -167,28 +217,43 @@ class UnknownColorMappingError(MappingError):
         self.color = color
 
 
-class ProtocolUnsupportedError(RuntimeError):
-    """The device speaks another version of the report protocol. It is recorded all the
-    same — that is how the admin page can say which device needs updating."""
+class UpdateRefusedError(RuntimeError):
+    """There is no update to ask for. `detail` is what the API answers with: this Wingman
+    ships no firmware at all, ships one that cannot be flashed over Wi-Fi, or ships exactly
+    the version the device is already running."""
 
-    def __init__(self, protocol: int) -> None:
-        super().__init__(f"protocol {protocol} is not supported")
-        self.protocol = protocol
+    def __init__(self, detail: str) -> None:
+        super().__init__(f"no update to request: {detail}")
+        self.detail = detail
+
+
+class CardTakenError(RuntimeError):
+    """Somebody else's card. What a singer claiming a card off the readers is answered when
+    it turns out to be the person's next to them."""
+
+    detail = "card_taken"
+
+    def __init__(self, uid: str) -> None:
+        super().__init__(f"card '{uid}' belongs to somebody else")
+        self.uid = uid
 
 
 @dataclass
 class _Live:
-    """The last report of one device, and when it landed."""
+    """What one device has said, and when it last said anything."""
 
-    report: DeviceReport
     received_at: datetime
     # Which report this was, in the order they were *entered* — see `_sequence`.
     sequence: int
-    # The protocol of that report is one Wingman speaks. An incompatible report counts as a
-    # heartbeat and nothing more: it is never diffed, and the first compatible report after
-    # it starts from nothing, so cards already lying on the readers are placed and not
-    # missed.
-    compatible: bool
+    # The protocol and firmware of the last report, whether or not Wingman could read the
+    # rest of it: they are what makes "this device needs updating" news the room hears once.
+    protocol: int
+    firmware: str | None
+    # The last report, when it was one this Wingman speaks. None for a device in another
+    # protocol: such a report counts as a heartbeat and nothing more — it is never diffed,
+    # and the first readable report after it starts from nothing, so cards already lying on
+    # the readers are placed and not missed.
+    report: DeviceReport | None = None
     # The watchdog has already told the room this device went quiet. Reset by the next
     # report, so the coming-back is announced exactly once as well.
     offline_announced: bool = False
@@ -196,11 +261,19 @@ class _Live:
 
 @dataclass(frozen=True)
 class ReportOutcome:
-    """What one report did. `changed` is what decides whether the room hears about it: a
-    heartbeat that says nothing new is not worth a socket message every five seconds."""
+    """What one report did, and what the device is answered with. `changed` is what decides
+    whether the room hears about it: a heartbeat that says nothing new is not worth a socket
+    message every five seconds.
+
+    The three fields after it are the answer itself. They default to "nothing at all", which
+    is what a report that was dropped for being overtaken is answered: the device has long
+    given up on that request, and the report that overtook it lit the strip already.
+    """
 
     changed: bool
     interval_s: int = REPORT_INTERVAL_S
+    leds: list[LedState] = field(default_factory=list)
+    update: FirmwareUpdate | None = None
 
 
 @dataclass(frozen=True)
@@ -304,9 +377,9 @@ async def update_device(
     if name is not None:
         device.name = name.strip()
     if reader_roles is not None:
-        device.reader_roles = json.dumps(
-            _checked_roles(reader_roles, _decode(device.reader_states))
-        )
+        checked = _checked_roles(reader_roles, _decode(device.reader_states))
+        _refuse_colors_read_elsewhere(checked, await _colors_of_other_devices(session, device_id))
+        device.reader_roles = json.dumps(checked)
     if button_actions is not None:
         device.button_actions = json.dumps(_checked_actions(button_actions))
     await session.commit()
@@ -344,13 +417,7 @@ async def list_devices(session: AsyncSession) -> DeviceList:
     rows = list(await session.scalars(select(Device).order_by(Device.created_at)))
     async with _lock:
         live = dict(_live)
-    uids = {
-        reader.uid
-        for entry in live.values()
-        if entry.compatible
-        for reader in entry.report.readers
-        if reader.uid is not None
-    }
+    uids = {uid for entry in live.values() for uid in _uids_on(entry)}
     players = await _players_by_uid(session, uids)
     return DeviceList(devices=[_read(row, live.get(row.id), players) for row in rows])
 
@@ -372,7 +439,12 @@ async def list_cards(session: AsyncSession) -> CardList:
     # row survives, harmless, and the next assignment of that uid overwrites it.
     return CardList(
         cards=[
-            CardRead(uid=card.uid, player=players[card.player_id], created_at=card.created_at)
+            CardRead(
+                uid=card.uid,
+                player=players[card.player_id],
+                # Naive coming out of SQLite; everything we write is UTC (see `as_utc`).
+                created_at=as_utc(card.created_at),
+            )
             for card in cards
             if card.player_id in players
         ]
@@ -412,7 +484,7 @@ async def assign_card(
     await selection.card_identified(
         session_factory, normalised, player_id, auto_start=await auto_start_for(session)
     )
-    return CardRead(uid=card.uid, player=read_player(player), created_at=card.created_at)
+    return CardRead(uid=card.uid, player=read_player(player), created_at=as_utc(card.created_at))
 
 
 async def forget_card(session: AsyncSession, uid: str) -> None:
@@ -427,6 +499,80 @@ async def forget_card(session: AsyncSession, uid: str) -> None:
     # The other half of the same moment: a slot this card is holding somebody on becomes the
     # unknown card it now is. Nobody is scored for a card that belongs to nobody.
     await selection.card_forgotten(normalised)
+
+
+async def claim_card(
+    session: AsyncSession,
+    session_factory: async_sessionmaker[AsyncSession],
+    uid: str,
+    player_id: str,
+) -> CardRead:
+    """A singer takes a card off the readers and says it is theirs.
+
+    Identity and not a capability: the card table is the host's, but the card in somebody's
+    hand is their own. A card nobody holds becomes theirs, their own card stays theirs
+    (claiming twice is not an error, it is a phone that was tapped twice), and somebody
+    else's is `CardTakenError` — the host moves that one, nobody else.
+
+    Goes through `assign_card`, so a card claimed while it lies on a slot as an unknown card
+    puts its owner on that slot at once. Raises `InvalidUidError` and `UnknownPlayerError`
+    too.
+    """
+    normalised = uid.strip().upper()
+    if not _UID.fullmatch(normalised):
+        raise InvalidUidError(uid)
+    card = await session.get(PlayerCard, normalised)
+    # A card whose player has been deleted belongs to nobody, exactly as every listing
+    # already draws it, so it is there to be claimed like any other.
+    if (
+        card is not None
+        and card.player_id != player_id
+        and await session.get(Player, card.player_id) is not None
+    ):
+        raise CardTakenError(normalised)
+    return await assign_card(session, session_factory, normalised, player_id)
+
+
+async def cards_of_player(session: AsyncSession, player_id: str) -> CardList:
+    """One person's own cards, newest first. Raises `UnknownPlayerError`."""
+    player = await session.get(Player, player_id)
+    if player is None:
+        raise UnknownPlayerError(player_id)
+    read = read_player(player)
+    cards = await session.scalars(
+        select(PlayerCard)
+        .where(PlayerCard.player_id == player_id)
+        .order_by(PlayerCard.created_at.desc())
+    )
+    return CardList(
+        cards=[
+            CardRead(uid=card.uid, player=read, created_at=as_utc(card.created_at))
+            for card in cards
+        ]
+    )
+
+
+async def card_belongs_to(session: AsyncSession, uid: str, player_id: str) -> bool:
+    """Whether this card is that player's own — what lets somebody give their own card back
+    without `devices.manage`."""
+    card = await session.get(PlayerCard, uid.strip().upper())
+    return card is not None and card.player_id == player_id
+
+
+async def unknown_cards(session: AsyncSession) -> list[str]:
+    """The cards lying on the readers right now that belong to nobody.
+
+    What the user page offers to claim: a card is only worth claiming while it is in the
+    room, and a uid nobody can see the card of is a uid nobody should be handed. A card
+    whose player has been deleted counts as unknown, exactly as every listing draws it.
+    """
+    async with _lock:
+        entries = [entry for entry in _live.values() if _is_online(entry)]
+    uids = {uid for entry in entries for uid in _uids_on(entry)}
+    if not uids:
+        return []
+    known = await _players_by_uid(session, uids)
+    return sorted(uids - set(known))
 
 
 async def forget_cards_of(session: AsyncSession, player_id: str) -> None:
@@ -450,7 +596,20 @@ async def read_settings(session: AsyncSession) -> DeviceSettings:
         auto_start=bool(values[device_settings.AUTO_START]),
         auto_start_delay_s=int(values[device_settings.AUTO_START_DELAY]),
         rescan_removes=bool(values[device_settings.RESCAN_REMOVES]),
+        selection_idle_s=int(values[device_settings.SELECTION_IDLE]),
+        start_without_selection=str(values[device_settings.START_WITHOUT_SELECTION]),
     )
+
+
+async def apply_selection_idle_ttl(session: AsyncSession) -> None:
+    """Tell the selection how long it may stand untouched.
+
+    The setting lives here because the watchdog that enforces it does, and the selection
+    holds the number rather than reading it: expiry runs inside its own lock, on a path that
+    has no session to read a setting with.
+    """
+    seconds = int(await device_settings.service(session).get(device_settings.SELECTION_IDLE))
+    selection.set_idle_ttl(seconds)
 
 
 async def auto_start_for(session: AsyncSession) -> selection.AutoStart | None:
@@ -474,12 +633,12 @@ async def handle_report(
     device: Device,
     report: DeviceReport,
 ) -> ReportOutcome:
-    """One snapshot from one device.
+    """One snapshot from one device, in a protocol this Wingman speaks.
 
-    The row is written *before* the protocol is checked, so a device Wingman cannot talk to
-    still appears in the list as one that needs updating rather than as one that never
-    arrived. Then `ProtocolUnsupportedError`, or the difference from the last report handed
-    to the selection.
+    A report in another protocol never reaches here: the API reads the version out of the
+    raw body first and records that one through `record_foreign_report`, so a device whose
+    report grew a field shows up as one that needs updating instead of being refused as
+    malformed.
 
     A report that was overtaken by a newer one from the same device is dropped whole — no
     row write, no diff, no dispatch — and still answered with an ack: the device is fine, and
@@ -497,7 +656,6 @@ async def handle_report(
         if row is None:
             # Deleted between the token lookup and here. Nothing to record and nothing to do.
             raise UnknownDeviceError(device.id)
-        compatible = report.protocol == SUPPORTED
         roles = _decode(row.reader_roles)
         actions = _decode(row.button_actions)
 
@@ -516,42 +674,51 @@ async def handle_report(
             row.button_positions = json.dumps(sorted(button.index for button in report.buttons))
             await session.commit()
 
-            # An incompatible report is a heartbeat and nothing else, so the first good one
-            # after it diffs against nothing: the cards lying on the readers are placed
-            # rather than mistaken for cards that were already accounted for.
-            baseline = previous if previous is not None and previous.compatible else None
-            diff = _diff(baseline, report, roles, actions) if compatible else _Diff()
-            if previous is not None and previous.compatible != compatible:
-                # "This device needs updating" — or does not any more.
-                diff.visible = True
-            if previous is None or not _is_online(previous):
-                # It was quiet and is not any more: that is worth saying even when the report
-                # itself carries nothing new. Measured against the clock and not against the
-                # watchdog's flag, so a device that came back before the watchdog noticed it
-                # was gone is still a device coming back.
-                diff.visible = True
-            if not compatible and (
-                previous is None
-                or previous.report.protocol != report.protocol
-                or previous.report.firmware != report.firmware
-            ):
-                # It cannot be diffed, but "this device needs updating" is news all the same.
+            # A report in another protocol was a heartbeat and nothing else, so this one
+            # diffs against nothing: the cards lying on the readers are placed rather than
+            # mistaken for cards that were already accounted for. "This device can be talked
+            # to again" is news of its own.
+            baseline = None if previous is None else previous.report
+            diff = _diff(baseline, report, roles, actions)
+            if previous is None or previous.report is None or not _is_online(previous):
+                # It was quiet (or unreadable) and is not any more: that is worth saying even
+                # when the report itself carries nothing new. Measured against the clock and
+                # not against the watchdog's flag, so a device that came back before the
+                # watchdog noticed it was gone is still a device coming back.
                 diff.visible = True
             _live[device.id] = _Live(
-                report=report,
                 received_at=received_at,
                 sequence=sequence,
-                compatible=compatible,
+                protocol=report.protocol,
+                firmware=report.firmware,
+                report=report,
             )
-
-        if not compatible:
-            if diff.visible:
-                await event_bus.broadcast(DevicesChanged())
-            raise ProtocolUnsupportedError(report.protocol)
 
         values = await device_settings.read_all(session)
         uids = {change.uid for change in diff.changes if not isinstance(change, _Pressed)}
         player_ids = await _player_ids_by_uid(session, uids)
+        # Who the cards lying there right now belong to — this report's cards and not the
+        # last one's, because that is what the lights are about to say. `_players_by_uid`
+        # and not the ids alone: a card whose player was deleted is an unknown card
+        # everywhere else, and the strip must not be the one surface calling it known.
+        known_uids = frozenset(await _players_by_uid(session, _uids_of(report)))
+        # The two halves of the update over Wi-Fi, both under the row's own session: the
+        # flag comes off once it has done its work, and what is left is what to offer.
+        cleared = _update_is_over(row.update_requested_at, report.firmware)
+        if cleared:
+            logger.info("player selector %s: the requested update is done with", device.id)
+            row.update_requested_at = None
+            await session.commit()
+        update = _update_offer(row.update_requested_at, report.firmware)
+        # What a start button is to do if it finds nobody picking anything. Only worked out
+        # when one was really pressed and the host asked for more than nothing: reading the
+        # cards off every device is two queries, and a heartbeat must not pay for them.
+        start_mode = str(values[device_settings.START_WITHOUT_SELECTION])
+        without_selection = (
+            selection.StartWithoutSelection(mode=start_mode, cards=await cards_on_slots(session))
+            if start_mode != "nothing" and _starts_something(diff.changes)
+            else None
+        )
 
     auto_start = (
         selection.AutoStart(delay_s=int(values[device_settings.AUTO_START_DELAY]))
@@ -564,10 +731,87 @@ async def handle_report(
         player_ids,
         auto_start=auto_start,
         rescan_removes=bool(values[device_settings.RESCAN_REMOVES]),
+        without_selection=without_selection,
     )
-    if diff.visible:
+    # After the dispatch, so a card put down and a start pressed in the same report light
+    # what the room is *now*: the card on its slot, or the whole strip out because the song
+    # that press started is playing.
+    current = await selection.current_selection()
+    if diff.visible or cleared:
         await event_bus.broadcast(DevicesChanged())
-    return ReportOutcome(changed=diff.visible)
+    return ReportOutcome(
+        changed=diff.visible,
+        interval_s=PICKING_INTERVAL_S if current is not None else REPORT_INTERVAL_S,
+        leds=led_states(
+            roles, report, known_uids, current, playing=karaoke.current_sing() is not None
+        ),
+        update=update,
+    )
+
+
+async def record_foreign_report(
+    session_factory: async_sessionmaker[AsyncSession],
+    device: Device,
+    protocol: int,
+    firmware: str | None,
+) -> None:
+    """A device reported in a protocol this Wingman does not speak.
+
+    It is recorded all the same — that is the whole point: a device Wingman cannot talk to
+    has to appear in the list as one that needs updating rather than as one that never
+    arrived. Nothing but the heartbeat, the version and the firmware is kept, because
+    nothing else in a report of another protocol means what this server would read it as.
+
+    The API answers 426 after this; here it is a heartbeat like any other, overtaken reports
+    and all.
+    """
+    received_at = _now()
+    sequence = next(_sequence)
+    async with session_factory() as session:
+        row = await session.get(Device, device.id)
+        if row is None:
+            raise UnknownDeviceError(device.id)
+        async with _lock:
+            previous = _live.get(device.id)
+            if previous is not None and sequence < previous.sequence:
+                logger.debug("player selector %s: dropping an overtaken report", device.id)
+                return
+            row.last_seen_at = received_at
+            row.protocol = protocol
+            if firmware is not None:
+                row.firmware_version = firmware
+            await session.commit()
+            # It cannot be diffed, but "this device needs updating" is news all the same —
+            # once, and again whenever what it needs updating from changes.
+            visible = (
+                previous is None
+                or previous.report is not None
+                or not _is_online(previous)
+                or previous.protocol != protocol
+                or previous.firmware != firmware
+            )
+            _live[device.id] = _Live(
+                received_at=received_at,
+                sequence=sequence,
+                protocol=protocol,
+                firmware=firmware,
+            )
+    if visible:
+        await event_bus.broadcast(DevicesChanged())
+
+
+async def device_online() -> bool:
+    """Whether a player selector is standing in the room right now.
+
+    What an opening selection asks before it seeds itself from the phone's memory: while a
+    device is online, the cards are how this room picks its singers — on a slot reader the
+    card lying there is the singer, on a singers-in-turn reader every scan fills the first
+    *free* slot — and slots pre-filled with the last song's singers are in the way of both
+    (the user's decision, 2026-09-06). The mapping does not matter, only that the device is
+    online and speaks a protocol this server understands.
+    """
+    async with _lock:
+        return any(entry.report is not None and _is_online(entry) for entry in _live.values())
 
 
 async def cards_on_slots(session: AsyncSession) -> dict[str, selection.CardOnSlot]:
@@ -580,9 +824,9 @@ async def cards_on_slots(session: AsyncSession) -> dict[str, selection.CardOnSlo
     """
     async with _lock:
         entries = [
-            (device_id, entry)
+            (device_id, entry.report)
             for device_id, entry in _live.items()
-            if entry.compatible and _is_online(entry)
+            if entry.report is not None and _is_online(entry)
         ]
     if not entries:
         return {}
@@ -593,9 +837,9 @@ async def cards_on_slots(session: AsyncSession) -> dict[str, selection.CardOnSlo
         )
     }
     on_slots: dict[str, str] = {}
-    for device_id, entry in entries:
+    for device_id, report in entries:
         roles = rows.get(device_id, {})
-        for reader in entry.report.readers:
+        for reader in report.readers:
             color = _slot_color(roles.get(str(reader.index), UNUSED))
             if color is not None and reader.uid is not None:
                 on_slots[color] = reader.uid
@@ -606,13 +850,161 @@ async def cards_on_slots(session: AsyncSession) -> dict[str, selection.CardOnSlo
     }
 
 
+# --- the lights -------------------------------------------------------------------------
+
+
+def led_states(
+    roles: dict[str, str],
+    report: DeviceReport,
+    known_uids: frozenset[str],
+    current: SelectionRead | None,
+    playing: bool,
+) -> list[LedState]:
+    """What the optional strip shows until this device's next report is answered.
+
+    One entry per reader position the report carried, because the strip has one LED per
+    reader and a build with three readers has three LEDs. A slot reader is its slot's own
+    color: dark while nothing lies on it, bright under a card Wingman can name, blinking
+    under one it cannot, and pulsing while the automatic start counts down, which is the
+    room's last few seconds to take a wrong card away. The reader everybody scans in turn
+    has no slot and so no color of its own: it is white, pulsing to say "scan now" while
+    singers are being picked. A song playing puts the whole strip out — the picking is over,
+    and a lit table beside the TV is a table asking for cards nobody should be putting down.
+
+    Pure, and told everything it needs: `known_uids` are the uids on *this* report that
+    belong to somebody, `current` is the open selection (None for a quiet room) and
+    `playing` is whether a song is running. Nothing here reads the clock or the database, so
+    every rule is one call and one assertion.
+    """
+    states: list[LedState] = []
+    for reader in sorted(report.readers, key=lambda entry: entry.index):
+        role = roles.get(str(reader.index), UNUSED)
+        color = _slot_color(role)
+        if reader.state != "wired" or (role != SEQUENTIAL and color is None):
+            # An unused reader, an unmapped one, and one the boot probe found nothing (or
+            # something unreadable) on. Nothing about it is worth a light.
+            states.append(LedState(index=reader.index, rgb=BLACK, mode="off"))
+            continue
+        if color is not None:
+            rgb = _SLOT_RGB.get(color)
+            if rgb is None:
+                # A color no microphone has, which the mapping refuses and only a
+                # hand-edited row can hold. Dark, like every other role Wingman cannot read.
+                states.append(LedState(index=reader.index, rgb=BLACK, mode="off"))
+                continue
+            mode = _slot_mode(reader.uid, known_uids, current, playing)
+        else:
+            rgb = WHITE
+            mode = _sequential_mode(current, playing)
+        states.append(LedState(index=reader.index, rgb=rgb, mode=mode))
+    return states
+
+
+def _slot_mode(
+    uid: str | None, known_uids: frozenset[str], current: SelectionRead | None, playing: bool
+) -> LedMode:
+    if playing:
+        return "off"
+    if current is not None and current.auto_start_at is not None:
+        # Every slot of a room that is about to sing by itself, whatever lies on each one:
+        # the countdown belongs to the room and not to one reader.
+        return "pulse"
+    if uid is None:
+        return "dim"
+    return "on" if uid in known_uids else "blink"
+
+
+def _sequential_mode(current: SelectionRead | None, playing: bool) -> LedMode:
+    if playing:
+        return "off"
+    return "pulse" if current is not None else "dim"
+
+
+# --- the update over Wi-Fi ---------------------------------------------------------------
+
+
+async def request_update(session: AsyncSession, device_id: str) -> None:
+    """Ask a device to fetch the bundled firmware over Wi-Fi.
+
+    Nothing is pushed: the flag is what the device's own next report is answered with, so a
+    device that is unplugged picks the update up when it comes back — within the ten minutes
+    the offer stands. After that the offer is over: the device is answered nothing, the
+    listing stops saying one is pending, and the host asks again. Which is the point of the
+    ten minutes, a device that failed to flash being quiet about it.
+
+    Raises `UnknownDeviceError`, and `UpdateRefusedError` when there is no image to offer or
+    the device is already on it.
+    """
+    device = await get_device(session, device_id)
+    manifest = firmware.read_manifest()
+    if manifest is None:
+        raise UpdateRefusedError("no_firmware")
+    if firmware.ota_file() is None:
+        # An image built before the update over Wi-Fi existed. The cable still works, and
+        # handing the device the merged image would fail at its first byte.
+        raise UpdateRefusedError("no_ota_image")
+    if device.firmware_version == manifest.version:
+        raise UpdateRefusedError("already_current")
+    device.update_requested_at = _now()
+    await session.commit()
+    logger.info(
+        "player selector '%s' asked to update to %s over Wi-Fi", device.name, manifest.version
+    )
+    await event_bus.broadcast(DevicesChanged())
+
+
+def _update_offer(
+    requested_at: datetime | None, firmware_version: str | None
+) -> FirmwareUpdate | None:
+    """The image a device is told to fetch, or nothing.
+
+    Raises nothing and answers nothing at all in four cases: no update was asked for, the
+    ask has expired, this Wingman has no image to give, or the device is already running it.
+    """
+    if requested_at is None or _expired(requested_at):
+        return None
+    manifest = firmware.read_manifest()
+    file = firmware.ota_file()
+    if manifest is None or file is None or manifest.version == firmware_version:
+        return None
+    return FirmwareUpdate(file=file, version=manifest.version)
+
+
+def _update_is_over(requested_at: datetime | None, firmware_version: str | None) -> bool:
+    """Whether the flag on the row has done its work and may go.
+
+    Two ways: the device came back running the bundled version, which is the update having
+    landed, and ten minutes, which is the update having failed silently. Both leave the row
+    saying nothing is pending, so the host can ask again.
+    """
+    if requested_at is None:
+        return False
+    if _expired(requested_at):
+        return True
+    manifest = firmware.read_manifest()
+    return manifest is not None and manifest.version == firmware_version
+
+
+def _expired(requested_at: datetime) -> bool:
+    """`as_utc` because SQLite drops the offset on the way in and hands the column back
+    naive, and comparing naive with aware raises."""
+    return _now() - as_utc(requested_at) > UPDATE_TTL
+
+
 # --- the watchdog -----------------------------------------------------------------------
 
 
-async def start_watchdog() -> None:
+async def start_watchdog(session_factory: async_sessionmaker[AsyncSession]) -> None:
     """Start the task that notices devices going quiet. Started by the app lifespan, like
-    the download workers."""
+    the download workers.
+
+    Takes the session factory to read how long a selection may stand untouched: the watchdog
+    is what drops a stale one, so the number it enforces is read where it is started, and
+    every later change to it comes through the settings route.
+    """
     global _watchdog
+    async with session_factory() as session:
+        await apply_selection_idle_ttl(session)
     if _watchdog is not None:
         return
     _watchdog = asyncio.create_task(_watchdog_loop(), name="devices-watchdog")
@@ -663,7 +1055,7 @@ async def _watchdog_loop() -> None:
 
 
 def _diff(
-    previous: _Live | None,
+    previous: DeviceReport | None,
     report: DeviceReport,
     roles: dict[str, str],
     actions: dict[str, str],
@@ -683,7 +1075,7 @@ def _diff(
     rebooted and lost its presses, which is not somebody pressing a button.
     """
     diff = _Diff()
-    before = _readers_by_index(previous.report) if previous is not None else {}
+    before = _readers_by_index(previous) if previous is not None else {}
     if previous is not None and set(before) != {reader.index for reader in report.readers}:
         # A position the device did not report last time (or does not report any more): the
         # boot probe found another build, and the listing has a row more or a row less.
@@ -713,9 +1105,9 @@ def _diff(
     for reader, _, role in moved:
         if role == SEQUENTIAL and reader.uid is not None:
             diff.changes.append(_Scanned(uid=reader.uid))
-    if previous is not None and previous.report.firmware != report.firmware:
+    if previous is not None and previous.firmware != report.firmware:
         diff.visible = True
-    before_buttons = _buttons_by_index(previous.report) if previous is not None else {}
+    before_buttons = _buttons_by_index(previous) if previous is not None else {}
     if previous is not None and set(before_buttons) != {button.index for button in report.buttons}:
         diff.visible = True
     for button in sorted(report.buttons, key=lambda entry: entry.index):
@@ -734,12 +1126,18 @@ def _diff(
     return diff
 
 
+def _starts_something(changes: list[_Change]) -> bool:
+    """Whether this report carries a press of the start button."""
+    return any(isinstance(change, _Pressed) and change.action == "start" for change in changes)
+
+
 async def _dispatch(
     session_factory: async_sessionmaker[AsyncSession],
     changes: list[_Change],
     player_ids: dict[str, str],
     auto_start: selection.AutoStart | None,
     rescan_removes: bool,
+    without_selection: selection.StartWithoutSelection | None = None,
 ) -> None:
     """Hand the difference to the selection, outside this module's lock.
 
@@ -769,7 +1167,10 @@ async def _dispatch(
         else:
             async with session_factory() as session:
                 await selection.button_pressed(
-                    session, session_factory, _button_action(change.action)
+                    session,
+                    session_factory,
+                    _button_action(change.action),
+                    without_selection=without_selection,
                 )
 
 
@@ -786,6 +1187,26 @@ def _button_action(action: str) -> selection.ButtonAction:
 # --- reading the rows -------------------------------------------------------------------
 
 
+def _aware(value: datetime | None) -> datetime | None:
+    """A nullable column as an aware UTC timestamp. `as_utc` for the two of them a device
+    row may not have yet."""
+    return None if value is None else as_utc(value)
+
+
+def _standing_request(requested_at: datetime | None) -> datetime | None:
+    """The update the host asked for, while it is still on offer.
+
+    The same ten minutes `_update_offer` measures, applied at the read: the flag is only
+    taken *off* the row by a report, so a device that never comes back would otherwise leave
+    the page saying "Update requested" for the rest of the party. Read-time and not a write,
+    because the column is the record of when the host asked and the listing is not the place
+    to rewrite it.
+    """
+    if requested_at is None or _expired(requested_at):
+        return None
+    return as_utc(requested_at)
+
+
 def _read(
     device: Device,
     live: _Live | None = None,
@@ -798,7 +1219,7 @@ def _read(
     actions = _decode(device.button_actions)
     states = _decode(device.reader_states)
     online = live is not None and _is_online(live)
-    report = live.report if live is not None and live.compatible else None
+    report = None if live is None else live.report
     by_uid = players or {}
     readers: list[ReaderRead] = []
     if report is not None:
@@ -848,14 +1269,17 @@ def _read(
     return DeviceRead(
         id=device.id,
         name=device.name,
-        created_at=device.created_at,
-        last_seen_at=device.last_seen_at,
+        # Naive coming out of SQLite; everything we write is UTC (see `as_utc`). Without
+        # this the browser reads "last seen" as a local time and draws it hours out.
+        created_at=as_utc(device.created_at),
+        last_seen_at=_aware(device.last_seen_at),
         online=online,
         firmware_version=device.firmware_version,
         protocol=device.protocol,
         compatible=None if device.protocol is None else device.protocol == SUPPORTED,
         rssi=None if report is None or not online else report.rssi,
         uptime_s=None if report is None or not online else report.uptime_s,
+        update_requested_at=_standing_request(device.update_requested_at),
         readers=readers,
         buttons=buttons,
     )
@@ -869,11 +1293,7 @@ async def _read_one(session: AsyncSession, device: Device) -> DeviceRead:
     """
     async with _lock:
         live = _live.get(device.id)
-    uids = (
-        {reader.uid for reader in live.report.readers if reader.uid is not None}
-        if live is not None and live.compatible
-        else set()
-    )
+    uids = set() if live is None else _uids_on(live)
     return _read(device, live, await _players_by_uid(session, uids))
 
 
@@ -927,6 +1347,31 @@ def _checked_roles(roles: dict[str, str], states: dict[str, str]) -> dict[str, s
             raise UnknownRoleError(role)
         checked[str(index)] = role
     return checked
+
+
+async def _colors_of_other_devices(session: AsyncSession, device_id: str) -> dict[str, str]:
+    """Which slot color every *other* device reads, and the name of the device reading it.
+
+    Read at the moment the mapping is saved rather than kept anywhere: a device that has
+    been deleted since gives its colors back, and this is what makes that true without a
+    single line about it.
+    """
+    taken: dict[str, str] = {}
+    for row in await session.scalars(select(Device).where(Device.id != device_id)):
+        for role in _decode(row.reader_roles).values():
+            color = _slot_color(role)
+            if color is not None:
+                taken.setdefault(color, row.name)
+    return taken
+
+
+def _refuse_colors_read_elsewhere(roles: dict[str, str], taken: dict[str, str]) -> None:
+    """One color, one reader, across every device in the room. Raises
+    `SlotTakenElsewhereError` for the first collision, in reader order."""
+    for position in sorted(roles, key=_position_order):
+        color = _slot_color(roles[position])
+        if color is not None and color in taken:
+            raise SlotTakenElsewhereError(color, taken[color])
 
 
 def _checked_actions(actions: dict[str, str]) -> dict[str, str]:
@@ -1013,6 +1458,19 @@ def _decode(stored: str) -> dict[str, str]:
 
 def _is_online(live: _Live) -> bool:
     return _now() - live.received_at <= OFFLINE_AFTER
+
+
+def _uids_on(live: _Live) -> set[str]:
+    """Every card lying on this device's readers. Empty for a device whose last report was
+    in another protocol: nothing in it says what is lying anywhere."""
+    if live.report is None:
+        return set()
+    return _uids_of(live.report)
+
+
+def _uids_of(report: DeviceReport) -> set[str]:
+    """Every card one report says is lying on a reader."""
+    return {reader.uid for reader in report.readers if reader.uid is not None}
 
 
 def _readers_by_index(report: DeviceReport) -> dict[int, ReaderReport]:

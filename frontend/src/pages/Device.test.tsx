@@ -10,6 +10,7 @@ import { MemoryRouter, Route, Routes } from "react-router-dom";
 import type {
   ButtonRead,
   DeviceRead,
+  FirmwareManifest,
   MeRead,
   PlayerRead,
   ReaderRead,
@@ -26,6 +27,7 @@ const {
   getFirmwareManifest,
   updateDevice,
   deleteDevice,
+  requestDeviceUpdate,
 } = vi.hoisted(() => ({
   getMe: vi.fn(),
   listDevices: vi.fn(),
@@ -33,6 +35,7 @@ const {
   getFirmwareManifest: vi.fn(),
   updateDevice: vi.fn(),
   deleteDevice: vi.fn(),
+  requestDeviceUpdate: vi.fn(),
 }));
 
 vi.mock("../api/sdk.gen", async (importOriginal) => ({
@@ -43,11 +46,34 @@ vi.mock("../api/sdk.gen", async (importOriginal) => ({
   getFirmwareManifest,
   updateDevice,
   deleteDevice,
+  requestDeviceUpdate,
 }));
 
 const MANAGER = ["devices.manage"];
 const ACCOUNT: Partial<MeRead> = { user: userRead(), role: "admin" };
 const SEEN = "2026-08-12T14:03:00Z";
+
+/** A build that carries the bare application image, which is the half of an
+ *  update over Wi-Fi this Wingman has to bring. */
+const OTA: FirmwareManifest = {
+  version: "0.3.0",
+  protocol: 1,
+  builds: [
+    {
+      chip: "ESP32",
+      file: "wingman-esp32.bin",
+      size: 1_400_000,
+      ota_file: "wingman-esp32-ota.bin",
+      ota_size: 1_100_000,
+    },
+  ],
+};
+
+/** The same build from before the update over Wi-Fi existed: the cable only. */
+const CABLE_ONLY: FirmwareManifest = {
+  ...OTA,
+  builds: [{ chip: "ESP32", file: "wingman-esp32.bin", size: 1_400_000 }],
+};
 
 const SLOTS = {
   slots: [
@@ -95,7 +121,7 @@ function device(overrides: Partial<DeviceRead> = {}): DeviceRead {
 
 interface World {
   devices?: DeviceRead[];
-  firmware?: { version: string; protocol: number; builds: [] } | null;
+  firmware?: FirmwareManifest | null;
   capabilities?: string[];
   id?: string;
 }
@@ -138,6 +164,7 @@ beforeEach(() => {
     getFirmwareManifest,
     updateDevice,
     deleteDevice,
+    requestDeviceUpdate,
   ])
     mock.mockReset();
 });
@@ -370,6 +397,125 @@ test("the readers select the configured slot colors, in turn and not used", asyn
       .getAllByRole("option")
       .map((option) => option.textContent),
   ).toEqual(["blue", "red", "Everybody in turn", "Not used"]);
+});
+
+const OVER_THE_AIR = { name: "Update over Wi-Fi" };
+const REQUESTED = /Update requested\. The device fetches it/;
+
+test("the update over Wi-Fi is offered only with an image for it", async () => {
+  renderDevice({ firmware: OTA });
+
+  expect(await screen.findByRole("button", OVER_THE_AIR)).toBeInTheDocument();
+  // The cable never goes away: it is what is left when this fails.
+  expect(
+    screen.getByRole("link", { name: "Update firmware" }),
+  ).toBeInTheDocument();
+});
+
+test("a build with no image for it leaves the cable standing alone", async () => {
+  renderDevice({ firmware: CABLE_ONLY });
+
+  expect(
+    await screen.findByRole("link", { name: "Update firmware" }),
+  ).toBeInTheDocument();
+  expect(screen.queryByRole("button", OVER_THE_AIR)).toBeNull();
+  expect(screen.queryByText(/Connect the device/)).toBeNull();
+});
+
+test("a device on the bundled version is offered nothing at all", async () => {
+  renderDevice({
+    devices: [device({ firmware_version: "0.3.0" })],
+    firmware: OTA,
+  });
+
+  await screen.findByText("Online");
+  expect(screen.queryByRole("button", OVER_THE_AIR)).toBeNull();
+});
+
+test("a device that is away is said so instead of being offered the button", async () => {
+  renderDevice({
+    devices: [device({ online: false, rssi: null })],
+    firmware: OTA,
+  });
+
+  expect(
+    await screen.findByText("Connect the device to update it over Wi-Fi."),
+  ).toBeInTheDocument();
+  expect(screen.queryByRole("button", OVER_THE_AIR)).toBeNull();
+});
+
+test("a device that has never reported is sent to the cable, not to the network", async () => {
+  renderDevice({
+    devices: [
+      device({
+        online: false,
+        last_seen_at: null,
+        firmware_version: null,
+        protocol: null,
+        compatible: null,
+        rssi: null,
+      }),
+    ],
+    firmware: OTA,
+  });
+
+  await screen.findByText("Never connected");
+  expect(screen.queryByRole("button", OVER_THE_AIR)).toBeNull();
+  // It has run no firmware of ours, so "connect it and it updates itself" is
+  // the wrong sentence: the cable link beside it is the only way onto it.
+  expect(screen.queryByText(/Connect the device/)).toBeNull();
+});
+
+test("asking for the update says the device will fetch it on its next report", async () => {
+  requestDeviceUpdate.mockResolvedValue({ data: undefined });
+  renderDevice({ firmware: OTA });
+
+  fireEvent.click(await screen.findByRole("button", OVER_THE_AIR));
+
+  await waitFor(() =>
+    expect(requestDeviceUpdate).toHaveBeenCalledWith(
+      expect.objectContaining({ path: { device_id: "d-1" } }),
+    ),
+  );
+  expect(await screen.findByText(REQUESTED)).toBeInTheDocument();
+  // The ask stands, so there is nothing to press again.
+  expect(screen.queryByRole("button", OVER_THE_AIR)).toBeNull();
+});
+
+test("each way the update can be refused has its own sentence", async () => {
+  renderDevice({ firmware: OTA });
+  const button = await screen.findByRole("button", OVER_THE_AIR);
+
+  for (const [detail, sentence] of [
+    ["no_firmware", "This Wingman has no firmware image."],
+    [
+      "no_ota_image",
+      "The bundled firmware has no image for an update over Wi-Fi. Use the cable.",
+    ],
+    ["already_current", "The device already runs this version."],
+  ]) {
+    requestDeviceUpdate.mockRejectedValueOnce({ detail });
+    fireEvent.click(button);
+    expect(await screen.findByText(sentence)).toBeInTheDocument();
+  }
+});
+
+test("an ask made before this page was opened is on it, and goes when it is over", async () => {
+  renderDevice({
+    devices: [device({ update_requested_at: "2026-08-12T14:04:00Z" })],
+    firmware: OTA,
+  });
+
+  expect(await screen.findByText(REQUESTED)).toBeInTheDocument();
+  expect(screen.queryByRole("button", OVER_THE_AIR)).toBeNull();
+
+  // The device reported the new version, so the backend dropped the flag.
+  listDevices.mockResolvedValue({
+    data: { devices: [device({ firmware_version: "0.3.0" })] },
+  });
+  FakeSocket.deliver({ event: "devices.changed" });
+
+  await waitFor(() => expect(screen.queryByText(REQUESTED)).toBeNull());
 });
 
 test("both ways back into the wizard carry the device and the step", async () => {

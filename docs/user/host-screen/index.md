@@ -41,8 +41,8 @@ part.
 
 ![The host screen on a TV, with the last song's result on the left and the QR card, Tonight, and Most wished down the right](../assets/screenshots/host-screen/host-screen.png){ width="720" loading=lazy }
 /// caption
-The rail stays up while the stage changes. New badges are the one thing that
-takes the whole screen.
+The rail stays up for most of what the stage shows. New badges take the whole
+screen.
 ///
 
 The rail holds three blocks, top to bottom:

@@ -16,19 +16,24 @@ the devices module calls the `card_*` and `button_pressed` entry points directly
 import asyncio
 import contextlib
 import logging
+import random
 import secrets
 from collections.abc import Mapping
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from datetime import UTC, datetime, timedelta
 from typing import Literal
 
+from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
 
+from ..auth import permissions
 from ..events import SelectionChanged, event_bus
+from ..library import service as library
 from ..players.model import Player
 from ..players.schema import PlayerRead, read_player
 from ..songs.model import Song
 from ..songs.schema import SongRead, read_song
+from ..tags import service as tags
 from . import service
 from .schema import CurrentSing, SelectionRead, SelectionSlotRead
 
@@ -36,7 +41,10 @@ logger = logging.getLogger(__name__)
 
 # A selection nobody has touched for this long is gone. Somebody picked a song, walked off
 # and left the room locked otherwise — and the TV would keep showing a song nobody sings.
-IDLE_TTL = timedelta(minutes=2)
+# The host can retune it (`devices.selection_idle_s`), so this is the value a Wingman that
+# has not read its settings yet runs on.
+DEFAULT_IDLE_TTL = timedelta(minutes=2)
+_idle_ttl = DEFAULT_IDLE_TTL
 
 # 24 bytes of `secrets`, which is a 32-character URL-safe string. The token never leaves
 # the phone it was minted for, and it is compared with `compare_digest`.
@@ -71,6 +79,20 @@ class CardOnSlot:
 
     uid: str
     player_id: str | None
+
+
+@dataclass(frozen=True)
+class StartWithoutSelection:
+    """What the selector's start button does when it finds nobody picking anything.
+
+    `mode` is `devices.start_without_selection`: `nothing`, `top_wish` for the song the room
+    wished for most, or `random`. `cards` is what lies on the slot readers, which is both
+    who sings it and the reason the press counts at all: a button pressed with no card on
+    any reader is somebody leaning on the table, not a room asking for a song.
+    """
+
+    mode: str
+    cards: Mapping[str, CardOnSlot] = field(default_factory=dict)
 
 
 @dataclass(frozen=True)
@@ -133,10 +155,21 @@ async def is_open() -> bool:
     return await current_selection() is not None
 
 
+def set_idle_ttl(seconds: int) -> None:
+    """How long a selection may stand untouched, in seconds.
+
+    Held here rather than read where it is used: expiry runs inside this module's lock, on
+    paths that have no database session to read a setting with. `devices.service` sets it
+    when the watchdog starts and whenever the host changes it.
+    """
+    global _idle_ttl
+    _idle_ttl = timedelta(seconds=seconds)
+
+
 async def expire_stale() -> None:
-    """Drop the selection if it has been idle for `IDLE_TTL`. Every call in this module
-    does this first; it is public for the watchdog, so the TV clears itself even when
-    nobody asks anything."""
+    """Drop the selection if it has been idle for `set_idle_ttl`'s seconds. Every call in
+    this module does this first; it is public for the watchdog, so the TV clears itself even
+    when nobody asks anything."""
     async with _lock:
         await _expire_locked()
 
@@ -207,8 +240,12 @@ async def set_slots(
     """The opener moves people around. Raises `NoSelectionError`, `NotTheOpenerError` and
     everything `service.resolve_slots` raises.
 
-    A tap is newer than whatever is lying on a reader, so a slot the phone points at
-    somebody is that person's — an unknown card on it included.
+    A slot a card is lying on is not the phone's to move. The card in somebody's hand is
+    the room's own answer to who sings on that microphone, and the phone's body is a whole
+    assignment written before the card landed: a `PUT` already on the wire when a card
+    arrives would otherwise read as "the phone took them off". So the phone moves the slots
+    no card holds, and the rest is answered with what the readers say — no refusal, because
+    the body was not wrong when it was sent.
     """
     async with _lock:
         await _expire_locked()
@@ -362,21 +399,26 @@ async def card_identified(
     new about it — it has not moved. So the naming itself is what puts the person there;
     without this the room would have to lift the card off the reader and put it back down.
 
-    Only a slot this very card is already on and that nobody stands on is filled: a slot the
-    phone has since pointed at somebody is the phone's choice, and a card the room does not
-    hold changes nothing at all.
+    Every slot this very card is on is filled, whoever stands on it: naming a card is the
+    host saying who is holding it, so handing Alice's card to Bob mid-selection puts Bob on
+    her slot rather than leaving her there singing for him. A card the room does not hold
+    changes nothing at all.
     """
     async with _lock:
         await _expire_locked()
         if _selection is None:
             return
-        slots = [slot for slot in _selection.slots if slot.card_uid == uid and slot.player is None]
+        slots = [slot for slot in _selection.slots if slot.card_uid == uid]
         if not slots:
             # Nothing in this room: not even the idle clock is touched. A selection nobody
             # is standing at must not be kept alive by somebody tidying the card table.
             return
         player = await _player(session_factory, player_id)
         if player is None:
+            return
+        if all(_same_player(slot.player, player) for slot in slots):
+            # The card was already theirs on every slot it lies on: nothing moved, and the
+            # room hears nothing.
             return
         for slot in slots:
             # Two readers reporting the same uid is a cloned card, not two people:
@@ -411,11 +453,16 @@ async def button_pressed(
     session: AsyncSession,
     session_factory: async_sessionmaker[AsyncSession],
     action: ButtonAction,
+    without_selection: StartWithoutSelection | None = None,
 ) -> None:
     """A button on the player selector was pressed.
 
     Nobody is on the other end of a button, so a start that fails is logged and the
     selection stays: the host reads what went wrong on the TV or on their phone.
+
+    `without_selection` is what a `start` press does when nobody is picking anything. None
+    (and `nothing`) leaves a quiet room quiet, which is the default: a button that starts a
+    song out of nowhere is a thing the host asks for.
     """
     if action == "cancel":
         await close_selection(any_opener=True)
@@ -423,6 +470,8 @@ async def button_pressed(
     async with _lock:
         await _expire_locked()
         if _selection is None:
+            if action == "start" and without_selection is not None:
+                await _start_without_selection_locked(session, session_factory, without_selection)
             return
         if action == "clear":
             for slot in _selection.slots:
@@ -487,7 +536,7 @@ async def _broadcast_locked() -> None:
 
 
 async def _expire_locked() -> None:
-    if _selection is not None and _now() - _selection.updated_at > IDLE_TTL:
+    if _selection is not None and _now() - _selection.updated_at > _idle_ttl:
         logger.info("dropping the player selection for %s: idle", _selection.song.id)
         await _drop_locked(_selection)
 
@@ -517,6 +566,85 @@ async def _start_locked(
     )
     await _drop_locked(selection)
     return sing
+
+
+async def _start_without_selection_locked(
+    session: AsyncSession,
+    session_factory: async_sessionmaker[AsyncSession],
+    without: StartWithoutSelection,
+) -> None:
+    """The start button, pressed at a room where nobody is picking anything.
+
+    The cards on the readers are the singers, and Wingman picks the song: the one the room
+    wished for most, or one at random. A press with no card on any slot reader does nothing,
+    so a table somebody leant on cannot start a song with an empty stage.
+
+    The library it picks out of is the **guest's**: a song a tag keeps from the party is
+    kept from the button too, and the button is the one caller in the app with no account
+    behind it at all. Nobody is waiting on any of this, so every way of coming up empty is a
+    log line, and the selection it opened goes again if the song will not start.
+    """
+    global _selection
+    if without.mode not in {"top_wish", "random"}:
+        return
+    if not without.cards:
+        logger.info("the selector's start button was pressed with no card on any reader")
+        return
+    hidden = await tags.hidden_song_ids(
+        session, tags.Viewer(role=permissions.DEFAULT_ROLE, user_id=None)
+    )
+    song = await _song_for_button(session, without.mode, hidden)
+    if song is None:
+        logger.info("the selector's start button found no song to sing (%s)", without.mode)
+        return
+    states = await _slot_states(session, [])
+    for color, card in without.cards.items():
+        slot = _slot_of_states(states, color)
+        if slot is not None:
+            _put_on_slot(states, slot, await _player_row(session, card.player_id), card.uid)
+    if not any(slot.card_uid is not None for slot in states):
+        # Cards on readers wired to colors this host does not sing with. Nobody is on a
+        # slot, so there is nobody to sing.
+        logger.info("the selector's start button found no card on a slot the host sings with")
+        return
+    now = _now()
+    _selection = _Selection(
+        song=read_song(song),
+        slots=states,
+        # Nobody holds this one. It is started in the same breath, so the token is never
+        # handed out and never needed; a phone that wants the room takes it over with
+        # `force`, exactly as it would take over anybody else's.
+        token=secrets.token_urlsafe(TOKEN_BYTES),
+        opened_at=now,
+        updated_at=now,
+    )
+    opened = _selection
+    try:
+        await _start_locked(session, session_factory, opened, force=False)
+    except Exception:
+        # A song already playing, a launcher that is not configured, a slot the sing flow
+        # refuses. The room has no selection to look at either way, so it goes again.
+        logger.exception("the selector's start button could not start the song it picked")
+        await _drop_locked(opened)
+
+
+async def _song_for_button(session: AsyncSession, mode: str, hidden: frozenset[str]) -> Song | None:
+    """The song the start button sings, out of the songs a guest may see.
+
+    `top_wish` is `library.service`'s own ordering and nothing of its own: the button and the
+    wishlist on everybody's phone have to agree about what "most wished for" means.
+    """
+    if mode == "top_wish":
+        wishes = await library.wishlist(session, None, None, hidden)
+        if not wishes:
+            return None
+        return await session.get(Song, wishes[0].song.id)
+    # Sorted, so a seeded random number generator picks the same song twice — a random
+    # choice out of whatever order SQLite felt like is not one anybody could reproduce.
+    song_ids = sorted(set(await session.scalars(select(Song.id))) - hidden)
+    if not song_ids:
+        return None
+    return await session.get(Song, random.choice(song_ids))
 
 
 def _slot_requests(selection: _Selection) -> list[service.SlotRequest]:
@@ -583,25 +711,34 @@ async def _slot_states(session: AsyncSession, slots: list[service.SlotRequest]) 
 
 
 def _keep_cards(previous: list[_Slot], states: list[_Slot]) -> list[_Slot]:
-    """Carry the card uids over into what the phone just sent.
+    """Give the slots a card is lying on back to the cards, whatever the phone just sent.
 
-    The phone sends the whole assignment on every tap, and it knows nothing about cards. So a
-    slot it left alone keeps the card lying on it — an unknown card included, which the phone
-    draws and sends back as an empty slot — and taking that card away still empties the slot.
-    A slot the phone pointed at somebody else loses the card: the person on it is the phone's
-    choice now, and the card on the reader no longer speaks for it.
+    The phone sends the whole assignment on every tap, and it knows nothing about cards — an
+    unknown card comes back as an empty slot, and a `PUT` written a moment before a card
+    landed comes back without the singer that card has since put there. Neither is the phone
+    changing its mind, so neither may take a card's slot away: a slot holding a `card_uid`
+    keeps its player and its card, and only the slots no card holds are the phone's.
+
+    The one thing the phone's body may still do to a card's slot is name that person
+    somewhere else. It cannot have them: one person sings on one microphone, and the card is
+    what decides which — so the *other* slot is emptied rather than the room holding the same
+    singer twice.
     """
     cards = {slot.color: slot for slot in previous}
+    held: set[str] = set()
     for state in states:
         before = cards.get(state.color)
         if before is None or before.card_uid is None:
             continue
-        if state.player is None:
-            # An unknown card the phone could only send back as empty. A slot whose singer
-            # the phone took off keeps nothing: their card is on the reader, not on the slot.
-            state.card_uid = None if before.player is not None else before.card_uid
-        elif _same_player(before.player, state.player):
-            state.card_uid = before.card_uid
+        state.player = before.player
+        state.card_uid = before.card_uid
+        held.add(state.color)
+    for state in states:
+        if state.color in held or state.player is None:
+            continue
+        if any(_same_player(cards[color].player, state.player) for color in held):
+            state.player = None
+            state.card_uid = None
     return states
 
 

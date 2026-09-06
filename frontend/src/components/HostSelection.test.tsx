@@ -97,12 +97,17 @@ function broadcast(selection: SelectionRead | null): void {
   act(() => FakeSocket.deliver({ event: "selection.changed", selection }));
 }
 
-/** The slots as the room reads them: color first, then who stands there. */
+/** The cards in the host's order: who stands on each slot. */
 function rows(): string[] {
-  const list = screen.getByLabelText("Picking singers");
-  return within(list)
-    .getAllByRole("listitem")
-    .map((row) => row.querySelector(".host-selection-name")?.textContent ?? "");
+  return cards().map(
+    (card) => card.querySelector(".host-selection-name")?.textContent ?? "",
+  );
+}
+
+/** The card elements themselves, for the state each one is drawn in. */
+function cards(): HTMLElement[] {
+  const stage = screen.getByLabelText("Picking singers");
+  return within(stage).getAllByRole("listitem");
 }
 
 beforeEach(() => {
@@ -146,6 +151,39 @@ test("the song and every slot are drawn while the room picks", async () => {
   // Every configured slot, empty ones included: the room watches them fill up.
   expect(rows()).toEqual(["Alice", "empty", "Unknown card"]);
   await waitFor(() => expect(onPhase).toHaveBeenLastCalledWith("selecting"));
+});
+
+test("a card carries its slot color, and an unfilled one is drawn dark", async () => {
+  getPlayerSelection.mockResolvedValue({ data: { selection: selection() } });
+  renderStage();
+  await screen.findByText("Dancing Queen");
+
+  const [alice, empty, unknown] = cards();
+  // The whole card — outline, fill, placeholder — is mixed from this one value.
+  expect(alice.style.getPropertyValue("--slot")).toBe("#048BB9");
+  expect(empty.style.getPropertyValue("--slot")).toBe("#D00000");
+  expect(unknown.style.getPropertyValue("--slot")).toBe("#00AC00");
+
+  // Somebody is on the first one, so it keeps the page behind it; the other two
+  // are filled with their own color taken down towards the background.
+  expect(alice).not.toHaveClass("host-selection-slot-empty");
+  expect(empty).toHaveClass("host-selection-slot-empty");
+  expect(unknown).toHaveClass("host-selection-slot-empty");
+
+  // The avatar above the name is the person on a filled card and the
+  // placeholder on the two that nobody is on, a card nobody owns included.
+  expect(alice.querySelector(".player-avatar-letter")).not.toBeNull();
+  // A slot nobody has taken is the short box: no face, no placeholder. An
+  // unknown card is taken by something, so it stands full height with the
+  // placeholder where the face would be.
+  expect(empty.querySelector(".player-avatar")).toBeNull();
+  expect(empty.querySelector(".host-selection-card")).toHaveClass(
+    "host-selection-card-empty",
+  );
+  expect(unknown.querySelector(".player-avatar-empty")).not.toBeNull();
+  expect(unknown.querySelector(".host-selection-card")).not.toHaveClass(
+    "host-selection-card-empty",
+  );
 });
 
 test("a song being sung owns the stage instead", async () => {
@@ -207,7 +245,10 @@ test("the automatic start counts down in words", async () => {
   });
   renderStage();
 
-  expect(await screen.findByText("Starting in 3…")).toBeInTheDocument();
+  const line = await screen.findByText("Starting in 3…");
+  // Under the song, never inside a card: it counts the picking down, not a slot.
+  expect(line.closest(".host-selection-head")).not.toBeNull();
+  expect(line.closest(".host-selection-slots")).toBeNull();
 
   act(() => vi.advanceTimersByTime(2000));
   expect(screen.getByText("Starting in 1…")).toBeInTheDocument();

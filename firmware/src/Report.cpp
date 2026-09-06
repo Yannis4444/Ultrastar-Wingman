@@ -89,7 +89,7 @@ size_t buildReport(char *out, size_t size, const ReportState &state, const char 
     return offset;
 }
 
-bool ReportScheduler::due(const ReportState &state, uint32_t nowMs) const {
+bool ReportScheduler::due(const ReportState &state, uint32_t nowMs, uint32_t heartbeatMs) const {
     if (!everSent_) {
         return true;
     }
@@ -104,7 +104,7 @@ bool ReportScheduler::due(const ReportState &state, uint32_t nowMs) const {
             return true;
         }
     }
-    return nowMs - lastSentMs_ >= kHeartbeatMs;
+    return nowMs - lastSentMs_ >= heartbeatMs;
 }
 
 void ReportScheduler::sent(const ReportState &state, uint32_t nowMs) {

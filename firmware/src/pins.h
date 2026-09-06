@@ -25,13 +25,22 @@ constexpr uint8_t kReaderCsPins[kReaderCount] = {5, 17, 16, 4, 21, 22};
 // Buttons to GND, internal pull-ups: a pressed button reads low.
 constexpr uint8_t kButtonPins[kButtonCount] = {32, 33, 25, 26};
 
+// The optional WS2812 strip, one LED per reader position, data on this pin. A build without
+// a strip loses nothing: the writes go to a pin nothing is listening on.
+constexpr uint8_t kPinLeds = 13;
+// The working brightness of a lit LED, of 255. A WS2812 at full scale is a lamp, and six of
+// them at full white would also draw more than the 5 V rail is there for.
+constexpr uint8_t kLedBrightness = 64;
+
 // One reader is polled every tick, round-robin over the wired ones.
 constexpr uint32_t kReaderTickMs = 100;
 // A level counts once it has been stable this long.
 constexpr uint32_t kDebounceMs = 40;
 // Three polls without an answer (~300 ms) before a card counts as gone.
 constexpr uint8_t kMissesUntilAbsent = 3;
-// Without a change, the report goes out this often — it is the device's heartbeat.
+// Without a change, the report goes out this often — it is the device's heartbeat. It is
+// also the longest silence the device will accept from a server asking for a slower one:
+// the server calls a device offline after 15 s.
 constexpr uint32_t kHeartbeatMs = 5000;
 // The RC522 needs this long after a reset before VersionReg reads true.
 constexpr uint32_t kResetSettleMs = 4;

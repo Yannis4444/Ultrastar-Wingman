@@ -135,7 +135,7 @@ list before you claim a section is done:
 | `/songs/playlists/:id/spinner` | `party/reel.md`, linked from `songs/playlists.md` |
 | `/usdb` | `songs/download.md` |
 | `/scores` | `scores/party.md` |
-| `/user` | `people/index.md` signed out, `scores/your-scores.md` and `achievements/index.md` signed in |
+| `/user` | `people/index.md` signed out, `scores/your-scores.md` and `achievements/index.md` signed in, and `selector/cards.md` for the **My cards** block |
 | `/user/stats` | `scores/your-scores.md` |
 | `/user/accounts` | `people/players.md` |
 | `/user/permissions` | `people/roles.md` |
@@ -145,7 +145,7 @@ list before you claim a section is done:
 | `/user/devices/new` | `selector/setup.md` |
 | `/user/devices/:id` | `selector/setup.md`, and `selector/cards.md` for the cards on it |
 | `/settings` | `settings/index.md` and `settings/reference.md` |
-| `/host` | `host-screen/index.md` |
+| `/host` | `host-screen/index.md`, and `selector/index.md` for the stage while the cards pick |
 | `/host/manage` | `host-screen/manage.md` |
 
 Three things happen across several pages. Each has one owner, and the other pages link to it:
@@ -454,6 +454,11 @@ own library, names, and scores never appear.
   picture never reads back the hour the seed happened to run at.
 - One achievement is left one song short for Bender. The sing captured for
   `host-achievements` is the one that completes it.
+- One player selector, called *The box by the TV*. Six reader positions, the first two
+  wired with a card lying on each: one card is Leela's, the other belongs to nobody. It
+  reports a firmware one version behind the bundled image, so its page offers the update
+  over Wi-Fi. Fry holds no card, which is why the **My cards** block is photographed on
+  his page.
 - Ultrastar Deluxe is set up on the scratch instance, so the setup banner on Home stays
   hidden. Point the **Base path** setting in the **USDX** group at the stand-in launcher's
   folder before capturing anything.
@@ -542,6 +547,10 @@ about, and the **Must be visible** column names that part alone.
 | `host-results` | `scores/index.md` | `/host` | **launcher**: the song just finished and its scores were written | 1280x720 | The results of the song that finished, the score summary beside its cover |
 | `host-achievements` | `achievements/index.md` | `/host` | **launcher**: the sing that completes the achievement the seed left one song short for Bender | 1280x720 | The badges landing for one singer, over the whole screen with no rail beside them, before the results appear |
 | `host-manage` | `host-screen/manage.md` | `/host/manage` | Host rights on that browser | 1280x720 | The management rows the host reaches from the TV |
+| `selector-admin` | `selector/cards.md` | `/user/devices` | The seeded device online, one known card and one unknown one on its readers | 390x844 | The **On the readers now** list, a named card and an **Unknown card** row |
+| `selector-device` | `selector/setup.md` | `/user/devices/:id` | The same device, running one firmware version behind the bundled image | 390x844 | The status lines, **Update firmware** and **Update over Wi-Fi**, the reader rows |
+| `user-my-cards` | `selector/cards.md` | `/user` | Signed in as Fry, who holds no card, with an unknown card on a reader | 390x844 | The **My cards** heading, the card's number, and **This is mine** |
+| `host-picking` | `selector/index.md` | `/host` | A selection open while the device is online, both cards on their slots | 1280x720 | The song, the slots with the card holder and **Unknown card**, and no rail |
 
 ## 7. Links and cross references
 

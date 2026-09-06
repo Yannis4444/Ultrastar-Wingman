@@ -8,6 +8,10 @@ the current state — and a device needs no memory of what it already told us.
 `SUPPORTED` is the one protocol this Wingman speaks. A device reporting another one is
 recorded all the same (so the admin page can say "needs update") and answered 426; the
 version lives in the firmware's `pins.h`, next to the pin map it describes.
+
+Which is why the protocol is read *before* the rest of the body: `ReportEnvelope` is what a
+report has to be to be answered at all, and `DeviceReport` is what a report of this protocol
+has to be. A device whose report grew a field is told to update, not refused as malformed.
 """
 
 from typing import Literal
@@ -29,6 +33,10 @@ MAX_PROTOCOL = 2**31 - 1
 MAX_READERS = 16
 MAX_BUTTONS = 16
 
+# The firmware version as the column holds it. Long enough for a semver with a git describe
+# suffix, and the one length a foreign report's version string is checked against too.
+MAX_FIRMWARE_LENGTH = 32
+
 # What the boot probe made of a reader position (§3.1 of the design):
 #
 # * `wired` — a known MFRC522 version byte answered twice. Only these are polled, and only
@@ -39,6 +47,36 @@ MAX_BUTTONS = 16
 ReaderState = Literal["wired", "none", "fault"]
 
 READER_STATES: tuple[ReaderState, ...] = ("wired", "none", "fault")
+
+
+class ReportEnvelope(BaseModel):
+    """The little of a report that is read before anything else: which protocol it is in.
+
+    Everything else is ignored here on purpose. A device speaking another protocol may send
+    readers of a shape this Wingman has never seen, and it still has to be recorded as one
+    that needs updating — so the version is read out of a body that is otherwise none of
+    this server's business.
+
+    The bound is the column's, exactly as `DeviceReport` has it: a protocol number too large
+    for SQLite is not a heartbeat, it is a body nothing can store.
+    """
+
+    protocol: int = Field(ge=0, le=MAX_PROTOCOL)
+
+
+def readable_firmware(body: object) -> str | None:
+    """The firmware version out of a raw report body, or None when there is nothing usable.
+
+    Read by hand rather than by a model: this runs on a body Wingman cannot otherwise read,
+    and the version is worth keeping — it is what the admin page says a device needs an
+    update *from*. Anything that is not a string the column takes is simply not there.
+    """
+    if not isinstance(body, dict):
+        return None
+    firmware = body.get("firmware")
+    if isinstance(firmware, str) and len(firmware) <= MAX_FIRMWARE_LENGTH:
+        return firmware
+    return None
 
 
 class ReaderReport(BaseModel):
@@ -72,7 +110,7 @@ class DeviceReport(BaseModel):
     """One `POST /devices/report` body."""
 
     protocol: int = Field(ge=0, le=MAX_PROTOCOL)
-    firmware: str = Field(max_length=32)
+    firmware: str = Field(max_length=MAX_FIRMWARE_LENGTH)
     uptime_s: int = Field(ge=0)
     # dBm, always negative in practice. Not bounded: a signal reading is decoration on the
     # admin page, and a device with a strange radio must still be able to report at all.

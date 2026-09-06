@@ -29,10 +29,10 @@ site (`docs/user/`), never here.
   bundled firmware.
 - One new capability, `devices.manage`, for everything above that is configuration.
 
-**Not in v1** (kept possible): feedback on the device (LEDs, a display, a buzzer — the
-report's response body is reserved for it), a WebSocket to the device, network discovery
-(mDNS), ESP32-S3 / C3 builds, assigning a card from the phone's selection modal, a device
-that picks songs.
+**Not in v1** (kept possible): a display or a buzzer on the device, a WebSocket to the
+device, network discovery (mDNS), ESP32-S3 / C3 builds, assigning a card from the phone's
+selection modal, a device that picks songs. LEDs and the update over Wi-Fi were v1
+exclusions too; the second round (§11) added both, through the report's response body.
 
 ## 2. Hardware
 
@@ -89,8 +89,12 @@ firmware/
     CardTracker.*       pure: per-reader state machine (§3.1)
     Buttons.*           pure debounce + the pin glue
     Report.*            pure: the report JSON (§4), the change detection that triggers one
-    Net.*               Wi-Fi events, HTTP POST with keep-alive, backoff
-  test/test_native/     Unity tests for CardTracker, Buttons, Report
+    Net.*               Wi-Fi events, HTTP POST with keep-alive, backoff; hands the
+                        response body to Response
+    Response.*          pure: the report response (§11.2) — interval, LED targets, update
+    Leds.*              the optional NeoPixel strip on GPIO 13, one LED per reader
+    Updater.*           the optional update over Wi-Fi (HTTPUpdate with the bearer token)
+  test/test_native/     Unity tests for CardTracker, Buttons, Report, Response
   scripts/
     version.py          pre-build: -DFIRMWARE_VERSION from firmware/VERSION (+ git describe)
     merge_bin.py        post-build: one image (bootloader 0x1000, partitions 0x8000,
@@ -131,8 +135,10 @@ protocol is recorded (so it appears as "needs update") and answered 426.
 ### 3.3 Building and bundling
 
 The image is a **generated artifact**: never committed. `firmware/build.py` writes
-`wingman-esp32.bin` and a `manifest.json` (`{"version", "protocol", "builds": [{"chip":
-"ESP32", "file", "size"}]}`) into `backend/src/ultrastar_wingman/devices/firmware/`
+`wingman-esp32.bin` (merged, for the USB wizard), `wingman-esp32-ota.bin` (the bare app,
+for the update over Wi-Fi) and a `manifest.json` (`{"version", "protocol", "builds":
+[{"chip": "ESP32", "file", "size", "ota_file", "ota_size"}]}`) into
+`backend/src/ultrastar_wingman/devices/firmware/`
 (gitignored). PlatformIO and the `clang-format` wheel are pinned in
 `firmware/requirements.txt` (installed into the venv, run from PowerShell — see
 [firmware.md](firmware.md)); `installer/build.ps1` installs them and runs `build.py` before
@@ -238,7 +244,7 @@ Selection: song (SongRead), slots [SlotState(color, player | None, card_uid | No
 
 | Route | Does |
 |---|---|
-| `POST /karaoke/selection {song_id, slots?, force?}` (`karaoke.sing`) | opens one; `slots` is the phone's remembered assignment, and a card lying on a `slot:<color>` reader wins over it. 409 `selection_open` while another is open, unless `force` — which needs nothing beyond `karaoke.sing`: anybody may take over, the UI asks first (the user's decision, 2026-09-05) |
+| `POST /karaoke/selection {song_id, slots?, force?}` (`karaoke.sing`) | opens one; `slots` is the phone's remembered assignment, and a card lying on a `slot:<color>` reader wins over it — but while **any device is online** the remembered assignment is dropped altogether (`devices.service.device_online`): the cards are how that room picks its singers, and slots pre-filled from the last song get in the way of them, whichever way the readers are mapped (the user's decision, 2026-09-06). 409 `selection_open` while another is open, unless `force` — which needs nothing beyond `karaoke.sing`: anybody may take over, the UI asks first (the user's decision, 2026-09-05) |
 | `GET /karaoke/selection` (`songs.view`) | `{selection \| null}` without the token — the host screen, and a phone that reloaded |
 | `PUT /karaoke/selection/slots {token, slots}` | the opener moves people around; a wrong token is 409 `not_the_opener` |
 | `POST /karaoke/selection/start {token, force?}` | `start_sing` with the selection's slots, then the selection is gone; the same errors as `/karaoke/sing`, `force` needing `karaoke.stop` |
@@ -292,8 +298,15 @@ for the `devices` group in `RolePermissions.tsx`). Opening and driving a selecti
   tap stay as they are.
 - **Host stage**: `HostSelection` in `.host-stage`, following `HostAchievements`'s
   `onPhase` / `fallback` / `suppressed` contract: while a selection is open and nothing
-  plays, the cover, title and artist over the colored slots filling up (avatar and name, or
-  "empty", or "unknown card"), and the auto-start countdown line when it is on.
+  plays it **takes the whole screen** like the badges do (no rail, no QR code — the user's
+  decision, 2026-09-06): the song at the top (cover, title, artist, "Picking singers", and
+  the auto-start countdown line under it), and at the bottom one **card per slot in a row**
+  — a colored outline in the slot's hex over the same color darkened towards `--bg`, the
+  avatar at the top, the bold name below, taller than wide (3:4) once somebody has taken
+  the slot; a slot nobody has taken is a **short box** along the foot of the row (the color
+  and the word "empty") that grows into the card when somebody takes it, so the free slots
+  are told apart at a glance. An unknown card counts as taken and reads *Unknown card* over
+  the placeholder. The cards are the one sanctioned departure from the flat rule, by request.
 - **Admin page** `/user/devices` (`ManageMenu` entry *Player selector*, `devices.manage`,
   a new `card` glyph): the three settings of §6.1, then one row per device (name, online dot in
   words, "firmware 0.1.0 · needs update" when the bundled one is newer or the protocol is
@@ -372,3 +385,101 @@ Decided by the agent and open to veto: esptool-js as the one new frontend depend
 JSON-lines serial console instead of Improv (Improv cannot carry a URL or a token), MFRC522v2
 and the pioarduino platform, the fixed pin map, a hidden player's card still selecting them,
 the report's response body reserved for feedback, `devices.manage` admin-only by default.
+
+## 11. The second round (2026-09-06, after the first evening on real hardware)
+
+The user tested a device: it works. This round is the list of fixes and additions agreed on
+2026-09-06, "the complete run, LEDs and the like optional". Everything a device does not
+have is harmless to it: a strip that is not wired receives colors nobody sees, an update
+nobody requested never arrives.
+
+### 11.1 Fixes
+
+- **A card assigned while it lies on a slot moves the slot to the new holder.**
+  `selection.card_identified` fills every slot showing that uid — with no player *or with
+  another player* — so reassigning Alice's card to Bob mid-selection puts Bob there.
+- **A slot a card holds is not the phone's to clear.** `SelectionSlotRead.card_uid` set →
+  the phone draws the `card` glyph on the slot, hides its clear button and refuses to
+  repoint it (the button is `aria-disabled`, a hint says "held by a card"). The backend
+  already keeps the card; this stops the phone from pretending otherwise.
+- **One color, one reader, across devices.** `PATCH /devices/{id}` refuses a `slot:<color>`
+  another device already maps (422 `slot_taken_elsewhere`); deleting a device frees its colors.
+- **The wizard re-proposes after going back to Discover** (`proposedRef` resets when the
+  step is left).
+- **The protocol is read before the body is validated.** `POST /devices/report` parses the
+  raw JSON's `protocol` first; an unsupported one is recorded (`last_seen_at`, `protocol`,
+  `firmware` when readable) and answered 426 whatever the rest of the body looks like — a
+  future device whose report grew a field still shows as "needs update" instead of 422.
+- **The selection token leaves the URL.** `DELETE /karaoke/selection` reads the token from
+  the `X-Selection-Token` header (the phone's keepalive `fetch` sets it); `?token=` is gone,
+  so it never lands in the access log. PUT and start keep the token in the body.
+
+### 11.2 Additions
+
+- **Claim your own card.** Identity, not a capability: an account with a player may
+  `POST /devices/cards/{uid}/claim` for a card that belongs to nobody (409 `card_taken`
+  otherwise, 401 without an account), and `DELETE /devices/cards/{uid}` for a card that is
+  their own. `GET /devices/cards/unknown` (authenticated) lists the uids lying on any online
+  reader right now that belong to nobody; `GET /devices/cards/mine` the caller's own. The user
+  page gets **My cards** between the record and *Manage* (signed in only): the unknown cards
+  on the readers as rows with a *This is mine* button, then the caller's cards with a remove
+  control, one sentence when nothing is there ("Put a card on the player selector to claim it.").
+- **A selector online is said out loud.** `GET /devices/status` (`players.view`) →
+  `{"online": true|false}` (any compatible device online), refetched on `devices.changed`. The
+  phone picker shows one quiet line while true ("A player selector is connected. The cards
+  decide who sings. You can still change it here."), which is also why it opened empty. The
+  host rail shows "Player selector offline" in the rail's meta style once a device has been
+  online during this page's life and no longer is.
+- **The start button with nothing open** (`devices.start_without_selection`: `"nothing"` |
+  `"top_wish"` | `"random"`, default `"nothing"`): a `start` press while no selection is open
+  opens one for the most-wished song (`library.service`'s wish ordering, the guest's view of
+  the library so a hidden song is never picked) or a random song, seeded from the cards, and
+  starts it at once. No card on any slot reader → nothing happens (logged). The selection it
+  opens has no opener token; a phone may take it over like any other.
+- **The idle expiry is a setting**: `devices.selection_idle_s` (int, default 120, 30–900),
+  read by the devices watchdog into `selection.set_idle_ttl(seconds)` at startup and on every
+  PATCH.
+- **LEDs, optional.** A WS2812 (NeoPixel) strip, **one LED per reader position** (LED *i*
+  is reader *i*), data on **GPIO 13**, 5 V, common ground. The report's response carries what
+  each LED shows until the next response:
+  `"leds": [{"index": 0, "rgb": "0090c0", "mode": "off" | "dim" | "on" | "blink" | "pulse"}]`,
+  and `"interval_s"` drops to 1 while a selection is open (so the strip follows the phone
+  within a second) and is 5 otherwise. The rules live in `devices/service.py`
+  (`led_states`): a reader mapped to a slot shows its slot color — `dim` while nothing lies
+  on it, `on` while a known card does, `blink` for an unknown card, `pulse` for every slot
+  while the auto-start counts down, `off` while a song plays; a singers-in-turn reader shows
+  white — `pulse` while a selection is open ("scan now"), `dim` otherwise, `off` while a song
+  plays; an unmapped or faulted reader is `off`. The firmware applies the list with the
+  Adafruit NeoPixel library (pinned) at a fixed `kLedBrightness` and does nothing at all
+  when the response has no `leds`. No strip wired → no harm.
+- **Firmware update over Wi-Fi, optional.** `POST /devices/{id}/update` (`devices.manage`)
+  sets `update_requested_at` on the row; while it is set and the bundled manifest's version
+  differs from the device's, the report's response carries
+  `"update": {"file": "wingman-esp32-ota.bin", "version": "0.3.0"}` — the **bare app
+  image**, not the merged one the USB wizard flashes: `HTTPUpdate` checks for the `0xE9`
+  magic at byte 0 and the merged image starts with the bootloader's padding. `build.py`
+  therefore bundles both and the manifest's build entry names them apart (`file`/`size` for
+  the wizard, `ota_file`/`ota_size` for the update); `image_path` serves either. The device
+  fetches `GET /devices/firmware/{file}` with its bearer token (that route accepts a device
+  or a `devices.manage` session), flashes it with the Arduino `HTTPUpdate` onto the other OTA
+  slot and reboots; its next report, carrying the new version, clears the flag (and so does
+  a ten-minute timeout, so a failed attempt can be repeated; the device itself retries no
+  sooner than ten minutes after a failure). The device page shows *Update
+  over Wi-Fi* beside *Update firmware* (the cable) while the bundled version differs, and
+  "Update requested" while the flag stands. The USB wizard stays the fallback.
+
+### 11.3 Documentation and screenshots
+
+`build.md` gains an optional *Lights* section (the strip, GPIO 13, one LED per reader);
+`setup.md` the Wi-Fi update and what the lights mean; `cards.md` claiming your own card;
+`integrate/devices.md` the response fields and the claim routes; `party/sing.md` the picker's
+new line. Screenshots at last: `docs/screenshots/seed.py` creates a device through the API and
+posts one report with two cards (one known, one unknown), so `capture.py` can take
+`selector-admin` (`/user/devices`), `selector-device` (`/user/devices/:id`) and
+`host-picking` (`/host` with a selection open) — the rows go into the manifest table of
+`documentation.md` per `screenshots.md`.
+
+### 11.4 Versions
+
+The response gained fields the firmware now reads, so the firmware is **0.3.0**;
+`PROTOCOL_VERSION` stays 1 — a 0.2.0 device ignores the new fields and keeps working.

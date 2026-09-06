@@ -39,7 +39,9 @@ size_t buildReport(char *out, size_t size, const ReportState &state, const char 
 // go out now: immediately when anything changed, else once every heartbeat.
 class ReportScheduler {
   public:
-    bool due(const ReportState &state, uint32_t nowMs) const;
+    // `heartbeatMs` is what the server last asked for (Response.h), the device's own
+    // constant when it has asked for nothing.
+    bool due(const ReportState &state, uint32_t nowMs, uint32_t heartbeatMs = kHeartbeatMs) const;
 
     // Called once a report has been delivered — with any HTTP status, since a 401 or a 426
     // is an answer and re-sending the same body would only ask the same question again.

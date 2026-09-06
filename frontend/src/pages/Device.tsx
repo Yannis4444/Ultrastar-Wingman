@@ -8,6 +8,7 @@ import {
   listDevicesOptions,
   listDevicesQueryKey,
   listKaraokeSlotsOptions,
+  requestDeviceUpdateMutation,
   updateDeviceMutation,
 } from "../api/@tanstack/react-query.gen";
 import { useAuth } from "../auth";
@@ -21,10 +22,12 @@ import {
   BUTTON_ACTIONS,
   firmwareLine,
   mappingRefusal,
+  otaAvailable,
   signalLabel,
   statusLine,
   UNUSED,
   updateLine,
+  updateRefusal,
 } from "../devices";
 import { errorMessage } from "../errors";
 import { useWingmanEvent } from "../hooks/useWingmanEvents";
@@ -121,6 +124,7 @@ export default function Device() {
   const [refusal, setRefusal] = useState<string | null>(null);
   const [saved, setSaved] = useState(false);
   const [deleting, setDeleting] = useState(false);
+  const [updateProblem, setUpdateProblem] = useState<string | null>(null);
 
   const readers = device?.readers ?? [];
   const buttons = device?.buttons ?? [];
@@ -158,6 +162,36 @@ export default function Device() {
       );
     },
     onError: (cause) => setRefusal(mappingRefusal(cause, readers, roleOf)),
+  });
+
+  /**
+   * Asking the device to fetch the bundled image itself. The answer is 204 and
+   * carries nothing, so the row this page draws is marked here: the flag is on
+   * the device (`update_requested_at`), which is what makes the line survive a
+   * reload and go on its own once the device has reported the new version.
+   * `devices.changed` refetches behind it, so nothing here has to guess when.
+   *
+   * Its refusal is not the mapping's: it belongs beside the button that caused
+   * it, and the Save row's line is cleared by every select on the page.
+   */
+  const askUpdate = useMutation({
+    ...requestDeviceUpdateMutation(),
+    onSuccess: () => {
+      setUpdateProblem(null);
+      queryClient.setQueryData<DeviceList>(listDevicesQueryKey(), (old) =>
+        old === undefined
+          ? old
+          : {
+              ...old,
+              devices: old.devices.map((row) =>
+                row.id === deviceId
+                  ? { ...row, update_requested_at: new Date().toISOString() }
+                  : row,
+              ),
+            },
+      );
+    },
+    onError: (cause) => setUpdateProblem(updateRefusal(cause)),
   });
 
   const remove = useMutation({
@@ -206,6 +240,18 @@ export default function Device() {
       ? null
       : updateLine(device, firmwareQuery.data ?? null);
   const firmware = device === undefined ? null : firmwareLine(device);
+
+  /* The update over Wi-Fi (§11.2). Three states, and only one of them is on
+     screen at a time: the ask stands, the image is there and the device is in
+     the room to take it, or the image is there and the device is not. A build
+     with no `ota_file` says none of it and the cable button stands alone. */
+  const requested =
+    device?.update_requested_at !== undefined &&
+    device?.update_requested_at !== null;
+  const overTheAir =
+    device !== undefined &&
+    !requested &&
+    otaAvailable(device, firmwareQuery.data ?? null);
 
   /** The role select of one reader. A reader that never answered the boot
    *  probe cannot carry a role, so its select is disabled — unless it still
@@ -285,7 +331,7 @@ export default function Device() {
                     />
                   </label>
 
-                  {/* The status, flat: three or four quiet lines, no tile. */}
+                  {/* The status, flat: a handful of quiet lines, no tile. */}
                   <div className="device-status">
                     <p className="section-note">{statusLine(device)}</p>
                     {firmware !== null && (
@@ -294,14 +340,27 @@ export default function Device() {
                     {update !== null && (
                       <p className="section-note">{update}</p>
                     )}
+                    {requested && (
+                      <p className="section-note">
+                        Update requested. The device fetches it on its next
+                        report and restarts.
+                      </p>
+                    )}
+                    {overTheAir && !device.online && (
+                      <p className="section-note">
+                        Connect the device to update it over Wi-Fi.
+                      </p>
+                    )}
                     {signal !== null && (
                       <p className="section-note">Signal: {signal}</p>
                     )}
                   </div>
 
-                  {/* Back into the wizard, at the step that does the job: both
-                      are the same six screens on a device that already exists,
-                      so neither names it again and neither mints a device. */}
+                  {/* Back into the wizard, at the step that does the job: the
+                      two links are the same six screens on a device that
+                      already exists, so neither names it again and neither
+                      mints a device. Between them stands the one control on
+                      this row that is not the wizard at all. */}
                   <div className="device-links">
                     <Link
                       className="button"
@@ -309,6 +368,23 @@ export default function Device() {
                     >
                       Update firmware
                     </Link>
+                    {/* Beside the cable and never instead of it: the wizard is
+                        the fallback whenever this fails, and a device that is
+                        away can only be flashed over the wire. `type` says
+                        button, or a press would submit the mapping form. */}
+                    {overTheAir && device.online && (
+                      <button
+                        type="button"
+                        className="button"
+                        disabled={askUpdate.isPending}
+                        onClick={() => {
+                          setUpdateProblem(null);
+                          askUpdate.mutate({ path: { device_id: device.id } });
+                        }}
+                      >
+                        Update over Wi-Fi
+                      </button>
+                    )}
                     <Link
                       className="button"
                       to={`/user/devices/new?device=${encodeURIComponent(device.id)}&step=configure`}
@@ -316,6 +392,12 @@ export default function Device() {
                       Change Wi-Fi or server
                     </Link>
                   </div>
+
+                  {updateProblem !== null && (
+                    <p className="error-notice devices-notice" role="alert">
+                      {updateProblem}
+                    </p>
+                  )}
 
                   <h2>Readers</h2>
                   <p className="section-note">

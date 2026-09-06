@@ -38,6 +38,9 @@ The roster below the slots holds everybody Wingman knows, with an account or
 without one. A guest sings under the name somebody typed for them.
 
 - :wingman-close: **Clear slot** takes the person on a slot back off it.
+- A slot a card holds carries the :wingman-card: card mark and no clear button.
+  Tapping it answers *That slot is held by a card on the player selector.* Lift
+  the card off the reader to free the slot.
 - With more than twelve players, a **Filter players** box appears above the
   roster. Type any part of a name and only the matching people stay visible.
   Filtering only hides rows. Nobody loses a slot by being filtered away.
@@ -51,7 +54,10 @@ earlier does not bring them back. See
 
 !!! note
     Your slot assignment is remembered in your browser. The same group does not
-    have to pick again for every song.
+    have to pick again for every song. One exception: while a
+    [player selector device](../selector/index.md) is connected, the slots start
+    empty, and the picker says so under them: *A player selector is connected.
+    The cards decide who sings. You can still change it here.*
 
 ## While the song plays
 

@@ -31,7 +31,7 @@ const {
   getPlayerSelection,
   setPlayerSelectionSlots,
   startPlayerSelection,
-  closePlayerSelection,
+  getDeviceStatus,
 } = vi.hoisted(() => ({
   listKaraokeSlots: vi.fn(),
   listPlayers: vi.fn(),
@@ -41,7 +41,7 @@ const {
   getPlayerSelection: vi.fn(),
   setPlayerSelectionSlots: vi.fn(),
   startPlayerSelection: vi.fn(),
-  closePlayerSelection: vi.fn(),
+  getDeviceStatus: vi.fn(),
 }));
 
 vi.mock("../api/sdk.gen", async (importOriginal) => ({
@@ -54,7 +54,7 @@ vi.mock("../api/sdk.gen", async (importOriginal) => ({
   getPlayerSelection,
   setPlayerSelectionSlots,
   startPlayerSelection,
-  closePlayerSelection,
+  getDeviceStatus,
 }));
 
 const SONG: SongRead = {
@@ -77,6 +77,9 @@ function player(id: string, name: string, hidden = false): PlayerRead {
 }
 
 const PLAYERS = [player("aaa", "Alice"), player("bbb", "Bob")];
+
+/** The line a tap on a slot a card holds is answered with. */
+const HELD = "That slot is held by a card on the player selector.";
 
 /** The token the fake backend hands out. It is never drawn, only sent back. */
 const TOKEN = "selection-token";
@@ -203,6 +206,25 @@ function putBody(index: number): SlotCreate[] {
 
 const fetchMock = vi.fn();
 
+/** Every `DELETE …/selection` this modal has made so far. Cancel, the unmount
+ *  and a closing tab all go through the one hand-written `fetch`. */
+function releases(): unknown[][] {
+  return fetchMock.mock.calls.filter((args) =>
+    String(args[0]).startsWith("/api/v1/karaoke/selection"),
+  );
+}
+
+/** What every close has to look like: the token in the header and nowhere else. */
+function expectRelease(call: unknown[]): void {
+  // No query at all: a token in the URL lands in an access log.
+  expect(call[0]).toBe("/api/v1/karaoke/selection");
+  expect(call[1]).toMatchObject({
+    method: "DELETE",
+    keepalive: true,
+    headers: { "X-Selection-Token": TOKEN },
+  });
+}
+
 beforeEach(() => {
   window.localStorage.clear();
   writes = 0;
@@ -233,8 +255,9 @@ beforeEach(() => {
   );
   startPlayerSelection.mockReset();
   startPlayerSelection.mockResolvedValue({ data: {} });
-  closePlayerSelection.mockReset();
-  closePlayerSelection.mockResolvedValue({ data: undefined });
+  // No player selector in the room unless a test puts one there.
+  getDeviceStatus.mockReset();
+  getDeviceStatus.mockResolvedValue({ data: { online: false } });
   getPlayerSelection.mockReset();
   getPlayerSelection.mockResolvedValue({ data: { selection: null } });
   createPlayer.mockReset();
@@ -361,7 +384,12 @@ test("a slot the device filled redraws without a tap", async () => {
     ]),
   );
 
-  expect(slot("red")).toHaveAccessibleName("Slot red: Bob");
+  // The card that put him there is said as well as drawn, and the slot the
+  // card holds has no clear button.
+  expect(slot("red")).toHaveAccessibleName("Slot red: Bob, held by a card");
+  expect(
+    screen.queryByRole("button", { name: "Clear slot red" }),
+  ).not.toBeInTheDocument();
   expect(setPlayerSelectionSlots).not.toHaveBeenCalled();
 });
 
@@ -383,6 +411,123 @@ test("a card nobody owns says so on its slot", async () => {
   expect(
     screen.queryByRole("button", { name: "Clear slot blue" }),
   ).not.toBeInTheDocument();
+});
+
+/** A selection with one card lying on the blue slot's reader. */
+function withCardOnBlue(player: PlayerRead | null): SelectionRead {
+  return selectionWith([
+    { color: "blue", player, card_uid: "A1B2C3D4" },
+    { color: "red", player: null, card_uid: null },
+    { color: "green", player: null, card_uid: null },
+  ]);
+}
+
+test("a slot a card holds cannot be cleared or picked", async () => {
+  renderSelection();
+  await screen.findByRole("button", { name: "Slot blue: empty" });
+
+  broadcast(withCardOnBlue(PLAYERS[1]));
+
+  // The card decides who stands there, so there is nothing to clear and nothing
+  // to point somewhere else.
+  expect(
+    screen.queryByRole("button", { name: "Clear slot blue" }),
+  ).not.toBeInTheDocument();
+  expect(slot("blue")).toHaveAttribute("aria-disabled", "true");
+
+  fireEvent.click(slot("blue"));
+
+  expect(slot("blue")).toHaveAttribute("aria-pressed", "false");
+  expect(screen.getByText(HELD)).toBeInTheDocument();
+  // Said, not only drawn: the slot list is above the roster and out of view.
+  expect(screen.getByText(HELD)).toHaveAttribute("role", "status");
+
+  // The next tap that does something puts the ordinary line back.
+  fireEvent.click(slot("red"));
+  expect(screen.queryByText(HELD)).not.toBeInTheDocument();
+});
+
+test("a tap on a player skips the slot a card holds", async () => {
+  renderSelection();
+  await screen.findByRole("button", { name: "Slot blue: empty" });
+
+  // An unknown card on blue: nobody stands there, and the next free slot is
+  // still not blue.
+  broadcast(withCardOnBlue(null));
+  fireEvent.click(screen.getByRole("button", { name: "Alice" }));
+
+  await waitFor(() => expect(setPlayerSelectionSlots).toHaveBeenCalledTimes(1));
+  expect(putBody(0)).toEqual([{ color: "red", player_id: "aaa" }]);
+});
+
+test("the slot a card holds is sent back unchanged", async () => {
+  renderSelection();
+  await screen.findByRole("button", { name: "Slot blue: empty" });
+
+  broadcast(withCardOnBlue(PLAYERS[1]));
+  fireEvent.click(screen.getByRole("button", { name: "Alice" }));
+
+  // Bob rides along in the body: the backend keeps the card on a slot the phone
+  // sends back as his, and drops it the moment the phone leaves him out.
+  await waitFor(() => expect(setPlayerSelectionSlots).toHaveBeenCalledTimes(1));
+  expect(putBody(0)).toEqual([
+    { color: "blue", player_id: "bbb" },
+    { color: "red", player_id: "aaa" },
+  ]);
+});
+
+test("a card that lands mid-write rides along in the tap that follows", async () => {
+  setRoster([...PLAYERS, player("ccc", "Cara")]);
+  let release: (() => void) | null = null;
+  setPlayerSelectionSlots.mockImplementationOnce(
+    async (options: { body: { slots?: SlotCreate[] } }) => {
+      await new Promise<void>((resolve) => {
+        release = resolve;
+      });
+      return { data: selectionFrom(options.body.slots) };
+    },
+  );
+  renderSelection();
+  await screen.findByRole("button", { name: "Slot blue: empty" });
+
+  fireEvent.click(screen.getByRole("button", { name: "Alice" }));
+  await waitFor(() => expect(setPlayerSelectionSlots).toHaveBeenCalledTimes(1));
+
+  // A card lands on red while that write is still in flight. The next tap is
+  // computed from what this phone asked for last, which knows nothing of it.
+  broadcast(
+    selectionWith([
+      { color: "blue", player: PLAYERS[0], card_uid: null },
+      { color: "red", player: PLAYERS[1], card_uid: "A1B2C3D4" },
+      { color: "green", player: null, card_uid: null },
+    ]),
+  );
+  fireEvent.click(screen.getByRole("button", { name: "Cara" }));
+
+  await act(async () => {
+    release?.();
+  });
+
+  // Bob is in the body: a slot left out of one is how the backend is told the
+  // card is gone, and the room would lose the singer their card put there.
+  await waitFor(() => expect(setPlayerSelectionSlots).toHaveBeenCalledTimes(2));
+  expect(putBody(1)).toEqual([
+    { color: "blue", player_id: "aaa" },
+    { color: "red", player_id: "bbb" },
+    { color: "green", player_id: "ccc" },
+  ]);
+});
+
+test("a singer their card put on a slot is not taken off by a tap", async () => {
+  renderSelection();
+  await screen.findByRole("button", { name: "Slot blue: empty" });
+
+  broadcast(withCardOnBlue(PLAYERS[1]));
+  fireEvent.click(screen.getByRole("button", { name: "Bob" }));
+
+  expect(screen.getByText(HELD)).toBeInTheDocument();
+  expect(setPlayerSelectionSlots).not.toHaveBeenCalled();
+  expect(slot("blue")).toHaveAccessibleName("Slot blue: Bob, held by a card");
 });
 
 test("an older broadcast never overwrites a newer answer", async () => {
@@ -627,10 +772,8 @@ test("cancel gives the room's selection back", async () => {
 
   fireEvent.click(screen.getByRole("button", { name: "Cancel" }));
 
-  await waitFor(() => expect(closePlayerSelection).toHaveBeenCalledTimes(1));
-  expect(closePlayerSelection.mock.calls[0][0].query).toEqual({
-    token: TOKEN,
-  });
+  await waitFor(() => expect(releases()).toHaveLength(1));
+  expectRelease(releases()[0]);
   expect(onClose).toHaveBeenCalled();
 });
 
@@ -657,14 +800,8 @@ test("a selection that opens after cancel is given straight back", async () => {
     land?.();
   });
 
-  await waitFor(() =>
-    expect(
-      fetchMock.mock.calls.some((args) =>
-        String(args[0]).includes(`token=${TOKEN}`),
-      ),
-    ).toBe(true),
-  );
-  expect(closePlayerSelection).not.toHaveBeenCalled();
+  await waitFor(() => expect(releases()).toHaveLength(1));
+  expectRelease(releases()[0]);
 });
 
 test("a modal that simply goes away gives it back too", async () => {
@@ -673,22 +810,10 @@ test("a modal that simply goes away gives it back too", async () => {
 
   unmount();
 
-  const call = fetchMock.mock.calls.find((args) =>
-    String(args[0]).startsWith("/api/v1/karaoke/selection"),
-  );
-  expect(call?.[0]).toBe(
-    `/api/v1/karaoke/selection?token=${encodeURIComponent(TOKEN)}`,
-  );
   // The page may be going away with the request, so it has to outlive it.
-  expect(call?.[1]).toMatchObject({ method: "DELETE", keepalive: true });
+  expect(releases()).toHaveLength(1);
+  expectRelease(releases()[0]);
 });
-
-/** Every `DELETE …/selection` the keepalive path has made so far. */
-function releases(): unknown[][] {
-  return fetchMock.mock.calls.filter((args) =>
-    String(args[0]).startsWith("/api/v1/karaoke/selection"),
-  );
-}
 
 /** A page ending, the way a closing tab or a navigation away announces it. */
 function pageHide(persisted: boolean): void {
@@ -708,10 +833,7 @@ test("a tab that closes gives the room's selection back", async () => {
   pageHide(false);
 
   expect(releases()).toHaveLength(1);
-  expect(releases()[0][0]).toBe(
-    `/api/v1/karaoke/selection?token=${encodeURIComponent(TOKEN)}`,
-  );
-  expect(releases()[0][1]).toMatchObject({ method: "DELETE", keepalive: true });
+  expectRelease(releases()[0]);
 
   // The unmount that follows finds the token gone: the room is given back once.
   unmount();
@@ -1030,8 +1152,9 @@ test("a filter that matches nobody says so and still offers the add form", async
 
   // Spoken, not just drawn: the reader is in the field with the grid out of
   // view, so the one thing that changed has to reach a screen reader.
-  expect(screen.getByRole("status")).toHaveTextContent(
-    "No player matches that.",
+  expect(screen.getByText("No player matches that.")).toHaveAttribute(
+    "role",
+    "status",
   );
   expect(document.querySelector(".player-selection-players")).toBeNull();
   // Adding is exactly what an empty result invites, so the form stays.
@@ -1075,4 +1198,24 @@ test("the sing button in the song details opens the player selection", async () 
   expect(
     await screen.findByRole("dialog", { name: "Player selection" }),
   ).toHaveTextContent("Dancing Queen");
+});
+
+/** The line that says the room is picking with cards. */
+const SELECTOR_LINE = /A player selector is connected/;
+
+test("a connected selector is said out loud under the slots", async () => {
+  getDeviceStatus.mockResolvedValue({ data: { online: true } });
+  renderSelection();
+  await screen.findByRole("button", { name: "Slot blue: empty" });
+
+  expect(await screen.findByText(SELECTOR_LINE)).toHaveTextContent(
+    "You can still change it here.",
+  );
+});
+
+test("no selector in the room, nothing about one", async () => {
+  renderSelection();
+  await screen.findByRole("button", { name: "Slot blue: empty" });
+
+  expect(screen.queryByText(SELECTOR_LINE)).not.toBeInTheDocument();
 });

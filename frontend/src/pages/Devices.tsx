@@ -32,13 +32,17 @@ import PlayerAvatar from "../components/PlayerAvatar";
 import { SettingSaved } from "../components/SettingField";
 import "../components/PickerRow.css";
 import "../components/SettingField.css";
-import { deviceMeta } from "../devices";
+import { deviceMeta, START_WITHOUT_SELECTION } from "../devices";
 import { errorDetail, errorMessage, missingPermission } from "../errors";
 import { useWingmanEvent } from "../hooks/useWingmanEvents";
 import "./Devices.css";
 
 /** The bound `devices/settings.py` puts on the countdown. */
 const MAX_DELAY_SECONDS = 30;
+
+/** The bounds it puts on how long an untouched selection is kept. */
+const MIN_IDLE_SECONDS = 30;
+const MAX_IDLE_SECONDS = 900;
 
 /** What a card nobody has claimed is called, on the reader row and in the
  *  panel that claims it. One phrase, so the panel says what was tapped. */
@@ -66,7 +70,7 @@ interface FieldProps {
 /**
  * One settings row in the Settings page's shape (§7): the label with its
  * acknowledgement on the first line, the quiet box alone on the second, the
- * 0.85em description under both. These three are not registered settings —
+ * 0.85em description under both. These five are not registered settings —
  * `devices/settings.py` keeps them private, behind `devices.manage` rather than
  * `settings.manage` — so the row is rebuilt on the same classes, exactly as the
  * achievements admin rebuilds its own.
@@ -100,6 +104,67 @@ function DeviceSettingRow({
         {description}
       </p>
     </div>
+  );
+}
+
+interface SecondsProps {
+  inputId: string;
+  describedBy: string;
+  /** What the backend holds. Drawn whenever nobody is typing over it. */
+  value: number;
+  min: number;
+  max: number;
+  disabled: boolean;
+  onCommit: (seconds: number) => void;
+}
+
+/**
+ * A number of seconds in the quiet box of a settings row, written when the
+ * field is left or Enter is pressed. Two of the five rows are this, and the
+ * commit rule is fiddly enough (blank is a cancel, an unchanged number is not a
+ * write, Enter is a blur rather than a submit) that one copy of it is one
+ * behaviour.
+ *
+ * The draft is non-null only while somebody is typing in it, so a
+ * `devices.changed` from another browser still reaches a field nobody is
+ * editing.
+ */
+function SecondsInput({
+  inputId,
+  describedBy,
+  value,
+  min,
+  max,
+  disabled,
+  onCommit,
+}: SecondsProps) {
+  const [draft, setDraft] = useState<string | null>(null);
+
+  return (
+    <input
+      className="text-input text-input-quiet setting-input"
+      id={inputId}
+      aria-describedby={describedBy}
+      type="number"
+      min={min}
+      max={max}
+      value={draft ?? String(value)}
+      disabled={disabled}
+      onChange={(event) => setDraft(event.target.value)}
+      onBlur={() => {
+        const typed = draft;
+        setDraft(null);
+        if (typed === null || typed.trim() === "") return;
+        const parsed = Number(typed);
+        if (Number.isNaN(parsed) || parsed === value) return;
+        onCommit(parsed);
+      }}
+      onKeyDown={(event) => {
+        if (event.key !== "Enter") return;
+        event.preventDefault();
+        event.currentTarget.blur();
+      }}
+    />
   );
 }
 
@@ -177,7 +242,7 @@ function CardPicker({
 
 /**
  * The player selector, behind the `devices.manage` entry of the manage menu
- * (§7): the three options the feature has, the devices as rows into their own
+ * (§7): the five options the feature has, the devices as rows into their own
  * pages, and the cards.
  *
  * The cards come in two lists because they answer two different questions. *On
@@ -231,7 +296,7 @@ export default function Devices() {
     return () => clearTimeout(timer);
   }, [justSaved, reset]);
 
-  // Which of the three rows the acknowledgement belongs to: the one that was
+  // Which of the five rows the acknowledgement belongs to: the one that was
   // patched, so saving the toggle does not light the word beside a number.
   const savedField = justSaved
     ? (Object.keys(save.variables?.body ?? {})[0] ?? null)
@@ -241,10 +306,6 @@ export default function Devices() {
     save.reset();
     save.mutate({ body });
   };
-
-  // Non-null only while the delay is being typed in, so a `devices.changed`
-  // from another browser still reaches a field nobody is editing.
-  const [delayDraft, setDelayDraft] = useState<string | null>(null);
 
   /* ---------------------------------------------------------- the cards */
 
@@ -381,33 +442,16 @@ export default function Devices() {
                     saved={savedField === "auto_start_delay_s"}
                   >
                     {(inputId, describedBy) => (
-                      <input
-                        className="text-input text-input-quiet setting-input"
-                        id={inputId}
-                        aria-describedby={describedBy}
-                        type="number"
+                      <SecondsInput
+                        inputId={inputId}
+                        describedBy={describedBy}
+                        value={options.auto_start_delay_s}
                         min={0}
                         max={MAX_DELAY_SECONDS}
-                        value={delayDraft ?? String(options.auto_start_delay_s)}
                         disabled={save.isPending}
-                        onChange={(event) => setDelayDraft(event.target.value)}
-                        onBlur={() => {
-                          const draft = delayDraft;
-                          setDelayDraft(null);
-                          if (draft === null || draft.trim() === "") return;
-                          const parsed = Number(draft);
-                          if (
-                            Number.isNaN(parsed) ||
-                            parsed === options.auto_start_delay_s
-                          )
-                            return;
-                          patch({ auto_start_delay_s: parsed });
-                        }}
-                        onKeyDown={(event) => {
-                          if (event.key !== "Enter") return;
-                          event.preventDefault();
-                          event.currentTarget.blur();
-                        }}
+                        onCommit={(seconds) =>
+                          patch({ auto_start_delay_s: seconds })
+                        }
                       />
                     )}
                   </DeviceSettingRow>
@@ -431,6 +475,53 @@ export default function Devices() {
                           patch({ rescan_removes: event.target.checked })
                         }
                       />
+                    )}
+                  </DeviceSettingRow>
+
+                  <DeviceSettingRow
+                    id="selection_idle_s"
+                    label="Time before an idle selection closes"
+                    description="A phone that stopped picking gives the room back after this long. Seconds, 30 to 900."
+                    saved={savedField === "selection_idle_s"}
+                  >
+                    {(inputId, describedBy) => (
+                      <SecondsInput
+                        inputId={inputId}
+                        describedBy={describedBy}
+                        value={options.selection_idle_s}
+                        min={MIN_IDLE_SECONDS}
+                        max={MAX_IDLE_SECONDS}
+                        disabled={save.isPending}
+                        onCommit={(seconds) =>
+                          patch({ selection_idle_s: seconds })
+                        }
+                      />
+                    )}
+                  </DeviceSettingRow>
+
+                  <DeviceSettingRow
+                    id="start_without_selection"
+                    label="When the start button is pressed with nothing open"
+                    description="The two song options take their singers from the cards lying on the readers. With no card on any reader, nothing happens."
+                    saved={savedField === "start_without_selection"}
+                  >
+                    {(inputId, describedBy) => (
+                      <select
+                        className="text-input text-input-quiet setting-input"
+                        id={inputId}
+                        aria-describedby={describedBy}
+                        value={options.start_without_selection}
+                        disabled={save.isPending}
+                        onChange={(event) =>
+                          patch({ start_without_selection: event.target.value })
+                        }
+                      >
+                        {START_WITHOUT_SELECTION.map((choice) => (
+                          <option key={choice.value} value={choice.value}>
+                            {choice.label}
+                          </option>
+                        ))}
+                      </select>
                     )}
                   </DeviceSettingRow>
 

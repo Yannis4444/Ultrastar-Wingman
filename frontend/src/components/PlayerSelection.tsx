@@ -2,7 +2,6 @@ import { useMutation, useQuery } from "@tanstack/react-query";
 import { useEffect, useRef, useState } from "react";
 import type { PlayerRead, SelectionRead, SlotCreate, SongRead } from "../api";
 import {
-  closePlayerSelectionMutation,
   getPlayerSelectionOptions,
   listKaraokeSlotsOptions,
   listPlayersOptions,
@@ -13,6 +12,7 @@ import {
 import { useAuth } from "../auth";
 import { parseServerTime } from "../duration";
 import { errorDetail, errorMessage, usdxProblems } from "../errors";
+import { useSelectorStatus } from "../hooks/useSelectorStatus";
 import { useWingmanEvent, type WingmanEvent } from "../hooks/useWingmanEvents";
 import AddPlayerForm from "./AddPlayerForm";
 import ConfirmModal from "./ConfirmModal";
@@ -25,8 +25,13 @@ import "./PlayerSelection.css";
 
 const SLOTS_STORAGE_KEY = "wingman.playerSlots";
 
-/** The route the unmount close talks to, the one call the generated client cannot make. */
+/** The one route every close goes to. The token rides in a header, never in the
+ *  query: a `DELETE …?token=` lands in the access log of whatever sits in front
+ *  of Wingman, and the room's lock would be readable there. */
 const SELECTION_URL = "/api/v1/karaoke/selection";
+
+/** The hint a tap on a slot a card holds is answered with. */
+const HELD_HINT = "That slot is held by a card on the player selector.";
 
 /**
  * Above this many players the roster gets a filter field. Under it the grid is
@@ -103,13 +108,15 @@ function rememberedAssignment(
 }
 
 /**
- * Give the room's selection back over a request that outlives this component.
- * The page may be going away with it, which cancels the generated client's
- * fetch halfway; `keepalive` is what carries this one out of a closing tab.
+ * Give the room's selection back. Every close comes through here, Cancel
+ * included: the page may be going away with the request, which cancels the
+ * generated client's fetch halfway, and `keepalive` is what carries this one
+ * out of a closing tab.
  */
 function release(token: string): void {
-  void fetch(`${SELECTION_URL}?token=${encodeURIComponent(token)}`, {
+  void fetch(SELECTION_URL, {
     method: "DELETE",
+    headers: { "X-Selection-Token": token },
     keepalive: true,
     credentials: "same-origin",
     // Nobody is waiting for the answer, and there is nothing to report it to.
@@ -152,6 +159,10 @@ export default function PlayerSelection({
   onClose,
 }: PlayerSelectionProps) {
   const auth = useAuth();
+  // Whether the room is picking with cards. It is why the board opened empty
+  // (the backend drops the remembered slots while a device is online), so the
+  // picker says so rather than leaving the reader to wonder.
+  const selector = useSelectorStatus();
   // The host's setting decides how many people sing and in which colors. The
   // open selection carries the same colors; this is what has their hex, and
   // what seeds the very first request.
@@ -160,7 +171,12 @@ export default function PlayerSelection({
 
   const [phase, setPhase] = useState<Phase>("opening");
   const [selection, setSelection] = useState<SelectionRead | null>(null);
-  const [activeColor, setActiveColor] = useState<string | null>(null);
+  // The slot the next tap on a player fills. Read through `activeColor` below:
+  // a card can land on it after it was picked.
+  const [pickedColor, setPickedColor] = useState<string | null>(null);
+  // True for as long as the hint answers the tap on a slot a card holds. The
+  // next tap that does something clears it.
+  const [heldNotice, setHeldNotice] = useState(false);
   const [askReplace, setAskReplace] = useState(false);
   const [askTakeOver, setAskTakeOver] = useState(false);
   const [filter, setFilter] = useState("");
@@ -206,6 +222,19 @@ export default function PlayerSelection({
     if (slot.player !== null) assignment[slot.color] = slot.player.id;
   }
 
+  // The slots a card is lying on. Whoever stands on one stands there because
+  // somebody put a card down in the room, and the phone neither empties it nor
+  // points it at somebody else: the backend keeps the card either way, and the
+  // phone would only be pretending.
+  const heldColors = new Set(
+    drawn.filter((slot) => slot.card_uid !== null).map((slot) => slot.color),
+  );
+  // A card can land on the slot that is picked. It stops being the phone's the
+  // moment it does, so the tap on a player that follows fills a free slot
+  // instead of repointing a card.
+  const activeColor =
+    pickedColor !== null && heldColors.has(pickedColor) ? null : pickedColor;
+
   // This is the one surface hiding a player is for: somebody put out of sight
   // for the evening is not offered here and not standing on a slot either.
   const roster = (players.data?.players ?? []).filter(
@@ -221,7 +250,8 @@ export default function PlayerSelection({
     queuedRef.current = null;
     desiredRef.current = null;
     pendingRef.current = false;
-    setActiveColor(null);
+    setPickedColor(null);
+    setHeldNotice(false);
     // Whatever the last write complained about is over with the selection it
     // was about, and the head has one line to say.
     setNotice(null);
@@ -346,8 +376,6 @@ export default function PlayerSelection({
     },
   });
 
-  const close = useMutation(closePlayerSelectionMutation());
-
   const { mutate: openSelection } = open;
   const playerRows = players.data?.players;
   const slotColors = slots.data?.slots;
@@ -430,11 +458,44 @@ export default function PlayerSelection({
     apply(next);
   });
 
+  /**
+   * What the next tap builds on: what this phone last asked for, with every
+   * slot a card holds put back the way the room has it.
+   *
+   * A card can land while a write is in flight, and the tap that follows is
+   * computed from what this phone asked for last — which knows nothing of it.
+   * The body of that write would leave the slot out, and a slot left out of a
+   * body is exactly how the backend is told the card is gone (`_keep_cards`):
+   * the singer their card put there would be taken off by somebody else's tap.
+   */
+  const baseAssignment = (): Assignment => {
+    const base: Assignment = { ...(desiredRef.current ?? assignment) };
+    for (const slot of drawn) {
+      if (slot.card_uid === null) continue;
+      if (slot.player === null) {
+        // An unknown card, which the phone can only send back as an empty slot.
+        delete base[slot.color];
+        continue;
+      }
+      // One person stands on one slot: theirs is the one the card is on.
+      for (const [color, id] of Object.entries(base))
+        if (id === slot.player.id) delete base[color];
+      base[slot.color] = slot.player.id;
+    }
+    return base;
+  };
+
   /** Puts a player on the active slot (or the first free one) and nowhere else. */
   const assign = (playerId: string): void => {
-    const base = desiredRef.current ?? assignment;
+    setHeldNotice(false);
+    const base = baseAssignment();
+    // The first free slot is the first with neither a player nor a card on it:
+    // a card holds its slot, and a tap on a player skips past it.
     const target =
-      activeColor ?? colorNames.find((color) => base[color] === undefined);
+      activeColor ??
+      colorNames.find(
+        (color) => base[color] === undefined && !heldColors.has(color),
+      );
     if (target === undefined) return;
     const next: Assignment = {};
     for (const [color, id] of Object.entries(base)) {
@@ -442,11 +503,12 @@ export default function PlayerSelection({
     }
     next[target] = playerId;
     send(next);
-    setActiveColor(null);
+    setPickedColor(null);
   };
 
   const clear = (color: string): void => {
-    const next = { ...(desiredRef.current ?? assignment) };
+    setHeldNotice(false);
+    const next = baseAssignment();
     delete next[color];
     send(next);
   };
@@ -458,6 +520,12 @@ export default function PlayerSelection({
    */
   const toggle = (playerId: string): void => {
     const on = takenColor(playerId);
+    // Their own card is on the reader: taking them off the slot, or moving them
+    // to another one, is the one thing this tap may not do.
+    if (on !== undefined && heldColors.has(on)) {
+      setHeldNotice(true);
+      return;
+    }
     if (on !== undefined && (activeColor === null || activeColor === on))
       clear(on);
     else assign(playerId);
@@ -496,7 +564,8 @@ export default function PlayerSelection({
     closedRef.current = true;
     const token = tokenRef.current;
     tokenRef.current = null;
-    if (token !== null) close.mutate({ query: { token } });
+    openedAtRef.current = null;
+    if (token !== null) release(token);
     onClose();
   };
 
@@ -504,7 +573,11 @@ export default function PlayerSelection({
     slots.data?.slots.find((slot) => slot.name === color)?.hex;
 
   const chosen = drawn.filter((slot) => slot.player !== null).length;
-  const full = drawn.length > 0 && chosen === drawn.length;
+  // Full means there is nowhere left for a tap to put somebody, which a slot an
+  // unknown card holds is as much as a slot somebody stands on.
+  const full =
+    drawn.length > 0 &&
+    !drawn.some((slot) => slot.player === null && slot.card_uid === null);
   const countdown = useSecondsUntil(selection?.auto_start_at ?? null);
   const picking = phase === "picking";
 
@@ -526,8 +599,9 @@ export default function PlayerSelection({
   // One line that always says what a tap on a player will do — the two-step
   // "pick a slot, then a person" is invisible without it, and a full board
   // would otherwise swallow taps in silence.
-  const hint =
-    activeColor !== null
+  const hint = heldNotice
+    ? HELD_HINT
+    : activeColor !== null
       ? "Pick a player for the outlined slot."
       : full
         ? "All slots are full. Tap a slot to change it."
@@ -595,7 +669,8 @@ export default function PlayerSelection({
             <ul className="player-selection-slots">
               {drawn.map((slot) => {
                 const active = activeColor === slot.color;
-                const unknown = slot.player === null && slot.card_uid !== null;
+                const held = slot.card_uid !== null;
+                const unknown = slot.player === null && held;
                 const name = slotName(slot.player, slot.card_uid);
                 return (
                   <li
@@ -612,22 +687,44 @@ export default function PlayerSelection({
                     <button
                       type="button"
                       className="player-selection-slot-button"
-                      aria-label={`Slot ${slot.color}: ${name}`}
+                      // The card is what "Unknown card" already says, so only a
+                      // named singer needs telling that a card put them there.
+                      aria-label={
+                        held && slot.player !== null
+                          ? `Slot ${slot.color}: ${name}, held by a card`
+                          : `Slot ${slot.color}: ${name}`
+                      }
                       aria-pressed={active}
-                      onClick={() => setActiveColor(active ? null : slot.color)}
+                      aria-disabled={held || undefined}
+                      onClick={() => {
+                        if (held) {
+                          setHeldNotice(true);
+                          return;
+                        }
+                        setHeldNotice(false);
+                        setPickedColor(active ? null : slot.color);
+                      }}
                     >
                       <PlayerAvatar player={slot.player} />
-                      <span
-                        className={
-                          slot.player !== null
-                            ? "player-selection-slot-name"
-                            : "player-selection-slot-name player-selection-empty"
-                        }
-                      >
-                        {name}
+                      <span className="player-selection-slot-label">
+                        <span
+                          className={
+                            slot.player !== null
+                              ? "player-selection-slot-name"
+                              : "player-selection-slot-name player-selection-empty"
+                          }
+                        >
+                          {name}
+                        </span>
+                        {held && (
+                          <Icon
+                            name="card"
+                            className="player-selection-slot-held"
+                          />
+                        )}
                       </span>
                     </button>
-                    {slot.player !== null && (
+                    {slot.player !== null && !held && (
                       <button
                         type="button"
                         className="icon-button"
@@ -641,6 +738,17 @@ export default function PlayerSelection({
                 );
               })}
             </ul>
+          )}
+
+          {/* The cards are picking too. Said under the slots, where the reader
+              is looking when somebody they did not tap appears on one, and
+              said at all because it is also why the board opened empty: the
+              backend drops the remembered slots while a device is online. */}
+          {picking && selector.online && (
+            <p className="player-selection-selector" role="status">
+              A player selector is connected. The cards decide who sings. You
+              can still change it here.
+            </p>
           )}
 
           {picking && countdown !== null && (
@@ -670,7 +778,7 @@ export default function PlayerSelection({
                 </p>
               ) : (
                 <>
-                  <p className="player-selection-hint" aria-live="polite">
+                  <p className="player-selection-hint" role="status">
                     {hint}
                   </p>
                   {filtering && (
