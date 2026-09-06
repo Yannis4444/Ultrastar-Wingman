@@ -29,10 +29,10 @@ site (`docs/user/`), never here.
   bundled firmware.
 - One new capability, `devices.manage`, for everything above that is configuration.
 
-**Not in v1** (kept possible): feedback on the device (LEDs, a display, a buzzer — the
-report's response body is reserved for it), a WebSocket to the device, network discovery
-(mDNS), ESP32-S3 / C3 builds, assigning a card from the phone's selection modal, a device
-that picks songs.
+**Not in v1** (kept possible): a display or a buzzer on the device, a WebSocket to the
+device, network discovery (mDNS), ESP32-S3 / C3 builds, assigning a card from the phone's
+selection modal, a device that picks songs. LEDs and the update over Wi-Fi were v1
+exclusions too; the second round (§11) added both, through the report's response body.
 
 ## 2. Hardware
 

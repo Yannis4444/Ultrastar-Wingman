@@ -124,7 +124,7 @@ committed. The rules are [firmware.md](docs/dev/firmware.md), the design
 
 | Path | Owns |
 |---|---|
-| `src/` | `pins.h` (the fixed pin map and `PROTOCOL_VERSION`), the pure modules the host tests cover — `CardTracker` (per-reader state machine), `Buttons` (debounce), `Report` (the report JSON and when one is due) — and the glue: `ReaderBus` (MFRC522v2 probe and poll), `Config` (NVS), `Net` (Wi-Fi, the POST, backoff), `SerialConsole` (the JSON-lines protocol over USB), `main.cpp` |
+| `src/` | `pins.h` (the fixed pin map and `PROTOCOL_VERSION`), the pure modules the host tests cover — `CardTracker` (per-reader state machine), `Buttons` (debounce), `Report` (the report JSON and when one is due), `Response` (the answer's `interval_s`, `leds` and `update` read out of the JSON) — and the glue: `ReaderBus` (MFRC522v2 probe and poll), `Config` (NVS), `Net` (Wi-Fi, the POST, backoff), `SerialConsole` (the JSON-lines protocol over USB), `Leds` (the optional NeoPixel strip on GPIO 13, one light per reader), `Updater` (HTTPUpdate over Wi-Fi with the device's bearer token), `main.cpp` |
 | `test/test_native/` | Unity tests of the three pure modules, run on the host by `pio test -e native` |
 | `scripts/`, `build.py` | the PlatformIO pre/post scripts (version, merged image) and the bundler that writes `wingman-esp32.bin` and `manifest.json` into `backend/src/ultrastar_wingman/devices/firmware/` |
 
