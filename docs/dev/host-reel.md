@@ -89,7 +89,7 @@ set where the phone does.
 - New `POST /karaoke/selection/spin` (`karaoke.sing`, token in `X-Selection-Token`):
   respin. Picks again in the stored scope for the stored viewer, replaces the song, keeps
   the slots, `spin.id += 1`, `spun_at = now`, touches `updated_at`, broadcasts. 404
-  `no_selection`, 403 for a stale token (whatever the other token routes answer), 409
+  `no_selection`, 409 `not_the_opener` for a stale token (what the other token routes answer), 409
   `not_a_spin` on a selection opened with a song, 409 `empty_pool`.
 - `POST /karaoke/selection/start` is unchanged: Play after a spin is the ordinary start.
 

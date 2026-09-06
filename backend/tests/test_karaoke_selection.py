@@ -1176,7 +1176,10 @@ async def test_a_spin_opens_the_selection_on_a_song_the_server_picked(
     assert spin["id"] == 1
     assert spin["scope"] == "all"
     assert spin["playlist_id"] is None
-    assert spin["spun_at"] is not None
+    # Aware, and UTC: the phone times its reveal off this, and a naive stamp would be read
+    # as local time by some clients and as UTC by others. Never stored, so unlike the
+    # timestamps that come back off SQLite it needs no `as_utc` on the way out.
+    assert datetime.fromisoformat(spin["spun_at"]).utcoffset() == timedelta(0)
     assert "viewer" not in spin
     # A spin is a selection like any other: the slots, the token, the countdown that is not.
     assert player_names(opened["selection"]["slots"]) == [None, "Alice", None, None]
@@ -1321,6 +1324,68 @@ async def test_all_songs_leaves_out_what_a_tag_folds_away_and_the_wishlist_does_
     assert wished["selection"]["song"]["id"] == folded
 
 
+async def test_the_start_button_folds_away_what_the_guest_sees_folded(
+    client: AsyncClient,
+    session: AsyncSession,
+    session_factory: async_sessionmaker[AsyncSession],
+    configured: FakeUsdx,
+    song: str,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """The button spins as the guest, and the fold follows the guest's own song list: a
+    `hide_by_default` tag folds its songs away for whoever may *view* it — an administrator
+    always may, which is what the phone test above proves and nothing more. Here the rows
+    decide. A tag the guest may view (and see the songs of) folds its song out of *All songs*
+    and leaves it on the wishlist; a tag the guest may not view — while still seeing its
+    songs — folds nothing, because on the guest's phone there is no criterion to fold with
+    (`tags.ts`'s `defaultTagCriteria` is built over the tags the reader can see)."""
+    other = await add_second_song(session, configured)
+    folded, kept = max(song, other), min(song, other)
+    pick_last(monkeypatch)
+    tag = await client.post(
+        "/api/v1/tags",
+        json={
+            "name": "archive",
+            "color": "neutral",
+            "hide_by_default": True,
+            "permissions": [
+                {"action": "view", "role": "guest"},
+                {"action": "view_songs", "role": "guest"},
+            ],
+        },
+    )
+    assert tag.status_code == 201, tag.text
+    tag_id = tag.json()["id"]
+    assert (await client.put(f"/api/v1/songs/{folded}/tags/{tag_id}")).status_code == 204
+    session.add(Wish(song_id=folded, guest_id="a-guest-cookie"))
+    await session.commit()
+
+    async def press(scope: str) -> str:
+        await selection.close_selection(any_opener=True)
+        await selection.button_pressed(
+            session,
+            session_factory,
+            "start",
+            without_selection=selection.StartWithoutSelection(mode="random", scope=scope),
+        )
+        spun = await selection.current_selection()
+        assert spun is not None and spun.spin is not None
+        assert spun.spin.scope == scope
+        return spun.song.id
+
+    assert await press("all") == kept
+    assert await press("wishlist") == folded
+
+    # The same tag, now one the guest may not know about but whose songs they still see:
+    # nothing folds, and the greater id is back in the running.
+    rows = await client.put(
+        f"/api/v1/tags/{tag_id}/permissions",
+        json={"permissions": [{"action": "view_songs", "role": "guest"}]},
+    )
+    assert rows.status_code == 200, rows.text
+    assert await press("all") == folded
+
+
 async def test_a_song_hidden_altogether_wins_in_no_scope(
     client: AsyncClient,
     session: AsyncSession,
@@ -1405,7 +1470,9 @@ async def test_a_scope_that_ran_dry_leaves_the_selection_standing(
     client: AsyncClient, song: str
 ) -> None:
     """The last wish was taken back between the spin and the respin. The song it landed on
-    stays: the phone can still press Play on it."""
+    stays: the phone can still press Play on it — and nothing else about the selection
+    moves either, its idle clock included: a refusal writes nothing, so the room hears
+    nothing and the `updated_at` it knows is still the right one."""
     assert (await client.post("/api/v1/wishlist", json={"song_id": song})).status_code == 201
     opened = await open_spin(client, "wishlist")
     assert (await client.delete(f"/api/v1/wishlist/{song}")).status_code == 204
@@ -1417,6 +1484,8 @@ async def test_a_scope_that_ran_dry_leaves_the_selection_standing(
     current = (await client.get("/api/v1/karaoke/selection")).json()["selection"]
     assert current["song"]["id"] == song
     assert current["spin"]["id"] == 1
+    assert current["updated_at"] == opened["selection"]["updated_at"]
+    assert current["spin"]["spun_at"] == opened["selection"]["spin"]["spun_at"]
 
 
 async def test_a_spun_selection_never_counts_down(

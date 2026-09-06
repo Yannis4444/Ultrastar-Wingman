@@ -592,8 +592,10 @@ async def button_pressed(
                 await _respin_locked(session, _selection)
             except EmptyPoolError:
                 # The scope ran dry under the selection. Nobody is on the other end of the
-                # button, so the song it has stays on the screen.
+                # button, so the song it has stays on the screen — and the press still counts
+                # as the room being busy with it, like every other press does.
                 logger.info("the selector's start button found nothing to spin again for")
+                _touch(_selection)
                 return
             await _broadcast_locked()
             return
@@ -809,17 +811,21 @@ async def _spin_without_selection_locked(
 async def _respin_locked(session: AsyncSession, selection: _Selection) -> None:
     """Pick again in the selection's own scope and put the song on it. The slots stay: the
     people are the same, only the song was wrong. Raises `NotASpinError` and
-    `EmptyPoolError`; the press counts as the room being busy either way."""
+    `EmptyPoolError` — before anything is written, so a refused respin leaves the selection
+    exactly as it stood, its idle clock included: a phone told "nothing to pick from" has
+    not touched the room, and an `updated_at` that moved without a broadcast would be a
+    selection the TV's idea of it cannot follow."""
     if selection.spin is None:
         raise NotASpinError
-    _touch(selection)
     spin = selection.spin
     song = await reel.pick_song(session, spin.scope, spin.viewer, playlist_id=spin.playlist_id)
     if song is None:
         raise EmptyPoolError(spin.scope)
+    now = _now()
     selection.song = read_song(song)
+    selection.updated_at = now
     spin.id += 1
-    spin.spun_at = _now()
+    spin.spun_at = now
 
 
 async def _card_players(
