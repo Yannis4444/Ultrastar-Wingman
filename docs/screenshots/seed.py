@@ -89,6 +89,14 @@ GUEST_COOKIE = "wingman_guest"
 STARTUP_TIMEOUT = 90.0
 PASS_TIMEOUT = 60.0
 
+# Wingman calls a device offline fifteen seconds after its last report, so a picture of a
+# selector page is taken over a heartbeat. Three seconds leaves room for a slow answer.
+DEVICE_HEARTBEAT_S = 3.0
+# The same fifteen seconds, and one more for the road: `up` does not return while the device
+# it just created is still online. A row that is not about the selector would otherwise find
+# a device in the room — empty slots on the player selection, the offline note on the TV.
+DEVICE_OFFLINE_S = 16.0
+
 
 class SeedError(RuntimeError):
     """Something the person running the seed has to fix."""
@@ -619,6 +627,84 @@ def add_comments(state: State) -> None:
     backdate_comments(Path(state.data["data_dir"]))
 
 
+def create_device(state: State) -> float:
+    """One player selector, wired the way the selector pages describe it.
+
+    The order is the device's own: Wingman learns what a reader is only from a report, and
+    a slot color on a reader that never answered is refused. So the device is created, it
+    reports once, and only then is the mapping written. The known card is given to its
+    holder afterwards, because assigning it needs nothing but the uid.
+
+    Writes the id, the token and the report body into the state, which is what
+    ``device_report`` and ``capture.py`` read. Answers the monotonic clock at the report, so
+    the caller can wait the device back out of the room: a device is online for fifteen
+    seconds after its last report, and keeping it there is the heartbeat's job alone.
+    """
+    api = state.api
+    created = api.post("/devices", json={"name": scenario.DEVICE_NAME})
+    device = {
+        "id": created["device"]["id"],
+        "token": created["token"],
+        "report": _report_body(),
+    }
+    state.data["device"] = device
+    device_report(state)
+    reported_at = time.monotonic()
+
+    colors = [slot["name"] for slot in api.get("/karaoke/slots")["slots"]]
+    if len(colors) < 2:
+        raise SeedError(f"the host has {len(colors)} slot colors, the device wants two")
+    api.patch(
+        f"/devices/{device['id']}",
+        json={
+            "reader_roles": {"0": f"slot:{colors[0]}", "1": f"slot:{colors[1]}"},
+            "button_actions": {"0": "start", "1": "clear", "2": "cancel", "3": "none"},
+        },
+    )
+    api.put(
+        f"/devices/cards/{scenario.KNOWN_CARD}",
+        json={"player_id": state.data["players"][scenario.CARD_HOLDER]},
+    )
+    device["slot_colors"] = colors[:2]
+    return reported_at
+
+
+def _report_body() -> dict[str, Any]:
+    """The one report the device sends, over and over. Two wired readers with a card on
+    each, four positions nothing answered on, and four buttons nobody has pressed."""
+    readers = [
+        {"index": 0, "state": "wired", "version": "92", "uid": scenario.KNOWN_CARD},
+        {"index": 1, "state": "wired", "version": "92", "uid": scenario.UNKNOWN_CARD},
+    ] + [{"index": index, "state": "none", "version": "00", "uid": None} for index in range(2, 6)]
+    return {
+        "protocol": 1,
+        "firmware": scenario.DEVICE_FIRMWARE,
+        "uptime_s": 4210,
+        "rssi": -58,
+        "readers": readers,
+        "buttons": [{"index": index, "presses": 0} for index in range(4)],
+    }
+
+
+def device_report(state: State) -> None:
+    """Send the device's report once. Fifteen seconds of being online, and no more.
+
+    The heartbeat a capture run holds a selector picture with, and the same body every
+    time, so the room never shifts between two reports.
+    """
+    device = state.data.get("device")
+    if device is None:
+        raise SeedError("no device in the state file — run 'seed.py up' first")
+    response = httpx.post(
+        f"{state.data['base_url']}/api/v1/devices/report",
+        json=device["report"],
+        headers={"Authorization": f"Bearer {device['token']}"},
+        timeout=30.0,
+    )
+    if response.status_code >= 400:
+        raise SeedError(f"the device report answered {response.status_code}: {response.text}")
+
+
 def achievement_archive() -> bytes:
     """The party's own achievements as an import archive.
 
@@ -799,9 +885,18 @@ def command_up(arguments: argparse.Namespace) -> int:
         state.data["achievements_order"] = arrange_catalogue(host)
         set_host_seconds(host, scenario.HOST_SECONDS_BASE, scenario.HOST_SECONDS_PER_BADGE)
         state.data["download_ids"] = write_downloads(data_dir)
+        # Before the wait below, which can take a minute: the device is meant to be offline
+        # again by the time anybody photographs a page that is not about it.
+        reported_at = create_device(state)
         state.data["pending_achievement"] = wait_for_pending_achievement(
             host, players[scenario.PENDING_SINGER]
         )
+        # The achievements pass usually takes longer than this, but not always, and a run
+        # that photographs one row starts the moment `up` returns.
+        remaining = DEVICE_OFFLINE_S - (time.monotonic() - reported_at)
+        if remaining > 0:
+            print(f"waiting {remaining:.0f}s for the player selector to go offline")
+            time.sleep(remaining)
         state.save()
     except Exception:
         _kill(backend_process.pid)
@@ -894,6 +989,20 @@ def command_rewind(arguments: argparse.Namespace) -> int:
     return 0
 
 
+def command_report(arguments: argparse.Namespace) -> int:
+    """Send the device's report, once or over and over. Fifteen seconds of being online per
+    report, so ``--hold`` is how a selector page is looked at by hand."""
+    state = State.load(arguments.data_dir)
+    deadline = time.monotonic() + max(arguments.hold, 0.0)
+    while True:
+        device_report(state)
+        if time.monotonic() >= deadline:
+            break
+        time.sleep(DEVICE_HEARTBEAT_S)
+    print(f"reported as {state.data['device']['id']}")
+    return 0
+
+
 def command_release(arguments: argparse.Namespace) -> int:
     """Let the held song finish. The stand-in takes the file away itself."""
     state = State.load(arguments.data_dir)
@@ -952,12 +1061,19 @@ def _report(state: State, missing: list[str]) -> None:
     )
     print(f"finishing song  {data['songs'][str(scenario.FINISHING_SONG)]}")
     print(f"download rows   {data.get('download_ids')}")
+    device = data.get("device") or {}
+    print(f"player selector {device.get('id')}  slots {device.get('slot_colors')}")
+    print(
+        f"cards           {scenario.KNOWN_CARD} is {scenario.CARD_HOLDER}, "
+        f"{scenario.UNKNOWN_CARD} is nobody's"
+    )
     print()
     print("song ids the manifest names")
     for label, usdb_id in _NAMED_SONGS.items():
         print(f"  {label:<16} {data['songs'][str(usdb_id)]}")
     print()
     print("release the held song with:  seed.py release")
+    print("put the selector online with: seed.py report --hold 60")
     print("tear everything down with:   seed.py teardown")
 
 
@@ -1043,6 +1159,15 @@ def main() -> int:
         "rewind", help="undo the songs a capture run sang, for another launcher take"
     )
     rewind.set_defaults(handler=command_rewind)
+
+    report_parser = subparsers.add_parser("report", help="send the player selector's report")
+    report_parser.add_argument(
+        "--hold",
+        type=float,
+        default=0.0,
+        help="keep reporting for this many seconds, so the device stays online",
+    )
+    report_parser.set_defaults(handler=command_report)
 
     release = subparsers.add_parser("release", help="let the held song finish")
     release.add_argument("--scores", help="JSON, e.g. '{\"Bender\": 8421}'")

@@ -57,9 +57,13 @@ indexes start at zero, so reader 1 on
 [Build the device](../selector/build.md) is `index` 0 here.
 
 A button entry carries its index and `presses`, a counter that grows over the
-life of the device. Wingman compares it with the last report and acts on a
-change. A device that reboots and starts at zero again is a change like any
-other.
+life of the device. Wingman compares it with the last report and acts only when
+the number grew. A number smaller than the last one is a device that rebooted.
+Wingman takes that number as the new count and acts on the next press.
+
+Let the counter run for as long as the device does. A bridge that sends `1` for
+every press and `0` in between never presses anything: only the step up counts,
+and the step back down is read as a reboot.
 
 ## When to send one
 
@@ -133,6 +137,29 @@ again. Wait at least 10 minutes before retrying a flash that failed.
       -H "Authorization: Bearer wd_0123456789abcdef0123456789abcdef01234567" \
       -d '{"protocol": 1, "firmware": "1.0.0", "uptime_s": 12, "rssi": -55, "readers": [{"index": 0, "state": "wired", "version": "92", "uid": "A1B2C3D4"}, {"index": 1, "state": "wired", "version": "92", "uid": null}, {"index": 2, "state": "none", "version": "00", "uid": null}, {"index": 3, "state": "none", "version": "00", "uid": null}, {"index": 4, "state": "none", "version": "00", "uid": null}, {"index": 5, "state": "none", "version": "00", "uid": null}], "buttons": [{"index": 0, "presses": 0}, {"index": 1, "presses": 0}, {"index": 2, "presses": 0}, {"index": 3, "presses": 0}]}'
     ```
+
+## The cards
+
+The card table is the host's, on **User** > **Player selector**. Four routes are
+open to anybody signed in, because the card in somebody's hand is their own.
+They take a session cookie and not a device token, and the answers are the card
+rows Wingman keeps.
+
+| Route | Does |
+|---|---|
+| `GET /api/v1/devices/cards/unknown` | The cards lying on the readers of an online device that belong to nobody: `{"uids": ["A1B2C3D4"]}` |
+| `POST /api/v1/devices/cards/{uid}/claim` | Says the card is yours. Your own again is the same answer, somebody else's is `409 {"detail": "card_taken"}` |
+| `GET /api/v1/devices/cards/mine` | Your own cards: `{"cards": [{"uid": "…", "player": {…}, "created_at": "…"}]}` |
+| `DELETE /api/v1/devices/cards/{uid}` | Gives a card back. Your own, or anybody's with the `devices.manage` capability |
+
+A uid is 8 to 20 hex characters and Wingman stores it in uppercase. Send it
+either way. An account that sings as no player answers `404 no_player` on a
+claim, and a caller signed in as nobody answers `401` on the first three. On the
+delete, a caller without `devices.manage` gets `403` for a card that is not
+their own and for one that does not exist, so the answer never says which.
+
+Claiming a card that is lying on a slot reader puts you on that slot at once.
+The card has not moved, so nothing else could say so.
 
 ## The serial console
 

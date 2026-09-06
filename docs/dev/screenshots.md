@@ -78,7 +78,10 @@ fixed, because each step needs the one before it:
 7. A library scan.
 8. Two parties with their sings and scores, written straight into the database.
 9. Wishes, favorites, playlists, tags, comments, achievements, the two download rows.
-10. The run waits until the achievements pass has counted the history and left Bender
+10. The player selector: the device is created, it reports once, and only then is its
+    mapping written. A slot color on a reader that never answered is refused, so the
+    report has to come first.
+11. The run waits until the achievements pass has counted the history and left Bender
     one song short of the *Eighties Marathon*.
 
 Everything the seed learns is written to `<data dir>\screenshots.json`. `capture.py`
@@ -114,6 +117,33 @@ be taken of a song that is playing. `capture.py` runs two takes:
 
 Release, never kill: a killed stand-in is still waiting for its sentinel. Both takes are
 rewound afterwards, so the instance ends where it started.
+
+## The player selector
+
+Four rows need a device standing in the room: `selector-admin`, `selector-device`,
+`user-my-cards` and `host-picking`. There is no device, so the seed writes one and sends
+its report over HTTP, exactly as a real one would.
+
+A report buys fifteen seconds of being online and no more, which is shorter than one row
+takes. Those rows are therefore captured over a heartbeat: `capture.py` sends the same
+report every three seconds for as long as the picture is being taken (`device_online`),
+and stops when it is done. `host-picking` also opens a player selection before the page
+and gives it up afterwards (`selection_open`). A selection left open answers every later
+`POST /karaoke/sing` with 409, so the launcher rows would all fail behind it.
+
+Two consequences the run handles, and neither is luck:
+
+- The four rows stand last in the manifest, so nothing that is not about the selector is
+  captured while a device is online.
+- After them the run waits sixteen seconds before the launcher rows. The host screen says
+  *Player selector offline* once a device that was there is gone, and that line has no
+  business in `host-results`.
+
+To look at one of those pages by hand, keep the device online yourself:
+
+```powershell
+venv\Scripts\python.exe docs\screenshots\seed.py report --hold 60
+```
 
 ## Capturing one id
 

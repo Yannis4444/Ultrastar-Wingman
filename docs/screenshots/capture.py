@@ -28,7 +28,9 @@ import re
 import struct
 import subprocess
 import sys
+import threading
 import time
+from collections.abc import Iterator
 from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any
@@ -54,6 +56,11 @@ VIEWPORTS: dict[str, dict[str, Any]] = {
     "phone": {"width": 390, "height": 844, "deviceScaleFactor": 2, "mobile": True},
     "host": {"width": 1280, "height": 720, "deviceScaleFactor": 1, "mobile": False},
 }
+
+# Wingman calls a device offline fifteen seconds after its last report. A row that held the
+# selector online waits this out before the next picture, so the host screen's
+# "Player selector offline" line never lands in a picture that is not about it.
+DEVICE_OFFLINE_S = 16.0
 
 # How long one row may take from navigation to "the element is there".
 READY_TIMEOUT = 30.0
@@ -409,7 +416,7 @@ class Row:
 
     identity: str
     viewport: str
-    # May carry ``{playlist}`` or ``{tag}``, filled from what the seed minted.
+    # May carry ``{playlist}``, ``{tag}`` or ``{device}``, filled from what the seed minted.
     route: str
     # A JavaScript expression that is true once the picture can be taken. This is the
     # manifest's "must be visible" column, as something a machine can check.
@@ -428,6 +435,12 @@ class Row:
     # settings page is the only surface that shows a path, and the scratch directory's real
     # one carries the name of whoever ran the capture.
     settings: tuple[tuple[str, Any], ...] = field(default_factory=tuple)
+    # Rows the player selector has to be online for. A device is online for fifteen seconds
+    # after its last report, so the row is captured over a heartbeat; see ``device_online``.
+    device: bool = False
+    # Rows taken while the room is picking singers. The selection is opened before the page
+    # and given up afterwards, or every launcher row would meet a 409.
+    selection: bool = False
 
 
 # The host screen fades its own chrome out three seconds after the last pointer event, and
@@ -821,6 +834,56 @@ ROWS: dict[str, Row] = {
         route="/host/manage",
         ready='q(".host-manage-page") && qa(".manage-menu-row").length >= 3',
     ),
+    # The four selector rows stand last, and in this order, for a reason the manifest cannot
+    # say: they are the only ones that hold a device online, and a device stays online for
+    # fifteen seconds after the heartbeat stops. Nothing that is not about the selector may
+    # follow them, and the launcher rows wait the fifteen seconds out (`run`).
+    "selector-admin": Row(
+        identity="host",
+        viewport="phone",
+        route="/user/devices",
+        device=True,
+        # The two cards on the readers, one named and one nobody's, are what this picture
+        # is of. `devices-list` is three lists on this page, so the cards are counted.
+        ready='q(".devices-page") && qa(".devices-card").length === 2'
+        ' && qa(".devices-unknown").length === 1',
+        scroll='show(qa("h2")[0])',
+    ),
+    "selector-device": Row(
+        identity="host",
+        viewport="phone",
+        route="/user/devices/{device}",
+        device=True,
+        # The status lines and both update controls. The device reports a firmware one
+        # version behind the bundled image, which is what puts *Update over Wi-Fi* there.
+        ready='q(".device-form") && q(".device-status") && q(".device-links")'
+        ' && byText(".device-links .button", "Update over Wi-Fi")'
+        ' && qa(".device-rows").length === 2 && qa(".device-select").length === 10',
+        scroll='show(q(".device-status"))',
+    ),
+    "user-my-cards": Row(
+        # Fry holds no card of his own: the block is on his page because one is lying on
+        # the selector, which is the state the page describes.
+        identity="Fry",
+        viewport="phone",
+        route="/user",
+        device=True,
+        ready='q(".my-cards-title") && qa(".my-cards-row").length === 1'
+        ' && byText(".my-cards-row .button", "This is mine")',
+        scroll='show(q(".my-cards-title"))',
+    ),
+    "host-picking": Row(
+        identity="host",
+        viewport="host",
+        route="/host",
+        device=True,
+        selection=True,
+        # `host-takeover`: the room picking singers owns the whole screen, so there is no
+        # rail beside it. Two of the four slots are held by the two cards.
+        ready='q(".host-page.host-takeover.host-idle") && q(".host-selection")'
+        f' && byText(".host-selection-name", "{scenario.CARD_HOLDER}")'
+        ' && byText(".host-selection-name", "Unknown card")',
+    ),
 }
 
 
@@ -885,18 +948,82 @@ def capture_row(
     browser: Browser, state: seed.State, identifier: str, section: str, row: Row
 ) -> Result:
     held = hold_settings(state, row.settings)
-    page = browser.open(row.identity, row.viewport)
+    with contextlib.ExitStack() as stack:
+        # The device first: a selection opened while the selector is online seeds its slots
+        # from the cards lying on it, which is the whole point of the picture.
+        if row.device:
+            stack.enter_context(device_online(state))
+        if row.selection:
+            stack.enter_context(selection_open(state))
+        page = browser.open(row.identity, row.viewport)
+        try:
+            page.navigate(browser.base_url + route_of(row, state))
+            page.await_ready("document.body.children.length > 0", "the app to render")
+            prepare(page, row)
+            size = shoot(page, row, identifier, section)
+            result = Result(row.identity, True, size, row.ready)
+        except CaptureError as error:
+            result = Result(row.identity, False, "-", row.ready, str(error))
+        finally:
+            page.close()
+            hold_settings(state, held)
+    return result
+
+
+# --- the player selector ------------------------------------------------------------------
+
+
+@contextlib.contextmanager
+def device_online(state: seed.State) -> Iterator[None]:
+    """Hold the seeded player selector online for as long as the block runs.
+
+    A report buys fifteen seconds of being online and nothing more, so a picture of a
+    selector page is taken over a heartbeat, exactly as a real device keeps itself there.
+    The body never changes, so the room does not shift between two reports.
+    """
+    seed.device_report(state)
+    stop = threading.Event()
+
+    def beat() -> None:
+        while not stop.wait(seed.DEVICE_HEARTBEAT_S):
+            try:
+                seed.device_report(state)
+            except seed.SeedError as error:
+                print(f"  the device report failed: {error}")
+
+    thread = threading.Thread(target=beat, name="device-heartbeat", daemon=True)
+    thread.start()
     try:
-        page.navigate(browser.base_url + route_of(row, state))
-        page.await_ready("document.body.children.length > 0", "the app to render")
-        prepare(page, row)
-        size = shoot(page, row, identifier, section)
-        return Result(row.identity, True, size, row.ready)
-    except CaptureError as error:
-        return Result(row.identity, False, "-", row.ready, str(error))
+        yield
     finally:
-        page.close()
-        hold_settings(state, held)
+        stop.set()
+        thread.join(timeout=5.0)
+
+
+@contextlib.contextmanager
+def selection_open(state: seed.State) -> Iterator[None]:
+    """Open a player selection for the scenario's song, and give it up afterwards.
+
+    Given up in a ``finally`` because it has to be: a selection left open answers every
+    later ``POST /karaoke/sing`` with 409, so the launcher rows would all fail behind it.
+    """
+    api = state.api
+    song_id = state.data["songs"][str(scenario.PICKING_SONG)]
+    opened = api.post("/karaoke/selection", json={"song_id": song_id, "slots": [], "force": True})
+    try:
+        yield
+    finally:
+        api.request("DELETE", "/karaoke/selection", headers={"X-Selection-Token": opened["token"]})
+
+
+def wait_for_device_offline() -> None:
+    """Let the selector fall out of the room before anything else is photographed.
+
+    The host screen says *Player selector offline* once a device that was there is gone,
+    and a picture that is not about the selector must show neither line.
+    """
+    print(f"waiting {DEVICE_OFFLINE_S:.0f}s for the player selector to go offline")
+    time.sleep(DEVICE_OFFLINE_S)
 
 
 def hold_settings(
@@ -935,9 +1062,11 @@ def hold_settings(
 def route_of(row: Row, state: seed.State) -> str:
     playlists = state.data.get("playlists") or []
     tags = state.data.get("tags") or []
+    device = state.data.get("device") or {}
     return row.route.format(
         playlist=playlists[scenario.FEATURED_PLAYLIST]["id"] if playlists else "",
         tag=tags[0]["id"] if tags else "",
+        device=device.get("id", ""),
     )
 
 
@@ -1130,6 +1259,8 @@ def run(arguments: argparse.Namespace) -> int:
             print(f"{identifier:<20} {mark}")
 
         launcher = wanted & {name for name, row in ROWS.items() if row.launcher}
+        if launcher and any(ROWS[identifier].device for identifier in results):
+            wait_for_device_offline()
         if launcher:
             # The wishes the four launcher pictures are taken over are the Home page's, and
             # starting a wished song would take its wish away. Neither song is wished for,

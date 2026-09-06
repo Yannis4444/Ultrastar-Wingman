@@ -75,6 +75,24 @@ Six readers and the Wi-Fi radio together draw about 400 mA, and a USB port on a
 laptop is not a reliable 1 A. Give the box its own supply on VIN. A board that
 resets when a card lands on the sixth reader is a board that is short of power.
 
+## Lights
+
+A strip of lights is optional. The device works the same without one.
+
+Use a WS2812 strip, sold as NeoPixel, with one light per reader in reader
+order: light 1 sits beside reader 1. Its data pin goes to GPIO 13, and its 5 V
+and ground go to the same supply and ground as the board.
+
+| The light | Means |
+|---|---|
+| A slot color, dim | Nothing is on that slot's reader |
+| A slot color, steady | A card Wingman knows is on it |
+| A slot color, blinking | A card nobody has claimed is on it |
+| Every slot color, pulsing | The song is about to start by itself |
+| White, dim | The reader everybody scans in turn is waiting |
+| White, pulsing | Singers are being picked. Scan now |
+| Off | The reader is not mapped, or a song is playing |
+
 ## Known trouble
 
 **Readers that work alone but fail together.** Cheap RC522 clones hold the

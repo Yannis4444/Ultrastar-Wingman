@@ -20,6 +20,11 @@ lying on a box that is talking to Wingman, and nothing else.
 4. Tap the row. The **Who holds this card?** picker opens.
 5. Tap the singer. The picker closes and the card is theirs.
 
+![The player selector page, with one named card and one Unknown card under the On the readers now heading](../assets/screenshots/selector/selector-admin.png){ width="320" loading=lazy }
+/// caption
+Two cards are lying on the box. Wingman knows one of them.
+///
+
 The page says the same thing over the list: *Tap a card to say whose it is. A
 card belongs to one singer.*
 
@@ -37,6 +42,26 @@ somebody else.
 The dialog names the singer the card stops being, and adds: *Their scores and
 their player stay exactly as they are.* Only the card goes.
 
+## Claim your own card
+
+A singer with an account takes a card without asking anybody. **My cards** sits
+on the **User** tab, below your scores and badges. It appears once a card is
+lying on the selector, or once the account already holds one.
+
+![The My cards block on the User tab, with an unclaimed card's number beside a This is mine button](../assets/screenshots/selector/user-my-cards.png){ width="320" loading=lazy }
+/// caption
+A card nobody holds shows up here by its number.
+///
+
+1. Put the card on a reader.
+2. Open the **User** tab and find the card's number under **My cards**.
+3. Tap **This is mine**. The card is yours from that moment.
+
+A card somebody else holds is refused with *Somebody else already holds that
+card.* Your own cards stand below, each with :wingman-close: **Forget card**,
+which takes the card off you and changes nothing else. An administrator still
+assigns and takes back any card on **User** > **Player selector**.
+
 ## A card Wingman does not know
 
 A card with no singer still fills a slot. During player selection the slot reads
@@ -45,6 +70,9 @@ does not start on its own while a slot reads that.
 
 Give the card a name under **On the readers now**. The slot fills with the singer
 while the card lies where it is.
+
+A slot a card holds is the card's. No phone clears it or points it at somebody
+else, and lifting the card off the reader is what frees it.
 
 ## Start the song on its own
 
@@ -65,6 +93,24 @@ scan a second time.
 
 With it off, a second scan does nothing at all. The setting has nothing to say
 about a device that gives each slot its own reader.
+
+## Time before an idle selection closes
+
+The phone that opened the player selection holds it. This setting is how long
+the room waits before taking it back, in seconds, from 30 to 900. Its line
+says: *A phone that stopped picking gives the room back after this long.*
+
+## When the start button is pressed with nothing open
+
+A press on a **Start the song** button while nobody is picking can start a song
+on its own. This setting says which one:
+
+- **Nothing happens**, which is how a fresh Wingman is set.
+- **Start the most wished song** takes the top of the wishlist.
+- **Start a random song** takes anything in the library.
+
+Either song takes its singers from the cards lying on the readers. With no card
+on a reader, the press does nothing at all.
 
 !!! note
     Cheap batches of cards sometimes repeat a number, and two cards with the
