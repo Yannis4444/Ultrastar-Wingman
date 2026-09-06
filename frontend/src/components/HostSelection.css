@@ -154,28 +154,33 @@
   display: flex;
   flex-direction: column;
   align-items: center;
-  justify-content: center;
-  gap: clamp(8px, 1.4vh, 22px);
+  /* The face at the top with the same air on its three sides (the padding, in
+     the card's own width), the name along the foot, and what is left of the 3:4
+     between them. */
+  justify-content: space-between;
+  gap: clamp(6px, 1vh, 16px);
   box-sizing: border-box;
   height: 133.33cqw;
-  padding: clamp(6px, 1vh, 14px) clamp(6px, 0.6vw, 12px);
+  padding: 8cqw;
   overflow: hidden;
   border: clamp(3px, 0.4vh, 4px) solid var(--slot, var(--color-darkerer));
   border-radius: var(--border-radius);
   background-color: color-mix(
     in srgb,
-    var(--slot, var(--color-darkerer)) 25%,
+    var(--slot, var(--color-darkerer)) 18%,
     var(--bg)
   );
   /* The moment somebody takes the slot, the short box grows into the card: the
      one movement on this screen, and what says "that one is taken now". */
-  transition: height 400ms ease;
+  transition: height 200ms ease;
 }
 
 /* Nobody has taken it: a short box along the foot of the row, the color and the
    word and nothing else, so the free slots are told apart at a glance. */
 .host-page .host-selection-card-empty {
+  justify-content: center;
   height: clamp(40px, 6.5vh, 76px);
+  padding: clamp(4px, 0.8vh, 12px) 8cqw;
 }
 
 /* The placeholder of an unknown card is a step lighter than the card it sits in,
@@ -184,18 +189,17 @@
 .host-page .host-selection-card .player-avatar-empty {
   background-color: color-mix(
     in srgb,
-    var(--slot, var(--color-darkerer)) 40%,
+    var(--slot, var(--color-darkerer)) 32%,
     var(--bg)
   );
 }
 
-/* The face takes most of the card's width, so a wider card on a bigger TV is a
-   bigger face and not more air around one; the letter scales with the screen.
-   Two classes beat PlayerAvatar's own 40px whatever the bundle order. */
+/* The face is as wide as the card's inside, so the padding is the air around it
+   and a wider card on a bigger TV is a bigger face; the letter scales with the
+   screen. Two classes beat PlayerAvatar's own 40px whatever the bundle order. */
 .host-page .host-selection-avatar {
   flex: 0 0 auto;
-  width: 82%;
-  max-width: 100%;
+  width: 100%;
   height: auto;
   aspect-ratio: 1;
   font-size: clamp(40px, 7vh, 100px);
