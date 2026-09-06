@@ -47,6 +47,14 @@ export const BUTTON_ACTIONS: { value: string; label: string }[] = [
   { value: "none", label: "Nothing" },
 ];
 
+/** What a press of a `start` button does while nobody is picking singers, in
+ *  the order the select offers it: nothing, then the two songs it may pick. */
+export const START_WITHOUT_SELECTION: { value: string; label: string }[] = [
+  { value: "nothing", label: "Nothing happens" },
+  { value: "top_wish", label: "Start the most wished song" },
+  { value: "random", label: "Start a random song" },
+];
+
 /** A version as numbers. A part that is not one counts as zero, so a firmware
  *  built from a working tree ("0.2.0-dirty") still compares by its numbers. */
 function versionParts(version: string): number[] {
@@ -88,6 +96,31 @@ export function needsUpdate(
     running !== undefined &&
     running !== null &&
     isNewer(bundled, running)
+  );
+}
+
+/**
+ * Whether this device can be handed the bundled firmware over Wi-Fi.
+ *
+ * Two things have to be true, and neither is `needsUpdate`: the bundle's
+ * version has to **differ** from what the device runs, and the build has to
+ * carry a bare application image (`ota_file`). A build made before the update
+ * over Wi-Fi existed has only the merged image the cable wants, which
+ * `HTTPUpdate` rejects at its first byte, so there is nothing to offer.
+ *
+ * *Differs* rather than *newer* is `devices/service.py`'s own rule, which is
+ * what makes putting a device that ran ahead of the bundle back on it work: the
+ * status line above still says nothing about an update, and the button is there.
+ */
+export function otaAvailable(
+  device: DeviceRead,
+  manifest?: FirmwareManifest | null,
+): boolean {
+  const bundled = manifest?.version;
+  if (bundled === undefined || bundled === null) return false;
+  if (bundled === device.firmware_version) return false;
+  return (manifest?.builds ?? []).some(
+    (build) => build.ota_file !== undefined && build.ota_file !== null,
   );
 }
 
@@ -218,4 +251,20 @@ export function mappingRefusal(
   if (detail === "unknown_color")
     return "One of the readers is on a color Ultrastar Deluxe has no microphone for.";
   return errorMessage(cause, "Could not save the device.");
+}
+
+/**
+ * Why an update over Wi-Fi was refused. Three sentences for three answers the
+ * page cannot foresee: the build it read the manifest of may have gone since,
+ * and the device may have reported the bundled version between the button being
+ * drawn and being pressed.
+ */
+export function updateRefusal(cause: unknown): string {
+  const detail = errorDetail(cause);
+  if (detail === "no_firmware") return "This Wingman has no firmware image.";
+  if (detail === "no_ota_image")
+    return "The bundled firmware has no image for an update over Wi-Fi. Use the cable.";
+  if (detail === "already_current")
+    return "The device already runs this version.";
+  return errorMessage(cause, "Could not ask for the update.");
 }

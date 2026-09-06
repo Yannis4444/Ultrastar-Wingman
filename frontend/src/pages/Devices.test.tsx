@@ -179,7 +179,7 @@ test("a role that may not manage devices is told who does", async () => {
   expect(screen.queryByLabelText("Set up a device")).not.toBeInTheDocument();
 });
 
-test("the four options are drawn from the settings and each one saves itself", async () => {
+test("the five options are drawn from the settings and each one saves itself", async () => {
   renderDevices();
 
   const start = await screen.findByLabelText("Start the song on its own");
@@ -193,6 +193,9 @@ test("the four options are drawn from the settings and each one saves itself", a
   expect(
     screen.getByLabelText("Time before an idle selection closes"),
   ).toHaveValue(120);
+  expect(
+    screen.getByLabelText("When the start button is pressed with nothing open"),
+  ).toHaveValue("nothing");
 
   fireEvent.click(start);
 
@@ -236,6 +239,38 @@ test("the idle expiry is written the same way, and alone", async () => {
       expect.objectContaining({ body: { selection_idle_s: 300 } }),
     ),
   );
+});
+
+test("what a start press with nothing open does is picked from three, and written", async () => {
+  renderDevices({
+    settings: { ...SETTINGS, start_without_selection: "random" },
+  });
+
+  const select = await screen.findByLabelText(
+    "When the start button is pressed with nothing open",
+  );
+  // The stored answer is what is drawn, whichever of the three it is.
+  expect(select).toHaveValue("random");
+  expect(
+    within(select)
+      .getAllByRole("option")
+      .map((option) => option.textContent),
+  ).toEqual([
+    "Nothing happens",
+    "Start the most wished song",
+    "Start a random song",
+  ]);
+
+  fireEvent.change(select, { target: { value: "top_wish" } });
+
+  await waitFor(() =>
+    expect(updateDeviceSettings).toHaveBeenCalledWith(
+      expect.objectContaining({
+        body: { start_without_selection: "top_wish" },
+      }),
+    ),
+  );
+  expect(await screen.findByText("Saved")).toBeInTheDocument();
 });
 
 test("a device row says whether it is here, what it runs, and nothing else", async () => {

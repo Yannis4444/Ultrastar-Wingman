@@ -32,7 +32,7 @@ import PlayerAvatar from "../components/PlayerAvatar";
 import { SettingSaved } from "../components/SettingField";
 import "../components/PickerRow.css";
 import "../components/SettingField.css";
-import { deviceMeta } from "../devices";
+import { deviceMeta, START_WITHOUT_SELECTION } from "../devices";
 import { errorDetail, errorMessage, missingPermission } from "../errors";
 import { useWingmanEvent } from "../hooks/useWingmanEvents";
 import "./Devices.css";
@@ -70,7 +70,7 @@ interface FieldProps {
 /**
  * One settings row in the Settings page's shape (§7): the label with its
  * acknowledgement on the first line, the quiet box alone on the second, the
- * 0.85em description under both. These three are not registered settings —
+ * 0.85em description under both. These five are not registered settings —
  * `devices/settings.py` keeps them private, behind `devices.manage` rather than
  * `settings.manage` — so the row is rebuilt on the same classes, exactly as the
  * achievements admin rebuilds its own.
@@ -120,7 +120,7 @@ interface SecondsProps {
 
 /**
  * A number of seconds in the quiet box of a settings row, written when the
- * field is left or Enter is pressed. Two of the four rows are this, and the
+ * field is left or Enter is pressed. Two of the five rows are this, and the
  * commit rule is fiddly enough (blank is a cancel, an unchanged number is not a
  * write, Enter is a blur rather than a submit) that one copy of it is one
  * behaviour.
@@ -242,7 +242,7 @@ function CardPicker({
 
 /**
  * The player selector, behind the `devices.manage` entry of the manage menu
- * (§7): the three options the feature has, the devices as rows into their own
+ * (§7): the five options the feature has, the devices as rows into their own
  * pages, and the cards.
  *
  * The cards come in two lists because they answer two different questions. *On
@@ -296,7 +296,7 @@ export default function Devices() {
     return () => clearTimeout(timer);
   }, [justSaved, reset]);
 
-  // Which of the three rows the acknowledgement belongs to: the one that was
+  // Which of the five rows the acknowledgement belongs to: the one that was
   // patched, so saving the toggle does not light the word beside a number.
   const savedField = justSaved
     ? (Object.keys(save.variables?.body ?? {})[0] ?? null)
@@ -496,6 +496,32 @@ export default function Devices() {
                           patch({ selection_idle_s: seconds })
                         }
                       />
+                    )}
+                  </DeviceSettingRow>
+
+                  <DeviceSettingRow
+                    id="start_without_selection"
+                    label="When the start button is pressed with nothing open"
+                    description="With cards on the readers, one press picks the song and starts it. Without cards nothing happens."
+                    saved={savedField === "start_without_selection"}
+                  >
+                    {(inputId, describedBy) => (
+                      <select
+                        className="text-input text-input-quiet setting-input"
+                        id={inputId}
+                        aria-describedby={describedBy}
+                        value={options.start_without_selection}
+                        disabled={save.isPending}
+                        onChange={(event) =>
+                          patch({ start_without_selection: event.target.value })
+                        }
+                      >
+                        {START_WITHOUT_SELECTION.map((choice) => (
+                          <option key={choice.value} value={choice.value}>
+                            {choice.label}
+                          </option>
+                        ))}
+                      </select>
                     )}
                   </DeviceSettingRow>
 
