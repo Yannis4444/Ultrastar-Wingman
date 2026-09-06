@@ -96,6 +96,15 @@ async def unhide_player_of_user(session: AsyncSession, user_id: str) -> None:
 
 
 async def delete_player(session: AsyncSession, player: Player, avatars_dir: Path) -> None:
+    # The cards go with them. `player_cards` names the player with a foreign key, but SQLite
+    # only enforces one with a pragma Wingman does not set, so the cascade is carried out
+    # here — a card outliving its player is a card the next assignment silently overwrites,
+    # and until then a card that selects nobody. Imported inside the function because the
+    # module-level import closes a circle: `devices.service` hashes its tokens with
+    # `auth.service`, which imports this module.
+    from ..devices import service as devices
+
+    await devices.forget_cards_of(session, player.id)
     await remove_images(avatars_dir, player.id)
     await session.delete(player)
     await session.commit()

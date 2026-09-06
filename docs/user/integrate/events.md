@@ -60,6 +60,7 @@ API answers with. The OpenAPI document at
 | `tags.changed` | A tag was created, edited, deleted, or had its permissions replaced | None. Fetch `GET /tags` again |
 | `song_tags.changed` | A tag was put on a song, or taken off one | `song_id`, `tag_id` |
 | `comments.changed` | Somebody commented on a song, took a comment back, or a moderator removed one | `song_id`, `count` |
+| `devices.changed` | A player selector was added, mapped, or forgotten, a card was given to somebody, a selector option changed, or a device came online, went quiet, or moved a card | None. Fetch `GET /devices` again |
 
 An event with no payload, and one that carries ids only, is deliberate. What a
 client may see of the tags, the playlists, and the achievements depends on who

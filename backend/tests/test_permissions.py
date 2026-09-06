@@ -191,6 +191,29 @@ ROUTES: list[tuple[str, str, str, dict[str, object] | None]] = [
     # The literal segment is matched before `{achievement_id}`, so this is the settings route
     # and not an achievement called "settings". A count outside 0 to 60 keeps it a 422.
     ("achievements.manage", "PATCH", "/api/v1/achievements/settings", {"host_seconds_base": 999}),
+    # The player selector. Admin-only by default: the token a device is created with is a
+    # standing key to the report endpoint, and the reader mapping decides which card puts
+    # which person on the TV. `POST /devices/report` is deliberately not here — it takes a
+    # device's bearer token and no capability at all, which test_devices_api pins down.
+    #
+    # Every body is one a permitted caller still refuses (an unknown id, a delay outside the
+    # range), so an administrator running the matrix creates nothing and maps nothing. The
+    # one exception is the creating route, which has to carry a real name to get past
+    # validation; it makes a device the matrix then leaves behind, which nothing else reads.
+    ("devices.manage", "GET", "/api/v1/devices", None),
+    ("devices.manage", "POST", "/api/v1/devices", {"name": "Matrix"}),
+    ("devices.manage", "PATCH", "/api/v1/devices/nope", {"name": "Nope"}),
+    ("devices.manage", "POST", "/api/v1/devices/nope/token", None),
+    ("devices.manage", "DELETE", "/api/v1/devices/nope", None),
+    ("devices.manage", "GET", "/api/v1/devices/cards", None),
+    ("devices.manage", "PUT", "/api/v1/devices/cards/A1B2C3D4", {"player_id": "nope"}),
+    ("devices.manage", "DELETE", "/api/v1/devices/cards/A1B2C3D4", None),
+    ("devices.manage", "GET", "/api/v1/devices/settings", None),
+    # The literal segment is matched before `{device_id}`, so this is the settings route and
+    # not a device called "settings". A delay outside 0 to 30 keeps it a 422.
+    ("devices.manage", "PATCH", "/api/v1/devices/settings", {"auto_start_delay_s": 999}),
+    ("devices.manage", "GET", "/api/v1/devices/firmware", None),
+    ("devices.manage", "GET", "/api/v1/devices/firmware/nothing.bin", None),
     ("usdb.search", "GET", "/api/v1/sources/usdb/status", None),
     ("usdb.search", "GET", "/api/v1/sources/usdb/search", None),
     ("usdb.search", "GET", "/api/v1/sources/usdb/songs/1/cover", None),

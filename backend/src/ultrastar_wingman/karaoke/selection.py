@@ -147,12 +147,19 @@ async def open_selection(
     slots: list[service.SlotRequest],
     force: bool = False,
     device_slots: Mapping[str, CardOnSlot] | None = None,
+    session_factory: async_sessionmaker[AsyncSession] | None = None,
+    auto_start: AutoStart | None = None,
 ) -> tuple[SelectionRead, str]:
     """Open a selection for `song_id` and return it with the token that owns it.
 
     `slots` is what the phone remembered from the last song. `device_slots` is what lies on
     the player selector right now, keyed by slot color: a card on a reader beats the
     remembered assignment, because it is a person standing in the room.
+
+    `auto_start` starts the countdown right here when those cards already fill the room —
+    everybody is standing at the selector with their card down, and waiting for one of them
+    to lift a card and put it back would be a joke. A room the *phone* filled from memory
+    starts nothing: a phone has Play, and `set_slots` never starts a countdown either.
 
     Raises `SelectionOpenError` unless `force`, `UnknownSongError`, and everything
     `service.resolve_slots` raises. Opening one while a song plays is fine: the next singers
@@ -172,10 +179,12 @@ async def open_selection(
         # Before the lock is taken over: a request that is refused must leave whatever is
         # open exactly as it was.
         states = await _slot_states(session, slots)
+        from_device = False
         for color, card in (device_slots or {}).items():
             slot = _slot_of_states(states, color)
             if slot is not None:
                 _put_on_slot(states, slot, await _player_row(session, card.player_id), card.uid)
+                from_device = True
         if _selection is not None:
             _cancel_auto_start(_selection)
         now = _now()
@@ -186,6 +195,8 @@ async def open_selection(
             opened_at=now,
             updated_at=now,
         )
+        if from_device:
+            _refresh_auto_start(_selection, auto_start, session_factory)
         await _broadcast_locked()
         return _read(_selection), _selection.token
 
@@ -219,11 +230,29 @@ async def start_selection(
 ) -> CurrentSing:
     """Sing what is on the slots. The selection is gone once USDX is up; every error the
     sing flow raises comes through unchanged and leaves it standing, so the phone can fix
-    what the message names and press Play again."""
+    what the message names and press Play again.
+
+    The lock is *not* held across the sing flow. A forced start kills the running song,
+    which means waiting for USDX to exit and for its scores to be imported, and everything
+    else in this module would be waiting behind it — a report from the player selector
+    included, which is a card in somebody's hand that does not register. So the token is
+    checked and the slots are read under the lock, the song starts without it, and the
+    selection is dropped afterwards only if it is still the same one.
+    """
     async with _lock:
         await _expire_locked()
         selection = _opener_or_raise(token)
-        return await _start_locked(session, session_factory, selection, force)
+        requests = _slot_requests(selection)
+        song_id = selection.song.id
+        # Before the lock is given up: a countdown that fired inside this window would start
+        # the same song a second time, and the phone that pressed Play would be answered
+        # "something is already playing" for the song it just asked for.
+        _cancel_auto_start(selection)
+    sing = await service.start_sing(session, session_factory, song_id, requests, force=force)
+    async with _lock:
+        if _selection is selection:
+            await _drop_locked(selection)
+    return sing
 
 
 async def close_selection(token: str | None = None, any_opener: bool = False) -> None:
@@ -420,22 +449,28 @@ async def _start_locked(
     selection: _Selection,
     force: bool,
 ) -> CurrentSing:
-    """Hand the slots to the sing flow. An unknown card is an empty slot: Wingman has no
-    name to write into USDX for it."""
+    """Hand the slots to the sing flow, with the lock held.
+
+    What the two callers with nobody on the other end use — the selector's start button and
+    the automatic start. A phone's Play goes through `start_selection`, which gives the lock
+    up first: it has somebody waiting for an answer, while these two have a log line.
+    """
     sing = await service.start_sing(
-        session,
-        session_factory,
-        selection.song.id,
-        [
-            service.SlotRequest(
-                color=slot.color, player_id=None if slot.player is None else slot.player.id
-            )
-            for slot in selection.slots
-        ],
-        force=force,
+        session, session_factory, selection.song.id, _slot_requests(selection), force=force
     )
     await _drop_locked(selection)
     return sing
+
+
+def _slot_requests(selection: _Selection) -> list[service.SlotRequest]:
+    """The slots as the sing flow takes them. An unknown card is an empty slot: Wingman has
+    no name to write into USDX for it."""
+    return [
+        service.SlotRequest(
+            color=slot.color, player_id=None if slot.player is None else slot.player.id
+        )
+        for slot in selection.slots
+    ]
 
 
 async def _after_device_change(

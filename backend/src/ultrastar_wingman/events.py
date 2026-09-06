@@ -217,6 +217,23 @@ class CommentsChanged(Event):
     count: int
 
 
+class DevicesChanged(Event):
+    """Something about the player selector devices is different: one was added, renamed,
+    mapped or forgotten, a card was assigned or forgotten, one of the three options was
+    changed, a device came online or went offline, or a report moved a card or a button
+    counter.
+
+    No payload, the `tags.changed` reasoning again: the whole answer of `GET /devices` is
+    live state stitched onto rows, so a listener refetches it (and `GET /devices/settings`
+    beside it) rather than patching a row it holds. Two listeners exist, the admin page and
+    the setup wizard, and both hold the whole list open. A heartbeat that says nothing new
+    is never broadcast: a device reports every five seconds, and a socket message per device
+    per five seconds is a busy TV for nothing.
+    """
+
+    event: Literal["devices.changed"] = "devices.changed"
+
+
 class EventBus:
     """Fans events out to all connected sockets."""
 

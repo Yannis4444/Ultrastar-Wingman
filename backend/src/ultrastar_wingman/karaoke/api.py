@@ -9,6 +9,7 @@ from pydantic import BaseModel, Field
 
 from ..auth.deps import HiddenSongsDep, PrincipalDep, require
 from ..db import SessionDep
+from ..devices import service as devices
 from ..songs.api import song_or_404
 from . import selection, service
 from .colors import COLORS, Color, ColorList, UnknownColorError
@@ -204,7 +205,7 @@ async def sing_song(
     if not new_sing.force and await selection.is_open():
         raise HTTPException(status_code=409, detail="selection_open")
     with _sing_errors():
-        return await service.start_sing(
+        sing = await service.start_sing(
             session,
             request.app.state.session_factory,
             new_sing.song_id,
@@ -214,6 +215,11 @@ async def sing_song(
             ],
             force=new_sing.force,
         )
+    # A forced sing took the machine, so whatever the room was picking is over: the TV must
+    # not keep showing a selection for a song nobody is going to sing. Only after the start
+    # succeeded — a sing that was refused leaves the room exactly as it found it.
+    await selection.close_selection(any_opener=True)
+    return sing
 
 
 class SelectionCreate(BaseModel):
@@ -246,6 +252,7 @@ class SelectionStart(BaseModel):
 )
 async def open_player_selection(
     new_selection: SelectionCreate,
+    request: Request,
     session: SessionDep,
     hidden: HiddenSongsDep,
 ) -> SelectionOpened:
@@ -254,6 +261,11 @@ async def open_player_selection(
     Answers the selection and the token that owns it: only that token moves the slots and
     presses Play. `force` takes a selection somebody else opened over, which needs nothing
     beyond `karaoke.sing` — the UI asks first.
+
+    Opens with whatever lies on the player selector: those people are already standing in
+    the room with their card down, so their slots are theirs before the phone's remembered
+    assignment gets a say. With the automatic start on, a room the cards already fill starts
+    counting down from here.
     """
     # Same reasoning as the sing route: which songs exist depends on who is asking.
     await song_or_404(new_selection.song_id, session, hidden)
@@ -267,6 +279,9 @@ async def open_player_selection(
                     for slot in new_selection.slots
                 ],
                 force=new_selection.force,
+                device_slots=await devices.cards_on_slots(session),
+                session_factory=request.app.state.session_factory,
+                auto_start=await devices.auto_start_for(session),
             )
     except selection.SelectionOpenError as error:
         raise HTTPException(status_code=409, detail="selection_open") from error

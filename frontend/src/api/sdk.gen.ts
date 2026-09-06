@@ -2,7 +2,7 @@
 
 import { type Client, type ClientMeta, formDataBodySerializer, type Options as Options2, type RequestResult, type TDataShape } from './client';
 import { client } from './client.gen';
-import type { AddFavoriteData, AddFavoriteErrors, AddFavoriteResponses, AddPlaylistEntryData, AddPlaylistEntryErrors, AddPlaylistEntryResponses, AddSongCommentData, AddSongCommentErrors, AddSongCommentResponses, AddWishData, AddWishErrors, AddWishResponses, AssignTagData, AssignTagErrors, AssignTagResponses, ClearWishesData, ClearWishesErrors, ClearWishesResponses, ClosePlayerSelectionData, ClosePlayerSelectionErrors, ClosePlayerSelectionResponses, CopyPlaylistData, CopyPlaylistErrors, CopyPlaylistResponses, CreateAchievementData, CreateAchievementErrors, CreateAchievementResponses, CreateDownloadData, CreateDownloadErrors, CreateDownloadResponses, CreatePlayerData, CreatePlayerErrors, CreatePlayerResponses, CreatePlaylistData, CreatePlaylistErrors, CreatePlaylistResponses, CreateTagData, CreateTagErrors, CreateTagResponses, DeleteAchievementData, DeleteAchievementErrors, DeleteAchievementIconData, DeleteAchievementIconErrors, DeleteAchievementIconResponses, DeleteAchievementResponses, DeletePlayerData, DeletePlayerErrors, DeletePlayerResponses, DeletePlaylistData, DeletePlaylistErrors, DeletePlaylistResponses, DeleteScoreData, DeleteScoreErrors, DeleteScoreResponses, DeleteSongCommentData, DeleteSongCommentErrors, DeleteSongCommentResponses, DeleteSongData, DeleteSongErrors, DeleteSongResponses, DeleteTagData, DeleteTagErrors, DeleteTagResponses, DeleteUserData, DeleteUserErrors, DeleteUserResponses, DismissDownloadData, DismissDownloadErrors, DismissDownloadResponses, DismissFinishedDownloadsData, DismissFinishedDownloadsResponses, EditSongData, EditSongErrors, EditSongResponses, ExchangeHostTokenData, ExchangeHostTokenErrors, ExchangeHostTokenResponses, ExportAchievementsData, ExportAchievementsErrors, ExportAchievementsResponses, FollowPlaylistData, FollowPlaylistErrors, FollowPlaylistResponses, GetAchievementIconData, GetAchievementIconErrors, GetAchievementIconResponses, GetCurrentSingData, GetCurrentSingResponses, GetJoinInfoData, GetJoinInfoResponses, GetMeData, GetMeResponses, GetPermissionsData, GetPermissionsResponses, GetPlayerAvatarData, GetPlayerAvatarErrors, GetPlayerAvatarResponses, GetPlayerSelectionData, GetPlayerSelectionResponses, GetPlaylistData, GetPlaylistErrors, GetPlaylistResponses, GetSongAudioData, GetSongAudioErrors, GetSongAudioResponses, GetSongCoverData, GetSongCoverErrors, GetSongCoverResponses, GetSongData, GetSongErrors, GetSongResponses, HealthData, HealthResponses, ImportAchievementsData, ImportAchievementsErrors, ImportAchievementsResponses, LaunchUsdxData, LaunchUsdxErrors, LaunchUsdxResponses, ListAchievementsData, ListAchievementsErrors, ListAchievementsResponses, ListAllScoresData, ListAllScoresResponses, ListCurrentSessionSingsData, ListCurrentSessionSingsResponses, ListDownloadsData, ListDownloadsResponses, ListFavoritesData, ListFavoritesResponses, ListKaraokeColorsData, ListKaraokeColorsResponses, ListKaraokeSlotsData, ListKaraokeSlotsResponses, ListLatestScoresData, ListLatestScoresErrors, ListLatestScoresResponses, ListPlayerAchievementsData, ListPlayerAchievementsErrors, ListPlayerAchievementsResponses, ListPlayerScoresData, ListPlayerScoresErrors, ListPlayerScoresResponses, ListPlayersData, ListPlayersResponses, ListPlaylistMembersData, ListPlaylistMembersErrors, ListPlaylistMembersResponses, ListPlaylistsData, ListPlaylistsErrors, ListPlaylistsResponses, ListSessionScoresData, ListSessionScoresErrors, ListSessionScoresResponses, ListSessionsData, ListSessionsErrors, ListSessionsResponses, ListSettingsData, ListSettingsResponses, ListSongCommentsData, ListSongCommentsErrors, ListSongCommentsResponses, ListSongScoresData, ListSongScoresErrors, ListSongScoresResponses, ListSongsData, ListSongsResponses, ListTagAssignmentsData, ListTagAssignmentsResponses, ListTagsData, ListTagsResponses, ListUsersData, ListUsersResponses, ListVideoQualityPresetsData, ListVideoQualityPresetsResponses, ListWishlistData, ListWishlistResponses, LoginData, LoginErrors, LoginResponses, LogoutData, LogoutErrors, LogoutResponses, LookupUsersData, LookupUsersErrors, LookupUsersResponses, OidcCallbackData, OidcCallbackErrors, OidcConfigData, OidcConfigResponses, OidcLoginData, OidcLoginErrors, OpenPlayerSelectionData, OpenPlayerSelectionErrors, OpenPlayerSelectionResponses, ReassignScoreData, ReassignScoreErrors, ReassignScoreResponses, RegisterData, RegisterErrors, RegisterResponses, RemoveFavoriteData, RemoveFavoriteErrors, RemoveFavoriteResponses, RemovePlaylistEntryData, RemovePlaylistEntryErrors, RemovePlaylistEntryResponses, RemovePlaylistMemberData, RemovePlaylistMemberErrors, RemovePlaylistMemberResponses, RemoveWishData, RemoveWishErrors, RemoveWishResponses, RenameSessionData, RenameSessionErrors, RenameSessionResponses, ReorderAchievementsData, ReorderAchievementsErrors, ReorderAchievementsResponses, ReorderPlaylistEntriesData, ReorderPlaylistEntriesErrors, ReorderPlaylistEntriesResponses, ReplaceTagPermissionsData, ReplaceTagPermissionsErrors, ReplaceTagPermissionsResponses, RescanSongsData, RescanSongsErrors, RescanSongsResponses, ResetAchievementData, ResetAchievementErrors, ResetAchievementResponses, SetAchievementIconData, SetAchievementIconErrors, SetAchievementIconResponses, SetPlayerAvatarData, SetPlayerAvatarErrors, SetPlayerAvatarResponses, SetPlayerSelectionSlotsData, SetPlayerSelectionSlotsErrors, SetPlayerSelectionSlotsResponses, SetPlaylistMemberData, SetPlaylistMemberErrors, SetPlaylistMemberResponses, SetSessionHiddenData, SetSessionHiddenErrors, SetSessionHiddenResponses, SingSongData, SingSongErrors, SingSongResponses, StartPlayerSelectionData, StartPlayerSelectionErrors, StartPlayerSelectionResponses, StopSingingData, StopSingingResponses, UnassignTagData, UnassignTagErrors, UnassignTagResponses, UnfollowPlaylistData, UnfollowPlaylistErrors, UnfollowPlaylistResponses, UpdateAchievementData, UpdateAchievementErrors, UpdateAchievementResponses, UpdateAchievementSettingsData, UpdateAchievementSettingsErrors, UpdateAchievementSettingsResponses, UpdateBuiltInTagData, UpdateBuiltInTagErrors, UpdateBuiltInTagResponses, UpdatePlayerData, UpdatePlayerErrors, UpdatePlayerResponses, UpdatePlaylistData, UpdatePlaylistErrors, UpdatePlaylistResponses, UpdateRolePermissionsData, UpdateRolePermissionsErrors, UpdateRolePermissionsResponses, UpdateSettingData, UpdateSettingErrors, UpdateSettingResponses, UpdateTagData, UpdateTagErrors, UpdateTagResponses, UpdateUserData, UpdateUserErrors, UpdateUserResponses, UsdbCoverData, UsdbCoverErrors, UsdbCoverResponses, UsdbSearchData, UsdbSearchErrors, UsdbSearchResponses, UsdbStatusData, UsdbStatusErrors, UsdbStatusResponses, UsdxStatusData, UsdxStatusResponses } from './types.gen';
+import type { AddFavoriteData, AddFavoriteErrors, AddFavoriteResponses, AddPlaylistEntryData, AddPlaylistEntryErrors, AddPlaylistEntryResponses, AddSongCommentData, AddSongCommentErrors, AddSongCommentResponses, AddWishData, AddWishErrors, AddWishResponses, AssignCardData, AssignCardErrors, AssignCardResponses, AssignTagData, AssignTagErrors, AssignTagResponses, ClearWishesData, ClearWishesErrors, ClearWishesResponses, ClosePlayerSelectionData, ClosePlayerSelectionErrors, ClosePlayerSelectionResponses, CopyPlaylistData, CopyPlaylistErrors, CopyPlaylistResponses, CreateAchievementData, CreateAchievementErrors, CreateAchievementResponses, CreateDeviceData, CreateDeviceErrors, CreateDeviceResponses, CreateDownloadData, CreateDownloadErrors, CreateDownloadResponses, CreatePlayerData, CreatePlayerErrors, CreatePlayerResponses, CreatePlaylistData, CreatePlaylistErrors, CreatePlaylistResponses, CreateTagData, CreateTagErrors, CreateTagResponses, DeleteAchievementData, DeleteAchievementErrors, DeleteAchievementIconData, DeleteAchievementIconErrors, DeleteAchievementIconResponses, DeleteAchievementResponses, DeleteDeviceData, DeleteDeviceErrors, DeleteDeviceResponses, DeletePlayerData, DeletePlayerErrors, DeletePlayerResponses, DeletePlaylistData, DeletePlaylistErrors, DeletePlaylistResponses, DeleteScoreData, DeleteScoreErrors, DeleteScoreResponses, DeleteSongCommentData, DeleteSongCommentErrors, DeleteSongCommentResponses, DeleteSongData, DeleteSongErrors, DeleteSongResponses, DeleteTagData, DeleteTagErrors, DeleteTagResponses, DeleteUserData, DeleteUserErrors, DeleteUserResponses, DismissDownloadData, DismissDownloadErrors, DismissDownloadResponses, DismissFinishedDownloadsData, DismissFinishedDownloadsResponses, EditSongData, EditSongErrors, EditSongResponses, ExchangeHostTokenData, ExchangeHostTokenErrors, ExchangeHostTokenResponses, ExportAchievementsData, ExportAchievementsErrors, ExportAchievementsResponses, FollowPlaylistData, FollowPlaylistErrors, FollowPlaylistResponses, ForgetCardData, ForgetCardErrors, ForgetCardResponses, GetAchievementIconData, GetAchievementIconErrors, GetAchievementIconResponses, GetCurrentSingData, GetCurrentSingResponses, GetDeviceSettingsData, GetDeviceSettingsResponses, GetFirmwareImageData, GetFirmwareImageErrors, GetFirmwareImageResponses, GetFirmwareManifestData, GetFirmwareManifestErrors, GetFirmwareManifestResponses, GetJoinInfoData, GetJoinInfoResponses, GetMeData, GetMeResponses, GetPermissionsData, GetPermissionsResponses, GetPlayerAvatarData, GetPlayerAvatarErrors, GetPlayerAvatarResponses, GetPlayerSelectionData, GetPlayerSelectionResponses, GetPlaylistData, GetPlaylistErrors, GetPlaylistResponses, GetSongAudioData, GetSongAudioErrors, GetSongAudioResponses, GetSongCoverData, GetSongCoverErrors, GetSongCoverResponses, GetSongData, GetSongErrors, GetSongResponses, HealthData, HealthResponses, ImportAchievementsData, ImportAchievementsErrors, ImportAchievementsResponses, LaunchUsdxData, LaunchUsdxErrors, LaunchUsdxResponses, ListAchievementsData, ListAchievementsErrors, ListAchievementsResponses, ListAllScoresData, ListAllScoresResponses, ListCardsData, ListCardsResponses, ListCurrentSessionSingsData, ListCurrentSessionSingsResponses, ListDevicesData, ListDevicesResponses, ListDownloadsData, ListDownloadsResponses, ListFavoritesData, ListFavoritesResponses, ListKaraokeColorsData, ListKaraokeColorsResponses, ListKaraokeSlotsData, ListKaraokeSlotsResponses, ListLatestScoresData, ListLatestScoresErrors, ListLatestScoresResponses, ListPlayerAchievementsData, ListPlayerAchievementsErrors, ListPlayerAchievementsResponses, ListPlayerScoresData, ListPlayerScoresErrors, ListPlayerScoresResponses, ListPlayersData, ListPlayersResponses, ListPlaylistMembersData, ListPlaylistMembersErrors, ListPlaylistMembersResponses, ListPlaylistsData, ListPlaylistsErrors, ListPlaylistsResponses, ListSessionScoresData, ListSessionScoresErrors, ListSessionScoresResponses, ListSessionsData, ListSessionsErrors, ListSessionsResponses, ListSettingsData, ListSettingsResponses, ListSongCommentsData, ListSongCommentsErrors, ListSongCommentsResponses, ListSongScoresData, ListSongScoresErrors, ListSongScoresResponses, ListSongsData, ListSongsResponses, ListTagAssignmentsData, ListTagAssignmentsResponses, ListTagsData, ListTagsResponses, ListUsersData, ListUsersResponses, ListVideoQualityPresetsData, ListVideoQualityPresetsResponses, ListWishlistData, ListWishlistResponses, LoginData, LoginErrors, LoginResponses, LogoutData, LogoutErrors, LogoutResponses, LookupUsersData, LookupUsersErrors, LookupUsersResponses, OidcCallbackData, OidcCallbackErrors, OidcConfigData, OidcConfigResponses, OidcLoginData, OidcLoginErrors, OpenPlayerSelectionData, OpenPlayerSelectionErrors, OpenPlayerSelectionResponses, ReassignScoreData, ReassignScoreErrors, ReassignScoreResponses, RegisterData, RegisterErrors, RegisterResponses, RemoveFavoriteData, RemoveFavoriteErrors, RemoveFavoriteResponses, RemovePlaylistEntryData, RemovePlaylistEntryErrors, RemovePlaylistEntryResponses, RemovePlaylistMemberData, RemovePlaylistMemberErrors, RemovePlaylistMemberResponses, RemoveWishData, RemoveWishErrors, RemoveWishResponses, RenameSessionData, RenameSessionErrors, RenameSessionResponses, ReorderAchievementsData, ReorderAchievementsErrors, ReorderAchievementsResponses, ReorderPlaylistEntriesData, ReorderPlaylistEntriesErrors, ReorderPlaylistEntriesResponses, ReplaceTagPermissionsData, ReplaceTagPermissionsErrors, ReplaceTagPermissionsResponses, ReportData, ReportErrors, ReportResponses, RescanSongsData, RescanSongsErrors, RescanSongsResponses, ResetAchievementData, ResetAchievementErrors, ResetAchievementResponses, RotateDeviceTokenData, RotateDeviceTokenErrors, RotateDeviceTokenResponses, SetAchievementIconData, SetAchievementIconErrors, SetAchievementIconResponses, SetPlayerAvatarData, SetPlayerAvatarErrors, SetPlayerAvatarResponses, SetPlayerSelectionSlotsData, SetPlayerSelectionSlotsErrors, SetPlayerSelectionSlotsResponses, SetPlaylistMemberData, SetPlaylistMemberErrors, SetPlaylistMemberResponses, SetSessionHiddenData, SetSessionHiddenErrors, SetSessionHiddenResponses, SingSongData, SingSongErrors, SingSongResponses, StartPlayerSelectionData, StartPlayerSelectionErrors, StartPlayerSelectionResponses, StopSingingData, StopSingingResponses, UnassignTagData, UnassignTagErrors, UnassignTagResponses, UnfollowPlaylistData, UnfollowPlaylistErrors, UnfollowPlaylistResponses, UpdateAchievementData, UpdateAchievementErrors, UpdateAchievementResponses, UpdateAchievementSettingsData, UpdateAchievementSettingsErrors, UpdateAchievementSettingsResponses, UpdateBuiltInTagData, UpdateBuiltInTagErrors, UpdateBuiltInTagResponses, UpdateDeviceData, UpdateDeviceErrors, UpdateDeviceResponses, UpdateDeviceSettingsData, UpdateDeviceSettingsErrors, UpdateDeviceSettingsResponses, UpdatePlayerData, UpdatePlayerErrors, UpdatePlayerResponses, UpdatePlaylistData, UpdatePlaylistErrors, UpdatePlaylistResponses, UpdateRolePermissionsData, UpdateRolePermissionsErrors, UpdateRolePermissionsResponses, UpdateSettingData, UpdateSettingErrors, UpdateSettingResponses, UpdateTagData, UpdateTagErrors, UpdateTagResponses, UpdateUserData, UpdateUserErrors, UpdateUserResponses, UsdbCoverData, UsdbCoverErrors, UsdbCoverResponses, UsdbSearchData, UsdbSearchErrors, UsdbSearchResponses, UsdbStatusData, UsdbStatusErrors, UsdbStatusResponses, UsdxStatusData, UsdxStatusResponses } from './types.gen';
 
 export type Options<TData extends TDataShape = TDataShape, ThrowOnError extends boolean = boolean, TResponse = unknown> = Options2<TData, ThrowOnError, TResponse> & {
     /**
@@ -321,7 +321,9 @@ export const singSong = <ThrowOnError extends boolean = false>(options: Options<
  * phone never has to look first.
  *
  * Somebody else's selection takes `karaoke.stop`: that is the host screen's cancel, and
- * the phone that opened it sends its token instead.
+ * the phone that opened it sends its token instead. A token that does not own the
+ * selection any more is 409 `not_the_opener` for everybody, so a phone that was taken
+ * over cannot close the selection that took its place.
  */
 export const closePlayerSelection = <ThrowOnError extends boolean = false>(options?: Options<ClosePlayerSelectionData, ThrowOnError>): RequestResult<ClosePlayerSelectionResponses, ClosePlayerSelectionErrors, ThrowOnError> => (options?.client ?? client).delete<ClosePlayerSelectionResponses, ClosePlayerSelectionErrors, ThrowOnError>({ url: '/api/v1/karaoke/selection', ...options });
 
@@ -341,6 +343,11 @@ export const getPlayerSelection = <ThrowOnError extends boolean = false>(options
  * Answers the selection and the token that owns it: only that token moves the slots and
  * presses Play. `force` takes a selection somebody else opened over, which needs nothing
  * beyond `karaoke.sing` — the UI asks first.
+ *
+ * Opens with whatever lies on the player selector: those people are already standing in
+ * the room with their card down, so their slots are theirs before the phone's remembered
+ * assignment gets a say. With the automatic start on, a room the cards already fill starts
+ * counting down from here.
  */
 export const openPlayerSelection = <ThrowOnError extends boolean = false>(options: Options<OpenPlayerSelectionData, ThrowOnError>): RequestResult<OpenPlayerSelectionResponses, OpenPlayerSelectionErrors, ThrowOnError> => (options.client ?? client).post<OpenPlayerSelectionResponses, OpenPlayerSelectionErrors, ThrowOnError>({
     url: '/api/v1/karaoke/selection',
@@ -1246,6 +1253,148 @@ export const setAchievementIcon = <ThrowOnError extends boolean = false>(options
  * achievement keeps the numbers it was earned with.
  */
 export const listPlayerAchievements = <ThrowOnError extends boolean = false>(options: Options<ListPlayerAchievementsData, ThrowOnError>): RequestResult<ListPlayerAchievementsResponses, ListPlayerAchievementsErrors, ThrowOnError> => (options.client ?? client).get<ListPlayerAchievementsResponses, ListPlayerAchievementsErrors, ThrowOnError>({ url: '/api/v1/players/{player_id}/achievements', ...options });
+
+/**
+ * List Devices
+ *
+ * Every player selector with what it is saying right now: online, its versions, what
+ * lies on each reader and who that card belongs to.
+ */
+export const listDevices = <ThrowOnError extends boolean = false>(options?: Options<ListDevicesData, ThrowOnError>): RequestResult<ListDevicesResponses, unknown, ThrowOnError> => (options?.client ?? client).get<ListDevicesResponses, unknown, ThrowOnError>({ url: '/api/v1/devices', ...options });
+
+/**
+ * Create Device
+ *
+ * Add a device and mint its token. This is the only answer the token is ever in: the
+ * setup wizard writes it to the device over USB, and Wingman keeps its hash.
+ */
+export const createDevice = <ThrowOnError extends boolean = false>(options: Options<CreateDeviceData, ThrowOnError>): RequestResult<CreateDeviceResponses, CreateDeviceErrors, ThrowOnError> => (options.client ?? client).post<CreateDeviceResponses, CreateDeviceErrors, ThrowOnError>({
+    url: '/api/v1/devices',
+    ...options,
+    headers: {
+        'Content-Type': 'application/json',
+        ...options.headers
+    }
+});
+
+/**
+ * List Cards
+ *
+ * Every card Wingman knows and who it belongs to, newest first.
+ */
+export const listCards = <ThrowOnError extends boolean = false>(options?: Options<ListCardsData, ThrowOnError>): RequestResult<ListCardsResponses, unknown, ThrowOnError> => (options?.client ?? client).get<ListCardsResponses, unknown, ThrowOnError>({ url: '/api/v1/devices/cards', ...options });
+
+/**
+ * Forget Card
+ *
+ * Take a card off the table. The card itself still works: it is simply nobody's.
+ */
+export const forgetCard = <ThrowOnError extends boolean = false>(options: Options<ForgetCardData, ThrowOnError>): RequestResult<ForgetCardResponses, ForgetCardErrors, ThrowOnError> => (options.client ?? client).delete<ForgetCardResponses, ForgetCardErrors, ThrowOnError>({ url: '/api/v1/devices/cards/{uid}', ...options });
+
+/**
+ * Assign Card
+ *
+ * Give a card to a player. A card that already belonged to somebody moves, which is
+ * what a card handed on to the next guest does.
+ */
+export const assignCard = <ThrowOnError extends boolean = false>(options: Options<AssignCardData, ThrowOnError>): RequestResult<AssignCardResponses, AssignCardErrors, ThrowOnError> => (options.client ?? client).put<AssignCardResponses, AssignCardErrors, ThrowOnError>({
+    url: '/api/v1/devices/cards/{uid}',
+    ...options,
+    headers: {
+        'Content-Type': 'application/json',
+        ...options.headers
+    }
+});
+
+/**
+ * Get Device Settings
+ */
+export const getDeviceSettings = <ThrowOnError extends boolean = false>(options?: Options<GetDeviceSettingsData, ThrowOnError>): RequestResult<GetDeviceSettingsResponses, unknown, ThrowOnError> => (options?.client ?? client).get<GetDeviceSettingsResponses, unknown, ThrowOnError>({ url: '/api/v1/devices/settings', ...options });
+
+/**
+ * Update Device Settings
+ *
+ * Switch the automatic start on, retime it, or decide what a second scan does.
+ *
+ * Registered before `PATCH /devices/{device_id}` for the same reason as the settings
+ * listing above.
+ */
+export const updateDeviceSettings = <ThrowOnError extends boolean = false>(options: Options<UpdateDeviceSettingsData, ThrowOnError>): RequestResult<UpdateDeviceSettingsResponses, UpdateDeviceSettingsErrors, ThrowOnError> => (options.client ?? client).patch<UpdateDeviceSettingsResponses, UpdateDeviceSettingsErrors, ThrowOnError>({
+    url: '/api/v1/devices/settings',
+    ...options,
+    headers: {
+        'Content-Type': 'application/json',
+        ...options.headers
+    }
+});
+
+/**
+ * Get Firmware Manifest
+ *
+ * What the bundled firmware is. A checkout that never built one answers 404
+ * `no_firmware`, and the wizard says how to build it.
+ */
+export const getFirmwareManifest = <ThrowOnError extends boolean = false>(options?: Options<GetFirmwareManifestData, ThrowOnError>): RequestResult<GetFirmwareManifestResponses, GetFirmwareManifestErrors, ThrowOnError> => (options?.client ?? client).get<GetFirmwareManifestResponses, GetFirmwareManifestErrors, ThrowOnError>({ url: '/api/v1/devices/firmware', ...options });
+
+/**
+ * Get Firmware Image
+ *
+ * The image itself, for the flasher in the browser. Only a file the manifest names is
+ * served, whatever the path looks like.
+ */
+export const getFirmwareImage = <ThrowOnError extends boolean = false>(options: Options<GetFirmwareImageData, ThrowOnError>): RequestResult<GetFirmwareImageResponses, GetFirmwareImageErrors, ThrowOnError> => (options.client ?? client).get<GetFirmwareImageResponses, GetFirmwareImageErrors, ThrowOnError>({ url: '/api/v1/devices/firmware/{file}', ...options });
+
+/**
+ * Report
+ *
+ * A device says what lies on its readers and how often its buttons were pressed.
+ *
+ * No capability: the bearer token is the right. The answer is the same for every device
+ * and carries `interval_s`, which is how often Wingman wants to hear from it even when
+ * nothing changes.
+ */
+export const report = <ThrowOnError extends boolean = false>(options: Options<ReportData, ThrowOnError>): RequestResult<ReportResponses, ReportErrors, ThrowOnError> => (options.client ?? client).post<ReportResponses, ReportErrors, ThrowOnError>({
+    url: '/api/v1/devices/report',
+    ...options,
+    headers: {
+        'Content-Type': 'application/json',
+        ...options.headers
+    }
+});
+
+/**
+ * Delete Device
+ *
+ * Forget a device. The cards stay: they belong to the people, and the next device reads
+ * the same ones.
+ */
+export const deleteDevice = <ThrowOnError extends boolean = false>(options: Options<DeleteDeviceData, ThrowOnError>): RequestResult<DeleteDeviceResponses, DeleteDeviceErrors, ThrowOnError> => (options.client ?? client).delete<DeleteDeviceResponses, DeleteDeviceErrors, ThrowOnError>({ url: '/api/v1/devices/{device_id}', ...options });
+
+/**
+ * Update Device
+ *
+ * Rename a device, wire its readers to slots, or say what its buttons do.
+ *
+ * A role on a reader that did not answer the boot probe is 422 `reader_not_wired`, two
+ * readers on one slot color 422 `duplicate_slot`, and a color Ultrastar Deluxe has no
+ * microphone for 422 `unknown_color`.
+ */
+export const updateDevice = <ThrowOnError extends boolean = false>(options: Options<UpdateDeviceData, ThrowOnError>): RequestResult<UpdateDeviceResponses, UpdateDeviceErrors, ThrowOnError> => (options.client ?? client).patch<UpdateDeviceResponses, UpdateDeviceErrors, ThrowOnError>({
+    url: '/api/v1/devices/{device_id}',
+    ...options,
+    headers: {
+        'Content-Type': 'application/json',
+        ...options.headers
+    }
+});
+
+/**
+ * Rotate Device Token
+ *
+ * Mint a new token for a device whose old one nobody wrote down. The old one stops
+ * working at once, so the device is silent until the wizard has written the new one.
+ */
+export const rotateDeviceToken = <ThrowOnError extends boolean = false>(options: Options<RotateDeviceTokenData, ThrowOnError>): RequestResult<RotateDeviceTokenResponses, RotateDeviceTokenErrors, ThrowOnError> => (options.client ?? client).post<RotateDeviceTokenResponses, RotateDeviceTokenErrors, ThrowOnError>({ url: '/api/v1/devices/{device_id}/token', ...options });
 
 /**
  * Health

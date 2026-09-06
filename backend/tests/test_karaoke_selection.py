@@ -8,6 +8,7 @@ fake USDX of `test_karaoke_api`, so a selection that starts a song really starts
 
 import asyncio
 from datetime import UTC, datetime, timedelta
+from pathlib import Path
 from typing import Any
 
 import pytest
@@ -16,10 +17,11 @@ from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
 
 import test_karaoke_api
 from conftest import BASE_URL, admin_client, authenticate_admin
-from test_karaoke_api import FakeUsdx, add_player, wait_for
+from test_karaoke_api import FakeUsdx, add_player, sing, wait_for
 from ultrastar_wingman.app import create_app
 from ultrastar_wingman.config import BootstrapSettings
 from ultrastar_wingman.karaoke import selection, service
+from ultrastar_wingman.karaoke.launcher import Launch
 from ultrastar_wingman.players.model import Player
 from ultrastar_wingman.settings import SettingsService
 
@@ -701,3 +703,145 @@ async def test_a_takeover_kills_the_countdown_the_last_selection_started(
     assert taken_over is not None and taken_over.auto_start_at is None
     assert player_names(await current_slots()) == [None, None]
     assert not configured.argv_file.exists()
+
+
+async def test_a_selection_that_opens_on_a_full_selector_starts_by_itself(
+    session: AsyncSession,
+    session_factory: async_sessionmaker[AsyncSession],
+    configured: FakeUsdx,
+    song: str,
+) -> None:
+    """Everybody is already standing at the selector with their card down. Waiting for one
+    of them to lift a card and put it back again would be a joke."""
+    alice = await add_player_row(session, "Alice")
+    bob = await add_player_row(session, "Bob")
+    await SettingsService(session).set("karaoke.player_colors", TWO_SLOTS)
+
+    await selection.open_selection(
+        session,
+        song,
+        [],
+        device_slots={
+            "blue": selection.CardOnSlot(uid="A1", player_id=alice),
+            "red": selection.CardOnSlot(uid="B2", player_id=bob),
+        },
+        session_factory=session_factory,
+        auto_start=selection.AutoStart(delay_s=0),
+    )
+
+    await selection.wait_for_auto_start()
+    await wait_for(configured.argv_file)
+    assert await selection.current_selection() is None
+    await service.wait_for_sing_end()
+
+
+async def test_a_room_the_phone_remembered_starts_nothing(
+    session: AsyncSession,
+    session_factory: async_sessionmaker[AsyncSession],
+    configured: FakeUsdx,
+    song: str,
+) -> None:
+    """The same full room, filled from the phone's memory instead of from the readers. A
+    phone has Play, and `set_slots` starts no countdown either."""
+    alice = await add_player_row(session, "Alice")
+    bob = await add_player_row(session, "Bob")
+    await SettingsService(session).set("karaoke.player_colors", TWO_SLOTS)
+
+    await selection.open_selection(
+        session,
+        song,
+        [
+            service.SlotRequest(color="blue", player_id=alice),
+            service.SlotRequest(color="red", player_id=bob),
+        ],
+        session_factory=session_factory,
+        auto_start=selection.AutoStart(delay_s=0),
+    )
+
+    current = await selection.current_selection()
+    assert current is not None and current.auto_start_at is None
+    assert not configured.argv_file.exists()
+
+
+async def test_a_forced_sing_takes_the_room_and_ends_the_selection(
+    client: AsyncClient,
+    session: AsyncSession,
+    configured: FakeUsdx,
+    song: str,
+    broadcast_events: list[dict[str, object]],
+) -> None:
+    """`force` means "take the machine". The TV must not keep showing a selection for a
+    song nobody is going to sing."""
+    await two_slot_selection(session, song)
+    alice = await add_player(client, "Alice")
+
+    await sing(client, song, [{"color": "blue", "player_id": alice["id"]}], force=True)
+
+    await wait_for(configured.argv_file)
+    assert await selection.current_selection() is None
+    assert selection_events(broadcast_events)[-1]["selection"] is None
+    await service.wait_for_sing_end()
+
+
+class BlockingLauncher:
+    """A launcher whose `start` hangs until the test lets it go.
+
+    A forced start really does span a USDX exit and a score import, so this is what the
+    selection lock would be held across if `start_selection` still held it.
+    """
+
+    def __init__(self, paths: Any) -> None:
+        self.on_exit: Any = None
+        self.started = asyncio.Event()
+        self.release = asyncio.Event()
+        self._running = False
+
+    @property
+    def is_running(self) -> bool:
+        return self._running
+
+    async def start(self, song_dir: Path, slots: Any) -> Any:
+        self.started.set()
+        await self.release.wait()
+        self._running = True
+        return Launch(pid=1, song_dir=song_dir)
+
+    async def start_standalone(self) -> Any:
+        raise NotImplementedError
+
+    async def stop(self) -> None:
+        self._running = False
+        if self.on_exit is not None:
+            on_exit, self.on_exit = self.on_exit, None
+            await on_exit()
+
+
+async def test_the_room_keeps_going_while_a_start_is_in_progress(
+    session: AsyncSession,
+    session_factory: async_sessionmaker[AsyncSession],
+    configured: FakeUsdx,
+    song: str,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """Play was pressed and USDX is coming up. The player selector keeps reporting every
+    five seconds all the while, and none of it may wait behind the sing flow."""
+    alice = await add_player_row(session, "Alice")
+    bob = await add_player_row(session, "Bob")
+    token = await two_slot_selection(session, song)
+    await selection.card_placed_on_slot(session_factory, "blue", "A1", alice)
+    launcher = BlockingLauncher(None)
+    monkeypatch.setattr(service, "UsdxLauncher", lambda paths: launcher)
+
+    start = asyncio.create_task(selection.start_selection(session, session_factory, token))
+    await asyncio.wait_for(launcher.started.wait(), timeout=5)
+
+    # A card arriving mid-start is answered, not queued behind USDX.
+    await asyncio.wait_for(
+        selection.card_placed_on_slot(session_factory, "red", "B2", bob), timeout=5
+    )
+
+    launcher.release.set()
+    await asyncio.wait_for(start, timeout=5)
+    assert await selection.current_selection() is None
+    await service.stop_sing()
+    await service.wait_for_sing_end()

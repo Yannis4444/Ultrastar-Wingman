@@ -18,6 +18,7 @@ from ultrastar_wingman.auth.model import User, UserSession, utcnow
 from ultrastar_wingman.auth.service import SESSION_TTL, token_hash
 from ultrastar_wingman.config import BootstrapSettings
 from ultrastar_wingman.db import run_migrations
+from ultrastar_wingman.devices import service as devices
 from ultrastar_wingman.events import event_bus
 from ultrastar_wingman.karaoke import selection
 from ultrastar_wingman.songs import scanner
@@ -210,6 +211,15 @@ def fresh_selection_state() -> None:
     selection._auto_start_tasks.clear()
     selection._selection = None
     selection._lock = asyncio.Lock()
+
+
+@pytest.fixture(autouse=True)
+def fresh_devices_state() -> None:
+    """Same reasoning as the selection above — the last report of every player selector and
+    the lock around it are module-global, while every test brings its own event loop and its
+    own database. A device left behind would still be online for the next test."""
+    devices._live.clear()
+    devices._lock = asyncio.Lock()
 
 
 @pytest.fixture(autouse=True)
