@@ -640,6 +640,10 @@ export type DeviceRead = {
      */
     uptime_s?: number | null;
     /**
+     * Update Requested At
+     */
+    update_requested_at?: string | null;
+    /**
      * Readers
      */
     readers: Array<ReaderRead>;
@@ -669,6 +673,10 @@ export type DeviceSettings = {
      * Selection Idle S
      */
     selection_idle_s: number;
+    /**
+     * Start Without Selection
+     */
+    start_without_selection: string;
 };
 
 /**
@@ -691,6 +699,10 @@ export type DeviceSettingsUpdate = {
      * Selection Idle S
      */
     selection_idle_s?: number | null;
+    /**
+     * Start Without Selection
+     */
+    start_without_selection?: string | null;
 };
 
 /**
@@ -847,6 +859,14 @@ export type FirmwareBuild = {
      * Size
      */
     size: number;
+    /**
+     * Ota File
+     */
+    ota_file?: string | null;
+    /**
+     * Ota Size
+     */
+    ota_size?: number | null;
 };
 
 /**
@@ -868,6 +888,23 @@ export type FirmwareManifest = {
      * Builds
      */
     builds: Array<FirmwareBuild>;
+};
+
+/**
+ * FirmwareUpdate
+ *
+ * Fetch this image and flash it. Only in the answer while the host has asked for an
+ * update and the device is not on that version yet.
+ */
+export type FirmwareUpdate = {
+    /**
+     * File
+     */
+    file: string;
+    /**
+     * Version
+     */
+    version: string;
 };
 
 /**
@@ -914,6 +951,27 @@ export type JoinInfo = {
      * Url
      */
     url: string;
+};
+
+/**
+ * LedState
+ *
+ * What one LED of the optional strip shows until the next report is answered. LED *i*
+ * is reader *i*, so `index` is a reader position and nothing else.
+ */
+export type LedState = {
+    /**
+     * Index
+     */
+    index: number;
+    /**
+     * Rgb
+     */
+    rgb: string;
+    /**
+     * Mode
+     */
+    mode: 'off' | 'dim' | 'on' | 'blink' | 'pulse';
 };
 
 /**
@@ -1403,9 +1461,13 @@ export type RegisterRequest = {
 /**
  * ReportAck
  *
- * The answer to a report. The body is deliberately more than `{"ok": true}`: it is
- * where feedback for the device (lights, a buzzer) goes when that ships, and `interval_s`
- * already tells a device how often the server wants to hear from it.
+ * The answer to a report, and the only thing Wingman ever says to a device.
+ *
+ * `interval_s` is how often the server wants to hear from it: one second while the room
+ * is picking singers, so the lights follow the phone, and five otherwise. `leds` is what
+ * the optional strip shows until the next answer, one entry per reader position the
+ * report carried. `update` is there only while an update over Wi-Fi is waiting to be
+ * fetched; a device that has no strip and no updater ignores both.
  */
 export type ReportAck = {
     /**
@@ -1420,6 +1482,11 @@ export type ReportAck = {
      * Interval S
      */
     interval_s: number;
+    /**
+     * Leds
+     */
+    leds?: Array<LedState>;
+    update?: FirmwareUpdate | null;
 };
 
 /**
@@ -5995,7 +6062,7 @@ export type UpdateDeviceSettingsData = {
 
 export type UpdateDeviceSettingsErrors = {
     /**
-     * A delay or an idle time outside its range.
+     * A delay or an idle time outside its range, or an unknown mode.
      */
     422: unknown;
 };
@@ -6045,6 +6112,14 @@ export type GetFirmwareImageData = {
 };
 
 export type GetFirmwareImageErrors = {
+    /**
+     * A device token no device holds.
+     */
+    401: unknown;
+    /**
+     * A browser without `devices.manage`.
+     */
+    403: unknown;
     /**
      * The manifest names no such file.
      */
@@ -6162,6 +6237,44 @@ export type UpdateDeviceResponses = {
 };
 
 export type UpdateDeviceResponse = UpdateDeviceResponses[keyof UpdateDeviceResponses];
+
+export type RequestDeviceUpdateData = {
+    body?: never;
+    path: {
+        /**
+         * Device Id
+         */
+        device_id: string;
+    };
+    query?: never;
+    url: '/api/v1/devices/{device_id}/update';
+};
+
+export type RequestDeviceUpdateErrors = {
+    /**
+     * Unknown device.
+     */
+    404: unknown;
+    /**
+     * There is no update to ask this device for.
+     */
+    409: unknown;
+    /**
+     * Validation Error
+     */
+    422: HttpValidationError;
+};
+
+export type RequestDeviceUpdateError = RequestDeviceUpdateErrors[keyof RequestDeviceUpdateErrors];
+
+export type RequestDeviceUpdateResponses = {
+    /**
+     * Successful Response
+     */
+    204: void;
+};
+
+export type RequestDeviceUpdateResponse = RequestDeviceUpdateResponses[keyof RequestDeviceUpdateResponses];
 
 export type RotateDeviceTokenData = {
     body?: never;

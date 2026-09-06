@@ -38,7 +38,7 @@ from ..events import DevicesChanged, event_bus
 from ..settings import SettingTypeError, SettingValueError
 from . import firmware, service
 from . import settings as device_settings
-from .deps import DeviceDep
+from .deps import DeviceDep, device_or_manager
 from .model import MAX_NAME_LENGTH
 from .protocol import SUPPORTED, DeviceReport, ReportEnvelope, readable_firmware
 from .schema import (
@@ -89,6 +89,7 @@ class DeviceSettingsUpdate(BaseModel):
     auto_start_delay_s: int | None = None
     rescan_removes: bool | None = None
     selection_idle_s: int | None = None
+    start_without_selection: str | None = None
 
 
 def get_session_factory(request: Request) -> async_sessionmaker[AsyncSession]:
@@ -293,11 +294,13 @@ async def get_device_settings(session: SessionDep) -> DeviceSettings:
     "/devices/settings",
     response_model=DeviceSettings,
     dependencies=[Depends(require("devices.manage"))],
-    responses={422: {"description": "A delay or an idle time outside its range."}},
+    responses={
+        422: {"description": "A delay or an idle time outside its range, or an unknown mode."}
+    },
 )
 async def update_device_settings(body: DeviceSettingsUpdate, session: SessionDep) -> DeviceSettings:
-    """Switch the automatic start on, retime it, decide what a second scan does, or say how
-    long a half-picked song may stand.
+    """Switch the automatic start on, retime it, decide what a second scan does, say how
+    long a half-picked song may stand, or say what the start button does at a quiet room.
 
     Registered before `PATCH /devices/{device_id}` for the same reason as the settings
     listing above.
@@ -340,12 +343,22 @@ async def get_firmware_manifest() -> FirmwareManifest:
 @router.get(
     "/devices/firmware/{file}",
     response_class=FileResponse,
-    dependencies=[Depends(require("devices.manage"))],
-    responses={404: {"description": "The manifest names no such file."}},
+    dependencies=[Depends(device_or_manager)],
+    responses={
+        401: {"description": "A device token no device holds."},
+        403: {"description": "A browser without `devices.manage`."},
+        404: {"description": "The manifest names no such file."},
+    },
 )
 async def get_firmware_image(file: str) -> FileResponse:
-    """The image itself, for the flasher in the browser. Only a file the manifest names is
-    served, whatever the path looks like."""
+    """The image itself: the merged one for the flasher in the browser, the bare application
+    for a device updating itself over Wi-Fi. Only a file the manifest names is served,
+    whatever the path looks like.
+
+    The one route in Wingman two kinds of caller reach. A request carrying a bearer token is
+    a device and is answered 401 if the token is wrong; everything else is a browser and
+    needs `devices.manage`, exactly like the manifest beside it.
+    """
     path: Path | None = firmware.image_path(file)
     if path is None:
         raise HTTPException(status_code=404, detail="no_firmware")
@@ -365,9 +378,10 @@ async def report(
 ) -> ReportAck | JSONResponse:
     """A device says what lies on its readers and how often its buttons were pressed.
 
-    No capability: the bearer token is the right. The answer is the same for every device
-    and carries `interval_s`, which is how often Wingman wants to hear from it even when
-    nothing changes.
+    No capability: the bearer token is the right. The answer is this device's own: how often
+    Wingman wants to hear from it, what its lights show until the next one, and the firmware
+    to fetch while the host has asked for an update. A device that has none of that hardware
+    reads `interval_s` and ignores the rest.
 
     The **protocol is read before the rest of the body**: `ReportEnvelope` is all a report
     has to be to be answered at all. A device speaking another version is recorded as one
@@ -406,7 +420,12 @@ async def report(
         # Deleted between the token lookup and the report. From the device's side that is
         # exactly what an unknown token is.
         raise HTTPException(status_code=401, detail="unknown_device") from error
-    return ReportAck(protocol=SUPPORTED, interval_s=outcome.interval_s)
+    return ReportAck(
+        protocol=SUPPORTED,
+        interval_s=outcome.interval_s,
+        leds=outcome.leds,
+        update=outcome.update,
+    )
 
 
 @router.patch(
@@ -450,6 +469,34 @@ async def update_device(device_id: str, body: DeviceUpdate, session: SessionDep)
         ) from error
     except service.MappingError as error:
         raise HTTPException(status_code=422, detail=error.detail) from error
+
+
+@router.post(
+    "/devices/{device_id}/update",
+    status_code=204,
+    dependencies=[Depends(require("devices.manage"))],
+    responses={
+        **UNKNOWN_DEVICE,
+        409: {"description": "There is no update to ask this device for."},
+    },
+)
+async def request_device_update(device_id: str, session: SessionDep) -> None:
+    """Ask a device to fetch the bundled firmware over Wi-Fi and flash itself.
+
+    Nothing is pushed and nothing waits: the offer rides on the answer to the device's own
+    next report, so a device that is unplugged picks it up when it comes back. It stands for
+    ten minutes, which is what makes a failed attempt repeatable.
+
+    409 `no_firmware` when this Wingman ships no build, `no_ota_image` when the build is
+    older than the update over Wi-Fi (the cable still works), and `already_current` when the
+    device is running the bundled version already.
+    """
+    try:
+        await service.request_update(session, device_id)
+    except service.UnknownDeviceError as error:
+        raise HTTPException(status_code=404, detail=str(error)) from error
+    except service.UpdateRefusedError as error:
+        raise HTTPException(status_code=409, detail=error.detail) from error
 
 
 @router.post(

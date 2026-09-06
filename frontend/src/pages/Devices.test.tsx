@@ -64,6 +64,7 @@ const SETTINGS: DeviceSettings = {
   auto_start_delay_s: 3,
   rescan_removes: true,
   selection_idle_s: 120,
+  start_without_selection: "nothing",
 };
 
 function player(overrides: Partial<PlayerRead> = {}): PlayerRead {

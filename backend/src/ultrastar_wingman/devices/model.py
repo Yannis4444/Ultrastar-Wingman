@@ -70,6 +70,13 @@ class Device(Base):
     # The protocol version of the last report, whether or not Wingman speaks it: that is
     # what makes an incompatible device show up as one that needs updating.
     protocol: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    # When the host asked this device to fetch the bundled firmware over Wi-Fi. The offer
+    # rides on the answer to the device's own reports, so the flag is what turns it on;
+    # the report carrying the new version takes it off again, and so does ten minutes,
+    # which is what makes a failed attempt repeatable.
+    update_requested_at: Mapped[datetime | None] = mapped_column(
+        DateTime(timezone=True), nullable=True
+    )
     # JSON objects keyed by the position as a string, because JSON has no integer keys:
     # `{"0": "wired", "2": "fault"}`, `{"0": "slot:blue"}`, `{"1": "start"}`. Text and not
     # a JSON column, like `settings.value`: nothing queries into them in SQL.

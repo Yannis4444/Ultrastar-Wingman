@@ -517,33 +517,60 @@ async def test_a_card_leaving_empties_only_the_slot_it_is_still_on(
     assert player_names(await current_slots()) == [None, None]
 
 
-async def test_a_slot_the_phone_repointed_survives_its_card_leaving(
+async def test_a_slot_a_card_holds_is_not_the_phones_to_repoint(
     session: AsyncSession, session_factory: async_sessionmaker[AsyncSession], song: str
 ) -> None:
+    """The card in somebody's hand decides that microphone. A tap that says otherwise is
+    answered with what the reader says, and refused nothing: the phone drew the slot as the
+    card's and its next redraw agrees again."""
     alice = await add_player_row(session, "Alice")
     bob = await add_player_row(session, "Bob")
     token = await two_slot_selection(session, song)
     await selection.card_placed_on_slot(session_factory, "blue", "A1", alice)
 
-    await selection.set_slots(session, token, [service.SlotRequest(color="blue", player_id=bob)])
+    answered = await selection.set_slots(
+        session, token, [service.SlotRequest(color="blue", player_id=bob)]
+    )
+
+    assert [slot.player.name for slot in answered.slots if slot.player is not None] == ["Alice"]
+    assert answered.slots[0].card_uid == "A1"
+    # And it is still the card's slot: lifting the card is what empties it.
     await selection.card_removed_from_slot("blue", "A1")
+    assert player_names(await current_slots()) == [None, None]
 
-    assert player_names(await current_slots()) == ["Bob", None]
 
-
-async def test_a_card_lifted_after_the_phone_moved_its_singer_leaves_them_standing(
+async def test_a_put_written_before_a_card_landed_does_not_take_the_singer_off(
     session: AsyncSession, session_factory: async_sessionmaker[AsyncSession], song: str
 ) -> None:
-    """The phone put Alice on the other microphone while her card still lay on the first
-    reader. Lifting it is the card leaving that reader, not Alice leaving the room."""
-    alice = await add_player_row(session, "Alice")
+    """The phone sends the whole assignment on every tap. One already on the wire when a
+    card lands says nothing about that slot, and must not read as "the phone took them
+    off"."""
+    bob = await add_player_row(session, "Bob")
     token = await two_slot_selection(session, song)
-    await selection.card_placed_on_slot(session_factory, "blue", "A1", alice)
+    await selection.card_placed_on_slot(session_factory, "blue", "B2", bob)
 
-    await selection.set_slots(session, token, [service.SlotRequest(color="red", player_id=alice)])
-    await selection.card_removed_from_slot("blue", "A1")
+    # A body from a moment ago: no blue at all.
+    await selection.set_slots(session, token, [])
 
-    assert player_names(await current_slots()) == [None, "Alice"]
+    slots = await current_slots()
+    assert player_names(slots) == ["Bob", None]
+    assert slots[0]["card_uid"] == "B2"
+
+
+async def test_the_phone_cannot_put_a_cards_singer_on_a_second_microphone(
+    session: AsyncSession, session_factory: async_sessionmaker[AsyncSession], song: str
+) -> None:
+    """One person sings on one microphone, and the card is what decides which: the slot the
+    phone named goes empty rather than the room holding Bob twice."""
+    bob = await add_player_row(session, "Bob")
+    token = await two_slot_selection(session, song)
+    await selection.card_placed_on_slot(session_factory, "blue", "B2", bob)
+
+    await selection.set_slots(session, token, [service.SlotRequest(color="red", player_id=bob)])
+
+    slots = await current_slots()
+    assert player_names(slots) == ["Bob", None]
+    assert slots[0]["card_uid"] == "B2"
 
 
 async def test_a_tap_elsewhere_leaves_an_unknown_card_where_it_lies(
@@ -765,6 +792,41 @@ async def test_the_start_button_with_nobody_on_a_slot_is_logged_and_not_raised(
     await selection.button_pressed(session, session_factory, "start")
 
     assert await selection.current_selection() is not None
+
+
+async def test_the_selection_the_start_button_opens_belongs_to_nobody(
+    session: AsyncSession,
+    session_factory: async_sessionmaker[AsyncSession],
+    configured: FakeUsdx,
+    song: str,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """A press at a quiet room opens a selection and starts it in the same breath, so no
+    token is ever handed out. A start that fails leaves nothing standing either: the phone
+    finds an empty room, not a song nobody can press Play on.
+    """
+    alice = await add_player_row(session, "Alice")
+    await SettingsService(session).set("karaoke.player_colors", TWO_SLOTS)
+    # A launcher that refuses, so the start comes back without a selection to inspect.
+    monkeypatch.setattr(service, "start_sing", refuse_to_start)
+
+    await selection.button_pressed(
+        session,
+        session_factory,
+        "start",
+        without_selection=selection.StartWithoutSelection(
+            mode="random", cards={"blue": selection.CardOnSlot(uid="A1", player_id=alice)}
+        ),
+    )
+
+    assert await selection.current_selection() is None
+    # And the room is not locked: the next phone opens one without having to force it.
+    opened, _ = await selection.open_selection(session, song, [])
+    assert opened.song.id == song
+
+
+async def refuse_to_start(*args: Any, **kwargs: Any) -> None:
+    raise service.AlreadyPlayingError
 
 
 async def test_a_full_room_starts_by_itself(

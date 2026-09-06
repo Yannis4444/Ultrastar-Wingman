@@ -12,7 +12,7 @@ import json
 import logging
 from datetime import UTC, datetime, timedelta
 from pathlib import Path
-from typing import Any
+from typing import Any, cast
 
 import pytest
 from fastapi import FastAPI
@@ -21,8 +21,9 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 import test_karaoke_api
 from conftest import ADMIN_PASSWORD, BASE_URL, admin_client, authenticate_admin
-from test_karaoke_api import FakeUsdx, add_player, wait_for
+from test_karaoke_api import FakeUsdx, add_player, make_song_dir, wait_for
 from test_karaoke_selection import (
+    TWO_SLOTS,
     current_slots,
     player_names,
     selection_events,
@@ -32,8 +33,12 @@ from ultrastar_wingman.app import create_app
 from ultrastar_wingman.config import BootstrapSettings
 from ultrastar_wingman.devices import firmware
 from ultrastar_wingman.devices import service as devices
+from ultrastar_wingman.devices.protocol import DeviceReport
 from ultrastar_wingman.karaoke import selection
 from ultrastar_wingman.karaoke import service as karaoke
+from ultrastar_wingman.karaoke.schema import SelectionRead
+from ultrastar_wingman.settings import SettingsService
+from ultrastar_wingman.songs.model import Song
 
 # The fake-USDX fixtures, bound here so pytest can resolve them by name — the same binding
 # `test_karaoke_selection` does, and for the same reason.
@@ -252,7 +257,15 @@ async def test_a_report_makes_the_device_online_and_records_its_readers(
     )
 
     assert response.status_code == 200, response.text
-    assert response.json() == {"ok": True, "protocol": 1, "interval_s": 5}
+    # Nothing is mapped, so every reader is dark, and nobody is picking singers, so five
+    # seconds is often enough to hear from it.
+    assert response.json() == {
+        "ok": True,
+        "protocol": 1,
+        "interval_s": 5,
+        "leds": [{"index": index, "rgb": "000000", "mode": "off"} for index in range(3)],
+        "update": None,
+    }
     device = await only_device(client)
     assert device["online"] is True
     assert device["compatible"] is True
@@ -1265,7 +1278,7 @@ async def test_forgetting_the_card_on_a_slot_makes_it_an_unknown_card_again(
 # --- the options ------------------------------------------------------------------------
 
 
-async def test_the_four_options(client: AsyncClient) -> None:
+async def test_the_five_options(client: AsyncClient) -> None:
     defaults = await client.get("/api/v1/devices/settings")
     assert defaults.status_code == 200, defaults.text
     assert defaults.json() == {
@@ -1273,10 +1286,12 @@ async def test_the_four_options(client: AsyncClient) -> None:
         "auto_start_delay_s": 3,
         "rescan_removes": True,
         "selection_idle_s": 120,
+        "start_without_selection": "nothing",
     }
 
     changed = await client.patch(
-        "/api/v1/devices/settings", json={"auto_start": True, "auto_start_delay_s": 10}
+        "/api/v1/devices/settings",
+        json={"auto_start": True, "auto_start_delay_s": 10, "start_without_selection": "top_wish"},
     )
     assert changed.status_code == 200, changed.text
     assert changed.json() == {
@@ -1284,7 +1299,17 @@ async def test_the_four_options(client: AsyncClient) -> None:
         "auto_start_delay_s": 10,
         "rescan_removes": True,
         "selection_idle_s": 120,
+        "start_without_selection": "top_wish",
     }
+
+    unknown = await client.patch(
+        "/api/v1/devices/settings", json={"start_without_selection": "whatever_it_feels_like"}
+    )
+    assert unknown.status_code == 422
+    assert "top_wish" in unknown.json()["detail"]
+    assert (await client.get("/api/v1/devices/settings")).json()[
+        "start_without_selection"
+    ] == "top_wish"
 
     refused = await client.patch("/api/v1/devices/settings", json={"auto_start_delay_s": 99})
     assert refused.status_code == 422
@@ -1389,6 +1414,500 @@ def test_a_manifest_that_names_a_path_serves_nothing(no_firmware: Path) -> None:
 
     for name in (*TAMPERED_NAMES, "nothing.bin"):
         assert firmware.image_path(name) is None, name
+
+
+# --- the lights -------------------------------------------------------------------------
+
+# The two slot colors of `TWO_SLOTS`, as the strip wants them: six lowercase hex digits.
+# Written out rather than read off `karaoke.colors`, so a color changing there is a failure
+# here and not a test that agrees with whatever the code now says.
+BLUE = "048bb9"
+RED = "d00000"
+WHITE = "ffffff"
+DARK = "000000"
+
+LIT_ROLES = {"0": "slot:blue", "1": "slot:red", "2": "sequential", "3": "unused"}
+
+
+def parsed_report(readers: list[dict[str, Any]]) -> DeviceReport:
+    """One report as a model, for the tests that call `led_states` and nothing else."""
+    return DeviceReport.model_validate(report_body(readers=readers))
+
+
+def lights(
+    readers: list[dict[str, Any]],
+    known: set[str] | None = None,
+    current: SelectionRead | None = None,
+    playing: bool = False,
+) -> list[tuple[int, str, str]]:
+    """`led_states` as `(index, rgb, mode)` triples, which is what the rules read as."""
+    return [
+        (led.index, led.rgb, led.mode)
+        for led in devices.led_states(
+            LIT_ROLES, parsed_report(readers), frozenset(known or set()), current, playing
+        )
+    ]
+
+
+async def picking(session: AsyncSession, song_id: str) -> SelectionRead:
+    """A real open selection, for the two rules that ask whether the room is picking."""
+    await two_slot_selection(session, song_id)
+    current = await selection.current_selection()
+    assert current is not None
+    return current
+
+
+def test_a_slot_reader_shows_its_own_color_and_what_lies_on_it() -> None:
+    """Dark while the slot is only saying it is there, bright under a card Wingman can
+    name, blinking under one it cannot."""
+    on_the_readers = [reader(0), reader(1, uid=KNOWN_UID)]
+
+    assert lights(on_the_readers, known={KNOWN_UID}) == [(0, BLUE, "dim"), (1, RED, "on")]
+    assert lights([reader(0, uid=OTHER_UID)]) == [(0, BLUE, "blink")]
+
+
+def test_a_card_whose_player_is_gone_blinks_like_any_other_unknown_one() -> None:
+    """`known` is who a card *resolves* to, so a card of a deleted player is the unknown
+    card every other surface already draws it as."""
+    assert lights([reader(0, uid=KNOWN_UID)], known=set()) == [(0, BLUE, "blink")]
+
+
+def test_a_reader_with_no_slot_of_its_own_is_white_or_dark() -> None:
+    """The reader everybody scans in turn belongs to no slot, so it borrows no slot's
+    color: white, pulsing to say "scan now" while singers are being picked."""
+    quiet = lights([reader(2)])
+    assert quiet == [(2, WHITE, "dim")]
+
+
+async def test_a_reader_everybody_scans_in_turn_pulses_while_singers_are_picked(
+    session: AsyncSession, song: str
+) -> None:
+    current = await picking(session, song)
+
+    assert lights([reader(2)], current=current) == [(2, WHITE, "pulse")]
+    # And a slot reader is unmoved by the selection itself: what lies on it is the point.
+    assert lights([reader(0)], current=current) == [(0, BLUE, "dim")]
+
+
+def test_a_reader_with_no_role_and_one_that_never_answered_stay_dark() -> None:
+    """An unused reader, one the host mapped nothing onto, and one the boot probe found
+    nothing (or something unreadable) on. None of them has anything to say."""
+    assert lights(
+        [
+            reader(3),
+            reader(4),
+            reader(0, state="none", version="00"),
+            reader(1, state="fault", version="3a"),
+        ]
+    ) == [
+        (0, DARK, "off"),
+        (1, DARK, "off"),
+        (3, DARK, "off"),
+        (4, DARK, "off"),
+    ]
+
+
+async def test_every_slot_pulses_while_the_room_is_about_to_sing_by_itself(
+    session: AsyncSession, song: str
+) -> None:
+    """The countdown belongs to the room, not to one reader: it is the last few seconds to
+    take a wrong card away, and every slot says so."""
+    counting_down = (await picking(session, song)).model_copy(
+        update={"auto_start_at": datetime.now(UTC) + timedelta(seconds=3)}
+    )
+
+    assert lights(
+        [reader(0, uid=KNOWN_UID), reader(1), reader(2)],
+        known={KNOWN_UID},
+        current=counting_down,
+    ) == [(0, BLUE, "pulse"), (1, RED, "pulse"), (2, WHITE, "pulse")]
+
+
+async def test_the_whole_strip_goes_out_while_a_song_plays(
+    session: AsyncSession, song: str
+) -> None:
+    """The picking is over. A lit table beside the TV asks for cards nobody should put
+    down."""
+    current = await picking(session, song)
+
+    assert lights(
+        [reader(0, uid=KNOWN_UID), reader(2)], known={KNOWN_UID}, current=current, playing=True
+    ) == [(0, BLUE, "off"), (2, WHITE, "off")]
+
+
+def test_a_slot_color_no_microphone_has_is_dark() -> None:
+    """The mapping refuses one, so only a hand-edited row can hold it. Dark, like every
+    other role Wingman cannot read."""
+    states = devices.led_states(
+        {"0": "slot:beige"}, parsed_report([reader(0)]), frozenset(), None, False
+    )
+
+    assert [(led.rgb, led.mode) for led in states] == [(DARK, "off")]
+
+
+async def test_the_answer_to_a_report_lights_the_strip_and_asks_for_a_second(
+    client: AsyncClient, session: AsyncSession, song: str
+) -> None:
+    """Once through the route: the rules above, the interval that follows them, and the
+    strip drawn from the report that has just arrived."""
+    alice = await add_player(client, "Alice")
+    await client.put(f"/api/v1/devices/cards/{KNOWN_UID}", json={"player_id": alice["id"]})
+    _, token = await mapped_device(client, reader_roles=LIT_ROLES, readers=4)
+
+    quiet = await post_report(client, token, readers=[reader(index) for index in range(4)])
+    assert quiet.status_code == 200, quiet.text
+    assert quiet.json()["interval_s"] == 5
+    assert quiet.json()["leds"] == [
+        {"index": 0, "rgb": BLUE, "mode": "dim"},
+        {"index": 1, "rgb": RED, "mode": "dim"},
+        {"index": 2, "rgb": WHITE, "mode": "dim"},
+        {"index": 3, "rgb": DARK, "mode": "off"},
+    ]
+
+    await two_slot_selection(session, song)
+    picked = await post_report(
+        client,
+        token,
+        readers=[reader(0, uid=KNOWN_UID), reader(1, uid=OTHER_UID), reader(2), reader(3)],
+    )
+
+    assert picked.status_code == 200, picked.text
+    # A second, so the strip follows the phone; and the cards of *this* report, which is
+    # the same report the slots were just filled from.
+    assert picked.json()["interval_s"] == 1
+    assert picked.json()["leds"] == [
+        {"index": 0, "rgb": BLUE, "mode": "on"},
+        {"index": 1, "rgb": RED, "mode": "blink"},
+        {"index": 2, "rgb": WHITE, "mode": "pulse"},
+        {"index": 3, "rgb": DARK, "mode": "off"},
+    ]
+
+
+# --- the update over Wi-Fi ---------------------------------------------------------------
+
+OTA_NAME = "wingman-esp32-ota.bin"
+
+
+def write_manifest(directory: Path, version: str = "0.3.0", ota: bool = True) -> None:
+    """A bundled build, with or without the bare application image the Wi-Fi update
+    flashes. Without it, only the cable can update a device."""
+    build: dict[str, Any] = {"chip": "ESP32", "file": "wingman-esp32.bin", "size": 9}
+    (directory / "wingman-esp32.bin").write_bytes(b"\xe9merged")
+    if ota:
+        build |= {"ota_file": OTA_NAME, "ota_size": 6}
+        (directory / OTA_NAME).write_bytes(b"\xe9app")
+    (directory / "manifest.json").write_text(
+        json.dumps({"version": version, "protocol": 1, "builds": [build]}), encoding="utf-8"
+    )
+
+
+async def request_update(client: AsyncClient, device_id: str, expect: int = 204) -> Response:
+    response = await client.post(f"/api/v1/devices/{device_id}/update")
+    assert response.status_code == expect, response.text
+    return response
+
+
+async def test_an_update_the_host_asked_for_rides_on_the_next_report(
+    client: AsyncClient, no_firmware: Path, broadcast_events: list[dict[str, object]]
+) -> None:
+    write_manifest(no_firmware)
+    device_id, token = await mapped_device(client)
+    broadcast_events.clear()
+
+    await request_update(client, device_id)
+
+    assert len(device_events(broadcast_events)) == 1
+    assert (await only_device(client))["update_requested_at"] is not None
+    answer = await post_report(client, token, readers=[reader(0)])
+    assert answer.status_code == 200, answer.text
+    # The bare application image and not the merged one: `HTTPUpdate` checks for the 0xE9
+    # magic at byte 0, and the merged image starts with the bootloader's padding.
+    assert answer.json()["update"] == {"file": OTA_NAME, "version": "0.3.0"}
+
+
+async def test_a_report_carrying_the_new_version_clears_the_request(
+    client: AsyncClient, no_firmware: Path, broadcast_events: list[dict[str, object]]
+) -> None:
+    write_manifest(no_firmware)
+    device_id, token = await mapped_device(client)
+    await request_update(client, device_id)
+    broadcast_events.clear()
+
+    answer = await post_report(client, token, readers=[reader(0)], firmware_version="0.3.0")
+
+    assert answer.status_code == 200, answer.text
+    assert answer.json()["update"] is None
+    assert (await only_device(client))["update_requested_at"] is None
+    assert len(device_events(broadcast_events)) == 1
+
+
+async def test_an_update_nobody_fetched_gives_up_after_ten_minutes(
+    client: AsyncClient, no_firmware: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """A device that failed to flash says nothing about it, so the request has to give up by
+    itself. Then the host can ask again."""
+    write_manifest(no_firmware)
+    device_id, token = await mapped_device(client)
+    await request_update(client, device_id)
+    monkeypatch.setattr(
+        devices, "_now", lambda: datetime.now(UTC) + devices.UPDATE_TTL + timedelta(seconds=1)
+    )
+
+    answer = await post_report(client, token, readers=[reader(0)])
+
+    assert answer.status_code == 200, answer.text
+    assert answer.json()["update"] is None
+    assert (await only_device(client))["update_requested_at"] is None
+
+
+async def test_an_update_there_is_none_of_is_refused(
+    client: AsyncClient, no_firmware: Path
+) -> None:
+    device_id, token = await mapped_device(client)
+
+    # Nothing built at all.
+    refused = await request_update(client, device_id, expect=409)
+    assert refused.json() == {"detail": "no_firmware"}
+
+    # A build older than the update over Wi-Fi. The cable still works.
+    write_manifest(no_firmware, ota=False)
+    refused = await request_update(client, device_id, expect=409)
+    assert refused.json() == {"detail": "no_ota_image"}
+
+    # And a device already running what this Wingman ships.
+    write_manifest(no_firmware, version="0.1.0")
+    await post_report(client, token, readers=[reader(0)], firmware_version="0.1.0")
+    refused = await request_update(client, device_id, expect=409)
+    assert refused.json() == {"detail": "already_current"}
+
+    assert (await only_device(client))["update_requested_at"] is None
+    assert (await client.post("/api/v1/devices/nope/update")).status_code == 404
+
+
+async def test_a_device_fetches_the_image_with_its_own_token(
+    anonymous_client: AsyncClient, client: AsyncClient, no_firmware: Path
+) -> None:
+    """The one route two kinds of caller reach. A bearer token is a device, whatever the
+    browser beside it may hold."""
+    write_manifest(no_firmware)
+    _, token = await mapped_device(client)
+
+    fetched = await anonymous_client.get(
+        f"/api/v1/devices/firmware/{OTA_NAME}", headers={"Authorization": f"Bearer {token}"}
+    )
+    assert fetched.status_code == 200, fetched.text
+    assert fetched.content == b"\xe9app"
+
+    # A token no device holds is 401 and never 403: a device holds no capability to be
+    # missing one.
+    wrong = await anonymous_client.get(
+        f"/api/v1/devices/firmware/{OTA_NAME}",
+        headers={"Authorization": f"Bearer wd_{'0' * 40}"},
+    )
+    assert wrong.status_code == 401
+    assert wrong.json() == {"detail": "unknown_device"}
+
+    # And a browser with nothing at all is still the capability's 403.
+    guest = await anonymous_client.get(f"/api/v1/devices/firmware/{OTA_NAME}")
+    assert guest.status_code == 403
+    assert guest.json() == {"detail": "missing_permission:devices.manage"}
+
+    # The bearer is tried *first*, so a wrong one is 401 even for an administrator's own
+    # browser: a request carrying a token is a device, whatever cookie rode along with it.
+    both = await client.get(
+        f"/api/v1/devices/firmware/{OTA_NAME}",
+        headers={"Authorization": f"Bearer wd_{'0' * 40}"},
+    )
+    assert both.status_code == 401
+    # Without one, that same browser gets the image.
+    assert (await client.get(f"/api/v1/devices/firmware/{OTA_NAME}")).status_code == 200
+
+
+# --- the start button at a quiet room ----------------------------------------------------
+
+
+async def add_second_song(session: AsyncSession, configured: FakeUsdx) -> str:
+    """One more song in the library, so "the top wish" and "a random one" have something to
+    choose between."""
+    directory = make_song_dir(configured.songs_dir, "Other - Other")
+    song = Song(
+        id="usdb:9999",
+        source="usdb",
+        source_id="9999",
+        title="Other",
+        artist="Other",
+        fingerprint="other|other",
+        directory=str(directory),
+        txt_file=str(directory / "song.txt"),
+    )
+    session.add(song)
+    await session.commit()
+    return song.id
+
+
+async def quiet_room(
+    client: AsyncClient, session: AsyncSession, mode: str, cards: bool = True
+) -> str:
+    """A device with a start button and Alice's card lying on the blue slot, and nobody
+    picking anything. Returns the device's token."""
+    await SettingsService(session).set("karaoke.player_colors", TWO_SLOTS)
+    response = await client.patch(
+        "/api/v1/devices/settings", json={"start_without_selection": mode}
+    )
+    assert response.status_code == 200, response.text
+    alice = await add_player(client, "Alice")
+    await client.put(f"/api/v1/devices/cards/{KNOWN_UID}", json={"player_id": alice["id"]})
+    _, token = await mapped_device(
+        client, reader_roles={"0": "slot:blue"}, button_actions={"0": "start"}
+    )
+    await post_report(
+        client,
+        token,
+        readers=[reader(0, uid=KNOWN_UID if cards else None), reader(1)],
+        buttons=[button(0)],
+    )
+    return token
+
+
+async def press_start(client: AsyncClient, token: str, uid: str | None = KNOWN_UID) -> None:
+    """The button, with whatever is lying on the blue slot reader in the same report."""
+    await post_report(
+        client, token, readers=[reader(0, uid=uid), reader(1)], buttons=[button(0, 1)]
+    )
+
+
+async def hide_from_the_party(client: AsyncClient, song_id: str) -> None:
+    """Put a song under the shipped *broken* tag, which grants `view_songs` to `trusted`
+    and to nobody else. A guest never sees the song again, and the start button is the one
+    caller in the app with no account behind it at all."""
+    listed = await client.get("/api/v1/tags")
+    assert listed.status_code == 200, listed.text
+    broken = next(tag for tag in listed.json()["tags"] if tag["name"] == "broken")
+    tagged = await client.put(f"/api/v1/songs/{song_id}/tags/{broken['id']}")
+    assert tagged.status_code == 204, tagged.text
+
+
+def songs_started(events: list[dict[str, object]]) -> list[dict[str, Any]]:
+    """The sings that really started, off the event bus. `current_sing()` cannot be asked:
+    the fake USDX is gone by the time a test looks, and the sing with it."""
+    return [
+        cast(dict[str, Any], event["sing"])
+        for event in events
+        if event["event"] == "karaoke.started"
+    ]
+
+
+async def test_the_start_button_sings_the_top_wish_at_a_quiet_room(
+    client: AsyncClient,
+    session: AsyncSession,
+    configured: FakeUsdx,
+    song: str,
+    broadcast_events: list[dict[str, object]],
+) -> None:
+    """Nobody is picking anything, so Wingman picks: the song the room wished for most, sung
+    by whoever is standing at the readers."""
+    other = await add_second_song(session, configured)
+    assert (await client.post("/api/v1/wishlist", json={"song_id": other})).status_code == 201
+    token = await quiet_room(client, session, "top_wish")
+
+    await press_start(client, token)
+
+    await wait_for(configured.argv_file)
+    sings = songs_started(broadcast_events)
+    # The fixture's own song was never wished for, so it was never in the running.
+    assert [sing["song"]["id"] for sing in sings] == [other]
+    assert other != song
+    assert player_names(sings[0]["slots"]) == ["Alice", None]
+    assert await selection.current_selection() is None
+    await karaoke.wait_for_sing_end()
+
+
+async def test_the_start_button_sings_a_random_song(
+    client: AsyncClient,
+    session: AsyncSession,
+    configured: FakeUsdx,
+    song: str,
+    monkeypatch: pytest.MonkeyPatch,
+    broadcast_events: list[dict[str, object]],
+) -> None:
+    """The ids are sorted before the choice, so a seeded generator picks the same song
+    twice. Here the last of them, whatever SQLite hands back."""
+    other = await add_second_song(session, configured)
+    monkeypatch.setattr(selection.random, "choice", lambda ids: ids[-1])
+    token = await quiet_room(client, session, "random")
+
+    await press_start(client, token)
+
+    await wait_for(configured.argv_file)
+    assert [sing["song"]["id"] for sing in songs_started(broadcast_events)] == [max(song, other)]
+    await karaoke.wait_for_sing_end()
+
+
+async def test_a_random_song_is_never_one_the_party_may_not_see(
+    client: AsyncClient,
+    session: AsyncSession,
+    configured: FakeUsdx,
+    song: str,
+    monkeypatch: pytest.MonkeyPatch,
+    broadcast_events: list[dict[str, object]],
+) -> None:
+    """The button has no account behind it at all, so it picks out of the guest's library.
+    A tag nobody was granted `view_songs` on keeps its songs from it."""
+    other = await add_second_song(session, configured)
+    await hide_from_the_party(client, max(song, other))
+    monkeypatch.setattr(selection.random, "choice", lambda ids: ids[-1])
+    token = await quiet_room(client, session, "random")
+
+    await press_start(client, token)
+
+    await wait_for(configured.argv_file)
+    # The last id is the tagged one, and the button never saw it.
+    assert [sing["song"]["id"] for sing in songs_started(broadcast_events)] == [min(song, other)]
+    await karaoke.wait_for_sing_end()
+
+
+async def test_the_top_wish_is_never_one_the_party_may_not_see(
+    client: AsyncClient, session: AsyncSession, configured: FakeUsdx, song: str
+) -> None:
+    other = await add_second_song(session, configured)
+    # The most wished for song of the two, and then a tag that keeps it from the party.
+    assert (await client.post("/api/v1/wishlist", json={"song_id": other})).status_code == 201
+    await hide_from_the_party(client, other)
+    token = await quiet_room(client, session, "top_wish")
+
+    await press_start(client, token)
+
+    # Nothing else was wished for, so there is no second-best and nothing starts at all —
+    # the fixture's own song included.
+    assert await selection.current_selection() is None
+    assert karaoke.current_sing() is None
+
+
+async def test_the_start_button_at_a_quiet_room_does_nothing_by_default(
+    client: AsyncClient, session: AsyncSession, configured: FakeUsdx, song: str
+) -> None:
+    """`nothing` is the default: a button that starts a song out of nowhere is a thing the
+    host asks for."""
+    assert (await client.post("/api/v1/wishlist", json={"song_id": song})).status_code == 201
+    token = await quiet_room(client, session, "nothing")
+
+    await press_start(client, token)
+
+    assert await selection.current_selection() is None
+    assert karaoke.current_sing() is None
+
+
+async def test_the_start_button_needs_a_card_on_a_reader(
+    client: AsyncClient, session: AsyncSession, configured: FakeUsdx, song: str
+) -> None:
+    """A stray press at an empty table cannot start a song nobody sings."""
+    assert (await client.post("/api/v1/wishlist", json={"song_id": song})).status_code == 201
+    token = await quiet_room(client, session, "top_wish", cards=False)
+
+    await press_start(client, token, uid=None)
+
+    assert await selection.current_selection() is None
+    assert karaoke.current_sing() is None
 
 
 # --- the watchdog -----------------------------------------------------------------------

@@ -72,7 +72,7 @@ device offline once its last report is more than 15 seconds old.
 
 | Status | Body | Means |
 |---|---|---|
-| `200` | `{"ok": true, "protocol": 1, "interval_s": 5}` | Taken. `interval_s` is the heartbeat Wingman wants |
+| `200` | The answer below | Taken |
 | `401` | `{"detail": "unknown_device"}` | The token is wrong, or the device was deleted |
 | `426` | `{"detail": "protocol_unsupported", "supported": 1}` | Wingman speaks another version of this format |
 
@@ -81,6 +81,48 @@ Wingman keeps the last report of each device and compares the next one against
 it. A report is a snapshot, so nothing is queued and nothing is lost. A request
 that never arrives heals on the following one, which carries the whole state
 again. Send what is true now and forget what failed.
+
+### What a `200` says back
+
+```json
+{
+  "ok": true, "protocol": 1, "interval_s": 1,
+  "leds": [
+    {"index": 0, "rgb": "048bb9", "mode": "on"},
+    {"index": 1, "rgb": "d00000", "mode": "dim"},
+    {"index": 2, "rgb": "ffffff", "mode": "pulse"}
+  ],
+  "update": {"file": "wingman-esp32-ota.bin", "version": "0.3.0"}
+}
+```
+
+| Field | Holds |
+|---|---|
+| `interval_s` | The heartbeat Wingman wants, in seconds. `1` while somebody is picking singers, `5` the rest of the time |
+| `leds` | What each light shows until the next answer, one entry per reader position in the report |
+| `update` | The firmware to fetch and flash. Absent, or `null`, whenever there is nothing to fetch |
+
+Ignore any field you have no hardware for. A device with no lights and no
+updater reads `interval_s` and nothing else.
+
+**The lights.** Wingman assumes one light per reader position, so `index` 0 is
+the light beside reader 1. `rgb` is six lowercase hex digits without a `#`.
+`mode` is one of `off`, `dim`, `on`, `blink`, and `pulse`. A slot reader shows
+its microphone color: `dim` with nothing on it, `on` under a card Wingman knows,
+`blink` under a card nobody has claimed, and `pulse` for every slot while the
+song is about to start by itself. A reader everybody scans in turn shows white,
+pulsing while singers are being picked. Everything else is `off`, and so is the
+whole strip while a song plays. Turn off any position the list leaves out. It
+has nothing to show, and a light still on for a selection that ended says
+something untrue about the room.
+
+**The update.** Ask for one on the device's page in Wingman, under **Update over
+Wi-Fi**. The offer then rides on the answer to the next few reports. `file` is a
+file name to fetch from `GET /api/v1/devices/firmware/<file>` with the same
+bearer token, and `version` is what the device runs once it has flashed it.
+Report the new version to say the update landed: that is what takes the offer
+away. An offer nobody fetches expires after 10 minutes, so the host can ask
+again. Wait at least 10 minutes before retrying a flash that failed.
 
 !!! example "One report from a bridge"
     Two readers, a card on the first one, no button pressed.

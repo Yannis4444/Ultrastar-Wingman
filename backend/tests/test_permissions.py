@@ -206,6 +206,7 @@ ROUTES: list[tuple[str, str, str, dict[str, object] | None]] = [
     ("devices.manage", "POST", "/api/v1/devices", {"name": "Matrix"}),
     ("devices.manage", "PATCH", "/api/v1/devices/nope", {"name": "Nope"}),
     ("devices.manage", "POST", "/api/v1/devices/nope/token", None),
+    ("devices.manage", "POST", "/api/v1/devices/nope/update", None),
     ("devices.manage", "DELETE", "/api/v1/devices/nope", None),
     ("devices.manage", "GET", "/api/v1/devices/cards", None),
     ("devices.manage", "PUT", "/api/v1/devices/cards/A1B2C3D4", {"player_id": "nope"}),
@@ -223,6 +224,10 @@ ROUTES: list[tuple[str, str, str, dict[str, object] | None]] = [
     # not a device called "settings". A delay outside 0 to 30 keeps it a 422.
     ("devices.manage", "PATCH", "/api/v1/devices/settings", {"auto_start_delay_s": 999}),
     ("devices.manage", "GET", "/api/v1/devices/firmware", None),
+    # The image is the one route a device reaches as well, so its door tries a bearer token
+    # before the caller's capability. This matrix sends no `Authorization` header at all,
+    # which is what keeps the row about `devices.manage`; the device half is in
+    # test_devices_api.py.
     ("devices.manage", "GET", "/api/v1/devices/firmware/nothing.bin", None),
     ("usdb.search", "GET", "/api/v1/sources/usdb/status", None),
     ("usdb.search", "GET", "/api/v1/sources/usdb/search", None),
