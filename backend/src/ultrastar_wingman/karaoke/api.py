@@ -267,8 +267,9 @@ async def open_player_selection(
     assignment gets a say. With the automatic start on, a room the cards already fill starts
     counting down from here.
 
-    Where the room picks its singers by scanning in turn, the remembered assignment is
-    dropped altogether — the cards on the slot readers still seed, but nobody else does.
+    While a player selector is online, the remembered assignment is dropped altogether —
+    the cards on the slot readers still seed, but nobody else does: the cards are how that
+    room picks its singers.
     """
     # Same reasoning as the sing route: which songs exist depends on who is asking.
     await song_or_404(new_selection.song_id, session, hidden)
@@ -276,10 +277,10 @@ async def open_player_selection(
         service.SlotRequest(color=slot.color, player_id=slot.player_id)
         for slot in new_selection.slots
     ]
-    # A scan takes the first *free* slot, so last song's singers sitting in memory are in the
-    # way of the queue forming at the device. Asked only when there is somebody to drop.
+    # Last song's singers sitting in memory are in the way of the cards, whichever way the
+    # readers are mapped. Asked only when there is somebody to drop.
     remembered_singers = [slot for slot in remembered if slot.player_id is not None]
-    drop_remembered = bool(remembered_singers) and await devices.sequential_reader_online(session)
+    drop_remembered = bool(remembered_singers) and await devices.device_online()
     try:
         with _sing_errors():
             opened, token = await selection.open_selection(
@@ -296,8 +297,8 @@ async def open_player_selection(
     if drop_remembered:
         # Only once the selection is really open: a refused takeover dropped nothing.
         logger.info(
-            "A player selector with singers scanning in turn is online: opened the selection "
-            "with empty slots instead of the %d the phone remembered.",
+            "A player selector is online: opened the selection with empty slots instead of "
+            "the %d the phone remembered.",
             len(remembered_singers),
         )
     return SelectionOpened(selection=opened, token=token)

@@ -570,29 +570,18 @@ async def handle_report(
     return ReportOutcome(changed=diff.visible)
 
 
-async def sequential_reader_online(session: AsyncSession) -> bool:
-    """Whether a device standing in the room right now has singers scanning in turn.
+async def device_online() -> bool:
+    """Whether a player selector is standing in the room right now.
 
-    What an opening selection asks before it seeds itself from the phone's memory: on a
-    `sequential` reader every scan fills the first *free* slot, so slots pre-filled with the
-    last song's singers are in the way of the queue forming at the device.
-
-    The role is read off the row and nothing else, so a reader the boot probe called `none`
-    or `fault` counts too: the mapping is the host saying how this room picks its singers,
-    and a reader that has come loose does not hand that job back to a phone's memory.
+    What an opening selection asks before it seeds itself from the phone's memory: while a
+    device is online, the cards are how this room picks its singers — on a slot reader the
+    card lying there is the singer, on a singers-in-turn reader every scan fills the first
+    *free* slot — and slots pre-filled with the last song's singers are in the way of both
+    (the user's decision, 2026-09-06). The mapping does not matter, only that the device is
+    online and speaks a protocol this server understands.
     """
     async with _lock:
-        device_ids = {
-            device_id
-            for device_id, entry in _live.items()
-            if entry.compatible and _is_online(entry)
-        }
-    if not device_ids:
-        return False
-    return any(
-        SEQUENTIAL in _decode(device.reader_roles).values()
-        for device in await session.scalars(select(Device).where(Device.id.in_(device_ids)))
-    )
+        return any(entry.compatible and _is_online(entry) for entry in _live.values())
 
 
 async def cards_on_slots(session: AsyncSession) -> dict[str, selection.CardOnSlot]:

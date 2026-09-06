@@ -811,11 +811,11 @@ async def open_with_remembered(
     return opened
 
 
-async def test_a_reader_that_scans_in_turn_drops_the_remembered_singers(
+async def test_an_online_selector_drops_the_remembered_singers(
     client: AsyncClient, song: str, caplog: pytest.LogCaptureFixture
 ) -> None:
-    """Every scan fills the first free slot, so the last song's singers only stand in the
-    queue's way."""
+    """The cards are how a room with a selector picks its singers: every scan fills the
+    first free slot, so the last song's singers only stand in the queue's way."""
     alice = await add_player(client, "Alice")
     bob = await add_player(client, "Bob")
     await mapped_device(client, reader_roles={"0": "sequential"})
@@ -831,7 +831,7 @@ async def test_a_reader_that_scans_in_turn_drops_the_remembered_singers(
     )
 
     assert player_names(slots) == [None, None, None, None]
-    dropped = [record for record in caplog.records if "scanning in turn" in record.getMessage()]
+    dropped = [record for record in caplog.records if "selector is online" in record.getMessage()]
     assert len(dropped) == 1
 
 
@@ -852,11 +852,11 @@ async def test_a_selector_that_has_gone_quiet_leaves_the_remembered_singers_alon
     assert player_names(slots) == ["Alice", None, None, None]
 
 
-async def test_slot_readers_alone_leave_the_remembered_singers_standing(
+async def test_slot_readers_online_drop_the_remembered_singers_too(
     client: AsyncClient, song: str, caplog: pytest.LogCaptureFixture
 ) -> None:
-    """One reader per slot is the layout the phone's memory was made for — and a card lying
-    on a reader still beats it."""
+    """Whichever way the readers are mapped, an online selector means the cards decide: the
+    card lying on the blue reader seeds blue, the phone's memory seeds nothing."""
     alice = await add_player(client, "Alice")
     bob = await add_player(client, "Bob")
     carol = await add_player(client, "Carol")
@@ -874,8 +874,9 @@ async def test_slot_readers_alone_leave_the_remembered_singers_standing(
         ],
     )
 
-    assert player_names(slots) == ["Alice", "Carol", None, None]
-    assert not [record for record in caplog.records if "scanning in turn" in record.getMessage()]
+    assert player_names(slots) == ["Alice", None, None, None]
+    dropped = [record for record in caplog.records if "selector is online" in record.getMessage()]
+    assert len(dropped) == 1
 
 
 async def test_scanning_in_turn_still_opens_with_the_cards_that_are_lying_there(

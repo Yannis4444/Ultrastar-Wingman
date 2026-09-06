@@ -52,9 +52,8 @@ earlier does not bring them back. See
 !!! note
     Your slot assignment is remembered in your browser. The same group does not
     have to pick again for every song. One exception: while a
-    [player selector device](../selector/index.md) with a reader that everybody
-    scans in turn is connected, the slots start empty, because each scan takes the
-    next free slot.
+    [player selector device](../selector/index.md) is connected, the slots start
+    empty. The cards decide who sings.
 
 ## While the song plays
 
