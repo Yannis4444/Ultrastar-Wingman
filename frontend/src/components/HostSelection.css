@@ -121,7 +121,9 @@
    the row watches them fill up, which is the whole point of the screen. */
 .host-page .host-selection-slots {
   display: flex;
-  align-items: stretch;
+  /* The foot of the row is the line every card stands on: a slot nobody has
+     taken is a short box down there, and a taken one rises from it. */
+  align-items: flex-end;
   justify-content: center;
   gap: clamp(12px, 2vw, 40px);
   margin: 0;
@@ -131,42 +133,55 @@
 
 /* Equal shares of the row, with a ceiling: six of them fill 1280 at 184px each,
    and two of them stop at the ceiling and stand in the middle instead of
-   stretching into slabs. Taller than wide (3:4, the user's call of 2026-09-06):
-   a portrait card reads as a person, and the height comes out of the band the
-   song leaves empty above the row. No hover state anywhere on this page: nobody
-   touches the TV. */
+   stretching into slabs. The slot is a size container so the card inside can
+   take its height from the slot's width (`cqw`): a height can be transitioned,
+   an aspect ratio cannot. */
 .host-page .host-selection-slot {
-  display: flex;
   flex: 1 1 0;
+  min-width: 0;
+  max-width: clamp(180px, 22vw, 420px);
+  container-type: inline-size;
+}
+
+/* The card: the slot's color as an outline, and the same color taken down
+   towards the page as the fill, taken or not (the user's call of 2026-09-06), so
+   the row reads as colors from across the room. Taller than wide (3:4) once
+   somebody has taken it, a portrait card reading as a person; the padding is
+   tight because the face is what the card is for. No hover state anywhere on
+   this page: nobody touches the TV. Nothing red anywhere here either: a slot the
+   party has not filled is not a fault. */
+.host-page .host-selection-card {
+  display: flex;
   flex-direction: column;
   align-items: center;
   justify-content: center;
-  gap: clamp(10px, 1.8vh, 28px);
+  gap: clamp(8px, 1.4vh, 22px);
   box-sizing: border-box;
-  min-width: 0;
-  max-width: clamp(180px, 22vw, 420px);
-  aspect-ratio: 3 / 4;
-  padding: clamp(10px, 1.6vh, 24px) clamp(8px, 1vw, 20px);
+  height: 133.33cqw;
+  padding: clamp(6px, 1vh, 14px) clamp(6px, 0.6vw, 12px);
+  overflow: hidden;
   border: clamp(3px, 0.4vh, 4px) solid var(--slot, var(--color-darkerer));
   border-radius: var(--border-radius);
-}
-
-/* Nobody on it yet: the card is filled with its own color taken down towards the
-   page, so the row reads as colors from across the room and the empty ones read
-   as the darker half of it. A filled card keeps the page background, glow and
-   all, so the person is what stands out. Nothing red anywhere here: a slot the
-   party has not filled is not a fault. */
-.host-page .host-selection-slot-empty {
   background-color: color-mix(
     in srgb,
     var(--slot, var(--color-darkerer)) 25%,
     var(--bg)
   );
+  /* The moment somebody takes the slot, the short box grows into the card: the
+     one movement on this screen, and what says "that one is taken now". */
+  transition: height 400ms ease;
 }
 
-/* The placeholder is a step lighter than the card it sits in, which is what
-   makes it read as a hole waiting for a face rather than as part of the fill. */
-.host-page .host-selection-slot-empty .player-avatar-empty {
+/* Nobody has taken it: a short box along the foot of the row, the color and the
+   word and nothing else, so the free slots are told apart at a glance. */
+.host-page .host-selection-card-empty {
+  height: clamp(40px, 6.5vh, 76px);
+}
+
+/* The placeholder of an unknown card is a step lighter than the card it sits in,
+   which is what makes it read as a hole waiting for a face rather than as part
+   of the fill. */
+.host-page .host-selection-card .player-avatar-empty {
   background-color: color-mix(
     in srgb,
     var(--slot, var(--color-darkerer)) 40%,
@@ -178,7 +193,8 @@
    bigger face and not more air around one; the letter scales with the screen.
    Two classes beat PlayerAvatar's own 40px whatever the bundle order. */
 .host-page .host-selection-avatar {
-  width: 76%;
+  flex: 0 0 auto;
+  width: 82%;
   max-width: 100%;
   height: auto;
   aspect-ratio: 1;
@@ -189,6 +205,7 @@
   max-width: 100%;
   overflow: hidden;
   font-size: clamp(16px, 2.4vh, 34px);
+  font-weight: 700;
   white-space: nowrap;
   text-overflow: ellipsis;
   color: var(--color);
@@ -224,5 +241,9 @@
 @media (prefers-reduced-motion: reduce) {
   .host-page .host-selection {
     animation: none;
+  }
+
+  .host-page .host-selection-card {
+    transition: none;
   }
 }

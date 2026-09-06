@@ -173,8 +173,17 @@ test("a card carries its slot color, and an unfilled one is drawn dark", async (
   // The avatar above the name is the person on a filled card and the
   // placeholder on the two that nobody is on, a card nobody owns included.
   expect(alice.querySelector(".player-avatar-letter")).not.toBeNull();
-  expect(empty.querySelector(".player-avatar-empty")).not.toBeNull();
+  // A slot nobody has taken is the short box: no face, no placeholder. An
+  // unknown card is taken by something, so it stands full height with the
+  // placeholder where the face would be.
+  expect(empty.querySelector(".player-avatar")).toBeNull();
+  expect(empty.querySelector(".host-selection-card")).toHaveClass(
+    "host-selection-card-empty",
+  );
   expect(unknown.querySelector(".player-avatar-empty")).not.toBeNull();
+  expect(unknown.querySelector(".host-selection-card")).not.toHaveClass(
+    "host-selection-card-empty",
+  );
 });
 
 test("a song being sung owns the stage instead", async () => {

@@ -155,19 +155,33 @@ export default function HostSelection({
                 } as CSSProperties
               }
             >
-              <PlayerAvatar
-                player={slot.player}
-                className="host-selection-avatar"
-              />
-              <span
+              {/* The card inside the slot: a slot nobody has taken is a short
+                  box along the foot of the row, and it grows to the full card
+                  the moment somebody takes it. An unknown card counts as
+                  taken: something is lying on that reader. */}
+              <div
                 className={
-                  slot.player !== null
-                    ? "host-selection-name"
-                    : "host-selection-name host-selection-empty"
+                  slot.player !== null || unknown
+                    ? "host-selection-card"
+                    : "host-selection-card host-selection-card-empty"
                 }
               >
-                {name}
-              </span>
+                {(slot.player !== null || unknown) && (
+                  <PlayerAvatar
+                    player={slot.player}
+                    className="host-selection-avatar"
+                  />
+                )}
+                <span
+                  className={
+                    slot.player !== null
+                      ? "host-selection-name"
+                      : "host-selection-name host-selection-empty"
+                  }
+                >
+                  {name}
+                </span>
+              </div>
             </li>
           );
         })}
