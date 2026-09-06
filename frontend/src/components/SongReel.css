@@ -1,0 +1,96 @@
+/* The reel is measured in `--spinner-cover`, which the caller sets on a wrapper
+   — nothing in here declares it, or a wrapper could never size the reel. */
+
+/* The slot window: only one cover of the reel is visible at a time. On the
+   Random song page it is a button and the way into the song modal once a spin
+   has settled; on the host screen it is a plain frame. */
+.spinner-window {
+  /* The reel is measured in whole covers, so the border must sit outside the
+     stated size — a button would otherwise default to border-box. */
+  box-sizing: content-box;
+  position: relative;
+  width: var(--spinner-cover);
+  height: var(--spinner-cover);
+  padding: 0;
+  overflow: hidden;
+  /* The logo backs the window, so an empty reel is never a black hole; the
+     opaque covers hide it as soon as they paint. */
+  background: #000 url("/logo.png") center/60% no-repeat;
+  border: 2px solid var(--color-dark);
+  border-radius: var(--border-radius-small);
+}
+
+/* Only the button is for pressing, and only once a spin has settled. */
+.spinner-window:enabled {
+  cursor: pointer;
+}
+
+.spinner-window::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  box-shadow: inset 0 0 20px rgba(0, 0, 0, 0.8);
+  pointer-events: none;
+  z-index: 2;
+}
+
+.spinner-line {
+  position: absolute;
+  top: calc(50% - 1px);
+  left: 0;
+  width: 100%;
+  height: 2px;
+  background-color: var(--color-dark);
+  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.8);
+  pointer-events: none;
+  z-index: 3;
+}
+
+.spinner-line::before,
+.spinner-line::after {
+  content: "";
+  position: absolute;
+  top: 50%;
+  transform: translateY(-50%);
+  width: 0;
+  height: 0;
+  border-style: solid;
+}
+
+.spinner-line::before {
+  left: 0;
+  border-width: 5px 0 5px 10px;
+  border-color: transparent transparent transparent var(--color-dark);
+}
+
+.spinner-line::after {
+  right: 0;
+  border-width: 5px 10px 5px 0;
+  border-color: transparent var(--color-dark) transparent transparent;
+}
+
+/* The reel itself. The transition is attached in JS for one spin at a time, so
+   the snap back to the resting position never animates. */
+.spinner-reel {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: var(--spinner-cover);
+}
+
+/* Black behind every cover, as behind the logo: a non-square cover is
+   letterboxed on black, and a missing one is its initial on black. The
+   `.spinner-window` prefix outranks the fallback tile's own `--input-bg`. */
+.spinner-window .spinner-cover {
+  display: block;
+  width: var(--spinner-cover);
+  height: var(--spinner-cover);
+  object-fit: contain;
+  background-color: #000;
+}
+
+/* The bottom entry of the first spin: drawn exactly like the window behind it,
+   so the logo the reader was looking at is what starts to move. */
+.spinner-cover-logo {
+  background: #000 url("/logo.png") center/60% no-repeat;
+}

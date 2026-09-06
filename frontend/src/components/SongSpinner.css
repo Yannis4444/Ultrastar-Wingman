@@ -1,6 +1,8 @@
 /* One centred column: the pool select and the pool size, the reel alone, the
-   result, the SPIN button. Flat on the page — the reel is the only surface. */
+   result, the SPIN button. Flat on the page — the reel is the only surface.
+   The reel's own rules are `SongReel.css`; this is what stands around it. */
 .spinner {
+  /* The reel's size, read by `SongReel`: one cover wide and high. */
   --spinner-cover: min(320px, 80vw);
 
   display: flex;
@@ -43,99 +45,6 @@
   font-variant-numeric: tabular-nums;
   text-align: center;
   color: var(--color-darker);
-}
-
-/* The slot window: only one cover of the reel is visible at a time, and it is
-   the way into the song modal once a spin has settled. */
-.spinner-window {
-  /* The reel is measured in whole covers, so the border must sit outside the
-     stated size — a button would otherwise default to border-box. */
-  box-sizing: content-box;
-  position: relative;
-  width: var(--spinner-cover);
-  height: var(--spinner-cover);
-  padding: 0;
-  overflow: hidden;
-  /* The logo backs the window, so an empty reel is never a black hole; the
-     opaque covers hide it as soon as they paint. */
-  background: #000 url("/logo.png") center/60% no-repeat;
-  border: 2px solid var(--color-dark);
-  border-radius: var(--border-radius-small);
-  cursor: pointer;
-}
-
-.spinner-window:disabled {
-  cursor: default;
-}
-
-.spinner-window::before {
-  content: "";
-  position: absolute;
-  inset: 0;
-  box-shadow: inset 0 0 20px rgba(0, 0, 0, 0.8);
-  pointer-events: none;
-  z-index: 2;
-}
-
-.spinner-line {
-  position: absolute;
-  top: calc(50% - 1px);
-  left: 0;
-  width: 100%;
-  height: 2px;
-  background-color: var(--color-dark);
-  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.8);
-  pointer-events: none;
-  z-index: 3;
-}
-
-.spinner-line::before,
-.spinner-line::after {
-  content: "";
-  position: absolute;
-  top: 50%;
-  transform: translateY(-50%);
-  width: 0;
-  height: 0;
-  border-style: solid;
-}
-
-.spinner-line::before {
-  left: 0;
-  border-width: 5px 0 5px 10px;
-  border-color: transparent transparent transparent var(--color-dark);
-}
-
-.spinner-line::after {
-  right: 0;
-  border-width: 5px 10px 5px 0;
-  border-color: transparent var(--color-dark) transparent transparent;
-}
-
-/* The reel itself. The transition is attached in JS for one spin at a time, so
-   the snap back to the resting position never animates. */
-.spinner-reel {
-  position: absolute;
-  top: 0;
-  left: 0;
-  width: var(--spinner-cover);
-}
-
-/* Black behind every cover, as behind the logo: a non-square cover is
-   letterboxed on black, and a missing one is its initial on black. The
-   `.spinner-window` prefix outranks the fallback tile's own `--input-bg`. */
-.spinner-window .spinner-cover {
-  display: block;
-  width: var(--spinner-cover);
-  height: var(--spinner-cover);
-  object-fit: contain;
-  background-color: #000;
-}
-
-/* The bottom entry of the first spin: drawn exactly like the window behind it,
-   so the logo the reader was looking at is what starts to move. */
-.spinner-cover-logo {
-  background: #000 url("/logo.png") center/60% no-repeat;
 }
 
 /* Keeps the two result lines' worth of height whether or not a spin has
@@ -274,11 +183,11 @@
   animation: spinner-dice-roll 0.6s ease-in-out;
 }
 
-/* ...and the tumble while the reel runs: eight turns on the reel's clock, but
-   on a curve of its own — up to speed within the first half second where the
-   reel winds up slowly — and a long settle, so the die still comes to rest as
-   the covers do. The face it shows changes underneath, roll by roll, from the
-   component. */
+/* ...and the tumble while the reel runs: eight turns on the reel's clock
+   (`SPIN_MS`), but on a curve of its own — up to speed within the first half
+   second where the reel winds up slowly — and a long settle, so the die still
+   comes to rest as the covers do. The face it shows changes underneath, roll
+   by roll, from `useDieRoll`. */
 .spinner-spin-running .spinner-spin-dice {
   animation: spinner-dice-tumble 5000ms cubic-bezier(0.2, 0.1, 0.1, 1) both;
 }

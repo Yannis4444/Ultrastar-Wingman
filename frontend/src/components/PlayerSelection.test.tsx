@@ -195,6 +195,30 @@ function renderSelection(onClose = vi.fn()) {
   );
 }
 
+/** The token the host spin hands on with its selection. */
+const ADOPTED_TOKEN = "handed-on-token";
+
+/**
+ * The picker over a selection somebody else opened — the host spin's, once its
+ * song is picked: no request opens anything, the token came with the props.
+ */
+function renderAdopted(selection: SelectionRead, onClose = vi.fn()) {
+  const client = new QueryClient({
+    defaultOptions: { queries: { retry: false } },
+  });
+  return render(
+    <QueryClientProvider client={client}>
+      <MemoryRouter>
+        <PlayerSelection
+          song={selection.song}
+          onClose={onClose}
+          adopt={{ selection, token: ADOPTED_TOKEN }}
+        />
+      </MemoryRouter>
+    </QueryClientProvider>,
+  );
+}
+
 function slot(color: string) {
   return screen.getByRole("button", { name: new RegExp(`^Slot ${color}:`) });
 }
@@ -215,13 +239,13 @@ function releases(): unknown[][] {
 }
 
 /** What every close has to look like: the token in the header and nowhere else. */
-function expectRelease(call: unknown[]): void {
+function expectRelease(call: unknown[], token = TOKEN): void {
   // No query at all: a token in the URL lands in an access log.
   expect(call[0]).toBe("/api/v1/karaoke/selection");
   expect(call[1]).toMatchObject({
     method: "DELETE",
     keepalive: true,
-    headers: { "X-Selection-Token": TOKEN },
+    headers: { "X-Selection-Token": token },
   });
 }
 
@@ -1218,4 +1242,125 @@ test("no selector in the room, nothing about one", async () => {
   await screen.findByRole("button", { name: "Slot blue: empty" });
 
   expect(screen.queryByText(SELECTOR_LINE)).not.toBeInTheDocument();
+});
+
+/** The selection the host spin hands on: its song, Bob already on red. */
+function adopted(): SelectionRead {
+  return selectionWith([
+    { color: "blue", player: null, card_uid: null },
+    { color: "red", player: PLAYERS[1], card_uid: null },
+    { color: "green", player: null, card_uid: null },
+  ]);
+}
+
+test("an adopted selection is drawn as it came, and nothing is opened", async () => {
+  // Remembered slots would be what a fresh open sends; an adopted selection
+  // already has its slots, and they are the room's, not this phone's memory.
+  window.localStorage.setItem(
+    "wingman.playerSlots",
+    JSON.stringify({ blue: "aaa" }),
+  );
+  renderAdopted(adopted());
+
+  expect(
+    await screen.findByRole("button", { name: "Slot red: Bob" }),
+  ).toBeInTheDocument();
+  expect(slot("blue")).toHaveAccessibleName("Slot blue: empty");
+  // Straight to picking: no request, no spinner, and Play is live on Bob.
+  expect(screen.getByRole("button", { name: "Play" })).toBeEnabled();
+  expect(openPlayerSelection).not.toHaveBeenCalled();
+  expect(
+    screen.queryByRole("status", { name: "Loading" }),
+  ).not.toBeInTheDocument();
+});
+
+test("an adopted selection is written to with the token it came with", async () => {
+  renderAdopted(adopted());
+  // The slots are on the screen before the roster arrives — the selection came
+  // with the props — so it is the roster that has to be waited for.
+  fireEvent.click(await screen.findByRole("button", { name: "Alice" }));
+
+  await waitFor(() => expect(setPlayerSelectionSlots).toHaveBeenCalledTimes(1));
+  expect(setPlayerSelectionSlots.mock.calls[0][0].body.token).toBe(
+    ADOPTED_TOKEN,
+  );
+  // Composed on what came in: Alice joins Bob rather than replacing him.
+  expect(putBody(0)).toEqual([
+    { color: "blue", player_id: "aaa" },
+    { color: "red", player_id: "bbb" },
+  ]);
+});
+
+test("play on an adopted selection starts it with that token", async () => {
+  const onClose = vi.fn();
+  renderAdopted(adopted(), onClose);
+  await screen.findByRole("button", { name: "Slot red: Bob" });
+
+  fireEvent.click(screen.getByRole("button", { name: "Play" }));
+
+  await waitFor(() => expect(startPlayerSelection).toHaveBeenCalledTimes(1));
+  expect(startPlayerSelection.mock.calls[0][0].body).toEqual({
+    token: ADOPTED_TOKEN,
+    force: false,
+  });
+  await waitFor(() => expect(onClose).toHaveBeenCalled());
+  // Started, so nothing is given back — and the group is remembered as usual.
+  expect(releases()).toHaveLength(0);
+  expect(
+    JSON.parse(window.localStorage.getItem("wingman.playerSlots") ?? "{}"),
+  ).toEqual({ red: "bbb" });
+});
+
+test("cancelling an adopted selection gives it back with its token", async () => {
+  const onClose = vi.fn();
+  renderAdopted(adopted(), onClose);
+  await screen.findByRole("button", { name: "Slot red: Bob" });
+
+  fireEvent.click(screen.getByRole("button", { name: "Cancel" }));
+
+  await waitFor(() => expect(releases()).toHaveLength(1));
+  expectRelease(releases()[0], ADOPTED_TOKEN);
+  expect(onClose).toHaveBeenCalled();
+});
+
+test("an adopted selection that simply goes away is given back too", async () => {
+  const { unmount } = renderAdopted(adopted());
+  await screen.findByRole("button", { name: "Slot red: Bob" });
+
+  unmount();
+
+  expect(releases()).toHaveLength(1);
+  expectRelease(releases()[0], ADOPTED_TOKEN);
+});
+
+test("an adopted selection taken over offers a fresh one on its song", async () => {
+  renderAdopted(adopted());
+  await screen.findByRole("button", { name: "Slot red: Bob" });
+
+  // Another `opened_at`: a take-over, and the handed-on token died with it.
+  broadcast(
+    selectionWith([{ color: "blue", player: PLAYERS[0], card_uid: null }], {
+      opened_at: "2026-09-06T20:05:00.000Z",
+    }),
+  );
+
+  expect(
+    screen.getByText("Somebody else took over the selection."),
+  ).toBeInTheDocument();
+  fireEvent.click(screen.getByRole("button", { name: "Pick again" }));
+
+  // The adopted song and the slots as they stood, the ordinary way in.
+  await waitFor(() => expect(openPlayerSelection).toHaveBeenCalledTimes(1));
+  expect(openPlayerSelection.mock.calls[0][0].body).toEqual({
+    song_id: "usdb:1",
+    slots: [{ color: "red", player_id: "bbb" }],
+    force: false,
+  });
+  expect(
+    await screen.findByRole("button", { name: "Slot red: Bob" }),
+  ).toBeInTheDocument();
+  // And the token is the new one from then on.
+  fireEvent.click(await screen.findByRole("button", { name: "Alice" }));
+  await waitFor(() => expect(setPlayerSelectionSlots).toHaveBeenCalledTimes(1));
+  expect(setPlayerSelectionSlots.mock.calls[0][0].body.token).toBe(TOKEN);
 });
