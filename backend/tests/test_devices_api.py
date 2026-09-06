@@ -9,6 +9,7 @@ where a card on a reader ends up, and the starts run against the fake USDX of
 
 import asyncio
 import json
+import logging
 from datetime import UTC, datetime, timedelta
 from pathlib import Path
 from typing import Any
@@ -796,6 +797,102 @@ async def test_an_offline_device_seeds_nothing(
 
     assert response.status_code == 201, response.text
     assert player_names(response.json()["selection"]["slots"]) == [None, None, None, None]
+
+
+async def open_with_remembered(
+    client: AsyncClient, song: str, slots: list[dict[str, object]]
+) -> list[dict[str, Any]]:
+    """A selection opened the way a phone opens one: carrying who sang the last song."""
+    response = await client.post(
+        "/api/v1/karaoke/selection", json={"song_id": song, "slots": slots}
+    )
+    assert response.status_code == 201, response.text
+    opened: list[dict[str, Any]] = response.json()["selection"]["slots"]
+    return opened
+
+
+async def test_a_reader_that_scans_in_turn_drops_the_remembered_singers(
+    client: AsyncClient, song: str, caplog: pytest.LogCaptureFixture
+) -> None:
+    """Every scan fills the first free slot, so the last song's singers only stand in the
+    queue's way."""
+    alice = await add_player(client, "Alice")
+    bob = await add_player(client, "Bob")
+    await mapped_device(client, reader_roles={"0": "sequential"})
+    caplog.set_level(logging.INFO, logger="ultrastar_wingman.karaoke.api")
+
+    slots = await open_with_remembered(
+        client,
+        song,
+        [
+            {"color": "blue", "player_id": alice["id"]},
+            {"color": "red", "player_id": bob["id"]},
+        ],
+    )
+
+    assert player_names(slots) == [None, None, None, None]
+    dropped = [record for record in caplog.records if "scanning in turn" in record.getMessage()]
+    assert len(dropped) == 1
+
+
+async def test_a_selector_that_has_gone_quiet_leaves_the_remembered_singers_alone(
+    client: AsyncClient, song: str, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """The rule is about a device standing in the room, not about a mapping in the database.
+
+    Offline is the only way a mapped device says nothing: a role may not be set on a reader
+    that has never reported as wired.
+    """
+    alice = await add_player(client, "Alice")
+    await mapped_device(client, reader_roles={"0": "sequential"})
+    monkeypatch.setattr(devices, "_now", lambda: datetime.now(UTC) + timedelta(minutes=1))
+
+    slots = await open_with_remembered(client, song, [{"color": "blue", "player_id": alice["id"]}])
+
+    assert player_names(slots) == ["Alice", None, None, None]
+
+
+async def test_slot_readers_alone_leave_the_remembered_singers_standing(
+    client: AsyncClient, song: str, caplog: pytest.LogCaptureFixture
+) -> None:
+    """One reader per slot is the layout the phone's memory was made for — and a card lying
+    on a reader still beats it."""
+    alice = await add_player(client, "Alice")
+    bob = await add_player(client, "Bob")
+    carol = await add_player(client, "Carol")
+    await client.put(f"/api/v1/devices/cards/{KNOWN_UID}", json={"player_id": alice["id"]})
+    _, token = await mapped_device(client, reader_roles={"0": "slot:blue"})
+    await post_report(client, token, readers=[reader(0, uid=KNOWN_UID), reader(1)])
+    caplog.set_level(logging.INFO, logger="ultrastar_wingman.karaoke.api")
+
+    slots = await open_with_remembered(
+        client,
+        song,
+        [
+            {"color": "blue", "player_id": bob["id"]},
+            {"color": "red", "player_id": carol["id"]},
+        ],
+    )
+
+    assert player_names(slots) == ["Alice", "Carol", None, None]
+    assert not [record for record in caplog.records if "scanning in turn" in record.getMessage()]
+
+
+async def test_scanning_in_turn_still_opens_with_the_cards_that_are_lying_there(
+    client: AsyncClient, song: str
+) -> None:
+    """The memory goes; the room does not. Alice's card is on the blue reader, so blue is
+    hers before anybody scans."""
+    alice = await add_player(client, "Alice")
+    bob = await add_player(client, "Bob")
+    await client.put(f"/api/v1/devices/cards/{KNOWN_UID}", json={"player_id": alice["id"]})
+    _, token = await mapped_device(client, reader_roles={"0": "sequential", "1": "slot:blue"})
+    await post_report(client, token, readers=[reader(0), reader(1, uid=KNOWN_UID)])
+
+    slots = await open_with_remembered(client, song, [{"color": "red", "player_id": bob["id"]}])
+
+    assert player_names(slots) == ["Alice", None, None, None]
+    assert slots[0]["card_uid"] == KNOWN_UID
 
 
 # --- the mapping ------------------------------------------------------------------------
