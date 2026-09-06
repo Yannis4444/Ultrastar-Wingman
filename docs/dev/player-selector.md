@@ -255,6 +255,11 @@ Selection: song (SongRead), slots [SlotState(color, player | None, card_uid | No
     already stand on one, `rescan_removes` decides: on, they leave it; off, nothing happens.
     An unknown card takes the first free slot as an unknown card. Removal does nothing. No
     selection open → ignored.
+  - Naming a card on the admin page (`PUT /devices/cards/{uid}`) reaches the open selection
+    too: every slot showing that uid as an unknown card gets the player (`card_identified`),
+    and forgetting a card turns such a slot back into the unknown card (`card_forgotten`) —
+    the device will not report a card that has not moved, so this is the only moment the
+    room can be told.
   - Buttons: `start` = the selection's start (nothing open → nothing); `clear` = every slot
     emptied; `cancel` = the selection closed.
   - **Auto-start**: with `devices.auto_start` on, a report that leaves every slot filled
@@ -287,7 +292,7 @@ for the `devices` group in `RolePermissions.tsx`). Opening and driving a selecti
   plays, the cover, title and artist over the colored slots filling up (avatar and name, or
   "empty", or "unknown card"), and the auto-start countdown line when it is on.
 - **Admin page** `/user/devices` (`ManageMenu` entry *Player selector*, `devices.manage`,
-  a new `card` glyph): the two settings, then one row per device (name, online dot in
+  a new `card` glyph): the three settings of §6.1, then one row per device (name, online dot in
   words, "firmware 0.1.0 · needs update" when the bundled one is newer or the protocol is
   off, a chevron), *Set up a device* (`plus` in the header → `/user/devices/new`), then
   *Cards*: the cards lying on a device right now with their player or *Unknown card*, a tap
