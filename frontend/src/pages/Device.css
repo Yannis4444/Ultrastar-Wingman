@@ -1,0 +1,140 @@
+/* One device (§7). The page shares `Devices.css` for its column, its notices
+   and its uid figures; what is here is the two mapping tables and the status
+   block above them. Flat throughout: hairline rows on `--bg`, no tile. */
+
+.device-form {
+  display: flex;
+  flex-direction: column;
+}
+
+/* The status is a handful of quiet lines, not a definition list and not a
+   box: what it says is short enough that a label per line would be longer
+   than the line. */
+.device-status {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  margin-top: 8px;
+}
+
+/* -------------------------------------------------------- readers, buttons
+   One row per wired position: what it is, what is on it, and what it does.
+   The row is taller than a list row because the middle can wrap to two lines
+   on a 390px screen, which a fault sentence always does. */
+
+.device-rows {
+  display: flex;
+  flex-direction: column;
+  margin: 8px 8px 0 8px;
+  padding: 0;
+  list-style: none;
+}
+
+.device-rows li {
+  border-bottom: 1px solid var(--input-border-color);
+}
+
+.device-rows > :last-child {
+  border-bottom: none;
+}
+
+.device-row {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+  min-height: 56px;
+  padding: 8px;
+}
+
+/* The position leads, and it never wraps: "Reader 1" is what the row is. */
+.device-position {
+  flex: 0 0 auto;
+  font-variant-numeric: tabular-nums;
+}
+
+/* What lies on it, between the two. It gives way first, the select and the
+   position both having a width they cannot go under. */
+.device-state {
+  display: flex;
+  flex: 1 1 auto;
+  gap: 8px;
+  align-items: center;
+  min-width: 0;
+  font-size: 0.85em;
+  color: var(--color-darker);
+}
+
+.device-lying {
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+
+/* Nothing there, and nothing wrong with that: the off token, the same one an
+   empty slot wears. */
+.device-off {
+  color: var(--color-darkerer);
+}
+
+/* A reader answering garbage is the one thing on this page that is a fault,
+   and §1.6 keeps it off red as a glyph colour: the failure sentence is
+   `--color` on the dark red fill, exactly as `.error-notice` paints it. */
+.device-fault {
+  padding: 4px 8px;
+  color: var(--color);
+  background-color: var(--highlight-red-dark);
+  border-radius: var(--border-radius-small);
+}
+
+.device-presses {
+  flex: 0 0 auto;
+  font-variant-numeric: tabular-nums;
+}
+
+/* The quiet select of §4, held to about the width of its longest option so a
+   390px row still leaves the middle something to say. */
+.device-select {
+  flex: 0 0 auto;
+  width: 150px;
+}
+
+/* The name, first, in the tag editor's field shape: the label over its box. */
+.device-field {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  margin: 16px 16px 0 16px;
+}
+
+.device-field > span {
+  font-size: 0.85em;
+  color: var(--color-darker);
+}
+
+/* Both selects and the name field sit above the sticky action row, so their
+   focus ring has to clear the nav, the row and the control's own height (§4):
+   the same three terms `EditorActions.css` counts out for the two editors, and
+   the same 148px. 96px is the number that comment records as tried and wrong,
+   the browser honouring the margin exactly and parking the control behind the
+   row. It sits on the focusables themselves, the scroll being computed from
+   the element and not from an ancestor. */
+.device-form :is(input, select, button) {
+  scroll-margin-bottom: calc(var(--bottom-nav-height) + 148px);
+}
+
+@media (max-width: 420px) {
+  /* The middle wraps under the position on a phone rather than squeezing the
+     select: a fault sentence is two lines wherever it stands. */
+  .device-row {
+    flex-wrap: wrap;
+  }
+
+  .device-state {
+    order: 3;
+    flex-basis: 100%;
+  }
+
+  .device-select {
+    margin-left: auto;
+  }
+}

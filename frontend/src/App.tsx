@@ -10,6 +10,8 @@ import BottomNav from "./components/BottomNav";
 import Loading from "./components/Loading";
 import AchievementEditor from "./pages/AchievementEditor";
 import Achievements from "./pages/Achievements";
+import Device from "./pages/Device";
+import Devices from "./pages/Devices";
 import Home from "./pages/Home";
 import Host from "./pages/Host";
 import HostManage from "./pages/HostManage";
@@ -110,6 +112,8 @@ export default function App() {
             path="/user/achievements/:achievementId"
             element={<AchievementEditor />}
           />
+          <Route path="/user/devices" element={<Devices />} />
+          <Route path="/user/devices/:deviceId" element={<Device />} />
           <Route path="/user/tags" element={<Tags />} />
           <Route path="/user/tags/new" element={<TagEditor />} />
           <Route path="/user/tags/:tagId" element={<TagEditor />} />

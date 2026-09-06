@@ -51,6 +51,12 @@ export const MANAGE_ENTRIES: ManageEntry[] = [
     icon: "trophy",
   },
   {
+    capabilities: ["devices.manage"],
+    label: "Player selector",
+    to: "/user/devices",
+    icon: "card",
+  },
+  {
     capabilities: ["permissions.manage"],
     label: "Permissions",
     to: "/user/permissions",
