@@ -427,7 +427,7 @@ nobody requested never arrives.
 - **A selector online is said out loud.** `GET /devices/status` (`players.view`) →
   `{"online": true|false}` (any compatible device online), refetched on `devices.changed`. The
   phone picker shows one quiet line while true ("A player selector is connected. The cards
-  decide who sings; you can still change it here."), which is also why it opened empty. The
+  decide who sings. You can still change it here."), which is also why it opened empty. The
   host rail shows "Player selector offline" in the rail's meta style once a device has been
   online during this page's life and no longer is.
 - **The start button with nothing open** (`devices.start_without_selection`: `"nothing"` |

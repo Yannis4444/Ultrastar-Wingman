@@ -12,6 +12,7 @@ import {
 import { useAuth } from "../auth";
 import { parseServerTime } from "../duration";
 import { errorDetail, errorMessage, usdxProblems } from "../errors";
+import { useSelectorStatus } from "../hooks/useSelectorStatus";
 import { useWingmanEvent, type WingmanEvent } from "../hooks/useWingmanEvents";
 import AddPlayerForm from "./AddPlayerForm";
 import ConfirmModal from "./ConfirmModal";
@@ -158,6 +159,10 @@ export default function PlayerSelection({
   onClose,
 }: PlayerSelectionProps) {
   const auth = useAuth();
+  // Whether the room is picking with cards. It is why the board opened empty
+  // (the backend drops the remembered slots while a device is online), so the
+  // picker says so rather than leaving the reader to wonder.
+  const selector = useSelectorStatus();
   // The host's setting decides how many people sing and in which colors. The
   // open selection carries the same colors; this is what has their hex, and
   // what seeds the very first request.
@@ -706,6 +711,17 @@ export default function PlayerSelection({
                 );
               })}
             </ul>
+          )}
+
+          {/* The cards are picking too. Said under the slots, where the reader
+              is looking when somebody they did not tap appears on one, and
+              said at all because it is also why the board opened empty: the
+              backend drops the remembered slots while a device is online. */}
+          {picking && selector.online && (
+            <p className="player-selection-selector" role="status">
+              A player selector is connected. The cards decide who sings. You
+              can still change it here.
+            </p>
           )}
 
           {picking && countdown !== null && (

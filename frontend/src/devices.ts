@@ -162,6 +162,27 @@ export function signalLabel(rssi: number | null | undefined): string | null {
   return "weak";
 }
 
+/** The one refusal whose `detail` is an object rather than a slug: another
+ *  device already reads that color, and which color and which device is what
+ *  the sentence needs. `errorDetail` is string-only by contract (`errors.ts`),
+ *  so the shape is read here, where it is known. */
+function takenElsewhere(
+  cause: unknown,
+): { color: string; device: string } | null {
+  const detail = (cause as { detail?: unknown } | null | undefined)?.detail;
+  if (typeof detail !== "object" || detail === null) return null;
+  const { error, color, device } = detail as {
+    error?: unknown;
+    color?: unknown;
+    device?: unknown;
+  };
+  return error === "slot_taken_elsewhere" &&
+    typeof color === "string" &&
+    typeof device === "string"
+    ? { color, device }
+    : null;
+}
+
 /**
  * What a refused mapping says. The backend answers a slug, which is right for a
  * machine and useless on a form, and `reader_not_wired` does not say *which*
@@ -189,6 +210,11 @@ export function mappingRefusal(
     return "One of the readers is not wired. Set it to Not used.";
   }
   if (detail === "duplicate_slot") return "Two readers have the same color.";
+  // Which of the two changes is the way out is the host's to decide: this box
+  // may be the one that should keep the color.
+  const elsewhere = takenElsewhere(cause);
+  if (elsewhere !== null)
+    return `The ${colorLabel(elsewhere.color)} slot is already read by ${elsewhere.device}. Give one of them another color.`;
   if (detail === "unknown_color")
     return "One of the readers is on a color Ultrastar Deluxe has no microphone for.";
   return errorMessage(cause, "Could not save the device.");

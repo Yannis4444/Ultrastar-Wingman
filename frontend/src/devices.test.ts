@@ -145,3 +145,28 @@ test("a refused mapping names the reader the slug leaves out", () => {
     "Could not save the device.",
   );
 });
+
+test("a color another device already reads names both of them", () => {
+  const roleOf = () => UNUSED;
+  // This one refusal answers an object, not a slug — and the color is spelled
+  // the way the settings page spells it, `dark_blue` included.
+  expect(
+    mappingRefusal(
+      {
+        detail: {
+          error: "slot_taken_elsewhere",
+          color: "dark_blue",
+          device: "Living room",
+        },
+      },
+      [],
+      roleOf,
+    ),
+  ).toBe(
+    "The dark blue slot is already read by Living room. Give one of them another color.",
+  );
+  // An object that is not that refusal falls through to the generic line.
+  expect(mappingRefusal({ detail: { error: "other" } }, [], roleOf)).toBe(
+    "Could not save the device.",
+  );
+});

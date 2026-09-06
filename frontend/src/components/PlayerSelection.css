@@ -152,6 +152,16 @@
   background-color: var(--input-bg);
 }
 
+/* Why somebody nobody tapped is standing on a slot: a player selector is in
+   the room. The quiet voice of a `.section-note`, under the slots it explains
+   and above the countdown that may follow it. */
+.player-selection-selector {
+  flex: 0 0 auto;
+  margin: 0;
+  font-size: 0.85em;
+  color: var(--color-darker);
+}
+
 /* The selector's automatic start, counting down under the slots. It ticks once
    a second and is read out as it goes, so it sits on its own line. */
 .player-selection-countdown {

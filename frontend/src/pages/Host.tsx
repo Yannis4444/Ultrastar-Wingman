@@ -24,6 +24,7 @@ import HostSelection, {
 import { Icon } from "../components/icons";
 import SessionLeaderboard from "../components/SessionLeaderboard";
 import SongCover from "../components/SongCover";
+import { useSelectorStatus } from "../hooks/useSelectorStatus";
 import { useSessionStanding } from "../hooks/useSessionStanding";
 import { useWingmanEvent, type WingmanEvent } from "../hooks/useWingmanEvents";
 import { useWishlist } from "../hooks/useWishlist";
@@ -189,6 +190,19 @@ export default function Host() {
     }
   });
 
+  // A player selector that has gone quiet is worth a word on the TV: the room
+  // is putting cards down and nothing is happening. Only once one has actually
+  // reported during this page's life, though — a party without a device would
+  // otherwise be told all evening that something it never had is offline.
+  const selector = useSelectorStatus();
+  const [selectorSeen, setSelectorSeen] = useState(false);
+  useEffect(() => {
+    if (selector.online) setSelectorSeen(true);
+  }, [selector.online]);
+  // `isSuccess` because an unanswered request is not a device that went away:
+  // the note would otherwise flash on every reload of a room that has one.
+  const selectorGone = selectorSeen && selector.isSuccess && !selector.online;
+
   // Fetched once for the whole page: the rail ranks with it, the stage's score
   // bars take their avatars from it.
   const standing = useSessionStanding(order);
@@ -280,6 +294,11 @@ export default function Host() {
                 protocol. */}
             <p className="host-join-url">{joinUrl.replace(/^http:\/\//, "")}</p>
           </div>
+          {/* After the code and before the standing: it is about the way into
+              the evening, which is what the top of the rail is for. */}
+          {selectorGone && (
+            <p className="host-rail-note">Player selector offline</p>
+          )}
           {showStanding && (
             <SessionLeaderboard
               entries={standing.entries}

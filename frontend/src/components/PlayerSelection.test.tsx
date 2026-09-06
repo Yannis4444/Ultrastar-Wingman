@@ -31,6 +31,7 @@ const {
   getPlayerSelection,
   setPlayerSelectionSlots,
   startPlayerSelection,
+  getDeviceStatus,
 } = vi.hoisted(() => ({
   listKaraokeSlots: vi.fn(),
   listPlayers: vi.fn(),
@@ -40,6 +41,7 @@ const {
   getPlayerSelection: vi.fn(),
   setPlayerSelectionSlots: vi.fn(),
   startPlayerSelection: vi.fn(),
+  getDeviceStatus: vi.fn(),
 }));
 
 vi.mock("../api/sdk.gen", async (importOriginal) => ({
@@ -52,6 +54,7 @@ vi.mock("../api/sdk.gen", async (importOriginal) => ({
   getPlayerSelection,
   setPlayerSelectionSlots,
   startPlayerSelection,
+  getDeviceStatus,
 }));
 
 const SONG: SongRead = {
@@ -252,6 +255,9 @@ beforeEach(() => {
   );
   startPlayerSelection.mockReset();
   startPlayerSelection.mockResolvedValue({ data: {} });
+  // No player selector in the room unless a test puts one there.
+  getDeviceStatus.mockReset();
+  getDeviceStatus.mockResolvedValue({ data: { online: false } });
   getPlayerSelection.mockReset();
   getPlayerSelection.mockResolvedValue({ data: { selection: null } });
   createPlayer.mockReset();
@@ -1150,4 +1156,24 @@ test("the sing button in the song details opens the player selection", async () 
   expect(
     await screen.findByRole("dialog", { name: "Player selection" }),
   ).toHaveTextContent("Dancing Queen");
+});
+
+/** The line that says the room is picking with cards. */
+const SELECTOR_LINE = /A player selector is connected/;
+
+test("a connected selector is said out loud under the slots", async () => {
+  getDeviceStatus.mockResolvedValue({ data: { online: true } });
+  renderSelection();
+  await screen.findByRole("button", { name: "Slot blue: empty" });
+
+  expect(await screen.findByText(SELECTOR_LINE)).toHaveTextContent(
+    "You can still change it here.",
+  );
+});
+
+test("no selector in the room, nothing about one", async () => {
+  renderSelection();
+  await screen.findByRole("button", { name: "Slot blue: empty" });
+
+  expect(screen.queryByText(SELECTOR_LINE)).not.toBeInTheDocument();
 });

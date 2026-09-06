@@ -178,7 +178,7 @@ test("a role that may not manage devices is told who does", async () => {
   expect(screen.queryByLabelText("Set up a device")).not.toBeInTheDocument();
 });
 
-test("the three options are drawn from the settings and each one saves itself", async () => {
+test("the four options are drawn from the settings and each one saves itself", async () => {
   renderDevices();
 
   const start = await screen.findByLabelText("Start the song on its own");
@@ -189,6 +189,9 @@ test("the three options are drawn from the settings and each one saves itself", 
   expect(
     screen.getByLabelText("Scanning a card again removes the singer"),
   ).toBeChecked();
+  expect(
+    screen.getByLabelText("Time before an idle selection closes"),
+  ).toHaveValue(120);
 
   fireEvent.click(start);
 
@@ -210,6 +213,26 @@ test("a changed delay is written when the field is left", async () => {
   await waitFor(() =>
     expect(updateDeviceSettings).toHaveBeenCalledWith(
       expect.objectContaining({ body: { auto_start_delay_s: 10 } }),
+    ),
+  );
+});
+
+test("the idle expiry is written the same way, and alone", async () => {
+  renderDevices();
+
+  const idle = await screen.findByLabelText(
+    "Time before an idle selection closes",
+  );
+  expect(idle).toHaveAttribute("min", "30");
+  expect(idle).toHaveAttribute("max", "900");
+  fireEvent.change(idle, { target: { value: "300" } });
+  fireEvent.blur(idle);
+
+  // The two number rows share one input component, so the field that was left
+  // must be the only one in the body.
+  await waitFor(() =>
+    expect(updateDeviceSettings).toHaveBeenCalledWith(
+      expect.objectContaining({ body: { selection_idle_s: 300 } }),
     ),
   );
 });

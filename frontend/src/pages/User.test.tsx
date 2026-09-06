@@ -26,6 +26,9 @@ const {
   health,
   listAchievements,
   listPlayerAchievements,
+  getDeviceStatus,
+  listUnknownCards,
+  listMyCards,
 } = vi.hoisted(() => ({
   listPlayers: vi.fn(),
   listPlayerScores: vi.fn(),
@@ -40,6 +43,9 @@ const {
   health: vi.fn(),
   listAchievements: vi.fn(),
   listPlayerAchievements: vi.fn(),
+  getDeviceStatus: vi.fn(),
+  listUnknownCards: vi.fn(),
+  listMyCards: vi.fn(),
 }));
 
 vi.mock("../api/sdk.gen", async (importOriginal) => ({
@@ -57,6 +63,9 @@ vi.mock("../api/sdk.gen", async (importOriginal) => ({
   health,
   listAchievements,
   listPlayerAchievements,
+  getDeviceStatus,
+  listUnknownCards,
+  listMyCards,
 }));
 
 // What a plain account holds: no right over anybody else's player, and none is
@@ -143,6 +152,11 @@ beforeEach(() => {
     },
   });
   listPlayerAchievements.mockResolvedValue({ data: { achievements: [] } });
+  // No player selector in the room, so *My cards* has nothing to say: a test
+  // that wants the block puts a device there itself.
+  getDeviceStatus.mockResolvedValue({ data: { online: false } });
+  listUnknownCards.mockResolvedValue({ data: { uids: [] } });
+  listMyCards.mockResolvedValue({ data: { cards: [] } });
   listPlayerScores.mockResolvedValue({ data: { scores: [] } });
   listFavorites.mockResolvedValue({ data: { song_ids: ["usdb:1", "usdb:2"] } });
   // A logged-in ordinary account: nothing to manage, no admin sections.

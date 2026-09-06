@@ -14,6 +14,7 @@ import { useAuth } from "../auth";
 import { Icon } from "../components/icons";
 import LoginForm from "../components/LoginForm";
 import ManageMenu from "../components/ManageMenu";
+import MyCards from "../components/MyCards";
 import PlayerAvatar from "../components/PlayerAvatar";
 import ScoreHistogram from "../components/ScoreHistogram";
 import ScoreSummary from "../components/ScoreSummary";
@@ -235,6 +236,13 @@ export default function User() {
                 numbers because it is what they add up to, and before *Manage*
                 because it is still the singer's own page and not an errand. */}
             <UserAchievements playerId={auth.user.player_id} />
+            {/* The cards that pick this singer at the player selector. After
+                the record because it is a thing to set up rather than a thing
+                to read, and before *Manage* because it is still the singer's
+                own page: claiming your own card is identity, not an errand the
+                host hands out. It draws nothing at all in a room with no
+                selector in it. */}
+            <MyCards />
           </>
         ) : auth.isHost ? (
           <>

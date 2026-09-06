@@ -127,6 +127,18 @@
   word-break: break-all;
 }
 
+/* A line of rail furniture: the player selector has stopped reporting. The
+   rail's own meta voice (`.host-wishes-artist`), so it is read from the sofa
+   like everything else on this screen and still sits under the QR card rather
+   than beside it. */
+.host-rail-note {
+  flex: 0 0 auto;
+  margin: 0;
+  font-size: clamp(13px, 1.6vh, 19px);
+  color: var(--color-dark);
+  text-align: center;
+}
+
 /* Reveal-on-move admin overlay; top-left because the QR owns the right. */
 .host-controls {
   position: fixed;

@@ -25,6 +25,7 @@ const {
   exchangeHostToken,
   getCurrentSing,
   getJoinInfo,
+  getDeviceStatus,
   getPlayerSelection,
   listAchievements,
   listKaraokeColors,
@@ -39,6 +40,7 @@ const {
   exchangeHostToken: vi.fn(),
   getCurrentSing: vi.fn(),
   getJoinInfo: vi.fn(),
+  getDeviceStatus: vi.fn(),
   getPlayerSelection: vi.fn(),
   listAchievements: vi.fn(),
   listKaraokeColors: vi.fn(),
@@ -56,6 +58,7 @@ vi.mock("../api/sdk.gen", async (importOriginal) => ({
   exchangeHostToken,
   getCurrentSing,
   getJoinInfo,
+  getDeviceStatus,
   getPlayerSelection,
   listAchievements,
   listKaraokeColors,
@@ -191,6 +194,9 @@ beforeEach(() => {
   getJoinInfo.mockResolvedValue({ data: { url: "http://192.168.0.10:8080" } });
   getPlayerSelection.mockReset();
   getPlayerSelection.mockResolvedValue({ data: { selection: null } });
+  // No player selector in the room unless a test puts one there.
+  getDeviceStatus.mockReset();
+  getDeviceStatus.mockResolvedValue({ data: { online: false } });
   listAchievements.mockReset();
   listAchievements.mockResolvedValue({
     data: { achievements: [], settings: achievementSettings() },
@@ -745,4 +751,33 @@ test("the leaderboard order settings hide with the host chrome, the ranking stay
   // One moved mouse brings the whole cluster back.
   fireEvent.pointerMove(window);
   expect(page).not.toHaveClass("host-idle");
+});
+
+test("the rail says the player selector is gone, but only once it was there", async () => {
+  renderHost("/host");
+  await screen.findByText("Scan to join");
+
+  // Nothing yet: this party has never had a device, and a room that never had
+  // one must not be told all evening that it lost something. Waited for, so an
+  // implementation that drew the note on every offline answer could not pass
+  // this on the strength of the request not having landed yet.
+  await waitFor(() => expect(getDeviceStatus).toHaveBeenCalledTimes(1));
+  expect(screen.queryByText("Player selector offline")).not.toBeInTheDocument();
+
+  // One reports, then stops. `devices.changed` is what the watchdog broadcasts
+  // on that transition, and the rail refetches on it.
+  getDeviceStatus.mockResolvedValue({ data: { online: true } });
+  act(() => FakeSocket.deliver({ event: "devices.changed" }));
+  await waitFor(() => expect(getDeviceStatus).toHaveBeenCalledTimes(2));
+  // The answer has to land before the device goes away: an online answer that
+  // arrived after the offline one would leave the page having never seen a
+  // selector, and the note would rightly stay away for the wrong reason.
+  await act(async () => undefined);
+  expect(screen.queryByText("Player selector offline")).not.toBeInTheDocument();
+
+  getDeviceStatus.mockResolvedValue({ data: { online: false } });
+  act(() => FakeSocket.deliver({ event: "devices.changed" }));
+  await waitFor(() =>
+    expect(screen.getByText("Player selector offline")).toBeInTheDocument(),
+  );
 });
