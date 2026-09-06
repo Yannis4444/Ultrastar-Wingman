@@ -127,6 +127,8 @@ export function useSelectionLock({
   // after Cancel gives its token straight back instead of leaving the room
   // locked.
   const closedRef = useRef(false);
+  // The unmount's release, queued and still cancellable — see the effect below.
+  const unmountReleaseRef = useRef<{ cancelled: boolean } | null>(null);
   const releaseToken = (): void => giveBack(tokenRef, openedAtRef);
 
   // The component going away gives the room's lock back, however it went — the
@@ -134,11 +136,21 @@ export function useSelectionLock({
   // through the one function that takes the token out of the ref before it
   // sends it, so the room is given back exactly once.
   //
-  // The flag is reset in the effect body rather than only in the cleanup:
-  // React's development double-invoke runs the cleanup once on a component that
-  // is staying, and a selection opened afterwards would be released for it.
+  // React's development double-invoke runs the cleanup once on a component
+  // that is staying and runs the body again right after, in the same
+  // synchronous pass. So the flag is reset in the body rather than only in the
+  // cleanup (a selection opened afterwards would be released for it), and the
+  // unmount's release is queued as a microtask the body's re-run cancels: an
+  // *adopted* token is in the ref from the first render, and a release fired
+  // straight from that cleanup would give the room back under the picker that
+  // had just been handed it. A real unmount runs no body again, and the
+  // microtask sends it before anything else can happen.
   useEffect(() => {
     closedRef.current = false;
+    if (unmountReleaseRef.current !== null) {
+      unmountReleaseRef.current.cancelled = true;
+      unmountReleaseRef.current = null;
+    }
 
     // `pagehide`, not the effect cleanup: a closing tab, a back gesture and a
     // navigation away all end the page without running one, and the room would
@@ -155,7 +167,13 @@ export function useSelectionLock({
     return () => {
       window.removeEventListener("pagehide", onPageHide);
       closedRef.current = true;
-      giveBack(tokenRef, openedAtRef);
+      const release = { cancelled: false };
+      unmountReleaseRef.current = release;
+      queueMicrotask(() => {
+        if (release.cancelled) return;
+        unmountReleaseRef.current = null;
+        giveBack(tokenRef, openedAtRef);
+      });
     };
   }, []);
 

@@ -1,5 +1,11 @@
-import { act, fireEvent, render, screen } from "@testing-library/react";
-import { useState } from "react";
+import {
+  act,
+  fireEvent,
+  render,
+  screen,
+  waitFor,
+} from "@testing-library/react";
+import { StrictMode, useState } from "react";
 import type { SelectionOpened, SelectionRead, SongRead } from "../api";
 import { FakeSocket } from "../test/fakeSocket";
 import {
@@ -137,7 +143,7 @@ test("an adopted selection is held from the first render", () => {
   expect(screen.getByRole("status")).toHaveTextContent("handed-on");
 });
 
-test("close gives the room back once, with the token in the header", () => {
+test("close gives the room back once, with the token in the header", async () => {
   const { unmount } = render(<Holder />);
   press("hold");
 
@@ -148,6 +154,9 @@ test("close gives the room back once, with the token in the header", () => {
   // Pressed again, and unmounted after: the token is gone, nothing is sent.
   press("close");
   unmount();
+  await act(async () => {
+    await new Promise((resolve) => setTimeout(resolve, 20));
+  });
   expect(releases()).toHaveLength(1);
 });
 
@@ -162,26 +171,51 @@ test("an answer that lands after close is given straight back", () => {
   expect(screen.getByRole("status")).toHaveTextContent("none");
 });
 
-test("forget drops the token and sends nothing", () => {
+test("forget drops the token and sends nothing", async () => {
   const { unmount } = render(<Holder />);
   press("hold");
 
   press("forget");
   unmount();
+  await act(async () => {
+    await new Promise((resolve) => setTimeout(resolve, 20));
+  });
 
   // Play started the song, or another modal took the selection on: the room is
   // not given back, because the selection is not over.
   expect(releases()).toHaveLength(0);
 });
 
-test("unmounting gives the room back", () => {
+test("unmounting gives the room back", async () => {
   const { unmount } = render(<Holder />);
   press("hold");
 
   unmount();
 
-  expect(releases()).toHaveLength(1);
+  await waitFor(() => expect(releases()).toHaveLength(1));
   expectRelease(releases()[0]);
+});
+
+test("React's development double-invoke does not give an adopted token back", async () => {
+  // The token is in the ref from the first render, and StrictMode runs the
+  // effect's cleanup once on this component while it stays mounted. Releasing
+  // there would close the selection the picker had just been handed.
+  const { unmount } = render(
+    <StrictMode>
+      <Holder adopt={{ selection: selection(), token: "handed-on" }} />
+    </StrictMode>,
+  );
+  await act(async () => {
+    await new Promise((resolve) => setTimeout(resolve, 20));
+  });
+
+  expect(releases()).toHaveLength(0);
+  expect(screen.getByRole("status")).toHaveTextContent("handed-on");
+
+  // The real unmount still gives it back.
+  unmount();
+  await waitFor(() => expect(releases()).toHaveLength(1));
+  expectRelease(releases()[0], "handed-on");
 });
 
 test("a closing tab gives the room back, and the unmount after it sends nothing", () => {
@@ -196,7 +230,7 @@ test("a closing tab gives the room back, and the unmount after it sends nothing"
   expect(releases()).toHaveLength(1);
 });
 
-test("a page put in the back/forward cache keeps its token", () => {
+test("a page put in the back/forward cache keeps its token", async () => {
   const { unmount } = render(<Holder />);
   press("hold");
 
@@ -204,7 +238,7 @@ test("a page put in the back/forward cache keeps its token", () => {
   expect(releases()).toHaveLength(0);
 
   unmount();
-  expect(releases()).toHaveLength(1);
+  await waitFor(() => expect(releases()).toHaveLength(1));
 });
 
 test("a broadcast about the held selection is an update", () => {
