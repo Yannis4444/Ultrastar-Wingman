@@ -225,7 +225,7 @@ hand.
 | `POST /devices/{id}/token` | a new token (reconfiguring a device whose token is lost) |
 | `DELETE /devices/{id}` | forgets the device; the cards stay |
 | `GET /devices/cards` · `PUT /devices/cards/{uid} {player_id}` · `DELETE /devices/cards/{uid}` | the card ↔ player table |
-| `GET /devices/settings` · `PATCH /devices/settings` | `auto_start` (bool, default off), `auto_start_delay_s` (int, default 3, 0–30), `rescan_removes` (bool, default on: scanning a card again on a singers-in-turn reader takes that singer off their slot): private definitions, the `achievements/settings.py` pattern |
+| `GET /devices/settings` · `PATCH /devices/settings` | the seven private definitions (the `achievements/settings.py` pattern): `auto_start` (bool, default off), `auto_start_delay_s` (int, default 3, 0–30), `rescan_removes` (bool, default on: scanning a card again on a singers-in-turn reader takes that singer off their slot), `selection_idle_s` (int, default 120, 30–900, §11), `start_without_selection` (`nothing` / `top_wish` / `random`, §11), and for `random` the scope `random_scope` (`all` / `wishlist` / `weighted` / `playlist`) with `random_playlist` (a playlist id or `""`) — see [host-reel.md](host-reel.md) |
 | `GET /devices/firmware` · `GET /devices/firmware/{file}` | the bundled manifest and image, 404 `no_firmware` without a build |
 | `POST /devices/report` | **bearer token**, §4 |
 
