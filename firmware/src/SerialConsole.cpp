@@ -92,6 +92,19 @@ void SerialConsole::sendStatus(const NetStatus &status) {
     Serial.println(line);
 }
 
+void SerialConsole::sendUpdating(const char *version) {
+    Serial.print("{\"type\":\"status\",\"state\":\"updating\",\"version\":\"");
+    printEscaped(version == nullptr ? "" : version);
+    Serial.println("\"}");
+}
+
+void SerialConsole::sendUpdateFailed(const char *error) {
+    // HTTPUpdate's own sentence, escaped: it is free text and must not break the line.
+    Serial.print("{\"type\":\"status\",\"state\":\"update_failed\",\"error\":\"");
+    printEscaped(error == nullptr ? "" : error);
+    Serial.println("\"}");
+}
+
 bool SerialConsole::takeConfigured() {
     const bool configured = configured_;
     configured_ = false;

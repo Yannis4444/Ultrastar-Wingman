@@ -78,7 +78,27 @@ bool Net::readyToPost(uint32_t nowMs) const {
     return nowMs - nextPostMs_ < 0x80000000U;
 }
 
-PostResult Net::postReport(const char *body, uint32_t nowMs) {
+size_t Net::readBody() {
+    responseBody_[0] = '\0';
+    // Content-Length or nothing: a chunked or unknown-length answer is not one of ours, and
+    // reading until the connection drops would hold up loop() for the whole timeout.
+    const int length = http_.getSize();
+    if (length <= 0 || static_cast<size_t>(length) >= sizeof(responseBody_)) {
+        return 0;
+    }
+    NetworkClient *stream = http_.getStreamPtr();
+    if (stream == nullptr) {
+        return 0;
+    }
+    // The client's own timeout (kHttpTimeoutMs, set in begin()) bounds this read; nothing
+    // here sets one of its own, since NetworkClient counts seconds where Stream counts
+    // milliseconds.
+    const size_t read = stream->readBytes(responseBody_, static_cast<size_t>(length));
+    responseBody_[read] = '\0';
+    return read;
+}
+
+PostResult Net::postReport(const char *body, uint32_t nowMs, ResponseState &response) {
     http_.begin(reportUrl_);
     http_.addHeader("Content-Type", "application/json");
     http_.addHeader("Authorization", authHeader_);
@@ -107,13 +127,19 @@ PostResult Net::postReport(const char *body, uint32_t nowMs) {
         return PostResult::Failed;
     }
 
-    // The response body is reserved for feedback the device does not have yet: end() drops
-    // whatever arrived and, with setReuse, keeps the connection open for the next report.
+    const bool ok = code >= 200 && code < 300;
+    if (ok && readBody() > 0) {
+        // A body that is not JSON is not an error worth a status line: the next report asks
+        // again in a second or five.
+        parseResponse(responseBody_, response);
+    }
+    // end() drops whatever is left of the answer and, with setReuse, keeps the connection
+    // open for the next report.
     http_.end();
     backoffMs_ = 0;
     backoffActive_ = false;
 
-    const bool failed = code < 200 || code >= 300;
+    const bool failed = !ok;
     if (!everPosted_ || failed != lastPostFailed_ || lastHttp_ != code) {
         NetStatus status;
         status.kind = failed ? NetStatus::Kind::ServerFailed : NetStatus::Kind::ServerOk;

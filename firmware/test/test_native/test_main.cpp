@@ -5,6 +5,7 @@
 void run_card_tracker_tests();
 void run_buttons_tests();
 void run_report_tests();
+void run_response_tests();
 
 void setUp() {}
 
@@ -15,5 +16,6 @@ int main() {
     run_card_tracker_tests();
     run_buttons_tests();
     run_report_tests();
+    run_response_tests();
     return UNITY_END();
 }

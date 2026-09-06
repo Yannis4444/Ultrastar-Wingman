@@ -41,10 +41,11 @@ before a firmware change is committed.
   pre/post build scripts, `build.py` the bundler. One class or one concern per `.h`/`.cpp`
   pair, named `PascalCase` like the type inside.
 - **Logic is separated from hardware so it can run on the host.** `CardTracker`, `Buttons`'
-  debouncer and `Report` take plain values (a uid, a level, a timestamp in milliseconds) and
-  return plain values; they include no Arduino header. `ReaderBus`, `Net`, `SerialConsole`
-  and `main.cpp` are the glue and are verified on the device. A new piece of logic goes into
-  the first group with a test, and the glue stays thin.
+  debouncer, `Report` and `Response` take plain values (a uid, a level, a response body, a
+  timestamp in milliseconds) and return plain values; they include no Arduino header.
+  `ReaderBus`, `Net`, `SerialConsole`, `Leds`, `Updater` and `main.cpp` are the glue and are
+  verified on the device. A new piece of logic goes into the first group with a test, and
+  the glue stays thin — `Response` holds the LED brightness math the strip only renders.
 - The firmware is **dumb on purpose**: it reports state and executes the serial commands.
   No decision about players, slots or songs is made on the device. If a feature seems to
   need one, it belongs in `backend/src/ultrastar_wingman/devices/`.
@@ -53,11 +54,18 @@ before a firmware change is committed.
 
 - **No blocking in `loop()`.** No `delay()` beyond the 4 ms the RC522 reset needs at boot,
   no busy waits; everything is a state machine ticked from `loop()` with `millis()`.
-  Network calls are the exception the HTTP client forces, and they carry a timeout.
+  Network calls are the exception the HTTP client forces, and they carry a timeout. The
+  over-the-air update is the second exception and the larger one — it holds the board for
+  the length of a download and then reboots into the new image, which is the end of that
+  boot's life. Nothing else may take that liberty; the strip in particular renders from
+  `millis()` and returns.
 - **No heap in the steady state.** Fixed-size `char` buffers and `snprintf` for the JSON the
   device produces; arrays sized by the pin map's constants (`kReaderCount`, `kButtonCount`).
   Arduino `String` is allowed only in setup-time code (Wi-Fi credentials from NVS) and never
-  in the report path.
+  in the report path. Two allocations are allowed against that rule and no more: the
+  `JsonDocument` the report's *answer* is parsed with, which is freed before `parseResponse`
+  returns and fills a fixed `ResponseState`, and the pixel buffer the NeoPixel library takes
+  once when the strip starts.
 - **Parsing needs a parser.** The serial `configure` command carries a password that can hold
   any character, so incoming JSON is parsed with ArduinoJson (v7, pinned), never by hand.
   Outgoing JSON is `snprintf` — the shapes are fixed and small.
@@ -90,7 +98,8 @@ before a firmware change is committed.
 - **Unity, native environment** (`pio test -e native`), for every pure module: the tracker's
   state machine (placed, still there, swapped, three misses, a collision keeps the card),
   the debouncer (a bounce under 40 ms is nothing, a clean press is one count), the report
-  builder (the exact JSON, the "changed" detection).
+  builder (the exact JSON, the "changed" detection) and the response parser (the answer's
+  fields and the bounds they are held to, the LED brightness at a phase).
 - Nothing in the suite touches SPI, Wi-Fi or the serial port. The glue is verified by hand
   on the device, and the wizard's own tests cover the browser half of the serial protocol.
 - Deterministic: tests pass time in as a number, never read a clock.

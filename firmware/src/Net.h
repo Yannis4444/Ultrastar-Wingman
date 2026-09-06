@@ -8,6 +8,8 @@
 
 #include <stdint.h>
 
+#include "Response.h"
+
 // One line for the wizard: what the device is doing about the network or the server.
 struct NetStatus {
     enum class Kind : uint8_t {
@@ -25,7 +27,7 @@ struct NetStatus {
 };
 
 enum class PostResult : uint8_t {
-    Delivered, // the server answered — with any status; the body is not read
+    Delivered, // the server answered — with any status
     Failed,    // the request never got an answer; the backoff grew
 };
 
@@ -50,7 +52,10 @@ class Net {
 
     // False while the backoff after a failed POST has not run out.
     bool readyToPost(uint32_t nowMs) const;
-    PostResult postReport(const char *body, uint32_t nowMs);
+    // Posts the report and reads the answer into `response` (§11.2): a 2xx body that is
+    // JSON and no larger than kResponseBufferSize. Everything else leaves `response` as it
+    // was — an unreadable answer must not blank a strip or cancel an update.
+    PostResult postReport(const char *body, uint32_t nowMs, ResponseState &response);
 
     // The asynchronous scan the console's `scan` command drives.
     void beginScan();
@@ -64,6 +69,9 @@ class Net {
   private:
     void push(const NetStatus &status);
     void pushWifiFailed(uint8_t reason);
+    // Fills responseBody_ from the open answer, or leaves it empty when the server did not
+    // say how long it is or said more than a response of ours can be.
+    size_t readBody();
 
     static constexpr uint8_t kStatusSlots = 8;
     NetStatus statuses_[kStatusSlots] = {};
@@ -78,6 +86,8 @@ class Net {
     HTTPClient http_;
     char reportUrl_[192] = {};
     char authHeader_[80] = {};
+    // Static, like every other buffer here: the report path allocates nothing of its own.
+    char responseBody_[kResponseBufferSize] = {};
 
     uint32_t nextPostMs_ = 0;
     uint32_t backoffMs_ = 0;

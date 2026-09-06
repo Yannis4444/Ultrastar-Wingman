@@ -89,7 +89,11 @@ firmware/
     CardTracker.*       pure: per-reader state machine (§3.1)
     Buttons.*           pure debounce + the pin glue
     Report.*            pure: the report JSON (§4), the change detection that triggers one
-    Net.*               Wi-Fi events, HTTP POST with keep-alive, backoff
+    Net.*               Wi-Fi events, HTTP POST with keep-alive, backoff; hands the
+                        response body to Response
+    Response.*          pure: the report response (§11.2) — interval, LED targets, update
+    Leds.*              the optional NeoPixel strip on GPIO 13, one LED per reader
+    Updater.*           the optional update over Wi-Fi (HTTPUpdate with the bearer token)
   test/test_native/     Unity tests for CardTracker, Buttons, Report
   scripts/
     version.py          pre-build: -DFIRMWARE_VERSION from firmware/VERSION (+ git describe)
@@ -131,8 +135,10 @@ protocol is recorded (so it appears as "needs update") and answered 426.
 ### 3.3 Building and bundling
 
 The image is a **generated artifact**: never committed. `firmware/build.py` writes
-`wingman-esp32.bin` and a `manifest.json` (`{"version", "protocol", "builds": [{"chip":
-"ESP32", "file", "size"}]}`) into `backend/src/ultrastar_wingman/devices/firmware/`
+`wingman-esp32.bin` (merged, for the USB wizard), `wingman-esp32-ota.bin` (the bare app,
+for the update over Wi-Fi) and a `manifest.json` (`{"version", "protocol", "builds":
+[{"chip": "ESP32", "file", "size", "ota_file", "ota_size"}]}`) into
+`backend/src/ultrastar_wingman/devices/firmware/`
 (gitignored). PlatformIO and the `clang-format` wheel are pinned in
 `firmware/requirements.txt` (installed into the venv, run from PowerShell — see
 [firmware.md](firmware.md)); `installer/build.ps1` installs them and runs `build.py` before
@@ -449,11 +455,16 @@ nobody requested never arrives.
 - **Firmware update over Wi-Fi, optional.** `POST /devices/{id}/update` (`devices.manage`)
   sets `update_requested_at` on the row; while it is set and the bundled manifest's version
   differs from the device's, the report's response carries
-  `"update": {"file": "wingman-esp32.bin", "version": "0.3.0"}`; the device fetches
-  `GET /devices/firmware/{file}` with its bearer token (that route accepts a device or a
-  `devices.manage` session), flashes it with the Arduino `HTTPUpdate` onto the other OTA slot
-  and reboots; its next report, carrying the new version, clears the flag (and so does a
-  ten-minute timeout, so a failed attempt can be repeated). The device page shows *Update
+  `"update": {"file": "wingman-esp32-ota.bin", "version": "0.3.0"}` — the **bare app
+  image**, not the merged one the USB wizard flashes: `HTTPUpdate` checks for the `0xE9`
+  magic at byte 0 and the merged image starts with the bootloader's padding. `build.py`
+  therefore bundles both and the manifest's build entry names them apart (`file`/`size` for
+  the wizard, `ota_file`/`ota_size` for the update); `image_path` serves either. The device
+  fetches `GET /devices/firmware/{file}` with its bearer token (that route accepts a device
+  or a `devices.manage` session), flashes it with the Arduino `HTTPUpdate` onto the other OTA
+  slot and reboots; its next report, carrying the new version, clears the flag (and so does
+  a ten-minute timeout, so a failed attempt can be repeated; the device itself retries no
+  sooner than ten minutes after a failure). The device page shows *Update
   over Wi-Fi* beside *Update firmware* (the cable) while the bundled version differs, and
   "Update requested" while the flag stands. The USB wizard stays the fallback.
 

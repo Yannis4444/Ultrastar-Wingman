@@ -26,6 +26,11 @@ class SerialConsole {
     void sendHello();
     void sendStatus(const NetStatus &status);
 
+    // The two lines an over-the-air update says about itself. Beyond §5's table: a wizard
+    // that does not know them skips them like any other status it cannot read.
+    void sendUpdating(const char *version);
+    void sendUpdateFailed(const char *error);
+
     // True once a `configure` command stored new credentials, so main can reconnect.
     bool takeConfigured();
 

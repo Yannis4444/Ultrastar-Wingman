@@ -3,6 +3,9 @@
 An ESP32 with up to six RC522 readers and four buttons. It reports what lies on its
 readers and how often each button was pressed; every decision is the host's.
 
+A WS2812 strip on GPIO 13, one LED per reader position, is optional: the server says in
+every report's answer what each light shows, and a build without a strip loses nothing.
+
 `venv` is `..\venv\Scripts\python.exe`; run PlatformIO through it, never a global `pio`, and
 from PowerShell — pioarduino's installer refuses an MSYS shell.
 
