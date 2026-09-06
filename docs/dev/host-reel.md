@@ -362,3 +362,18 @@ Tests, docs and screenshots follow the existing rows: `reel.md` (skip, the new v
 `host-screen/index.md` (the column head; a phone's spin shows no cards until Play),
 `selector/cards.md` (a press during the reel shows the result), the three screenshots
 recaptured, this section trimmed to what shipped afterwards.
+
+**R6. The countdown on a selector's spin** (added while the round ran). Ruling 5 of §1 is
+narrowed: it stays for a **phone's** spin (no cards on the TV, the phone has Play), and is
+lifted for a spin the **selector** started. With `devices.auto_start` on and every slot
+holding a known player, the TV counts down *Starting in 3, 2, 1…* as it does on the picking
+screen — but never before the reel has landed:
+
+- Backend: `_refresh_auto_start` schedules on a spun selection when `spin.origin ==
+  "device"`; the target is `max(now, reveal) + delay_s`, where `reveal` is `spun_at +
+  REVEAL_SECONDS`, or `now` when the spin was skipped (`revealed` set by a press). A respin
+  cancels the countdown and, with the room still full, schedules it again from the new
+  reveal. A skip while a countdown is pending recomputes it from now. A press with players
+  on the slots after the reveal starts at once, as before.
+- Frontend: `HostSelection` shows the countdown on a spun selection once the reel has
+  landed (`settled`), never while the covers fly. The phone's picker is not involved.
