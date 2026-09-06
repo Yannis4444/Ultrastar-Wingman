@@ -108,25 +108,27 @@ bool parseResponse(const char *body, ResponseState &state) {
     }
     state.intervalS = interval;
 
-    JsonArrayConst leds = root["leds"].as<JsonArrayConst>();
-    if (!leds.isNull()) {
-        for (uint8_t i = 0; i < kReaderCount; ++i) {
-            state.leds[i] = LedTarget();
+    // Every position starts dark. What the list names it shows; what the list leaves out —
+    // and every position when there is no list at all — goes dark rather than holding a
+    // stale color. An answer that is not JSON never reaches here, so this is a list the
+    // server chose not to send, and a slot still lit for a selection that ended says
+    // something untrue about the room.
+    for (uint8_t i = 0; i < kReaderCount; ++i) {
+        state.leds[i] = LedTarget();
+    }
+    for (JsonObjectConst led : root["leds"].as<JsonArrayConst>()) {
+        if (!led["index"].is<uint8_t>()) {
+            continue;
         }
-        for (JsonObjectConst led : leds) {
-            if (!led["index"].is<uint8_t>()) {
-                continue;
-            }
-            const uint8_t index = led["index"].as<uint8_t>();
-            if (index >= kReaderCount) {
-                // A strip has one LED per reader position; a seventh entry is not ours.
-                continue;
-            }
-            LedTarget target;
-            target.mode = modeFromName(led["mode"].as<const char *>());
-            parseRgb(led["rgb"].as<const char *>(), target);
-            state.leds[index] = target;
+        const uint8_t index = led["index"].as<uint8_t>();
+        if (index >= kReaderCount) {
+            // A strip has one LED per reader position; a seventh entry is not ours.
+            continue;
         }
+        LedTarget target;
+        target.mode = modeFromName(led["mode"].as<const char *>());
+        parseRgb(led["rgb"].as<const char *>(), target);
+        state.leds[index] = target;
     }
 
     state.hasUpdate = false;

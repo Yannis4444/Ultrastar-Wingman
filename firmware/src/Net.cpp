@@ -78,24 +78,33 @@ bool Net::readyToPost(uint32_t nowMs) const {
     return nowMs - nextPostMs_ < 0x80000000U;
 }
 
-size_t Net::readBody() {
+bool Net::readBody() {
     responseBody_[0] = '\0';
+    const int length = http_.getSize();
+    if (length == 0) {
+        // A `Content-Length: 0` answer: there is nothing on the socket to take off it.
+        return true;
+    }
     // Content-Length or nothing: a chunked or unknown-length answer is not one of ours, and
     // reading until the connection drops would hold up loop() for the whole timeout.
-    const int length = http_.getSize();
-    if (length <= 0 || static_cast<size_t>(length) >= sizeof(responseBody_)) {
-        return 0;
+    if (length < 0 || static_cast<size_t>(length) >= sizeof(responseBody_)) {
+        return false;
     }
     NetworkClient *stream = http_.getStreamPtr();
     if (stream == nullptr) {
-        return 0;
+        return false;
     }
-    // The client's own timeout (kHttpTimeoutMs, set in begin()) bounds this read; nothing
-    // here sets one of its own, since NetworkClient counts seconds where Stream counts
-    // milliseconds.
+    // HTTPClient::connect() hands _tcpTimeout (kHttpTimeoutMs, set in begin()) to the
+    // client's Stream::setTimeout, which counts milliseconds — so this read is bounded by
+    // the same three seconds the request is.
     const size_t read = stream->readBytes(responseBody_, static_cast<size_t>(length));
     responseBody_[read] = '\0';
-    return read;
+    if (read != static_cast<size_t>(length)) {
+        // Half an answer is not one, and the other half is still on its way.
+        responseBody_[0] = '\0';
+        return false;
+    }
+    return true;
 }
 
 PostResult Net::postReport(const char *body, uint32_t nowMs, ResponseState &response) {
@@ -128,14 +137,26 @@ PostResult Net::postReport(const char *body, uint32_t nowMs, ResponseState &resp
     }
 
     const bool ok = code >= 200 && code < 300;
-    if (ok && readBody() > 0) {
+    responseBody_[0] = '\0';
+    // Whether the whole answer came off the socket. A 401 or a 426 carries a body this
+    // device has no use for, and it is still counted: what matters is that nothing of it is
+    // left behind.
+    const bool drained = ok ? readBody() : http_.getSize() == 0;
+    if (responseBody_[0] != '\0') {
         // A body that is not JSON is not an error worth a status line: the next report asks
         // again in a second or five.
         parseResponse(responseBody_, response);
     }
+    if (!drained) {
+        // end() drops what has arrived but cannot drop what is still on its way, and with
+        // setReuse those bytes would be the next report's status line — a device that then
+        // talks to its server through half a sentence forever. One handshake is cheaper.
+        http_.setReuse(false);
+    }
     // end() drops whatever is left of the answer and, with setReuse, keeps the connection
     // open for the next report.
     http_.end();
+    http_.setReuse(true);
     backoffMs_ = 0;
     backoffActive_ = false;
 

@@ -41,8 +41,9 @@ constexpr uint32_t kMaxIntervalS = 60;
 // Without an `interval_s` the device keeps its own heartbeat.
 constexpr uint32_t kDefaultIntervalS = kHeartbeatMs / 1000;
 
-// What the last readable response left behind. It survives every unreadable one, so a
-// server that stops answering does not blank the strip.
+// What the last readable response left behind. It survives every unreadable one — a body
+// that is not JSON changes nothing at all — so a server that stops answering leaves the
+// strip as it was rather than blanking it.
 struct ResponseState {
     uint32_t intervalS = kDefaultIntervalS;
     LedTarget leds[kReaderCount] = {};
@@ -53,9 +54,11 @@ struct ResponseState {
 
 // Reads one response body into `state` and answers whether it was JSON at all. Per field:
 //   * `interval_s` absent → the default; present → clamped to kMinIntervalS…kMaxIntervalS.
-//   * `leds` absent → the previous targets stand (a server without lights must not blank a
-//     strip); present → every position starts at off and the listed entries are applied,
-//     so an index the server left out goes dark instead of holding a stale color.
+//   * `leds` → every position starts at off and the listed entries are applied, so an index
+//     the list leaves out — and every position when there is no readable list at all — goes
+//     dark instead of holding a stale color. The server names all six every time, so a
+//     missing list is an old server or an answer that lost it, and a slot still lit for a
+//     selection that ended is the worse of the two failures.
 //   * `update` absent → none is pending; the server drops the field once it is done.
 // A body that is not JSON changes nothing at all: `state` is written only after the parse
 // succeeded.

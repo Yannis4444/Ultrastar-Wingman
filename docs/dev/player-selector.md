@@ -94,7 +94,7 @@ firmware/
     Response.*          pure: the report response (§11.2) — interval, LED targets, update
     Leds.*              the optional NeoPixel strip on GPIO 13, one LED per reader
     Updater.*           the optional update over Wi-Fi (HTTPUpdate with the bearer token)
-  test/test_native/     Unity tests for CardTracker, Buttons, Report
+  test/test_native/     Unity tests for CardTracker, Buttons, Report, Response
   scripts/
     version.py          pre-build: -DFIRMWARE_VERSION from firmware/VERSION (+ git describe)
     merge_bin.py        post-build: one image (bootloader 0x1000, partitions 0x8000,

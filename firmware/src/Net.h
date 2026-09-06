@@ -70,8 +70,9 @@ class Net {
     void push(const NetStatus &status);
     void pushWifiFailed(uint8_t reason);
     // Fills responseBody_ from the open answer, or leaves it empty when the server did not
-    // say how long it is or said more than a response of ours can be.
-    size_t readBody();
+    // say how long it is or said more than a response of ours can be. True when nothing of
+    // the answer is left on the socket — which is what says whether it may be reused.
+    bool readBody();
 
     static constexpr uint8_t kStatusSlots = 8;
     NetStatus statuses_[kStatusSlots] = {};

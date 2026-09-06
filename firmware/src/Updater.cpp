@@ -30,9 +30,15 @@ void Updater::loop(uint32_t nowMs, const ResponseState &response, const char *cu
         // The server is still asking; its next report will carry the new version and stop.
         return;
     }
-    // `now >= nextAttempt`, written so the 49-day wrap of millis() cannot hold it back.
-    if (waiting_ && nowMs - nextAttemptMs_ >= 0x80000000U) {
-        return;
+    if (waiting_) {
+        // `now >= nextAttempt`, written so the 49-day wrap of millis() cannot hold it back.
+        if (nowMs - nextAttemptMs_ >= 0x80000000U) {
+            return;
+        }
+        // The wait is over, and forgetting it is the point: a flag left standing would walk
+        // back into the gate once the subtraction above carries past half of millis()' range,
+        // and refuse an update for another twenty-five days.
+        waiting_ = false;
     }
 
     char url[256];
