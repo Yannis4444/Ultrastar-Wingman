@@ -238,7 +238,7 @@ Selection: song (SongRead), slots [SlotState(color, player | None, card_uid | No
 
 | Route | Does |
 |---|---|
-| `POST /karaoke/selection {song_id, slots?, force?}` (`karaoke.sing`) | opens one; `slots` is the phone's remembered assignment, and a card lying on a `slot:<color>` reader wins over it. 409 `selection_open` while another is open, unless `force` — which needs nothing beyond `karaoke.sing`: anybody may take over, the UI asks first (the user's decision, 2026-09-05) |
+| `POST /karaoke/selection {song_id, slots?, force?}` (`karaoke.sing`) | opens one; `slots` is the phone's remembered assignment, and a card lying on a `slot:<color>` reader wins over it — but while an **online device has a `sequential` reader** the remembered assignment is dropped altogether (`devices.service.sequential_reader_online`): singers scanning in turn fill the next free slot, and slots pre-filled from the last song get in the way (the user's decision, 2026-09-06). 409 `selection_open` while another is open, unless `force` — which needs nothing beyond `karaoke.sing`: anybody may take over, the UI asks first (the user's decision, 2026-09-05) |
 | `GET /karaoke/selection` (`songs.view`) | `{selection \| null}` without the token — the host screen, and a phone that reloaded |
 | `PUT /karaoke/selection/slots {token, slots}` | the opener moves people around; a wrong token is 409 `not_the_opener` |
 | `POST /karaoke/selection/start {token, force?}` | `start_sing` with the selection's slots, then the selection is gone; the same errors as `/karaoke/sing`, `force` needing `karaoke.stop` |
@@ -292,8 +292,12 @@ for the `devices` group in `RolePermissions.tsx`). Opening and driving a selecti
   tap stay as they are.
 - **Host stage**: `HostSelection` in `.host-stage`, following `HostAchievements`'s
   `onPhase` / `fallback` / `suppressed` contract: while a selection is open and nothing
-  plays, the cover, title and artist over the colored slots filling up (avatar and name, or
-  "empty", or "unknown card"), and the auto-start countdown line when it is on.
+  plays it **takes the whole screen** like the badges do (no rail, no QR code — the user's
+  decision, 2026-09-06): the song at the top (cover, title, artist, "Picking singers", and
+  the auto-start countdown line under it), and at the bottom one **card per slot in a row**
+  — a colored outline in the slot's hex, the avatar at the top, the name below; an empty
+  slot's card is filled with the slot color darkened towards `--bg`, an unknown card reads
+  *Unknown card*. The cards are the one sanctioned departure from the flat rule, by request.
 - **Admin page** `/user/devices` (`ManageMenu` entry *Player selector*, `devices.manage`,
   a new `card` glyph): the three settings of §6.1, then one row per device (name, online dot in
   words, "firmware 0.1.0 · needs update" when the bundled one is newer or the protocol is

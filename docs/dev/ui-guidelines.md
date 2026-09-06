@@ -536,8 +536,8 @@ saved) where a jump to the top would throw away the place they were working in.
   `<details class="settings-advanced">` labelled *Advanced*, closed by default — never a section
   of its own, never a group's only content.
 - **Host** (`/host`) is a TV across the room: everything scales with `clamp()` and `vh`, flat on
-  `--bg`, the white QR card the only tile. Controls reveal on pointer movement through the
-  page's single `useIdle` mechanism — never add a second idle timer. Verify at 1280×720 and up,
+  `--bg`, the white QR card its one tile and the selection cards its one other surface.
+  Controls reveal on pointer movement through the page's single `useIdle` mechanism — never add a second idle timer. Verify at 1280×720 and up,
   and re-check it after touching any shared component (`CurrentlyPlaying`, `LastSong`,
   `SongCover`, `SessionLeaderboard`). `LastSong` takes the same score summary as the phones,
   in the naming column beside the cover and under the artist line, wrapping there instead of
@@ -557,7 +557,18 @@ saved) where a jump to the top would throw away the place they were working in.
   step for those seconds — the singer's avatar to `clamp(96px, 16vh, 240px)` under a name in
   the same proportion, and the whole `--badge` ladder up one rung, the row of four taking
   today's one-badge `clamp(34px, 6.4vh, 74px)` and the rows of one to three keeping the lead
-  they hold over it today, `--column` and the gaps widening with them. The page keeps its one
+  they hold over it today, `--column` and the gaps widening with them.
+  **Picking singers is the second takeover** (the user's request, 2026-09-06): while
+  `HostSelection` reports `selecting` the rail is down the same way, and the block keeps
+  reporting it underneath the badges that outrank it, so the code does not come back for the
+  seconds in between. The song stands at the top — the cover a step under the running song's,
+  the title and artist beside it, *Picking singers*, and the auto-start countdown under that
+  block and never in a card — over **one card per slot** along the foot, in the host's order
+  and sharing the width: an outline in the slot's own hex, the avatar above the name, and for
+  a slot nobody is on the card filled with that same colour 25% into `--bg` under a
+  placeholder a step lighter, saying *empty* or *Unknown card* in `--color-dark`
+  (`--color-darker` is 2.7:1 on the darkened yellow, §1.6's reasoning). The cards are the one
+  sanctioned departure from §1.1. The page keeps its one
   `useIdle` mechanism, and every animation keeps its reduced-motion branch (§1.9).
 
 ## 8. Checklist before finishing UI work

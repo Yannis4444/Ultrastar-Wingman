@@ -31,10 +31,11 @@
   );
 }
 
-/* New achievements take the whole screen (§7): for those seconds the rail is
-   not rendered at all and the one column left is the stage. A cut, not a
-   transition — a rail that slid away would need an animation the room reads
-   instead of the badges, and a reduced-motion branch for it. */
+/* New achievements take the whole screen (§7), and so does the room picking the
+   next song: for those seconds the rail is not rendered at all and the one
+   column left is the stage. A cut, not a transition — a rail that slid away
+   would need an animation the room reads instead of the badges, and a
+   reduced-motion branch for it. */
 .host-page.host-takeover {
   grid-template-columns: minmax(0, 1fr);
 }

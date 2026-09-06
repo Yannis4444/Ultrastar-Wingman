@@ -1,19 +1,21 @@
-/* The stage while the room is picking singers. Same composition as the running
-   song next door — cover on the left, the song beside it, the slots under it —
-   so the TV does not change shape when the picking turns into a sing. The
-   cover, title and artist rules are CurrentlyPlaying's own; only what is new
-   here is written out. */
+/* The stage while the room is picking singers. It takes the whole screen the way
+   the badges of a finished song do (ui-guidelines §7): the rail with the code is
+   down for these seconds, because joining is not what the room is doing. So the
+   block owns the height of the stage, the song stands at the top and the slots
+   along the foot, and a TV across the room reads it top to bottom: this song,
+   these people.
+
+   The cards are the one sanctioned departure from the flat rule (§1.1). The user
+   asked for them on 2026-09-06, and the outline is what pairs a person with a
+   microphone from the sofa. */
 .host-page .host-selection {
-  display: grid;
-  grid-template-areas:
-    "cover text"
-    "cover slots"
-    ". note";
-  grid-template-columns: auto minmax(0, 1fr);
-  column-gap: clamp(24px, 3vw, 56px);
-  row-gap: clamp(16px, 3vh, 40px);
-  align-items: center;
+  display: flex;
+  flex: 1 1 auto;
+  flex-direction: column;
+  justify-content: space-between;
+  gap: clamp(20px, 4vh, 64px);
   min-width: 0;
+  min-height: 0;
   text-align: left;
   /* Mounts when somebody picks a song, so there is nothing to transition from. */
   animation: host-selection-in 200ms ease;
@@ -25,9 +27,75 @@
   }
 }
 
-/* One line under the artist, in the elapsed time's place and its proportion:
-   it says what the room is doing, which is the one thing a TV across the room
-   has to make obvious. */
+/* The song and the countdown are one block, so the cards sit at the foot whether
+   the automatic start is running or not. */
+.host-page .host-selection-head {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: clamp(12px, 2vh, 28px);
+  min-width: 0;
+}
+
+/* Cover on the left, the song beside it: the composition the running song has on
+   this same TV, so the screen does not change shape when the picking turns into
+   a sing. Centered as a block, because the rail is gone and a group pinned left
+   would leave half the width empty. */
+.host-page .host-selection-song {
+  display: flex;
+  align-items: center;
+  gap: clamp(20px, 2.5vw, 48px);
+  min-width: 0;
+  max-width: 100%;
+}
+
+/* A touch under the running song's cover: the cards own the bottom of the screen
+   now, and at 1280x720 that is what is left over. Compound selector so the 40px
+   base in SongCover.css loses regardless of bundle order. */
+.host-page .host-selection-cover,
+.host-page .song-cover.host-selection-cover {
+  flex: 0 0 auto;
+  width: min(38vh, 24vw);
+  height: min(38vh, 24vw);
+  font-size: min(9vh, 6vw);
+}
+
+/* Capped, or a long title spreads the centered block across the whole page and
+   takes the balance out of it. */
+.host-page .host-selection-text {
+  display: flex;
+  flex-direction: column;
+  gap: clamp(6px, 1.2vh, 18px);
+  min-width: 0;
+  max-width: min(100%, 46vw);
+}
+
+.host-page .host-selection-title {
+  display: -webkit-box;
+  margin: 0;
+  overflow: hidden;
+  font-size: clamp(32px, 5.2vh, 84px);
+  font-weight: 700;
+  line-height: 1.05;
+  color: var(--color);
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
+}
+
+.host-page .host-selection-artist {
+  display: -webkit-box;
+  margin: 0;
+  overflow: hidden;
+  font-size: clamp(20px, 3vh, 44px);
+  line-height: 1.15;
+  color: var(--color-darker);
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
+}
+
+/* One line under the artist, in the elapsed time's place and its proportion: it
+   says what the room is doing, which is the one thing a TV across the room has
+   to make obvious. */
 .host-page .host-selection-what {
   max-width: 100%;
   margin: 0;
@@ -38,69 +106,115 @@
   color: var(--color-darker);
 }
 
-/* The slots in the host's order, wrapping like the singers of a running song.
-   Every configured slot is here, empty ones included: the row watches them
-   fill up, which is the whole point of the screen. */
+/* The selector's automatic start, under the song and never in the row of cards:
+   it is the one thing on this screen that changes every second, and it counts
+   the picking down, not any one slot. */
+.host-page .host-selection-countdown {
+  margin: 0;
+  font-size: clamp(18px, 2.6vh, 36px);
+  text-align: center;
+  color: var(--color-dark);
+  font-variant-numeric: tabular-nums;
+}
+
+/* Every configured slot in the host's order, one card each, sharing the width:
+   the row watches them fill up, which is the whole point of the screen. */
 .host-page .host-selection-slots {
   display: flex;
-  flex-wrap: wrap;
-  grid-area: slots;
-  justify-content: flex-start;
-  gap: clamp(16px, 2vw, 40px);
+  align-items: stretch;
+  justify-content: center;
+  gap: clamp(12px, 2vw, 40px);
   margin: 0;
   padding: 0;
-  font-size: clamp(18px, 2.6vh, 36px);
   list-style: none;
 }
 
+/* Equal shares of the row, with a ceiling: six of them fill 1280 at 184px each,
+   and two of them stop at the ceiling and stand in the middle instead of
+   stretching into slabs. No hover state anywhere on this page: nobody touches
+   the TV. */
 .host-page .host-selection-slot {
   display: flex;
+  flex: 1 1 0;
+  flex-direction: column;
   align-items: center;
-  gap: clamp(8px, 1vw, 16px);
+  gap: clamp(8px, 1.2vh, 20px);
+  box-sizing: border-box;
+  min-width: 0;
+  max-width: clamp(180px, 22vw, 420px);
+  padding: clamp(10px, 1.6vh, 24px) clamp(8px, 1vw, 20px);
+  border: clamp(3px, 0.4vh, 4px) solid var(--slot, var(--color-darkerer));
+  border-radius: var(--border-radius);
+}
+
+/* Nobody on it yet: the card is filled with its own color taken down towards the
+   page, so the row reads as colors from across the room and the empty ones read
+   as the darker half of it. A filled card keeps the page background, glow and
+   all, so the person is what stands out. Nothing red anywhere here: a slot the
+   party has not filled is not a fault. */
+.host-page .host-selection-slot-empty {
+  background-color: color-mix(
+    in srgb,
+    var(--slot, var(--color-darkerer)) 25%,
+    var(--bg)
+  );
+}
+
+/* The placeholder is a step lighter than the card it sits in, which is what
+   makes it read as a hole waiting for a face rather than as part of the fill. */
+.host-page .host-selection-slot-empty .player-avatar-empty {
+  background-color: color-mix(
+    in srgb,
+    var(--slot, var(--color-darkerer)) 40%,
+    var(--bg)
+  );
+}
+
+/* The takeover avatar size the badges use, and their letter with it. `max-width`
+   keeps it inside a card that had to shrink; two classes beat PlayerAvatar's own
+   40px whatever the bundle order. */
+.host-page .host-selection-avatar {
+  width: clamp(96px, 16vh, 240px);
   max-width: 100%;
-}
-
-/* The slot's USDX color as a bar, not a dot: on a screen across the room a bar
-   the height of the avatar is what pairs the person with the microphone. */
-.host-page .host-selection-bar {
-  flex: 0 0 auto;
-  width: clamp(6px, 0.9vh, 12px);
-  height: clamp(40px, 6vh, 88px);
-  border-radius: 999px;
-}
-
-.host-page .host-selection-slots .player-avatar {
-  width: clamp(40px, 6vh, 88px);
-  height: clamp(40px, 6vh, 88px);
+  height: auto;
+  aspect-ratio: 1;
+  font-size: clamp(40px, 7vh, 100px);
 }
 
 .host-page .host-selection-name {
+  max-width: 100%;
   overflow: hidden;
+  font-size: clamp(16px, 2.4vh, 34px);
   white-space: nowrap;
   text-overflow: ellipsis;
+  color: var(--color);
 }
 
-/* An empty slot and a card nobody owns read the same way: nobody is on it yet.
-   Nothing red — a card the party has not assigned is not a fault. */
+/* An empty slot and a card nobody owns say the same thing in different words,
+   and both say it quietly. `--color-dark` and not `--color-darker`, which is the
+   meta line's token everywhere else: the word stands on the slot's own color,
+   not on `--bg`, and the lightest USDX slots take it under the readable line. On
+   the darkened yellow `--color-darker` is 2.7:1 (§1.6's reasoning, and at
+   1280x720 the word is 17px, where 4.5:1 is the bar); `--color-dark` is 5.9:1
+   there and never under it on any of the sixteen. */
 .host-page .host-selection-empty {
-  color: var(--color-darkerer);
-}
-
-/* A card is somebody standing there, so the square is the one a player without
-   a picture gets rather than the darker well of an empty slot. */
-.host-page .host-selection-slot-card .player-avatar-empty {
-  background-color: var(--input-bg);
-}
-
-/* The selector's automatic start. Its own row under the slots and in their
-   column, not under the cover: it is the one thing on this screen that changes
-   every second, and it reads as part of the picking it is counting down. */
-.host-page .host-selection-countdown {
-  grid-area: note;
-  margin: 0;
-  font-size: clamp(18px, 2.6vh, 36px);
   color: var(--color-dark);
-  font-variant-numeric: tabular-nums;
+}
+
+/* Narrow or portrait: the host page is one scrolling column there (Host.css), so
+   the cards wrap instead of shrinking to slivers. */
+@media (max-width: 1100px) {
+  .host-page .host-selection {
+    flex: 0 1 auto;
+  }
+
+  .host-page .host-selection-slots {
+    flex-wrap: wrap;
+  }
+
+  .host-page .host-selection-slot {
+    flex: 1 1 clamp(140px, 30vw, 220px);
+  }
 }
 
 @media (prefers-reduced-motion: reduce) {

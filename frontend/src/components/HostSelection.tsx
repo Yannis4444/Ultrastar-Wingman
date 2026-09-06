@@ -1,5 +1,10 @@
 import { useQuery, useQueryClient } from "@tanstack/react-query";
-import { useEffect, useLayoutEffect, useState } from "react";
+import {
+  type CSSProperties,
+  useEffect,
+  useLayoutEffect,
+  useState,
+} from "react";
 import type { SelectionRead } from "../api";
 import {
   getCurrentSingOptions,
@@ -12,10 +17,6 @@ import { parseServerTime } from "../duration";
 import { useWingmanEvent, type WingmanEvent } from "../hooks/useWingmanEvents";
 import PlayerAvatar from "./PlayerAvatar";
 import SongCover from "./SongCover";
-// The cover, the title and the artist are the running song's, down to the
-// stylesheet: one look for the song on the stage, whichever half of the evening
-// it is in.
-import "./CurrentlyPlaying.css";
 import "./HostSelection.css";
 
 /** `selection.changed`: the whole selection, or `null` once there is none. */
@@ -57,10 +58,11 @@ function useSecondsUntil(target: string | null): number | null {
 }
 
 /**
- * The host stage while the room is picking singers: the song somebody chose and
- * the colored slots filling up, from a phone and from the player selector
- * standing in the room. A live song owns the stage instead, and so do the
- * badges a finished one earned.
+ * The host stage while the room is picking singers: the song somebody chose at
+ * the top, and along the foot one card per slot filling up, from a phone and
+ * from the player selector standing in the room. It takes the whole screen the
+ * way the badges of a finished song do, so `Host` puts the rail down for it.
+ * A live song owns the stage instead, and so do those badges.
  *
  * No controls. Stopping is the host page's own overlay, and taking a selection
  * away from the room is not something a TV does.
@@ -111,12 +113,24 @@ export default function HostSelection({
 
   return (
     <section className="host-selection" aria-label="Picking singers">
-      <SongCover song={selection.song} className="currently-playing-cover" />
+      {/* The song, and under it the one line that changes every second. The
+          countdown belongs to the picking, not to a card, so it stands here
+          rather than in the row. */}
+      <div className="host-selection-head">
+        <div className="host-selection-song">
+          <SongCover song={selection.song} className="host-selection-cover" />
+          <div className="host-selection-text">
+            <h2 className="host-selection-title">{selection.song.title}</h2>
+            <p className="host-selection-artist">{selection.song.artist}</p>
+            <p className="host-selection-what">Picking singers</p>
+          </div>
+        </div>
 
-      <div className="currently-playing-info">
-        <h2 className="currently-playing-title">{selection.song.title}</h2>
-        <p className="currently-playing-artist">{selection.song.artist}</p>
-        <p className="host-selection-what">Picking singers</p>
+        {countdown !== null && (
+          <p className="host-selection-countdown" aria-live="polite">
+            Starting in {countdown}…
+          </p>
+        )}
       </div>
 
       <ul className="host-selection-slots">
@@ -128,21 +142,23 @@ export default function HostSelection({
             <li
               key={slot.color}
               className={
-                unknown
-                  ? "host-selection-slot host-selection-slot-card"
-                  : "host-selection-slot"
+                slot.player !== null
+                  ? "host-selection-slot"
+                  : "host-selection-slot host-selection-slot-empty"
+              }
+              /* The slot's USDX color, fetched from the backend: the outline is
+                 it, and the fill of an empty card is it darkened. One custom
+                 property, so the stylesheet owns every mix. */
+              style={
+                {
+                  "--slot": hexFor(slot.color) ?? "var(--color-darkerer)",
+                } as CSSProperties
               }
             >
-              <span
-                className="host-selection-bar"
-                /* The slot's USDX color, fetched from the backend. */
-                style={{
-                  backgroundColor:
-                    hexFor(slot.color) ?? "var(--color-darkerer)",
-                }}
-                aria-hidden="true"
+              <PlayerAvatar
+                player={slot.player}
+                className="host-selection-avatar"
               />
-              <PlayerAvatar player={slot.player} />
               <span
                 className={
                   slot.player !== null
@@ -156,12 +172,6 @@ export default function HostSelection({
           );
         })}
       </ul>
-
-      {countdown !== null && (
-        <p className="host-selection-countdown" aria-live="polite">
-          Starting in {countdown}…
-        </p>
-      )}
     </section>
   );
 }

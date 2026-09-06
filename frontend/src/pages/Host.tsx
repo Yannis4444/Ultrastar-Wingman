@@ -217,7 +217,16 @@ export default function Host() {
   // the stage runs the full width. `waiting`, the beat held for badges that may
   // never come, leaves the rail where it is; a rail that blinked out for every
   // song that earned nobody anything would be the beat made visible.
-  const takeover = earned === "playing";
+  const badges = earned === "playing";
+  // The room picking the next song takes the screen the same way (the user's
+  // decision, 2026-09-06): nobody needs the code while the slots are filling up,
+  // and the cards along the foot want the width the rail was holding.
+  const picked = picking === "selecting";
+  // Badges win the stage from a selection — they are the seconds a singer gets —
+  // so `HostSelection` is suppressed by `badges` alone and never by this. It
+  // keeps reporting `"selecting"` underneath them, which is what leaves the rail
+  // down across the hand-over and brings the cards straight back.
+  const takeover = badges || picked;
 
   return (
     <div
@@ -226,11 +235,11 @@ export default function Host() {
       <div className="host-stage">
         <CurrentlyPlaying variant="host" />
         {/* Somebody is picking singers for the next song: the stage shows the
-            song and its slots filling up. It gives way to the badges a finished
-            song earned, which take the whole screen, and it stands in front of
-            the results — the room is looking at what happens next, not at what
-            just happened. */}
-        <HostSelection onPhase={setPicking} suppressed={takeover} />
+            song and its slots filling up, and takes the whole screen for it.
+            It gives way to the badges a finished song earned, and it stands in
+            front of the results — the room is looking at what happens next, not
+            at what just happened. */}
+        <HostSelection onPhase={setPicking} suppressed={badges} />
         {/* The badges a finished song earned take the stage before its scores
             do. `HostResults` stays mounted underneath them the whole time —
             it is what listens for the next scores and for the next song — and
@@ -246,8 +255,8 @@ export default function Host() {
         />
         <HostResults
           players={standing.players}
-          fallback={takeover || picking === "selecting" ? null : <HostBrand />}
-          suppressed={earned !== "idle" || picking === "selecting"}
+          fallback={takeover ? null : <HostBrand />}
+          suppressed={earned !== "idle" || picked}
         />
       </div>
 
