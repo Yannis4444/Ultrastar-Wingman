@@ -133,9 +133,10 @@ protocol is recorded (so it appears as "needs update") and answered 426.
 The image is a **generated artifact**: never committed. `firmware/build.py` writes
 `wingman-esp32.bin` and a `manifest.json` (`{"version", "protocol", "builds": [{"chip":
 "ESP32", "file", "size"}]}`) into `backend/src/ultrastar_wingman/devices/firmware/`
-(gitignored). PlatformIO (`platformio` on pip) is a build-time dependency in the
-`packaging` extra; `installer/build.ps1` runs `build.py` before PyInstaller, and the spec
-lists the directory in `datas`. CI gets a `firmware` job (`pio run`, `pio test -e native`,
+(gitignored). PlatformIO and the `clang-format` wheel are pinned in
+`firmware/requirements.txt` (installed into the venv, run from PowerShell — see
+[firmware.md](firmware.md)); `installer/build.ps1` installs them and runs `build.py` before
+PyInstaller, and the spec lists the directory in `datas`. CI gets a `firmware` job (`pio run`, `pio test -e native`,
 `pio check`, `clang-format --dry-run -Werror`) and uploads the image as an artifact. A dev
 checkout without a build answers `GET /devices/firmware` with 404 `no_firmware`, and the
 wizard says how to build one.
@@ -182,10 +183,12 @@ prints nothing else on that port (boot-loader noise is discarded by the client).
 
 | Browser sends | Device answers |
 |---|---|
-| `{"cmd":"hello"}` | `{"type":"hello","firmware":"0.1.0","protocol":1,"chip":"ESP32","mac":"…","configured":false}` |
+| `{"cmd":"hello"}` | `{"type":"hello","firmware":"0.2.0","build":"<git describe>","protocol":1,"chip":"ESP32","mac":"…","configured":false}` |
 | `{"cmd":"scan"}` | `{"type":"networks","networks":[{"ssid":"…","rssi":-50,"secure":true}]}` |
-| `{"cmd":"configure","ssid":"…","password":"…","server_url":"http://192.168.0.5:8080","token":"wd_…"}` | `{"type":"ok"}`, then it connects |
-| (any time) | `{"type":"status","state":"wifi_connecting" \| "wifi_connected" \| "wifi_failed" \| "server_ok" \| "server_failed", …}` with `ip`, `reason` or `http` |
+| `{"cmd":"configure","ssid":"…","password":"…","server_url":"http://192.168.0.5:8080","token":"wd_…"}` | `{"type":"ok"}` (blank `ssid`, `server_url` or `token` → `error`), then it connects |
+| `{"cmd":"status"}` | the current `status` line (`wifi_failed` with `reason: "not_configured"` on a blank device) |
+| (any time) | `{"type":"status","state":"wifi_connecting" \| "wifi_connected" \| "wifi_failed" \| "server_ok" \| "server_failed", …}` — `ip` on `wifi_connected`, `reason` on `wifi_failed`, `http` on the two server states |
+| (bad input) | `{"type":"error","error":"bad_json" \| "bad_command" \| "unknown_command" \| "missing_field" \| "empty_field" \| "store_failed" \| "line_too_long"}` — lines are capped at 512 bytes |
 
 The device prints its `hello` line at boot as well. The browser sends `hello` once a second
 for up to 10 s before giving up: opening the port asserts DTR/RTS on Windows and may reset
