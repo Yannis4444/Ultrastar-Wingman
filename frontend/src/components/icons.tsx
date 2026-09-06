@@ -417,6 +417,12 @@ export const ICON_PATHS = {
   // and the outer pair stands off by 0.8 so the stack reads as plates.
   dumbbell:
     "M7.6 10.6h8.8v2.8H7.6ZM4.8 6.4h3v11.2h-3ZM16.2 6.4h3v11.2h-3ZM1.4 8.4h2.6v7.2H1.4ZM20 8.4h2.6v7.2H20Z",
+  // The player selector: a card lying on its side, its chip counter-wound out
+  // of the upper left. 20 by 12 rather than `tv`'s squarer case, and a corner
+  // radius of 2 against that one's 1, so the two never read as the same
+  // rounded box; the chip is what a reader looks for and it sits off centre,
+  // where a bank card carries one.
+  card: "M4 6h16a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2ZM5 8v4h5V8Z",
 } as const;
 
 export type IconName = keyof typeof ICON_PATHS;

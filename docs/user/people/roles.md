@@ -42,6 +42,11 @@ edit achievements.
 **People and settings.** Trusted sees who has an account. Admin changes roles,
 deletes accounts, opens the settings, and edits this table.
 
+**The player selector.** Admin alone sets a selector device up: adding one,
+saying what each reader and button does, and giving cards to players. A card on
+a reader picks the singer it belongs to, so this right decides who ends up on
+the TV. The device itself carries a token of its own and holds no role.
+
 **Comments.** An account writes them, because a comment carries a name. Trusted
 deletes anybody's. See [Open a song](../songs/song.md).
 

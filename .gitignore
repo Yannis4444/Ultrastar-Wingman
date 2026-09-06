@@ -224,3 +224,10 @@ __marimo__/
 installer/build/
 installer/dist/
 !installer/*.spec
+
+# The firmware image is a generated artifact: firmware/build.py writes it into the backend
+# package, installer/build.ps1 and CI build it, and a dev checkout without one says so.
+firmware/.pio/
+backend/src/ultrastar_wingman/devices/firmware/
+# What `pio run -t compiledb` writes for an editor's C++ language server.
+firmware/compile_commands.json

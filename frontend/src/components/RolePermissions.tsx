@@ -34,6 +34,7 @@ const GROUP_ICONS: Record<string, IconName> = {
   playlists: "list",
   tags: "tag",
   comments: "comment",
+  devices: "card",
   downloads: "download",
   usdb: "globe",
   stats: "chart",
@@ -79,6 +80,8 @@ const DESCRIPTIONS: Record<string, string> = {
     "Say something under a song. Needs an account, because a comment carries your name.",
   "comments.moderate":
     "Delete anybody's comment. Taking your own back never needs a right.",
+  "devices.manage":
+    "Set up a player selector, map its readers and buttons, and say which card belongs to whom. Singing with one needs nothing extra.",
   "downloads.view": "See the download queue.",
   "downloads.manage": "Start downloads, retry them, and clear them.",
   "usdb.search": "Search usdb.animux.de for new songs.",

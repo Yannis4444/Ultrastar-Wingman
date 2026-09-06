@@ -47,6 +47,7 @@ API answers with. The OpenAPI document at
 | `songs.deleted` | A song was deleted, its folder included | `song_id` |
 | `songs.updated` | A song's metadata was corrected | `song`, the whole song as `GET /songs` returns one |
 | `download.updated` | A download changed state, and while it runs, its progress | `download`, the whole download as `GET /downloads` returns one |
+| `selection.changed` | Somebody started picking singers for a song, moved one, or finished picking | `selection`, the song with its colored slots and who stands on them, or `null` when nobody is picking |
 | `karaoke.started` | A song started playing | `sing`: its id, the song, the time it started, and the singers in their microphone slots |
 | `karaoke.ended` | The running song stopped | `sing_id`, `song_id` |
 | `scores.recorded` | Right after `karaoke.ended`, and only when Ultrastar Deluxe scored something | `sing_id`, and `scores`, one entry per singer with the number and the player |
@@ -59,6 +60,7 @@ API answers with. The OpenAPI document at
 | `tags.changed` | A tag was created, edited, deleted, or had its permissions replaced | None. Fetch `GET /tags` again |
 | `song_tags.changed` | A tag was put on a song, or taken off one | `song_id`, `tag_id` |
 | `comments.changed` | Somebody commented on a song, took a comment back, or a moderator removed one | `song_id`, `count` |
+| `devices.changed` | A player selector was added, mapped, or forgotten, a card was given to somebody, a selector option changed, or a device came online, went quiet, or moved a card | None. Fetch `GET /devices` again |
 
 An event with no payload, and one that carries ids only, is deliberate. What a
 client may see of the tags, the playlists, and the achievements depends on who

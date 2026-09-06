@@ -129,6 +129,26 @@ async def slot_colors(session: AsyncSession) -> list[str]:
     return parse_slot_colors(str(await SettingsService(session).get("karaoke.player_colors")))
 
 
+async def resolve_slots(
+    session: AsyncSession, slots: list[SlotRequest]
+) -> list[tuple[SlotRequest, Player | None]]:
+    """`slots` as the sing flow accepts them: every player looked up, every color name
+    checked against USDX's own list, and the whole thing reduced to the slots the host
+    configured — in the order they were requested.
+
+    Shared with `selection.py`, so a selection refuses exactly what a sing refuses and the
+    phone cannot collect an assignment that Play would then reject.
+
+    Raises `UnknownPlayerError`, `UnknownColorError`, `UnconfiguredColorError` or
+    `DuplicateColorError`.
+    """
+    resolved = await _resolve_players(session, slots)
+    # Fails before anything is started or killed if a color name is bogus.
+    for slot in slots:
+        color_index(slot.color)
+    return _for_configured_slots(resolved, await slot_colors(session))
+
+
 async def start_sing(
     session: AsyncSession,
     session_factory: async_sessionmaker[AsyncSession],
@@ -145,14 +165,9 @@ async def start_sing(
         song = await session.get(Song, song_id)
         if song is None:
             raise UnknownSongError(song_id)
-        resolved = await _resolve_players(session, slots)
+        resolved = await resolve_slots(session, slots)
         if all(player is None for _, player in resolved):
             raise NoPlayersError
-        # Fails before anything is started or killed if a color name is bogus.
-        for slot in slots:
-            color_index(slot.color)
-        # The host's slot configuration is what USDX gets, whatever the client sent.
-        resolved = _for_configured_slots(resolved, await slot_colors(session))
 
         if _running is not None:
             if not force:
@@ -298,6 +313,11 @@ async def shutdown() -> None:
     USDX goes too: an orphan of a process we started would still hold the config file, and
     the next start would know nothing about it."""
     global _last_finished, _standalone
+    # Imported here rather than at the top: `selection` builds on this module, and the one
+    # thing this module needs of it is that no selection and no countdown outlive the app.
+    from . import selection
+
+    await selection.shutdown()
     await stop_sing()
     async with _lock:
         if _standalone is not None:

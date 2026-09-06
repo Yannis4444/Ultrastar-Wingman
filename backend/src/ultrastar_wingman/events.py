@@ -9,7 +9,7 @@ from pydantic import BaseModel
 
 from .achievements.schema import EarnedByPlayer
 from .downloads.schema import DownloadRead
-from .karaoke.schema import CurrentSing, ScoreRead
+from .karaoke.schema import CurrentSing, ScoreRead, SelectionRead
 from .songs.schema import SongRead
 
 logger = logging.getLogger(__name__)
@@ -77,6 +77,23 @@ class KaraokeEnded(Event):
     event: Literal["karaoke.ended"] = "karaoke.ended"
     sing_id: str
     song_id: str
+
+
+class SelectionChanged(Event):
+    """The player selection changed, or there is none any more (`selection` is null).
+
+    Sent on every change: a selection opened or taken over, a slot the phone moved, a card
+    put on the selector or taken off it, the countdown before an automatic start, and the
+    selection ending — started, cancelled, or dropped for standing untouched too long.
+
+    The whole selection rides along, because both readers of it draw the thing itself: the
+    host screen shows the song and the slots filling up, and a phone that reloaded catches
+    up without asking. The opener's token stays out of it — the socket is open to anonymous
+    clients, and that token is what may start the song.
+    """
+
+    event: Literal["selection.changed"] = "selection.changed"
+    selection: SelectionRead | None
 
 
 class ScoresRecorded(Event):
@@ -198,6 +215,23 @@ class CommentsChanged(Event):
     event: Literal["comments.changed"] = "comments.changed"
     song_id: str
     count: int
+
+
+class DevicesChanged(Event):
+    """Something about the player selector devices is different: one was added, renamed,
+    mapped or forgotten, a card was assigned or forgotten, one of the three options was
+    changed, a device came online or went offline, or a report moved a card or a button
+    counter.
+
+    No payload, the `tags.changed` reasoning again: the whole answer of `GET /devices` is
+    live state stitched onto rows, so a listener refetches it (and `GET /devices/settings`
+    beside it) rather than patching a row it holds. Two listeners exist, the admin page and
+    the setup wizard, and both hold the whole list open. A heartbeat that says nothing new
+    is never broadcast: a device reports every five seconds, and a socket message per device
+    per five seconds is a busy TV for nothing.
+    """
+
+    event: Literal["devices.changed"] = "devices.changed"
 
 
 class EventBus:

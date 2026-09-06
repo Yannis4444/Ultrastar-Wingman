@@ -343,6 +343,79 @@ export type BuiltInTagUpdate = {
 };
 
 /**
+ * ButtonRead
+ */
+export type ButtonRead = {
+    /**
+     * Index
+     */
+    index: number;
+    /**
+     * Presses
+     */
+    presses: number;
+    /**
+     * Action
+     */
+    action: string;
+};
+
+/**
+ * ButtonReport
+ *
+ * One button, with the number of presses since the device booted.
+ *
+ * A counter and not an edge, for the same reason the readers send state: a report that
+ * never arrived must not lose a press. The server reacts to the counter *changing* — a
+ * device that rebooted starts at zero again, which is a change like any other.
+ */
+export type ButtonReport = {
+    /**
+     * Index
+     */
+    index: number;
+    /**
+     * Presses
+     */
+    presses: number;
+};
+
+/**
+ * CardAssign
+ */
+export type CardAssign = {
+    /**
+     * Player Id
+     */
+    player_id: string;
+};
+
+/**
+ * CardList
+ */
+export type CardList = {
+    /**
+     * Cards
+     */
+    cards: Array<CardRead>;
+};
+
+/**
+ * CardRead
+ */
+export type CardRead = {
+    /**
+     * Uid
+     */
+    uid: string;
+    player: PlayerRead;
+    /**
+     * Created At
+     */
+    created_at: string;
+};
+
+/**
  * Color
  */
 export type Color = {
@@ -476,6 +549,13 @@ export type Condition = {
 };
 
 /**
+ * CurrentSelectionRead
+ */
+export type CurrentSelectionRead = {
+    selection: SelectionRead | null;
+};
+
+/**
  * CurrentSing
  */
 export type CurrentSing = {
@@ -499,6 +579,187 @@ export type CurrentSing = {
  */
 export type CurrentSingRead = {
     sing: CurrentSing | null;
+};
+
+/**
+ * DeviceCreate
+ */
+export type DeviceCreate = {
+    /**
+     * Name
+     */
+    name: string;
+};
+
+/**
+ * DeviceCreated
+ *
+ * The one time a token is readable: the wizard writes it to the device over USB and
+ * Wingman keeps only its hash.
+ */
+export type DeviceCreated = {
+    device: DeviceRead;
+    /**
+     * Token
+     */
+    token: string;
+};
+
+/**
+ * DeviceList
+ */
+export type DeviceList = {
+    /**
+     * Devices
+     */
+    devices: Array<DeviceRead>;
+};
+
+/**
+ * DeviceRead
+ */
+export type DeviceRead = {
+    /**
+     * Id
+     */
+    id: string;
+    /**
+     * Name
+     */
+    name: string;
+    /**
+     * Created At
+     */
+    created_at: string;
+    /**
+     * Last Seen At
+     */
+    last_seen_at?: string | null;
+    /**
+     * Online
+     */
+    online: boolean;
+    /**
+     * Firmware Version
+     */
+    firmware_version?: string | null;
+    /**
+     * Protocol
+     */
+    protocol?: number | null;
+    /**
+     * Compatible
+     */
+    compatible?: boolean | null;
+    /**
+     * Rssi
+     */
+    rssi?: number | null;
+    /**
+     * Uptime S
+     */
+    uptime_s?: number | null;
+    /**
+     * Readers
+     */
+    readers: Array<ReaderRead>;
+    /**
+     * Buttons
+     */
+    buttons: Array<ButtonRead>;
+};
+
+/**
+ * DeviceReport
+ *
+ * One `POST /devices/report` body.
+ */
+export type DeviceReport = {
+    /**
+     * Protocol
+     */
+    protocol: number;
+    /**
+     * Firmware
+     */
+    firmware: string;
+    /**
+     * Uptime S
+     */
+    uptime_s: number;
+    /**
+     * Rssi
+     */
+    rssi: number;
+    /**
+     * Readers
+     */
+    readers?: Array<ReaderReport>;
+    /**
+     * Buttons
+     */
+    buttons?: Array<ButtonReport>;
+};
+
+/**
+ * DeviceSettings
+ */
+export type DeviceSettings = {
+    /**
+     * Auto Start
+     */
+    auto_start: boolean;
+    /**
+     * Auto Start Delay S
+     */
+    auto_start_delay_s: number;
+    /**
+     * Rescan Removes
+     */
+    rescan_removes: boolean;
+};
+
+/**
+ * DeviceSettingsUpdate
+ */
+export type DeviceSettingsUpdate = {
+    /**
+     * Auto Start
+     */
+    auto_start?: boolean | null;
+    /**
+     * Auto Start Delay S
+     */
+    auto_start_delay_s?: number | null;
+    /**
+     * Rescan Removes
+     */
+    rescan_removes?: boolean | null;
+};
+
+/**
+ * DeviceUpdate
+ *
+ * Every field optional: a PATCH only touches what it names. A mapping that is named
+ * replaces the whole one before it, keyed by the position as a string.
+ */
+export type DeviceUpdate = {
+    /**
+     * Name
+     */
+    name?: string | null;
+    /**
+     * Reader Roles
+     */
+    reader_roles?: {
+        [key: string]: string;
+    } | null;
+    /**
+     * Button Actions
+     */
+    button_actions?: {
+        [key: string]: string;
+    } | null;
 };
 
 /**
@@ -599,6 +860,45 @@ export type FavoritesRead = {
      * Song Ids
      */
     song_ids: Array<string>;
+};
+
+/**
+ * FirmwareBuild
+ */
+export type FirmwareBuild = {
+    /**
+     * Chip
+     */
+    chip: string;
+    /**
+     * File
+     */
+    file: string;
+    /**
+     * Size
+     */
+    size: number;
+};
+
+/**
+ * FirmwareManifest
+ *
+ * What `firmware/build.py` wrote beside the image. Absent in a checkout that never
+ * built one, which is a 404 and not an error.
+ */
+export type FirmwareManifest = {
+    /**
+     * Version
+     */
+    version: string;
+    /**
+     * Protocol
+     */
+    protocol: number;
+    /**
+     * Builds
+     */
+    builds: Array<FirmwareBuild>;
 };
 
 /**
@@ -1089,6 +1389,59 @@ export type PlaylistUpdate = {
 };
 
 /**
+ * ReaderRead
+ *
+ * One reader position of one device, as the admin page draws it.
+ */
+export type ReaderRead = {
+    /**
+     * Index
+     */
+    index: number;
+    /**
+     * State
+     */
+    state: 'wired' | 'none' | 'fault';
+    /**
+     * Version
+     */
+    version?: string | null;
+    /**
+     * Uid
+     */
+    uid?: string | null;
+    player?: PlayerRead | null;
+    /**
+     * Role
+     */
+    role: string;
+};
+
+/**
+ * ReaderReport
+ *
+ * One reader position, as the device sees it right now.
+ */
+export type ReaderReport = {
+    /**
+     * Index
+     */
+    index: number;
+    /**
+     * State
+     */
+    state: 'wired' | 'none' | 'fault';
+    /**
+     * Version
+     */
+    version: string;
+    /**
+     * Uid
+     */
+    uid?: string | null;
+};
+
+/**
  * RegisterRequest
  */
 export type RegisterRequest = {
@@ -1100,6 +1453,28 @@ export type RegisterRequest = {
      * Password
      */
     password: string;
+};
+
+/**
+ * ReportAck
+ *
+ * The answer to a report. The body is deliberately more than `{"ok": true}`: it is
+ * where feedback for the device (lights, a buzzer) goes when that ships, and `interval_s`
+ * already tells a device how often the server wants to hear from it.
+ */
+export type ReportAck = {
+    /**
+     * Ok
+     */
+    ok?: boolean;
+    /**
+     * Protocol
+     */
+    protocol: number;
+    /**
+     * Interval S
+     */
+    interval_s: number;
 };
 
 /**
@@ -1255,6 +1630,115 @@ export type ScoreWithContext = {
      * Sing Started At
      */
     sing_started_at: string;
+};
+
+/**
+ * SelectionCreate
+ */
+export type SelectionCreate = {
+    /**
+     * Song Id
+     */
+    song_id: string;
+    /**
+     * Slots
+     */
+    slots?: Array<SlotCreate>;
+    /**
+     * Force
+     */
+    force?: boolean;
+};
+
+/**
+ * SelectionOpened
+ *
+ * The answer to opening a selection: the selection, plus the token that owns it. The
+ * only time that token is readable.
+ */
+export type SelectionOpened = {
+    selection: SelectionRead;
+    /**
+     * Token
+     */
+    token: string;
+};
+
+/**
+ * SelectionRead
+ *
+ * Who is about to sing what, while the song is being set up.
+ *
+ * The opener's token is not in here: this is what the host screen and every other phone
+ * get, and whoever holds the token is the only one who may move the slots.
+ */
+export type SelectionRead = {
+    song: SongRead;
+    /**
+     * Slots
+     */
+    slots: Array<SelectionSlotRead>;
+    /**
+     * Opened At
+     */
+    opened_at: string;
+    /**
+     * Updated At
+     */
+    updated_at: string;
+    /**
+     * Auto Start At
+     */
+    auto_start_at: string | null;
+};
+
+/**
+ * SelectionSlotRead
+ *
+ * A singing position of the open player selection: its color, who stands on it, and
+ * the card lying on its reader.
+ *
+ * `card_uid` without a `player` is a card Wingman does not know — somebody put a tag on
+ * the selector that belongs to nobody, and the slot says so instead of staying empty.
+ */
+export type SelectionSlotRead = {
+    /**
+     * Color
+     */
+    color: string;
+    player: PlayerRead | null;
+    /**
+     * Card Uid
+     */
+    card_uid: string | null;
+};
+
+/**
+ * SelectionSlotsUpdate
+ */
+export type SelectionSlotsUpdate = {
+    /**
+     * Token
+     */
+    token: string;
+    /**
+     * Slots
+     */
+    slots?: Array<SlotCreate>;
+};
+
+/**
+ * SelectionStart
+ */
+export type SelectionStart = {
+    /**
+     * Token
+     */
+    token: string;
+    /**
+     * Force
+     */
+    force?: boolean;
 };
 
 /**
@@ -2998,6 +3482,159 @@ export type SingSongResponses = {
 };
 
 export type SingSongResponse = SingSongResponses[keyof SingSongResponses];
+
+export type ClosePlayerSelectionData = {
+    body?: never;
+    path?: never;
+    query?: {
+        /**
+         * Token
+         */
+        token?: string | null;
+    };
+    url: '/api/v1/karaoke/selection';
+};
+
+export type ClosePlayerSelectionErrors = {
+    /**
+     * Validation Error
+     */
+    422: HttpValidationError;
+};
+
+export type ClosePlayerSelectionError = ClosePlayerSelectionErrors[keyof ClosePlayerSelectionErrors];
+
+export type ClosePlayerSelectionResponses = {
+    /**
+     * Successful Response
+     */
+    204: void;
+};
+
+export type ClosePlayerSelectionResponse = ClosePlayerSelectionResponses[keyof ClosePlayerSelectionResponses];
+
+export type GetPlayerSelectionData = {
+    body?: never;
+    path?: never;
+    query?: never;
+    url: '/api/v1/karaoke/selection';
+};
+
+export type GetPlayerSelectionResponses = {
+    /**
+     * Successful Response
+     */
+    200: CurrentSelectionRead;
+};
+
+export type GetPlayerSelectionResponse = GetPlayerSelectionResponses[keyof GetPlayerSelectionResponses];
+
+export type OpenPlayerSelectionData = {
+    body: SelectionCreate;
+    path?: never;
+    query?: never;
+    url: '/api/v1/karaoke/selection';
+};
+
+export type OpenPlayerSelectionErrors = {
+    /**
+     * Unknown song or player.
+     */
+    404: unknown;
+    /**
+     * Somebody else is picking singers and `force` was not set.
+     */
+    409: unknown;
+    /**
+     * Validation Error
+     */
+    422: HttpValidationError;
+};
+
+export type OpenPlayerSelectionError = OpenPlayerSelectionErrors[keyof OpenPlayerSelectionErrors];
+
+export type OpenPlayerSelectionResponses = {
+    /**
+     * Successful Response
+     */
+    201: SelectionOpened;
+};
+
+export type OpenPlayerSelectionResponse = OpenPlayerSelectionResponses[keyof OpenPlayerSelectionResponses];
+
+export type SetPlayerSelectionSlotsData = {
+    body: SelectionSlotsUpdate;
+    path?: never;
+    query?: never;
+    url: '/api/v1/karaoke/selection/slots';
+};
+
+export type SetPlayerSelectionSlotsErrors = {
+    /**
+     * Nothing is being picked, or an unknown player.
+     */
+    404: unknown;
+    /**
+     * Somebody else has taken the selection over.
+     */
+    409: unknown;
+    /**
+     * Validation Error
+     */
+    422: HttpValidationError;
+};
+
+export type SetPlayerSelectionSlotsError = SetPlayerSelectionSlotsErrors[keyof SetPlayerSelectionSlotsErrors];
+
+export type SetPlayerSelectionSlotsResponses = {
+    /**
+     * Successful Response
+     */
+    200: SelectionRead;
+};
+
+export type SetPlayerSelectionSlotsResponse = SetPlayerSelectionSlotsResponses[keyof SetPlayerSelectionSlotsResponses];
+
+export type StartPlayerSelectionData = {
+    body: SelectionStart;
+    path?: never;
+    query?: never;
+    url: '/api/v1/karaoke/selection/start';
+};
+
+export type StartPlayerSelectionErrors = {
+    /**
+     * USDX is not configured (or configured wrongly).
+     */
+    400: unknown;
+    /**
+     * `force` was set without `karaoke.stop`.
+     */
+    403: unknown;
+    /**
+     * Nothing is being picked, or an unknown song or player.
+     */
+    404: unknown;
+    /**
+     * Somebody else has taken the selection over, or a song plays.
+     */
+    409: unknown;
+    /**
+     * Validation Error
+     */
+    422: HttpValidationError;
+};
+
+export type StartPlayerSelectionError = StartPlayerSelectionErrors[keyof StartPlayerSelectionErrors];
+
+export type StartPlayerSelectionResponses = {
+    /**
+     * Successful Response
+     */
+    202: CurrentSing;
+};
+
+export type StartPlayerSelectionResponse = StartPlayerSelectionResponses[keyof StartPlayerSelectionResponses];
 
 export type GetCurrentSingData = {
     body?: never;
@@ -5136,6 +5773,358 @@ export type ListPlayerAchievementsResponses = {
 };
 
 export type ListPlayerAchievementsResponse = ListPlayerAchievementsResponses[keyof ListPlayerAchievementsResponses];
+
+export type ListDevicesData = {
+    body?: never;
+    path?: never;
+    query?: never;
+    url: '/api/v1/devices';
+};
+
+export type ListDevicesResponses = {
+    /**
+     * Successful Response
+     */
+    200: DeviceList;
+};
+
+export type ListDevicesResponse = ListDevicesResponses[keyof ListDevicesResponses];
+
+export type CreateDeviceData = {
+    body: DeviceCreate;
+    path?: never;
+    query?: never;
+    url: '/api/v1/devices';
+};
+
+export type CreateDeviceErrors = {
+    /**
+     * Validation Error
+     */
+    422: HttpValidationError;
+};
+
+export type CreateDeviceError = CreateDeviceErrors[keyof CreateDeviceErrors];
+
+export type CreateDeviceResponses = {
+    /**
+     * Successful Response
+     */
+    201: DeviceCreated;
+};
+
+export type CreateDeviceResponse = CreateDeviceResponses[keyof CreateDeviceResponses];
+
+export type ListCardsData = {
+    body?: never;
+    path?: never;
+    query?: never;
+    url: '/api/v1/devices/cards';
+};
+
+export type ListCardsResponses = {
+    /**
+     * Successful Response
+     */
+    200: CardList;
+};
+
+export type ListCardsResponse = ListCardsResponses[keyof ListCardsResponses];
+
+export type ForgetCardData = {
+    body?: never;
+    path: {
+        /**
+         * Uid
+         */
+        uid: string;
+    };
+    query?: never;
+    url: '/api/v1/devices/cards/{uid}';
+};
+
+export type ForgetCardErrors = {
+    /**
+     * Unknown card.
+     */
+    404: unknown;
+    /**
+     * Validation Error
+     */
+    422: HttpValidationError;
+};
+
+export type ForgetCardError = ForgetCardErrors[keyof ForgetCardErrors];
+
+export type ForgetCardResponses = {
+    /**
+     * Successful Response
+     */
+    204: void;
+};
+
+export type ForgetCardResponse = ForgetCardResponses[keyof ForgetCardResponses];
+
+export type AssignCardData = {
+    body: CardAssign;
+    path: {
+        /**
+         * Uid
+         */
+        uid: string;
+    };
+    query?: never;
+    url: '/api/v1/devices/cards/{uid}';
+};
+
+export type AssignCardErrors = {
+    /**
+     * Unknown player.
+     */
+    404: unknown;
+    /**
+     * Validation Error
+     */
+    422: HttpValidationError;
+};
+
+export type AssignCardError = AssignCardErrors[keyof AssignCardErrors];
+
+export type AssignCardResponses = {
+    /**
+     * Successful Response
+     */
+    200: CardRead;
+};
+
+export type AssignCardResponse = AssignCardResponses[keyof AssignCardResponses];
+
+export type GetDeviceSettingsData = {
+    body?: never;
+    path?: never;
+    query?: never;
+    url: '/api/v1/devices/settings';
+};
+
+export type GetDeviceSettingsResponses = {
+    /**
+     * Successful Response
+     */
+    200: DeviceSettings;
+};
+
+export type GetDeviceSettingsResponse = GetDeviceSettingsResponses[keyof GetDeviceSettingsResponses];
+
+export type UpdateDeviceSettingsData = {
+    body: DeviceSettingsUpdate;
+    path?: never;
+    query?: never;
+    url: '/api/v1/devices/settings';
+};
+
+export type UpdateDeviceSettingsErrors = {
+    /**
+     * A delay outside 0 to 30 seconds.
+     */
+    422: unknown;
+};
+
+export type UpdateDeviceSettingsResponses = {
+    /**
+     * Successful Response
+     */
+    200: DeviceSettings;
+};
+
+export type UpdateDeviceSettingsResponse = UpdateDeviceSettingsResponses[keyof UpdateDeviceSettingsResponses];
+
+export type GetFirmwareManifestData = {
+    body?: never;
+    path?: never;
+    query?: never;
+    url: '/api/v1/devices/firmware';
+};
+
+export type GetFirmwareManifestErrors = {
+    /**
+     * This Wingman ships no firmware build.
+     */
+    404: unknown;
+};
+
+export type GetFirmwareManifestResponses = {
+    /**
+     * Successful Response
+     */
+    200: FirmwareManifest;
+};
+
+export type GetFirmwareManifestResponse = GetFirmwareManifestResponses[keyof GetFirmwareManifestResponses];
+
+export type GetFirmwareImageData = {
+    body?: never;
+    path: {
+        /**
+         * File
+         */
+        file: string;
+    };
+    query?: never;
+    url: '/api/v1/devices/firmware/{file}';
+};
+
+export type GetFirmwareImageErrors = {
+    /**
+     * The manifest names no such file.
+     */
+    404: unknown;
+    /**
+     * Validation Error
+     */
+    422: HttpValidationError;
+};
+
+export type GetFirmwareImageError = GetFirmwareImageErrors[keyof GetFirmwareImageErrors];
+
+export type GetFirmwareImageResponses = {
+    /**
+     * Successful Response
+     */
+    200: unknown;
+};
+
+export type ReportData = {
+    body: DeviceReport;
+    path?: never;
+    query?: never;
+    url: '/api/v1/devices/report';
+};
+
+export type ReportErrors = {
+    /**
+     * No device token, or one no device holds.
+     */
+    401: unknown;
+    /**
+     * Validation Error
+     */
+    422: HttpValidationError;
+    /**
+     * The device speaks another version of the report protocol.
+     */
+    426: unknown;
+};
+
+export type ReportError = ReportErrors[keyof ReportErrors];
+
+export type ReportResponses = {
+    /**
+     * Successful Response
+     */
+    200: ReportAck;
+};
+
+export type ReportResponse = ReportResponses[keyof ReportResponses];
+
+export type DeleteDeviceData = {
+    body?: never;
+    path: {
+        /**
+         * Device Id
+         */
+        device_id: string;
+    };
+    query?: never;
+    url: '/api/v1/devices/{device_id}';
+};
+
+export type DeleteDeviceErrors = {
+    /**
+     * Unknown device.
+     */
+    404: unknown;
+    /**
+     * Validation Error
+     */
+    422: HttpValidationError;
+};
+
+export type DeleteDeviceError = DeleteDeviceErrors[keyof DeleteDeviceErrors];
+
+export type DeleteDeviceResponses = {
+    /**
+     * Successful Response
+     */
+    204: void;
+};
+
+export type DeleteDeviceResponse = DeleteDeviceResponses[keyof DeleteDeviceResponses];
+
+export type UpdateDeviceData = {
+    body: DeviceUpdate;
+    path: {
+        /**
+         * Device Id
+         */
+        device_id: string;
+    };
+    query?: never;
+    url: '/api/v1/devices/{device_id}';
+};
+
+export type UpdateDeviceErrors = {
+    /**
+     * Unknown device.
+     */
+    404: unknown;
+    /**
+     * A mapping the device cannot have.
+     */
+    422: unknown;
+};
+
+export type UpdateDeviceResponses = {
+    /**
+     * Successful Response
+     */
+    200: DeviceRead;
+};
+
+export type UpdateDeviceResponse = UpdateDeviceResponses[keyof UpdateDeviceResponses];
+
+export type RotateDeviceTokenData = {
+    body?: never;
+    path: {
+        /**
+         * Device Id
+         */
+        device_id: string;
+    };
+    query?: never;
+    url: '/api/v1/devices/{device_id}/token';
+};
+
+export type RotateDeviceTokenErrors = {
+    /**
+     * Unknown device.
+     */
+    404: unknown;
+    /**
+     * Validation Error
+     */
+    422: HttpValidationError;
+};
+
+export type RotateDeviceTokenError = RotateDeviceTokenErrors[keyof RotateDeviceTokenErrors];
+
+export type RotateDeviceTokenResponses = {
+    /**
+     * Successful Response
+     */
+    200: DeviceCreated;
+};
+
+export type RotateDeviceTokenResponse = RotateDeviceTokenResponses[keyof RotateDeviceTokenResponses];
 
 export type HealthData = {
     body?: never;

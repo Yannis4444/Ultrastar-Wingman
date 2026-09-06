@@ -38,6 +38,22 @@
   margin: 8px 0 0 0;
 }
 
+/* The two states with no roster under them: somebody else holds the room's
+   selection, or this phone's is gone. The sentence and the one way out of it,
+   stacked so the button keeps its own width on a 360px screen. */
+.player-selection-taken {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 8px;
+  margin-top: 12px;
+}
+
+.player-selection-taken-line {
+  margin: 0;
+  color: var(--color-dark);
+}
+
 /*endregion*/
 /*region slots*/
 
@@ -108,6 +124,23 @@
 
 .player-selection-empty {
   color: var(--color-darkerer);
+}
+
+/* A card the party does not know is still somebody standing there, so the slot
+   gets the square a player without a picture gets — not the darker well an
+   empty slot draws. Nothing red: an unassigned card is not an error. */
+.player-selection-slot-card .player-avatar-empty {
+  background-color: var(--input-bg);
+}
+
+/* The selector's automatic start, counting down under the slots. It ticks once
+   a second and is read out as it goes, so it sits on its own line. */
+.player-selection-countdown {
+  flex: 0 0 auto;
+  margin: 0;
+  font-size: 0.85em;
+  color: var(--color-dark);
+  font-variant-numeric: tabular-nums;
 }
 
 /*endregion*/

@@ -14,6 +14,7 @@ from .auth.deps import require
 from .comments.api import router as comments_router
 from .config import BootstrapSettings
 from .db import SessionDep
+from .devices.api import router as devices_router
 from .downloads.api import router as downloads_router
 from .events import ServerReady, SettingChanged, event_bus
 from .join_url import normalize_join_url
@@ -47,6 +48,7 @@ router.include_router(stats_router)
 router.include_router(tags_router)
 router.include_router(comments_router)
 router.include_router(achievements_router)
+router.include_router(devices_router)
 
 
 class Health(BaseModel):

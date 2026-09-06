@@ -59,6 +59,7 @@ const PICKABLE = [
 /** Glyphs that mean something else wherever they appear: the feature icons, the
  *  controls, the two marks a song row already owns, and the dice. */
 const NOT_PICKABLE: IconName[] = [
+  "card",
   "clock",
   "layers",
   "globe",

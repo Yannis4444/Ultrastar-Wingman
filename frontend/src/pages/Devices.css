@@ -1,0 +1,153 @@
+/* The player selector's admin page (§7) and the device page behind it. Both are
+   the Tags admin's siblings: flat sub-pages on `--bg`, hairline rows, no card
+   anywhere. Same reading column and same row metrics, so walking from one
+   manage surface into another moves nothing.
+
+   The three settings rows at the head wear `SettingField`'s own classes, which
+   come with the `SettingSaved` this page imports. */
+.devices-page {
+  max-width: 720px;
+  margin: 0 auto;
+}
+
+.devices-notice {
+  margin: 16px;
+}
+
+/* An empty section says what to do about it in one line rather than a second
+   `EmptyState` block: the page has three lists, and three of those stacked on
+   a fresh install would say the same thing three times (§7, Playlists). */
+.devices-empty {
+  margin: 8px 16px 0 16px;
+}
+
+/* ---------------------------------------------------------------- the rows
+   One row per device, per placed card, per known card. Same metrics as a tag
+   row, which is the row these stand next to in the reader's memory. */
+
+.devices-list {
+  display: flex;
+  flex-direction: column;
+
+  /* 8px here plus 8px of row padding: the text lands on the page gutter while
+     the hover band bleeds past it. */
+  margin: 8px 8px 0 8px;
+  padding: 0;
+  list-style: none;
+}
+
+.devices-list li {
+  border-bottom: 1px solid var(--input-border-color);
+}
+
+.devices-list > :last-child {
+  border-bottom: none;
+}
+
+.devices-open,
+.devices-card,
+.devices-row {
+  display: flex;
+  gap: 12px;
+  align-items: center;
+
+  /* The app is content-box (`index.css`), so the 8px of row padding would be
+     added *outside* a full width and push the page 16px sideways (§1.11). The
+     width is what a `<button>` needs to fill its row at all. */
+  box-sizing: border-box;
+  width: 100%;
+  min-width: 0;
+  min-height: 56px;
+  padding: 6px 8px;
+  font: inherit;
+  color: var(--color);
+  text-align: left;
+  text-decoration: none;
+  background: none;
+  border: none;
+  border-radius: var(--border-radius-small);
+  transition: 0.1s background-color;
+}
+
+.devices-card {
+  cursor: pointer;
+}
+
+/* Pointers only (§1.12): a touch screen fakes a hover on tap and leaves the row
+   lit long after the finger has scrolled on. */
+@media (hover: hover) {
+  .devices-open:hover,
+  .devices-card:hover {
+    background-color: var(--highlight-blue-dark);
+  }
+}
+
+/* The 40px square a device row leads with (§4), the tag row's own: `--input-bg`
+   under a quiet glyph, a device having no colour of its own to carry. */
+.devices-square {
+  display: flex;
+  flex: 0 0 auto;
+  align-items: center;
+  justify-content: center;
+  width: 40px;
+  height: 40px;
+  font-size: 1.25em;
+  color: var(--color-darker);
+  background-color: var(--input-bg);
+  border-radius: var(--border-radius-small);
+}
+
+.devices-text {
+  flex: 1 1 auto;
+  min-width: 0;
+}
+
+/* The name is one line, ellipsised (§2). */
+.devices-name {
+  display: block;
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+
+/* The meta line is the 2-line clamp instead: an offline device says four
+   things ("offline · last seen … · firmware 0.2.0 · needs update") and one
+   line on a 390px phone ends after the word "firmware", which drops exactly
+   the part that asks the host to do something. */
+.devices-meta {
+  display: -webkit-box;
+  overflow: hidden;
+  font-size: 0.85em;
+  color: var(--color-darker);
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
+}
+
+/* A card nobody has claimed yet. The empty-state colour, the same one an empty
+   slot wears in player selection: it is a gap to fill, not a fault. */
+.devices-unknown {
+  color: var(--color-darkerer);
+}
+
+/* A uid is a run of hex nobody reads as a word: the figures line up so two of
+   them can be told apart at a glance. */
+.devices-uid {
+  font-variant-numeric: tabular-nums;
+}
+
+/* --------------------------------------------------------- the card picker */
+
+.devices-card-note {
+  margin: 0 0 12px 0;
+  font-size: 0.85em;
+  color: var(--color-darker);
+  overflow-wrap: anywhere;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .devices-open,
+  .devices-card,
+  .devices-row {
+    transition: none;
+  }
+}

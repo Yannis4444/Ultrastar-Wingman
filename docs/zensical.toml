@@ -54,6 +54,12 @@ nav = [
       "host-screen/index.md",
       { "Manage from the TV" = "host-screen/manage.md" },
     ] },
+    { "Player selector" = [
+      "selector/index.md",
+      { "Build the device" = "selector/build.md" },
+      { "Set up the device" = "selector/setup.md" },
+      { "Cards and players" = "selector/cards.md" },
+    ] },
     { "Fix a problem" = [
       "help/index.md",
       { "Ultrastar Deluxe problems" = "help/ultrastar-deluxe.md" },
@@ -85,6 +91,7 @@ nav = [
     { "The REST API" = "integrate/rest-api.md" },
     { "Authenticate a script" = "integrate/authentication.md" },
     { "Live events" = "integrate/events.md" },
+    { "Player selector devices" = "integrate/devices.md" },
     { "Files and configuration" = "integrate/files.md" },
   ] },
 ]

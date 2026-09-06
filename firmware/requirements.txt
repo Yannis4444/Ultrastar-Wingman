@@ -1,0 +1,7 @@
+# Build-time tools of the firmware. Installed into the repo venv:
+#   venv\Scripts\python.exe -m pip install -r firmware/requirements.txt
+# Pinned, like everything the image is built from — a toolchain that moves under the
+# image is a firmware change nobody made.
+platformio==6.2.0
+# Ships the clang-format binary in the wheel, so the format check needs no system install.
+clang-format==23.1.0

@@ -16,6 +16,9 @@ datas = [
     # The shipped badge pictures — where `achievements.pictures.images_dir()` looks when
     # frozen. Data files, so `collect_submodules` does not pick them up.
     (str(PACKAGE / "achievements" / "images"), "ultrastar_wingman/achievements/images"),
+    # The device firmware image and its manifest, built by installer\build.ps1 before this
+    # spec runs — where the `devices` firmware routes look when frozen.
+    (str(PACKAGE / "devices" / "firmware"), "ultrastar_wingman/devices/firmware"),
     # Where `frontend.resolve_frontend_dir()` looks when frozen.
     (str(ROOT / "frontend" / "dist"), "frontend"),
     # `ultrastar_wingman.__version__` reads the installed distribution's metadata.

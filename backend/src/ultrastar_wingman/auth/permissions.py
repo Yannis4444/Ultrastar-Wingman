@@ -44,6 +44,7 @@ CAPABILITIES: tuple[str, ...] = (
     "stats.moderate",
     "stats.hide",
     "achievements.manage",
+    "devices.manage",
     "settings.view",
     "settings.manage",
     "users.view",
@@ -140,8 +141,12 @@ _TRUSTED_CAPABILITIES = _USER_CAPABILITIES | {
 # `stats.service.set_session_hidden`), so `trusted` is a defensible home for it; it starts
 # with the administrator all the same, because deciding which evenings the room still gets to
 # look at is the host's call, and handing it to `trusted` is one tick in the permissions table.
+# `devices.manage` is the fifth: a player selector device is trusted to say who sings. Its
+# token is a standing key to the report endpoint, and the reader mapping decides which card
+# puts which person on the TV, so whoever holds this capability can hand out a device that
+# selects singers by itself. That is the host's own machine, not a helper's job.
 
-# What migrations 0006 to 0028 seed. Kept here as well so a test can prove the two never
+# What migrations 0006 to 0032 seed. Kept here as well so a test can prove the two never
 # drift.
 DEFAULT_ROLE_CAPABILITIES: dict[str, frozenset[str]] = {
     GUEST: _GUEST_CAPABILITIES,
