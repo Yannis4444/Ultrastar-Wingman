@@ -55,6 +55,15 @@ export const START_WITHOUT_SELECTION: { value: string; label: string }[] = [
   { value: "random", label: "Start a random song" },
 ];
 
+/** What a `random` start press spins the reel over, in the order the select
+ *  offers it: the backend's `RANDOM_SCOPES`, every song first. */
+export const RANDOM_SCOPES: { value: string; label: string }[] = [
+  { value: "all", label: "All songs" },
+  { value: "wishlist", label: "Wishlist" },
+  { value: "weighted", label: "Wishlist (weighted)" },
+  { value: "playlist", label: "A playlist" },
+];
+
 /** A version as numbers. A part that is not one counts as zero, so a firmware
  *  built from a working tree ("0.2.0-dirty") still compares by its numbers. */
 function versionParts(version: string): number[] {
