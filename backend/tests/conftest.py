@@ -211,6 +211,9 @@ def fresh_selection_state() -> None:
     selection._auto_start_tasks.clear()
     selection._selection = None
     selection._lock = asyncio.Lock()
+    # And the idle time, which the devices watchdog writes from a setting at startup: a test
+    # that shortened it must not shorten the next test's room.
+    selection._idle_ttl = selection.DEFAULT_IDLE_TTL
 
 
 @pytest.fixture(autouse=True)

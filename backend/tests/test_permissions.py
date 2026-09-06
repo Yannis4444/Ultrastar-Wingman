@@ -77,9 +77,11 @@ ROUTES: list[tuple[str, str, str, dict[str, object] | None]] = [
     ("songs.view", "GET", "/api/v1/karaoke/selection", None),
     ("karaoke.sing", "PUT", "/api/v1/karaoke/selection/slots", {"token": "nope", "slots": []}),
     ("karaoke.sing", "POST", "/api/v1/karaoke/selection/start", {"token": "nope"}),
-    # With a token, giving a selection up is the opener's own business. Closing somebody
-    # else's takes `karaoke.stop`, which `test_karaoke_selection` covers.
-    ("karaoke.sing", "DELETE", "/api/v1/karaoke/selection?token=nope", None),
+    # Giving a selection up. The token rides in `X-Selection-Token` and this matrix sends
+    # none, so a `karaoke.sing` holder gets the 204 for a room where nothing is being picked
+    # and the row stays about the capability. Closing somebody else's takes `karaoke.stop`,
+    # which `test_karaoke_selection` covers.
+    ("karaoke.sing", "DELETE", "/api/v1/karaoke/selection", None),
     ("wishlist.view", "GET", "/api/v1/wishlist", None),
     ("wishlist.add", "POST", "/api/v1/wishlist", {"song_id": "usdb:1"}),
     ("wishlist.add", "DELETE", "/api/v1/wishlist/usdb:1", None),
@@ -207,7 +209,15 @@ ROUTES: list[tuple[str, str, str, dict[str, object] | None]] = [
     ("devices.manage", "DELETE", "/api/v1/devices/nope", None),
     ("devices.manage", "GET", "/api/v1/devices/cards", None),
     ("devices.manage", "PUT", "/api/v1/devices/cards/A1B2C3D4", {"player_id": "nope"}),
+    # Forgetting a card reads two ways: `devices.manage` for anybody's, and identity for
+    # your own. The uid here belongs to nobody in this fixture, which is what keeps the row
+    # about the capability — and what a caller who is neither gets is the same 403 whether
+    # the card is somebody else's or no card at all. The identity half is in
+    # test_devices_api.py, which is also where the three routes that take *only* an identity
+    # live: a guest gets 401 there, not the 403 this matrix asserts.
     ("devices.manage", "DELETE", "/api/v1/devices/cards/A1B2C3D4", None),
+    # Whether a selector is in the room is the singer picker's question, not the host's.
+    ("players.view", "GET", "/api/v1/devices/status", None),
     ("devices.manage", "GET", "/api/v1/devices/settings", None),
     # The literal segment is matched before `{device_id}`, so this is the settings route and
     # not a device called "settings". A delay outside 0 to 30 keeps it a 422.

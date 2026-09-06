@@ -84,6 +84,21 @@ class DeviceSettings(BaseModel):
     auto_start: bool
     auto_start_delay_s: int
     rescan_removes: bool
+    selection_idle_s: int
+
+
+class DeviceStatus(BaseModel):
+    """Whether the room has a player selector in it. What the phone's picker asks before it
+    says the cards are deciding, and the host rail before it says one has gone."""
+
+    online: bool
+
+
+class UnknownCardList(BaseModel):
+    """The uids lying on the readers that belong to nobody. Uids and nothing else: a card
+    nobody owns has nothing else to say about itself."""
+
+    uids: list[str]
 
 
 class FirmwareBuild(BaseModel):

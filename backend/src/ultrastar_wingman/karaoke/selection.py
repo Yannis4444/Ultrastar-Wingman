@@ -36,7 +36,10 @@ logger = logging.getLogger(__name__)
 
 # A selection nobody has touched for this long is gone. Somebody picked a song, walked off
 # and left the room locked otherwise — and the TV would keep showing a song nobody sings.
-IDLE_TTL = timedelta(minutes=2)
+# The host can retune it (`devices.selection_idle_s`), so this is the value a Wingman that
+# has not read its settings yet runs on.
+DEFAULT_IDLE_TTL = timedelta(minutes=2)
+_idle_ttl = DEFAULT_IDLE_TTL
 
 # 24 bytes of `secrets`, which is a 32-character URL-safe string. The token never leaves
 # the phone it was minted for, and it is compared with `compare_digest`.
@@ -133,10 +136,21 @@ async def is_open() -> bool:
     return await current_selection() is not None
 
 
+def set_idle_ttl(seconds: int) -> None:
+    """How long a selection may stand untouched, in seconds.
+
+    Held here rather than read where it is used: expiry runs inside this module's lock, on
+    paths that have no database session to read a setting with. `devices.service` sets it
+    when the watchdog starts and whenever the host changes it.
+    """
+    global _idle_ttl
+    _idle_ttl = timedelta(seconds=seconds)
+
+
 async def expire_stale() -> None:
-    """Drop the selection if it has been idle for `IDLE_TTL`. Every call in this module
-    does this first; it is public for the watchdog, so the TV clears itself even when
-    nobody asks anything."""
+    """Drop the selection if it has been idle for `set_idle_ttl`'s seconds. Every call in
+    this module does this first; it is public for the watchdog, so the TV clears itself even
+    when nobody asks anything."""
     async with _lock:
         await _expire_locked()
 
@@ -362,21 +376,26 @@ async def card_identified(
     new about it — it has not moved. So the naming itself is what puts the person there;
     without this the room would have to lift the card off the reader and put it back down.
 
-    Only a slot this very card is already on and that nobody stands on is filled: a slot the
-    phone has since pointed at somebody is the phone's choice, and a card the room does not
-    hold changes nothing at all.
+    Every slot this very card is on is filled, whoever stands on it: naming a card is the
+    host saying who is holding it, so handing Alice's card to Bob mid-selection puts Bob on
+    her slot rather than leaving her there singing for him. A card the room does not hold
+    changes nothing at all.
     """
     async with _lock:
         await _expire_locked()
         if _selection is None:
             return
-        slots = [slot for slot in _selection.slots if slot.card_uid == uid and slot.player is None]
+        slots = [slot for slot in _selection.slots if slot.card_uid == uid]
         if not slots:
             # Nothing in this room: not even the idle clock is touched. A selection nobody
             # is standing at must not be kept alive by somebody tidying the card table.
             return
         player = await _player(session_factory, player_id)
         if player is None:
+            return
+        if all(_same_player(slot.player, player) for slot in slots):
+            # The card was already theirs on every slot it lies on: nothing moved, and the
+            # room hears nothing.
             return
         for slot in slots:
             # Two readers reporting the same uid is a cloned card, not two people:
@@ -487,7 +506,7 @@ async def _broadcast_locked() -> None:
 
 
 async def _expire_locked() -> None:
-    if _selection is not None and _now() - _selection.updated_at > IDLE_TTL:
+    if _selection is not None and _now() - _selection.updated_at > _idle_ttl:
         logger.info("dropping the player selection for %s: idle", _selection.song.id)
         await _drop_locked(_selection)
 

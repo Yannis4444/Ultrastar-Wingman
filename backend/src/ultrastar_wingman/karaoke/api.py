@@ -3,8 +3,9 @@
 import contextlib
 import logging
 from collections.abc import Iterator
+from typing import Annotated
 
-from fastapi import APIRouter, Depends, HTTPException, Request
+from fastapi import APIRouter, Depends, Header, HTTPException, Request
 from pydantic import BaseModel, Field
 
 from ..auth.deps import HiddenSongsDep, PrincipalDep, require
@@ -372,9 +373,16 @@ async def start_player_selection(
 @router.delete(
     "/karaoke/selection", status_code=204, dependencies=[Depends(require("karaoke.sing"))]
 )
-async def close_player_selection(principal: PrincipalDep, token: str | None = None) -> None:
+async def close_player_selection(
+    principal: PrincipalDep,
+    token: Annotated[str | None, Header(alias="X-Selection-Token")] = None,
+) -> None:
     """Give the selection up. 204 even when there is nothing to give up, so an unmounting
     phone never has to look first.
+
+    The token rides in a header and never in the query: a `DELETE` is the one selection call
+    a closing tab sends with `keepalive`, and a URL is what lands in every access log and
+    every browser history on the way.
 
     Somebody else's selection takes `karaoke.stop`: that is the host screen's cancel, and
     the phone that opened it sends its token instead. A token that does not own the

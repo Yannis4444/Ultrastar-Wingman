@@ -49,7 +49,7 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
     await downloads.start(app.state.session_factory)
     # Notices a player selector going quiet, and clears a selection nobody is touching any
     # more — the TV would otherwise keep showing a song nobody is singing.
-    await devices.start_watchdog()
+    await devices.start_watchdog(app.state.session_factory)
     try:
         yield
     finally:

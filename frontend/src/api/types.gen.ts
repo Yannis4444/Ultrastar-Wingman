@@ -361,26 +361,6 @@ export type ButtonRead = {
 };
 
 /**
- * ButtonReport
- *
- * One button, with the number of presses since the device booted.
- *
- * A counter and not an edge, for the same reason the readers send state: a report that
- * never arrived must not lose a press. The server reacts to the counter *changing* — a
- * device that rebooted starts at zero again, which is a change like any other.
- */
-export type ButtonReport = {
-    /**
-     * Index
-     */
-    index: number;
-    /**
-     * Presses
-     */
-    presses: number;
-};
-
-/**
  * CardAssign
  */
 export type CardAssign = {
@@ -670,38 +650,6 @@ export type DeviceRead = {
 };
 
 /**
- * DeviceReport
- *
- * One `POST /devices/report` body.
- */
-export type DeviceReport = {
-    /**
-     * Protocol
-     */
-    protocol: number;
-    /**
-     * Firmware
-     */
-    firmware: string;
-    /**
-     * Uptime S
-     */
-    uptime_s: number;
-    /**
-     * Rssi
-     */
-    rssi: number;
-    /**
-     * Readers
-     */
-    readers?: Array<ReaderReport>;
-    /**
-     * Buttons
-     */
-    buttons?: Array<ButtonReport>;
-};
-
-/**
  * DeviceSettings
  */
 export type DeviceSettings = {
@@ -717,6 +665,10 @@ export type DeviceSettings = {
      * Rescan Removes
      */
     rescan_removes: boolean;
+    /**
+     * Selection Idle S
+     */
+    selection_idle_s: number;
 };
 
 /**
@@ -735,6 +687,23 @@ export type DeviceSettingsUpdate = {
      * Rescan Removes
      */
     rescan_removes?: boolean | null;
+    /**
+     * Selection Idle S
+     */
+    selection_idle_s?: number | null;
+};
+
+/**
+ * DeviceStatus
+ *
+ * Whether the room has a player selector in it. What the phone's picker asks before it
+ * says the cards are deciding, and the host rail before it says one has gone.
+ */
+export type DeviceStatus = {
+    /**
+     * Online
+     */
+    online: boolean;
 };
 
 /**
@@ -1418,30 +1387,6 @@ export type ReaderRead = {
 };
 
 /**
- * ReaderReport
- *
- * One reader position, as the device sees it right now.
- */
-export type ReaderReport = {
-    /**
-     * Index
-     */
-    index: number;
-    /**
-     * State
-     */
-    state: 'wired' | 'none' | 'fault';
-    /**
-     * Version
-     */
-    version: string;
-    /**
-     * Uid
-     */
-    uid?: string | null;
-};
-
-/**
  * RegisterRequest
  */
 export type RegisterRequest = {
@@ -1475,6 +1420,26 @@ export type ReportAck = {
      * Interval S
      */
     interval_s: number;
+};
+
+/**
+ * ReportEnvelope
+ *
+ * The little of a report that is read before anything else: which protocol it is in.
+ *
+ * Everything else is ignored here on purpose. A device speaking another protocol may send
+ * readers of a shape this Wingman has never seen, and it still has to be recorded as one
+ * that needs updating — so the version is read out of a body that is otherwise none of
+ * this server's business.
+ *
+ * The bound is the column's, exactly as `DeviceReport` has it: a protocol number too large
+ * for SQLite is not a heartbeat, it is a body nothing can store.
+ */
+export type ReportEnvelope = {
+    /**
+     * Protocol
+     */
+    protocol: number;
 };
 
 /**
@@ -2355,6 +2320,19 @@ export type TagUpdate = {
      * Hide By Default
      */
     hide_by_default?: boolean | null;
+};
+
+/**
+ * UnknownCardList
+ *
+ * The uids lying on the readers that belong to nobody. Uids and nothing else: a card
+ * nobody owns has nothing else to say about itself.
+ */
+export type UnknownCardList = {
+    /**
+     * Uids
+     */
+    uids: Array<string>;
 };
 
 /**
@@ -3485,13 +3463,14 @@ export type SingSongResponse = SingSongResponses[keyof SingSongResponses];
 
 export type ClosePlayerSelectionData = {
     body?: never;
-    path?: never;
-    query?: {
+    headers?: {
         /**
-         * Token
+         * X-Selection-Token
          */
-        token?: string | null;
+        'X-Selection-Token'?: string | null;
     };
+    path?: never;
+    query?: never;
     url: '/api/v1/karaoke/selection';
 };
 
@@ -5831,6 +5810,78 @@ export type ListCardsResponses = {
 
 export type ListCardsResponse = ListCardsResponses[keyof ListCardsResponses];
 
+export type ListUnknownCardsData = {
+    body?: never;
+    path?: never;
+    query?: never;
+    url: '/api/v1/devices/cards/unknown';
+};
+
+export type ListUnknownCardsResponses = {
+    /**
+     * Successful Response
+     */
+    200: UnknownCardList;
+};
+
+export type ListUnknownCardsResponse = ListUnknownCardsResponses[keyof ListUnknownCardsResponses];
+
+export type ListMyCardsData = {
+    body?: never;
+    path?: never;
+    query?: never;
+    url: '/api/v1/devices/cards/mine';
+};
+
+export type ListMyCardsResponses = {
+    /**
+     * Successful Response
+     */
+    200: CardList;
+};
+
+export type ListMyCardsResponse = ListMyCardsResponses[keyof ListMyCardsResponses];
+
+export type ClaimCardData = {
+    body?: never;
+    path: {
+        /**
+         * Uid
+         */
+        uid: string;
+    };
+    query?: never;
+    url: '/api/v1/devices/cards/{uid}/claim';
+};
+
+export type ClaimCardErrors = {
+    /**
+     * Nobody is signed in, or the host session, which is not a person.
+     */
+    401: unknown;
+    /**
+     * The account sings as no player.
+     */
+    404: unknown;
+    /**
+     * The card belongs to somebody else.
+     */
+    409: unknown;
+    /**
+     * Not a card id.
+     */
+    422: unknown;
+};
+
+export type ClaimCardResponses = {
+    /**
+     * Successful Response
+     */
+    200: CardRead;
+};
+
+export type ClaimCardResponse = ClaimCardResponses[keyof ClaimCardResponses];
+
 export type ForgetCardData = {
     body?: never;
     path: {
@@ -5844,6 +5895,10 @@ export type ForgetCardData = {
 };
 
 export type ForgetCardErrors = {
+    /**
+     * Somebody else's card, without `devices.manage`.
+     */
+    403: unknown;
     /**
      * Unknown card.
      */
@@ -5899,6 +5954,22 @@ export type AssignCardResponses = {
 
 export type AssignCardResponse = AssignCardResponses[keyof AssignCardResponses];
 
+export type GetDeviceStatusData = {
+    body?: never;
+    path?: never;
+    query?: never;
+    url: '/api/v1/devices/status';
+};
+
+export type GetDeviceStatusResponses = {
+    /**
+     * Successful Response
+     */
+    200: DeviceStatus;
+};
+
+export type GetDeviceStatusResponse = GetDeviceStatusResponses[keyof GetDeviceStatusResponses];
+
 export type GetDeviceSettingsData = {
     body?: never;
     path?: never;
@@ -5924,7 +5995,7 @@ export type UpdateDeviceSettingsData = {
 
 export type UpdateDeviceSettingsErrors = {
     /**
-     * A delay outside 0 to 30 seconds.
+     * A delay or an idle time outside its range.
      */
     422: unknown;
 };
@@ -5994,7 +6065,7 @@ export type GetFirmwareImageResponses = {
 };
 
 export type ReportData = {
-    body: DeviceReport;
+    body: ReportEnvelope;
     path?: never;
     query?: never;
     url: '/api/v1/devices/report';

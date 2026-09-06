@@ -15,10 +15,12 @@ from pathlib import Path
 from typing import Any
 
 import pytest
-from httpx import AsyncClient, Response
+from fastapi import FastAPI
+from httpx import ASGITransport, AsyncClient, Response
 from sqlalchemy.ext.asyncio import AsyncSession
 
 import test_karaoke_api
+from conftest import ADMIN_PASSWORD, BASE_URL, admin_client, authenticate_admin
 from test_karaoke_api import FakeUsdx, add_player, wait_for
 from test_karaoke_selection import (
     current_slots,
@@ -26,6 +28,8 @@ from test_karaoke_selection import (
     selection_events,
     two_slot_selection,
 )
+from ultrastar_wingman.app import create_app
+from ultrastar_wingman.config import BootstrapSettings
 from ultrastar_wingman.devices import firmware
 from ultrastar_wingman.devices import service as devices
 from ultrastar_wingman.karaoke import selection
@@ -94,10 +98,11 @@ async def mapped_device(
     button_actions: dict[str, str] | None = None,
     readers: int = 2,
     buttons: int = 1,
+    name: str = "Selector",
 ) -> tuple[str, str]:
     """A device that has reported once — so its readers are known to be wired — with the
     mapping the test needs. Returns its id and its token."""
-    created = await create_device(client)
+    created = await create_device(client, name)
     device_id, token = created["device"]["id"], created["token"]
     response = await post_report(
         client,
@@ -421,6 +426,71 @@ async def test_another_protocol_is_recorded_and_then_refused(
     assert device["last_seen_at"] is not None
     assert device["online"] is True
     assert len(device_events(broadcast_events)) == 1
+
+
+async def test_another_protocol_is_recorded_even_when_the_rest_is_unreadable(
+    client: AsyncClient, broadcast_events: list[dict[str, object]]
+) -> None:
+    """The protocol is read before the body is. A firmware whose report grew a field — or
+    changed one — has to show up as a device that needs updating, not as a body Wingman
+    refuses to look at."""
+    created = await create_device(client)
+    broadcast_events.clear()
+
+    response = await client.post(
+        "/api/v1/devices/report",
+        json={
+            "protocol": 2,
+            "firmware": "0.4.0",
+            "readers": [{"index": 0, "sensor": "pn532", "tag": {"uid": "A1B2C3D4"}}],
+        },
+        headers={"Authorization": f"Bearer {created['token']}"},
+    )
+
+    assert response.status_code == 426
+    assert response.json() == {"detail": "protocol_unsupported", "supported": 1}
+    device = await only_device(client)
+    assert device["protocol"] == 2
+    assert device["compatible"] is False
+    assert device["firmware_version"] == "0.4.0"
+    assert device["last_seen_at"] is not None
+    assert device["online"] is True
+    # Nothing of a report Wingman cannot read is believed: the readers are the ones the last
+    # boot probe found, which is none.
+    assert device["readers"] == []
+    assert len(device_events(broadcast_events)) == 1
+
+
+async def test_a_report_of_this_protocol_that_is_not_one_leaves_the_row_alone(
+    client: AsyncClient,
+) -> None:
+    """A body claiming the protocol Wingman speaks is held to it: 422, and the device is
+    still saying whatever it last said."""
+    _, token = await mapped_device(client)
+    before = await only_device(client)
+
+    response = await client.post(
+        "/api/v1/devices/report",
+        json={"protocol": 1, "firmware": "0.9.9", "readers": [{"index": "left"}]},
+        headers={"Authorization": f"Bearer {token}"},
+    )
+
+    assert response.status_code == 422
+    after = await only_device(client)
+    assert after["last_seen_at"] == before["last_seen_at"]
+    assert after["firmware_version"] == before["firmware_version"]
+
+
+async def test_a_body_that_is_not_json_at_all_is_refused(client: AsyncClient) -> None:
+    _, token = await mapped_device(client)
+
+    response = await client.post(
+        "/api/v1/devices/report",
+        content=b"not json",
+        headers={"Authorization": f"Bearer {token}", "Content-Type": "application/json"},
+    )
+
+    assert response.status_code == 422
 
 
 async def test_a_device_that_was_updated_starts_from_nothing(
@@ -970,6 +1040,37 @@ async def test_a_color_no_microphone_has_and_two_readers_on_one_slot_are_refused
     assert button_nowhere.json() == {"detail": "unknown_position"}
 
 
+async def test_one_color_is_read_by_one_device_and_a_deleted_device_frees_it(
+    client: AsyncClient,
+) -> None:
+    """A color is a microphone, and two readers answering for it is two people on one slot.
+    The second device cannot know what the first one reads, so the refusal names it."""
+    first, _ = await mapped_device(client, reader_roles={"0": "slot:blue"}, name="Living room")
+    second, _ = await mapped_device(client, name="By the TV")
+
+    refused = await client.patch(
+        f"/api/v1/devices/{second}", json={"reader_roles": {"0": "slot:blue"}}
+    )
+
+    assert refused.status_code == 422
+    assert refused.json() == {
+        "detail": {"error": "slot_taken_elsewhere", "color": "blue", "device": "Living room"}
+    }
+    # Its own color is not taken from it: saving the mapping it already has must work.
+    keeps = await client.patch(
+        f"/api/v1/devices/{first}", json={"reader_roles": {"0": "slot:blue", "1": "sequential"}}
+    )
+    assert keeps.status_code == 200, keeps.text
+
+    # And the color comes back with the device that read it.
+    assert (await client.delete(f"/api/v1/devices/{first}")).status_code == 204
+    freed = await client.patch(
+        f"/api/v1/devices/{second}", json={"reader_roles": {"0": "slot:blue"}}
+    )
+    assert freed.status_code == 200, freed.text
+    assert [entry["role"] for entry in freed.json()["readers"]] == ["slot:blue", "unused"]
+
+
 async def test_taking_a_role_away_works_on_a_reader_that_came_loose(
     client: AsyncClient,
 ) -> None:
@@ -1101,6 +1202,47 @@ async def test_naming_the_card_on_a_slot_fills_it_without_lifting_the_card(
     ]
 
 
+async def test_giving_the_card_on_a_slot_to_somebody_else_moves_the_slot(
+    client: AsyncClient, session: AsyncSession, song: str
+) -> None:
+    """The other half of naming a card: it was Alice's, the host hands it to Bob, and Bob is
+    the one standing on the blue slot. The card has not moved, so nothing else can say so."""
+    alice = await add_player(client, "Alice")
+    bob = await add_player(client, "Bob")
+    await client.put(f"/api/v1/devices/cards/{KNOWN_UID}", json={"player_id": alice["id"]})
+    _, token = await mapped_device(client, reader_roles={"0": "slot:blue"})
+    await two_slot_selection(session, song)
+    await post_report(client, token, readers=[reader(0, uid=KNOWN_UID), reader(1)])
+    assert player_names(await current_slots()) == ["Alice", None]
+
+    response = await client.put(f"/api/v1/devices/cards/{KNOWN_UID}", json={"player_id": bob["id"]})
+
+    assert response.status_code == 200, response.text
+    slots = await current_slots()
+    assert player_names(slots) == ["Bob", None]
+    assert slots[0]["card_uid"] == KNOWN_UID
+
+
+async def test_giving_a_card_back_to_the_player_already_on_its_slot_says_nothing(
+    client: AsyncClient,
+    session: AsyncSession,
+    song: str,
+    broadcast_events: list[dict[str, object]],
+) -> None:
+    """Nothing moved, so the room hears nothing: the same card, the same person."""
+    alice = await add_player(client, "Alice")
+    await client.put(f"/api/v1/devices/cards/{KNOWN_UID}", json={"player_id": alice["id"]})
+    _, token = await mapped_device(client, reader_roles={"0": "slot:blue"})
+    await two_slot_selection(session, song)
+    await post_report(client, token, readers=[reader(0, uid=KNOWN_UID), reader(1)])
+    broadcast_events.clear()
+
+    await client.put(f"/api/v1/devices/cards/{KNOWN_UID}", json={"player_id": alice["id"]})
+
+    assert player_names(await current_slots()) == ["Alice", None]
+    assert selection_events(broadcast_events) == []
+
+
 async def test_forgetting_the_card_on_a_slot_makes_it_an_unknown_card_again(
     client: AsyncClient, session: AsyncSession, song: str
 ) -> None:
@@ -1123,13 +1265,14 @@ async def test_forgetting_the_card_on_a_slot_makes_it_an_unknown_card_again(
 # --- the options ------------------------------------------------------------------------
 
 
-async def test_the_three_options(client: AsyncClient) -> None:
+async def test_the_four_options(client: AsyncClient) -> None:
     defaults = await client.get("/api/v1/devices/settings")
     assert defaults.status_code == 200, defaults.text
     assert defaults.json() == {
         "auto_start": False,
         "auto_start_delay_s": 3,
         "rescan_removes": True,
+        "selection_idle_s": 120,
     }
 
     changed = await client.patch(
@@ -1140,12 +1283,18 @@ async def test_the_three_options(client: AsyncClient) -> None:
         "auto_start": True,
         "auto_start_delay_s": 10,
         "rescan_removes": True,
+        "selection_idle_s": 120,
     }
 
     refused = await client.patch("/api/v1/devices/settings", json={"auto_start_delay_s": 99})
     assert refused.status_code == 422
     assert "0 and 30" in refused.json()["detail"]
     assert (await client.get("/api/v1/devices/settings")).json()["auto_start_delay_s"] == 10
+
+    too_short = await client.patch("/api/v1/devices/settings", json={"selection_idle_s": 10})
+    assert too_short.status_code == 422
+    assert "30 and 900" in too_short.json()["detail"]
+    assert (await client.get("/api/v1/devices/settings")).json()["selection_idle_s"] == 120
 
 
 async def test_the_options_stay_out_of_the_settings_api(client: AsyncClient) -> None:
@@ -1269,9 +1418,198 @@ async def test_the_watchdog_drops_a_selection_nobody_is_touching(
     response = await client.post("/api/v1/karaoke/selection", json={"song_id": song})
     assert response.status_code == 201, response.text
     monkeypatch.setattr(
-        selection, "_now", lambda: datetime.now(UTC) + selection.IDLE_TTL + timedelta(seconds=1)
+        selection,
+        "_now",
+        lambda: datetime.now(UTC) + selection.DEFAULT_IDLE_TTL + timedelta(seconds=1),
     )
 
     await devices.watchdog_tick()
 
     assert await selection.current_selection() is None
+
+
+# --- the idle time a selection is dropped after -------------------------------------------
+
+
+async def test_a_shorter_idle_time_takes_effect_at_once(
+    client: AsyncClient, song: str, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """The host shortens it because they are looking at a selection they want gone, so it
+    holds for the one that is already standing."""
+    changed = await client.patch("/api/v1/devices/settings", json={"selection_idle_s": 30})
+    assert changed.status_code == 200, changed.text
+    assert changed.json()["selection_idle_s"] == 30
+    assert (await client.post("/api/v1/karaoke/selection", json={"song_id": song})).status_code == (
+        201
+    )
+    monkeypatch.setattr(selection, "_now", lambda: datetime.now(UTC) + timedelta(seconds=40))
+
+    await devices.watchdog_tick()
+
+    assert await selection.current_selection() is None
+
+
+async def test_the_default_idle_time_is_two_minutes(
+    client: AsyncClient, song: str, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """What the watchdog read at startup, nobody having changed it: a selection is still
+    standing a second short of two minutes."""
+    assert (await client.post("/api/v1/karaoke/selection", json={"song_id": song})).status_code == (
+        201
+    )
+    monkeypatch.setattr(selection, "_now", lambda: datetime.now(UTC) + timedelta(seconds=119))
+
+    await devices.watchdog_tick()
+
+    assert await selection.current_selection() is not None
+
+
+# --- is there a selector in the room? -----------------------------------------------------
+
+
+async def test_the_status_says_whether_a_selector_is_online(
+    client: AsyncClient, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """What the singer picker asks: while it is true, the cards decide who sings, which is
+    why the picker opened with empty slots."""
+    quiet = await client.get("/api/v1/devices/status")
+    assert quiet.status_code == 200, quiet.text
+    assert quiet.json() == {"online": False}
+
+    await mapped_device(client)
+    assert (await client.get("/api/v1/devices/status")).json() == {"online": True}
+
+    monkeypatch.setattr(
+        devices, "_now", lambda: datetime.now(UTC) + devices.OFFLINE_AFTER + timedelta(seconds=1)
+    )
+    assert (await client.get("/api/v1/devices/status")).json() == {"online": False}
+
+
+# --- claiming your own card ---------------------------------------------------------------
+
+
+def visitor(app: FastAPI) -> AsyncClient:
+    """A browser with no session at all, on the app the test built."""
+    return AsyncClient(transport=ASGITransport(app=app), base_url=BASE_URL)
+
+
+async def register(client: AsyncClient, username: str) -> str:
+    """Sign this client in as a new account and answer the player it sings as.
+
+    Registered through the API rather than inserted: the point of these routes is the caller
+    being somebody who sings, and registering is what makes an account one.
+    """
+    response = await client.post(
+        "/api/v1/auth/register", json={"username": username, "password": ADMIN_PASSWORD}
+    )
+    assert response.status_code == 201, response.text
+    player_id: str | None = response.json()["player_id"]
+    assert player_id is not None
+    return player_id
+
+
+async def test_a_singer_claims_a_card_off_the_readers(
+    bootstrap_settings: BootstrapSettings, session: AsyncSession, song: str
+) -> None:
+    """The whole path, as the user page walks it: the card is lying on a reader and belongs
+    to nobody, the singer says it is theirs, and the slot it is on becomes theirs with it —
+    the card has not moved, so nothing else could say so."""
+    app = create_app(bootstrap_settings)
+    async with app.router.lifespan_context(app):
+        await authenticate_admin(app)
+        async with admin_client(app) as host, visitor(app) as alice:
+            alice_player = await register(alice, "alice")
+            _, token = await mapped_device(host, reader_roles={"0": "slot:blue"})
+            await two_slot_selection(session, song)
+            await post_report(host, token, readers=[reader(0, uid=OTHER_UID), reader(1)])
+            assert player_names(await current_slots()) == [None, None]
+
+            unknown = await alice.get("/api/v1/devices/cards/unknown")
+            assert unknown.status_code == 200, unknown.text
+            assert unknown.json() == {"uids": [OTHER_UID]}
+
+            claimed = await alice.post(f"/api/v1/devices/cards/{OTHER_UID}/claim")
+
+            assert claimed.status_code == 200, claimed.text
+            assert claimed.json()["player"]["id"] == alice_player
+            assert player_names(await current_slots()) == ["alice", None]
+            # It is hers now, so it is not on offer any more, and it is on her own list.
+            assert (await alice.get("/api/v1/devices/cards/unknown")).json() == {"uids": []}
+            mine = await alice.get("/api/v1/devices/cards/mine")
+            assert [card["uid"] for card in mine.json()["cards"]] == [OTHER_UID]
+
+
+async def test_somebody_elses_card_is_not_yours_to_claim_or_to_give_back(
+    bootstrap_settings: BootstrapSettings,
+) -> None:
+    """The card table is the host's, but the card in somebody's hand is their own: claiming
+    twice is not an error, claiming somebody else's is, and giving one back reads exactly
+    the same way."""
+    app = create_app(bootstrap_settings)
+    async with app.router.lifespan_context(app):
+        await authenticate_admin(app)
+        async with admin_client(app) as host, visitor(app) as alice, visitor(app) as bob:
+            await register(alice, "alice")
+            await register(bob, "bob")
+            mine = await alice.post(f"/api/v1/devices/cards/{KNOWN_UID}/claim")
+            assert mine.status_code == 200, mine.text
+            # Their own card again: a phone tapped twice, not an error.
+            again = await alice.post(f"/api/v1/devices/cards/{KNOWN_UID}/claim")
+            assert again.status_code == 200, again.text
+
+            taken = await bob.post(f"/api/v1/devices/cards/{KNOWN_UID}/claim")
+
+            assert taken.status_code == 409
+            assert taken.json() == {"detail": "card_taken"}
+            # Nor can Bob give Alice's card back for her.
+            refused = await bob.delete(f"/api/v1/devices/cards/{KNOWN_UID}")
+            assert refused.status_code == 403
+            assert refused.json() == {"detail": "missing_permission:devices.manage"}
+            # A card nobody has is the same answer: which it is, is none of his business.
+            nothing = await bob.delete(f"/api/v1/devices/cards/{OTHER_UID}")
+            assert nothing.status_code == 403
+
+            # Alice's own, on the other hand, is hers to give back.
+            assert (await alice.delete(f"/api/v1/devices/cards/{KNOWN_UID}")).status_code == 204
+            assert (await alice.get("/api/v1/devices/cards/mine")).json() == {"cards": []}
+            # And the host may still forget anybody's: Bob claims one, the host drops it.
+            claimed = await bob.post(f"/api/v1/devices/cards/{OTHER_UID}/claim")
+            assert claimed.status_code == 200, claimed.text
+            assert (await host.delete(f"/api/v1/devices/cards/{OTHER_UID}")).status_code == 204
+
+
+async def test_something_that_is_not_a_card_id_cannot_be_claimed(
+    bootstrap_settings: BootstrapSettings,
+) -> None:
+    app = create_app(bootstrap_settings)
+    async with app.router.lifespan_context(app):
+        await authenticate_admin(app)
+        async with visitor(app) as alice:
+            await register(alice, "alice")
+
+            response = await alice.post("/api/v1/devices/cards/nope/claim")
+
+            assert response.status_code == 422
+            assert response.json() == {"detail": "invalid_uid"}
+
+
+async def test_the_card_routes_of_a_person_need_a_person(
+    anonymous_client: AsyncClient, client: AsyncClient
+) -> None:
+    """They take an identity and not a capability, so a guest is 401 and not 403 — which is
+    why they are here and not in the permission matrix.
+
+    The host session is 401 on the three that need a player as well: it is an administrator,
+    and it is not somebody who sings.
+    """
+    for path in ("/api/v1/devices/cards/unknown", "/api/v1/devices/cards/mine"):
+        response = await anonymous_client.get(path)
+        assert response.status_code == 401, f"{path}: {response.text}"
+        assert response.json() == {"detail": "not_authenticated"}
+    claimed = await anonymous_client.post(f"/api/v1/devices/cards/{KNOWN_UID}/claim")
+    assert claimed.status_code == 401
+
+    # The administrator of this suite has an account and no player, which is the same
+    # answer a host session gets: there is nobody for the card to belong to.
+    assert (await client.post(f"/api/v1/devices/cards/{KNOWN_UID}/claim")).status_code == 404
+    assert (await client.get("/api/v1/devices/cards/mine")).json() == {"cards": []}

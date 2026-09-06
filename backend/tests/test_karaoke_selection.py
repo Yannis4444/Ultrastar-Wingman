@@ -12,7 +12,7 @@ from pathlib import Path
 from typing import Any
 
 import pytest
-from httpx import ASGITransport, AsyncClient
+from httpx import ASGITransport, AsyncClient, Response
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
 
 import test_karaoke_api
@@ -58,6 +58,17 @@ async def open_selection(
     assert response.status_code == 201, response.text
     opened: dict[str, Any] = response.json()
     return opened
+
+
+async def close_selection(client: AsyncClient, token: str | bytes) -> Response:
+    """Give a selection up as its opener. The token rides in `X-Selection-Token` and never
+    in the query: a URL lands in every access log on the way.
+
+    Bytes are allowed because a header is bytes: that is how a token no browser would send
+    reaches the route at all.
+    """
+    header = token if isinstance(token, bytes) else token.encode()
+    return await client.delete("/api/v1/karaoke/selection", headers={b"X-Selection-Token": header})
 
 
 def selection_events(events: list[dict[str, object]]) -> list[dict[str, Any]]:
@@ -130,7 +141,7 @@ async def test_a_second_selection_needs_force_and_kills_the_first_token(
     )
     assert stale_start.status_code == 409
     assert stale_start.json() == {"detail": "not_the_opener"}
-    stale_close = await client.delete(f"/api/v1/karaoke/selection?token={first['token']}")
+    stale_close = await close_selection(client, first["token"])
     assert stale_close.status_code == 409
     assert stale_close.json() == {"detail": "not_the_opener"}
     # The selection that took over is standing, whatever the phone before it does.
@@ -293,12 +304,12 @@ async def test_a_sing_does_not_play_over_a_selection(
 async def test_the_opener_gives_the_selection_up(client: AsyncClient, song: str) -> None:
     opened = await open_selection(client, song)
 
-    response = await client.delete(f"/api/v1/karaoke/selection?token={opened['token']}")
+    response = await close_selection(client, opened["token"])
 
     assert response.status_code == 204
     assert (await client.get("/api/v1/karaoke/selection")).json() == {"selection": None}
     # An unmounting phone must not have to look first.
-    again = await client.delete(f"/api/v1/karaoke/selection?token={opened['token']}")
+    again = await close_selection(client, opened["token"])
     assert again.status_code == 204
 
 
@@ -337,23 +348,48 @@ async def test_nobody_closes_somebody_elses_selection_with_the_wrong_token(
             assert refused.status_code == 403
             assert refused.json() == {"detail": "missing_permission:karaoke.stop"}
             for client in (guest, owner):
-                stale = await client.delete("/api/v1/karaoke/selection?token=nope")
+                stale = await close_selection(client, "nope")
                 assert stale.status_code == 409
                 assert stale.json() == {"detail": "not_the_opener"}
             assert (await owner.get("/api/v1/karaoke/selection")).json()["selection"] is not None
+
+
+async def test_the_token_in_the_query_is_not_read(
+    bootstrap_settings: BootstrapSettings, song: str
+) -> None:
+    """`?token=` is gone: it landed in every access log on the way. A caller who may sing
+    but not stop the room is refused with their own token in the URL, which is the only way
+    to prove the query is nothing now."""
+    app = create_app(bootstrap_settings)
+    async with app.router.lifespan_context(app):
+        await authenticate_admin(app)
+        async with AsyncClient(transport=ASGITransport(app=app), base_url=BASE_URL) as guest:
+            opened = await open_selection(guest, song)
+
+            refused = await guest.delete(f"/api/v1/karaoke/selection?token={opened['token']}")
+
+            assert refused.status_code == 403
+            assert refused.json() == {"detail": "missing_permission:karaoke.stop"}
+            assert (await guest.get("/api/v1/karaoke/selection")).json()["selection"] is not None
+            # The same token in the header gives the selection up.
+            assert (await close_selection(guest, opened["token"])).status_code == 204
 
 
 async def test_a_token_that_is_not_ascii_is_refused_rather_than_a_crash(
     client: AsyncClient, song: str
 ) -> None:
     """`compare_digest` refuses to compare non-ASCII strings, and a phone can put anything
-    at all in that field."""
+    at all in that field.
+
+    The header carries its bytes: everything above ASCII arrives as the latin-1 string
+    Starlette decodes it to, which is non-ASCII all the same.
+    """
     await open_selection(client, song)
 
     for response in (
         await client.put("/api/v1/karaoke/selection/slots", json={"token": "ä", "slots": []}),
         await client.post("/api/v1/karaoke/selection/start", json={"token": "ä"}),
-        await client.delete("/api/v1/karaoke/selection?token=ä"),
+        await close_selection(client, "ä".encode()),
     ):
         assert response.status_code == 409, response.text
         assert response.json() == {"detail": "not_the_opener"}
@@ -367,7 +403,9 @@ async def test_a_selection_nobody_touches_is_dropped(
 ) -> None:
     await open_selection(client, song)
     monkeypatch.setattr(
-        selection, "_now", lambda: datetime.now(UTC) + selection.IDLE_TTL + timedelta(seconds=1)
+        selection,
+        "_now",
+        lambda: datetime.now(UTC) + selection.DEFAULT_IDLE_TTL + timedelta(seconds=1),
     )
 
     response = await client.get("/api/v1/karaoke/selection")
@@ -386,7 +424,9 @@ async def test_the_watchdog_drops_a_stale_selection_and_says_so_once(
     nobody asks anything at all. The room hears about it exactly once."""
     await open_selection(client, song)
     monkeypatch.setattr(
-        selection, "_now", lambda: datetime.now(UTC) + selection.IDLE_TTL + timedelta(seconds=1)
+        selection,
+        "_now",
+        lambda: datetime.now(UTC) + selection.DEFAULT_IDLE_TTL + timedelta(seconds=1),
     )
 
     await selection.expire_stale()
