@@ -8,7 +8,7 @@
   grid-template-areas:
     "cover text"
     "cover slots"
-    "note note";
+    ". note";
   grid-template-columns: auto minmax(0, 1fr);
   column-gap: clamp(24px, 3vw, 56px);
   row-gap: clamp(16px, 3vh, 40px);
@@ -92,8 +92,9 @@
   background-color: var(--input-bg);
 }
 
-/* The selector's automatic start. Its own row under everything, because it is
-   the one thing on this screen that changes every second. */
+/* The selector's automatic start. Its own row under the slots and in their
+   column, not under the cover: it is the one thing on this screen that changes
+   every second, and it reads as part of the picking it is counting down. */
 .host-page .host-selection-countdown {
   grid-area: note;
   margin: 0;

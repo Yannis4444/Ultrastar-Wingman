@@ -371,3 +371,14 @@ test("the readers select the configured slot colors, in turn and not used", asyn
       .map((option) => option.textContent),
   ).toEqual(["blue", "red", "Everybody in turn", "Not used"]);
 });
+
+test("both ways back into the wizard carry the device and the step", async () => {
+  renderDevice();
+
+  expect(
+    await screen.findByRole("link", { name: "Update firmware" }),
+  ).toHaveAttribute("href", "/user/devices/new?device=d-1&step=flash");
+  expect(
+    screen.getByRole("link", { name: "Change Wi-Fi or server" }),
+  ).toHaveAttribute("href", "/user/devices/new?device=d-1&step=configure");
+});

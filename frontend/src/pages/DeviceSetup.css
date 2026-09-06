@@ -1,0 +1,215 @@
+/* The setup wizard (§7). It stands on `Devices.css` for its column and its
+   notices and on `Device.css` for the reader and button rows, so what is here
+   is only what the six steps add: the step list, the parts and pin tables, the
+   flashing bar, and the lines the device prints. Flat throughout. */
+
+/* ------------------------------------------------------------ the step list
+   Six words across the top, the current one lit and underlined. Not numbered
+   circles: six of those do not fit on a 360px phone, and the number says
+   nothing the position does not. */
+
+.setup-steps {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px 12px;
+  margin: 12px 16px 0 16px;
+  padding: 0;
+  list-style: none;
+}
+
+.setup-step {
+  padding-bottom: 4px;
+  font-size: 0.85em;
+  color: var(--color-darkerer);
+  border-bottom: 2px solid transparent;
+}
+
+.setup-step-here {
+  color: var(--highlight-blue-light);
+  border-bottom-color: var(--highlight-blue-light);
+}
+
+/* ------------------------------------------------------------- the readings
+   The parts, the troubleshooting and the wiring. A plain list and a plain
+   table, both on the page background. */
+
+.setup-list {
+  margin: 8px 16px 0 16px;
+  padding-left: 20px;
+  font-size: 0.9em;
+  color: var(--color-dark);
+}
+
+.setup-list li {
+  margin-bottom: 4px;
+}
+
+/* A table is the one thing on the page that cannot be made narrower than its
+   content, so it scrolls inside itself rather than taking the page sideways
+   (§1.11). */
+.setup-table-scroll {
+  margin: 8px 16px 0 16px;
+  overflow-x: auto;
+}
+
+.setup-table {
+  width: 100%;
+  font-size: 0.85em;
+  border-collapse: collapse;
+}
+
+.setup-table th,
+.setup-table td {
+  padding: 8px 12px 8px 0;
+  text-align: left;
+  vertical-align: top;
+  border-bottom: 1px solid var(--input-border-color);
+}
+
+.setup-table thead th {
+  color: var(--color-darker);
+  font-weight: normal;
+}
+
+.setup-table tbody th {
+  font-weight: normal;
+}
+
+.setup-table td {
+  color: var(--color-darker);
+}
+
+/* Pin numbers line up so a row can be counted off against the board. */
+.setup-pins {
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+
+/* An address is a run nobody reads as a word: it breaks anywhere rather than
+   pushing the page sideways. */
+.setup-address {
+  color: var(--color);
+  overflow-wrap: anywhere;
+}
+
+/* --------------------------------------------------------------- the flash */
+
+.setup-actions {
+  display: flex;
+  gap: 8px;
+  margin: 16px;
+}
+
+.setup-actions > .button {
+  flex: 1 1 0;
+}
+
+.setup-progress {
+  margin: 16px;
+}
+
+/* The house progress bar: the `--input-bg` track of §2 under a blue fill, the
+   same picture an achievement's progress draws. No transition, the number
+   coming from the flasher a few times a second. */
+.setup-bar {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+  margin-top: 8px;
+}
+
+.setup-bar-track {
+  flex: 1 1 auto;
+  height: 6px;
+  overflow: hidden;
+  background-color: var(--input-bg);
+  border-radius: 999px;
+}
+
+.setup-bar-track > span {
+  display: block;
+  height: 100%;
+  background-color: var(--highlight-blue-light);
+}
+
+.setup-bar-label {
+  flex: 0 0 auto;
+  font-size: 0.8em;
+  color: var(--color-darker);
+  font-variant-numeric: tabular-nums;
+}
+
+/* The way past a step that does not apply, as a sentence with one word in it
+   that acts: a link's shape, not a second button competing with the primary. */
+.setup-skip {
+  margin: 8px 16px 0 16px;
+  font-size: 0.85em;
+  color: var(--color-darker);
+}
+
+.setup-quiet {
+  /* A little air around a text link, like the repository link on the user page:
+     bare text is a thin target under a thumb. */
+  padding: 4px 2px;
+  font: inherit;
+  color: var(--highlight-blue-light);
+  text-decoration: underline;
+  cursor: pointer;
+  background: none;
+  border: none;
+}
+
+/* ----------------------------------------------------------- the settings */
+
+/* The scan control: the select gives way, the button keeps its width. */
+.setup-scan {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+}
+
+.setup-networks {
+  flex: 1 1 auto;
+  min-width: 0;
+}
+
+/* ---------------------------------------------------------- the discovery */
+
+/* A reader that has been found says so in the accent, the way a slot lights
+   up when somebody stands on it. */
+.setup-found {
+  color: var(--highlight-blue-light);
+}
+
+/* ----------------------------------------------------------- the console
+   What the device is and what it is saying, under whatever step is on screen.
+   A hairline above it, because it belongs to the cable and not to the step. */
+
+.setup-cable {
+  margin: 24px 16px 0 16px;
+  padding-top: 12px;
+  border-top: 1px solid var(--input-border-color);
+}
+
+.setup-lines {
+  margin: 8px 0 0 0;
+  padding: 0;
+  font-size: 0.85em;
+  color: var(--color-darker);
+  list-style: none;
+}
+
+.setup-lines li {
+  padding: 2px 0;
+  overflow-wrap: anywhere;
+}
+
+/* ------------------------------------------------------------- the walking */
+
+.setup-walk {
+  margin-top: 24px;
+}
+
+.setup-walk .section-note {
+  text-align: center;
+}

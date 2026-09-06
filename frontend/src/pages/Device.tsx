@@ -1,6 +1,6 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useEffect, useRef, useState } from "react";
-import { useNavigate, useParams } from "react-router-dom";
+import { Link, useNavigate, useParams } from "react-router-dom";
 import type { ButtonRead, DeviceList, DeviceRead, ReaderRead } from "../api";
 import {
   deleteDeviceMutation,
@@ -16,15 +16,12 @@ import EditorActions from "../components/EditorActions";
 import Loading from "../components/Loading";
 import PageHeader from "../components/PageHeader";
 import PlayerAvatar from "../components/PlayerAvatar";
+import RoleSelect from "../components/RoleSelect";
 import {
   BUTTON_ACTIONS,
-  colorLabel,
   firmwareLine,
   mappingRefusal,
-  SEQUENTIAL,
   signalLabel,
-  slotColor,
-  slotRole,
   statusLine,
   UNUSED,
   updateLine,
@@ -203,8 +200,6 @@ export default function Device() {
           : null;
 
   const palette = slots.data?.slots ?? [];
-  const hexOf = (color: string): string | undefined =>
-    palette.find((slot) => slot.name === color)?.hex;
   const signal = signalLabel(device?.rssi);
   const update =
     device === undefined
@@ -218,50 +213,23 @@ export default function Device() {
    *  clearable. What is stored decides that, never what is drawn: picking
    *  *Not used* on a loose reader would otherwise disable the select under
    *  the hand that picked it, before the change was ever saved. */
-  const roleSelect = (reader: ReaderRead) => {
-    const role = roleOf(reader);
-    const color = slotColor(role);
-    const stuck = reader.state !== "wired" && reader.role === UNUSED;
-    const selectId = `device-reader-${reader.index}`;
-    return (
-      <select
-        className="text-input text-input-quiet device-select"
-        id={selectId}
-        aria-label={`Reader ${reader.index + 1} role`}
-        value={role}
-        disabled={stuck || save.isPending}
-        // The chosen slot's own colour as a bar on the leading edge, the way
-        // player selection paints a slot: readable on every hue, unlike a wash
-        // behind the words.
-        style={{
-          boxShadow: `inset 4px 0 0 ${
-            color === null ? "transparent" : (hexOf(color) ?? "transparent")
-          }`,
-        }}
-        onChange={(event) => {
-          setSaved(false);
-          setRefusal(null);
-          setRoles((old) => ({
-            ...old,
-            [String(reader.index)]: event.target.value,
-          }));
-        }}
-      >
-        {palette.map((slot) => (
-          <option key={slot.name} value={slotRole(slot.name)}>
-            {colorLabel(slot.name)}
-          </option>
-        ))}
-        {/* A colour that is no longer a configured slot would leave the select
-            blank, so whatever the device carries is an option of its own. */}
-        {color !== null && !palette.some((slot) => slot.name === color) && (
-          <option value={role}>{colorLabel(color)}</option>
-        )}
-        <option value={SEQUENTIAL}>Everybody in turn</option>
-        <option value={UNUSED}>Not used</option>
-      </select>
-    );
-  };
+  const roleSelect = (reader: ReaderRead) => (
+    <RoleSelect
+      className="text-input text-input-quiet device-select"
+      id={`device-reader-${reader.index}`}
+      label={`Reader ${reader.index + 1} role`}
+      slots={palette}
+      value={roleOf(reader)}
+      disabled={
+        (reader.state !== "wired" && reader.role === UNUSED) || save.isPending
+      }
+      onChange={(role) => {
+        setSaved(false);
+        setRefusal(null);
+        setRoles((old) => ({ ...old, [String(reader.index)]: role }));
+      }}
+    />
+  );
 
   return (
     <div className="devices-page">
@@ -329,6 +297,24 @@ export default function Device() {
                     {signal !== null && (
                       <p className="section-note">Signal: {signal}</p>
                     )}
+                  </div>
+
+                  {/* Back into the wizard, at the step that does the job: both
+                      are the same six screens on a device that already exists,
+                      so neither names it again and neither mints a device. */}
+                  <div className="device-links">
+                    <Link
+                      className="button"
+                      to={`/user/devices/new?device=${encodeURIComponent(device.id)}&step=flash`}
+                    >
+                      Update firmware
+                    </Link>
+                    <Link
+                      className="button"
+                      to={`/user/devices/new?device=${encodeURIComponent(device.id)}&step=configure`}
+                    >
+                      Change Wi-Fi or server
+                    </Link>
                   </div>
 
                   <h2>Readers</h2>

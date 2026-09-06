@@ -17,6 +17,22 @@
   margin-top: 8px;
 }
 
+/* The two ways back into the wizard, under the status. Plain buttons side by
+   side, wrapping on a narrow phone: neither is the page's primary, which is
+   Save. */
+.device-links {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin: 16px 16px 0 16px;
+}
+
+.device-links > .button {
+  flex: 1 1 auto;
+  text-align: center;
+  text-decoration: none;
+}
+
 /* -------------------------------------------------------- readers, buttons
    One row per wired position: what it is, what is on it, and what it does.
    The row is taller than a list row because the middle can wrap to two lines
