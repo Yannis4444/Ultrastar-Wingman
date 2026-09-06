@@ -261,6 +261,7 @@ feature, release workflow.
 
 - Spotify integration (dropped — API no longer feasible).
 - UltraSinger (revisit later; `SongSource` seam keeps the door open).
-- NFC player selector device (later; enabled by the versioned REST API and
-  the player selector seam — nothing in phases 2/4 may assume selection only
-  happens in the web UI).
+- ~~NFC player selector device~~ — landed 2026-09-06 as the RFID player
+  selector (`devices/`, `karaoke/selection.py`, `firmware/`, the setup wizard;
+  design in [player-selector.md](player-selector.md)). Untested on real
+  hardware at the time of the merge.
