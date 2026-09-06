@@ -65,6 +65,8 @@ const SETTINGS: DeviceSettings = {
   rescan_removes: true,
   selection_idle_s: 120,
   start_without_selection: "nothing",
+  random_scope: "all",
+  random_playlist: "",
 };
 
 function player(overrides: Partial<PlayerRead> = {}): PlayerRead {

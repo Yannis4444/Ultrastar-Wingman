@@ -17,13 +17,20 @@ from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
 
 import test_karaoke_api
 from conftest import BASE_URL, admin_client, authenticate_admin
-from test_karaoke_api import FakeUsdx, add_player, sing, wait_for
+from test_karaoke_api import FakeUsdx, add_player, make_song_dir, sing, wait_for
 from ultrastar_wingman.app import create_app
+from ultrastar_wingman.auth import permissions
 from ultrastar_wingman.config import BootstrapSettings
-from ultrastar_wingman.karaoke import selection, service
+from ultrastar_wingman.karaoke import reel, selection, service
 from ultrastar_wingman.karaoke.launcher import Launch
+from ultrastar_wingman.library.model import Wish
 from ultrastar_wingman.players.model import Player
 from ultrastar_wingman.settings import SettingsService
+from ultrastar_wingman.songs.model import Song
+from ultrastar_wingman.tags.service import Viewer
+
+# The reel as the selector's start button spins it: no account behind it at all.
+GUEST = Viewer(role=permissions.DEFAULT_ROLE, user_id=None)
 
 # The fake-USDX fixtures, bound here so pytest can resolve them by name — the same binding
 # `test_achievements_triggers` does, and for the same reason: a selection's Play is the sing
@@ -58,6 +65,69 @@ async def open_selection(
     assert response.status_code == 201, response.text
     opened: dict[str, Any] = response.json()
     return opened
+
+
+async def open_spin(
+    client: AsyncClient,
+    scope: str,
+    playlist_id: str | None = None,
+    slots: list[dict[str, object]] | None = None,
+    force: bool = False,
+) -> dict[str, Any]:
+    """Open a selection by letting the server pick the song."""
+    response = await client.post(
+        "/api/v1/karaoke/selection",
+        json={
+            "spin": {"scope": scope, "playlist_id": playlist_id},
+            "slots": slots or [],
+            "force": force,
+        },
+    )
+    assert response.status_code == 201, response.text
+    opened: dict[str, Any] = response.json()
+    return opened
+
+
+async def respin(client: AsyncClient, token: str | None) -> Response:
+    """Spin again as the opener — or, with no token, as a phone that has none."""
+    headers = {} if token is None else {"X-Selection-Token": token}
+    return await client.post("/api/v1/karaoke/selection/spin", headers=headers)
+
+
+async def add_second_song(session: AsyncSession, configured: FakeUsdx) -> str:
+    """One more song in the library, so "the top wish", "a random one" and every reel scope
+    have something to choose between."""
+    directory = make_song_dir(configured.songs_dir, "Other - Other")
+    song = Song(
+        id="usdb:9999",
+        source="usdb",
+        source_id="9999",
+        title="Other",
+        artist="Other",
+        fingerprint="other|other",
+        directory=str(directory),
+        txt_file=str(directory / "song.txt"),
+    )
+    session.add(song)
+    await session.commit()
+    return song.id
+
+
+def pick_last(monkeypatch: pytest.MonkeyPatch) -> list[list[str]]:
+    """Make the reel land on the last candidate, and record what it had to choose from.
+
+    The ids are sorted before the choice, so "the last one" is the greatest id whatever
+    SQLite hands back — and the recorded lists are what a scope's pool is, a song repeated
+    where it counts more than once.
+    """
+    pools: list[list[str]] = []
+
+    def choice(candidates: list[str]) -> str:
+        pools.append(list(candidates))
+        return candidates[-1]
+
+    monkeypatch.setattr(reel.random, "choice", choice)
+    return pools
 
 
 async def close_selection(client: AsyncClient, token: str | bytes) -> Response:
@@ -809,12 +879,14 @@ async def test_the_selection_the_start_button_opens_belongs_to_nobody(
     song: str,
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    """A press at a quiet room opens a selection and starts it in the same breath, so no
-    token is ever handed out. A start that fails leaves nothing standing either: the phone
-    finds an empty room, not a song nobody can press Play on.
+    """A `top_wish` press at a quiet room opens a selection and starts it in the same breath,
+    so no token is ever handed out. A start that fails leaves nothing standing either: the
+    phone finds an empty room, not a song nobody can press Play on.
     """
     alice = await add_player_row(session, "Alice")
     await SettingsService(session).set("karaoke.player_colors", TWO_SLOTS)
+    session.add(Wish(song_id=song, guest_id="a-guest-cookie"))
+    await session.commit()
     # A launcher that refuses, so the start comes back without a selection to inspect.
     monkeypatch.setattr(service, "start_sing", refuse_to_start)
 
@@ -823,7 +895,7 @@ async def test_the_selection_the_start_button_opens_belongs_to_nobody(
         session_factory,
         "start",
         without_selection=selection.StartWithoutSelection(
-            mode="random", cards={"blue": selection.CardOnSlot(uid="A1", player_id=alice)}
+            mode="top_wish", cards={"blue": selection.CardOnSlot(uid="A1", player_id=alice)}
         ),
     )
 
@@ -1076,3 +1148,451 @@ async def test_the_room_keeps_going_while_a_start_is_in_progress(
     assert await selection.current_selection() is None
     await service.stop_sing()
     await service.wait_for_sing_end()
+
+
+# --- the reel on the host screen ---------------------------------------------------------
+
+
+async def test_a_spin_opens_the_selection_on_a_song_the_server_picked(
+    client: AsyncClient,
+    session: AsyncSession,
+    configured: FakeUsdx,
+    song: str,
+    monkeypatch: pytest.MonkeyPatch,
+    broadcast_events: list[dict[str, object]],
+) -> None:
+    """The phone names a scope and the server picks: the selection opens on that song with
+    the reel's first spin on it, and the room hears about the spin like about everything
+    else — the viewer it was picked for excepted."""
+    other = await add_second_song(session, configured)
+    pools = pick_last(monkeypatch)
+    alice = await add_player(client, "Alice")
+
+    opened = await open_spin(client, "all", slots=[{"color": "red", "player_id": alice["id"]}])
+
+    assert opened["selection"]["song"]["id"] == max(song, other)
+    assert pools == [sorted([song, other])]
+    spin = opened["selection"]["spin"]
+    assert spin["id"] == 1
+    assert spin["scope"] == "all"
+    assert spin["playlist_id"] is None
+    assert spin["spun_at"] is not None
+    assert "viewer" not in spin
+    # A spin is a selection like any other: the slots, the token, the countdown that is not.
+    assert player_names(opened["selection"]["slots"]) == [None, "Alice", None, None]
+    assert opened["selection"]["auto_start_at"] is None
+    assert opened["token"]
+    events = selection_events(broadcast_events)
+    assert events[-1]["selection"]["spin"]["id"] == 1
+    assert "viewer" not in events[-1]["selection"]["spin"]
+    # And a selection opened with a song carries no spin at all.
+    plain = await open_selection(client, song, force=True)
+    assert plain["selection"]["spin"] is None
+
+
+async def test_every_scope_picks_out_of_its_own_pool(
+    client: AsyncClient,
+    session: AsyncSession,
+    configured: FakeUsdx,
+    song: str,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """What each scope has to choose from, as the phone's own reel documents it: the hearts
+    of the caller, the wished songs once each or as often as they were wished for, and the
+    songs of one playlist."""
+    other = await add_second_song(session, configured)
+    pools = pick_last(monkeypatch)
+    assert (await client.put(f"/api/v1/favorites/{other}")).status_code == 204
+    assert (await client.post("/api/v1/wishlist", json={"song_id": song})).status_code == 201
+    assert (await client.post("/api/v1/wishlist", json={"song_id": other})).status_code == 201
+    # A second wish for the fixture's song, from a phone with no account.
+    session.add(Wish(song_id=song, guest_id="a-guest-cookie"))
+    await session.commit()
+    created = await client.post("/api/v1/playlists", json={"name": "Party"})
+    assert created.status_code == 201, created.text
+    playlist_id = created.json()["id"]
+    entry = await client.post(f"/api/v1/playlists/{playlist_id}/entries", json={"song_id": song})
+    assert entry.status_code == 201, entry.text
+
+    favorites = await open_spin(client, "favorites")
+    assert favorites["selection"]["song"]["id"] == other
+    wishlist = await open_spin(client, "wishlist", force=True)
+    assert wishlist["selection"]["song"]["id"] == max(song, other)
+    weighted = await open_spin(client, "weighted", force=True)
+    assert weighted["selection"]["song"]["id"] == max(song, other)
+    playlist = await open_spin(client, "playlist", playlist_id=playlist_id, force=True)
+    assert playlist["selection"]["song"]["id"] == song
+    assert playlist["selection"]["spin"]["playlist_id"] == playlist_id
+
+    # The pools themselves: a wished song counts once on the wishlist and as often as it was
+    # wished for when weighted, and the candidates are sorted before every choice.
+    assert pools == [
+        [other],
+        sorted([song, other]),
+        sorted([song, song, other]),
+        [song],
+    ]
+
+
+async def test_a_spin_over_nothing_is_refused(
+    bootstrap_settings: BootstrapSettings, client: AsyncClient, song: str
+) -> None:
+    """A wishlist nobody wished on, the favorites of a phone with no account behind it, and
+    a playlist nobody can see: nothing to land on, and the room stays as it was."""
+    nothing_wished = await client.post(
+        "/api/v1/karaoke/selection", json={"spin": {"scope": "wishlist"}}
+    )
+    assert nothing_wished.status_code == 409
+    assert nothing_wished.json() == {"detail": "empty_pool"}
+    # An unknown playlist is the same 404 its own route answers — never a pool.
+    unknown = await client.post(
+        "/api/v1/karaoke/selection", json={"spin": {"scope": "playlist", "playlist_id": "gone"}}
+    )
+    assert unknown.status_code == 404
+    assert (await client.get("/api/v1/karaoke/selection")).json() == {"selection": None}
+
+    app = create_app(bootstrap_settings)
+    async with (
+        app.router.lifespan_context(app),
+        AsyncClient(transport=ASGITransport(app=app), base_url=BASE_URL) as guest,
+    ):
+        no_account = await guest.post(
+            "/api/v1/karaoke/selection", json={"spin": {"scope": "favorites"}}
+        )
+        assert no_account.status_code == 409
+        assert no_account.json() == {"detail": "empty_pool"}
+        # Every song is a pool that always has this song in it.
+        assert (await open_spin(guest, "all"))["selection"]["song"]["id"] == song
+
+
+async def test_a_spin_at_an_open_room_answers_that_somebody_is_picking(
+    client: AsyncClient, song: str
+) -> None:
+    """The lock comes first: a phone whose wishlist is empty has to be told to take over,
+    not that its pool is."""
+    await open_selection(client, song)
+
+    refused = await client.post("/api/v1/karaoke/selection", json={"spin": {"scope": "wishlist"}})
+
+    assert refused.status_code == 409
+    assert refused.json() == {"detail": "selection_open"}
+
+
+async def test_a_selection_needs_a_song_or_a_spin_and_not_both(
+    client: AsyncClient, song: str
+) -> None:
+    for body in (
+        {},
+        {"song_id": song, "spin": {"scope": "all"}},
+        # A playlist id goes with the playlist scope, and only there.
+        {"spin": {"scope": "playlist"}},
+        {"spin": {"scope": "all", "playlist_id": "x"}},
+        {"spin": {"scope": "somewhere"}},
+    ):
+        response = await client.post("/api/v1/karaoke/selection", json=body)
+        assert response.status_code == 422, body
+    assert (await client.get("/api/v1/karaoke/selection")).json() == {"selection": None}
+
+
+async def test_all_songs_leaves_out_what_a_tag_folds_away_and_the_wishlist_does_not(
+    client: AsyncClient,
+    session: AsyncSession,
+    configured: FakeUsdx,
+    song: str,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """The reel is the song list in another shape: *All songs* keeps back what the list keeps
+    back until somebody asks. A wish is somebody asking, so the wishlist scope spins the
+    folded-away song all the same."""
+    other = await add_second_song(session, configured)
+    folded, kept = max(song, other), min(song, other)
+    pick_last(monkeypatch)
+    tag = await client.post(
+        "/api/v1/tags", json={"name": "archive", "color": "neutral", "hide_by_default": True}
+    )
+    assert tag.status_code == 201, tag.text
+    assert (await client.put(f"/api/v1/songs/{folded}/tags/{tag.json()['id']}")).status_code == 204
+    assert (await client.post("/api/v1/wishlist", json={"song_id": folded})).status_code == 201
+
+    everything = await open_spin(client, "all")
+    assert everything["selection"]["song"]["id"] == kept
+
+    wished = await open_spin(client, "wishlist", force=True)
+    assert wished["selection"]["song"]["id"] == folded
+
+
+async def test_a_song_hidden_altogether_wins_in_no_scope(
+    client: AsyncClient,
+    session: AsyncSession,
+    configured: FakeUsdx,
+    song: str,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """A tag whose `view_songs` the caller does not hold hides the song everywhere, the reel
+    included — a wish for it notwithstanding. Spun as the guest the start button is, through
+    the service: the admin client sees everything."""
+    other = await add_second_song(session, configured)
+    hidden, seen = max(song, other), min(song, other)
+    pick_last(monkeypatch)
+    listed = await client.get("/api/v1/tags")
+    broken = next(tag for tag in listed.json()["tags"] if tag["name"] == "broken")
+    assert (await client.put(f"/api/v1/songs/{hidden}/tags/{broken['id']}")).status_code == 204
+    assert (await client.post("/api/v1/wishlist", json={"song_id": hidden})).status_code == 201
+    assert (await client.post("/api/v1/wishlist", json={"song_id": seen})).status_code == 201
+
+    for scope in ("all", "wishlist", "weighted"):
+        opened, _ = await selection.open_selection(
+            session, None, [], force=True, spin=selection.Spin(scope=scope, viewer=GUEST)
+        )
+        assert opened.song.id == seen, scope
+
+
+async def test_spinning_again_keeps_the_slots_and_bumps_the_id(
+    client: AsyncClient,
+    session: AsyncSession,
+    configured: FakeUsdx,
+    song: str,
+    monkeypatch: pytest.MonkeyPatch,
+    broadcast_events: list[dict[str, object]],
+) -> None:
+    """The people are the same, only the song was wrong. The host screen animates on the
+    new id; the phone reveals the song when that reel lands."""
+    other = await add_second_song(session, configured)
+    pools = pick_last(monkeypatch)
+    alice = await add_player(client, "Alice")
+    opened = await open_spin(client, "all", slots=[{"color": "red", "player_id": alice["id"]}])
+    first = opened["selection"]["spin"]
+
+    response = await respin(client, opened["token"])
+
+    assert response.status_code == 200, response.text
+    again = response.json()
+    assert again["spin"]["id"] == 2
+    assert again["spin"]["scope"] == "all"
+    assert again["spin"]["spun_at"] >= first["spun_at"]
+    assert again["song"]["id"] == max(song, other)
+    assert player_names(again["slots"]) == [None, "Alice", None, None]
+    assert again["auto_start_at"] is None
+    assert len(pools) == 2
+    assert selection_events(broadcast_events)[-1]["selection"]["spin"]["id"] == 2
+    # The same selection all along: a phone watching `opened_at` sees no take-over.
+    assert again["opened_at"] == opened["selection"]["opened_at"]
+
+
+async def test_spinning_again_takes_the_openers_token_and_a_spun_selection(
+    client: AsyncClient, song: str
+) -> None:
+    gone = await respin(client, "nope")
+    assert gone.status_code == 404
+    assert gone.json() == {"detail": "no_selection"}
+
+    opened = await open_spin(client, "all")
+    for token in (None, "nope"):
+        stale = await respin(client, token)
+        assert stale.status_code == 409, token
+        assert stale.json() == {"detail": "not_the_opener"}
+    assert (await client.get("/api/v1/karaoke/selection")).json()["selection"]["spin"]["id"] == 1
+
+    # A selection opened with a song has no scope to pick from again.
+    plain = await open_selection(client, song, force=True)
+    refused = await respin(client, plain["token"])
+    assert refused.status_code == 409
+    assert refused.json() == {"detail": "not_a_spin"}
+    assert opened["token"] != plain["token"]
+
+
+async def test_a_scope_that_ran_dry_leaves_the_selection_standing(
+    client: AsyncClient, song: str
+) -> None:
+    """The last wish was taken back between the spin and the respin. The song it landed on
+    stays: the phone can still press Play on it."""
+    assert (await client.post("/api/v1/wishlist", json={"song_id": song})).status_code == 201
+    opened = await open_spin(client, "wishlist")
+    assert (await client.delete(f"/api/v1/wishlist/{song}")).status_code == 204
+
+    refused = await respin(client, opened["token"])
+
+    assert refused.status_code == 409
+    assert refused.json() == {"detail": "empty_pool"}
+    current = (await client.get("/api/v1/karaoke/selection")).json()["selection"]
+    assert current["song"]["id"] == song
+    assert current["spin"]["id"] == 1
+
+
+async def test_a_spun_selection_never_counts_down(
+    session: AsyncSession,
+    session_factory: async_sessionmaker[AsyncSession],
+    configured: FakeUsdx,
+    song: str,
+) -> None:
+    """Everybody is standing at the selector with their card down, and the automatic start
+    is on — and the song was spun. Pressing until the song is right must not race a
+    countdown, so nothing counts, neither on opening nor when a card fills the room later."""
+    alice = await add_player_row(session, "Alice")
+    bob = await add_player_row(session, "Bob")
+    await SettingsService(session).set("karaoke.player_colors", TWO_SLOTS)
+    now = selection.AutoStart(delay_s=0)
+
+    await selection.open_selection(
+        session,
+        None,
+        [],
+        device_slots={
+            "blue": selection.CardOnSlot(uid="A1", player_id=alice),
+            "red": selection.CardOnSlot(uid="B2", player_id=bob),
+        },
+        session_factory=session_factory,
+        auto_start=now,
+        spin=selection.Spin(scope="all", viewer=GUEST),
+    )
+
+    await selection.wait_for_auto_start()
+    full = await selection.current_selection()
+    assert full is not None and full.auto_start_at is None
+    assert player_names(await current_slots()) == ["Alice", "Bob"]
+    assert not configured.argv_file.exists()
+
+    # A card lifted and put back down: the room is full again, and still nothing counts.
+    await selection.card_removed_from_slot("red", "B2")
+    await selection.card_placed_on_slot(session_factory, "red", "B2", bob, auto_start=now)
+    await selection.wait_for_auto_start()
+    refilled = await selection.current_selection()
+    assert refilled is not None and refilled.auto_start_at is None
+    assert not configured.argv_file.exists()
+
+
+async def test_the_start_button_spins_again_at_an_empty_spun_room_and_starts_a_full_one(
+    session: AsyncSession,
+    session_factory: async_sessionmaker[AsyncSession],
+    configured: FakeUsdx,
+    song: str,
+    broadcast_events: list[dict[str, object]],
+) -> None:
+    """The next press is the confirmation — when there is somebody to sing. With nobody on
+    any slot it is the room saying "another one"."""
+    alice = await add_player_row(session, "Alice")
+    await SettingsService(session).set("karaoke.player_colors", TWO_SLOTS)
+    await selection.open_selection(
+        session, None, [], spin=selection.Spin(scope="all", viewer=GUEST)
+    )
+
+    await selection.button_pressed(session, session_factory, "start")
+
+    spun = await selection.current_selection()
+    assert spun is not None and spun.spin is not None and spun.spin.id == 2
+    assert not configured.argv_file.exists()
+    assert selection_events(broadcast_events)[-1]["selection"]["spin"]["id"] == 2
+
+    # An unknown card is nobody to sing: still a respin.
+    await selection.card_placed_on_slot(session_factory, "blue", "X9")
+    await selection.button_pressed(session, session_factory, "start")
+    unknown = await selection.current_selection()
+    assert unknown is not None and unknown.spin is not None and unknown.spin.id == 3
+    assert not configured.argv_file.exists()
+
+    await selection.card_placed_on_slot(session_factory, "blue", "A1", alice)
+    await selection.button_pressed(session, session_factory, "start")
+
+    await wait_for(configured.argv_file)
+    assert await selection.current_selection() is None
+    assert any(event["event"] == "karaoke.started" for event in broadcast_events)
+    await service.wait_for_sing_end()
+
+
+async def test_the_start_button_at_a_quiet_room_spins_without_a_card(
+    session: AsyncSession,
+    session_factory: async_sessionmaker[AsyncSession],
+    configured: FakeUsdx,
+    song: str,
+    broadcast_events: list[dict[str, object]],
+) -> None:
+    """`random` at a quiet room spins the reel on the host screen, cards or none, and starts
+    nothing: a token nobody holds, so a phone takes it over as it would anybody else's."""
+    await SettingsService(session).set("karaoke.player_colors", TWO_SLOTS)
+
+    await selection.button_pressed(
+        session,
+        session_factory,
+        "start",
+        without_selection=selection.StartWithoutSelection(mode="random"),
+    )
+
+    spun = await selection.current_selection()
+    assert spun is not None
+    assert spun.song.id == song
+    assert spun.spin is not None and spun.spin.id == 1 and spun.spin.scope == "all"
+    assert player_names(await current_slots()) == [None, None]
+    assert spun.auto_start_at is None
+    assert not configured.argv_file.exists()
+    assert selection_events(broadcast_events)[-1]["selection"]["spin"]["id"] == 1
+    # The room is locked like behind any other selection, and `force` is the way in.
+    with pytest.raises(selection.SelectionOpenError):
+        await selection.open_selection(session, song, [])
+    await selection.open_selection(session, song, [], force=True)
+
+
+async def test_the_start_button_seeds_the_spun_selection_with_the_cards(
+    session: AsyncSession,
+    session_factory: async_sessionmaker[AsyncSession],
+    configured: FakeUsdx,
+    song: str,
+) -> None:
+    alice = await add_player_row(session, "Alice")
+    await SettingsService(session).set("karaoke.player_colors", TWO_SLOTS)
+
+    await selection.button_pressed(
+        session,
+        session_factory,
+        "start",
+        without_selection=selection.StartWithoutSelection(
+            mode="random",
+            cards={
+                "blue": selection.CardOnSlot(uid="A1", player_id=alice),
+                "red": selection.CardOnSlot(uid="B2", player_id=None),
+            },
+        ),
+    )
+
+    slots = await current_slots()
+    assert player_names(slots) == ["Alice", None]
+    assert [slot["card_uid"] for slot in slots] == ["A1", "B2"]
+    # Seeded, not started: the room presses again once it likes the song.
+    assert not configured.argv_file.exists()
+
+
+async def test_a_random_playlist_that_is_gone_falls_back_to_every_song(
+    session: AsyncSession,
+    session_factory: async_sessionmaker[AsyncSession],
+    configured: FakeUsdx,
+    song: str,
+) -> None:
+    """The host chose a playlist and deleted it since. The press spins all the same, out of
+    every song, and says so — a respin then picks out of the same everything."""
+    await selection.button_pressed(
+        session,
+        session_factory,
+        "start",
+        without_selection=selection.StartWithoutSelection(
+            mode="random", scope="playlist", playlist_id="gone"
+        ),
+    )
+
+    spun = await selection.current_selection()
+    assert spun is not None and spun.spin is not None
+    assert spun.song.id == song
+    assert spun.spin.scope == "all"
+    assert spun.spin.playlist_id is None
+
+
+async def test_the_start_button_at_a_quiet_room_with_nothing_to_spin_to_stays_quiet(
+    session: AsyncSession, session_factory: async_sessionmaker[AsyncSession], song: str
+) -> None:
+    """Nobody wished for anything: nothing to land on, and nobody to tell but the log."""
+    await selection.button_pressed(
+        session,
+        session_factory,
+        "start",
+        without_selection=selection.StartWithoutSelection(mode="random", scope="wishlist"),
+    )
+
+    assert await selection.current_selection() is None

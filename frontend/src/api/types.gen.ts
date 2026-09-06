@@ -677,10 +677,21 @@ export type DeviceSettings = {
      * Start Without Selection
      */
     start_without_selection: string;
+    /**
+     * Random Scope
+     */
+    random_scope: string;
+    /**
+     * Random Playlist
+     */
+    random_playlist: string;
 };
 
 /**
  * DeviceSettingsUpdate
+ *
+ * Every field optional: a PATCH only touches what it names. The field names are the
+ * settings keys without their `devices.` prefix — the handler builds the key from them.
  */
 export type DeviceSettingsUpdate = {
     /**
@@ -703,6 +714,14 @@ export type DeviceSettingsUpdate = {
      * Start Without Selection
      */
     start_without_selection?: string | null;
+    /**
+     * Random Scope
+     */
+    random_scope?: string | null;
+    /**
+     * Random Playlist
+     */
+    random_playlist?: string | null;
 };
 
 /**
@@ -1671,7 +1690,8 @@ export type SelectionCreate = {
     /**
      * Song Id
      */
-    song_id: string;
+    song_id?: string | null;
+    spin?: SpinRequest | null;
     /**
      * Slots
      */
@@ -1722,6 +1742,7 @@ export type SelectionRead = {
      * Auto Start At
      */
     auto_start_at: string | null;
+    spin?: SpinRead | null;
 };
 
 /**
@@ -2188,6 +2209,51 @@ export type SongSelector = {
      * Clauses
      */
     clauses?: Array<SelectorClause>;
+};
+
+/**
+ * SpinRead
+ *
+ * The reel that picked the selection's song, for a selection the server spun.
+ *
+ * `id` is 1 on opening and one more on every respin: the host screen animates a new spin
+ * on a new id and nothing else, and `spun_at` is when it started — the phone reveals the
+ * song when the reel on the TV lands, a fixed few seconds after that. Whose hidden tags and
+ * hearts the pick was made with is not in here; that stays with the selection.
+ */
+export type SpinRead = {
+    /**
+     * Id
+     */
+    id: number;
+    /**
+     * Spun At
+     */
+    spun_at: string;
+    /**
+     * Scope
+     */
+    scope: 'all' | 'favorites' | 'wishlist' | 'weighted' | 'playlist';
+    /**
+     * Playlist Id
+     */
+    playlist_id: string | null;
+};
+
+/**
+ * SpinRequest
+ *
+ * Let the server pick the song: the reel's scope, and the playlist for `playlist`.
+ */
+export type SpinRequest = {
+    /**
+     * Scope
+     */
+    scope: 'all' | 'favorites' | 'wishlist' | 'weighted' | 'playlist';
+    /**
+     * Playlist Id
+     */
+    playlist_id?: string | null;
 };
 
 /**
@@ -3584,11 +3650,11 @@ export type OpenPlayerSelectionData = {
 
 export type OpenPlayerSelectionErrors = {
     /**
-     * Unknown song or player.
+     * Unknown song, player or playlist.
      */
     404: unknown;
     /**
-     * Somebody else is picking singers and `force` was not set.
+     * Somebody else is picking singers and `force` was not set (`selection_open`), or the spin's scope has nothing in it (`empty_pool`).
      */
     409: unknown;
     /**
@@ -3640,6 +3706,45 @@ export type SetPlayerSelectionSlotsResponses = {
 };
 
 export type SetPlayerSelectionSlotsResponse = SetPlayerSelectionSlotsResponses[keyof SetPlayerSelectionSlotsResponses];
+
+export type SpinPlayerSelectionData = {
+    body?: never;
+    headers?: {
+        /**
+         * X-Selection-Token
+         */
+        'X-Selection-Token'?: string | null;
+    };
+    path?: never;
+    query?: never;
+    url: '/api/v1/karaoke/selection/spin';
+};
+
+export type SpinPlayerSelectionErrors = {
+    /**
+     * Nothing is being picked.
+     */
+    404: unknown;
+    /**
+     * Somebody else has taken the selection over (`not_the_opener`), the selection was opened with a song (`not_a_spin`), or the scope has run dry (`empty_pool`).
+     */
+    409: unknown;
+    /**
+     * Validation Error
+     */
+    422: HttpValidationError;
+};
+
+export type SpinPlayerSelectionError = SpinPlayerSelectionErrors[keyof SpinPlayerSelectionErrors];
+
+export type SpinPlayerSelectionResponses = {
+    /**
+     * Successful Response
+     */
+    200: SelectionRead;
+};
+
+export type SpinPlayerSelectionResponse = SpinPlayerSelectionResponses[keyof SpinPlayerSelectionResponses];
 
 export type StartPlayerSelectionData = {
     body: SelectionStart;
@@ -6062,7 +6167,7 @@ export type UpdateDeviceSettingsData = {
 
 export type UpdateDeviceSettingsErrors = {
     /**
-     * A delay or an idle time outside its range, or an unknown mode.
+     * A delay or an idle time outside its range, an unknown mode or scope, or a playlist id too long to be one.
      */
     422: unknown;
 };

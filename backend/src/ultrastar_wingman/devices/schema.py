@@ -96,6 +96,10 @@ class DeviceSettings(BaseModel):
     rescan_removes: bool
     selection_idle_s: int
     start_without_selection: str
+    # What a `random` start press spins over (`settings.RANDOM_SCOPES`), and the playlist
+    # for the `playlist` scope — the empty string while none is chosen.
+    random_scope: str
+    random_playlist: str
 
 
 class DeviceStatus(BaseModel):

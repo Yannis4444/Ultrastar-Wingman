@@ -291,6 +291,29 @@ async def hidden_song_ids(session: AsyncSession, viewer: Viewer) -> frozenset[st
     )
 
 
+async def folded_song_ids(session: AsyncSession, viewer: Viewer) -> frozenset[str]:
+    """Every song a `hide_by_default` tag folds away for this caller — the songs the song
+    list keeps back until they ask, and the reel's *All songs* never lands on.
+
+    A default and not a permission, so it is only ever applied to *this* caller's own
+    copy of the phone's rule: a tag folds its songs away for the people who may `view` it
+    (the client builds its criteria over the tags it can see, `tags.ts`'s
+    `defaultTagCriteria`). A tag the caller may not know about folds nothing — and if it
+    also keeps its songs back, that is `hidden_song_ids`, the stricter set, which every
+    reel scope applies on top of this one.
+    """
+    folding = list(await session.scalars(select(Tag.id).where(Tag.hide_by_default.is_(True))))
+    if not folding:
+        return frozenset()
+    rows = await permission_rows(session, folding)
+    viewable = [tag_id for tag_id in folding if allowed(rows.get(tag_id, []), "view", viewer)]
+    if not viewable:
+        return frozenset()
+    return frozenset(
+        await session.scalars(select(SongTag.song_id).where(SongTag.tag_id.in_(viewable)))
+    )
+
+
 async def assignments(
     session: AsyncSession, viewer: Viewer, hidden: frozenset[str], manages: bool
 ) -> list[TagAssignment]:

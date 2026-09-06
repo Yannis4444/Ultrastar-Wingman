@@ -85,11 +85,16 @@ class CardAssign(BaseModel):
 
 
 class DeviceSettingsUpdate(BaseModel):
+    """Every field optional: a PATCH only touches what it names. The field names are the
+    settings keys without their `devices.` prefix — the handler builds the key from them."""
+
     auto_start: bool | None = None
     auto_start_delay_s: int | None = None
     rescan_removes: bool | None = None
     selection_idle_s: int | None = None
     start_without_selection: str | None = None
+    random_scope: str | None = None
+    random_playlist: str | None = None
 
 
 def get_session_factory(request: Request) -> async_sessionmaker[AsyncSession]:
@@ -295,12 +300,21 @@ async def get_device_settings(session: SessionDep) -> DeviceSettings:
     response_model=DeviceSettings,
     dependencies=[Depends(require("devices.manage"))],
     responses={
-        422: {"description": "A delay or an idle time outside its range, or an unknown mode."}
+        422: {
+            "description": (
+                "A delay or an idle time outside its range, an unknown mode or scope, or a "
+                "playlist id too long to be one."
+            )
+        }
     },
 )
 async def update_device_settings(body: DeviceSettingsUpdate, session: SessionDep) -> DeviceSettings:
     """Switch the automatic start on, retime it, decide what a second scan does, say how
-    long a half-picked song may stand, or say what the start button does at a quiet room.
+    long a half-picked song may stand, or say what the start button does at a quiet room —
+    and, for a random song, what it spins the reel over.
+
+    The playlist is not checked against the table: it may be deleted after it was chosen,
+    and the press falls back to every song then rather than the setting refusing to save.
 
     Registered before `PATCH /devices/{device_id}` for the same reason as the settings
     listing above.

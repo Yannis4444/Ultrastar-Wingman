@@ -77,6 +77,9 @@ ROUTES: list[tuple[str, str, str, dict[str, object] | None]] = [
     ("songs.view", "GET", "/api/v1/karaoke/selection", None),
     ("karaoke.sing", "PUT", "/api/v1/karaoke/selection/slots", {"token": "nope", "slots": []}),
     ("karaoke.sing", "POST", "/api/v1/karaoke/selection/start", {"token": "nope"}),
+    # Spinning the reel again. The token rides in `X-Selection-Token` and this matrix sends
+    # none, so a permitted caller gets the 404 for a room where nothing is being picked.
+    ("karaoke.sing", "POST", "/api/v1/karaoke/selection/spin", None),
     # Giving a selection up. The token rides in `X-Selection-Token` and this matrix sends
     # none, so a `karaoke.sing` holder gets the 204 for a room where nothing is being picked
     # and the row stays about the capability. Closing somebody else's takes `karaoke.stop`,
