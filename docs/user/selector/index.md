@@ -19,5 +19,5 @@ on its own once every slot is filled.
   and the hardware that gives trouble.
 - Set up the device: flash the firmware, give it your Wi-Fi and the karaoke
   PC's address, then map its readers onto your slots.
-- Cards and players: which card belongs to whom, several cards per person, and
-  what happens with a card Wingman does not know.
+- [Cards and players](cards.md): which card belongs to whom, several cards per
+  person, and what happens with a card Wingman does not know.
