@@ -9,14 +9,21 @@ import type {
 import { meResponse } from "../test/auth";
 import { FakeSocket } from "../test/fakeSocket";
 import HostSelection, { type HostSelectionPhase } from "./HostSelection";
+import { REVEAL_MS } from "./SongReel";
 
-const { getMe, getPlayerSelection, getCurrentSing, listKaraokeColors } =
-  vi.hoisted(() => ({
-    getMe: vi.fn(),
-    getPlayerSelection: vi.fn(),
-    getCurrentSing: vi.fn(),
-    listKaraokeColors: vi.fn(),
-  }));
+const {
+  getMe,
+  getPlayerSelection,
+  getCurrentSing,
+  listKaraokeColors,
+  listSongs,
+} = vi.hoisted(() => ({
+  getMe: vi.fn(),
+  getPlayerSelection: vi.fn(),
+  getCurrentSing: vi.fn(),
+  listKaraokeColors: vi.fn(),
+  listSongs: vi.fn(),
+}));
 
 vi.mock("../api/sdk.gen", async (importOriginal) => ({
   ...(await importOriginal<typeof import("../api/sdk.gen")>()),
@@ -24,6 +31,7 @@ vi.mock("../api/sdk.gen", async (importOriginal) => ({
   getPlayerSelection,
   getCurrentSing,
   listKaraokeColors,
+  listSongs,
 }));
 
 const SONG: SongRead = {
@@ -39,6 +47,13 @@ const SONG: SongRead = {
   year: 1976,
   edition: null,
   creator: null,
+};
+
+const AFRICA: SongRead = {
+  ...SONG,
+  id: "usdb:2",
+  title: "Africa",
+  artist: "Toto",
 };
 
 const ALICE = {
@@ -115,6 +130,7 @@ beforeEach(() => {
   getMe.mockResolvedValue(meResponse(["songs.view"]));
   getPlayerSelection.mockResolvedValue({ data: { selection: null } });
   getCurrentSing.mockResolvedValue({ data: { sing: null } });
+  listSongs.mockResolvedValue({ data: { songs: [SONG, AFRICA] } });
   listKaraokeColors.mockResolvedValue({
     data: {
       colors: [
@@ -257,4 +273,131 @@ test("the automatic start counts down in words", async () => {
   // reading "Starting in 0…" says it already went.
   act(() => vi.advanceTimersByTime(3000));
   expect(screen.getByText("Starting in 1…")).toBeInTheDocument();
+});
+
+/** A selection the room spun for: the server's pick, and the spin on it. */
+function spun(
+  id: number,
+  spunAt: number,
+  extra: Partial<SelectionRead> = {},
+): SelectionRead {
+  return selection({
+    spin: {
+      id,
+      spun_at: new Date(spunAt).toISOString(),
+      scope: "all",
+      playlist_id: null,
+    },
+    ...extra,
+  });
+}
+
+/** The cover of every reel entry, top (winner) to bottom. */
+function reelSongIds(): string[] {
+  return [...document.querySelectorAll<HTMLImageElement>(".spinner-reel img")]
+    .map((cover) => cover.getAttribute("src") ?? "")
+    .map((source) => decodeURIComponent(source.split("/")[4] ?? ""));
+}
+
+const heading = () => screen.queryByRole("heading", { name: "Dancing Queen" });
+
+test("a spun selection puts the reel where the cover is and holds the song back until it lands", async () => {
+  vi.useFakeTimers({ shouldAdvanceTime: true });
+  getPlayerSelection.mockResolvedValue({
+    data: { selection: spun(1, Date.now()) },
+  });
+  renderStage();
+
+  expect(await screen.findByText("Spinning…")).toBeInTheDocument();
+  // The reel stands in the cover's place, built from the library's covers and
+  // landing on the pick.
+  expect(document.querySelector(".host-selection-cover")).toBeNull();
+  await waitFor(() => expect(reelSongIds().length).toBeGreaterThan(40));
+  expect(reelSongIds()[0]).toBe("usdb:1");
+  expect(new Set(reelSongIds())).toEqual(new Set(["usdb:1", "usdb:2"]));
+  // The song is held back — out of the accessibility tree, not out of the
+  // layout — and the line says what the room is watching.
+  expect(heading()).toBeNull();
+  expect(screen.getByText("Dancing Queen")).toHaveClass("host-selection-held");
+  expect(screen.queryByText("Picking singers")).not.toBeInTheDocument();
+  // The cards are along the foot the whole time.
+  expect(rows()).toEqual(["Alice", "empty", "Unknown card"]);
+
+  act(() => vi.advanceTimersByTime(REVEAL_MS));
+
+  expect(heading()).not.toBeNull();
+  expect(screen.getByText("Dancing Queen")).not.toHaveClass(
+    "host-selection-held",
+  );
+  expect(screen.getByText("ABBA")).toBeInTheDocument();
+  expect(screen.getByText("Picking singers")).toBeInTheDocument();
+  expect(screen.queryByText("Spinning…")).not.toBeInTheDocument();
+  // Landed: one cover, at rest.
+  expect(reelSongIds()).toEqual(["usdb:1"]);
+});
+
+test("a host that comes in after the reel landed draws it settled", async () => {
+  getPlayerSelection.mockResolvedValue({
+    data: { selection: spun(1, Date.now() - REVEAL_MS - 1000) },
+  });
+  renderStage();
+
+  await screen.findByText("Picking singers");
+  expect(heading()).not.toBeNull();
+  expect(screen.queryByText("Spinning…")).not.toBeInTheDocument();
+  // No spin to watch: the winner alone, at rest, in the reel's frame.
+  expect(reelSongIds()).toEqual(["usdb:1"]);
+  expect(document.querySelector(".host-selection-reel")).not.toBeNull();
+});
+
+test("a respin runs the reel again, and so does a fresh selection's first spin", async () => {
+  vi.useFakeTimers({ shouldAdvanceTime: true });
+  getPlayerSelection.mockResolvedValue({
+    data: { selection: spun(1, Date.now()) },
+  });
+  renderStage();
+  await screen.findByText("Spinning…");
+  act(() => vi.advanceTimersByTime(REVEAL_MS));
+  expect(heading()).not.toBeNull();
+
+  // Somebody pressed Spin again: the same selection, spin number two.
+  broadcast(
+    spun(2, Date.now(), {
+      song: AFRICA,
+      updated_at: "2026-09-06T20:00:09.000Z",
+    }),
+  );
+  expect(await screen.findByText("Spinning…")).toBeInTheDocument();
+  expect(screen.queryByRole("heading", { name: "Africa" })).toBeNull();
+  act(() => vi.advanceTimersByTime(REVEAL_MS));
+  expect(screen.getByRole("heading", { name: "Africa" })).toBeInTheDocument();
+
+  // Later in the evening a new selection is spun. Its first spin is number
+  // one again, and it has to run: the block never unmounted in between.
+  broadcast(null);
+  await waitFor(() =>
+    expect(screen.queryByLabelText("Picking singers")).not.toBeInTheDocument(),
+  );
+  broadcast(
+    spun(1, Date.now(), {
+      opened_at: "2026-09-06T21:00:00.000Z",
+      updated_at: "2026-09-06T21:00:00.000Z",
+    }),
+  );
+  expect(await screen.findByText("Spinning…")).toBeInTheDocument();
+  expect(heading()).toBeNull();
+});
+
+test("no countdown ever shows on a spun selection", async () => {
+  getPlayerSelection.mockResolvedValue({
+    data: {
+      selection: spun(1, Date.now() - REVEAL_MS - 1000, {
+        auto_start_at: new Date(Date.now() + 3000).toISOString(),
+      }),
+    },
+  });
+  renderStage();
+
+  await screen.findByText("Picking singers");
+  expect(screen.queryByText(/^Starting in/)).not.toBeInTheDocument();
 });

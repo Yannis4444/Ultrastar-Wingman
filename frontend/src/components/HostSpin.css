@@ -1,0 +1,125 @@
+/* The phone's side of a spin on the host screen, in the player selection's
+   shape: the same fullscreen modal, the same phone-width column, the head, the
+   one thing in the middle and the actions pinned at the foot. Nothing here is a
+   reel — the animation is the TV's — so the middle holds a line, then a title
+   and an artist, and nothing else. */
+.host-spin {
+  flex: 1 1 auto;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  box-sizing: border-box;
+  width: 100%;
+  max-width: 500px;
+  margin: 0 auto;
+  padding: 0 16px;
+}
+
+/*region head*/
+
+.host-spin-head {
+  flex: 0 0 auto;
+}
+
+/* `p` carries a 16px page margin it must not add to the modal's own gutter. */
+.host-spin-error {
+  margin: 8px 0 0 0;
+}
+
+/* Somebody else holds the room's selection, or this phone's is gone: the
+   sentence and the one way out of it, stacked so the button keeps its own
+   width on a 360px screen. */
+.host-spin-taken {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 8px;
+  margin-top: 12px;
+}
+
+.host-spin-taken-line {
+  margin: 0;
+  color: var(--color-dark);
+}
+
+/*endregion*/
+/*region song*/
+
+/* The middle of the screen, where the reel would be if the phone had one: the
+   wait, then the pick. Centered both ways, so the words stand where the eye
+   comes back to from the TV. */
+.host-spin-song {
+  flex: 1 1 auto;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 4px;
+  text-align: center;
+}
+
+.host-spin-waiting {
+  margin: 0;
+  color: var(--color-darker);
+}
+
+/* The Random song page's result lines, a size up: this is the whole screen,
+   and there is no cover beside them to share it with. */
+.host-spin-title {
+  max-width: 100%;
+  margin: 0;
+  overflow: hidden;
+  font-size: 1.4em;
+  font-weight: bold;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  color: var(--color);
+  animation: host-spin-rise 0.3s ease-out;
+}
+
+.host-spin-artist {
+  max-width: 100%;
+  margin: 0;
+  overflow: hidden;
+  font-size: 1em;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  color: var(--color-darker);
+  animation: host-spin-rise 0.3s ease-out;
+}
+
+@keyframes host-spin-rise {
+  from {
+    opacity: 0;
+    transform: translateY(6px);
+  }
+}
+
+/*endregion*/
+/*region foot*/
+
+.host-spin-foot {
+  flex: 0 0 auto;
+  padding-bottom: env(safe-area-inset-bottom, 0px);
+}
+
+.host-spin-actions {
+  display: flex;
+  gap: 8px;
+}
+
+.host-spin-actions > button {
+  flex: 1 1 0;
+  min-width: 0;
+}
+
+/*endregion*/
+
+@media (prefers-reduced-motion: reduce) {
+  .host-spin-title,
+  .host-spin-artist {
+    animation: none;
+  }
+}

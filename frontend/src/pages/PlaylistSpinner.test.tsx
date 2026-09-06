@@ -1,19 +1,30 @@
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import { render, screen } from "@testing-library/react";
+import { fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { MemoryRouter, Route, Routes } from "react-router-dom";
 import type { MeRead, PlaylistDetail, SongRead } from "../api";
 import { meResponse, userRead } from "../test/auth";
 import { FakeSocket } from "../test/fakeSocket";
 import PlaylistSpinner from "./PlaylistSpinner";
 
-const { getMe, getPlaylist, listSongs, listWishlist, listFavorites } =
-  vi.hoisted(() => ({
-    getMe: vi.fn(),
-    getPlaylist: vi.fn(),
-    listSongs: vi.fn(),
-    listWishlist: vi.fn(),
-    listFavorites: vi.fn(),
-  }));
+const {
+  getMe,
+  getPlaylist,
+  listSongs,
+  listWishlist,
+  listFavorites,
+  listKaraokeSlots,
+  listPlayers,
+  openPlayerSelection,
+} = vi.hoisted(() => ({
+  getMe: vi.fn(),
+  getPlaylist: vi.fn(),
+  listSongs: vi.fn(),
+  listWishlist: vi.fn(),
+  listFavorites: vi.fn(),
+  listKaraokeSlots: vi.fn(),
+  listPlayers: vi.fn(),
+  openPlayerSelection: vi.fn(),
+}));
 
 vi.mock("../api/sdk.gen", async (importOriginal) => ({
   ...(await importOriginal<typeof import("../api/sdk.gen")>()),
@@ -22,6 +33,9 @@ vi.mock("../api/sdk.gen", async (importOriginal) => ({
   listSongs,
   listWishlist,
   listFavorites,
+  listKaraokeSlots,
+  listPlayers,
+  openPlayerSelection,
 }));
 
 const LIBRARY = ["songs.view", "playlists.view", "wishlist.view"];
@@ -103,9 +117,28 @@ beforeEach(() => {
   listSongs.mockResolvedValue({ data: { songs: [] } });
   listWishlist.mockResolvedValue({ data: { wishes: [] } });
   listFavorites.mockResolvedValue({ data: { song_ids: [] } });
+  listKaraokeSlots.mockResolvedValue({
+    data: { slots: [{ name: "blue", hex: "#048BB9" }], player_counts: [1] },
+  });
+  listPlayers.mockResolvedValue({ data: { players: [] } });
+  openPlayerSelection.mockReturnValue(new Promise(() => {}));
 });
 
 afterEach(() => vi.unstubAllGlobals());
+
+test("the host button spins this playlist on the host screen", async () => {
+  renderPage(detail(), [...LIBRARY, "karaoke.sing"]);
+
+  fireEvent.click(
+    await screen.findByRole("button", { name: "Spin on the host screen" }),
+  );
+
+  await waitFor(() => expect(openPlayerSelection).toHaveBeenCalledTimes(1));
+  expect(openPlayerSelection.mock.calls[0][0].body.spin).toEqual({
+    scope: "playlist",
+    playlist_id: "p1",
+  });
+});
 
 test("the playlist names the page and the reel can spin it", async () => {
   renderPage();

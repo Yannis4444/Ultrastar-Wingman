@@ -835,7 +835,7 @@ test("a modal that simply goes away gives it back too", async () => {
   unmount();
 
   // The page may be going away with the request, so it has to outlive it.
-  expect(releases()).toHaveLength(1);
+  await waitFor(() => expect(releases()).toHaveLength(1));
   expectRelease(releases()[0]);
 });
 
@@ -874,7 +874,7 @@ test("a page put in the back/forward cache keeps its token", async () => {
   expect(releases()).toHaveLength(0);
 
   unmount();
-  expect(releases()).toHaveLength(1);
+  await waitFor(() => expect(releases()).toHaveLength(1));
 });
 
 test("the countdown never reads zero", async () => {
@@ -1329,7 +1329,7 @@ test("an adopted selection that simply goes away is given back too", async () =>
 
   unmount();
 
-  expect(releases()).toHaveLength(1);
+  await waitFor(() => expect(releases()).toHaveLength(1));
   expectRelease(releases()[0], ADOPTED_TOKEN);
 });
 

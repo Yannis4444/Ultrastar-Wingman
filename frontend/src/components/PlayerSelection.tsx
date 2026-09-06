@@ -1,6 +1,6 @@
 import { useMutation, useQuery } from "@tanstack/react-query";
 import { useEffect, useRef, useState } from "react";
-import type { PlayerRead, SelectionRead, SlotCreate, SongRead } from "../api";
+import type { PlayerRead, SelectionRead, SongRead } from "../api";
 import {
   getPlayerSelectionOptions,
   listKaraokeSlotsOptions,
@@ -18,6 +18,12 @@ import {
   type SelectionAdoption,
 } from "../hooks/useSelectionLock";
 import { useSelectorStatus } from "../hooks/useSelectorStatus";
+import {
+  rememberedAssignment,
+  slotBody,
+  writeAssignment,
+  type Assignment,
+} from "../playerSlots";
 import AddPlayerForm from "./AddPlayerForm";
 import ConfirmModal from "./ConfirmModal";
 import { Icon } from "./icons";
@@ -26,8 +32,6 @@ import Modal from "./Modal";
 import PlayerAvatar from "./PlayerAvatar";
 import UsdxSetupGuide from "./UsdxSetupGuide";
 import "./PlayerSelection.css";
-
-const SLOTS_STORAGE_KEY = "wingman.playerSlots";
 
 /** The hint a tap on a slot a card holds is answered with. */
 const HELD_HINT = "That slot is held by a card on the player selector.";
@@ -39,9 +43,6 @@ const HELD_HINT = "That slot is held by a card on the player selector.";
  */
 const FILTER_FROM = 12;
 
-/** Color name -> player id. Slots come from the backend; nothing is hardcoded. */
-type Assignment = Record<string, string>;
-
 /**
  * What the modal is doing. `opening` is the request that takes the room's
  * selection lock, `blocked` is somebody else holding it, and `lost` is this
@@ -49,57 +50,6 @@ type Assignment = Record<string, string>;
  * `picking` shows a roster: in the other three there is nothing to tap.
  */
 type Phase = "opening" | "picking" | "blocked" | "lost";
-
-/**
- * The last configuration, so the same group does not have to re-pick every
- * song. Unknown colors, deleted players and hidden ones fall out before the
- * selection is opened with it, so a stale entry can never resurrect somebody
- * who is not singing — and can never 404 the request either.
- */
-function readAssignment(): Assignment {
-  try {
-    const stored = window.localStorage.getItem(SLOTS_STORAGE_KEY);
-    return stored ? (JSON.parse(stored) as Assignment) : {};
-  } catch {
-    return {};
-  }
-}
-
-function writeAssignment(assignment: Assignment): void {
-  try {
-    window.localStorage.setItem(SLOTS_STORAGE_KEY, JSON.stringify(assignment));
-  } catch {
-    // Private mode or a full quota: preselection is a convenience, not a feature.
-  }
-}
-
-/** An assignment as the body both writes take: only the slots somebody stands on. */
-function slotBody(colors: string[], assignment: Assignment): SlotCreate[] {
-  return colors
-    .filter((color) => assignment[color] !== undefined)
-    .map((color) => ({ color, player_id: assignment[color] }));
-}
-
-/**
- * The stored configuration, reduced to colors that exist and players who are
- * still here and not hidden. The backend answers an unknown player with a 404,
- * so the filtering has to happen before the request rather than at render time.
- */
-function rememberedAssignment(
-  players: PlayerRead[],
-  colors: string[],
-): Assignment {
-  const stored = readAssignment();
-  const visible = new Set(
-    players.filter((player) => !player.hidden).map((player) => player.id),
-  );
-  const remembered: Assignment = {};
-  for (const color of colors) {
-    const id = stored[color];
-    if (id !== undefined && visible.has(id)) remembered[color] = id;
-  }
-  return remembered;
-}
 
 /**
  * Whole seconds left until `target`, at least one, `null` without one. The

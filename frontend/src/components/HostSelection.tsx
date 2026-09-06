@@ -11,12 +11,14 @@ import {
   getPlayerSelectionOptions,
   getPlayerSelectionQueryKey,
   listKaraokeColorsOptions,
+  listSongsOptions,
 } from "../api/@tanstack/react-query.gen";
 import { useAuth } from "../auth";
 import { parseServerTime } from "../duration";
 import { useWingmanEvent, type WingmanEvent } from "../hooks/useWingmanEvents";
 import PlayerAvatar from "./PlayerAvatar";
 import SongCover from "./SongCover";
+import SongReel, { REVEAL_MS } from "./SongReel";
 import "./HostSelection.css";
 
 /** `selection.changed`: the whole selection, or `null` once there is none. */
@@ -82,6 +84,17 @@ export default function HostSelection({
   // Shares CurrentlyPlaying's cache entry: the running song owns the stage, and
   // a reload mid-song must not put a stale selection next to it.
   const current = useQuery(getCurrentSingOptions());
+  // The covers that fly past on a spin. Fetched as soon as the host is in, not
+  // when a spin arrives: the reel reads its fillers the instant it starts, and
+  // a list still loading would leave it with the winner's cover forty times.
+  const songs = useQuery({
+    ...listSongsOptions(),
+    enabled: auth.loaded && auth.can("songs.view"),
+  });
+  // Which spin the reel has landed on: the selection it belongs to and the
+  // spin's number in it, because this block stays mounted from one selection
+  // to the next and every fresh selection's first spin is number one again.
+  const [landed, setLanded] = useState<string | null>(null);
 
   // The event carries the whole selection, so no refetch is needed — and the
   // cache is where it goes, so every reader of it redraws at once.
@@ -102,14 +115,26 @@ export default function HostSelection({
     onPhase?.(phase);
   }, [onPhase, phase]);
 
+  // Never on a spun selection: the room presses until the song is right, and
+  // that must not race a countdown. The backend sends none; this is the guard.
   const countdown = useSecondsUntil(
-    showing ? (selection?.auto_start_at ?? null) : null,
+    showing && !selection?.spin ? (selection?.auto_start_at ?? null) : null,
   );
 
   if (selection === null || !showing || suppressed) return null;
 
   const hexFor = (name: string): string | undefined =>
     colors.data?.colors.find((color) => color.name === name)?.hex;
+
+  const spin = selection.spin ?? null;
+  const spinKey = spin === null ? null : `${selection.opened_at}:${spin.id}`;
+  // A host turned on after the reel landed draws it at rest: read at the moment
+  // the spin's id arrives, which is the render that introduces it.
+  const over =
+    spin !== null && Date.now() >= parseServerTime(spin.spun_at) + REVEAL_MS;
+  // The reel is running until it says it has landed — or was over before it
+  // was ever drawn here. The title and the artist wait for it.
+  const running = spin !== null && !over && landed !== spinKey;
 
   return (
     <section className="host-selection" aria-label="Picking singers">
@@ -118,11 +143,47 @@ export default function HostSelection({
           rather than in the row. */}
       <div className="host-selection-head">
         <div className="host-selection-song">
-          <SongCover song={selection.song} className="host-selection-cover" />
+          {spin === null ? (
+            <SongCover song={selection.song} className="host-selection-cover" />
+          ) : (
+            // The reel where the cover stands, at the cover's size: the wrapper
+            // sets `--spinner-cover`, and the stylesheet takes the frame's
+            // border off it so nothing on the screen moves.
+            <div className="host-selection-reel">
+              <SongReel
+                spin={{ id: spin.id, winner: selection.song }}
+                fillers={songs.data?.songs ?? []}
+                settled={over}
+                onSettled={() => setLanded(spinKey)}
+              />
+            </div>
+          )}
           <div className="host-selection-text">
-            <h2 className="host-selection-title">{selection.song.title}</h2>
-            <p className="host-selection-artist">{selection.song.artist}</p>
-            <p className="host-selection-what">Picking singers</p>
+            {/* Held back while the reel runs, but still in the layout: the
+                block keeps its height, so the landing moves nothing. */}
+            <h2
+              className={
+                running
+                  ? "host-selection-title host-selection-held"
+                  : "host-selection-title"
+              }
+              aria-hidden={running || undefined}
+            >
+              {selection.song.title}
+            </h2>
+            <p
+              className={
+                running
+                  ? "host-selection-artist host-selection-held"
+                  : "host-selection-artist"
+              }
+              aria-hidden={running || undefined}
+            >
+              {selection.song.artist}
+            </p>
+            <p className="host-selection-what">
+              {running ? "Spinning…" : "Picking singers"}
+            </p>
           </div>
         </div>
 

@@ -60,6 +60,25 @@
   font-size: min(9vh, 6vw);
 }
 
+/* The reel in the cover's place while the room spins for its song. The frame
+   draws a 2px border outside the size it is given (`SongReel.css`), so the
+   cover's size less that border is what the reel is measured in — the block
+   stands exactly where the cover stood, and the landing moves nothing. The
+   font size lands the fallback tile's 1.3em on the cover's own, so the initial
+   of a song without artwork is drawn at the size it has beside the reel. */
+.host-page .host-selection-reel {
+  --spinner-cover: calc(min(38vh, 24vw) - 4px);
+
+  flex: 0 0 auto;
+  font-size: calc(min(9vh, 6vw) / 1.3);
+}
+
+/* Held back while the reel runs: invisible, but the box stays, so the line
+   under it does not climb while the covers fly past and drop when they land. */
+.host-page .host-selection-held {
+  visibility: hidden;
+}
+
 /* Capped, or a long title spreads the centered block across the whole page and
    takes the balance out of it. */
 .host-page .host-selection-text {

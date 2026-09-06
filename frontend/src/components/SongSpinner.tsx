@@ -1,12 +1,14 @@
 import { useQuery } from "@tanstack/react-query";
 import { useMemo, useState } from "react";
-import type { SongRead, WishRead } from "../api";
+import type { SongRead, SpinRequest, WishRead } from "../api";
 import { listSongsOptions } from "../api/@tanstack/react-query.gen";
+import { useAuth } from "../auth";
 import { useDieRoll } from "../hooks/useDieRoll";
 import { useFavorites } from "../hooks/useFavorites";
 import { useTags } from "../hooks/useTags";
 import { useWishlist } from "../hooks/useWishlist";
 import { defaultTagCriteria, passesTagCriteria } from "../tags";
+import HostSpin from "./HostSpin";
 import { Icon } from "./icons";
 import SongDetails from "./SongDetails";
 import SongReel, { type Spin } from "./SongReel";
@@ -73,23 +75,36 @@ interface SongSpinnerProps {
    * nor the favorites are fetched: the caller already holds the songs.
    */
   songs?: SongRead[];
+  /**
+   * The playlist the fixed pool is, for the reel on the host screen: the
+   * server picks from that playlist where the phone's reel picks from `songs`.
+   */
+  playlistId?: string;
 }
 
 /**
  * The Random song page's column: the *Pick from* select and the pool size, the
- * reel (`SongReel`, which owns the animation), the result and the SPIN button.
- * The winner is picked here the instant SPIN is pressed, and the reel is told
- * to land on it.
+ * reel (`SongReel`, which owns the animation), the result, the SPIN button and
+ * under it the quiet way of spinning on the host screen instead. The winner is
+ * picked here the instant SPIN is pressed, and the reel is told to land on it;
+ * a spin on the host screen is the server's pick, and the TV's reel lands on
+ * it (`HostSpin`).
  *
  * A finished spin never opens the song modal by itself — the cover and the
  * result line are the way in, and the user takes it.
  */
-export default function SongSpinner({ songs: fixed }: SongSpinnerProps) {
+export default function SongSpinner({
+  songs: fixed,
+  playlistId,
+}: SongSpinnerProps) {
+  const auth = useAuth();
   const [scope, setScope] = useState<Scope>("all");
   const [spin, setSpin] = useState<Spin | null>(null);
   const [spinning, setSpinning] = useState(false);
   const [winner, setWinner] = useState<SongRead | null>(null);
   const [details, setDetails] = useState<SongRead | null>(null);
+  // The spin on the host screen this phone asked for, while its modal is up.
+  const [hostSpin, setHostSpin] = useState<SpinRequest | null>(null);
   const face = useDieRoll(spinning);
 
   const library = useQuery({
@@ -149,7 +164,22 @@ export default function SongSpinner({ songs: fixed }: SongSpinnerProps) {
     setSpinning(false);
   };
 
+  /** The same pool, spun on the TV: the playlist where there is one, else the select's scope. */
+  const spinOnHost = () => {
+    if (spinning || candidates.length === 0) return;
+    setHostSpin(
+      fixed !== undefined && playlistId !== undefined
+        ? { scope: "playlist", playlist_id: playlistId }
+        : { scope },
+    );
+  };
+
   const settled = spinning ? null : winner;
+  // The host reel needs the right to start a song; a fixed pool without a
+  // playlist to name has nothing the server could spin.
+  const hostOffered =
+    auth.can("karaoke.sing") &&
+    (fixed === undefined || playlistId !== undefined);
 
   return (
     <>
@@ -221,10 +251,28 @@ export default function SongSpinner({ songs: fixed }: SongSpinnerProps) {
           {/* Uppercased in CSS: the caps are the look, "Spin" is the name. */}
           Spin
         </button>
+
+        {/* The quiet second way, never the gradient: the reel on the TV is
+            the room's, and SPIN above stays the gesture that opened the page.
+            Drawn only with something to land on, like SPIN is enabled. */}
+        {hostOffered && candidates.length > 0 && (
+          <button
+            type="button"
+            className="button spinner-host"
+            disabled={spinning}
+            onClick={spinOnHost}
+          >
+            Spin on the host screen
+          </button>
+        )}
       </div>
 
       {details && (
         <SongDetails song={details} onClose={() => setDetails(null)} />
+      )}
+
+      {hostSpin && (
+        <HostSpin spin={hostSpin} onClose={() => setHostSpin(null)} />
       )}
     </>
   );
