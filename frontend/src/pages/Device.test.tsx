@@ -444,6 +444,28 @@ test("a device that is away is said so instead of being offered the button", asy
   expect(screen.queryByRole("button", OVER_THE_AIR)).toBeNull();
 });
 
+test("a device that has never reported is sent to the cable, not to the network", async () => {
+  renderDevice({
+    devices: [
+      device({
+        online: false,
+        last_seen_at: null,
+        firmware_version: null,
+        protocol: null,
+        compatible: null,
+        rssi: null,
+      }),
+    ],
+    firmware: OTA,
+  });
+
+  await screen.findByText("Never connected");
+  expect(screen.queryByRole("button", OVER_THE_AIR)).toBeNull();
+  // It has run no firmware of ours, so "connect it and it updates itself" is
+  // the wrong sentence: the cable link beside it is the only way onto it.
+  expect(screen.queryByText(/Connect the device/)).toBeNull();
+});
+
 test("asking for the update says the device will fetch it on its next report", async () => {
   requestDeviceUpdate.mockResolvedValue({ data: undefined });
   renderDevice({ firmware: OTA });

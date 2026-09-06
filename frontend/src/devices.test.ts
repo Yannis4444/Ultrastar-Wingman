@@ -143,6 +143,11 @@ test("an update over Wi-Fi needs an image for it, and another version", () => {
   expect(
     otaAvailable(device(), { version: "0.3.0", protocol: 1, builds: [] }),
   ).toBe(false);
+  // A device that has never reported has run no firmware of ours: the cable is
+  // the only way onto it, and the page says nothing about a network.
+  expect(otaAvailable(device({ firmware_version: null }), manifest)).toBe(
+    false,
+  );
   expect(otaAvailable(device(), null)).toBe(false);
   // Differs, and not newer, which is the backend's own rule: a device that ran
   // ahead of the bundle can be put back on what this Wingman ships.

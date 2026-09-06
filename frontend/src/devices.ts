@@ -102,11 +102,16 @@ export function needsUpdate(
 /**
  * Whether this device can be handed the bundled firmware over Wi-Fi.
  *
- * Two things have to be true, and neither is `needsUpdate`: the bundle's
- * version has to **differ** from what the device runs, and the build has to
- * carry a bare application image (`ota_file`). A build made before the update
- * over Wi-Fi existed has only the merged image the cable wants, which
- * `HTTPUpdate` rejects at its first byte, so there is nothing to offer.
+ * Three things have to be true, and none of them is `needsUpdate`: the build
+ * has to carry a bare application image (`ota_file`), the device has to have
+ * said what it runs, and the bundle's version has to **differ** from that. A
+ * build made before the update over Wi-Fi existed has only the merged image the
+ * cable wants, which `HTTPUpdate` rejects at its first byte, so there is
+ * nothing to offer.
+ *
+ * A device that has never reported is nothing to offer it to either: it has run
+ * no firmware of ours, so the cable is the only way onto it and the page must
+ * not send the host looking for a network the box was never on.
  *
  * *Differs* rather than *newer* is `devices/service.py`'s own rule, which is
  * what makes putting a device that ran ahead of the bundle back on it work: the
@@ -118,7 +123,9 @@ export function otaAvailable(
 ): boolean {
   const bundled = manifest?.version;
   if (bundled === undefined || bundled === null) return false;
-  if (bundled === device.firmware_version) return false;
+  const running = device.firmware_version;
+  if (running === undefined || running === null) return false;
+  if (bundled === running) return false;
   return (manifest?.builds ?? []).some(
     (build) => build.ota_file !== undefined && build.ota_file !== null,
   );

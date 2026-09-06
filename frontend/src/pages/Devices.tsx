@@ -502,7 +502,7 @@ export default function Devices() {
                   <DeviceSettingRow
                     id="start_without_selection"
                     label="When the start button is pressed with nothing open"
-                    description="With cards on the readers, one press picks the song and starts it. Without cards nothing happens."
+                    description="The two song options take their singers from the cards lying on the readers. With no card on any reader, nothing happens."
                     saved={savedField === "start_without_selection"}
                   >
                     {(inputId, describedBy) => (
