@@ -1180,6 +1180,7 @@ async def _dispatch(
                     session_factory,
                     _button_action(change.action),
                     without_selection=without_selection,
+                    auto_start=auto_start,
                 )
 
 

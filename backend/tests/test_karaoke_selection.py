@@ -94,6 +94,27 @@ async def respin(client: AsyncClient, token: str | None) -> Response:
     return await client.post("/api/v1/karaoke/selection/spin", headers=headers)
 
 
+async def pick(client: AsyncClient, token: str | None) -> Response:
+    """Move on from the reel to picking singers, as the opener."""
+    headers = {} if token is None else {"X-Selection-Token": token}
+    return await client.post("/api/v1/karaoke/selection/pick", headers=headers)
+
+
+# A moment after the reel on the host screen has landed by itself.
+LANDED = timedelta(seconds=selection.REVEAL_SECONDS) + timedelta(milliseconds=500)
+
+
+def frozen_clock(monkeypatch: pytest.MonkeyPatch) -> list[datetime]:
+    """Stop the selection module's clock, so a test says whether a press lands while the
+    reel is still running or after it — rather than racing five and a half real seconds.
+    Returns the one-element list that holds the time: `clock[0] += LANDED` moves it. The
+    devices module keeps its own clock; a frozen one here leaves reports and heartbeats
+    alone."""
+    clock = [datetime.now(UTC)]
+    monkeypatch.setattr(selection, "_now", lambda: clock[0])
+    return clock
+
+
 async def add_second_song(session: AsyncSession, configured: FakeUsdx) -> str:
     """One more song in the library, so "the top wish", "a random one" and every reel scope
     have something to choose between."""
@@ -1421,12 +1442,17 @@ async def test_spinning_again_keeps_the_slots_and_bumps_the_id(
     broadcast_events: list[dict[str, object]],
 ) -> None:
     """The people are the same, only the song was wrong. The host screen animates on the
-    new id; the phone reveals the song when that reel lands."""
+    new id; the phone reveals the song when that reel lands — so the respin comes once the
+    first reel has landed, or it would be the press that lands it."""
     other = await add_second_song(session, configured)
     pools = pick_last(monkeypatch)
+    clock = frozen_clock(monkeypatch)
     alice = await add_player(client, "Alice")
     opened = await open_spin(client, "all", slots=[{"color": "red", "player_id": alice["id"]}])
     first = opened["selection"]["spin"]
+    assert first["origin"] == "phone"
+    assert first["revealed"] is False
+    clock[0] += LANDED
 
     response = await respin(client, opened["token"])
 
@@ -1434,7 +1460,10 @@ async def test_spinning_again_keeps_the_slots_and_bumps_the_id(
     again = response.json()
     assert again["spin"]["id"] == 2
     assert again["spin"]["scope"] == "all"
-    assert again["spin"]["spun_at"] >= first["spun_at"]
+    assert again["spin"]["spun_at"] > first["spun_at"]
+    # The origin is the selection's for as long as it stands, and a new reel is unrevealed.
+    assert again["spin"]["origin"] == "phone"
+    assert again["spin"]["revealed"] is False
     assert again["song"]["id"] == max(song, other)
     assert player_names(again["slots"]) == [None, "Alice", None, None]
     assert again["auto_start_at"] is None
@@ -1467,15 +1496,17 @@ async def test_spinning_again_takes_the_openers_token_and_a_spun_selection(
 
 
 async def test_a_scope_that_ran_dry_leaves_the_selection_standing(
-    client: AsyncClient, song: str
+    client: AsyncClient, song: str, monkeypatch: pytest.MonkeyPatch
 ) -> None:
     """The last wish was taken back between the spin and the respin. The song it landed on
     stays: the phone can still press Play on it — and nothing else about the selection
     moves either, its idle clock included: a refusal writes nothing, so the room hears
     nothing and the `updated_at` it knows is still the right one."""
+    clock = frozen_clock(monkeypatch)
     assert (await client.post("/api/v1/wishlist", json={"song_id": song})).status_code == 201
     opened = await open_spin(client, "wishlist")
     assert (await client.delete(f"/api/v1/wishlist/{song}")).status_code == 204
+    clock[0] += LANDED
 
     refused = await respin(client, opened["token"])
 
@@ -1486,6 +1517,7 @@ async def test_a_scope_that_ran_dry_leaves_the_selection_standing(
     assert current["spin"]["id"] == 1
     assert current["updated_at"] == opened["selection"]["updated_at"]
     assert current["spin"]["spun_at"] == opened["selection"]["spin"]["spun_at"]
+    assert current["spin"]["revealed"] is False
 
 
 async def test_a_spun_selection_never_counts_down(
@@ -1518,6 +1550,7 @@ async def test_a_spun_selection_never_counts_down(
     await selection.wait_for_auto_start()
     full = await selection.current_selection()
     assert full is not None and full.auto_start_at is None
+    assert full.spin is not None and full.spin.origin == "phone"
     assert player_names(await current_slots()) == ["Alice", "Bob"]
     assert not configured.argv_file.exists()
 
@@ -1535,15 +1568,19 @@ async def test_the_start_button_spins_again_at_an_empty_spun_room_and_starts_a_f
     session_factory: async_sessionmaker[AsyncSession],
     configured: FakeUsdx,
     song: str,
+    monkeypatch: pytest.MonkeyPatch,
     broadcast_events: list[dict[str, object]],
 ) -> None:
     """The next press is the confirmation — when there is somebody to sing. With nobody on
-    any slot it is the room saying "another one"."""
+    any slot it is the room saying "another one". Every press here comes after the reel has
+    landed; one that comes earlier is `test_a_press_while_the_reel_runs_lands_it`."""
+    clock = frozen_clock(monkeypatch)
     alice = await add_player_row(session, "Alice")
     await SettingsService(session).set("karaoke.player_colors", TWO_SLOTS)
     await selection.open_selection(
         session, None, [], spin=selection.Spin(scope="all", viewer=GUEST)
     )
+    clock[0] += LANDED
 
     await selection.button_pressed(session, session_factory, "start")
 
@@ -1553,12 +1590,14 @@ async def test_the_start_button_spins_again_at_an_empty_spun_room_and_starts_a_f
     assert selection_events(broadcast_events)[-1]["selection"]["spin"]["id"] == 2
 
     # An unknown card is nobody to sing: still a respin.
+    clock[0] += LANDED
     await selection.card_placed_on_slot(session_factory, "blue", "X9")
     await selection.button_pressed(session, session_factory, "start")
     unknown = await selection.current_selection()
     assert unknown is not None and unknown.spin is not None and unknown.spin.id == 3
     assert not configured.argv_file.exists()
 
+    clock[0] += LANDED
     await selection.card_placed_on_slot(session_factory, "blue", "A1", alice)
     await selection.button_pressed(session, session_factory, "start")
 
@@ -1665,3 +1704,350 @@ async def test_the_start_button_at_a_quiet_room_with_nothing_to_spin_to_stays_qu
     )
 
     assert await selection.current_selection() is None
+
+
+# --- a press while the reel runs, and moving on from it -----------------------------------
+
+
+async def test_a_press_while_the_reel_runs_lands_it(
+    client: AsyncClient,
+    session: AsyncSession,
+    configured: FakeUsdx,
+    song: str,
+    monkeypatch: pytest.MonkeyPatch,
+    broadcast_events: list[dict[str, object]],
+) -> None:
+    """*Spin again* inside the reel's running time is the room not wanting to wait: the reel
+    lands on the song it has, nothing is picked, and the room hears that it landed. The
+    press after that is a respin like any other, the new reel unrevealed again."""
+    await add_second_song(session, configured)
+    pools = pick_last(monkeypatch)
+    clock = frozen_clock(monkeypatch)
+    opened = await open_spin(client, "all")
+    before = opened["selection"]
+    clock[0] += timedelta(seconds=2)
+
+    landed = await respin(client, opened["token"])
+
+    assert landed.status_code == 200, landed.text
+    revealed = landed.json()
+    assert revealed["spin"]["revealed"] is True
+    assert revealed["spin"]["id"] == 1
+    assert revealed["spin"]["spun_at"] == before["spin"]["spun_at"]
+    assert revealed["spin"]["origin"] == "phone"
+    assert revealed["song"]["id"] == before["song"]["id"]
+    # Nothing was picked, and the press counted as the room being busy.
+    assert len(pools) == 1
+    assert revealed["updated_at"] > before["updated_at"]
+    event = selection_events(broadcast_events)[-1]["selection"]["spin"]
+    assert event["revealed"] is True
+    assert event["origin"] == "phone"
+
+    # Landed once, the next press spins again — still inside the first reel's window.
+    again = await respin(client, opened["token"])
+    assert again.status_code == 200, again.text
+    assert again.json()["spin"]["id"] == 2
+    assert again.json()["spin"]["revealed"] is False
+    assert len(pools) == 2
+
+
+async def test_the_start_button_while_the_reel_runs_lands_it_and_nothing_else(
+    session: AsyncSession,
+    session_factory: async_sessionmaker[AsyncSession],
+    configured: FakeUsdx,
+    song: str,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """The selector's press follows the same rule: while the reel runs it lands the reel —
+    it neither starts the song, with somebody on a slot, nor spins again, with nobody — and
+    once the reel is down the press means what it always meant."""
+    clock = frozen_clock(monkeypatch)
+    alice = await add_player_row(session, "Alice")
+    await SettingsService(session).set("karaoke.player_colors", TWO_SLOTS)
+    # Nobody on a slot: the press would be a respin, and is not.
+    await selection.button_pressed(
+        session,
+        session_factory,
+        "start",
+        without_selection=selection.StartWithoutSelection(mode="random"),
+    )
+    spun = await selection.current_selection()
+    assert spun is not None and spun.spin is not None
+    assert spun.spin.origin == "device"
+    assert spun.spin.revealed is False
+
+    await selection.button_pressed(session, session_factory, "start")
+
+    landed = await selection.current_selection()
+    assert landed is not None and landed.spin is not None
+    assert landed.spin.revealed is True
+    assert landed.spin.id == 1
+    assert landed.spin.origin == "device"
+    clock[0] += LANDED
+    await selection.button_pressed(session, session_factory, "start")
+    again = await selection.current_selection()
+    assert again is not None and again.spin is not None
+    assert again.spin.id == 2 and again.spin.revealed is False
+    assert not configured.argv_file.exists()
+
+    # Somebody on a slot: the press would start the song, and does not either.
+    await selection.card_placed_on_slot(session_factory, "blue", "A1", alice)
+    await selection.button_pressed(session, session_factory, "start")
+    held = await selection.current_selection()
+    assert held is not None and held.spin is not None
+    assert held.spin.revealed is True and held.spin.id == 2
+    assert not configured.argv_file.exists()
+
+    clock[0] += LANDED
+    await selection.button_pressed(session, session_factory, "start")
+
+    await wait_for(configured.argv_file)
+    assert await selection.current_selection() is None
+    await service.wait_for_sing_end()
+
+
+async def test_picking_singers_takes_the_spin_off_the_selection(
+    client: AsyncClient,
+    session: AsyncSession,
+    session_factory: async_sessionmaker[AsyncSession],
+    configured: FakeUsdx,
+    song: str,
+    broadcast_events: list[dict[str, object]],
+) -> None:
+    """Play on the phone's spin view: the song is right, on to the singers. The selection is
+    an ordinary one from here — the same song, the same slots, the same token, no reel to
+    spin again — and the selector's press starts it like at any selection opened with a
+    song."""
+    alice = await add_player(client, "Alice")
+    opened = await open_spin(client, "all", slots=[{"color": "red", "player_id": alice["id"]}])
+
+    response = await pick(client, opened["token"])
+
+    assert response.status_code == 200, response.text
+    picked = response.json()
+    assert picked["spin"] is None
+    assert picked["song"]["id"] == opened["selection"]["song"]["id"]
+    assert player_names(picked["slots"]) == [None, "Alice", None, None]
+    assert picked["opened_at"] == opened["selection"]["opened_at"]
+    assert picked["updated_at"] >= opened["selection"]["updated_at"]
+    assert picked["auto_start_at"] is None
+    assert selection_events(broadcast_events)[-1]["selection"]["spin"] is None
+    # No scope to pick from any more, and nothing left to move on from.
+    for route in (respin, pick):
+        refused = await route(client, opened["token"])
+        assert refused.status_code == 409, refused.text
+        assert refused.json() == {"detail": "not_a_spin"}
+    # The token still moves the singers: the same selection, only the reel is gone.
+    moved = await client.put(
+        "/api/v1/karaoke/selection/slots",
+        json={"token": opened["token"], "slots": [{"color": "blue", "player_id": alice["id"]}]},
+    )
+    assert moved.status_code == 200, moved.text
+    assert player_names(moved.json()["slots"]) == ["Alice", None, None, None]
+
+    await selection.button_pressed(session, session_factory, "start")
+
+    await wait_for(configured.argv_file)
+    assert await selection.current_selection() is None
+    await service.wait_for_sing_end()
+
+
+async def test_picking_singers_takes_the_openers_token_and_a_spun_selection(
+    client: AsyncClient, song: str
+) -> None:
+    gone = await pick(client, "nope")
+    assert gone.status_code == 404
+    assert gone.json() == {"detail": "no_selection"}
+
+    opened = await open_spin(client, "all")
+    for token in (None, "nope"):
+        stale = await pick(client, token)
+        assert stale.status_code == 409, token
+        assert stale.json() == {"detail": "not_the_opener"}
+    assert (await client.get("/api/v1/karaoke/selection")).json()["selection"]["spin"]["id"] == 1
+
+    # A selection opened with a song has no reel to move on from.
+    plain = await open_selection(client, song, force=True)
+    refused = await pick(client, plain["token"])
+    assert refused.status_code == 409
+    assert refused.json() == {"detail": "not_a_spin"}
+    assert opened["token"] != plain["token"]
+
+
+# --- the countdown on the selector's spin ------------------------------------------------
+
+
+async def full_room_spun_by_the_selector(
+    session: AsyncSession,
+    session_factory: async_sessionmaker[AsyncSession],
+    delay_s: int,
+) -> None:
+    """Alice's and Bob's cards on the two slot readers, the automatic start on with
+    `delay_s`, and the start button pressed at a quiet room set to `random`."""
+    alice = await add_player_row(session, "Alice")
+    bob = await add_player_row(session, "Bob")
+    await SettingsService(session).set("karaoke.player_colors", TWO_SLOTS)
+    await selection.button_pressed(
+        session,
+        session_factory,
+        "start",
+        without_selection=selection.StartWithoutSelection(
+            mode="random",
+            cards={
+                "blue": selection.CardOnSlot(uid="A1", player_id=alice),
+                "red": selection.CardOnSlot(uid="B2", player_id=bob),
+            },
+        ),
+        auto_start=selection.AutoStart(delay_s=delay_s),
+    )
+
+
+async def test_the_selectors_spin_counts_down_from_the_moment_the_reel_lands(
+    session: AsyncSession,
+    session_factory: async_sessionmaker[AsyncSession],
+    configured: FakeUsdx,
+    song: str,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """The room is full and the host turned the automatic start on, so the selector's own
+    spin counts down like any other selection — but the delay runs from the reveal, not from
+    the press: the room sees the song before it sees *Starting in…*."""
+    clock = frozen_clock(monkeypatch)
+
+    await full_room_spun_by_the_selector(session, session_factory, delay_s=10)
+
+    spun = await selection.current_selection()
+    assert spun is not None and spun.spin is not None
+    assert spun.spin.origin == "device"
+    assert player_names(await current_slots()) == ["Alice", "Bob"]
+    assert spun.auto_start_at == spun.spin.spun_at + timedelta(
+        seconds=selection.REVEAL_SECONDS + 10
+    )
+    assert spun.auto_start_at == clock[0] + timedelta(seconds=selection.REVEAL_SECONDS + 10)
+    assert not configured.argv_file.exists()
+    # A card lifted ends it, as at any selection.
+    await selection.card_removed_from_slot("red", "B2")
+    emptied = await selection.current_selection()
+    assert emptied is not None and emptied.auto_start_at is None
+    await selection.close_selection(any_opener=True)
+    await selection.wait_for_auto_start()
+    assert not configured.argv_file.exists()
+
+
+async def test_a_press_that_lands_the_reel_puts_the_countdown_on_the_clock_from_now(
+    session: AsyncSession,
+    session_factory: async_sessionmaker[AsyncSession],
+    configured: FakeUsdx,
+    song: str,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """The reel was landed by a press, so there is nothing left to wait for: the countdown
+    is worked out again from that moment — and with no delay it fires right there."""
+    clock = frozen_clock(monkeypatch)
+    await full_room_spun_by_the_selector(session, session_factory, delay_s=0)
+    spun = await selection.current_selection()
+    assert spun is not None
+    assert spun.auto_start_at == clock[0] + timedelta(seconds=selection.REVEAL_SECONDS)
+    clock[0] += timedelta(seconds=2)
+
+    await selection.button_pressed(
+        session, session_factory, "start", auto_start=selection.AutoStart(delay_s=0)
+    )
+
+    landed = await selection.current_selection()
+    assert landed is not None and landed.spin is not None
+    assert landed.spin.revealed is True
+    assert landed.auto_start_at == clock[0]
+    await selection.wait_for_auto_start()
+    await wait_for(configured.argv_file)
+    assert await selection.current_selection() is None
+    await service.wait_for_sing_end()
+
+
+async def test_cards_that_fill_the_room_after_a_respin_count_down_from_the_new_reveal(
+    session: AsyncSession,
+    session_factory: async_sessionmaker[AsyncSession],
+    configured: FakeUsdx,
+    song: str,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """A respin is a new reel and a new landing. The room fills up afterwards, and the
+    countdown waits for *this* reel to land, not the first one's time."""
+    clock = frozen_clock(monkeypatch)
+    alice = await add_player_row(session, "Alice")
+    bob = await add_player_row(session, "Bob")
+    await SettingsService(session).set("karaoke.player_colors", TWO_SLOTS)
+    countdown = selection.AutoStart(delay_s=10)
+    await selection.button_pressed(
+        session,
+        session_factory,
+        "start",
+        without_selection=selection.StartWithoutSelection(mode="random"),
+        auto_start=countdown,
+    )
+    empty = await selection.current_selection()
+    assert empty is not None and empty.auto_start_at is None
+    clock[0] += LANDED
+    await selection.button_pressed(session, session_factory, "start", auto_start=countdown)
+    respun = await selection.current_selection()
+    assert respun is not None and respun.spin is not None and respun.spin.id == 2
+    assert respun.spin.spun_at == clock[0]
+
+    await selection.card_placed_on_slot(session_factory, "blue", "A1", alice, auto_start=countdown)
+    await selection.card_placed_on_slot(session_factory, "red", "B2", bob, auto_start=countdown)
+
+    full = await selection.current_selection()
+    assert full is not None
+    assert full.auto_start_at == clock[0] + timedelta(seconds=selection.REVEAL_SECONDS + 10)
+    assert not configured.argv_file.exists()
+    await selection.close_selection(any_opener=True)
+    await selection.wait_for_auto_start()
+
+
+async def test_after_moving_on_from_the_reel_the_ordinary_countdown_rule_applies(
+    session: AsyncSession,
+    session_factory: async_sessionmaker[AsyncSession],
+    configured: FakeUsdx,
+    song: str,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """A phone's spin over a room the cards fill counts nothing down, and moving on from the
+    reel starts no countdown by itself either — a phone has Play. The next card at the
+    selector runs the rule every selection opened with a song runs: full room, on the
+    clock, from now."""
+    clock = frozen_clock(monkeypatch)
+    alice = await add_player_row(session, "Alice")
+    bob = await add_player_row(session, "Bob")
+    await SettingsService(session).set("karaoke.player_colors", TWO_SLOTS)
+    at_once = selection.AutoStart(delay_s=0)
+    _, token = await selection.open_selection(
+        session,
+        None,
+        [],
+        device_slots={
+            "blue": selection.CardOnSlot(uid="A1", player_id=alice),
+            "red": selection.CardOnSlot(uid="B2", player_id=bob),
+        },
+        session_factory=session_factory,
+        auto_start=at_once,
+        spin=selection.Spin(scope="all", viewer=GUEST),
+    )
+    spun = await selection.current_selection()
+    assert spun is not None and spun.auto_start_at is None
+
+    picked = await selection.pick_singers(token)
+
+    assert picked.spin is None
+    assert picked.auto_start_at is None
+    await selection.wait_for_auto_start()
+    assert not configured.argv_file.exists()
+
+    await selection.card_removed_from_slot("red", "B2")
+    await selection.card_placed_on_slot(session_factory, "red", "B2", bob, auto_start=at_once)
+
+    refilled = await selection.current_selection()
+    assert refilled is not None and refilled.auto_start_at == clock[0]
+    await selection.wait_for_auto_start()
+    await wait_for(configured.argv_file)
+    assert await selection.current_selection() is None
+    await service.wait_for_sing_end()

@@ -16,6 +16,11 @@ from .model import Score
 # that need no account (`devices.settings.RANDOM_SCOPES`).
 Scope = Literal["all", "favorites", "wishlist", "weighted", "playlist"]
 
+# Who spun the reel: a phone (`POST /karaoke/selection` with a spin) or the player selector's
+# start button. The host screen draws the slot cards for the device's spin alone — a phone's
+# spin shows the reel and its result, and the slots belong to the picker that follows.
+SpinOrigin = Literal["phone", "device"]
+
 
 class SlotRead(BaseModel):
     """A singing position of the running song: its color and who is on it."""
@@ -55,12 +60,19 @@ class SpinRead(BaseModel):
     on a new id and nothing else, and `spun_at` is when it started — the phone reveals the
     song when the reel on the TV lands, a fixed few seconds after that. Whose hidden tags and
     hearts the pick was made with is not in here; that stays with the selection.
+
+    `origin` says who spun (see `SpinOrigin`). `revealed` is set by a press that landed while
+    the reel was still running — the room did not want to wait — and both screens settle
+    the reel on it at once; false again on every spin and respin. A reel nobody cut short
+    settles on its own clock, `spun_at` plus the reveal seconds, and this stays false.
     """
 
     id: int
     spun_at: datetime
     scope: Scope
     playlist_id: str | None
+    origin: SpinOrigin
+    revealed: bool
 
 
 class SelectionRead(BaseModel):

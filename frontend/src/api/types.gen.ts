@@ -2220,6 +2220,11 @@ export type SongSelector = {
  * on a new id and nothing else, and `spun_at` is when it started — the phone reveals the
  * song when the reel on the TV lands, a fixed few seconds after that. Whose hidden tags and
  * hearts the pick was made with is not in here; that stays with the selection.
+ *
+ * `origin` says who spun (see `SpinOrigin`). `revealed` is set by a press that landed while
+ * the reel was still running — the room did not want to wait — and both screens settle
+ * the reel on it at once; false again on every spin and respin. A reel nobody cut short
+ * settles on its own clock, `spun_at` plus the reveal seconds, and this stays false.
  */
 export type SpinRead = {
     /**
@@ -2238,6 +2243,14 @@ export type SpinRead = {
      * Playlist Id
      */
     playlist_id: string | null;
+    /**
+     * Origin
+     */
+    origin: 'phone' | 'device';
+    /**
+     * Revealed
+     */
+    revealed: boolean;
 };
 
 /**
@@ -3745,6 +3758,45 @@ export type SpinPlayerSelectionResponses = {
 };
 
 export type SpinPlayerSelectionResponse = SpinPlayerSelectionResponses[keyof SpinPlayerSelectionResponses];
+
+export type PickPlayerSelectionData = {
+    body?: never;
+    headers?: {
+        /**
+         * X-Selection-Token
+         */
+        'X-Selection-Token'?: string | null;
+    };
+    path?: never;
+    query?: never;
+    url: '/api/v1/karaoke/selection/pick';
+};
+
+export type PickPlayerSelectionErrors = {
+    /**
+     * Nothing is being picked.
+     */
+    404: unknown;
+    /**
+     * Somebody else has taken the selection over (`not_the_opener`), or the selection was not spun (`not_a_spin`).
+     */
+    409: unknown;
+    /**
+     * Validation Error
+     */
+    422: HttpValidationError;
+};
+
+export type PickPlayerSelectionError = PickPlayerSelectionErrors[keyof PickPlayerSelectionErrors];
+
+export type PickPlayerSelectionResponses = {
+    /**
+     * Successful Response
+     */
+    200: SelectionRead;
+};
+
+export type PickPlayerSelectionResponse = PickPlayerSelectionResponses[keyof PickPlayerSelectionResponses];
 
 export type StartPlayerSelectionData = {
     body: SelectionStart;

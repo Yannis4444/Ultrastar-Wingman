@@ -422,11 +422,38 @@ async def spin_player_selection(
     """Spin the reel again: a new song out of the same scope, on the same slots. Only the
     phone that opened the selection may, and only for a selection it opened with a spin.
 
-    The token rides in the header like the `DELETE`'s does, and for no better reason than
-    that a body with one field is a header's worth of information.
+    While the reel on the host screen is still running, the press lands it instead — the
+    answer is the same selection with `spin.revealed` set, and the song does not change. The
+    token rides in the header like the `DELETE`'s does, and for no better reason than that a
+    body with one field is a header's worth of information.
     """
     with _selection_errors(), _reel_errors():
         return await selection.respin(session, token)
+
+
+@router.post(
+    "/karaoke/selection/pick",
+    response_model=SelectionRead,
+    dependencies=[Depends(require("karaoke.sing"))],
+    responses={
+        404: {"description": "Nothing is being picked."},
+        409: {
+            "description": (
+                "Somebody else has taken the selection over (`not_the_opener`), or the "
+                "selection was not spun (`not_a_spin`)."
+            )
+        },
+    },
+)
+async def pick_player_selection(
+    token: Annotated[str | None, Header(alias="X-Selection-Token")] = None,
+) -> SelectionRead:
+    """The song is right: move on from the reel to picking singers. The spin comes off the
+    selection, which is an ordinary one from here — no *Spin again*, no reel on the host
+    screen, and the selector's start button starts the song or refuses as it does at any
+    selection opened with a song. Only the phone that opened the selection may."""
+    with _selection_errors(), _reel_errors():
+        return await selection.pick_singers(token)
 
 
 @router.post(
