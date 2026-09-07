@@ -2051,3 +2051,108 @@ async def test_after_moving_on_from_the_reel_the_ordinary_countdown_rule_applies
     await wait_for(configured.argv_file)
     assert await selection.current_selection() is None
     await service.wait_for_sing_end()
+
+
+def sings_started(events: list[dict[str, object]]) -> int:
+    return sum(event["event"] == "karaoke.started" for event in events)
+
+
+async def test_the_selectors_countdown_fires_once_the_reel_has_landed(
+    session: AsyncSession,
+    session_factory: async_sessionmaker[AsyncSession],
+    configured: FakeUsdx,
+    song: str,
+    monkeypatch: pytest.MonkeyPatch,
+    broadcast_events: list[dict[str, object]],
+) -> None:
+    """The countdown on the selector's spin is a task sleeping on the real clock until the
+    reveal plus the delay, and at that moment it starts the song — on the real clock here,
+    with the reel shortened to under a second (`_REVEAL` is read when the countdown is put
+    on the clock; `REVEAL_SECONDS` is the same figure at its full length). The sleep worked
+    out from the reveal and `_start_locked` at the end of it are what is proven; neither
+    cares about the figure."""
+    reveal = timedelta(seconds=0.75)
+    monkeypatch.setattr(selection, "_REVEAL", reveal)
+    loop = asyncio.get_running_loop()
+    pressed = loop.time()
+
+    await full_room_spun_by_the_selector(session, session_factory, delay_s=0)
+
+    spun = await selection.current_selection()
+    assert spun is not None and spun.spin is not None
+    assert spun.auto_start_at == spun.spin.spun_at + reveal
+    # Not before the reel has landed.
+    assert not configured.argv_file.exists()
+    await selection.wait_for_auto_start()
+    await wait_for(configured.argv_file)
+    assert loop.time() - pressed >= 0.7
+    assert sings_started(broadcast_events) == 1
+    assert await selection.current_selection() is None
+    await service.wait_for_sing_end()
+
+
+async def test_a_press_that_lands_the_reel_takes_the_first_countdown_off_the_clock(
+    session: AsyncSession,
+    session_factory: async_sessionmaker[AsyncSession],
+    configured: FakeUsdx,
+    song: str,
+    monkeypatch: pytest.MonkeyPatch,
+    broadcast_events: list[dict[str, object]],
+) -> None:
+    """The first countdown was sleeping until the reel's own landing. The press that lands
+    the reel early puts a second one on the clock from now, and the first has to be gone —
+    not merely forgotten: two tasks would be one start too many. The reel is kept long
+    enough that a first task left alive shows up as a slow test, never as a passing one."""
+    monkeypatch.setattr(selection, "_REVEAL", timedelta(seconds=3))
+    await full_room_spun_by_the_selector(session, session_factory, delay_s=0)
+    counting = selection._selection
+    assert counting is not None and counting.auto_start_task is not None
+    first = counting.auto_start_task
+
+    await selection.button_pressed(
+        session, session_factory, "start", auto_start=selection.AutoStart(delay_s=0)
+    )
+
+    landed = await selection.current_selection()
+    assert landed is not None and landed.spin is not None and landed.spin.revealed is True
+    assert counting.auto_start_task is not first
+    await selection.wait_for_auto_start()
+    assert first.cancelled()
+    await wait_for(configured.argv_file)
+    assert sings_started(broadcast_events) == 1
+    assert await selection.current_selection() is None
+    await service.wait_for_sing_end()
+
+
+async def test_spinning_again_under_a_countdown_puts_it_on_the_clock_from_the_new_reveal(
+    session: AsyncSession,
+    session_factory: async_sessionmaker[AsyncSession],
+    configured: FakeUsdx,
+    song: str,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """No press reaches this today: the selector spins again only with nobody on a slot, a
+    countdown runs only with everybody on one, and the phone's *Spin again* takes a token a
+    selector's spin never hands out. The branch in `_respin_locked` is there for the day one
+    does, so it is proven on the function itself: the old task is gone, and the new moment
+    is the new reel's landing plus the delay."""
+    clock = frozen_clock(monkeypatch)
+    countdown = selection.AutoStart(delay_s=10)
+    await full_room_spun_by_the_selector(session, session_factory, delay_s=10)
+    counting = selection._selection
+    assert counting is not None and counting.auto_start_task is not None
+    first = counting.auto_start_task
+    clock[0] += timedelta(seconds=2)
+
+    async with selection._lock:
+        await selection._respin_locked(session, counting, countdown, session_factory)
+
+    respun = await selection.current_selection()
+    assert respun is not None and respun.spin is not None
+    assert respun.spin.id == 2 and respun.spin.revealed is False
+    assert respun.auto_start_at == clock[0] + timedelta(seconds=selection.REVEAL_SECONDS + 10)
+    assert counting.auto_start_task is not first
+    await selection.close_selection(any_opener=True)
+    await selection.wait_for_auto_start()
+    assert first.cancelled()
+    assert not configured.argv_file.exists()
