@@ -2,6 +2,7 @@
 event bus, and the event bus must not depend on the routing layer."""
 
 from datetime import datetime
+from typing import Literal
 
 from pydantic import BaseModel
 
@@ -9,6 +10,16 @@ from ..auth.model import as_utc
 from ..players.schema import PlayerRead
 from ..songs.schema import SongRead
 from .model import Score
+
+# What the reel may pick a song out of. The phone's Random song page offers the first four
+# and its playlist reel the fifth; the player selector's start button is limited to the ones
+# that need no account (`devices.settings.RANDOM_SCOPES`).
+Scope = Literal["all", "favorites", "wishlist", "weighted", "playlist"]
+
+# Who spun the reel: a phone (`POST /karaoke/selection` with a spin) or the player selector's
+# start button. The host screen draws the slot cards for the device's spin alone — a phone's
+# spin shows the reel and its result, and the slots belong to the picker that follows.
+SpinOrigin = Literal["phone", "device"]
 
 
 class SlotRead(BaseModel):
@@ -42,6 +53,28 @@ class SelectionSlotRead(BaseModel):
     card_uid: str | None
 
 
+class SpinRead(BaseModel):
+    """The reel that picked the selection's song, for a selection the server spun.
+
+    `id` is 1 on opening and one more on every respin: the host screen animates a new spin
+    on a new id and nothing else, and `spun_at` is when it started — the phone reveals the
+    song when the reel on the TV lands, a fixed few seconds after that. Whose hidden tags and
+    hearts the pick was made with is not in here; that stays with the selection.
+
+    `origin` says who spun (see `SpinOrigin`). `revealed` is set by a press that landed while
+    the reel was still running — the room did not want to wait — and both screens settle
+    the reel on it at once; false again on every spin and respin. A reel nobody cut short
+    settles on its own clock, `spun_at` plus the reveal seconds, and this stays false.
+    """
+
+    id: int
+    spun_at: datetime
+    scope: Scope
+    playlist_id: str | None
+    origin: SpinOrigin
+    revealed: bool
+
+
 class SelectionRead(BaseModel):
     """Who is about to sing what, while the song is being set up.
 
@@ -56,6 +89,10 @@ class SelectionRead(BaseModel):
     # When the player selector will start the song by itself, while such a countdown is
     # running. None whenever there is none.
     auto_start_at: datetime | None
+    # The reel, for a selection whose song the server picked. None for one opened with a
+    # song. Defaulted so the generated client keeps the field optional: a selection built by
+    # hand (the frontend's tests) predates the spin and is still a selection.
+    spin: SpinRead | None = None
 
 
 class SelectionOpened(BaseModel):

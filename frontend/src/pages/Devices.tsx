@@ -19,6 +19,7 @@ import {
   listDevicesOptions,
   listDevicesQueryKey,
   listPlayersOptions,
+  listPlaylistsOptions,
   updateDeviceSettingsMutation,
 } from "../api/@tanstack/react-query.gen";
 import { useAuth } from "../auth";
@@ -32,7 +33,7 @@ import PlayerAvatar from "../components/PlayerAvatar";
 import { SettingSaved } from "../components/SettingField";
 import "../components/PickerRow.css";
 import "../components/SettingField.css";
-import { deviceMeta, START_WITHOUT_SELECTION } from "../devices";
+import { deviceMeta, RANDOM_SCOPES, START_WITHOUT_SELECTION } from "../devices";
 import { errorDetail, errorMessage, missingPermission } from "../errors";
 import { useWingmanEvent } from "../hooks/useWingmanEvents";
 import "./Devices.css";
@@ -70,7 +71,7 @@ interface FieldProps {
 /**
  * One settings row in the Settings page's shape (§7): the label with its
  * acknowledgement on the first line, the quiet box alone on the second, the
- * 0.85em description under both. These five are not registered settings —
+ * 0.85em description under both. These rows are not registered settings —
  * `devices/settings.py` keeps them private, behind `devices.manage` rather than
  * `settings.manage` — so the row is rebuilt on the same classes, exactly as the
  * achievements admin rebuilds its own.
@@ -242,7 +243,8 @@ function CardPicker({
 
 /**
  * The player selector, behind the `devices.manage` entry of the manage menu
- * (§7): the five options the feature has, the devices as rows into their own
+ * (§7): the options the feature has (five, plus the two a random start button
+ * needs), the devices as rows into their own
  * pages, and the cards.
  *
  * The cards come in two lists because they answer two different questions. *On
@@ -274,6 +276,16 @@ export default function Devices() {
     ...listPlayersOptions(),
     enabled: allowed && auth.can("players.view"),
   });
+  // The playlists are only wanted while a start press picks its random song
+  // from one, which is the one row that offers them: most hosts never do, and
+  // the page does not ask for a list it will not draw.
+  const picksFromPlaylist =
+    settings.data?.start_without_selection === "random" &&
+    settings.data?.random_scope === "playlist";
+  const playlists = useQuery({
+    ...listPlaylistsOptions(),
+    enabled: allowed && auth.can("playlists.view") && picksFromPlaylist,
+  });
 
   useWingmanEvent("devices.changed", () => {
     for (const key of [listDevicesQueryKey(), listCardsQueryKey()])
@@ -296,7 +308,7 @@ export default function Devices() {
     return () => clearTimeout(timer);
   }, [justSaved, reset]);
 
-  // Which of the five rows the acknowledgement belongs to: the one that was
+  // Which of the rows the acknowledgement belongs to: the one that was
   // patched, so saving the toggle does not light the word beside a number.
   const savedField = justSaved
     ? (Object.keys(save.variables?.body ?? {})[0] ?? null)
@@ -345,6 +357,15 @@ export default function Devices() {
   const manifest = firmware.data ?? null;
   const roster = players.data?.players ?? [];
   const options = settings.data;
+  const lists = playlists.data?.playlists ?? [];
+
+  // The saved playlist is drawn only when the list carries it. Gone from the
+  // list *after the list answered* is a playlist somebody deleted, which the
+  // row says; a list still loading or one that failed is not evidence of that.
+  const savedPlaylist = options?.random_playlist ?? "";
+  const playlistFound = lists.some((list) => list.id === savedPlaylist);
+  const playlistGone =
+    playlists.isSuccess && savedPlaylist !== "" && !playlistFound;
 
   // What is on a reader right now. A device that is offline reports no uid at
   // all (the backend drops it), so this is only ever the boxes in the room.
@@ -502,7 +523,7 @@ export default function Devices() {
                   <DeviceSettingRow
                     id="start_without_selection"
                     label="When the start button is pressed with nothing open"
-                    description="The two song options take their singers from the cards lying on the readers. With no card on any reader, nothing happens."
+                    description="The most wished song needs a card on a reader and starts at once. A random song spins the reel on the host screen first."
                     saved={savedField === "start_without_selection"}
                   >
                     {(inputId, describedBy) => (
@@ -524,6 +545,71 @@ export default function Devices() {
                       </select>
                     )}
                   </DeviceSettingRow>
+
+                  {/* The two rows a random start needs, drawn only while it is
+                      the answer above: what the reel spins over, and which
+                      playlist when it is one. Same row, same select, one PATCH
+                      each. */}
+                  {options.start_without_selection === "random" && (
+                    <DeviceSettingRow
+                      id="random_scope"
+                      label="Pick the random song from"
+                      description="The reel spins even with no card down. The next press starts the song if somebody stands on a slot, and spins again if nobody does."
+                      saved={savedField === "random_scope"}
+                    >
+                      {(inputId, describedBy) => (
+                        <select
+                          className="text-input text-input-quiet setting-input"
+                          id={inputId}
+                          aria-describedby={describedBy}
+                          value={options.random_scope}
+                          disabled={save.isPending}
+                          onChange={(event) =>
+                            patch({ random_scope: event.target.value })
+                          }
+                        >
+                          {RANDOM_SCOPES.map((choice) => (
+                            <option key={choice.value} value={choice.value}>
+                              {choice.label}
+                            </option>
+                          ))}
+                        </select>
+                      )}
+                    </DeviceSettingRow>
+                  )}
+
+                  {picksFromPlaylist && (
+                    <DeviceSettingRow
+                      id="random_playlist"
+                      label="Playlist to pick from"
+                      description={
+                        playlistGone
+                          ? "The saved playlist no longer exists, so the reel spins over all songs. Choose another one."
+                          : "A playlist that no longer exists falls back to all songs."
+                      }
+                      saved={savedField === "random_playlist"}
+                    >
+                      {(inputId, describedBy) => (
+                        <select
+                          className="text-input text-input-quiet setting-input"
+                          id={inputId}
+                          aria-describedby={describedBy}
+                          value={playlistFound ? savedPlaylist : ""}
+                          disabled={save.isPending}
+                          onChange={(event) =>
+                            patch({ random_playlist: event.target.value })
+                          }
+                        >
+                          <option value="">Choose a playlist</option>
+                          {lists.map((list) => (
+                            <option key={list.id} value={list.id}>
+                              {list.name}
+                            </option>
+                          ))}
+                        </select>
+                      )}
+                    </DeviceSettingRow>
+                  )}
 
                   {save.isError && (
                     <p className="error-notice devices-notice" role="alert">

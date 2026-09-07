@@ -423,6 +423,11 @@ class Row:
     ready: str
     # ``(action, wait-for)`` pairs, run in order after the page is up.
     steps: tuple[tuple[str, str], ...] = field(default_factory=tuple)
+    # The same, run after the shutter and before the tab is closed: what a row holds open
+    # in the browser and has to give back itself. The room's selection lock is the one
+    # such thing — a phone holds it in a modal, and closing a headless tab is not the
+    # ``pagehide`` that would give it back.
+    after: tuple[tuple[str, str], ...] = field(default_factory=tuple)
     # Run once everything is ready, to put the surface in the viewport.
     scroll: str | None = None
     # How many wishes are on the list for this picture.
@@ -441,6 +446,10 @@ class Row:
     # Rows taken while the room is picking singers. The selection is opened before the page
     # and given up afterwards, or every launcher row would meet a 409.
     selection: bool = False
+    # A selection the server spun rather than one opened on a song: the reel on the TV.
+    # ``"phone"`` opens it through the API the way a phone does, ``"device"`` presses the
+    # seeded selector's start button; see ``selection_open``.
+    spin: str | None = None
 
 
 # The host screen fades its own chrome out three seconds after the last pointer event, and
@@ -452,8 +461,13 @@ HOST_IDLE = 'q(".host-page.host-idle")'
 USDX_SHOWN_PATH = "C:\\Program Files\\UltraStar Deluxe"
 
 # The prefix a ``Row.settings`` key wears when it belongs to the achievements module's own
-# three private settings rather than to the settings registry.
+# three private settings rather than to the settings registry — and the same for the
+# player selector's seven, which ``GET`` / ``PATCH /devices/settings`` hold.
 ACHIEVEMENT_SETTINGS = "achievements."
+DEVICE_SETTINGS = "devices."
+
+# How long the selector's start press may take to put a spun selection on the room.
+SELECTION_TIMEOUT = 10.0
 
 ROWS: dict[str, Row] = {
     "home": Row(
@@ -587,7 +601,7 @@ ROWS: dict[str, Row] = {
                 'text(q(".spinner-winner-title")) === "Sandstorm"',
             ),
         ),
-        ready='q(".spinner-pick-select") && q(".spinner-spin")'
+        ready='q(".spinner-pick-select") && q(".spinner-spin") && q(".spinner-host")'
         ' && text(q(".spinner-winner-title")) === "Sandstorm"',
     ),
     "playlist-reel": Row(
@@ -596,7 +610,26 @@ ROWS: dict[str, Row] = {
         route="/songs/playlists/{playlist}/spinner",
         steps=(('click(q(".spinner-spin"))', 'q(".spinner-winner-title")'),),
         ready='q(".spinner-winner-title") && text(q(".page-header-title, h1"))!== ""'
-        ' && q(".spinner-spin")',
+        ' && q(".spinner-spin") && q(".spinner-host")',
+    ),
+    "reel-host-spin": Row(
+        identity="Leela",
+        viewport="phone",
+        route="/spinner",
+        steps=(
+            # The phone reveals the song when the reel on the TV lands, a fixed few seconds
+            # after the server's `spun_at`, reduced motion or not: this wait is the feature.
+            ('click(q(".spinner-host"))', 'q(".host-spin")'),
+            ("true", 'q(".host-spin-title")'),
+        ),
+        # The cover has risen in, the words are under it, and the die reads *Spin again*:
+        # it read *Show it* while the TV's reel ran.
+        ready='q(".host-spin-cover-revealed") && q(".host-spin-title") && q(".host-spin-artist")'
+        ' && byText(".host-spin-actions button", "Spin again")'
+        ' && byText(".host-spin-actions button", "Play")',
+        # Cancel gives the room's lock back. Left open, the selection would answer every
+        # later `POST /karaoke/sing` with 409 until it idles out.
+        after=(('click(byText(".host-spin-actions button", "Cancel"))', '!q(".host-spin")'),),
     ),
     "usdb-search": Row(
         identity="host",
@@ -834,7 +867,7 @@ ROWS: dict[str, Row] = {
         route="/host/manage",
         ready='q(".host-manage-page") && qa(".manage-menu-row").length >= 3',
     ),
-    # The four selector rows stand last, and in this order, for a reason the manifest cannot
+    # The five selector rows stand last, and in this order, for a reason the manifest cannot
     # say: they are the only ones that hold a device online, and a device stays online for
     # fifteen seconds after the heartbeat stops. Nothing that is not about the selector may
     # follow them, and the launcher rows wait the fifteen seconds out (`run`).
@@ -881,6 +914,28 @@ ROWS: dict[str, Row] = {
         # `host-takeover`: the room picking singers owns the whole screen, so there is no
         # rail beside it. Two of the four slots are held by the two cards.
         ready='q(".host-page.host-takeover.host-idle") && q(".host-selection")'
+        f' && byText(".host-selection-name", "{scenario.CARD_HOLDER}")'
+        ' && byText(".host-selection-name", "Unknown card")',
+    ),
+    "host-reel": Row(
+        identity="host",
+        viewport="host",
+        route="/host",
+        device=True,
+        selection=True,
+        # The selector's own spin, because a phone's shows no cards: the start button is
+        # pressed at a quiet room with the button set to a random song, which opens a spun
+        # selection over the two cards on the readers.
+        spin="device",
+        settings=((DEVICE_SETTINGS + "start_without_selection", "random"),),
+        # The reel where the cover stands, landed: the title and the artist are held back
+        # while it runs, and the line under them reads *Spinning…* until then. Under the
+        # reduced motion every capture asks for, it lands the moment it is drawn, so this
+        # is a check and not a wait. No countdown: the room has four slots, one card
+        # nobody owns and two slots empty, so it is never full.
+        ready='q(".host-page.host-takeover.host-idle") && q(".host-selection-reel")'
+        ' && !q(".host-selection-held") && !q(".host-selection-countdown")'
+        ' && text(q(".host-selection-what")) === "Picking singers"'
         f' && byText(".host-selection-name", "{scenario.CARD_HOLDER}")'
         ' && byText(".host-selection-name", "Unknown card")',
     ),
@@ -954,7 +1009,7 @@ def capture_row(
         if row.device:
             stack.enter_context(device_online(state))
         if row.selection:
-            stack.enter_context(selection_open(state))
+            stack.enter_context(selection_open(state, spin=row.spin))
         page = browser.open(row.identity, row.viewport)
         try:
             page.navigate(browser.base_url + route_of(row, state))
@@ -965,6 +1020,13 @@ def capture_row(
         except CaptureError as error:
             result = Result(row.identity, False, "-", row.ready, str(error))
         finally:
+            # Whatever the page holds is given back even after a failed shot: a modal that
+            # never opened has nothing to click, and that is not a second failure.
+            with contextlib.suppress(CaptureError):
+                for action, wait_for in row.after:
+                    page.evaluate(action)
+                    if wait_for:
+                        page.await_ready(wait_for, f"'{wait_for}' after the shot")
             page.close()
             hold_settings(state, held)
     return result
@@ -1001,19 +1063,68 @@ def device_online(state: seed.State) -> Iterator[None]:
 
 
 @contextlib.contextmanager
-def selection_open(state: seed.State) -> Iterator[None]:
+def selection_open(state: seed.State, spin: str | None = None) -> Iterator[None]:
     """Open a player selection for the scenario's song, and give it up afterwards.
 
+    With ``spin`` the server picks the song out of the whole library instead, which is what
+    puts the reel on the TV; which song it lands on is nobody's to choose. ``"phone"`` opens
+    it through the API the way a phone does. ``"device"`` presses the seeded selector's start
+    button instead (``press_start``), because the TV draws the slot cards for the selector's
+    spin alone — a phone's shows the reel and its result and nothing else.
+
     Given up in a ``finally`` because it has to be: a selection left open answers every
-    later ``POST /karaoke/sing`` with 409, so the launcher rows would all fail behind it.
+    later ``POST /karaoke/sing`` with 409, so the launcher rows would all fail behind it. The
+    selector's selection has a token nobody holds, so it is closed the way the host screen's
+    cancel closes anybody's: a ``DELETE`` with no token, which takes ``karaoke.stop``.
     """
     api = state.api
-    song_id = state.data["songs"][str(scenario.PICKING_SONG)]
-    opened = api.post("/karaoke/selection", json={"song_id": song_id, "slots": [], "force": True})
+    if spin == "device":
+        press_start(state)
+        try:
+            yield
+        finally:
+            api.request("DELETE", "/karaoke/selection")
+        return
+    body: dict[str, Any] = {"slots": [], "force": True}
+    if spin == "phone":
+        body["spin"] = {"scope": "all"}
+    else:
+        body["song_id"] = state.data["songs"][str(scenario.PICKING_SONG)]
+    opened = api.post("/karaoke/selection", json=body)
     try:
         yield
     finally:
         api.request("DELETE", "/karaoke/selection", headers={"X-Selection-Token": opened["token"]})
+
+
+def press_start(state: seed.State) -> None:
+    """Press the seeded selector's start button once, and wait for the spun selection.
+
+    A press is a counter that went up between two reports, so the report body the heartbeat
+    keeps sending is changed in place — the button's presses from 0 to 1 — sent once, and put
+    back to 0 right after. The heartbeats carry the 0 again from there: the first of them
+    reads as a device that rebooted (a counter that went *down* is baselined, not pressed)
+    and the rest as nothing changed, so the press counts exactly once.
+
+    The device must already have reported (``device_online``), or the press has no baseline
+    to count from; and ``devices.start_without_selection`` has to stand on ``random``
+    (``Row.settings``), or the press does nothing at all.
+    """
+    api = state.api
+    buttons = state.data["device"]["report"]["buttons"]
+    start = next(button for button in buttons if button["index"] == 0)
+    start["presses"] = 1
+    try:
+        seed.device_report(state)
+    finally:
+        start["presses"] = 0
+    deadline = time.monotonic() + SELECTION_TIMEOUT
+    while time.monotonic() < deadline:
+        selection = api.get("/karaoke/selection").get("selection")
+        if selection is not None and (selection.get("spin") or {}).get("origin") == "device":
+            return
+        time.sleep(0.3)
+    raise CaptureError("the selector's start press opened no spun selection")
 
 
 def wait_for_device_offline() -> None:
@@ -1032,14 +1143,16 @@ def hold_settings(
     """Write these settings, and answer what they were, so a caller can put them back.
 
     An ``achievements.`` key is one of that module's three private settings, which the
-    settings API never sees; it has a route of its own.
+    settings API never sees; it has a route of its own. A ``devices.`` key is one of the
+    player selector's seven, on ``/devices/settings`` the same way.
     """
     if not values:
         return ()
     api = state.api
     private = {key for key, _ in values if key.startswith(ACHIEVEMENT_SETTINGS)}
+    devices = {key for key, _ in values if key.startswith(DEVICE_SETTINGS)}
     previous: list[tuple[str, Any]] = []
-    plain = [(key, value) for key, value in values if key not in private]
+    plain = [(key, value) for key, value in values if key not in private and key not in devices]
     if plain:
         stored = {setting["key"]: setting["value"] for setting in api.get("/settings")}
         for key, value in plain:
@@ -1056,6 +1169,15 @@ def hold_settings(
             },
         )
         previous.extend((key, held[key.removeprefix(ACHIEVEMENT_SETTINGS)]) for key in private)
+    if devices:
+        held = api.get("/devices/settings")
+        api.patch(
+            "/devices/settings",
+            json={
+                key.removeprefix(DEVICE_SETTINGS): value for key, value in values if key in devices
+            },
+        )
+        previous.extend((key, held[key.removeprefix(DEVICE_SETTINGS)]) for key in devices)
     return tuple(previous)
 
 

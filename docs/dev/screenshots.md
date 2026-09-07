@@ -120,24 +120,41 @@ rewound afterwards, so the instance ends where it started.
 
 ## The player selector
 
-Four rows need a device standing in the room: `selector-admin`, `selector-device`,
-`user-my-cards` and `host-picking`. There is no device, so the seed writes one and sends
-its report over HTTP, exactly as a real one would.
+Five rows need a device standing in the room: `selector-admin`, `selector-device`,
+`user-my-cards`, `host-picking` and `host-reel`. There is no device, so the seed writes
+one and sends its report over HTTP, exactly as a real one would.
 
 A report buys fifteen seconds of being online and no more, which is shorter than one row
 takes. Those rows are therefore captured over a heartbeat: `capture.py` sends the same
 report every three seconds for as long as the picture is being taken (`device_online`),
 and stops when it is done. `host-picking` also opens a player selection before the page
-and gives it up afterwards (`selection_open`). A selection left open answers every later
-`POST /karaoke/sing` with 409, so the launcher rows would all fail behind it.
+and gives it up afterwards (`selection_open`), and `host-reel` opens a *spun* one — the
+server picks the song out of the whole library, so the row cannot say which song lands.
+That one is the selector's own spin, because the TV draws the slot cards for the
+selector's spin alone: the row holds **When the start button is pressed with nothing
+open** at a random song (`Row.settings`, put back afterwards), `press_start` sends the
+device's report once with the start button's counter at 1 — the heartbeat's body,
+changed in place and reset before the row ends, so the next heartbeat reads as a reboot
+and not a press — and the host closes the selection with a token-less `DELETE`, the host
+screen's own cancel, because nobody holds a selector's token. A selection left open
+answers every later `POST /karaoke/sing` with 409, so the launcher rows would all fail
+behind it.
 
 Two consequences the run handles, and neither is luck:
 
-- The four rows stand last in the manifest, so nothing that is not about the selector is
+- The five rows stand last in the manifest, so nothing that is not about the selector is
   captured while a device is online.
 - After them the run waits sixteen seconds before the launcher rows. The host screen says
   *Player selector offline* once a device that was there is gone, and that line has no
   business in `host-results`.
+
+One phone row holds the room too. `reel-host-spin` presses **Spin on the host screen**
+in the page itself, so the phone holds the room's selection lock in its modal, and the
+row's `after` steps press **Cancel** before the tab is closed: closing a headless tab is
+not the `pagehide` that would give the lock back. The row waits about six seconds between
+the press and the shutter, because the phone reveals the song when the TV's reel lands,
+reduced motion or not; the TV in `host-reel` lands at once under the reduced motion every
+capture asks for.
 
 To look at one of those pages by hand, keep the device online yourself:
 

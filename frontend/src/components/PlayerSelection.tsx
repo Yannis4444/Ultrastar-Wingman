@@ -1,6 +1,6 @@
 import { useMutation, useQuery } from "@tanstack/react-query";
 import { useEffect, useRef, useState } from "react";
-import type { PlayerRead, SelectionRead, SlotCreate, SongRead } from "../api";
+import type { PlayerRead, SelectionRead, SongRead } from "../api";
 import {
   getPlayerSelectionOptions,
   listKaraokeSlotsOptions,
@@ -12,8 +12,18 @@ import {
 import { useAuth } from "../auth";
 import { parseServerTime } from "../duration";
 import { errorDetail, errorMessage, usdxProblems } from "../errors";
+import {
+  latest,
+  useSelectionLock,
+  type SelectionAdoption,
+} from "../hooks/useSelectionLock";
 import { useSelectorStatus } from "../hooks/useSelectorStatus";
-import { useWingmanEvent, type WingmanEvent } from "../hooks/useWingmanEvents";
+import {
+  rememberedAssignment,
+  slotBody,
+  writeAssignment,
+  type Assignment,
+} from "../playerSlots";
 import AddPlayerForm from "./AddPlayerForm";
 import ConfirmModal from "./ConfirmModal";
 import { Icon } from "./icons";
@@ -22,13 +32,6 @@ import Modal from "./Modal";
 import PlayerAvatar from "./PlayerAvatar";
 import UsdxSetupGuide from "./UsdxSetupGuide";
 import "./PlayerSelection.css";
-
-const SLOTS_STORAGE_KEY = "wingman.playerSlots";
-
-/** The one route every close goes to. The token rides in a header, never in the
- *  query: a `DELETE …?token=` lands in the access log of whatever sits in front
- *  of Wingman, and the room's lock would be readable there. */
-const SELECTION_URL = "/api/v1/karaoke/selection";
 
 /** The hint a tap on a slot a card holds is answered with. */
 const HELD_HINT = "That slot is held by a card on the player selector.";
@@ -40,9 +43,6 @@ const HELD_HINT = "That slot is held by a card on the player selector.";
  */
 const FILTER_FROM = 12;
 
-/** Color name -> player id. Slots come from the backend; nothing is hardcoded. */
-type Assignment = Record<string, string>;
-
 /**
  * What the modal is doing. `opening` is the request that takes the room's
  * selection lock, `blocked` is somebody else holding it, and `lost` is this
@@ -50,78 +50,6 @@ type Assignment = Record<string, string>;
  * `picking` shows a roster: in the other three there is nothing to tap.
  */
 type Phase = "opening" | "picking" | "blocked" | "lost";
-
-/** `selection.changed`: the whole selection, or `null` once there is none. */
-interface SelectionChanged extends WingmanEvent {
-  selection: SelectionRead | null;
-}
-
-/**
- * The last configuration, so the same group does not have to re-pick every
- * song. Unknown colors, deleted players and hidden ones fall out before the
- * selection is opened with it, so a stale entry can never resurrect somebody
- * who is not singing — and can never 404 the request either.
- */
-function readAssignment(): Assignment {
-  try {
-    const stored = window.localStorage.getItem(SLOTS_STORAGE_KEY);
-    return stored ? (JSON.parse(stored) as Assignment) : {};
-  } catch {
-    return {};
-  }
-}
-
-function writeAssignment(assignment: Assignment): void {
-  try {
-    window.localStorage.setItem(SLOTS_STORAGE_KEY, JSON.stringify(assignment));
-  } catch {
-    // Private mode or a full quota: preselection is a convenience, not a feature.
-  }
-}
-
-/** An assignment as the body both writes take: only the slots somebody stands on. */
-function slotBody(colors: string[], assignment: Assignment): SlotCreate[] {
-  return colors
-    .filter((color) => assignment[color] !== undefined)
-    .map((color) => ({ color, player_id: assignment[color] }));
-}
-
-/**
- * The stored configuration, reduced to colors that exist and players who are
- * still here and not hidden. The backend answers an unknown player with a 404,
- * so the filtering has to happen before the request rather than at render time.
- */
-function rememberedAssignment(
-  players: PlayerRead[],
-  colors: string[],
-): Assignment {
-  const stored = readAssignment();
-  const visible = new Set(
-    players.filter((player) => !player.hidden).map((player) => player.id),
-  );
-  const remembered: Assignment = {};
-  for (const color of colors) {
-    const id = stored[color];
-    if (id !== undefined && visible.has(id)) remembered[color] = id;
-  }
-  return remembered;
-}
-
-/**
- * Give the room's selection back. Every close comes through here, Cancel
- * included: the page may be going away with the request, which cancels the
- * generated client's fetch halfway, and `keepalive` is what carries this one
- * out of a closing tab.
- */
-function release(token: string): void {
-  void fetch(SELECTION_URL, {
-    method: "DELETE",
-    headers: { "X-Selection-Token": token },
-    keepalive: true,
-    credentials: "same-origin",
-    // Nobody is waiting for the answer, and there is nothing to report it to.
-  }).catch(() => {});
-}
 
 /**
  * Whole seconds left until `target`, at least one, `null` without one. The
@@ -144,8 +72,17 @@ function useSecondsUntil(target: string | null): number | null {
 }
 
 interface PlayerSelectionProps {
+  /** The song being set up — in adopt mode, the adopted selection's song. It
+      is what a fresh selection is opened with after this one is lost. */
   song: SongRead;
   onClose: () => void;
+  /**
+   * A selection already open, with its token: the host spin's, once its song
+   * is picked and Play is pressed. The picker then opens nothing on mount and
+   * carries on with this selection — everything else, the writes, Play and
+   * giving the room back on close, is as if it had opened it itself.
+   */
+  adopt?: SelectionAdoption;
 }
 
 /**
@@ -157,6 +94,7 @@ interface PlayerSelectionProps {
 export default function PlayerSelection({
   song,
   onClose,
+  adopt,
 }: PlayerSelectionProps) {
   const auth = useAuth();
   // Whether the room is picking with cards. It is why the board opened empty
@@ -169,8 +107,11 @@ export default function PlayerSelection({
   const slots = useQuery(listKaraokeSlotsOptions());
   const players = useQuery(listPlayersOptions());
 
-  const [phase, setPhase] = useState<Phase>("opening");
-  const [selection, setSelection] = useState<SelectionRead | null>(null);
+  // An adopted selection is already open: straight to picking on it.
+  const [phase, setPhase] = useState<Phase>(adopt ? "picking" : "opening");
+  const [selection, setSelection] = useState<SelectionRead | null>(
+    adopt?.selection ?? null,
+  );
   // The slot the next tap on a player fills. Read through `activeColor` below:
   // a card can land on it after it was picked.
   const [pickedColor, setPickedColor] = useState<string | null>(null);
@@ -184,23 +125,13 @@ export default function PlayerSelection({
   // Non-null while the setup guide is up: the backend's problem list.
   const [setupProblems, setSetupProblems] = useState<string[] | null>(null);
 
-  // The opener's secret. A ref, not state: the unmount close reads it from a
-  // cleanup that was written when there was no token yet.
-  const tokenRef = useRef<string | null>(null);
-  // When the selection this phone holds was opened. A ref beside the token
-  // because the two have to agree the moment the answer lands: a broadcast can
-  // be read between `onSuccess` and the render that would put it in state, and
-  // the selection this phone just took over would be read as somebody else's.
-  const openedAtRef = useRef<string | null>(null);
   // True from Play until its answer. The start closes the selection, so the
   // `null` broadcast that follows is this phone's own doing, not a take-over.
   const startingRef = useRef(false);
   // The mount effect runs twice under React's development double-invoke, and
-  // the second run would take the room's lock off the first.
-  const openedRef = useRef(false);
-  // Set once this modal is done with the room, so an answer that lands after
-  // Cancel gives its token straight back instead of leaving the room locked.
-  const closedRef = useRef(false);
+  // the second run would take the room's lock off the first. An adopted
+  // selection is open already, so the effect has nothing to do at all.
+  const openedRef = useRef(adopt !== undefined);
   // One write at a time, in order. `queued` is the tap that came in while a PUT
   // was in flight (the newest one wins), `desired` what this phone last asked
   // for — the base the next tap is computed from, so two taps inside one round
@@ -243,10 +174,27 @@ export default function PlayerSelection({
   const takenColor = (playerId: string): string | undefined =>
     colorNames.find((color) => assignment[color] === playerId);
 
+  /** Draw what the server says, never an older state than what is on the screen. */
+  const apply = (next: SelectionRead): void => {
+    setSelection((previous) => latest(previous, next));
+  };
+
+  // The token, the close that gives the room back, and the reading of
+  // `selection.changed` — shared with the host spin, which holds the same lock.
+  const lock = useSelectionLock({
+    adopt,
+    onLost: (reason) => {
+      // Play closes the selection: the broadcast that says so is the answer to
+      // this phone's own request, and the modal is already on its way out.
+      if (reason === "closed" && startingRef.current) return;
+      lose();
+    },
+    onChanged: apply,
+  });
+
   /** The selection is not this phone's any more: the token is dead, say so. */
   const lose = (): void => {
-    tokenRef.current = null;
-    openedAtRef.current = null;
+    lock.forget();
     queuedRef.current = null;
     desiredRef.current = null;
     pendingRef.current = false;
@@ -258,30 +206,11 @@ export default function PlayerSelection({
     setPhase("lost");
   };
 
-  /**
-   * Draw what the server says. Never an older state than what is on the screen:
-   * a broadcast can overtake the answer to the write that caused it.
-   */
-  const apply = (next: SelectionRead): void => {
-    setSelection((previous) =>
-      previous !== null &&
-      parseServerTime(next.updated_at) < parseServerTime(previous.updated_at)
-        ? previous
-        : next,
-    );
-  };
-
   const open = useMutation({
     ...openPlayerSelectionMutation(),
     onSuccess: (opened) => {
-      // Cancelled while this was in flight. The room would otherwise stay
-      // locked for two minutes over a song nobody is picking any more.
-      if (closedRef.current) {
-        release(opened.token);
-        return;
-      }
-      tokenRef.current = opened.token;
-      openedAtRef.current = opened.selection.opened_at;
+      // Cancelled while this was in flight: the lock gave the token back.
+      if (!lock.hold(opened)) return;
       setNotice(null);
       setSelection(opened.selection);
       setPhase("picking");
@@ -323,7 +252,7 @@ export default function PlayerSelection({
 
   /** One PUT at a time: a second tap waits for the first answer, and wins. */
   function send(next: Assignment): void {
-    const token = tokenRef.current;
+    const token = lock.token();
     if (token === null) return;
     desiredRef.current = next;
     if (pendingRef.current) {
@@ -339,8 +268,8 @@ export default function PlayerSelection({
     onSuccess: () => {
       // The group that just started is the group the next song opens with.
       writeAssignment(desiredRef.current ?? assignment);
-      tokenRef.current = null;
-      openedAtRef.current = null;
+      // The start closed the selection: there is nothing to give back.
+      lock.forget();
       onClose();
     },
     onError: (error) => {
@@ -382,7 +311,8 @@ export default function PlayerSelection({
 
   // Opened once both lists are in: the remembered assignment is filtered
   // against them first, so a player who left the party since cannot 404 the
-  // request that opens the evening's next song.
+  // request that opens the evening's next song. Not in adopt mode: the
+  // selection is open, and `openedRef` says so from the start.
   useEffect(() => {
     if (openedRef.current) return;
     if (playerRows === undefined || slotColors === undefined) return;
@@ -395,68 +325,6 @@ export default function PlayerSelection({
       },
     });
   }, [openSelection, playerRows, slotColors, song.id]);
-
-  // The modal going away gives the room's lock back, however it went — the
-  // component unmounting, or the whole page going with it. Both paths go
-  // through the one function that takes the token out of the ref before it
-  // sends it, so the room is given back exactly once.
-  //
-  // The flag is reset in the effect body rather than only in the cleanup:
-  // React's development double-invoke runs the cleanup once on a component that
-  // is staying, and a selection opened afterwards would be released for it.
-  useEffect(() => {
-    closedRef.current = false;
-
-    const releaseToken = (): void => {
-      const token = tokenRef.current;
-      if (token === null) return;
-      tokenRef.current = null;
-      openedAtRef.current = null;
-      release(token);
-    };
-
-    // `pagehide`, not the effect cleanup: a closing tab, a back gesture and a
-    // navigation away all end the page without running one, and the room would
-    // stay locked for the two minutes the selection takes to expire. A
-    // `persisted` hide is the page going into the back/forward cache, which it
-    // can come back out of with this modal still on it — that one keeps its
-    // token, or the singer would return to a selection nothing can write to.
-    const onPageHide = (event: PageTransitionEvent): void => {
-      if (event.persisted) return;
-      releaseToken();
-    };
-    window.addEventListener("pagehide", onPageHide);
-
-    return () => {
-      window.removeEventListener("pagehide", onPageHide);
-      closedRef.current = true;
-      releaseToken();
-    };
-  }, []);
-
-  // The device may fill a slot at any moment, and somebody may take the whole
-  // selection over. `opened_at` is what tells the two apart: a taken-over
-  // selection is a new one, and this phone's token died with the old.
-  useWingmanEvent<SelectionChanged>("selection.changed", (message) => {
-    if (tokenRef.current === null) return;
-    const next = message.selection;
-    if (next === null) {
-      // Play closes the selection: the broadcast that says so is the answer to
-      // this phone's own request, and the modal is already on its way out.
-      if (!startingRef.current) lose();
-      return;
-    }
-    // The ref, not the drawn selection: this phone's own take-over is answered
-    // by a broadcast that may be read before the answer to it is in state.
-    if (
-      openedAtRef.current !== null &&
-      next.opened_at !== openedAtRef.current
-    ) {
-      lose();
-      return;
-    }
-    apply(next);
-  });
 
   /**
    * What the next tap builds on: what this phone last asked for, with every
@@ -532,11 +400,19 @@ export default function PlayerSelection({
   };
 
   const play = (force: boolean): void => {
-    const token = tokenRef.current;
+    const token = lock.token();
     if (token === null) return;
     startingRef.current = true;
     start.mutate({ body: { token, force } });
   };
+
+  /**
+   * The song Play starts: the selection's own once there is one. On a selection
+   * opened with a song the two never differ; on an adopted *spun* one the
+   * selector's start button can spin the reel again under this picker (nobody
+   * on a slot yet), and the head has to name the song the room is looking at.
+   */
+  const current = selection?.song ?? song;
 
   /**
    * Take the room's lock, either from somebody else or after losing it. With a
@@ -554,18 +430,12 @@ export default function PlayerSelection({
     setNotice(null);
     setPhase("opening");
     openSelection({
-      body: { song_id: song.id, slots: slotBody(colors, next), force },
+      body: { song_id: current.id, slots: slotBody(colors, next), force },
     });
   };
 
   const cancel = (): void => {
-    // Before the token is read: an open that lands after this has to give the
-    // room back what this modal is no longer picking with.
-    closedRef.current = true;
-    const token = tokenRef.current;
-    tokenRef.current = null;
-    openedAtRef.current = null;
-    if (token !== null) release(token);
+    lock.close();
     onClose();
   };
 
@@ -619,7 +489,7 @@ export default function PlayerSelection({
       <Modal title="Player selection" onClose={cancel} fullscreen>
         <div className="player-selection">
           <div className="player-selection-head">
-            <p className="player-selection-song">{song.title}</p>
+            <p className="player-selection-song">{current.title}</p>
             {notice && (
               <p className="error-notice player-selection-error" role="alert">
                 {notice}

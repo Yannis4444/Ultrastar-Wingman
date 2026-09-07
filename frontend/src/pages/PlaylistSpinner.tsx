@@ -47,6 +47,7 @@ export default function PlaylistSpinner() {
             {playlist.isSuccess && (
               <SongSpinner
                 songs={playlist.data.entries.map((entry) => entry.song)}
+                playlistId={playlist.data.id}
               />
             )}
           </>

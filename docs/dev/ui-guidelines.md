@@ -201,8 +201,12 @@ exception). Tests identify glyphs with `iconNames()` from `src/test/icons.ts`.
   min-height, hairline separators, list `margin: 0 8px`, 8px padding. Search by username.
 - **The gradient dice** (`.home-random`, `.spinner-spin`, `.playlist-spin`): the blue→pink sweep
   with the `dice` glyph marks the way into the slot machine and the SPIN action, nothing else —
-  two buttons carry it as a fill (the only gradient buttons in the app), the playlist header's
-  icon-only link on the glyph. On SPIN the die tumbles through its faces.
+  the Home entry (`.home-random`) and `SpinButton` (`.spinner-spin`, `components/SpinButton.tsx`,
+  `useDieRoll` inside it) carry it as a fill — the latter on the Random song page, the playlist
+  reel and the spin view's *Show it* / *Spin again*, one component in three places — and they
+  are the only gradient buttons in the app; the playlist header's icon-only link carries it on
+  the glyph. On SPIN, and on the phone for as long as the TV's reel runs, the die tumbles
+  through its faces.
 - **`Loading`** (`components/Loading.tsx`) is the only loading indicator — every `Suspense`
   fallback and `isPending` branch uses it. `SongSpinner` is the reel, not a loader.
 
@@ -270,7 +274,14 @@ panel holds (the party picker's *show all*), never for a row's own action.
   (name, optional description, one "Global" checkbox). The **"Add songs from…" picker** is one
   too: a grid of source cards (`repeat(auto-fit, minmax(140px, 1fr))`, `--tile-bg`, icon ~48px,
   name, one-line description) — the sanctioned tile use, and the cards must read as buttons.
-- **Fullscreen** is player selection only. A backdrop click closes any modal; Escape and the Tab
+- **Fullscreen** is the room's selection lock and nothing else: the player selection and *Spin on
+  the host screen* (`HostSpin`), two modals over the one `useSelectionLock`, the second in the
+  first's idiom — a head, the middle, and a foot of buttons with one primary: the picker's foot
+  is `.button`s, the spin view's is the gradient `SpinButton` (*Show it* while the TV spins,
+  *Spin again* after) over a `.button-primary` Play and a quiet Cancel, and its middle is the
+  reel's `LogoTile` swapping to the song's cover on the reveal, the title and artist under it,
+  the way the Random song page stands. A fullscreen
+  modal that holds no lock is a §6 route. A backdrop click closes any modal; Escape and the Tab
   trap belong to the topmost one alone (`Modal` keeps a stack), and closing restores the
   opener's focus. **Confirmations always use `ConfirmModal`** (`window.confirm` is banned):
   title, one-sentence consequence, `confirmLabel`, `danger` for stop/delete/replace.
@@ -349,7 +360,12 @@ saved) where a jump to the top would throw away the place they were working in.
   option the reader has nothing in is `disabled`, and the caption still says what the chosen
   pool holds. A fixed pool — a playlist's reel — drops the select and keeps the caption. Only
   *All songs* is filtered by the `hide_by_default` tags: a favorite, a wish and a playlist are
-  the reader's own choice, and hiding what they asked for would be a bug.
+  the reader's own choice, and hiding what they asked for would be a bug. Under SPIN, for
+  `karaoke.sing` and only with something to land on, one quiet `.button` *Spin on the host
+  screen* — never the gradient, never a second dice: SPIN stays the page's gesture, and the reel
+  it opens runs on the TV, the room's, while the phone (`HostSpin`, §5) shows the reel's logo
+  tile until the TV lands and the cover after it, the title and artist under them, over the
+  gradient die — the one place off this page it stands — Play and Cancel.
 - **Tags admin** (`/user/tags`, a `ManageMenu` entry gated on `tags.manage`): rows of the 40px
   coloured glyph square, the name, a meta line "N songs · hidden by default · shown in list" and
   a chevron; the header `+` opens `/user/tags/new`. Under them an `h2` *Built-in* over eight
@@ -561,14 +577,21 @@ saved) where a jump to the top would throw away the place they were working in.
   **Picking singers is the second takeover** (the user's request, 2026-09-06): while
   `HostSelection` reports `selecting` the rail is down the same way, and the block keeps
   reporting it underneath the badges that outrank it, so the code does not come back for the
-  seconds in between. The song stands at the top — the cover a step under the running song's,
-  the title and artist beside it, *Picking singers*, and the auto-start countdown under that
-  block and never in a card — over **one card per slot** along the foot, in the host's order
+  seconds in between. The song stands at the top as **one centred column** (the user's request,
+  2026-09-06: a long title must never move the reel) — the cover, or the reel in its place, at
+  `min(28vh, 24vw)`, two lines always reserved for the title (`-webkit-line-clamp: 2` on
+  `line-height` 1.3, so a descender survives the clamp), the artist, and one line that reads
+  *Spinning…*, *Picking singers* or *Starting in N…*: the countdown takes the line's place,
+  never a line of its own and never a card, because the head's height is budgeted to that line
+  and a line added under it pushed the cards off the stage — over **one card per slot** along
+  the foot (capped at 26vh wide, the rest of that budget), in the host's order
   and sharing the width: an outline in the slot's own hex, the avatar above the name, and for
   a slot nobody is on the card filled with that same colour 25% into `--bg` under a
   placeholder a step lighter, saying *empty* or *Unknown card* in `--color-dark`
   (`--color-darker` is 2.7:1 on the darkened yellow, §1.6's reasoning). The cards are the one
-  sanctioned departure from §1.1. The page keeps its one
+  sanctioned departure from §1.1. A spin a **phone** started draws no row at all and centres
+  the head in the stage (the slots are the picker's, the next screen); the selector's spin
+  keeps the cards, and counts down once the reel has landed. The page keeps its one
   `useIdle` mechanism, and every animation keeps its reduced-motion branch (§1.9).
 
 ## 8. Checklist before finishing UI work

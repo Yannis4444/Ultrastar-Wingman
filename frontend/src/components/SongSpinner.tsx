@@ -1,22 +1,16 @@
 import { useQuery } from "@tanstack/react-query";
-import {
-  useCallback,
-  useEffect,
-  useLayoutEffect,
-  useMemo,
-  useRef,
-  useState,
-} from "react";
-import type { SongRead, WishRead } from "../api";
+import { useMemo, useState } from "react";
+import type { SongRead, SpinRequest, WishRead } from "../api";
 import { listSongsOptions } from "../api/@tanstack/react-query.gen";
+import { useAuth } from "../auth";
 import { useFavorites } from "../hooks/useFavorites";
 import { useTags } from "../hooks/useTags";
 import { useWishlist } from "../hooks/useWishlist";
 import { defaultTagCriteria, passesTagCriteria } from "../tags";
-import { DICE_FACES } from "../dice";
-import { Icon } from "./icons";
-import SongCover from "./SongCover";
+import HostSpin from "./HostSpin";
 import SongDetails from "./SongDetails";
+import SongReel, { type Spin } from "./SongReel";
+import SpinButton from "./SpinButton";
 import "./SongSpinner.css";
 
 type Scope = "all" | "favorites" | "wishlist" | "weighted";
@@ -27,40 +21,6 @@ const SCOPES: [Scope, string][] = [
   ["wishlist", "Wishlist"],
   ["weighted", "Wishlist (weighted)"],
 ];
-
-/** How many filler covers fly past: enough that the reel never looks short. */
-const FILLERS_MIN = 40;
-const FILLERS_SPAN = 21;
-const SPIN_MS = 5000;
-/** The reel stands still for a moment before the winner is revealed. */
-const REVEAL_MS = 5500;
-const EASING = "cubic-bezier(0.75, 0, 0.1, 1)";
-
-/** The face the die on the SPIN button shows before the first spin: the five. */
-const FACE_AT_REST = 4;
-/** The die rolls fast at first and slows with the reel: 90ms growing by 6% a
-    roll comes to about 25 rolls over the reel's five seconds. */
-const ROLL_MS = 90;
-const ROLL_SLOWDOWN = 1.06;
-/** The number settles before the drum does: the last roll lands about eight
-    tenths of a second before the reel stops, so the die comes to rest and the
-    covers glide the last stretch under a face that no longer changes. Nothing
-    is clamped mid-roll — a roll that would land after this is simply never
-    scheduled, so the slowdown keeps its shape to the end. */
-const ROLL_STOP_MS = SPIN_MS - 800;
-
-/** The reel entry that is not a song: the logo the empty window shows. */
-const LOGO = "logo";
-type ReelItem = SongRead | typeof LOGO;
-
-interface Reel {
-  /** Remounts the reel element, so no style from the last spin survives. */
-  key: number;
-  /** Winner first, fillers, then what is on show at the bottom: the previous
-      winner, or on the first spin the logo, so it spins away like a cover. */
-  items: ReelItem[];
-  winner: SongRead;
-}
 
 function pool(
   scope: Scope,
@@ -107,12 +67,6 @@ function poolCaption(
   return `${wished} · ${count(tickets, "wish", "wishes")}`;
 }
 
-function prefersReducedMotion(): boolean {
-  return (
-    window.matchMedia?.("(prefers-reduced-motion: reduce)").matches ?? false
-  );
-}
-
 interface SongSpinnerProps {
   /**
    * A fixed pool to spin — the songs of one playlist. The *Pick from* select
@@ -120,27 +74,36 @@ interface SongSpinnerProps {
    * nor the favorites are fetched: the caller already holds the songs.
    */
   songs?: SongRead[];
+  /**
+   * The playlist the fixed pool is, for the reel on the host screen: the
+   * server picks from that playlist where the phone's reel picks from `songs`.
+   */
+  playlistId?: string;
 }
 
 /**
- * The casino reel: a stack of covers that scrolls up to the winner. The reel is
- * built once per spin inside the click handler and kept in state — building it
- * during render made the old app reshuffle every cover on any unrelated
- * re-render.
+ * The Random song page's column: the *Pick from* select and the pool size, the
+ * reel (`SongReel`, which owns the animation), the result, the SPIN button and
+ * under it the quiet way of spinning on the host screen instead. The winner is
+ * picked here the instant SPIN is pressed, and the reel is told to land on it;
+ * a spin on the host screen is the server's pick, and the TV's reel lands on
+ * it (`HostSpin`).
  *
- * The reel stands alone: the *Pick from* select and the pool size above it,
- * the result and the SPIN button below. A finished spin never opens the song
- * modal by itself — the cover and the result line are the way in, and the user
- * takes it.
+ * A finished spin never opens the song modal by itself — the cover and the
+ * result line are the way in, and the user takes it.
  */
-export default function SongSpinner({ songs: fixed }: SongSpinnerProps) {
+export default function SongSpinner({
+  songs: fixed,
+  playlistId,
+}: SongSpinnerProps) {
+  const auth = useAuth();
   const [scope, setScope] = useState<Scope>("all");
-  const [reel, setReel] = useState<Reel | null>(null);
+  const [spin, setSpin] = useState<Spin | null>(null);
   const [spinning, setSpinning] = useState(false);
   const [winner, setWinner] = useState<SongRead | null>(null);
   const [details, setDetails] = useState<SongRead | null>(null);
-  const [face, setFace] = useState(FACE_AT_REST);
-  const reelElement = useRef<HTMLDivElement>(null);
+  // The spin on the host screen this phone asked for, while its modal is up.
+  const [hostSpin, setHostSpin] = useState<SpinRequest | null>(null);
 
   const library = useQuery({
     ...listSongsOptions(),
@@ -181,75 +144,40 @@ export default function SongSpinner({ songs: fixed }: SongSpinnerProps) {
       ? false
       : (value === "favorites" ? favorites : wishes).length === 0;
 
-  const reveal = useCallback((song: SongRead, key: number) => {
-    setReel({ key, items: [song], winner: song });
-    setWinner(song);
-    setSpinning(false);
-  }, []);
-
-  const spin = () => {
+  const startSpin = () => {
     if (spinning || candidates.length === 0) return;
-    const pick = () =>
-      candidates[Math.floor(Math.random() * candidates.length)];
-    const target = pick();
-    const key = (reel?.key ?? 0) + 1;
-
-    if (prefersReducedMotion()) {
-      reveal(target, key);
-      return;
-    }
-    const fillers = FILLERS_MIN + Math.floor(Math.random() * FILLERS_SPAN);
-    setReel({
-      key,
-      winner: target,
-      items: [target, ...Array.from({ length: fillers }, pick), winner ?? LOGO],
+    // The winner is decided here, and the reel gets the same pool for the
+    // covers that fly past — with its duplicates, which is the weighted scope.
+    // Under reduced motion the reel lands in the same breath and `spinning` is
+    // over before the die's first roll is due.
+    setSpin({
+      id: (spin?.id ?? 0) + 1,
+      winner: candidates[Math.floor(Math.random() * candidates.length)],
     });
     setSpinning(true);
   };
 
-  useLayoutEffect(() => {
-    const element = reelElement.current;
-    if (!spinning || reel === null || element === null) return;
-    // The element was just mounted parked at the bottom of the reel. Reading a
-    // layout property makes the browser adopt that position before the
-    // transition is attached — without it the reel jumps straight to the end.
-    void element.offsetHeight;
-    element.style.transition = `transform ${SPIN_MS}ms ${EASING}`;
-    element.style.transform = "translateY(0)";
+  const settle = (song: SongRead) => {
+    setWinner(song);
+    setSpinning(false);
+  };
 
-    const timer = setTimeout(
-      () => reveal(reel.winner, reel.key + 1),
-      REVEAL_MS,
+  /** The same pool, spun on the TV: the playlist where there is one, else the select's scope. */
+  const spinOnHost = () => {
+    if (spinning || candidates.length === 0) return;
+    setHostSpin(
+      fixed !== undefined && playlistId !== undefined
+        ? { scope: "playlist", playlist_id: playlistId }
+        : { scope },
     );
-    return () => clearTimeout(timer);
-  }, [spinning, reel, reveal]);
-
-  // The die on the button rolls while the reel runs. Every roll lands on a
-  // face other than the current one, so the change is always visible; the
-  // reduced-motion path never sets `spinning`, so it never rolls. The rolls
-  // stop at `ROLL_STOP_MS`, short of the reel — a die that is still flickering
-  // as the drum halts reads as a counter, not as a die.
-  useEffect(() => {
-    if (!spinning) return;
-    let delay = ROLL_MS;
-    let elapsed = 0;
-    let timer: ReturnType<typeof setTimeout>;
-    const roll = () => {
-      setFace(
-        (current) =>
-          (current + 1 + Math.floor(Math.random() * (DICE_FACES.length - 1))) %
-          DICE_FACES.length,
-      );
-      elapsed += delay;
-      delay *= ROLL_SLOWDOWN;
-      if (elapsed + delay > ROLL_STOP_MS) return;
-      timer = setTimeout(roll, delay);
-    };
-    timer = setTimeout(roll, delay);
-    return () => clearTimeout(timer);
-  }, [spinning]);
+  };
 
   const settled = spinning ? null : winner;
+  // The host reel needs the right to start a song; a fixed pool without a
+  // playlist to name has nothing the server could spin.
+  const hostOffered =
+    auth.can("karaoke.sing") &&
+    (fixed === undefined || playlistId !== undefined);
 
   return (
     <>
@@ -282,60 +210,22 @@ export default function SongSpinner({ songs: fixed }: SongSpinnerProps) {
             : poolCaption(scope, songs, favorites, wishes)}
         </p>
 
-        <button
-          type="button"
-          className="spinner-window"
-          disabled={settled === null}
-          aria-label={
-            settled === null
-              ? "Nothing spun yet"
-              : `Details for ${settled.title}`
-          }
-          onClick={() => setDetails(settled)}
-        >
-          <div
-            key={reel?.key}
-            ref={reelElement}
-            className="spinner-reel"
-            style={
-              reel
-                ? {
-                    transform: `translateY(calc(var(--spinner-cover) * -${reel.items.length - 1}))`,
-                  }
-                : undefined
-            }
-          >
-            {(reel?.items ?? []).map((item, index) =>
-              // Duplicates are the point of the weighted scope, so the index is
-              // the only usable key here. Eager: a lazy cover inside the
-              // overflow-hidden frame would only start loading as it flies by.
-              item === LOGO ? (
-                <span
-                  key={index}
-                  className="spinner-cover spinner-cover-logo"
-                  aria-hidden="true"
-                />
-              ) : (
-                <SongCover
-                  key={index}
-                  song={item}
-                  className="spinner-cover"
-                  loading="eager"
-                />
-              ),
-            )}
-          </div>
-          <span className="spinner-line" />
-        </button>
+        <SongReel
+          spin={spin}
+          fillers={candidates}
+          onSettled={settle}
+          onOpen={setDetails}
+        />
 
         {/* The slot is held open before the first spin so SPIN never jumps —
             but it stays empty: the page title already says "Random song". */}
         <div className="spinner-result">
           {winner && (
             <button
-              // Keyed on the reel so the rise-in plays for every reveal, not
-              // only the first.
-              key={reel?.key}
+              // Remounted when a spin starts and again when it lands, so the
+              // rise-in plays for every reveal, not only the first — the
+              // previous winner steps back with it while the reel runs.
+              key={`${spin?.id ?? 0}-${spinning ? "spinning" : "settled"}`}
               type="button"
               className="spinner-winner"
               disabled={settled === null}
@@ -347,22 +237,36 @@ export default function SongSpinner({ songs: fixed }: SongSpinnerProps) {
           )}
         </div>
 
-        <button
-          type="button"
-          className={
-            spinning ? "spinner-spin spinner-spin-running" : "spinner-spin"
-          }
+        {/* Uppercased in CSS: the caps are the look, "Spin" is the name. */}
+        <SpinButton
+          spinning={spinning}
           disabled={spinning || candidates.length === 0}
-          onClick={spin}
+          onClick={startSpin}
         >
-          <Icon name={DICE_FACES[face]} className="spinner-spin-dice" />
-          {/* Uppercased in CSS: the caps are the look, "Spin" is the name. */}
           Spin
-        </button>
+        </SpinButton>
+
+        {/* The quiet second way, never the gradient: the reel on the TV is
+            the room's, and SPIN above stays the gesture that opened the page.
+            Drawn only with something to land on, like SPIN is enabled. */}
+        {hostOffered && candidates.length > 0 && (
+          <button
+            type="button"
+            className="button spinner-host"
+            disabled={spinning}
+            onClick={spinOnHost}
+          >
+            Spin on the host screen
+          </button>
+        )}
       </div>
 
       {details && (
         <SongDetails song={details} onClose={() => setDetails(null)} />
+      )}
+
+      {hostSpin && (
+        <HostSpin spin={hostSpin} onClose={() => setHostSpin(null)} />
       )}
     </>
   );

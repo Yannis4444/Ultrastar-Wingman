@@ -1,4 +1,4 @@
-"""The five knobs the player selector has, and where they live.
+"""The seven knobs the player selector has, and where they live.
 
 Module-private definitions read through a `SettingsService` built on them, the
 `achievements/settings.py` pattern and for the first of its two reasons: `settings.manage`
@@ -24,10 +24,21 @@ AUTO_START_DELAY = "devices.auto_start_delay_s"
 RESCAN_REMOVES = "devices.rescan_removes"
 SELECTION_IDLE = "devices.selection_idle_s"
 START_WITHOUT_SELECTION = "devices.start_without_selection"
+RANDOM_SCOPE = "devices.random_scope"
+RANDOM_PLAYLIST = "devices.random_playlist"
 
 # What the start button does when nobody is picking anything. `nothing` is the default: a
 # button that starts a song out of a quiet room is a surprise, and the host asks for it.
 START_MODES: tuple[str, ...] = ("nothing", "top_wish", "random")
+
+# What `random` spins the reel over: the phone's scopes (`karaoke.schema.Scope`) minus
+# `favorites`, which need an account and the button has none behind it.
+RANDOM_SCOPES: tuple[str, ...] = ("all", "wishlist", "weighted", "playlist")
+
+# A playlist id is a uuid4 in hex. Not checked against the table — a playlist may be
+# deleted after it was chosen, and the press falls back to every song then — but bounded, so
+# a stray paste cannot park a novel in a settings row.
+MAX_PLAYLIST_ID_LENGTH = 64
 
 # The delay is the room's chance to take a wrong card off the reader before the song starts.
 # Half a minute is already long enough that nobody would wait for it.
@@ -57,6 +68,18 @@ def _validate_idle(value: SettingValue) -> None:
         raise ValueError("a whole number of seconds")
     if value < MIN_SELECTION_IDLE or value > MAX_SELECTION_IDLE:
         raise ValueError(f"between {MIN_SELECTION_IDLE} and {MAX_SELECTION_IDLE} seconds")
+
+
+def _validate_random_scope(value: SettingValue) -> None:
+    if not isinstance(value, str) or value not in RANDOM_SCOPES:
+        raise ValueError(f"one of {', '.join(RANDOM_SCOPES)}")
+
+
+def _validate_playlist(value: SettingValue) -> None:
+    if not isinstance(value, str):
+        raise ValueError("a playlist id, or nothing")
+    if len(value) > MAX_PLAYLIST_ID_LENGTH:
+        raise ValueError(f"at most {MAX_PLAYLIST_ID_LENGTH} characters")
 
 
 # Not `settings.register`-ed on purpose, see the module docstring. `group` and `description`
@@ -115,6 +138,29 @@ DEFINITIONS: dict[str, SettingDefinition] = {
         ),
         validate=_validate_start_mode,
     ),
+    RANDOM_SCOPE: SettingDefinition(
+        key=RANDOM_SCOPE,
+        value_type=str,
+        default="all",
+        group="Player selector",
+        description=(
+            "What the start button spins the reel over when it starts a random song: every "
+            "song, the wishlist (each song once, or as often as it was wished for), or one "
+            "playlist."
+        ),
+        validate=_validate_random_scope,
+    ),
+    RANDOM_PLAYLIST: SettingDefinition(
+        key=RANDOM_PLAYLIST,
+        value_type=str,
+        default="",
+        group="Player selector",
+        description=(
+            "The playlist the start button picks from, when it picks from one. A playlist "
+            "that has since been deleted falls back to every song."
+        ),
+        validate=_validate_playlist,
+    ),
 }
 
 
@@ -123,5 +169,5 @@ def service(session: AsyncSession) -> SettingsService:
 
 
 async def read_all(session: AsyncSession) -> dict[str, SettingValue]:
-    """All five, one query — what a report reads before it diffs anything."""
+    """All seven, one query — what a report reads before it diffs anything."""
     return await service(session).all()

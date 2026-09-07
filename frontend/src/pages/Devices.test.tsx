@@ -13,6 +13,7 @@ import type {
   DeviceSettings,
   MeRead,
   PlayerRead,
+  PlaylistRead,
   ReaderRead,
 } from "../api";
 import { shortDate, shortTime } from "../duration";
@@ -28,6 +29,7 @@ const {
   updateDeviceSettings,
   getFirmwareManifest,
   listPlayers,
+  listPlaylists,
   assignCard,
   forgetCard,
 } = vi.hoisted(() => ({
@@ -38,6 +40,7 @@ const {
   updateDeviceSettings: vi.fn(),
   getFirmwareManifest: vi.fn(),
   listPlayers: vi.fn(),
+  listPlaylists: vi.fn(),
   assignCard: vi.fn(),
   forgetCard: vi.fn(),
 }));
@@ -51,11 +54,12 @@ vi.mock("../api/sdk.gen", async (importOriginal) => ({
   updateDeviceSettings,
   getFirmwareManifest,
   listPlayers,
+  listPlaylists,
   assignCard,
   forgetCard,
 }));
 
-const MANAGER = ["devices.manage", "players.view"];
+const MANAGER = ["devices.manage", "players.view", "playlists.view"];
 const ACCOUNT: Partial<MeRead> = { user: userRead(), role: "admin" };
 const SEEN = "2026-08-12T14:03:00Z";
 
@@ -65,6 +69,8 @@ const SETTINGS: DeviceSettings = {
   rescan_removes: true,
   selection_idle_s: 120,
   start_without_selection: "nothing",
+  random_scope: "all",
+  random_playlist: "",
 };
 
 function player(overrides: Partial<PlayerRead> = {}): PlayerRead {
@@ -107,12 +113,46 @@ function card(overrides: Partial<CardRead> = {}): CardRead {
   };
 }
 
+function playlist(overrides: Partial<PlaylistRead> = {}): PlaylistRead {
+  return {
+    id: "pl-1",
+    name: "Party mix",
+    description: null,
+    is_global: true,
+    owner_username: "Alice",
+    owner_player_id: null,
+    song_count: 12,
+    duration_seconds: 0,
+    cover_song_ids: [],
+    my_access: "owner",
+    followed: true,
+    can_edit: true,
+    can_manage: true,
+    contains: null,
+    ...overrides,
+  };
+}
+
+/** The two playlists the host may point the start button at. */
+const PLAYLISTS = [
+  playlist(),
+  playlist({ id: "pl-2", name: "Slow ones", is_global: false }),
+];
+
+/** The settings of a start button that spins a random song out of a playlist. */
+const FROM_PLAYLIST: DeviceSettings = {
+  ...SETTINGS,
+  start_without_selection: "random",
+  random_scope: "playlist",
+};
+
 interface World {
   devices?: DeviceRead[];
   cards?: CardRead[];
   settings?: DeviceSettings;
   firmware?: { version: string; protocol: number; builds: [] } | null;
   players?: PlayerRead[];
+  playlists?: PlaylistRead[];
   capabilities?: string[];
 }
 
@@ -122,6 +162,7 @@ function renderDevices({
   settings = SETTINGS,
   firmware = null,
   players = [player()],
+  playlists = PLAYLISTS,
   capabilities = MANAGER,
 }: World = {}) {
   getMe.mockResolvedValue(meResponse(capabilities, ACCOUNT));
@@ -138,6 +179,7 @@ function renderDevices({
     return { data: firmware };
   });
   listPlayers.mockResolvedValue({ data: { players } });
+  listPlaylists.mockResolvedValue({ data: { playlists } });
   const client = new QueryClient({
     defaultOptions: { queries: { retry: false } },
   });
@@ -161,6 +203,7 @@ beforeEach(() => {
     updateDeviceSettings,
     getFirmwareManifest,
     listPlayers,
+    listPlaylists,
     assignCard,
     forgetCard,
   ])
@@ -271,6 +314,104 @@ test("what a start press with nothing open does is picked from three, and writte
     ),
   );
   expect(await screen.findByText("Saved")).toBeInTheDocument();
+});
+
+test("the random scope is asked for only when a start press picks a random song", async () => {
+  renderDevices({
+    settings: { ...SETTINGS, start_without_selection: "top_wish" },
+  });
+
+  await screen.findByLabelText(
+    "When the start button is pressed with nothing open",
+  );
+  expect(screen.queryByLabelText("Pick the random song from")).toBeNull();
+  expect(screen.queryByLabelText("Playlist to pick from")).toBeNull();
+  expect(listPlaylists).not.toHaveBeenCalled();
+});
+
+test("what the reel spins over is picked from four, and written", async () => {
+  renderDevices({
+    settings: { ...SETTINGS, start_without_selection: "random" },
+  });
+
+  const scope = await screen.findByLabelText("Pick the random song from");
+  expect(scope).toHaveValue("all");
+  expect(
+    within(scope)
+      .getAllByRole("option")
+      .map((option) => option.textContent),
+  ).toEqual(["All songs", "Wishlist", "Wishlist (weighted)", "A playlist"]);
+  // No playlist to name while the reel spins over every song.
+  expect(screen.queryByLabelText("Playlist to pick from")).toBeNull();
+  expect(listPlaylists).not.toHaveBeenCalled();
+
+  fireEvent.change(scope, { target: { value: "wishlist" } });
+
+  await waitFor(() =>
+    expect(updateDeviceSettings).toHaveBeenCalledWith(
+      expect.objectContaining({ body: { random_scope: "wishlist" } }),
+    ),
+  );
+  expect(await screen.findByText("Saved")).toBeInTheDocument();
+});
+
+test("picking a playlist as the scope brings the playlists, and one of them is written", async () => {
+  renderDevices({
+    settings: { ...SETTINGS, start_without_selection: "random" },
+  });
+
+  const scope = await screen.findByLabelText("Pick the random song from");
+  fireEvent.change(scope, { target: { value: "playlist" } });
+
+  // The saved answer carries the new scope, and the row for it appears with
+  // nothing chosen yet.
+  const which = await screen.findByLabelText("Playlist to pick from");
+  await waitFor(() =>
+    expect(
+      within(which)
+        .getAllByRole("option")
+        .map((option) => option.textContent),
+    ).toEqual(["Choose a playlist", "Party mix", "Slow ones"]),
+  );
+  expect(which).toHaveValue("");
+  expect(
+    screen.getByText(
+      "A playlist that no longer exists falls back to all songs.",
+    ),
+  ).toBeInTheDocument();
+
+  fireEvent.change(which, { target: { value: "pl-2" } });
+
+  // The id alone, in a body of its own. (No "Saved" here: the stub answers
+  // over the fixture's scope, not the patched one, so the row folds away.)
+  await waitFor(() =>
+    expect(updateDeviceSettings).toHaveBeenCalledWith(
+      expect.objectContaining({ body: { random_playlist: "pl-2" } }),
+    ),
+  );
+});
+
+test("the saved playlist is the one drawn", async () => {
+  renderDevices({
+    settings: { ...FROM_PLAYLIST, random_playlist: "pl-2" },
+  });
+
+  const which = await screen.findByLabelText("Playlist to pick from");
+  await waitFor(() => expect(which).toHaveValue("pl-2"));
+  expect(screen.queryByText(/no longer exists, so/)).toBeNull();
+});
+
+test("a saved playlist that was deleted reads as none chosen, and says so", async () => {
+  renderDevices({
+    settings: { ...FROM_PLAYLIST, random_playlist: "pl-9" },
+  });
+
+  expect(
+    await screen.findByText(
+      "The saved playlist no longer exists, so the reel spins over all songs. Choose another one.",
+    ),
+  ).toBeInTheDocument();
+  expect(screen.getByLabelText("Playlist to pick from")).toHaveValue("");
 });
 
 test("a device row says whether it is here, what it runs, and nothing else", async () => {

@@ -598,6 +598,8 @@ async def read_settings(session: AsyncSession) -> DeviceSettings:
         rescan_removes=bool(values[device_settings.RESCAN_REMOVES]),
         selection_idle_s=int(values[device_settings.SELECTION_IDLE]),
         start_without_selection=str(values[device_settings.START_WITHOUT_SELECTION]),
+        random_scope=str(values[device_settings.RANDOM_SCOPE]),
+        random_playlist=str(values[device_settings.RANDOM_PLAYLIST]),
     )
 
 
@@ -715,7 +717,14 @@ async def handle_report(
         # cards off every device is two queries, and a heartbeat must not pay for them.
         start_mode = str(values[device_settings.START_WITHOUT_SELECTION])
         without_selection = (
-            selection.StartWithoutSelection(mode=start_mode, cards=await cards_on_slots(session))
+            selection.StartWithoutSelection(
+                mode=start_mode,
+                cards=await cards_on_slots(session),
+                # What a `random` press spins over. Read here and not in the selection: the
+                # settings are this module's, and the selection is told what to do.
+                scope=str(values[device_settings.RANDOM_SCOPE]),
+                playlist_id=str(values[device_settings.RANDOM_PLAYLIST]) or None,
+            )
             if start_mode != "nothing" and _starts_something(diff.changes)
             else None
         )
@@ -1171,6 +1180,7 @@ async def _dispatch(
                     session_factory,
                     _button_action(change.action),
                     without_selection=without_selection,
+                    auto_start=auto_start,
                 )
 
 

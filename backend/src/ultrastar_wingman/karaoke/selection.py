@@ -9,6 +9,15 @@ Whoever opened it holds a token. Only that token moves the slots and presses Pla
 else who may sing can *take over*, which is a new selection with a new token. The device
 carries no token at all: it stands in the room, and standing in the room is the right.
 
+A selection may also be *spun*: instead of a song, the opener names a scope and the server
+picks the song out of it (`reel.py`), on the phone's behalf and on the start button's alike.
+The host screen turns the pick into a reel landing on the song, a respin picks again in the
+same scope and keeps the slots, and a press while the reel still runs lands it instead of
+spinning again (`REVEAL_SECONDS`). The automatic start never runs on a *phone's* spin —
+pressing until the song is right must not race a countdown; Play is the confirmation — and
+on the selector's own spin it counts down as at any other selection, but never before the
+reel has landed (`_refresh_auto_start`).
+
 Knows nothing about FastAPI — the API layer maps these exceptions onto status codes, and
 the devices module calls the `card_*` and `button_pressed` entry points directly.
 """
@@ -16,26 +25,23 @@ the devices module calls the `card_*` and `button_pressed` entry points directly
 import asyncio
 import contextlib
 import logging
-import random
 import secrets
 from collections.abc import Mapping
 from dataclasses import dataclass, field
 from datetime import UTC, datetime, timedelta
 from typing import Literal
 
-from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
 
 from ..auth import permissions
 from ..events import SelectionChanged, event_bus
-from ..library import service as library
 from ..players.model import Player
 from ..players.schema import PlayerRead, read_player
 from ..songs.model import Song
 from ..songs.schema import SongRead, read_song
 from ..tags import service as tags
-from . import service
-from .schema import CurrentSing, SelectionRead, SelectionSlotRead
+from . import reel, service
+from .schema import CurrentSing, Scope, SelectionRead, SelectionSlotRead, SpinOrigin, SpinRead
 
 logger = logging.getLogger(__name__)
 
@@ -49,6 +55,17 @@ _idle_ttl = DEFAULT_IDLE_TTL
 # 24 bytes of `secrets`, which is a 32-character URL-safe string. The token never leaves
 # the phone it was minted for, and it is compared with `compare_digest`.
 TOKEN_BYTES = 24
+
+# How long the reel on the host screen runs before it lands, in seconds. The same figure as
+# the frontend's `REVEAL_MS` in `frontend/src/components/SongReel.tsx`, and the two have to
+# agree: a press that arrives inside this window is the room not wanting to wait, and lands
+# the reel (`revealed`) instead of spinning again or starting the song.
+REVEAL_SECONDS = 5.5
+_REVEAL = timedelta(seconds=REVEAL_SECONDS)
+
+# The selector's button is the one caller in the app with no account behind it at all: what
+# it may pick out of is what a party guest may see.
+_GUEST = tags.Viewer(role=permissions.DEFAULT_ROLE, user_id=None)
 
 ButtonAction = Literal["start", "clear", "cancel"]
 
@@ -72,6 +89,35 @@ class NotTheOpenerError(RuntimeError):
         super().__init__("this player selection belongs to somebody else")
 
 
+class EmptyPoolError(LookupError):
+    """The reel found nothing to land on: a wishlist nobody wished on, a playlist that is
+    gone or empty, the favorites of a caller with no account."""
+
+    def __init__(self, scope: str) -> None:
+        super().__init__(f"nothing to pick from in '{scope}'")
+        self.scope = scope
+
+
+class NotASpinError(RuntimeError):
+    """A respin on a selection that was opened with a song: there is no scope to pick from
+    again."""
+
+    def __init__(self) -> None:
+        super().__init__("this player selection was not spun")
+
+
+@dataclass(frozen=True)
+class Spin:
+    """What a spun selection is picked out of: the reel's scope, the playlist for the
+    `playlist` scope, and whose hidden tags — and, for `favorites`, whose hearts — the pick
+    is made with. Kept on the selection for as long as it stands, so a respin picks the
+    way the opener did, whoever presses it."""
+
+    scope: Scope
+    viewer: tags.Viewer
+    playlist_id: str | None = None
+
+
 @dataclass(frozen=True)
 class CardOnSlot:
     """A card lying on a reader that is wired to one slot color. `player_id` is None for a
@@ -86,13 +132,19 @@ class StartWithoutSelection:
     """What the selector's start button does when it finds nobody picking anything.
 
     `mode` is `devices.start_without_selection`: `nothing`, `top_wish` for the song the room
-    wished for most, or `random`. `cards` is what lies on the slot readers, which is both
-    who sings it and the reason the press counts at all: a button pressed with no card on
-    any reader is somebody leaning on the table, not a room asking for a song.
+    wished for most, or `random`. `cards` is what lies on the slot readers: who sings it —
+    and, for `top_wish`, the reason the press counts at all, because a button pressed with
+    no card on any reader is somebody leaning on the table, not a room asking for a song.
+    `random` spins the reel on the host screen instead, cards or none, and starts nothing on
+    the press itself — the next press does, or the automatic start once the reel has landed;
+    `scope` and `playlist_id` are `devices.random_scope` and `devices.random_playlist`, what
+    that reel picks out of.
     """
 
     mode: str
     cards: Mapping[str, CardOnSlot] = field(default_factory=dict)
+    scope: str = "all"
+    playlist_id: str | None = None
 
 
 @dataclass(frozen=True)
@@ -113,6 +165,27 @@ class _Slot:
 
 
 @dataclass
+class _Spin:
+    """The reel behind a spun selection. `id` is 1 on opening and one more on every respin —
+    the host screen animates on a new id. The viewer is the opener's: never in a read model,
+    because whose account picked is nobody else's business, and kept so a respin from the
+    selector's button picks the way the phone did.
+
+    `origin` is the path that opened it, a phone's or the selector's, and stays across every
+    respin. `revealed` is a press that landed while the reel was still running: the room did
+    not want to wait, so both screens settle the reel at once. False again on every spin;
+    a reel nobody cut short lands on its own clock and leaves it false."""
+
+    id: int
+    spun_at: datetime
+    scope: Scope
+    playlist_id: str | None
+    viewer: tags.Viewer
+    origin: SpinOrigin
+    revealed: bool = False
+
+
+@dataclass
 class _Selection:
     song: SongRead
     slots: list[_Slot]
@@ -122,6 +195,10 @@ class _Selection:
     updated_at: datetime
     auto_start_at: datetime | None = None
     auto_start_task: "asyncio.Task[None] | None" = None
+    # The reel, for a selection the server picked the song of. None for one opened with a
+    # song, and never set later: a selection is spun from the start or not at all — though
+    # the opener may take the spin off it again (`pick_singers`), once the song is right.
+    spin: _Spin | None = None
 
 
 # One room, one selection — see `service._running` for the same reasoning.
@@ -176,14 +253,16 @@ async def expire_stale() -> None:
 
 async def open_selection(
     session: AsyncSession,
-    song_id: str,
+    song_id: str | None,
     slots: list[service.SlotRequest],
     force: bool = False,
     device_slots: Mapping[str, CardOnSlot] | None = None,
     session_factory: async_sessionmaker[AsyncSession] | None = None,
     auto_start: AutoStart | None = None,
+    spin: Spin | None = None,
 ) -> tuple[SelectionRead, str]:
-    """Open a selection for `song_id` and return it with the token that owns it.
+    """Open a selection for `song_id` — or, with `spin` instead of one, for a song the reel
+    picks — and return it with the token that owns it.
 
     `slots` is what the phone remembered from the last song. `device_slots` is what lies on
     the player selector right now, keyed by slot color: a card on a reader beats the
@@ -192,23 +271,48 @@ async def open_selection(
     `auto_start` starts the countdown right here when those cards already fill the room —
     everybody is standing at the selector with their card down, and waiting for one of them
     to lift a card and put it back would be a joke. A room the *phone* filled from memory
-    starts nothing: a phone has Play, and `set_slots` never starts a countdown either.
+    starts nothing: a phone has Play, and `set_slots` never starts a countdown either. A
+    selection spun from here is the phone's spin, which starts nothing either, full room or
+    not (see `_refresh_auto_start`).
 
-    Raises `SelectionOpenError` unless `force`, `UnknownSongError`, and everything
-    `service.resolve_slots` raises. Opening one while a song plays is fine: the next singers
-    line up while the current ones are still going.
+    Raises `SelectionOpenError` unless `force`, `UnknownSongError`, `EmptyPoolError` for a
+    spin with nothing to land on, and everything `service.resolve_slots` raises. Opening one
+    while a song plays is fine: the next singers line up while the current ones are still
+    going.
     """
     global _selection
+    if song_id is not None and spin is not None:
+        raise ValueError("open a selection with a song or with a spin, not both")
     async with _lock:
         await _expire_locked()
         # Before anything is looked up: while somebody else is picking, the answer is that
         # and nothing else. A phone whose remembered slots have gone stale has to be told
-        # to take over, not that one of last night's singers is gone.
+        # to take over, not that one of last night's singers is gone — and a phone whose
+        # wishlist is empty that somebody else is picking, not that its pool is.
         if _selection is not None and not force:
             raise SelectionOpenError
-        song = await session.get(Song, song_id)
-        if song is None:
-            raise service.UnknownSongError(song_id)
+        now = _now()
+        spun: _Spin | None = None
+        if spin is not None:
+            song = await reel.pick_song(
+                session, spin.scope, spin.viewer, playlist_id=spin.playlist_id
+            )
+            if song is None:
+                raise EmptyPoolError(spin.scope)
+            spun = _Spin(
+                id=1,
+                spun_at=now,
+                scope=spin.scope,
+                playlist_id=spin.playlist_id,
+                viewer=spin.viewer,
+                origin="phone",
+            )
+        elif song_id is not None:
+            song = await session.get(Song, song_id)
+            if song is None:
+                raise service.UnknownSongError(song_id)
+        else:
+            raise ValueError("open a selection with a song or with a spin")
         # Before the lock is taken over: a request that is refused must leave whatever is
         # open exactly as it was.
         states = await _slot_states(session, slots)
@@ -220,18 +324,75 @@ async def open_selection(
                 from_device = True
         if _selection is not None:
             _cancel_auto_start(_selection)
-        now = _now()
         _selection = _Selection(
             song=read_song(song),
             slots=states,
             token=secrets.token_urlsafe(TOKEN_BYTES),
             opened_at=now,
             updated_at=now,
+            spin=spun,
         )
         if from_device:
             _refresh_auto_start(_selection, auto_start, session_factory)
         await _broadcast_locked()
         return _read(_selection), _selection.token
+
+
+async def respin(session: AsyncSession, token: str | None) -> SelectionRead:
+    """The opener spins again: a new song out of the same scope, for the same viewer, on the
+    same slots. The reel on the host screen runs on the new `spin.id`.
+
+    Unless the reel is still running: then the press is the room not wanting to wait, and it
+    lands the reel on the song it has (`revealed`) rather than spinning a second one over
+    the first — the same rule the selector's start button follows (`button_pressed`).
+
+    Nothing rules the song it just landed on out — the phone's own reel repeats too, and a
+    pool of one song has nothing else to offer. Raises `NoSelectionError`,
+    `NotTheOpenerError`, `NotASpinError` for a selection opened with a song, and
+    `EmptyPoolError` when the scope has run dry since (the last wish taken back, the
+    playlist emptied) — the selection stands as it was in that case.
+    """
+    async with _lock:
+        await _expire_locked()
+        selection = _opener_or_raise(token)
+        # A phone's spin never counts down, so there is nothing to reschedule here: the two
+        # Nones are what a phone knows about the automatic start, which is nothing.
+        if not _reveal_locked(selection, None, None):
+            await _respin_locked(session, selection, None, None)
+        await _broadcast_locked()
+        return _read(selection)
+
+
+async def pick_singers(
+    token: str | None,
+    session_factory: async_sessionmaker[AsyncSession] | None = None,
+    auto_start: AutoStart | None = None,
+) -> SelectionRead:
+    """The opener moves on from the reel to picking singers: the spin comes off the
+    selection, and it is an ordinary one from here — no respin, no reel on the TV, and the
+    selector's press starts the song or refuses as it does at any selection opened with a
+    song. The slots and the song stay as the reel left them.
+
+    An ordinary one from here means the countdown rule of `open_selection` applies from
+    here too: when the cards on the selector hold a slot and the room is full of known
+    players, `auto_start` starts counting down right now — the people were standing at the
+    selector with their cards down the whole time the reel ran, and the spin was the one
+    thing holding the countdown back. A room the *phone* filled from memory starts nothing,
+    exactly as when it opens a selection over what it remembered: a phone has Play. Raises
+    `NoSelectionError`, `NotTheOpenerError` and `NotASpinError` for a selection that was
+    never spun (or whose spin was already taken off).
+    """
+    async with _lock:
+        await _expire_locked()
+        selection = _opener_or_raise(token)
+        if selection.spin is None:
+            raise NotASpinError
+        selection.spin = None
+        _touch(selection)
+        if any(slot.card_uid is not None for slot in selection.slots):
+            _refresh_auto_start(selection, auto_start, session_factory)
+        await _broadcast_locked()
+        return _read(selection)
 
 
 async def set_slots(
@@ -454,6 +615,7 @@ async def button_pressed(
     session_factory: async_sessionmaker[AsyncSession],
     action: ButtonAction,
     without_selection: StartWithoutSelection | None = None,
+    auto_start: AutoStart | None = None,
 ) -> None:
     """A button on the player selector was pressed.
 
@@ -462,7 +624,15 @@ async def button_pressed(
 
     `without_selection` is what a `start` press does when nobody is picking anything. None
     (and `nothing`) leaves a quiet room quiet, which is the default: a button that starts a
-    song out of nowhere is a thing the host asks for.
+    song out of nowhere is a thing the host asks for. `auto_start` is the host's automatic
+    start, for the countdown a selector's spin runs once its reel has landed.
+
+    A `start` at a *spun* selection whose reel is still running lands the reel — the room
+    did not want to wait — and does nothing else, whoever stands on the slots. Otherwise,
+    with nobody on any slot it spins again — the room is still looking for the right song,
+    and there is nobody to sing the one it has — in the scope and for the viewer the
+    selection was opened with, a phone's or the button's own. With somebody on a slot it
+    starts the song, as at any other selection.
     """
     if action == "cancel":
         await close_selection(any_opener=True)
@@ -471,13 +641,32 @@ async def button_pressed(
         await _expire_locked()
         if _selection is None:
             if action == "start" and without_selection is not None:
-                await _start_without_selection_locked(session, session_factory, without_selection)
+                await _start_without_selection_locked(
+                    session, session_factory, without_selection, auto_start
+                )
             return
         if action == "clear":
             for slot in _selection.slots:
                 slot.player = None
                 slot.card_uid = None
             await _after_device_change(True, None, None)
+            return
+        if _reveal_locked(_selection, auto_start, session_factory):
+            await _broadcast_locked()
+            return
+        if _selection.spin is not None and not any(
+            slot.player is not None for slot in _selection.slots
+        ):
+            try:
+                await _respin_locked(session, _selection, auto_start, session_factory)
+            except EmptyPoolError:
+                # The scope ran dry under the selection. Nobody is on the other end of the
+                # button, so the song it has stays on the screen — and the press still counts
+                # as the room being busy with it, like every other press does.
+                logger.info("the selector's start button found nothing to spin again for")
+                _touch(_selection)
+                return
+            await _broadcast_locked()
             return
         _touch(_selection)
         try:
@@ -526,6 +715,16 @@ def _read(selection: _Selection) -> SelectionRead:
         opened_at=selection.opened_at,
         updated_at=selection.updated_at,
         auto_start_at=selection.auto_start_at,
+        spin=None
+        if selection.spin is None
+        else SpinRead(
+            id=selection.spin.id,
+            spun_at=selection.spin.spun_at,
+            scope=selection.spin.scope,
+            playlist_id=selection.spin.playlist_id,
+            origin=selection.spin.origin,
+            revealed=selection.spin.revealed,
+        ),
     )
 
 
@@ -572,36 +771,35 @@ async def _start_without_selection_locked(
     session: AsyncSession,
     session_factory: async_sessionmaker[AsyncSession],
     without: StartWithoutSelection,
+    auto_start: AutoStart | None,
 ) -> None:
     """The start button, pressed at a room where nobody is picking anything.
 
-    The cards on the readers are the singers, and Wingman picks the song: the one the room
-    wished for most, or one at random. A press with no card on any slot reader does nothing,
-    so a table somebody leant on cannot start a song with an empty stage.
-
-    The library it picks out of is the **guest's**: a song a tag keeps from the party is
-    kept from the button too, and the button is the one caller in the app with no account
+    Wingman picks the song, out of the **guest's** library: a song a tag keeps from the party
+    is kept from the button too, and the button is the one caller in the app with no account
     behind it at all. Nobody is waiting on any of this, so every way of coming up empty is a
-    log line, and the selection it opened goes again if the song will not start.
+    log line.
+
+    `top_wish` is one press: the cards on the readers are the singers and the song the room
+    wished for most starts right here. A press with no card on any slot reader does nothing,
+    so a table somebody leant on cannot start a song with an empty stage. `random` spins the
+    reel on the host screen instead (`_spin_without_selection_locked`) and starts nothing.
     """
     global _selection
-    if without.mode not in {"top_wish", "random"}:
+    if without.mode == "random":
+        await _spin_without_selection_locked(session, session_factory, without, auto_start)
+        return
+    if without.mode != "top_wish":
         return
     if not without.cards:
         logger.info("the selector's start button was pressed with no card on any reader")
         return
-    hidden = await tags.hidden_song_ids(
-        session, tags.Viewer(role=permissions.DEFAULT_ROLE, user_id=None)
-    )
-    song = await _song_for_button(session, without.mode, hidden)
+    song = await reel.top_wish(session, _GUEST)
     if song is None:
         logger.info("the selector's start button found no song to sing (%s)", without.mode)
         return
     states = await _slot_states(session, [])
-    for color, card in without.cards.items():
-        slot = _slot_of_states(states, color)
-        if slot is not None:
-            _put_on_slot(states, slot, await _player_row(session, card.player_id), card.uid)
+    _put_cards_on(states, without.cards, await _card_players(session, without.cards))
     if not any(slot.card_uid is not None for slot in states):
         # Cards on readers wired to colors this host does not sing with. Nobody is on a
         # slot, so there is nobody to sing.
@@ -628,23 +826,143 @@ async def _start_without_selection_locked(
         await _drop_locked(opened)
 
 
-async def _song_for_button(session: AsyncSession, mode: str, hidden: frozenset[str]) -> Song | None:
-    """The song the start button sings, out of the songs a guest may see.
+async def _spin_without_selection_locked(
+    session: AsyncSession,
+    session_factory: async_sessionmaker[AsyncSession],
+    without: StartWithoutSelection,
+    auto_start: AutoStart | None,
+) -> None:
+    """The start button set to `random`, at a quiet room: spin the reel on the host screen.
 
-    `top_wish` is `library.service`'s own ordering and nothing of its own: the button and the
-    wishlist on everybody's phone have to agree about what "most wished for" means.
+    Opens a spun selection over the cards lying on the slot readers — none is fine, the room
+    presses again once it likes the song and somebody has put a card down — and starts
+    nothing on this press: the next one starts the song if anybody stands on a slot and
+    respins otherwise (`button_pressed`), and a phone may take it over like any other. The
+    token is nobody's, exactly as for `top_wish`. This is the selector's own spin, so a room
+    the cards already fill counts down like any other — from the moment the reel lands, not
+    from now (`_refresh_auto_start`).
+
+    The scope is the host's (`devices.random_scope`). A playlist that has gone, or emptied,
+    since the host chose it falls back to every song, with a log line and the selection
+    saying `all` — a respin picks out of the same everything rather than failing twice.
     """
-    if mode == "top_wish":
-        wishes = await library.wishlist(session, None, None, hidden)
-        if not wishes:
-            return None
-        return await session.get(Song, wishes[0].song.id)
-    # Sorted, so a seeded random number generator picks the same song twice — a random
-    # choice out of whatever order SQLite felt like is not one anybody could reproduce.
-    song_ids = sorted(set(await session.scalars(select(Song.id))) - hidden)
-    if not song_ids:
-        return None
-    return await session.get(Song, random.choice(song_ids))
+    global _selection
+    try:
+        scope = reel.parse_scope(without.scope)
+    except ValueError:
+        logger.warning(
+            "the selector's random scope '%s' is not one: picking from all songs", without.scope
+        )
+        scope = "all"
+    playlist_id = without.playlist_id or None
+    if scope == "playlist" and playlist_id is None:
+        logger.info(
+            "the selector's random scope is a playlist but none is set: picking from all songs"
+        )
+        scope = "all"
+    song = await reel.pick_song(session, scope, _GUEST, playlist_id=playlist_id)
+    if song is None and scope == "playlist":
+        logger.info(
+            "the selector's random playlist %s is gone or empty: picking from all songs",
+            playlist_id,
+        )
+        scope, playlist_id = "all", None
+        song = await reel.pick_song(session, scope, _GUEST)
+    if song is None:
+        logger.info("the selector's start button found no song to spin to (%s)", scope)
+        return
+    states = await _slot_states(session, [])
+    _put_cards_on(states, without.cards, await _card_players(session, without.cards))
+    now = _now()
+    _selection = _Selection(
+        song=read_song(song),
+        slots=states,
+        token=secrets.token_urlsafe(TOKEN_BYTES),
+        opened_at=now,
+        updated_at=now,
+        spin=_Spin(
+            id=1,
+            spun_at=now,
+            scope=scope,
+            playlist_id=playlist_id,
+            viewer=_GUEST,
+            origin="device",
+        ),
+    )
+    _refresh_auto_start(_selection, auto_start, session_factory)
+    await _broadcast_locked()
+
+
+def _reveal_locked(
+    selection: _Selection,
+    auto_start: AutoStart | None,
+    session_factory: async_sessionmaker[AsyncSession] | None,
+) -> bool:
+    """A press at a spun selection whose reel is still running lands the reel, and that is
+    all it does. Whether it did: the caller broadcasts and stops there, or goes on to what
+    the press means once the reel is down — a respin, or the start.
+
+    The window is `REVEAL_SECONDS` from the spin, the reel's own running time; a reel that
+    has landed on its own clock, or been landed once, lets the press through. A countdown
+    that was waiting for the reel to land now has nothing to wait for, so it is put on the
+    clock again from this very moment.
+    """
+    spin = selection.spin
+    if spin is None or spin.revealed or _now() >= spin.spun_at + _REVEAL:
+        return False
+    spin.revealed = True
+    _touch(selection)
+    _reschedule_auto_start(selection, auto_start, session_factory)
+    return True
+
+
+async def _respin_locked(
+    session: AsyncSession,
+    selection: _Selection,
+    auto_start: AutoStart | None,
+    session_factory: async_sessionmaker[AsyncSession] | None,
+) -> None:
+    """Pick again in the selection's own scope and put the song on it. The slots stay: the
+    people are the same, only the song was wrong. Raises `NotASpinError` and
+    `EmptyPoolError` — before anything is written, so a refused respin leaves the selection
+    exactly as it stood, its idle clock included: a phone told "nothing to pick from" has
+    not touched the room, and an `updated_at` that moved without a broadcast would be a
+    selection the TV's idea of it cannot follow.
+
+    A new reel is a new landing, so a countdown is put on the clock again from it — which
+    with the room still full is the new reveal, and otherwise nothing."""
+    if selection.spin is None:
+        raise NotASpinError
+    spin = selection.spin
+    song = await reel.pick_song(session, spin.scope, spin.viewer, playlist_id=spin.playlist_id)
+    if song is None:
+        raise EmptyPoolError(spin.scope)
+    now = _now()
+    selection.song = read_song(song)
+    selection.updated_at = now
+    spin.id += 1
+    spin.spun_at = now
+    spin.revealed = False
+    _reschedule_auto_start(selection, auto_start, session_factory)
+
+
+async def _card_players(
+    session: AsyncSession, cards: Mapping[str, CardOnSlot]
+) -> dict[str, PlayerRead | None]:
+    """Who the cards on the slot readers belong to, by slot color. None for an unknown card
+    and for one whose player has since been deleted."""
+    return {color: await _player_row(session, card.player_id) for color, card in cards.items()}
+
+
+def _put_cards_on(
+    states: list[_Slot], cards: Mapping[str, CardOnSlot], players: Mapping[str, PlayerRead | None]
+) -> None:
+    """Seed the slots with the cards lying on the readers. A card on a reader wired to a
+    color the host does not sing with lands nowhere."""
+    for color, card in cards.items():
+        slot = _slot_of_states(states, color)
+        if slot is not None:
+            _put_on_slot(states, slot, players.get(color), card.uid)
 
 
 def _slot_requests(selection: _Selection) -> list[service.SlotRequest]:
@@ -678,7 +996,7 @@ def _touch(selection: _Selection) -> None:
     selection.updated_at = _now()
 
 
-def _opener_or_raise(token: str) -> _Selection:
+def _opener_or_raise(token: str | None) -> _Selection:
     if _selection is None:
         raise NoSelectionError
     if not _is_opener(_selection, token):
@@ -818,17 +1136,46 @@ def _refresh_auto_start(
     the device fills it and the host turned automatic starting on. A countdown that is
     already running is left alone: the delay is the room's chance to take a wrong card away,
     and restarting it with every report would make it never fire.
+
+    Never on a *phone's* spin, full room or not (the user's decision, 2026-09-06): the phone
+    presses until the song is right, and that must not race a countdown — Play is the
+    confirmation. The selector's own spin counts down like any other selection, but never
+    before the reel has landed: the delay runs from the reveal (`spun_at` plus
+    `REVEAL_SECONDS`, or right now once a press has landed the reel), so the room sees the
+    song before it sees *Starting in…*.
     """
-    if not _is_full(selection):
+    if not _is_full(selection) or _phone_spun(selection):
         _cancel_auto_start(selection)
         return
     if auto_start is None or session_factory is None or selection.auto_start_task is not None:
         return
-    selection.auto_start_at = _now() + timedelta(seconds=auto_start.delay_s)
-    task = asyncio.create_task(_auto_start(selection, auto_start.delay_s, session_factory))
+    now = _now()
+    landed = now
+    if selection.spin is not None and not selection.spin.revealed:
+        landed = max(now, selection.spin.spun_at + _REVEAL)
+    selection.auto_start_at = landed + timedelta(seconds=auto_start.delay_s)
+    task = asyncio.create_task(
+        _auto_start(selection, (selection.auto_start_at - now).total_seconds(), session_factory)
+    )
     selection.auto_start_task = task
     _auto_start_tasks.add(task)
     task.add_done_callback(_auto_start_finished)
+
+
+def _reschedule_auto_start(
+    selection: _Selection,
+    auto_start: AutoStart | None,
+    session_factory: async_sessionmaker[AsyncSession] | None,
+) -> None:
+    """The moment the reel lands has moved — a respin, or a press that landed it early — so
+    a countdown that was waiting for it is worked out again, rather than left alone the way
+    `_refresh_auto_start` leaves a running one."""
+    _cancel_auto_start(selection)
+    _refresh_auto_start(selection, auto_start, session_factory)
+
+
+def _phone_spun(selection: _Selection) -> bool:
+    return selection.spin is not None and selection.spin.origin == "phone"
 
 
 def _cancel_auto_start(selection: _Selection) -> None:
@@ -844,10 +1191,11 @@ def _auto_start_finished(task: "asyncio.Task[None]") -> None:
 
 
 async def _auto_start(
-    selection: _Selection, delay_s: int, session_factory: async_sessionmaker[AsyncSession]
+    selection: _Selection, delay_s: float, session_factory: async_sessionmaker[AsyncSession]
 ) -> None:
     """Start the song by itself, once the room has had `delay_s` seconds to take a wrong
-    card off the selector."""
+    card off the selector — the seconds until `auto_start_at`, the reel's remaining run
+    included where there is one."""
     await asyncio.sleep(delay_s)
     async with _lock:
         if _selection is not selection or not _is_full(selection):

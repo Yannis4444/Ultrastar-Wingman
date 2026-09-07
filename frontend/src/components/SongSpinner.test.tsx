@@ -7,6 +7,7 @@ import {
   waitFor,
   within,
 } from "@testing-library/react";
+import type { ComponentProps } from "react";
 import type { MeRead, SongRead, WishRead } from "../api";
 import { meResponse, userRead } from "../test/auth";
 import { FakeSocket } from "../test/fakeSocket";
@@ -23,6 +24,9 @@ const {
   getMe,
   listTags,
   listTagAssignments,
+  listKaraokeSlots,
+  listPlayers,
+  openPlayerSelection,
 } = vi.hoisted(() => ({
   listSongs: vi.fn(),
   listWishlist: vi.fn(),
@@ -30,6 +34,9 @@ const {
   getMe: vi.fn(),
   listTags: vi.fn(),
   listTagAssignments: vi.fn(),
+  listKaraokeSlots: vi.fn(),
+  listPlayers: vi.fn(),
+  openPlayerSelection: vi.fn(),
 }));
 
 vi.mock("../api/sdk.gen", async (importOriginal) => ({
@@ -40,6 +47,9 @@ vi.mock("../api/sdk.gen", async (importOriginal) => ({
   getMe,
   listTags,
   listTagAssignments,
+  listKaraokeSlots,
+  listPlayers,
+  openPlayerSelection,
 }));
 
 function song(id: string, title: string): SongRead {
@@ -70,15 +80,17 @@ const WATERLOO = song("usdb:3", "Waterloo");
 /** Signed in by default: favorites need an account to belong to. */
 const ACCOUNT: Partial<MeRead> = { user: userRead(), role: "user" };
 
+const SINGING = ["songs.view", "wishlist.view", "karaoke.sing"];
+
 function renderSpinner(
   songs: SongRead[],
   wishes: WishRead[],
   favorites: string[] = [],
   me: Partial<MeRead> = ACCOUNT,
+  capabilities = SINGING,
+  props: ComponentProps<typeof SongSpinner> = {},
 ) {
-  getMe.mockResolvedValue(
-    meResponse(["songs.view", "wishlist.view", "karaoke.sing"], me),
-  );
+  getMe.mockResolvedValue(meResponse(capabilities, me));
   listSongs.mockResolvedValue({ data: { songs } });
   listWishlist.mockResolvedValue({ data: { wishes } });
   listFavorites.mockResolvedValue({ data: { song_ids: favorites } });
@@ -88,7 +100,7 @@ function renderSpinner(
         new QueryClient({ defaultOptions: { queries: { retry: false } } })
       }
     >
-      <SongSpinner />
+      <SongSpinner {...props} />
     </QueryClientProvider>,
   );
 }
@@ -114,6 +126,14 @@ beforeEach(() => {
   // No tags unless a test seeds them: the reel holds the whole library.
   listTags.mockResolvedValue({ data: { tags: [] } });
   listTagAssignments.mockResolvedValue({ data: { assignments: [] } });
+  // What the host spin opens the room's selection with. Never answered: these
+  // tests are about the button and the body it sends, not about the modal.
+  listKaraokeSlots.mockResolvedValue({
+    data: { slots: [{ name: "blue", hex: "#048BB9" }], player_counts: [1] },
+  });
+  listPlayers.mockResolvedValue({ data: { players: [] } });
+  openPlayerSelection.mockReset();
+  openPlayerSelection.mockReturnValue(new Promise(() => {}));
 });
 
 afterEach(() => {
@@ -469,6 +489,81 @@ test("a favorited song stays in the reel even when a tag would hide it", async (
   // Somebody hearted it: a favorite is a decision, not a listing.
   fireEvent.click(spinButton());
   expect(new Set(reelSongIds(container))).toEqual(new Set(["usdb:2"]));
+});
+
+const hostButton = () =>
+  screen.queryByRole("button", { name: "Spin on the host screen" });
+
+test("the quiet host button stands under SPIN, and rests while the reel runs", async () => {
+  vi.useFakeTimers({ shouldAdvanceTime: true });
+  renderSpinner([QUEEN, AFRICA], []);
+  await screen.findByText("2 songs");
+
+  // A plain button, never the gradient: SPIN is the gesture of this page.
+  expect(hostButton()).toHaveClass("button");
+  expect(hostButton()).not.toHaveClass("spinner-spin");
+  expect(hostButton()).toBeEnabled();
+
+  fireEvent.click(spinButton());
+  expect(hostButton()).toBeDisabled();
+
+  act(() => vi.advanceTimersByTime(6000));
+  expect(hostButton()).toBeEnabled();
+});
+
+test("with nothing to land on there is no host button either", async () => {
+  renderSpinner([], []);
+
+  expect(
+    await screen.findByText("No songs in the library yet"),
+  ).toBeInTheDocument();
+  expect(hostButton()).toBeNull();
+});
+
+test("without the right to start a song there is no host button", async () => {
+  renderSpinner([QUEEN, AFRICA], [], [], ACCOUNT, [
+    "songs.view",
+    "wishlist.view",
+  ]);
+  await screen.findByText("2 songs");
+
+  expect(hostButton()).toBeNull();
+  expect(spinButton()).toBeEnabled();
+});
+
+test("the host button spins the select's scope on the host screen", async () => {
+  renderSpinner([QUEEN, AFRICA, WATERLOO], [wish(AFRICA), wish(WATERLOO)]);
+  await chooseScope("Wishlist");
+
+  fireEvent.click(
+    screen.getByRole("button", { name: "Spin on the host screen" }),
+  );
+
+  expect(
+    await screen.findByRole("dialog", { name: "Spin on the host screen" }),
+  ).toBeInTheDocument();
+  await waitFor(() => expect(openPlayerSelection).toHaveBeenCalledTimes(1));
+  expect(openPlayerSelection.mock.calls[0][0].body.spin).toEqual({
+    scope: "wishlist",
+  });
+});
+
+test("a playlist's reel spins that playlist on the host screen", async () => {
+  renderSpinner([], [], [], ACCOUNT, SINGING, {
+    songs: [QUEEN, AFRICA],
+    playlistId: "p1",
+  });
+  await screen.findByText("2 songs");
+
+  fireEvent.click(
+    screen.getByRole("button", { name: "Spin on the host screen" }),
+  );
+
+  await waitFor(() => expect(openPlayerSelection).toHaveBeenCalledTimes(1));
+  expect(openPlayerSelection.mock.calls[0][0].body.spin).toEqual({
+    scope: "playlist",
+    playlist_id: "p1",
+  });
 });
 
 test("the reel waits for the tags rather than spinning what they would hide", async () => {

@@ -210,7 +210,7 @@ async def list_playlists(
 async def get_playlist(
     playlist_id: str, session: SessionDep, principal: PrincipalDep, hidden: HiddenSongsDep
 ) -> PlaylistDetail:
-    playlist, rights = await _seen(playlist_id, principal, session)
+    playlist, rights = await playlist_or_404(playlist_id, principal, session)
     return await service.read_playlist_detail(session, playlist, rights, hidden)
 
 
@@ -296,7 +296,7 @@ async def copy_playlist(
 
     The body may be left off altogether — the "Save a copy" row sends nothing.
     """
-    playlist, _ = await _seen(playlist_id, principal, session)
+    playlist, _ = await playlist_or_404(playlist_id, principal, session)
     copy = await service.copy_playlist(session, playlist, user_id, body.name)
     return await service.read_playlist_detail(session, copy, _rights(copy, principal, None), hidden)
 
@@ -479,7 +479,7 @@ def _rights(
     return service.rights_for(playlist, _user_id(principal), principal.capabilities, member)
 
 
-async def _seen(
+async def playlist_or_404(
     playlist_id: str, principal: Principal, session: AsyncSession
 ) -> tuple[Playlist, service.Rights]:
     """The playlist and what this caller may do with it.
@@ -502,7 +502,7 @@ async def _edited(
     playlist_id: str, principal: Principal, session: AsyncSession
 ) -> tuple[Playlist, service.Rights]:
     """For the song list: the owner, a `write` or `admin` member, or a moderator."""
-    playlist, rights = await _seen(playlist_id, principal, session)
+    playlist, rights = await playlist_or_404(playlist_id, principal, session)
     if not rights.can_edit:
         raise HTTPException(status_code=403, detail="not_playlist_editor")
     return playlist, rights
@@ -513,7 +513,7 @@ async def _managed(
 ) -> tuple[Playlist, service.Rights]:
     """For the playlist itself — name, description, sharing, deletion: the owner, an
     `admin` member, or a moderator. A `write` member edits songs and nothing else."""
-    playlist, rights = await _seen(playlist_id, principal, session)
+    playlist, rights = await playlist_or_404(playlist_id, principal, session)
     if not rights.can_manage:
         raise HTTPException(status_code=403, detail="not_playlist_manager")
     return playlist, rights
@@ -522,7 +522,7 @@ async def _managed(
 async def _follow(
     playlist_id: str, principal: Principal, session: AsyncSession, followed: bool
 ) -> None:
-    playlist, _ = await _seen(playlist_id, principal, session)
+    playlist, _ = await playlist_or_404(playlist_id, principal, session)
     user_id = _user_id(principal)
     if user_id is None:
         raise HTTPException(status_code=404, detail="not_a_member")

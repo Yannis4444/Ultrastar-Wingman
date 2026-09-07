@@ -27,6 +27,13 @@
   }
 }
 
+/* The head alone, for a spin a phone started: the slots are the picker's, so
+   the row is not drawn and the song stands in the middle of the stage instead
+   of hanging from its top with nothing under it. */
+.host-page .host-selection-solo {
+  justify-content: center;
+}
+
 /* The song and the countdown are one block, so the cards sit at the foot whether
    the automatic start is running or not. */
 .host-page .host-selection-head {
@@ -37,46 +44,96 @@
   min-width: 0;
 }
 
-/* Cover on the left, the song beside it: the composition the running song has on
-   this same TV, so the screen does not change shape when the picking turns into
-   a sing. Centered as a block, because the rail is gone and a group pinned left
-   would leave half the width empty. */
+/* One centred column: the cover (or the reel) on top, the words under it. The
+   user's request of 2026-09-06 — beside the cover, a long title widened the text
+   block and pushed the reel sideways, and the reel is what the room watches, so
+   nothing about the song may move it. Everything under the cover wraps inside a
+   bounded width instead, and the head is the same block whether the cards stand
+   under it or not.
+
+   The sizes are a height budget, because the cards below take their height from
+   their width and the stage clips what does not fit: at 1280x720 the page keeps
+   24px top and bottom, the cover is 28vh, two lines of title, the artist and the
+   line come to about a quarter of the height, the row of cards to 26vh wide and
+   4:3 of that tall, and the gaps between them are the rest. */
 .host-page .host-selection-song {
+  /* The cover's side, read by the cover and by the reel that stands in for it. */
+  --host-selection-cover: min(28vh, 24vw);
+
   display: flex;
+  flex-direction: column;
   align-items: center;
-  gap: clamp(20px, 2.5vw, 48px);
+  gap: clamp(12px, 2vh, 28px);
   min-width: 0;
   max-width: 100%;
 }
 
-/* A touch under the running song's cover: the cards own the bottom of the screen
-   now, and at 1280x720 that is what is left over. Compound selector so the 40px
-   base in SongCover.css loses regardless of bundle order. */
+/* Compound selector so the 40px base in SongCover.css loses regardless of
+   bundle order. The fallback initial is a third of the tile, as it is beside
+   the running song. */
 .host-page .host-selection-cover,
 .host-page .song-cover.host-selection-cover {
   flex: 0 0 auto;
-  width: min(38vh, 24vw);
-  height: min(38vh, 24vw);
-  font-size: min(9vh, 6vw);
+  width: var(--host-selection-cover);
+  height: var(--host-selection-cover);
+  font-size: calc(var(--host-selection-cover) / 3);
 }
 
-/* Capped, or a long title spreads the centered block across the whole page and
-   takes the balance out of it. */
+/* The reel in the cover's place while the room spins for its song. The frame
+   draws a 2px border outside the size it is given (`SongReel.css`), so the
+   cover's size less that border is what the reel is measured in — the block
+   stands exactly where the cover stood, and the landing moves nothing. The
+   font size lands the fallback tile's 1.3em on the cover's own, so the initial
+   of a song without artwork is drawn at the size it has in the cover's place. */
+.host-page .host-selection-reel {
+  --spinner-cover: calc(var(--host-selection-cover) - 4px);
+
+  flex: 0 0 auto;
+  font-size: calc(var(--host-selection-cover) / 3 / 1.3);
+}
+
+/* Held back while the reel runs: invisible, but the box stays, so the line
+   under it does not climb while the covers fly past and drop when they land. */
+.host-page .host-selection-held {
+  visibility: hidden;
+}
+
+/* Bounded, or a long title spreads across the whole page and takes the balance
+   out of the column; centred, because the cover above it is. */
 .host-page .host-selection-text {
   display: flex;
   flex-direction: column;
+  align-items: center;
   gap: clamp(6px, 1.2vh, 18px);
+  width: min(100%, 64vw);
   min-width: 0;
-  max-width: min(100%, 46vw);
+  text-align: center;
 }
 
+/* Two lines are always reserved, a one-line title standing in the middle of
+   them: the artist, the line and — with the head centred in the stage — the
+   cover itself then keep their places from one song to the next, however long
+   the title. */
+.host-page .host-selection-title-box {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 100%;
+  min-height: calc(2 * 1.3 * clamp(32px, 5.2vh, 84px));
+}
+
+/* Clamped to two lines. The line height holds the glyphs: the clamp clips at
+   the box, and on Segoe UI (the stack's face on Windows) 1.3 is what keeps a
+   descender on the last line whole. */
 .host-page .host-selection-title {
   display: -webkit-box;
+  max-width: 100%;
   margin: 0;
   overflow: hidden;
+  overflow-wrap: anywhere;
   font-size: clamp(32px, 5.2vh, 84px);
   font-weight: 700;
-  line-height: 1.05;
+  line-height: 1.3;
   color: var(--color);
   -webkit-box-orient: vertical;
   -webkit-line-clamp: 2;
@@ -84,10 +141,12 @@
 
 .host-page .host-selection-artist {
   display: -webkit-box;
+  max-width: 100%;
   margin: 0;
   overflow: hidden;
+  overflow-wrap: anywhere;
   font-size: clamp(20px, 3vh, 44px);
-  line-height: 1.15;
+  line-height: 1.3;
   color: var(--color-darker);
   -webkit-box-orient: vertical;
   -webkit-line-clamp: 2;
@@ -109,10 +168,9 @@
 /* The selector's automatic start, under the song and never in the row of cards:
    it is the one thing on this screen that changes every second, and it counts
    the picking down, not any one slot. */
+/* The same line while the room counts down: the size stays the line's, so the
+   head does not grow, and only the color and the steady digits change. */
 .host-page .host-selection-countdown {
-  margin: 0;
-  font-size: clamp(18px, 2.6vh, 36px);
-  text-align: center;
   color: var(--color-dark);
   font-variant-numeric: tabular-nums;
 }
@@ -133,13 +191,15 @@
 
 /* Equal shares of the row, with a ceiling: six of them fill 1280 at 184px each,
    and two of them stop at the ceiling and stand in the middle instead of
-   stretching into slabs. The slot is a size container so the card inside can
-   take its height from the slot's width (`cqw`): a height can be transitioned,
-   an aspect ratio cannot. */
+   stretching into slabs. The ceiling is also a share of the height, because
+   the card is 4:3 of its width and the column head above it has its own share
+   (see the budget at the top). The slot is a size container so the card inside
+   can take its height from the slot's width (`cqw`): a height can be
+   transitioned, an aspect ratio cannot. */
 .host-page .host-selection-slot {
   flex: 1 1 0;
   min-width: 0;
-  max-width: clamp(180px, 22vw, 420px);
+  max-width: min(clamp(180px, 22vw, 420px), 26vh);
   container-type: inline-size;
 }
 

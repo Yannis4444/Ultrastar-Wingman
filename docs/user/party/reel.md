@@ -48,6 +48,48 @@ included. Somebody hearted it or asked for it on purpose. A song hidden from you
 altogether can win in none of the four. See
 [Songs you do not see](../songs/index.md#songs-you-do-not-see).
 
+## Spin on the host screen
+
+The reel can run on the TV instead, so the whole room watches the pick. Under
+**Spin** stands a quiet **Spin on the host screen** button. It is there for
+anybody who may start a song.
+
+1. Choose what the reel may pick from in the **Pick from** list.
+2. Tap **Spin on the host screen**.
+3. The phone shows the reel's empty tile and *Spinning on the host screen…*
+   while the covers scroll past on the TV. The cover, the title, and the
+   artist appear on the phone the moment the reel lands there.
+4. Tap **Show it** while the TV spins to show the result at once. The same
+   button reads **Spin again** once the reel has landed, and picks another
+   song.
+5. Tap **Play** to pick the singers: the player selection opens for that
+   song. See [Sing a song](sing.md).
+6. **Cancel** gives the TV back and picks nothing.
+
+![The Spin on the host screen view after the reel landed, with the cover, the title and artist, the Spin again die, Play, and Cancel](../assets/screenshots/party/reel-host-spin.png){ width="320" loading=lazy }
+/// caption
+The phone shows the pick under its cover. The animation is the TV's.
+///
+
+Wingman picks the song here, by the table above and as you see the library. A
+song hidden from you cannot win on the TV either. A choice with nothing behind
+it gets a sentence and **Cancel**, such as *The wishlist is empty. The reel has
+nothing to land on.*
+
+Spinning on the host screen holds the room the way **Sing** does. Nobody else
+can start a song while your phone holds the pick. If somebody is already
+picking singers, the phone says so and offers **Take over**. Taking over ends
+their pick. When somebody takes over yours, your phone reads *Somebody else
+took over the selection.* and offers **Spin again**.
+
+On the TV, the reel stands where the song's cover stands while singers are
+picked. It shows the reel and the song alone, and the microphone slots appear
+once you tap **Play**. If cards on a player selector already fill every slot,
+and the selector starts songs on its own, the countdown starts at that moment.
+See [The host screen](../host-screen/index.md). The start button of a
+[player selector](../selector/index.md) spins the same reel, with the slots
+along the foot from the start.
+
 ## One playlist's reel
 
 Opened from a playlist, the reel picks from that playlist and nothing else.
@@ -61,7 +103,8 @@ The header names the playlist, so the reel picks from its eight songs alone.
 
 The dice appears once the playlist has a song in it. A song only folded away by
 a tag can win here, the same way the playlist itself still lists it. Somebody
-put it there on purpose.
+put it there on purpose. **Spin on the host screen** stands under **Spin** here
+too, and spins this playlist on the TV.
 
 !!! note
     A phone set to reduce motion skips the animation and shows the winner right

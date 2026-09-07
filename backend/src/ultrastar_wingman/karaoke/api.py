@@ -3,14 +3,15 @@
 import contextlib
 import logging
 from collections.abc import Iterator
-from typing import Annotated
+from typing import Annotated, Self
 
 from fastapi import APIRouter, Depends, Header, HTTPException, Request
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, model_validator
 
-from ..auth.deps import HiddenSongsDep, PrincipalDep, require
+from ..auth.deps import HiddenSongsDep, PrincipalDep, require, tag_viewer
 from ..db import SessionDep
 from ..devices import service as devices
+from ..library.api import playlist_or_404
 from ..songs.api import song_or_404
 from . import selection, service
 from .colors import COLORS, Color, ColorList, UnknownColorError
@@ -18,6 +19,7 @@ from .schema import (
     CurrentSelectionRead,
     CurrentSing,
     CurrentSingRead,
+    Scope,
     SelectionOpened,
     SelectionRead,
 )
@@ -66,6 +68,19 @@ def _selection_errors() -> Iterator[None]:
         raise HTTPException(status_code=404, detail="no_selection") from error
     except selection.NotTheOpenerError as error:
         raise HTTPException(status_code=409, detail="not_the_opener") from error
+
+
+@contextlib.contextmanager
+def _reel_errors() -> Iterator[None]:
+    """The two ways a spin comes back with nothing: the scope has nothing in it, or the
+    selection was never spun. Shared by opening with a spin and spinning again, so a phone
+    reads the same word on either."""
+    try:
+        yield
+    except selection.EmptyPoolError as error:
+        raise HTTPException(status_code=409, detail="empty_pool") from error
+    except selection.NotASpinError as error:
+        raise HTTPException(status_code=409, detail="not_a_spin") from error
 
 
 class SlotCreate(BaseModel):
@@ -223,12 +238,33 @@ async def sing_song(
     return sing
 
 
+class SpinRequest(BaseModel):
+    """Let the server pick the song: the reel's scope, and the playlist for `playlist`."""
+
+    scope: Scope
+    playlist_id: str | None = None
+
+    @model_validator(mode="after")
+    def _playlist_goes_with_its_scope(self) -> Self:
+        if (self.scope == "playlist") != (self.playlist_id is not None):
+            raise ValueError("give 'playlist_id' with the 'playlist' scope, and only there")
+        return self
+
+
 class SelectionCreate(BaseModel):
-    song_id: str
+    # The song, or a spin that picks one: exactly one of the two.
+    song_id: str | None = None
+    spin: SpinRequest | None = None
     # What the phone remembered from the last song. Empty is fine: at the device, the cards
     # fill the slots and nobody sends anything at all.
     slots: list[SlotCreate] = Field(default_factory=list, max_length=len(COLORS))
     force: bool = False
+
+    @model_validator(mode="after")
+    def _a_song_or_a_spin(self) -> Self:
+        if (self.song_id is None) == (self.spin is None):
+            raise ValueError("give exactly one of 'song_id' and 'spin'")
+        return self
 
 
 class SelectionSlotsUpdate(BaseModel):
@@ -247,14 +283,20 @@ class SelectionStart(BaseModel):
     status_code=201,
     dependencies=[Depends(require("karaoke.sing"))],
     responses={
-        404: {"description": "Unknown song or player."},
-        409: {"description": "Somebody else is picking singers and `force` was not set."},
+        404: {"description": "Unknown song, player or playlist."},
+        409: {
+            "description": (
+                "Somebody else is picking singers and `force` was not set (`selection_open`), "
+                "or the spin's scope has nothing in it (`empty_pool`)."
+            )
+        },
     },
 )
 async def open_player_selection(
     new_selection: SelectionCreate,
     request: Request,
     session: SessionDep,
+    principal: PrincipalDep,
     hidden: HiddenSongsDep,
 ) -> SelectionOpened:
     """Start picking singers for a song, and lock the room while it lasts.
@@ -263,17 +305,34 @@ async def open_player_selection(
     presses Play. `force` takes a selection somebody else opened over, which needs nothing
     beyond `karaoke.sing` — the UI asks first.
 
+    With `spin` instead of `song_id`, the server picks the song — the reel on the host screen
+    — out of the scope the caller names, as the caller may see the library: a song a tag
+    hides from them cannot land, and `favorites` are their own (409 `empty_pool` without an
+    account, like a wishlist nobody wished on). A playlist the caller may not see is a 404,
+    exactly as it is on its own route.
+
     Opens with whatever lies on the player selector: those people are already standing in
     the room with their card down, so their slots are theirs before the phone's remembered
     assignment gets a say. With the automatic start on, a room the cards already fill starts
-    counting down from here.
+    counting down from here — unless it was spun: the room presses until the song is right,
+    and that never races a countdown.
 
     While a player selector is online, the remembered assignment is dropped altogether —
     the cards on the slot readers still seed, but nobody else does: the cards are how that
     room picks its singers.
     """
-    # Same reasoning as the sing route: which songs exist depends on who is asking.
-    await song_or_404(new_selection.song_id, session, hidden)
+    spin: selection.Spin | None = None
+    if new_selection.song_id is not None:
+        # Same reasoning as the sing route: which songs exist depends on who is asking.
+        await song_or_404(new_selection.song_id, session, hidden)
+    if new_selection.spin is not None:
+        if new_selection.spin.playlist_id is not None:
+            await playlist_or_404(new_selection.spin.playlist_id, principal, session)
+        spin = selection.Spin(
+            scope=new_selection.spin.scope,
+            viewer=tag_viewer(principal),
+            playlist_id=new_selection.spin.playlist_id,
+        )
     remembered = [
         service.SlotRequest(color=slot.color, player_id=slot.player_id)
         for slot in new_selection.slots
@@ -283,7 +342,7 @@ async def open_player_selection(
     remembered_singers = [slot for slot in remembered if slot.player_id is not None]
     drop_remembered = bool(remembered_singers) and await devices.device_online()
     try:
-        with _sing_errors():
+        with _sing_errors(), _reel_errors():
             opened, token = await selection.open_selection(
                 session,
                 new_selection.song_id,
@@ -292,6 +351,7 @@ async def open_player_selection(
                 device_slots=await devices.cards_on_slots(session),
                 session_factory=request.app.state.session_factory,
                 auto_start=await devices.auto_start_for(session),
+                spin=spin,
             )
     except selection.SelectionOpenError as error:
         raise HTTPException(status_code=409, detail="selection_open") from error
@@ -338,6 +398,71 @@ async def set_player_selection_slots(
                 service.SlotRequest(color=slot.color, player_id=slot.player_id)
                 for slot in update.slots
             ],
+        )
+
+
+@router.post(
+    "/karaoke/selection/spin",
+    response_model=SelectionRead,
+    dependencies=[Depends(require("karaoke.sing"))],
+    responses={
+        404: {"description": "Nothing is being picked."},
+        409: {
+            "description": (
+                "Somebody else has taken the selection over (`not_the_opener`), the selection "
+                "was opened with a song (`not_a_spin`), or the scope has run dry (`empty_pool`)."
+            )
+        },
+    },
+)
+async def spin_player_selection(
+    session: SessionDep,
+    token: Annotated[str | None, Header(alias="X-Selection-Token")] = None,
+) -> SelectionRead:
+    """Spin the reel again: a new song out of the same scope, on the same slots. Only the
+    phone that opened the selection may, and only for a selection it opened with a spin.
+
+    While the reel on the host screen is still running, the press lands it instead — the
+    answer is the same selection with `spin.revealed` set, and the song does not change. The
+    token rides in the header like the `DELETE`'s does, and for no better reason than that a
+    body with one field is a header's worth of information.
+    """
+    with _selection_errors(), _reel_errors():
+        return await selection.respin(session, token)
+
+
+@router.post(
+    "/karaoke/selection/pick",
+    response_model=SelectionRead,
+    dependencies=[Depends(require("karaoke.sing"))],
+    responses={
+        404: {"description": "Nothing is being picked."},
+        409: {
+            "description": (
+                "Somebody else has taken the selection over (`not_the_opener`), or the "
+                "selection was not spun (`not_a_spin`)."
+            )
+        },
+    },
+)
+async def pick_player_selection(
+    request: Request,
+    session: SessionDep,
+    token: Annotated[str | None, Header(alias="X-Selection-Token")] = None,
+) -> SelectionRead:
+    """The song is right: move on from the reel to picking singers. The spin comes off the
+    selection, which is an ordinary one from here — no *Spin again*, no reel on the host
+    screen, and the selector's start button starts the song or refuses as it does at any
+    selection opened with a song. Only the phone that opened the selection may.
+
+    Ordinary includes the automatic start: a room the cards on the selector already fill
+    starts counting down from here, the way it does when a selection opens over those same
+    cards — the spin was what held it back. A room the phone filled starts nothing."""
+    with _selection_errors(), _reel_errors():
+        return await selection.pick_singers(
+            token,
+            session_factory=request.app.state.session_factory,
+            auto_start=await devices.auto_start_for(session),
         )
 
 
