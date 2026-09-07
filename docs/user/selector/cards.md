@@ -112,9 +112,10 @@ the host screen first.*
   the cards lying on the readers, and the song starts on the press. With no
   card on a reader, the press does nothing at all.
 - **Start a random song** spins the reel on the TV, with or without a card on a
-  reader. The next press starts the song if a card stands on a slot, and spins
-  again if none does. A spun song never starts on its own, whatever **Start the
-  song on its own** says.
+  reader. A press while the reel runs shows the result at once. The next press
+  starts the song if a card stands on a slot, and spins again if none does.
+  When every slot holds a known singer, **Start the song on its own** counts
+  down once the reel has landed, never while it runs.
 
 Two settings appear under it for a random song. **Pick the random song from**
 is what the reel spins over: **All songs**, **Wishlist**, **Wishlist

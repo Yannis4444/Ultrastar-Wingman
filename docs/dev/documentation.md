@@ -525,7 +525,7 @@ about, and the **Must be visible** column names that part alone.
 | `playlist-manage` | `songs/playlists.md` | `/songs/playlists/:id/manage` | Same playlist, two members | 390x844 | Name, description, global checkbox, member rows |
 | `reel` | `party/reel.md` | `/spinner` | Reel landed on "Sandstorm" by Darude | 390x844 | The landed frame, the **Pick from** select, the **Spin** button, and **Spin on the host screen** under it |
 | `playlist-reel` | `party/reel.md` | `/songs/playlists/:id/spinner` | The same playlist as `playlist`, landed on one of its eight songs | 390x844 | The playlist's name in the header, the landed frame, **Spin on the host screen** under **Spin** |
-| `reel-host-spin` | `party/reel.md` | `/spinner` | Signed in as Leela, **Spin on the host screen** pressed, the reel on the TV landed | 390x844 | The title and the artist of the song the reel picked, **Cancel**, **Spin again**, and **Play** |
+| `reel-host-spin` | `party/reel.md` | `/spinner` | Signed in as Leela, **Spin on the host screen** pressed, the reel on the TV landed | 390x844 | The cover, the title, and the artist of the song the reel picked, the **Spin again** die, **Play**, and **Cancel** |
 | `usdb-search` | `songs/download.md` | `/usdb` | Search results for a common artist | 390x844 | Result rows and the download buttons |
 | `usdb-downloads` | `songs/download.md` | `/usdb` | One download at 60 percent, one queued | 390x844 | The downloads panel with both bars |
 | `tags-admin` | `tags/index.md` | `/user/tags` | Three tags of the party's own, beside Wingman's own `broken` | 390x844 | Tag rows, the Built-in heading, the eight built-in rows |
@@ -551,8 +551,8 @@ about, and the **Must be visible** column names that part alone.
 | `selector-admin` | `selector/cards.md` | `/user/devices` | The seeded device online, one known card and one unknown one on its readers | 390x844 | The **On the readers now** list, a named card and an **Unknown card** row |
 | `selector-device` | `selector/setup.md` | `/user/devices/:id` | The same device, running one firmware version behind the bundled image | 390x844 | The status lines, **Update firmware** and **Update over Wi-Fi**, the reader rows |
 | `user-my-cards` | `selector/cards.md` | `/user` | Signed in as Fry, who holds no card, with an unknown card on a reader | 390x844 | The **My cards** heading, the card's number, and **This is mine** |
-| `host-picking` | `selector/index.md` | `/host` | A selection open while the device is online, both cards on their slots | 1280x720 | The song, the slots with the card holder and **Unknown card**, and no rail |
-| `host-reel` | `host-screen/index.md` | `/host` | A spun selection open while the device is online, the reel landed, both cards on their slots | 1280x720 | The reel at rest where the cover stands, the title and artist beside it, *Picking singers*, the slots along the foot, and no rail |
+| `host-picking` | `selector/index.md` | `/host` | A selection open while the device is online, both cards on their slots | 1280x720 | The song in one centered column over *Picking singers*, the slots with the card holder and **Unknown card**, and no rail |
+| `host-reel` | `host-screen/index.md` | `/host` | The selector's start button pressed while the device is online, with **Start a random song** set: a spun selection over both cards, the reel landed | 1280x720 | The reel at rest where the cover stands, the title and artist under it, *Picking singers*, the slots along the foot, and no rail |
 
 ## 7. Links and cross references
 

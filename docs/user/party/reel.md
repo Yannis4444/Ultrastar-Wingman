@@ -56,15 +56,19 @@ anybody who may start a song.
 
 1. Choose what the reel may pick from in the **Pick from** list.
 2. Tap **Spin on the host screen**.
-3. The phone says *Spinning on the host screen…* while the reel runs on the
-   TV. The title and the artist appear on the phone the moment it lands there.
-4. Tap **Spin again** for another song. Tap **Play** to pick the singers: the
-   player selection opens for that song. See [Sing a song](sing.md).
-5. **Cancel** gives the TV back and picks nothing.
+3. The phone shows the reel's empty tile and *Spinning on the host screen…*
+   while the covers scroll past on the TV. The cover, the title, and the
+   artist appear on the phone the moment the reel lands there.
+4. Tap **Show it** while the TV spins to show the result at once. The same
+   button reads **Spin again** once the reel has landed, and picks another
+   song.
+5. Tap **Play** to pick the singers: the player selection opens for that
+   song. See [Sing a song](sing.md).
+6. **Cancel** gives the TV back and picks nothing.
 
-![The Spin on the host screen view after the reel landed, with the title and artist over Cancel, Spin again, and Play](../assets/screenshots/party/reel-host-spin.png){ width="320" loading=lazy }
+![The Spin on the host screen view after the reel landed, with the cover, the title and artist, the Spin again die, Play, and Cancel](../assets/screenshots/party/reel-host-spin.png){ width="320" loading=lazy }
 /// caption
-The phone shows the pick and the three buttons. The animation is the TV's.
+The phone shows the pick under its cover. The animation is the TV's.
 ///
 
 Wingman picks the song here, by the table above and as you see the library. A
@@ -79,9 +83,12 @@ their pick. When somebody takes over yours, your phone reads *Somebody else
 took over the selection.* and offers **Spin again**.
 
 On the TV, the reel stands where the song's cover stands while singers are
-picked, and the slots line the foot. See
-[The host screen](../host-screen/index.md). The start button of a
-[player selector](../selector/index.md) can spin the same reel.
+picked. It shows the reel and the song alone, and the microphone slots appear
+once you tap **Play**. If cards on a player selector already fill every slot,
+and the selector starts songs on its own, the countdown starts at that moment.
+See [The host screen](../host-screen/index.md). The start button of a
+[player selector](../selector/index.md) spins the same reel, with the slots
+along the foot from the start.
 
 ## One playlist's reel
 

@@ -129,9 +129,16 @@ takes. Those rows are therefore captured over a heartbeat: `capture.py` sends th
 report every three seconds for as long as the picture is being taken (`device_online`),
 and stops when it is done. `host-picking` also opens a player selection before the page
 and gives it up afterwards (`selection_open`), and `host-reel` opens a *spun* one — the
-server picks the song out of the whole library, so the row cannot say which song lands. A
-selection left open answers every later `POST /karaoke/sing` with 409, so the launcher
-rows would all fail behind it.
+server picks the song out of the whole library, so the row cannot say which song lands.
+That one is the selector's own spin, because the TV draws the slot cards for the
+selector's spin alone: the row holds **When the start button is pressed with nothing
+open** at a random song (`Row.settings`, put back afterwards), `press_start` sends the
+device's report once with the start button's counter at 1 — the heartbeat's body,
+changed in place and reset before the row ends, so the next heartbeat reads as a reboot
+and not a press — and the host closes the selection with a token-less `DELETE`, the host
+screen's own cancel, because nobody holds a selector's token. A selection left open
+answers every later `POST /karaoke/sing` with 409, so the launcher rows would all fail
+behind it.
 
 Two consequences the run handles, and neither is luck:
 

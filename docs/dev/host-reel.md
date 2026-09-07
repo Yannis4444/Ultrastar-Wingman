@@ -3,7 +3,7 @@
 *Design, 2026-09-06. Branch `feat/host-spinner`. The user's decisions are in §1; everything
 else is the plan the agents build from. Where this document and the code disagree after the
 round, the code is right and this document is updated: §6 is what shipped and where it
-departs from §§2–4.*
+departs from §§2–4, and §7.1 the same for the third round of §7.*
 
 The Random song page picks a song on one phone. This round lets the room watch the pick on
 the TV: a phone (or the player selector's start button) spins the reel **on the host
@@ -377,3 +377,53 @@ screen — but never before the reel has landed:
   on the slots after the reveal starts at once, as before.
 - Frontend: `HostSelection` shows the countdown on a spun selection once the reel has
   landed (`settled`), never while the covers fly. The phone's picker is not involved.
+
+### 7.1 What shipped, and where it departs from R1–R6
+
+Commits 1a8763c, def5133, 0b82595, 05e604a, 1a5c834, b934c4b and the documentation round.
+R1–R6 hold, with these departures and details the plan left open:
+
+- **The die's label** (R4 left it open): *Show it* while the TV's reel runs and *Spin
+  again* once it has landed. The button is `SpinButton`, the gradient die lifted out of
+  `SongSpinner` with `useDieRoll` inside it, so the Random song page's SPIN, the playlist
+  reel's SPIN and the spin view's die are one component; it stays live and lit while the
+  TV spins (busy, not off) and is off only while a respin or Play is on the wire.
+- **The countdown takes the line's place** (05e604a) rather than standing under it as R6
+  read: the head's height is budgeted to one line, and a line added while the room counted
+  down pushed the card row off the stage. The one line reads *Spinning…*, *Picking singers*
+  or *Starting in N…*.
+- **The head is a height budget** for 1280×720 (R2, R3): the cover — or the reel — at
+  `min(28vh, 24vw)`, two lines always reserved for the title (`-webkit-line-clamp: 2` on
+  `line-height` 1.3, which is what keeps a descender whole under the clamp), the artist and
+  the line inside a text block bounded to `64vw`, and the cards capped at 26vh wide. Same
+  head with and without the row; a phone's spin centres it in the stage
+  (`.host-selection-solo`) and draws no row at all, not a hidden one.
+- **`/pick` starts the countdown a card-filled room is due** (b934c4b, after the round's
+  test pass). `pick_singers` first shipped starting no countdown; now the selection is
+  ordinary from there in that respect too, so when the selector's cards hold a slot and the
+  room is full of known players, `auto_start` counts down from the moment Play is pressed —
+  the people were standing at the selector the whole time the reel ran. A room the phone
+  filled from memory still starts nothing.
+- **The countdown's aim** (R6): `_refresh_auto_start` on the selector's spin targets
+  `max(now, spun_at + REVEAL_SECONDS) + delay_s`, `now` once `revealed`; a respin and a
+  skip go through `_reschedule_auto_start` (cancel, then schedule again), because
+  `_refresh_auto_start` leaves a running countdown alone by design.
+- **The TV reads `revealed` live but the clock once per spin**: `over` is a `useMemo` on
+  `spun_at`, so a re-render mid-spin (a card landing) never puts the title up early, while
+  the broadcast carrying `revealed` cuts the running reel short at once. The phone treats a
+  selection whose spin is gone as revealed, because the `/pick` broadcast can arrive before
+  the answer to it.
+- **A press inside the window changes nothing else**: `POST /karaoke/selection/spin`
+  answers 200 with the same song and `revealed: true`, and the selector's `start` press does
+  the same and returns, whoever stands on the slots. The window is `REVEAL_SECONDS = 5.5`
+  in `selection.py`, the frontend's `REVEAL_MS`, and both files say they must agree.
+- **Screenshots**: `host-reel` is the selector's spin now, since a phone's shows no cards.
+  `capture.py` presses the seeded device's start button through its report
+  (`press_start`, the counter 0 → 1 in the heartbeat's body) with
+  `devices.start_without_selection` held at `random` for the row (`hold_settings` grew a
+  `devices.` branch), and the host closes the selection with a token-less `DELETE`. No
+  countdown in the picture: the seeded room has four slots, one known card, one unknown
+  card and two empty slots, so it can never be full, and making it full would rewire the
+  seeded device and change `selector-device`'s picture. No separate picture of a phone's
+  spin on the TV: `host-screen/index.md` already carries three, and that state is the
+  same head without the row, which one sentence covers.

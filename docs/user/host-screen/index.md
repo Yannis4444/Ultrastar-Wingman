@@ -65,20 +65,24 @@ is up. See [Wish for a song](../party/wishlist.md).
 
 When somebody taps **Sing** on a phone, or puts a card on the player selector,
 the room is picking singers. The stage takes the whole screen for it, and the
-rail is down until the song starts or the pick is given up. The song stands at
-the top over the line *Picking singers*. Along the foot stands one card per
-microphone slot, filling up as singers are picked. See
+rail is down until the song starts or the pick is given up. The song stands in
+one centered column: the cover, the title, the artist, and the line *Picking
+singers*. Along the foot stands one card per microphone slot, filling up as
+singers are picked. When every slot holds a known singer and the selector
+starts songs on its own, that line counts down instead: *Starting in 3…*. See
 [Sing a song](../party/sing.md) and [Player selector](../selector/index.md).
 
-When a phone spins the reel on the host screen, the reel stands where the cover
-would. The line reads *Spinning…* while the covers scroll past. The title and
-the artist appear when the reel lands, and every **Spin again** runs it once
-more. No countdown runs on a spun song. Whoever spun it presses **Play**. See
-[Let the reel pick](../party/reel.md).
+When the reel spins on the host screen, it stands where the cover would, and
+the line reads *Spinning…* while the covers scroll past. The title and the
+artist appear when the reel lands. A spin from a phone shows the reel and the
+song alone. The slot cards appear once that phone taps **Play**, and a room
+the cards already fill counts down from that moment. A spin from the
+selector's start button keeps the cards under the reel, and its countdown
+waits for the reel to land. See [Let the reel pick](../party/reel.md).
 
-![The host screen picking singers with the reel at rest where the cover stands, the song beside it, and the slot cards along the foot](../assets/screenshots/host-screen/host-reel.png){ width="720" loading=lazy }
+![The host screen picking singers with the reel at rest over the title and the artist, and the slot cards along the foot](../assets/screenshots/host-screen/host-reel.png){ width="720" loading=lazy }
 /// caption
-The reel has landed. Two of the slots are held by cards on the player selector.
+The selector's start button spun this reel, so two of the slots hold its cards.
 ///
 
 ## While a song plays
