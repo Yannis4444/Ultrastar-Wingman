@@ -222,17 +222,24 @@ export default function HostSelection({
             >
               {selection.song.artist}
             </p>
-            <p className="host-selection-what">
-              {running ? "Spinning…" : "Picking singers"}
-            </p>
+            {/* One line, three things it can say. The countdown takes the
+                place of "Picking singers" rather than standing under it: the
+                head's height is budgeted to the line, and a line added while
+                the room is counting down pushed the card row off the stage. */}
+            {countdown !== null ? (
+              <p
+                className="host-selection-what host-selection-countdown"
+                aria-live="polite"
+              >
+                Starting in {countdown}…
+              </p>
+            ) : (
+              <p className="host-selection-what">
+                {running ? "Spinning…" : "Picking singers"}
+              </p>
+            )}
           </div>
         </div>
-
-        {countdown !== null && (
-          <p className="host-selection-countdown" aria-live="polite">
-            Starting in {countdown}…
-          </p>
-        )}
       </div>
 
       {/* Not drawn at all for a phone's spin, rather than hidden: the row's

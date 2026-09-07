@@ -598,7 +598,10 @@ test("the countdown on a spun selection waits for the reel to land", async () =>
 
   act(() => vi.advanceTimersByTime(100));
 
-  expect(screen.getByText("Picking singers")).toBeInTheDocument();
+  // The countdown takes the line's place: "Picking singers" is what it says
+  // when nothing is counting, never a second line under it.
+  expect(screen.queryByText("Spinning…")).not.toBeInTheDocument();
+  expect(screen.queryByText("Picking singers")).not.toBeInTheDocument();
   expect(screen.getByText("Starting in 3…")).toBeInTheDocument();
   act(() => vi.advanceTimersByTime(2000));
   expect(screen.getByText("Starting in 1…")).toBeInTheDocument();

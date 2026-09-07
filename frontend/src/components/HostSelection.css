@@ -168,10 +168,9 @@
 /* The selector's automatic start, under the song and never in the row of cards:
    it is the one thing on this screen that changes every second, and it counts
    the picking down, not any one slot. */
+/* The same line while the room counts down: the size stays the line's, so the
+   head does not grow, and only the color and the steady digits change. */
 .host-page .host-selection-countdown {
-  margin: 0;
-  font-size: clamp(18px, 2.6vh, 36px);
-  text-align: center;
   color: var(--color-dark);
   font-variant-numeric: tabular-nums;
 }
