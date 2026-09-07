@@ -1,9 +1,15 @@
 /* The phone's side of a spin on the host screen, in the player selection's
    shape: the same fullscreen modal, the same phone-width column, the head, the
-   one thing in the middle and the actions pinned at the foot. Nothing here is a
-   reel — the animation is the TV's — so the middle holds a line, then a title
-   and an artist, and nothing else. */
+   one thing in the middle and the actions pinned at the foot. It reads as the
+   Random song page's sibling: a square where that page's reel is — the reel's
+   empty tile while the TV spins, the cover once it has landed — the title and
+   the artist under it, and the gradient die as the primary. The animation
+   itself stays the TV's. */
 .host-spin {
+  /* The tile's side — the reel's own on the Random song page, capped by the
+     height so the three buttons stay on a short or landscape screen. */
+  --spinner-cover: min(320px, 80vw, 38vh);
+
   flex: 1 1 auto;
   min-height: 0;
   display: flex;
@@ -46,18 +52,82 @@
 /*endregion*/
 /*region song*/
 
-/* The middle of the screen, where the reel would be if the phone had one: the
-   wait, then the pick. Centered both ways, so the words stand where the eye
-   comes back to from the TV. */
+/* The middle of the screen: the tile where the reel is on the Random song page,
+   the words under it. Centered in what is left over the buttons, so the eye
+   coming back from the TV lands on the tile; `1 1 0` and no floor, so a short
+   screen squeezes this and never the foot. */
 .host-spin-song {
-  flex: 1 1 auto;
+  flex: 1 1 0;
   min-height: 0;
   display: flex;
   flex-direction: column;
   align-items: center;
   justify-content: center;
-  gap: 4px;
+  gap: 12px;
+  /* Whatever does not fit is clipped here, never painted over the foot. */
+  overflow: hidden;
   text-align: center;
+}
+
+/* A phone on its side: the tile does not fit over the words and the three
+   buttons, and the room is looking at the TV for it anyway. The words and the
+   buttons stay. */
+@media (max-height: 560px) {
+  .host-spin-tile {
+    display: none;
+  }
+}
+
+/* The square: the tile the reel's empty window shows while the TV spins, the
+   cover once it has landed. One box, so the swap moves nothing around it. */
+.host-spin-tile {
+  position: relative;
+  flex: 0 0 auto;
+  width: var(--spinner-cover);
+  height: var(--spinner-cover);
+}
+
+/* Compound selectors so the 40px base in SongCover.css loses regardless of
+   bundle order. The cover is letterboxed on black like the reel's are. It is
+   in the tile from the start, loading under the logo, and rises in with the
+   words once the logo comes off it. */
+.host-spin-cover,
+.song-cover.host-spin-cover {
+  display: block;
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+  background-color: #000;
+}
+
+.host-spin-cover-revealed,
+.song-cover.host-spin-cover-revealed {
+  animation: host-spin-rise 0.3s ease-out;
+}
+
+/* The tile before the reveal is the reel's own (`SongReel.css` paints the logo
+   on it), laid over the loading cover so nothing is given away. */
+.host-spin-cover-logo {
+  position: absolute;
+  inset: 0;
+}
+
+.song-cover-fallback.host-spin-cover {
+  font-size: 4em;
+}
+
+/* Two lines of title and one of artist are always reserved, the wait standing
+   in the same space: the tile above keeps its place across the reveal and from
+   one spin to the next. */
+.host-spin-words {
+  display: flex;
+  flex: 0 0 auto;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 4px;
+  width: 100%;
+  min-height: calc(2 * 1.3 * 1.4em + 4px + 1.3em);
 }
 
 .host-spin-waiting {
@@ -65,10 +135,11 @@
   color: var(--color-darker);
 }
 
-/* The Random song page's result lines, a size up: this is the whole screen,
-   and there is no cover beside them to share it with. They wrap rather than
-   clip — the title *is* the screen here, and a phone is 360px wide — with a
-   line cap so a runaway title cannot push the actions off the foot. */
+/* The Random song page's result lines, a size up: this is the whole screen.
+   They wrap rather than clip — a phone is 360px wide — with a line cap so a
+   runaway title cannot push the actions off the foot. The line height holds
+   the glyphs: the clamp clips at the box, and on Segoe UI 1.3 is what keeps a
+   descender on the last line whole. */
 .host-spin-title {
   display: -webkit-box;
   max-width: 100%;
@@ -77,10 +148,10 @@
   overflow-wrap: anywhere;
   font-size: 1.4em;
   font-weight: bold;
-  line-height: 1.2;
+  line-height: 1.3;
   color: var(--color);
   -webkit-box-orient: vertical;
-  -webkit-line-clamp: 3;
+  -webkit-line-clamp: 2;
   animation: host-spin-rise 0.3s ease-out;
 }
 
@@ -91,7 +162,7 @@
   overflow: hidden;
   overflow-wrap: anywhere;
   font-size: 1em;
-  line-height: 1.25;
+  line-height: 1.3;
   color: var(--color-darker);
   -webkit-box-orient: vertical;
   -webkit-line-clamp: 2;
@@ -113,19 +184,29 @@
   padding-bottom: env(safe-area-inset-bottom, 0px);
 }
 
+/* Stacked, largest first: the die (its own size, `SpinButton.css`), Play a
+   step under it, Cancel quiet at the foot. Every label is one line at 360px. */
 .host-spin-actions {
   display: flex;
+  flex-direction: column;
   gap: 8px;
 }
 
 .host-spin-actions > button {
-  flex: 1 1 0;
+  width: 100%;
   min-width: 0;
+  white-space: nowrap;
+}
+
+.host-spin-play {
+  min-height: 48px;
+  font-weight: 700;
 }
 
 /*endregion*/
 
 @media (prefers-reduced-motion: reduce) {
+  .host-spin-cover-revealed,
   .host-spin-title,
   .host-spin-artist {
     animation: none;

@@ -202,6 +202,56 @@ test("a card carries its slot color, and an unfilled one is drawn dark", async (
   );
 });
 
+test("the head is one column: the cover over the words, the title in its reserved box", async () => {
+  getPlayerSelection.mockResolvedValue({ data: { selection: selection() } });
+  renderStage();
+  const title = await screen.findByRole("heading", { name: "Dancing Queen" });
+
+  const song = document.querySelector(".host-selection-song");
+  expect(song).not.toBeNull();
+  // Cover first, then the text block, in one block — the stylesheet stacks them.
+  const children = [...(song?.children ?? [])];
+  expect(children.map((child) => child.className)).toEqual([
+    "song-cover host-selection-cover",
+    "host-selection-text",
+  ]);
+  // The title stands in a box that reserves its two lines, so a short one and a
+  // long one leave the artist, the line and the cover where they are.
+  expect(title.parentElement).toHaveClass("host-selection-title-box");
+  expect(title.parentElement?.parentElement).toHaveClass("host-selection-text");
+  // The cards are still along the foot: a plain selection shows them.
+  expect(screen.getByLabelText("Picking singers")).not.toHaveClass(
+    "host-selection-solo",
+  );
+  expect(rows()).toEqual(["Alice", "empty", "Unknown card"]);
+});
+
+test("the head alone, centred, for a spin the slots do not belong to", async () => {
+  getPlayerSelection.mockResolvedValue({ data: { selection: selection() } });
+  const client = new QueryClient({
+    defaultOptions: { queries: { retry: false } },
+  });
+  render(
+    <QueryClientProvider client={client}>
+      <div className="host-page">
+        <div className="host-stage">
+          <HostSelection soloHead />
+        </div>
+      </div>
+    </QueryClientProvider>,
+  );
+
+  const stage = await screen.findByLabelText("Picking singers");
+  expect(stage).toHaveClass("host-selection-solo");
+  // The same head — cover, title, artist, the line — and no row of cards at
+  // all, not a hidden one: the slots are the picker's screen.
+  expect(screen.getByRole("heading", { name: "Dancing Queen" })).toBeVisible();
+  expect(screen.getByText("ABBA")).toBeInTheDocument();
+  expect(screen.getByText("Picking singers")).toBeInTheDocument();
+  expect(within(stage).queryByRole("list")).toBeNull();
+  expect(document.querySelector(".host-selection-slots")).toBeNull();
+});
+
 test("a song being sung owns the stage instead", async () => {
   getPlayerSelection.mockResolvedValue({ data: { selection: selection() } });
   getCurrentSing.mockResolvedValue({ data: { sing: RUNNING } });
@@ -287,6 +337,8 @@ function spun(
       spun_at: new Date(spunAt).toISOString(),
       scope: "all",
       playlist_id: null,
+      origin: "phone",
+      revealed: false,
     },
     ...extra,
   });

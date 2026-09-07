@@ -16,6 +16,7 @@ import type {
   SpinRequest,
 } from "../api";
 import { FakeSocket } from "../test/fakeSocket";
+import { iconNames } from "../test/icons";
 import HostSpin from "./HostSpin";
 import { REVEAL_MS } from "./SongReel";
 
@@ -134,6 +135,8 @@ function spunSelection(
       spun_at: new Date(Date.now()).toISOString(),
       scope: "all",
       playlist_id: null,
+      origin: "phone",
+      revealed: false,
     },
     ...extra,
   };
@@ -258,6 +261,58 @@ test("it opens the room's selection with a spin and waits for the TV's reel", as
   expect(play()).toBeEnabled();
 });
 
+test("the reel's empty tile stands in for the cover until the reveal, and the die rolls meanwhile", async () => {
+  renderHostSpin();
+  await opened();
+
+  // No spoiler: the reel's empty window lies over the tile. The cover is
+  // under it, loading, so the reveal never pops from black to artwork.
+  const tile = document.querySelector(".host-spin-tile");
+  expect(tile).not.toBeNull();
+  expect(tile?.querySelector(".spinner-cover-logo")).not.toBeNull();
+  expect(tile?.querySelector("img")).not.toHaveClass(
+    "host-spin-cover-revealed",
+  );
+  // The primary is the gradient die, busy rather than off: lit and rolling
+  // while the TV's reel runs, and disabled until it lands.
+  expect(spinAgain()).toHaveClass("spinner-spin", "spinner-spin-running");
+  expect(spinAgain()).toBeDisabled();
+  const die = () => iconNames(spinAgain())[0];
+  expect(die()).toMatch(/^dice(-[1-6])?$/);
+  const seen = new Set<string>();
+  for (let step = 0; step < 6; step += 1) {
+    act(() => vi.advanceTimersByTime(150));
+    seen.add(die());
+  }
+  expect(seen.size).toBeGreaterThan(1);
+  // The words are silent about the song, and the live region is there, empty,
+  // waiting to be filled.
+  const live = document.querySelector('[aria-live="polite"]');
+  expect(live).toHaveTextContent("");
+
+  act(() => vi.advanceTimersByTime(REVEAL_MS));
+
+  // The cover takes the tile, the die comes to rest, the region says the song.
+  expect(tile?.querySelector(".spinner-cover-logo")).toBeNull();
+  expect(tile?.querySelector("img")).toHaveAttribute(
+    "src",
+    "/api/v1/songs/usdb%3A1/cover",
+  );
+  expect(spinAgain()).not.toHaveClass("spinner-spin-running");
+  expect(spinAgain()).toBeEnabled();
+  expect(live).toHaveTextContent("Dancing Queen by ABBA");
+  // Largest first, Cancel quiet at the foot.
+  const actions = within(
+    document.querySelector<HTMLElement>(".host-spin-actions") as HTMLElement,
+  ).getAllByRole("button");
+  expect(actions.map((button) => button.textContent)).toEqual([
+    "Spin again",
+    "Play",
+    "Cancel",
+  ]);
+  expect(actions[1]).toHaveClass("button-primary");
+});
+
 test("a playlist's reel spins that playlist on the host", async () => {
   renderHostSpin({ scope: "playlist", playlist_id: "p1" });
   await opened();
@@ -291,6 +346,8 @@ test("a host that already landed is revealed at once", async () => {
           spun_at: new Date(Date.now() - REVEAL_MS - 1000).toISOString(),
           scope: "all",
           playlist_id: null,
+          origin: "phone",
+          revealed: false,
         },
       }),
       token: TOKEN,
@@ -359,6 +416,8 @@ test("a card that lands is kept for the hand-over", async () => {
         spun_at: new Date(Date.now() - REVEAL_MS).toISOString(),
         scope: "all",
         playlist_id: null,
+        origin: "phone",
+        revealed: false,
       },
     }),
   );

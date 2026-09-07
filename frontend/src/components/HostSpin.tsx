@@ -20,7 +20,9 @@ import ConfirmModal from "./ConfirmModal";
 import Loading from "./Loading";
 import Modal from "./Modal";
 import PlayerSelection from "./PlayerSelection";
-import { REVEAL_MS } from "./SongReel";
+import SongCover from "./SongCover";
+import { LogoTile, REVEAL_MS } from "./SongReel";
+import SpinButton from "./SpinButton";
 import "./HostSpin.css";
 
 /**
@@ -86,9 +88,11 @@ interface HostSpinProps {
 /**
  * The phone's side of a spin on the host screen: it opens the room's one
  * player selection with a spin instead of a song, so the server picks and the
- * TV's reel lands on the pick. The phone shows nothing of the animation — only
- * that it is running, then the title and the artist once the reel there has
- * landed — and offers *Spin again*, *Play* and *Cancel*. Play hands the
+ * TV's reel lands on the pick. The phone shows nothing of the animation — the
+ * reel's empty tile where the cover will be, and that the TV is spinning, then
+ * the cover, the title and the artist once the reel there has landed — and
+ * offers *Spin again* (the gradient die, rolling while the TV spins), *Play*
+ * and *Cancel*. Play hands the
  * selection and its token on to `PlayerSelection`, which carries on with it as
  * if it had opened it itself; this modal gives nothing back in that case.
  *
@@ -317,41 +321,72 @@ export default function HostSpin({ spin, onClose }: HostSpinProps) {
 
           {spun && (
             <div className="host-spin-song">
-              {revealed ? (
-                <>
-                  <p className="host-spin-title">{selection.song.title}</p>
-                  <p className="host-spin-artist">{selection.song.artist}</p>
-                </>
-              ) : (
-                // Said, not only drawn: the phone is in the singer's hand while
-                // everybody looks at the TV.
-                <p className="host-spin-waiting" role="status">
-                  Spinning on the host screen…
-                </p>
-              )}
+              {/* The reel page's sibling: a square where the reel's window is
+                  there. The empty window's tile while the TV spins — no
+                  spoiler — and the cover once the reel has landed, keyed on the
+                  spin so every reveal rises in. */}
+              <div className="host-spin-tile">
+                {/* The cover is in the tile from the start, under the logo, so
+                    it has loaded by the time it is shown and the reveal never
+                    pops from black to artwork after its rise. */}
+                <SongCover
+                  key={selection.spin?.spun_at}
+                  song={selection.song}
+                  className={
+                    revealed
+                      ? "host-spin-cover host-spin-cover-revealed"
+                      : "host-spin-cover"
+                  }
+                  loading="eager"
+                />
+                {!revealed && (
+                  <LogoTile className="host-spin-cover host-spin-cover-logo" />
+                )}
+              </div>
+              {/* The words hold two lines of title and one of artist whether
+                  the wait or the song is in them, so the tile never moves. */}
+              <div className="host-spin-words">
+                {revealed ? (
+                  <>
+                    <p className="host-spin-title">{selection.song.title}</p>
+                    <p className="host-spin-artist">{selection.song.artist}</p>
+                  </>
+                ) : (
+                  // Said, not only drawn: the phone is in the singer's hand
+                  // while everybody looks at the TV.
+                  <p className="host-spin-waiting" role="status">
+                    Spinning on the host screen…
+                  </p>
+                )}
+              </div>
+              {/* Mounted before the reveal and filled on it: a live region that
+                  appears with its text in it is not reliably read out. */}
+              <p className="visually-hidden" aria-live="polite">
+                {revealed
+                  ? `${selection.song.title} by ${selection.song.artist}`
+                  : ""}
+              </p>
             </div>
           )}
 
           <div className="host-spin-foot">
             <div className="host-spin-actions">
-              <button type="button" className="button" onClick={cancel}>
-                Cancel
-              </button>
               {spun && (
                 <>
-                  <button
-                    type="button"
-                    className="button"
-                    // Off until the reel has landed: a respin before that would
-                    // start a second reel over the first.
+                  {/* The view's primary, in the reel page's own idiom: the
+                      gradient die, rolling for as long as the TV's reel does.
+                      Off until the reel has landed — a respin before that
+                      would start a second reel over the first. */}
+                  <SpinButton
+                    spinning={!revealed}
                     disabled={!revealed || respin.isPending}
                     onClick={spinAgain}
                   >
                     Spin again
-                  </button>
+                  </SpinButton>
                   <button
                     type="button"
-                    className="button button-primary"
+                    className="button button-primary host-spin-play"
                     disabled={!revealed || respin.isPending}
                     onClick={play}
                   >
@@ -359,6 +394,9 @@ export default function HostSpin({ spin, onClose }: HostSpinProps) {
                   </button>
                 </>
               )}
+              <button type="button" className="button" onClick={cancel}>
+                Cancel
+              </button>
             </div>
           </div>
         </div>

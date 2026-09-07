@@ -3,15 +3,14 @@ import { useMemo, useState } from "react";
 import type { SongRead, SpinRequest, WishRead } from "../api";
 import { listSongsOptions } from "../api/@tanstack/react-query.gen";
 import { useAuth } from "../auth";
-import { useDieRoll } from "../hooks/useDieRoll";
 import { useFavorites } from "../hooks/useFavorites";
 import { useTags } from "../hooks/useTags";
 import { useWishlist } from "../hooks/useWishlist";
 import { defaultTagCriteria, passesTagCriteria } from "../tags";
 import HostSpin from "./HostSpin";
-import { Icon } from "./icons";
 import SongDetails from "./SongDetails";
 import SongReel, { type Spin } from "./SongReel";
+import SpinButton from "./SpinButton";
 import "./SongSpinner.css";
 
 type Scope = "all" | "favorites" | "wishlist" | "weighted";
@@ -105,7 +104,6 @@ export default function SongSpinner({
   const [details, setDetails] = useState<SongRead | null>(null);
   // The spin on the host screen this phone asked for, while its modal is up.
   const [hostSpin, setHostSpin] = useState<SpinRequest | null>(null);
-  const face = useDieRoll(spinning);
 
   const library = useQuery({
     ...listSongsOptions(),
@@ -239,18 +237,14 @@ export default function SongSpinner({
           )}
         </div>
 
-        <button
-          type="button"
-          className={
-            spinning ? "spinner-spin spinner-spin-running" : "spinner-spin"
-          }
+        {/* Uppercased in CSS: the caps are the look, "Spin" is the name. */}
+        <SpinButton
+          spinning={spinning}
           disabled={spinning || candidates.length === 0}
           onClick={startSpin}
         >
-          <Icon name={face} className="spinner-spin-dice" />
-          {/* Uppercased in CSS: the caps are the look, "Spin" is the name. */}
           Spin
-        </button>
+        </SpinButton>
 
         {/* The quiet second way, never the gradient: the reel on the TV is
             the room's, and SPIN above stays the gesture that opened the page.

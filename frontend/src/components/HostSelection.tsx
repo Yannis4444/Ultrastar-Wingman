@@ -39,6 +39,13 @@ interface HostSelectionProps {
    * what it listens for carries on, so it is up to date when it is let go.
    */
   suppressed?: boolean;
+  /**
+   * The head alone, centred in the stage, and no slot cards under it: a spin
+   * a phone started shows the reel and its result and nothing else, the slots
+   * being the next screen's — the picker's. The next round reads it off the
+   * selection (`spin.origin === "phone"`); until then nothing sets it.
+   */
+  soloHead?: boolean;
 }
 
 /**
@@ -73,6 +80,7 @@ function useSecondsUntil(target: string | null): number | null {
 export default function HostSelection({
   onPhase,
   suppressed = false,
+  soloHead = false,
 }: HostSelectionProps) {
   const auth = useAuth();
   const queryClient = useQueryClient();
@@ -153,11 +161,19 @@ export default function HostSelection({
   const running = spin !== null && !over && landed !== spinKey;
 
   return (
-    <section className="host-selection" aria-label="Picking singers">
+    <section
+      className={
+        soloHead ? "host-selection host-selection-solo" : "host-selection"
+      }
+      aria-label="Picking singers"
+    >
       {/* The song, and under it the one line that changes every second. The
           countdown belongs to the picking, not to a card, so it stands here
           rather than in the row. */}
       <div className="host-selection-head">
+        {/* One centred column: the cover (or the reel) on top, the words under
+            it inside a bounded width, so the length of a title never moves the
+            cover — the user's request of 2026-09-06. */}
         <div className="host-selection-song">
           {spin === null ? (
             <SongCover song={selection.song} className="host-selection-cover" />
@@ -177,16 +193,20 @@ export default function HostSelection({
           <div className="host-selection-text">
             {/* Held back while the reel runs, but still in the layout: the
                 block keeps its height, so the landing moves nothing. */}
-            <h2
-              className={
-                running
-                  ? "host-selection-title host-selection-held"
-                  : "host-selection-title"
-              }
-              aria-hidden={running || undefined}
-            >
-              {selection.song.title}
-            </h2>
+            {/* Two lines reserved around the title, so nothing under it moves
+                from one song to the next. */}
+            <div className="host-selection-title-box">
+              <h2
+                className={
+                  running
+                    ? "host-selection-title host-selection-held"
+                    : "host-selection-title"
+                }
+                aria-hidden={running || undefined}
+              >
+                {selection.song.title}
+              </h2>
+            </div>
             <p
               className={
                 running
@@ -210,59 +230,63 @@ export default function HostSelection({
         )}
       </div>
 
-      <ul className="host-selection-slots">
-        {selection.slots.map((slot) => {
-          const unknown = slot.player === null && slot.card_uid !== null;
-          const name =
-            slot.player?.name ?? (unknown ? "Unknown card" : "empty");
-          return (
-            <li
-              key={slot.color}
-              className={
-                slot.player !== null
-                  ? "host-selection-slot"
-                  : "host-selection-slot host-selection-slot-empty"
-              }
-              /* The slot's USDX color, fetched from the backend: the outline is
+      {/* Not drawn at all for a phone's spin, rather than hidden: the row's
+          items are what a screen reader would still find. */}
+      {!soloHead && (
+        <ul className="host-selection-slots">
+          {selection.slots.map((slot) => {
+            const unknown = slot.player === null && slot.card_uid !== null;
+            const name =
+              slot.player?.name ?? (unknown ? "Unknown card" : "empty");
+            return (
+              <li
+                key={slot.color}
+                className={
+                  slot.player !== null
+                    ? "host-selection-slot"
+                    : "host-selection-slot host-selection-slot-empty"
+                }
+                /* The slot's USDX color, fetched from the backend: the outline is
                  it, and the fill of an empty card is it darkened. One custom
                  property, so the stylesheet owns every mix. */
-              style={
-                {
-                  "--slot": hexFor(slot.color) ?? "var(--color-darkerer)",
-                } as CSSProperties
-              }
-            >
-              {/* The card inside the slot: a slot nobody has taken is a short
+                style={
+                  {
+                    "--slot": hexFor(slot.color) ?? "var(--color-darkerer)",
+                  } as CSSProperties
+                }
+              >
+                {/* The card inside the slot: a slot nobody has taken is a short
                   box along the foot of the row, and it grows to the full card
                   the moment somebody takes it. An unknown card counts as
                   taken: something is lying on that reader. */}
-              <div
-                className={
-                  slot.player !== null || unknown
-                    ? "host-selection-card"
-                    : "host-selection-card host-selection-card-empty"
-                }
-              >
-                {(slot.player !== null || unknown) && (
-                  <PlayerAvatar
-                    player={slot.player}
-                    className="host-selection-avatar"
-                  />
-                )}
-                <span
+                <div
                   className={
-                    slot.player !== null
-                      ? "host-selection-name"
-                      : "host-selection-name host-selection-empty"
+                    slot.player !== null || unknown
+                      ? "host-selection-card"
+                      : "host-selection-card host-selection-card-empty"
                   }
                 >
-                  {name}
-                </span>
-              </div>
-            </li>
-          );
-        })}
-      </ul>
+                  {(slot.player !== null || unknown) && (
+                    <PlayerAvatar
+                      player={slot.player}
+                      className="host-selection-avatar"
+                    />
+                  )}
+                  <span
+                    className={
+                      slot.player !== null
+                        ? "host-selection-name"
+                        : "host-selection-name host-selection-empty"
+                    }
+                  >
+                    {name}
+                  </span>
+                </div>
+              </li>
+            );
+          })}
+        </ul>
+      )}
     </section>
   );
 }

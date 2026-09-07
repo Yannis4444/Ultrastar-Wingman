@@ -169,6 +169,105 @@ test("a settled start draws the winner at rest and reports nothing", () => {
   expect(onSettled).not.toHaveBeenCalled();
 });
 
+test("a spin declared over while it runs is cut short and lands at once", () => {
+  vi.useFakeTimers({ shouldAdvanceTime: true });
+  const onSettled = vi.fn();
+  const { container, rerender } = render(
+    <SongReel
+      spin={{ id: 1, winner: AFRICA }}
+      fillers={POOL}
+      onSettled={onSettled}
+      onOpen={vi.fn()}
+    />,
+  );
+  act(() => vi.advanceTimersByTime(1000));
+  expect(reelSongIds(container).length).toBeGreaterThan(40);
+  expect(onSettled).not.toHaveBeenCalled();
+
+  // A press in the room skipped the animation: the caller says the spin is
+  // over with the covers still flying past.
+  rerender(
+    <SongReel
+      spin={{ id: 1, winner: AFRICA }}
+      fillers={POOL}
+      settled
+      onSettled={onSettled}
+      onOpen={vi.fn()}
+    />,
+  );
+
+  // The winner stands in the window, with nothing left of the glide, and the
+  // caller hears about it now rather than in four seconds.
+  expect(reelSongIds(container)).toEqual(["usdb:2"]);
+  expect(reelElement(container).style.transition).toBe("");
+  expect(onSettled).toHaveBeenCalledTimes(1);
+  expect(onSettled).toHaveBeenCalledWith(AFRICA);
+  expect(
+    screen.getByRole("button", { name: "Details for Africa" }),
+  ).toBeEnabled();
+
+  // The reveal timer went with the spin: the landing is not reported twice.
+  act(() => vi.advanceTimersByTime(REVEAL_MS));
+  expect(onSettled).toHaveBeenCalledTimes(1);
+});
+
+test("a newer spin that arrives settled mid-spin is what stands, not the cut-short one", () => {
+  vi.useFakeTimers({ shouldAdvanceTime: true });
+  const onSettled = vi.fn();
+  const { container, rerender } = render(
+    <SongReel
+      spin={{ id: 1, winner: AFRICA }}
+      fillers={POOL}
+      onSettled={onSettled}
+    />,
+  );
+  act(() => vi.advanceTimersByTime(1000));
+
+  // Two broadcasts in one render: a respin, and its spin already over. The
+  // new spin is drawn at rest; the old reel's cut-short must not land it back.
+  rerender(
+    <SongReel
+      spin={{ id: 2, winner: QUEEN }}
+      fillers={POOL}
+      settled
+      onSettled={onSettled}
+    />,
+  );
+
+  expect(reelSongIds(container)).toEqual(["usdb:1"]);
+  expect(onSettled).not.toHaveBeenCalled();
+  act(() => vi.advanceTimersByTime(REVEAL_MS));
+  expect(reelSongIds(container)).toEqual(["usdb:1"]);
+  expect(onSettled).not.toHaveBeenCalled();
+});
+
+test("declaring a reel at rest settled moves nothing", () => {
+  vi.useFakeTimers({ shouldAdvanceTime: true });
+  const onSettled = vi.fn();
+  const { container, rerender } = render(
+    <SongReel
+      spin={{ id: 1, winner: AFRICA }}
+      fillers={POOL}
+      onSettled={onSettled}
+    />,
+  );
+  act(() => vi.advanceTimersByTime(REVEAL_MS));
+  expect(onSettled).toHaveBeenCalledTimes(1);
+
+  // The spin landed on its own a moment ago and the caller only now says so.
+  rerender(
+    <SongReel
+      spin={{ id: 1, winner: AFRICA }}
+      fillers={POOL}
+      settled
+      onSettled={onSettled}
+    />,
+  );
+
+  expect(reelSongIds(container)).toEqual(["usdb:2"]);
+  expect(onSettled).toHaveBeenCalledTimes(1);
+});
+
 test("reduced motion lands at once", () => {
   vi.stubGlobal("matchMedia", vi.fn().mockReturnValue({ matches: true }));
   const onSettled = vi.fn();

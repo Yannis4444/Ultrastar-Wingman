@@ -1,4 +1,10 @@
-import { useEffect, useLayoutEffect, useRef, useState } from "react";
+import {
+  useCallback,
+  useEffect,
+  useLayoutEffect,
+  useRef,
+  useState,
+} from "react";
 import type { SongRead } from "../api";
 import SongCover from "./SongCover";
 import "./SongReel.css";
@@ -21,6 +27,8 @@ type ReelItem = SongRead | typeof LOGO;
 interface Reel {
   /** Remounts the reel element, so no style from the last spin survives. */
   key: number;
+  /** The spin this reel is, so a cut-short meant for it never lands a newer one. */
+  spinId: number;
   /** Winner first, fillers, then what is on show at the bottom: the previous
       winner, or on the first spin the logo, so it spins away like a cover. */
   items: ReelItem[];
@@ -30,6 +38,24 @@ interface Reel {
 function prefersReducedMotion(): boolean {
   return (
     window.matchMedia?.("(prefers-reduced-motion: reduce)").matches ?? false
+  );
+}
+
+/**
+ * The empty window's tile: black with the logo on it, what the reel shows
+ * before anything has spun and what the first spin starts moving from. The
+ * phone waiting on a spin on the host screen draws the same tile where the
+ * cover will be, so nothing is given away before the TV's reel lands. Sized by
+ * the caller's class; in the reel it is one `spinner-cover`.
+ */
+export function LogoTile({ className }: { className?: string }) {
+  return (
+    <span
+      className={
+        className ? `spinner-cover-logo ${className}` : "spinner-cover-logo"
+      }
+      aria-hidden="true"
+    />
   );
 }
 
@@ -56,9 +82,11 @@ interface SongReelProps {
    */
   fillers: SongRead[];
   /**
-   * The spin is already over: draw its winner at rest, no animation and no
-   * `onSettled`. A host screen turned on after the reel landed. Read only when
-   * a new `spin.id` arrives.
+   * The spin is already over. At the start of a spin: draw its winner at rest,
+   * no animation and no `onSettled` — a host screen turned on after the reel
+   * landed. Turning true *while the reel runs*: cut the spin short — the covers
+   * stop, the winner stands in the window and `onSettled` fires at once — a
+   * press in the room that skipped the animation.
    */
   settled?: boolean;
   /** The reel came to rest, `REVEAL_MS` after the spin started — or at once,
@@ -124,7 +152,7 @@ export default function SongReel({
     if (settledRef.current || prefersReducedMotion()) {
       // At rest on the winner, and the caller is told only when something
       // actually spun: a reel drawn settled has nothing to report.
-      setReel({ key, items: [target], winner: target });
+      setReel({ key, spinId, items: [target], winner: target });
       setShown(target);
       setSpinning(false);
       if (!settledRef.current) onSettledRef.current?.(target);
@@ -135,6 +163,7 @@ export default function SongReel({
     const count = FILLERS_MIN + Math.floor(Math.random() * FILLERS_SPAN);
     setReel({
       key,
+      spinId,
       winner: target,
       items: [
         target,
@@ -144,6 +173,29 @@ export default function SongReel({
     });
     setSpinning(true);
   }, [spinId]);
+
+  // The reveal timer of the running spin, owned here so the cut-short path can
+  // clear it itself rather than trust the order effects clean up in.
+  const revealTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  /**
+   * The reel comes to rest on `winner`: the timer's landing and the cut-short
+   * one alike. A fresh key: the settled reel is one cover with no transform,
+   * and a remount is what guarantees no style from the spin survives on it.
+   * Stable, so the layout effect below never re-arms itself over it.
+   */
+  const land = useCallback((landing: Reel) => {
+    if (revealTimer.current !== null) {
+      clearTimeout(revealTimer.current);
+      revealTimer.current = null;
+    }
+    const { spinId, winner } = landing;
+    keyRef.current += 1;
+    setReel({ key: keyRef.current, spinId, items: [winner], winner });
+    setShown(winner);
+    setSpinning(false);
+    onSettledRef.current?.(winner);
+  }, []);
 
   useLayoutEffect(() => {
     const element = reelElement.current;
@@ -155,21 +207,30 @@ export default function SongReel({
     element.style.transition = `transform ${SPIN_MS}ms ${EASING}`;
     element.style.transform = "translateY(0)";
 
-    const timer = setTimeout(() => {
-      // A fresh key: the settled reel is one cover with no transform, and a
-      // remount is what guarantees no style from the spin survives on it.
-      keyRef.current += 1;
-      setReel({
-        key: keyRef.current,
-        items: [reel.winner],
-        winner: reel.winner,
-      });
-      setShown(reel.winner);
-      setSpinning(false);
-      onSettledRef.current?.(reel.winner);
-    }, REVEAL_MS);
-    return () => clearTimeout(timer);
-  }, [spinning, reel]);
+    revealTimer.current = setTimeout(() => land(reel), REVEAL_MS);
+    return () => {
+      if (revealTimer.current !== null) clearTimeout(revealTimer.current);
+      revealTimer.current = null;
+    };
+  }, [spinning, reel, land]);
+
+  // The spin is declared over from outside while the covers still fly: a press
+  // in the room skipped the animation, and the TV must not keep it running for
+  // seconds after the phone has shown the song. The transition comes off and
+  // the reel is put at its end before the landing remounts it, so the frame in
+  // between never shows a cover mid-glide.
+  useEffect(() => {
+    if (!settled || !spinning || reel === null) return;
+    // A newer spin arrived settled in the same render: the spin effect above
+    // has drawn it at rest already, and this reel is the one it replaced.
+    if (reel.spinId !== spinId) return;
+    const element = reelElement.current;
+    if (element !== null) {
+      element.style.transition = "";
+      element.style.transform = "translateY(0)";
+    }
+    land(reel);
+  }, [settled, spinning, reel, spinId, land]);
 
   const resting = spinning ? null : shown;
 
@@ -192,11 +253,7 @@ export default function SongReel({
           // the only usable key here. Eager: a lazy cover inside the
           // overflow-hidden frame would only start loading as it flies by.
           item === LOGO ? (
-            <span
-              key={index}
-              className="spinner-cover spinner-cover-logo"
-              aria-hidden="true"
-            />
+            <LogoTile key={index} className="spinner-cover" />
           ) : (
             <SongCover
               key={index}

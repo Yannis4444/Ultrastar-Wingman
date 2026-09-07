@@ -1370,7 +1370,14 @@ test("a respin under an adopted selection renames the song the picker is about",
   const spun = (id: number, song: SongRead, slots: SelectionSlotRead[]) =>
     selectionWith(slots, {
       song,
-      spin: { id, spun_at: stamp(), scope: "all", playlist_id: null },
+      spin: {
+        id,
+        spun_at: stamp(),
+        scope: "all",
+        playlist_id: null,
+        origin: "phone",
+        revealed: false,
+      },
     });
   const AFRICA: SongRead = { ...SONG, id: "usdb:2", title: "Africa" };
   renderAdopted(spun(1, SONG, adopted().slots));
