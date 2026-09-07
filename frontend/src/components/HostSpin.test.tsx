@@ -29,6 +29,7 @@ const {
   openPlayerSelection,
   getPlayerSelection,
   spinPlayerSelection,
+  pickPlayerSelection,
   setPlayerSelectionSlots,
   startPlayerSelection,
   getDeviceStatus,
@@ -39,6 +40,7 @@ const {
   openPlayerSelection: vi.fn(),
   getPlayerSelection: vi.fn(),
   spinPlayerSelection: vi.fn(),
+  pickPlayerSelection: vi.fn(),
   setPlayerSelectionSlots: vi.fn(),
   startPlayerSelection: vi.fn(),
   getDeviceStatus: vi.fn(),
@@ -52,6 +54,7 @@ vi.mock("../api/sdk.gen", async (importOriginal) => ({
   openPlayerSelection,
   getPlayerSelection,
   spinPlayerSelection,
+  pickPlayerSelection,
   setPlayerSelectionSlots,
   startPlayerSelection,
   getDeviceStatus,
@@ -185,7 +188,18 @@ function broadcast(selection: SelectionRead | null): void {
 }
 
 const spinAgain = () => screen.getByRole("button", { name: "Spin again" });
+/** The same die while the TV's reel still runs: the press that shows the song. */
+const showIt = () => screen.getByRole("button", { name: "Show it" });
 const play = () => screen.getByRole("button", { name: "Play" });
+
+/** The spun selection with its spin taken off: what `/pick` answers. */
+function picked(
+  winner: SongRead,
+  slots: SlotCreate[] = [],
+  extra: Partial<SelectionRead> = {},
+): SelectionRead {
+  return spunSelection(winner, slots, { spin: null, ...extra });
+}
 
 /** The modal after the room answered, still waiting on the TV's reel. */
 async function opened(): Promise<void> {
@@ -223,6 +237,10 @@ beforeEach(() => {
   spinPlayerSelection.mockImplementation(async () => ({
     data: spunSelection(AFRICA, [], {}, 2),
   }));
+  pickPlayerSelection.mockReset();
+  pickPlayerSelection.mockImplementation(async () => ({
+    data: picked(QUEEN),
+  }));
   setPlayerSelectionSlots.mockReset();
   startPlayerSelection.mockReset();
   getDeviceStatus.mockResolvedValue({ data: { online: false } });
@@ -244,10 +262,12 @@ test("it opens the room's selection with a spin and waits for the TV's reel", as
     spin: { scope: "wishlist" },
     slots: [],
   });
-  // The pick is not said until the reel on the TV has landed on it.
+  // The pick is not said until the reel on the TV has landed on it. The die
+  // is live meanwhile — it is the press that shows the song — and Play waits.
   expect(screen.queryByText("Dancing Queen")).not.toBeInTheDocument();
   expect(screen.getByText(WAITING)).toHaveAttribute("role", "status");
-  expect(spinAgain()).toBeDisabled();
+  expect(showIt()).toBeEnabled();
+  expect(screen.queryByRole("button", { name: "Spin again" })).toBeNull();
   expect(play()).toBeDisabled();
 
   act(() => vi.advanceTimersByTime(REVEAL_MS - 100));
@@ -258,7 +278,79 @@ test("it opens the room's selection with a spin and waits for the TV's reel", as
   expect(screen.getByText("ABBA")).toBeInTheDocument();
   expect(screen.queryByText(WAITING)).not.toBeInTheDocument();
   expect(spinAgain()).toBeEnabled();
+  expect(screen.queryByRole("button", { name: "Show it" })).toBeNull();
   expect(play()).toBeEnabled();
+});
+
+test("a press while the TV spins shows the song at once, the same one", async () => {
+  renderHostSpin();
+  await opened();
+  // The server answers the spin it has, revealed, and not another one.
+  spinPlayerSelection.mockImplementationOnce(async () => ({
+    data: spunSelection(QUEEN, [], {
+      spin: {
+        id: 1,
+        spun_at: new Date(Date.now() - 2000).toISOString(),
+        scope: "all",
+        playlist_id: null,
+        origin: "phone",
+        revealed: true,
+      },
+    }),
+  }));
+
+  act(() => vi.advanceTimersByTime(2000));
+  fireEvent.click(showIt());
+
+  // The same route as a respin, the token in its header: the server decides
+  // what the press means, this phone's clock does not.
+  await waitFor(() => expect(spinPlayerSelection).toHaveBeenCalledTimes(1));
+  expect(spinPlayerSelection.mock.calls[0][0].headers).toEqual({
+    "X-Selection-Token": TOKEN,
+  });
+  // Revealed on the answer, three and a half seconds before the clock would
+  // have got there: the cover, the words, the live region, and the die at rest
+  // and named for what it does from here on.
+  expect(await screen.findByText("Dancing Queen")).toBeInTheDocument();
+  expect(screen.getByText("ABBA")).toBeInTheDocument();
+  expect(screen.queryByText(WAITING)).not.toBeInTheDocument();
+  const tile = document.querySelector(".host-spin-tile");
+  expect(tile?.querySelector(".spinner-cover-logo")).toBeNull();
+  expect(tile?.querySelector("img")).toHaveClass("host-spin-cover-revealed");
+  expect(document.querySelector('[aria-live="polite"]')).toHaveTextContent(
+    "Dancing Queen by ABBA",
+  );
+  expect(spinAgain()).toBeEnabled();
+  expect(spinAgain()).not.toHaveClass("spinner-spin-running");
+  expect(play()).toBeEnabled();
+
+  // The clock's own moment passing later changes nothing.
+  act(() => vi.advanceTimersByTime(REVEAL_MS));
+  expect(screen.getByText("Dancing Queen")).toBeInTheDocument();
+  expect(spinPlayerSelection).toHaveBeenCalledTimes(1);
+});
+
+test("the room's own press that showed the song is read off the broadcast", async () => {
+  renderHostSpin();
+  await opened();
+
+  // The selector's start button landed the reel: the same spin, revealed.
+  broadcast(
+    spunSelection(QUEEN, [], {
+      spin: {
+        id: 1,
+        spun_at: new Date(Date.now()).toISOString(),
+        scope: "all",
+        playlist_id: null,
+        origin: "phone",
+        revealed: true,
+      },
+    }),
+  );
+
+  expect(screen.getByText("Dancing Queen")).toBeInTheDocument();
+  expect(screen.queryByText(WAITING)).not.toBeInTheDocument();
+  expect(spinAgain()).toBeEnabled();
 });
 
 test("the reel's empty tile stands in for the cover until the reveal, and the die rolls meanwhile", async () => {
@@ -273,11 +365,11 @@ test("the reel's empty tile stands in for the cover until the reveal, and the di
   expect(tile?.querySelector("img")).not.toHaveClass(
     "host-spin-cover-revealed",
   );
-  // The primary is the gradient die, busy rather than off: lit and rolling
-  // while the TV's reel runs, and disabled until it lands.
-  expect(spinAgain()).toHaveClass("spinner-spin", "spinner-spin-running");
-  expect(spinAgain()).toBeDisabled();
-  const die = () => iconNames(spinAgain())[0];
+  // The primary is the gradient die, lit and rolling while the TV's reel
+  // runs, and live: a press now is the one that shows the song.
+  expect(showIt()).toHaveClass("spinner-spin", "spinner-spin-running");
+  expect(showIt()).toBeEnabled();
+  const die = () => iconNames(showIt())[0];
   expect(die()).toMatch(/^dice(-[1-6])?$/);
   const seen = new Set<string>();
   for (let step = 0; step < 6; step += 1) {
@@ -372,10 +464,11 @@ test("spin again asks for another song with the token, and waits again", async (
   expect(spinPlayerSelection.mock.calls[0][0].headers).toEqual({
     "X-Selection-Token": TOKEN,
   });
-  // A new spin: the TV's reel runs again, and so does the wait here.
+  // A new spin: the TV's reel runs again, and so does the wait here — with
+  // the die back to being the press that shows the song.
   expect(await screen.findByText(WAITING)).toBeInTheDocument();
   expect(screen.queryByText("Dancing Queen")).not.toBeInTheDocument();
-  expect(spinAgain()).toBeDisabled();
+  expect(showIt()).toBeEnabled();
 
   reelLands();
   expect(screen.getByText("Africa")).toBeInTheDocument();
@@ -405,12 +498,13 @@ test("a card that lands is kept for the hand-over", async () => {
   reelLands();
 
   // The same spin, landed a while ago: a card changes the slots, not the song.
+  const withBob = [
+    { color: "blue", player: PLAYERS[1], card_uid: "A1B2C3D4" },
+    { color: "red", player: null, card_uid: null },
+  ];
   broadcast(
     spunSelection(QUEEN, [], {
-      slots: [
-        { color: "blue", player: PLAYERS[1], card_uid: "A1B2C3D4" },
-        { color: "red", player: null, card_uid: null },
-      ],
+      slots: withBob,
       spin: {
         id: 1,
         spun_at: new Date(Date.now() - REVEAL_MS).toISOString(),
@@ -421,6 +515,11 @@ test("a card that lands is kept for the hand-over", async () => {
       },
     }),
   );
+  // The server keeps the slots across `/pick` too, and its answer is what the
+  // picker is handed.
+  pickPlayerSelection.mockImplementationOnce(async () => ({
+    data: picked(QUEEN, [], { slots: withBob }),
+  }));
   expect(play()).toBeEnabled();
   fireEvent.click(play());
 
@@ -432,7 +531,7 @@ test("a card that lands is kept for the hand-over", async () => {
   ).toBeInTheDocument();
 });
 
-test("play hands the selection on to the player selection without giving it back", async () => {
+test("play moves the room on to its singers first, then hands the selection on without giving it back", async () => {
   const onClose = vi.fn();
   renderHostSpin({ scope: "all" }, onClose);
   await opened();
@@ -440,8 +539,14 @@ test("play hands the selection on to the player selection without giving it back
 
   fireEvent.click(play());
 
-  // The picker, over the same song, and no request in between: the selection
-  // is open already and the token went with it.
+  // `/pick` with the token: the spin comes off the selection on the server, so
+  // the TV shows the picking screen, and the answer is what the picker gets.
+  await waitFor(() => expect(pickPlayerSelection).toHaveBeenCalledTimes(1));
+  expect(pickPlayerSelection.mock.calls[0][0].headers).toEqual({
+    "X-Selection-Token": TOKEN,
+  });
+  // The picker, over the same song, and no second open: the selection is
+  // open already and the token went with it.
   const picker = await screen.findByRole("dialog", {
     name: "Player selection",
   });
@@ -459,6 +564,50 @@ test("play hands the selection on to the player selection without giving it back
   await waitFor(() => expect(releases()).toHaveLength(1));
   expectRelease(releases()[0]);
   expect(onClose).toHaveBeenCalled();
+});
+
+test.each([
+  ["no_selection", "the selection is gone"],
+  ["not_the_opener", "the token is not the opener's"],
+])(
+  "a refused /pick (%s: %s) keeps the phone on the spin view",
+  async (detail) => {
+    pickPlayerSelection.mockRejectedValueOnce({ detail });
+    renderHostSpin();
+    await opened();
+    reelLands();
+
+    fireEvent.click(play());
+
+    // Lost, in the words the lost state has, and no picker: nothing was handed
+    // on, and the dead token is not given back either.
+    await waitFor(() => expect(pickPlayerSelection).toHaveBeenCalledTimes(1));
+    expect(
+      await screen.findByText("Somebody else took over the selection."),
+    ).toBeInTheDocument();
+    expect(
+      screen.queryByRole("dialog", { name: "Player selection" }),
+    ).not.toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "Play" })).toBeNull();
+    expect(screen.getByRole("button", { name: "Spin again" })).toBeEnabled();
+    expect(releases()).toHaveLength(0);
+  },
+);
+
+test("a /pick refused for another reason is a sentence, and the song stays up", async () => {
+  pickPlayerSelection.mockRejectedValueOnce({ detail: "not_a_spin" });
+  renderHostSpin();
+  await opened();
+  reelLands();
+
+  fireEvent.click(play());
+
+  expect(await screen.findByRole("alert")).toHaveTextContent("not_a_spin");
+  expect(
+    screen.queryByRole("dialog", { name: "Player selection" }),
+  ).not.toBeInTheDocument();
+  expect(screen.getByText("Dancing Queen")).toBeInTheDocument();
+  expect(play()).toBeEnabled();
 });
 
 test("cancel gives the room's selection back, once", async () => {

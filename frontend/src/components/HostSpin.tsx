@@ -6,6 +6,7 @@ import {
   listKaraokeSlotsOptions,
   listPlayersOptions,
   openPlayerSelectionMutation,
+  pickPlayerSelectionMutation,
   spinPlayerSelectionMutation,
 } from "../api/@tanstack/react-query.gen";
 import { parseServerTime } from "../duration";
@@ -41,15 +42,19 @@ function landsAt(spunAt: string): number {
 
 /**
  * True once the host's reel has landed: `REVEAL_MS` after the server's
- * `spun_at`. The wait is capped at `REVEAL_MS` from when the timestamp arrived,
- * so a phone whose clock runs behind never waits longer than the reel takes;
- * one running ahead reveals early, which nothing on the phone can tell.
+ * `spun_at`, or the moment the server says `revealed` — a press in the room
+ * that showed the result before the covers had stopped. The wait is capped at
+ * `REVEAL_MS` from when the timestamp arrived, so a phone whose clock runs
+ * behind never waits longer than the reel takes; one running ahead reveals
+ * early, which nothing on the phone can tell.
  *
  * Keyed on the timestamp, not a bare flag: a respin changes the song and the
  * timestamp in one render, and a flag still standing from the last spin would
- * paint the new song for the frame before the effect takes it back.
+ * paint the new song for the frame before the effect takes it back. The
+ * server's `revealed` is read live for the same reason: a respin sends it
+ * false again with the new timestamp.
  */
-function useRevealed(spunAt: string | null): boolean {
+function useRevealed(spunAt: string | null, shown: boolean): boolean {
   const [revealedFor, setRevealedFor] = useState<string | null>(null);
 
   useEffect(() => {
@@ -61,7 +66,7 @@ function useRevealed(spunAt: string | null): boolean {
 
   if (spunAt === null) return false;
   // A spin that landed before it was ever drawn here needs no waiting frame.
-  return revealedFor === spunAt || Date.now() >= landsAt(spunAt);
+  return shown || revealedFor === spunAt || Date.now() >= landsAt(spunAt);
 }
 
 /** The line a scope with nothing in it is answered with, in the reel's words. */
@@ -91,8 +96,10 @@ interface HostSpinProps {
  * TV's reel lands on the pick. The phone shows nothing of the animation — the
  * reel's empty tile where the cover will be, and that the TV is spinning, then
  * the cover, the title and the artist once the reel there has landed — and
- * offers *Spin again* (the gradient die, rolling while the TV spins), *Play*
- * and *Cancel*. Play hands the
+ * offers the gradient die (*Show it* while the TV spins, which is the press
+ * that skips the animation, and *Spin again* once it has landed), *Play* and
+ * *Cancel*. Play tells the server the room is moving on to its singers
+ * (`/pick`, which takes the spin off the selection) and then hands the
  * selection and its token on to `PlayerSelection`, which carries on with it as
  * if it had opened it itself; this modal gives nothing back in that case.
  *
@@ -184,6 +191,32 @@ export default function HostSpin({ spin, onClose }: HostSpinProps) {
     },
   });
 
+  // Moving on to the singers: the spin comes off the selection on the server,
+  // and the picker takes over what the server answers with.
+  const pick = useMutation({
+    ...pickPlayerSelectionMutation(),
+    onSuccess: (picked) => {
+      // Cancelled while this was in flight: the room was given back already,
+      // and a picker over a selection this phone no longer holds is nobody's.
+      const token = lock.token();
+      if (token === null) return;
+      // Forgotten, not given back: the selection lives on under the picker,
+      // and this modal's own close must find nothing to send.
+      lock.forget();
+      setAdoption({ selection: picked, token });
+    },
+    onError: (error) => {
+      const detail = errorDetail(error);
+      if (detail === "not_the_opener" || detail === "no_selection") {
+        lose();
+        return;
+      }
+      setNotice(
+        errorMessage(error, detail ?? "Could not move on to the singers."),
+      );
+    },
+  });
+
   const { mutate: openSelection } = open;
   const playerRows = players.data?.players;
   const slotColors = slots.data?.slots;
@@ -223,6 +256,12 @@ export default function HostSpin({ spin, onClose }: HostSpinProps) {
     });
   }, [openSelection, playerRows, slotColors, spin]);
 
+  /**
+   * The die: one route, two answers. While the TV's reel still runs the server
+   * shows the result at once (the same song, `revealed`), and after it has
+   * landed it spins again. The phone never decides which — its clock is not
+   * the server's — it only says what the press does on the button.
+   */
   const spinAgain = (): void => {
     const token = lock.token();
     if (token === null) return;
@@ -231,15 +270,15 @@ export default function HostSpin({ spin, onClose }: HostSpinProps) {
   };
 
   /**
-   * On to picking the singers, over this same selection. The token goes with
-   * it and is forgotten here — not given back — so the room stays this phone's
-   * across the hand-over, and this modal's own close finds nothing to send.
+   * On to picking the singers, over this same selection: `/pick` first, so the
+   * server takes the spin off it and the TV shows the picking screen, then the
+   * hand-over in the mutation's `onSuccess`. A refusal keeps the phone here.
    */
   const play = (): void => {
     const token = lock.token();
     if (token === null || selection === null) return;
-    lock.forget();
-    setAdoption({ selection, token });
+    setNotice(null);
+    pick.mutate({ headers: { "X-Selection-Token": token } });
   };
 
   const cancel = (): void => {
@@ -249,6 +288,7 @@ export default function HostSpin({ spin, onClose }: HostSpinProps) {
 
   const revealed = useRevealed(
     phase === "spun" ? (selection?.spin?.spun_at ?? null) : null,
+    selection?.spin?.revealed ?? false,
   );
 
   if (adoption !== null) {
@@ -375,19 +415,24 @@ export default function HostSpin({ spin, onClose }: HostSpinProps) {
                 <>
                   {/* The view's primary, in the reel page's own idiom: the
                       gradient die, rolling for as long as the TV's reel does.
-                      Off until the reel has landed — a respin before that
-                      would start a second reel over the first. */}
+                      Live the whole time, and named for what the press does
+                      now: while the covers fly it shows the result — the
+                      server answers the same song, revealed — and once they
+                      have stopped it spins again. */}
                   <SpinButton
                     spinning={!revealed}
-                    disabled={!revealed || respin.isPending}
+                    disabled={respin.isPending}
                     onClick={spinAgain}
                   >
-                    Spin again
+                    {revealed ? "Spin again" : "Show it"}
                   </SpinButton>
+                  {/* Off until the reel has landed: the room has not seen the
+                      song yet, and Play would take it straight to the singers
+                      over a reel still turning on the TV. */}
                   <button
                     type="button"
                     className="button button-primary host-spin-play"
-                    disabled={!revealed || respin.isPending}
+                    disabled={!revealed || respin.isPending || pick.isPending}
                     onClick={play}
                   >
                     Play

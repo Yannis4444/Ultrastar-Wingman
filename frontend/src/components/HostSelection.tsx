@@ -39,13 +39,6 @@ interface HostSelectionProps {
    * what it listens for carries on, so it is up to date when it is let go.
    */
   suppressed?: boolean;
-  /**
-   * The head alone, centred in the stage, and no slot cards under it: a spin
-   * a phone started shows the reel and its result and nothing else, the slots
-   * being the next screen's — the picker's. The next round reads it off the
-   * selection (`spin.origin === "phone"`); until then nothing sets it.
-   */
-  soloHead?: boolean;
 }
 
 /**
@@ -80,7 +73,6 @@ function useSecondsUntil(target: string | null): number | null {
 export default function HostSelection({
   onPhase,
   suppressed = false,
-  soloHead = false,
 }: HostSelectionProps) {
   const auth = useAuth();
   const queryClient = useQueryClient();
@@ -137,6 +129,18 @@ export default function HostSelection({
       Date.now() >= parseServerTime(spunAt) + REVEAL_MS,
     [spunAt, visible],
   );
+  // The spin is over: by the clock above, or because a press in the room
+  // showed the result before the covers had stopped (`revealed`, read live,
+  // so the broadcast that carries it cuts a running reel short here and now).
+  const settled = over || (spin?.revealed ?? false);
+
+  const spinKey =
+    spin === null || selection === null
+      ? null
+      : `${selection.opened_at}:${spin.id}`;
+  // The reel is running until it says it has landed — or was over before it
+  // was ever drawn here. The title, the artist and the countdown wait for it.
+  const running = spin !== null && !settled && landed !== spinKey;
 
   // A layout effect, like the achievements stage: the page decides what else it
   // draws from this, and it must never paint a frame with two blocks on it.
@@ -144,10 +148,12 @@ export default function HostSelection({
     onPhase?.(phase);
   }, [onPhase, phase]);
 
-  // Never on a spun selection: the room presses until the song is right, and
-  // that must not race a countdown. The backend sends none; this is the guard.
+  // Never while the covers fly: the selector's spin counts down once the reel
+  // has landed (the backend aims the start past the landing too), and a phone's
+  // spin has no countdown at all — the phone has Play. Which of the two it is
+  // is not read here: whatever `auto_start_at` says, it waits for the landing.
   const countdown = useSecondsUntil(
-    showing && !selection?.spin ? (selection?.auto_start_at ?? null) : null,
+    showing && !running ? (selection?.auto_start_at ?? null) : null,
   );
 
   if (selection === null || !showing || suppressed) return null;
@@ -155,16 +161,15 @@ export default function HostSelection({
   const hexFor = (name: string): string | undefined =>
     colors.data?.colors.find((color) => color.name === name)?.hex;
 
-  const spinKey = spin === null ? null : `${selection.opened_at}:${spin.id}`;
-  // The reel is running until it says it has landed — or was over before it
-  // was ever drawn here. The title and the artist wait for it.
-  const running = spin !== null && !over && landed !== spinKey;
+  // A spin a phone started shows the reel and its result and nothing else: the
+  // slots are the next screen's, the picker's, and the head stands centred in
+  // the space the row would take. The selector's spin keeps the cards: the
+  // room is standing at it, and the next press is what starts the song.
+  const solo = spin?.origin === "phone";
 
   return (
     <section
-      className={
-        soloHead ? "host-selection host-selection-solo" : "host-selection"
-      }
+      className={solo ? "host-selection host-selection-solo" : "host-selection"}
       aria-label="Picking singers"
     >
       {/* The song, and under it the one line that changes every second. The
@@ -185,7 +190,7 @@ export default function HostSelection({
               <SongReel
                 spin={{ id: spin.id, winner: selection.song }}
                 fillers={songs.data?.songs ?? []}
-                settled={over}
+                settled={settled}
                 onSettled={() => setLanded(spinKey)}
               />
             </div>
@@ -232,7 +237,7 @@ export default function HostSelection({
 
       {/* Not drawn at all for a phone's spin, rather than hidden: the row's
           items are what a screen reader would still find. */}
-      {!soloHead && (
+      {!solo && (
         <ul className="host-selection-slots">
           {selection.slots.map((slot) => {
             const unknown = slot.player === null && slot.card_uid !== null;

@@ -226,30 +226,59 @@ test("the head is one column: the cover over the words, the title in its reserve
   expect(rows()).toEqual(["Alice", "empty", "Unknown card"]);
 });
 
-test("the head alone, centred, for a spin the slots do not belong to", async () => {
-  getPlayerSelection.mockResolvedValue({ data: { selection: selection() } });
-  const client = new QueryClient({
-    defaultOptions: { queries: { retry: false } },
+test("the head alone, centred, for a spin a phone started", async () => {
+  getPlayerSelection.mockResolvedValue({
+    data: {
+      selection: spun(1, Date.now() - REVEAL_MS - 1000, {
+        spin: {
+          id: 1,
+          spun_at: new Date(Date.now() - REVEAL_MS - 1000).toISOString(),
+          scope: "all",
+          playlist_id: null,
+          origin: "phone",
+          revealed: false,
+        },
+      }),
+    },
   });
-  render(
-    <QueryClientProvider client={client}>
-      <div className="host-page">
-        <div className="host-stage">
-          <HostSelection soloHead />
-        </div>
-      </div>
-    </QueryClientProvider>,
-  );
+  renderStage();
 
   const stage = await screen.findByLabelText("Picking singers");
   expect(stage).toHaveClass("host-selection-solo");
-  // The same head — cover, title, artist, the line — and no row of cards at
-  // all, not a hidden one: the slots are the picker's screen.
+  // The same head — the reel, title, artist, the line — and no row of cards
+  // at all, not a hidden one: the slots are the picker's screen, the one the
+  // phone's Play opens.
   expect(screen.getByRole("heading", { name: "Dancing Queen" })).toBeVisible();
   expect(screen.getByText("ABBA")).toBeInTheDocument();
   expect(screen.getByText("Picking singers")).toBeInTheDocument();
+  expect(document.querySelector(".host-selection-reel")).not.toBeNull();
   expect(within(stage).queryByRole("list")).toBeNull();
   expect(document.querySelector(".host-selection-slots")).toBeNull();
+
+  // The phone moved on to its singers: the spin is off the selection, and the
+  // ordinary picking screen with the cards takes the stage.
+  broadcast(selection({ spin: null, updated_at: "2026-09-06T20:00:09.000Z" }));
+  await waitFor(() =>
+    expect(rows()).toEqual(["Alice", "empty", "Unknown card"]),
+  );
+  expect(screen.getByLabelText("Picking singers")).not.toHaveClass(
+    "host-selection-solo",
+  );
+  expect(document.querySelector(".host-selection-reel")).toBeNull();
+  expect(document.querySelector(".host-selection-cover")).not.toBeNull();
+});
+
+test("the selector's spin keeps the cards along the foot", async () => {
+  getPlayerSelection.mockResolvedValue({
+    data: { selection: spun(1, Date.now() - REVEAL_MS - 1000) },
+  });
+  renderStage();
+
+  const stage = await screen.findByLabelText("Picking singers");
+  // The room is standing at the readers, and the next press starts the song:
+  // who is on which slot is what the screen is for.
+  expect(stage).not.toHaveClass("host-selection-solo");
+  expect(rows()).toEqual(["Alice", "empty", "Unknown card"]);
 });
 
 test("a song being sung owns the stage instead", async () => {
@@ -325,11 +354,16 @@ test("the automatic start counts down in words", async () => {
   expect(screen.getByText("Starting in 1…")).toBeInTheDocument();
 });
 
-/** A selection the room spun for: the server's pick, and the spin on it. */
+/**
+ * A selection the room spun for: the server's pick, and the spin on it. The
+ * selector's, unless a test says otherwise: that is the spin the cards stand
+ * under, and most of what is checked here is the cards.
+ */
 function spun(
   id: number,
   spunAt: number,
   extra: Partial<SelectionRead> = {},
+  revealed = false,
 ): SelectionRead {
   return selection({
     spin: {
@@ -337,8 +371,8 @@ function spun(
       spun_at: new Date(spunAt).toISOString(),
       scope: "all",
       playlist_id: null,
-      origin: "phone",
-      revealed: false,
+      origin: "device",
+      revealed,
     },
     ...extra,
   });
@@ -510,16 +544,101 @@ test("a spin that landed while the stage was somebody else's is drawn settled", 
   expect(reelSongIds()).toEqual(["usdb:1"]);
 });
 
-test("no countdown ever shows on a spun selection", async () => {
+test("a press in the room that showed the result cuts the reel short", async () => {
+  vi.useFakeTimers({ shouldAdvanceTime: true });
+  const spunAt = Date.now();
+  getPlayerSelection.mockResolvedValue({
+    data: { selection: spun(1, spunAt) },
+  });
+  renderStage();
+  await screen.findByText("Spinning…");
+  await waitFor(() => expect(reelSongIds().length).toBeGreaterThan(40));
+
+  // Two seconds in, somebody pressed again: the server shows the song it has
+  // (`revealed`), the same spin and the same song, and says so to the room.
+  act(() => vi.advanceTimersByTime(2000));
+  broadcast(spun(1, spunAt, { updated_at: "2026-09-06T20:00:09.000Z" }, true));
+
+  // Landed here and now — the winner at rest, the song said — not three and a
+  // half seconds later when the clock would have got there.
+  await waitFor(() => expect(heading()).not.toBeNull());
+  expect(reelSongIds()).toEqual(["usdb:1"]);
+  expect(screen.getByText("Picking singers")).toBeInTheDocument();
+  expect(screen.queryByText("Spinning…")).not.toBeInTheDocument();
+});
+
+test("a TV that comes in on a shown spin draws it settled", async () => {
+  getPlayerSelection.mockResolvedValue({
+    data: { selection: spun(1, Date.now() - 1000, {}, true) },
+  });
+  renderStage();
+
+  await screen.findByText("Picking singers");
+  expect(heading()).not.toBeNull();
+  expect(reelSongIds()).toEqual(["usdb:1"]);
+});
+
+test("the countdown on a spun selection waits for the reel to land", async () => {
+  vi.useFakeTimers({ shouldAdvanceTime: true });
+  // The selector's spin with the room full: the backend aims the start past
+  // the landing, and the TV says nothing about it until the covers stop.
   getPlayerSelection.mockResolvedValue({
     data: {
-      selection: spun(1, Date.now() - REVEAL_MS - 1000, {
-        auto_start_at: new Date(Date.now() + 3000).toISOString(),
+      selection: spun(1, Date.now(), {
+        auto_start_at: new Date(Date.now() + REVEAL_MS + 3000).toISOString(),
       }),
     },
   });
   renderStage();
 
-  await screen.findByText("Picking singers");
+  await screen.findByText("Spinning…");
   expect(screen.queryByText(/^Starting in/)).not.toBeInTheDocument();
+  act(() => vi.advanceTimersByTime(REVEAL_MS - 100));
+  expect(screen.queryByText(/^Starting in/)).not.toBeInTheDocument();
+
+  act(() => vi.advanceTimersByTime(100));
+
+  expect(screen.getByText("Picking singers")).toBeInTheDocument();
+  expect(screen.getByText("Starting in 3…")).toBeInTheDocument();
+  act(() => vi.advanceTimersByTime(2000));
+  expect(screen.getByText("Starting in 1…")).toBeInTheDocument();
+});
+
+test("a shown spin counts down at once, and a landed one too", async () => {
+  vi.useFakeTimers({ shouldAdvanceTime: true });
+  const spunAt = Date.now();
+  getPlayerSelection.mockResolvedValue({
+    data: { selection: spun(1, spunAt) },
+  });
+  renderStage();
+  await screen.findByText("Spinning…");
+
+  // The press that showed the song also started the countdown from now.
+  broadcast(
+    spun(
+      1,
+      spunAt,
+      {
+        auto_start_at: new Date(Date.now() + 3000).toISOString(),
+        updated_at: "2026-09-06T20:00:09.000Z",
+      },
+      true,
+    ),
+  );
+
+  expect(await screen.findByText("Starting in 3…")).toBeInTheDocument();
+  expect(screen.queryByText("Spinning…")).not.toBeInTheDocument();
+
+  // A respin takes it back to the reel, countdown and all, until that lands.
+  broadcast(
+    spun(2, Date.now(), {
+      song: AFRICA,
+      auto_start_at: new Date(Date.now() + REVEAL_MS + 3000).toISOString(),
+      updated_at: "2026-09-06T20:00:12.000Z",
+    }),
+  );
+  expect(await screen.findByText("Spinning…")).toBeInTheDocument();
+  expect(screen.queryByText(/^Starting in/)).not.toBeInTheDocument();
+  act(() => vi.advanceTimersByTime(REVEAL_MS));
+  expect(screen.getByText("Starting in 3…")).toBeInTheDocument();
 });
