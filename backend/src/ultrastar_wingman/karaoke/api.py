@@ -446,14 +446,24 @@ async def spin_player_selection(
     },
 )
 async def pick_player_selection(
+    request: Request,
+    session: SessionDep,
     token: Annotated[str | None, Header(alias="X-Selection-Token")] = None,
 ) -> SelectionRead:
     """The song is right: move on from the reel to picking singers. The spin comes off the
     selection, which is an ordinary one from here — no *Spin again*, no reel on the host
     screen, and the selector's start button starts the song or refuses as it does at any
-    selection opened with a song. Only the phone that opened the selection may."""
+    selection opened with a song. Only the phone that opened the selection may.
+
+    Ordinary includes the automatic start: a room the cards on the selector already fill
+    starts counting down from here, the way it does when a selection opens over those same
+    cards — the spin was what held it back. A room the phone filled starts nothing."""
     with _selection_errors(), _reel_errors():
-        return await selection.pick_singers(token)
+        return await selection.pick_singers(
+            token,
+            session_factory=request.app.state.session_factory,
+            auto_start=await devices.auto_start_for(session),
+        )
 
 
 @router.post(

@@ -2010,11 +2010,12 @@ async def test_after_moving_on_from_the_reel_the_ordinary_countdown_rule_applies
     configured: FakeUsdx,
     song: str,
     monkeypatch: pytest.MonkeyPatch,
+    broadcast_events: list[dict[str, object]],
 ) -> None:
-    """A phone's spin over a room the cards fill counts nothing down, and moving on from the
-    reel starts no countdown by itself either — a phone has Play. The next card at the
-    selector runs the rule every selection opened with a song runs: full room, on the
-    clock, from now."""
+    """A phone's spin over a room the cards fill counts nothing down while the reel is the
+    thing on the screen. Moving on from the reel makes it an ordinary selection, and an
+    ordinary selection over a room the cards fill counts down — the rule `open_selection`
+    applies over those same cards, from the moment the spin came off."""
     clock = frozen_clock(monkeypatch)
     alice = await add_player_row(session, "Alice")
     bob = await add_player_row(session, "Bob")
@@ -2034,23 +2035,54 @@ async def test_after_moving_on_from_the_reel_the_ordinary_countdown_rule_applies
     )
     spun = await selection.current_selection()
     assert spun is not None and spun.auto_start_at is None
+    clock[0] += LANDED
 
-    picked = await selection.pick_singers(token)
+    picked = await selection.pick_singers(token, session_factory, at_once)
+
+    assert picked.spin is None
+    assert picked.auto_start_at == clock[0]
+    assert player_names(await current_slots()) == ["Alice", "Bob"]
+    await selection.wait_for_auto_start()
+    await wait_for(configured.argv_file)
+    assert sings_started(broadcast_events) == 1
+    assert await selection.current_selection() is None
+    await service.wait_for_sing_end()
+
+
+async def test_moving_on_from_the_reel_over_a_room_the_phone_filled_starts_nothing(
+    session: AsyncSession,
+    session_factory: async_sessionmaker[AsyncSession],
+    configured: FakeUsdx,
+    song: str,
+) -> None:
+    """The same full room, but out of the phone's memory and not off the readers: no card
+    holds a slot, so moving on from the reel schedules nothing — a phone has Play, exactly
+    as when it opens a selection over what it remembered."""
+    alice = await add_player_row(session, "Alice")
+    bob = await add_player_row(session, "Bob")
+    await SettingsService(session).set("karaoke.player_colors", TWO_SLOTS)
+    at_once = selection.AutoStart(delay_s=0)
+    _, token = await selection.open_selection(
+        session,
+        None,
+        [
+            service.SlotRequest(color="blue", player_id=alice),
+            service.SlotRequest(color="red", player_id=bob),
+        ],
+        session_factory=session_factory,
+        auto_start=at_once,
+        spin=selection.Spin(scope="all", viewer=GUEST),
+    )
+
+    picked = await selection.pick_singers(token, session_factory, at_once)
 
     assert picked.spin is None
     assert picked.auto_start_at is None
+    assert player_names(await current_slots()) == ["Alice", "Bob"]
     await selection.wait_for_auto_start()
     assert not configured.argv_file.exists()
-
-    await selection.card_removed_from_slot("red", "B2")
-    await selection.card_placed_on_slot(session_factory, "red", "B2", bob, auto_start=at_once)
-
-    refilled = await selection.current_selection()
-    assert refilled is not None and refilled.auto_start_at == clock[0]
-    await selection.wait_for_auto_start()
-    await wait_for(configured.argv_file)
-    assert await selection.current_selection() is None
-    await service.wait_for_sing_end()
+    still = await selection.current_selection()
+    assert still is not None and still.auto_start_at is None
 
 
 def sings_started(events: list[dict[str, object]]) -> int:

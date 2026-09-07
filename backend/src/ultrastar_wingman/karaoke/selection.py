@@ -363,14 +363,22 @@ async def respin(session: AsyncSession, token: str | None) -> SelectionRead:
         return _read(selection)
 
 
-async def pick_singers(token: str | None) -> SelectionRead:
+async def pick_singers(
+    token: str | None,
+    session_factory: async_sessionmaker[AsyncSession] | None = None,
+    auto_start: AutoStart | None = None,
+) -> SelectionRead:
     """The opener moves on from the reel to picking singers: the spin comes off the
     selection, and it is an ordinary one from here — no respin, no reel on the TV, and the
     selector's press starts the song or refuses as it does at any selection opened with a
     song. The slots and the song stay as the reel left them.
 
-    No countdown starts here: a phone has Play, exactly as when it opens a selection over
-    what it remembered. The next card on the selector runs the ordinary rule. Raises
+    An ordinary one from here means the countdown rule of `open_selection` applies from
+    here too: when the cards on the selector hold a slot and the room is full of known
+    players, `auto_start` starts counting down right now — the people were standing at the
+    selector with their cards down the whole time the reel ran, and the spin was the one
+    thing holding the countdown back. A room the *phone* filled from memory starts nothing,
+    exactly as when it opens a selection over what it remembered: a phone has Play. Raises
     `NoSelectionError`, `NotTheOpenerError` and `NotASpinError` for a selection that was
     never spun (or whose spin was already taken off).
     """
@@ -381,6 +389,8 @@ async def pick_singers(token: str | None) -> SelectionRead:
             raise NotASpinError
         selection.spin = None
         _touch(selection)
+        if any(slot.card_uid is not None for slot in selection.slots):
+            _refresh_auto_start(selection, auto_start, session_factory)
         await _broadcast_locked()
         return _read(selection)
 

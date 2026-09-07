@@ -28,6 +28,8 @@ from test_karaoke_selection import (
     add_second_song,
     current_slots,
     frozen_clock,
+    open_spin,
+    pick,
     pick_last,
     player_names,
     selection_events,
@@ -2028,6 +2030,41 @@ async def test_the_selectors_spin_counts_down_through_the_report_route(
     assert player_names(spun["slots"]) == ["Alice"]
     assert datetime.fromisoformat(spun["auto_start_at"]) == clock[0] + timedelta(
         seconds=selection.REVEAL_SECONDS + 10
+    )
+    assert not configured.argv_file.exists()
+    assert (await client.delete("/api/v1/karaoke/selection")).status_code == 204
+    await selection.wait_for_auto_start()
+    assert not configured.argv_file.exists()
+
+
+async def test_moving_on_from_a_phones_spin_counts_the_cards_room_down_through_the_route(
+    client: AsyncClient,
+    session: AsyncSession,
+    configured: FakeUsdx,
+    song: str,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """The route hands `/pick` the host's automatic start the way the opening route does:
+    Alice's card fills the one-slot room, the phone's spin counts nothing down, and Play on
+    the phone's spin view puts the countdown on the clock from that moment."""
+    clock = frozen_clock(monkeypatch)
+    await quiet_room(client, session, "nothing")
+    await SettingsService(session).set("karaoke.player_colors", "blue")
+    changed = await client.patch(
+        "/api/v1/devices/settings", json={"auto_start": True, "auto_start_delay_s": 10}
+    )
+    assert changed.status_code == 200, changed.text
+    opened = await open_spin(client, "all")
+    assert player_names(opened["selection"]["slots"]) == ["Alice"]
+    assert opened["selection"]["auto_start_at"] is None
+    clock[0] += LANDED
+
+    picked = await pick(client, opened["token"])
+
+    assert picked.status_code == 200, picked.text
+    assert picked.json()["spin"] is None
+    assert datetime.fromisoformat(picked.json()["auto_start_at"]) == clock[0] + timedelta(
+        seconds=10
     )
     assert not configured.argv_file.exists()
     assert (await client.delete("/api/v1/karaoke/selection")).status_code == 204
