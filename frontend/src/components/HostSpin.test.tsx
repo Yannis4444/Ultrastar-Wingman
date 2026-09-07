@@ -566,6 +566,41 @@ test("play moves the room on to its singers first, then hands the selection on w
   expect(onClose).toHaveBeenCalled();
 });
 
+test("the broadcast of /pick overtaking its answer does not put the wait back up", async () => {
+  let answer: (value: { data: SelectionRead }) => void = () => {};
+  pickPlayerSelection.mockImplementationOnce(
+    () =>
+      new Promise<{ data: SelectionRead }>((resolve) => {
+        answer = resolve;
+      }),
+  );
+  renderHostSpin();
+  await opened();
+  reelLands();
+
+  fireEvent.click(play());
+  await waitFor(() => expect(pickPlayerSelection).toHaveBeenCalledTimes(1));
+
+  // The room hears that the spin came off the selection before this phone's
+  // own answer lands. A picked song has nothing left to wait on: the cover
+  // and the words stay up, and the die is not the press that shows anything.
+  broadcast(picked(QUEEN));
+
+  expect(screen.getByText("Dancing Queen")).toBeInTheDocument();
+  expect(screen.queryByText(WAITING)).not.toBeInTheDocument();
+  expect(screen.queryByRole("button", { name: "Show it" })).toBeNull();
+  expect(document.querySelector(".spinner-cover-logo")).toBeNull();
+  expect(spinAgain()).toBeDisabled();
+
+  await act(async () => {
+    answer({ data: picked(QUEEN) });
+  });
+  expect(
+    await screen.findByRole("dialog", { name: "Player selection" }),
+  ).toBeInTheDocument();
+  expect(releases()).toHaveLength(0);
+});
+
 test.each([
   ["no_selection", "the selection is gone"],
   ["not_the_opener", "the token is not the opener's"],

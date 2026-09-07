@@ -286,10 +286,18 @@ export default function HostSpin({ spin, onClose }: HostSpinProps) {
     onClose();
   };
 
-  const revealed = useRevealed(
+  const landed = useRevealed(
     phase === "spun" ? (selection?.spin?.spun_at ?? null) : null,
     selection?.spin?.revealed ?? false,
   );
+  // A spun selection whose spin is gone has been picked: the broadcast `/pick`
+  // sends can be read before the answer to it, and a picked song has nothing
+  // left to wait on — the wait must not come back up for the frames between.
+  const revealed =
+    landed ||
+    (phase === "spun" &&
+      selection !== null &&
+      (selection.spin ?? null) === null);
 
   if (adoption !== null) {
     return (
@@ -421,7 +429,9 @@ export default function HostSpin({ spin, onClose }: HostSpinProps) {
                       have stopped it spins again. */}
                   <SpinButton
                     spinning={!revealed}
-                    disabled={respin.isPending}
+                    // Off while Play is on the wire too: the selection is
+                    // about to be picked, and a spin on a picked one is a 409.
+                    disabled={respin.isPending || pick.isPending}
                     onClick={spinAgain}
                   >
                     {revealed ? "Spin again" : "Show it"}

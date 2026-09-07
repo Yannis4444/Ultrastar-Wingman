@@ -185,9 +185,14 @@ export default function HostSelection({
           ) : (
             // The reel where the cover stands, at the cover's size: the wrapper
             // sets `--spinner-cover`, and the stylesheet takes the frame's
-            // border off it so nothing on the screen moves.
+            // border off it so nothing on the screen moves. Keyed on the
+            // selection: the reel tells its spins apart by their number, and
+            // every fresh selection's first spin is number one again, so a
+            // take-over of one spun selection by another (the same number, a
+            // new song) is a new reel, not a spin it has already run.
             <div className="host-selection-reel">
               <SongReel
+                key={selection.opened_at}
                 spin={{ id: spin.id, winner: selection.song }}
                 fillers={songs.data?.songs ?? []}
                 settled={settled}

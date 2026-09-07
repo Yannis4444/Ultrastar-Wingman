@@ -645,3 +645,43 @@ test("a shown spin counts down at once, and a landed one too", async () => {
   act(() => vi.advanceTimersByTime(REVEAL_MS));
   expect(screen.getByText("Starting in 3…")).toBeInTheDocument();
 });
+
+test("a spun selection taken over by another spun one spins the reel again", async () => {
+  vi.useFakeTimers({ shouldAdvanceTime: true });
+  getPlayerSelection.mockResolvedValue({
+    data: { selection: spun(1, Date.now() - REVEAL_MS - 1000) },
+  });
+  renderStage();
+  await screen.findByText("Picking singers");
+  expect(heading()).not.toBeNull();
+
+  // Somebody else's phone took the room over with a spin of its own. Every
+  // fresh selection's first spin is number one again, so the reel is told
+  // apart by the selection and not by the number, or it would stand on the
+  // old winner with "Spinning…" under it for good.
+  broadcast(
+    spun(1, Date.now(), {
+      song: AFRICA,
+      opened_at: "2026-09-06T20:01:00.000Z",
+      updated_at: "2026-09-06T20:01:00.000Z",
+      spin: {
+        id: 1,
+        spun_at: new Date().toISOString(),
+        scope: "all",
+        playlist_id: null,
+        origin: "phone",
+        revealed: false,
+      },
+    }),
+  );
+
+  expect(await screen.findByText("Spinning…")).toBeInTheDocument();
+  await waitFor(() => expect(reelSongIds().length).toBeGreaterThan(40));
+  expect(reelSongIds()[0]).toBe("usdb:2");
+  act(() => vi.advanceTimersByTime(REVEAL_MS));
+  expect(
+    await screen.findByRole("heading", { name: "Africa" }),
+  ).toBeInTheDocument();
+  expect(screen.getByText("Picking singers")).toBeInTheDocument();
+  expect(reelSongIds()).toEqual(["usdb:2"]);
+});
