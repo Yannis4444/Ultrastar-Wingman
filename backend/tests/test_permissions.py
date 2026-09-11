@@ -235,6 +235,27 @@ ROUTES: list[tuple[str, str, str, dict[str, object] | None]] = [
     # which is what keeps the row about `devices.manage`; the device half is in
     # test_devices_api.py.
     ("devices.manage", "GET", "/api/v1/devices/firmware/nothing.bin", None),
+    # The background music. The controls are all 409s for a caller who holds the right —
+    # the music is off by default — which is exactly what this matrix wants: a permitted
+    # call that changes nothing.
+    ("music.view", "GET", "/api/v1/music", None),
+    ("music.control", "POST", "/api/v1/music/play", None),
+    ("music.control", "POST", "/api/v1/music/pause", None),
+    ("music.control", "POST", "/api/v1/music/skip", None),
+    # Out of range, so a permitted caller gets a 422 and writes nothing.
+    ("music.control", "PUT", "/api/v1/music/volume", {"master": 999}),
+    ("music.manage", "GET", "/api/v1/music/settings", None),
+    ("music.manage", "PATCH", "/api/v1/music/settings", {"resume_delay_s": 9999}),
+    # Taking the sound over is `music.manage`, not `music.control`: a phone that may pause
+    # the music must not be able to pull the audio off the TV.
+    ("music.manage", "POST", "/api/v1/music/sink", None),
+    (
+        "music.manage",
+        "POST",
+        "/api/v1/music/sink/report",
+        {"sink_id": "nobody", "track_id": "nothing", "event": "progress", "position_s": 0},
+    ),
+    ("music.manage", "POST", "/api/v1/music/sink/release", {"sink_id": "nobody"}),
     ("usdb.search", "GET", "/api/v1/sources/usdb/status", None),
     ("usdb.search", "GET", "/api/v1/sources/usdb/search", None),
     ("usdb.search", "GET", "/api/v1/sources/usdb/songs/1/cover", None),

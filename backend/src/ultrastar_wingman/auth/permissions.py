@@ -23,6 +23,9 @@ CAPABILITIES: tuple[str, ...] = (
     "songs.delete",
     "karaoke.sing",
     "karaoke.stop",
+    "music.view",
+    "music.control",
+    "music.manage",
     "players.view",
     "players.avatar",
     "players.manage",
@@ -80,6 +83,9 @@ _GUEST_CAPABILITIES = frozenset(
         "wishlist.add",
         "playlists.view",
         "stats.view",
+        # The background music is the room's own soundtrack, so what is playing is
+        # something a party guest may simply see — like the scoreboard and the wishlist.
+        "music.view",
     }
 )
 # Only an account can own a playlist, so only an account may manage one. Reading the
@@ -92,6 +98,10 @@ _USER_CAPABILITIES = _GUEST_CAPABILITIES | {
     "playlists.manage",
     "stats.history",
     "comments.write",
+    # Pausing the music, skipping the song or turning it down changes what the whole room
+    # hears, which is exactly the weight `karaoke.stop` already carries: enough to want a
+    # name behind it, not enough to be the host's alone.
+    "music.control",
 }
 # The party's helpers: naming a session, the download queue — and the rights over other
 # people. Adding and deleting players used to be a `user` right, which let anybody with an
@@ -121,6 +131,10 @@ _TRUSTED_CAPABILITIES = _USER_CAPABILITIES | {
     # Deleting somebody else's comment. Taking your own back needs no right at all — it is
     # your own words, like your favorites.
     "comments.moderate",
+    # Switching the background music on, choosing what it plays from and how long the room
+    # stays quiet after a song: a decision about the evening rather than about this song,
+    # and the same weight as naming a party or making a tag.
+    "music.manage",
 }
 
 # Nobody but an administrator: `songs.delete` erases a song folder from the disk, which no
@@ -146,7 +160,7 @@ _TRUSTED_CAPABILITIES = _USER_CAPABILITIES | {
 # puts which person on the TV, so whoever holds this capability can hand out a device that
 # selects singers by itself. That is the host's own machine, not a helper's job.
 
-# What migrations 0006 to 0032 seed. Kept here as well so a test can prove the two never
+# What migrations 0006 to 0034 seed. Kept here as well so a test can prove the two never
 # drift.
 DEFAULT_ROLE_CAPABILITIES: dict[str, frozenset[str]] = {
     GUEST: _GUEST_CAPABILITIES,

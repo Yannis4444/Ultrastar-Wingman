@@ -21,6 +21,7 @@ from ultrastar_wingman.db import run_migrations
 from ultrastar_wingman.devices import service as devices
 from ultrastar_wingman.events import event_bus
 from ultrastar_wingman.karaoke import selection
+from ultrastar_wingman.music import service as music
 from ultrastar_wingman.songs import scanner
 from ultrastar_wingman.sources import usdb
 
@@ -223,6 +224,27 @@ def fresh_devices_state() -> None:
     own database. A device left behind would still be online for the next test."""
     devices._live.clear()
     devices._lock = asyncio.Lock()
+
+
+@pytest.fixture(autouse=True)
+def fresh_music_state() -> None:
+    """Same reasoning again: the track, the sink lease and the cached options are module
+    state, while every test brings its own event loop and its own database. Music left
+    playing would still be playing in the next test."""
+    music._track = None
+    music._last_song_id = None
+    music._sink = None
+    music._sink_generation = 0
+    music._paused = False
+    music._sing_running = False
+    music._usdx_open = False
+    music._resume_at = None
+    music._retry_at = None
+    music._errors = 0
+    music._options = music.DEFAULT_OPTIONS
+    music._volumes = music.DEFAULT_VOLUMES
+    music._lock = asyncio.Lock()
+    music._watchdog = None
 
 
 @pytest.fixture(autouse=True)

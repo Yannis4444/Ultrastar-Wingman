@@ -10,6 +10,7 @@ from pydantic import BaseModel
 from .achievements.schema import EarnedByPlayer
 from .downloads.schema import DownloadRead
 from .karaoke.schema import CurrentSing, ScoreRead, SelectionRead
+from .music.schema import MusicRead
 from .songs.schema import SongRead
 
 logger = logging.getLogger(__name__)
@@ -232,6 +233,26 @@ class DevicesChanged(Event):
     """
 
     event: Literal["devices.changed"] = "devices.changed"
+
+
+class MusicChanged(Event):
+    """The background music is doing something else: another song, paused or playing again,
+    the speakers taken by Ultrastar Deluxe or given back, the host screen arriving or going
+    quiet, or one of the options changed.
+
+    The whole state rides along, the `selection.changed` reasoning: the host screen drives
+    its audio element straight off this, and a phone that just reloaded catches up without
+    asking. Nothing in `MusicRead` is something a guest may not see — the song was picked as
+    a guest, and the sink's own id is only ever answered to the tab that registered.
+
+    A plain progress report is never broadcast. The host reports every five seconds, phones
+    work the position out from `position_at` themselves, and a socket message per report is
+    the same busy TV `devices.changed` refuses to be. The one exception is the report that
+    first carries the song's real length, because that is what a progress bar needs.
+    """
+
+    event: Literal["music.changed"] = "music.changed"
+    music: MusicRead
 
 
 class EventBus:

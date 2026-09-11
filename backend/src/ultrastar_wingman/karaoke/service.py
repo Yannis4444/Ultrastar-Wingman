@@ -19,6 +19,7 @@ from ..achievements import service as achievements
 from ..auth.model import as_utc
 from ..events import AchievementsEarned, KaraokeEnded, KaraokeStarted, ScoresRecorded, event_bus
 from ..library import service as library
+from ..music import service as music
 from ..players.model import Player
 from ..players.schema import read_player
 from ..settings import SettingsService
@@ -239,6 +240,9 @@ async def start_sing(
 
         _running = running
         _last_finished = running.finished
+        # Before the clients hear about the song: the room goes quiet first, so the
+        # background music is never still playing under the first note.
+        await music.sing_started()
         await event_bus.broadcast(KaraokeStarted(sing=running.sing))
         await _clear_wishes(session, song.id, resolved)
         return running.sing
@@ -268,6 +272,9 @@ async def open_usdx(session: AsyncSession) -> bool:
             # Same shape as a misconfigured path: the user has to fix a setting.
             raise UsdxPathsError([f"cannot start '{paths.executable}': {error}"]) from error
         _standalone = standalone
+        # USDX makes its own noise in its own menus, so the speakers are its for as long
+        # as it stands there.
+        await music.usdx_opened()
         return True
 
 
@@ -282,6 +289,7 @@ async def _standalone_exited(standalone: _Standalone) -> None:
     global _standalone
     if _standalone is standalone:
         _standalone = None
+    await music.usdx_closed()
     standalone.exited.set()
 
 
@@ -442,6 +450,9 @@ async def _finish(running: _Running, session_factory: async_sessionmaker[AsyncSe
         await event_bus.broadcast(
             KaraokeEnded(sing_id=running.sing.sing_id, song_id=running.sing.song.id)
         )
+        # The speakers are free again. The music comes back after the configured pause,
+        # which is the room's gap for the scores and any badges that follow.
+        await music.sing_ended()
         if scores:
             await event_bus.broadcast(ScoresRecorded(sing_id=running.sing.sing_id, scores=scores))
             await _award_achievements(running, session_factory, scores)
