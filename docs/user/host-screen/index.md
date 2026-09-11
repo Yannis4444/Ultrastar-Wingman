@@ -133,6 +133,16 @@ pick a song* in two cases. One is a Wingman that has never scored a song. The
 other is a song that was started and scored nothing, which is what a stopped
 song leaves behind.
 
+## The music between songs
+
+The host screen is what plays the background music, so it has to stay open for
+the room to hear anything. One quiet line under *Scan the code to pick a song*
+names what is playing. See [Play background music](../party/music.md).
+
+A browser plays no sound until somebody has pressed something on the page, and a
+TV gets no presses. When that is what is stopping it, **Turn on sound** appears
+under the code. One click anywhere on the page does the same thing.
+
 ## The controls that fade
 
 The corner controls are only for whoever is at the karaoke PC. They fade out

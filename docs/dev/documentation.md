@@ -76,6 +76,7 @@ is small.
 | Sing | `party/` | `wishlist.md` | Wish for a song | Everyone | Add a wish, read the list, take one back | How-to |
 | Sing | `party/` | `sing.md` | Sing a song | Everyone | Pick singers and colors, start it, what happens then | How-to |
 | Sing | `party/` | `reel.md` | Let the reel pick | Everyone | The random reel and what it picks from | How-to |
+| Sing | `party/` | `music.md` | Play background music | Host | The music between songs: turning it on, the pool, the controls, the volumes | How-to |
 | Sing | `songs/` | `index.md` | The song list | Everyone | The list, the marks, search, the chips | Index |
 | Sing | `songs/` | `filter.md` | Filter the list | Everyone | The Filter panel, facets, tags | How-to |
 | Sing | `songs/` | `song.md` | Open a song | Everyone | The song view: details, best scores, comments | How-to |
@@ -294,6 +295,8 @@ Use the left column. Never the right column.
 | USDX | Only where the app spells it that way, such as the **USDX** settings group | a name for Ultrastar Deluxe in prose |
 | USDB | The song database Wingman downloads from | usdb.animux, the database |
 | the reel | The random song picker | spinner, wheel, slot machine |
+| background music | The songs Wingman plays while nobody is singing | filler, radio, the playlist |
+| the player | The block at the top of Home that shows what is playing | now playing, the widget |
 | microphone color | The color a singer's microphone is assigned | mic colour, channel |
 | permission | What somebody is allowed to do, in user pages | capability |
 | capability | The exact name of a permission, in the integration section only | permission |

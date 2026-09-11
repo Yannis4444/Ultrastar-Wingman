@@ -2,7 +2,7 @@
 
 *Design, 2026-09-11. Branch `feat/background-music`. The user's decisions are in §1; everything
 else is the plan the implementation builds from. Where this document and the code disagree
-after the round, the code is right and this document is updated: §8 is what shipped and where
+after the round, the code is right and this document is updated: §7 is what shipped and where
 it departs from §§2–6.*
 
 Wingman is silent between songs. A party has long gaps — somebody is picking a singer, scores
@@ -432,4 +432,50 @@ screen are both redrawn, so their screenshots are recaptured.
 
 ## 7. What shipped, and where it departs from the plan
 
-*Filled in as the round lands.*
+All of §§2 to 5, with these differences, every one of them found while building it:
+
+1. **`GET /music` picks nothing.** The plan had it settling the state, which would have been
+   a song picked and never broadcast: the host screen would not have heard about it, and the
+   next tick would see nothing changed and stay quiet. Picking out of nowhere is the tick's
+   job alone; every other pick is somebody pressing something, and the route that served the
+   press broadcasts it.
+2. **The four hooks broadcast only on a visible change.** With the music switched off, which
+   is the default, a sing changed nothing in `MusicRead` and still sent two `music.changed`
+   messages to every phone in the room. `_changed` now guards them, the same rule the report
+   path already had.
+3. **`_freeze` exists, and is called *before* whatever stops the music.** Pausing and losing
+   the sink both worked the position out *after* flipping the flag, and `_position` reads the
+   current status, so both stored a standstill. Three call sites, one helper, and the
+   docstring says which side of the change it belongs on.
+4. **`_learn_duration` runs before the payload is built.** It was evaluated inside the same
+   tuple as `_read()`, so the one report worth broadcasting announced the null it had just
+   replaced.
+5. **`_last_song_id`.** Every path to the next song clears the track first, so the picker had
+   nothing to avoid repeating and `skip` could land on the song it just left.
+6. **The error counter is not cleared by picking.** Every failure advances, so forgiving the
+   run on each advance pinned the counter at one and a library where nothing plays would have
+   spun at request speed. Playing is what forgives it.
+7. **`tags.GUEST_VIEWER`** rather than a second copy in `music`: `karaoke.selection` imports
+   `karaoke.service`, so its `_GUEST` could not be reached from here without closing the
+   cycle §2.1 describes.
+
+### Verified in a browser, 2026-09-12
+
+Against a scratch instance on :8081 with three generated songs, driven in headless Chrome
+over CDP (the extension was not connected):
+
+- The host screen's `<audio>` really plays: `readyState` 4, `paused` false, `currentTime`
+  advancing, `volume` 0.6 for the default 100 × 60, and the file's own duration reported back
+  to the server, which is not the stored `duration_seconds`.
+- Songs advance on their own: the browser played each to the end, reported `ended`, and the
+  server picked another.
+- `GET /songs/{id}/audio` answers `206` to a `Range` request, so seeking works.
+- The player measures **264px in every mode**, draws its three grid rows in all of them, and
+  scrolls nothing sideways at 390px.
+- With `--autoplay-policy=document-user-activation-required` the element stays paused and the
+  host screen offers **Turn on sound**; a trusted click starts it and the button goes.
+- A guest was refused `PATCH /music/settings` with `missing_permission:music.manage`.
+
+A live sing was **not** run: it starts the real Ultrastar Deluxe. The transition is covered by
+`test_music_state.py` instead (the speakers go, the countdown runs, a *different* track starts
+at position 0), and it stays the one thing only a real party can prove.
