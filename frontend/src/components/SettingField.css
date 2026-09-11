@@ -64,6 +64,16 @@
   font-size: 0.85em;
 }
 
+/* The number a volume slider is at, on the label's line where the value would
+   otherwise be invisible: a bare track says nothing a reader could repeat or
+   write down. Tabular so it does not jog while a finger drags. */
+.setting-volume-value {
+  flex: 0 0 auto;
+  color: var(--color-darker);
+  font-size: 0.85em;
+  font-variant-numeric: tabular-nums;
+}
+
 .setting-description {
   margin: 6px 0 0 0;
   color: var(--color-darker);

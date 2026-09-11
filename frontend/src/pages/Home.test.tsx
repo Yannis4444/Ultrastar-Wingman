@@ -11,6 +11,7 @@ const {
   getMe,
   usdxStatus,
   getCurrentSing,
+  getMusic,
   listKaraokeColors,
   listSongs,
   listWishlist,
@@ -19,6 +20,7 @@ const {
   getMe: vi.fn(),
   usdxStatus: vi.fn(),
   getCurrentSing: vi.fn(),
+  getMusic: vi.fn(),
   listKaraokeColors: vi.fn(),
   listSongs: vi.fn(),
   listWishlist: vi.fn(),
@@ -30,6 +32,7 @@ vi.mock("../api/sdk.gen", async (importOriginal) => ({
   getMe,
   usdxStatus,
   getCurrentSing,
+  getMusic,
   listKaraokeColors,
   listSongs,
   listWishlist,
@@ -43,6 +46,21 @@ beforeEach(() => {
   getMe.mockResolvedValue(meResponse(["songs.view", "wishlist.view"]));
   usdxStatus.mockResolvedValue({ data: { configured: true, problems: [] } });
   getCurrentSing.mockResolvedValue({ data: { sing: null } });
+  // This browser holds no `music.view`, so the player never asks — mocked all
+  // the same, so a capability added to the list above cannot reach real fetch.
+  getMusic.mockResolvedValue({
+    data: {
+      status: "off",
+      track: null,
+      blocked_by: null,
+      resume_at: null,
+      retry_at: null,
+      sink_online: false,
+      sink_generation: 0,
+      volume: { master: 100, music: 60, effects: 80 },
+      scope: "all",
+    },
+  });
   listKaraokeColors.mockResolvedValue({ data: { colors: [] } });
   listSongs.mockResolvedValue({ data: { songs: [] } });
   listWishlist.mockResolvedValue({ data: { wishes: [] } });
@@ -67,9 +85,6 @@ function renderHome() {
 test("the stage shows the app's identity while nothing plays", async () => {
   renderHome();
 
-  expect(
-    screen.getByRole("img", { name: "Ultrastar Wingman" }),
-  ).toHaveAttribute("src", "/logo.png");
   expect(
     await screen.findByRole("heading", { name: "Ultrastar Wingman" }),
   ).toBeInTheDocument();
@@ -104,12 +119,12 @@ test("the running song takes the stage in the identity's place", async () => {
   renderHome();
 
   await screen.findByRole("region", { name: "Now playing" });
-  // The identity stays in the DOM holding the tile's height, but out of sight
-  // and out of the reader's way.
-  expect(
-    screen.getByRole("heading", { name: "Ultrastar Wingman", hidden: true })
-      .parentElement,
-  ).toHaveClass("home-stage-hidden");
+  // The one heading is the player's own eyebrow, so it says what the block is
+  // showing rather than the app's name.
+  expect(screen.getAllByRole("heading", { level: 1 })).toHaveLength(1);
+  expect(screen.getByRole("heading", { level: 1 })).toHaveTextContent(
+    "Now playing",
+  );
 });
 
 test("the spinner is an entry to its own page, not a reel on Home", async () => {

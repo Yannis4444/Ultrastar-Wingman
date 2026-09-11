@@ -20,6 +20,7 @@ from .events import ServerReady, SettingChanged, event_bus
 from .join_url import normalize_join_url
 from .karaoke.api import router as karaoke_router
 from .library.api import router as library_router
+from .music.api import router as music_router
 from .players.api import router as players_router
 from .settings import (
     SettingDefinition,
@@ -41,6 +42,7 @@ router.include_router(auth_router)
 router.include_router(songs_router)
 router.include_router(players_router)
 router.include_router(karaoke_router)
+router.include_router(music_router)
 router.include_router(downloads_router)
 router.include_router(sources_router)
 router.include_router(library_router)

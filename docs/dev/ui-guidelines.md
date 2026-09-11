@@ -109,6 +109,7 @@ may wear is the picker's list below, never this table.
 | `beer` / `car` / `plane` / `bolt` / `bell` / `ghost` / `ring` / `graduation-cap` | tags for drinking songs · for road songs · for holidays · for the loud fast ones · for new year · for halloween · for weddings · for school and graduation | a tankard under a three-lobe foam cap, the handle loop counter-wound · a cabin stepped onto a body over two wheel discs, the windows counter-wound · one outline — fuselage, swept wings, tailplane — nose to the top right · a single zigzag contour · a dome on a flared rim over a clapper disc · a dome over a three-lobe hem, the two eyes counter-wound · two concentric circles, the inner one counter-wound, a gem lozenge on top · a rhombus board on a trapezoid cap, a tassel cord down the right |
 | `headphones` / `drum` / `piano` / `rocket` / `anchor` / `tree` / `paw` / `smile` | tags for songs to play rather than sing · for the drum-driven ones · for songs at the keys · for the night's openers · for sea shanties · for folk · for animal songs · for the funny ones | a headband arc, its inner edge counter-wound, and two capsule earcups · a cylinder between two overhanging rim bars, one three-V zigzag band counter-wound out of the shell · a keybed bar over five keys, the four black ones counter-wound out of it · a pointed body between two fins over a flame, the porthole counter-wound · a ring over a shank crossed by a stock, above one curved fluke bar, the ring's hole counter-wound · three stacked triangles on a short trunk · a pad disc under four toe discs, five subpaths, nothing cut out · a disc with two eyes and a crescent mouth counter-wound out of it |
 | `hash` / `music` / `arrow-up` / `average` / `arrow-down` · `trophy` | a score summary's five numbers, in that order — sings, songs, best, average, worst · the best score as a thing to open: the §5 summary strip's gold button, never a number inside a score summary | two upright bars crossed by two horizontal ones · one contour, a note head under a flagged stem · one solid contour, a shaft behind a triangular head, and the same mirrored · a ring struck corner to corner by a bar · a cup between two handles over a stem and a foot bar. The reorder pair on a playlist or achievement row is `arrow-up` / `arrow-down` doing a job, not a second meaning. None of them is pickable — a number is not a thing a song is about — `music` excepted: it is in the picker already, meaning genre, and wears this second meaning only inside a summary; `trophy` stays out with `clock`, `globe`, `star` and `tag` |
+| `pause` / `skip` / `volume` | the background music's transport on the player, and `volume` labelling the **Sound** settings group and the `music` permission group | two upright bars at `play`'s own height · `play` again with the bar it runs into · a speaker cone under two arcs. None of the three is pickable: pausing is not a thing a song is about, and `volume` is doing a job in the two places it labels, the way `tv` labels the Host group |
 | `upload` / `download` | the Achievements admin's two archive buttons: one in, one out | `download` mirrored — the same shaft, arrowhead and tray bar, the arrow coming up out of the bar instead of down into it. Neither is pickable: an archive is not a thing a tag or an achievement is about |
 | `card` | the player selector device: the *Player selector* entry of the manage menu, the admin page's device rows, and the `devices` permission group | a card lying on its side, 20 by 12 with a corner radius of 2, its chip counter-wound out of the upper left. Wider and rounder than `tv`'s case, and the chip sits off centre where a bank card carries one. Not pickable: a card is not a thing a song is about |
 | `thumbs-up` / `hourglass` / `balloon` / `dumbbell` / `tv` | tags for the crowd-pleasers · for the long ones · for carnival · for the gym set · for series and anime — labelling the Host settings group is a job, not a meaning | a fist block with the thumb up over a separate cuff bar · two triangles meeting at the waist between two cap bars · a teardrop bulb over a short zigzag string · a bar between two pairs of stacked plates · a rounded case, the screen counter-wound, on a stand bar |
@@ -169,6 +170,13 @@ exception). Tests identify glyphs with `iconNames()` from `src/test/icons.ts`.
   48px `.song-control` flanks (favorite / wish; glyph `--color-darkerer` off, accent on, no
   fill) around a 72px unfilled `.song-control-lead` (blue play, pink stop on the stage), grid
   `1fr auto 1fr`. No filled play button.
+- **The one slider** is `.range-input` (`index.css`): the background music's volume on the
+  player and the three **Sound** settings. `accent-color: var(--highlight-blue-light)` paints
+  the track and the thumb — the token the permission checkboxes already use — so there is no
+  per-browser pseudo-element stack to keep in step; the box is 40px for §1.10 even though the
+  track inside it is 4px, because a finger aims at the control and not at the line. A volume
+  row prints its number (`.setting-volume-value`, tabular): a bare track says nothing a reader
+  could repeat.
 - **Segmented / pill choices** (the tag editor's colour pills): a `.visually-hidden` radio in a
   `<label>` plus a visible `<span>`; checked = `--highlight-blue-dark` fill,
   `--highlight-blue-light` border/text; focus via `input:focus-visible ~ span`. For 2–4
@@ -308,9 +316,24 @@ saved) where a jump to the top would throw away the place they were working in.
   reel frame; `PlayerAvatar` is `--border-radius-small` (people, not covers), the 96px identity
   avatar round. Sizes: 40px in rows, 200px (`max-width: 60vw`) in the modal hero, 160px on Home,
   `min(42vh, 30vw)` on the host; the fallback is the initial letter on `--input-bg`.
-- **Home** is `HomeStage` (identity tile that becomes the current song while one plays — cover,
-  title/artist, song controls; **no** time, progress or singer list on phones) → setup banner →
-  wishlist → the Random song entry. Nothing shifts when the stage switches.
+- **Home** is `HomeStage`, the player: one tile, three modes, **one height in every one of
+  them** (264px — 16 of padding, a 104px head, the 72px control row, the 40px transport row,
+  8px gaps). A song being sung, the background song between them, and the brand while
+  neither. Every row is a fixed grid track and every reserved line carries a *declared* px
+  `line-height` — `normal` comes out of the font's metrics (§4), so a tile that measured
+  itself would be one height on Windows and another on every phone. The art is 88px: the
+  cover, or `SongReel`'s own `LogoTile` when idle. Two title lines are always reserved, which
+  is what a long title costs instead of the tile growing. The eyebrow is the page's `h1` and
+  names the mode (*Now playing* / *Background music* / *Ultrastar Wingman*), so Home exposes
+  exactly one heading throughout. The large control keeps its meaning — pink Stop for a sing,
+  blue Sing for the background song (`PlayerSelection`, the song modal's own path), nothing
+  when idle — and the favorite and wish marks flank it on whatever is playing. The music's own
+  transport (gear, pause, skip, volume) is a **separate line**, so the two plays never share a
+  row; the gear is drawn in every mode, because a host who switched the music off needs a way
+  back in. **No progress or time for a sing** on phones, as before; the background song gets
+  both, because nothing else in the room shows them. A reader without `music.view` is told
+  *Ultrastar Wingman*, never *Nothing is playing*: they cannot know. Then the setup banner →
+  wishlist → the Random song entry. Nothing shifts when the mode changes.
 - **Songs** puts the page's one loud input in its sticky toolbar: the `search` glyph, the field,
   and a trailing `close` `.icon-button` that clears it, drawn only while something is typed and
   suppressing the WebKit search field's own cancel button so there is never a second X. Under it
@@ -552,7 +575,15 @@ saved) where a jump to the top would throw away the place they were working in.
   `<details class="settings-advanced">` labelled *Advanced*, closed by default — never a section
   of its own, never a group's only content.
 - **Host** (`/host`) is a TV across the room: everything scales with `clamp()` and `vh`, flat on
-  `--bg`, the white QR card its one tile and the selection cards its one other surface.
+  `--bg`, the white QR card its one tile and the selection cards its one other surface. It is
+  also the **one screen that makes sound**: `MusicSink` is mounted in `App.tsx` rather than
+  here (the host walks from `/host/manage` into `/settings` and `/user/*`, and a sink under a
+  page would stop the music mid-song) and plays only for `auth.isHost`. `HostBrand` gains one
+  quiet line under the scan hint naming the background song, drawn only where `scan` is true
+  so the between-singers beat stays bare; it is content, not a control, so it is **not** in
+  the reveal-on-movement overlay and adds no second idle timer. *Turn on sound* goes in
+  `.host-rail` after the QR card for the same reason: `.host-controls` is invisible the moment
+  the mouse stops, which on a TV is always.
   Controls reveal on pointer movement through the page's single `useIdle` mechanism — never add a second idle timer. Verify at 1280×720 and up,
   and re-check it after touching any shared component (`CurrentlyPlaying`, `LastSong`,
   `SongCover`, `SessionLeaderboard`). `LastSong` takes the same score summary as the phones,

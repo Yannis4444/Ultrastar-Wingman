@@ -2,7 +2,7 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useEffect, useState } from "react";
 import QRCode from "react-qr-code";
 import { Link } from "react-router-dom";
-import type { WishRead } from "../api";
+import type { SongRead, WishRead } from "../api";
 import {
   exchangeHostTokenMutation,
   getCurrentSingOptions,
@@ -27,6 +27,8 @@ import SongCover from "../components/SongCover";
 import { useSelectorStatus } from "../hooks/useSelectorStatus";
 import { useSessionStanding } from "../hooks/useSessionStanding";
 import { useWingmanEvent, type WingmanEvent } from "../hooks/useWingmanEvents";
+import { useMusic } from "../hooks/useMusic";
+import { useMusicSinkStatus } from "../hooks/useMusicSink";
 import { useWishlist } from "../hooks/useWishlist";
 import { manageEntries } from "../manage";
 import type { LeaderboardOrder } from "../stats";
@@ -96,12 +98,28 @@ function useIdle(delay = 3000): boolean {
  * of the achievements takeover shows the brand, and the rail with the QR in it
  * is not on the screen for those seconds.
  */
-function HostBrand({ scan = true }: { scan?: boolean }) {
+function HostBrand({
+  scan = true,
+  music = null,
+}: {
+  scan?: boolean;
+  music?: SongRead | null;
+}) {
   return (
     <div className="host-brand">
       <img className="host-logo" src="/logo.png" alt="" />
       <span className="host-brand-name">Ultrastar Wingman</span>
       {scan && <p className="host-scan-hint">Scan the code to pick a song</p>}
+      {/* What the room is hearing, quietly, and only on the ordinary idle
+          screen: the beat between two singers passes `scan={false}` and has to
+          stay bare. Content rather than a control, so it is not in the
+          reveal-on-movement overlay — the point is that it reads across the
+          room while nobody is touching the mouse. */}
+      {scan && music !== null && (
+        <p className="host-music-line">
+          {music.title} · {music.artist}
+        </p>
+      )}
     </div>
   );
 }
@@ -211,6 +229,15 @@ export default function Host() {
     standing.sings >= MIN_SINGS &&
     standing.entries.length > 0;
 
+  const music = useMusic();
+  const sink = useMusicSinkStatus();
+  // Only while something is actually playing: "off" and the pause after a song
+  // are silences the room can see for itself.
+  const background =
+    music.state?.status === "playing"
+      ? (music.state.track?.song ?? null)
+      : null;
+
   const wishlist = useWishlist();
   const wishes = [...wishlist.wishes]
     .sort((a, b) => b.count - a.count)
@@ -247,7 +274,7 @@ export default function Host() {
       className={`host-page${takeover ? " host-takeover" : ""}${idle ? " host-idle" : ""}`}
     >
       <div className="host-stage">
-        <CurrentlyPlaying variant="host" />
+        <CurrentlyPlaying />
         {/* Somebody is picking singers for the next song: the stage shows the
             song and its slots filling up, and takes the whole screen for it.
             It gives way to the badges a finished song earned, and it stands in
@@ -269,7 +296,7 @@ export default function Host() {
         />
         <HostResults
           players={standing.players}
-          fallback={takeover ? null : <HostBrand />}
+          fallback={takeover ? null : <HostBrand music={background} />}
           suppressed={earned !== "idle" || picked}
         />
       </div>
@@ -296,6 +323,24 @@ export default function Host() {
           </div>
           {/* After the code and before the standing: it is about the way into
               the evening, which is what the top of the rail is for. */}
+          {/* A browser plays no sound until somebody has pressed something on
+              it, and a TV gets no presses. Here rather than in the overlay:
+              `.host-controls` is invisible the moment the mouse stops moving,
+              which on a TV across the room is always. */}
+          {sink.blocked && (
+            <button
+              type="button"
+              className="button button-primary host-sound-on"
+              onClick={sink.unlock}
+            >
+              <Icon name="volume" /> Turn on sound
+            </button>
+          )}
+          {sink.failed && (
+            <p className="error-notice host-rail-note" role="alert">
+              The background music would not play.
+            </p>
+          )}
           {selectorGone && (
             <p className="host-rail-note">Player selector offline</p>
           )}

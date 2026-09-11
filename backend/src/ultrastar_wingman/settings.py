@@ -21,6 +21,7 @@ from .db import Base
 from .downloads.video_quality import DEFAULT_VIDEO_FORMAT, validate_video_format
 from .join_url import validate_join_url
 from .karaoke.slots import DEFAULT_SLOT_COLORS_SETTING, validate_slot_colors
+from .sound import EFFECTS_VOLUME, MASTER_VOLUME, MUSIC_VOLUME, validate_volume
 
 logger = logging.getLogger(__name__)
 
@@ -147,6 +148,48 @@ register(
             "makes Wingman guess wrong."
         ),
         validate=validate_join_url,
+    )
+)
+register(
+    SettingDefinition(
+        key=MASTER_VOLUME,
+        value_type=int,
+        default=100,
+        group="Sound",
+        description=(
+            "How loud everything Wingman plays on the host screen is, in percent. The "
+            "background music and the sound effects are scaled by this one. It does not "
+            "touch Ultrastar Deluxe, which plays a song through its own mixer."
+        ),
+        validate=validate_volume,
+    )
+)
+register(
+    SettingDefinition(
+        key=MUSIC_VOLUME,
+        value_type=int,
+        default=60,
+        group="Sound",
+        description=(
+            "How loud the background music between songs is, in percent of the overall "
+            "volume. Quieter than singing on purpose, so the room can still talk. Anybody "
+            "who may control the music can change this from the player."
+        ),
+        validate=validate_volume,
+    )
+)
+register(
+    SettingDefinition(
+        key=EFFECTS_VOLUME,
+        value_type=int,
+        default=80,
+        group="Sound",
+        description=(
+            "How loud Wingman's own sound effects are, in percent of the overall volume. "
+            "Nothing plays effects yet. The setting is here so all the sound is in one "
+            "place when they arrive."
+        ),
+        validate=validate_volume,
     )
 )
 register(

@@ -61,10 +61,10 @@ earlier does not bring them back. See
 
 ## While the song plays
 
-**Home** shows the running song in place of the Wingman title: the cover, the
-title, the artist, and the buttons under them. The elapsed time and the singers
-are not repeated there, because the Ultrastar Deluxe screen in the same room
-already shows both.
+The player at the top of **Home** shows the running song: the cover, the title,
+the artist, and the buttons under them. The elapsed time and the singers are not
+repeated there, because the Ultrastar Deluxe screen in the same room already
+shows both.
 
 ![Home while Walking on Sunshine by Katrina and the Waves plays, with its cover and the song controls where the Wingman tile usually is](../assets/screenshots/party/home-playing.png){ width="320" loading=lazy }
 /// caption

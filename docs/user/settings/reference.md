@@ -22,6 +22,18 @@ share a color. Give a slot a color another one already has and the two swap. See
 |---|---|---|
 | **Join URL** | The address the QR code on the host screen carries. Empty means Wingman picks your machine's address on the local network. The field names the address guests end up on either way | empty |
 
+## Sound
+
+| Setting | What it does | Default |
+|---|---|---|
+| **Master volume** | How loud everything Wingman plays on the host screen is. It scales the two below it | 100 |
+| **Music volume** | How loud the background music between songs is. Anybody who may control the music can also change this from the player | 60 |
+| **Effects volume** | How loud Wingman's own sound effects are. Nothing plays effects yet | 80 |
+
+All three are percentages, and the master multiplies the others. None of them
+touches Ultrastar Deluxe, which mixes a song being sung itself. See
+[Play background music](../party/music.md).
+
 ## Songs
 
 | Setting | What it does | Default |

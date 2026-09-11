@@ -33,7 +33,6 @@ from typing import Literal
 
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
 
-from ..auth import permissions
 from ..events import SelectionChanged, event_bus
 from ..players.model import Player
 from ..players.schema import PlayerRead, read_player
@@ -63,9 +62,9 @@ TOKEN_BYTES = 24
 REVEAL_SECONDS = 5.5
 _REVEAL = timedelta(seconds=REVEAL_SECONDS)
 
-# The selector's button is the one caller in the app with no account behind it at all: what
-# it may pick out of is what a party guest may see.
-_GUEST = tags.Viewer(role=permissions.DEFAULT_ROLE, user_id=None)
+# The selector's button has no account behind it at all: what it may pick out of is what a
+# party guest may see. Shared with the background music, which picks the same way.
+_GUEST = tags.GUEST_VIEWER
 
 ButtonAction = Literal["start", "clear", "cancel"]
 

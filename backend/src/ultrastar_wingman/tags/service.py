@@ -14,7 +14,7 @@ from sqlalchemy import ColumnElement, delete, func, or_, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from ..auth.model import User
-from ..auth.permissions import ADMIN, ROLES, UnknownRoleError
+from ..auth.permissions import ADMIN, DEFAULT_ROLE, ROLES, UnknownRoleError
 from ..events import SongTagsChanged, TagsChanged, event_bus
 from ..songs.model import Song
 from .model import SongTag, Tag, TagPermission
@@ -47,6 +47,16 @@ class Viewer:
 
     role: str
     user_id: str | None
+
+
+# The viewer for everything Wingman does with no account behind it at all: the player
+# selector's start button, and the background music picking the room's next song. What such
+# a caller may reach is what a party guest may see — and it matters twice over for the
+# music, whose pick is broadcast on the anonymous socket.
+#
+# It lives here rather than in either caller because a constant that decides what a stranger
+# may see should have exactly one copy.
+GUEST_VIEWER = Viewer(role=DEFAULT_ROLE, user_id=None)
 
 
 @dataclass(frozen=True)

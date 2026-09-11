@@ -10,6 +10,8 @@ import {
 import { MemoryRouter } from "react-router-dom";
 import type {
   CurrentSing,
+  MusicRead,
+  MusicTrackRead,
   ScoreWithContext,
   SessionRead,
   SongRead,
@@ -22,6 +24,7 @@ import Host from "./Host";
 
 const {
   getMe,
+  getMusic,
   exchangeHostToken,
   getCurrentSing,
   getJoinInfo,
@@ -37,6 +40,7 @@ const {
   listWishlist,
 } = vi.hoisted(() => ({
   getMe: vi.fn(),
+  getMusic: vi.fn(),
   exchangeHostToken: vi.fn(),
   getCurrentSing: vi.fn(),
   getJoinInfo: vi.fn(),
@@ -55,6 +59,7 @@ const {
 vi.mock("../api/sdk.gen", async (importOriginal) => ({
   ...(await importOriginal<typeof import("../api/sdk.gen")>()),
   getMe,
+  getMusic,
   exchangeHostToken,
   getCurrentSing,
   getJoinInfo,
@@ -153,6 +158,22 @@ const RUNNING: CurrentSing = {
   slots: [],
 };
 
+/** What `GET /music` answers while nothing is playing. */
+function quietMusic(overrides: Partial<MusicRead> = {}): MusicRead {
+  return {
+    status: "off",
+    track: null,
+    blocked_by: null,
+    resume_at: null,
+    retry_at: null,
+    sink_online: false,
+    sink_generation: 0,
+    volume: { master: 100, music: 60, effects: 80 },
+    scope: "all",
+    ...overrides,
+  };
+}
+
 /** A host screen that has something to rank: last song plus leaderboard. */
 function withScores() {
   getMe.mockResolvedValue(
@@ -191,6 +212,7 @@ beforeEach(() => {
   getJoinInfo.mockReset();
   getMe.mockResolvedValue(meResponse(["songs.view"]));
   getCurrentSing.mockResolvedValue({ data: { sing: null } });
+  getMusic.mockResolvedValue({ data: quietMusic() });
   getJoinInfo.mockResolvedValue({ data: { url: "http://192.168.0.10:8080" } });
   getPlayerSelection.mockReset();
   getPlayerSelection.mockResolvedValue({ data: { selection: null } });
@@ -780,4 +802,39 @@ test("the rail says the player selector is gone, but only once it was there", as
   await waitFor(() =>
     expect(screen.getByText("Player selector offline")).toBeInTheDocument(),
   );
+});
+
+test("the idle screen names the background song, quietly", async () => {
+  getMe.mockResolvedValue(
+    meResponse(["music.view"], { is_host: true, role: "admin" }),
+  );
+  const track: MusicTrackRead = {
+    id: "t-1",
+    song: { ...RHAPSODY, title: "Waterloo", artist: "ABBA" },
+    started_at: "2026-08-23T20:00:00Z",
+    position_s: 3,
+    position_at: "2026-08-23T20:00:00Z",
+    duration_s: 200,
+  };
+  getMusic.mockResolvedValue({
+    data: quietMusic({ status: "playing", track, sink_online: true }),
+  });
+
+  renderHost("/host");
+
+  const line = await screen.findByText(/Waterloo/);
+  expect(line).toHaveClass("host-music-line");
+  expect(line).toHaveTextContent("ABBA");
+  // The code is still what the screen is for.
+  expect(screen.getByText("Scan the code to pick a song")).toBeInTheDocument();
+});
+
+test("a screen that is not playing anything says nothing about music", async () => {
+  getMe.mockResolvedValue(
+    meResponse(["music.view"], { is_host: true, role: "admin" }),
+  );
+  renderHost("/host");
+
+  await screen.findByText("Scan the code to pick a song");
+  expect(document.querySelector(".host-music-line")).toBeNull();
 });

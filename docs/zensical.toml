@@ -25,6 +25,7 @@ nav = [
       { "Wish for a song" = "party/wishlist.md" },
       { "Sing a song" = "party/sing.md" },
       { "Let the reel pick" = "party/reel.md" },
+      { "Play background music" = "party/music.md" },
     ] },
     { "The song list" = [
       "songs/index.md",

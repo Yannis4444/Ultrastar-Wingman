@@ -1,14 +1,19 @@
-/* The page-identity tile of the old `.home-header`, now carrying two states.
-   The whitelist of tiled surfaces does not grow: one identity tile became one
-   stage tile.
+/* The player at the top of Home: one block, three modes, one height.
+   The whitelist of tiled surfaces does not grow — one stage tile stays one
+   stage tile (§1.2).
 
-   One height for both states, so the switch between them moves nothing below
-   the tile: the identity and the running song sit in the same grid cell, and
-   `min-height` is cut to what the song actually needs rather than to the
-   worst case it might need. The padding is deliberately lopsided — the cover
-   is a hard-edged square that wants air above it, while the control row below
-   carries its own, since a 72px round button is mostly empty space around a
-   29px glyph. Equal padding read as a hole under the buttons. */
+   264px, in every mode: 16 of padding, a 104px head, 8, the 72px control row,
+   8, the 40px transport row, 16. Every row is a fixed grid track and every
+   reserved line carries a declared `line-height`, so a title that wraps to two
+   lines, a control row a guest never gets and an empty progress line all leave
+   the tile exactly as tall. Nothing on the page below it moves, which is the
+   whole point of the fixed height.
+
+   The line-heights are declared and never `normal` for the reason §4 gives
+   about the bottom nav: `normal` comes out of the font's own metrics, so the
+   same 0.85em caption is 16px tall in Segoe UI and 14px in Roboto, and a tile
+   that measured itself would be one height on the developer's Windows and
+   another on every phone in the room. */
 .home-stage {
   /* A local composition rather than a new token: the pink accent lightened far
      enough to clear 3:1 as a glyph on `--tile-bg`, where the raw token is
@@ -19,60 +24,196 @@
     var(--color)
   );
 
-  display: grid;
   box-sizing: border-box;
-  /* 295px of content inside 24px above and 8px below: exactly the running
-     song's block — the 160px cover, one title line, one artist line and the
-     72px control row. A song whose title or artist wraps to a second line
-     grows the tile instead of finding room already reserved for it; that is
-     the trade for the 63px of emptiness the reserved room used to cost every
-     other song. */
-  min-height: 327px;
   margin: 16px;
-  padding: 24px 16px 8px;
+  padding: 16px;
   background-color: var(--tile-bg);
   border-radius: var(--border-radius);
-  place-items: center;
 }
 
-.home-stage > * {
-  grid-area: 1 / 1;
-  width: 100%;
+.home-stage-body {
+  display: grid;
+  grid-template-rows: 104px 72px 40px;
+  row-gap: 8px;
+  animation: home-stage-in 200ms ease;
 }
 
-/* Shorter than the cell, so the grid's `place-items` centres it: the logo and
-   the app name sit in the middle of the tile the song fills. */
-.home-stage-idle {
+@keyframes home-stage-in {
+  from {
+    opacity: 0;
+  }
+}
+
+/* The art, then four declared text rows beside it. The square is 88px inside a
+   104px column and sits at the top, which is what puts it under the eyebrow's
+   line the way the sketch draws it. */
+.home-stage-head {
+  display: grid;
+  grid-template-columns: 88px minmax(0, 1fr);
+  grid-template-rows: 20px 44px 20px 20px;
+  column-gap: 12px;
+}
+
+.home-stage-cover-button {
+  grid-row: 1 / -1;
+  align-self: start;
+  padding: 0;
+  background: none;
+  border: none;
+  border-radius: var(--border-radius-small);
+  cursor: pointer;
+  line-height: 0;
+}
+
+/* A compound selector, so it beats `SongCover.css`'s 40px whatever order the
+   bundle puts them in. Covers are square — the artwork is. */
+.home-stage-cover,
+.song-cover.home-stage-cover {
+  grid-row: 1 / -1;
+  align-self: start;
+  display: block;
+  width: 88px;
+  height: 88px;
+  border-radius: 0;
+  object-fit: cover;
+  font-size: 2em;
+}
+
+/* The reel's own logo tile at the cover's size: the brand mark is drawn in one
+   place in the app, and this is that place borrowed. */
+.home-stage-cover.spinner-cover-logo {
+  background-size: 80%;
+}
+
+.home-stage-eyebrow {
+  grid-column: 2;
+  margin: 0;
+  font-size: 0.85em;
+  line-height: 20px;
+  font-weight: normal;
+  color: var(--color-darker);
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+
+/* Two lines, always: the room reserved for the second one is what keeps the
+   tile from growing under a long title. */
+.home-stage-title {
+  grid-column: 2;
+  margin: 0;
+  font-size: 1.15em;
+  line-height: 22px;
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+  overflow-wrap: anywhere;
+}
+
+.home-stage-artist {
+  grid-column: 2;
+  margin: 0;
+  font-size: 0.85em;
+  line-height: 20px;
+  color: var(--color-darker);
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+
+/* The row is there in every mode; only the music fills it. */
+.home-stage-progress {
+  grid-column: 2;
   display: flex;
-  flex-direction: column;
   align-items: center;
   gap: 8px;
-  transition: opacity 200ms ease;
+  min-width: 0;
 }
 
-/* Still in the cell — the song fades in over it — but invisible and out of
-   reach of a finger that lands on the song above it. */
-.home-stage-hidden {
-  opacity: 0;
-  pointer-events: none;
+/* No transition on the fill: it steps once a second, and a transition only
+   smears the step into a crawl. */
+.home-stage-bar {
+  flex: 1 1 auto;
+  height: 4px;
+  background-color: var(--input-bg);
+  border-radius: 999px;
+  overflow: hidden;
 }
 
-.home-logo {
+.home-stage-bar > span {
   display: block;
-  width: 100%;
-  max-width: 200px;
-  height: auto;
+  height: 100%;
+  background-color: var(--highlight-blue-light);
 }
 
-.home-stage-idle h1 {
-  margin: 0;
-  font-size: 2em;
-  text-align: center;
+.home-stage-time {
+  flex: 0 0 auto;
+  font-size: 0.8em;
+  color: var(--color-darker);
+  font-variant-numeric: tabular-nums;
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+
+/* The geometry is `SongControls.css`'s, which keys on `.home-stage-controls`
+   directly: the modal's row and this one are one set of rules, and only the
+   colors stay here. They have to: this row sits on `--tile-bg`, where
+   `--color-darkerer` is 2.25:1 and under the 3:1 floor a control glyph has to
+   clear. On the page background the song modal floats over, the same token
+   does clear it, so the modal keeps what §5 prescribes for it. */
+.home-stage-controls .song-control-favorite,
+.home-stage-controls .song-control-wish {
+  color: var(--color-darker);
+}
+
+/* `--highlight-pink-light` is only 2.2:1 as a glyph on `--tile-bg`; the tile
+   defines `--stage-pink` as the mix that clears 3:1. */
+.home-stage-controls .song-control-favorite-on {
+  color: var(--stage-pink);
+}
+
+/* Re-asserted because the off rule above is two classes deep and would
+   otherwise outrank the single-class `.song-control-wish-on` that colors a
+   wished song everywhere else. */
+.home-stage-controls .song-control-wish-on {
+  color: var(--highlight-blue-light);
+}
+
+.home-stage-controls .song-control-stop {
+  color: var(--stage-pink);
+  /* The stop square reads smaller than the play triangle at the same size. */
+  font-size: 3em;
+}
+
+.home-stage-controls .song-control-sing {
+  color: var(--highlight-blue-light);
+}
+
+/* The music's own transport, on a line of its own so the blue Sing above and
+   the play/pause here are never mistaken for each other. */
+.home-stage-transport {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-width: 0;
+}
+
+.home-stage-volume-glyph {
+  flex: 0 0 auto;
+  color: var(--color-dark);
+  font-size: 1.15em;
+}
+
+.home-stage-volume {
+  flex: 1 1 auto;
+  min-width: 0;
 }
 
 @media (prefers-reduced-motion: reduce) {
-  .home-stage-idle {
-    transition: none;
+  .home-stage-body {
+    animation: none;
   }
 }
 

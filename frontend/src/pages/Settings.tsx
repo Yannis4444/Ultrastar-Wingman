@@ -13,6 +13,7 @@ import PageHeader from "../components/PageHeader";
 import RunUsdxRow from "../components/RunUsdxRow";
 import SettingField from "../components/SettingField";
 import VideoQualityField from "../components/VideoQualityField";
+import VolumeField from "../components/VolumeField";
 import { useWingmanEvent, type WingmanEvent } from "../hooks/useWingmanEvents";
 import "./Settings.css";
 
@@ -25,6 +26,7 @@ interface SettingChanged extends WingmanEvent {
 const GROUP_ORDER = [
   "Karaoke",
   "Host",
+  "Sound",
   "Songs",
   "USDX",
   "USDB",
@@ -36,6 +38,7 @@ const GROUP_ORDER = [
 const GROUP_ICONS: Record<string, IconName> = {
   Karaoke: "users",
   Host: "tv",
+  Sound: "volume",
   Songs: "music",
   USDX: "mic",
   USDB: "globe",
@@ -54,6 +57,11 @@ const CUSTOM_FIELDS: Record<
   ComponentType<{ setting: SettingRead; readOnly: boolean }> | undefined
 > = {
   "karaoke.player_colors": KaraokeSlotsField,
+  // A volume is set by ear against the room; a number box turns "a bit quieter"
+  // into typing, tabbing and typing again.
+  "sound.master_volume": VolumeField,
+  "sound.music_volume": VolumeField,
+  "sound.effects_volume": VolumeField,
   "host.join_url": JoinUrlField,
   "downloads.video_format": VideoQualityField,
 };

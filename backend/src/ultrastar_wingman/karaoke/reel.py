@@ -57,6 +57,8 @@ async def pick_song(
     viewer: tags.Viewer,
     *,
     playlist_id: str | None = None,
+    exclude: frozenset[str] = frozenset(),
+    require_audio: bool = False,
 ) -> Song | None:
     """One song out of `scope`, or None when there is nothing to pick from.
 
@@ -67,15 +69,32 @@ async def pick_song(
     that playlist is the caller's question, not this one's — the device sings from whatever
     playlist the host configured, and a phone is checked at the door.
 
+    `exclude` is songs this caller does not want back — the background music passes the song
+    that just played, so a small pool alternates instead of repeating. `require_audio`
+    leaves out the songs with no audio file at all, which the background music cannot play
+    and which a spin would simply hand to Ultrastar Deluxe. Both default to what every
+    caller before them asked for.
+
     The candidates are sorted before the choice, so a seeded random number generator picks
     the same song twice: a choice out of whatever order SQLite felt like is not one anybody
     could reproduce.
     """
     hidden = await tags.hidden_song_ids(session, viewer)
+    if require_audio:
+        hidden = hidden | await _songs_without_audio(session)
+    if exclude:
+        hidden = hidden | exclude
     candidates = await _candidates(session, scope, viewer, hidden, playlist_id)
     if not candidates:
         return None
     return await session.get(Song, random.choice(sorted(candidates)))
+
+
+async def _songs_without_audio(session: AsyncSession) -> frozenset[str]:
+    """The songs no screen could play: the txt named no audio file, or the scan could not
+    find the one it named. Subtracted like a hidden song, so every scope drops them at once
+    rather than each branch remembering to."""
+    return frozenset(await session.scalars(select(Song.id).where(Song.audio_file.is_(None))))
 
 
 async def top_wish(session: AsyncSession, viewer: tags.Viewer) -> Song | None:

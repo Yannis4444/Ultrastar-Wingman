@@ -199,6 +199,31 @@ textarea.text-input-quiet {
   resize: vertical;
 }
 
+/* The one slider in the app: the background music's volume on the player, and
+   the three volume fields on the Settings page. Shared because two surfaces
+   draw it, and a second bespoke range rule is exactly what the shared-classes
+   rule exists to prevent.
+
+   Deliberately thin: `accent-color` is what paints the track and the thumb, the
+   same token the permission checkboxes already use, so there is no per-browser
+   pseudo-element stack to keep in step. The box is 40px tall for the touch
+   floor even though the track drawn inside it is a few pixels — a finger aims
+   at the control, not at the line. */
+.range-input {
+  width: 100%;
+  height: 40px;
+  margin: 0;
+  padding: 0;
+  background: transparent;
+  accent-color: var(--highlight-blue-light);
+  cursor: pointer;
+}
+
+.range-input:disabled {
+  accent-color: var(--color-darkerer);
+  cursor: default;
+}
+
 /* One visible keyboard-focus ring for the whole app. */
 :focus-visible {
   outline: 2px solid var(--highlight-blue-light);

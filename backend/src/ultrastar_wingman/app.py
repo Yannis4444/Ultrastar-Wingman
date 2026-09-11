@@ -21,6 +21,7 @@ from .devices import service as devices
 from .downloads import service as downloads
 from .frontend import mount_frontend, resolve_frontend_dir
 from .karaoke import service as karaoke
+from .music import service as music
 from .songs import scanner
 from .sources import usdb
 
@@ -50,9 +51,16 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
     # Notices a player selector going quiet, and clears a selection nobody is touching any
     # more — the TV would otherwise keep showing a song nobody is singing.
     await devices.start_watchdog(app.state.session_factory)
+    # Keeps the room from going silent between songs. After the devices watchdog because it
+    # is the same kind of thing and the same shape; it picks nothing here, so startup is not
+    # held up for a query nobody is waiting on.
+    await music.start_watchdog(app.state.session_factory)
     try:
         yield
     finally:
+        # Before `karaoke.shutdown()`, which kills the running song: that fires the hook
+        # saying the speakers are free, and there is nobody left to tell about it.
+        await music.stop_watchdog()
         await devices.stop_watchdog()
         await downloads.stop()
         await usdb.aclose()

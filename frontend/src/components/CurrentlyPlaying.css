@@ -1,6 +1,6 @@
-/* One tight block. On Home it fills the stage tile; on the host it is restaged
-   as a grid further down. The rules up here are the ones both variants render:
-   cover, title and artist, and the control row. */
+/* The running song on the host screen, and nowhere else: the phone's own
+   player is `HomeStage`. These are the rules the block renders before the host
+   scope below restages it as a grid. */
 .currently-playing {
   display: flex;
   flex-direction: column;
@@ -19,19 +19,6 @@
   /* Covers are square (the artwork is) — the rounding only cropped corners. */
   border-radius: 0;
   font-size: 3em;
-}
-
-/* Wraps the cover so the whole square opens the song modal. Sized by its
-   content, so the host's `grid-area` rules keep working on the cover itself. */
-.currently-playing-cover-button {
-  display: flex;
-  padding: 0;
-  background: none;
-  border: none;
-  /* Square, so the focus ring hugs the artwork instead of rounding off its
-     corners. */
-  border-radius: 0;
-  cursor: pointer;
 }
 
 .currently-playing-info {
@@ -64,90 +51,9 @@
   color: var(--color-darker);
 }
 
-/* One icon row: favorite, stop, wish. Its layout comes from SongControls.css,
-   which the song modal's row uses too. */
-.currently-playing-controls {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  gap: 8px;
-}
-
-/* The Home stage: the block owns a tile, so the cover grows and the row below
-   the song is the song modal's. Time and singers are not here — the USDX screen
-   in the same room shows both, the phone only needs the buttons. Every rule
-   here is scoped to the stage class, so the host's overrides further down
-   cannot collide with them. */
-.currently-playing-stage {
-  margin: 0;
-  /* Mounts when the sing starts, so a transition would have nothing to run
-     from — the idle half of the stage fades out with a transition instead. */
-  animation: currently-playing-in 200ms ease;
-}
-
-@keyframes currently-playing-in {
-  from {
-    opacity: 0;
-  }
-}
-
-.currently-playing-stage .currently-playing-cover,
-.currently-playing-stage .song-cover.currently-playing-cover {
-  width: 160px;
-  height: 160px;
-  font-size: 3.5em;
-}
-
-/* 72px is the large control's own height: the row keeps it whether the reader
-   may stop, wish, both or neither, so logging in does not resize the tile. */
-.currently-playing-stage .currently-playing-controls {
-  width: 100%;
-  min-height: 72px;
-}
-
-/* The two flanking marks while they are off. `--color-darkerer` is 2.25:1 on
-   `--tile-bg`, under the 3:1 floor a control glyph has to clear; on the page
-   background the song modal floats over, the same token does clear it. So the
-   stage — and only the stage — steps up to `--color-darker` (3.4:1) and the
-   modal keeps what §5 prescribes for it. */
-.currently-playing-stage .song-control-favorite,
-.currently-playing-stage .song-control-wish {
-  color: var(--color-darker);
-}
-
-/* `--highlight-pink-light` is only 2.2:1 as a glyph on `--tile-bg`; the stage
-   defines `--stage-pink` as the mix that clears 3:1. The fallback keeps the
-   control visible if the block is ever mounted outside the stage. */
-.currently-playing-stage .song-control-stop,
-.currently-playing-stage .song-control-favorite-on {
-  color: var(--stage-pink, var(--highlight-pink-light));
-}
-
-/* Re-asserted here because the off rule above is two classes deep and would
-   otherwise outrank the single-class `.song-control-wish-on` that colors a
-   wished song everywhere else. */
-.currently-playing-stage .song-control-wish-on {
-  color: var(--highlight-blue-light);
-}
-
-/* An optical correction, not a second size: `stop` is a square filling half its
-   24-unit box, while the modal's `play` triangle fills the full height. At the
-   row's shared 2.6em the square measures 20.8px against the triangle's 24.3px
-   and stops reading as the large control. 3em squares that up. */
-.currently-playing-stage .song-control-stop {
-  font-size: 3em;
-}
-
-@media (prefers-reduced-motion: reduce) {
-  .currently-playing-stage {
-    animation: none;
-  }
-}
-
-/* The host view is a TV across the room: same block, staged as a grid, and the
-   only place the elapsed time, the progress bar and the singers render — so
-   their rules live here, under the host scope, in full. The cover spans both
-   text rows to keep the stage looking the way it did. */
+/* The host page restages the block as a grid, and is the only place the
+   elapsed time, the progress bar and the singers render — so their rules live
+   here, under the host scope, in full. The cover spans both text rows. */
 .host-page .currently-playing {
   display: grid;
   grid-template-areas:

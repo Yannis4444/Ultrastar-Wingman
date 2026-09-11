@@ -9,9 +9,9 @@ wishlist for tonight, and the way into the random reel. Guests need no account
 for any of it. They scan the QR code on the host screen, open Wingman on their
 own phone, and join in.
 
-![Home with the Wingman tile, the Random song button, and a wishlist holding Sandstorm, Bohemian Rhapsody, Tequila, and Take On Me](../assets/screenshots/party/home.png){ width="320" loading=lazy }
+![Home with the player carrying the Wingman logo, the Random song button, and a wishlist holding Sandstorm, Bohemian Rhapsody, Tequila, and Take On Me](../assets/screenshots/party/home.png){ width="320" loading=lazy }
 /// caption
-Nothing is playing, so the tile at the top carries the Wingman logo.
+Nothing is playing, so the player at the top carries the Wingman logo.
 ///
 
 This section is the evening itself. It covers what the room wants to sing, how a

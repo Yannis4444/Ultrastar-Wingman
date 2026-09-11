@@ -47,6 +47,12 @@ saying what each reader and button does, and giving cards to players. A card on
 a reader picks the singer it belongs to, so this right decides who ends up on
 the TV. The device itself carries a token of its own and holds no role.
 
+**Background music.** Everybody sees what is playing between songs: it is the
+room's own soundtrack. An account may pause it, skip a song, and change the
+volume, because that changes what the whole room hears. Trusted switches the
+music on and chooses what it plays from. See
+[Play background music](../party/music.md).
+
 **Comments.** An account writes them, because a comment carries a name. Trusted
 deletes anybody's. See [Open a song](../songs/song.md).
 
