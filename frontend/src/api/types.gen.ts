@@ -1030,6 +1030,240 @@ export type MeRead = {
 };
 
 /**
+ * MusicRead
+ *
+ * What the music is doing, for everybody at once.
+ *
+ * This is also the whole payload of `music.changed`, which rides the anonymous WebSocket,
+ * so nothing in it may be something a guest must not see: the song was picked as a guest,
+ * the sink's id is only ever answered to the tab that registered, and `playlist_id` is
+ * left out on purpose — an id on an open bus could name a private list. It lives in
+ * `MusicSettings`, behind `music.manage`.
+ */
+export type MusicRead = {
+    /**
+     * Status
+     */
+    status: 'off' | 'blocked' | 'waiting' | 'empty' | 'playing' | 'paused';
+    track: MusicTrackRead | null;
+    /**
+     * Blocked By
+     */
+    blocked_by: 'sing' | 'usdx' | null;
+    /**
+     * Resume At
+     */
+    resume_at: string | null;
+    /**
+     * Retry At
+     */
+    retry_at: string | null;
+    /**
+     * Sink Online
+     */
+    sink_online: boolean;
+    /**
+     * Sink Generation
+     */
+    sink_generation: number;
+    volume: MusicVolumeRead;
+    /**
+     * Scope
+     */
+    scope: 'all' | 'favorites' | 'wishlist' | 'weighted' | 'playlist';
+};
+
+/**
+ * MusicSettings
+ *
+ * The options behind `music.manage`. `playlist` is here and not in `MusicRead`.
+ */
+export type MusicSettings = {
+    /**
+     * Enabled
+     */
+    enabled: boolean;
+    /**
+     * Scope
+     */
+    scope: string;
+    /**
+     * Playlist
+     */
+    playlist: string;
+    /**
+     * Resume Delay S
+     */
+    resume_delay_s: number;
+};
+
+/**
+ * MusicSettingsUpdate
+ */
+export type MusicSettingsUpdate = {
+    /**
+     * Enabled
+     */
+    enabled?: boolean | null;
+    /**
+     * Scope
+     */
+    scope?: string | null;
+    /**
+     * Playlist
+     */
+    playlist?: string | null;
+    /**
+     * Resume Delay S
+     */
+    resume_delay_s?: number | null;
+};
+
+/**
+ * MusicSinkRegistered
+ *
+ * The answer to a registration: the lease, how often to report, and the state the
+ * host starts from, so registering costs it no second request.
+ */
+export type MusicSinkRegistered = {
+    /**
+     * Sink Id
+     */
+    sink_id: string;
+    /**
+     * Heartbeat Interval S
+     */
+    heartbeat_interval_s: number;
+    music: MusicRead;
+};
+
+/**
+ * MusicSinkRelease
+ */
+export type MusicSinkRelease = {
+    /**
+     * Sink Id
+     */
+    sink_id: string;
+};
+
+/**
+ * MusicSinkReport
+ *
+ * One report from the screen making the sound.
+ *
+ * `track_id` is what makes the protocol safe against its own races: a report naming a
+ * track that is no longer the current one is ignored, which covers a retried `ended`, a
+ * report that crossed a skip on the wire, and a tab that woke up on a stale song.
+ */
+export type MusicSinkReport = {
+    /**
+     * Sink Id
+     */
+    sink_id: string;
+    /**
+     * Track Id
+     */
+    track_id: string;
+    /**
+     * Event
+     */
+    event: 'progress' | 'ended' | 'error';
+    /**
+     * Position S
+     */
+    position_s: number;
+    /**
+     * Duration S
+     */
+    duration_s?: number | null;
+    /**
+     * Detail
+     */
+    detail?: string | null;
+};
+
+/**
+ * MusicTrackRead
+ *
+ * The song the music is on, and where in it we are.
+ *
+ * `position_s` is where the track was at `position_at`, not where it is now: a reader
+ * works the current position out itself, which is what lets the server stay quiet between
+ * reports. It only advances while the music is `playing` and a sink is online — a frozen
+ * track is one nobody is listening to, and it must not run past its own end on a clock in
+ * an empty room.
+ *
+ * `duration_s` is the audio file's real length, as the host screen measured it, and is
+ * null until the host has said. It is deliberately not `song.duration_seconds`, which is
+ * narrowed by the song's `#START` and `#END` and is therefore not how long the file plays.
+ */
+export type MusicTrackRead = {
+    /**
+     * Id
+     */
+    id: string;
+    song: SongRead;
+    /**
+     * Started At
+     */
+    started_at: string;
+    /**
+     * Position S
+     */
+    position_s: number;
+    /**
+     * Position At
+     */
+    position_at: string;
+    /**
+     * Duration S
+     */
+    duration_s: number | null;
+};
+
+/**
+ * MusicVolumeRead
+ *
+ * The three volumes, as percentages. The host multiplies them itself — an effective
+ * volume worked out here would be a number nobody set.
+ */
+export type MusicVolumeRead = {
+    /**
+     * Master
+     */
+    master: number;
+    /**
+     * Music
+     */
+    music: number;
+    /**
+     * Effects
+     */
+    effects: number;
+};
+
+/**
+ * MusicVolumeUpdate
+ *
+ * Only the volumes named are written, the settings PATCH convention.
+ */
+export type MusicVolumeUpdate = {
+    /**
+     * Master
+     */
+    master?: number | null;
+    /**
+     * Music
+     */
+    music?: number | null;
+    /**
+     * Effects
+     */
+    effects?: number | null;
+};
+
+/**
  * OidcConfigRead
  *
  * What the login page needs to decide whether to offer the button.
@@ -3870,6 +4104,216 @@ export type StopSingingResponses = {
 };
 
 export type StopSingingResponse = StopSingingResponses[keyof StopSingingResponses];
+
+export type GetMusicData = {
+    body?: never;
+    path?: never;
+    query?: never;
+    url: '/api/v1/music';
+};
+
+export type GetMusicResponses = {
+    /**
+     * Successful Response
+     */
+    200: MusicRead;
+};
+
+export type GetMusicResponse = GetMusicResponses[keyof GetMusicResponses];
+
+export type PlayMusicData = {
+    body?: never;
+    path?: never;
+    query?: never;
+    url: '/api/v1/music/play';
+};
+
+export type PlayMusicErrors = {
+    /**
+     * `music_disabled` when the background music is switched off, `music_blocked` while Ultrastar Deluxe has the speakers, `empty_pool` when there is nothing to play.
+     */
+    409: unknown;
+};
+
+export type PlayMusicResponses = {
+    /**
+     * Successful Response
+     */
+    200: MusicRead;
+};
+
+export type PlayMusicResponse = PlayMusicResponses[keyof PlayMusicResponses];
+
+export type PauseMusicData = {
+    body?: never;
+    path?: never;
+    query?: never;
+    url: '/api/v1/music/pause';
+};
+
+export type PauseMusicResponses = {
+    /**
+     * Successful Response
+     */
+    200: MusicRead;
+};
+
+export type PauseMusicResponse = PauseMusicResponses[keyof PauseMusicResponses];
+
+export type SkipMusicData = {
+    body?: never;
+    path?: never;
+    query?: never;
+    url: '/api/v1/music/skip';
+};
+
+export type SkipMusicErrors = {
+    /**
+     * `music_disabled` when the background music is switched off, `music_blocked` while Ultrastar Deluxe has the speakers, `empty_pool` when there is nothing to play.
+     */
+    409: unknown;
+};
+
+export type SkipMusicResponses = {
+    /**
+     * Successful Response
+     */
+    200: MusicRead;
+};
+
+export type SkipMusicResponse = SkipMusicResponses[keyof SkipMusicResponses];
+
+export type SetMusicVolumeData = {
+    body: MusicVolumeUpdate;
+    path?: never;
+    query?: never;
+    url: '/api/v1/music/volume';
+};
+
+export type SetMusicVolumeErrors = {
+    /**
+     * A volume outside 0 to 100.
+     */
+    422: unknown;
+};
+
+export type SetMusicVolumeResponses = {
+    /**
+     * Successful Response
+     */
+    200: MusicRead;
+};
+
+export type SetMusicVolumeResponse = SetMusicVolumeResponses[keyof SetMusicVolumeResponses];
+
+export type GetMusicSettingsData = {
+    body?: never;
+    path?: never;
+    query?: never;
+    url: '/api/v1/music/settings';
+};
+
+export type GetMusicSettingsResponses = {
+    /**
+     * Successful Response
+     */
+    200: MusicSettings;
+};
+
+export type GetMusicSettingsResponse = GetMusicSettingsResponses[keyof GetMusicSettingsResponses];
+
+export type UpdateMusicSettingsData = {
+    body: MusicSettingsUpdate;
+    path?: never;
+    query?: never;
+    url: '/api/v1/music/settings';
+};
+
+export type UpdateMusicSettingsErrors = {
+    /**
+     * An unknown scope, a playlist id too long to be one, or a bad delay.
+     */
+    422: unknown;
+};
+
+export type UpdateMusicSettingsResponses = {
+    /**
+     * Successful Response
+     */
+    200: MusicSettings;
+};
+
+export type UpdateMusicSettingsResponse = UpdateMusicSettingsResponses[keyof UpdateMusicSettingsResponses];
+
+export type RegisterMusicSinkData = {
+    body?: never;
+    path?: never;
+    query?: never;
+    url: '/api/v1/music/sink';
+};
+
+export type RegisterMusicSinkResponses = {
+    /**
+     * Successful Response
+     */
+    200: MusicSinkRegistered;
+};
+
+export type RegisterMusicSinkResponse = RegisterMusicSinkResponses[keyof RegisterMusicSinkResponses];
+
+export type ReportMusicSinkData = {
+    body: MusicSinkReport;
+    path?: never;
+    query?: never;
+    url: '/api/v1/music/sink/report';
+};
+
+export type ReportMusicSinkErrors = {
+    /**
+     * `not_the_sink`: another screen took the sound over.
+     */
+    409: unknown;
+    /**
+     * Validation Error
+     */
+    422: HttpValidationError;
+};
+
+export type ReportMusicSinkError = ReportMusicSinkErrors[keyof ReportMusicSinkErrors];
+
+export type ReportMusicSinkResponses = {
+    /**
+     * Successful Response
+     */
+    200: MusicRead;
+};
+
+export type ReportMusicSinkResponse = ReportMusicSinkResponses[keyof ReportMusicSinkResponses];
+
+export type ReleaseMusicSinkData = {
+    body: MusicSinkRelease;
+    path?: never;
+    query?: never;
+    url: '/api/v1/music/sink/release';
+};
+
+export type ReleaseMusicSinkErrors = {
+    /**
+     * Validation Error
+     */
+    422: HttpValidationError;
+};
+
+export type ReleaseMusicSinkError = ReleaseMusicSinkErrors[keyof ReleaseMusicSinkErrors];
+
+export type ReleaseMusicSinkResponses = {
+    /**
+     * Successful Response
+     */
+    204: void;
+};
+
+export type ReleaseMusicSinkResponse = ReleaseMusicSinkResponses[keyof ReleaseMusicSinkResponses];
 
 export type ListVideoQualityPresetsData = {
     body?: never;

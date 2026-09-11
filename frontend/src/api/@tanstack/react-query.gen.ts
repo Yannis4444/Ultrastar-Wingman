@@ -3,8 +3,8 @@
 import { type DefaultError, type InfiniteData, infiniteQueryOptions, queryOptions, type UseMutationOptions } from '@tanstack/react-query';
 
 import { client } from '../client.gen';
-import { addFavorite, addPlaylistEntry, addSongComment, addWish, assignCard, assignTag, claimCard, clearWishes, closePlayerSelection, copyPlaylist, createAchievement, createDevice, createDownload, createPlayer, createPlaylist, createTag, deleteAchievement, deleteAchievementIcon, deleteDevice, deletePlayer, deletePlaylist, deleteScore, deleteSong, deleteSongComment, deleteTag, deleteUser, dismissDownload, dismissFinishedDownloads, editSong, exchangeHostToken, exportAchievements, followPlaylist, forgetCard, getAchievementIcon, getCurrentSing, getDeviceSettings, getDeviceStatus, getFirmwareImage, getFirmwareManifest, getJoinInfo, getMe, getPermissions, getPlayerAvatar, getPlayerSelection, getPlaylist, getSong, getSongAudio, getSongCover, health, importAchievements, launchUsdx, listAchievements, listAllScores, listCards, listCurrentSessionSings, listDevices, listDownloads, listFavorites, listKaraokeColors, listKaraokeSlots, listLatestScores, listMyCards, listPlayerAchievements, listPlayers, listPlayerScores, listPlaylistMembers, listPlaylists, listSessions, listSessionScores, listSettings, listSongComments, listSongs, listSongScores, listTagAssignments, listTags, listUnknownCards, listUsers, listVideoQualityPresets, listWishlist, login, logout, lookupUsers, oidcCallback, oidcConfig, oidcLogin, openPlayerSelection, type Options, pickPlayerSelection, reassignScore, register, removeFavorite, removePlaylistEntry, removePlaylistMember, removeWish, renameSession, reorderAchievements, reorderPlaylistEntries, replaceTagPermissions, report, requestDeviceUpdate, rescanSongs, resetAchievement, rotateDeviceToken, setAchievementIcon, setPlayerAvatar, setPlayerSelectionSlots, setPlaylistMember, setSessionHidden, singSong, spinPlayerSelection, startPlayerSelection, stopSinging, unassignTag, unfollowPlaylist, updateAchievement, updateAchievementSettings, updateBuiltInTag, updateDevice, updateDeviceSettings, updatePlayer, updatePlaylist, updateRolePermissions, updateSetting, updateTag, updateUser, usdbCover, usdbSearch, usdbStatus, usdxStatus } from '../sdk.gen';
-import type { AddFavoriteData, AddFavoriteError, AddFavoriteResponse, AddPlaylistEntryData, AddPlaylistEntryError, AddPlaylistEntryResponse, AddSongCommentData, AddSongCommentError, AddSongCommentResponse, AddWishData, AddWishError, AddWishResponse, AssignCardData, AssignCardError, AssignCardResponse, AssignTagData, AssignTagError, AssignTagResponse, ClaimCardData, ClaimCardResponse, ClearWishesData, ClearWishesError, ClearWishesResponse, ClosePlayerSelectionData, ClosePlayerSelectionError, ClosePlayerSelectionResponse, CopyPlaylistData, CopyPlaylistError, CopyPlaylistResponse, CreateAchievementData, CreateAchievementResponse, CreateDeviceData, CreateDeviceError, CreateDeviceResponse, CreateDownloadData, CreateDownloadError, CreateDownloadResponse, CreatePlayerData, CreatePlayerError, CreatePlayerResponse, CreatePlaylistData, CreatePlaylistError, CreatePlaylistResponse, CreateTagData, CreateTagResponse, DeleteAchievementData, DeleteAchievementError, DeleteAchievementIconData, DeleteAchievementIconError, DeleteAchievementIconResponse, DeleteAchievementResponse, DeleteDeviceData, DeleteDeviceError, DeleteDeviceResponse, DeletePlayerData, DeletePlayerError, DeletePlayerResponse, DeletePlaylistData, DeletePlaylistError, DeletePlaylistResponse, DeleteScoreData, DeleteScoreError, DeleteScoreResponse, DeleteSongCommentData, DeleteSongCommentError, DeleteSongCommentResponse, DeleteSongData, DeleteSongError, DeleteSongResponse, DeleteTagData, DeleteTagError, DeleteTagResponse, DeleteUserData, DeleteUserError, DeleteUserResponse, DismissDownloadData, DismissDownloadError, DismissDownloadResponse, DismissFinishedDownloadsData, DismissFinishedDownloadsResponse, EditSongData, EditSongResponse, ExchangeHostTokenData, ExchangeHostTokenError, ExchangeHostTokenResponse, ExportAchievementsData, ExportAchievementsError, ExportAchievementsResponse, FollowPlaylistData, FollowPlaylistError, FollowPlaylistResponse, ForgetCardData, ForgetCardError, ForgetCardResponse, GetAchievementIconData, GetAchievementIconError, GetCurrentSingData, GetCurrentSingResponse, GetDeviceSettingsData, GetDeviceSettingsResponse, GetDeviceStatusData, GetDeviceStatusResponse, GetFirmwareImageData, GetFirmwareImageError, GetFirmwareManifestData, GetFirmwareManifestResponse, GetJoinInfoData, GetJoinInfoResponse, GetMeData, GetMeResponse, GetPermissionsData, GetPermissionsResponse, GetPlayerAvatarData, GetPlayerAvatarError, GetPlayerSelectionData, GetPlayerSelectionResponse, GetPlaylistData, GetPlaylistError, GetPlaylistResponse, GetSongAudioData, GetSongAudioError, GetSongCoverData, GetSongCoverError, GetSongData, GetSongError, GetSongResponse, HealthData, HealthResponse, ImportAchievementsData, ImportAchievementsResponse, LaunchUsdxData, LaunchUsdxResponse, ListAchievementsData, ListAchievementsError, ListAchievementsResponse, ListAllScoresData, ListAllScoresResponse, ListCardsData, ListCardsResponse, ListCurrentSessionSingsData, ListCurrentSessionSingsResponse, ListDevicesData, ListDevicesResponse, ListDownloadsData, ListDownloadsResponse, ListFavoritesData, ListFavoritesResponse, ListKaraokeColorsData, ListKaraokeColorsResponse, ListKaraokeSlotsData, ListKaraokeSlotsResponse, ListLatestScoresData, ListLatestScoresError, ListLatestScoresResponse, ListMyCardsData, ListMyCardsResponse, ListPlayerAchievementsData, ListPlayerAchievementsError, ListPlayerAchievementsResponse, ListPlayerScoresData, ListPlayerScoresError, ListPlayerScoresResponse, ListPlayersData, ListPlayersResponse, ListPlaylistMembersData, ListPlaylistMembersError, ListPlaylistMembersResponse, ListPlaylistsData, ListPlaylistsError, ListPlaylistsResponse, ListSessionScoresData, ListSessionScoresError, ListSessionScoresResponse, ListSessionsData, ListSessionsError, ListSessionsResponse, ListSettingsData, ListSettingsResponse, ListSongCommentsData, ListSongCommentsError, ListSongCommentsResponse, ListSongScoresData, ListSongScoresError, ListSongScoresResponse, ListSongsData, ListSongsResponse, ListTagAssignmentsData, ListTagAssignmentsResponse, ListTagsData, ListTagsResponse, ListUnknownCardsData, ListUnknownCardsResponse, ListUsersData, ListUsersResponse, ListVideoQualityPresetsData, ListVideoQualityPresetsResponse, ListWishlistData, ListWishlistResponse, LoginData, LoginError, LoginResponse, LogoutData, LogoutResponse, LookupUsersData, LookupUsersResponse, OidcCallbackData, OidcCallbackError, OidcConfigData, OidcConfigResponse, OidcLoginData, OpenPlayerSelectionData, OpenPlayerSelectionError, OpenPlayerSelectionResponse, PickPlayerSelectionData, PickPlayerSelectionError, PickPlayerSelectionResponse, ReassignScoreData, ReassignScoreError, ReassignScoreResponse, RegisterData, RegisterError, RegisterResponse, RemoveFavoriteData, RemoveFavoriteError, RemoveFavoriteResponse, RemovePlaylistEntryData, RemovePlaylistEntryError, RemovePlaylistEntryResponse, RemovePlaylistMemberData, RemovePlaylistMemberError, RemovePlaylistMemberResponse, RemoveWishData, RemoveWishError, RemoveWishResponse, RenameSessionData, RenameSessionError, RenameSessionResponse, ReorderAchievementsData, ReorderAchievementsResponse, ReorderPlaylistEntriesData, ReorderPlaylistEntriesResponse, ReplaceTagPermissionsData, ReplaceTagPermissionsResponse, ReportData, ReportError, ReportResponse, RequestDeviceUpdateData, RequestDeviceUpdateError, RequestDeviceUpdateResponse, RescanSongsData, RescanSongsError, RescanSongsResponse, ResetAchievementData, ResetAchievementError, ResetAchievementResponse, RotateDeviceTokenData, RotateDeviceTokenError, RotateDeviceTokenResponse, SetAchievementIconData, SetAchievementIconError, SetAchievementIconResponse, SetPlayerAvatarData, SetPlayerAvatarError, SetPlayerAvatarResponse, SetPlayerSelectionSlotsData, SetPlayerSelectionSlotsError, SetPlayerSelectionSlotsResponse, SetPlaylistMemberData, SetPlaylistMemberError, SetPlaylistMemberResponse, SetSessionHiddenData, SetSessionHiddenError, SetSessionHiddenResponse, SingSongData, SingSongError, SingSongResponse, SpinPlayerSelectionData, SpinPlayerSelectionError, SpinPlayerSelectionResponse, StartPlayerSelectionData, StartPlayerSelectionError, StartPlayerSelectionResponse, StopSingingData, StopSingingResponse, UnassignTagData, UnassignTagError, UnassignTagResponse, UnfollowPlaylistData, UnfollowPlaylistError, UnfollowPlaylistResponse, UpdateAchievementData, UpdateAchievementResponse, UpdateAchievementSettingsData, UpdateAchievementSettingsResponse, UpdateBuiltInTagData, UpdateBuiltInTagResponse, UpdateDeviceData, UpdateDeviceResponse, UpdateDeviceSettingsData, UpdateDeviceSettingsResponse, UpdatePlayerData, UpdatePlayerError, UpdatePlayerResponse, UpdatePlaylistData, UpdatePlaylistError, UpdatePlaylistResponse, UpdateRolePermissionsData, UpdateRolePermissionsResponse, UpdateSettingData, UpdateSettingError, UpdateSettingResponse, UpdateTagData, UpdateTagError, UpdateTagResponse, UpdateUserData, UpdateUserError, UpdateUserResponse, UsdbCoverData, UsdbCoverError, UsdbSearchData, UsdbSearchError, UsdbSearchResponse, UsdbStatusData, UsdbStatusError, UsdbStatusResponse, UsdxStatusData, UsdxStatusResponse } from '../types.gen';
+import { addFavorite, addPlaylistEntry, addSongComment, addWish, assignCard, assignTag, claimCard, clearWishes, closePlayerSelection, copyPlaylist, createAchievement, createDevice, createDownload, createPlayer, createPlaylist, createTag, deleteAchievement, deleteAchievementIcon, deleteDevice, deletePlayer, deletePlaylist, deleteScore, deleteSong, deleteSongComment, deleteTag, deleteUser, dismissDownload, dismissFinishedDownloads, editSong, exchangeHostToken, exportAchievements, followPlaylist, forgetCard, getAchievementIcon, getCurrentSing, getDeviceSettings, getDeviceStatus, getFirmwareImage, getFirmwareManifest, getJoinInfo, getMe, getMusic, getMusicSettings, getPermissions, getPlayerAvatar, getPlayerSelection, getPlaylist, getSong, getSongAudio, getSongCover, health, importAchievements, launchUsdx, listAchievements, listAllScores, listCards, listCurrentSessionSings, listDevices, listDownloads, listFavorites, listKaraokeColors, listKaraokeSlots, listLatestScores, listMyCards, listPlayerAchievements, listPlayers, listPlayerScores, listPlaylistMembers, listPlaylists, listSessions, listSessionScores, listSettings, listSongComments, listSongs, listSongScores, listTagAssignments, listTags, listUnknownCards, listUsers, listVideoQualityPresets, listWishlist, login, logout, lookupUsers, oidcCallback, oidcConfig, oidcLogin, openPlayerSelection, type Options, pauseMusic, pickPlayerSelection, playMusic, reassignScore, register, registerMusicSink, releaseMusicSink, removeFavorite, removePlaylistEntry, removePlaylistMember, removeWish, renameSession, reorderAchievements, reorderPlaylistEntries, replaceTagPermissions, report, reportMusicSink, requestDeviceUpdate, rescanSongs, resetAchievement, rotateDeviceToken, setAchievementIcon, setMusicVolume, setPlayerAvatar, setPlayerSelectionSlots, setPlaylistMember, setSessionHidden, singSong, skipMusic, spinPlayerSelection, startPlayerSelection, stopSinging, unassignTag, unfollowPlaylist, updateAchievement, updateAchievementSettings, updateBuiltInTag, updateDevice, updateDeviceSettings, updateMusicSettings, updatePlayer, updatePlaylist, updateRolePermissions, updateSetting, updateTag, updateUser, usdbCover, usdbSearch, usdbStatus, usdxStatus } from '../sdk.gen';
+import type { AddFavoriteData, AddFavoriteError, AddFavoriteResponse, AddPlaylistEntryData, AddPlaylistEntryError, AddPlaylistEntryResponse, AddSongCommentData, AddSongCommentError, AddSongCommentResponse, AddWishData, AddWishError, AddWishResponse, AssignCardData, AssignCardError, AssignCardResponse, AssignTagData, AssignTagError, AssignTagResponse, ClaimCardData, ClaimCardResponse, ClearWishesData, ClearWishesError, ClearWishesResponse, ClosePlayerSelectionData, ClosePlayerSelectionError, ClosePlayerSelectionResponse, CopyPlaylistData, CopyPlaylistError, CopyPlaylistResponse, CreateAchievementData, CreateAchievementResponse, CreateDeviceData, CreateDeviceError, CreateDeviceResponse, CreateDownloadData, CreateDownloadError, CreateDownloadResponse, CreatePlayerData, CreatePlayerError, CreatePlayerResponse, CreatePlaylistData, CreatePlaylistError, CreatePlaylistResponse, CreateTagData, CreateTagResponse, DeleteAchievementData, DeleteAchievementError, DeleteAchievementIconData, DeleteAchievementIconError, DeleteAchievementIconResponse, DeleteAchievementResponse, DeleteDeviceData, DeleteDeviceError, DeleteDeviceResponse, DeletePlayerData, DeletePlayerError, DeletePlayerResponse, DeletePlaylistData, DeletePlaylistError, DeletePlaylistResponse, DeleteScoreData, DeleteScoreError, DeleteScoreResponse, DeleteSongCommentData, DeleteSongCommentError, DeleteSongCommentResponse, DeleteSongData, DeleteSongError, DeleteSongResponse, DeleteTagData, DeleteTagError, DeleteTagResponse, DeleteUserData, DeleteUserError, DeleteUserResponse, DismissDownloadData, DismissDownloadError, DismissDownloadResponse, DismissFinishedDownloadsData, DismissFinishedDownloadsResponse, EditSongData, EditSongResponse, ExchangeHostTokenData, ExchangeHostTokenError, ExchangeHostTokenResponse, ExportAchievementsData, ExportAchievementsError, ExportAchievementsResponse, FollowPlaylistData, FollowPlaylistError, FollowPlaylistResponse, ForgetCardData, ForgetCardError, ForgetCardResponse, GetAchievementIconData, GetAchievementIconError, GetCurrentSingData, GetCurrentSingResponse, GetDeviceSettingsData, GetDeviceSettingsResponse, GetDeviceStatusData, GetDeviceStatusResponse, GetFirmwareImageData, GetFirmwareImageError, GetFirmwareManifestData, GetFirmwareManifestResponse, GetJoinInfoData, GetJoinInfoResponse, GetMeData, GetMeResponse, GetMusicData, GetMusicResponse, GetMusicSettingsData, GetMusicSettingsResponse, GetPermissionsData, GetPermissionsResponse, GetPlayerAvatarData, GetPlayerAvatarError, GetPlayerSelectionData, GetPlayerSelectionResponse, GetPlaylistData, GetPlaylistError, GetPlaylistResponse, GetSongAudioData, GetSongAudioError, GetSongCoverData, GetSongCoverError, GetSongData, GetSongError, GetSongResponse, HealthData, HealthResponse, ImportAchievementsData, ImportAchievementsResponse, LaunchUsdxData, LaunchUsdxResponse, ListAchievementsData, ListAchievementsError, ListAchievementsResponse, ListAllScoresData, ListAllScoresResponse, ListCardsData, ListCardsResponse, ListCurrentSessionSingsData, ListCurrentSessionSingsResponse, ListDevicesData, ListDevicesResponse, ListDownloadsData, ListDownloadsResponse, ListFavoritesData, ListFavoritesResponse, ListKaraokeColorsData, ListKaraokeColorsResponse, ListKaraokeSlotsData, ListKaraokeSlotsResponse, ListLatestScoresData, ListLatestScoresError, ListLatestScoresResponse, ListMyCardsData, ListMyCardsResponse, ListPlayerAchievementsData, ListPlayerAchievementsError, ListPlayerAchievementsResponse, ListPlayerScoresData, ListPlayerScoresError, ListPlayerScoresResponse, ListPlayersData, ListPlayersResponse, ListPlaylistMembersData, ListPlaylistMembersError, ListPlaylistMembersResponse, ListPlaylistsData, ListPlaylistsError, ListPlaylistsResponse, ListSessionScoresData, ListSessionScoresError, ListSessionScoresResponse, ListSessionsData, ListSessionsError, ListSessionsResponse, ListSettingsData, ListSettingsResponse, ListSongCommentsData, ListSongCommentsError, ListSongCommentsResponse, ListSongScoresData, ListSongScoresError, ListSongScoresResponse, ListSongsData, ListSongsResponse, ListTagAssignmentsData, ListTagAssignmentsResponse, ListTagsData, ListTagsResponse, ListUnknownCardsData, ListUnknownCardsResponse, ListUsersData, ListUsersResponse, ListVideoQualityPresetsData, ListVideoQualityPresetsResponse, ListWishlistData, ListWishlistResponse, LoginData, LoginError, LoginResponse, LogoutData, LogoutResponse, LookupUsersData, LookupUsersResponse, OidcCallbackData, OidcCallbackError, OidcConfigData, OidcConfigResponse, OidcLoginData, OpenPlayerSelectionData, OpenPlayerSelectionError, OpenPlayerSelectionResponse, PauseMusicData, PauseMusicResponse, PickPlayerSelectionData, PickPlayerSelectionError, PickPlayerSelectionResponse, PlayMusicData, PlayMusicResponse, ReassignScoreData, ReassignScoreError, ReassignScoreResponse, RegisterData, RegisterError, RegisterMusicSinkData, RegisterMusicSinkResponse, RegisterResponse, ReleaseMusicSinkData, ReleaseMusicSinkError, ReleaseMusicSinkResponse, RemoveFavoriteData, RemoveFavoriteError, RemoveFavoriteResponse, RemovePlaylistEntryData, RemovePlaylistEntryError, RemovePlaylistEntryResponse, RemovePlaylistMemberData, RemovePlaylistMemberError, RemovePlaylistMemberResponse, RemoveWishData, RemoveWishError, RemoveWishResponse, RenameSessionData, RenameSessionError, RenameSessionResponse, ReorderAchievementsData, ReorderAchievementsResponse, ReorderPlaylistEntriesData, ReorderPlaylistEntriesResponse, ReplaceTagPermissionsData, ReplaceTagPermissionsResponse, ReportData, ReportError, ReportMusicSinkData, ReportMusicSinkError, ReportMusicSinkResponse, ReportResponse, RequestDeviceUpdateData, RequestDeviceUpdateError, RequestDeviceUpdateResponse, RescanSongsData, RescanSongsError, RescanSongsResponse, ResetAchievementData, ResetAchievementError, ResetAchievementResponse, RotateDeviceTokenData, RotateDeviceTokenError, RotateDeviceTokenResponse, SetAchievementIconData, SetAchievementIconError, SetAchievementIconResponse, SetMusicVolumeData, SetMusicVolumeResponse, SetPlayerAvatarData, SetPlayerAvatarError, SetPlayerAvatarResponse, SetPlayerSelectionSlotsData, SetPlayerSelectionSlotsError, SetPlayerSelectionSlotsResponse, SetPlaylistMemberData, SetPlaylistMemberError, SetPlaylistMemberResponse, SetSessionHiddenData, SetSessionHiddenError, SetSessionHiddenResponse, SingSongData, SingSongError, SingSongResponse, SkipMusicData, SkipMusicResponse, SpinPlayerSelectionData, SpinPlayerSelectionError, SpinPlayerSelectionResponse, StartPlayerSelectionData, StartPlayerSelectionError, StartPlayerSelectionResponse, StopSingingData, StopSingingResponse, UnassignTagData, UnassignTagError, UnassignTagResponse, UnfollowPlaylistData, UnfollowPlaylistError, UnfollowPlaylistResponse, UpdateAchievementData, UpdateAchievementResponse, UpdateAchievementSettingsData, UpdateAchievementSettingsResponse, UpdateBuiltInTagData, UpdateBuiltInTagResponse, UpdateDeviceData, UpdateDeviceResponse, UpdateDeviceSettingsData, UpdateDeviceSettingsResponse, UpdateMusicSettingsData, UpdateMusicSettingsResponse, UpdatePlayerData, UpdatePlayerError, UpdatePlayerResponse, UpdatePlaylistData, UpdatePlaylistError, UpdatePlaylistResponse, UpdateRolePermissionsData, UpdateRolePermissionsResponse, UpdateSettingData, UpdateSettingError, UpdateSettingResponse, UpdateTagData, UpdateTagError, UpdateTagResponse, UpdateUserData, UpdateUserError, UpdateUserResponse, UsdbCoverData, UsdbCoverError, UsdbSearchData, UsdbSearchError, UsdbSearchResponse, UsdbStatusData, UsdbStatusError, UsdbStatusResponse, UsdxStatusData, UsdxStatusResponse } from '../types.gen';
 
 export type QueryKey<TOptions extends Options> = [
     Pick<TOptions, 'baseUrl' | 'body' | 'headers' | 'path' | 'query'> & {
@@ -804,6 +804,10 @@ export const spinPlayerSelectionMutation = (options?: Partial<Options<SpinPlayer
  * selection, which is an ordinary one from here — no *Spin again*, no reel on the host
  * screen, and the selector's start button starts the song or refuses as it does at any
  * selection opened with a song. Only the phone that opened the selection may.
+ *
+ * Ordinary includes the automatic start: a room the cards on the selector already fill
+ * starts counting down from here, the way it does when a selection opens over those same
+ * cards — the spin was what held it back. A room the phone filled starts nothing.
  */
 export const pickPlayerSelectionMutation = (options?: Partial<Options<PickPlayerSelectionData>>): UseMutationOptions<PickPlayerSelectionResponse, PickPlayerSelectionError, Options<PickPlayerSelectionData>> => {
     const mutationOptions: UseMutationOptions<PickPlayerSelectionResponse, PickPlayerSelectionError, Options<PickPlayerSelectionData>> = {
@@ -866,6 +870,232 @@ export const stopSingingMutation = (options?: Partial<Options<StopSingingData>>)
     const mutationOptions: UseMutationOptions<StopSingingResponse, DefaultError, Options<StopSingingData>> = {
         mutationFn: async (fnOptions) => {
             const { data } = await stopSinging({
+                ...options,
+                ...fnOptions,
+                throwOnError: true
+            });
+            return data;
+        }
+    };
+    return mutationOptions;
+};
+
+export const getMusicQueryKey = (options?: Options<GetMusicData>) => createQueryKey('getMusic', options);
+
+/**
+ * Get Music
+ *
+ * What the background music is doing, for every phone in the room.
+ *
+ * A read and nothing more: it never picks a song, because a pick nobody broadcasts is one
+ * the host screen would never hear about. The tick does that, a second away at most.
+ */
+export const getMusicOptions = (options?: Options<GetMusicData>) => queryOptions<GetMusicResponse, DefaultError, GetMusicResponse, ReturnType<typeof getMusicQueryKey>>({
+    queryFn: async ({ queryKey, signal }) => {
+        const { data } = await getMusic({
+            ...options,
+            ...queryKey[0],
+            signal,
+            throwOnError: true
+        });
+        return data;
+    },
+    queryKey: getMusicQueryKey(options)
+});
+
+/**
+ * Play Music
+ *
+ * Play. Also cancels the pause after a song, because play means now.
+ */
+export const playMusicMutation = (options?: Partial<Options<PlayMusicData>>): UseMutationOptions<PlayMusicResponse, DefaultError, Options<PlayMusicData>> => {
+    const mutationOptions: UseMutationOptions<PlayMusicResponse, DefaultError, Options<PlayMusicData>> = {
+        mutationFn: async (fnOptions) => {
+            const { data } = await playMusic({
+                ...options,
+                ...fnOptions,
+                throwOnError: true
+            });
+            return data;
+        }
+    };
+    return mutationOptions;
+};
+
+/**
+ * Pause Music
+ *
+ * Silence the room until somebody presses play.
+ *
+ * Never a refusal: there is no state in which "be quiet" is a thing to argue with, and it
+ * survives a sing — somebody who silenced the room on purpose should not find the music
+ * started itself again because a song finished.
+ */
+export const pauseMusicMutation = (options?: Partial<Options<PauseMusicData>>): UseMutationOptions<PauseMusicResponse, DefaultError, Options<PauseMusicData>> => {
+    const mutationOptions: UseMutationOptions<PauseMusicResponse, DefaultError, Options<PauseMusicData>> = {
+        mutationFn: async (fnOptions) => {
+            const { data } = await pauseMusic({
+                ...options,
+                ...fnOptions,
+                throwOnError: true
+            });
+            return data;
+        }
+    };
+    return mutationOptions;
+};
+
+/**
+ * Skip Music
+ *
+ * The next song, from its beginning. Keeps a paused room paused.
+ */
+export const skipMusicMutation = (options?: Partial<Options<SkipMusicData>>): UseMutationOptions<SkipMusicResponse, DefaultError, Options<SkipMusicData>> => {
+    const mutationOptions: UseMutationOptions<SkipMusicResponse, DefaultError, Options<SkipMusicData>> = {
+        mutationFn: async (fnOptions) => {
+            const { data } = await skipMusic({
+                ...options,
+                ...fnOptions,
+                throwOnError: true
+            });
+            return data;
+        }
+    };
+    return mutationOptions;
+};
+
+/**
+ * Set Music Volume
+ *
+ * Move one or more of the three volumes.
+ *
+ * They are ordinary registered settings, so this route is how a reader who may control the
+ * music moves one without holding `settings.manage` — turning the music down is not
+ * administering the server. Each key that is written also emits its own `setting.changed`,
+ * so a Settings page somebody has open stays in step.
+ */
+export const setMusicVolumeMutation = (options?: Partial<Options<SetMusicVolumeData>>): UseMutationOptions<SetMusicVolumeResponse, DefaultError, Options<SetMusicVolumeData>> => {
+    const mutationOptions: UseMutationOptions<SetMusicVolumeResponse, DefaultError, Options<SetMusicVolumeData>> = {
+        mutationFn: async (fnOptions) => {
+            const { data } = await setMusicVolume({
+                ...options,
+                ...fnOptions,
+                throwOnError: true
+            });
+            return data;
+        }
+    };
+    return mutationOptions;
+};
+
+export const getMusicSettingsQueryKey = (options?: Options<GetMusicSettingsData>) => createQueryKey('getMusicSettings', options);
+
+/**
+ * Get Music Settings
+ *
+ * The options behind the player's gear. `playlist` is here and not on `GET /music`:
+ * an id on the open event bus could name a list its owner keeps to themselves.
+ */
+export const getMusicSettingsOptions = (options?: Options<GetMusicSettingsData>) => queryOptions<GetMusicSettingsResponse, DefaultError, GetMusicSettingsResponse, ReturnType<typeof getMusicSettingsQueryKey>>({
+    queryFn: async ({ queryKey, signal }) => {
+        const { data } = await getMusicSettings({
+            ...options,
+            ...queryKey[0],
+            signal,
+            throwOnError: true
+        });
+        return data;
+    },
+    queryKey: getMusicSettingsQueryKey(options)
+});
+
+/**
+ * Update Music Settings
+ *
+ * Switch the music on, choose what it plays from, and say how long the room stays quiet
+ * after a song.
+ *
+ * The playlist is not checked against the table — it may be deleted after it was chosen —
+ * but unlike the player selector's, a playlist that is gone leaves the music with nothing
+ * to play rather than falling back to every song. An hour of music out of the pool the
+ * host excluded is not a kindness.
+ */
+export const updateMusicSettingsMutation = (options?: Partial<Options<UpdateMusicSettingsData>>): UseMutationOptions<UpdateMusicSettingsResponse, DefaultError, Options<UpdateMusicSettingsData>> => {
+    const mutationOptions: UseMutationOptions<UpdateMusicSettingsResponse, DefaultError, Options<UpdateMusicSettingsData>> = {
+        mutationFn: async (fnOptions) => {
+            const { data } = await updateMusicSettings({
+                ...options,
+                ...fnOptions,
+                throwOnError: true
+            });
+            return data;
+        }
+    };
+    return mutationOptions;
+};
+
+/**
+ * Register Music Sink
+ *
+ * Take over as the screen that makes the sound.
+ *
+ * The newest claim always wins, unconditionally, because the alternative is worse: a host
+ * page that reloaded would otherwise wait out the whole timeout in silence. Whoever held
+ * the lease before learns from the `sink_generation` in the broadcast that follows, and
+ * from a 409 on its next report.
+ *
+ * Register only once the audio element can actually play — after the browser's autoplay
+ * gesture. `sink_online` is the app's promise to every phone that sound is coming out, and
+ * a lease held by a muted tab makes that promise a lie.
+ */
+export const registerMusicSinkMutation = (options?: Partial<Options<RegisterMusicSinkData>>): UseMutationOptions<RegisterMusicSinkResponse, DefaultError, Options<RegisterMusicSinkData>> => {
+    const mutationOptions: UseMutationOptions<RegisterMusicSinkResponse, DefaultError, Options<RegisterMusicSinkData>> = {
+        mutationFn: async (fnOptions) => {
+            const { data } = await registerMusicSink({
+                ...options,
+                ...fnOptions,
+                throwOnError: true
+            });
+            return data;
+        }
+    };
+    return mutationOptions;
+};
+
+/**
+ * Report Music Sink
+ *
+ * Where the song is, that it ended, or that it would not play.
+ *
+ * A report naming a track that is no longer the current one is answered with the state and
+ * nothing else — not an error. That covers a retried `ended`, a report that crossed a skip
+ * on the wire, and a tab that woke up on a song the room has moved past.
+ */
+export const reportMusicSinkMutation = (options?: Partial<Options<ReportMusicSinkData>>): UseMutationOptions<ReportMusicSinkResponse, ReportMusicSinkError, Options<ReportMusicSinkData>> => {
+    const mutationOptions: UseMutationOptions<ReportMusicSinkResponse, ReportMusicSinkError, Options<ReportMusicSinkData>> = {
+        mutationFn: async (fnOptions) => {
+            const { data } = await reportMusicSink({
+                ...options,
+                ...fnOptions,
+                throwOnError: true
+            });
+            return data;
+        }
+    };
+    return mutationOptions;
+};
+
+/**
+ * Release Music Sink
+ *
+ * Give the sound back — the host page is closing.
+ *
+ * A stale id is a 204 too. The tab is going away, and telling it off helps nobody.
+ */
+export const releaseMusicSinkMutation = (options?: Partial<Options<ReleaseMusicSinkData>>): UseMutationOptions<ReleaseMusicSinkResponse, ReleaseMusicSinkError, Options<ReleaseMusicSinkData>> => {
+    const mutationOptions: UseMutationOptions<ReleaseMusicSinkResponse, ReleaseMusicSinkError, Options<ReleaseMusicSinkData>> = {
+        mutationFn: async (fnOptions) => {
+            const { data } = await releaseMusicSink({
                 ...options,
                 ...fnOptions,
                 throwOnError: true
