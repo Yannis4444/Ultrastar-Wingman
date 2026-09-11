@@ -7,6 +7,7 @@ import {
 } from "react-router-dom";
 import { backTarget } from "./backLink";
 import BottomNav from "./components/BottomNav";
+import MusicSink from "./components/MusicSink";
 import Loading from "./components/Loading";
 import AchievementEditor from "./pages/AchievementEditor";
 import Achievements from "./pages/Achievements";
@@ -125,6 +126,12 @@ export default function App() {
           <Route path="/host/manage" element={<HostManage />} />
         </Routes>
       </Suspense>
+      {/* The screen that makes the background music, at the app root rather than
+          on the host page: `/host/manage` is a sibling route and the host walks
+          from it into the settings and the admin pages, and a sink under any one
+          page would unmount and stop the music mid-song. It draws nothing, and
+          it plays nothing unless this browser is the host screen. */}
+      <MusicSink />
       {!onHost && <BottomNav />}
     </>
   );

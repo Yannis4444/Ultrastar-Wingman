@@ -10,6 +10,17 @@ export const ICON_PATHS = {
   refresh: "M12 5V2L7 6l5 4V7a5 5 0 1 1-5 5H5a7 7 0 1 0 7-7Z",
   play: "M8 5v14l11-7Z",
   stop: "M6 6h12v12H6V6Z",
+  // The background music's transport, beside `play` and `stop` because they are
+  // the same family of control. Two upright bars at `play`'s own height, and
+  // `play` again with the bar it runs into. Neither is pickable: a tag is about
+  // a song, and pausing is not something a song is.
+  pause: "M7 5h3.5v14H7V5Zm6.5 0H17v14h-3.5V5Z",
+  skip: "M7 5v14l9-7-9-7Zm10 0h2.5v14H17V5Z",
+  // A speaker cone under two arcs. The Sound settings group and the music
+  // permissions wear it as a label, which is a job rather than a meaning (`tv`
+  // labels the Host group the same way), and the volume slider is named by it.
+  volume:
+    "M4 9.5h3.2L12 5v14L7.2 14.5H4v-5Zm11.6-1.2a5 5 0 0 1 0 7.4l-1.4-1.4a3 3 0 0 0 0-4.6l1.4-1.4Zm2.5-2.5a8.5 8.5 0 0 1 0 12.4l-1.4-1.4a6.5 6.5 0 0 0 0-9.6l1.4-1.4Z",
   heart:
     "M12 21.35l-1.45-1.32C5.4 15.36 2 12.28 2 8.5 2 5.42 4.42 3 7.5 3c1.74 0 3.41.81 4.5 2.09C13.09 3.81 14.76 3 16.5 3 19.58 3 22 5.42 22 8.5c0 3.78-3.4 6.86-8.55 11.54L12 21.35Z",
   plus: "M11 5h2v6h6v2h-6v6h-2v-6H5v-2h6V5Z",
