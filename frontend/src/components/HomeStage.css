@@ -157,30 +157,28 @@
   text-overflow: ellipsis;
 }
 
-/* The song modal's geometry, from `SongControls.css`: two equal side columns
-   put the marks at the quarter points, and the large control stays on the
-   centre line whether or not the marks are there. */
-.home-stage-controls {
-  display: grid;
-  grid-template-columns: 1fr auto 1fr;
-  align-items: center;
-  justify-items: center;
-}
-
-/* Nothing anchors the middle without the large control — idle has none — so
-   the marks that remain simply centre as a group. */
-.home-stage-controls:not(:has(.song-control-lead)) {
-  display: flex;
-  justify-content: center;
-  gap: 24px;
-}
-
-.home-stage-controls .song-control-favorite {
-  grid-column: 1;
-}
-
+/* The geometry is `SongControls.css`'s, which keys on `.home-stage-controls`
+   directly: the modal's row and this one are one set of rules, and only the
+   colors stay here. They have to: this row sits on `--tile-bg`, where
+   `--color-darkerer` is 2.25:1 and under the 3:1 floor a control glyph has to
+   clear. On the page background the song modal floats over, the same token
+   does clear it, so the modal keeps what §5 prescribes for it. */
+.home-stage-controls .song-control-favorite,
 .home-stage-controls .song-control-wish {
-  grid-column: 3;
+  color: var(--color-darker);
+}
+
+/* `--highlight-pink-light` is only 2.2:1 as a glyph on `--tile-bg`; the tile
+   defines `--stage-pink` as the mix that clears 3:1. */
+.home-stage-controls .song-control-favorite-on {
+  color: var(--stage-pink);
+}
+
+/* Re-asserted because the off rule above is two classes deep and would
+   otherwise outrank the single-class `.song-control-wish-on` that colors a
+   wished song everywhere else. */
+.home-stage-controls .song-control-wish-on {
+  color: var(--highlight-blue-light);
 }
 
 .home-stage-controls .song-control-stop {

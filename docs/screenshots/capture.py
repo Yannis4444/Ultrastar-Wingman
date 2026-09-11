@@ -481,10 +481,11 @@ ROWS: dict[str, Row] = {
         viewport="phone",
         route="/",
         launcher=True,
-        # The phone's stage carries the cover, the title, the artist and the song controls;
-        # the singers' names are the TV's half of it.
-        ready='q(".currently-playing-stage") && q(".currently-playing-title")'
-        ' && q(".currently-playing-artist") && q(".currently-playing-controls")',
+        # The player in its singing mode: the eyebrow names it, and the title, the artist
+        # and the song controls are all there. The singers' names are the TV's half of it.
+        ready='q(".home-stage-eyebrow")?.textContent === "Now playing"'
+        ' && q(".home-stage-title") && q(".home-stage-artist")'
+        ' && q(".home-stage-controls .song-control-lead")',
     ),
     "songs-list": Row(
         identity="Leela",
