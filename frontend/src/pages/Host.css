@@ -218,6 +218,29 @@
   text-align: center;
 }
 
+/* What the room is hearing while nobody sings. A step quieter than the scan
+   hint and in the meta colour: it is a thing to notice, not a thing to do, and
+   the code above it is what the screen is for. */
+.host-music-line {
+  margin: 0;
+  font-size: clamp(15px, 2vh, 30px);
+  color: var(--color-darker);
+  text-align: center;
+  max-width: 24ch;
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+
+/* The one press this screen ever asks for. A primary is legitimate here: the
+   host page has no other, and a browser that refuses to play until somebody
+   clicks is a fault the room has to be able to see and fix. */
+.host-sound-on {
+  flex: 0 0 auto;
+  align-self: center;
+  font-size: clamp(14px, 1.8vh, 22px);
+}
+
 @media (prefers-reduced-motion: no-preference) {
   .host-scan-hint {
     animation: host-scan-pulse 6s ease-in-out infinite;

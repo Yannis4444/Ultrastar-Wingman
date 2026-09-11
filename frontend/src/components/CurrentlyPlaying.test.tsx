@@ -1,62 +1,21 @@
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import {
-  fireEvent,
-  render,
-  screen,
-  waitFor,
-  within,
-} from "@testing-library/react";
+import { render, screen, waitFor } from "@testing-library/react";
 import type { CurrentSing } from "../api";
-import { meResponse, userRead } from "../test/auth";
+import { meResponse } from "../test/auth";
 import { FakeSocket } from "../test/fakeSocket";
-import { iconNames } from "../test/icons";
 import CurrentlyPlaying from "./CurrentlyPlaying";
 
-const {
-  addFavorite,
-  addWish,
-  getCurrentSing,
-  getMe,
-  getPlaylist,
-  listFavorites,
-  listKaraokeColors,
-  listPlaylists,
-  listSongScores,
-  listWishlist,
-  removeFavorite,
-  removeWish,
-  stopSinging,
-} = vi.hoisted(() => ({
-  addFavorite: vi.fn(),
-  addWish: vi.fn(),
+const { getCurrentSing, getMe, listKaraokeColors } = vi.hoisted(() => ({
   getCurrentSing: vi.fn(),
   getMe: vi.fn(),
-  getPlaylist: vi.fn(),
-  listFavorites: vi.fn(),
   listKaraokeColors: vi.fn(),
-  listPlaylists: vi.fn(),
-  listSongScores: vi.fn(),
-  listWishlist: vi.fn(),
-  removeFavorite: vi.fn(),
-  removeWish: vi.fn(),
-  stopSinging: vi.fn(),
 }));
 
 vi.mock("../api/sdk.gen", async (importOriginal) => ({
   ...(await importOriginal<typeof import("../api/sdk.gen")>()),
-  addFavorite,
-  addWish,
   getCurrentSing,
   getMe,
-  getPlaylist,
-  listFavorites,
   listKaraokeColors,
-  listPlaylists,
-  listSongScores,
-  listWishlist,
-  removeFavorite,
-  removeWish,
-  stopSinging,
 }));
 
 const SING: CurrentSing = {
@@ -103,45 +62,13 @@ function playing(secondsAgo: number): CurrentSing {
   };
 }
 
-/** A logged-in account: favorites and the wish control come with it. */
-function loggedIn(): void {
-  getMe.mockResolvedValue(
-    meResponse(["karaoke.stop", "wishlist.add", "wishlist.view"], {
-      user: userRead(),
-      role: "user",
-    }),
-  );
-  listPlaylists.mockResolvedValue({
-    data: {
-      playlists: [
-        {
-          id: "pl-1",
-          name: "Warm-up",
-          description: null,
-          is_global: false,
-          owner_username: null,
-          owner_player_id: null,
-          song_count: 0,
-          duration_seconds: 0,
-          my_access: "owner",
-          followed: true,
-          can_edit: true,
-          can_manage: true,
-          contains: null,
-        },
-      ],
-    },
-  });
-}
-
-/** Mounted as the Home stage unless a test asks for the host's TV rendering. */
-function renderTile(variant: "stage" | "host" = "stage") {
+function renderBlock() {
   const client = new QueryClient({
     defaultOptions: { queries: { retry: false } },
   });
   return render(
     <QueryClientProvider client={client}>
-      <CurrentlyPlaying variant={variant} />
+      <CurrentlyPlaying />
     </QueryClientProvider>,
   );
 }
@@ -151,58 +78,24 @@ beforeEach(() => {
   vi.stubGlobal("WebSocket", FakeSocket);
   vi.clearAllMocks();
   getCurrentSing.mockResolvedValue({ data: { sing: null } });
-  // Anonymous by default: no favorites, no playlists, Stop only.
   getMe.mockResolvedValue(meResponse(["karaoke.stop"]));
   listKaraokeColors.mockResolvedValue({
     data: { colors: [{ name: "blue", hex: "#048BB9" }] },
   });
-  listFavorites.mockResolvedValue({ data: { song_ids: [] } });
-  listPlaylists.mockResolvedValue({ data: { playlists: [] } });
-  listSongScores.mockResolvedValue({ data: { scores: [] } });
-  listWishlist.mockResolvedValue({ data: { wishes: [] } });
-  addFavorite.mockResolvedValue({ data: undefined });
-  removeFavorite.mockResolvedValue({ data: undefined });
-  addWish.mockResolvedValue({ data: undefined });
-  removeWish.mockResolvedValue({ data: undefined });
-  getPlaylist.mockResolvedValue({
-    data: { id: "pl-1", name: "Warm-up", entries: [] },
-  });
-  stopSinging.mockResolvedValue({ data: undefined });
 });
 
 afterEach(() => vi.unstubAllGlobals());
 
 test("nothing is rendered while USDX is idle", async () => {
-  const { container } = renderTile();
+  const { container } = renderBlock();
 
   await waitFor(() => expect(getCurrentSing).toHaveBeenCalled());
   expect(container).toBeEmptyDOMElement();
 });
 
-test("the stage shows the song and its buttons, not the time or the singers", async () => {
-  // Both are on the USDX screen in the same room; the phone only repeats the
-  // song and adds what the screen cannot offer — the buttons.
-  getCurrentSing.mockResolvedValue({ data: { sing: playing(60) } });
-  const { container } = renderTile();
-
-  const tile = await screen.findByRole("region", { name: "Now playing" });
-  expect(tile).toHaveTextContent("Dancing Queen");
-  expect(tile).toHaveTextContent("ABBA");
-  expect(tile).not.toHaveTextContent("Alice");
-  expect(tile).not.toHaveTextContent(/\d:\d\d/);
-  expect(screen.queryByRole("list")).not.toBeInTheDocument();
-  expect(container.querySelector(".currently-playing-bar")).toBeNull();
-  expect(listKaraokeColors).not.toHaveBeenCalled();
-  expect([...tile.children].map((child) => child.className)).toEqual([
-    "currently-playing-cover-button",
-    "currently-playing-info",
-    "currently-playing-controls",
-  ]);
-});
-
 test("the host shows the whole picture: players and elapsed time", async () => {
   getCurrentSing.mockResolvedValue({ data: { sing: playing(60) } });
-  renderTile("host");
+  renderBlock();
 
   const tile = await screen.findByRole("region", { name: "Now playing" });
   expect(tile).toHaveTextContent("Dancing Queen");
@@ -214,9 +107,9 @@ test("the host shows the whole picture: players and elapsed time", async () => {
   expect(screen.getAllByRole("listitem")).toHaveLength(1);
 });
 
-test("on the host the progress bar sits under the text, above the players", async () => {
+test("the progress bar sits under the text, above the players", async () => {
   getCurrentSing.mockResolvedValue({ data: { sing: playing(60) } });
-  renderTile("host");
+  renderBlock();
 
   const tile = await screen.findByRole("region", { name: "Now playing" });
   expect([...tile.children].map((child) => child.className)).toEqual([
@@ -231,7 +124,7 @@ test("a total the elapsed time already passed is dropped, the bar stays full", a
   // USDX boots after Wingman starts the clock, so the elapsed time can overtake
   // the song. A total that is provably wrong is worse than none.
   getCurrentSing.mockResolvedValue({ data: { sing: playing(300) } });
-  const { container } = renderTile("host");
+  const { container } = renderBlock();
 
   const tile = await screen.findByRole("region", { name: "Now playing" });
   // A loaded runner may need a second between the mock and the render, so the
@@ -244,12 +137,12 @@ test("a total the elapsed time already passed is dropped, the bar stays full", a
   expect(fill?.style.width).toBe("100%");
 });
 
-test("a song without a known duration has no bar on the host", async () => {
+test("a song without a known duration has no bar", async () => {
   const sing = playing(60);
   getCurrentSing.mockResolvedValue({
     data: { sing: { ...sing, song: { ...sing.song, duration_seconds: null } } },
   });
-  const { container } = renderTile("host");
+  const { container } = renderBlock();
 
   const tile = await screen.findByRole("region", { name: "Now playing" });
   expect(tile).toHaveTextContent(/1:0\d/);
@@ -257,27 +150,25 @@ test("a song without a known duration has no bar on the host", async () => {
   expect(container.querySelector(".currently-playing-bar")).toBeNull();
 });
 
-test("the stage carries its own class next to the block's", async () => {
-  // SongControls.css and the stage tile key their rules on it.
+test("the block carries its own class alone", async () => {
   getCurrentSing.mockResolvedValue({ data: { sing: SING } });
-  renderTile();
-
-  expect(
-    await screen.findByRole("region", { name: "Now playing" }),
-  ).toHaveAttribute("class", "currently-playing currently-playing-stage");
-});
-
-test("the host block keeps the block's class alone", async () => {
-  getCurrentSing.mockResolvedValue({ data: { sing: SING } });
-  renderTile("host");
+  renderBlock();
 
   expect(
     await screen.findByRole("region", { name: "Now playing" }),
   ).toHaveAttribute("class", "currently-playing");
 });
 
-test("a karaoke.started event brings the tile up without a refetch", async () => {
-  renderTile();
+test("the host page owns Stop, so the block carries no controls at all", async () => {
+  getCurrentSing.mockResolvedValue({ data: { sing: SING } });
+  renderBlock();
+
+  await screen.findByRole("region", { name: "Now playing" });
+  expect(screen.queryByRole("button")).not.toBeInTheDocument();
+});
+
+test("a karaoke.started event brings the block up without a refetch", async () => {
+  renderBlock();
   await waitFor(() => expect(getCurrentSing).toHaveBeenCalledTimes(1));
 
   FakeSocket.deliver({ event: "karaoke.started", sing: SING });
@@ -286,9 +177,9 @@ test("a karaoke.started event brings the tile up without a refetch", async () =>
   expect(getCurrentSing).toHaveBeenCalledTimes(1);
 });
 
-test("a karaoke.ended event takes the tile away again", async () => {
+test("a karaoke.ended event takes the block away again", async () => {
   getCurrentSing.mockResolvedValue({ data: { sing: SING } });
-  renderTile();
+  renderBlock();
   await screen.findByText("Dancing Queen");
 
   FakeSocket.deliver({
@@ -300,217 +191,4 @@ test("a karaoke.ended event takes the tile away again", async () => {
   await waitFor(() =>
     expect(screen.queryByText("Dancing Queen")).not.toBeInTheDocument(),
   );
-});
-
-test("the cover opens the song modal", async () => {
-  getCurrentSing.mockResolvedValue({ data: { sing: SING } });
-  renderTile();
-
-  fireEvent.click(
-    await screen.findByRole("button", { name: "Details for Dancing Queen" }),
-  );
-
-  expect(
-    await screen.findByRole("dialog", { name: "Dancing Queen" }),
-  ).toBeInTheDocument();
-});
-
-test("the song modal stays open when the sing ends under it", async () => {
-  getCurrentSing.mockResolvedValue({ data: { sing: SING } });
-  const { container } = renderTile();
-
-  fireEvent.click(
-    await screen.findByRole("button", { name: "Details for Dancing Queen" }),
-  );
-  await screen.findByRole("dialog", { name: "Dancing Queen" });
-
-  FakeSocket.deliver({
-    event: "karaoke.ended",
-    sing_id: "sing-1",
-    song_id: "usdb:1",
-  });
-
-  // The block goes, the modal the reader opened stays — with the song it was
-  // opened for, which is no longer the running one.
-  await waitFor(() =>
-    expect(
-      screen.queryByRole("region", { name: "Now playing" }),
-    ).not.toBeInTheDocument(),
-  );
-  const dialog = screen.getByRole("dialog", { name: "Dancing Queen" });
-
-  fireEvent.click(within(dialog).getByRole("button", { name: "Close" }));
-
-  await waitFor(() => expect(container).toBeEmptyDOMElement());
-});
-
-test("the host page owns Stop, so the host variant leaves the whole row out", async () => {
-  loggedIn();
-  getCurrentSing.mockResolvedValue({ data: { sing: SING } });
-  const { container } = renderTile("host");
-
-  await screen.findByText("Dancing Queen");
-  expect(container.querySelector(".currently-playing-controls")).toBeNull();
-  // The TV has nothing to tap, so the cover stays a plain image.
-  expect(
-    screen.queryByRole("button", { name: /^Details for/ }),
-  ).not.toBeInTheDocument();
-});
-
-test("stopping asks first and then calls the backend", async () => {
-  getCurrentSing.mockResolvedValue({ data: { sing: SING } });
-  renderTile();
-
-  const stopButton = await screen.findByRole("button", { name: "Stop" });
-  // The large unfilled control in the middle of the row, mirroring the modal's
-  // Play — the confirmation is what makes it safe, not a red fill.
-  expect(stopButton).toHaveClass(
-    "song-control",
-    "song-control-lead",
-    "song-control-stop",
-  );
-  fireEvent.click(stopButton);
-
-  const confirm = screen.getByRole("dialog", { name: "Stop the song" });
-  expect(confirm).toHaveTextContent("Dancing Queen");
-  expect(stopSinging).not.toHaveBeenCalled();
-
-  // The tile has a Stop button too, so scope to the prompt.
-  fireEvent.click(within(confirm).getByRole("button", { name: "Stop" }));
-
-  await waitFor(() => expect(stopSinging).toHaveBeenCalledTimes(1));
-  await waitFor(() =>
-    expect(screen.queryByText("Dancing Queen")).not.toBeInTheDocument(),
-  );
-});
-
-test("a stop nobody confirmed does not follow the next song", async () => {
-  getCurrentSing.mockResolvedValue({ data: { sing: SING } });
-  renderTile();
-
-  fireEvent.click(await screen.findByRole("button", { name: "Stop" }));
-  screen.getByRole("dialog", { name: "Stop the song" });
-
-  // USDX finishes the song while the prompt is up, then the next one starts.
-  FakeSocket.deliver({
-    event: "karaoke.ended",
-    sing_id: "sing-1",
-    song_id: "usdb:1",
-  });
-  await waitFor(() =>
-    expect(screen.queryByText("Dancing Queen")).not.toBeInTheDocument(),
-  );
-  FakeSocket.deliver({ event: "karaoke.started", sing: SING });
-
-  // The block is back; the prompt for the song that already ended is not.
-  await screen.findByRole("region", { name: "Now playing" });
-  expect(
-    screen.queryByRole("dialog", { name: "Stop the song" }),
-  ).not.toBeInTheDocument();
-  expect(stopSinging).not.toHaveBeenCalled();
-});
-
-test("an anonymous browser gets Stop alone", async () => {
-  getCurrentSing.mockResolvedValue({ data: { sing: SING } });
-  renderTile();
-
-  await screen.findByRole("button", { name: "Stop" });
-  expect(
-    screen.queryByRole("button", { name: "Add to favorites" }),
-  ).not.toBeInTheDocument();
-  expect(
-    screen.queryByRole("button", { name: "Wish" }),
-  ).not.toBeInTheDocument();
-  expect(listFavorites).not.toHaveBeenCalled();
-});
-
-test("a guest who may not stop gets no control row", async () => {
-  // The shipped guest role: no account and no `karaoke.stop`, so every icon in
-  // the row would be one the backend refuses. The block keeps the cover.
-  getMe.mockResolvedValue(meResponse(["karaoke.sing", "songs.view"]));
-  getCurrentSing.mockResolvedValue({ data: { sing: SING } });
-  const { container } = renderTile();
-
-  await screen.findByRole("button", { name: "Details for Dancing Queen" });
-  expect(container.querySelector(".currently-playing-controls")).toBeNull();
-});
-
-test("the favorite icon marks the running song", async () => {
-  loggedIn();
-  getCurrentSing.mockResolvedValue({ data: { sing: SING } });
-  renderTile();
-
-  const heart = await screen.findByRole("button", { name: "Add to favorites" });
-  expect(heart).toHaveAttribute("aria-pressed", "false");
-  fireEvent.click(heart);
-
-  await waitFor(() =>
-    expect(addFavorite).toHaveBeenCalledWith(
-      expect.objectContaining({ path: { song_id: "usdb:1" } }),
-    ),
-  );
-  // The toggle is optimistic, so the heart flips before the refetch.
-  expect(
-    await screen.findByRole("button", { name: "Remove from favorites" }),
-  ).toHaveAttribute("aria-pressed", "true");
-});
-
-test("the wish control carries the wishlist family and toggles the wish", async () => {
-  loggedIn();
-  getCurrentSing.mockResolvedValue({ data: { sing: SING } });
-  renderTile();
-
-  const wish = await screen.findByRole("button", { name: "Wish" });
-  // Wishes are the three-bar family; the bulleted list belongs to playlists.
-  expect(iconNames(wish)).toEqual(["playlist-plus"]);
-  expect(wish).toHaveAttribute("aria-pressed", "false");
-
-  fireEvent.click(wish);
-
-  await waitFor(() =>
-    expect(addWish).toHaveBeenCalledWith(
-      expect.objectContaining({ body: { song_id: "usdb:1" } }),
-    ),
-  );
-});
-
-test("a song already wished for offers to take the wish back", async () => {
-  loggedIn();
-  listWishlist.mockResolvedValue({
-    data: {
-      wishes: [{ song: SING.song, count: 1, mine: true }],
-    },
-  });
-  getCurrentSing.mockResolvedValue({ data: { sing: SING } });
-  renderTile();
-
-  const wish = await screen.findByRole("button", { name: "Remove wish" });
-  expect(iconNames(wish)).toEqual(["playlist-check"]);
-  expect(wish).toHaveAttribute("aria-pressed", "true");
-
-  fireEvent.click(wish);
-
-  await waitFor(() =>
-    expect(removeWish).toHaveBeenCalledWith(
-      expect.objectContaining({ path: { song_id: "usdb:1" } }),
-    ),
-  );
-});
-
-test("the control row reads favorite, stop, wish — the song modal's order", async () => {
-  loggedIn();
-  getCurrentSing.mockResolvedValue({ data: { sing: SING } });
-  const { container } = renderTile();
-
-  await screen.findByRole("button", { name: "Wish" });
-  const row = container.querySelector(".currently-playing-controls");
-  expect(
-    [...(row?.children ?? [])].map((child) => child.getAttribute("aria-label")),
-  ).toEqual(["Add to favorites", "Stop", "Wish"]);
-  // Adding to a playlist left the row: the modal's flanks are the two marks,
-  // and the cover is one tap from the picker.
-  expect(
-    screen.queryByRole("button", { name: "Add to playlist" }),
-  ).not.toBeInTheDocument();
-  expect(listPlaylists).not.toHaveBeenCalled();
 });

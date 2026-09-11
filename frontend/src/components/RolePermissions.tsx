@@ -29,6 +29,8 @@ const GROUP_ICONS: Record<string, IconName> = {
   achievements: "trophy",
   songs: "music",
   karaoke: "mic",
+  // `songs` already owns the `music` glyph; labelling a group is a job.
+  music: "volume",
   players: "users",
   wishlist: "playlist-plus",
   playlists: "list",
@@ -64,6 +66,9 @@ const DESCRIPTIONS: Record<string, string> = {
     "Delete a song for good, its folder on the disk included. Nothing can undo it.",
   "karaoke.sing": "Start a song on the Ultrastar Deluxe machine.",
   "karaoke.stop": "Stop the song that is running now.",
+  "music.view": "See what the background music is playing.",
+  "music.control": "Pause and skip the background music, and set its volume.",
+  "music.manage": "Switch the background music on and choose what it plays.",
   "players.view": "See the players, and pick who is singing.",
   "players.avatar": "Change anybody's picture. Your own never needs a right.",
   "players.manage": "Add players, hide them for the evening, and delete them.",

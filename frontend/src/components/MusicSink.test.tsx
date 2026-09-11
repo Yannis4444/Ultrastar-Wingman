@@ -181,7 +181,8 @@ it("reports the end of a song so the music moves on", async () => {
   });
 
   await waitFor(() => expect(reportMusicSink).toHaveBeenCalled());
-  const body = reportMusicSink.mock.calls.at(-1)?.[0].body;
+  const calls = reportMusicSink.mock.calls;
+  const body = calls[calls.length - 1][0].body;
   expect(body.event).toBe("ended");
   expect(body.track_id).toBe("t-1");
   expect(body.sink_id).toBe("sink-1");
@@ -200,7 +201,8 @@ it("reports a file it could not play rather than stalling the room", async () =>
   });
 
   await waitFor(() => expect(reportMusicSink).toHaveBeenCalled());
-  expect(reportMusicSink.mock.calls.at(-1)?.[0].body.event).toBe("error");
+  const calls = reportMusicSink.mock.calls;
+  expect(calls[calls.length - 1][0].body.event).toBe("error");
 });
 
 it("says so when the browser refuses to play without a click", async () => {

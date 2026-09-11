@@ -1,5 +1,5 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { type ReactNode, useEffect, useState } from "react";
+import { useEffect, useState } from "react";
 import { Link } from "react-router-dom";
 import type {
   CardRead,
@@ -30,7 +30,10 @@ import Modal from "../components/Modal";
 import PageHeader from "../components/PageHeader";
 import PickerRow from "../components/PickerRow";
 import PlayerAvatar from "../components/PlayerAvatar";
-import { SettingSaved } from "../components/SettingField";
+import {
+  PrivateSettingRow,
+  SecondsInput,
+} from "../components/PrivateSettingRow";
 import "../components/PickerRow.css";
 import "../components/SettingField.css";
 import { deviceMeta, RANDOM_SCOPES, START_WITHOUT_SELECTION } from "../devices";
@@ -56,117 +59,6 @@ function complaint(error: unknown, fallback: string): string {
   return detail !== null && missingPermission(error) === null
     ? detail
     : errorMessage(error, fallback);
-}
-
-interface FieldProps {
-  id: string;
-  label: string;
-  description: string;
-  saved: boolean;
-  children: (inputId: string, describedBy: string) => ReactNode;
-  /** Set on the label's line for a checkbox, which has no second line. */
-  inline?: boolean;
-}
-
-/**
- * One settings row in the Settings page's shape (§7): the label with its
- * acknowledgement on the first line, the quiet box alone on the second, the
- * 0.85em description under both. These rows are not registered settings —
- * `devices/settings.py` keeps them private, behind `devices.manage` rather than
- * `settings.manage` — so the row is rebuilt on the same classes, exactly as the
- * achievements admin rebuilds its own.
- */
-function DeviceSettingRow({
-  id,
-  label,
-  description,
-  saved,
-  children,
-  inline = false,
-}: FieldProps) {
-  const inputId = `device-setting-${id}`;
-  const describedBy = `${inputId}-description`;
-
-  return (
-    <div className="setting-field">
-      <div className="setting-row">
-        <label className="setting-label" htmlFor={inputId}>
-          {label}
-        </label>
-        <SettingSaved shown={saved} />
-        {inline && children(inputId, describedBy)}
-      </div>
-
-      {!inline && (
-        <div className="setting-control">{children(inputId, describedBy)}</div>
-      )}
-
-      <p className="setting-description" id={describedBy}>
-        {description}
-      </p>
-    </div>
-  );
-}
-
-interface SecondsProps {
-  inputId: string;
-  describedBy: string;
-  /** What the backend holds. Drawn whenever nobody is typing over it. */
-  value: number;
-  min: number;
-  max: number;
-  disabled: boolean;
-  onCommit: (seconds: number) => void;
-}
-
-/**
- * A number of seconds in the quiet box of a settings row, written when the
- * field is left or Enter is pressed. Two of the five rows are this, and the
- * commit rule is fiddly enough (blank is a cancel, an unchanged number is not a
- * write, Enter is a blur rather than a submit) that one copy of it is one
- * behaviour.
- *
- * The draft is non-null only while somebody is typing in it, so a
- * `devices.changed` from another browser still reaches a field nobody is
- * editing.
- */
-function SecondsInput({
-  inputId,
-  describedBy,
-  value,
-  min,
-  max,
-  disabled,
-  onCommit,
-}: SecondsProps) {
-  const [draft, setDraft] = useState<string | null>(null);
-
-  return (
-    <input
-      className="text-input text-input-quiet setting-input"
-      id={inputId}
-      aria-describedby={describedBy}
-      type="number"
-      min={min}
-      max={max}
-      value={draft ?? String(value)}
-      disabled={disabled}
-      onChange={(event) => setDraft(event.target.value)}
-      onBlur={() => {
-        const typed = draft;
-        setDraft(null);
-        if (typed === null || typed.trim() === "") return;
-        const parsed = Number(typed);
-        if (Number.isNaN(parsed) || parsed === value) return;
-        onCommit(parsed);
-      }}
-      onKeyDown={(event) => {
-        if (event.key !== "Enter") return;
-        event.preventDefault();
-        event.currentTarget.blur();
-      }}
-    />
-  );
 }
 
 /** One card lying on a reader right now: which device and which reader, so a
@@ -434,7 +326,7 @@ export default function Devices() {
 
               {options !== undefined && (
                 <>
-                  <DeviceSettingRow
+                  <PrivateSettingRow
                     id="auto_start"
                     label="Start the song on its own"
                     description="When every slot holds a known singer, the song starts after the delay below."
@@ -454,9 +346,9 @@ export default function Devices() {
                         }
                       />
                     )}
-                  </DeviceSettingRow>
+                  </PrivateSettingRow>
 
-                  <DeviceSettingRow
+                  <PrivateSettingRow
                     id="auto_start_delay_s"
                     label="Delay before the song starts"
                     description="Time to take a wrong card away. Seconds, 0 to 30."
@@ -475,9 +367,9 @@ export default function Devices() {
                         }
                       />
                     )}
-                  </DeviceSettingRow>
+                  </PrivateSettingRow>
 
-                  <DeviceSettingRow
+                  <PrivateSettingRow
                     id="rescan_removes"
                     label="Scanning a card again removes the singer"
                     description="For a device with one reader that everybody scans in turn."
@@ -497,9 +389,9 @@ export default function Devices() {
                         }
                       />
                     )}
-                  </DeviceSettingRow>
+                  </PrivateSettingRow>
 
-                  <DeviceSettingRow
+                  <PrivateSettingRow
                     id="selection_idle_s"
                     label="Time before an idle selection closes"
                     description="A phone that stopped picking gives the room back after this long. Seconds, 30 to 900."
@@ -518,9 +410,9 @@ export default function Devices() {
                         }
                       />
                     )}
-                  </DeviceSettingRow>
+                  </PrivateSettingRow>
 
-                  <DeviceSettingRow
+                  <PrivateSettingRow
                     id="start_without_selection"
                     label="When the start button is pressed with nothing open"
                     description="The most wished song needs a card on a reader and starts at once. A random song spins the reel on the host screen first."
@@ -544,14 +436,14 @@ export default function Devices() {
                         ))}
                       </select>
                     )}
-                  </DeviceSettingRow>
+                  </PrivateSettingRow>
 
                   {/* The two rows a random start needs, drawn only while it is
                       the answer above: what the reel spins over, and which
                       playlist when it is one. Same row, same select, one PATCH
                       each. */}
                   {options.start_without_selection === "random" && (
-                    <DeviceSettingRow
+                    <PrivateSettingRow
                       id="random_scope"
                       label="Pick the random song from"
                       description="The reel spins even with no card down. The next press starts the song if somebody stands on a slot, and spins again if nobody does."
@@ -575,11 +467,11 @@ export default function Devices() {
                           ))}
                         </select>
                       )}
-                    </DeviceSettingRow>
+                    </PrivateSettingRow>
                   )}
 
                   {picksFromPlaylist && (
-                    <DeviceSettingRow
+                    <PrivateSettingRow
                       id="random_playlist"
                       label="Playlist to pick from"
                       description={
@@ -608,7 +500,7 @@ export default function Devices() {
                           ))}
                         </select>
                       )}
-                    </DeviceSettingRow>
+                    </PrivateSettingRow>
                   )}
 
                   {save.isError && (

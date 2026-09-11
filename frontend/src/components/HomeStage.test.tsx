@@ -6,57 +6,101 @@ import {
   waitFor,
   within,
 } from "@testing-library/react";
-import type { CurrentSing } from "../api";
+import type { CurrentSing, MusicRead, MusicTrackRead } from "../api";
 import { meResponse, userRead } from "../test/auth";
 import { FakeSocket } from "../test/fakeSocket";
+import { iconNames } from "../test/icons";
 import HomeStage from "./HomeStage";
 
 const {
+  addFavorite,
+  addWish,
   getCurrentSing,
   getMe,
+  getMusic,
+  getMusicSettings,
+  getPlaylist,
   listFavorites,
   listKaraokeColors,
+  listPlayers,
+  listPlaylists,
   listSongScores,
   listWishlist,
+  pauseMusic,
+  removeFavorite,
+  removeWish,
+  skipMusic,
+  setMusicVolume,
   stopSinging,
+  updateMusicSettings,
 } = vi.hoisted(() => ({
+  addFavorite: vi.fn(),
+  addWish: vi.fn(),
   getCurrentSing: vi.fn(),
   getMe: vi.fn(),
+  getMusic: vi.fn(),
+  getMusicSettings: vi.fn(),
+  getPlaylist: vi.fn(),
   listFavorites: vi.fn(),
   listKaraokeColors: vi.fn(),
+  listPlayers: vi.fn(),
+  listPlaylists: vi.fn(),
   listSongScores: vi.fn(),
   listWishlist: vi.fn(),
+  pauseMusic: vi.fn(),
+  removeFavorite: vi.fn(),
+  removeWish: vi.fn(),
+  skipMusic: vi.fn(),
+  setMusicVolume: vi.fn(),
   stopSinging: vi.fn(),
+  updateMusicSettings: vi.fn(),
 }));
 
 vi.mock("../api/sdk.gen", async (importOriginal) => ({
   ...(await importOriginal<typeof import("../api/sdk.gen")>()),
+  addFavorite,
+  addWish,
   getCurrentSing,
   getMe,
+  getMusic,
+  getMusicSettings,
+  getPlaylist,
   listFavorites,
   listKaraokeColors,
+  listPlayers,
+  listPlaylists,
   listSongScores,
   listWishlist,
+  pauseMusic,
+  removeFavorite,
+  removeWish,
+  skipMusic,
+  setMusicVolume,
   stopSinging,
+  updateMusicSettings,
 }));
+
+const SONG = {
+  id: "usdb:1",
+  source: "usdb",
+  title: "Dancing Queen",
+  artist: "ABBA",
+  duration_seconds: 231,
+  has_video: true,
+  is_duet: false,
+  language: null,
+  genre: null,
+  year: null,
+  edition: null,
+  creator: null,
+};
+
+const BACKGROUND = { ...SONG, id: "usdb:2", title: "Waterloo", artist: "ABBA" };
 
 const SING: CurrentSing = {
   sing_id: "sing-1",
   started_at: "2026-08-23T20:00:00+00:00",
-  song: {
-    id: "usdb:1",
-    source: "usdb",
-    title: "Dancing Queen",
-    artist: "ABBA",
-    duration_seconds: 231,
-    has_video: true,
-    is_duet: false,
-    language: null,
-    genre: null,
-    year: null,
-    edition: null,
-    creator: null,
-  },
+  song: SONG,
   slots: [
     {
       color: "blue",
@@ -71,6 +115,52 @@ const SING: CurrentSing = {
   ],
 };
 
+function track(overrides: Partial<MusicTrackRead> = {}): MusicTrackRead {
+  return {
+    id: "t-1",
+    song: BACKGROUND,
+    started_at: new Date().toISOString(),
+    position_s: 12,
+    position_at: new Date().toISOString(),
+    duration_s: 200,
+    ...overrides,
+  };
+}
+
+function music(overrides: Partial<MusicRead> = {}): MusicRead {
+  return {
+    status: "playing",
+    track: track(),
+    blocked_by: null,
+    resume_at: null,
+    retry_at: null,
+    sink_online: true,
+    sink_generation: 1,
+    volume: { master: 100, music: 60, effects: 80 },
+    scope: "all",
+    ...overrides,
+  };
+}
+
+const OFF: MusicRead = music({ status: "off", track: null });
+
+/** Everything the player can draw: a sing, the music and its options. */
+const FULL = [
+  "karaoke.sing",
+  "karaoke.stop",
+  "wishlist.add",
+  "wishlist.view",
+  "music.view",
+  "music.control",
+  "music.manage",
+];
+
+function signedIn(capabilities: string[] = FULL): void {
+  getMe.mockResolvedValue(
+    meResponse(capabilities, { user: userRead(), role: "user" }),
+  );
+}
+
 function renderStage() {
   return render(
     <QueryClientProvider
@@ -83,99 +173,256 @@ function renderStage() {
   );
 }
 
+/** The three grid tracks are the fixed-height contract: whatever the mode, the
+ *  head, the control row and the transport row are all there. */
+function tracks(container: HTMLElement): string[] {
+  const body = container.querySelector(".home-stage-body");
+  return [...(body?.children ?? [])].map((child) => child.className);
+}
+
 beforeEach(() => {
   FakeSocket.last = undefined;
   vi.stubGlobal("WebSocket", FakeSocket);
   vi.clearAllMocks();
   getCurrentSing.mockResolvedValue({ data: { sing: null } });
-  getMe.mockResolvedValue(
-    meResponse(["karaoke.stop", "wishlist.add", "wishlist.view"], {
-      user: userRead(),
-      role: "user",
-    }),
-  );
+  signedIn();
+  getMusic.mockResolvedValue({ data: OFF });
+  getMusicSettings.mockResolvedValue({
+    data: { enabled: false, scope: "all", playlist: "", resume_delay_s: 10 },
+  });
   listKaraokeColors.mockResolvedValue({
     data: { colors: [{ name: "blue", hex: "#048BB9" }] },
   });
   listFavorites.mockResolvedValue({ data: { song_ids: [] } });
+  listPlayers.mockResolvedValue({ data: { players: [] } });
+  listPlaylists.mockResolvedValue({ data: { playlists: [] } });
   listSongScores.mockResolvedValue({ data: { scores: [] } });
   listWishlist.mockResolvedValue({ data: { wishes: [] } });
+  addFavorite.mockResolvedValue({ data: undefined });
+  removeFavorite.mockResolvedValue({ data: undefined });
+  addWish.mockResolvedValue({ data: undefined });
+  removeWish.mockResolvedValue({ data: undefined });
+  getPlaylist.mockResolvedValue({
+    data: { id: "pl-1", name: "Warm-up", entries: [] },
+  });
   stopSinging.mockResolvedValue({ data: undefined });
+  pauseMusic.mockResolvedValue({ data: music({ status: "paused" }) });
+  skipMusic.mockResolvedValue({ data: music() });
+  setMusicVolume.mockResolvedValue({ data: music() });
+  updateMusicSettings.mockResolvedValue({
+    data: { enabled: true, scope: "all", playlist: "", resume_delay_s: 10 },
+  });
 });
 
 afterEach(() => vi.unstubAllGlobals());
 
-test("while nothing plays the stage is the app's identity", async () => {
+test("a quiet room shows the brand and the logo", async () => {
   const { container } = renderStage();
 
-  await waitFor(() => expect(getCurrentSing).toHaveBeenCalled());
-  const idle = container.querySelector(".home-stage-idle");
-  expect(idle).not.toHaveClass("home-stage-hidden");
-  expect(idle).toHaveAttribute("aria-hidden", "false");
+  expect(await screen.findByText("Nothing is playing")).toBeInTheDocument();
   expect(
-    screen.getByRole("heading", { name: "Ultrastar Wingman" }),
+    screen.getByRole("region", { name: "Ultrastar Wingman" }),
   ).toBeInTheDocument();
-  expect(
-    screen.queryByRole("region", { name: "Now playing" }),
-  ).not.toBeInTheDocument();
+  // The reel's own logo tile, so the brand mark is drawn in one place.
+  expect(container.querySelector(".spinner-cover-logo")).toBeInTheDocument();
 });
 
-test("a running song takes the stage and the identity steps aside", async () => {
+test("a running song takes the stage", async () => {
   getCurrentSing.mockResolvedValue({ data: { sing: SING } });
-  const { container } = renderStage();
+  renderStage();
 
   const block = await screen.findByRole("region", { name: "Now playing" });
-  expect(block).toHaveClass("currently-playing-stage");
   expect(block).toHaveTextContent("Dancing Queen");
   // The singers stay on the USDX screen; the phone shows the song alone.
   expect(block).not.toHaveTextContent("Alice");
-
-  // Still mounted — the song fades in over it — but invisible and untappable.
-  const idle = container.querySelector(".home-stage-idle");
-  expect(idle).toHaveClass("home-stage-hidden");
-  expect(idle).toHaveAttribute("aria-hidden", "true");
-  // One tile, one cell: both states are children of the same stage.
-  expect(idle?.parentElement).toHaveClass("home-stage");
-  expect(block.closest(".home-stage")).toBe(idle?.parentElement);
-});
-
-test("the switch is driven by the event, without a second request", async () => {
-  renderStage();
-  await waitFor(() => expect(getCurrentSing).toHaveBeenCalledTimes(1));
-
-  FakeSocket.deliver({ event: "karaoke.started", sing: SING });
-
-  await screen.findByRole("region", { name: "Now playing" });
-  expect(getCurrentSing).toHaveBeenCalledTimes(1);
-
-  FakeSocket.deliver({
-    event: "karaoke.ended",
-    sing_id: "sing-1",
-    song_id: "usdb:1",
-  });
-
-  await waitFor(() =>
-    expect(
-      screen.queryByRole("region", { name: "Now playing" }),
-    ).not.toBeInTheDocument(),
-  );
-  expect(getCurrentSing).toHaveBeenCalledTimes(1);
-});
-
-test("the stage carries the song modal's three controls", async () => {
-  getCurrentSing.mockResolvedValue({ data: { sing: SING } });
-  renderStage();
-
-  await screen.findByRole("region", { name: "Now playing" });
-  expect(screen.getByRole("button", { name: "Add to favorites" })).toHaveClass(
-    "song-control",
-  );
-  expect(screen.getByRole("button", { name: "Wish" })).toHaveClass(
-    "song-control",
-  );
   expect(screen.getByRole("button", { name: "Stop" })).toHaveClass(
     "song-control-lead",
   );
+});
+
+test("the background song takes the stage while nobody sings", async () => {
+  getMusic.mockResolvedValue({ data: music() });
+  renderStage();
+
+  const block = await screen.findByRole("region", {
+    name: "Background music",
+  });
+  expect(block).toHaveTextContent("Waterloo");
+  expect(block).toHaveTextContent("ABBA");
+});
+
+test("a sing outranks the background music", async () => {
+  getCurrentSing.mockResolvedValue({ data: { sing: SING } });
+  getMusic.mockResolvedValue({ data: music() });
+  renderStage();
+
+  await screen.findByRole("region", { name: "Now playing" });
+  expect(screen.getByText("Dancing Queen")).toBeInTheDocument();
+  expect(screen.queryByText("Waterloo")).not.toBeInTheDocument();
+});
+
+test("every mode draws the same three rows, so the tile never changes height", async () => {
+  const ROWS = [
+    "home-stage-head",
+    "home-stage-controls",
+    "home-stage-transport",
+  ];
+
+  const idle = renderStage();
+  await screen.findByText("Nothing is playing");
+  expect(tracks(idle.container)).toEqual(ROWS);
+  idle.unmount();
+
+  getMusic.mockResolvedValue({ data: music() });
+  const background = renderStage();
+  await screen.findByRole("region", { name: "Background music" });
+  expect(tracks(background.container)).toEqual(ROWS);
+  background.unmount();
+
+  getCurrentSing.mockResolvedValue({ data: { sing: SING } });
+  const singing = renderStage();
+  await screen.findByRole("region", { name: "Now playing" });
+  expect(tracks(singing.container)).toEqual(ROWS);
+});
+
+test("the large control is Sing for the background song, not a second play", async () => {
+  getMusic.mockResolvedValue({ data: music() });
+  renderStage();
+
+  await screen.findByRole("region", { name: "Background music" });
+  const sing = screen.getByRole("button", { name: "Sing" });
+  expect(sing).toHaveClass("song-control-lead");
+  // And the transport's own play/pause is a separate, smaller control.
+  expect(screen.getByRole("button", { name: "Pause" })).toHaveClass(
+    "icon-button",
+  );
+});
+
+test("Sing opens the player selection for the background song", async () => {
+  getMusic.mockResolvedValue({ data: music() });
+  renderStage();
+
+  fireEvent.click(await screen.findByRole("button", { name: "Sing" }));
+
+  expect(await screen.findByRole("dialog")).toHaveTextContent("Waterloo");
+});
+
+test("the heart and the wish work on the background song", async () => {
+  getMusic.mockResolvedValue({ data: music() });
+  renderStage();
+
+  await screen.findByRole("region", { name: "Background music" });
+  fireEvent.click(screen.getByRole("button", { name: "Add to favorites" }));
+  await waitFor(() => expect(addFavorite).toHaveBeenCalled());
+  expect(addFavorite.mock.calls[0][0].path.song_id).toBe("usdb:2");
+
+  fireEvent.click(screen.getByRole("button", { name: "Wish" }));
+  await waitFor(() => expect(addWish).toHaveBeenCalled());
+  expect(addWish.mock.calls[0][0].body.song_id).toBe("usdb:2");
+});
+
+test("the control row reads favorite, lead, wish — the song modal's order", async () => {
+  getCurrentSing.mockResolvedValue({ data: { sing: SING } });
+  const { container } = renderStage();
+
+  await screen.findByRole("region", { name: "Now playing" });
+  const row = container.querySelector(".home-stage-controls");
+  expect(iconNames(row as HTMLElement)).toEqual([
+    "heart",
+    "stop",
+    "playlist-plus",
+  ]);
+});
+
+test("pausing and skipping call the backend", async () => {
+  getMusic.mockResolvedValue({ data: music() });
+  renderStage();
+
+  fireEvent.click(await screen.findByRole("button", { name: "Pause" }));
+  await waitFor(() => expect(pauseMusic).toHaveBeenCalled());
+
+  fireEvent.click(screen.getByRole("button", { name: "Skip" }));
+  await waitFor(() => expect(skipMusic).toHaveBeenCalled());
+});
+
+test("a paused room offers Play in the transport", async () => {
+  getMusic.mockResolvedValue({ data: music({ status: "paused" }) });
+  renderStage();
+
+  await screen.findByRole("region", { name: "Background music" });
+  expect(screen.getByRole("button", { name: "Play" })).toBeInTheDocument();
+  expect(
+    screen.queryByRole("button", { name: "Pause" }),
+  ).not.toBeInTheDocument();
+});
+
+test("the volume slider writes the music's own volume", async () => {
+  getMusic.mockResolvedValue({ data: music() });
+  renderStage();
+
+  const slider = await screen.findByRole("slider", { name: "Music volume" });
+  fireEvent.change(slider, { target: { value: "25" } });
+
+  await waitFor(() => expect(setMusicVolume).toHaveBeenCalled());
+  expect(setMusicVolume.mock.calls[0][0].body).toEqual({ music: 25 });
+});
+
+test("a reader who may not control the music gets no transport", async () => {
+  signedIn(["music.view", "karaoke.sing"]);
+  getMusic.mockResolvedValue({ data: music() });
+  renderStage();
+
+  await screen.findByRole("region", { name: "Background music" });
+  expect(
+    screen.queryByRole("button", { name: "Pause" }),
+  ).not.toBeInTheDocument();
+  expect(screen.queryByRole("slider")).not.toBeInTheDocument();
+  // The song itself, and what it is, are still there.
+  expect(screen.getByText("Waterloo")).toBeInTheDocument();
+});
+
+test("the gear is there in every mode, so the music can be switched back on", async () => {
+  renderStage();
+
+  fireEvent.click(
+    await screen.findByRole("button", { name: "Background music settings" }),
+  );
+
+  const panel = await screen.findByRole("dialog", { name: "Background music" });
+  fireEvent.click(
+    within(panel).getByRole("checkbox", { name: "Background music" }),
+  );
+  await waitFor(() => expect(updateMusicSettings).toHaveBeenCalled());
+  expect(updateMusicSettings.mock.calls[0][0].body).toEqual({ enabled: true });
+});
+
+test("a reader who may not manage the music gets no gear", async () => {
+  signedIn(["music.view", "music.control"]);
+  renderStage();
+
+  await waitFor(() => expect(getCurrentSing).toHaveBeenCalled());
+  expect(
+    screen.queryByRole("button", { name: "Background music settings" }),
+  ).not.toBeInTheDocument();
+});
+
+test("a reader who may not see the music is told nothing about it", async () => {
+  signedIn(["karaoke.sing"]);
+  renderStage();
+
+  await waitFor(() => expect(getCurrentSing).toHaveBeenCalled());
+  // Not "Nothing is playing": that reader cannot know whether it is.
+  expect(screen.queryByText("Nothing is playing")).not.toBeInTheDocument();
+  expect(getMusic).not.toHaveBeenCalled();
+});
+
+test("the player says when no screen is making the sound", async () => {
+  getMusic.mockResolvedValue({ data: music({ sink_online: false }) });
+  renderStage();
+
+  expect(
+    await screen.findByText("No screen is playing the music"),
+  ).toBeInTheDocument();
 });
 
 test("stopping from the stage asks first, then calls the backend", async () => {
@@ -189,19 +436,10 @@ test("stopping from the stage asks first, then calls the backend", async () => {
   expect(stopSinging).not.toHaveBeenCalled();
 
   fireEvent.click(within(confirm).getByRole("button", { name: "Stop" }));
-
   await waitFor(() => expect(stopSinging).toHaveBeenCalledTimes(1));
-  // Back to the identity, in the same tile.
-  await waitFor(() =>
-    expect(
-      screen.getByRole("heading", { name: "Ultrastar Wingman" }),
-    ).toBeInTheDocument(),
-  );
 });
 
 test("the song modal outlives the sing that opened it", async () => {
-  // The modal renders inside the stage's playing cell, which is why that cell
-  // must never carry an opacity of its own.
   getCurrentSing.mockResolvedValue({ data: { sing: SING } });
   renderStage();
 
@@ -226,24 +464,13 @@ test("the song modal outlives the sing that opened it", async () => {
   ).toBeInTheDocument();
 });
 
-test("the page keeps exactly one heading across the switch", async () => {
+test("the switch is driven by the event, without a second request", async () => {
   renderStage();
-  await waitFor(() => expect(getCurrentSing).toHaveBeenCalled());
-
-  // Idle: the app's own name is the page heading.
-  expect(screen.getAllByRole("heading", { level: 1 })).toHaveLength(1);
-  expect(screen.getByRole("heading", { level: 1 })).toHaveTextContent(
-    "Ultrastar Wingman",
-  );
+  await waitFor(() => expect(getCurrentSing).toHaveBeenCalledTimes(1));
 
   FakeSocket.deliver({ event: "karaoke.started", sing: SING });
   await screen.findByRole("region", { name: "Now playing" });
-
-  // The identity heading is aria-hidden now, so without a replacement the page
-  // would expose none at all — and never two.
-  const playing = screen.getAllByRole("heading", { level: 1 });
-  expect(playing).toHaveLength(1);
-  expect(playing[0]).toHaveTextContent("Now playing");
+  expect(getCurrentSing).toHaveBeenCalledTimes(1);
 
   FakeSocket.deliver({
     event: "karaoke.ended",
@@ -251,9 +478,42 @@ test("the page keeps exactly one heading across the switch", async () => {
     song_id: "usdb:1",
   });
   await waitFor(() =>
-    expect(screen.getByRole("heading", { level: 1 })).toHaveTextContent(
-      "Ultrastar Wingman",
-    ),
+    expect(
+      screen.queryByRole("region", { name: "Now playing" }),
+    ).not.toBeInTheDocument(),
   );
+  expect(getCurrentSing).toHaveBeenCalledTimes(1);
+});
+
+test("a music.changed event moves the player without a refetch", async () => {
+  getMusic.mockResolvedValue({ data: music() });
+  renderStage();
+  await screen.findByRole("region", { name: "Background music" });
+  expect(getMusic).toHaveBeenCalledTimes(1);
+
+  FakeSocket.deliver({
+    event: "music.changed",
+    music: music({
+      track: track({ id: "t-2", song: { ...SONG, title: "Mamma Mia" } }),
+    }),
+  });
+
+  expect(await screen.findByText("Mamma Mia")).toBeInTheDocument();
+  expect(getMusic).toHaveBeenCalledTimes(1);
+});
+
+test("the page keeps exactly one heading in every mode", async () => {
+  renderStage();
+  await waitFor(() => expect(getCurrentSing).toHaveBeenCalled());
+
   expect(screen.getAllByRole("heading", { level: 1 })).toHaveLength(1);
+  expect(screen.getByRole("heading", { level: 1 })).toHaveTextContent(
+    "Ultrastar Wingman",
+  );
+
+  FakeSocket.deliver({ event: "karaoke.started", sing: SING });
+  await screen.findByRole("region", { name: "Now playing" });
+  const playing = screen.getAllByRole("heading", { level: 1 });
+  expect(playing).toHaveLength(1);
+  expect(playing[0]).toHaveTextContent("Now playing");
 });
