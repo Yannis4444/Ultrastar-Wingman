@@ -35,7 +35,9 @@
   color: var(--color);
   font-size: clamp(28px, 4.4vh, 64px);
   font-weight: 700;
-  line-height: 1.1;
+  /* 1.3 under a clamp, not 1.1: the box clips, and a tighter line cut the
+     descenders off the second line. */
+  line-height: 1.3;
   -webkit-line-clamp: 2;
   -webkit-box-orient: vertical;
 }

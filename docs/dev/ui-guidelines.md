@@ -81,7 +81,10 @@ cover row / page blocks). Row separators: `border-bottom` + `:last-child { borde
 0.85em in `--color-darker`; fine print 0.8em. Aligned or updating numbers:
 `font-variant-numeric: tabular-nums`. Single-line text: `overflow: hidden; white-space: nowrap;
 text-overflow: ellipsis` with `min-width: 0` on the flex parent; wrapping titles use a 2-line
-clamp. Bottom-nav destinations (`Songs`, `Scores`) show **no page heading** — the tab names
+clamp. **A box that clips — an ellipsis line, a line clamp — keeps `line-height` at 1.3 or
+more:** the box is exactly its lines tall, so at 1 or 1.1 the descenders of y and g on the
+last line are cut off (the host's music line, `LastSong`, `HostAchievements`, 2026-09-12); a
+tight leading is for headings that overflow visibly, never for one under `overflow: hidden`. Bottom-nav destinations (`Songs`, `Scores`) show **no page heading** — the tab names
 them, so their `h1` is `visually-hidden`; `Home` and `User` keep theirs.
 
 ## 3. Icons
