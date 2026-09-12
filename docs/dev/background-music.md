@@ -196,8 +196,26 @@ The rules, each covering a race:
   204 no-op — the tab is going away, an error helps nobody.
 - **No report for 15 s** ends the lease. The position freezes, `sink_online` goes false, the
   track stays.
-- The host registers **only once its element can actually play**, so `sink_online` is the app's
-  promise that sound comes out.
+- **Only the tab holding the lease makes a sound.** The element follows the state *and* the
+  lease: without a lease — a second host tab of the same browser, a claim that failed — it
+  stays silent, and a broadcast carrying a `sink_generation` **newer** than its own (never
+  merely different: the page's first `GET /music` may land after the claim, carrying the number
+  from before it) drops the lease and unloads the file. Every report carries the lease's id, so
+  `sink_online` is the app's promise that sound comes out. The lease effect keeps everything
+  in its own closure — StrictMode's mount, cleanup, mount in development once left a lease
+  claimed, discarded and never reported on under audible music, which read as *No screen is
+  playing the music*, a position stuck at 0 that every broadcast seeked back to, and a song
+  whose end nobody reported.
+- **A dead lease is dropped, not nursed.** `server.ready` — the socket's first message on every
+  connection — on a tab that holds a lease means the backend restarted and forgot it (a fresh
+  server numbers its leases from one again, which the *newer* check above cannot see), so the
+  tab forgets it too and claims again; a 409 `not_the_sink` on a report drops the lease and
+  claims **nothing**, because two screens that both re-claimed would trade the sound every five
+  seconds — the newest registration wins, and it was not ours.
+- **`play()` on the element is never blind.** The autoplay unlock — the *Turn on sound* button
+  and any press on the page — plays only while the state says the music should be playing, so a
+  click during a sing or a pause starts nothing; and clearing the track calls `load()` after
+  removing `src`, because the removed attribute alone leaves the resource in the element.
 - An `error` counts as `ended` and advances; five in a row back off for a minute, so a library
   of broken files cannot spin at request speed.
 
@@ -247,8 +265,8 @@ code:
 | key | type | default | says |
 |---|---|---|---|
 | `sound.master_volume` | int 0–100 | 100 | everything Wingman plays on the host screen |
-| `sound.music_volume` | int 0–100 | 60 | the background music, quieter than the singing on purpose |
-| `sound.effects_volume` | int 0–100 | 80 | the sound effects — nothing uses it yet, and the description says so |
+| `sound.music_volume` | int 0–100 | 100 | the background music |
+| `sound.effects_volume` | int 0–100 | 100 | the sound effects — nothing uses it yet, and the description says so |
 
 Private in `music/settings.py`, behind `music.manage`:
 

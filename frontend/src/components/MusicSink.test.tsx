@@ -1,5 +1,6 @@
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { act, render, waitFor } from "@testing-library/react";
+import { StrictMode } from "react";
 import type { MusicRead, MusicTrackRead, SongRead } from "../api";
 import { musicSinkStore, useMusicSinkStatus } from "../hooks/useMusicSink";
 import { meResponse } from "../test/auth";
@@ -86,6 +87,11 @@ function stubMedia(play: () => Promise<void>): void {
     writable: true,
     value: vi.fn(),
   });
+  Object.defineProperty(HTMLMediaElement.prototype, "load", {
+    configurable: true,
+    writable: true,
+    value: vi.fn(),
+  });
   let time = 0;
   Object.defineProperty(HTMLMediaElement.prototype, "currentTime", {
     configurable: true,
@@ -116,6 +122,24 @@ function draw(): HTMLAudioElement | null {
   return container.querySelector("audio");
 }
 
+/** The element, once the auth answer has let the sink mount. */
+async function audioElement(): Promise<HTMLAudioElement> {
+  let audio: HTMLAudioElement | null = null;
+  await waitFor(() => {
+    audio = document.querySelector("audio");
+    expect(audio).not.toBe(null);
+  });
+  return audio as unknown as HTMLAudioElement;
+}
+
+/** The calls the release path made, which goes through `fetch` for `keepalive`. */
+function releasedIds(): string[] {
+  const calls = (globalThis.fetch as ReturnType<typeof vi.fn>).mock.calls;
+  return calls
+    .filter((call) => String(call[0]).includes("sink/release"))
+    .map((call) => JSON.parse(String(call[1].body)).sink_id as string);
+}
+
 beforeEach(() => {
   FakeSocket.last = undefined;
   vi.stubGlobal("WebSocket", FakeSocket);
@@ -134,7 +158,10 @@ beforeEach(() => {
   registerMusicSink.mockResolvedValue({
     data: { sink_id: "sink-1", heartbeat_interval_s: 5, music: music() },
   });
-  reportMusicSink.mockResolvedValue({ data: music() });
+  reportMusicSink.mockResolvedValue({
+    data: music(),
+    response: { status: 200 },
+  });
   vi.stubGlobal("fetch", vi.fn().mockResolvedValue({ ok: true }));
 });
 
@@ -160,8 +187,11 @@ it("takes the lease and plays the song the room is on", async () => {
 });
 
 it("comes back where the room is after a reload", async () => {
-  getMusic.mockResolvedValue({
-    data: music({ track: track({ position_s: 40 }) }),
+  // Both answers carry the state as of the claim, the register's included.
+  const midway = music({ track: track({ position_s: 40 }) });
+  getMusic.mockResolvedValue({ data: midway });
+  registerMusicSink.mockResolvedValue({
+    data: { sink_id: "sink-1", heartbeat_interval_s: 5, music: midway },
   });
   draw();
   await waitFor(() => {
@@ -229,6 +259,150 @@ function Watcher({ onBlocked }: { onBlocked: (blocked: boolean) => void }) {
   onBlocked(status.blocked);
   return null;
 }
+
+/** Register answers numbered by call, so a test can tell the claims apart. */
+function numberedClaims(): void {
+  let claims = 0;
+  registerMusicSink.mockImplementation(() => {
+    claims += 1;
+    return Promise.resolve({
+      data: {
+        sink_id: `sink-${claims}`,
+        heartbeat_interval_s: 5,
+        music: music({ sink_generation: claims }),
+      },
+    });
+  });
+}
+
+it("claims exactly once under StrictMode's double mount", async () => {
+  // Development React mounts, unmounts and mounts again. Before this the
+  // first mount's claim was discarded and never released while the second
+  // mount believed a claim was in flight — a lease nobody reported on while
+  // the music audibly played, which read as "no screen is playing the music".
+  numberedClaims();
+  render(
+    <StrictMode>
+      <QueryClientProvider
+        client={
+          new QueryClient({ defaultOptions: { queries: { retry: false } } })
+        }
+      >
+        <MusicSink />
+      </QueryClientProvider>
+    </StrictMode>,
+  );
+  const audio = await audioElement();
+  await waitFor(() => expect(audio.getAttribute("src")).toContain("usdb%3A1"));
+  expect(registerMusicSink).toHaveBeenCalledTimes(1);
+  expect(releasedIds()).toEqual([]);
+
+  act(() => {
+    audio.dispatchEvent(new Event("ended"));
+  });
+  await waitFor(() => expect(reportMusicSink).toHaveBeenCalled());
+  const calls = reportMusicSink.mock.calls;
+  expect(calls[calls.length - 1][0].body.sink_id).toBe("sink-1");
+});
+
+it("claims again when the backend has restarted", async () => {
+  // A fresh server holds no leases and numbers them from one again, so the
+  // generation check alone would keep the dead lease: the tab would play,
+  // every report would be a 409, and the room would see the old symptoms.
+  numberedClaims();
+  draw();
+  const audio = await audioElement();
+  await waitFor(() => expect(audio.getAttribute("src")).toContain("usdb%3A1"));
+
+  act(() => {
+    FakeSocket.deliver({ event: "server.ready", version: "test" });
+  });
+
+  await waitFor(() => expect(registerMusicSink).toHaveBeenCalledTimes(2));
+  // The dead lease is not released — the server has already forgotten it.
+  expect(releasedIds()).toEqual([]);
+  await waitFor(() => expect(audio.getAttribute("src")).toContain("usdb%3A1"));
+  act(() => {
+    audio.dispatchEvent(new Event("ended"));
+  });
+  await waitFor(() => {
+    const calls = reportMusicSink.mock.calls;
+    expect(calls[calls.length - 1][0].body.sink_id).toBe("sink-2");
+  });
+});
+
+it("goes quiet on a report the backend answers with not_the_sink", async () => {
+  reportMusicSink.mockResolvedValue({
+    error: "not_the_sink",
+    response: { status: 409 },
+  });
+  draw();
+  const audio = await audioElement();
+  await waitFor(() => expect(audio.getAttribute("src")).toContain("usdb%3A1"));
+
+  act(() => {
+    audio.dispatchEvent(new Event("ended"));
+  });
+
+  await waitFor(() => expect(audio.getAttribute("src")).toBe(null));
+  // And no second claim: two screens that both re-claimed on a 409 would
+  // trade the lease every five seconds.
+  expect(registerMusicSink).toHaveBeenCalledTimes(1);
+});
+
+it("stays silent on a tab that does not hold the lease", async () => {
+  // Home open beside the host page in the same browser: the second tab never
+  // gets the lease, and must not play the same song a beat behind the first.
+  registerMusicSink.mockRejectedValue(new Error("another tab has it"));
+  draw();
+  const audio = await audioElement();
+  await waitFor(() => expect(registerMusicSink).toHaveBeenCalled());
+  await waitFor(() => expect(getMusic).toHaveBeenCalled());
+  expect(audio.getAttribute("src")).toBe(null);
+  expect(HTMLMediaElement.prototype.play).not.toHaveBeenCalled();
+});
+
+it("falls silent when another screen takes the sound over", async () => {
+  draw();
+  const audio = await audioElement();
+  await waitFor(() => expect(audio.getAttribute("src")).toContain("usdb%3A1"));
+
+  act(() => {
+    FakeSocket.deliver({
+      event: "music.changed",
+      music: music({ sink_generation: 2 }),
+    });
+  });
+
+  await waitFor(() => expect(audio.getAttribute("src")).toBe(null));
+  expect(HTMLMediaElement.prototype.pause).toHaveBeenCalled();
+  // The resource is unloaded, not merely unnamed.
+  expect(HTMLMediaElement.prototype.load).toHaveBeenCalled();
+});
+
+it("does not restart the music on a click while a song is being sung", async () => {
+  draw();
+  const audio = await audioElement();
+  await waitFor(() => expect(audio.getAttribute("src")).toContain("usdb%3A1"));
+
+  act(() => {
+    FakeSocket.deliver({
+      event: "music.changed",
+      music: music({ status: "blocked", blocked_by: "sing", track: null }),
+    });
+  });
+  await waitFor(() => expect(audio.getAttribute("src")).toBe(null));
+  const plays = (HTMLMediaElement.prototype.play as ReturnType<typeof vi.fn>)
+    .mock.calls.length;
+
+  // The karaoke machine's own mouse and keyboard: any press used to be a
+  // `play()`, whatever the state said.
+  act(() => {
+    document.dispatchEvent(new Event("pointerdown"));
+    document.dispatchEvent(new Event("keydown"));
+  });
+  expect(HTMLMediaElement.prototype.play).toHaveBeenCalledTimes(plays);
+});
 
 it("gives the sound back when the page goes away", async () => {
   draw();
