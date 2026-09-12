@@ -829,6 +829,37 @@ test("the idle screen names the background song, quietly", async () => {
   expect(screen.getByText("Scan the code to pick a song")).toBeInTheDocument();
 });
 
+test("the background song stays named under the scores, and goes with the rail", async () => {
+  withScores();
+  getMe.mockResolvedValue(
+    meResponse(["music.view", "stats.view"], { is_host: true, role: "admin" }),
+  );
+  const track: MusicTrackRead = {
+    id: "t-1",
+    song: { ...RHAPSODY, title: "Waterloo", artist: "ABBA" },
+    started_at: "2026-08-23T20:00:00Z",
+    position_s: 3,
+    position_at: "2026-08-23T20:00:00Z",
+    duration_s: 200,
+  };
+  getMusic.mockResolvedValue({
+    data: quietMusic({ status: "playing", track, sink_online: true }),
+  });
+  const { container } = renderHost("/host");
+
+  // The scores are up, and the line is under them, in the stage.
+  await screen.findByLabelText("Last song");
+  const line = await screen.findByText(/Waterloo · ABBA/);
+  expect(line).toHaveClass("host-music-line");
+  expect(container.querySelector(".host-stage")).toContainElement(line);
+
+  // The room picking the next song takes the screen, and the line goes with
+  // the rail: the reel names its own song, large.
+  picks();
+  await screen.findByLabelText("Picking singers");
+  expect(document.querySelector(".host-music-line")).toBeNull();
+});
+
 test("a screen that is not playing anything says nothing about music", async () => {
   getMe.mockResolvedValue(
     meResponse(["music.view"], { is_host: true, role: "admin" }),

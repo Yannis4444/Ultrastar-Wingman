@@ -40,11 +40,22 @@
   grid-template-columns: minmax(0, 1fr);
 }
 
+/* Two rows: whatever the stage shows, centred, and the quiet music line at
+   the foot. A grid row rather than an absolutely placed line, so tall score
+   bars on a short TV shrink above it and never run under it. */
 .host-stage {
+  display: grid;
+  grid-template-rows: minmax(0, 1fr) auto;
+  min-width: 0;
+  overflow: hidden;
+}
+
+.host-stage-main {
   display: flex;
   flex-direction: column;
   justify-content: center;
   min-width: 0;
+  min-height: 0;
   overflow: hidden;
 }
 
@@ -222,7 +233,9 @@
    hint and in the meta colour: it is a thing to notice, not a thing to do, and
    the code above it is what the screen is for. */
 .host-music-line {
+  justify-self: center;
   margin: 0;
+  padding-top: clamp(8px, 1.5vh, 20px);
   font-size: clamp(15px, 2vh, 30px);
   color: var(--color-darker);
   text-align: center;

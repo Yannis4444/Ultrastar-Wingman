@@ -2,7 +2,7 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useEffect, useState } from "react";
 import QRCode from "react-qr-code";
 import { Link } from "react-router-dom";
-import type { SongRead, WishRead } from "../api";
+import type { WishRead } from "../api";
 import {
   exchangeHostTokenMutation,
   getCurrentSingOptions,
@@ -98,28 +98,12 @@ function useIdle(delay = 3000): boolean {
  * of the achievements takeover shows the brand, and the rail with the QR in it
  * is not on the screen for those seconds.
  */
-function HostBrand({
-  scan = true,
-  music = null,
-}: {
-  scan?: boolean;
-  music?: SongRead | null;
-}) {
+function HostBrand({ scan = true }: { scan?: boolean }) {
   return (
     <div className="host-brand">
       <img className="host-logo" src="/logo.png" alt="" />
       <span className="host-brand-name">Ultrastar Wingman</span>
       {scan && <p className="host-scan-hint">Scan the code to pick a song</p>}
-      {/* What the room is hearing, quietly, and only on the ordinary idle
-          screen: the beat between two singers passes `scan={false}` and has to
-          stay bare. Content rather than a control, so it is not in the
-          reveal-on-movement overlay — the point is that it reads across the
-          room while nobody is touching the mouse. */}
-      {scan && music !== null && (
-        <p className="host-music-line">
-          {music.title} · {music.artist}
-        </p>
-      )}
     </div>
   );
 }
@@ -274,14 +258,15 @@ export default function Host() {
       className={`host-page${takeover ? " host-takeover" : ""}${idle ? " host-idle" : ""}`}
     >
       <div className="host-stage">
-        <CurrentlyPlaying />
-        {/* Somebody is picking singers for the next song: the stage shows the
+        <div className="host-stage-main">
+          <CurrentlyPlaying />
+          {/* Somebody is picking singers for the next song: the stage shows the
             song and its slots filling up, and takes the whole screen for it.
             It gives way to the badges a finished song earned, and it stands in
             front of the results — the room is looking at what happens next, not
             at what just happened. */}
-        <HostSelection onPhase={setPicking} suppressed={badges} />
-        {/* The badges a finished song earned take the stage before its scores
+          <HostSelection onPhase={setPicking} suppressed={badges} />
+          {/* The badges a finished song earned take the stage before its scores
             do. `HostResults` stays mounted underneath them the whole time —
             it is what listens for the next scores and for the next song — and
             simply waits its turn; the brand stands in while the stage is
@@ -290,15 +275,28 @@ export default function Host() {
             takeover's own, and it hands the stage the brand rather than
             leaving the TV empty for it — without the scan line, the rail
             holding the code being down for those seconds. */}
-        <HostAchievements
-          onPhase={setEarned}
-          fallback={<HostBrand scan={false} />}
-        />
-        <HostResults
-          players={standing.players}
-          fallback={takeover ? null : <HostBrand music={background} />}
-          suppressed={earned !== "idle" || picked}
-        />
+          <HostAchievements
+            onPhase={setEarned}
+            fallback={<HostBrand scan={false} />}
+          />
+          <HostResults
+            players={standing.players}
+            fallback={takeover ? null : <HostBrand />}
+            suppressed={earned !== "idle" || picked}
+          />
+        </div>
+        {/* What the room is hearing, quietly, at the foot of the stage —
+            under the brand and under the scores alike, so the room learns
+            where to look. Not while the stage has taken the whole screen: the
+            reel names its own song large, and the badges are a singer's
+            seconds. Content rather than a control, so it is not in the
+            reveal-on-movement overlay — the point is that it reads across the
+            room while nobody is touching the mouse. */}
+        {!takeover && background !== null && (
+          <p className="host-music-line">
+            {background.title} · {background.artist}
+          </p>
+        )}
       </div>
 
       {/* A browser plays no sound until somebody has pressed something on

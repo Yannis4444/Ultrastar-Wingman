@@ -218,14 +218,25 @@ function ActiveSink() {
 
     if (track === null) {
       trackRef.current = null;
-      audio.pause();
-      if (audio.hasAttribute("src")) {
-        // Removing the attribute alone leaves the loaded resource in the
-        // element, and the next `play()` — a click on the page while a song is
-        // being sung — would resume it. `load()` is what actually unloads it.
-        audio.removeAttribute("src");
-        audio.load();
-      }
+      const unload = () => {
+        // The ramp takes 600ms, and a track may be back by then — a respin, a
+        // skip that landed. Only a still-silent element is unloaded.
+        if (trackRef.current !== null) return;
+        audio.pause();
+        if (audio.hasAttribute("src")) {
+          // Removing the attribute alone leaves the loaded resource in the
+          // element, and the next `play()` — a click on the page while a song
+          // is being sung — would resume it. `load()` is what actually
+          // unloads it.
+          audio.removeAttribute("src");
+          audio.load();
+        }
+      };
+      // The same fade a pause gets, never a cut: a song being sung clears the
+      // track while Ultrastar Deluxe is still loading its own, so the ramp
+      // runs out before the first note, and a skip is a fade into the next.
+      if (audio.paused) unload();
+      else ramp(audio, fadeRef, 0, FADE_OUT_MS, unload);
       return;
     }
 
