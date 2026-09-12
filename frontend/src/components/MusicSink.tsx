@@ -160,13 +160,15 @@ function ActiveSink() {
     if (claimAgain) setClaimNonce((nonce) => nonce + 1);
   };
 
-  // The backend restarted: the socket's first message on every connection is
-  // `server.ready`, and a fresh server holds no leases at all — it would pick
-  // a song, number it from one again (never *above* ours, so the check below
-  // would not catch it) and 409 every report. Only a tab that holds a lease
-  // has anything to do; the first connect, and a bare reconnect on a server
-  // that kept running, both end in a harmless re-claim or in nothing.
-  useWingmanEvent("server.ready", () => dropLease(true));
+  // The backend may have restarted: the socket's first message on every
+  // connection is `server.ready`, and a fresh server holds no leases at all —
+  // it would pick a song, number it from one again (never *above* ours, so the
+  // check above would not catch it) and 409 every report. A tab holding a
+  // lease *probes* rather than re-claiming outright: one report, and only a 409
+  // on it means the lease is dead and a new one is wanted. A server that kept
+  // running answers 200 and nothing happens — which matters at load, where the
+  // first `server.ready` and the claim's own answer race each other.
+  useWingmanEvent("server.ready", () => probe.current());
 
   // Another screen took the sound over: the backend numbers every claim, and a
   // state carrying a newer number than ours means we are not the sink any more.
@@ -270,6 +272,30 @@ function ActiveSink() {
   }, [volume, shouldPlay]);
 
   // --- reporting -------------------------------------------------------------
+
+  const probe = useRef<() => void>(() => {});
+  probe.current = () => {
+    const sinkId = sinkRef.current;
+    if (sinkId === null) return;
+    void reportMusicSink({
+      body: {
+        sink_id: sinkId,
+        // Any track id does: a report naming a track that is not current is
+        // answered with the state and ignored, while an unknown sink is a 409.
+        track_id: trackRef.current ?? "probe",
+        event: "progress",
+        position_s: 0,
+        duration_s: null,
+        detail: null,
+      },
+    })
+      .then((result) => {
+        if (result.response?.status === 409 && sinkRef.current === sinkId) {
+          dropLease(true);
+        }
+      })
+      .catch(() => {});
+  };
 
   const report = useRef<
     (event: "progress" | "ended" | "error", detail?: string) => void

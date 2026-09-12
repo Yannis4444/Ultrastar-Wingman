@@ -207,11 +207,14 @@ The rules, each covering a race:
   playing the music*, a position stuck at 0 that every broadcast seeked back to, and a song
   whose end nobody reported.
 - **A dead lease is dropped, not nursed.** `server.ready` — the socket's first message on every
-  connection — on a tab that holds a lease means the backend restarted and forgot it (a fresh
-  server numbers its leases from one again, which the *newer* check above cannot see), so the
-  tab forgets it too and claims again; a 409 `not_the_sink` on a report drops the lease and
-  claims **nothing**, because two screens that both re-claimed would trade the sound every five
-  seconds — the newest registration wins, and it was not ours.
+  connection — on a tab that holds a lease *may* mean the backend restarted and forgot it (a
+  fresh server numbers its leases from one again, which the *newer* check above cannot see).
+  The tab **probes**: one progress report, and only a 409 on that report drops the lease and
+  claims a new one — never the event alone, because at load the first `server.ready` and the
+  claim's own answer race, and a blind re-claim would restart the song a moment into every page
+  load. A 409 `not_the_sink` on an ordinary heartbeat drops the lease and claims **nothing**,
+  because two screens that both re-claimed would trade the sound every five seconds — the
+  newest registration wins, and it was not ours.
 - **`play()` on the element is never blind.** The autoplay unlock — the *Turn on sound* button
   and any press on the page — plays only while the state says the music should be playing, so a
   click during a sing or a pause starts nothing; and clearing the track calls `load()` after

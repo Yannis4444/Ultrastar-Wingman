@@ -314,6 +314,11 @@ it("claims again when the backend has restarted", async () => {
   const audio = await audioElement();
   await waitFor(() => expect(audio.getAttribute("src")).toContain("usdb%3A1"));
 
+  // The probe the tab sends on `server.ready` is what the fresh server 409s.
+  reportMusicSink.mockResolvedValueOnce({
+    error: "not_the_sink",
+    response: { status: 409 },
+  });
   act(() => {
     FakeSocket.deliver({ event: "server.ready", version: "test" });
   });
@@ -329,6 +334,25 @@ it("claims again when the backend has restarted", async () => {
     const calls = reportMusicSink.mock.calls;
     expect(calls[calls.length - 1][0].body.sink_id).toBe("sink-2");
   });
+});
+
+it("keeps its lease when server.ready arrives on a server that kept running", async () => {
+  // At load the socket's first `server.ready` and the claim's own answer race
+  // each other; a re-claim on every `server.ready` would restart the song a
+  // moment into every page load. The probe is answered 200, so nothing moves.
+  draw();
+  const audio = await audioElement();
+  await waitFor(() => expect(audio.getAttribute("src")).toContain("usdb%3A1"));
+
+  act(() => {
+    FakeSocket.deliver({ event: "server.ready", version: "test" });
+  });
+
+  await waitFor(() => expect(reportMusicSink).toHaveBeenCalled());
+  await new Promise((resolve) => setTimeout(resolve, 20));
+  expect(registerMusicSink).toHaveBeenCalledTimes(1);
+  expect(audio.getAttribute("src")).toContain("usdb%3A1");
+  expect(HTMLMediaElement.prototype.load).not.toHaveBeenCalled();
 });
 
 it("goes quiet on a report the backend answers with not_the_sink", async () => {
