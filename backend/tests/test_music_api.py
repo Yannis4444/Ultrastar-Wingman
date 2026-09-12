@@ -130,6 +130,19 @@ async def test_the_volume_is_written_without_the_settings_right(
     assert events_named(broadcast_events, "music.changed")
 
 
+async def test_a_volume_set_on_the_settings_page_reaches_the_music(
+    client: AsyncClient, broadcast_events: list[dict[str, Any]]
+) -> None:
+    """The Settings page writes the ordinary `sound.*` key; the host screen reads the volume
+    off the music state, so that write has to land there too — and be announced."""
+    response = await client.patch("/api/v1/settings/sound.music_volume", json={"value": 30})
+    assert response.status_code == 200
+
+    body = (await client.get("/api/v1/music")).json()
+    assert body["volume"]["music"] == 30
+    assert events_named(broadcast_events, "music.changed")
+
+
 async def test_only_the_volumes_named_are_written(client: AsyncClient) -> None:
     await client.put("/api/v1/music/volume", json={"master": 40})
     body = (await client.put("/api/v1/music/volume", json={"effects": 10})).json()

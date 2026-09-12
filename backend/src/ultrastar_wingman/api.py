@@ -20,6 +20,7 @@ from .events import ServerReady, SettingChanged, event_bus
 from .join_url import normalize_join_url
 from .karaoke.api import router as karaoke_router
 from .library.api import router as library_router
+from .music import service as music
 from .music.api import router as music_router
 from .players.api import router as players_router
 from .settings import (
@@ -31,6 +32,7 @@ from .settings import (
     UnknownSettingError,
 )
 from .songs.api import router as songs_router
+from .sound import VOLUME_KEYS
 from .sources.api import router as sources_router
 from .stats.api import router as stats_router
 from .tags.api import router as tags_router
@@ -171,6 +173,11 @@ async def update_setting(key: str, update: SettingUpdate, session: SessionDep) -
     # `result.value`, never `value`: the websocket is open to anonymous clients, so a secret
     # setting (usdb.password) must reach it masked exactly like the GET response masks it.
     await event_bus.broadcast(SettingChanged(key=key, value=result.value))
+    if key in VOLUME_KEYS:
+        # The music service caches the volumes, and the host screen reads them off the
+        # music state: a slider moved here has to reach the speakers now, not at the next
+        # restart.
+        await music.broadcast(await music.apply_settings(session))
     return result
 
 
