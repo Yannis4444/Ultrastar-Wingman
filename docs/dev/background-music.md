@@ -215,6 +215,11 @@ The rules, each covering a race:
   load. A 409 `not_the_sink` on an ordinary heartbeat drops the lease and claims **nothing**,
   because two screens that both re-claimed would trade the sound every five seconds — the
   newest registration wins, and it was not ours.
+- **The heartbeat goes out with or without a track.** With none — a song being sung, the
+  wait after it, an empty pool — the report names no track (`"none"`), which the backend
+  answers with its state and a touched lease. A heartbeat that needed a track let the lease
+  lapse fifteen seconds into every sing, and the music never came back: the first report
+  afterwards was the 409 that means *another screen has it*, and the tab went quiet.
 - **`play()` on the element is never blind.** The autoplay unlock — the *Turn on sound* button
   and any press on the page — plays only while the state says the music should be playing, so a
   click during a sing or a pause starts nothing; and clearing the track calls `load()` after
@@ -348,16 +353,19 @@ its name says: the TV's block.
         Nothing is playing. Pick a song and press play.
 ```
 
-**As tall as its mode needs**, and the modes are built to land close rather than forced
-equal: 16 + 88 + 8 + 48 + 16 = 176 for a song, and the brand block within a few pixels of it.
-Every text row still carries a **declared px `line-height`**, never `normal` (§4's warning: the
-same caption is 16 px in Segoe UI and 14 px in Roboto). The head is a flex row — the art, then
-one column of text rows adding up to the art's 88 px — and not a grid the art spans, because a
-spanned grid hands the art's height to the rows and spreads the text down the tile.
+**One height in every mode**, 200 px: 16 of padding, the 88 px head, 8, and the 72 px the sing's
+lead control needs — the music mode's 48 px row and the idle brand block centre in that second
+track. (A first cut let the tile follow its content, 176 for the music and a little more for a
+sing; the user asked for one height the same day.) Every text row carries a **declared px
+`line-height`**, never `normal` (§4's warning: the same caption is 16 px in Segoe UI and 14 px in
+Roboto). The head is a flex row — the art, then one column of text rows **centred beside it**,
+nothing reserved for a second title line — and not a grid the art spans, because a spanned grid
+hands the art's height to the rows and spreads the text down the tile. The eyebrow sets
+`text-align: left` against the global centred `h1`.
 
 | slot | singing | background music | idle |
 |---|---|---|---|
-| art, 88 px | `SongCover` in a button opening the song modal | the same | `LogoTile`, centred |
+| art, 88 px | `SongCover` in a button opening the song modal | the same | `LogoTile` without its black plate, centred |
 | the page's `h1` | the eyebrow *Now playing* | *Background music*, `visually-hidden` — the row says what this is | *Ultrastar Wingman*, the brand line |
 | title | 2 clamped lines at 1.15em | 2 clamped lines at 1.3em (the eyebrow's line is its own) | — |
 | artist | the song's | the song's | the hint line |

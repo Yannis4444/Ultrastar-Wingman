@@ -2,15 +2,15 @@
    The whitelist of tiled surfaces does not grow — one stage tile stays one
    stage tile (§1.2).
 
-   The tile is as tall as its mode needs and no taller. The modes are laid out
-   so the heights come out close rather than forced equal: a song is an 88px
-   head (the art, with the text rows beside it), 8, and a 48px control row —
-   16 + 88 + 8 + 48 + 16 = 176; the quiet room is the logo over the brand and
-   one hint line, which lands within a few pixels of that. Every text row has a
-   declared px `line-height`, never `normal`, for the reason §4 gives about the
-   bottom nav: `normal` comes out of the font's own metrics, so the same caption
-   is 16px tall in Segoe UI and 14px in Roboto, and a head that measured itself
-   would be one height on the developer's Windows and another on every phone. */
+   One height in every mode — the user's ask of 2026-09-12, after a first cut
+   that let the tile follow its content: 200px, being 16 of padding, an 88px
+   head, 8, and the 72px the sing's lead control needs, 16. The music mode's
+   48px row and the idle brand block are shorter than that and centre in the
+   room they are given. Every text row has a declared px `line-height`, never
+   `normal`, for the reason §4 gives about the bottom nav: `normal` comes out of
+   the font's own metrics, so the same caption is 16px tall in Segoe UI and 14px
+   in Roboto, and a head that measured itself would be one height on the
+   developer's Windows and another on every phone. */
 .home-stage {
   /* A local composition rather than a new token: the pink accent lightened far
      enough to clear 3:1 as a glyph on `--tile-bg`, where the raw token is
@@ -39,7 +39,9 @@
 
 .home-stage-body {
   display: grid;
+  grid-template-rows: 88px minmax(0, 1fr);
   row-gap: 8px;
+  height: 168px;
   animation: home-stage-in 200ms ease;
 }
 
@@ -52,20 +54,25 @@
 /* --- the quiet room ------------------------------------------------------ */
 
 /* The brand fills the tile: the logo over the name over one hint line, all
-   centred. Nothing of the song layout is drawn — no head, no row. */
+   centred in the same 168px. Nothing of the song layout is drawn — no head,
+   no row. */
 .home-stage-idle {
+  grid-template-rows: none;
+  align-content: center;
   justify-items: center;
   row-gap: 0;
-  padding: 4px 0;
   text-align: center;
 }
 
+/* The reel's logo tile without its black plate: on the tile the mark stands
+   on `--tile-bg` itself. */
 .home-stage-logo {
   display: block;
   width: 88px;
   height: 88px;
-  border-radius: var(--border-radius-small);
-  background-size: 70%;
+  border-radius: 0;
+  background-color: transparent;
+  background-size: 100%;
 }
 
 .home-stage-brand {
@@ -91,8 +98,9 @@
    hands the art's height to the rows and spreads the text down the tile. */
 .home-stage-head {
   display: flex;
-  align-items: flex-start;
+  align-items: center;
   gap: 12px;
+  height: 88px;
 }
 
 /* The first text row keeps clear of the gear — only where there is one, and
@@ -135,16 +143,18 @@
   font-size: 0.85em;
   line-height: 20px;
   font-weight: normal;
+  /* The global h1 rule centres; the eyebrow sits over the title's left edge. */
+  text-align: left;
   color: var(--color-darker);
   overflow: hidden;
   white-space: nowrap;
   text-overflow: ellipsis;
 }
 
-/* Two lines, always: the room reserved for the second one is what keeps the
-   head at the art's height under a long title and a short one alike. */
+/* At most two lines. Nothing is reserved for the second: the text column is
+   centred beside the art, so a one-line title sits with its artist under it
+   and a two-line one fills the head. */
 .home-stage-title {
-  height: 44px;
   margin: 0;
   font-size: 1.15em;
   line-height: 22px;
@@ -159,7 +169,6 @@
    art, and takes the eyebrow's line as its own — the line-height rises with
    the size, which is what lands the artist row where it lands over a sing. */
 .home-stage-title-tall {
-  height: 48px;
   font-size: 1.3em;
   line-height: 24px;
 }
@@ -210,6 +219,12 @@
 }
 
 /* --- the one control row ------------------------------------------------- */
+
+/* Centred in the second track: 72px tall over a sing (the lead), 48px for the
+   background song, and the tile is the same height under both. */
+.home-stage-controls {
+  align-self: center;
+}
 
 /* Over a sing the geometry is `SongControls.css`'s, which keys on
    `.home-stage-controls` directly: the modal's row and this one are one set

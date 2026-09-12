@@ -318,15 +318,15 @@ saved) where a jump to the top would throw away the place they were working in.
   reel frame; `PlayerAvatar` is `--border-radius-small` (people, not covers), the 96px identity
   avatar round. Sizes: 40px in rows, 200px (`max-width: 60vw`) in the modal hero, 160px on Home,
   `min(42vh, 30vw)` on the host; the fallback is the initial letter on `--input-bg`.
-- **Home** is `HomeStage`, the player: one tile, three modes, **one control row**, and as
-  tall as its mode needs — the modes are built to land close (an 88px head over a 48px row,
-  or the logo over the brand and one hint line) rather than forced to one height. A song being
+- **Home** is `HomeStage`, the player: one tile, three modes, **one control row**, and
+  **one height** — 200px: 16 of padding, an 88px head, 8, and the 72px the sing's lead needs;
+  the music mode's 48px row and the idle brand block centre in that second track. A song being
   sung, the background song between them, and the brand while neither. Every text row carries
   a *declared* px `line-height` — `normal` comes out of the font's metrics (§4), so a head
   that measured itself would be one height on Windows and another on every phone. The art is
-  88px: the cover, or `SongReel`'s own `LogoTile` when idle, centred over the brand name. Two
-  title lines are always reserved, which is what a long title costs instead of the head
-  growing. Home exposes exactly one heading throughout: the eyebrow *Now playing* over a
+  88px: the cover, or `SongReel`'s own `LogoTile` without its black plate when idle, centred
+  over the brand name. The text column is centred beside the art and reserves nothing: a
+  one-line title sits with its artist under it, a two-line one (clamped) fills the head. Home exposes exactly one heading throughout: the eyebrow *Now playing* over a
   sing, a visually hidden *Background music* for the background song (the row says what it
   is), the brand line when idle. Over a sing the row is the song modal's heart / pink Stop /
   wish; for the background song the same two marks flank the music's own transport —
