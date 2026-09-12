@@ -17,6 +17,17 @@
   background-color: var(--bg);
 }
 
+/* While the music line stands along the foot, the page keeps clear of it, so
+   tall score bars on a short TV shrink above the line and never run under it —
+   the line is fixed to the screen, and this is what a grid row would have
+   reserved. */
+.host-page:has(> .host-music-line) {
+  padding-bottom: calc(
+    clamp(24px, 3vh, 56px) + var(--host-music-line-height) +
+      var(--host-music-line-bottom)
+  );
+}
+
 /* One static radial glow so the idle screen is not a black void. */
 .host-page::before {
   content: "";
@@ -40,22 +51,11 @@
   grid-template-columns: minmax(0, 1fr);
 }
 
-/* Two rows: whatever the stage shows, centred, and the quiet music line at
-   the foot. A grid row rather than an absolutely placed line, so tall score
-   bars on a short TV shrink above it and never run under it. */
 .host-stage {
-  display: grid;
-  grid-template-rows: minmax(0, 1fr) auto;
-  min-width: 0;
-  overflow: hidden;
-}
-
-.host-stage-main {
   display: flex;
   flex-direction: column;
   justify-content: center;
   min-width: 0;
-  min-height: 0;
   overflow: hidden;
 }
 
@@ -231,18 +231,35 @@
 
 /* What the room is hearing while nobody sings. A step quieter than the scan
    hint and in the meta colour: it is a thing to notice, not a thing to do, and
-   the code above it is what the screen is for. */
+   the code above it is what the screen is for. Fixed along the foot of the
+   whole screen — the user's ask of 2026-09-12: centred on the TV, not on the
+   stage's column — and as wide as the page's own padding allows, one line,
+   the ellipsis for the pathological title alone. Under *Turn on sound*, which
+   stands at 8vh: the two are on screen together while a blocked browser is
+   playing nothing. */
+.host-page {
+  --host-music-line-height: clamp(15px, 2vh, 30px);
+  --host-music-line-bottom: clamp(12px, 2.2vh, 28px);
+}
+
 .host-music-line {
-  justify-self: center;
-  margin: 0;
-  padding-top: clamp(8px, 1.5vh, 20px);
-  font-size: clamp(15px, 2vh, 30px);
+  position: fixed;
+  left: 0;
+  right: 0;
+  bottom: var(--host-music-line-bottom);
+  z-index: 2;
+  box-sizing: border-box;
+  margin: 0 auto;
+  padding: 0;
+  max-width: calc(100vw - 2 * clamp(24px, 3vh, 56px));
+  font-size: var(--host-music-line-height);
+  line-height: 1;
   color: var(--color-darker);
   text-align: center;
-  max-width: 24ch;
   overflow: hidden;
   white-space: nowrap;
   text-overflow: ellipsis;
+  pointer-events: none;
 }
 
 /* The one press this screen ever asks for. A primary is legitimate here: the
@@ -407,6 +424,17 @@
   .host-stage,
   .host-rail {
     overflow: visible;
+  }
+
+  /* A scrolling page: the line takes its place in the flow instead of
+     covering whatever scrolled under it. */
+  .host-page:has(> .host-music-line) {
+    padding-bottom: clamp(24px, 3vh, 56px);
+  }
+
+  .host-music-line {
+    position: static;
+    max-width: 100%;
   }
 
   .host-join {

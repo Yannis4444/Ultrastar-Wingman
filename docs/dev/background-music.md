@@ -25,8 +25,9 @@ Made by the user, 2026-09-11:
    beside it, the controls underneath, and **the same height in all three modes** — a sing, the
    background song, and idle. Idle fills the art square with the Wingman logo.
 5. The host TV **keeps its brand and its QR rail** and gains one quiet line naming the
-   background song at the foot of the stage — under the brand and under the scores alike,
-   gone while a screen takes the whole TV. Nothing else about the idle screen changes.
+   background song along the foot of the whole screen — centred on the TV, not on the stage's
+   column (the user's ask of 2026-09-12), under the brand and under the scores alike, gone
+   while a screen takes the whole TV. Nothing else about the idle screen changes.
 6. Three capabilities: **`music.view`** (guest and up), **`music.control`** — play, pause,
    skip, volume — (account and up), **`music.manage`** — turn it on, the pool, the playlist,
    the pause — (trusted and up).
@@ -484,10 +485,14 @@ about the background track. The gesture unlock plays whichever element should be
   "volume"`, and `CUSTOM_FIELDS` points all four volume keys at one `VolumeField`; the reel
   switch is an ordinary checkbox row, its label `labelize`d off the key (*Reel preview*), the
   sentence in its description.
-- `pages/Host.tsx` — one quiet line, `.host-music-line`, in the foot row of the `.host-stage`
-  grid under whatever the stage shows — the brand, the scores — and not drawn during a
-  takeover (the badges, the selection), which already hide the rail. It is content, not a
-  control, so it is not wrapped in the reveal-on-move overlay and adds no second idle timer. *Turn on sound* goes in
+- `pages/Host.tsx` — one quiet line, `.host-music-line`, a child of `.host-page` fixed along
+  the foot of the screen: centred on the TV, as wide as the page's padding allows (one line,
+  ellipsis only for the pathological title), under *Turn on sound* at 8vh, and the page
+  reserves its height as bottom padding (`:has(> .host-music-line)`) so tall score bars on a
+  short TV shrink above it; the narrow-screen query puts it back in the flow. Under whatever
+  the stage shows — the brand, the scores — and not drawn during a takeover (the badges, the
+  selection), which already hide the rail. It is content, not a control, so it is not wrapped
+  in the reveal-on-move overlay and adds no second idle timer. *Turn on sound* goes in
   `.host-rail` after the QR card for the same reason: `.host-controls` is invisible the moment
   the mouse stops moving, which on a TV is always.
 - `icons.tsx` — `pause`, `skip`, `volume`. No mute, so no `volume-off`. Control glyphs, so none

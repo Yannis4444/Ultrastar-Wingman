@@ -830,7 +830,7 @@ test("the idle screen names the background song, quietly", async () => {
   expect(screen.getByText("Scan the code to pick a song")).toBeInTheDocument();
 });
 
-test("the background song stays named under the scores, and goes with the rail", async () => {
+test("the background song stays named along the foot with the scores up, and goes with the rail", async () => {
   withScores();
   getMe.mockResolvedValue(
     meResponse(["music.view", "stats.view"], { is_host: true, role: "admin" }),
@@ -848,11 +848,13 @@ test("the background song stays named under the scores, and goes with the rail",
   });
   const { container } = renderHost("/host");
 
-  // The scores are up, and the line is under them, in the stage.
+  // The scores are up, and the line stands along the foot of the whole page,
+  // outside the stage's column.
   await screen.findByLabelText("Last song");
   const line = await screen.findByText(/Waterloo · ABBA/);
   expect(line).toHaveClass("host-music-line");
-  expect(container.querySelector(".host-stage")).toContainElement(line);
+  expect(container.querySelector(".host-page")).toContainElement(line);
+  expect(container.querySelector(".host-stage")).not.toContainElement(line);
 
   // The room picking the next song takes the screen, and the line goes with
   // the rail: the reel names its own song, large.

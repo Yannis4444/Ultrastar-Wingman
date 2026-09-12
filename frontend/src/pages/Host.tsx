@@ -258,15 +258,14 @@ export default function Host() {
       className={`host-page${takeover ? " host-takeover" : ""}${idle ? " host-idle" : ""}`}
     >
       <div className="host-stage">
-        <div className="host-stage-main">
-          <CurrentlyPlaying />
-          {/* Somebody is picking singers for the next song: the stage shows the
+        <CurrentlyPlaying />
+        {/* Somebody is picking singers for the next song: the stage shows the
             song and its slots filling up, and takes the whole screen for it.
             It gives way to the badges a finished song earned, and it stands in
             front of the results — the room is looking at what happens next, not
             at what just happened. */}
-          <HostSelection onPhase={setPicking} suppressed={badges} />
-          {/* The badges a finished song earned take the stage before its scores
+        <HostSelection onPhase={setPicking} suppressed={badges} />
+        {/* The badges a finished song earned take the stage before its scores
             do. `HostResults` stays mounted underneath them the whole time —
             it is what listens for the next scores and for the next song — and
             simply waits its turn; the brand stands in while the stage is
@@ -275,29 +274,29 @@ export default function Host() {
             takeover's own, and it hands the stage the brand rather than
             leaving the TV empty for it — without the scan line, the rail
             holding the code being down for those seconds. */}
-          <HostAchievements
-            onPhase={setEarned}
-            fallback={<HostBrand scan={false} />}
-          />
-          <HostResults
-            players={standing.players}
-            fallback={takeover ? null : <HostBrand />}
-            suppressed={earned !== "idle" || picked}
-          />
-        </div>
-        {/* What the room is hearing, quietly, at the foot of the stage —
-            under the brand and under the scores alike, so the room learns
-            where to look. Not while the stage has taken the whole screen: the
-            reel names its own song large, and the badges are a singer's
-            seconds. Content rather than a control, so it is not in the
-            reveal-on-movement overlay — the point is that it reads across the
-            room while nobody is touching the mouse. */}
-        {!takeover && background !== null && (
-          <p className="host-music-line">
-            {background.title} · {background.artist}
-          </p>
-        )}
+        <HostAchievements
+          onPhase={setEarned}
+          fallback={<HostBrand scan={false} />}
+        />
+        <HostResults
+          players={standing.players}
+          fallback={takeover ? null : <HostBrand />}
+          suppressed={earned !== "idle" || picked}
+        />
       </div>
+      {/* What the room is hearing, quietly, along the foot of the whole
+          screen — centred on the TV and not on the stage's column, under the
+          brand and under the scores alike, so the room learns where to look.
+          Not while the stage has taken the whole screen: the reel names its
+          own song large, and the badges are a singer's seconds. Content rather
+          than a control, so it is not in the reveal-on-movement overlay — the
+          point is that it reads across the room while nobody is touching the
+          mouse. */}
+      {!takeover && background !== null && (
+        <p className="host-music-line">
+          {background.title} · {background.artist}
+        </p>
+      )}
 
       {/* A browser plays no sound until somebody has pressed something on
           it, and a TV gets no presses. Over everything and in the middle of
