@@ -131,12 +131,13 @@ function music(overrides: Partial<MusicRead> = {}): MusicRead {
   return {
     status: "playing",
     track: track(),
+    preview: null,
     blocked_by: null,
     resume_at: null,
     retry_at: null,
     sink_online: true,
     sink_generation: 1,
-    volume: { master: 100, music: 60, effects: 80 },
+    volume: { master: 100, music: 60, preview: 100, effects: 80 },
     scope: "all",
     ...overrides,
   };
@@ -171,13 +172,6 @@ function renderStage() {
       <HomeStage />
     </QueryClientProvider>,
   );
-}
-
-/** The three grid tracks are the fixed-height contract: whatever the mode, the
- *  head, the control row and the transport row are all there. */
-function tracks(container: HTMLElement): string[] {
-  const body = container.querySelector(".home-stage-body");
-  return [...(body?.children ?? [])].map((child) => child.className);
 }
 
 beforeEach(() => {
@@ -219,12 +213,16 @@ afterEach(() => vi.unstubAllGlobals());
 test("a quiet room shows the brand and the logo", async () => {
   const { container } = renderStage();
 
-  expect(await screen.findByText("Nothing is playing")).toBeInTheDocument();
+  expect(await screen.findByText(/Nothing is playing/)).toBeInTheDocument();
   expect(
     screen.getByRole("region", { name: "Ultrastar Wingman" }),
   ).toBeInTheDocument();
   // The reel's own logo tile, so the brand mark is drawn in one place.
   expect(container.querySelector(".spinner-cover-logo")).toBeInTheDocument();
+  // The brand fills the tile: nothing of the song layout is drawn.
+  expect(container.querySelector(".home-stage-head")).toBe(null);
+  expect(container.querySelector(".home-stage-controls")).toBe(null);
+  expect(screen.queryByRole("slider")).not.toBeInTheDocument();
 });
 
 test("a running song takes the stage", async () => {
@@ -261,50 +259,63 @@ test("a sing outranks the background music", async () => {
   expect(screen.queryByText("Waterloo")).not.toBeInTheDocument();
 });
 
-test("every mode draws the same three rows, so the tile never changes height", async () => {
-  const ROWS = [
-    "home-stage-head",
-    "home-stage-controls",
-    "home-stage-transport",
-  ];
-
-  const idle = renderStage();
-  await screen.findByText("Nothing is playing");
-  expect(tracks(idle.container)).toEqual(ROWS);
-  idle.unmount();
-
+test("a song draws one control row, and the gear stays out of it", async () => {
   getMusic.mockResolvedValue({ data: music() });
   const background = renderStage();
   await screen.findByRole("region", { name: "Background music" });
-  expect(tracks(background.container)).toEqual(ROWS);
+  expect(
+    background.container.querySelectorAll(".home-stage-controls"),
+  ).toHaveLength(1);
+  const gear = screen.getByRole("button", {
+    name: "Background music settings",
+  });
+  expect(gear.closest(".home-stage-controls")).toBe(null);
   background.unmount();
 
   getCurrentSing.mockResolvedValue({ data: { sing: SING } });
   const singing = renderStage();
   await screen.findByRole("region", { name: "Now playing" });
-  expect(tracks(singing.container)).toEqual(ROWS);
+  expect(
+    singing.container.querySelectorAll(".home-stage-controls"),
+  ).toHaveLength(1);
 });
 
-test("the large control is Sing for the background song, not a second play", async () => {
+test("the background song's row is the music's transport, not a second Sing", async () => {
   getMusic.mockResolvedValue({ data: music() });
-  renderStage();
+  const { container } = renderStage();
 
   await screen.findByRole("region", { name: "Background music" });
-  const sing = screen.getByRole("button", { name: "Sing" });
-  expect(sing).toHaveClass("song-control-lead");
-  // And the transport's own play/pause is a separate, smaller control.
+  expect(
+    screen.queryByRole("button", { name: "Sing" }),
+  ).not.toBeInTheDocument();
+  expect(container.querySelector(".song-control-lead")).toBe(null);
+  // Heart, play/pause, skip, the volume, wish — the marks at the ends, the
+  // music's own controls between them.
+  const row = container.querySelector(".home-stage-controls");
+  expect(iconNames(row as HTMLElement)).toEqual([
+    "heart",
+    "pause",
+    "skip",
+    "volume",
+    "playlist-plus",
+  ]);
   expect(screen.getByRole("button", { name: "Pause" })).toHaveClass(
-    "icon-button",
+    "song-control",
   );
 });
 
-test("Sing opens the player selection for the background song", async () => {
+test("the cover opens the song modal, which is where the background song is sung", async () => {
   getMusic.mockResolvedValue({ data: music() });
   renderStage();
 
-  fireEvent.click(await screen.findByRole("button", { name: "Sing" }));
+  fireEvent.click(
+    await screen.findByRole("button", { name: "Details for Waterloo" }),
+  );
 
-  expect(await screen.findByRole("dialog")).toHaveTextContent("Waterloo");
+  const modal = await screen.findByRole("dialog", { name: "Waterloo" });
+  expect(
+    within(modal).getByRole("button", { name: "Sing" }),
+  ).toBeInTheDocument();
 });
 
 test("the heart and the wish work on the background song", async () => {
@@ -412,7 +423,8 @@ test("a reader who may not see the music is told nothing about it", async () => 
 
   await waitFor(() => expect(getCurrentSing).toHaveBeenCalled());
   // Not "Nothing is playing": that reader cannot know whether it is.
-  expect(screen.queryByText("Nothing is playing")).not.toBeInTheDocument();
+  expect(screen.queryByText(/Nothing is playing/)).not.toBeInTheDocument();
+  expect(screen.getByText("Pick a song and press play.")).toBeInTheDocument();
   expect(getMusic).not.toHaveBeenCalled();
 });
 
@@ -420,9 +432,7 @@ test("the player says when no screen is making the sound", async () => {
   getMusic.mockResolvedValue({ data: music({ sink_online: false }) });
   renderStage();
 
-  expect(
-    await screen.findByText("No screen is playing the music"),
-  ).toBeInTheDocument();
+  expect(await screen.findByText("No host screen is open")).toBeInTheDocument();
 });
 
 test("stopping from the stage asks first, then calls the backend", async () => {

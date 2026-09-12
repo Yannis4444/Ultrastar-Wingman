@@ -61,6 +61,7 @@ const CUSTOM_FIELDS: Record<
   // into typing, tabbing and typing again.
   "sound.master_volume": VolumeField,
   "sound.music_volume": VolumeField,
+  "sound.preview_volume": VolumeField,
   "sound.effects_volume": VolumeField,
   "host.join_url": JoinUrlField,
   "downloads.video_format": VideoQualityField,

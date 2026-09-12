@@ -47,7 +47,7 @@ async def test_the_music_reads_as_off_on_a_fresh_install(client: AsyncClient) ->
     assert body["track"] is None
     assert body["sink_online"] is False
     # The volumes ride along, so a guest phone draws the slider without `settings.view`.
-    assert body["volume"] == {"master": 100, "music": 60, "effects": 80}
+    assert body["volume"] == {"master": 100, "music": 100, "preview": 100, "effects": 100}
 
 
 async def test_the_controls_refuse_while_the_music_is_off(client: AsyncClient) -> None:
@@ -130,10 +130,38 @@ async def test_the_volume_is_written_without_the_settings_right(
     assert events_named(broadcast_events, "music.changed")
 
 
+async def test_a_volume_set_on_the_settings_page_reaches_the_music(
+    client: AsyncClient, broadcast_events: list[dict[str, Any]]
+) -> None:
+    """The Settings page writes the ordinary `sound.*` key; the host screen reads the volume
+    off the music state, so that write has to land there too — and be announced."""
+    response = await client.patch("/api/v1/settings/sound.music_volume", json={"value": 30})
+    assert response.status_code == 200
+
+    body = (await client.get("/api/v1/music")).json()
+    assert body["volume"]["music"] == 30
+    assert events_named(broadcast_events, "music.changed")
+
+
+async def test_the_reel_switch_is_a_sound_setting_and_not_a_music_option(
+    client: AsyncClient,
+) -> None:
+    rows = {row["key"]: row for row in (await client.get("/api/v1/settings")).json()}
+    assert rows["sound.reel_preview"]["value"] is True
+    assert rows["sound.reel_preview"]["group"] == "Sound"
+    assert rows["sound.preview_volume"]["value"] == 100
+    # The gear's panel knows nothing of it.
+    assert "preview_on_spin" not in (await client.get("/api/v1/music/settings")).json()
+    response = await client.patch("/api/v1/settings/sound.reel_preview", json={"value": False})
+    assert response.status_code == 200
+    # And the state carries no preview while nothing is spun.
+    assert (await client.get("/api/v1/music")).json()["preview"] is None
+
+
 async def test_only_the_volumes_named_are_written(client: AsyncClient) -> None:
     await client.put("/api/v1/music/volume", json={"master": 40})
     body = (await client.put("/api/v1/music/volume", json={"effects": 10})).json()
-    assert body["volume"] == {"master": 40, "music": 60, "effects": 10}
+    assert body["volume"] == {"master": 40, "music": 100, "preview": 100, "effects": 10}
 
 
 async def test_a_volume_out_of_range_is_refused(client: AsyncClient) -> None:

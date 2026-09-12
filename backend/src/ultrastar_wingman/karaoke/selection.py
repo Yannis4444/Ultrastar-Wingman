@@ -34,6 +34,7 @@ from typing import Literal
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
 
 from ..events import SelectionChanged, event_bus
+from ..music import service as music
 from ..players.model import Player
 from ..players.schema import PlayerRead, read_player
 from ..songs.model import Song
@@ -182,6 +183,25 @@ class _Spin:
     viewer: tags.Viewer
     origin: SpinOrigin
     revealed: bool = False
+    # When the press landed the reel early, for the host's fade-in (`music.SpinPreview`).
+    revealed_at: datetime | None = None
+    # What the host screen plays when the reel lands: where the file says a preview starts,
+    # and whether there is a file at all. Read off the picked row here, so the music needs no
+    # query of its own under two locks.
+    preview_start: float | None = None
+    has_audio: bool = False
+
+
+@dataclass(frozen=True)
+class _Landed:
+    """What the reel landed on, kept once the spin comes off the selection (`pick_singers`):
+    the host keeps playing the song while the singers are picked, until the selection is
+    started or given up."""
+
+    key: str
+    reveal_at: datetime
+    preview_start: float | None
+    has_audio: bool
 
 
 @dataclass
@@ -198,6 +218,7 @@ class _Selection:
     # song, and never set later: a selection is spun from the start or not at all — though
     # the opener may take the spin off it again (`pick_singers`), once the song is right.
     spin: _Spin | None = None
+    landed: _Landed | None = None
 
 
 # One room, one selection — see `service._running` for the same reasoning.
@@ -305,6 +326,8 @@ async def open_selection(
                 playlist_id=spin.playlist_id,
                 viewer=spin.viewer,
                 origin="phone",
+                preview_start=song.preview_start_seconds,
+                has_audio=song.audio_file is not None,
             )
         elif song_id is not None:
             song = await session.get(Song, song_id)
@@ -386,6 +409,7 @@ async def pick_singers(
         selection = _opener_or_raise(token)
         if selection.spin is None:
             raise NotASpinError
+        selection.landed = _landed(selection)
         selection.spin = None
         _touch(selection)
         if any(slot.card_uid is not None for slot in selection.slots):
@@ -731,6 +755,36 @@ async def _broadcast_locked() -> None:
     await event_bus.broadcast(
         SelectionChanged(selection=None if _selection is None else _read(_selection))
     )
+    # The one place every change of the selection passes, so the music follows all of them:
+    # a reel started, respun, landed early, its spin taken off, the selection gone.
+    await music.selection_changed(None if _selection is None else _spin_preview(_selection))
+
+
+def _landed(selection: _Selection) -> _Landed | None:
+    """The reel behind the selection as the host plays it: the spin while it is on, or what
+    it landed on after `pick_singers` took it off."""
+    spin = selection.spin
+    if spin is None:
+        return selection.landed
+    return _Landed(
+        key=f"{selection.opened_at.isoformat()}:{spin.id}",
+        reveal_at=spin.revealed_at or spin.spun_at + _REVEAL,
+        preview_start=spin.preview_start,
+        has_audio=spin.has_audio,
+    )
+
+
+def _spin_preview(selection: _Selection) -> music.SpinPreview | None:
+    landed = _landed(selection)
+    if landed is None:
+        return None
+    return music.SpinPreview(
+        key=landed.key,
+        song=selection.song,
+        start_s=landed.preview_start,
+        reveal_at=landed.reveal_at,
+        has_audio=landed.has_audio,
+    )
 
 
 async def _expire_locked() -> None:
@@ -886,6 +940,8 @@ async def _spin_without_selection_locked(
             playlist_id=playlist_id,
             viewer=_GUEST,
             origin="device",
+            preview_start=song.preview_start_seconds,
+            has_audio=song.audio_file is not None,
         ),
     )
     _refresh_auto_start(_selection, auto_start, session_factory)
@@ -910,6 +966,7 @@ def _reveal_locked(
     if spin is None or spin.revealed or _now() >= spin.spun_at + _REVEAL:
         return False
     spin.revealed = True
+    spin.revealed_at = _now()
     _touch(selection)
     _reschedule_auto_start(selection, auto_start, session_factory)
     return True
@@ -942,6 +999,9 @@ async def _respin_locked(
     spin.id += 1
     spin.spun_at = now
     spin.revealed = False
+    spin.revealed_at = None
+    spin.preview_start = song.preview_start_seconds
+    spin.has_audio = song.audio_file is not None
     _reschedule_auto_start(selection, auto_start, session_factory)
 
 

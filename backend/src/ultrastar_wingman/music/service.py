@@ -36,11 +36,12 @@ from ..karaoke.schema import Scope
 from ..settings import SettingsService, SettingValue
 from ..songs.model import Song
 from ..songs.schema import SongRead, read_song
-from ..sound import EFFECTS_VOLUME, MASTER_VOLUME, MUSIC_VOLUME
+from ..sound import EFFECTS_VOLUME, MASTER_VOLUME, MUSIC_VOLUME, PREVIEW_VOLUME, REEL_PREVIEW
 from ..tags import service as tags
 from . import settings as music_settings
 from .schema import (
     MusicBlocker,
+    MusicPreviewRead,
     MusicRead,
     MusicSettings,
     MusicStatus,
@@ -78,17 +79,21 @@ class _Options:
     scope: str
     playlist: str
     resume_delay_s: int
+    preview_on_spin: bool
 
 
 @dataclass(frozen=True)
 class _Volumes:
     master: int
     music: int
+    preview: int
     effects: int
 
 
-DEFAULT_OPTIONS = _Options(enabled=False, scope="all", playlist="", resume_delay_s=10)
-DEFAULT_VOLUMES = _Volumes(master=100, music=60, effects=80)
+DEFAULT_OPTIONS = _Options(
+    enabled=False, scope="all", playlist="", resume_delay_s=10, preview_on_spin=True
+)
+DEFAULT_VOLUMES = _Volumes(master=100, music=100, preview=100, effects=100)
 
 
 @dataclass
@@ -109,6 +114,32 @@ class _Track:
     duration_s: float | None
 
 
+@dataclass(frozen=True)
+class SpinPreview:
+    """What `karaoke.selection` hands over on every change of the room's selection: the
+    song the reel picked and when it lands, or None for a selection that was never spun (or
+    for none at all). `key` tells one spin from the next — a respin is a new song and a new
+    landing — and `reveal_at` is the landing on the server's clock, moved forward by a press
+    that lands the reel early. `start_s` is `Song.preview_start_seconds`, or None for a
+    file that says nothing; `has_audio` is whether there is a file to play at all."""
+
+    key: str
+    song: SongRead
+    start_s: float | None
+    reveal_at: datetime
+    has_audio: bool
+
+
+@dataclass
+class _Preview:
+    """The reel's song, while the host plays it. See `MusicPreviewRead`."""
+
+    key: str
+    song: SongRead
+    start_s: float
+    reveal_at: datetime
+
+
 @dataclass
 class _Sink:
     """The host tab making the sound, and when it last said so."""
@@ -124,6 +155,9 @@ _track: _Track | None = None
 # path to the next song clears the track first, so the picker would otherwise have
 # nothing to avoid repeating.
 _last_song_id: str | None = None
+# The reel's song, while a spun selection stands and the host plays it. Set and cleared by
+# `selection_changed`, and dropped by whatever takes the speakers.
+_preview: _Preview | None = None
 _sink: _Sink | None = None
 _sink_generation: int = 0
 _paused: bool = False
@@ -194,9 +228,10 @@ def _position(track: _Track, at: datetime, status: MusicStatus) -> float:
 
     It only advances while the music plays *and* somebody is listening: a track nobody
     hears must not march past its own end on the server's clock, because the host would
-    then join a song that is already over.
+    then join a song that is already over. Nor while the reel's song has the speakers: the
+    background froze for it and comes back where it stopped.
     """
-    if status != "playing" or not _sink_online(at):
+    if status != "playing" or not _sink_online(at) or _preview is not None:
         return track.position_s
     elapsed = (at - track.position_at).total_seconds()
     return max(0.0, track.position_s + elapsed)
@@ -219,13 +254,24 @@ def _read(at: datetime | None = None) -> MusicRead:
     return MusicRead(
         status=status,
         track=track,
+        preview=None
+        if _preview is None
+        else MusicPreviewRead(
+            id=_preview.key,
+            song=_preview.song,
+            start_s=_preview.start_s,
+            reveal_at=_preview.reveal_at,
+        ),
         blocked_by=blocked_by,
         resume_at=_resume_at if status == "waiting" else None,
         retry_at=_retry_at if status == "empty" else None,
         sink_online=_sink_online(at),
         sink_generation=_sink_generation,
         volume=MusicVolumeRead(
-            master=_volumes.master, music=_volumes.music, effects=_volumes.effects
+            master=_volumes.master,
+            music=_volumes.music,
+            preview=_volumes.preview,
+            effects=_volumes.effects,
         ),
         scope=_scope(),
     )
@@ -272,6 +318,10 @@ async def _evaluate(session: AsyncSession | None) -> None:
     one: they drop the track, and the next tick (a second later, at most) picks the next.
     """
     at = _now()
+    # The reel's song is not the soundtrack: it stays across the music being switched off,
+    # and goes only with the option, or with the speakers.
+    if _preview is not None and (not _options.preview_on_spin or _sing_running or _usdx_open):
+        _end_preview(at)
     if not _options.enabled:
         _clear_track()
         _set_resume(None)
@@ -288,6 +338,10 @@ async def _evaluate(session: AsyncSession | None) -> None:
             return
         _set_resume(None)
     if _track is not None:
+        return
+    if _preview is not None:
+        # The reel's song has the speakers. A track picked now would stand at 0:00 on every
+        # phone with nobody hearing it; the tick after the preview ends picks as usual.
         return
     if _retry_at is not None:
         if at < _retry_at:
@@ -317,6 +371,15 @@ def _freeze(at: datetime) -> None:
     status, _ = _status(at)
     _track.position_s = _position(_track, at, status)
     _track.position_at = at
+
+
+def _end_preview(at: datetime) -> None:
+    """The reel's song is over — picked and started, given up, switched off. The background
+    track, frozen since the reel started, moves again from *now*: the `play()` rule."""
+    global _preview
+    _preview = None
+    if _track is not None:
+        _track.position_at = at
 
 
 def _set_resume(value: datetime | None) -> None:
@@ -406,6 +469,12 @@ async def play(session: AsyncSession) -> MusicRead:
     global _paused
     async with _lock:
         _require_playable()
+        at = _now()
+        if _paused and _track is not None:
+            # The track froze at `pause`; it starts moving again from *now*, not from the
+            # moment it froze. Without this the first read after unpausing would add the
+            # whole silence to the position and the host would seek forward by it.
+            _track.position_at = at
         _paused = False
         _set_resume(None)
         _set_retry(None)
@@ -578,22 +647,72 @@ async def apply_settings(session: AsyncSession) -> MusicRead:
 async def _load_caches(session: AsyncSession) -> None:
     global _options, _volumes
     values = await music_settings.read_all(session)
+    # The reel switch and the volumes are ordinary registered settings (`sound.py`): the
+    # Settings page writes them, and `api.update_setting` calls back in for every one.
+    registered = await SettingsService(session).all()
     _options = _Options(
         enabled=bool(values[music_settings.ENABLED]),
         scope=str(values[music_settings.SCOPE]),
         playlist=str(values[music_settings.PLAYLIST]),
         resume_delay_s=int(values[music_settings.RESUME_DELAY]),
+        preview_on_spin=registered.get(REEL_PREVIEW, DEFAULT_OPTIONS.preview_on_spin) is True,
     )
-    volumes = await SettingsService(session).all()
     _volumes = _Volumes(
-        master=_percent(volumes.get(MASTER_VOLUME), DEFAULT_VOLUMES.master),
-        music=_percent(volumes.get(MUSIC_VOLUME), DEFAULT_VOLUMES.music),
-        effects=_percent(volumes.get(EFFECTS_VOLUME), DEFAULT_VOLUMES.effects),
+        master=_percent(registered.get(MASTER_VOLUME), DEFAULT_VOLUMES.master),
+        music=_percent(registered.get(MUSIC_VOLUME), DEFAULT_VOLUMES.music),
+        preview=_percent(registered.get(PREVIEW_VOLUME), DEFAULT_VOLUMES.preview),
+        effects=_percent(registered.get(EFFECTS_VOLUME), DEFAULT_VOLUMES.effects),
     )
 
 
 def _percent(value: SettingValue | None, fallback: int) -> int:
     return value if isinstance(value, int) and not isinstance(value, bool) else fallback
+
+
+# --- the hook `karaoke.selection` calls ---------------------------------------------------
+
+
+async def selection_changed(spin: SpinPreview | None) -> None:
+    """The room's selection changed. Called on every broadcast of it, with the reel's song
+    while the selection was spun and None otherwise; never raises, the karaoke hooks' rule.
+
+    Sets the preview when a reel is running or has landed — and the host wants it, and the
+    speakers are free, and there is a file to play — freezing the background music first,
+    so it comes back where it stopped. Ends it when the selection is gone or was never spun.
+    A respin, or a press landing the reel early, is a new key or a new landing, and the
+    payload follows; the same spin reported again (a slot moved) changes nothing.
+    """
+    global _preview
+    try:
+        async with _lock:
+            before = _read()
+            at = _now()
+            wanted = (
+                spin is not None
+                and spin.has_audio
+                and _options.preview_on_spin
+                and not (_sing_running or _usdx_open)
+            )
+            if not wanted:
+                if _preview is not None:
+                    _end_preview(at)
+            else:
+                assert spin is not None
+                if _preview is None:
+                    # Before the flag, not after: the freeze reads the live position.
+                    _freeze(at)
+                _preview = _Preview(
+                    key=spin.key,
+                    song=spin.song,
+                    start_s=spin.start_s or 0.0,
+                    reveal_at=spin.reveal_at,
+                )
+            after = _read()
+            changed = _changed(before, after)
+        if changed:
+            await event_bus.broadcast(MusicChanged(music=after))
+    except Exception:
+        logger.exception("the background music could not follow the player selection")
 
 
 # --- the hooks `karaoke.service` calls ----------------------------------------------------
@@ -638,6 +757,9 @@ async def _set_usdx(*, sing: bool | None = None, standalone: bool | None = None)
             before = _read()
             if busy:
                 _set_resume(None)
+                # Ultrastar Deluxe has the speakers: the reel's song goes with the track.
+                if _preview is not None:
+                    _end_preview(_now())
             else:
                 _set_resume(_now() + timedelta(seconds=_options.resume_delay_s))
             # No session here: the hooks run on paths that hold none. `_evaluate` drops the
@@ -720,9 +842,11 @@ async def stop_watchdog() -> None:
     """Stop the tick and forget everything. Called before `karaoke.shutdown()`, which kills
     the running song and would otherwise fire `sing_ended` into closing sockets."""
     global _watchdog, _track, _last_song_id, _sink, _paused, _sing_running, _usdx_open, _options
+    global _preview
     task, _watchdog = _watchdog, None
     _track = None
     _last_song_id = None
+    _preview = None
     _sink = None
     # The options go too, which is what makes the four hooks inert afterwards: they read
     # this cache, and one that still said "enabled" would have a song finishing during
@@ -761,6 +885,7 @@ __all__ = [
     "MusicBlockedError",
     "MusicDisabledError",
     "NotTheSinkError",
+    "SpinPreview",
     "apply_settings",
     "broadcast",
     "pause",
@@ -770,6 +895,7 @@ __all__ = [
     "register_sink",
     "release_sink",
     "report_sink",
+    "selection_changed",
     "sing_ended",
     "sing_started",
     "skip",

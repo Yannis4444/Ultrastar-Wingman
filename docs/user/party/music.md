@@ -46,12 +46,13 @@ read on the TV.
 
 ## Control it
 
-Anyone with an account can use the row under the player: pause, skip to the next
-song, and the volume slider.
+Anyone with an account can use the row under the song: pause, skip to the next
+song, and the volume slider between the heart and the plus.
 
-The three large controls above it work on the background song, not just on a song
-being sung. Press the heart to make it a favorite, the plus to wish for it, or
-the blue play to sing it yourself.
+The heart and the plus work on the background song, not just on a song being
+sung. Press the heart to make it a favorite and the plus to wish for it. To sing
+it yourself, tap its cover: the song opens the way any song does, with its own
+play button.
 
 Skipping always starts the next song from the beginning. So does the music coming
 back after somebody sings: Wingman never resumes a song it interrupted.
@@ -59,17 +60,28 @@ back after somebody sings: Wingman never resumes a song it interrupted.
 ## Volume
 
 The slider on the player is the background music's own volume. The overall volume
-lives in **Settings**, under **Sound**, together with a volume for Wingman's sound
-effects.
+lives in **Settings**, under **Sound**, together with a volume for the song the reel
+lands on and one for Wingman's sound effects.
 
-Both numbers multiply. An overall volume of 50 with a music volume of 50 plays at
-a quarter of full. Set the overall volume once for the room, then trim the music
+The numbers multiply. An overall volume of 50 with a music volume of 50 plays at a
+quarter of full. Set the overall volume once for the room, then trim the music
 against it.
+
+## The song the reel lands on
+
+When somebody spins the reel on the TV, the background music fades out. When the
+reel lands, the song it picked fades in, starting where its singing starts rather
+than at the intro, and keeps playing while the singers are picked. It stops when the
+song is started or the pick is given up, and the background music comes back where
+it left off. This works with the background music switched off too.
+
+It is on from the start. **Reel preview** under **Sound** in **Settings** switches
+it off, and **Preview volume** beside it sets how loud it is.
 
 ## When there is no sound
 
-If the player says **No screen is playing the music**, no host screen is open.
-Open one on the TV and the music picks up where it stopped.
+If the player says **No host screen is open**, open one on the TV. The music picks
+up where it stopped.
 
 Closing the host screen pauses the room, it does not lose the song. Opening it
 again starts the same song from where it was.

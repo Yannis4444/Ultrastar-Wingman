@@ -2,7 +2,7 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useEffect, useState } from "react";
 import QRCode from "react-qr-code";
 import { Link } from "react-router-dom";
-import type { SongRead, WishRead } from "../api";
+import type { WishRead } from "../api";
 import {
   exchangeHostTokenMutation,
   getCurrentSingOptions,
@@ -98,28 +98,12 @@ function useIdle(delay = 3000): boolean {
  * of the achievements takeover shows the brand, and the rail with the QR in it
  * is not on the screen for those seconds.
  */
-function HostBrand({
-  scan = true,
-  music = null,
-}: {
-  scan?: boolean;
-  music?: SongRead | null;
-}) {
+function HostBrand({ scan = true }: { scan?: boolean }) {
   return (
     <div className="host-brand">
       <img className="host-logo" src="/logo.png" alt="" />
       <span className="host-brand-name">Ultrastar Wingman</span>
       {scan && <p className="host-scan-hint">Scan the code to pick a song</p>}
-      {/* What the room is hearing, quietly, and only on the ordinary idle
-          screen: the beat between two singers passes `scan={false}` and has to
-          stay bare. Content rather than a control, so it is not in the
-          reveal-on-movement overlay — the point is that it reads across the
-          room while nobody is touching the mouse. */}
-      {scan && music !== null && (
-        <p className="host-music-line">
-          {music.title} · {music.artist}
-        </p>
-      )}
     </div>
   );
 }
@@ -296,10 +280,40 @@ export default function Host() {
         />
         <HostResults
           players={standing.players}
-          fallback={takeover ? null : <HostBrand music={background} />}
+          fallback={takeover ? null : <HostBrand />}
           suppressed={earned !== "idle" || picked}
         />
       </div>
+      {/* What the room is hearing, quietly, along the foot of the whole
+          screen — centred on the TV and not on the stage's column, under the
+          brand and under the scores alike, so the room learns where to look.
+          Not while the stage has taken the whole screen: the reel names its
+          own song large, and the badges are a singer's seconds. Content rather
+          than a control, so it is not in the reveal-on-movement overlay — the
+          point is that it reads across the room while nobody is touching the
+          mouse. */}
+      {!takeover && background !== null && (
+        <p className="host-music-line">
+          {background.title} · {background.artist}
+        </p>
+      )}
+
+      {/* A browser plays no sound until somebody has pressed something on
+          it, and a TV gets no presses. Over everything and in the middle of
+          the screen, not in the rail: the rail is down while the room picks
+          singers, and a fault the whole room has to see and fix cannot be a
+          small button in a corner. Not in the overlay either — `.host-controls`
+          is invisible the moment the mouse stops moving, which on a TV across
+          the room is always. */}
+      {sink.blocked && (
+        <button
+          type="button"
+          className="button button-primary host-sound-on"
+          onClick={sink.unlock}
+        >
+          <Icon name="volume" /> Turn on sound
+        </button>
+      )}
 
       {!takeover && (
         <div className="host-rail">
@@ -321,21 +335,6 @@ export default function Host() {
                 protocol. */}
             <p className="host-join-url">{joinUrl.replace(/^http:\/\//, "")}</p>
           </div>
-          {/* After the code and before the standing: it is about the way into
-              the evening, which is what the top of the rail is for. */}
-          {/* A browser plays no sound until somebody has pressed something on
-              it, and a TV gets no presses. Here rather than in the overlay:
-              `.host-controls` is invisible the moment the mouse stops moving,
-              which on a TV across the room is always. */}
-          {sink.blocked && (
-            <button
-              type="button"
-              className="button button-primary host-sound-on"
-              onClick={sink.unlock}
-            >
-              <Icon name="volume" /> Turn on sound
-            </button>
-          )}
           {sink.failed && (
             <p className="error-notice host-rail-note" role="alert">
               The background music would not play.

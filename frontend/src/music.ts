@@ -47,15 +47,17 @@ export function playerMode(
  * Where the track is at `now`.
  *
  * The server sends where it was and when that was true, and it only keeps the
- * two moving while the music plays and a screen is listening — so the same rule
- * decides here whether to add the seconds since. Clamped at both ends: a clock
- * skew must not show a negative time, and a track whose file turned out shorter
- * than the server thinks must not run past its own end.
+ * two moving while the music plays and a screen is listening — and not while
+ * the reel's song has the speakers (`preview`) — so the same rule decides here
+ * whether to add the seconds since. Clamped at both ends: a clock skew must not
+ * show a negative time, and a track whose file turned out shorter than the
+ * server thinks must not run past its own end.
  */
 export function musicPosition(music: MusicRead, now: number): number {
   const track = music.track;
   if (track === null) return 0;
-  const advancing = music.status === "playing" && music.sink_online;
+  const advancing =
+    music.status === "playing" && music.sink_online && music.preview === null;
   const since = advancing
     ? (now - parseServerTime(track.position_at)) / 1000
     : 0;

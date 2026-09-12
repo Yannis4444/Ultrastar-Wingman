@@ -967,7 +967,7 @@ export const skipMusicMutation = (options?: Partial<Options<SkipMusicData>>): Us
 /**
  * Set Music Volume
  *
- * Move one or more of the three volumes.
+ * Move one or more of the four volumes.
  *
  * They are ordinary registered settings, so this route is how a reader who may control the
  * music moves one without holding `settings.manage` — turning the music down is not

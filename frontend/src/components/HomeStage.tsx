@@ -17,7 +17,6 @@ import { musicPosition, playerMode, progressPercent } from "../music";
 import ConfirmModal from "./ConfirmModal";
 import { Icon } from "./icons";
 import MusicSettingsPanel from "./MusicSettingsPanel";
-import PlayerSelection from "./PlayerSelection";
 import SongCover from "./SongCover";
 // The control row mirrors the song modal's, down to the stylesheet.
 import "./SongControls.css";
@@ -31,27 +30,27 @@ interface KaraokeStarted extends WingmanEvent {
   sing: CurrentSing;
 }
 
-/** What each mode puts on the two text lines. */
+/** What the idle tile says under the brand. */
 const IDLE_TITLE = "Nothing is playing";
 const IDLE_HINT = "Pick a song and press play.";
-/** A reader without `music.view` cannot know whether music is playing, so the
- *  tile must not claim it is not. The brand says the same nothing honestly. */
-const BLIND_TITLE = "Ultrastar Wingman";
+const BRAND = "Ultrastar Wingman";
 
 /**
- * The player at the top of Home: one block, three modes, one height.
+ * The player at the top of Home: one tile, three modes, one control row.
  *
  * A song being sung, the background song between them, and the brand while
- * neither. Every row is a fixed grid track and every reserved line has a
- * declared `line-height`, so a two-line title, a missing control row and an
- * empty progress line all leave the tile exactly as tall — nothing on the page
- * below it ever moves.
+ * neither. The tile is as tall as its mode needs — no rows are reserved for a
+ * mode that is not showing — and the modes are built so those heights come out
+ * close: an 88px head beside the art, or the logo over the brand, then one
+ * 48px row of controls, or none at all when the room is quiet.
  *
- * The controls that were already here work on whatever is playing: hearting or
- * wishing the *background* song is the row the stage has had all along, and the
- * one large control keeps its meaning — pink Stop for a sing, blue Sing for the
- * background song (the song modal's own path, never a second one), nothing at
- * all when the room is quiet.
+ * The row is the song modal's shape. For a sing it is its heart, pink Stop and
+ * wish; for the background song the middle is the music's own transport —
+ * play/pause, skip and the volume — because that is what the room does to the
+ * background music. Singing the background song goes the way singing any song
+ * does: tap the cover, the song modal opens, its Play is the one Sing path.
+ * The gear sits in the tile's top-right corner in every mode, because a host
+ * who switched the music off needs a way back in.
  */
 export default function HomeStage() {
   const auth = useAuth();
@@ -63,7 +62,6 @@ export default function HomeStage() {
 
   const [details, setDetails] = useState<SongRead | null>(null);
   const [askStop, setAskStop] = useState(false);
-  const [singing, setSinging] = useState<SongRead | null>(null);
   const [options, setOptions] = useState(false);
   const [savedField, setSavedField] = useState<string | null>(null);
 
@@ -98,15 +96,8 @@ export default function HomeStage() {
 
   const song =
     mode === "singing" ? (sing?.song ?? null) : (state?.track?.song ?? null);
-  const eyebrow =
-    mode === "singing"
-      ? "Now playing"
-      : mode === "music"
-        ? "Background music"
-        : "Ultrastar Wingman";
 
   const canStop = auth.can("karaoke.stop");
-  const canSing = auth.can("karaoke.sing");
   const canWish = auth.can("wishlist.add");
   const canControl = auth.loaded && auth.can("music.control");
   const canManage = auth.loaded && auth.can("music.manage");
@@ -119,9 +110,6 @@ export default function HomeStage() {
     <>
       {details !== null && (
         <SongDetails song={details} onClose={() => setDetails(null)} />
-      )}
-      {singing !== null && (
-        <PlayerSelection song={singing} onClose={() => setSinging(null)} />
       )}
       {askStop && sing !== null && (
         <ConfirmModal
@@ -151,17 +139,75 @@ export default function HomeStage() {
     </>
   );
 
+  const heart = song !== null && favorites.available && (
+    <button
+      type="button"
+      className={
+        favorite
+          ? "song-control song-control-favorite song-control-favorite-on"
+          : "song-control song-control-favorite"
+      }
+      aria-pressed={favorite}
+      aria-label={favorite ? "Remove from favorites" : "Add to favorites"}
+      onClick={() => favorites.toggle(song.id)}
+    >
+      <Icon name="heart" />
+    </button>
+  );
+
+  const wish = song !== null && canWish && (
+    <button
+      type="button"
+      className={
+        wished
+          ? "song-control song-control-wish song-control-wish-on"
+          : "song-control song-control-wish"
+      }
+      aria-pressed={wished}
+      aria-label={wished ? "Remove wish" : "Wish"}
+      onClick={() => {
+        if (wished) wishlist.unwish(song.id);
+        else wishlist.wish(song.id);
+      }}
+    >
+      <Icon name={wished ? "playlist-check" : "playlist-plus"} />
+    </button>
+  );
+
   return (
     <>
       <section className="home-stage" aria-labelledby="home-stage-heading">
+        {/* The gear is in every mode, in the corner, out of every row. */}
+        {canManage && (
+          <button
+            type="button"
+            className="icon-button home-stage-gear"
+            aria-label="Background music settings"
+            title="Background music"
+            onClick={() => setOptions(true)}
+          >
+            <Icon name="gear" />
+          </button>
+        )}
+
         {/* Keyed on the mode so the crossfade plays when the block changes what
             it is — and not when the background music simply moves to the next
             song, which swaps two lines of text in place. */}
-        <div className="home-stage-body" key={mode}>
-          <div className="home-stage-head">
-            {song === null ? (
-              <LogoTile className="home-stage-cover" />
-            ) : (
+        {song === null || mode === "idle" ? (
+          <div className="home-stage-body home-stage-idle" key="idle">
+            <LogoTile className="home-stage-logo" />
+            <h1 className="home-stage-brand" id="home-stage-heading">
+              {BRAND}
+            </h1>
+            {/* A reader without `music.view` cannot know whether music is
+                playing, so the tile must not claim it is not. */}
+            <p className="home-stage-hint">
+              {canView ? `${IDLE_TITLE}. ${IDLE_HINT}` : IDLE_HINT}
+            </p>
+          </div>
+        ) : (
+          <div className="home-stage-body" key={mode}>
+            <div className="home-stage-head">
               <button
                 type="button"
                 className="home-stage-cover-button"
@@ -170,138 +216,100 @@ export default function HomeStage() {
               >
                 <SongCover song={song} className="home-stage-cover" />
               </button>
-            )}
 
-            <h1 className="home-stage-eyebrow" id="home-stage-heading">
-              {eyebrow}
-            </h1>
-
-            <p className="home-stage-title" title={song?.title}>
-              {song !== null ? song.title : canView ? IDLE_TITLE : BLIND_TITLE}
-            </p>
-            <p className="home-stage-artist">
-              {song !== null ? song.artist : IDLE_HINT}
-            </p>
-
-            <div className="home-stage-progress">
-              {mode === "music" && state !== undefined && (
-                <Progress music={state} now={now} />
-              )}
-            </div>
-          </div>
-
-          {/* The song modal's own row: two 48px marks either side of one large
-              unfilled control. */}
-          <div className="home-stage-controls">
-            {song !== null && favorites.available && (
-              <button
-                type="button"
-                className={
-                  favorite
-                    ? "song-control song-control-favorite song-control-favorite-on"
-                    : "song-control song-control-favorite"
-                }
-                aria-pressed={favorite}
-                aria-label={
-                  favorite ? "Remove from favorites" : "Add to favorites"
-                }
-                onClick={() => favorites.toggle(song.id)}
-              >
-                <Icon name="heart" />
-              </button>
-            )}
-
-            {mode === "singing" && canStop && (
-              <button
-                type="button"
-                className="song-control song-control-lead song-control-stop"
-                aria-label="Stop"
-                title="Stop"
-                disabled={stop.isPending}
-                onClick={() => setAskStop(true)}
-              >
-                <Icon name="stop" />
-              </button>
-            )}
-            {mode === "music" && song !== null && canSing && (
-              <button
-                type="button"
-                className="song-control song-control-lead song-control-sing"
-                aria-label="Sing"
-                title="Sing this song"
-                onClick={() => setSinging(song)}
-              >
-                <Icon name="play" />
-              </button>
-            )}
-
-            {song !== null && canWish && (
-              <button
-                type="button"
-                className={
-                  wished
-                    ? "song-control song-control-wish song-control-wish-on"
-                    : "song-control song-control-wish"
-                }
-                aria-pressed={wished}
-                aria-label={wished ? "Remove wish" : "Wish"}
-                onClick={() => {
-                  if (wished) wishlist.unwish(song.id);
-                  else wishlist.wish(song.id);
-                }}
-              >
-                <Icon name={wished ? "playlist-check" : "playlist-plus"} />
-              </button>
-            )}
-          </div>
-
-          {/* Its own line, so the two different plays are never in the same
-              row. The gear is here in every mode: a host who switched the music
-              off must have a way back in. */}
-          <div className="home-stage-transport">
-            {canManage && (
-              <button
-                type="button"
-                className="icon-button"
-                aria-label="Background music settings"
-                title="Background music"
-                onClick={() => setOptions(true)}
-              >
-                <Icon name="gear" />
-              </button>
-            )}
-            {mode === "music" && canControl && state !== undefined && (
-              <>
-                <button
-                  type="button"
-                  className="icon-button"
-                  aria-label={state.status === "paused" ? "Play" : "Pause"}
-                  title={state.status === "paused" ? "Play" : "Pause"}
-                  disabled={music.isBusy}
-                  onClick={() =>
-                    state.status === "paused" ? music.play() : music.pause()
+              <div className="home-stage-text">
+                {/* The page's one h1. Drawn as the eyebrow over a sing; for
+                    the background song the transport row says what this is,
+                    so the heading names the region for assistive tech and
+                    nothing else. */}
+                <h1
+                  className={
+                    mode === "singing"
+                      ? "home-stage-eyebrow"
+                      : "visually-hidden"
                   }
+                  id="home-stage-heading"
                 >
-                  <Icon name={state.status === "paused" ? "play" : "pause"} />
-                </button>
-                <button
-                  type="button"
-                  className="icon-button"
-                  aria-label="Skip"
-                  title="Skip"
-                  disabled={music.isBusy}
-                  onClick={() => music.skip()}
+                  {mode === "singing" ? "Now playing" : "Background music"}
+                </h1>
+
+                <p
+                  className={
+                    mode === "singing"
+                      ? "home-stage-title"
+                      : "home-stage-title home-stage-title-tall"
+                  }
+                  title={song.title}
                 >
-                  <Icon name="skip" />
-                </button>
-                <Volume
-                  value={state.volume.music}
-                  onChange={(value) => music.setVolume({ music: value })}
-                />
-              </>
+                  {song.title}
+                </p>
+                <p className="home-stage-artist">{song.artist}</p>
+
+                {mode === "music" && state !== undefined && (
+                  <div className="home-stage-progress">
+                    <Progress music={state} now={now} />
+                  </div>
+                )}
+              </div>
+            </div>
+
+            {mode === "singing" ? (
+              <div className="home-stage-controls">
+                {heart}
+                {canStop && (
+                  <button
+                    type="button"
+                    className="song-control song-control-lead song-control-stop"
+                    aria-label="Stop"
+                    title="Stop"
+                    disabled={stop.isPending}
+                    onClick={() => setAskStop(true)}
+                  >
+                    <Icon name="stop" />
+                  </button>
+                )}
+                {wish}
+              </div>
+            ) : (
+              <div className="home-stage-controls home-stage-transport">
+                {heart}
+                {canControl && state !== undefined && (
+                  <>
+                    <button
+                      type="button"
+                      className="song-control song-control-transport"
+                      aria-label={state.status === "paused" ? "Play" : "Pause"}
+                      title={state.status === "paused" ? "Play" : "Pause"}
+                      disabled={music.isBusy}
+                      onClick={() =>
+                        state.status === "paused" ? music.play() : music.pause()
+                      }
+                    >
+                      <Icon
+                        name={state.status === "paused" ? "play" : "pause"}
+                      />
+                    </button>
+                    <button
+                      type="button"
+                      className="song-control song-control-transport"
+                      aria-label="Skip"
+                      title="Skip"
+                      disabled={music.isBusy}
+                      onClick={() => music.skip()}
+                    >
+                      <Icon name="skip" />
+                    </button>
+                    <Volume
+                      value={state.volume.music}
+                      onChange={(value) => music.setVolume({ music: value })}
+                    />
+                  </>
+                )}
+                {wish}
+              </div>
             )}
           </div>
-        </div>
+        )}
       </section>
 
       {modals}
@@ -332,14 +340,14 @@ function Progress({
       <span className="home-stage-time">
         {music.sink_online
           ? formatDuration(Math.floor(elapsed))
-          : "No screen is playing the music"}
+          : "No host screen is open"}
       </span>
     </>
   );
 }
 
-/** The music's own volume, inline. The speaker names the slider and is not a
- *  control of its own: there is no mute, only a volume. */
+/** The music's own volume, inline in the row. The speaker names the slider
+ *  and is not a control of its own: there is no mute, only a volume. */
 function Volume({
   value,
   onChange,
@@ -361,7 +369,7 @@ function Volume({
   }, [draft, onChange]);
 
   return (
-    <>
+    <span className="home-stage-volume-field">
       <Icon name="volume" className="icon home-stage-volume-glyph" />
       <label className="visually-hidden" htmlFor="home-stage-volume">
         Music volume
@@ -377,6 +385,6 @@ function Volume({
         aria-valuetext={`${draft ?? value} percent`}
         onChange={(event) => setDraft(Number(event.target.value))}
       />
-    </>
+    </span>
   );
 }

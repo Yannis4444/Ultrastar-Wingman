@@ -1030,6 +1030,34 @@ export type MeRead = {
 };
 
 /**
+ * MusicPreviewRead
+ *
+ * The song the reel on the host screen landed on, for the host screen to play.
+ *
+ * Set while a spun selection stands and the host has *Play the song when the reel lands*
+ * on: the background music freezes, and from `reveal_at` — the reel's landing, on the
+ * server's clock — the host fades this song in from `start_s`, where the file says a
+ * preview should start (`songs.txt.SongTxt.preview_start`; 0 for a file that says
+ * nothing). `id` changes on every spin and respin, and `reveal_at` moves when a press in
+ * the room lands the reel early, so a host times its fade-in on the pair.
+ */
+export type MusicPreviewRead = {
+    /**
+     * Id
+     */
+    id: string;
+    song: SongRead;
+    /**
+     * Start S
+     */
+    start_s: number;
+    /**
+     * Reveal At
+     */
+    reveal_at: string;
+};
+
+/**
  * MusicRead
  *
  * What the music is doing, for everybody at once.
@@ -1046,6 +1074,7 @@ export type MusicRead = {
      */
     status: 'off' | 'blocked' | 'waiting' | 'empty' | 'playing' | 'paused';
     track: MusicTrackRead | null;
+    preview: MusicPreviewRead | null;
     /**
      * Blocked By
      */
@@ -1225,7 +1254,7 @@ export type MusicTrackRead = {
 /**
  * MusicVolumeRead
  *
- * The three volumes, as percentages. The host multiplies them itself — an effective
+ * The four volumes, as percentages. The host multiplies them itself — an effective
  * volume worked out here would be a number nobody set.
  */
 export type MusicVolumeRead = {
@@ -1237,6 +1266,10 @@ export type MusicVolumeRead = {
      * Music
      */
     music: number;
+    /**
+     * Preview
+     */
+    preview: number;
     /**
      * Effects
      */
@@ -1257,6 +1290,10 @@ export type MusicVolumeUpdate = {
      * Music
      */
     music?: number | null;
+    /**
+     * Preview
+     */
+    preview?: number | null;
     /**
      * Effects
      */

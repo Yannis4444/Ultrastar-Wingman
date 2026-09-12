@@ -26,11 +26,13 @@ share a color. Give a slot a color another one already has and the two swap. See
 
 | Setting | What it does | Default |
 |---|---|---|
-| **Master volume** | How loud everything Wingman plays on the host screen is. It scales the two below it | 100 |
-| **Music volume** | How loud the background music between songs is. Anybody who may control the music can also change this from the player | 60 |
-| **Effects volume** | How loud Wingman's own sound effects are. Nothing plays effects yet | 80 |
+| **Master volume** | Everything the host screen plays is scaled by this one | 100 |
+| **Music volume** | The background music between songs. Anybody who may control the music can also change this from the player | 100 |
+| **Preview volume** | The song the reel lands on | 100 |
+| **Effects volume** | Wingman's own sound effects. Nothing plays any yet | 100 |
+| **Reel preview** | Play the song the reel on the host screen lands on, from where its singing starts, until Play is pressed or the pick is given up. The background music pauses for it | on |
 
-All three are percentages, and the master multiplies the others. None of them
+The volumes are percentages, and the master multiplies the others. None of them
 touches Ultrastar Deluxe, which mixes a song being sung itself. See
 [Play background music](../party/music.md).
 

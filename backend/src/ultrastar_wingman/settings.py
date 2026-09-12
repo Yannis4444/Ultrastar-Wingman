@@ -21,7 +21,14 @@ from .db import Base
 from .downloads.video_quality import DEFAULT_VIDEO_FORMAT, validate_video_format
 from .join_url import validate_join_url
 from .karaoke.slots import DEFAULT_SLOT_COLORS_SETTING, validate_slot_colors
-from .sound import EFFECTS_VOLUME, MASTER_VOLUME, MUSIC_VOLUME, validate_volume
+from .sound import (
+    EFFECTS_VOLUME,
+    MASTER_VOLUME,
+    MUSIC_VOLUME,
+    PREVIEW_VOLUME,
+    REEL_PREVIEW,
+    validate_volume,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -156,11 +163,7 @@ register(
         value_type=int,
         default=100,
         group="Sound",
-        description=(
-            "How loud everything Wingman plays on the host screen is, in percent. The "
-            "background music and the sound effects are scaled by this one. It does not "
-            "touch Ultrastar Deluxe, which plays a song through its own mixer."
-        ),
+        description="Everything the host screen plays is scaled by this one.",
         validate=validate_volume,
     )
 )
@@ -168,13 +171,19 @@ register(
     SettingDefinition(
         key=MUSIC_VOLUME,
         value_type=int,
-        default=60,
+        default=100,
         group="Sound",
-        description=(
-            "How loud the background music between songs is, in percent of the overall "
-            "volume. Quieter than singing on purpose, so the room can still talk. Anybody "
-            "who may control the music can change this from the player."
-        ),
+        description="The background music between songs.",
+        validate=validate_volume,
+    )
+)
+register(
+    SettingDefinition(
+        key=PREVIEW_VOLUME,
+        value_type=int,
+        default=100,
+        group="Sound",
+        description="The song the reel lands on.",
         validate=validate_volume,
     )
 )
@@ -182,14 +191,23 @@ register(
     SettingDefinition(
         key=EFFECTS_VOLUME,
         value_type=int,
-        default=80,
+        default=100,
+        group="Sound",
+        description="Wingman's own sound effects. Nothing plays any yet.",
+        validate=validate_volume,
+    )
+)
+register(
+    SettingDefinition(
+        key=REEL_PREVIEW,
+        value_type=bool,
+        default=True,
         group="Sound",
         description=(
-            "How loud Wingman's own sound effects are, in percent of the overall volume. "
-            "Nothing plays effects yet. The setting is here so all the sound is in one "
-            "place when they arrive."
+            "Play the song the reel on the host screen lands on, from where its singing "
+            "starts, until Play is pressed or the pick is given up. The background music "
+            "pauses for it."
         ),
-        validate=validate_volume,
     )
 )
 register(

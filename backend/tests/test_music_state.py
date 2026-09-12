@@ -15,7 +15,9 @@ from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
 from ultrastar_wingman.library.model import Wish
 from ultrastar_wingman.music import service
 from ultrastar_wingman.music import settings as music_settings
+from ultrastar_wingman.settings import SettingsService
 from ultrastar_wingman.songs.model import Song
+from ultrastar_wingman.sound import REEL_PREVIEW
 from ultrastar_wingman.tags.model import SongTag, Tag
 
 START = datetime(2026, 9, 12, 20, 0, tzinfo=UTC)
@@ -67,11 +69,15 @@ async def add_song(
 
 
 async def enable(session: AsyncSession, **options: Any) -> None:
-    """Switch the music on, and load the caches the way the watchdog would."""
+    """Switch the music on, and load the caches the way the watchdog would. The reel
+    switch is a registered `sound.*` setting and goes through the registry."""
     settings = music_settings.service(session)
     await settings.set(music_settings.ENABLED, True)
     for key, value in options.items():
-        await settings.set(f"music.{key}", value)
+        if key == "preview_on_spin":
+            await SettingsService(session).set(REEL_PREVIEW, value)
+        else:
+            await settings.set(f"music.{key}", value)
     await service.apply_settings(session)
 
 
@@ -472,6 +478,177 @@ async def test_pause_freezes_the_position(
     state = await service.read()
     assert state.track is not None
     assert state.track.position_s == pytest.approx(10)
+
+
+async def test_play_carries_on_from_where_pause_left_it(
+    session: AsyncSession,
+    session_factory: async_sessionmaker[AsyncSession],
+    tmp_path: Path,
+    clock: Clock,
+) -> None:
+    """The silence must not be added to the position: pause at 5, play three seconds later,
+    and a second after that the track is at 6 — not at 9. The whole thing inside the sink's
+    timeout, as `test_pause_freezes_the_position` explains."""
+    await add_song(session, tmp_path, 1)
+    await enable(session)
+    await register(session)
+
+    clock.advance(5)
+    await service.pause(session)
+    clock.advance(3)
+    await service.play(session)
+    clock.advance(1)
+    state = await service.read()
+    assert state.status == "playing"
+    assert state.track is not None
+    assert state.track.position_s == pytest.approx(6)
+
+
+def spin_preview(
+    song_id: str, *, key: str = "s:1", start_s: float | None = 12.0, has_audio: bool = True
+) -> service.SpinPreview:
+    from ultrastar_wingman.songs.schema import SongRead
+
+    return service.SpinPreview(
+        key=key,
+        song=SongRead(
+            id=song_id,
+            source="usdb",
+            title="Title",
+            artist="Artist",
+            duration_seconds=None,
+            has_video=False,
+            is_duet=False,
+            language=None,
+            genre=None,
+            year=None,
+            edition=None,
+            creator=None,
+        ),
+        start_s=start_s,
+        reveal_at=START + timedelta(seconds=5.5),
+        has_audio=has_audio,
+    )
+
+
+async def test_the_reel_freezes_the_music_and_gives_it_back_where_it_stopped(
+    session: AsyncSession,
+    session_factory: async_sessionmaker[AsyncSession],
+    tmp_path: Path,
+    clock: Clock,
+) -> None:
+    song = await add_song(session, tmp_path, 1)
+    await enable(session)
+    await register(session)
+    clock.advance(4)
+
+    await service.selection_changed(spin_preview(song))
+    state = await service.read()
+    assert state.preview is not None
+    assert state.preview.id == "s:1"
+    assert state.preview.start_s == 12.0
+    assert state.preview.reveal_at == START + timedelta(seconds=5.5)
+    # The background froze at 4 and stays there for as long as the reel's song plays.
+    clock.advance(3)
+    assert (await service.read()).track.position_s == pytest.approx(4)  # type: ignore[union-attr]
+
+    # The selection is gone: the preview goes, and the track moves again from here.
+    await service.selection_changed(None)
+    state = await service.read()
+    assert state.preview is None
+    clock.advance(2)
+    assert (await service.read()).track.position_s == pytest.approx(6)  # type: ignore[union-attr]
+
+
+async def test_the_reel_plays_with_the_music_switched_off(
+    session: AsyncSession, tmp_path: Path, clock: Clock
+) -> None:
+    song = await add_song(session, tmp_path, 1)
+    await service.apply_settings(session)
+    assert (await service.read()).status == "off"
+
+    await service.selection_changed(spin_preview(song))
+    state = await service.read()
+    assert state.status == "off"
+    assert state.preview is not None
+
+
+async def test_the_reel_is_silent_without_a_file_or_with_the_switch_off_or_under_a_sing(
+    session: AsyncSession, tmp_path: Path, clock: Clock
+) -> None:
+    song = await add_song(session, tmp_path, 1)
+    await enable(session)
+
+    await service.selection_changed(spin_preview(song, has_audio=False))
+    assert (await service.read()).preview is None
+
+    await service.sing_started()
+    await service.selection_changed(spin_preview(song))
+    assert (await service.read()).preview is None
+    await service.sing_ended()
+
+    await enable(session, preview_on_spin=False)
+    await service.selection_changed(spin_preview(song))
+    assert (await service.read()).preview is None
+
+
+async def test_switching_the_reels_song_off_ends_one_that_plays(
+    session: AsyncSession, tmp_path: Path, clock: Clock
+) -> None:
+    # The Settings page writes `sound.reel_preview`; `api.update_setting` applies the
+    # settings again, which is the path a switch flipped mid-reel takes to the speakers.
+    song = await add_song(session, tmp_path, 1)
+    await enable(session)
+    await service.selection_changed(spin_preview(song))
+    assert (await service.read()).preview is not None
+
+    await SettingsService(session).set(REEL_PREVIEW, False)
+    await service.apply_settings(session)
+    assert (await service.read()).preview is None
+
+
+async def test_a_sing_takes_the_reels_song_off_the_speakers(
+    session: AsyncSession, tmp_path: Path, clock: Clock
+) -> None:
+    song = await add_song(session, tmp_path, 1)
+    await enable(session)
+    await service.selection_changed(spin_preview(song))
+    assert (await service.read()).preview is not None
+
+    await service.sing_started()
+    assert (await service.read()).preview is None
+
+
+async def test_no_song_is_picked_while_the_reels_song_plays(
+    session: AsyncSession,
+    session_factory: async_sessionmaker[AsyncSession],
+    tmp_path: Path,
+    clock: Clock,
+) -> None:
+    # A sing ends, somebody spins the reel inside the wait, and the wait runs out while the
+    # reel's song plays: the phones must not show a track at 0:00 that nobody hears.
+    song = await add_song(session, tmp_path, 1)
+    await enable(session, resume_delay_s=5)
+    await register(session)
+    await service.sing_started()
+    await service.sing_ended()
+    await service.selection_changed(spin_preview(song))
+    clock.advance(6)
+    await service.tick(session_factory)
+    assert (await service.read()).track is None
+
+    await service.selection_changed(None)
+    await service.tick(session_factory)
+    assert (await service.read()).track is not None
+
+
+async def test_a_file_that_names_no_preview_start_plays_from_the_beginning(
+    session: AsyncSession, tmp_path: Path, clock: Clock
+) -> None:
+    song = await add_song(session, tmp_path, 1)
+    await enable(session)
+    await service.selection_changed(spin_preview(song, start_s=None))
+    assert (await service.read()).preview.start_s == 0.0  # type: ignore[union-attr]
 
 
 async def test_the_controls_say_why_they_did_nothing(

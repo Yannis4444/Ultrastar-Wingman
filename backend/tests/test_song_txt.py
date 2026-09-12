@@ -33,7 +33,49 @@ def test_all_tags_are_parsed() -> None:
         # Both in seconds here: "#START:12.5" already is, "#END:210000" is milliseconds.
         "start": 12.5,
         "end": 210.0,
+        # No #PREVIEWSTART: the first note (beat 0 at 230 BPM, GAP 8000) is at 8.0 s, and
+        # the preview starts a two-second lead-in before it.
+        "preview_start": 6.0,
     }
+
+
+def test_the_preview_start_is_the_files_own_where_it_has_one() -> None:
+    txt = parse_song_txt(
+        "#TITLE:t\n#ARTIST:a\n#PREVIEWSTART:41.5\n#GAP:8000\n#BPM:230\n: 0 4 0 Doh\n"
+    )
+    assert txt.preview_start == 41.5
+
+
+def test_the_preview_start_is_placed_before_the_first_word_otherwise() -> None:
+    # GAP 10 s; beat 32 at 120 BPM is 32 quarter-beats, 4 s: the first word is at 14 s.
+    txt = parse_song_txt("#TITLE:t\n#ARTIST:a\n#GAP:10000\n#BPM:120\n* 32 4 0 Doh\n")
+    assert txt.preview_start == pytest.approx(12.0)
+
+
+def test_a_first_word_inside_the_lead_in_starts_at_the_beginning() -> None:
+    txt = parse_song_txt("#TITLE:t\n#ARTIST:a\n#GAP:500\n#BPM:120\n: 0 4 0 Doh\n")
+    assert txt.preview_start == 0.0
+
+
+def test_a_zero_preview_start_is_no_preview_start() -> None:
+    # USDX treats 0 as unset, and so does the fallback.
+    txt = parse_song_txt(
+        "#TITLE:t\n#ARTIST:a\n#PREVIEWSTART:0\n#GAP:10000\n#BPM:120\n: 32 4 0 Doh\n"
+    )
+    assert txt.preview_start == pytest.approx(12.0)
+
+
+@pytest.mark.parametrize(
+    "body",
+    [
+        "#TITLE:t\n#ARTIST:a\n#GAP:10000\n: 32 4 0 Doh\n",  # no BPM
+        "#TITLE:t\n#ARTIST:a\n#BPM:120\n: 32 4 0 Doh\n",  # no GAP
+        "#TITLE:t\n#ARTIST:a\n#GAP:10000\n#BPM:120\n",  # no notes
+        "#TITLE:t\n#ARTIST:a\n#GAP:10000\n#BPM:abc\n: 32 4 0 Doh\n",  # unreadable BPM
+    ],
+)
+def test_a_file_the_first_word_cannot_be_placed_in_has_no_preview_start(body: str) -> None:
+    assert parse_song_txt(body).preview_start is None
 
 
 def test_the_playback_window_is_normalized_to_seconds() -> None:

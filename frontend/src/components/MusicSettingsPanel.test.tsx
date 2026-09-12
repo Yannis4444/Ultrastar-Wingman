@@ -67,6 +67,8 @@ test("the panel is the four options and nothing else", () => {
   expect(
     screen.getByRole("checkbox", { name: "Background music" }),
   ).toBeInTheDocument();
+  // The reel's song is a Sound setting on the Settings page, not a music option.
+  expect(screen.getAllByRole("checkbox")).toHaveLength(1);
   expect(
     screen.getByRole("combobox", { name: "Pick songs from" }),
   ).toBeInTheDocument();

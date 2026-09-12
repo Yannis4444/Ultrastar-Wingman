@@ -163,12 +163,13 @@ function quietMusic(overrides: Partial<MusicRead> = {}): MusicRead {
   return {
     status: "off",
     track: null,
+    preview: null,
     blocked_by: null,
     resume_at: null,
     retry_at: null,
     sink_online: false,
     sink_generation: 0,
-    volume: { master: 100, music: 60, effects: 80 },
+    volume: { master: 100, music: 60, preview: 100, effects: 80 },
     scope: "all",
     ...overrides,
   };
@@ -827,6 +828,39 @@ test("the idle screen names the background song, quietly", async () => {
   expect(line).toHaveTextContent("ABBA");
   // The code is still what the screen is for.
   expect(screen.getByText("Scan the code to pick a song")).toBeInTheDocument();
+});
+
+test("the background song stays named along the foot with the scores up, and goes with the rail", async () => {
+  withScores();
+  getMe.mockResolvedValue(
+    meResponse(["music.view", "stats.view"], { is_host: true, role: "admin" }),
+  );
+  const track: MusicTrackRead = {
+    id: "t-1",
+    song: { ...RHAPSODY, title: "Waterloo", artist: "ABBA" },
+    started_at: "2026-08-23T20:00:00Z",
+    position_s: 3,
+    position_at: "2026-08-23T20:00:00Z",
+    duration_s: 200,
+  };
+  getMusic.mockResolvedValue({
+    data: quietMusic({ status: "playing", track, sink_online: true }),
+  });
+  const { container } = renderHost("/host");
+
+  // The scores are up, and the line stands along the foot of the whole page,
+  // outside the stage's column.
+  await screen.findByLabelText("Last song");
+  const line = await screen.findByText(/Waterloo · ABBA/);
+  expect(line).toHaveClass("host-music-line");
+  expect(container.querySelector(".host-page")).toContainElement(line);
+  expect(container.querySelector(".host-stage")).not.toContainElement(line);
+
+  // The room picking the next song takes the screen, and the line goes with
+  // the rail: the reel names its own song, large.
+  picks();
+  await screen.findByLabelText("Picking singers");
+  expect(document.querySelector(".host-music-line")).toBeNull();
 });
 
 test("a screen that is not playing anything says nothing about music", async () => {

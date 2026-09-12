@@ -25,12 +25,17 @@ Made by the user, 2026-09-11:
    beside it, the controls underneath, and **the same height in all three modes** — a sing, the
    background song, and idle. Idle fills the art square with the Wingman logo.
 5. The host TV **keeps its brand and its QR rail** and gains one quiet line naming the
-   background song. Nothing else about the idle screen changes.
+   background song along the foot of the whole screen — centred on the TV, not on the stage's
+   column (the user's ask of 2026-09-12), under the brand and under the scores alike, gone
+   while a screen takes the whole TV. Nothing else about the idle screen changes.
 6. Three capabilities: **`music.view`** (guest and up), **`music.control`** — play, pause,
    skip, volume — (account and up), **`music.manage`** — turn it on, the pool, the playlist,
    the pause — (trusted and up).
-7. The **three volumes are ordinary Settings-page settings** (master, background music, sound
-   effects); **everything else lives on the player itself**, behind a gear.
+7. The **four volumes are ordinary Settings-page settings** (master, background music, the
+   reel's song, sound effects), and so is the **reel switch** `sound.reel_preview` — the user
+   moved it out of the gear on 2026-09-12: it is about the reel, not the background music, and
+   its volume sits there (`settings.manage`, therefore, not `music.manage`); **everything else
+   lives on the player itself**, behind a gear.
 8. A **progress line for the background song only**. A running sing still shows no time on
    phones, as it does today.
 
@@ -148,7 +153,7 @@ An empty pool sets `_retry_at` 30 s out and reports `empty`. A playlist that was
 the same thing and **does not fall back to the whole library** — a one-off button press falling
 back is a kindness, an hour of music out of the pool the host excluded is not.
 
-### 3.3 The four hooks
+### 3.3 The four hooks, and the selection's
 
 `karaoke/service.py` calls, with no arguments and no database:
 
@@ -166,6 +171,23 @@ karaoke.
 
 A **forced** start runs `_stop_and_wait -> _finish -> sing_ended` (which sets the countdown)
 and only then reaches `sing_started` (which clears it). That sequence is pinned by a test.
+
+**The fifth, from `karaoke/selection.py`** (added 2026-09-12): `music.selection_changed(spin)`
+from `_broadcast_locked`, the one place every change of the room's selection passes. `spin` is
+a `music.SpinPreview` — the reel's song, `key` (`opened_at:spin.id`, new on every respin),
+`start_s` (`Song.preview_start_seconds`, read off the picked row in the selection so the music
+needs no query under two locks), `reveal_at` (`spun_at + REVEAL_SECONDS`, or the moment a press
+landed the reel early, `_Spin.revealed_at`) and `has_audio` — or None for a selection that was
+never spun, or none at all. `pick_singers` takes the spin off the selection but keeps what it
+landed on (`_Selection.landed`), so the song plays on while the singers are picked, until the
+selection starts or is given up. The music sets its **preview** when the reel is wanted
+(`sound.reel_preview`, a registered Sound setting the service caches beside the volumes), has
+a file, and the speakers are free — freezing the background track
+first, so it comes back where it stopped — and ends it otherwise; a sing starting ends it too.
+The preview is independent of `enabled` and of `status`: it is about the reel, not the
+soundtrack, so it plays with the music switched off. Never raises, the hooks' rule. Import
+direction: `selection` → `music`, the same way as `service` → `music`; `music` still imports
+only the `karaoke` leaves.
 
 ### 3.4 The sink protocol
 
@@ -196,8 +218,34 @@ The rules, each covering a race:
   204 no-op — the tab is going away, an error helps nobody.
 - **No report for 15 s** ends the lease. The position freezes, `sink_online` goes false, the
   track stays.
-- The host registers **only once its element can actually play**, so `sink_online` is the app's
-  promise that sound comes out.
+- **Only the tab holding the lease makes a sound.** The element follows the state *and* the
+  lease: without a lease — a second host tab of the same browser, a claim that failed — it
+  stays silent, and a broadcast carrying a `sink_generation` **newer** than its own (never
+  merely different: the page's first `GET /music` may land after the claim, carrying the number
+  from before it) drops the lease and unloads the file. Every report carries the lease's id, so
+  `sink_online` is the app's promise that sound comes out. The lease effect keeps everything
+  in its own closure — StrictMode's mount, cleanup, mount in development once left a lease
+  claimed, discarded and never reported on under audible music, which read as *No screen is
+  playing the music*, a position stuck at 0 that every broadcast seeked back to, and a song
+  whose end nobody reported.
+- **A dead lease is dropped, not nursed.** `server.ready` — the socket's first message on every
+  connection — on a tab that holds a lease *may* mean the backend restarted and forgot it (a
+  fresh server numbers its leases from one again, which the *newer* check above cannot see).
+  The tab **probes**: one progress report, and only a 409 on that report drops the lease and
+  claims a new one — never the event alone, because at load the first `server.ready` and the
+  claim's own answer race, and a blind re-claim would restart the song a moment into every page
+  load. A 409 `not_the_sink` on an ordinary heartbeat drops the lease and claims **nothing**,
+  because two screens that both re-claimed would trade the sound every five seconds — the
+  newest registration wins, and it was not ours.
+- **The heartbeat goes out with or without a track.** With none — a song being sung, the
+  wait after it, an empty pool — the report names no track (`"none"`), which the backend
+  answers with its state and a touched lease. A heartbeat that needed a track let the lease
+  lapse fifteen seconds into every sing, and the music never came back: the first report
+  afterwards was the 409 that means *another screen has it*, and the tab went quiet.
+- **`play()` on the element is never blind.** The autoplay unlock — the *Turn on sound* button
+  and any press on the page — plays only while the state says the music should be playing, so a
+  click during a sing or a pause starts nothing; and clearing the track calls `load()` after
+  removing `src`, because the removed attribute alone leaves the resource in the element.
 - An `error` counts as `ended` and advances; five in a row back off for a minute, so a library
   of broken files cannot spin at request speed.
 
@@ -247,8 +295,8 @@ code:
 | key | type | default | says |
 |---|---|---|---|
 | `sound.master_volume` | int 0–100 | 100 | everything Wingman plays on the host screen |
-| `sound.music_volume` | int 0–100 | 60 | the background music, quieter than the singing on purpose |
-| `sound.effects_volume` | int 0–100 | 80 | the sound effects — nothing uses it yet, and the description says so |
+| `sound.music_volume` | int 0–100 | 100 | the background music |
+| `sound.effects_volume` | int 0–100 | 100 | the sound effects — nothing uses it yet, and the description says so |
 
 Private in `music/settings.py`, behind `music.manage`:
 
@@ -258,6 +306,12 @@ Private in `music/settings.py`, behind `music.manage`:
 | `music.scope` | str | `all` |
 | `music.playlist` | str | `""` |
 | `music.resume_delay_s` | int 0–120 | 10 |
+
+Whether the host plays the song the reel lands on is **not** here: `sound.reel_preview` (bool,
+**true**) is a registered setting under **Sound** beside its volume `sound.preview_volume`, the
+user's ruling of 2026-09-12 (it was `music.preview_on_spin` behind the gear for a day).
+`api.update_setting` refreshes the music's caches for every `sound.MUSIC_KEYS` write, which is
+what ends a playing preview when the switch goes off.
 
 `MUSIC_SCOPES` is the same four as `devices.settings.RANDOM_SCOPES` but declared here: the two
 are free to diverge, and importing `devices` from `music` is a coupling neither needs.
@@ -294,7 +348,12 @@ the same track changes nothing; a sink that stops reporting freezes the position
 retries on its own deadline and not every tick; a song with no audio file is never picked; a
 song a tag hides from guests never appears; hooks after `stop_watchdog()` are no-ops.
 `test_music_api.py` covers the routes, the 409s, the two sink generations, and that a progress
-report broadcasts nothing while the first `duration_s` does.
+report broadcasts nothing while the first `duration_s` does. The reel's preview: the track
+freezes and comes back where it stopped, the preview stands with the music off, none without
+a file or with the switch off or under a sing, a sing ends it, a file naming no start plays
+from 0 (`test_music_state.py`); the settings carry the switch (`test_music_api.py`); a spun
+selection reaches the music with the song, its start and its landing, survives the spin coming
+off, and goes with the selection (`test_karaoke_selection.py`).
 
 ## 4. Frontend
 
@@ -305,41 +364,52 @@ and its `.home-stage` class, so ui-guidelines §1.2's `--tile-bg` whitelist is u
 `CurrentlyPlaying.tsx` loses its `"stage"` variant and everything stage-only and becomes what
 its name says: the TV's block.
 
+> **Redesigned 2026-09-12.** The first version (264 px in every mode, a blue Sing lead over a
+> separate transport row, a *Background music* eyebrow) shipped with the merge and the user
+> rejected it on first sight: the head took a third of the tile and two control bars floated
+> under it. What follows is the layout he chose out of three.
+
 ```
-+--------------------------------------+  16px padding
-| +------+  Background music           |  88px art | four declared text rows
-| | art  |  Bohemian Rhapsody          |
-| | 88px |  Queen                      |
-| +------+  --o------------------ 1:12 |
-|    (heart)     ( PLAY )     (wish)   |  72px control row, SongControls.css untouched
-|  [gear] [||] [>>]  (o)----------o--- |  40px transport row
++--------------------------------------+  16px padding              [gear] top-right
+| +------+  Bohemian Rhapsody          |  88px art | title (2 lines), artist, bar
+| | art  |  Queen                      |
+| | 88px |  ====o--------------- 1:12  |
+| +------+                             |
+|  (heart) [||] [>>] (o)------- (wish) |  48px row: the music's own transport
 +--------------------------------------+
+
+  over a sing: the eyebrow *Now playing* over the title, no bar, and the row is
+  the song modal's heart / pink Stop / wish (SongControls.css, untouched)
+
+  idle:            [ logo 88px ]
+                  Ultrastar Wingman
+        Nothing is playing. Pick a song and press play.
 ```
 
-**264 px, in every mode** (16 + 104 + 8 + 72 + 8 + 40 + 16), against today's 327. One DOM
-shape, slots filled per mode, every row a **fixed grid track**, so an absent child leaves an
-empty track and no mode can change the height. Every reserved line carries a **declared px
-`line-height`**, never `normal`: §4's own warning applies — the same caption is 16 px tall in
-Segoe UI and 14 px in Roboto, and a height that measured itself would differ between the
-developer's Windows and every phone in the room.
+**One height in every mode**, 200 px: 16 of padding, the 88 px head, 8, and the 72 px the sing's
+lead control needs — the music mode's 48 px row and the idle brand block centre in that second
+track. (A first cut let the tile follow its content, 176 for the music and a little more for a
+sing; the user asked for one height the same day.) Every text row carries a **declared px
+`line-height`**, never `normal` (§4's warning: the same caption is 16 px in Segoe UI and 14 px in
+Roboto). The head is a flex row — the art, then one column of text rows **centred beside it**,
+nothing reserved for a second title line — and not a grid the art spans, because a spanned grid
+hands the art's height to the rows and spreads the text down the tile. The eyebrow sets
+`text-align: left` against the global centred `h1`.
 
 | slot | singing | background music | idle |
 |---|---|---|---|
-| art, 88 px | `SongCover` in a button opening the song modal | the same | `LogoTile` from `SongReel.tsx` |
-| eyebrow (the page's `h1`) | *Now playing* | *Background music* | *Ultrastar Wingman* |
-| title, 2 clamped lines | the song's | the song's | *Nothing is playing* |
-| artist | the song's | the song's | *Pick a song to start the party.* |
-| progress | — | the bar and the elapsed time | — |
-| lead control | pink Stop (`karaoke.stop`) | blue **Sing** — `PlayerSelection` for that song (`karaoke.sing`) | — |
-| flanks | favorite / wish | favorite / wish, on the background song | — |
-| transport | the gear | gear, pause, skip, volume | the gear |
+| art, 88 px | `SongCover` in a button opening the song modal | the same | `LogoTile` without its black plate, centred |
+| the page's `h1` | the eyebrow *Now playing* | *Background music*, `visually-hidden` — the row says what this is | *Ultrastar Wingman*, the brand line |
+| title | 2 clamped lines at 1.15em | 2 clamped lines at 1.3em (the eyebrow's line is its own) | — |
+| artist | the song's | the song's | the hint line |
+| progress | — | the bar and the elapsed time, or *No host screen is open* | — |
+| the one row | heart / pink Stop (`karaoke.stop`) / wish | heart / play-pause / skip / volume (`music.control`) / wish | none |
+| the gear | top-right, `music.manage` | the same | the same |
 
-A reader **without `music.view`** gets *Ultrastar Wingman* on the title line instead of
-*Nothing is playing*: that reader cannot know whether music is playing, so the tile must not
-claim it is not.
-
-The **gear is drawn in every mode** — a host who switched the music off must have a way back
-in — and the transport's 40 px are reserved even where nothing is drawn in them.
+**No blue Sing.** Singing the background song is tapping its cover: the song modal opens and
+its Play is the one sing path in the app. A reader **without `music.view`** gets the hint line
+alone, never *Nothing is playing* — that reader cannot know whether music is playing, so the
+tile must not claim it is not.
 
 The elapsed time ticks through a `useNow(active)` hook lifted out of `CurrentlyPlaying`'s
 private `useElapsedSeconds`, so the host's sing clock and the player's music clock are one
@@ -372,14 +442,32 @@ sets — and an administrator session, so it holds the `music.manage` the sink r
 - A new `track.id` sets `src` and seeks — but **only when the gap is over ~1.5 s**, so a
   heartbeat's own round trip never nudges a playing element. A host page reloaded mid-song
   comes back in the right place.
-- `volume = master / 100 * music / 100`, one line in `music.ts` with its own test. A linear
+- `volume = master / 100 * music / 100`, one line in `music.ts` with its own test; the reel's
+  element uses `master × preview` (`sound.preview_volume`) the same way, its own ref. A linear
   product, not a perceptual curve: any gamma makes the printed number a lie in the other
   direction, and both controls are trimmed by ear anyway.
 - The fade keys on the **state's own `playing` going true -> false**, not on `karaoke.started`:
   one code path for a sing starting, a pause, and a lost sink. ~600 ms down with
-  `requestAnimationFrame`, ~300 ms back up, cancelling any running ramp. **No reduced-motion
-  branch** — §1.9 governs visual animation, and cutting a volume ramp makes the room's
+  `requestAnimationFrame`, ~300 ms back up, cancelling any running ramp. A fade **the reel
+  causes** — the background going under a spin, the last reel song going under a respin — takes
+  `SPIN_FADE_OUT_MS` (2.5 s) instead, the user's ask of 2026-09-12: the reel is the room's cue
+  that the music is going, and the 5.5 s spin has the time. A consequence, accepted: the server
+  froze the background where the spin arrived, the element plays on for the fade, and on the
+  way back `seekIfDrifted` (1.5 s) seeks it *back* to the frozen spot, so the room hears the
+  covered seconds again. **No reduced-motion branch** — §1.9 governs visual animation, and cutting a volume ramp makes the room's
   experience worse rather than calmer. The comment says so, so a reviewer does not "fix" it.
+
+**The reel's song** (2026-09-12): a second hidden `<audio>` (`data-role="preview"`) for the
+state's `preview`. Loaded and seeked to `start_s` the moment the preview arrives, so the file
+buffers while the reel spins; at `reveal_at` on the server's clock (`parseServerTime`, already
+past for a host that loaded mid-selection) it rises in over `PREVIEW_FADE_IN_MS` (1.5 s, inside
+the parser's two-second lead-in); the landing timer is keyed on `id@reveal_at`, so a respin and
+an early reveal both re-arm it, and a respin under a playing song fades it out (the long
+fade) before the new file is cued — `previewCuedRef` is what lets the landing timer cue it
+itself if that fade is still running when the reel lands. The background element's `shouldPlay` is false while a preview is set — it
+fades out under the reel and comes back where the server froze it — and `musicPosition` on the
+phones stands still for the same reason. The preview element reports nothing: the lease is
+about the background track. The gesture unlock plays whichever element should be sounding.
 
 ### 4.3 The rest
 
@@ -394,10 +482,17 @@ sets — and an administrator session, so it holds the `music.manage` the sink r
   `pages/Devices.tsx` verbatim, because this is their third caller. `Devices.test.tsx` passing
   unchanged is what proves the extraction.
 - `pages/Settings.tsx` — `GROUP_ORDER` gains `Sound` after `Host`, `GROUP_ICONS.Sound =
-  "volume"`, and `CUSTOM_FIELDS` points all three volume keys at one `VolumeField`.
-- `pages/Host.tsx` — one quiet line in `HostBrand` under the scan hint, drawn only where `scan`
-  is true so the between-singers beat stays bare. It is content, not a control, so it is not
-  wrapped in the reveal-on-move overlay and adds no second idle timer. *Turn on sound* goes in
+  "volume"`, and `CUSTOM_FIELDS` points all four volume keys at one `VolumeField`; the reel
+  switch is an ordinary checkbox row, its label `labelize`d off the key (*Reel preview*), the
+  sentence in its description.
+- `pages/Host.tsx` — one quiet line, `.host-music-line`, a child of `.host-page` fixed along
+  the foot of the screen: centred on the TV, as wide as the page's padding allows (one line,
+  ellipsis only for the pathological title), under *Turn on sound* at 8vh, and the page
+  reserves its height as bottom padding (`:has(> .host-music-line)`) so tall score bars on a
+  short TV shrink above it; the narrow-screen query puts it back in the flow. Under whatever
+  the stage shows — the brand, the scores — and not drawn during a takeover (the badges, the
+  selection), which already hide the rail. It is content, not a control, so it is not wrapped
+  in the reveal-on-move overlay and adds no second idle timer. *Turn on sound* goes in
   `.host-rail` after the QR card for the same reason: `.host-controls` is invisible the moment
   the mouse stops moving, which on a TV is always.
 - `icons.tsx` — `pause`, `skip`, `volume`. No mute, so no `volume-off`. Control glyphs, so none
@@ -470,8 +565,9 @@ over CDP (the extension was not connected):
 - Songs advance on their own: the browser played each to the end, reported `ended`, and the
   server picked another.
 - `GET /songs/{id}/audio` answers `206` to a `Range` request, so seeking works.
-- The player measures **264px in every mode**, draws its three grid rows in all of them, and
-  scrolls nothing sideways at 390px.
+- The player measured **264px in every mode** and scrolled nothing sideways at 390px. (That
+  fixed height went with the 2026-09-12 redesign; the redesigned tile was checked at 390px in
+  headless Chrome in its music and idle modes, the sing mode by its tests alone.)
 - With `--autoplay-policy=document-user-activation-required` the element stays paused and the
   host screen offers **Turn on sound**; a trusted click starts it and the button goes.
 - A guest was refused `PATCH /music/settings` with `missing_permission:music.manage`.

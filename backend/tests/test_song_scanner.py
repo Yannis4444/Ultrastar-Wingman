@@ -97,6 +97,24 @@ async def test_scan_adds_every_song_directory(
     assert second.cover_file is None
 
 
+async def test_the_preview_start_comes_off_the_txt(
+    session: AsyncSession,
+    session_factory: async_sessionmaker[AsyncSession],
+    tmp_path: Path,
+) -> None:
+    library = tmp_path / "songs"
+    make_song_dir(library, "named", tags="#PREVIEWSTART:30\n")
+    make_song_dir(library, "plain")
+    await configure(session, library)
+
+    await scan_library(session_factory)
+
+    named, plain = await songs_in_db(session)
+    assert named.preview_start_seconds == 30.0
+    # The helper writes no GAP or BPM, so there is nothing to place the first word with.
+    assert plain.preview_start_seconds is None
+
+
 async def test_the_duet_flag_comes_off_the_txt(
     session: AsyncSession,
     session_factory: async_sessionmaker[AsyncSession],

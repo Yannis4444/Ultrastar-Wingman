@@ -277,6 +277,7 @@ def _mutable_values(scanned: ScannedSong) -> dict[str, object]:
         "audio_file": _as_str(scanned.audio_file),
         "video_file": _as_str(scanned.video_file),
         "duration_seconds": scanned.duration_seconds,
+        "preview_start_seconds": txt.preview_start,
         "language": txt.language,
         "genre": txt.genre,
         "year": txt.year,

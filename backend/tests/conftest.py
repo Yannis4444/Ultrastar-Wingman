@@ -235,6 +235,7 @@ def fresh_music_state() -> None:
     music._last_song_id = None
     music._sink = None
     music._sink_generation = 0
+    music._preview = None
     music._paused = False
     music._sing_running = False
     music._usdx_open = False

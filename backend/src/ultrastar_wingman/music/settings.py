@@ -1,4 +1,4 @@
-"""The four knobs the background music has, and where they live.
+"""The five knobs the background music has, and where they live.
 
 Module-private definitions read through a `SettingsService` built on them, the
 `devices/settings.py` pattern and for both of its reasons. `settings.manage` is the wrong
@@ -119,5 +119,5 @@ def service(session: AsyncSession) -> SettingsService:
 
 
 async def read_all(session: AsyncSession) -> dict[str, SettingValue]:
-    """All four, one query — what the service caches and reads on every tick."""
+    """All five, one query — what the service caches and reads on every tick."""
     return await service(session).all()
