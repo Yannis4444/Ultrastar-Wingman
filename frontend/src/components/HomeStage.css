@@ -88,13 +88,18 @@
    up to the art's own 88px in both modes: over a sing an eyebrow, two title
    lines and the artist; for the background song two title lines, the artist
    and the bar. Flex rather than a grid the art spans, because a spanned grid
-   hands the art's height to the rows and spreads the text down the tile. The
-   right padding keeps the first text row clear of the gear. */
+   hands the art's height to the rows and spreads the text down the tile. */
 .home-stage-head {
   display: flex;
   align-items: flex-start;
   gap: 12px;
-  padding-right: 40px;
+}
+
+/* The first text row keeps clear of the gear — only where there is one, and
+   only that row: the bar under it runs to the tile's edge. */
+.home-stage:has(.home-stage-gear) .home-stage-eyebrow,
+.home-stage:has(.home-stage-gear) .home-stage-title-tall {
+  padding-right: 36px;
 }
 
 .home-stage-text {
@@ -255,8 +260,17 @@
   gap: 4px;
 }
 
+/* Nothing in the row may shrink under a finger: the marks keep their 48px and
+   the two transport glyphs take §1.10's 40px floor, which at 360px is what
+   leaves the slider a usable length. */
+.home-stage-transport .song-control {
+  flex: 0 0 auto;
+}
+
 .home-stage-transport .song-control-transport {
-  font-size: 1.5em;
+  width: 40px;
+  height: 40px;
+  font-size: 1.4em;
 }
 
 .home-stage-transport .song-control-transport:hover:enabled {
@@ -273,7 +287,6 @@
   align-items: center;
   gap: 8px;
   min-width: 0;
-  padding: 0 4px;
 }
 
 .home-stage-volume-glyph {

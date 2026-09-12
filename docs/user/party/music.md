@@ -69,8 +69,8 @@ against it.
 
 ## When there is no sound
 
-If the player says **No host screen is open**, no host screen is open. Open one
-on the TV and the music picks up where it stopped.
+If the player says **No host screen is open**, open one on the TV. The music picks
+up where it stopped.
 
 Closing the host screen pauses the room, it does not lose the song. Opening it
 again starts the same song from where it was.
