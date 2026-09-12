@@ -143,6 +143,16 @@ async def test_a_volume_set_on_the_settings_page_reaches_the_music(
     assert events_named(broadcast_events, "music.changed")
 
 
+async def test_the_settings_carry_the_reel_preview_switch(client: AsyncClient) -> None:
+    body = (await client.get("/api/v1/music/settings")).json()
+    assert body["preview_on_spin"] is True
+    response = await client.patch("/api/v1/music/settings", json={"preview_on_spin": False})
+    assert response.status_code == 200
+    assert response.json()["preview_on_spin"] is False
+    # And the state carries no preview while nothing is spun.
+    assert (await client.get("/api/v1/music")).json()["preview"] is None
+
+
 async def test_only_the_volumes_named_are_written(client: AsyncClient) -> None:
     await client.put("/api/v1/music/volume", json={"master": 40})
     body = (await client.put("/api/v1/music/volume", json={"effects": 10})).json()

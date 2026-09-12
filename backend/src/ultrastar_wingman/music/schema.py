@@ -44,6 +44,23 @@ class MusicTrackRead(BaseModel):
     duration_s: float | None
 
 
+class MusicPreviewRead(BaseModel):
+    """The song the reel on the host screen landed on, for the host screen to play.
+
+    Set while a spun selection stands and the host has *Play the song when the reel lands*
+    on: the background music freezes, and from `reveal_at` — the reel's landing, on the
+    server's clock — the host fades this song in from `start_s`, where the file says a
+    preview should start (`songs.txt.SongTxt.preview_start`; 0 for a file that says
+    nothing). `id` changes on every spin and respin, and `reveal_at` moves when a press in
+    the room lands the reel early, so a host times its fade-in on the pair.
+    """
+
+    id: str
+    song: SongRead
+    start_s: float
+    reveal_at: datetime
+
+
 class MusicVolumeRead(BaseModel):
     """The three volumes, as percentages. The host multiplies them itself — an effective
     volume worked out here would be a number nobody set."""
@@ -65,6 +82,10 @@ class MusicRead(BaseModel):
 
     status: MusicStatus
     track: MusicTrackRead | None
+    # The reel's song, while the room's selection was spun and the host plays it on the
+    # landing. Independent of `status`: it is about the reel, not the soundtrack, so it is
+    # set with the music switched off too. While it is set the track does not advance.
+    preview: MusicPreviewRead | None
     blocked_by: MusicBlocker | None
     # When the music comes back after a song, and when an empty pool is worth asking about
     # again. Both are absolute times so a phone needs no clock of the server's.
@@ -85,6 +106,7 @@ class MusicSettings(BaseModel):
     scope: str
     playlist: str
     resume_delay_s: int
+    preview_on_spin: bool
 
 
 class MusicSinkRegistered(BaseModel):

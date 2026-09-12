@@ -56,6 +56,7 @@ class MusicSettingsUpdate(BaseModel):
     scope: str | None = None
     playlist: str | None = None
     resume_delay_s: int | None = None
+    preview_on_spin: bool | None = None
 
 
 class MusicSinkRelease(BaseModel):

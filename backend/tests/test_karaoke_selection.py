@@ -1258,6 +1258,45 @@ async def test_every_scope_picks_out_of_its_own_pool(
     ]
 
 
+async def test_a_spin_hands_the_reels_song_to_the_music(
+    client: AsyncClient,
+    session: AsyncSession,
+    configured: FakeUsdx,
+    song: str,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """The host screen plays the song the reel lands on: the music learns the song, where
+    its preview starts and when the reel lands, keeps it once the spin comes off, and lets
+    go when the selection does."""
+    from ultrastar_wingman.music import service as music_service
+
+    row = await session.get(Song, song)
+    assert row is not None
+    row.audio_file = str(Path(row.directory) / "song.mp3")
+    row.preview_start_seconds = 33.0
+    await session.commit()
+
+    opened = await open_spin(client, "all")
+    token = opened["token"]
+    state = await music_service.read()
+    assert state.preview is not None
+    assert state.preview.song.id == song
+    assert state.preview.start_s == 33.0
+    spun_at = datetime.fromisoformat(opened["selection"]["spin"]["spun_at"])
+    assert state.preview.reveal_at == spun_at + timedelta(seconds=selection.REVEAL_SECONDS)
+    first = state.preview.id
+
+    # The spin comes off: the song keeps playing while the singers are picked.
+    assert (await pick(client, token)).status_code == 200
+    state = await music_service.read()
+    assert state.preview is not None
+    assert state.preview.id == first
+
+    # The selection is given up: so is the song.
+    assert (await close_selection(client, token)).status_code == 204
+    assert (await music_service.read()).preview is None
+
+
 async def test_a_spin_over_nothing_is_refused(
     bootstrap_settings: BootstrapSettings, client: AsyncClient, song: str
 ) -> None:
