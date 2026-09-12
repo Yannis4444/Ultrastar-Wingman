@@ -336,6 +336,10 @@ async def _evaluate(session: AsyncSession | None) -> None:
         _set_resume(None)
     if _track is not None:
         return
+    if _preview is not None:
+        # The reel's song has the speakers. A track picked now would stand at 0:00 on every
+        # phone with nobody hearing it; the tick after the preview ends picks as usual.
+        return
     if _retry_at is not None:
         if at < _retry_at:
             return

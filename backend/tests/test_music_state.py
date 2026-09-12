@@ -598,6 +598,29 @@ async def test_a_sing_takes_the_reels_song_off_the_speakers(
     assert (await service.read()).preview is None
 
 
+async def test_no_song_is_picked_while_the_reels_song_plays(
+    session: AsyncSession,
+    session_factory: async_sessionmaker[AsyncSession],
+    tmp_path: Path,
+    clock: Clock,
+) -> None:
+    # A sing ends, somebody spins the reel inside the wait, and the wait runs out while the
+    # reel's song plays: the phones must not show a track at 0:00 that nobody hears.
+    song = await add_song(session, tmp_path, 1)
+    await enable(session, resume_delay_s=5)
+    await register(session)
+    await service.sing_started()
+    await service.sing_ended()
+    await service.selection_changed(spin_preview(song))
+    clock.advance(6)
+    await service.tick(session_factory)
+    assert (await service.read()).track is None
+
+    await service.selection_changed(None)
+    await service.tick(session_factory)
+    assert (await service.read()).track is not None
+
+
 async def test_a_file_that_names_no_preview_start_plays_from_the_beginning(
     session: AsyncSession, tmp_path: Path, clock: Clock
 ) -> None:

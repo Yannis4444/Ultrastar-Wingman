@@ -25,7 +25,8 @@ Made by the user, 2026-09-11:
    beside it, the controls underneath, and **the same height in all three modes** — a sing, the
    background song, and idle. Idle fills the art square with the Wingman logo.
 5. The host TV **keeps its brand and its QR rail** and gains one quiet line naming the
-   background song. Nothing else about the idle screen changes.
+   background song at the foot of the stage — under the brand and under the scores alike,
+   gone while a screen takes the whole TV. Nothing else about the idle screen changes.
 6. Three capabilities: **`music.view`** (guest and up), **`music.control`** — play, pause,
    skip, volume — (account and up), **`music.manage`** — turn it on, the pool, the playlist,
    the pause — (trusted and up).
@@ -465,9 +466,10 @@ about the background track. The gesture unlock plays whichever element should be
   unchanged is what proves the extraction.
 - `pages/Settings.tsx` — `GROUP_ORDER` gains `Sound` after `Host`, `GROUP_ICONS.Sound =
   "volume"`, and `CUSTOM_FIELDS` points all three volume keys at one `VolumeField`.
-- `pages/Host.tsx` — one quiet line in `HostBrand` under the scan hint, drawn only where `scan`
-  is true so the between-singers beat stays bare. It is content, not a control, so it is not
-  wrapped in the reveal-on-move overlay and adds no second idle timer. *Turn on sound* goes in
+- `pages/Host.tsx` — one quiet line, `.host-music-line`, in the foot row of the `.host-stage`
+  grid under whatever the stage shows — the brand, the scores — and not drawn during a
+  takeover (the badges, the selection), which already hide the rail. It is content, not a
+  control, so it is not wrapped in the reveal-on-move overlay and adds no second idle timer. *Turn on sound* goes in
   `.host-rail` after the QR card for the same reason: `.host-controls` is invisible the moment
   the mouse stops moving, which on a TV is always.
 - `icons.tsx` — `pause`, `skip`, `volume`. No mute, so no `volume-off`. Control glyphs, so none
