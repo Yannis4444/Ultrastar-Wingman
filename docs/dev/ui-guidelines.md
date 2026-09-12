@@ -168,8 +168,10 @@ exception). Tests identify glyphs with `iconNames()` from `src/test/icons.ts`.
   member's access level.
 - **Song controls** (`components/SongControls.css`), in the song modal and the Home stage: two
   48px `.song-control` flanks (favorite / wish; glyph `--color-darkerer` off, accent on, no
-  fill) around a 72px unfilled `.song-control-lead` (blue play, pink stop on the stage), grid
-  `1fr auto 1fr`. No filled play button.
+  fill) around a 72px unfilled `.song-control-lead` (blue play in the modal, pink stop on the
+  stage over a sing), grid `1fr auto 1fr`. No filled play button. The stage's row for the
+  *background* song has no lead: between the same two flanks sit the music's own 48px
+  `.song-control-transport` glyphs (play/pause, skip) and the volume slider, as a flex row.
 - **The one slider** is `.range-input` (`index.css`): the background music's volume on the
   player and the three **Sound** settings. `accent-color: var(--highlight-blue-light)` paints
   the track and the thumb — the token the permission checkboxes already use — so there is no
@@ -316,24 +318,25 @@ saved) where a jump to the top would throw away the place they were working in.
   reel frame; `PlayerAvatar` is `--border-radius-small` (people, not covers), the 96px identity
   avatar round. Sizes: 40px in rows, 200px (`max-width: 60vw`) in the modal hero, 160px on Home,
   `min(42vh, 30vw)` on the host; the fallback is the initial letter on `--input-bg`.
-- **Home** is `HomeStage`, the player: one tile, three modes, **one height in every one of
-  them** (264px — 16 of padding, a 104px head, the 72px control row, the 40px transport row,
-  8px gaps). A song being sung, the background song between them, and the brand while
-  neither. Every row is a fixed grid track and every reserved line carries a *declared* px
-  `line-height` — `normal` comes out of the font's metrics (§4), so a tile that measured
-  itself would be one height on Windows and another on every phone. The art is 88px: the
-  cover, or `SongReel`'s own `LogoTile` when idle. Two title lines are always reserved, which
-  is what a long title costs instead of the tile growing. The eyebrow is the page's `h1` and
-  names the mode (*Now playing* / *Background music* / *Ultrastar Wingman*), so Home exposes
-  exactly one heading throughout. The large control keeps its meaning — pink Stop for a sing,
-  blue Sing for the background song (`PlayerSelection`, the song modal's own path), nothing
-  when idle — and the favorite and wish marks flank it on whatever is playing. The music's own
-  transport (gear, pause, skip, volume) is a **separate line**, so the two plays never share a
-  row; the gear is drawn in every mode, because a host who switched the music off needs a way
-  back in. **No progress or time for a sing** on phones, as before; the background song gets
-  both, because nothing else in the room shows them. A reader without `music.view` is told
-  *Ultrastar Wingman*, never *Nothing is playing*: they cannot know. Then the setup banner →
-  wishlist → the Random song entry. Nothing shifts when the mode changes.
+- **Home** is `HomeStage`, the player: one tile, three modes, **one control row**, and as
+  tall as its mode needs — the modes are built to land close (an 88px head over a 48px row,
+  or the logo over the brand and one hint line) rather than forced to one height. A song being
+  sung, the background song between them, and the brand while neither. Every text row carries
+  a *declared* px `line-height` — `normal` comes out of the font's metrics (§4), so a head
+  that measured itself would be one height on Windows and another on every phone. The art is
+  88px: the cover, or `SongReel`'s own `LogoTile` when idle, centred over the brand name. Two
+  title lines are always reserved, which is what a long title costs instead of the head
+  growing. Home exposes exactly one heading throughout: the eyebrow *Now playing* over a
+  sing, a visually hidden *Background music* for the background song (the row says what it
+  is), the brand line when idle. Over a sing the row is the song modal's heart / pink Stop /
+  wish; for the background song the same two marks flank the music's own transport —
+  play/pause, skip, the volume slider — and there is **no blue Sing**: singing the background
+  song is tapping its cover into the song modal, the one sing path. The gear sits top-right in
+  every mode, out of every row, because a host who switched the music off needs a way back
+  in. **No progress or time for a sing** on phones, as before; the background song gets both,
+  because nothing else in the room shows them. A reader without `music.view` is told the hint
+  alone, never *Nothing is playing*: they cannot know. Then the setup banner → wishlist → the
+  Random song entry.
 - **Songs** puts the page's one loud input in its sticky toolbar: the `search` glyph, the field,
   and a trailing `close` `.icon-button` that clears it, drawn only while something is typed and
   suppressing the WebKit search field's own cancel button so there is never a second X. Under it

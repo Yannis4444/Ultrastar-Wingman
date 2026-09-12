@@ -1,19 +1,16 @@
-/* The player at the top of Home: one block, three modes, one height.
+/* The player at the top of Home: one tile, three modes, one control row.
    The whitelist of tiled surfaces does not grow — one stage tile stays one
    stage tile (§1.2).
 
-   264px, in every mode: 16 of padding, a 104px head, 8, the 72px control row,
-   8, the 40px transport row, 16. Every row is a fixed grid track and every
-   reserved line carries a declared `line-height`, so a title that wraps to two
-   lines, a control row a guest never gets and an empty progress line all leave
-   the tile exactly as tall. Nothing on the page below it moves, which is the
-   whole point of the fixed height.
-
-   The line-heights are declared and never `normal` for the reason §4 gives
-   about the bottom nav: `normal` comes out of the font's own metrics, so the
-   same 0.85em caption is 16px tall in Segoe UI and 14px in Roboto, and a tile
-   that measured itself would be one height on the developer's Windows and
-   another on every phone in the room. */
+   The tile is as tall as its mode needs and no taller. The modes are laid out
+   so the heights come out close rather than forced equal: a song is an 88px
+   head (the art, with the text rows beside it), 8, and a 48px control row —
+   16 + 88 + 8 + 48 + 16 = 176; the quiet room is the logo over the brand and
+   one hint line, which lands within a few pixels of that. Every text row has a
+   declared px `line-height`, never `normal`, for the reason §4 gives about the
+   bottom nav: `normal` comes out of the font's own metrics, so the same caption
+   is 16px tall in Segoe UI and 14px in Roboto, and a head that measured itself
+   would be one height on the developer's Windows and another on every phone. */
 .home-stage {
   /* A local composition rather than a new token: the pink accent lightened far
      enough to clear 3:1 as a glyph on `--tile-bg`, where the raw token is
@@ -24,6 +21,7 @@
     var(--color)
   );
 
+  position: relative;
   box-sizing: border-box;
   margin: 16px;
   padding: 16px;
@@ -31,9 +29,16 @@
   border-radius: var(--border-radius);
 }
 
+/* The gear, in the corner in every mode, out of every row. */
+.home-stage-gear {
+  position: absolute;
+  top: 8px;
+  right: 8px;
+  color: var(--color-darker);
+}
+
 .home-stage-body {
   display: grid;
-  grid-template-rows: 104px 72px 40px;
   row-gap: 8px;
   animation: home-stage-in 200ms ease;
 }
@@ -44,19 +49,63 @@
   }
 }
 
-/* The art, then four declared text rows beside it. The square is 88px inside a
-   104px column and sits at the top, which is what puts it under the eyebrow's
-   line the way the sketch draws it. */
+/* --- the quiet room ------------------------------------------------------ */
+
+/* The brand fills the tile: the logo over the name over one hint line, all
+   centred. Nothing of the song layout is drawn — no head, no row. */
+.home-stage-idle {
+  justify-items: center;
+  row-gap: 0;
+  padding: 4px 0;
+  text-align: center;
+}
+
+.home-stage-logo {
+  display: block;
+  width: 88px;
+  height: 88px;
+  border-radius: var(--border-radius-small);
+  background-size: 70%;
+}
+
+.home-stage-brand {
+  margin: 12px 0 0;
+  font-size: 1.3em;
+  line-height: 28px;
+  font-weight: 700;
+}
+
+.home-stage-hint {
+  margin: 0;
+  font-size: 0.85em;
+  line-height: 20px;
+  color: var(--color-darker);
+}
+
+/* --- a song -------------------------------------------------------------- */
+
+/* The art, then the declared text rows beside it in one column. The rows add
+   up to the art's own 88px in both modes: over a sing an eyebrow, two title
+   lines and the artist; for the background song two title lines, the artist
+   and the bar. Flex rather than a grid the art spans, because a spanned grid
+   hands the art's height to the rows and spreads the text down the tile. The
+   right padding keeps the first text row clear of the gear. */
 .home-stage-head {
-  display: grid;
-  grid-template-columns: 88px minmax(0, 1fr);
-  grid-template-rows: 20px 44px 20px 20px;
-  column-gap: 12px;
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+  padding-right: 40px;
+}
+
+.home-stage-text {
+  display: flex;
+  flex: 1 1 auto;
+  flex-direction: column;
+  min-width: 0;
 }
 
 .home-stage-cover-button {
-  grid-row: 1 / -1;
-  align-self: start;
+  flex: 0 0 auto;
   padding: 0;
   background: none;
   border: none;
@@ -67,10 +116,7 @@
 
 /* A compound selector, so it beats `SongCover.css`'s 40px whatever order the
    bundle puts them in. Covers are square — the artwork is. */
-.home-stage-cover,
 .song-cover.home-stage-cover {
-  grid-row: 1 / -1;
-  align-self: start;
   display: block;
   width: 88px;
   height: 88px;
@@ -79,14 +125,7 @@
   font-size: 2em;
 }
 
-/* The reel's own logo tile at the cover's size: the brand mark is drawn in one
-   place in the app, and this is that place borrowed. */
-.home-stage-cover.spinner-cover-logo {
-  background-size: 80%;
-}
-
 .home-stage-eyebrow {
-  grid-column: 2;
   margin: 0;
   font-size: 0.85em;
   line-height: 20px;
@@ -98,9 +137,9 @@
 }
 
 /* Two lines, always: the room reserved for the second one is what keeps the
-   tile from growing under a long title. */
+   head at the art's height under a long title and a short one alike. */
 .home-stage-title {
-  grid-column: 2;
+  height: 44px;
   margin: 0;
   font-size: 1.15em;
   line-height: 22px;
@@ -111,8 +150,16 @@
   overflow-wrap: anywhere;
 }
 
+/* Without an eyebrow the title starts at the top of the head, level with the
+   art, and takes the eyebrow's line as its own — the line-height rises with
+   the size, which is what lands the artist row where it lands over a sing. */
+.home-stage-title-tall {
+  height: 48px;
+  font-size: 1.3em;
+  line-height: 24px;
+}
+
 .home-stage-artist {
-  grid-column: 2;
   margin: 0;
   font-size: 0.85em;
   line-height: 20px;
@@ -122,12 +169,11 @@
   text-overflow: ellipsis;
 }
 
-/* The row is there in every mode; only the music fills it. */
 .home-stage-progress {
-  grid-column: 2;
   display: flex;
   align-items: center;
   gap: 8px;
+  height: 20px;
   min-width: 0;
 }
 
@@ -148,7 +194,8 @@
 }
 
 .home-stage-time {
-  flex: 0 0 auto;
+  flex: 0 1 auto;
+  min-width: 0;
   font-size: 0.8em;
   color: var(--color-darker);
   font-variant-numeric: tabular-nums;
@@ -157,14 +204,17 @@
   text-overflow: ellipsis;
 }
 
-/* The geometry is `SongControls.css`'s, which keys on `.home-stage-controls`
-   directly: the modal's row and this one are one set of rules, and only the
-   colors stay here. They have to: this row sits on `--tile-bg`, where
-   `--color-darkerer` is 2.25:1 and under the 3:1 floor a control glyph has to
-   clear. On the page background the song modal floats over, the same token
-   does clear it, so the modal keeps what §5 prescribes for it. */
+/* --- the one control row ------------------------------------------------- */
+
+/* Over a sing the geometry is `SongControls.css`'s, which keys on
+   `.home-stage-controls` directly: the modal's row and this one are one set
+   of rules, and only the colors stay here. They have to: this row sits on
+   `--tile-bg`, where `--color-darkerer` is 2.25:1 and under the 3:1 floor a
+   control glyph has to clear. On the page background the song modal floats
+   over, the same token does clear it, so the modal keeps what §5 prescribes. */
 .home-stage-controls .song-control-favorite,
-.home-stage-controls .song-control-wish {
+.home-stage-controls .song-control-wish,
+.home-stage-controls .song-control-transport {
   color: var(--color-darker);
 }
 
@@ -187,17 +237,43 @@
   font-size: 3em;
 }
 
-.home-stage-controls .song-control-sing {
-  color: var(--highlight-blue-light);
+/* The background song's row: the two marks at the ends, and between them the
+   music's own transport — play/pause, skip, the volume taking what is left.
+   Plain flex; the modal's `1fr auto 1fr` grid is for a row with one lead,
+   which this row has not. A reader who may not control the music gets the
+   marks alone, centred as a group the way the modal centres them. */
+.home-stage-controls.home-stage-transport,
+.home-stage-controls.home-stage-transport:not(:has(.song-control-lead)) {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 24px;
 }
 
-/* The music's own transport, on a line of its own so the blue Sing above and
-   the play/pause here are never mistaken for each other. */
-.home-stage-transport {
+.home-stage-controls.home-stage-transport:has(.song-control-transport) {
+  justify-content: space-between;
+  gap: 4px;
+}
+
+.home-stage-transport .song-control-transport {
+  font-size: 1.5em;
+}
+
+.home-stage-transport .song-control-transport:hover:enabled {
+  color: var(--color);
+}
+
+.home-stage-transport .song-control-transport:disabled {
+  color: var(--color-darkerer);
+}
+
+.home-stage-volume-field {
   display: flex;
+  flex: 1 1 auto;
   align-items: center;
   gap: 8px;
   min-width: 0;
+  padding: 0 4px;
 }
 
 .home-stage-volume-glyph {

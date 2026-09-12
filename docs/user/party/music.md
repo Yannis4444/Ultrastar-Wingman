@@ -46,12 +46,13 @@ read on the TV.
 
 ## Control it
 
-Anyone with an account can use the row under the player: pause, skip to the next
-song, and the volume slider.
+Anyone with an account can use the row under the song: pause, skip to the next
+song, and the volume slider between the heart and the plus.
 
-The three large controls above it work on the background song, not just on a song
-being sung. Press the heart to make it a favorite, the plus to wish for it, or
-the blue play to sing it yourself.
+The heart and the plus work on the background song, not just on a song being
+sung. Press the heart to make it a favorite and the plus to wish for it. To sing
+it yourself, tap its cover: the song opens the way any song does, with its own
+play button.
 
 Skipping always starts the next song from the beginning. So does the music coming
 back after somebody sings: Wingman never resumes a song it interrupted.
@@ -68,8 +69,8 @@ against it.
 
 ## When there is no sound
 
-If the player says **No screen is playing the music**, no host screen is open.
-Open one on the TV and the music picks up where it stopped.
+If the player says **No host screen is open**, no host screen is open. Open one
+on the TV and the music picks up where it stopped.
 
 Closing the host screen pauses the room, it does not lose the song. Opening it
 again starts the same song from where it was.

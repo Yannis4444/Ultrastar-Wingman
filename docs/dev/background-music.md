@@ -323,41 +323,49 @@ and its `.home-stage` class, so ui-guidelines §1.2's `--tile-bg` whitelist is u
 `CurrentlyPlaying.tsx` loses its `"stage"` variant and everything stage-only and becomes what
 its name says: the TV's block.
 
+> **Redesigned 2026-09-12.** The first version (264 px in every mode, a blue Sing lead over a
+> separate transport row, a *Background music* eyebrow) shipped with the merge and the user
+> rejected it on first sight: the head took a third of the tile and two control bars floated
+> under it. What follows is the layout he chose out of three.
+
 ```
-+--------------------------------------+  16px padding
-| +------+  Background music           |  88px art | four declared text rows
-| | art  |  Bohemian Rhapsody          |
-| | 88px |  Queen                      |
-| +------+  --o------------------ 1:12 |
-|    (heart)     ( PLAY )     (wish)   |  72px control row, SongControls.css untouched
-|  [gear] [||] [>>]  (o)----------o--- |  40px transport row
++--------------------------------------+  16px padding              [gear] top-right
+| +------+  Bohemian Rhapsody          |  88px art | title (2 lines), artist, bar
+| | art  |  Queen                      |
+| | 88px |  ====o--------------- 1:12  |
+| +------+                             |
+|  (heart) [||] [>>] (o)------- (wish) |  48px row: the music's own transport
 +--------------------------------------+
+
+  over a sing: the eyebrow *Now playing* over the title, no bar, and the row is
+  the song modal's heart / pink Stop / wish (SongControls.css, untouched)
+
+  idle:            [ logo 88px ]
+                  Ultrastar Wingman
+        Nothing is playing. Pick a song and press play.
 ```
 
-**264 px, in every mode** (16 + 104 + 8 + 72 + 8 + 40 + 16), against today's 327. One DOM
-shape, slots filled per mode, every row a **fixed grid track**, so an absent child leaves an
-empty track and no mode can change the height. Every reserved line carries a **declared px
-`line-height`**, never `normal`: §4's own warning applies — the same caption is 16 px tall in
-Segoe UI and 14 px in Roboto, and a height that measured itself would differ between the
-developer's Windows and every phone in the room.
+**As tall as its mode needs**, and the modes are built to land close rather than forced
+equal: 16 + 88 + 8 + 48 + 16 = 176 for a song, and the brand block within a few pixels of it.
+Every text row still carries a **declared px `line-height`**, never `normal` (§4's warning: the
+same caption is 16 px in Segoe UI and 14 px in Roboto). The head is a flex row — the art, then
+one column of text rows adding up to the art's 88 px — and not a grid the art spans, because a
+spanned grid hands the art's height to the rows and spreads the text down the tile.
 
 | slot | singing | background music | idle |
 |---|---|---|---|
-| art, 88 px | `SongCover` in a button opening the song modal | the same | `LogoTile` from `SongReel.tsx` |
-| eyebrow (the page's `h1`) | *Now playing* | *Background music* | *Ultrastar Wingman* |
-| title, 2 clamped lines | the song's | the song's | *Nothing is playing* |
-| artist | the song's | the song's | *Pick a song to start the party.* |
-| progress | — | the bar and the elapsed time | — |
-| lead control | pink Stop (`karaoke.stop`) | blue **Sing** — `PlayerSelection` for that song (`karaoke.sing`) | — |
-| flanks | favorite / wish | favorite / wish, on the background song | — |
-| transport | the gear | gear, pause, skip, volume | the gear |
+| art, 88 px | `SongCover` in a button opening the song modal | the same | `LogoTile`, centred |
+| the page's `h1` | the eyebrow *Now playing* | *Background music*, `visually-hidden` — the row says what this is | *Ultrastar Wingman*, the brand line |
+| title | 2 clamped lines at 1.15em | 2 clamped lines at 1.3em (the eyebrow's line is its own) | — |
+| artist | the song's | the song's | the hint line |
+| progress | — | the bar and the elapsed time, or *No host screen is open* | — |
+| the one row | heart / pink Stop (`karaoke.stop`) / wish | heart / play-pause / skip / volume (`music.control`) / wish | none |
+| the gear | top-right, `music.manage` | the same | the same |
 
-A reader **without `music.view`** gets *Ultrastar Wingman* on the title line instead of
-*Nothing is playing*: that reader cannot know whether music is playing, so the tile must not
-claim it is not.
-
-The **gear is drawn in every mode** — a host who switched the music off must have a way back
-in — and the transport's 40 px are reserved even where nothing is drawn in them.
+**No blue Sing.** Singing the background song is tapping its cover: the song modal opens and
+its Play is the one sing path in the app. A reader **without `music.view`** gets the hint line
+alone, never *Nothing is playing* — that reader cannot know whether music is playing, so the
+tile must not claim it is not.
 
 The elapsed time ticks through a `useNow(active)` hook lifted out of `CurrentlyPlaying`'s
 private `useElapsedSeconds`, so the host's sing clock and the player's music clock are one
@@ -488,8 +496,9 @@ over CDP (the extension was not connected):
 - Songs advance on their own: the browser played each to the end, reported `ended`, and the
   server picked another.
 - `GET /songs/{id}/audio` answers `206` to a `Range` request, so seeking works.
-- The player measures **264px in every mode**, draws its three grid rows in all of them, and
-  scrolls nothing sideways at 390px.
+- The player measured **264px in every mode** and scrolled nothing sideways at 390px. (That
+  fixed height went with the 2026-09-12 redesign; the redesigned tile was checked at 390px in
+  headless Chrome in its music and idle modes, the sing mode by its tests alone.)
 - With `--autoplay-policy=document-user-activation-required` the element stays paused and the
   host screen offers **Turn on sound**; a trusted click starts it and the button goes.
 - A guest was refused `PATCH /music/settings` with `missing_permission:music.manage`.
