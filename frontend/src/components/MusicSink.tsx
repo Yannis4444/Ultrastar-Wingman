@@ -1,6 +1,7 @@
 import { useQueryClient } from "@tanstack/react-query";
 import { useEffect, useRef, useState } from "react";
 import { registerMusicSink, reportMusicSink } from "../api";
+import { parseServerTime } from "../duration";
 import { getMusicQueryKey } from "../api/@tanstack/react-query.gen";
 import { useAuth } from "../auth";
 import { useMusic } from "../hooks/useMusic";
@@ -13,6 +14,11 @@ import { effectiveVolume, musicPosition, seekIfDrifted } from "../music";
  *  what this exists to avoid, while nobody notices the way it returns. */
 const FADE_OUT_MS = 600;
 const FADE_IN_MS = 300;
+/** The reel's song rises in over this, from the moment the reel lands: long
+ *  enough that the landing is a swell and not a jump cut, short enough that
+ *  the two-second lead-in before the first word (`songs/txt.py`) still ends
+ *  before it. */
+const PREVIEW_FADE_IN_MS = 1500;
 
 /** The lock one browser's tabs queue on, so only one of them ever plays. */
 const TAB_LOCK = "wingman-music-sink";
@@ -42,6 +48,15 @@ const MAX_ERRORS = 5;
  * alternative — playing on `status === "playing"` alone — is two tabs playing
  * the same song a beat apart, and a `sink_online` that says nothing about the
  * sound actually coming out.
+ *
+ * **Two elements.** The background song has one, and the reel's song — the
+ * `preview` the state carries while the room's selection was spun — has its
+ * own: it is loaded and seeked the moment the reel starts, so the file buffers
+ * while the reel spins, and it rises in at `reveal_at` on the server's clock.
+ * The background element fades out under it and comes back where it froze
+ * when the preview goes. One element swapping its `src` would have lost the
+ * background's position, reported the preview's time under the background
+ * track's id, and started loading only when the reel stopped.
  */
 export default function MusicSink() {
   const auth = useAuth();
@@ -61,6 +76,14 @@ function ActiveSink() {
   const queryClient = useQueryClient();
   const state = music.state;
   const audioRef = useRef<HTMLAudioElement | null>(null);
+  const previewRef = useRef<HTMLAudioElement | null>(null);
+  const previewFadeRef = useRef<number | null>(null);
+  // `id@reveal_at` of the preview the element is set up for: a respin is a new
+  // id, a press landing the reel early is a new `reveal_at`, and both re-arm.
+  const previewKeyRef = useRef<string | null>(null);
+  // Whether the reel's song should be sounding right now — landed, and still
+  // wanted — for the gesture unlock to know which element to play.
+  const previewLiveRef = useRef(false);
   // The lease twice: as state, so the element effect runs when it arrives and
   // goes, and as a ref, so the `pagehide` handler and the reports read it
   // synchronously.
@@ -204,7 +227,10 @@ function ActiveSink() {
 
   const holding = lease !== null;
   const track = holding ? (state?.track ?? null) : null;
-  const shouldPlay = holding && state?.status === "playing";
+  const preview = holding ? (state?.preview ?? null) : null;
+  // The reel's song has the speakers while a preview is set: the background
+  // fades out under it and its position is frozen on the server meanwhile.
+  const shouldPlay = holding && state?.status === "playing" && preview === null;
   const volume =
     state === undefined
       ? 0
@@ -274,13 +300,104 @@ function ActiveSink() {
     }
   }, [state, track, shouldPlay]);
 
-  // The volume moves without touching the song.
+  // The volume moves without touching the song — on whichever element sounds.
   useEffect(() => {
     const audio = audioRef.current;
     if (audio !== null && shouldPlay && fadeRef.current === null) {
       audio.volume = volume;
     }
+    const reel = previewRef.current;
+    if (
+      reel !== null &&
+      previewLiveRef.current &&
+      previewFadeRef.current === null
+    ) {
+      reel.volume = volume;
+    }
   }, [volume, shouldPlay]);
+
+  // --- the reel's song -------------------------------------------------------
+
+  const previewId = preview?.id ?? null;
+  const previewRevealAt = preview?.reveal_at ?? null;
+  const previewSongId = preview?.song.id ?? null;
+  const previewStart = preview?.start_s ?? 0;
+
+  useEffect(() => {
+    const reel = previewRef.current;
+    if (reel === null) return;
+
+    if (
+      previewId === null ||
+      previewRevealAt === null ||
+      previewSongId === null
+    ) {
+      // Picked and started, given up, expired, or this tab lost the lease: the
+      // song fades out and the element is emptied — only if nothing new has
+      // arrived in the meantime.
+      previewKeyRef.current = null;
+      previewLiveRef.current = false;
+      const unload = () => {
+        if (previewKeyRef.current !== null) return;
+        reel.pause();
+        if (reel.hasAttribute("src")) {
+          reel.removeAttribute("src");
+          reel.load();
+        }
+      };
+      if (reel.paused) unload();
+      else ramp(reel, previewFadeRef, 0, FADE_OUT_MS, unload);
+      return;
+    }
+
+    const key = `${previewId}@${previewRevealAt}`;
+    const url = `/api/v1/songs/${encodeURIComponent(previewSongId)}/audio`;
+    const load = () => {
+      // Idempotent: a respin sets the song, a moved landing keeps it.
+      if (reel.getAttribute("src") !== url) {
+        reel.src = url;
+        reel.currentTime = previewStart;
+      }
+    };
+    if (previewKeyRef.current !== key) {
+      previewKeyRef.current = key;
+      previewLiveRef.current = false;
+      if (reel.paused) {
+        // The reel has just started: load and seek now, so the file is buffered
+        // by the time it lands.
+        load();
+      } else {
+        // A respin while the last song was playing: fade it out, then load
+        // the new one — long before the new reel lands.
+        ramp(reel, previewFadeRef, 0, FADE_OUT_MS, () => {
+          if (previewKeyRef.current !== key) return;
+          reel.pause();
+          load();
+        });
+      }
+    }
+
+    // The landing, on the server's clock; already past for a host that loads
+    // mid-selection, and then the song comes in at once.
+    const delay = Math.max(0, parseServerTime(previewRevealAt) - Date.now());
+    const timer = setTimeout(() => {
+      if (previewKeyRef.current !== key) return;
+      load();
+      previewLiveRef.current = true;
+      reel.volume = 0;
+      ramp(reel, previewFadeRef, targetVolumeRef.current, PREVIEW_FADE_IN_MS);
+      reel
+        .play()
+        .then(() => musicSinkStore.setBlocked(false))
+        .catch((error: unknown) => {
+          if (error instanceof DOMException && error.name === "AbortError") {
+            return;
+          }
+          musicSinkStore.setBlocked(true);
+        });
+    }, delay);
+    return () => clearTimeout(timer);
+  }, [previewId, previewRevealAt, previewSongId, previewStart]);
 
   // --- reporting -------------------------------------------------------------
 
@@ -351,14 +468,19 @@ function ActiveSink() {
 
   useEffect(() => {
     const unlock = () => {
-      const audio = audioRef.current;
-      // Only when the music is supposed to be playing right now. A press while
-      // a song is being sung, while the music is paused, or on a tab that does
-      // not hold the lease must not start anything.
-      if (audio === null || !shouldPlayRef.current) return;
+      // Whichever element is supposed to be sounding right now: the reel's
+      // song once it has landed, or the background music. A press while a song
+      // is being sung, while the music is paused, or on a tab that does not
+      // hold the lease must not start anything.
+      const element = previewLiveRef.current
+        ? previewRef.current
+        : shouldPlayRef.current
+          ? audioRef.current
+          : null;
+      if (element === null) return;
       // Synchronously, inside the gesture: an `await` before this call spends
       // the user activation and the play is refused again.
-      void audio
+      void element
         .play()
         .then(() => musicSinkStore.setBlocked(false))
         .catch(() => {});
@@ -378,22 +500,27 @@ function ActiveSink() {
   }, []);
 
   return (
-    <audio
-      ref={audioRef}
-      hidden
-      preload="auto"
-      onLoadedMetadata={() => report.current("progress")}
-      onEnded={() => {
-        errorsRef.current = 0;
-        musicSinkStore.setFailed(false);
-        report.current("ended");
-      }}
-      onError={() => {
-        errorsRef.current += 1;
-        if (errorsRef.current >= MAX_ERRORS) musicSinkStore.setFailed(true);
-        report.current("error", "the browser could not play the file");
-      }}
-    />
+    <>
+      {/* The reel's song. Reports nothing: the lease is about the background
+          track, and this element's time is not that track's. */}
+      <audio ref={previewRef} hidden preload="auto" data-role="preview" />
+      <audio
+        ref={audioRef}
+        hidden
+        preload="auto"
+        onLoadedMetadata={() => report.current("progress")}
+        onEnded={() => {
+          errorsRef.current = 0;
+          musicSinkStore.setFailed(false);
+          report.current("ended");
+        }}
+        onError={() => {
+          errorsRef.current += 1;
+          if (errorsRef.current >= MAX_ERRORS) musicSinkStore.setFailed(true);
+          report.current("error", "the browser could not play the file");
+        }}
+      />
+    </>
   );
 }
 

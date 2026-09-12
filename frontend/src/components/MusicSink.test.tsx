@@ -63,6 +63,7 @@ function music(overrides: Partial<MusicRead> = {}): MusicRead {
   return {
     status: "playing",
     track: track(),
+    preview: null,
     blocked_by: null,
     resume_at: null,
     retry_at: null,
@@ -122,11 +123,12 @@ function draw(): HTMLAudioElement | null {
   return container.querySelector("audio");
 }
 
-/** The element, once the auth answer has let the sink mount. */
+/** The background song's element, once the auth answer has let the sink mount
+ *  (the reel's song has an element of its own, `data-role="preview"`). */
 async function audioElement(): Promise<HTMLAudioElement> {
   let audio: HTMLAudioElement | null = null;
   await waitFor(() => {
-    audio = document.querySelector("audio");
+    audio = document.querySelector('audio:not([data-role="preview"])');
     expect(audio).not.toBe(null);
   });
   return audio as unknown as HTMLAudioElement;
@@ -181,7 +183,7 @@ it("takes the lease and plays the song the room is on", async () => {
   draw();
   await waitFor(() => expect(registerMusicSink).toHaveBeenCalled());
   await waitFor(() => {
-    const audio = document.querySelector("audio");
+    const audio = document.querySelector('audio:not([data-role="preview"])');
     expect(audio?.getAttribute("src")).toBe("/api/v1/songs/usdb%3A1/audio");
   });
 });
@@ -195,7 +197,7 @@ it("comes back where the room is after a reload", async () => {
   });
   draw();
   await waitFor(() => {
-    const audio = document.querySelector("audio");
+    const audio = document.querySelector('audio:not([data-role="preview"])');
     expect(audio?.currentTime).toBeGreaterThanOrEqual(40);
   });
 });
@@ -203,7 +205,7 @@ it("comes back where the room is after a reload", async () => {
 it("reports the end of a song so the music moves on", async () => {
   draw();
   await waitFor(() => expect(registerMusicSink).toHaveBeenCalled());
-  const audio = document.querySelector("audio");
+  const audio = document.querySelector('audio:not([data-role="preview"])');
   await waitFor(() => expect(audio?.getAttribute("src")).toContain("usdb%3A1"));
 
   act(() => {
@@ -223,7 +225,7 @@ it("reports the end of a song so the music moves on", async () => {
 it("reports a file it could not play rather than stalling the room", async () => {
   draw();
   await waitFor(() => expect(registerMusicSink).toHaveBeenCalled());
-  const audio = document.querySelector("audio");
+  const audio = document.querySelector('audio:not([data-role="preview"])');
   await waitFor(() => expect(audio?.getAttribute("src")).toContain("usdb%3A1"));
 
   act(() => {
@@ -391,6 +393,83 @@ it("keeps the lease alive while a song is being sung", async () => {
   } finally {
     vi.useRealTimers();
   }
+});
+
+/** The two elements: the background song's, and the reel's. */
+function elements(): { background: HTMLAudioElement; reel: HTMLAudioElement } {
+  const all = [...document.querySelectorAll("audio")];
+  const reel = all.find((el) => el.dataset.role === "preview");
+  const background = all.find((el) => el.dataset.role !== "preview");
+  if (reel === undefined || background === undefined) {
+    throw new Error("the sink draws two elements");
+  }
+  return { background, reel };
+}
+
+it("plays the reel's song from where its singing starts when the reel lands", async () => {
+  draw();
+  const audio = await audioElement();
+  await waitFor(() => expect(audio.getAttribute("src")).toContain("usdb%3A1"));
+  const plays = (HTMLMediaElement.prototype.play as ReturnType<typeof vi.fn>)
+    .mock.calls.length;
+
+  act(() => {
+    FakeSocket.deliver({
+      event: "music.changed",
+      music: music({
+        preview: {
+          id: "s:1",
+          song: { ...SONG, id: "usdb:9", title: "Waterloo" },
+          start_s: 42,
+          reveal_at: new Date(Date.now() + 60).toISOString(),
+        },
+      }),
+    });
+  });
+
+  // Loaded and seeked at once, so the file buffers while the reel spins.
+  const { reel } = elements();
+  await waitFor(() =>
+    expect(reel.getAttribute("src")).toBe("/api/v1/songs/usdb%3A9/audio"),
+  );
+  expect(reel.currentTime).toBe(42);
+  // The background fades out under it: no new play on it, a pause on the way.
+  await waitFor(() =>
+    expect(HTMLMediaElement.prototype.pause).toHaveBeenCalled(),
+  );
+  // And the reel's song comes in when the reel lands.
+  await waitFor(() =>
+    expect(HTMLMediaElement.prototype.play).toHaveBeenCalledTimes(plays + 1),
+  );
+});
+
+it("lets the reel's song go when the selection does", async () => {
+  draw();
+  const audio = await audioElement();
+  await waitFor(() => expect(audio.getAttribute("src")).toContain("usdb%3A1"));
+  act(() => {
+    FakeSocket.deliver({
+      event: "music.changed",
+      music: music({
+        preview: {
+          id: "s:1",
+          song: { ...SONG, id: "usdb:9" },
+          start_s: 0,
+          reveal_at: new Date().toISOString(),
+        },
+      }),
+    });
+  });
+  const { reel } = elements();
+  await waitFor(() => expect(reel.getAttribute("src")).toContain("usdb%3A9"));
+
+  act(() => {
+    FakeSocket.deliver({ event: "music.changed", music: music() });
+  });
+
+  await waitFor(() => expect(reel.getAttribute("src")).toBe(null));
+  // The background song is back where the server says it is.
+  expect(audio.getAttribute("src")).toContain("usdb%3A1");
 });
 
 it("goes quiet on a report the backend answers with not_the_sink", async () => {

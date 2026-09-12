@@ -23,7 +23,7 @@ too, in one quiet line under the code.
 
 ## Choose what it plays
 
-The gear holds three more options.
+The gear holds four more options.
 
 **Pick songs from** is the pool:
 
@@ -39,6 +39,14 @@ The gear holds three more options.
 **Wait before the music comes back** is the quiet gap after a song is sung. Ten
 seconds by default, which is about how long the scores and any new badges take to
 read on the TV.
+
+**Play the song the reel lands on** is about the reel on the host screen, not
+about the background music, and it is on from the start. When somebody spins the
+reel on the TV, the background music fades out. When the reel lands, the song it
+picked fades in, starting where its singing starts rather than at the intro, and
+keeps playing while the singers are picked. It stops when the song is started or
+the pick is given up, and the background music comes back where it left off. This
+works with the background music switched off too.
 
 !!! warning
     A playlist you delete leaves the music with nothing to play. Wingman says so

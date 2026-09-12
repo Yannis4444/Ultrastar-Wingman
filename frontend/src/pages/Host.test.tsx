@@ -163,6 +163,7 @@ function quietMusic(overrides: Partial<MusicRead> = {}): MusicRead {
   return {
     status: "off",
     track: null,
+    preview: null,
     blocked_by: null,
     resume_at: null,
     retry_at: null,

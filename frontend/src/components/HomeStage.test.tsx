@@ -131,6 +131,7 @@ function music(overrides: Partial<MusicRead> = {}): MusicRead {
   return {
     status: "playing",
     track: track(),
+    preview: null,
     blocked_by: null,
     resume_at: null,
     retry_at: null,

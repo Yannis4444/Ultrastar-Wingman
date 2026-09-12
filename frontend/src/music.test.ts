@@ -43,6 +43,7 @@ function music(overrides: Partial<MusicRead> = {}): MusicRead {
   return {
     status: "playing",
     track: track(),
+    preview: null,
     blocked_by: null,
     resume_at: null,
     retry_at: null,
@@ -110,6 +111,17 @@ describe("musicPosition", () => {
 
   it("is nothing at all with no track", () => {
     expect(musicPosition(music({ track: null }), NOW)).toBe(0);
+  });
+});
+
+describe("musicPosition while the reel's song plays", () => {
+  it("stands still: the background froze for the preview", () => {
+    const base = music();
+    if (base.track === null) throw new Error("the fixture has a track");
+    const state = music({
+      preview: { id: "s:1", song: base.track.song, start_s: 12, reveal_at: AT },
+    });
+    expect(musicPosition(state, NOW + 30_000)).toBe(base.track.position_s);
   });
 });
 

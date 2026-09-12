@@ -10,11 +10,31 @@ vi.mock("../api/sdk.gen", async (importOriginal) => ({
   listPlaylists,
 }));
 
+test("the reel switch writes preview_on_spin", () => {
+  const onChange = vi.fn();
+  render(
+    <QueryClientProvider client={new QueryClient()}>
+      <MusicSettingsPanel
+        settings={SETTINGS}
+        savedField={null}
+        busy={false}
+        onChange={onChange}
+        onClose={() => {}}
+      />
+    </QueryClientProvider>,
+  );
+  fireEvent.click(
+    screen.getByRole("checkbox", { name: "Play the song the reel lands on" }),
+  );
+  expect(onChange).toHaveBeenCalledWith({ preview_on_spin: false });
+});
+
 const SETTINGS: MusicSettings = {
   enabled: false,
   scope: "all",
   playlist: "",
   resume_delay_s: 10,
+  preview_on_spin: true,
 };
 
 function playlist(id: string, name: string) {
@@ -62,10 +82,13 @@ beforeEach(() => {
   });
 });
 
-test("the panel is the four options and nothing else", () => {
+test("the panel is the five options and nothing else", () => {
   draw();
   expect(
     screen.getByRole("checkbox", { name: "Background music" }),
+  ).toBeInTheDocument();
+  expect(
+    screen.getByRole("checkbox", { name: "Play the song the reel lands on" }),
   ).toBeInTheDocument();
   expect(
     screen.getByRole("combobox", { name: "Pick songs from" }),

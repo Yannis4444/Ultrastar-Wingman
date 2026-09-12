@@ -148,7 +148,7 @@ An empty pool sets `_retry_at` 30 s out and reports `empty`. A playlist that was
 the same thing and **does not fall back to the whole library** — a one-off button press falling
 back is a kindness, an hour of music out of the pool the host excluded is not.
 
-### 3.3 The four hooks
+### 3.3 The four hooks, and the selection's
 
 `karaoke/service.py` calls, with no arguments and no database:
 
@@ -166,6 +166,22 @@ karaoke.
 
 A **forced** start runs `_stop_and_wait -> _finish -> sing_ended` (which sets the countdown)
 and only then reaches `sing_started` (which clears it). That sequence is pinned by a test.
+
+**The fifth, from `karaoke/selection.py`** (added 2026-09-12): `music.selection_changed(spin)`
+from `_broadcast_locked`, the one place every change of the room's selection passes. `spin` is
+a `music.SpinPreview` — the reel's song, `key` (`opened_at:spin.id`, new on every respin),
+`start_s` (`Song.preview_start_seconds`, read off the picked row in the selection so the music
+needs no query under two locks), `reveal_at` (`spun_at + REVEAL_SECONDS`, or the moment a press
+landed the reel early, `_Spin.revealed_at`) and `has_audio` — or None for a selection that was
+never spun, or none at all. `pick_singers` takes the spin off the selection but keeps what it
+landed on (`_Selection.landed`), so the song plays on while the singers are picked, until the
+selection starts or is given up. The music sets its **preview** when the reel is wanted
+(`music.preview_on_spin`), has a file, and the speakers are free — freezing the background track
+first, so it comes back where it stopped — and ends it otherwise; a sing starting ends it too.
+The preview is independent of `enabled` and of `status`: it is about the reel, not the
+soundtrack, so it plays with the music switched off. Never raises, the hooks' rule. Import
+direction: `selection` → `music`, the same way as `service` → `music`; `music` still imports
+only the `karaoke` leaves.
 
 ### 3.4 The sink protocol
 
@@ -284,6 +300,7 @@ Private in `music/settings.py`, behind `music.manage`:
 | `music.scope` | str | `all` |
 | `music.playlist` | str | `""` |
 | `music.resume_delay_s` | int 0–120 | 10 |
+| `music.preview_on_spin` | bool | **true** — the host plays the song the reel lands on; the user's choice, on by default and its own switch |
 
 `MUSIC_SCOPES` is the same four as `devices.settings.RANDOM_SCOPES` but declared here: the two
 are free to diverge, and importing `devices` from `music` is a coupling neither needs.
@@ -320,7 +337,12 @@ the same track changes nothing; a sink that stops reporting freezes the position
 retries on its own deadline and not every tick; a song with no audio file is never picked; a
 song a tag hides from guests never appears; hooks after `stop_watchdog()` are no-ops.
 `test_music_api.py` covers the routes, the 409s, the two sink generations, and that a progress
-report broadcasts nothing while the first `duration_s` does.
+report broadcasts nothing while the first `duration_s` does. The reel's preview: the track
+freezes and comes back where it stopped, the preview stands with the music off, none without
+a file or with the switch off or under a sing, a sing ends it, a file naming no start plays
+from 0 (`test_music_state.py`); the settings carry the switch (`test_music_api.py`); a spun
+selection reaches the music with the song, its start and its landing, survives the spin coming
+off, and goes with the selection (`test_karaoke_selection.py`).
 
 ## 4. Frontend
 
@@ -417,6 +439,17 @@ sets — and an administrator session, so it holds the `music.manage` the sink r
   `requestAnimationFrame`, ~300 ms back up, cancelling any running ramp. **No reduced-motion
   branch** — §1.9 governs visual animation, and cutting a volume ramp makes the room's
   experience worse rather than calmer. The comment says so, so a reviewer does not "fix" it.
+
+**The reel's song** (2026-09-12): a second hidden `<audio>` (`data-role="preview"`) for the
+state's `preview`. Loaded and seeked to `start_s` the moment the preview arrives, so the file
+buffers while the reel spins; at `reveal_at` on the server's clock (`parseServerTime`, already
+past for a host that loaded mid-selection) it rises in over `PREVIEW_FADE_IN_MS` (1.5 s, inside
+the parser's two-second lead-in); the landing timer is keyed on `id@reveal_at`, so a respin and
+an early reveal both re-arm it, and a respin under a playing song fades it out before the new
+file is loaded. The background element's `shouldPlay` is false while a preview is set — it
+fades out under the reel and comes back where the server froze it — and `musicPosition` on the
+phones stands still for the same reason. The preview element reports nothing: the lease is
+about the background track. The gesture unlock plays whichever element should be sounding.
 
 ### 4.3 The rest
 
