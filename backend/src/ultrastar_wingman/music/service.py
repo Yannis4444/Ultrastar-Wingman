@@ -406,6 +406,12 @@ async def play(session: AsyncSession) -> MusicRead:
     global _paused
     async with _lock:
         _require_playable()
+        at = _now()
+        if _paused and _track is not None:
+            # The track froze at `pause`; it starts moving again from *now*, not from the
+            # moment it froze. Without this the first read after unpausing would add the
+            # whole silence to the position and the host would seek forward by it.
+            _track.position_at = at
         _paused = False
         _set_resume(None)
         _set_retry(None)

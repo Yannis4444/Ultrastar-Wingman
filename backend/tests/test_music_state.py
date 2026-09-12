@@ -474,6 +474,30 @@ async def test_pause_freezes_the_position(
     assert state.track.position_s == pytest.approx(10)
 
 
+async def test_play_carries_on_from_where_pause_left_it(
+    session: AsyncSession,
+    session_factory: async_sessionmaker[AsyncSession],
+    tmp_path: Path,
+    clock: Clock,
+) -> None:
+    """The silence must not be added to the position: pause at 5, play three seconds later,
+    and a second after that the track is at 6 — not at 9. The whole thing inside the sink's
+    timeout, as `test_pause_freezes_the_position` explains."""
+    await add_song(session, tmp_path, 1)
+    await enable(session)
+    await register(session)
+
+    clock.advance(5)
+    await service.pause(session)
+    clock.advance(3)
+    await service.play(session)
+    clock.advance(1)
+    state = await service.read()
+    assert state.status == "playing"
+    assert state.track is not None
+    assert state.track.position_s == pytest.approx(6)
+
+
 async def test_the_controls_say_why_they_did_nothing(
     session: AsyncSession,
     session_factory: async_sessionmaker[AsyncSession],
