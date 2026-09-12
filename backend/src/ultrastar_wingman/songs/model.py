@@ -3,7 +3,7 @@
 import uuid
 from datetime import UTC, datetime
 
-from sqlalchemy import Boolean, DateTime, Integer, String, Text, text
+from sqlalchemy import Boolean, DateTime, Float, Integer, String, Text, text
 from sqlalchemy.orm import Mapped, mapped_column
 
 from ..db import Base
@@ -38,6 +38,9 @@ class Song(Base):
     # How long USDX plays the song, not how long the audio file is: `#START` and `#END`
     # are already applied (see `scanner.played_seconds`).
     duration_seconds: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    # Where a preview of the song starts (`txt.SongTxt.preview_start`): `#PREVIEWSTART`, or
+    # the first sung word less a lead-in, or NULL for the beginning. Filled by every scan.
+    preview_start_seconds: Mapped[float | None] = mapped_column(Float, nullable=True)
     language: Mapped[str | None] = mapped_column(Text, nullable=True)
     genre: Mapped[str | None] = mapped_column(Text, nullable=True)
     year: Mapped[int | None] = mapped_column(Integer, nullable=True)

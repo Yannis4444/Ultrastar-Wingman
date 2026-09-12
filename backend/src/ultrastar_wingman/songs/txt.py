@@ -28,6 +28,15 @@ logger = logging.getLogger(__name__)
 # with ":", "*", "F", "R", "G", "-" or "E", so a bare "P<n>" can be nothing else.
 _SINGER_LINE = re.compile(r"P\s*(\d+)", re.IGNORECASE)
 
+# A note line: the type — a plain note, golden, freestyle, rap, golden rap — then the beat
+# it starts on, its length and its pitch. Only the beat is read here.
+_NOTE_LINE = re.compile(r"[:*FRG]\s+(-?\d+)\s+\d+\s+-?\d+")
+
+# How far before the first sung word a preview starts when the file names no preview point
+# of its own. The user's choice (2026-09-12): long enough for a fade-in to finish before the
+# first word, short enough that the intro is skipped.
+LYRICS_LEAD_IN_SECONDS = 2.0
+
 # The header pairs that name a duet's two singers — the current spelling and the one
 # older files use. Either pair, complete, marks a duet even when the body has no switch.
 _DUET_HEADER_PAIRS: tuple[tuple[str, str], ...] = (
@@ -115,6 +124,11 @@ class SongTxt(BaseModel):
     # one place. `start` skips the intro, `end` cuts the song off before the audio ends.
     start: float | None = None
     end: float | None = None
+    # Where a preview of the song starts, in seconds: `#PREVIEWSTART` where the file has
+    # one — the point USDX previews from in its own song menu — otherwise the first sung
+    # word less `LYRICS_LEAD_IN_SECONDS`, worked out from `#GAP`, `#BPM` and the first
+    # note; None when neither can be read, which a player takes as the beginning.
+    preview_start: float | None = None
 
 
 def parse_song_txt(text: str) -> SongTxt:
@@ -140,6 +154,7 @@ def parse_song_txt(text: str) -> SongTxt:
         start=_positive(_decimal(tags.get("START"))),
         # Milliseconds in the file, seconds in the model.
         end=_positive(_milliseconds_to_seconds(_decimal(tags.get("END")))),
+        preview_start=_preview_start(text, tags),
     )
 
 
@@ -311,6 +326,38 @@ def _is_duet(text: str, tags: dict[str, str]) -> bool:
             if len(singers) > 1:
                 return True
     return False
+
+
+def _preview_start(text: str, tags: Mapping[str, str]) -> float | None:
+    """Where a preview of this song should start. See `SongTxt.preview_start`.
+
+    `#PREVIEWSTART` is seconds and wins outright: it is what the file's own author chose,
+    and what USDX plays in its song menu. Without one the first note is placed on the
+    clock — `#GAP` milliseconds plus its beat at `#BPM` quarter-beats a minute, the
+    UltraStar convention — and the preview starts a lead-in before it. A `#RELATIVE` file
+    counts its first line from zero too, so the first note reads the same either way.
+    """
+    preview = _positive(_decimal(tags.get("PREVIEWSTART")))
+    if preview is not None:
+        return preview
+    gap = _decimal(tags.get("GAP"))
+    bpm = _positive(_decimal(tags.get("BPM")))
+    beat = _first_note_beat(text)
+    if gap is None or bpm is None or beat is None:
+        return None
+    first_word = gap / 1000 + beat * 60 / (bpm * 4)
+    return max(0.0, first_word - LYRICS_LEAD_IN_SECONDS)
+
+
+def _first_note_beat(text: str) -> int | None:
+    for line in text.splitlines():
+        stripped = line.strip().lstrip(_BOM_CHARACTER)
+        if stripped.startswith("#"):
+            continue
+        match = _NOTE_LINE.match(stripped)
+        if match is not None:
+            return int(match.group(1))
+    return None
 
 
 def no_value(value: str | None) -> str | None:
