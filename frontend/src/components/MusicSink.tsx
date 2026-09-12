@@ -14,6 +14,11 @@ import { effectiveVolume, musicPosition, seekIfDrifted } from "../music";
  *  what this exists to avoid, while nobody notices the way it returns. */
 const FADE_OUT_MS = 600;
 const FADE_IN_MS = 300;
+/** A fade the reel causes — the background going under a spin, the last
+ *  song going under a respin — has the whole spin to play out in, and the
+ *  user asked for it to take its time (2026-09-12). Well inside the 5.5 s
+ *  reel, so the new file is cued long before it lands. */
+export const SPIN_FADE_OUT_MS = 2500;
 /** The reel's song rises in over this, from the moment the reel lands: long
  *  enough that the landing is a swell and not a jump cut, short enough that
  *  the two-second lead-in before the first word (`songs/txt.py`) still ends
@@ -297,10 +302,15 @@ function ActiveSink() {
         });
     } else {
       // One path for a sing starting, a pause, and a lost sink: the state's own
-      // `playing` going false is all three.
-      fadeOut(audio, fadeRef);
+      // `playing` going false is all three. Under a spin the fade is the
+      // long one — the reel is the room's cue that the music is going.
+      fadeOut(
+        audio,
+        fadeRef,
+        preview !== null ? SPIN_FADE_OUT_MS : FADE_OUT_MS,
+      );
     }
-  }, [state, track, shouldPlay]);
+  }, [state, track, shouldPlay, preview]);
 
   // The volume moves without touching the song — on whichever element sounds.
   useEffect(() => {
@@ -376,7 +386,7 @@ function ActiveSink() {
       } else {
         // A respin while the last song was playing: fade it out, then cue the
         // new one — long before the new reel lands.
-        ramp(reel, previewFadeRef, 0, FADE_OUT_MS, () => {
+        ramp(reel, previewFadeRef, 0, SPIN_FADE_OUT_MS, () => {
           if (previewKeyRef.current !== key) return;
           reel.pause();
           cue();
@@ -578,7 +588,8 @@ function ramp(
 function fadeOut(
   audio: HTMLAudioElement,
   fadeRef: { current: number | null },
+  duration: number,
 ): void {
   if (audio.paused) return;
-  ramp(audio, fadeRef, 0, FADE_OUT_MS, () => audio.pause());
+  ramp(audio, fadeRef, 0, duration, () => audio.pause());
 }

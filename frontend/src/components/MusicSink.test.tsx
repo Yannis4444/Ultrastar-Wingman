@@ -5,7 +5,7 @@ import type { MusicRead, MusicTrackRead, SongRead } from "../api";
 import { musicSinkStore, useMusicSinkStatus } from "../hooks/useMusicSink";
 import { meResponse } from "../test/auth";
 import { FakeSocket } from "../test/fakeSocket";
-import MusicSink from "./MusicSink";
+import MusicSink, { SPIN_FADE_OUT_MS } from "./MusicSink";
 
 const {
   getMe,
@@ -435,9 +435,13 @@ it("plays the reel's song from where its singing starts when the reel lands", as
     expect(reel.getAttribute("src")).toBe("/api/v1/songs/usdb%3A9/audio"),
   );
   expect(reel.currentTime).toBe(42);
-  // The background fades out under it: no new play on it, a pause on the way.
-  await waitFor(() =>
-    expect(HTMLMediaElement.prototype.pause).toHaveBeenCalled(),
+  // The background fades out under it — the long fade, the reel's: a second
+  // in, it is still on its way down, and the pause lands only when it is out.
+  await new Promise((resolve) => setTimeout(resolve, 1000));
+  expect(HTMLMediaElement.prototype.pause).not.toHaveBeenCalled();
+  await waitFor(
+    () => expect(HTMLMediaElement.prototype.pause).toHaveBeenCalled(),
+    { timeout: SPIN_FADE_OUT_MS + 1500 },
   );
   // And the reel's song comes in when the reel lands.
   await waitFor(() =>
@@ -467,13 +471,19 @@ it("seeks again on a respin that lands on the same song", async () => {
     });
   spin("s:1", 42);
   const { reel } = elements();
-  await waitFor(() => expect(reel.currentTime).toBe(42));
+  // The stub's `paused` is always false, so every cue here waits out the fade.
+  await waitFor(() => expect(reel.currentTime).toBe(42), {
+    timeout: SPIN_FADE_OUT_MS + 1500,
+  });
   reel.currentTime = 17; // where a played-out fade-out would have left it
 
   spin("s:2", 30);
-  await waitFor(() => expect(reel.currentTime).toBe(30));
+  // After the long fade the reel causes.
+  await waitFor(() => expect(reel.currentTime).toBe(30), {
+    timeout: SPIN_FADE_OUT_MS + 1500,
+  });
   expect(reel.getAttribute("src")).toBe("/api/v1/songs/usdb%3A9/audio");
-});
+}, 12_000); // two long fades, played out in real time
 
 it("lets the reel's song go when the selection does", async () => {
   draw();

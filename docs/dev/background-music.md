@@ -437,8 +437,13 @@ sets — and an administrator session, so it holds the `music.manage` the sink r
   direction, and both controls are trimmed by ear anyway.
 - The fade keys on the **state's own `playing` going true -> false**, not on `karaoke.started`:
   one code path for a sing starting, a pause, and a lost sink. ~600 ms down with
-  `requestAnimationFrame`, ~300 ms back up, cancelling any running ramp. **No reduced-motion
-  branch** — §1.9 governs visual animation, and cutting a volume ramp makes the room's
+  `requestAnimationFrame`, ~300 ms back up, cancelling any running ramp. A fade **the reel
+  causes** — the background going under a spin, the last reel song going under a respin — takes
+  `SPIN_FADE_OUT_MS` (2.5 s) instead, the user's ask of 2026-09-12: the reel is the room's cue
+  that the music is going, and the 5.5 s spin has the time. A consequence, accepted: the server
+  froze the background where the spin arrived, the element plays on for the fade, and on the
+  way back `seekIfDrifted` (1.5 s) seeks it *back* to the frozen spot, so the room hears the
+  covered seconds again. **No reduced-motion branch** — §1.9 governs visual animation, and cutting a volume ramp makes the room's
   experience worse rather than calmer. The comment says so, so a reviewer does not "fix" it.
 
 **The reel's song** (2026-09-12): a second hidden `<audio>` (`data-role="preview"`) for the
@@ -446,8 +451,9 @@ state's `preview`. Loaded and seeked to `start_s` the moment the preview arrives
 buffers while the reel spins; at `reveal_at` on the server's clock (`parseServerTime`, already
 past for a host that loaded mid-selection) it rises in over `PREVIEW_FADE_IN_MS` (1.5 s, inside
 the parser's two-second lead-in); the landing timer is keyed on `id@reveal_at`, so a respin and
-an early reveal both re-arm it, and a respin under a playing song fades it out before the new
-file is loaded. The background element's `shouldPlay` is false while a preview is set — it
+an early reveal both re-arm it, and a respin under a playing song fades it out (the long
+fade) before the new file is cued — `previewCuedRef` is what lets the landing timer cue it
+itself if that fade is still running when the reel lands. The background element's `shouldPlay` is false while a preview is set — it
 fades out under the reel and comes back where the server froze it — and `musicPosition` on the
 phones stands still for the same reason. The preview element reports nothing: the lease is
 about the background track. The gesture unlock plays whichever element should be sounding.
