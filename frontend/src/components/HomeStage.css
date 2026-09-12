@@ -39,6 +39,11 @@
 
 .home-stage-body {
   display: grid;
+  /* `minmax(0, …)` and `min-width: 0` on the head both: an `auto` track takes
+     the head's min-content width, and a one-line artist name is as wide as
+     itself, so a long one grew the track past the tile (the user's report,
+     2026-09-12) — the ellipsis never got the chance. */
+  grid-template-columns: minmax(0, 1fr);
   grid-template-rows: 88px minmax(0, 1fr);
   row-gap: 8px;
   height: 168px;
@@ -101,6 +106,7 @@
   align-items: center;
   gap: 12px;
   height: 88px;
+  min-width: 0;
 }
 
 /* The first text row keeps clear of the gear — only where there is one, and
