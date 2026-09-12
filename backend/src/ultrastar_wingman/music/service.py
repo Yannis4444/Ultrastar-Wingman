@@ -88,7 +88,7 @@ class _Volumes:
 
 
 DEFAULT_OPTIONS = _Options(enabled=False, scope="all", playlist="", resume_delay_s=10)
-DEFAULT_VOLUMES = _Volumes(master=100, music=60, effects=80)
+DEFAULT_VOLUMES = _Volumes(master=100, music=100, effects=100)
 
 
 @dataclass

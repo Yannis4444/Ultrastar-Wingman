@@ -47,7 +47,7 @@ async def test_the_music_reads_as_off_on_a_fresh_install(client: AsyncClient) ->
     assert body["track"] is None
     assert body["sink_online"] is False
     # The volumes ride along, so a guest phone draws the slider without `settings.view`.
-    assert body["volume"] == {"master": 100, "music": 60, "effects": 80}
+    assert body["volume"] == {"master": 100, "music": 100, "effects": 100}
 
 
 async def test_the_controls_refuse_while_the_music_is_off(client: AsyncClient) -> None:
@@ -146,7 +146,7 @@ async def test_a_volume_set_on_the_settings_page_reaches_the_music(
 async def test_only_the_volumes_named_are_written(client: AsyncClient) -> None:
     await client.put("/api/v1/music/volume", json={"master": 40})
     body = (await client.put("/api/v1/music/volume", json={"effects": 10})).json()
-    assert body["volume"] == {"master": 40, "music": 60, "effects": 10}
+    assert body["volume"] == {"master": 40, "music": 100, "effects": 10}
 
 
 async def test_a_volume_out_of_range_is_refused(client: AsyncClient) -> None:

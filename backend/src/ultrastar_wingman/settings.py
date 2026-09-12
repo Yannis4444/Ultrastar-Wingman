@@ -168,12 +168,12 @@ register(
     SettingDefinition(
         key=MUSIC_VOLUME,
         value_type=int,
-        default=60,
+        default=100,
         group="Sound",
         description=(
             "How loud the background music between songs is, in percent of the overall "
-            "volume. Quieter than singing on purpose, so the room can still talk. Anybody "
-            "who may control the music can change this from the player."
+            "volume. Turn it down if the room should still be able to talk. Anybody who "
+            "may control the music can change this from the player."
         ),
         validate=validate_volume,
     )
@@ -182,7 +182,7 @@ register(
     SettingDefinition(
         key=EFFECTS_VOLUME,
         value_type=int,
-        default=80,
+        default=100,
         group="Sound",
         description=(
             "How loud Wingman's own sound effects are, in percent of the overall volume. "
