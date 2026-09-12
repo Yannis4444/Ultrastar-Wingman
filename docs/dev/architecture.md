@@ -2,12 +2,13 @@
 
 This guide sets principles and names the seams that must stay open. It is
 **not** a concrete design — designs are planned per feature and discussed with
-the user first (see plan.md).
+the user first (see [implementation-plan.md](implementation-plan.md)).
 
 ## Principles
 
 1. **Modular by seam, not by everything.** The seams listed below get a real
-   interface from day one because plan.md promises future implementations.
+   interface from day one because the project's brief promised future
+   implementations (other song sources, launchers, player selectors).
    Everything else follows YAGNI: no abstraction until a second implementation
    exists.
 2. **The backend owns all state.** USDX is an external process we drive; never

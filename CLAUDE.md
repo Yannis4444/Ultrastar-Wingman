@@ -12,8 +12,7 @@ for the visual look, never ground truth for code.
 - Frontend `frontend/`: React + TypeScript + Vite, TanStack Query, vitest
 - User docs `docs/user/`: Markdown built with zensical
 - Windows exe `installer/`: PyInstaller
-- Master plan: `plan.md` · phases & status:
-  [docs/dev/implementation-plan.md](docs/dev/implementation-plan.md)
+- Phases & status: [docs/dev/implementation-plan.md](docs/dev/implementation-plan.md)
 
 ## Hard rules
 
