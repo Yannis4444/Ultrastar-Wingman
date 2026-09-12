@@ -235,10 +235,43 @@
 /* The one press this screen ever asks for. A primary is legitimate here: the
    host page has no other, and a browser that refuses to play until somebody
    clicks is a fault the room has to be able to see and fix. */
+/* Fixed over everything and in the middle of the bottom edge, large: the rail
+   is down while the room picks singers, and a browser that plays nothing
+   until somebody clicks is a fault the whole room has to see from the sofa.
+   The pulse is the only motion, and it stops under reduced motion. */
 .host-sound-on {
-  flex: 0 0 auto;
-  align-self: center;
-  font-size: clamp(14px, 1.8vh, 22px);
+  position: fixed;
+  left: 50%;
+  bottom: 8vh;
+  z-index: 3;
+  display: flex;
+  align-items: center;
+  gap: 0.5em;
+  min-height: 0;
+  padding: 0.6em 1.6em;
+  font-size: clamp(22px, 3.2vh, 40px);
+  font-weight: 700;
+  transform: translateX(-50%);
+  box-shadow: 0 0 0 6px
+    color-mix(in srgb, var(--highlight-blue-light) 35%, transparent);
+}
+
+@media (prefers-reduced-motion: no-preference) {
+  .host-sound-on {
+    animation: host-sound-pulse 2.4s ease-in-out infinite;
+  }
+
+  @keyframes host-sound-pulse {
+    0%,
+    100% {
+      box-shadow: 0 0 0 6px
+        color-mix(in srgb, var(--highlight-blue-light) 35%, transparent);
+    }
+    50% {
+      box-shadow: 0 0 0 18px
+        color-mix(in srgb, var(--highlight-blue-light) 0%, transparent);
+    }
+  }
 }
 
 @media (prefers-reduced-motion: no-preference) {

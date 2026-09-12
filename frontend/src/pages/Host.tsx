@@ -301,6 +301,23 @@ export default function Host() {
         />
       </div>
 
+      {/* A browser plays no sound until somebody has pressed something on
+          it, and a TV gets no presses. Over everything and in the middle of
+          the screen, not in the rail: the rail is down while the room picks
+          singers, and a fault the whole room has to see and fix cannot be a
+          small button in a corner. Not in the overlay either — `.host-controls`
+          is invisible the moment the mouse stops moving, which on a TV across
+          the room is always. */}
+      {sink.blocked && (
+        <button
+          type="button"
+          className="button button-primary host-sound-on"
+          onClick={sink.unlock}
+        >
+          <Icon name="volume" /> Turn on sound
+        </button>
+      )}
+
       {!takeover && (
         <div className="host-rail">
           {/* First in the rail because it is the one thing a guest is looking
@@ -321,21 +338,6 @@ export default function Host() {
                 protocol. */}
             <p className="host-join-url">{joinUrl.replace(/^http:\/\//, "")}</p>
           </div>
-          {/* After the code and before the standing: it is about the way into
-              the evening, which is what the top of the rail is for. */}
-          {/* A browser plays no sound until somebody has pressed something on
-              it, and a TV gets no presses. Here rather than in the overlay:
-              `.host-controls` is invisible the moment the mouse stops moving,
-              which on a TV across the room is always. */}
-          {sink.blocked && (
-            <button
-              type="button"
-              className="button button-primary host-sound-on"
-              onClick={sink.unlock}
-            >
-              <Icon name="volume" /> Turn on sound
-            </button>
-          )}
           {sink.failed && (
             <p className="error-notice host-rail-note" role="alert">
               The background music would not play.
