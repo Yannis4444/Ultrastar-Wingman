@@ -303,13 +303,19 @@ function ActiveSink() {
   report.current = (event, detail) => {
     const audio = audioRef.current;
     const sinkId = sinkRef.current;
+    if (audio === null || sinkId === null) return;
+    // With no track — a song is being sung, the room is waiting, the pool is
+    // empty — the heartbeat still goes out, naming no track: the backend
+    // answers its state and touches the lease, which is all that report is
+    // for. A heartbeat that stopped with the track let the lease lapse during
+    // every sing, and the music never came back afterwards.
     const trackId = trackRef.current;
-    if (audio === null || sinkId === null || trackId === null) return;
+    if (trackId === null && event !== "progress") return;
     const duration = Number.isFinite(audio.duration) ? audio.duration : null;
     void reportMusicSink({
       body: {
         sink_id: sinkId,
-        track_id: trackId,
+        track_id: trackId ?? "none",
         event,
         position_s: Number.isFinite(audio.currentTime) ? audio.currentTime : 0,
         duration_s: duration,

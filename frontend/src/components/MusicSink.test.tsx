@@ -355,6 +355,44 @@ it("keeps its lease when server.ready arrives on a server that kept running", as
   expect(HTMLMediaElement.prototype.load).not.toHaveBeenCalled();
 });
 
+it("keeps the lease alive while a song is being sung", async () => {
+  // No track while Ultrastar Deluxe sings. The heartbeat used to need one, so
+  // the lease lapsed fifteen seconds into every sing and the music never came
+  // back: the first report afterwards was a 409 and the tab went quiet.
+  // Only the interval is faked: the volume ramp runs on requestAnimationFrame
+  // against performance.now(), and a faked clock hands it values out of range.
+  vi.useFakeTimers({
+    shouldAdvanceTime: true,
+    toFake: ["setInterval", "clearInterval", "setTimeout", "clearTimeout"],
+  });
+  try {
+    draw();
+    const audio = await audioElement();
+    await waitFor(() =>
+      expect(audio.getAttribute("src")).toContain("usdb%3A1"),
+    );
+    act(() => {
+      FakeSocket.deliver({
+        event: "music.changed",
+        music: music({ status: "blocked", blocked_by: "sing", track: null }),
+      });
+    });
+    await waitFor(() => expect(audio.getAttribute("src")).toBe(null));
+    reportMusicSink.mockClear();
+
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(5000);
+    });
+
+    expect(reportMusicSink).toHaveBeenCalled();
+    const body = reportMusicSink.mock.calls[0][0].body;
+    expect(body.sink_id).toBe("sink-1");
+    expect(body.event).toBe("progress");
+  } finally {
+    vi.useRealTimers();
+  }
+});
+
 it("goes quiet on a report the backend answers with not_the_sink", async () => {
   reportMusicSink.mockResolvedValue({
     error: "not_the_sink",
