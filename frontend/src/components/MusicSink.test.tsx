@@ -197,7 +197,9 @@ it("comes back where the room is after a reload", async () => {
   });
   draw();
   await waitFor(() => {
-    const audio = document.querySelector('audio:not([data-role="preview"])');
+    const audio = document.querySelector<HTMLAudioElement>(
+      'audio:not([data-role="preview"])',
+    );
     expect(audio?.currentTime).toBeGreaterThanOrEqual(40);
   });
 });
@@ -441,6 +443,36 @@ it("plays the reel's song from where its singing starts when the reel lands", as
   await waitFor(() =>
     expect(HTMLMediaElement.prototype.play).toHaveBeenCalledTimes(plays + 1),
   );
+});
+
+it("seeks again on a respin that lands on the same song", async () => {
+  // A pool of one: the respin is a new spin on the same file, and it starts
+  // where the song's singing starts, not where the fade-out left it.
+  draw();
+  const audio = await audioElement();
+  await waitFor(() => expect(audio.getAttribute("src")).toContain("usdb%3A1"));
+  const spin = (id: string, start_s: number) =>
+    act(() => {
+      FakeSocket.deliver({
+        event: "music.changed",
+        music: music({
+          preview: {
+            id,
+            song: { ...SONG, id: "usdb:9" },
+            start_s,
+            reveal_at: new Date(Date.now() + 60_000).toISOString(),
+          },
+        }),
+      });
+    });
+  spin("s:1", 42);
+  const { reel } = elements();
+  await waitFor(() => expect(reel.currentTime).toBe(42));
+  reel.currentTime = 17; // where a played-out fade-out would have left it
+
+  spin("s:2", 30);
+  await waitFor(() => expect(reel.currentTime).toBe(30));
+  expect(reel.getAttribute("src")).toBe("/api/v1/songs/usdb%3A9/audio");
 });
 
 it("lets the reel's song go when the selection does", async () => {

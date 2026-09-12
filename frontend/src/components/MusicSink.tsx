@@ -81,6 +81,8 @@ function ActiveSink() {
   // `id@reveal_at` of the preview the element is set up for: a respin is a new
   // id, a press landing the reel early is a new `reveal_at`, and both re-arm.
   const previewKeyRef = useRef<string | null>(null);
+  // The key the element was last loaded and seeked for.
+  const previewCuedRef = useRef<string | null>(null);
   // Whether the reel's song should be sounding right now — landed, and still
   // wanted — for the gesture unlock to know which element to play.
   const previewLiveRef = useRef(false);
@@ -353,11 +355,16 @@ function ActiveSink() {
     const key = `${previewId}@${previewRevealAt}`;
     const url = `/api/v1/songs/${encodeURIComponent(previewSongId)}/audio`;
     const load = () => {
-      // Idempotent: a respin sets the song, a moved landing keeps it.
-      if (reel.getAttribute("src") !== url) {
-        reel.src = url;
-        reel.currentTime = previewStart;
-      }
+      // Idempotent: a moved landing keeps the loaded file where it stands.
+      if (reel.getAttribute("src") !== url) reel.src = url;
+    };
+    const cue = () => {
+      // A new spin: the file, and the seek to its start — unconditionally, because a
+      // respin out of a pool of one lands on the same file, which a played-out
+      // fade-out has left somewhere else.
+      load();
+      reel.currentTime = previewStart;
+      previewCuedRef.current = key;
     };
     if (previewKeyRef.current !== key) {
       previewKeyRef.current = key;
@@ -365,14 +372,14 @@ function ActiveSink() {
       if (reel.paused) {
         // The reel has just started: load and seek now, so the file is buffered
         // by the time it lands.
-        load();
+        cue();
       } else {
-        // A respin while the last song was playing: fade it out, then load
-        // the new one — long before the new reel lands.
+        // A respin while the last song was playing: fade it out, then cue the
+        // new one — long before the new reel lands.
         ramp(reel, previewFadeRef, 0, FADE_OUT_MS, () => {
           if (previewKeyRef.current !== key) return;
           reel.pause();
-          load();
+          cue();
         });
       }
     }
@@ -382,7 +389,8 @@ function ActiveSink() {
     const delay = Math.max(0, parseServerTime(previewRevealAt) - Date.now());
     const timer = setTimeout(() => {
       if (previewKeyRef.current !== key) return;
-      load();
+      // Cued already, unless the fade-out of the last song is still running.
+      if (previewCuedRef.current !== key) cue();
       previewLiveRef.current = true;
       reel.volume = 0;
       ramp(reel, previewFadeRef, targetVolumeRef.current, PREVIEW_FADE_IN_MS);
