@@ -32,7 +32,7 @@ from .settings import (
     UnknownSettingError,
 )
 from .songs.api import router as songs_router
-from .sound import VOLUME_KEYS
+from .sound import MUSIC_KEYS
 from .sources.api import router as sources_router
 from .stats.api import router as stats_router
 from .tags.api import router as tags_router
@@ -173,10 +173,10 @@ async def update_setting(key: str, update: SettingUpdate, session: SessionDep) -
     # `result.value`, never `value`: the websocket is open to anonymous clients, so a secret
     # setting (usdb.password) must reach it masked exactly like the GET response masks it.
     await event_bus.broadcast(SettingChanged(key=key, value=result.value))
-    if key in VOLUME_KEYS:
-        # The music service caches the volumes, and the host screen reads them off the
-        # music state: a slider moved here has to reach the speakers now, not at the next
-        # restart.
+    if key in MUSIC_KEYS:
+        # The music service caches the volumes and the reel switch, and the host screen
+        # reads them off the music state: a slider moved here has to reach the speakers
+        # now, not at the next restart, and the switch going off ends a playing preview.
         await music.broadcast(await music.apply_settings(session))
     return result
 

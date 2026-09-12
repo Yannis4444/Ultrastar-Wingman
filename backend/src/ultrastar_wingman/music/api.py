@@ -22,7 +22,7 @@ from ..auth.deps import require
 from ..db import SessionDep
 from ..events import SettingChanged, event_bus
 from ..settings import SettingsService, SettingTypeError, SettingValueError
-from ..sound import EFFECTS_VOLUME, MASTER_VOLUME, MUSIC_VOLUME
+from ..sound import EFFECTS_VOLUME, MASTER_VOLUME, MUSIC_VOLUME, PREVIEW_VOLUME
 from . import service
 from . import settings as music_settings
 from .schema import MusicRead, MusicSettings, MusicSinkRegistered, MusicSinkReport
@@ -48,6 +48,7 @@ class MusicVolumeUpdate(BaseModel):
 
     master: int | None = Field(default=None, ge=0, le=100)
     music: int | None = Field(default=None, ge=0, le=100)
+    preview: int | None = Field(default=None, ge=0, le=100)
     effects: int | None = Field(default=None, ge=0, le=100)
 
 
@@ -56,7 +57,6 @@ class MusicSettingsUpdate(BaseModel):
     scope: str | None = None
     playlist: str | None = None
     resume_delay_s: int | None = None
-    preview_on_spin: bool | None = None
 
 
 class MusicSinkRelease(BaseModel):
@@ -123,14 +123,19 @@ async def skip_music(session: SessionDep) -> MusicRead:
     responses={422: {"description": "A volume outside 0 to 100."}},
 )
 async def set_music_volume(body: MusicVolumeUpdate, session: SessionDep) -> MusicRead:
-    """Move one or more of the three volumes.
+    """Move one or more of the four volumes.
 
     They are ordinary registered settings, so this route is how a reader who may control the
     music moves one without holding `settings.manage` — turning the music down is not
     administering the server. Each key that is written also emits its own `setting.changed`,
     so a Settings page somebody has open stays in step.
     """
-    keys = {"master": MASTER_VOLUME, "music": MUSIC_VOLUME, "effects": EFFECTS_VOLUME}
+    keys = {
+        "master": MASTER_VOLUME,
+        "music": MUSIC_VOLUME,
+        "preview": PREVIEW_VOLUME,
+        "effects": EFFECTS_VOLUME,
+    }
     named = {
         keys[field]: value
         for field, value in body.model_dump().items()

@@ -1124,10 +1124,6 @@ export type MusicSettings = {
      * Resume Delay S
      */
     resume_delay_s: number;
-    /**
-     * Preview On Spin
-     */
-    preview_on_spin: boolean;
 };
 
 /**
@@ -1150,10 +1146,6 @@ export type MusicSettingsUpdate = {
      * Resume Delay S
      */
     resume_delay_s?: number | null;
-    /**
-     * Preview On Spin
-     */
-    preview_on_spin?: boolean | null;
 };
 
 /**
@@ -1262,7 +1254,7 @@ export type MusicTrackRead = {
 /**
  * MusicVolumeRead
  *
- * The three volumes, as percentages. The host multiplies them itself — an effective
+ * The four volumes, as percentages. The host multiplies them itself — an effective
  * volume worked out here would be a number nobody set.
  */
 export type MusicVolumeRead = {
@@ -1274,6 +1266,10 @@ export type MusicVolumeRead = {
      * Music
      */
     music: number;
+    /**
+     * Preview
+     */
+    preview: number;
     /**
      * Effects
      */
@@ -1294,6 +1290,10 @@ export type MusicVolumeUpdate = {
      * Music
      */
     music?: number | null;
+    /**
+     * Preview
+     */
+    preview?: number | null;
     /**
      * Effects
      */

@@ -62,11 +62,12 @@ class MusicPreviewRead(BaseModel):
 
 
 class MusicVolumeRead(BaseModel):
-    """The three volumes, as percentages. The host multiplies them itself — an effective
+    """The four volumes, as percentages. The host multiplies them itself — an effective
     volume worked out here would be a number nobody set."""
 
     master: int
     music: int
+    preview: int
     effects: int
 
 
@@ -106,7 +107,6 @@ class MusicSettings(BaseModel):
     scope: str
     playlist: str
     resume_delay_s: int
-    preview_on_spin: bool
 
 
 class MusicSinkRegistered(BaseModel):

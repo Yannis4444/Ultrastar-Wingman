@@ -30,8 +30,11 @@ Made by the user, 2026-09-11:
 6. Three capabilities: **`music.view`** (guest and up), **`music.control`** — play, pause,
    skip, volume — (account and up), **`music.manage`** — turn it on, the pool, the playlist,
    the pause — (trusted and up).
-7. The **three volumes are ordinary Settings-page settings** (master, background music, sound
-   effects); **everything else lives on the player itself**, behind a gear.
+7. The **four volumes are ordinary Settings-page settings** (master, background music, the
+   reel's song, sound effects), and so is the **reel switch** `sound.reel_preview` — the user
+   moved it out of the gear on 2026-09-12: it is about the reel, not the background music, and
+   its volume sits there (`settings.manage`, therefore, not `music.manage`); **everything else
+   lives on the player itself**, behind a gear.
 8. A **progress line for the background song only**. A running sing still shows no time on
    phones, as it does today.
 
@@ -177,7 +180,8 @@ landed the reel early, `_Spin.revealed_at`) and `has_audio` — or None for a se
 never spun, or none at all. `pick_singers` takes the spin off the selection but keeps what it
 landed on (`_Selection.landed`), so the song plays on while the singers are picked, until the
 selection starts or is given up. The music sets its **preview** when the reel is wanted
-(`music.preview_on_spin`), has a file, and the speakers are free — freezing the background track
+(`sound.reel_preview`, a registered Sound setting the service caches beside the volumes), has
+a file, and the speakers are free — freezing the background track
 first, so it comes back where it stopped — and ends it otherwise; a sing starting ends it too.
 The preview is independent of `enabled` and of `status`: it is about the reel, not the
 soundtrack, so it plays with the music switched off. Never raises, the hooks' rule. Import
@@ -301,7 +305,12 @@ Private in `music/settings.py`, behind `music.manage`:
 | `music.scope` | str | `all` |
 | `music.playlist` | str | `""` |
 | `music.resume_delay_s` | int 0–120 | 10 |
-| `music.preview_on_spin` | bool | **true** — the host plays the song the reel lands on; the user's choice, on by default and its own switch |
+
+Whether the host plays the song the reel lands on is **not** here: `sound.reel_preview` (bool,
+**true**) is a registered setting under **Sound** beside its volume `sound.preview_volume`, the
+user's ruling of 2026-09-12 (it was `music.preview_on_spin` behind the gear for a day).
+`api.update_setting` refreshes the music's caches for every `sound.MUSIC_KEYS` write, which is
+what ends a playing preview when the switch goes off.
 
 `MUSIC_SCOPES` is the same four as `devices.settings.RANDOM_SCOPES` but declared here: the two
 are free to diverge, and importing `devices` from `music` is a coupling neither needs.
@@ -432,7 +441,8 @@ sets — and an administrator session, so it holds the `music.manage` the sink r
 - A new `track.id` sets `src` and seeks — but **only when the gap is over ~1.5 s**, so a
   heartbeat's own round trip never nudges a playing element. A host page reloaded mid-song
   comes back in the right place.
-- `volume = master / 100 * music / 100`, one line in `music.ts` with its own test. A linear
+- `volume = master / 100 * music / 100`, one line in `music.ts` with its own test; the reel's
+  element uses `master × preview` (`sound.preview_volume`) the same way, its own ref. A linear
   product, not a perceptual curve: any gamma makes the printed number a lie in the other
   direction, and both controls are trimmed by ear anyway.
 - The fade keys on the **state's own `playing` going true -> false**, not on `karaoke.started`:
@@ -471,7 +481,9 @@ about the background track. The gesture unlock plays whichever element should be
   `pages/Devices.tsx` verbatim, because this is their third caller. `Devices.test.tsx` passing
   unchanged is what proves the extraction.
 - `pages/Settings.tsx` — `GROUP_ORDER` gains `Sound` after `Host`, `GROUP_ICONS.Sound =
-  "volume"`, and `CUSTOM_FIELDS` points all three volume keys at one `VolumeField`.
+  "volume"`, and `CUSTOM_FIELDS` points all four volume keys at one `VolumeField`; the reel
+  switch is an ordinary checkbox row, its label `labelize`d off the key (*Reel preview*), the
+  sentence in its description.
 - `pages/Host.tsx` — one quiet line, `.host-music-line`, in the foot row of the `.host-stage`
   grid under whatever the stage shows — the brand, the scores — and not drawn during a
   takeover (the badges, the selection), which already hide the rail. It is content, not a

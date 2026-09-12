@@ -127,28 +127,6 @@ export default function MusicSettingsPanel({
       )}
 
       <PrivateSettingRow
-        id="music-preview"
-        label="Play the song the reel lands on"
-        description="When the reel on the host screen lands, that song plays from where its singing starts until somebody presses Play or gives the pick up. The background music pauses for it. Works whether or not the background music is on."
-        saved={savedField === "preview_on_spin"}
-        inline
-      >
-        {(inputId, describedBy) => (
-          <input
-            className="setting-toggle"
-            id={inputId}
-            aria-describedby={describedBy}
-            type="checkbox"
-            checked={settings.preview_on_spin}
-            disabled={busy}
-            onChange={(event) =>
-              onChange({ preview_on_spin: event.target.checked })
-            }
-          />
-        )}
-      </PrivateSettingRow>
-
-      <PrivateSettingRow
         id="music-resume"
         label="Wait before the music comes back"
         description="How long the room stays quiet after a song. The scores and any new badges are read in that gap."

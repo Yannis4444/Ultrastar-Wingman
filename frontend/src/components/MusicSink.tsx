@@ -102,6 +102,8 @@ function ActiveSink() {
   const errorsRef = useRef(0);
   const fadeRef = useRef<number | null>(null);
   const targetVolumeRef = useRef(0);
+  // The reel's song has a volume of its own (`sound.preview_volume`).
+  const previewVolumeRef = useRef(0);
   const shouldPlayRef = useRef(false);
 
   // --- the lease -------------------------------------------------------------
@@ -242,7 +244,12 @@ function ActiveSink() {
     state === undefined
       ? 0
       : effectiveVolume(state.volume.master, state.volume.music);
+  const previewVolume =
+    state === undefined
+      ? 0
+      : effectiveVolume(state.volume.master, state.volume.preview);
   targetVolumeRef.current = volume;
+  previewVolumeRef.current = previewVolume;
   shouldPlayRef.current = shouldPlay;
 
   useEffect(() => {
@@ -324,9 +331,9 @@ function ActiveSink() {
       previewLiveRef.current &&
       previewFadeRef.current === null
     ) {
-      reel.volume = volume;
+      reel.volume = previewVolume;
     }
-  }, [volume, shouldPlay]);
+  }, [volume, previewVolume, shouldPlay]);
 
   // --- the reel's song -------------------------------------------------------
 
@@ -403,7 +410,7 @@ function ActiveSink() {
       if (previewCuedRef.current !== key) cue();
       previewLiveRef.current = true;
       reel.volume = 0;
-      ramp(reel, previewFadeRef, targetVolumeRef.current, PREVIEW_FADE_IN_MS);
+      ramp(reel, previewFadeRef, previewVolumeRef.current, PREVIEW_FADE_IN_MS);
       reel
         .play()
         .then(() => musicSinkStore.setBlocked(false))

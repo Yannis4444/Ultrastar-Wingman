@@ -26,7 +26,6 @@ ENABLED = "music.enabled"
 SCOPE = "music.scope"
 PLAYLIST = "music.playlist"
 RESUME_DELAY = "music.resume_delay_s"
-PREVIEW_ON_SPIN = "music.preview_on_spin"
 
 # What the music may pick from: the reel's scopes (`karaoke.schema.Scope`) minus
 # `favorites`, which needs an account and the room's soundtrack has none behind it.
@@ -111,17 +110,6 @@ DEFINITIONS: dict[str, SettingDefinition] = {
             "scores and any new badges are read in that gap."
         ),
         validate=_validate_resume_delay,
-    ),
-    PREVIEW_ON_SPIN: SettingDefinition(
-        key=PREVIEW_ON_SPIN,
-        value_type=bool,
-        default=True,
-        group="Background music",
-        description=(
-            "Play the song the reel on the host screen lands on, from where its singing "
-            "starts, until somebody presses Play or gives the pick up. The background music "
-            "pauses for it. Works whether or not the background music is on."
-        ),
     ),
 }
 

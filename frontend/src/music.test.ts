@@ -49,7 +49,7 @@ function music(overrides: Partial<MusicRead> = {}): MusicRead {
     retry_at: null,
     sink_online: true,
     sink_generation: 1,
-    volume: { master: 100, music: 60, effects: 80 },
+    volume: { master: 100, music: 60, preview: 100, effects: 80 },
     scope: "all",
     ...overrides,
   };

@@ -36,7 +36,7 @@ from ..karaoke.schema import Scope
 from ..settings import SettingsService, SettingValue
 from ..songs.model import Song
 from ..songs.schema import SongRead, read_song
-from ..sound import EFFECTS_VOLUME, MASTER_VOLUME, MUSIC_VOLUME
+from ..sound import EFFECTS_VOLUME, MASTER_VOLUME, MUSIC_VOLUME, PREVIEW_VOLUME, REEL_PREVIEW
 from ..tags import service as tags
 from . import settings as music_settings
 from .schema import (
@@ -86,13 +86,14 @@ class _Options:
 class _Volumes:
     master: int
     music: int
+    preview: int
     effects: int
 
 
 DEFAULT_OPTIONS = _Options(
     enabled=False, scope="all", playlist="", resume_delay_s=10, preview_on_spin=True
 )
-DEFAULT_VOLUMES = _Volumes(master=100, music=100, effects=100)
+DEFAULT_VOLUMES = _Volumes(master=100, music=100, preview=100, effects=100)
 
 
 @dataclass
@@ -267,7 +268,10 @@ def _read(at: datetime | None = None) -> MusicRead:
         sink_online=_sink_online(at),
         sink_generation=_sink_generation,
         volume=MusicVolumeRead(
-            master=_volumes.master, music=_volumes.music, effects=_volumes.effects
+            master=_volumes.master,
+            music=_volumes.music,
+            preview=_volumes.preview,
+            effects=_volumes.effects,
         ),
         scope=_scope(),
     )
@@ -301,7 +305,6 @@ async def read_settings(session: AsyncSession) -> MusicSettings:
         scope=str(values[music_settings.SCOPE]),
         playlist=str(values[music_settings.PLAYLIST]),
         resume_delay_s=int(values[music_settings.RESUME_DELAY]),
-        preview_on_spin=bool(values[music_settings.PREVIEW_ON_SPIN]),
     )
 
 
@@ -644,18 +647,21 @@ async def apply_settings(session: AsyncSession) -> MusicRead:
 async def _load_caches(session: AsyncSession) -> None:
     global _options, _volumes
     values = await music_settings.read_all(session)
+    # The reel switch and the volumes are ordinary registered settings (`sound.py`): the
+    # Settings page writes them, and `api.update_setting` calls back in for every one.
+    registered = await SettingsService(session).all()
     _options = _Options(
         enabled=bool(values[music_settings.ENABLED]),
         scope=str(values[music_settings.SCOPE]),
         playlist=str(values[music_settings.PLAYLIST]),
         resume_delay_s=int(values[music_settings.RESUME_DELAY]),
-        preview_on_spin=bool(values[music_settings.PREVIEW_ON_SPIN]),
+        preview_on_spin=registered.get(REEL_PREVIEW, DEFAULT_OPTIONS.preview_on_spin) is True,
     )
-    volumes = await SettingsService(session).all()
     _volumes = _Volumes(
-        master=_percent(volumes.get(MASTER_VOLUME), DEFAULT_VOLUMES.master),
-        music=_percent(volumes.get(MUSIC_VOLUME), DEFAULT_VOLUMES.music),
-        effects=_percent(volumes.get(EFFECTS_VOLUME), DEFAULT_VOLUMES.effects),
+        master=_percent(registered.get(MASTER_VOLUME), DEFAULT_VOLUMES.master),
+        music=_percent(registered.get(MUSIC_VOLUME), DEFAULT_VOLUMES.music),
+        preview=_percent(registered.get(PREVIEW_VOLUME), DEFAULT_VOLUMES.preview),
+        effects=_percent(registered.get(EFFECTS_VOLUME), DEFAULT_VOLUMES.effects),
     )
 
 

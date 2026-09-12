@@ -78,8 +78,9 @@ nothing to land on.*
 
 When the reel lands, the TV plays the song from where its singing starts, so the
 room hears what it picked. The background music, if any, fades out for it and
-comes back afterwards. A host can switch this off in the player's gear, under
-**Play the song the reel lands on** (see [Background music](music.md)).
+comes back afterwards. **Reel preview** under **Sound** in **Settings** switches
+this off, and **Preview volume** beside it sets how loud it plays (see
+[Background music](music.md#the-song-the-reel-lands-on)).
 
 Spinning on the host screen holds the room the way **Sing** does. Nobody else
 can start a song while your phone holds the pick. If somebody is already

@@ -69,7 +69,7 @@ function music(overrides: Partial<MusicRead> = {}): MusicRead {
     retry_at: null,
     sink_online: true,
     sink_generation: 1,
-    volume: { master: 100, music: 50, effects: 80 },
+    volume: { master: 100, music: 50, preview: 100, effects: 80 },
     scope: "all",
     ...overrides,
   };
@@ -443,10 +443,37 @@ it("plays the reel's song from where its singing starts when the reel lands", as
     () => expect(HTMLMediaElement.prototype.pause).toHaveBeenCalled(),
     { timeout: SPIN_FADE_OUT_MS + 1500 },
   );
-  // And the reel's song comes in when the reel lands.
+  // And the reel's song comes in when the reel lands, at its own volume —
+  // the fixture's preview trim, not the music's.
   await waitFor(() =>
     expect(HTMLMediaElement.prototype.play).toHaveBeenCalledTimes(plays + 1),
   );
+  await waitFor(() => expect(reel.volume).toBe(1), { timeout: 3000 });
+});
+
+it("plays the reel's song at the preview volume, not the music's", async () => {
+  draw();
+  const audio = await audioElement();
+  await waitFor(() => expect(audio.getAttribute("src")).toContain("usdb%3A1"));
+  act(() => {
+    FakeSocket.deliver({
+      event: "music.changed",
+      music: music({
+        volume: { master: 50, music: 100, preview: 50, effects: 80 },
+        preview: {
+          id: "s:1",
+          song: { ...SONG, id: "usdb:9" },
+          start_s: 0,
+          reveal_at: new Date().toISOString(),
+        },
+      }),
+    });
+  });
+  const { reel } = elements();
+  // 50 % of 50 %: the master times the reel's own trim.
+  await waitFor(() => expect(reel.volume).toBeCloseTo(0.25), {
+    timeout: 3000,
+  });
 });
 
 it("seeks again on a respin that lands on the same song", async () => {

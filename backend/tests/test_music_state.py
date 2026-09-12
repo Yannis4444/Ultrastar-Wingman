@@ -15,7 +15,9 @@ from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
 from ultrastar_wingman.library.model import Wish
 from ultrastar_wingman.music import service
 from ultrastar_wingman.music import settings as music_settings
+from ultrastar_wingman.settings import SettingsService
 from ultrastar_wingman.songs.model import Song
+from ultrastar_wingman.sound import REEL_PREVIEW
 from ultrastar_wingman.tags.model import SongTag, Tag
 
 START = datetime(2026, 9, 12, 20, 0, tzinfo=UTC)
@@ -67,11 +69,15 @@ async def add_song(
 
 
 async def enable(session: AsyncSession, **options: Any) -> None:
-    """Switch the music on, and load the caches the way the watchdog would."""
+    """Switch the music on, and load the caches the way the watchdog would. The reel
+    switch is a registered `sound.*` setting and goes through the registry."""
     settings = music_settings.service(session)
     await settings.set(music_settings.ENABLED, True)
     for key, value in options.items():
-        await settings.set(f"music.{key}", value)
+        if key == "preview_on_spin":
+            await SettingsService(session).set(REEL_PREVIEW, value)
+        else:
+            await settings.set(f"music.{key}", value)
     await service.apply_settings(session)
 
 
@@ -583,6 +589,21 @@ async def test_the_reel_is_silent_without_a_file_or_with_the_switch_off_or_under
 
     await enable(session, preview_on_spin=False)
     await service.selection_changed(spin_preview(song))
+    assert (await service.read()).preview is None
+
+
+async def test_switching_the_reels_song_off_ends_one_that_plays(
+    session: AsyncSession, tmp_path: Path, clock: Clock
+) -> None:
+    # The Settings page writes `sound.reel_preview`; `api.update_setting` applies the
+    # settings again, which is the path a switch flipped mid-reel takes to the speakers.
+    song = await add_song(session, tmp_path, 1)
+    await enable(session)
+    await service.selection_changed(spin_preview(song))
+    assert (await service.read()).preview is not None
+
+    await SettingsService(session).set(REEL_PREVIEW, False)
+    await service.apply_settings(session)
     assert (await service.read()).preview is None
 
 
