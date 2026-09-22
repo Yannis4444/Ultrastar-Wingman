@@ -153,3 +153,28 @@ async def login(client: AsyncClient, provider: FakeProvider) -> Response:
     """The whole flow: login redirect, then the callback the provider would send back."""
     parameters = await start_login(client, provider)
     return await callback(client, parameters["state"])
+
+
+async def preset(client: AsyncClient) -> str:
+    """The name the choose-a-name form opens on, for a browser that just came back."""
+    response = await client.get("/api/v1/auth/oidc/pending")
+    assert response.status_code == 200, response.text
+    username: str = response.json()["username"]
+    return username
+
+
+async def complete(client: AsyncClient, username: str) -> Response:
+    return await client.post("/api/v1/auth/oidc/complete", json={"username": username})
+
+
+async def sign_up(client: AsyncClient, provider: FakeProvider, username: str | None = None) -> None:
+    """A first login all the way to an account: the round trip, then the name.
+
+    A subject Wingman has never seen stops at the form, so everything about how an SSO
+    account *behaves* has to come through here. `username` defaults to the preset, which is
+    the name the account would have had before the singer was asked.
+    """
+    parked = await login(client, provider)
+    assert parked.headers["location"] == f"{oidc.RETURN_PATH}?login={oidc.CHOOSE_NAME}"
+    response = await complete(client, username or await preset(client))
+    assert response.status_code == 200, response.text

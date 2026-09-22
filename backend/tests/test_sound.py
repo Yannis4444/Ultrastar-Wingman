@@ -13,6 +13,7 @@ from ultrastar_wingman.sound import (
     EFFECTS_VOLUME,
     MASTER_VOLUME,
     MUSIC_VOLUME,
+    PREVIEW_VOLUME,
     VOLUME_KEYS,
     validate_volume,
 )
@@ -51,8 +52,10 @@ def test_anything_that_is_not_a_whole_number_is_refused(value: object) -> None:
         validate_volume(value)
 
 
-def test_the_three_keys_are_registered_in_one_group() -> None:
-    assert {MASTER_VOLUME, MUSIC_VOLUME, EFFECTS_VOLUME} == VOLUME_KEYS
+def test_the_four_keys_are_registered_in_one_group() -> None:
+    """Master and the three trims under it — the reel's song joined the set when the host
+    screen learned to play a preview, and it is a volume like the other two."""
+    assert {MASTER_VOLUME, MUSIC_VOLUME, PREVIEW_VOLUME, EFFECTS_VOLUME} == VOLUME_KEYS
     for key in VOLUME_KEYS:
         assert DEFINITIONS[key].group == "Sound"
         assert DEFINITIONS[key].value_type is int

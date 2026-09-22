@@ -23,6 +23,9 @@ const {
   logout,
   listUsers,
   oidcConfig,
+  oidcPending,
+  completeOidcLogin,
+  forgetOidcLogin,
   health,
   listAchievements,
   listPlayerAchievements,
@@ -40,6 +43,9 @@ const {
   logout: vi.fn(),
   listUsers: vi.fn(),
   oidcConfig: vi.fn(),
+  oidcPending: vi.fn(),
+  completeOidcLogin: vi.fn(),
+  forgetOidcLogin: vi.fn(),
   health: vi.fn(),
   listAchievements: vi.fn(),
   listPlayerAchievements: vi.fn(),
@@ -60,6 +66,9 @@ vi.mock("../api/sdk.gen", async (importOriginal) => ({
   logout,
   listUsers,
   oidcConfig,
+  oidcPending,
+  completeOidcLogin,
+  forgetOidcLogin,
   health,
   listAchievements,
   listPlayerAchievements,
@@ -170,6 +179,9 @@ beforeEach(() => {
   oidcConfig.mockResolvedValue({
     data: { enabled: false, display_name: "SSO" },
   });
+  // No sign-on waiting to be named: the ordinary answer for every browser that
+  // did not just come back from the provider.
+  oidcPending.mockRejectedValue({ detail: "no_pending_login" });
   health.mockResolvedValue({
     data: { name: "Ultrastar Wingman", version: "0.4.2" },
   });
@@ -398,6 +410,102 @@ test("a successful SSO login only strips the parameter", async () => {
   ).toBeInTheDocument();
   expect(screen.getByTestId("search")).toHaveTextContent("");
   expect(screen.queryByRole("alert")).toBeNull();
+});
+
+test("a first sign-on is asked for a name, and logging in follows from it", async () => {
+  getMe.mockResolvedValue(meResponse(["songs.view", "players.view"]));
+  oidcPending.mockResolvedValue({ data: { username: "singer-2" } });
+  completeOidcLogin.mockResolvedValue({
+    data: userRead({ username: "Yannis", player_id: "ccc" }),
+  });
+  renderUser("/user?login=choose_name");
+
+  // The name the provider would have given, and no login form behind it.
+  expect(await screen.findByLabelText("Your name")).toHaveValue("singer-2");
+  expect(screen.queryByRole("button", { name: "New account" })).toBeNull();
+
+  fireEvent.change(screen.getByLabelText("Your name"), {
+    target: { value: "Yannis" },
+  });
+  // The session cookie the completion sets is what /auth/me answers to next.
+  getMe.mockResolvedValue(
+    meResponse(USER_CAPABILITIES, {
+      user: userRead({ username: "Yannis", player_id: "ccc" }),
+      role: "user",
+    }),
+  );
+  fireEvent.click(screen.getByRole("button", { name: "Create account" }));
+
+  expect(
+    await screen.findByRole("button", { name: "Log out" }),
+  ).toBeInTheDocument();
+  expect(completeOidcLogin).toHaveBeenCalledWith(
+    expect.objectContaining({ body: { username: "Yannis" } }),
+  );
+});
+
+test("giving the name up leads back to the login form", async () => {
+  getMe.mockResolvedValue(meResponse(["songs.view", "players.view"]));
+  oidcPending.mockResolvedValue({ data: { username: "singer" } });
+  forgetOidcLogin.mockResolvedValue({ data: undefined });
+  renderUser("/user?login=choose_name");
+
+  await screen.findByLabelText("Your name");
+  // The pending login is gone from here on, so the refetch finds none.
+  oidcPending.mockRejectedValue({ detail: "no_pending_login" });
+  fireEvent.click(screen.getByRole("button", { name: "Cancel" }));
+
+  expect(
+    await screen.findByRole("button", { name: "New account" }),
+  ).toBeInTheDocument();
+  expect(forgetOidcLogin).toHaveBeenCalled();
+  // Nothing went wrong, so nothing is explained.
+  expect(screen.queryByRole("alert")).toBeNull();
+});
+
+test("the name form survives the parameter being stripped", async () => {
+  // A reload, or the effect that takes `?login=` off the address: the form is
+  // drawn off the pending login itself, which the cookie still stands for.
+  getMe.mockResolvedValue(meResponse(["songs.view", "players.view"]));
+  oidcPending.mockResolvedValue({ data: { username: "singer" } });
+  renderUser("/user");
+
+  expect(await screen.findByLabelText("Your name")).toHaveValue("singer");
+  expect(screen.queryByRole("button", { name: "New account" })).toBeNull();
+  // Nothing went wrong, so nothing is explained.
+  expect(screen.queryByRole("alert")).toBeNull();
+});
+
+test("sso switched off while the name is being typed says so", async () => {
+  getMe.mockResolvedValue(meResponse(["songs.view", "players.view"]));
+  oidcPending.mockResolvedValue({ data: { username: "singer" } });
+  completeOidcLogin.mockRejectedValue({ detail: "oidc_disabled" });
+  renderUser("/user?login=choose_name");
+
+  await screen.findByLabelText("Your name");
+  // The switch is off from here on, so the form has nothing left to stand on.
+  oidcPending.mockRejectedValue({ detail: "oidc_disabled" });
+  fireEvent.click(screen.getByRole("button", { name: "Create account" }));
+
+  expect(await screen.findByRole("alert")).toHaveTextContent(
+    "Single sign-on is switched off",
+  );
+  expect(screen.queryByLabelText("Your name")).toBeNull();
+  expect(
+    screen.getByRole("button", { name: "New account" }),
+  ).toBeInTheDocument();
+});
+
+test("a sign-on whose name came too late explains itself", async () => {
+  getMe.mockResolvedValue(meResponse(["songs.view", "players.view"]));
+  renderUser("/user?login=choose_name");
+
+  expect(await screen.findByRole("alert")).toHaveTextContent(
+    "took too long or was already finished",
+  );
+  expect(
+    screen.getByRole("button", { name: "New account" }),
+  ).toBeInTheDocument();
 });
 
 /** The logged-in account is the one that owns the listed player. */

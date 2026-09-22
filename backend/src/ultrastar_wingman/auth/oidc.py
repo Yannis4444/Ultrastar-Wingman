@@ -13,6 +13,13 @@ Deliberate choices, because getting this wrong is a login bypass:
 - `state` is single-use, short-lived *and* tied to the browser that started the flow by a
   cookie: it is popped before anything else can fail, so a replayed callback finds nothing,
   and a callback delivered to somebody else's browser has no matching cookie.
+- A subject with no account yet does not get one here. The callback parks the verified
+  subject as a *pending login* and asks the browser for a name, which is the singer's to
+  pick (`POST /auth/oidc/complete`). The pending token is a second cookie under the state
+  one's rules: server-side, short-lived, HttpOnly, never logged and never in a URL — it is
+  what stands between a stranger and an account for somebody else's identity. It is spent
+  by the account it creates rather than by being read, so a name that turns out to be taken
+  costs a refusal and not the whole round trip.
 - PKCE (S256) on every attempt, so an intercepted code is worthless without the verifier.
 - Every failure sends the browser back to the UI with a slug and logs the reason here. The
   slugs are coarse on purpose — a caller learns "this login did not work", not which of our
@@ -29,7 +36,7 @@ from urllib.parse import urlencode
 
 import httpx
 from authlib.oauth2.rfc7636 import create_s256_code_challenge
-from fastapi import APIRouter, HTTPException, Request
+from fastapi import APIRouter, HTTPException, Request, Response
 from fastapi.responses import RedirectResponse
 from joserfc import jws, jwt
 from joserfc.errors import JoseError
@@ -42,27 +49,45 @@ from ..settings import SettingsService, SettingValue
 from . import providers, service
 from .deps import claim_guest_wishes, set_session_cookie
 from .model import User
+from .schema import UserRead
 
 logger = logging.getLogger(__name__)
 
 router = APIRouter(tags=["auth"])
 
-# Where the browser ends up, whatever happened. `login=ok` or `login=error:<slug>` — the UI
-# renders the outcome; nobody should ever see raw JSON after clicking a login button.
+# Where the browser ends up, whatever happened. `login=ok`, `login=choose_name` or
+# `login=error:<slug>` — the UI renders the outcome; nobody should ever see raw JSON after
+# clicking a login button.
 RETURN_PATH = "/user"
+
+# The outcome of a login by somebody Wingman has no account for: the browser is asked for a
+# name. The page draws that form off `GET /auth/oidc/pending` and not off this parameter,
+# which a reload loses while the cookie still stands — this only says what just happened.
+CHOOSE_NAME = "choose_name"
 
 # Holds the `state` of the login this browser started, so a callback URL captured elsewhere
 # cannot be handed to a different browser (which would log that browser into the attacker's
 # account — and merge its guest wishlist into it).
 STATE_COOKIE_NAME = "wingman_oidc_state"
 
+# Holds the pending login a callback parked: the browser that answered the provider is the
+# one that gets to name the account. Its own cookie, not the state one, because the state is
+# spent by the very callback that creates this.
+PENDING_COOKIE_NAME = "wingman_oidc_pending"
+
 # An attempt has this long to come back from the provider. Long enough to type a password
 # and answer an MFA prompt, short enough that abandoned attempts do not pile up.
 STATE_TTL_SECONDS = 600.0
 
+# And this long to think of a name. Same order for the same reason: a verified subject
+# nobody finished with must not sit in memory all evening.
+PENDING_TTL_SECONDS = 600.0
+
 # ponytail: a plain dict is enough, but "expires eventually" is not — anyone who can reach
 # the login button can fill it without logging in, so it is capped as well. Per-client rate
-# limiting is the upgrade path if a LAN app ever needs one.
+# limiting is the upgrade path if a LAN app ever needs one. The same cap applies to the
+# pending logins: filling that one takes a real login at the provider per entry, which is a
+# much harder flood, but the bound costs nothing.
 MAX_ATTEMPTS = 1000
 
 # Asymmetric only. An `alg` allowlist is what stops a token signed with the *public* JWKS
@@ -85,6 +110,22 @@ class OidcConfigRead(BaseModel):
 
     enabled: bool
     display_name: str
+
+
+class PendingLoginRead(BaseModel):
+    """The login waiting for a name, as the form that asks for it reads it. The subject
+    stays here: the browser has no business learning what the provider calls somebody."""
+
+    # What the account would have been called without asking — free at the moment the
+    # provider answered, so the form opens on a name that would go through.
+    username: str
+
+
+class CompleteLoginRequest(BaseModel):
+    """The name the singer picked. Held to the same rule as a name typed at registration:
+    a chosen one is never silently suffixed, it is refused and asked for again."""
+
+    username: service.Username
 
 
 class ProviderMetadata(BaseModel):
@@ -116,14 +157,34 @@ class OidcConfig:
 
 
 @dataclass(frozen=True)
-class Attempt:
+class Parked:
+    """A login held in memory between two requests. Everything parked here ages out."""
+
+    started_at: float
+
+
+@dataclass(frozen=True)
+class Attempt(Parked):
     """One login in flight. Kept server-side so a client cannot choose its own nonce."""
 
     nonce: str
     code_verifier: str
     # Sent to the provider at login and repeated at the exchange; the two must be identical.
     redirect_uri: str
-    started_at: float
+
+
+@dataclass(frozen=True)
+class Pending(Parked):
+    """A verified subject with no account yet, waiting for the name it will carry.
+
+    Server-side like an attempt, and for the same reason: the subject is the identity, so a
+    client that could name its own would be naming somebody else's account into existence.
+    The `username` is only the form's preset — what the account would have been called
+    before anybody was asked.
+    """
+
+    subject: str
+    username: str
 
 
 # ponytail: in-memory, so a second worker process would not see an attempt started by the
@@ -131,6 +192,7 @@ class Attempt:
 # path if that ever changes. Discovery and JWKS are cached per issuer/URL, so changing the
 # issuer setting simply misses the cache instead of needing an invalidation hook.
 _attempts: dict[str, Attempt] = {}
+_pendings: dict[str, Pending] = {}
 _metadata_cache: dict[str, ProviderMetadata] = {}
 # Keyed by (issuer, JWKS url), so keys cached for one provider can never verify a token
 # after the issuer setting was pointed at another one.
@@ -140,6 +202,7 @@ _key_cache: dict[tuple[str, str], KeySet] = {}
 def reset_state() -> None:
     """Drop everything cached in this module. For tests, and for nothing else."""
     _attempts.clear()
+    _pendings.clear()
     _metadata_cache.clear()
     _key_cache.clear()
 
@@ -208,7 +271,7 @@ async def oidc_login(request: Request, session: SessionDep) -> RedirectResponse:
         redirect_uri=str(request.url_for("oidc_callback")),
         started_at=time.monotonic(),
     )
-    _remember(state, attempt)
+    _remember(_attempts, state, attempt, STATE_TTL_SECONDS)
     query = urlencode(
         {
             "response_type": "code",
@@ -248,9 +311,14 @@ async def oidc_callback(
     state: str | None = None,
     error: str | None = None,
 ) -> RedirectResponse:
-    """Where the provider sends the browser back. Always a redirect, never an error body."""
+    """Where the provider sends the browser back. Always a redirect, never an error body.
+
+    Two things can come back from a verified token: an account this subject already has —
+    logged in here and now — or a subject Wingman has never seen, which is parked and sent
+    on to the form that asks what to call it. Nothing is created here either way.
+    """
     try:
-        user = await _complete(
+        outcome = await _complete(
             session,
             code=code,
             state=state,
@@ -264,14 +332,119 @@ async def oidc_callback(
         logger.exception("OIDC login failed unexpectedly")
         response = _redirect("error:login_failed")
     else:
-        response = _redirect("ok")
-        set_session_cookie(response, await service.start_session(session, user.id))
-        # Same as a local login: whoever wished as a guest in this browser keeps those wishes.
-        await claim_guest_wishes(request, session, user)
-        logger.info("OIDC login for '%s' (%s)", user.username, user.id)
+        if isinstance(outcome, User):
+            response = _redirect("ok")
+            await _log_in(request, session, response, outcome)
+            # A name somebody started choosing and walked away from must not outlive the
+            # login that overtook it in the same browser.
+            response.delete_cookie(PENDING_COOKIE_NAME, path="/")
+        else:
+            response = _redirect(CHOOSE_NAME)
+            token = secrets.token_urlsafe(32)
+            _remember(_pendings, token, outcome, PENDING_TTL_SECONDS)
+            # Never logged and never in a URL: this token is the right to create an account
+            # for a verified subject.
+            response.set_cookie(
+                PENDING_COOKIE_NAME,
+                token,
+                max_age=int(PENDING_TTL_SECONDS),
+                httponly=True,
+                samesite="lax",
+                path="/",
+            )
+            logger.info("OIDC login by a new subject, waiting for a name")
     # One attempt, one cookie: it is spent whatever the outcome was.
     response.delete_cookie(STATE_COOKIE_NAME, path="/")
     return response
+
+
+@router.get(
+    "/auth/oidc/pending",
+    response_model=PendingLoginRead,
+    responses={
+        404: {"description": "OIDC is off, or this browser has no login waiting for a name."}
+    },
+)
+async def oidc_pending(request: Request, session: SessionDep) -> PendingLoginRead:
+    """Whether this browser came back from the provider as somebody with no account yet.
+
+    Deliberately public, like the config endpoint: whoever asks is not logged in yet, and
+    the cookie is the whole answer. The page asks this on every load rather than trusting
+    the `?login=` parameter, which a reload drops while the pending login still stands.
+
+    Held to the same switch as the completion it leads to: an admin who turns SSO off while
+    somebody is thinking of a name takes the form away with the same slug, rather than
+    leaving it on screen in front of a completion that can only ever refuse it.
+
+    The cookie is looked at first, unlike in the completion: every anonymous visitor of the
+    User page asks this, and almost none of them have one — reading the settings for those
+    would be a query per page load to answer a question the cookie already settles.
+    """
+    pending = _pending(request.cookies.get(PENDING_COOKIE_NAME))
+    if pending is None:
+        raise HTTPException(status_code=404, detail="no_pending_login")
+    if not (await load_config(session)).enabled:
+        raise HTTPException(status_code=404, detail="oidc_disabled")
+    return PendingLoginRead(username=pending.username)
+
+
+@router.post(
+    "/auth/oidc/complete",
+    response_model=UserRead,
+    responses={
+        404: {"description": "OIDC is off, or no login is waiting for a name."},
+        409: {"description": "The name is taken."},
+    },
+)
+async def complete_oidc_login(
+    body: CompleteLoginRequest, request: Request, response: Response, session: SessionDep
+) -> UserRead:
+    """Create the account under the name its singer chose, and log it in.
+
+    A subject that got an account in the meantime — a second callback, another tab — is
+    logged into that account and nothing is created, which is why the name can be refused
+    without the login being lost: the pending is only spent once something came of it.
+    """
+    config = await load_config(session)
+    if not config.enabled:
+        # An admin switched SSO off while somebody was typing. Same slug as everywhere else.
+        raise HTTPException(status_code=404, detail="oidc_disabled")
+    token = request.cookies.get(PENDING_COOKIE_NAME)
+    pending = _pending(token)
+    if pending is None:
+        raise HTTPException(status_code=404, detail="no_pending_login")
+    try:
+        user = await service.upsert_oidc_user(session, pending.subject, body.username)
+    except service.DuplicateUsernameError as error:
+        # The name was refused, not the login: the pending stands and the form asks again.
+        raise HTTPException(status_code=409, detail="duplicate_username") from error
+    if token is not None:
+        # `pop`, not `del`: two completions of the same pending can both get this far — a
+        # double tap, or a second tab — and the one that comes second finds the account
+        # its twin created rather than a key to delete.
+        _pendings.pop(token, None)
+    await _log_in(request, session, response, user)
+    response.delete_cookie(PENDING_COOKIE_NAME, path="/")
+    return await service.read_user_with_player(session, user)
+
+
+@router.delete("/auth/oidc/pending", status_code=204)
+async def forget_oidc_login(request: Request, response: Response) -> None:
+    """The way out of the form: the parked subject is dropped and the browser is back at the
+    login form. Idempotent — a browser with nothing pending gets the same 204."""
+    token = request.cookies.get(PENDING_COOKIE_NAME)
+    if token is not None:
+        _pendings.pop(token, None)
+    response.delete_cookie(PENDING_COOKIE_NAME, path="/")
+
+
+async def _log_in(request: Request, session: AsyncSession, response: Response, user: User) -> None:
+    """The one way an OIDC login ends: a session cookie, the browser's guest wishes, a line
+    in the log. Both the returning subject and a freshly named account come through here."""
+    set_session_cookie(response, await service.start_session(session, user.id))
+    # Same as a local login: whoever wished as a guest in this browser keeps those wishes.
+    await claim_guest_wishes(request, session, user)
+    logger.info("OIDC login for '%s' (%s)", user.username, user.id)
 
 
 def _redirect(outcome: str) -> RedirectResponse:
@@ -291,7 +464,8 @@ async def _complete(
     state: str | None,
     error: str | None,
     state_cookie: str | None,
-) -> User:
+) -> User | Pending:
+    """The account this callback belongs to, or the pending login it opens."""
     config = await load_config(session)
     if not config.enabled:
         raise LoginError("oidc_disabled", "a callback arrived while OIDC login is off")
@@ -317,21 +491,60 @@ async def _complete(
         # The subject *is* the account: an empty one would make every login that carries it
         # the same person.
         raise LoginError("invalid_token", "the token has no subject")
-    return await service.upsert_oidc_user(session, subject, _username_from(claims, subject))
+
+    existing = await service.find_by_oidc_subject(session, subject)
+    if existing is not None:
+        return existing
+    return Pending(
+        started_at=time.monotonic(),
+        subject=subject,
+        username=await _preset_username(session, claims, subject),
+    )
 
 
-def _remember(state: str, attempt: Attempt) -> None:
-    now = attempt.started_at
-    for expired in [
-        key for key, pending in _attempts.items() if now - pending.started_at >= STATE_TTL_SECONDS
-    ]:
-        del _attempts[expired]
-    while len(_attempts) >= MAX_ATTEMPTS:
+async def _preset_username(session: AsyncSession, claims: Mapping[str, Any], subject: str) -> str:
+    """The name the form opens on: the one this login would have been given before anybody
+    was asked, freed of collisions — so the singer is offered a name that works and has to
+    type only when they want another."""
+    derived = _username_from(claims, subject)
+    try:
+        return await service.free_username(session, derived)
+    except service.DuplicateUsernameError:
+        # Ninety-eight accounts want that name. Offering the raw one is better than a failed
+        # login: the form answers 409 until they pick something of their own.
+        return derived
+
+
+def _remember[P: Parked](store: dict[str, P], key: str, entry: P, ttl: float) -> None:
+    """Park one login under a secret key, and take the chance to sweep the store."""
+    now = entry.started_at
+    for expired in [k for k, parked in store.items() if now - parked.started_at >= ttl]:
+        del store[expired]
+    while len(store) >= MAX_ATTEMPTS:
         # A flood of login clicks inside one TTL window would otherwise grow this without
         # bound. Oldest first: a dict keeps its insertion order, and inserts happen in time
         # order, so the entry dropped is the one closest to expiring anyway.
-        del _attempts[next(iter(_attempts))]
-    _attempts[state] = attempt
+        del store[next(iter(store))]
+    store[key] = entry
+
+
+def _pending(token: str | None) -> Pending | None:
+    """The login this browser's pending cookie stands for, or `None` — missing, unknown,
+    expired or already spent, which are one thing to the form that asks.
+
+    It is not spent by reading: the form may ask for a name several times over before one
+    of them is free, and losing the verified subject on the first 409 would mean starting
+    the whole round trip again.
+    """
+    if token is None:
+        return None
+    pending = _pendings.get(token)
+    if pending is None:
+        return None
+    if time.monotonic() - pending.started_at >= PENDING_TTL_SECONDS:
+        del _pendings[token]
+        return None
+    return pending
 
 
 def _consume(state: str) -> Attempt:

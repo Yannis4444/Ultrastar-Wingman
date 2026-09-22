@@ -45,16 +45,32 @@ form. See [All settings](../settings/reference.md).
 
 ## What a singer gets
 
-They tap the button, log in at the provider, and land back on the **User** tab
-logged in.
+They tap the button and log in at the provider. The first time, they land back
+on the **User** tab and pick the name they sing under. Every login after that
+lands them on the **User** tab logged in, with nothing to fill in.
 
-- The account is named after the provider's username, or the full name, or the
-  part of the email address before the `@`. A name Wingman already has becomes
-  *name-2*.
+### The first login
+
+Wingman proposes a name and the singer types over it if they want another one.
+
+- The proposal is the provider's username, or the full name, or the part of the
+  email address before the `@`. A name Wingman already has becomes *name-2*.
+- A name somebody else holds is refused, and the form asks for another one.
+  Wingman never quietly renames what a singer typed.
+- **Cancel** drops the sign-in and brings the login form back.
+- The form stands for 10 minutes. After that the sign-in starts again from the
+  button.
+
+Wingman creates nothing until the name is in. While the form is on screen there
+is no account yet, and nobody is logged in.
+
+### From then on
+
 - A player of that name is created, or an existing guest player of that name
   becomes theirs. That is the same takeover registering does.
-- The name then stays. Renaming somebody at the provider changes nothing here,
-  so their scores, playlists, and wishes stay theirs.
+- The name stays. It is picked once, at that first login, and nothing renames
+  the account afterwards. Renaming somebody at the provider changes nothing
+  here either, so their scores, playlists, and wishes stay theirs.
 - Wishes made on that browser as a guest come along.
 - The account has no password. The login form lets nobody in under that name,
   and there is nothing to reset.
@@ -69,7 +85,8 @@ and it can be deleted. See [Roles and permissions](roles.md).
 
 ## When a login does not work
 
-Nobody is logged in, and the login form says which of these happened.
+Nobody is logged in, and Wingman says which of these happened. The last row
+comes from the name form, the rest from the login form.
 
 | What you read | What to do |
 |---|---|
@@ -81,3 +98,5 @@ Nobody is logged in, and the login form says which of these happened.
 | *The login provider did not finish the sign-in. Try again.* | Check **OIDC client ID** and the secret |
 | *The login provider's answer could not be trusted, so nobody was logged in.* | Check that the client id matches the one the token is for |
 | *The sign-in did not work. Try again.* | Read the Wingman console for the reason |
+| *That sign-in took too long or was already finished. Try again.* | Pick the name within 10 minutes, in the browser that started |
+| *That name is taken. Pick another one.* | Type a name nobody in Wingman holds |
