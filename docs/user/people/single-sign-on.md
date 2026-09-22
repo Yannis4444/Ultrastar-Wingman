@@ -85,8 +85,8 @@ and it can be deleted. See [Roles and permissions](roles.md).
 
 ## When a login does not work
 
-Nobody is logged in, and Wingman says which of these happened. The last row
-comes from the name form, the rest from the login form.
+Nobody is logged in, and Wingman says which of these happened. The last two rows
+come from the name form, the rest from the login form.
 
 | What you read | What to do |
 |---|---|
@@ -100,3 +100,4 @@ comes from the name form, the rest from the login form.
 | *The sign-in did not work. Try again.* | Read the Wingman console for the reason |
 | *That sign-in took too long or was already finished. Try again.* | Pick the name within 10 minutes, in the browser that started |
 | *That name is taken. Pick another one.* | Type a name nobody in Wingman holds |
+| *Could not finish the sign-in.* | Tap **Create account** again. Read the Wingman console if it keeps happening |

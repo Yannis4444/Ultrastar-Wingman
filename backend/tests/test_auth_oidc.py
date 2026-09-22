@@ -8,6 +8,7 @@ every check passed — state, PKCE, signature, issuer, audience, nonce and expir
 import base64
 import hashlib
 import sqlite3
+from collections.abc import Awaitable, Callable
 from dataclasses import replace
 from pathlib import Path
 from typing import Any
@@ -36,7 +37,7 @@ from oidc_provider import (
     sign_up,
     start_login,
 )
-from ultrastar_wingman.auth import oidc, providers
+from ultrastar_wingman.auth import oidc, providers, service
 from ultrastar_wingman.auth.deps import COOKIE_NAME, GUEST_COOKIE_NAME
 from ultrastar_wingman.auth.model import User, UserSession
 from ultrastar_wingman.auth.service import token_hash
@@ -68,6 +69,38 @@ async def only_user(session_factory: async_sessionmaker[AsyncSession]) -> User:
 async def users(session_factory: async_sessionmaker[AsyncSession]) -> list[User]:
     async with session_factory() as session:
         return list(await session.scalars(select(User)))
+
+
+# The three stand-ins below are how a one-request test reaches the unique indexes: a
+# lookup that saw nothing is exactly what the losing side of a race saw, and what happens
+# between it and the write is the only thing those tests are about.
+
+
+async def _free_name(session: AsyncSession, username: str) -> User | None:
+    """`find_by_username`, seeing a name nobody holds."""
+    return None
+
+
+async def _no_player(session: AsyncSession, name: str) -> Player | None:
+    """`player_by_name`, seeing no player of that name."""
+    return None
+
+
+def _blind_once(
+    real: Callable[[AsyncSession, str], Awaitable[User | None]],
+) -> Callable[[AsyncSession, str], Awaitable[User | None]]:
+    """`real`, seeing nothing the first time it is asked and answering for real after —
+    the window between the lookup before a write and the write itself."""
+    asked = False
+
+    async def lookup(session: AsyncSession, value: str) -> User | None:
+        nonlocal asked
+        if not asked:
+            asked = True
+            return None
+        return await real(session, value)
+
+    return lookup
 
 
 # --- the config endpoint ------------------------------------------------------------
@@ -381,6 +414,97 @@ async def test_a_taken_name_is_refused_and_the_login_survives_it(
 
     assert (await complete(anonymous_client, "singer")).status_code == 200
     assert {user.username for user in await users(session_factory)} == {"yannis", "singer"}
+
+
+async def test_a_name_taken_after_the_check_is_refused_by_the_index(
+    anonymous_client: AsyncClient,
+    session_factory: async_sessionmaker[AsyncSession],
+    provider: FakeProvider,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """Somebody registering that very name while the form was open: the refusal is the same.
+
+    The name is looked up before the account is written, and the unique index is what
+    decides in between. Blinding that lookup is what stands in for the race here — it is
+    the only way to reach the index from one request — and what it proves is that the
+    login survives it exactly as it survives the ordinary 409: the same browser names the
+    account a moment later.
+    """
+    await add_user(session_factory, "yannis", "admin")
+    await configure(session_factory)
+    await login(anonymous_client, provider)
+    monkeypatch.setattr(service, "find_by_username", _free_name)
+
+    refused = await complete(anonymous_client, "Yannis")
+
+    assert refused.status_code == 409
+    assert refused.json() == {"detail": "duplicate_username"}
+    assert COOKIE_NAME not in anonymous_client.cookies
+    assert len(await users(session_factory)) == 1
+    # Still blinded, and a free name still goes through: nothing about the account was
+    # half written by the refusal.
+    assert (await complete(anonymous_client, "singer")).status_code == 200
+
+
+async def test_a_player_of_that_name_appearing_meanwhile_refuses_the_name(
+    anonymous_client: AsyncClient,
+    session_factory: async_sessionmaker[AsyncSession],
+    provider: FakeProvider,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """The other index in the way: the player the account would sing as.
+
+    A guest of that name is normally taken over, so the only way to collide with one is for
+    it to appear after the takeover looked — the singer picker on somebody's phone, one
+    moment later. Blinded here for the same reason, and the account is refused whole: the
+    guest keeps their scores and nobody is logged in.
+    """
+    await configure(session_factory)
+    async with session_factory() as session:
+        session.add(Player(name="Yannis"))
+        await session.commit()
+    await login(anonymous_client, provider)
+    monkeypatch.setattr(service, "player_by_name", _no_player)
+
+    refused = await complete(anonymous_client, "Yannis")
+
+    assert refused.status_code == 409
+    assert refused.json() == {"detail": "duplicate_username"}
+    assert await users(session_factory) == []
+    async with session_factory() as session:
+        guest = (await session.scalars(select(Player))).one()
+        assert (guest.name, guest.user_id) == ("Yannis", None)
+    assert (await complete(anonymous_client, "singer")).status_code == 200
+
+
+async def test_a_subject_that_won_the_race_is_logged_into_its_account(
+    anonymous_client: AsyncClient,
+    session_factory: async_sessionmaker[AsyncSession],
+    provider: FakeProvider,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """Two tabs confirming a name for the same first sign-on, to the last instant.
+
+    The subject is the identity, so the account the other tab created is this singer's own:
+    the index refuses the second row and the login lands in that account rather than
+    reading as a failure. The lookup that normally catches this is blinded on its first
+    call — the one before the write — and answers for real afterwards, which is where the
+    account is found.
+    """
+    await configure(session_factory)
+    await login(anonymous_client, provider)
+    async with session_factory() as session:
+        await service.upsert_oidc_user(session, SUBJECT, "the-first-name")
+    monkeypatch.setattr(service, "find_by_oidc_subject", _blind_once(service.find_by_oidc_subject))
+
+    response = await complete(anonymous_client, "the-second-name")
+
+    assert response.status_code == 200
+    assert response.json()["username"] == "the-first-name"
+    assert COOKIE_NAME in anonymous_client.cookies
+    assert len(await users(session_factory)) == 1
+    # And the pending login was spent by the account it ended in, like any other.
+    assert (await complete(anonymous_client, "a-third-name")).status_code == 404
 
 
 @pytest.mark.parametrize(

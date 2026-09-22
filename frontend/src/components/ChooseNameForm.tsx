@@ -98,6 +98,9 @@ export default function ChooseNameForm({ preset, onCancel, onLost }: Props) {
       <input
         className="text-input"
         value={username}
+        // The field opens filled in, so this is only ever read by somebody who
+        // cleared it — the login form's own empty state, in its own word.
+        placeholder="Name"
         aria-label="Your name"
         autoComplete="username"
         maxLength={MAX_USERNAME_LENGTH}

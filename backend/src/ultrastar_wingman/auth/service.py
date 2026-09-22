@@ -185,13 +185,17 @@ async def register_user(session: AsyncSession, username: str, password: str) -> 
         auth_provider=LOCAL,
     )
     session.add(user)
-    await session.flush()
-    await _attach_player(session, user)
     try:
+        # The whole write, not the commit alone: the account row goes in at the `flush`
+        # below, so `lower(username)` refuses a name taken since the check above *there*,
+        # while the player row goes in at the commit and `lower(name)` refuses it there.
+        await session.flush()
+        await _attach_player(session, user)
         await session.commit()
     except IntegrityError as error:
         # The unique indexes on lower(username) / lower(name) are the authority, so two
-        # simultaneous registrations cannot both win.
+        # simultaneous registrations cannot both win. The loser reads the refusal the
+        # check above would have given it a moment earlier.
         await session.rollback()
         raise DuplicateUsernameError(username) from error
     logger.info("user '%s' registered as %s (%s)", user.username, user.role, user.id)
@@ -228,14 +232,22 @@ async def upsert_oidc_user(session: AsyncSession, subject: str, username: str) -
         oidc_subject=subject,
     )
     session.add(user)
-    await session.flush()
-    await _attach_player(session, user)
     try:
+        # The whole write, not the commit alone: the account row goes in at this `flush`,
+        # so the two indexes on it — oidc_subject and lower(username) — refuse it here,
+        # and only the player's lower(name) is left to refuse it at the commit.
+        await session.flush()
+        await _attach_player(session, user)
         await session.commit()
     except IntegrityError as error:
-        # The unique indexes on oidc_subject and lower(username) are the authority. Two
-        # things can lose that race now: the same brand-new subject arriving twice, and two
-        # people confirming the same name at once.
+        # One of the three indexes refused the row, so something landed between the two
+        # checks above and this write, and which index it was is what that means. The
+        # subject is the identity: an account carrying it is this very singer's own, so
+        # they are logged into it and the name they typed names nothing — the same answer
+        # the first check gives a second callback. Anything else is the name being taken,
+        # by an account (lower(username)) or by the player it would sing as (lower(name)),
+        # which is the second check's own refusal a moment later. So: look the subject up
+        # once more, and everything that is not an account for it is a taken name.
         await session.rollback()
         existing = await find_by_oidc_subject(session, subject)
         if existing is None:
