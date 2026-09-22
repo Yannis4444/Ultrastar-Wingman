@@ -8,9 +8,12 @@ import {
   listPlayersOptions,
   listPlayersQueryKey,
   logoutMutation,
+  oidcPendingOptions,
+  oidcPendingQueryKey,
   setPlayerAvatarMutation,
 } from "../api/@tanstack/react-query.gen";
 import { useAuth } from "../auth";
+import ChooseNameForm from "../components/ChooseNameForm";
 import { Icon } from "../components/icons";
 import LoginForm from "../components/LoginForm";
 import ManageMenu from "../components/ManageMenu";
@@ -39,6 +42,14 @@ const AVATAR_MESSAGES: Record<string, string> = {
 const SSO_ERROR_PREFIX = "error:";
 
 /**
+ * The outcome of a first sign-on: the account does not exist yet, and the
+ * singer is asked what to call it. The form itself is drawn off
+ * `GET /auth/oidc/pending` and not off this parameter, which the effect below
+ * strips and a reload would lose while the pending login still stands.
+ */
+const CHOOSE_NAME = "choose_name";
+
+/**
  * The slugs `auth/oidc.py` sends the browser home with. Coarse on purpose over
  * there, so these say what the singer can do about it rather than which check
  * refused the token.
@@ -54,6 +65,10 @@ const SSO_MESSAGES: Record<string, string> = {
   invalid_token:
     "The login provider's answer could not be trusted, so nobody was logged in.",
   login_failed: "The sign-in did not work. Try again.",
+  // Not a slug the callback sends: this is what the choose-a-name step reports
+  // when the login it was finishing is no longer there to finish.
+  no_pending_login:
+    "That sign-in took too long or was already finished. Try again.",
 };
 
 /**
@@ -129,12 +144,47 @@ export default function User() {
     setParams(remaining, { replace: true });
   }, [params, setParams]);
 
+  // A sign-on that came back for a name and then lost it: the form reports the
+  // slug here, because the sentence and the table it comes from are this page's.
+  const [lostSlug, setLostSlug] = useState<string | null>(null);
+  // Is a first sign-on waiting for a name in this browser? Asked on every load
+  // rather than read off `?login=`, which a reload drops while the pending
+  // login stands. A 404 is the ordinary answer and never a failure to retry.
+  const pendingLogin = useQuery({
+    ...oidcPendingOptions(),
+    enabled: auth.loaded && auth.user === null,
+    retry: false,
+    // And on a load alone: a singer who leaves the tab while thinking of a name
+    // must not come back to a form that vanished without a word. The expiry is
+    // reported when they submit, which is where there is something to say.
+    refetchOnWindowFocus: false,
+  });
+  const forgetPendingLogin = (): void =>
+    void queryClient.invalidateQueries({ queryKey: oidcPendingQueryKey() });
+  // Once the form has been on screen, the `?login=` outcome is spent: what
+  // becomes of the pending login after that is the form's to report, and a
+  // singer who gave the name up is not somebody who came back too late.
+  const [nameWasAsked, setNameWasAsked] = useState(false);
+  useEffect(() => {
+    if (pendingLogin.isSuccess) setNameWasAsked(true);
+  }, [pendingLogin.isSuccess]);
+
   // `login=ok` needs no handling: the callback set the cookie before
   // redirecting, so this page load already asks /auth/me as the new account.
-  const ssoError = outcome?.startsWith(SSO_ERROR_PREFIX)
-    ? (SSO_MESSAGES[outcome.slice(SSO_ERROR_PREFIX.length)] ??
-      SSO_MESSAGES.login_failed)
-    : null;
+  const ssoError =
+    lostSlug !== null
+      ? (SSO_MESSAGES[lostSlug] ?? SSO_MESSAGES.login_failed)
+      : outcome?.startsWith(SSO_ERROR_PREFIX)
+        ? (SSO_MESSAGES[outcome.slice(SSO_ERROR_PREFIX.length)] ??
+          SSO_MESSAGES.login_failed)
+        : // Sent back to be named, and there was nothing left to name by the
+          // time the page loaded: the pending login expired, or an admin
+          // switched SSO off in between. The slug says which.
+          outcome === CHOOSE_NAME && pendingLogin.isError && !nameWasAsked
+          ? (SSO_MESSAGES[
+              errorDetail(pendingLogin.error) ?? "no_pending_login"
+            ] ?? SSO_MESSAGES.login_failed)
+          : null;
   // Only for the identity tile: the roster itself lives on /user/accounts, so
   // there is nothing to ask for until an account with a player is logged in.
   const ownPlayerId = auth.user?.player_id ?? null;
@@ -179,6 +229,26 @@ export default function User() {
 
   const ownPlayer =
     players.data?.players.find((player) => player.id === ownPlayerId) ?? null;
+  // The one form in the anonymous half of this page: the name a first sign-on
+  // is waiting for, or the login form. Nothing at all while the answer is on
+  // its way, so a sign-on coming back does not flash the login form first.
+  // `isSuccess`, never the data alone: a query that fails on a refetch keeps
+  // the answer it had, and a pending login that was given up is gone the moment
+  // the refetch says so. And never once the form has reported it lost: whatever
+  // the refetch says, the sentence explaining it belongs to the login form.
+  const askingForAName = pendingLogin.isSuccess && lostSlug === null;
+  const loginArea = pendingLogin.isLoading ? null : askingForAName ? (
+    <ChooseNameForm
+      preset={pendingLogin.data.username}
+      onCancel={forgetPendingLogin}
+      onLost={(slug) => {
+        setLostSlug(slug);
+        forgetPendingLogin();
+      }}
+    />
+  ) : (
+    <LoginForm ssoError={ssoError} />
+  );
   // The same rows the host screen lists on its own manage view; the back arrow
   // of the pages behind them leads here because nothing says otherwise.
   const menuRows = manageEntries(auth);
@@ -267,12 +337,12 @@ export default function User() {
                 </button>
               )}
             </div>
-            {showLogin && <LoginForm ssoError={ssoError} />}
+            {showLogin && loginArea}
           </>
         ) : (
           <>
             <h1>You</h1>
-            <LoginForm ssoError={ssoError} />
+            {loginArea}
           </>
         ))}
 

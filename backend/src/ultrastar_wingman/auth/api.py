@@ -45,15 +45,9 @@ router = APIRouter(tags=["auth"])
 router.include_router(oidc_router)
 
 # Same rules as player names (trimmed, bounded, no charset restriction) so a guest who
-# sang as "Jörg" can register under that exact name and keep their scores.
-Username = Annotated[
-    str,
-    StringConstraints(
-        strip_whitespace=True,
-        min_length=service.MIN_USERNAME_LENGTH,
-        max_length=service.MAX_USERNAME_LENGTH,
-    ),
-]
+# sang as "Jörg" can register under that exact name and keep their scores. It lives in
+# `service.py` because the OIDC flow holds a chosen name to the very same rule.
+Username = service.Username
 
 
 # Trimmed first, then bounded: " a " is a one-letter query with padding, not a
@@ -108,7 +102,7 @@ async def register(
         raise HTTPException(status_code=409, detail="duplicate_username") from error
     set_session_cookie(response, await service.start_session(session, user.id))
     await claim_guest_wishes(request, session, user)
-    return await _read(session, user)
+    return await service.read_user_with_player(session, user)
 
 
 @router.post(
@@ -125,7 +119,7 @@ async def login(
         raise HTTPException(status_code=401, detail="invalid_credentials")
     set_session_cookie(response, await service.start_session(session, user.id))
     await claim_guest_wishes(request, session, user)
-    return await _read(session, user)
+    return await service.read_user_with_player(session, user)
 
 
 @router.post(
@@ -146,7 +140,9 @@ async def get_me(principal: PrincipalDep, session: SessionDep) -> MeRead:
     """Who the caller is and what they may do. Anonymous callers get the `guest` role
     rather than a 401 — the UI hides what they cannot use instead of asking them to log in."""
     return MeRead(
-        user=None if principal.user is None else await _read(session, principal.user),
+        user=None
+        if principal.user is None
+        else await service.read_user_with_player(session, principal.user),
         role=principal.role,
         capabilities=sorted(principal.capabilities),
         is_host=principal.is_host,
@@ -237,7 +233,7 @@ async def update_user(user_id: str, body: UserUpdate, session: SessionDep) -> Us
         raise HTTPException(status_code=422, detail=str(error)) from error
     except service.LastAdminError as error:
         raise HTTPException(status_code=409, detail="last_admin") from error
-    return await _read(session, user)
+    return await service.read_user_with_player(session, user)
 
 
 @router.delete(
@@ -293,11 +289,6 @@ async def _permissions(session: AsyncSession) -> PermissionsRead:
     return PermissionsRead(
         roles={role: sorted(mapping.get(role, frozenset())) for role in permissions.ROLES}
     )
-
-
-async def _read(session: AsyncSession, user: User) -> UserRead:
-    player = await service.player_for_user(session, user.id)
-    return read_user(user, None if player is None else player.id)
 
 
 async def _user(user_id: str, session: AsyncSession) -> User:

@@ -8,6 +8,7 @@ every check passed — state, PKCE, signature, issuer, audience, nonce and expir
 import base64
 import hashlib
 import sqlite3
+from collections.abc import Awaitable, Callable
 from dataclasses import replace
 from pathlib import Path
 from typing import Any
@@ -29,11 +30,14 @@ from oidc_provider import (
     SUBJECT,
     FakeProvider,
     callback,
+    complete,
     configure,
     login,
+    preset,
+    sign_up,
     start_login,
 )
-from ultrastar_wingman.auth import oidc, providers
+from ultrastar_wingman.auth import oidc, providers, service
 from ultrastar_wingman.auth.deps import COOKIE_NAME, GUEST_COOKIE_NAME
 from ultrastar_wingman.auth.model import User, UserSession
 from ultrastar_wingman.auth.service import token_hash
@@ -42,6 +46,8 @@ from ultrastar_wingman.library.model import Wish
 from ultrastar_wingman.players.model import Player
 
 OK = "/user?login=ok"
+# Where a subject Wingman has no account for lands: the form that asks what to call it.
+CHOOSE_NAME = "/user?login=choose_name"
 
 
 def error(slug: str) -> str:
@@ -63,6 +69,38 @@ async def only_user(session_factory: async_sessionmaker[AsyncSession]) -> User:
 async def users(session_factory: async_sessionmaker[AsyncSession]) -> list[User]:
     async with session_factory() as session:
         return list(await session.scalars(select(User)))
+
+
+# The three stand-ins below are how a one-request test reaches the unique indexes: a
+# lookup that saw nothing is exactly what the losing side of a race saw, and what happens
+# between it and the write is the only thing those tests are about.
+
+
+async def _free_name(session: AsyncSession, username: str) -> User | None:
+    """`find_by_username`, seeing a name nobody holds."""
+    return None
+
+
+async def _no_player(session: AsyncSession, name: str) -> Player | None:
+    """`player_by_name`, seeing no player of that name."""
+    return None
+
+
+def _blind_once(
+    real: Callable[[AsyncSession, str], Awaitable[User | None]],
+) -> Callable[[AsyncSession, str], Awaitable[User | None]]:
+    """`real`, seeing nothing the first time it is asked and answering for real after —
+    the window between the lookup before a write and the write itself."""
+    asked = False
+
+    async def lookup(session: AsyncSession, value: str) -> User | None:
+        nonlocal asked
+        if not asked:
+            asked = True
+            return None
+        return await real(session, value)
+
+    return lookup
 
 
 # --- the config endpoint ------------------------------------------------------------
@@ -157,24 +195,34 @@ async def test_a_public_client_sends_no_secret(
     """Keycloak's public client: PKCE alone protects the exchange."""
     await configure(session_factory, **{"auth.oidc_client_secret": ""})
 
-    assert (await login(anonymous_client, provider)).headers["location"] == OK
+    assert (await login(anonymous_client, provider)).headers["location"] == CHOOSE_NAME
     assert "client_secret" not in provider.token_requests[0]
 
 
 # --- the happy path ----------------------------------------------------------------
 
 
-async def test_the_callback_creates_the_account_and_logs_it_in(
+async def test_a_new_subject_stops_at_the_form_and_is_logged_in_by_it(
     anonymous_client: AsyncClient,
     session_factory: async_sessionmaker[AsyncSession],
     provider: FakeProvider,
 ) -> None:
+    """The first login of a subject creates nothing until the singer has named the account."""
     await configure(session_factory)
 
-    response = await login(anonymous_client, provider)
+    parked = await login(anonymous_client, provider)
 
-    assert response.status_code == 302
-    assert response.headers["location"] == OK
+    assert parked.status_code == 302
+    assert parked.headers["location"] == CHOOSE_NAME
+    # Nothing was created, and nobody was logged in: a name is still missing.
+    assert await users(session_factory) == []
+    assert COOKIE_NAME not in anonymous_client.cookies
+    assert "HttpOnly" in parked.headers["set-cookie"]
+    assert await preset(anonymous_client) == "singer"
+
+    response = await complete(anonymous_client, "singer")
+
+    assert response.status_code == 200
     raw_token = anonymous_client.cookies[COOKIE_NAME]
     assert "HttpOnly" in response.headers["set-cookie"]
 
@@ -201,9 +249,9 @@ async def test_a_second_login_reuses_the_account(
     provider: FakeProvider,
 ) -> None:
     """The subject is the identity: the same person renamed at the provider stays the same
-    account, and keeps the name Wingman knows them by."""
+    account, and keeps the name Wingman knows them by. Nobody is asked for a name twice."""
     await configure(session_factory)
-    await login(anonymous_client, provider)
+    await sign_up(anonymous_client, provider)
     first = await only_user(session_factory)
 
     provider.claims = {"preferred_username": "renamed-at-the-provider"}
@@ -222,23 +270,26 @@ async def test_a_later_account_is_a_plain_user(
     await add_user(session_factory, "yannis", "admin")
     await configure(session_factory)
 
-    await login(anonymous_client, provider)
+    await sign_up(anonymous_client, provider)
 
     created = next(user for user in await users(session_factory) if user.auth_provider == "oidc")
     assert created.role == "user"
 
 
-async def test_a_username_taken_by_a_local_account_is_suffixed(
+async def test_a_username_taken_by_a_local_account_is_suffixed_in_the_preset(
     anonymous_client: AsyncClient,
     session_factory: async_sessionmaker[AsyncSession],
     provider: FakeProvider,
 ) -> None:
     """A provider knows nothing about the names already in Wingman, and a collision must not
-    turn into a failed login — or, worse, into somebody else's account."""
+    turn into a failed login — or, worse, into somebody else's account. The form opens on a
+    name that would go through, which the singer is free to replace."""
     local_id = await add_user(session_factory, "singer", "user")
     await configure(session_factory)
 
-    assert (await login(anonymous_client, provider)).headers["location"] == OK
+    assert (await login(anonymous_client, provider)).headers["location"] == CHOOSE_NAME
+    assert await preset(anonymous_client) == "singer-2"
+    assert (await complete(anonymous_client, "singer-2")).status_code == 200
 
     by_name = {user.username: user for user in await users(session_factory)}
     assert sorted(by_name) == ["singer", "singer-2"]
@@ -259,17 +310,19 @@ async def test_a_username_taken_by_a_local_account_is_suffixed(
         ({}, f"sso-{SUBJECT[:8]}"),
     ],
 )
-async def test_the_username_comes_from_the_first_usable_claim(
+async def test_the_preset_username_comes_from_the_first_usable_claim(
     anonymous_client: AsyncClient,
     session_factory: async_sessionmaker[AsyncSession],
     provider: FakeProvider,
     claims: dict[str, Any],
     expected: str,
 ) -> None:
+    """What the token says is what the form opens on — and, when nobody types over it, what
+    the account ends up called."""
     await configure(session_factory)
     provider.claims = claims
 
-    assert (await login(anonymous_client, provider)).headers["location"] == OK
+    await sign_up(anonymous_client, provider)
 
     assert (await only_user(session_factory)).username == expected
 
@@ -287,12 +340,323 @@ async def test_the_guest_wishes_are_claimed_by_the_account(
         await session.commit()
     anonymous_client.cookies.set(GUEST_COOKIE_NAME, guest)
 
-    assert (await login(anonymous_client, provider)).headers["location"] == OK
+    await sign_up(anonymous_client, provider)
 
     user = await only_user(session_factory)
     async with session_factory() as session:
         wish = (await session.scalars(select(Wish))).one()
         assert (wish.user_id, wish.guest_id) == (user.id, None)
+
+
+# --- choosing the name ---------------------------------------------------------------
+
+
+async def test_the_singer_may_name_the_account_something_else(
+    anonymous_client: AsyncClient,
+    session_factory: async_sessionmaker[AsyncSession],
+    provider: FakeProvider,
+) -> None:
+    """The point of the form: the provider's idea of somebody's name is a proposal."""
+    await configure(session_factory)
+    await login(anonymous_client, provider)
+
+    response = await complete(anonymous_client, "  Yannis  ")
+
+    assert response.status_code == 200
+    assert response.json()["username"] == "Yannis"
+    user = await only_user(session_factory)
+    # Trimmed like any other name somebody types, and the player is named after it.
+    assert user.username == "Yannis"
+    async with session_factory() as session:
+        player = (await session.scalars(select(Player))).one()
+        assert (player.name, player.user_id) == ("Yannis", user.id)
+
+
+async def test_a_guest_player_of_the_chosen_name_becomes_the_account(
+    anonymous_client: AsyncClient,
+    session_factory: async_sessionmaker[AsyncSession],
+    provider: FakeProvider,
+) -> None:
+    """The same takeover registering does: somebody who sang all evening as a guest keeps
+    those scores by naming their new account after that player."""
+    await configure(session_factory)
+    async with session_factory() as session:
+        session.add(Player(name="Yannis"))
+        await session.commit()
+    await login(anonymous_client, provider)
+
+    assert (await complete(anonymous_client, "Yannis")).status_code == 200
+
+    user = await only_user(session_factory)
+    async with session_factory() as session:
+        player = (await session.scalars(select(Player))).one()
+        assert (player.name, player.user_id, player.registered) == ("Yannis", user.id, True)
+
+
+async def test_a_taken_name_is_refused_and_the_login_survives_it(
+    anonymous_client: AsyncClient,
+    session_factory: async_sessionmaker[AsyncSession],
+    provider: FakeProvider,
+) -> None:
+    """A chosen name is never silently suffixed — it is refused, and the form asks again.
+    The verified subject stands until something came of it, so the round trip is not lost."""
+    await add_user(session_factory, "yannis", "admin")
+    await configure(session_factory)
+    await login(anonymous_client, provider)
+
+    refused = await complete(anonymous_client, "Yannis")
+
+    # Case-insensitively taken: the unique index is on lower(username).
+    assert refused.status_code == 409
+    assert refused.json() == {"detail": "duplicate_username"}
+    assert COOKIE_NAME not in anonymous_client.cookies
+    assert len(await users(session_factory)) == 1
+
+    assert (await complete(anonymous_client, "singer")).status_code == 200
+    assert {user.username for user in await users(session_factory)} == {"yannis", "singer"}
+
+
+async def test_a_name_taken_after_the_check_is_refused_by_the_index(
+    anonymous_client: AsyncClient,
+    session_factory: async_sessionmaker[AsyncSession],
+    provider: FakeProvider,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """Somebody registering that very name while the form was open: the refusal is the same.
+
+    The name is looked up before the account is written, and the unique index is what
+    decides in between. Blinding that lookup is what stands in for the race here — it is
+    the only way to reach the index from one request — and what it proves is that the
+    login survives it exactly as it survives the ordinary 409: the same browser names the
+    account a moment later.
+    """
+    await add_user(session_factory, "yannis", "admin")
+    await configure(session_factory)
+    await login(anonymous_client, provider)
+    monkeypatch.setattr(service, "find_by_username", _free_name)
+
+    refused = await complete(anonymous_client, "Yannis")
+
+    assert refused.status_code == 409
+    assert refused.json() == {"detail": "duplicate_username"}
+    assert COOKIE_NAME not in anonymous_client.cookies
+    assert len(await users(session_factory)) == 1
+    # Still blinded, and a free name still goes through: nothing about the account was
+    # half written by the refusal.
+    assert (await complete(anonymous_client, "singer")).status_code == 200
+
+
+async def test_a_player_of_that_name_appearing_meanwhile_refuses_the_name(
+    anonymous_client: AsyncClient,
+    session_factory: async_sessionmaker[AsyncSession],
+    provider: FakeProvider,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """The other index in the way: the player the account would sing as.
+
+    A guest of that name is normally taken over, so the only way to collide with one is for
+    it to appear after the takeover looked — the singer picker on somebody's phone, one
+    moment later. Blinded here for the same reason, and the account is refused whole: the
+    guest keeps their scores and nobody is logged in.
+    """
+    await configure(session_factory)
+    async with session_factory() as session:
+        session.add(Player(name="Yannis"))
+        await session.commit()
+    await login(anonymous_client, provider)
+    monkeypatch.setattr(service, "player_by_name", _no_player)
+
+    refused = await complete(anonymous_client, "Yannis")
+
+    assert refused.status_code == 409
+    assert refused.json() == {"detail": "duplicate_username"}
+    assert await users(session_factory) == []
+    async with session_factory() as session:
+        guest = (await session.scalars(select(Player))).one()
+        assert (guest.name, guest.user_id) == ("Yannis", None)
+    assert (await complete(anonymous_client, "singer")).status_code == 200
+
+
+async def test_a_subject_that_won_the_race_is_logged_into_its_account(
+    anonymous_client: AsyncClient,
+    session_factory: async_sessionmaker[AsyncSession],
+    provider: FakeProvider,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """Two tabs confirming a name for the same first sign-on, to the last instant.
+
+    The subject is the identity, so the account the other tab created is this singer's own:
+    the index refuses the second row and the login lands in that account rather than
+    reading as a failure. The lookup that normally catches this is blinded on its first
+    call — the one before the write — and answers for real afterwards, which is where the
+    account is found.
+    """
+    await configure(session_factory)
+    await login(anonymous_client, provider)
+    async with session_factory() as session:
+        await service.upsert_oidc_user(session, SUBJECT, "the-first-name")
+    monkeypatch.setattr(service, "find_by_oidc_subject", _blind_once(service.find_by_oidc_subject))
+
+    response = await complete(anonymous_client, "the-second-name")
+
+    assert response.status_code == 200
+    assert response.json()["username"] == "the-first-name"
+    assert COOKIE_NAME in anonymous_client.cookies
+    assert len(await users(session_factory)) == 1
+    # And the pending login was spent by the account it ended in, like any other.
+    assert (await complete(anonymous_client, "a-third-name")).status_code == 404
+
+
+@pytest.mark.parametrize(
+    "username",
+    [pytest.param("ab", id="too short"), pytest.param("x" * 33, id="too long")],
+)
+async def test_a_name_outside_the_bounds_is_refused(
+    anonymous_client: AsyncClient,
+    session_factory: async_sessionmaker[AsyncSession],
+    provider: FakeProvider,
+    username: str,
+) -> None:
+    """The same rule a name typed at registration is held to."""
+    await configure(session_factory)
+    await login(anonymous_client, provider)
+
+    assert (await complete(anonymous_client, username)).status_code == 422
+    assert await users(session_factory) == []
+
+
+async def test_a_pending_login_is_spent_by_the_name_it_got(
+    anonymous_client: AsyncClient,
+    session_factory: async_sessionmaker[AsyncSession],
+    provider: FakeProvider,
+) -> None:
+    """One round trip, one account: a repeated completion has nothing left to name."""
+    await configure(session_factory)
+    await sign_up(anonymous_client, provider)
+
+    again = await complete(anonymous_client, "somebody-else")
+
+    assert again.status_code == 404
+    assert again.json() == {"detail": "no_pending_login"}
+    assert (await anonymous_client.get("/api/v1/auth/oidc/pending")).status_code == 404
+    assert len(await users(session_factory)) == 1
+
+
+async def test_a_browser_with_no_pending_login_is_told_so(
+    anonymous_client: AsyncClient, session_factory: async_sessionmaker[AsyncSession]
+) -> None:
+    """What the User page asks on every load: the parameter it was sent back with is gone
+    after a reload, the cookie is not."""
+    await configure(session_factory)
+
+    response = await anonymous_client.get("/api/v1/auth/oidc/pending")
+
+    assert response.status_code == 404
+    assert response.json() == {"detail": "no_pending_login"}
+
+
+async def test_an_expired_pending_login_is_gone(
+    anonymous_client: AsyncClient,
+    session_factory: async_sessionmaker[AsyncSession],
+    provider: FakeProvider,
+) -> None:
+    """A verified subject nobody named does not wait all evening."""
+    await configure(session_factory)
+    await login(anonymous_client, provider)
+    token = anonymous_client.cookies[oidc.PENDING_COOKIE_NAME]
+    parked = oidc._pendings[token]
+    oidc._pendings[token] = replace(
+        parked, started_at=parked.started_at - oidc.PENDING_TTL_SECONDS - 1
+    )
+
+    assert (await anonymous_client.get("/api/v1/auth/oidc/pending")).status_code == 404
+    assert (await complete(anonymous_client, "singer")).status_code == 404
+    assert await users(session_factory) == []
+
+
+async def test_giving_up_forgets_the_pending_login(
+    anonymous_client: AsyncClient,
+    session_factory: async_sessionmaker[AsyncSession],
+    provider: FakeProvider,
+) -> None:
+    """The way out of the form. Idempotent, so a browser that never had one is fine too."""
+    await configure(session_factory)
+    await login(anonymous_client, provider)
+
+    assert (await anonymous_client.delete("/api/v1/auth/oidc/pending")).status_code == 204
+
+    assert (await anonymous_client.get("/api/v1/auth/oidc/pending")).status_code == 404
+    assert (await complete(anonymous_client, "singer")).status_code == 404
+    assert await users(session_factory) == []
+    assert (await anonymous_client.delete("/api/v1/auth/oidc/pending")).status_code == 204
+
+
+async def test_a_name_chosen_after_sso_was_switched_off_is_refused(
+    anonymous_client: AsyncClient,
+    session_factory: async_sessionmaker[AsyncSession],
+    provider: FakeProvider,
+) -> None:
+    """An admin turning the switch off mid-flow reads as it does everywhere else.
+
+    The form goes with it: were `GET /pending` still to answer, the page would keep drawing
+    a form whose only possible answer is that refusal.
+    """
+    await configure(session_factory)
+    await login(anonymous_client, provider)
+    await configure(session_factory, **{"auth.oidc_enabled": False})
+
+    response = await complete(anonymous_client, "singer")
+
+    assert response.status_code == 404
+    assert response.json() == {"detail": "oidc_disabled"}
+    assert await users(session_factory) == []
+    parked = await anonymous_client.get("/api/v1/auth/oidc/pending")
+    assert parked.status_code == 404
+    assert parked.json() == {"detail": "oidc_disabled"}
+
+
+async def test_only_the_browser_that_came_back_may_name_the_account(
+    anonymous_client: AsyncClient,
+    client: AsyncClient,
+    session_factory: async_sessionmaker[AsyncSession],
+    provider: FakeProvider,
+) -> None:
+    """The pending cookie is the whole right, the way the state cookie is: another browser
+    sees nothing to finish, whatever else it holds — here an administrator's own session."""
+    await configure(session_factory)
+    await login(anonymous_client, provider)
+
+    assert (await client.get("/api/v1/auth/oidc/pending")).status_code == 404
+    stolen = await complete(client, "singer")
+
+    assert stolen.status_code == 404
+    assert stolen.json() == {"detail": "no_pending_login"}
+    assert [user for user in await users(session_factory) if user.auth_provider == "oidc"] == []
+    # And the browser that did come back still has its login.
+    assert (await complete(anonymous_client, "singer")).status_code == 200
+
+
+async def test_a_subject_that_got_an_account_meanwhile_is_logged_into_it(
+    anonymous_client: AsyncClient,
+    session_factory: async_sessionmaker[AsyncSession],
+    provider: FakeProvider,
+) -> None:
+    """Two callbacks, two forms, one account: the subject is the identity, so the second
+    name names nothing. Better than refusing somebody their own login over a stale tab."""
+    await configure(session_factory)
+    await login(anonymous_client, provider)
+    # The tab that is left standing, while a second round trip finishes in front of it.
+    stale = anonymous_client.cookies[oidc.PENDING_COOKIE_NAME]
+    await sign_up(anonymous_client, provider, "the-first-name")
+    anonymous_client.cookies.set(oidc.PENDING_COOKIE_NAME, stale)
+
+    response = await complete(anonymous_client, "the-second-name")
+
+    assert response.status_code == 200
+    assert response.json()["username"] == "the-first-name"
+    assert (await only_user(session_factory)).username == "the-first-name"
+    # And it is a real login: the second browser holds a session of that account.
+    assert COOKIE_NAME in anonymous_client.cookies
 
 
 # --- everything that must not log anybody in ---------------------------------------
@@ -305,7 +669,9 @@ async def test_a_replayed_state_is_refused(
 ) -> None:
     await configure(session_factory)
     parameters = await start_login(anonymous_client, provider)
-    assert (await callback(anonymous_client, parameters["state"])).headers["location"] == OK
+    first = await callback(anonymous_client, parameters["state"])
+    assert first.headers["location"] == CHOOSE_NAME
+    assert (await complete(anonymous_client, await preset(anonymous_client))).status_code == 200
 
     replayed = await callback(anonymous_client, parameters["state"])
 
@@ -351,6 +717,33 @@ async def test_the_login_ties_the_state_to_the_browser(
     assert "HttpOnly" in cookie
     state = dict(parse_qsl(urlparse(response.headers["location"]).query))["state"]
     assert anonymous_client.cookies[oidc.STATE_COOKIE_NAME] == state
+
+
+async def test_the_state_cookie_is_spent_whatever_the_callback_answers(
+    anonymous_client: AsyncClient,
+    session_factory: async_sessionmaker[AsyncSession],
+    provider: FakeProvider,
+) -> None:
+    """One attempt, one cookie. A callback that parked a subject, one that logged an account
+    in and one that refused the state all leave the browser with nothing left to replay."""
+    await configure(session_factory)
+
+    # Parked: a verified subject Wingman has no account for.
+    await login(anonymous_client, provider)
+    assert oidc.STATE_COOKIE_NAME not in anonymous_client.cookies
+    assert (await complete(anonymous_client, "singer")).status_code == 200
+
+    # Logged in: the same subject coming back to the account it now has.
+    assert (await login(anonymous_client, provider)).headers["location"] == OK
+    assert oidc.STATE_COOKIE_NAME not in anonymous_client.cookies
+
+    # Refused: an attempt is standing, and the callback names a state nobody issued.
+    parameters = await start_login(anonymous_client, provider)
+    assert anonymous_client.cookies[oidc.STATE_COOKIE_NAME] == parameters["state"]
+    refused = await callback(anonymous_client, "a-state-nobody-issued")
+
+    assert refused.headers["location"] == error("invalid_state")
+    assert oidc.STATE_COOKIE_NAME not in anonymous_client.cookies
 
 
 async def test_pending_attempts_cannot_pile_up_without_bound(
@@ -533,7 +926,7 @@ async def test_several_audiences_without_a_matching_azp_are_refused(
     assert refused.headers["location"] == error("invalid_token")
 
     provider.claims = {"preferred_username": "singer", "azp": CLIENT_ID}
-    assert (await login(anonymous_client, provider)).headers["location"] == OK
+    assert (await login(anonymous_client, provider)).headers["location"] == CHOOSE_NAME
 
 
 async def test_a_token_without_a_subject_is_refused(
@@ -601,7 +994,7 @@ async def test_a_rotated_signing_key_is_picked_up_without_a_restart(
 ) -> None:
     """The JWKS is cached; a token with an unknown kid refetches it once."""
     await configure(session_factory)
-    assert (await login(anonymous_client, provider)).headers["location"] == OK
+    await sign_up(anonymous_client, provider)
     rotated = oidc_provider.generate_key("sign-2")
     provider.signing_key = rotated
     provider.published_key = rotated
@@ -621,7 +1014,7 @@ async def test_a_local_login_with_an_oidc_username_is_refused(
     """An account with no password hash must answer like any wrong password — and above
     all not blow up inside argon2."""
     await configure(session_factory)
-    await login(anonymous_client, provider)
+    await sign_up(anonymous_client, provider)
 
     for password in (ADMIN_PASSWORD, ""):
         response = await anonymous_client.post(
@@ -638,7 +1031,7 @@ async def test_an_oidc_account_can_be_deleted_like_any_other(
 ) -> None:
     """It is the only admin here, so the last-admin rule applies to it unchanged."""
     await configure(session_factory)
-    await login(anonymous_client, provider)
+    await sign_up(anonymous_client, provider)
     user = await only_user(session_factory)
 
     refused = await anonymous_client.delete(f"/api/v1/users/{user.id}")

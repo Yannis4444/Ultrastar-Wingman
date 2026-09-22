@@ -8,6 +8,7 @@ from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
 
 from conftest import ADMIN_PASSWORD, ADMIN_TOKEN, ADMIN_USERNAME, add_session, add_user
+from ultrastar_wingman.auth import service
 from ultrastar_wingman.auth.deps import COOKIE_NAME
 from ultrastar_wingman.auth.model import User, UserSession, as_utc, utcnow
 from ultrastar_wingman.auth.permissions import ALL_CAPABILITIES, DEFAULT_ROLE_CAPABILITIES
@@ -208,6 +209,35 @@ async def test_a_duplicate_username_is_409_regardless_of_case(
     assert conflict.status_code == 409
     assert conflict.json() == {"detail": "duplicate_username"}
     assert len(list(await session.scalars(select(User)))) == 1
+
+
+async def test_a_name_taken_after_the_check_is_still_409(
+    anonymous_client: AsyncClient,
+    session_factory: async_sessionmaker[AsyncSession],
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """Two people registering the same name at once: the unique index has the last word.
+
+    Blinding the check that runs before the write is what stands in for that race here —
+    it is the only way to reach the index from one request — and the refusal has to read
+    exactly like the check's own, because to the person typing it is the same thing.
+    """
+    await add_user(session_factory, "yannis", "admin")
+
+    async def free(session: AsyncSession, username: str) -> User | None:
+        return None
+
+    monkeypatch.setattr(service, "find_by_username", free)
+
+    conflict = await anonymous_client.post(
+        "/api/v1/auth/register", json={"username": "Yannis", "password": PASSWORD}
+    )
+
+    assert conflict.status_code == 409
+    assert conflict.json() == {"detail": "duplicate_username"}
+    assert COOKIE_NAME not in anonymous_client.cookies
+    async with session_factory() as session:
+        assert len(list(await session.scalars(select(User)))) == 1
 
 
 async def test_login_returns_the_account_and_a_fresh_session(

@@ -293,6 +293,13 @@ PUBLIC_ROUTES: list[tuple[str, str]] = [
     # permission — see test_auth_oidc.py.
     ("GET", "/api/v1/auth/oidc/login"),
     ("GET", "/api/v1/auth/oidc/callback"),
+    # The three the choose-a-name form is driven through. Nobody is logged in while it is
+    # on screen — that is the whole point of it — so a capability check here would lock the
+    # last step of a login out of the login page. What guards them is the pending cookie,
+    # which only a verified round trip sets; see test_auth_oidc.py.
+    ("GET", "/api/v1/auth/oidc/pending"),
+    ("POST", "/api/v1/auth/oidc/complete"),
+    ("DELETE", "/api/v1/auth/oidc/pending"),
 ]
 
 # What each caller in the matrix may do. Anonymous callers are the `guest` role.
@@ -365,7 +372,7 @@ async def test_the_public_routes_stay_public(
     clients: dict[str, AsyncClient], method: str, path: str
 ) -> None:
     """Whatever they answer — 404 while OIDC is off, a redirect once it is on — it is never
-    "who are you". These three are how a caller logs in in the first place."""
+    "who are you". These are how a caller logs in in the first place."""
     response = await clients["anonymous"].request(method, path)
 
     assert response.status_code not in (401, 403), response.text

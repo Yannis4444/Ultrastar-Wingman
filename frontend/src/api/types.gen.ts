@@ -499,6 +499,19 @@ export type CommentRead = {
 };
 
 /**
+ * CompleteLoginRequest
+ *
+ * The name the singer picked. Held to the same rule as a name typed at registration:
+ * a chosen one is never silently suffixed, it is refused and asked for again.
+ */
+export type CompleteLoginRequest = {
+    /**
+     * Username
+     */
+    username: string;
+};
+
+/**
  * Condition
  *
  * One thing that has to be true. An achievement is a list of them, all of which hold.
@@ -1314,6 +1327,19 @@ export type OidcConfigRead = {
      * Display Name
      */
     display_name: string;
+};
+
+/**
+ * PendingLoginRead
+ *
+ * The login waiting for a name, as the form that asks for it reads it. The subject
+ * stays here: the browser has no business learning what the provider calls somebody.
+ */
+export type PendingLoginRead = {
+    /**
+     * Username
+     */
+    username: string;
 };
 
 /**
@@ -3091,6 +3117,78 @@ export type OidcCallbackErrors = {
 };
 
 export type OidcCallbackError = OidcCallbackErrors[keyof OidcCallbackErrors];
+
+export type ForgetOidcLoginData = {
+    body?: never;
+    path?: never;
+    query?: never;
+    url: '/api/v1/auth/oidc/pending';
+};
+
+export type ForgetOidcLoginResponses = {
+    /**
+     * Successful Response
+     */
+    204: void;
+};
+
+export type ForgetOidcLoginResponse = ForgetOidcLoginResponses[keyof ForgetOidcLoginResponses];
+
+export type OidcPendingData = {
+    body?: never;
+    path?: never;
+    query?: never;
+    url: '/api/v1/auth/oidc/pending';
+};
+
+export type OidcPendingErrors = {
+    /**
+     * OIDC is off, or this browser has no login waiting for a name.
+     */
+    404: unknown;
+};
+
+export type OidcPendingResponses = {
+    /**
+     * Successful Response
+     */
+    200: PendingLoginRead;
+};
+
+export type OidcPendingResponse = OidcPendingResponses[keyof OidcPendingResponses];
+
+export type CompleteOidcLoginData = {
+    body: CompleteLoginRequest;
+    path?: never;
+    query?: never;
+    url: '/api/v1/auth/oidc/complete';
+};
+
+export type CompleteOidcLoginErrors = {
+    /**
+     * OIDC is off, or no login is waiting for a name.
+     */
+    404: unknown;
+    /**
+     * The name is taken.
+     */
+    409: unknown;
+    /**
+     * Validation Error
+     */
+    422: HttpValidationError;
+};
+
+export type CompleteOidcLoginError = CompleteOidcLoginErrors[keyof CompleteOidcLoginErrors];
+
+export type CompleteOidcLoginResponses = {
+    /**
+     * Successful Response
+     */
+    200: UserRead;
+};
+
+export type CompleteOidcLoginResponse = CompleteOidcLoginResponses[keyof CompleteOidcLoginResponses];
 
 export type RegisterData = {
     body: RegisterRequest;

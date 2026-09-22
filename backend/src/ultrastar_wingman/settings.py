@@ -365,8 +365,8 @@ register(
         default="openid profile",
         group="Auth",
         description=(
-            "Space-separated scopes requested at login. `openid` is required. The username "
-            "is taken from `profile` and `email`."
+            "Space-separated scopes requested at login. `openid` is required. The name "
+            "proposed at a first login is taken from `profile` and `email`."
         ),
         advanced=True,
     )

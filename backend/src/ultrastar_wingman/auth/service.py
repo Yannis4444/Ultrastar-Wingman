@@ -5,7 +5,9 @@ import logging
 import secrets
 from collections.abc import Sequence
 from datetime import timedelta
+from typing import Annotated
 
+from pydantic import StringConstraints
 from sqlalchemy import delete, func, select
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -18,6 +20,7 @@ from ..tags import service as tags
 from .model import User, UserSession, as_utc, utcnow
 from .permissions import ADMIN, ASSIGNABLE_ROLES, USER, UnknownRoleError
 from .providers import LOCAL, OIDC, find_by_username, hash_password
+from .schema import UserRead, read_user
 
 logger = logging.getLogger(__name__)
 
@@ -30,10 +33,23 @@ TOUCH_INTERVAL = timedelta(hours=1)
 
 MIN_PASSWORD_LENGTH = 8
 
-# Same bounds as a player name. The API enforces them on registration; an OIDC username
-# comes from a token instead, so it is cut to fit rather than refused.
+# Same bounds as a player name. Every name somebody types is held to them; a name derived
+# from an OIDC token is cut to fit rather than refused, because nobody typed it.
 MIN_USERNAME_LENGTH = 3
 MAX_USERNAME_LENGTH = 32
+
+# The one rule for a name a person chose, wherever they chose it: registering, and naming
+# the account an OIDC login is about to create. It lives here, with the bounds it wraps,
+# because `auth/api.py` and `auth/oidc.py` both need it and the second cannot import the
+# first (the first is what mounts the second's router).
+Username = Annotated[
+    str,
+    StringConstraints(
+        strip_whitespace=True,
+        min_length=MIN_USERNAME_LENGTH,
+        max_length=MAX_USERNAME_LENGTH,
+    ),
+]
 
 # Shortest prefix `find_users_by_prefix` answers, and the most matches it returns. One
 # letter would hand back most of the party for nothing.
@@ -169,13 +185,17 @@ async def register_user(session: AsyncSession, username: str, password: str) -> 
         auth_provider=LOCAL,
     )
     session.add(user)
-    await session.flush()
-    await _attach_player(session, user)
     try:
+        # The whole write, not the commit alone: the account row goes in at the `flush`
+        # below, so `lower(username)` refuses a name taken since the check above *there*,
+        # while the player row goes in at the commit and `lower(name)` refuses it there.
+        await session.flush()
+        await _attach_player(session, user)
         await session.commit()
     except IntegrityError as error:
         # The unique indexes on lower(username) / lower(name) are the authority, so two
-        # simultaneous registrations cannot both win.
+        # simultaneous registrations cannot both win. The loser reads the refusal the
+        # check above would have given it a moment earlier.
         await session.rollback()
         raise DuplicateUsernameError(username) from error
     logger.info("user '%s' registered as %s (%s)", user.username, user.role, user.id)
@@ -183,19 +203,28 @@ async def register_user(session: AsyncSession, username: str, password: str) -> 
 
 
 async def upsert_oidc_user(session: AsyncSession, subject: str, username: str) -> User:
-    """The account behind an OIDC subject, created on first login.
+    """The account behind an OIDC subject, created under the name its singer chose.
 
     The subject is the identity, never the username: a provider may rename somebody, or
     hand the same name to a new person, and this account's scores and playlists must not
-    follow. So an account that already exists is returned untouched — the `username`
-    argument only names a new one.
+    follow. So an account that already exists is returned untouched, whatever `username`
+    says — a singer who chose a name while a second callback created their account is
+    logged into that account rather than refused.
+
+    For a subject with no account, `username` is taken exactly as it stands: it is what
+    somebody typed into the form, so a name already in use is `DuplicateUsernameError` —
+    the form says so — and never a silently suffixed one.
     """
     existing = await find_by_oidc_subject(session, subject)
     if existing is not None:
         return existing
 
+    username = username.strip()
+    if await find_by_username(session, username) is not None:
+        raise DuplicateUsernameError(username)
+
     user = User(
-        username=await _free_username(session, username),
+        username=username,
         # No password: there is nothing to check locally, ever.
         password_hash=None,
         role=await _role_for_new_user(session),
@@ -203,16 +232,26 @@ async def upsert_oidc_user(session: AsyncSession, subject: str, username: str) -
         oidc_subject=subject,
     )
     session.add(user)
-    await session.flush()
-    await _attach_player(session, user)
     try:
+        # The whole write, not the commit alone: the account row goes in at this `flush`,
+        # so the two indexes on it — oidc_subject and lower(username) — refuse it here,
+        # and only the player's lower(name) is left to refuse it at the commit.
+        await session.flush()
+        await _attach_player(session, user)
         await session.commit()
-    except IntegrityError:
-        # Two callbacks for the same brand-new subject at once: the unique index decides.
+    except IntegrityError as error:
+        # One of the three indexes refused the row, so something landed between the two
+        # checks above and this write, and which index it was is what that means. The
+        # subject is the identity: an account carrying it is this very singer's own, so
+        # they are logged into it and the name they typed names nothing — the same answer
+        # the first check gives a second callback. Anything else is the name being taken,
+        # by an account (lower(username)) or by the player it would sing as (lower(name)),
+        # which is the second check's own refusal a moment later. So: look the subject up
+        # once more, and everything that is not an account for it is a taken name.
         await session.rollback()
         existing = await find_by_oidc_subject(session, subject)
         if existing is None:
-            raise
+            raise DuplicateUsernameError(username) from error
         return existing
     logger.info("user '%s' created from OIDC subject as %s (%s)", user.username, user.role, user.id)
     return user
@@ -225,11 +264,13 @@ async def find_by_oidc_subject(session: AsyncSession, subject: str) -> User | No
     return result.first()
 
 
-async def _free_username(session: AsyncSession, wanted: str) -> str:
+async def free_username(session: AsyncSession, wanted: str) -> str:
     """`wanted`, or `wanted-2`, `wanted-3`, … once it is taken.
 
     A provider knows nothing about the names already in Wingman, so a collision with a
-    local account is normal and must not fail the login.
+    local account is normal. This is what the choose-a-name form opens on, so the name it
+    proposes is one that would go through. Raises `DuplicateUsernameError` when even the
+    suffixes are gone.
     """
     if await find_by_username(session, wanted) is None:
         return wanted
@@ -269,6 +310,13 @@ async def player_by_name(session: AsyncSession, name: str) -> Player | None:
         select(Player).where(func.lower(Player.name) == name.strip().lower())
     )
     return result.first()
+
+
+async def read_user_with_player(session: AsyncSession, user: User) -> UserRead:
+    """An account as the API answers with it, player and all. Every way into an account
+    answers with this, the OIDC ones included, so there is one shape to read."""
+    player = await player_for_user(session, user.id)
+    return read_user(user, None if player is None else player.id)
 
 
 async def player_for_user(session: AsyncSession, user_id: str) -> Player | None:
