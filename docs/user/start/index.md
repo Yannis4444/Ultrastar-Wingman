@@ -13,7 +13,8 @@ scan the QR code on the TV.
 
 ## What you need
 
-- Ultrastar Deluxe, installed and started at least once.
+- Ultrastar Deluxe, installed and started at least once, unless you take the
+  Wingman setup that comes with it.
 - A folder with songs in it. Ultrastar Deluxe's own songs folder is the usual
   one, and any other folder works too.
 - The Wingman setup, or `UltrastarWingman.exe` if you would rather not install
