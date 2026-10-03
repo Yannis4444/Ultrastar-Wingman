@@ -1,7 +1,8 @@
 <#
 .SYNOPSIS
 Builds UltrastarWingman.exe (frontend + backend + migrations + firmware in one file) and the
-installer that wraps it, UltrastarWingman-<version>-setup.exe.
+installer that wraps it, UltrastarWingman-<version>-setup.exe. With -UsdxDir also
+UltrastarWingman-<version>-with-usdx-setup.exe, the edition that brings Ultrastar Deluxe.
 
 .DESCRIPTION
 Run from anywhere: .\installer\build.ps1. The stages run in order: frontend, backend,
@@ -19,12 +20,19 @@ Bundle the firmware image already in the backend package instead of rebuilding i
 
 .PARAMETER SkipInstaller
 Build the exe alone; Inno Setup is then not needed.
+
+.PARAMETER UsdxDir
+A built Ultrastar Deluxe game directory (the one holding ultrastardx.exe). Given, the
+installer stage also writes UltrastarWingman-<version>-with-usdx-setup.exe, which carries
+that Ultrastar Deluxe under {app}\usdx. Only an allowlist of its files ships: a game
+directory that has been played holds the host's config.ini, scores and songs.
 #>
 param(
     [string]$OutDir,
     [switch]$SkipFrontend,
     [switch]$SkipFirmware,
-    [switch]$SkipInstaller
+    [switch]$SkipInstaller,
+    [string]$UsdxDir
 )
 $ErrorActionPreference = "Stop"
 
@@ -64,6 +72,66 @@ function Find-Iscc {
     return $null
 }
 
+# What of a built Ultrastar Deluxe game directory the bundled edition ships. An allowlist,
+# not a blocklist: the directory a developer builds USDX into is also the one they play
+# from, so it holds config.ini (+ Wingman's .wingman-backup), Ultrastar.db, Error.log,
+# songs\, playlists\ and screenshots\: the host's runtime state, which must never travel
+# in an installer. Anything new USDX grows has to be added here on purpose.
+$UsdxShipDirs = @("avatars", "covers", "fonts", "languages", "plugins", "resources", "sounds", "themes", "visuals", "webs")
+$UsdxShipFiles = @("ultrastardx.exe", "*.dll", "LICENSE.*.txt", "LuaCommands.odt", "README.ijg")
+# The pictures Wingman copies into USDX's avatars folder before a song
+# (karaoke.usdx_config._place_avatar): named after the player, <uuid4 hex><extension>, the
+# extensions being images.IMAGE_TYPES'. USDX's own avatars (1.png, female1.jpg, ...) are
+# not named like that.
+$WingmanAvatar = '^[0-9a-f]{32}\.(jpg|png|webp)$'
+
+# USDX's license does not live in the game directory: its NSIS installer ships
+# installer\dependencies\documents\license.txt from the USDX checkout (the GPLv2 text under
+# a line saying "v2 or any later version"; the repo's bare LICENSE lacks that line). An
+# installed USDX carries the same file as license.txt next to its exe.
+function Find-UsdxLicense {
+    param([string]$GameDir)
+    foreach ($candidate in @(
+            (Join-Path $GameDir "license.txt"),
+            (Join-Path $GameDir "..\installer\dependencies\documents\license.txt"))) {
+        if (Test-Path -LiteralPath $candidate -PathType Leaf) { return (Resolve-Path -LiteralPath $candidate).Path }
+    }
+    return $null
+}
+
+# Wipes $Stage and copies the allowlist of $GameDir into it, plus USDX's license as
+# LICENSE.txt (next to the LICENSE.<library>.txt of its libraries).
+function Copy-UsdxStage {
+    param([string]$GameDir, [string]$Stage, [string]$License)
+    if (Test-Path -LiteralPath $Stage) { Remove-Item -LiteralPath $Stage -Recurse -Force }
+    New-Item -ItemType Directory -Force $Stage | Out-Null
+    foreach ($pattern in $UsdxShipFiles) {
+        # -Filter alone is Win32's matching, which also tries the 8.3 short name: "*.dll"
+        # would take "foo.dllx" (short name FOO~1.DLL). -like holds it to the long name.
+        Get-ChildItem -LiteralPath $GameDir -File -Filter $pattern |
+            Where-Object { $_.Name -like $pattern } | ForEach-Object {
+                Copy-Item -LiteralPath $_.FullName -Destination $Stage
+            }
+    }
+    foreach ($dir in $UsdxShipDirs) {
+        $source = Join-Path $GameDir $dir
+        if (-not (Test-Path -LiteralPath $source -PathType Container)) {
+            Write-Warning "Ultrastar Deluxe has no $dir folder; the bundled edition ships without it."
+            continue
+        }
+        Get-ChildItem -LiteralPath $source -File -Recurse | ForEach-Object {
+            if ($dir -eq "avatars" -and $_.DirectoryName -eq $source -and $_.Name -cmatch $WingmanAvatar) {
+                Write-Host "  leaving out avatars\$($_.Name) (a Wingman player's picture)"
+                return
+            }
+            $target = Join-Path (Join-Path $Stage $dir) $_.FullName.Substring($source.Length).TrimStart("\")
+            New-Item -ItemType Directory -Force (Split-Path -Parent $target) | Out-Null
+            Copy-Item -LiteralPath $_.FullName -Destination $target
+        }
+    }
+    Copy-Item -LiteralPath $License -Destination (Join-Path $Stage "LICENSE.txt")
+}
+
 $root = Split-Path -Parent $PSScriptRoot
 $python = Join-Path $root "venv\Scripts\python.exe"
 if (-not (Test-Path $python)) { throw "No venv at $python" }
@@ -90,6 +158,18 @@ if ($SkipFrontend -and -not (Test-Path (Join-Path $frontend "dist\index.html")))
 }
 if ($SkipFirmware -and -not (Test-Path (Join-Path $firmware "manifest.json"))) {
     throw "-SkipFirmware, but there is no firmware image in $firmware. Build once without it."
+}
+$usdxLicense = $null
+if ($UsdxDir) {
+    if ($SkipInstaller) { throw "-UsdxDir only feeds the installer stage; drop -SkipInstaller or -UsdxDir." }
+    if (-not (Test-Path -LiteralPath (Join-Path $UsdxDir "ultrastardx.exe") -PathType Leaf)) {
+        throw "-UsdxDir $UsdxDir holds no ultrastardx.exe. Pass the game directory of a built Ultrastar Deluxe."
+    }
+    $UsdxDir = (Resolve-Path -LiteralPath $UsdxDir).Path
+    $usdxLicense = Find-UsdxLicense $UsdxDir
+    if (-not $usdxLicense) {
+        throw "Ultrastar Deluxe's license text was not found: neither $UsdxDir\license.txt nor installer\dependencies\documents\license.txt of the USDX checkout around it. The GPL asks for it to travel with the game."
+    }
 }
 if (Test-Path $exe) {
     # A running exe can be read but not rewritten; PyInstaller would only find out at the
@@ -172,6 +252,28 @@ if (-not $SkipInstaller) {
             (Join-Path $PSScriptRoot "UltrastarWingman.iss")
     }
     $built += Join-Path $OutDir "UltrastarWingman-$version-setup.exe"
+
+    if ($UsdxDir) {
+        # The same script again, with Ultrastar Deluxe's allowlisted files staged under the
+        # work folder, so the .iss can take the stage whole. Rebuilt from scratch every
+        # time: a file left over from an earlier USDX build must not ship.
+        $stage = Join-Path $work "usdx"
+        # Not through Invoke-Step: that relaxes $ErrorActionPreference for native tools,
+        # and a copy that fails here has to stop the build.
+        Write-Host "==> stage Ultrastar Deluxe from $UsdxDir" -ForegroundColor Cyan
+        Copy-UsdxStage -GameDir $UsdxDir -Stage $stage -License $usdxLicense
+        Invoke-Step "installer with Ultrastar Deluxe" {
+            & $iscc /Q `
+                "/DAppVersion=$version" `
+                "/DFileVersion=$fileVersion" `
+                "/DExeDir=$OutDir" `
+                "/DOutputDir=$OutDir" `
+                "/DBundleUsdx" `
+                "/DUsdxStage=$stage" `
+                (Join-Path $PSScriptRoot "UltrastarWingman.iss")
+        }
+        $built += Join-Path $OutDir "UltrastarWingman-$version-with-usdx-setup.exe"
+    }
 }
 
 foreach ($file in $built) {

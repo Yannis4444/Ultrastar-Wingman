@@ -1,11 +1,14 @@
 # Building the exe and the installer
 
-`installer\build.ps1` builds both Windows deliverables from a checkout:
+`installer\build.ps1` builds the Windows deliverables from a checkout:
 
 - `UltrastarWingman.exe`: the portable one-file exe (PyInstaller). Frontend, backend,
   migrations, the shipped badge pictures and the device firmware are all inside it.
 - `UltrastarWingman-<version>-setup.exe`: the Inno Setup installer wrapping that exe. Per
   user, no administrator rights, updates an installed Wingman in place.
+- `UltrastarWingman-<version>-with-usdx-setup.exe`, only with `-UsdxDir`: the same
+  installer carrying Ultrastar Deluxe under `{app}\usdx`. See
+  [The edition with Ultrastar Deluxe](#the-edition-with-ultrastar-deluxe).
 
 The user-facing side (what the wizard asks, update, uninstall) is
 [docs/user/start/install.md](../user/start/install.md). The silent switches are
@@ -33,14 +36,16 @@ A bare `.\installer\build.ps1` runs every stage, in this order:
 | backend | `pip install -e backend[packaging]` (refreshes the package metadata `__version__` reads, and installs PyInstaller) | never |
 | firmware | `firmware\build.py`: builds the image and writes it into the backend package | `-SkipFirmware` (bundles the image already there) |
 | exe | PyInstaller over `installer\UltrastarWingman.spec`, with a Windows version resource | never |
-| installer | `ISCC.exe installer\UltrastarWingman.iss` with the version and paths as `/D` defines | `-SkipInstaller` (the exe alone; Inno Setup is then not needed) |
+| installer | `ISCC.exe installer\UltrastarWingman.iss` with the version and paths as `/D` defines; with `-UsdxDir`, then the USDX stage and a second ISCC run with `/DBundleUsdx` | `-SkipInstaller` (the exe alone; Inno Setup is then not needed) |
 
-`-OutDir <dir>` (default `installer\dist`) is where both files land. PyInstaller's work
-files stay in `installer\build`, which also holds the generated `version_info.txt`.
+`-OutDir <dir>` (default `installer\dist`) is where the files land. PyInstaller's work
+files stay in `installer\build`, which also holds the generated `version_info.txt` and the
+USDX stage.
 
 Before anything runs, the script fails fast on what would otherwise fail at the end: no
 `ISCC.exe` while the installer stage is wanted (naming the download page), a `-Skip…` with
-nothing prebuilt to bundle, and an `UltrastarWingman.exe` in `-OutDir` that is locked.
+nothing prebuilt to bundle, an `UltrastarWingman.exe` in `-OutDir` that is locked, and a
+`-UsdxDir` without `ultrastardx.exe`, without USDX's license text, or beside `-SkipInstaller`.
 Every native tool (npm, pip, PyInstaller, ISCC) is judged by its exit code, not by what it
 prints to stderr. The last lines list what was built, with sizes.
 
@@ -79,8 +84,9 @@ The decisions inside it, each commented where it is made:
   the installer uses it, so whichever one is run updates the same installation. (The old
   project's AppId belongs to that app and is not reused.)
 - **Per user** (`PrivilegesRequired=lowest`, no override): installs to
-  `%LOCALAPPDATA%\Programs\Ultrastar Wingman`, uninstall key under HKCU. The planned
-  edition with a bundled Ultrastar Deluxe needs a user-writable install folder.
+  `%LOCALAPPDATA%\Programs\Ultrastar Wingman`, uninstall key under HKCU. The edition
+  with Ultrastar Deluxe needs a user-writable install folder: the game writes its
+  `config.ini`, `Ultrastar.db` and songs next to its exe.
 - **Update in place**: `UsePreviousAppDir` and `DisableDirPage=auto` are Inno's defaults,
   so an update reuses the folder and does not ask for one.
 - **`CloseApplications=force`**, measured, not assumed: Restart Manager cannot close a
@@ -90,16 +96,71 @@ The decisions inside it, each commented where it is made:
   `RestartApplications=no`: Wingman never registers for restart.
 - **The uninstaller refuses while Wingman runs** (a WMI query for a process running the
   installed exe, in `InitializeUninstall`), because otherwise it removes everything but
-  the locked exe and leaves a server without an installation. A silent uninstall gives up
-  (exit code 1).
+  the locked exe and leaves a server without an installation. The same for a running
+  `{app}\usdx\ultrastardx.exe`, its own message. A silent uninstall gives up (exit code 1).
 - **Downgrade warning** in `InitializeSetup`, defaulting to Yes for a silent install.
 - **No `AppMutex`**: Wingman creates no mutex, and adding one is an app change.
 - **User data is never touched**: no `[UninstallDelete]`; the data directory
   (`%LOCALAPPDATA%\Ultrastar Wingman`) lies outside `{app}` anyway.
 - No code signing (no certificate), no firewall rule (needs admin), no autostart.
 
-`/DBundleUsdx` is reserved for the edition that carries Ultrastar Deluxe; nothing reads it
-yet.
+## The edition with Ultrastar Deluxe
+
+```powershell
+.\installer\build.ps1 -UsdxDir D:\git\USDX-new\game
+```
+
+`-UsdxDir` is the game directory of a built Ultrastar Deluxe, the folder holding
+`ultrastardx.exe`; the example is the development machine's build of the fork
+<https://github.com/Yannis4444/USDX>. It has no default, so no user's path is written into
+the repo. Given, the installer stage builds the plain setup first and then
+`UltrastarWingman-<version>-with-usdx-setup.exe` beside it, one build for both editions.
+
+**Prebuilt, never compiled here.** USDX builds with Free Pascal, MSYS2 and its own DLL
+pipeline, in a separate repo with its own CI; Wingman's build takes a finished game
+directory, the way it takes Inno Setup.
+
+**The allowlist.** A game directory somebody plays from holds the host's runtime state:
+`config.ini` and Wingman's `config.ini.wingman-backup`, the scores in `Ultrastar.db`,
+`Error.log`, `songs\`, `playlists\`, `screenshots\`, and in `avatars\` the player pictures
+Wingman copied there. So `build.ps1` copies only what is named (`$UsdxShipDirs`,
+`$UsdxShipFiles`), and anything a newer USDX adds has to be added there on purpose:
+
+| Ships | What |
+|---|---|
+| Folders | `avatars`, `covers`, `fonts`, `languages`, `plugins`, `resources`, `sounds`, `themes`, `visuals`, `webs` |
+| Files | `ultrastardx.exe`, every `*.dll`, `LICENSE.*.txt` (its libraries), `LuaCommands.odt`, `README.ijg` |
+| Never | `avatars\` files named `<32 hex>.jpg/.png/.webp` (a player id plus `images.IMAGE_TYPES`' extension, which is what `usdx_config._place_avatar` writes), and everything not listed above |
+
+USDX's own license is not in the game directory. Its NSIS installer ships
+`installer\dependencies\documents\license.txt` of the USDX checkout (the GPLv2 under a line
+saying "or a newer version"; the repo's bare `LICENSE` lacks that line), so the script takes
+that file, or a `license.txt` inside `-UsdxDir` (where an installed USDX keeps it), and
+stages it as `usdx\LICENSE.txt` beside the `LICENSE.<library>.txt` files. Neither found
+fails the build.
+
+**The stage** is `installer\build\usdx`, wiped and refilled on every run, so a file an
+earlier USDX build had never ships by accident. `ISCC` gets it as `/DUsdxStage` and the
+`.iss` takes it whole (`recursesubdirs`, `ignoreversion`).
+
+What the edition does on top of the plain one (the folder warning is under
+`#ifdef BundleUsdx`; the rest follows from the files it carries):
+
+- **Not-ASCII warning.** A folder with a character beyond ASCII in its path makes USDX
+  unable to start songs, and a per-user install lands under the Windows user name. The
+  directory page asks (default No); an update that skips the page asks on the Ready page.
+  A silent install logs the line and goes on.
+- **Update** replaces the game's files. `config.ini`, `Ultrastar.db`, `songs\` and the rest
+  of what USDX and Wingman write are no installed files, so they stay. A running
+  `ultrastardx.exe` out of `{app}\usdx` is closed by `CloseApplications=force` like Wingman.
+- **Uninstall** removes the installed files and leaves the rest of `usdx\` behind. Like a
+  running Wingman, a running `{app}\usdx\ultrastardx.exe` makes it refuse (the same WMI
+  query, in both editions, since the plain one inherits the uninstall log).
+
+The plain edition run over a bundled install leaves `{app}\usdx` alone and says so in an
+informational box (logged and skipped when silent); the frozen exe keeps finding it, and
+Inno's uninstall log, appended to for the same AppId, still lists the game's files. The
+bundled edition over a plain install simply adds `usdx\`.
 
 ## Art
 
@@ -126,7 +187,10 @@ UltrastarWingman-<version>-setup.exe /VERYSILENT /SUPPRESSMSGBOXES /NORESTART /D
 ```
 
 Always pass `/NORESTART`: a very silent setup that needs a restart restarts Windows without
-asking. Afterwards, check that the key
+asking. One AppId means one uninstall key and one Start menu entry, so test one scratch
+install at a time and uninstall it before the next. Never start the `ultrastardx.exe` of a
+scratch install of the edition with Ultrastar Deluxe; `GET /api/v1/karaoke/status` saying
+`"bundled": true` is the check that Wingman found it. Afterwards, check that the key
 `HKCU\Software\Microsoft\Windows\CurrentVersion\Uninstall\{66ABF566-D476-4D71-97CE-158493516D4E}_is1`
 and the Start menu shortcut are gone.
 
@@ -148,7 +212,9 @@ What a scripted install or uninstall does, measured on Inno Setup 6.2.0:
 ## Cutting a release
 
 1. Bump `version` in `backend\pyproject.toml` (and nothing else) and commit it.
-2. Run `.\installer\build.ps1` on a clean checkout of that commit, outside any folder a
-   running Wingman uses.
-3. Publish the two files from the output directory on the GitHub release:
-   `UltrastarWingman-<version>-setup.exe` and `UltrastarWingman.exe`.
+2. Run `.\installer\build.ps1 -UsdxDir <USDX game directory>` on a clean checkout of that
+   commit, outside any folder a running Wingman uses.
+3. Publish the three files from the output directory on the GitHub release:
+   `UltrastarWingman-<version>-setup.exe`, `UltrastarWingman-<version>-with-usdx-setup.exe`
+   and `UltrastarWingman.exe`. Say in the release notes which USDX commit the bundled
+   edition carries, since the GPL asks for its source to be reachable.

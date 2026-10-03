@@ -16,6 +16,7 @@ Everything in this table has to be true:
 
 | What has to be true | If it is not |
 |---|---|
+| With the setup that comes with Ultrastar Deluxe: `usdx\ultrastardx.exe` is still in the install folder | The list says the Ultrastar Deluxe that comes with this installation is missing: the game was moved or deleted. Once Wingman restarts, the **USDX** group shows its paths again instead. Run that setup again to put the game back. |
 | **Base path** in the **USDX** group is filled in | Fill it in. It is the folder that holds `ultrastardx.exe`. |
 | `ultrastardx.exe` is really in that folder | The base path is wrong, or the program has another name. Set **Executable** in the same group, behind **Advanced**. |
 | **Directory** in the **Songs** group is filled in | Fill it in. Wingman has to know where the songs are. |

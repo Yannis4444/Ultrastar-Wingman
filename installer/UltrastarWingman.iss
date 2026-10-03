@@ -2,9 +2,12 @@
 ; every path and the version as /D defines; the defaults below only exist so the script
 ; still compiles from the Inno IDE against a build already sitting in installer\dist.
 ;
-; Reserved for the next edition: /DBundleUsdx (an installer that also carries Ultrastar
-; Deluxe). Nothing below reads it yet. Every edition keeps the AppId, so whichever one is
-; run updates the same installation.
+; Two editions out of this one script. Plain, and /DBundleUsdx: the edition that also
+; carries Ultrastar Deluxe under {app}\usdx, taken whole from /DUsdxStage, the allowlisted
+; copy of a built USDX that build.ps1 -UsdxDir stages into installer\build\usdx. Wingman
+; finds that folder next to its exe on its own (config.bundled_usdx_dir), so nothing here
+; tells it. Every edition keeps the AppId, so whichever one is run updates the same
+; installation.
 
 #ifndef AppVersion
   ; The string ultrastar_wingman.__version__ reports, out of backend\pyproject.toml.
@@ -19,6 +22,14 @@
 #endif
 #ifndef OutputDir
   #define OutputDir SourcePath + "dist"
+#endif
+#ifdef BundleUsdx
+  #ifndef UsdxStage
+    #define UsdxStage SourcePath + "build\usdx"
+  #endif
+  #define OutputName "UltrastarWingman-" + AppVersion + "-with-usdx-setup"
+#else
+  #define OutputName "UltrastarWingman-" + AppVersion + "-setup"
 #endif
 
 #define AppName "Ultrastar Wingman"
@@ -76,7 +87,7 @@ RestartApplications=no
 SetupMutex=UltrastarWingmanSetup,Global\UltrastarWingmanSetup
 
 OutputDir={#OutputDir}
-OutputBaseFilename=UltrastarWingman-{#AppVersion}-setup
+OutputBaseFilename={#OutputName}
 SetupIconFile=UltrastarWingman.ico
 LicenseFile=..\LICENSE
 WizardStyle=modern
@@ -97,6 +108,9 @@ Name: "english"; MessagesFile: "compiler:Default.isl"
 [CustomMessages]
 DowngradeWarning=Ultrastar Wingman %1 is installed, and this is the older version %2.%n%nAn older Wingman cannot open a database that a newer one has already updated, so it may not start at all.%n%nInstall the older version anyway?
 UninstallWhileRunning=Ultrastar Wingman is running. Close its console window, then click Retry.%n%nA song that is running when Wingman closes scores nothing.
+UninstallWhileUsdxRunning=Ultrastar Deluxe is running. Close it, then click Retry.
+NonAsciiFolder=The folder%n%n%1%n%nhas characters other than plain English letters, digits and punctuation in it, such as an accented letter in a Windows user name. Ultrastar Deluxe cannot start songs from a folder like that.%n%nInstall here anyway?
+UsdxKept=This folder holds the Ultrastar Deluxe that an earlier Wingman setup installed. It stays where it is, and Wingman keeps using it.%n%nThis setup updates Wingman alone.
 
 [Tasks]
 Name: "desktopicon"; Description: "{cm:CreateDesktopIcon}"; GroupDescription: "{cm:AdditionalIcons}"; Flags: unchecked
@@ -111,6 +125,14 @@ Type: files; Name: "{autodesktop}\{#AppName}.lnk"; Tasks: not desktopicon; Check
 Source: "{#ExeDir}\{#AppExeName}"; DestDir: "{app}"; Flags: ignoreversion
 ; The GPL asks for the license to travel with the program.
 Source: "..\LICENSE"; DestDir: "{app}"; DestName: "LICENSE.txt"; Flags: ignoreversion
+#ifdef BundleUsdx
+; The staged Ultrastar Deluxe, whole: build.ps1 already left out everything that is a
+; host's runtime state. ignoreversion, so an update replaces the game's files outright.
+; config.ini, Ultrastar.db, songs\ and the rest of what the game and Wingman write in there
+; are no installed files, so an update leaves them alone and an uninstall leaves them
+; behind. CloseApplications covers a running ultrastardx.exe out of {app}\usdx too.
+Source: "{#UsdxStage}\*"; DestDir: "{app}\usdx"; Flags: ignoreversion recursesubdirs createallsubdirs
+#endif
 
 [Icons]
 ; The working directory is {app} so a .env placed beside the exe is read on a double-click
@@ -195,15 +217,14 @@ begin
   end;
 end;
 
-// Whether a Wingman runs out of {app}. Wingman holds no mutex for AppMutex to find, and
-// the uninstaller has no Restart Manager step, so the process list is asked directly.
-function WingmanRunning(): Boolean;
+// Whether a program runs out of the given path. Wingman holds no mutex for AppMutex to
+// find, and the uninstaller has no Restart Manager step, so the process list is asked
+// directly.
+function ProcessRunning(Path: String): Boolean;
 var
   Locator, Service, Processes: Variant;
-  Path: String;
 begin
   Result := False;
-  Path := ExpandConstant('{app}\{#AppExeName}');
   // A WQL string literal escapes backslashes and quotes with a backslash.
   StringChangeEx(Path, '\', '\\', True);
   StringChangeEx(Path, '''', '\''', True);
@@ -213,19 +234,89 @@ begin
     Processes := Service.ExecQuery(Format('SELECT ProcessId FROM Win32_Process WHERE ExecutablePath = ''%s''', [Path]));
     Result := Processes.Count > 0;
   except
-    Log('Could not ask whether Wingman is running: ' + GetExceptionMessage);
+    Log('Could not ask whether ' + Path + ' is running: ' + GetExceptionMessage);
   end;
 end;
 
 // Uninstalling under a running Wingman removes everything but the locked exe and leaves
-// the server running without an installation, so the host closes it first. A silent
-// uninstall takes the default, Cancel: it never stops a party on its own.
+// the server running without an installation, so the host closes it first. The same goes
+// for the Ultrastar Deluxe of the edition that brings one; asked by both editions, because
+// the plain one run over it inherits the uninstall log that lists the game's files. A
+// silent uninstall takes the default, Cancel: it never stops a party on its own.
 function InitializeUninstall(): Boolean;
 begin
   Result := True;
-  while Result and WingmanRunning() do
+  while Result and ProcessRunning(ExpandConstant('{app}\{#AppExeName}')) do
   begin
     Log('Ultrastar Wingman is running.');
     Result := SuppressibleMsgBox(CustomMessage('UninstallWhileRunning'), mbError, MB_RETRYCANCEL, IDCANCEL) = IDRETRY;
   end;
+  while Result and ProcessRunning(ExpandConstant('{app}\usdx\ultrastardx.exe')) do
+  begin
+    Log('Ultrastar Deluxe is running out of ' + ExpandConstant('{app}\usdx') + '.');
+    Result := SuppressibleMsgBox(CustomMessage('UninstallWhileUsdxRunning'), mbError, MB_RETRYCANCEL, IDCANCEL) = IDRETRY;
+  end;
 end;
+
+#ifdef BundleUsdx
+var
+  // The folder the host already said yes to (or that needed no question), so the Ready
+  // page does not ask a second time about the folder the directory page just asked about.
+  AcceptedDir: String;
+
+function IsPlainAscii(const S: String): Boolean;
+var
+  I: Integer;
+begin
+  Result := True;
+  for I := 1 to Length(S) do
+    if Ord(S[I]) > 127 then
+    begin
+      Result := False;
+      Exit;
+    end;
+end;
+
+// Ultrastar Deluxe cannot start a song out of a path with characters beyond ASCII in it
+// (Wingman copies an oddly named song folder to a plain name, but the folders above the
+// game are what they are), and a per-user install lands under the Windows user name.
+// Asked on the directory page, and again on the Ready page for the folder an update reuses
+// without showing that page. A silent install logs it and goes on.
+function ConfirmUsdxFolder(): Boolean;
+var
+  Dir: String;
+begin
+  Result := True;
+  Dir := WizardDirValue;
+  if Dir = AcceptedDir then
+    Exit;
+  if not IsPlainAscii(Dir) then
+  begin
+    Log(Format('The folder %s is not plain ASCII: Ultrastar Deluxe cannot start songs from it.', [Dir]));
+    Result := SuppressibleMsgBox(FmtMessage(CustomMessage('NonAsciiFolder'), [Dir]),
+      mbConfirmation, MB_YESNO or MB_DEFBUTTON2, IDYES) = IDYES;
+  end;
+  if Result then
+    AcceptedDir := Dir;
+end;
+
+function NextButtonClick(CurPageID: Integer): Boolean;
+begin
+  Result := True;
+  if (CurPageID = wpSelectDir) or (CurPageID = wpReady) then
+    Result := ConfirmUsdxFolder();
+end;
+#else
+// The plain edition run over the bundled one leaves {app}\usdx where it is: those files
+// are no part of this setup, Wingman goes on finding the folder next to its exe, and the
+// uninstall log Inno appends to still lists them, so an uninstall removes them all the same.
+function NextButtonClick(CurPageID: Integer): Boolean;
+begin
+  Result := True;
+  if (CurPageID = wpReady) and FileExists(ExpandConstant('{app}\usdx\ultrastardx.exe')) then
+  begin
+    Log('An Ultrastar Deluxe from an earlier Wingman setup is in ' + ExpandConstant('{app}\usdx') + ' and stays.');
+    SuppressibleMsgBox(CustomMessage('UsdxKept'), mbInformation, MB_OK, IDOK);
+  end;
+end;
+#endif

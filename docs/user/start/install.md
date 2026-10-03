@@ -4,9 +4,29 @@ Wingman is one program on the karaoke PC. It serves the whole app to every
 browser in the room, the host screen on the TV included. Install it with the
 setup, or run the exe without installing anything.
 
+## Pick a download
+
+Every release has two setups. Both install the same Wingman.
+
+| Download | What it installs |
+|---|---|
+| `UltrastarWingman-<version>-setup.exe` | Wingman alone, for the Ultrastar Deluxe you already have |
+| `UltrastarWingman-<version>-with-usdx-setup.exe` | Wingman with Ultrastar Deluxe |
+
+The second one puts Ultrastar Deluxe into a folder called `usdx` inside the
+install folder, and Wingman treats that copy as its own. The **USDX** settings
+hold no paths then, and your songs go into `usdx\songs`. See
+[Bring your own Ultrastar Deluxe along](#bring-your-own-ultrastar-deluxe-along).
+
+!!! warning
+    Ultrastar Deluxe cannot start songs from a folder with an accented letter
+    in its path. The setup installs under your Windows user name, so a name
+    like `Jürgen` already does it. The setup with Ultrastar Deluxe warns you,
+    and you pick a plain folder instead, such as `C:\Karaoke\Ultrastar Wingman`.
+
 ## Install Wingman
 
-1. Download `UltrastarWingman-<version>-setup.exe`.
+1. Download the setup you picked.
 2. Double-click it. If Windows says **Windows protected your PC**, click
    **More info**, then **Run anyway**. The setup carries no signature, and
    Windows warns about every program it does not know yet.
@@ -66,6 +86,14 @@ finds the installed Wingman and replaces it in the same folder. If Wingman is
 still open, the setup lists it and offers to close it. If you run the exe
 instead, replace `UltrastarWingman.exe` with the newer one.
 
+The setup with Ultrastar Deluxe replaces the game in `usdx` as well. Close
+Ultrastar Deluxe too, or the setup closes it along with Wingman. The game's
+`config.ini`, its scores, and the songs in `usdx\songs` stay.
+
+The plain setup updates Wingman alone and leaves the game where it is. The
+setup with Ultrastar Deluxe run over a plain install adds the game, and Wingman
+uses that one now.
+
 Wingman brings its own database up to date on every start, so your players,
 parties, and scores carry over. Copy the data folder somewhere safe first. An
 older Wingman cannot open a database a newer one has updated, so that copy is
@@ -80,6 +108,11 @@ Wingman runs, the uninstaller waits for you to close it.
 That removes the program, its Start menu entry, and the desktop icon. Your data
 folder stays, and so does anything you added to the program folder yourself,
 such as a `.env` file. To remove every trace, delete both folders by hand.
+
+With Ultrastar Deluxe installed too, close it as well. The game goes, but what
+it wrote stays in `usdx`: the songs in `usdx\songs`, `config.ini`, and the
+scores in `Ultrastar.db`. Delete the `usdx` folder by hand once you no longer
+need them.
 
 ## Change the port, the address, or the folder
 
@@ -109,18 +142,20 @@ Everything else is a setting inside the app, under **User** > **Settings**. See
 
 ## Bring your own Ultrastar Deluxe along
 
-Wingman can treat one Ultrastar Deluxe folder as its own. It then works out
-every Ultrastar Deluxe path from that folder, and the **USDX** settings group
-shows no paths. When Wingman starts with the **Directory** setting in the
-**Songs** group empty, it sets it to that folder's `songs` subfolder, and
-creates the subfolder if it is missing. A directory you type in stays as it is.
+Wingman can treat one Ultrastar Deluxe folder as its own, and the setup with
+Ultrastar Deluxe installs exactly that. Wingman then works out every Ultrastar
+Deluxe path from that folder, and the **USDX** settings group shows no paths.
+When Wingman starts with the **Directory** setting in the **Songs** group
+empty, it sets it to that folder's `songs` subfolder, and creates the subfolder
+if it is missing. A directory you type in stays as it is.
 
 Wingman finds the folder in one of three ways. The first one that applies wins.
 
 1. The command line argument `--usdx-dir`, followed by the folder.
 2. The `WINGMAN_USDX_DIR` variable from the table above.
 3. A folder called `usdx` next to `UltrastarWingman.exe`, if it holds
-   `ultrastardx.exe`. Wingman run from source never looks for this one.
+   `ultrastardx.exe`. This is the one the setup with Ultrastar Deluxe
+   installs. Wingman run from source never looks for it.
 
 ```powershell
 UltrastarWingman.exe --usdx-dir "D:\Karaoke\Ultrastar Deluxe"
