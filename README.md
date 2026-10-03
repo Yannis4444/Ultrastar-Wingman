@@ -7,7 +7,10 @@ karaoke PC.
 
 ## Run it
 
-1. Download `UltrastarWingman.exe` and start it. It opens the host page in your
+1. Download `UltrastarWingman-<version>-setup.exe` and run it. It installs
+   Wingman for your Windows account (no administrator rights) and updates an
+   installed one in place. To skip installing, download `UltrastarWingman.exe`
+   and start it instead. Either way Wingman opens the host page in your
    browser and prints its address for the phones on the same network.
 2. Tell Wingman where your songs are, and let it connect Ultrastar Deluxe:
    [Get started](docs/user/start/index.md).
@@ -40,8 +43,9 @@ cd ..\frontend
 npm run build ; npm run lint ; npm run format:check ; npm test
 ```
 
-Build the exe with `.\installer\build.ps1` (frontend build + PyInstaller, one
-file in `installer\dist`). Build the user-guide site with:
+Build the exe and the installer with `.\installer\build.ps1` (frontend,
+firmware, PyInstaller and Inno Setup 6, both files in `installer\dist`; see
+[`docs/dev/building.md`](docs/dev/building.md)). Build the user-guide site with:
 
 ```powershell
 venv\Scripts\python.exe -m pip install -r docs\requirements.txt

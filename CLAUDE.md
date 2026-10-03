@@ -11,7 +11,7 @@ for the visual look, never ground truth for code.
   alembic), pytest
 - Frontend `frontend/`: React + TypeScript + Vite, TanStack Query, vitest
 - User docs `docs/user/`: Markdown built with zensical
-- Windows exe `installer/`: PyInstaller
+- Windows exe + installer `installer/`: PyInstaller, Inno Setup 6
 - Phases & status: [docs/dev/implementation-plan.md](docs/dev/implementation-plan.md)
 
 ## Hard rules
@@ -50,6 +50,7 @@ for the visual look, never ground truth for code.
 | **Docs build** | `docs/` | `..\venv\Scripts\python.exe -m zensical build --strict --clean` |
 | **Docs script checks** (`docs/screenshots`, `docs/tools`) | repo root | `venv -m ruff check --config backend/pyproject.toml docs/screenshots docs/tools` · same with `ruff format --check` |
 | One test | | `venv -m pytest tests/test_songs_api.py -k <name>` · `npx vitest run src/pages/Songs.test.tsx` |
+| **Build the exe + installer** | repo root | `.\installer\build.ps1` — `-OutDir <dir>` (default `installer\dist`; a running Wingman locks its exe, so build elsewhere while one runs from there), `-SkipFrontend`, `-SkipFirmware`, `-SkipInstaller` (exe alone, no Inno Setup). See [building](docs/dev/building.md) |
 | Regenerate API client | `frontend/` | `npm run generate-api` (backend must be on :8080; offline variant in [recipes](docs/dev/recipes.md)) |
 | New migration | `backend/` | `venv -m alembic revision --autogenerate -m "<what>"` |
 
@@ -116,6 +117,19 @@ live in `tests/fixtures/`.
 | `overrides/`, `tools/` | the site's non-page assets, outside `docs_dir`: `overrides/.icons/wingman/` is one SVG per app glyph, which a page writes as `:wingman-<name>:`, and `tools/export_icons.py` is what rewrites all of them out of `frontend/src/components/icons.tsx` |
 | `screenshots/` | the documentation screenshots, outside `docs_dir` so none of it ships: `seed.py` (a scratch Wingman filled from `scenario.py` + `songs.json` through `library.py`), `standin_usdx.py` and `fake_usdb.py` (the two stand-ins a screenshot run may not use for real), `capture.py` (headless Chrome over CDP, one row per manifest id, writing `docs/user/assets/screenshots/<section>/<id>.png`), and the gitignored `avatars/`. The procedure is [screenshots.md](docs/dev/screenshots.md) |
 
+### Installer — `installer/`
+
+The Windows deliverables, built by `build.ps1` into `-OutDir` and never committed
+(`installer/build/`, `installer/dist/` are gitignored). The how and the release steps are
+[building.md](docs/dev/building.md).
+
+| Path | Owns |
+|---|---|
+| `build.ps1` | the stages (frontend, backend, firmware, exe, installer) and their `-Skip…` switches, the fail-fast checks (ISCC discovery — Inno's uninstall key, `PATH`, `Program Files (x86)` — a missing prebuilt part, a locked exe), the version read out of `backend/pyproject.toml` and its four-number form, the generated `build/version_info.txt` |
+| `UltrastarWingman.spec`, `wingman_main.py` | PyInstaller: what goes into the one-file console exe, and the entry point that is not `python -m` |
+| `UltrastarWingman.iss` | Inno Setup 6.2: the fixed AppId every edition shares, per-user install, update in place, `CloseApplications=force` (measured: Restart Manager cannot close a console program gracefully), the downgrade warning and the uninstaller's refusal while Wingman runs in `[Code]`; every path and the version arrive as `/D` defines with IDE defaults, and `/DBundleUsdx` is reserved for the bundled Ultrastar Deluxe edition |
+| `make_icon.py`, `UltrastarWingman.ico`, `wizard-*.bmp` | the art out of `frontend/public/logo.png` (Pillow from a throwaway `--target`, never a dependency), outputs committed |
+
 ### Firmware — `firmware/`
 
 The player selector device: a PlatformIO project, Arduino core 3.x on the
@@ -146,5 +160,6 @@ module, page or route is added, renamed or removed.
 | Writing documentation | [docs/dev/documentation.md](docs/dev/documentation.md) |
 | Taking the documentation screenshots | [docs/dev/screenshots.md](docs/dev/screenshots.md) |
 | Making an achievement badge picture (the prompt kit, the rules, what exists) | [docs/dev/achievement-artwork.md](docs/dev/achievement-artwork.md) |
+| Building the exe and the installer, cutting a release | [docs/dev/building.md](docs/dev/building.md) |
 | Running & configuring each half in depth | [backend/README.md](backend/README.md), [frontend/README.md](frontend/README.md) |
 | Architecture decision records (the *why* behind the structure) | codebase-memory MCP: `manage_adr(mode='get', project='D-git-Ultrastar-Wingman-new')` — when a recorded decision changes, update the ADR alongside the code (`mode='update'` replaces the whole document) |

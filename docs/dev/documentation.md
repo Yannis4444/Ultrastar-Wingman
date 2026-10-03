@@ -88,7 +88,7 @@ is small.
 | Sing | `scores/` | `your-scores.md` | Your own scores | Singer | The record on the user page, the Your scores page, and All my scores | How-to |
 | Sing | `achievements/` | `index.md` | Achievements | Everyone | What a badge is, your badges, the TV moment | Index |
 | Host | `start/` | `index.md` | Get started | Host | What you need, in the order to do it | Index |
-| Host | `start/` | `install.md` | Install and run | Host | The exe, running from source, first launch | How-to |
+| Host | `start/` | `install.md` | Install and run | Host | The setup, the portable exe, update and uninstall, running from source, first launch | How-to |
 | Host | `start/` | `ultrastar-deluxe.md` | Connect Ultrastar Deluxe | Host | Point Wingman at the installation | How-to |
 | Host | `start/` | `join.md` | Let guests in | Host | The QR code, the address, what a guest may do | How-to |
 | Host | `host-screen/` | `index.md` | The host screen | Host | What stands on the TV, and how to put it there | Index |

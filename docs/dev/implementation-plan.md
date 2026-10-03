@@ -175,8 +175,10 @@ registry entry, zero UI code.
 
 ### Phase 8 — Packaging & docs site ✅
 
-Windows installer (PyInstaller — verify yt-dlp/ffmpeg actually bundle; the
-old build shipped without yt-dlp), zensical docs site with user guides per
+Windows exe (PyInstaller — verify yt-dlp/ffmpeg actually bundle; the
+old build shipped without yt-dlp) and, since 2026-10-03, the Inno Setup
+installer around it (per user, updates in place; see
+[building.md](building.md)), zensical docs site with user guides per
 feature, release workflow.
 
 ## Landed after phase 8
