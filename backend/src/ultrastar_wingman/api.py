@@ -18,6 +18,7 @@ from .devices.api import router as devices_router
 from .downloads.api import router as downloads_router
 from .events import ServerReady, SettingChanged, event_bus
 from .join_url import normalize_join_url
+from .karaoke import usdx_paths
 from .karaoke.api import router as karaoke_router
 from .library.api import router as library_router
 from .music import service as music
@@ -146,9 +147,13 @@ async def list_settings(session: SessionDep) -> list[SettingRead]:
     service = SettingsService(session)
     values = await service.all()
     stored = await service.stored_keys()
+    # A Wingman that brings its own Ultrastar Deluxe works out every USDX path itself, so
+    # its paths are not something to offer. The definitions stay: they are code.
+    withheld = frozenset(usdx_paths.KEYS) if usdx_paths.bundled_dir() is not None else frozenset()
     return [
         _read(definition, values[key], key in stored)
         for key, definition in service.definitions.items()
+        if key not in withheld
     ]
 
 
@@ -156,8 +161,12 @@ async def list_settings(session: SessionDep) -> list[SettingRead]:
     "/settings/{key}",
     response_model=SettingRead,
     dependencies=[Depends(require("settings.manage"))],
+    responses={409: {"description": "`usdx_bundled`: this Wingman brings its own USDX."}},
 )
 async def update_setting(key: str, update: SettingUpdate, session: SessionDep) -> SettingRead:
+    if key in usdx_paths.KEYS and usdx_paths.bundled_dir() is not None:
+        # Accepting it would store a value nothing reads, and say "Saved" about it.
+        raise HTTPException(status_code=409, detail="usdx_bundled")
     service = SettingsService(session)
     try:
         if update.value is None:

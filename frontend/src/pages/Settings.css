@@ -161,3 +161,11 @@
     transition: none;
   }
 }
+
+/* The USDX group of a Wingman that brings its own Ultrastar Deluxe: one quiet
+   line where the path fields would be. A path has no spaces to break at, so it
+   wraps anywhere rather than pushing the page sideways at 360px. */
+.settings-bundled-note {
+  margin-top: 12px;
+  overflow-wrap: anywhere;
+}

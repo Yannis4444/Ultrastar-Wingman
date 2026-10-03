@@ -3,6 +3,14 @@
 Wingman starts songs in Ultrastar Deluxe and reads the scores back out of it.
 Two settings are all it needs before the first song.
 
+!!! note
+    A Wingman that comes with its own Ultrastar Deluxe already knows where it
+    is. Skip step 2 below: the **USDX** group holds no paths then, only the
+    **Run Ultrastar Deluxe** row. The **Directory** setting starts out as that
+    Ultrastar Deluxe's own `songs` folder, so the first start needs no settings
+    at all. See
+    [Install and run](install.md#bring-your-own-ultrastar-deluxe-along).
+
 ## Point Wingman at the installation
 
 1. Open **User** > **Settings**. Changing a setting is an administrator's

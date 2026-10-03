@@ -25,7 +25,7 @@ const PROBLEMS = [
 ];
 
 function renderBanner(
-  status: { configured: boolean; problems: string[] },
+  status: { configured: boolean; problems: string[]; bundled?: boolean },
   capabilities = HOST,
 ) {
   getMe.mockResolvedValue(meResponse(capabilities));
@@ -141,4 +141,39 @@ test("an unrelated setting does not cost a request", async () => {
   });
 
   await waitFor(() => expect(usdxStatus).toHaveBeenCalledTimes(1));
+});
+
+test("a Wingman that brings its own Ultrastar Deluxe never asks for a base path", async () => {
+  renderBanner({
+    configured: false,
+    problems: ["'songs.directory' is not a directory: D:\\gone"],
+    bundled: true,
+  });
+  fireEvent.click(await screen.findByRole("button", { name: "Fix it" }));
+
+  const guide = await screen.findByRole("dialog", {
+    name: "Ultrastar Deluxe is not set up",
+  });
+  expect(guide).toHaveTextContent(/comes with this installation/);
+  expect(guide).toHaveTextContent(/songs directory does not exist/);
+  expect(guide).not.toHaveTextContent(/base path/i);
+});
+
+test("a bundled Ultrastar Deluxe gone missing is not blamed on a setting", async () => {
+  renderBanner({
+    configured: false,
+    problems: [
+      "the bundled Ultrastar Deluxe is missing: C:\\Wingman\\usdx\\ultrastardx.exe",
+    ],
+    bundled: true,
+  });
+  fireEvent.click(await screen.findByRole("button", { name: "Fix it" }));
+
+  const guide = await screen.findByRole("dialog", {
+    name: "Ultrastar Deluxe is not set up",
+  });
+  expect(guide).toHaveTextContent(
+    /Ultrastar Deluxe that comes with this installation is missing/,
+  );
+  expect(guide).not.toHaveTextContent(/base path/i);
 });

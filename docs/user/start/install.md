@@ -57,6 +57,7 @@ default does not fit, and leave the others alone.
 | `WINGMAN_HOST` | The address to listen on | `0.0.0.0`, meaning every address the PC has |
 | `WINGMAN_OPEN_BROWSER` | Open the host screen at startup | `true` |
 | `WINGMAN_FRONTEND_DIR` | The web app Wingman serves. Only needed if you built it yourself | The copy inside the exe, or `frontend/dist` when you run from source |
+| `WINGMAN_USDX_DIR` | An Ultrastar Deluxe folder Wingman treats as its own. See below | A `usdx` folder next to the exe that holds `ultrastardx.exe`, otherwise none |
 
 Wingman also reads a file called `.env` in the folder you start it from, so a
 double-click can carry these too. One name and value per line:
@@ -68,6 +69,30 @@ WINGMAN_OPEN_BROWSER=false
 
 Everything else is a setting inside the app, under **User** > **Settings**. See
 [Settings](../settings/index.md).
+
+## Bring your own Ultrastar Deluxe along
+
+Wingman can treat one Ultrastar Deluxe folder as its own. It then works out
+every Ultrastar Deluxe path from that folder, and the **USDX** settings group
+shows no paths. When Wingman starts with the **Directory** setting in the
+**Songs** group empty, it sets it to that folder's `songs` subfolder, and
+creates the subfolder if it is missing. A directory you type in stays as it is.
+
+Wingman finds the folder in one of three ways. The first one that applies wins.
+
+1. The command line argument `--usdx-dir`, followed by the folder.
+2. The `WINGMAN_USDX_DIR` variable from the table above.
+3. A folder called `usdx` next to `UltrastarWingman.exe`, if it holds
+   `ultrastardx.exe`. Wingman run from source never looks for this one.
+
+```powershell
+UltrastarWingman.exe --usdx-dir "D:\Karaoke\Ultrastar Deluxe"
+```
+
+To make the exe ignore a `usdx` folder next to it, set `WINGMAN_USDX_DIR` to
+nothing: a line `WINGMAN_USDX_DIR=` in `.env` does it. The **USDX** settings
+group then works as described in
+[Connect Ultrastar Deluxe](ultrastar-deluxe.md).
 
 ## Run from source
 

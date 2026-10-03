@@ -50,6 +50,11 @@ touches Ultrastar Deluxe, which mixes a song being sung itself. See
 
 ## USDX
 
+A Wingman that comes with its own Ultrastar Deluxe shows none of these. It
+works every path out of that Ultrastar Deluxe's folder, and the group holds a
+line saying so instead. See
+[Install and run](../start/install.md#bring-your-own-ultrastar-deluxe-along).
+
 | Setting | What it does | Default |
 |---|---|---|
 | **Base path** | The Ultrastar Deluxe installation folder. The five settings below are worked out from it | empty |

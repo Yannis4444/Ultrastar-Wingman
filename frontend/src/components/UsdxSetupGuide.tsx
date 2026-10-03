@@ -1,4 +1,6 @@
+import { useQuery } from "@tanstack/react-query";
 import { Link } from "react-router-dom";
+import { usdxStatusOptions } from "../api/@tanstack/react-query.gen";
 import { useAuth } from "../auth";
 import { explainUsdxProblem } from "../errors";
 import Modal from "./Modal";
@@ -17,6 +19,14 @@ export default function UsdxSetupGuide({
   onClose,
 }: UsdxSetupGuideProps) {
   const auth = useAuth();
+  // The banner's own cache entry, so opening the dialog from there costs
+  // nothing. Read here rather than handed in: Play opens this dialog too, and
+  // a Wingman that brings its own Ultrastar Deluxe has no base path to ask for.
+  const status = useQuery({
+    ...usdxStatusOptions(),
+    enabled: auth.loaded && auth.can("songs.view"),
+  });
+  const bundled = status.data?.bundled === true;
 
   return (
     <Modal title="Ultrastar Deluxe is not set up" onClose={onClose}>
@@ -35,11 +45,20 @@ export default function UsdxSetupGuide({
 
         {auth.can("settings.manage") ? (
           <>
-            <p>
-              All of it lives in the <strong>USDX</strong> and{" "}
-              <strong>Songs</strong> groups of the settings. Fill in the base
-              path and the songs directory first. The rest is derived from them.
-            </p>
+            {bundled ? (
+              <p>
+                Ultrastar Deluxe comes with this installation, so it needs no
+                path. The songs directory is in the <strong>Songs</strong> group
+                of the settings.
+              </p>
+            ) : (
+              <p>
+                All of it lives in the <strong>USDX</strong> and{" "}
+                <strong>Songs</strong> groups of the settings. Fill in the base
+                path and the songs directory first. The rest is derived from
+                them.
+              </p>
+            )}
             <Link className="button button-primary" to="/settings">
               Open the settings
             </Link>

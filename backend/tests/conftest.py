@@ -20,7 +20,7 @@ from ultrastar_wingman.config import BootstrapSettings
 from ultrastar_wingman.db import run_migrations
 from ultrastar_wingman.devices import service as devices
 from ultrastar_wingman.events import event_bus
-from ultrastar_wingman.karaoke import selection
+from ultrastar_wingman.karaoke import selection, usdx_paths
 from ultrastar_wingman.music import service as music
 from ultrastar_wingman.songs import scanner
 from ultrastar_wingman.sources import usdb
@@ -51,9 +51,14 @@ def bootstrap_settings(tmp_path: Path) -> BootstrapSettings:
     `open_browser=False`: the default is on, and the suite must not spawn a browser per test.
     `frontend_dir`: a path with no build in it, so whether somebody ran `npm run build` does
     not decide whether the SPA fallback is mounted. `test_frontend` points it at a build.
+    `usdx_dir=None`: a `WINGMAN_USDX_DIR` in the shell must not run the whole suite in the
+    bundled mode. `test_usdx_bundled` builds its own.
     """
     return BootstrapSettings(
-        data_dir=tmp_path, open_browser=False, frontend_dir=tmp_path / "no-frontend"
+        data_dir=tmp_path,
+        open_browser=False,
+        frontend_dir=tmp_path / "no-frontend",
+        usdx_dir=None,
     )
 
 
@@ -189,6 +194,14 @@ def fresh_scan_lock() -> None:
     pytest-asyncio gives every test its own loop — one shared lock would poison every
     later test that contends for it."""
     scanner._scan_lock = asyncio.Lock()
+
+
+@pytest.fixture(autouse=True)
+def no_bundled_usdx() -> None:
+    """The bundled Ultrastar Deluxe is module state the lifespan sets, and a test that calls
+    the sing flow on a bare `session` runs no lifespan — it must not inherit the mode a
+    previous test's app left behind."""
+    usdx_paths.configure(None)
 
 
 @pytest.fixture(autouse=True)

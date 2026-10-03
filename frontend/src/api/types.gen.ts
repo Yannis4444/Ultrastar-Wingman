@@ -2877,6 +2877,14 @@ export type UsdxStatusRead = {
      * Problems
      */
     problems: Array<string>;
+    /**
+     * Bundled
+     */
+    bundled: boolean;
+    /**
+     * Usdx Dir
+     */
+    usdx_dir?: string | null;
 };
 
 /**
@@ -7109,6 +7117,10 @@ export type UpdateSettingData = {
 };
 
 export type UpdateSettingErrors = {
+    /**
+     * `usdx_bundled`: this Wingman brings its own USDX.
+     */
+    409: unknown;
     /**
      * Validation Error
      */

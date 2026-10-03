@@ -98,6 +98,12 @@ const USDX_EXPLANATIONS: [RegExp, string][] = [
     /^'usdx\.executable' is not a file/,
     "There is no Ultrastar Deluxe program at that path. Either the base path points somewhere else, or the program has another name.",
   ],
+  // Only from a Wingman that brings its own Ultrastar Deluxe: no setting names
+  // that path, so the sentence must not send the host looking for one.
+  [
+    /^the bundled Ultrastar Deluxe is missing/,
+    "The Ultrastar Deluxe that comes with this installation is missing. Its program was moved or deleted.",
+  ],
   [
     /^'usdx\.config_file' is not set/,
     "Wingman cannot find USDX's config.ini, where it writes the players and their colors.",

@@ -4,6 +4,7 @@ import type { SettingRead } from "../api";
 import {
   listSettingsOptions,
   listSettingsQueryKey,
+  usdxStatusOptions,
 } from "../api/@tanstack/react-query.gen";
 import { useAuth } from "../auth";
 import { Icon, type IconName } from "../components/icons";
@@ -73,10 +74,14 @@ const CUSTOM_FIELDS: Record<
  */
 const GROUP_ACTIONS: Record<
   string,
-  ComponentType<{ readOnly: boolean }> | undefined
+  ComponentType<{ readOnly: boolean; bundled: boolean }> | undefined
 > = {
   USDX: RunUsdxRow,
 };
+
+/** The group a Wingman that brings its own Ultrastar Deluxe has no settings
+    in, and keeps anyway: its Launch row still has a job. */
+const USDX_GROUP = "USDX";
 
 function groupRank(group: string): number {
   const index = GROUP_ORDER.indexOf(group);
@@ -95,6 +100,15 @@ export default function Settings() {
     ...listSettingsOptions(),
     enabled: auth.loaded && mayView,
   });
+  // The setup banner's own query and cache entry. A Wingman that brings its
+  // own Ultrastar Deluxe lists no USDX settings, and this is how the page
+  // tells that apart from a list that has not arrived.
+  const status = useQuery({
+    ...usdxStatusOptions(),
+    enabled: auth.loaded && mayView && auth.can("songs.view"),
+  });
+  const bundled = status.data?.bundled === true;
+  const usdxDir = status.data?.usdx_dir ?? null;
 
   useWingmanEvent<SettingChanged>("setting.changed", ({ key, value }) => {
     // A secret arrives masked as null: refetch instead of writing that mask
@@ -117,8 +131,13 @@ export default function Settings() {
       if (rows) rows.push(setting);
       else byGroup.set(setting.group, [setting]);
     }
+    // Not before the settings themselves: a lone USDX section on a page that
+    // is still loading would be the only thing on it.
+    if (bundled && settings.data !== undefined && !byGroup.has(USDX_GROUP)) {
+      byGroup.set(USDX_GROUP, []);
+    }
     return [...byGroup].sort(([a], [b]) => groupRank(a) - groupRank(b));
-  }, [settings.data]);
+  }, [settings.data, bundled]);
 
   const renderField = (setting: SettingRead) => {
     const Field = CUSTOM_FIELDS[setting.key] ?? SettingField;
@@ -172,7 +191,15 @@ export default function Settings() {
                   and "1" above four slot rows was simply wrong. */}
               <span className="settings-group-name">{group}</span>
             </summary>
-            {Action && <Action readOnly={!mayManage} />}
+            {Action && <Action readOnly={!mayManage} bundled={bundled} />}
+            {/* Where the path fields would be, saying why they are not. */}
+            {group === USDX_GROUP && bundled && (
+              <p className="section-note settings-bundled-note">
+                Ultrastar Deluxe comes with this installation, so there are no
+                paths to set.
+                {usdxDir !== null && <> It is in {usdxDir}.</>}
+              </p>
+            )}
             {plain.map(renderField)}
             {advanced.length > 0 && (
               // Closed by default, and inside the group it belongs to rather
