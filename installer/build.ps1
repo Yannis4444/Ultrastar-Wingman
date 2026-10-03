@@ -130,6 +130,43 @@ function Copy-UsdxStage {
         }
     }
     Copy-Item -LiteralPath $License -Destination (Join-Path $Stage "LICENSE.txt")
+    Write-UsdxSource -GameDir $GameDir -Stage $Stage
+}
+
+# The GPLv2 (section 3) asks whoever passes the game's binaries on to make its source
+# available, so SOURCE.txt beside LICENSE.txt says where it is: the fork, the commit the
+# game directory was built from when it sits in a git checkout, and USDX's VERSION file.
+function Write-UsdxSource {
+    param([string]$GameDir, [string]$Stage)
+    $lines = @(
+        "The Ultrastar Deluxe in this folder is free software under the GNU General Public",
+        "License (LICENSE.txt). Its source code:",
+        "",
+        "https://github.com/Yannis4444/USDX"
+    )
+    # git writes to stderr when the folder is no checkout, which "Stop" would turn into a
+    # failed build; the exit code is the verdict, as in Invoke-Step.
+    $ErrorActionPreference = "Continue"
+    $commit = $null
+    if (Get-Command git -ErrorAction SilentlyContinue) {
+        $commit = & git -C $GameDir rev-parse HEAD 2>$null
+        if ($LASTEXITCODE -ne 0) { $commit = $null }
+    }
+    if ($commit) {
+        $lines += "Commit: $commit"
+        if (& git -C $GameDir status --porcelain --untracked-files=no 2>$null) {
+            Write-Warning "The Ultrastar Deluxe checkout has uncommitted changes; SOURCE.txt names commit $commit all the same."
+        }
+    } else {
+        Write-Warning "$GameDir is not inside a git checkout; SOURCE.txt names no commit."
+    }
+    $global:LASTEXITCODE = 0
+    $versionFile = Join-Path $GameDir "..\VERSION"
+    if (Test-Path -LiteralPath $versionFile -PathType Leaf) {
+        $lines += "Version: " + (Get-Content -LiteralPath $versionFile -TotalCount 1).Trim()
+    }
+    [IO.File]::WriteAllText((Join-Path $Stage "SOURCE.txt"), ($lines -join "`r`n") + "`r`n", [Text.UTF8Encoding]::new($false))
+    Write-Host "  SOURCE.txt: $(($lines | Select-Object -Skip 3) -join ', ')"
 }
 
 $root = Split-Path -Parent $PSScriptRoot

@@ -54,21 +54,27 @@ VersionInfoProductName={#AppName}
 VersionInfoProductTextVersion={#AppVersion}
 VersionInfoDescription={#AppName} Setup
 
-; Per user, never all users: the edition that bundles Ultrastar Deluxe writes its config,
-; database and songs next to its exe, which has to be a folder the user can write to.
-; Under "lowest", {autopf} is %LOCALAPPDATA%\Programs and the uninstall key lives in HKCU.
+; Per user, never all users. Ultrastar Deluxe writes its config, database and songs next to
+; its exe, so in Program Files the edition that bundles it would have to grant users-modify
+; on the folder holding ultrastardx.exe and its DLLs: exactly what Inno's documentation of
+; the [Dirs] Permissions parameter warns against (USDX's own installer does it, as a
+; stopgap). Every update would also bring a UAC prompt for an unsigned setup, and Wingman
+; keeps its own data per user anyway. Under "lowest", {autopf} is %LOCALAPPDATA%\Programs
+; and the uninstall key lives in HKCU.
 PrivilegesRequired=lowest
 DefaultDirName={autopf}\{#AppName}
 ; UsePreviousAppDir and DisableDirPage=auto are the defaults: an update lands where the
-; first install went and does not ask for a folder again.
+; first install went and does not ask for a folder again. The Ready page names the folder
+; all the same, since on an update it is the only page left (ShouldSkipPage below).
+AlwaysShowDirOnReadyPage=yes
 DisableProgramGroupPage=yes
 ShowLanguageDialog=no
 
 ; Windows 10 and newer. The bundled Python 3.12 would still start on 8.1, but Microsoft
 ; supports nothing older than 10 and nothing older is ever tested.
 MinVersion=10.0
-; The exe is a 64-bit Python build. (Inno 6.3 renamed this to x64compatible, which would
-; also admit ARM64 under emulation; 6.2 only knows x64.)
+; The exe is a 64-bit Python build. Not arm64, and not 6.3's x64compatible (which admits
+; ARM64 running x64 code under emulation): ARM64 is not tested.
 ArchitecturesAllowed=x64
 ArchitecturesInstallIn64BitMode=x64
 
@@ -111,6 +117,8 @@ UninstallWhileRunning=Ultrastar Wingman is running. Close its console window, th
 UninstallWhileUsdxRunning=Ultrastar Deluxe is running. Close it, then click Retry.
 NonAsciiFolder=The folder%n%n%1%n%nhas characters other than plain English letters, digits and punctuation in it, such as a letter beyond A to Z in a Windows user name. Ultrastar Deluxe cannot start songs from a folder like that.%n%nInstall here anyway?
 UsdxKept=This folder holds the Ultrastar Deluxe that an earlier Wingman setup installed. It stays where it is, and Wingman keeps using it.%n%nThis setup updates Wingman alone.
+ReadyToUpdate=Ultrastar Wingman %1 is installed in the folder below. Click Install to replace it with version %2.
+UsdxNowBundled=From now on, Wingman uses the Ultrastar Deluxe that comes with this setup, not the one in its settings.
 
 [Tasks]
 Name: "desktopicon"; Description: "{cm:CreateDesktopIcon}"; GroupDescription: "{cm:AdditionalIcons}"; Flags: unchecked
@@ -120,6 +128,21 @@ Name: "desktopicon"; Description: "{cm:CreateDesktopIcon}"; GroupDescription: "{
 ; leaving the one the previous install made. Only that one: a shortcut of the same name
 ; the host made by hand (to the portable exe, say) is theirs.
 Type: files; Name: "{autodesktop}\{#AppName}.lnk"; Tasks: not desktopicon; Check: PreviousInstallMadeDesktopIcon
+#ifdef BundleUsdx
+; Ultrastar Deluxe loads every *.usdx in plugins and every *.dll in webs, so one that a
+; newer build no longer ships would go on loading. Those two kinds alone: Inno does not
+; roll [InstallDelete] back, and an update that aborts after it must still leave a game
+; that starts, so themes, languages and the DLLs beside the exe stay until overwritten.
+Type: files; Name: "{app}\usdx\plugins\*.usdx"
+Type: files; Name: "{app}\usdx\webs\*.dll"
+#endif
+
+#ifdef BundleUsdx
+[Dirs]
+; Created by the setup, so it is there to copy songs into before Wingman ever ran, and
+; never removed by the uninstaller, even empty: the songs in it are the host's.
+Name: "{app}\usdx\songs"; Flags: uninsneveruninstall
+#endif
 
 [Files]
 Source: "{#ExeDir}\{#AppExeName}"; DestDir: "{app}"; Flags: ignoreversion
@@ -139,6 +162,11 @@ Source: "{#UsdxStage}\*"; DestDir: "{app}\usdx"; Flags: ignoreversion recursesub
 ; of the shortcut too.
 Name: "{autoprograms}\{#AppName}"; Filename: "{app}\{#AppExeName}"; WorkingDir: "{app}"
 Name: "{autodesktop}\{#AppName}"; Filename: "{app}\{#AppExeName}"; WorkingDir: "{app}"; Tasks: desktopicon
+#ifdef BundleUsdx
+; The way to the songs folder, which sits under the hidden %LOCALAPPDATA%. USDX's own
+; installer calls it "Songs" inside its Start menu folder; Wingman has no folder there.
+Name: "{autoprograms}\{#AppName} songs"; Filename: "{app}\usdx\songs"
+#endif
 
 [Run]
 ; Wingman opens the host screen in the browser itself, so this only starts it. Never in a
@@ -188,10 +216,17 @@ const
 
 var
   DesktopIconInstalled: Boolean;
+  // The version an installed Wingman reports, '' on a fresh install.
+  InstalledVersion: String;
 
 function PreviousInstallMadeDesktopIcon(): Boolean;
 begin
   Result := DesktopIconInstalled;
+end;
+
+function IsUpdate(): Boolean;
+begin
+  Result := InstalledVersion <> '';
 end;
 
 function InitializeSetup(): Boolean;
@@ -205,6 +240,7 @@ begin
     DesktopIconInstalled := Pos('desktopicon', Lowercase(Tasks)) > 0;
   if not RegQueryStringValue(HKA, UninstallKey, 'DisplayVersion', Installed) then
     Exit;
+  InstalledVersion := Installed;
   if not (PackedVersion(Installed, InstalledPacked) and PackedVersion('{#AppVersion}', ThisPacked)) then
     Exit;
   if ComparePackedVersion(ThisPacked, InstalledPacked) < 0 then
@@ -214,6 +250,32 @@ begin
     // older setup on purpose from a script meant it.
     Result := SuppressibleMsgBox(FmtMessage(CustomMessage('DowngradeWarning'), [Installed, '{#AppVersion}']),
       mbConfirmation, MB_YESNO or MB_DEFBUTTON2, IDYES) = IDYES;
+  end;
+end;
+
+// An update asks nothing it already knows: the license was accepted when Wingman was
+// installed, and UsePreviousTasks has the desktop icon answer, so the Ready page is all
+// that is left (it is also where the bundled edition's folder check runs). The cost: a
+// wizard update cannot add or take away the desktop icon; /MERGETASKS still can.
+function ShouldSkipPage(PageID: Integer): Boolean;
+begin
+  Result := IsUpdate() and ((PageID = wpLicense) or (PageID = wpSelectTasks));
+  if Result then
+    Log(Format('Update from %s: page %d skipped.', [InstalledVersion, PageID]));
+end;
+
+procedure CurPageChanged(CurPageID: Integer);
+var
+  Grown: Integer;
+begin
+  if (CurPageID = wpReady) and IsUpdate() then
+  begin
+    WizardForm.ReadyLabel.Caption := FmtMessage(CustomMessage('ReadyToUpdate'), [InstalledVersion, '{#AppVersion}']);
+    // A caption that needs more lines than Inno's own pushes the list of settings down.
+    Grown := WizardForm.ReadyLabel.AdjustHeight;
+    WizardForm.ReadyMemo.Top := WizardForm.ReadyMemo.Top + Grown;
+    WizardForm.ReadyMemo.Height := WizardForm.ReadyMemo.Height - Grown;
+    Log(WizardForm.ReadyLabel.Caption);
   end;
 end;
 
@@ -313,7 +375,17 @@ begin
     if FileExists(ExpandConstant('{app}\usdx\ultrastardx.exe')) then
       Log('Ultrastar Deluxe is already in ' + ExpandConstant('{app}\usdx') + ': no question about the folder.')
     else
+    begin
       Result := ConfirmUsdxFolder();
+      // A plain Wingman getting the game for the first time: until now it drove the
+      // Ultrastar Deluxe in its settings, and from now on it drives this one. (No word on
+      // microphones: the new game says so itself when none is set up.)
+      if Result and FileExists(ExpandConstant('{app}\{#AppExeName}')) then
+      begin
+        Log('Wingman is installed without Ultrastar Deluxe: from now on it uses the one this setup brings.');
+        SuppressibleMsgBox(CustomMessage('UsdxNowBundled'), mbInformation, MB_OK, IDOK);
+      end;
+    end;
   end;
 end;
 #else

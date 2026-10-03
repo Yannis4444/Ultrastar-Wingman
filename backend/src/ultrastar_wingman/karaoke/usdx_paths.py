@@ -157,8 +157,10 @@ async def seed_songs_directory(session: AsyncSession) -> Path | None:
     """A bundled Wingman's first start: point `songs.directory` at the bundled Ultrastar
     Deluxe's own songs folder, so a fresh install sings with no settings at all.
 
-    Only while the setting is empty: a folder the host typed later is theirs. Returns the
-    folder when it set one, `None` otherwise.
+    Only while the setting is empty: a folder the host typed later is theirs. And only once
+    the folder is there: a folder that cannot be made is not stored, so the setting stays
+    empty and the next start tries again. Returns the folder when it set one, `None`
+    otherwise.
     """
     bundled = _bundled_dir
     if bundled is None:
@@ -172,9 +174,11 @@ async def seed_songs_directory(session: AsyncSession) -> Path | None:
         # as an empty tree, and a drive that is not there must not be asked for one.
         await anyio.to_thread.run_sync(lambda: songs.mkdir(exist_ok=True))
     except OSError as error:
-        # Still the right folder: the status names it as missing, which says more than an
-        # empty setting would, and Wingman must start either way.
+        # Stored anyway, the setting would never be seeded again once the drive is back or
+        # the directory fixed. Wingman starts either way; the status says the setting is
+        # empty.
         logger.warning("cannot create the songs folder %s: %s", songs, error)
+        return None
     await settings.set(SONGS_DIRECTORY, str(songs))
     logger.info("songs directory set to the bundled Ultrastar Deluxe's: %s", songs)
     return songs

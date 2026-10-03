@@ -1,7 +1,7 @@
 # Ultrastar Deluxe problems
 
 Wingman starts every song in Ultrastar Deluxe and reads the scores back out of
-it. When that goes wrong, it is almost always one of the five below. Setting it
+it. When that goes wrong, it is almost always one of the six below. Setting it
 up in the first place is
 [Connect Ultrastar Deluxe](../start/ultrastar-deluxe.md).
 
@@ -50,6 +50,16 @@ Three things get in the way.
   is copied to a plain name automatically. The folders above it are not. Move
   Ultrastar Deluxe if a folder above it has letters beyond A to Z in its name,
   such as ä, é, or ß.
+
+## Ultrastar Deluxe opens its menu and plays nothing
+
+The song starts, and Ultrastar Deluxe comes up in its own menu with no song
+playing. Wingman starts every song with the `-Song` argument, and that
+Ultrastar Deluxe does not know it. Today only
+[the Ultrastar Deluxe build on GitHub](https://github.com/Yannis4444/USDX)
+does. It is on its way into Ultrastar Deluxe itself. Until then, take the setup
+that comes with Ultrastar Deluxe, which brings that build. See
+[Install and run](../start/install.md).
 
 ## Another song is playing, and none is
 

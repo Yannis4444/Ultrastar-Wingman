@@ -358,17 +358,33 @@ async def test_nothing_is_seeded_without_a_bundle(session: AsyncSession) -> None
 async def test_the_seed_conjures_no_missing_usdx_folder(
     session: AsyncSession, tmp_path: Path
 ) -> None:
-    """A mistyped `--usdx-dir` (or a drive that is not plugged in): Wingman still starts and
-    still names the folder, which the status then reports as missing, but it creates no
-    empty tree where the host never meant one."""
+    """A mistyped `--usdx-dir` (or a drive that is not plugged in): Wingman still starts, but
+    it creates no empty tree where the host never meant one, and stores no folder that is
+    not there."""
     usdx = tmp_path / "typo" / "usdx"
     usdx_paths.configure(usdx)
 
     seeded = await usdx_paths.seed_songs_directory(session)
 
-    assert seeded == usdx / "songs"
-    assert await SettingsService(session).get("songs.directory") == str(usdx / "songs")
+    assert seeded is None
+    assert await SettingsService(session).get("songs.directory") == ""
     assert not (tmp_path / "typo").exists()
+
+
+async def test_the_seed_tries_again_on_the_next_start(
+    session: AsyncSession, tmp_path: Path
+) -> None:
+    """The drive was not plugged in at the first start; at the next one it is."""
+    usdx = tmp_path / "drive" / "usdx"
+    usdx_paths.configure(usdx)
+    assert await usdx_paths.seed_songs_directory(session) is None
+
+    make_usdx(usdx)
+    seeded = await usdx_paths.seed_songs_directory(session)
+
+    assert seeded == usdx / "songs"
+    assert (usdx / "songs").is_dir()
+    assert await SettingsService(session).get("songs.directory") == str(usdx / "songs")
 
 
 async def test_without_a_bundle_the_usdx_group_is_one_path_and_five_overrides(

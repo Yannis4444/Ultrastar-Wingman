@@ -13,6 +13,13 @@ Two settings are all it needs before the first song.
 
 ## Point Wingman at the installation
 
+!!! warning
+    Wingman starts a song with the `-Song` argument, which today only
+    [the Ultrastar Deluxe build on GitHub](https://github.com/Yannis4444/USDX)
+    knows. It is on its way into Ultrastar Deluxe itself. A stock Ultrastar
+    Deluxe opens its menu and plays nothing, so take the setup that comes with
+    Ultrastar Deluxe instead.
+
 1. Open **User** > **Settings**. Changing a setting is an administrator's
    right, and the host browser holds it too.
 2. In the **USDX** group, type the Ultrastar Deluxe installation folder into

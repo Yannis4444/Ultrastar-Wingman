@@ -84,11 +84,20 @@ The decisions inside it, each commented where it is made:
   the installer uses it, so whichever one is run updates the same installation. (The old
   project's AppId belongs to that app and is not reused.)
 - **Per user** (`PrivilegesRequired=lowest`, no override): installs to
-  `%LOCALAPPDATA%\Programs\Ultrastar Wingman`, uninstall key under HKCU. The edition
-  with Ultrastar Deluxe needs a user-writable install folder: the game writes its
-  `config.ini`, `Ultrastar.db` and songs next to its exe.
+  `%LOCALAPPDATA%\Programs\Ultrastar Wingman`, uninstall key under HKCU. Ultrastar
+  Deluxe writes its `config.ini`, `Ultrastar.db` and songs next to its exe, so in
+  Program Files the edition with it would need a users-modify grant on the folder
+  holding `ultrastardx.exe` and its DLLs, which Inno's documentation of `[Dirs]`
+  `Permissions` warns against (USDX's own NSIS installer makes that grant, as a
+  stopgap). Every update would also bring a UAC prompt for an unsigned setup, and
+  Wingman's own data is per user anyway.
 - **Update in place**: `UsePreviousAppDir` and `DisableDirPage=auto` are Inno's defaults,
-  so an update reuses the folder and does not ask for one.
+  so an update reuses the folder and does not ask for one. An update (an uninstall key
+  with a `DisplayVersion`, `IsUpdate()`) also skips the License and Select Tasks pages in
+  `ShouldSkipPage`, leaving the Ready page alone: `AlwaysShowDirOnReadyPage=yes` names
+  the folder there, and its label reads "Ultrastar Wingman <installed> is installed …
+  replace it with version <new>" (`ReadyToUpdate`). The cost: a wizard update cannot add
+  or take away the desktop icon; `/MERGETASKS` still can ([below](#silent-installs)).
 - **`CloseApplications=force`**, measured, not assumed: Restart Manager cannot close a
   console program gracefully, so `yes` ended Wingman after about six seconds anyway,
   reported failure and aborted a silent update with the old exe in place. `force` ends it
@@ -139,12 +148,19 @@ that file, or a `license.txt` inside `-UsdxDir` (where an installed USDX keeps i
 stages it as `usdx\LICENSE.txt` beside the `LICENSE.<library>.txt` files. Neither found
 fails the build.
 
+**`usdx\SOURCE.txt`** ships beside it, because GPLv2 §3 asks whoever passes the game's
+binaries on to make its corresponding source available, and the copy itself should say
+where. The script writes the fork's URL, `git -C <UsdxDir> rev-parse HEAD` when
+`-UsdxDir` sits inside a git checkout (otherwise a warning and no commit line; a checkout
+with uncommitted changes to tracked files warns too) and the first line of
+`<UsdxDir>\..\VERSION` when that file exists.
+
 **The stage** is `installer\build\usdx`, wiped and refilled on every run, so a file an
 earlier USDX build had never ships by accident. `ISCC` gets it as `/DUsdxStage` and the
 `.iss` takes it whole (`recursesubdirs`, `ignoreversion`).
 
-What the edition does on top of the plain one (the folder warning is under
-`#ifdef BundleUsdx`; the rest follows from the files it carries):
+What the edition does on top of the plain one (everything `#ifdef BundleUsdx` in the
+`.iss`, and what follows from the files it carries):
 
 - **Not-ASCII warning.** A folder with a character beyond ASCII in its path makes USDX
   unable to start songs, and a per-user install lands under the Windows user name. The
@@ -152,9 +168,22 @@ What the edition does on top of the plain one (the folder warning is under
   and only while `{app}\usdx\ultrastardx.exe` is not there yet, so a folder the host
   accepted once is not asked about on every update. A silent install logs the line and
   goes on.
+- **The songs folder.** `[Dirs]` creates `{app}\usdx\songs` with `uninsneveruninstall`,
+  so it is there before Wingman ever ran and the uninstaller never removes it, even
+  empty. A Start menu entry **Ultrastar Wingman songs** opens it, since
+  `%LOCALAPPDATA%` is hidden (USDX's own installer names its entry "Songs", inside a
+  Start menu folder Wingman does not have).
 - **Update** replaces the game's files. `config.ini`, `Ultrastar.db`, `songs\` and the rest
   of what USDX and Wingman write are no installed files, so they stay. A running
   `ultrastardx.exe` out of `{app}\usdx` is closed by `CloseApplications=force` like Wingman.
+  First `[InstallDelete]` removes `usdx\plugins\*.usdx` and `usdx\webs\*.dll`: USDX loads
+  every file of those kinds in those folders (`ULuaCore.pas`, `UDLLManager.pas`), so one a
+  newer build dropped would go on loading. The fork's build ships no web DLL today, but
+  the folder loads whatever lands in it. A host's own plugin in either folder is lost on
+  update, as with USDX's own installer (which wipes both folders whole). Nothing else is
+  deleted ahead: Inno does not roll `[InstallDelete]` back, and an update that aborts
+  must leave a game that starts, so themes, languages and the DLLs beside the exe stay
+  until they are overwritten.
 - **Uninstall** removes the installed files and leaves the rest of `usdx\` behind. Like a
   running Wingman, a running `{app}\usdx\ultrastardx.exe` makes it refuse (the same WMI
   query, in both editions, since the plain one inherits the uninstall log).
@@ -162,7 +191,11 @@ What the edition does on top of the plain one (the folder warning is under
 The plain edition run over a bundled install leaves `{app}\usdx` alone and says so in an
 informational box (logged and skipped when silent); the frozen exe keeps finding it, and
 Inno's uninstall log, appended to for the same AppId, still lists the game's files. The
-bundled edition over a plain install simply adds `usdx\`.
+bundled edition over a plain install adds `usdx\`, and on the Ready page, when
+`{app}\UltrastarWingman.exe` is there and `{app}\usdx\ultrastardx.exe` is not, says in an
+informational box (`UsdxNowBundled`, logged, skipped when silent) that Wingman now uses
+the game it brings instead of the one in its settings. It says nothing about microphones:
+the game itself does when none is set up, which the user ruled is enough.
 
 ## Art
 
@@ -194,7 +227,8 @@ install at a time and uninstall it before the next. Never start the `ultrastardx
 scratch install of the edition with Ultrastar Deluxe; `GET /api/v1/karaoke/status` saying
 `"bundled": true` is the check that Wingman found it. Afterwards, check that the key
 `HKCU\Software\Microsoft\Windows\CurrentVersion\Uninstall\{66ABF566-D476-4D71-97CE-158493516D4E}_is1`
-and the Start menu shortcut are gone.
+and the Start menu shortcuts are gone (the edition with Ultrastar Deluxe makes two), and
+that `usdx\songs` is still there.
 
 ## Silent installs
 
@@ -204,7 +238,7 @@ What a scripted install or uninstall does, measured on Inno Setup 6.2.0:
 |---|---|
 | `/VERYSILENT` or `/SILENT`, with `/SUPPRESSMSGBOXES /NORESTART` | No wizard; every question takes its scripted default. The `[Run]` launch entry is `skipifsilent`, so Wingman is never started afterwards |
 | `/DIR="<folder>"` | Another install folder. Leave it out on an update: the setup then reuses the installed one |
-| `/MERGETASKS="desktopicon"` / `/MERGETASKS="!desktopicon"` | Add or take away the desktop icon; taking it away removes the one a previous install made |
+| `/MERGETASKS="desktopicon"` / `/MERGETASKS="!desktopicon"` | Add or take away the desktop icon; taking it away removes the one a previous install made. On an update this is the only way to change it: the wizard skips the Select Tasks page then |
 | `/LOG="<file>"`, `/LOGCLOSEAPPLICATIONS` | A log, and Restart Manager's part in it |
 | `/NOCLOSEAPPLICATIONS` | Leaves a running Wingman alone: the locked exe cannot be replaced and the setup rolls back (exit code 5) |
 | (default, a Wingman running from `{app}`) | Restart Manager ends it after about six seconds without a graceful shutdown, and the update completes (exit code 0) |
@@ -219,4 +253,5 @@ What a scripted install or uninstall does, measured on Inno Setup 6.2.0:
 3. Publish the three files from the output directory on the GitHub release:
    `UltrastarWingman-<version>-setup.exe`, `UltrastarWingman-<version>-with-usdx-setup.exe`
    and `UltrastarWingman.exe`. Say in the release notes which USDX commit the bundled
-   edition carries, since the GPL asks for its source to be reachable.
+   edition carries (the one in `usdx\SOURCE.txt`), since the GPL asks for its source to
+   be reachable.
