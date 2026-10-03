@@ -218,7 +218,7 @@ async def start_sing(
 
         try:
             await launcher.start(
-                Path(song.directory),
+                Path(song.txt_file),
                 [
                     LaunchSlot(
                         color=slot.color,

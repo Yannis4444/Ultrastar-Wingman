@@ -59,10 +59,10 @@ with (here / "pids.txt").open("a", encoding="utf-8") as file:
 
 # Started for its own settings, USDX gets no arguments at all — there is no song
 # directory to list then.
-if "-SongPath" in sys.argv:
-    song_path = pathlib.Path(sys.argv[sys.argv.index("-SongPath") + 1])
+if "-Song" in sys.argv:
+    song_txt = pathlib.Path(sys.argv[sys.argv.index("-Song") + 1])
     (here / "song_dir.json").write_text(
-        json.dumps(sorted(entry.name for entry in song_path.iterdir())), encoding="utf-8"
+        json.dumps(sorted(entry.name for entry in song_txt.parent.iterdir())), encoding="utf-8"
     )
 
 if spec["scores"]:
@@ -472,7 +472,7 @@ async def test_consecutive_sings_share_a_session_until_the_party_goes_quiet(
     assert len(list(await session.scalars(select(KaraokeSession)))) == 2
 
 
-async def test_the_song_directory_is_passed_to_usdx(
+async def test_the_song_file_is_passed_to_usdx(
     client: AsyncClient, session: AsyncSession, configured: FakeUsdx, song: str
 ) -> None:
     player = await add_player(client, "Yannis")
@@ -482,7 +482,7 @@ async def test_the_song_directory_is_passed_to_usdx(
     await sing(client, song, [{"color": "blue", "player_id": player["id"]}])
     await service.wait_for_sing_end()
 
-    assert configured.argv == ["-SongPath", song_row.directory, "-SingleSong"]
+    assert configured.argv == ["-Song", song_row.txt_file]
     assert configured.song_dir_contents == ["song.txt"]
 
 
@@ -642,8 +642,9 @@ async def test_a_second_song_needs_force(
 async def test_a_song_outside_the_songs_directory_is_copied(
     client: AsyncClient, session: AsyncSession, configured: FakeUsdx, tmp_path: Path
 ) -> None:
-    """-SongPath outside USDX's own songs dir only *adds* a path: USDX loads its whole
-    library next to the song and opens on the first song of the list."""
+    """A song outside USDX's own songs dir is launched from a copy inside it: under
+    `-SongPath` a path anywhere else only *added* to the library, and USDX opened on the
+    first song of the whole list. The rule is kept under `-Song` (see `usdx.py`)."""
     outside = make_song_dir(tmp_path / "elsewhere", "Artist - Title")
     song = await add_song(session, outside)
     player = await add_player(client, "Yannis")
@@ -652,7 +653,7 @@ async def test_a_song_outside_the_songs_directory_is_copied(
     await sing(client, song, [{"color": "blue", "player_id": player["id"]}])
     await service.wait_for_sing_end()
 
-    assert configured.argv == ["-SongPath", str(copy_dir), "-SingleSong"]
+    assert configured.argv == ["-Song", str(copy_dir / "song.txt")]
     # The copy really was there while USDX ran, and is gone afterwards.
     assert configured.song_dir_contents == ["song.txt"]
     assert not copy_dir.exists()
@@ -676,7 +677,7 @@ async def test_a_song_from_a_library_of_its_own_is_copied_into_the_usdx_songs_di
     await sing(client, song, [{"color": "blue", "player_id": player["id"]}])
     await service.wait_for_sing_end()
 
-    assert configured.argv == ["-SongPath", str(copy_dir), "-SingleSong"]
+    assert configured.argv == ["-Song", str(copy_dir / "song.txt")]
     assert configured.song_dir_contents == ["song.txt"]
     assert not copy_dir.exists()
 
@@ -698,7 +699,7 @@ async def test_the_usdx_songs_dir_override_is_where_the_song_is_launched_from(
     await service.wait_for_sing_end()
 
     # Under the base path but not under the configured songs dir, so it is copied there.
-    assert configured.argv == ["-SongPath", str(copy_dir), "-SingleSong"]
+    assert configured.argv == ["-Song", str(copy_dir / "song.txt")]
     assert configured.song_dir_contents == ["song.txt"]
     assert not copy_dir.exists()
 
@@ -715,7 +716,7 @@ async def test_a_song_with_special_characters_in_its_name_is_copied(
     await sing(client, song, [{"color": "blue", "player_id": player["id"]}])
     await service.wait_for_sing_end()
 
-    assert configured.argv == ["-SongPath", str(copy_dir), "-SingleSong"]
+    assert configured.argv == ["-Song", str(copy_dir / "song.txt")]
     assert not copy_dir.exists()
 
 
@@ -1061,7 +1062,7 @@ async def test_a_sing_replaces_the_usdx_the_settings_opened(
     await sing(client, song, [{"color": "blue", "player_id": player["id"]}], force=True)
     await service.wait_for_sing_end()
 
-    assert "-SongPath" in configured.argv
+    assert "-Song" in configured.argv
     # The settings USDX is gone, so the button offers to start one again.
     assert not service.usdx_is_open()
 

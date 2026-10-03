@@ -2,21 +2,31 @@
 
 Load-bearing workarounds — do not "clean up":
 
-- `-SongPath <dir> -SingleSong`, one process per song, killed to stop.
+- `-Song <path to the song's .txt>`, one process per song, killed to stop. `-Song`
+  is a parameter of the USDX build Wingman is run against, not of USDX `master`
+  (which knows `-SongPath <dir>`, a directory *added* to the library — see below
+  for what that cost). The build is handed the one file the scanner recorded as
+  the song, so a directory holding several `.txt` files starts the same one the
+  library lists.
 - `CREATE_NO_WINDOW` on Windows: without it the process never reports its exit,
   so score import would never run.
-- **The directory `-SongPath` points at has to live inside USDX's own songs
-  directory** (`UsdxPaths.songs_dir`, derived from `usdx.base_path` — *not*
-  Wingman's `songs.directory`, which may be a library USDX knows nothing about).
-  A song that does not, is copied into it first.
-- A song whose directory name is not plain ASCII is copied too, under an ASCII
-  name. That USDX cannot be pointed at such a directory is observed (the old app
-  worked around it the same way); the likely reason is that USDX reads its
-  parameters through Pascal's `ParamStr`, so a non-ASCII path arrives mangled and
-  it finds no song there at all.
+- **The song has to live inside USDX's own songs directory** (`UsdxPaths.songs_dir`,
+  derived from `usdx.base_path` — *not* Wingman's `songs.directory`, which may be
+  a library USDX knows nothing about). A song that does not, is copied into it
+  first.
+- A song whose directory name — or, now that it is on the command line too, whose
+  `.txt` name — is not plain ASCII is copied too, under ASCII names. That USDX
+  cannot be pointed at such a path is observed (the old app worked around it the
+  same way); the likely reason is that USDX reads its parameters through Pascal's
+  `ParamStr`, so a non-ASCII path arrives mangled and it finds no song there at
+  all.
 
-Why the first one is not superstition, from USDX's own source, `master` branch
-(`UPathUtils.pas`, `UCommandLine.pas`, `UPlatformWindows.pas` — read, not run):
+The two copy rules were established for `-SongPath` and are kept unchanged under
+`-Song`: nothing here has shown that the `-Song` build does without them, and a
+copy that turns out to be unnecessary costs a few files, while a missing one
+costs the song. Where they came from, for whoever gets to check the `-Song`
+build — USDX's own source, `master` branch (`UPathUtils.pas`,
+`UCommandLine.pas`, `UPlatformWindows.pas` — read, not run):
 
 - `-SongPath` does not *replace* the library, it *adds* one more song path.
   `InitializePaths` calls, in this order, `AddSongPath(Params.SongPath)`,
@@ -26,7 +36,7 @@ Why the first one is not superstition, from USDX's own source, `master` branch
   already in the list is dropped, and one contained by an entry replaces it. So
   the library directory is suppressed exactly when the launch directory sits
   inside it — and is loaded in full when it does not, which is how starting one
-  song ends up showing the whole library, alphabetically first song selected.
+  song ended up showing the whole library, alphabetically first song selected.
 - On Windows `SharedPath` is always the directory `ultrastardx.exe` sits in.
   `UserPath` is that same directory when `UseLocalDirs` is on, and
   `%APPDATA%/ultrastardx` otherwise — and `DetectLocalExecution` turns
@@ -36,14 +46,11 @@ Why the first one is not superstition, from USDX's own source, `master` branch
   can configure at all, that file is there and writable — which makes
   `UserPath/songs` and `SharedPath/songs` the same `<base path>/songs`, and both
   are dropped again for containing the directory this launcher copied into.
-- `-SingleSong` is not a parameter USDX (master) knows; unrecognised parameters
-  are silently ignored. It is kept because the old app passed it and it costs
-  nothing, not because it does anything verified here.
 
 Residual limitations, all of them the old app's as well:
 
 - A `SongDir<n>` in USDX's `config.ini` pointing at a library *outside* the songs
-  directory is still loaded next to the song. Wingman does not touch
+  directory may still be loaded next to the song. Wingman does not touch
   `[Directories]` — USDX rewrites its own config on every start, so a blanked
   entry would be lost for good.
 - The `UserPath/songs` collapse above needs `usdx.base_path` to be the directory
@@ -51,7 +58,7 @@ Residual limitations, all of them the old app's as well:
   next to it. Overrides that pull those apart put `%APPDATA%/ultrastardx/songs`
   back into the list (USDX creates it if missing, so it is usually empty).
 - A non-ASCII character in `usdx.base_path` itself cannot be worked around:
-  the copy inherits it, and `-SongPath` arrives mangled all the same.
+  the copy inherits it, and the path arrives mangled all the same.
 """
 
 import asyncio
@@ -74,11 +81,15 @@ logger = logging.getLogger(__name__)
 CREATE_NO_WINDOW = 0x08000000
 
 COPY_DIR_NAME = "ULTRASTAR_WINGMAN_SONG_COPY"
+# What the copied `.txt` is called when its own name is the problem. Nothing inside a
+# song refers to the `.txt` (the headers point the other way, at the media), so the file
+# may be renamed freely; the other files keep their names, USDX reads those off the disk.
+COPY_TXT_NAME = f"{COPY_DIR_NAME}.txt"
 
-# USDX chokes on anything else in a song directory name — most likely because it reads
-# the path through Pascal's `ParamStr`, which does not hand a non-ASCII command line over
-# intact.
-_UNSUPPORTED_IN_DIR_NAME = re.compile(r"[^a-zA-Z0-9.,\-_()+ ]")
+# USDX chokes on anything else in a path it is handed on the command line — most likely
+# because it reads the path through Pascal's `ParamStr`, which does not hand a non-ASCII
+# command line over intact. Applied to the song's directory name and its `.txt` name.
+_UNSUPPORTED_IN_NAME = re.compile(r"[^a-zA-Z0-9.,\-_()+ ]")
 
 # What an empty slot is called in USDX, so the colors of the following slots stay put.
 EMPTY_SLOT_NAME = "-"
@@ -100,13 +111,12 @@ class UsdxLauncher:
     def is_running(self) -> bool:
         return self._process is not None and self._process.returncode is None
 
-    async def start(self, song_dir: Path, slots: Sequence[LaunchSlot]) -> Launch:
+    async def start(self, song_txt: Path, slots: Sequence[LaunchSlot]) -> Launch:
         async with self._lock:
             if self.is_running:
                 raise RuntimeError("USDX is already running")
-            await asyncio.to_thread(self._prepare, song_dir, slots)
-            effective_dir = self._copy_dir or song_dir
-            command = [str(self._paths.executable), "-SongPath", str(effective_dir), "-SingleSong"]
+            effective_txt = await asyncio.to_thread(self._prepare, song_txt, slots)
+            command = [str(self._paths.executable), "-Song", str(effective_txt)]
             logger.info("starting USDX: %s", command)
             try:
                 self._process = await asyncio.create_subprocess_exec(
@@ -118,7 +128,7 @@ class UsdxLauncher:
                 await self._remove_copy()
                 raise
             self._monitor = asyncio.create_task(self._wait_for_exit(self._process))
-            return Launch(pid=self._process.pid, song_dir=effective_dir)
+            return Launch(pid=self._process.pid, song_txt=effective_txt)
 
     async def start_standalone(self) -> Launch:
         """USDX with no arguments at all: the host wants its own menus (microphones live
@@ -134,7 +144,7 @@ class UsdxLauncher:
                 creationflags=CREATE_NO_WINDOW if sys.platform == "win32" else 0,
             )
             self._monitor = asyncio.create_task(self._wait_for_exit(self._process))
-            return Launch(pid=self._process.pid, song_dir=None)
+            return Launch(pid=self._process.pid, song_txt=None)
 
     async def stop(self) -> None:
         async with self._lock:
@@ -142,14 +152,18 @@ class UsdxLauncher:
                 self._process.kill()
                 logger.info("killed USDX")
 
-    def _prepare(self, song_dir: Path, slots: Sequence[LaunchSlot]) -> None:
-        """Blocking: config rewrite plus, if needed, the song copy."""
+    def _prepare(self, song_txt: Path, slots: Sequence[LaunchSlot]) -> Path:
+        """Blocking: config rewrite plus, if needed, the song copy. Answers the `.txt` USDX
+        is started on — the song's own, or the one inside the copy."""
         write_player_config(
             self._paths.config_file, self._paths.avatars_dir, _configured_players(slots)
         )
         self._copy_dir = None
-        if _needs_copy(song_dir, self._paths.songs_dir):
-            self._copy_dir = _copy_into_songs_dir(song_dir, self._paths.songs_dir)
+        if not _needs_copy(song_txt, self._paths.songs_dir):
+            return song_txt
+        copied = _copy_into_songs_dir(song_txt, self._paths.songs_dir)
+        self._copy_dir = copied.parent
+        return copied
 
     async def _wait_for_exit(self, process: asyncio.subprocess.Process) -> None:
         await process.wait()
@@ -208,26 +222,37 @@ def _playable(slots: Sequence[LaunchSlot]) -> list[LaunchSlot]:
     return used
 
 
-def _needs_copy(song_dir: Path, usdx_songs_dir: Path) -> bool:
-    """Whether USDX can be pointed at `song_dir` as it is.
+def _needs_copy(song_txt: Path, usdx_songs_dir: Path) -> bool:
+    """Whether USDX can be pointed at `song_txt` as it is.
 
-    It can only when the name is one USDX survives on a command line *and* it sits inside
-    USDX's own songs directory — anywhere else, USDX loads the whole library alongside it
-    (see the module docstring).
+    It can only when the directory name and the file name are ones USDX survives on a
+    command line *and* the song sits inside USDX's own songs directory — anywhere else,
+    USDX loaded the whole library alongside it under `-SongPath` (see the module
+    docstring).
 
-    Only the directory's own name is looked at: what a copy replaces is that name, the rest
-    of the path is USDX's songs directory and stays whatever the host configured.
+    Only the directory's own name and the file's are looked at: those are what a copy
+    replaces, the rest of the path is USDX's songs directory and stays whatever the host
+    configured.
     """
-    if _UNSUPPORTED_IN_DIR_NAME.search(song_dir.name):
+    song_dir = song_txt.parent
+    if _UNSUPPORTED_IN_NAME.search(song_dir.name) or _UNSUPPORTED_IN_NAME.search(song_txt.name):
         return True
     return not song_dir.resolve().is_relative_to(usdx_songs_dir.resolve())
 
 
-def _copy_into_songs_dir(song_dir: Path, usdx_songs_dir: Path) -> Path:
-    """Blocking. The copy always lands in the same directory, so a leftover from a crash
-    is overwritten rather than accumulating."""
+def _copy_into_songs_dir(song_txt: Path, usdx_songs_dir: Path) -> Path:
+    """Blocking. Copies the song's whole directory and answers the `.txt` inside the copy.
+
+    The copy always lands in the same directory, so a leftover from a crash is overwritten
+    rather than accumulating. The `.txt` keeps its name unless that name is what USDX
+    cannot take, in which case it is `COPY_TXT_NAME` inside the copy.
+    """
+    song_dir = song_txt.parent
     destination = usdx_songs_dir / COPY_DIR_NAME
     shutil.rmtree(destination, ignore_errors=True)
     shutil.copytree(song_dir, destination)
+    copied_txt = destination / song_txt.name
+    if _UNSUPPORTED_IN_NAME.search(song_txt.name):
+        copied_txt = copied_txt.rename(destination / COPY_TXT_NAME)
     logger.info("copied %s to %s for USDX", song_dir, destination)
-    return destination
+    return copied_txt

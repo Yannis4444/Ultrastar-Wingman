@@ -27,12 +27,12 @@ class LaunchSlot:
 
 @dataclass(frozen=True)
 class Launch:
-    """A started process. `song_dir` is the directory the launcher actually handed to the
+    """A started process. `song_txt` is the song file the launcher actually handed to the
     application — not necessarily the song's own, see the copy workaround in `usdx` — and
     `None` when it was started on no song at all (`start_standalone`)."""
 
     pid: int | None
-    song_dir: Path | None
+    song_txt: Path | None
 
 
 class KaraokeLauncher(Protocol):
@@ -41,8 +41,10 @@ class KaraokeLauncher(Protocol):
     @property
     def is_running(self) -> bool: ...
 
-    async def start(self, song_dir: Path, slots: Sequence[LaunchSlot]) -> Launch:
-        """Configure the application for `slots` and start it on `song_dir`."""
+    async def start(self, song_txt: Path, slots: Sequence[LaunchSlot]) -> Launch:
+        """Configure the application for `slots` and start it on the song whose `.txt` is
+        `song_txt`. The caller names the file: a directory may hold more than one, and
+        which of them is the song is the scanner's rule, not the launcher's."""
         ...
 
     async def start_standalone(self) -> Launch:
