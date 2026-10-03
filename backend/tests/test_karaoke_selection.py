@@ -1124,11 +1124,11 @@ class BlockingLauncher:
     def is_running(self) -> bool:
         return self._running
 
-    async def start(self, song_dir: Path, slots: Any) -> Any:
+    async def start(self, song_txt: Path, slots: Any) -> Any:
         self.started.set()
         await self.release.wait()
         self._running = True
-        return Launch(pid=1, song_dir=song_dir)
+        return Launch(pid=1, song_txt=song_txt)
 
     async def start_standalone(self) -> Any:
         raise NotImplementedError

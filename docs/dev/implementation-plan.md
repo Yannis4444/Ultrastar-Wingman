@@ -49,10 +49,13 @@ session. No header-based trust anywhere.
 
 ### Known-load-bearing USDX workarounds (keep, don't "clean up")
 
-- `-SongPath <dir> -SingleSong` per song, one process per song, kill to stop.
-- Songs outside the USDX songs dir (or with unsanitized dir names) must be
-  copied into it before launch — `-SongPath` otherwise still loads the
-  default dir.
+- `-Song <path to the song's .txt>` per song (the parameter of the USDX build
+  Wingman runs against; `master` only knows `-SongPath <dir>`), one process
+  per song, kill to stop.
+- Songs outside the USDX songs dir (or with unsanitized directory or `.txt`
+  names) are copied into it before launch — a rule established under
+  `-SongPath`, which otherwise still loaded the default dir, and kept under
+  `-Song` until that build is shown not to need it.
 - `CREATE_NO_WINDOW` creationflag on Windows — process exit detection breaks
   without it.
 - Player names/colors/avatars are set by rewriting USDX's `config.ini` before
@@ -203,7 +206,8 @@ feature, release workflow.
 
 - UI batch 3 (2026-08-26): USDX is now launched from inside its **own** songs
   directory (new `usdx.songs_dir`, derived from `usdx.base_path`) — pointing
-  `-SongPath` anywhere else made USDX load the whole library next to the song
+  `-SongPath` (then the argument) anywhere else made USDX load the whole
+  library next to the song
   (reasoning from USDX's sources is in `karaoke/usdx.py`'s docstring); the QR
   code's address is overridable with `host.join_url` (validated, normalised,
   new settings group "Host") and `GET /join` answers with it; new

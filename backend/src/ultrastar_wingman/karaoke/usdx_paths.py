@@ -6,8 +6,8 @@ an override for people whose portable install is spread over several folders.
 `songs_dir` is USDX's *own* songs directory, not Wingman's `songs.directory`.
 The two are the same in the common setup and were the same thing in the old app,
 but Wingman happily scans libraries USDX knows nothing about — and the launcher
-has to copy into the directory USDX itself loads from, or `-SongPath` does not
-suppress the library (see `usdx.py`).
+copies into the directory USDX itself loads from, because a song started from
+anywhere else once brought the whole library up with it (see `usdx.py`).
 """
 
 import logging

@@ -108,9 +108,10 @@ def _run(base: Path, work: Path) -> int:
 
 
 def _song_directory(argv: list[str]) -> str | None:
-    """What ``-SongPath`` pointed at. Absent when Wingman opened USDX for its own menus."""
-    if "-SongPath" in argv:
-        return argv[argv.index("-SongPath") + 1]
+    """The directory of the ``.txt`` that ``-Song`` named. Absent when Wingman opened USDX
+    for its own menus."""
+    if "-Song" in argv:
+        return str(Path(argv[argv.index("-Song") + 1]).parent)
     return None
 
 
