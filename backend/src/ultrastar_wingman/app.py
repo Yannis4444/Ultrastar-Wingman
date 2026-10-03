@@ -21,6 +21,7 @@ from .devices import service as devices
 from .downloads import service as downloads
 from .frontend import mount_frontend, resolve_frontend_dir
 from .karaoke import service as karaoke
+from .karaoke import usdx_paths
 from .music import service as music
 from .songs import scanner
 from .sources import usdb
@@ -42,6 +43,13 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
     # same process (tests, an embedded restart) must not survive into this one.
     permissions.invalidate_cache()
     _announce_host_url(app, settings)
+    # Always, `None` included: an app must not inherit the mode of the one before it.
+    usdx_paths.configure(settings.usdx_dir)
+    if settings.usdx_dir is not None:
+        logger.info("bundled Ultrastar Deluxe: %s", settings.usdx_dir)
+        # Before the scan below, which would otherwise look at an empty setting.
+        async with app.state.session_factory() as session:
+            await usdx_paths.seed_songs_directory(session)
     # Pick up library changes made while Wingman was down, without delaying startup.
     scanner.start_scan(app.state.session_factory)
     # Before the queue: a re-queued USDB download starts running the moment it is enqueued.
@@ -72,6 +80,7 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
         # dead connection pool, and nobody is waiting for its answer.
         await achievements.stop_passes()
         await karaoke.shutdown()
+        usdx_paths.configure(None)
         await engine.dispose()
 
 

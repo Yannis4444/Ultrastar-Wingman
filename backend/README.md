@@ -24,9 +24,9 @@ versioned with the rest of the API). The SQLite database is created at
 
 ### Bootstrap configuration
 
-Only paths and the bind address are configured outside the database — via
-environment variables (prefix `WINGMAN_`) or a `.env` file in the working
-directory:
+Only paths, the bind address and the open-browser switch are configured
+outside the database — via environment variables (prefix `WINGMAN_`) or a
+`.env` file in the working directory:
 
 | Variable | Default |
 |---|---|
@@ -34,6 +34,8 @@ directory:
 | `WINGMAN_HOST` | `0.0.0.0` |
 | `WINGMAN_PORT` | `8080` |
 | `WINGMAN_FRONTEND_DIR` | the PyInstaller bundle when frozen, else `frontend/dist` |
+| `WINGMAN_OPEN_BROWSER` | `true` (open the host page at startup) |
+| `WINGMAN_USDX_DIR` | frozen: the `usdx` folder beside the exe when it holds `ultrastardx.exe`; from source: none. Set, every USDX path is derived from it and the `usdx.*` settings are withheld; empty switches a frozen build's own copy off. `--usdx-dir <dir>` on the command line overrides it |
 
 Everything else is a runtime setting: definitions live in
 `src/ultrastar_wingman/settings.py`, values in the `settings` table, exposed via

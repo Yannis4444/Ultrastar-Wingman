@@ -6,6 +6,7 @@ from PyInstaller.utils.hooks import collect_submodules, copy_metadata
 
 ROOT = Path(SPECPATH).parent  # noqa: F821  (SPECPATH is injected by PyInstaller)
 PACKAGE = ROOT / "backend" / "src" / "ultrastar_wingman"
+VERSION_INFO = Path(SPECPATH) / "build" / "version_info.txt"  # noqa: F821
 
 datas = [
     # Alembic loads migration scripts from the filesystem, so they ship as data next to the
@@ -53,6 +54,9 @@ exe = EXE(  # noqa: F821
     # Generated from frontend\public\logo.png by installer\make_icon.py; rerun that
     # when the logo changes.
     icon=str(Path(SPECPATH) / "UltrastarWingman.ico"),  # noqa: F821
+    # The Windows version resource, written by installer\build.ps1 from the pyproject
+    # version on every build. A build without it still works, just without the details tab.
+    version=str(VERSION_INFO) if VERSION_INFO.exists() else None,
     # One file: users download one exe. Console: the log lines (data dir, host URL with the
     # one-time token) are the only interface when the browser did not open.
     console=True,

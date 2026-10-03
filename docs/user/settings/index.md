@@ -6,7 +6,8 @@ icon: wingman/gear
 
 **User** > **Settings** holds everything Wingman is configured with. Two fields
 are all it really needs before the first song: the Ultrastar Deluxe base path
-and the songs directory. The rest has sensible defaults. See
+and the songs directory. A Wingman that comes with its own Ultrastar Deluxe
+asks for neither. The rest has sensible defaults. See
 [Connect Ultrastar Deluxe](../start/ultrastar-deluxe.md).
 
 Changing a setting takes the right to manage settings, which Admin holds by
@@ -18,9 +19,9 @@ in one line: *You can see the settings but not change them.*
 ## How the page is laid out
 
 The settings stand in groups, each one behind its own icon and heading:
-**Karaoke**, **Host**, **Songs**, **USDX**, **USDB**, **Downloads**, and
-**Auth**. Every group is open when the page opens. Click a heading to fold one
-away.
+**Karaoke**, **Host**, **Sound**, **Songs**, **USDX**, **USDB**,
+**Downloads**, and **Auth**. Every group is open when the page opens. Click a
+heading to fold one away.
 
 A group that carries settings a normal setup never touches ends in an
 **Advanced** line. Those are overrides of things Wingman works out on its own.

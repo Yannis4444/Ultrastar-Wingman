@@ -111,6 +111,5 @@ to ask the host instead.
 ## Ultrastar Deluxe is not set up
 
 If Wingman cannot start Ultrastar Deluxe, the dialog **Ultrastar Deluxe is not
-set up** says what is missing. The host fixes it in the **USDX** and **Songs**
-groups of the settings. See
+set up** says what is missing. The host fixes it in the settings. See
 [Ultrastar Deluxe problems](../help/ultrastar-deluxe.md).

@@ -84,12 +84,23 @@ export function usdxProblems(error: unknown): string[] | null {
 }
 
 /**
+ * What a Wingman that brings its own Ultrastar Deluxe says where the USDX paths
+ * would be asked for: the settings page's USDX group and the setup dialog. Each
+ * adds what it needs after it; the phrase "comes with this installation" is the
+ * one every surface uses for the fact.
+ */
+export const BUNDLED_USDX_NOTE =
+  "Ultrastar Deluxe comes with this installation, so there are no paths to set for it.";
+
+/**
  * Every problem `resolve_usdx_paths` (backend `karaoke/usdx_paths.py`) can
  * report, in words a host understands. The backend strings name settings keys
  * and paths, which is exactly what a report should say and exactly what a
  * dialog should not.
  */
 const USDX_EXPLANATIONS: [RegExp, string][] = [
+  // Never from a Wingman that brings its own Ultrastar Deluxe, which works
+  // every path out of its usdx folder: naming the base path is right here.
   [
     /^'usdx\.executable' is not set/,
     "Wingman does not know where Ultrastar Deluxe is installed. Fill in the USDX base path, the folder that contains ultrastardx.exe.",
@@ -97,6 +108,12 @@ const USDX_EXPLANATIONS: [RegExp, string][] = [
   [
     /^'usdx\.executable' is not a file/,
     "There is no Ultrastar Deluxe program at that path. Either the base path points somewhere else, or the program has another name.",
+  ],
+  // Only from a Wingman that brings its own Ultrastar Deluxe: no setting names
+  // that path, so the sentence must not send the host looking for one.
+  [
+    /^the bundled Ultrastar Deluxe is missing/,
+    "The Ultrastar Deluxe that comes with this installation is missing. Its program was moved or deleted.",
   ],
   [
     /^'usdx\.config_file' is not set/,

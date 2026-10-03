@@ -939,7 +939,12 @@ async def test_the_status_of_a_configured_usdx_is_clean(
     response = await client.get("/api/v1/karaoke/status")
 
     assert response.status_code == 200
-    assert response.json() == {"configured": True, "problems": []}
+    assert response.json() == {
+        "configured": True,
+        "problems": [],
+        "bundled": False,
+        "usdx_dir": None,
+    }
 
 
 async def test_the_status_names_every_problem_for_a_host(client: AsyncClient) -> None:
@@ -958,7 +963,12 @@ async def test_the_status_hides_the_problems_from_a_guest(anonymous_client: Asyn
     response = await anonymous_client.get("/api/v1/karaoke/status")
 
     assert response.status_code == 200
-    assert response.json() == {"configured": False, "problems": []}
+    assert response.json() == {
+        "configured": False,
+        "problems": [],
+        "bundled": False,
+        "usdx_dir": None,
+    }
 
 
 async def test_a_guest_still_learns_that_usdx_works(
@@ -969,7 +979,12 @@ async def test_a_guest_still_learns_that_usdx_works(
     response = await anonymous_client.get("/api/v1/karaoke/status")
 
     assert response.status_code == 200
-    assert response.json() == {"configured": True, "problems": []}
+    assert response.json() == {
+        "configured": True,
+        "problems": [],
+        "bundled": False,
+        "usdx_dir": None,
+    }
 
 
 async def test_a_missing_executable_is_a_clear_error(

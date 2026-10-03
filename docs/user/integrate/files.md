@@ -101,6 +101,7 @@ Everything else it is configured with is a setting inside the app.
 | `WINGMAN_HOST` | The address to listen on | `0.0.0.0`, meaning every address the PC has |
 | `WINGMAN_OPEN_BROWSER` | Open the host screen in a browser at startup | `true` |
 | `WINGMAN_FRONTEND_DIR` | The built web app to serve | The copy inside the exe, or `frontend/dist` when you run from source |
+| `WINGMAN_USDX_DIR` | An Ultrastar Deluxe folder Wingman treats as its own. See [Install and run](../start/install.md#bring-your-own-ultrastar-deluxe-along) | A `usdx` folder next to the exe that holds `ultrastardx.exe`, otherwise none |
 
 A file called `.env` in the folder Wingman is started from does the same, one
 name and value per line:

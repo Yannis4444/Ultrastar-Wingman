@@ -15,6 +15,9 @@ import "./RunUsdxRow.css";
 interface Props {
   /** Holds `settings.view` but not `settings.manage`: nothing to press. */
   readOnly: boolean;
+  /** Ultrastar Deluxe comes with this installation, so there are no paths
+      below this row for a failed start to point at. */
+  bundled?: boolean;
 }
 
 /**
@@ -22,7 +25,7 @@ interface Props {
  * microphone is player one, above all — can only be set inside Ultrastar
  * Deluxe, so the settings offer a way to get there.
  */
-export default function RunUsdxRow({ readOnly }: Props) {
+export default function RunUsdxRow({ readOnly, bundled = false }: Props) {
   const launch = useMutation(launchUsdxMutation());
 
   // "Started"/"Running" acknowledges the press, like the "Saved" of a field —
@@ -37,7 +40,8 @@ export default function RunUsdxRow({ readOnly }: Props) {
   }, [isSuccess, reset]);
 
   // The two refusals worth their own sentence: a song is playing (that USDX is
-  // busy), and USDX is not set up yet (the fields right below this row).
+  // busy), and USDX is not set up yet (the fields right below this row, where
+  // this installation has any).
   const problems = launch.isError ? usdxProblems(launch.error) : null;
   const playing =
     launch.isError && errorDetail(launch.error) === "already_playing";
@@ -85,7 +89,9 @@ export default function RunUsdxRow({ readOnly }: Props) {
             <p className="run-usdx-problem">
               {errorMessage(
                 launch.error,
-                "Could not start Ultrastar Deluxe. Check the paths below.",
+                bundled
+                  ? "Could not start Ultrastar Deluxe."
+                  : "Could not start Ultrastar Deluxe. Check the paths below.",
               )}
             </p>
           )}

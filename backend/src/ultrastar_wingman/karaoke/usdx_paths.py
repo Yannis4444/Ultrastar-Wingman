@@ -8,6 +8,13 @@ The two are the same in the common setup and were the same thing in the old app,
 but Wingman happily scans libraries USDX knows nothing about — and the launcher
 copies into the directory USDX itself loads from, because a song started from
 anywhere else once brought the whole library up with it (see `usdx.py`).
+
+A Wingman that brings its own Ultrastar Deluxe (`config.BootstrapSettings.usdx_dir`, the
+**bundled** mode) derives all five paths from that directory and reads none of the
+`usdx.*` settings: they are not offered then, so a value left over from before must not
+quietly win. The lifespan hands the directory in through `configure`, the way
+`sources.usdb.configure` gets the data directory — the sing flow is reached from a device
+report and a selection as well as from a request, and none of them carries the app.
 """
 
 import logging
@@ -28,6 +35,26 @@ CONFIG_FILE = "usdx.config_file"
 AVATARS_DIR = "usdx.avatars_dir"
 ULTRASTAR_DB = "usdx.ultrastar_db"
 SONGS_DIR = "usdx.songs_dir"
+
+# Every setting the bundled mode takes away. Not derived from the registry's prefix: a
+# `usdx.*` setting added later is not automatically one a bundled build can do without.
+KEYS = (BASE_PATH, EXECUTABLE, CONFIG_FILE, AVATARS_DIR, ULTRASTAR_DB, SONGS_DIR)
+
+# The Ultrastar Deluxe this Wingman brings along, `None` when the host points at their own.
+_bundled_dir: Path | None = None
+
+
+def configure(bundled_dir: Path | None) -> None:
+    """Set by the lifespan on every start, `None` included, so an app never inherits the
+    mode of the one before it in the same process."""
+    global _bundled_dir
+    _bundled_dir = bundled_dir
+
+
+def bundled_dir() -> Path | None:
+    """The directory of the bundled Ultrastar Deluxe, or `None` when there is none."""
+    return _bundled_dir
+
 
 # What each override is called relative to `usdx.base_path` in a standard install.
 _DERIVED = {
@@ -65,34 +92,30 @@ class UsdxPathsError(RuntimeError):
 async def resolve_usdx_paths(session: AsyncSession) -> UsdxPaths:
     """Raises `UsdxPathsError` listing everything that is missing or wrong."""
     settings = SettingsService(session)
-    values = {
-        key: str(await settings.get(key)).strip()
-        for key in (
-            BASE_PATH,
-            EXECUTABLE,
-            CONFIG_FILE,
-            AVATARS_DIR,
-            ULTRASTAR_DB,
-            SONGS_DIR,
-            SONGS_DIRECTORY,
-        )
-    }
-    return await anyio.to_thread.run_sync(_resolve, values)
+    bundled = _bundled_dir
+    # In the bundled mode the `usdx.*` values are not even read: whatever is stored there
+    # is from before, and nobody can see or change it any more.
+    keys = (SONGS_DIRECTORY,) if bundled is not None else (*KEYS, SONGS_DIRECTORY)
+    values = {key: str(await settings.get(key)).strip() for key in keys}
+    return await anyio.to_thread.run_sync(_resolve, values, bundled)
 
 
-def _resolve(values: dict[str, str]) -> UsdxPaths:
+def _resolve(values: dict[str, str], bundled: Path | None = None) -> UsdxPaths:
     """Blocking: touches the file system to check what the settings point at."""
     problems: list[str] = []
-    base = values[BASE_PATH]
     resolved: dict[str, Path] = {}
 
-    for key, name in _DERIVED.items():
-        if values[key]:
-            resolved[key] = Path(values[key])
-        elif base:
-            resolved[key] = Path(base) / name
-        else:
-            problems.append(f"'{key}' is not set and cannot be derived from '{BASE_PATH}'")
+    if bundled is not None:
+        resolved = {key: bundled / name for key, name in _DERIVED.items()}
+    else:
+        base = values[BASE_PATH]
+        for key, name in _DERIVED.items():
+            if values[key]:
+                resolved[key] = Path(values[key])
+            elif base:
+                resolved[key] = Path(base) / name
+            else:
+                problems.append(f"'{key}' is not set and cannot be derived from '{BASE_PATH}'")
 
     # Not one of USDX's own paths, but part of the same "is Wingman set up" report: with
     # no library there is nothing to sing in the first place.
@@ -104,7 +127,12 @@ def _resolve(values: dict[str, str]) -> UsdxPaths:
 
     executable = resolved.get(EXECUTABLE)
     if executable is not None and not executable.is_file():
-        problems.append(f"'{EXECUTABLE}' is not a file: {executable}")
+        # Not named after the setting in the bundled mode: there is no setting to fix, and
+        # the sentence the UI turns it into must not send the host looking for one.
+        if bundled is not None:
+            problems.append(f"the bundled Ultrastar Deluxe is missing: {executable}")
+        else:
+            problems.append(f"'{EXECUTABLE}' is not a file: {executable}")
     # The config file is created on demand, Ultrastar.db only exists after the first score
     # and USDX creates its songs directory on first start, so none of them has to be there.
     if problems:
@@ -123,3 +151,30 @@ def _resolve(values: dict[str, str]) -> UsdxPaths:
         ultrastar_db=resolved[ULTRASTAR_DB],
         songs_dir=songs_dir,
     )
+
+
+async def seed_songs_directory(session: AsyncSession) -> Path | None:
+    """A bundled Wingman's first start: point `songs.directory` at the bundled Ultrastar
+    Deluxe's own songs folder, so a fresh install sings with no settings at all.
+
+    Only while the setting is empty: a folder the host typed later is theirs. Returns the
+    folder when it set one, `None` otherwise.
+    """
+    bundled = _bundled_dir
+    if bundled is None:
+        return None
+    settings = SettingsService(session)
+    if str(await settings.get(SONGS_DIRECTORY)).strip():
+        return None
+    songs = bundled / _DERIVED[SONGS_DIR]
+    try:
+        # Not `parents=True`: a mistyped `--usdx-dir` must not be conjured into existence
+        # as an empty tree, and a drive that is not there must not be asked for one.
+        await anyio.to_thread.run_sync(lambda: songs.mkdir(exist_ok=True))
+    except OSError as error:
+        # Still the right folder: the status names it as missing, which says more than an
+        # empty setting would, and Wingman must start either way.
+        logger.warning("cannot create the songs folder %s: %s", songs, error)
+    await settings.set(SONGS_DIRECTORY, str(songs))
+    logger.info("songs directory set to the bundled Ultrastar Deluxe's: %s", songs)
+    return songs

@@ -24,6 +24,13 @@ settings, downloads). Treat those as read-only:
 
   `WINGMAN_OPEN_BROWSER=false` matters: otherwise the backend opens the host
   page itself and consumes the one-time host token you need below.
+- The developer's backend may be the built exe, running out of
+  `installer\dist\UltrastarWingman.exe`. It locks that file, so a build runs
+  with `-OutDir <scratch>` ([building.md](building.md#the-live-exe-lock)). Any
+  exe you start, a scratch install's included, gets the same three variables:
+  the app migrates its data directory and seeds settings *before* it binds the
+  port, so one started without them writes into the live database and only
+  then fails on :8080.
 - Vite on another port with the proxy pointed at :8081 needs a temporary
   config. Create it under a **fresh file name** (`vite.<purpose>.tmp.config.ts`),
   run `npx vite --config <file> --port 5189`, and delete the file when done.
@@ -105,7 +112,9 @@ session that started things sweeps at the end:
 2. Identify **before** killing:
    `Get-CimInstance Win32_Process -Filter "ProcessId=<pid>" | Select-Object ProcessId, ParentProcessId, CommandLine`.
    Temp vite configs and scratch `WINGMAN_DATA_DIR`s are the giveaways for
-   yours. The venv's `python.exe` is a launcher whose child is
+   yours. Treat an `UltrastarWingman.exe` as the developer's unless its
+   PID is one you recorded: its environment is not in its command line. The
+   venv's `python.exe` is a launcher whose child is
    `C:\Python312\python.exe -m ultrastar_wingman` — check the parent before
    concluding anything from the path.
 3. **Kill only by PID you own:** `taskkill //PID <pid> //T //F` (the doubled

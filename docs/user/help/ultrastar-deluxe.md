@@ -12,10 +12,13 @@ not set up yet, so no song can be started*. Click **Fix it** and Wingman lists
 what is missing, in plain words, with a button into the settings. Pressing
 **Play** opens the same list.
 
-Everything in this table has to be true:
+Everything in this table has to be true. The first row is for the setup that
+comes with Ultrastar Deluxe. The next two rows are for a Wingman pointed at
+your own installation.
 
 | What has to be true | If it is not |
 |---|---|
+| With the setup that comes with Ultrastar Deluxe: `usdx\ultrastardx.exe` is still in the install folder | The list says the Ultrastar Deluxe that comes with this installation is missing: the game was moved or deleted. Once Wingman restarts, the **USDX** group shows its paths again instead. Run that setup again to put the game back. |
 | **Base path** in the **USDX** group is filled in | Fill it in. It is the folder that holds `ultrastardx.exe`. |
 | `ultrastardx.exe` is really in that folder | The base path is wrong, or the program has another name. Set **Executable** in the same group, behind **Advanced**. |
 | **Directory** in the **Songs** group is filled in | Fill it in. Wingman has to know where the songs are. |
@@ -45,7 +48,8 @@ Three things get in the way.
   line out yourself while Ultrastar Deluxe is closed.
 - **The path carries unusual characters.** A song folder called `Björk - Jóga`
   is copied to a plain name automatically. The folders above it are not. Move
-  Ultrastar Deluxe if it lives under an accented path.
+  Ultrastar Deluxe if a folder above it has letters beyond A to Z in its name,
+  such as ä, é, or ß.
 
 ## Another song is playing, and none is
 

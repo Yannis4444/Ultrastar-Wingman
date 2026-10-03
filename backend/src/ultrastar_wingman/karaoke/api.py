@@ -24,7 +24,7 @@ from .schema import (
     SelectionRead,
 )
 from .slots import PLAYER_COUNTS
-from .usdx_paths import UsdxPathsError, resolve_usdx_paths
+from .usdx_paths import UsdxPathsError, bundled_dir, resolve_usdx_paths
 
 logger = logging.getLogger(__name__)
 
@@ -100,6 +100,12 @@ class UsdxStatusRead(BaseModel):
     # Empty unless the caller may see the settings: these strings name paths on the host's
     # file system, which is nobody else's business.
     problems: list[str]
+    # This Wingman brings its own Ultrastar Deluxe: there are no USDX paths to set, and the
+    # UI must not ask for one.
+    bundled: bool
+    # Where that Ultrastar Deluxe is. Under the same rule as `problems`, and `None` when
+    # there is none.
+    usdx_dir: str | None = None
 
 
 @router.get(
@@ -111,12 +117,21 @@ class UsdxStatusRead(BaseModel):
 async def usdx_status(session: SessionDep, principal: PrincipalDep) -> UsdxStatusRead:
     """Whether USDX could be launched right now — checks the settings without starting
     anything, so the UI can offer setup guidance before the first Play."""
+    may_see_paths = "settings.view" in principal.capabilities
+    bundled = bundled_dir()
+    usdx_dir = str(bundled) if bundled is not None and may_see_paths else None
     try:
         await resolve_usdx_paths(session)
     except UsdxPathsError as error:
-        problems = error.problems if "settings.view" in principal.capabilities else []
-        return UsdxStatusRead(configured=False, problems=problems)
-    return UsdxStatusRead(configured=True, problems=[])
+        return UsdxStatusRead(
+            configured=False,
+            problems=error.problems if may_see_paths else [],
+            bundled=bundled is not None,
+            usdx_dir=usdx_dir,
+        )
+    return UsdxStatusRead(
+        configured=True, problems=[], bundled=bundled is not None, usdx_dir=usdx_dir
+    )
 
 
 class UsdxLaunchRead(BaseModel):

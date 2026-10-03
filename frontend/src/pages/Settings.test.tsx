@@ -2,6 +2,7 @@ import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { MemoryRouter } from "react-router-dom";
 import type { SettingRead } from "../api";
+import { BUNDLED_USDX_NOTE } from "../errors";
 import { meResponse, userRead } from "../test/auth";
 import { FakeSocket } from "../test/fakeSocket";
 import Settings from "./Settings";
@@ -13,6 +14,7 @@ const {
   getJoinInfo,
   launchUsdx,
   listVideoQualityPresets,
+  usdxStatus,
 } = vi.hoisted(() => ({
   listSettings: vi.fn(),
   updateSetting: vi.fn(),
@@ -20,6 +22,7 @@ const {
   getJoinInfo: vi.fn(),
   launchUsdx: vi.fn(),
   listVideoQualityPresets: vi.fn(),
+  usdxStatus: vi.fn(),
 }));
 
 vi.mock("../api/sdk.gen", async (importOriginal) => ({
@@ -31,6 +34,7 @@ vi.mock("../api/sdk.gen", async (importOriginal) => ({
   // Never the real one: a test must not start Ultrastar Deluxe.
   launchUsdx,
   listVideoQualityPresets,
+  usdxStatus,
 }));
 
 const HIGH_FORMAT = "bestvideo[ext=mp4][height<=1080]+bestaudio[ext=m4a]";
@@ -162,6 +166,9 @@ beforeEach(() => {
   listSettings.mockResolvedValue({ data: SETTINGS });
   getJoinInfo.mockResolvedValue({ data: { url: "http://192.168.0.10:8080" } });
   listVideoQualityPresets.mockResolvedValue({ data: PRESETS });
+  usdxStatus.mockResolvedValue({
+    data: { configured: true, problems: [], bundled: false, usdx_dir: null },
+  });
   getMe.mockResolvedValue(
     meResponse(["settings.view", "settings.manage"], {
       user: userRead({ role: "admin" }),
@@ -599,6 +606,80 @@ test("an unconfigured Ultrastar Deluxe is explained, not dumped", async () => {
   expect(await screen.findByRole("alert")).toHaveTextContent(
     "Wingman does not know where Ultrastar Deluxe is installed",
   );
+});
+
+const ADMIN = ["songs.view", "settings.view", "settings.manage"];
+
+function asAdmin() {
+  getMe.mockResolvedValue(
+    meResponse(ADMIN, { user: userRead({ role: "admin" }), role: "admin" }),
+  );
+}
+
+function bundledInstall(usdx_dir: string | null = "C:\\Wingman\\usdx") {
+  // What the backend answers then: no USDX row in the list at all.
+  listSettings.mockResolvedValue({
+    data: SETTINGS.filter((row) => row.group !== "USDX"),
+  });
+  usdxStatus.mockResolvedValue({
+    data: { configured: true, problems: [], bundled: true, usdx_dir },
+  });
+}
+
+test("a bundled Ultrastar Deluxe keeps the USDX section, with a line instead of paths", async () => {
+  asAdmin();
+  bundledInstall();
+  renderSettings();
+
+  // The setup dialog's sentence, word for word.
+  const note = await screen.findByText(BUNDLED_USDX_NOTE, { exact: false });
+  expect(note).toHaveClass("section-note");
+  expect(note).toHaveTextContent("It is in C:\\Wingman\\usdx.");
+  const section = note.closest(".settings-group");
+  expect(section?.querySelector("summary")).toHaveTextContent("USDX");
+  // The Launch row still has a job: the microphones live in USDX alone.
+  expect(screen.getByRole("button", { name: "Launch" })).toBeInTheDocument();
+  expect(screen.queryByLabelText("Base path")).not.toBeInTheDocument();
+  // In its usual place in the page order.
+  const groups = screen
+    .getAllByRole("group")
+    .filter((group) => group.classList.contains("settings-group"))
+    .map((group) => group.querySelector("summary")?.textContent);
+  expect(groups).toEqual(["Host", "Songs", "USDX", "USDB", "Downloads"]);
+});
+
+test("the bundled line names no directory to a reader the status does not tell", async () => {
+  asAdmin();
+  bundledInstall(null);
+  renderSettings();
+
+  // The shared sentence and nothing after it.
+  const note = await screen.findByText(BUNDLED_USDX_NOTE);
+  expect(note).not.toHaveTextContent("It is in");
+});
+
+test("a bundled launch failure does not point at paths that are not there", async () => {
+  asAdmin();
+  bundledInstall();
+  launchUsdx.mockRejectedValue(new Error("boom"));
+  renderSettings();
+
+  fireEvent.click(await screen.findByRole("button", { name: "Launch" }));
+
+  const alert = await screen.findByRole("alert");
+  expect(alert).not.toHaveTextContent(/paths/);
+});
+
+test("an Ultrastar Deluxe the host points at keeps its path fields", async () => {
+  asAdmin();
+  renderSettings();
+
+  expect(await screen.findByLabelText("Base path")).toBeInTheDocument();
+  await waitFor(() => expect(usdxStatus).toHaveBeenCalled());
+  expect(
+    screen.queryByText(/comes with this installation/),
+  ).not.toBeInTheDocument();
+  expect(screen.getByRole("button", { name: "Launch" })).toBeInTheDocument();
 });
 
 test("view-only access has nothing to launch", async () => {
