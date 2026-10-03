@@ -949,6 +949,10 @@ async def wait_for_passes() -> None:
     """Let whatever is queued finish — what a test waits on instead of sleeping."""
     while _passes:
         await asyncio.gather(*list(_passes), return_exceptions=True)
+        # A pass that had already finished when gather looked at it resolves eagerly (3.12),
+        # so the await above never yields and `_pass_finished`, queued with `call_soon`, never
+        # gets to take it out of the set. One yield, or this spins at 100% CPU.
+        await asyncio.sleep(0)
 
 
 async def stop_passes() -> None:
