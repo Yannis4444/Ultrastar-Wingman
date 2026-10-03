@@ -109,7 +109,7 @@ Name: "english"; MessagesFile: "compiler:Default.isl"
 DowngradeWarning=Ultrastar Wingman %1 is installed, and this is the older version %2.%n%nAn older Wingman cannot open a database that a newer one has already updated, so it may not start at all.%n%nInstall the older version anyway?
 UninstallWhileRunning=Ultrastar Wingman is running. Close its console window, then click Retry.%n%nA song that is running when Wingman closes scores nothing.
 UninstallWhileUsdxRunning=Ultrastar Deluxe is running. Close it, then click Retry.
-NonAsciiFolder=The folder%n%n%1%n%nhas characters other than plain English letters, digits and punctuation in it, such as an accented letter in a Windows user name. Ultrastar Deluxe cannot start songs from a folder like that.%n%nInstall here anyway?
+NonAsciiFolder=The folder%n%n%1%n%nhas characters other than plain English letters, digits and punctuation in it, such as a letter beyond A to Z in a Windows user name. Ultrastar Deluxe cannot start songs from a folder like that.%n%nInstall here anyway?
 UsdxKept=This folder holds the Ultrastar Deluxe that an earlier Wingman setup installed. It stays where it is, and Wingman keeps using it.%n%nThis setup updates Wingman alone.
 
 [Tasks]
@@ -280,8 +280,11 @@ end;
 // Ultrastar Deluxe cannot start a song out of a path with characters beyond ASCII in it
 // (Wingman copies an oddly named song folder to a plain name, but the folders above the
 // game are what they are), and a per-user install lands under the Windows user name.
-// Asked on the directory page, and again on the Ready page for the folder an update reuses
-// without showing that page. A silent install logs it and goes on.
+// Asked on the directory page. An update reuses its folder without showing that page, so
+// the Ready page asks instead, and only while {app}\usdx\ultrastardx.exe is not there yet:
+// a host who already said yes to the folder is not asked again on every update (with no
+// folder page to go back to, No would leave them stuck), but the game landing in such a
+// folder for the first time still is. A silent install logs it and goes on.
 function ConfirmUsdxFolder(): Boolean;
 var
   Dir: String;
@@ -303,8 +306,15 @@ end;
 function NextButtonClick(CurPageID: Integer): Boolean;
 begin
   Result := True;
-  if (CurPageID = wpSelectDir) or (CurPageID = wpReady) then
-    Result := ConfirmUsdxFolder();
+  if CurPageID = wpSelectDir then
+    Result := ConfirmUsdxFolder()
+  else if CurPageID = wpReady then
+  begin
+    if FileExists(ExpandConstant('{app}\usdx\ultrastardx.exe')) then
+      Log('Ultrastar Deluxe is already in ' + ExpandConstant('{app}\usdx') + ': no question about the folder.')
+    else
+      Result := ConfirmUsdxFolder();
+  end;
 end;
 #else
 // The plain edition run over the bundled one leaves {app}\usdx where it is: those files

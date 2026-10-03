@@ -15,8 +15,8 @@ import "./RunUsdxRow.css";
 interface Props {
   /** Holds `settings.view` but not `settings.manage`: nothing to press. */
   readOnly: boolean;
-  /** Ultrastar Deluxe comes with this installation: there are no paths below
-      this row to check. */
+  /** Ultrastar Deluxe comes with this installation, so there are no paths
+      below this row for a failed start to point at. */
   bundled?: boolean;
 }
 

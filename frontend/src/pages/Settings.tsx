@@ -15,6 +15,7 @@ import RunUsdxRow from "../components/RunUsdxRow";
 import SettingField from "../components/SettingField";
 import VideoQualityField from "../components/VideoQualityField";
 import VolumeField from "../components/VolumeField";
+import { BUNDLED_USDX_NOTE } from "../errors";
 import { useWingmanEvent, type WingmanEvent } from "../hooks/useWingmanEvents";
 import "./Settings.css";
 
@@ -195,8 +196,7 @@ export default function Settings() {
             {/* Where the path fields would be, saying why they are not. */}
             {group === USDX_GROUP && bundled && (
               <p className="section-note settings-bundled-note">
-                Ultrastar Deluxe comes with this installation, so there are no
-                paths to set.
+                {BUNDLED_USDX_NOTE}
                 {usdxDir !== null && <> It is in {usdxDir}.</>}
               </p>
             )}

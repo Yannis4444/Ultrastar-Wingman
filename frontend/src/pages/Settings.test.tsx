@@ -2,6 +2,7 @@ import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { MemoryRouter } from "react-router-dom";
 import type { SettingRead } from "../api";
+import { BUNDLED_USDX_NOTE } from "../errors";
 import { meResponse, userRead } from "../test/auth";
 import { FakeSocket } from "../test/fakeSocket";
 import Settings from "./Settings";
@@ -630,9 +631,8 @@ test("a bundled Ultrastar Deluxe keeps the USDX section, with a line instead of 
   bundledInstall();
   renderSettings();
 
-  const note = await screen.findByText(
-    /Ultrastar Deluxe comes with this installation/,
-  );
+  // The setup dialog's sentence, word for word.
+  const note = await screen.findByText(BUNDLED_USDX_NOTE, { exact: false });
   expect(note).toHaveClass("section-note");
   expect(note).toHaveTextContent("It is in C:\\Wingman\\usdx.");
   const section = note.closest(".settings-group");
@@ -653,9 +653,8 @@ test("the bundled line names no directory to a reader the status does not tell",
   bundledInstall(null);
   renderSettings();
 
-  const note = await screen.findByText(
-    /Ultrastar Deluxe comes with this installation/,
-  );
+  // The shared sentence and nothing after it.
+  const note = await screen.findByText(BUNDLED_USDX_NOTE);
   expect(note).not.toHaveTextContent("It is in");
 });
 

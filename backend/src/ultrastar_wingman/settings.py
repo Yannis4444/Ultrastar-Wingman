@@ -113,8 +113,8 @@ register(
         group="Songs",
         description=(
             "The folder Wingman scans for songs. Usually that is the one Ultrastar Deluxe "
-            "already uses, but any folder works. Ultrastar Deluxe's own songs folder is the "
-            "separate Songs directory setting in the USDX group, behind Advanced."
+            "already uses, but any folder works. Ultrastar Deluxe itself always loads "
+            "from its own songs folder, whatever this one says."
         ),
     )
 )

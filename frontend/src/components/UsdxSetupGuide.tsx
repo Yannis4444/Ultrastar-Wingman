@@ -2,7 +2,7 @@ import { useQuery } from "@tanstack/react-query";
 import { Link } from "react-router-dom";
 import { usdxStatusOptions } from "../api/@tanstack/react-query.gen";
 import { useAuth } from "../auth";
-import { explainUsdxProblem } from "../errors";
+import { BUNDLED_USDX_NOTE, explainUsdxProblem } from "../errors";
 import Modal from "./Modal";
 import "./UsdxSetupGuide.css";
 
@@ -47,9 +47,8 @@ export default function UsdxSetupGuide({
           <>
             {bundled ? (
               <p>
-                Ultrastar Deluxe comes with this installation, so it needs no
-                path. The songs directory is in the <strong>Songs</strong> group
-                of the settings.
+                {BUNDLED_USDX_NOTE} The songs directory is in the{" "}
+                <strong>Songs</strong> group of the settings.
               </p>
             ) : (
               <p>

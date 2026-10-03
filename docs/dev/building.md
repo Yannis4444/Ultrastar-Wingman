@@ -148,8 +148,10 @@ What the edition does on top of the plain one (the folder warning is under
 
 - **Not-ASCII warning.** A folder with a character beyond ASCII in its path makes USDX
   unable to start songs, and a per-user install lands under the Windows user name. The
-  directory page asks (default No); an update that skips the page asks on the Ready page.
-  A silent install logs the line and goes on.
+  directory page asks (default No). An update that skips the page asks on the Ready page,
+  and only while `{app}\usdx\ultrastardx.exe` is not there yet, so a folder the host
+  accepted once is not asked about on every update. A silent install logs the line and
+  goes on.
 - **Update** replaces the game's files. `config.ini`, `Ultrastar.db`, `songs\` and the rest
   of what USDX and Wingman write are no installed files, so they stay. A running
   `ultrastardx.exe` out of `{app}\usdx` is closed by `CloseApplications=force` like Wingman.

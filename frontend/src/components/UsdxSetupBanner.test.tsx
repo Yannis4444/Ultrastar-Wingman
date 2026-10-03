@@ -1,6 +1,7 @@
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { MemoryRouter } from "react-router-dom";
+import { BUNDLED_USDX_NOTE } from "../errors";
 import { meResponse } from "../test/auth";
 import { FakeSocket } from "../test/fakeSocket";
 import UsdxSetupBanner from "./UsdxSetupBanner";
@@ -154,7 +155,8 @@ test("a Wingman that brings its own Ultrastar Deluxe never asks for a base path"
   const guide = await screen.findByRole("dialog", {
     name: "Ultrastar Deluxe is not set up",
   });
-  expect(guide).toHaveTextContent(/comes with this installation/);
+  // The settings page's USDX line, word for word.
+  expect(guide).toHaveTextContent(BUNDLED_USDX_NOTE);
   expect(guide).toHaveTextContent(/songs directory does not exist/);
   expect(guide).not.toHaveTextContent(/base path/i);
 });

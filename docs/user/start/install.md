@@ -1,28 +1,24 @@
 # Install and run
 
 Wingman is one program on the karaoke PC. It serves the whole app to every
-browser in the room, the host screen on the TV included. Install it with the
+browser in the room, the host screen on the TV included. Install it with a
 setup, or run the exe without installing anything.
 
 ## Pick a download
 
-Every release has two setups. Both install the same Wingman.
+Every release carries the same Wingman three ways.
 
-| Download | What it installs |
+| Download | What it is |
 |---|---|
-| `UltrastarWingman-<version>-setup.exe` | Wingman alone, for the Ultrastar Deluxe you already have |
-| `UltrastarWingman-<version>-with-usdx-setup.exe` | Wingman with Ultrastar Deluxe |
-
-The second one puts Ultrastar Deluxe into a folder called `usdx` inside the
-install folder, and Wingman treats that copy as its own. The **USDX** settings
-hold no paths then, and your songs go into `usdx\songs`. See
-[Bring your own Ultrastar Deluxe along](#bring-your-own-ultrastar-deluxe-along).
+| `UltrastarWingman-<version>-setup.exe` | The setup of Wingman alone, for the Ultrastar Deluxe you already have |
+| `UltrastarWingman-<version>-with-usdx-setup.exe` | The setup of Wingman with Ultrastar Deluxe, in a `usdx` folder inside the install folder. See [Bring your own Ultrastar Deluxe along](#bring-your-own-ultrastar-deluxe-along) |
+| `UltrastarWingman.exe` | The program itself. Put it wherever you like and double-click it. It keeps its data in the same folder as an installed Wingman, so switching between the two loses nothing |
 
 !!! warning
-    Ultrastar Deluxe cannot start songs from a folder with an accented letter
-    in its path. The setup installs under your Windows user name, so a name
-    like `Jürgen` already does it. The setup with Ultrastar Deluxe warns you,
-    and you pick a plain folder instead, such as `C:\Karaoke\Ultrastar Wingman`.
+    Ultrastar Deluxe cannot start songs from a folder whose path has letters
+    beyond A to Z, such as ä, é, or ß. The setup installs under your Windows
+    user name, so `Jürgen` already does it. The setup with Ultrastar Deluxe
+    warns you. Pick a plain folder instead, like `C:\Karaoke\Ultrastar Wingman`.
 
 ## Install Wingman
 
@@ -39,42 +35,22 @@ account alone, into `C:\Users\<you>\AppData\Local\Programs\Ultrastar Wingman`
 unless you pick another folder. From then on, start Wingman from the Start menu
 entry **Ultrastar Wingman**.
 
-## Run the exe without installing
-
-Put `UltrastarWingman.exe` wherever you like and double-click it. It is the
-program the setup installs, and it keeps its data in the same folder, so
-switching between the two loses nothing.
-
 ## When Wingman starts
 
-A console window opens and stays open. That window is Wingman, and closing it
-stops the program. Wingman then opens the host screen in your browser by
-itself.
-
-Wingman listens on port 8080. On the karaoke PC that address is
-`http://localhost:8080`. The page your browser opened is the host screen, and
-that browser now runs the party. See [The host screen](../host-screen/index.md).
+A console window opens, and Wingman opens the host screen in your browser. That
+browser now runs the party. See [The host screen](../host-screen/index.md).
+Wingman listens on port 8080: `http://localhost:8080` on the karaoke PC.
 
 !!! warning
-    Closing the console window stops Wingman. A song that was running then
-    scores nothing. Minimize the window instead.
+    The console window is Wingman. Closing it stops the program, and a song
+    that was running then scores nothing. Minimize the window instead.
 
-Two of the console's startup lines are worth knowing.
+| Console line | What it is |
+|---|---|
+| `Host UI: http://localhost:8080/host?hostToken=…` | The link that makes a browser the host. Copy it into a browser if none opened, or if the wrong one did |
+| `data directory: …` | The data folder, where Wingman keeps everything. On Windows that is `C:\Users\<you>\AppData\Local\Ultrastar Wingman` |
 
-- `data directory: …` names the folder Wingman keeps everything in.
-- `Host UI: http://localhost:8080/host?hostToken=…` is the link that makes a
-  browser the host. Copy it into a browser if none opened, or if the wrong one
-  did.
-
-## Where your data lives
-
-Everything Wingman remembers sits in one folder. On Windows that is:
-
-```text
-C:\Users\<you>\AppData\Local\Ultrastar Wingman
-```
-
-The database inside it is `wingman.db`. It holds your accounts, players,
+The database in the data folder, `wingman.db`, holds your accounts, players,
 wishes, parties, and scores. Your songs are not in there. They stay in your own
 song folder, which Wingman only reads. See
 [Connect Ultrastar Deluxe](ultrastar-deluxe.md).
@@ -82,17 +58,14 @@ song folder, which Wingman only reads. See
 ## Update Wingman
 
 Finish the song, close Wingman, then run the setup of the version you want. It
-finds the installed Wingman and replaces it in the same folder. If Wingman is
-still open, the setup lists it and offers to close it. If you run the exe
-instead, replace `UltrastarWingman.exe` with the newer one.
+replaces the installed Wingman in the same folder and offers to close one that
+is still open. With the exe, replace `UltrastarWingman.exe` with the newer one.
 
-The setup with Ultrastar Deluxe replaces the game in `usdx` as well. Close
-Ultrastar Deluxe too, or the setup closes it along with Wingman. The game's
-`config.ini`, its scores, and the songs in `usdx\songs` stay.
-
-The plain setup updates Wingman alone and leaves the game where it is. The
-setup with Ultrastar Deluxe run over a plain install adds the game, and Wingman
-uses that one now.
+| You run | Over | What happens to Ultrastar Deluxe |
+|---|---|---|
+| The setup with Ultrastar Deluxe | A Wingman with Ultrastar Deluxe | It replaces the game in `usdx` too. Close the game as well, or the setup closes it along with Wingman. Its `config.ini`, its scores, and the songs in `usdx\songs` stay |
+| The setup with Ultrastar Deluxe | A plain Wingman | It adds the game, and Wingman uses that one from now on |
+| The plain setup | Either | It updates Wingman alone and leaves the game where it is |
 
 Wingman brings its own database up to date on every start, so your players,
 parties, and scores carry over. Copy the data folder somewhere safe first. An
@@ -103,16 +76,14 @@ your way back, and the setup warns before it installs an older version.
 
 Open **Settings** > **Apps** in Windows, pick **Ultrastar Wingman**, and click
 **Uninstall**. Right-clicking the Start menu entry gets you there too. While
-Wingman runs, the uninstaller waits for you to close it.
+Wingman or its Ultrastar Deluxe runs, the uninstaller asks you to close it.
 
-That removes the program, its Start menu entry, and the desktop icon. Your data
-folder stays, and so does anything you added to the program folder yourself,
-such as a `.env` file. To remove every trace, delete both folders by hand.
-
-With Ultrastar Deluxe installed too, close it as well. The game goes, but what
-it wrote stays in `usdx`: the songs in `usdx\songs`, `config.ini`, and the
-scores in `Ultrastar.db`. Delete the `usdx` folder by hand once you no longer
-need them.
+That removes the program, its Start menu entry, and the desktop icon. If you
+took the setup with Ultrastar Deluxe, the game goes too, but what it wrote
+stays in `usdx`: the songs in `usdx\songs`, `config.ini`, and the scores in
+`Ultrastar.db`. Your data folder stays, and so does anything you added to the
+program folder yourself, such as a `.env` file. To remove every trace, delete
+the data folder and the program folder by hand.
 
 ## Change the port, the address, or the folder
 
@@ -121,7 +92,7 @@ default does not fit, and leave the others alone.
 
 | Variable | What it does | Default |
 |---|---|---|
-| `WINGMAN_DATA_DIR` | The folder above | The Wingman folder in your app data |
+| `WINGMAN_DATA_DIR` | The data folder | The Wingman folder in your app data |
 | `WINGMAN_PORT` | The port to listen on | `8080` |
 | `WINGMAN_HOST` | The address to listen on | `0.0.0.0`, meaning every address the PC has |
 | `WINGMAN_OPEN_BROWSER` | Open the host screen at startup | `true` |
@@ -186,5 +157,4 @@ Start it with this line, every time:
 venv\Scripts\python.exe -m ultrastar_wingman
 ```
 
-It serves the same `http://localhost:8080` as the exe, out of the same data
-folder.
+It serves the same `http://localhost:8080` and data folder as the exe.

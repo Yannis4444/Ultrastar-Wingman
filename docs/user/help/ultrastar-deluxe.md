@@ -12,7 +12,9 @@ not set up yet, so no song can be started*. Click **Fix it** and Wingman lists
 what is missing, in plain words, with a button into the settings. Pressing
 **Play** opens the same list.
 
-Everything in this table has to be true:
+Everything in this table has to be true. The first row is for the setup that
+comes with Ultrastar Deluxe. The next two rows are for a Wingman pointed at
+your own installation.
 
 | What has to be true | If it is not |
 |---|---|
@@ -46,7 +48,8 @@ Three things get in the way.
   line out yourself while Ultrastar Deluxe is closed.
 - **The path carries unusual characters.** A song folder called `Björk - Jóga`
   is copied to a plain name automatically. The folders above it are not. Move
-  Ultrastar Deluxe if it lives under an accented path.
+  Ultrastar Deluxe if a folder above it has letters beyond A to Z in its name,
+  such as ä, é, or ß.
 
 ## Another song is playing, and none is
 
