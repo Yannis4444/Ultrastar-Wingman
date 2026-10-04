@@ -12,25 +12,39 @@ its own. See [Ultrastar Deluxe problems](ultrastar-deluxe.md).
 
 ## Wingman does not start
 
-When Wingman cannot start, its console window closes at once, and the reason
-goes with it. To read it, open the program folder in File Explorer, type
-`powershell` into the address bar, press ++enter++, and start Wingman there:
+When Wingman cannot start, its console window stays open with the reason in
+it. Press ++enter++ to close it.
 
-```powershell
-.\UltrastarWingman.exe
-```
-
-The terminal stays open with the reason in it.
-
-- **A complaint about the address**, *error while attempting to bind on
-  address*, means port 8080 is taken, usually by a Wingman that is already
-  running. Look for its console window on the taskbar. Use that one, or give
-  the new one a different port with `WINGMAN_PORT`.
+- **A complaint about the port**, *Wingman is already running, or port 8080 is
+  taken*, usually means you started Wingman twice. The second stops before it
+  does anything, even while the first is still starting. Use the first one's
+  console window on the taskbar. If no Wingman is running, another program has
+  the port. Give Wingman a different one with `WINGMAN_PORT`.
 - **A complaint about the database**, such as *Can't locate revision*, means an
   older Wingman met a database a newer one has updated. Install the newer
   version again, or put back the copy of the data folder you made before.
 
+Wingman can take a while to start, for example when it updates its database
+after you install a newer version. A browser you open in that time waits, then
+shows the page.
+
 See [Install and run](../start/install.md).
+
+## Read the console
+
+The console window follows the evening: songs and their scores, badges,
+downloads, logins, changed settings, and player selectors. Every line starts
+with the time, and a problem says so right after it:
+
+```text
+21:20:11  Queen - Bohemian Rhapsody is over: Anna 8,940, Ben 7,120
+21:22:40  WARNING  Download of USDB song 12345 failed: the video is private
+```
+
+When something goes wrong, read the lines marked **WARNING** or **ERROR**, and
+copy the details under an **ERROR** along when you report it. To see more, add
+the line `WINGMAN_LOG_LEVEL=debug` to the `.env` file. See
+[Install and run](../start/install.md#change-the-port-the-address-or-the-folder).
 
 ## A song will not start
 
@@ -43,7 +57,9 @@ See [Install and run](../start/install.md).
   :wingman-refresh: **Rescan** on the **Songs** tab.
 - With the setup that comes with Ultrastar Deluxe, **Directory** starts out as
   the empty `usdx\songs` in the program folder. Copy song folders in through
-  the Start menu entry **Ultrastar Wingman songs**, or download songs.
+  the Start menu entry **Ultrastar Wingman songs**, or download songs. Press
+  ++win+r++ and enter `%LOCALAPPDATA%\Programs\Ultrastar Wingman` to open the
+  program folder, unless you installed Wingman somewhere else.
 - Wingman looks exactly one level deep. `Songs\Artist - Title\song.txt` is
   found. `Songs\Artist\Title\song.txt` is not. Point Wingman at the folder
   whose direct subfolders are the songs, or add the inner folders under
@@ -67,9 +83,9 @@ The library is also scanned once in the background every time Wingman starts.
   asks, or open port 8080 by hand.
 - Guests have to type the port too: `http://192.168.1.20:8080`, not the address
   on its own.
-- The QR code carries the address Wingman worked out for itself. When that is
-  the wrong one of your PC's addresses, set it. See
-  [Let guests in](../start/join.md).
+- The QR code carries the address Wingman worked out for itself, and the
+  console names it on the line `Guests join at`. When that is the wrong one of
+  your PC's addresses, set it. See [Let guests in](../start/join.md).
 
 ## The host link does not work any more
 
@@ -77,9 +93,8 @@ It works once. Restart Wingman and use the new line from the console window.
 Browsers that already hold host rights keep them. The link is only needed to
 make a new browser the host. See [The host screen](../host-screen/index.md).
 
-The link also fails when Wingman was started a second time while it was
-running. The second one closes at once, and the link it opened belongs to
-nobody. Use the console window of the Wingman that is still running.
+A second start of Wingman leaves the link alone, because it stops before it
+opens a browser. See [Wingman does not start](#wingman-does-not-start).
 
 ## The USDB login fails
 

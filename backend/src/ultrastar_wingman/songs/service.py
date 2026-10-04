@@ -51,7 +51,7 @@ from ..library import service as library
 from . import scanner
 from .fingerprint import fingerprint
 from .model import Song
-from .schema import SongMetadata, read_song, song_metadata
+from .schema import SongMetadata, read_song, song_label, song_metadata
 from .txt import (
     SongTxt,
     SongTxtEncodingError,
@@ -196,7 +196,7 @@ async def edit_song(
         current.year = txt.year
         current.edition = txt.edition
         await session.commit()
-        logger.info("song '%s' metadata edited in %s", song_id, path)
+        logger.info("Details of %s edited", song_label(current))
 
     await event_bus.broadcast(SongUpdated(song=read_song(current)))
     return current
@@ -275,9 +275,10 @@ async def delete_song(session: AsyncSession, song: Song) -> None:
         roots = await scanner.configured_roots(session)
         # `resolve()` and `rmtree` both touch the file system, so both belong in a thread.
         await asyncio.to_thread(_remove_directory, directory, roots)
+        label = song_label(current)
         await session.delete(current)
         await session.commit()
-        logger.info("song '%s' deleted with its directory %s", song_id, directory)
+        logger.info("Deleted %s and its folder %s", label, directory)
 
     # After the commit: the wishes for a song nobody can sing any more, and the news for
     # every other phone in the room. Both are about a song that no longer exists, so
@@ -298,7 +299,7 @@ def _remove_directory(directory: Path, roots: list[Path]) -> None:
     ):
         raise LibraryRootError(resolved)
     if not resolved.is_dir():
-        logger.info("song directory %s is already gone", resolved)
+        logger.debug("song directory %s is already gone", resolved)
         return
     try:
         shutil.rmtree(resolved)

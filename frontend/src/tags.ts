@@ -241,8 +241,8 @@ export function markTags(tags: readonly TagRead[] | undefined): TagRead[] {
 
 /**
  * What the song list is asked about one tag: *Any* ignores it, *Yes* keeps only
- * the songs carrying it, *No* drops them. The three of §4's tri-state, so the
- * filter panel sets exactly this.
+ * the songs carrying it, *No* drops them. The three states §4's filter chip
+ * cycles through, so the Filter panel sets exactly this.
  */
 export type TagCriterion = "any" | "yes" | "no";
 
@@ -250,8 +250,8 @@ export type TagCriterion = "any" | "yes" | "no";
 export type TagCriteria = ReadonlyMap<string, TagCriterion>;
 
 /**
- * *Any* on a valued facet's select — "this row is not filtering", the same
- * thing *Any* means on a tri-state.
+ * *Any* on a valued facet's select — "this chip is not filtering", the same
+ * thing *Any* means on a cycling filter chip.
  *
  * The empty string rather than the word, because the sentinel has to be a
  * string no facet value can ever be: a file that spells its genre `any` would
@@ -260,7 +260,7 @@ export type TagCriteria = ReadonlyMap<string, TagCriterion>;
  * empty, so no facet ever yields `""` — which makes this collision-proof by
  * construction rather than by hoping no library names a genre something.
  *
- * A tri-state row is unaffected: its three options are a closed enum, and its
+ * A cycling chip is unaffected: its three states are a closed enum, and its
  * *Any* stays the word (`TagCriterion`).
  */
 export const ANY_VALUE = "";
@@ -484,12 +484,12 @@ export function isBooleanFacet(facet: FacetId): facet is BooleanFacetId {
 }
 
 /** A stored override is a plain string; only these three mean anything to a
- *  tri-state row, and anything else is a state nothing on screen could show. */
+ *  cycling chip, and anything else is a state nothing on screen could show. */
 function isTagCriterion(value: string): value is TagCriterion {
   return value === "any" || value === "yes" || value === "no";
 }
 
-/** Whether the party offers this facet as a filter row at all. */
+/** Whether the party offers this facet as a filter chip at all. */
 export function facetShown(builtIns: BuiltInTags, facet: FacetId): boolean {
   return builtIns[facet].show_in_filter;
 }

@@ -46,7 +46,10 @@ A bare `.\installer\build.ps1` runs every stage, in this order:
 files stay in `installer\build\onefile` and `installer\build\onedir`, beside the generated
 `version_info.txt` and the USDX stage in `installer\build`.
 
-Before anything runs, the script fails fast on what would otherwise fail at the end: no
+Before anything runs, the script fails fast on what would otherwise fail at the end: an
+`-OutDir` on a drive that is not there or not ready, or below a file (each a sentence of
+its own, never PowerShell's *Cannot find drive*; missing folders above it are fine, they
+are created with it), no
 `ISCC.exe` while the installer stage is wanted (naming the download page), a `-Skip…` with
 nothing prebuilt to bundle, an `UltrastarWingman.exe` in `-OutDir` that is locked (or, when
 the folder is built, `UltrastarWingman\UltrastarWingman.exe`), and a `-UsdxDir` that is no
@@ -135,8 +138,11 @@ script reads it and passes it on:
 - `VersionInfoVersion` and the exe's binary file version need four numbers, so the script
   takes the leading numbers and pads them: `0.2.0` → `0.2.0.0`, `0.2.0rc1` → `0.2.0.0`.
 
-The installer's downgrade check compares the same leading numbers, so a pre-release and
-its final release count as the same version there.
+The installer's downgrade check reads the version string itself the PEP 440 way
+(`PackedVersion` in the `.iss`): three release numbers, then a fourth ordering the suffix
+`.devN` < `aN` < `bN` < `rcN` < the release < `.postN`, so `0.2.0rc1` over an installed
+`0.2.0` warns as a downgrade and `0.2.0` over `0.2.0rc1` is a plain update. Only the first
+suffix counts, so `0.2.0rc1.dev2` reads as `0.2.0rc1`.
 
 ## The installer script
 
@@ -223,7 +229,7 @@ Wingman copied there. So `build.ps1` copies only what is named (`$UsdxShipDirs`,
 |---|---|
 | Folders | `avatars`, `covers`, `fonts`, `languages`, `plugins`, `resources`, `sounds`, `themes`, `visuals`, `webs` |
 | Files | `ultrastardx.exe`, every `*.dll`, `LICENSE.*.txt` (its libraries), `LuaCommands.odt`, `README.ijg` |
-| Never | `avatars\` files named `<32 hex>.jpg/.png/.webp` (a player id plus `images.IMAGE_TYPES`' extension, which is what `usdx_config._place_avatar` writes), and everything not listed above |
+| Never | `avatars\` files named `<32 hex>.jpg/.png/.webp` (a player id plus `images.IMAGE_TYPES`' extension, which is what `usdx_config._place_avatar` writes), hidden files, every junction and symbolic link (a warning names each, and an allowlisted folder that is one ships not at all: where it leads was never allowlisted), and everything not listed above |
 
 USDX's own license is not in the game directory. Its NSIS installer ships
 `installer\dependencies\documents\license.txt` of the USDX checkout (the GPLv2 under a line
@@ -234,9 +240,13 @@ fails the build.
 
 **`usdx\SOURCE.txt`** ships beside it, because GPLv2 §3 asks whoever passes the game's
 binaries on to make its corresponding source available, and the copy itself should say
-where. The script writes the fork's URL, `git -C <UsdxDir> rev-parse HEAD` when
-`-UsdxDir` sits inside a git checkout (otherwise a warning and no commit line; a checkout
-with uncommitted changes to tracked files warns too) and the first line of
+where. The script asks the git checkout `-UsdxDir` sits in for both the address and the
+commit, so the two always belong to one repository: its `origin` (`git -C <UsdxDir> remote
+get-url origin`, an SSH remote turned into its `https://` address and any user name or
+token in the URL dropped) and `git -C <UsdxDir> rev-parse HEAD`. With no checkout, no
+`origin`, or an `origin` no reader can open (a folder on disk), it writes the fork's URL
+<https://github.com/Yannis4444/USDX> and no commit line, with a warning saying which. A
+checkout with uncommitted changes to tracked files warns too. Last comes the first line of
 `<UsdxDir>\..\VERSION` when that file exists.
 
 **The stage** is `installer\build\usdx`, wiped and refilled on every run, so a file an
@@ -297,8 +307,12 @@ $env:PYTHONPATH = "$env:TEMP\pillow"; venv\Scripts\python.exe installer\make_ico
 
 Never install into `%LOCALAPPDATA%\Programs` on a machine with a real installation, and
 never start an installed exe without `WINGMAN_DATA_DIR`, `WINGMAN_PORT` and
-`WINGMAN_OPEN_BROWSER=false` ([verifying.md](verifying.md)): the app migrates its data
-directory before it binds the port.
+`WINGMAN_OPEN_BROWSER=false` ([verifying.md](verifying.md)): the app takes the port before
+anything else (`startup.listen`), so it stops at once while another Wingman holds it, even
+one still in its lifespan. With nothing on the port it goes on to migrate and seed its data
+directory, the live one when none is given. A failed start of the exe waits for
+Enter while its stdin, stdout and stderr are all a console (`startup.should_pause`), so a
+scripted run redirects them to files.
 
 ```powershell
 UltrastarWingman-<version>-setup.exe /VERYSILENT /SUPPRESSMSGBOXES /NORESTART /DIR="<scratch>\Wingman Test" /LOG="<scratch>\install.log"

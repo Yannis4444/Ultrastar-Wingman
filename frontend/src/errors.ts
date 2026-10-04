@@ -115,6 +115,17 @@ const USDX_EXPLANATIONS: [RegExp, string][] = [
     /^the bundled Ultrastar Deluxe is missing/,
     "The Ultrastar Deluxe that comes with this installation is missing. Its program was moved or deleted.",
   ],
+  // The setup asks before it installs into such a folder, but a silent one goes
+  // on, and the host may have said yes. Moving the folder by hand would break
+  // the Start menu entries and the uninstaller.
+  [
+    /^the bundled Ultrastar Deluxe is in a folder that is not plain ASCII/,
+    "The Ultrastar Deluxe that comes with this installation is in a folder whose path has letters beyond A to Z, such as an ä in a Windows user name. It cannot start songs from there. Uninstall Wingman and install it again into a plain folder, such as C:\\Karaoke\\Ultrastar Wingman.",
+  ],
+  [
+    /^the bundled songs folder cannot be written to/,
+    "Wingman may not write to the songs folder of the Ultrastar Deluxe that comes with this installation, and some songs have to be copied in there to start. Give your Windows account the right to change usdx\\songs in the install folder, under Security in the folder's properties.",
+  ],
   [
     /^'usdx\.config_file' is not set/,
     "Wingman cannot find USDX's config.ini, where it writes the players and their colors.",

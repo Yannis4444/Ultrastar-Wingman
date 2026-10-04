@@ -122,8 +122,8 @@
 
 /* ----------------------------------------------------------------- scope
    §4's segmented pill at two options: a visually-hidden radio in a label and
-   the span that is actually drawn. Same metrics as `.tri-state`, which is this
-   pattern at three. */
+   the span that is actually drawn. Two options that must both stay visible,
+   so a pill pair rather than a cycling chip. */
 .condition-pills {
   display: flex;
   gap: 6px;
@@ -162,7 +162,7 @@
 }
 
 /* After the hover rule at equal specificity, so a hovered chosen pill keeps the
-   accent — the same ordering `.tri-state` needs. */
+   accent. */
 .condition-pills input:checked ~ .condition-pill-text {
   color: var(--highlight-blue-light);
   background-color: var(--highlight-blue-dark);

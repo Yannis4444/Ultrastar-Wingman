@@ -21,6 +21,7 @@ const {
   deletePlayer,
   setPlayerAvatar,
   updatePlayer,
+  oidcConfig,
 } = vi.hoisted(() => ({
   getMe: vi.fn(),
   listUsers: vi.fn(),
@@ -31,6 +32,7 @@ const {
   deletePlayer: vi.fn(),
   setPlayerAvatar: vi.fn(),
   updatePlayer: vi.fn(),
+  oidcConfig: vi.fn(),
 }));
 
 vi.mock("../api/sdk.gen", async (importOriginal) => ({
@@ -44,6 +46,7 @@ vi.mock("../api/sdk.gen", async (importOriginal) => ({
   deletePlayer,
   setPlayerAvatar,
   updatePlayer,
+  oidcConfig,
 }));
 
 // What `trusted` holds over the players: the roster, the pictures, and adding
@@ -548,4 +551,52 @@ test("a roster that cannot be loaded says so", async () => {
   expect(await screen.findByRole("alert")).toHaveTextContent(
     "Could not load the players.",
   );
+});
+
+test("an account single sign-on answers for says so under its name", async () => {
+  oidcConfig.mockResolvedValue({
+    data: { enabled: true, display_name: "Keycloak" },
+  });
+  listUsers.mockResolvedValue({
+    data: {
+      users: [
+        userRead({ role: "admin", auth_provider: "local" }),
+        userRead({
+          id: "user-2",
+          username: "Bob",
+          player_id: "bbb",
+          auth_provider: "oidc",
+        }),
+      ],
+    },
+  });
+  renderPage();
+
+  const bob = (await screen.findByText("Bob")).closest("li");
+  expect(bob).not.toBeNull();
+  expect(
+    await within(bob as HTMLElement).findByText("Signs in with Keycloak"),
+  ).toBeInTheDocument();
+  // A quiet line on that row alone: Alice has a password here.
+  expect(screen.getAllByText(/Signs in with/)).toHaveLength(1);
+});
+
+test("the note reads without the provider's name until it is known", async () => {
+  oidcConfig.mockReturnValue(new Promise(() => {}));
+  listUsers.mockResolvedValue({
+    data: { users: [userRead({ role: "admin", auth_provider: "oidc" })] },
+  });
+  renderPage();
+
+  expect(
+    await screen.findByText("Signs in with single sign-on"),
+  ).toBeInTheDocument();
+});
+
+test("nobody asks for the provider while no account uses it", async () => {
+  renderPage();
+  await screen.findByText("Mallory");
+
+  expect(screen.queryByText(/Signs in with/)).not.toBeInTheDocument();
+  expect(oidcConfig).not.toHaveBeenCalled();
 });

@@ -1,7 +1,9 @@
 """Player business logic: creation, deletion and avatar files. Knows nothing about FastAPI."""
 
+import asyncio
 import logging
 from collections.abc import Sequence
+from dataclasses import dataclass
 from pathlib import Path
 
 from sqlalchemy import func, select
@@ -17,10 +19,11 @@ from ..images import (
     ImageTooManyPixelsError,
     ImageTypeError,
     remove_images,
+    sniff_image_type,
     store_image,
     validate_image,
 )
-from .model import Player
+from .model import AVATAR_MANUAL, AVATAR_OIDC, Player
 
 logger = logging.getLogger(__name__)
 
@@ -58,7 +61,7 @@ async def create_player(session: AsyncSession, name: str) -> Player:
         # The unique index on lower(name) is the authority, so concurrent creates cannot race.
         await session.rollback()
         raise DuplicatePlayerNameError(name) from error
-    logger.info("player '%s' created (%s)", player.name, player.id)
+    logger.info("Player '%s' added", player.name)
     return player
 
 
@@ -77,7 +80,9 @@ async def set_hidden(session: AsyncSession, player: Player, hidden: bool) -> Pla
     """
     player.hidden = hidden
     await session.commit()
-    logger.info("player '%s' is now %s", player.name, "hidden" if hidden else "shown")
+    logger.info(
+        "Player '%s' %s the singer picker", player.name, "taken out of" if hidden else "back in"
+    )
     return player
 
 
@@ -92,7 +97,7 @@ async def unhide_player_of_user(session: AsyncSession, user_id: str) -> None:
         return
     player.hidden = False
     await session.commit()
-    logger.info("player '%s' is shown again after a login", player.name)
+    logger.info("Player '%s' back in the singer picker after logging in", player.name)
 
 
 async def delete_player(session: AsyncSession, player: Player, avatars_dir: Path) -> None:
@@ -105,10 +110,28 @@ async def delete_player(session: AsyncSession, player: Player, avatars_dir: Path
     from ..devices import service as devices
 
     await devices.forget_cards_of(session, player.id)
-    await remove_images(avatars_dir, player.id)
-    await session.delete(player)
-    await session.commit()
-    logger.info("player '%s' deleted (%s)", player.name, player.id)
+    async with _avatar_lock:
+        await remove_images(avatars_dir, player.id)
+        await session.delete(player)
+        await session.commit()
+    logger.info("Player '%s' deleted", player.name)
+
+
+# One avatar write at a time, file and row together. A single sign-on login decides whether
+# it may put the provider's picture on a player and then writes it, with awaits in between;
+# an upload landing in that gap would be overwritten — the hand-picked picture the rule
+# exists to protect — and, under another extension, left beside it on the disk. One process
+# serves Wingman, so an in-process lock is all it takes.
+_avatar_lock = asyncio.Lock()
+
+
+@dataclass(frozen=True)
+class ProviderPicture:
+    """Where a picture taken from the identity provider was downloaded from, and the `ETag`
+    that answer carried — what the next login asks "has it changed?" with."""
+
+    url: str
+    etag: str | None
 
 
 async def store_avatar(
@@ -118,12 +141,79 @@ async def store_avatar(
     content_type: str | None,
     data: bytes,
 ) -> Player:
-    """Replace the player's avatar.
+    """Replace the player's avatar with one somebody uploaded.
+
+    An upload is `manual` whoever made it — the singer or somebody with `players.avatar` —
+    and no single sign-on login replaces it after that (`takes_provider_picture`).
 
     Raises `AvatarTypeError` / `AvatarTooLargeError` / `AvatarTooManyPixelsError`.
     """
     extension = validate_image(content_type, data)
+    async with _avatar_lock:
+        await _write(session, player, avatars_dir, extension, data, None)
+    return player
+
+
+def takes_provider_picture(player: Player) -> bool:
+    """Whether a single sign-on login may put the provider's picture on this player: while
+    it has none, or while the one it has is the provider's. A picture somebody chose by
+    hand is never overwritten."""
+    return player.avatar_file is None or player.avatar_source == AVATAR_OIDC
+
+
+async def store_provider_avatar(
+    session: AsyncSession,
+    player: Player,
+    avatars_dir: Path,
+    data: bytes,
+    provider_picture: ProviderPicture,
+    *,
+    unchanged: bool,
+) -> bool:
+    """Put the identity provider's picture on the player, where `takes_provider_picture`
+    still allows it — read again under the lock every upload takes, so an upload that came
+    in while the picture was downloading wins. Whether the picture is the player's now.
+
+    `unchanged` is the caller's word that `data` is the very file the player already has:
+    then the file stays as it is — so its version, and every browser's cached copy, stay
+    too — and only where it came from is brought up to date.
+
+    The picture is declared as what its bytes say (`sniff_image_type`), a web server's own
+    `Content-Type` being unreliable for one. Raises what `store_avatar` raises.
+    """
+    extension = validate_image(sniff_image_type(data), data)
+    async with _avatar_lock:
+        await session.refresh(player)
+        if not takes_provider_picture(player):
+            return False
+        if unchanged and player.avatar_file is not None:
+            _set_source(player, provider_picture)
+            await session.commit()
+        else:
+            await _write(session, player, avatars_dir, extension, data, provider_picture)
+    return True
+
+
+async def _write(
+    session: AsyncSession,
+    player: Player,
+    avatars_dir: Path,
+    extension: str,
+    data: bytes,
+    provider_picture: ProviderPicture | None,
+) -> None:
     path = await store_image(avatars_dir, player.id, extension, data)
     player.avatar_file = str(path)
+    _set_source(player, provider_picture)
     await session.commit()
-    return player
+
+
+def _set_source(player: Player, provider_picture: ProviderPicture | None) -> None:
+    if provider_picture is None:
+        player.avatar_source = AVATAR_MANUAL
+        player.avatar_source_url = None
+        player.avatar_source_etag = None
+    else:
+        player.avatar_source = AVATAR_OIDC
+        player.avatar_source_url = provider_picture.url
+        player.avatar_source_etag = provider_picture.etag

@@ -12,7 +12,7 @@ from sqlalchemy.ext.asyncio import async_sessionmaker, create_async_engine
 
 from . import APP_NAME, __version__
 from .achievements import service as achievements
-from .api import router
+from .api import join_url, router
 from .auth import permissions
 from .auth import service as auth
 from .config import BootstrapSettings, get_bootstrap_settings
@@ -35,7 +35,7 @@ logger = logging.getLogger(__name__)
 async def lifespan(app: FastAPI) -> AsyncIterator[None]:
     settings: BootstrapSettings = app.state.bootstrap_settings
     settings.data_dir.mkdir(parents=True, exist_ok=True)
-    logger.info("data directory: %s", settings.data_dir)
+    logger.info("Data folder: %s", settings.data_dir)
     await run_migrations(settings.database_url)
     engine = create_async_engine(settings.database_url)
     app.state.session_factory = async_sessionmaker(engine, expire_on_commit=False)
@@ -43,10 +43,12 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
     # same process (tests, an embedded restart) must not survive into this one.
     permissions.invalidate_cache()
     _announce_host_url(app, settings)
+    async with app.state.session_factory() as session:
+        logger.info("Guests join at %s", await join_url(session, settings.port))
     # Always, `None` included: an app must not inherit the mode of the one before it.
     usdx_paths.configure(settings.usdx_dir)
     if settings.usdx_dir is not None:
-        logger.info("bundled Ultrastar Deluxe: %s", settings.usdx_dir)
+        logger.info("Using the Ultrastar Deluxe that came with Wingman: %s", settings.usdx_dir)
         # Before the scan below, which would otherwise look at an empty setting.
         async with app.state.session_factory() as session:
             await usdx_paths.seed_songs_directory(session)
@@ -122,8 +124,8 @@ def create_app(settings: BootstrapSettings | None = None) -> FastAPI:
     # Last: the SPA fallback is a catch-all, so every real route has to be registered first.
     frontend_dir = resolve_frontend_dir(app.state.bootstrap_settings.frontend_dir)
     if frontend_dir is None:
-        logger.info("no built frontend found, serving the API only")
+        logger.info("No built frontend found, serving the API only")
     else:
-        logger.info("serving frontend from %s", frontend_dir)
+        logger.debug("serving frontend from %s", frontend_dir)
         mount_frontend(app, frontend_dir)
     return app

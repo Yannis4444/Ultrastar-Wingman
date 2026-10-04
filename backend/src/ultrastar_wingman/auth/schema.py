@@ -3,6 +3,7 @@
 from pydantic import BaseModel
 
 from .model import User
+from .providers import LOCAL
 
 
 class UserRead(BaseModel):
@@ -12,6 +13,11 @@ class UserRead(BaseModel):
     # The player this account sings as. Always set for accounts registered through the API,
     # nullable because an account whose player was deleted must still be listable.
     player_id: str | None
+    # How the account logs in: `local` (a password here) or `oidc` (single sign-on, the
+    # provider answering for it). Always sent; the default only keeps the field optional in
+    # the generated client, the `avatar_version` precedent, so a test's hand-written account
+    # need not spell it out.
+    auth_provider: str = LOCAL
 
 
 class UserList(BaseModel):
@@ -51,4 +57,10 @@ class PermissionsRead(BaseModel):
 
 
 def read_user(user: User, player_id: str | None) -> UserRead:
-    return UserRead(id=user.id, username=user.username, role=user.role, player_id=player_id)
+    return UserRead(
+        id=user.id,
+        username=user.username,
+        role=user.role,
+        player_id=player_id,
+        auth_provider=user.auth_provider,
+    )

@@ -62,7 +62,8 @@ further out, so the host does not log in again next weekend.
 
 Once you are logged in, the **User** tab is you. It shows your picture, your
 name, and your role under it. Tap the picture to change it, which needs no right
-at all.
+at all. With single sign-on, the provider's picture stands there until you pick
+one of your own. See [Single sign-on](single-sign-on.md#the-picture).
 
 Below stand your totals over every party you sang at, a link to your whole
 record of scores, and the badges you hold. See [Scores](../scores/index.md) and

@@ -127,6 +127,11 @@ def song_metadata(txt: SongTxt) -> SongMetadata:
     )
 
 
+def song_label(song: Song | SongRead) -> str:
+    """How the console names a song: `Artist - Title`, the way a song folder is named."""
+    return f"{song.artist} - {song.title}"
+
+
 def read_song(song: Song) -> SongRead:
     return SongRead(
         id=song.id,

@@ -128,7 +128,7 @@ async def _ensure_updated(binary: Path, client: httpx.AsyncClient) -> None:
     if current == release.tag_name:
         logger.debug("yt-dlp %s is up to date", current)
         return
-    logger.info("updating yt-dlp from %s to %s", current, release.tag_name)
+    logger.info("Updating yt-dlp from %s to %s", current, release.tag_name)
     try:
         await _install(binary, client, release)
     except DownloadError as error:
@@ -151,7 +151,7 @@ async def _install(
     except (httpx.HTTPError, ValidationError, OSError) as error:
         raise DownloadError(f"could not download yt-dlp: {error}") from error
     await asyncio.to_thread(_write_check_state, binary)
-    logger.info("installed yt-dlp %s at %s", release.tag_name, binary)
+    logger.info("Installed yt-dlp %s as %s", release.tag_name, binary)
 
 
 async def _latest_release(client: httpx.AsyncClient, url: str = LATEST_RELEASE_URL) -> _Release:
@@ -280,7 +280,7 @@ async def _download_ffmpeg(
             raise DownloadError(f"could not download ffmpeg: {error}") from error
     finally:
         await asyncio.to_thread(_remove, archive)
-    logger.info("installed ffmpeg %s at %s", release.tag_name, binary)
+    logger.info("Installed ffmpeg %s as %s", release.tag_name, binary)
 
 
 async def _stream_to_file(

@@ -430,13 +430,13 @@ async def _pick(session: AsyncSession, previous: str | None) -> Song | None:
         scope = reel.parse_scope(_options.scope)
     except ValueError:
         logger.warning(
-            "background music scope %r is not one Wingman knows; playing every song",
+            "The background music's pool %r is not one Wingman knows, so it plays every song",
             _options.scope,
         )
         scope = "all"
     playlist_id = _options.playlist or None
     if scope == "playlist" and playlist_id is None:
-        logger.info("background music is set to a playlist but none is chosen")
+        logger.debug("background music is set to a playlist but none is chosen")
         return None
     exclude = frozenset() if previous is None else frozenset({previous})
     for attempt in range(PICK_ATTEMPTS):
@@ -587,12 +587,12 @@ async def report_sink(
             return _read(at), learned
         if event == "error":
             logger.warning(
-                "the host screen could not play %s (%s)", _track.song_id, detail or "no detail"
+                "The host screen could not play %s (%s)", _track.song_id, detail or "no detail"
             )
             _errors += 1
             if _errors >= MAX_ERRORS:
                 logger.warning(
-                    "%d songs in a row would not play; the background music is standing down",
+                    "%d songs in a row would not play, so the background music pauses for a while",
                     _errors,
                 )
                 _clear_track()
@@ -793,7 +793,12 @@ async def tick(session_factory: async_sessionmaker[AsyncSession]) -> None:
             before = _read()
             at = _now()
             if _sink is not None and not _sink_online(at):
-                logger.info("the host screen stopped reporting; the music has no speakers")
+                # Every host tab holds the lease, the music on or off: closing one is only
+                # news while there is music it was playing.
+                logger.log(
+                    logging.INFO if _options.enabled else logging.DEBUG,
+                    "The host screen stopped answering, so nothing plays the background music",
+                )
                 # At the moment it was last heard from, not now: the seconds since are
                 # seconds nobody was listening to.
                 _freeze(_sink.last_seen_at)

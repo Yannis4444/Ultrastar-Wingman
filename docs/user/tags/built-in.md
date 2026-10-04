@@ -28,7 +28,7 @@ their own colors, because those are switches and not marks.
 Favorites and Sung start on. Duet and Video start off, because half a library is
 one or the other and a mark most songs wear says nothing at a glance.
 
-**Show in filter** decides whether the **Filter** panel offers the row. Turn it
+**Show in filter** decides whether the **Filter** panel offers the chip. Turn it
 off and nobody can filter by that fact. The six facets start on. See
 [Filter the list](../songs/filter.md).
 

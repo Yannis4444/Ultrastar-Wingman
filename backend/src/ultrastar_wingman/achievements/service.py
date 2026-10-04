@@ -498,7 +498,7 @@ async def create_achievement(
     )
     session.add(achievement)
     await session.commit()
-    logger.info("achievement '%s' created (%s)", achievement.name, achievement.id)
+    logger.info("Achievement '%s' created", achievement.name)
     await event_bus.broadcast(AchievementsChanged())
     return achievement
 
@@ -552,7 +552,7 @@ async def update_achievement(
     if definition is not None:
         achievement.definition = dump_definition(definition)
     await session.commit()
-    logger.info("achievement '%s' updated (%s)", achievement.name, achievement.id)
+    logger.info("Achievement '%s' changed", achievement.name)
     await event_bus.broadcast(AchievementsChanged())
     return achievement
 
@@ -575,7 +575,7 @@ async def reorder_achievements(session: AsyncSession, achievement_ids: list[str]
     for position, achievement_id in enumerate(achievement_ids):
         rows[achievement_id].sort_order = position
     await session.commit()
-    logger.info("the achievement catalogue was reordered (%d rows)", len(achievement_ids))
+    logger.debug("the achievement catalogue was reordered (%d rows)", len(achievement_ids))
     await event_bus.broadcast(AchievementsChanged())
 
 
@@ -619,7 +619,7 @@ async def reset_built_in(
     # column is a mutable the ORM hands out again on the next read.
     achievement.definition = deepcopy(built_in.definition)
     await session.commit()
-    logger.info("achievement '%s' reset to the one Wingman ships", achievement.id)
+    logger.info("Achievement '%s' reset to the one Wingman ships", achievement.name)
     await event_bus.broadcast(AchievementsChanged())
     return achievement
 
@@ -645,7 +645,7 @@ async def delete_achievement(
         await session.delete(row)
     await session.delete(achievement)
     await session.commit()
-    logger.info("achievement '%s' deleted (%s)", achievement.name, achievement.id)
+    logger.info("Achievement '%s' deleted", achievement.name)
     await event_bus.broadcast(AchievementsChanged())
 
 
@@ -798,7 +798,7 @@ async def import_archive(
                     # really did carry other conditions, because the answer only counts the
                     # row as updated.
                     if achievement.definition != dump_definition(file.definition):
-                        logger.info(
+                        logger.debug(
                             "the archive's conditions for the built-in '%s' were left "
                             "alone: what one of the shipped achievements asks for is not "
                             "something an import may change",
@@ -828,7 +828,7 @@ async def import_archive(
         await _apply_icons(icons_dir, staged, [entry.achievement.id for entry in parsed])
     finally:
         await _discard_staging(staging)
-    logger.info("imported %d achievement(s) from an archive", len(parsed))
+    logger.info("Imported %d achievement(s) from an archive", len(parsed))
     # One broadcast for the whole archive, not one per row: every client refetches the
     # catalogue on it, and one per row would waste a round trip for every row but the first.
     await event_bus.broadcast(AchievementsChanged())
@@ -973,7 +973,7 @@ async def _full_pass(
 ) -> dict[str, list[str]]:
     async with session_factory() as session:
         earned = await evaluate_all(session)
-    logger.info("achievements recomputed for %d player(s) after %s", len(earned), reason)
+    logger.debug("achievements recomputed for %d player(s) after %s", len(earned), reason)
     return earned
 
 

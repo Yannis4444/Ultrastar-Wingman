@@ -3,7 +3,7 @@ import { ANY_VALUE } from "../tags";
 import { iconNames } from "../test/icons";
 import FilterPanel, { type FilterRow } from "./FilterPanel";
 
-/** The panel's two row shapes, as the Songs page builds them (§4, §7). */
+/** The panel's two chip shapes, as the Songs page builds them (§4, §7). */
 const MARK: FilterRow = {
   key: "favorite",
   kind: "tri-state",
@@ -22,6 +22,16 @@ const FACET: FilterRow = {
   value: "yes",
 };
 
+/** A hidden-by-default tag, which the page hands over on *No*. */
+const ARCHIVE: FilterRow = {
+  key: "tag:t-archive",
+  kind: "tri-state",
+  name: "archive",
+  icon: "tag",
+  colorClass: "tag-color-blue",
+  value: "no",
+};
+
 const GENRE: FilterRow = {
   key: "facet:genre",
   kind: "select",
@@ -32,58 +42,196 @@ const GENRE: FilterRow = {
   options: ["Pop", "Rock"],
 };
 
-function renderPanel(rows: FilterRow[], onSet = vi.fn()) {
-  render(
+function renderPanel(
+  rows: FilterRow[],
+  {
+    onSet = vi.fn(),
+    onReset = vi.fn(),
+    onClose = vi.fn(),
+  }: {
+    onSet?: (key: string, value: string) => void;
+    onReset?: () => void;
+    onClose?: () => void;
+  } = {},
+) {
+  const view = render(
     <FilterPanel
       rows={rows}
       onSet={onSet}
-      onReset={() => {}}
-      onClose={() => {}}
+      onReset={onReset}
+      onClose={onClose}
     />,
   );
-  return onSet;
+  return { ...view, onSet, onReset, onClose };
 }
 
-it("ends a mark, a tag and a boolean facet in the tri-state control", () => {
-  renderPanel([MARK, FACET]);
+/** The text of a select's options, in order. */
+function optionTexts(select: HTMLElement) {
+  return within(select)
+    .getAllByRole("option")
+    .map((option) => option.textContent);
+}
 
-  for (const [name, checked] of [
-    ["Favorites", "Any"],
-    ["Duet", "Yes"],
-  ]) {
-    const row = screen.getByRole("group", { name });
-    expect(
-      within(row)
-        .getAllByRole("radio")
-        .map((radio) => radio.getAttribute("value")),
-    ).toEqual(["any", "yes", "no"]);
-    expect(within(row).getByRole("radio", { name: checked })).toBeChecked();
+it("heads the panel with the one hint line", () => {
+  renderPanel([MARK]);
+
+  const hint = screen.getByText(
+    "Tap once for only these songs, twice to leave them out.",
+  );
+  expect(hint).toHaveClass("section-note");
+});
+
+it("names every cycling chip by its criterion and its state", () => {
+  renderPanel([MARK, FACET, ARCHIVE]);
+
+  // The state is a word in the name, never `aria-pressed`: its true and false
+  // cannot say *No*.
+  for (const name of ["Favorites Any", "Duet Yes", "archive No"]) {
+    const chip = screen.getByRole("button", { name });
+    expect(chip).not.toHaveAttribute("aria-pressed");
   }
 });
 
-it("ends a valued facet in a select named by the criterion", () => {
+it("cycles Any, Yes, No and back to Any from wherever a chip stands", () => {
+  const { onSet } = renderPanel([MARK, FACET, ARCHIVE]);
+
+  fireEvent.click(screen.getByRole("button", { name: "Favorites Any" }));
+  expect(onSet).toHaveBeenLastCalledWith("favorite", "yes");
+
+  fireEvent.click(screen.getByRole("button", { name: "Duet Yes" }));
+  expect(onSet).toHaveBeenLastCalledWith("facet:duet", "no");
+
+  // A hidden-by-default tag opens on *No*, so its first tap brings its songs
+  // back rather than asking for them alone.
+  fireEvent.click(screen.getByRole("button", { name: "archive No" }));
+  expect(onSet).toHaveBeenLastCalledWith("tag:t-archive", "any");
+  expect(onSet).toHaveBeenCalledTimes(3);
+});
+
+it("follows the value it is handed, one tap at a time", () => {
+  // Controlled: the chip shows what the page says, and the page answers each
+  // tap with the next value — three taps go all the way round.
+  const onSet = vi.fn();
+  const { rerender } = renderPanel([MARK], { onSet });
+  for (const [now, next] of [
+    ["any", "yes"],
+    ["yes", "no"],
+    ["no", "any"],
+  ] as const) {
+    const label = { any: "Any", yes: "Yes", no: "No" }[now];
+    rerender(
+      <FilterPanel
+        rows={[{ ...MARK, value: now }]}
+        onSet={onSet}
+        onReset={() => {}}
+        onClose={() => {}}
+      />,
+    );
+    fireEvent.click(screen.getByRole("button", { name: `Favorites ${label}` }));
+    expect(onSet).toHaveBeenLastCalledWith("favorite", next);
+  }
+});
+
+it("is a native button, so Enter and Space cycle it with no handler of ours", () => {
+  // jsdom does not turn a key into a click; the browser does, for a
+  // `<button>`. What is ours to get right is that the chip is one, and that it
+  // never submits anything.
+  renderPanel([MARK]);
+
+  const chip = screen.getByRole("button", { name: "Favorites Any" });
+  expect(chip.tagName).toBe("BUTTON");
+  expect(chip).toHaveAttribute("type", "button");
+  expect(chip).not.toHaveAttribute("tabindex");
+});
+
+it("draws Any at rest, Yes pressed and No struck out under eye-off", () => {
+  renderPanel([MARK, FACET, ARCHIVE]);
+
+  const any = screen.getByRole("button", { name: "Favorites Any" });
+  expect(any).toHaveClass("chip");
+  expect(any).not.toHaveClass("chip-on");
+  expect(iconNames(any)).toEqual(["heart"]);
+
+  const yes = screen.getByRole("button", { name: "Duet Yes" });
+  expect(yes).toHaveClass("chip", "chip-on");
+  expect(iconNames(yes)).toEqual(["users"]);
+
+  const no = screen.getByRole("button", { name: "archive No" });
+  expect(no).toHaveClass("chip", "filter-chip-no");
+  expect(no).not.toHaveClass("chip-on");
+  // The criterion's glyph gives way to `eye-off`, out of the tag's colour.
+  expect(iconNames(no)).toEqual(["eye-off"]);
+  expect(no.querySelector("svg")).not.toHaveClass("tag-color-blue");
+});
+
+it("paints each chip's glyph in the colour it was given", () => {
+  const { container } = renderPanel([MARK, FACET, GENRE]);
+
+  const glyphs = container.querySelectorAll(".filter-chip-glyph");
+  expect(glyphs[0]).toHaveClass("tag-color-pink");
+  expect(glyphs[1]).toHaveClass("tag-color-gold");
+  // A valued facet has no colour to configure, so its glyph is the neutral one.
+  expect(glyphs[2]).toHaveClass("tag-color-neutral");
+});
+
+it("puts the built-ins in one cloud and the tags in a second", () => {
+  renderPanel([MARK, FACET, GENRE, ARCHIVE]);
+
+  const builtIn = screen.getByRole("group", { name: "Built-in" });
+  const tags = screen.getByRole("group", { name: "Tags" });
+  expect(
+    within(builtIn)
+      .getAllByRole("button")
+      .map((chip) => chip.textContent),
+  ).toEqual(["Favorites Any", "Duet Yes"]);
+  expect(
+    within(builtIn).getByRole("combobox", { name: "Genre" }),
+  ).toBeInTheDocument();
+  expect(
+    within(tags)
+      .getAllByRole("button")
+      .map((chip) => chip.textContent),
+  ).toEqual(["archive No"]);
+  // No visible heading: the glyphs say which cloud is which.
+  expect(screen.queryByRole("heading", { name: "Tags" })).toBeNull();
+});
+
+it("draws no empty cloud", () => {
+  renderPanel([MARK]);
+
+  expect(screen.getByRole("group", { name: "Built-in" })).toBeInTheDocument();
+  expect(screen.queryByRole("group", { name: "Tags" })).not.toBeInTheDocument();
+});
+
+it("lays a select named by the facet over a valued facet's chip", () => {
   renderPanel([GENRE]);
 
-  // §4: the select sits where the tri-state group would, and the criterion
-  // names it the way that group's legend does.
   const select = screen.getByRole("combobox", { name: "Genre" });
-  expect(select).toHaveClass("text-input-quiet");
-  expect(
-    within(select)
-      .getAllByRole("option")
-      .map((option) => option.textContent),
-  ).toEqual(["Any", "Pop", "Rock"]);
+  // The chip is the box the reader sees; the select is the control inside it.
+  const chip = select.closest(".chip");
+  expect(chip).not.toBeNull();
+  expect(chip).not.toHaveClass("chip-on");
+  expect(chip?.textContent).toContain("Genre");
+  expect(iconNames(chip as HTMLElement)).toEqual(["music", "chevron-down"]);
+  // Its first entry is the facet's own name, and that is *Any*.
+  expect(optionTexts(select)).toEqual(["Genre", "Pop", "Rock"]);
   expect(select).toHaveValue(ANY_VALUE);
-  // Never a radio group as well: one control per row.
-  expect(
-    screen.queryByRole("group", { name: "Genre" }),
-  ).not.toBeInTheDocument();
+});
+
+it("presses a valued facet's chip and shows the value once one is chosen", () => {
+  renderPanel([{ ...GENRE, value: "Rock" }]);
+
+  const select = screen.getByRole("combobox", { name: "Genre" });
+  const chip = select.closest(".chip");
+  expect(chip).toHaveClass("chip-on");
+  expect(chip?.querySelector(".chip-name")?.textContent).toBe("Rock");
+  expect(select).toHaveValue("Rock");
 });
 
 it("keeps a value spelled like the sentinel apart from Any", () => {
   // A song file may say `#GENRE:any`. If *Any* and that genre shared an option
-  // value, picking the genre would read as "this row is not filtering" and the
-  // select would snap its text back to *Any*.
+  // value, picking the genre would read as "this chip is not filtering" and the
+  // select would snap back to the facet's name.
   renderPanel([{ ...GENRE, options: ["any", "Pop"] }]);
 
   const select = screen.getByRole("combobox", { name: "Genre" });
@@ -97,35 +245,25 @@ it("keeps a value spelled like the sentinel apart from Any", () => {
 it("offers exactly the options it was handed, in that order", () => {
   renderPanel([{ ...GENRE, name: "Decade", options: ["1980s", "1990s"] }]);
 
-  expect(
-    within(screen.getByRole("combobox", { name: "Decade" }))
-      .getAllByRole("option")
-      .map((option) => option.textContent),
-  ).toEqual(["Any", "1980s", "1990s"]);
+  expect(optionTexts(screen.getByRole("combobox", { name: "Decade" }))).toEqual(
+    ["Decade", "1980s", "1990s"],
+  );
 });
 
 it("keeps showing a chosen value the library no longer holds", () => {
   // A rescan dropped the last song with it: without the extra option the
-  // select would sit empty over a list filtered by something nothing names.
+  // select would fall back to the facet's name over a list filtered by
+  // something nothing names.
   renderPanel([{ ...GENRE, value: "Schlager" }]);
 
   const select = screen.getByRole("combobox", { name: "Genre" });
   expect(select).toHaveValue("Schlager");
-  expect(within(select).getAllByRole("option")).toHaveLength(4);
+  expect(optionTexts(select)).toEqual(["Genre", "Schlager", "Pop", "Rock"]);
+  expect(select.closest(".chip")).toHaveClass("chip-on");
 });
 
-it("reports what the reader picked, by the row's key", () => {
-  const onSet = renderPanel([MARK, GENRE]);
-
-  fireEvent.click(
-    within(screen.getByRole("group", { name: "Favorites" })).getByRole(
-      "radio",
-      {
-        name: "Yes",
-      },
-    ),
-  );
-  expect(onSet).toHaveBeenCalledWith("favorite", "yes");
+it("reports a picked value by the chip's key", () => {
+  const { onSet } = renderPanel([GENRE]);
 
   fireEvent.change(screen.getByRole("combobox", { name: "Genre" }), {
     target: { value: "Rock" },
@@ -133,33 +271,13 @@ it("reports what the reader picked, by the row's key", () => {
   expect(onSet).toHaveBeenCalledWith("facet:genre", "Rock");
 });
 
-it("paints each row's glyph in the colour it was given", () => {
-  const { container } = render(
-    <FilterPanel
-      rows={[MARK, FACET, GENRE]}
-      onSet={() => {}}
-      onReset={() => {}}
-      onClose={() => {}}
-    />,
-  );
+it("hands Reset and Done to the page", () => {
+  const { onReset, onClose } = renderPanel([MARK]);
 
-  const glyphs = container.querySelectorAll(".filter-row-glyph");
-  expect(glyphs[0]).toHaveClass("tag-color-pink");
-  expect(glyphs[1]).toHaveClass("tag-color-gold");
-  // A valued facet has no colour to configure, so its glyph is the neutral one.
-  expect(glyphs[2]).toHaveClass("tag-color-neutral");
-  expect(iconNames(container)).toEqual(
-    expect.arrayContaining(["heart", "users", "music"]),
-  );
-});
+  fireEvent.click(screen.getByRole("button", { name: "Reset" }));
+  expect(onReset).toHaveBeenCalledTimes(1);
+  expect(onClose).not.toHaveBeenCalled();
 
-it("names every row's control, so a reader hears which criterion it is", () => {
-  renderPanel([MARK, FACET, GENRE]);
-
-  expect(screen.getByRole("group", { name: "Favorites" })).toBeInTheDocument();
-  expect(screen.getByRole("group", { name: "Duet" })).toBeInTheDocument();
-  expect(screen.getByRole("combobox", { name: "Genre" })).toBeInTheDocument();
-  // Every radio is reachable: the label wraps it, so the visible text is its
-  // accessible name even though the input itself is visually hidden.
-  expect(screen.getAllByRole("radio")).toHaveLength(6);
+  fireEvent.click(screen.getByRole("button", { name: "Done" }));
+  expect(onClose).toHaveBeenCalledTimes(1);
 });

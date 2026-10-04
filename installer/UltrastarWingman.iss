@@ -200,38 +200,95 @@ Filename: "{app}\{#AppExeName}"; WorkingDir: "{app}"; Description: "{cm:LaunchPr
 ; and anything else a user put into {app} (a .env, say) is theirs to keep.
 
 [Code]
-// Version strings like "0.2.0" or "0.2.0.dev1" as the four numbers StrToVersion wants;
-// anything past the numbers is ignored, missing parts are zero.
+function IsDigit(const C: Char): Boolean;
+begin
+  Result := (C >= '0') and (C <= '9');
+end;
+
+function IsSeparator(const C: Char): Boolean;
+begin
+  Result := (C = '.') or (C = '-') or (C = '_');
+end;
+
+// A PEP 440 version string ("0.2.0", "0.2.0rc1", "0.2.0.dev3", "0.2.0.post1") as the four
+// numbers StrToVersion wants: the first three release numbers, missing ones zero, and a
+// fourth that orders what follows them the way PEP 440 does, .dev < a < b < rc < the
+// release itself < .post. So a pre-release over its own release is a downgrade, and the
+// release over its pre-release an update. The fourth is Stage * 4096 + the suffix's
+// number; a fourth release number ranks above a .post, as in PEP 440. Only the first
+// suffix counts (0.2.0rc1.dev2 reads as 0.2.0rc1), and one PEP 440 does not know reads as
+// the release.
 function PackedVersion(const Version: String; var Packed: Int64): Boolean;
 var
-  Numbers: String;
-  Parts, I: Integer;
+  Numbers, Suffix, Count: String;
+  Parts, I, Stage, Number: Integer;
 begin
   Numbers := '';
   Parts := 1;
-  for I := 1 to Length(Version) do
+  I := 1;
+  while I <= Length(Version) do
   begin
-    if (Version[I] >= '0') and (Version[I] <= '9') then
+    if IsDigit(Version[I]) then
       Numbers := Numbers + Version[I]
-    else if (Version[I] = '.') and (Parts < 4) and (Numbers <> '') and (Numbers[Length(Numbers)] <> '.') then
+    else if (Version[I] = '.') and (Parts < 3) and (Numbers <> '') and (I < Length(Version)) and IsDigit(Version[I + 1]) then
     begin
       Numbers := Numbers + '.';
       Parts := Parts + 1;
     end
     else
       Break;
+    I := I + 1;
   end;
-  if (Numbers <> '') and (Numbers[Length(Numbers)] = '.') then
+  if Numbers = '' then
   begin
-    Delete(Numbers, Length(Numbers), 1);
-    Parts := Parts - 1;
+    Result := False;
+    Exit;
   end;
-  while Parts < 4 do
+  while Parts < 3 do
   begin
     Numbers := Numbers + '.0';
     Parts := Parts + 1;
   end;
-  Result := StrToVersion(Numbers, Packed);
+
+  if (I <= Length(Version)) and IsSeparator(Version[I]) then
+    I := I + 1;
+  Suffix := '';
+  while (I <= Length(Version)) and not IsDigit(Version[I]) and not IsSeparator(Version[I]) and (Version[I] <> '+') do
+  begin
+    Suffix := Suffix + Version[I];
+    I := I + 1;
+  end;
+  Suffix := Lowercase(Suffix);
+  if (Suffix <> '') and (I <= Length(Version)) and IsSeparator(Version[I]) then
+    I := I + 1;
+  Count := '';
+  while (I <= Length(Version)) and IsDigit(Version[I]) do
+  begin
+    Count := Count + Version[I];
+    I := I + 1;
+  end;
+  Number := StrToIntDef(Count, 0);
+  if (Number < 0) or (Length(Count) > 4) or (Number > 4095) then
+    Number := 4095;
+
+  if Suffix = 'dev' then
+    Stage := 0
+  else if (Suffix = 'a') or (Suffix = 'alpha') then
+    Stage := 1
+  else if (Suffix = 'b') or (Suffix = 'beta') then
+    Stage := 2
+  else if (Suffix = 'rc') or (Suffix = 'c') or (Suffix = 'pre') or (Suffix = 'preview') then
+    Stage := 3
+  else if (Suffix = 'post') or (Suffix = 'rev') or (Suffix = 'r') then
+    Stage := 5
+  else if (Suffix = '') and (Count <> '') then
+    Stage := 6
+  else
+  begin
+    Stage := 4;
+    Number := 0;
+  end;
+  Result := StrToVersion(Numbers + '.' + IntToStr(Stage * 4096 + Number), Packed);
 end;
 
 const

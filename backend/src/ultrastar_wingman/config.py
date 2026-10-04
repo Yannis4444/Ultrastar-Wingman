@@ -14,6 +14,7 @@ from pydantic import Field, field_validator, model_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 from . import APP_NAME
+from .console import LogLevel
 
 # The folder beside the frozen executable that a build bringing its own Ultrastar Deluxe
 # puts it in, and the file that has to be in there for the folder to count.
@@ -55,6 +56,9 @@ class BootstrapSettings(BaseSettings):
     # or a frozen build finding one next to itself — every USDX path is derived from it and
     # the `usdx.*` settings are out of the picture (`karaoke.usdx_paths`).
     usdx_dir: Path | None = None
+    # How much the console window says (`console.py`). `debug` is the developer's view: the
+    # logger of every line, and uvicorn's line per request.
+    log_level: LogLevel = "info"
 
     @model_validator(mode="before")
     @classmethod
@@ -64,6 +68,12 @@ class BootstrapSettings(BaseSettings):
         if isinstance(data, dict) and "usdx_dir" not in data:
             return {**data, "usdx_dir": bundled_usdx_dir()}
         return data
+
+    @field_validator("log_level", mode="before")
+    @classmethod
+    def _any_case(cls, value: object) -> object:
+        # `WINGMAN_LOG_LEVEL=DEBUG` is how most people spell it.
+        return value.strip().lower() if isinstance(value, str) else value
 
     @field_validator("usdx_dir", mode="before")
     @classmethod

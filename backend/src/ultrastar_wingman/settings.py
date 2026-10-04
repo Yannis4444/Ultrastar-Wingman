@@ -27,6 +27,7 @@ from .sound import (
     MUSIC_VOLUME,
     PREVIEW_VOLUME,
     REEL_PREVIEW,
+    VOLUME_KEYS,
     validate_volume,
 )
 
@@ -465,7 +466,12 @@ class SettingsService:
         checked = self._check(definition, value)
         await self._session.merge(Setting(key=key, value=json.dumps(checked)))
         await self._session.commit()
-        logger.info("setting '%s' updated", key)
+        # The name only, never the value: a password and a client secret are settings too. A
+        # volume is a slider on every phone's player, written on each pause in the drag, so a
+        # line per write is noise and not news.
+        logger.log(
+            logging.DEBUG if key in VOLUME_KEYS else logging.INFO, "Setting '%s' changed", key
+        )
         return checked
 
     async def reset(self, key: str) -> SettingValue:
@@ -473,7 +479,7 @@ class SettingsService:
         definition = self.definition(key)
         await self._session.execute(delete(Setting).where(Setting.key == key))
         await self._session.commit()
-        logger.info("setting '%s' reset to its default", key)
+        logger.info("Setting '%s' reset to its default", key)
         return definition.default
 
     @staticmethod

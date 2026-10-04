@@ -9,6 +9,7 @@ import {
   listPlayersQueryKey,
   listUsersOptions,
   listUsersQueryKey,
+  oidcConfigOptions,
   setPlayerAvatarMutation,
   updatePlayerMutation,
   updateUserMutation,
@@ -58,6 +59,11 @@ function accountMessage(error: unknown, fallback: string): string {
  */
 function hasAccount(person: Person): boolean {
   return person.account !== null || person.player?.registered === true;
+}
+
+/** An account the identity provider answers for, rather than a password here. */
+function isSingleSignOn(account: UserRead): boolean {
+  return account.auth_provider === "oidc";
 }
 
 function byName(one: Person, other: Person): number {
@@ -187,6 +193,11 @@ export default function PeopleAdmin() {
 
   const playerList = players.data?.players ?? [];
   const userList = users.data?.users ?? [];
+  // The name the login button carries, asked for only once an account here
+  // actually signs in that way. Public and the login form's own cache entry.
+  const anySingleSignOn = userList.some(isSingleSignOn);
+  const oidc = useQuery({ ...oidcConfigOptions(), enabled: anySingleSignOn });
+  const providerName = oidc.data?.display_name.trim() || "single sign-on";
   const accountByPlayer = new Map<string, UserRead>();
   for (const user of userList) {
     if (user.player_id !== null) accountByPlayer.set(user.player_id, user);
@@ -257,6 +268,13 @@ export default function PeopleAdmin() {
             {name}
             {account !== null && account.id === auth.user?.id && (
               <span className="people-you"> (you)</span>
+            )}
+            {/* Where the account's picture can come from and why it has no
+                password to forget: the identity provider answers for it. */}
+            {account !== null && isSingleSignOn(account) && (
+              <span className="people-provider">
+                Signs in with {providerName}
+              </span>
             )}
           </span>
           {/* Out of sight for the evening: gone from the singer picker and from

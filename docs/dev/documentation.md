@@ -517,7 +517,7 @@ about, and the **Must be visible** column names that part alone.
 | `home` | `party/index.md` | `/` | Signed in as Leela, four wishes | 390x844 | The Wingman tile, the wishlist, the Random song entry |
 | `home-playing` | `party/sing.md` | `/` | **launcher**: a song playing | 390x844 | The stage showing cover, title, artist, song controls |
 | `songs-list` | `songs/index.md` | `/songs` | Seeded library, two favorites, two sung | 390x844 | Search box, chip row, rows with marks |
-| `songs-filter` | `songs/filter.md` | `/songs` | Filter panel open, Decade set to 1980s | 390x844 | The tri-state controls and one valued facet select |
+| `songs-filter` | `songs/filter.md` | `/songs` | Filter panel open, Video on Yes, Decade set to 1980s | 390x844 | The hint line, both chip clouds, Video on Yes, the Decade chip showing 1980s, and a tag struck through on No |
 | `song` | `songs/song.md` | `/songs` | Song modal open on "I Got You Babe" | 390x844 | Cover hero, the wish and favorite toggles, and the summary strip |
 | `song-comments` | `songs/song.md` | `/songs` | Song modal, comments sub-view, three comments | 390x844 | The comment list and the composer |
 | `song-edit` | `songs/fix-or-delete.md` | `/songs` | Song modal, details editor open | 390x844 | The six labeled inputs, the save row, and **Delete song** under it |
@@ -545,7 +545,7 @@ about, and the **Must be visible** column names that part alone.
 | `people-admin` | `people/players.md` | `/user/accounts` | Three accounts, seven guests, one of them hidden | 390x844 | Both groups, the role controls, a hidden row |
 | `permissions` | `people/roles.md` | `/user/permissions` | Defaults | 390x844 | The three columns Guest, User, and Trusted, and the line saying admins are not in the table |
 | `login` | `people/index.md` | `/user` | Signed out | 390x844 | Name, Password, **Log in**, and the **New account** switch |
-| `settings` | `settings/index.md` | `/settings` | USDX group open, its Advanced block open | 390x844 | The group header and its icon, the Base path field, the Advanced block |
+| `settings` | `settings/index.md` | `/settings` | USDX group open, its Advanced line folded | 390x844 | The group header and its icon, the Base path field, the Advanced line |
 | `host-screen` | `host-screen/index.md` | `/host` | A party going, four wishes, five singers scored | 1280x720 | QR card, join address, standing, most wished |
 | `host-playing` | `host-screen/index.md` | `/host` | **launcher**: a song playing | 1280x720 | The stage with the cover and the singers |
 | `host-results` | `scores/index.md` | `/host` | **launcher**: the song just finished and its scores were written | 1280x720 | The results of the song that finished, the score summary beside its cover |

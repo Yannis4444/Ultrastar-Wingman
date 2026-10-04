@@ -9,6 +9,7 @@ import asyncio
 import configparser
 import contextlib
 import json
+import logging
 import os
 import signal
 import sqlite3
@@ -353,6 +354,31 @@ async def test_a_finished_song_records_scores_for_the_players_who_sang(
         (1, 2),
         (2, 2),
     ]
+
+
+async def test_the_console_follows_a_sing_from_the_start_to_the_badges(
+    client: AsyncClient, configured: FakeUsdx, song: str, caplog: pytest.LogCaptureFixture
+) -> None:
+    """What the host reads in the window: who sings what, how it ended, what it earned."""
+    yannis = await add_player(client, "Yannis")
+    alex = await add_player(client, "Alex")
+    configured.behave(scores=[("Alex", 7000, 2001, None), ("Yannis", 10000, 2000, 3)])
+    caplog.set_level(logging.INFO, logger="ultrastar_wingman.karaoke.service")
+
+    await sing(
+        client,
+        song,
+        [{"color": "blue", "player_id": yannis["id"]}, {"color": "red", "player_id": alex["id"]}],
+    )
+    await service.wait_for_sing_end()
+
+    lines = [record.getMessage() for record in caplog.records]
+    assert "Singing Artist - Title: Yannis (blue), Alex (red)" in lines
+    # Best first, with the thousands separator the scores page uses.
+    assert "Artist - Title is over: Yannis 10,000, Alex 7,000" in lines
+    assert any(
+        line.startswith("Yannis earned ") and "'First Time on the Mic'" in line for line in lines
+    )
 
 
 async def test_a_duet_records_who_came_first_and_how_big_the_field_was(

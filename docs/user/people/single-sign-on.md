@@ -74,9 +74,32 @@ is no account yet, and nobody is logged in.
 - Wishes made on that browser as a guest come along.
 - The account has no password. The login form lets nobody in under that name,
   and there is nothing to reset.
+- **Players & accounts** says *Signs in with* and the button's name under the
+  account's name. See [Players and avatars](players.md).
 
 Everything else is normal. It holds a role, it stands in the permissions table,
 and it can be deleted. See [Roles and permissions](roles.md).
+
+### The picture
+
+A provider that has a picture of the singer hands it over at every login.
+Wingman makes it the player's picture, so a new picture at the provider shows up
+here at the next login. The very first login brings it too, once the name is
+in.
+
+- A picture somebody uploaded in Wingman wins. From then on no login replaces
+  it, whoever uploaded it. The same goes for a guest player's picture that the
+  new account takes over.
+- An unchanged picture is not downloaded again when the provider can say so.
+- A picture that cannot be used leaves the old one in place, and the login goes
+  through anyway. The download gets 5 seconds at most, and so does asking the
+  userinfo endpoint. The console names the account and says why, as a warning.
+- Wingman takes jpeg, png, and webp pictures of at most 5 MB, the same rules as
+  an upload. It only follows `http` and `https` addresses.
+
+The picture comes with the `profile` scope, which **OIDC scopes** already holds.
+Some providers put it into the login token. For the others Wingman asks the
+provider's userinfo endpoint once per login.
 
 !!! warning
     The first account ever created is the administrator, and a single sign-on

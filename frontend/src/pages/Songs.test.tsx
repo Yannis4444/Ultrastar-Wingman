@@ -1047,13 +1047,35 @@ async function openFilter() {
   return screen.getByRole("dialog", { name: "Filter" });
 }
 
-/** Set one criterion the way a reader does: tap Any / Yes / No in its row. */
-function setCriterion(dialog: HTMLElement, row: string, option: string) {
-  fireEvent.click(
-    within(within(dialog).getByRole("group", { name: row })).getByRole(
-      "radio",
-      { name: option },
-    ),
+/** The panel's cycling chip for one criterion, whatever state it is in: its
+ *  name is the criterion's followed by *Any*, *Yes* or *No*. */
+function filterChip(dialog: HTMLElement, criterion: string) {
+  return within(dialog).getByRole("button", {
+    name: (name) =>
+      [" Any", " Yes", " No"].some((state) => name === criterion + state),
+  });
+}
+
+/** Whether the panel offers a cycling chip for this criterion at all. */
+function hasFilterChip(dialog: HTMLElement, criterion: string) {
+  return (
+    within(dialog).queryByRole("button", {
+      name: (name) =>
+        [" Any", " Yes", " No"].some((state) => name === criterion + state),
+    }) !== null
+  );
+}
+
+/** Set one criterion the way a reader does: tap its chip round until it says
+ *  what we want — three taps at most, Any → Yes → No → Any. */
+function setCriterion(dialog: HTMLElement, criterion: string, state: string) {
+  for (let tap = 0; tap < 3; tap++) {
+    const chip = filterChip(dialog, criterion);
+    if (chip.textContent === `${criterion} ${state}`) return;
+    fireEvent.click(chip);
+  }
+  expect(filterChip(dialog, criterion).textContent).toBe(
+    `${criterion} ${state}`,
   );
 }
 
@@ -1068,45 +1090,45 @@ test("the filter panel lists the marks, the facets and every tag the reader may 
 
   const dialog = await openFilter();
 
-  // §7's order: the two marks, the facets in Built-in order, then the tags —
-  // and nothing the reader may not view.
+  // §7's order: the two marks and the facets in Built-in order in the first
+  // cloud, the tags in the second — and nothing the reader may not view.
   expect(
     within(dialog)
       .getAllByRole("group")
-      .map((group) => group.textContent),
-  ).toHaveLength(6);
-  for (const name of ["Favorites", "Sung", "Duet", "Video", "archive", "party"])
-    expect(within(dialog).getByRole("group", { name })).toBeInTheDocument();
-  // A valued facet is the select, not a tri-state.
-  for (const name of ["Genre", "Language", "Edition", "Decade"])
-    expect(within(dialog).getByRole("combobox", { name })).toBeInTheDocument();
+      .map((group) => group.getAttribute("aria-label")),
+  ).toEqual(["Built-in", "Tags"]);
+  const builtIn = within(dialog).getByRole("group", { name: "Built-in" });
   expect(
-    within(dialog).queryByRole("group", { name: "scratch" }),
-  ).not.toBeInTheDocument();
+    within(builtIn)
+      .getAllByRole("button")
+      .map((chip) => chip.textContent),
+  ).toEqual(["Favorites Any", "Sung Any", "Duet Any", "Video Any"]);
+  // A valued facet is the select chip, not a cycling one.
+  expect(
+    within(builtIn)
+      .getAllByRole("combobox")
+      .map((select) => select.getAttribute("aria-label")),
+  ).toEqual(["Genre", "Language", "Edition", "Decade"]);
 
   // A hide-by-default tag opens on No, everything else on Any.
-  const archive = within(dialog).getByRole("group", { name: "archive" });
-  expect(within(archive).getByRole("radio", { name: "No" })).toBeChecked();
-  const party = within(dialog).getByRole("group", { name: "party" });
-  expect(within(party).getByRole("radio", { name: "Any" })).toBeChecked();
+  expect(
+    within(within(dialog).getByRole("group", { name: "Tags" }))
+      .getAllByRole("button")
+      .map((chip) => chip.textContent),
+  ).toEqual(["archive No", "party Any"]);
+  expect(hasFilterChip(dialog, "scratch")).toBe(false);
 });
 
-test("a browser with no account gets the tags but neither mark row", async () => {
+test("a browser with no account gets the tags but neither mark chip", async () => {
   withTags([PARTY]);
   renderSongs([QUEEN], TRUSTED);
   await screen.findByText("Dancing Queen");
 
   const dialog = await openFilter();
 
-  expect(
-    within(dialog).getByRole("group", { name: "party" }),
-  ).toBeInTheDocument();
-  expect(
-    within(dialog).queryByRole("group", { name: "Favorites" }),
-  ).not.toBeInTheDocument();
-  expect(
-    within(dialog).queryByRole("group", { name: "Sung" }),
-  ).not.toBeInTheDocument();
+  expect(hasFilterChip(dialog, "party")).toBe(true);
+  expect(hasFilterChip(dialog, "Favorites")).toBe(false);
+  expect(hasFilterChip(dialog, "Sung")).toBe(false);
 });
 
 test("nothing to filter on means no Filter chip at all", async () => {
@@ -1122,7 +1144,7 @@ test("nothing to filter on means no Filter chip at all", async () => {
   );
 });
 
-test("a tri-state narrows the list, the count and the chip's label", async () => {
+test("a cycling chip narrows the list, the count and the chip's label", async () => {
   withTags([PARTY], [{ tag_id: "t-party", song_ids: ["local:abc"] }]);
   renderSongs([QUEEN, AFRICA]);
   await screen.findByText("Dancing Queen");
@@ -1218,12 +1240,8 @@ test("Reset puts every criterion back, the hidden-by-default ones included", asy
 
   fireEvent.click(within(dialog).getByRole("button", { name: "Reset" }));
 
-  expect(
-    within(within(dialog).getByRole("group", { name: "archive" })).getByRole(
-      "radio",
-      { name: "No" },
-    ),
-  ).toBeChecked();
+  expect(filterChip(dialog, "archive").textContent).toBe("archive No");
+  expect(filterChip(dialog, "party").textContent).toBe("party Any");
   expect(screen.getByText("1 song")).toBeInTheDocument();
   expect(screen.getByRole("button", { name: "All" })).toHaveAttribute(
     "aria-pressed",
@@ -1264,11 +1282,7 @@ test("a preset chip replaces whatever the panel was set to", async () => {
   expect(screen.getByText("Africa")).toBeInTheDocument();
   expect(screen.queryByText("Dancing Queen")).not.toBeInTheDocument();
   expect(screen.getByRole("button", { name: "Filter" }).textContent).toBe("");
-  expect(
-    within(
-      within(await openFilter()).getByRole("group", { name: "party" }),
-    ).getByRole("radio", { name: "Any" }),
-  ).toBeChecked();
+  expect(filterChip(await openFilter(), "party").textContent).toBe("party Any");
 });
 
 test("the criteria still apply inside the recently played tab", async () => {
@@ -1324,33 +1338,49 @@ test("a filtered-down recent tab does not claim the party is empty", async () =>
   expect(screen.getByText("No song matches the filter.")).toBeInTheDocument();
 });
 
-test("each row is one native radio group, so the arrow keys walk it", async () => {
-  withTags([PARTY]);
-  renderSongs([QUEEN], LIBRARY, ACCOUNT);
+test("a hidden-by-default tag comes back on the first tap of its chip", async () => {
+  withTags(
+    [ARCHIVE, PARTY],
+    [{ tag_id: "t-archive", song_ids: ["local:abc"] }],
+  );
+  renderSongs([QUEEN, AFRICA]);
+  await screen.findByText("Dancing Queen");
+  expect(screen.queryByText("Africa")).not.toBeInTheDocument();
+
+  const dialog = await openFilter();
+  // It opens on No, and one tap is Any — not Yes, which would show the
+  // archived songs alone.
+  fireEvent.click(filterChip(dialog, "archive"));
+
+  expect(filterChip(dialog, "archive").textContent).toBe("archive Any");
+  expect(screen.getByText("Africa")).toBeInTheDocument();
+  expect(screen.getByText("Dancing Queen")).toBeInTheDocument();
+  expect(screen.getByText("2 songs")).toBeInTheDocument();
+});
+
+test("one tap moves a chip one state on, Any to Yes to No and round", async () => {
+  withTags([PARTY], [{ tag_id: "t-party", song_ids: ["local:abc"] }]);
+  renderSongs([QUEEN, AFRICA]);
   await screen.findByText("Dancing Queen");
 
   const dialog = await openFilter();
 
-  for (const name of ["Favorites", "Sung", "party"]) {
-    const radios = within(
-      within(dialog).getByRole("group", { name }),
-    ).getAllByRole("radio");
-    expect(radios.map((radio) => radio.getAttribute("value"))).toEqual([
-      "any",
-      "yes",
-      "no",
-    ]);
-    // One name per row, and no two rows sharing one: that is what makes the
-    // browser move the selection with the arrow keys.
-    expect(
-      new Set(radios.map((radio) => radio.getAttribute("name"))).size,
-    ).toBe(1);
-  }
-  // One `name` per tri-state row: the two marks, the two boolean facets and
-  // the tag. The valued facets are selects and have no radios at all.
-  const every = within(dialog).getAllByRole("radio");
-  expect(new Set(every.map((radio) => radio.getAttribute("name"))).size).toBe(
-    5,
+  fireEvent.click(filterChip(dialog, "party"));
+  expect(filterChip(dialog, "party").textContent).toBe("party Yes");
+  expect(screen.getByText("1 song")).toBeInTheDocument();
+  expect(screen.getByText("Africa")).toBeInTheDocument();
+
+  fireEvent.click(filterChip(dialog, "party"));
+  expect(filterChip(dialog, "party").textContent).toBe("party No");
+  expect(screen.getByText("Dancing Queen")).toBeInTheDocument();
+  expect(screen.queryByText("Africa")).not.toBeInTheDocument();
+
+  fireEvent.click(filterChip(dialog, "party"));
+  expect(filterChip(dialog, "party").textContent).toBe("party Any");
+  expect(screen.getByText("2 songs")).toBeInTheDocument();
+  expect(screen.getByRole("button", { name: "All" })).toHaveAttribute(
+    "aria-pressed",
+    "true",
   );
 });
 
@@ -1406,11 +1436,11 @@ test("the chips, the filter rows and the marks follow the built-ins' colours", a
   expect(container.querySelector(".song-mark-favorite")).toHaveClass(
     "tag-color-gold",
   );
-  // …and the Filter panel's row, which reads like a tag's.
+  // …and the Filter panel's chip, which reads like a tag's.
   const dialog = await openFilter();
-  const rows = dialog.querySelectorAll(".filter-row-glyph");
-  expect(rows[0]).toHaveClass("tag-color-gold");
-  expect(rows[1]).toHaveClass("tag-color-neutral");
+  const glyphs = dialog.querySelectorAll(".filter-chip-glyph");
+  expect(glyphs[0]).toHaveClass("tag-color-gold");
+  expect(glyphs[1]).toHaveClass("tag-color-neutral");
 });
 
 test("a built-in that is off the song list keeps its chip and its filter row", async () => {
@@ -1511,13 +1541,13 @@ test("a valued facet offers what the library holds and filters by it", async () 
     within(within(dialog).getByRole("combobox", { name: "Genre" }))
       .getAllByRole("option")
       .map((option) => option.textContent),
-  ).toEqual(["Any", "Pop", "Rock"]);
+  ).toEqual(["Genre", "Pop", "Rock"]);
   // Chronological, and no bucket for the song with no year.
   expect(
     within(within(dialog).getByRole("combobox", { name: "Decade" }))
       .getAllByRole("option")
       .map((option) => option.textContent),
-  ).toEqual(["Any", "1970s", "1980s"]);
+  ).toEqual(["Decade", "1970s", "1980s"]);
 
   setValue(dialog, "Genre", "Rock");
 
@@ -1529,6 +1559,12 @@ test("a valued facet offers what the library holds and filters by it", async () 
   expect(screen.getByRole("button", { name: "Filter" }).textContent).toBe(
     "Filter · 1",
   );
+  // The chip is pressed and says the value in place of the facet's name.
+  const genre = within(dialog)
+    .getByRole("combobox", { name: "Genre" })
+    .closest(".chip");
+  expect(genre).toHaveClass("chip-on");
+  expect(genre?.querySelector(".chip-name")?.textContent).toBe("Rock");
 
   // Two facets narrow together, and the decade of the other song empties it.
   setValue(dialog, "Decade", "1970s");
@@ -1557,7 +1593,7 @@ test("the select's options stay the whole library while the list narrows", async
     within(within(dialog).getByRole("combobox", { name: "Genre" }))
       .getAllByRole("option")
       .map((option) => option.textContent),
-  ).toEqual(["Any", "Pop", "Rock"]);
+  ).toEqual(["Genre", "Pop", "Rock"]);
 });
 
 test("a facet that is not shown in the filter is not a criterion at all", async () => {
@@ -1575,16 +1611,12 @@ test("a facet that is not shown in the filter is not a criterion at all", async 
 
   const dialog = await openFilter();
 
-  // No row, nothing to count — and both songs are still listed.
+  // No chip, nothing to count — and both songs are still listed.
   expect(
     within(dialog).queryByRole("combobox", { name: "Genre" }),
   ).not.toBeInTheDocument();
-  expect(
-    within(dialog).queryByRole("group", { name: "Duet" }),
-  ).not.toBeInTheDocument();
-  expect(
-    within(dialog).getByRole("group", { name: "Video" }),
-  ).toBeInTheDocument();
+  expect(hasFilterChip(dialog, "Duet")).toBe(false);
+  expect(hasFilterChip(dialog, "Video")).toBe(true);
   expect(screen.getByText("2 songs")).toBeInTheDocument();
   expect(screen.getByRole("button", { name: "Filter" }).textContent).toBe("");
 });
@@ -1596,9 +1628,7 @@ test("a facet is a filter for a browser with no account at all", async () => {
   await screen.findByText("Summer Nights");
 
   const dialog = await openFilter();
-  expect(
-    within(dialog).queryByRole("group", { name: "Favorites" }),
-  ).not.toBeInTheDocument();
+  expect(hasFilterChip(dialog, "Favorites")).toBe(false);
   setCriterion(dialog, "Video", "No");
 
   await waitFor(() =>
@@ -1632,7 +1662,7 @@ test("All throws a facet away with the rest of the filter", async () => {
 });
 
 test("a facet put back on Any is the All chip again, both kinds", async () => {
-  // The two kinds spell their default differently — the tri-state's is the word
+  // The two kinds spell their default differently — the cycling chip's is the word
   // *Any*, the select's is `ANY_VALUE` — so each has to drop out of the
   // overrides on its own terms or the page would stay on a Filter chip
   // counting nothing.

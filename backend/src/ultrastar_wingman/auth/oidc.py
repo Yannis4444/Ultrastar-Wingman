@@ -24,8 +24,14 @@ Deliberate choices, because getting this wrong is a login bypass:
 - Every failure sends the browser back to the UI with a slug and logs the reason here. The
   slugs are coarse on purpose — a caller learns "this login did not work", not which of our
   checks caught it.
+
+One thing rides along that is not identity: the provider's picture of the person (the
+`picture` claim, out of the ID token or, failing that, the userinfo endpoint) becomes their
+player's avatar at every login, unless a picture was chosen by hand (`oidc_picture.py`).
+Nothing about it can fail a login.
 """
 
+import asyncio
 import logging
 import secrets
 import time
@@ -44,9 +50,10 @@ from joserfc.jwk import KeySet, KeySetSerialization
 from pydantic import BaseModel
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from ..config import BootstrapSettings
 from ..db import SessionDep
 from ..settings import SettingsService, SettingValue
-from . import providers, service
+from . import oidc_picture, providers, service
 from .deps import claim_guest_wishes, set_session_cookie
 from .model import User
 from .schema import UserRead
@@ -96,6 +103,10 @@ ALGORITHMS = ["RS256", "ES256"]
 
 _HTTP_TIMEOUT = 10.0
 
+# The userinfo request asked only for a picture address the ID token did not carry. Bounded
+# on its own, because nothing about the login depends on it.
+USERINFO_SECONDS = 5.0
+
 
 class LoginError(Exception):
     """A login that did not happen, plus the slug the browser is sent home with."""
@@ -135,13 +146,18 @@ class ProviderMetadata(BaseModel):
     authorization_endpoint: str
     token_endpoint: str
     jwks_uri: str
+    # Optional in the discovery document (OIDC Discovery 3, "RECOMMENDED"). Asked only for a
+    # picture address the ID token left out.
+    userinfo_endpoint: str | None = None
 
 
 class TokenResponse(BaseModel):
-    """The token endpoint's answer. The access token is not needed: Wingman does not call
-    the provider's userinfo endpoint, the ID token carries everything it maps."""
+    """The token endpoint's answer. The ID token carries everything Wingman maps; the access
+    token is used for one thing alone — asking the userinfo endpoint for the `picture` claim
+    many providers keep out of the ID token — and never stored."""
 
     id_token: str
+    access_token: str | None = None
 
 
 @dataclass(frozen=True)
@@ -185,6 +201,18 @@ class Pending(Parked):
 
     subject: str
     username: str
+    # The provider's picture of this person, downloaded as their avatar once the account
+    # exists. Read at the callback, because the access token the userinfo request may need
+    # is spent there.
+    picture: str | None = None
+
+
+@dataclass(frozen=True)
+class Returning:
+    """A verified subject that already has an account, and the provider's picture of them."""
+
+    user: User
+    picture: str | None
 
 
 # ponytail: in-memory, so a second worker process would not see an attempt started by the
@@ -332,9 +360,9 @@ async def oidc_callback(
         logger.exception("OIDC login failed unexpectedly")
         response = _redirect("error:login_failed")
     else:
-        if isinstance(outcome, User):
+        if isinstance(outcome, Returning):
             response = _redirect("ok")
-            await _log_in(request, session, response, outcome)
+            await _log_in(request, session, response, outcome.user, outcome.picture)
             # A name somebody started choosing and walked away from must not outlive the
             # login that overtook it in the same browser.
             response.delete_cookie(PENDING_COOKIE_NAME, path="/")
@@ -352,7 +380,7 @@ async def oidc_callback(
                 samesite="lax",
                 path="/",
             )
-            logger.info("OIDC login by a new subject, waiting for a name")
+            logger.info("A first single sign-on login is waiting for its account name")
     # One attempt, one cookie: it is spent whatever the outcome was.
     response.delete_cookie(STATE_COOKIE_NAME, path="/")
     return response
@@ -423,7 +451,7 @@ async def complete_oidc_login(
         # double tap, or a second tab — and the one that comes second finds the account
         # its twin created rather than a key to delete.
         _pendings.pop(token, None)
-    await _log_in(request, session, response, user)
+    await _log_in(request, session, response, user, pending.picture)
     response.delete_cookie(PENDING_COOKIE_NAME, path="/")
     return await service.read_user_with_player(session, user)
 
@@ -438,13 +466,47 @@ async def forget_oidc_login(request: Request, response: Response) -> None:
     response.delete_cookie(PENDING_COOKIE_NAME, path="/")
 
 
-async def _log_in(request: Request, session: AsyncSession, response: Response, user: User) -> None:
+async def _log_in(
+    request: Request,
+    session: AsyncSession,
+    response: Response,
+    user: User,
+    picture: str | None,
+) -> None:
     """The one way an OIDC login ends: a session cookie, the browser's guest wishes, a line
-    in the log. Both the returning subject and a freshly named account come through here."""
+    in the log, and the provider's picture as the player's avatar. Both the returning
+    subject and a freshly named account come through here — the second with its player
+    already attached, so its very first login brings the picture too."""
     set_session_cookie(response, await service.start_session(session, user.id))
     # Same as a local login: whoever wished as a guest in this browser keeps those wishes.
     await claim_guest_wishes(request, session, user)
-    logger.info("OIDC login for '%s' (%s)", user.username, user.id)
+    logger.info("'%s' logged in through single sign-on", user.username)
+    if picture is not None:
+        await _take_picture(request, session, user, picture)
+
+
+async def _take_picture(request: Request, session: AsyncSession, user: User, url: str) -> None:
+    """Inline, after the session exists: the response waits at most
+    `oidc_picture.DOWNLOAD_SECONDS` for it, and the singer lands on a page that already
+    shows the new picture. Nothing here may undo the login it follows."""
+    settings: BootstrapSettings = request.app.state.bootstrap_settings
+    try:
+        async with http_client() as client:
+            await oidc_picture.take_provider_picture(
+                session, client, user, url, settings.data_dir / "avatars"
+            )
+    except Exception as error:
+        # `take_provider_picture` turns everything a download or a picture can do wrong into
+        # a WARNING itself. What reaches this is a fault of ours (the database, say), and it
+        # must not turn a login that has already happened into an error page. The rollback
+        # expires every loaded row, and the completion still answers with this account.
+        await session.rollback()
+        await session.refresh(user)
+        logger.warning(
+            "Kept the avatar of '%s' as it was: taking their single sign-on picture failed (%s)",
+            user.username,
+            type(error).__name__,
+        )
 
 
 def _redirect(outcome: str) -> RedirectResponse:
@@ -453,7 +515,7 @@ def _redirect(outcome: str) -> RedirectResponse:
 
 def _failed(failure: LoginError) -> RedirectResponse:
     # WARNING with the reason, never with token or code contents.
-    logger.warning("OIDC login failed (%s): %s", failure.slug, failure)
+    logger.warning("A single sign-on login failed (%s): %s", failure.slug, failure)
     return _redirect(f"error:{failure.slug}")
 
 
@@ -464,8 +526,9 @@ async def _complete(
     state: str | None,
     error: str | None,
     state_cookie: str | None,
-) -> User | Pending:
-    """The account this callback belongs to, or the pending login it opens."""
+) -> Returning | Pending:
+    """The account this callback belongs to, or the pending login it opens — each with the
+    provider's picture of whoever logged in, when it has one."""
     config = await load_config(session)
     if not config.enabled:
         raise LoginError("oidc_disabled", "a callback arrived while OIDC login is off")
@@ -483,8 +546,8 @@ async def _complete(
         # attacker's account and merging its guest wishlist into it.
         raise LoginError("invalid_state", "the callback came from a different browser")
     metadata = await _metadata_for(config)
-    id_token = await _exchange(config, metadata, code=code, attempt=attempt)
-    claims = await _verified_claims(config, metadata, id_token, nonce=attempt.nonce)
+    tokens = await _exchange(config, metadata, code=code, attempt=attempt)
+    claims = await _verified_claims(config, metadata, tokens.id_token, nonce=attempt.nonce)
 
     subject = str(claims["sub"]).strip()
     if not subject:
@@ -493,13 +556,80 @@ async def _complete(
         raise LoginError("invalid_token", "the token has no subject")
 
     existing = await service.find_by_oidc_subject(session, subject)
+    who = "a first login" if existing is None else f"'{existing.username}'"
+    picture = await _picture(metadata, tokens, claims, subject, who)
     if existing is not None:
-        return existing
+        return Returning(user=existing, picture=picture)
     return Pending(
         started_at=time.monotonic(),
         subject=subject,
         username=await _preset_username(session, claims, subject),
+        picture=picture,
     )
+
+
+async def _picture(
+    metadata: ProviderMetadata,
+    tokens: TokenResponse,
+    claims: Mapping[str, Any],
+    subject: str,
+    who: str,
+) -> str | None:
+    """The address of the provider's picture of this person (the standard `picture` claim),
+    or `None`.
+
+    The ID token first. Many providers put `picture` only into the userinfo answer, so when
+    the token has none and the provider has a userinfo endpoint, that is asked — once, with
+    the access token, bounded by `USERINFO_SECONDS`. Its answer counts only when its `sub`
+    is the ID token's (OIDC Core 5.3.2): a userinfo answer about somebody else must not put
+    their picture on this account. Nothing here fails the login.
+    """
+    if "picture" in claims:
+        # The token speaks for itself: an address it carries that is no web address is no
+        # picture, and asking userinfo for a second opinion would only repeat it.
+        return oidc_picture.picture_url(claims["picture"])
+    if metadata.userinfo_endpoint is None or not tokens.access_token:
+        return None
+    try:
+        async with asyncio.timeout(USERINFO_SECONDS), http_client() as client:
+            response = await client.get(
+                metadata.userinfo_endpoint,
+                headers={"Authorization": f"Bearer {tokens.access_token}"},
+            )
+    except TimeoutError:
+        reason = f"it took longer than {USERINFO_SECONDS:g} seconds"
+    except Exception as error:
+        # The class name only: httpx messages carry the address, and the request a token.
+        # Anything at all, not just `httpx.HTTPError`: this runs inside the callback, where
+        # an exception left to rise is a failed login and a traceback in the console.
+        reason = f"the request failed ({type(error).__name__})"
+    else:
+        info = _json_object(response)
+        if response.status_code != 200:
+            reason = f"it answered {response.status_code}"
+        elif info is None:
+            # A signed or encrypted userinfo answer (`application/jwt`) lands here too:
+            # verifying one is not worth it for a picture.
+            reason = "its answer was not a JSON object"
+        elif str(info.get("sub", "")).strip() != subject:
+            reason = "its answer was about somebody else"
+        else:
+            return oidc_picture.picture_url(info.get("picture"))
+    logger.warning(
+        "No single sign-on picture for %s: the provider's userinfo endpoint was asked for "
+        "one and %s",
+        who,
+        reason,
+    )
+    return None
+
+
+def _json_object(response: httpx.Response) -> dict[str, Any] | None:
+    try:
+        document = response.json()
+    except ValueError:
+        return None
+    return document if isinstance(document, dict) else None
 
 
 async def _preset_username(session: AsyncSession, claims: Mapping[str, Any], subject: str) -> str:
@@ -583,8 +713,8 @@ async def _metadata_for(config: OidcConfig) -> ProviderMetadata:
 
 async def _exchange(
     config: OidcConfig, metadata: ProviderMetadata, *, code: str, attempt: Attempt
-) -> str:
-    """Trade the code for tokens. Returns the raw, still unverified ID token."""
+) -> TokenResponse:
+    """Trade the code for tokens. The ID token in the answer is raw and still unverified."""
     form = {
         "grant_type": "authorization_code",
         "code": code,
@@ -603,7 +733,7 @@ async def _exchange(
         # The body is not logged: an error response may still quote the code we sent.
         raise LoginError("token_failed", f"token endpoint answered {response.status_code}")
     try:
-        return TokenResponse.model_validate(response.json()).id_token
+        return TokenResponse.model_validate(response.json())
     except ValueError as error:
         raise LoginError("token_failed", f"no usable id_token in the response: {error}") from error
 

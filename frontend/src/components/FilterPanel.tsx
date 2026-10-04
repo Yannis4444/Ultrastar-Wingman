@@ -1,13 +1,12 @@
-import { useId } from "react";
 import { ANY_VALUE, type TagCriterion } from "../tags";
 import { Icon, type IconName } from "./icons";
 import Modal from "./Modal";
 import "./FilterPanel.css";
 
-/** What every row of the panel has: glyph · name · control (§4). */
+/** What every chip of the panel has: glyph · name (§4). */
 interface FilterRowBase {
   /** What the page calls this criterion — `favorite`, `sung`, `tag:<id>` or
-   *  `facet:<id>`. */
+   *  `facet:<id>`. The `tag:` ones make up the panel's second cloud. */
   key: string;
   name: string;
   icon: IconName;
@@ -15,17 +14,17 @@ interface FilterRowBase {
   colorClass: string;
 }
 
-/** A mark, a tag or a boolean facet: the Any / Yes / No control of §4. */
+/** A mark, a tag or a boolean facet: the chip that cycles Any / Yes / No (§4). */
 export interface TriStateFilterRow extends FilterRowBase {
   kind: "tri-state";
   value: TagCriterion;
 }
 
 /**
- * A valued facet: the same row with a quiet `<select>` where the tri-state
- * group sits (§4). `options` are the values the reader's own library holds —
- * the page reads them off the songs, because a value nothing visible carries
- * is a value nothing would match.
+ * A valued facet: the same chip over an invisible `<select>` (§4). `options`
+ * are the values the reader's own library holds — the page reads them off the
+ * songs, because a value nothing visible carries is a value nothing would
+ * match.
  */
 export interface SelectFilterRow extends FilterRowBase {
   kind: "select";
@@ -36,17 +35,133 @@ export interface SelectFilterRow extends FilterRowBase {
 /** One criterion the panel asks about. */
 export type FilterRow = TriStateFilterRow | SelectFilterRow;
 
-/** Any / Yes / No, in the order ui-guidelines §4 fixes them in. */
-const OPTIONS: [TagCriterion, string][] = [
-  ["any", "Any"],
-  ["yes", "Yes"],
-  ["no", "No"],
-];
+/** Where a tap takes a cycling chip: Any → Yes → No → Any, from wherever it
+ *  stands (§4), so a hidden-by-default tag that opens on *No* comes back on
+ *  its first tap. */
+const NEXT: Record<TagCriterion, TagCriterion> = {
+  any: "yes",
+  yes: "no",
+  no: "any",
+};
+
+/** The word a screen reader hears after the criterion's name. */
+const STATE_WORD: Record<TagCriterion, string> = {
+  any: "Any",
+  yes: "Yes",
+  no: "No",
+};
 
 /**
- * The Songs page's **Filter** panel: one row per criterion, each ending in the
- * tri-state control of §4 — or, for a valued facet, in the select that offers
- * what the library actually holds.
+ * A mark, a tag or a boolean facet. A plain `<button>`, so Enter and Space
+ * cycle it the way a tap does with no key handler of our own. The state is a
+ * word in its name rather than `aria-pressed`, whose true and false cannot say
+ * *No*.
+ */
+function CycleChip({
+  row,
+  onSet,
+}: {
+  row: TriStateFilterRow;
+  onSet: (key: string, value: string) => void;
+}) {
+  const no = row.value === "no";
+  const className =
+    row.value === "yes" ? "chip chip-on" : no ? "chip filter-chip-no" : "chip";
+  return (
+    <button
+      type="button"
+      className={className}
+      onClick={() => onSet(row.key, NEXT[row.value])}
+    >
+      {/* *No* swaps the criterion's own glyph for `eye-off`, the same 1em
+          square, so the chip keeps its width through the cycle. */}
+      <Icon
+        name={no ? "eye-off" : row.icon}
+        className={
+          no ? "filter-chip-glyph" : `filter-chip-glyph ${row.colorClass}`
+        }
+      />
+      <span className="chip-name">{row.name}</span>
+      <span className="visually-hidden"> {STATE_WORD[row.value]}</span>
+    </button>
+  );
+}
+
+/**
+ * A valued facet: glyph · the facet's name or the chosen value · a chevron,
+ * under a bare `<select>` laid over the whole chip, so a tap anywhere opens
+ * the native list and the chip is as wide as its text rather than its longest
+ * option. The select is the control and carries the name; what is drawn is
+ * hidden from a screen reader, which would otherwise hear it twice.
+ */
+function SelectChip({
+  row,
+  onSet,
+}: {
+  row: SelectFilterRow;
+  onSet: (key: string, value: string) => void;
+}) {
+  const chosen = row.value !== ANY_VALUE;
+  return (
+    <div className={chosen ? "chip chip-on" : "chip"}>
+      <Icon name={row.icon} className={`filter-chip-glyph ${row.colorClass}`} />
+      <span className="chip-name" aria-hidden="true">
+        {chosen ? row.value : row.name}
+      </span>
+      <Icon name="chevron-down" className="filter-chip-chevron" />
+      <select
+        className="filter-chip-select"
+        aria-label={row.name}
+        value={row.value}
+        onChange={(event) => onSet(row.key, event.target.value)}
+      >
+        {/* The facet's own name is the "not filtering" entry. */}
+        <option value={ANY_VALUE}>{row.name}</option>
+        {/* A value the reader chose that the library no longer holds — a
+            rescan dropped the last song with it. Without this the select would
+            fall back to the first entry while the list stays filtered by
+            something nothing on screen names. */}
+        {chosen && !row.options.includes(row.value) && (
+          <option value={row.value}>{row.value}</option>
+        )}
+        {row.options.map((option) => (
+          <option key={option} value={option}>
+            {option}
+          </option>
+        ))}
+      </select>
+    </div>
+  );
+}
+
+/** One wrapping cloud of chips, named for a screen reader alone: the glyphs
+ *  already say which cloud is which. */
+function Cloud({
+  label,
+  rows,
+  onSet,
+}: {
+  label: string;
+  rows: FilterRow[];
+  onSet: (key: string, value: string) => void;
+}) {
+  return (
+    <div className="filter-cloud" role="group" aria-label={label}>
+      {rows.map((row) =>
+        row.kind === "tri-state" ? (
+          <CycleChip key={row.key} row={row} onSet={onSet} />
+        ) : (
+          <SelectChip key={row.key} row={row} onSet={onSet} />
+        ),
+      )}
+    </div>
+  );
+}
+
+/**
+ * The Songs page's **Filter** panel: one hint line over two clouds of the
+ * filter chips of §4 — *Built-in* (the marks and the facets) and, under a
+ * hairline, *Tags* — in the order the page hands the criteria over.
  *
  * Every change applies to the list behind the panel straight away — the reader
  * narrows a 500-song library by watching the count move, and a panel that only
@@ -65,64 +180,21 @@ export default function FilterPanel({
   onReset: () => void;
   onClose: () => void;
 }) {
-  // Two Filter panels never coexist, but the radio `name`s have to be unique
-  // against anything else the document holds.
-  const group = useId();
+  const builtIn = rows.filter((row) => !row.key.startsWith("tag:"));
+  const tags = rows.filter((row) => row.key.startsWith("tag:"));
 
   return (
     <Modal title="Filter" onClose={onClose}>
       <div className="filter-panel">
-        {rows.map((row) => (
-          <div key={row.key} className="filter-row">
-            <Icon
-              name={row.icon}
-              className={`filter-row-glyph ${row.colorClass}`}
-            />
-            <span className="filter-row-name">{row.name}</span>
-            {row.kind === "tri-state" ? (
-              /* The radios share a `name`, so the arrow keys walk the row the
-                 way a native radio group does — no key handler of our own. */
-              <fieldset className="tri-state">
-                <legend className="visually-hidden">{row.name}</legend>
-                {OPTIONS.map(([value, label]) => (
-                  <label key={value} className="tri-state-option">
-                    <input
-                      className="visually-hidden"
-                      type="radio"
-                      name={`${group}-${row.key}`}
-                      value={value}
-                      checked={row.value === value}
-                      onChange={() => onSet(row.key, value)}
-                    />
-                    <span className="tri-state-text">{label}</span>
-                  </label>
-                ))}
-              </fieldset>
-            ) : (
-              <select
-                className="text-input text-input-quiet filter-row-select"
-                aria-label={row.name}
-                value={row.value}
-                onChange={(event) => onSet(row.key, event.target.value)}
-              >
-                <option value={ANY_VALUE}>Any</option>
-                {/* A value the reader chose that the library no longer holds —
-                    a rescan dropped the last song with it. Without this the
-                    select would show an empty box over a list filtered by
-                    something nothing on screen names. */}
-                {row.value !== ANY_VALUE &&
-                  !row.options.includes(row.value) && (
-                    <option value={row.value}>{row.value}</option>
-                  )}
-                {row.options.map((option) => (
-                  <option key={option} value={option}>
-                    {option}
-                  </option>
-                ))}
-              </select>
-            )}
-          </div>
-        ))}
+        <p className="section-note">
+          Tap once for only these songs, twice to leave them out.
+        </p>
+        {/* A cloud with nothing in it is not drawn — nor, with it, the
+            hairline that would separate it from nothing. */}
+        {builtIn.length > 0 && (
+          <Cloud label="Built-in" rows={builtIn} onSet={onSet} />
+        )}
+        {tags.length > 0 && <Cloud label="Tags" rows={tags} onSet={onSet} />}
       </div>
       <div className="filter-panel-footer">
         <button type="button" className="button" onClick={onReset}>

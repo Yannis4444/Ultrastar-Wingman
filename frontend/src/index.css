@@ -281,6 +281,73 @@ a.icon-button:hover {
   background-color: var(--highlight-red-light);
 }
 
+/* The chip (ui-guidelines §4): the Songs page's row of presets and the Filter
+   panel's clouds draw this one box. Glyph · name, 40px, the name ellipsed
+   rather than the chip outgrowing its line. `position: relative` is for the
+   valued facet, whose invisible `<select>` is laid over the whole chip. */
+.chip {
+  position: relative;
+  display: flex;
+  /* A `<button>` is border-box by default and an `<a>` or a `<div>` is not, so
+     without this the link and the facet chip stand 2px taller than the rest. */
+  box-sizing: border-box;
+  flex: 0 0 auto;
+  gap: 6px;
+  align-items: center;
+  max-width: 100%;
+  min-height: 40px;
+  padding: 0 14px;
+  font: inherit;
+  font-size: 0.9em;
+  color: var(--color-dark);
+  background-color: var(--input-bg);
+  border: 1px solid var(--input-border-color);
+  border-radius: var(--border-radius);
+  cursor: pointer;
+  transition:
+    color 0.15s,
+    background-color 0.15s,
+    border-color 0.15s;
+}
+
+/* The hover is the pressed fill, so it is for pointers alone (§1.12): a tap on
+   a phone fakes a hover that outlives the finger, and a chip just cycled to *No*
+   would sit there looking pressed. */
+@media (hover: hover) {
+  .chip:hover {
+    background-color: var(--highlight-blue-dark);
+  }
+}
+
+.chip-on {
+  color: var(--color);
+  background-color: var(--highlight-blue-dark);
+  border-color: var(--highlight-blue-light);
+}
+
+/* The ring goes on the chip. A button chip is the focused element itself and
+   takes the global ring; a valued facet's chip holds an invisible `<select>`,
+   whose own ring nobody would see. */
+.chip:has(:focus-visible) {
+  outline: 2px solid var(--highlight-blue-light);
+  outline-offset: 2px;
+}
+
+/* The name gives way, never the glyph: a long tag name ellipses inside a chip
+   capped at its cloud's width. */
+.chip-name {
+  min-width: 0;
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .chip {
+    transition: none;
+  }
+}
+
 .error-notice {
   color: var(--color);
   background-color: var(--highlight-red-dark);

@@ -149,7 +149,10 @@ async def rename_session(
 ) -> SessionRead:
     karaoke_session.name = name
     await session.commit()
-    logger.info("karaoke session %s renamed to %r", karaoke_session.id, name)
+    if name:
+        logger.info("A party was renamed to '%s'", name)
+    else:
+        logger.info("A party's name was taken off")
     read = await read_session(session, karaoke_session)
     # The party picker in the room is now naming that evening something else. Same event as
     # hiding one, and for the same reason: it is the listing that changed, and what the
@@ -188,9 +191,11 @@ async def set_session_hidden(
     karaoke_session.hidden = hidden
     await session.commit()
     logger.info(
-        "karaoke session %s %s the party picker",
-        karaoke_session.id,
-        "hidden from" if hidden else "shown in",
+        "The party %s %s the party picker",
+        f"'{karaoke_session.name}'"
+        if karaoke_session.name
+        else f"of {as_utc(karaoke_session.started_at).date().isoformat()}",
+        "is hidden from" if hidden else "is back in",
     )
     read = await read_session(session, karaoke_session)
     # Ids say nothing here: which parties a listener sees depends on whether they hold
@@ -291,7 +296,7 @@ async def reassign_score(session: AsyncSession, score: Score, player: Player) ->
     score.player_id = player.id
     score.player_name = player.name
     await session.commit()
-    logger.info("score %d reassigned to player '%s' (%s)", score.id, player.name, player.id)
+    logger.info("A score of %s moved to %s", f"{score.score:,}", player.name)
     # Both ends of the move: the one who lost the score may lose a badge with it, and the one
     # who gained it may have just earned one. Recomputation is what makes that correct — a
     # counter would only ever have grown.
@@ -320,7 +325,7 @@ async def delete_score(session: AsyncSession, score: Score) -> None:
     player_id = score.player_id
     await session.delete(score)
     await session.commit()
-    logger.info("score %d deleted", score.id)
+    logger.info("A score of %s by %s deleted", f"{score.score:,}", score.player_name)
     # A badge earned on a score that is no longer on the record is revoked here. Nothing is
     # announced beyond `scores.changed`: `achievements.earned` is what a *sing* earned, and
     # a correction hours later is not one.

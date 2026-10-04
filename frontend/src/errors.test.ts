@@ -106,6 +106,24 @@ test("each backend problem gets its own explanation", () => {
   expect(explained[8]).not.toContain("WinError");
 });
 
+test("the bundled folder's problems say what to do, and name no path", () => {
+  const ascii = explainUsdxProblem(
+    "the bundled Ultrastar Deluxe is in a folder that is not plain ASCII: C:\\Users\\Jürgen\\AppData\\Local\\Programs\\Ultrastar Wingman\\usdx",
+  );
+  const writable = explainUsdxProblem(
+    "the bundled songs folder cannot be written to: C:\\Karaoke\\Ultrastar Wingman\\usdx\\songs",
+  );
+
+  expect(ascii).toContain("cannot start songs from there");
+  expect(ascii).toContain("install it again into a plain folder");
+  expect(writable).toContain("Give your Windows account the right to change");
+  for (const sentence of [ascii, writable]) {
+    expect(sentence).not.toContain("Jürgen");
+    expect(sentence).not.toContain("C:\\Karaoke\\Ultrastar Wingman\\usdx");
+    expect(sentence).not.toContain("bundled");
+  }
+});
+
 test("an unknown problem is shown as it came", () => {
   expect(explainUsdxProblem("something entirely new")).toBe(
     "something entirely new",

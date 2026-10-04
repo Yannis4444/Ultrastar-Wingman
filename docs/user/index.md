@@ -13,8 +13,9 @@ Everybody uses it from a browser. There is nothing to install on a phone.
 
 ## How an evening runs
 
-1. One person runs Wingman on the PC that runs Ultrastar Deluxe, and connects it
-   to their Ultrastar Deluxe installation once.
+1. One person runs Wingman on the karaoke PC. The Wingman setup that comes with
+   Ultrastar Deluxe brings the game along. Otherwise they point Wingman at the
+   Ultrastar Deluxe installed there, once.
 2. They open the host screen on that PC. It carries the QR code with Wingman's
    address, the standing of the party so far, and what the room wished for.
 3. Everybody else scans that QR code, or types the address into a browser. They

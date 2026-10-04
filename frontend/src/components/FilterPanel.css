@@ -1,107 +1,79 @@
-/* The rows of the Filter panel. 8px here plus the row's own 8px puts the glyph
-   on the modal's 16px gutter, the way every other list in the app is laid out. */
-.filter-panel {
-  display: flex;
-  flex-direction: column;
-  margin: 0 8px;
-}
+/* The Filter panel (ui-guidelines §4, §7): the hint line, then two clouds of
+   the shared `.chip`, the second under a hairline.
 
-/* Glyph · name · control (ui-guidelines §4). 48px rather than the 44px floor:
-   the tri-state option inside is 40px and needs its own breathing room. */
-.filter-row {
+   Every chip rule here is written `.chip.filter-chip-*` or under a cloud: this
+   stylesheet lands in the bundle before index.css, so a single class would
+   lose to `.chip` at equal specificity. */
+
+/* The modal's body has no gutter of its own, so the clouds keep to the 16px
+   every dialog's content sits on, the hint's own margin included. */
+.filter-cloud {
   display: flex;
+  flex-wrap: wrap;
   gap: 8px;
-  align-items: center;
-  min-height: 48px;
-  padding: 4px 8px;
-  border-bottom: 1px solid var(--input-border-color);
+  margin: 16px 16px 0 16px;
 }
 
-.filter-row:last-child {
-  border-bottom: none;
+/* *Tags* under *Built-in*: a hairline and 16px, no heading — the glyphs say
+   which cloud is which. */
+.filter-cloud + .filter-cloud {
+  padding-top: 16px;
+  border-top: 1px solid var(--input-border-color);
 }
 
-.filter-row-glyph {
-  flex: 0 0 auto;
+.filter-cloud .filter-chip-glyph {
   font-size: 1.15em;
 }
 
-/* The name gives up the room, never the control: at 360 there are ~130px left
-   for it, which is a word and a half. Ellipsis, never a second line — a wrapped
-   name would push the rows to different heights. */
-.filter-row-name {
-  flex: 1 1 auto;
-  min-width: 0;
-  overflow: hidden;
-  white-space: nowrap;
-  text-overflow: ellipsis;
+/* *No*: the chip without its fill, hairline kept, the name struck through and
+   the glyph swapped for `eye-off` — the same box as *Any* and *Yes*, so the chip
+   never changes width under the finger. */
+.chip.filter-chip-no {
+  background-color: transparent;
 }
 
-/* A valued facet's control: the quiet select in the slot the tri-state group
-   would take (§4). The same ~150px, so a 390px row still leaves ~130px for the
-   name and the two kinds of row line up under each other. */
-.filter-row-select {
-  flex: 0 0 auto;
-  width: 150px;
-  max-width: 150px;
+/* Under a pointer a *No* chip takes the hover fill like every other chip.
+   Written out, because the rule above and `.chip:hover` tie on specificity
+   and the stylesheets' order in the bundle would otherwise decide it. */
+@media (hover: hover) {
+  .chip.filter-chip-no:hover {
+    background-color: var(--highlight-blue-dark);
+  }
 }
 
-/* The tri-state control: the segmented pill of the tag editor's colours (§4) at
-   three options. A fieldset for the grouping and the legend, so its own chrome
-   has to go first. */
-.tri-state {
-  display: flex;
-  flex: 0 0 auto;
-  gap: 4px;
-  min-width: 0;
+.filter-chip-no .chip-name {
+  color: var(--color-darker);
+  text-decoration: line-through;
+}
+
+.filter-chip-no .filter-chip-glyph {
+  color: var(--color-dark);
+}
+
+/* A valued facet: the native select laid over the whole chip and invisible,
+   so a tap anywhere on the chip opens the browser's own list. 16px, because
+   iOS zooms the page into any focused field set smaller than that — invisible
+   or not. */
+.filter-chip-select {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
   margin: 0;
   padding: 0;
+  font: inherit;
+  font-size: 16px;
   border: none;
-}
-
-.tri-state-option {
-  display: flex;
-  min-width: 0;
-}
-
-/* Hairline and transparent at rest like the quiet input; the chosen option
-   fills with the blue accent. The radio underneath is visually hidden, so
-   hover, checked and focus all draw on the text. */
-.tri-state-text {
-  display: flex;
-  box-sizing: border-box;
-  align-items: center;
-  min-height: 40px;
-  padding: 0 10px;
-  font-size: 0.85em;
-  white-space: nowrap;
-  color: var(--color-dark);
-  background-color: transparent;
-  border: 1px solid var(--input-border-color);
-  border-radius: var(--border-radius);
+  opacity: 0;
   cursor: pointer;
-  transition:
-    color 0.15s,
-    background-color 0.15s,
-    border-color 0.15s;
 }
 
-.tri-state-option:hover input ~ .tri-state-text {
+/* The list itself is drawn by the browser; given nothing to inherit it would
+   come up in the system's light colours (the quiet select's rule, for a select
+   that is not one). */
+.filter-chip-select option {
   color: var(--color);
-  border-color: var(--color-darker);
-}
-
-/* After the hover rule at equal specificity, so a hovered chosen option keeps
-   the accent border. */
-.tri-state input:checked ~ .tri-state-text {
-  color: var(--highlight-blue-light);
-  background-color: var(--highlight-blue-dark);
-  border-color: var(--highlight-blue-light);
-}
-
-.tri-state input:focus-visible ~ .tri-state-text {
-  outline: 2px solid var(--highlight-blue-light);
-  outline-offset: 2px;
+  background-color: var(--input-bg);
 }
 
 /* Reset then Done, the dialog's only primary (§5). */
@@ -113,10 +85,4 @@
 
 .filter-panel-footer .button {
   flex: 1 1 0;
-}
-
-@media (prefers-reduced-motion: reduce) {
-  .tri-state-text {
-    transition: none;
-  }
 }

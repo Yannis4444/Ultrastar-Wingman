@@ -107,7 +107,7 @@ async def add_comment(session: AsyncSession, song_id: str, user_id: str, body: s
     comment = SongComment(song_id=song_id, user_id=user_id, body=body)
     session.add(comment)
     await session.commit()
-    logger.info("comment %s added to song '%s'", comment.id, song_id)
+    logger.debug("comment %s added to song '%s'", comment.id, song_id)
     await _announce(session, song_id)
     return comment
 

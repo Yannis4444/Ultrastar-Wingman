@@ -24,9 +24,9 @@ versioned with the rest of the API). The SQLite database is created at
 
 ### Bootstrap configuration
 
-Only paths, the bind address and the open-browser switch are configured
-outside the database — via environment variables (prefix `WINGMAN_`) or a
-`.env` file in the working directory:
+Only paths, the bind address, the open-browser switch and the log level are
+configured outside the database — via environment variables (prefix
+`WINGMAN_`) or a `.env` file in the working directory:
 
 | Variable | Default |
 |---|---|
@@ -36,6 +36,7 @@ outside the database — via environment variables (prefix `WINGMAN_`) or a
 | `WINGMAN_FRONTEND_DIR` | the PyInstaller bundle when frozen, else `frontend/dist` |
 | `WINGMAN_OPEN_BROWSER` | `true` (open the host page at startup) |
 | `WINGMAN_USDX_DIR` | frozen: the `usdx` folder beside the exe when it holds `ultrastardx.exe`; from source: none. Set, every USDX path is derived from it and the `usdx.*` settings are withheld; empty switches a frozen build's own copy off. `--usdx-dir <dir>` on the command line overrides it |
+| `WINGMAN_LOG_LEVEL` | `info`. One of `debug` / `info` / `warning` / `error`, any case: the level of Wingman's and uvicorn's loggers (every other library stays at `warning`). `debug` also names the logger on every line and turns uvicorn's access log on, query strings stripped |
 
 Everything else is a runtime setting: definitions live in
 `src/ultrastar_wingman/settings.py`, values in the `settings` table, exposed via

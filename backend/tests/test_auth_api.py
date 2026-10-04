@@ -1,5 +1,6 @@
 """Registration, login, sessions and account administration."""
 
+import logging
 from datetime import timedelta
 
 import pytest
@@ -283,6 +284,32 @@ async def test_logout_deletes_the_session_and_clears_the_cookie(
     # The cookie value is worthless from now on, whoever still holds it.
     me = await client.get("/api/v1/auth/me", headers=cookie(ADMIN_TOKEN))
     assert me.json()["role"] == "guest"
+
+
+async def test_the_console_names_who_logs_in_and_out_and_never_a_secret(
+    anonymous_client: AsyncClient, caplog: pytest.LogCaptureFixture
+) -> None:
+    caplog.set_level(logging.INFO, logger="ultrastar_wingman.auth")
+    await register(anonymous_client, "yannis")
+    anonymous_client.cookies.clear()
+
+    await anonymous_client.post(
+        "/api/v1/auth/login", json={"username": "yannis", "password": "typed-by-mistake"}
+    )
+    await anonymous_client.post(
+        "/api/v1/auth/login", json={"username": "yannis", "password": PASSWORD}
+    )
+    await anonymous_client.post("/api/v1/auth/logout")
+
+    lines = [record.getMessage() for record in caplog.records]
+    assert lines == [
+        "'yannis' registered an account (role admin)",
+        # Without the name: somebody types their password into the name field sooner or later.
+        "A login was refused: unknown name or wrong password",
+        "'yannis' logged in",
+        "'yannis' logged out",
+    ]
+    assert not any(PASSWORD in line or "typed-by-mistake" in line for line in lines)
 
 
 async def test_logout_without_a_session_is_401(anonymous_client: AsyncClient) -> None:

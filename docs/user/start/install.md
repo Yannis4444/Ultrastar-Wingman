@@ -40,7 +40,6 @@ Wingman**. The setup with Ultrastar Deluxe also makes its songs folder,
 
 A console window opens, and Wingman opens the host screen in your browser. That
 browser now runs the party. See [The host screen](../host-screen/index.md).
-Wingman listens on port 8080: `http://localhost:8080` on the karaoke PC.
 
 !!! warning
     The console window is Wingman. Closing it stops the program, and a song
@@ -48,8 +47,9 @@ Wingman listens on port 8080: `http://localhost:8080` on the karaoke PC.
 
 | Console line | What it is |
 |---|---|
-| `Host UI: http://localhost:8080/host?hostToken=…` | The link that makes a browser the host. Copy it into a browser if none opened, or if the wrong one did. Select it with the mouse and press ++enter++ to copy it. While text is selected in the classic console window, Wingman answers nobody |
-| `data directory: …` | The data folder, where Wingman keeps everything. On Windows that is `C:\Users\<you>\AppData\Local\Ultrastar Wingman` |
+| `Data folder: …` | The data folder, where Wingman keeps everything. On Windows that is `C:\Users\<you>\AppData\Local\Ultrastar Wingman` |
+| `Host UI: http://localhost:8080/host?hostToken=…` | The link that makes a browser the host. Copy it into a browser if none opened, or if the wrong one did. Select it with the mouse and press ++enter++ to copy it |
+| `Wingman is running at http://localhost:8080 (press Ctrl+C to stop)` | Wingman is ready, on port 8080, at that address on the karaoke PC. The lines after it follow the evening. See [Read the console](../help/index.md#read-the-console) |
 
 The database in the data folder, `wingman.db`, holds your accounts, players,
 wishes, parties, and scores. Your songs stay in your own song folder. Wingman
@@ -91,8 +91,7 @@ your players, parties, and scores.
 
 ## Change the port, the address, or the folder
 
-Wingman reads these environment variables when it starts. Set one when the
-default does not fit, and leave the others alone.
+Wingman reads these environment variables at startup. Set only those you need.
 
 | Variable | What it does | Default |
 |---|---|---|
@@ -102,6 +101,7 @@ default does not fit, and leave the others alone.
 | `WINGMAN_OPEN_BROWSER` | Open the host screen at startup | `true` |
 | `WINGMAN_FRONTEND_DIR` | The web app Wingman serves. Only needed if you built it yourself | The copy that comes with Wingman, or `frontend/dist` when you run from source |
 | `WINGMAN_USDX_DIR` | An Ultrastar Deluxe folder Wingman treats as its own. See below | A `usdx` folder next to the exe that holds `ultrastardx.exe`, otherwise none |
+| `WINGMAN_LOG_LEVEL` | How much the console says: `debug`, `info`, `warning`, or `error`. `warning` and `error` also hide the three lines under [When Wingman starts](#when-wingman-starts) | `info` |
 
 Wingman also reads a file called `.env` in the folder you start it from, so a
 double-click can carry these too. The Start menu entry starts it in the program

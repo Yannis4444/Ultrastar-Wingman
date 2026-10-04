@@ -135,7 +135,9 @@ keeps such a one chosen and choosable for that tag.
    rename the file to the next `NNNN_<what>.py`, review the generated
    operations (autogenerate misses server defaults and data moves).
 3. The app migrates to head on startup; tests run migrations against a fresh
-   DB per session, so a bad migration fails the suite.
+   DB once per session (the template every test copies — see
+   [testing.md](testing.md#the-test-database)), so a bad migration fails the
+   suite. A downgrade is exercised only by a test that steps back itself.
 
 ## Add an extension-point implementation
 

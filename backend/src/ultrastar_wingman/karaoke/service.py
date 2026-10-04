@@ -24,7 +24,7 @@ from ..players.model import Player
 from ..players.schema import read_player
 from ..settings import SettingsService
 from ..songs.model import Song
-from ..songs.schema import read_song
+from ..songs.schema import read_song, song_label
 from . import usdx_scores
 from .colors import color_index
 from .launcher import KaraokeLauncher, LaunchSlot
@@ -235,9 +235,17 @@ async def start_sing(
             if not await _session_has_sings(session, karaoke_session.id):
                 await session.delete(karaoke_session)
             await session.commit()
+            logger.warning("Ultrastar Deluxe could not be started: %s", error)
             # Same shape as a misconfigured path: the user has to fix a setting.
             raise UsdxPathsError([f"cannot start '{paths.executable}': {error}"]) from error
 
+        logger.info(
+            "Singing %s: %s",
+            song_label(song),
+            ", ".join(
+                f"{player.name} ({slot.color})" for slot, player in resolved if player is not None
+            ),
+        )
         _running = running
         _last_finished = running.finished
         # Before the clients hear about the song: the room goes quiet first, so the
@@ -269,8 +277,10 @@ async def open_usdx(session: AsyncSession) -> bool:
         try:
             await launcher.start_standalone()
         except OSError as error:
+            logger.warning("Ultrastar Deluxe could not be started: %s", error)
             # Same shape as a misconfigured path: the user has to fix a setting.
             raise UsdxPathsError([f"cannot start '{paths.executable}': {error}"]) from error
+        logger.info("Ultrastar Deluxe opened for its own settings")
         _standalone = standalone
         # USDX makes its own noise in its own menus, so the speakers are its for as long
         # as it stands there.
@@ -289,6 +299,7 @@ async def _standalone_exited(standalone: _Standalone) -> None:
     global _standalone
     if _standalone is standalone:
         _standalone = None
+    logger.info("Ultrastar Deluxe closed")
     await music.usdx_closed()
     standalone.exited.set()
 
@@ -304,6 +315,7 @@ async def stop_sing() -> None:
     """Kill the running song and wait for its scores to be imported. Idempotent."""
     async with _lock:
         if _running is not None:
+            logger.info("Stopping %s", song_label(_running.sing.song))
             await _stop_and_wait(_running)
 
 
@@ -358,7 +370,7 @@ async def attach_to_session(session: AsyncSession, started_at: datetime) -> Kara
     # Flushed, not committed: the caller needs the generated id for the sing it is about
     # to write in the same transaction.
     await session.flush()
-    logger.info("opened karaoke session %s", opened.id)
+    logger.info("A new party started")
     return opened
 
 
@@ -483,6 +495,12 @@ async def _award_achievements(
         async with session_factory() as session:
             earned = await achievements.evaluate_players(session, player_ids)
             players_earned = await achievements.earned_by_players(session, earned)
+        for earner in players_earned:
+            logger.info(
+                "%s earned %s",
+                earner.player.name,
+                ", ".join(f"'{achievement.name}'" for achievement in earner.achievements),
+            )
         if players_earned:
             await event_bus.broadcast(
                 AchievementsEarned(sing_id=running.sing.sing_id, players=players_earned)
@@ -531,5 +549,14 @@ async def _import_scores(
         ]
         session.add_all(rows)
         await session.commit()
-        logger.info("imported %d score(s) for sing %s", len(rows), running.sing.sing_id)
+        song = song_label(running.sing.song)
+        if rows:
+            ranked = sorted(rows, key=lambda row: row.score, reverse=True)
+            logger.info(
+                "%s is over: %s",
+                song,
+                ", ".join(f"{row.player_name} {row.score:,}" for row in ranked),
+            )
+        else:
+            logger.info("%s is over, without scores", song)
         return [read_score(row) for row in rows]

@@ -1,4 +1,5 @@
 import asyncio
+import logging
 from collections.abc import AsyncIterator, Iterator
 from datetime import UTC, datetime, timedelta
 from pathlib import Path
@@ -183,6 +184,29 @@ async def test_failed_download_keeps_the_reason(
     assert row.error == "no video url in the txt"
     assert row.song_id is None
     assert list(await session.scalars(select(Song))) == []
+
+
+async def test_the_console_says_what_was_queued_and_how_it_ended(
+    queue: async_sessionmaker[AsyncSession],
+    session: AsyncSession,
+    fake_source: FakeSource,
+    caplog: pytest.LogCaptureFixture,
+) -> None:
+    caplog.set_level(logging.INFO, logger="ultrastar_wingman.downloads.service")
+
+    await run_download(session, "1234")
+    fake_source.error = "the video is private"
+    await run_download(session, "99")
+
+    lines = [record.getMessage() for record in caplog.records]
+    assert lines == [
+        "Download of FAKE song 1234 queued",
+        "Downloaded Artist - 1234 (FAKE song 1234)",
+        "Download of FAKE song 99 queued",
+        "Download of FAKE song 99 failed: the video is private",
+    ]
+    # A source's own failure is a reason, not a bug: no traceback under it.
+    assert not caplog.records[-1].exc_info
 
 
 async def test_unusable_result_directory_fails_the_download(

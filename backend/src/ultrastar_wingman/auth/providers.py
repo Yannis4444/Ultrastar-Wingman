@@ -70,10 +70,18 @@ class LocalAuthProvider:
             # without a password (OIDC, which logs in through its own redirect flow), that
             # it is one.
             verify_password(_DUMMY_HASH, password)
+            _refused()
             return None
         if not verify_password(user.password_hash, password):
+            _refused()
             return None
+        logger.info("'%s' logged in", user.username)
         return user
+
+
+def _refused() -> None:
+    # Without the name typed: a password typed into the name field is a classic.
+    logger.info("A login was refused: unknown name or wrong password")
 
 
 # Hashed once at import, so the timing of a failed lookup matches a real verify.

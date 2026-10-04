@@ -66,7 +66,7 @@ def write_player_config(
     # its own ini reader is known to cope with.
     with config_file.open("w", encoding="utf-8-sig") as file:
         parser.write(file, space_around_delimiters=False)
-    logger.info("wrote %d player(s) to %s", len(players), config_file)
+    logger.debug("wrote %d player(s) to %s", len(players), config_file)
 
 
 def _set(parser: configparser.RawConfigParser, section: str, key: str, value: str) -> None:
@@ -84,7 +84,7 @@ def _back_up_once(config_file: Path) -> None:
     if backup.exists():
         return
     shutil.copy2(config_file, backup)
-    logger.info("backed up the USDX config to %s", backup)
+    logger.info("Kept a copy of the Ultrastar Deluxe settings as they were: %s", backup)
 
 
 def _place_avatar(avatar_file: Path | None, avatars_dir: Path) -> Path | None:

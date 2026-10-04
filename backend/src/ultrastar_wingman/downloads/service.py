@@ -20,6 +20,7 @@ from ..events import DownloadUpdated, event_bus
 from ..settings import SettingsService
 from ..songs.model import Song
 from ..songs.scanner import scan_song_directory
+from ..songs.schema import song_label
 from ..sources.base import DownloadError, SongSource, get_source
 from .model import (
     COMPLETED,
@@ -97,7 +98,7 @@ async def start(session_factory: async_sessionmaker[AsyncSession]) -> None:
         asyncio.create_task(_worker(session_factory, queue), name=f"download-worker-{number}")
         for number in range(parallel)
     )
-    logger.info("download queue started with %d worker(s)", parallel)
+    logger.debug("download queue started with %d worker(s)", parallel)
 
 
 async def stop() -> None:
@@ -147,10 +148,16 @@ async def enqueue(
     await event_bus.broadcast(DownloadUpdated(download=read_download(row)))
     if _queue is None:
         # Nothing is running to pick it up; the next startup re-queues it.
-        logger.warning("download %d stored while the queue is down", row.id)
+        logger.warning("Download of %s stored while the queue is down", _label(row))
     else:
+        logger.info("Download of %s queued", _label(row))
         _queue.put_nowait(row.id)
     return row
+
+
+def _label(row: Download) -> str:
+    """`USDB song 12345`: a queued download has no title yet, only the source's own id."""
+    return f"{row.source.upper()} song {row.source_song_id}"
 
 
 async def dismiss(session: AsyncSession, download_id: int) -> Download:
@@ -224,7 +231,7 @@ async def prune(session_factory: async_sessionmaker[AsyncSession]) -> int:
             return 0
         await session.execute(delete(Download).where(Download.id.in_(removable)))
         await session.commit()
-        logger.info("download history: pruned %d row(s)", len(removable))
+        logger.debug("download history: pruned %d row(s)", len(removable))
         return len(removable)
 
 
@@ -254,7 +261,9 @@ async def _reconcile(session_factory: async_sessionmaker[AsyncSession]) -> list[
             await event_bus.broadcast(DownloadUpdated(download=read_download(row)))
         if interrupted or pending:
             logger.info(
-                "download queue: %d interrupted, %d re-queued", len(interrupted), len(pending)
+                "Downloads from the last run: %d interrupted, %d queued again",
+                len(interrupted),
+                len(pending),
             )
         return [row.id for row in pending]
 
@@ -285,7 +294,7 @@ async def _process(session_factory: async_sessionmaker[AsyncSession], download_i
     async with session_factory() as session:
         row = await session.get(Download, download_id)
         if row is None or row.status != QUEUED:
-            logger.info("skipping download %d (status %s)", download_id, row and row.status)
+            logger.debug("skipping download %d (status %s)", download_id, row and row.status)
             return
         try:
             song_source = get_source(row.source)
@@ -297,13 +306,23 @@ async def _process(session_factory: async_sessionmaker[AsyncSession], download_i
             song_id = await _download(session, row, song_source)
         except Exception as error:
             # CancelledError is a BaseException: a shutdown leaves the row `running`, and
-            # the next startup marks it interrupted.
-            logger.warning("download %d failed: %s", row.id, error, exc_info=True)
+            # the next startup marks it interrupted. A source's own failure (a video gone,
+            # USDB unreachable) is a reason; anything else is a bug and keeps its traceback.
+            logger.warning(
+                "Download of %s failed: %s",
+                _label(row),
+                _message(error),
+                exc_info=not isinstance(error, DownloadError),
+            )
             await _update(session, row, status=FAILED, error=_message(error))
             return
         # Neither the request nor the source seam carries the labels, so they come from
         # the song that was actually written — the UI has something to show in the history.
         song = await session.get(Song, song_id)
+        if song is None:
+            logger.info("Downloaded %s", _label(row))
+        else:
+            logger.info("Downloaded %s (%s)", song_label(song), _label(row))
         await _update(
             session,
             row,

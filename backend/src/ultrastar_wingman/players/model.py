@@ -8,6 +8,10 @@ from sqlalchemy.orm import Mapped, mapped_column
 
 from ..db import Base
 
+# The two values of `Player.avatar_source`.
+AVATAR_MANUAL = "manual"
+AVATAR_OIDC = "oidc"
+
 
 def _now() -> datetime:
     return datetime.now(UTC)
@@ -34,4 +38,16 @@ class Player(Base):
     hidden: Mapped[bool] = mapped_column(Boolean, default=False, server_default=text("0"))
     # Absolute path of the stored avatar image, `<data_dir>/avatars/<id>.<ext>`.
     avatar_file: Mapped[str | None] = mapped_column(Text, nullable=True)
+    # Where the picture in `avatar_file` came from: `manual` (somebody uploaded it) or `oidc`
+    # (the identity provider's picture, taken at a single sign-on login). A login replaces
+    # the picture only while there is none or it is the provider's own, so a hand-picked one
+    # always wins. `manual` while there is no picture at all, which the rule reads as "none".
+    avatar_source: Mapped[str] = mapped_column(
+        Text, default=AVATAR_MANUAL, server_default=text(f"'{AVATAR_MANUAL}'")
+    )
+    # For an `oidc` picture: the address it was downloaded from and the `ETag` that answer
+    # carried, so the next login asks the provider "has it changed?" instead of downloading
+    # the same file again. NULL for a picture that was uploaded.
+    avatar_source_url: Mapped[str | None] = mapped_column(Text, nullable=True)
+    avatar_source_etag: Mapped[str | None] = mapped_column(Text, nullable=True)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=_now)

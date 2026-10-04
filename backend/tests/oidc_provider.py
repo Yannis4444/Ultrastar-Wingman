@@ -6,6 +6,7 @@ suite may reach a real identity provider (testing.md), so `install()` points the
 module's HTTP client at this Starlette app through an ASGI transport: no socket, no network.
 """
 
+import asyncio
 import time
 from typing import Any
 from urllib.parse import parse_qsl, urlparse
@@ -19,6 +20,7 @@ from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
 from starlette.applications import Starlette
 from starlette.requests import Request
 from starlette.responses import JSONResponse
+from starlette.responses import Response as StarletteResponse
 from starlette.routing import Route
 
 from ultrastar_wingman.auth import oidc
@@ -37,6 +39,32 @@ KEY_ID = "sign-1"
 def generate_key(key_id: str) -> RSAKey:
     return RSAKey.generate_key(
         2048, parameters={"kid": key_id, "use": "sig", "alg": "RS256"}, private=True
+    )
+
+
+# Where the provider keeps the picture it hands out in the `picture` claim. The ASGI
+# transport routes every host into the fake, so it may be any address.
+PICTURE_URL = f"{ISSUER}/picture.png"
+ACCESS_TOKEN = "the-access-token"
+
+# The smallest real png, 1x1 — the same bytes the avatar upload tests use.
+PNG = bytes.fromhex(
+    "89504e470d0a1a0a0000000d49484452000000010000000108060000001f15c4"
+    "890000000a49444154789c63000100000500010d0a2db40000000049454e44ae426082"
+)
+
+
+def png_header(width: int, height: int) -> bytes:
+    """A png signature and an IHDR claiming `width` x `height` — all `images.validate_image`
+    reads, so a second, different picture (or one with far too many pixels) costs nothing."""
+    return (
+        b"\x89PNG\r\n\x1a\n"
+        + (13).to_bytes(4, "big")
+        + b"IHDR"
+        + width.to_bytes(4, "big")
+        + height.to_bytes(4, "big")
+        + b"\x08\x06\x00\x00\x00"
+        + b"\x00\x00\x00\x00"
     )
 
 
@@ -65,22 +93,67 @@ class FakeProvider:
         self.lifetime_seconds = 300
         # What the token endpoint was sent, so a test can check PKCE and client auth.
         self.token_requests: list[dict[str, str]] = []
+        # The picture at `PICTURE_URL`: its bytes, how it is answered, and the headers of
+        # every request for it, so a test can tell a download from a conditional one.
+        self.picture = PNG
+        self.picture_status = 200
+        self.picture_content_type = "image/png"
+        self.picture_etag: str | None = None
+        self.picture_length: str | None = None
+        # Never answers, for the download timeout.
+        self.picture_hangs = False
+        self.picture_requests: list[dict[str, str]] = []
+        # The userinfo answer. `None` leaves the endpoint out of the discovery document, as
+        # a provider without one does.
+        self.userinfo: dict[str, Any] | None = None
+        self.userinfo_requests: list[dict[str, str]] = []
+        # A message the userinfo endpoint raises a `RuntimeError` with instead of answering.
+        # The ASGI transport hands an app's exception straight to the caller, so the client
+        # sees no `httpx.HTTPError` but a fault of any kind.
+        self.userinfo_fault: str | None = None
         self.app = Starlette(
             routes=[
                 Route("/.well-known/openid-configuration", self._discovery),
                 Route("/jwks", self._jwks),
                 Route("/token", self._token, methods=["POST"]),
+                Route("/userinfo", self._userinfo),
+                Route("/picture.png", self._picture),
             ]
         )
 
     async def _discovery(self, request: Request) -> JSONResponse:
-        return JSONResponse(
-            {
-                "issuer": self.issuer,
-                "authorization_endpoint": f"{ISSUER}/authorize",
-                "token_endpoint": f"{ISSUER}/token",
-                "jwks_uri": f"{ISSUER}/jwks",
-            }
+        document = {
+            "issuer": self.issuer,
+            "authorization_endpoint": f"{ISSUER}/authorize",
+            "token_endpoint": f"{ISSUER}/token",
+            "jwks_uri": f"{ISSUER}/jwks",
+        }
+        if self.userinfo is not None:
+            document["userinfo_endpoint"] = f"{ISSUER}/userinfo"
+        return JSONResponse(document)
+
+    async def _userinfo(self, request: Request) -> JSONResponse:
+        self.userinfo_requests.append(dict(request.headers))
+        if self.userinfo_fault is not None:
+            raise RuntimeError(self.userinfo_fault)
+        return JSONResponse(self.userinfo or {})
+
+    async def _picture(self, request: Request) -> StarletteResponse:
+        self.picture_requests.append(dict(request.headers))
+        if self.picture_hangs:
+            await asyncio.Event().wait()
+        if self.picture_etag is not None and request.headers.get("if-none-match") == (
+            self.picture_etag
+        ):
+            return StarletteResponse(status_code=304)
+        headers = {} if self.picture_etag is None else {"ETag": self.picture_etag}
+        if self.picture_length is not None:
+            headers["Content-Length"] = self.picture_length
+        return StarletteResponse(
+            self.picture,
+            status_code=self.picture_status,
+            media_type=self.picture_content_type,
+            headers=headers,
         )
 
     async def _jwks(self, request: Request) -> JSONResponse:
@@ -92,7 +165,7 @@ class FakeProvider:
         if self.token_status != 200:
             return JSONResponse({"error": "server_error"}, status_code=self.token_status)
         return JSONResponse(
-            {"access_token": "not-used", "token_type": "Bearer", "id_token": self.id_token()}
+            {"access_token": ACCESS_TOKEN, "token_type": "Bearer", "id_token": self.id_token()}
         )
 
     def id_token(self) -> str:

@@ -305,6 +305,9 @@ export const getPlayerAvatar = <ThrowOnError extends boolean = false>(options: O
  * Set Player Avatar
  *
  * Upload or replace a player's avatar (multipart form field `file`).
+ *
+ * An uploaded picture is the player's own choice: a single sign-on login, which otherwise
+ * puts the identity provider's picture on its player, leaves it alone from then on.
  */
 export const setPlayerAvatar = <ThrowOnError extends boolean = false>(options: Options<SetPlayerAvatarData, ThrowOnError>): RequestResult<SetPlayerAvatarResponses, SetPlayerAvatarErrors, ThrowOnError> => (options.client ?? client).put<SetPlayerAvatarResponses, SetPlayerAvatarErrors, ThrowOnError>({
     ...formDataBodySerializer,

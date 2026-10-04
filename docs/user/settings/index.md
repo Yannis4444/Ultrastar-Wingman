@@ -29,9 +29,9 @@ Click the line to fold them out.
 
 Each setting shows its name, its box, and one line saying what it does.
 
-![The Settings page with the Karaoke, Host, Songs, and USDX group headings, the Base path field, and the Advanced line under it](../assets/screenshots/settings/settings.png){ width="320" loading=lazy }
+![The Settings page with the Karaoke, Host, Sound, Songs, and USDX group headings, the Base path field, and the Advanced line under it](../assets/screenshots/settings/settings.png){ width="320" loading=lazy }
 /// caption
-The **USDX** group is open, and the other three are folded away.
+The **USDX** group is open, and every other group is folded away.
 ///
 
 ## Change a setting

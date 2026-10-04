@@ -502,13 +502,24 @@ ROWS: dict[str, Row] = {
             # The chip itself, not the group around it: the row of chips carries the same
             # accessible name, and clicking a `<div role="group">` does nothing at all.
             ("click(q('button[aria-label=\"Filter\"]'))", 'q(".filter-panel")'),
+            # One tap puts Video on Yes, so the picture holds all three looks of the table
+            # in filter.md: plain chips on Any, Video and the Decade value filled in blue,
+            # and the two tags that hide their songs struck through on No. Video and not a
+            # tag: twelve of the eighteen 80s songs have one, so the list behind the panel
+            # stays full.
+            (
+                "click(byText('.filter-panel button.chip', 'Video'))",
+                "byText('.filter-panel button.chip', 'Video').classList.contains('chip-on')",
+            ),
             (
                 'setValue(q(\'.filter-panel select[aria-label="Decade"]\'), "1980s")',
                 'q(\'.filter-panel select[aria-label="Decade"]\').value === "1980s"',
             ),
         ),
-        ready='qa(".filter-panel .tri-state").length >= 2'
-        ' && q(\'.filter-panel select[aria-label="Decade"]\').value === "1980s"',
+        ready='qa(".filter-panel .filter-cloud").length === 2'
+        " && byText('.filter-panel button.chip', 'Video').classList.contains('chip-on')"
+        ' && q(\'.filter-panel select[aria-label="Decade"]\').value === "1980s"'
+        ' && q(".filter-panel .filter-chip-no")',
     ),
     "song": Row(
         identity="Leela",
@@ -806,14 +817,16 @@ ROWS: dict[str, Row] = {
             (
                 # Every group is open to begin with, which puts USDX several screens down. The
                 # others are folded away rather than scrolled past, so the group the picture is
-                # about starts at the top with its own header in the shot.
+                # about starts at the top with its own header in the shot. Its Advanced line
+                # stays folded, the way the page explains it: with the Sound group above, the
+                # Executable row behind it lands under the bottom nav.
                 '(() => { qa(".settings-group").forEach((group) => {'
                 ' group.open = text(group.querySelector(".settings-group-name")) === "USDX"; });'
-                ' q(".settings-group[open] .settings-advanced").open = true; return true; })()',
-                'q(".settings-group[open] .settings-advanced[open]")',
+                " return true; })()",
+                'q(".settings-group[open] .settings-advanced:not([open])")',
             ),
         ),
-        ready='q(".settings-group[open] .settings-advanced[open]")'
+        ready='q(".settings-group[open] .settings-advanced:not([open])")'
         ' && byText(".settings-group-name", "USDX")',
         # An ordinary Windows installation for the length of the shot. The stand-in
         # launcher lives in the scratch directory, whose path names the person who ran the

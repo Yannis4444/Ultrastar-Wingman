@@ -56,6 +56,16 @@
   font-size: 0.9em;
 }
 
+/* A quiet meta line under the name of an account single sign-on answers for:
+   no badge, no colour of its own, truncated like the name above it. */
+.people-provider {
+  display: block;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  font-size: 0.8em;
+  color: var(--color-darker);
+}
+
 /* A label, not a button: the file input inside it does the work. */
 .people-avatar-label {
   position: relative;

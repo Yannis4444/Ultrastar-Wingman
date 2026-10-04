@@ -1,5 +1,7 @@
 import asyncio
+import shutil
 from collections.abc import AsyncIterator
+from concurrent.futures import ThreadPoolExecutor
 from datetime import datetime
 from pathlib import Path
 from typing import cast
@@ -7,8 +9,10 @@ from typing import cast
 import pytest
 from fastapi import FastAPI, WebSocket
 from httpx import ASGITransport, AsyncClient
-from sqlalchemy import func, select
+from sqlalchemy import Engine, event, func, select
+from sqlalchemy.engine.interfaces import DBAPIConnection
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker, create_async_engine
+from sqlalchemy.pool import ConnectionPoolEntry
 
 from ultrastar_wingman.achievements import service as achievements
 from ultrastar_wingman.app import create_app
@@ -22,6 +26,7 @@ from ultrastar_wingman.devices import service as devices
 from ultrastar_wingman.events import event_bus
 from ultrastar_wingman.karaoke import selection, usdx_paths
 from ultrastar_wingman.music import service as music
+from ultrastar_wingman.players import service as players
 from ultrastar_wingman.songs import scanner
 from ultrastar_wingman.sources import usdb
 
@@ -44,9 +49,49 @@ ADMIN_PASSWORD_HASH = (
 )
 
 
+@event.listens_for(Engine, "connect")
+def _no_durability(dbapi_connection: DBAPIConnection, _record: ConnectionPoolEntry) -> None:
+    """Test databases need no protection from a power cut: without these, every commit is a
+    journal file created, synced and deleted, and that was most of what migrating and writing
+    cost. Neither pragma changes what a statement does, and neither is stored in the file.
+
+    Every engine in the process, the app's and the migration tests' alike — all of them SQLite.
+    A plain `sqlite3.connect` (USDX's database, the migration tests' peeks) is not an engine.
+    """
+    cursor = dbapi_connection.cursor()
+    cursor.execute("PRAGMA synchronous = OFF")
+    cursor.execute("PRAGMA journal_mode = MEMORY")
+    cursor.close()
+
+
+@pytest.fixture(scope="session")
+def migrated_database(tmp_path_factory: pytest.TempPathFactory) -> Path:
+    """A database file alembic took to head, once per test session.
+
+    Walking every revision on an empty file is most of what a test's setup used to cost, and
+    its result depends on nothing but the revision chain, so `bootstrap_settings` copies this
+    file instead. The app still runs `run_migrations` over the copy, which finds it at head.
+    In a thread of its own: `migrations/env.py` calls `asyncio.run`, and a pytest-asyncio
+    loop may be the current one in this thread.
+    """
+    directory = tmp_path_factory.mktemp("migrated")
+    database_url = BootstrapSettings(
+        data_dir=directory,
+        open_browser=False,
+        frontend_dir=directory / "no-frontend",
+        usdx_dir=None,
+    ).database_url
+    with ThreadPoolExecutor(max_workers=1) as pool:
+        pool.submit(asyncio.run, run_migrations(database_url)).result()
+    # A journal left beside it would be a half-written database, and only the file is copied.
+    assert [path.name for path in directory.iterdir()] == ["wingman.db"]
+    return directory / "wingman.db"
+
+
 @pytest.fixture
-def bootstrap_settings(tmp_path: Path) -> BootstrapSettings:
-    """Bootstrap config pointing at a throwaway data dir (so a fresh DB per test).
+def bootstrap_settings(tmp_path: Path, migrated_database: Path) -> BootstrapSettings:
+    """Bootstrap config pointing at a throwaway data dir, holding a fresh database of its own
+    that is already at head (a copy of `migrated_database`).
 
     `open_browser=False`: the default is on, and the suite must not spawn a browser per test.
     `frontend_dir`: a path with no build in it, so whether somebody ran `npm run build` does
@@ -54,12 +99,14 @@ def bootstrap_settings(tmp_path: Path) -> BootstrapSettings:
     `usdx_dir=None`: a `WINGMAN_USDX_DIR` in the shell must not run the whole suite in the
     bundled mode. `test_usdx_bundled` builds its own.
     """
-    return BootstrapSettings(
+    settings = BootstrapSettings(
         data_dir=tmp_path,
         open_browser=False,
         frontend_dir=tmp_path / "no-frontend",
         usdx_dir=None,
     )
+    shutil.copyfile(migrated_database, settings.database_path)
+    return settings
 
 
 @pytest.fixture
@@ -259,6 +306,13 @@ def fresh_music_state() -> None:
     music._volumes = music.DEFAULT_VOLUMES
     music._lock = asyncio.Lock()
     music._watchdog = None
+
+
+@pytest.fixture(autouse=True)
+def fresh_avatar_lock() -> None:
+    """Same reasoning as the scan lock above: the lock every avatar write takes is
+    module-global, and a login racing an upload contends for it."""
+    players._avatar_lock = asyncio.Lock()
 
 
 @pytest.fixture(autouse=True)

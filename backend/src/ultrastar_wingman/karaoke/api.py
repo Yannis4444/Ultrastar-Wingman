@@ -372,7 +372,7 @@ async def open_player_selection(
         raise HTTPException(status_code=409, detail="selection_open") from error
     if drop_remembered:
         # Only once the selection is really open: a refused takeover dropped nothing.
-        logger.info(
+        logger.debug(
             "A player selector is online: opened the selection with empty slots instead of "
             "the %d the phone remembered.",
             len(remembered_singers),

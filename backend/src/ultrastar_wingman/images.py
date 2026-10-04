@@ -1,10 +1,11 @@
 """The one place a picture somebody uploaded is checked, and the one place one is stored.
 
 Two features take an image off a phone — a player's avatar and an achievement's icon — and
-both hand it straight back out again, to browsers, to the nav bar and (for an avatar) to
-Ultrastar Deluxe. So there is one set of rules rather than two that drift: a content-type
-allowlist the bytes themselves have to agree with, a byte cap, and a pixel cap read out of
-the file's own header.
+a third fetches one (the identity provider's picture of somebody who signs in, which becomes
+their avatar). All of them hand it straight back out again, to browsers, to the nav bar and
+(for an avatar) to Ultrastar Deluxe. So there is one set of rules rather than three that
+drift: a content-type allowlist the bytes themselves have to agree with, a byte cap, and a
+pixel cap read out of the file's own header.
 
 Nothing here decodes pixel data and nothing here re-encodes: that would mean an image
 library, and the header alone answers the only question a cap needs (`code-style.md` — a new
@@ -64,7 +65,7 @@ def validate_image(content_type: str | None, data: bytes) -> str:
     """
     if len(data) > MAX_IMAGE_BYTES:
         raise ImageTooLargeError
-    if content_type not in IMAGE_TYPES or _sniff(data) != content_type:
+    if content_type not in IMAGE_TYPES or sniff_image_type(data) != content_type:
         # The declared type has to match what the bytes actually are: a .txt renamed to .png
         # arrives as image/png and would otherwise be stored and served as an image.
         raise ImageTypeError(content_type)
@@ -122,8 +123,13 @@ async def remove_images(directory: Path, stem: str) -> None:
     await anyio.to_thread.run_sync(remove)
 
 
-def _sniff(data: bytes) -> str | None:
-    """The content type the bytes claim to be by their magic number, if we support it."""
+def sniff_image_type(data: bytes) -> str | None:
+    """The content type the bytes claim to be by their magic number, if we support it.
+
+    Public for a picture Wingman downloads rather than receives: a web server's own
+    `Content-Type` is often wrong for an image (`image/jpg`, `application/octet-stream`), so
+    a download is declared as what its bytes say and `validate_image` still reads the header.
+    """
     if data.startswith(b"\x89PNG\r\n\x1a\n"):
         return "image/png"
     if data.startswith(b"\xff\xd8\xff"):

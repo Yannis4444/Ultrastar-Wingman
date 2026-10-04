@@ -119,7 +119,11 @@ async def set_player_avatar(
     avatars_dir: AvatarsDirDep,
     file: Annotated[UploadFile, File()],
 ) -> PlayerRead:
-    """Upload or replace a player's avatar (multipart form field `file`)."""
+    """Upload or replace a player's avatar (multipart form field `file`).
+
+    An uploaded picture is the player's own choice: a single sign-on login, which otherwise
+    puts the identity provider's picture on its player, leaves it alone from then on.
+    """
     player = await _player(player_id, session)
     # One byte over the limit is enough to reject, so an oversized upload is never buffered whole.
     data = await file.read(service.MAX_AVATAR_BYTES + 1)

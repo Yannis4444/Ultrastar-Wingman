@@ -94,13 +94,16 @@ class HostToken:
 
     def consume(self, candidate: str) -> bool:
         if self._token is None:
+            logger.info("The host link was opened again: it works only once")
             return False
         # compare_digest: the token is a secret, so no early-exit comparison. Encoded first
         # because compare_digest raises TypeError on a non-ASCII str — a client sending
         # {"token": "ö"} would get a 500 instead of a 401.
         if not secrets.compare_digest(self._token.encode(), candidate.encode()):
+            logger.info("A host link with a wrong token was refused")
             return False
         self._token = None
+        logger.info("The host link was used: that browser is the host screen now")
         return True
 
 
@@ -163,8 +166,13 @@ async def end_session(session: AsyncSession, raw_token: str) -> bool:
     row = await session.get(UserSession, token_hash(raw_token))
     if row is None:
         return False
+    user = None if row.user_id is None else await session.get(User, row.user_id)
+    # Read before the commit: the row is gone afterwards.
+    who = f"'{user.username}'" if user is not None else "A host browser" if row.is_host else None
     await session.delete(row)
     await session.commit()
+    if who is not None:
+        logger.info("%s logged out", who)
     return True
 
 
@@ -198,7 +206,7 @@ async def register_user(session: AsyncSession, username: str, password: str) -> 
         # check above would have given it a moment earlier.
         await session.rollback()
         raise DuplicateUsernameError(username) from error
-    logger.info("user '%s' registered as %s (%s)", user.username, user.role, user.id)
+    logger.info("'%s' registered an account (role %s)", user.username, user.role)
     return user
 
 
@@ -253,7 +261,9 @@ async def upsert_oidc_user(session: AsyncSession, subject: str, username: str) -
         if existing is None:
             raise DuplicateUsernameError(username) from error
         return existing
-    logger.info("user '%s' created from OIDC subject as %s (%s)", user.username, user.role, user.id)
+    logger.info(
+        "'%s' registered an account through single sign-on (role %s)", user.username, user.role
+    )
     return user
 
 
@@ -363,7 +373,7 @@ async def set_user_role(session: AsyncSession, user: User, role: str) -> User:
         raise LastAdminError
     user.role = role
     await session.commit()
-    logger.info("user '%s' is now %s", user.username, role)
+    logger.info("Account '%s' now has the role %s", user.username, role)
     return user
 
 
@@ -388,7 +398,7 @@ async def delete_user(session: AsyncSession, user: User) -> None:
     await comments.delete_user_data(session, user.id)
     await session.delete(user)
     await session.commit()
-    logger.info("user '%s' deleted (%s)", user.username, user.id)
+    logger.info("Account '%s' deleted", user.username)
     # After the commit, and with no id: an account leaving takes some playlists with it and
     # hands the rest to a new owner, so every open listing has to be fetched again.
     await library.announce_playlists()
