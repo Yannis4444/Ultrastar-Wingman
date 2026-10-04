@@ -6,6 +6,7 @@ import socket
 
 from fastapi import APIRouter, Depends, HTTPException, Request, WebSocket, WebSocketDisconnect
 from pydantic import BaseModel
+from sqlalchemy.ext.asyncio import AsyncSession
 
 from . import APP_NAME, __version__
 from .achievements.api import router as achievements_router
@@ -92,16 +93,17 @@ async def get_join_info(request: Request, session: SessionDep) -> JoinInfo:
     the machine's LAN address. The host screen encodes it in the QR code:
     `window.location.origin` would be `localhost` on the karaoke PC itself."""
     settings: BootstrapSettings = request.app.state.bootstrap_settings
+    return JoinInfo(url=await join_url(session, settings.port))
+
+
+async def join_url(session: AsyncSession, port: int) -> str:
+    """The address guests open: the QR code's, and the console's startup line."""
     # Normalised, never rejected here: the PATCH that stored the override already
     # refused what cannot be opened, and a host left without a QR code has no way back
     # in. The port goes on a bare address ("192.168.1.5"), which is what a host types
     # when all they mean to correct is which of their machine's addresses to advertise.
-    override = normalize_join_url(
-        str(await SettingsService(session).get("host.join_url")), port=settings.port
-    )
-    if override:
-        return JoinInfo(url=override)
-    return JoinInfo(url=f"http://{lan_ip()}:{settings.port}")
+    override = normalize_join_url(str(await SettingsService(session).get("host.join_url")), port)
+    return override or f"http://{lan_ip()}:{port}"
 
 
 class SettingRead(BaseModel):

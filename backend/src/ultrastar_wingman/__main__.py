@@ -7,6 +7,7 @@ from collections.abc import Sequence
 
 import uvicorn
 
+from . import APP_NAME, __version__, console
 from .config import get_bootstrap_settings
 
 
@@ -31,16 +32,20 @@ def main(argv: Sequence[str] | None = None) -> None:
         # the environment is what makes the argument outrank the variable and the `.env`.
         os.environ["WINGMAN_USDX_DIR"] = args.usdx_dir
         get_bootstrap_settings.cache_clear()
-    logging.basicConfig(
-        level=logging.INFO,
-        format="%(asctime)s %(levelname)-8s %(name)s: %(message)s",
-    )
     settings = get_bootstrap_settings()
+    access_log = console.configure(settings.log_level)
+    # The package's logger and not `__name__`, which is `__main__` under `python -m` and so
+    # outside the loggers `configure` lets through at INFO.
+    logging.getLogger(console.PACKAGE).info("%s %s", APP_NAME, __version__)
     uvicorn.run(
         "ultrastar_wingman.app:create_app",
         factory=True,
         host=settings.host,
         port=settings.port,
+        # None: uvicorn installs no handlers of its own, so its lines go through the one
+        # `console.configure` installed and share its format.
+        log_config=None,
+        access_log=access_log,
     )
 
 

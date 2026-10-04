@@ -45,7 +45,12 @@ def run_migrations_offline() -> None:
 
 
 def do_run_migrations(connection: Connection) -> None:
-    context.configure(connection=connection, target_metadata=target_metadata)
+    context.configure(
+        connection=connection,
+        target_metadata=target_metadata,
+        # The app's runner counts what it applied (`db.run_migrations`); the CLI sets none.
+        on_version_apply=config.attributes.get("on_version_apply"),
+    )
     with context.begin_transaction():
         context.run_migrations()
 

@@ -12,7 +12,7 @@ C:\Users\<you>\AppData\Local\Ultrastar Wingman
 ```
 
 `WINGMAN_DATA_DIR` moves it. Wingman names the folder it settled on in a
-startup line, `data directory: ...`, so the log is the reliable answer.
+startup line, `Data folder: ...`, so the log is the reliable answer.
 
 | Name | What it holds |
 |---|---|
@@ -102,6 +102,7 @@ Everything else it is configured with is a setting inside the app.
 | `WINGMAN_OPEN_BROWSER` | Open the host screen in a browser at startup | `true` |
 | `WINGMAN_FRONTEND_DIR` | The built web app to serve | The copy that comes with Wingman, or `frontend/dist` when you run from source |
 | `WINGMAN_USDX_DIR` | An Ultrastar Deluxe folder Wingman treats as its own. See [Install and run](../start/install.md#bring-your-own-ultrastar-deluxe-along) | A `usdx` folder next to the exe that holds `ultrastardx.exe`, otherwise none |
+| `WINGMAN_LOG_LEVEL` | How much the console says: `debug`, `info`, `warning`, or `error`. `debug` adds the logger behind every line and one line per HTTP request, the query string left out. `warning` and `error` also hide the `Host UI` line | `info` |
 
 A file called `.env` in the folder Wingman is started from does the same, one
 name and value per line:

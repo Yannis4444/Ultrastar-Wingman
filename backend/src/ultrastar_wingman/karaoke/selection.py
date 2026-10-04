@@ -38,7 +38,7 @@ from ..music import service as music
 from ..players.model import Player
 from ..players.schema import PlayerRead, read_player
 from ..songs.model import Song
-from ..songs.schema import SongRead, read_song
+from ..songs.schema import SongRead, read_song, song_label
 from ..tags import service as tags
 from . import reel, service
 from .schema import CurrentSing, Scope, SelectionRead, SelectionSlotRead, SpinOrigin, SpinRead
@@ -686,7 +686,7 @@ async def button_pressed(
                 # The scope ran dry under the selection. Nobody is on the other end of the
                 # button, so the song it has stays on the screen — and the press still counts
                 # as the room being busy with it, like every other press does.
-                logger.info("the selector's start button found nothing to spin again for")
+                logger.info("The player selector's start button found no song to spin again to")
                 _touch(_selection)
                 return
             await _broadcast_locked()
@@ -789,7 +789,10 @@ def _spin_preview(selection: _Selection) -> music.SpinPreview | None:
 
 async def _expire_locked() -> None:
     if _selection is not None and _now() - _selection.updated_at > _idle_ttl:
-        logger.info("dropping the player selection for %s: idle", _selection.song.id)
+        logger.info(
+            "Nobody touched the player selection for %s, so it was closed",
+            song_label(_selection.song),
+        )
         await _drop_locked(_selection)
 
 
@@ -845,18 +848,21 @@ async def _start_without_selection_locked(
     if without.mode != "top_wish":
         return
     if not without.cards:
-        logger.info("the selector's start button was pressed with no card on any reader")
+        logger.info("The player selector's start button was pressed with no card on any reader")
         return
     song = await reel.top_wish(session, _GUEST)
     if song is None:
-        logger.info("the selector's start button found no song to sing (%s)", without.mode)
+        logger.info("The player selector's start button found no wish to sing")
         return
     states = await _slot_states(session, [])
     _put_cards_on(states, without.cards, await _card_players(session, without.cards))
     if not any(slot.card_uid is not None for slot in states):
         # Cards on readers wired to colors this host does not sing with. Nobody is on a
         # slot, so there is nobody to sing.
-        logger.info("the selector's start button found no card on a slot the host sings with")
+        logger.info(
+            "The player selector's start button found no card on a reader mapped to a "
+            "microphone color"
+        )
         return
     now = _now()
     _selection = _Selection(
@@ -904,25 +910,26 @@ async def _spin_without_selection_locked(
         scope = reel.parse_scope(without.scope)
     except ValueError:
         logger.warning(
-            "the selector's random scope '%s' is not one: picking from all songs", without.scope
+            "The player selector's random scope '%s' is not one: picking from all songs",
+            without.scope,
         )
         scope = "all"
     playlist_id = without.playlist_id or None
     if scope == "playlist" and playlist_id is None:
         logger.info(
-            "the selector's random scope is a playlist but none is set: picking from all songs"
+            "The player selector picks from a playlist but none is set: picking from all songs"
         )
         scope = "all"
     song = await reel.pick_song(session, scope, _GUEST, playlist_id=playlist_id)
     if song is None and scope == "playlist":
         logger.info(
-            "the selector's random playlist %s is gone or empty: picking from all songs",
+            "The player selector's playlist %s is gone or empty: picking from all songs",
             playlist_id,
         )
         scope, playlist_id = "all", None
         song = await reel.pick_song(session, scope, _GUEST)
     if song is None:
-        logger.info("the selector's start button found no song to spin to (%s)", scope)
+        logger.info("The player selector's start button found no song to spin to (%s)", scope)
         return
     states = await _slot_states(session, [])
     _put_cards_on(states, without.cards, await _card_players(session, without.cards))

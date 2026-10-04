@@ -190,7 +190,7 @@ async def status(session: AsyncSession, refresh: bool = False) -> UsdbStatus:
         try:
             await _ensure_login(session)
         except UsdbError as error:
-            logger.info("no USDB session: %s", error)
+            logger.debug("no USDB session: %s", error)
     verdict = _status
     # `_ensure_login` records a verdict either way; only a bug could leave none behind.
     return verdict if verdict is not None else UsdbStatus(logged_in=False, error="unknown")
@@ -219,7 +219,7 @@ async def search(
     response = await _post(session, LIST_PATH, form)
     results, pages = _parse_list(response.content)
     await _mark_downloaded(session, results)
-    logger.info("USDB search returned %d song(s) on page %d", len(results), page)
+    logger.debug("USDB search returned %d song(s) on page %d", len(results), page)
     return UsdbSearchResult(results=results, page=page, pages=pages)
 
 
@@ -317,7 +317,7 @@ async def _download(
     await media.extract_audio(ffmpeg, work_dir / "video.mp4", work_dir / "song.mp3")
     await report(None, LIBRARY_STEP)
     await asyncio.to_thread(_move_into_library, work_dir, target)
-    logger.info("downloaded USDB song %s to %s", usdb_id, target)
+    logger.debug("downloaded USDB song %s to %s", usdb_id, target)
     return target
 
 
@@ -406,11 +406,11 @@ async def _fetch_image(session: AsyncSession, url: str) -> tuple[bytes, str] | N
     try:
         response = await client.get(url)
     except httpx.HTTPError as error:
-        logger.info("could not fetch %s: %s", url, error)
+        logger.debug("could not fetch %s: %s", url, error)
         return None
     content_type = response.headers.get("content-type", "")
     if response.status_code != 200 or not content_type.startswith("image/"):
-        logger.info(
+        logger.debug(
             "no image at %s (status %d, %s)",
             url,
             response.status_code,
@@ -556,7 +556,7 @@ async def _post(session: AsyncSession, path: str, data: dict[str, str]) -> httpx
     response = await _request(client, "POST", path, data)
     if LOGGED_OUT_MARKER not in response.text:
         return response
-    logger.info("the USDB session expired, logging in again")
+    logger.debug("the USDB session expired, logging in again")
     _status = None
     await _ensure_login(session)
     response = await _request(client, "POST", path, data)
@@ -600,7 +600,7 @@ async def _login(session: AsyncSession) -> None:
         # the anonymous ones. Reading `usdb.username` otherwise needs `settings.view`.
         logger.warning("USDB rejected the login as '%s'", username)
         raise UsdbLoginError("invalid_credentials", "USDB rejected the configured account")
-    logger.info("logged in to %s as '%s'", client.base_url, username)
+    logger.info("Logged in to USDB as '%s'", username)
 
 
 async def _request(

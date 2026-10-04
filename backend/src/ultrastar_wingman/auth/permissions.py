@@ -240,5 +240,5 @@ async def set_role_capabilities(
     )
     await session.commit()
     invalidate_cache()
-    logger.info("role '%s' now holds %d capabilities", role, len(set(capabilities)))
+    logger.info("The permissions of the role %s changed", role)
     return frozenset(capabilities)

@@ -152,6 +152,8 @@ def test_the_argument_beats_the_variable(monkeypatch: pytest.MonkeyPatch, tmp_pa
     monkeypatch.setenv("WINGMAN_USDX_DIR", str(tmp_path / "from-the-variable"))
     started: list[str] = []
     monkeypatch.setattr(entry_point.uvicorn, "run", lambda app, **_: started.append(app))
+    # The console's handler would outlive the test on a stream pytest closes afterwards.
+    monkeypatch.setattr(entry_point.console, "configure", lambda *_: False)
 
     entry_point.main(["--usdx-dir", str(tmp_path / "from-the-argument")])
 
@@ -166,6 +168,7 @@ def test_without_the_argument_the_entry_point_leaves_the_variable_alone(
 ) -> None:
     monkeypatch.setenv("WINGMAN_USDX_DIR", str(tmp_path / "from-the-variable"))
     monkeypatch.setattr(entry_point.uvicorn, "run", lambda app, **_: None)
+    monkeypatch.setattr(entry_point.console, "configure", lambda *_: False)
 
     entry_point.main([])
 

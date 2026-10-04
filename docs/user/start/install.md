@@ -40,7 +40,6 @@ Wingman**. The setup with Ultrastar Deluxe also makes its songs folder,
 
 A console window opens, and Wingman opens the host screen in your browser. That
 browser now runs the party. See [The host screen](../host-screen/index.md).
-Wingman listens on port 8080: `http://localhost:8080` on the karaoke PC.
 
 !!! warning
     The console window is Wingman. Closing it stops the program, and a song
@@ -48,8 +47,9 @@ Wingman listens on port 8080: `http://localhost:8080` on the karaoke PC.
 
 | Console line | What it is |
 |---|---|
+| `Data folder: …` | The data folder, where Wingman keeps everything. On Windows that is `C:\Users\<you>\AppData\Local\Ultrastar Wingman` |
 | `Host UI: http://localhost:8080/host?hostToken=…` | The link that makes a browser the host. Copy it into a browser if none opened, or if the wrong one did. Select it with the mouse and press ++enter++ to copy it. While text is selected in the classic console window, Wingman answers nobody |
-| `data directory: …` | The data folder, where Wingman keeps everything. On Windows that is `C:\Users\<you>\AppData\Local\Ultrastar Wingman` |
+| `Wingman is running at http://localhost:8080 (press Ctrl+C to stop)` | Wingman is ready, on port 8080, at that address on the karaoke PC. The lines after it follow the evening. See [Read the console](../help/index.md#read-the-console) |
 
 The database in the data folder, `wingman.db`, holds your accounts, players,
 wishes, parties, and scores. Your songs stay in your own song folder. Wingman

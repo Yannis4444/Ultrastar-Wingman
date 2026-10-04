@@ -70,7 +70,7 @@ async def _query(database: Path, sql: str, parameters: tuple[Any, ...]) -> list[
 
 def _query_blocking(database: Path, sql: str, parameters: tuple[Any, ...]) -> list[tuple[Any, ...]]:
     if not database.is_file():
-        logger.info("no USDX score database at %s yet", database)
+        logger.debug("no USDX score database at %s yet", database)
         return []
     try:
         # mode=ro: USDX owns this file, Wingman never writes to it.

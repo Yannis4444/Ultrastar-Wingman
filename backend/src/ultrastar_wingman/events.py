@@ -279,7 +279,7 @@ class EventBus:
                 await websocket.send_json(message)
             except Exception:
                 # A socket that died between connect and send must not abort the fan-out.
-                logger.info("dropping unreachable websocket", exc_info=True)
+                logger.debug("dropping unreachable websocket", exc_info=True)
                 self._connections.discard(websocket)
 
 

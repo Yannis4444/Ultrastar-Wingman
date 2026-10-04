@@ -414,7 +414,7 @@ async def create_tag(
     await session.flush()
     session.add_all(_rows_for(tag.id, specs))
     await session.commit()
-    logger.info("tag '%s' created (%s)", name, tag.id)
+    logger.info("Tag '%s' created", name)
     await event_bus.broadcast(TagsChanged())
     return tag
 
@@ -455,7 +455,7 @@ async def replace_permissions(
     await session.execute(delete(TagPermission).where(TagPermission.tag_id == tag.id))
     session.add_all(rows)
     await session.commit()
-    logger.info("tag %s now has %d permission rows", tag.id, len(rows))
+    logger.debug("tag %s now has %d permission rows", tag.id, len(rows))
     await event_bus.broadcast(TagsChanged())
 
 

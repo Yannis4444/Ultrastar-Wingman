@@ -257,6 +257,9 @@ class _Live:
     # The watchdog has already told the room this device went quiet. Reset by the next
     # report, so the coming-back is announced exactly once as well.
     offline_announced: bool = False
+    # The device's name as of its last report: what the watchdog's "went offline" line
+    # says, without a query of its own.
+    name: str = ""
 
 
 @dataclass(frozen=True)
@@ -349,7 +352,7 @@ async def create_device(session: AsyncSession, name: str) -> tuple[DeviceRead, s
     device = Device(name=name.strip(), token_hash=token_hash(token))
     session.add(device)
     await session.commit()
-    logger.info("player selector '%s' created (%s)", device.name, device.id)
+    logger.info("Player selector '%s' added", device.name)
     await event_bus.broadcast(DevicesChanged())
     return _read(device), token
 
@@ -395,7 +398,7 @@ async def rotate_token(session: AsyncSession, device_id: str) -> tuple[DeviceRea
     token = new_token()
     device.token_hash = token_hash(token)
     await session.commit()
-    logger.info("player selector '%s' got a new token (%s)", device.name, device.id)
+    logger.info("Player selector '%s' got a new token", device.name)
     await event_bus.broadcast(DevicesChanged())
     return await _read_one(session, device), token
 
@@ -408,7 +411,7 @@ async def delete_device(session: AsyncSession, device_id: str) -> None:
     await session.commit()
     async with _lock:
         _live.pop(device_id, None)
-    logger.info("player selector '%s' deleted (%s)", device.name, device_id)
+    logger.info("Player selector '%s' deleted", device.name)
     await event_bus.broadcast(DevicesChanged())
 
 
@@ -477,6 +480,7 @@ async def assign_card(
     else:
         card.player_id = player_id
     await session.commit()
+    logger.info("Card %s now belongs to %s", normalised, player.name)
     await event_bus.broadcast(DevicesChanged())
     # The card the host just named may be lying on a slot right now, as the unknown card the
     # naming was about. The device will not report it again — it has not moved — so this is
@@ -495,6 +499,7 @@ async def forget_card(session: AsyncSession, uid: str) -> None:
         raise UnknownCardError(uid)
     await session.delete(card)
     await session.commit()
+    logger.info("Card %s forgotten", normalised)
     await event_bus.broadcast(DevicesChanged())
     # The other half of the same moment: a slot this card is holding somebody on becomes the
     # unknown card it now is. Nobody is scored for a card that belongs to nobody.
@@ -688,12 +693,19 @@ async def handle_report(
                 # not against the watchdog's flag, so a device that came back before the
                 # watchdog noticed it was gone is still a device coming back.
                 diff.visible = True
+            # A device back on the supported protocol (reflashed, rebooted inside the
+            # watchdog's window) is the end of the warning below, so it is said as well.
+            if previous is None or not _is_online(previous) or previous.protocol != report.protocol:
+                logger.info(
+                    "Player selector '%s' is online (firmware %s)", row.name, report.firmware
+                )
             _live[device.id] = _Live(
                 received_at=received_at,
                 sequence=sequence,
                 protocol=report.protocol,
                 firmware=report.firmware,
                 report=report,
+                name=row.name,
             )
 
         values = await device_settings.read_all(session)
@@ -708,7 +720,11 @@ async def handle_report(
         # flag comes off once it has done its work, and what is left is what to offer.
         cleared = _update_is_over(row.update_requested_at, report.firmware)
         if cleared:
-            logger.info("player selector %s: the requested update is done with", device.id)
+            logger.info(
+                "Player selector '%s' is done with its update (firmware %s)",
+                row.name,
+                report.firmware,
+            )
             row.update_requested_at = None
             await session.commit()
         update = _update_offer(row.update_requested_at, report.firmware)
@@ -799,11 +815,22 @@ async def record_foreign_report(
                 or previous.protocol != protocol
                 or previous.firmware != firmware
             )
+            # Also when it was online a moment ago in another protocol: a board reflashed to a
+            # firmware this Wingman cannot read reboots well inside the watchdog's window.
+            if previous is None or not _is_online(previous) or previous.protocol != protocol:
+                logger.warning(
+                    "Player selector '%s' is online but speaks protocol %d, not %d: "
+                    "give it the firmware this Wingman brings",
+                    row.name,
+                    protocol,
+                    SUPPORTED,
+                )
             _live[device.id] = _Live(
                 received_at=received_at,
                 sequence=sequence,
                 protocol=protocol,
                 firmware=firmware,
+                name=row.name,
             )
     if visible:
         await event_bus.broadcast(DevicesChanged())
@@ -957,7 +984,9 @@ async def request_update(session: AsyncSession, device_id: str) -> None:
     device.update_requested_at = _now()
     await session.commit()
     logger.info(
-        "player selector '%s' asked to update to %s over Wi-Fi", device.name, manifest.version
+        "Player selector '%s' asked to update to firmware %s over Wi-Fi",
+        device.name,
+        manifest.version,
     )
     await event_bus.broadcast(DevicesChanged())
 
@@ -1041,7 +1070,7 @@ async def watchdog_tick() -> None:
     async with _lock:
         for device_id, entry in _live.items():
             if not entry.offline_announced and not _is_online(entry):
-                logger.info("player selector %s went quiet", device_id)
+                logger.info("Player selector '%s' went offline", entry.name or device_id)
                 entry.offline_announced = True
                 gone = True
     if gone:

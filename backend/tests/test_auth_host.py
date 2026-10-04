@@ -39,6 +39,25 @@ def test_the_host_token_is_consumed_by_the_first_correct_guess() -> None:
     assert token.unused is None
 
 
+def test_using_the_host_link_is_logged_without_the_token(caplog: pytest.LogCaptureFixture) -> None:
+    caplog.set_level(logging.INFO, logger="ultrastar_wingman.auth.service")
+    token = HostToken()
+    raw = token.unused
+    assert raw is not None
+
+    token.consume("wrong")
+    token.consume(raw)
+    token.consume(raw)
+
+    lines = [record.getMessage() for record in caplog.records]
+    assert lines == [
+        "A host link with a wrong token was refused",
+        "The host link was used: that browser is the host screen now",
+        "The host link was opened again: it works only once",
+    ]
+    assert not any(raw in line for line in lines)
+
+
 async def test_the_host_url_is_always_logged(
     bootstrap_settings: BootstrapSettings, caplog: pytest.LogCaptureFixture
 ) -> None:

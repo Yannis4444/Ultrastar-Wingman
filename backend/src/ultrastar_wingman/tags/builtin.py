@@ -218,6 +218,6 @@ async def update(
         service = _service(session)
         for option, value in options.items():
             await service.set(_key(built_in_id, option), value)
-        logger.info("built-in tag '%s' updated", built_in_id)
+        logger.info("Built-in tag '%s' changed", built_in_id)
         await event_bus.broadcast(TagsChanged())
     return await read(session, built_in_id)

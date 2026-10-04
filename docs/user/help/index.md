@@ -32,6 +32,22 @@ The terminal stays open with the reason in it.
 
 See [Install and run](../start/install.md).
 
+## Read the console
+
+The console window follows the evening: songs and their scores, badges,
+downloads, logins, changed settings, and player selectors. Every line starts
+with the time, and a problem says so right after it:
+
+```text
+21:20:11  Queen - Bohemian Rhapsody is over: Anna 8,940, Ben 7,120
+21:22:40  WARNING  Download of USDB song 12345 failed: the video is private
+```
+
+When something goes wrong, read the lines marked **WARNING** or **ERROR**, and
+copy the details under an **ERROR** along when you report it. To see more, add
+the line `WINGMAN_LOG_LEVEL=debug` to the `.env` file. See
+[Install and run](../start/install.md#change-the-port-the-address-or-the-folder).
+
 ## A song will not start
 
 **Home** says so in a banner before anybody presses **Play**. See
@@ -67,9 +83,9 @@ The library is also scanned once in the background every time Wingman starts.
   asks, or open port 8080 by hand.
 - Guests have to type the port too: `http://192.168.1.20:8080`, not the address
   on its own.
-- The QR code carries the address Wingman worked out for itself. When that is
-  the wrong one of your PC's addresses, set it. See
-  [Let guests in](../start/join.md).
+- The QR code carries the address Wingman worked out for itself, and the
+  console names it on the line `Guests join at`. When that is the wrong one of
+  your PC's addresses, set it. See [Let guests in](../start/join.md).
 
 ## The host link does not work any more
 

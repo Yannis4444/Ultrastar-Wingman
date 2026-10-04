@@ -58,7 +58,7 @@ async def create_player(session: AsyncSession, name: str) -> Player:
         # The unique index on lower(name) is the authority, so concurrent creates cannot race.
         await session.rollback()
         raise DuplicatePlayerNameError(name) from error
-    logger.info("player '%s' created (%s)", player.name, player.id)
+    logger.info("Player '%s' added", player.name)
     return player
 
 
@@ -77,7 +77,9 @@ async def set_hidden(session: AsyncSession, player: Player, hidden: bool) -> Pla
     """
     player.hidden = hidden
     await session.commit()
-    logger.info("player '%s' is now %s", player.name, "hidden" if hidden else "shown")
+    logger.info(
+        "Player '%s' %s the singer picker", player.name, "taken out of" if hidden else "back in"
+    )
     return player
 
 
@@ -92,7 +94,7 @@ async def unhide_player_of_user(session: AsyncSession, user_id: str) -> None:
         return
     player.hidden = False
     await session.commit()
-    logger.info("player '%s' is shown again after a login", player.name)
+    logger.info("Player '%s' back in the singer picker after logging in", player.name)
 
 
 async def delete_player(session: AsyncSession, player: Player, avatars_dir: Path) -> None:
@@ -108,7 +110,7 @@ async def delete_player(session: AsyncSession, player: Player, avatars_dir: Path
     await remove_images(avatars_dir, player.id)
     await session.delete(player)
     await session.commit()
-    logger.info("player '%s' deleted (%s)", player.name, player.id)
+    logger.info("Player '%s' deleted", player.name)
 
 
 async def store_avatar(

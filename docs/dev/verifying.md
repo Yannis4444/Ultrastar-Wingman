@@ -23,7 +23,9 @@ settings, downloads). Treat those as read-only:
   ```
 
   `WINGMAN_OPEN_BROWSER=false` matters: otherwise the backend opens the host
-  page itself and consumes the one-time host token you need below.
+  page itself and consumes the one-time host token you need below. The console
+  logs no request at the default level; `WINGMAN_LOG_LEVEL=debug` brings one
+  line per request back (query strings stripped) and names every line's logger.
 - The developer's backend may be the built exe, running out of
   `installer\dist\UltrastarWingman.exe`. It locks that file, so a build runs
   with `-OutDir <scratch>` ([building.md](building.md#the-live-exe-lock)). Any

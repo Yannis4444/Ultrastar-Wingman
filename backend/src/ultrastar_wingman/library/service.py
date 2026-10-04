@@ -199,7 +199,7 @@ async def clear_wishes(session: AsyncSession, song_id: str) -> int:
     await session.execute(delete(Wish).where(Wish.id.in_(wish_ids)))
     await session.commit()
     await _broadcast(session, song_id)
-    logger.info("every wish for '%s' cleared (%d)", song_id, len(wish_ids))
+    logger.debug("every wish for '%s' cleared (%d)", song_id, len(wish_ids))
     return len(wish_ids)
 
 
@@ -246,7 +246,7 @@ async def merge_guest_wishes(session: AsyncSession, guest_id: str, user_id: str)
             existing.created_at = min(as_utc(existing.created_at), as_utc(wish.created_at))
             await session.delete(wish)
     await session.commit()
-    logger.info("merged %d guest wishes into user %s", len(guest_wishes), user_id)
+    logger.debug("merged %d guest wishes into user %s", len(guest_wishes), user_id)
     for song_id in {wish.song_id for wish in guest_wishes}:
         await _broadcast(session, song_id)
 
@@ -587,7 +587,7 @@ async def create_playlist(
     )
     session.add(playlist)
     await session.commit()
-    logger.info("playlist '%s' created by %s (%s)", name, owner_user_id, playlist.id)
+    logger.debug("playlist '%s' created by %s (%s)", name, owner_user_id, playlist.id)
     await announce_playlists(playlist.id)
     return playlist
 
@@ -644,7 +644,7 @@ async def copy_playlist(
         for row in await _entries(session, playlist.id)
     )
     await session.commit()
-    logger.info("playlist %s copied to %s by %s", playlist.id, copy.id, owner_user_id)
+    logger.debug("playlist %s copied to %s by %s", playlist.id, copy.id, owner_user_id)
     await announce_playlists(copy.id)
     return copy
 
@@ -689,7 +689,7 @@ async def set_member(
     else:
         row.access = access
     await session.commit()
-    logger.info("playlist %s shared with %s (%s)", playlist.id, user.username, access)
+    logger.debug("playlist %s shared with %s (%s)", playlist.id, user.username, access)
     await announce_playlists(playlist.id)
     return created
 
@@ -793,7 +793,7 @@ async def delete_user_data(session: AsyncSession, user_id: str) -> None:
         playlist.owner_user_id = heir.user_id
         # The new owner is the implicit admin, so the row it was granted through goes.
         await session.delete(heir)
-        logger.info("playlist %s handed over to %s", playlist.id, heir.user_id)
+        logger.debug("playlist %s handed over to %s", playlist.id, heir.user_id)
     if orphaned:
         await session.execute(delete(PlaylistEntry).where(PlaylistEntry.playlist_id.in_(orphaned)))
         await session.execute(

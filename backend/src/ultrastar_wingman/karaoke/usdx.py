@@ -117,7 +117,7 @@ class UsdxLauncher:
                 raise RuntimeError("USDX is already running")
             effective_txt = await asyncio.to_thread(self._prepare, song_txt, slots)
             command = [str(self._paths.executable), "-Song", str(effective_txt)]
-            logger.info("starting USDX: %s", command)
+            logger.debug("starting USDX: %s", command)
             try:
                 self._process = await asyncio.create_subprocess_exec(
                     *command,
@@ -138,7 +138,7 @@ class UsdxLauncher:
             if self.is_running:
                 raise RuntimeError("USDX is already running")
             command = [str(self._paths.executable)]
-            logger.info("starting USDX for its own settings: %s", command)
+            logger.debug("starting USDX for its own settings: %s", command)
             self._process = await asyncio.create_subprocess_exec(
                 *command,
                 creationflags=CREATE_NO_WINDOW if sys.platform == "win32" else 0,
@@ -150,7 +150,7 @@ class UsdxLauncher:
         async with self._lock:
             if self._process is not None and self._process.returncode is None:
                 self._process.kill()
-                logger.info("killed USDX")
+                logger.debug("killed USDX")
 
     def _prepare(self, song_txt: Path, slots: Sequence[LaunchSlot]) -> Path:
         """Blocking: config rewrite plus, if needed, the song copy. Answers the `.txt` USDX
@@ -167,7 +167,7 @@ class UsdxLauncher:
 
     async def _wait_for_exit(self, process: asyncio.subprocess.Process) -> None:
         await process.wait()
-        logger.info("USDX exited with code %s", process.returncode)
+        logger.debug("USDX exited with code %s", process.returncode)
         try:
             await self._remove_copy()
         finally:
@@ -210,7 +210,7 @@ def _playable(slots: Sequence[LaunchSlot]) -> list[LaunchSlot]:
     if target == 0:
         # Unreachable through the API: the configured slots are a count USDX knows, and
         # nobody can sing on a slot that is not configured.
-        logger.warning("USDX cannot play %d singers — leaving the count alone", len(used))
+        logger.warning("USDX cannot play %d singers, leaving the count alone", len(used))
         return used
     # The caller's own slots first: they carry the colors the host configured.
     used.extend(list(slots)[len(used) : target])
@@ -254,5 +254,5 @@ def _copy_into_songs_dir(song_txt: Path, usdx_songs_dir: Path) -> Path:
     copied_txt = destination / song_txt.name
     if _UNSUPPORTED_IN_NAME.search(song_txt.name):
         copied_txt = copied_txt.rename(destination / COPY_TXT_NAME)
-    logger.info("copied %s to %s for USDX", song_dir, destination)
+    logger.debug("copied %s to %s for USDX", song_dir, destination)
     return copied_txt

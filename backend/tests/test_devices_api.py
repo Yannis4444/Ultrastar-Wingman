@@ -907,7 +907,7 @@ async def test_an_online_selector_drops_the_remembered_singers(
     alice = await add_player(client, "Alice")
     bob = await add_player(client, "Bob")
     await mapped_device(client, reader_roles={"0": "sequential"})
-    caplog.set_level(logging.INFO, logger="ultrastar_wingman.karaoke.api")
+    caplog.set_level(logging.DEBUG, logger="ultrastar_wingman.karaoke.api")
 
     slots = await open_with_remembered(
         client,
@@ -951,7 +951,7 @@ async def test_slot_readers_online_drop_the_remembered_singers_too(
     await client.put(f"/api/v1/devices/cards/{KNOWN_UID}", json={"player_id": alice["id"]})
     _, token = await mapped_device(client, reader_roles={"0": "slot:blue"})
     await post_report(client, token, readers=[reader(0, uid=KNOWN_UID), reader(1)])
-    caplog.set_level(logging.INFO, logger="ultrastar_wingman.karaoke.api")
+    caplog.set_level(logging.DEBUG, logger="ultrastar_wingman.karaoke.api")
 
     slots = await open_with_remembered(
         client,
@@ -2191,6 +2191,52 @@ async def test_the_watchdog_marks_a_device_offline_and_says_so_once(
 
     assert len(device_events(broadcast_events)) == 1
     assert (await only_device(client))["online"] is False
+
+
+async def test_the_console_names_a_device_coming_and_going_once_each(
+    client: AsyncClient, monkeypatch: pytest.MonkeyPatch, caplog: pytest.LogCaptureFixture
+) -> None:
+    caplog.set_level(logging.INFO, logger="ultrastar_wingman.devices.service")
+    _, token = await mapped_device(client, name="Stage left")
+    await post_report(client, token, readers=[reader(0), reader(1)])
+    monkeypatch.setattr(
+        devices, "_now", lambda: datetime.now(UTC) + devices.OFFLINE_AFTER + timedelta(seconds=1)
+    )
+    await devices.watchdog_tick()
+    await devices.watchdog_tick()
+
+    lines = [record.getMessage() for record in caplog.records]
+    assert [line for line in lines if "online" in line or "offline" in line] == [
+        "Player selector 'Stage left' is online (firmware 0.1.0)",
+        "Player selector 'Stage left' went offline",
+    ]
+    assert not any(token in line for line in lines)
+
+
+async def test_the_console_warns_once_when_an_online_device_changes_protocol(
+    client: AsyncClient, caplog: pytest.LogCaptureFixture
+) -> None:
+    """A board reflashed to another protocol reboots well inside the watchdog's window, so
+    it was online a moment ago: the change itself is what the host has to be told about,
+    once, and so is it coming back on the protocol this Wingman reads."""
+    caplog.set_level(logging.INFO, logger="ultrastar_wingman.devices.service")
+    _, token = await mapped_device(client, name="Stage left")
+
+    assert (await post_report(client, token, protocol=2)).status_code == 426
+    assert (await post_report(client, token, protocol=2)).status_code == 426
+    assert (await post_report(client, token)).status_code == 200
+    assert (await post_report(client, token)).status_code == 200
+
+    lines = [(record.levelno, record.getMessage()) for record in caplog.records]
+    assert [line for line in lines if "is online" in line[1]] == [
+        (logging.INFO, "Player selector 'Stage left' is online (firmware 0.1.0)"),
+        (
+            logging.WARNING,
+            "Player selector 'Stage left' is online but speaks protocol 2, not 1: "
+            "give it the firmware this Wingman brings",
+        ),
+        (logging.INFO, "Player selector 'Stage left' is online (firmware 0.1.0)"),
+    ]
 
 
 async def test_the_watchdog_drops_a_selection_nobody_is_touching(

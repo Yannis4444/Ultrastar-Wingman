@@ -95,7 +95,7 @@ async def scan_library(session_factory: async_sessionmaker[AsyncSession]) -> Sca
                 scanned = await asyncio.to_thread(_scan_roots, roots)
                 result = await _reconcile(session, scanned)
             logger.info(
-                "library scan finished: %d added, %d removed, %d updated, %d total",
+                "Song library scanned: %d added, %d removed, %d updated, %d songs in all",
                 result.added,
                 result.removed,
                 result.updated,
@@ -156,7 +156,7 @@ async def scan_song_directory(
             row.directory = str(scanned.directory)
             _apply_values(row, scanned)
         await session.commit()
-        logger.info("registered song '%s' from %s", row.id, scanned.directory)
+        logger.debug("registered song '%s' from %s", row.id, scanned.directory)
         return row.id
 
 
@@ -324,7 +324,7 @@ def _scan_directory(directory: Path) -> ScannedSong | None:
     try:
         txt = read_song_txt(txt_file)
     except (SongTxtError, ValueError, OSError) as error:
-        logger.warning("ignoring %s: %s", txt_file, error)
+        logger.warning("Skipped the song %s: %s", txt_file, error)
         return None
     audio_file = _song_file(directory, txt.audio)
     return ScannedSong(

@@ -352,7 +352,7 @@ async def oidc_callback(
                 samesite="lax",
                 path="/",
             )
-            logger.info("OIDC login by a new subject, waiting for a name")
+            logger.info("A first single sign-on login is waiting for its account name")
     # One attempt, one cookie: it is spent whatever the outcome was.
     response.delete_cookie(STATE_COOKIE_NAME, path="/")
     return response
@@ -444,7 +444,7 @@ async def _log_in(request: Request, session: AsyncSession, response: Response, u
     set_session_cookie(response, await service.start_session(session, user.id))
     # Same as a local login: whoever wished as a guest in this browser keeps those wishes.
     await claim_guest_wishes(request, session, user)
-    logger.info("OIDC login for '%s' (%s)", user.username, user.id)
+    logger.info("'%s' logged in through single sign-on", user.username)
 
 
 def _redirect(outcome: str) -> RedirectResponse:
@@ -453,7 +453,7 @@ def _redirect(outcome: str) -> RedirectResponse:
 
 def _failed(failure: LoginError) -> RedirectResponse:
     # WARNING with the reason, never with token or code contents.
-    logger.warning("OIDC login failed (%s): %s", failure.slug, failure)
+    logger.warning("A single sign-on login failed (%s): %s", failure.slug, failure)
     return _redirect(f"error:{failure.slug}")
 
 

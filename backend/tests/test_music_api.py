@@ -5,6 +5,7 @@ The state machine itself is `test_music_state.py`; this is about what the HTTP l
 with it — the status codes, the bodies, and which writes reach the event bus.
 """
 
+import logging
 from pathlib import Path
 from typing import Any
 
@@ -128,6 +129,20 @@ async def test_the_volume_is_written_without_the_settings_right(
     changed = events_named(broadcast_events, "setting.changed")
     assert [event["key"] for event in changed] == ["sound.music_volume"]
     assert events_named(broadcast_events, "music.changed")
+
+
+async def test_a_volume_is_no_line_in_the_console_but_another_setting_is(
+    client: AsyncClient, caplog: pytest.LogCaptureFixture
+) -> None:
+    """A volume is a slider on every phone, written on each pause in the drag."""
+    caplog.set_level(logging.INFO, logger="ultrastar_wingman.settings")
+
+    await client.put("/api/v1/music/volume", json={"music": 25, "master": 60})
+    await client.patch("/api/v1/settings/sound.reel_preview", json={"value": False})
+
+    assert [record.getMessage() for record in caplog.records] == [
+        "Setting 'sound.reel_preview' changed"
+    ]
 
 
 async def test_a_volume_set_on_the_settings_page_reaches_the_music(

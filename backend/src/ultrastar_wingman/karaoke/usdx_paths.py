@@ -180,5 +180,5 @@ async def seed_songs_directory(session: AsyncSession) -> Path | None:
         logger.warning("cannot create the songs folder %s: %s", songs, error)
         return None
     await settings.set(SONGS_DIRECTORY, str(songs))
-    logger.info("songs directory set to the bundled Ultrastar Deluxe's: %s", songs)
+    logger.info("Songs folder set to the one of the Ultrastar Deluxe that came along: %s", songs)
     return songs
