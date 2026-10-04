@@ -18,7 +18,7 @@ your own installation.
 
 | What has to be true | If it is not |
 |---|---|
-| With the setup that comes with Ultrastar Deluxe: `usdx\ultrastardx.exe` is still in the install folder | The list says the Ultrastar Deluxe that comes with this installation is missing: the game was moved or deleted. Once Wingman restarts, the **USDX** group shows its paths again instead. Run that setup again to put the game back. |
+| With the setup that comes with Ultrastar Deluxe: `usdx\ultrastardx.exe` is still in the install folder | The list says the Ultrastar Deluxe that comes with this installation is missing: it was moved or deleted. Once Wingman restarts, the **USDX** group shows its paths again instead. Run that setup again to put it back. |
 | **Base path** in the **USDX** group is filled in | Fill it in. It is the folder that holds `ultrastardx.exe`. |
 | `ultrastardx.exe` is really in that folder | The base path is wrong, or the program has another name. Set **Executable** in the same group, behind **Advanced**. |
 | **Directory** in the **Songs** group is filled in | Fill it in. Wingman has to know where the songs are. |
@@ -55,11 +55,10 @@ Three things get in the way.
 
 The song starts, and Ultrastar Deluxe comes up in its own menu with no song
 playing. Wingman starts every song with the `-Song` argument, and that
-Ultrastar Deluxe does not know it. Today only
+Ultrastar Deluxe does not know it. Only
 [the Ultrastar Deluxe build on GitHub](https://github.com/Yannis4444/USDX)
-does. It is on its way into Ultrastar Deluxe itself. Until then, take the setup
-that comes with Ultrastar Deluxe, which brings that build. See
-[Install and run](../start/install.md).
+does. Take the setup that comes with Ultrastar Deluxe, which brings that build.
+See [Install and run](../start/install.md).
 
 ## Another song is playing, and none is
 

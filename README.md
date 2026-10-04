@@ -9,16 +9,19 @@ karaoke PC.
 
 1. Download `UltrastarWingman-<version>-setup.exe` and run it. It installs
    Wingman for your Windows account (no administrator rights) and updates an
-   installed one in place. `UltrastarWingman-<version>-with-usdx-setup.exe`
-   installs Ultrastar Deluxe along with it. To skip installing, download
+   installed one in place. It needs an Ultrastar Deluxe that knows the `-Song`
+   argument, which a stock one does not
+   ([the fork](https://github.com/Yannis4444/USDX) does).
+   `UltrastarWingman-<version>-with-usdx-setup.exe` installs such an
+   Ultrastar Deluxe along with it. To skip installing, download
    `UltrastarWingman.exe` and start it instead. Either way Wingman opens the
-   host page in your browser and prints its address for the phones on the same
-   network.
+   host screen in your browser, and the QR code on it carries the address for
+   the phones on the same network.
 2. Tell Wingman where your songs are, and let it connect Ultrastar Deluxe:
    [Get started](docs/user/start/index.md).
 
-The user guide lives in [`docs/user/`](docs/user/index.md) — songs, wishes,
-accounts, statistics, troubleshooting.
+The user guide lives in [`docs/user/`](docs/user/index.md): songs, wishes,
+accounts, statistics, and troubleshooting.
 
 ## Develop it
 
@@ -57,5 +60,5 @@ cd docs
 ```
 
 Component details: [`backend/README.md`](backend/README.md),
-[`frontend/README.md`](frontend/README.md). How we work — style, architecture,
-git, testing: [`CLAUDE.md`](CLAUDE.md) and [`docs/dev/`](docs/dev/architecture.md).
+[`frontend/README.md`](frontend/README.md). How we work (style, architecture,
+git, testing): [`CLAUDE.md`](CLAUDE.md) and [`docs/dev/`](docs/dev/architecture.md).
