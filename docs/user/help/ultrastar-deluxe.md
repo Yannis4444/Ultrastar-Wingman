@@ -12,13 +12,15 @@ not set up yet, so no song can be started*. Click **Fix it** and Wingman lists
 what is missing, in plain words, with a button into the settings. Pressing
 **Play** opens the same list.
 
-Everything in this table has to be true. The first row is for the setup that
-comes with Ultrastar Deluxe. The next two rows are for a Wingman pointed at
-your own installation.
+Everything in this table has to be true. The first three rows are for the
+setup that comes with Ultrastar Deluxe. The next two rows are for a Wingman
+pointed at your own installation.
 
 | What has to be true | If it is not |
 |---|---|
 | With the setup that comes with Ultrastar Deluxe: `usdx\ultrastardx.exe` is still in the install folder | The list says the Ultrastar Deluxe that comes with this installation is missing: it was moved or deleted. Once Wingman restarts, the **USDX** group shows its paths again instead. Run that setup again to put it back. |
+| With that setup: the install folder's path has no letters beyond A to Z, such as ä, é, or ß | Ultrastar Deluxe cannot start songs from there. The setup warns about such a folder, except when it runs silently. Uninstall Wingman and install it again into a plain folder, such as `C:\Karaoke\Ultrastar Wingman`. Uninstalling leaves the old `usdx\songs` where it is, and **Directory** in the **Songs** group still points at it. Move your song folders into the new `usdx\songs` and set **Directory** to that folder. |
+| With that setup: Wingman may write to `usdx\songs` | Some songs have to be copied in there before they can start. Give your Windows account the right to change that folder, under **Security** in the folder's **Properties**. |
 | **Base path** in the **USDX** group is filled in | Fill it in. It is the folder that holds `ultrastardx.exe`. |
 | `ultrastardx.exe` is really in that folder | The base path is wrong, or the program has another name. Set **Executable** in the same group, behind **Advanced**. |
 | **Directory** in the **Songs** group is filled in | Fill it in. Wingman has to know where the songs are. |

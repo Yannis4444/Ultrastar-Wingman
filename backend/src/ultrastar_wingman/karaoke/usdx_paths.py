@@ -18,6 +18,9 @@ report and a selection as well as from a request, and none of them carries the a
 """
 
 import logging
+import os
+import time
+import uuid
 from dataclasses import dataclass
 from pathlib import Path
 
@@ -49,6 +52,7 @@ def configure(bundled_dir: Path | None) -> None:
     mode of the one before it in the same process."""
     global _bundled_dir
     _bundled_dir = bundled_dir
+    _writable_until.clear()
 
 
 def bundled_dir() -> Path | None:
@@ -68,7 +72,9 @@ _DERIVED = {
 
 @dataclass(frozen=True)
 class UsdxPaths:
-    """Everything the launcher needs, all absolute. Only `executable` is checked to exist:
+    """Everything the launcher needs, all absolute. Only `executable` is checked to exist (and,
+    in the bundled mode, that a file can be made in `songs_dir` when it is there, a success
+    standing for `WRITABLE_FOR_SECONDS`):
     `config_file` is written on demand (by Wingman itself, before every launch),
     `avatars_dir` and `songs_dir` are created by whoever writes into them first, and
     `ultrastar_db` only appears once somebody has scored."""
@@ -133,6 +139,8 @@ def _resolve(values: dict[str, str], bundled: Path | None = None) -> UsdxPaths:
             problems.append(f"the bundled Ultrastar Deluxe is missing: {executable}")
         else:
             problems.append(f"'{EXECUTABLE}' is not a file: {executable}")
+    if bundled is not None:
+        problems.extend(_bundled_folder_problems(bundled, resolved[SONGS_DIR]))
     # The config file is created on demand, Ultrastar.db only exists after the first score
     # and USDX creates its songs directory on first start, so none of them has to be there.
     if problems:
@@ -151,6 +159,66 @@ def _resolve(values: dict[str, str], bundled: Path | None = None) -> UsdxPaths:
         ultrastar_db=resolved[ULTRASTAR_DB],
         songs_dir=songs_dir,
     )
+
+
+def _bundled_folder_problems(bundled: Path, songs_dir: Path) -> list[str]:
+    """What is wrong with the folder the setup put the bundled Ultrastar Deluxe in. A silent
+    install goes on where the setup's own dialog would have asked, so this is where such a
+    folder is first said out loud. Only the bundled mode: a host's own installation is
+    where they put it, and was checked by nobody."""
+    problems: list[str] = []
+    # The installer's `IsPlainAscii` (nothing past code point 127), not the launcher's
+    # `_UNSUPPORTED_IN_NAME`: that one holds a single folder *name* to a whitelist that
+    # has no room for the drive's colon or a backslash. The launcher copies an oddly named
+    # song to a plain name, but the folders above USDX's songs folder come along with the
+    # copy (see `usdx.py`), so no song can be started out of such a folder.
+    if not str(bundled).isascii():
+        problems.append(
+            f"the bundled Ultrastar Deluxe is in a folder that is not plain ASCII: {bundled}"
+        )
+    # A missing one is the launcher's to create (see the warning in `_resolve`).
+    if songs_dir.is_dir() and not _can_create_files_in(songs_dir):
+        problems.append(f"the bundled songs folder cannot be written to: {songs_dir}")
+    return problems
+
+
+# How long a folder that took the write test is believed writable. Every phone that opens
+# the home page asks for the status (and again whenever it comes back to the tab), so without
+# this each of them would make and remove a file in the songs folder. A refusal is never
+# remembered: the host who has just fixed the permissions sees the banner go at once.
+WRITABLE_FOR_SECONDS = 60.0
+_writable_until: dict[Path, float] = {}
+
+
+def _can_create_files_in(directory: Path) -> bool:
+    now = time.monotonic()
+    if _writable_until.get(directory, 0.0) > now:
+        return True
+    if _write_test(directory):
+        _writable_until[directory] = now + WRITABLE_FOR_SECONDS
+        return True
+    _writable_until.pop(directory, None)
+    return False
+
+
+def _write_test(directory: Path) -> bool:
+    """Found out by creating a file there and removing it again. Not `os.access`: on Windows
+    it reads the read-only attribute alone, which a folder ignores anyway, and knows nothing
+    of the folder's permissions. And not `tempfile.mkstemp`: on Windows it takes a refusal
+    for a name that is taken, asks `os.access` whether the folder is writable, hears yes and
+    tries the next name, for ever."""
+    name = directory / f".wingman-write-test-{uuid.uuid4().hex}"
+    try:
+        handle = os.open(name, os.O_WRONLY | os.O_CREAT | os.O_EXCL)
+    except OSError:
+        return False
+    os.close(handle)
+    try:
+        os.unlink(name)
+    except OSError as error:
+        # A folder that lets a file be made but not removed: writable all the same.
+        logger.warning("cannot remove the write test %s: %s", name, error)
+    return True
 
 
 async def seed_songs_directory(session: AsyncSession) -> Path | None:

@@ -6,6 +6,7 @@ songs folder a fresh install is given.
 """
 
 import socket
+import subprocess
 import sys
 from collections.abc import AsyncIterator, Iterator
 from dataclasses import dataclass
@@ -262,6 +263,154 @@ async def test_a_missing_bundled_program_names_no_setting(
     assert raised.value.problems == [
         f"the bundled Ultrastar Deluxe is missing: {usdx / 'ultrastardx.exe'}"
     ]
+
+
+async def test_a_bundled_folder_beyond_ascii_is_a_problem(
+    session: AsyncSession, tmp_path: Path
+) -> None:
+    """The per-user install lands under the Windows user name, and a silent setup does not
+    ask about it: USDX cannot start a song out of such a folder, so the status says so."""
+    usdx = make_usdx(tmp_path / "Jürgen" / "usdx")
+    await SettingsService(session).set("songs.directory", str(usdx))
+    usdx_paths.configure(usdx)
+
+    with pytest.raises(usdx_paths.UsdxPathsError) as raised:
+        await usdx_paths.resolve_usdx_paths(session)
+
+    assert raised.value.problems == [
+        f"the bundled Ultrastar Deluxe is in a folder that is not plain ASCII: {usdx}"
+    ]
+
+
+async def test_the_status_names_a_bundled_folder_beyond_ascii(tmp_path: Path) -> None:
+    usdx = make_usdx(tmp_path / "Jürgen" / "usdx")
+    async for _app, client in _start(settings_for(tmp_path, usdx)):
+        response = await client.get("/api/v1/karaoke/status")
+
+    assert response.status_code == 200
+    assert response.json() == {
+        "configured": False,
+        "problems": [
+            f"the bundled Ultrastar Deluxe is in a folder that is not plain ASCII: {usdx}"
+        ],
+        "bundled": True,
+        "usdx_dir": str(usdx),
+    }
+
+
+async def test_a_bundled_songs_folder_nobody_may_write_to_is_a_problem(
+    session: AsyncSession, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """How the answer is used. Whether a real folder answers it is the next test's, which
+    only Windows can run."""
+    usdx = make_usdx(tmp_path / "usdx")
+    songs = usdx / "songs"
+    songs.mkdir()
+    await SettingsService(session).set("songs.directory", str(songs))
+    usdx_paths.configure(usdx)
+    monkeypatch.setattr(usdx_paths, "_can_create_files_in", lambda directory: False)
+
+    with pytest.raises(usdx_paths.UsdxPathsError) as raised:
+        await usdx_paths.resolve_usdx_paths(session)
+
+    assert raised.value.problems == [f"the bundled songs folder cannot be written to: {songs}"]
+
+
+@pytest.fixture
+def unwritable_songs(tmp_path: Path) -> Iterator[Path]:
+    """A bundled songs folder with a deny entry for Everyone (S-1-1-0) on creating files and
+    folders in it. Not the read-only attribute: Windows ignores that on a folder."""
+    songs = make_usdx(tmp_path / "usdx") / "songs"
+    songs.mkdir()
+    subprocess.run(
+        ["icacls", str(songs), "/deny", "*S-1-1-0:(WD,AD)"], check=True, capture_output=True
+    )
+    yield songs
+    # Or pytest could not clear its temporary folders away later.
+    subprocess.run(["icacls", str(songs), "/remove:d", "*S-1-1-0"], check=True, capture_output=True)
+
+
+@pytest.mark.skipif(sys.platform != "win32", reason="folder permissions are set with icacls")
+async def test_the_write_test_finds_a_folder_whose_permissions_refuse_new_files(
+    session: AsyncSession, unwritable_songs: Path
+) -> None:
+    await SettingsService(session).set("songs.directory", str(unwritable_songs))
+    usdx_paths.configure(unwritable_songs.parent)
+
+    with pytest.raises(usdx_paths.UsdxPathsError) as raised:
+        await usdx_paths.resolve_usdx_paths(session)
+
+    assert raised.value.problems == [
+        f"the bundled songs folder cannot be written to: {unwritable_songs}"
+    ]
+
+
+async def test_the_write_test_leaves_nothing_behind(session: AsyncSession, tmp_path: Path) -> None:
+    usdx = make_usdx(tmp_path / "usdx")
+    songs = usdx / "songs"
+    songs.mkdir()
+    await SettingsService(session).set("songs.directory", str(songs))
+    usdx_paths.configure(usdx)
+
+    await usdx_paths.resolve_usdx_paths(session)
+
+    assert list(songs.iterdir()) == []
+
+
+async def test_a_writable_songs_folder_is_not_tested_on_every_status_read(
+    session: AsyncSession, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """Every phone on the home page reads the status: one write test stands for a while."""
+    usdx = make_usdx(tmp_path / "usdx")
+    (usdx / "songs").mkdir()
+    await SettingsService(session).set("songs.directory", str(usdx / "songs"))
+    usdx_paths.configure(usdx)
+    tests: list[Path] = []
+
+    def write_test(directory: Path) -> bool:
+        tests.append(directory)
+        return True
+
+    monkeypatch.setattr(usdx_paths, "_write_test", write_test)
+
+    await usdx_paths.resolve_usdx_paths(session)
+    await usdx_paths.resolve_usdx_paths(session)
+
+    assert tests == [usdx / "songs"]
+
+
+async def test_a_refused_write_test_is_not_remembered(
+    session: AsyncSession, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """The host who has just given the folder its permissions back must not wait for it."""
+    usdx = make_usdx(tmp_path / "usdx")
+    (usdx / "songs").mkdir()
+    await SettingsService(session).set("songs.directory", str(usdx / "songs"))
+    usdx_paths.configure(usdx)
+    answers = [False, True]
+    monkeypatch.setattr(usdx_paths, "_write_test", lambda directory: answers.pop(0))
+
+    with pytest.raises(usdx_paths.UsdxPathsError):
+        await usdx_paths.resolve_usdx_paths(session)
+    await usdx_paths.resolve_usdx_paths(session)
+
+    assert answers == []
+
+
+async def test_a_host_installation_beyond_ascii_is_not_checked(
+    session: AsyncSession, tmp_path: Path
+) -> None:
+    """Only the folder a setup chose is held to the rule. Whoever points Wingman at their own
+    installation chose that folder themselves."""
+    usdx = make_usdx(tmp_path / "Jürgen" / "usdx")
+    settings = SettingsService(session)
+    await settings.set("usdx.base_path", str(usdx))
+    await settings.set("songs.directory", str(usdx))
+    usdx_paths.configure(None)
+
+    paths = await usdx_paths.resolve_usdx_paths(session)
+
+    assert paths.executable == usdx / "ultrastardx.exe"
 
 
 # --- settings ------------------------------------------------------------------------------
