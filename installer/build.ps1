@@ -173,6 +173,33 @@ function Write-UsdxSource {
     Write-Host "  SOURCE.txt: $(($lines | Select-Object -Skip 3) -join ', ')"
 }
 
+# A full path without the trailing backslash, unless it is a drive root. Windows
+# PowerShell 5.1 quotes a native tool's argument that holds a space without escaping the
+# backslash before the closing quote, so "/DOutputDir=C:\a b\" reached PyInstaller and ISCC
+# as one argument merged with the next.
+function Get-FullPath {
+    param([string]$Path)
+    $full = $ExecutionContext.SessionState.Path.GetUnresolvedProviderPathFromPSPath($Path)
+    if ($full -ne [IO.Path]::GetPathRoot($full)) { $full = $full.TrimEnd("\") }
+    return $full
+}
+
+# How many characters the deepest path of a payload runs below the install folder, with
+# $Prefix in front of each (usdx\ for the staged Ultrastar Deluxe). Inno Setup 6.2 is not
+# long-path aware, so the .iss refuses a folder that leaves the deepest path past 259
+# characters. A folder counts 13 more: Setup writes every file into it under a temporary
+# name first (is-XXXXX.tmp, then MoveFile), and CreateDirectory keeps room for an 8.3 name.
+function Measure-LongestPath {
+    param([string]$Dir, [string]$Prefix = "")
+    $longest = 0
+    Get-ChildItem -LiteralPath $Dir -Recurse -Force | ForEach-Object {
+        $length = $Prefix.Length + $_.FullName.Length - $Dir.Length - 1
+        if ($_.PSIsContainer) { $length += 13 }
+        if ($length -gt $longest) { $longest = $length }
+    }
+    return $longest
+}
+
 $root = Split-Path -Parent $PSScriptRoot
 $python = Join-Path $root "venv\Scripts\python.exe"
 if (-not (Test-Path $python)) { throw "No venv at $python" }
@@ -181,8 +208,8 @@ $firmware = Join-Path $root "backend\src\ultrastar_wingman\devices\firmware"
 $work = Join-Path $PSScriptRoot "build"
 
 if (-not $OutDir) { $OutDir = Join-Path $PSScriptRoot "dist" }
-New-Item -ItemType Directory -Force $OutDir | Out-Null
-$OutDir = (Resolve-Path $OutDir).Path
+# Created only once the checks below pass, so a refused run leaves no empty folder behind.
+$OutDir = Get-FullPath $OutDir
 $exe = Join-Path $OutDir "UltrastarWingman.exe"
 # The installer's input: the same program, unpacked once into a folder at build time rather
 # than into %TEMP% on every start. Only built when the installer stage runs.
@@ -207,10 +234,14 @@ if ($SkipFirmware -and -not (Test-Path (Join-Path $firmware "manifest.json"))) {
 $usdxLicense = $null
 if ($UsdxDir) {
     if ($SkipInstaller) { throw "-UsdxDir only feeds the installer stage; drop -SkipInstaller or -UsdxDir." }
+    # First on its own: Join-Path throws its own error for a drive that does not exist.
+    if (-not (Test-Path -LiteralPath $UsdxDir -PathType Container)) {
+        throw "-UsdxDir $UsdxDir is no folder. Pass the game directory of a built Ultrastar Deluxe."
+    }
     if (-not (Test-Path -LiteralPath (Join-Path $UsdxDir "ultrastardx.exe") -PathType Leaf)) {
         throw "-UsdxDir $UsdxDir holds no ultrastardx.exe. Pass the game directory of a built Ultrastar Deluxe."
     }
-    $UsdxDir = (Resolve-Path -LiteralPath $UsdxDir).Path
+    $UsdxDir = Get-FullPath (Resolve-Path -LiteralPath $UsdxDir).Path
     $usdxLicense = Find-UsdxLicense $UsdxDir
     if (-not $usdxLicense) {
         throw "Ultrastar Deluxe's license text was not found: neither $UsdxDir\license.txt nor installer\dependencies\documents\license.txt of the USDX checkout around it. The GPL asks for it to travel with the game."
@@ -226,6 +257,8 @@ foreach ($file in $replaced) {
     try { [IO.File]::Open($file, "Open", "ReadWrite", "None").Dispose() }
     catch { throw "$file is in use, most likely by a running Wingman. Stop it, or build elsewhere with -OutDir." }
 }
+# Not New-Item: Windows PowerShell 5.1's has no -LiteralPath.
+[IO.Directory]::CreateDirectory($OutDir) | Out-Null
 
 # backend\pyproject.toml is the one place the version is written down; the exe reports the
 # same string through the package metadata the backend install below refreshes.
@@ -302,6 +335,9 @@ if (-not $SkipInstaller) {
             $spec "--" "--onedir"
     }
     $built += $appDir
+    # LICENSE.txt and the uninstaller beside the exe are shorter than anything in _internal.
+    $longestPath = Measure-LongestPath $appDir
+    Write-Host "  deepest path below the install folder: $longestPath characters"
 
     Invoke-Step "installer" {
         & $iscc /Q `
@@ -309,6 +345,7 @@ if (-not $SkipInstaller) {
             "/DFileVersion=$fileVersion" `
             "/DAppDir=$appDir" `
             "/DOutputDir=$OutDir" `
+            "/DLongestPath=$longestPath" `
             (Join-Path $PSScriptRoot "UltrastarWingman.iss")
     }
     $built += Join-Path $OutDir "UltrastarWingman-$version-setup.exe"
@@ -322,12 +359,15 @@ if (-not $SkipInstaller) {
         # and a copy that fails here has to stop the build.
         Write-Host "==> stage Ultrastar Deluxe from $UsdxDir" -ForegroundColor Cyan
         Copy-UsdxStage -GameDir $UsdxDir -Stage $stage -License $usdxLicense
+        $longestWithUsdx = [math]::Max($longestPath, (Measure-LongestPath $stage "usdx\"))
+        Write-Host "  deepest path below the install folder: $longestWithUsdx characters"
         Invoke-Step "installer with Ultrastar Deluxe" {
             & $iscc /Q `
                 "/DAppVersion=$version" `
                 "/DFileVersion=$fileVersion" `
                 "/DAppDir=$appDir" `
                 "/DOutputDir=$OutDir" `
+                "/DLongestPath=$longestWithUsdx" `
                 "/DBundleUsdx" `
                 "/DUsdxStage=$stage" `
                 (Join-Path $PSScriptRoot "UltrastarWingman.iss")

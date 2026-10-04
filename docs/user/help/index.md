@@ -12,10 +12,25 @@ its own. See [Ultrastar Deluxe problems](ultrastar-deluxe.md).
 
 ## Wingman does not start
 
-Read the console window. A complaint that the address is already in use means
-something else on the PC holds port 8080. An older Wingman still running is the
-usual suspect. Close it and start again, or give the new one a different port
-with `WINGMAN_PORT`. See [Install and run](../start/install.md).
+When Wingman cannot start, its console window closes at once, and the reason
+goes with it. To read it, open the program folder in File Explorer, type
+`powershell` into the address bar, press ++enter++, and start Wingman there:
+
+```powershell
+.\UltrastarWingman.exe
+```
+
+The terminal stays open with the reason in it.
+
+- **A complaint about the address**, *error while attempting to bind on
+  address*, means port 8080 is taken, usually by a Wingman that is already
+  running. Look for its console window on the taskbar. Use that one, or give
+  the new one a different port with `WINGMAN_PORT`.
+- **A complaint about the database**, such as *Can't locate revision*, means an
+  older Wingman met a database a newer one has updated. Install the newer
+  version again, or put back the copy of the data folder you made before.
+
+See [Install and run](../start/install.md).
 
 ## A song will not start
 
@@ -26,6 +41,9 @@ with `WINGMAN_PORT`. See [Install and run](../start/install.md).
 
 - Fill in **Directory** in the **Songs** group of the settings, then click
   :wingman-refresh: **Rescan** on the **Songs** tab.
+- With the setup that comes with Ultrastar Deluxe, **Directory** starts out as
+  the empty `usdx\songs` in the program folder. Copy song folders in through
+  the Start menu entry **Ultrastar Wingman songs**, or download songs.
 - Wingman looks exactly one level deep. `Songs\Artist - Title\song.txt` is
   found. `Songs\Artist\Title\song.txt` is not. Point Wingman at the folder
   whose direct subfolders are the songs, or add the inner folders under
@@ -58,6 +76,10 @@ The library is also scanned once in the background every time Wingman starts.
 It works once. Restart Wingman and use the new line from the console window.
 Browsers that already hold host rights keep them. The link is only needed to
 make a new browser the host. See [The host screen](../host-screen/index.md).
+
+The link also fails when Wingman was started a second time while it was
+running. The second one closes at once, and the link it opened belongs to
+nobody. Use the console window of the Wingman that is still running.
 
 ## The USDB login fails
 

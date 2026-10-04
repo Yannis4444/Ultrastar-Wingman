@@ -21,7 +21,7 @@ The user-facing side (what the wizard asks, update, uninstall) is
 
 | What | Why | Notes |
 |---|---|---|
-| The repo venv (`venv\Scripts\python.exe`, Python 3.12+, 64-bit) | Backend install, PyInstaller, the firmware toolchain | The script refuses to run without it. The bitness of this Python is the exe's, and the installer only allows x64 |
+| The repo venv (`venv\Scripts\python.exe`, Python 3.12+, 64-bit) | Backend install, PyInstaller, the firmware toolchain | Create it once in the repo root with `py -3.12 -m venv venv`. The script refuses to run without it. The bitness of this Python is the exe's, and the installer only allows x64 |
 | Node.js 20+ | `npm ci` / `npm run build` of the frontend | `npm ci` only runs when `frontend\node_modules` is missing |
 | PlatformIO and its ESP32 toolchain | The device firmware the exe serves | Pinned in `firmware\requirements.txt`, which the script pip-installs into the venv; PlatformIO downloads the toolchain itself on the first build. Run the script from PowerShell, not Git Bash ([firmware.md](firmware.md)) |
 | Inno Setup 6.2+ | The installer stage | <https://jrsoftware.org/isdl.php>. Not a dependency of the app: the script finds `ISCC.exe` on the machine (Inno's uninstall key in HKLM or HKCU, then `PATH`, then `Program Files (x86)\Inno Setup 6`). The script is written against 6.2 (`ArchitecturesAllowed=x64`, not 6.3's `x64compatible`) |
@@ -36,7 +36,7 @@ A bare `.\installer\build.ps1` runs every stage, in this order:
 | Stage | What it does | Skip with |
 |---|---|---|
 | frontend | `npm run build` into `frontend\dist` | `-SkipFrontend` (bundles the `frontend\dist` already there) |
-| backend | `pip install -e backend[packaging]` (refreshes the package metadata `__version__` reads, and installs PyInstaller) | never |
+| backend | `pip install -e backend[packaging]` (refreshes the package metadata `__version__` reads, and installs PyInstaller, pinned to one version in that extra because it decides what goes into every exe: upgrading it is a deliberate change of the pin) | never |
 | firmware | `firmware\build.py`: builds the image and writes it into the backend package | `-SkipFirmware` (bundles the image already there) |
 | exe | PyInstaller over `installer\UltrastarWingman.spec`, with a Windows version resource: the portable `UltrastarWingman.exe` | never |
 | folder | the same spec again with `-- --onedir`: `UltrastarWingman\` | `-SkipInstaller`, since only the installer carries it |
@@ -49,8 +49,12 @@ files stay in `installer\build\onefile` and `installer\build\onedir`, beside the
 Before anything runs, the script fails fast on what would otherwise fail at the end: no
 `ISCC.exe` while the installer stage is wanted (naming the download page), a `-Skip…` with
 nothing prebuilt to bundle, an `UltrastarWingman.exe` in `-OutDir` that is locked (or, when
-the folder is built, `UltrastarWingman\UltrastarWingman.exe`), and a `-UsdxDir` without
-`ultrastardx.exe`, without USDX's license text, or beside `-SkipInstaller`. Every native
+the folder is built, `UltrastarWingman\UltrastarWingman.exe`), and a `-UsdxDir` that is no
+folder, without `ultrastardx.exe`, without USDX's license text, or beside `-SkipInstaller`.
+`-OutDir` is created only after those checks, so a refused run leaves no empty folder. Both
+paths lose a trailing backslash (unless they are a drive root): Windows PowerShell 5.1
+quotes a native argument holding a space without escaping the backslash before the closing
+quote, so `-OutDir "C:\a b\"` reached PyInstaller merged with the next argument. Every native
 tool (npm, pip, PyInstaller, ISCC) is judged by its exit code, not by what it prints to
 stderr. The last lines list what was built, with sizes (a folder's is its files' sum).
 
@@ -78,14 +82,30 @@ folder's exe another name and renaming it afterwards would save that, but would 
 spec building a misnamed exe for anyone running it by hand. `COLLECT` empties
 `-OutDir\UltrastarWingman\` before it fills it.
 
-The folder build puts the bundle's paths on the disk, so their length counts: the deepest
-is about 100 characters below the folder (a migration's file name), and ISCC 6.2 fails on
-a source path past Windows' 260 (measured; Setup and the frozen app were not tried past
-it). The spec drops `__pycache__` from the bundled data for that reason too: a checkout
-that ran the backend holds one beside the migrations, its
-bytecode is the build machine's and a frozen Wingman writes none, and its names added 30
-characters, enough to make ISCC fail with "The system cannot find the path specified"
-over an `-OutDir` deep in `%TEMP%`. Keep `-OutDir` and the install folder of a test short.
+The folder build puts the bundle's paths on the disk, so their length counts. Inno Setup
+6.2 is not long-path aware: ISCC fails on a source path past Windows' 259 characters, and
+Setup fails on a destination path past it. Measured: the edition with Ultrastar Deluxe run
+over a plain install in a 152-character folder failed with `MoveFile` code 3 on a
+262-character projectM preset, after `[InstallDelete]` had already swept `_internal`, and
+left a Wingman that did not start. So the script measures the deepest path of each payload
+below `{app}` and passes it as `/DLongestPath`: 98 characters for the plain edition (a
+migration's file name in `_internal`), 109 for the one with Ultrastar Deluxe (a projectM
+preset under `usdx\visuals`). A folder counts 13 more, because Setup writes every file into
+it as a 12-character `is-XXXXX.tmp` before `MoveFile` names it (and `CreateDirectory` keeps
+room for an 8.3 name below it); the deepest folders (72 and 29 characters) stay under the
+file maxima that way, so one number covers both. `FolderFits` in the `.iss` refuses a folder
+longer than 259 - 1 - `LongestPath` (160 and 149 characters) on the directory page and
+again on the Ready page, the only page an update shows, before anything is deleted. A
+silent setup logs the refusal and exits with code 1, having written nothing. Measured at
+the edge: a 149-character folder installed the bundled edition, its deepest file exactly
+259 characters, and a 150-character one was refused. Without `/DLongestPath` (the IDE) the
+`.iss` assumes 130.
+
+The spec drops `__pycache__` from the bundled data for the same reason: a checkout that
+ran the backend holds one beside the migrations, its bytecode is the build machine's and a
+frozen Wingman writes none, and its names added 30 characters, enough to make ISCC fail
+with "The system cannot find the path specified" over an `-OutDir` deep in `%TEMP%`. Keep
+`-OutDir` short.
 
 Nothing in the app assumes either layout. The four places that read bundled files
 (`frontend.resolve_frontend_dir`, `db.migrations_dir`, `achievements.pictures.images_dir`,
@@ -148,18 +168,26 @@ The decisions inside it, each commented where it is made:
   reported failure and aborted a silent update with the old exe in place. `force` ends it
   the same way and the update completes. The wizard asks first either way.
   `RestartApplications=no`: Wingman never registers for restart.
-- **The uninstaller refuses while Wingman runs** (a WMI query for a process running the
-  installed exe, in `InitializeUninstall`), because otherwise it removes everything but
-  the locked exe and leaves a server without an installation. The same for a running
+- **The uninstaller refuses while Wingman runs** (`ProcessRunning`, in
+  `InitializeUninstall`), because otherwise it removes everything but the locked exe and
+  leaves a server without an installation. The same for a running
   `{app}\usdx\ultrastardx.exe`, its own message. A silent uninstall gives up (exit code 1).
+  `ProcessRunning` asks WMI for a process running that exe, and when that finds none, tries
+  to open the exe for writing while sharing everything, which Windows refuses for the exe
+  of any running process: WMI leaves `ExecutablePath` empty for a process of higher
+  integrity, so a Wingman started with "Run as administrator" is invisible to the query.
+  When WMI itself fails, the answer is "running". A wrong "running" costs a skipped sweep
+  or one more Retry, a wrong "not running" deletes files under a live program.
+- **The install folder's length** is capped by `FolderFits`; see
+  [Two layouts](#two-layouts) for the measurement.
 - **The folder build whole** (`Source: "{#AppDir}\*"`, `recursesubdirs`), so the exe lands
   at `{app}\UltrastarWingman.exe`, where the shortcuts, `[Run]`, `UninstallDisplayIcon`
   and the uninstaller's process check look, with `{app}\_internal\` beside it. First,
   `[InstallDelete]` removes `{app}\_internal` whole, because a file a newer build dropped
   would otherwise stay and could still be imported. It runs after `CloseApplications` has
   ended a running Wingman. Inno does not roll `[InstallDelete]` back, so it is skipped
-  while the installed exe still runs (`Check: not WingmanRunning`, the uninstaller's WMI
-  query): under `/NOCLOSEAPPLICATIONS`, or "Do not close the applications" in the wizard,
+  while the installed exe still runs (`Check: not WingmanRunning`, the uninstaller's
+  `ProcessRunning`): under `/NOCLOSEAPPLICATIONS`, or "Do not close the applications" in the wizard,
   it would take every file the server does not hold open before the locked exe aborts the
   update. An update that fails after it for another reason (a full disk) leaves an
   installation that does not start until the setup is run again.
@@ -286,6 +314,13 @@ scratch install of the edition with Ultrastar Deluxe; `GET /api/v1/karaoke/statu
 and the Start menu shortcuts are gone (the edition with Ultrastar Deluxe makes two), and
 that `usdx\songs` is still there.
 
+On a machine where Wingman is really installed, that key and those shortcuts are the real
+installation's: a test setup with the real AppId takes them over even with `/DIR`
+elsewhere, and its uninstall deletes them. Compile a copy of the `.iss` instead, with
+another `AppGuid`, `AppName` and `SetupMutex` and nothing else changed (the `.ico`, the
+four bitmaps beside it and `LICENSE` one folder up), against the real payload and
+`/DLongestPath`.
+
 ## Silent installs
 
 What a scripted install or uninstall does, measured on Inno Setup 6.2.0:
@@ -297,7 +332,8 @@ What a scripted install or uninstall does, measured on Inno Setup 6.2.0:
 | `/MERGETASKS="desktopicon"` / `/MERGETASKS="!desktopicon"` | Add or take away the desktop icon; taking it away removes the one a previous install made. On an update this is the only way to change it: the wizard skips the Select Tasks page then |
 | `/LOG="<file>"`, `/LOGCLOSEAPPLICATIONS` | A log, and Restart Manager's part in it |
 | `/NOCLOSEAPPLICATIONS` | Leaves a running Wingman alone: `[InstallDelete]` skips `_internal` while the exe runs, the locked exe cannot be replaced, and the setup rolls back (exit code 5). The running Wingman goes on answering, and the installation starts as before. (Without that `Check`, the deletion took the 320 of 364 files the server did not hold open, Inno does not roll it back, and the closed Wingman did not start again until the setup was run again) |
-| (default, a Wingman running from `{app}`) | Restart Manager ends it after about six seconds without a graceful shutdown, and the update completes (exit code 0) |
+| (default, a Wingman running from `{app}`) | Restart Manager ends it within a second (measured 0.3 to 0.55 s) without a graceful shutdown, and the update completes (exit code 0) |
+| a folder too long for the deepest path | `FolderFits` logs the refusal and the setup exits with code 1, having written nothing ([Two layouts](#two-layouts)) |
 | downgrade | The warning takes its suppressed default, Yes, and logs it |
 | `unins000.exe /VERYSILENT /SUPPRESSMSGBOXES` | Uninstalls; while Wingman runs from `{app}` it refuses (exit code 1) and leaves everything in place. Without `/SUPPRESSMSGBOXES` the Retry/Cancel box still shows (Inno's documented behavior, not measured) |
 

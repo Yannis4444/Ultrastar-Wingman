@@ -5,20 +5,24 @@ Two settings are all it needs before the first song.
 
 !!! note
     A Wingman installed with the setup that comes with Ultrastar Deluxe
-    already knows where the game is. Skip step 2 below: the **USDX** group
-    holds no paths then, only the **Run Ultrastar Deluxe** row. The
-    **Directory** setting starts out as that Ultrastar Deluxe's own `songs`
-    folder, so the first start needs no settings at all. See
-    [Install and run](install.md#bring-your-own-ultrastar-deluxe-along).
+    already knows where it is. Skip step 2 below: the **USDX** group holds no
+    paths then, only the **Run Ultrastar Deluxe** row. **Directory** starts
+    out as that Ultrastar Deluxe's own `songs` folder, which is empty. Copy
+    song folders in through the Start menu entry **Ultrastar Wingman songs**
+    and click :wingman-refresh: **Rescan**, or download songs.
+
+    Songs you already have elsewhere, such as in an older Ultrastar Deluxe's
+    songs folder, go into **Directory** or **Additional directories**. That
+    older Ultrastar Deluxe stays installed, and Wingman no longer uses it.
+    See [Install and run](install.md#bring-your-own-ultrastar-deluxe-along).
 
 ## Point Wingman at the installation
 
 !!! warning
-    Wingman starts a song with the `-Song` argument, which today only
+    Wingman starts a song with the `-Song` argument, which only
     [the Ultrastar Deluxe build on GitHub](https://github.com/Yannis4444/USDX)
-    knows. It is on its way into Ultrastar Deluxe itself. A stock Ultrastar
-    Deluxe opens its menu and plays nothing, so take the setup that comes with
-    Ultrastar Deluxe instead.
+    knows. A stock Ultrastar Deluxe opens its menu and plays nothing, so take
+    the setup that comes with Ultrastar Deluxe instead.
 
 1. Open **User** > **Settings**. Changing a setting is an administrator's
    right, and the host browser holds it too.

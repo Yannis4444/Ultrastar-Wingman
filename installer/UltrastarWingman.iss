@@ -27,6 +27,12 @@
 #ifndef OutputDir
   #define OutputDir SourcePath + "dist"
 #endif
+#ifndef LongestPath
+  ; How many characters the deepest path this setup installs runs below {app}, measured by
+  ; build.ps1 over the payload (a folder counting 13 more, see FolderFits). The default is
+  ; a conservative guess for the IDE; the measured values are about 100 and 110.
+  #define LongestPath "130"
+#endif
 #ifdef BundleUsdx
   #ifndef UsdxStage
     #define UsdxStage SourcePath + "build\usdx"
@@ -123,6 +129,7 @@ UninstallWhileUsdxRunning=Ultrastar Deluxe is running. Close it, then click Retr
 NonAsciiFolder=The folder%n%n%1%n%nhas characters other than plain English letters, digits and punctuation in it, such as a letter beyond A to Z in a Windows user name. Ultrastar Deluxe cannot start songs from a folder like that.%n%nInstall here anyway?
 UsdxKept=This folder holds the Ultrastar Deluxe that an earlier Wingman setup installed. It stays where it is, and Wingman keeps using it.%n%nThis setup updates Wingman alone.
 ReadyToUpdate=Ultrastar Wingman %1 is installed in the folder below. Click Install to replace it with version %2.
+FolderTooLong=The folder%n%n%1%n%nis %2 characters long. Ultrastar Wingman puts files up to %3 characters deep inside it, and Windows allows 259 in all, so the folder can have at most %4.%n%nPick a shorter folder, such as C:\Karaoke\Ultrastar Wingman. To move an installed Wingman, uninstall it first: its data folder stays.
 UsdxNowBundled=From now on, Wingman uses the Ultrastar Deluxe that comes with this setup, not the one in its settings.
 
 [Tasks]
@@ -271,13 +278,47 @@ end;
 
 // An update asks nothing it already knows: the license was accepted when Wingman was
 // installed, and UsePreviousTasks has the desktop icon answer, so the Ready page is all
-// that is left (it is also where the bundled edition's folder check runs). The cost: a
+// that is left (it is also where the folder checks run, FolderFits below). The cost: a
 // wizard update cannot add or take away the desktop icon; /MERGETASKS still can.
 function ShouldSkipPage(PageID: Integer): Boolean;
 begin
   Result := IsUpdate() and ((PageID = wpLicense) or (PageID = wpSelectTasks));
-  if Result then
-    Log(Format('Update from %s: page %d skipped.', [InstalledVersion, PageID]));
+  if Result and (PageID = wpLicense) then
+    Log(Format('Update from %s: License page skipped.', [InstalledVersion]))
+  else if Result then
+    Log(Format('Update from %s: Select Tasks page skipped.', [InstalledVersion]));
+end;
+
+const
+  // Inno Setup 6.2 is not long-path aware: a path past MAX_PATH, 259 characters and the
+  // terminating null, fails to install. Measured: the edition with Ultrastar Deluxe run over
+  // a plain install in a 152-character folder failed on a 262-character projectM preset
+  // (MoveFile, code 3), after [InstallDelete] had already swept _internal, leaving a
+  // Wingman that did not start. So the folder is held to what the deepest path leaves.
+  MaxFolderLength = 259 - 1 - {#LongestPath};
+
+// Whether the deepest file this setup installs fits below the chosen folder. Asked on the
+// directory page and again on the Ready page, the only page an update shows, so a folder
+// that an earlier, shallower setup accepted is refused before anything is deleted. A folder
+// needs 13 characters more than its own path: Setup writes each file into it as
+// is-XXXXX.tmp before MoveFile names it, and CreateDirectory leaves room for an 8.3 name.
+// build.ps1 counts that into LongestPath. A silent install logs the refusal and exits with
+// code 1 (measured; the help only says that NextButtonClick returning False before the
+// installation ends a silent setup), having written nothing.
+function FolderFits(): Boolean;
+var
+  Dir: String;
+begin
+  Dir := WizardDirValue;
+  Result := Length(Dir) <= MaxFolderLength;
+  if not Result then
+  begin
+    // No continuation line may start with "[": ISCC reads that as a section tag.
+    Log(Format('The folder %s is %d characters long; at most %d leave room for the deepest path, %d characters below it.', [
+      Dir, Length(Dir), MaxFolderLength, {#LongestPath}]));
+    SuppressibleMsgBox(FmtMessage(CustomMessage('FolderTooLong'), [
+      Dir, IntToStr(Length(Dir)), '{#LongestPath}', IntToStr(MaxFolderLength)]), mbError, MB_OK, IDOK);
+  end;
 end;
 
 procedure CurPageChanged(CurPageID: Integer);
@@ -297,23 +338,41 @@ end;
 
 // Whether a program runs out of the given path. Wingman holds no mutex for AppMutex to
 // find, and the uninstaller has no Restart Manager step, so the process list is asked
-// directly.
-function ProcessRunning(Path: String): Boolean;
+// directly. When it cannot tell, the answer is "running": a wrong "running" costs a
+// skipped sweep of _internal or one more Retry in the uninstaller, a wrong "not running"
+// deletes files under a live program.
+function ProcessRunning(const Path: String): Boolean;
 var
   Locator, Service, Processes: Variant;
+  Literal: String;
+  Probe: TFileStream;
 begin
   Result := False;
   // A WQL string literal escapes backslashes and quotes with a backslash.
-  StringChangeEx(Path, '\', '\\', True);
-  StringChangeEx(Path, '''', '\''', True);
+  Literal := Path;
+  StringChangeEx(Literal, '\', '\\', True);
+  StringChangeEx(Literal, '''', '\''', True);
   try
     Locator := CreateOleObject('WbemScripting.SWbemLocator');
     Service := Locator.ConnectServer('.', 'root\CIMV2');
-    Processes := Service.ExecQuery(Format('SELECT ProcessId FROM Win32_Process WHERE ExecutablePath = ''%s''', [Path]));
+    Processes := Service.ExecQuery(Format('SELECT ProcessId FROM Win32_Process WHERE ExecutablePath = ''%s''', [Literal]));
     Result := Processes.Count > 0;
   except
     Log('Could not ask whether ' + Path + ' is running: ' + GetExceptionMessage);
+    Result := True;
   end;
+  // WMI leaves ExecutablePath empty for a process of higher integrity than the one asking,
+  // so a Wingman started with "Run as administrator" is not found by its path. Windows
+  // refuses to open the exe of any running process for writing, whoever started it, and
+  // opening it changes nothing on an idle one.
+  if not Result and FileExists(Path) then
+    try
+      Probe := TFileStream.Create(Path, fmOpenReadWrite or fmShareDenyNone);
+      Probe.Free;
+    except
+      Log(Path + ' cannot be opened for writing, so it is taken as running: ' + GetExceptionMessage);
+      Result := True;
+    end;
 end;
 
 // The installed Wingman, still running when [InstallDelete] comes round: only when
@@ -397,6 +456,11 @@ end;
 function NextButtonClick(CurPageID: Integer): Boolean;
 begin
   Result := True;
+  // Before the folder question: a folder too long to install into needs no other answer.
+  if (CurPageID = wpSelectDir) or (CurPageID = wpReady) then
+    Result := FolderFits();
+  if not Result then
+    Exit;
   if CurPageID = wpSelectDir then
     Result := ConfirmUsdxFolder()
   else if CurPageID = wpReady then
@@ -424,7 +488,9 @@ end;
 function NextButtonClick(CurPageID: Integer): Boolean;
 begin
   Result := True;
-  if (CurPageID = wpReady) and FileExists(ExpandConstant('{app}\usdx\ultrastardx.exe')) then
+  if (CurPageID = wpSelectDir) or (CurPageID = wpReady) then
+    Result := FolderFits();
+  if Result and (CurPageID = wpReady) and FileExists(ExpandConstant('{app}\usdx\ultrastardx.exe')) then
   begin
     Log('An Ultrastar Deluxe from an earlier Wingman setup is in ' + ExpandConstant('{app}\usdx') + ' and stays.');
     SuppressibleMsgBox(CustomMessage('UsdxKept'), mbInformation, MB_OK, IDOK);
