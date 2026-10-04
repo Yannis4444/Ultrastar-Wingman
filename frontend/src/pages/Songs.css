@@ -108,13 +108,15 @@
    several times the 328px a 360px phone has between its gutters.
 
    Measured at 360: `All` 46px, an unpressed glyph square 40px, the playlists
-   link 42px, gaps 8px; a pressed chip is icon + gap + label, 101px for
-   `Filter · 3` and 107px for `Favorites`. So four chips and the link fit on one
-   line whatever is pressed (251 + 8 + 42 = 301), and the fifth chip — `Recent`,
-   which is only there while a party is running — is what tips a pressed label
-   over: 299 + 8 + 42 = 349. Then the group wraps its own chips onto a second
-   line and the link stays anchored top right. Wrapping, never sideways scroll
-   (§1.11); `overflow-x` stays only as a backstop for a chip wider than the row.
+   link 40px (the square of its own rule below), gaps 8px; a pressed chip is
+   icon + gap + label, 101px for `Filter · 3` and 107px for `Favorites`. So four
+   chips and the link fit on one line whatever is pressed (`Favorites`, the
+   widest: 257 + 8 + 40 = 305), and the fifth chip — `Recent`, which is only
+   there while a party is running — is what tips a pressed label over, even the
+   narrower `Filter · 3`: 299 + 8 + 40 = 347. Then the group wraps its own
+   chips onto a second line and the link stays anchored top right. Wrapping,
+   never sideways scroll (§1.11); `overflow-x` stays only as a backstop for a
+   chip wider than the row.
    At 390 even the five-chip row fits on one line. */
 .songs-chips {
   display: flex;

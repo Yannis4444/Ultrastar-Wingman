@@ -3,9 +3,9 @@
 **All**, **Favorites**, and **Sung** are shortcuts. The **Filter** panel is the
 long way round, and it is where the tags live.
 
-![The Filter panel: a hint line, then a cloud of chips for the marks and the facets with Decade showing 1980s, then a cloud of tag chips](../assets/screenshots/songs/songs-filter.png){ width="320" loading=lazy }
+![The Filter panel: a hint line, the marks and facets with Video on Yes and Decade on 1980s, then the tags, two of them struck through on No](../assets/screenshots/songs/songs-filter.png){ width="320" loading=lazy }
 /// caption
-The **Decade** chip shows 1980s, so only the 80s songs are left behind the panel.
+**Video** is on **Yes** and **Decade** shows 1980s, so only the 80s songs with a video are left behind the panel.
 ///
 
 ## Set a filter

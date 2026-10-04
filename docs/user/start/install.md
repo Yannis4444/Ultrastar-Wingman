@@ -91,8 +91,7 @@ your players, parties, and scores.
 
 ## Change the port, the address, or the folder
 
-Wingman reads these environment variables when it starts. Set one when the
-default does not fit, and leave the others alone.
+Wingman reads these environment variables at startup. Set only those you need.
 
 | Variable | What it does | Default |
 |---|---|---|
@@ -102,6 +101,7 @@ default does not fit, and leave the others alone.
 | `WINGMAN_OPEN_BROWSER` | Open the host screen at startup | `true` |
 | `WINGMAN_FRONTEND_DIR` | The web app Wingman serves. Only needed if you built it yourself | The copy that comes with Wingman, or `frontend/dist` when you run from source |
 | `WINGMAN_USDX_DIR` | An Ultrastar Deluxe folder Wingman treats as its own. See below | A `usdx` folder next to the exe that holds `ultrastardx.exe`, otherwise none |
+| `WINGMAN_LOG_LEVEL` | How much the console says: `debug`, `info`, `warning`, or `error`. `warning` and `error` also hide the three lines under [When Wingman starts](#when-wingman-starts) | `info` |
 
 Wingman also reads a file called `.env` in the folder you start it from, so a
 double-click can carry these too. The Start menu entry starts it in the program

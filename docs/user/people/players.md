@@ -110,4 +110,6 @@ first.
 !!! note
     There is no password reset. Delete the account and register the same name
     again. The player row survives the deletion and is picked up by the new
-    account, scores and all.
+    account, scores and all. A single sign-on account has no password in
+    Wingman: its password is the provider's. Deleting one locks nobody out. The
+    next sign-in asks for a name again.

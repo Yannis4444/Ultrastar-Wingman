@@ -77,6 +77,8 @@ copy, and the whole suite runs in about two and a half minutes:
 - A bug fix ships with the regression test that would have caught it.
 - Tests are deterministic: no sleeps for synchronization, no dependence on
   wall-clock time or test order.
-- Fast: the backend suite should run in seconds. A slow suite stops being run.
+- Fast: a test pays for what it checks and nothing else. Setup every test
+  shares, like a migration walk, is done once (see
+  [the test database](#the-test-database)). A slow suite stops being run.
 - CI (when set up) runs ruff, mypy, pytest, eslint, tsc, vitest on every push;
   `main` must be green.
