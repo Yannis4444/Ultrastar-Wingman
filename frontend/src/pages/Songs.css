@@ -130,43 +130,20 @@
   overflow-x: auto;
 }
 
-.songs-chip {
-  display: flex;
-  /* A `<button>` is border-box by default and the playlists `<a>` is not, so
-     without this the link stands 2px taller than the chips beside it. */
-  box-sizing: border-box;
-  flex: 0 0 auto;
-  gap: 6px;
-  align-items: center;
-  min-height: 40px;
-  padding: 0 14px;
-  font: inherit;
-  font-size: 0.9em;
-  color: var(--color-dark);
-  background-color: var(--input-bg);
-  border: 1px solid var(--input-border-color);
-  border-radius: var(--border-radius);
-  cursor: pointer;
-}
+/* The chips themselves are the shared `.chip` / `.chip-on` of index.css (§4),
+   the box the Filter panel's clouds draw too. The Favorites and Sung chips
+   draw their glyph in the colour their built-in is configured with, through
+   the `.tag-color-*` classes of index.css — a chip colour of its own here
+   would fight that one at equal specificity.
 
-.songs-chip:hover {
-  background-color: var(--highlight-blue-dark);
-}
-
-.songs-chip-on {
-  color: var(--color);
-  background-color: var(--highlight-blue-dark);
-  border-color: var(--highlight-blue-light);
-}
-
-/* The Favorites and Sung chips draw their glyph in the colour their built-in is
-   configured with, through the `.tag-color-*` classes of index.css — a chip
-   colour of its own here would fight that one at equal specificity. */
+   The modifiers below are written `.chip.songs-chip-*`: this stylesheet lands
+   in the bundle before index.css (the page is imported eagerly, index.css
+   after `App`), so a single class here would lose to `.chip`'s padding. */
 
 /* An unpressed filter is its glyph alone: square at the chips' 40px, and the
    `.icon-button` glyph size rather than the 0.9em a chip label sets. Same shape
    as the playlists link below, which has never had a label. */
-.songs-chip-icon {
+.chip.songs-chip-icon {
   justify-content: center;
   width: 40px;
   padding: 0;
@@ -197,7 +174,7 @@
 
    Icon only, and square at the chips' 40px: the `list` glyph beside a filter
    group is unambiguous, and its label was the 88px the row could not spare. */
-.songs-chip-link {
+.chip.songs-chip-link {
   justify-content: center;
   width: 40px;
   padding: 0;

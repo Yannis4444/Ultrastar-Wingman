@@ -517,7 +517,7 @@ about, and the **Must be visible** column names that part alone.
 | `home` | `party/index.md` | `/` | Signed in as Leela, four wishes | 390x844 | The Wingman tile, the wishlist, the Random song entry |
 | `home-playing` | `party/sing.md` | `/` | **launcher**: a song playing | 390x844 | The stage showing cover, title, artist, song controls |
 | `songs-list` | `songs/index.md` | `/songs` | Seeded library, two favorites, two sung | 390x844 | Search box, chip row, rows with marks |
-| `songs-filter` | `songs/filter.md` | `/songs` | Filter panel open, Decade set to 1980s | 390x844 | The tri-state controls and one valued facet select |
+| `songs-filter` | `songs/filter.md` | `/songs` | Filter panel open, Decade set to 1980s | 390x844 | The hint line, both chip clouds, and the Decade chip showing 1980s |
 | `song` | `songs/song.md` | `/songs` | Song modal open on "I Got You Babe" | 390x844 | Cover hero, the wish and favorite toggles, and the summary strip |
 | `song-comments` | `songs/song.md` | `/songs` | Song modal, comments sub-view, three comments | 390x844 | The comment list and the composer |
 | `song-edit` | `songs/fix-or-delete.md` | `/songs` | Song modal, details editor open | 390x844 | The six labeled inputs, the save row, and **Delete song** under it |

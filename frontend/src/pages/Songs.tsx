@@ -110,7 +110,7 @@ function FilterChip({
   return (
     <button
       type="button"
-      className={on ? "songs-chip songs-chip-on" : "songs-chip songs-chip-icon"}
+      className={on ? "chip chip-on" : "chip songs-chip-icon"}
       aria-pressed={on}
       aria-haspopup={opensPanel ? "dialog" : undefined}
       aria-label={label}
@@ -236,8 +236,8 @@ export default function Songs() {
         return next;
       }
       // A facet's default is *Any* whichever kind it is — but the two kinds
-      // spell it differently: a boolean facet's row is the tri-state, whose
-      // *Any* is the word, and a valued one's select uses `ANY_VALUE`. Reading
+      // spell it differently: a boolean facet's chip cycles through the words,
+      // whose *Any* is `"any"`, and a valued one's select uses `ANY_VALUE`. Reading
       // the wrong one would store an override that means "the default", and the
       // *All* chip would never come back.
       if (key.startsWith("facet:")) {
@@ -317,8 +317,9 @@ export default function Songs() {
       }),
     );
 
-  // The facets the party offers as rows, in *Built-in* order (§7). A facet with
-  // *Show in filter* off is not a criterion at all, so it is not here either.
+  // The facets the party offers as filter chips, in *Built-in* order (§7). A
+  // facet with *Show in filter* off is not a criterion at all, so it is not
+  // here either.
   const shownFacets = useMemo(
     () =>
       [...BOOLEAN_FACET_IDS, ...VALUED_FACET_IDS].filter((facet) =>
@@ -343,10 +344,11 @@ export default function Songs() {
     auth.can(source.capability),
   );
 
-  // One row per criterion, in the order §7 fixes: the two built-in marks, then
-  // the facets the party shows in the filter, then the tags. A mark nothing can
-  // be said about — no account, no player — has no row, the same way its chip
-  // has no place in the row above.
+  // One filter chip per criterion, in the order §7 fixes: the two built-in
+  // marks and the facets the party shows in the filter (the *Built-in* cloud),
+  // then the tags (the *Tags* cloud). A mark nothing can be said about — no
+  // account, no player — has no chip in the panel, the same way its chip has
+  // no place in the row above.
   const filterRows: FilterRow[] = [];
   if (favorites.available)
     filterRows.push({
@@ -354,7 +356,7 @@ export default function Songs() {
       kind: "tri-state",
       name: BUILT_IN_TAGS.favorites.name,
       icon: BUILT_IN_TAGS.favorites.icon,
-      // Its row reads like a tag's, so its glyph wears the colour the party
+      // Its chip reads like a tag's, so its glyph wears the colour the party
       // gave the mark — whether or not the mark itself is on the song rows.
       colorClass: tagColorClass(tags.builtIns.favorites.color),
       value: criteria.favorite,
@@ -456,9 +458,7 @@ export default function Songs() {
                   whether it is pressed or not. */}
               <button
                 type="button"
-                className={
-                  pressed === ALL ? "songs-chip songs-chip-on" : "songs-chip"
-                }
+                className={pressed === ALL ? "chip chip-on" : "chip"}
                 aria-pressed={pressed === ALL}
                 onClick={() => selectPreset(NO_OVERRIDES)}
               >
@@ -510,7 +510,7 @@ export default function Songs() {
           {canBrowsePlaylists && (
             <Link
               to="/songs/playlists"
-              className="songs-chip songs-chip-link"
+              className="chip songs-chip-link"
               aria-label="Playlists"
               title="Playlists"
             >

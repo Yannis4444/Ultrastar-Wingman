@@ -48,7 +48,7 @@ no glyph, so it keeps its name either way.
 somebody has sung something tonight.
 
 **Filter** opens a panel instead of switching the list. It counts what it is
-narrowing on, so a pressed **Filter · 2** means two rows are set. See
+narrowing on, so a pressed **Filter · 2** means two chips in the panel are set. See
 [Filter the list](filter.md).
 
 :wingman-list: **Playlists** sits at the end of the row and leaves the filters
@@ -93,7 +93,7 @@ on. A song nobody scored belongs to no player in particular, so it stays out.
 Some songs are deliberately kept out of the list.
 
 - A tag can be set to hide its songs. They are out of every chip and out of the
-  reel's **All songs** until you put that tag's row on **Any** or **Yes** in
+  reel's **All songs** until you put that tag's chip on **Any** or **Yes** in
   **Filter**. They are still there. A playlist that holds one still shows it,
   and a wished one can still win the reel.
 - A tag can also take seeing its songs away from a role. Those songs do not

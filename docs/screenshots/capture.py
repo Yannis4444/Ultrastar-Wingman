@@ -507,7 +507,7 @@ ROWS: dict[str, Row] = {
                 'q(\'.filter-panel select[aria-label="Decade"]\').value === "1980s"',
             ),
         ),
-        ready='qa(".filter-panel .tri-state").length >= 2'
+        ready='qa(".filter-panel .filter-cloud").length === 2'
         ' && q(\'.filter-panel select[aria-label="Decade"]\').value === "1980s"',
     ),
     "song": Row(
