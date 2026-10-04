@@ -25,7 +25,7 @@ request does not override are the accessibility and dependency floors in §1.8�
    that built-in is shown in the song list — then one `.song-mark-tag` per visible
    `show_in_list` tag in the tag's colour. Each is `font-size: 0.8em; flex: 0 0 auto`; state
    is set in the song modal, or by the file for the two facets. A built-in's colour paints
-   its Filter row glyph and, for the two marks, the Songs chip too; the heart and mic
+   its Filter chip glyph (off *No*) and, for the marks, the Songs chip too; the heart and mic
    **toggles** (Home stage, song modal) keep their accent colours — they are controls, not
    tags. `.song-mark-wished` (blue `check`) is the wishlist tile's alone; rows never draw it.
 5. **Icons over words.** Structure with `Icon` + layout; add a text label only where the icon is
@@ -38,8 +38,8 @@ request does not override are the accessibility and dependency floors in §1.8�
    `.section-note` (the 0.85em `--color-darker` line that explains an `h2` to the reader),
    `.delete-row` (the one `.button-danger` that ends a list or a form, centered 24px under
    it — the score panel's *Delete score*, the song editor's *Delete song*),
-   `.visually-hidden`, `.icon`, the global `:focus-visible` ring. Extend with a modifier class;
-   never write a second bespoke 40×40 icon-button rule.
+   `.chip[-on]` (§4), `.visually-hidden`, `.icon`, the global `:focus-visible` ring. Extend
+   with a modifier class; never write a second bespoke 40×40 icon-button rule.
 8. **No new dependencies** for UI (no icon library, no loader library, no CSS framework).
 9. **Every animation has a `prefers-reduced-motion: reduce` branch.**
 10. **Touch floors:** icon-only controls ≥ 40×40, list rows ≥ 44px tall. A labelled text field
@@ -106,7 +106,7 @@ may wear is the picker's list below, never this table.
 |---|---|---|
 | `playlist-plus` / `playlist-check` · `list-plus` / `list` / `list-check` | wish off / wish on, `playlist-plus` also heading the wishlist · add to playlist / picker row not in it / already in it, `list` also the "Playlists" link | solid bars · bulleted rows |
 | `filter` / `comment` / `drag-handle` / `copy` / `send` / `user-plus` | the Songs Filter chip and its panel · comments: the song modal's summary strip, the sub-view, the empty state · reordering — the grip on a row and, on the Achievements admin, the header control that opens the mode · "Save a copy" of a playlist · submit in the comment composer · add a member, add a person to a tag | solid funnel, a wide bar tapering into a short stem · one rounded speech bubble, tail at the bottom left · six dots in two columns of three · two offset rounded squares, the front one solid · a paper plane, one triangle with the fold cut out · the `user` bust with a plus at its shoulder |
-| `lock` / `bookmark` / `bookmark-off` / `eye` / `eye-off` / `layers` | kept back: a tag row nobody assigns here (no `assign`), an achievement that is hidden until it is earned — the masked badge and the mark on its admin row are one glyph — and a built-in achievement's conditions, which are Wingman's own · follow / unfollow a playlist, `bookmark-off` also labelling the collapsed *Hidden* group · a player who is shown / one who is hidden in the people admin, and a party in or out of the session picker's list — the pair reads the state, never the action · the session picker's row for every session at once | padlock, solid body under a counter-wound shackle so the nonzero fill leaves the hole · ribbon with a notched foot · the same ribbon behind a diagonal bar · an almond outline around a pupil disc, the almond counter-wound so the white of the eye stays open · the same almond behind a diagonal bar · three stacked lozenges, the top one solid and the two beneath it thin bars |
+| `lock` / `bookmark` / `bookmark-off` / `eye` / `eye-off` / `layers` | kept back: a tag row nobody assigns here (no `assign`), an achievement that is hidden until it is earned — the masked badge and the mark on its admin row are one glyph — and a built-in achievement's conditions, which are Wingman's own · follow / unfollow a playlist, `bookmark-off` also labelling the collapsed *Hidden* group · a player who is shown / one who is hidden in the people admin, and a party in or out of the session picker's list — the pair reads the state, never the action — with `eye-off` alone also standing in for a Filter chip's glyph on *No* · the session picker's row for every session at once | padlock, solid body under a counter-wound shackle so the nonzero fill leaves the hole · ribbon with a notched foot · the same ribbon behind a diagonal bar · an almond outline around a pupil disc, the almond counter-wound so the white of the eye stays open · the same almond behind a diagonal bar · three stacked lozenges, the top one solid and the two beneath it thin bars |
 | `archive` / `flame` / `moon` / `snowflake` / `gift` / `cake` / `child` | a tag for put-away songs, and the Achievements admin's *Import and export* heading — that section is about archive files · for party songs · for slow songs and ballads · tags for christmas: the winter half · presents · a tag for birthdays · for songs for kids | a lid bar over a box body, one notch in the lid · one teardrop tongue, notched at the foot · a crescent as one contour, the rim the long way round and back along the cutting circle — a cut-out cannot do it, the cutting disc has to reach past the rim · three crossed bars, a short fork at each of the six tips · a box under a lid bar, one ribbon band down the middle of the box and a two-petal bow on the lid · a slab on a plate, three candles · a round head over a body, arms out and legs apart, never `user` |
 | `guitar` / `crown` / `film` / `gamepad` / `flag` / `skull` / `sun` / `umbrella` | a tag for rock · for the classics everybody knows · for movies and musicals · for game music · for a language or country, which the song details list's **Language** row takes too · for hard to sing · tags for summer · for rainy songs | two bouts with a waist between them, sound hole cut out of the upper one, neck to the top right · three points over a solid band · an upright strip with a column of sprocket holes down each edge, `video` staying the camera · a lozenge, d-pad cross and two buttons cut out · a triangular pennant on a staff · a cranium over a jaw, the eye sockets and a nose cut out · a disc under eight detached tapered rays, nine subpaths, nothing cut out · a scalloped half-disc canopy over a stem that hooks left at the foot |
 | `beer` / `car` / `plane` / `bolt` / `bell` / `ghost` / `ring` / `graduation-cap` | tags for drinking songs · for road songs · for holidays · for the loud fast ones · for new year · for halloween · for weddings · for school and graduation | a tankard under a three-lobe foam cap, the handle loop counter-wound · a cabin stepped onto a body over two wheel discs, the windows counter-wound · one outline — fuselage, swept wings, tailplane — nose to the top right · a single zigzag contour · a dome on a flared rim over a clapper disc · a dome over a three-lobe hem, the two eyes counter-wound · two concentric circles, the inner one counter-wound, a gem lozenge on top · a rhombus board on a trapezoid cap, a tassel cord down the right |
@@ -185,18 +185,31 @@ exception). Tests identify glyphs with `iconNames()` from `src/test/icons.ts`.
 - **Segmented / pill choices** (the tag editor's colour pills): a `.visually-hidden` radio in a
   `<label>` plus a visible `<span>`; checked = `--highlight-blue-dark` fill,
   `--highlight-blue-light` border/text; focus via `input:focus-visible ~ span`. For 2–4
-  exclusive options that must all stay visible. The **tri-state control** (`.tri-state`) is that
-  pattern at three options — **Any / Yes / No**, in that order: a `<fieldset>` with a
-  `visually-hidden` legend naming the criterion, per option a `.tri-state-option` label around
-  the hidden radio and a `.tri-state-text` span (40px min-height, `padding: 0 10px`, 0.85em, 4px
-  gaps, the group `flex: 0 0 auto`, ~150px). *Any* is checked by default, a `hide_by_default`
-  tag opens on *No*. Its row is glyph (1.15em, tag colour) · name (`flex: 1 1 auto; min-width:
-  0`, ellipsis, never wraps) · control. A **valued facet** keeps that row and puts a quiet
-  `<select>` where the tri-state group sits — `flex: 0 0 auto`, the same ~150px, so a 390px row
-  still leaves ~130px of name — named by the criterion like that legend, its glyph drawn in the
-  neutral tag colour, having none to configure. **`CheckOption`** is for the few places where a
+  exclusive options that must all stay visible. **`CheckOption`** is for the few places where a
   handful of options all fit on screen — download-panel filters, video-quality presets; dense
   matrices of them (permissions, tag flags, settings toggles) keep native checkboxes.
+- **The filter chip** is the Filter panel's one control, a criterion per chip in a wrapping
+  cloud (`flex-wrap`, 8px gaps). It is the Songs chip row's box, lifted into `index.css` as
+  `.chip` / `.chip-on` so both draw one rule: 40px, `--input-bg`, hairline, `--border-radius`,
+  `padding: 0 14px`, 0.9em, 6px gap, `max-width: 100%` with the name ellipsed; inside it the
+  glyph (1.15em, tag colour, neutral for a valued facet) · the name. Unlike other control
+  hovers (§1.12) its hover fill sits in `@media (hover: hover)`: it is the pressed fill. A
+  mark, a tag and a boolean facet are a `<button>` that cycles **Any → Yes → No → Any** from
+  wherever it stands (a tap, Enter or Space), so a `hide_by_default` tag, which opens on *No*,
+  comes back on its first tap. *Any* is the resting chip, *Yes* the pressed one (`.chip-on`),
+  *No* the chip without its fill (hairline kept), the name struck through in `--color-darker`
+  and the glyph swapped for `eye-off` in `--color-dark`, so the default a hidden tag opens on
+  reads as hidden at a glance and the chip keeps its width through the cycle — one that grew
+  could wrap from under the finger. The state is a `visually-hidden` *Any* / *Yes* / *No* in
+  the button's name, never `aria-pressed`, whose true and false cannot say *No*. One
+  `.section-note` heads the panel: *Tap once for only these songs, twice to leave them out.*
+  A **valued facet** is the same box holding its glyph, a span with the facet's name — or the
+  chosen value — and a trailing `chevron-down`, under a bare `<select>` laid over the whole
+  box (`position: absolute; inset: 0; opacity: 0`, `aria-label` the facet's name), so a tap
+  anywhere opens the native list and the chip is as wide as its text, never its longest
+  option. The list's first option is the facet's name and means *Any*; a chosen value presses
+  the chip. One value per facet. The ring goes on the chip (`.chip:has(:focus-visible)`); the
+  colour transitions have a reduced-motion branch.
 - **Tag chrome:** four colours — neutral `--color-dark`, blue `--highlight-blue-light`, pink
   `--highlight-pink-light`, gold `--highlight-gold-light`; never red (§1.6). The colour paints
   the tag's glyph wherever it appears. A tag or playlist row leads with a 40px square
@@ -350,13 +363,18 @@ saved) where a jump to the top would throw away the place they were working in.
   defaults, Filter lights for anything else. Recent is its own exclusive mode (a time-ordered
   list, not a criterion); the criteria still apply inside it. A `hide_by_default` tag keeps its
   songs out of the list and the reel while its criterion sits on *No*; that default is all the
-  reel reads — no choice made in the panel, tag or facet, reaches it. The **Filter panel**
-  lists Favorites (`heart`), Sung (`mic`), then the facets shown in the filter in *Built-in*
-  order, then every visible tag. A mark, a tag and a boolean facet end in the tri-state
-  control of §4, a valued facet in the select: *Any* plus the distinct values of the songs the
-  reader may see, sorted, *Decade* bucketed from the year and labelled "1980s". A song without
-  the value matches *Any* alone: no "No year" option, a gap in the metadata is not a decade. A
-  facet off *Any* counts towards "Filter · N" like a tag.
+  reel reads — no choice made in the panel, tag or facet, reaches it. The **Filter panel** is
+  its one hint line over two clouds of the filter chips of §4, each a `role="group"` named
+  *Built-in* / *Tags* and the second under a hairline and 16px, with no visible heading: the
+  glyphs say which is which. The first holds Favorites (`heart`), Sung (`mic`), then the facets
+  shown in the filter in *Built-in* order; the second every visible tag, in the listing's
+  order. Twenty tags are a few lines of chips, never twenty rows, so the panel has no search
+  and no fold; past the screen the modal body scrolls under its sticky header. A valued
+  facet's list is its name for *Any*, then the distinct values of the songs the reader may
+  see, sorted, *Decade* bucketed from the year and labelled "1980s". A song without the value
+  matches *Any* alone: no "No year" option, a gap in the metadata is not a decade. A facet off
+  *Any* counts towards "Filter · N" like a tag. The list behind follows every change at once,
+  Done only closes; Reset puts every chip back on its default, a `hide_by_default` tag on *No*.
 - **Playlists** (`/songs/playlists`): flat `h2` groups — *Your playlists*, *Shared with you*,
   *Global* — then a collapsed `<details>` *Hidden* for unfollowed shared lists, rendered only
   when it has rows; global lists never hide. A row is a 40px cover mosaic (2×2 of the first
