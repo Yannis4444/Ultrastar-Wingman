@@ -12,20 +12,16 @@ its own. See [Ultrastar Deluxe problems](ultrastar-deluxe.md).
 
 ## Wingman does not start
 
-When Wingman cannot start, its console window closes at once, and the reason
-goes with it. To read it, open the program folder in File Explorer, type
-`powershell` into the address bar, press ++enter++, and start Wingman there:
+When Wingman cannot start, its console window stays open with the reason in
+it. Press ++enter++ to close it.
 
-```powershell
-.\UltrastarWingman.exe
-```
-
-The terminal stays open with the reason in it.
-
-- **A complaint about the address**, *error while attempting to bind on
-  address*, means port 8080 is taken, usually by a Wingman that is already
-  running. Look for its console window on the taskbar. Use that one, or give
-  the new one a different port with `WINGMAN_PORT`.
+- **A complaint about the port**, *Wingman is already running, or port 8080 is
+  taken*, usually means you started Wingman twice. The second one stops before
+  it does anything, and the first one runs on. Look for its console window on
+  the taskbar and use that one. If no Wingman is running, another program has
+  the port. Give Wingman a different one with `WINGMAN_PORT`. Started twice
+  within a few seconds, the second one says *error while attempting to bind on
+  address* instead, after it got going. It means the same.
 - **A complaint about the database**, such as *Can't locate revision*, means an
   older Wingman met a database a newer one has updated. Install the newer
   version again, or put back the copy of the data folder you made before.
@@ -93,9 +89,10 @@ It works once. Restart Wingman and use the new line from the console window.
 Browsers that already hold host rights keep them. The link is only needed to
 make a new browser the host. See [The host screen](../host-screen/index.md).
 
-The link also fails when Wingman was started a second time while it was
-running. The second one closes at once, and the link it opened belongs to
-nobody. Use the console window of the Wingman that is still running.
+Starting Wingman a second time leaves the link alone. The second one stops
+before it opens a browser. Two starts within a few seconds of each other can
+both open one. Use the link from the window that says *Wingman is running*. See
+[Wingman does not start](#wingman-does-not-start).
 
 ## The USDB login fails
 

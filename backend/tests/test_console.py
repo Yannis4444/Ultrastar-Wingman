@@ -2,7 +2,10 @@
 
 import io
 import logging
+import logging.handlers
 import sys
+import threading
+import time
 from collections.abc import Iterator
 
 import pytest
@@ -258,6 +261,122 @@ def test_configuring_again_replaces_the_filters_rather_than_stacking_them() -> N
     assert not logging.getLogger("uvicorn.error").filter(
         uvicorn_record("Started server process [%d]", 1)
     )
+
+
+class HeldStream(io.StringIO):
+    """A console with text selected in it: every write waits until the selection ends."""
+
+    def __init__(self) -> None:
+        super().__init__()
+        self.selection_ended = threading.Event()
+
+    def write(self, text: str) -> int:
+        self.selection_ended.wait(timeout=10)
+        return super().write(text)
+
+
+@pytest.fixture
+def real_console(monkeypatch: pytest.MonkeyPatch) -> Iterator[HeldStream]:
+    """stderr a terminal, as in the exe's window — the stream `configure` queues lines for.
+    Only `is_console` is patched here: pytest points `sys.stderr` at its own capture again
+    when the test body starts, so the test itself puts this stream there (`as_stderr`)."""
+    stream = HeldStream()
+    monkeypatch.setattr(console, "is_console", lambda candidate: candidate is stream)
+    try:
+        yield stream
+    finally:
+        stream.selection_ended.set()
+        console.stop()
+        logging.captureWarnings(False)
+
+
+def as_stderr(monkeypatch: pytest.MonkeyPatch, stream: HeldStream) -> None:
+    monkeypatch.setattr(sys, "stderr", stream)
+
+
+@pytest.mark.usefixtures("restored_logging")
+def test_a_selection_in_the_console_holds_up_no_logging_call(
+    monkeypatch: pytest.MonkeyPatch, real_console: HeldStream
+) -> None:
+    """The classic Windows console stops every write while text is selected; the server
+    queues its line and carries on, and the line appears once the selection ends."""
+    as_stderr(monkeypatch, real_console)
+    console.configure("info")
+
+    before = time.monotonic()
+    logging.getLogger("ultrastar_wingman.karaoke").info("Queen - Bohemian Rhapsody started")
+    assert time.monotonic() - before < 1
+    assert real_console.getvalue() == ""
+
+    real_console.selection_ended.set()
+    console.stop()
+    assert real_console.getvalue().endswith("  Queen - Bohemian Rhapsody started\n")
+
+
+@pytest.mark.usefixtures("restored_logging")
+def test_a_queued_line_keeps_its_format_and_traceback(
+    monkeypatch: pytest.MonkeyPatch, real_console: HeldStream
+) -> None:
+    as_stderr(monkeypatch, real_console)
+    real_console.selection_ended.set()
+    console.configure("info")
+
+    try:
+        raise RuntimeError("the database is locked")
+    except RuntimeError:
+        logging.getLogger("ultrastar_wingman").exception("Wingman stopped on an %s", "error")
+    console.stop()
+
+    first, *rest = real_console.getvalue().splitlines()
+    assert first.split("  ", 1)[1] == "ERROR  Wingman stopped on an error"
+    assert rest[0] == "Traceback (most recent call last):"
+    assert rest[-1] == "RuntimeError: the database is locked"
+
+
+@pytest.mark.usefixtures("restored_logging")
+def test_after_stop_lines_are_written_at_once(
+    monkeypatch: pytest.MonkeyPatch, real_console: HeldStream
+) -> None:
+    """What is logged after `stop` (the reason above a pause's prompt) still reaches the
+    window, in the same format."""
+    as_stderr(monkeypatch, real_console)
+    real_console.selection_ended.set()
+    console.configure("info")
+    console.stop()
+
+    logging.getLogger("ultrastar_wingman").warning("Wingman is already running")
+
+    assert real_console.getvalue().endswith("  WARNING  Wingman is already running\n")
+    assert not any(
+        isinstance(handler, logging.handlers.QueueHandler)
+        for handler in logging.getLogger().handlers
+    )
+
+
+@pytest.mark.usefixtures("restored_logging")
+def test_configuring_again_ends_the_previous_writer(
+    monkeypatch: pytest.MonkeyPatch, real_console: HeldStream
+) -> None:
+    """Replaced, never stacked: the line is written once, by the second writer."""
+    as_stderr(monkeypatch, real_console)
+    real_console.selection_ended.set()
+    console.configure("info")
+    console.configure("debug")
+    logging.getLogger("ultrastar_wingman.songs.scanner").debug("no song txt in a folder")
+    console.stop()
+
+    lines = real_console.getvalue().splitlines()
+    assert [line.split("  ", 1)[1] for line in lines] == [
+        "DEBUG  [songs.scanner]  no song txt in a folder"
+    ]
+
+
+def test_a_file_or_a_pipe_is_no_console() -> None:
+    assert not console.is_console(io.StringIO())
+    assert not console.is_console(None)
+    closed = io.StringIO()
+    closed.close()
+    assert not console.is_console(closed)
 
 
 def settings_from_the_environment() -> BootstrapSettings:

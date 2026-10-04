@@ -298,7 +298,10 @@ $env:PYTHONPATH = "$env:TEMP\pillow"; venv\Scripts\python.exe installer\make_ico
 Never install into `%LOCALAPPDATA%\Programs` on a machine with a real installation, and
 never start an installed exe without `WINGMAN_DATA_DIR`, `WINGMAN_PORT` and
 `WINGMAN_OPEN_BROWSER=false` ([verifying.md](verifying.md)): the app migrates its data
-directory before it binds the port.
+directory before it binds the port. It only stops first when the port is already bound,
+not while another start is still in its lifespan. A failed start of the exe waits for
+Enter while its stdin, stdout and stderr are all a console (`startup.should_pause`), so a
+scripted run redirects them to files.
 
 ```powershell
 UltrastarWingman-<version>-setup.exe /VERYSILENT /SUPPRESSMSGBOXES /NORESTART /DIR="<scratch>\Wingman Test" /LOG="<scratch>\install.log"

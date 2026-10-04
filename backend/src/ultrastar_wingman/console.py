@@ -10,10 +10,16 @@ uvicorn is handed no logging config of its own (`log_config=None`), so its recor
 one handler installed here. Two filters on its loggers make them read like Wingman's: the
 "running on" line becomes the address a host can open, and the lines that say nothing to a
 host (the server process starting, every WebSocket handshake) are left to the debug view.
+
+In a real console the lines are written by a thread of their own (`configure`): the classic
+Windows console stops every write while text is selected in it (QuickEdit, which is also how
+the host copies the host link), and a write that waits must not be the server waiting.
 """
 
 import logging
+import queue
 import sys
+from logging.handlers import QueueHandler, QueueListener
 from typing import Literal, TextIO, get_args
 
 PACKAGE = "ultrastar_wingman"
@@ -134,6 +140,41 @@ class AccessFilter(logging.Filter):
         return True
 
 
+def is_console(stream: object) -> bool:
+    """Whether `stream` is a terminal somebody is looking at. `False` for a file, a pipe,
+    pytest's capture, and the `None` a windowed build has instead of a stream."""
+    isatty = getattr(stream, "isatty", None)
+    try:
+        return callable(isatty) and bool(isatty())
+    except (ValueError, OSError):
+        # A closed stream, or one pytest refuses to read from.
+        return False
+
+
+# The thread writing the lines while `configure` runs in a real console, and the formatter
+# `stop` writes with once it is gone.
+_writer: QueueListener | None = None
+_formatter: logging.Formatter | None = None
+
+
+def stop() -> None:
+    """Write every line still queued, end the writing thread, and write directly from here
+    on — so a sentence logged before a pause is on screen before the pause's own prompt. A
+    no-op unless `configure` started that thread."""
+    global _writer
+    if _writer is None:
+        return
+    writer, _writer = _writer, None
+    writer.stop()
+    root = logging.getLogger()
+    for existing in list(root.handlers):
+        if isinstance(existing, QueueHandler):
+            root.removeHandler(existing)
+    direct = logging.StreamHandler(sys.stderr)
+    direct.setFormatter(_formatter)
+    root.addHandler(direct)
+
+
 def configure(level: LogLevel = "info", stream: TextIO | None = None) -> bool:
     """Install the console handler. Answers whether uvicorn's access log is wanted, which
     is the debug view alone: everything a host needs from a request is said by the service
@@ -143,10 +184,30 @@ def configure(level: LogLevel = "info", stream: TextIO | None = None) -> bool:
     alembic's line per migration and httpx's line per request never reach the window.
     stderr and not stdout: its error handler replaces what the console's code page cannot
     show instead of raising in the middle of a party.
+
+    Into a real console (no `stream`, stderr a terminal) the server only queues a line and
+    a thread writes it, so a selection in the window holds up that thread and nothing else;
+    `stop` ends it. A file, a pipe or a given stream is written directly, in order, at once.
     """
+    global _writer, _formatter
+    stop()
     verbose = level == "debug"
-    handler = logging.StreamHandler(stream or sys.stderr)
-    handler.setFormatter(ConsoleFormatter(verbose=verbose))
+    _formatter = ConsoleFormatter(verbose=verbose)
+    handler: logging.Handler
+    if stream is None and is_console(sys.stderr):
+        # The record is formatted here, on the logging thread: `QueueHandler.prepare` turns
+        # it into its finished text (the traceback included) before it is queued, so the
+        # writing thread only prints that text.
+        handler = QueueHandler(queue.SimpleQueue())
+        output = logging.StreamHandler(sys.stderr)
+        output.setFormatter(logging.Formatter("%(message)s"))
+        _writer = QueueListener(handler.queue, output)
+        _writer.start()
+        # A `warnings.warn` would otherwise go to stderr itself, past the queue.
+        logging.captureWarnings(True)
+    else:
+        handler = logging.StreamHandler(stream or sys.stderr)
+    handler.setFormatter(_formatter)
     root = logging.getLogger()
     for existing in list(root.handlers):
         root.removeHandler(existing)

@@ -154,6 +154,8 @@ def test_the_argument_beats_the_variable(monkeypatch: pytest.MonkeyPatch, tmp_pa
     monkeypatch.setattr(entry_point.uvicorn, "run", lambda app, **_: started.append(app))
     # The console's handler would outlive the test on a stream pytest closes afterwards.
     monkeypatch.setattr(entry_point.console, "configure", lambda *_: False)
+    # The configured port may well be held by the Wingman this machine runs for real.
+    monkeypatch.setattr(entry_point.startup, "port_is_taken", lambda *_: False)
 
     entry_point.main(["--usdx-dir", str(tmp_path / "from-the-argument")])
 
@@ -169,6 +171,7 @@ def test_without_the_argument_the_entry_point_leaves_the_variable_alone(
     monkeypatch.setenv("WINGMAN_USDX_DIR", str(tmp_path / "from-the-variable"))
     monkeypatch.setattr(entry_point.uvicorn, "run", lambda app, **_: None)
     monkeypatch.setattr(entry_point.console, "configure", lambda *_: False)
+    monkeypatch.setattr(entry_point.startup, "port_is_taken", lambda *_: False)
 
     entry_point.main([])
 

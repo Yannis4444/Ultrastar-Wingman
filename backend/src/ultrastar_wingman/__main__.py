@@ -3,11 +3,12 @@
 import argparse
 import logging
 import os
+import sys
 from collections.abc import Sequence
 
 import uvicorn
 
-from . import APP_NAME, __version__, console
+from . import APP_NAME, __version__, console, startup
 from .config import get_bootstrap_settings
 
 
@@ -25,6 +26,39 @@ def parse_args(argv: Sequence[str] | None = None) -> argparse.Namespace:
 
 
 def main(argv: Sequence[str] | None = None) -> None:
+    """Run Wingman until it is stopped. A start that fails leaves the exe's window open on
+    its reason until Enter is pressed (`startup.should_pause`); Ctrl+C never does."""
+    code, interrupted = 0, False
+    try:
+        serve(argv)
+    except KeyboardInterrupt:
+        # Ctrl+C before uvicorn took the signal over (uvicorn swallows its own and returns).
+        interrupted = True
+        raise
+    except SystemExit as stopped:
+        # uvicorn's way of failing a start (a port it could not bind, a lifespan that
+        # failed), the probe's, and argparse's.
+        code = startup.exit_code(stopped.code)
+        raise
+    except Exception:
+        logging.getLogger(console.PACKAGE).exception("Wingman stopped on an error")
+        code = 1
+        raise SystemExit(code) from None
+    finally:
+        # The queued lines first, so the reason is on screen above the prompt.
+        console.stop()
+        frozen = bool(getattr(sys, "frozen", False))
+        # stdout too: `input` writes its prompt there, and a window waiting on a prompt that
+        # went into a file looks hung.
+        isatty = all(console.is_console(stream) for stream in (sys.stdin, sys.stdout, sys.stderr))
+        if startup.should_pause(code, interrupted, frozen, isatty):
+            startup.pause()
+
+
+def serve(argv: Sequence[str] | None = None) -> None:
+    # The console first, in its default view: a setting that does not parse is then said in
+    # the same format as everything else. The settings' own view replaces it right after.
+    console.configure()
     args = parse_args(argv)
     if args.usdx_dir is not None:
         # Through the environment, the one channel every bootstrap setting already reads:
@@ -36,7 +70,14 @@ def main(argv: Sequence[str] | None = None) -> None:
     access_log = console.configure(settings.log_level)
     # The package's logger and not `__name__`, which is `__main__` under `python -m` and so
     # outside the loggers `configure` lets through at INFO.
-    logging.getLogger(console.PACKAGE).info("%s %s", APP_NAME, __version__)
+    logger = logging.getLogger(console.PACKAGE)
+    logger.info("%s %s", APP_NAME, __version__)
+    if startup.port_is_taken(settings.host, settings.port):
+        # Before uvicorn and so before the lifespan: a second start must not migrate, mint a
+        # host token, open a browser on it, scan, or mark the first one's download as
+        # interrupted, only to fail binding afterwards.
+        logger.error("Wingman is already running, or port %d is taken", settings.port)
+        sys.exit(startup.STARTUP_FAILURE)
     uvicorn.run(
         "ultrastar_wingman.app:create_app",
         factory=True,
