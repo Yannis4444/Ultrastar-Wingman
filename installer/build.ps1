@@ -103,6 +103,27 @@ function Find-UsdxLicense {
     return $null
 }
 
+# A junction or a symbolic link in the game directory points somewhere else on the
+# developer's disk, and what is there was never allowlisted. Copy-Item would copy a linked
+# file's content, and Windows PowerShell 5.1's Get-ChildItem -Recurse walks into a linked
+# folder, so neither is taken: they are said and left out.
+function Test-Link {
+    param([IO.FileSystemInfo]$Item)
+    if (-not ($Item.Attributes -band [IO.FileAttributes]::ReparsePoint)) { return $false }
+    Write-Warning "Leaving out $($Item.FullName): a link to somewhere else, not a file of the game."
+    return $true
+}
+
+# Every file below $Dir, never through a link. Otherwise what Get-ChildItem -File -Recurse
+# took: no -Force, so hidden files and folders stay out as they always did.
+function Get-StageFiles {
+    param([string]$Dir)
+    foreach ($item in Get-ChildItem -LiteralPath $Dir) {
+        if (Test-Link $item) { continue }
+        if ($item.PSIsContainer) { Get-StageFiles $item.FullName } else { $item }
+    }
+}
+
 # Wipes $Stage and copies the allowlist of $GameDir into it, plus USDX's license as
 # LICENSE.txt (next to the LICENSE.<library>.txt of its libraries).
 function Copy-UsdxStage {
@@ -113,7 +134,7 @@ function Copy-UsdxStage {
         # -Filter alone is Win32's matching, which also tries the 8.3 short name: "*.dll"
         # would take "foo.dllx" (short name FOO~1.DLL). -like holds it to the long name.
         Get-ChildItem -LiteralPath $GameDir -File -Filter $pattern |
-            Where-Object { $_.Name -like $pattern } | ForEach-Object {
+            Where-Object { $_.Name -like $pattern -and -not (Test-Link $_) } | ForEach-Object {
                 Copy-Item -LiteralPath $_.FullName -Destination $Stage
             }
     }
@@ -123,7 +144,10 @@ function Copy-UsdxStage {
             Write-Warning "Ultrastar Deluxe has no $dir folder; the bundled edition ships without it."
             continue
         }
-        Get-ChildItem -LiteralPath $source -File -Recurse | ForEach-Object {
+        # An allowlisted folder that is a link itself is no exception: it is named, but
+        # where it leads is not.
+        if (Test-Link (Get-Item -LiteralPath $source)) { continue }
+        Get-StageFiles $source | ForEach-Object {
             if ($dir -eq "avatars" -and $_.DirectoryName -eq $source -and $_.Name -cmatch $WingmanAvatar) {
                 Write-Host "  leaving out avatars\$($_.Name) (a Wingman player's picture)"
                 return
@@ -137,32 +161,77 @@ function Copy-UsdxStage {
     Write-UsdxSource -GameDir $GameDir -Stage $Stage
 }
 
+# Where SOURCE.txt sends a reader without one: the fork Wingman's -Song argument needs.
+$UsdxSourceFallback = "https://github.com/Yannis4444/USDX"
+
+# A git remote as an address a reader can open: git@host:owner/repo.git and ssh:// become
+# https://, a user name or token in an http(s) address is dropped, and so is ".git". $null
+# for anything else, such as a folder on the developer's disk.
+function ConvertTo-SourceUrl {
+    param([string]$Remote)
+    $Remote = $Remote.Trim()
+    if ($Remote -match '^(?:ssh|git)://(?:[^@/]+@)?([^/:]+)(?::\d+)?/(.+)$') {
+        $url = "https://$($Matches[1])/$($Matches[2])"
+    } elseif ($Remote -match '^(https?)://(?:[^@/]+@)?([^/@]+)/(.+)$') {
+        $url = "$($Matches[1])://$($Matches[2])/$($Matches[3])"
+    } elseif ($Remote -match '^[^@/\\:]+@([^/\\:]+):(.+)$') {
+        $url = "https://$($Matches[1])/$($Matches[2].TrimStart('/'))"
+    } else {
+        return $null
+    }
+    return ($url.TrimEnd("/") -replace '\.git$', '')
+}
+
 # The GPLv2 (section 3) asks whoever passes the game's binaries on to make its source
-# available, so SOURCE.txt beside LICENSE.txt says where it is: the fork, the commit the
-# game directory was built from when it sits in a git checkout, and USDX's VERSION file.
+# available, so SOURCE.txt beside LICENSE.txt says where it is: the origin of the git
+# checkout the game directory sits in and the commit it was built from, and USDX's VERSION
+# file. Both come from that one checkout, so they always belong together; without an origin
+# a reader can open, the fork's address stands there alone, since a commit of some other
+# repository would send them looking in the wrong place.
 function Write-UsdxSource {
     param([string]$GameDir, [string]$Stage)
+    # git writes to stderr when the folder is no checkout, which "Stop" would turn into a
+    # failed build; the exit code is the verdict, as in Invoke-Step.
+    $ErrorActionPreference = "Continue"
+    $source = $null
+    $commit = $null
+    $why = "git is not installed"
+    if (Get-Command git -ErrorAction SilentlyContinue) {
+        $checkout = & git -C $GameDir rev-parse --show-toplevel 2>$null
+        if ($LASTEXITCODE -ne 0) {
+            $why = "$GameDir is not inside a git checkout"
+        } else {
+            $remote = & git -C $GameDir remote get-url origin 2>$null
+            if ($LASTEXITCODE -ne 0 -or -not $remote) {
+                $why = "the checkout $checkout has no origin remote"
+            } else {
+                $source = ConvertTo-SourceUrl ([string]$remote)
+                if (-not $source) { $why = "the origin of $checkout, $remote, is no address a reader can open" }
+            }
+        }
+        if ($source) {
+            $commit = & git -C $GameDir rev-parse HEAD 2>$null
+            if ($LASTEXITCODE -ne 0) { $commit = $null }
+        }
+    }
+    $fromCheckout = [bool]$source
+    if (-not $fromCheckout) {
+        $source = $UsdxSourceFallback
+        Write-Warning "$why; SOURCE.txt names $source and no commit."
+    }
     $lines = @(
         "The Ultrastar Deluxe in this folder is free software under the GNU General Public",
         "License (LICENSE.txt). Its source code:",
         "",
-        "https://github.com/Yannis4444/USDX"
+        $source
     )
-    # git writes to stderr when the folder is no checkout, which "Stop" would turn into a
-    # failed build; the exit code is the verdict, as in Invoke-Step.
-    $ErrorActionPreference = "Continue"
-    $commit = $null
-    if (Get-Command git -ErrorAction SilentlyContinue) {
-        $commit = & git -C $GameDir rev-parse HEAD 2>$null
-        if ($LASTEXITCODE -ne 0) { $commit = $null }
-    }
     if ($commit) {
         $lines += "Commit: $commit"
         if (& git -C $GameDir status --porcelain --untracked-files=no 2>$null) {
             Write-Warning "The Ultrastar Deluxe checkout has uncommitted changes; SOURCE.txt names commit $commit all the same."
         }
-    } else {
-        Write-Warning "$GameDir is not inside a git checkout; SOURCE.txt names no commit."
+    } elseif ($fromCheckout) {
+        Write-Warning "The checkout $checkout has no commit yet; SOURCE.txt names $source and no commit."
     }
     $global:LASTEXITCODE = 0
     $versionFile = Join-Path $GameDir "..\VERSION"
@@ -209,7 +278,21 @@ $work = Join-Path $PSScriptRoot "build"
 
 if (-not $OutDir) { $OutDir = Join-Path $PSScriptRoot "dist" }
 # Created only once the checks below pass, so a refused run leaves no empty folder behind.
-$OutDir = Get-FullPath $OutDir
+# The missing folders above it are created then too, so all it needs now is a drive that is
+# there and no file standing where one of those folders would go.
+try { $fullOutDir = Get-FullPath $OutDir }
+catch [System.Management.Automation.DriveNotFoundException] {
+    throw "-OutDir $OutDir is on a drive this PC does not have. Pass a folder on a drive that is there."
+}
+$existing = $fullOutDir
+while ($existing -and -not (Test-Path -LiteralPath $existing)) { $existing = [IO.Path]::GetDirectoryName($existing) }
+if (-not $existing) {
+    throw "-OutDir $OutDir is on a drive or share that cannot be reached. Pass a folder on a drive that is there."
+}
+if (Test-Path -LiteralPath $existing -PathType Leaf) {
+    throw "-OutDir $OutDir cannot be made a folder: $existing is a file."
+}
+$OutDir = $fullOutDir
 $exe = Join-Path $OutDir "UltrastarWingman.exe"
 # The installer's input: the same program, unpacked once into a folder at build time rather
 # than into %TEMP% on every start. Only built when the installer stage runs.
