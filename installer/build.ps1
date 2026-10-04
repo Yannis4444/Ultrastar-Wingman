@@ -1,16 +1,19 @@
 <#
 .SYNOPSIS
-Builds UltrastarWingman.exe (frontend + backend + migrations + firmware in one file) and the
-installer that wraps it, UltrastarWingman-<version>-setup.exe. With -UsdxDir also
-UltrastarWingman-<version>-with-usdx-setup.exe, the edition that brings Ultrastar Deluxe.
+Builds the portable UltrastarWingman.exe (frontend + backend + migrations + firmware in one
+file), the UltrastarWingman folder (the same program as an exe beside an _internal folder)
+and the installer that carries that folder, UltrastarWingman-<version>-setup.exe. With
+-UsdxDir also UltrastarWingman-<version>-with-usdx-setup.exe, the edition that brings
+Ultrastar Deluxe.
 
 .DESCRIPTION
 Run from anywhere: .\installer\build.ps1. The stages run in order: frontend, backend,
-firmware, exe, installer. docs\dev\building.md explains each one and how a release is cut.
+firmware, exe, folder, installer. docs\dev\building.md explains each one and how a release
+is cut.
 
 .PARAMETER OutDir
-Where the exe and the installer land. Default installer\dist. A running Wingman locks its
-exe, so build somewhere else while one runs out of this folder.
+Where the exe, the folder and the installer land. Default installer\dist. A running Wingman
+locks its exe, so build somewhere else while one runs out of this folder.
 
 .PARAMETER SkipFrontend
 Bundle the frontend\dist already there instead of rebuilding it.
@@ -19,7 +22,8 @@ Bundle the frontend\dist already there instead of rebuilding it.
 Bundle the firmware image already in the backend package instead of rebuilding it.
 
 .PARAMETER SkipInstaller
-Build the exe alone; Inno Setup is then not needed.
+Build the portable exe alone, without the folder only the installer carries; Inno Setup is
+then not needed.
 
 .PARAMETER UsdxDir
 A built Ultrastar Deluxe game directory (the one holding ultrastardx.exe). Given, the
@@ -130,6 +134,43 @@ function Copy-UsdxStage {
         }
     }
     Copy-Item -LiteralPath $License -Destination (Join-Path $Stage "LICENSE.txt")
+    Write-UsdxSource -GameDir $GameDir -Stage $Stage
+}
+
+# The GPLv2 (section 3) asks whoever passes the game's binaries on to make its source
+# available, so SOURCE.txt beside LICENSE.txt says where it is: the fork, the commit the
+# game directory was built from when it sits in a git checkout, and USDX's VERSION file.
+function Write-UsdxSource {
+    param([string]$GameDir, [string]$Stage)
+    $lines = @(
+        "The Ultrastar Deluxe in this folder is free software under the GNU General Public",
+        "License (LICENSE.txt). Its source code:",
+        "",
+        "https://github.com/Yannis4444/USDX"
+    )
+    # git writes to stderr when the folder is no checkout, which "Stop" would turn into a
+    # failed build; the exit code is the verdict, as in Invoke-Step.
+    $ErrorActionPreference = "Continue"
+    $commit = $null
+    if (Get-Command git -ErrorAction SilentlyContinue) {
+        $commit = & git -C $GameDir rev-parse HEAD 2>$null
+        if ($LASTEXITCODE -ne 0) { $commit = $null }
+    }
+    if ($commit) {
+        $lines += "Commit: $commit"
+        if (& git -C $GameDir status --porcelain --untracked-files=no 2>$null) {
+            Write-Warning "The Ultrastar Deluxe checkout has uncommitted changes; SOURCE.txt names commit $commit all the same."
+        }
+    } else {
+        Write-Warning "$GameDir is not inside a git checkout; SOURCE.txt names no commit."
+    }
+    $global:LASTEXITCODE = 0
+    $versionFile = Join-Path $GameDir "..\VERSION"
+    if (Test-Path -LiteralPath $versionFile -PathType Leaf) {
+        $lines += "Version: " + (Get-Content -LiteralPath $versionFile -TotalCount 1).Trim()
+    }
+    [IO.File]::WriteAllText((Join-Path $Stage "SOURCE.txt"), ($lines -join "`r`n") + "`r`n", [Text.UTF8Encoding]::new($false))
+    Write-Host "  SOURCE.txt: $(($lines | Select-Object -Skip 3) -join ', ')"
 }
 
 $root = Split-Path -Parent $PSScriptRoot
@@ -143,6 +184,10 @@ if (-not $OutDir) { $OutDir = Join-Path $PSScriptRoot "dist" }
 New-Item -ItemType Directory -Force $OutDir | Out-Null
 $OutDir = (Resolve-Path $OutDir).Path
 $exe = Join-Path $OutDir "UltrastarWingman.exe"
+# The installer's input: the same program, unpacked once into a folder at build time rather
+# than into %TEMP% on every start. Only built when the installer stage runs.
+$appDir = Join-Path $OutDir "UltrastarWingman"
+$appExe = Join-Path $appDir "UltrastarWingman.exe"
 
 # Everything that can fail without building anything fails here, before minutes of npm and
 # PyInstaller: a missing tool, a missing prebuilt part, or an exe that cannot be replaced.
@@ -171,11 +216,15 @@ if ($UsdxDir) {
         throw "Ultrastar Deluxe's license text was not found: neither $UsdxDir\license.txt nor installer\dependencies\documents\license.txt of the USDX checkout around it. The GPL asks for it to travel with the game."
     }
 }
-if (Test-Path $exe) {
+$replaced = @($exe)
+if (-not $SkipInstaller) { $replaced += $appExe }
+foreach ($file in $replaced) {
+    if (-not (Test-Path -LiteralPath $file)) { continue }
     # A running exe can be read but not rewritten; PyInstaller would only find out at the
-    # very end, after the whole build.
-    try { [IO.File]::Open($exe, "Open", "ReadWrite", "None").Dispose() }
-    catch { throw "$exe is in use, most likely by a running Wingman. Stop it, or build elsewhere with -OutDir." }
+    # very end, after the whole build. A running folder build also locks the DLLs in its
+    # _internal, which PyInstaller empties first; its exe stands for all of them.
+    try { [IO.File]::Open($file, "Open", "ReadWrite", "None").Dispose() }
+    catch { throw "$file is in use, most likely by a running Wingman. Stop it, or build elsewhere with -OutDir." }
 }
 
 # backend\pyproject.toml is the one place the version is written down; the exe reports the
@@ -234,20 +283,31 @@ VSVersionInfo(
 # No BOM: Windows PowerShell's -Encoding utf8 writes one.
 [IO.File]::WriteAllText((Join-Path $work "version_info.txt"), $versionInfo, [Text.UTF8Encoding]::new($false))
 
-Invoke-Step "pyinstaller" {
+# Two runs of the one spec, each with its own work folder: both layouts name their exe
+# UltrastarWingman, and PyInstaller names an exe's work files after it (the spec says more).
+$spec = Join-Path $PSScriptRoot "UltrastarWingman.spec"
+Invoke-Step "pyinstaller: portable exe" {
     & $python -m PyInstaller --noconfirm `
         --distpath $OutDir `
-        --workpath $work `
-        (Join-Path $PSScriptRoot "UltrastarWingman.spec")
+        --workpath (Join-Path $work "onefile") `
+        $spec
 }
 
 $built = @($exe)
 if (-not $SkipInstaller) {
+    Invoke-Step "pyinstaller: folder for the installer" {
+        & $python -m PyInstaller --noconfirm `
+            --distpath $OutDir `
+            --workpath (Join-Path $work "onedir") `
+            $spec "--" "--onedir"
+    }
+    $built += $appDir
+
     Invoke-Step "installer" {
         & $iscc /Q `
             "/DAppVersion=$version" `
             "/DFileVersion=$fileVersion" `
-            "/DExeDir=$OutDir" `
+            "/DAppDir=$appDir" `
             "/DOutputDir=$OutDir" `
             (Join-Path $PSScriptRoot "UltrastarWingman.iss")
     }
@@ -266,7 +326,7 @@ if (-not $SkipInstaller) {
             & $iscc /Q `
                 "/DAppVersion=$version" `
                 "/DFileVersion=$fileVersion" `
-                "/DExeDir=$OutDir" `
+                "/DAppDir=$appDir" `
                 "/DOutputDir=$OutDir" `
                 "/DBundleUsdx" `
                 "/DUsdxStage=$stage" `
@@ -277,5 +337,7 @@ if (-not $SkipInstaller) {
 }
 
 foreach ($file in $built) {
-    Write-Host ("built {0} ({1} MB)" -f $file, [math]::Round((Get-Item $file).Length / 1MB, 1)) -ForegroundColor Green
+    # A folder's size is what its files add up to.
+    $bytes = (Get-ChildItem -LiteralPath $file -File -Recurse | Measure-Object -Property Length -Sum).Sum
+    Write-Host ("built {0} ({1} MB)" -f $file, [math]::Round($bytes / 1MB, 1)) -ForegroundColor Green
 }
