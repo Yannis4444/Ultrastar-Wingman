@@ -2952,6 +2952,10 @@ export type UserRead = {
      * Player Id
      */
     player_id: string | null;
+    /**
+     * Auth Provider
+     */
+    auth_provider?: string;
 };
 
 /**

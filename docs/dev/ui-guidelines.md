@@ -587,7 +587,11 @@ saved) where a jump to the top would throw away the place they were working in.
   `.icon-button` (`aria-pressed`, `players.manage`) puts a player out of sight for the evening:
   hidden means gone from player selection and from nothing else — scores, stats and past
   sessions still name them — and the row draws its name in `--color-darker` while it lasts.
-  Logging in unhides.
+  Logging in unhides. An account single sign-on answers for (`auth_provider` `oidc`) carries
+  one quiet line under its name, `.people-provider` (0.8em, `--color-darker`, truncated like
+  the name, no glyph and no badge): *Signs in with* and the login button's `display_name`, or
+  *single sign-on* while that is unknown — the config is asked for only once such an account
+  is listed.
 - **Settings** groups are `<details class="settings-group" open>` with a section icon, the
   `summary` `position: sticky; top: 0` on `--bg` so the section being scrolled stays named (the
   nested *Advanced* summary is not sticky). Fields are flat `.setting-field` rows of two lines:

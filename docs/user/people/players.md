@@ -14,7 +14,9 @@ managing accounts is Admin's. See [Roles and permissions](roles.md).
 The page lists everybody in two groups.
 
 - **Accounts** holds the people who log in. Their role and their picture are
-  here.
+  here. An account that logs in through single sign-on says *Signs in with*
+  and the sign-in button's name under its name. See
+  [Single sign-on](single-sign-on.md).
 - **Guests** holds the people who only sing. A guest is taken over by whoever
   registers that name, and the scores come along.
 
@@ -45,6 +47,10 @@ and Wingman keeps no history of them.
 
 Changing somebody else's picture takes the right to do it. Changing your own
 never does. Tap your picture on the **User** tab instead.
+
+An account that logs in through single sign-on gets the provider's picture at
+every login, until somebody uploads one here. An uploaded picture is never
+replaced by a login after that. See [Single sign-on](single-sign-on.md#the-picture).
 
 A file Wingman refuses says why under the row:
 

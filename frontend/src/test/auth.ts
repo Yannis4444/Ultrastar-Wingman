@@ -25,6 +25,7 @@ export function userRead(overrides: Partial<UserRead> = {}): UserRead {
     username: "Alice",
     role: "user",
     player_id: "aaa",
+    auth_provider: "local",
     ...overrides,
   };
 }

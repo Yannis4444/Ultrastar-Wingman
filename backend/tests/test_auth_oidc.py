@@ -5,8 +5,10 @@ real IdP. What the failure tests are really asserting is that a login only happe
 every check passed — state, PKCE, signature, issuer, audience, nonce and expiry.
 """
 
+import asyncio
 import base64
 import hashlib
+import logging
 import sqlite3
 from collections.abc import Awaitable, Callable
 from dataclasses import replace
@@ -24,25 +26,31 @@ from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
 import oidc_provider
 from conftest import ADMIN_PASSWORD, add_user
 from oidc_provider import (
+    ACCESS_TOKEN,
     CLIENT_ID,
     CLIENT_SECRET,
     ISSUER,
+    PICTURE_URL,
+    PNG,
     SUBJECT,
     FakeProvider,
     callback,
     complete,
     configure,
     login,
+    png_header,
     preset,
     sign_up,
     start_login,
 )
-from ultrastar_wingman.auth import oidc, providers, service
+from ultrastar_wingman.auth import oidc, oidc_picture, providers, service
 from ultrastar_wingman.auth.deps import COOKIE_NAME, GUEST_COOKIE_NAME
 from ultrastar_wingman.auth.model import User, UserSession
 from ultrastar_wingman.auth.service import token_hash
 from ultrastar_wingman.db import migrations_dir
+from ultrastar_wingman.images import MAX_IMAGE_BYTES
 from ultrastar_wingman.library.model import Wish
+from ultrastar_wingman.players import service as players_service
 from ultrastar_wingman.players.model import Player
 
 OK = "/user?login=ok"
@@ -1059,7 +1067,448 @@ async def test_the_provider_is_registered_and_never_takes_a_password(
     assert await registered.authenticate("singer", "anything") is None
 
 
+# --- the provider's picture as the avatar -------------------------------------------
+
+
+async def own_player(session_factory: async_sessionmaker[AsyncSession]) -> Player:
+    """The player of the one single sign-on account in the database."""
+    async with session_factory() as session:
+        user = (await session.scalars(select(User).where(User.auth_provider == "oidc"))).one()
+        return (await session.scalars(select(Player).where(Player.user_id == user.id))).one()
+
+
+def stored(player: Player) -> bytes | None:
+    """The avatar file's bytes. Sync: ruff's ASYNC rules keep pathlib out of coroutines."""
+    if player.avatar_file is None:
+        return None
+    path = Path(player.avatar_file)
+    return path.read_bytes() if path.is_file() else None
+
+
+def mtime(player: Player) -> int:
+    assert player.avatar_file is not None
+    return Path(player.avatar_file).stat().st_mtime_ns
+
+
+def with_picture(provider: FakeProvider, url: str = PICTURE_URL) -> FakeProvider:
+    provider.claims = {**provider.claims, "picture": url}
+    return provider
+
+
+async def test_the_first_login_brings_the_provider_s_picture(
+    anonymous_client: AsyncClient,
+    session_factory: async_sessionmaker[AsyncSession],
+    provider: FakeProvider,
+) -> None:
+    """The account only exists once the singer named it, so that is when the picture lands:
+    at the completion, and already on the player the answer names."""
+    await configure(session_factory)
+    with_picture(provider)
+
+    await sign_up(anonymous_client, provider)
+
+    player = await own_player(session_factory)
+    assert stored(player) == PNG
+    assert (player.avatar_source, player.avatar_source_url) == ("oidc", PICTURE_URL)
+    assert len(provider.picture_requests) == 1
+    listed = await anonymous_client.get("/api/v1/players")
+    assert listed.json()["players"][0]["has_avatar"] is True
+
+
+async def test_every_login_takes_a_changed_picture(
+    anonymous_client: AsyncClient,
+    session_factory: async_sessionmaker[AsyncSession],
+    provider: FakeProvider,
+) -> None:
+    await configure(session_factory)
+    await sign_up(anonymous_client, with_picture(provider))
+
+    provider.picture = png_header(2, 2)
+    assert (await login(anonymous_client, provider)).headers["location"] == OK
+
+    assert stored(await own_player(session_factory)) == png_header(2, 2)
+
+
+async def test_a_picture_at_a_new_address_replaces_the_old_one(
+    anonymous_client: AsyncClient,
+    session_factory: async_sessionmaker[AsyncSession],
+    provider: FakeProvider,
+) -> None:
+    await configure(session_factory)
+    await sign_up(anonymous_client, with_picture(provider))
+
+    provider.picture = png_header(3, 3)
+    with_picture(provider, f"{ISSUER}/picture.png?v=2")
+    await login(anonymous_client, provider)
+
+    player = await own_player(session_factory)
+    assert stored(player) == png_header(3, 3)
+    assert player.avatar_source_url == f"{ISSUER}/picture.png?v=2"
+
+
+async def test_an_unchanged_picture_is_asked_for_with_its_etag_and_not_rewritten(
+    anonymous_client: AsyncClient,
+    session_factory: async_sessionmaker[AsyncSession],
+    provider: FakeProvider,
+) -> None:
+    """A 304 is all an unchanged picture costs, and the file — so its version and every
+    browser's cached copy — stays exactly as it was."""
+    await configure(session_factory)
+    provider.picture_etag = '"v1"'
+    await sign_up(anonymous_client, with_picture(provider))
+    before = await own_player(session_factory)
+    assert before.avatar_source_etag == '"v1"'
+
+    await login(anonymous_client, provider)
+
+    assert provider.picture_requests[-1]["if-none-match"] == '"v1"'
+    after = await own_player(session_factory)
+    assert mtime(after) == mtime(before)
+
+
+async def test_the_same_picture_without_an_etag_is_not_rewritten(
+    anonymous_client: AsyncClient,
+    session_factory: async_sessionmaker[AsyncSession],
+    provider: FakeProvider,
+) -> None:
+    await configure(session_factory)
+    await sign_up(anonymous_client, with_picture(provider))
+    before = await own_player(session_factory)
+
+    await login(anonymous_client, provider)
+
+    assert len(provider.picture_requests) == 2
+    assert "if-none-match" not in provider.picture_requests[-1]
+    assert mtime(await own_player(session_factory)) == mtime(before)
+
+
+async def test_a_picture_the_singer_uploaded_is_never_replaced(
+    anonymous_client: AsyncClient,
+    session_factory: async_sessionmaker[AsyncSession],
+    provider: FakeProvider,
+) -> None:
+    """Once somebody chose the picture by hand, a login does not even ask for the
+    provider's."""
+    await configure(session_factory)
+    await sign_up(anonymous_client, with_picture(provider))
+    player = await own_player(session_factory)
+    chosen = png_header(4, 4)
+    uploaded = await anonymous_client.put(
+        f"/api/v1/players/{player.id}/avatar", files={"file": ("me.png", chosen, "image/png")}
+    )
+    assert uploaded.status_code == 200, uploaded.text
+    player = await own_player(session_factory)
+    assert (player.avatar_source, player.avatar_source_url) == ("manual", None)
+
+    provider.picture = png_header(5, 5)
+    assert (await login(anonymous_client, provider)).headers["location"] == OK
+
+    assert stored(await own_player(session_factory)) == chosen
+    assert len(provider.picture_requests) == 1
+
+
+async def test_a_guest_picture_taken_over_by_a_first_login_is_kept(
+    anonymous_client: AsyncClient,
+    session_factory: async_sessionmaker[AsyncSession],
+    provider: FakeProvider,
+    tmp_path: Path,
+) -> None:
+    """A guest player whose picture somebody uploaded, taken over by the account a first
+    login creates under that name, keeps the picture: it was chosen by hand."""
+    chosen = png_header(6, 6)
+    async with session_factory() as session:
+        guest = Player(name="singer")
+        session.add(guest)
+        await session.flush()
+        await players_service.store_avatar(
+            session, guest, tmp_path / "avatars", "image/png", chosen
+        )
+        guest_id = guest.id
+    await configure(session_factory)
+
+    await sign_up(anonymous_client, with_picture(provider), "singer")
+
+    player = await own_player(session_factory)
+    assert (player.id, stored(player)) == (guest_id, chosen)
+    assert provider.picture_requests == []
+
+
+@pytest.mark.parametrize(
+    ("status", "body", "content_type", "length", "reason"),
+    [
+        (404, b"gone", "text/plain", None, "the server answered 404"),
+        (200, b"<html>not a picture</html>", "image/png", None, "not a jpeg, png or webp"),
+        (200, PNG, "image/png", str(6 * 1024 * 1024), "larger than"),
+        # A server that announces a small picture and sends a huge one: the body is cut
+        # one byte past the cap, whatever the header said.
+        (200, PNG + bytes(MAX_IMAGE_BYTES), "image/png", "100", "larger than"),
+        (200, png_header(10_000, 10_000), "image/png", None, "far too many"),
+    ],
+    ids=["missing", "not-an-image", "too-large", "too-large-unannounced", "too-many-pixels"],
+)
+async def test_a_picture_that_cannot_be_taken_leaves_the_avatar_and_the_login_alone(
+    anonymous_client: AsyncClient,
+    session_factory: async_sessionmaker[AsyncSession],
+    provider: FakeProvider,
+    caplog: pytest.LogCaptureFixture,
+    status: int,
+    body: bytes,
+    content_type: str,
+    length: str | None,
+    reason: str,
+) -> None:
+    await configure(session_factory)
+    await sign_up(anonymous_client, with_picture(provider, f"{PICTURE_URL}?token=secret"))
+    before = await own_player(session_factory)
+    provider.picture_status = status
+    provider.picture = body
+    provider.picture_content_type = content_type
+    provider.picture_length = length
+
+    with caplog.at_level(logging.WARNING, logger="ultrastar_wingman.auth"):
+        response = await login(anonymous_client, provider)
+
+    assert response.headers["location"] == OK
+    assert COOKIE_NAME in anonymous_client.cookies
+    after = await own_player(session_factory)
+    assert (stored(after), after.avatar_source_url) == (PNG, before.avatar_source_url)
+    [warning] = [record for record in caplog.records if record.levelno == logging.WARNING]
+    assert "'singer'" in warning.getMessage()
+    assert reason in warning.getMessage()
+    # Never the address: its query string may carry a token.
+    assert "secret" not in caplog.text and "picture.png" not in caplog.text
+
+
+async def test_a_provider_that_does_not_answer_holds_the_login_up_only_briefly(
+    anonymous_client: AsyncClient,
+    session_factory: async_sessionmaker[AsyncSession],
+    provider: FakeProvider,
+    monkeypatch: pytest.MonkeyPatch,
+    caplog: pytest.LogCaptureFixture,
+) -> None:
+    monkeypatch.setattr(oidc_picture, "DOWNLOAD_SECONDS", 0.05)
+    await configure(session_factory)
+    provider.picture_hangs = True
+
+    with caplog.at_level(logging.WARNING, logger="ultrastar_wingman.auth"):
+        await sign_up(anonymous_client, with_picture(provider))
+
+    assert stored(await own_player(session_factory)) is None
+    assert COOKIE_NAME in anonymous_client.cookies
+    assert "took longer than" in caplog.text
+
+
+async def test_a_fault_of_ours_while_storing_the_picture_still_logs_the_singer_in(
+    anonymous_client: AsyncClient,
+    session_factory: async_sessionmaker[AsyncSession],
+    provider: FakeProvider,
+    monkeypatch: pytest.MonkeyPatch,
+    caplog: pytest.LogCaptureFixture,
+) -> None:
+    """Not a bad picture but a bug or a database hiccup: the completion still answers with
+    the account it created, logged in."""
+
+    async def broken(*args: object, **kwargs: object) -> None:
+        raise RuntimeError("the disk is on fire")
+
+    monkeypatch.setattr(players_service, "store_provider_avatar", broken)
+    await configure(session_factory)
+
+    with caplog.at_level(logging.WARNING, logger="ultrastar_wingman.auth"):
+        await sign_up(anonymous_client, with_picture(provider))
+
+    me = await anonymous_client.get("/api/v1/auth/me")
+    assert me.json()["user"]["username"] == "singer"
+    assert "(RuntimeError)" in caplog.text
+    assert "disk is on fire" not in caplog.text
+
+
+@pytest.mark.parametrize(
+    "url", ["data:image/png;base64,iVBORw0KGgo=", "file:///C:/Windows/win.ini", "picture.png"]
+)
+async def test_only_a_web_address_is_downloaded(
+    anonymous_client: AsyncClient,
+    session_factory: async_sessionmaker[AsyncSession],
+    provider: FakeProvider,
+    url: str,
+) -> None:
+    await configure(session_factory)
+
+    await sign_up(anonymous_client, with_picture(provider, url))
+
+    assert stored(await own_player(session_factory)) is None
+    assert provider.picture_requests == []
+
+
+async def test_a_picture_only_userinfo_knows_is_asked_for_there(
+    anonymous_client: AsyncClient,
+    session_factory: async_sessionmaker[AsyncSession],
+    provider: FakeProvider,
+) -> None:
+    """Many providers keep `picture` out of the ID token. Then the userinfo endpoint is
+    asked, with the access token the token endpoint handed out."""
+    await configure(session_factory)
+    provider.userinfo = {"sub": SUBJECT, "picture": PICTURE_URL}
+
+    await sign_up(anonymous_client, provider)
+
+    assert stored(await own_player(session_factory)) == PNG
+    assert provider.userinfo_requests[0]["authorization"] == f"Bearer {ACCESS_TOKEN}"
+
+
+async def test_a_picture_in_the_id_token_needs_no_userinfo(
+    anonymous_client: AsyncClient,
+    session_factory: async_sessionmaker[AsyncSession],
+    provider: FakeProvider,
+) -> None:
+    await configure(session_factory)
+    provider.userinfo = {"sub": SUBJECT, "picture": f"{PICTURE_URL}?from=userinfo"}
+
+    await sign_up(anonymous_client, with_picture(provider))
+
+    assert provider.userinfo_requests == []
+    assert (await own_player(session_factory)).avatar_source_url == PICTURE_URL
+
+
+async def test_a_userinfo_answer_about_somebody_else_is_ignored(
+    anonymous_client: AsyncClient,
+    session_factory: async_sessionmaker[AsyncSession],
+    provider: FakeProvider,
+    caplog: pytest.LogCaptureFixture,
+) -> None:
+    """OIDC Core 5.3.2: a userinfo `sub` that is not the ID token's must not be used."""
+    await configure(session_factory)
+    provider.userinfo = {"sub": "somebody-else", "picture": PICTURE_URL}
+
+    with caplog.at_level(logging.WARNING, logger="ultrastar_wingman.auth"):
+        await sign_up(anonymous_client, provider)
+
+    assert stored(await own_player(session_factory)) is None
+    assert provider.picture_requests == []
+    assert "about somebody else" in caplog.text
+
+
+async def test_a_userinfo_request_that_breaks_in_any_way_still_logs_the_singer_in(
+    anonymous_client: AsyncClient,
+    session_factory: async_sessionmaker[AsyncSession],
+    provider: FakeProvider,
+    caplog: pytest.LogCaptureFixture,
+) -> None:
+    """Not an HTTP error but anything at all: the userinfo request runs inside the callback,
+    where an exception left to rise would be a failed login — and its message, a traceback
+    in the console that may quote the access token."""
+    await configure(session_factory)
+    provider.userinfo = {"sub": SUBJECT, "picture": PICTURE_URL}
+    provider.userinfo_fault = f"broke while holding {ACCESS_TOKEN}"
+
+    with caplog.at_level(logging.WARNING, logger="ultrastar_wingman.auth"):
+        await sign_up(anonymous_client, provider)
+
+    me = await anonymous_client.get("/api/v1/auth/me")
+    assert me.json()["user"]["username"] == "singer"
+    assert stored(await own_player(session_factory)) is None
+    assert "(RuntimeError)" in caplog.text
+    assert ACCESS_TOKEN not in caplog.text
+
+
+async def test_an_upload_while_a_login_writes_the_provider_s_picture_wins(
+    anonymous_client: AsyncClient,
+    session_factory: async_sessionmaker[AsyncSession],
+    provider: FakeProvider,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """The login has decided it may write and is writing when an upload arrives: the upload
+    waits for it and lands on top, `manual` — never the provider's picture over the one
+    somebody just chose."""
+    await configure(session_factory)
+    await sign_up(anonymous_client, with_picture(provider))
+    player = await own_player(session_factory)
+    provider.picture = png_header(7, 7)
+    writing = asyncio.Event()
+    release = asyncio.Event()
+    real_store_image = players_service.store_image
+
+    async def paused_store_image(directory: Path, stem: str, extension: str, data: bytes) -> Path:
+        if not writing.is_set():
+            # The login's write, the first one after the sign-up: hold it right there.
+            writing.set()
+            await release.wait()
+        return await real_store_image(directory, stem, extension, data)
+
+    monkeypatch.setattr(players_service, "store_image", paused_store_image)
+    logging_in = asyncio.create_task(login(anonymous_client, provider))
+    await asyncio.wait_for(writing.wait(), 5)
+    chosen = png_header(8, 8)
+    uploading = asyncio.create_task(
+        anonymous_client.put(
+            f"/api/v1/players/{player.id}/avatar",
+            files={"file": ("me.png", chosen, "image/png")},
+        )
+    )
+    # Unguarded, the upload would be done long before this runs out and the login's write
+    # would then land on top of it.
+    await asyncio.wait({uploading}, timeout=0.5)
+    release.set()
+
+    assert (await logging_in).headers["location"] == OK
+    assert (await uploading).status_code == 200
+    after = await own_player(session_factory)
+    assert (stored(after), after.avatar_source, after.avatar_source_url) == (
+        chosen,
+        "manual",
+        None,
+    )
+
+
+async def test_an_account_tells_how_it_logs_in(
+    anonymous_client: AsyncClient,
+    session_factory: async_sessionmaker[AsyncSession],
+    provider: FakeProvider,
+) -> None:
+    """`auth_provider` rides on every account, so the people admin can mark the single
+    sign-on ones. The first account is the administrator, so it may read the list."""
+    await configure(session_factory)
+    await sign_up(anonymous_client, provider)
+    await add_user(session_factory, "yannis", "user")
+
+    me = await anonymous_client.get("/api/v1/auth/me")
+    assert me.json()["user"]["auth_provider"] == "oidc"
+    listed = await anonymous_client.get("/api/v1/users")
+    assert {user["username"]: user["auth_provider"] for user in listed.json()["users"]} == {
+        "singer": "oidc",
+        "yannis": "local",
+    }
+
+
 # --- the migration -----------------------------------------------------------------
+
+
+def test_migration_0036_marks_every_existing_picture_as_uploaded(tmp_path: Path) -> None:
+    """Before 0036 the only way to a picture was an upload, so every row reads `manual`."""
+    database = tmp_path / "wingman.db"
+    url = f"sqlite+aiosqlite:///{database}"
+    _upgrade(url, "0035")
+    with sqlite3.connect(database) as connection:
+        connection.execute(
+            "INSERT INTO players (id, name, registered, hidden, avatar_file, created_at) VALUES "
+            "('p1', 'Alice', 0, 0, 'C:/avatars/p1.png', '2026-10-01'), "
+            "('p2', 'Bob', 0, 0, NULL, '2026-10-01')"
+        )
+
+    _upgrade(url, "0036")
+
+    with sqlite3.connect(database) as connection:
+        assert connection.execute(
+            "SELECT id, avatar_source, avatar_source_url, avatar_source_etag FROM players "
+            "ORDER BY id"
+        ).fetchall() == [("p1", "manual", None, None), ("p2", "manual", None, None)]
+
+    _downgrade(url, "0035")
+
+    with sqlite3.connect(database) as connection:
+        columns = {row[1] for row in connection.execute("PRAGMA table_info('players')")}
+        assert not columns & {"avatar_source", "avatar_source_url", "avatar_source_etag"}
+        assert connection.execute("SELECT avatar_file FROM players WHERE id = 'p1'").fetchone()
 
 
 def test_migration_0009_leaves_existing_accounts_local(tmp_path: Path) -> None:

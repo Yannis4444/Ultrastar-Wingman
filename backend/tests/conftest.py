@@ -26,6 +26,7 @@ from ultrastar_wingman.devices import service as devices
 from ultrastar_wingman.events import event_bus
 from ultrastar_wingman.karaoke import selection, usdx_paths
 from ultrastar_wingman.music import service as music
+from ultrastar_wingman.players import service as players
 from ultrastar_wingman.songs import scanner
 from ultrastar_wingman.sources import usdb
 
@@ -305,6 +306,13 @@ def fresh_music_state() -> None:
     music._volumes = music.DEFAULT_VOLUMES
     music._lock = asyncio.Lock()
     music._watchdog = None
+
+
+@pytest.fixture(autouse=True)
+def fresh_avatar_lock() -> None:
+    """Same reasoning as the scan lock above: the lock every avatar write takes is
+    module-global, and a login racing an upload contends for it."""
+    players._avatar_lock = asyncio.Lock()
 
 
 @pytest.fixture(autouse=True)
