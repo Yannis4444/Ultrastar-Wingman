@@ -138,8 +138,11 @@ script reads it and passes it on:
 - `VersionInfoVersion` and the exe's binary file version need four numbers, so the script
   takes the leading numbers and pads them: `0.2.0` → `0.2.0.0`, `0.2.0rc1` → `0.2.0.0`.
 
-The installer's downgrade check compares the same leading numbers, so a pre-release and
-its final release count as the same version there.
+The installer's downgrade check reads the version string itself the PEP 440 way
+(`PackedVersion` in the `.iss`): three release numbers, then a fourth ordering the suffix
+`.devN` < `aN` < `bN` < `rcN` < the release < `.postN`, so `0.2.0rc1` over an installed
+`0.2.0` warns as a downgrade and `0.2.0` over `0.2.0rc1` is a plain update. Only the first
+suffix counts, so `0.2.0rc1.dev2` reads as `0.2.0rc1`.
 
 ## The installer script
 
