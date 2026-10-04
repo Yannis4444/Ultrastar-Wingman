@@ -6,10 +6,44 @@ numbers.
 ## Tools
 
 - Backend: **pytest** + `pytest-asyncio`, `httpx.AsyncClient` against the
-  FastAPI app for API tests. Test DB = fresh SQLite (in-memory or tmp file)
-  per test session.
+  FastAPI app for API tests. Every test that takes `bootstrap_settings` (and
+  so `client`, `anonymous_client`, `session`) gets a SQLite file of its own in
+  its `tmp_path`, already at head — see [the test database](#the-test-database).
 - Frontend: **vitest** + React Testing Library. Test behavior ("clicking spin
   selects a song"), not implementation (state variable names, DOM structure).
+
+## The test database
+
+Alembic walking every revision on an empty file used to be most of a test's
+cost — about 0.55 s of the 0.75 s each one took, the suite eighteen minutes.
+`conftest.py` now does that walk **once per session** and hands every test a
+copy, and the whole suite runs in about two and a half minutes:
+
+- `migrated_database` (session scope) runs `run_migrations` into a template
+  file. Its result depends on nothing but the revision chain — a revision that
+  imports live code (0023's `seed_rows()`) reads the same code all session.
+- `bootstrap_settings` copies the template into the test's own `tmp_path`
+  before anything starts, so every test still begins from a fresh, fully
+  migrated database that no other test can see. The lifespan still runs
+  `run_migrations` over it and finds it at head.
+- The seed revisions stamp `created_at` with the time they ran: in a test that
+  is the session's start, not the test's. Never assert on a seeded row's
+  `created_at` against the clock.
+- A test that needs an **empty** data directory, or the database at an older
+  revision, does not take `bootstrap_settings`: it builds its own
+  `BootstrapSettings` or alembic URL in `tmp_path`, like the `*_migrations`
+  tests and `test_usdx_bundled` do. Those still migrate from nothing, which
+  keeps the lifespan's own first-start path covered.
+- Every SQLAlchemy engine in the test process runs with
+  `PRAGMA synchronous = OFF` and `journal_mode = MEMORY` (a `connect` listener
+  in `conftest.py`, never in the app): a test database needs no protection
+  from a power cut, and the journal file every commit created, synced and
+  deleted cost more than the statements. Neither pragma changes what a
+  statement does or is stored in the file; a plain `sqlite3.connect` is not
+  affected.
+- Module state (the scan lock, the selection, the devices, the music…) is
+  reset by the autouse `fresh_*` fixtures, because every test has its own
+  event loop — a new piece of module state gets one too.
 
 ## Must be tested
 

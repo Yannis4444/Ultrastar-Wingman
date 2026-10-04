@@ -93,7 +93,10 @@ so services and the event bus can use them).
 | `migrations/versions/` | alembic, `NNNN_<what>.py` |
 
 Tests: `backend/tests/test_<module>*.py`. `conftest.py` gives `client` (admin),
-`anonymous_client`, `session`, `broadcast_events`; captured external samples
+`anonymous_client`, `session`, `broadcast_events` — each test on its own copy of
+one database migrated once per session (`migrated_database`, copied by
+`bootstrap_settings`), every engine with SQLite's durability pragmas off; see
+[testing](docs/dev/testing.md#the-test-database). Captured external samples
 live in `tests/fixtures/`.
 
 ### Frontend — `frontend/src/`
