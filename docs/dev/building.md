@@ -4,7 +4,10 @@
 
 - `UltrastarWingman.exe`: the portable one-file exe (PyInstaller). Frontend, backend,
   migrations, the shipped badge pictures and the device firmware are all inside it.
-- `UltrastarWingman-<version>-setup.exe`: the Inno Setup installer wrapping that exe. Per
+- `UltrastarWingman\`: the same program as PyInstaller's folder build,
+  `UltrastarWingman.exe` beside an `_internal` folder. Not published; it is the
+  installer's input. See [Two layouts](#two-layouts).
+- `UltrastarWingman-<version>-setup.exe`: the Inno Setup installer carrying that folder. Per
   user, no administrator rights, updates an installed Wingman in place.
 - `UltrastarWingman-<version>-with-usdx-setup.exe`, only with `-UsdxDir`: the same
   installer carrying Ultrastar Deluxe under `{app}\usdx`. See
@@ -35,19 +38,60 @@ A bare `.\installer\build.ps1` runs every stage, in this order:
 | frontend | `npm run build` into `frontend\dist` | `-SkipFrontend` (bundles the `frontend\dist` already there) |
 | backend | `pip install -e backend[packaging]` (refreshes the package metadata `__version__` reads, and installs PyInstaller) | never |
 | firmware | `firmware\build.py`: builds the image and writes it into the backend package | `-SkipFirmware` (bundles the image already there) |
-| exe | PyInstaller over `installer\UltrastarWingman.spec`, with a Windows version resource | never |
-| installer | `ISCC.exe installer\UltrastarWingman.iss` with the version and paths as `/D` defines; with `-UsdxDir`, then the USDX stage and a second ISCC run with `/DBundleUsdx` | `-SkipInstaller` (the exe alone; Inno Setup is then not needed) |
+| exe | PyInstaller over `installer\UltrastarWingman.spec`, with a Windows version resource: the portable `UltrastarWingman.exe` | never |
+| folder | the same spec again with `-- --onedir`: `UltrastarWingman\` | `-SkipInstaller`, since only the installer carries it |
+| installer | `ISCC.exe installer\UltrastarWingman.iss` with the version and paths as `/D` defines (`/DAppDir` is the folder); with `-UsdxDir`, then the USDX stage and a second ISCC run with `/DBundleUsdx` | `-SkipInstaller` (the portable exe alone; Inno Setup is then not needed) |
 
 `-OutDir <dir>` (default `installer\dist`) is where the files land. PyInstaller's work
-files stay in `installer\build`, which also holds the generated `version_info.txt` and the
-USDX stage.
+files stay in `installer\build\onefile` and `installer\build\onedir`, beside the generated
+`version_info.txt` and the USDX stage in `installer\build`.
 
 Before anything runs, the script fails fast on what would otherwise fail at the end: no
 `ISCC.exe` while the installer stage is wanted (naming the download page), a `-Skip…` with
-nothing prebuilt to bundle, an `UltrastarWingman.exe` in `-OutDir` that is locked, and a
-`-UsdxDir` without `ultrastardx.exe`, without USDX's license text, or beside `-SkipInstaller`.
-Every native tool (npm, pip, PyInstaller, ISCC) is judged by its exit code, not by what it
-prints to stderr. The last lines list what was built, with sizes.
+nothing prebuilt to bundle, an `UltrastarWingman.exe` in `-OutDir` that is locked (or, when
+the folder is built, `UltrastarWingman\UltrastarWingman.exe`), and a `-UsdxDir` without
+`ultrastardx.exe`, without USDX's license text, or beside `-SkipInstaller`. Every native
+tool (npm, pip, PyInstaller, ISCC) is judged by its exit code, not by what it prints to
+stderr. The last lines list what was built, with sizes (a folder's is its files' sum).
+
+### Two layouts
+
+The portable download is one file because "download one exe and double-click it" is a
+documented way to run Wingman. A one-file exe pays for that on every start: its
+bootloader unpacks about 95 MB (measured) into `%TEMP%\_MEI<number>` before Python runs
+and deletes it on exit, so it starts slower, and an exe ended hard leaves that folder
+behind. An update
+ends a running Wingman exactly that way (`CloseApplications=force`, below), and four such
+folders were found on the development machine. So the installer carries the folder
+build: `UltrastarWingman.exe` with everything it loads in `_internal\`, unpacked once at
+install time.
+
+One spec, one `Analysis`, two outputs, picked by a spec argument: none is the one-file
+`EXE`, `--onedir` is an `EXE` with `exclude_binaries=True` plus a `COLLECT` named
+`UltrastarWingman`. Both exe share one `exe_options` dict (name, icon, version resource,
+`console=True`, `upx=False`) and the same `datas` and `hiddenimports`, so a difference
+between the two is a bug. The script runs PyInstaller once per layout with its own
+`--workpath`: PyInstaller names an exe's archive in the work folder after the exe
+(`UltrastarWingman.pkg`), so two exe of that name in one run would overwrite each other's.
+The cost is a second analysis, about 30 seconds on the development machine. Giving the
+folder's exe another name and renaming it afterwards would save that, but would leave the
+spec building a misnamed exe for anyone running it by hand. `COLLECT` empties
+`-OutDir\UltrastarWingman\` before it fills it.
+
+The folder build puts the bundle's paths on the disk, so their length counts: the deepest
+is about 100 characters below the folder (a migration's file name), and ISCC 6.2 fails on
+a source path past Windows' 260 (measured; Setup and the frozen app were not tried past
+it). The spec drops `__pycache__` from the bundled data for that reason too: a checkout
+that ran the backend holds one beside the migrations, its
+bytecode is the build machine's and a frozen Wingman writes none, and its names added 30
+characters, enough to make ISCC fail with "The system cannot find the path specified"
+over an `-OutDir` deep in `%TEMP%`. Keep `-OutDir` and the install folder of a test short.
+
+Nothing in the app assumes either layout. The four places that read bundled files
+(`frontend.resolve_frontend_dir`, `db.migrations_dir`, `achievements.pictures.images_dir`,
+`devices.firmware.firmware_dir`) go through `sys._MEIPASS`, which is the unpacked folder in
+one and `_internal` in the other, and `config.bundled_usdx_dir` looks next to
+`sys.executable`, the outer exe in both: `{app}\usdx` once installed.
 
 ### The live-exe lock
 
@@ -77,7 +121,8 @@ its final release count as the same version there.
 ## The installer script
 
 `installer\UltrastarWingman.iss` compiles on its own from the Inno IDE too: every define
-has an `#ifndef` default (version `0.0.0`, the exe and the output in `installer\dist`).
+has an `#ifndef` default (version `0.0.0`, the folder build and the output in
+`installer\dist`).
 The decisions inside it, each commented where it is made:
 
 - **AppId** `{66ABF566-D476-4D71-97CE-158493516D4E}` is fixed forever. Every edition of
@@ -107,6 +152,17 @@ The decisions inside it, each commented where it is made:
   installed exe, in `InitializeUninstall`), because otherwise it removes everything but
   the locked exe and leaves a server without an installation. The same for a running
   `{app}\usdx\ultrastardx.exe`, its own message. A silent uninstall gives up (exit code 1).
+- **The folder build whole** (`Source: "{#AppDir}\*"`, `recursesubdirs`), so the exe lands
+  at `{app}\UltrastarWingman.exe`, where the shortcuts, `[Run]`, `UninstallDisplayIcon`
+  and the uninstaller's process check look, with `{app}\_internal\` beside it. First,
+  `[InstallDelete]` removes `{app}\_internal` whole, because a file a newer build dropped
+  would otherwise stay and could still be imported. It runs after `CloseApplications` has
+  ended a running Wingman. Inno does not roll `[InstallDelete]` back, so it is skipped
+  while the installed exe still runs (`Check: not WingmanRunning`, the uninstaller's WMI
+  query): under `/NOCLOSEAPPLICATIONS`, or "Do not close the applications" in the wizard,
+  it would take every file the server does not hold open before the locked exe aborts the
+  update. An update that fails after it for another reason (a full disk) leaves an
+  installation that does not start until the setup is run again.
 - **Downgrade warning** in `InitializeSetup`, defaulting to Yes for a silent install.
 - **No `AppMutex`**: Wingman creates no mutex, and adding one is an app change.
 - **User data is never touched**: no `[UninstallDelete]`; the data directory
@@ -240,7 +296,7 @@ What a scripted install or uninstall does, measured on Inno Setup 6.2.0:
 | `/DIR="<folder>"` | Another install folder. Leave it out on an update: the setup then reuses the installed one |
 | `/MERGETASKS="desktopicon"` / `/MERGETASKS="!desktopicon"` | Add or take away the desktop icon; taking it away removes the one a previous install made. On an update this is the only way to change it: the wizard skips the Select Tasks page then |
 | `/LOG="<file>"`, `/LOGCLOSEAPPLICATIONS` | A log, and Restart Manager's part in it |
-| `/NOCLOSEAPPLICATIONS` | Leaves a running Wingman alone: the locked exe cannot be replaced and the setup rolls back (exit code 5) |
+| `/NOCLOSEAPPLICATIONS` | Leaves a running Wingman alone: `[InstallDelete]` skips `_internal` while the exe runs, the locked exe cannot be replaced, and the setup rolls back (exit code 5). The running Wingman goes on answering, and the installation starts as before. (Without that `Check`, the deletion took the 320 of 364 files the server did not hold open, Inno does not roll it back, and the closed Wingman did not start again until the setup was run again) |
 | (default, a Wingman running from `{app}`) | Restart Manager ends it after about six seconds without a graceful shutdown, and the update completes (exit code 0) |
 | downgrade | The warning takes its suppressed default, Yes, and logs it |
 | `unins000.exe /VERYSILENT /SUPPRESSMSGBOXES` | Uninstalls; while Wingman runs from `{app}` it refuses (exit code 1) and leaves everything in place. Without `/SUPPRESSMSGBOXES` the Retry/Cancel box still shows (Inno's documented behavior, not measured) |
@@ -252,6 +308,7 @@ What a scripted install or uninstall does, measured on Inno Setup 6.2.0:
    commit, outside any folder a running Wingman uses.
 3. Publish the three files from the output directory on the GitHub release:
    `UltrastarWingman-<version>-setup.exe`, `UltrastarWingman-<version>-with-usdx-setup.exe`
-   and `UltrastarWingman.exe`. Say in the release notes which USDX commit the bundled
+   and `UltrastarWingman.exe`, not the `UltrastarWingman` folder, which both setups
+   carry. Say in the release notes which USDX commit the bundled
    edition carries (the one in `usdx\SOURCE.txt`), since the GPL asks for its source to
    be reachable.

@@ -17,8 +17,12 @@
   ; VersionInfoVersion only takes four numbers, so build.ps1 derives them from AppVersion.
   #define FileVersion "0.0.0.0"
 #endif
-#ifndef ExeDir
-  #define ExeDir SourcePath + "dist"
+#ifndef AppDir
+  ; PyInstaller's folder build (build.ps1 runs the spec with --onedir): UltrastarWingman.exe
+  ; beside the _internal folder it loads from. Not the portable one-file exe, which unpacks
+  ; itself into %TEMP%\_MEI* on every start and leaves that behind when it is ended hard, as
+  ; CloseApplications=force does on an update.
+  #define AppDir SourcePath + "dist\UltrastarWingman"
 #endif
 #ifndef OutputDir
   #define OutputDir SourcePath + "dist"
@@ -84,7 +88,8 @@ ArchitecturesInstallIn64BitMode=x64
 ; close gracefully, so "yes" ends the process all the same after a few seconds, then
 ; reports that it could not, and a silent update aborts with Wingman gone and the old exe
 ; in place. "force" ends it the same way and the update goes through. A script that must
-; not stop a running Wingman passes /NOCLOSEAPPLICATIONS, and the update then aborts.
+; not stop a running Wingman passes /NOCLOSEAPPLICATIONS, and the update then aborts and
+; rolls back, leaving the old Wingman as it was ([InstallDelete] below).
 CloseApplications=force
 ; Wingman never calls RegisterApplicationRestart, so it cannot be restarted anyway, and an
 ; installer must not start a server behind the host's back.
@@ -128,6 +133,15 @@ Name: "desktopicon"; Description: "{cm:CreateDesktopIcon}"; GroupDescription: "{
 ; leaving the one the previous install made. Only that one: a shortcut of the same name
 ; the host made by hand (to the portable exe, say) is theirs.
 Type: files; Name: "{autodesktop}\{#AppName}.lnk"; Tasks: not desktopicon; Check: PreviousInstallMadeDesktopIcon
+; A newer build may drop a file of the last one's _internal, and one left there could still
+; be imported, so the folder goes whole and [Files] brings it back. It runs after
+; CloseApplications has closed a running Wingman. Inno does not roll [InstallDelete] back,
+; so not while Wingman still runs (/NOCLOSEAPPLICATIONS, or "Do not close" in the wizard):
+; it would take every file the server does not hold open, and the locked exe then aborts
+; the update with an installation that no longer starts. Skipped, the abort rolls the
+; files back and leaves the old Wingman whole. An update failing after it for another
+; reason (a full disk) still needs the setup run again.
+Type: filesandordirs; Name: "{app}\_internal"; Check: not WingmanRunning
 #ifdef BundleUsdx
 ; Ultrastar Deluxe loads every *.usdx in plugins and every *.dll in webs, so one that a
 ; newer build no longer ships would go on loading. Those two kinds alone: Inno does not
@@ -145,7 +159,9 @@ Name: "{app}\usdx\songs"; Flags: uninsneveruninstall
 #endif
 
 [Files]
-Source: "{#ExeDir}\{#AppExeName}"; DestDir: "{app}"; Flags: ignoreversion
+; The folder build whole: {#AppExeName} at the top of {app}, where the shortcuts, [Run],
+; UninstallDisplayIcon and the uninstaller's process check expect it, and _internal\ beside it.
+Source: "{#AppDir}\*"; DestDir: "{app}"; Flags: ignoreversion recursesubdirs createallsubdirs
 ; The GPL asks for the license to travel with the program.
 Source: "..\LICENSE"; DestDir: "{app}"; DestName: "LICENSE.txt"; Flags: ignoreversion
 #ifdef BundleUsdx
@@ -300,11 +316,24 @@ begin
   end;
 end;
 
-// Uninstalling under a running Wingman removes everything but the locked exe and leaves
-// the server running without an installation, so the host closes it first. The same goes
-// for the Ultrastar Deluxe of the edition that brings one; asked by both editions, because
-// the plain one run over it inherits the uninstall log that lists the game's files. A
-// silent uninstall takes the default, Cancel: it never stops a party on its own.
+// The installed Wingman, still running when [InstallDelete] comes round: only when
+// CloseApplications was told not to close it. Inno also asks while it lists the files for
+// Restart Manager, before anything is closed, and then leaves _internal unregistered,
+// which costs nothing: [Files] holds the exe every running Wingman keeps open (measured:
+// the update still closes it, and the second ask, after the close, deletes the folder).
+function WingmanRunning(): Boolean;
+begin
+  Result := ProcessRunning(ExpandConstant('{app}\{#AppExeName}'));
+  if Result then
+    Log('Ultrastar Wingman is running out of ' + ExpandConstant('{app}') + '.');
+end;
+
+// Uninstalling under a running Wingman removes everything but the exe and the files of
+// _internal it holds open, and leaves the server running without an installation, so the
+// host closes it first. The same goes for the Ultrastar Deluxe of the edition that brings
+// one; asked by both editions, because the plain one run over it inherits the uninstall log
+// that lists the game's files. A silent uninstall takes the default, Cancel: it never stops
+// a party on its own.
 function InitializeUninstall(): Boolean;
 begin
   Result := True;

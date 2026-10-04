@@ -12,7 +12,7 @@ Every release carries the same Wingman three ways.
 |---|---|
 | `UltrastarWingman-<version>-setup.exe` | The setup of Wingman alone, for the Ultrastar Deluxe you already have. Wingman starts a song with the `-Song` argument, which today only [the Ultrastar Deluxe build on GitHub](https://github.com/Yannis4444/USDX) knows. It is on its way into Ultrastar Deluxe itself. A stock Ultrastar Deluxe opens its menu and plays nothing, so take the setup with Ultrastar Deluxe instead |
 | `UltrastarWingman-<version>-with-usdx-setup.exe` | The setup of Wingman with Ultrastar Deluxe, in a `usdx` folder inside the install folder. See [Bring your own Ultrastar Deluxe along](#bring-your-own-ultrastar-deluxe-along) |
-| `UltrastarWingman.exe` | The program itself. Put it wherever you like and double-click it. It keeps its data in the same folder as an installed Wingman, so switching between the two loses nothing |
+| `UltrastarWingman.exe` | The program itself, in one file. Put it wherever you like and double-click it. It keeps its data in the same folder as an installed Wingman, so switching between the two loses nothing |
 
 !!! warning
     Ultrastar Deluxe cannot start songs from a folder whose path has letters
@@ -31,10 +31,10 @@ Every release carries the same Wingman three ways.
 
 The setup needs no administrator rights. It installs Wingman for your Windows
 account alone, into `C:\Users\<you>\AppData\Local\Programs\Ultrastar Wingman`
-unless you pick another folder. From then on, start Wingman from the Start menu
-entry **Ultrastar Wingman**. The setup with Ultrastar Deluxe also makes the
-game's songs folder and the entry **Ultrastar Wingman songs** that opens it:
-`C:\Users\<you>\AppData\Local\Programs\Ultrastar Wingman\usdx\songs`.
+unless you pick another folder, as `UltrastarWingman.exe` beside the `_internal`
+folder it needs. Start Wingman from the Start menu entry **Ultrastar
+Wingman**. The setup with Ultrastar Deluxe also makes the game's songs folder,
+`usdx\songs` in there, and the entry **Ultrastar Wingman songs** that opens it.
 
 ## When Wingman starts
 
@@ -52,16 +52,16 @@ Wingman listens on port 8080: `http://localhost:8080` on the karaoke PC.
 | `data directory: …` | The data folder, where Wingman keeps everything. On Windows that is `C:\Users\<you>\AppData\Local\Ultrastar Wingman` |
 
 The database in the data folder, `wingman.db`, holds your accounts, players,
-wishes, parties, and scores. Your songs are not in there. They stay in your own
-song folder, which Wingman only reads. See
-[Connect Ultrastar Deluxe](ultrastar-deluxe.md).
+wishes, parties, and scores. Your songs stay in your own song folder, which
+Wingman only reads. See [Connect Ultrastar Deluxe](ultrastar-deluxe.md).
 
 ## Update Wingman
 
 Finish the song, close Wingman, then run the setup of the version you want. It
 replaces the installed Wingman in the same folder, offers to close one that is
 still open, and asks nothing else: the license, the folder, and the desktop
-icon stay. With the exe, replace `UltrastarWingman.exe` with the newer one.
+icon stay. If an update stops halfway, run the setup again to repair it. With
+the exe, replace `UltrastarWingman.exe` with the newer one.
 
 | You run | Over | What happens to Ultrastar Deluxe |
 |---|---|---|
@@ -99,7 +99,7 @@ default does not fit, and leave the others alone.
 | `WINGMAN_PORT` | The port to listen on | `8080` |
 | `WINGMAN_HOST` | The address to listen on | `0.0.0.0`, meaning every address the PC has |
 | `WINGMAN_OPEN_BROWSER` | Open the host screen at startup | `true` |
-| `WINGMAN_FRONTEND_DIR` | The web app Wingman serves. Only needed if you built it yourself | The copy inside the exe, or `frontend/dist` when you run from source |
+| `WINGMAN_FRONTEND_DIR` | The web app Wingman serves. Only needed if you built it yourself | The copy that comes with Wingman, or `frontend/dist` when you run from source |
 | `WINGMAN_USDX_DIR` | An Ultrastar Deluxe folder Wingman treats as its own. See below | A `usdx` folder next to the exe that holds `ultrastardx.exe`, otherwise none |
 
 Wingman also reads a file called `.env` in the folder you start it from, so a
