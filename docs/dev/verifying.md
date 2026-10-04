@@ -30,9 +30,9 @@ settings, downloads). Treat those as read-only:
   `installer\dist\UltrastarWingman.exe`. It locks that file, so a build runs
   with `-OutDir <scratch>` ([building.md](building.md#the-live-exe-lock)). Any
   exe you start, a scratch install's included, gets the same three variables:
-  the app migrates its data directory and seeds settings *before* it binds the
-  port, so one started without them writes into the live database and only
-  then fails on :8080.
+  the app takes the port before anything else, so one started without them
+  stops at once while the live Wingman holds :8080 — and while it does not,
+  migrates the live database and seeds its settings.
 - Vite on another port with the proxy pointed at :8081 needs a temporary
   config. Create it under a **fresh file name** (`vite.<purpose>.tmp.config.ts`),
   run `npx vite --config <file> --port 5189`, and delete the file when done.

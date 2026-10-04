@@ -32,12 +32,12 @@ def main(argv: Sequence[str] | None = None) -> None:
     try:
         serve(argv)
     except KeyboardInterrupt:
-        # Ctrl+C before uvicorn took the signal over (uvicorn swallows its own and returns).
+        # Ctrl+C before the server started (`serve` swallows the one uvicorn handled).
         interrupted = True
         raise
     except SystemExit as stopped:
-        # uvicorn's way of failing a start (a port it could not bind, a lifespan that
-        # failed), the probe's, and argparse's.
+        # `serve`'s way of failing a start (a port it could not take), uvicorn's (a
+        # lifespan that failed), and argparse's.
         code = startup.exit_code(stopped.code)
         raise
     except Exception:
@@ -72,13 +72,22 @@ def serve(argv: Sequence[str] | None = None) -> None:
     # outside the loggers `configure` lets through at INFO.
     logger = logging.getLogger(console.PACKAGE)
     logger.info("%s %s", APP_NAME, __version__)
-    if startup.port_is_taken(settings.host, settings.port):
-        # Before uvicorn and so before the lifespan: a second start must not migrate, mint a
-        # host token, open a browser on it, scan, or mark the first one's download as
-        # interrupted, only to fail binding afterwards.
-        logger.error("Wingman is already running, or port %d is taken", settings.port)
+    try:
+        # Before uvicorn and so before the lifespan, and held from here on: a second start
+        # must not migrate, mint a host token, open a browser on it, scan, or mark the first
+        # one's download as interrupted, only to fail binding afterwards — not even while
+        # the first one is still starting up.
+        sockets = startup.listen(settings.host, settings.port)
+    except OSError as error:
+        if startup.is_taken(error):
+            logger.error("Wingman is already running, or port %d is taken", settings.port)
+        else:
+            logger.error("Wingman cannot listen on port %d: %s", settings.port, error)
         sys.exit(startup.STARTUP_FAILURE)
-    uvicorn.run(
+    # What `uvicorn.run` did, around a server handed the sockets instead of binding its own.
+    # Its `load_app` check before the server is left out: `Config.load` imports the same
+    # string, and exits with the same code when it cannot.
+    config = uvicorn.Config(
         "ultrastar_wingman.app:create_app",
         factory=True,
         host=settings.host,
@@ -87,7 +96,22 @@ def serve(argv: Sequence[str] | None = None) -> None:
         # `console.configure` installed and share its format.
         log_config=None,
         access_log=access_log,
+        backlog=startup.BACKLOG,
     )
+    server = startup.WingmanServer(config)
+    try:
+        server.run(sockets=sockets)
+    except KeyboardInterrupt:
+        # uvicorn re-raises the Ctrl+C it handled once it has shut down: a clean stop. One
+        # that came before the server started is `main`'s, which never pauses on it.
+        if not server.started:
+            raise
+    finally:
+        # uvicorn closes them on shutdown, and never gets there when the lifespan fails.
+        for listener in sockets:
+            listener.close()
+    if not server.started:
+        sys.exit(startup.STARTUP_FAILURE)
 
 
 if __name__ == "__main__":

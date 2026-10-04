@@ -5,6 +5,7 @@ Where the directory comes from (`--usdx-dir`, `WINGMAN_USDX_DIR`, a frozen build
 songs folder a fresh install is given.
 """
 
+import socket
 import sys
 from collections.abc import AsyncIterator, Iterator
 from dataclasses import dataclass
@@ -146,20 +147,43 @@ def test_an_empty_variable_switches_the_frozen_build_off(
     assert BootstrapSettings(_env_file=None).usdx_dir is None  # type: ignore[call-arg]
 
 
+class _Served:
+    """`main` with no server behind it: the app it would have served. The configured port
+    may well be held by the Wingman this machine runs for real, so nothing is bound either:
+    `listen` hands out a socket that never was, and the stub checks it is what the server
+    got."""
+
+    def __init__(self, monkeypatch: pytest.MonkeyPatch) -> None:
+        self.apps: list[object] = []
+        self.taken = [socket.socket()]
+        monkeypatch.setattr(entry_point.startup, "listen", lambda *_: self.taken)
+        monkeypatch.setattr(entry_point.startup, "WingmanServer", self._server)
+        # The console's handler would outlive the test on a stream pytest closes afterwards.
+        # True: uvicorn's access log on, which leaves its loggers as they are.
+        monkeypatch.setattr(entry_point.console, "configure", lambda *_: True)
+
+    def _server(self, config: Any) -> Any:
+        served = self
+
+        class Server:
+            started = True
+
+            def run(self, sockets: list[socket.socket] | None = None) -> None:
+                assert sockets is served.taken
+                served.apps.append(config.app)
+
+        return Server()
+
+
 @pytest.mark.usefixtures("clean_bootstrap")
 def test_the_argument_beats_the_variable(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
     make_usdx(_frozen(monkeypatch, tmp_path))
     monkeypatch.setenv("WINGMAN_USDX_DIR", str(tmp_path / "from-the-variable"))
-    started: list[str] = []
-    monkeypatch.setattr(entry_point.uvicorn, "run", lambda app, **_: started.append(app))
-    # The console's handler would outlive the test on a stream pytest closes afterwards.
-    monkeypatch.setattr(entry_point.console, "configure", lambda *_: False)
-    # The configured port may well be held by the Wingman this machine runs for real.
-    monkeypatch.setattr(entry_point.startup, "port_is_taken", lambda *_: False)
+    served = _Served(monkeypatch)
 
     entry_point.main(["--usdx-dir", str(tmp_path / "from-the-argument")])
 
-    assert started == ["ultrastar_wingman.app:create_app"]
+    assert served.apps == ["ultrastar_wingman.app:create_app"]
     # What `create_app()` reads when uvicorn calls it without arguments.
     assert get_bootstrap_settings().usdx_dir == tmp_path / "from-the-argument"
 
@@ -169,12 +193,11 @@ def test_without_the_argument_the_entry_point_leaves_the_variable_alone(
     monkeypatch: pytest.MonkeyPatch, tmp_path: Path
 ) -> None:
     monkeypatch.setenv("WINGMAN_USDX_DIR", str(tmp_path / "from-the-variable"))
-    monkeypatch.setattr(entry_point.uvicorn, "run", lambda app, **_: None)
-    monkeypatch.setattr(entry_point.console, "configure", lambda *_: False)
-    monkeypatch.setattr(entry_point.startup, "port_is_taken", lambda *_: False)
+    served = _Served(monkeypatch)
 
     entry_point.main([])
 
+    assert served.apps == ["ultrastar_wingman.app:create_app"]
     assert get_bootstrap_settings().usdx_dir == tmp_path / "from-the-variable"
 
 

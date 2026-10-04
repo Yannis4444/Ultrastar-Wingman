@@ -80,25 +80,6 @@ def uvicorn_record(message: str, *args: object, level: int = logging.INFO) -> lo
     return record(message, *args, level=level, name="uvicorn.error")
 
 
-def test_uvicorns_running_line_becomes_the_address_a_host_opens() -> None:
-    line = uvicorn_record(
-        "Uvicorn running on %s://%s:%d (Press CTRL+C to quit)", "http", "0.0.0.0", 8080
-    )
-
-    assert console.UvicornFilter().filter(line) is True
-    assert line.getMessage() == "Wingman is running at http://localhost:8080 (press Ctrl+C to stop)"
-
-
-def test_a_running_line_on_one_address_keeps_it() -> None:
-    line = uvicorn_record(
-        "Uvicorn running on %s://[%s]:%d (Press CTRL+C to quit)", "http", "fe80::1", 8081
-    )
-
-    console.UvicornFilter().filter(line)
-
-    assert line.getMessage() == "Wingman is running at http://[fe80::1]:8081 (press Ctrl+C to stop)"
-
-
 def test_shutting_down_is_said_in_wingmans_words() -> None:
     line = uvicorn_record("Shutting down")
 
@@ -129,14 +110,11 @@ def test_uvicorns_chatter_is_left_to_the_debug_view(message: str, args: tuple[ob
 
 
 def test_uvicorns_warnings_and_errors_always_pass_untouched() -> None:
-    bind = uvicorn_record(
-        "[Errno 10048] error while attempting to bind on address ('0.0.0.0', 8080)",
-        level=logging.ERROR,
-    )
+    failed = uvicorn_record("Application startup failed. Exiting.", level=logging.ERROR)
     waiting = uvicorn_record("Waiting for connections to close. (CTRL+C to force quit)")
 
-    assert console.UvicornFilter().filter(bind) is True
-    assert "error while attempting to bind on address" in bind.getMessage()
+    assert console.UvicornFilter().filter(failed) is True
+    assert failed.getMessage() == "Application startup failed. Exiting."
     # Not chatter: it is why Ctrl+C did not stop Wingman at once.
     assert console.UvicornFilter().filter(waiting) is True
 

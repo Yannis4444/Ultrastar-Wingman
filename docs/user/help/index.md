@@ -19,12 +19,16 @@ it. Press ++enter++ to close it.
   taken*, usually means you started Wingman twice. The second one stops before
   it does anything, and the first one runs on. Look for its console window on
   the taskbar and use that one. If no Wingman is running, another program has
-  the port. Give Wingman a different one with `WINGMAN_PORT`. Started twice
-  within a few seconds, the second one says *error while attempting to bind on
-  address* instead, after it got going. It means the same.
+  the port. Give Wingman a different one with `WINGMAN_PORT`. This holds even
+  when you start Wingman twice within a few seconds: the first one takes the
+  port before it does anything else.
 - **A complaint about the database**, such as *Can't locate revision*, means an
   older Wingman met a database a newer one has updated. Install the newer
   version again, or put back the copy of the data folder you made before.
+
+Wingman can take a while to start, for example when it updates its database
+after you install a newer version. A browser you open in that time waits, then
+shows the page.
 
 See [Install and run](../start/install.md).
 

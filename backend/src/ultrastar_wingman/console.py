@@ -8,8 +8,10 @@ uvicorn's per-request access log comes back.
 
 uvicorn is handed no logging config of its own (`log_config=None`), so its records reach the
 one handler installed here. Two filters on its loggers make them read like Wingman's: the
-"running on" line becomes the address a host can open, and the lines that say nothing to a
-host (the server process starting, every WebSocket handshake) are left to the debug view.
+"shutting down" line is said in Wingman's words, and the lines that say nothing to a host
+(the server process starting, every WebSocket handshake) are left to the debug view. uvicorn
+says no "running on" line at all: it is handed its sockets (`startup.listen`), and
+`startup.WingmanServer` says where Wingman can be reached instead.
 
 In a real console the lines are written by a thread of their own (`configure`): the classic
 Windows console stops every write while text is selected in it (QuickEdit, which is also how
@@ -29,7 +31,7 @@ LogLevel = Literal["debug", "info", "warning", "error"]
 LOG_LEVELS: tuple[str, ...] = get_args(LogLevel)
 
 # What uvicorn says at INFO about its own process and lifespan. A host gains nothing from
-# them: "Wingman is running at …" (the rewritten line below) is the one that matters.
+# them: "Wingman is running at …" (`startup.WingmanServer`) is the one that matters.
 UVICORN_CHATTER = (
     "Started server process",
     "Waiting for application startup",
@@ -43,19 +45,12 @@ UVICORN_CHATTER = (
     "connection closed",
     "connection rejected",
 )
-# uvicorn's own line once it is listening: "Uvicorn running on %s://%s:%d (Press …)", the
-# host bracketed for IPv6. Rewritten, not dropped: it is the moment Wingman can be reached,
-# and a bind failure never gets this far.
-UVICORN_RUNNING = "Uvicorn running on "
-RUNNING = "Wingman is running at %s://%s:%d (press Ctrl+C to stop)"
 # uvicorn's words for the moment Ctrl+C (or the window closing) reaches it.
 UVICORN_STOPPING = "Shutting down"
 STOPPING = "Wingman is stopping"
 # uvicorn.error logs every WebSocket handshake at INFO ('%s - "WebSocket %s" [accepted]'):
 # one per phone, every time one reconnects.
 UVICORN_WEBSOCKET = '%s - "WebSocket '
-# Addresses that mean "every interface": the host opens Wingman as localhost.
-ANY_ADDRESS = ("0.0.0.0", "::", "")
 
 
 def short_name(logger_name: str) -> str:
@@ -89,9 +84,9 @@ class ConsoleFormatter(logging.Formatter):
 
 
 class UvicornFilter(logging.Filter):
-    """On `uvicorn.error`: the "running on" and "shutting down" lines in Wingman's words, the
-    chatter dropped unless `verbose`. Warnings and errors (a port already taken, a traceback)
-    always pass untouched."""
+    """On `uvicorn.error`: the "shutting down" line in Wingman's words, the chatter dropped
+    unless `verbose`. Warnings and errors (a failed startup, a traceback) always pass
+    untouched."""
 
     def __init__(self, verbose: bool = False) -> None:
         super().__init__()
@@ -105,15 +100,6 @@ class UvicornFilter(logging.Filter):
             return False
         message = str(record.msg)
         args = record.args
-        if message.startswith(UVICORN_RUNNING) and isinstance(args, tuple) and len(args) == 3:
-            scheme, host, port = args
-            if host in ANY_ADDRESS:
-                host = "localhost"
-            elif ":" in str(host):
-                host = f"[{host}]"
-            record.msg = RUNNING
-            record.args = (scheme, host, port)
-            return True
         if message == UVICORN_STOPPING:
             record.msg = STOPPING
             return True
