@@ -8,8 +8,9 @@ Wingman runs on the PC that runs Ultrastar Deluxe. Everybody else opens it in a
 browser, and there is nothing to install on a phone.
 
 Getting a party going takes three steps, in this order. Start Wingman on the
-karaoke PC. Point it at Ultrastar Deluxe and at your songs. Then let the guests
-scan the QR code on the TV.
+karaoke PC. Point it at Ultrastar Deluxe and at your songs. With the setup that
+comes with Ultrastar Deluxe, that step is only copying your songs into its songs
+folder. Then let the guests scan the QR code on the TV.
 
 ## What you need
 

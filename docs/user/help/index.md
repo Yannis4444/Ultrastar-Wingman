@@ -59,7 +59,9 @@ the line `WINGMAN_LOG_LEVEL=debug` to the `.env` file. See
   :wingman-refresh: **Rescan** on the **Songs** tab.
 - With the setup that comes with Ultrastar Deluxe, **Directory** starts out as
   the empty `usdx\songs` in the program folder. Copy song folders in through
-  the Start menu entry **Ultrastar Wingman songs**, or download songs.
+  the Start menu entry **Ultrastar Wingman songs**, or download songs. Press
+  ++win+r++ and enter `%LOCALAPPDATA%\Programs\Ultrastar Wingman` to open the
+  program folder, unless you installed Wingman somewhere else.
 - Wingman looks exactly one level deep. `Songs\Artist - Title\song.txt` is
   found. `Songs\Artist\Title\song.txt` is not. Point Wingman at the folder
   whose direct subfolders are the songs, or add the inner folders under
