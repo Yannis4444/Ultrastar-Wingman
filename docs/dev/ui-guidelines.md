@@ -331,8 +331,8 @@ saved) where a jump to the top would throw away the place they were working in.
 
 - **Song list rows** (`SongListItem`): 40×40 cover, title + passive marks, artist in
   `--color-darker`; the row opens the song modal. **Album covers are square** except the spinner
-  reel frame; `PlayerAvatar` is `--border-radius-small` (people, not covers), the 96px identity
-  avatar round. Sizes: 40px in rows, 200px (`max-width: 60vw`) in the modal hero, 160px on Home,
+  reel frame; `PlayerAvatar` is `--border-radius-small` (people, not covers), the 88px identity
+  avatar included. Sizes: 40px in rows, 200px (`max-width: 60vw`) in the modal hero, 88px on Home,
   `min(42vh, 30vw)` on the host; the fallback is the initial letter on `--input-bg`.
 - **Home** is `HomeStage`, the player: one tile, three modes, **one control row**, and
   **one height** — 200px: 16 of padding, an 88px head, 8, and the 72px the sing's lead needs;
@@ -573,7 +573,18 @@ saved) where a jump to the top would throw away the place they were working in.
   back to the players; its title and the pencil's label cover the pair, a panel that also
   deletes not being "Who sang this?" alone. The number and the song are never editable — a
   wrongly picked singer is the mistake this fixes.
-- **User** (`/user`) is the identity tile, the singer's own record, then *Manage*. The record
+- **User** (`/user`) is the identity tile, the singer's own record, then *Manage*. The tile is
+  Home's head and nothing else, 88px at 16 of padding: the avatar (`PlayerAvatar` at the
+  stage's art size) beside a column centred against it of declared px rows — the name as the
+  page's `h1` (1.3em on 28px, left, ellipsed), the role word (`auth.role` capitalised, 0.85em
+  on 20px, `--color-darker`; the host's is *Admin* too) and one 40px `.button` on an 18px line:
+  *Log out*, or for the host *Log in as a user*, which goes once pressed and opens the login
+  form under the tile. The avatar is the upload — a `<label>` over a hidden file input named
+  *Change your picture*, `image` in its lower-right corner on `--highlight-blue-dark` — and a
+  refusal is one `.error-notice` under the head, inside the tile. The host draws `shield` in
+  the avatar's square on `--input-bg` over *Host screen*; logged out there is no tile, the `h1`
+  *You* over the login form; nothing is drawn before `/auth/me` answers. Uncapped on a wide
+  screen, unlike the stage: it starts at the gutter like every section under it. The record
   opens with the score summary above, its Best and Worst unnamed — every score on this page is
   the reader's own — and no favorites count: favorites are a filter, not an achievement. Under
   it the histogram, and under that *All my scores*, which belongs to those stats and not to the
