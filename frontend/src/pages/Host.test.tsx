@@ -20,6 +20,7 @@ import type {
 import { achievementRead, achievementSettings } from "../test/achievements";
 import { meResponse } from "../test/auth";
 import { FakeSocket } from "../test/fakeSocket";
+import { iconNames } from "../test/icons";
 import Host from "./Host";
 
 const {
@@ -315,6 +316,174 @@ test("a browser without management rights gets no manage entry", async () => {
 
   expect(await screen.findByText("Scan to join")).toBeInTheDocument();
   expect(screen.queryByRole("link", { name: "Manage" })).toBeNull();
+});
+
+/**
+ * A browser that can go full screen. jsdom implements none of the Fullscreen
+ * API, so every other test runs in a browser without it; `afterEach` takes
+ * these back off.
+ */
+function fullscreenApi(
+  request: () => Promise<void> = vi.fn().mockResolvedValue(undefined),
+) {
+  let element: Element | null = null;
+  const exit = vi.fn().mockResolvedValue(undefined);
+  Object.defineProperty(document, "fullscreenEnabled", {
+    configurable: true,
+    value: true,
+  });
+  Object.defineProperty(document, "fullscreenElement", {
+    configurable: true,
+    get: () => element,
+  });
+  Object.defineProperty(document, "exitFullscreen", {
+    configurable: true,
+    value: exit,
+  });
+  Object.defineProperty(document.documentElement, "requestFullscreen", {
+    configurable: true,
+    value: request,
+  });
+  return {
+    request,
+    exit,
+    /** What the browser does on entering or leaving, however it was asked. */
+    change(next: Element | null) {
+      element = next;
+      act(() => {
+        document.dispatchEvent(new Event("fullscreenchange"));
+      });
+    },
+  };
+}
+
+afterEach(() => {
+  for (const key of [
+    "fullscreenEnabled",
+    "fullscreenElement",
+    "exitFullscreen",
+  ])
+    Reflect.deleteProperty(document, key);
+  Reflect.deleteProperty(document.documentElement, "requestFullscreen");
+});
+
+test("a browser without full screen gets no full-screen button", async () => {
+  renderHost("/host");
+
+  expect(await screen.findByText("Scan to join")).toBeInTheDocument();
+  expect(screen.queryByRole("button", { name: "Full screen" })).toBeNull();
+});
+
+test("the full-screen button asks for the whole page and follows the browser", async () => {
+  const api = fullscreenApi();
+  renderHost("/host");
+
+  // For a guest too: putting the page on the TV is not a management task.
+  fireEvent.click(await screen.findByRole("button", { name: "Full screen" }));
+  expect(api.request).toHaveBeenCalledTimes(1);
+  // Nothing changes until the browser says so.
+  expect(screen.getByRole("button", { name: "Full screen" })).toBeVisible();
+
+  api.change(document.documentElement);
+  const leave = screen.getByRole("button", { name: "Leave full screen" });
+  expect(iconNames(leave)).toEqual(["fullscreen-exit"]);
+  fireEvent.click(leave);
+  expect(api.exit).toHaveBeenCalledTimes(1);
+
+  // Esc leaves without the button: it turns back into the way in all the same.
+  api.change(null);
+  const enter = screen.getByRole("button", { name: "Full screen" });
+  expect(iconNames(enter)).toEqual(["fullscreen"]);
+  expect(api.request).toHaveBeenCalledTimes(1);
+});
+
+test("a refused full screen says so and the next press tries again", async () => {
+  const api = fullscreenApi(
+    vi.fn().mockRejectedValue(new TypeError("Permissions check failed")),
+  );
+  renderHost("/host");
+
+  fireEvent.click(await screen.findByRole("button", { name: "Full screen" }));
+  expect(await screen.findByRole("alert")).toHaveTextContent(
+    "The browser would not go full screen. Press F11 instead.",
+  );
+  expect(screen.getByRole("button", { name: "Full screen" })).toBeVisible();
+
+  vi.mocked(api.request).mockResolvedValueOnce(undefined);
+  fireEvent.click(screen.getByRole("button", { name: "Full screen" }));
+  expect(api.request).toHaveBeenCalledTimes(2);
+  expect(screen.queryByRole("alert")).toBeNull();
+});
+
+test("a refusal goes with the overlay once the mouse rests", async () => {
+  vi.useFakeTimers({ shouldAdvanceTime: true });
+  fullscreenApi(vi.fn().mockRejectedValue(new TypeError("refused")));
+  renderHost("/host");
+
+  fireEvent.click(await screen.findByRole("button", { name: "Full screen" }));
+  await screen.findByRole("alert");
+
+  act(() => vi.advanceTimersByTime(3100));
+  fireEvent.pointerMove(window);
+  // The overlay is back for the movement, the refusal of the last press not.
+  expect(screen.getByRole("button", { name: "Full screen" })).toBeVisible();
+  expect(screen.queryByRole("alert")).toBeNull();
+});
+
+test("a click lets go of the full-screen button's focus, a key press keeps it", async () => {
+  fullscreenApi();
+  renderHost("/host");
+  const button = await screen.findByRole("button", { name: "Full screen" });
+
+  // The next key — Esc out of full screen — would turn a clicked button's focus
+  // visible and hold the overlay up over the TV.
+  button.focus();
+  fireEvent.click(button, { detail: 1 });
+  expect(button).not.toHaveFocus();
+
+  // Enter and Space click with no count: the keyboard keeps its place.
+  button.focus();
+  fireEvent.click(button, { detail: 0 });
+  expect(button).toHaveFocus();
+});
+
+test("a control only a click focused lets go of it when the overlay fades", async () => {
+  vi.useFakeTimers({ shouldAdvanceTime: true });
+  withScores();
+  renderHost("/host");
+  const board = await screen.findByLabelText("Party leaderboard");
+  const pill = within(board).getByRole("radio", { name: "average" });
+  const focusVisible = vi.spyOn(pill, "matches");
+
+  // A clicked pill: the browser does not draw its focus.
+  focusVisible.mockReturnValue(false);
+  pill.focus();
+  act(() => vi.advanceTimersByTime(3100));
+  expect(pill).not.toHaveFocus();
+
+  // One Tab reached: its focus is drawn and stays, holding the pills up.
+  focusVisible.mockReturnValue(true);
+  fireEvent.keyDown(window, { key: "Tab" });
+  pill.focus();
+  act(() => vi.advanceTimersByTime(3100));
+  expect(pill).toHaveFocus();
+  expect(focusVisible).toHaveBeenCalledWith(":focus-visible");
+});
+
+test("the full-screen button stays reachable while the room picks singers", async () => {
+  fullscreenApi();
+  withScores();
+  const { container } = renderHost("/host");
+  await screen.findByLabelText("Last song");
+
+  picks();
+
+  await screen.findByLabelText("Picking singers");
+  // In the overlay, not the rail the takeover takes down.
+  await waitFor(() => expect(container.querySelector(".host-rail")).toBeNull());
+  expect(container.querySelector(".host-controls")).toContainElement(
+    screen.getByRole("button", { name: "Full screen" }),
+  );
 });
 
 test("an idle USDX invites guests to pick a song", async () => {

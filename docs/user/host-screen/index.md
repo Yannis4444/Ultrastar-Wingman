@@ -17,7 +17,8 @@ favorites and no playlists.
 1. Start Wingman on the karaoke PC. See
    [Install and run](../start/install.md).
 2. Let it open your browser. The page it opens is the host screen.
-3. Put that browser window on the TV, in full screen.
+3. Put that browser window on the TV, in full screen. The button for that is
+   among [the controls that fade](#the-controls-that-fade).
 
 The link Wingman opens carries a one-time token, and trading it for host rights
 is what makes that browser the host. The same link stands in the console
@@ -151,6 +152,8 @@ movement. So do the three ranking words beside **Tonight**.
 
 - :wingman-gear: **Manage** opens the management page. See
   [Manage from the TV](manage.md).
+- :wingman-fullscreen: **Full screen** puts the page on the whole screen, where
+  it turns into :wingman-fullscreen-exit: **Leave full screen**. Esc leaves too.
 - :wingman-stop: **Stop** ends the song. It asks first, and it names the song.
   It is there while a song plays, for a browser that may stop one.
 - The line saying this browser holds host rights.
