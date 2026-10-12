@@ -605,6 +605,9 @@ class RecordingLauncher:
         if self.on_exit is not None:
             await self.on_exit()
 
+    def bring_to_front(self) -> None:
+        pass
+
 
 async def test_launch_starts_the_bundled_usdx(
     bundled: Bundled, monkeypatch: pytest.MonkeyPatch

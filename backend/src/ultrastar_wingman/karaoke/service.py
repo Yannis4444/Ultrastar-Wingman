@@ -269,6 +269,9 @@ async def open_usdx(session: AsyncSession) -> bool:
         if _running is not None:
             raise AlreadyPlayingError
         if _standalone is not None and _standalone.launcher.is_running:
+            # Asking for a USDX that is already open usually means it is hidden behind
+            # the browser the host just pressed Launch in.
+            _standalone.launcher.bring_to_front()
             return False
         paths = await resolve_usdx_paths(session)
         launcher = UsdxLauncher(paths)

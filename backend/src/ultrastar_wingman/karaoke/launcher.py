@@ -59,3 +59,10 @@ class KaraokeLauncher(Protocol):
     async def stop(self) -> None:
         """Kill the running process. Idempotent: fine to call when nothing runs."""
         ...
+
+    def bring_to_front(self) -> None:
+        """Put the running application's window in front of the others, once — the host
+        asked for it while it was already open. Returns at once, never raises, and does
+        nothing when nothing runs. `start` and `start_standalone` do the same on their own
+        right after the launch."""
+        ...
