@@ -59,7 +59,9 @@ A card nobody holds shows up here by its number.
 
 A card somebody else holds is refused with *Somebody else already holds that
 card.* Your own cards stand below, each with :wingman-close: **Forget card**,
-which takes the card off you and changes nothing else. An administrator still
+which takes the card off you and changes nothing else. While one of your cards
+lies on a reader, its :wingman-card: turns blue. It turns gray again the moment
+the card is lifted, or when the selector stops reporting. An administrator still
 assigns and takes back any card on **User** > **Player selector**.
 
 ## A card Wingman does not know

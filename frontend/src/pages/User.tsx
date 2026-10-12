@@ -259,47 +259,55 @@ export default function User() {
       {auth.loaded &&
         (auth.user !== null ? (
           <>
+            {/* Home's head in another voice (§7): the picture beside a
+                column of declared rows — name, role, the one action — that
+                adds up to the picture's own 88px. */}
             <div className="user-identity">
-              {ownPlayer !== null ? (
-                // The avatar is the way to change it — the `image` badge is the
-                // affordance, the file input behind the label does the work. No
-                // capability gates it: your own picture is identity, like your
-                // favorites, so there is nothing for the host to grant.
-                <label className="user-identity-avatar-label">
+              <div className="user-identity-head">
+                {ownPlayer !== null ? (
+                  // The avatar is the way to change it — the `image` badge is
+                  // the affordance, the file input behind the label does the
+                  // work. No capability gates it: your own picture is
+                  // identity, like your favorites, so there is nothing for the
+                  // host to grant.
+                  <label className="user-identity-avatar-label">
+                    <PlayerAvatar
+                      player={ownPlayer}
+                      className="user-identity-avatar"
+                    />
+                    <Icon name="image" className="user-identity-avatar-hint" />
+                    <input
+                      type="file"
+                      className="visually-hidden"
+                      accept="image/jpeg,image/png,image/webp"
+                      aria-label="Change your picture"
+                      onChange={(event) => upload(ownPlayer, event.target)}
+                    />
+                  </label>
+                ) : (
                   <PlayerAvatar
                     player={ownPlayer}
                     className="user-identity-avatar"
                   />
-                  <Icon name="image" className="user-identity-avatar-hint" />
-                  <input
-                    type="file"
-                    className="visually-hidden"
-                    accept="image/jpeg,image/png,image/webp"
-                    aria-label="Change your picture"
-                    onChange={(event) => upload(ownPlayer, event.target)}
-                  />
-                </label>
-              ) : (
-                <PlayerAvatar
-                  player={ownPlayer}
-                  className="user-identity-avatar"
-                />
-              )}
-              <h1 className="user-identity-name">{auth.user.username}</h1>
-              <p className="user-identity-role">{auth.user.role}</p>
+                )}
+                <div className="user-identity-text">
+                  <h1 className="user-identity-name">{auth.user.username}</h1>
+                  <p className="user-identity-role">{auth.user.role}</p>
+                  <button
+                    type="button"
+                    className="button user-identity-action"
+                    disabled={logOut.isPending}
+                    onClick={() => logOut.mutate({})}
+                  >
+                    Log out
+                  </button>
+                </div>
+              </div>
               {avatarError !== null && (
                 <p className="error-notice user-identity-error" role="alert">
                   {avatarError}
                 </p>
               )}
-              <button
-                type="button"
-                className="button"
-                disabled={logOut.isPending}
-                onClick={() => logOut.mutate({})}
-              >
-                Log out
-              </button>
             </div>
             <UserStats playerId={auth.user.player_id} />
             {/* The rest of the record: what those scores earned. After the
@@ -317,25 +325,29 @@ export default function User() {
         ) : auth.isHost ? (
           <>
             <div className="user-identity">
-              <span
-                className="user-identity-avatar user-identity-shield"
-                aria-hidden="true"
-              >
-                <Icon name="shield" />
-              </span>
-              <h1 className="user-identity-name">Host screen</h1>
-              <p className="user-identity-role">
-                This browser has full access.
-              </p>
-              {!showLogin && (
-                <button
-                  type="button"
-                  className="user-identity-switch"
-                  onClick={() => setShowLogin(true)}
+              <div className="user-identity-head">
+                <span
+                  className="user-identity-avatar user-identity-shield"
+                  aria-hidden="true"
                 >
-                  Log in as a user instead
-                </button>
-              )}
+                  <Icon name="shield" />
+                </span>
+                <div className="user-identity-text">
+                  <h1 className="user-identity-name">Host screen</h1>
+                  {/* The same line an account's tile carries: the host session
+                      is an administrator, it is just not a person. */}
+                  <p className="user-identity-role">{auth.role}</p>
+                  {!showLogin && (
+                    <button
+                      type="button"
+                      className="button user-identity-action"
+                      onClick={() => setShowLogin(true)}
+                    >
+                      Log in as a user
+                    </button>
+                  )}
+                </div>
+              </div>
             </div>
             {showLogin && loginArea}
           </>

@@ -21,6 +21,9 @@ import "./MyCards.css";
  *  somebody was faster, or the card was already theirs before tonight. */
 const CARD_TAKEN = "Somebody else already holds that card.";
 
+/** What a lit card square says, to a screen reader and under a pointer. */
+const ON_READER = "On the player selector";
+
 /**
  * The cards on the reader's own page: what is lying on the player selector
  * right now and belongs to nobody, and what already belongs to them.
@@ -60,8 +63,9 @@ export default function MyCards() {
   };
 
   // A card put down on the selector reaches this page without a reload: the
-  // report path broadcasts on every state change, which is exactly the moment
-  // a new uid becomes claimable.
+  // report path broadcasts on every state change — a uid arriving or leaving a
+  // reader, a device going quiet — which is exactly the moment a new uid
+  // becomes claimable and the moment one of your own lights up or goes dark.
   useWingmanEvent("devices.changed", refresh);
 
   const claim = useMutation({
@@ -162,10 +166,28 @@ export default function MyCards() {
           {held.map((card) => (
             <li key={card.uid}>
               <span className="my-cards-row">
-                <span className="my-cards-square" aria-hidden="true">
+                {/* Lit while the card lies on a reader of a selector that is
+                    online: the one state of your own card that changes during
+                    the evening, and the reason to look at this list at all. The
+                    glyph lights, never the fill: a passive mark, not a control.
+                    The words for a screen reader are in the uid line. */}
+                <span
+                  className={
+                    card.on_reader
+                      ? "my-cards-square my-cards-square-lying"
+                      : "my-cards-square"
+                  }
+                  aria-hidden="true"
+                  title={card.on_reader ? ON_READER : undefined}
+                >
                   <Icon name="card" />
                 </span>
-                <span className="my-cards-uid">{card.uid}</span>
+                <span className="my-cards-uid">
+                  {card.uid}
+                  {card.on_reader && (
+                    <span className="visually-hidden">{`, ${ON_READER.toLowerCase()}`}</span>
+                  )}
+                </span>
                 <button
                   type="button"
                   className="icon-button icon-button-danger"

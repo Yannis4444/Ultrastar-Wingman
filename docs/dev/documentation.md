@@ -679,7 +679,8 @@ ones a page written against an older draft still gets wrong:
 - The Scores page called a party a session. It says party.
 - The downloads panel's filter is **Since Wingman started**, not a party.
 - The host screen says **This browser holds host rights**, not "Host session active". The
-  user page has its own line for the same browser, **This browser has full access**.
+  user page names the same browser **Host screen**, with the role **Admin** under it, and
+  its button is **Log in as a user**, no longer "Log in as a user instead".
 - The USDB sort options spell the range out: **Artist A to Z**, never an en dash.
 - The shipped achievement is **Well Traveled**. Migration 0025 renamed it in every database
   that the built-in seed had already run on.

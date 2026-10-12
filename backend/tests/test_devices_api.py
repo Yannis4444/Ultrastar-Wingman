@@ -2422,6 +2422,79 @@ async def test_something_that_is_not_a_card_id_cannot_be_claimed(
             assert response.json() == {"detail": "invalid_uid"}
 
 
+async def test_a_card_says_whether_it_is_lying_on_an_online_reader(
+    bootstrap_settings: BootstrapSettings, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """What the user page marks a card of their own by: lying on a reader — a slot's, the one
+    everybody scans at, or one with no role at all — of a device that is online. The same rule
+    the unclaimed cards are offered by, so a device gone quiet takes the mark away with it."""
+    third_uid, bobs_uid = "C3D4E5F6", "D4E5F6A7"
+    app = create_app(bootstrap_settings)
+    async with app.router.lifespan_context(app):
+        await authenticate_admin(app)
+        async with admin_client(app) as host, visitor(app) as alice, visitor(app) as bob:
+            await register(alice, "alice")
+            await register(bob, "bob")
+            _, token = await mapped_device(
+                host, reader_roles={"0": "slot:blue", "1": "sequential"}, readers=3
+            )
+            # A card claimed off nothing at all is not on a reader, and says so.
+            claimed = await alice.post(f"/api/v1/devices/cards/{third_uid}/claim")
+            assert claimed.status_code == 200, claimed.text
+            assert claimed.json()["on_reader"] is False
+            await post_report(
+                host,
+                token,
+                readers=[
+                    reader(0, uid=KNOWN_UID),
+                    reader(1, uid=OTHER_UID),
+                    reader(2, uid=bobs_uid),
+                ],
+            )
+            # And one claimed while it lies there says that in the answer already.
+            claimed = await alice.post(f"/api/v1/devices/cards/{KNOWN_UID}/claim")
+            assert claimed.json()["on_reader"] is True
+            await alice.post(f"/api/v1/devices/cards/{OTHER_UID}/claim")
+            await bob.post(f"/api/v1/devices/cards/{bobs_uid}/claim")
+
+            mine = (await alice.get("/api/v1/devices/cards/mine")).json()["cards"]
+
+            # Bob's card lies on a reader too, and is none of Alice's business.
+            assert {card["uid"]: card["on_reader"] for card in mine} == {
+                KNOWN_UID: True,
+                OTHER_UID: True,
+                third_uid: False,
+            }
+            bobs = (await bob.get("/api/v1/devices/cards/mine")).json()["cards"]
+            assert [(card["uid"], card["on_reader"]) for card in bobs] == [(bobs_uid, True)]
+            # The host's table says the same about every card.
+            table = (await host.get("/api/v1/devices/cards")).json()["cards"]
+            assert {card["uid"]: card["on_reader"] for card in table} == {
+                KNOWN_UID: True,
+                OTHER_UID: True,
+                third_uid: False,
+                bobs_uid: True,
+            }
+
+            # Lifted off: the next report says the reader is empty.
+            await post_report(
+                host,
+                token,
+                readers=[reader(0), reader(1, uid=OTHER_UID), reader(2, uid=bobs_uid)],
+            )
+            mine = (await alice.get("/api/v1/devices/cards/mine")).json()["cards"]
+            assert {card["uid"]: card["on_reader"] for card in mine}[KNOWN_UID] is False
+
+            # A device that has gone quiet is not believed about what lies on it.
+            monkeypatch.setattr(
+                devices,
+                "_now",
+                lambda: datetime.now(UTC) + devices.OFFLINE_AFTER + timedelta(seconds=1),
+            )
+            mine = (await alice.get("/api/v1/devices/cards/mine")).json()["cards"]
+            assert [card["on_reader"] for card in mine] == [False, False, False]
+
+
 async def test_the_card_routes_of_a_person_need_a_person(
     anonymous_client: AsyncClient, client: AsyncClient
 ) -> None:

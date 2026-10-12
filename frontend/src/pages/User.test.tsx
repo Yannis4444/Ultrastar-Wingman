@@ -341,21 +341,52 @@ test("an admin gets one menu row per admin surface, not the surfaces inline", as
 });
 
 test("the host screen gets an identity tile, and the login form only on request", async () => {
-  getMe.mockResolvedValue(meResponse(ADMIN_CAPABILITIES, { is_host: true }));
+  getMe.mockResolvedValue(
+    meResponse(ADMIN_CAPABILITIES, { is_host: true, role: "admin" }),
+  );
   renderUser();
 
   expect(
     await screen.findByRole("heading", { name: "Host screen" }),
   ).toBeInTheDocument();
-  expect(screen.getByText("This browser has full access.")).toBeInTheDocument();
+  // The same role line an account's tile carries: the host is an admin.
+  expect(screen.getByText("admin")).toHaveClass("user-identity-role");
   expect(screen.queryByLabelText("Password")).not.toBeInTheDocument();
 
-  fireEvent.click(
-    screen.getByRole("button", { name: "Log in as a user instead" }),
-  );
+  fireEvent.click(screen.getByRole("button", { name: "Log in as a user" }));
 
   expect(screen.getByLabelText("Password")).toBeInTheDocument();
   expect(screen.getByLabelText("Name")).toBeInTheDocument();
+  // The way in goes once it has been taken: the form is under the tile.
+  expect(
+    screen.queryByRole("button", { name: "Log in as a user" }),
+  ).not.toBeInTheDocument();
+});
+
+test("an account's tile is the picture beside its name, role and the way out", async () => {
+  loggedInAsAlice();
+  renderUser();
+
+  await screen.findByLabelText("Change your picture");
+  const name = screen.getByRole("heading", { level: 1 });
+  const head = name.closest(".user-identity-head");
+  expect(head).not.toBeNull();
+  // One head: the picture (the upload label) and the text column side by side,
+  // the name, the role word and Log out stacked in that column.
+  expect(
+    head?.querySelector(":scope > .user-identity-avatar-label"),
+  ).not.toBeNull();
+  const column = head?.querySelector(":scope > .user-identity-text");
+  expect(
+    Array.from(column?.children ?? []).map((child) => child.className),
+  ).toEqual([
+    "user-identity-name",
+    "user-identity-role",
+    "button user-identity-action",
+  ]);
+  expect(screen.getByRole("button", { name: "Log out" })).toBe(
+    column?.lastElementChild,
+  );
 });
 
 test("the SSO button appears only when the provider is configured", async () => {

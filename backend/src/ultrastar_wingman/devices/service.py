@@ -438,6 +438,7 @@ async def list_cards(session: AsyncSession) -> CardList:
             select(Player).where(Player.id.in_({card.player_id for card in cards}))
         )
     }
+    lying = await uids_on_readers()
     # A card whose player is gone is not listed: there is nobody left to select with it. The
     # row survives, harmless, and the next assignment of that uid overwrites it.
     return CardList(
@@ -447,6 +448,7 @@ async def list_cards(session: AsyncSession) -> CardList:
                 player=players[card.player_id],
                 # Naive coming out of SQLite; everything we write is UTC (see `as_utc`).
                 created_at=as_utc(card.created_at),
+                on_reader=card.uid in lying,
             )
             for card in cards
             if card.player_id in players
@@ -488,7 +490,12 @@ async def assign_card(
     await selection.card_identified(
         session_factory, normalised, player_id, auto_start=await auto_start_for(session)
     )
-    return CardRead(uid=card.uid, player=read_player(player), created_at=as_utc(card.created_at))
+    return CardRead(
+        uid=card.uid,
+        player=read_player(player),
+        created_at=as_utc(card.created_at),
+        on_reader=card.uid in await uids_on_readers(),
+    )
 
 
 async def forget_card(session: AsyncSession, uid: str) -> None:
@@ -549,9 +556,15 @@ async def cards_of_player(session: AsyncSession, player_id: str) -> CardList:
         .where(PlayerCard.player_id == player_id)
         .order_by(PlayerCard.created_at.desc())
     )
+    lying = await uids_on_readers()
     return CardList(
         cards=[
-            CardRead(uid=card.uid, player=read, created_at=as_utc(card.created_at))
+            CardRead(
+                uid=card.uid,
+                player=read,
+                created_at=as_utc(card.created_at),
+                on_reader=card.uid in lying,
+            )
             for card in cards
         ]
     )
@@ -564,6 +577,16 @@ async def card_belongs_to(session: AsyncSession, uid: str, player_id: str) -> bo
     return card is not None and card.player_id == player_id
 
 
+async def uids_on_readers() -> set[str]:
+    """Every card lying on a reader of a device that is online right now, whatever role the
+    reader has. The one rule for "this card is in the room": what is offered to claim, and
+    what a listed card says about itself. A device gone quiet is not believed — its last
+    report says what *was* lying there."""
+    async with _lock:
+        entries = [entry for entry in _live.values() if _is_online(entry)]
+    return {uid for entry in entries for uid in _uids_on(entry)}
+
+
 async def unknown_cards(session: AsyncSession) -> list[str]:
     """The cards lying on the readers right now that belong to nobody.
 
@@ -571,9 +594,7 @@ async def unknown_cards(session: AsyncSession) -> list[str]:
     room, and a uid nobody can see the card of is a uid nobody should be handed. A card
     whose player has been deleted counts as unknown, exactly as every listing draws it.
     """
-    async with _lock:
-        entries = [entry for entry in _live.values() if _is_online(entry)]
-    uids = {uid for entry in entries for uid in _uids_on(entry)}
+    uids = await uids_on_readers()
     if not uids:
         return []
     known = await _players_by_uid(session, uids)

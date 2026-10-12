@@ -48,8 +48,33 @@ const PLAYER: PlayerRead = {
   has_avatar: false,
 };
 
-function card(uid: string): CardRead {
-  return { uid, player: PLAYER, created_at: "2026-09-06T18:00:00Z" };
+function card(uid: string, onReader = false): CardRead {
+  return {
+    uid,
+    player: PLAYER,
+    created_at: "2026-09-06T18:00:00Z",
+    on_reader: onReader,
+  };
+}
+
+/** A row's uid line as it reads in full, the hidden state words included. */
+function uidLine(text: string) {
+  return (_: string, element: Element | null): boolean =>
+    element?.className === "my-cards-uid" && element.textContent === text;
+}
+
+/** The leading square of the row a uid stands in. */
+function squareOf(uid: string): Element | null {
+  return (
+    screen
+      .getByText(
+        (_, element) =>
+          element?.className === "my-cards-uid" &&
+          (element.textContent ?? "").startsWith(uid),
+      )
+      .closest(".my-cards-row")
+      ?.querySelector(".my-cards-square") ?? null
+  );
 }
 
 function renderCards() {
@@ -170,6 +195,54 @@ test("a card put down on the selector arrives without a reload", async () => {
   // Both listings are the caller's own view of the same readers, so both are
   // asked again.
   await waitFor(() => expect(listMyCards).toHaveBeenCalledTimes(2));
+});
+
+test("your own card lying on the selector is marked, and the rest are not", async () => {
+  listMyCards.mockResolvedValue({
+    data: { cards: [card("A1B2C3D4", true), card("99887766")] },
+  });
+  renderCards();
+
+  // The state is in the row's words for a screen reader, not in a colour.
+  expect(
+    await screen.findByText(uidLine("A1B2C3D4, on the player selector")),
+  ).toBeInTheDocument();
+  expect(squareOf("A1B2C3D4")).toHaveClass("my-cards-square-lying");
+  expect(squareOf("A1B2C3D4")).toHaveAttribute(
+    "title",
+    "On the player selector",
+  );
+  expect(screen.getByText("99887766")).toBeInTheDocument();
+  expect(squareOf("99887766")).not.toHaveClass("my-cards-square-lying");
+  expect(squareOf("99887766")).not.toHaveAttribute("title");
+  expect(screen.queryAllByText(/on the player selector$/)).toHaveLength(1);
+});
+
+test("an unclaimed card wears no mark: it is on a reader by definition", async () => {
+  listUnknownCards.mockResolvedValue({ data: { uids: ["FEEDFACE"] } });
+  renderCards();
+
+  expect(await screen.findByText("FEEDFACE")).toBeInTheDocument();
+  expect(squareOf("FEEDFACE")).not.toHaveClass("my-cards-square-lying");
+});
+
+test("the mark follows the card on and off the reader without a reload", async () => {
+  listMyCards.mockResolvedValue({ data: { cards: [card("A1B2C3D4")] } });
+  renderCards();
+  expect(await screen.findByText("A1B2C3D4")).toBeInTheDocument();
+
+  listMyCards.mockResolvedValue({ data: { cards: [card("A1B2C3D4", true)] } });
+  act(() => FakeSocket.deliver({ event: "devices.changed" }));
+  expect(
+    await screen.findByText(uidLine("A1B2C3D4, on the player selector")),
+  ).toBeInTheDocument();
+
+  listMyCards.mockResolvedValue({ data: { cards: [card("A1B2C3D4")] } });
+  act(() => FakeSocket.deliver({ event: "devices.changed" }));
+  await waitFor(() =>
+    expect(squareOf("A1B2C3D4")).not.toHaveClass("my-cards-square-lying"),
+  );
+  expect(screen.queryByText(/on the player selector$/)).not.toBeInTheDocument();
 });
 
 test("no selector and no card of your own, no block at all", async () => {

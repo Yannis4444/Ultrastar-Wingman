@@ -109,6 +109,7 @@ function card(overrides: Partial<CardRead> = {}): CardRead {
     uid: "A1B2C3D4",
     player: player(),
     created_at: "2026-08-02T10:00:00Z",
+    on_reader: false,
     ...overrides,
   };
 }
@@ -481,7 +482,12 @@ test("no device at all says where one comes from", async () => {
 
 test("a card nobody claimed opens the picker, and a tap gives it a singer", async () => {
   assignCard.mockResolvedValue({
-    data: { uid: "A1B2C3D4", player: player(), created_at: "x" },
+    data: {
+      uid: "A1B2C3D4",
+      player: player(),
+      created_at: "x",
+      on_reader: true,
+    },
   });
   renderDevices({
     devices: [device({ readers: [reader({ uid: "A1B2C3D4" })] })],
