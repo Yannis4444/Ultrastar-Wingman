@@ -126,7 +126,8 @@ Read the reason in the download row.
   **Downloads** group, behind **Advanced**, check that the file is there and
   current.
 - **A YouTube error.** The video is gone, private, or region-locked. Pick
-  another version of the song.
+  another version of the song. A video that wants a signed-in account needs
+  [a browser's login](../songs/download.md#age-restricted-videos).
 - **The song directory already exists.** That folder is already in your song
   library, and Wingman never writes over it. If Wingman lists it as a song,
   [delete the song](../songs/fix-or-delete.md). Otherwise delete the folder

@@ -529,6 +529,20 @@ async def test_download_puts_the_song_into_the_library(
     assert arguments[arguments.index("--format") + 1] == VIDEO_FORMAT
 
 
+async def test_download_hands_yt_dlp_the_hosts_own_arguments(
+    site: FakeUsdb, environment: Environment, queue: None, session: AsyncSession
+) -> None:
+    await SettingsService(session).set(media.YTDLP_ARGS_SETTING, "--cookies-from-browser firefox")
+
+    row = await download(session)
+
+    assert row.status == "finished"
+    arguments = (environment.tools / "ytdlp-argv.txt").read_text(encoding="utf-8").splitlines()
+    # First, so every option Wingman sets after them wins.
+    assert arguments[:2] == ["--cookies-from-browser", "firefox"]
+    assert arguments.index("--format") > 1
+
+
 @pytest.mark.parametrize(
     "cover",
     [

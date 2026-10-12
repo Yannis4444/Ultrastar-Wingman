@@ -28,12 +28,21 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from ..settings import SettingsService
 from ..sources.base import DownloadError, ProgressReport
 from .video_quality import DEFAULT_VIDEO_FORMAT
+from .ytdlp_arguments import redactor, split_ytdlp_args
 
 logger = logging.getLogger(__name__)
 
 YTDLP_PATH_SETTING = "downloads.ytdlp_path"
+YTDLP_ARGS_SETTING = "downloads.ytdlp_arguments"
 FFMPEG_SETTING = "downloads.ffmpeg"
 VIDEO_FORMAT_SETTING = "downloads.video_format"
+
+# What the debug log shows in place of the host's own yt-dlp arguments: they may carry a
+# password, and the console is not where one should ever appear.
+_HIDDEN_ARGUMENTS = "<downloads.ytdlp_arguments>"
+# Said with every failure of a run the host's arguments were part of: yt-dlp's own message
+# never names them, and a dangling option or a stray word reads as the video's fault.
+_ARGUMENTS_HINT = "yt-dlp ran with the yt-dlp arguments from the settings: check them too"
 
 LATEST_RELEASE_URL = "https://api.github.com/repos/yt-dlp/yt-dlp/releases/latest"
 ASSET_NAME = "yt-dlp.exe" if sys.platform == "win32" else "yt-dlp"
@@ -342,6 +351,18 @@ async def video_format(session: AsyncSession) -> str:
     return configured or DEFAULT_VIDEO_FORMAT
 
 
+async def ytdlp_args(session: AsyncSession) -> list[str]:
+    """The host's own yt-dlp arguments (`downloads.ytdlp_arguments`), split. The validator ran
+    on the way in and runs again on the way out (a stored value it refuses reads as the
+    empty default), so the split cannot fail here — but a download must still never end
+    on a `ValueError`, so a refusal is a `DownloadError` all the same."""
+    configured = str(await SettingsService(session).get(YTDLP_ARGS_SETTING))
+    try:
+        return split_ytdlp_args(configured)
+    except ValueError as error:
+        raise DownloadError(f"the setting '{YTDLP_ARGS_SETTING}' is unusable: {error}") from error
+
+
 async def download_video(
     executable: Path,
     url: str,
@@ -350,37 +371,80 @@ async def download_video(
     ffmpeg: str | None = None,
     *,
     format_string: str = DEFAULT_VIDEO_FORMAT,
+    extra_args: Sequence[str] = (),
 ) -> Path:
     """Download `url` to exactly `destination`. `ffmpeg` is where yt-dlp finds the muxer
     it needs to join the separate video and audio streams; `format_string` is what the
-    host configured (`downloads.video_format`)."""
+    host configured (`downloads.video_format`), `extra_args` the host's own arguments
+    (`downloads.ytdlp_arguments`)."""
     args = ["--format", format_string, "--output", str(destination)]
     if ffmpeg:
         args += ["--ffmpeg-location", ffmpeg]
-    await run_ytdlp(executable, [*args, "--", url], report)
+    await run_ytdlp(executable, [*args, "--", url], report, extra_args=extra_args)
+    # A successful run that left no file is the host's arguments at work — `--simulate`,
+    # `--extract-audio` or `--recode-video` end without error and without this file — and
+    # left to the next step it would read as ffmpeg not finding its input.
+    if not await asyncio.to_thread(destination.is_file):
+        raise DownloadError(
+            f"yt-dlp finished but wrote no {destination.name}"
+            + (f"; {_ARGUMENTS_HINT}" if extra_args else "")
+        )
     return destination
 
 
-async def run_ytdlp(executable: Path, args: Sequence[str], report: ProgressReport) -> None:
+async def run_ytdlp(
+    executable: Path,
+    args: Sequence[str],
+    report: ProgressReport,
+    *,
+    extra_args: Sequence[str] = (),
+) -> None:
     """Run yt-dlp, forwarding its download percentage to `report`. Raises `DownloadError`
-    on a non-zero exit, with the tail of stderr as the message."""
+    on a non-zero exit, with the tail of stderr as the message.
+
+    `extra_args` go first, straight after the program: yt-dlp lets a later option win over
+    an earlier one, so the host's arguments can add what Wingman does not set (cookies, a
+    login, a proxy) but cannot replace the progress output (`--progress` undoes a `--quiet`
+    or `--no-progress`), the format or the output file Wingman depends on. Placed first, an
+    option left without its value takes Wingman's `--progress-template` as that value, which
+    leaves the template as a second URL beside the video's, and yt-dlp refuses the run with
+    "Fixed output name but more than one file to download" — a failure, rather than a
+    download with a silently frozen bar. Nothing in such a message points at the host's
+    arguments, so every failure while there are any says they were in use.
+
+    The `--version` probe of the managed copy never gets them: a probe that fails is taken
+    for a broken binary and replaced, so one bad argument would download yt-dlp again on
+    every check, and a cookie or login option has nothing to do with a version.
+
+    None of `extra_args` reaches the console or the download's message: the command is
+    logged with a placeholder in their place, and every value among them is hidden in
+    yt-dlp's own output (`ytdlp_arguments.redactor` says why that is needed)."""
+    redact = redactor(extra_args)
 
     async def on_line(line: str) -> None:
         match = _PROGRESS_LINE.search(line)
         if match is None:
-            logger.debug("yt-dlp: %s", line)
+            logger.debug("yt-dlp: %s", redact(line))
             return
         await report(float(match.group(1)), VIDEO_STEP)
 
-    command = [
-        str(executable),
-        # Without --newline yt-dlp rewrites one line with \r and nothing is ever read.
-        "--newline",
+    own = [
         "--progress-template",
         _PROGRESS_TEMPLATE,
+        # Without --newline yt-dlp rewrites one line with \r and nothing is ever read.
+        "--newline",
+        "--progress",
         *args,
     ]
-    await _run(command, on_line)
+    command = [str(executable), *extra_args, *own]
+    shown = [str(executable), *([_HIDDEN_ARGUMENTS] if extra_args else []), *own]
+    await _run(
+        command,
+        on_line,
+        shown=shown,
+        redact=redact,
+        hint=_ARGUMENTS_HINT if extra_args else None,
+    )
 
 
 async def extract_audio(ffmpeg: str, video: Path, mp3_out: Path) -> Path:
@@ -408,12 +472,28 @@ async def extract_audio(ffmpeg: str, video: Path, mp3_out: Path) -> Path:
 
 
 async def _run(
-    command: Sequence[str], on_line: Callable[[str], Awaitable[None]] | None = None
+    command: Sequence[str],
+    on_line: Callable[[str], Awaitable[None]] | None = None,
+    *,
+    shown: Sequence[str] | None = None,
+    redact: Callable[[str], str] | None = None,
+    hint: str | None = None,
 ) -> None:
-    logger.debug("running %s", command)
+    """`shown` is what the debug log may print in place of `command`, and `redact` what
+    the stderr tail goes through before it becomes the error — for a command that carries
+    something the console and the download's message must not (the host's own yt-dlp
+    arguments). `hint` is added to the message of a non-zero exit.
+
+    stdin is closed, so nothing a tool reads from its input waits on the console window,
+    and ffmpeg never takes the host's keys there for its own commands. yt-dlp's question for
+    a password left out beside a username is no such read — `getpass` asks the console
+    itself, and a closed stdin leaves it waiting — which is why the setting refuses that
+    login at the door (`ytdlp_arguments.validate_ytdlp_args`)."""
+    logger.debug("running %s", command if shown is None else shown)
     try:
         process = await asyncio.create_subprocess_exec(
             *command,
+            stdin=asyncio.subprocess.DEVNULL,
             stdout=asyncio.subprocess.PIPE,
             stderr=asyncio.subprocess.PIPE,
         )
@@ -427,7 +507,10 @@ async def _run(
     code = await process.wait()
     if code != 0:
         tail = " ".join(stderr[-_STDERR_TAIL_LINES:]) or "no error output"
-        raise DownloadError(f"{Path(command[0]).name} failed with exit code {code}: {tail}")
+        if redact is not None:
+            tail = redact(tail)
+        message = f"{Path(command[0]).name} failed with exit code {code}: {tail}"
+        raise DownloadError(message if hint is None else f"{message} ({hint})")
 
 
 async def _forward(

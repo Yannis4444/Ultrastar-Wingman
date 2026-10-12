@@ -312,6 +312,7 @@ async def _download(
         report,
         ffmpeg,
         format_string=await media.video_format(session),
+        extra_args=await media.ytdlp_args(session),
     )
     await report(None, AUDIO_STEP)
     await media.extract_audio(ffmpeg, work_dir / "video.mp4", work_dir / "song.mp3")
