@@ -178,7 +178,8 @@
    on too, and the full-screen button keeps that focus on a page that does not
    navigate, so the overlay would never fade again over the TV. A key pressed
    later turns a clicked control's focus visible after all, so `Host.tsx` also
-   takes that focus away (`dropPointerFocus`, and the full-screen click). */
+   takes that focus away right after the click (`dropClickFocus`), and once
+   more when the chrome fades (`dropPointerFocus`). */
 .host-controls:has(:focus-visible) {
   opacity: 1 !important;
   pointer-events: auto;
@@ -197,8 +198,8 @@
   pointer-events: none;
 }
 
-/* `:focus-visible` for the reason the overlay gives: a clicked pill keeps its
-   focus, and the pills would otherwise stay up for the rest of the evening. */
+/* `:focus-visible` for the reason the overlay gives: a clicked pill would keep
+   its focus, and the pills would otherwise stay up for the rest of the evening. */
 .host-reveal:has(:focus-visible) {
   opacity: 1 !important;
   pointer-events: auto;
@@ -209,12 +210,6 @@
   .host-reveal {
     transition: none;
   }
-}
-
-.host-icon-button {
-  width: 48px;
-  height: 48px;
-  border-radius: 50%;
 }
 
 .host-active {

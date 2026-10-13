@@ -621,15 +621,20 @@ saved) where a jump to the top would throw away the place they were working in.
   page would stop the music mid-song) and plays only for `auth.isHost`. `HostBrand` gains one
   quiet line under the scan hint naming the background song, drawn only where `scan` is true
   so the between-singers beat stays bare; it is content, not a control, so it is **not** in
-  the reveal-on-movement overlay and adds no second idle timer. *Turn on sound* goes in
-  `.host-rail` after the QR card for the same reason: `.host-controls` is invisible the moment
-  the mouse stops, which on a TV is always.
+  the reveal-on-movement overlay and adds no second idle timer. *Turn on sound* is not in the
+  overlay for the same reason — `.host-controls` is invisible the moment the mouse stops, which
+  on a TV is always — and not in `.host-rail` either, which is down while the room picks
+  singers: `.host-sound-on` is a large primary fixed at the bottom centre of the screen
+  (`bottom: 8vh`, over everything, above the music line), pulsing outside reduced motion,
+  because a browser that plays nothing until somebody clicks is a fault the whole room has to
+  see from the sofa.
   Controls reveal on pointer movement through the page's single `useIdle` mechanism — never add a second idle timer.
   The full-screen button is one of them, in `.host-controls` so a takeover never takes it down,
   and stays there in full screen as the way out: a host with a mouse alone has no Esc. Keyboard focus
   holds the overlay up (`:has(:focus-visible)`), a click's focus does not: a control a click focused
-  lets go of it when the chrome fades (the full-screen button at once), because any later key, Esc out
-  of full screen among them, would turn that focus visible. Verify at 1280×720 and up,
+  lets go of it right after the click — the leaderboard's order pills included — and anything still
+  holding one lets go when the chrome fades, because any later key, Esc out of full screen among
+  them, would turn that focus visible. Verify at 1280×720 and up,
   and re-check it after touching any shared component (`CurrentlyPlaying`, `LastSong`,
   `SongCover`, `SessionLeaderboard`). `LastSong` takes the same score summary as the phones,
   in the naming column beside the cover and under the artist line, wrapping there instead of

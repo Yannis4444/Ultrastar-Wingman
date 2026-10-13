@@ -87,6 +87,21 @@ function dropPointerFocus() {
 }
 
 /**
+ * A click on the chrome lets go of the focus it gave as soon as it has given
+ * it, not three seconds later: a key pressed before the page goes idle would
+ * turn that focus visible first, and the idle check would then keep it. A
+ * label's click — the leaderboard's order pills are labels over hidden radios
+ * — focuses its radio only after its own click has been dispatched, so the
+ * check waits a task. Enter or Space on a control Tab reached clicks it too,
+ * and that focus is visible, so it stays.
+ */
+function dropClickFocus(event: MouseEvent<HTMLElement>) {
+  if (!(event.target instanceof Element)) return;
+  if (event.target.closest(".host-controls, .host-reveal") === null) return;
+  window.setTimeout(dropPointerFocus, 0);
+}
+
+/**
  * True after `delay` ms without input; drives cursor hiding, the overlay and
  * every `.host-reveal` cluster (the leaderboard's order pills). One timer for
  * the whole page — a second one would let the chrome fade out in pieces.
@@ -170,7 +185,7 @@ function HostFullscreen({
   return (
     <button
       type="button"
-      className="icon-button host-icon-button"
+      className="icon-button"
       aria-label={fullscreen ? "Leave full screen" : "Full screen"}
       onClick={toggle}
     >
@@ -351,6 +366,7 @@ export default function Host() {
   return (
     <div
       className={`host-page${takeover ? " host-takeover" : ""}${idle ? " host-idle" : ""}`}
+      onClick={dropClickFocus}
     >
       <div className="host-stage">
         <CurrentlyPlaying />
@@ -456,11 +472,7 @@ export default function Host() {
         {/* The host's own manage view, not the phone's user page: this screen
             has no tab bar to find its way back from. */}
         {manage.length > 0 && (
-          <Link
-            to="/host/manage"
-            className="icon-button host-icon-button"
-            aria-label="Manage"
-          >
+          <Link to="/host/manage" className="icon-button" aria-label="Manage">
             <Icon name="gear" />
           </Link>
         )}
@@ -470,7 +482,7 @@ export default function Host() {
         {sing !== null && auth.can("karaoke.stop") && (
           <button
             type="button"
-            className="icon-button host-icon-button icon-button-danger"
+            className="icon-button icon-button-danger"
             aria-label="Stop"
             disabled={stop.isPending}
             onClick={() => setAskStop(true)}

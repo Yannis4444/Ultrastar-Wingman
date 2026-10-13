@@ -470,6 +470,29 @@ test("a control only a click focused lets go of it when the overlay fades", asyn
   expect(focusVisible).toHaveBeenCalledWith(":focus-visible");
 });
 
+test("a clicked order pill lets go of its focus at once, a keyboard's keeps it", async () => {
+  withScores();
+  renderHost("/host");
+  const board = await screen.findByLabelText("Party leaderboard");
+  const pill = within(board).getByRole("radio", { name: "average" });
+  const focusVisible = vi.spyOn(pill, "matches");
+
+  // A click: the browser focuses the radio under the label without drawing it,
+  // and a key pressed before the page idles would draw it and hold the pills up.
+  focusVisible.mockReturnValue(false);
+  pill.focus();
+  fireEvent.click(pill, { detail: 1 });
+  await waitFor(() => expect(pill).not.toHaveFocus());
+  expect(focusVisible).toHaveBeenCalledWith(":focus-visible");
+
+  // Space on a pill Tab reached clicks it too, and that focus is drawn: it stays.
+  focusVisible.mockReturnValue(true);
+  pill.focus();
+  fireEvent.click(pill, { detail: 0 });
+  await act(() => new Promise((resolve) => setTimeout(resolve, 20)));
+  expect(pill).toHaveFocus();
+});
+
 test("the full-screen button stays reachable while the room picks singers", async () => {
   fullscreenApi();
   withScores();
