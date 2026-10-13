@@ -329,6 +329,61 @@ test("a selection that ends takes the stage with it", async () => {
   expect(onPhase).toHaveBeenLastCalledWith("idle");
 });
 
+/**
+ * The read of the selection, held on the wire until the test answers it: the
+ * broadcast of a change can overtake the answer to a read the server made
+ * before that change, the two riding different connections.
+ */
+function readInFlight(): (selection: SelectionRead | null) => Promise<void> {
+  let answer: (value: {
+    data: { selection: SelectionRead | null };
+  }) => void = () => undefined;
+  // Cleared, so waiting for the call waits for this test's read and not for an
+  // earlier test's: a broadcast sent before the read leaves is answered by
+  // that read, which is the server's newer word and rightly wins.
+  getPlayerSelection.mockClear();
+  getPlayerSelection.mockReturnValue(
+    new Promise((resolve) => {
+      answer = resolve;
+    }),
+  );
+  return async (selection) => {
+    await act(async () => {
+      answer({ data: { selection } });
+      // Long enough for the answer to have reached the cache and the screen.
+      await new Promise((resolve) => setTimeout(resolve, 50));
+    });
+  };
+}
+
+test("a read answered after a newer broadcast does not put the older selection back", async () => {
+  const answer = readInFlight();
+  renderStage();
+  await waitFor(() => expect(getPlayerSelection).toHaveBeenCalled());
+
+  // The room opens a selection while the TV's first read is on its way back
+  // with the server's answer from before it.
+  broadcast(selection());
+  expect(await screen.findByLabelText("Picking singers")).toBeInTheDocument();
+  await answer(null);
+
+  expect(screen.getByLabelText("Picking singers")).toBeInTheDocument();
+  expect(rows()).toEqual(["Alice", "empty", "Unknown card"]);
+});
+
+test("a read answered after the selection ended does not bring it back", async () => {
+  const answer = readInFlight();
+  const onPhase = vi.fn();
+  renderStage(onPhase);
+  await waitFor(() => expect(getPlayerSelection).toHaveBeenCalled());
+
+  broadcast(null);
+  await answer(selection());
+
+  expect(screen.queryByLabelText("Picking singers")).not.toBeInTheDocument();
+  expect(onPhase).not.toHaveBeenCalledWith("selecting");
+});
+
 test("the automatic start counts down in words", async () => {
   vi.useFakeTimers({ shouldAdvanceTime: true });
   getPlayerSelection.mockResolvedValue({
