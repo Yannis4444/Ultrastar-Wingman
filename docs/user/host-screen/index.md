@@ -141,8 +141,9 @@ the room to hear anything. One quiet line along the bottom of the screen names
 what is playing, whether the brand or the scores are up. See [Play background music](../party/music.md).
 
 A browser plays no sound until somebody has pressed something on the page, and a
-TV gets no presses. When that is what is stopping it, **Turn on sound** appears
-under the code. One click anywhere on the page does the same thing.
+TV gets no presses. When that is what is stopping it, a large **Turn on sound**
+appears at the bottom of the screen, in the middle, even while the room picks
+singers. One click anywhere on the page does the same thing.
 
 ## The controls that fade
 
@@ -154,6 +155,8 @@ movement. So do the three ranking words beside **Tonight**.
   [Manage from the TV](manage.md).
 - :wingman-fullscreen: **Full screen** puts the page on the whole screen, where
   it turns into :wingman-fullscreen-exit: **Leave full screen**. Esc leaves too.
+  A browser that refuses says *The browser would not go full screen. Press F11
+  instead.*
 - :wingman-stop: **Stop** ends the song. It asks first, and it names the song.
   It is there while a song plays, for a browser that may stop one.
 - The line saying this browser holds host rights.
