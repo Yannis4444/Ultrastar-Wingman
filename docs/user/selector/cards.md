@@ -48,7 +48,7 @@ A singer with an account takes a card without asking anybody. **My cards** sits
 on the **User** tab, below your scores and badges. It appears once a card is
 lying on the selector, or once the account already holds one.
 
-![The My cards block on the User tab, with an unclaimed card's number beside a This is mine button](../assets/screenshots/selector/user-my-cards.png){ width="320" loading=lazy }
+![The My cards block, with an unclaimed card's number beside This is mine and the account's own card with its glyph lit blue](../assets/screenshots/selector/user-my-cards.png){ width="320" loading=lazy }
 /// caption
 A card nobody holds shows up here by its number.
 ///

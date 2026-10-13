@@ -553,7 +553,7 @@ about, and the **Must be visible** column names that part alone.
 | `host-manage` | `host-screen/manage.md` | `/host/manage` | Host rights on that browser | 1280x720 | The management rows the host reaches from the TV |
 | `selector-admin` | `selector/cards.md` | `/user/devices` | The seeded device online, one known card and one unknown one on its readers | 390x844 | The **On the readers now** list, a named card and an **Unknown card** row |
 | `selector-device` | `selector/setup.md` | `/user/devices/:id` | The same device, running one firmware version behind the bundled image | 390x844 | The status lines, **Update firmware** and **Update over Wi-Fi**, the reader rows |
-| `user-my-cards` | `selector/cards.md` | `/user` | Signed in as Fry, who holds no card, with an unknown card on a reader | 390x844 | The **My cards** heading, the card's number, and **This is mine** |
+| `user-my-cards` | `selector/cards.md` | `/user` | Signed in as Leela, her own card and an unknown card both on a reader | 390x844 | The **My cards** heading, the unknown card's number with **This is mine**, and Leela's card with its glyph lit |
 | `host-picking` | `selector/index.md` | `/host` | A selection open while the device is online, both cards on their slots | 1280x720 | The song in one centered column over *Picking singers*, the slots with the card holder and **Unknown card**, and no rail |
 | `host-reel` | `host-screen/index.md` | `/host` | The selector's start button pressed while the device is online, with **Start a random song** set: a spun selection over both cards, the reel landed | 1280x720 | The reel at rest where the cover stands, the title and artist under it, *Picking singers*, the slots along the foot, and no rail |
 
