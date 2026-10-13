@@ -123,6 +123,23 @@ downloaded: Ultrastar Deluxe plays it, and the audio comes out of that file.
     ffmpeg already on your system is used instead. On Linux and macOS, install
     ffmpeg yourself.
 
+## Age-restricted videos
+
+YouTube shows some videos only to a signed-in account. yt-dlp can borrow the
+YouTube login of a browser on the PC that runs Wingman.
+
+1. Sign in to YouTube in that browser, for example Firefox.
+2. Open **User** > **Settings**, and unfold **Advanced** in the **Downloads**
+   group.
+3. Type `--cookies-from-browser firefox` into **yt-dlp arguments**, with your
+   browser's name in place of `firefox`. yt-dlp reads brave, chrome, chromium,
+   edge, firefox, opera, safari, vivaldi, and whale.
+4. Retry the download.
+
+A cookies file works too: `--cookies` followed by the file's path. See
+[Settings reference](../settings/reference.md#downloads) for how the field
+reads what you type.
+
 ## After the download
 
 A song that is already in your library is never downloaded twice. Everything

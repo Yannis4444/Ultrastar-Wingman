@@ -1,11 +1,14 @@
+import asyncio
 import io
 import json
+import logging
 import shutil
 import sys
 import zipfile
 from collections.abc import AsyncIterator
 from datetime import UTC, datetime, timedelta
 from pathlib import Path
+from typing import Any
 
 import httpx
 import pytest
@@ -232,22 +235,103 @@ async def test_run_ytdlp_reports_progress(tmp_path: Path) -> None:
         (50.5, "downloading video"),
         (100.0, "downloading video"),
     ]
-    # The machine-readable progress output is not optional: without both flags nothing
-    # above could have been parsed.
+    # The machine-readable progress output is not optional: without these flags nothing
+    # above could have been parsed (`--progress` undoes a `--quiet` the host may have set).
     assert (tmp_path / "argv.txt").read_text(encoding="utf-8").splitlines() == [
-        "--newline",
         "--progress-template",
         media._PROGRESS_TEMPLATE,
+        "--newline",
+        "--progress",
     ]
+
+
+async def test_the_hosts_arguments_come_before_wingmans_own(tmp_path: Path) -> None:
+    """yt-dlp lets a later option win, so Wingman's progress, format and output options
+    behind the host's are the ones that count. The progress template follows straight
+    after: an option the host left without its value takes `--progress-template`, and the
+    template itself becomes a URL yt-dlp refuses — loudly, not with a frozen bar."""
+    ytdlp = fake_executable(
+        tmp_path,
+        "yt-dlp",
+        "import sys\nopen(sys.argv[-1], 'w').write(chr(10).join(sys.argv[1:-1]))\n",
+    )
+
+    async def report(percent: float | None, step: str) -> None:
+        return None
+
+    await media.run_ytdlp(
+        ytdlp,
+        ["--format", "best", str(tmp_path / "argv.txt")],
+        report,
+        extra_args=["--cookies-from-browser", "firefox", "--format", "worst"],
+    )
+
+    assert (tmp_path / "argv.txt").read_text(encoding="utf-8").splitlines() == [
+        "--cookies-from-browser",
+        "firefox",
+        "--format",
+        "worst",
+        "--progress-template",
+        media._PROGRESS_TEMPLATE,
+        "--newline",
+        "--progress",
+        "--format",
+        "best",
+    ]
+
+
+async def test_the_hosts_arguments_never_reach_the_log_or_the_error(
+    tmp_path: Path, caplog: pytest.LogCaptureFixture
+) -> None:
+    """`--password my secret` without quotes leaves `secret` for yt-dlp to read as a URL,
+    and it says so — in the error that becomes the download's message, which the console
+    prints and every guest phone receives."""
+    ytdlp = fake_executable(
+        tmp_path,
+        "yt-dlp",
+        "import sys\n"
+        "print('[generic] Extracting URL: secret')\n"
+        "print(\"ERROR: [generic] 'secret' is not a valid URL\", file=sys.stderr)\n"
+        "sys.exit(1)\n",
+    )
+
+    async def report(percent: float | None, step: str) -> None:
+        return None
+
+    with (
+        caplog.at_level(logging.DEBUG, logger=media.__name__),
+        pytest.raises(DownloadError) as raised,
+    ):
+        await media.run_ytdlp(
+            ytdlp, ["--", "https://youtu.be/abc"], report, extra_args=["--password", "my", "secret"]
+        )
+
+    assert "is not a valid URL" in str(raised.value)
+    assert "secret" not in str(raised.value)
+    # The command line was logged, with a placeholder for the host's arguments, and so
+    # was yt-dlp's own output — neither with a value in it.
+    assert media._HIDDEN_ARGUMENTS in caplog.text
+    assert "Extracting URL: ***" in caplog.text
+    assert "secret" not in caplog.text
+    assert "'my'" not in caplog.text
 
 
 async def test_download_video_builds_the_standard_arguments(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
     recorded: list[str] = []
+    extras: list[str] = []
 
-    async def fake_run(executable: Path, args: list[str], report: media.ProgressReport) -> None:
+    async def fake_run(
+        executable: Path,
+        args: list[str],
+        report: media.ProgressReport,
+        *,
+        extra_args: list[str],
+    ) -> None:
         recorded.extend(args)
+        extras.extend(extra_args)
+        (tmp_path / "video.mp4").write_bytes(b"video")
 
     monkeypatch.setattr(media, "run_ytdlp", fake_run)
 
@@ -261,9 +345,12 @@ async def test_download_video_builds_the_standard_arguments(
         report,
         "ffmpeg",
         format_string="best[height<=720]",
+        extra_args=["--cookies-from-browser", "firefox"],
     )
 
     assert destination == tmp_path / "video.mp4"
+    # Handed on as they are: where they go in the command is `run_ytdlp`'s business.
+    assert extras == ["--cookies-from-browser", "firefox"]
     assert recorded == [
         "--format",
         "best[height<=720]",
@@ -287,8 +374,91 @@ async def test_run_ytdlp_raises_with_the_stderr_tail(tmp_path: Path) -> None:
     async def report(percent: float | None, step: str) -> None:
         raise AssertionError("no progress expected")
 
-    with pytest.raises(DownloadError, match="video unavailable"):
+    with pytest.raises(DownloadError, match="video unavailable") as raised:
         await media.run_ytdlp(ytdlp, [], report)
+    # Without the host's own arguments there is nothing to point at.
+    assert "settings" not in str(raised.value)
+
+
+async def test_a_failure_with_the_hosts_arguments_says_they_were_used(tmp_path: Path) -> None:
+    """A `--cookies` left without its file takes `--progress-template` for one, the template
+    becomes a second URL, and yt-dlp's answer names nothing the host typed."""
+    ytdlp = fake_executable(
+        tmp_path,
+        "yt-dlp",
+        "import sys\n"
+        "print('ERROR: Fixed output name but more than one file to download', file=sys.stderr)\n"
+        "sys.exit(1)\n",
+    )
+
+    async def report(percent: float | None, step: str) -> None:
+        return None
+
+    with pytest.raises(DownloadError) as raised:
+        await media.run_ytdlp(ytdlp, [], report, extra_args=["--cookies"])
+
+    assert "more than one file" in str(raised.value)
+    assert "yt-dlp arguments from the settings" in str(raised.value)
+
+
+async def test_yt_dlp_gets_no_console_input(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """Nothing a tool reads from its input may wait on the console window. (Under pytest
+    the inherited stdin is empty anyway, so what the process is started with is what is
+    checked. yt-dlp's password question bypasses stdin altogether, which is why the
+    setting refuses a username without its password.)"""
+    ytdlp = fake_executable(tmp_path, "yt-dlp", "import sys\nsys.exit(0)\n")
+    started: list[object] = []
+    real = asyncio.create_subprocess_exec
+
+    async def spy(*command: str, **options: Any) -> asyncio.subprocess.Process:
+        started.append(options.get("stdin"))
+        return await real(*command, **options)
+
+    monkeypatch.setattr(asyncio, "create_subprocess_exec", spy)
+
+    async def report(percent: float | None, step: str) -> None:
+        return None
+
+    await media.run_ytdlp(ytdlp, [], report, extra_args=["--username", "bob"])
+
+    assert started == [asyncio.subprocess.DEVNULL]
+
+
+@pytest.mark.parametrize(
+    ("extra_args", "hint"),
+    [pytest.param([], False, id="own-arguments"), pytest.param(["-x"], True, id="hosts-arguments")],
+)
+async def test_a_run_that_writes_no_video_is_a_failure(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, extra_args: list[str], hint: bool
+) -> None:
+    """`--extract-audio`, `--simulate` or `--recode-video` end without an error and without
+    the file — which the next step would report as ffmpeg not finding its input."""
+
+    async def fake_run(
+        executable: Path,
+        args: list[str],
+        report: media.ProgressReport,
+        *,
+        extra_args: list[str],
+    ) -> None:
+        return None
+
+    monkeypatch.setattr(media, "run_ytdlp", fake_run)
+
+    async def report(percent: float | None, step: str) -> None:
+        return None
+
+    with pytest.raises(DownloadError, match="wrote no video.mp4") as raised:
+        await media.download_video(
+            tmp_path / "yt-dlp",
+            "https://youtu.be/abc",
+            tmp_path / "video.mp4",
+            report,
+            extra_args=extra_args,
+        )
+    assert ("yt-dlp arguments from the settings" in str(raised.value)) is hint
 
 
 async def test_run_ytdlp_reports_a_missing_executable(tmp_path: Path) -> None:

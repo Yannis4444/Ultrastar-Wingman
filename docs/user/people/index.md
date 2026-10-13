@@ -60,10 +60,10 @@ further out, so the host does not log in again next weekend.
 
 ## Your own page
 
-Once you are logged in, the **User** tab is you. It shows your picture, your
-name, and your role under it. Tap the picture to change it, which needs no right
-at all. With single sign-on, the provider's picture stands there until you pick
-one of your own. See [Single sign-on](single-sign-on.md#the-picture).
+Once you are logged in, the **User** tab is you. It shows your picture with your
+name beside it, your role under the name, and **Log out**. Tap the picture to
+change it, which needs no right at all. With single sign-on, the provider's
+picture stands there until you pick one of your own. See [Single sign-on](single-sign-on.md#the-picture).
 
 Below stand your totals over every party you sang at, a link to your whole
 record of scores, and the badges you hold. See [Scores](../scores/index.md) and
@@ -78,11 +78,11 @@ report.
 ## The host screen's browser
 
 The browser the host opened with the host link is not an account. The **User**
-tab names it **Host screen** and says *This browser has full access* under it.
-It may change every setting. It owns nothing, so it has no favorites, no
-playlists, and no scores of its own.
+tab names it **Host screen**, with the role **Admin** under it. It may change
+every setting. It owns nothing, so it has no favorites, no playlists, and no
+scores of its own.
 
-**Log in as a user instead** puts the login form on that browser for whoever
+**Log in as a user** puts the login form on that browser for whoever
 wants their own account there. See
 [The host screen](../host-screen/index.md).
 

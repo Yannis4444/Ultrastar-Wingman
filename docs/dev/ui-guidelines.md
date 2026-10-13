@@ -113,6 +113,7 @@ may wear is the picker's list below, never this table.
 | `headphones` / `drum` / `piano` / `rocket` / `anchor` / `tree` / `paw` / `smile` | tags for songs to play rather than sing · for the drum-driven ones · for songs at the keys · for the night's openers · for sea shanties · for folk · for animal songs · for the funny ones | a headband arc, its inner edge counter-wound, and two capsule earcups · a cylinder between two overhanging rim bars, one three-V zigzag band counter-wound out of the shell · a keybed bar over five keys, the four black ones counter-wound out of it · a pointed body between two fins over a flame, the porthole counter-wound · a ring over a shank crossed by a stock, above one curved fluke bar, the ring's hole counter-wound · three stacked triangles on a short trunk · a pad disc under four toe discs, five subpaths, nothing cut out · a disc with two eyes and a crescent mouth counter-wound out of it |
 | `hash` / `music` / `arrow-up` / `average` / `arrow-down` · `trophy` | a score summary's five numbers, in that order — sings, songs, best, average, worst · the best score as a thing to open: the §5 summary strip's gold button, never a number inside a score summary | two upright bars crossed by two horizontal ones · one contour, a note head under a flagged stem · one solid contour, a shaft behind a triangular head, and the same mirrored · a ring struck corner to corner by a bar · a cup between two handles over a stem and a foot bar. The reorder pair on a playlist or achievement row is `arrow-up` / `arrow-down` doing a job, not a second meaning. None of them is pickable — a number is not a thing a song is about — `music` excepted: it is in the picker already, meaning genre, and wears this second meaning only inside a summary; `trophy` stays out with `clock`, `globe`, `star` and `tag` |
 | `pause` / `skip` / `volume` | the background music's transport on the player, and `volume` labelling the **Sound** settings group and the `music` permission group | two upright bars at `play`'s own height · `play` again with the bar it runs into · a speaker cone under two arcs. None of the three is pickable: pausing is not a thing a song is about, and `volume` is doing a job in the two places it labels, the way `tv` labels the Host group |
+| `fullscreen` / `fullscreen-exit` | the host screen's full-screen control: enter, and while in full screen leave | four corner brackets at the edges of the square, corners pointing out · the same four with their corners pointing in towards the middle. Neither is pickable |
 | `upload` / `download` | the Achievements admin's two archive buttons: one in, one out | `download` mirrored — the same shaft, arrowhead and tray bar, the arrow coming up out of the bar instead of down into it. Neither is pickable: an archive is not a thing a tag or an achievement is about |
 | `card` | the player selector device: the *Player selector* entry of the manage menu, the admin page's device rows, and the `devices` permission group | a card lying on its side, 20 by 12 with a corner radius of 2, its chip counter-wound out of the upper left. Wider and rounder than `tv`'s case, and the chip sits off centre where a bank card carries one. Not pickable: a card is not a thing a song is about |
 | `thumbs-up` / `hourglass` / `balloon` / `dumbbell` / `tv` | tags for the crowd-pleasers · for the long ones · for carnival · for the gym set · for series and anime — labelling the Host settings group is a job, not a meaning | a fist block with the thumb up over a separate cuff bar · two triangles meeting at the waist between two cap bars · a teardrop bulb over a short zigzag string · a bar between two pairs of stacked plates · a rounded case, the screen counter-wound, on a stand bar |
@@ -331,8 +332,8 @@ saved) where a jump to the top would throw away the place they were working in.
 
 - **Song list rows** (`SongListItem`): 40×40 cover, title + passive marks, artist in
   `--color-darker`; the row opens the song modal. **Album covers are square** except the spinner
-  reel frame; `PlayerAvatar` is `--border-radius-small` (people, not covers), the 96px identity
-  avatar round. Sizes: 40px in rows, 200px (`max-width: 60vw`) in the modal hero, 160px on Home,
+  reel frame; `PlayerAvatar` is `--border-radius-small` (people, not covers), the 88px identity
+  avatar included. Sizes: 40px in rows, 200px (`max-width: 60vw`) in the modal hero, 88px on Home,
   `min(42vh, 30vw)` on the host; the fallback is the initial letter on `--input-bg`.
 - **Home** is `HomeStage`, the player: one tile, three modes, **one control row**, and
   **one height** — 200px: 16 of padding, an 88px head, 8, and the 72px the sing's lead needs;
@@ -573,7 +574,18 @@ saved) where a jump to the top would throw away the place they were working in.
   back to the players; its title and the pencil's label cover the pair, a panel that also
   deletes not being "Who sang this?" alone. The number and the song are never editable — a
   wrongly picked singer is the mistake this fixes.
-- **User** (`/user`) is the identity tile, the singer's own record, then *Manage*. The record
+- **User** (`/user`) is the identity tile, the singer's own record, then *Manage*. The tile is
+  Home's head and nothing else, 88px at 16 of padding: the avatar (`PlayerAvatar` at the
+  stage's art size) beside a column centred against it of declared px rows — the name as the
+  page's `h1` (1.3em on 28px, left, ellipsed), the role word (`auth.role` capitalised, 0.85em
+  on 20px, `--color-darker`; the host's is *Admin* too) and one 40px `.button` on an 18px line:
+  *Log out*, or for the host *Log in as a user*, which goes once pressed and opens the login
+  form under the tile. The avatar is the upload — a `<label>` over a hidden file input named
+  *Change your picture*, `image` in its lower-right corner on `--highlight-blue-dark` — and a
+  refusal is one `.error-notice` under the head, inside the tile. The host draws `shield` in
+  the avatar's square on `--input-bg` over *Host screen*; logged out there is no tile, the `h1`
+  *You* over the login form; nothing is drawn before `/auth/me` answers. Uncapped on a wide
+  screen, unlike the stage: it starts at the gutter like every section under it. The record
   opens with the score summary above, its Best and Worst unnamed — every score on this page is
   the reader's own — and no favorites count: favorites are a filter, not an achievement. Under
   it the histogram, and under that *All my scores*, which belongs to those stats and not to the
@@ -609,10 +621,20 @@ saved) where a jump to the top would throw away the place they were working in.
   page would stop the music mid-song) and plays only for `auth.isHost`. `HostBrand` gains one
   quiet line under the scan hint naming the background song, drawn only where `scan` is true
   so the between-singers beat stays bare; it is content, not a control, so it is **not** in
-  the reveal-on-movement overlay and adds no second idle timer. *Turn on sound* goes in
-  `.host-rail` after the QR card for the same reason: `.host-controls` is invisible the moment
-  the mouse stops, which on a TV is always.
-  Controls reveal on pointer movement through the page's single `useIdle` mechanism — never add a second idle timer. Verify at 1280×720 and up,
+  the reveal-on-movement overlay and adds no second idle timer. *Turn on sound* is not in the
+  overlay for the same reason — `.host-controls` is invisible the moment the mouse stops, which
+  on a TV is always — and not in `.host-rail` either, which is down while the room picks
+  singers: `.host-sound-on` is a large primary fixed at the bottom centre of the screen
+  (`bottom: 8vh`, over everything, above the music line), pulsing outside reduced motion,
+  because a browser that plays nothing until somebody clicks is a fault the whole room has to
+  see from the sofa.
+  Controls reveal on pointer movement through the page's single `useIdle` mechanism — never add a second idle timer.
+  The full-screen button is one of them, in `.host-controls` so a takeover never takes it down,
+  and stays there in full screen as the way out: a host with a mouse alone has no Esc. Keyboard focus
+  holds the overlay up (`:has(:focus-visible)`), a click's focus does not: a control a click focused
+  lets go of it right after the click — the leaderboard's order pills included — and anything still
+  holding one lets go when the chrome fades, because any later key, Esc out of full screen among
+  them, would turn that focus visible. Verify at 1280×720 and up,
   and re-check it after touching any shared component (`CurrentlyPlaying`, `LastSong`,
   `SongCover`, `SessionLeaderboard`). `LastSong` takes the same score summary as the phones,
   in the naming column beside the cover and under the artist line, wrapping there instead of

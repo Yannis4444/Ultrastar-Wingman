@@ -390,10 +390,9 @@ DEVICE_FIRMWARE = "0.2.0"
 
 # Leela holds the known card, and neither Fry nor Bender holds one. Those two are the ones
 # photographed on their own user page, and a card of their own would put a *My cards* block
-# into pictures that are not about it. Fry is therefore the one `user-my-cards` is taken as:
-# the block is on his page because a card is lying on the selector, not because he owns one.
+# into pictures that are not about it. `user-my-cards` is taken as Leela because she holds
+# one: her own card lies on a reader beside the one nobody holds, so the block shows both.
 CARD_HOLDER = "Leela"
-CARD_CLAIMER = "Fry"
 
 # Uppercase hex, 8 to 20 characters, the way a reader reads a MIFARE Classic id.
 KNOWN_CARD = "04A1B2C3"

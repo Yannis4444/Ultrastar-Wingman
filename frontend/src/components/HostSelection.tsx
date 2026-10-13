@@ -99,11 +99,19 @@ export default function HostSelection({
 
   // The event carries the whole selection, so no refetch is needed — and the
   // cache is where it goes, so every reader of it redraws at once.
-  useWingmanEvent<SelectionChanged>("selection.changed", (message) =>
-    queryClient.setQueryData(getPlayerSelectionQueryKey(), {
-      selection: message.selection,
-    }),
-  );
+  //
+  // A read still on the wire is dropped first: its answer was made before this
+  // broadcast left the server, may arrive after it — the two ride different
+  // connections — and would put the older selection back up until the next
+  // change. The first read on load, a refetch on window focus (the full-screen
+  // click refocuses it) and the host token exchange's `invalidateQueries` are
+  // all such reads. `cancelQueries` reverts synchronously, so the write after
+  // it is the last word.
+  useWingmanEvent<SelectionChanged>("selection.changed", (message) => {
+    const queryKey = getPlayerSelectionQueryKey();
+    void queryClient.cancelQueries({ queryKey });
+    queryClient.setQueryData(queryKey, { selection: message.selection });
+  });
 
   const selection = selectionQuery.data?.selection ?? null;
   const sing = current.data?.sing ?? null;

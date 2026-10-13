@@ -84,6 +84,9 @@ class CardRead(BaseModel):
     uid: str
     player: PlayerRead
     created_at: datetime
+    # Whether the card is lying on a reader of a device that is online right now — the rule
+    # `GET /devices/cards/unknown` offers a card by. What the singer's own list marks.
+    on_reader: bool
 
 
 class CardList(BaseModel):

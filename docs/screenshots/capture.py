@@ -909,14 +909,16 @@ ROWS: dict[str, Row] = {
         scroll='show(q(".device-status"))',
     ),
     "user-my-cards": Row(
-        # Fry holds no card of his own: the block is on his page because one is lying on
-        # the selector, which is the state the page describes.
-        identity="Fry",
+        # Leela, the one account holding a card: both cards lie on the selector, so her
+        # block shows the two states the page describes at once — the card nobody holds,
+        # with *This is mine*, and her own card with its glyph lit while it lies there.
+        identity=scenario.CARD_HOLDER,
         viewport="phone",
         route="/user",
         device=True,
-        ready='q(".my-cards-title") && qa(".my-cards-row").length === 1'
-        ' && byText(".my-cards-row .button", "This is mine")',
+        ready='q(".my-cards-title") && qa(".my-cards-row").length === 2'
+        ' && byText(".my-cards-row .button", "This is mine")'
+        ' && q(".my-cards-square-lying")',
         scroll='show(q(".my-cards-title"))',
     ),
     "host-picking": Row(

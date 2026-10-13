@@ -1,7 +1,7 @@
 # Ultrastar Deluxe problems
 
 Wingman starts every song in Ultrastar Deluxe and reads the scores back out of
-it. When that goes wrong, it is almost always one of the six below. Setting it
+it. When that goes wrong, it is almost always one of the seven below. Setting it
 up in the first place is
 [Connect Ultrastar Deluxe](../start/ultrastar-deluxe.md).
 
@@ -61,6 +61,16 @@ Ultrastar Deluxe does not know it. Only
 [the Ultrastar Deluxe build on GitHub](https://github.com/Yannis4444/USDX)
 does. Take the setup that comes with Ultrastar Deluxe, which brings that build.
 See [Install and run](../start/install.md).
+
+## Ultrastar Deluxe opens behind the browser
+
+Wingman brings the Ultrastar Deluxe window to the front as soon as it opens.
+Windows decides whether a program may do that, and it can still refuse. Then
+the window stays behind and its button on the taskbar flashes. The console
+window says *Ultrastar Deluxe is behind another window*.
+
+- Click the flashing button on the taskbar.
+- For the Ultrastar Deluxe that **Launch** opened, press **Launch** again.
 
 ## Another song is playing, and none is
 

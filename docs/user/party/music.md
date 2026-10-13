@@ -15,7 +15,7 @@ starts.
    somebody has pressed something on that page.
 
 A song starts within a second, and the player names it. The host screen names it
-too, in one quiet line under the code.
+too, in one quiet line along the bottom of the screen.
 
 !!! note
     Only songs with an audio file are played. A song Wingman downloaded without

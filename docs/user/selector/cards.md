@@ -48,7 +48,7 @@ A singer with an account takes a card without asking anybody. **My cards** sits
 on the **User** tab, below your scores and badges. It appears once a card is
 lying on the selector, or once the account already holds one.
 
-![The My cards block on the User tab, with an unclaimed card's number beside a This is mine button](../assets/screenshots/selector/user-my-cards.png){ width="320" loading=lazy }
+![The My cards block, with an unclaimed card's number beside This is mine and the account's own card with its glyph lit blue](../assets/screenshots/selector/user-my-cards.png){ width="320" loading=lazy }
 /// caption
 A card nobody holds shows up here by its number.
 ///
@@ -59,7 +59,9 @@ A card nobody holds shows up here by its number.
 
 A card somebody else holds is refused with *Somebody else already holds that
 card.* Your own cards stand below, each with :wingman-close: **Forget card**,
-which takes the card off you and changes nothing else. An administrator still
+which takes the card off you and changes nothing else. While one of your cards
+lies on a reader, its :wingman-card: turns blue. It turns gray again the moment
+the card is lifted, or when the selector stops reporting. An administrator still
 assigns and takes back any card on **User** > **Player selector**.
 
 ## A card Wingman does not know

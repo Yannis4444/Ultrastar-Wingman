@@ -149,7 +149,7 @@ rows Wingman keeps.
 |---|---|
 | `GET /api/v1/devices/cards/unknown` | The cards lying on the readers of an online device that belong to nobody: `{"uids": ["A1B2C3D4"]}` |
 | `POST /api/v1/devices/cards/{uid}/claim` | Says the card is yours. Your own again is the same answer, somebody else's is `409 {"detail": "card_taken"}` |
-| `GET /api/v1/devices/cards/mine` | Your own cards: `{"cards": [{"uid": "…", "player": {…}, "created_at": "…"}]}` |
+| `GET /api/v1/devices/cards/mine` | Your own cards: `{"cards": [{"uid": "…", "player": {…}, "created_at": "…", "on_reader": true}]}`. `on_reader` says whether the card lies on a reader of an online device right now |
 | `DELETE /api/v1/devices/cards/{uid}` | Gives a card back. Your own, or anybody's with the `devices.manage` capability |
 
 A uid is 8 to 20 hex characters and Wingman stores it in uppercase. Send it

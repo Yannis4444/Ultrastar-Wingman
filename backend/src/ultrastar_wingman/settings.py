@@ -16,9 +16,11 @@ from sqlalchemy.orm import Mapped, mapped_column
 from .db import Base
 
 # The definitions live here, so a rule that only a domain module can state has to be
-# imported here. `karaoke.slots` and `downloads.video_quality` are leaves on purpose — they
-# must never import this module back, or the services that do close the circle.
+# imported here. `karaoke.slots`, `downloads.video_quality` and `downloads.ytdlp_arguments` are
+# leaves on purpose — they must never import this module back, or the services that do
+# close the circle.
 from .downloads.video_quality import DEFAULT_VIDEO_FORMAT, validate_video_format
+from .downloads.ytdlp_arguments import validate_ytdlp_args
 from .join_url import validate_join_url
 from .karaoke.slots import DEFAULT_SLOT_COLORS_SETTING, validate_slot_colors
 from .sound import (
@@ -420,6 +422,25 @@ register(
             "in the data directory."
         ),
         advanced=True,
+    )
+)
+register(
+    SettingDefinition(
+        key="downloads.ytdlp_arguments",
+        value_type=str,
+        default="",
+        group="Downloads",
+        description=(
+            "Extra yt-dlp options for every download, such as --cookies-from-browser "
+            "firefox for age-restricted videos. Quote an argument that holds a space. A "
+            "backslash stays as typed. Never shown again, because it may hold a password."
+        ),
+        # A `--password` or `--video-password` here must not reach the settings page in
+        # plain text, nor — above all — the websocket every guest phone holds, which only a
+        # secret's masking keeps it off.
+        secret=True,
+        advanced=True,
+        validate=validate_ytdlp_args,
     )
 )
 

@@ -101,6 +101,27 @@ the choices. See [Download songs](../songs/download.md).
 |---|---|---|
 | **ffmpeg** | The ffmpeg program, which pulls the audio out of the video. The default uses the one on your system, or a copy Wingman downloads on Windows | `ffmpeg` |
 | **yt-dlp path** | The yt-dlp program. Empty means Wingman downloads and updates its own copy | empty |
+| **yt-dlp arguments** | Extra yt-dlp options for every download. Stored and never shown again | empty |
+
+**yt-dlp arguments** takes yt-dlp's own options, typed the way they follow
+`yt-dlp` on a command line. Spaces separate them. Put quotes around one that
+holds a space, such as `"C:\My Files\cookies.txt"`. A backslash is an ordinary
+character, so a Windows path is typed as it is. Wingman refuses a quote that is
+never closed. Wingman's own options for the format, the file name, and the
+progress display come after yours and win. An option that turns the video into
+something else, such as `--extract-audio` or `--recode-video`, leaves Wingman no
+video, and the download fails. Wingman refuses a `--username` without its
+`--password`, because yt-dlp would stop the download to ask for the password
+and wait for an answer forever. While the field is set, the
+reason of a failed download says so, because a mistyped option often fails with
+a message that names nothing you typed.
+
+The field may hold a password, so it is never shown again. To change it, type
+the whole line anew. In the console window and in the reason of a failed
+download, every value you typed reads as `***`. yt-dlp's options include
+`--exec`, which runs any program you name. Whoever may change settings can
+therefore run programs on the karaoke PC through this field. See
+[Download songs](../songs/download.md#age-restricted-videos) for the usual use.
 
 ## Auth
 

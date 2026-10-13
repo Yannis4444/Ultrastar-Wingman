@@ -194,6 +194,15 @@ export const ICON_PATHS = {
   // other way round so the nonzero fill rule punches it out (as `dice` does),
   // plus the stand bar under it.
   tv: "M3 5h18a1 1 0 0 1 1 1v10a1 1 0 0 1-1 1H3a1 1 0 0 1-1-1V6a1 1 0 0 1 1-1Zm1 2v8h16V7ZM8 20h8v2H8v-2Z",
+  // The host screen's full-screen control: four corner brackets at the edges
+  // of the square, their corners pointing out, and the same four drawn the
+  // other way round — corners in towards the middle — to leave it. Square
+  // ends, two units thick like `music`'s stem. Neither is pickable: a control,
+  // not a thing a song is about.
+  fullscreen:
+    "M4 4h6v2H6v4H4V4ZM14 4h6v6h-2V6h-4V4ZM20 20h-6v-2h4v-4h2v6ZM4 20v-6h2v4h4v2H4Z",
+  "fullscreen-exit":
+    "M8 4h2v6H4V8h4V4ZM14 4h2v4h4v2h-6V4ZM14 14h6v2h-4v4h-2v-6ZM4 14h6v6H8v-4H4v-2Z",
   // The octocat silhouette, one closed outline — the ears, the arms and the
   // tail are all the same subpath, so no fill rule is involved. Drawn on the
   // 18px grid `info` and `clock` use (3…21) rather than edge to edge, or the

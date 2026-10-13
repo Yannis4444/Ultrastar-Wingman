@@ -70,6 +70,17 @@
   border-radius: var(--border-radius-small);
 }
 
+/* Your own card while it lies on a reader of an online selector: the square
+   stays the passive one and only its glyph lights, in the accent a mark
+   wears (§2) — the tag square's idiom (§4), where the colour paints the
+   glyph. A filled square would be `--highlight-blue-dark`, the hover and
+   primary fill, and beside the row's filled danger button it read as a
+   control. The unclaimed list never wears it: those cards are on a reader by
+   definition. */
+.my-cards-square-lying {
+  color: var(--highlight-blue-light);
+}
+
 /* A uid is a run of hex read against the one printed on the card itself, so it
    is set in figures of one width. It takes the room the row has left and wraps
    rather than pushing the button off a 390px phone. */

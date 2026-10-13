@@ -1,64 +1,129 @@
-/* The page's one sanctioned tile: it replaces the old login card. */
+/* The page's one sanctioned tile (§1.2), drawn as Home's head (§7): the
+   picture beside a column of declared rows, centred against it. Every row has
+   a px `line-height`, never `normal`, for the reason HomeStage gives — a head
+   that measured itself would be one height on Windows and another on every
+   phone. Name 28 + role 20 + the action 40 is the picture's own 88, so the
+   tile is 120px whatever the font. */
 .user-identity {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  gap: 8px;
   margin: 16px;
   padding: 16px;
   background-color: var(--tile-bg);
   border-radius: var(--border-radius);
 }
 
-/* Round only here; row avatars keep --border-radius-small. */
-.user-identity .user-identity-avatar {
-  width: 96px;
-  height: 96px;
-  font-size: 2.5em;
-  border-radius: 50%;
-}
-
-.user-identity .user-identity-shield {
+.user-identity-head {
   display: flex;
   align-items: center;
+  gap: 12px;
+  min-height: 88px;
+  min-width: 0;
+}
+
+/* The stage's art size, and the corner every other person is drawn with —
+   people, not covers. A compound selector so it beats `PlayerAvatar.css`'s
+   40px whatever order the bundle puts them in. */
+.user-identity .user-identity-avatar {
+  width: 88px;
+  height: 88px;
+  font-size: 2.2em;
+}
+
+/* The host session has no player to draw: its square is the avatar's own,
+   the fallback's `--input-bg` under the `shield`. */
+.user-identity .user-identity-shield {
+  display: flex;
+  flex: 0 0 auto;
+  align-items: center;
   justify-content: center;
-  font-size: 48px;
+  font-size: 44px;
   color: var(--color-dark);
   background-color: var(--input-bg);
+  border-radius: var(--border-radius-small);
 }
 
 /* A label, not a button: the file input inside it does the work. Sized like the
-   avatar so the badge can hang off its corner. */
+   avatar so the hint can sit in its corner. */
 .user-identity-avatar-label {
   position: relative;
   display: block;
-  width: 96px;
-  height: 96px;
+  flex: 0 0 auto;
+  width: 88px;
+  height: 88px;
   cursor: pointer;
 }
 
-/* The badge sits inside the circle's corner, where a row avatar's -2px would
-   leave it floating next to nothing. */
+/* The hint sits inside the picture's corner, a small square in the avatar's
+   own radius rather than a disc that reads as a notification count. */
 .user-identity-avatar-hint {
   position: absolute;
   right: 4px;
   bottom: 4px;
-  padding: 2px;
-  font-size: 20px;
+  padding: 3px;
+  font-size: 16px;
   color: var(--color);
   background-color: var(--highlight-blue-dark);
-  border-radius: 50%;
+  border-radius: var(--border-radius-small);
 }
 
 /* The input is visually hidden, so the ring has to be drawn on the label. */
 .user-identity-avatar-label:has(input:focus-visible) {
   outline: 2px solid var(--highlight-blue-light);
   outline-offset: 2px;
-  border-radius: 50%;
+  border-radius: var(--border-radius-small);
+}
+
+.user-identity-text {
+  display: flex;
+  flex: 1 1 auto;
+  flex-direction: column;
+  align-items: flex-start;
+  min-width: 0;
+}
+
+/* Still the page's `h1`, so the global rule's centring and margins come off
+   here. 28 on 1.3em keeps §2's 1.3 floor for a box that ellipses. */
+.user-identity-name {
+  max-width: 100%;
+  margin: 0;
+  font-size: 1.3em;
+  line-height: 28px;
+  text-align: left;
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+
+/* The second line every row in the app has: the meta voice. */
+.user-identity-role {
+  max-width: 100%;
+  margin: 0;
+  font-size: 0.85em;
+  line-height: 20px;
+  color: var(--color-darker);
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+
+/* The bare role id ("admin") reads as a word. */
+.user-identity-role:first-letter {
+  text-transform: uppercase;
+}
+
+/* `.button` with its height declared: 18 + 2 × 10 of padding + the hairline
+   is §1.10's 40px, and the label never wraps out of the head. Two classes
+   deep because `.button`'s own `font: inherit` resets the line-height, and
+   which of two single classes wins would be the bundle's order. */
+.button.user-identity-action {
+  max-width: 100%;
+  line-height: 18px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 
 .user-identity-error {
-  margin: 0;
+  margin: 12px 0 0 0;
 }
 
 /* Flat, no tile: the identity card above it is the page's one surface. Four
@@ -128,42 +193,6 @@
    to this heading — `ManageMenu` itself is shared with the host screen. */
 .user-manage-title {
   margin-top: 32px;
-}
-
-.user-identity-name {
-  margin: 0;
-  max-width: 100%;
-  overflow: hidden;
-  white-space: nowrap;
-  text-overflow: ellipsis;
-  font-size: 1.5em;
-}
-
-.user-identity-role {
-  margin: 0;
-  color: var(--color-dark);
-  font-size: 0.9em;
-}
-
-/* Only the bare role word ("admin"); the host sentence stays a sentence. */
-.user-identity-role:first-letter {
-  text-transform: uppercase;
-}
-
-.user-identity .button {
-  min-width: 140px;
-}
-
-/* A text link, not a button; the padding keeps it a 40px touch target. */
-.user-identity-switch {
-  padding: 10px;
-  font: inherit;
-  color: var(--highlight-blue-light);
-  text-decoration: underline;
-  text-transform: none;
-  background: none;
-  border: none;
-  cursor: pointer;
 }
 
 /* The "Manage" rows live in `components/ManageMenu.css` — the host screen shows

@@ -1,5 +1,10 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { useEffect, useState } from "react";
+import {
+  type MouseEvent,
+  useEffect,
+  useState,
+  useSyncExternalStore,
+} from "react";
 import QRCode from "react-qr-code";
 import { Link } from "react-router-dom";
 import type { WishRead } from "../api";
@@ -62,6 +67,41 @@ function takeToken(): string | null {
 }
 
 /**
+ * A control the mouse clicked keeps its focus, and the next key pressed — Esc
+ * out of full screen, say — turns that focus `:focus-visible`, which holds the
+ * chrome up over the TV for good. So when the page goes idle, a control in the
+ * chrome that only a click focused lets go of it; one Tab reached keeps it.
+ */
+function dropPointerFocus() {
+  const focused = document.activeElement;
+  if (!(focused instanceof HTMLElement)) return;
+  if (focused.closest(".host-controls, .host-reveal") === null) return;
+  try {
+    if (focused.matches(":focus-visible")) return;
+  } catch {
+    // A browser that cannot answer has no `:focus-visible` rule to hold the
+    // chrome up with either.
+    return;
+  }
+  focused.blur();
+}
+
+/**
+ * A click on the chrome lets go of the focus it gave as soon as it has given
+ * it, not three seconds later: a key pressed before the page goes idle would
+ * turn that focus visible first, and the idle check would then keep it. A
+ * label's click — the leaderboard's order pills are labels over hidden radios
+ * — focuses its radio only after its own click has been dispatched, so the
+ * check waits a task. Enter or Space on a control Tab reached clicks it too,
+ * and that focus is visible, so it stays.
+ */
+function dropClickFocus(event: MouseEvent<HTMLElement>) {
+  if (!(event.target instanceof Element)) return;
+  if (event.target.closest(".host-controls, .host-reveal") === null) return;
+  window.setTimeout(dropPointerFocus, 0);
+}
+
+/**
  * True after `delay` ms without input; drives cursor hiding, the overlay and
  * every `.host-reveal` cluster (the leaderboard's order pills). One timer for
  * the whole page — a second one would let the chrome fade out in pieces.
@@ -75,7 +115,10 @@ function useIdle(delay = 3000): boolean {
     const wake = () => {
       setIdle(false);
       clearTimeout(timer);
-      timer = window.setTimeout(() => setIdle(true), delay);
+      timer = window.setTimeout(() => {
+        setIdle(true);
+        dropPointerFocus();
+      }, delay);
     };
     wake();
     for (const event of events) window.addEventListener(event, wake);
@@ -86,6 +129,69 @@ function useIdle(delay = 3000): boolean {
   }, [delay]);
 
   return idle;
+}
+
+function onFullscreenChange(listener: () => void): () => void {
+  document.addEventListener("fullscreenchange", listener);
+  return () => document.removeEventListener("fullscreenchange", listener);
+}
+
+/** `?? null` because a browser without the API leaves the property undefined. */
+function isFullscreen(): boolean {
+  return (document.fullscreenElement ?? null) !== null;
+}
+
+/**
+ * The overlay's way onto the whole TV, and back off it. It reads the real
+ * state from `fullscreenchange`, so Esc leaving full screen turns it back into
+ * the way in. F11 is the browser's own full screen, which the page is never
+ * told about: the button keeps offering the page's, and that still works.
+ *
+ * In full screen it stays, as the way out: it sits in the overlay, so the TV
+ * sees it only while somebody moves the mouse, and a host with a wireless
+ * mouse and no keyboard has no Esc to press. Drawn nowhere a browser cannot do
+ * it (`fullscreenEnabled` is false in a frame that is not allowed, and an
+ * iPhone has no API at all).
+ *
+ * `onRefused` is told whether the last press was turned down; the page says so
+ * after the overlay's buttons rather than between them.
+ */
+function HostFullscreen({
+  onRefused,
+}: {
+  onRefused: (refused: boolean) => void;
+}) {
+  const fullscreen = useSyncExternalStore(onFullscreenChange, isFullscreen);
+
+  if (document.fullscreenEnabled !== true) return null;
+
+  const toggle = (event: MouseEvent<HTMLButtonElement>) => {
+    // A click (`detail` counts the presses; Enter and Space leave it 0) lets
+    // go of the focus at once: the very next key is likely Esc out of full
+    // screen, and it would turn that focus visible and hold the overlay up.
+    if (event.detail > 0) event.currentTarget.blur();
+    onRefused(false);
+    if (fullscreen) {
+      // Only refused when the page is not in full screen after all, and then
+      // `fullscreenchange` has already put the button right.
+      document.exitFullscreen().catch(() => undefined);
+    } else {
+      // Called inside the click: the browser grants it to a press, never to a
+      // page asking on its own.
+      document.documentElement.requestFullscreen().catch(() => onRefused(true));
+    }
+  };
+
+  return (
+    <button
+      type="button"
+      className="icon-button"
+      aria-label={fullscreen ? "Leave full screen" : "Full screen"}
+      onClick={toggle}
+    >
+      <Icon name={fullscreen ? "fullscreen-exit" : "fullscreen"} />
+    </button>
+  );
 }
 
 /**
@@ -151,6 +257,10 @@ export default function Host() {
   const idle = useIdle();
   const [error, setError] = useState<string | null>(null);
   const [askStop, setAskStop] = useState(false);
+  const [fullscreenRefused, setFullscreenRefused] = useState(false);
+  // A refusal answers one press, so it goes with the overlay once the mouse
+  // rests, rather than coming back over the next song with every movement.
+  if (idle && fullscreenRefused) setFullscreenRefused(false);
   // What a scoreboard is read for, and the Scores page's default too.
   const [order, setOrder] = useState<LeaderboardOrder>("best");
   // Whose turn the stage is between songs: the badges a finished song earned
@@ -256,6 +366,7 @@ export default function Host() {
   return (
     <div
       className={`host-page${takeover ? " host-takeover" : ""}${idle ? " host-idle" : ""}`}
+      onClick={dropClickFocus}
     >
       <div className="host-stage">
         <CurrentlyPlaying />
@@ -361,18 +472,17 @@ export default function Host() {
         {/* The host's own manage view, not the phone's user page: this screen
             has no tab bar to find its way back from. */}
         {manage.length > 0 && (
-          <Link
-            to="/host/manage"
-            className="icon-button host-icon-button"
-            aria-label="Manage"
-          >
+          <Link to="/host/manage" className="icon-button" aria-label="Manage">
             <Icon name="gear" />
           </Link>
         )}
+        {/* For every browser on this page, host rights or not: putting the
+            screen on the TV is not a management task. */}
+        <HostFullscreen onRefused={setFullscreenRefused} />
         {sing !== null && auth.can("karaoke.stop") && (
           <button
             type="button"
-            className="icon-button host-icon-button icon-button-danger"
+            className="icon-button icon-button-danger"
             aria-label="Stop"
             disabled={stop.isPending}
             onClick={() => setAskStop(true)}
@@ -386,6 +496,11 @@ export default function Host() {
         {error && (
           <p className="error-notice host-error" role="alert">
             {error}
+          </p>
+        )}
+        {fullscreenRefused && (
+          <p className="error-notice host-error" role="alert">
+            The browser would not go full screen. Press F11 instead.
           </p>
         )}
       </div>

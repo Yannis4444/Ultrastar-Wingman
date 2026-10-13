@@ -90,7 +90,8 @@ Some things are Ultrastar Deluxe's to set, and which microphone is player one
 is the one every host runs into. The **USDX** group opens with a **Run
 Ultrastar Deluxe** row and a **Launch** button for exactly that. It starts
 Ultrastar Deluxe with no song and leaves its player configuration alone. Press
-**Launch** again while Ultrastar Deluxe is up and the row says *Running*.
+**Launch** again while Ultrastar Deluxe is up: the row says *Running*, and
+Wingman brings its window to the front.
 
 Close Ultrastar Deluxe when you are done. While it stands in its own menus, a
 song started from a phone is refused the way a running song is refused.

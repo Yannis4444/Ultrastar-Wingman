@@ -420,10 +420,15 @@ nobody requested never arrives.
   `POST /devices/cards/{uid}/claim` for a card that belongs to nobody (409 `card_taken`
   otherwise, 401 without an account), and `DELETE /devices/cards/{uid}` for a card that is
   their own. `GET /devices/cards/unknown` (authenticated) lists the uids lying on any online
-  reader right now that belong to nobody; `GET /devices/cards/mine` the caller's own. The user
-  page gets **My cards** between the record and *Manage* (signed in only): the unknown cards
-  on the readers as rows with a *This is mine* button, then the caller's cards with a remove
-  control, one sentence when nothing is there ("Put a card on the player selector to claim it.").
+  reader right now that belong to nobody; `GET /devices/cards/mine` the caller's own. Every
+  `CardRead` carries `on_reader` — the same rule, `service.uids_on_readers()`: the uid lies on
+  any reader of a device online right now. The user page gets **My cards** between the record
+  and *Manage* (signed in only): the unknown cards on the readers as rows with a *This is
+  mine* button, then the caller's cards with a remove control — the card glyph lit in
+  `--highlight-blue-light` on the square's unchanged `--input-bg` (the tag square's idiom, a
+  mark and not a control), *on the player selector* in the row's name, while `on_reader` —
+  one sentence when nothing is there ("Put a card on the player selector to
+  claim it.").
 - **A selector online is said out loud.** `GET /devices/status` (`players.view`) →
   `{"online": true|false}` (any compatible device online), refetched on `devices.changed`. The
   phone picker shows one quiet line while true ("A player selector is connected. The cards

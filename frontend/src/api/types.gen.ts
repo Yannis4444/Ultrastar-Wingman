@@ -393,6 +393,10 @@ export type CardRead = {
      * Created At
      */
     created_at: string;
+    /**
+     * On Reader
+     */
+    on_reader: boolean;
 };
 
 /**

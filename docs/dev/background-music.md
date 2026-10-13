@@ -492,9 +492,11 @@ about the background track. The gesture unlock plays whichever element should be
   short TV shrink above it; the narrow-screen query puts it back in the flow. Under whatever
   the stage shows — the brand, the scores — and not drawn during a takeover (the badges, the
   selection), which already hide the rail. It is content, not a control, so it is not wrapped
-  in the reveal-on-move overlay and adds no second idle timer. *Turn on sound* goes in
-  `.host-rail` after the QR card for the same reason: `.host-controls` is invisible the moment
-  the mouse stops moving, which on a TV is always.
+  in the reveal-on-move overlay and adds no second idle timer. *Turn on sound* is not in the
+  overlay for the same reason — `.host-controls` is invisible the moment the mouse stops
+  moving, which on a TV is always — and, since 824bd65, not in `.host-rail` either, which is
+  down while the room picks singers: it is fixed at the bottom centre of the screen, large and
+  pulsing, at 8vh over the music line.
 - `icons.tsx` — `pause`, `skip`, `volume`. No mute, so no `volume-off`. Control glyphs, so none
   joins `PICKER_ICON_NAMES`.
 - `index.css` — one shared `.range-input`; there is no slider in the app today and §1.7 forbids

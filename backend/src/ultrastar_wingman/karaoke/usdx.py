@@ -10,6 +10,10 @@ Load-bearing workarounds — do not "clean up":
   library lists.
 - `CREATE_NO_WINDOW` on Windows: without it the process never reports its exit,
   so score import would never run.
+- The window is put in front once, right after every launch (`usdx_window`): Windows
+  does not let a program started by a background console process take the foreground on
+  its own, so without it USDX came up behind the browser the host had just pressed Play
+  in.
 - **The song has to live inside USDX's own songs directory** (`UsdxPaths.songs_dir`,
   derived from `usdx.base_path` — *not* Wingman's `songs.directory`, which may be
   a library USDX knows nothing about). A song that does not, is copied into it
@@ -69,6 +73,7 @@ import sys
 from collections.abc import Sequence
 from pathlib import Path
 
+from . import usdx_window
 from .colors import COLOR_NAMES, color_index
 from .launcher import ExitCallback, Launch, LaunchSlot
 from .slots import PLAYER_COUNTS
@@ -104,6 +109,7 @@ class UsdxLauncher:
         self._paths = paths
         self._process: asyncio.subprocess.Process | None = None
         self._monitor: asyncio.Task[None] | None = None
+        self._raise: asyncio.Task[None] | None = None
         self._copy_dir: Path | None = None
         self._lock = asyncio.Lock()
 
@@ -128,6 +134,7 @@ class UsdxLauncher:
                 await self._remove_copy()
                 raise
             self._monitor = asyncio.create_task(self._wait_for_exit(self._process))
+            self._raise_window()
             return Launch(pid=self._process.pid, song_txt=effective_txt)
 
     async def start_standalone(self) -> Launch:
@@ -144,6 +151,7 @@ class UsdxLauncher:
                 creationflags=CREATE_NO_WINDOW if sys.platform == "win32" else 0,
             )
             self._monitor = asyncio.create_task(self._wait_for_exit(self._process))
+            self._raise_window()
             return Launch(pid=self._process.pid, song_txt=None)
 
     async def stop(self) -> None:
@@ -151,6 +159,25 @@ class UsdxLauncher:
             if self._process is not None and self._process.returncode is None:
                 self._process.kill()
                 logger.debug("killed USDX")
+
+    def bring_to_front(self) -> None:
+        """Put the running USDX's window in front once more — the host asked for USDX while
+        it was already open, most likely because it is hidden behind something. Does not
+        wait for the window: it may still be loading."""
+        if self.is_running:
+            self._raise_window()
+
+    def _raise_window(self) -> None:
+        """Start the one attempt at putting the window in front (see `usdx_window`),
+        replacing an attempt still waiting for the window."""
+        process = self._process
+        if process is None:
+            return
+        if self._raise is not None:
+            self._raise.cancel()
+        self._raise = asyncio.create_task(
+            usdx_window.bring_to_front(process.pid, lambda: process.returncode is None)
+        )
 
     def _prepare(self, song_txt: Path, slots: Sequence[LaunchSlot]) -> Path:
         """Blocking: config rewrite plus, if needed, the song copy. Answers the `.txt` USDX
@@ -168,6 +195,9 @@ class UsdxLauncher:
     async def _wait_for_exit(self, process: asyncio.subprocess.Process) -> None:
         await process.wait()
         logger.debug("USDX exited with code %s", process.returncode)
+        if self._raise is not None:
+            self._raise.cancel()
+            self._raise = None
         try:
             await self._remove_copy()
         finally:

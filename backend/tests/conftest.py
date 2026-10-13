@@ -24,7 +24,7 @@ from ultrastar_wingman.config import BootstrapSettings
 from ultrastar_wingman.db import run_migrations
 from ultrastar_wingman.devices import service as devices
 from ultrastar_wingman.events import event_bus
-from ultrastar_wingman.karaoke import selection, usdx_paths
+from ultrastar_wingman.karaoke import selection, usdx_paths, usdx_window
 from ultrastar_wingman.music import service as music
 from ultrastar_wingman.players import service as players
 from ultrastar_wingman.songs import scanner
@@ -249,6 +249,14 @@ def no_bundled_usdx() -> None:
     the sing flow on a bare `session` runs no lifespan — it must not inherit the mode a
     previous test's app left behind."""
     usdx_paths.configure(None)
+
+
+@pytest.fixture(autouse=True)
+def no_desktop(monkeypatch: pytest.MonkeyPatch) -> None:
+    """A launch puts the started program's window in front. The fake USDX shows none, but
+    a test run must never reach for the developer's real desktop all the same — the window
+    logic is tested against a fake one in `test_usdx_window.py`."""
+    monkeypatch.setattr(usdx_window, "system_desktop", lambda: None)
 
 
 @pytest.fixture(autouse=True)

@@ -1139,6 +1139,9 @@ class BlockingLauncher:
             on_exit, self.on_exit = self.on_exit, None
             await on_exit()
 
+    def bring_to_front(self) -> None:
+        pass
+
 
 async def test_the_room_keeps_going_while_a_start_is_in_progress(
     session: AsyncSession,

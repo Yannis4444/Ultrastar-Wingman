@@ -26,7 +26,7 @@ from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from ultrastar_wingman.auth.model import utcnow
-from ultrastar_wingman.karaoke import service
+from ultrastar_wingman.karaoke import service, usdx_window
 from ultrastar_wingman.karaoke.model import KaraokeSession, Score, Sing
 from ultrastar_wingman.karaoke.usdx import COPY_DIR_NAME
 from ultrastar_wingman.library.model import Wish
@@ -1065,6 +1065,80 @@ async def test_starting_usdx_again_while_it_runs_is_not_an_error(
 
     assert second.status_code == 200
     assert second.json() == {"started": False}
+
+
+class WindowRequests:
+    """Stands in for `usdx_window.bring_to_front`: which process was asked about, and
+    whether it was still running at that moment."""
+
+    def __init__(self) -> None:
+        self.pids: list[int] = []
+        self.running: list[bool] = []
+
+    async def __call__(self, pid: int, is_running: Any) -> None:
+        self.pids.append(pid)
+        self.running.append(is_running())
+
+
+async def test_a_sing_puts_the_usdx_window_in_front(
+    client: AsyncClient, configured: FakeUsdx, song: str, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """Wingman is a background console program, so Windows would leave the window it starts
+    behind the browser the host just pressed Play in."""
+    requests = WindowRequests()
+    monkeypatch.setattr(usdx_window, "bring_to_front", requests)
+    player = await add_player(client, "Yannis")
+    configured.behave(sleep=FOREVER)
+
+    await sing(client, song, [{"color": "blue", "player_id": player["id"]}])
+    await wait_for(configured.argv_file)
+
+    assert len(requests.pids) == 1
+    assert requests.running == [True]
+
+
+async def test_the_window_wait_ends_with_usdx(
+    client: AsyncClient, configured: FakeUsdx, song: str, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """A USDX that exits before it ever shows a window must not leave the wait behind."""
+    waiting = asyncio.Event()
+    cancelled = asyncio.Event()
+
+    async def wait_forever(pid: int, is_running: Any) -> None:
+        waiting.set()
+        try:
+            await asyncio.Event().wait()
+        except asyncio.CancelledError:
+            cancelled.set()
+            raise
+
+    monkeypatch.setattr(usdx_window, "bring_to_front", wait_forever)
+    player = await add_player(client, "Yannis")
+    configured.behave(sleep=1.0)
+
+    await sing(client, song, [{"color": "blue", "player_id": player["id"]}])
+    await asyncio.wait_for(waiting.wait(), 10)
+    await service.wait_for_sing_end()
+
+    assert cancelled.is_set()
+
+
+async def test_asking_for_an_open_usdx_again_puts_it_in_front(
+    client: AsyncClient, configured: FakeUsdx, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """A second Launch most likely means the host cannot see the first one."""
+    requests = WindowRequests()
+    monkeypatch.setattr(usdx_window, "bring_to_front", requests)
+    configured.behave(sleep=FOREVER)
+    await client.post(LAUNCH_URL)
+    await wait_for(configured.argv_file)
+
+    assert (await client.post(LAUNCH_URL)).json() == {"started": False}
+    await asyncio.sleep(0)
+
+    [first, second] = requests.pids
+    assert first == second
+    assert requests.running == [True, True]
 
 
 async def test_usdx_is_not_started_while_a_song_is_playing(

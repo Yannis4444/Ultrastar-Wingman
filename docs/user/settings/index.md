@@ -57,8 +57,9 @@ Most settings take hold at once. These do not:
 
 ## Passwords and secrets
 
-**Password** in the **USDB** group and **OIDC client secret** in the **Auth**
-group are stored and never shown again. Once one is set, its box reads
+**Password** in the **USDB** group, **yt-dlp arguments** in the **Downloads**
+group, and **OIDC client secret** in the **Auth** group are stored and never
+shown again. Once one is set, its box reads
 *(unchanged)* and typing nothing keeps it. :wingman-refresh: **Clear** next to
 the name empties it.
 
