@@ -23,6 +23,23 @@ a login code from going anywhere else.
     address is `http://192.168.1.50:8080/api/v1/auth/oidc/callback`, and that
     exact string is what the provider has to hold.
 
+### Behind a reverse proxy
+
+When a proxy serves Wingman over https, the redirect address starts with
+`https://` and names the proxy's address, for example
+`https://karaoke.example.org/api/v1/auth/oidc/callback`. Wingman reads both from
+the headers the proxy passes on, so the proxy has to send them. For nginx:
+
+```nginx
+proxy_set_header Host $host;
+proxy_set_header X-Forwarded-Proto $scheme;
+```
+
+Without `X-Forwarded-Proto`, Wingman builds an `http://` redirect address and the
+provider refuses it. Wingman believes these headers from any address. To believe
+them from your proxy alone, set the environment variable `FORWARDED_ALLOW_IPS` to
+its address before starting Wingman.
+
 ## Fill in the settings
 
 Open **User** > **Settings** and the **Auth** group.

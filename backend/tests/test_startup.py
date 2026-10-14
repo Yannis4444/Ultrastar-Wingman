@@ -10,8 +10,10 @@ import sys
 from collections.abc import Awaitable, Callable, Iterator
 from typing import Any
 
+import httpx
 import pytest
 import uvicorn
+from uvicorn.middleware.proxy_headers import ProxyHeadersMiddleware
 
 from ultrastar_wingman import __main__ as entry_point
 from ultrastar_wingman import startup
@@ -537,6 +539,47 @@ def test_a_start_hands_the_server_the_sockets_it_took(entry: Entry) -> None:
     # Closed once the server is done with them, whatever uvicorn did.
     assert all(listener.fileno() == -1 for listener in entry.acquired)
     assert entry.paused == 0
+
+
+async def scheme_behind(trusted: str | list[str], proxy: str) -> str:
+    """The scheme an app sees for an https request a reverse proxy at `proxy` forwarded,
+    through the middleware uvicorn puts in front of it with `forwarded_allow_ips`."""
+    seen: list[str] = []
+
+    async def app(scope: Any, receive: Any, send: Any) -> None:
+        seen.append(scope["scheme"])
+        await send({"type": "http.response.start", "status": 204, "headers": []})
+        await send({"type": "http.response.body", "body": b""})
+
+    # `Any`: uvicorn's ASGI types and httpx's do not line up, the protocol does.
+    proxied: Any = ProxyHeadersMiddleware(app, trusted_hosts=trusted)
+    transport = httpx.ASGITransport(app=proxied, client=(proxy, 4711))
+    async with httpx.AsyncClient(transport=transport, base_url="http://wingman") as client:
+        await client.get("/", headers={"X-Forwarded-Proto": "https"})
+    return seen[0]
+
+
+async def test_a_reverse_proxy_on_another_machine_is_believed_about_https(entry: Entry) -> None:
+    """The OIDC redirect_uri takes its scheme from the request, so a Wingman served over
+    https by a proxy elsewhere on the network must not advertise http."""
+    entry.monkeypatch.delenv("FORWARDED_ALLOW_IPS", raising=False)
+
+    entry_point.main([])
+
+    (server,) = entry.servers
+    assert server.config.forwarded_allow_ips == "*"
+    assert await scheme_behind(server.config.forwarded_allow_ips, "192.168.1.10") == "https"
+    # uvicorn's own default, for contrast: the same proxy is ignored.
+    assert await scheme_behind("127.0.0.1", "192.168.1.10") == "http"
+
+
+def test_uvicorns_variable_still_narrows_who_is_believed(entry: Entry) -> None:
+    entry.monkeypatch.setenv("FORWARDED_ALLOW_IPS", "192.168.1.10")
+
+    entry_point.main([])
+
+    (server,) = entry.servers
+    assert server.config.forwarded_allow_ips == "192.168.1.10"
 
 
 def test_a_port_another_wingman_holds_stops_the_start_before_uvicorn(

@@ -97,6 +97,13 @@ def serve(argv: Sequence[str] | None = None) -> None:
         log_config=None,
         access_log=access_log,
         backlog=startup.BACKLOG,
+        # Every address may say what scheme and client a request had (`X-Forwarded-Proto`,
+        # `X-Forwarded-For`), not just uvicorn's default of 127.0.0.1: a reverse proxy on
+        # another machine is how Wingman gets served over https, and the OIDC redirect_uri
+        # takes its scheme from the request. Nothing is granted by address — becoming the host
+        # takes the one-time token — so a forged header changes a log line and a redirect_uri
+        # the provider refuses, nothing more. uvicorn's own variable still narrows it.
+        forwarded_allow_ips=os.environ.get("FORWARDED_ALLOW_IPS", "*"),
     )
     server = startup.WingmanServer(config)
     try:
