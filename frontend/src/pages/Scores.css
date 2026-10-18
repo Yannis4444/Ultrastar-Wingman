@@ -122,8 +122,8 @@
 
 /* One row, two quiet selects: the reader touches these once an evening, so
    they are a line of the page and not a section of it. The row follows the
-   whole-session card and sits above the two things it reorders — the spread
-   card and the ranking — on the same 12px the top section is built on. */
+   summary and sits above the two things it rebuilds — the chart area and the
+   ranking — on the same 12px the top section is built on. */
 .scores-controls {
   display: flex;
   gap: 8px;
@@ -174,30 +174,30 @@
   }
 }
 
-/* The two chart cards — the whole-session one under the summary, the spread
-   under the controls. 12px is the gap the whole top section is built on, and
-   the ranking below then reopens the page's 16px rhythm. */
+/* The one chart area, flat on `--bg` (§1.1): the page gutter, and a hairline
+   under it where the ranking begins — the summary row's own idiom. */
 .scores-chart {
-  margin: 12px 16px 0 16px;
-  padding: 12px;
-  background-color: var(--tile-bg);
-  border-radius: var(--border-radius);
+  margin: 16px 16px 0 16px;
+  padding-bottom: 16px;
+  border-bottom: 1px solid var(--input-border-color);
 }
 
+/* The area's name where there is only one view to show, in place of the
+   switcher — quiet, the line the switcher would have stood on. */
 .scores-chart-title {
-  margin: 0 0 8px 0;
+  margin: 0 0 10px 0;
   font-size: 0.9em;
   color: var(--color-dark);
 }
 
-/* The top card's switcher — §4's pill pattern (hidden radio, visible span),
-   standing where the card's title would: the two views are what the card is
-   called. The label keeps the 40px touch floor while the pill itself stays a
-   title-sized line. */
+/* The switcher — §4's pill pattern (hidden radio, visible span), standing
+   where the area's title would: the views are what the area is called. The
+   label keeps the 40px touch floor while the pill itself stays 32px. */
 .scores-chart-switch {
   display: flex;
+  flex-wrap: wrap;
   gap: 6px;
-  margin: -7px 0 3px;
+  margin: -4px 0 6px;
   padding: 0;
   border: none;
 }
@@ -211,19 +211,22 @@
 
 .scores-chart-tab-text {
   display: inline-flex;
+  box-sizing: border-box;
   align-items: center;
-  min-height: 26px;
-  padding: 0 12px;
+  min-height: 32px;
+  padding: 0 14px;
   font-size: 0.85em;
   color: var(--color-darker);
   border: 1px solid var(--input-border-color);
   border-radius: 999px;
 }
 
+/* On `--bg` the dark fill alone barely lifts off the page, so the chosen pill
+   keeps a border too, in the accent its text wears. */
 .scores-chart-tab input:checked ~ .scores-chart-tab-text {
   color: var(--highlight-blue-light);
   background-color: var(--highlight-blue-dark);
-  border-color: var(--highlight-blue-dark);
+  border-color: var(--highlight-blue-light);
 }
 
 .scores-chart-tab input:focus-visible ~ .scores-chart-tab-text {

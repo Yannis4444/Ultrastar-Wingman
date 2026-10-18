@@ -1,0 +1,17 @@
+/* The two numbers the strip is read against, written out over it: the words
+   quiet, the numbers a step up, the best in the gold every score's best wears. */
+.score-strip-figures {
+  margin: 0 0 10px;
+  font-size: 13px;
+  color: var(--color-darker);
+  font-variant-numeric: tabular-nums;
+}
+
+.score-strip-value {
+  color: var(--color-dark);
+}
+
+.score-strip-best {
+  font-weight: 700;
+  color: var(--highlight-gold-light);
+}

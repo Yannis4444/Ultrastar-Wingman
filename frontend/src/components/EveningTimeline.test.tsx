@@ -113,3 +113,9 @@ test("the whole drawing is announced as one image", () => {
   render(<EveningTimeline scores={sevenSingers()} label="The evening" />);
   expect(screen.getByRole("img", { name: "The evening" })).toBeInTheDocument();
 });
+
+test("the dot rings are painted for the page the timeline sits on", () => {
+  render(<EveningTimeline scores={sevenSingers()} label="The evening" />);
+  for (const dot of screen.getAllByTestId("timeline-dot"))
+    expect(dot).toHaveAttribute("stroke", chartTheme.pageBg);
+});

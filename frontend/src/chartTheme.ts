@@ -9,7 +9,7 @@
 export const chartTheme = {
   /** --highlight-blue-light */
   accent: "#4b92cd",
-  /** --highlight-blue-dark, one shade up so a box body reads against --tile-bg */
+  /** --highlight-blue-dark, one shade up so a box body reads as a body */
   fill: "#203f59",
   /** --color-dark */
   axis: "#ccc",
@@ -24,9 +24,8 @@ export const chartTheme = {
   dot: "#aebfcc",
   /** The median line — near-white so it reads through the dot cloud. */
   median: "#e8f2fa",
-  /** --tile-bg — the ring that keeps two piled marks readable as two. */
-  surface: "#1b3347",
-  /** --bg — the same ring for a chart that sits flat on the page, not on a tile. */
+  /** --bg — what every chart sits on, flat (§1.1), and so the ring that
+   * keeps two piled marks readable as two. */
   pageBg: "#021720",
   /** A singer-initial chip on a song row, and the ink on it. */
   chip: "#2c516d",
@@ -34,7 +33,12 @@ export const chartTheme = {
   /**
    * The timeline's per-singer hues, assigned in this order to the session's
    * five best singers; everybody past them wears `categoricalRest`. Validated
-   * as a set on `--tile-bg`: adjacent-pair CVD ΔE ≥ 8.4, all ≥ 3:1 contrast.
+   * as a set on `--bg` (`#021720`, where the timeline is drawn since the
+   * charts went flat; the dataviz validator, dark mode, 2026-10-18): every
+   * hue inside the L 0.48–0.67 band, adjacent-pair CVD ΔE ≥ 8.4 (protan,
+   * `#c98500` ↔ `#199e70`), normal-vision ΔE ≥ 19.3, contrast 4.65:1 at the
+   * lowest (`#d55181`) and 3.43:1 for `categoricalRest`. (It also passed on
+   * `--tile-bg`, at 3.30:1 lowest — the darker ground only raises contrast.)
    * Never extend it by generating a sixth hue — fold into the grey instead.
    */
   categorical: ["#4b92cd", "#d95926", "#199e70", "#c98500", "#d55181"],

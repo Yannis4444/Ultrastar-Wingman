@@ -56,12 +56,12 @@ export function useChartTip(container: RefObject<HTMLElement | null>): {
   const lastPointerType = useRef<string | undefined>(undefined);
 
   // Where a point of an SVG sits inside the container — the tip is absolutely
-  // positioned in the container, but a card can hold several row SVGs.
+  // positioned in the container, but a chart can hold several row SVGs.
   const place = (svg: Element, x: number, y: number) => {
     const rect = container.current?.getBoundingClientRect();
     const svgRect = svg.getBoundingClientRect();
     if (rect === undefined) return { x: 0, y: 0 };
-    // Clamped so the tip never pokes out of the card into the page's width —
+    // Clamped so the tip never pokes out of the chart into the page's width —
     // the page must not gain a sideways scroll over a tooltip (§1.11).
     const margin = Math.min(100, rect.width / 2);
     return {

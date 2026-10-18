@@ -56,6 +56,17 @@ function series(
   );
 }
 
+/** The marks' fills, best score first. */
+function fills(marks: HTMLElement[]): (string | null)[] {
+  return marks
+    .map((mark) => ({
+      fill: mark.getAttribute("fill"),
+      x: Number(mark.getAttribute("cx")),
+    }))
+    .sort((a, b) => b.x - a.x)
+    .map(({ fill }) => fill);
+}
+
 test("a singer with enough scores gets a box, the raw scores on top", () => {
   const groups = groupScores(series("Alice", 6, 8000), "player");
   render(<SpreadRows groups={groups} grouping="player" label="Spread" />);
@@ -63,10 +74,12 @@ test("a singer with enough scores gets a box, the raw scores on top", () => {
   expect(screen.getByTestId("spread-box")).toBeInTheDocument();
   const dots = screen.getAllByTestId("spread-dot");
   expect(dots).toHaveLength(6);
-  // The raw scores are the neutral grey layer, never a second accent.
-  for (const dot of dots) {
-    expect(dot).toHaveAttribute("fill", chartTheme.dot);
-  }
+  // The raw scores are the neutral grey layer, never a second accent — but
+  // for the party's best, the one gold mark of every chart.
+  expect(fills(dots)).toEqual([
+    chartTheme.gold,
+    ...Array<string>(5).fill(chartTheme.dot),
+  ]);
 });
 
 test("below five scores there is no box — just the scores themselves", () => {
@@ -76,9 +89,11 @@ test("below five scores there is no box — just the scores themselves", () => {
   expect(screen.queryByTestId("spread-box")).not.toBeInTheDocument();
   const dots = screen.getAllByTestId("spread-dot");
   expect(dots).toHaveLength(4);
-  for (const dot of dots) {
-    expect(dot).toHaveAttribute("fill", chartTheme.accent);
-  }
+  // Grey like every raw score — blue is the box's alone — the best in gold.
+  expect(fills(dots)).toEqual([
+    chartTheme.gold,
+    ...Array<string>(3).fill(chartTheme.dot),
+  ]);
 });
 
 test("a song row wears its singers' initials while the scores are few", () => {
@@ -146,14 +161,86 @@ test("the card draws eight groups and owns up to the rest", () => {
   expect(screen.getByText("… 2 more in the list below")).toBeInTheDocument();
 });
 
-test("a row is headed by its label, its count and the best the list ranks by", () => {
+test("a row is its name and count, its track, and the best the list ranks by", () => {
   const groups = groupScores(series("Alice", 5, 8000), "player");
   render(<SpreadRows groups={groups} grouping="player" label="Spread" />);
 
-  const top = document.querySelector(".spread-row-top") as HTMLElement;
-  expect(top).toHaveTextContent("Alice");
-  expect(top).toHaveTextContent("× 5");
-  expect(top.querySelector(".spread-row-best")).toHaveTextContent("8200");
+  const row = document.querySelector(".spread-row") as HTMLElement;
+  const [name, track, best] = [...row.children];
+  expect(name).toHaveClass("spread-row-label");
+  expect(name).toHaveTextContent("Alice ×5");
+  expect(name.querySelector(".spread-row-count")).toHaveTextContent("×5");
+  expect(track.tagName.toLowerCase()).toBe("svg");
+  expect(track).toHaveAttribute("height", "32");
+  // The right-hand column: the group's best, in the score gold.
+  expect(best).toHaveClass("spread-row-best");
+  expect(best).toHaveTextContent("8200");
+});
+
+test("a song row is named by its title alone, the whole label on hover", () => {
+  const groups = groupScores([score("Alice", 9000)], "song");
+  render(<SpreadRows groups={groups} grouping="song" label="Spread" />);
+
+  const name = document.querySelector(".spread-row-label") as HTMLElement;
+  expect(name.textContent).toBe("Bohemian Rhapsody");
+  expect(name).toHaveAttribute("title", "Queen – Bohemian Rhapsody: 1 score");
+});
+
+test("the gridlines and the axis are drawn once, under every row", () => {
+  const groups = groupScores(
+    Array.from({ length: 6 }, (_, index) =>
+      score(`Singer${index}`, 9000 - index * 100),
+    ),
+    "player",
+  );
+  render(<SpreadRows groups={groups} grouping="player" label="Spread" />);
+
+  expect(document.querySelectorAll(".spread-row")).toHaveLength(6);
+  // Five ticks, five lines — not five per row.
+  expect(screen.getAllByTestId("spread-grid")).toHaveLength(5);
+  const grid = document.querySelector(".spread-rows-grid") as SVGElement;
+  expect(grid.closest(".spread-row")).toBeNull();
+  // One set of tick labels, after the last row.
+  const labels = [...document.querySelectorAll("svg text")].map(
+    (text) => text.textContent,
+  );
+  expect(labels).toEqual(["0", "2.5k", "5k", "7.5k", "10k"]);
+  const axis = document.querySelector(".spread-rows-axis") as SVGElement;
+  const rows = document.querySelectorAll(".spread-row");
+  expect(
+    rows[rows.length - 1].compareDocumentPosition(axis) &
+      Node.DOCUMENT_POSITION_FOLLOWING,
+  ).toBeTruthy();
+});
+
+test("a row grows only as far as its near-ties have to stack", () => {
+  const groups = groupScores(
+    [
+      score("Alice", 8400, song("usdb:2", "Oasis", "Wonderwall")),
+      score("Bob", 8404, song("usdb:2", "Oasis", "Wonderwall")),
+      score("Alice", 3000),
+    ],
+    "song",
+  );
+  render(<SpreadRows groups={groups} grouping="song" label="Spread" />);
+
+  const [tied, alone] = [...document.querySelectorAll(".spread-row svg")];
+  expect(Number(tied.getAttribute("height"))).toBeGreaterThan(32);
+  expect(alone).toHaveAttribute("height", "32");
+});
+
+test("the party's best is the one gold chip, its initial in the page's ink", () => {
+  const groups = groupScores(
+    [score("Alice", 9000), score("Bob", 7000)],
+    "song",
+  );
+  render(<SpreadRows groups={groups} grouping="song" label="Spread" />);
+
+  expect(fills(screen.getAllByTestId("spread-chip"))).toEqual([
+    chartTheme.gold,
+    chartTheme.chip,
+  ]);
+  expect(screen.getByText("A")).toHaveAttribute("fill", chartTheme.pageBg);
 });
 
 test("a tap on a mark answers with singer, song and score; a second tap closes", () => {

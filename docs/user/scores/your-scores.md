@@ -45,10 +45,11 @@ One row is one song you sang, so the only control is **Sort**:
 There is no **chronological** here, because a row is a song rather than a
 moment in one evening.
 
-From two scores on, the same picture the **Scores** tab leads with is drawn
-over your whole record. Every score is one dot, your best is gold, and the
-dashed line is your median. Its labels carry the day as well as the time, so
-two runs of one song months apart still read apart.
+From two scores on, the **All scores** chart of the **Scores** tab is drawn
+under the select, over your whole record. Every score is one dot, your best is
+gold, and the dashed line is your median. The line above the chart gives your
+median and your best. Its labels carry the day as well as the time, so two
+runs of one song months apart still read apart.
 
 Tap a row for what that song adds up to. A song you sang more than once is
 headed by the same figures as the page above, minus **Songs**: every row here

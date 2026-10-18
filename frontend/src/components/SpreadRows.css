@@ -1,18 +1,36 @@
-.spread-row {
-  margin-bottom: 4px;
+/* The rows and, behind them, the one set of gridlines they share. */
+.spread-rows-body {
+  position: relative;
 }
 
-/* The row's own header line: who or what it is, over the full-width track. */
-.spread-row-top {
+.spread-rows-grid {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  pointer-events: none;
+}
+
+/* Positioned, so the row paints over the absolutely placed grid behind it —
+   a static block would sit under it. Three columns: the name, the track, the
+   best; 32px unless near-ties in it had to stack. */
+.spread-row {
+  position: relative;
   display: flex;
   gap: 8px;
-  align-items: baseline;
-  justify-content: space-between;
+  align-items: center;
+  min-height: 32px;
+}
+
+/* A chip on 0 or on 10k may lean past the track's end into the gap beside
+   it, rather than be cut in half. */
+.spread-row svg {
+  flex: 0 0 auto;
+  overflow: visible;
 }
 
 .spread-row-label {
   overflow: hidden;
-  min-width: 0;
+  flex: 0 0 auto;
   font-size: 13px;
   color: var(--color-dark);
   white-space: nowrap;
@@ -20,22 +38,22 @@
 }
 
 .spread-row-count {
-  font-size: 11px;
   color: var(--color-darker);
 }
 
+/* The group's best, the number the ranking below ranks by. */
 .spread-row-best {
-  flex: 0 0 auto;
-  font-size: 12px;
-  font-weight: 600;
-  color: var(--color-dark);
+  flex: 0 0 40px;
+  font-size: 13px;
+  font-weight: 700;
+  color: var(--highlight-gold-light);
+  text-align: right;
   font-variant-numeric: tabular-nums;
 }
 
 /* The cap's honest tail: the list below carries what the chart cut. */
 .spread-more {
   margin: 6px 0 0;
-  font-size: 12px;
+  font-size: 13px;
   color: var(--color-darker);
-  text-align: center;
 }

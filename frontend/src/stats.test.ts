@@ -2,6 +2,7 @@ import type { ScoreWithContext, SessionRead, SongRead } from "./api";
 import { parseServerTime, shortDate } from "./duration";
 import {
   allSessionsMeta,
+  bestScoreOf,
   boxStats,
   difficultyLabel,
   evaluationLabel,
@@ -670,4 +671,19 @@ test("a leaderboard row keeps its best score, for the avatar behind it", () => {
 
 test("nobody has sung, so nobody is ranked", () => {
   expect(sessionLeaderboard([], "best")).toEqual([]);
+});
+
+test("the best score of a set is held by whoever got there first", () => {
+  const song1 = song("usdb:1", "Queen", "Bohemian Rhapsody");
+  const late = score("Bob", 9000, song1, {
+    recorded_at: "2026-08-23T21:00:00Z",
+  });
+  const early = score("Alice", 9000, song1);
+  const duetPartner = score("Mia", 9000, song1);
+
+  expect(bestScoreOf([late, early])).toBe(early);
+  // Two scores of one run share the clock; the row id settles it.
+  expect(bestScoreOf([duetPartner, early])).toBe(early);
+  expect(bestScoreOf([score("Alice", 4000, song1), late])).toBe(late);
+  expect(bestScoreOf([])).toBeNull();
 });

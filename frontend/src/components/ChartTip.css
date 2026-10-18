@@ -9,7 +9,7 @@
 }
 
 /* Inline SVGs sit on the text baseline and leave phantom line-height gaps
-   under themselves; a chart is a block of its card. Scoped here so the
+   under themselves; a chart is a block of its area. Scoped here so the
    app's inline icons are untouched. */
 .chart-plot svg {
   display: block;
@@ -30,7 +30,7 @@
   max-width: 220px;
 }
 
-/* Too close to the card's top edge to stand above the mark: flip below it. */
+/* Too close to the chart's top edge to stand above the mark: flip below it. */
 .chart-tip-below {
   transform: translate(-50%, 12px);
 }

@@ -530,6 +530,38 @@ export function summarize(scores: ScoreWithContext[]): SessionSummary {
 }
 
 /**
+ * Whether `a` happened before `b`. The row id settles a tie the clock cannot:
+ * a duet's two scores are one import and share a `recorded_at` to the second,
+ * so without it a peak's holder would come down to the order the list
+ * happened to arrive in.
+ */
+function earlier(a: ScoreWithContext, b: ScoreWithContext): boolean {
+  const at = parseServerTime(a.recorded_at);
+  const bt = parseServerTime(b.recorded_at);
+  return at === bt ? a.id < b.id : at < bt;
+}
+
+/**
+ * The best of a set of scores under `scoreSummary`'s rule — a shared peak is
+ * held by whoever got there first — so a chart's gold mark and the summary's
+ * Best always name the same score. `null` for no scores at all.
+ */
+export function bestScoreOf(
+  scores: ScoreWithContext[],
+): ScoreWithContext | null {
+  let best: ScoreWithContext | null = null;
+  for (const score of scores) {
+    if (
+      best === null ||
+      score.score > best.score ||
+      (score.score === best.score && earlier(score, best))
+    )
+      best = score;
+  }
+  return best;
+}
+
+/**
  * What a set of scores adds up to, or `null` when there are none — a surface
  * with nothing to total should say so rather than print five zeroes.
  *
@@ -549,14 +581,6 @@ export function scoreSummary(
   let best = scores[0];
   let worst = scores[0];
   let total = 0;
-  // The row id settles a tie the clock cannot: a duet's two scores are one
-  // import and share a `recorded_at` to the second, so without it the name
-  // would come down to the order the list happened to arrive in.
-  const earlier = (a: ScoreWithContext, b: ScoreWithContext): boolean => {
-    const at = parseServerTime(a.recorded_at);
-    const bt = parseServerTime(b.recorded_at);
-    return at === bt ? a.id < b.id : at < bt;
-  };
   for (const score of scores) {
     sings.add(score.sing_id);
     songs.add(groupKey(score, "song"));

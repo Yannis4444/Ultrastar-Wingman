@@ -72,7 +72,7 @@ holds them.
 
 Under the figures stands the ranking, best first, up to ten singers deep. From
 four scores on, a picture of every score the song ever got stands between the
-two.
+two, with the median of all of them written above it.
 
 ## Tags
 
