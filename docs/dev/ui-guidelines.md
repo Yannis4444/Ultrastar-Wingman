@@ -12,7 +12,7 @@ request does not override are the accessibility and dependency floors in §1.8�
    (`1px solid var(--input-border-color)`) and spacing — no cards, shadows or inner backgrounds
    for ordinary content. A section that "needs a box" gets a separator and 16px of margin.
 2. **`--tile-bg` is whitelisted, not general.** Allowed: `.home-stage`, `.user-identity`,
-   `.modal` (non-bare), `.scores-chart`, `.score-group-panel`, the USDB login card, the login
+   `.modal` (non-bare), `.score-group-panel`, the USDB login card, the login
    form, the "add songs from…" source cards. Nothing else; extending it is a user decision.
 3. **No per-row badges for near-universal attributes.** No "MP3", "downloaded" or role chips
    per row, and never a valued facet — a genre, a language, an edition, a decade belongs in
@@ -522,21 +522,32 @@ saved) where a jump to the top would throw away the place they were working in.
   singer's record, in a song's best scores and in every total. Tonight's party is never
   hideable — the evening being sung is what this page is for — and neither is the head row,
   whose "3 parties · 60 scores" counts the hidden ones too, because opening it opens them.
-  Two chart cards, both `.scores-chart` (§1.2), every mark hand-drawn SVG. The whole-session
-  card comes first: every score on one staggered strip (`ScoreStrip` — near-ties step aside
-  instead of hiding, the best is gold and named, the median a dashed line), with §4's
-  hidden-radio pills standing where its title would — **All scores ⇄ The evening** — swapping
-  in the timeline (`EveningTimeline`: score over wall-clock time, `chartTheme.categorical`'s
-  five CVD-safe hues on the session's five best singers, grey beyond, never a sixth hue).
-  Every-party-at-once keeps the strip alone under a plain title: a heap of parties is no
-  evening. Under the two selects, the spread card (`SpreadRows`) follows the grouping alone:
-  a player with ≥ 5 scores gets a Tukey box (whiskers end on real scores, outliers flagged on
-  both sides) with every raw score as a 2px neutral-grey dot on top, fewer stagger as plain
-  marks; a song row is a swarm wearing singer initials until 8 scores, then dots — never a
-  box; ungrouped there is no spread card, the strip already is that view. Rows lie down at
-  full card width — nothing scrolls sideways, a song keeps its artist — the card draws the
-  first eight groups of the list in the same order and owns up to the rest ("… n more in the
-  list below"), and every mark answers hover or tap with `ChartTip` — a mouse hovers per mark; a
+  Under the summary come the two selects, then **one chart area** (`.scores-chart`), flat on
+  `--bg` in the page gutter with a hairline under it where the ranking starts — no tile, every
+  mark hand-drawn SVG, every axis at the foot, every tick label 11px, raw scores
+  `chartTheme.dot` grey, gold for the party's best mark alone, blue for a box alone. §4's
+  hidden-radio pills stand where its title would — **All scores · The evening · Spread** — the
+  checked one in `--highlight-blue-light` text on `--highlight-blue-dark` with a
+  `--highlight-blue-light` border, because on `--bg` the fill alone does not show. *The
+  evening* is offered for a single party only (a heap of parties is no evening), *Spread*
+  while the grouping is on and makes at least two groups; with one view left the switcher
+  gives way to a plain quiet title. The choice sticks across parties, and a chosen view that
+  is not on offer draws the strip and comes back with its view. *All scores* (`ScoreStrip`)
+  is every score on one staggered strip — near-ties step aside instead of hiding, the band as
+  high as they stack and no higher (40px at least), the median a dashed line — under one HTML
+  line, *Median 6712 · Best 8662 Bender*: quiet words, `--color-dark` numbers, the best in
+  gold, the name where the singers are not all the reader. *The evening* is the timeline
+  (`EveningTimeline`: score over wall-clock time, `chartTheme.categorical`'s five CVD-safe
+  hues on the session's five best singers, grey beyond, never a sixth hue). *Spread*
+  (`SpreadRows`) is one 32px row per group: the name at the left (a player 88px with a quiet
+  `×9`, a song 104px, its title ellipsed), the track, the group's best in bold gold at the
+  right; the gridlines are drawn once behind every row and the 0–10k labels once under them.
+  A player with ≥ 5 scores gets a Tukey box (whiskers end on real scores, outliers flagged on
+  both sides) with every raw score as a small grey dot on top, fewer are plain dots; a song
+  row is a swarm wearing singer initials until 8 scores, then dots — never a box; a row grows
+  only where near-ties have to stack. Nothing scrolls sideways; the spread draws the first
+  eight groups of the list in the same order and owns up to the rest ("… n more in the list
+  below"), and every mark answers hover or tap with `ChartTip` — a mouse hovers per mark; a
   finger tap resolves on the chart surface to the nearest mark within ~28px (a fingertip covers
   ~40px, a mark 6px — nobody pixel-hunts), toggles off on a repeat, and dismisses beside the
   marks; `.chart-plot` carries `touch-action: manipulation` so two quick taps are two taps, not

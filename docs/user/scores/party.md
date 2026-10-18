@@ -81,30 +81,10 @@ If more songs were started than were scored, the **Sings** word says so. It
 reads "Sings: 2 scored of 4 started". A song that was stopped early is a sing
 with no score.
 
-## The whole party in one picture
-
-Under the figures stands a card with two views. Two scores are enough to draw
-it.
-
-- **All scores** puts every score of the party on one scale from 0 to 10000,
-  one dot each. Two dots that came out nearly the same step aside instead of
-  hiding each other. The dashed line is the party's median. The best score is
-  gold, with its number and its singer beside it.
-- **The evening** spreads the same scores over the clock, so a warm-up and a
-  late run are both visible. The five singers with the best scores get a color
-  each, named in the legend above. Everybody else shares gray and is counted
-  as "N more".
-
-Rest the pointer on a dot to read the singer, the song, the score, and the
-time. On a phone, tap near a dot instead. Tap it again, or anywhere beside the
-dots, to put the label away.
-
-**All parties** and **All my scores** are no single evening, so that card shows
-**All scores** alone. Its labels carry the date as well as the time.
-
 ## Group and sort
 
-Two quiet selects sit under the picture and rearrange everything below them.
+Two quiet selects sit under the figures and rearrange everything below them:
+the charts and the list.
 
 **Group** decides what a row stands for.
 
@@ -119,16 +99,32 @@ Two quiet selects sit under the picture and rearrange everything below them.
 evening. The number at the right of a row is the one being sorted on. Under
 **alphabetically** and **chronological** the rows show the best score.
 
-## Score spread
+## The charts
 
-With two groups or more, a **Score spread** card draws the first eight rows of
-the list. They keep the order the list has, one full-width line each. Ungrouped
-the card stays away, because the picture at the top already shows every score.
+Under the selects stands one chart, with up to three views to switch between.
+Two scores are enough to draw it. Tap a view's name to switch. The view you
+pick stays picked when you open another party.
 
-![The Score spread card grouped by player, with a box for Bender and for Fry and plain dots for Amy, Leela, and Zoidberg](../assets/screenshots/scores/scores-spread.png){ width="320" loading=lazy }
+- **All scores** puts every score of the party on one scale from 0 to 10000,
+  one gray dot each. Two dots that came out nearly the same step aside instead
+  of hiding each other. The dashed line is the party's median, and the gold dot
+  is the best score. The line above the chart gives both numbers and names the
+  singer of the best one.
+- **The evening** spreads the same scores over the clock, so a warm-up and a
+  late run are both visible. The five singers with the best scores get a color
+  each, named in the legend above. Everybody else shares gray and is counted
+  as "N more".
+- **Spread** draws the first eight rows of the list, in the order the list has.
+  Each line starts with the singer or the song, and ends with that row's best
+  score. It is there only while the list is grouped and has two rows or more.
+  Ungrouped, **All scores** already shows every score.
+
+![The Spread view grouped by player, with a box for Bender and for Fry, plain dots for Amy, Leela, and Zoidberg, and each singer's best at the right](../assets/screenshots/scores/scores-spread.png){ width="320" loading=lazy }
 /// caption
 Bender's nine scores earn a box, and Leela's two get plain dots instead.
 ///
+
+In **Spread**:
 
 - A singer with five scores or more gets a box plot. The box holds the middle
   half of their scores, the line in it is the median, and the whiskers reach
@@ -139,8 +135,14 @@ Bender's nine scores earn a box, and Leela's two get plain dots instead.
 - A song is usually one performance, so its line shows one mark per score,
   wearing the singer's initial. From eight scores on, the initials give way to
   plain dots.
+- The party's best score is gold here too.
 
-Every mark here answers the pointer or a tap too.
+Rest the pointer on a mark to read the singer, the song, the score, and the
+time. On a phone, tap near a mark instead. Tap it again, or anywhere beside the
+marks, to put the label away.
+
+**All parties** and **All my scores** are no single evening, so they offer no
+**The evening**. Their labels carry the date as well as the time.
 
 ## The ranking
 

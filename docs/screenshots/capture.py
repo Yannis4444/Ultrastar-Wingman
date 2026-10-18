@@ -693,10 +693,9 @@ ROWS: dict[str, Row] = {
         route="/scores",
         steps=(
             (
-                # Ungrouped, which is the picture this row is of: the page opens grouped by
-                # player, and the spread card that grouping brings with it fills the screen
-                # between the strip chart and the score rows. Grouped by player is the next
-                # row's own picture.
+                # Ungrouped, which is the picture this row is of: the plain All scores strip
+                # with the evening beside it and no Spread pill. Grouped by player, with
+                # Spread picked, is the next row's own picture.
                 'setValue(qa(".scores-control select")[0], "none")',
                 'qa(".scores-control select")[0].value === "none"',
             ),
@@ -708,8 +707,15 @@ ROWS: dict[str, Row] = {
         identity="host",
         viewport="phone",
         route="/scores",
+        steps=(
+            (
+                # The chart area opens on All scores; the spread is the third pill.
+                "click(q('.scores-chart-switch input[value=\"spread\"]'))",
+                'q(".spread-rows") && qa(".spread-row").length >= 2',
+            ),
+        ),
         ready='q(".spread-rows") && qa(".spread-row").length >= 2',
-        scroll='show(byText(".scores-chart-title", "Score spread").closest(".scores-chart"))',
+        scroll='show(q(".scores-chart"))',
     ),
     "user": Row(
         identity="Bender",
