@@ -3,6 +3,7 @@ import {
   jitterOf,
   scoreTickLabel,
   scoreX,
+  tickAnchor,
   swarm,
   timeTicks,
 } from "./chartLayout";
@@ -18,6 +19,15 @@ test("the score scale runs 0 to 10k in quarter steps, labelled short", () => {
   ]);
   expect(scoreX(5000, 300)).toBe(150);
   expect(scoreX(10000, 300)).toBe(300);
+});
+
+test("an inset keeps both ends of the scale off the track's edges", () => {
+  expect(scoreX(0, 300, 6)).toBe(6);
+  expect(scoreX(5000, 300, 6)).toBe(150);
+  expect(scoreX(10000, 300, 6)).toBe(294);
+  expect(tickAnchor(0)).toBe("start");
+  expect(tickAnchor(5000)).toBe("middle");
+  expect(tickAnchor(10000)).toBe("end");
 });
 
 test("a near-tie steps aside instead of hiding behind its neighbour", () => {

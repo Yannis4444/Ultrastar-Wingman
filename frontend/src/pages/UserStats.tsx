@@ -78,11 +78,12 @@ function History({ playerId }: { playerId: string }) {
         </label>
       </div>
 
-      {/* The Scores page's headline picture, over one singer's whole record:
-          every score, not the groups — a song sung three times is a shape,
-          which is why the card counts scores rather than songs. A single score
-          is its own headline and no picture at all. Dated tooltips: two runs of
-          one song can be months apart, and a bare clock time would lie. */}
+      {/* The Scores page's headline picture, over one singer's whole record,
+          in the same flat chart area under the same quiet title: every score,
+          not the groups — a song sung three times is a shape, which is why
+          the strip counts scores rather than songs. A single score is its own
+          headline and no picture at all. Dated tooltips: two runs of one song
+          can be months apart, and a bare clock time would lie. */}
       {rows.length >= 2 && (
         <div className="scores-chart">
           <h2 className="scores-chart-title">All scores</h2>

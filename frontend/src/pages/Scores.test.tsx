@@ -514,29 +514,31 @@ test("a session whose sings were all scored says only 'Sings'", async () => {
   );
 });
 
-test("summary, whole-session card, controls, spread, ranking — in that order", async () => {
+test("summary, controls, the one chart area, ranking — in that order", async () => {
   renderScores();
   await screen.findAllByTestId("score-group");
 
-  // The switcher card is the session's headline and no select touches it; the
-  // two dropdowns sit above the two things they reorder — spread and ranking.
+  // The two dropdowns sit above both things they rebuild — the chart area,
+  // whose Spread view the grouping decides, and the ranking.
   const summary = document.querySelector(".session-summary");
-  const switcher = document.querySelector(".scores-chart-switch");
   const controls = document.querySelector(".scores-controls");
-  const spread = document.querySelector(".spread-rows");
+  const charts = document.querySelectorAll(".scores-chart");
   const list = document.querySelector(".score-groups");
-  for (const element of [summary, switcher, controls, spread, list]) {
+  for (const element of [summary, controls, list]) {
     expect(element).not.toBeNull();
   }
+  // One chart area, not a card per chart.
+  expect(charts).toHaveLength(1);
+  const [chart] = charts;
   const follows = (first: Element | null, second: Element | null): boolean =>
     Boolean(
       (first as Element).compareDocumentPosition(second as Element) &
       Node.DOCUMENT_POSITION_FOLLOWING,
     );
-  expect(follows(summary, switcher)).toBe(true);
-  expect(follows(switcher, controls)).toBe(true);
-  expect(follows(controls, spread)).toBe(true);
-  expect(follows(spread, list)).toBe(true);
+  expect(follows(summary, controls)).toBe(true);
+  expect(follows(controls, chart)).toBe(true);
+  expect(follows(chart, list)).toBe(true);
+  expect(chart.querySelector(".scores-chart-switch")).not.toBeNull();
 });
 
 test("both controls are quiet selects carrying the old wordings", async () => {
@@ -637,40 +639,57 @@ test("chronological reads the party forwards, from the song sung first", async (
   );
 });
 
-test("the whole session is one strip card — every score a dot, the best in gold", async () => {
+test("the chart area opens on the strip — every score a dot, the best in gold", async () => {
   renderScores();
   await screen.findAllByTestId("score-group");
 
-  // Four scores, four dots; nothing scrolls sideways any more — the spread
-  // rows below lie down instead of standing up.
+  // Four scores, four dots; nothing scrolls sideways.
   const dots = screen.getAllByTestId("strip-dot");
   expect(dots).toHaveLength(4);
   expect(
     dots.filter((dot) => dot.getAttribute("fill") === chartTheme.gold),
   ).toHaveLength(1);
-  expect(screen.getByText("9000 · Alice")).toBeInTheDocument();
+  // The median and the best are a line of text over it, the best named.
+  expect(document.querySelector(".score-strip-figures")?.textContent).toBe(
+    "Median 7000 · Best 9000 Alice",
+  );
   expect(document.querySelector(".scores-chart-scroll")).toBeNull();
 });
 
-test("the switcher swaps the strip for the evening and back", async () => {
+test("the switcher offers all three views of one party, grouped", async () => {
   renderScores();
   await screen.findAllByTestId("score-group");
 
+  expect(
+    within(document.querySelector(".scores-chart-switch") as HTMLElement)
+      .getAllByRole("radio")
+      .map((radio) => radio.closest("label")?.textContent),
+  ).toEqual(["All scores", "The evening", "Spread"]);
   expect(screen.getByRole("radio", { name: "All scores" })).toBeChecked();
-  fireEvent.click(screen.getByRole("radio", { name: "The evening" }));
+});
 
+test("the switcher swaps the strip for the evening, the spread, and back", async () => {
+  renderScores();
+  await screen.findAllByTestId("score-group");
+
+  fireEvent.click(screen.getByRole("radio", { name: "The evening" }));
   expect(screen.getAllByTestId("timeline-dot")).toHaveLength(4);
   expect(screen.queryByTestId("strip-dot")).not.toBeInTheDocument();
   expect(document.querySelector(".timeline-legend")).toHaveTextContent("Alice");
 
+  fireEvent.click(screen.getByRole("radio", { name: "Spread" }));
+  expect(document.querySelector(".spread-rows")).not.toBeNull();
+  expect(screen.queryByTestId("timeline-dot")).not.toBeInTheDocument();
+
   fireEvent.click(screen.getByRole("radio", { name: "All scores" }));
   expect(screen.getAllByTestId("strip-dot")).toHaveLength(4);
-  expect(screen.queryByTestId("timeline-dot")).not.toBeInTheDocument();
+  expect(document.querySelector(".spread-rows")).toBeNull();
 });
 
 test("switching the grouping redraws the spread rows", async () => {
   renderScores();
   await screen.findAllByTestId("score-group");
+  fireEvent.click(screen.getByRole("radio", { name: "Spread" }));
 
   const rowLabels = () =>
     [...document.querySelectorAll(".spread-row-label")].map((label) =>
@@ -678,18 +697,84 @@ test("switching the grouping redraws the spread rows", async () => {
     );
   // Too few scores each for a box, so the rows are plain marks — but they are
   // the singers', best first, exactly like the ranking below.
-  expect(rowLabels()).toEqual(["Alice × 2", "Bob × 2"]);
+  expect(rowLabels()).toEqual(["Alice ×2", "Bob ×2"]);
 
   choose("Group", "song");
 
-  // A row is as wide as the card, so a song keeps its artist — the seven
-  // characters a standing column allowed are history.
+  // The name column is a hundred pixels, so a song row is its title; the
+  // artist is on the ranking row below.
   await waitFor(() =>
-    expect(rowLabels()).toEqual([
-      "Oasis – Wonderwall × 2",
-      "Queen – Bohemian Rhapsody × 2",
-    ]),
+    expect(rowLabels()).toEqual(["Wonderwall", "Bohemian Rhapsody"]),
   );
+});
+
+test("a tip left open never floats over the next grouping's marks", async () => {
+  renderScores();
+  await screen.findAllByTestId("score-group");
+  fireEvent.click(screen.getByRole("radio", { name: "Spread" }));
+  fireEvent.click(
+    screen.getAllByTestId("spread-dot")[0].nextElementSibling as Element,
+  );
+  expect(document.querySelector(".chart-tip")).not.toBeNull();
+
+  // The select sits right above the chart: regrouping redraws every row, so
+  // the tip that named a mark of the old rows goes with them.
+  choose("Group", "song");
+  await waitFor(() =>
+    expect(document.querySelectorAll(".spread-row-label")[0]).toHaveTextContent(
+      "Wonderwall",
+    ),
+  );
+  expect(document.querySelector(".chart-tip")).toBeNull();
+});
+
+test("a chosen view that goes away draws the strip, and comes back with it", async () => {
+  renderScores();
+  await screen.findAllByTestId("score-group");
+  fireEvent.click(screen.getByRole("radio", { name: "Spread" }));
+  expect(document.querySelector(".spread-rows")).not.toBeNull();
+
+  // Ungrouped there is no spread: the strip stands in, and the switcher no
+  // longer offers the view.
+  choose("Group", "none");
+  await waitFor(() =>
+    expect(screen.getAllByTestId("strip-dot")).toHaveLength(4),
+  );
+  expect(
+    screen.queryByRole("radio", { name: "Spread" }),
+  ).not.toBeInTheDocument();
+  expect(screen.getByRole("radio", { name: "All scores" })).toBeChecked();
+
+  // The choice was kept: grouping again brings the spread back, chosen.
+  choose("Group", "player");
+  await waitFor(() =>
+    expect(screen.getByRole("radio", { name: "Spread" })).toBeChecked(),
+  );
+  expect(document.querySelector(".spread-rows")).not.toBeNull();
+});
+
+test("the evening, chosen, waits out the head row and returns with a party", async () => {
+  renderScores();
+  await screen.findAllByTestId("score-group");
+  fireEvent.click(screen.getByRole("radio", { name: "The evening" }));
+  expect(screen.getAllByTestId("timeline-dot")).toHaveLength(4);
+
+  const panel = await openSessions();
+  fireEvent.click(within(panel).getByText("All my scores"));
+  // Every party at once is no evening: the strip, and no evening to pick.
+  await waitFor(() =>
+    expect(screen.getAllByTestId("strip-dot")).toHaveLength(5),
+  );
+  expect(
+    screen.queryByRole("radio", { name: "The evening" }),
+  ).not.toBeInTheDocument();
+
+  const again = await openSessions();
+  fireEvent.click(within(again).getByText(sessionLabel(tonight)));
+  await waitFor(() =>
+    expect(screen.getAllByTestId("timeline-dot")).toHaveLength(4),
+  );
+  expect(screen.getByRole("radio", { name: "The evening" })).toBeChecked();
 });
 
 test("sorting by worst score puts the evening's flop first", async () => {
@@ -747,7 +832,7 @@ test("an ungrouped row opens the song it is a score of", async () => {
   );
 });
 
-test("ungrouped there is no spread card — the strip already shows every score", async () => {
+test("ungrouped there is no spread — the strip already shows every score", async () => {
   renderScores();
   await screen.findAllByTestId("score-group");
   choose("Group", "none");
@@ -757,27 +842,67 @@ test("ungrouped there is no spread card — the strip already shows every score"
   );
   expect(document.querySelector(".spread-rows")).toBeNull();
   expect(
-    screen.queryByRole("heading", { name: "Score spread" }),
+    screen.queryByRole("radio", { name: "Spread" }),
   ).not.toBeInTheDocument();
-  // The whole-session card stays: it *is* the ungrouped view.
+  // The strip stays: it *is* the ungrouped view, and the evening is still
+  // there to switch to.
   expect(screen.getAllByTestId("strip-dot")).toHaveLength(4);
+  expect(
+    screen.getByRole("radio", { name: "The evening" }),
+  ).toBeInTheDocument();
 });
 
-test("every party at once keeps the strip alone — a heap of parties is no evening", async () => {
+test("one group is no spread either", async () => {
+  listSessionScores.mockResolvedValue({
+    data: {
+      scores: tonightScores.filter((entry) => entry.player_name === "Alice"),
+    },
+  });
+  renderScores();
+  await screen.findAllByTestId("score-group");
+
+  expect(screen.getAllByTestId("score-group")).toHaveLength(1);
+  expect(
+    screen.queryByRole("radio", { name: "Spread" }),
+  ).not.toBeInTheDocument();
+  expect(
+    screen.getByRole("radio", { name: "The evening" }),
+  ).toBeInTheDocument();
+});
+
+test("every party at once is no evening — the strip, and the spread beside it", async () => {
   renderScores();
   const panel = await openSessions();
   fireEvent.click(within(panel).getByText("All my scores"));
 
   await screen.findAllByTestId("score-group");
-  // No switcher and no timeline to switch to; a plain title stands instead,
-  // and the tooltips date their scores — the strip spans parties now.
+  // No timeline to switch to; the spread still is — the parties' scores
+  // grouped by player — and the tooltips date their scores.
   expect(
     screen.queryByRole("radio", { name: "The evening" }),
   ).not.toBeInTheDocument();
+  expect(screen.getByRole("radio", { name: "All scores" })).toBeChecked();
+  expect(screen.getByRole("radio", { name: "Spread" })).toBeInTheDocument();
+  // Five scores over two parties, all on the one strip.
+  expect(screen.getAllByTestId("strip-dot")).toHaveLength(5);
+});
+
+test("with one view on offer the area is named, not switched", async () => {
+  renderScores();
+  const panel = await openSessions();
+  fireEvent.click(within(panel).getByText("All my scores"));
+  await screen.findAllByTestId("score-group");
+  choose("Group", "none");
+
+  // Every party at once, ungrouped: neither the evening nor a spread, so a
+  // plain quiet title stands where the switcher would.
+  await waitFor(() =>
+    expect(document.querySelector(".scores-chart-switch")).toBeNull(),
+  );
   expect(
     screen.getByRole("heading", { name: "All scores" }),
   ).toBeInTheDocument();
-  // Five scores over two parties, all on the one strip.
+  expect(screen.queryByRole("radio")).not.toBeInTheDocument();
   expect(screen.getAllByTestId("strip-dot")).toHaveLength(5);
 });
 

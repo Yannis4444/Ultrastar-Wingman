@@ -4,7 +4,7 @@
   flex-wrap: wrap;
   gap: 6px 14px;
   margin: 0 0 8px;
-  font-size: 12px;
+  font-size: 13px;
   color: var(--color-dark);
 }
 
@@ -16,7 +16,7 @@
 
 .timeline-legend i {
   flex: 0 0 auto;
-  width: 9px;
-  height: 9px;
+  width: 10px;
+  height: 10px;
   border-radius: 50%;
 }

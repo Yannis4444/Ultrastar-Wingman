@@ -15,10 +15,28 @@ export function scoreTickLabel(value: number): string {
   return value === 0 ? "0" : `${value / 1000}k`;
 }
 
-/** A score's place on a track of `width` pixels. */
-export function scoreX(score: number, width: number): number {
-  return (score / MAX_SCORE) * width;
+/**
+ * A score's place on a track of `width` pixels, `inset` pixels in from both
+ * ends so a mark on 0 or 10k is not cut in half by the edge. The one score
+ * scale the strip and the spread rows both draw on — a 7000 is the same
+ * fraction of the track in either.
+ */
+export function scoreX(score: number, width: number, inset = 0): number {
+  return inset + (score / MAX_SCORE) * (width - 2 * inset);
 }
+
+/** The inset the score charts draw `scoreX` with — the strip and the spread
+ * rows alike, so their tracks start and end on the same rule. */
+export const SCORE_INSET = 6;
+
+/** What a 0–10k tick label is anchored by: the two ends inwards, so "0" and
+ * "10k" stay inside the chart, everything else centred on its tick. */
+export function tickAnchor(tick: number): "start" | "middle" | "end" {
+  return tick === 0 ? "start" : tick === MAX_SCORE ? "end" : "middle";
+}
+
+/** The one size every chart's tick and value labels are set in, in px. */
+export const CHART_LABEL_SIZE = 11;
 
 export interface PlacedMark<T> {
   item: T;

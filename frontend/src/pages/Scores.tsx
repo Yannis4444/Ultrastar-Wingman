@@ -431,8 +431,14 @@ function SessionBar({
   );
 }
 
-/** The two whole-session views behind the top card's switcher. */
-type SessionChart = "scores" | "evening";
+/** The chart area's views, in the order its switcher offers them. */
+type SessionChart = "scores" | "evening" | "spread";
+
+const CHART_VIEWS: { value: SessionChart; label: string }[] = [
+  { value: "scores", label: "All scores" },
+  { value: "evening", label: "The evening" },
+  { value: "spread", label: "Spread" },
+];
 
 /** Statistics of one party: who sang what and how well it went. */
 export default function Scores() {
@@ -442,8 +448,11 @@ export default function Scores() {
   const [grouping, setGrouping] = useState<Grouping>("player");
   // The old app's default order, and the one a scoreboard is read for.
   const [sorting, setSorting] = useState<Sorting>("best");
-  // The top card's view. Sticks across session changes on purpose: whoever
-  // switched to the timeline is reading evenings, not one evening.
+  // The chart area's view. Sticks across session changes on purpose: whoever
+  // switched to the timeline is reading evenings, not one evening. It is the
+  // reader's *choice*, kept while that view is not on offer (the head row has
+  // no evening, ungrouped there is no spread), so it comes back the moment
+  // the view does.
   const [sessionChart, setSessionChart] = useState<SessionChart>("scores");
   const [openSong, setOpenSong] = useState<SongRead | null>(null);
 
@@ -567,6 +576,21 @@ export default function Scores() {
   const rows = scores.data?.scores ?? [];
   const groups = sortGroups(groupScores(rows, grouping), sorting);
 
+  // What the chart area offers here. Every party at once is no evening; one
+  // group's spread says nothing its single ranking row does not, and
+  // ungrouped the strip already is every score.
+  const views = CHART_VIEWS.filter(
+    ({ value }) =>
+      (value !== "evening" || !meta) &&
+      (value !== "spread" || (grouping !== "none" && groups.length >= 2)),
+  );
+  // The choice as drawn: the strip while the chosen view is not on offer,
+  // the choice itself left alone so it returns with its view.
+  const drawn = views.some(({ value }) => value === sessionChart)
+    ? sessionChart
+    : "scores";
+  const chartKey = session?.id ?? ALL_SESSIONS;
+
   // A time order says nothing about a *singer* — a player is not an event, and
   // "who sang first" is not a property of a person — so grouped by player the
   // option leaves the list rather than sitting there meaning nothing.
@@ -662,45 +686,56 @@ export default function Scores() {
             <SessionSummaryRow session={session} scores={rows} />
           )}
 
-          {/* The whole session at a glance, before any grouping: every score
-              on one strip, or — behind the switcher, where a card title would
-              stand — the evening read forwards. Every party at once is no
-              evening, so the meta view keeps the strip alone under a plain
-              title. A single score is its own headline; the strip waits for a
+          {/* Above the chart and the ranking, the two things they rebuild:
+              the grouping decides whether there is a spread to show at all. */}
+          {controls}
+
+          {/* One chart area, flat on the page, behind one switcher: every
+              score on one strip, the evening read forwards, or the spread per
+              group. A single score is its own headline; the area waits for a
               second one. */}
           {rows.length >= 2 && (
             <div className="scores-chart">
-              {meta ? (
-                <h2 className="scores-chart-title">All scores</h2>
+              {views.length === 1 ? (
+                // Nothing to switch between: the one view's name, quietly.
+                <h2 className="scores-chart-title">{views[0].label}</h2>
               ) : (
                 <fieldset className="scores-chart-switch">
                   <legend className="visually-hidden">Party chart</legend>
-                  {(
-                    [
-                      ["scores", "All scores"],
-                      ["evening", "The evening"],
-                    ] as const
-                  ).map(([value, wording]) => (
+                  {views.map(({ value, label }) => (
                     <label key={value} className="scores-chart-tab">
                       <input
                         type="radio"
                         name="session-chart"
+                        value={value}
                         className="visually-hidden"
-                        checked={sessionChart === value}
+                        checked={drawn === value}
                         onChange={() => setSessionChart(value)}
                       />
-                      <span className="scores-chart-tab-text">{wording}</span>
+                      <span className="scores-chart-tab-text">{label}</span>
                     </label>
                   ))}
                 </fieldset>
               )}
-              {sessionChart === "evening" && !meta ? (
+              {/* Keyed on what they draw, so a tip left open on one party,
+                  grouping or order never floats over the next one's marks. */}
+              {drawn === "evening" ? (
                 <EveningTimeline
+                  key={chartKey}
                   scores={rows}
                   label="The party's scores over the evening"
                 />
+              ) : drawn === "spread" && grouping !== "none" ? (
+                <SpreadRows
+                  key={`${chartKey}:${grouping}:${sorting}`}
+                  groups={groups}
+                  grouping={grouping}
+                  label={`Score spread per ${grouping}`}
+                  dated={meta}
+                />
               ) : (
                 <ScoreStrip
+                  key={chartKey}
                   scores={rows}
                   label={
                     meta
@@ -710,25 +745,6 @@ export default function Scores() {
                   dated={meta}
                 />
               )}
-            </div>
-          )}
-
-          {/* Above both things they reorder: the two selects rebuild the
-              spread card as well as the ranking below it. */}
-          {controls}
-
-          {/* One group's spread says nothing the single ranking row does not
-              — and ungrouped the strip above already is the whole picture,
-              so no second card repeats it. */}
-          {grouping !== "none" && groups.length >= 2 && (
-            <div className="scores-chart">
-              <h2 className="scores-chart-title">Score spread</h2>
-              <SpreadRows
-                groups={groups}
-                grouping={grouping}
-                label={`Score spread per ${grouping}`}
-                dated={meta}
-              />
             </div>
           )}
 

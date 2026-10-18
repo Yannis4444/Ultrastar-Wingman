@@ -1,10 +1,16 @@
 import type { ScoreWithContext } from "../api";
-import { SCORE_TICKS, scoreTickLabel, timeTicks } from "../chartLayout";
+import {
+  CHART_LABEL_SIZE,
+  SCORE_TICKS,
+  scoreTickLabel,
+  timeTicks,
+} from "../chartLayout";
 import { MAX_SCORE, chartTheme } from "../chartTheme";
 import { parseServerTime, shortTime } from "../duration";
 import { useChartTip } from "../hooks/useChartTip";
 import { useMeasuredWidth } from "../hooks/useMeasuredWidth";
 import {
+  bestScoreOf,
   groupScores,
   scorePlayerKey,
   scoreTipLines,
@@ -13,14 +19,17 @@ import {
 import ChartTip from "./ChartTip";
 import "./EveningTimeline.css";
 
-const HEIGHT = 210;
-const PAD = { left: 30, right: 10, top: 14, bottom: 22 };
+const HEIGHT = 190;
+const PAD = { left: 30, right: 8, top: 10, bottom: 22 };
 const DOT_RADIUS = 4;
 
 interface EveningTimelineProps {
   scores: ScoreWithContext[];
   /** Announced to screen readers, which get nothing out of the drawing. */
   label: string;
+  /** The colour behind the chart, which the dot rings stroke so a duet's two
+   * dots still read as two — a ring painted for the wrong ground haloes. */
+  surface?: string;
 }
 
 /**
@@ -34,10 +43,12 @@ interface EveningTimelineProps {
 export default function EveningTimeline({
   scores,
   label,
+  surface = chartTheme.pageBg,
 }: EveningTimelineProps) {
   const [containerRef, width] = useMeasuredWidth<HTMLDivElement>(340);
   const { tip, clear, markTip, surfaceTip } = useChartTip(containerRef);
-  if (scores.length === 0) return null;
+  const best = bestScoreOf(scores);
+  if (best === null) return null;
 
   // The five best singers wear the hues, strongest first — the same order the
   // ranking below opens on, so the legend reads like the podium.
@@ -65,10 +76,6 @@ export default function EveningTimeline({
     PAD.left + ((at - start) / (end - start)) * (width - PAD.left - PAD.right);
   const scoreY = (value: number) =>
     PAD.top + (1 - value / MAX_SCORE) * (HEIGHT - PAD.top - PAD.bottom);
-
-  const best = scores.reduce((top, score) =>
-    score.score > top.score ? score : top,
-  );
 
   // What a finger can land on: the whole SVG resolves a tap to the nearest of
   // these, so nobody has to hit a dot exactly.
@@ -129,7 +136,7 @@ export default function EveningTimeline({
                   x={PAD.left - 6}
                   y={scoreY(tick) + 3.5}
                   textAnchor="end"
-                  fontSize={10}
+                  fontSize={CHART_LABEL_SIZE}
                   fill={chartTheme.axisQuiet}
                 >
                   {scoreTickLabel(tick)}
@@ -143,7 +150,7 @@ export default function EveningTimeline({
               x={timeX(tick)}
               y={HEIGHT - 6}
               textAnchor="middle"
-              fontSize={10}
+              fontSize={CHART_LABEL_SIZE}
               fill={chartTheme.axisQuiet}
             >
               {shortTime(new Date(tick).toISOString())}
@@ -162,7 +169,7 @@ export default function EveningTimeline({
             x={timeX(parseServerTime(best.recorded_at)) - 11}
             y={scoreY(best.score) + 4}
             textAnchor="end"
-            fontSize={11}
+            fontSize={CHART_LABEL_SIZE}
             fontWeight={600}
             fill={chartTheme.gold}
           >
@@ -177,7 +184,7 @@ export default function EveningTimeline({
                 cy={y}
                 r={DOT_RADIUS}
                 fill={colorOf(score)}
-                stroke={chartTheme.surface}
+                stroke={surface}
                 strokeWidth={2}
               />
               {/* The invisible target the dot answers hover on; taps resolve

@@ -1,5 +1,5 @@
-/* Flat: a hairline and 16px of air instead of a tile — the boxplot card is the
-   only surface on this page that gets one. */
+/* Flat: a hairline and 16px of air instead of a tile — the chart area under
+   it is flat the same way, and an opened ranking row is the page's one tile. */
 .session-summary {
   margin: 16px 16px 0 16px;
   padding-bottom: 12px;

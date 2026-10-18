@@ -28,7 +28,6 @@ import {
 } from "../api/@tanstack/react-query.gen";
 import { useAuth } from "../auth";
 import { asPlayer } from "../avatars";
-import { chartTheme } from "../chartTheme";
 import { timeAgo } from "../duration";
 import { errorDetail, errorMessage } from "../errors";
 import { useFavorites } from "../hooks/useFavorites";
@@ -630,14 +629,16 @@ export default function SongDetails({ song, onClose }: SongDetailsProps) {
         {/* Four scores are the fewest that make a picture (§7): a couple of
             dots have no spread to show and no median worth drawing a line for,
             and the ranking below says everything they do. The modal is flat on
-            `--bg`, so the rings are painted for that ground (§1.1). */}
+            `--bg`, the ground every chart is drawn for (§1.1). The summary
+            right above already prints Best and who holds it, so the strip's
+            own line keeps the median alone. */}
         {allScores.length >= CHART_MIN_SCORES && (
           <div className="song-scores-strip">
             <ScoreStrip
               scores={allScores}
               label="Every score this song ever got"
               dated
-              surface={chartTheme.pageBg}
+              showBest={false}
             />
           </div>
         )}

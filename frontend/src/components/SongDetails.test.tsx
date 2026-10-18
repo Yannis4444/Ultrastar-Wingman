@@ -257,6 +257,10 @@ test("the whole history is drawn as the all-scores strip above the ranking", asy
   expect(within(strip).getAllByTestId("strip-dot")).toHaveLength(6);
   // It sits between the summary line and the ranking, flat on the page.
   expect(strip.closest(".song-scores-strip")).not.toBeNull();
+  // The summary right above prints Best and its holder, so the strip's own
+  // line says the median and nothing it would repeat.
+  const figures = dialog.querySelector(".score-strip-figures") as HTMLElement;
+  expect(figures.textContent).toMatch(/^Median \d+$/);
 });
 
 test("three scores are no picture, so no strip is drawn", async () => {

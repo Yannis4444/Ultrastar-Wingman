@@ -207,13 +207,14 @@ test("the whole record is one strip of every score, the best in gold", async () 
   expect(
     dots.filter((dot) => dot.getAttribute("fill") === chartTheme.gold),
   ).toHaveLength(1);
-  // The gold label is the bare number: every score here is the reader's own,
-  // so their name beside their best would be the same word this page never
-  // prints anywhere else. Scoped to the strip — the ranking row prints the
-  // same 9500 legitimately.
-  const strip = screen.getByRole("img", { name: "Every score you ever got" });
-  expect(within(strip).getByText("9500")).toBeInTheDocument();
-  expect(within(strip).queryByText(/9500 · /)).not.toBeInTheDocument();
+  // The line over the strip gives the best as the bare number: every score
+  // here is the reader's own, so their name beside their best would be the
+  // same word this page never prints anywhere else.
+  const figures = document.querySelector(".score-strip-figures") as HTMLElement;
+  expect(figures.textContent).toBe("Median 7500 · Best 9500");
+  expect(figures.querySelector(".score-strip-best")).toHaveTextContent("9500");
+  // Flat like the Scores page's chart area, under the same quiet title.
+  expect(figures.closest(".scores-chart")).not.toBeNull();
 });
 
 test("one song sung twice is still a picture", async () => {
