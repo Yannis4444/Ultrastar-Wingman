@@ -60,22 +60,32 @@ back after somebody sings: Wingman never resumes a song it interrupted.
 ## Volume
 
 The slider on the player is the background music's own volume. The overall volume
-lives in **Settings**, under **Sound**, together with a volume for the song the reel
-lands on and one for Wingman's sound effects.
+lives in **Settings**, under **Sound**, together with a volume for the song being
+picked and one for Wingman's sound effects.
 
 The numbers multiply. An overall volume of 50 with a music volume of 50 plays at a
 quarter of full. Set the overall volume once for the room, then trim the music
 against it.
 
-## The song the reel lands on
+## The song being picked
 
-When somebody spins the reel on the TV, the background music fades out. When the
-reel lands, the song it picked fades in, starting where its singing starts rather
-than at the intro, and keeps playing while the singers are picked. It stops when the
-song is started or the pick is given up, and the background music comes back where
-it left off. This works with the background music switched off too.
+While the room picks singers for a song, the TV plays that song. It starts where
+its singing starts rather than at the intro, and the background music fades out
+for it.
 
-It is on from the start. **Reel preview** under **Sound** in **Settings** switches
+- When somebody taps **Sing** on a phone, the song fades in at once.
+- When the reel spins on the TV, the song it picked fades in when the reel lands.
+  It keeps playing when the phone that spun it taps **Play** to pick the singers,
+  and it does not start again from the top.
+
+Moving singers between slots or putting a card down does not interrupt it. A new
+song does: spinning again, or somebody else taking over the pick. The song stops
+when it is started or the pick is given up, and the background music comes back
+where it left off. If the singers are picked while another song is being sung,
+their song comes in after the short pause that follows it. This works with the
+background music switched off too.
+
+It is on from the start. **Song preview** under **Sound** in **Settings** switches
 it off, and **Preview volume** beside it sets how loud it is.
 
 ## When there is no sound

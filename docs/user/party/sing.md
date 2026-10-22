@@ -17,6 +17,10 @@ Deluxe does the rest. Anybody in the room can do this, account or not.
 At least one slot needs a player, so **Play** stays off until somebody stands on
 one.
 
+While you pick, the TV plays the song from where its singing starts, so the room
+hears what is coming. See
+[Background music](music.md#the-song-being-picked).
+
 Ultrastar Deluxe opens on the TV with that song, and with the chosen names,
 colors, and pictures already set up. The song leaves the wishlist at the same
 moment. See [Wish for a song](wishlist.md).

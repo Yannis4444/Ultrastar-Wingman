@@ -1,20 +1,22 @@
 """How loud Wingman's own sound is, on the screen that makes it.
 
 Four volumes, one shape. `sound.master_volume` scales everything the host screen plays;
-the other three are the per-kind trims under it — the background music, the song the reel
-lands on, the sound effects — so turning the party down is one number and "the music is
+the other three are the per-kind trims under it — the background music, the song being
+picked, the sound effects — so turning the party down is one number and "the music is
 louder than the effects" stays true when you do. The host multiplies them
 itself — the backend never works out an effective volume, because the two numbers are what a
 reader adjusts and a single product would be a value nobody set.
 
 None of it is about Ultrastar Deluxe. USDX plays a sing through its own mixer and Wingman
-does not touch it; these are the background music, the reel's song and (later) the sound
-effects, which come out of the host browser's own audio elements.
+does not touch it; these are the background music, the song being picked and (later) the
+sound effects, which come out of the host browser's own audio elements.
 
-`sound.reel_preview` is the one switch here: whether the host screen plays the song the
-reel lands on at all. It was a `music.manage` option behind the player's gear first; the
-user moved it to the Settings page (2026-09-12) because it is about the reel, not about the
-background music, and its volume sits here.
+`sound.reel_preview` is the one switch here: whether the host screen plays the song being
+picked at all — the reel's, from its landing, and one a selection was opened with, at once,
+for as long as the singers are chosen. It was a `music.manage` option behind the player's
+gear first; the user moved it to the Settings page (2026-09-12) because it is about the
+reel, not about the background music, and its volume sits here. The key kept its name when
+it grew to every selection (2026-10-22); the Settings page labels it *Song preview*.
 
 A leaf on purpose: `settings.py` imports the keys and the validator from here, so this
 module must never import the settings registry back — the same arrangement as
@@ -32,7 +34,7 @@ VOLUME_KEYS: frozenset[str] = frozenset(
 )
 # Every key this module owns. `music.service` caches all of them and `api.update_setting`
 # refreshes that cache when one is written, so the TV follows a volume set on the Settings
-# page without a restart, and switching the reel's song off ends one that is playing.
+# page without a restart, and switching the song preview off ends one that is playing.
 MUSIC_KEYS: frozenset[str] = VOLUME_KEYS | {REEL_PREVIEW}
 
 MIN_VOLUME = 0

@@ -1300,6 +1300,238 @@ async def test_a_spin_hands_the_reels_song_to_the_music(
     assert (await music_service.read()).preview is None
 
 
+async def give_audio(session: AsyncSession, song_id: str, preview_start: float = 33.0) -> None:
+    """A file for the host screen to play, and where its preview starts."""
+    row = await session.get(Song, song_id)
+    assert row is not None
+    row.audio_file = str(Path(row.directory) / "song.mp3")
+    row.preview_start_seconds = preview_start
+    await session.commit()
+
+
+def music_events(events: list[dict[str, object]]) -> list[dict[str, Any]]:
+    return [event for event in events if event["event"] == "music.changed"]
+
+
+async def test_a_selection_opened_with_a_song_plays_it_at_once_and_keeps_it_playing(
+    client: AsyncClient,
+    session: AsyncSession,
+    session_factory: async_sessionmaker[AsyncSession],
+    song: str,
+    monkeypatch: pytest.MonkeyPatch,
+    broadcast_events: list[dict[str, object]],
+) -> None:
+    """A phone's Sing opens the selection with a song: there is no reel to wait for, so
+    the host plays it from the moment the selection opens. Moving the singers and a card
+    landing keep the same song of the same selection, so neither restarts it — nor tells
+    the room anything, however often the phone writes. A new selection restarts it, even of
+    the same song; giving it up ends it."""
+    from ultrastar_wingman.music import service as music_service
+
+    await give_audio(session, song)
+    clock = frozen_clock(monkeypatch)
+    alice = await add_player(client, "Alice")
+    bob = await add_player_row(session, "Bob")
+
+    opened = await open_selection(client, song)
+    state = await music_service.read()
+    assert state.preview is not None
+    assert state.preview.song.id == song
+    assert state.preview.start_s == 33.0
+    assert state.preview.reveal_at == clock[0]
+    first = state.preview
+    heard = len(music_events(broadcast_events))
+
+    for color in ["blue", "red", "green", "blue"]:
+        clock[0] += timedelta(milliseconds=300)
+        response = await client.put(
+            "/api/v1/karaoke/selection/slots",
+            json={"token": opened["token"], "slots": [{"color": color, "player_id": alice["id"]}]},
+        )
+        assert response.status_code == 200, response.text
+    await selection.card_placed_on_slot(session_factory, "red", "B2", bob)
+    assert len(selection_events(broadcast_events)) >= 6
+    assert len(music_events(broadcast_events)) == heard
+    assert (await music_service.read()).preview == first
+
+    clock[0] += timedelta(seconds=1)
+    again = await open_selection(client, song, force=True)
+    state = await music_service.read()
+    assert state.preview is not None
+    assert state.preview.id != first.id
+    assert state.preview.reveal_at == clock[0]
+
+    assert (await close_selection(client, again["token"])).status_code == 204
+    assert (await music_service.read()).preview is None
+
+
+async def test_a_picked_spin_plays_on_where_it_is_and_a_respin_restarts_it(
+    client: AsyncClient,
+    session: AsyncSession,
+    song: str,
+    monkeypatch: pytest.MonkeyPatch,
+    broadcast_events: list[dict[str, object]],
+) -> None:
+    """A respin is a new reel and a new song (here the same one, the library holding one),
+    so the host starts it again from its preview point. Moving on to the singers is not: the
+    preview keeps its id and its landing, so the host's song plays on where it is."""
+    from ultrastar_wingman.music import service as music_service
+
+    await give_audio(session, song)
+    clock = frozen_clock(monkeypatch)
+    opened = await open_spin(client, "all")
+    token = opened["token"]
+    first = (await music_service.read()).preview
+    assert first is not None
+
+    clock[0] += LANDED
+    assert (await respin(client, token)).status_code == 200
+    respun = (await music_service.read()).preview
+    assert respun is not None
+    assert respun.id != first.id
+    assert respun.reveal_at == clock[0] + timedelta(seconds=selection.REVEAL_SECONDS)
+
+    clock[0] += LANDED
+    heard = len(music_events(broadcast_events))
+    assert (await pick(client, token)).status_code == 200
+    response = await client.put(
+        "/api/v1/karaoke/selection/slots", json={"token": token, "slots": []}
+    )
+    assert response.status_code == 200, response.text
+    assert (await music_service.read()).preview == respun
+    assert len(music_events(broadcast_events)) == heard
+
+
+async def test_a_pick_before_the_reel_lands_lands_the_song_now(
+    client: AsyncClient,
+    session: AsyncSession,
+    song: str,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """The phone's Play waits for the landing, the route does not. A pick while the reel
+    still runs takes the reel off the TV and shows the song at once, so the speakers bring
+    it in at once too — under the same id, so a host that has cued it keeps the file."""
+    from ultrastar_wingman.music import service as music_service
+
+    await give_audio(session, song)
+    clock = frozen_clock(monkeypatch)
+    opened = await open_spin(client, "all")
+    spun = (await music_service.read()).preview
+    assert spun is not None
+    assert spun.reveal_at == clock[0] + timedelta(seconds=selection.REVEAL_SECONDS)
+
+    clock[0] += timedelta(seconds=1)
+    assert (await pick(client, opened["token"])).status_code == 200
+    picked = (await music_service.read()).preview
+    assert picked is not None
+    assert picked.id == spun.id
+    assert picked.reveal_at == clock[0]
+
+
+async def test_the_switch_and_the_watchdog_reach_a_selection_opened_with_a_song(
+    client: AsyncClient,
+    session: AsyncSession,
+    song: str,
+) -> None:
+    """*Song preview* off: a phone's Sing plays nothing. Switched on while the selection
+    stands, its song comes in; off again, it goes; and a selection the watchdog drops for
+    standing idle takes its song with it."""
+    from ultrastar_wingman.music import service as music_service
+
+    await give_audio(session, song)
+    off = await client.patch("/api/v1/settings/sound.reel_preview", json={"value": False})
+    assert off.status_code == 200, off.text
+
+    await open_selection(client, song)
+    assert (await music_service.read()).preview is None
+
+    on = await client.patch("/api/v1/settings/sound.reel_preview", json={"value": True})
+    assert on.status_code == 200, on.text
+    assert (await music_service.read()).preview is not None
+
+    await client.patch("/api/v1/settings/sound.reel_preview", json={"value": False})
+    assert (await music_service.read()).preview is None
+    await client.patch("/api/v1/settings/sound.reel_preview", json={"value": True})
+    assert (await music_service.read()).preview is not None
+
+    with pytest.MonkeyPatch.context() as later:
+        later.setattr(
+            selection,
+            "_now",
+            lambda: datetime.now(UTC) + selection.DEFAULT_IDLE_TTL + timedelta(seconds=1),
+        )
+        await selection.expire_stale()
+    assert await selection.current_selection() is None
+    assert (await music_service.read()).preview is None
+
+
+async def test_the_selectors_spin_plays_until_its_start_takes_the_speakers(
+    session: AsyncSession,
+    session_factory: async_sessionmaker[AsyncSession],
+    configured: FakeUsdx,
+    song: str,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """The start button set to `random` opens the selector's own spin, which the host plays
+    like a phone's; the press that starts the song ends it, and the sing ending brings back
+    nothing, because the selection went with the start."""
+    from ultrastar_wingman.music import service as music_service
+
+    await give_audio(session, song)
+    clock = frozen_clock(monkeypatch)
+    alice = await add_player_row(session, "Alice")
+    await SettingsService(session).set("karaoke.player_colors", TWO_SLOTS)
+    cards = {"blue": selection.CardOnSlot(uid="A1", player_id=alice)}
+
+    await selection.button_pressed(
+        session,
+        session_factory,
+        "start",
+        without_selection=selection.StartWithoutSelection(mode="random", cards=cards),
+    )
+    state = await music_service.read()
+    assert state.preview is not None
+    assert state.preview.song.id == song
+
+    clock[0] += LANDED
+    await selection.button_pressed(session, session_factory, "start")
+    await wait_for(configured.argv_file)
+    assert await selection.current_selection() is None
+    assert (await music_service.read()).preview is None
+    await service.wait_for_sing_end()
+    assert (await music_service.read()).preview is None
+
+
+async def test_the_top_wish_press_leaves_no_preview_behind(
+    session: AsyncSession,
+    session_factory: async_sessionmaker[AsyncSession],
+    configured: FakeUsdx,
+    song: str,
+) -> None:
+    """`top_wish` opens its selection and starts it in the same breath, so there is nothing
+    to hear: the song goes straight to Ultrastar Deluxe, and nothing plays afterwards."""
+    from ultrastar_wingman.music import service as music_service
+
+    await give_audio(session, song)
+    alice = await add_player_row(session, "Alice")
+    await SettingsService(session).set("karaoke.player_colors", TWO_SLOTS)
+    session.add(Wish(song_id=song, guest_id="a-guest-cookie"))
+    await session.commit()
+
+    await selection.button_pressed(
+        session,
+        session_factory,
+        "start",
+        without_selection=selection.StartWithoutSelection(
+            mode="top_wish", cards={"blue": selection.CardOnSlot(uid="A1", player_id=alice)}
+        ),
+    )
+    await wait_for(configured.argv_file)
+    assert (await music_service.read()).preview is None
+    await service.wait_for_sing_end()
+    assert (await music_service.read()).preview is None
+
+
 async def test_a_spin_over_nothing_is_refused(
     bootstrap_settings: BootstrapSettings, client: AsyncClient, song: str
 ) -> None:

@@ -77,10 +77,12 @@ it gets a sentence and **Cancel**, such as *The wishlist is empty. The reel has
 nothing to land on.*
 
 When the reel lands, the TV plays the song from where its singing starts, so the
-room hears what it picked. The background music, if any, fades out for it and
-comes back afterwards. **Reel preview** under **Sound** in **Settings** switches
-this off, and **Preview volume** beside it sets how loud it plays (see
-[Background music](music.md#the-song-the-reel-lands-on)).
+room hears what it picked. It keeps playing after you tap **Play** while the
+singers are picked, and **Spin again** starts the next song in its place. The
+background music, if any, fades out for it and comes back afterwards. **Song
+preview** under **Sound** in **Settings** switches this off, and **Preview
+volume** beside it sets how loud it plays (see
+[Background music](music.md#the-song-being-picked)).
 
 Spinning on the host screen holds the room the way **Sing** does. Nobody else
 can start a song while your phone holds the pick. If somebody is already

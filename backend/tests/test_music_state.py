@@ -74,7 +74,7 @@ async def enable(session: AsyncSession, **options: Any) -> None:
     settings = music_settings.service(session)
     await settings.set(music_settings.ENABLED, True)
     for key, value in options.items():
-        if key == "preview_on_spin":
+        if key == "song_preview":
             await SettingsService(session).set(REEL_PREVIEW, value)
         else:
             await settings.set(f"music.{key}", value)
@@ -505,11 +505,16 @@ async def test_play_carries_on_from_where_pause_left_it(
 
 
 def spin_preview(
-    song_id: str, *, key: str = "s:1", start_s: float | None = 12.0, has_audio: bool = True
-) -> service.SpinPreview:
+    song_id: str,
+    *,
+    key: str = "s:1",
+    start_s: float | None = 12.0,
+    has_audio: bool = True,
+    reveal_at: datetime = START + timedelta(seconds=5.5),
+) -> service.SelectionPreview:
     from ultrastar_wingman.songs.schema import SongRead
 
-    return service.SpinPreview(
+    return service.SelectionPreview(
         key=key,
         song=SongRead(
             id=song_id,
@@ -526,7 +531,7 @@ def spin_preview(
             creator=None,
         ),
         start_s=start_s,
-        reveal_at=START + timedelta(seconds=5.5),
+        reveal_at=reveal_at,
         has_audio=has_audio,
     )
 
@@ -587,7 +592,7 @@ async def test_the_reel_is_silent_without_a_file_or_with_the_switch_off_or_under
     assert (await service.read()).preview is None
     await service.sing_ended()
 
-    await enable(session, preview_on_spin=False)
+    await enable(session, song_preview=False)
     await service.selection_changed(spin_preview(song))
     assert (await service.read()).preview is None
 
@@ -649,6 +654,156 @@ async def test_a_file_that_names_no_preview_start_plays_from_the_beginning(
     await enable(session)
     await service.selection_changed(spin_preview(song, start_s=None))
     assert (await service.read()).preview.start_s == 0.0  # type: ignore[union-attr]
+
+
+def music_events(events: list[dict[str, object]]) -> list[dict[str, object]]:
+    return [event for event in events if event["event"] == "music.changed"]
+
+
+async def test_the_same_selection_reported_again_changes_nothing(
+    session: AsyncSession,
+    tmp_path: Path,
+    clock: Clock,
+    broadcast_events: list[dict[str, object]],
+) -> None:
+    # A phone moving slots is a selection broadcast several times a second, every one of
+    # them handing the music the same song of the same selection. None of them may restart
+    # the song, re-freeze the background or tell the room anything.
+    song = await add_song(session, tmp_path, 1)
+    await enable(session)
+    await register(session)
+    clock.advance(4)
+    broadcast_events.clear()
+
+    await service.selection_changed(spin_preview(song, key="opened:song"))
+    assert len(music_events(broadcast_events)) == 1
+    first = await service.read()
+    assert first.preview is not None
+
+    for _ in range(5):
+        clock.advance(1)
+        await service.selection_changed(spin_preview(song, key="opened:song"))
+    assert len(music_events(broadcast_events)) == 1
+    state = await service.read()
+    assert state.preview == first.preview
+    # Frozen where the first one found it, not where any of the repeats did.
+    assert state.track is not None
+    assert state.track.position_s == pytest.approx(4)
+
+
+async def test_an_early_landing_moves_the_preview_and_a_new_key_restarts_it(
+    session: AsyncSession,
+    tmp_path: Path,
+    clock: Clock,
+    broadcast_events: list[dict[str, object]],
+) -> None:
+    song = await add_song(session, tmp_path, 1)
+    other = await add_song(session, tmp_path, 2)
+    await enable(session)
+    await register(session)
+    clock.advance(4)
+    await service.selection_changed(spin_preview(song))
+    broadcast_events.clear()
+
+    # A press landed the reel early: the same spin, a sooner landing — the host re-arms.
+    clock.advance(2)
+    await service.selection_changed(spin_preview(song, reveal_at=clock.now))
+    state = await service.read()
+    assert state.preview is not None
+    assert state.preview.id == "s:1"
+    assert state.preview.reveal_at == clock.now
+    assert len(music_events(broadcast_events)) == 1
+
+    # A respin, or a new selection: a new key, so a new preview from its start.
+    await service.selection_changed(spin_preview(other, key="s:2"))
+    state = await service.read()
+    assert state.preview is not None
+    assert state.preview.id == "s:2"
+    assert state.preview.song.id == other
+    assert len(music_events(broadcast_events)) == 2
+    # The background stayed frozen at 4 throughout: the preview never went away.
+    assert state.track is not None
+    assert state.track.position_s == pytest.approx(4)
+
+
+async def test_a_selection_lined_up_during_a_sing_is_heard_once_the_pause_is_over(
+    session: AsyncSession,
+    session_factory: async_sessionmaker[AsyncSession],
+    tmp_path: Path,
+    clock: Clock,
+) -> None:
+    # The next singers are picked while this song is being sung: nothing plays over
+    # Ultrastar Deluxe, and the song they picked comes in once the pause after it is over —
+    # on the tick, like the background music, whether that is switched on or not.
+    song = await add_song(session, tmp_path, 1)
+    await enable(session, resume_delay_s=5, enabled=False)
+    await service.sing_started()
+    await service.selection_changed(spin_preview(song, key="opened:song"))
+    assert (await service.read()).preview is None
+
+    await service.sing_ended()
+    assert (await service.read()).preview is None
+    clock.advance(4)
+    await service.tick(session_factory)
+    assert (await service.read()).preview is None
+    clock.advance(2)
+    await service.tick(session_factory)
+    state = await service.read()
+    assert state.preview is not None
+    assert state.preview.id == "opened:song"
+
+    # The same for the switch: off ends it, on again brings the standing selection back.
+    await enable(session, song_preview=False)
+    assert (await service.read()).preview is None
+    await enable(session, song_preview=True)
+    assert (await service.read()).preview is not None
+
+    # And once the selection is gone, neither brings anything back.
+    await service.selection_changed(None)
+    await service.sing_started()
+    await service.sing_ended()
+    assert (await service.read()).preview is None
+
+
+async def test_a_forced_start_over_a_standing_selection_never_swells_its_song_in(
+    session: AsyncSession,
+    tmp_path: Path,
+    clock: Clock,
+    broadcast_events: list[dict[str, object]],
+) -> None:
+    # A forced start stops the old song (`sing_ended`) and launches the new one a moment
+    # later (`sing_started`) while the selection still stands: the song being picked must
+    # not come in for that moment — and with no pause configured it still waits a moment
+    # (`PREVIEW_HOLD_MIN`), for the tick to bring it.
+    song = await add_song(session, tmp_path, 1)
+    await enable(session, resume_delay_s=0)
+    await service.sing_started()
+    await service.selection_changed(spin_preview(song, key="opened:song"))
+    broadcast_events.clear()
+
+    await service.sing_ended()
+    await service.sing_started()
+
+    assert all(event["music"]["preview"] is None for event in music_events(broadcast_events))  # type: ignore[index]
+    assert (await service.read()).preview is None
+
+
+async def test_a_selection_opened_after_a_sing_is_heard_at_once(
+    session: AsyncSession, tmp_path: Path, clock: Clock
+) -> None:
+    # The pause after a song holds back only a selection that stood through it: one the room
+    # opens afterwards is somebody asking for that song now.
+    song = await add_song(session, tmp_path, 1)
+    await enable(session)
+    await service.sing_started()
+    await service.selection_changed(spin_preview(song, key="during:song"))
+    await service.sing_ended()
+    assert (await service.read()).preview is None
+
+    await service.selection_changed(spin_preview(song, key="after:song"))
+    state = await service.read()
+    assert state.preview is not None
+    assert state.preview.id == "after:song"
 
 
 async def test_the_controls_say_why_they_did_nothing(

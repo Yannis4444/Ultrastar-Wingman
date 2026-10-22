@@ -336,7 +336,9 @@ Only the first row is a party. Write the third column, never "session".
   Anything longer is a step list.
 - Name a setting by its label and its group: the **Directory** setting in the **Songs**
   group. The label is the last part of the key, sentence cased, so the group is what makes it
-  unambiguous. Say when a setting is behind **Advanced**.
+  unambiguous — except for a key that outgrew its name, which `KEY_LABELS` in
+  `frontend/src/settings.ts` labels in its own words (`sound.reel_preview` is **Song
+  preview**). Say when a setting is behind **Advanced**.
 - File paths and folder names go in code font: `C:\Users\you\AppData\Local\Ultrastar Wingman`.
 - Numbers: numerals for anything the app shows and for measurements. Spell out one to nine in
   ordinary prose. Scores keep their thousands separator: 9,842.

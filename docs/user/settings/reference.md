@@ -28,9 +28,9 @@ share a color. Give a slot a color another one already has and the two swap. See
 |---|---|---|
 | **Master volume** | Everything the host screen plays is scaled by this one | 100 |
 | **Music volume** | The background music between songs. Anybody who may control the music can also change this from the player | 100 |
-| **Preview volume** | The song the reel lands on | 100 |
+| **Preview volume** | The song being picked, while the singers are chosen | 100 |
 | **Effects volume** | Wingman's own sound effects. Nothing plays any yet | 100 |
-| **Reel preview** | Play the song the reel on the host screen lands on, from where its singing starts, until Play is pressed or the pick is given up. The background music pauses for it | on |
+| **Song preview** | Play the song being picked on the host screen while the singers are chosen, from where its singing starts: once the reel lands on it, or at once for a song somebody chose. It stops when the song starts or the pick is given up, and the background music pauses for it | on |
 
 The volumes are percentages, and the master multiplies the others. None of them
 touches Ultrastar Deluxe, which mixes a song being sung itself. See

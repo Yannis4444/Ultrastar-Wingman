@@ -17,6 +17,12 @@ test.each([
   expect(labelize(key)).toBe(label);
 });
 
+test("a key that outgrew its name keeps it and says what it does", () => {
+  expect(labelize("sound.reel_preview")).toBe("Song preview");
+  // Only that exact key: another one ending the same way is labelled as ever.
+  expect(labelize("other.reel_preview")).toBe("Reel preview");
+});
+
 test("a key without a group prefix still gets a label", () => {
   expect(labelize("parallel_downloads")).toBe("Parallel downloads");
 });

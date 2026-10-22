@@ -19,10 +19,10 @@ const FADE_IN_MS = 300;
  *  user asked for it to take its time (2026-09-12). Well inside the 5.5 s
  *  reel, so the new file is cued long before it lands. */
 export const SPIN_FADE_OUT_MS = 2500;
-/** The reel's song rises in over this, from the moment the reel lands: long
- *  enough that the landing is a swell and not a jump cut, short enough that
- *  the two-second lead-in before the first word (`songs/txt.py`) still ends
- *  before it. */
+/** The song being picked rises in over this, from the moment the reel lands —
+ *  or the selection opens, for one opened with a song: long enough that it is
+ *  a swell and not a jump cut, short enough that the two-second lead-in before
+ *  the first word (`songs/txt.py`) still ends before it. */
 const PREVIEW_FADE_IN_MS = 1500;
 
 /** The lock one browser's tabs queue on, so only one of them ever plays. */
@@ -54,10 +54,14 @@ const MAX_ERRORS = 5;
  * the same song a beat apart, and a `sink_online` that says nothing about the
  * sound actually coming out.
  *
- * **Two elements.** The background song has one, and the reel's song — the
- * `preview` the state carries while the room's selection was spun — has its
- * own: it is loaded and seeked the moment the reel starts, so the file buffers
- * while the reel spins, and it rises in at `reveal_at` on the server's clock.
+ * **Two elements.** The background song has one, and the song being picked —
+ * the `preview` the state carries while the room's selection has a song, spun
+ * or opened with one — has its own: it is loaded and seeked the moment the
+ * preview arrives, so the file buffers while the reel spins, and it rises in
+ * at `reveal_at` on the server's clock (at once for a selection opened with a
+ * song). It is keyed on `id@reveal_at` and nothing else, so a state that
+ * carries the same preview again — a slot moved, a spin moving on to its
+ * singers — leaves it playing where it is.
  * The background element fades out under it and comes back where it froze
  * when the preview goes. One element swapping its `src` would have lost the
  * background's position, reported the preview's time under the background
@@ -88,6 +92,9 @@ function ActiveSink() {
   const previewKeyRef = useRef<string | null>(null);
   // The key the element was last loaded and seeked for.
   const previewCuedRef = useRef<string | null>(null);
+  // The key whose moment to sound came while the last song was still fading
+  // out: the end of that fade starts it.
+  const previewDueRef = useRef<string | null>(null);
   // Whether the reel's song should be sounding right now — landed, and still
   // wanted — for the gesture unlock to know which element to play.
   const previewLiveRef = useRef(false);
@@ -376,38 +383,15 @@ function ActiveSink() {
       if (reel.getAttribute("src") !== url) reel.src = url;
     };
     const cue = () => {
-      // A new spin: the file, and the seek to its start — unconditionally, because a
-      // respin out of a pool of one lands on the same file, which a played-out
-      // fade-out has left somewhere else.
+      // A new preview: the file, and the seek to its start — unconditionally,
+      // because a respin out of a pool of one lands on the same file, which a
+      // played-out fade-out has left somewhere else.
       load();
       reel.currentTime = previewStart;
       previewCuedRef.current = key;
     };
-    if (previewKeyRef.current !== key) {
-      previewKeyRef.current = key;
-      previewLiveRef.current = false;
-      if (reel.paused) {
-        // The reel has just started: load and seek now, so the file is buffered
-        // by the time it lands.
-        cue();
-      } else {
-        // A respin while the last song was playing: fade it out, then cue the
-        // new one — long before the new reel lands.
-        ramp(reel, previewFadeRef, 0, SPIN_FADE_OUT_MS, () => {
-          if (previewKeyRef.current !== key) return;
-          reel.pause();
-          cue();
-        });
-      }
-    }
-
-    // The landing, on the server's clock; already past for a host that loads
-    // mid-selection, and then the song comes in at once.
-    const delay = Math.max(0, parseServerTime(previewRevealAt) - Date.now());
-    const timer = setTimeout(() => {
-      if (previewKeyRef.current !== key) return;
-      // Cued already, unless the fade-out of the last song is still running.
-      if (previewCuedRef.current !== key) cue();
+    const start = () => {
+      previewDueRef.current = null;
       previewLiveRef.current = true;
       reel.volume = 0;
       ramp(reel, previewFadeRef, previewVolumeRef.current, PREVIEW_FADE_IN_MS);
@@ -420,6 +404,41 @@ function ActiveSink() {
           }
           musicSinkStore.setBlocked(true);
         });
+    };
+    if (previewKeyRef.current !== key) {
+      previewKeyRef.current = key;
+      previewLiveRef.current = false;
+      previewDueRef.current = null;
+      if (reel.paused || !reel.hasAttribute("src")) {
+        // Nothing is sounding: load and seek now, so the file is buffered by
+        // the time the reel lands.
+        cue();
+      } else {
+        // A respin, or a new selection, while the last song was playing: fade
+        // it out, then cue the new one — long before a new reel lands, and
+        // before a selection opened with a song comes in, which waits for it.
+        ramp(reel, previewFadeRef, 0, SPIN_FADE_OUT_MS, () => {
+          if (previewKeyRef.current !== key) return;
+          reel.pause();
+          cue();
+          if (previewDueRef.current === key) start();
+        });
+      }
+    }
+
+    // The landing, on the server's clock; already past for a host that loads
+    // mid-selection and for a selection opened with a song, and then the song
+    // comes in at once.
+    const delay = Math.max(0, parseServerTime(previewRevealAt) - Date.now());
+    const timer = setTimeout(() => {
+      if (previewKeyRef.current !== key) return;
+      if (previewCuedRef.current !== key) {
+        // The last song is still fading out. Cutting it here would be the jump
+        // cut the fade exists to avoid; its end starts this one instead.
+        previewDueRef.current = key;
+        return;
+      }
+      start();
     }, delay);
     return () => clearTimeout(timer);
   }, [previewId, previewRevealAt, previewSongId, previewStart]);

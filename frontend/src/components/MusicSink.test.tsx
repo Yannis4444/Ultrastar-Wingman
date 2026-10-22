@@ -512,6 +512,97 @@ it("seeks again on a respin that lands on the same song", async () => {
   expect(reel.getAttribute("src")).toBe("/api/v1/songs/usdb%3A9/audio");
 }, 12_000); // two long fades, played out in real time
 
+it("keeps the song being picked playing where it is through a state that carries it again", async () => {
+  // A slot moved, a spin moving on to its singers: the backend keeps the same
+  // preview, and any state that carries it — here a volume moving under it —
+  // must neither seek it back to its start nor play it a second time. No
+  // background track, so nothing else touches the (shared) stubbed clock.
+  const quiet = music({ status: "off", track: null });
+  getMusic.mockResolvedValue({ data: quiet });
+  registerMusicSink.mockResolvedValue({
+    data: { sink_id: "sink-1", heartbeat_interval_s: 5, music: quiet },
+  });
+  const picked = {
+    id: "2026-10-22T20:00:00+00:00:song",
+    song: { ...SONG, id: "usdb:9" },
+    start_s: 42,
+    reveal_at: new Date().toISOString(),
+  };
+  draw();
+  await audioElement();
+  await waitFor(() => expect(registerMusicSink).toHaveBeenCalled());
+  const plays = (HTMLMediaElement.prototype.play as ReturnType<typeof vi.fn>)
+    .mock.calls.length;
+
+  act(() => {
+    FakeSocket.deliver({
+      event: "music.changed",
+      music: { ...quiet, preview: picked },
+    });
+  });
+  const { reel } = elements();
+  // A selection opened with a song: no reel to wait for, it comes in at once.
+  await waitFor(() =>
+    expect(HTMLMediaElement.prototype.play).toHaveBeenCalledTimes(plays + 1),
+  );
+  expect(reel.currentTime).toBe(42);
+  reel.currentTime = 50; // where it has got to by the next state
+
+  act(() => {
+    FakeSocket.deliver({
+      event: "music.changed",
+      music: {
+        ...quiet,
+        preview: { ...picked },
+        volume: { ...quiet.volume, music: 20 },
+      },
+    });
+  });
+  await new Promise((resolve) => setTimeout(resolve, 200));
+  expect(reel.currentTime).toBe(50);
+  expect(reel.getAttribute("src")).toBe("/api/v1/songs/usdb%3A9/audio");
+  expect(HTMLMediaElement.prototype.play).toHaveBeenCalledTimes(plays + 1);
+});
+
+it("lets the last song fade out before a new selection's song comes in", async () => {
+  // A selection opened with a song comes in at once — but over a song that is
+  // still sounding, at once would be a jump cut. It waits for the long fade.
+  draw();
+  const audio = await audioElement();
+  await waitFor(() => expect(audio.getAttribute("src")).toContain("usdb%3A1"));
+  const preview = (id: string, songId: string) =>
+    act(() => {
+      FakeSocket.deliver({
+        event: "music.changed",
+        music: music({
+          preview: {
+            id,
+            song: { ...SONG, id: songId },
+            start_s: 0,
+            reveal_at: new Date().toISOString(),
+          },
+        }),
+      });
+    });
+  const play = HTMLMediaElement.prototype.play as ReturnType<typeof vi.fn>;
+  preview("first:song", "usdb:9");
+  const { reel } = elements();
+  await waitFor(() => expect(reel.getAttribute("src")).toContain("usdb%3A9"));
+  await waitFor(() => expect(reel.volume).toBe(1), { timeout: 3000 });
+  const plays = play.mock.calls.length;
+
+  preview("second:song", "usdb:7");
+  // A second in, the first song is still going down and nothing new has begun.
+  await new Promise((resolve) => setTimeout(resolve, 1000));
+  expect(reel.getAttribute("src")).toContain("usdb%3A9");
+  expect(play).toHaveBeenCalledTimes(plays);
+  // Then the new one is cued and started, once.
+  await waitFor(() => expect(reel.getAttribute("src")).toContain("usdb%3A7"), {
+    timeout: SPIN_FADE_OUT_MS + 1500,
+  });
+  await waitFor(() => expect(play).toHaveBeenCalledTimes(plays + 1));
+}, 12_000); // a fade-in and a long fade-out, played out in real time
+
 it("lets the reel's song go when the selection does", async () => {
   draw();
   const audio = await audioElement();

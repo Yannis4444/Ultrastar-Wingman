@@ -68,6 +68,11 @@ EMPTY_RETRY = timedelta(seconds=30)
 MAX_ERRORS = 5
 ERROR_BACKOFF = timedelta(seconds=60)
 
+# The least a selection that stood through a sing waits before it is heard, whatever the
+# pause after a song says. A forced start launches the next song well inside it, so a pause
+# of 0 does not swell the song being picked in under Ultrastar Deluxe opening.
+PREVIEW_HOLD_MIN = timedelta(seconds=2)
+
 # How many times a pick may be re-rolled to avoid the song that just played. A pool of one
 # song plays it again rather than looping.
 PICK_ATTEMPTS = 3
@@ -79,7 +84,7 @@ class _Options:
     scope: str
     playlist: str
     resume_delay_s: int
-    preview_on_spin: bool
+    song_preview: bool
 
 
 @dataclass(frozen=True)
@@ -91,7 +96,7 @@ class _Volumes:
 
 
 DEFAULT_OPTIONS = _Options(
-    enabled=False, scope="all", playlist="", resume_delay_s=10, preview_on_spin=True
+    enabled=False, scope="all", playlist="", resume_delay_s=10, song_preview=True
 )
 DEFAULT_VOLUMES = _Volumes(master=100, music=100, preview=100, effects=100)
 
@@ -115,13 +120,19 @@ class _Track:
 
 
 @dataclass(frozen=True)
-class SpinPreview:
+class SelectionPreview:
     """What `karaoke.selection` hands over on every change of the room's selection: the
-    song the reel picked and when it lands, or None for a selection that was never spun (or
-    for none at all). `key` tells one spin from the next — a respin is a new song and a new
-    landing — and `reveal_at` is the landing on the server's clock, moved forward by a press
-    that lands the reel early. `start_s` is `Song.preview_start_seconds`, or None for a
-    file that says nothing; `has_audio` is whether there is a file to play at all."""
+    song being picked and when the host may let it be heard, or None for no selection at all.
+
+    `key` is the selection's identity and the song's together: one per spin of a spun
+    selection (a respin is a new song and a new landing), one for a selection opened with a
+    song, and a new one for every new selection. A spin moving on to its singers keeps its
+    key, and so does every change that keeps the song — a slot moved, a card put down — so
+    the host never starts the song again from the top for those. `reveal_at` is the reel's
+    landing on the server's clock, moved forward by a press that lands it early, and the
+    moment the selection opened for one opened with a song. `start_s` is
+    `Song.preview_start_seconds`, or None for a file that says nothing; `has_audio` is
+    whether there is a file to play at all."""
 
     key: str
     song: SongRead
@@ -132,12 +143,22 @@ class SpinPreview:
 
 @dataclass
 class _Preview:
-    """The reel's song, while the host plays it. See `MusicPreviewRead`."""
+    """The song being picked, while the host plays it. See `MusicPreviewRead`."""
 
     key: str
     song: SongRead
     start_s: float
     reveal_at: datetime
+
+    def same(self, wanted: SelectionPreview) -> bool:
+        """Whether this preview already is `wanted`: the same selection's same song, landing
+        at the same moment from the same spot. Anything else is a new payload."""
+        return (
+            self.key == wanted.key
+            and self.song.id == wanted.song.id
+            and self.start_s == (wanted.start_s or 0.0)
+            and self.reveal_at == wanted.reveal_at
+        )
 
 
 @dataclass
@@ -155,9 +176,17 @@ _track: _Track | None = None
 # path to the next song clears the track first, so the picker would otherwise have
 # nothing to avoid repeating.
 _last_song_id: str | None = None
-# The reel's song, while a spun selection stands and the host plays it. Set and cleared by
-# `selection_changed`, and dropped by whatever takes the speakers.
+# What the room's selection last handed over (`selection_changed`), whether or not it can
+# be heard right now: a selection opened while a song is being sung is heard once the song
+# is over, and one standing while the switch is off is heard when it goes back on.
+_selection: SelectionPreview | None = None
+# The song being picked, while a selection stands and the host plays it. Worked out from
+# `_selection` by `_settle_preview`, and dropped by whatever takes the speakers.
 _preview: _Preview | None = None
+# A selection that stood through a sing, and when it may be heard: the pause after the song
+# (`resume_delay_s`), like the background music. Without it a forced start — the old song
+# stopped, the new one launched a second later — would swell the next song in between.
+_held: tuple[str, datetime] | None = None
 _sink: _Sink | None = None
 _sink_generation: int = 0
 _paused: bool = False
@@ -228,8 +257,8 @@ def _position(track: _Track, at: datetime, status: MusicStatus) -> float:
 
     It only advances while the music plays *and* somebody is listening: a track nobody
     hears must not march past its own end on the server's clock, because the host would
-    then join a song that is already over. Nor while the reel's song has the speakers: the
-    background froze for it and comes back where it stopped.
+    then join a song that is already over. Nor while the song being picked has the
+    speakers: the background froze for it and comes back where it stopped.
     """
     if status != "playing" or not _sink_online(at) or _preview is not None:
         return track.position_s
@@ -318,10 +347,9 @@ async def _evaluate(session: AsyncSession | None) -> None:
     one: they drop the track, and the next tick (a second later, at most) picks the next.
     """
     at = _now()
-    # The reel's song is not the soundtrack: it stays across the music being switched off,
-    # and goes only with the option, or with the speakers.
-    if _preview is not None and (not _options.preview_on_spin or _sing_running or _usdx_open):
-        _end_preview(at)
+    # The song being picked is not the soundtrack: it stays across the music being switched
+    # off, and goes only with the option, or with the speakers.
+    _settle_preview(at)
     if not _options.enabled:
         _clear_track()
         _set_resume(None)
@@ -340,8 +368,8 @@ async def _evaluate(session: AsyncSession | None) -> None:
     if _track is not None:
         return
     if _preview is not None:
-        # The reel's song has the speakers. A track picked now would stand at 0:00 on every
-        # phone with nobody hearing it; the tick after the preview ends picks as usual.
+        # The song being picked has the speakers. A track picked now would stand at 0:00 on
+        # every phone with nobody hearing it; the tick after the preview ends picks as usual.
         return
     if _retry_at is not None:
         if at < _retry_at:
@@ -373,9 +401,46 @@ def _freeze(at: datetime) -> None:
     _track.position_at = at
 
 
+def _settle_preview(at: datetime) -> None:
+    """Make the preview what the room's selection asks for, as far as the speakers allow.
+
+    Wanted while a selection with a song stands, the host wants it (`sound.reel_preview`),
+    there is a file to play and Ultrastar Deluxe does not have the speakers — nor had them a
+    moment ago for this very selection (`_held`). Idempotent: the same selection's same song
+    (`_Preview.same`) leaves the preview exactly as it is, which is what keeps it playing
+    where it is through a slot moved, a card put down or a spin moving on to its singers. A
+    new key is a new preview, from `start_s` again.
+    """
+    global _preview
+    wanted = _selection
+    held = wanted is not None and _held is not None and wanted.key == _held[0] and at < _held[1]
+    if (
+        wanted is None
+        or not wanted.has_audio
+        or not _options.song_preview
+        or _sing_running
+        or _usdx_open
+        or held
+    ):
+        if _preview is not None:
+            _end_preview(at)
+        return
+    if _preview is not None and _preview.same(wanted):
+        return
+    if _preview is None:
+        # Before the preview is set, not after: the freeze reads the live position.
+        _freeze(at)
+    _preview = _Preview(
+        key=wanted.key,
+        song=wanted.song,
+        start_s=wanted.start_s or 0.0,
+        reveal_at=wanted.reveal_at,
+    )
+
+
 def _end_preview(at: datetime) -> None:
-    """The reel's song is over — picked and started, given up, switched off. The background
-    track, frozen since the reel started, moves again from *now*: the `play()` rule."""
+    """The song being picked is over — started, given up, switched off. The background
+    track, frozen since the preview began, moves again from *now*: the `play()` rule."""
     global _preview
     _preview = None
     if _track is not None:
@@ -655,7 +720,7 @@ async def _load_caches(session: AsyncSession) -> None:
         scope=str(values[music_settings.SCOPE]),
         playlist=str(values[music_settings.PLAYLIST]),
         resume_delay_s=int(values[music_settings.RESUME_DELAY]),
-        preview_on_spin=registered.get(REEL_PREVIEW, DEFAULT_OPTIONS.preview_on_spin) is True,
+        song_preview=registered.get(REEL_PREVIEW, DEFAULT_OPTIONS.song_preview) is True,
     )
     _volumes = _Volumes(
         master=_percent(registered.get(MASTER_VOLUME), DEFAULT_VOLUMES.master),
@@ -672,45 +737,29 @@ def _percent(value: SettingValue | None, fallback: int) -> int:
 # --- the hook `karaoke.selection` calls ---------------------------------------------------
 
 
-async def selection_changed(spin: SpinPreview | None) -> None:
-    """The room's selection changed. Called on every broadcast of it, with the reel's song
-    while the selection was spun and None otherwise; never raises, the karaoke hooks' rule.
+async def selection_changed(selection: SelectionPreview | None) -> None:
+    """The room's selection changed. Called on every broadcast of it, with its song and None
+    once there is no selection; never raises, the karaoke hooks' rule.
 
-    Sets the preview when a reel is running or has landed — and the host wants it, and the
-    speakers are free, and there is a file to play — freezing the background music first,
-    so it comes back where it stopped. Ends it when the selection is gone or was never spun.
-    A respin, or a press landing the reel early, is a new key or a new landing, and the
-    payload follows; the same spin reported again (a slot moved) changes nothing.
+    Sets the preview for every selection that has a song — spun (from the reel's landing)
+    or opened with one (at once) — when the host wants it, the speakers are free and there
+    is a file to play, freezing the background music first so it comes back where it
+    stopped (`_settle_preview`). Ends it when the selection is gone. A respin or a new
+    selection is a new key, and a press landing the reel early a new `reveal_at`, and the
+    payload follows. The same selection's same song reported again — and the phones move
+    slots several times a second — returns before anything is read or broadcast.
     """
-    global _preview
+    global _selection
     try:
         async with _lock:
-            before = _read()
-            at = _now()
-            wanted = (
-                spin is not None
-                and spin.has_audio
-                and _options.preview_on_spin
-                and not (_sing_running or _usdx_open)
-            )
-            if not wanted:
-                if _preview is not None:
-                    _end_preview(at)
-            else:
-                assert spin is not None
-                if _preview is None:
-                    # Before the flag, not after: the freeze reads the live position.
-                    _freeze(at)
-                _preview = _Preview(
-                    key=spin.key,
-                    song=spin.song,
-                    start_s=spin.start_s or 0.0,
-                    reveal_at=spin.reveal_at,
-                )
+            _selection = selection
+            before = _preview
+            _settle_preview(_now())
+            if _preview is before:
+                # Untouched — neither set, replaced nor ended: nothing for the room to hear.
+                return
             after = _read()
-            changed = _changed(before, after)
-        if changed:
-            await event_bus.broadcast(MusicChanged(music=after))
+        await event_bus.broadcast(MusicChanged(music=after))
     except Exception:
         logger.exception("the background music could not follow the player selection")
 
@@ -743,7 +792,7 @@ async def usdx_closed() -> None:
 
 
 async def _set_usdx(*, sing: bool | None = None, standalone: bool | None = None) -> None:
-    global _sing_running, _usdx_open
+    global _sing_running, _usdx_open, _held
     try:
         async with _lock:
             was_busy = _sing_running or _usdx_open
@@ -757,13 +806,22 @@ async def _set_usdx(*, sing: bool | None = None, standalone: bool | None = None)
             before = _read()
             if busy:
                 _set_resume(None)
-                # Ultrastar Deluxe has the speakers: the reel's song goes with the track.
-                if _preview is not None:
-                    _end_preview(_now())
+                _held = None
             else:
-                _set_resume(_now() + timedelta(seconds=_options.resume_delay_s))
+                now = _now()
+                pause_until = now + timedelta(seconds=_options.resume_delay_s)
+                _set_resume(pause_until)
+                _held = (
+                    None
+                    if _selection is None
+                    else (_selection.key, max(pause_until, now + PREVIEW_HOLD_MIN))
+                )
             # No session here: the hooks run on paths that hold none. `_evaluate` drops the
-            # track and the next tick picks the new one, at most a second later.
+            # track and the next tick picks the new one, at most a second later. It also
+            # settles the preview: Ultrastar Deluxe taking the speakers ends the song being
+            # picked, and a selection still standing when it gives them back — the next
+            # singers lined up while this song was being sung — is heard once the pause
+            # after the song is over, on the tick (`_held`).
             await _evaluate(None)
             after = _read()
             changed = _changed(before, after)
@@ -847,11 +905,13 @@ async def stop_watchdog() -> None:
     """Stop the tick and forget everything. Called before `karaoke.shutdown()`, which kills
     the running song and would otherwise fire `sing_ended` into closing sockets."""
     global _watchdog, _track, _last_song_id, _sink, _paused, _sing_running, _usdx_open, _options
-    global _preview
+    global _preview, _selection, _held
     task, _watchdog = _watchdog, None
     _track = None
     _last_song_id = None
     _preview = None
+    _selection = None
+    _held = None
     _sink = None
     # The options go too, which is what makes the four hooks inert afterwards: they read
     # this cache, and one that still said "enabled" would have a song finishing during
@@ -890,7 +950,7 @@ __all__ = [
     "MusicBlockedError",
     "MusicDisabledError",
     "NotTheSinkError",
-    "SpinPreview",
+    "SelectionPreview",
     "apply_settings",
     "broadcast",
     "pause",

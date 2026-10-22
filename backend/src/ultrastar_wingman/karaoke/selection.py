@@ -27,7 +27,7 @@ import contextlib
 import logging
 import secrets
 from collections.abc import Mapping
-from dataclasses import dataclass, field
+from dataclasses import dataclass, field, replace
 from datetime import UTC, datetime, timedelta
 from typing import Literal
 
@@ -183,7 +183,7 @@ class _Spin:
     viewer: tags.Viewer
     origin: SpinOrigin
     revealed: bool = False
-    # When the press landed the reel early, for the host's fade-in (`music.SpinPreview`).
+    # When the press landed the reel early, for the host's fade-in (`music.SelectionPreview`).
     revealed_at: datetime | None = None
     # What the host screen plays when the reel lands: where the file says a preview starts,
     # and whether there is a file at all. Read off the picked row here, so the music needs no
@@ -193,15 +193,29 @@ class _Spin:
 
 
 @dataclass(frozen=True)
-class _Landed:
-    """What the reel landed on, kept once the spin comes off the selection (`pick_singers`):
-    the host keeps playing the song while the singers are picked, until the selection is
-    started or given up."""
+class _Preview:
+    """What the host screen plays for a selection that is not (or no longer) spun: the song
+    it was opened with, from the moment it opened, or what the reel landed on, kept once the
+    spin comes off (`pick_singers`) — with the spin's own key and landing, so the song plays
+    on where it is rather than from the top. Either way it plays while the singers are
+    picked, until the selection is started or given up."""
 
     key: str
     reveal_at: datetime
     preview_start: float | None
     has_audio: bool
+
+
+def _opened_with(song: Song, opened_at: datetime) -> _Preview:
+    """The preview of a selection opened with a song: no reel to wait for, so it starts at
+    once. The key is the selection's own — a new selection, even of the same song, is a new
+    preview — and never one a spin's key could be."""
+    return _Preview(
+        key=f"{opened_at.isoformat()}:song",
+        reveal_at=opened_at,
+        preview_start=song.preview_start_seconds,
+        has_audio=song.audio_file is not None,
+    )
 
 
 @dataclass
@@ -218,7 +232,8 @@ class _Selection:
     # song, and never set later: a selection is spun from the start or not at all — though
     # the opener may take the spin off it again (`pick_singers`), once the song is right.
     spin: _Spin | None = None
-    landed: _Landed | None = None
+    # What the host plays while there is no spin: see `_Preview`.
+    preview: _Preview | None = None
 
 
 # One room, one selection — see `service._running` for the same reasoning.
@@ -313,6 +328,7 @@ async def open_selection(
             raise SelectionOpenError
         now = _now()
         spun: _Spin | None = None
+        preview: _Preview | None = None
         if spin is not None:
             song = await reel.pick_song(
                 session, spin.scope, spin.viewer, playlist_id=spin.playlist_id
@@ -333,6 +349,7 @@ async def open_selection(
             song = await session.get(Song, song_id)
             if song is None:
                 raise service.UnknownSongError(song_id)
+            preview = _opened_with(song, now)
         else:
             raise ValueError("open a selection with a song or with a spin")
         # Before the lock is taken over: a request that is refused must leave whatever is
@@ -353,6 +370,7 @@ async def open_selection(
             opened_at=now,
             updated_at=now,
             spin=spun,
+            preview=preview,
         )
         if from_device:
             _refresh_auto_start(_selection, auto_start, session_factory)
@@ -409,7 +427,14 @@ async def pick_singers(
         selection = _opener_or_raise(token)
         if selection.spin is None:
             raise NotASpinError
-        selection.landed = _landed(selection)
+        # The spin's own key and landing, so the host plays on where it is (`_Preview`). A
+        # pick while the reel still runs (the phone's Play waits for the landing, the route
+        # does not) lands it now: the TV shows the song from here on, and the speakers must
+        # not keep it back until a landing nobody sees any more.
+        landed = _preview_of(selection)
+        if landed is not None and landed.reveal_at > _now():
+            landed = replace(landed, reveal_at=_now())
+        selection.preview = landed
         selection.spin = None
         _touch(selection)
         if any(slot.card_uid is not None for slot in selection.slots):
@@ -756,17 +781,18 @@ async def _broadcast_locked() -> None:
         SelectionChanged(selection=None if _selection is None else _read(_selection))
     )
     # The one place every change of the selection passes, so the music follows all of them:
-    # a reel started, respun, landed early, its spin taken off, the selection gone.
-    await music.selection_changed(None if _selection is None else _spin_preview(_selection))
+    # a selection opened, a reel started, respun, landed early, its spin taken off, a slot
+    # moved, the selection gone. The music answers the ones that keep the song with nothing.
+    await music.selection_changed(None if _selection is None else _selection_preview(_selection))
 
 
-def _landed(selection: _Selection) -> _Landed | None:
-    """The reel behind the selection as the host plays it: the spin while it is on, or what
-    it landed on after `pick_singers` took it off."""
+def _preview_of(selection: _Selection) -> _Preview | None:
+    """The song behind the selection as the host plays it: the spin while it is on, else
+    the song it was opened with or what the reel landed on (`_Selection.preview`)."""
     spin = selection.spin
     if spin is None:
-        return selection.landed
-    return _Landed(
+        return selection.preview
+    return _Preview(
         key=f"{selection.opened_at.isoformat()}:{spin.id}",
         reveal_at=spin.revealed_at or spin.spun_at + _REVEAL,
         preview_start=spin.preview_start,
@@ -774,16 +800,16 @@ def _landed(selection: _Selection) -> _Landed | None:
     )
 
 
-def _spin_preview(selection: _Selection) -> music.SpinPreview | None:
-    landed = _landed(selection)
-    if landed is None:
+def _selection_preview(selection: _Selection) -> music.SelectionPreview | None:
+    preview = _preview_of(selection)
+    if preview is None:
         return None
-    return music.SpinPreview(
-        key=landed.key,
+    return music.SelectionPreview(
+        key=preview.key,
         song=selection.song,
-        start_s=landed.preview_start,
-        reveal_at=landed.reveal_at,
-        has_audio=landed.has_audio,
+        start_s=preview.preview_start,
+        reveal_at=preview.reveal_at,
+        has_audio=preview.has_audio,
     )
 
 
@@ -874,6 +900,9 @@ async def _start_without_selection_locked(
         token=secrets.token_urlsafe(TOKEN_BYTES),
         opened_at=now,
         updated_at=now,
+        # Never heard: this selection is started before anybody is told it exists, and the
+        # sing takes the speakers. Set like every selection opened with a song all the same.
+        preview=_opened_with(song, now),
     )
     opened = _selection
     try:
