@@ -294,6 +294,8 @@ async def test_a_finished_song_records_scores_for_the_players_who_sang(
 ) -> None:
     yannis = await add_player(client, "Yannis")
     alex = await add_player(client, "Alex")
+    # Adding them announced the players list; the sing's own sequence is what is checked.
+    broadcast_events.clear()
     seed_scores(configured.ultrastar_db, [("Someone" + NUL * 5, 4000, 1000, 1)])
     configured.behave(
         scores=[
@@ -536,6 +538,8 @@ async def test_a_song_nobody_scored_ends_without_scores(
     broadcast_events: list[dict[str, object]],
 ) -> None:
     player = await add_player(client, "Yannis")
+    # Adding the player announced the players list; the sing's own sequence is checked.
+    broadcast_events.clear()
     seed_scores(configured.ultrastar_db, [("Yannis", 4000, 1000, 1)])
 
     started = await sing(client, song, [{"color": "blue", "player_id": player["id"]}])
@@ -639,6 +643,8 @@ async def test_a_second_song_needs_force(
     broadcast_events: list[dict[str, object]],
 ) -> None:
     player = await add_player(client, "Yannis")
+    # Adding the player announced the players list; the sing's own sequence is checked.
+    broadcast_events.clear()
     configured.behave(sleep=FOREVER)
     first = await sing(client, song, [{"color": "blue", "player_id": player["id"]}])
 

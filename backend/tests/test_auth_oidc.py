@@ -1182,6 +1182,27 @@ async def test_the_same_picture_without_an_etag_is_not_rewritten(
     assert mtime(await own_player(session_factory)) == mtime(before)
 
 
+async def test_a_login_that_changes_the_picture_announces_it_and_one_that_does_not_stays_quiet(
+    anonymous_client: AsyncClient,
+    session_factory: async_sessionmaker[AsyncSession],
+    provider: FakeProvider,
+    broadcast_events: list[dict[str, object]],
+) -> None:
+    """The host screen draws the standing from `GET /players`: a picture that arrived with a
+    login has to reach it, and a login that changed nothing is no reason to refetch."""
+    await configure(session_factory)
+    await sign_up(anonymous_client, with_picture(provider))
+    assert {"event": "players.changed"} in broadcast_events
+
+    broadcast_events.clear()
+    await login(anonymous_client, provider)
+    assert {"event": "players.changed"} not in broadcast_events
+
+    provider.picture = png_header(2, 2)
+    await login(anonymous_client, provider)
+    assert broadcast_events.count({"event": "players.changed"}) == 1
+
+
 async def test_a_picture_the_singer_uploaded_is_never_replaced(
     anonymous_client: AsyncClient,
     session_factory: async_sessionmaker[AsyncSession],

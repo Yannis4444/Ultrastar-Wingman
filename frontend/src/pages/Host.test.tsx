@@ -12,6 +12,7 @@ import type {
   CurrentSing,
   MusicRead,
   MusicTrackRead,
+  PlayerRead,
   ScoreWithContext,
   SessionRead,
   SongRead,
@@ -907,6 +908,56 @@ test("without a standing the rail gives the wishes the whole column", async () =
   const wishes = await screen.findByLabelText("Most wished");
   expect(within(wishes).getAllByRole("listitem")).toHaveLength(5);
 });
+
+/** Alice's player, with or without the picture she set after the TV came on. */
+function alice(avatarVersion: number | null): PlayerRead {
+  return {
+    id: "player-alice",
+    name: "Alice",
+    registered: true,
+    hidden: false,
+    has_avatar: avatarVersion !== null,
+    avatar_version: avatarVersion,
+  };
+}
+
+/** What the leaderboard row of Alice draws: her picture's URL, or `null` for the initial. */
+function aliceInTheStanding(): string | null {
+  const board = screen.getByLabelText("Party leaderboard");
+  const row = within(board).getByText("Alice").closest("li");
+  return row?.querySelector("img")?.getAttribute("src") ?? null;
+}
+
+test.each(["players.changed", "server.ready"])(
+  "a picture set after the TV came on reaches the standing on %s",
+  async (event) => {
+    // The TV is open all evening and nothing remounts it: the roster it read
+    // when it came on must not be the one it draws from at midnight.
+    withScores();
+    getMe.mockResolvedValue(
+      meResponse(["stats.view", "players.view"], {
+        is_host: true,
+        role: "admin",
+      }),
+    );
+    const party = [{ ...PARTY[0], player_id: "player-alice" }, PARTY[1]];
+    listSessionScores.mockResolvedValue({ data: { scores: party } });
+    listPlayers.mockResolvedValue({ data: { players: [alice(null)] } });
+    renderHost("/host");
+    await screen.findByLabelText("Party leaderboard");
+    await waitFor(() => expect(listPlayers).toHaveBeenCalled());
+    expect(aliceInTheStanding()).toBeNull();
+
+    listPlayers.mockResolvedValue({ data: { players: [alice(1234)] } });
+    act(() => FakeSocket.deliver({ event, version: "1" }));
+
+    await waitFor(() =>
+      expect(aliceInTheStanding()).toBe(
+        "/api/v1/players/player-alice/avatar?v=1234",
+      ),
+    );
+  },
+);
 
 test("a changed join URL reaches the TV without a reload", async () => {
   renderHost("/host");

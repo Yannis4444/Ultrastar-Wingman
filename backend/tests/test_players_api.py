@@ -239,6 +239,18 @@ async def test_a_png_declared_as_jpeg_is_rejected(client: AsyncClient) -> None:
     assert rejected.status_code == 415
 
 
+async def test_an_empty_file_is_rejected(client: AsyncClient, avatars_dir: Path) -> None:
+    """Nothing is stored that a screen would then fail to draw."""
+    player = await create(client, "Yannis")
+
+    rejected = await client.put(
+        f"/api/v1/players/{player['id']}/avatar", files=upload(b"", "avatar.png", "image/png")
+    )
+
+    assert rejected.status_code == 415
+    assert avatar_files(avatars_dir) == []
+
+
 async def test_an_oversized_avatar_is_rejected(client: AsyncClient, avatars_dir: Path) -> None:
     player = await create(client, "Yannis")
     too_big = PNG + b"\x00" * (MAX_AVATAR_BYTES - len(PNG) + 1)
@@ -370,6 +382,46 @@ async def test_deleting_a_player_deletes_the_avatar_file(
     assert (await client.delete(f"/api/v1/players/{player['id']}")).status_code == 204
 
     assert avatar_files(avatars_dir) == []
+
+
+def players_changed(events: list[dict[str, object]]) -> int:
+    return sum(1 for event in events if event["event"] == "players.changed")
+
+
+async def test_every_change_to_the_players_list_is_announced(
+    client: AsyncClient, broadcast_events: list[dict[str, object]]
+) -> None:
+    """The host screen draws the standing's avatars from `GET /players` and stays open all
+    evening, so every write that changes that answer has to tell it — a picture uploaded
+    after the TV was turned on stayed an initial there until a reload."""
+    player = await create(client, "Yannis")
+    assert broadcast_events == [{"event": "players.changed"}]
+
+    await client.put(
+        f"/api/v1/players/{player['id']}/avatar", files=upload(PNG, "a.png", "image/png")
+    )
+    assert players_changed(broadcast_events) == 2
+
+    await client.patch(f"/api/v1/players/{player['id']}", json={"hidden": True})
+    assert players_changed(broadcast_events) == 3
+
+    await client.delete(f"/api/v1/players/{player['id']}")
+    assert players_changed(broadcast_events) == 4
+
+
+async def test_a_refused_change_announces_nothing(
+    client: AsyncClient, broadcast_events: list[dict[str, object]]
+) -> None:
+    player = await create(client, "Yannis")
+    broadcast_events.clear()
+
+    assert (await client.post("/api/v1/players", json={"name": "yannis"})).status_code == 409
+    refused = await client.put(
+        f"/api/v1/players/{player['id']}/avatar", files=upload(b"hello", "a.png", "image/png")
+    )
+    assert refused.status_code == 415
+
+    assert players_changed(broadcast_events) == 0
 
 
 async def test_players_survive_a_restart(

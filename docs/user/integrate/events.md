@@ -54,6 +54,7 @@ API answers with. The OpenAPI document at
 | `music.changed` | The background music moved to another song, was paused or played again, lost or gained the screen that makes the sound, was blocked by Ultrastar Deluxe, or had one of its options changed. Also when the song being picked starts or stops playing on the host screen: a new selection, a respin, or the result shown early, but never a singer moved | `music`, the whole state as `GET /music` returns it. A plain progress report from the playing screen is never broadcast |
 | `scores.changed` | A recorded score was put on another player, or taken off the record | `sing_id` |
 | `sessions.changed` | A party was named, taken off the list on the Scores tab, or put back | None. Fetch `GET /stats/sessions` again |
+| `players.changed` | A player was added, hidden or put back, deleted, or given a new picture, or an account that sings as one was created or deleted | None. Fetch `GET /players` again |
 | `achievements.earned` | A finished sing earned somebody a badge | `sing_id`, and `players`, one entry per player with the badges they earned |
 | `achievements.changed` | The catalog of achievements itself changed | None. Fetch `GET /achievements` again |
 | `wishlist.updated` | A song's wish count changed | `song_id`, `count`, and `latest`, the time of the newest wish or `null` |

@@ -207,6 +207,8 @@ async def register_user(session: AsyncSession, username: str, password: str) -> 
         await session.rollback()
         raise DuplicateUsernameError(username) from error
     logger.info("'%s' registered an account (role %s)", user.username, user.role)
+    # A new player, or a guest's one turned into the account's.
+    await players.announce_players()
     return user
 
 
@@ -264,6 +266,7 @@ async def upsert_oidc_user(session: AsyncSession, subject: str, username: str) -
     logger.info(
         "'%s' registered an account through single sign-on (role %s)", user.username, user.role
     )
+    await players.announce_players()
     return user
 
 
@@ -402,6 +405,9 @@ async def delete_user(session: AsyncSession, user: User) -> None:
     # After the commit, and with no id: an account leaving takes some playlists with it and
     # hands the rest to a new owner, so every open listing has to be fetched again.
     await library.announce_playlists()
+    if player is not None:
+        # Its player is a temporary one now.
+        await players.announce_players()
 
 
 async def _admin_count(session: AsyncSession) -> int:

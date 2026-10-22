@@ -150,6 +150,8 @@ async def test_a_finished_sing_awards_and_announces(
     )
     yannis = await add_player(client, "Yannis")
     alex = await add_player(client, "Alex")
+    # Adding them announced the players list; the sing's own sequence is what is checked.
+    broadcast_events.clear()
     configured.behave(
         scores=[("Yannis" + NUL * 10, 8500, 2000, 3), ("Alex" + NUL * 12, 7000, 2001, None)]
     )
@@ -788,6 +790,8 @@ async def test_a_failing_achievement_pass_does_not_swallow_the_end_of_the_song(
         session, "golden", [{"metric": "any_score", "comparator": ">=", "value": 1}]
     )
     yannis = await add_player(client, "Yannis")
+    # Adding the player announced the players list; the sing's own sequence is checked.
+    broadcast_events.clear()
     configured.behave(scores=[("Yannis" + NUL * 10, 8500, 2000, 3)])
 
     await sing(client, song, [{"color": "blue", "player_id": yannis["id"]}])

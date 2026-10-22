@@ -134,6 +134,22 @@ class SessionsChanged(Event):
     event: Literal["sessions.changed"] = "sessions.changed"
 
 
+class PlayersChanged(Event):
+    """What `GET /players` answers is different: a player was added, hidden or put back,
+    deleted, given a picture — uploaded, or the identity provider's — or became or stopped
+    being an account's.
+
+    No payload: the `tags.changed` reasoning, and the players list is small, so a listener
+    refetches it. It exists for the host screen, which stays open all evening and draws the
+    standing's and the results' avatars from that list: without this, somebody who joined
+    or set a picture after the TV was turned on stayed an initial there until a reload,
+    while the selection and the badges — which carry their own `PlayerRead` — drew the
+    picture.
+    """
+
+    event: Literal["players.changed"] = "players.changed"
+
+
 class AchievementsEarned(Event):
     """What a finished sing just earned, for everybody it earned something.
 
