@@ -13,6 +13,7 @@ from typing import Any
 
 import pytest
 from httpx import ASGITransport, AsyncClient, Response
+from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
 
 import test_karaoke_api
@@ -1530,6 +1531,75 @@ async def test_the_top_wish_press_leaves_no_preview_behind(
     assert (await music_service.read()).preview is None
     await service.wait_for_sing_end()
     assert (await music_service.read()).preview is None
+
+
+async def remaining_wishes(session: AsyncSession) -> set[tuple[str, str | None, str | None]]:
+    return {
+        (wish.song_id, wish.user_id, wish.guest_id) for wish in await session.scalars(select(Wish))
+    }
+
+
+async def test_a_phone_s_play_clears_every_wish_for_the_song(
+    client: AsyncClient,
+    session: AsyncSession,
+    configured: FakeUsdx,
+    song: str,
+    broadcast_events: list[dict[str, object]],
+) -> None:
+    """Started from a selection, with a guest player on the microphone: the wish of an
+    account that is not singing goes too, and so does the phone's. Another song's stays."""
+    session.add_all(
+        [
+            Wish(song_id=song, user_id="watcher-account"),
+            Wish(song_id=song, guest_id="a-phone"),
+            Wish(song_id="local:other", user_id="watcher-account"),
+        ]
+    )
+    await session.commit()
+    guest_player = await add_player(client, "Alex")
+    opened = await open_selection(
+        client, song, [{"color": "blue", "player_id": guest_player["id"]}]
+    )
+
+    started = await client.post("/api/v1/karaoke/selection/start", json={"token": opened["token"]})
+
+    assert started.status_code == 202, started.text
+    assert await remaining_wishes(session) == {("local:other", "watcher-account", None)}
+    updates = [event for event in broadcast_events if event["event"] == "wishlist.updated"]
+    assert [(event["song_id"], event["count"]) for event in updates] == [(song, 0)]
+    await service.wait_for_sing_end()
+
+
+async def test_the_start_button_s_top_wish_takes_that_wish_off_the_list(
+    session: AsyncSession,
+    session_factory: async_sessionmaker[AsyncSession],
+    configured: FakeUsdx,
+    song: str,
+) -> None:
+    """The selector picks the top wish and starts it with nobody's phone involved: the
+    wishes for it go exactly as they do for a phone's Play."""
+    alice = await add_player_row(session, "Alice")
+    await SettingsService(session).set("karaoke.player_colors", TWO_SLOTS)
+    session.add_all(
+        [
+            Wish(song_id=song, guest_id="a-guest-cookie"),
+            Wish(song_id=song, user_id="an-account"),
+        ]
+    )
+    await session.commit()
+
+    await selection.button_pressed(
+        session,
+        session_factory,
+        "start",
+        without_selection=selection.StartWithoutSelection(
+            mode="top_wish", cards={"blue": selection.CardOnSlot(uid="A1", player_id=alice)}
+        ),
+    )
+
+    await wait_for(configured.argv_file)
+    assert await remaining_wishes(session) == set()
+    await service.wait_for_sing_end()
 
 
 async def test_a_spin_over_nothing_is_refused(

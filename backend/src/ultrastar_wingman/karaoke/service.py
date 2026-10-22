@@ -252,7 +252,7 @@ async def start_sing(
         # background music is never still playing under the first note.
         await music.sing_started()
         await event_bus.broadcast(KaraokeStarted(sing=running.sing))
-        await _clear_wishes(session, song.id, resolved)
+        await _clear_wishes(session, song.id)
         return running.sing
 
 
@@ -426,22 +426,17 @@ def _for_configured_slots(
     return kept
 
 
-async def _clear_wishes(
-    session: AsyncSession, song_id: str, resolved: list[tuple[SlotRequest, Player | None]]
-) -> None:
-    """The song is on, so nobody has to wish for it any more — see
-    `library.service.clear_fulfilled_wishes` for whose wishes that is.
+async def _clear_wishes(session: AsyncSession, song_id: str) -> None:
+    """The song is on, so nobody has to wish for it any more: every wish for it goes,
+    whoever made it and whoever is singing. A wish is "somebody should sing this tonight",
+    and the sing that is starting settles it for the whole room — an account's wish left
+    behind would keep a sung song on the list, and on the reel, at every party after.
 
     Called after the launch succeeded, and swallowing everything: USDX is already playing,
     and a failure in here must not turn a started song into an error for the caller.
     """
-    user_ids = {
-        player.user_id
-        for _, player in resolved
-        if player is not None and player.user_id is not None
-    }
     try:
-        await library.clear_fulfilled_wishes(session, song_id, user_ids)
+        await library.clear_wishes(session, song_id)
     except Exception:
         logger.exception("clearing the wishes for song %s failed", song_id)
 

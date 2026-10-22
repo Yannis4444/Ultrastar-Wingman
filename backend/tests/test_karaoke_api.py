@@ -569,7 +569,7 @@ async def test_starting_a_song_takes_it_off_the_wishlist(
     broadcast_events: list[dict[str, object]],
 ) -> None:
     """Wished for by the singer, by somebody who is only watching and by a phone with no
-    account: starting it settles the singer's wish and every account-less one."""
+    account: starting it settles all three, whoever is singing. Another song's wish stays."""
     temporary = await add_player(client, "Alex")
     singer = Player(name="Yannis", registered=True, user_id="singer-account")
     session.add(singer)
@@ -595,12 +595,12 @@ async def test_starting_a_song_takes_it_off_the_wishlist(
 
     wishes = await session.scalars(select(Wish))
     assert {(wish.song_id, wish.user_id, wish.guest_id) for wish in wishes} == {
-        (song, "watcher-account", None),
         ("local:other", None, "a-phone"),
     }
-    # The count the clients get is the one wish that is left, so the row stays on the list.
+    # Count 0 is what makes every open wishlist — the tile, the reel, the host rail —
+    # refetch and drop the row.
     update = next(event for event in broadcast_events if event["event"] == "wishlist.updated")
-    assert (update["song_id"], update["count"]) == (song, 1)
+    assert (update["song_id"], update["count"]) == (song, 0)
 
 
 async def test_the_running_song_is_reported_and_can_be_stopped(

@@ -124,6 +124,16 @@
   margin-top: -8px;
 }
 
+/* Taking the landed wish off the list, under the spin buttons and as wide as
+   them, at the column's own distance: it is about the song, not the spin. */
+.spinner-take-off {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+  justify-content: center;
+  width: 100%;
+}
+
 @media (prefers-reduced-motion: reduce) {
   .spinner-winner-title {
     transition: none;

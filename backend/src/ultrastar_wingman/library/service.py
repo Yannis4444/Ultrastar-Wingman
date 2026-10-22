@@ -190,8 +190,10 @@ async def remove_wish(
 
 
 async def clear_wishes(session: AsyncSession, song_id: str) -> int:
-    """Drop every wish for a song, whoever made it — the moderation counterpart to
-    `remove_wish`. Returns how many went; 0 means the song was not wished for at all.
+    """Drop every wish for a song, whoever made it, and announce its count of 0 — the
+    moderation counterpart to `remove_wish`, and what a starting song does to its wishes
+    (`karaoke.service._clear_wishes`). Returns how many went; 0 means the song was not
+    wished for at all, and then nothing is announced either.
     """
     wish_ids = list(await session.scalars(select(Wish.id).where(Wish.song_id == song_id)))
     if not wish_ids:
@@ -200,27 +202,6 @@ async def clear_wishes(session: AsyncSession, song_id: str) -> int:
     await session.commit()
     await _broadcast(session, song_id)
     logger.debug("every wish for '%s' cleared (%d)", song_id, len(wish_ids))
-    return len(wish_ids)
-
-
-async def clear_fulfilled_wishes(
-    session: AsyncSession, song_id: str, user_ids: Collection[str]
-) -> int:
-    """Drop the wishes a starting song fulfils and announce the song's new count. Returns
-    how many wishes went.
-
-    `user_ids` are the accounts of the people about to sing it. Every wish made without an
-    account goes too, whoever made it: such a wish belongs to a browser cookie, not to a
-    player, so a singer's own wish cannot be told apart from a bystander's — and a wish is
-    "somebody should sing this tonight", which the sing that is starting settles.
-    """
-    owners = or_(Wish.guest_id.is_not(None), Wish.user_id.in_(user_ids))
-    wish_ids = list(await session.scalars(select(Wish.id).where(Wish.song_id == song_id, owners)))
-    if not wish_ids:
-        return 0
-    await session.execute(delete(Wish).where(Wish.id.in_(wish_ids)))
-    await session.commit()
-    await _broadcast(session, song_id)
     return len(wish_ids)
 
 

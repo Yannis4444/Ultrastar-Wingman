@@ -42,7 +42,10 @@ The party's helpers get :wingman-trash: **Take off the wishlist for everybody**
 beside the row instead, for the wish the party is not going to sing. Trusted and
 Admin hold that by default. It never appears where your own wish is the only
 one, because taking your wish back already does exactly that. See
-[Roles and permissions](../people/roles.md).
+[Roles and permissions](../people/roles.md). The reel offers them
+:wingman-trash: **Take off the wishlist** too, for the wished song it lands on.
+See
+[Let the reel pick](reel.md#take-the-song-off-the-wishlist).
 
 ## What a wish does
 
@@ -53,11 +56,8 @@ A wish is a vote in two places.
   [Let the reel pick](reel.md).
 - **The host screen.** **Most wished** is the room's own running order.
 
-Starting a song takes it off the wishlist. The wishes of the singers who have an
-account are settled, and so is every wish made without an account. Such a wish
-belongs to a phone rather than to a player. A singer's own cannot be told apart
-from a bystander's, and the song is being sung either way. A wish from another
-account stays. That person still has not sung it.
+Starting a song takes it off the wishlist for everybody, whoever wished for it
+and whoever sings it.
 
 !!! note
     Made an account later in the evening? The wishes from that browser move over

@@ -8,6 +8,7 @@ import { useTags } from "../hooks/useTags";
 import { useWishlist } from "../hooks/useWishlist";
 import { defaultTagCriteria, passesTagCriteria } from "../tags";
 import HostSpin from "./HostSpin";
+import { Icon } from "./icons";
 import SongDetails from "./SongDetails";
 import SongReel, { type Spin } from "./SongReel";
 import SpinButton from "./SpinButton";
@@ -109,7 +110,8 @@ export default function SongSpinner({
     ...listSongsOptions(),
     enabled: fixed === undefined,
   }).data?.songs;
-  const wishes = useWishlist().wishes;
+  const wishlist = useWishlist();
+  const wishes = wishlist.wishes;
   const favoriteIds = useFavorites({ enabled: fixed === undefined }).ids;
   const tags = useTags();
   // The reel is the song list in another shape, so it hides the same songs
@@ -178,6 +180,17 @@ export default function SongSpinner({
   const hostOffered =
     auth.can("karaoke.sing") &&
     (fixed === undefined || playlistId !== undefined);
+  // The wishlist tile's take-off for everybody, offered where the reel landed
+  // on a wish: the host who spun the wishlist and will not sing this one says
+  // so here instead of going back to Home. Only on the two wishlist pools —
+  // never on a playlist's reel — and only while the song is still wished for,
+  // so the button goes with the wish and the result stays.
+  const offerTakeOff =
+    fixed === undefined &&
+    (scope === "wishlist" || scope === "weighted") &&
+    settled !== null &&
+    auth.can("wishlist.manage") &&
+    wishes.some((wish) => wish.song.id === settled.id);
 
   return (
     <>
@@ -257,6 +270,19 @@ export default function SongSpinner({
             onClick={spinOnHost}
           >
             Spin on the host screen
+          </button>
+        )}
+
+        {/* Last in the column, so SPIN and the host button never move when it
+            comes and goes. No confirmation, like the tile's own trash. */}
+        {offerTakeOff && (
+          <button
+            type="button"
+            className="button spinner-take-off"
+            onClick={() => wishlist.clear(settled.id)}
+          >
+            <Icon name="trash" />
+            <span>Take off the wishlist</span>
           </button>
         )}
       </div>

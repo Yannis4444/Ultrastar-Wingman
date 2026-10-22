@@ -288,31 +288,27 @@ async def test_a_wish_for_a_song_that_left_the_library_is_not_listed(
         assert len(await stored_wishes(app_with_songs)) == 1
 
 
-async def test_a_started_song_clears_the_singers_and_every_account_less_wish(
+async def test_clearing_a_song_drops_every_account_s_and_every_guest_s_wish(
     app_with_songs: FastAPI, broadcast_events: list[dict[str, object]]
 ) -> None:
-    """What starting a song does to the wishlist. `test_karaoke_api` drives the same thing
-    through the sing flow; this pins down whose wishes go."""
-    singer = await account(app_with_songs, "singer")
-    bystander = await account(app_with_songs, "bystander")
-    async with singer, bystander, guest(app_with_songs) as browser:
-        await wish(singer, SONG)
-        await wish(bystander, SONG)
+    """What starting a song does to the wishlist (`test_karaoke_api` drives the same call
+    through the sing flow): two accounts and a phone without one wished for it, and all
+    three wishes go. Another song's wish stays."""
+    one = await account(app_with_songs, "one")
+    two = await account(app_with_songs, "two")
+    async with one, two, guest(app_with_songs) as browser:
+        await wish(one, SONG)
+        await wish(two, SONG)
         await wish(browser, SONG)
         await wish(browser, OTHER_SONG)
-        singer_id = (await singer.get("/api/v1/auth/me")).json()["user"]["id"]
 
         async with factory(app_with_songs)() as session:
-            dropped = await library.clear_fulfilled_wishes(session, SONG, [singer_id])
+            dropped = await library.clear_wishes(session, SONG)
 
-    assert dropped == 2
-    # The bystander's account wish survives — they did not sing. So does anything wished
-    # for another song, guest or not.
-    assert {
-        (row.song_id, row.user_id is not None) for row in await stored_wishes(app_with_songs)
-    } == {(SONG, True), (OTHER_SONG, False)}
+    assert dropped == 3
+    assert [row.song_id for row in await stored_wishes(app_with_songs)] == [OTHER_SONG]
     updates = [event for event in broadcast_events if event["event"] == "wishlist.updated"]
-    assert (updates[-1]["song_id"], updates[-1]["count"]) == (SONG, 1)
+    assert (updates[-1]["song_id"], updates[-1]["count"]) == (SONG, 0)
 
 
 async def test_clearing_the_wishes_of_a_song_nobody_wished_for_says_nothing(
@@ -320,7 +316,7 @@ async def test_clearing_the_wishes_of_a_song_nobody_wished_for_says_nothing(
 ) -> None:
     """Every start would otherwise make every client refetch the wishlist for nothing."""
     async with factory(app_with_songs)() as session:
-        assert await library.clear_fulfilled_wishes(session, SONG, ["some-account"]) == 0
+        assert await library.clear_wishes(session, SONG) == 0
 
     assert [event for event in broadcast_events if event["event"] == "wishlist.updated"] == []
 
