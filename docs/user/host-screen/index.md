@@ -60,7 +60,9 @@ first three places carry a highlighted rank number.
 
 **Most wished** is the wishlist, most wished song first, with the number of
 wishes beside each. It holds five songs on its own, and three while **Tonight**
-is up. See [Wish for a song](../party/wishlist.md).
+is up. On a short screen, such as a 720p TV, **Tonight** leaves room for two,
+or for one while the music's line or its controls stand along the bottom. See
+[Wish for a song](../party/wishlist.md).
 
 ## While singers are picked
 
@@ -184,7 +186,7 @@ at Ultrastar Deluxe are another. See
 
 The music's controls stand at the bottom of the screen, around the line naming
 the background song, for a browser that may control the music. While the music
-is paused, the song's name stays there in grey beside **Play**, and fades with
+is paused, the song's name stays there in gray beside **Play**, and fades with
 the controls. While the room picks singers or new badges are up, the line is
 gone and the music's controls stand in the top right corner instead.
 
@@ -201,7 +203,7 @@ gone and the music's controls stand in the top right corner instead.
 The line of keyboard shortcuts names each key before what it does: ++space++
 **Play or pause**, ++n++ **Skip**, ++arrow-up++ ++arrow-down++ **Volume**, and
 ++f++ **Full screen**. It names only the keys whose button is on the screen
-right now, so it says less during a song, and a browser that may not control
+right now. So it says less during a song, and a browser that may not control
 the music sees ++f++ at most.
 
 ## Keyboard shortcuts

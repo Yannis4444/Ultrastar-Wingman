@@ -21,8 +21,8 @@ itself.
 **Color** is one of the four a tag may wear. The heart starts pink and the
 microphone blue, and the two boolean facets start neutral. The color follows the
 mark everywhere it is drawn: the song rows, the chips over the list, and the
-**Filter** panel. The heart and microphone buttons in a song's own view keep
-their own colors, because those are switches and not marks.
+**Filter** panel. The heart button in a song's own view keeps its own color,
+because it is a switch and not a mark.
 
 **Show in song list** decides whether the mark goes on the song rows at all.
 Favorites and Sung start on. Duet and Video start off, because half a library is
