@@ -5,7 +5,7 @@ import {
   holdersLine,
   isMasked,
 } from "../achievements";
-import { shortDate } from "../duration";
+import { cardDate } from "../duration";
 import AchievementBadge from "./AchievementBadge";
 import AchievementProgress from "./AchievementProgress";
 import Modal from "./Modal";
@@ -72,7 +72,7 @@ export default function AchievementModal({
         )}
         {row.earned_at !== null ? (
           <p className="achievement-modal-meta">
-            Earned {shortDate(row.earned_at)}
+            Earned {cardDate(row.earned_at)}
           </p>
         ) : (
           // The API nulls both numbers on a masked row, and this says so a

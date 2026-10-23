@@ -111,7 +111,12 @@ webfont), so a card looks slightly different on each device. That is accepted.
   and the panel says why.
 - **Mosaic** (party only): a 3×3 grid of the party's covers (3×6 on a story, centred) under
   `--bg` at **80%**: the covers are sharp, lettering and all, and at 70% they fought the grey
-  labels over them. With fewer than four distinct covers that loaded it falls back to Dark.
+  labels over them. Even at 80% a cover's lettering showed through the head, the four numbers
+  and the brand line, so behind those two stretches the card is **`--bg` at 100%**, 24 px past
+  their text, fading back to the 80% over 96 px on each side (`MOSAIC_BAND`, the bands worked
+  out from the elements' own regions) — the covers stay sharp behind the podium in the middle.
+  A uniform 88% was tried first: it dimmed the middle and still let the lettering through the
+  grey labels. With fewer than four distinct covers that loaded it falls back to Dark.
   The podium stands alone on it: no rows, no strip, no spread.
 - Minimal was proposed and dropped: it was Dark with things taken away.
 

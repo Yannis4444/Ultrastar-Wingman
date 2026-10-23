@@ -51,6 +51,18 @@ export function shortDate(timestamp: string): string {
   });
 }
 
+/** "17 Oct 2026": day, month and year, always — for a date that is read on its
+ * own, away from the list around it: a share card leaving the room, the day
+ * an achievement was earned. Unlike `shortDate`, which drops the year inside
+ * the current one. */
+export function cardDate(timestamp: string): string {
+  return new Date(parseServerTime(timestamp)).toLocaleDateString([], {
+    day: "numeric",
+    month: "short",
+    year: "numeric",
+  });
+}
+
 /**
  * Whether a timestamp falls on the day the reader is having — local days, so
  * "today" means what the calendar on the wall says, not what UTC says.

@@ -22,6 +22,22 @@ export const MUSIC_SCOPES: { value: string; label: string }[] = [
 /** The statuses that mean a song is loaded, whether or not it is moving. */
 const WITH_TRACK: MusicRead["status"][] = ["playing", "paused"];
 
+/** The statuses in which play or pause and skip are the music's own: on and
+ *  not held. Not `off`, and not `blocked`: while a sing or an open Ultrastar
+ *  Deluxe has the speakers, a pause beside the red Stop reads as the sing's. */
+const WITH_TRANSPORT: MusicRead["status"][] = [
+  "playing",
+  "paused",
+  "waiting",
+  "empty",
+];
+
+/** Whether the host screen draws the music's play or pause and skip, and
+ *  answers their keys. The volume stands whatever the status. */
+export function hasTransport(status: MusicRead["status"]): boolean {
+  return WITH_TRANSPORT.includes(status);
+}
+
 /**
  * Which of the three the stage is in. A sing always wins: Ultrastar Deluxe has
  * the speakers, and whatever the music thinks it is doing is not what the room

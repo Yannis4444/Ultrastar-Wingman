@@ -135,8 +135,12 @@ exception). Tests identify glyphs with `iconNames()` from `src/test/icons.ts`.
 
 ## 4. Buttons and controls
 
-- **Buttons:** `.button` (flat, `--input-bg`), `.button-primary` (`--highlight-blue-dark`),
-  `.button-danger`; exactly one primary per view, and confirm dialogs put Cancel first, then
+- **Buttons:** `.button` (flat, `--input-bg`), `.button-primary` (`--highlight-blue-dark`,
+  and inside a panel modal — `.modal:not(.modal-bare)`, on `--tile-bg` —
+  `color-mix(in srgb, var(--highlight-blue-light) 40%, var(--highlight-blue-dark))`, 7.3:1
+  under white, because the dark blue is the tile within a shade and read as outlined only;
+  the page-level ones, the login form's included, keep the dark blue), `.button-danger`;
+  exactly one primary per view, and confirm dialogs put Cancel first, then
   primary/danger, both `flex: 1 1 0`. `.icon-button` = 40×40, transparent, `--color-dark` glyph,
   hover `--highlight-blue-dark` fill; `.icon-button-bordered` beside an input on the page
   background, `.icon-button-danger` for destructive. Always `aria-label`, `title` on
@@ -703,8 +707,11 @@ saved) where a jump to the top would throw away the place they were working in.
   label that says why a host opens it. Its window coming to the front is the acknowledgement; a
   refusal is one more `.host-error` in `explainUsdxProblem`'s words. The transport (`music.control`) takes the gear's 40px `.icon-button`s, not the tile's
   `.song-control-transport`, the overlay being the mouse's chrome and not content for the sofa:
-  play/pause and skip while the music is on, then `volume`, the master `.range-input` (§4) and its
-  tabular number. **Keyboard shortcuts**, on `/host` alone: `Space` or `K` play/pause, `N` skip,
+  play/pause and skip while the music is on and its own (`music.hasTransport`: `playing`,
+  `paused`, `waiting`, `empty` — never `blocked`, where beside the red Stop they read as the
+  sing's), then `volume`, the master `.range-input` (§4) and its tabular number, which stand
+  whatever the status. A key whose control is not drawn is ignored.
+  **Keyboard shortcuts**, on `/host` alone: `Space` or `K` play/pause, `N` skip,
   `ArrowUp` / `ArrowDown` master volume by 5 (a held key repeats, one write per pause), `F` full
   screen where its button is drawn; each `preventDefault`s, none takes Esc (full screen and `Modal`
   own it). A press with Ctrl, Alt or Meta, from an input, select, textarea, button, link or

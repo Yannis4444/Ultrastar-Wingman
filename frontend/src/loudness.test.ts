@@ -32,7 +32,7 @@ function pass(overrides: Partial<LoudnessPassStatus> = {}): LoudnessPassStatus {
   };
 }
 
-test("the counts are short sentences, every outcome without a tag in one", () => {
+test("the counts are short sentences, every outcome left uneven in one", () => {
   expect(
     loudnessCountsSentence(
       counts({
@@ -45,11 +45,24 @@ test("the counts are short sentences, every outcome without a tag in one", () =>
         failed: 4,
       }),
     ),
-  ).toBe("Tagged 300 songs. 20 had a tag already. 15 could not be tagged.");
-  expect(loudnessCountsSentence(counts({ tagged: 1 }))).toBe("Tagged 1 song.");
-  expect(loudnessCountsSentence(counts({ already_tagged: 4 }))).toBe(
-    "4 had a tag already.",
+  ).toBe(
+    "Evened out 300 songs. 20 had their loudness already. 15 could not be evened out.",
   );
+  expect(loudnessCountsSentence(counts({ tagged: 1 }))).toBe(
+    "Evened out 1 song.",
+  );
+  expect(loudnessCountsSentence(counts({ already_tagged: 4 }))).toBe(
+    "4 had their loudness already.",
+  );
+  expect(loudnessCountsSentence(counts({ already_tagged: 1 }))).toBe(
+    "1 had its loudness already.",
+  );
+  // Never "tag": that word is a song's label in Wingman.
+  expect(
+    loudnessCountsSentence(
+      counts({ tagged: 2, already_tagged: 2, failed: 2 }),
+    ).toLowerCase(),
+  ).not.toContain("tag");
   expect(loudnessCountsSentence(counts())).toBe("");
 });
 
@@ -77,7 +90,7 @@ test("a running pass counts the song in hand and names it", () => {
     "340 of 340: Waterloo by ABBA",
   );
   expect(loudnessPassLine(pass({ state: "running" }))).toBe(
-    "Looking for songs without a tag…",
+    "Looking for songs to even out…",
   );
   expect(loudnessPassLine({ ...running, state: "stopping" })).toBe(
     "Stopping after this song.",
@@ -94,7 +107,7 @@ test("an ended pass says how it ended until the next press", () => {
         counts: counts({ tagged: 2, failed: 1 }),
       }),
     ),
-  ).toBe("Tagged 2 songs. 1 could not be tagged.");
+  ).toBe("Evened out 2 songs. 1 could not be evened out.");
   expect(loudnessPassLine(pass({ ended: "finished" }))).toBe(
     "Every song has its loudness already.",
   );
@@ -107,7 +120,7 @@ test("an ended pass says how it ended until the next press", () => {
         counts: counts({ tagged: 12 }),
       }),
     ),
-  ).toBe("Stopped after 12 of 340. Tagged 12 songs.");
+  ).toBe("Stopped after 12 of 340. Evened out 12 songs.");
   expect(loudnessPassLine(pass({ ended: "stopped", total: 340 }))).toBe(
     "Stopped after 0 of 340.",
   );

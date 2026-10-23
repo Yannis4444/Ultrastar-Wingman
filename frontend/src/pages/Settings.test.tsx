@@ -806,7 +806,7 @@ const NORMALIZE = setting({
   value_type: "bool",
   value: true,
   default: true,
-  description: "Tag each download with its loudness.",
+  description: "Even out each download's loudness.",
 });
 
 function loudnessPass(
@@ -880,7 +880,7 @@ test("pressing Even out starts the pass, and the line follows it to its end", as
 
   await waitFor(() => expect(startLoudnessPass).toHaveBeenCalledTimes(1));
   expect(
-    await screen.findByText("Looking for songs without a tag…"),
+    await screen.findByText("Looking for songs to even out…"),
   ).toBeVisible();
   expect(screen.getByRole("button", { name: "Stop" })).toBeEnabled();
 
@@ -927,7 +927,7 @@ test("pressing Even out starts the pass, and the line follows it to its end", as
   );
   expect(
     await screen.findByText(
-      "Tagged 300 songs. 20 had a tag already. 20 could not be tagged.",
+      "Evened out 300 songs. 20 had their loudness already. 20 could not be evened out.",
     ),
   ).toBeVisible();
   expect(screen.getByRole("button", { name: "Even out" })).toBeEnabled();
@@ -1003,7 +1003,7 @@ test("a pass waiting for a song says so, and Stop stops it", async () => {
   fireEvent.click(screen.getByRole("button", { name: "Stop" }));
 
   expect(
-    await screen.findByText("Stopped after 1 of 4. Tagged 1 song."),
+    await screen.findByText("Stopped after 1 of 4. Evened out 1 song."),
   ).toBeVisible();
   expect(stopLoudnessPass).toHaveBeenCalledTimes(1);
 });

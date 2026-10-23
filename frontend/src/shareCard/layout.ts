@@ -204,12 +204,20 @@ export interface MosaicCell {
   size: number;
 }
 
+/** A stretch of the card, top to bottom, that a Mosaic paints `--bg` at 100%
+ * behind: the text that sits there must read clean over sharp covers. */
+export interface MosaicBand {
+  top: number;
+  bottom: number;
+}
+
 export type CardBackground =
   | { kind: "dark" }
   /** The cover blurred over the whole card under `--bg` at 70%. */
   | { kind: "cover"; url: string }
-  /** The party's covers in a grid under the same scrim. */
-  | { kind: "mosaic"; cells: MosaicCell[] };
+  /** The party's covers in a grid under the same scrim, and over that the
+   * bands behind the head, the numbers and the brand line. */
+  | { kind: "mosaic"; cells: MosaicCell[]; bands: MosaicBand[] };
 
 export interface CardLayout {
   width: number;
@@ -222,6 +230,16 @@ export interface CardLayout {
  * cover takes §3.1's 70%; the mosaic's covers are sharp, lettering and all,
  * and at 70% they fought the grey labels over them, so they sit deeper. */
 export const SCRIM_ALPHA = { cover: 0.7, mosaic: 0.8 } as const;
+
+/** The Mosaic's bands (§3.1): even at 80% a cover's lettering showed through
+ * the head, the four numbers and the brand line, so behind those the card is
+ * `--bg` at 100% — `pad` past their text — and falls back to the scrim over
+ * `fade` px on each side. A uniform 88% was tried and dimmed the covers in
+ * the middle without cleaning the grey labels. */
+export const MOSAIC_BAND = { pad: 24, fade: 96 } as const;
+
+/** The regions a band is drawn behind, grouped into one band each. */
+const BANDED: Region[][] = [["head", "numbers"], ["brand"]];
 
 export interface Box {
   x: number;
@@ -1476,6 +1494,25 @@ function mosaicCells(urls: string[], height: number): MosaicCell[] {
   return cells;
 }
 
+/** One band per group of `BANDED` regions the card carries: from the top of
+ * their text to its bottom, `pad` past both, kept on the card. */
+function mosaicBands(elements: CardElement[], height: number): MosaicBand[] {
+  const bands: MosaicBand[] = [];
+  for (const regions of BANDED) {
+    const boxes = elements
+      .filter((element) => regions.includes(element.region))
+      .map(elementBox);
+    if (boxes.length === 0) continue;
+    const top = Math.min(...boxes.map((box) => box.y));
+    const bottom = Math.max(...boxes.map((box) => box.y + box.h));
+    bands.push({
+      top: Math.max(0, top - MOSAIC_BAND.pad),
+      bottom: Math.min(height, bottom + MOSAIC_BAND.pad),
+    });
+  }
+  return bands;
+}
+
 function partySquare(
   b: Builder,
   content: PartyCardContent,
@@ -1629,6 +1666,7 @@ export function layoutPartyCard(
         ? {
             kind: "mosaic",
             cells: mosaicCells(content.covers.filter(loaded), height),
+            bands: mosaicBands(b.elements, height),
           }
         : { kind: "dark" },
     elements: b.elements,

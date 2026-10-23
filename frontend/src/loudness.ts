@@ -2,14 +2,14 @@ import type { LoudnessCounts, LoudnessPassStatus } from "./api";
 
 /** What the explaining line says while no pass has run since Wingman started. */
 export const LOUDNESS_PASS_NOTE =
-  "Writes a ReplayGain tag into every song that has none yet. Singing pauses it.";
+  "Writes the loudness into every song that has none yet. Singing pauses it.";
 
 function songs(count: number): string {
   return count === 1 ? "1 song" : `${count} songs`;
 }
 
-/** Every outcome that left the file without a tag Wingman wrote or found. */
-function untagged(counts: LoudnessCounts): number {
+/** Every outcome that left the file without a loudness Wingman wrote or found. */
+function notEvened(counts: LoudnessCounts): number {
   return (
     counts.unsupported +
     counts.silent +
@@ -20,17 +20,20 @@ function untagged(counts: LoudnessCounts): number {
 }
 
 /**
- * The counts of a pass as short sentences: "Tagged 300 songs. 20 had a tag
- * already. 15 could not be tagged." A count of nothing is left out.
+ * The counts of a pass as short sentences, in the row's own verb: "Evened out
+ * 300 songs. 20 had their loudness already. 15 could not be evened out." Never
+ * "tag", which is a song's label (documentation.md). A count of nothing is
+ * left out.
  */
 export function loudnessCountsSentence(counts: LoudnessCounts): string {
   const sentences: string[] = [];
-  if (counts.tagged > 0) sentences.push(`Tagged ${songs(counts.tagged)}.`);
+  if (counts.tagged > 0) sentences.push(`Evened out ${songs(counts.tagged)}.`);
   if (counts.already_tagged > 0) {
-    sentences.push(`${counts.already_tagged} had a tag already.`);
+    const their = counts.already_tagged === 1 ? "its" : "their";
+    sentences.push(`${counts.already_tagged} had ${their} loudness already.`);
   }
-  const left = untagged(counts);
-  if (left > 0) sentences.push(`${left} could not be tagged.`);
+  const left = notEvened(counts);
+  if (left > 0) sentences.push(`${left} could not be evened out.`);
   return sentences.join(" ");
 }
 
@@ -42,7 +45,7 @@ export function loudnessCountsSentence(counts: LoudnessCounts): string {
 export function loudnessPassLine(status: LoudnessPassStatus): string {
   if (status.state === "stopping") return "Stopping after this song.";
   if (status.state === "running") {
-    if (status.total === 0) return "Looking for songs without a tag…";
+    if (status.total === 0) return "Looking for songs to even out…";
     // The song in hand is the next one after those already done.
     const position = `${Math.min(status.done + 1, status.total)} of ${status.total}`;
     if (status.waiting) {

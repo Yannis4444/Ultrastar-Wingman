@@ -95,7 +95,7 @@ With **Normalize loudness** off, you set the option yourself, under
 [Even out the volume](../start/ultrastar-deluxe.md#even-out-the-volume).
 
 Under **Normalize loudness**, the **Songs already in the library** row is no
-setting. Its **Even out** button tags the songs that were there before. See
+setting. Its **Even out** button evens out the songs that were there before. See
 [The songs you already have](../start/ultrastar-deluxe.md#the-songs-you-already-have).
 
 **Video quality** offers four presets and one free field. *Best available* takes

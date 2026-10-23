@@ -105,8 +105,8 @@ song started from a phone is refused the way a running song is refused.
 
 Songs are mastered at very different volumes, so one song can be much louder
 than the next. Wingman measures how loud every song it downloads is, and writes
-the result into the song's audio file as a ReplayGain tag. Ultrastar Deluxe
-reads the tag and turns each song up or down, so all of them sound about as
+the result into the song's audio file in the ReplayGain format. Ultrastar
+Deluxe reads it and turns each song up or down, so all of them sound about as
 loud.
 
 The host screen uses the same numbers. The
@@ -119,34 +119,34 @@ Ultrastar Deluxe only does that while its own **ReplayGain** option is on, under
 is on, which is the default, Wingman switches the option on before every song
 it starts. You don't have to touch Ultrastar Deluxe.
 
-With **Normalize loudness** off, Wingman tags no download and leaves the option
-as you set it. To change it yourself, start Ultrastar Deluxe on its own, open
-**Options** > **Sound**, and set **ReplayGain**. A song without a tag plays at
-its own volume either way. The host screen evens out every song Wingman has
-measured, whether **Normalize loudness** is on or off.
+With **Normalize loudness** off, Wingman writes nothing into a download and
+leaves the option as you set it. To change it yourself, start Ultrastar Deluxe
+on its own, open **Options** > **Sound**, and set **ReplayGain**. A song with no
+loudness written plays at its own volume either way. The host screen evens out
+every song Wingman has measured, whether **Normalize loudness** is on or off.
 
 ### The songs you already have
 
 Songs that were in your library before, or that came from somewhere else, have
-no tag yet. Wingman never tags them by itself, not on a rescan and not at
-startup. Under **Normalize loudness**, the **Songs already in the library** row
-has an **Even out** button for them. It is there for whoever may change the
-settings, an administrator unless you gave that to another role.
+no loudness written yet. Wingman never measures them by itself, not on a rescan
+and not at startup. Under **Normalize loudness**, the **Songs already in the
+library** row has an **Even out** button for them. It is there for whoever may
+change the settings, an administrator unless you gave that to another role.
 
-Press **Even out**, and Wingman goes through every song without a tag, one at a
-time. It measures each one and writes the tag into its audio file. The line
-under the button counts along, such as *12 of 340: Waterloo by ABBA*. A song
-that already carries a tag from another program is left as it is.
+Press **Even out**, and Wingman goes through every song with no loudness
+written, one at a time. It measures each one and writes the result into its audio file.
+The line under the button counts along, such as *12 of 340: Waterloo by ABBA*.
+A song that already carries its loudness from another program is left as it is.
 
 While a song is being sung, or Ultrastar Deluxe is open on its own, Wingman
 waits and goes on afterwards. **Stop** ends it. A file being written is
 finished first, never left half done. At the end, the line says how many songs
-were tagged and how many could not be.
+were evened out and how many could not be.
 
 What Wingman finds out stays with each song, so pressing **Even out** again
-later only visits the songs that are left. A song it could not tag, such as a
-read-only file, is tried again then. The button works whether **Normalize
-loudness** is on or off. Ultrastar Deluxe only uses the tags while its
+later only visits the songs that are left. A song it could not even out, such
+as a read-only file, is tried again then. The button works whether **Normalize
+loudness** is on or off. Ultrastar Deluxe only reads the loudness while its
 **ReplayGain** option is on, though. With **Normalize loudness** off, switch
 the option on yourself, as described above.
 
@@ -164,7 +164,7 @@ Wingman never writes to `Ultrastar.db`.
     once, as `config.ini.wingman-backup` next to it.
 
 Scanning and singing write nothing into a song folder. Both leave your library
-as it is. Evening out the volume does write: it adds a ReplayGain tag to an
+as it is. Evening out the volume does write: it adds the song's loudness to its
 audio file, and changes nothing else in it.
 
 See [Ultrastar Deluxe problems](../help/ultrastar-deluxe.md) when a song will

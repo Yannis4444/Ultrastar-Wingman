@@ -514,7 +514,7 @@ export default function Devices() {
                   <PrivateSettingRow
                     id="cancel_without_selection"
                     label="When the cancel button is pressed with nothing open"
-                    description="A paused room stays paused. Nothing happens while the music is off or somebody sings."
+                    description="Paused music stays paused. Nothing happens while it is off, or during or just after a sing."
                     saved={savedField === "cancel_without_selection"}
                   >
                     {(inputId, describedBy) => (

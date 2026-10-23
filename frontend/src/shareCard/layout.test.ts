@@ -605,3 +605,47 @@ test("the mosaic fills its grid by repeating the covers it has", () => {
     content.covers[0],
   );
 });
+
+test.each(["square", "story"] as const)(
+  "the mosaic's %s lays a band behind the head and the numbers, and one behind the brand line",
+  (format) => {
+    const layout = layoutPartyCard(
+      party(cardParty(4, 2)),
+      { format, look: "mosaic", focus: "podium", under: "none" },
+      fakeMeasure,
+    );
+    if (layout.background.kind !== "mosaic") throw new Error("not a mosaic");
+    const { bands } = layout.background;
+    expect(bands).toHaveLength(2);
+    const [head, brand] = bands;
+    const inside = (regions: string[], band: { top: number; bottom: number }) =>
+      layout.elements
+        .filter((element) => regions.includes(element.region))
+        .every((element) => {
+          const box = elementBox(element);
+          return box.y >= band.top && box.y + box.h <= band.bottom;
+        });
+    expect(inside(["head", "numbers"], head)).toBe(true);
+    expect(inside(["brand"], brand)).toBe(true);
+    // The podium stays out of both: the covers show behind it.
+    const podium = layout.elements
+      .filter((element) => element.region.startsWith("podium"))
+      .map(elementBox);
+    expect(podium.length).toBeGreaterThan(0);
+    for (const box of podium) {
+      expect(box.y).toBeGreaterThanOrEqual(head.bottom);
+      expect(box.y + box.h).toBeLessThanOrEqual(brand.top);
+    }
+    expect(head.top).toBeGreaterThanOrEqual(0);
+    expect(brand.bottom).toBeLessThanOrEqual(layout.height);
+  },
+);
+
+test("only the mosaic carries bands", () => {
+  const dark = layoutPartyCard(
+    party(cardParty(4, 2)),
+    { format: "square", look: "dark", focus: "podium", under: "none" },
+    fakeMeasure,
+  );
+  expect(dark.background).toEqual({ kind: "dark" });
+});

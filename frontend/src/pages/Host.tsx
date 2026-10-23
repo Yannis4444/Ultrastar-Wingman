@@ -46,6 +46,7 @@ import {
   SHORTCUT_KEYS,
 } from "../hostShortcuts";
 import { manageEntries } from "../manage";
+import { hasTransport } from "../music";
 import type { LeaderboardOrder } from "../stats";
 import "./Host.css";
 
@@ -281,8 +282,10 @@ function useMasterVolume(music: Music): MasterVolume {
  * The background music's transport in the overlay, for a reader who may
  * control it: the gear's own 40px buttons rather than the player tile's,
  * the overlay being the mouse's chrome and not content for the sofa. Play or
- * pause and skip while the music is on; the master volume always, because it
- * also sets how loud the reel's song comes out with the music off.
+ * pause and skip while the music is on and not held by a sing or an open
+ * Ultrastar Deluxe (`hasTransport`): beside the red Stop they would read as
+ * the sing's. The master volume always, because it also sets how loud the
+ * song being picked comes out with the music off.
  */
 function HostTransport({
   music,
@@ -297,7 +300,7 @@ function HostTransport({
   const toggle = paused ? "Play" : "Pause";
   return (
     <div className="host-transport">
-      {state.status !== "off" && (
+      {hasTransport(state.status) && (
         <>
           <button
             type="button"
@@ -487,7 +490,9 @@ export default function Host() {
   // no transport and no keys for it; the host's browser is an administrator.
   const mayControl =
     auth.loaded && auth.can("music.control") && music.state !== undefined;
-  const musicOn = mayControl && music.state?.status !== "off";
+  // The keys follow the buttons: none for the transport while it is not drawn.
+  const transport =
+    mayControl && music.state !== undefined && hasTransport(music.state.status);
   const sink = useMusicSinkStatus();
   // Only while something is actually playing: "off" and the pause after a song
   // are silences the room can see for itself.
@@ -531,7 +536,7 @@ export default function Host() {
   // fades again as usual.
   const onShortcut = (event: KeyboardEvent) => {
     const available = new Set<HostShortcut>();
-    if (musicOn && !music.isBusy) {
+    if (transport && !music.isBusy) {
       available.add("play-pause");
       available.add("skip");
     }

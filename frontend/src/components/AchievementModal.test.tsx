@@ -4,6 +4,7 @@ import {
   maskedAchievementRead,
   playerAchievementRead,
 } from "../test/achievements";
+import { cardDate } from "../duration";
 import { iconNames } from "../test/icons";
 import AchievementModal from "./AchievementModal";
 import type { PlayerAchievementRead } from "../api";
@@ -40,9 +41,10 @@ it("shows the picture large, the name, the sentence and the day", () => {
   expect(
     screen.getByText("Score 9,000 or more in a song."),
   ).toBeInTheDocument();
-  // The app's own date helper, so the year is there once the party is old
-  // enough for it to matter and the test does not depend on which year it is.
-  expect(screen.getByText(/^Earned 12 Aug/)).toBeInTheDocument();
+  // Day, month and year, always (ui-guidelines §5): the modal is read on its
+  // own. Through the app's own date helper, so no locale is assumed.
+  const earned = screen.getByText(`Earned ${cardDate("2026-08-12T20:15:00Z")}`);
+  expect(earned).toHaveTextContent("2026");
   // Earned, so there is nothing left to progress towards.
   expect(container.querySelector(".achievement-progress")).toBeNull();
 });

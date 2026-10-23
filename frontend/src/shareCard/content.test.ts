@@ -5,8 +5,8 @@ import {
   cardScore,
   partySession,
 } from "../test/shareCard";
+import { cardDate } from "../duration";
 import {
-  cardDate,
   cardImageUrls,
   coverUrl,
   ordinal,
@@ -62,12 +62,6 @@ test("ordinals read the English way, teens included", () => {
     "101st",
     "111th",
   ]);
-});
-
-test("a card's date always carries its year", () => {
-  expect(cardDate(new Date().toISOString())).toContain(
-    String(new Date().getFullYear()),
-  );
 });
 
 test("one score: the song, the number, the rating word and the place", () => {

@@ -168,8 +168,8 @@ movement. So do the three ranking words beside **Tonight**.
   already open. It is there for a browser that may change the settings. See
   [Start Ultrastar Deluxe on its own](../start/ultrastar-deluxe.md#start-ultrastar-deluxe-on-its-own).
 - :wingman-pause: **Pause** or :wingman-play: **Play**, and :wingman-skip:
-  **Skip**, while the background music is on. See
-  [Play background music](../party/music.md).
+  **Skip**, while the background music is on, no song plays, and Ultrastar
+  Deluxe is closed. See [Play background music](../party/music.md).
 - :wingman-volume: The overall volume, with its number beside it. It is the
   **Master volume** in the **Sound** group of the settings, so it turns the
   background music, the song being picked, and the sound effects up or down

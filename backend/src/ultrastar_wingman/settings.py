@@ -393,8 +393,7 @@ register(
         default=True,
         group="Downloads",
         description=(
-            "Tag each download with its loudness, so Ultrastar Deluxe plays every song "
-            "equally loud."
+            "Even out each download's loudness, so Ultrastar Deluxe plays every song equally loud."
         ),
     )
 )

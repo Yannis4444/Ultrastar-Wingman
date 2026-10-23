@@ -9,6 +9,7 @@ import {
   CARD_COLORS,
   CARD_HEIGHT,
   CARD_WIDTH,
+  MOSAIC_BAND,
   SCRIM_ALPHA,
   layoutPartyCard,
   layoutScoreCard,
@@ -16,6 +17,7 @@ import {
   type CardElement,
   type CardLayout,
   type ImageElement,
+  type MosaicBand,
   type PartyCardOptions,
   type ScoreCardOptions,
 } from "./layout";
@@ -162,6 +164,30 @@ function paintBackground(
   ctx.fillStyle = CARD_COLORS.bg;
   ctx.fillRect(0, 0, width, height);
   ctx.restore();
+  if (background.kind === "mosaic") paintBands(ctx, background.bands, width);
+}
+
+/** `--bg` at 100% behind each band, fading to the scrim alone over
+ * `MOSAIC_BAND.fade` px above and below it (§3.1). */
+function paintBands(
+  ctx: CanvasRenderingContext2D,
+  bands: MosaicBand[],
+  width: number,
+): void {
+  const { fade } = MOSAIC_BAND;
+  // `--bg` itself with its alpha at 0, so the fade is one colour throughout.
+  const clear = `${CARD_COLORS.bg}00`;
+  for (const band of bands) {
+    const top = band.top - fade;
+    const span = band.bottom - band.top + 2 * fade;
+    const gradient = ctx.createLinearGradient(0, top, 0, top + span);
+    gradient.addColorStop(0, clear);
+    gradient.addColorStop(fade / span, CARD_COLORS.bg);
+    gradient.addColorStop(1 - fade / span, CARD_COLORS.bg);
+    gradient.addColorStop(1, clear);
+    ctx.fillStyle = gradient;
+    ctx.fillRect(0, top, width, span);
+  }
 }
 
 function paintImage(

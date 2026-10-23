@@ -1308,6 +1308,51 @@ test("with the music off only the master volume stands", async () => {
   expect(screen.queryByRole("button", { name: "Skip" })).toBeNull();
 });
 
+test("while a sing holds the music only the volume stands beside Stop, and K and N are nobody's", async () => {
+  asHost();
+  getCurrentSing.mockResolvedValue({ data: { sing: RUNNING } });
+  getMusic.mockResolvedValue({
+    data: playingMusic({ status: "blocked", blocked_by: "sing" }),
+  });
+  renderHost("/host");
+
+  expect(
+    await screen.findByRole("slider", { name: "Master volume" }),
+  ).toBeInTheDocument();
+  expect(screen.getByRole("button", { name: "Stop" })).toBeInTheDocument();
+  expect(screen.queryByRole("button", { name: "Pause" })).toBeNull();
+  expect(screen.queryByRole("button", { name: "Play" })).toBeNull();
+  expect(screen.queryByRole("button", { name: "Skip" })).toBeNull();
+
+  // `true`: the page left the key alone, and nothing reached the music.
+  expect(key("k")).toBe(true);
+  expect(key(" ")).toBe(true);
+  expect(key("n")).toBe(true);
+  await act(async () => undefined);
+  expect(pauseMusic).not.toHaveBeenCalled();
+  expect(playMusic).not.toHaveBeenCalled();
+  expect(skipMusic).not.toHaveBeenCalled();
+  // The volume is still the keyboard's.
+  expect(key("ArrowDown")).toBe(false);
+});
+
+test("an open Ultrastar Deluxe holds the transport back too", async () => {
+  asHost();
+  getMusic.mockResolvedValue({
+    data: playingMusic({ status: "blocked", blocked_by: "usdx" }),
+  });
+  renderHost("/host");
+
+  await screen.findByRole("slider", { name: "Master volume" });
+  expect(screen.queryByRole("button", { name: "Pause" })).toBeNull();
+  expect(screen.queryByRole("button", { name: "Skip" })).toBeNull();
+  expect(key("k")).toBe(true);
+  expect(key("n")).toBe(true);
+  await act(async () => undefined);
+  expect(pauseMusic).not.toHaveBeenCalled();
+  expect(skipMusic).not.toHaveBeenCalled();
+});
+
 test("a guest's host screen has no transport and no keys for it", async () => {
   getMe.mockResolvedValue(meResponse(["songs.view", "music.view"]));
   getMusic.mockResolvedValue({ data: playingMusic() });

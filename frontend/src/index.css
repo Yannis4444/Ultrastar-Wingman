@@ -118,6 +118,22 @@ p {
   background-color: var(--highlight-blue-light);
 }
 
+/* In a panel modal (`--tile-bg`) the primary's own fill is the tile's within
+   a shade (#1c354a on #1b3347), so it read as outlined only, quieter than the
+   plain `.button` beside it. There it takes a step towards the light blue,
+   7.3:1 under white text; the hover stays the light blue itself. */
+.modal:not(.modal-bare) .button-primary {
+  background-color: color-mix(
+    in srgb,
+    var(--highlight-blue-light) 40%,
+    var(--highlight-blue-dark)
+  );
+}
+
+.modal:not(.modal-bare) .button-primary:hover:enabled {
+  background-color: var(--highlight-blue-light);
+}
+
 .button-danger {
   background-color: var(--highlight-red-dark);
 }

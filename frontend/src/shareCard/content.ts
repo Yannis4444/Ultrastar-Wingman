@@ -1,7 +1,8 @@
 import type { PlayerRead, ScoreWithContext, SessionRead } from "../api";
 import { avatarUrl } from "../avatars";
 import { MAX_SCORE } from "../chartTheme";
-import { parseServerTime } from "../duration";
+// A card leaves the room, so its date always carries the year.
+import { cardDate, parseServerTime } from "../duration";
 import {
   bestScoreOf,
   boxStats,
@@ -159,16 +160,6 @@ export function ordinal(value: number): string {
     default:
       return `${value}th`;
   }
-}
-
-/** "17 Oct 2026": a card leaves the room, so it always carries its year —
- * unlike `shortDate`, which drops it inside the current one. */
-export function cardDate(timestamp: string): string {
-  return new Date(parseServerTime(timestamp)).toLocaleDateString([], {
-    day: "numeric",
-    month: "short",
-    year: "numeric",
-  });
 }
 
 function plural(count: number, word: string): string {

@@ -10,7 +10,7 @@ import {
   listPlayerAchievementsQueryKey,
 } from "../api/@tanstack/react-query.gen";
 import { achievementDescription, achievementName } from "../achievements";
-import { shortDate } from "../duration";
+import { cardDate } from "../duration";
 import { useAchievements } from "../hooks/useAchievements";
 import { useWingmanEvent, type WingmanEvent } from "../hooks/useWingmanEvents";
 import AchievementBadge from "./AchievementBadge";
@@ -86,7 +86,7 @@ function AchievementRow({
           </span>
           {row.earned_at !== null ? (
             <span className="user-achievement-meta">
-              Earned {shortDate(row.earned_at)}
+              Earned {cardDate(row.earned_at)}
             </span>
           ) : (
             <AchievementProgress

@@ -80,5 +80,5 @@ and reads **Filter · 2**. The number is how many chips in the panel are off
 songs before you opened the panel.
 
 Tapping **All**, **Favorites**, or **Sung** throws the whole filter away.
-**Recent** does not. It is a different order of the same list, and the filter
-keeps working inside it.
+**Recent** does not. It lists the songs of the party going on now, the last one
+sung first, and the filter keeps working inside it.

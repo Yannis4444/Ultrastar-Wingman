@@ -117,8 +117,9 @@ function ActiveSink() {
   // The key whose moment to sound came while the last song was still fading
   // out: the end of that fade starts it.
   const previewDueRef = useRef<string | null>(null);
-  // Whether the reel's song should be sounding right now — landed, and still
-  // wanted — for the gesture unlock to know which element to play.
+  // Whether the song being picked should be sounding right now — its reel
+  // landed or its selection opened with it, and still wanted — for the gesture
+  // unlock to know which element to play.
   const previewLiveRef = useRef(false);
   // The lease twice: as state, so the element effect runs when it arrives and
   // goes, and as a ref, so the `pagehide` handler and the reports read it
@@ -131,7 +132,7 @@ function ActiveSink() {
   const errorsRef = useRef(0);
   const fadeRef = useRef<number | null>(null);
   const targetVolumeRef = useRef(0);
-  // The reel's song has a volume of its own (`sound.preview_volume`).
+  // The song being picked has a volume of its own (`sound.preview_volume`).
   const previewVolumeRef = useRef(0);
   const shouldPlayRef = useRef(false);
   // The loudness of the file each element is loaded with — not the state's:
@@ -272,7 +273,8 @@ function ActiveSink() {
   const holding = lease !== null;
   const track = holding ? (state?.track ?? null) : null;
   const preview = holding ? (state?.preview ?? null) : null;
-  // The reel's song has the speakers while a preview is set: the background
+  // The song being picked has the speakers while a preview is set — spun or
+  // opened with a song, whichever selection it is: the background
   // fades out under it and its position is frozen on the server meanwhile.
   const shouldPlay = holding && state?.status === "playing" && preview === null;
   const volume =
@@ -379,7 +381,7 @@ function ActiveSink() {
     }
   }, [volume, previewVolume, shouldPlay, trackFactor]);
 
-  // --- the reel's song -------------------------------------------------------
+  // --- the song being picked, any selection's --------------------------------
 
   const previewId = preview?.id ?? null;
   const previewRevealAt = preview?.reveal_at ?? null;
@@ -564,8 +566,8 @@ function ActiveSink() {
   // --- the gesture -----------------------------------------------------------
 
   useEffect(() => {
-    // Whichever element is supposed to be sounding right now: the reel's song
-    // once it has landed, or the background music. Nothing while a song is
+    // Whichever element is supposed to be sounding right now: the song being
+    // picked once it is due, or the background music. Nothing while a song is
     // being sung, while the music is paused, or on a tab without the lease.
     const sounding = () =>
       previewLiveRef.current
@@ -614,7 +616,7 @@ function ActiveSink() {
 
   return (
     <>
-      {/* The reel's song. Reports nothing: the lease is about the background
+      {/* The song being picked. Reports nothing: the lease is about the background
           track, and this element's time is not that track's. */}
       <audio ref={previewRef} hidden preload="auto" data-role="preview" />
       <audio

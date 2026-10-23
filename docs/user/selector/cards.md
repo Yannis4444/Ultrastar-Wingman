@@ -134,8 +134,8 @@ guest sees the library. A song a tag hides from guests cannot win.
 
 A press on a **Cancel the selection** button gives up the song the room is
 picking singers for. While nobody is picking, this setting says what the press
-does instead. Its line says: *A paused room stays paused. Nothing happens while
-the music is off or somebody sings.*
+does instead. Its line says: *Paused music stays paused. Nothing happens while
+it is off, or during or just after a sing.*
 
 - **Skip to the next background song**, which is how a fresh Wingman is set.
   The [background music](../party/music.md) moves on to its next song, from the

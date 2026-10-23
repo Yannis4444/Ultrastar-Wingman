@@ -1,6 +1,7 @@
 import type { CurrentSing, MusicRead, MusicTrackRead, SongRead } from "./api";
 import {
   effectiveVolume,
+  hasTransport,
   musicPosition,
   playerMode,
   progressPercent,
@@ -84,6 +85,19 @@ describe("playerMode", () => {
   it("is idle for a reader who may not see the music at all", () => {
     expect(playerMode(null, music(), false)).toBe("idle");
     expect(playerMode(null, undefined, true)).toBe("idle");
+  });
+});
+
+describe("hasTransport", () => {
+  it("draws play or pause and skip while the music is on and its own", () => {
+    for (const status of ["playing", "paused", "waiting", "empty"] as const) {
+      expect(hasTransport(status)).toBe(true);
+    }
+  });
+
+  it("draws neither while the music is off or a sing holds it", () => {
+    expect(hasTransport("off")).toBe(false);
+    expect(hasTransport("blocked")).toBe(false);
   });
 });
 
