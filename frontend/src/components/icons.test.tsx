@@ -81,6 +81,7 @@ const NOT_PICKABLE: IconName[] = [
   "dice-1",
   "shuffle",
   "external-link",
+  "share",
   "chevron-down",
   "arrow-up",
 ];
@@ -176,4 +177,16 @@ test("a link that leaves Wingman has a glyph of its own, out of the picker", () 
   const { container } = render(<Icon name="external-link" />);
   expect(container.querySelectorAll("path")).toHaveLength(1);
   expect(iconNames(container)).toEqual(["external-link"]);
+});
+
+test("a picture of scores to send has a glyph of its own, never the archive's", () => {
+  // Three discs and the two bars joining them: five subpaths in one `d`.
+  expect(ICON_PATHS.share.match(/M/g)).toHaveLength(5);
+  expect(ICON_PATHS.share).not.toBe(ICON_PATHS.upload);
+  expect(ICON_PATHS.share).not.toBe(ICON_PATHS["external-link"]);
+  expect(PICKER_ICON_NAMES).not.toContain("share");
+
+  const { container } = render(<Icon name="share" />);
+  expect(container.querySelectorAll("path")).toHaveLength(1);
+  expect(iconNames(container)).toEqual(["share"]);
 });

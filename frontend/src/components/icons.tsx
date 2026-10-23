@@ -459,6 +459,14 @@ export const ICON_PATHS = {
   // pickable: a link is not a thing a song is about.
   "external-link":
     "M11 4H6a2 2 0 0 0-2 2v12a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-5h-2v5H6V6h5V4ZM14 2h8v8h-2V5.41l-8.59 8.59L10 12.59 18.59 4H14V2Z",
+  // A picture of scores to send: the Scores page's party button, an open score
+  // group's *Share a score*, the share panel's Share. Three discs of radius 3,
+  // one at the left middle and two at the right top and bottom, joined by two
+  // bars two units thick. All five subpaths are wound clockwise, so where a
+  // bar runs into a disc the fill stays solid. Never `upload`'s arrow out of a
+  // tray, which is the achievements archive; not pickable.
+  share:
+    "M3 12a3 3 0 1 1 6 0 3 3 0 1 1-6 0ZM15 5a3 3 0 1 1 6 0 3 3 0 1 1-6 0ZM15 19a3 3 0 1 1 6 0 3 3 0 1 1-6 0ZM6.5 12.86l-1-1.72 12-7 1 1.72-12 7ZM5.5 12.86l1-1.72 12 7-1 1.72-12-7Z",
 } as const;
 
 export type IconName = keyof typeof ICON_PATHS;

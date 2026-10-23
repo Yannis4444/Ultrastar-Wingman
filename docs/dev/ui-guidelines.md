@@ -625,8 +625,9 @@ saved) where a jump to the top would throw away the place they were working in.
   mark); the row tapped becomes the card, the close going back to the list. Then: the preview, a real `<img>` of the PNG at the panel's width under
   `max-height: 50vh` (`object-fit: contain`, an `alt` saying what it shows), `Loading` for the
   first draw and the old picture kept through a redraw; *Format* (*Square* · *Story*), *Look*
-  (*Dark* · *Cover*, or *Dark* · *Mosaic*) and the party's *Under the podium* (*Ranking* · *Score
-  strip*) as §4's pills, a look the card cannot draw disabled over a `.section-note` saying why;
+  (*Dark* · *Cover*, or *Dark* · *Mosaic*), the party's *Focus* (*Podium* · *Spread*) and, on a
+  square Dark podium card, its *Under the podium* (*Ranking* · *Score strip*) as §4's pills, a
+  look the card cannot draw disabled over a `.section-note` saying why;
   the toggles as `CheckOption` checkboxes, three that all fit (§4): *Other singers' pictures*,
   *Party name and date*, the party's *Only me and my place*. The foot is §5's `flex: 1 1 0` row of
   what works in this browser, never a greyed button: **Share** (`share`, the primary) where
