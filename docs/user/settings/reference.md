@@ -87,6 +87,7 @@ line saying so instead. See
 | Setting | What it does | Default |
 |---|---|---|
 | **Parallel** | How many songs download at the same time. Applied on restart | 2 |
+| **Normalize loudness** | Writes each download's loudness into its audio file, and switches on Ultrastar Deluxe's **ReplayGain** option before every song, so every song plays at about the same volume | on |
 | **Video quality** | Which stream is downloaded | High (1080p) |
 
 **Video quality** offers four presets and one free field. *Best available* takes

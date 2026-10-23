@@ -57,7 +57,7 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
     # Before the queue: a re-queued USDB download starts running the moment it is enqueued.
     usdb.configure(app.state.session_factory, settings.data_dir)
     # Picks up downloads the last run left pending, and fails the one it interrupted.
-    await downloads.start(app.state.session_factory)
+    await downloads.start(app.state.session_factory, settings.data_dir)
     # Notices a player selector going quiet, and clears a selection nobody is touching any
     # more — the TV would otherwise keep showing a song nobody is singing.
     await devices.start_watchdog(app.state.session_factory)

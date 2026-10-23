@@ -259,6 +259,12 @@ def _new_row(identifier: str, scanned: ScannedSong) -> Song:
 def _apply_values(row: Song, scanned: ScannedSong) -> bool:
     """Set the columns a rescan may change. True when something actually changed."""
     values = _mutable_values(scanned)
+    if _file_name(row.audio_file) != _file_name(scanned.audio_file):
+        # The ReplayGain columns are not the scan's to fill (reading a tag is an ffmpeg run
+        # per song), so they stay as they were — unless the txt now names another audio
+        # file, whose loudness is not the one they say. By name and not by path: a library
+        # moved to another drive is still the same files.
+        values |= {"replay_gain_db": None, "replay_gain_peak": None}
     if all(getattr(row, name) == value for name, value in values.items()):
         return False
     for name, value in values.items():
@@ -291,6 +297,10 @@ def _mutable_values(scanned: ScannedSong) -> dict[str, object]:
 
 def _as_str(path: Path | None) -> str | None:
     return None if path is None else str(path)
+
+
+def _file_name(path: str | Path | None) -> str | None:
+    return None if path is None else Path(path).name
 
 
 def _scan_roots(roots: list[Path]) -> list[ScannedSong]:

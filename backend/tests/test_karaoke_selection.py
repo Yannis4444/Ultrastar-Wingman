@@ -1158,7 +1158,7 @@ async def test_the_room_keeps_going_while_a_start_is_in_progress(
     token = await two_slot_selection(session, song)
     await selection.card_placed_on_slot(session_factory, "blue", "A1", alice)
     launcher = BlockingLauncher(None)
-    monkeypatch.setattr(service, "UsdxLauncher", lambda paths: launcher)
+    monkeypatch.setattr(service, "UsdxLauncher", lambda paths, **options: launcher)
 
     start = asyncio.create_task(selection.start_selection(session, session_factory, token))
     await asyncio.wait_for(launcher.started.wait(), timeout=5)
@@ -1278,6 +1278,7 @@ async def test_a_spin_hands_the_reels_song_to_the_music(
     assert row is not None
     row.audio_file = str(Path(row.directory) / "song.mp3")
     row.preview_start_seconds = 33.0
+    row.replay_gain_db, row.replay_gain_peak = -6.5, 0.9
     await session.commit()
 
     opened = await open_spin(client, "all")
@@ -1286,6 +1287,8 @@ async def test_a_spin_hands_the_reels_song_to_the_music(
     assert state.preview is not None
     assert state.preview.song.id == song
     assert state.preview.start_s == 33.0
+    # The gain the host plays it at, off the same row (`downloads.loudness`).
+    assert (state.preview.gain_db, state.preview.peak) == (-6.5, 0.9)
     spun_at = datetime.fromisoformat(opened["selection"]["spin"]["spun_at"])
     assert state.preview.reveal_at == spun_at + timedelta(seconds=selection.REVEAL_SECONDS)
     first = state.preview.id
@@ -1295,10 +1298,29 @@ async def test_a_spin_hands_the_reels_song_to_the_music(
     state = await music_service.read()
     assert state.preview is not None
     assert state.preview.id == first
+    assert (state.preview.gain_db, state.preview.peak) == (-6.5, 0.9)
 
     # The selection is given up: so is the song.
     assert (await close_selection(client, token)).status_code == 204
     assert (await music_service.read()).preview is None
+
+
+async def test_a_selection_opened_with_a_song_hands_the_music_its_gain(
+    client: AsyncClient, session: AsyncSession, song: str
+) -> None:
+    from ultrastar_wingman.music import service as music_service
+
+    await give_audio(session, song)
+    row = await session.get(Song, song)
+    assert row is not None
+    row.replay_gain_db, row.replay_gain_peak = 2.25, 0.5
+    await session.commit()
+
+    await open_selection(client, song)
+
+    state = await music_service.read()
+    assert state.preview is not None
+    assert (state.preview.gain_db, state.preview.peak) == (2.25, 0.5)
 
 
 async def give_audio(session: AsyncSession, song_id: str, preview_start: float = 33.0) -> None:

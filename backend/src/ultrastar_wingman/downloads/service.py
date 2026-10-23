@@ -22,6 +22,7 @@ from ..songs.model import Song
 from ..songs.scanner import scan_song_directory
 from ..songs.schema import song_label
 from ..sources.base import DownloadError, SongSource, get_source
+from . import loudness, media
 from .model import (
     COMPLETED,
     FAILED,
@@ -81,8 +82,9 @@ class DownloadStillRunningError(RuntimeError):
         self.download_id = download_id
 
 
-async def start(session_factory: async_sessionmaker[AsyncSession]) -> None:
-    """Reconcile what the last run left behind, then bring the workers up."""
+async def start(session_factory: async_sessionmaker[AsyncSession], data_dir: Path) -> None:
+    """Reconcile what the last run left behind, then bring the workers up. `data_dir` is
+    where Wingman keeps its own ffmpeg, which the loudness step may need (`_normalize`)."""
     global _queue
     if _queue is not None:
         return
@@ -95,7 +97,9 @@ async def start(session_factory: async_sessionmaker[AsyncSession]) -> None:
     _queue = queue
     parallel = await _parallel(session_factory)
     _workers.extend(
-        asyncio.create_task(_worker(session_factory, queue), name=f"download-worker-{number}")
+        asyncio.create_task(
+            _worker(session_factory, queue, data_dir), name=f"download-worker-{number}"
+        )
         for number in range(parallel)
     )
     logger.debug("download queue started with %d worker(s)", parallel)
@@ -269,12 +273,12 @@ async def _reconcile(session_factory: async_sessionmaker[AsyncSession]) -> list[
 
 
 async def _worker(
-    session_factory: async_sessionmaker[AsyncSession], queue: asyncio.Queue[int]
+    session_factory: async_sessionmaker[AsyncSession], queue: asyncio.Queue[int], data_dir: Path
 ) -> None:
     while True:
         download_id = await queue.get()
         try:
-            await _process(session_factory, download_id)
+            await _process(session_factory, download_id, data_dir)
         except Exception:
             # A crash outside the download itself (a dead DB) must not kill the worker.
             logger.exception("download %d could not be processed", download_id)
@@ -290,7 +294,9 @@ async def _worker(
             queue.task_done()
 
 
-async def _process(session_factory: async_sessionmaker[AsyncSession], download_id: int) -> None:
+async def _process(
+    session_factory: async_sessionmaker[AsyncSession], download_id: int, data_dir: Path
+) -> None:
     async with session_factory() as session:
         row = await session.get(Download, download_id)
         if row is None or row.status != QUEUED:
@@ -303,7 +309,7 @@ async def _process(session_factory: async_sessionmaker[AsyncSession], download_i
             return
         await _update(session, row, status=RUNNING, progress=None, step="starting")
         try:
-            song_id = await _download(session, row, song_source)
+            song_id = await _download(session, row, song_source, data_dir)
         except Exception as error:
             # CancelledError is a BaseException: a shutdown leaves the row `running`, and
             # the next startup marks it interrupted. A source's own failure (a video gone,
@@ -335,7 +341,9 @@ async def _process(session_factory: async_sessionmaker[AsyncSession], download_i
         )
 
 
-async def _download(session: AsyncSession, row: Download, song_source: SongSource) -> str:
+async def _download(
+    session: AsyncSession, row: Download, song_source: SongSource, data_dir: Path
+) -> str:
     report = _Reporter(session, row)
     # ignore_cleanup_errors: on Windows a file a just-exited subprocess still holds would
     # otherwise turn a finished download into a failure.
@@ -345,9 +353,51 @@ async def _download(session: AsyncSession, row: Download, song_source: SongSourc
     # end of its last phase, and dropping it back to "no percentage" would restart the ring
     # one step before the download is done.
     await report.set_step("adding to the library")
-    return await scan_song_directory(
+    song_id = await scan_song_directory(
         session, directory, source=song_source.source, source_song_id=row.source_song_id
     )
+    await _normalize(session, song_id, report, data_dir)
+    return song_id
+
+
+async def _normalize(
+    session: AsyncSession, song_id: str, report: "_Reporter", data_dir: Path
+) -> None:
+    """Tag the new song's audio with its loudness (`loudness.normalize_song`), when the host
+    wants that (`downloads.normalize_loudness`).
+
+    After the scan and not inside the source: every source's songs get it, and the row it
+    keeps the values on exists only now. Never fails the download — the song is in the
+    library already, and a song without the tag only plays at its own volume.
+    """
+    song = await session.get(Song, song_id)
+    if song is None:
+        return
+    # Whatever happens below, the row says nothing it does not know about *this* file: a
+    # download under an id the library already had still carries the values of the file
+    # it replaced. Committed by the next write, whichever that is.
+    song.replay_gain_db = None
+    song.replay_gain_peak = None
+    if song.audio_file is None or not await SettingsService(session).get(
+        loudness.NORMALIZE_SETTING
+    ):
+        return
+    # The step, not the percentage: like the library step, it holds the bar where it is.
+    await report.set_step(loudness.LOUDNESS_STEP)
+    try:
+        # A USDB download has resolved it already, so this is never a second download.
+        ffmpeg = await media.ensure_ffmpeg(session, data_dir)
+        await loudness.normalize_song(session, ffmpeg, song)
+    except Exception as error:
+        # `normalize_song` turns every ffmpeg failure into an outcome and logs it; what is
+        # left is no ffmpeg at all, or a bug, and neither may turn a song that is in the
+        # library already into a failed download.
+        logger.warning(
+            "Could not even out the loudness of %s: %s",
+            song_label(song),
+            _message(error),
+            exc_info=not isinstance(error, DownloadError),
+        )
 
 
 class _Reporter:

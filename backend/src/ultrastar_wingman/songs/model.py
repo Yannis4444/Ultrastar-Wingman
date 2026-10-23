@@ -50,6 +50,13 @@ class Song(Base):
     # yes or no for every file, and "unknown" would be a third state nothing can produce —
     # the migration fills the column for the songs scanned before it existed.
     is_duet: Mapped[bool] = mapped_column(Boolean, default=False, server_default=text("0"))
+    # The audio file's ReplayGain (`downloads.loudness`): the track gain in dB and the true
+    # peak as a linear value, written when Wingman tags the file or finds it tagged. NULL is
+    # "not known", never "no gain". A rescan leaves both alone — they are the file's, and
+    # reading them takes an ffmpeg run per song — except when the audio file's name changes,
+    # which makes them another file's (`scanner._apply_values`).
+    replay_gain_db: Mapped[float | None] = mapped_column(Float, nullable=True)
+    replay_gain_peak: Mapped[float | None] = mapped_column(Float, nullable=True)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=_now)
     updated_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), default=_now, onupdate=_now

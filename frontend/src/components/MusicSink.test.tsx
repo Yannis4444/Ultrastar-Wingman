@@ -56,6 +56,8 @@ function track(overrides: Partial<MusicTrackRead> = {}): MusicTrackRead {
     position_s: 0,
     position_at: AT,
     duration_s: null,
+    gain_db: null,
+    peak: null,
     ...overrides,
   };
 }
@@ -425,6 +427,8 @@ it("plays the reel's song from where its singing starts when the reel lands", as
           song: { ...SONG, id: "usdb:9", title: "Waterloo" },
           start_s: 42,
           reveal_at: new Date(Date.now() + 60).toISOString(),
+          gain_db: null,
+          peak: null,
         },
       }),
     });
@@ -466,6 +470,8 @@ it("plays the reel's song at the preview volume, not the music's", async () => {
           song: { ...SONG, id: "usdb:9" },
           start_s: 0,
           reveal_at: new Date().toISOString(),
+          gain_db: null,
+          peak: null,
         },
       }),
     });
@@ -493,6 +499,8 @@ it("seeks again on a respin that lands on the same song", async () => {
             song: { ...SONG, id: "usdb:9" },
             start_s,
             reveal_at: new Date(Date.now() + 60_000).toISOString(),
+            gain_db: null,
+            peak: null,
           },
         }),
       });
@@ -581,6 +589,8 @@ it("lets the last song fade out before a new selection's song comes in", async (
             song: { ...SONG, id: songId },
             start_s: 0,
             reveal_at: new Date().toISOString(),
+            gain_db: null,
+            peak: null,
           },
         }),
       });
@@ -617,6 +627,8 @@ it("lets the reel's song go when the selection does", async () => {
           song: { ...SONG, id: "usdb:9" },
           start_s: 0,
           reveal_at: new Date().toISOString(),
+          gain_db: null,
+          peak: null,
         },
       }),
     });

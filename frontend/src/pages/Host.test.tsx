@@ -1060,6 +1060,8 @@ test("the idle screen names the background song, quietly", async () => {
     position_s: 3,
     position_at: "2026-08-23T20:00:00Z",
     duration_s: 200,
+    gain_db: null,
+    peak: null,
   };
   getMusic.mockResolvedValue({
     data: quietMusic({ status: "playing", track, sink_online: true }),
@@ -1086,6 +1088,8 @@ test("the background song stays named along the foot with the scores up, and goe
     position_s: 3,
     position_at: "2026-08-23T20:00:00Z",
     duration_s: 200,
+    gain_db: null,
+    peak: null,
   };
   getMusic.mockResolvedValue({
     data: quietMusic({ status: "playing", track, sink_online: true }),

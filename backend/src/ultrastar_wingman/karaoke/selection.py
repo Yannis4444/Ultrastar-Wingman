@@ -191,6 +191,9 @@ class _Spin:
     # query of its own under two locks.
     preview_start: float | None = None
     has_audio: bool = False
+    # The song's ReplayGain, off the same row, for the host to play it at (`music`).
+    gain_db: float | None = None
+    peak: float | None = None
 
 
 @dataclass(frozen=True)
@@ -205,6 +208,8 @@ class _Preview:
     reveal_at: datetime
     preview_start: float | None
     has_audio: bool
+    gain_db: float | None = None
+    peak: float | None = None
 
 
 def _opened_with(song: Song, opened_at: datetime) -> _Preview:
@@ -216,6 +221,8 @@ def _opened_with(song: Song, opened_at: datetime) -> _Preview:
         reveal_at=opened_at,
         preview_start=song.preview_start_seconds,
         has_audio=song.audio_file is not None,
+        gain_db=song.replay_gain_db,
+        peak=song.replay_gain_peak,
     )
 
 
@@ -345,6 +352,8 @@ async def open_selection(
                 origin="phone",
                 preview_start=song.preview_start_seconds,
                 has_audio=song.audio_file is not None,
+                gain_db=song.replay_gain_db,
+                peak=song.replay_gain_peak,
             )
         elif song_id is not None:
             song = await session.get(Song, song_id)
@@ -818,6 +827,8 @@ def _preview_of(selection: _Selection) -> _Preview | None:
         reveal_at=spin.revealed_at or spin.spun_at + _REVEAL,
         preview_start=spin.preview_start,
         has_audio=spin.has_audio,
+        gain_db=spin.gain_db,
+        peak=spin.peak,
     )
 
 
@@ -831,6 +842,8 @@ def _selection_preview(selection: _Selection) -> music.SelectionPreview | None:
         start_s=preview.preview_start,
         reveal_at=preview.reveal_at,
         has_audio=preview.has_audio,
+        gain_db=preview.gain_db,
+        peak=preview.peak,
     )
 
 
@@ -1045,6 +1058,8 @@ async def _spin_without_selection_locked(
             origin="device",
             preview_start=song.preview_start_seconds,
             has_audio=song.audio_file is not None,
+            gain_db=song.replay_gain_db,
+            peak=song.replay_gain_peak,
         ),
     )
     _refresh_auto_start(_selection, auto_start, session_factory)
@@ -1105,6 +1120,8 @@ async def _respin_locked(
     spin.revealed_at = None
     spin.preview_start = song.preview_start_seconds
     spin.has_audio = song.audio_file is not None
+    spin.gain_db = song.replay_gain_db
+    spin.peak = song.replay_gain_peak
     _reschedule_auto_start(selection, auto_start, session_factory)
 
 

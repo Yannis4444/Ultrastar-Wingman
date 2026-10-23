@@ -110,7 +110,9 @@ running when Wingman stopped is marked failed so you can retry it.
 A download runs through the song text, the cover and background pictures, the
 video, the audio, and the move into your library. The song lands in your songs
 directory in a folder called `Artist - Title (USDB id)`, and it appears in the
-song list on its own. No rescan needed.
+song list on its own. No rescan needed. Last, Wingman measures how loud the song
+is and writes that into its audio file. See
+[Even out the volume](../start/ultrastar-deluxe.md#even-out-the-volume).
 
 How good the video is comes from the **Video quality** setting in the
 **Downloads** group, where **High (1080p)** is the default. A video is always

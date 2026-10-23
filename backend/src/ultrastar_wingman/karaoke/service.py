@@ -17,6 +17,7 @@ from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
 
 from ..achievements import service as achievements
 from ..auth.model import as_utc
+from ..downloads import loudness
 from ..events import AchievementsEarned, KaraokeEnded, KaraokeStarted, ScoresRecorded, event_bus
 from ..library import service as library
 from ..music import service as music
@@ -193,7 +194,12 @@ async def start_sing(
         session.add(sing)
         await session.commit()
 
-        launcher = UsdxLauncher(paths)
+        # The tags Wingman writes into every download are only heard while USDX's own option
+        # is on, so the switch that writes them is the switch that turns it on.
+        launcher = UsdxLauncher(
+            paths,
+            replay_gain=bool(await SettingsService(session).get(loudness.NORMALIZE_SETTING)),
+        )
         running = _Running(
             sing=CurrentSing(
                 sing_id=sing.id,

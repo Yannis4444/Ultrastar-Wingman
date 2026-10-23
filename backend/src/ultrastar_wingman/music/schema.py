@@ -34,6 +34,12 @@ class MusicTrackRead(BaseModel):
     `duration_s` is the audio file's real length, as the host screen measured it, and is
     null until the host has said. It is deliberately not `song.duration_seconds`, which is
     narrowed by the song's `#START` and `#END` and is therefore not how long the file plays.
+
+    `gain_db` and `peak` are the audio file's ReplayGain — the track gain in dB against
+    -18 LUFS and the true peak as a linear value, the numbers Ultrastar Deluxe evens the
+    song out with — and null while Wingman does not know them (`Song.replay_gain_db`). On
+    the track and not on `song`, because only the screen making the sound has a use for
+    them. A host that applies them plays at `10^(gain_db/20)`, at most `1/peak`.
     """
 
     id: str
@@ -42,6 +48,8 @@ class MusicTrackRead(BaseModel):
     position_s: float
     position_at: datetime
     duration_s: float | None
+    gain_db: float | None
+    peak: float | None
 
 
 class MusicPreviewRead(BaseModel):
@@ -54,13 +62,16 @@ class MusicPreviewRead(BaseModel):
     should start (`songs.txt.SongTxt.preview_start`; 0 for a file that says nothing). `id`
     changes on every spin, respin and new selection and on nothing else — a spin moving on
     to its singers keeps it, so the song plays on — and `reveal_at` moves when a press in
-    the room lands the reel early, so a host times its fade-in on the pair.
+    the room lands the reel early, so a host times its fade-in on the pair. `gain_db` and
+    `peak` are the song's ReplayGain, as on `MusicTrackRead`.
     """
 
     id: str
     song: SongRead
     start_s: float
     reveal_at: datetime
+    gain_db: float | None
+    peak: float | None
 
 
 class MusicVolumeRead(BaseModel):

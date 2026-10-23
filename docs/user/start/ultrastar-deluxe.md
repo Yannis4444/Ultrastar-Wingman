@@ -96,11 +96,30 @@ Wingman brings its window to the front.
 Close Ultrastar Deluxe when you are done. While it stands in its own menus, a
 song started from a phone is refused the way a running song is refused.
 
+## Even out the volume
+
+Songs are mastered at very different volumes, so one song can be much louder
+than the next. Wingman measures how loud every song it downloads is, and writes
+the result into the song's audio file as a ReplayGain tag. Ultrastar Deluxe
+reads the tag and turns each song up or down, so all of them sound about as
+loud.
+
+Ultrastar Deluxe only does that while its own **ReplayGain** option is on, under
+**Options** > **Sound**. While **Normalize loudness** in the **Downloads** group
+is on, which is the default, Wingman switches the option on before every song
+it starts. You don't have to touch Ultrastar Deluxe.
+
+With **Normalize loudness** off, Wingman tags no download and leaves the option
+as you set it. To change it yourself, start Ultrastar Deluxe on its own, open
+**Options** > **Sound**, and set **ReplayGain**. A song without a tag plays at
+its own volume either way.
+
 ## What Wingman writes, and what it reads
 
 Before every song, Wingman writes the singers into Ultrastar Deluxe's
 `config.ini`: how many people sing, their names, their colors, their pictures,
-and full screen. When Ultrastar Deluxe closes, Wingman reads the scores out of
+and full screen. While **Normalize loudness** is on, it also switches on the
+**ReplayGain** option. When Ultrastar Deluxe closes, Wingman reads the scores out of
 `Ultrastar.db` and files each one under the player who sang on that slot.
 Wingman never writes to `Ultrastar.db`.
 
@@ -108,8 +127,8 @@ Wingman never writes to `Ultrastar.db`.
     Wingman rewrites `config.ini` before every song. Your own version is kept
     once, as `config.ini.wingman-backup` next to it.
 
-Nothing is written into a song folder. Scanning and singing both leave your
-library as it is.
+Scanning and singing write nothing into a song folder. Both leave your library
+as it is.
 
 See [Ultrastar Deluxe problems](../help/ultrastar-deluxe.md) when a song will
 not start.

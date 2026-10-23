@@ -37,9 +37,18 @@ class ConfiguredPlayer:
 
 
 def write_player_config(
-    config_file: Path, avatars_dir: Path, players: list[ConfiguredPlayer]
+    config_file: Path,
+    avatars_dir: Path,
+    players: list[ConfiguredPlayer],
+    *,
+    replay_gain: bool = False,
 ) -> None:
-    """Point USDX at `players` (in order, P1..Pn) and force full screen."""
+    """Point USDX at `players` (in order, P1..Pn) and force full screen.
+
+    `replay_gain` switches USDX's own loudness normalization on (`[Sound] ReplayGain`), for
+    the tags Wingman writes into the audio of every download (`downloads.loudness`). It is
+    only ever switched *on*: while Wingman is not tagging, the key is the host's, who may
+    have turned it on by hand for tags another program wrote."""
     _back_up_once(config_file)
     parser = configparser.RawConfigParser()
     # USDX keys are CamelCase and it does not recognise the lowercased defaults.
@@ -50,6 +59,9 @@ def write_player_config(
 
     _set(parser, "Game", "Players", str(len(players)))
     _set(parser, "Graphics", "FullScreen", "On")
+    if replay_gain:
+        # `On` and `Off` are the two values USDX's `IReplayGain` reads (UIni.pas).
+        _set(parser, "Sound", "ReplayGain", "On")
     for number, player in enumerate(players, start=1):
         _set(parser, "Name", f"P{number}", player.name)
         _set(parser, "PlayerColor", f"P{number}", str(player.color_index))

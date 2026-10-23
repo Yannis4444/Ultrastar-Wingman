@@ -386,6 +386,20 @@ register(
 )
 register(
     SettingDefinition(
+        # `downloads.loudness.NORMALIZE_SETTING`; also what switches Ultrastar Deluxe's own
+        # ReplayGain option on (`karaoke.usdx_config.write_player_config`).
+        key="downloads.normalize_loudness",
+        value_type=bool,
+        default=True,
+        group="Downloads",
+        description=(
+            "Tag each download with its loudness, so Ultrastar Deluxe plays every song "
+            "equally loud."
+        ),
+    )
+)
+register(
+    SettingDefinition(
         key="downloads.ffmpeg",
         value_type=str,
         default="ffmpeg",

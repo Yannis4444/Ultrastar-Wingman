@@ -124,6 +124,8 @@ function track(overrides: Partial<MusicTrackRead> = {}): MusicTrackRead {
     position_s: 12,
     position_at: new Date().toISOString(),
     duration_s: 200,
+    gain_db: null,
+    peak: null,
     ...overrides,
   };
 }

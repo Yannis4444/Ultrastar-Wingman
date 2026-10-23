@@ -26,6 +26,7 @@ from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from ultrastar_wingman.auth.model import utcnow
+from ultrastar_wingman.downloads import loudness
 from ultrastar_wingman.karaoke import service, usdx_window
 from ultrastar_wingman.karaoke.model import KaraokeSession, Score, Sing
 from ultrastar_wingman.karaoke.usdx import COPY_DIR_NAME
@@ -622,6 +623,24 @@ async def test_the_running_song_is_reported_and_can_be_stopped(
     stopped = await client.post("/api/v1/karaoke/stop")
     assert stopped.status_code == 204
     assert (await client.get("/api/v1/karaoke/current")).json() == {"sing": None}
+
+
+@pytest.mark.parametrize("normalize", [True, False])
+async def test_a_sing_switches_usdx_loudness_on_while_wingman_tags_the_songs(
+    client: AsyncClient, session: AsyncSession, configured: FakeUsdx, song: str, normalize: bool
+) -> None:
+    """The tags are only heard while USDX's own option is on. Wingman switching its tagging
+    off is no reason to switch the option off: the host may want it for tags of their own."""
+    configured.config_file.write_text("[Sound]\nReplayGain=Off\nVolume=80\n", encoding="utf-8")
+    await SettingsService(session).set(loudness.NORMALIZE_SETTING, normalize)
+    yannis = await add_player(client, "Yannis")
+
+    await sing(client, song, [{"color": "blue", "player_id": yannis["id"]}])
+    await service.wait_for_sing_end()
+
+    sound = configured.config()["Sound"]
+    assert sound["ReplayGain"] == ("On" if normalize else "Off")
+    assert sound["Volume"] == "80"
 
 
 async def test_stopping_is_idempotent(client: AsyncClient, configured: FakeUsdx, song: str) -> None:

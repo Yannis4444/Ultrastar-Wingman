@@ -5,6 +5,7 @@ sleeps: the module's whole design is a deadline plus a tick, precisely so that t
 an argument rather than something a test has to wait for.
 """
 
+import dataclasses
 from datetime import UTC, datetime, timedelta
 from pathlib import Path
 from typing import Any
@@ -121,6 +122,8 @@ async def test_a_song_is_picked_once_a_screen_is_listening(
     assert state.track.position_s == 0
     # The host has not measured the file yet, so nothing claims to know how long it is.
     assert state.track.duration_s is None
+    # Nor its loudness: no tag was ever read off it.
+    assert (state.track.gain_db, state.track.peak) == (None, None)
 
 
 async def test_the_position_only_advances_while_a_screen_is_listening(
@@ -564,6 +567,32 @@ async def test_the_reel_freezes_the_music_and_gives_it_back_where_it_stopped(
     assert state.preview is None
     clock.advance(2)
     assert (await service.read()).track.position_s == pytest.approx(6)  # type: ignore[union-attr]
+
+
+async def test_the_track_and_the_preview_carry_the_songs_replay_gain(
+    session: AsyncSession, tmp_path: Path, clock: Clock
+) -> None:
+    """What the host plays them at (`downloads.loudness`), and None while nobody knows."""
+    song = await add_song(session, tmp_path, 1)
+    row = await session.get(Song, song)
+    assert row is not None
+    row.replay_gain_db, row.replay_gain_peak = -6.5, 0.9
+    await session.commit()
+    await enable(session)
+    await register(session)
+
+    state = await service.read()
+    assert state.track is not None
+    assert (state.track.gain_db, state.track.peak) == (-6.5, 0.9)
+
+    await service.selection_changed(dataclasses.replace(spin_preview(song), gain_db=1.5, peak=0.25))
+    state = await service.read()
+    assert state.preview is not None
+    assert (state.preview.gain_db, state.preview.peak) == (1.5, 0.25)
+    await service.selection_changed(spin_preview(song, key="s:2"))
+    preview = (await service.read()).preview
+    assert preview is not None
+    assert (preview.gain_db, preview.peak) == (None, None)
 
 
 async def test_the_reel_plays_with_the_music_switched_off(

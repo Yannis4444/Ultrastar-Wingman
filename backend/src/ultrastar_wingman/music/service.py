@@ -117,6 +117,9 @@ class _Track:
     position_s: float
     position_at: datetime
     duration_s: float | None
+    # The audio file's ReplayGain, off the row when the song was picked (`MusicTrackRead`).
+    gain_db: float | None = None
+    peak: float | None = None
 
 
 @dataclass(frozen=True)
@@ -132,13 +135,16 @@ class SelectionPreview:
     landing on the server's clock, moved forward by a press that lands it early, and the
     moment the selection opened for one opened with a song. `start_s` is
     `Song.preview_start_seconds`, or None for a file that says nothing; `has_audio` is
-    whether there is a file to play at all."""
+    whether there is a file to play at all. `gain_db` and `peak` are the song's ReplayGain,
+    off the same row (`Song.replay_gain_db`)."""
 
     key: str
     song: SongRead
     start_s: float | None
     reveal_at: datetime
     has_audio: bool
+    gain_db: float | None = None
+    peak: float | None = None
 
 
 @dataclass
@@ -149,6 +155,8 @@ class _Preview:
     song: SongRead
     start_s: float
     reveal_at: datetime
+    gain_db: float | None = None
+    peak: float | None = None
 
     def same(self, wanted: SelectionPreview) -> bool:
         """Whether this preview already is `wanted`: the same selection's same song, landing
@@ -279,6 +287,8 @@ def _read(at: datetime | None = None) -> MusicRead:
             position_s=_position(_track, at, status),
             position_at=at,
             duration_s=_track.duration_s,
+            gain_db=_track.gain_db,
+            peak=_track.peak,
         )
     return MusicRead(
         status=status,
@@ -290,6 +300,8 @@ def _read(at: datetime | None = None) -> MusicRead:
             song=_preview.song,
             start_s=_preview.start_s,
             reveal_at=_preview.reveal_at,
+            gain_db=_preview.gain_db,
+            peak=_preview.peak,
         ),
         blocked_by=blocked_by,
         resume_at=_resume_at if status == "waiting" else None,
@@ -435,6 +447,8 @@ def _settle_preview(at: datetime) -> None:
         song=wanted.song,
         start_s=wanted.start_s or 0.0,
         reveal_at=wanted.reveal_at,
+        gain_db=wanted.gain_db,
+        peak=wanted.peak,
     )
 
 
@@ -477,6 +491,8 @@ async def _start_next(session: AsyncSession, at: datetime) -> None:
         position_s=0.0,
         position_at=at,
         duration_s=None,
+        gain_db=song.replay_gain_db,
+        peak=song.replay_gain_peak,
     )
 
 

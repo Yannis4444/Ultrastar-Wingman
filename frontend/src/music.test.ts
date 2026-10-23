@@ -36,6 +36,8 @@ function track(overrides: Partial<MusicTrackRead> = {}): MusicTrackRead {
     position_s: 0,
     position_at: AT,
     duration_s: 200,
+    gain_db: null,
+    peak: null,
     ...overrides,
   };
 }
@@ -120,7 +122,14 @@ describe("musicPosition while the reel's song plays", () => {
     const base = music();
     if (base.track === null) throw new Error("the fixture has a track");
     const state = music({
-      preview: { id: "s:1", song: base.track.song, start_s: 12, reveal_at: AT },
+      preview: {
+        id: "s:1",
+        song: base.track.song,
+        start_s: 12,
+        reveal_at: AT,
+        gain_db: null,
+        peak: null,
+      },
     });
     expect(musicPosition(state, NOW + 30_000)).toBe(base.track.position_s);
   });

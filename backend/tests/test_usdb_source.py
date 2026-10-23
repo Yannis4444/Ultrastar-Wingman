@@ -17,6 +17,7 @@ import pytest
 from httpx import AsyncClient
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
 
+from test_downloads_loudness import DEFAULT_GAIN, FAKE_FFMPEG
 from test_downloads_media import fake_executable
 from test_downloads_queue import idle
 from ultrastar_wingman.downloads import media, service
@@ -57,13 +58,6 @@ print("[wingman]  50.0%")
 print("[wingman] 100.0%")
 print("[wingman]   0.0%")
 print("[wingman] 100.0%")
-"""
-
-FAKE_FFMPEG = """
-import pathlib
-import sys
-
-pathlib.Path(sys.argv[-1]).write_bytes(b"mp3-bytes")
 """
 
 
@@ -201,11 +195,11 @@ async def environment(
 
 @pytest.fixture
 async def queue(
-    session_factory: async_sessionmaker[AsyncSession],
+    session_factory: async_sessionmaker[AsyncSession], tmp_path: Path
 ) -> AsyncIterator[None]:
     """The real download queue. Always stopped: a leaked worker would keep using a disposed
     engine in the next test."""
-    await service.start(session_factory)
+    await service.start(session_factory, tmp_path)
     try:
         yield
     finally:
@@ -522,6 +516,9 @@ async def test_download_puts_the_song_into_the_library(
     assert Path(song.directory) == environment.song_dir
     assert song.audio_file == str(environment.song_dir / "song.mp3")
     assert song.video_file == str(environment.song_dir / "video.mp4")
+    # The loudness step ran over the extracted mp3 (`downloads.normalize_loudness` is on).
+    await session.refresh(song)
+    assert (song.replay_gain_db, song.replay_gain_peak) == DEFAULT_GAIN
     # The video url was built from the meta string of the #VIDEO tag.
     arguments = (environment.tools / "ytdlp-argv.txt").read_text(encoding="utf-8").splitlines()
     assert arguments[-1] == "https://www.youtube.com/watch?v=dQw4w9WgXcQ"
