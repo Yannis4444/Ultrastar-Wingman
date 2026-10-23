@@ -168,3 +168,15 @@ export function explainUsdxProblem(problem: string): string {
     USDX_EXPLANATIONS.find(([pattern]) => pattern.test(problem))?.[1] ?? problem
   );
 }
+
+/**
+ * Why `POST /karaoke/usdx/launch` was refused, as sentences: a song is playing
+ * (that Ultrastar Deluxe is busy), or each setup problem in a host's words.
+ * `null` for every other failure, which each caller words for where it stands:
+ * the Settings row points at the paths below it, the host screen has none.
+ */
+export function usdxLaunchRefusal(error: unknown): string[] | null {
+  if (errorDetail(error) === "already_playing")
+    return ["A song is playing right now. Ultrastar Deluxe is busy with it."];
+  return usdxProblems(error)?.map(explainUsdxProblem) ?? null;
+}

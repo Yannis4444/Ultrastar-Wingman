@@ -70,7 +70,8 @@ the window stays behind and its button on the taskbar flashes. The console
 window says *Ultrastar Deluxe is behind another window*.
 
 - Click the flashing button on the taskbar.
-- For the Ultrastar Deluxe that **Launch** opened, press **Launch** again.
+- For the Ultrastar Deluxe that **Launch** opened, press **Launch** again, or
+  click **Ultrastar Deluxe** on the host screen.
 
 ## Another song is playing, and none is
 
@@ -80,7 +81,8 @@ that as busy, whatever it has on screen.
 
 - The last song finished and Ultrastar Deluxe is sitting on its own result
   screen or back in its menu. Close it.
-- **Launch** in the **USDX** settings started it for its own menus. Close it.
+- **Launch** in the **USDX** settings, or **Ultrastar Deluxe** on the host
+  screen, started it for its own menus. Close it.
 
 Whoever may stop a song is offered **Replace** instead. That closes Ultrastar
 Deluxe and starts the new song.

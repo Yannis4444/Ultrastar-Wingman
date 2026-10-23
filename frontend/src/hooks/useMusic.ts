@@ -33,11 +33,16 @@ export interface Music {
   play: () => void;
   pause: () => void;
   skip: () => void;
-  setVolume: (volume: {
-    master?: number;
-    music?: number;
-    effects?: number;
-  }) => void;
+  /** `onSettled` runs once the write is answered either way, so a slider can
+   *  let go of the value it was showing exactly when the stored one is back. */
+  setVolume: (
+    volume: {
+      master?: number;
+      music?: number;
+      effects?: number;
+    },
+    onSettled?: () => void,
+  ) => void;
   patchSettings: (settings: Partial<MusicSettings>) => void;
 }
 
@@ -102,7 +107,7 @@ export function useMusic(): Music {
     play: () => play.mutate({}),
     pause: () => pause.mutate({}),
     skip: () => skip.mutate({}),
-    setVolume: (body) => volume.mutate({ body }),
+    setVolume: (body, onSettled) => volume.mutate({ body }, { onSettled }),
     patchSettings: (body) => options.mutate({ body }),
   };
 }

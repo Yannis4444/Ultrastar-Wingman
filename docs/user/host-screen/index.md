@@ -162,8 +162,44 @@ movement. So do the three ranking words beside **Tonight**.
   instead.*
 - :wingman-stop: **Stop** ends the song. It asks first, and it names the song.
   It is there while a song plays, for a browser that may stop one.
+- :wingman-power: **Ultrastar Deluxe** stands in the same place while no song
+  plays. It opens Ultrastar Deluxe for the settings only it has, such as which
+  microphone is player one, and brings its window to the front when it is
+  already open. It is there for a browser that may change the settings. See
+  [Start Ultrastar Deluxe on its own](../start/ultrastar-deluxe.md#start-ultrastar-deluxe-on-its-own).
+- :wingman-pause: **Pause** or :wingman-play: **Play**, and :wingman-skip:
+  **Skip**, while the background music is on. See
+  [Play background music](../party/music.md).
+- :wingman-volume: The overall volume, with its number beside it. It is the
+  **Master volume** in the **Sound** group of the settings, so it turns the
+  background music, the song being picked, and the sound effects up or down
+  together. The music controls and the volume are there for a browser that may
+  control the music.
 - The line saying this browser holds host rights.
 
 !!! warning
     A song that is stopped scores nothing. Ultrastar Deluxe writes a score only
     for a song sung to the end.
+
+When Ultrastar Deluxe will not start, the corner says why under the buttons,
+until the mouse rests. A song playing is one reason. Settings that do not point
+at Ultrastar Deluxe are another. See
+[Ultrastar Deluxe](../help/ultrastar-deluxe.md).
+
+## Keyboard shortcuts
+
+A keyboard on the karaoke PC works the same controls without the mouse. A key
+does nothing while a dialog is open, while you type in a field, or with
+++ctrl++, ++alt++, or the Windows key held down. Pressing one shows the
+controls, so you see what changed.
+
+| Key | What it does |
+|---|---|
+| ++space++ or ++k++ | Pauses the background music, or plays it again |
+| ++n++ | Skips to the next song of the background music |
+| ++arrow-up++ / ++arrow-down++ | Turns the overall volume up or down by 5. Hold the key to keep going |
+| ++f++ | Puts the page on the whole screen, or takes it back off |
+| ++esc++ | Leaves full screen |
+
+Each key works where its button is drawn, so the music keys need a browser
+that may control the music. Hover a button to see its key.

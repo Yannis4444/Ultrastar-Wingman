@@ -707,7 +707,7 @@ saved) where a jump to the top would throw away the place they were working in.
   `ArrowUp` / `ArrowDown` master volume by 5 (a held key repeats, one write per pause), `F` full
   screen where its button is drawn; each `preventDefault`s, none takes Esc (full screen and `Modal`
   own it). A press with Ctrl, Alt or Meta, from an input, select, textarea, button, link or
-  editable element, or while any modal is open (`Modal`'s `openModals`, exported for it) is ignored. A shortcut moves no focus: `useIdle`
+  editable element, or while any modal is open (`Modal`'s `openModals`, exported for it from `modalStack.ts`) is ignored. A shortcut moves no focus: `useIdle`
   already wakes on `keydown`, so the overlay shows the change and fades as usual. Each control
   names its key in its `title` (*Pause (K)*) and `aria-keyshortcuts`; no hint line, one more
   standing string on a TV. Verify at 1280×720 and up,

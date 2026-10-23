@@ -93,6 +93,11 @@ Ultrastar Deluxe with no song and leaves its player configuration alone. Press
 **Launch** again while Ultrastar Deluxe is up: the row says *Running*, and
 Wingman brings its window to the front.
 
+The host screen has the same button. Move the mouse and click :wingman-power:
+**Ultrastar Deluxe** in the corner, beside *For settings like microphones*. It
+is there while no song plays. See
+[The controls that fade](../host-screen/index.md#the-controls-that-fade).
+
 Close Ultrastar Deluxe when you are done. While it stands in its own menus, a
 song started from a phone is refused the way a running song is refused.
 

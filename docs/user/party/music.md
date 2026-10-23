@@ -49,6 +49,10 @@ read on the TV.
 Anyone with an account can use the row under the song: pause, skip to the next
 song, and the volume slider between the heart and the plus.
 
+The host screen has pause and skip too, among the controls that come up when
+the mouse moves, and keys for them. Its slider is the overall volume. See
+[The controls that fade](../host-screen/index.md#the-controls-that-fade).
+
 The heart and the plus work on the background song, not just on a song being
 sung. Press the heart to make it a favorite and the plus to wish for it. To sing
 it yourself, tap its cover: the song opens the way any song does, with its own

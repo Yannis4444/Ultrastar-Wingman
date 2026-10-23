@@ -2,6 +2,7 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import {
   type MouseEvent,
   useEffect,
+  useRef,
   useState,
   useSyncExternalStore,
 } from "react";
@@ -14,6 +15,7 @@ import {
   getCurrentSingQueryKey,
   getJoinInfoOptions,
   getJoinInfoQueryKey,
+  launchUsdxMutation,
   stopSingingMutation,
 } from "../api/@tanstack/react-query.gen";
 import { useAuth } from "../auth";
@@ -27,14 +29,22 @@ import HostSelection, {
   type HostSelectionPhase,
 } from "../components/HostSelection";
 import { Icon } from "../components/icons";
+import { openModals } from "../components/modalStack";
 import SessionLeaderboard from "../components/SessionLeaderboard";
 import SongCover from "../components/SongCover";
+import { errorMessage, usdxLaunchRefusal } from "../errors";
 import { useSelectorStatus } from "../hooks/useSelectorStatus";
 import { useSessionStanding } from "../hooks/useSessionStanding";
 import { useWingmanEvent, type WingmanEvent } from "../hooks/useWingmanEvents";
-import { useMusic } from "../hooks/useMusic";
+import { type Music, useMusic } from "../hooks/useMusic";
 import { useMusicSinkStatus } from "../hooks/useMusicSink";
 import { useWishlist } from "../hooks/useWishlist";
+import {
+  type HostShortcut,
+  hostShortcut,
+  nudgedVolume,
+  SHORTCUT_KEYS,
+} from "../hostShortcuts";
 import { manageEntries } from "../manage";
 import type { LeaderboardOrder } from "../stats";
 import "./Host.css";
@@ -141,6 +151,30 @@ function isFullscreen(): boolean {
   return (document.fullscreenElement ?? null) !== null;
 }
 
+/** Whether this browser can put the page on the whole screen at all
+ *  (`fullscreenEnabled` is false in a frame that is not allowed, and an iPhone
+ *  has no API at all). The button and the F key both ask. */
+function canFullscreen(): boolean {
+  return document.fullscreenEnabled === true;
+}
+
+/**
+ * Onto the whole screen, or back off it — the button's press and the F key's.
+ * Called inside the press: the browser grants full screen to a click or a key,
+ * never to a page asking on its own. `onRefused` is told whether this press
+ * was turned down.
+ */
+function toggleFullscreen(onRefused: (refused: boolean) => void) {
+  onRefused(false);
+  if (isFullscreen()) {
+    // Only refused when the page is not in full screen after all, and then
+    // `fullscreenchange` has already put the button right.
+    document.exitFullscreen().catch(() => undefined);
+  } else {
+    document.documentElement.requestFullscreen().catch(() => onRefused(true));
+  }
+}
+
 /**
  * The overlay's way onto the whole TV, and back off it. It reads the real
  * state from `fullscreenchange`, so Esc leaving full screen turns it back into
@@ -150,8 +184,7 @@ function isFullscreen(): boolean {
  * In full screen it stays, as the way out: it sits in the overlay, so the TV
  * sees it only while somebody moves the mouse, and a host with a wireless
  * mouse and no keyboard has no Esc to press. Drawn nowhere a browser cannot do
- * it (`fullscreenEnabled` is false in a frame that is not allowed, and an
- * iPhone has no API at all).
+ * it (`canFullscreen`).
  *
  * `onRefused` is told whether the last press was turned down; the page says so
  * after the overlay's buttons rather than between them.
@@ -163,34 +196,159 @@ function HostFullscreen({
 }) {
   const fullscreen = useSyncExternalStore(onFullscreenChange, isFullscreen);
 
-  if (document.fullscreenEnabled !== true) return null;
+  if (!canFullscreen()) return null;
 
   const toggle = (event: MouseEvent<HTMLButtonElement>) => {
     // A click (`detail` counts the presses; Enter and Space leave it 0) lets
     // go of the focus at once: the very next key is likely Esc out of full
     // screen, and it would turn that focus visible and hold the overlay up.
     if (event.detail > 0) event.currentTarget.blur();
-    onRefused(false);
-    if (fullscreen) {
-      // Only refused when the page is not in full screen after all, and then
-      // `fullscreenchange` has already put the button right.
-      document.exitFullscreen().catch(() => undefined);
-    } else {
-      // Called inside the click: the browser grants it to a press, never to a
-      // page asking on its own.
-      document.documentElement.requestFullscreen().catch(() => onRefused(true));
-    }
+    toggleFullscreen(onRefused);
   };
 
+  const label = fullscreen ? "Leave full screen" : "Full screen";
   return (
     <button
       type="button"
       className="icon-button"
-      aria-label={fullscreen ? "Leave full screen" : "Full screen"}
+      aria-label={label}
+      title={`${label} (F)`}
+      aria-keyshortcuts={SHORTCUT_KEYS.fullscreen}
       onClick={toggle}
     >
       <Icon name={fullscreen ? "fullscreen-exit" : "fullscreen"} />
     </button>
+  );
+}
+
+/** How long after the last move the master volume is written — `VolumeField`'s
+ *  own 200 ms, so a drag across the track or an arrow key held down is one
+ *  request, and a single press still lands before anybody looks away. */
+const VOLUME_SETTLE_MS = 200;
+
+interface MasterVolume {
+  /** What the slider and its number show. */
+  value: number | undefined;
+  set: (value: number) => void;
+  /** One arrow press: five up or down from wherever the slider stands. */
+  nudge: (shortcut: HostShortcut) => void;
+}
+
+/**
+ * The master volume the overlay shows, shared by its slider and the arrow
+ * keys so the two never disagree. The draft is non-null only while somebody is
+ * moving it and until that write is answered: a phone turning the room down
+ * still reaches a slider nobody is touching, `music.changed` carrying every
+ * volume — and so does a write on the Settings page, which the backend answers
+ * with a `music.changed` of its own.
+ */
+function useMasterVolume(music: Music): MasterVolume {
+  const stored = music.state?.volume.master;
+  const [draft, setDraft] = useState<number | null>(null);
+  const { setVolume } = music;
+
+  useEffect(() => {
+    if (draft === null) return;
+    const timer = window.setTimeout(() => {
+      if (draft === stored) {
+        setDraft(null);
+        return;
+      }
+      // Lets go only of the value it wrote: a key pressed while this one was on
+      // the wire is the next write, not the stored value coming back.
+      setVolume({ master: draft }, () =>
+        setDraft((current) => (current === draft ? null : current)),
+      );
+    }, VOLUME_SETTLE_MS);
+    return () => clearTimeout(timer);
+    // `setVolume` is a new function on every render and `stored` moves with
+    // every phone; the timer is about the draft alone.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [draft]);
+
+  return {
+    value: draft ?? stored,
+    set: setDraft,
+    nudge: (shortcut) =>
+      setDraft((current) => {
+        const from = current ?? stored;
+        return from === undefined ? null : nudgedVolume(from, shortcut);
+      }),
+  };
+}
+
+/**
+ * The background music's transport in the overlay, for a reader who may
+ * control it: the gear's own 40px buttons rather than the player tile's,
+ * the overlay being the mouse's chrome and not content for the sofa. Play or
+ * pause and skip while the music is on; the master volume always, because it
+ * also sets how loud the reel's song comes out with the music off.
+ */
+function HostTransport({
+  music,
+  volume,
+}: {
+  music: Music;
+  volume: MasterVolume;
+}) {
+  const state = music.state;
+  if (state === undefined || volume.value === undefined) return null;
+  const paused = state.status === "paused";
+  const toggle = paused ? "Play" : "Pause";
+  return (
+    <div className="host-transport">
+      {state.status !== "off" && (
+        <>
+          <button
+            type="button"
+            className="icon-button"
+            aria-label={toggle}
+            title={`${toggle} (K)`}
+            aria-keyshortcuts={SHORTCUT_KEYS["play-pause"]}
+            disabled={music.isBusy}
+            onClick={() => (paused ? music.play() : music.pause())}
+          >
+            <Icon name={paused ? "play" : "pause"} />
+          </button>
+          <button
+            type="button"
+            className="icon-button"
+            aria-label="Skip"
+            title="Skip (N)"
+            aria-keyshortcuts={SHORTCUT_KEYS.skip}
+            disabled={music.isBusy}
+            onClick={() => music.skip()}
+          >
+            <Icon name="skip" />
+          </button>
+        </>
+      )}
+      {/* The speaker names the slider and is not a control of its own: there
+          is no mute, only a volume. */}
+      <span className="host-volume">
+        <Icon name="volume" className="icon host-volume-glyph" />
+        <label className="visually-hidden" htmlFor="host-volume">
+          Master volume
+        </label>
+        <input
+          className="range-input host-volume-input"
+          id="host-volume"
+          type="range"
+          min={0}
+          max={100}
+          step={1}
+          value={volume.value}
+          title="Master volume (↑ ↓)"
+          aria-keyshortcuts={SHORTCUT_KEYS.volume}
+          aria-valuetext={`${volume.value} percent`}
+          onChange={(event) => volume.set(Number(event.target.value))}
+        />
+        {/* The slider says it in words already; this is for the eye. */}
+        <span className="host-volume-value" aria-hidden="true">
+          {volume.value}%
+        </span>
+      </span>
+    </div>
   );
 }
 
@@ -324,6 +482,12 @@ export default function Host() {
     standing.entries.length > 0;
 
   const music = useMusic();
+  const masterVolume = useMasterVolume(music);
+  // A browser that may not touch the music — a guest who found this URL — gets
+  // no transport and no keys for it; the host's browser is an administrator.
+  const mayControl =
+    auth.loaded && auth.can("music.control") && music.state !== undefined;
+  const musicOn = mayControl && music.state?.status !== "off";
   const sink = useMusicSinkStatus();
   // Only while something is actually playing: "off" and the pause after a song
   // are silences the room can see for itself.
@@ -346,6 +510,65 @@ export default function Host() {
     onSuccess: () =>
       queryClient.setQueryData(getCurrentSingQueryKey(), { sing: null }),
   });
+
+  // Ultrastar Deluxe on its own, for what only it can set — which microphone
+  // is which, above all. Its window coming to the front is the answer, so a
+  // success says nothing here; a refusal says why, and goes with the overlay
+  // once the mouse rests, like the full-screen one.
+  const launch = useMutation(launchUsdxMutation());
+  const { isError: launchRefused, reset: resetLaunch } = launch;
+  useEffect(() => {
+    if (idle && launchRefused) resetLaunch();
+  }, [idle, launchRefused, resetLaunch]);
+  const launchRefusal = launch.isError
+    ? (usdxLaunchRefusal(launch.error) ?? [
+        errorMessage(launch.error, "Could not start Ultrastar Deluxe."),
+      ])
+    : [];
+
+  // The keyboard's way to the same controls (§7). It never moves the focus:
+  // `useIdle` wakes on the same key, so the overlay shows what changed and
+  // fades again as usual.
+  const onShortcut = (event: KeyboardEvent) => {
+    const available = new Set<HostShortcut>();
+    if (musicOn && !music.isBusy) {
+      available.add("play-pause");
+      available.add("skip");
+    }
+    if (mayControl) {
+      available.add("volume-up");
+      available.add("volume-down");
+    }
+    if (canFullscreen()) available.add("fullscreen");
+
+    const shortcut = hostShortcut(event, {
+      modalOpen: openModals.length > 0,
+      available,
+    });
+    if (shortcut === null) return;
+    // Space would scroll a narrow host page, an arrow would too.
+    event.preventDefault();
+    if (shortcut === "play-pause") {
+      if (music.state?.status === "paused") music.play();
+      else music.pause();
+    } else if (shortcut === "skip") music.skip();
+    else if (shortcut === "fullscreen") toggleFullscreen(setFullscreenRefused);
+    else masterVolume.nudge(shortcut);
+  };
+  // Bound once, reading the newest handler through a ref. Re-binding on every
+  // render lost the key that woke a faded overlay: `useIdle`'s own listener
+  // runs first, React renders in the microtask after it, and a listener
+  // removed during a dispatch is never called — nor is the one added in its
+  // place.
+  const shortcutHandler = useRef(onShortcut);
+  useEffect(() => {
+    shortcutHandler.current = onShortcut;
+  });
+  useEffect(() => {
+    const onKeyDown = (event: KeyboardEvent) => shortcutHandler.current(event);
+    window.addEventListener("keydown", onKeyDown);
+    return () => window.removeEventListener("keydown", onKeyDown);
+  }, []);
 
   // New achievements take the whole screen (§7): while they are actually on it
   // the rail is not rendered at all — no QR card, no standing, no wishes — and
@@ -479,20 +702,52 @@ export default function Host() {
         {/* For every browser on this page, host rights or not: putting the
             screen on the TV is not a management task. */}
         <HostFullscreen onRefused={setFullscreenRefused} />
-        {sing !== null && auth.can("karaoke.stop") && (
-          <button
-            type="button"
-            className="icon-button icon-button-danger"
-            aria-label="Stop"
-            disabled={stop.isPending}
-            onClick={() => setAskStop(true)}
-          >
-            <Icon name="stop" />
-          </button>
-        )}
+        {/* One slot: Stop while a song plays, Ultrastar Deluxe otherwise —
+            the launch is refused while a song plays anyway. */}
+        {sing !== null
+          ? auth.can("karaoke.stop") && (
+              <button
+                type="button"
+                className="icon-button icon-button-danger"
+                aria-label="Stop"
+                disabled={stop.isPending}
+                onClick={() => setAskStop(true)}
+              >
+                <Icon name="stop" />
+              </button>
+            )
+          : // The launch route's own right — asked once it is known, so a
+            // guest's TV never flashes the button while `/auth/me` is on the
+            // wire. The glyph alone would read as switching the TV off, so
+            // the word goes with it.
+            auth.loaded &&
+            auth.can("settings.manage") && (
+              <div className="host-usdx">
+                <button
+                  type="button"
+                  className="button host-usdx-button"
+                  title="Open Ultrastar Deluxe"
+                  aria-describedby="host-usdx-caption"
+                  disabled={launch.isPending}
+                  onClick={() => launch.mutate({})}
+                >
+                  <Icon name="power" />
+                  Ultrastar Deluxe
+                </button>
+                <p className="host-caption" id="host-usdx-caption">
+                  For settings like microphones
+                </p>
+              </div>
+            )}
+        {mayControl && <HostTransport music={music} volume={masterVolume} />}
         {auth.isHost && (
-          <p className="host-active">This browser holds host rights</p>
+          <p className="host-caption">This browser holds host rights</p>
         )}
+        {launchRefusal.map((sentence) => (
+          <p className="error-notice host-error" role="alert" key={sentence}>
+            {sentence}
+          </p>
+        ))}
         {error && (
           <p className="error-notice host-error" role="alert">
             {error}
