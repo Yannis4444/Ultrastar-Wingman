@@ -21,6 +21,14 @@ import { useRecentlyPlayed } from "../hooks/useRecentlyPlayed";
 import { useSungSongs } from "../hooks/useSungSongs";
 import { useTags } from "../hooks/useTags";
 import { useWingmanEvent } from "../hooks/useWingmanEvents";
+import {
+  newShuffleSeed,
+  readSongSort,
+  SONG_SORTS,
+  type SongSort,
+  sortSongs,
+  writeSongSort,
+} from "../songSort";
 import { SONG_SOURCES } from "../songSources";
 import {
   ANY_VALUE,
@@ -149,6 +157,16 @@ export default function Songs() {
   const [scanning, setScanning] = useState(false);
   const [notice, setNotice] = useState<string | null>(null);
   const [addingSongs, setAddingSongs] = useState(false);
+  // The order is this device's (§7): kept across visits, and a kept *Random*
+  // shuffles anew on every entry — the seed is never stored, only the choice.
+  const [sort, setSort] = useState<SongSort>(readSongSort);
+  const [seed, setSeed] = useState(() => newShuffleSeed());
+
+  const chooseSort = (next: SongSort) => {
+    setSort(next);
+    writeSongSort(next);
+    if (next === "random") setSeed(newShuffleSeed());
+  };
 
   const songs = useQuery(listSongsOptions());
   const rescan = useMutation({
@@ -286,7 +304,14 @@ export default function Songs() {
         sung: sung.ids.has(song.id),
       }),
     );
-    return needle ? visible?.filter((song) => matches(song, needle)) : visible;
+    const found = needle
+      ? visible?.filter((song) => matches(song, needle))
+      : visible;
+    // Recent is a time-ordered list of its own and keeps that order; every
+    // other state is the library in the order the select says.
+    return recentMode || found === undefined
+      ? found
+      : sortSongs(found, sort, seed);
   }, [
     base,
     needle,
@@ -296,6 +321,9 @@ export default function Songs() {
     waitingForSung,
     favorites.ids,
     sung.ids,
+    recentMode,
+    sort,
+    seed,
   ]);
   // Everything this filter holds carries a hidden-by-default tag. Worth its own
   // sentence: "no favorites yet" over a shelf full of archived favorites is a
@@ -340,6 +368,9 @@ export default function Songs() {
   const canFilter = canOpenFilter || showRecent;
   const canBrowsePlaylists = auth.loaded && auth.can("playlists.view");
   // No source this role may search means nothing for the picker to offer.
+  // The order select: not in Recent, which is ordered by time and nothing
+  // else, and not over an empty library, where there is nothing to order.
+  const canSort = !recentMode && (all?.length ?? 0) > 0;
   const canAddSongs = SONG_SOURCES.some((source) =>
     auth.can(source.capability),
   );
@@ -528,6 +559,36 @@ export default function Songs() {
           <span>
             {shown.length} {shown.length === 1 ? "song" : "songs"}
           </span>
+        )}
+        {/* The order, in the Scores page's labelled shape. */}
+        {canSort && (
+          <label className="songs-sort">
+            <span>Sort</span>
+            <select
+              className="text-input text-input-quiet"
+              value={sort}
+              onChange={(event) => chooseSort(event.target.value as SongSort)}
+            >
+              {SONG_SORTS.map((option) => (
+                <option key={option.value} value={option.value}>
+                  {option.label}
+                </option>
+              ))}
+            </select>
+          </label>
+        )}
+        {/* A select fires nothing when its own option is picked again, so
+            another shuffle needs a control of its own. */}
+        {canSort && sort === "random" && (
+          <button
+            type="button"
+            className="icon-button"
+            aria-label="Shuffle again"
+            title="Shuffle again"
+            onClick={() => setSeed(newShuffleSeed())}
+          >
+            <Icon name="shuffle" />
+          </button>
         )}
         {auth.can("songs.rescan") && (
           <button

@@ -443,6 +443,13 @@ export const ICON_PATHS = {
   // rounded box; the chip is what a reader looks for and it sits off centre,
   // where a bank card carries one.
   card: "M4 6h16a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2ZM5 8v4h5V8Z",
+  // *Shuffle again* beside the Songs sort while it is *Random*: two arrows
+  // running left to right and crossing once, heads at the right. Each shaft is
+  // a two-unit band, level, then 45 degrees, then level again, its corners
+  // mitred; all four subpaths are wound the same way, so the crossing fills
+  // solid. Not pickable, and never the dice, which are the reel's.
+  shuffle:
+    "M3 16h2.586l10-10H18v2h-1.586l-10 10H3v-2ZM17 4l4 3-4 3V4ZM3 6h3.414l10 10H18v2h-2.414l-10-10H3V6ZM17 14l4 3-4 3v-6Z",
 } as const;
 
 export type IconName = keyof typeof ICON_PATHS;

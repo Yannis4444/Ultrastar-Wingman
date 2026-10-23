@@ -317,6 +317,33 @@ async def test_rescan_updates_changed_songs_and_keeps_their_id(
     assert after.cover_file == str(library / "song" / "cover.jpg")
 
 
+async def test_a_rescan_keeps_when_the_library_first_found_a_song(
+    session: AsyncSession,
+    session_factory: async_sessionmaker[AsyncSession],
+    tmp_path: Path,
+) -> None:
+    """`created_at` is what the song list's *Recently added* sorts on: the first scan's
+    time, which neither an unchanged rescan nor one that rewrites every other column
+    may move."""
+    library = tmp_path / "songs"
+    make_song_dir(library, "song", title="Old Title")
+    await configure(session, library)
+    await scan_library(session_factory)
+    (before,) = await songs_in_db(session)
+    first_seen = before.created_at
+    assert first_seen is not None
+
+    await scan_library(session_factory)
+    make_song_dir(library, "song", title="New Title", artist="New Artist")
+    result = await scan_library(session_factory)
+
+    assert result.updated == 1
+    session.expire_all()
+    (after,) = await songs_in_db(session)
+    assert after.title == "New Title"
+    assert after.created_at == first_seen
+
+
 async def test_an_unchanged_library_reports_no_changes(
     session: AsyncSession,
     session_factory: async_sessionmaker[AsyncSession],

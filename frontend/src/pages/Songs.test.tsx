@@ -16,6 +16,7 @@ import type {
   TagRead,
 } from "../api";
 import { shortTime } from "../duration";
+import { newShuffleSeed, sortSongs } from "../songSort";
 import { ANY_VALUE } from "../tags";
 import { meResponse, userRead } from "../test/auth";
 import { FakeSocket } from "../test/fakeSocket";
@@ -101,6 +102,7 @@ function song(overrides: Partial<SongRead> = {}): SongRead {
     duration_seconds: 231,
     has_video: true,
     is_duet: false,
+    created_at: "2026-01-01T12:00:00Z",
     language: "English",
     genre: "Pop",
     year: 1976,
@@ -140,6 +142,8 @@ function searchFor(text: string) {
 }
 
 beforeEach(() => {
+  // The song order is kept per device; every test starts on the default.
+  window.localStorage.clear();
   FakeSocket.last = undefined;
   vi.stubGlobal("WebSocket", FakeSocket);
   for (const mock of [
@@ -1726,4 +1730,313 @@ test("a genre spelled like the sentinel filters like any other value", async () 
   expect(screen.getByRole("button", { name: "Filter" }).textContent).toBe(
     "Filter · 1",
   );
+});
+
+// ------------------------------------------------------------- the order
+
+/** Six songs whose every order is a different one. */
+const ORDERED: SongRead[] = [
+  song({
+    id: "s:africa",
+    title: "Africa",
+    artist: "Toto",
+    year: 1982,
+    created_at: "2026-03-01T20:00:00Z",
+  }),
+  song({
+    id: "s:queen",
+    title: "Dancing Queen",
+    artist: "ABBA",
+    year: 1976,
+    created_at: "2026-10-20T19:00:00Z",
+  }),
+  song({
+    id: "s:bobby",
+    title: "Bobby Brown",
+    artist: "Zappa",
+    year: null,
+    created_at: "2026-01-01T12:00:00Z",
+  }),
+  song({
+    id: "s:funk",
+    title: "Uptown Funk",
+    artist: "Mark Ronson",
+    year: 2014,
+    created_at: "2026-06-01T12:00:00Z",
+  }),
+  song({
+    id: "s:mamma",
+    title: "Mamma Mia",
+    artist: "abba",
+    year: 1975,
+    created_at: "2026-02-01T12:00:00Z",
+  }),
+  song({
+    id: "s:waterloo",
+    title: "Waterloo",
+    artist: "ABBA",
+    year: 1974,
+    created_at: "2026-05-01T12:00:00Z",
+  }),
+];
+
+/** The titles of the rows, top to bottom. */
+function rowTitles(): string[] {
+  return [...document.querySelectorAll(".songs-list .song-title-text")].map(
+    (title) => title.textContent ?? "",
+  );
+}
+
+function sortSelect(): HTMLSelectElement {
+  return screen.getByRole("combobox", { name: "Sort" }) as HTMLSelectElement;
+}
+
+function titlesOf(songs: SongRead[]): string[] {
+  return songs.map((one) => one.title);
+}
+
+test("the order is a select in the count row, artist A to Z by default", async () => {
+  renderSongs(ORDERED);
+  await screen.findByText("Dancing Queen");
+
+  const select = sortSelect();
+  expect(select.closest(".songs-count")).not.toBeNull();
+  // Never in the sticky toolbar, which is the search alone.
+  expect(select.closest(".songs-toolbar")).toBeNull();
+  expect(select).toHaveValue("artist");
+  expect(
+    within(select)
+      .getAllByRole("option")
+      .map((option) => option.textContent),
+  ).toEqual([
+    "Artist A to Z",
+    "Title A to Z",
+    "Year, newest first",
+    "Year, oldest first",
+    "Recently added",
+    "Random",
+  ]);
+  expect(rowTitles()).toEqual([
+    "Dancing Queen",
+    "Mamma Mia",
+    "Waterloo",
+    "Uptown Funk",
+    "Africa",
+    "Bobby Brown",
+  ]);
+  // Not shuffled, so nothing to shuffle again.
+  expect(
+    screen.queryByRole("button", { name: "Shuffle again" }),
+  ).not.toBeInTheDocument();
+});
+
+test("each option puts the same rows in its own order", async () => {
+  renderSongs(ORDERED);
+  await screen.findByText("Dancing Queen");
+
+  const expected: Record<string, string[]> = {
+    title: [
+      "Africa",
+      "Bobby Brown",
+      "Dancing Queen",
+      "Mamma Mia",
+      "Uptown Funk",
+      "Waterloo",
+    ],
+    // No year last, whichever way the years run.
+    "year-desc": [
+      "Uptown Funk",
+      "Africa",
+      "Dancing Queen",
+      "Mamma Mia",
+      "Waterloo",
+      "Bobby Brown",
+    ],
+    "year-asc": [
+      "Waterloo",
+      "Mamma Mia",
+      "Dancing Queen",
+      "Africa",
+      "Uptown Funk",
+      "Bobby Brown",
+    ],
+    added: [
+      "Dancing Queen",
+      "Uptown Funk",
+      "Waterloo",
+      "Africa",
+      "Mamma Mia",
+      "Bobby Brown",
+    ],
+    artist: [
+      "Dancing Queen",
+      "Mamma Mia",
+      "Waterloo",
+      "Uptown Funk",
+      "Africa",
+      "Bobby Brown",
+    ],
+  };
+  for (const [value, titles] of Object.entries(expected)) {
+    fireEvent.change(sortSelect(), { target: { value } });
+    expect({ value, titles: rowTitles() }).toEqual({ value, titles });
+    // An order moves rows, it never adds or drops one.
+    expect(screen.getByText("6 songs")).toBeInTheDocument();
+  }
+});
+
+test("Random shuffles once, holds, and Shuffle again deals a new order", async () => {
+  const random = vi.spyOn(Math, "random").mockReturnValue(0.11);
+  try {
+    renderSongs(ORDERED);
+    await screen.findByText("Dancing Queen");
+
+    // Choosing Random deals a new seed, not the one the page mounted with.
+    random.mockReturnValue(0.42);
+    fireEvent.change(sortSelect(), { target: { value: "random" } });
+    const first = titlesOf(
+      sortSongs(
+        ORDERED,
+        "random",
+        newShuffleSeed(() => 0.42),
+      ),
+    );
+    const mounted = titlesOf(
+      sortSongs(
+        ORDERED,
+        "random",
+        newShuffleSeed(() => 0.11),
+      ),
+    );
+    // Picked to deal different orders, or this would prove nothing.
+    expect(first).not.toEqual(mounted);
+    expect(rowTitles()).toEqual(first);
+
+    // A search narrows the shuffle; it does not deal a new one — and would be
+    // caught doing so, the random source now dealing another order.
+    random.mockReturnValue(0.83);
+    searchFor("abba");
+    expect(rowTitles()).toEqual(
+      first.filter((title) =>
+        ["Dancing Queen", "Mamma Mia", "Waterloo"].includes(title),
+      ),
+    );
+    searchFor("");
+    expect(rowTitles()).toEqual(first);
+
+    fireEvent.click(screen.getByRole("button", { name: "Shuffle again" }));
+    const second = titlesOf(
+      sortSongs(
+        ORDERED,
+        "random",
+        newShuffleSeed(() => 0.83),
+      ),
+    );
+    // The two seeds were picked to deal different orders, or this would prove
+    // nothing.
+    expect(second).not.toEqual(first);
+    expect(rowTitles()).toEqual(second);
+    expect(screen.getByText("6 songs")).toBeInTheDocument();
+  } finally {
+    random.mockRestore();
+  }
+});
+
+test("the order is kept on this device, and a kept Random shuffles anew", async () => {
+  const random = vi.spyOn(Math, "random").mockReturnValue(0.11);
+  try {
+    const { unmount } = renderSongs(ORDERED);
+    await screen.findByText("Dancing Queen");
+    fireEvent.change(sortSelect(), { target: { value: "year-asc" } });
+    unmount();
+
+    const second = renderSongs(ORDERED);
+    await screen.findByText("Dancing Queen");
+    expect(sortSelect()).toHaveValue("year-asc");
+    expect(rowTitles()[0]).toBe("Waterloo");
+
+    fireEvent.change(sortSelect(), { target: { value: "random" } });
+    expect(rowTitles()).toEqual(
+      titlesOf(
+        sortSongs(
+          ORDERED,
+          "random",
+          newShuffleSeed(() => 0.11),
+        ),
+      ),
+    );
+    second.unmount();
+
+    // Coming back to a kept Random is a new shuffle, not the old one.
+    random.mockReturnValue(0.83);
+    renderSongs(ORDERED);
+    await screen.findByText("Dancing Queen");
+    expect(sortSelect()).toHaveValue("random");
+    expect(rowTitles()).toEqual(
+      titlesOf(
+        sortSongs(
+          ORDERED,
+          "random",
+          newShuffleSeed(() => 0.83),
+        ),
+      ),
+    );
+  } finally {
+    random.mockRestore();
+  }
+});
+
+test("a scan while Random is on keeps the deal and slots the new song in once", async () => {
+  const random = vi.spyOn(Math, "random").mockReturnValue(0.42);
+  try {
+    renderSongs(ORDERED);
+    await screen.findByText("Dancing Queen");
+    fireEvent.change(sortSelect(), { target: { value: "random" } });
+    const seed = newShuffleSeed(() => 0.42);
+    expect(rowTitles()).toEqual(titlesOf(sortSongs(ORDERED, "random", seed)));
+
+    // The refetch is a new array of new objects, and the random source has
+    // moved on: neither may deal the list again.
+    random.mockReturnValue(0.83);
+    const scanned = [
+      ...ORDERED.map((one) => ({ ...one })).reverse(),
+      song({ id: "s:thriller", title: "Thriller", artist: "Michael Jackson" }),
+    ];
+    listSongs.mockResolvedValue({ data: { songs: scanned } });
+    FakeSocket.deliver({
+      event: "songs.scan_finished",
+      added: 1,
+      removed: 0,
+      updated: 0,
+      total: 7,
+    });
+
+    expect(await screen.findByText("Thriller")).toBeInTheDocument();
+    expect(rowTitles()).toEqual(titlesOf(sortSongs(scanned, "random", seed)));
+    expect(rowTitles().filter((title) => title === "Thriller")).toHaveLength(1);
+    // The six that were there before keep their order around it.
+    expect(rowTitles().filter((title) => title !== "Thriller")).toEqual(
+      titlesOf(sortSongs(ORDERED, "random", seed)),
+    );
+    expect(screen.getByText("7 songs")).toBeInTheDocument();
+  } finally {
+    random.mockRestore();
+  }
+});
+
+test("Recent hides the order and keeps its own", async () => {
+  window.localStorage.setItem("wingman.songSort", "title");
+  playedQueenThenAfrica();
+  renderSongs([AFRICA, QUEEN]);
+  await screen.findByText("Dancing Queen");
+  // Title A to Z puts Africa first in the library...
+  expect(rowTitles()).toEqual(["Africa", "Dancing Queen"]);
+
+  fireEvent.click(await screen.findByRole("button", { name: "Recent" }));
+
+  // ...and Recent is still the order they were sung in, newest first.
+  await waitFor(() => expect(rowTitles()).toEqual(["Dancing Queen", "Africa"]));
+  expect(
+    screen.queryByRole("combobox", { name: "Sort" }),
+  ).not.toBeInTheDocument();
 });

@@ -2507,6 +2507,10 @@ export type SongRead = {
      * Creator
      */
     creator: string | null;
+    /**
+     * Created At
+     */
+    created_at: string;
 };
 
 /**

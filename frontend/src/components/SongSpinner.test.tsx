@@ -64,6 +64,7 @@ function song(id: string, title: string): SongRead {
     duration_seconds: 100,
     has_video: false,
     is_duet: false,
+    created_at: "2026-01-01T12:00:00Z",
     language: null,
     genre: null,
     year: null,

@@ -267,6 +267,8 @@ def _apply_values(row: Song, scanned: ScannedSong) -> bool:
 
 
 def _mutable_values(scanned: ScannedSong) -> dict[str, object]:
+    # `created_at` is deliberately not here: it is when the library first found the song
+    # (the song list's *Recently added*), and a rescan must never move it.
     txt = scanned.txt
     return {
         "title": txt.title,

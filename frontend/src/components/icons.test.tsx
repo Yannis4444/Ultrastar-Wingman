@@ -79,6 +79,7 @@ const NOT_PICKABLE: IconName[] = [
   "filter",
   "dice",
   "dice-1",
+  "shuffle",
   "chevron-down",
   "arrow-up",
 ];
@@ -153,4 +154,15 @@ test("every glyph is path data and nothing else", () => {
       d: expect.stringMatching(/^M[-\d\s.,AaCcHhLlMmQqSsTtVvZz]*$/),
     });
   }
+});
+
+test("Shuffle again has a glyph of its own, never the reel's dice", () => {
+  // Two arrows and their two heads: four closed subpaths in one `d`.
+  expect(ICON_PATHS.shuffle.match(/M/g)).toHaveLength(4);
+  expect(ICON_PATHS.shuffle).not.toBe(ICON_PATHS.dice);
+  expect(ICON_PATHS.shuffle).not.toBe(ICON_PATHS.refresh);
+
+  const { container } = render(<Icon name="shuffle" />);
+  expect(container.querySelectorAll("path")).toHaveLength(1);
+  expect(iconNames(container)).toEqual(["shuffle"]);
 });

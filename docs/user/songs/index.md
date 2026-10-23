@@ -14,8 +14,6 @@ The chips under the search box switch what the list holds.
 
 ## Find a song
 
-The list is ordered by artist, then by title.
-
 1. Type in **Search songs**. It matches the title and the artist while you
    type, and a song id works too.
 2. Tap :wingman-close: **Clear search** to empty the box again.
@@ -28,6 +26,30 @@ sit beside that count, for the roles that may use them.
   copied in by hand. A finished download needs no rescan.
 - :wingman-plus: **Add songs** opens the online sources Wingman can download
   from. See [Download songs](download.md).
+
+## Put the list in order
+
+**Sort**, next to the song count, picks the order of the list. Your choice stays
+on this phone or computer until you pick another one.
+
+| Order | What comes first |
+|---|---|
+| **Artist A to Z** | Artists by name, each artist's songs by title. Every phone starts with this one |
+| **Title A to Z** | Titles by name |
+| **Year, newest first** | The newest songs. Songs without a year come last |
+| **Year, oldest first** | The oldest songs. Songs without a year come last here too |
+| **Recently added** | The songs Wingman found last in your song folders. Songs found in the same second count as added together. A rescan does not change this |
+| **Random** | A shuffled list |
+
+Songs that tie fall back to the artist, then the title. **Recently added** is
+not **Recent**: one is when a song arrived, the other is when it was sung.
+
+**Random** shuffles once and keeps that order while you search, filter, or put
+songs on the wishlist. Tap :wingman-shuffle: **Shuffle again** next to it for a
+new order. Coming back to the page shuffles again too.
+
+**Recent** has no **Sort**. It always lists the songs in the order they were
+sung.
 
 ## The chips under the search box
 

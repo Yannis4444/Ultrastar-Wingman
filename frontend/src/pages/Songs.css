@@ -212,6 +212,48 @@
   color: var(--color-darker);
 }
 
+/* The order: *Sort* beside its quiet select, the Scores page's labelled
+   shape. Sized to its longest option, and `min-width: 0` on both so it is the
+   select that gives way on a narrow phone, never the row. The count and the
+   buttons keep their size. */
+.songs-sort {
+  display: flex;
+  flex: 0 1 auto;
+  gap: 6px;
+  align-items: center;
+  min-width: 0;
+}
+
+.songs-sort span {
+  flex: 0 0 auto;
+}
+
+.songs-sort select {
+  flex: 1 1 auto;
+  min-width: 0;
+}
+
+.songs-count > span,
+.songs-count > .icon-button {
+  flex: 0 0 auto;
+}
+
+/* Under ~380px a four-digit count, the word, *Shuffle again*, rescan and add
+   leave the select some 75px, and a `<select>` clips its value without an
+   ellipsis — "Random" read "Randc". The word goes first: it stays the
+   select's name for a screen reader, and the value it labels says what it is.
+   At the 390px design width the row is untouched. */
+@media (max-width: 380px) {
+  .songs-sort span {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    overflow: hidden;
+    clip: rect(0 0 0 0);
+    white-space: nowrap;
+  }
+}
+
 /* The rows carry their own separators, so no gap between them.
 
    8px here plus the row's own 8px of padding: the cover lands on the page's

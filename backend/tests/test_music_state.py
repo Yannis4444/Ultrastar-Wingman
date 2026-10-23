@@ -529,6 +529,7 @@ def spin_preview(
             year=None,
             edition=None,
             creator=None,
+            created_at=START,
         ),
         start_s=start_s,
         reveal_at=reveal_at,

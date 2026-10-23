@@ -389,10 +389,13 @@ saved) where a jump to the top would throw away the place they were working in.
   Done only closes; Reset puts every chip back on its default, a `hide_by_default` tag on *No*.
   **The order** is one quiet `<select>` in the count row under the chips (the count, *Sort* beside its
   select in the Scores page's labelled shape, `min-width: 0` so it shrinks before a 360px row
-  overflows, rescan, add), never in the sticky toolbar, which is the
+  overflows, rescan, add; under 380px the word *Sort* is visually hidden, staying the select's
+  name, because a four-digit count with *Shuffle again* left "Random" clipped to "Randc"),
+  never in the sticky toolbar, which is the
   search alone. Options, in the USDB page's words: *Artist A to Z* (default, then title), *Title A
   to Z*, *Year, newest first*, *Year, oldest first* (no year last either way), *Recently added*
-  (first found by the library, unlike *Recent*, sung lately), *Random*; ties fall to artist, then
+  (first found by the library, unlike *Recent*, sung lately; read to the second, so the songs one
+  scan found tie), *Random*; ties fall to artist, then
   title. *Random* shuffles once when chosen and holds it through refetches, wishes and filters, and
   as a select fires nothing on the same option again, a `shuffle` `.icon-button` (*Shuffle again*)
   stands beside it meanwhile. Not drawn in Recent mode, its own order. Kept per device

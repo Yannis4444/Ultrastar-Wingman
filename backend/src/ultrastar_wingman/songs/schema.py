@@ -1,8 +1,11 @@
 """Song read models. Separate from `api.py` so modules that must not import FastAPI
 (the karaoke service, the event bus) can still speak in song payloads."""
 
+from datetime import datetime
+
 from pydantic import BaseModel, field_validator
 
+from ..auth.model import as_utc
 from .model import Song
 from .txt import SongTxt, no_value
 
@@ -30,6 +33,10 @@ class SongRead(BaseModel):
     year: int | None
     edition: str | None
     creator: str | None
+    # When the library first found the song: the row's insert time, which a rescan never
+    # touches (`scanner._mutable_values` leaves it out). The song list's *Recently added*
+    # order sorts on it.
+    created_at: datetime
 
 
 class SongList(BaseModel):
@@ -147,4 +154,6 @@ def read_song(song: Song) -> SongRead:
         year=song.year,
         edition=song.edition,
         creator=song.creator,
+        # Naive coming out of SQLite; everything we write is UTC (see `as_utc`).
+        created_at=as_utc(song.created_at),
     )
