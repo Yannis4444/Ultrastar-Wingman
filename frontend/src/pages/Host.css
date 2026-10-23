@@ -17,13 +17,16 @@
   background-color: var(--bg);
 }
 
-/* While the music line stands along the foot, the page keeps clear of it, so
-   tall score bars on a short TV shrink above the line and never run under it —
-   the line is fixed to the screen, and this is what a grid row would have
-   reserved. */
-.host-page:has(> .host-music-line) {
+/* While the music group stands along the foot — the line, its controls, or
+   both — the page keeps clear of it, so tall score bars on a short TV shrink
+   above the row and never run under it: the row is fixed to the screen, and
+   this is what a grid row would have reserved. Its height whether its cells
+   are faded or not, so the stage does not jump with the mouse. Not in a
+   takeover, whose foot is the cards' and the badges', the group standing at
+   the top right then. */
+.host-page:not(.host-takeover):has(> .host-music) {
   padding-bottom: calc(
-    clamp(24px, 3vh, 56px) + var(--host-music-line-height) +
+    clamp(24px, 3vh, 56px) + var(--host-music-row-height) +
       var(--host-music-line-bottom)
   );
 }
@@ -150,21 +153,25 @@
   text-align: center;
 }
 
-/* Reveal-on-move admin overlay; top-left because the QR owns the right. It
-   wraps rather than leaving the screen, and while the rail stands it wraps
-   before the QR card's column: the card is what the room is scanning. */
+/* The chrome is two groups (§7), revealed and faded together by the one idle
+   timer: the screen's here, the music's at the foot. Top-left because the QR
+   owns the right: the row of buttons, then the host-rights line, then the
+   legend, each under the last. The row wraps rather than leaving the screen,
+   and while the rail stands it wraps before the QR card's column: the card is
+   what the room is scanning. */
 .host-page {
   --host-controls-inset: clamp(12px, 2vw, 24px);
+  --host-controls-top: clamp(12px, 2vh, 24px);
 }
 
 .host-controls {
   position: fixed;
-  top: clamp(12px, 2vh, 24px);
+  top: var(--host-controls-top);
   left: var(--host-controls-inset);
   z-index: 2;
   display: flex;
-  flex-wrap: wrap;
-  align-items: center;
+  flex-direction: column;
+  align-items: flex-start;
   gap: 12px;
   box-sizing: border-box;
   max-width: calc(
@@ -174,9 +181,17 @@
   transition: opacity 200ms ease;
 }
 
-/* No rail to keep off: the whole width, less the inset on both sides. */
+.host-controls-row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 12px;
+}
+
+/* No rail to keep off, but the music group has taken the top right: the left
+   half, less the inset and half a gap. */
 .host-takeover .host-controls {
-  max-width: calc(100vw - 2 * var(--host-controls-inset));
+  max-width: calc(50vw - var(--host-controls-inset) - 12px);
 }
 
 /* `*` is needed: .button and .icon-button set their own cursor. */
@@ -196,8 +211,11 @@
    navigate, so the overlay would never fade again over the TV. A key pressed
    later turns a clicked control's focus visible after all, so `Host.tsx` also
    takes that focus away right after the click (`dropClickFocus`), and once
-   more when the chrome fades (`dropPointerFocus`). */
-.host-controls:has(:focus-visible) {
+   more when the chrome fades (`dropPointerFocus`). The two groups are held up
+   together, as they are revealed together: Tab moving from the corner to the
+   volume at the foot must not fade the half it left. */
+.host-page:has(.host-controls :focus-visible, .host-music :focus-visible)
+  :is(.host-controls, .host-music .host-reveal) {
   opacity: 1 !important;
   pointer-events: auto;
 }
@@ -237,11 +255,38 @@
   font-size: 14px;
 }
 
+/* The keyboard shortcuts, under the host-rights line in its quiet voice: one
+   line of entries, each key before its word, wrapping as whole entries. */
+.host-legend {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px 16px;
+  margin: 0;
+  color: var(--color-darker);
+  font-size: 14px;
+}
+
+.host-legend-entry {
+  display: inline-flex;
+  align-items: baseline;
+  gap: 6px;
+  white-space: nowrap;
+}
+
+.host-legend kbd {
+  padding: 0 6px;
+  border: 1px solid var(--input-border-color);
+  border-radius: calc(var(--border-radius-small) / 2);
+  background-color: var(--input-bg);
+  color: var(--color-dark);
+  font-family: inherit;
+  font-size: 13px;
+}
+
 /* The Ultrastar Deluxe button and its caption wrap as one: a caption that
    dropped onto the next row would explain whatever happened to stand there. */
 .host-usdx,
-.host-transport,
-.host-volume {
+.host-music-cell {
   display: flex;
   flex: 0 0 auto;
   align-items: center;
@@ -257,18 +302,64 @@
   gap: 8px;
 }
 
-/* Play or pause, skip and the volume stay one group, so a wrap moves the
-   whole transport and never strands the slider away from its buttons. */
-.host-transport {
+/* The music group along the foot (§7): one row at the music line's own
+   bottom, the line centred on the TV in the middle column and the first thing
+   to give way (its ellipsis), play or pause and skip ending the cell to its
+   left, the volume starting the cell to its right. The side columns are both
+   at least the volume cell's width, so they stay equal and the line stays on
+   the screen's centre whatever the cells hold. Only the cells take the mouse:
+   the row runs the whole width over the stage. */
+.host-page {
+  --host-volume-width: clamp(120px, 14vw, 240px);
+  /* Glyph, gap, slider, gap, number — the volume cell's own width. */
+  --host-music-side: calc(20px + 8px + var(--host-volume-width) + 8px + 40px);
+  --host-music-row-height: max(40px, var(--host-music-line-height));
+}
+
+.host-music {
+  position: fixed;
+  left: 0;
+  right: 0;
+  bottom: var(--host-music-line-bottom);
+  z-index: 2;
+  display: grid;
+  grid-template-columns:
+    minmax(var(--host-music-side), 1fr) minmax(0, auto)
+    minmax(var(--host-music-side), 1fr);
+  align-items: center;
+  column-gap: 24px;
+  box-sizing: border-box;
+  min-height: var(--host-music-row-height);
+  padding: 0 clamp(24px, 3vh, 56px);
+  pointer-events: none;
+}
+
+/* One thing alone — the volume during a sing or with the music off, the line
+   for a reader who may not control it — stands in the middle. */
+.host-music.host-music-single {
+  display: flex;
+  justify-content: center;
+}
+
+.host-music-cell {
+  pointer-events: auto;
+}
+
+.host-music-transport {
+  grid-column: 1;
+  justify-self: end;
   gap: 12px;
 }
 
 .host-volume {
+  grid-column: 3;
+  justify-self: start;
   gap: 8px;
 }
 
 .host-volume-glyph {
-  font-size: 1.25em;
+  flex: 0 0 auto;
+  font-size: 20px;
   color: var(--color-dark);
 }
 
@@ -277,16 +368,34 @@
    CSS import order. */
 .host-volume .host-volume-input {
   flex: 0 0 auto;
-  width: clamp(120px, 14vw, 240px);
+  width: var(--host-volume-width);
 }
 
-/* Four characters held, so the slider does not shift between 5% and 100%. */
+/* Held at the width of "100%", so the slider does not shift between 5% and
+   100%, and so the cell is the width `--host-music-side` counts. */
 .host-volume-value {
-  min-width: 4ch;
+  flex: 0 0 auto;
+  width: 40px;
   color: var(--color-dark);
   font-size: 14px;
   font-variant-numeric: tabular-nums;
   text-align: right;
+}
+
+/* A takeover's foot is the cards' and the badges': the two cells, without the
+   line, stand at the top right the rail has left, `.host-controls` keeping the
+   other half. */
+.host-takeover .host-music {
+  top: var(--host-controls-top);
+  right: var(--host-controls-inset);
+  bottom: auto;
+  left: 50%;
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  gap: 12px 24px;
+  min-height: 0;
+  padding: 0;
 }
 
 .host-error {
@@ -306,10 +415,10 @@
    hint and in the meta colour: it is a thing to notice, not a thing to do, and
    the code above it is what the screen is for. Fixed along the foot of the
    whole screen — the user's ask of 2026-09-12: centred on the TV, not on the
-   stage's column — and as wide as the page's own padding allows, one line,
-   the ellipsis for the pathological title alone. Under *Turn on sound*, which
-   stands at 8vh: the two are on screen together while a blocked browser is
-   playing nothing. */
+   stage's column — in the middle of the music group, one line, the ellipsis
+   for the pathological title alone. Under *Turn on sound*, which stands at
+   8vh: the two are on screen together while a blocked browser is playing
+   nothing. */
 .host-page {
   --host-music-line-font: clamp(15px, 2vh, 30px);
   /* 1.3 lines, not 1: the box clips (`overflow: hidden` for the ellipsis), and
@@ -319,15 +428,11 @@
 }
 
 .host-music-line {
-  position: fixed;
-  left: 0;
-  right: 0;
-  bottom: var(--host-music-line-bottom);
-  z-index: 2;
-  box-sizing: border-box;
-  margin: 0 auto;
+  grid-column: 2;
+  min-width: 0;
+  max-width: 100%;
+  margin: 0;
   padding: 0;
-  max-width: calc(100vw - 2 * clamp(24px, 3vh, 56px));
   font-size: var(--host-music-line-font);
   line-height: 1.3;
   color: var(--color-darker);
@@ -336,6 +441,12 @@
   white-space: nowrap;
   text-overflow: ellipsis;
   pointer-events: none;
+}
+
+/* A paused song is not what the room hears: its name is chrome, beside the
+   play that resumes it, a step quieter, and it fades with the cells. */
+.host-music-line.host-music-line-paused {
+  color: var(--color-darkerer);
 }
 
 /* The one press this screen ever asks for. A primary is legitimate here: the
@@ -485,6 +596,22 @@
   .host-rail:has(.host-leaderboard) .host-wishes li:nth-child(2) {
     border-bottom: 0;
   }
+
+  /* The music group's row along the foot takes about one wish row's height
+     off the rail, so the wishes give up one more rather than the standing. */
+  .host-page:not(.host-takeover):has(> .host-music)
+    .host-rail:has(.host-leaderboard)
+    .host-wishes
+    li:nth-child(n + 2) {
+    display: none;
+  }
+
+  .host-page:not(.host-takeover):has(> .host-music)
+    .host-rail:has(.host-leaderboard)
+    .host-wishes
+    li:first-child {
+    border-bottom: 0;
+  }
 }
 
 /* Narrow or portrait: one column, stage first, rail below it — and the page
@@ -502,19 +629,33 @@
     overflow: visible;
   }
 
-  /* A scrolling page: the line takes its place in the flow instead of
-     covering whatever scrolled under it. */
-  .host-page:has(> .host-music-line) {
+  /* A scrolling page: the music group takes its place in the flow, under the
+     stage, instead of covering whatever scrolled under it — in a takeover
+     too, and wrapping rather than holding two side columns a narrow window
+     has no room for. */
+  .host-page:not(.host-takeover):has(> .host-music) {
     padding-bottom: clamp(24px, 3vh, 56px);
   }
 
-  .host-music-line {
+  .host-music,
+  .host-takeover .host-music {
     position: static;
-    max-width: 100%;
+    display: flex;
+    flex-wrap: wrap;
+    justify-content: center;
+    gap: 12px 24px;
+    /* Not a length: a grid item's set `min-height` is all the row it sits in
+       is guaranteed on a page taller than the screen, and the wrapped rows
+       ran into the rail under it. */
+    min-height: auto;
+    padding: 0;
+    align-self: start;
   }
 
-  /* The rail is under the stage here, so nothing stands to the overlay's right. */
-  .host-controls {
+  /* The rail is under the stage and the music in the flow here, so nothing
+     stands to the overlay's right. */
+  .host-controls,
+  .host-takeover .host-controls {
     max-width: calc(100vw - 2 * var(--host-controls-inset));
   }
 

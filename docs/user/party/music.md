@@ -49,8 +49,9 @@ read on the TV.
 Anyone with an account can use the row under the song: pause, skip to the next
 song, and the volume slider between the heart and the plus.
 
-The host screen has pause and skip too, among the controls that come up when
-the mouse moves, and keys for them. Its slider is the overall volume. See
+The host screen has pause and skip too, beside the song's name at the bottom of
+the screen when the mouse moves, and keys for them. Its slider, on the other
+side of the name, is the overall volume. See
 [The controls that fade](../host-screen/index.md#the-controls-that-fade).
 
 The heart and the plus work on the background song, not just on a song being

@@ -150,9 +150,14 @@ singers. One click anywhere on the page does the same thing.
 
 ## The controls that fade
 
-The corner controls are only for whoever is at the karaoke PC. They fade out
-after a few seconds without a mouse or a keyboard, and come back on the next
-movement. So do the three ranking words beside **Tonight**.
+The controls are only for whoever is at the karaoke PC. They stand in two
+groups, the screen's and the music's. Both fade out after a few seconds without
+a mouse or a keyboard, and come back together on the next movement. So do the
+three ranking words beside **Tonight**.
+
+The screen's controls stand in the top left corner: a row of buttons, the line
+saying this browser holds host rights under it, and the keyboard shortcuts
+under that.
 
 - :wingman-gear: **Manage** opens the management page. See
   [Manage from the TV](manage.md).
@@ -167,24 +172,37 @@ movement. So do the three ranking words beside **Tonight**.
   microphone is player one, and brings its window to the front when it is
   already open. It is there for a browser that may change the settings. See
   [Start Ultrastar Deluxe on its own](../start/ultrastar-deluxe.md#start-ultrastar-deluxe-on-its-own).
-- :wingman-pause: **Pause** or :wingman-play: **Play**, and :wingman-skip:
-  **Skip**, while the background music is on, no song plays, and Ultrastar
-  Deluxe is closed. See [Play background music](../party/music.md).
-- :wingman-volume: The overall volume, with its number beside it. It is the
-  **Master volume** in the **Sound** group of the settings, so it turns the
-  background music, the song being picked, and the sound effects up or down
-  together. The music controls and the volume are there for a browser that may
-  control the music.
-- The line saying this browser holds host rights.
 
 !!! warning
     A song that is stopped scores nothing. Ultrastar Deluxe writes a score only
     for a song sung to the end.
 
-When Ultrastar Deluxe will not start, the corner says why under the buttons,
+When Ultrastar Deluxe will not start, the corner says why under the shortcuts,
 until the mouse rests. A song playing is one reason. Settings that do not point
 at Ultrastar Deluxe are another. See
 [Ultrastar Deluxe](../help/ultrastar-deluxe.md).
+
+The music's controls stand at the bottom of the screen, around the line naming
+the background song, for a browser that may control the music. While the music
+is paused, the song's name stays there in grey beside **Play**, and fades with
+the controls. While the room picks singers or new badges are up, the line is
+gone and the music's controls stand in the top right corner instead.
+
+- :wingman-pause: **Pause** or :wingman-play: **Play**, and :wingman-skip:
+  **Skip**, to the left of the song, while the background music is on, no song
+  plays, and Ultrastar Deluxe is closed. See
+  [Play background music](../party/music.md).
+- :wingman-volume: The overall volume, with its number beside it, to the right
+  of the song. It is the **Master volume** in the **Sound** group of the
+  settings, so it turns the background music, the song being picked, and the
+  sound effects up or down together. During a song and with the music off it
+  stands there alone.
+
+The line of keyboard shortcuts names each key before what it does: ++space++
+**Play or pause**, ++n++ **Skip**, ++arrow-up++ ++arrow-down++ **Volume**, and
+++f++ **Full screen**. It names only the keys whose button is on the screen
+right now, so it says less during a song, and a browser that may not control
+the music sees ++f++ at most.
 
 ## Keyboard shortcuts
 
@@ -202,4 +220,5 @@ controls, so you see what changed.
 | ++esc++ | Leaves full screen |
 
 Each key works where its button is drawn, so the music keys need a browser
-that may control the music. Hover a button to see its key.
+that may control the music. Hover a button to see its key, or read the line of
+shortcuts in the corner.

@@ -279,34 +279,63 @@ function useMasterVolume(music: Music): MasterVolume {
 }
 
 /**
- * The background music's transport in the overlay, for a reader who may
- * control it: the gear's own 40px buttons rather than the player tile's,
- * the overlay being the mouse's chrome and not content for the sofa. Play or
- * pause and skip while the music is on and not held by a sing or an open
- * Ultrastar Deluxe (`hasTransport`): beside the red Stop they would read as
- * the sing's. The master volume always, because it also sets how loud the
- * song being picked comes out with the music off.
+ * The music group at the foot of the screen (§7): the background song in the
+ * middle, its play or pause and skip ending the cell to its left, the master
+ * volume starting the cell to its right — so the controls stand beside what
+ * they control, not in the corner. The two cells are the overlay's
+ * (`.host-reveal`, faded by the page's one idle timer); the line is content
+ * while the song plays and never fades, and chrome while it is paused, named
+ * beside the play that resumes it.
+ *
+ * Play or pause and skip only while the music is on and not held by a sing or
+ * an open Ultrastar Deluxe (`transport`): beside the red Stop they would read
+ * as the sing's. The volume for every reader who may control the music,
+ * whatever it does, because it also sets how loud the song being picked comes
+ * out with the music off — then it is the row alone, centred. In a takeover the
+ * line is down (the reel names its own song, the badges are a singer's
+ * seconds) and the two cells stand at the top right the rail has left.
  */
-function HostTransport({
+function HostMusic({
   music,
   volume,
+  controls,
+  transport,
+  takeover,
 }: {
   music: Music;
   volume: MasterVolume;
+  /** The reader may control the music (`music.control`). */
+  controls: boolean;
+  /** Play or pause and skip are drawn. */
+  transport: boolean;
+  takeover: boolean;
 }) {
   const state = music.state;
-  if (state === undefined || volume.value === undefined) return null;
+  if (state === undefined) return null;
   const paused = state.status === "paused";
+  // Playing, the room is hearing it, so the line says so to anybody who may
+  // read the music. Paused, it is the name beside the play, so only where that
+  // play is drawn.
+  const song =
+    takeover || !(state.status === "playing" || (paused && transport))
+      ? null
+      : (state.track?.song ?? null);
+  const showVolume = controls && volume.value !== undefined;
+  if (song === null && !showVolume) return null;
+
   const toggle = paused ? "Play" : "Pause";
+  // One thing alone in the row is centred on the screen rather than standing
+  // in a side cell beside an empty middle.
+  const single = !transport && (song === null || !showVolume);
   return (
-    <div className="host-transport">
-      {hasTransport(state.status) && (
-        <>
+    <div className={`host-music${single ? " host-music-single" : ""}`}>
+      {transport && (
+        <div className="host-music-cell host-music-transport host-reveal">
           <button
             type="button"
             className="icon-button"
             aria-label={toggle}
-            title={`${toggle} (K)`}
+            title={`${toggle} (Space)`}
             aria-keyshortcuts={SHORTCUT_KEYS["play-pause"]}
             disabled={music.isBusy}
             onClick={() => (paused ? music.play() : music.pause())}
@@ -324,34 +353,70 @@ function HostTransport({
           >
             <Icon name="skip" />
           </button>
-        </>
+        </div>
       )}
-      {/* The speaker names the slider and is not a control of its own: there
-          is no mute, only a volume. */}
-      <span className="host-volume">
-        <Icon name="volume" className="icon host-volume-glyph" />
-        <label className="visually-hidden" htmlFor="host-volume">
-          Master volume
-        </label>
-        <input
-          className="range-input host-volume-input"
-          id="host-volume"
-          type="range"
-          min={0}
-          max={100}
-          step={1}
-          value={volume.value}
-          title="Master volume (↑ ↓)"
-          aria-keyshortcuts={SHORTCUT_KEYS.volume}
-          aria-valuetext={`${volume.value} percent`}
-          onChange={(event) => volume.set(Number(event.target.value))}
-        />
-        {/* The slider says it in words already; this is for the eye. */}
-        <span className="host-volume-value" aria-hidden="true">
-          {volume.value}%
-        </span>
-      </span>
+      {song !== null && (
+        <p
+          className={`host-music-line${paused ? " host-music-line-paused host-reveal" : ""}`}
+        >
+          {song.title} · {song.artist}
+        </p>
+      )}
+      {showVolume && (
+        /* The speaker names the slider and is not a control of its own: there
+           is no mute, only a volume. */
+        <div className="host-music-cell host-volume host-reveal">
+          <Icon name="volume" className="icon host-volume-glyph" />
+          <label className="visually-hidden" htmlFor="host-volume">
+            Master volume
+          </label>
+          <input
+            className="range-input host-volume-input"
+            id="host-volume"
+            type="range"
+            min={0}
+            max={100}
+            step={1}
+            value={volume.value}
+            title="Master volume (↑ ↓)"
+            aria-keyshortcuts={SHORTCUT_KEYS.volume}
+            aria-valuetext={`${volume.value} percent`}
+            onChange={(event) => volume.set(Number(event.target.value))}
+          />
+          {/* The slider says it in words already; this is for the eye. */}
+          <span className="host-volume-value" aria-hidden="true">
+            {volume.value}%
+          </span>
+        </div>
+      )}
     </div>
+  );
+}
+
+/** One entry of the legend: its keys, and the word for what they do. */
+interface LegendEntry {
+  keys: string[];
+  word: string;
+}
+
+/**
+ * The keyboard shortcuts in words, under the host-rights line while the chrome
+ * is up (§7): only the keys whose control is drawn, so the legend never offers
+ * what the page would ignore. Nothing at all when no key is anybody's.
+ */
+function HostLegend({ entries }: { entries: LegendEntry[] }) {
+  if (entries.length === 0) return null;
+  return (
+    <p className="host-legend">
+      {entries.map((entry) => (
+        <span className="host-legend-entry" key={entry.word}>
+          {entry.keys.map((name) => (
+            <kbd key={name}>{name}</kbd>
+          ))}
+          {entry.word}
+        </span>
+      ))}
+    </p>
   );
 }
 
@@ -494,12 +559,6 @@ export default function Host() {
   const transport =
     mayControl && music.state !== undefined && hasTransport(music.state.status);
   const sink = useMusicSinkStatus();
-  // Only while something is actually playing: "off" and the pause after a song
-  // are silences the room can see for itself.
-  const background =
-    music.state?.status === "playing"
-      ? (music.state.track?.song ?? null)
-      : null;
 
   const wishlist = useWishlist();
   const wishes = [...wishlist.wishes]
@@ -530,6 +589,17 @@ export default function Host() {
         errorMessage(launch.error, "Could not start Ultrastar Deluxe."),
       ])
     : [];
+
+  // The legend under the host-rights line names the keys whose control is
+  // drawn — the transport's while it stands, busy or not, so the line does not
+  // flicker with every press the server is still answering.
+  const legend: LegendEntry[] = [];
+  if (transport) {
+    legend.push({ keys: ["Space"], word: "Play or pause" });
+    legend.push({ keys: ["N"], word: "Skip" });
+  }
+  if (mayControl) legend.push({ keys: ["↑", "↓"], word: "Volume" });
+  if (canFullscreen()) legend.push({ keys: ["F"], word: "Full screen" });
 
   // The keyboard's way to the same controls (§7). It never moves the focus:
   // `useIdle` wakes on the same key, so the overlay shows what changed and
@@ -596,6 +666,83 @@ export default function Host() {
       className={`host-page${takeover ? " host-takeover" : ""}${idle ? " host-idle" : ""}`}
       onClick={dropClickFocus}
     >
+      {/* The screen's half of the chrome; the music's is at the foot. Hiding
+          is opacity-only so the strings stay in the DOM and Tab still reaches
+          the buttons. First in the page, as it is first on the screen: Tab
+          starts in the corner and goes on to the music under the stage, which
+          a narrow page also puts between the stage and the rail. */}
+      <div className="host-controls">
+        <div className="host-controls-row">
+          {/* The host's own manage view, not the phone's user page: this
+              screen has no tab bar to find its way back from. */}
+          {manage.length > 0 && (
+            <Link to="/host/manage" className="icon-button" aria-label="Manage">
+              <Icon name="gear" />
+            </Link>
+          )}
+          {/* For every browser on this page, host rights or not: putting the
+              screen on the TV is not a management task. */}
+          <HostFullscreen onRefused={setFullscreenRefused} />
+          {/* One slot: Stop while a song plays, Ultrastar Deluxe otherwise —
+              the launch is refused while a song plays anyway. */}
+          {sing !== null
+            ? auth.can("karaoke.stop") && (
+                <button
+                  type="button"
+                  className="icon-button icon-button-danger"
+                  aria-label="Stop"
+                  disabled={stop.isPending}
+                  onClick={() => setAskStop(true)}
+                >
+                  <Icon name="stop" />
+                </button>
+              )
+            : // The launch route's own right — asked once it is known, so a
+              // guest's TV never flashes the button while `/auth/me` is on the
+              // wire. The glyph alone would read as switching the TV off, so
+              // the word goes with it.
+              auth.loaded &&
+              auth.can("settings.manage") && (
+                <div className="host-usdx">
+                  <button
+                    type="button"
+                    className="button host-usdx-button"
+                    title="Open Ultrastar Deluxe"
+                    aria-describedby="host-usdx-caption"
+                    disabled={launch.isPending}
+                    onClick={() => launch.mutate({})}
+                  >
+                    <Icon name="power" />
+                    Ultrastar Deluxe
+                  </button>
+                  <p className="host-caption" id="host-usdx-caption">
+                    For settings like microphones
+                  </p>
+                </div>
+              )}
+        </div>
+        {auth.isHost && (
+          <p className="host-caption">This browser holds host rights</p>
+        )}
+        <HostLegend entries={legend} />
+        {/* Last, so a refusal coming and going moves nothing above it. */}
+        {launchRefusal.map((sentence) => (
+          <p className="error-notice host-error" role="alert" key={sentence}>
+            {sentence}
+          </p>
+        ))}
+        {error && (
+          <p className="error-notice host-error" role="alert">
+            {error}
+          </p>
+        )}
+        {fullscreenRefused && (
+          <p className="error-notice host-error" role="alert">
+            The browser would not go full screen. Press F11 instead.
+          </p>
+        )}
+      </div>
+
       <div className="host-stage">
         <CurrentlyPlaying />
         {/* Somebody is picking singers for the next song: the stage shows the
@@ -625,17 +772,17 @@ export default function Host() {
       </div>
       {/* What the room is hearing, quietly, along the foot of the whole
           screen — centred on the TV and not on the stage's column, under the
-          brand and under the scores alike, so the room learns where to look.
-          Not while the stage has taken the whole screen: the reel names its
-          own song large, and the badges are a singer's seconds. Content rather
-          than a control, so it is not in the reveal-on-movement overlay — the
-          point is that it reads across the room while nobody is touching the
-          mouse. */}
-      {!takeover && background !== null && (
-        <p className="host-music-line">
-          {background.title} · {background.artist}
-        </p>
-      )}
+          brand and under the scores alike, so the room learns where to look —
+          with its controls on either side of it. The line is content rather
+          than a control, so it does not fade with them: the point is that it
+          reads across the room while nobody is touching the mouse. */}
+      <HostMusic
+        music={music}
+        volume={masterVolume}
+        controls={mayControl}
+        transport={transport}
+        takeover={takeover}
+      />
 
       {/* A browser plays no sound until somebody has pressed something on
           it, and a TV gets no presses. Over everything and in the middle of
@@ -693,77 +840,6 @@ export default function Host() {
           {wishes.length > 0 && <HostWishes wishes={wishes} />}
         </div>
       )}
-
-      {/* Everything mouse-only lives here; hiding is opacity-only so the
-          strings stay in the DOM and Tab still reaches the buttons. */}
-      <div className="host-controls">
-        {/* The host's own manage view, not the phone's user page: this screen
-            has no tab bar to find its way back from. */}
-        {manage.length > 0 && (
-          <Link to="/host/manage" className="icon-button" aria-label="Manage">
-            <Icon name="gear" />
-          </Link>
-        )}
-        {/* For every browser on this page, host rights or not: putting the
-            screen on the TV is not a management task. */}
-        <HostFullscreen onRefused={setFullscreenRefused} />
-        {/* One slot: Stop while a song plays, Ultrastar Deluxe otherwise —
-            the launch is refused while a song plays anyway. */}
-        {sing !== null
-          ? auth.can("karaoke.stop") && (
-              <button
-                type="button"
-                className="icon-button icon-button-danger"
-                aria-label="Stop"
-                disabled={stop.isPending}
-                onClick={() => setAskStop(true)}
-              >
-                <Icon name="stop" />
-              </button>
-            )
-          : // The launch route's own right — asked once it is known, so a
-            // guest's TV never flashes the button while `/auth/me` is on the
-            // wire. The glyph alone would read as switching the TV off, so
-            // the word goes with it.
-            auth.loaded &&
-            auth.can("settings.manage") && (
-              <div className="host-usdx">
-                <button
-                  type="button"
-                  className="button host-usdx-button"
-                  title="Open Ultrastar Deluxe"
-                  aria-describedby="host-usdx-caption"
-                  disabled={launch.isPending}
-                  onClick={() => launch.mutate({})}
-                >
-                  <Icon name="power" />
-                  Ultrastar Deluxe
-                </button>
-                <p className="host-caption" id="host-usdx-caption">
-                  For settings like microphones
-                </p>
-              </div>
-            )}
-        {mayControl && <HostTransport music={music} volume={masterVolume} />}
-        {auth.isHost && (
-          <p className="host-caption">This browser holds host rights</p>
-        )}
-        {launchRefusal.map((sentence) => (
-          <p className="error-notice host-error" role="alert" key={sentence}>
-            {sentence}
-          </p>
-        ))}
-        {error && (
-          <p className="error-notice host-error" role="alert">
-            {error}
-          </p>
-        )}
-        {fullscreenRefused && (
-          <p className="error-notice host-error" role="alert">
-            The browser would not go full screen. Press F11 instead.
-          </p>
-        )}
-      </div>
 
       {askStop && sing !== null && (
         <ConfirmModal
