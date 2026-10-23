@@ -20,7 +20,7 @@ answer.
 | `wingman.db` | Everything Wingman remembers |
 | `avatars/` | One picture per player, added when somebody uploads one or a single sign-on login brings one |
 | `achievement_icons/` | One uploaded picture per achievement |
-| `bin/` | The yt-dlp and ffmpeg builds Wingman fetched for downloads |
+| `bin/` | The yt-dlp and ffmpeg builds Wingman fetched for downloads and for evening out the loudness |
 
 Only `wingman.db` is there from the start. The other three appear the first
 time something needs them. Songs are never in here.
@@ -50,7 +50,7 @@ gets the pictures along with it.
 
 Wingman scans the **Directory** setting in the **Songs** group.
 **Additional directories** in the same group, behind **Advanced**, adds one
-more path per line. It reads those folders, and the three cases at the end of
+more path per line. It reads those folders, and the four cases at the end of
 this section are the only times it writes.
 
 - Every direct subfolder of a scanned folder is one song. Wingman does not go
@@ -84,11 +84,17 @@ other song is `local:` and a random string. A song keeps its id as long as its
 folder stays where it is. A folder holding a `wingman.json` that names a USDB
 id is imported under that id.
 
-Wingman changes a song folder in three cases. A download assembles a new folder
+Wingman changes a song folder in four cases. A download assembles a new folder
 under the songs directory. The metadata editor rewrites `#TITLE`, `#ARTIST`,
 `#LANGUAGE`, `#GENRE`, `#YEAR`, and `#EDITION` in one song file, and leaves
 every other byte of it alone. Deleting a song removes its whole folder from the
 disk, which takes `songs.delete`.
+
+Evening out the loudness writes `REPLAYGAIN_TRACK_GAIN` and
+`REPLAYGAIN_TRACK_PEAK` into the metadata of a song's audio file, and no audio
+frame moves. A download does it last, while **Normalize loudness** is on. Pressing
+**Even out** on the Settings page does it for the songs already in the library,
+which takes `settings.manage`. A file that already carries a gain is left alone.
 
 ## Environment variables
 

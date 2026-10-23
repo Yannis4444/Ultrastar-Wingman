@@ -3,6 +3,7 @@ import {
   errorMessage,
   explainUsdxProblem,
   missingPermission,
+  usdxLaunchRefusal,
   usdxProblems,
   validationMessage,
 } from "./errors";
@@ -128,4 +129,17 @@ test("an unknown problem is shown as it came", () => {
   expect(explainUsdxProblem("something entirely new")).toBe(
     "something entirely new",
   );
+});
+
+test("a refused launch is the song that is playing, or the setup in words", () => {
+  expect(usdxLaunchRefusal({ detail: "already_playing" })).toEqual([
+    "A song is playing right now. Ultrastar Deluxe is busy with it.",
+  ]);
+  const problems = ["something entirely new", "something else"];
+  expect(
+    usdxLaunchRefusal({ detail: { error: "usdx_not_configured", problems } }),
+  ).toEqual(problems.map(explainUsdxProblem));
+  // Anything else is the caller's to word.
+  expect(usdxLaunchRefusal({ detail: "invalid_host_token" })).toBeNull();
+  expect(usdxLaunchRefusal(new TypeError("Failed to fetch"))).toBeNull();
 });

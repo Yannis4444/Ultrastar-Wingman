@@ -88,6 +88,7 @@ const SONG = {
   duration_seconds: 231,
   has_video: true,
   is_duet: false,
+  created_at: "2026-01-01T12:00:00Z",
   language: null,
   genre: null,
   year: null,
@@ -123,6 +124,8 @@ function track(overrides: Partial<MusicTrackRead> = {}): MusicTrackRead {
     position_s: 12,
     position_at: new Date().toISOString(),
     duration_s: 200,
+    gain_db: null,
+    peak: null,
     ...overrides,
   };
 }

@@ -55,6 +55,14 @@ export const START_WITHOUT_SELECTION: { value: string; label: string }[] = [
   { value: "random", label: "Start a random song" },
 ];
 
+/** What a press of a `cancel` button does while nobody is picking singers, in
+ *  the order the select offers it: the backend's `CANCEL_MODES`, the default
+ *  first. */
+export const CANCEL_WITHOUT_SELECTION: { value: string; label: string }[] = [
+  { value: "skip_music", label: "Skip to the next background song" },
+  { value: "nothing", label: "Nothing happens" },
+];
+
 /** What a `random` start press spins the reel over, in the order the select
  *  offers it: the backend's `RANDOM_SCOPES`, every song first. */
 export const RANDOM_SCOPES: { value: string; label: string }[] = [

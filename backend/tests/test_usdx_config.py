@@ -85,6 +85,49 @@ def test_unrelated_keys_survive_with_their_casing(config_file: Path, avatars_dir
     assert written.startswith(BOM)
 
 
+@pytest.mark.parametrize("before", [None, "Off", "On"])
+def test_loudness_normalization_is_switched_on(
+    config_file: Path, avatars_dir: Path, before: str | None
+) -> None:
+    if before is not None:
+        # The section as USDX writes it, the option between two others.
+        config_file.write_text(
+            f"{EXISTING_CONFIG}\n[Sound]\nClickAssist=Off\nReplayGain={before}\nBeatClick=On\n",
+            "utf-8",
+        )
+
+    write_player_config(
+        config_file, avatars_dir, [ConfiguredPlayer("Yannis", 1, None)], replay_gain=True
+    )
+
+    # `On`, spelled the way USDX's own ini reader matches it.
+    sound = read_config(config_file)["Sound"]
+    assert sound["ReplayGain"] == "On"
+    written = config_file.read_text(encoding="utf-8")
+    assert written.startswith(BOM)
+    assert written.count("[Sound]") == 1
+    assert written.count("ReplayGain=") == 1
+    if before is not None:
+        assert (sound["ClickAssist"], sound["BeatClick"]) == ("Off", "On")
+
+
+@pytest.mark.parametrize("before", [None, "Off", "On"])
+def test_loudness_normalization_is_never_switched_off(
+    config_file: Path, avatars_dir: Path, before: str | None
+) -> None:
+    """Not tagging is no reason to undo a choice the host made by hand."""
+    if before is not None:
+        config_file.write_text(f"{EXISTING_CONFIG}\n[Sound]\nReplayGain={before}\n", "utf-8")
+
+    write_player_config(config_file, avatars_dir, [ConfiguredPlayer("Yannis", 1, None)])
+
+    config = read_config(config_file)
+    if before is None:
+        assert not config.has_section("Sound")
+    else:
+        assert config["Sound"]["ReplayGain"] == before
+
+
 def test_a_config_without_the_sections_is_created(tmp_path: Path, avatars_dir: Path) -> None:
     config_file = tmp_path / "brand-new.ini"
 

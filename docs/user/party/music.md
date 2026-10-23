@@ -49,6 +49,10 @@ read on the TV.
 Anyone with an account can use the row under the song: pause, skip to the next
 song, and the volume slider between the heart and the plus.
 
+The host screen has pause and skip too, among the controls that come up when
+the mouse moves, and keys for them. Its slider is the overall volume. See
+[The controls that fade](../host-screen/index.md#the-controls-that-fade).
+
 The heart and the plus work on the background song, not just on a song being
 sung. Press the heart to make it a favorite and the plus to wish for it. To sing
 it yourself, tap its cover: the song opens the way any song does, with its own
@@ -57,25 +61,45 @@ play button.
 Skipping always starts the next song from the beginning. So does the music coming
 back after somebody sings: Wingman never resumes a song it interrupted.
 
+A [player selector](../selector/index.md) skips too. Its cancel button moves the
+music on while nobody is picking singers, unless the host turned that off on
+**User** > **Player selector**.
+
 ## Volume
 
 The slider on the player is the background music's own volume. The overall volume
-lives in **Settings**, under **Sound**, together with a volume for the song the reel
-lands on and one for Wingman's sound effects.
+lives in **Settings**, under **Sound**, together with a volume for the song being
+picked and one for Wingman's sound effects.
 
 The numbers multiply. An overall volume of 50 with a music volume of 50 plays at a
 quarter of full. Set the overall volume once for the room, then trim the music
 against it.
 
-## The song the reel lands on
+On top of that, each song plays at its evened-out level, the one Ultrastar
+Deluxe evens it out to. A loud song comes down and a quiet one comes
+up, and the numbers you set stay what they are. A song Wingman has not measured
+plays as it is. See
+[Even out the volume](../start/ultrastar-deluxe.md#even-out-the-volume).
 
-When somebody spins the reel on the TV, the background music fades out. When the
-reel lands, the song it picked fades in, starting where its singing starts rather
-than at the intro, and keeps playing while the singers are picked. It stops when the
-song is started or the pick is given up, and the background music comes back where
-it left off. This works with the background music switched off too.
+## The song being picked
 
-It is on from the start. **Reel preview** under **Sound** in **Settings** switches
+While the room picks singers for a song, the TV plays that song. It starts where
+its singing starts rather than at the intro, and the background music fades out
+for it.
+
+- When somebody taps **Sing** on a phone, the song fades in at once.
+- When the reel spins on the TV, the song it picked fades in when the reel lands.
+  It keeps playing when the phone that spun it taps **Play** to pick the singers,
+  and it does not start again from the top.
+
+Moving singers between slots or putting a card down does not interrupt it. A new
+song does: spinning again, or somebody else taking over the pick. The song stops
+when it is started or the pick is given up, and the background music comes back
+where it left off. If the singers are picked while another song is being sung,
+their song comes in after the short pause that follows it. This works with the
+background music switched off too.
+
+It is on from the start. **Song preview** under **Sound** in **Settings** switches
 it off, and **Preview volume** beside it sets how loud it is.
 
 ## When there is no sound

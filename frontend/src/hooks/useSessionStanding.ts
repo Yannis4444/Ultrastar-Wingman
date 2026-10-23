@@ -3,6 +3,7 @@ import { useMemo } from "react";
 import type { PlayerRead } from "../api";
 import {
   listPlayersOptions,
+  listPlayersQueryKey,
   listSessionScoresOptions,
   listSessionScoresQueryKey,
   listSessionsOptions,
@@ -87,6 +88,18 @@ export function useSessionStanding(order: LeaderboardOrder): SessionStanding {
   // A moderator put a score on another singer, or took one off the record: the
   // ranking on the TV is exactly what that correction was made for.
   useWingmanEvent("scores.changed", refresh);
+
+  // The host screen stays open all evening and nothing remounts it, so the
+  // roster fetched when the TV was turned on would otherwise be the one it
+  // draws from at midnight: somebody who joined, or set a picture, after that
+  // stayed an initial in the standing and the results while the selection and
+  // the badges — which carry their own player — showed the picture.
+  // `server.ready` because a socket that came back (a restarted Wingman) has
+  // missed whatever went past while it was away.
+  const refreshPlayers = () =>
+    void queryClient.invalidateQueries({ queryKey: listPlayersQueryKey() });
+  useWingmanEvent("players.changed", refreshPlayers);
+  useWingmanEvent("server.ready", refreshPlayers);
 
   const scores = sessionScores.data?.scores;
   const roster = playerList.data?.players;

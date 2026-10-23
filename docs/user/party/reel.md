@@ -48,6 +48,19 @@ included. Somebody hearted it or asked for it on purpose. A song hidden from you
 altogether can win in none of the four. See
 [Songs you do not see](../songs/index.md#songs-you-do-not-see).
 
+## Take the song off the wishlist
+
+Spun one of the two wishlist choices and the room will not sing what came up?
+The party's helpers get :wingman-trash: **Take off the wishlist** under the
+spin buttons once the reel lands on a wished song. It takes the song off the
+wishlist for everybody, with no question in between. The winner stays on
+screen, and the line under **Pick from** counts one song fewer. Trusted and
+Admin hold that by default, the same as the button on the wishlist itself. See
+[Wish for a song](wishlist.md#take-a-wish-back).
+
+The button is not there on a playlist's reel or on **All songs** and
+**Favorites**.
+
 ## Spin on the host screen
 
 The reel can run on the TV instead, so the whole room watches the pick. Under
@@ -77,10 +90,12 @@ it gets a sentence and **Cancel**, such as *The wishlist is empty. The reel has
 nothing to land on.*
 
 When the reel lands, the TV plays the song from where its singing starts, so the
-room hears what it picked. The background music, if any, fades out for it and
-comes back afterwards. **Reel preview** under **Sound** in **Settings** switches
-this off, and **Preview volume** beside it sets how loud it plays (see
-[Background music](music.md#the-song-the-reel-lands-on)).
+room hears what it picked. It keeps playing after you tap **Play** while the
+singers are picked, and **Spin again** starts the next song in its place. The
+background music, if any, fades out for it and comes back afterwards. **Song
+preview** under **Sound** in **Settings** switches this off, and **Preview
+volume** beside it sets how loud it plays (see
+[Background music](music.md#the-song-being-picked)).
 
 Spinning on the host screen holds the room the way **Sing** does. Nobody else
 can start a song while your phone holds the pick. If somebody is already

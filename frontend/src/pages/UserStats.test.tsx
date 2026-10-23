@@ -42,6 +42,7 @@ function song(id: string, artist: string, title: string): SongRead {
     duration_seconds: null,
     has_video: false,
     is_duet: false,
+    created_at: "2026-01-01T12:00:00Z",
     language: null,
     genre: null,
     year: null,
@@ -153,6 +154,10 @@ test("the account's whole history is grouped by song, best first", async () => {
   await waitFor(() =>
     expect(groupLabels()).toEqual(["Bohemian Rhapsody", "Wonderwall"]),
   );
+  // The share cards open from `/scores` alone (share-cards.md §7.3).
+  expect(
+    screen.queryByRole("button", { name: "Share a score", hidden: true }),
+  ).not.toBeInTheDocument();
 });
 
 test("the one control is a quiet Sort select — this page never groups", async () => {

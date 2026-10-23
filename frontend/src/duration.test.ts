@@ -1,4 +1,16 @@
-import { formatDuration, formatTotalDuration } from "./duration";
+import {
+  cardDate,
+  formatDuration,
+  formatTotalDuration,
+  shortDate,
+} from "./duration";
+
+test("a date read on its own always carries its year", () => {
+  const now = new Date().toISOString();
+  expect(cardDate(now)).toContain(String(new Date().getFullYear()));
+  // Unlike the list's own date, which drops it inside the current year.
+  expect(shortDate(now)).not.toContain(String(new Date().getFullYear()));
+});
 
 test("a song's length is a clock", () => {
   expect(formatDuration(295)).toBe("4:55");

@@ -115,6 +115,42 @@ async def test_the_preview_start_comes_off_the_txt(
     assert plain.preview_start_seconds is None
 
 
+async def test_a_rescan_keeps_the_replay_gain_of_the_same_audio_file(
+    session: AsyncSession,
+    session_factory: async_sessionmaker[AsyncSession],
+    tmp_path: Path,
+) -> None:
+    """The gain is the audio file's, and reading it is not the scan's job: a rescan leaves
+    it — and a txt pointing at another file makes it that file's, so it goes."""
+    library = tmp_path / "songs"
+    kept = make_song_dir(library, "kept", tags="#MP3:song.mp3\n", files=("song.mp3",))
+    swapped = make_song_dir(
+        library, "swapped", tags="#MP3:song.mp3\n", files=("song.mp3", "other.ogg")
+    )
+    await configure(session, library)
+    await scan_library(session_factory)
+    for row in await songs_in_db(session):
+        row.replay_gain_db, row.replay_gain_peak = -6.5, 0.9
+    await session.commit()
+    # A changed title is a change the rescan writes, and must not take the gain with it.
+    (kept / "kept.txt").write_text(
+        "#TITLE:Renamed\n#ARTIST:Artist\n#MP3:song.mp3\n: 0 4 0 la\nE\n", encoding="utf-8"
+    )
+    (swapped / "swapped.txt").write_text(
+        "#TITLE:Song\n#ARTIST:Artist\n#MP3:other.ogg\n: 0 4 0 la\nE\n", encoding="utf-8"
+    )
+
+    result = await scan_library(session_factory)
+
+    assert result.updated == 2
+    first, second = await songs_in_db(session)
+    for row in (first, second):
+        await session.refresh(row)
+    assert (first.title, first.replay_gain_db, first.replay_gain_peak) == ("Renamed", -6.5, 0.9)
+    assert second.audio_file == str(swapped / "other.ogg")
+    assert (second.replay_gain_db, second.replay_gain_peak) == (None, None)
+
+
 async def test_the_duet_flag_comes_off_the_txt(
     session: AsyncSession,
     session_factory: async_sessionmaker[AsyncSession],
@@ -315,6 +351,33 @@ async def test_rescan_updates_changed_songs_and_keeps_their_id(
     assert (after.title, after.artist) == ("New Title", "New Artist")
     assert after.fingerprint == "newartist|newtitle"
     assert after.cover_file == str(library / "song" / "cover.jpg")
+
+
+async def test_a_rescan_keeps_when_the_library_first_found_a_song(
+    session: AsyncSession,
+    session_factory: async_sessionmaker[AsyncSession],
+    tmp_path: Path,
+) -> None:
+    """`created_at` is what the song list's *Recently added* sorts on: the first scan's
+    time, which neither an unchanged rescan nor one that rewrites every other column
+    may move."""
+    library = tmp_path / "songs"
+    make_song_dir(library, "song", title="Old Title")
+    await configure(session, library)
+    await scan_library(session_factory)
+    (before,) = await songs_in_db(session)
+    first_seen = before.created_at
+    assert first_seen is not None
+
+    await scan_library(session_factory)
+    make_song_dir(library, "song", title="New Title", artist="New Artist")
+    result = await scan_library(session_factory)
+
+    assert result.updated == 1
+    session.expire_all()
+    (after,) = await songs_in_db(session)
+    assert after.title == "New Title"
+    assert after.created_at == first_seen
 
 
 async def test_an_unchanged_library_reports_no_changes(

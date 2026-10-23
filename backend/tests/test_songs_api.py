@@ -97,7 +97,13 @@ async def test_song_detail_carries_the_full_contract(client: AsyncClient, librar
     response = await client.get("/api/v1/songs/usdb:1234")
 
     assert response.status_code == 200
-    assert response.json() == {
+    body = response.json()
+    # When the row was inserted, so not a constant: an aware UTC timestamp, so the client
+    # parses every one of them as the same instant whatever zone the device is in.
+    created_at = datetime.fromisoformat(body.pop("created_at"))
+    assert created_at.utcoffset() is not None
+    assert created_at.utcoffset() == UTC.utcoffset(None)
+    assert body == {
         "id": "usdb:1234",
         "source": "usdb",
         "title": "Uptown Funk",
@@ -136,6 +142,35 @@ async def test_every_listed_song_carries_the_facet_fields(
     assert by_id["local:aaaa"]["is_duet"] is False
     for song in by_id.values():
         assert set(song) >= {"is_duet", "has_video", "genre", "language", "edition", "year"}
+
+
+async def test_every_listed_song_says_when_the_library_found_it(
+    client: AsyncClient, session: AsyncSession
+) -> None:
+    """The song list's *Recently added* order is sorted on the client, over the listing, so
+    the row's first-seen time rides on every song of it."""
+    session.add_all(
+        [
+            make_song(
+                "local:old", "Toto", "Africa", created_at=datetime(2026, 1, 2, 20, 0, tzinfo=UTC)
+            ),
+            make_song(
+                "local:new", "ABBA", "Waterloo", created_at=datetime(2026, 10, 1, 9, 30, tzinfo=UTC)
+            ),
+        ]
+    )
+    await session.commit()
+
+    response = await client.get("/api/v1/songs")
+
+    assert response.status_code == 200
+    by_id = {
+        song["id"]: datetime.fromisoformat(song["created_at"]) for song in response.json()["songs"]
+    }
+    assert by_id == {
+        "local:old": datetime(2026, 1, 2, 20, 0, tzinfo=UTC),
+        "local:new": datetime(2026, 10, 1, 9, 30, tzinfo=UTC),
+    }
 
 
 async def test_unknown_song_is_404(client: AsyncClient, library: Path) -> None:

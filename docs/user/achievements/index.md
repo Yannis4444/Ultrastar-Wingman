@@ -62,12 +62,13 @@ and meets the new ones on the TV.
 
 Tap a badge, on the strip or in a row, and it opens large over the blurred
 page. You see the picture at the size it was drawn for, the name, the
-description, and the same line the row carries. An earned one says the day.
+description, and the same line the row carries. Under the description it says
+how many players hold it, such as *Earned by 3 players*. An earned one says the day.
 One still out there shows its bar and its numbers, or nothing where there is
 nothing to fill up. A hidden one opens as well, and says exactly what its row
-says.
+says. It doesn't say how many players hold it either.
 
-![One badge over the blurred page, with its name, its description and the day it was earned](../assets/screenshots/achievements/achievement-modal.png){ width="320" loading=lazy }
+![One badge over the blurred page, with its name, its description, how many players hold it, and the day it was earned](../assets/screenshots/achievements/achievement-modal.png){ width="320" loading=lazy }
 /// caption
 Tap the darkened page above or below it, or :wingman-close: in the corner.
 ///
@@ -79,9 +80,11 @@ badges up first. They take the whole screen: the QR code, **Tonight** and
 **Most wished** are gone for those seconds, and come back the moment the badges
 are done. One singer at a time: their picture and their name, and their badges
 flying in beside the name and the one-line description. At most four badges
-land in a row. Then the next singer, then the results as usual.
+land in a row. Under each description stands how many players hold it now,
+the singer included. A badge only the singer holds reads *First to earn it*.
+Then the next singer, then the results as usual.
 
-![The host screen with Bender's picture and name over two badges, Eighties Marathon and Iron Lungs, each with its description under it](../assets/screenshots/achievements/host-achievements.png){ width="720" loading=lazy }
+![The host screen with Bender's picture and name over two badges, Eighties Marathon and Iron Lungs, each with its description and First to earn it](../assets/screenshots/achievements/host-achievements.png){ width="720" loading=lazy }
 /// caption
 The results of the song wait until the badges have had their moment.
 ///

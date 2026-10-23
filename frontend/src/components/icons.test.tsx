@@ -79,6 +79,9 @@ const NOT_PICKABLE: IconName[] = [
   "filter",
   "dice",
   "dice-1",
+  "shuffle",
+  "external-link",
+  "share",
   "chevron-down",
   "arrow-up",
 ];
@@ -153,4 +156,37 @@ test("every glyph is path data and nothing else", () => {
       d: expect.stringMatching(/^M[-\d\s.,AaCcHhLlMmQqSsTtVvZz]*$/),
     });
   }
+});
+
+test("Shuffle again has a glyph of its own, never the reel's dice", () => {
+  // Two arrows and their two heads: four closed subpaths in one `d`.
+  expect(ICON_PATHS.shuffle.match(/M/g)).toHaveLength(4);
+  expect(ICON_PATHS.shuffle).not.toBe(ICON_PATHS.dice);
+  expect(ICON_PATHS.shuffle).not.toBe(ICON_PATHS.refresh);
+
+  const { container } = render(<Icon name="shuffle" />);
+  expect(container.querySelectorAll("path")).toHaveLength(1);
+  expect(iconNames(container)).toEqual(["shuffle"]);
+});
+
+test("a link that leaves Wingman has a glyph of its own, out of the picker", () => {
+  // The open square and the arrow leaving it: two closed subpaths in one `d`.
+  expect(ICON_PATHS["external-link"].match(/M/g)).toHaveLength(2);
+  expect(PICKER_ICON_NAMES).not.toContain("external-link");
+
+  const { container } = render(<Icon name="external-link" />);
+  expect(container.querySelectorAll("path")).toHaveLength(1);
+  expect(iconNames(container)).toEqual(["external-link"]);
+});
+
+test("a picture of scores to send has a glyph of its own, never the archive's", () => {
+  // Three discs and the two bars joining them: five subpaths in one `d`.
+  expect(ICON_PATHS.share.match(/M/g)).toHaveLength(5);
+  expect(ICON_PATHS.share).not.toBe(ICON_PATHS.upload);
+  expect(ICON_PATHS.share).not.toBe(ICON_PATHS["external-link"]);
+  expect(PICKER_ICON_NAMES).not.toContain("share");
+
+  const { container } = render(<Icon name="share" />);
+  expect(container.querySelectorAll("path")).toHaveLength(1);
+  expect(iconNames(container)).toEqual(["share"]);
 });

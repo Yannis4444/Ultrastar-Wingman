@@ -84,7 +84,7 @@ is small.
 | Sing | `songs/` | `download.md` | Download songs | Host | The USDB account, search, download, the queue | How-to |
 | Sing | `songs/` | `fix-or-delete.md` | Fix or delete a song | Administrator | The details editor, deleting a song folder | How-to |
 | Sing | `scores/` | `index.md` | Scores | Everyone | Where scores come from, which parties you see | Index |
-| Sing | `scores/` | `party.md` | A party's scores | Everyone | The Scores page, its charts, its groupings, naming a party, correcting a score | How-to |
+| Sing | `scores/` | `party.md` | A party's scores | Everyone | The Scores page, its charts, its groupings, naming a party, sharing a card, correcting a score | How-to |
 | Sing | `scores/` | `your-scores.md` | Your own scores | Singer | The record on the user page, the Your scores page, and All my scores | How-to |
 | Sing | `achievements/` | `index.md` | Achievements | Everyone | What a badge is, your badges, the TV moment | Index |
 | Host | `start/` | `index.md` | Get started | Host | What you need, in the order to do it | Index |
@@ -336,7 +336,9 @@ Only the first row is a party. Write the third column, never "session".
   Anything longer is a step list.
 - Name a setting by its label and its group: the **Directory** setting in the **Songs**
   group. The label is the last part of the key, sentence cased, so the group is what makes it
-  unambiguous. Say when a setting is behind **Advanced**.
+  unambiguous — except for a key that outgrew its name, which `KEY_LABELS` in
+  `frontend/src/settings.ts` labels in its own words (`sound.reel_preview` is **Song
+  preview**). Say when a setting is behind **Advanced**.
 - File paths and folder names go in code font: `C:\Users\you\AppData\Local\Ultrastar Wingman`.
 - Numbers: numerals for anything the app shows and for measurements. Spell out one to nine in
   ordinary prose. Scores keep their thousands separator: 9,842.
@@ -516,7 +518,7 @@ about, and the **Must be visible** column names that part alone.
 |---|---|---|---|---|---|
 | `home` | `party/index.md` | `/` | Signed in as Leela, four wishes | 390x844 | The Wingman tile, the wishlist, the Random song entry |
 | `home-playing` | `party/sing.md` | `/` | **launcher**: a song playing | 390x844 | The stage showing cover, title, artist, song controls |
-| `songs-list` | `songs/index.md` | `/songs` | Seeded library, two favorites, two sung | 390x844 | Search box, chip row, rows with marks |
+| `songs-list` | `songs/index.md` | `/songs` | Seeded library, two favorites, two sung | 390x844 | Search box, chip row, the **Sort** select beside the song count, rows with marks |
 | `songs-filter` | `songs/filter.md` | `/songs` | Filter panel open, Video on Yes, Decade set to 1980s | 390x844 | The hint line, both chip clouds, Video on Yes, the Decade chip showing 1980s, and a tag struck through on No |
 | `song` | `songs/song.md` | `/songs` | Song modal open on "I Got You Babe" | 390x844 | Cover hero, the wish and favorite toggles, and the summary strip |
 | `song-comments` | `songs/song.md` | `/songs` | Song modal, comments sub-view, three comments | 390x844 | The comment list and the composer |
@@ -536,10 +538,11 @@ about, and the **Must be visible** column names that part alone.
 | `built-in-tags` | `tags/built-in.md` | `/user/tags/decade` | The Decade built-in | 390x844 | The reduced editor and the line saying why it is reduced |
 | `scores-party` | `scores/party.md` | `/scores` | One party, 23 scores, five singers | 390x844 | The party selector at the top, the strip chart, the score rows |
 | `scores-spread` | `scores/party.md` | `/scores` | Same party, grouped by player, **Spread** picked | 390x844 | The **Spread** view with a box row, a plain-dot row, and the gold best column |
+| `scores-share` | `scores/party.md` | `/scores` | Signed in as Bender, **Share this party** pressed on the party that is still going | 390x844 | The picture of the party card, and the **Format** and **Look** pills under it |
 | `user` | `scores/your-scores.md` | `/user` | Signed in as Bender | 390x844 | Identity tile, the stat bar, the histogram |
 | `user-stats` | `scores/your-scores.md` | `/user/stats` | Bender's own record across both seeded parties | 390x844 | The **Your scores** header, the charts of his own record |
 | `user-achievements` | `achievements/index.md` | `/user` | Signed in as Fry, whose earned badges leave room for a bar below them | 390x844 | The open badge strip, its count, one row with a progress bar |
-| `achievement-modal` | `achievements/index.md` | `/user` | Signed in as Fry, one of his badges opened large | 390x844 | The badge at hero size, its name, its sentence, the day it was earned |
+| `achievement-modal` | `achievements/index.md` | `/user` | Signed in as Fry, one of his badges opened large | 390x844 | The badge at hero size, its name, its sentence, how many players hold it, the day it was earned |
 | `achievements-admin` | `achievements/manage/index.md` | `/user/achievements` | Two of the party's own achievements, one switched off | 390x844 | The three settings, the one list over the whole catalogue, an *Included* row, a lock mark, the off row |
 | `achievement-editor` | `achievements/manage/create.md` | `/user/achievements/:id` | The 80s achievement from the worked example | 390x844 | The condition block and its plain sentence |
 | `people-admin` | `people/players.md` | `/user/accounts` | Three accounts, seven guests, one of them hidden | 390x844 | Both groups, the role controls, a hidden row |
@@ -549,7 +552,7 @@ about, and the **Must be visible** column names that part alone.
 | `host-screen` | `host-screen/index.md` | `/host` | A party going, four wishes, five singers scored | 1280x720 | QR card, join address, standing, most wished |
 | `host-playing` | `host-screen/index.md` | `/host` | **launcher**: a song playing | 1280x720 | The stage with the cover and the singers |
 | `host-results` | `scores/index.md` | `/host` | **launcher**: the song just finished and its scores were written | 1280x720 | The results of the song that finished, the score summary beside its cover |
-| `host-achievements` | `achievements/index.md` | `/host` | **launcher**: the sing that completes the achievement the seed left one song short for Bender | 1280x720 | The badges landing for one singer, over the whole screen with no rail beside them, before the results appear |
+| `host-achievements` | `achievements/index.md` | `/host` | **launcher**: the sing that completes the achievement the seed left one song short for Bender | 1280x720 | The badges landing for one singer, each with how many players hold it under its description, over the whole screen with no rail beside them, before the results appear |
 | `host-manage` | `host-screen/manage.md` | `/host/manage` | Host rights on that browser | 1280x720 | The management rows the host reaches from the TV |
 | `selector-admin` | `selector/cards.md` | `/user/devices` | The seeded device online, one known card and one unknown one on its readers | 390x844 | The **On the readers now** list, a named card and an **Unknown card** row |
 | `selector-device` | `selector/setup.md` | `/user/devices/:id` | The same device, running one firmware version behind the bundled image | 390x844 | The status lines, **Update firmware** and **Update over Wi-Fi**, the reader rows |

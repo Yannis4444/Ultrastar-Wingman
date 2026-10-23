@@ -6,6 +6,7 @@ import type {
   AchievementSettings,
   PlayerAchievementRead,
 } from "../api";
+import { cardDate } from "../duration";
 import {
   achievementRead,
   achievementSettings,
@@ -129,6 +130,10 @@ it("puts the earned ones first and draws the rest in the off state", async () =>
   const off = [...container.querySelectorAll(".user-achievement-off")];
   expect(off).toHaveLength(1);
   expect(off[0].textContent).toContain("Second");
+  // An earned row says the day with its year, the modal's own line.
+  expect(
+    screen.getByText(`Earned ${cardDate("2026-08-30T20:00:00Z")}`),
+  ).toHaveTextContent("2026");
 });
 
 it("says a hidden achievement is one without saying what it is", async () => {

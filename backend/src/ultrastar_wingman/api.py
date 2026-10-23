@@ -187,7 +187,8 @@ async def update_setting(key: str, update: SettingUpdate, session: SessionDep) -
     if key in MUSIC_KEYS:
         # The music service caches the volumes and the reel switch, and the host screen
         # reads them off the music state: a slider moved here has to reach the speakers
-        # now, not at the next restart, and the switch going off ends a playing preview.
+        # now, not at the next restart, and the switch going off ends a playing preview
+        # (and going on again brings back the one of a selection still standing).
         await music.broadcast(await music.apply_settings(session))
     return result
 

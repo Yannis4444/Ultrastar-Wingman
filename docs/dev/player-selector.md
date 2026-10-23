@@ -225,7 +225,7 @@ hand.
 | `POST /devices/{id}/token` | a new token (reconfiguring a device whose token is lost) |
 | `DELETE /devices/{id}` | forgets the device; the cards stay |
 | `GET /devices/cards` · `PUT /devices/cards/{uid} {player_id}` · `DELETE /devices/cards/{uid}` | the card ↔ player table |
-| `GET /devices/settings` · `PATCH /devices/settings` | the seven private definitions (the `achievements/settings.py` pattern): `auto_start` (bool, default off), `auto_start_delay_s` (int, default 3, 0–30), `rescan_removes` (bool, default on: scanning a card again on a singers-in-turn reader takes that singer off their slot), `selection_idle_s` (int, default 120, 30–900, §11), `start_without_selection` (`nothing` / `top_wish` / `random`, §11), and for `random` the scope `random_scope` (`all` / `wishlist` / `weighted` / `playlist`) with `random_playlist` (a playlist id or `""`) — see [host-reel.md](host-reel.md) |
+| `GET /devices/settings` · `PATCH /devices/settings` | the eight private definitions (the `achievements/settings.py` pattern): `auto_start` (bool, default off), `auto_start_delay_s` (int, default 3, 0–30), `rescan_removes` (bool, default on: scanning a card again on a singers-in-turn reader takes that singer off their slot), `selection_idle_s` (int, default 120, 30–900, §11), `start_without_selection` (`nothing` / `top_wish` / `random`, §11), and for `random` the scope `random_scope` (`all` / `wishlist` / `weighted` / `playlist`) with `random_playlist` (a playlist id or `""`) — see [host-reel.md](host-reel.md) — and `cancel_without_selection` (`skip_music` / `nothing`, default `skip_music`, §6.2) |
 | `GET /devices/firmware` · `GET /devices/firmware/{file}` | the bundled manifest and image, 404 `no_firmware` without a build |
 | `POST /devices/report` | **bearer token**, §4 |
 
@@ -269,8 +269,22 @@ Selection: song (SongRead), slots [SlotState(color, player | None, card_uid | No
     and forgetting a card turns such a slot back into the unknown card (`card_forgotten`) —
     the device will not report a card that has not moved, so this is the only moment the
     room can be told.
-  - Buttons: `start` = the selection's start (nothing open → nothing); `clear` = every slot
-    emptied; `cancel` = the selection closed.
+  - Buttons: `start` = the selection's start (nothing open → nothing, or what
+    `devices.start_without_selection` says, §11.2); `clear` = every slot emptied (nothing
+    open → nothing); `cancel` = the selection closed. **`cancel` with nothing open** skips the
+    background music (`devices.cancel_without_selection`, default `skip_music`; `nothing`
+    turns it off): `button_pressed(..., skip_music=True)` calls `music.skip` — the call
+    `POST /music/skip` makes, so a paused room stays paused — and broadcasts what it
+    answers; music off, a sing / Ultrastar Deluxe holding the speakers or the pause after a
+    song is one INFO line and nothing else, no song to skip to is one INFO line plus a
+    broadcast of the state (the skip already took the old track off, and a button has no 409
+    to tell the phones), and any other failure is logged and never fails the report's answer.
+    Decided under the selection lock, so one press never both closes a selection and skips
+    (no lock-order inversion: `_broadcast_locked` already takes the music's lock under this
+    one, and `music` never imports `karaoke.selection`); a selection that runs out of idle
+    time on that very press counts as the one the press was for (closed, nothing skipped).
+    The user asked for the behaviour (2026-10-23); the setting follows the start button's
+    precedent.
   - **Auto-start**: with `devices.auto_start` on, a report that leaves every slot filled
     by a *known* player starts the song after `auto_start_delay_s` seconds if the slots are
     still full then (the delay is the moment to take a wrong card away).

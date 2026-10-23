@@ -28,9 +28,9 @@ share a color. Give a slot a color another one already has and the two swap. See
 |---|---|---|
 | **Master volume** | Everything the host screen plays is scaled by this one | 100 |
 | **Music volume** | The background music between songs. Anybody who may control the music can also change this from the player | 100 |
-| **Preview volume** | The song the reel lands on | 100 |
+| **Preview volume** | The song being picked, while the singers are chosen | 100 |
 | **Effects volume** | Wingman's own sound effects. Nothing plays any yet | 100 |
-| **Reel preview** | Play the song the reel on the host screen lands on, from where its singing starts, until Play is pressed or the pick is given up. The background music pauses for it | on |
+| **Song preview** | Play the song being picked on the host screen while the singers are chosen, from where its singing starts: once the reel lands on it, or at once for a song somebody chose. It stops when the song starts or the pick is given up, and the background music pauses for it | on |
 
 The volumes are percentages, and the master multiplies the others. None of them
 touches Ultrastar Deluxe, which mixes a song being sung itself. See
@@ -87,7 +87,16 @@ line saying so instead. See
 | Setting | What it does | Default |
 |---|---|---|
 | **Parallel** | How many songs download at the same time. Applied on restart | 2 |
+| **Normalize loudness** | Writes each download's loudness into its audio file, and switches on Ultrastar Deluxe's **ReplayGain** option before every song, so every song plays at about the same volume | on |
 | **Video quality** | Which stream is downloaded | High (1080p) |
+
+With **Normalize loudness** off, you set the option yourself, under
+**Options** > **Sound** > **ReplayGain** in Ultrastar Deluxe. See
+[Even out the volume](../start/ultrastar-deluxe.md#even-out-the-volume).
+
+Under **Normalize loudness**, the **Songs already in the library** row is no
+setting. Its **Even out** button evens out the songs that were there before. See
+[The songs you already have](../start/ultrastar-deluxe.md#the-songs-you-already-have).
 
 **Video quality** offers four presets and one free field. *Best available* takes
 whatever YouTube has, at any size. *High (1080p)*, *Medium (720p)*, and *Small

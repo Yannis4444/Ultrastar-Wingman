@@ -8,7 +8,7 @@ from fastapi import WebSocket
 from pydantic import BaseModel
 
 from .achievements.schema import EarnedByPlayer
-from .downloads.schema import DownloadRead
+from .downloads.schema import DownloadRead, LoudnessPassRead
 from .karaoke.schema import CurrentSing, ScoreRead, SelectionRead
 from .music.schema import MusicRead
 from .songs.schema import SongRead
@@ -67,6 +67,19 @@ class DownloadUpdated(Event):
 
     event: Literal["download.updated"] = "download.updated"
     download: DownloadRead
+
+
+class LoudnessChanged(Event):
+    """The pass that evens out the loudness of the songs already in the library started,
+    moved on to the next song, began or stopped waiting for a song being sung, was asked
+    to stop, or ended. At most one message per song, which is a second or so.
+
+    The state without the song in hand (`LoudnessPassRead`): every socket gets this, a
+    guest's included, and a song a tag hides from guests must not ride along. The Settings
+    page asks `GET /downloads/loudness` for the song."""
+
+    event: Literal["loudness.changed"] = "loudness.changed"
+    loudness: LoudnessPassRead
 
 
 class KaraokeStarted(Event):
@@ -134,6 +147,22 @@ class SessionsChanged(Event):
     event: Literal["sessions.changed"] = "sessions.changed"
 
 
+class PlayersChanged(Event):
+    """What `GET /players` answers is different: a player was added, hidden or put back,
+    deleted, given a picture — uploaded, or the identity provider's — or became or stopped
+    being an account's.
+
+    No payload: the `tags.changed` reasoning, and the players list is small, so a listener
+    refetches it. It exists for the host screen, which stays open all evening and draws the
+    standing's and the results' avatars from that list: without this, somebody who joined
+    or set a picture after the TV was turned on stayed an initial there until a reload,
+    while the selection and the badges — which carry their own `PlayerRead` — drew the
+    picture.
+    """
+
+    event: Literal["players.changed"] = "players.changed"
+
+
 class AchievementsEarned(Event):
     """What a finished sing just earned, for everybody it earned something.
 
@@ -175,7 +204,9 @@ class AchievementsChanged(Event):
 
 class WishlistUpdated(Event):
     """One song's wish count changed: somebody wished for it, took the wish back, or logged
-    in and brought their guest wishes along. `count` is 0 when the last wish is gone."""
+    in and brought their guest wishes along — or the song started, or was taken off the
+    wishlist for everybody, or deleted, which drop every wish for it. `count` is 0 when the
+    last wish is gone."""
 
     event: Literal["wishlist.updated"] = "wishlist.updated"
     song_id: str

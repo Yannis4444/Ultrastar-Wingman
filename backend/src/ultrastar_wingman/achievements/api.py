@@ -184,14 +184,20 @@ async def list_achievements(
 
     `manage=true` is the management page asking for the other answer — every row whole, plus
     its `definition` — and takes `achievements.manage`, else 403.
+
+    Each row's `holder_count` is how many players hold it, out of one GROUP BY for the whole
+    catalogue — and `None` on a masked row, which keeps the number with the name.
     """
     if manage:
         principal.require(service.MANAGE_CAPABILITY)
         return await _manage_list(session)
     earned = await service.earned_ids(session, await _own_player_id(session, principal))
+    holders = await service.holder_counts(session)
     return AchievementList(
         achievements=[
-            read_achievement(row, mask=_masked(row, row.id in earned))
+            read_achievement(
+                row, mask=_masked(row, row.id in earned), holder_count=holders.get(row.id, 0)
+            )
             for row in await service.list_achievements(session)
         ],
         settings=_settings_read(await achievement_settings.read_all(session)),
@@ -619,16 +625,27 @@ async def list_player_achievements(player_id: str, session: SessionDep) -> Playe
     # still going" is a question about the clock (`stats.service.current_session`, whose rule
     # is the one a sing looking for a session to join applies).
     running = await stats.current_session(session)
+    # The modal a row opens says how many players hold it, and this listing is what it reads.
+    # One GROUP BY for the record, like the catalogue's.
+    holders = await service.holder_counts(session)
     return PlayerAchievementList(
         achievements=[
-            _read_row(row, achievement, running.id if running is not None else None)
+            _read_row(
+                row,
+                achievement,
+                running.id if running is not None else None,
+                holders.get(achievement.id, 0),
+            )
             for row, achievement in await service.rows_of_player(session, player_id)
         ]
     )
 
 
 def _read_row(
-    row: PlayerAchievement, achievement: Achievement, current_session_id: str | None
+    row: PlayerAchievement,
+    achievement: Achievement,
+    current_session_id: str | None,
+    holder_count: int,
 ) -> PlayerAchievementRead:
     mask = _masked(achievement, row.earned_at is not None)
     return PlayerAchievementRead(
@@ -640,7 +657,7 @@ def _read_row(
         progress_target=None if mask else row.progress_target,
         # No definition on anybody's record: what an achievement asks for is the management
         # page's business, and that page reads the catalogue.
-        achievement=read_achievement(achievement, mask=mask),
+        achievement=read_achievement(achievement, mask=mask, holder_count=holder_count),
     )
 
 
@@ -685,10 +702,12 @@ async def _own_player_id(session: AsyncSession, principal: Principal) -> str | N
 
 async def _manage_list(session: AsyncSession) -> AchievementList:
     """The managing answer: every row whole, its `definition` with it, nothing masked. What
-    `GET /achievements?manage=true` and the reorder route both hand back."""
+    `GET /achievements?manage=true` and the reorder route both hand back. The holder counts
+    ride along, so the field means one thing in both catalogue answers."""
+    holders = await service.holder_counts(session)
     return AchievementList(
         achievements=[
-            read_achievement(row, definition=True)
+            read_achievement(row, definition=True, holder_count=holders.get(row.id, 0))
             for row in await service.list_achievements(session)
         ],
         settings=_settings_read(await achievement_settings.read_all(session)),

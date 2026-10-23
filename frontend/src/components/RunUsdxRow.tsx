@@ -1,12 +1,7 @@
 import { useMutation } from "@tanstack/react-query";
 import { useEffect } from "react";
 import { launchUsdxMutation } from "../api/@tanstack/react-query.gen";
-import {
-  errorDetail,
-  errorMessage,
-  explainUsdxProblem,
-  usdxProblems,
-} from "../errors";
+import { errorMessage, usdxLaunchRefusal } from "../errors";
 import { Icon } from "./icons";
 import { SettingSaved } from "./SettingField";
 import "./SettingField.css";
@@ -42,9 +37,7 @@ export default function RunUsdxRow({ readOnly, bundled = false }: Props) {
   // The two refusals worth their own sentence: a song is playing (that USDX is
   // busy), and USDX is not set up yet (the fields right below this row, where
   // this installation has any).
-  const problems = launch.isError ? usdxProblems(launch.error) : null;
-  const playing =
-    launch.isError && errorDetail(launch.error) === "already_playing";
+  const refusal = launch.isError ? usdxLaunchRefusal(launch.error) : null;
 
   return (
     <div className="setting-field">
@@ -75,14 +68,10 @@ export default function RunUsdxRow({ readOnly, bundled = false }: Props) {
 
       {launch.isError && (
         <div className="error-notice setting-error" role="alert">
-          {playing ? (
-            <p className="run-usdx-problem">
-              A song is playing right now. Ultrastar Deluxe is busy with it.
-            </p>
-          ) : problems !== null ? (
-            problems.map((problem) => (
-              <p className="run-usdx-problem" key={problem}>
-                {explainUsdxProblem(problem)}
+          {refusal !== null ? (
+            refusal.map((sentence) => (
+              <p className="run-usdx-problem" key={sentence}>
+                {sentence}
               </p>
             ))
           ) : (

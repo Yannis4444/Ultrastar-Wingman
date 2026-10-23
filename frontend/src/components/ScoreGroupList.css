@@ -187,6 +187,21 @@ details[open] > summary .score-group-chevron {
   margin-top: 8px;
 }
 
+/* *Share a score*, ending the tile under its scores: centred like
+   `.delete-row`, with the same 24px above it, and never its danger colour —
+   sharing takes nothing away. The tile's own padding is the side margin. */
+.score-group-share {
+  display: flex;
+  justify-content: center;
+  margin-top: 24px;
+}
+
+.score-group-share .button {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+}
+
 /* The scores themselves, filling the rest of the tile. The 8px negative
    margin is the row padding given back: the rows read as a list that runs the
    width of the tile, and their hover band still bleeds past their text. */

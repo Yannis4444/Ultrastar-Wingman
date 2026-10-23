@@ -10,6 +10,7 @@ from sqlalchemy import func, select
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from ..events import PlayersChanged, event_bus
 from ..images import (
     IMAGE_MEDIA_TYPES,
     IMAGE_TYPES,
@@ -62,7 +63,17 @@ async def create_player(session: AsyncSession, name: str) -> Player:
         await session.rollback()
         raise DuplicatePlayerNameError(name) from error
     logger.info("Player '%s' added", player.name)
+    await announce_players()
     return player
+
+
+async def announce_players() -> None:
+    """Tell every client the players list is different, after the commit that made it so.
+
+    Called by every write that changes what `GET /players` answers — here, and where an
+    account is created or deleted (`auth.service`), which adds or unlinks its player.
+    """
+    await event_bus.broadcast(PlayersChanged())
 
 
 async def player_id_of_user(session: AsyncSession, user_id: str) -> str | None:
@@ -83,6 +94,7 @@ async def set_hidden(session: AsyncSession, player: Player, hidden: bool) -> Pla
     logger.info(
         "Player '%s' %s the singer picker", player.name, "taken out of" if hidden else "back in"
     )
+    await announce_players()
     return player
 
 
@@ -98,6 +110,7 @@ async def unhide_player_of_user(session: AsyncSession, user_id: str) -> None:
     player.hidden = False
     await session.commit()
     logger.info("Player '%s' back in the singer picker after logging in", player.name)
+    await announce_players()
 
 
 async def delete_player(session: AsyncSession, player: Player, avatars_dir: Path) -> None:
@@ -115,6 +128,7 @@ async def delete_player(session: AsyncSession, player: Player, avatars_dir: Path
         await session.delete(player)
         await session.commit()
     logger.info("Player '%s' deleted", player.name)
+    await announce_players()
 
 
 # One avatar write at a time, file and row together. A single sign-on login decides whether
@@ -151,6 +165,7 @@ async def store_avatar(
     extension = validate_image(content_type, data)
     async with _avatar_lock:
         await _write(session, player, avatars_dir, extension, data, None)
+    await announce_players()
     return player
 
 
@@ -187,10 +202,12 @@ async def store_provider_avatar(
         if not takes_provider_picture(player):
             return False
         if unchanged and player.avatar_file is not None:
+            # The file and its version stay, so nothing a client draws is different.
             _set_source(player, provider_picture)
             await session.commit()
-        else:
-            await _write(session, player, avatars_dir, extension, data, provider_picture)
+            return True
+        await _write(session, player, avatars_dir, extension, data, provider_picture)
+    await announce_players()
     return True
 
 

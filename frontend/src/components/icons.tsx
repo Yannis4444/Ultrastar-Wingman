@@ -443,6 +443,30 @@ export const ICON_PATHS = {
   // rounded box; the chip is what a reader looks for and it sits off centre,
   // where a bank card carries one.
   card: "M4 6h16a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2ZM5 8v4h5V8Z",
+  // *Shuffle again* beside the Songs sort while it is *Random*: two arrows
+  // running left to right and crossing once, heads at the right. Each shaft is
+  // a two-unit band, level, then 45 degrees, then level again, its corners
+  // mitred; all four subpaths are wound the same way, so the crossing fills
+  // solid. Not pickable, and never the dice, which are the reel's.
+  shuffle:
+    "M3 16h2.586l10-10H18v2h-1.586l-10 10H3v-2ZM17 4l4 3-4 3V4ZM3 6h3.414l10 10H18v2h-2.414l-10-10H3V6ZM17 14l4 3-4 3v-6Z",
+  // A link that leaves Wingman: the song modal's *Open in a streaming service*
+  // row and every service behind it. A square outline open at its upper-right
+  // corner — one two-unit band from the top edge's end round to the right
+  // edge's, rounded outside and square inside — and an arrow leaving through
+  // the gap to the top right, its head an L bar with the shaft mitred into it.
+  // Two subpaths that never touch, so the winding does not matter. Not
+  // pickable: a link is not a thing a song is about.
+  "external-link":
+    "M11 4H6a2 2 0 0 0-2 2v12a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-5h-2v5H6V6h5V4ZM14 2h8v8h-2V5.41l-8.59 8.59L10 12.59 18.59 4H14V2Z",
+  // A picture of scores to send: the Scores page's party button, an open score
+  // group's *Share a score*, the share panel's Share. Three discs of radius 3,
+  // one at the left middle and two at the right top and bottom, joined by two
+  // bars two units thick. All five subpaths are wound clockwise, so where a
+  // bar runs into a disc the fill stays solid. Never `upload`'s arrow out of a
+  // tray, which is the achievements archive; not pickable.
+  share:
+    "M3 12a3 3 0 1 1 6 0 3 3 0 1 1-6 0ZM15 5a3 3 0 1 1 6 0 3 3 0 1 1-6 0ZM15 19a3 3 0 1 1 6 0 3 3 0 1 1-6 0ZM6.5 12.86l-1-1.72 12-7 1 1.72-12 7ZM5.5 12.86l1-1.72 12 7-1 1.72-12-7Z",
 } as const;
 
 export type IconName = keyof typeof ICON_PATHS;

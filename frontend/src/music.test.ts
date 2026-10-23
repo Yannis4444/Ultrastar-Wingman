@@ -1,9 +1,11 @@
 import type { CurrentSing, MusicRead, MusicTrackRead, SongRead } from "./api";
 import {
   effectiveVolume,
+  hasTransport,
   musicPosition,
   playerMode,
   progressPercent,
+  replayGainFactor,
   seekIfDrifted,
 } from "./music";
 
@@ -19,6 +21,7 @@ function song(): SongRead {
     duration_seconds: 354,
     has_video: false,
     is_duet: false,
+    created_at: "2026-01-01T12:00:00Z",
     language: null,
     genre: null,
     year: null,
@@ -35,6 +38,8 @@ function track(overrides: Partial<MusicTrackRead> = {}): MusicTrackRead {
     position_s: 0,
     position_at: AT,
     duration_s: 200,
+    gain_db: null,
+    peak: null,
     ...overrides,
   };
 }
@@ -83,6 +88,19 @@ describe("playerMode", () => {
   });
 });
 
+describe("hasTransport", () => {
+  it("draws play or pause and skip while the music is on and its own", () => {
+    for (const status of ["playing", "paused", "waiting", "empty"] as const) {
+      expect(hasTransport(status)).toBe(true);
+    }
+  });
+
+  it("draws neither while the music is off or a sing holds it", () => {
+    expect(hasTransport("off")).toBe(false);
+    expect(hasTransport("blocked")).toBe(false);
+  });
+});
+
 describe("musicPosition", () => {
   it("adds the seconds since the server last said", () => {
     expect(musicPosition(music(), NOW + 12_000)).toBeCloseTo(12);
@@ -119,7 +137,14 @@ describe("musicPosition while the reel's song plays", () => {
     const base = music();
     if (base.track === null) throw new Error("the fixture has a track");
     const state = music({
-      preview: { id: "s:1", song: base.track.song, start_s: 12, reveal_at: AT },
+      preview: {
+        id: "s:1",
+        song: base.track.song,
+        start_s: 12,
+        reveal_at: AT,
+        gain_db: null,
+        peak: null,
+      },
     });
     expect(musicPosition(state, NOW + 30_000)).toBe(base.track.position_s);
   });
@@ -162,5 +187,45 @@ describe("seekIfDrifted", () => {
   it("jumps when the element is somewhere else entirely", () => {
     expect(seekIfDrifted(0, 95)).toBe(true);
     expect(seekIfDrifted(95, 0)).toBe(true);
+  });
+});
+
+describe("replayGainFactor", () => {
+  it("plays a song whose loudness is not known as it is", () => {
+    expect(replayGainFactor(null, null)).toBe(1);
+    expect(replayGainFactor(null, 0.5)).toBe(1);
+    expect(replayGainFactor(undefined, undefined)).toBe(1);
+  });
+
+  it("turns a loud song down by its gain", () => {
+    expect(replayGainFactor(-6, null)).toBeCloseTo(0.501, 3);
+    expect(replayGainFactor(0, 0.9)).toBe(1);
+  });
+
+  it("turns a quiet song up no further than its peak allows", () => {
+    // +6 dB would be about 2.0; a peak of 0.9 leaves room for 1/0.9 only.
+    expect(replayGainFactor(6, 0.9)).toBeCloseTo(1 / 0.9);
+    // A peak with room to spare does not hold the gain back.
+    expect(replayGainFactor(6, 0.25)).toBeCloseTo(1.995, 3);
+  });
+
+  it("lowers even a negative gain under a peak above full scale", () => {
+    // Ultrastar Deluxe caps the gain at -20·log10(peak) whatever its sign.
+    expect(replayGainFactor(-1, 1.25)).toBeCloseTo(0.8);
+  });
+
+  it("leaves the gain uncapped without a peak", () => {
+    expect(replayGainFactor(6, null)).toBeCloseTo(1.995, 3);
+    expect(replayGainFactor(6, 0)).toBeCloseTo(1.995, 3);
+    expect(replayGainFactor(6, -0.5)).toBeCloseTo(1.995, 3);
+  });
+
+  it("never turns a number it cannot read into a volume", () => {
+    expect(replayGainFactor(Number.NaN, 0.9)).toBe(1);
+    expect(replayGainFactor(Number.POSITIVE_INFINITY, null)).toBe(1);
+    expect(replayGainFactor(-6, Number.NaN)).toBeCloseTo(0.501, 3);
+    // A cached state from a build that sent the tag's own text.
+    expect(replayGainFactor("-6.00 dB" as unknown as number, 0.5)).toBe(1);
+    expect(replayGainFactor("-6" as unknown as number, null)).toBe(1);
   });
 });

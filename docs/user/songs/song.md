@@ -40,6 +40,8 @@ on the list. See [Wish for a song](../party/wishlist.md).
 - :wingman-list-plus: **Add to playlist** lists the playlists you may edit. Tap
   one to add the song, tap it again to take it out. See
   [Playlists](playlists.md).
+- :wingman-external-link: **Open in a streaming service** lists five music
+  services. See [Open in a streaming service](#open-in-a-streaming-service).
 - :wingman-pencil: **Edit details** is the row for the party's helpers. It
   corrects what the song says about itself, and **Delete song** at the foot of
   that form takes it out of the library. See
@@ -73,6 +75,17 @@ holds them.
 Under the figures stands the ranking, best first, up to ten singers deep. From
 four scores on, a picture of every score the song ever got stands between the
 two, with the median of all of them written above it.
+
+## Open in a streaming service
+
+**Open in a streaming service** lists **Spotify**, **Apple Music**,
+**YouTube Music**, **Tidal**, and **Deezer**. Tap one and the service opens in a
+new tab, searching for the artist and the title.
+
+It is a search, so a song the service spells a little differently still turns
+up. Wingman leaves out the notes a karaoke file adds to a title, such as "[DUET]".
+Everybody gets this row, a guest phone included. Listening somewhere else takes
+no permission in Wingman.
 
 ## Tags
 

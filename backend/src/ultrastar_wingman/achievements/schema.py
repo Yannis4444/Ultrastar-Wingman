@@ -381,6 +381,13 @@ class AchievementRead(BaseModel):
     enabled: bool
     built_in: bool
     sort_order: int
+    # How many players hold it — what the modal says under the description, and the host
+    # screen under each badge it throws up (`service.holder_counts`: players with
+    # `earned_at` set, hidden ones included). `None` on a masked row, like the name: how many
+    # people found a hidden achievement says it can be found, and how often. `None` as well
+    # on the answer to a single write (create, edit, reset, the icon routes), which counts
+    # nothing — so a client reads `None` as "no line", never as "nobody".
+    holder_count: int | None = None
     # Filled for the management page — `GET /achievements?manage=true`, which takes
     # `achievements.manage` — and None for every other answer, exactly like
     # `TagRead.permissions`. What a hidden achievement asks for is the surprise `hidden`
@@ -448,7 +455,11 @@ class EarnedByPlayer(BaseModel):
 
 
 def read_achievement(
-    achievement: Achievement, *, definition: bool = False, mask: bool = False
+    achievement: Achievement,
+    *,
+    definition: bool = False,
+    mask: bool = False,
+    holder_count: int | None = None,
 ) -> AchievementRead:
     """One catalogue entry.
 
@@ -461,6 +472,9 @@ def read_achievement(
     `definition` is handed only to the management page — `GET /achievements?manage=true`,
     behind `achievements.manage`. It says what a hidden achievement asks for, which is the
     surprise itself, so a manager reading a singer-facing listing does not get it either.
+
+    `holder_count` is the caller's (`service.holder_counts`), and the mask blanks it like the
+    name: a count given to a masked row is dropped here, so no caller can leak one.
     """
     # The upload, or the shipped picture of a built-in (`pictures.py`). File paths stay
     # server-side, like a player's avatar: a client only needs to know whether to ask the
@@ -479,6 +493,7 @@ def read_achievement(
         enabled=achievement.enabled,
         built_in=achievement.built_in,
         sort_order=achievement.sort_order,
+        holder_count=None if mask else holder_count,
         # Never on a masked row, and never on the event bus either — that one is anonymous.
         definition=parse_definition(achievement.id, achievement.definition) if definition else None,
     )

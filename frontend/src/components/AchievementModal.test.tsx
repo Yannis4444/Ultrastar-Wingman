@@ -4,6 +4,7 @@ import {
   maskedAchievementRead,
   playerAchievementRead,
 } from "../test/achievements";
+import { cardDate } from "../duration";
 import { iconNames } from "../test/icons";
 import AchievementModal from "./AchievementModal";
 import type { PlayerAchievementRead } from "../api";
@@ -40,9 +41,10 @@ it("shows the picture large, the name, the sentence and the day", () => {
   expect(
     screen.getByText("Score 9,000 or more in a song."),
   ).toBeInTheDocument();
-  // The app's own date helper, so the year is there once the party is old
-  // enough for it to matter and the test does not depend on which year it is.
-  expect(screen.getByText(/^Earned 12 Aug/)).toBeInTheDocument();
+  // Day, month and year, always (ui-guidelines §5): the modal is read on its
+  // own. Through the app's own date helper, so no locale is assumed.
+  const earned = screen.getByText(`Earned ${cardDate("2026-08-12T20:15:00Z")}`);
+  expect(earned).toHaveTextContent("2026");
   // Earned, so there is nothing left to progress towards.
   expect(container.querySelector(".achievement-progress")).toBeNull();
 });
@@ -130,6 +132,46 @@ it("keeps the bar off a masked row even if the numbers arrive anyway", () => {
 
   expect(container.querySelector(".achievement-progress")).toBeNull();
   expect(screen.queryByText("7 / 10")).not.toBeInTheDocument();
+});
+
+it.each([
+  [3, "Earned by 3 players"],
+  [1, "Earned by 1 player"],
+  [0, "Nobody has earned this yet"],
+])("says how many players hold it: %i", (count, line) => {
+  const { container } = renderModal(
+    playerAchievementRead({
+      achievement: achievementRead({ holder_count: count }),
+    }),
+  );
+
+  // Under the sentence, and before the row's own line.
+  const holders = container.querySelector(".achievement-modal-holders");
+  expect(holders).toHaveTextContent(line);
+  expect(holders?.previousElementSibling).toHaveClass(
+    "achievement-modal-description",
+  );
+});
+
+it("says nothing about the holders when there is no count", () => {
+  const { container } = renderModal(playerAchievementRead());
+
+  // No count is not "Nobody": the line is simply not there.
+  expect(container.querySelector(".achievement-modal-holders")).toBeNull();
+  expect(screen.queryByText(/Nobody has earned/)).not.toBeInTheDocument();
+});
+
+it("keeps the holders line off a masked row even if a count arrives", () => {
+  // The API nulls the count on a masked row; this is the belt to that braces.
+  const { container } = renderModal(
+    playerAchievementRead({
+      achievement: maskedAchievementRead({ holder_count: 4 }),
+      earned_at: null,
+    }),
+  );
+
+  expect(container.querySelector(".achievement-modal-holders")).toBeNull();
+  expect(screen.queryByText(/Earned by/)).not.toBeInTheDocument();
 });
 
 it("closes on Escape", () => {

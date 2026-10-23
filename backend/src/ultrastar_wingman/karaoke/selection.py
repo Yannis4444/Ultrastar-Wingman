@@ -27,7 +27,7 @@ import contextlib
 import logging
 import secrets
 from collections.abc import Mapping
-from dataclasses import dataclass, field
+from dataclasses import dataclass, field, replace
 from datetime import UTC, datetime, timedelta
 from typing import Literal
 
@@ -35,6 +35,7 @@ from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
 
 from ..events import SelectionChanged, event_bus
 from ..music import service as music
+from ..music.schema import MusicRead
 from ..players.model import Player
 from ..players.schema import PlayerRead, read_player
 from ..songs.model import Song
@@ -183,25 +184,46 @@ class _Spin:
     viewer: tags.Viewer
     origin: SpinOrigin
     revealed: bool = False
-    # When the press landed the reel early, for the host's fade-in (`music.SpinPreview`).
+    # When the press landed the reel early, for the host's fade-in (`music.SelectionPreview`).
     revealed_at: datetime | None = None
     # What the host screen plays when the reel lands: where the file says a preview starts,
     # and whether there is a file at all. Read off the picked row here, so the music needs no
     # query of its own under two locks.
     preview_start: float | None = None
     has_audio: bool = False
+    # The song's ReplayGain, off the same row, for the host to play it at (`music`).
+    gain_db: float | None = None
+    peak: float | None = None
 
 
 @dataclass(frozen=True)
-class _Landed:
-    """What the reel landed on, kept once the spin comes off the selection (`pick_singers`):
-    the host keeps playing the song while the singers are picked, until the selection is
-    started or given up."""
+class _Preview:
+    """What the host screen plays for a selection that is not (or no longer) spun: the song
+    it was opened with, from the moment it opened, or what the reel landed on, kept once the
+    spin comes off (`pick_singers`) — with the spin's own key and landing, so the song plays
+    on where it is rather than from the top. Either way it plays while the singers are
+    picked, until the selection is started or given up."""
 
     key: str
     reveal_at: datetime
     preview_start: float | None
     has_audio: bool
+    gain_db: float | None = None
+    peak: float | None = None
+
+
+def _opened_with(song: Song, opened_at: datetime) -> _Preview:
+    """The preview of a selection opened with a song: no reel to wait for, so it starts at
+    once. The key is the selection's own — a new selection, even of the same song, is a new
+    preview — and never one a spin's key could be."""
+    return _Preview(
+        key=f"{opened_at.isoformat()}:song",
+        reveal_at=opened_at,
+        preview_start=song.preview_start_seconds,
+        has_audio=song.audio_file is not None,
+        gain_db=song.replay_gain_db,
+        peak=song.replay_gain_peak,
+    )
 
 
 @dataclass
@@ -218,7 +240,8 @@ class _Selection:
     # song, and never set later: a selection is spun from the start or not at all — though
     # the opener may take the spin off it again (`pick_singers`), once the song is right.
     spin: _Spin | None = None
-    landed: _Landed | None = None
+    # What the host plays while there is no spin: see `_Preview`.
+    preview: _Preview | None = None
 
 
 # One room, one selection — see `service._running` for the same reasoning.
@@ -313,6 +336,7 @@ async def open_selection(
             raise SelectionOpenError
         now = _now()
         spun: _Spin | None = None
+        preview: _Preview | None = None
         if spin is not None:
             song = await reel.pick_song(
                 session, spin.scope, spin.viewer, playlist_id=spin.playlist_id
@@ -328,11 +352,14 @@ async def open_selection(
                 origin="phone",
                 preview_start=song.preview_start_seconds,
                 has_audio=song.audio_file is not None,
+                gain_db=song.replay_gain_db,
+                peak=song.replay_gain_peak,
             )
         elif song_id is not None:
             song = await session.get(Song, song_id)
             if song is None:
                 raise service.UnknownSongError(song_id)
+            preview = _opened_with(song, now)
         else:
             raise ValueError("open a selection with a song or with a spin")
         # Before the lock is taken over: a request that is refused must leave whatever is
@@ -353,6 +380,7 @@ async def open_selection(
             opened_at=now,
             updated_at=now,
             spin=spun,
+            preview=preview,
         )
         if from_device:
             _refresh_auto_start(_selection, auto_start, session_factory)
@@ -409,7 +437,14 @@ async def pick_singers(
         selection = _opener_or_raise(token)
         if selection.spin is None:
             raise NotASpinError
-        selection.landed = _landed(selection)
+        # The spin's own key and landing, so the host plays on where it is (`_Preview`). A
+        # pick while the reel still runs (the phone's Play waits for the landing, the route
+        # does not) lands it now: the TV shows the song from here on, and the speakers must
+        # not keep it back until a landing nobody sees any more.
+        landed = _preview_of(selection)
+        if landed is not None and landed.reveal_at > _now():
+            landed = replace(landed, reveal_at=_now())
+        selection.preview = landed
         selection.spin = None
         _touch(selection)
         if any(slot.card_uid is not None for slot in selection.slots):
@@ -639,6 +674,7 @@ async def button_pressed(
     action: ButtonAction,
     without_selection: StartWithoutSelection | None = None,
     auto_start: AutoStart | None = None,
+    skip_music: bool = False,
 ) -> None:
     """A button on the player selector was pressed.
 
@@ -650,6 +686,11 @@ async def button_pressed(
     song out of nowhere is a thing the host asks for. `auto_start` is the host's automatic
     start, for the countdown a selector's spin runs once its reel has landed.
 
+    `skip_music` is what a `cancel` press does when nobody is picking anything
+    (`devices.cancel_without_selection`): the background music moves on to its next song,
+    the very call `POST /music/skip` makes and under its rules (`_skip_music_locked`). With a
+    selection open a cancel gives it up, as it always has, and skips nothing.
+
     A `start` at a *spun* selection whose reel is still running lands the reel — the room
     did not want to wait — and does nothing else, whoever stands on the slots. Otherwise,
     with nobody on any slot it spins again — the room is still looking for the right song,
@@ -658,7 +699,21 @@ async def button_pressed(
     starts the song, as at any other selection.
     """
     if action == "cancel":
-        await close_selection(any_opener=True)
+        # Decided under the lock: a selection opened between "is anything open" and the
+        # skip would otherwise be the one press both closing it and moving the music on.
+        async with _lock:
+            stood = _selection is not None
+            await _expire_locked()
+            if _selection is not None:
+                await _drop_locked(_selection)
+                return
+            if stood or not skip_music:
+                # One that ran out of time on this very press was still on the TV, so the
+                # press was meant for it. It is gone, and that is all the press does.
+                return
+            payload = await _skip_music_locked(session)
+        if payload is not None:
+            await music.broadcast(payload)
         return
     async with _lock:
         await _expire_locked()
@@ -756,34 +811,39 @@ async def _broadcast_locked() -> None:
         SelectionChanged(selection=None if _selection is None else _read(_selection))
     )
     # The one place every change of the selection passes, so the music follows all of them:
-    # a reel started, respun, landed early, its spin taken off, the selection gone.
-    await music.selection_changed(None if _selection is None else _spin_preview(_selection))
+    # a selection opened, a reel started, respun, landed early, its spin taken off, a slot
+    # moved, the selection gone. The music answers the ones that keep the song with nothing.
+    await music.selection_changed(None if _selection is None else _selection_preview(_selection))
 
 
-def _landed(selection: _Selection) -> _Landed | None:
-    """The reel behind the selection as the host plays it: the spin while it is on, or what
-    it landed on after `pick_singers` took it off."""
+def _preview_of(selection: _Selection) -> _Preview | None:
+    """The song behind the selection as the host plays it: the spin while it is on, else
+    the song it was opened with or what the reel landed on (`_Selection.preview`)."""
     spin = selection.spin
     if spin is None:
-        return selection.landed
-    return _Landed(
+        return selection.preview
+    return _Preview(
         key=f"{selection.opened_at.isoformat()}:{spin.id}",
         reveal_at=spin.revealed_at or spin.spun_at + _REVEAL,
         preview_start=spin.preview_start,
         has_audio=spin.has_audio,
+        gain_db=spin.gain_db,
+        peak=spin.peak,
     )
 
 
-def _spin_preview(selection: _Selection) -> music.SpinPreview | None:
-    landed = _landed(selection)
-    if landed is None:
+def _selection_preview(selection: _Selection) -> music.SelectionPreview | None:
+    preview = _preview_of(selection)
+    if preview is None:
         return None
-    return music.SpinPreview(
-        key=landed.key,
+    return music.SelectionPreview(
+        key=preview.key,
         song=selection.song,
-        start_s=landed.preview_start,
-        reveal_at=landed.reveal_at,
-        has_audio=landed.has_audio,
+        start_s=preview.preview_start,
+        reveal_at=preview.reveal_at,
+        has_audio=preview.has_audio,
+        gain_db=preview.gain_db,
+        peak=preview.peak,
     )
 
 
@@ -821,6 +881,52 @@ async def _start_locked(
     )
     await _drop_locked(selection)
     return sing
+
+
+async def _skip_music_locked(session: AsyncSession) -> MusicRead | None:
+    """The cancel button, pressed at a room where nobody is picking anything: the background
+    music's next song, by the phone's own Next (`music.skip`) and under its rules — a paused
+    room stays paused, and nothing moves while the music is off or Ultrastar Deluxe has the
+    speakers.
+
+    Nobody is on the other end of a button, so every refusal is one log line and nothing
+    else. Returns what the room is to be told, or None for a press that changed nothing.
+    Never raises: the answer to the report carries the lights, and a device that got a 500
+    would retry with the same counter, so the press would be lost all the same.
+    """
+    try:
+        payload = await music.skip(session)
+    except music.MusicDisabledError:
+        logger.info("The player selector's cancel button skipped nothing: the music is off")
+        return None
+    except music.MusicBlockedError:
+        logger.info(
+            "The player selector's cancel button skipped nothing: Ultrastar Deluxe has the speakers"
+        )
+        return None
+    except music.EmptyPoolError:
+        state = await music.read()
+        if state.status == "waiting":
+            # The pause after a song: there was no track to take off, and the skip does not
+            # end the pause (the phone has no Next there either). Nothing moved.
+            logger.info(
+                "The player selector's cancel button skipped nothing: the music is pausing "
+                "after a song"
+            )
+            return None
+        logger.info("The player selector's cancel button found no background song to skip to")
+        # The track the skip took off is gone all the same, and the phones are still
+        # drawing it. The route leaves that to the refusal it answers; a button has none.
+        return state
+    except Exception:
+        logger.exception("the player selector's cancel button could not skip the music")
+        return None
+    if payload.track is not None:
+        logger.info(
+            "The player selector's cancel button skipped the background music to %s",
+            song_label(payload.track.song),
+        )
+    return payload
 
 
 async def _start_without_selection_locked(
@@ -874,6 +980,9 @@ async def _start_without_selection_locked(
         token=secrets.token_urlsafe(TOKEN_BYTES),
         opened_at=now,
         updated_at=now,
+        # Never heard: this selection is started before anybody is told it exists, and the
+        # sing takes the speakers. Set like every selection opened with a song all the same.
+        preview=_opened_with(song, now),
     )
     opened = _selection
     try:
@@ -949,6 +1058,8 @@ async def _spin_without_selection_locked(
             origin="device",
             preview_start=song.preview_start_seconds,
             has_audio=song.audio_file is not None,
+            gain_db=song.replay_gain_db,
+            peak=song.replay_gain_peak,
         ),
     )
     _refresh_auto_start(_selection, auto_start, session_factory)
@@ -1009,6 +1120,8 @@ async def _respin_locked(
     spin.revealed_at = None
     spin.preview_start = song.preview_start_seconds
     spin.has_audio = song.audio_file is not None
+    spin.gain_db = song.replay_gain_db
+    spin.peak = song.replay_gain_peak
     _reschedule_auto_start(selection, auto_start, session_factory)
 
 

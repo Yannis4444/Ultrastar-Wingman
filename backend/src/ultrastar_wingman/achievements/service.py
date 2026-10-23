@@ -404,6 +404,37 @@ async def earned_by_anybody(session: AsyncSession, achievement_id: str) -> bool:
     return found is not None
 
 
+async def holder_counts(
+    session: AsyncSession, achievement_ids: Iterable[str] | None = None
+) -> dict[str, int]:
+    """How many players hold each achievement: the line under the description when one is
+    shown large, and under each badge the host screen throws up.
+
+    One GROUP BY for whatever is asked about, never a query per achievement: the catalogue
+    is thirty-five rows and more. An achievement nobody holds is simply absent, so a caller
+    reads `.get(id, 0)`.
+
+    Players, not rows: the table's key is (achievement, player), so a row is a player
+    already, and the join to `players` is what keeps a deleted one out. `delete_player`
+    leaves the rows behind and the full pass keeps maintaining them over the orphaned
+    scores, the same orphan every other listing skips (`rows_of_player`). A player taken
+    out of the singer picker is still counted: `hidden` hides them from a list, and they
+    earned it all the same.
+    """
+    query = (
+        select(PlayerAchievement.achievement_id, func.count(PlayerAchievement.player_id))
+        .join(Player, Player.id == PlayerAchievement.player_id)
+        .where(PlayerAchievement.earned_at.is_not(None))
+        .group_by(PlayerAchievement.achievement_id)
+    )
+    if achievement_ids is not None:
+        wanted = list(achievement_ids)
+        if not wanted:
+            return {}
+        query = query.where(PlayerAchievement.achievement_id.in_(wanted))
+    return {achievement_id: count for achievement_id, count in await session.execute(query)}
+
+
 async def rows_of_player(
     session: AsyncSession, player_id: str
 ) -> list[tuple[PlayerAchievement, Achievement]]:
@@ -430,16 +461,22 @@ async def earned_by_players(
     `definition` all the same — the bus is open to anonymous clients, and what a hidden
     achievement *asks* for is the surprise itself.
 
+    Each badge carries its `holder_count` as of this pass, the singer included: the pass
+    has committed its rows on this same session before this runs (`evaluate_players`, under
+    the write lock), so the count is the one the TV should say. Here and not read off the
+    catalogue by the host: an earn broadcasts no `achievements.changed`, so a cached
+    catalogue would say the number from before the song, and a refetch of it on every sing
+    would be one more request for every phone in the room.
+
     A player whose row has gone missing (deleted mid-party) is left out rather than announced
     as an id nothing can draw.
     """
     filled = {player_id: ids for player_id, ids in earned.items() if ids}
     if not filled:
         return []
-    achievements = {
-        achievement.id: achievement
-        for achievement in await by_ids(session, {one for ids in filled.values() for one in ids})
-    }
+    awarded = {one for ids in filled.values() for one in ids}
+    achievements = {achievement.id: achievement for achievement in await by_ids(session, awarded)}
+    holders = await holder_counts(session, awarded)
     payload: list[EarnedByPlayer] = []
     for player_id, ids in filled.items():
         player = await session.get(Player, player_id)
@@ -449,7 +486,9 @@ async def earned_by_players(
             EarnedByPlayer(
                 player=read_player(player),
                 achievements=[
-                    read_achievement(achievements[one]) for one in ids if one in achievements
+                    read_achievement(achievements[one], holder_count=holders.get(one, 0))
+                    for one in ids
+                    if one in achievements
                 ],
             )
         )

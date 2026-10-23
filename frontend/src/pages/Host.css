@@ -150,16 +150,33 @@
   text-align: center;
 }
 
-/* Reveal-on-move admin overlay; top-left because the QR owns the right. */
+/* Reveal-on-move admin overlay; top-left because the QR owns the right. It
+   wraps rather than leaving the screen, and while the rail stands it wraps
+   before the QR card's column: the card is what the room is scanning. */
+.host-page {
+  --host-controls-inset: clamp(12px, 2vw, 24px);
+}
+
 .host-controls {
   position: fixed;
   top: clamp(12px, 2vh, 24px);
-  left: clamp(12px, 2vw, 24px);
+  left: var(--host-controls-inset);
   z-index: 2;
   display: flex;
+  flex-wrap: wrap;
   align-items: center;
   gap: 12px;
+  box-sizing: border-box;
+  max-width: calc(
+    100vw - var(--host-controls-inset) - clamp(300px, 24vw, 440px) -
+      clamp(24px, 3vh, 56px) - 12px
+  );
   transition: opacity 200ms ease;
+}
+
+/* No rail to keep off: the whole width, less the inset on both sides. */
+.host-takeover .host-controls {
+  max-width: calc(100vw - 2 * var(--host-controls-inset));
 }
 
 /* `*` is needed: .button and .icon-button set their own cursor. */
@@ -212,10 +229,64 @@
   }
 }
 
-.host-active {
+/* The overlay's quiet words: the host-rights line, and the caption that says
+   why a host opens Ultrastar Deluxe. */
+.host-caption {
   margin: 0;
   color: var(--color-darker);
   font-size: 14px;
+}
+
+/* The Ultrastar Deluxe button and its caption wrap as one: a caption that
+   dropped onto the next row would explain whatever happened to stand there. */
+.host-usdx,
+.host-transport,
+.host-volume {
+  display: flex;
+  flex: 0 0 auto;
+  align-items: center;
+}
+
+.host-usdx {
+  gap: 8px;
+}
+
+.host-usdx-button {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+/* Play or pause, skip and the volume stay one group, so a wrap moves the
+   whole transport and never strands the slider away from its buttons. */
+.host-transport {
+  gap: 12px;
+}
+
+.host-volume {
+  gap: 8px;
+}
+
+.host-volume-glyph {
+  font-size: 1.25em;
+  color: var(--color-dark);
+}
+
+/* Wide enough to aim at with a mouse from the sofa's distance, never the
+   whole row (§4). Two classes: beats `.range-input`'s own 100% whatever the
+   CSS import order. */
+.host-volume .host-volume-input {
+  flex: 0 0 auto;
+  width: clamp(120px, 14vw, 240px);
+}
+
+/* Four characters held, so the slider does not shift between 5% and 100%. */
+.host-volume-value {
+  min-width: 4ch;
+  color: var(--color-dark);
+  font-size: 14px;
+  font-variant-numeric: tabular-nums;
+  text-align: right;
 }
 
 .host-error {
@@ -440,6 +511,11 @@
   .host-music-line {
     position: static;
     max-width: 100%;
+  }
+
+  /* The rail is under the stage here, so nothing stands to the overlay's right. */
+  .host-controls {
+    max-width: calc(100vw - 2 * var(--host-controls-inset));
   }
 
   .host-join {

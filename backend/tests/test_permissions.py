@@ -144,6 +144,12 @@ ROUTES: list[tuple[str, str, str, dict[str, object] | None]] = [
     # Taking a download off the panel changes what everybody else sees, so it is `manage`.
     ("downloads.manage", "POST", "/api/v1/downloads/1/dismiss", None),
     ("downloads.manage", "POST", "/api/v1/downloads/dismiss-finished", None),
+    # The pass over the library rewrites the host's own song files: the host's right, not
+    # the download queue's. The admin's POST runs it over an empty library, which ends at
+    # once without looking for an ffmpeg.
+    ("settings.manage", "GET", "/api/v1/downloads/loudness", None),
+    ("settings.manage", "POST", "/api/v1/downloads/loudness", None),
+    ("settings.manage", "DELETE", "/api/v1/downloads/loudness", None),
     # The list itself answers everybody: without `stats.history` it simply holds nothing
     # but the party that is still going.
     ("stats.view", "GET", "/api/v1/stats/sessions", None),

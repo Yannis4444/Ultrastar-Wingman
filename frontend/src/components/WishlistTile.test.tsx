@@ -51,6 +51,7 @@ function song(id: string, title: string, artist: string): SongRead {
     duration_seconds: 231,
     has_video: false,
     is_duet: false,
+    created_at: "2026-01-01T12:00:00Z",
     language: null,
     genre: null,
     year: null,
@@ -146,6 +147,28 @@ test("a wishlist.updated broadcast refreshes the tile", async () => {
 
   expect(await screen.findByText("Africa")).toBeInTheDocument();
   expect(await screen.findByLabelText("2 wishes")).toBeInTheDocument();
+});
+
+test("a song started on another phone leaves the tile without a reload", async () => {
+  // Starting a song clears every wish for it on the server, which announces
+  // the song at count 0 — the one event this phone hears about it.
+  renderTile([wish(QUEEN, 2, true), wish(AFRICA, 1, false)]);
+  await screen.findByText("Dancing Queen");
+
+  listWishlist.mockResolvedValue({
+    data: { wishes: [wish(AFRICA, 1, false)] },
+  });
+  FakeSocket.deliver({
+    event: "wishlist.updated",
+    song_id: "usdb:1",
+    count: 0,
+    latest: null,
+  });
+
+  await waitFor(() =>
+    expect(screen.queryByText("Dancing Queen")).not.toBeInTheDocument(),
+  );
+  expect(screen.getByText("Africa")).toBeInTheDocument();
 });
 
 test("taking back a wish deletes only the caller's own", async () => {

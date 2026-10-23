@@ -26,6 +26,7 @@ from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from ultrastar_wingman.auth.model import utcnow
+from ultrastar_wingman.downloads import loudness
 from ultrastar_wingman.karaoke import service, usdx_window
 from ultrastar_wingman.karaoke.model import KaraokeSession, Score, Sing
 from ultrastar_wingman.karaoke.usdx import COPY_DIR_NAME
@@ -294,6 +295,8 @@ async def test_a_finished_song_records_scores_for_the_players_who_sang(
 ) -> None:
     yannis = await add_player(client, "Yannis")
     alex = await add_player(client, "Alex")
+    # Adding them announced the players list; the sing's own sequence is what is checked.
+    broadcast_events.clear()
     seed_scores(configured.ultrastar_db, [("Someone" + NUL * 5, 4000, 1000, 1)])
     configured.behave(
         scores=[
@@ -536,6 +539,8 @@ async def test_a_song_nobody_scored_ends_without_scores(
     broadcast_events: list[dict[str, object]],
 ) -> None:
     player = await add_player(client, "Yannis")
+    # Adding the player announced the players list; the sing's own sequence is checked.
+    broadcast_events.clear()
     seed_scores(configured.ultrastar_db, [("Yannis", 4000, 1000, 1)])
 
     started = await sing(client, song, [{"color": "blue", "player_id": player["id"]}])
@@ -569,7 +574,7 @@ async def test_starting_a_song_takes_it_off_the_wishlist(
     broadcast_events: list[dict[str, object]],
 ) -> None:
     """Wished for by the singer, by somebody who is only watching and by a phone with no
-    account: starting it settles the singer's wish and every account-less one."""
+    account: starting it settles all three, whoever is singing. Another song's wish stays."""
     temporary = await add_player(client, "Alex")
     singer = Player(name="Yannis", registered=True, user_id="singer-account")
     session.add(singer)
@@ -595,12 +600,12 @@ async def test_starting_a_song_takes_it_off_the_wishlist(
 
     wishes = await session.scalars(select(Wish))
     assert {(wish.song_id, wish.user_id, wish.guest_id) for wish in wishes} == {
-        (song, "watcher-account", None),
         ("local:other", None, "a-phone"),
     }
-    # The count the clients get is the one wish that is left, so the row stays on the list.
+    # Count 0 is what makes every open wishlist — the tile, the reel, the host rail —
+    # refetch and drop the row.
     update = next(event for event in broadcast_events if event["event"] == "wishlist.updated")
-    assert (update["song_id"], update["count"]) == (song, 1)
+    assert (update["song_id"], update["count"]) == (song, 0)
 
 
 async def test_the_running_song_is_reported_and_can_be_stopped(
@@ -618,6 +623,24 @@ async def test_the_running_song_is_reported_and_can_be_stopped(
     stopped = await client.post("/api/v1/karaoke/stop")
     assert stopped.status_code == 204
     assert (await client.get("/api/v1/karaoke/current")).json() == {"sing": None}
+
+
+@pytest.mark.parametrize("normalize", [True, False])
+async def test_a_sing_switches_usdx_loudness_on_while_wingman_tags_the_songs(
+    client: AsyncClient, session: AsyncSession, configured: FakeUsdx, song: str, normalize: bool
+) -> None:
+    """The tags are only heard while USDX's own option is on. Wingman switching its tagging
+    off is no reason to switch the option off: the host may want it for tags of their own."""
+    configured.config_file.write_text("[Sound]\nReplayGain=Off\nVolume=80\n", encoding="utf-8")
+    await SettingsService(session).set(loudness.NORMALIZE_SETTING, normalize)
+    yannis = await add_player(client, "Yannis")
+
+    await sing(client, song, [{"color": "blue", "player_id": yannis["id"]}])
+    await service.wait_for_sing_end()
+
+    sound = configured.config()["Sound"]
+    assert sound["ReplayGain"] == ("On" if normalize else "Off")
+    assert sound["Volume"] == "80"
 
 
 async def test_stopping_is_idempotent(client: AsyncClient, configured: FakeUsdx, song: str) -> None:
@@ -639,6 +662,8 @@ async def test_a_second_song_needs_force(
     broadcast_events: list[dict[str, object]],
 ) -> None:
     player = await add_player(client, "Yannis")
+    # Adding the player announced the players list; the sing's own sequence is checked.
+    broadcast_events.clear()
     configured.behave(sleep=FOREVER)
     first = await sing(client, song, [{"color": "blue", "player_id": player["id"]}])
 

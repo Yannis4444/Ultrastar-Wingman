@@ -160,6 +160,10 @@ export type AchievementRead = {
      */
     sort_order: number;
     /**
+     * Holder Count
+     */
+    holder_count?: number | null;
+    /**
      * Definition
      */
     definition?: Array<Condition> | null;
@@ -702,6 +706,10 @@ export type DeviceSettings = {
      * Random Playlist
      */
     random_playlist: string;
+    /**
+     * Cancel Without Selection
+     */
+    cancel_without_selection: string;
 };
 
 /**
@@ -739,6 +747,10 @@ export type DeviceSettingsUpdate = {
      * Random Playlist
      */
     random_playlist?: string | null;
+    /**
+     * Cancel Without Selection
+     */
+    cancel_without_selection?: string | null;
 };
 
 /**
@@ -1025,6 +1037,95 @@ export type LoginRequest = {
 };
 
 /**
+ * LoudnessCounts
+ *
+ * How many songs of the pass ended in each `loudness.Outcome` status. A song counts
+ * once, by its last try: a file in use is tried again at the end of the pass.
+ */
+export type LoudnessCounts = {
+    /**
+     * Tagged
+     */
+    tagged: number;
+    /**
+     * Already Tagged
+     */
+    already_tagged: number;
+    /**
+     * Unsupported
+     */
+    unsupported: number;
+    /**
+     * Silent
+     */
+    silent: number;
+    /**
+     * Missing
+     */
+    missing: number;
+    /**
+     * In Use
+     */
+    in_use: number;
+    /**
+     * Failed
+     */
+    failed: number;
+};
+
+/**
+ * LoudnessPassStatus
+ *
+ * `LoudnessPassRead` and the song in hand, for the one reader allowed to see it.
+ */
+export type LoudnessPassStatus = {
+    /**
+     * State
+     */
+    state: 'idle' | 'running' | 'stopping';
+    /**
+     * Waiting
+     */
+    waiting: boolean;
+    /**
+     * Total
+     */
+    total: number;
+    /**
+     * Done
+     */
+    done: number;
+    counts: LoudnessCounts;
+    /**
+     * Ended
+     */
+    ended: 'finished' | 'stopped' | 'failed' | null;
+    /**
+     * Error
+     */
+    error: string | null;
+    song: LoudnessSongRead | null;
+};
+
+/**
+ * LoudnessSongRead
+ */
+export type LoudnessSongRead = {
+    /**
+     * Id
+     */
+    id: string;
+    /**
+     * Title
+     */
+    title: string;
+    /**
+     * Artist
+     */
+    artist: string;
+};
+
+/**
  * MeRead
  *
  * Everything the frontend needs to render itself. Works for anonymous callers too:
@@ -1049,14 +1150,17 @@ export type MeRead = {
 /**
  * MusicPreviewRead
  *
- * The song the reel on the host screen landed on, for the host screen to play.
+ * The song the room is picking singers for, for the host screen to play.
  *
- * Set while a spun selection stands and the host has *Play the song when the reel lands*
- * on: the background music freezes, and from `reveal_at` — the reel's landing, on the
- * server's clock — the host fades this song in from `start_s`, where the file says a
- * preview should start (`songs.txt.SongTxt.preview_start`; 0 for a file that says
- * nothing). `id` changes on every spin and respin, and `reveal_at` moves when a press in
- * the room lands the reel early, so a host times its fade-in on the pair.
+ * Set while a selection with a song stands and the host has *Song preview* on
+ * (`sound.reel_preview`): the background music freezes, and from `reveal_at` — the reel's
+ * landing on the server's clock for a spun selection, the moment it opened for one opened
+ * with a song — the host fades this song in from `start_s`, where the file says a preview
+ * should start (`songs.txt.SongTxt.preview_start`; 0 for a file that says nothing). `id`
+ * changes on every spin, respin and new selection and on nothing else — a spin moving on
+ * to its singers keeps it, so the song plays on — and `reveal_at` moves when a press in
+ * the room lands the reel early, so a host times its fade-in on the pair. `gain_db` and
+ * `peak` are the song's ReplayGain, as on `MusicTrackRead`.
  */
 export type MusicPreviewRead = {
     /**
@@ -1072,6 +1176,14 @@ export type MusicPreviewRead = {
      * Reveal At
      */
     reveal_at: string;
+    /**
+     * Gain Db
+     */
+    gain_db: number | null;
+    /**
+     * Peak
+     */
+    peak: number | null;
 };
 
 /**
@@ -1243,6 +1355,12 @@ export type MusicSinkReport = {
  * `duration_s` is the audio file's real length, as the host screen measured it, and is
  * null until the host has said. It is deliberately not `song.duration_seconds`, which is
  * narrowed by the song's `#START` and `#END` and is therefore not how long the file plays.
+ *
+ * `gain_db` and `peak` are the audio file's ReplayGain — the track gain in dB against
+ * -18 LUFS and the true peak as a linear value, the numbers Ultrastar Deluxe evens the
+ * song out with — and null while Wingman does not know them (`Song.replay_gain_db`). On
+ * the track and not on `song`, because only the screen making the sound has a use for
+ * them. A host that applies them plays at `10^(gain_db/20)`, at most `1/peak`.
  */
 export type MusicTrackRead = {
     /**
@@ -1266,6 +1384,14 @@ export type MusicTrackRead = {
      * Duration S
      */
     duration_s: number | null;
+    /**
+     * Gain Db
+     */
+    gain_db: number | null;
+    /**
+     * Peak
+     */
+    peak: number | null;
 };
 
 /**
@@ -2493,6 +2619,10 @@ export type SongRead = {
      * Creator
      */
     creator: string | null;
+    /**
+     * Created At
+     */
+    created_at: string;
 };
 
 /**
@@ -4584,6 +4714,61 @@ export type DismissDownloadResponses = {
 };
 
 export type DismissDownloadResponse = DismissDownloadResponses[keyof DismissDownloadResponses];
+
+export type StopLoudnessPassData = {
+    body?: never;
+    path?: never;
+    query?: never;
+    url: '/api/v1/downloads/loudness';
+};
+
+export type StopLoudnessPassResponses = {
+    /**
+     * Successful Response
+     */
+    200: LoudnessPassStatus;
+};
+
+export type StopLoudnessPassResponse = StopLoudnessPassResponses[keyof StopLoudnessPassResponses];
+
+export type ReadLoudnessPassData = {
+    body?: never;
+    path?: never;
+    query?: never;
+    url: '/api/v1/downloads/loudness';
+};
+
+export type ReadLoudnessPassResponses = {
+    /**
+     * Successful Response
+     */
+    200: LoudnessPassStatus;
+};
+
+export type ReadLoudnessPassResponse = ReadLoudnessPassResponses[keyof ReadLoudnessPassResponses];
+
+export type StartLoudnessPassData = {
+    body?: never;
+    path?: never;
+    query?: never;
+    url: '/api/v1/downloads/loudness';
+};
+
+export type StartLoudnessPassErrors = {
+    /**
+     * A pass is running already.
+     */
+    409: unknown;
+};
+
+export type StartLoudnessPassResponses = {
+    /**
+     * Successful Response
+     */
+    202: LoudnessPassStatus;
+};
+
+export type StartLoudnessPassResponse = StartLoudnessPassResponses[keyof StartLoudnessPassResponses];
 
 export type UsdbStatusData = {
     body?: never;

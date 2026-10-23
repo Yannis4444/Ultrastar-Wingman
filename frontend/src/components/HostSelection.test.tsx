@@ -42,6 +42,7 @@ const SONG: SongRead = {
   duration_seconds: 231,
   has_video: true,
   is_duet: false,
+  created_at: "2026-01-01T12:00:00Z",
   language: "English",
   genre: "Pop",
   year: 1976,

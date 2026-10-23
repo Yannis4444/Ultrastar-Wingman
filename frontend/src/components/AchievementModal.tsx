@@ -2,9 +2,10 @@ import type { PlayerAchievementRead } from "../api";
 import {
   achievementDescription,
   achievementName,
+  holdersLine,
   isMasked,
 } from "../achievements";
-import { shortDate } from "../duration";
+import { cardDate } from "../duration";
 import AchievementBadge from "./AchievementBadge";
 import AchievementProgress from "./AchievementProgress";
 import Modal from "./Modal";
@@ -24,8 +25,11 @@ import "./AchievementModal.css";
  * the row carries its own `achievement`, which is what the list beside it draws
  * from too, so there is one thing to hand over and no way to pair the wrong two.
  *
+ * Under the sentence, how many players hold it ("Earned by 3 players") — a
+ * line this modal alone carries, never the rows it opens from.
+ *
  * A **masked** one is a bigger place to say the same nothing: the `lock` badge
- * over the stand-in name and sentence, and no bar at all.
+ * over the stand-in name and sentence, and no bar and no holders line at all.
  */
 export default function AchievementModal({
   row,
@@ -36,6 +40,9 @@ export default function AchievementModal({
 }) {
   const achievement = row.achievement;
   const earned = row.earned_at !== null;
+  // The API blanks the count on a masked row, and `holdersLine` says so a
+  // second time, the way the bar below does.
+  const holders = holdersLine(achievement);
 
   return (
     <Modal
@@ -60,9 +67,12 @@ export default function AchievementModal({
         <p className="achievement-modal-description">
           {achievementDescription(achievement)}
         </p>
+        {holders !== null && (
+          <p className="achievement-modal-holders">{holders}</p>
+        )}
         {row.earned_at !== null ? (
           <p className="achievement-modal-meta">
-            Earned {shortDate(row.earned_at)}
+            Earned {cardDate(row.earned_at)}
           </p>
         ) : (
           // The API nulls both numbers on a masked row, and this says so a

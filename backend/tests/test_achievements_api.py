@@ -1201,6 +1201,95 @@ async def test_a_players_badges_are_masked_over_that_player_not_the_reader(party
         assert rows[open_one["id"]]["progress_target"] == 10, identity
 
 
+async def test_every_answer_counts_the_players_who_hold_an_achievement(party: Party) -> None:
+    """What the modal says under the description: players with the badge, a player taken out
+    of the singer picker among them, and never a row that is progress only or names a player
+    who is gone."""
+    held = await create(party["admin"], name="Regular")
+    nobody = await create(party["admin"], name="Untouchable")
+    yannis = await add_player(party, "user", "Yannis")
+    hidden = await add_player(party, None, "Alex")
+    on_the_way = await add_player(party, None, "Sam")
+    await award(party, held["id"], yannis)
+    await award(party, held["id"], hidden)
+    async with party.factory() as session:
+        player = await session.get(Player, hidden)
+        assert player is not None
+        player.hidden = True
+        # On the way there, and not there yet.
+        session.add(
+            PlayerAchievement(
+                achievement_id=held["id"],
+                player_id=on_the_way,
+                progress_current=3,
+                progress_target=10,
+            )
+        )
+        # Left behind by a deleted player: `delete_player` keeps the row.
+        session.add(
+            PlayerAchievement(
+                achievement_id=held["id"],
+                player_id="0" * 32,
+                earned_at=datetime(2026, 9, 1, 20, 0, tzinfo=UTC),
+            )
+        )
+        await session.commit()
+
+    for rows in (
+        await catalogue(party["anonymous"]),
+        await catalogue(party["user"]),
+        await catalogue(party["admin"], manage=True),
+    ):
+        counts = {row["id"]: row["holder_count"] for row in rows}
+        assert counts[held["id"]] == 2
+        assert counts[nobody["id"]] == 0
+
+    response = await party["anonymous"].get(f"/api/v1/players/{yannis}/achievements")
+    assert response.status_code == 200, response.text
+    (row,) = [one for one in response.json()["achievements"] if one["achievement_id"] == held["id"]]
+    assert row["achievement"]["holder_count"] == 2
+
+
+async def test_a_hidden_achievement_keeps_how_many_hold_it_with_its_name(party: Party) -> None:
+    """How many people found a hidden one says it can be found, and how often: the count is
+    masked exactly where the name is, and nowhere else."""
+    secret = await create(party["admin"], **SECRET)
+    yannis = await add_player(party, "user", "Yannis")
+    stranger = await add_player(party, "trusted", "Alex")
+    await award(party, secret["id"], yannis)
+    async with party.factory() as session:
+        session.add(
+            PlayerAchievement(
+                achievement_id=secret["id"],
+                player_id=stranger,
+                progress_current=0,
+                progress_target=1,
+            )
+        )
+        await session.commit()
+
+    def count_in(rows: list[dict[str, Any]]) -> object:
+        (row,) = [one for one in rows if one["id"] == secret["id"]]
+        return row["holder_count"]
+
+    for identity in ("anonymous", "trusted", "admin"):
+        assert count_in(await catalogue(party[identity])) is None, identity
+    assert count_in(await catalogue(party["user"])) == 1
+    assert count_in(await catalogue(party["admin"], manage=True)) == 1
+
+    async def record_count(player_id: str) -> object:
+        response = await party["anonymous"].get(f"/api/v1/players/{player_id}/achievements")
+        assert response.status_code == 200, response.text
+        (row,) = [
+            one for one in response.json()["achievements"] if one["achievement_id"] == secret["id"]
+        ]
+        return row["achievement"]["holder_count"]
+
+    # Masked over the subject, like the rest of a player's record.
+    assert await record_count(stranger) is None
+    assert await record_count(yannis) == 1
+
+
 async def add_party(party: Party, session_id: str, *, minutes_ago: float) -> None:
     """One recorded party, last sung into `minutes_ago` minutes ago. What
     `stats.service.current_session` reads to answer whether an evening is still going."""

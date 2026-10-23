@@ -104,9 +104,18 @@ class UsdxLauncher:
     """One process at a time. Not shared between songs: the karaoke service creates a
     launcher per sing with freshly resolved paths."""
 
-    def __init__(self, paths: UsdxPaths, on_exit: ExitCallback | None = None) -> None:
+    def __init__(
+        self,
+        paths: UsdxPaths,
+        on_exit: ExitCallback | None = None,
+        *,
+        replay_gain: bool = False,
+    ) -> None:
+        """`replay_gain`: switch USDX's loudness normalization on in the config this sing
+        writes (`usdx_config.write_player_config`)."""
         self.on_exit = on_exit
         self._paths = paths
+        self._replay_gain = replay_gain
         self._process: asyncio.subprocess.Process | None = None
         self._monitor: asyncio.Task[None] | None = None
         self._raise: asyncio.Task[None] | None = None
@@ -183,7 +192,10 @@ class UsdxLauncher:
         """Blocking: config rewrite plus, if needed, the song copy. Answers the `.txt` USDX
         is started on — the song's own, or the one inside the copy."""
         write_player_config(
-            self._paths.config_file, self._paths.avatars_dir, _configured_players(slots)
+            self._paths.config_file,
+            self._paths.avatars_dir,
+            _configured_players(slots),
+            replay_gain=self._replay_gain,
         )
         self._copy_dir = None
         if not _needs_copy(song_txt, self._paths.songs_dir):

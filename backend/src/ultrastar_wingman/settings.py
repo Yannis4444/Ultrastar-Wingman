@@ -186,7 +186,7 @@ register(
         value_type=int,
         default=100,
         group="Sound",
-        description="The song the reel lands on.",
+        description="The song being picked, while the singers are chosen.",
         validate=validate_volume,
     )
 )
@@ -207,9 +207,10 @@ register(
         default=True,
         group="Sound",
         description=(
-            "Play the song the reel on the host screen lands on, from where its singing "
-            "starts, until Play is pressed or the pick is given up. The background music "
-            "pauses for it."
+            "Play the song being picked on the host screen while the singers are chosen, "
+            "from where its singing starts: once the reel lands on it, or at once for a song "
+            "somebody chose. It stops when the song starts or the pick is given up, and the "
+            "background music pauses for it."
         ),
     )
 )
@@ -381,6 +382,19 @@ register(
         default=2,
         group="Downloads",
         description="How many songs are downloaded at the same time. Applied on restart.",
+    )
+)
+register(
+    SettingDefinition(
+        # `downloads.loudness.NORMALIZE_SETTING`; also what switches Ultrastar Deluxe's own
+        # ReplayGain option on (`karaoke.usdx_config.write_player_config`).
+        key="downloads.normalize_loudness",
+        value_type=bool,
+        default=True,
+        group="Downloads",
+        description=(
+            "Even out each download's loudness, so Ultrastar Deluxe plays every song equally loud."
+        ),
     )
 )
 register(

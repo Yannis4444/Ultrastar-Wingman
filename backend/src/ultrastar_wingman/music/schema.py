@@ -34,6 +34,12 @@ class MusicTrackRead(BaseModel):
     `duration_s` is the audio file's real length, as the host screen measured it, and is
     null until the host has said. It is deliberately not `song.duration_seconds`, which is
     narrowed by the song's `#START` and `#END` and is therefore not how long the file plays.
+
+    `gain_db` and `peak` are the audio file's ReplayGain — the track gain in dB against
+    -18 LUFS and the true peak as a linear value, the numbers Ultrastar Deluxe evens the
+    song out with — and null while Wingman does not know them (`Song.replay_gain_db`). On
+    the track and not on `song`, because only the screen making the sound has a use for
+    them. A host that applies them plays at `10^(gain_db/20)`, at most `1/peak`.
     """
 
     id: str
@@ -42,23 +48,30 @@ class MusicTrackRead(BaseModel):
     position_s: float
     position_at: datetime
     duration_s: float | None
+    gain_db: float | None
+    peak: float | None
 
 
 class MusicPreviewRead(BaseModel):
-    """The song the reel on the host screen landed on, for the host screen to play.
+    """The song the room is picking singers for, for the host screen to play.
 
-    Set while a spun selection stands and the host has *Play the song when the reel lands*
-    on: the background music freezes, and from `reveal_at` — the reel's landing, on the
-    server's clock — the host fades this song in from `start_s`, where the file says a
-    preview should start (`songs.txt.SongTxt.preview_start`; 0 for a file that says
-    nothing). `id` changes on every spin and respin, and `reveal_at` moves when a press in
-    the room lands the reel early, so a host times its fade-in on the pair.
+    Set while a selection with a song stands and the host has *Song preview* on
+    (`sound.reel_preview`): the background music freezes, and from `reveal_at` — the reel's
+    landing on the server's clock for a spun selection, the moment it opened for one opened
+    with a song — the host fades this song in from `start_s`, where the file says a preview
+    should start (`songs.txt.SongTxt.preview_start`; 0 for a file that says nothing). `id`
+    changes on every spin, respin and new selection and on nothing else — a spin moving on
+    to its singers keeps it, so the song plays on — and `reveal_at` moves when a press in
+    the room lands the reel early, so a host times its fade-in on the pair. `gain_db` and
+    `peak` are the song's ReplayGain, as on `MusicTrackRead`.
     """
 
     id: str
     song: SongRead
     start_s: float
     reveal_at: datetime
+    gain_db: float | None
+    peak: float | None
 
 
 class MusicVolumeRead(BaseModel):
@@ -83,8 +96,8 @@ class MusicRead(BaseModel):
 
     status: MusicStatus
     track: MusicTrackRead | None
-    # The reel's song, while the room's selection was spun and the host plays it on the
-    # landing. Independent of `status`: it is about the reel, not the soundtrack, so it is
+    # The song being picked, while the room's selection has one and the host plays it.
+    # Independent of `status`: it is about the selection, not the soundtrack, so it is
     # set with the music switched off too. While it is set the track does not advance.
     preview: MusicPreviewRead | None
     blocked_by: MusicBlocker | None

@@ -7,7 +7,20 @@ import { useAuth } from "../auth";
 import { useMusic } from "../hooks/useMusic";
 import { useWingmanEvent } from "../hooks/useWingmanEvents";
 import { musicSinkStore } from "../hooks/useMusicSink";
-import { effectiveVolume, musicPosition, seekIfDrifted } from "../music";
+import {
+  effectiveVolume,
+  musicPosition,
+  replayGainFactor,
+  seekIfDrifted,
+} from "../music";
+import {
+  audible,
+  levelOf,
+  onAudioState,
+  resumeAudio,
+  route,
+  setLoudness,
+} from "../musicGraph";
 
 /** How long the volume takes to come down when a song starts, and to come back
  *  up afterwards. Down more slowly than up: a hard cut under the first note is
@@ -19,10 +32,10 @@ const FADE_IN_MS = 300;
  *  user asked for it to take its time (2026-09-12). Well inside the 5.5 s
  *  reel, so the new file is cued long before it lands. */
 export const SPIN_FADE_OUT_MS = 2500;
-/** The reel's song rises in over this, from the moment the reel lands: long
- *  enough that the landing is a swell and not a jump cut, short enough that
- *  the two-second lead-in before the first word (`songs/txt.py`) still ends
- *  before it. */
+/** The song being picked rises in over this, from the moment the reel lands —
+ *  or the selection opens, for one opened with a song: long enough that it is
+ *  a swell and not a jump cut, short enough that the two-second lead-in before
+ *  the first word (`songs/txt.py`) still ends before it. */
 const PREVIEW_FADE_IN_MS = 1500;
 
 /** The lock one browser's tabs queue on, so only one of them ever plays. */
@@ -54,14 +67,27 @@ const MAX_ERRORS = 5;
  * the same song a beat apart, and a `sink_online` that says nothing about the
  * sound actually coming out.
  *
- * **Two elements.** The background song has one, and the reel's song — the
- * `preview` the state carries while the room's selection was spun — has its
- * own: it is loaded and seeked the moment the reel starts, so the file buffers
- * while the reel spins, and it rises in at `reveal_at` on the server's clock.
+ * **Two elements.** The background song has one, and the song being picked —
+ * the `preview` the state carries while the room's selection has a song, spun
+ * or opened with one — has its own: it is loaded and seeked the moment the
+ * preview arrives, so the file buffers while the reel spins, and it rises in
+ * at `reveal_at` on the server's clock (at once for a selection opened with a
+ * song). It is keyed on `id@reveal_at` and nothing else, so a state that
+ * carries the same preview again — a slot moved, a spin moving on to its
+ * singers — leaves it playing where it is.
  * The background element fades out under it and comes back where it froze
  * when the preview goes. One element swapping its `src` would have lost the
  * background's position, reported the preview's time under the background
  * track's id, and started loading only when the reel stopped.
+ *
+ * **Each song at its own evened-out loudness.** The track and the preview carry
+ * the song's ReplayGain (`gain_db`, `peak`), and each element plays through a
+ * Web Audio gain node set to `replayGainFactor` — the rule Ultrastar Deluxe
+ * plays the same song with, so the background, the reel and the sing are one
+ * level. A node because a quiet song has to come *up*, and an element's
+ * `volume` stops at 1. The node is the loudness alone: the fades, the master
+ * and the trims stay on `volume`. Without Web Audio the factor goes into the
+ * element's `volume` instead, as far as 1, so a loud song still comes down.
  */
 export default function MusicSink() {
   const auth = useAuth();
@@ -88,8 +114,12 @@ function ActiveSink() {
   const previewKeyRef = useRef<string | null>(null);
   // The key the element was last loaded and seeked for.
   const previewCuedRef = useRef<string | null>(null);
-  // Whether the reel's song should be sounding right now — landed, and still
-  // wanted — for the gesture unlock to know which element to play.
+  // The key whose moment to sound came while the last song was still fading
+  // out: the end of that fade starts it.
+  const previewDueRef = useRef<string | null>(null);
+  // Whether the song being picked should be sounding right now — its reel
+  // landed or its selection opened with it, and still wanted — for the gesture
+  // unlock to know which element to play.
   const previewLiveRef = useRef(false);
   // The lease twice: as state, so the element effect runs when it arrives and
   // goes, and as a ref, so the `pagehide` handler and the reports read it
@@ -102,9 +132,15 @@ function ActiveSink() {
   const errorsRef = useRef(0);
   const fadeRef = useRef<number | null>(null);
   const targetVolumeRef = useRef(0);
-  // The reel's song has a volume of its own (`sound.preview_volume`).
+  // The song being picked has a volume of its own (`sound.preview_volume`).
   const previewVolumeRef = useRef(0);
   const shouldPlayRef = useRef(false);
+  // The loudness of the file each element is loaded with — not the state's:
+  // a song fading out under the next one keeps its own level to the end.
+  const trackFactorRef = useRef(1);
+  const previewFactorRef = useRef(1);
+  // The state's preview's, for the moment its file is cued.
+  const nextPreviewFactorRef = useRef(1);
 
   // --- the lease -------------------------------------------------------------
 
@@ -237,7 +273,8 @@ function ActiveSink() {
   const holding = lease !== null;
   const track = holding ? (state?.track ?? null) : null;
   const preview = holding ? (state?.preview ?? null) : null;
-  // The reel's song has the speakers while a preview is set: the background
+  // The song being picked has the speakers while a preview is set — spun or
+  // opened with a song, whichever selection it is: the background
   // fades out under it and its position is frozen on the server meanwhile.
   const shouldPlay = holding && state?.status === "playing" && preview === null;
   const volume =
@@ -251,6 +288,12 @@ function ActiveSink() {
   targetVolumeRef.current = volume;
   previewVolumeRef.current = previewVolume;
   shouldPlayRef.current = shouldPlay;
+  // Null while there is no song: the one fading out keeps its factor.
+  const trackFactor =
+    track === null ? null : replayGainFactor(track.gain_db, track.peak);
+  const previewFactor =
+    preview === null ? null : replayGainFactor(preview.gain_db, preview.peak);
+  if (previewFactor !== null) nextPreviewFactorRef.current = previewFactor;
 
   useEffect(() => {
     const audio = audioRef.current;
@@ -291,22 +334,21 @@ function ActiveSink() {
       // element, which is what the tolerance in `seekIfDrifted` is for.
       audio.currentTime = target;
     }
+    // The file the element now holds, at its level — a new song's, or the
+    // same song's should its numbers ever move mid-play (the backend takes
+    // them once, at the pick; `setLoudness` glides rather than clicks).
+    trackFactorRef.current = replayGainFactor(track.gain_db, track.peak);
+    setLoudness(audio, trackFactorRef.current);
 
     if (shouldPlay) {
-      ramp(audio, fadeRef, targetVolumeRef.current, FADE_IN_MS);
-      audio
-        .play()
-        .then(() => musicSinkStore.setBlocked(false))
-        .catch((error: unknown) => {
-          // A `pause()` that came in before playback started rejects the
-          // promise too; that is the music stopping on purpose, not a browser
-          // asking for a gesture.
-          if (error instanceof DOMException && error.name === "AbortError") {
-            return;
-          }
-          // Every browser wants a gesture before the first sound of a page.
-          musicSinkStore.setBlocked(true);
-        });
+      const played = playThrough(audio, trackFactorRef.current);
+      ramp(
+        audio,
+        fadeRef,
+        levelOf(audio, targetVolumeRef.current, trackFactorRef.current),
+        FADE_IN_MS,
+      );
+      played.catch(refused);
     } else {
       // One path for a sing starting, a pause, and a lost sink: the state's own
       // `playing` going false is all three. Under a spin the fade is the
@@ -323,7 +365,11 @@ function ActiveSink() {
   useEffect(() => {
     const audio = audioRef.current;
     if (audio !== null && shouldPlay && fadeRef.current === null) {
-      audio.volume = volume;
+      audio.volume = levelOf(
+        audio,
+        volume,
+        trackFactor ?? trackFactorRef.current,
+      );
     }
     const reel = previewRef.current;
     if (
@@ -331,11 +377,11 @@ function ActiveSink() {
       previewLiveRef.current &&
       previewFadeRef.current === null
     ) {
-      reel.volume = previewVolume;
+      reel.volume = levelOf(reel, previewVolume, previewFactorRef.current);
     }
-  }, [volume, previewVolume, shouldPlay]);
+  }, [volume, previewVolume, shouldPlay, trackFactor]);
 
-  // --- the reel's song -------------------------------------------------------
+  // --- the song being picked, any selection's --------------------------------
 
   const previewId = preview?.id ?? null;
   const previewRevealAt = preview?.reveal_at ?? null;
@@ -376,53 +422,81 @@ function ActiveSink() {
       if (reel.getAttribute("src") !== url) reel.src = url;
     };
     const cue = () => {
-      // A new spin: the file, and the seek to its start — unconditionally, because a
-      // respin out of a pool of one lands on the same file, which a played-out
-      // fade-out has left somewhere else.
+      // A new preview: the file, and the seek to its start — unconditionally,
+      // because a respin out of a pool of one lands on the same file, which a
+      // played-out fade-out has left somewhere else.
       load();
       reel.currentTime = previewStart;
       previewCuedRef.current = key;
+      // Its level comes with its file, never earlier: the last song may still
+      // be fading out on this element.
+      previewFactorRef.current = nextPreviewFactorRef.current;
+      setLoudness(reel, previewFactorRef.current);
+    };
+    const start = () => {
+      previewDueRef.current = null;
+      previewLiveRef.current = true;
+      reel.volume = 0;
+      const played = playThrough(reel, previewFactorRef.current);
+      ramp(
+        reel,
+        previewFadeRef,
+        levelOf(reel, previewVolumeRef.current, previewFactorRef.current),
+        PREVIEW_FADE_IN_MS,
+      );
+      played.catch(refused);
     };
     if (previewKeyRef.current !== key) {
       previewKeyRef.current = key;
       previewLiveRef.current = false;
-      if (reel.paused) {
-        // The reel has just started: load and seek now, so the file is buffered
-        // by the time it lands.
+      previewDueRef.current = null;
+      if (reel.paused || !reel.hasAttribute("src")) {
+        // Nothing is sounding: load and seek now, so the file is buffered by
+        // the time the reel lands.
         cue();
       } else {
-        // A respin while the last song was playing: fade it out, then cue the
-        // new one — long before the new reel lands.
+        // A respin, or a new selection, while the last song was playing: fade
+        // it out, then cue the new one — long before a new reel lands, and
+        // before a selection opened with a song comes in, which waits for it.
         ramp(reel, previewFadeRef, 0, SPIN_FADE_OUT_MS, () => {
           if (previewKeyRef.current !== key) return;
           reel.pause();
           cue();
+          if (previewDueRef.current === key) start();
         });
       }
     }
 
     // The landing, on the server's clock; already past for a host that loads
-    // mid-selection, and then the song comes in at once.
+    // mid-selection and for a selection opened with a song, and then the song
+    // comes in at once.
     const delay = Math.max(0, parseServerTime(previewRevealAt) - Date.now());
     const timer = setTimeout(() => {
       if (previewKeyRef.current !== key) return;
-      // Cued already, unless the fade-out of the last song is still running.
-      if (previewCuedRef.current !== key) cue();
-      previewLiveRef.current = true;
-      reel.volume = 0;
-      ramp(reel, previewFadeRef, previewVolumeRef.current, PREVIEW_FADE_IN_MS);
-      reel
-        .play()
-        .then(() => musicSinkStore.setBlocked(false))
-        .catch((error: unknown) => {
-          if (error instanceof DOMException && error.name === "AbortError") {
-            return;
-          }
-          musicSinkStore.setBlocked(true);
-        });
+      if (previewCuedRef.current !== key) {
+        // The last song is still fading out. Cutting it here would be the jump
+        // cut the fade exists to avoid; its end starts this one instead.
+        previewDueRef.current = key;
+        return;
+      }
+      start();
     }, delay);
     return () => clearTimeout(timer);
   }, [previewId, previewRevealAt, previewSongId, previewStart]);
+
+  // The same preview with another level, should the backend ever send one —
+  // it takes the numbers once, at the pick. Its own effect, because the one
+  // above re-arms the landing and would start the song again.
+  useEffect(() => {
+    const reel = previewRef.current;
+    if (reel === null || previewFactor === null) return;
+    if (previewCuedRef.current !== `${previewId}@${previewRevealAt}`) return;
+    previewFactorRef.current = previewFactor;
+    setLoudness(reel, previewFactor);
+    if (previewLiveRef.current && previewFadeRef.current === null) {
+      reel.volume = levelOf(reel, previewVolumeRef.current, previewFactor);
+    }
+  }, [previewFactor, previewId, previewRevealAt]);
 
   // --- reporting -------------------------------------------------------------
 
@@ -492,25 +566,40 @@ function ActiveSink() {
   // --- the gesture -----------------------------------------------------------
 
   useEffect(() => {
-    const unlock = () => {
-      // Whichever element is supposed to be sounding right now: the reel's
-      // song once it has landed, or the background music. A press while a song
-      // is being sung, while the music is paused, or on a tab that does not
-      // hold the lease must not start anything.
-      const element = previewLiveRef.current
+    // Whichever element is supposed to be sounding right now: the song being
+    // picked once it is due, or the background music. Nothing while a song is
+    // being sung, while the music is paused, or on a tab without the lease.
+    const sounding = () =>
+      previewLiveRef.current
         ? previewRef.current
         : shouldPlayRef.current
           ? audioRef.current
           : null;
-      if (element === null) return;
-      // Synchronously, inside the gesture: an `await` before this call spends
-      // the user activation and the play is refused again.
-      void element
-        .play()
-        .then(() => musicSinkStore.setBlocked(false))
-        .catch(() => {});
+    const unlock = () => {
+      const element = sounding();
+      // A press that starts nothing still wakes the audio graph, so the next
+      // song does not find it asleep.
+      if (element === null) {
+        resumeAudio();
+        return;
+      }
+      const factor =
+        element === previewRef.current
+          ? previewFactorRef.current
+          : trackFactorRef.current;
+      // Synchronously, inside the gesture: an `await` before these calls
+      // spends the user activation, and the play — or the graph's resume — is
+      // refused again.
+      playThrough(element, factor).catch(() => {});
     };
     musicSinkStore.onUnlock(unlock);
+    // The graph waking up after the play resolved — a resume answers a moment
+    // later — or going back to sleep under a playing song.
+    onAudioState(() => {
+      const element = sounding();
+      if (element === null || element.paused) return;
+      musicSinkStore.setBlocked(!audible(element));
+    });
     // A TV gets no clicks, but the karaoke machine does: any press anywhere on
     // the page counts, so the explicit button is the fallback and not the only
     // way out.
@@ -519,6 +608,7 @@ function ActiveSink() {
     document.addEventListener("keydown", anyPress);
     return () => {
       musicSinkStore.onUnlock(null);
+      onAudioState(null);
       document.removeEventListener("pointerdown", anyPress);
       document.removeEventListener("keydown", anyPress);
     };
@@ -526,7 +616,7 @@ function ActiveSink() {
 
   return (
     <>
-      {/* The reel's song. Reports nothing: the lease is about the background
+      {/* The song being picked. Reports nothing: the lease is about the background
           track, and this element's time is not that track's. */}
       <audio ref={previewRef} hidden preload="auto" data-role="preview" />
       <audio
@@ -547,6 +637,28 @@ function ActiveSink() {
       />
     </>
   );
+}
+
+/** Play `element` at `factor`, and say whether the room hears it. The route,
+ *  the resume and the play all happen before this returns, so a caller inside
+ *  a gesture spends that gesture on all three. */
+function playThrough(element: HTMLMediaElement, factor: number): Promise<void> {
+  route(element, factor);
+  resumeAudio();
+  return element.play().then(() => {
+    // A suspended graph swallows a play that succeeded: that is the same
+    // silence as a refused play, and wants the same press.
+    musicSinkStore.setBlocked(!audible(element));
+  });
+}
+
+/** A play that would not start. A `pause()` that came in before playback
+ *  started rejects the promise too; that is the music stopping on purpose,
+ *  not a browser asking for a gesture — which every browser wants before the
+ *  first sound of a page. */
+function refused(error: unknown): void {
+  if (error instanceof DOMException && error.name === "AbortError") return;
+  musicSinkStore.setBlocked(true);
 }
 
 /** Give the lease back. Nobody is waiting for the answer. */

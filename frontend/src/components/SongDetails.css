@@ -84,6 +84,12 @@
   cursor: pointer;
 }
 
+/* The streaming sub-view's rows are links (§5): the same row, without the
+   underline an anchor brings. */
+a.song-option {
+  text-decoration: none;
+}
+
 .song-option-icon {
   font-size: 1.1em;
   color: var(--color-darker);

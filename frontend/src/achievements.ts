@@ -112,6 +112,29 @@ export function achievementDescription(achievement: AchievementRead): string {
 }
 
 /**
+ * How many players hold it, in words — the line under the description on the
+ * modal and on the host screen (ui-guidelines §5 and §7). `null` when there is
+ * no line to draw: a masked row (the API blanks the count with the name), the
+ * answer to a single write, or a backend older than this build. So a missing
+ * count is never "Nobody".
+ *
+ * `singer` is the host screen's reading, where the count already includes the
+ * singer who just earned it: one holder is them, so it reads *First to earn
+ * it*.
+ */
+export function holdersLine(
+  achievement: AchievementRead,
+  { singer = false }: { singer?: boolean } = {},
+): string | null {
+  const count = achievement.holder_count;
+  if (count === null || count === undefined || isMasked(achievement))
+    return null;
+  if (count === 0) return "Nobody has earned this yet";
+  if (count === 1) return singer ? "First to earn it" : "Earned by 1 player";
+  return `Earned by ${count} players`;
+}
+
+/**
  * How far along somebody is, as a fraction between 0 and 1 — the width of a bar.
  * `null` when there is nothing to draw: a masked row, an achievement whose
  * conditions are none of them monotone, or a backend older than this build. A

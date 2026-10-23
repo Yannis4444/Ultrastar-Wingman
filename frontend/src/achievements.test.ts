@@ -11,6 +11,7 @@ import {
   conditionProblem,
   conditionSentence,
   conditionTarget,
+  holdersLine,
   importSummary,
   isMasked,
   MAX_PATTERN_LENGTH,
@@ -112,6 +113,31 @@ describe("a masked achievement", () => {
     const row = achievementRead();
     expect(achievementName(row)).toBe("Golden Voice");
     expect(achievementDescription(row)).toBe("Score 9,000 or more in a song.");
+  });
+});
+
+describe("holdersLine", () => {
+  it("counts the players who hold it", () => {
+    const line = (count: number) =>
+      holdersLine(achievementRead({ holder_count: count }));
+    expect(line(3)).toBe("Earned by 3 players");
+    expect(line(1)).toBe("Earned by 1 player");
+    expect(line(0)).toBe("Nobody has earned this yet");
+  });
+
+  it("calls the one holder first on the host screen, where it is the singer", () => {
+    const singer = (count: number) =>
+      holdersLine(achievementRead({ holder_count: count }), { singer: true });
+    expect(singer(1)).toBe("First to earn it");
+    expect(singer(2)).toBe("Earned by 2 players");
+  });
+
+  it("draws no line without a count, and none for a masked row", () => {
+    expect(holdersLine(achievementRead({ holder_count: null }))).toBeNull();
+    expect(
+      holdersLine(achievementRead({ holder_count: undefined })),
+    ).toBeNull();
+    expect(holdersLine(maskedAchievementRead({ holder_count: 5 }))).toBeNull();
   });
 });
 

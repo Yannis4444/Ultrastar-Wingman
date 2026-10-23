@@ -10,8 +10,9 @@ from httpx import AsyncClient
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
 
+from test_downloads_loudness import DEFAULT_GAIN, fake_ffmpeg, kinds, silent_audio, tags_of
 from test_song_scanner import make_song_dir
-from ultrastar_wingman.downloads import service
+from ultrastar_wingman.downloads import loudness, media, service
 from ultrastar_wingman.downloads.model import INTERRUPTED_ERROR, Download
 from ultrastar_wingman.settings import SettingsService
 from ultrastar_wingman.songs import scanner
@@ -41,6 +42,10 @@ class FakeSource:
         self.concurrent = 0
         self.max_concurrent = 0
         self.work_dirs: list[Path] = []
+        # Write a `song.mp3` the fake ffmpeg understands (`test_downloads_loudness`), so the
+        # loudness step has something to tag. Off by default: without an audio file the
+        # step never looks for an ffmpeg, whatever this machine has.
+        self.audio = False
 
     async def download(self, source_song_id: str, work_dir: Path, report: ProgressReport) -> Path:
         self.concurrent += 1
@@ -59,7 +64,13 @@ class FakeSource:
             self.work_dirs.append(work_dir)
             if self.broken:
                 return self.library
-            return make_song_dir(self.library, f"Song {source_song_id}", title=source_song_id)
+            if not self.audio:
+                return make_song_dir(self.library, f"Song {source_song_id}", title=source_song_id)
+            directory = make_song_dir(
+                self.library, f"Song {source_song_id}", title=source_song_id, tags="#MP3:song.mp3\n"
+            )
+            silent_audio(directory / "song.mp3")
+            return directory
         finally:
             self.concurrent -= 1
 
@@ -83,11 +94,11 @@ def fake_source(library: Path) -> Iterator[FakeSource]:
 
 @pytest.fixture
 async def queue(
-    session_factory: async_sessionmaker[AsyncSession],
+    session_factory: async_sessionmaker[AsyncSession], tmp_path: Path
 ) -> AsyncIterator[async_sessionmaker[AsyncSession]]:
     """The queue running against the test database. Always stopped: a leaked worker
     would keep using a disposed engine in the next test."""
-    await service.start(session_factory)
+    await service.start(session_factory, tmp_path)
     try:
         yield session_factory
     finally:
@@ -209,6 +220,113 @@ async def test_the_console_says_what_was_queued_and_how_it_ended(
     assert not caplog.records[-1].exc_info
 
 
+async def with_fake_ffmpeg(session: AsyncSession, directory: Path, **control: object) -> str:
+    ffmpeg = fake_ffmpeg(directory, **control)
+    await SettingsService(session).set(media.FFMPEG_SETTING, ffmpeg)
+    return ffmpeg
+
+
+async def test_a_download_is_tagged_with_its_loudness(
+    queue: async_sessionmaker[AsyncSession],
+    session: AsyncSession,
+    fake_source: FakeSource,
+    broadcast_events: list[dict[str, object]],
+    tmp_path: Path,
+) -> None:
+    fake_source.audio = True
+    await with_fake_ffmpeg(session, tmp_path / "tools")
+
+    row = await run_download(session, "1234")
+
+    assert row.status == "finished"
+    song = await session.get(Song, "fake:1234")
+    assert song is not None and song.audio_file is not None
+    await session.refresh(song)
+    assert (song.replay_gain_db, song.replay_gain_peak) == DEFAULT_GAIN
+    assert tags_of(Path(song.audio_file))["REPLAYGAIN_TRACK_GAIN"] == "7.90 dB"
+    steps = [update["step"] for update in broadcast_downloads(broadcast_events)]
+    assert steps.index("adding to the library") < steps.index(loudness.LOUDNESS_STEP)
+    assert steps[-1] == "done"
+
+
+async def test_with_the_setting_off_nothing_is_tagged(
+    queue: async_sessionmaker[AsyncSession],
+    session: AsyncSession,
+    fake_source: FakeSource,
+    broadcast_events: list[dict[str, object]],
+    tmp_path: Path,
+) -> None:
+    fake_source.audio = True
+    ffmpeg = await with_fake_ffmpeg(session, tmp_path / "tools")
+    await run_download(session, "1234")
+    await SettingsService(session).set(loudness.NORMALIZE_SETTING, False)
+    broadcast_events.clear()
+
+    # The same song again, under the same id: the row still carries the first file's values.
+    row = await run_download(session, "1234", force=True)
+
+    assert row.status == "finished"
+    song = await session.get(Song, "fake:1234")
+    assert song is not None
+    await session.refresh(song)
+    assert (song.replay_gain_db, song.replay_gain_peak) == (None, None)
+    # One file was tagged, the first; the second download never ran ffmpeg.
+    assert kinds(ffmpeg).count("measure") == 1
+    steps = [update["step"] for update in broadcast_downloads(broadcast_events)]
+    assert loudness.LOUDNESS_STEP not in steps
+
+
+async def test_a_failed_normalization_never_fails_the_download(
+    queue: async_sessionmaker[AsyncSession],
+    session: AsyncSession,
+    fake_source: FakeSource,
+    tmp_path: Path,
+    caplog: pytest.LogCaptureFixture,
+) -> None:
+    fake_source.audio = True
+    await with_fake_ffmpeg(session, tmp_path / "tools", measure_fails=True)
+    caplog.set_level(logging.INFO, logger="ultrastar_wingman")
+
+    row = await run_download(session, "1234")
+
+    assert (row.status, row.error, row.song_id) == ("finished", None, "fake:1234")
+    song = await session.get(Song, "fake:1234")
+    assert song is not None
+    await session.refresh(song)
+    assert (song.replay_gain_db, song.replay_gain_peak) == (None, None)
+    warnings = [record for record in caplog.records if record.levelno >= logging.WARNING]
+    assert [record.getMessage() for record in warnings] == [
+        "Could not even out the loudness of Artist - 1234: ffmpeg failed with exit code 1: "
+        "Error while filtering: Invalid data found when processing input"
+    ]
+
+
+async def test_no_ffmpeg_at_all_never_fails_the_download(
+    queue: async_sessionmaker[AsyncSession],
+    session: AsyncSession,
+    fake_source: FakeSource,
+    monkeypatch: pytest.MonkeyPatch,
+    caplog: pytest.LogCaptureFixture,
+) -> None:
+    fake_source.audio = True
+
+    async def no_ffmpeg(*args: object, **kwargs: object) -> str:
+        raise DownloadError("ffmpeg not found")
+
+    monkeypatch.setattr(media, "ensure_ffmpeg", no_ffmpeg)
+    caplog.set_level(logging.WARNING, logger="ultrastar_wingman")
+
+    row = await run_download(session, "1234")
+
+    assert row.status == "finished"
+    [record] = caplog.records
+    assert (
+        record.getMessage() == "Could not even out the loudness of Artist - 1234: ffmpeg not found"
+    )
+    # A missing tool is a reason, not a bug.
+    assert not record.exc_info
+
+
 async def test_unusable_result_directory_fails_the_download(
     queue: async_sessionmaker[AsyncSession],
     session: AsyncSession,
@@ -228,12 +346,13 @@ async def test_parallel_limit_is_respected(
     session_factory: async_sessionmaker[AsyncSession],
     session: AsyncSession,
     fake_source: FakeSource,
+    tmp_path: Path,
 ) -> None:
     await SettingsService(session).set("downloads.parallel", 2)
     # Two downloads have to be inside `download()` at the same time for the barrier to
     # release, and `max_concurrent` shows that a third one never joined them.
     fake_source.barrier = asyncio.Barrier(2)
-    await service.start(session_factory)
+    await service.start(session_factory, tmp_path)
     try:
         for number in range(4):
             await service.enqueue(session, "fake", str(number))
@@ -292,13 +411,14 @@ async def test_startup_fails_interrupted_and_requeues_pending(
     session: AsyncSession,
     fake_source: FakeSource,
     broadcast_events: list[dict[str, object]],
+    tmp_path: Path,
 ) -> None:
     interrupted = Download(source="fake", source_song_id="1", status="running", progress=42.0)
     pending = Download(source="fake", source_song_id="2", status="queued")
     session.add_all([interrupted, pending])
     await session.commit()
 
-    await service.start(session_factory)
+    await service.start(session_factory, tmp_path)
     try:
         await idle()
     finally:
@@ -446,7 +566,7 @@ async def test_old_history_is_not_part_of_the_current_session(
 
 
 async def test_retention_drops_completed_rows_past_the_age_limit(
-    session_factory: async_sessionmaker[AsyncSession], session: AsyncSession
+    session_factory: async_sessionmaker[AsyncSession], session: AsyncSession, tmp_path: Path
 ) -> None:
     aged = timedelta(days=service.RETENTION_DAYS + 1)
     session.add_all(
@@ -494,14 +614,14 @@ async def test_retention_caps_the_history_but_spares_unread_failures(
 
 
 async def test_startup_prunes_the_history(
-    session_factory: async_sessionmaker[AsyncSession], session: AsyncSession
+    session_factory: async_sessionmaker[AsyncSession], session: AsyncSession, tmp_path: Path
 ) -> None:
     session.add(
         history_row("1", "finished", timedelta(days=service.RETENTION_DAYS + 1), song_id="fake:1")
     )
     await session.commit()
 
-    await service.start(session_factory)
+    await service.start(session_factory, tmp_path)
     try:
         await idle()
     finally:
@@ -515,10 +635,11 @@ async def test_a_finished_download_prunes_what_it_pushed_past_the_cap(
     session: AsyncSession,
     fake_source: FakeSource,
     monkeypatch: pytest.MonkeyPatch,
+    tmp_path: Path,
 ) -> None:
     # Between restarts too: a party downloading all evening must not grow the table.
     monkeypatch.setattr(service, "HISTORY_CAP", 1)
-    await service.start(session_factory)
+    await service.start(session_factory, tmp_path)
     try:
         await service.enqueue(session, "fake", "1")
         await idle()

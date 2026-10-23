@@ -20,6 +20,7 @@ import ScoreGroupList from "../components/ScoreGroupList";
 import ScoresEmpty from "../components/ScoresEmpty";
 import ScoreStrip from "../components/ScoreStrip";
 import SessionSummaryRow from "../components/SessionSummaryRow";
+import ShareCardPanel, { type ShareTarget } from "../components/ShareCardPanel";
 import SongDetails from "../components/SongDetails";
 import SpreadRows from "../components/SpreadRows";
 import Loading from "../components/Loading";
@@ -162,6 +163,14 @@ interface SessionBarProps {
   canManage: boolean;
   /** Whether this reader may keep a party out of the list (`stats.hide`). */
   canHide: boolean;
+  /**
+   * Opens the share panel for the party shown, or `null` where there is none
+   * to share: the head row is every party at once and a card is one evening,
+   * and a party with no score has nothing to put on one. No capability of its
+   * own — whoever may open the party's scores may share them (share-cards.md
+   * §1).
+   */
+  onShare: (() => void) | null;
 }
 
 /** The session bar, with an inline rename for whoever may manage stats. While
@@ -175,6 +184,7 @@ function SessionBar({
   onSelect,
   canManage,
   canHide,
+  onShare,
 }: SessionBarProps) {
   const queryClient = useQueryClient();
   const [draft, setDraft] = useState<string | null>(null);
@@ -285,6 +295,20 @@ function SessionBar({
               }}
             >
               <Icon name="pencil" />
+            </button>
+          )}
+          {/* Last on the bar, and never in the picker's header, which holds
+              the show-all eye alone (§5). */}
+          {onShare !== null && (
+            <button
+              type="button"
+              className="icon-button icon-button-bordered"
+              aria-label="Share this party"
+              title="Share this party"
+              aria-haspopup="dialog"
+              onClick={onShare}
+            >
+              <Icon name="share" />
             </button>
           )}
         </div>
@@ -455,6 +479,8 @@ export default function Scores() {
   // the view does.
   const [sessionChart, setSessionChart] = useState<SessionChart>("scores");
   const [openSong, setOpenSong] = useState<SongRead | null>(null);
+  // What the share panel is open on: the party, or one group's scores.
+  const [sharing, setSharing] = useState<ShareTarget | null>(null);
 
   const canView = auth.can("stats.view");
   const canHide = auth.can("stats.hide");
@@ -657,6 +683,11 @@ export default function Scores() {
         onSelect={setSelectedId}
         canManage={auth.can("stats.manage")}
         canHide={canHide}
+        onShare={
+          session !== null && scores.isSuccess && rows.length > 0
+            ? () => setSharing({ kind: "party", session, scores: rows })
+            : null
+        }
       />
 
       {scores.isPending ? (
@@ -756,12 +787,29 @@ export default function Scores() {
             onOpenSong={setOpenSong}
             canModerate={auth.can("stats.moderate")}
             onModerated={refresh}
+            onShare={(group) =>
+              setSharing({
+                kind: "score",
+                scores: group.scores,
+                grouping,
+                session,
+                pageScores: rows,
+              })
+            }
           />
         </>
       )}
 
       {openSong !== null && (
         <SongDetails song={openSong} onClose={() => setOpenSong(null)} />
+      )}
+
+      {sharing !== null && (
+        <ShareCardPanel
+          target={sharing}
+          players={players}
+          onClose={() => setSharing(null)}
+        />
       )}
     </div>
   );

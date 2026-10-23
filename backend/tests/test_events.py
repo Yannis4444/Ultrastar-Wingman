@@ -71,9 +71,10 @@ def become_admin(client: TestClient) -> None:
 
 
 def next_setting_event(websocket: WebSocketTestSession) -> dict[str, object]:
-    """The next `setting.changed`; the startup library scan may report in between."""
+    """The next `setting.changed`; the startup library scan may report in between, and so
+    does `become_admin`'s registration, which adds a player."""
     message: dict[str, object] = websocket.receive_json()
-    while str(message["event"]).startswith("songs."):
+    while str(message["event"]).startswith("songs.") or message["event"] == "players.changed":
         message = websocket.receive_json()
     return message
 

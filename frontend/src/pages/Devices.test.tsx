@@ -71,6 +71,7 @@ const SETTINGS: DeviceSettings = {
   start_without_selection: "nothing",
   random_scope: "all",
   random_playlist: "",
+  cancel_without_selection: "skip_music",
 };
 
 function player(overrides: Partial<PlayerRead> = {}): PlayerRead {
@@ -315,6 +316,45 @@ test("what a start press with nothing open does is picked from three, and writte
     ),
   );
   expect(await screen.findByText("Saved")).toBeInTheDocument();
+});
+
+test("what a cancel press with nothing open does is picked from two, and written", async () => {
+  renderDevices();
+
+  const select = await screen.findByLabelText(
+    "When the cancel button is pressed with nothing open",
+  );
+  // Skipping the background song is how a fresh Wingman is set.
+  expect(select).toHaveValue("skip_music");
+  expect(
+    within(select)
+      .getAllByRole("option")
+      .map((option) => option.textContent),
+  ).toEqual(["Skip to the next background song", "Nothing happens"]);
+
+  fireEvent.change(select, { target: { value: "nothing" } });
+
+  await waitFor(() =>
+    expect(updateDeviceSettings).toHaveBeenCalledWith(
+      expect.objectContaining({
+        body: { cancel_without_selection: "nothing" },
+      }),
+    ),
+  );
+  expect(await screen.findByText("Saved")).toBeInTheDocument();
+});
+
+test("the cancel row stands after the start button's own rows", async () => {
+  renderDevices({ settings: FROM_PLAYLIST });
+
+  const cancel = await screen.findByLabelText(
+    "When the cancel button is pressed with nothing open",
+  );
+  const playlist = await screen.findByLabelText("Playlist to pick from");
+  // The start button's two dependent rows are not split from it.
+  expect(
+    playlist.compareDocumentPosition(cancel) & Node.DOCUMENT_POSITION_FOLLOWING,
+  ).toBeTruthy();
 });
 
 test("the random scope is asked for only when a start press picks a random song", async () => {

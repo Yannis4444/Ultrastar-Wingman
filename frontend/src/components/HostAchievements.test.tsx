@@ -121,6 +121,44 @@ test("one singer with one badge takes the stage", async () => {
   expect(stage).toHaveTextContent("What Badge 1 takes.");
 });
 
+test("under each description, how many hold it with the singer counted", async () => {
+  await ready();
+  earned([
+    {
+      player: player("p1", "Alice"),
+      achievements: [
+        achievementRead({ id: "a", name: "First", holder_count: 1 }),
+        achievementRead({ id: "b", name: "Third", holder_count: 3 }),
+        // A badge with no sentence still says how many hold it.
+        achievementRead({
+          id: "c",
+          name: "Quiet",
+          description: "",
+          holder_count: 2,
+        }),
+        // A count the payload did not carry is no line at all.
+        achievementRead({ id: "d", name: "Older", holder_count: null }),
+      ],
+    },
+  ]);
+
+  await screen.findByLabelText("New achievements");
+  const lines = [...document.querySelectorAll(".host-achievement")].map(
+    (badge) =>
+      badge.querySelector(".host-achievement-holders")?.textContent ?? null,
+  );
+  expect(lines).toEqual([
+    "First to earn it",
+    "Earned by 3 players",
+    "Earned by 2 players",
+    null,
+  ]);
+  // Under the description, where there is one.
+  expect(
+    document.querySelector(".host-achievement-holders")?.previousElementSibling,
+  ).toHaveClass("host-achievement-description");
+});
+
 test("six badges are two rows: the first four, then the rest", async () => {
   await ready();
   earned([{ player: player("p1", "Alice"), achievements: badges(6) }]);

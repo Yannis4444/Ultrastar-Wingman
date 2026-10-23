@@ -150,6 +150,8 @@ async def test_a_finished_sing_awards_and_announces(
     )
     yannis = await add_player(client, "Yannis")
     alex = await add_player(client, "Alex")
+    # Adding them announced the players list; the sing's own sequence is what is checked.
+    broadcast_events.clear()
     configured.behave(
         scores=[("Yannis" + NUL * 10, 8500, 2000, 3), ("Alex" + NUL * 12, 7000, 2001, None)]
     )
@@ -171,6 +173,8 @@ async def test_a_finished_sing_awards_and_announces(
     assert [one["id"] for one in players[0]["achievements"]] == ["golden"]
     # The whole player rides along, because the host screen draws the picture beside the badge.
     assert players[0]["player"]["id"] == yannis["id"]
+    # Counted after the pass, the singer included: the TV says "First to earn it".
+    assert players[0]["achievements"][0]["holder_count"] == 1
 
     assert await earned_of(session, str(yannis["id"])) == {"golden"}
     assert await earned_of(session, str(alex["id"])) == set()
@@ -311,6 +315,38 @@ async def test_a_song_sung_alone_earns_no_win(
     assert await earned_of(session, str(yannis["id"])) == set()
 
 
+async def test_the_event_counts_everybody_who_holds_the_badge_the_singer_included(
+    client: AsyncClient,
+    session: AsyncSession,
+    configured: FakeUsdx,
+    song: str,
+    broadcast_events: list[dict[str, object]],
+) -> None:
+    """The host screen reads the count off the payload, because an earn tells no phone the
+    catalogue changed. So the payload has to be counted after the pass has written the
+    singer's row, and over everybody who held it before, a player out of the picker too."""
+    await add_achievement(
+        session, "golden", [{"metric": "any_score", "comparator": ">=", "value": 8000}]
+    )
+    earlier = await add_player_row(session, "Alex")
+    player = await session.get(Player, earlier)
+    assert player is not None
+    player.hidden = True
+    session.add(PlayerAchievement(achievement_id="golden", player_id=earlier, earned_at=START))
+    await session.commit()
+    yannis = await add_player(client, "Yannis")
+    configured.behave(scores=[("Yannis" + NUL * 10, 8500, 2000, 3)])
+
+    await sing(client, song, [{"color": "blue", "player_id": yannis["id"]}])
+    await karaoke.wait_for_sing_end()
+
+    (earned,) = [event for event in broadcast_events if event["event"] == "achievements.earned"]
+    players = cast(list[dict[str, Any]], earned["players"])
+    (badge,) = players[0]["achievements"]
+    assert badge["id"] == "golden"
+    assert badge["holder_count"] == 2
+
+
 async def test_the_bus_reveals_a_hidden_badge_but_never_what_it_asked_for(
     client: AsyncClient,
     session: AsyncSession,
@@ -344,6 +380,8 @@ async def test_the_bus_reveals_a_hidden_badge_but_never_what_it_asked_for(
     assert badge["name"] == "Brave Soul"
     assert badge["hidden"] is True
     assert badge["definition"] is None
+    # Revealed with the rest of it: the count is masked where the name is, and this is not.
+    assert badge["holder_count"] == 1
 
 
 async def test_a_sing_that_earned_nothing_is_silent(
@@ -788,6 +826,8 @@ async def test_a_failing_achievement_pass_does_not_swallow_the_end_of_the_song(
         session, "golden", [{"metric": "any_score", "comparator": ">=", "value": 1}]
     )
     yannis = await add_player(client, "Yannis")
+    # Adding the player announced the players list; the sing's own sequence is checked.
+    broadcast_events.clear()
     configured.behave(scores=[("Yannis" + NUL * 10, 8500, 2000, 3)])
 
     await sing(client, song, [{"color": "blue", "player_id": yannis["id"]}])

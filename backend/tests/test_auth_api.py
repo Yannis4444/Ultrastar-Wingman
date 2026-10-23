@@ -147,6 +147,29 @@ async def test_logging_in_shows_a_hidden_player_again(
     assert player.hidden is False
 
 
+async def test_showing_a_player_again_on_login_announces_it_and_a_plain_login_does_not(
+    anonymous_client: AsyncClient,
+    session: AsyncSession,
+    broadcast_events: list[dict[str, object]],
+) -> None:
+    """Coming back into the picker changes what `GET /players` answers; a login that
+    changes nothing about the player is no reason for every screen to refetch it."""
+    user = await register(anonymous_client, "yannis")
+    login = {"username": "yannis", "password": PASSWORD}
+    broadcast_events.clear()
+
+    assert (await anonymous_client.post("/api/v1/auth/login", json=login)).status_code == 200
+    assert {"event": "players.changed"} not in broadcast_events
+
+    player = await session.get(Player, user["player_id"])
+    assert player is not None
+    player.hidden = True
+    await session.commit()
+
+    assert (await anonymous_client.post("/api/v1/auth/login", json=login)).status_code == 200
+    assert broadcast_events.count({"event": "players.changed"}) == 1
+
+
 async def test_logging_in_without_a_player_is_fine(
     anonymous_client: AsyncClient, session_factory: async_sessionmaker[AsyncSession]
 ) -> None:
@@ -463,6 +486,20 @@ async def test_deleting_a_user_unlinks_their_player(
     assert player.registered is False
     assert player.user_id is None
     assert list(await session.scalars(select(User).where(User.id == user["id"]))) == []
+
+
+async def test_registering_and_deleting_an_account_announce_the_players_list(
+    client: AsyncClient, broadcast_events: list[dict[str, object]]
+) -> None:
+    """Registering adds a player (or makes a guest's one the account's) and deleting the
+    account turns it back into a temporary one: both change what `GET /players` answers."""
+    user = await register(client, "alex")
+    assert {"event": "players.changed"} in broadcast_events
+    broadcast_events.clear()
+
+    assert (await client.delete(f"/api/v1/users/{user['id']}")).status_code == 204
+
+    assert {"event": "players.changed"} in broadcast_events
 
 
 async def test_deleting_a_user_kills_their_sessions(

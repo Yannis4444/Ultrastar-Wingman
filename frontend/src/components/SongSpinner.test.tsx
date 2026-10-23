@@ -27,6 +27,7 @@ const {
   listKaraokeSlots,
   listPlayers,
   openPlayerSelection,
+  clearWishes,
 } = vi.hoisted(() => ({
   listSongs: vi.fn(),
   listWishlist: vi.fn(),
@@ -37,6 +38,7 @@ const {
   listKaraokeSlots: vi.fn(),
   listPlayers: vi.fn(),
   openPlayerSelection: vi.fn(),
+  clearWishes: vi.fn(),
 }));
 
 vi.mock("../api/sdk.gen", async (importOriginal) => ({
@@ -50,6 +52,7 @@ vi.mock("../api/sdk.gen", async (importOriginal) => ({
   listKaraokeSlots,
   listPlayers,
   openPlayerSelection,
+  clearWishes,
 }));
 
 function song(id: string, title: string): SongRead {
@@ -61,6 +64,7 @@ function song(id: string, title: string): SongRead {
     duration_seconds: 100,
     has_video: false,
     is_duet: false,
+    created_at: "2026-01-01T12:00:00Z",
     language: null,
     genre: null,
     year: null,
@@ -134,6 +138,7 @@ beforeEach(() => {
   listPlayers.mockResolvedValue({ data: { players: [] } });
   openPlayerSelection.mockReset();
   openPlayerSelection.mockReturnValue(new Promise(() => {}));
+  clearWishes.mockReset();
 });
 
 afterEach(() => {
@@ -594,4 +599,123 @@ test("the reel waits for the tags rather than spinning what they would hide", as
   expect(await screen.findByText("1 song")).toBeInTheDocument();
   fireEvent.click(spinButton());
   expect(new Set(reelSongIds(container))).toEqual(new Set(["usdb:1"]));
+});
+
+const MANAGING = [...SINGING, "wishlist.manage"];
+
+const takeOffButton = () =>
+  screen.queryByRole("button", { name: "Take off the wishlist" });
+
+/** Spins the scope of that label and lets the reel land. */
+async function spinAndLand(label: string): Promise<void> {
+  await chooseScope(label);
+  fireEvent.click(spinButton());
+  act(() => vi.advanceTimersByTime(6000));
+}
+
+test("a landed wish can be taken off the wishlist, and the result stays", async () => {
+  vi.useFakeTimers({ shouldAdvanceTime: true });
+  renderSpinner(
+    [QUEEN, AFRICA, WATERLOO],
+    [wish(AFRICA, 2), wish(WATERLOO)],
+    [],
+    ACCOUNT,
+    MANAGING,
+  );
+  // Pinned to the first wish: Africa wins.
+  vi.spyOn(Math, "random").mockReturnValue(0);
+  await spinAndLand("Wishlist");
+
+  // Nothing to take off while the reel runs; once it lands the quiet button is
+  // there, last in the column under the host one.
+  const button = takeOffButton();
+  expect(button).toHaveClass("button");
+  expect(iconNames(button!)).toEqual(["trash"]);
+  const column = button!.parentElement!;
+  expect(column.lastElementChild).toBe(button);
+
+  clearWishes.mockResolvedValue({ data: undefined });
+  listWishlist.mockResolvedValue({ data: { wishes: [wish(WATERLOO)] } });
+  fireEvent.click(button!);
+
+  // The tile's take-off for everybody, no confirmation in between.
+  await waitFor(() => expect(clearWishes).toHaveBeenCalledTimes(1));
+  expect(clearWishes.mock.calls[0][0].path).toEqual({ song_id: "usdb:2" });
+  expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
+
+  // The wish is gone, so is the button; the pool and its caption shrink, the
+  // landed result stays where it was.
+  await waitFor(() => expect(takeOffButton()).toBeNull());
+  expect(screen.getByText("1 wished song")).toBeInTheDocument();
+  expect(screen.getByText("Africa")).toBeInTheDocument();
+});
+
+test("the weighted wishlist offers the take-off too", async () => {
+  vi.useFakeTimers({ shouldAdvanceTime: true });
+  renderSpinner([QUEEN], [wish(QUEEN, 3)], [], ACCOUNT, MANAGING);
+  await spinAndLand("Wishlist (weighted)");
+
+  expect(takeOffButton()).toBeInTheDocument();
+});
+
+test("without wishlist.manage the reel offers no take-off", async () => {
+  vi.useFakeTimers({ shouldAdvanceTime: true });
+  renderSpinner([QUEEN], [wish(QUEEN)]);
+  await spinAndLand("Wishlist");
+
+  expect(screen.getByText("Dancing Queen")).toBeInTheDocument();
+  expect(takeOffButton()).toBeNull();
+});
+
+test("a wished song the whole library landed on offers no take-off", async () => {
+  vi.useFakeTimers({ shouldAdvanceTime: true });
+  renderSpinner([QUEEN], [wish(QUEEN)], [], ACCOUNT, MANAGING);
+  await spinAndLand("All songs");
+
+  expect(screen.getByText("Dancing Queen")).toBeInTheDocument();
+  expect(takeOffButton()).toBeNull();
+});
+
+test("a playlist's reel never offers the take-off, even on a wished song", async () => {
+  vi.useFakeTimers({ shouldAdvanceTime: true });
+  renderSpinner([], [wish(QUEEN)], [], ACCOUNT, MANAGING, {
+    songs: [QUEEN],
+    playlistId: "p1",
+  });
+  await screen.findByText("1 song");
+  await waitFor(() => expect(listWishlist).toHaveBeenCalled());
+
+  fireEvent.click(spinButton());
+  act(() => vi.advanceTimersByTime(6000));
+
+  expect(screen.getByText("Dancing Queen")).toBeInTheDocument();
+  expect(takeOffButton()).toBeNull();
+});
+
+test("the take-off goes when somebody else's phone takes the wish off first", async () => {
+  vi.useFakeTimers({ shouldAdvanceTime: true });
+  renderSpinner(
+    [QUEEN, AFRICA],
+    [wish(QUEEN), wish(AFRICA)],
+    [],
+    ACCOUNT,
+    MANAGING,
+  );
+  vi.spyOn(Math, "random").mockReturnValue(0);
+  await spinAndLand("Wishlist");
+  expect(takeOffButton()).toBeInTheDocument();
+
+  // The song was started somewhere else, which settles every wish for it.
+  listWishlist.mockResolvedValue({ data: { wishes: [wish(AFRICA)] } });
+  await act(async () => {
+    FakeSocket.deliver({
+      event: "wishlist.updated",
+      song_id: "usdb:1",
+      count: 0,
+      latest: null,
+    });
+  });
+
+  await waitFor(() => expect(takeOffButton()).toBeNull());
+  expect(screen.getByText("Dancing Queen")).toBeInTheDocument();
 });

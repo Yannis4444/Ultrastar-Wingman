@@ -626,6 +626,7 @@ async def read_settings(session: AsyncSession) -> DeviceSettings:
         start_without_selection=str(values[device_settings.START_WITHOUT_SELECTION]),
         random_scope=str(values[device_settings.RANDOM_SCOPE]),
         random_playlist=str(values[device_settings.RANDOM_PLAYLIST]),
+        cancel_without_selection=str(values[device_settings.CANCEL_WITHOUT_SELECTION]),
     )
 
 
@@ -765,6 +766,8 @@ async def handle_report(
             if start_mode != "nothing" and _starts_something(diff.changes)
             else None
         )
+        # And what a cancel button is to do there: already in the values above, so a flag.
+        skip_music = values[device_settings.CANCEL_WITHOUT_SELECTION] == "skip_music"
 
     auto_start = (
         selection.AutoStart(delay_s=int(values[device_settings.AUTO_START_DELAY]))
@@ -778,6 +781,7 @@ async def handle_report(
         auto_start=auto_start,
         rescan_removes=bool(values[device_settings.RESCAN_REMOVES]),
         without_selection=without_selection,
+        skip_music=skip_music,
     )
     # After the dispatch, so a card put down and a start pressed in the same report light
     # what the room is *now*: the card on its slot, or the whole strip out because the song
@@ -1197,6 +1201,7 @@ async def _dispatch(
     auto_start: selection.AutoStart | None,
     rescan_removes: bool,
     without_selection: selection.StartWithoutSelection | None = None,
+    skip_music: bool = False,
 ) -> None:
     """Hand the difference to the selection, outside this module's lock.
 
@@ -1231,6 +1236,7 @@ async def _dispatch(
                     _button_action(change.action),
                     without_selection=without_selection,
                     auto_start=auto_start,
+                    skip_music=skip_music,
                 )
 
 

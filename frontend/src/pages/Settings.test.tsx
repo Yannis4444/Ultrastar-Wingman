@@ -1,8 +1,9 @@
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { MemoryRouter } from "react-router-dom";
-import type { SettingRead } from "../api";
+import type { LoudnessPassStatus, SettingRead } from "../api";
 import { BUNDLED_USDX_NOTE } from "../errors";
+import { LOUDNESS_PASS_NOTE } from "../loudness";
 import { meResponse, userRead } from "../test/auth";
 import { FakeSocket } from "../test/fakeSocket";
 import Settings from "./Settings";
@@ -15,6 +16,9 @@ const {
   launchUsdx,
   listVideoQualityPresets,
   usdxStatus,
+  readLoudnessPass,
+  startLoudnessPass,
+  stopLoudnessPass,
 } = vi.hoisted(() => ({
   listSettings: vi.fn(),
   updateSetting: vi.fn(),
@@ -23,6 +27,9 @@ const {
   launchUsdx: vi.fn(),
   listVideoQualityPresets: vi.fn(),
   usdxStatus: vi.fn(),
+  readLoudnessPass: vi.fn(),
+  startLoudnessPass: vi.fn(),
+  stopLoudnessPass: vi.fn(),
 }));
 
 vi.mock("../api/sdk.gen", async (importOriginal) => ({
@@ -35,6 +42,9 @@ vi.mock("../api/sdk.gen", async (importOriginal) => ({
   launchUsdx,
   listVideoQualityPresets,
   usdxStatus,
+  readLoudnessPass,
+  startLoudnessPass,
+  stopLoudnessPass,
 }));
 
 const HIGH_FORMAT = "bestvideo[ext=mp4][height<=1080]+bestaudio[ext=m4a]";
@@ -169,6 +179,8 @@ beforeEach(() => {
   usdxStatus.mockResolvedValue({
     data: { configured: true, problems: [], bundled: false, usdx_dir: null },
   });
+  // Never the real ones: a test must not rewrite anybody's songs.
+  readLoudnessPass.mockResolvedValue({ data: loudnessPass() });
   getMe.mockResolvedValue(
     meResponse(["settings.view", "settings.manage"], {
       user: userRead({ role: "admin" }),
@@ -784,4 +796,244 @@ test("view-only access cannot change the download quality", async () => {
 
   expect(await screen.findByLabelText("High (1080p)")).toBeDisabled();
   expect(screen.getByLabelText("Best available")).toBeDisabled();
+});
+
+// --- the songs already in the library ------------------------------------------
+
+const NORMALIZE = setting({
+  key: "downloads.normalize_loudness",
+  group: "Downloads",
+  value_type: "bool",
+  value: true,
+  default: true,
+  description: "Even out each download's loudness.",
+});
+
+function loudnessPass(
+  overrides: Partial<LoudnessPassStatus> = {},
+): LoudnessPassStatus {
+  return {
+    state: "idle",
+    waiting: false,
+    total: 0,
+    done: 0,
+    counts: {
+      tagged: 0,
+      already_tagged: 0,
+      unsupported: 0,
+      silent: 0,
+      missing: 0,
+      in_use: 0,
+      failed: 0,
+    },
+    ended: null,
+    error: null,
+    song: null,
+    ...overrides,
+  };
+}
+
+/** What `loudness.changed` carries: the pass without the song in hand. */
+function loudnessEvent(overrides: Partial<LoudnessPassStatus>) {
+  const payload: Partial<LoudnessPassStatus> = loudnessPass(overrides);
+  delete payload.song;
+  return { event: "loudness.changed", loudness: payload };
+}
+
+function withNormalize() {
+  listSettings.mockResolvedValue({ data: [...SETTINGS, NORMALIZE] });
+}
+
+test("the row under Normalize loudness offers to even out the songs already there", async () => {
+  withNormalize();
+  renderSettings();
+
+  const button = await screen.findByRole("button", { name: "Even out" });
+  await waitFor(() => expect(button).toBeEnabled());
+  expect(screen.getByText("Songs already in the library")).toBeVisible();
+  expect(screen.getByText(LOUDNESS_PASS_NOTE)).toBeVisible();
+  // The row right after the switch it belongs to.
+  const field = screen
+    .getByLabelText("Normalize loudness")
+    .closest(".setting-field");
+  expect(field?.nextElementSibling).toContainElement(button);
+});
+
+test("pressing Even out starts the pass, and the line follows it to its end", async () => {
+  withNormalize();
+  startLoudnessPass.mockResolvedValue({
+    data: loudnessPass({ state: "running" }),
+  });
+  renderSettings();
+
+  const button = await screen.findByRole("button", { name: "Even out" });
+  await waitFor(() => expect(button).toBeEnabled());
+  readLoudnessPass.mockResolvedValue({
+    data: loudnessPass({
+      state: "running",
+      total: 340,
+      done: 11,
+      song: { id: "usdb:1", title: "Waterloo", artist: "ABBA" },
+    }),
+  });
+  fireEvent.click(button);
+
+  await waitFor(() => expect(startLoudnessPass).toHaveBeenCalledTimes(1));
+  expect(
+    await screen.findByText("Looking for songs to even out…"),
+  ).toBeVisible();
+  expect(screen.getByRole("button", { name: "Stop" })).toBeEnabled();
+
+  const reads = readLoudnessPass.mock.calls.length;
+  // The count arrives first, with no song in hand yet: nothing to ask for.
+  FakeSocket.deliver(loudnessEvent({ state: "running", total: 340, done: 0 }));
+  expect(await screen.findByText("1 of 340.")).toBeVisible();
+  expect(readLoudnessPass).toHaveBeenCalledTimes(reads);
+
+  // The next song in hand: the counts move at once, the song comes with the
+  // one GET this message sets off.
+  FakeSocket.deliver(loudnessEvent({ state: "running", total: 340, done: 11 }));
+  expect(await screen.findByText("12 of 340: Waterloo by ABBA")).toBeVisible();
+  expect(readLoudnessPass).toHaveBeenCalledTimes(reads + 1);
+
+  // A wait beginning and ending keeps the song, and asks for nothing.
+  FakeSocket.deliver(
+    loudnessEvent({ state: "running", total: 340, done: 11, waiting: true }),
+  );
+  expect(
+    await screen.findByText("12 of 340. Paused until Ultrastar Deluxe closes."),
+  ).toBeVisible();
+  FakeSocket.deliver(loudnessEvent({ state: "running", total: 340, done: 11 }));
+  expect(await screen.findByText("12 of 340: Waterloo by ABBA")).toBeVisible();
+  expect(readLoudnessPass).toHaveBeenCalledTimes(reads + 1);
+  // One line that truncates, so a long title never moves the page below it.
+  expect(screen.getByText("12 of 340: Waterloo by ABBA")).toHaveClass(
+    "loudness-pass-progress",
+  );
+
+  FakeSocket.deliver(
+    loudnessEvent({
+      ended: "finished",
+      total: 340,
+      done: 340,
+      counts: {
+        ...loudnessPass().counts,
+        tagged: 300,
+        already_tagged: 20,
+        failed: 15,
+        silent: 5,
+      },
+    }),
+  );
+  expect(
+    await screen.findByText(
+      "Evened out 300 songs. 20 had their loudness already. 20 could not be evened out.",
+    ),
+  ).toBeVisible();
+  expect(screen.getByRole("button", { name: "Even out" })).toBeEnabled();
+});
+
+test("a GET still under way never puts an older pass back over a newer message", async () => {
+  withNormalize();
+  readLoudnessPass.mockResolvedValue({
+    data: loudnessPass({ state: "running", total: 4, done: 0 }),
+  });
+  renderSettings();
+  expect(await screen.findByText("1 of 4.")).toBeVisible();
+
+  // The next song in hand sets off a GET that answers late, with the pass as
+  // it stood before the wait that the following message reports.
+  let answerLate: (value: { data: LoudnessPassStatus }) => void = () => {};
+  readLoudnessPass.mockImplementationOnce(
+    () =>
+      new Promise((resolve) => {
+        answerLate = resolve;
+      }),
+  );
+  readLoudnessPass.mockResolvedValue({
+    data: loudnessPass({
+      state: "running",
+      total: 4,
+      done: 1,
+      waiting: true,
+      song: { id: "usdb:1", title: "Waterloo", artist: "ABBA" },
+    }),
+  });
+  FakeSocket.deliver(loudnessEvent({ state: "running", total: 4, done: 1 }));
+  await waitFor(() => expect(readLoudnessPass).toHaveBeenCalledTimes(2));
+  FakeSocket.deliver(
+    loudnessEvent({ state: "running", total: 4, done: 1, waiting: true }),
+  );
+  answerLate({
+    data: loudnessPass({
+      state: "running",
+      total: 4,
+      done: 1,
+      song: { id: "usdb:1", title: "Waterloo", artist: "ABBA" },
+    }),
+  });
+
+  expect(
+    await screen.findByText("2 of 4. Paused until Ultrastar Deluxe closes."),
+  ).toBeVisible();
+  await waitFor(() => expect(readLoudnessPass).toHaveBeenCalledTimes(3));
+  expect(
+    screen.getByText("2 of 4. Paused until Ultrastar Deluxe closes."),
+  ).toBeVisible();
+});
+
+test("a pass waiting for a song says so, and Stop stops it", async () => {
+  withNormalize();
+  readLoudnessPass.mockResolvedValue({
+    data: loudnessPass({ state: "running", total: 4, done: 1, waiting: true }),
+  });
+  stopLoudnessPass.mockResolvedValue({
+    data: loudnessPass({
+      ended: "stopped",
+      total: 4,
+      done: 1,
+      counts: { ...loudnessPass().counts, tagged: 1 },
+    }),
+  });
+  renderSettings();
+
+  expect(
+    await screen.findByText("2 of 4. Paused until Ultrastar Deluxe closes."),
+  ).toBeVisible();
+  fireEvent.click(screen.getByRole("button", { name: "Stop" }));
+
+  expect(
+    await screen.findByText("Stopped after 1 of 4. Evened out 1 song."),
+  ).toBeVisible();
+  expect(stopLoudnessPass).toHaveBeenCalledTimes(1);
+});
+
+test("a pass that could not start says why", async () => {
+  withNormalize();
+  readLoudnessPass.mockResolvedValue({
+    data: loudnessPass({ ended: "failed", error: "ffmpeg not found." }),
+  });
+  renderSettings();
+
+  expect(await screen.findByRole("alert")).toHaveTextContent(
+    "ffmpeg not found.",
+  );
+  expect(screen.getByText(LOUDNESS_PASS_NOTE)).toBeVisible();
+});
+
+test("view-only access gets no row to even out the songs", async () => {
+  withNormalize();
+  getMe.mockResolvedValue(
+    meResponse(["settings.view"], {
+      user: userRead({ role: "user" }),
+      role: "user",
+    }),
+  );
+  renderSettings();
+
+  expect(await screen.findByLabelText("Normalize loudness")).toBeDisabled();
+  expect(
+    screen.queryByText("Songs already in the library"),
+  ).not.toBeInTheDocument();
+  expect(readLoudnessPass).not.toHaveBeenCalled();
 });

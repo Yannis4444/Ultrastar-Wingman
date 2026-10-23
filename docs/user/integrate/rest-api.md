@@ -67,7 +67,7 @@ what the writes take. Reads and writes that take no capability say so.
 
 | Path | What it holds | Capability |
 |---|---|---|
-| `/songs` | The library, one row per song, plus each song's cover and audio | `songs.view`, then `songs.rescan`, `songs.edit`, `songs.delete` |
+| `/songs` | The library, one row per song, plus each song's cover and audio. `created_at` on a song is when the library first found it, and a rescan leaves it alone | `songs.view`, then `songs.rescan`, `songs.edit`, `songs.delete` |
 | `/songs/{song_id}/comments` | What people said about a song | `songs.view`, then `comments.write` and `comments.moderate` |
 | `/songs/{song_id}/tags/{tag_id}` | Putting a tag on a song, and taking it off | `songs.view`, plus the right to set that one tag |
 | `/tags` | Tags, who they are for, and the built-in marks and facets | `songs.view`, then `tags.manage` |
@@ -76,11 +76,11 @@ what the writes take. Reads and writes that take no capability say so.
 | `/playlists` | Playlists, their songs, and the people they are shared with | `playlists.view`, then `playlists.manage` and `playlists.moderate` |
 | `/players` | The people a score is filed under, and their pictures | `players.view`, then `players.manage` and `players.avatar` |
 | `/karaoke` | The running song: `sing`, `stop`, `current`, slots and colors | `songs.view` and `players.view` to read, then `karaoke.sing` and `karaoke.stop` |
-| `/music` | The background music between songs: what is on, `play`, `pause`, `skip`, `volume`, its options, and the `sink` routes the playing screen reports through | `music.view`, then `music.control` and `music.manage` |
-| `/downloads` | The download queue and what it is doing | `downloads.view`, then `downloads.manage` |
+| `/music` | The background music between songs: what is on, `play`, `pause`, `skip`, `volume`, its options, and the `sink` routes the playing screen reports through. The `track` and the `preview`, the song being picked, carry `gain_db` and `peak`: the song's ReplayGain, or `null` while Wingman does not know it | `music.view`, then `music.control` and `music.manage` |
+| `/downloads` | The download queue and what it is doing, and `loudness`: evening out the songs already in the library | `downloads.view`, then `downloads.manage`. `settings.manage` for `loudness` |
 | `/sources` | Searching USDB, the source those downloads come from | `usdb.search` |
 | `/stats` | Parties and their scores, and the two corrections to one | `stats.view` and `stats.history`, then `stats.manage`, `stats.hide` and `stats.moderate` |
-| `/achievements` | The catalog of achievements, and what a player earned | None to read, `achievements.manage` to write |
+| `/achievements` | The catalog of achievements, and what a player earned. A listed achievement carries `holder_count`, how many players earned it, and `null` where the name is hidden too | None to read, `achievements.manage` to write |
 | `/settings` | Every setting the app has | `settings.view`, then `settings.manage` |
 | `/auth`, `/users`, `/permissions` | Accounts, logging in, roles, and what a role may do | None for `/auth`, then `users.view`, `users.manage`, `permissions.manage` |
 | `/join` | The address the QR code on the TV carries | None |
@@ -121,5 +121,5 @@ In Windows PowerShell, `curl` is the name of a different command. Write
     The second call answers `201` and the wish as the party sees it:
 
     ```json
-    {"song": {"id": "local:10ffd97ea6024b4caf6af5c907cd42c1", "source": "local", "title": "Sandstorm", "artist": "Darude", "duration_seconds": null, "has_video": false, "is_duet": false, "language": "English", "genre": "Dance", "year": 1999, "edition": null, "creator": null}, "count": 1, "latest": "2026-09-03T03:05:44.281549Z", "mine": true}
+    {"song": {"id": "local:10ffd97ea6024b4caf6af5c907cd42c1", "source": "local", "title": "Sandstorm", "artist": "Darude", "duration_seconds": null, "has_video": false, "is_duet": false, "language": "English", "genre": "Dance", "year": 1999, "edition": null, "creator": null, "created_at": "2026-09-01T18:42:10.513207Z"}, "count": 1, "latest": "2026-09-03T03:05:44.281549Z", "mine": true}
     ```

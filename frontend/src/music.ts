@@ -22,6 +22,22 @@ export const MUSIC_SCOPES: { value: string; label: string }[] = [
 /** The statuses that mean a song is loaded, whether or not it is moving. */
 const WITH_TRACK: MusicRead["status"][] = ["playing", "paused"];
 
+/** The statuses in which play or pause and skip are the music's own: on and
+ *  not held. Not `off`, and not `blocked`: while a sing or an open Ultrastar
+ *  Deluxe has the speakers, a pause beside the red Stop reads as the sing's. */
+const WITH_TRANSPORT: MusicRead["status"][] = [
+  "playing",
+  "paused",
+  "waiting",
+  "empty",
+];
+
+/** Whether the host screen draws the music's play or pause and skip, and
+ *  answers their keys. The volume stands whatever the status. */
+export function hasTransport(status: MusicRead["status"]): boolean {
+  return WITH_TRANSPORT.includes(status);
+}
+
 /**
  * Which of the three the stage is in. A sing always wins: Ultrastar Deluxe has
  * the speakers, and whatever the music thinks it is doing is not what the room
@@ -80,11 +96,39 @@ export function progressPercent(music: MusicRead, now: number): number | null {
  * own trim, both as percentages.
  *
  * A plain product, not a perceptual curve. Any gamma would make one of the two
- * printed numbers a lie, and both are set by ear against the room anyway.
+ * printed numbers a lie, and both are set by ear against the room anyway. The
+ * song's own loudness (`replayGainFactor`) is not in here: it is a third
+ * multiplier, applied on its own and never printed, so the two numbers stay a
+ * plain product.
  */
 export function effectiveVolume(master: number, music: number): number {
   const clamp = (value: number) => Math.min(1, Math.max(0, value / 100));
   return clamp(master) * clamp(music);
+}
+
+/**
+ * How much a song is turned up or down to even out its loudness: its
+ * ReplayGain, by the rule Ultrastar Deluxe plays it with (`UMusic.pas`,
+ * `SetReplayGain`), so a song previews on the host screen as loud as it is then
+ * sung. `10^(gain/20)`, lowered to `1/peak` where there is a peak, so a quiet
+ * song is never turned up into clipping; `1` — the file as it is — where the
+ * gain is not known.
+ *
+ * The printed master and trim stay a plain product (`effectiveVolume`): this is
+ * a third multiplier on top of them, never printed, and the one Ultrastar
+ * Deluxe applies too. It can be above 1, which an element's `volume` cannot,
+ * so the sink applies it through a Web Audio gain node.
+ */
+export function replayGainFactor(
+  gainDb: number | null | undefined,
+  peak: number | null | undefined,
+): number {
+  if (typeof gainDb !== "number" || !Number.isFinite(gainDb)) return 1;
+  const factor = 10 ** (gainDb / 20);
+  if (typeof peak === "number" && Number.isFinite(peak) && peak > 0) {
+    return Math.min(factor, 1 / peak);
+  }
+  return factor;
 }
 
 /** How far out of step the element may be before it is worth seeking.

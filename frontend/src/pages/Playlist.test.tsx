@@ -87,6 +87,7 @@ function song(overrides: Partial<SongRead> = {}): SongRead {
     duration_seconds: 295,
     has_video: false,
     is_duet: false,
+    created_at: "2026-01-01T12:00:00Z",
     language: "English",
     genre: "Pop",
     year: 1982,

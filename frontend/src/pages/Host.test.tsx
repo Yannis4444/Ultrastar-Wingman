@@ -12,6 +12,7 @@ import type {
   CurrentSing,
   MusicRead,
   MusicTrackRead,
+  PlayerRead,
   ScoreWithContext,
   SessionRead,
   SongRead,
@@ -31,6 +32,7 @@ const {
   getJoinInfo,
   getDeviceStatus,
   getPlayerSelection,
+  launchUsdx,
   listAchievements,
   listKaraokeColors,
   listLatestScores,
@@ -39,6 +41,10 @@ const {
   listSessions,
   listSongScores,
   listWishlist,
+  pauseMusic,
+  playMusic,
+  setMusicVolume,
+  skipMusic,
 } = vi.hoisted(() => ({
   getMe: vi.fn(),
   getMusic: vi.fn(),
@@ -47,6 +53,7 @@ const {
   getJoinInfo: vi.fn(),
   getDeviceStatus: vi.fn(),
   getPlayerSelection: vi.fn(),
+  launchUsdx: vi.fn(),
   listAchievements: vi.fn(),
   listKaraokeColors: vi.fn(),
   listLatestScores: vi.fn(),
@@ -55,6 +62,10 @@ const {
   listSessions: vi.fn(),
   listSongScores: vi.fn(),
   listWishlist: vi.fn(),
+  pauseMusic: vi.fn(),
+  playMusic: vi.fn(),
+  setMusicVolume: vi.fn(),
+  skipMusic: vi.fn(),
 }));
 
 vi.mock("../api/sdk.gen", async (importOriginal) => ({
@@ -66,6 +77,7 @@ vi.mock("../api/sdk.gen", async (importOriginal) => ({
   getJoinInfo,
   getDeviceStatus,
   getPlayerSelection,
+  launchUsdx,
   listAchievements,
   listKaraokeColors,
   listLatestScores,
@@ -74,6 +86,10 @@ vi.mock("../api/sdk.gen", async (importOriginal) => ({
   listSessions,
   listSongScores,
   listWishlist,
+  pauseMusic,
+  playMusic,
+  setMusicVolume,
+  skipMusic,
 }));
 
 const RHAPSODY: SongRead = {
@@ -83,6 +99,7 @@ const RHAPSODY: SongRead = {
   duration_seconds: null,
   has_video: false,
   is_duet: false,
+  created_at: "2026-01-01T12:00:00Z",
   language: null,
   genre: null,
   year: null,
@@ -232,6 +249,12 @@ beforeEach(() => {
   listSessionScores.mockResolvedValue({ data: { scores: [] } });
   listSongScores.mockResolvedValue({ data: { scores: [] } });
   listWishlist.mockResolvedValue({ data: { wishes: [] } });
+  launchUsdx.mockReset();
+  launchUsdx.mockResolvedValue({ data: { started: true } });
+  for (const control of [pauseMusic, playMusic, skipMusic, setMusicVolume]) {
+    control.mockReset();
+    control.mockResolvedValue({ data: quietMusic() });
+  }
 });
 
 afterEach(() => {
@@ -908,6 +931,56 @@ test("without a standing the rail gives the wishes the whole column", async () =
   expect(within(wishes).getAllByRole("listitem")).toHaveLength(5);
 });
 
+/** Alice's player, with or without the picture she set after the TV came on. */
+function alice(avatarVersion: number | null): PlayerRead {
+  return {
+    id: "player-alice",
+    name: "Alice",
+    registered: true,
+    hidden: false,
+    has_avatar: avatarVersion !== null,
+    avatar_version: avatarVersion,
+  };
+}
+
+/** What the leaderboard row of Alice draws: her picture's URL, or `null` for the initial. */
+function aliceInTheStanding(): string | null {
+  const board = screen.getByLabelText("Party leaderboard");
+  const row = within(board).getByText("Alice").closest("li");
+  return row?.querySelector("img")?.getAttribute("src") ?? null;
+}
+
+test.each(["players.changed", "server.ready"])(
+  "a picture set after the TV came on reaches the standing on %s",
+  async (event) => {
+    // The TV is open all evening and nothing remounts it: the roster it read
+    // when it came on must not be the one it draws from at midnight.
+    withScores();
+    getMe.mockResolvedValue(
+      meResponse(["stats.view", "players.view"], {
+        is_host: true,
+        role: "admin",
+      }),
+    );
+    const party = [{ ...PARTY[0], player_id: "player-alice" }, PARTY[1]];
+    listSessionScores.mockResolvedValue({ data: { scores: party } });
+    listPlayers.mockResolvedValue({ data: { players: [alice(null)] } });
+    renderHost("/host");
+    await screen.findByLabelText("Party leaderboard");
+    await waitFor(() => expect(listPlayers).toHaveBeenCalled());
+    expect(aliceInTheStanding()).toBeNull();
+
+    listPlayers.mockResolvedValue({ data: { players: [alice(1234)] } });
+    act(() => FakeSocket.deliver({ event, version: "1" }));
+
+    await waitFor(() =>
+      expect(aliceInTheStanding()).toBe(
+        "/api/v1/players/player-alice/avatar?v=1234",
+      ),
+    );
+  },
+);
+
 test("a changed join URL reaches the TV without a reload", async () => {
   renderHost("/host");
   expect(await screen.findByText("192.168.0.10:8080")).toBeInTheDocument();
@@ -1008,6 +1081,8 @@ test("the idle screen names the background song, quietly", async () => {
     position_s: 3,
     position_at: "2026-08-23T20:00:00Z",
     duration_s: 200,
+    gain_db: null,
+    peak: null,
   };
   getMusic.mockResolvedValue({
     data: quietMusic({ status: "playing", track, sink_online: true }),
@@ -1034,6 +1109,8 @@ test("the background song stays named along the foot with the scores up, and goe
     position_s: 3,
     position_at: "2026-08-23T20:00:00Z",
     duration_s: 200,
+    gain_db: null,
+    peak: null,
   };
   getMusic.mockResolvedValue({
     data: quietMusic({ status: "playing", track, sink_online: true }),
@@ -1063,4 +1140,457 @@ test("a screen that is not playing anything says nothing about music", async () 
 
   await screen.findByText("Scan the code to pick a song");
   expect(document.querySelector(".host-music-line")).toBeNull();
+});
+
+/** The background song, loaded and moving. */
+const TRACK: MusicTrackRead = {
+  id: "t-1",
+  song: { ...RHAPSODY, title: "Waterloo", artist: "ABBA" },
+  started_at: "2026-08-23T20:00:00Z",
+  position_s: 3,
+  position_at: "2026-08-23T20:00:00Z",
+  duration_s: 200,
+  gain_db: null,
+  peak: null,
+};
+
+function playingMusic(overrides: Partial<MusicRead> = {}): MusicRead {
+  return quietMusic({
+    status: "playing",
+    track: TRACK,
+    sink_online: true,
+    volume: { master: 80, music: 60, preview: 100, effects: 80 },
+    ...overrides,
+  });
+}
+
+/** The host's own browser: an administrator, every right the overlay asks. */
+function asHost() {
+  getMe.mockResolvedValue(
+    meResponse(
+      [
+        "settings.view",
+        "settings.manage",
+        "karaoke.stop",
+        "music.view",
+        "music.control",
+      ],
+      { is_host: true, role: "admin" },
+    ),
+  );
+}
+
+/** One key press on the page, the way a key with nothing focused arrives. */
+function key(name: string, init: KeyboardEventInit = {}): boolean {
+  let unprevented = true;
+  act(() => {
+    unprevented = fireEvent.keyDown(document.body, { key: name, ...init });
+  });
+  return unprevented;
+}
+
+test("the overlay opens Ultrastar Deluxe, with the reason a host would", async () => {
+  asHost();
+  renderHost("/host");
+
+  const open = await screen.findByRole("button", { name: "Ultrastar Deluxe" });
+  expect(iconNames(open)).toEqual(["power"]);
+  expect(open).toHaveAccessibleDescription("For settings like microphones");
+  expect(open.closest(".host-controls")).not.toBeNull();
+
+  fireEvent.click(open);
+  await waitFor(() => expect(launchUsdx).toHaveBeenCalledTimes(1));
+  // Its window coming to the front is the answer: the overlay says nothing.
+  await act(async () => undefined);
+  expect(screen.queryByRole("alert")).toBeNull();
+});
+
+test("while a song plays the slot is Stop, and Ultrastar Deluxe is not offered", async () => {
+  asHost();
+  getCurrentSing.mockResolvedValue({ data: { sing: RUNNING } });
+  renderHost("/host");
+
+  expect(await screen.findByRole("button", { name: "Stop" })).toBeVisible();
+  expect(screen.queryByRole("button", { name: "Ultrastar Deluxe" })).toBeNull();
+  expect(screen.queryByText("For settings like microphones")).toBeNull();
+});
+
+test("a browser without the settings' right gets no Ultrastar Deluxe", async () => {
+  getMe.mockResolvedValue(
+    meResponse(["settings.view", "music.view"], { role: "user" }),
+  );
+  renderHost("/host");
+
+  await screen.findByText("Scan to join");
+  expect(screen.queryByRole("button", { name: "Ultrastar Deluxe" })).toBeNull();
+});
+
+test("a refused launch says why in the overlay, and goes once the mouse rests", async () => {
+  vi.useFakeTimers({ shouldAdvanceTime: true });
+  asHost();
+  launchUsdx.mockRejectedValue({ detail: "already_playing" });
+  renderHost("/host");
+
+  fireEvent.click(
+    await screen.findByRole("button", { name: "Ultrastar Deluxe" }),
+  );
+  const alert = await screen.findByRole("alert");
+  expect(alert).toHaveTextContent(
+    "A song is playing right now. Ultrastar Deluxe is busy with it.",
+  );
+  expect(alert).toHaveClass("host-error");
+  expect(alert.closest(".host-controls")).not.toBeNull();
+
+  act(() => vi.advanceTimersByTime(3100));
+  fireEvent.pointerMove(window);
+  await waitFor(() => expect(screen.queryByRole("alert")).toBeNull());
+});
+
+test("a launch refused for the setup says each problem in words", async () => {
+  asHost();
+  launchUsdx.mockRejectedValue({
+    detail: {
+      error: "usdx_not_configured",
+      problems: [
+        "the bundled songs folder cannot be written to: C:\\Karaoke\\usdx\\songs",
+      ],
+    },
+  });
+  renderHost("/host");
+
+  fireEvent.click(
+    await screen.findByRole("button", { name: "Ultrastar Deluxe" }),
+  );
+  const alert = await screen.findByRole("alert");
+  expect(alert).not.toHaveTextContent("C:\\Karaoke");
+  expect(alert).toHaveClass("host-error");
+});
+
+test("the transport pauses, plays and skips the music, naming its keys", async () => {
+  asHost();
+  getMusic.mockResolvedValue({ data: playingMusic() });
+  pauseMusic.mockResolvedValue({ data: playingMusic({ status: "paused" }) });
+  renderHost("/host");
+
+  const pause = await screen.findByRole("button", { name: "Pause" });
+  expect(pause).toHaveAttribute("title", "Pause (K)");
+  expect(pause).toHaveAttribute("aria-keyshortcuts", "Space K");
+  expect(pause.closest(".host-controls")).not.toBeNull();
+  const skip = screen.getByRole("button", { name: "Skip" });
+  expect(skip).toHaveAttribute("title", "Skip (N)");
+  expect(skip).toHaveAttribute("aria-keyshortcuts", "N");
+
+  fireEvent.click(pause);
+  await waitFor(() => expect(pauseMusic).toHaveBeenCalledTimes(1));
+  const play = await screen.findByRole("button", { name: "Play" });
+  expect(play).toHaveAttribute("title", "Play (K)");
+  expect(iconNames(play)).toEqual(["play"]);
+
+  fireEvent.click(screen.getByRole("button", { name: "Skip" }));
+  await waitFor(() => expect(skipMusic).toHaveBeenCalledTimes(1));
+});
+
+test("with the music off only the master volume stands", async () => {
+  asHost();
+  getMusic.mockResolvedValue({
+    data: quietMusic({
+      volume: { master: 70, music: 60, preview: 100, effects: 80 },
+    }),
+  });
+  renderHost("/host");
+
+  const slider = await screen.findByRole("slider", { name: "Master volume" });
+  expect(slider).toHaveValue("70");
+  expect(slider).toHaveAttribute("aria-keyshortcuts", "ArrowUp ArrowDown");
+  expect(screen.getByText("70%")).toBeInTheDocument();
+  expect(screen.queryByRole("button", { name: "Pause" })).toBeNull();
+  expect(screen.queryByRole("button", { name: "Play" })).toBeNull();
+  expect(screen.queryByRole("button", { name: "Skip" })).toBeNull();
+});
+
+test("while a sing holds the music only the volume stands beside Stop, and K and N are nobody's", async () => {
+  asHost();
+  getCurrentSing.mockResolvedValue({ data: { sing: RUNNING } });
+  getMusic.mockResolvedValue({
+    data: playingMusic({ status: "blocked", blocked_by: "sing" }),
+  });
+  renderHost("/host");
+
+  expect(
+    await screen.findByRole("slider", { name: "Master volume" }),
+  ).toBeInTheDocument();
+  expect(screen.getByRole("button", { name: "Stop" })).toBeInTheDocument();
+  expect(screen.queryByRole("button", { name: "Pause" })).toBeNull();
+  expect(screen.queryByRole("button", { name: "Play" })).toBeNull();
+  expect(screen.queryByRole("button", { name: "Skip" })).toBeNull();
+
+  // `true`: the page left the key alone, and nothing reached the music.
+  expect(key("k")).toBe(true);
+  expect(key(" ")).toBe(true);
+  expect(key("n")).toBe(true);
+  await act(async () => undefined);
+  expect(pauseMusic).not.toHaveBeenCalled();
+  expect(playMusic).not.toHaveBeenCalled();
+  expect(skipMusic).not.toHaveBeenCalled();
+  // The volume is still the keyboard's.
+  expect(key("ArrowDown")).toBe(false);
+});
+
+test("an open Ultrastar Deluxe holds the transport back too", async () => {
+  asHost();
+  getMusic.mockResolvedValue({
+    data: playingMusic({ status: "blocked", blocked_by: "usdx" }),
+  });
+  renderHost("/host");
+
+  await screen.findByRole("slider", { name: "Master volume" });
+  expect(screen.queryByRole("button", { name: "Pause" })).toBeNull();
+  expect(screen.queryByRole("button", { name: "Skip" })).toBeNull();
+  expect(key("k")).toBe(true);
+  expect(key("n")).toBe(true);
+  await act(async () => undefined);
+  expect(pauseMusic).not.toHaveBeenCalled();
+  expect(skipMusic).not.toHaveBeenCalled();
+});
+
+test("a guest's host screen has no transport and no keys for it", async () => {
+  getMe.mockResolvedValue(meResponse(["songs.view", "music.view"]));
+  getMusic.mockResolvedValue({ data: playingMusic() });
+  renderHost("/host");
+
+  await screen.findByText(/Waterloo · ABBA/);
+  expect(screen.queryByRole("button", { name: "Pause" })).toBeNull();
+  expect(screen.queryByRole("slider", { name: "Master volume" })).toBeNull();
+
+  // The keys are not theirs either, and the page keeps its Space.
+  expect(key("k")).toBe(true);
+  expect(key(" ")).toBe(true);
+  expect(key("ArrowUp")).toBe(true);
+  await act(async () => undefined);
+  expect(pauseMusic).not.toHaveBeenCalled();
+  expect(setMusicVolume).not.toHaveBeenCalled();
+});
+
+test("the slider writes the master volume once, after it settles", async () => {
+  asHost();
+  getMusic.mockResolvedValue({ data: playingMusic() });
+  setMusicVolume.mockResolvedValue({
+    data: playingMusic({
+      volume: { master: 55, music: 60, preview: 100, effects: 80 },
+    }),
+  });
+  renderHost("/host");
+
+  const slider = await screen.findByRole("slider", { name: "Master volume" });
+  fireEvent.change(slider, { target: { value: "60" } });
+  fireEvent.change(slider, { target: { value: "55" } });
+  expect(screen.getByText("55%")).toBeInTheDocument();
+
+  await waitFor(() => expect(setMusicVolume).toHaveBeenCalledTimes(1));
+  expect(setMusicVolume.mock.calls[0][0].body).toEqual({ master: 55 });
+});
+
+test("the volume follows a phone that turns the room down", async () => {
+  asHost();
+  getMusic.mockResolvedValue({ data: playingMusic() });
+  renderHost("/host");
+
+  await screen.findByText("80%");
+  act(() =>
+    FakeSocket.deliver({
+      event: "music.changed",
+      music: playingMusic({
+        volume: { master: 40, music: 60, preview: 100, effects: 80 },
+      }),
+    }),
+  );
+  expect(await screen.findByText("40%")).toBeInTheDocument();
+  expect(screen.getByRole("slider", { name: "Master volume" })).toHaveValue(
+    "40",
+  );
+});
+
+test("K and Space pause, N skips, and none of them moves the focus", async () => {
+  asHost();
+  getMusic.mockResolvedValue({ data: playingMusic() });
+  pauseMusic.mockResolvedValue({ data: playingMusic() });
+  renderHost("/host");
+  await screen.findByRole("button", { name: "Pause" });
+
+  // `false` is a press the page kept for itself: Space must not scroll.
+  expect(key("k")).toBe(false);
+  await waitFor(() => expect(pauseMusic).toHaveBeenCalledTimes(1));
+  expect(key(" ")).toBe(false);
+  await waitFor(() => expect(pauseMusic).toHaveBeenCalledTimes(2));
+  expect(key("N")).toBe(false);
+  await waitFor(() => expect(skipMusic).toHaveBeenCalledTimes(1));
+  expect(document.activeElement).toBe(document.body);
+
+  // A held K is one press, not the music flickering on and off.
+  key("k", { repeat: true });
+  await act(async () => undefined);
+  expect(pauseMusic).toHaveBeenCalledTimes(2);
+});
+
+test("a key works on a faded overlay, brings it back and lets it fade again", async () => {
+  vi.useFakeTimers({ shouldAdvanceTime: true });
+  asHost();
+  getMusic.mockResolvedValue({ data: playingMusic() });
+  const { container } = renderHost("/host");
+  await screen.findByText("80%");
+  const page = container.querySelector(".host-page");
+
+  act(() => vi.advanceTimersByTime(3100));
+  expect(page).toHaveClass("host-idle");
+
+  expect(key("ArrowDown")).toBe(false);
+  expect(page).not.toHaveClass("host-idle");
+  expect(screen.getByText("75%")).toBeInTheDocument();
+  expect(document.activeElement).toBe(document.body);
+
+  act(() => vi.advanceTimersByTime(3100));
+  expect(page).toHaveClass("host-idle");
+  await waitFor(() => expect(setMusicVolume).toHaveBeenCalledTimes(1));
+  expect(setMusicVolume.mock.calls[0][0].body).toEqual({ master: 75 });
+});
+
+test("the shortcut listener is bound once, however often the page renders", async () => {
+  // A browser drops a listener removed during a dispatch, and the one added in
+  // its place: re-bound per render, the key that woke a faded overlay was
+  // lost. jsdom renders after the dispatch, so only the binding itself shows it.
+  vi.useFakeTimers({ shouldAdvanceTime: true });
+  const add = vi.spyOn(window, "addEventListener");
+  const remove = vi.spyOn(window, "removeEventListener");
+  try {
+    asHost();
+    getMusic.mockResolvedValue({ data: playingMusic() });
+    const { unmount } = renderHost("/host");
+    await screen.findByText("80%");
+    const keydowns = (spy: typeof add | typeof remove) =>
+      spy.mock.calls.filter(([type]) => type === "keydown").length;
+    const bound = keydowns(add);
+    expect(keydowns(remove)).toBe(0);
+
+    act(() => vi.advanceTimersByTime(3100));
+    key("ArrowDown");
+    fireEvent.pointerMove(document.body);
+    act(() =>
+      FakeSocket.deliver({
+        event: "music.changed",
+        music: playingMusic({ status: "paused" }),
+      }),
+    );
+    await screen.findByRole("button", { name: "Play" });
+    act(() => vi.advanceTimersByTime(3100));
+
+    expect(keydowns(add)).toBe(bound);
+    expect(keydowns(remove)).toBe(0);
+    unmount();
+    expect(keydowns(remove)).toBe(bound);
+  } finally {
+    add.mockRestore();
+    remove.mockRestore();
+  }
+});
+
+test("K plays a paused room", async () => {
+  asHost();
+  getMusic.mockResolvedValue({ data: playingMusic({ status: "paused" }) });
+  renderHost("/host");
+  await screen.findByRole("button", { name: "Play" });
+
+  key("K");
+  await waitFor(() => expect(playMusic).toHaveBeenCalledTimes(1));
+  expect(pauseMusic).not.toHaveBeenCalled();
+});
+
+test("a held arrow moves the volume by five a step and writes once it stops", async () => {
+  asHost();
+  getMusic.mockResolvedValue({ data: playingMusic() });
+  renderHost("/host");
+  await screen.findByText("80%");
+
+  expect(key("ArrowUp")).toBe(false);
+  key("ArrowUp", { repeat: true });
+  key("ArrowUp", { repeat: true });
+  // Shown at once, written once the key is let go of.
+  expect(screen.getByText("95%")).toBeInTheDocument();
+  key("ArrowUp", { repeat: true });
+  expect(screen.getByText("100%")).toBeInTheDocument();
+
+  await waitFor(() => expect(setMusicVolume).toHaveBeenCalledTimes(1));
+  expect(setMusicVolume.mock.calls[0][0].body).toEqual({ master: 100 });
+  expect(document.activeElement).toBe(document.body);
+
+  // From the stored value the answer brought back, 100.
+  key("ArrowDown");
+  await waitFor(() => expect(setMusicVolume).toHaveBeenCalledTimes(2));
+  expect(setMusicVolume.mock.calls[1][0].body).toEqual({ master: 95 });
+});
+
+test("a key with Ctrl, Alt or Meta, or pressed in a control, is not a shortcut", async () => {
+  asHost();
+  getMusic.mockResolvedValue({ data: playingMusic() });
+  renderHost("/host");
+  const slider = await screen.findByRole("slider", { name: "Master volume" });
+
+  expect(key("k", { ctrlKey: true })).toBe(true);
+  expect(key("k", { altKey: true })).toBe(true);
+  expect(key("ArrowUp", { metaKey: true })).toBe(true);
+  // The slider takes its own arrows, one step at a time; a button its Space.
+  expect(fireEvent.keyDown(slider, { key: "ArrowUp" })).toBe(true);
+  expect(
+    fireEvent.keyDown(screen.getByRole("button", { name: "Skip" }), {
+      key: " ",
+    }),
+  ).toBe(true);
+  // Esc belongs to full screen.
+  expect(key("Escape")).toBe(true);
+
+  await act(async () => new Promise((resolve) => setTimeout(resolve, 250)));
+  expect(pauseMusic).not.toHaveBeenCalled();
+  expect(setMusicVolume).not.toHaveBeenCalled();
+  expect(screen.getByText("80%")).toBeInTheDocument();
+});
+
+test("no shortcut while a dialog is open", async () => {
+  asHost();
+  getCurrentSing.mockResolvedValue({ data: { sing: RUNNING } });
+  getMusic.mockResolvedValue({
+    data: playingMusic({ status: "blocked", blocked_by: "sing" }),
+  });
+  renderHost("/host");
+
+  fireEvent.click(await screen.findByRole("button", { name: "Stop" }));
+  expect(await screen.findByRole("dialog")).toBeInTheDocument();
+
+  expect(key("k")).toBe(true);
+  expect(key("ArrowDown")).toBe(true);
+  await act(async () => new Promise((resolve) => setTimeout(resolve, 250)));
+  expect(pauseMusic).not.toHaveBeenCalled();
+  expect(setMusicVolume).not.toHaveBeenCalled();
+});
+
+test("F is nobody's in a browser that cannot go full screen", async () => {
+  asHost();
+  renderHost("/host");
+  await screen.findByText("Scan to join");
+
+  expect(key("f")).toBe(true);
+});
+
+test("F goes full screen and back, like its button", async () => {
+  asHost();
+  const api = fullscreenApi();
+  renderHost("/host");
+  const button = await screen.findByRole("button", { name: "Full screen" });
+  expect(button).toHaveAttribute("title", "Full screen (F)");
+  expect(button).toHaveAttribute("aria-keyshortcuts", "F");
+
+  expect(key("f")).toBe(false);
+  expect(api.request).toHaveBeenCalledTimes(1);
+  api.change(document.documentElement);
+  expect(key("F")).toBe(false);
+  expect(api.exit).toHaveBeenCalledTimes(1);
+  expect(document.activeElement).toBe(document.body);
 });

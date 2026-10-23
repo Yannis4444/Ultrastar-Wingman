@@ -1,11 +1,6 @@
-import {
-  useEffect,
-  useRef,
-  type MouseEvent,
-  type ReactNode,
-  type RefObject,
-} from "react";
+import { useEffect, useRef, type MouseEvent, type ReactNode } from "react";
 import { Icon } from "./icons";
+import { openModals } from "./modalStack";
 import "./Modal.css";
 
 interface ModalProps {
@@ -30,18 +25,6 @@ interface ModalProps {
 
 const FOCUSABLE =
   'a[href], button:not([disabled]), input:not([disabled]), select:not([disabled]), textarea:not([disabled]), audio[controls], [tabindex]:not([tabindex="-1"])';
-
-/**
- * Every open modal, oldest first — a confirmation opened from inside a dialog
- * is the last one on it.
- *
- * Escape and the focus trap listen on `document`, so without this every layer
- * would answer the same keypress: one Escape over a nested `ConfirmModal` used
- * to close the confirmation *and* the dialog behind it, and the outer trap saw
- * the confirmation's own buttons (it renders inside the outer panel) and fought
- * the inner one over where Tab goes. Only the top of the stack acts.
- */
-const openModals: RefObject<HTMLDivElement | null>[] = [];
 
 /**
  * Generic centered overlay. Not a native `<dialog>`: jsdom has no
