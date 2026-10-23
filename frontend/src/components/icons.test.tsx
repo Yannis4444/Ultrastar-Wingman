@@ -80,6 +80,7 @@ const NOT_PICKABLE: IconName[] = [
   "dice",
   "dice-1",
   "shuffle",
+  "external-link",
   "chevron-down",
   "arrow-up",
 ];
@@ -165,4 +166,14 @@ test("Shuffle again has a glyph of its own, never the reel's dice", () => {
   const { container } = render(<Icon name="shuffle" />);
   expect(container.querySelectorAll("path")).toHaveLength(1);
   expect(iconNames(container)).toEqual(["shuffle"]);
+});
+
+test("a link that leaves Wingman has a glyph of its own, out of the picker", () => {
+  // The open square and the arrow leaving it: two closed subpaths in one `d`.
+  expect(ICON_PATHS["external-link"].match(/M/g)).toHaveLength(2);
+  expect(PICKER_ICON_NAMES).not.toContain("external-link");
+
+  const { container } = render(<Icon name="external-link" />);
+  expect(container.querySelectorAll("path")).toHaveLength(1);
+  expect(iconNames(container)).toEqual(["external-link"]);
 });

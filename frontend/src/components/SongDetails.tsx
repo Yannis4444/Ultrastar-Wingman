@@ -35,6 +35,7 @@ import { useTags } from "../hooks/useTags";
 import { useWingmanEvent, type WingmanEvent } from "../hooks/useWingmanEvents";
 import { useWishlist } from "../hooks/useWishlist";
 import { CHART_MIN_SCORES } from "../stats";
+import { streamingLinks } from "../streamingLinks";
 import { tagColorClass, tagGlyph } from "../tags";
 import ConfirmModal from "./ConfirmModal";
 import IconStat from "./IconStat";
@@ -201,7 +202,7 @@ export default function SongDetails({ song, onClose }: SongDetailsProps) {
   // from the song itself: the one caller that opened straight into the picker
   // was Currently Playing's playlist button, and that button is gone.
   const [view, setView] = useState<
-    "main" | "scores" | "playlists" | "tags" | "comments" | "edit"
+    "main" | "scores" | "playlists" | "streaming" | "tags" | "comments" | "edit"
   >("main");
   // The song as the editor last saved it. The song itself is a prop — a row out
   // of whatever listing opened this modal — so without this the hero would go
@@ -761,6 +762,39 @@ export default function SongDetails({ song, onClose }: SongDetailsProps) {
     );
   }
 
+  if (view === "streaming") {
+    return (
+      <Modal
+        title="Open in a streaming service"
+        bare
+        onClose={() => setView("main")}
+      >
+        {/* A search on each service rather than a link to the recording: no
+            service needs a key that way, and a song spelled a little
+            differently there still turns up. What is shown is what is
+            searched, so an edit made a moment ago counts. */}
+        <p className="section-note">Each one searches for this song.</p>
+        <div className="song-options">
+          {streamingLinks(shown).map((link) => (
+            // Real links, not buttons that open a window: a long press or a
+            // middle click does what it does on any other link.
+            <a
+              key={link.id}
+              className="song-option"
+              href={link.href}
+              target="_blank"
+              rel="noopener noreferrer"
+            >
+              <span className="song-option-label">{link.name}</span>
+              {/* Where a chevron would promise a view inside (§5). */}
+              <Icon name="external-link" className="song-option-chevron" />
+            </a>
+          ))}
+        </div>
+      </Modal>
+    );
+  }
+
   if (view === "tags") {
     const busy = setTag.isPending || clearTag.isPending;
     // A tag nobody in this seat may set and nobody has set is a row that says
@@ -1116,6 +1150,24 @@ export default function SongDetails({ song, onClose }: SongDetailsProps) {
               <Icon name="chevron-right" className="song-option-chevron" />
             </button>
           )}
+
+          {/* Every reader's: listening to a song somewhere else takes no right
+              in Wingman. The row opens a view inside, hence the chevron; the
+              links in there are what leave. */}
+          <button
+            type="button"
+            className="song-option"
+            onClick={() => {
+              setNotice(null);
+              setView("streaming");
+            }}
+          >
+            <Icon name="external-link" className="song-option-icon" />
+            <span className="song-option-label">
+              Open in a streaming service
+            </span>
+            <Icon name="chevron-right" className="song-option-chevron" />
+          </button>
 
           {/* The last row, and the one place a song is changed at all: what
               the details say, and — at the foot of that same form — whether

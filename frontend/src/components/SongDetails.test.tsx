@@ -412,14 +412,14 @@ test("the rows hold the content and the actions, the strip the numbers", async (
   });
   renderDetails();
 
-  // Details first, Add to playlist second — the order §5 prescribes, with the
-  // place after it reserved for Edit details.
+  // Details first, Add to playlist second, the streaming services third — the
+  // order §5 prescribes, with the place after them reserved for Edit details.
   await screen.findByRole("button", { name: "Add to playlist" });
   expect(
     [...document.querySelectorAll(".song-option .song-option-label")].map(
       (label) => label.textContent,
     ),
-  ).toEqual(["Details", "Add to playlist"]);
+  ).toEqual(["Details", "Add to playlist", "Open in a streaming service"]);
 
   // Everything with a number to show sits in the strip instead, in one order.
   const strip = document.querySelector(".song-summary") as HTMLElement;
@@ -1541,7 +1541,126 @@ test("Edit details is the last row and looks like every other one", async () => 
     [...document.querySelectorAll(".song-option .song-option-label")].map(
       (label) => label.textContent,
     ),
-  ).toEqual(["Details", "Add to playlist", "Edit details"]);
+  ).toEqual([
+    "Details",
+    "Add to playlist",
+    "Open in a streaming service",
+    "Edit details",
+  ]);
+});
+
+/** A duet as USDB files it: the tag is in the title, never in a service's. */
+const duet: SongRead = {
+  ...song,
+  id: "usdb:2",
+  artist: "Sonny & Cher",
+  title: "I Got You Babe [DUET]",
+  is_duet: true,
+};
+
+function renderSong(shown: SongRead) {
+  const client = new QueryClient({
+    defaultOptions: { queries: { retry: false } },
+  });
+  return render(
+    <QueryClientProvider client={client}>
+      <SongDetails song={shown} onClose={() => {}} />
+    </QueryClientProvider>,
+  );
+}
+
+/** Opens the streaming sub-view and hands back its dialog. */
+async function openStreaming(): Promise<HTMLElement> {
+  fireEvent.click(
+    await screen.findByRole("button", { name: "Open in a streaming service" }),
+  );
+  return screen.getByRole("dialog", { name: "Open in a streaming service" });
+}
+
+test("a guest gets the streaming row too, a right nobody needs", async () => {
+  // Nobody: no account, no right beyond seeing the song.
+  getMe.mockResolvedValue(meResponse(["songs.view"]));
+  renderDetails();
+
+  const row = await screen.findByRole("button", {
+    name: "Open in a streaming service",
+  });
+  // An ordinary row that opens a view inside: the glyph, then a chevron.
+  expect(row.className).toBe("song-option");
+  expect(iconNames(row)).toEqual(["external-link", "chevron-right"]);
+  expect(
+    [...document.querySelectorAll(".song-option .song-option-label")].map(
+      (label) => label.textContent,
+    ),
+  ).toEqual(["Details", "Open in a streaming service"]);
+});
+
+test("the streaming view links to each service's search, in a new tab", async () => {
+  renderDetails();
+
+  const dialog = await openStreaming();
+
+  expect(
+    within(dialog).getByText("Each one searches for this song."),
+  ).toHaveClass("section-note");
+  const links = within(dialog).getAllByRole("link");
+  expect(links.map((link) => link.textContent)).toEqual([
+    "Spotify",
+    "Apple Music",
+    "YouTube Music",
+    "Tidal",
+    "Deezer",
+  ]);
+  expect(links.map((link) => link.getAttribute("href"))).toEqual([
+    "https://open.spotify.com/search/Queen%20Bohemian%20Rhapsody",
+    "https://music.apple.com/search?term=Queen%20Bohemian%20Rhapsody",
+    "https://music.youtube.com/search?q=Queen%20Bohemian%20Rhapsody",
+    "https://tidal.com/search?q=Queen%20Bohemian%20Rhapsody",
+    "https://www.deezer.com/search/Queen%20Bohemian%20Rhapsody",
+  ]);
+  for (const link of links) {
+    // Real anchors, so a long press or a middle click works as on any link.
+    expect(link.tagName).toBe("A");
+    expect(link).toHaveClass("song-option");
+    expect(link).toHaveAttribute("target", "_blank");
+    expect(link).toHaveAttribute("rel", "noopener noreferrer");
+    // The way out, where a chevron would promise a view inside.
+    expect(iconNames(link)).toEqual(["external-link"]);
+  }
+});
+
+test("a duet is searched for without the tag its title carries", async () => {
+  renderSong(duet);
+
+  const dialog = await openStreaming();
+  const hrefs = within(dialog)
+    .getAllByRole("link")
+    .map((link) => link.getAttribute("href") ?? "");
+
+  expect(hrefs).toContain(
+    "https://open.spotify.com/search/Sonny%20%26%20Cher%20I%20Got%20You%20Babe",
+  );
+  expect(new URL(hrefs[1]).searchParams.get("term")).toBe(
+    "Sonny & Cher I Got You Babe",
+  );
+  for (const href of hrefs) expect(href).not.toMatch(/DUET/i);
+});
+
+test("the streaming view's close goes back to the song", async () => {
+  renderDetails();
+
+  const dialog = await openStreaming();
+  fireEvent.click(within(dialog).getByRole("button", { name: "Close" }));
+
+  expect(
+    screen.queryByRole("dialog", { name: "Open in a streaming service" }),
+  ).not.toBeInTheDocument();
+  expect(
+    await screen.findByRole("button", { name: "Open in a streaming service" }),
+  ).toBeInTheDocument();
+  expect(
+    screen.getByText("Bohemian Rhapsody", { selector: "h3" }),
+  ).toBeVisible();
 });
 
 /** Opens the editor and hands back its dialog. */

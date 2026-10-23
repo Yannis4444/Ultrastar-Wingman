@@ -450,6 +450,15 @@ export const ICON_PATHS = {
   // solid. Not pickable, and never the dice, which are the reel's.
   shuffle:
     "M3 16h2.586l10-10H18v2h-1.586l-10 10H3v-2ZM17 4l4 3-4 3V4ZM3 6h3.414l10 10H18v2h-2.414l-10-10H3V6ZM17 14l4 3-4 3v-6Z",
+  // A link that leaves Wingman: the song modal's *Open in a streaming service*
+  // row and every service behind it. A square outline open at its upper-right
+  // corner — one two-unit band from the top edge's end round to the right
+  // edge's, rounded outside and square inside — and an arrow leaving through
+  // the gap to the top right, its head an L bar with the shaft mitred into it.
+  // Two subpaths that never touch, so the winding does not matter. Not
+  // pickable: a link is not a thing a song is about.
+  "external-link":
+    "M11 4H6a2 2 0 0 0-2 2v12a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-5h-2v5H6V6h5V4ZM14 2h8v8h-2V5.41l-8.59 8.59L10 12.59 18.59 4H14V2Z",
 } as const;
 
 export type IconName = keyof typeof ICON_PATHS;
