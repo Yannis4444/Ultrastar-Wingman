@@ -108,10 +108,16 @@ export interface CardNumbers {
 
 export interface PartyCardContent {
   kind: "party";
-  /** The party's name — or its date when it has none — or, with the toggle
-   * off, the singer count alone (§7.9). */
-  head: string;
-  /** "17 Oct 2026 · 5 singers", or `null` with the toggle off. */
+  /** The party's name, or its date when it has none — whatever the toggle
+   * says: the file name and the picture's `alt` name the party even when the
+   * card does not (§2.2). */
+  party: string;
+  /** The card's head: `party`, or `null` with *Party name and date* off —
+   * never the singer count, which is not the thing to lead with (§1.10). */
+  head: string | null;
+  /** Under the head: "17 Oct 2026 · 5 singers", or "5 singers" alone under a
+   * nameless party's date (never the date twice); `null` with the toggle
+   * off, the count going with the head (§7.9). */
   sub: string | null;
   numbers: CardNumbers;
   /** Everybody, best first — or the sharer alone with *Only me*. */
@@ -354,6 +360,7 @@ export function partyCard(input: PartyCardInput): PartyCardContent {
   const singers = plural(ranking.length, "singer");
   const name = session.name ?? "";
   const date = cardDate(session.started_at);
+  const named = name !== "";
 
   const covers: string[] = [];
   const seen = new Set<string>();
@@ -371,11 +378,12 @@ export function partyCard(input: PartyCardInput): PartyCardContent {
 
   return {
     kind: "party",
-    head: input.partyNameAndDate ? (name === "" ? date : name) : singers,
+    party: named ? name : date,
+    head: input.partyNameAndDate ? (named ? name : date) : null,
     sub: input.partyNameAndDate
-      ? name === ""
-        ? singers
-        : `${date} · ${singers}`
+      ? named
+        ? `${date} · ${singers}`
+        : singers
       : null,
     numbers: {
       sings: summary?.sings ?? 0,

@@ -12,6 +12,8 @@ export interface SharePrefs {
   partyLook: PartyLook;
   otherPictures: boolean;
   partyNameAndDate: boolean;
+  /** *Wingman logo*, on by default (§1.8). */
+  logo: boolean;
   onlyMe: boolean;
 }
 
@@ -21,6 +23,7 @@ export const DEFAULT_PREFS: SharePrefs = {
   partyLook: "dark",
   otherPictures: true,
   partyNameAndDate: true,
+  logo: true,
   onlyMe: false,
 };
 
@@ -57,6 +60,7 @@ export function readPrefs(): SharePrefs {
     partyLook: pick(stored.partyLook, ["dark", "mosaic"], d.partyLook),
     otherPictures: flag(stored.otherPictures, d.otherPictures),
     partyNameAndDate: flag(stored.partyNameAndDate, d.partyNameAndDate),
+    logo: flag(stored.logo, d.logo),
     onlyMe: flag(stored.onlyMe, d.onlyMe),
   };
 }

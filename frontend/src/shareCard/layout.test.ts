@@ -1,4 +1,5 @@
 import type { ScoreWithContext } from "../api";
+import { cardDate } from "../duration";
 import {
   SONGS,
   cardParty,
@@ -21,6 +22,7 @@ import {
   MIN_BRAND_TEXT,
   MIN_TEXT,
   SAFE_AREA,
+  SCRIM_ALPHA,
   elementBox,
   layoutPartyCard,
   layoutScoreCard,
@@ -182,6 +184,18 @@ const PARTIES: [string, PartyCardContent][] = [
   ["under four scores", party(cardParty(3, 1))],
   ["only me", party(cardParty(6, 4), { onlyMe: true })],
   ["name off", party(cardParty(5, 2), { partyNameAndDate: false })],
+  [
+    "name off, ten singers",
+    party(cardParty(10, 3), { partyNameAndDate: false }),
+  ],
+  [
+    "name off, one singer",
+    party(cardParty(1, 5), { me: "chiara", partyNameAndDate: false }),
+  ],
+  [
+    "unnamed",
+    party(cardParty(4, 3), { session: partySession({ name: null }) }),
+  ],
   ["long names", party(longNamed(cardParty(8, 5)), { session: longParty })],
   ["fifty singers", party(cardParty(50, 2), { players: cardPlayers(50) })],
 ];
@@ -297,6 +311,7 @@ test("the checks themselves catch an overlap, a small text and a stray box", () 
     height: 1080,
     background: { kind: "dark" },
     elements,
+    halo: false,
   });
   expect(() =>
     checkLayout(layout([text("a", 100), text("a", 110)]), "square"),
@@ -312,23 +327,31 @@ test("the checks themselves catch an overlap, a small text and a stray box", () 
 describe.each(SCORES)("the score card, %s", (_, content) => {
   test.each(
     FORMATS.flatMap((format) =>
-      (["dark", "cover"] as const).map((look) => [format, look] as const),
+      (["dark", "cover"] as const).flatMap((look) =>
+        [true, false].map((logo) => [format, look, logo] as const),
+      ),
     ),
-  )("%s %s keeps every region apart and readable", (format, look) => {
-    const options = resolveScoreOptions(content, { format, look }, all);
-    checkLayout(layoutScoreCard(content, options, fakeMeasure), format);
-  });
+  )(
+    "%s %s, logo %s, keeps every region apart and readable",
+    (format, look, logo) => {
+      const options = resolveScoreOptions(content, { format, look, logo }, all);
+      checkLayout(layoutScoreCard(content, options, fakeMeasure), format);
+    },
+  );
 });
 
 const PARTY_OPTIONS: PartyCardOptions[] = FORMATS.flatMap((format) =>
   (["dark", "mosaic"] as const).flatMap((look) =>
     (["podium", "spread"] as const).flatMap((focus) =>
-      (["ranking", "strip"] as const).map((under) => ({
-        format,
-        look,
-        focus,
-        under,
-      })),
+      (["ranking", "strip"] as const).flatMap((under) =>
+        [true, false].map((logo) => ({
+          format,
+          look,
+          focus,
+          under,
+          logo,
+        })),
+      ),
     ),
   ),
 );
@@ -342,12 +365,13 @@ describe.each(PARTIES)("the party card, %s", (_, content) => {
           options.look,
           options.focus,
           options.under,
+          options.logo,
           options,
         ] as const,
     ),
   )(
-    "%s %s %s %s keeps every region apart and readable",
-    (format, _look, _focus, _under, requested) => {
+    "%s %s %s %s, logo %s, keeps every region apart and readable",
+    (format, _look, _focus, _under, _logo, requested) => {
       const options = resolvePartyOptions(content, requested, all);
       checkLayout(layoutPartyCard(content, options, fakeMeasure), format);
     },
@@ -368,7 +392,7 @@ test("the dark score square sits where §4.1 puts it", () => {
   const content = SCORES[0][1];
   const layout = layoutScoreCard(
     content,
-    { format: "square", look: "dark" },
+    { format: "square", look: "dark", logo: true },
     fakeMeasure,
   );
   const cover = layout.elements.find((element) => element.kind === "image");
@@ -384,12 +408,12 @@ test("the dark score square sits where §4.1 puts it", () => {
 test("the score turns gold only for a new highscore", () => {
   const plain = layoutScoreCard(
     SCORES[0][1],
-    { format: "square", look: "dark" },
+    { format: "square", look: "dark", logo: true },
     fakeMeasure,
   );
   const record = layoutScoreCard(
     SCORES[2][1],
-    { format: "square", look: "dark" },
+    { format: "square", look: "dark", logo: true },
     fakeMeasure,
   );
   const colour = (layout: CardLayout) =>
@@ -407,7 +431,7 @@ test("the cover look blurs the song's own cover behind the card", () => {
   const content = SCORES[0][1];
   const layout = layoutScoreCard(
     content,
-    { format: "square", look: "cover" },
+    { format: "square", look: "cover", logo: true },
     fakeMeasure,
   );
   expect(layout.background).toEqual({ kind: "cover", url: content.cover.url });
@@ -417,7 +441,7 @@ test("the cover look blurs the song's own cover behind the card", () => {
   );
   const story = layoutScoreCard(
     content,
-    { format: "story", look: "cover" },
+    { format: "story", look: "cover", logo: true },
     fakeMeasure,
   );
   expect(story.elements.some((element) => element.region === "bar")).toBe(true);
@@ -428,7 +452,11 @@ test("a title never runs to a third line", () => {
   const content = SCORES[1][1];
   for (const format of FORMATS) {
     for (const look of ["dark", "cover"] as const) {
-      const layout = layoutScoreCard(content, { format, look }, fakeMeasure);
+      const layout = layoutScoreCard(
+        content,
+        { format, look, logo: true },
+        fakeMeasure,
+      );
       const lines = layout.elements.filter(
         (element) => element.kind === "text" && element.region === "title",
       );
@@ -443,7 +471,13 @@ test("ten singers: the podium, three rows and +4 more", () => {
   const content = PARTIES[4][1];
   const layout = layoutPartyCard(
     content,
-    { format: "square", look: "dark", focus: "podium", under: "ranking" },
+    {
+      format: "square",
+      look: "dark",
+      focus: "podium",
+      under: "ranking",
+      logo: true,
+    },
     fakeMeasure,
   );
   expect(texts(layout, "rows")).toContain("+4 more");
@@ -459,19 +493,37 @@ test("fifty singers: three rows and +44 more, the spread seven rows and +43 more
   const content = PARTIES.find(([name]) => name === "fifty singers")![1];
   const podium = layoutPartyCard(
     content,
-    { format: "square", look: "dark", focus: "podium", under: "ranking" },
+    {
+      format: "square",
+      look: "dark",
+      focus: "podium",
+      under: "ranking",
+      logo: true,
+    },
     fakeMeasure,
   );
   expect(texts(podium, "rows")).toContain("+44 more");
   const spread = layoutPartyCard(
     content,
-    { format: "square", look: "dark", focus: "spread", under: "none" },
+    {
+      format: "square",
+      look: "dark",
+      focus: "spread",
+      under: "none",
+      logo: true,
+    },
     fakeMeasure,
   );
   expect(texts(spread, "spread")).toContain("+43 more");
   const story = layoutPartyCard(
     content,
-    { format: "story", look: "dark", focus: "spread", under: "none" },
+    {
+      format: "story",
+      look: "dark",
+      focus: "spread",
+      under: "none",
+      logo: true,
+    },
     fakeMeasure,
   );
   expect(texts(story, "spread").some((text) => /^\+\d+ more$/.test(text))).toBe(
@@ -482,7 +534,13 @@ test("fifty singers: three rows and +44 more, the spread seven rows and +43 more
 test("one singer gets no podium: their picture large, their best the hero", () => {
   const layout = layoutPartyCard(
     PARTIES[0][1],
-    { format: "square", look: "dark", focus: "podium", under: "strip" },
+    {
+      format: "square",
+      look: "dark",
+      focus: "podium",
+      under: "strip",
+      logo: true,
+    },
     fakeMeasure,
   );
   expect(layout.elements.some((element) => element.region === "podium")).toBe(
@@ -497,7 +555,13 @@ test("one singer gets no podium: their picture large, their best the hero", () =
 test("a story has room for the rows and the strip both", () => {
   const layout = layoutPartyCard(
     PARTIES[3][1],
-    { format: "story", look: "dark", focus: "podium", under: "ranking" },
+    {
+      format: "story",
+      look: "dark",
+      focus: "podium",
+      under: "ranking",
+      logo: true,
+    },
     fakeMeasure,
   );
   expect(layout.elements.some((element) => element.region === "rows")).toBe(
@@ -508,7 +572,13 @@ test("a story has room for the rows and the strip both", () => {
   );
   const few = layoutPartyCard(
     PARTIES[5][1],
-    { format: "story", look: "dark", focus: "podium", under: "ranking" },
+    {
+      format: "story",
+      look: "dark",
+      focus: "podium",
+      under: "ranking",
+      logo: true,
+    },
     fakeMeasure,
   );
   expect(few.elements.some((element) => element.region === "strip")).toBe(
@@ -520,7 +590,13 @@ test("the strip marks one gold score and says the median, not the best", () => {
   const content = PARTIES[3][1];
   const layout = layoutPartyCard(
     content,
-    { format: "square", look: "dark", focus: "podium", under: "strip" },
+    {
+      format: "square",
+      look: "dark",
+      focus: "podium",
+      under: "strip",
+      logo: true,
+    },
     fakeMeasure,
   );
   const gold = layout.elements.filter(
@@ -538,7 +614,13 @@ test("the spread is one row per singer under a one-line ranking", () => {
   const content = PARTIES[3][1];
   const layout = layoutPartyCard(
     content,
-    { format: "square", look: "dark", focus: "spread", under: "none" },
+    {
+      format: "square",
+      look: "dark",
+      focus: "spread",
+      under: "none",
+      logo: true,
+    },
     fakeMeasure,
   );
   expect(texts(layout, "ranking")).toEqual([
@@ -554,7 +636,13 @@ test("the spread is one row per singer under a one-line ranking", () => {
   // Ten singers do not fit a square: the rest are counted.
   const ten = layoutPartyCard(
     PARTIES[4][1],
-    { format: "square", look: "dark", focus: "spread", under: "none" },
+    {
+      format: "square",
+      look: "dark",
+      focus: "spread",
+      under: "none",
+      logo: true,
+    },
     fakeMeasure,
   );
   expect(texts(ten, "spread")).toContain("+3 more");
@@ -564,7 +652,13 @@ test("the spread boxes a singer from five scores on", () => {
   const content = party(cardParty(3, 5));
   const layout = layoutPartyCard(
     content,
-    { format: "square", look: "dark", focus: "spread", under: "none" },
+    {
+      format: "square",
+      look: "dark",
+      focus: "spread",
+      under: "none",
+      logo: true,
+    },
     fakeMeasure,
   );
   expect(
@@ -577,7 +671,13 @@ test("the mosaic fills its grid by repeating the covers it has", () => {
   expect(content.covers).toHaveLength(4);
   const square = layoutPartyCard(
     content,
-    { format: "square", look: "mosaic", focus: "podium", under: "none" },
+    {
+      format: "square",
+      look: "mosaic",
+      focus: "podium",
+      under: "none",
+      logo: true,
+    },
     fakeMeasure,
   );
   expect(square.background.kind).toBe("mosaic");
@@ -588,7 +688,13 @@ test("the mosaic fills its grid by repeating the covers it has", () => {
   ]);
   const story = layoutPartyCard(
     content,
-    { format: "story", look: "mosaic", focus: "podium", under: "none" },
+    {
+      format: "story",
+      look: "mosaic",
+      focus: "podium",
+      under: "none",
+      logo: true,
+    },
     fakeMeasure,
   );
   if (story.background.kind !== "mosaic") throw new Error("not a mosaic");
@@ -596,7 +702,13 @@ test("the mosaic fills its grid by repeating the covers it has", () => {
   // Only the covers that arrived take a cell.
   const some = layoutPartyCard(
     content,
-    { format: "square", look: "mosaic", focus: "podium", under: "none" },
+    {
+      format: "square",
+      look: "mosaic",
+      focus: "podium",
+      under: "none",
+      logo: true,
+    },
     fakeMeasure,
     (url) => url !== content.covers[0],
   );
@@ -606,46 +718,238 @@ test("the mosaic fills its grid by repeating the covers it has", () => {
   );
 });
 
+function runColors(layout: CardLayout): string[] {
+  return layout.elements.flatMap((element) =>
+    element.kind === "text" ? element.runs.map((part) => part.color) : [],
+  );
+}
+
 test.each(["square", "story"] as const)(
-  "the mosaic's %s lays a band behind the head and the numbers, and one behind the brand line",
+  "the mosaic's %s is the covers under one scrim, no band, every word over a halo",
   (format) => {
     const layout = layoutPartyCard(
       party(cardParty(4, 2)),
-      { format, look: "mosaic", focus: "podium", under: "none" },
+      { format, look: "mosaic", focus: "podium", under: "none", logo: true },
       fakeMeasure,
     );
     if (layout.background.kind !== "mosaic") throw new Error("not a mosaic");
-    const { bands } = layout.background;
-    expect(bands).toHaveLength(2);
-    const [head, brand] = bands;
-    const inside = (regions: string[], band: { top: number; bottom: number }) =>
-      layout.elements
-        .filter((element) => regions.includes(element.region))
-        .every((element) => {
-          const box = elementBox(element);
-          return box.y >= band.top && box.y + box.h <= band.bottom;
-        });
-    expect(inside(["head", "numbers"], head)).toBe(true);
-    expect(inside(["brand"], brand)).toBe(true);
-    // The podium stays out of both: the covers show behind it.
-    const podium = layout.elements
-      .filter((element) => element.region.startsWith("podium"))
-      .map(elementBox);
-    expect(podium.length).toBeGreaterThan(0);
-    for (const box of podium) {
-      expect(box.y).toBeGreaterThanOrEqual(head.bottom);
-      expect(box.y + box.h).toBeLessThanOrEqual(brand.top);
-    }
-    expect(head.top).toBeGreaterThanOrEqual(0);
-    expect(brand.bottom).toBeLessThanOrEqual(layout.height);
+    expect(Object.keys(layout.background).sort()).toEqual(["cells", "kind"]);
+    expect(SCRIM_ALPHA.mosaic).toBe(0.84);
+    expect(layout.halo).toBe(true);
+    // The grey words take #ccc over the covers; nothing is left at #888.
+    const colors = runColors(layout);
+    expect(colors).not.toContain(CARD_COLORS.textDarker);
+    expect(colors).toContain(CARD_COLORS.textDark);
+    expect(texts(layout, "brand")).toEqual(["Ultrastar Wingman"]);
   },
 );
 
-test("only the mosaic carries bands", () => {
+test("dark has no halo and keeps its #888 words", () => {
   const dark = layoutPartyCard(
     party(cardParty(4, 2)),
-    { format: "square", look: "dark", focus: "podium", under: "none" },
+    {
+      format: "square",
+      look: "dark",
+      focus: "podium",
+      under: "none",
+      logo: true,
+    },
     fakeMeasure,
   );
   expect(dark.background).toEqual({ kind: "dark" });
+  expect(dark.halo).toBe(false);
+  expect(runColors(dark)).toContain(CARD_COLORS.textDarker);
+  const score = layoutScoreCard(
+    SCORES[0][1],
+    { format: "square", look: "cover", logo: true },
+    fakeMeasure,
+  );
+  expect(score.halo).toBe(false);
 });
+
+/** The top of the first element of `region`. */
+function topOf(layout: CardLayout, region: string): number {
+  return Math.min(
+    ...layout.elements
+      .filter((element) => element.region === region)
+      .map((element) => elementBox(element).y),
+  );
+}
+
+function bottomOf(layout: CardLayout, region: string): number {
+  return Math.max(
+    ...layout.elements
+      .filter((element) => element.region === region)
+      .map((element) => {
+        const box = elementBox(element);
+        return box.y + box.h;
+      }),
+  );
+}
+
+const named = party(cardParty(6, 4));
+const nameless = party(cardParty(6, 4), { partyNameAndDate: false });
+
+test("a party's head is its name over the date and the singer count", () => {
+  const layout = layoutPartyCard(
+    named,
+    {
+      format: "square",
+      look: "dark",
+      focus: "podium",
+      under: "strip",
+      logo: true,
+    },
+    fakeMeasure,
+  );
+  expect(texts(layout, "head")).toEqual([
+    "Friday karaoke",
+    `${cardDate(partySession().started_at)} · 6 singers`,
+  ]);
+  expect(topOf(layout, "head")).toBe(72);
+  expect(topOf(layout, "numbers")).toBe(222);
+  const unnamed = layoutPartyCard(
+    party(cardParty(6, 4), { session: partySession({ name: null }) }),
+    {
+      format: "square",
+      look: "dark",
+      focus: "podium",
+      under: "strip",
+      logo: true,
+    },
+    fakeMeasure,
+  );
+  expect(texts(unnamed, "head")).toEqual([
+    cardDate(partySession().started_at),
+    "6 singers",
+  ]);
+});
+
+test.each(["ranking", "strip"] as const)(
+  "with the name and date off the numbers start at 72 and the podium centres in what that frees, %s under it",
+  (under) => {
+    const options = {
+      format: "square",
+      look: "dark",
+      focus: "podium",
+      under,
+      logo: true,
+    } as const;
+    const on = layoutPartyCard(named, options, fakeMeasure);
+    const off = layoutPartyCard(nameless, options, fakeMeasure);
+    expect(off.elements.some((element) => element.region === "head")).toBe(
+      false,
+    );
+    expect(texts(off).some((text) => text.includes("singers"))).toBe(false);
+    expect(topOf(off, "numbers")).toBe(72);
+    // The body starts 150 higher and ends where it did: the podium stands in
+    // the middle of the larger space, 75 higher, and what is under it stays.
+    expect(topOf(off, "podium")).toBeCloseTo(topOf(on, "podium") - 75);
+    const region = under === "ranking" ? "rows" : "strip";
+    expect(topOf(off, region)).toBe(topOf(on, region));
+    // Centred between the body's top and the 24 above what is under it (the
+    // rows' first numeral sits 2 into its row's line, hence the slack).
+    const space = { top: 72 + 150, bottom: topOf(off, region) - 24 };
+    const above = topOf(off, "podium") - space.top;
+    const below = space.bottom - bottomOf(off, "podium");
+    expect(Math.abs(above - below)).toBeLessThanOrEqual(2);
+  },
+);
+
+test("with the name and date off the spread's line and rows move up by the head", () => {
+  const options = {
+    format: "square",
+    look: "dark",
+    focus: "spread",
+    under: "none",
+    logo: true,
+  } as const;
+  const on = layoutPartyCard(named, options, fakeMeasure);
+  const off = layoutPartyCard(nameless, options, fakeMeasure);
+  expect(topOf(off, "numbers")).toBe(72);
+  expect(topOf(off, "ranking")).toBe(topOf(on, "ranking") - 150);
+  expect(topOf(off, "spread")).toBeLessThan(topOf(on, "spread"));
+  // The rows take the room the head left: never fewer of them.
+  const rows = (layout: CardLayout) =>
+    texts(layout, "spread").filter((text) => text.includes("×")).length;
+  expect(rows(off)).toBeGreaterThanOrEqual(rows(on));
+});
+
+test.each(["podium", "spread"] as const)(
+  "a story without the name and date leads with the numbers, the rest centred, %s",
+  (focus) => {
+    const options = {
+      format: "story",
+      look: "dark",
+      focus,
+      under: "none",
+      logo: true,
+    } as const;
+    const on = layoutPartyCard(named, options, fakeMeasure);
+    const off = layoutPartyCard(nameless, options, fakeMeasure);
+    expect(off.elements.some((element) => element.region === "head")).toBe(
+      false,
+    );
+    expect(topOf(off, "numbers")).toBeLessThan(topOf(on, "numbers"));
+    const body = focus === "podium" ? "podium" : "spread";
+    // The stack lost the head and its gap; centred, everything under rises
+    // by half of what went — unless the spread grew into the room instead.
+    if (focus === "podium") {
+      const went = 56 * 1.3 + 4 + 32 * 1.3 + 56;
+      expect(topOf(off, body)).toBeCloseTo(topOf(on, body) - went / 2);
+    } else {
+      expect(topOf(off, body)).toBeLessThanOrEqual(topOf(on, body));
+    }
+  },
+);
+
+test.each([
+  ["a score, square dark", SCORES[1][1], "square", "dark"],
+  ["a score, square cover", SCORES[1][1], "square", "cover"],
+] as const)(
+  "%s: the logo off takes the logo and the words and moves nothing else",
+  (_, content, format, look) => {
+    const on = layoutScoreCard(
+      content,
+      { format, look, logo: true },
+      fakeMeasure,
+    );
+    const off = layoutScoreCard(
+      content,
+      { format, look, logo: false },
+      fakeMeasure,
+    );
+    expect(on.elements.some((element) => element.kind === "logo")).toBe(true);
+    expect(off.elements.some((element) => element.kind === "logo")).toBe(false);
+    expect(texts(off).some((text) => text.includes("Wingman"))).toBe(false);
+    const rest = (layout: CardLayout) =>
+      layout.elements.filter((element) => element.region !== "brand");
+    expect(rest(off)).toEqual(rest(on));
+    expect(texts(off, "brand-note")).toHaveLength(1);
+  },
+);
+
+test.each(["square", "story"] as const)(
+  "a party %s: the logo off keeps the ranking note where it was",
+  (format) => {
+    const options = {
+      format,
+      look: "dark",
+      focus: "podium",
+      under: "ranking",
+    } as const;
+    const on = layoutPartyCard(named, { ...options, logo: true }, fakeMeasure);
+    const off = layoutPartyCard(
+      named,
+      { ...options, logo: false },
+      fakeMeasure,
+    );
+    expect(
+      off.elements.filter((element) => element.region === "brand"),
+    ).toEqual([]);
+    const rest = (layout: CardLayout) =>
+      layout.elements.filter((element) => element.region !== "brand");
+    expect(rest(off)).toEqual(rest(on));
+    expect(texts(off, "brand-note")).toEqual(["ranked by best score"]);
+  },
+);

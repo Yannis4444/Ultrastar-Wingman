@@ -9,7 +9,7 @@ import {
   CARD_COLORS,
   CARD_HEIGHT,
   CARD_WIDTH,
-  MOSAIC_BAND,
+  HALO,
   SCRIM_ALPHA,
   layoutPartyCard,
   layoutScoreCard,
@@ -17,7 +17,7 @@ import {
   type CardElement,
   type CardLayout,
   type ImageElement,
-  type MosaicBand,
+  type TextElement,
   type PartyCardOptions,
   type ScoreCardOptions,
 } from "./layout";
@@ -37,7 +37,7 @@ import { resolvePartyOptions, resolveScoreOptions } from "./possible";
  * missing or will not decode is drawn as its letter on `--input-bg`.
  */
 
-/** The app's logo, the Wingman mark's source (`frontend/public/logo.png`). */
+/** The app's logo (`frontend/public/logo.png`), drawn on a card as it is. */
 export const LOGO_URL = "/logo.png";
 
 export type CardImages = ReadonlyMap<string, HTMLImageElement>;
@@ -159,35 +159,12 @@ function paintBackground(
       drawCropped(ctx, cover, cell.x, cell.y, cell.size, cell.size);
     }
   }
+  // One uniform scrim, the whole card: no band, no gradient (§3.1).
   ctx.save();
   ctx.globalAlpha = SCRIM_ALPHA[background.kind];
   ctx.fillStyle = CARD_COLORS.bg;
   ctx.fillRect(0, 0, width, height);
   ctx.restore();
-  if (background.kind === "mosaic") paintBands(ctx, background.bands, width);
-}
-
-/** `--bg` at 100% behind each band, fading to the scrim alone over
- * `MOSAIC_BAND.fade` px above and below it (§3.1). */
-function paintBands(
-  ctx: CanvasRenderingContext2D,
-  bands: MosaicBand[],
-  width: number,
-): void {
-  const { fade } = MOSAIC_BAND;
-  // `--bg` itself with its alpha at 0, so the fade is one colour throughout.
-  const clear = `${CARD_COLORS.bg}00`;
-  for (const band of bands) {
-    const top = band.top - fade;
-    const span = band.bottom - band.top + 2 * fade;
-    const gradient = ctx.createLinearGradient(0, top, 0, top + span);
-    gradient.addColorStop(0, clear);
-    gradient.addColorStop(fade / span, CARD_COLORS.bg);
-    gradient.addColorStop(1 - fade / span, CARD_COLORS.bg);
-    gradient.addColorStop(1, clear);
-    ctx.fillStyle = gradient;
-    ctx.fillRect(0, top, width, span);
-  }
 }
 
 function paintImage(
@@ -229,8 +206,8 @@ function paintImage(
   ctx.fillText(letter, x + (w - measure(letter, font)) / 2, y + h / 2);
 }
 
-/** The Wingman mark: the logo as a flat grey silhouette — small and grey
- * (§1), without `ctx.filter`, by painting `#888` into the logo's own alpha. */
+/** The Wingman logo as it is, in its own colours (§1.8): one plain
+ * `drawImage`, nothing composited into it. */
 function paintLogo(
   ctx: CanvasRenderingContext2D,
   logo: HTMLImageElement,
@@ -238,17 +215,42 @@ function paintLogo(
   y: number,
   size: number,
 ): void {
-  const mark = scratchCanvas(size);
-  const markCtx = mark.getContext("2d");
-  if (markCtx === null) return;
-  markCtx.imageSmoothingEnabled = true;
-  markCtx.imageSmoothingQuality = "high";
-  markCtx.drawImage(logo, 0, 0, size, size);
-  markCtx.globalCompositeOperation = "source-in";
-  markCtx.fillStyle = CARD_COLORS.textDarker;
-  markCtx.fillRect(0, 0, size, size);
-  ctx.drawImage(mark, x, y);
-  mark.width = 0;
+  ctx.imageSmoothingEnabled = true;
+  ctx.imageSmoothingQuality = "high";
+  ctx.drawImage(logo, x, y, size, size);
+}
+
+function paintText(
+  ctx: CanvasRenderingContext2D,
+  element: TextElement,
+  measure: Measure,
+): void {
+  ctx.textBaseline = "middle";
+  let x = element.x;
+  for (const run of element.runs) {
+    const font = { size: element.size, weight: run.weight };
+    ctx.font = fontString(font);
+    ctx.fillStyle = run.color;
+    ctx.fillText(run.text, x, element.y + element.h / 2);
+    x += measure(run.text, font);
+  }
+}
+
+/**
+ * `paint` over a halo (§3.1): painted `HALO.passes` times with a `--bg`
+ * shadow and no offset, then once plainly on top. The whole element goes
+ * through each pass before the next, so a later run's halo never lies over
+ * an earlier run's clean text.
+ */
+function withHalo(ctx: CanvasRenderingContext2D, paint: () => void): void {
+  ctx.save();
+  ctx.shadowColor = HALO.color;
+  ctx.shadowBlur = HALO.blur;
+  ctx.shadowOffsetX = 0;
+  ctx.shadowOffsetY = 0;
+  for (let pass = 0; pass < HALO.passes; pass++) paint();
+  ctx.restore();
+  paint();
 }
 
 function paintElement(
@@ -256,18 +258,12 @@ function paintElement(
   element: CardElement,
   images: CardImages,
   measure: Measure,
+  halo: boolean,
 ): void {
   switch (element.kind) {
     case "text": {
-      ctx.textBaseline = "middle";
-      let x = element.x;
-      for (const run of element.runs) {
-        const font = { size: element.size, weight: run.weight };
-        ctx.font = fontString(font);
-        ctx.fillStyle = run.color;
-        ctx.fillText(run.text, x, element.y + element.h / 2);
-        x += measure(run.text, font);
-      }
+      if (halo) withHalo(ctx, () => paintText(ctx, element, measure));
+      else paintText(ctx, element, measure);
       return;
     }
     case "image":
@@ -319,8 +315,11 @@ function paintElement(
       return;
     case "logo": {
       const logo = images.get(LOGO_URL);
-      if (logo !== undefined)
+      if (logo === undefined) return;
+      const paint = () =>
         paintLogo(ctx, logo, element.x, element.y, element.size);
+      if (halo) withHalo(ctx, paint);
+      else paint();
       return;
     }
   }
@@ -404,7 +403,7 @@ export async function paintCard(
   const layout = layoutOf(request, measure, ready);
   paintBackground(ctx, layout.background, layout.width, layout.height, ready);
   for (const element of layout.elements)
-    paintElement(ctx, element, ready, measure);
+    paintElement(ctx, element, ready, measure, layout.halo);
 }
 
 /**

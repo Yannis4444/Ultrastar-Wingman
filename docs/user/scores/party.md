@@ -194,7 +194,7 @@ Under the picture you choose how the card looks.
 | Choice | What it does |
 |---|---|
 | **Format** | **Square** for a chat. **Story** for a story app, which draws its own controls over the top and the foot |
-| **Look** | **Dark**. For a score, **Cover** blurs the song's cover behind it. For a party, **Mosaic** lays the party's covers behind the podium |
+| **Look** | **Dark**. For a score, **Cover** blurs the song's cover behind it. For a party, **Mosaic** lays the party's covers behind the whole card, dimmed so the words stay readable |
 | **Focus** | A party only: the **Podium**, or the **Spread** of every singer's scores |
 | **Under the podium** | A square, dark podium card only: the **Ranking** of the next singers, or the **Score strip** of every score |
 
@@ -202,11 +202,15 @@ A choice the card cannot draw stays in the list but cannot be picked. A line
 under it says why: **Mosaic** needs four different covers, for example, and a
 song without a cover has no **Cover** look.
 
-Three checkboxes decide who and what is on the card.
+Four checkboxes decide who and what is on the card.
 
 - **Other singers' pictures**: cleared, everybody else is drawn as their
   initial. Your own picture is always yours.
-- **Party name and date**: cleared, the card names no party and no day.
+- **Party name and date**: cleared, the card names no party and no day. A
+  party card then starts with its figures. The saved file is still named
+  after the party, or after its date, so you can find it on your phone.
+- **Wingman logo**: the Ultrastar Wingman logo and name in the bottom corner.
+  It is on until you clear it. Clearing it moves nothing else on the card.
 - **Only me and my place**: a party only. The card shows you alone, with your
   own figures and your place, such as "2nd of 5". It is there for somebody who
   sang at that party.
@@ -216,9 +220,12 @@ The panel remembers the format, the look, and the checkboxes on this device.
 ### What a card shows
 
 A score card shows the song, the score with its rating word, your place, and
-who sang it with you. A party card shows **Sings**, **Songs**, **Best**, and
-**Average**, then the podium. No card ever shows the worst score: a card
-leaves the room.
+who sang it with you.
+
+A party card opens with the party's name over its date and how many sang. A
+party without a name opens with its date. Then come **Sings**, **Songs**,
+**Best**, and **Average**, and the podium. No card ever shows the worst score:
+a card leaves the room.
 
 For a reader who may open past parties, a score that holds the song's record
 says **New Highscore**. One that is the singer's own best on the song says

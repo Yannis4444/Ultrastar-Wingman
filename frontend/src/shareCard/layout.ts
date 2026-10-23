@@ -31,6 +31,9 @@ export type UnderPodium = "ranking" | "strip" | "none";
 export interface ScoreCardOptions {
   format: CardFormat;
   look: ScoreLook;
+  /** *Wingman logo*: the logo and its words at the foot (§1.8). Off, both
+   * go and the note beside them stays where it was. */
+  logo: boolean;
 }
 
 export interface PartyCardOptions {
@@ -38,6 +41,8 @@ export interface PartyCardOptions {
   look: PartyLook;
   focus: PartyFocus;
   under: UnderPodium;
+  /** As on a score card. */
+  logo: boolean;
 }
 
 /** The app's tokens (`index.css`), as the canvas needs them: literal colours. */
@@ -179,7 +184,7 @@ export interface IconElement {
   color: string;
 }
 
-/** The Wingman mark, drawn small and grey out of the app's logo. */
+/** The Wingman logo, drawn as it is in its own colours (§1.8). */
 export interface LogoElement {
   kind: "logo";
   region: Region;
@@ -204,42 +209,39 @@ export interface MosaicCell {
   size: number;
 }
 
-/** A stretch of the card, top to bottom, that a Mosaic paints `--bg` at 100%
- * behind: the text that sits there must read clean over sharp covers. */
-export interface MosaicBand {
-  top: number;
-  bottom: number;
-}
-
 export type CardBackground =
   | { kind: "dark" }
   /** The cover blurred over the whole card under `--bg` at 70%. */
   | { kind: "cover"; url: string }
-  /** The party's covers in a grid under the same scrim, and over that the
-   * bands behind the head, the numbers and the brand line. */
-  | { kind: "mosaic"; cells: MosaicCell[]; bands: MosaicBand[] };
+  /** The party's covers in a grid under one uniform scrim — no band, no
+   * gradient: the covers show behind the text as behind the podium. */
+  | { kind: "mosaic"; cells: MosaicCell[] };
 
 export interface CardLayout {
   width: number;
   height: number;
   background: CardBackground;
   elements: CardElement[];
+  /** Whether every text and the logo are painted over a halo (`HALO`): on a
+   * Mosaic, where sharp covers stand behind them. */
+  halo: boolean;
 }
 
-/** The scrim over a background picture: `--bg` at this opacity. The blurred
- * cover takes §3.1's 70%; the mosaic's covers are sharp, lettering and all,
- * and at 70% they fought the grey labels over them, so they sit deeper. */
-export const SCRIM_ALPHA = { cover: 0.7, mosaic: 0.8 } as const;
+/** The scrim over a background picture: `--bg` at this opacity — §3.1's 70%
+ * over the blurred cover, 84% over the Mosaic's sharp ones. */
+export const SCRIM_ALPHA = { cover: 0.7, mosaic: 0.84 } as const;
 
-/** The Mosaic's bands (§3.1): even at 80% a cover's lettering showed through
- * the head, the four numbers and the brand line, so behind those the card is
- * `--bg` at 100% — `pad` past their text — and falls back to the scrim over
- * `fade` px on each side. A uniform 88% was tried and dimmed the covers in
- * the middle without cleaning the grey labels. */
-export const MOSAIC_BAND = { pad: 24, fade: 96 } as const;
-
-/** The regions a band is drawn behind, grouped into one band each. */
-const BANDED: Region[][] = [["head", "numbers"], ["brand"]];
+/**
+ * What a Mosaic's text and logo stand on (§3.1): a scrim alone let a cover's
+ * lettering through the grey labels, so each is painted `passes` times with a
+ * `--bg` shadow at 90% blurred `blur` px and no offset, then plainly on top.
+ * A shadow rather than `ctx.filter`, which WebKit does not hold to.
+ */
+export const HALO = {
+  color: "rgba(2, 23, 32, 0.9)",
+  blur: 20,
+  passes: 2,
+} as const;
 
 export interface Box {
   x: number;
@@ -375,28 +377,49 @@ function lineHeight(size: number): number {
   return size * LEADING;
 }
 
-/** The Wingman mark and its words bottom left, and `note` at the right of the
- * same line — the party · date of a score, or what a party is ranked by. */
-function brand(b: Builder, bottom: number, note: string | null): void {
-  const logo = 48;
-  const top = bottom - logo;
-  b.push({ kind: "logo", region: "brand", x: MARGIN, y: top, size: logo });
-  const words = b.text(
-    "brand",
-    [run("Ultrastar Wingman", CARD_COLORS.textDarker)],
-    MIN_BRAND_TEXT,
-    MARGIN + logo + 16,
-    top + (logo - lineHeight(MIN_BRAND_TEXT)) / 2,
-  );
+const BRAND_LOGO = 48;
+const BRAND_WORDS = [run("Ultrastar Wingman", CARD_COLORS.textDarker)];
+
+/**
+ * The Wingman logo and its words bottom left, and `note` at the right of the
+ * same line — the party · date of a score, or what a party is ranked by.
+ * Without `logo` the logo and the words go and the note is fitted exactly as
+ * beside them, so nothing on the card moves (§4.1).
+ */
+function brand(
+  b: Builder,
+  bottom: number,
+  note: string | null,
+  logo: boolean,
+): void {
+  const top = bottom - BRAND_LOGO;
+  const wordsLeft = MARGIN + BRAND_LOGO + 16;
+  if (logo) {
+    b.push({
+      kind: "logo",
+      region: "brand",
+      x: MARGIN,
+      y: top,
+      size: BRAND_LOGO,
+    });
+    b.text(
+      "brand",
+      BRAND_WORDS,
+      MIN_BRAND_TEXT,
+      wordsLeft,
+      top + (BRAND_LOGO - lineHeight(MIN_BRAND_TEXT)) / 2,
+    );
+  }
   if (note === null) return;
-  const room = RIGHT - (words.x + words.w + 32);
+  const wordsRight = wordsLeft + b.width(BRAND_WORDS, MIN_BRAND_TEXT);
+  const room = RIGHT - (wordsRight + 32);
   const fitted = fitLine(note, [MIN_TEXT], "normal", room, b.measure);
   b.text(
     "brand-note",
     [run(fitted.text, CARD_COLORS.textDarker)],
     fitted.size,
     RIGHT,
-    top + (logo - lineHeight(MIN_TEXT)) / 2,
+    top + (BRAND_LOGO - lineHeight(MIN_TEXT)) / 2,
     "right",
   );
 }
@@ -545,7 +568,11 @@ function singerRow(
 
 /** §4.1: the cover beside the title, the score big at the left, the bar, the
  * singer, the brand with party · date at the right. */
-function scoreDarkSquare(b: Builder, content: ScoreCardContent): void {
+function scoreDarkSquare(
+  b: Builder,
+  content: ScoreCardContent,
+  logo: boolean,
+): void {
   const cover = 216;
   b.image(
     "cover",
@@ -595,7 +622,7 @@ function scoreDarkSquare(b: Builder, content: ScoreCardContent): void {
   const flagW = flagWidth(b, content);
   singerRow(b, content, 730, MARGIN, CONTENT - (flagW > 0 ? flagW + 32 : 0));
   if (flagW > 0) flag(b, content, RIGHT - flagW, 730 + AVATAR / 2);
-  brand(b, 1080 - MARGIN, content.eyebrow);
+  brand(b, 1080 - MARGIN, content.eyebrow, logo);
 }
 
 interface StackItem {
@@ -645,10 +672,11 @@ function scoreCentred(
   b: Builder,
   content: ScoreCardContent,
   format: CardFormat,
+  logo: boolean,
 ): void {
   const story = format === "story";
   const area = SAFE_AREA[format];
-  const brandTop = area.bottom - 48;
+  const brandTop = area.bottom - BRAND_LOGO;
   const titleSizes = story ? [64, 52] : [52, 44];
   const artistSize = story ? 40 : 36;
   const scoreSize = story ? 240 : 200;
@@ -780,28 +808,38 @@ function scoreCentred(
   });
 
   stack(items, area.top, brandTop - 40, story ? 440 : 300, story ? 280 : 180);
-  brand(b, area.bottom, story ? null : content.eyebrow);
+  brand(b, area.bottom, story ? null : content.eyebrow, logo);
 }
 
 // ---------------------------------------------------------------------------
 // One party
 
-function partyHead(b: Builder, content: PartyCardContent, top: number): number {
-  const head = fitLine(content.head, [56, 44], "bold", CONTENT, b.measure);
-  b.text("head", [bold(head.text)], head.size, MARGIN, top);
-  let y = top + lineHeight(head.size);
-  if (content.sub !== null) {
-    const sub = fitLine(content.sub, [MIN_TEXT], "normal", CONTENT, b.measure);
-    b.text(
-      "head",
-      [run(sub.text, CARD_COLORS.textDarker)],
-      sub.size,
-      MARGIN,
-      y + 4,
-    );
-    y += 4 + lineHeight(MIN_TEXT);
-  }
-  return y;
+/** The party's name (or date) over its sub line (§2.2). Only called with a
+ * head: with *Party name and date* off the card has none. */
+function partyHead(
+  b: Builder,
+  head: string,
+  sub: string | null,
+  top: number,
+): void {
+  const fitted = fitLine(head, [56, 44], "bold", CONTENT, b.measure);
+  // A head cut down to 44 keeps its 56 line, so the sub line never moves.
+  b.text(
+    "head",
+    [bold(fitted.text)],
+    fitted.size,
+    MARGIN,
+    top + (lineHeight(56) - lineHeight(fitted.size)) / 2,
+  );
+  if (sub === null) return;
+  const line = fitLine(sub, [MIN_TEXT], "normal", CONTENT, b.measure);
+  b.text(
+    "head",
+    [run(line.text, CARD_COLORS.textDarker)],
+    line.size,
+    MARGIN,
+    top + lineHeight(56) + 4,
+  );
 }
 
 const HEAD_HEIGHT = lineHeight(56) + 4 + lineHeight(MIN_TEXT);
@@ -1494,40 +1532,27 @@ function mosaicCells(urls: string[], height: number): MosaicCell[] {
   return cells;
 }
 
-/** One band per group of `BANDED` regions the card carries: from the top of
- * their text to its bottom, `pad` past both, kept on the card. */
-function mosaicBands(elements: CardElement[], height: number): MosaicBand[] {
-  const bands: MosaicBand[] = [];
-  for (const regions of BANDED) {
-    const boxes = elements
-      .filter((element) => regions.includes(element.region))
-      .map(elementBox);
-    if (boxes.length === 0) continue;
-    const top = Math.min(...boxes.map((box) => box.y));
-    const bottom = Math.max(...boxes.map((box) => box.y + box.h));
-    bands.push({
-      top: Math.max(0, top - MOSAIC_BAND.pad),
-      bottom: Math.min(height, bottom + MOSAIC_BAND.pad),
-    });
-  }
-  return bands;
-}
+/** §4.2's square: where the numbers stand under a head, and how far below
+ * them the body starts. Without a head the numbers move up to the margin and
+ * everything under them by as much (§7.9). */
+const SQUARE_NUMBERS_TOP = 222;
+const SQUARE_BODY_GAP = 150;
 
 function partySquare(
   b: Builder,
   content: PartyCardContent,
   options: PartyCardOptions,
 ): void {
-  partyHead(b, content, MARGIN);
-  const numbersTop = 222;
+  if (content.head !== null) partyHead(b, content.head, content.sub, MARGIN);
+  const numbersTop = content.head === null ? MARGIN : SQUARE_NUMBERS_TOP;
   numbers(b, content, numbersTop);
-  const bodyTop = 372;
-  const bodyBottom = 1080 - MARGIN - 48 - 24;
+  const bodyTop = numbersTop + SQUARE_BODY_GAP;
+  const bodyBottom = 1080 - MARGIN - BRAND_LOGO - 24;
 
   if (options.focus === "spread") {
     rankingLine(b, content, bodyTop - 10);
     spread(b, content, bodyTop + 68, bodyBottom, 96);
-    brand(b, 1080 - MARGIN, content.rankingNote);
+    brand(b, 1080 - MARGIN, content.rankingNote, options.logo);
     return;
   }
 
@@ -1550,7 +1575,7 @@ function partySquare(
   if (under === "ranking") rows(b, content, underTop);
   if (under === "strip")
     strip(b, content.dots, content.median, underTop, stripBand);
-  brand(b, 1080 - MARGIN, content.rankingNote);
+  brand(b, 1080 - MARGIN, content.rankingNote, options.logo);
 }
 
 function partyStory(
@@ -1559,19 +1584,22 @@ function partyStory(
   options: PartyCardOptions,
 ): void {
   const area = SAFE_AREA.story;
-  const bottom = area.bottom - 48 - 40;
-  const items: StackItem[] = [
-    {
-      height: content.sub === null ? lineHeight(56) : HEAD_HEIGHT,
+  const bottom = area.bottom - BRAND_LOGO - 40;
+  const items: StackItem[] = [];
+  const { head, sub } = content;
+  if (head !== null) {
+    items.push({
+      height: sub === null ? lineHeight(56) : HEAD_HEIGHT,
       gap: 0,
-      place: (top) => void partyHead(b, content, top),
-    },
-    {
-      height: NUMBERS_HEIGHT,
-      gap: 56,
-      place: (top) => numbers(b, content, top),
-    },
-  ];
+      place: (top) => partyHead(b, head, sub, top),
+    });
+  }
+  // Without a head the numbers lead (§7.9).
+  items.push({
+    height: NUMBERS_HEIGHT,
+    gap: items.length > 0 ? 56 : 0,
+    place: (top) => numbers(b, content, top),
+  });
 
   if (options.focus === "spread") {
     const pitch = 110;
@@ -1616,7 +1644,26 @@ function partyStory(
     }
   }
   stack(items, area.top, bottom, 0, 0);
-  brand(b, area.bottom, content.rankingNote);
+  brand(b, area.bottom, content.rankingNote, options.logo);
+}
+
+/**
+ * A Mosaic's words (§3.1): the covers stay visible behind them, so the
+ * `#888` that reads on flat `--bg` takes `#ccc`, each over its halo.
+ */
+function onMosaic(elements: CardElement[]): CardElement[] {
+  return elements.map((element) =>
+    element.kind === "text"
+      ? {
+          ...element,
+          runs: element.runs.map((part) =>
+            part.color === CARD_COLORS.textDarker
+              ? { ...part, color: CARD_COLORS.textDark }
+              : part,
+          ),
+        }
+      : element,
+  );
 }
 
 // ---------------------------------------------------------------------------
@@ -1633,9 +1680,9 @@ export function layoutScoreCard(
 ): CardLayout {
   const b = new Builder(measure);
   if (options.format === "square" && options.look === "dark") {
-    scoreDarkSquare(b, content);
+    scoreDarkSquare(b, content, options.logo);
   } else {
-    scoreCentred(b, content, options.format);
+    scoreCentred(b, content, options.format, options.logo);
   }
   return {
     width: CARD_WIDTH,
@@ -1645,6 +1692,7 @@ export function layoutScoreCard(
         ? { kind: "cover", url: content.cover.url }
         : { kind: "dark" },
     elements: b.elements,
+    halo: false,
   };
 }
 
@@ -1658,17 +1706,17 @@ export function layoutPartyCard(
   if (options.format === "square") partySquare(b, content, options);
   else partyStory(b, content, options);
   const height = CARD_HEIGHT[options.format];
+  const mosaic = options.look === "mosaic";
   return {
     width: CARD_WIDTH,
     height,
-    background:
-      options.look === "mosaic"
-        ? {
-            kind: "mosaic",
-            cells: mosaicCells(content.covers.filter(loaded), height),
-            bands: mosaicBands(b.elements, height),
-          }
-        : { kind: "dark" },
-    elements: b.elements,
+    background: mosaic
+      ? {
+          kind: "mosaic",
+          cells: mosaicCells(content.covers.filter(loaded), height),
+        }
+      : { kind: "dark" },
+    elements: mosaic ? onMosaic(b.elements) : b.elements,
+    halo: mosaic,
   };
 }

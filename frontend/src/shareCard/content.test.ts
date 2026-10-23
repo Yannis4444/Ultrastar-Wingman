@@ -184,7 +184,10 @@ test("a party: four numbers and never the worst, Best with its holder", () => {
   });
   expect(content.numbers).not.toHaveProperty("worst");
   expect(content.head).toBe("Friday karaoke");
-  expect(content.sub).toMatch(/2026 · 3 singers$/);
+  expect(content.sub).toBe(
+    `${cardDate(partySession().started_at)} · 3 singers`,
+  );
+  expect(content.party).toBe("Friday karaoke");
   expect(content.rankingNote).toBe("ranked by best score");
 });
 
@@ -231,15 +234,37 @@ test("two equal bests share a place", () => {
   expect(content.numbers.bestBy).toBe("Chiara");
 });
 
-test("with the name and date off the head is the singer count alone", () => {
-  const content = partyCard(
-    partyInput({ scores: cardParty(5, 1), partyNameAndDate: false }),
-  );
-  expect(content.head).toBe("5 singers");
-  expect(content.sub).toBeNull();
-});
+test.each([
+  [true, "Friday karaoke"],
+  [true, null],
+  [false, "Friday karaoke"],
+  [false, null],
+] as const)(
+  "the head with the name and date %s, the party named %s",
+  (toggle, name) => {
+    const date = cardDate(partySession().started_at);
+    const content = partyCard(
+      partyInput({
+        scores: cardParty(5, 1),
+        session: partySession({ name }),
+        partyNameAndDate: toggle,
+      }),
+    );
+    // Off, there is no head and no count at all — never "5 singers" in its
+    // place (§1.10, §7.9) — and the card still knows the party it is of.
+    const expected = !toggle
+      ? { head: null, sub: null }
+      : name === null
+        ? // Unnamed: the date leads and is never said twice.
+          { head: date, sub: "5 singers" }
+        : { head: name, sub: `${date} · 5 singers` };
+    expect({ head: content.head, sub: content.sub }).toEqual(expected);
+    expect(content.party).toBe(name ?? date);
+    expect(content.singerCount).toBe(5);
+  },
+);
 
-test("a nameless party heads with its date", () => {
+test("a nameless party of one heads with its date over one singer", () => {
   const content = partyCard(
     partyInput({
       scores: cardParty(1, 1),

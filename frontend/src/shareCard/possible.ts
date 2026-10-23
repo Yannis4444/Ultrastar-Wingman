@@ -16,7 +16,8 @@ import type {
  * cannot draw is a disabled pill over the sentence in `reason`, never a
  * button that does nothing. `resolve…Options` turns what the reader asked for
  * into what is drawn, falling back the way §3.1 says (Cover → Dark, Mosaic →
- * Dark).
+ * Dark). *Wingman logo* is drawable on every card and is carried through as
+ * asked.
  */
 
 export interface Choice<T> {
@@ -76,7 +77,7 @@ export function resolveScoreOptions(
     requested.look === "cover" && coverReason(content, loaded) === null
       ? "cover"
       : "dark";
-  return { format: requested.format, look };
+  return { format: requested.format, look, logo: requested.logo };
 }
 
 export interface PartyCardChoices {
@@ -212,5 +213,5 @@ export function resolvePartyOptions(
     else if (ranking) under = "ranking";
     else if (strip) under = "strip";
   }
-  return { format: requested.format, look, focus, under };
+  return { format: requested.format, look, focus, under, logo: requested.logo };
 }

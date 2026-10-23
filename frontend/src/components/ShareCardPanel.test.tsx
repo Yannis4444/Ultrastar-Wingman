@@ -418,6 +418,68 @@ test("the toggles are checkboxes the card is drawn with", async () => {
   });
 });
 
+test("the Wingman logo is a toggle, on by default, on both cards, remembered", async () => {
+  renderPanel(partyTarget());
+  await preview();
+  const logo = screen.getByRole("checkbox", { name: "Wingman logo" });
+  expect(logo).toBeChecked();
+  expect(lastRequest().options.logo).toBe(true);
+  // The third of the column: pictures, name and date, logo, only me.
+  const toggles = [
+    ...document.querySelectorAll<HTMLInputElement>(
+      '.share-toggles input[type="checkbox"]',
+    ),
+  ].map((input) => input.closest("label")?.textContent);
+  expect(toggles).toEqual([
+    "Other singers' pictures",
+    "Party name and date",
+    "Wingman logo",
+    "Only me and my place",
+  ]);
+
+  fireEvent.click(logo);
+  await waitFor(() => expect(lastRequest().options.logo).toBe(false));
+  expect(JSON.parse(window.localStorage.getItem(PREFS_KEY) ?? "{}")).toEqual(
+    expect.objectContaining({ logo: false }),
+  );
+
+  cleanup();
+  renderPanel(scoreTarget([cardScore("chiara", 8662, SONGS[0])]));
+  await preview();
+  expect(
+    screen.getByRole("checkbox", { name: "Wingman logo" }),
+  ).not.toBeChecked();
+  expect(lastRequest()).toMatchObject({
+    kind: "score",
+    options: { logo: false },
+  });
+});
+
+test("with the name and date off the file and the alt text still name the party", async () => {
+  renderPanel(partyTarget());
+  await preview();
+  fireEvent.click(
+    screen.getByRole("checkbox", { name: "Party name and date" }),
+  );
+  await waitFor(() => {
+    const request = lastRequest();
+    expect(request.kind === "party" && request.content.head).toBeNull();
+  });
+  await waitFor(() =>
+    expect(screen.getByRole("link", { name: "Save image" })).toHaveAttribute(
+      "href",
+      "blob:card-2",
+    ),
+  );
+  expect(screen.getByRole("link", { name: "Save image" })).toHaveAttribute(
+    "download",
+    "wingman-friday-karaoke.png",
+  );
+  expect(screen.getByRole("img", { name: /^Share card/ })).toHaveAccessibleName(
+    "Share card of Friday karaoke, ranked by best score",
+  );
+});
+
 test("the panel remembers format, look and toggles on this device", async () => {
   renderPanel(partyTarget());
   await preview();

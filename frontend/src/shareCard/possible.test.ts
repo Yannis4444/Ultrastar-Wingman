@@ -42,6 +42,7 @@ const square = (
   look: "dark",
   focus: "podium",
   under: "ranking",
+  logo: true,
   ...overrides,
 });
 
@@ -76,11 +77,55 @@ test("a score without a cover falls back to Dark and says why", () => {
   );
   expect(reasonOf(scoreCardChoices(missing, all).looks, "cover")).toBeNull();
   expect(
-    resolveScoreOptions(missing, { format: "story", look: "cover" }, none),
-  ).toEqual({ format: "story", look: "dark" });
+    resolveScoreOptions(
+      missing,
+      { format: "story", look: "cover", logo: true },
+      none,
+    ),
+  ).toEqual({ format: "story", look: "dark", logo: true });
   expect(
-    resolveScoreOptions(missing, { format: "story", look: "cover" }, all),
-  ).toEqual({ format: "story", look: "cover" });
+    resolveScoreOptions(
+      missing,
+      { format: "story", look: "cover", logo: true },
+      all,
+    ),
+  ).toEqual({ format: "story", look: "cover", logo: true });
+});
+
+test("the Wingman logo is the reader's on every card, carried through as asked", () => {
+  const score = scoreCard({
+    score: cardScore("chiara", 8000, SONGS[0]),
+    partyScores: [],
+    session: null,
+    players,
+    me: "chiara",
+    otherPictures: true,
+    partyNameAndDate: true,
+  });
+  for (const logo of [true, false]) {
+    // Even where the look falls back, the logo stays what was asked.
+    expect(
+      resolveScoreOptions(
+        score,
+        { format: "square", look: "cover", logo },
+        none,
+      ).logo,
+    ).toBe(logo);
+    const content = party(cardParty(6, 4));
+    expect(
+      resolvePartyOptions(
+        content,
+        square({ look: "mosaic", focus: "spread", logo }),
+        none,
+      ),
+    ).toEqual({
+      format: "square",
+      look: "dark",
+      focus: "spread",
+      under: "none",
+      logo,
+    });
+  }
 });
 
 test("both formats are always there; there is no 4:5", () => {
@@ -118,7 +163,13 @@ test("the spread needs two singers and four scores, and the dark look", () => {
   expect(choices.underNote).toBe("The spread takes the place of the podium.");
   expect(
     resolvePartyOptions(five, square({ focus: "spread", look: "mosaic" }), all),
-  ).toEqual({ format: "square", look: "dark", focus: "spread", under: "none" });
+  ).toEqual({
+    format: "square",
+    look: "dark",
+    focus: "spread",
+    under: "none",
+    logo: true,
+  });
 
   const one = party(cardParty(1, 5), { me: "chiara" });
   expect(reasonOf(partyCardChoices(one, square(), all).focus, "spread")).toBe(

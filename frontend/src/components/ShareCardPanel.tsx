@@ -80,17 +80,19 @@ function slug(text: string): string {
   return cut === "" ? "card" : cut;
 }
 
+/** The file's name. A party's is its name or date even when the card leaves
+ * them off (share-cards §2.2): the file stays on the sharer's phone. */
 function fileName(content: CardContent): string {
   return content.kind === "score"
     ? `wingman-${slug(content.title)}-${content.score}.png`
-    : `wingman-${slug(content.head)}.png`;
+    : `wingman-${slug(content.party)}.png`;
 }
 
 /** What the picture shows, for a reader who cannot see it. */
 function altText(content: CardContent): string {
   return content.kind === "score"
     ? `Share card: ${content.singer.name} scored ${content.score} on ${content.title}`
-    : `Share card of ${content.head}, ranked by best score`;
+    : `Share card of ${content.party}, ranked by best score`;
 }
 
 function errorName(failure: unknown): string {
@@ -304,12 +306,22 @@ export default function ShareCardPanel({
       return {
         kind: "score",
         content,
-        options: { format: prefs.format, look: prefs.scoreLook },
+        options: {
+          format: prefs.format,
+          look: prefs.scoreLook,
+          logo: prefs.logo,
+        },
       };
     return {
       kind: "party",
       content,
-      options: { format: prefs.format, look: prefs.partyLook, focus, under },
+      options: {
+        format: prefs.format,
+        look: prefs.partyLook,
+        focus,
+        under,
+        logo: prefs.logo,
+      },
     };
   }, [content, prefs, focus, under]);
   const requestKey = request === null ? "" : JSON.stringify(request);
@@ -529,7 +541,7 @@ export default function ShareCardPanel({
     card.kind === "score"
       ? resolveScoreOptions(
           card,
-          { format: prefs.format, look: prefs.scoreLook },
+          { format: prefs.format, look: prefs.scoreLook, logo: prefs.logo },
           loaded,
         )
       : null;
@@ -538,6 +550,7 @@ export default function ShareCardPanel({
     look: prefs.partyLook,
     focus,
     under,
+    logo: prefs.logo,
   };
   const partyChoices =
     card.kind === "party"
@@ -650,6 +663,12 @@ export default function ShareCardPanel({
                 onChange={() =>
                   update({ partyNameAndDate: !prefs.partyNameAndDate })
                 }
+              />
+              <CheckOption
+                type="checkbox"
+                label="Wingman logo"
+                checked={prefs.logo}
+                onChange={() => update({ logo: !prefs.logo })}
               />
               {partyChoices !== null && card.kind === "party" && (
                 <>
