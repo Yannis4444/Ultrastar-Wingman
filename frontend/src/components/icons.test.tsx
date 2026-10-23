@@ -84,6 +84,11 @@ const NOT_PICKABLE: IconName[] = [
   "share",
   "chevron-down",
   "arrow-up",
+  "brand-spotify",
+  "brand-applemusic",
+  "brand-youtubemusic",
+  "brand-tidal",
+  "brand-deezer",
 ];
 
 test("the picker offers exactly the glyphs that say something about a song", () => {
@@ -117,8 +122,9 @@ test("every subpath is closed, so the nonzero fill has something to fill", () =>
     // cut-outs here were drawn against. `Z` before every `M` and at the end —
     // and before every `m` too: a relative move continues the path just as an
     // absolute one does, so `smile`'s second eye is a subpath of its own and
-    // an unclosed one would leak exactly the same way.
-    expect({ name, closed: d.trimEnd().endsWith("Z") }).toEqual({
+    // an unclosed one would leak exactly the same way. Either case: `z` and
+    // `Z` are the same command, and the brand marks are pasted as published.
+    expect({ name, closed: /[Zz]$/.test(d.trimEnd()) }).toEqual({
       name,
       closed: true,
     });
@@ -177,6 +183,27 @@ test("a link that leaves Wingman has a glyph of its own, out of the picker", () 
   const { container } = render(<Icon name="external-link" />);
   expect(container.querySelectorAll("path")).toHaveLength(1);
   expect(iconNames(container)).toEqual(["external-link"]);
+});
+
+test("the five streaming services each have their mark, out of the picker", () => {
+  const brands = [
+    "brand-spotify",
+    "brand-applemusic",
+    "brand-youtubemusic",
+    "brand-tidal",
+    "brand-deezer",
+  ] as const;
+  // With `github`, the only brand marks there are (ui-guidelines §3).
+  expect(
+    Object.keys(ICON_PATHS).filter((name) => name.startsWith("brand-")),
+  ).toEqual([...brands]);
+  for (const name of brands) {
+    expect(PICKER_ICON_NAMES).not.toContain(name);
+    // Pasted as published on the 24x24 grid, one path like every glyph.
+    const { container } = render(<Icon name={name} />);
+    expect(container.querySelectorAll("path")).toHaveLength(1);
+    expect(iconNames(container)).toEqual([name]);
+  }
 });
 
 test("a picture of scores to send has a glyph of its own, never the archive's", () => {

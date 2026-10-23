@@ -5,11 +5,15 @@
  * still turns up near the top.
  */
 
+import type { IconName } from "./components/icons";
+
 /** One streaming service the song modal offers. */
 export interface StreamingService {
   id: string;
-  /** What the service calls itself. Text only: no logos (ui-guidelines §1.8). */
+  /** What the service calls itself, written beside its mark. */
   name: string;
+  /** The service's mark, drawn monochrome before the name (ui-guidelines §3). */
+  icon: IconName;
   /** The service's search page for one query. */
   searchUrl: (query: string) => string;
 }
@@ -18,6 +22,7 @@ export interface StreamingService {
 export interface StreamingLink {
   id: string;
   name: string;
+  icon: IconName;
   href: string;
 }
 
@@ -37,30 +42,35 @@ export const STREAMING_SERVICES: readonly StreamingService[] = [
   {
     id: "spotify",
     name: "Spotify",
+    icon: "brand-spotify",
     searchUrl: (query) =>
       `https://open.spotify.com/search/${pathSegment(query)}`,
   },
   {
     id: "apple-music",
     name: "Apple Music",
+    icon: "brand-applemusic",
     searchUrl: (query) =>
       `https://music.apple.com/search?term=${encodeURIComponent(query)}`,
   },
   {
     id: "youtube-music",
     name: "YouTube Music",
+    icon: "brand-youtubemusic",
     searchUrl: (query) =>
       `https://music.youtube.com/search?q=${encodeURIComponent(query)}`,
   },
   {
     id: "tidal",
     name: "Tidal",
+    icon: "brand-tidal",
     searchUrl: (query) =>
       `https://tidal.com/search?q=${encodeURIComponent(query)}`,
   },
   {
     id: "deezer",
     name: "Deezer",
+    icon: "brand-deezer",
     searchUrl: (query) => `https://www.deezer.com/search/${pathSegment(query)}`,
   },
 ];
@@ -102,9 +112,10 @@ export function streamingLinks(song: {
   title: string;
 }): StreamingLink[] {
   const query = searchQuery(song);
-  return STREAMING_SERVICES.map(({ id, name, searchUrl }) => ({
+  return STREAMING_SERVICES.map(({ id, name, icon, searchUrl }) => ({
     id,
     name,
+    icon,
     href: searchUrl(query),
   }));
 }

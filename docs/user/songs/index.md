@@ -7,7 +7,7 @@ icon: wingman/music
 The **Songs** tab holds every song Wingman found in your song folders. It is
 where you search, narrow the list down, and open the song you want to sing.
 
-![The Songs tab with the search box, the chip row, the song count beside the Sort select, and song rows carrying a gold tag mark](../assets/screenshots/songs/songs-list.png){ width="320" loading=lazy }
+![The Songs tab with the search box, the chip row, the song count beside the order select, and song rows carrying a gold tag mark](../assets/screenshots/songs/songs-list.png){ width="320" loading=lazy }
 /// caption
 The chips under the search box switch what the list holds.
 ///
@@ -29,7 +29,7 @@ sit beside that count, for the roles that may use them.
 
 ## Put the list in order
 
-**Sort**, next to the song count, picks the order of the list. Your choice stays
+The select next to the song count picks the order of the list. Your choice stays
 on this phone or computer until you pick another one.
 
 | Order | What comes first |
@@ -48,7 +48,7 @@ not **Recent**: one is when a song arrived, the other is when it was sung.
 songs on the wishlist. Tap :wingman-shuffle: **Shuffle again** next to it for a
 new order. Coming back to the page shuffles again too.
 
-**Recent** has no **Sort**. It always lists the songs in the order they were
+**Recent** has no order to pick. It always lists the songs in the order they were
 sung.
 
 ## The chips under the search box

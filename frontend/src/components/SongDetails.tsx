@@ -772,8 +772,8 @@ export default function SongDetails({ song, onClose }: SongDetailsProps) {
         {/* A search on each service rather than a link to the recording: no
             service needs a key that way, and a song spelled a little
             differently there still turns up. What is shown is what is
-            searched, so an edit made a moment ago counts. */}
-        <p className="section-note">Each one searches for this song.</p>
+            searched, so an edit made a moment ago counts. No note over the
+            rows: what they do is plain from them. */}
         <div className="song-options">
           {streamingLinks(shown).map((link) => (
             // Real links, not buttons that open a window: a long press or a
@@ -785,6 +785,12 @@ export default function SongDetails({ song, onClose }: SongDetailsProps) {
               target="_blank"
               rel="noopener noreferrer"
             >
+              {/* The service's own mark where a row glyph sits, monochrome:
+                  the name beside it is still what the link is called. */}
+              <Icon
+                name={link.icon}
+                className="song-option-icon song-option-brand"
+              />
               <span className="song-option-label">{link.name}</span>
               {/* Where a chevron would promise a view inside (§5). */}
               <Icon name="external-link" className="song-option-chevron" />

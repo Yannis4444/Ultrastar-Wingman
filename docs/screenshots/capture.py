@@ -491,7 +491,7 @@ ROWS: dict[str, Row] = {
         identity="Leela",
         viewport="phone",
         route="/songs",
-        ready='q(".songs-search input") && q(".songs-chips") && q(".songs-sort select")'
+        ready='q(".songs-search input") && q(".songs-chips") && q("select.songs-sort")'
         ' && qa(".song-list-item").length >= 20 && q(".song-mark")',
     ),
     "songs-filter": Row(

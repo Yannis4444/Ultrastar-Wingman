@@ -1803,6 +1803,12 @@ test("the order is a select in the count row, artist A to Z by default", async (
   expect(select.closest(".songs-count")).not.toBeNull();
   // Never in the sticky toolbar, which is the search alone.
   expect(select.closest(".songs-toolbar")).toBeNull();
+  // No word beside it: the options say what they are, the label names it.
+  expect(select).toHaveAttribute("aria-label", "Sort");
+  expect(select.closest("label")).toBeNull();
+  expect(
+    within(select.closest(".songs-count") as HTMLElement).queryByText("Sort"),
+  ).not.toBeInTheDocument();
   expect(select).toHaveValue("artist");
   expect(
     within(select)

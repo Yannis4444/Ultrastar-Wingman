@@ -95,6 +95,13 @@ a.song-option {
   color: var(--color-darker);
 }
 
+/* A streaming service's mark, where a row glyph sits: monochrome in
+   `--color-dark` (ui-guidelines §3), a step lighter than the row's own
+   `--color-darker`, and never the service's colour, which no token carries. */
+.song-option-brand {
+  color: var(--color-dark);
+}
+
 .song-option-label {
   flex: 1 1 auto;
   min-width: 0;

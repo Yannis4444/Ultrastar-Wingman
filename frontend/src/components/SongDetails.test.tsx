@@ -1600,9 +1600,11 @@ test("the streaming view links to each service's search, in a new tab", async ()
 
   const dialog = await openStreaming();
 
+  // No note over the rows: what they do is plain from them.
   expect(
-    within(dialog).getByText("Each one searches for this song."),
-  ).toHaveClass("section-note");
+    within(dialog).queryByText(/searches for this song/),
+  ).not.toBeInTheDocument();
+  expect(dialog.querySelector(".section-note")).toBeNull();
   const links = within(dialog).getAllByRole("link");
   expect(links.map((link) => link.textContent)).toEqual([
     "Spotify",
@@ -1624,8 +1626,22 @@ test("the streaming view links to each service's search, in a new tab", async ()
     expect(link).toHaveClass("song-option");
     expect(link).toHaveAttribute("target", "_blank");
     expect(link).toHaveAttribute("rel", "noopener noreferrer");
-    // The way out, where a chevron would promise a view inside.
-    expect(iconNames(link)).toEqual(["external-link"]);
+  }
+  // Each service's mark where a row glyph sits, then the way out, where a
+  // chevron would promise a view inside.
+  expect(links.map((link) => iconNames(link))).toEqual([
+    ["brand-spotify", "external-link"],
+    ["brand-applemusic", "external-link"],
+    ["brand-youtubemusic", "external-link"],
+    ["brand-tidal", "external-link"],
+    ["brand-deezer", "external-link"],
+  ]);
+  for (const link of links) {
+    // The mark is the row's glyph, monochrome, before the name.
+    const mark = link.firstElementChild;
+    expect(mark).toHaveClass("song-option-icon", "song-option-brand");
+    expect(mark?.nextElementSibling).toHaveClass("song-option-label");
+    expect(mark).toHaveAttribute("aria-hidden", "true");
   }
 });
 

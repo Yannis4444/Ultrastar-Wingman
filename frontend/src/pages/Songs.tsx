@@ -560,22 +560,21 @@ export default function Songs() {
             {shown.length} {shown.length === 1 ? "song" : "songs"}
           </span>
         )}
-        {/* The order, in the Scores page's labelled shape. */}
+        {/* The order, with no word beside it: its options say what they are,
+            and the label names it for a screen reader. */}
         {canSort && (
-          <label className="songs-sort">
-            <span>Sort</span>
-            <select
-              className="text-input text-input-quiet"
-              value={sort}
-              onChange={(event) => chooseSort(event.target.value as SongSort)}
-            >
-              {SONG_SORTS.map((option) => (
-                <option key={option.value} value={option.value}>
-                  {option.label}
-                </option>
-              ))}
-            </select>
-          </label>
+          <select
+            className="text-input text-input-quiet songs-sort"
+            aria-label="Sort"
+            value={sort}
+            onChange={(event) => chooseSort(event.target.value as SongSort)}
+          >
+            {SONG_SORTS.map((option) => (
+              <option key={option.value} value={option.value}>
+                {option.label}
+              </option>
+            ))}
+          </select>
         )}
         {/* A select fires nothing when its own option is picked again, so
             another shuffle needs a control of its own. */}

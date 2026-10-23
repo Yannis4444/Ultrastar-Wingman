@@ -79,8 +79,8 @@ two, with the median of all of them written above it.
 ## Open in a streaming service
 
 **Open in a streaming service** lists **Spotify**, **Apple Music**,
-**YouTube Music**, **Tidal**, and **Deezer**. Tap one and the service opens in a
-new tab, searching for the artist and the title.
+**YouTube Music**, **Tidal**, and **Deezer**, each after its own mark. Tap one and
+the service opens in a new tab, searching for the artist and the title.
 
 It is a search, so a song the service spells a little differently still turns
 up. Wingman leaves out the notes a karaoke file adds to a title, such as "[DUET]".
