@@ -483,6 +483,17 @@ sets — and an administrator session, so it holds the `music.manage` the sink r
   element uses `master × preview` (`sound.preview_volume`) the same way, its own ref. A linear
   product, not a perceptual curve: any gamma makes the printed number a lie in the other
   direction, and both controls are trimmed by ear anyway.
+- **The song's own loudness** (2026-10-23, [loudness.md](loudness.md) §5): each element plays
+  through a Web Audio `GainNode` set to `replayGainFactor(gain_db, peak)` off the track or the
+  preview — USDX's own rule, so the background, the reel and the sing are one level. A third
+  multiplier, never printed, beside the plain product above. One `AudioContext` for the page
+  (`musicGraph.ts`), one source node per element for its life; the node changes when the
+  element is given a file (a step: the new file has paused it), glides when the same song's
+  numbers move while it sounds, and never moves under a song fading out. Every play resumes
+  the context (a press made before anything has played creates it, born running), the
+  unlock press does it inside the gesture, and a play that resolved into a context that is not
+  `running` reports `blocked` like a refused one. Without Web Audio the factor goes into
+  `volume`, down only.
 - The fade keys on the **state's own `playing` going true -> false**, not on `karaoke.started`:
   one code path for a sing starting, a pause, and a lost sink. ~600 ms down with
   `requestAnimationFrame`, ~300 ms back up, cancelling any running ramp. A fade **the reel
@@ -516,7 +527,10 @@ about the background track. The gesture unlock plays whichever element should be
 - `hooks/useMusic.ts` — one shared `GET /music`, gated on `auth.loaded && can("music.view")`,
   patched from `music.changed` and never refetched.
 - `music.ts` — `playerMode`, `musicPosition` (skew-safe and clamped), `effectiveVolume`,
-  `progressPercent`, `seekIfDrifted`, so the player's branching is tested without rendering it.
+  `replayGainFactor`, `progressPercent`, `seekIfDrifted`, so the player's branching is tested
+  without rendering it.
+- `musicGraph.ts` — the sink's loudness graph: the page's one `AudioContext`, the per-element
+  routes, `levelOf` (the fallback's volume) and `audible`.
 - `components/MusicSettingsPanel.tsx` — the gear's §5 panel modal, not an inline block: a
   fixed-height tile has no room, and §7 says complex settings get their own surface. Four rows:
   on/off, *Pick songs from*, *Playlist* (that scope only), *Wait before the music comes back*.

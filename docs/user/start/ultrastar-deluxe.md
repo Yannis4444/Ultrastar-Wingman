@@ -104,6 +104,11 @@ the result into the song's audio file as a ReplayGain tag. Ultrastar Deluxe
 reads the tag and turns each song up or down, so all of them sound about as
 loud.
 
+The host screen uses the same numbers. The
+[background music](../party/music.md) and the song being picked play at the same
+evened-out level. While the **ReplayGain** option is on, a song sounds as loud
+on the TV as it does when it is sung.
+
 Ultrastar Deluxe only does that while its own **ReplayGain** option is on, under
 **Options** > **Sound**. While **Normalize loudness** in the **Downloads** group
 is on, which is the default, Wingman switches the option on before every song
@@ -112,7 +117,8 @@ it starts. You don't have to touch Ultrastar Deluxe.
 With **Normalize loudness** off, Wingman tags no download and leaves the option
 as you set it. To change it yourself, start Ultrastar Deluxe on its own, open
 **Options** > **Sound**, and set **ReplayGain**. A song without a tag plays at
-its own volume either way.
+its own volume either way. The host screen evens out every song Wingman has
+measured, whether **Normalize loudness** is on or off.
 
 ### The songs you already have
 

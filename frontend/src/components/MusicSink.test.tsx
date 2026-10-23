@@ -3,6 +3,7 @@ import { act, render, waitFor } from "@testing-library/react";
 import { StrictMode } from "react";
 import type { MusicRead, MusicTrackRead, SongRead } from "../api";
 import { musicSinkStore, useMusicSinkStatus } from "../hooks/useMusicSink";
+import { resetLoudnessGraph } from "../musicGraph";
 import { meResponse } from "../test/auth";
 import { FakeSocket } from "../test/fakeSocket";
 import MusicSink, { SPIN_FADE_OUT_MS } from "./MusicSink";
@@ -149,6 +150,7 @@ beforeEach(() => {
   FakeSocket.last = undefined;
   vi.stubGlobal("WebSocket", FakeSocket);
   musicSinkStore.reset();
+  resetLoudnessGraph();
   vi.clearAllMocks();
   stubMedia(() => Promise.resolve());
   getMe.mockResolvedValue(
@@ -734,4 +736,389 @@ it("gives the sound back when the page goes away", async () => {
   );
   expect(release).toBeDefined();
   expect(release?.[1]).toMatchObject({ keepalive: true });
+});
+
+interface FakeGain {
+  gain: {
+    value: number;
+    setTargetAtTime: ReturnType<typeof vi.fn>;
+    cancelScheduledValues: ReturnType<typeof vi.fn>;
+  };
+  connect: ReturnType<typeof vi.fn>;
+}
+
+/**
+ * A Web Audio graph as small as the sink uses: one source per element — a
+ * second for the same element throws, as a browser does, on any context — and
+ * a gain node per source whose value a test reads back.
+ */
+class FakeAudioContext {
+  static instances: FakeAudioContext[] = [];
+  static initialState: AudioContextState = "running";
+  static routed = new WeakSet<HTMLMediaElement>();
+
+  state: AudioContextState = FakeAudioContext.initialState;
+  currentTime = 0;
+  destination = { kind: "destination" };
+  resume = vi.fn(() => Promise.resolve());
+  gains = new Map<HTMLMediaElement, FakeGain>();
+  createMediaElementSource = vi.fn((element: HTMLMediaElement) => {
+    if (FakeAudioContext.routed.has(element)) {
+      throw new DOMException("already routed", "InvalidStateError");
+    }
+    FakeAudioContext.routed.add(element);
+    return {
+      connect: (node: FakeGain) => {
+        this.gains.set(element, node);
+        return node;
+      },
+    };
+  });
+  // A gain whose glide lands at once, so a test reads the level it heads for.
+  createGain = vi.fn((): FakeGain => ({
+    gain: {
+      value: 1,
+      setTargetAtTime: vi.fn(function (this: { value: number }, value: number) {
+        this.value = value;
+      }),
+      cancelScheduledValues: vi.fn(),
+    },
+    connect: vi.fn(),
+  }));
+  private listeners: (() => void)[] = [];
+
+  constructor() {
+    FakeAudioContext.instances.push(this);
+  }
+
+  addEventListener(_type: string, listener: () => void) {
+    this.listeners.push(listener);
+  }
+
+  /** The browser moving the graph on: a resume answered, a device lost. */
+  become(state: AudioContextState) {
+    this.state = state;
+    for (const listener of this.listeners) listener();
+  }
+}
+
+/** The one context the page made, once a song has tried to play. */
+async function graph(): Promise<FakeAudioContext> {
+  await waitFor(() => expect(FakeAudioContext.instances).toHaveLength(1));
+  return FakeAudioContext.instances[0];
+}
+
+/** The gain on `element`'s node, once it has one. */
+async function gainOf(
+  context: FakeAudioContext,
+  element: HTMLAudioElement,
+): Promise<FakeGain> {
+  await waitFor(() => expect(context.gains.get(element)).toBeDefined());
+  return context.gains.get(element) as FakeGain;
+}
+
+/** A room on one song, the register's answer and the page's read alike. */
+function playing(state: MusicRead): void {
+  getMusic.mockResolvedValue({ data: state });
+  registerMusicSink.mockResolvedValue({
+    data: { sink_id: "sink-1", heartbeat_interval_s: 5, music: state },
+  });
+}
+
+/** A selection opened with a song, so its song comes in at once. */
+function landedPreview(gain_db: number | null, peak: number | null) {
+  return {
+    id: "s:1",
+    song: { ...SONG, id: "usdb:9" },
+    start_s: 0,
+    reveal_at: new Date().toISOString(),
+    gain_db,
+    peak,
+  };
+}
+
+/** The press the host page's "Turn on sound" button makes. */
+const press = { current: () => {} };
+
+function Presser() {
+  press.current = useMusicSinkStatus().unlock;
+  return null;
+}
+
+/** The sink beside a reader of the store "Turn on sound" is drawn from. */
+function drawWatched(seen: boolean[]): void {
+  render(
+    <QueryClientProvider
+      client={
+        new QueryClient({ defaultOptions: { queries: { retry: false } } })
+      }
+    >
+      <Watcher onBlocked={(blocked) => seen.push(blocked)} />
+      <Presser />
+      <MusicSink />
+    </QueryClientProvider>,
+  );
+}
+
+describe("with Web Audio", () => {
+  beforeEach(() => {
+    FakeAudioContext.instances = [];
+    FakeAudioContext.initialState = "running";
+    FakeAudioContext.routed = new WeakSet();
+    vi.stubGlobal("AudioContext", FakeAudioContext);
+  });
+
+  it("plays the background at its song's loudness, on a node and not the volume", async () => {
+    playing(music({ track: track({ gain_db: -6, peak: 0.5 }) }));
+    draw();
+    const audio = await audioElement();
+    const node = await gainOf(await graph(), audio);
+    // The gain node is the loudness alone…
+    expect(node.gain.value).toBeCloseTo(0.501, 3);
+    // …and the element's volume the printed numbers alone: 100 % × 50 %.
+    await waitFor(() => expect(audio.volume).toBeCloseTo(0.5));
+  });
+
+  it("moves the node when the same song's loudness changes mid-play", async () => {
+    playing(music({ track: track({ gain_db: -6, peak: null }) }));
+    draw();
+    const audio = await audioElement();
+    const node = await gainOf(await graph(), audio);
+    expect(node.gain.value).toBeCloseTo(0.501, 3);
+
+    // The library pass measured the song while it played.
+    act(() => {
+      FakeSocket.deliver({
+        event: "music.changed",
+        music: music({ track: track({ gain_db: -3, peak: null }) }),
+      });
+    });
+    await waitFor(() => expect(node.gain.value).toBeCloseTo(0.708, 3));
+    // Under a sounding song a glide, never a step that would click.
+    expect(node.gain.setTargetAtTime).toHaveBeenCalledWith(
+      expect.closeTo(0.708, 3),
+      expect.any(Number),
+      expect.any(Number),
+    );
+  });
+
+  it("keeps a song's level while it fades out under a sing", async () => {
+    // The state carries no track once a sing starts, but the song is still
+    // sounding for the fade: jumping it to full level there would be a swell.
+    playing(music({ track: track({ gain_db: -6, peak: null }) }));
+    draw();
+    const audio = await audioElement();
+    const node = await gainOf(await graph(), audio);
+    act(() => {
+      FakeSocket.deliver({
+        event: "music.changed",
+        music: music({ status: "blocked", blocked_by: "sing", track: null }),
+      });
+    });
+    await waitFor(() => expect(audio.getAttribute("src")).toBe(null));
+    expect(node.gain.value).toBeCloseTo(0.501, 3);
+  });
+
+  it("turns a quiet song being picked up, no further than its peak allows", async () => {
+    draw();
+    const audio = await audioElement();
+    await waitFor(() =>
+      expect(audio.getAttribute("src")).toContain("usdb%3A1"),
+    );
+    act(() => {
+      FakeSocket.deliver({
+        event: "music.changed",
+        music: music({ preview: landedPreview(6, 0.9) }),
+      });
+    });
+    const { reel } = elements();
+    const node = await gainOf(await graph(), reel);
+    // +6 dB would be about 2.0; a peak of 0.9 leaves room for 1/0.9 only.
+    expect(node.gain.value).toBeCloseTo(1 / 0.9, 3);
+    await waitFor(() => expect(reel.volume).toBe(1), { timeout: 3000 });
+  });
+
+  it("makes one source per element, under StrictMode and every state after", async () => {
+    // A second `createMediaElementSource` for the same element throws in a
+    // browser — the fake does too — so the routes have to outlive the double
+    // mount and every re-render.
+    numberedClaims();
+    render(
+      <StrictMode>
+        <QueryClientProvider
+          client={
+            new QueryClient({ defaultOptions: { queries: { retry: false } } })
+          }
+        >
+          <MusicSink />
+        </QueryClientProvider>
+      </StrictMode>,
+    );
+    const audio = await audioElement();
+    const context = await graph();
+    await gainOf(context, audio);
+    // The same song's numbers moving, then two other songs, each its own file.
+    for (const [id, songId, gain_db] of [
+      ["t-1", "usdb:1", -2],
+      ["t-2", "usdb:2", -4],
+      ["t-3", "usdb:3", 3],
+    ] as const) {
+      act(() => {
+        FakeSocket.deliver({
+          event: "music.changed",
+          music: music({
+            track: track({
+              id,
+              song: { ...SONG, id: songId },
+              gain_db,
+              peak: null,
+            }),
+          }),
+        });
+      });
+    }
+    await waitFor(() =>
+      expect(audio.getAttribute("src")).toContain("usdb%3A3"),
+    );
+    act(() => {
+      FakeSocket.deliver({
+        event: "music.changed",
+        music: music({ preview: landedPreview(-1, null) }),
+      });
+    });
+    const { reel } = elements();
+    await gainOf(context, reel);
+    act(() => {
+      document.dispatchEvent(new Event("pointerdown"));
+    });
+
+    expect(FakeAudioContext.instances).toHaveLength(1);
+    const routed = context.createMediaElementSource.mock.calls.map(
+      ([element]) => element,
+    );
+    expect(routed).toHaveLength(2);
+    expect(new Set(routed)).toEqual(new Set([audio, reel]));
+    // One gain node per element, not one per song or per state, each into the
+    // destination exactly once.
+    expect(context.createGain).toHaveBeenCalledTimes(2);
+    for (const result of context.createGain.mock.results) {
+      const gain = result.value as FakeGain;
+      expect(gain.connect).toHaveBeenCalledTimes(1);
+      expect(gain.connect).toHaveBeenCalledWith(context.destination);
+    }
+    // Every call returned: none of them was a throwing second one.
+    expect(
+      context.createMediaElementSource.mock.results.every(
+        (result) => result.type === "return",
+      ),
+    ).toBe(true);
+  });
+
+  it("asks for the press while the graph stays asleep, and wakes it on the press", async () => {
+    // The play resolves, but a suspended graph swallows it: the same silence
+    // as a refused play, so the host page must draw "Turn on sound".
+    FakeAudioContext.initialState = "suspended";
+    const seen: boolean[] = [];
+    drawWatched(seen);
+    const context = await graph();
+    await waitFor(() => expect(seen[seen.length - 1]).toBe(true));
+    // Resumed at the play already — which a browser may leave waiting.
+    expect(context.resume).toHaveBeenCalled();
+    const before = context.resume.mock.calls.length;
+
+    act(() => {
+      press.current();
+    });
+    // Inside the press, synchronously: a resume after an `await` is refused.
+    expect(context.resume.mock.calls.length).toBeGreaterThan(before);
+
+    act(() => {
+      context.become("running");
+    });
+    await waitFor(() => expect(seen[seen.length - 1]).toBe(false));
+  });
+
+  it("keeps asking when the press cannot wake the graph", async () => {
+    FakeAudioContext.initialState = "suspended";
+    const seen: boolean[] = [];
+    drawWatched(seen);
+    const context = await graph();
+    context.resume.mockImplementation(() =>
+      Promise.reject(new DOMException("refused", "NotAllowedError")),
+    );
+    await waitFor(() => expect(seen[seen.length - 1]).toBe(true));
+    const plays = (HTMLMediaElement.prototype.play as ReturnType<typeof vi.fn>)
+      .mock.calls.length;
+
+    act(() => {
+      press.current();
+    });
+    // The play itself resolves, and still nobody hears it.
+    await waitFor(() =>
+      expect(HTMLMediaElement.prototype.play).toHaveBeenCalledTimes(plays + 1),
+    );
+    await new Promise((resolve) => setTimeout(resolve, 20));
+    expect(seen[seen.length - 1]).toBe(true);
+  });
+
+  it("says the room hears it once the graph runs", async () => {
+    const seen: boolean[] = [];
+    drawWatched(seen);
+    await graph();
+    await waitFor(() =>
+      expect(HTMLMediaElement.prototype.play).toHaveBeenCalled(),
+    );
+    await new Promise((resolve) => setTimeout(resolve, 20));
+    expect(seen).not.toContain(true);
+  });
+});
+
+describe("without Web Audio", () => {
+  it("folds a loud song's loudness into the volume", async () => {
+    expect(window.AudioContext).toBeUndefined();
+    playing(music({ track: track({ gain_db: -6, peak: null }) }));
+    draw();
+    const audio = await audioElement();
+    await waitFor(() =>
+      expect(audio.getAttribute("src")).toContain("usdb%3A1"),
+    );
+    // 100 % × 50 % × 0.501.
+    await waitFor(() => expect(audio.volume).toBeCloseTo(0.5 * 0.501, 3));
+  });
+
+  it("cannot turn a quiet song up past full, and plays it as it is", async () => {
+    draw();
+    const audio = await audioElement();
+    await waitFor(() =>
+      expect(audio.getAttribute("src")).toContain("usdb%3A1"),
+    );
+    act(() => {
+      FakeSocket.deliver({
+        event: "music.changed",
+        music: music({ preview: landedPreview(6, 0.9) }),
+      });
+    });
+    const { reel } = elements();
+    await waitFor(() => expect(reel.getAttribute("src")).toContain("usdb%3A9"));
+    // min(1/0.9, 1) × 100 % × 100 %: an element's volume stops at 1.
+    await waitFor(() => expect(reel.volume).toBe(1), { timeout: 3000 });
+  });
+
+  it("turns a loud song being picked down", async () => {
+    draw();
+    const audio = await audioElement();
+    await waitFor(() =>
+      expect(audio.getAttribute("src")).toContain("usdb%3A1"),
+    );
+    act(() => {
+      FakeSocket.deliver({
+        event: "music.changed",
+        music: music({ preview: landedPreview(-6, null) }),
+      });
+    });
+    const { reel } = elements();
+    await waitFor(() => expect(reel.volume).toBeCloseTo(0.501, 3), {
+      timeout: 3000,
+    });
+  });
 });

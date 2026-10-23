@@ -1,14 +1,16 @@
 # Loudness normalization
 
-*Design, 2026-10-23. Branch `feat/host-controls-loudness-share-cards`. Part 1 of 3: the core; part 2 is built (§5).
-Part 2 is the pass over the songs already in the library, part 3 the host screen playing with
-the gain and the user documentation's own page. Where this document and the code disagree,
-the code is right and this document is updated.*
+*Design, 2026-10-23. Branch `feat/host-controls-loudness-share-cards`. All three parts are
+built: part 1 is the core, part 2 the pass over the songs already in the library (§5), part 3
+the host screen playing with the gain (§5). The user documentation's own page is not written
+(§5 says why). Where this document and the code disagree, the code is right and this document
+is updated.*
 
 Songs come from everywhere and are mastered at every volume. Ultrastar Deluxe can even them
 out, but only for files that carry a ReplayGain tag, and it never writes one. Wingman now
-writes one into every download, keeps the numbers on the song row for the host screen, and
-switches Ultrastar Deluxe's option on.
+writes one into every download, keeps the numbers on the song row, switches Ultrastar
+Deluxe's option on, and plays the background music and the song being picked on the host
+screen at the same evened-out level.
 
 ## 1. Decisions
 
@@ -259,11 +261,56 @@ is dropped without a word, on load and so on save.
 - **The event carries no song:** every socket gets it, and a song a tag hides from guests
   must not ride along. `GET /downloads/loudness` adds the song in hand.
 
-**Part 3, the host.** `MusicTrackRead.gain_db` / `.peak` and the same on `MusicPreviewRead`.
-To match USDX: `10^(gain_db/20)`, capped at `1/peak` when there is a peak, multiplied into the
-element's volume — which a browser caps at 1, so a positive gain needs a Web Audio gain node.
-Null is "not known", and plays as it is. The user page `docs/user/songs/loudness.md` that was
-asked for is not written yet: a page outside the structure table of
-[documentation.md](documentation.md#target-structure) needs the user's agreement, so part 1
-documents the download and the switch in `start/ultrastar-deluxe.md` and
-`songs/download.md`.
+**Part 3, the host screen (built).** The music sink (`components/MusicSink.tsx`) plays
+`MusicTrackRead.gain_db` / `.peak` on the background element and the same on
+`MusicPreviewRead` on the reel's, so a song sounds as loud in the background, under the reel
+and in Ultrastar Deluxe. Open to the user's veto:
+
+- **USDX's rule, exactly** (`music.replayGainFactor`, the orchestrator's ruling):
+  `10^(gain_db/20)`, lowered to `1/peak` when the peak is above 0 — whatever the gain's sign,
+  as `SetReplayGain` does — and `1` when the gain is null or not a finite number. No pre-amp,
+  because USDX has none.
+- **Through a Web Audio gain node**, because an element's `volume` stops at 1 and a quiet song
+  (a positive gain) has to come up, not only a loud one down — otherwise it previews quieter
+  than it is then sung. One `AudioContext` for the page, made at the first play, never closed;
+  each `<audio>` gets **one** `MediaElementAudioSourceNode` (a second
+  `createMediaElementSource` for the same element throws `InvalidStateError`) and its own
+  `GainNode` into the destination. The graph is module state in `musicGraph.ts`, a `WeakMap`
+  keyed on the element, so StrictMode's double mount, a re-render and a remount of the sink
+  never make a node twice. No `crossOrigin`: the audio is same-origin.
+- **The node is the loudness alone.** The fades, the master and the trims stay on the
+  element's `volume` (`effectiveVolume`, still a plain product). The node moves when the
+  element is given a file — the background's new track, the reel's cue — as a step on
+  `gain.value`, which is inaudible because the new file has paused the element; and should the
+  same song's numbers change while it sounds, as a `setTargetAtTime` glide (0.1 s), because a
+  step under a playing song clicks. The backend does not do that today — a track and a
+  preview take their numbers once, at the pick — so the glide is the sink not trusting it. A
+  song fading out keeps its own level to the end: the state's track going null, or the next
+  preview arriving during the long fade, does not touch the node until the new file is in.
+- **Asleep is blocked.** An element in the graph is heard only while the context runs, so a
+  `play()` that resolves is no longer proof of sound: the sink resumes the context at every
+  play and inside the unlock press (synchronously, beside the `play()`; a press made before
+  anything has played creates the context there, so it is born running), and reports `blocked`
+  — the host page's *Turn on sound* — when the play resolved but the context is not
+  `running`. A `statechange` to `running` under a playing element clears it. Measured in
+  headless Chrome 2026-10-23: without a gesture the context is created `suspended`, the
+  element's `play()` is refused and `resume()` stays pending rather than rejecting; with
+  autoplay allowed it is created `running`. Routed, the element's `volume` still scales the
+  output (0.25 took the level from 0.177 to 0.044 RMS) and a gain of 2 doubled it. The real
+  sink on `/host` against a canned track, the same day: without a gesture the context stayed
+  `suspended`, the element's `play()` was refused (paused at 0:00, *Turn on sound* drawn) and
+  one trusted click resumed the context and played it; with autoplay allowed the context was
+  `running`, one source per element under the development build's StrictMode, 0.501 on the
+  node for a gain of -6 dB and 0.5 on `volume`. A routed element playing silently into a
+  suspended context did not happen there.
+- **Without Web Audio** — no `AudioContext`, one that cannot be made, or an element it cannot
+  route — the factor goes into the element's `volume`, **down only**
+  (`volume × min(factor, 1)`): a loud song comes down, a quiet one plays as it is.
+- **Not gated on Normalize loudness.** The host evens out every song whose numbers are on its
+  row, whatever the switch says: the switch is what tags downloads and turns USDX's option on,
+  and a song measured once keeps its numbers.
+
+The user page `docs/user/songs/loudness.md` that was asked for is not written: a page outside
+the structure table of [documentation.md](documentation.md#target-structure) needs the user's
+agreement, so the download, the switch and the host screen are documented in
+`start/ultrastar-deluxe.md`, `songs/download.md` and `party/music.md`.

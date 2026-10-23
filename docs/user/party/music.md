@@ -71,6 +71,12 @@ The numbers multiply. An overall volume of 50 with a music volume of 50 plays at
 quarter of full. Set the overall volume once for the room, then trim the music
 against it.
 
+On top of that, each song plays at its evened-out level, the one Ultrastar
+Deluxe evens it out to. A loud song comes down and a quiet one comes
+up, and the numbers you set stay what they are. A song Wingman has not measured
+plays as it is. See
+[Even out the volume](../start/ultrastar-deluxe.md#even-out-the-volume).
+
 ## The song being picked
 
 While the room picks singers for a song, the TV plays that song. It starts where

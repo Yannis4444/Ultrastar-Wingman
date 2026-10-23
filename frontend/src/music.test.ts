@@ -4,6 +4,7 @@ import {
   musicPosition,
   playerMode,
   progressPercent,
+  replayGainFactor,
   seekIfDrifted,
 } from "./music";
 
@@ -172,5 +173,45 @@ describe("seekIfDrifted", () => {
   it("jumps when the element is somewhere else entirely", () => {
     expect(seekIfDrifted(0, 95)).toBe(true);
     expect(seekIfDrifted(95, 0)).toBe(true);
+  });
+});
+
+describe("replayGainFactor", () => {
+  it("plays a song whose loudness is not known as it is", () => {
+    expect(replayGainFactor(null, null)).toBe(1);
+    expect(replayGainFactor(null, 0.5)).toBe(1);
+    expect(replayGainFactor(undefined, undefined)).toBe(1);
+  });
+
+  it("turns a loud song down by its gain", () => {
+    expect(replayGainFactor(-6, null)).toBeCloseTo(0.501, 3);
+    expect(replayGainFactor(0, 0.9)).toBe(1);
+  });
+
+  it("turns a quiet song up no further than its peak allows", () => {
+    // +6 dB would be about 2.0; a peak of 0.9 leaves room for 1/0.9 only.
+    expect(replayGainFactor(6, 0.9)).toBeCloseTo(1 / 0.9);
+    // A peak with room to spare does not hold the gain back.
+    expect(replayGainFactor(6, 0.25)).toBeCloseTo(1.995, 3);
+  });
+
+  it("lowers even a negative gain under a peak above full scale", () => {
+    // Ultrastar Deluxe caps the gain at -20·log10(peak) whatever its sign.
+    expect(replayGainFactor(-1, 1.25)).toBeCloseTo(0.8);
+  });
+
+  it("leaves the gain uncapped without a peak", () => {
+    expect(replayGainFactor(6, null)).toBeCloseTo(1.995, 3);
+    expect(replayGainFactor(6, 0)).toBeCloseTo(1.995, 3);
+    expect(replayGainFactor(6, -0.5)).toBeCloseTo(1.995, 3);
+  });
+
+  it("never turns a number it cannot read into a volume", () => {
+    expect(replayGainFactor(Number.NaN, 0.9)).toBe(1);
+    expect(replayGainFactor(Number.POSITIVE_INFINITY, null)).toBe(1);
+    expect(replayGainFactor(-6, Number.NaN)).toBeCloseTo(0.501, 3);
+    // A cached state from a build that sent the tag's own text.
+    expect(replayGainFactor("-6.00 dB" as unknown as number, 0.5)).toBe(1);
+    expect(replayGainFactor("-6" as unknown as number, null)).toBe(1);
   });
 });
