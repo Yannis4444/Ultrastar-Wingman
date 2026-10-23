@@ -47,6 +47,8 @@ export function achievementRead(
     enabled: true,
     built_in: false,
     sort_order: 0,
+    // No count, which is no holders line: a test about that line names one.
+    holder_count: null,
     definition: [condition()],
     ...overrides,
   };

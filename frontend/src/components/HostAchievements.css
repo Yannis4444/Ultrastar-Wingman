@@ -138,6 +138,17 @@
   -webkit-line-clamp: 3;
 }
 
+/* How many hold it now, the singer counted: the description's size and color,
+   one line under it (ui-guidelines §7). */
+.host-achievement-holders {
+  margin: 0;
+  font-size: max(16px, calc(var(--badge) * 0.44));
+  line-height: 1.3;
+  color: var(--color-dark);
+  font-variant-numeric: tabular-nums;
+  overflow-wrap: anywhere;
+}
+
 @media (prefers-reduced-motion: no-preference) {
   /* Up from below, and only a little: the name arriving is the cue that the
      badges are about to. */

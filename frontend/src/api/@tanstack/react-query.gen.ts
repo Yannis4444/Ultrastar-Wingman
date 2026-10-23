@@ -2375,6 +2375,9 @@ export const listAchievementsQueryKey = (options?: Options<ListAchievementsData>
  *
  * `manage=true` is the management page asking for the other answer — every row whole, plus
  * its `definition` — and takes `achievements.manage`, else 403.
+ *
+ * Each row's `holder_count` is how many players hold it, out of one GROUP BY for the whole
+ * catalogue — and `None` on a masked row, which keeps the number with the name.
  */
 export const listAchievementsOptions = (options?: Options<ListAchievementsData>) => queryOptions<ListAchievementsResponse, ListAchievementsError, ListAchievementsResponse, ReturnType<typeof listAchievementsQueryKey>>({
     queryFn: async ({ queryKey, signal }) => {

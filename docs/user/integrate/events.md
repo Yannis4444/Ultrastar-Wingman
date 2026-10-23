@@ -55,7 +55,7 @@ API answers with. The OpenAPI document at
 | `scores.changed` | A recorded score was put on another player, or taken off the record | `sing_id` |
 | `sessions.changed` | A party was named, taken off the list on the Scores tab, or put back | None. Fetch `GET /stats/sessions` again |
 | `players.changed` | A player was added, hidden or put back, deleted, or given a new picture, or an account that sings as one was created or deleted | None. Fetch `GET /players` again |
-| `achievements.earned` | A finished sing earned somebody a badge | `sing_id`, and `players`, one entry per player with the badges they earned |
+| `achievements.earned` | A finished sing earned somebody a badge | `sing_id`, and `players`, one entry per player with the badges they earned. Each badge carries `holder_count`, how many players hold it after this song, the singer included |
 | `achievements.changed` | The catalog of achievements itself changed | None. Fetch `GET /achievements` again |
 | `wishlist.updated` | A song's wish count changed | `song_id`, `count`, and `latest`, the time of the newest wish or `null` |
 | `playlists.changed` | A playlist was created, changed, shared, followed, copied, or deleted | `playlist_id`, or `null` when several changed at once |

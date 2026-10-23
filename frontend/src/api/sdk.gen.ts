@@ -1219,6 +1219,9 @@ export const deleteSongComment = <ThrowOnError extends boolean = false>(options:
  *
  * `manage=true` is the management page asking for the other answer — every row whole, plus
  * its `definition` — and takes `achievements.manage`, else 403.
+ *
+ * Each row's `holder_count` is how many players hold it, out of one GROUP BY for the whole
+ * catalogue — and `None` on a masked row, which keeps the number with the name.
  */
 export const listAchievements = <ThrowOnError extends boolean = false>(options?: Options<ListAchievementsData, ThrowOnError>): RequestResult<ListAchievementsResponses, ListAchievementsErrors, ThrowOnError> => (options?.client ?? client).get<ListAchievementsResponses, ListAchievementsErrors, ThrowOnError>({ url: '/api/v1/achievements', ...options });
 

@@ -34,6 +34,15 @@
   overflow-wrap: anywhere;
 }
 
+/* How many hold it: the sentence's own size and color, so it reads as part of
+   what the badge is rather than as the row's own line under it. */
+.achievement-modal-holders {
+  margin: 2px 0 0 0;
+  font-size: 0.85em;
+  color: var(--color-darker);
+  font-variant-numeric: tabular-nums;
+}
+
 .achievement-modal-meta {
   margin: 10px 0 0 0;
   font-size: 0.8em;

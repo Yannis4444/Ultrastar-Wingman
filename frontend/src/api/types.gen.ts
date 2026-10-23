@@ -160,6 +160,10 @@ export type AchievementRead = {
      */
     sort_order: number;
     /**
+     * Holder Count
+     */
+    holder_count?: number | null;
+    /**
      * Definition
      */
     definition?: Array<Condition> | null;

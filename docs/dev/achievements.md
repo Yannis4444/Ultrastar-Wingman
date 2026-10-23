@@ -308,9 +308,10 @@ Two consequences worth knowing:
 ## Hidden achievements
 
 `hidden` is enforced by the API, not by the UI. `GET /achievements` blanks
-`name`, `description` and `icon` (and `has_image` / `icon_version`) on a hidden
-achievement the caller has not earned. A client that ignored the flag would
-otherwise spoil every surprise.
+`name`, `description` and `icon` (and `has_image` / `icon_version`, and
+`holder_count`) on a hidden achievement the caller has not earned. A client that
+ignored the flag would otherwise spoil every surprise. How many people found
+one says it can be found, and how often, so the count goes with the name.
 
 "The caller" is the caller's **own player**, resolved the way `stats/api.py`
 resolves one: an account linked to a player. A guest phone and the host screen
@@ -357,6 +358,22 @@ the client's, and the management page has to be able to draw the picture of the
 achievement it is editing. Nothing leaks by it — a masked row answers
 `has_image: false`, so no singer-facing surface ever builds this URL for a
 hidden achievement.
+
+## How many hold one
+
+`AchievementRead.holder_count` is how many players hold an achievement: rows
+with `earned_at` set, joined to `players` so the rows a deleted player leaves
+behind are not counted, while a player out of the singer picker
+(`players.hidden`) is. One GROUP BY (`service.holder_counts`) per answer, never
+a query per achievement. It is in the catalogue (masked and managing), in a
+player's record (masked over the subject, like the rest of it) and in
+`achievements.earned`. It is `None` on a masked row and on the answer to a
+single write (create, edit, reset, the icon routes), which counts nothing: a
+client reads `None` as "no line", never as "nobody".
+
+Only `AchievementModal` and `HostAchievements` draw it (ui-guidelines §5, §7).
+A phone whose player did not sing refetches nothing on `achievements.earned`,
+so the modal's number is as of its last fetch.
 
 ## The order of the catalogue
 
@@ -475,6 +492,15 @@ One per **sing**, not per player, so the host screen's choreography cannot race:
 Broadcast from `_finish` after `scores.recorded`. It goes to every socket:
 earning a hidden achievement reveals it, and the scores it was earned from are
 already on the bus.
+
+Each badge in it carries its `holder_count` as of the pass that earned it, the
+singer included: `earned_by_players` counts after `evaluate_players` has
+committed, on the same session. The host screen reads the count off the payload
+and not off its cached catalogue, because an earn broadcasts no
+`achievements.changed`, and a catalogue refetch on every sing would be a request
+from every phone in the room. So one holder is the singer, and the TV says
+*First to earn it*. Two singers of one duet who both earn it read *Earned by 2
+players*. See [How many hold one](#how-many-hold-one).
 
 ### `achievements.changed`
 

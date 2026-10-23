@@ -132,6 +132,46 @@ it("keeps the bar off a masked row even if the numbers arrive anyway", () => {
   expect(screen.queryByText("7 / 10")).not.toBeInTheDocument();
 });
 
+it.each([
+  [3, "Earned by 3 players"],
+  [1, "Earned by 1 player"],
+  [0, "Nobody has earned this yet"],
+])("says how many players hold it: %i", (count, line) => {
+  const { container } = renderModal(
+    playerAchievementRead({
+      achievement: achievementRead({ holder_count: count }),
+    }),
+  );
+
+  // Under the sentence, and before the row's own line.
+  const holders = container.querySelector(".achievement-modal-holders");
+  expect(holders).toHaveTextContent(line);
+  expect(holders?.previousElementSibling).toHaveClass(
+    "achievement-modal-description",
+  );
+});
+
+it("says nothing about the holders when there is no count", () => {
+  const { container } = renderModal(playerAchievementRead());
+
+  // No count is not "Nobody": the line is simply not there.
+  expect(container.querySelector(".achievement-modal-holders")).toBeNull();
+  expect(screen.queryByText(/Nobody has earned/)).not.toBeInTheDocument();
+});
+
+it("keeps the holders line off a masked row even if a count arrives", () => {
+  // The API nulls the count on a masked row; this is the belt to that braces.
+  const { container } = renderModal(
+    playerAchievementRead({
+      achievement: maskedAchievementRead({ holder_count: 4 }),
+      earned_at: null,
+    }),
+  );
+
+  expect(container.querySelector(".achievement-modal-holders")).toBeNull();
+  expect(screen.queryByText(/Earned by/)).not.toBeInTheDocument();
+});
+
 it("closes on Escape", () => {
   const { onClose } = renderModal(playerAchievementRead());
 

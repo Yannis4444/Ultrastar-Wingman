@@ -6,7 +6,11 @@ import {
   type CSSProperties,
   type ReactNode,
 } from "react";
-import { achievementDescription, achievementName } from "../achievements";
+import {
+  achievementDescription,
+  achievementName,
+  holdersLine,
+} from "../achievements";
 import type { AchievementRead, AchievementSettings, PlayerRead } from "../api";
 import { useAchievements } from "../hooks/useAchievements";
 import { useWingmanEvent, type WingmanEvent } from "../hooks/useWingmanEvents";
@@ -290,6 +294,11 @@ export default function HostAchievements({ onPhase, fallback }: Props) {
       >
         {step.achievements.map((achievement, position) => {
           const from = throwFrom(position);
+          // Off the payload, not the catalogue: an earn broadcasts no
+          // `achievements.changed`, so the cached catalogue still has the
+          // count from before this song, while the event's is counted after
+          // the pass, the singer included.
+          const holders = holdersLine(achievement, { singer: true });
           return (
             <li
               className="host-achievement"
@@ -314,6 +323,9 @@ export default function HostAchievements({ onPhase, fallback }: Props) {
                   <p className="host-achievement-description">
                     {achievementDescription(achievement)}
                   </p>
+                )}
+                {holders !== null && (
+                  <p className="host-achievement-holders">{holders}</p>
                 )}
               </div>
             </li>
