@@ -32,19 +32,28 @@ Made here, open to a veto:
    own switch.
 4. **Silence gets no tag.** A file measured at ebur128's absolute gate (-70 LUFS) would get a
    gain of +52 dB.
-5. **A format that keeps no tag is measured and left alone** (`unsupported`): a raw `.aac`, a
-   `.wav`, and an `.m4a`, whose ffmpeg muxer writes arbitrary keys only with
-   `-movflags use_metadata_tags`, which rewrites every other tag of the file as well. The
-   numbers are still stored, so the host screen can use them. **Only the formats of §3's
-   table that keep the tag are ever copied** (`WRITABLE_SUFFIXES`: `.mp3`, `.ogg`, `.opus`,
-   `.flac`); every other suffix is `unsupported` before ffmpeg writes anything. Without that
-   list a Matroska video named as the audio (`.mkv`, `.webm`) takes the tag, and is rewritten
-   whole for it; an `.mp4` is copied whole only to be thrown away.
+5. **A format that keeps no tag is measured and left alone** (`unsupported`): a raw `.aac`
+   and a `.wav`. The numbers are still stored, so the host screen can use them. **Only the
+   formats of §3's table are ever tagged** (`WRITABLE_SUFFIXES`: `.mp3`, `.ogg`, `.opus`,
+   `.flac`, `.m4a`); every other suffix is `unsupported` before anything is copied, so a
+   Matroska video or an `.mp4` named as the audio is never touched. A file whose content is
+   not what its suffix says (an Ogg file named `.mp3`) is `unsupported` too: mutagen is told
+   the format by the name, and trying again changes nothing. So is a file mutagen cannot load
+   at all, whatever it raises — on a damaged file its parsers raise an `IndexError` as
+   readily as a `MutagenError`; anything mutagen raises while *writing* is `failed`.
 6. **The step runs after the library scan, in the download queue** (`downloads.service`), not
    inside the USDB source: every source gets it, and the row the numbers go on exists only
    then. It is a step without a percentage, like *adding to the library*.
 7. **A read-only file is refused before the copy** (`failed`, *is read-only*): Windows would
    refuse the replace anyway, as "access denied", which read like a file in use.
+8. **The tags are written with mutagen, never with an ffmpeg stream copy** (§3 says why). It
+   was already a dependency: the scanner reads every song's length with it.
+9. **An mp3 keeps its ID3v2 version**: a 2.3 tag stays 2.3 and a 2.4 tag 2.4, because mutagen
+   writes a frame it does not know back only into the version it read it from. A file
+   without an ID3v2 tag gets a 2.3 one, the version every reader reads; an ID3v2.2 tag, which
+   mutagen cannot write, becomes 2.3.
+10. **An `.m4a` is tagged** with iTunes freeform atoms, since ffmpeg proved to read them back
+    under the bare key into the container's dictionary, where USDX looks.
 
 ## 2. What USDX reads
 
@@ -68,10 +77,11 @@ is no pre-amp.** An unparsable tag is logged and plays unevened.
 it is **Options > Sound > ReplayGain** (`SING_OPTIONS_SOUND_MUSICAUTOGAIN`; German
 *Normalisierung*).
 
-## 3. The ffmpeg commands
+## 3. Measuring, reading and writing
 
-Wingman ships `ffmpeg.exe` alone, no `ffprobe`, so all three are ffmpeg runs, each with
-`-hide_banner -nostdin` and stdin closed (`media._run`'s rule).
+Wingman ships `ffmpeg.exe` alone, no `ffprobe`, so the measurement and the read are ffmpeg
+runs, each with `-hide_banner -nostdin` and stdin closed (`media._run`'s rule). The write is
+mutagen's.
 
 **Measure**, bounded by `MEASURE_TIMEOUT_SECONDS` (300):
 
@@ -90,67 +100,113 @@ stored linear, `10^(dBFS/20)`, six decimals; the gain two.
 ffmpeg -nostats -i FILE -map_metadata 0:s:a:0 -map_metadata 0 -f ffmetadata -
 ```
 
-At the default log level, for the input's `Duration: …, start: …` line the write checks
-(below); the tags themselves come off stdout.
+The tags come off stdout; stderr is only read when the run fails.
 
 Both dictionaries into one, so one call reads what USDX reads whatever the container: an Ogg
 file's comments are on the stream, an mp3's frames on the container. `ffmetadata` alone shows
 only the container's, which made an Ogg file look untagged. A file without an audio stream is
-an error here, which is what makes the read-back below prove the copy has one.
+an error here.
 
-**Write**, to `<stem>.wingman-loudness<suffix>` beside the file:
+**Write**, with mutagen. Why not ffmpeg: the first version of this step wrote the tags with
+an ffmpeg stream copy (`-map 0 -c copy -map_metadata 0 -metadata …`), and that is not safe
+for a library. An mp3 **without an info frame** (no Xing, Info or LAME header, what
+`-write_xing 0` makes and some encoders write) gets one in ffmpeg's copy, its mp3 muxer always
+writing it, and with it the encoder delay the decoder then skips. The packets are the same,
+but the decoded audio is not (another MD5) and starts at 0.012 s instead of 0, some 12 ms
+earlier against the lyrics, because USDX honors the stream's `start_time`
+(`UAudioDecoder_FFmpeg.pas`, line 334). The copy also dropped an mp3's ID3v1 and APEv2 tags,
+and the only defence it had was to compare the copy's length and start with the file's and
+refuse a difference — which would have refused every such mp3 of a library, and a VBR mp3
+without the frame whose length ffmpeg only estimates. mutagen rewrites the tag and no audio
+frame, so none of that is there to check.
 
-```text
-ffmpeg -nostats -i FILE -map 0 -c copy -map_metadata 0 [-id3v2_version 3]
-       -metadata REPLAYGAIN_TRACK_GAIN="-6.50 dB" -metadata:s:a:0 REPLAYGAIN_TRACK_GAIN="-6.50 dB"
-       -metadata REPLAYGAIN_TRACK_PEAK=0.988553 -metadata:s:a:0 REPLAYGAIN_TRACK_PEAK=0.988553
-       -y TEMP
-```
+The file is copied (`shutil.copy2`) to `<stem>.wingman-loudness<suffix>` beside it, the same
+folder so `os.replace` is a rename. The copy is tagged, ffmpeg reads the gain back out of the
+copy with the read above — no gain, or another gain, is `unsupported` — and `os.replace` puts
+it in place: a `PermissionError` there is `in_use`. The copy is removed on every path. Each
+format goes through mutagen's own class for it, picked by the suffix (`.ogg` and `.opus` by the
+content between Vorbis and Opus, since an `.ogg` may hold Opus):
 
-Both levels, because an Ogg file's existing stream value wins over a new container one, and
-an mp3 writes only the container's; neither writes a key twice. ID3v2.3 for an mp3 alone (the
-option is the mp3 muxer's, and every reader reads 2.3). Then the copy is read back: no gain,
-or another gain, is `unsupported`. An exit code of 0 is not taken as proof that the copy lost
-nothing, so the copy is also held to the original's dump (the copy run's own stderr): its
-length within half a second or a hundredth of the file (`DURATION_TOLERANCE_*`), its start
-within a millisecond (`START_TOLERANCE_SECONDS`); a copy ffmpeg gives no length or start for,
-of a file it does, is refused. Then `os.replace`, and the copy is removed on every path.
+| Suffix | Written as | How |
+|---|---|---|
+| `.mp3` | ID3v2 `TXXX` frames, description `REPLAYGAIN_TRACK_GAIN` / `REPLAYGAIN_TRACK_PEAK`, Latin-1 | `MP3(load_v1=False, translate=False)`, saved in the version it was read in (decision 9) with `v23_sep=None`; a file without a tag gets one (`add_tags`) |
+| `.ogg`, `.opus` | Vorbis comments | `OggVorbis` or `OggOpus` |
+| `.flac` | Vorbis comments, the block added when there is none | `FLAC` |
+| `.m4a` | freeform atoms `----:com.apple.iTunes:REPLAYGAIN_TRACK_GAIN` / `_PEAK`, UTF-8 | `MP4` |
 
-The start check exists because of an mp3 **without an info frame** (no Xing, Info or LAME
-header, `-write_xing 0`): ffmpeg's mp3 muxer always writes one into the copy, and with it the
-encoder delay the decoder then skips. The packets are the same, but the decoded audio is not
-(another MD5) and starts at 0.012 s instead of 0, some 12 ms earlier against the lyrics,
-because USDX honors the stream's `start_time` (`UAudioDecoder_FFmpeg.pas`). Such a file is
-`failed`. Wingman's own downloads always carry the frame (libmp3lame writes it), and for them
-start, length and MD5 are the same before and after.
+The values are what they were: the gain as `-6.50 dB`, the peak with six decimals.
+
+**Replaced, never doubled.** mutagen keys a `TXXX` frame by its exact description and a
+freeform atom by its exact name, while ffmpeg's dictionary ignores case: every one whose name
+matches either key in any case is deleted before the new pair is added (for an `.m4a` under
+any mean, since ffmpeg files a freeform atom under its name alone; mutagen deletes a Vorbis
+comment in any case already). Both keys always go, so a gain written without a peak leaves no
+old peak to cap it. Other ReplayGain keys (an album gain) stay.
+
+**An mp3's ID3v1 tag, kept by its bytes.** mutagen's `save(v1=…)` has no way to leave one
+alone, measured on a file with a v1 tag behind an APEv2 one: `0` removes it, `1` ("update, not
+add") writes it anew out of the ID3v2 frames — its title and album replaced by the v2's, the
+title cut to thirty characters, its artist, year and comment erased and its genre set to none
+— and `2` adds one even where there is none. Loading with `load_v1=True` instead copies the
+v1's fields into the v2 tag as `COMM`, `TCON`, `TDRC` and `TPE1` frames, and `1` still
+replaces the v1's title and album and erases its comment. So the file is loaded without them and saved with `REMOVE`, and the
+bytes that took off the end (at most 128) are appended again from the original. Then every byte
+after the ID3v2 tag is held to the original's — the audio frames, an APEv2 tag, the ID3v1 tag —
+and a difference is `failed` (*would change more than its ID3v2 tag*). That comparison, which
+reads the file once more, is what replaced the copy's length and start check.
 
 Proved with ffmpeg `2024-07-15-git-350146a1ea-full_build-www.gyan.dev` (the one on the
-development machine's `PATH`, the one the live Wingman also uses) on generated files:
+development machine's `PATH`, the one the live Wingman also uses) and mutagen 1.48.1, on
+five-second files ffmpeg generated, each tagged with `-6.50 dB` and `0.988553`:
 
-| Format | Comes back as | Where |
-|---|---|---|
-| mp3 (`libmp3lame`) | `TXXX` frames, read back under their description | container |
-| Ogg Vorbis, Ogg Opus | Vorbis comments | stream |
-| FLAC | Vorbis comments | container |
-| m4a (AAC) | not written | — |
-| raw `.aac`, `.wav` | not written | — |
-| Matroska (`.mkv`) | would keep it, but is never copied (decision 5) | container |
+| File | Comes back as | Where | Decoded MD5 and `start:` |
+|---|---|---|---|
+| mp3 (`libmp3lame`, ffmpeg's ID3v2.4 tag) | `TXXX` frames under their description | container | same, `start: 0.023021` |
+| mp3 with an ID3v2.3 tag | the same, still 2.3 | container | same |
+| mp3 **without an info frame** (`-write_xing 0`) | the same | container | same, `start: 0.000000` before and after |
+| mp3 without any tag (`-id3v2_version 0`) | the same, in a new 2.3 tag | container | same |
+| mp3 with ID3v1 and APEv2 | the same; the last 128 bytes and the APEv2 tag identical | container | same |
+| mp3 with an ID3v2.4 tag ending in a footer | the same, the footer gone | container | same, `start: 0.023021` |
+| Ogg Vorbis, Ogg Opus, Opus in an `.ogg` | Vorbis comments | stream | same |
+| FLAC | Vorbis comments | container | same |
+| m4a (AAC) | freeform atoms, under the bare key | container | same |
+| raw `.aac`, `.wav` | not written | — | — |
 
-The stream copy keeps the cover picture (an mp3's `APIC` stays an attached picture), the
-other tags (a non-ASCII artist among them, through a path with brackets, spaces and umlauts),
-and every sample: the decoded audio's MD5 is the same before and after for mp3, Ogg Vorbis,
-Opus and FLAC. An existing pair written in lower case by another tagger is replaced, not
-doubled. The real-ffmpeg tests in `tests/test_downloads_loudness.py` hold all of this. What was **not** checked is what becomes of the parts of a tag ffmpeg has
-no metadata key for — an ID3v1 tag beside the ID3v2 one (ffmpeg writes none by default), a
-`PRIV` or `GEOB` frame, synchronized lyrics. Irrelevant for a download, whose mp3 ffmpeg itself
-just made; the first thing part 2 has to check before it rewrites a library.
+A cover picture stays an attached picture (mp3 and FLAC), the other tags stay (a non-ASCII
+artist among them, through a path with brackets, spaces and umlauts), an existing pair in lower
+case is replaced, a file another program holds open is `in_use` and intact, and no copy is ever
+left behind. ffmpeg shows nothing of an mp3's APEv2 tag at all: an APEv2
+`REPLAYGAIN_TRACK_GAIN` of `loud` read as no gain, and the file was tagged. The real-ffmpeg
+tests in `tests/test_downloads_loudness.py` hold all of this; the unit tests hold the ID3v2
+version, an unknown frame, a 2.3 frame with several values, an ID3v2.2 tag and an ID3v1 tag
+without an ID3v2 one, on the silent fixtures in `tests/fixtures/loudness/`.
+
+**An ID3v2.4 footer is folded into the tag.** mutagen counts the ten-byte footer (`3DI`, header
+flag `0x10`) out of the tag's size and writes the new tag without one, so the old footer stayed
+behind between the new tag and the first frame: junk ffmpeg skipped together with the info
+frame after it, so the decoded audio changed and started at 0 instead of 0.023 s. The
+comparison above was blind to it, both sides being read from mutagen's size. So the copy's
+footer is zeroed, its flag cleared and the declared size made ten bytes longer before mutagen
+loads it (`_absorb_id3v2_footer`): the zeros are padding to mutagen, the tag it rewrites ends
+where the original's ended, and the comparison holds again. A tag with an extended header or
+unsynchronisation was tagged with the decoded MD5, the `start:` and every byte after the tag
+unchanged, and its title kept; mutagen writes the new tag without either.
+
+What was **not** checked: frame flags, and the frames mutagen knows and so writes back through
+its own parser rather than byte for byte — `PRIV`, `GEOB` and `SYLT` among them — against a file
+another tagger wrote. Only a frame mutagen does not know is copied as it was. A frame of a kind
+mutagen knows but cannot parse — a text frame with an unknown encoding byte, or invalid UTF-8 —
+is dropped without a word, on load and so on save.
 
 ## 4. Where it lives
 
 - `backend/src/ultrastar_wingman/downloads/loudness.py`: `measure`, `read_tags`, `write_tags`
-  (raise `LoudnessError`, `FileInUseError`, `UnsupportedFormatError`), `normalize(ffmpeg,
-  file) -> Outcome` (never raises), `normalize_song(session, ffmpeg, song) -> Outcome` (stores
-  and logs by the song's name). In `downloads/` because ffmpeg is the downloads' tool.
+  (raise `LoudnessError`, `FileInUseError`, `UnsupportedFormatError`; `write_tags` takes the
+  ffmpeg as the reader of its copy, the writers per format are `_tag_mp3`, `_tag_ogg`,
+  `_tag_flac` and `_tag_m4a`), `normalize(ffmpeg, file) -> Outcome` (never raises),
+  `normalize_song(session, ffmpeg, song) -> Outcome` (stores and logs by the song's name). In
+  `downloads/` because ffmpeg is the downloads' tool. The mutagen classes are imported by name,
+  which is also what puts them into the frozen exe (the spec lists nothing for them).
 - `Outcome.status`: `tagged`, `already_tagged` (left alone), `unsupported`, `silent`,
   `missing`, `in_use`, `failed`. `Outcome.stored` is what goes on the row: the numbers for the
   first three, nothing for the rest.
@@ -171,14 +227,16 @@ just made; the first thing part 2 has to check before it rewrites a library.
 resolved once (`media.ensure_ffmpeg`). `already_tagged` is cheap (one read, nothing written)
 and fills the row from a tag USDB Syncer or UltraStar Manager wrote. `in_use` is worth a retry
 later: on Windows it is Ultrastar Deluxe playing the file, or the host screen streaming it
-(`PermissionError` from the replace, WinError 32 or 5). `unsupported` and `silent` are final.
-Three `failed` outcomes are final too and would be retried forever: a read-only file, an mp3
-without an info frame (§3's start check; `-write_xing 0` on the copy of a file that has none
-would keep its samples, untried), and a VBR mp3 without one, whose `Duration:` ffmpeg
-estimates from the first frame's bitrate while the copy's is exact, so the length check may
-refuse a correct copy. None of them is a download.
+(`PermissionError` from the replace, WinError 32 or 5). `unsupported` and `silent` are final,
+and so is a file whose content is not what its suffix says (`unsupported`, decision 5). One
+`failed` outcome is final too and would be retried forever: a read-only file. An mp3 without
+an info frame, a VBR mp3 and an mp3 with ID3v1 or APEv2 tags are no longer a class of their
+own: mutagen tags them like any other, and the tags survive (§3), and so does an ID3v2.4
+footer. A *would change more than its ID3v2 tag* refusal would be a mutagen bug, or an ID3v2
+layout nobody has tried, and is worth a log line rather than a retry.
 To weigh: silently, on a rescan, or asked; the scan lock (`scanner.library_lock`) while a file
-is replaced; and §3's last sentence.
+is replaced; and §3's last paragraph, the parts of an ID3v2 tag mutagen does not keep byte for
+byte.
 
 **Part 3, the host.** `MusicTrackRead.gain_db` / `.peak` and the same on `MusicPreviewRead`.
 To match USDX: `10^(gain_db/20)`, capped at `1/peak` when there is a peak, multiplied into the

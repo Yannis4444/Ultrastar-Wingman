@@ -1,10 +1,21 @@
-"""Loudness normalization: measuring, reading and writing ReplayGain tags with ffmpeg.
+"""Loudness normalization: measuring and reading ReplayGain tags with ffmpeg, writing them
+with mutagen.
 
-Two kinds of test. Most run against `FAKE_FFMPEG`, a stand-in that keeps a "file" as JSON
-(its audio and its tags) and answers the three things `downloads.loudness` asks of ffmpeg —
-the ebur128 summary, the ffmetadata dump and the stream copy. The last two run the real
-ffmpeg over files it generates itself, to prove the tags come back under the names Ultrastar
-Deluxe asks for; they are skipped where there is no ffmpeg (`WINGMAN_TEST_FFMPEG`, else the
+Two kinds of test. Most run against `FAKE_FFMPEG`, a stand-in that answers the two things
+`downloads.loudness` asks of ffmpeg — the ebur128 summary and the ffmetadata dump. Its
+"file" is either JSON (`fake_audio`: its tags, nothing to play) or a real audio file out of
+`fixtures/loudness/`, whose tags it reads with mutagen the way ffmpeg files them. The writer
+is the real mutagen, so every test that writes a tag writes it into a real file, and none of
+these needs an ffmpeg. The fixtures are 0.2 s of mono silence at 48 kHz, made once with
+ffmpeg 2024-07-15:
+
+    ffmpeg -f lavfi -i anullsrc=r=48000:cl=mono:d=0.2 -c:a <codec> -fflags +bitexact
+           -flags:a +bitexact -map_metadata -1 [-id3v2_version 0] silence.<suffix>
+
+with `libmp3lame` (and `-id3v2_version 0`: no tag at all), `libvorbis`, `libopus`, `flac` and
+`aac`. The tests with "real" in their name run the real ffmpeg over files it generates
+itself, to prove the tags come back under the names Ultrastar Deluxe asks for and the audio
+does not move; they are skipped where there is no ffmpeg (`WINGMAN_TEST_FFMPEG`, else the
 one on `PATH`).
 """
 
@@ -17,10 +28,16 @@ import sqlite3
 import stat
 import subprocess
 from pathlib import Path
+from typing import Any
 
+import mutagen
 import pytest
 from alembic import command
 from alembic.config import Config
+from mutagen.apev2 import APEv2
+from mutagen.id3 import APIC, ID3, TIT2, TPE1, TXXX, Encoding
+from mutagen.mp4 import MP4, AtomDataType, MP4FreeForm, MP4Tags
+from mutagen.oggvorbis import OggVorbis
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from test_downloads_media import fake_executable
@@ -29,10 +46,14 @@ from ultrastar_wingman.downloads import loudness
 from ultrastar_wingman.downloads.loudness import Outcome, ReplayGain
 from ultrastar_wingman.songs.model import Song
 
-# A file is `{"audio": ..., "tags": {...}}`; anything that is not JSON is a corrupt file.
+FIXTURES = Path(__file__).parent / "fixtures" / "loudness"
+
+# A JSON file is `{"audio": ..., "tags": {...}}`; a real audio file's tags are read with
+# mutagen; anything else is a corrupt file.
 FAKE_FFMPEG = r"""
 import json
 import pathlib
+import shutil
 import sys
 import time
 
@@ -50,24 +71,47 @@ def fail(message):
     sys.exit(1)
 
 
+def real_tags(path):
+    # ffmpeg's dictionary of a real file: an ID3v2 TXXX frame under its description, a
+    # Vorbis comment under its key, an MP4 freeform atom under its name.
+    import mutagen
+    from mutagen.id3 import ID3
+
+    try:
+        audio = mutagen.File(path)
+    except mutagen.MutagenError:
+        return None
+    if audio is None:
+        return None
+    if audio.tags is None:
+        return {}
+    if isinstance(audio.tags, ID3):
+        return {frame.desc: str(frame.text[0]) for frame in audio.tags.getall("TXXX")}
+    if hasattr(audio.tags, "as_dict"):
+        # A slice is the comments as stored; iterating them would give the keys alone.
+        return dict(audio.tags[:])
+    return {
+        name.rpartition(":")[2]: bytes(values[0]).decode()
+        for name, values in audio.tags.items()
+        if name.startswith("----:")
+    }
+
+
 if "-vn" in arguments:
-    # `media.extract_audio`: whatever the video, the audio is a fresh, untagged file.
-    output.write_text(json.dumps({"audio": "extracted", "tags": {}}), encoding="utf-8")
+    # `media.extract_audio`: whatever the video, the audio is a fresh, untagged mp3.
+    shutil.copyfile(SILENT_MP3, output)
     sys.exit(0)
 
 source = pathlib.Path(arguments[arguments.index("-i") + 1])
+if control.get("unreadable_copies") and ".wingman-loudness" in source.name:
+    fail(f"{source}: Invalid data found when processing input")
 try:
     song = json.loads(source.read_text(encoding="utf-8"))
 except (OSError, ValueError):
-    fail(f"{source}: Invalid data found when processing input")
-# The dump of the input every run prints at the default log level.
-if "duration" in song:
-    seconds = song["duration"]
-    sys.stderr.write(
-        f"Input #0, mp3, from '{source}':\n"
-        f"  Duration: 00:{int(seconds) // 60:02d}:{seconds % 60:05.2f}, "
-        f"start: {song.get('start', 0.0):.6f}\n"
-    )
+    tags = real_tags(source)
+    if tags is None:
+        fail(f"{source}: Invalid data found when processing input")
+    song = {"audio": "real", "tags": tags}
 
 if any("ebur128" in argument for argument in arguments):
     if control.get("measure_fails"):
@@ -87,53 +131,68 @@ if any("ebur128" in argument for argument in arguments):
 
 if "ffmetadata" in arguments:
     print(";FFMETADATA1")
-    for key, value in song["tags"].items():
-        print(f"{key}={value}")
+    if not control.get("hides_tags"):
+        for key, value in song["tags"].items():
+            print(f"{key}={value}")
     sys.exit(0)
 
-if control.get("write_fails"):
-    fail("Could not write header (incorrect codec parameters ?): Invalid argument")
-tags = dict(song["tags"])
-if not control.get("drops_tags"):
-    for flag, value in zip(arguments, arguments[1:]):
-        if flag.startswith("-metadata"):
-            key, _, text = value.partition("=")
-            tags[key] = text
-copy = {"audio": song["audio"], "tags": tags}
-if "duration" in song:
-    copy["duration"] = song["duration"] / 2 if control.get("truncates") else song["duration"]
-    copy["start"] = control.get("moves_start_to", song.get("start", 0.0))
-output.write_text(json.dumps(copy), encoding="utf-8")
-"""
+fail(f"the fake has no answer for {arguments}")
+""".replace("SILENT_MP3", repr(str(FIXTURES / "silence.mp3")))
 
 # What the fake measures by default: -25.9 LUFS, a true peak of -14.4 dBFS.
 DEFAULT_GAIN = ReplayGain(gain_db=7.9, peak=round(10 ** (-14.4 / 20), 6))
+# What the write tests write, and how it reads in the file.
+GAIN, PEAK = -6.5, 0.988553
+WRITTEN = [("REPLAYGAIN_TRACK_GAIN", "-6.50 dB"), ("REPLAYGAIN_TRACK_PEAK", "0.988553")]
 
 
 def fake_ffmpeg(directory: Path, **control: object) -> str:
     """The fake, in a directory of its own, behaving as `control` says (`measure_fails`,
-    `write_fails`, `drops_tags`, `truncates`, `moves_start_to`, `measure_sleep`, `integrated`,
-    `true_peak`)."""
+    `measure_sleep`, `integrated`, `true_peak`, `hides_tags` — the dump shows no tag at all,
+    as for a format whose tag ffmpeg does not read — and `unreadable_copies`, a read of the
+    temporary copy failing)."""
     directory.mkdir(parents=True, exist_ok=True)
     if control:
         (directory / "ffmpeg-control.json").write_text(json.dumps(control), encoding="utf-8")
     return str(fake_executable(directory, "ffmpeg", FAKE_FFMPEG))
 
 
-def fake_audio(
-    path: Path, tags: dict[str, str] | None = None, duration: float | None = None
-) -> Path:
-    """A fake audio file; with `duration`, the fake's dump of it says how long it plays."""
+def fake_audio(path: Path, tags: dict[str, str] | None = None) -> Path:
+    """A JSON stand-in for an audio file, for what never writes: the fake reads its tags,
+    mutagen can read nothing in it."""
     path.parent.mkdir(parents=True, exist_ok=True)
-    content: dict[str, object] = {"audio": "song", "tags": tags or {}}
-    if duration is not None:
-        content["duration"] = duration
-    path.write_text(json.dumps(content), encoding="utf-8")
+    path.write_text(json.dumps({"audio": "song", "tags": tags or {}}), encoding="utf-8")
     return path
 
 
+def silent_audio(path: Path, kind: str | None = None) -> Path:
+    """A real audio file at `path`: the fixture of `kind` (`mp3`, `ogg`, `opus`, `flac`,
+    `m4a`), by default the one `path`'s suffix names."""
+    path.parent.mkdir(parents=True, exist_ok=True)
+    shutil.copyfile(FIXTURES / f"silence.{kind or path.suffix.casefold().lstrip('.')}", path)
+    return path
+
+
+def replay_gain_entries(path: Path) -> list[tuple[str, str]]:
+    """Every tag of a real file whose name holds "replaygain", in any case, with its value —
+    as mutagen keys it, so a pair written twice in two cases is two entries here."""
+    audio = mutagen.File(path)
+    tags = audio.tags
+    if tags is None:
+        return []
+    if isinstance(tags, ID3):
+        pairs = [(frame.desc, str(frame.text[0])) for frame in tags.getall("TXXX")]
+    elif isinstance(tags, MP4Tags):
+        pairs = [(name, bytes(values[0]).decode()) for name, values in tags.items()]
+    else:
+        # Vorbis comments: a slice is the (key, value) pairs as stored, in their case.
+        pairs = list(tags[:])
+    return sorted((name, value) for name, value in pairs if "replaygain" in name.casefold())
+
+
 def tags_of(path: Path) -> dict[str, str]:
-    return dict(json.loads(path.read_text(encoding="utf-8"))["tags"])
+    """The ReplayGain tags of a real file as ffmpeg's dictionary holds them."""
+    return {name.rpartition(":")[2]: value for name, value in replay_gain_entries(path)}
 
 
 def ffmpeg_calls(ffmpeg: str) -> list[list[str]]:
@@ -144,14 +203,18 @@ def ffmpeg_calls(ffmpeg: str) -> list[list[str]]:
 
 
 def kinds(ffmpeg: str) -> list[str]:
-    """Each call by what it was: `measure`, `read` or `write`."""
+    """Each call by what it was: `measure` or `read`. ffmpeg never writes."""
 
     def kind(arguments: list[str]) -> str:
         if any("ebur128" in argument for argument in arguments):
             return "measure"
-        return "read" if "ffmetadata" in arguments else "write"
+        return "read" if "ffmetadata" in arguments else "other"
 
     return [kind(arguments) for arguments in ffmpeg_calls(ffmpeg)]
+
+
+def listing(directory: Path) -> list[str]:
+    return sorted(path.name for path in directory.iterdir())
 
 
 @pytest.fixture
@@ -297,80 +360,392 @@ def test_the_ffmetadata_format_is_unescaped() -> None:
 # --- write_tags --------------------------------------------------------------------------
 
 
-async def test_write_tags_replaces_the_file_with_a_tagged_copy(ffmpeg: str, tmp_path: Path) -> None:
-    song = fake_audio(tmp_path / "library" / "song.mp3", {"TITLE": "Kept"})
+async def test_write_tags_tags_a_copy_and_puts_it_in_place(ffmpeg: str, tmp_path: Path) -> None:
+    song = silent_audio(tmp_path / "library" / "song.mp3")
+    tags = ID3()
+    tags.add(TIT2(encoding=Encoding.UTF8, text=["Kept"]))
+    tags.save(song)
 
-    await loudness.write_tags(ffmpeg, song, -6.5, 0.988553)
+    await loudness.write_tags(ffmpeg, song, GAIN, PEAK)
 
-    assert tags_of(song) == {
-        "TITLE": "Kept",
-        "REPLAYGAIN_TRACK_GAIN": "-6.50 dB",
-        "REPLAYGAIN_TRACK_PEAK": "0.988553",
-    }
-    assert [path.name for path in song.parent.iterdir()] == ["song.mp3"]
-    write, read_back = ffmpeg_calls(ffmpeg)
-    # Every stream copied, the tags kept, both dictionaries written, ID3v2.3 for an mp3.
-    assert write[write.index("-map") + 1] == "0"
-    assert write[write.index("-c") + 1] == "copy"
-    assert write[write.index("-map_metadata") + 1] == "0"
-    assert write[write.index("-id3v2_version") + 1] == "3"
-    assert "-metadata:s:a:0" in write
-    assert write[-1] == str(loudness.temporary_path(song))
-    # The copy is what was read back, before it took the original's place.
+    assert replay_gain_entries(song) == WRITTEN
+    assert ID3(song)["TIT2"].text == ["Kept"]
+    assert listing(song.parent) == ["song.mp3"]
+    # ffmpeg only read the copy back, before it took the original's place.
+    [read_back] = ffmpeg_calls(ffmpeg)
+    assert kinds(ffmpeg) == ["read"]
     assert read_back[read_back.index("-i") + 1] == str(loudness.temporary_path(song))
 
 
-async def test_only_an_mp3_is_told_its_id3_version(ffmpeg: str, tmp_path: Path) -> None:
-    song = fake_audio(tmp_path / "song.ogg")
-
-    await loudness.write_tags(ffmpeg, song, 1.0, 0.5)
-
-    assert "-id3v2_version" not in ffmpeg_calls(ffmpeg)[0]
-    assert tags_of(song)["REPLAYGAIN_TRACK_GAIN"] == "1.00 dB"
-
-
-async def test_a_gain_without_a_peak_writes_no_peak(ffmpeg: str, tmp_path: Path) -> None:
-    song = fake_audio(tmp_path / "song.mp3")
+@pytest.mark.parametrize("name", ["song.mp3", "song.ogg", "song.m4a"])
+async def test_a_gain_without_a_peak_leaves_no_peak(ffmpeg: str, tmp_path: Path, name: str) -> None:
+    """Not even an old one: USDX would cap the new gain by it."""
+    song = silent_audio(tmp_path / name)
+    await loudness.write_tags(ffmpeg, song, GAIN, PEAK)
 
     await loudness.write_tags(ffmpeg, song, -2.0, None)
 
     assert tags_of(song) == {"REPLAYGAIN_TRACK_GAIN": "-2.00 dB"}
 
 
-async def test_a_format_that_keeps_no_tag_is_left_alone(tmp_path: Path) -> None:
-    ffmpeg = fake_ffmpeg(tmp_path / "tools", drops_tags=True)
-    song = fake_audio(tmp_path / "library" / "song.mp3")
+@pytest.mark.parametrize(
+    ("name", "kind", "where"),
+    [
+        ("song.mp3", "mp3", ID3),
+        ("song.MP3", "mp3", ID3),
+        ("song.ogg", "ogg", None),
+        ("song.opus", "opus", None),
+        # An `.ogg` may hold Opus: the content decides how it is tagged.
+        ("song.ogg", "opus", None),
+        ("song.flac", "flac", None),
+        ("song.m4a", "m4a", MP4Tags),
+    ],
+)
+async def test_every_format_wingman_tags_is_written(
+    ffmpeg: str, tmp_path: Path, name: str, kind: str, where: type | None
+) -> None:
+    song = silent_audio(tmp_path / "library" / name, kind)
 
-    with pytest.raises(loudness.UnsupportedFormatError):
-        await loudness.write_tags(ffmpeg, song, -6.5, 0.9)
+    await loudness.write_tags(ffmpeg, song, GAIN, PEAK)
 
-    assert tags_of(song) == {}
-    assert [path.name for path in song.parent.iterdir()] == ["song.mp3"]
+    assert tags_of(song) == dict(WRITTEN)
+    if where is not None:
+        assert isinstance(mutagen.File(song).tags, where)
+    assert listing(song.parent) == [name]
 
 
-@pytest.mark.parametrize("name", ["song.wav", "song.m4a", "video.mp4", "video.MKV", "song"])
+@pytest.mark.parametrize("name", ["song.wav", "song.aac", "video.mp4", "video.MKV", "song"])
 async def test_a_format_nobody_has_tried_is_never_copied(
     ffmpeg: str, tmp_path: Path, name: str
 ) -> None:
-    """A Matroska video would take the tags, and be rewritten whole for them."""
+    """A Matroska video, an mp4 named as the audio: neither is a song's audio file to tag."""
     song = fake_audio(tmp_path / "library" / name)
 
     with pytest.raises(loudness.UnsupportedFormatError):
-        await loudness.write_tags(ffmpeg, song, -6.5, 0.9)
+        await loudness.write_tags(ffmpeg, song, GAIN, PEAK)
 
     assert ffmpeg_calls(ffmpeg) == []
-    assert [path.name for path in song.parent.iterdir()] == [name]
+    assert listing(song.parent) == [name]
 
 
-@pytest.mark.parametrize("name", ["song.MP3", "song.ogg", "song.opus", "song.flac"])
-async def test_the_formats_proven_to_keep_the_tag_are_written(
-    ffmpeg: str, tmp_path: Path, name: str
+async def test_an_existing_pair_in_another_case_is_replaced(ffmpeg: str, tmp_path: Path) -> None:
+    """mutagen keys a `TXXX` frame by its exact description, ffmpeg's dictionary ignores
+    case: a lower-case pair left beside the new one would be the same key twice."""
+    song = silent_audio(tmp_path / "song.mp3")
+    tags = ID3()
+    tags.add(TXXX(encoding=Encoding.UTF8, desc="replaygain_track_gain", text=["+3.00 dB"]))
+    tags.add(TXXX(encoding=Encoding.UTF8, desc="Replaygain_Track_Peak", text=["0.5"]))
+    tags.add(TXXX(encoding=Encoding.UTF8, desc="replaygain_album_gain", text=["+1.00 dB"]))
+    tags.save(song)
+
+    await loudness.write_tags(ffmpeg, song, GAIN, PEAK)
+
+    # The album gain is no key Wingman writes, and stays.
+    assert replay_gain_entries(song) == [*WRITTEN, ("replaygain_album_gain", "+1.00 dB")]
+
+
+async def test_an_existing_vorbis_comment_in_another_case_is_replaced(
+    ffmpeg: str, tmp_path: Path
 ) -> None:
-    song = fake_audio(tmp_path / "library" / name)
+    song = silent_audio(tmp_path / "song.ogg")
+    audio: Any = OggVorbis(song)
+    audio.tags["replaygain_track_gain"] = ["+3.00 dB"]
+    audio.tags["Replaygain_Track_Peak"] = ["0.5"]
+    audio.save()
 
-    await loudness.write_tags(ffmpeg, song, -6.5, 0.9)
+    await loudness.write_tags(ffmpeg, song, GAIN, PEAK)
 
-    assert tags_of(song)["REPLAYGAIN_TRACK_GAIN"] == "-6.50 dB"
+    assert replay_gain_entries(song) == WRITTEN
+
+
+async def test_an_existing_freeform_atom_under_another_mean_is_replaced(
+    ffmpeg: str, tmp_path: Path
+) -> None:
+    """ffmpeg files a freeform atom under its name alone, whatever its mean."""
+    song = silent_audio(tmp_path / "song.m4a")
+    audio: Any = MP4(song)
+    if audio.tags is None:
+        audio.add_tags()
+    audio.tags["----:org.hydrogenaudio.replaygain:replaygain_track_gain"] = [
+        MP4FreeForm(b"+3.00 dB", dataformat=AtomDataType.UTF8)
+    ]
+    audio.save()
+
+    await loudness.write_tags(ffmpeg, song, GAIN, PEAK)
+
+    assert replay_gain_entries(song) == [
+        ("----:com.apple.iTunes:" + name, value) for name, value in WRITTEN
+    ]
+
+
+def syncsafe(size: int) -> bytes:
+    return bytes((size >> shift) & 0x7F for shift in (21, 14, 7, 0))
+
+
+def id3v2_tag(version: int, frames: bytes, *, footer: bool = False) -> bytes:
+    """An ID3v2 tag of `version` (2, 3 or 4) around `frames`, made by hand: mutagen writes
+    neither 2.2, nor an unknown frame, nor the ten-byte footer a 2.4 tag may end in."""
+    flags = 0x10 if footer else 0
+    size = syncsafe(len(frames))
+    tag = b"ID3" + bytes([version, 0, flags]) + size + frames
+    return tag + (b"3DI" + bytes([version, 0, flags]) + size if footer else b"")
+
+
+def id3v1_tag(title: str) -> bytes:
+    """128 bytes: title, artist, album, year, comment, genre."""
+
+    def field(text: str) -> bytes:
+        return text.encode("latin-1").ljust(30, b"\0")
+
+    artist, album, comment = field("V1 Artist"), field("V1 Album"), field("")
+    return b"TAG" + field(title) + artist + album + b"1999" + comment + bytes([17])
+
+
+@pytest.mark.parametrize(("version", "kept"), [(3, (2, 3, 0)), (4, (2, 4, 0))])
+async def test_the_id3_version_is_the_one_the_file_has(
+    ffmpeg: str, tmp_path: Path, version: int, kept: tuple[int, int, int]
+) -> None:
+    song = silent_audio(tmp_path / "song.mp3")
+    tags = ID3()
+    tags.add(TIT2(encoding=Encoding.LATIN1, text=["Kept"]))
+    tags.save(song, v2_version=version)
+
+    await loudness.write_tags(ffmpeg, song, GAIN, PEAK)
+
+    assert ID3(song).version == kept
+    assert ID3(song)["TIT2"].text == ["Kept"]
+
+
+async def test_an_mp3_without_a_tag_gets_an_id3v2_3_one(ffmpeg: str, tmp_path: Path) -> None:
+    song = silent_audio(tmp_path / "song.mp3")
+    audio_bytes = song.read_bytes()
+
+    await loudness.write_tags(ffmpeg, song, GAIN, PEAK)
+
+    assert ID3(song).version == (2, 3, 0)
+    assert replay_gain_entries(song) == WRITTEN
+    # Everything after the new tag is the file as it was.
+    assert song.read_bytes()[ID3(song).size :] == audio_bytes
+
+
+async def test_an_id3v2_2_tag_becomes_2_3(ffmpeg: str, tmp_path: Path) -> None:
+    """mutagen reads ID3v2.2 but cannot write it."""
+    title = b"\x00Old Title"
+    frame = b"TT2" + len(title).to_bytes(3, "big") + title
+    song = tmp_path / "song.mp3"
+    song.write_bytes(id3v2_tag(2, frame) + (FIXTURES / "silence.mp3").read_bytes())
+
+    await loudness.write_tags(ffmpeg, song, GAIN, PEAK)
+
+    assert ID3(song).version == (2, 3, 0)
+    assert ID3(song)["TIT2"].text == ["Old Title"]
+    assert replay_gain_entries(song) == WRITTEN
+
+
+async def test_a_frame_mutagen_does_not_know_is_kept(ffmpeg: str, tmp_path: Path) -> None:
+    """mutagen writes an unknown frame back only into the version it was read from."""
+    data = b"whatever another tagger keeps here"
+    frame = b"ZWNG" + syncsafe(len(data)) + b"\x00\x00" + data
+    song = tmp_path / "song.mp3"
+    song.write_bytes(id3v2_tag(4, frame) + (FIXTURES / "silence.mp3").read_bytes())
+
+    await loudness.write_tags(ffmpeg, song, GAIN, PEAK)
+
+    assert frame in song.read_bytes()
+    assert replay_gain_entries(song) == WRITTEN
+
+
+async def test_an_id3v2_4_footer_is_not_left_behind(ffmpeg: str, tmp_path: Path) -> None:
+    """mutagen counts no footer in the tag's size and writes none, so the old one would stay
+    between the new tag and the audio — junk that made ffmpeg skip the info frame behind it
+    and start the song 23 ms early. It is folded into the tag instead."""
+    title = b"\x00Kept"
+    frame = b"TIT2" + syncsafe(len(title)) + b"\x00\x00" + title
+    audio = (FIXTURES / "silence.mp3").read_bytes()
+    song = tmp_path / "song.mp3"
+    song.write_bytes(id3v2_tag(4, frame, footer=True) + audio)
+
+    await loudness.write_tags(ffmpeg, song, GAIN, PEAK)
+
+    tags = ID3(song, load_v1=False)
+    assert song.read_bytes()[tags.size :] == audio
+    assert b"3DI" not in song.read_bytes()
+    assert tags["TIT2"].text == ["Kept"]
+    assert replay_gain_entries(song) == WRITTEN
+
+
+async def test_a_frame_with_several_values_keeps_them(ffmpeg: str, tmp_path: Path) -> None:
+    """In ID3v2.3, the values of a text frame are kept apart as they were, never joined."""
+    song = silent_audio(tmp_path / "song.mp3")
+    tags = ID3()
+    tags.add(TPE1(encoding=Encoding.UTF16, text=["Alice", "Bob"]))
+    tags.save(song, v2_version=3, v23_sep=None)
+
+    await loudness.write_tags(ffmpeg, song, GAIN, PEAK)
+
+    assert ID3(song)["TPE1"].text == ["Alice", "Bob"]
+
+
+async def test_the_picture_and_the_id3v1_and_apev2_tags_are_kept_as_they_are(
+    ffmpeg: str, tmp_path: Path
+) -> None:
+    """mutagen would write an ID3v1 tag anew out of the ID3v2 frames, and — loaded — copy
+    its fields into them; it is put back byte for byte instead, behind the APEv2 tag."""
+    song = silent_audio(tmp_path / "song.mp3")
+    tags = ID3()
+    tags.add(TIT2(encoding=Encoding.UTF8, text=["A v2 title, longer than the v1 one has room for"]))
+    tags.add(APIC(encoding=Encoding.UTF8, mime="image/png", type=3, desc="", data=b"PNG" * 50))
+    tags.save(song)
+    ape = APEv2()
+    ape["Artist"] = "APE Artist"
+    ape.save(song)
+    v1 = id3v1_tag("V1 Title")
+    with song.open("ab") as file:
+        file.write(v1)
+    before = song.read_bytes()
+    tag_size = ID3(song).size
+
+    await loudness.write_tags(ffmpeg, song, GAIN, PEAK)
+
+    after = song.read_bytes()
+    assert after[ID3(song).size :] == before[tag_size:]
+    assert after.endswith(v1)
+    assert dict(APEv2(song)) == {"Artist": "APE Artist"}
+    written = ID3(song, load_v1=False)
+    assert sorted(written.keys()) == [
+        "APIC:",
+        "TIT2",
+        "TXXX:REPLAYGAIN_TRACK_GAIN",
+        "TXXX:REPLAYGAIN_TRACK_PEAK",
+    ]
+    assert written["APIC:"].data == b"PNG" * 50
+
+
+async def test_an_id3v1_tag_alone_is_kept_beside_the_new_id3v2_one(
+    ffmpeg: str, tmp_path: Path
+) -> None:
+    song = silent_audio(tmp_path / "song.mp3")
+    v1 = id3v1_tag("V1 Title")
+    with song.open("ab") as file:
+        file.write(v1)
+    before = song.read_bytes()
+
+    await loudness.write_tags(ffmpeg, song, GAIN, PEAK)
+
+    tags = ID3(song, load_v1=False)
+    # Nothing of the ID3v1 tag was copied into the new one.
+    assert sorted(tags.keys()) == ["TXXX:REPLAYGAIN_TRACK_GAIN", "TXXX:REPLAYGAIN_TRACK_PEAK"]
+    assert song.read_bytes()[tags.size :] == before
+
+
+async def test_a_change_beyond_the_tag_is_refused(
+    ffmpeg: str, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    song = silent_audio(tmp_path / "library" / "song.mp3")
+    content = song.read_bytes()
+    monkeypatch.setattr(loudness, "_same_bytes", lambda *arguments: False)
+
+    with pytest.raises(loudness.LoudnessError, match="more than its ID3v2 tag"):
+        await loudness.write_tags(ffmpeg, song, GAIN, PEAK)
+
+    assert song.read_bytes() == content
+    assert listing(song.parent) == ["song.mp3"]
+
+
+def test_the_bytes_are_compared_from_where_each_tag_ends(tmp_path: Path) -> None:
+    first = tmp_path / "first"
+    second = tmp_path / "second"
+    first.write_bytes(b"old tag|" + b"audio" * 1000)
+    second.write_bytes(b"a longer new tag|" + b"audio" * 1000)
+
+    assert loudness._same_bytes(first, 8, second, 17)
+    assert not loudness._same_bytes(first, 8, second, 16)
+    second.write_bytes(b"a longer new tag|" + b"audio" * 1000 + b"!")
+    assert not loudness._same_bytes(first, 8, second, 17)
+
+
+@pytest.mark.parametrize(("name", "kind"), [("song.mp3", "ogg"), ("song.flac", "mp3")])
+async def test_a_file_that_is_not_what_its_name_says_is_left_alone(
+    ffmpeg: str, tmp_path: Path, name: str, kind: str
+) -> None:
+    """ffmpeg reads whatever the content is; mutagen is told the format by the name."""
+    song = silent_audio(tmp_path / "library" / name, kind)
+    content = song.read_bytes()
+
+    with pytest.raises(loudness.UnsupportedFormatError, match="is not"):
+        await loudness.write_tags(ffmpeg, song, GAIN, PEAK)
+
+    assert song.read_bytes() == content
+    assert listing(song.parent) == [name]
+
+
+def _raise(error: Exception) -> Any:
+    def raising(*arguments: object, **keywords: object) -> Any:
+        raise error
+
+    return raising
+
+
+@pytest.mark.parametrize(
+    ("name", "target", "status"),
+    [
+        # mutagen's Vorbis comment parser on a damaged comment header.
+        ("song.ogg", "File", "unsupported"),
+        # mutagen moving the bytes of a damaged MP4 behind its tag.
+        ("song.m4a", "save", "failed"),
+    ],
+)
+async def test_a_damaged_file_mutagen_trips_over_is_an_outcome(
+    ffmpeg: str,
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+    name: str,
+    target: str,
+    status: str,
+) -> None:
+    """On a damaged file mutagen raises more than `MutagenError`, an `IndexError` while
+    loading or a bare `ValueError` while saving among them — what a fuzzed file did. Neither
+    may get past `normalize`."""
+    if target == "File":
+        monkeypatch.setattr(loudness.mutagen, "File", _raise(IndexError("index out of range")))
+    else:
+        monkeypatch.setattr(loudness.MP4, "save", _raise(ValueError()))
+    song = silent_audio(tmp_path / "library" / name)
+    content = song.read_bytes()
+
+    outcome = await loudness.normalize(ffmpeg, song)
+
+    assert (outcome.status, outcome.gain) == (status, DEFAULT_GAIN)
+    assert outcome.detail is not None
+    assert ("index out of range" if target == "File" else "ValueError") in outcome.detail
+    assert song.read_bytes() == content
+    assert listing(song.parent) == [name]
+
+
+async def test_a_tag_ffmpeg_does_not_read_back_is_left_alone(tmp_path: Path) -> None:
+    ffmpeg = fake_ffmpeg(tmp_path / "tools", hides_tags=True)
+    song = silent_audio(tmp_path / "library" / "song.mp3")
+    content = song.read_bytes()
+
+    with pytest.raises(loudness.UnsupportedFormatError, match="ffmpeg finds no"):
+        await loudness.write_tags(ffmpeg, song, GAIN, PEAK)
+
+    assert song.read_bytes() == content
+    assert listing(song.parent) == ["song.mp3"]
+
+
+async def test_a_copy_ffmpeg_cannot_read_leaves_the_original_and_no_copy(tmp_path: Path) -> None:
+    ffmpeg = fake_ffmpeg(tmp_path / "tools", unreadable_copies=True)
+    song = silent_audio(tmp_path / "library" / "song.mp3")
+    content = song.read_bytes()
+    # A copy a crash left behind is no reason to fail; it is written over.
+    loudness.temporary_path(song).write_text("half a file", encoding="utf-8")
+
+    with pytest.raises(loudness.LoudnessError, match="Invalid data found"):
+        await loudness.write_tags(ffmpeg, song, GAIN, PEAK)
+
+    assert song.read_bytes() == content
+    assert listing(song.parent) == ["song.mp3"]
 
 
 async def test_a_read_only_file_is_never_copied(ffmpeg: str, tmp_path: Path) -> None:
@@ -378,7 +753,7 @@ async def test_a_read_only_file_is_never_copied(ffmpeg: str, tmp_path: Path) -> 
     song.chmod(stat.S_IREAD)
     try:
         with pytest.raises(loudness.LoudnessError, match="read-only") as raised:
-            await loudness.write_tags(ffmpeg, song, -6.5, 0.9)
+            await loudness.write_tags(ffmpeg, song, GAIN, PEAK)
         outcome = await loudness.normalize(ffmpeg, song)
     finally:
         song.chmod(stat.S_IREAD | stat.S_IWRITE)
@@ -386,122 +761,8 @@ async def test_a_read_only_file_is_never_copied(ffmpeg: str, tmp_path: Path) -> 
     # Not "in use", which is what Windows' "access denied" would otherwise have read as.
     assert not isinstance(raised.value, loudness.FileInUseError)
     assert (outcome.status, outcome.gain) == ("failed", DEFAULT_GAIN)
-    assert tags_of(song) == {}
     assert kinds(ffmpeg) == ["read", "measure"]
-    assert [path.name for path in song.parent.iterdir()] == ["song.mp3"]
-
-
-async def test_a_copy_shorter_than_the_file_is_refused(tmp_path: Path) -> None:
-    ffmpeg = fake_ffmpeg(tmp_path / "tools", truncates=True)
-    song = fake_audio(tmp_path / "library" / "song.mp3", duration=240.0)
-
-    with pytest.raises(loudness.LoudnessError, match=r"120\.00 s long, the file 240\.00 s"):
-        await loudness.write_tags(ffmpeg, song, -6.5, 0.9)
-
-    assert tags_of(song) == {}
-    assert [path.name for path in song.parent.iterdir()] == ["song.mp3"]
-
-
-async def test_a_copy_as_long_as_the_file_is_kept(ffmpeg: str, tmp_path: Path) -> None:
-    song = fake_audio(tmp_path / "library" / "song.mp3", duration=240.0)
-
-    await loudness.write_tags(ffmpeg, song, -6.5, 0.9)
-
-    assert tags_of(song)["REPLAYGAIN_TRACK_GAIN"] == "-6.50 dB"
-
-
-@pytest.mark.parametrize(
-    ("original", "copy", "kept"),
-    [
-        (None, None, True),
-        (None, 3.0, True),
-        (240.0, 240.0, True),
-        # The tolerance: half a second, or a hundredth of a long file.
-        (240.0, 242.3, True),
-        (20.0, 20.45, True),
-        (20.0, 20.6, False),
-        (240.0, 237.5, False),
-        (240.0, None, False),
-    ],
-)
-def test_the_length_check(original: float | None, copy: float | None, kept: bool) -> None:
-    if kept:
-        loudness._check_length(Path("song.mp3"), original, copy)
-    else:
-        with pytest.raises(loudness.LoudnessError):
-            loudness._check_length(Path("song.mp3"), original, copy)
-
-
-@pytest.mark.parametrize(
-    ("stderr", "seconds"),
-    [
-        ("Input #0, mp3, from 'a.mp3':\n  Duration: 00:03:59.98, start: 0.025057\n", 239.98),
-        ("  Duration: 01:00:00.50, start", 3600.5),
-        ("  Duration: N/A, start: 0.000000, bitrate: N/A\n", None),
-        ("", None),
-    ],
-)
-def test_the_length_is_read_off_the_dump(stderr: str, seconds: float | None) -> None:
-    assert loudness._duration(stderr) == (None if seconds is None else pytest.approx(seconds))
-
-
-async def test_a_copy_that_starts_elsewhere_is_refused(tmp_path: Path) -> None:
-    """What an mp3 without an info frame turns into: the same packets, 12 ms of the
-    encoder's delay skipped, the song early against its lyrics."""
-    ffmpeg = fake_ffmpeg(tmp_path / "tools", moves_start_to=0.011995)
-    song = fake_audio(tmp_path / "library" / "song.mp3", duration=240.0)
-
-    with pytest.raises(loudness.LoudnessError, match=r"starts at 0\.012 s, the file at 0\.000"):
-        await loudness.write_tags(ffmpeg, song, -6.5, 0.9)
-
-    assert tags_of(song) == {}
-    assert [path.name for path in song.parent.iterdir()] == ["song.mp3"]
-
-
-@pytest.mark.parametrize(
-    ("original", "copy", "kept"),
-    [
-        (None, None, True),
-        (None, 0.5, True),
-        (0.025057, 0.025057, True),
-        (-0.0065, -0.0065, True),
-        (0.0, 0.011995, False),
-        (0.0, None, False),
-    ],
-)
-def test_the_start_check(original: float | None, copy: float | None, kept: bool) -> None:
-    if kept:
-        loudness._check_start(Path("song.mp3"), original, copy)
-    else:
-        with pytest.raises(loudness.LoudnessError):
-            loudness._check_start(Path("song.mp3"), original, copy)
-
-
-@pytest.mark.parametrize(
-    ("stderr", "start"),
-    [
-        ("  Duration: 00:03:59.98, start: 0.025057, bitrate: 128 kb/s\n", 0.025057),
-        ("  Duration: 00:00:05.00, start: -0.006500, bitrate: 106 kb/s\n", -0.0065),
-        ("  Duration: N/A, start: 0.000000, bitrate: N/A\n", 0.0),
-        ("  Duration: 00:00:05.00, bitrate: 106 kb/s\n  start: 3\n", None),
-        ("", None),
-    ],
-)
-def test_the_start_is_read_off_the_dump(stderr: str, start: float | None) -> None:
-    assert loudness._start(stderr) == (None if start is None else pytest.approx(start))
-
-
-async def test_a_failed_copy_leaves_the_original_and_no_copy(tmp_path: Path) -> None:
-    ffmpeg = fake_ffmpeg(tmp_path / "tools", write_fails=True)
-    song = fake_audio(tmp_path / "library" / "song.mp3")
-    # A copy a crash left behind is no reason to fail; it is written over.
-    loudness.temporary_path(song).write_text("half a file", encoding="utf-8")
-
-    with pytest.raises(loudness.LoudnessError, match="Could not write header"):
-        await loudness.write_tags(ffmpeg, song, -6.5, 0.9)
-
-    assert tags_of(song) == {}
-    assert [path.name for path in song.parent.iterdir()] == ["song.mp3"]
+    assert listing(song.parent) == ["song.mp3"]
 
 
 async def test_a_file_in_use_is_its_own_failure(
@@ -513,26 +774,27 @@ async def test_a_file_in_use_is_its_own_failure(
         raise PermissionError(32, "The process cannot access the file", str(destination))
 
     monkeypatch.setattr(loudness.os, "replace", refuse)
-    song = fake_audio(tmp_path / "library" / "song.mp3")
+    song = silent_audio(tmp_path / "library" / "song.mp3")
+    content = song.read_bytes()
 
     with pytest.raises(loudness.FileInUseError, match="in use"):
-        await loudness.write_tags(ffmpeg, song, -6.5, 0.9)
+        await loudness.write_tags(ffmpeg, song, GAIN, PEAK)
 
-    assert tags_of(song) == {}
-    assert [path.name for path in song.parent.iterdir()] == ["song.mp3"]
+    assert song.read_bytes() == content
+    assert listing(song.parent) == ["song.mp3"]
 
 
 # --- normalize ---------------------------------------------------------------------------
 
 
 async def test_normalize_measures_and_tags_an_untagged_file(ffmpeg: str, tmp_path: Path) -> None:
-    song = fake_audio(tmp_path / "song.mp3")
+    song = silent_audio(tmp_path / "song.mp3")
 
     outcome = await loudness.normalize(ffmpeg, song)
 
     assert outcome == Outcome("tagged", DEFAULT_GAIN)
     assert outcome.stored == DEFAULT_GAIN
-    assert kinds(ffmpeg) == ["read", "measure", "write", "read"]
+    assert kinds(ffmpeg) == ["read", "measure", "read"]
     assert tags_of(song) == {
         "REPLAYGAIN_TRACK_GAIN": "7.90 dB",
         "REPLAYGAIN_TRACK_PEAK": f"{DEFAULT_GAIN.peak:.6f}",
@@ -554,15 +816,16 @@ async def test_normalize_leaves_a_tagged_file_alone(ffmpeg: str, tmp_path: Path)
     [
         ({"integrated": "-70.0", "true_peak": "-inf"}, "silent", None),
         ({"measure_fails": True}, "failed", None),
-        ({"write_fails": True}, "failed", DEFAULT_GAIN),
-        ({"drops_tags": True}, "unsupported", DEFAULT_GAIN),
+        ({"unreadable_copies": True}, "failed", DEFAULT_GAIN),
+        ({"hides_tags": True}, "unsupported", DEFAULT_GAIN),
     ],
 )
 async def test_normalize_turns_every_failure_into_an_outcome(
     tmp_path: Path, control: dict[str, object], status: str, gain: ReplayGain | None
 ) -> None:
     ffmpeg = fake_ffmpeg(tmp_path / "tools", **control)
-    song = fake_audio(tmp_path / "song.mp3")
+    song = silent_audio(tmp_path / "song.mp3")
+    content = song.read_bytes()
 
     outcome = await loudness.normalize(ffmpeg, song)
 
@@ -570,7 +833,7 @@ async def test_normalize_turns_every_failure_into_an_outcome(
     # Only a measured file whose format keeps no tag is worth remembering: its numbers are
     # true, and trying again would change nothing.
     assert outcome.stored == (gain if status == "unsupported" else None)
-    assert tags_of(song) == {}
+    assert song.read_bytes() == content
 
 
 async def test_normalize_says_when_the_file_is_in_use(
@@ -581,7 +844,7 @@ async def test_normalize_says_when_the_file_is_in_use(
 
     monkeypatch.setattr(loudness.os, "replace", refuse)
 
-    outcome = await loudness.normalize(ffmpeg, fake_audio(tmp_path / "song.mp3"))
+    outcome = await loudness.normalize(ffmpeg, silent_audio(tmp_path / "song.mp3"))
 
     # Measured, so a retry knows what to write; not stored, so a retry is looked for.
     assert (outcome.status, outcome.gain, outcome.stored) == ("in_use", DEFAULT_GAIN, None)
@@ -622,7 +885,7 @@ async def add_song(session: AsyncSession, audio_file: Path | None) -> Song:
 async def test_normalize_song_keeps_the_values_on_the_row(
     session: AsyncSession, ffmpeg: str, tmp_path: Path
 ) -> None:
-    song = await add_song(session, fake_audio(tmp_path / "song.mp3"))
+    song = await add_song(session, silent_audio(tmp_path / "song.mp3"))
 
     outcome = await loudness.normalize_song(session, ffmpeg, song)
 
@@ -689,10 +952,17 @@ def run(*arguments: str) -> subprocess.CompletedProcess[str]:
 
 
 def decoded_md5(file: Path) -> str:
-    """The audio as samples: a stream copy that changed one of them changed the song."""
+    """The audio as samples: a write that changed one of them changed the song."""
     result = run("-loglevel", "error", "-i", str(file), "-map", "0:a:0", "-f", "md5", "-")
     assert result.returncode == 0, result.stderr
     return result.stdout.strip()
+
+
+def duration_line(dump: str) -> str:
+    """`Duration: 00:00:05.04, start: 0.023021, bitrate: …` without the bitrate, which a
+    bigger tag lowers: where the decoded audio starts is what USDX times the lyrics by."""
+    [line] = [line.strip() for line in dump.splitlines() if line.strip().startswith("Duration:")]
+    return line.partition(", bitrate")[0]
 
 
 def generate(
@@ -739,10 +1009,6 @@ def generate(
     return path
 
 
-def listing(directory: Path) -> list[str]:
-    return sorted(path.name for path in directory.iterdir())
-
-
 def make_cover(directory: Path) -> Path:
     cover = directory / "cover.jpg"
     picture = ["-f", "lavfi", "-i", "color=c=red:s=64x64", "-frames:v", "1", str(cover)]
@@ -759,15 +1025,17 @@ def make_cover(directory: Path) -> Path:
         ("song.ogg", "libvorbis"),
         ("song.opus", "libopus"),
         ("song.flac", "flac"),
+        ("song.m4a", "aac"),
     ],
 )
 async def test_a_real_file_is_tagged_the_way_usdx_reads_it(
     tmp_path: Path, name: str, codec: str
 ) -> None:
     assert REAL_FFMPEG is not None
-    cover = make_cover(tmp_path) if name.endswith(".mp3") else None
+    cover = make_cover(tmp_path) if name.endswith((".mp3", ".flac")) else None
     song = generate(tmp_path / name, codec, cover)
     before = decoded_md5(song)
+    starts = duration_line(run("-i", str(song)).stderr)
 
     outcome = await loudness.normalize(REAL_FFMPEG, song)
 
@@ -784,19 +1052,20 @@ async def test_a_real_file_is_tagged_the_way_usdx_reads_it(
     assert f"REPLAYGAIN_TRACK_PEAK: {loudness.format_peak(outcome.gain.peak)}" in dump
     assert await loudness.read_tags(REAL_FFMPEG, song) == outcome.gain
     assert _tag_level(dump, "REPLAYGAIN_TRACK_GAIN") == level
-    # Nothing else moved: the samples, the title, the picture.
+    # Nothing else moved: the samples, where they start, the title, the picture.
     assert decoded_md5(song) == before
+    assert duration_line(dump) == starts
     assert _tag_level(dump, "title") == level
     if cover is not None:
         assert "(attached pic)" in dump
-    assert [path.name for path in song.parent.iterdir() if loudness.TEMP_MARKER in path.name] == []
+    assert listing(tmp_path) == sorted([name, *(["cover.jpg"] if cover else [])])
     # A second pass finds the tag and leaves the file alone.
     again = await loudness.normalize(REAL_FFMPEG, song)
     assert again == Outcome("already_tagged", outcome.gain)
 
 
 @needs_ffmpeg
-@pytest.mark.parametrize(("name", "codec"), [("song.wav", "pcm_s16le"), ("song.m4a", "aac")])
+@pytest.mark.parametrize(("name", "codec"), [("song.wav", "pcm_s16le"), ("song.aac", "aac")])
 async def test_a_real_file_that_keeps_no_tag_is_left_alone(
     tmp_path: Path, name: str, codec: str
 ) -> None:
@@ -809,7 +1078,87 @@ async def test_a_real_file_that_keeps_no_tag_is_left_alone(
     assert outcome.status == "unsupported", outcome.detail
     assert outcome.gain is not None and math.isfinite(outcome.gain.gain_db)
     assert song.read_bytes() == content
-    assert sorted(path.name for path in song.parent.iterdir()) == [name]
+    assert listing(tmp_path) == [name]
+
+
+@needs_ffmpeg
+async def test_a_real_mp3_without_an_info_frame_keeps_its_start(tmp_path: Path) -> None:
+    """What ffmpeg's stream copy got wrong: its mp3 muxer gave such a file an info frame,
+    the decoder then skipped the encoder's delay, and the song played 12 ms early against
+    its lyrics. mutagen touches no frame, so the samples and their start stay."""
+    assert REAL_FFMPEG is not None
+    song = generate(tmp_path / "song.mp3", "libmp3lame", options=("-write_xing", "0"))
+    before = decoded_md5(song)
+    starts = duration_line(run("-i", str(song)).stderr)
+    assert "start: 0.000000" in starts
+
+    outcome = await loudness.normalize(REAL_FFMPEG, song)
+
+    assert outcome.status == "tagged", outcome.detail
+    assert decoded_md5(song) == before
+    assert duration_line(run("-i", str(song)).stderr) == starts
+
+
+@needs_ffmpeg
+async def test_a_real_mp3_with_an_id3v2_4_footer_keeps_its_start(tmp_path: Path) -> None:
+    """The footer left behind was junk ffmpeg skipped together with the info frame after it:
+    another MD5, and a start 23 ms earlier."""
+    assert REAL_FFMPEG is not None
+    plain = generate(tmp_path / "plain.mp3", "libmp3lame", options=("-id3v2_version", "0"))
+    title = b"\x00Kept"
+    frame = b"TIT2" + syncsafe(len(title)) + b"\x00\x00" + title
+    song = tmp_path / "song.mp3"
+    song.write_bytes(id3v2_tag(4, frame, footer=True) + plain.read_bytes())
+    plain.unlink()
+    before = decoded_md5(song)
+    starts = duration_line(run("-i", str(song)).stderr)
+
+    outcome = await loudness.normalize(REAL_FFMPEG, song)
+
+    assert outcome.status == "tagged", outcome.detail
+    assert decoded_md5(song) == before
+    assert duration_line(run("-i", str(song)).stderr) == starts
+
+
+@needs_ffmpeg
+async def test_a_real_mp3_keeps_its_id3v1_and_apev2_tags(tmp_path: Path) -> None:
+    """[ID3v2][audio][APEv2][ID3v1], the order taggers write them in: every byte after the
+    ID3v2 tag is the same after the write."""
+    assert REAL_FFMPEG is not None
+    song = generate(tmp_path / "song.mp3", "libmp3lame")
+    ape = APEv2()
+    ape["Artist"] = "APE Artist"
+    ape.save(song)
+    v1 = id3v1_tag("V1 Title")
+    with song.open("ab") as file:
+        file.write(v1)
+    before = song.read_bytes()
+    tag_size = ID3(song).size
+    samples = decoded_md5(song)
+
+    outcome = await loudness.normalize(REAL_FFMPEG, song)
+
+    assert outcome.status == "tagged", outcome.detail
+    after = song.read_bytes()
+    assert after[ID3(song).size :] == before[tag_size:]
+    assert after.endswith(v1)
+    assert dict(APEv2(song)) == {"Artist": "APE Artist"}
+    assert decoded_md5(song) == samples
+    assert await loudness.read_tags(REAL_FFMPEG, song) == outcome.gain
+
+
+@needs_ffmpeg
+async def test_a_real_mp3_without_any_tag_gets_one(tmp_path: Path) -> None:
+    assert REAL_FFMPEG is not None
+    song = generate(tmp_path / "song.mp3", "libmp3lame", options=("-id3v2_version", "0"))
+    content = song.read_bytes()
+    assert content[:3] != b"ID3"
+
+    outcome = await loudness.normalize(REAL_FFMPEG, song)
+
+    assert outcome.status == "tagged", outcome.detail
+    assert song.read_bytes()[ID3(song).size :] == content
+    assert await loudness.read_tags(REAL_FFMPEG, song) == outcome.gain
 
 
 @needs_ffmpeg
@@ -842,14 +1191,14 @@ async def test_a_real_mp3_keeps_everything_but_the_old_gain(tmp_path: Path) -> N
     assert "Mötley Crüe" in dump and "Kept Title" in dump
     assert "(attached pic)" in dump
     assert decoded_md5(song) == before
-    assert sorted(path.name for path in folder.iterdir()) == [song.name]
+    assert listing(folder) == [song.name]
 
 
 @needs_ffmpeg
 @pytest.mark.skipif(os.name != "nt", reason="only Windows refuses to replace an open file")
 async def test_a_real_file_held_open_is_in_use_and_intact(tmp_path: Path) -> None:
     """Python opens a file the way most Windows programs do, without `FILE_SHARE_DELETE`:
-    ffmpeg may read it, nothing may replace it."""
+    it may be read and copied, nothing may replace it."""
     assert REAL_FFMPEG is not None
     song = generate(tmp_path / "song.mp3", "libmp3lame")
     content = song.read_bytes()
@@ -864,17 +1213,18 @@ async def test_a_real_file_held_open_is_in_use_and_intact(tmp_path: Path) -> Non
 
 
 @needs_ffmpeg
-async def test_a_real_mp3_without_an_info_frame_is_left_alone(tmp_path: Path) -> None:
-    """ffmpeg's copy of it gains a Xing frame, and with it the encoder delay its decoder
-    skips: other samples, 12 ms earlier. Wingman's own downloads always carry the frame."""
+async def test_a_real_read_only_file_is_left_alone(tmp_path: Path) -> None:
     assert REAL_FFMPEG is not None
-    song = generate(tmp_path / "song.mp3", "libmp3lame", options=("-write_xing", "0"))
+    song = generate(tmp_path / "song.mp3", "libmp3lame")
     content = song.read_bytes()
+    song.chmod(stat.S_IREAD)
+    try:
+        outcome = await loudness.normalize(REAL_FFMPEG, song)
+    finally:
+        song.chmod(stat.S_IREAD | stat.S_IWRITE)
 
-    outcome = await loudness.normalize(REAL_FFMPEG, song)
-
-    assert outcome.status == "failed", outcome.detail
-    assert outcome.detail is not None and "starts at" in outcome.detail
+    assert outcome.status == "failed"
+    assert outcome.detail is not None and "read-only" in outcome.detail
     assert song.read_bytes() == content
     assert listing(tmp_path) == ["song.mp3"]
 

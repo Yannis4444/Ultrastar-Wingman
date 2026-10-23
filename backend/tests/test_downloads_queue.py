@@ -10,7 +10,7 @@ from httpx import AsyncClient
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
 
-from test_downloads_loudness import DEFAULT_GAIN, fake_audio, fake_ffmpeg, ffmpeg_calls, tags_of
+from test_downloads_loudness import DEFAULT_GAIN, fake_ffmpeg, kinds, silent_audio, tags_of
 from test_song_scanner import make_song_dir
 from ultrastar_wingman.downloads import loudness, media, service
 from ultrastar_wingman.downloads.model import INTERRUPTED_ERROR, Download
@@ -69,7 +69,7 @@ class FakeSource:
             directory = make_song_dir(
                 self.library, f"Song {source_song_id}", title=source_song_id, tags="#MP3:song.mp3\n"
             )
-            fake_audio(directory / "song.mp3")
+            silent_audio(directory / "song.mp3")
             return directory
         finally:
             self.concurrent -= 1
@@ -271,7 +271,7 @@ async def test_with_the_setting_off_nothing_is_tagged(
     await session.refresh(song)
     assert (song.replay_gain_db, song.replay_gain_peak) == (None, None)
     # One file was tagged, the first; the second download never ran ffmpeg.
-    assert sum(1 for arguments in ffmpeg_calls(ffmpeg) if "-c" in arguments) == 1
+    assert kinds(ffmpeg).count("measure") == 1
     steps = [update["step"] for update in broadcast_downloads(broadcast_events)]
     assert loudness.LOUDNESS_STEP not in steps
 

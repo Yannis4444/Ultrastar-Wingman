@@ -1,4 +1,4 @@
-"""Loudness normalization: ReplayGain tags measured and written with ffmpeg.
+"""Loudness normalization: ReplayGain tags measured and read with ffmpeg, written with mutagen.
 
 Ultrastar Deluxe evens out the volume of its songs when its own `[Sound] ReplayGain`
 option is on: it reads `REPLAYGAIN_TRACK_GAIN` (and `REPLAYGAIN_TRACK_PEAK`, a clipping
@@ -10,6 +10,11 @@ reference of -18 LUFS, so the gain is `-18 - I` dB; the peak is the true peak as
 value (1.0 is full scale). USDX parses the gain as the first word of the tag, a `+` allowed,
 and plays at `10^(gain/20)`, lowered to `1/peak` when the peak says that would clip. It
 applies no pre-amp of its own. The format is decided in docs/dev/loudness.md.
+
+The tags are written by mutagen, which rewrites the tag and touches no audio frame — never
+by an ffmpeg stream copy, whose mp3 muxer adds an info frame to a file that has none and so
+moves where its decoded audio starts (docs/dev/loudness.md). ffmpeg still reads them back:
+its dictionary is what USDX sees.
 
 Here because ffmpeg is the downloads' tool (`media.ensure_ffmpeg`), and because a download
 is the first thing that tags a file. Every function takes the ffmpeg to run; nothing here
@@ -25,11 +30,21 @@ import logging
 import math
 import os
 import re
-from collections.abc import Sequence
+import shutil
+from collections.abc import Callable, Sequence
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Literal, NamedTuple
+from typing import Any, Literal, NamedTuple
 
+# Every format's class by name, never `mutagen.File` guessing alone: what a file is tagged
+# as is decided here, and the frozen exe carries what is imported.
+import mutagen
+from mutagen.flac import FLAC
+from mutagen.id3 import ID3, TXXX, Encoding, ID3v1SaveOptions
+from mutagen.mp3 import MP3
+from mutagen.mp4 import MP4, AtomDataType, MP4FreeForm
+from mutagen.oggopus import OggOpus
+from mutagen.oggvorbis import OggVorbis
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from ..songs.model import Song
@@ -56,37 +71,32 @@ SILENCE_LUFS = -70.0
 # A ten-minute song takes a few seconds on a laptop. The bound is for a file ffmpeg chokes
 # on, not for a slow machine.
 MEASURE_TIMEOUT_SECONDS = 300.0
-# Reading the tags or copying the streams into a new file never decodes anything.
+# Reading the tags never decodes anything.
 TAG_TIMEOUT_SECONDS = 120.0
 
-# What the temporary copy is called while it is being written, beside the original: the
-# same folder, so `os.replace` is a rename and never a copy across drives, and the same
-# suffix, because that is how ffmpeg picks the container it writes.
+# What the temporary copy is called while it is being tagged, beside the original: the
+# same folder, so `os.replace` is a rename and never a copy across drives.
 TEMP_MARKER = ".wingman-loudness"
 
-# The formats a copy is ever written for: the ones whose tags were proven to come back
-# where USDX reads them, with the samples unchanged (docs/dev/loudness.md). Anything else —
-# an m4a, a wav, a video named as the audio — is never copied at all, so a format nobody
-# has tried is never rewritten on the strength of a read-back alone.
-WRITABLE_SUFFIXES = frozenset({".mp3", ".ogg", ".opus", ".flac"})
+# The formats ever tagged: the ones whose tags were proven to come back where USDX reads
+# them, with the samples unchanged (docs/dev/loudness.md). Anything else — a wav, a raw
+# aac, a video named as the audio — is never copied at all.
+WRITABLE_SUFFIXES = frozenset({".mp3", ".ogg", ".opus", ".flac", ".m4a"})
 
-# How far the copy's length may stray from the original's before the copy is refused: the
-# two are the same packets, so anything more is a copy that lost some of them.
-DURATION_TOLERANCE_SECONDS = 0.5
-DURATION_TOLERANCE_SHARE = 0.01
-# How far its start may move: an mp3 without an info frame gains one in the copy, and the
-# decoder then skips the encoder's delay, so the song would play some 12 ms early against
-# its lyrics. Same packets, other samples — refused.
-START_TOLERANCE_SECONDS = 0.001
+# What a write replaces, compared case-insensitively (`_is_replay_gain_key`).
+_REPLACED_KEYS = frozenset({GAIN_TAG.casefold(), PEAK_TAG.casefold()})
+# The longest ID3v1 tag mutagen takes off the end of an mp3 (and the most it reads as one).
+_ID3V1_BYTES = 128
+# An ID3v2 header, and the footer an ID3v2.4 tag may end in: the same ten bytes, `3DI` first.
+_ID3V2_HEADER_BYTES = 10
+_ID3V2_FOOTER_FLAG = 0x10
+_COMPARE_CHUNK_BYTES = 1 << 20
 
 _STDERR_TAIL_LINES = 5
 
 _NUMBER = r"-?inf|-?\d+(?:\.\d+)?"
 _INTEGRATED = re.compile(rf"Integrated loudness:\s*I:\s*(?P<value>{_NUMBER})\s*LUFS")
 _TRUE_PEAK = re.compile(rf"True peak:\s*Peak:\s*(?P<value>{_NUMBER})\s*dBFS")
-# ffmpeg's dump of an input (never of an output): `Duration: 00:03:59.98, start: 0.025057`.
-_DURATION = re.compile(r"Duration:\s*(?P<h>\d+):(?P<m>\d{2}):(?P<s>\d{2}(?:\.\d+)?)")
-_START = re.compile(r"Duration:[^\n]*?start:\s*(?P<s>-?\d+(?:\.\d+)?)")
 
 Status = Literal["tagged", "already_tagged", "unsupported", "silent", "missing", "in_use", "failed"]
 # What is worth keeping on the song row: the values are the file's, whether Wingman wrote
@@ -109,12 +119,13 @@ class Outcome:
     - `tagged`: measured and written.
     - `already_tagged`: the file had a gain USDX can read, so it was left alone.
     - `unsupported`: measured, but the file's format keeps no such tag (a raw `.aac`, a
-      `.wav`, an `.m4a`), so the file was left alone.
+      `.wav`), or the file is not what its name says or is too damaged for mutagen to load,
+      so the file was left alone.
     - `silent`: nothing to measure.
     - `missing`: no audio file at all.
     - `in_use`: measured, but another program holds the file open, so it could not be
       replaced. Worth trying again later.
-    - `failed`: ffmpeg could not read or write the file. `detail` says why.
+    - `failed`: the file could not be read, measured or tagged. `detail` says why.
     """
 
     status: Status
@@ -128,7 +139,7 @@ class Outcome:
 
 
 class LoudnessError(RuntimeError):
-    """ffmpeg could not measure, read or write a file."""
+    """A file could not be measured, read or tagged."""
 
 
 class FileInUseError(LoudnessError):
@@ -137,8 +148,8 @@ class FileInUseError(LoudnessError):
 
 
 class UnsupportedFormatError(LoudnessError):
-    """The format has nowhere to keep the tags, or is not one a copy is written for
-    (`WRITABLE_SUFFIXES`)."""
+    """The format has nowhere to keep the tags, is not one Wingman tags
+    (`WRITABLE_SUFFIXES`), or the file is not what its name says."""
 
 
 async def measure(ffmpeg: str, file: Path) -> ReplayGain | None:
@@ -178,16 +189,9 @@ async def measure(ffmpeg: str, file: Path) -> ReplayGain | None:
 async def read_tags(ffmpeg: str, file: Path) -> ReplayGain | None:
     """The gain USDX would read out of `file`, or None when it would find none.
     Raises `LoudnessError`."""
-    gain, _ = await _read(ffmpeg, file)
-    return gain
-
-
-async def _read(ffmpeg: str, file: Path) -> tuple[ReplayGain | None, str]:
-    """`read_tags`, and ffmpeg's dump of the file, for its length and its start."""
-    stdout, stderr = await _ffmpeg(
+    stdout, _ = await _ffmpeg(
         ffmpeg,
         [
-            # The default log level, for the dump's `Duration:` line.
             "-nostats",
             "-i",
             str(file),
@@ -204,18 +208,20 @@ async def _read(ffmpeg: str, file: Path) -> tuple[ReplayGain | None, str]:
         ],
         TAG_TIMEOUT_SECONDS,
     )
-    return _replay_gain(_ffmetadata(stdout)), stderr
+    return _replay_gain(_ffmetadata(stdout))
 
 
 async def write_tags(ffmpeg: str, file: Path, gain_db: float, peak: float | None) -> None:
     """Write the gain tag into `file`, and the peak tag beside it when there is a peak,
-    keeping every stream and every other tag ffmpeg knows — a cover picture included — as
-    it is. Atomic: a copy is written beside the file and only takes its place once it reads
-    back with the tags in it, as long as the file and starting where it starts, and the
-    copy never outlives a failure.
+    replacing any of the two already there in whatever case, and touching nothing else:
+    no audio frame, no other tag, no picture. Atomic: the file is copied beside itself, the
+    copy is tagged with mutagen, and it only takes the file's place once ffmpeg reads the
+    new gain back out of it — what USDX will read. The copy never outlives a failure.
     A format outside `WRITABLE_SUFFIXES` and a read-only file are refused before anything
-    is copied. Raises `FileInUseError`, `UnsupportedFormatError` or `LoudnessError`."""
-    if file.suffix.casefold() not in WRITABLE_SUFFIXES:
+    is copied. `ffmpeg` is only the reader. Raises `FileInUseError`, `UnsupportedFormatError`
+    or `LoudnessError`."""
+    suffix = file.suffix.casefold()
+    if suffix not in WRITABLE_SUFFIXES:
         raise UnsupportedFormatError(f"{_kind(file)} is not a format Wingman tags")
     if not await asyncio.to_thread(os.access, file, os.W_OK):
         # Windows refuses to replace it anyway, and would call that "access denied", which
@@ -225,42 +231,11 @@ async def write_tags(ffmpeg: str, file: Path, gain_db: float, peak: float | None
     values = {GAIN_TAG: format_gain(gain_db)}
     if peak is not None:
         values[PEAK_TAG] = format_peak(peak)
-    tags: list[str] = []
-    for key, value in values.items():
-        # Both levels: an Ogg file keeps its comments on the stream and an existing value
-        # there would win over a new one on the container, while an mp3 writes only the
-        # container's. Neither writes a key twice.
-        tags += ["-metadata", f"{key}={value}", "-metadata:s:a:0", f"{key}={value}"]
-    # ID3v2.3 rather than ffmpeg's default 2.4: it is what every tag reader can read.
-    container = ["-id3v2_version", "3"] if file.suffix.casefold() == ".mp3" else []
     try:
-        await asyncio.to_thread(_remove, temporary)
-        _, copy_log = await _ffmpeg(
-            ffmpeg,
-            [
-                # The default log level, for the dump's `Duration:` line of the original:
-                # an exit code of 0 is not taken as proof that the copy lost nothing.
-                "-nostats",
-                "-i",
-                str(file),
-                "-map",
-                "0",
-                "-c",
-                "copy",
-                "-map_metadata",
-                "0",
-                *container,
-                *tags,
-                "-y",
-                str(temporary),
-            ],
-            TAG_TIMEOUT_SECONDS,
-        )
-        written, read_log = await _read(ffmpeg, temporary)
+        await asyncio.to_thread(_tagged_copy, file, temporary, values)
+        written = await read_tags(ffmpeg, temporary)
         if written is None or not math.isclose(written.gain_db, gain_db, abs_tol=0.005):
-            raise UnsupportedFormatError(f"{_kind(file)} keeps no {GAIN_TAG}")
-        _check_length(file, _duration(copy_log), _duration(read_log))
-        _check_start(file, _start(copy_log), _start(read_log))
+            raise UnsupportedFormatError(f"ffmpeg finds no {GAIN_TAG} in {_kind(file)}")
         try:
             await asyncio.to_thread(os.replace, temporary, file)
         except PermissionError as error:
@@ -351,45 +326,203 @@ def _kind(file: Path) -> str:
     return f"a {file.suffix} file" if file.suffix else "a file without an extension"
 
 
-def _check_length(file: Path, original: float | None, copy: float | None) -> None:
-    """Refuse a copy that does not play as long as the file it would replace. A file whose
-    length ffmpeg cannot tell is not held to one; a copy whose length it cannot tell, of a
-    file whose length it can, is refused."""
-    if original is None:
-        return
-    allowed = max(DURATION_TOLERANCE_SECONDS, original * DURATION_TOLERANCE_SHARE)
-    if copy is None or abs(copy - original) > allowed:
-        length = "of unknown length" if copy is None else f"{copy:.2f} s long"
-        raise LoudnessError(
-            f"the tagged copy of {file.name} is {length}, the file {original:.2f} s"
-        )
+def _tagged_copy(file: Path, temporary: Path, values: dict[str, str]) -> None:
+    """Blocking. Copy `file` to `temporary` and write `values` into the copy's tag.
+    Raises `UnsupportedFormatError` when mutagen cannot load the copy as the format its
+    name says, `LoudnessError` for everything else — and nothing but these two."""
+    try:
+        # A copy a crash left behind is written over, never tagged a second time.
+        _remove(temporary)
+        shutil.copy2(file, temporary)
+    except OSError as error:
+        raise LoudnessError(f"could not copy {file.name}: {error.strerror or error}") from error
+    suffix = file.suffix.casefold()
+    try:
+        _WRITERS[suffix](file, temporary, values)
+    except _NotThatFormatError as error:
+        kind = _FORMAT_NAMES[suffix]
+        raise UnsupportedFormatError(f"{file.name} is not {kind} mutagen reads: {error}") from error
+    except LoudnessError:
+        raise
+    except Exception as error:
+        # Not only `MutagenError` and `OSError`: on a damaged file mutagen's parsers and its
+        # byte shuffling also raise `IndexError`, `ValueError` and the like, and none of them
+        # may get past `normalize`.
+        raise LoudnessError(f"could not tag {file.name}: {_reason(error)}") from error
 
 
-def _check_start(file: Path, original: float | None, copy: float | None) -> None:
-    """Refuse a copy whose audio starts elsewhere than the file's, under the same rule for
-    an unknown start as `_check_length`."""
-    if original is None:
-        return
-    if copy is None or abs(copy - original) > START_TOLERANCE_SECONDS:
-        start = "at an unknown point" if copy is None else f"at {copy:.3f} s"
-        raise LoudnessError(
-            f"the tagged copy of {file.name} starts {start}, the file at {original:.3f} s"
-        )
+class _NotThatFormatError(Exception):
+    """mutagen cannot load the file as the format its suffix names."""
 
 
-def _duration(stderr: str) -> float | None:
-    """The input's length out of ffmpeg's dump of it, in seconds; None for `Duration: N/A`
-    or no dump at all."""
-    match = _DURATION.search(stderr)
-    if match is None:
-        return None
-    return int(match["h"]) * 3600 + int(match["m"]) * 60 + float(match["s"])
+def _load(load: Callable[[], Any]) -> Any:
+    """`load()`, its refusal turned into `_NotThatFormatError`. The file is the copy just
+    made, so a refusal is the content's and not the disk's — whatever mutagen raises: its
+    parsers die on a damaged file with an `IndexError` as readily as with a `MutagenError`."""
+    try:
+        return load()
+    except Exception as error:
+        raise _NotThatFormatError(_reason(error)) from error
 
 
-def _start(stderr: str) -> float | None:
-    """Where the input's first sample plays, in seconds, out of the same line."""
-    match = _START.search(stderr)
-    return None if match is None else float(match["s"])
+def _reason(error: Exception) -> str:
+    """The error's message, or its name for one that carries none (mutagen raises a bare
+    `ValueError` or `HeaderNotFoundError` here and there)."""
+    return str(error) or type(error).__name__
+
+
+def _is_replay_gain_key(name: str) -> bool:
+    """Whether a tag of `name` is the track gain or the track peak, in whatever case:
+    mutagen keys a frame or an atom by its exact name, and ffmpeg's dictionary ignores case,
+    so a `replaygain_track_gain` left beside the new one would be the same key twice. Both
+    always go, so an old peak never stays beside a new gain written without one."""
+    return name.casefold() in _REPLACED_KEYS
+
+
+def _tag_mp3(file: Path, temporary: Path, values: dict[str, str]) -> None:
+    """ID3v2 `TXXX` frames, in the version the tag already has — ID3v2.3 for a file
+    without one. mutagen rewrites the ID3v2 tag at the head of the file and nothing after
+    it; an ID3v1 tag at the end, which mutagen would rewrite out of the ID3v2 frames (and,
+    loaded, copy into them), is put back byte for byte. Then every byte after the tag is
+    held to the original's: the audio frames, an APEv2 tag, the ID3v1."""
+    _absorb_id3v2_footer(temporary)
+    size = temporary.stat().st_size
+    audio = _load(lambda: MP3(temporary, load_v1=False, translate=False))
+    if audio.tags is None:
+        audio.add_tags()
+        tag_size, version = 0, 3
+    elif audio.tags.version >= (2, 3, 0):
+        # Saved in the version it was read in, as it was read: an unknown frame survives
+        # only that way, and translating would turn the other frames into the other
+        # version's.
+        tag_size, version = audio.tags.size, audio.tags.version[1]
+    else:
+        # ID3v2.2, which mutagen reads but cannot write: translated to 2.3.
+        audio = _load(lambda: MP3(temporary, load_v1=False, v2_version=3))
+        tag_size, version = audio.tags.size, 3
+    tags = audio.tags
+    for frame in tags.getall("TXXX"):
+        if _is_replay_gain_key(frame.desc):
+            del tags[frame.HashKey]
+    for key, value in values.items():
+        tags.add(TXXX(encoding=Encoding.LATIN1, desc=key, text=[value]))
+    # `v23_sep=None`: a 2.3 frame holding several values keeps them as it held them.
+    audio.save(v1=ID3v1SaveOptions.REMOVE, v2_version=version, v23_sep=None)
+    new_tag_size = ID3(temporary, load_v1=False, translate=False).size
+    removed = (size - tag_size) - (temporary.stat().st_size - new_tag_size)
+    if 0 < removed <= _ID3V1_BYTES:
+        # What `REMOVE` took off the end: the ID3v1 tag, as the original has it.
+        with file.open("rb") as original, temporary.open("ab") as copy:
+            original.seek(-removed, os.SEEK_END)
+            copy.write(original.read(removed))
+    if not _same_bytes(file, tag_size, temporary, new_tag_size):
+        raise LoudnessError(f"tagging {file.name} would change more than its ID3v2 tag")
+
+
+def _absorb_id3v2_footer(temporary: Path) -> None:
+    """Blocking. Fold the ten-byte footer an ID3v2.4 tag may end in into the tag, as padding.
+
+    mutagen leaves a footer out of the tag's size and rewrites the tag without one, so the
+    old footer would stay behind between the new tag and the first audio frame — junk ffmpeg
+    skips, losing the info frame behind it, so the decoded audio would start 23 ms earlier.
+    In the copy alone: the footer's bytes zeroed, its flag cleared and the declared size ten
+    bytes longer, so the tag mutagen reads ends where the original's really ends."""
+    with temporary.open("r+b") as copy:
+        header = copy.read(_ID3V2_HEADER_BYTES)
+        if (
+            len(header) < _ID3V2_HEADER_BYTES
+            or header[:3] != b"ID3"
+            or header[3] != 4
+            or not header[5] & _ID3V2_FOOTER_FLAG
+            or any(byte & 0x80 for byte in header[6:10])
+        ):
+            return
+        size = sum(header[6 + index] << (7 * (3 - index)) for index in range(4))
+        longer = size + _ID3V2_HEADER_BYTES
+        copy.seek(_ID3V2_HEADER_BYTES + size)
+        if copy.read(3) != b"3DI" or longer >= 1 << 28:
+            return
+        copy.seek(_ID3V2_HEADER_BYTES + size)
+        copy.write(bytes(_ID3V2_HEADER_BYTES))
+        copy.seek(5)
+        copy.write(bytes([header[5] & ~_ID3V2_FOOTER_FLAG & 0xFF]))
+        copy.write(bytes((longer >> shift) & 0x7F for shift in (21, 14, 7, 0)))
+
+
+def _tag_ogg(file: Path, temporary: Path, values: dict[str, str]) -> None:
+    """Vorbis comments, for Ogg Vorbis or Ogg Opus whichever the suffix says: an `.ogg`
+    may hold Opus, so the content decides."""
+    audio = _load(lambda: mutagen.File(temporary, options=[OggVorbis, OggOpus]))
+    if audio is None:
+        raise _NotThatFormatError("neither Ogg Vorbis nor Ogg Opus")
+    _set_comments(audio, values)
+
+
+def _tag_flac(file: Path, temporary: Path, values: dict[str, str]) -> None:
+    """Vorbis comments in the FLAC metadata block, added when there is none."""
+    audio = _load(lambda: FLAC(temporary))
+    if audio.tags is None:
+        audio.add_tags()
+    _set_comments(audio, values)
+
+
+def _set_comments(audio: Any, values: dict[str, str]) -> None:
+    for key in (GAIN_TAG, PEAK_TAG):
+        # Every comment of the key, in whatever case: mutagen compares Vorbis comment keys
+        # case-insensitively, as ffmpeg's dictionary does.
+        with contextlib.suppress(KeyError):
+            del audio.tags[key]
+    for key, value in values.items():
+        audio.tags[key] = [value]
+    audio.save()
+
+
+def _tag_m4a(file: Path, temporary: Path, values: dict[str, str]) -> None:
+    """iTunes freeform atoms, `----:com.apple.iTunes:<key>`, which ffmpeg reads under the
+    bare key into the container's dictionary. A freeform atom of the same name under any
+    other mean is the same key there, so it goes too."""
+    audio = _load(lambda: MP4(temporary))
+    if audio.tags is None:
+        audio.add_tags()
+    tags = audio.tags
+    for name in list(tags.keys()):
+        if name.startswith("----:") and _is_replay_gain_key(name.rpartition(":")[2]):
+            del tags[name]
+    for key, value in values.items():
+        tags[f"----:com.apple.iTunes:{key}"] = [
+            MP4FreeForm(value.encode("ascii"), dataformat=AtomDataType.UTF8)
+        ]
+    audio.save()
+
+
+_WRITERS: dict[str, Callable[[Path, Path, dict[str, str]], None]] = {
+    ".mp3": _tag_mp3,
+    ".ogg": _tag_ogg,
+    ".opus": _tag_ogg,
+    ".flac": _tag_flac,
+    ".m4a": _tag_m4a,
+}
+_FORMAT_NAMES = {
+    ".mp3": "an mp3",
+    ".ogg": "an Ogg file",
+    ".opus": "an Ogg Opus file",
+    ".flac": "a FLAC file",
+    ".m4a": "an MPEG-4 audio file",
+}
+
+
+def _same_bytes(first: Path, first_start: int, second: Path, second_start: int) -> bool:
+    """Blocking. Whether `first` from `first_start` on and `second` from `second_start` on
+    hold the same bytes."""
+    with first.open("rb") as one, second.open("rb") as other:
+        one.seek(first_start)
+        other.seek(second_start)
+        while True:
+            chunk = one.read(_COMPARE_CHUNK_BYTES)
+            if chunk != other.read(_COMPARE_CHUNK_BYTES):
+                return False
+            if not chunk:
+                return True
 
 
 def _failed(file: Path, error: LoudnessError, measured: ReplayGain | None = None) -> Outcome:
