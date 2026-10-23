@@ -45,6 +45,13 @@ interface ScoreGroupListProps {
   canModerate?: boolean;
   /** A score was moved or deleted; the page refetches what it holds. */
   onModerated?: () => void;
+  /**
+   * Whether an open group ends in *Share a score* (ui-guidelines §7), and
+   * what it opens. Only `/scores` passes it — the two entry points of the
+   * share cards are that page's (share-cards.md §7.3). One per group, never
+   * per row; ungrouped rows never unfold, so they share nothing.
+   */
+  onShare?: (group: ScoreGroup) => void;
 }
 
 /**
@@ -130,6 +137,58 @@ function GroupSummary({
   );
 }
 
+interface ScoreEntryBodyProps {
+  score: ScoreWithContext;
+  players: Map<string, PlayerRead>;
+  /** Every score belongs to the reader: the row leads with when, not who. */
+  ownRows: boolean;
+  /** The rows are songs (grouped by player), so they lead with the cover. */
+  rowsAreSongs: boolean;
+}
+
+/**
+ * What one score inside an open group shows: its cover or its singer, its
+ * two lines and its number. Exported for the share panel's chooser, which
+ * lists a group's scores exactly as the group draws them.
+ */
+export function ScoreEntryBody({
+  score,
+  players,
+  ownRows,
+  rowsAreSongs,
+}: ScoreEntryBodyProps) {
+  const entry = entryLines(score, { ownRows, rowsAreSongs });
+  return (
+    <>
+      {ownRows ? null : rowsAreSongs ? (
+        score.song !== null ? (
+          <SongCover song={score.song} className="score-entry-cover" />
+        ) : (
+          <MissingCover className="score-entry-cover" />
+        )
+      ) : (
+        <PlayerAvatar
+          player={scorePlayer(score, players)}
+          className="score-entry-avatar"
+        />
+      )}
+      <span className="score-group-text">
+        <span
+          className={
+            ownRows ? "score-group-label score-entry-when" : "score-group-label"
+          }
+        >
+          {entry.title}
+        </span>
+        {entry.caption !== null && (
+          <span className="score-group-caption">{entry.caption}</span>
+        )}
+      </span>
+      <span className="score-group-score">{score.score}</span>
+    </>
+  );
+}
+
 /**
  * The ranking, one expandable row per group: open one and it shows what that
  * player's (or song's) scores add up to plus every single score behind it.
@@ -150,6 +209,7 @@ export default function ScoreGroupList({
   ownRows = false,
   canModerate = false,
   onModerated = () => {},
+  onShare,
 }: ScoreGroupListProps) {
   /**
    * A score row plus the corrections that may be made to it. The control is
@@ -283,45 +343,13 @@ export default function ScoreGroupList({
 
                 <ul className="score-group-scores">
                   {group.scores.map((score) => {
-                    const entry = entryLines(score, {
-                      ownRows,
-                      rowsAreSongs,
-                    });
                     const body = (
-                      <>
-                        {ownRows ? null : rowsAreSongs ? (
-                          score.song !== null ? (
-                            <SongCover
-                              song={score.song}
-                              className="score-entry-cover"
-                            />
-                          ) : (
-                            <MissingCover className="score-entry-cover" />
-                          )
-                        ) : (
-                          <PlayerAvatar
-                            player={scorePlayer(score, players)}
-                            className="score-entry-avatar"
-                          />
-                        )}
-                        <span className="score-group-text">
-                          <span
-                            className={
-                              ownRows
-                                ? "score-group-label score-entry-when"
-                                : "score-group-label"
-                            }
-                          >
-                            {entry.title}
-                          </span>
-                          {entry.caption !== null && (
-                            <span className="score-group-caption">
-                              {entry.caption}
-                            </span>
-                          )}
-                        </span>
-                        <span className="score-group-score">{score.score}</span>
-                      </>
+                      <ScoreEntryBody
+                        score={score}
+                        players={players}
+                        ownRows={ownRows}
+                        rowsAreSongs={rowsAreSongs}
+                      />
                     );
                     const entrySong = score.song;
                     return (
@@ -344,6 +372,22 @@ export default function ScoreGroupList({
                     );
                   })}
                 </ul>
+
+                {/* The tile's last word, placed like `.delete-row` and never
+                    in its danger colour: one per group, so a row's own
+                    controls stay the moderator's pencil alone. */}
+                {onShare !== undefined && (
+                  <div className="score-group-share">
+                    <button
+                      type="button"
+                      className="button"
+                      onClick={() => onShare(group)}
+                    >
+                      <Icon name="share" />
+                      Share a score
+                    </button>
+                  </div>
+                )}
               </div>
             </details>
           </li>

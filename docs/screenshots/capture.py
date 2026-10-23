@@ -717,6 +717,22 @@ ROWS: dict[str, Row] = {
         ready='q(".spread-rows") && qa(".spread-row").length >= 2',
         scroll='show(q(".scores-chart"))',
     ),
+    "scores-share": Row(
+        # Bender, not the host: he sang at the party, so every choice of the panel is live
+        # and his own picture is on the card whatever the toggles say.
+        identity="Bender",
+        viewport="phone",
+        route="/scores",
+        steps=(
+            (
+                "click(q('button[aria-label=\"Share this party\"]'))",
+                'q(".share-preview-image")',
+            ),
+        ),
+        # The picture is drawn in the browser, so it is in only once it has decoded.
+        ready='q(".share-preview-image") && q(".share-preview-image").complete'
+        ' && q(".share-preview-image").naturalWidth > 0 && qa(".share-pills").length >= 3',
+    ),
     "user": Row(
         identity="Bender",
         viewport="phone",

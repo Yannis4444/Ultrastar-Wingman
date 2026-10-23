@@ -84,7 +84,7 @@ is small.
 | Sing | `songs/` | `download.md` | Download songs | Host | The USDB account, search, download, the queue | How-to |
 | Sing | `songs/` | `fix-or-delete.md` | Fix or delete a song | Administrator | The details editor, deleting a song folder | How-to |
 | Sing | `scores/` | `index.md` | Scores | Everyone | Where scores come from, which parties you see | Index |
-| Sing | `scores/` | `party.md` | A party's scores | Everyone | The Scores page, its charts, its groupings, naming a party, correcting a score | How-to |
+| Sing | `scores/` | `party.md` | A party's scores | Everyone | The Scores page, its charts, its groupings, naming a party, sharing a card, correcting a score | How-to |
 | Sing | `scores/` | `your-scores.md` | Your own scores | Singer | The record on the user page, the Your scores page, and All my scores | How-to |
 | Sing | `achievements/` | `index.md` | Achievements | Everyone | What a badge is, your badges, the TV moment | Index |
 | Host | `start/` | `index.md` | Get started | Host | What you need, in the order to do it | Index |
@@ -538,6 +538,7 @@ about, and the **Must be visible** column names that part alone.
 | `built-in-tags` | `tags/built-in.md` | `/user/tags/decade` | The Decade built-in | 390x844 | The reduced editor and the line saying why it is reduced |
 | `scores-party` | `scores/party.md` | `/scores` | One party, 23 scores, five singers | 390x844 | The party selector at the top, the strip chart, the score rows |
 | `scores-spread` | `scores/party.md` | `/scores` | Same party, grouped by player, **Spread** picked | 390x844 | The **Spread** view with a box row, a plain-dot row, and the gold best column |
+| `scores-share` | `scores/party.md` | `/scores` | Signed in as Bender, **Share this party** pressed on the party that is still going | 390x844 | The picture of the party card, and the **Format** and **Look** pills under it |
 | `user` | `scores/your-scores.md` | `/user` | Signed in as Bender | 390x844 | Identity tile, the stat bar, the histogram |
 | `user-stats` | `scores/your-scores.md` | `/user/stats` | Bender's own record across both seeded parties | 390x844 | The **Your scores** header, the charts of his own record |
 | `user-achievements` | `achievements/index.md` | `/user` | Signed in as Fry, whose earned badges leave room for a bar below them | 390x844 | The open badge strip, its count, one row with a progress bar |

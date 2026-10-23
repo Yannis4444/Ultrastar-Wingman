@@ -170,6 +170,73 @@ of that song.
 Grouped by song, the cover on a row opens the song. Grouped by player, the rows
 inside the card do. Ungrouped, the whole row does.
 
+## Share a party or a score
+
+Wingman draws a picture of a party or of one score for you to send to friends.
+Your browser draws it, and you save or share it from there. Whoever may read a
+party's scores may share them.
+
+- To share the party, tap :wingman-share: **Share this party** at the end of
+  the party button's row. **All parties** and **All my scores** have none,
+  because a card is one evening.
+- To share one score, open a grouped row and tap :wingman-share:
+  **Share a score** at the foot of its card. If the row holds several scores,
+  pick one from the list first. :wingman-close: **Close** takes you back to
+  that list.
+
+![The Share this party panel with the picture of the party card, its podium of three singers, and the Format and Look choices under it](../assets/screenshots/scores/scores-share.png){ width="320" loading=lazy }
+/// caption
+The picture is the card exactly as it is sent.
+///
+
+Under the picture you choose how the card looks.
+
+| Choice | What it does |
+|---|---|
+| **Format** | **Square** for a chat. **Story** for a story app, which draws its own controls over the top and the foot |
+| **Look** | **Dark**. For a score, **Cover** blurs the song's cover behind it. For a party, **Mosaic** lays the party's covers behind the podium |
+| **Focus** | A party only: the **Podium**, or the **Spread** of every singer's scores |
+| **Under the podium** | A square, dark podium card only: the **Ranking** of the next singers, or the **Score strip** of every score |
+
+A choice the card cannot draw stays in the list but cannot be picked. A line
+under it says why: **Mosaic** needs four different covers, for example, and a
+song without a cover has no **Cover** look.
+
+Three checkboxes decide who and what is on the card.
+
+- **Other singers' pictures**: cleared, everybody else is drawn as their
+  initial. Your own picture is always yours.
+- **Party name and date**: cleared, the card names no party and no day.
+- **Only me and my place**: a party only. The card shows you alone, with your
+  own figures and your place, such as "2nd of 5". It is there for somebody who
+  sang at that party.
+
+The panel remembers the format, the look, and the checkboxes on this device.
+
+### What a card shows
+
+A score card shows the song, the score with its rating word, your place, and
+who sang it with you. A party card shows **Sings**, **Songs**, **Best**, and
+**Average**, then the podium. No card ever shows the worst score: a card
+leaves the room.
+
+For a reader who may open past parties, a score that holds the song's record
+says **New Highscore**. One that is the singer's own best on the song says
+**Personal best**. Everybody else's cards carry neither.
+
+### Save it or send it
+
+The buttons under the choices are the ones your browser can carry out.
+
+- **Share** hands the picture to your phone's share sheet.
+- **Copy image** puts it on the clipboard, ready to paste into a chat.
+- **Save image** downloads it. On an iPhone a download usually lands in
+  **Files** rather than in your photos.
+
+**Share** and **Copy image** need a secure connection, so a phone on the home
+network usually has **Save image** alone. Press and hold the picture instead, and the
+phone offers to save it to your photos or share it.
+
 ## Correct a score
 
 Ultrastar Deluxe files a score under whoever was on that microphone slot, and

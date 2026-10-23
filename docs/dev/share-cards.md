@@ -1,9 +1,9 @@
 # Share cards
 
-*Design, 2026-10-22; settled and half built 2026-10-23 on branch
-`feat/host-controls-loudness-share-cards`. The user's decisions are in §1. Part 1 is built:
-what a card says, how its text fits, the layouts and the canvas renderer (`frontend/src/shareCard/`,
-§6). Part 2 is not: the panel, the two entry points on `/scores`, the buttons and the user
+*Design, 2026-10-22; settled and built 2026-10-23 on branch
+`feat/host-controls-loudness-share-cards`. The user's decisions are in §1. Part 1 built what a
+card says, how its text fits, the layouts and the canvas renderer (`frontend/src/shareCard/`,
+§6); part 2 the panel, the two entry points on `/scores`, the buttons and the user
 documentation. §7 records how the planning round settled what was open. When this document
 and the code disagree, the code is right and this document is updated.*
 
@@ -242,6 +242,10 @@ every browser; the specs mark them `[SecureContext]`.
 - **Build the PNG `File` when the panel opens and on every option change, never inside the
   click.** Awaiting `toBlob` inside the click can use up the tap's user activation, and
   Safari's `share()` then throws `NotAllowedError`.
+- **A redraw holds the buttons still.** The old picture stays up while the new one is drawn,
+  but it is the card of the options before: Share and Copy image are disabled and Save image
+  ignores a press until the new file is there, so a quick tap never sends the wrong card. A
+  redraw that fails takes the old picture and the buttons with it.
 - **Share the file alone.** A `title` or `text` adds a stray `.txt` to the iOS share sheet.
 - **Errors:** `AbortError` is the user cancelling, so nothing follows. `NotAllowedError` and
   `TypeError` fall back to Save.
@@ -255,8 +259,14 @@ every browser; the specs mark them `[SecureContext]`.
   - after export, zero the canvas; the panel revokes its object URLs, because Safari keeps
     old canvas memory alive.
 
-The panel may remember the last format, look and toggles per device (`localStorage`, wrapped
-in try/catch). That is a per-viewer convenience.
+The panel remembers the last format, look and toggles per device (`shareCard/prefs.ts`:
+`localStorage`, wrapped in try/catch, every value checked on its own). That is a per-viewer
+convenience. *Focus* and *Under the podium* start at *Podium* and *Ranking* each time.
+
+**Save image** is an `<a download>` on the preview's own object URL, so it needs no URL of its
+own; a share that falls back to Save clicks it. The panel revokes the preview's URL once a
+redraw's new picture has loaded in its place (any sooner, the old one could flash as a broken
+image), and every URL it holds when it closes or moves to another score.
 
 ## 6. Where it lives in the code
 
@@ -275,13 +285,27 @@ in try/catch). That is a per-viewer convenience.
   - `draw.ts` — `renderCard(request, images) → Promise<Blob>`, the seam for the panel:
     `images` maps each URL the content names (and `LOGO_URL`) to an `HTMLImageElement` the
     caller loaded from Wingman's own origin; a missing or broken one draws as its letter.
-    `paintCard` is the same onto a canvas the caller owns.
+    `paintCard` is the same onto a canvas the caller owns;
+  - `images.ts` — `loadCardImages`: each URL loaded and decoded once per open panel, a
+    failed one left out of the map, which is what `possible.ts`'s `loaded` reads;
+  - `flags.ts` — `scoreFlags`: *New Highscore* (the score holds the song's record alone,
+    `isNewHighscore` over the score by itself) and *Personal best* (the singer's own best on
+    the song, alone, out of at least two tries of theirs), from the song's all-time scores;
+  - `prefs.ts` — what the panel remembers per device.
 - The strip and the spread are drawn with Canvas 2D over `chartLayout.ts` (`scoreX`, `swarm`,
   `jitterOf`, `scoreTickLabel`) and `chartTheme`, the screens' own helpers; nothing of the SVG
   components is serialised (§7.2).
 - `icons.tsx` has the `share` glyph. `download` is taken (it means the achievements archive).
-- Part 2: the panel component, the two entry points on `/scores`, a user documentation page
-  and its screenshot (`docs/dev/documentation.md`, `docs/dev/screenshots.md`).
+- `components/ShareCardPanel.tsx` — the panel: the chooser of a group's scores, the preview,
+  the pills and the toggles, the buttons. It asks `GET /stats/songs/{id}/scores` for the
+  flags only for a reader holding `stats.history`, and draws nothing until that read (or its
+  failure) and `/auth/me` are in.
+- The entry points: `pages/Scores.tsx`'s session bar (*Share this party*) and
+  `ScoreGroupList`'s `onShare` (*Share a score*), which only `/scores` passes. The score card
+  finds the rest of a sing among every score the page showed, not only the group's: grouped
+  by player, a duet partner sits in another group.
+- The user documentation is a section of `docs/user/scores/party.md` with the screenshot
+  `scores-share`.
 - No backend change: the flags of §7.4 come from reads that exist.
 - The codebase map in `CLAUDE.md` in the same commit.
 

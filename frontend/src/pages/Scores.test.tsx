@@ -61,6 +61,35 @@ vi.mock("../components/SongDetails", () => ({
   ),
 }));
 
+// The share panel is tested where it lives; here, only what opens it and what
+// it is handed.
+vi.mock("../components/ShareCardPanel", () => ({
+  default: ({
+    target,
+    onClose,
+  }: {
+    target: {
+      kind: string;
+      scores: ScoreWithContext[];
+      pageScores?: ScoreWithContext[];
+      session: SessionRead | null;
+    };
+    onClose: () => void;
+  }) => (
+    <div
+      data-testid="share-panel"
+      data-kind={target.kind}
+      data-scores={target.scores.map((entry) => entry.id).join(",")}
+      data-page={(target.pageScores ?? []).map((entry) => entry.id).join(",")}
+      data-session={target.session?.id ?? "none"}
+    >
+      <button type="button" onClick={onClose}>
+        Close the share panel
+      </button>
+    </div>
+  ),
+}));
+
 /** Pick a value in one of the two compact selects above the list. */
 function choose(control: "Group" | "Sort", value: string): void {
   fireEvent.change(screen.getByLabelText(control), { target: { value } });
@@ -1618,6 +1647,121 @@ test("without stats.moderate a score row carries no corrections", async () => {
     screen.queryByRole("button", { name: /Correct the score/ }),
   ).not.toBeInTheDocument();
   expect(document.querySelector(".score-actions")).toBeNull();
+});
+
+/** The controls on the session bar, in order, by their accessible names. */
+function barControls(): string[] {
+  const bar = document.querySelector(".scores-session") as HTMLElement;
+  return within(bar)
+    .getAllByRole("button")
+    .map((button) => button.getAttribute("aria-label") ?? "picker");
+}
+
+test("a party with scores carries Share this party last on its bar", async () => {
+  renderScores();
+  const share = await screen.findByRole("button", {
+    name: "Share this party",
+  });
+  expect(share).toHaveClass("icon-button", "icon-button-bordered");
+  expect(barControls()).toEqual(["picker", "Rename party", "Share this party"]);
+
+  fireEvent.click(share);
+  const panel = screen.getByTestId("share-panel");
+  expect(panel).toHaveAttribute("data-kind", "party");
+  expect(panel).toHaveAttribute("data-session", "session-new");
+  // Exactly the scores the page showed.
+  expect(panel).toHaveAttribute("data-scores", "1,2,3,4");
+
+  fireEvent.click(
+    screen.getByRole("button", { name: "Close the share panel" }),
+  );
+  expect(screen.queryByTestId("share-panel")).toBeNull();
+});
+
+test("sharing a party takes no right beyond reading its scores", async () => {
+  getMe.mockResolvedValue(meResponse(["stats.view"]));
+  renderScores();
+  expect(
+    await screen.findByRole("button", { name: "Share this party" }),
+  ).toBeInTheDocument();
+  // Nothing else is on the bar for a reader who may only read.
+  expect(barControls()).toEqual(["picker", "Share this party"]);
+});
+
+test("the head row is no evening, so it has no party to share", async () => {
+  renderScores();
+  const panel = await openSessions();
+  // Never in the picker's header either: that holds the show-all eye alone.
+  expect(
+    within(panel).queryByRole("button", { name: "Share this party" }),
+  ).toBeNull();
+  fireEvent.click(within(panel).getByText("All my scores"));
+  await waitFor(() => expect(listAllScores).toHaveBeenCalled());
+  await screen.findAllByTestId("score-group");
+  expect(
+    screen.queryByRole("button", { name: "Share this party" }),
+  ).not.toBeInTheDocument();
+});
+
+test("the rename form carries no share", async () => {
+  renderScores();
+  await screen.findByRole("button", { name: "Share this party" });
+  fireEvent.click(screen.getByRole("button", { name: "Rename party" }));
+  expect(screen.getByLabelText("Party name")).toBeInTheDocument();
+  expect(
+    screen.queryByRole("button", { name: "Share this party" }),
+  ).not.toBeInTheDocument();
+});
+
+test("a party without a score has nothing to put on a card", async () => {
+  listSessionScores.mockResolvedValue({ data: { scores: [] } });
+  renderScores();
+  await screen.findByText(/songs started so far, none scored/);
+  expect(
+    screen.queryByRole("button", { name: "Share this party" }),
+  ).not.toBeInTheDocument();
+});
+
+test("an open group ends in one Share a score, never one per row", async () => {
+  renderScores();
+  const groups = await screen.findAllByTestId("score-group");
+  for (const group of groups) {
+    const buttons = within(group).getAllByRole("button", {
+      name: "Share a score",
+      hidden: true,
+    });
+    expect(buttons).toHaveLength(1);
+    // A plain button at the tile's foot: sharing takes nothing away.
+    expect(buttons[0]).toHaveClass("button");
+    expect(buttons[0]).not.toHaveClass("button-danger");
+    expect(buttons[0].closest(".score-group-share")).not.toBeNull();
+    for (const row of within(group).getAllByTestId("score-row"))
+      expect(row.querySelector(".score-group-share")).toBeNull();
+  }
+
+  // Bob's group: his two scores, best first; the whole page beside them, where
+  // the other half of each duet is.
+  fireEvent.click(
+    within(groups[1]).getByRole("button", {
+      name: "Share a score",
+      hidden: true,
+    }),
+  );
+  const panel = screen.getByTestId("share-panel");
+  expect(panel).toHaveAttribute("data-kind", "score");
+  expect(panel).toHaveAttribute("data-scores", "4,3");
+  expect(panel).toHaveAttribute("data-page", "1,2,3,4");
+  expect(panel).toHaveAttribute("data-session", "session-new");
+});
+
+test("ungrouped rows never unfold, so they share nothing", async () => {
+  renderScores();
+  await screen.findAllByTestId("score-group");
+  choose("Group", "none");
+  expect(await screen.findAllByTestId("score-group")).toHaveLength(4);
+  expect(
+    screen.queryByRole("button", { name: "Share a score", hidden: true }),
+  ).not.toBeInTheDocument();
 });
 
 test("a moved score reaches the other screens in the room", async () => {
