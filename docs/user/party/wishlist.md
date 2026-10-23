@@ -42,9 +42,9 @@ The party's helpers get :wingman-trash: **Take off the wishlist for everybody**
 beside the row instead, for the wish the party is not going to sing. Trusted and
 Admin hold that by default. It never appears where your own wish is the only
 one, because taking your wish back already does exactly that. See
-[Roles and permissions](../people/roles.md). The reel offers them
-:wingman-trash: **Take off the wishlist** too, for the wished song it lands on.
-See
+[Roles and permissions](../people/roles.md). The reel offers them the same
+:wingman-trash: button beside the wished song it lands on, on the phone and
+when it spins on the host screen. See
 [Let the reel pick](reel.md#take-the-song-off-the-wishlist).
 
 ## What a wish does

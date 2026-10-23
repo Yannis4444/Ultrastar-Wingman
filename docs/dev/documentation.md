@@ -528,9 +528,9 @@ about, and the **Must be visible** column names that part alone.
 | `playlists` | `songs/playlists.md` | `/songs/playlists` | Three playlists, one global | 390x844 | The cover mosaics, the meta lines, the globe mark |
 | `playlist` | `songs/playlists.md` | `/songs/playlists/:id` | A playlist with eight songs | 390x844 | Header with the dice, the action row, song rows |
 | `playlist-manage` | `songs/playlists.md` | `/songs/playlists/:id/manage` | Same playlist, two members | 390x844 | Name, description, global checkbox, member rows |
-| `reel` | `party/reel.md` | `/spinner` | Reel landed on "Sandstorm" by Darude | 390x844 | The landed frame, the **Pick from** select, the **Spin** button, and **Spin on the host screen** under it |
-| `playlist-reel` | `party/reel.md` | `/songs/playlists/:id/spinner` | The same playlist as `playlist`, landed on one of its eight songs | 390x844 | The playlist's name in the header, the landed frame, **Spin on the host screen** under **Spin** |
-| `reel-host-spin` | `party/reel.md` | `/spinner` | Signed in as Leela, **Spin on the host screen** pressed, the reel on the TV landed | 390x844 | The cover, the title, and the artist of the song the reel picked, the **Spin again** die, **Play**, and **Cancel** |
+| `reel` | `party/reel.md` | `/spinner` | Reel landed on "Sandstorm" by Darude | 390x844 | The landed frame, the **Pick from** select, the **Spin** button, and the **Spin on the host screen** square beside it |
+| `playlist-reel` | `party/reel.md` | `/songs/playlists/:id/spinner` | The same playlist as `playlist`, landed on one of its eight songs | 390x844 | The playlist's name in the header, the landed frame, the **Spin on the host screen** square beside **Spin** |
+| `reel-host-spin` | `party/reel.md` | `/spinner` | Signed in as Leela, **Pick from** on **Wishlist**, **Spin on the host screen** pressed, the reel on the TV landed on a wish | 390x844 | The cover, the title, and the artist of the song the reel picked with the wishlist trash beside them, the **Spin again** die, **Play**, and **Cancel** |
 | `usdb-search` | `songs/download.md` | `/usdb` | Search results for a common artist | 390x844 | Result rows and the download buttons |
 | `usdb-downloads` | `songs/download.md` | `/usdb` | One download at 60 percent, one queued | 390x844 | The downloads panel with both bars |
 | `tags-admin` | `tags/index.md` | `/user/tags` | Three tags of the party's own, beside Wingman's own `broken` | 390x844 | Tag rows, the Built-in heading, the eight built-in rows |

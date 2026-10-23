@@ -629,14 +629,26 @@ ROWS: dict[str, Row] = {
         viewport="phone",
         route="/spinner",
         steps=(
+            # The wishlist, so the reel lands on a wish and the trash stands beside it. The
+            # option loads disabled until the wishes are in.
+            (
+                "true",
+                "q('.spinner-pick-select option[value=\"wishlist\"]')"
+                " && !q('.spinner-pick-select option[value=\"wishlist\"]').disabled",
+            ),
+            (
+                'setValue(q(".spinner-pick-select"), "wishlist")',
+                'q(".spinner-pick-select").value === "wishlist"',
+            ),
             # The phone reveals the song when the reel on the TV lands, a fixed few seconds
             # after the server's `spun_at`, reduced motion or not: this wait is the feature.
             ('click(q(".spinner-host"))', 'q(".host-spin")'),
             ("true", 'q(".host-spin-title")'),
         ),
-        # The cover has risen in, the words are under it, and the die reads *Spin again*:
-        # it read *Show it* while the TV's reel ran.
+        # The cover has risen in, the words are under it beside the take-off, and the die
+        # reads *Spin again*: it read *Show it* while the TV's reel ran.
         ready='q(".host-spin-cover-revealed") && q(".host-spin-title") && q(".host-spin-artist")'
+        ' && q(".host-spin-take-off")'
         ' && byText(".host-spin-actions button", "Spin again")'
         ' && byText(".host-spin-actions button", "Play")',
         # Cancel gives the room's lock back. Left open, the selection would answer every

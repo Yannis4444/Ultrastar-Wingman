@@ -9,6 +9,7 @@ import {
   pickPlayerSelectionMutation,
   spinPlayerSelectionMutation,
 } from "../api/@tanstack/react-query.gen";
+import { useAuth } from "../auth";
 import { parseServerTime } from "../duration";
 import { errorDetail, errorMessage } from "../errors";
 import {
@@ -16,8 +17,10 @@ import {
   useSelectionLock,
   type SelectionAdoption,
 } from "../hooks/useSelectionLock";
+import { useWishlist } from "../hooks/useWishlist";
 import { rememberedAssignment, slotBody } from "../playerSlots";
 import ConfirmModal from "./ConfirmModal";
+import { Icon } from "./icons";
 import Loading from "./Loading";
 import Modal from "./Modal";
 import PlayerSelection from "./PlayerSelection";
@@ -95,7 +98,8 @@ interface HostSpinProps {
  * player selection with a spin instead of a song, so the server picks and the
  * TV's reel lands on the pick. The phone shows nothing of the animation — the
  * reel's empty tile where the cover will be, and that the TV is spinning, then
- * the cover, the title and the artist once the reel there has landed — and
+ * the cover, the title and the artist once the reel there has landed, with the
+ * Random song page's wishlist take-off beside them on a wishlist spin — and
  * offers the gradient die (*Show it* while the TV spins, which is the press
  * that skips the animation, and *Spin again* once it has landed), *Play* and
  * *Cancel*. Play tells the server the room is moving on to its singers
@@ -112,6 +116,8 @@ export default function HostSpin({ spin, onClose }: HostSpinProps) {
   // own open does, so Play lands on the board the room had last time.
   const slots = useQuery(listKaraokeSlotsOptions());
   const players = useQuery(listPlayersOptions());
+  const auth = useAuth();
+  const wishlist = useWishlist();
 
   const [phase, setPhase] = useState<Phase>("opening");
   const [selection, setSelection] = useState<SelectionRead | null>(null);
@@ -311,6 +317,19 @@ export default function HostSpin({ spin, onClose }: HostSpinProps) {
 
   const spun = phase === "spun" && selection !== null;
   const blockedTitle = other.data?.selection?.song.title;
+  // The Random song page's take-off, asked in this view's own terms: a reel
+  // over one of the two wishlist pools that has landed — here, on the TV — on
+  // a song still wished for. The scope is the selection's own, or what this
+  // phone asked for in the frames where `/pick` has already taken the spin off.
+  const scope = selection?.spin?.scope ?? spin.scope;
+  const takeOff =
+    spun &&
+    revealed &&
+    (scope === "wishlist" || scope === "weighted") &&
+    auth.can("wishlist.manage") &&
+    wishlist.wishes.some((wish) => wish.song.id === selection.song.id)
+      ? selection.song
+      : null;
 
   return (
     <>
@@ -395,10 +414,28 @@ export default function HostSpin({ spin, onClose }: HostSpinProps) {
                   the wait or the song is in them, so the tile never moves. */}
               <div className="host-spin-words">
                 {revealed ? (
-                  <>
-                    <p className="host-spin-title">{selection.song.title}</p>
-                    <p className="host-spin-artist">{selection.song.artist}</p>
-                  </>
+                  // The Random song page's result grid: the song in the
+                  // middle, the wishlist take-off beside it, the left cell its
+                  // counterweight — drawn trash or not, so the title's measure
+                  // never changes when the wish goes.
+                  <div className="host-spin-result">
+                    <div className="host-spin-names">
+                      <p className="host-spin-title">{selection.song.title}</p>
+                      <p className="host-spin-artist">
+                        {selection.song.artist}
+                      </p>
+                    </div>
+                    {takeOff && (
+                      <button
+                        type="button"
+                        className="icon-button icon-button-bordered host-spin-take-off"
+                        aria-label={`Take ${takeOff.title} off the wishlist for everybody`}
+                        onClick={() => wishlist.clear(takeOff.id)}
+                      >
+                        <Icon name="trash" />
+                      </button>
+                    )}
+                  </div>
                 ) : (
                   // Said, not only drawn: the phone is in the singer's hand
                   // while everybody looks at the TV.

@@ -15,6 +15,7 @@ import type {
   SongRead,
   SpinRequest,
 } from "../api";
+import { meResponse, userRead } from "../test/auth";
 import { FakeSocket } from "../test/fakeSocket";
 import { iconNames } from "../test/icons";
 import HostSpin from "./HostSpin";
@@ -33,6 +34,8 @@ const {
   setPlayerSelectionSlots,
   startPlayerSelection,
   getDeviceStatus,
+  listWishlist,
+  clearWishes,
 } = vi.hoisted(() => ({
   listKaraokeSlots: vi.fn(),
   listPlayers: vi.fn(),
@@ -44,6 +47,8 @@ const {
   setPlayerSelectionSlots: vi.fn(),
   startPlayerSelection: vi.fn(),
   getDeviceStatus: vi.fn(),
+  listWishlist: vi.fn(),
+  clearWishes: vi.fn(),
 }));
 
 vi.mock("../api/sdk.gen", async (importOriginal) => ({
@@ -58,6 +63,8 @@ vi.mock("../api/sdk.gen", async (importOriginal) => ({
   setPlayerSelectionSlots,
   startPlayerSelection,
   getDeviceStatus,
+  listWishlist,
+  clearWishes,
 }));
 
 function song(id: string, title: string, artist: string): SongRead {
@@ -247,6 +254,9 @@ beforeEach(() => {
   getDeviceStatus.mockResolvedValue({ data: { online: false } });
   getPlayerSelection.mockReset();
   getPlayerSelection.mockResolvedValue({ data: { selection: null } });
+  listWishlist.mockReset();
+  listWishlist.mockResolvedValue({ data: { wishes: [] } });
+  clearWishes.mockReset();
 });
 
 afterEach(() => {
@@ -795,4 +805,166 @@ test("a spin that lands after cancel is given straight back", async () => {
 
   await waitFor(() => expect(releases()).toHaveLength(1));
   expectRelease(releases()[0]);
+});
+
+/** What a wish on the list looks like to the phone. */
+function wished(winner: SongRead, count = 1) {
+  return { song: winner, count, mine: false, latest: "2026-09-06T19:00:00" };
+}
+
+/** A spin over that scope, landed on `winner` — the server's pick. */
+function scopedSpin(
+  winner: SongRead,
+  scope: SpinRequest["scope"],
+): SelectionRead {
+  return spunSelection(winner, [], {
+    spin: {
+      id: 1,
+      spun_at: new Date(Date.now()).toISOString(),
+      scope,
+      playlist_id: null,
+      origin: "phone",
+      revealed: false,
+    },
+  });
+}
+
+const MANAGING = [
+  "songs.view",
+  "wishlist.view",
+  "karaoke.sing",
+  "wishlist.manage",
+];
+
+/** Signed in with those capabilities, the wishlist holding those wishes. */
+function wishlistRoom(
+  winner: SongRead,
+  scope: SpinRequest["scope"],
+  wishes = [wished(winner)],
+  capabilities = MANAGING,
+): void {
+  getMe.mockResolvedValue(meResponse(capabilities, { user: userRead() }));
+  listWishlist.mockResolvedValue({ data: { wishes } });
+  openPlayerSelection.mockImplementation(async () => ({
+    data: { selection: scopedSpin(winner, scope), token: TOKEN },
+  }));
+}
+
+const takeOff = () =>
+  screen.queryByRole("button", { name: /off the wishlist for everybody$/ });
+
+/** The modal is up and the wishlist has answered, the TV's reel still running. */
+async function openedWithWishes(): Promise<void> {
+  await opened();
+  await waitFor(() => expect(listWishlist).toHaveBeenCalled());
+  await act(async () => {});
+}
+
+test("a wishlist spin offers the take-off beside the song once the TV has landed", async () => {
+  wishlistRoom(QUEEN, "wishlist", [wished(QUEEN), wished(AFRICA)]);
+  renderHostSpin({ scope: "wishlist" });
+  await openedWithWishes();
+
+  // Nothing is given away while the reel runs: no song, so nothing to take off.
+  expect(takeOff()).toBeNull();
+
+  reelLands();
+  const button = takeOff();
+  expect(button).toHaveAccessibleName(
+    "Take Dancing Queen off the wishlist for everybody",
+  );
+  expect(button).toHaveClass("icon-button", "icon-button-bordered");
+  expect(iconNames(button!)).toEqual(["trash"]);
+  // The Random song page's grid, inside the words' reserved height: the names
+  // in the middle cell, the trash their sibling, never inside them.
+  const result = button!.parentElement!;
+  expect(result).toHaveClass("host-spin-result");
+  expect(result.parentElement).toHaveClass("host-spin-words");
+  const names = result.querySelector(".host-spin-names")!;
+  expect(names).toHaveTextContent("Dancing Queen");
+  expect([...result.children]).toEqual([names, button]);
+
+  clearWishes.mockResolvedValue({ data: undefined });
+  listWishlist.mockResolvedValue({ data: { wishes: [wished(AFRICA)] } });
+  fireEvent.click(button!);
+
+  // The tile's take-off for everybody, with no confirmation in between.
+  await waitFor(() => expect(clearWishes).toHaveBeenCalledTimes(1));
+  expect(clearWishes.mock.calls[0][0].path).toEqual({ song_id: "usdb:1" });
+  expect(screen.getAllByRole("dialog")).toHaveLength(1);
+
+  // The wish is gone and the button with it; the song stays, and so does Play.
+  await waitFor(() => expect(takeOff()).toBeNull());
+  expect(screen.getByText("Dancing Queen")).toBeInTheDocument();
+  expect(play()).toBeEnabled();
+  // The selection is untouched: taking a wish off is not giving the room back.
+  expect(releases()).toHaveLength(0);
+
+  // And the song is still a song: Play moves the room on to its singers with
+  // the same token, and the picker opens over it.
+  fireEvent.click(play());
+  await waitFor(() => expect(pickPlayerSelection).toHaveBeenCalledTimes(1));
+  expect(pickPlayerSelection.mock.calls[0][0].headers).toEqual({
+    "X-Selection-Token": TOKEN,
+  });
+  const picker = await screen.findByRole("dialog", {
+    name: "Player selection",
+  });
+  expect(picker).toHaveTextContent("Dancing Queen");
+  expect(releases()).toHaveLength(0);
+});
+
+test("the weighted wishlist spin offers the take-off too", async () => {
+  wishlistRoom(QUEEN, "weighted", [wished(QUEEN, 3)]);
+  renderHostSpin({ scope: "weighted" });
+  await openedWithWishes();
+  reelLands();
+
+  expect(takeOff()).toBeInTheDocument();
+});
+
+test("a spin over another pool never offers it, even on a wished song", async () => {
+  wishlistRoom(QUEEN, "all");
+  renderHostSpin({ scope: "all" });
+  await openedWithWishes();
+  reelLands();
+
+  expect(screen.getByText("Dancing Queen")).toBeInTheDocument();
+  expect(takeOff()).toBeNull();
+});
+
+test("without wishlist.manage the spin offers no take-off", async () => {
+  wishlistRoom(
+    QUEEN,
+    "wishlist",
+    [wished(QUEEN)],
+    ["songs.view", "wishlist.view", "karaoke.sing"],
+  );
+  renderHostSpin({ scope: "wishlist" });
+  await openedWithWishes();
+  reelLands();
+
+  expect(screen.getByText("Dancing Queen")).toBeInTheDocument();
+  expect(takeOff()).toBeNull();
+});
+
+test("the take-off goes when the wish is taken off somewhere else", async () => {
+  wishlistRoom(QUEEN, "wishlist", [wished(QUEEN), wished(AFRICA)]);
+  renderHostSpin({ scope: "wishlist" });
+  await openedWithWishes();
+  reelLands();
+  expect(takeOff()).toBeInTheDocument();
+
+  listWishlist.mockResolvedValue({ data: { wishes: [wished(AFRICA)] } });
+  act(() =>
+    FakeSocket.deliver({
+      event: "wishlist.updated",
+      song_id: "usdb:1",
+      count: 0,
+      latest: null,
+    }),
+  );
+
+  await waitFor(() => expect(takeOff()).toBeNull());
+  expect(screen.getByText("Dancing Queen")).toBeInTheDocument();
 });

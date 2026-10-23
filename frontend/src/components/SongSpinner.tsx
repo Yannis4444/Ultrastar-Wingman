@@ -84,8 +84,9 @@ interface SongSpinnerProps {
 
 /**
  * The Random song page's column: the *Pick from* select and the pool size, the
- * reel (`SongReel`, which owns the animation), the result, the SPIN button and
- * under it the quiet way of spinning on the host screen instead. The winner is
+ * reel (`SongReel`, which owns the animation), the result — with the wishlist
+ * take-off beside it where there is one — and one action row: SPIN, and beside
+ * it the small square that spins on the host screen instead. The winner is
  * picked here the instant SPIN is pressed, and the reel is told to land on it;
  * a spin on the host screen is the server's pick, and the TV's reel lands on
  * it (`HostSpin`).
@@ -175,6 +176,8 @@ export default function SongSpinner({
   };
 
   const settled = spinning ? null : winner;
+  // SPIN and the host square rest together: both spin this same pool.
+  const spinDisabled = spinning || candidates.length === 0;
   // The host reel needs the right to start a song; a fixed pool without a
   // playlist to name has nothing the server could spin.
   const hostOffered =
@@ -231,7 +234,9 @@ export default function SongSpinner({
         />
 
         {/* The slot is held open before the first spin so SPIN never jumps —
-            but it stays empty: the page title already says "Random song". */}
+            but it stays empty: the page title already says "Random song". A
+            three-cell grid, so the take-off stands beside the song it takes
+            off and the title stays centred whether it is there or not. */}
         <div className="spinner-result">
           {winner && (
             <button
@@ -248,43 +253,45 @@ export default function SongSpinner({
               <span className="spinner-winner-artist">{winner.artist}</span>
             </button>
           )}
+          {/* The wishlist tile's own trash, beside the song and never inside
+              its button: no confirmation, and it goes with the wish. */}
+          {offerTakeOff && (
+            <button
+              type="button"
+              className="icon-button icon-button-bordered spinner-take-off"
+              aria-label={`Take ${settled.title} off the wishlist for everybody`}
+              onClick={() => wishlist.clear(settled.id)}
+            >
+              <Icon name="trash" />
+            </button>
+          )}
         </div>
 
-        {/* Uppercased in CSS: the caps are the look, "Spin" is the name. */}
-        <SpinButton
-          spinning={spinning}
-          disabled={spinning || candidates.length === 0}
-          onClick={startSpin}
-        >
-          Spin
-        </SpinButton>
-
-        {/* The quiet second way, never the gradient: the reel on the TV is
-            the room's, and SPIN above stays the gesture that opened the page.
-            Drawn only with something to land on, like SPIN is enabled. */}
-        {hostOffered && candidates.length > 0 && (
-          <button
-            type="button"
-            className="button spinner-host"
-            disabled={spinning}
-            onClick={spinOnHost}
+        {/* One action row: SPIN, the page's gesture, and beside it the same
+            spin on the TV as a small square — never the gradient, never a
+            second die. */}
+        <div className="spinner-actions">
+          {/* Uppercased in CSS: the caps are the look, "Spin" is the name. */}
+          <SpinButton
+            spinning={spinning}
+            disabled={spinDisabled}
+            onClick={startSpin}
           >
-            Spin on the host screen
-          </button>
-        )}
-
-        {/* Last in the column, so SPIN and the host button never move when it
-            comes and goes. No confirmation, like the tile's own trash. */}
-        {offerTakeOff && (
-          <button
-            type="button"
-            className="button spinner-take-off"
-            onClick={() => wishlist.clear(settled.id)}
-          >
-            <Icon name="trash" />
-            <span>Take off the wishlist</span>
-          </button>
-        )}
+            Spin
+          </SpinButton>
+          {hostOffered && (
+            <button
+              type="button"
+              className="spinner-host"
+              aria-label="Spin on the host screen"
+              title="Spin on the host screen"
+              disabled={spinDisabled}
+              onClick={spinOnHost}
+            >
+              <Icon name="tv" />
+            </button>
+          )}
+        </div>
       </div>
 
       {details && (
