@@ -12,8 +12,9 @@ export const VOLUME_STEP = 5;
 
 /**
  * The keys each control announces in its `aria-keyshortcuts`, spelled the way
- * that attribute spells them. The `title`s name the letter alone (*Pause (K)*):
- * a tooltip is read at a glance.
+ * that attribute spells them. The `title`s name the first key alone
+ * (*Pause (Space)*), the one the legend shows too: a tooltip is read at a
+ * glance.
  */
 export const SHORTCUT_KEYS: Record<
   "play-pause" | "skip" | "volume" | "fullscreen",

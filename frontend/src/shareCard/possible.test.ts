@@ -9,7 +9,10 @@ import {
 import { partyCard, scoreCard, type PartyCardContent } from "./content";
 import type { PartyCardOptions } from "./layout";
 import {
+  PARTY_DESIGNS,
+  SCORE_DESIGNS,
   partyCardChoices,
+  partyDesignOptions,
   resolvePartyOptions,
   resolveScoreOptions,
   scoreCardChoices,
@@ -42,6 +45,7 @@ const square = (
   look: "dark",
   focus: "podium",
   under: "ranking",
+  logo: true,
   ...overrides,
 });
 
@@ -59,7 +63,7 @@ test("a score without a cover falls back to Dark and says why", () => {
     otherPictures: true,
     partyNameAndDate: true,
   });
-  expect(reasonOf(scoreCardChoices(gone, all).looks, "cover")).toBe(
+  expect(reasonOf(scoreCardChoices(gone, all).designs, "cover")).toBe(
     "This song has left the library, so there is no cover to draw.",
   );
   const missing = scoreCard({
@@ -71,16 +75,68 @@ test("a score without a cover falls back to Dark and says why", () => {
     otherPictures: true,
     partyNameAndDate: true,
   });
-  expect(reasonOf(scoreCardChoices(missing, none).looks, "cover")).toBe(
+  expect(reasonOf(scoreCardChoices(missing, none).designs, "cover")).toBe(
     "This song has no cover, so the card stays dark.",
   );
-  expect(reasonOf(scoreCardChoices(missing, all).looks, "cover")).toBeNull();
+  expect(reasonOf(scoreCardChoices(missing, all).designs, "cover")).toBeNull();
+  // The slides in the carousel's order, Dark always drawable.
   expect(
-    resolveScoreOptions(missing, { format: "story", look: "cover" }, none),
-  ).toEqual({ format: "story", look: "dark" });
+    scoreCardChoices(missing, none).designs.map((d) => [d.value, d.ok]),
+  ).toEqual([
+    ["dark", true],
+    ["cover", false],
+  ]);
+  expect(SCORE_DESIGNS).toEqual(["dark", "cover"]);
   expect(
-    resolveScoreOptions(missing, { format: "story", look: "cover" }, all),
-  ).toEqual({ format: "story", look: "cover" });
+    resolveScoreOptions(
+      missing,
+      { format: "story", look: "cover", logo: true },
+      none,
+    ),
+  ).toEqual({ format: "story", look: "dark", logo: true });
+  expect(
+    resolveScoreOptions(
+      missing,
+      { format: "story", look: "cover", logo: true },
+      all,
+    ),
+  ).toEqual({ format: "story", look: "cover", logo: true });
+});
+
+test("the Wingman logo is the reader's on every card, carried through as asked", () => {
+  const score = scoreCard({
+    score: cardScore("chiara", 8000, SONGS[0]),
+    partyScores: [],
+    session: null,
+    players,
+    me: "chiara",
+    otherPictures: true,
+    partyNameAndDate: true,
+  });
+  for (const logo of [true, false]) {
+    // Even where the look falls back, the logo stays what was asked.
+    expect(
+      resolveScoreOptions(
+        score,
+        { format: "square", look: "cover", logo },
+        none,
+      ).logo,
+    ).toBe(logo);
+    const content = party(cardParty(6, 4));
+    expect(
+      resolvePartyOptions(
+        content,
+        square({ look: "mosaic", focus: "spread", logo }),
+        none,
+      ),
+    ).toEqual({
+      format: "square",
+      look: "dark",
+      focus: "spread",
+      under: "none",
+      logo,
+    });
+  }
 });
 
 test("both formats are always there; there is no 4:5", () => {
@@ -93,43 +149,72 @@ test("both formats are always there; there is no 4:5", () => {
 test("Mosaic needs four different covers that arrived", () => {
   const four = party(cardParty(4, 1));
   expect(
-    reasonOf(partyCardChoices(four, square(), all).looks, "mosaic"),
+    reasonOf(partyCardChoices(four, square(), all).designs, "mosaic"),
   ).toBeNull();
   const three = party(cardParty(3, 1));
-  expect(reasonOf(partyCardChoices(three, square(), all).looks, "mosaic")).toBe(
-    "Mosaic needs four different covers, and this party has 3.",
-  );
-  expect(reasonOf(partyCardChoices(four, square(), none).looks, "mosaic")).toBe(
-    "Mosaic needs four different covers, and this party has none.",
-  );
+  expect(
+    reasonOf(partyCardChoices(three, square(), all).designs, "mosaic"),
+  ).toBe("Mosaic needs four different covers, and this party has 3.");
+  expect(
+    reasonOf(partyCardChoices(four, square(), none).designs, "mosaic"),
+  ).toBe("Mosaic needs four different covers, and this party has none.");
   expect(resolvePartyOptions(three, square({ look: "mosaic" }), all).look).toBe(
     "dark",
   );
 });
 
+test("a party's slides are Dark, Mosaic and Spread, the focus folded in", () => {
+  expect(PARTY_DESIGNS).toEqual(["dark", "mosaic", "spread"]);
+  expect(PARTY_DESIGNS.map(partyDesignOptions)).toEqual([
+    { look: "dark", focus: "podium" },
+    { look: "mosaic", focus: "podium" },
+    { look: "dark", focus: "spread" },
+  ]);
+  // Whether a slide can be drawn does not hang on the slide in view: the
+  // Mosaic stays drawable while the spread is asked for.
+  const five = party(cardParty(5, 2));
+  for (const design of PARTY_DESIGNS)
+    expect(
+      partyCardChoices(
+        five,
+        square(partyDesignOptions(design)),
+        all,
+      ).designs.map((d) => [d.value, d.ok]),
+    ).toEqual([
+      ["dark", true],
+      ["mosaic", true],
+      ["spread", true],
+    ]);
+});
+
 test("the spread needs two singers and four scores, and the dark look", () => {
   const five = party(cardParty(5, 2));
   const choices = partyCardChoices(five, square({ focus: "spread" }), all);
-  expect(reasonOf(choices.focus, "spread")).toBeNull();
-  expect(reasonOf(choices.looks, "mosaic")).toBe(
-    "The spread is drawn on the dark look, where its dots can be read.",
-  );
+  expect(reasonOf(choices.designs, "spread")).toBeNull();
   expect(choices.under).toBeNull();
   expect(choices.underNote).toBe("The spread takes the place of the podium.");
   expect(
     resolvePartyOptions(five, square({ focus: "spread", look: "mosaic" }), all),
-  ).toEqual({ format: "square", look: "dark", focus: "spread", under: "none" });
+  ).toEqual({
+    format: "square",
+    look: "dark",
+    focus: "spread",
+    under: "none",
+    logo: true,
+  });
 
   const one = party(cardParty(1, 5), { me: "chiara" });
-  expect(reasonOf(partyCardChoices(one, square(), all).focus, "spread")).toBe(
+  expect(reasonOf(partyCardChoices(one, square(), all).designs, "spread")).toBe(
     "One singer has nobody to compare with.",
   );
   const few = party(cardParty(3, 1));
-  expect(reasonOf(partyCardChoices(few, square(), all).focus, "spread")).toBe(
+  expect(reasonOf(partyCardChoices(few, square(), all).designs, "spread")).toBe(
     "The spread needs at least four scores.",
   );
   const mine = party(cardParty(5, 2), { onlyMe: true });
-  expect(reasonOf(partyCardChoices(mine, square(), all).focus, "spread")).toBe(
+  expect(
+    reasonOf(partyCardChoices(mine, square(), all).designs, "spread"),
+  ).toBe(
     "Only me and my place shows one singer, and the spread compares several.",
   );
   expect(

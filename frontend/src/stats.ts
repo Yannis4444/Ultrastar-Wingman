@@ -243,10 +243,16 @@ export function sessionLeaderboard(
   );
 }
 
+/** "singer" / "singers": the word a count of `count` takes, for a surface that
+ * prints the number apart from its word (a share card's numbers). */
+export function countWord(count: number, word: string): string {
+  return count === 1 ? word : `${word}s`;
+}
+
 /** "1 singer" / "5 singers" — the picker's counts, none of which is ever a bare
  * number the reader has to guess the unit of. */
-function plural(count: number, word: string): string {
-  return `${count} ${word}${count === 1 ? "" : "s"}`;
+export function plural(count: number, word: string): string {
+  return `${count} ${countWord(count, word)}`;
 }
 
 /**

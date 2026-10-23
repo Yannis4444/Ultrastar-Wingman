@@ -518,9 +518,9 @@ about, and the **Must be visible** column names that part alone.
 |---|---|---|---|---|---|
 | `home` | `party/index.md` | `/` | Signed in as Leela, four wishes | 390x844 | The Wingman tile, the wishlist, the Random song entry |
 | `home-playing` | `party/sing.md` | `/` | **launcher**: a song playing | 390x844 | The stage showing cover, title, artist, song controls |
-| `songs-list` | `songs/index.md` | `/songs` | Seeded library, two favorites, two sung | 390x844 | Search box, chip row, the **Sort** select beside the song count, rows with marks |
+| `songs-list` | `songs/index.md` | `/songs` | Seeded library, two favorites, two sung | 390x844 | Search box, chip row, the order select beside the song count, rows with marks |
 | `songs-filter` | `songs/filter.md` | `/songs` | Filter panel open, Video on Yes, Decade set to 1980s | 390x844 | The hint line, both chip clouds, Video on Yes, the Decade chip showing 1980s, and a tag struck through on No |
-| `song` | `songs/song.md` | `/songs` | Song modal open on "I Got You Babe" | 390x844 | Cover hero, the wish and favorite toggles, and the summary strip |
+| `song` | `songs/song.md` | `/songs` | Song modal open on "I Got You Babe" | 390x844 | Cover hero, the four facts and the pencil under the artist, the wish and favorite toggles, the action bar, and the fine print |
 | `song-comments` | `songs/song.md` | `/songs` | Song modal, comments sub-view, three comments | 390x844 | The comment list and the composer |
 | `song-edit` | `songs/fix-or-delete.md` | `/songs` | Song modal, details editor open | 390x844 | The six labeled inputs, the save row, and **Delete song** under it |
 | `player-selection` | `party/sing.md` | `/songs` | Song modal, player selection open | 390x844 | Two singers picked on their microphone colors |
@@ -528,9 +528,9 @@ about, and the **Must be visible** column names that part alone.
 | `playlists` | `songs/playlists.md` | `/songs/playlists` | Three playlists, one global | 390x844 | The cover mosaics, the meta lines, the globe mark |
 | `playlist` | `songs/playlists.md` | `/songs/playlists/:id` | A playlist with eight songs | 390x844 | Header with the dice, the action row, song rows |
 | `playlist-manage` | `songs/playlists.md` | `/songs/playlists/:id/manage` | Same playlist, two members | 390x844 | Name, description, global checkbox, member rows |
-| `reel` | `party/reel.md` | `/spinner` | Reel landed on "Sandstorm" by Darude | 390x844 | The landed frame, the **Pick from** select, the **Spin** button, and **Spin on the host screen** under it |
-| `playlist-reel` | `party/reel.md` | `/songs/playlists/:id/spinner` | The same playlist as `playlist`, landed on one of its eight songs | 390x844 | The playlist's name in the header, the landed frame, **Spin on the host screen** under **Spin** |
-| `reel-host-spin` | `party/reel.md` | `/spinner` | Signed in as Leela, **Spin on the host screen** pressed, the reel on the TV landed | 390x844 | The cover, the title, and the artist of the song the reel picked, the **Spin again** die, **Play**, and **Cancel** |
+| `reel` | `party/reel.md` | `/spinner` | Reel landed on "Sandstorm" by Darude | 390x844 | The landed frame, the **Pick from** select, the **Spin** button, and the **Spin on the host screen** square beside it |
+| `playlist-reel` | `party/reel.md` | `/songs/playlists/:id/spinner` | The same playlist as `playlist`, landed on one of its eight songs | 390x844 | The playlist's name in the header, the landed frame, the **Spin on the host screen** square beside **Spin** |
+| `reel-host-spin` | `party/reel.md` | `/spinner` | Signed in as Leela, **Pick from** on **Wishlist**, **Spin on the host screen** pressed, the reel on the TV landed on a wish | 390x844 | The cover, the title, and the artist of the song the reel picked with the wishlist trash beside them, the **Spin again** die, **Play**, and **Cancel** |
 | `usdb-search` | `songs/download.md` | `/usdb` | Search results for a common artist | 390x844 | Result rows and the download buttons |
 | `usdb-downloads` | `songs/download.md` | `/usdb` | One download at 60 percent, one queued | 390x844 | The downloads panel with both bars |
 | `tags-admin` | `tags/index.md` | `/user/tags` | Three tags of the party's own, beside Wingman's own `broken` | 390x844 | Tag rows, the Built-in heading, the eight built-in rows |
@@ -538,7 +538,7 @@ about, and the **Must be visible** column names that part alone.
 | `built-in-tags` | `tags/built-in.md` | `/user/tags/decade` | The Decade built-in | 390x844 | The reduced editor and the line saying why it is reduced |
 | `scores-party` | `scores/party.md` | `/scores` | One party, 23 scores, five singers | 390x844 | The party selector at the top, the strip chart, the score rows |
 | `scores-spread` | `scores/party.md` | `/scores` | Same party, grouped by player, **Spread** picked | 390x844 | The **Spread** view with a box row, a plain-dot row, and the gold best column |
-| `scores-share` | `scores/party.md` | `/scores` | Signed in as Bender, **Share this party** pressed on the party that is still going | 390x844 | The picture of the party card, and the **Format** and **Look** pills under it |
+| `scores-share` | `scores/party.md` | `/scores` | Signed in as Bender, **Share this party** pressed on the party that is still going | 390x844 | The two format buttons over the carousel, the party card's Dark slide with the Mosaic slide peeking in at the right edge, and the arrows around the three dots under it |
 | `user` | `scores/your-scores.md` | `/user` | Signed in as Bender | 390x844 | Identity tile, the stat bar, the histogram |
 | `user-stats` | `scores/your-scores.md` | `/user/stats` | Bender's own record across both seeded parties | 390x844 | The **Your scores** header, the charts of his own record |
 | `user-achievements` | `achievements/index.md` | `/user` | Signed in as Fry, whose earned badges leave room for a bar below them | 390x844 | The open badge strip, its count, one row with a progress bar |

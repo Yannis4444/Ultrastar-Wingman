@@ -51,24 +51,27 @@ altogether can win in none of the four. See
 ## Take the song off the wishlist
 
 Spun one of the two wishlist choices and the room will not sing what came up?
-The party's helpers get :wingman-trash: **Take off the wishlist** under the
-spin buttons once the reel lands on a wished song. It takes the song off the
-wishlist for everybody, with no question in between. The winner stays on
-screen, and the line under **Pick from** counts one song fewer. Trusted and
-Admin hold that by default, the same as the button on the wishlist itself. See
-[Wish for a song](wishlist.md#take-a-wish-back).
+The party's helpers get :wingman-trash: **Take off the wishlist for
+everybody** right beside the winner's title once the reel lands on a wished
+song. It takes the song off the wishlist for everybody, with no question in
+between. The winner stays on screen, and the line under **Pick from** counts
+one song fewer. Trusted and Admin hold that by default, the same as the button
+on the wishlist itself. See [Wish for a song](wishlist.md#take-a-wish-back).
 
 The button is not there on a playlist's reel or on **All songs** and
-**Favorites**.
+**Favorites**. It also stands beside the title when the reel spins on the TV.
+See [Spin on the host screen](#spin-on-the-host-screen).
 
 ## Spin on the host screen
 
-The reel can run on the TV instead, so the whole room watches the pick. Under
-**Spin** stands a quiet **Spin on the host screen** button. It is there for
-anybody who may start a song.
+The reel can run on the TV instead, so the whole room watches the pick. Beside
+**Spin** stands a small square button with a screen on it, :wingman-tv:
+**Spin on the host screen**. It is there for anybody who may start a song. It
+rests whenever **Spin** does: while the reel runs, and while there is nothing to
+pick from.
 
 1. Choose what the reel may pick from in the **Pick from** list.
-2. Tap **Spin on the host screen**.
+2. Tap :wingman-tv: **Spin on the host screen** beside **Spin**.
 3. The phone shows the reel's empty tile and *Spinning on the host screen…*
    while the covers scroll past on the TV. The cover, the title, and the
    artist appear on the phone the moment the reel lands there.
@@ -79,7 +82,13 @@ anybody who may start a song.
    song. See [Sing a song](sing.md).
 6. **Cancel** gives the TV back and picks nothing.
 
-![The Spin on the host screen view after the reel landed, with the cover, the title and artist, the Spin again die, Play, and Cancel](../assets/screenshots/party/reel-host-spin.png){ width="320" loading=lazy }
+On a wishlist choice, the party's helpers find :wingman-trash: **Take off the
+wishlist for everybody** beside the title here as well, once the TV's reel has
+landed on a song still wished for. The song comes off the wishlist and stays on
+the phone. **Play** still picks the singers for it, and **Spin again** picks
+another song.
+
+![The spin view landed on a wished song: cover, title and artist with the trash beside them, the Spin again die, Play, and Cancel](../assets/screenshots/party/reel-host-spin.png){ width="320" loading=lazy }
 /// caption
 The phone shows the pick under its cover. The animation is the TV's.
 ///
@@ -124,8 +133,9 @@ The header names the playlist, so the reel picks from its eight songs alone.
 
 The dice appears once the playlist has a song in it. A song only folded away by
 a tag can win here, the same way the playlist itself still lists it. Somebody
-put it there on purpose. **Spin on the host screen** stands under **Spin** here
-too, and spins this playlist on the TV.
+put it there on purpose. :wingman-tv: **Spin on the host screen** stands beside
+**Spin** here too, and spins this playlist on the TV. A playlist's reel never
+takes a song off the wishlist.
 
 !!! note
     A phone set to reduce motion skips the animation and shows the winner right

@@ -135,6 +135,36 @@
   color: var(--color-darker);
 }
 
+/* The revealed song as the Random song page's result grid: the words in the
+   middle cell, the wishlist take-off in the right one, the empty left cell
+   keeping the words centred under the tile. Placed by hand, so the words keep
+   the middle when there is no take-off. Inside the reserved height above: a
+   40px button is shorter than two lines of title and one of artist. The side
+   padding is the focus ring's room (2px plus its 2px offset): the take-off
+   stands at the very edge of `.host-spin-song`, whose overflow would clip it. */
+.host-spin-result {
+  display: grid;
+  box-sizing: border-box;
+  grid-template-columns: 40px minmax(0, 1fr) 40px;
+  column-gap: 8px;
+  align-items: center;
+  width: 100%;
+  padding: 0 4px;
+}
+
+.host-spin-names {
+  grid-column: 2;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 4px;
+  min-width: 0;
+}
+
+.host-spin-take-off {
+  grid-column: 3;
+}
+
 /* The Random song page's result lines, a size up: this is the whole screen.
    They wrap rather than clip — a phone is 360px wide — with a line cap so a
    runaway title cannot push the actions off the foot. The line height holds

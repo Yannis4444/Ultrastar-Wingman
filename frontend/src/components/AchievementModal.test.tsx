@@ -145,12 +145,66 @@ it.each([
     }),
   );
 
-  // Under the sentence, and before the row's own line.
+  // The first of the facts, in their own group under the sentence.
   const holders = container.querySelector(".achievement-modal-holders");
   expect(holders).toHaveTextContent(line);
-  expect(holders?.previousElementSibling).toHaveClass(
+  expect(holders?.previousElementSibling).toBeNull();
+  const meta = holders?.parentElement;
+  expect(meta).toHaveClass("achievement-modal-meta");
+  expect(meta?.previousElementSibling).toHaveClass(
     "achievement-modal-description",
   );
+});
+
+it("sets the holders, then the day, apart from the sentence", () => {
+  const { container } = renderModal(
+    playerAchievementRead({
+      achievement: achievementRead({ holder_count: 3 }),
+      earned_at: "2026-08-12T20:15:00Z",
+    }),
+  );
+
+  // One group under the description, holders first and the day after it —
+  // never the description's own line (ui-guidelines §5).
+  const meta = container.querySelector(".achievement-modal-meta");
+  expect(meta?.previousElementSibling).toHaveClass(
+    "achievement-modal-description",
+  );
+  expect([...(meta?.children ?? [])].map((line) => line.textContent)).toEqual([
+    "Earned by 3 players",
+    `Earned ${cardDate("2026-08-12T20:15:00Z")}`,
+  ]);
+});
+
+it("puts the bar in the same group, after the holders", () => {
+  const { container } = renderModal(
+    playerAchievementRead({
+      achievement: achievementRead({ holder_count: 2 }),
+      earned_at: null,
+      progress_current: 7,
+      progress_target: 10,
+    }),
+  );
+
+  const meta = container.querySelector(".achievement-modal-meta");
+  expect([...(meta?.children ?? [])].map((child) => child.className)).toEqual([
+    "achievement-modal-holders",
+    "achievement-progress",
+  ]);
+});
+
+it("draws no empty group under a masked sentence", () => {
+  const { container } = renderModal(
+    playerAchievementRead({
+      achievement: maskedAchievementRead(),
+      earned_at: null,
+      progress_current: null,
+      progress_target: null,
+    }),
+  );
+
+  // Nothing to say, so not even the gap that would set it apart.
+  expect(container.querySelector(".achievement-modal-meta")).toBeNull();
 });
 
 it("says nothing about the holders when there is no count", () => {

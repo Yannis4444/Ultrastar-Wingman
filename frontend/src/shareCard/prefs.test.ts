@@ -4,6 +4,21 @@ beforeEach(() => window.localStorage.clear());
 
 test("nothing stored reads as the defaults", () => {
   expect(readPrefs()).toEqual(DEFAULT_PREFS);
+  // The Wingman logo is on until the reader takes it off.
+  expect(DEFAULT_PREFS.logo).toBe(true);
+});
+
+test("what an older build wrote, without the logo, reads with the logo on", () => {
+  window.localStorage.setItem(
+    PREFS_KEY,
+    JSON.stringify({ format: "story", partyNameAndDate: false }),
+  );
+  expect(readPrefs()).toEqual({
+    ...DEFAULT_PREFS,
+    format: "story",
+    partyNameAndDate: false,
+    logo: true,
+  });
 });
 
 test("what was written is what is read back", () => {
@@ -13,6 +28,7 @@ test("what was written is what is read back", () => {
     partyLook: "mosaic",
     otherPictures: false,
     partyNameAndDate: false,
+    logo: false,
     onlyMe: true,
   } as const;
   writePrefs(prefs);
@@ -22,7 +38,12 @@ test("what was written is what is read back", () => {
 test("a value this build does not know falls back alone", () => {
   window.localStorage.setItem(
     PREFS_KEY,
-    JSON.stringify({ format: "portrait", partyLook: "mosaic", onlyMe: "yes" }),
+    JSON.stringify({
+      format: "portrait",
+      partyLook: "mosaic",
+      onlyMe: "yes",
+      logo: "off",
+    }),
   );
   expect(readPrefs()).toEqual({ ...DEFAULT_PREFS, partyLook: "mosaic" });
 });

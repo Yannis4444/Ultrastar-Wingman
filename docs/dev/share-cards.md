@@ -5,7 +5,7 @@
 card says, how its text fits, the layouts and the canvas renderer (`frontend/src/shareCard/`,
 §6); part 2 the panel, the two entry points on `/scores`, the buttons and the user
 documentation. §7 records how the planning round settled what was open. When this document
-and the code disagree, the code is right and this document is updated.*
+and the code disagree, the code is right and this document is updated, unless the code falls short of §1.*
 
 A singer gets **a picture of their scores** to send to friends: one score (the song's cover,
 the number, the rating word, the place) or a whole party (the podium, a few numbers, a
@@ -19,7 +19,7 @@ and the avatars are initials. §4 gives its layouts in numbers, as built.
 
 ## 1. Decisions
 
-Made by the user, 2026-10-22, on the mockup:
+Made by the user, 2026-10-22 on the mockup (1 to 7) and then on the first build (8 to 10):
 
 1. **The mockup stands as drawn.**
    - Two card kinds:
@@ -42,6 +42,9 @@ Made by the user, 2026-10-22, on the mockup:
    - The test page's own log recorded nothing, so *which* path worked was not captured. It
      was either the long-press menu on the picture or the download.
    - §7.8 is about confirming that per platform.
+8. **The Wingman logo is drawn as it is**, in its own colours, and is a toggle, on by default (§4.1).
+9. **The panel is redone**: the formats as two icons, the designs swiped through with dots (§5).
+10. **A party card's head is never the singer count**, and Mosaic text sits on no opaque band (§3.1, §4.2).
 
 Agreed by the three reviews (product, visual, technical) and not objected to. These can still
 be vetoed:
@@ -58,8 +61,7 @@ be vetoed:
     it is drawn from exactly the scores that page showed (§7.6).
   - `list_session_scores` does not apply `HiddenSongsDep`, so a song a tag hides can stand
     on a card as it stands on `/scores` — the accepted leak, not a new one.
-- **The Wingman mark is always on a card**, bottom left, small and grey. No toggle, no URL,
-  no slogan.
+- **The brand line is bottom left**, small: the logo and *Ultrastar Wingman*, no URL, no slogan (decision 8).
 - **Only the score strip** of the existing charts goes *under* the podium. The others don't
   read at chat-thumbnail size in that space. As the card's focus (decision 6) the spread gets
   the whole card (§3.3).
@@ -86,8 +88,8 @@ types into a plain `CardContent`, and applies the toggles there.
 
 | What | Where it comes from |
 |---|---|
-| head | the party's name, or its date when it has none, over "17 Oct 2026 · 5 singers"; with decision 4's toggle off, "5 singers" alone (§7.9) |
-| Sings · Songs · Best · Average | `stats.ts` `scoreSummary` minus Worst (decision 2); a duet run is one sing. Best is gold with the holder ("Best · Chiara") |
+| head | the party's name over "17 Oct 2026 · 5 singers", or unnamed its date over "5 singers"; with decision 4's toggle off, no head and no singer count at all: the numbers lead (§4.2, §7.9), while the file name and the `alt` still name the party by its name or date |
+| Sings · Songs · Best · Average | `stats.ts` `scoreSummary` minus Worst (decision 2); a duet run is one sing. Best is gold with the holder ("Best · Chiara"). A count of one takes the singular label, "1 Song" (`stats.ts` `countWord`) |
 | podium, ranking | `sessionLeaderboard(…, "best")`'s order, named on the card ("ranked by best score"); places are competition ranking, so two equal bests are both 1st |
 | score strip | `ScoreStrip`'s content: every score as a grey dot, the best in gold, the median dashed, and "Median N" written above it — not the best, which the numbers above already print with its holder, the way `ScoreStrip` leaves it out under a score summary |
 | spread rows | `groupScores(…, "player")` and `boxStats` per singer, in the ranking's order (§3.3) |
@@ -109,14 +111,12 @@ webfont), so a card looks slightly different on each device. That is accepted.
 - **Cover** (one score only): the cover blurred over the whole card under `--bg` at 70%, the
   content centred. A song without a cover — or whose cover did not load — falls back to Dark,
   and the panel says why.
-- **Mosaic** (party only): a 3×3 grid of the party's covers (3×6 on a story, centred) under
-  `--bg` at **80%**: the covers are sharp, lettering and all, and at 70% they fought the grey
-  labels over them. Even at 80% a cover's lettering showed through the head, the four numbers
-  and the brand line, so behind those two stretches the card is **`--bg` at 100%**, 24 px past
-  their text, fading back to the 80% over 96 px on each side (`MOSAIC_BAND`, the bands worked
-  out from the elements' own regions) — the covers stay sharp behind the podium in the middle.
-  A uniform 88% was tried first: it dimmed the middle and still let the lettering through the
-  grey labels. With fewer than four distinct covers that loaded it falls back to Dark.
+- **Mosaic** (party only): a 3×3 grid of the party's covers (3×6 on a story, centred) under one
+  uniform `--bg` scrim at **84%**, no band and no gradient, so the covers stay visible behind the
+  text as behind the podium. A scrim alone let a cover's lettering through the grey labels, so on
+  a Mosaic every text element and the logo get a **halo**: painted first with `shadowColor`
+  `--bg` at 90%, `shadowBlur` 20 and no offset, twice, then plainly on top (`shadowBlur` holds on
+  WebKit, `ctx.filter` does not), and the `#888` words take `#ccc`. Under four distinct loaded covers it is Dark.
   The podium stands alone on it: no rows, no strip, no spread.
 - Minimal was proposed and dropped: it was Dark with things taken away.
 
@@ -129,7 +129,7 @@ webfont), so a card looks slightly different on each device. That is accepted.
 
 ### 3.3 The chart as the focus (decision 6)
 
-A party card's **Focus** is *Podium* (the default) or *Spread*.
+A party card's **Focus** is *Podium* (the default) or *Spread*, the panel's third slide (§5).
 
 - **Spread** is `SpreadRows` drawn for the card: one row per singer in the ranking's order —
   the name and the quiet count ("Chiara ×5") at the left, the track on the shared 0–10k scale,
@@ -158,7 +158,7 @@ numbers below are what it draws.
 | 576 | the rating word, 44 bold, blue |
 | 660 | a 24 px bar on `--input-bg` with the pink fill over 0–10000, radius 8 (the bar of `LastSong`) |
 | 730–850 | the avatar 120 (radius 20%); the name 48 bold; the place and the others of the sing 36 in `#ccc`. Right: the trophy and *New Highscore* at 40 bold in gold, or `arrow-up` and *Personal best* at 40 bold in blue |
-| 960–1008 | the logo 48 and *Ultrastar Wingman* 28 in `#888`; party · date at 32 in `#888` at the right of the same line |
+| 960–1008 | the logo 48, drawn as it is (a plain `drawImage`, never the grey `source-in` mark), and *Ultrastar Wingman* 28 in `#888`; party · date at 32 in `#888` at the right of the same line. With *Wingman logo* off the logo and the words go, the note stays, and nothing moves |
 
 **Cover** centres everything: the cover up to 300 with a shadow, the title (52 → 44), the
 artist, the score at 200, the rating word with the flag beside it on the same line, then the
@@ -180,7 +180,7 @@ rating 44, the bar, the singer row, and the brand on the safe area's last line.
 
 | y | Region |
 |---|---|
-| 72–190 | the head 56 bold (→ 44, then an ellipsis), one line; "date · N singers" 32 in `#888` |
+| 72–190 | the head 56 bold (→ 44, then an ellipsis), one line, over its sub line 32 in `#888` (§2.2). With *Party name and date* off the region goes and the rest closes up: the numbers, the podium 150 under their top and what is under it 24 below the podium stand as one block, centred between the margin and the brand's line (y 72–936), so no air is left above ranks 4–6. Spread's numbers start at 72, its ranking line and rows moving up with them |
 | 222–331 | four numbers in columns 190 · 190 · 316 · 240 wide: the value 56 bold, the label 32 in `#888`; Best gold with its holder |
 | 372–694 | the podium: 1st in the middle and raised, avatar 180; 2nd and 3rd avatar 140, 60 lower; the pink rank numeral 40 bold before the name 40 (→ 32); the score 44 bold (gold for the best). Two singers stand about the middle, 2nd at the left. Centred in the space when nothing is under it |
 | 722–936 | **either** ranks 4–6 as 56 px rows (the pink numeral, a 48 avatar, the name 40 → 32, the score 40 at the right) plus "+N more" 32, **or** the score strip ("Median N" at 32, a 100 px band of dots r 10 ringed in `--bg`, the best gold with a gold ring r 19, the median dashed 3 px, the gridlines and the axis 3 px, ticks 0 / 5k / 10k at 32) |
@@ -222,15 +222,15 @@ leave its area, for every card kind, format, look and focus over the adaptations
 A panel modal (`docs/dev/ui-guidelines.md` §5) titled *Share this score* or *Share this
 party*:
 
-- the preview, as a real `<img>` of the PNG;
-- **Format** and **Look** as pills;
-- for the party card, **Focus** (*Podium* · *Spread*) and, on a square Dark podium card,
-  **Under the podium** (*Ranking* · *Score strip*);
-- the toggles of §1: other singers' pictures, party name and date, only me and my place;
+- **Format** as two icon-only toggles over the preview;
+- the preview, a real `<img>` of the PNG, as a carousel of the card's designs, swiped, with
+  dots: a score's *Dark* · *Cover*, a party's *Dark* · *Mosaic* · *Spread* (Focus folded in);
+- on a square Dark podium card, **Under the podium** (*Ranking* · *Score strip*);
+- the toggles of §1: other singers' pictures, party name and date, Wingman logo, only me and my place;
 - the buttons at the foot.
 
 `shareCard/possible.ts` says which of those a card can take and, for each it cannot, the
-sentence the panel prints under the disabled pill; `resolve…Options` turns what was asked
+sentence the panel prints in the dimmed slot; `resolve…Options` turns what was asked
 for into what is drawn.
 
 **Buttons by context**, shown only where they work and never greyed out:
@@ -249,8 +249,10 @@ every browser; the specs mark them `[SecureContext]`.
   Safari's `share()` then throws `NotAllowedError`.
 - **A redraw holds the buttons still.** The old picture stays up while the new one is drawn,
   but it is the card of the options before: Share and Copy image are disabled and Save image
-  ignores a press until the new file is there, so a quick tap never sends the wrong card. A
-  redraw that fails takes the old picture and the buttons with it.
+  ignores a press until the new file is there, so a quick tap never sends the wrong card. All
+  three look held while they wait, the word in `--color-darkerer` on `--input-bg` and the
+  primary's fill gone, so a held button never reads as one that went nowhere. A redraw that
+  fails takes the old picture and the buttons with it.
 - **Share the file alone.** A `title` or `text` adds a stray `.txt` to the iOS share sheet.
 - **Errors:** `AbortError` is the user cancelling, so nothing follows. `NotAllowedError` and
   `TypeError` fall back to Save.
@@ -266,7 +268,7 @@ every browser; the specs mark them `[SecureContext]`.
 
 The panel remembers the last format, look and toggles per device (`shareCard/prefs.ts`:
 `localStorage`, wrapped in try/catch, every value checked on its own). That is a per-viewer
-convenience. *Focus* and *Under the podium* start at *Podium* and *Ranking* each time.
+convenience. A *Spread* slide is not remembered, and *Under the podium* starts at *Ranking*.
 
 **Save image** is an `<a download>` on the preview's own object URL, so it needs no URL of its
 own; a share that falls back to Save clicks it. The panel revokes the preview's URL once a
@@ -285,8 +287,9 @@ image), and every URL it holds when it closes or moves to another score.
     where the browser has it, code points otherwise), so a flag or a joined emoji is never
     split;
   - `layout.ts` — the layouts in numbers, as boxes the renderer paints;
-  - `possible.ts` — which looks, focus and under-the-podium choices a card allows, and why
-    not;
+  - `possible.ts` — the carousel's designs in their fixed order (`SCORE_DESIGNS`,
+    `PARTY_DESIGNS`, `partyDesignOptions` turning a party's slide into its look and focus),
+    which of them and of the under-the-podium choices a card allows, and why not;
   - `draw.ts` — `renderCard(request, images) → Promise<Blob>`, the seam for the panel:
     `images` maps each URL the content names (and `LOGO_URL`) to an `HTMLImageElement` the
     caller loaded from Wingman's own origin; a missing or broken one draws as its letter.
@@ -300,9 +303,14 @@ image), and every URL it holds when it closes or moves to another score.
 - The strip and the spread are drawn with Canvas 2D over `chartLayout.ts` (`scoreX`, `swarm`,
   `jitterOf`, `scoreTickLabel`) and `chartTheme`, the screens' own helpers; nothing of the SVG
   components is serialised (§7.2).
-- `icons.tsx` has the `share` glyph. `download` is taken (it means the achievements archive).
-- `components/ShareCardPanel.tsx` — the panel: the chooser of a group's scores, the preview,
-  the pills and the toggles, the buttons. It asks `GET /stats/songs/{id}/scores` for the
+- `icons.tsx` has the `share` glyph and the two formats' `format-square` / `format-story`.
+  `download` is taken (it means the achievements archive).
+- `components/ShareCardPanel.tsx` — the panel: the chooser of a group's scores, the format
+  pills, the carousel of designs (`DesignCarousel`: the slide in view read off the scroll
+  position once it has been still for `SETTLE_MS`, which is one path in every browser —
+  Safari's without `scrollend` included — and an exact answer where an
+  `IntersectionObserver` gives thresholds), *Under the podium* and the toggles, the
+  buttons. It asks `GET /stats/songs/{id}/scores` for the
   flags only for a reader holding `stats.history`, and draws nothing until that read (or its
   failure) and `/auth/me` are in.
 - The entry points: `pages/Scores.tsx`'s session bar (*Share this party*) and
@@ -342,7 +350,7 @@ Settled 2026-10-23 by the orchestrator, in the user's absence. Each can still be
 8. **The http path per platform:** a real iPhone and a real Android phone check is the
    user's. The panel builds both paths: Share where `canShare` says yes, Save image always,
    the long-press hint on touch screens over plain http.
-9. **Party name and date off:** the party card's head is the singer count alone ("5
-   singers"); the story's eyebrow on the score card goes with it.
+9. **Party name and date off:** the party card has no head and no singer count, the four
+   numbers leading (§4.2); the story's eyebrow on the score card goes with it.
 10. **Achievements earned on that sing:** later, since `earned_at` has no `sing_id` to tie a
     badge to a sing.

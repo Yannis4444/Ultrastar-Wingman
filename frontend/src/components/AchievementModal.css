@@ -29,32 +29,40 @@
 
 .achievement-modal-description {
   margin: 2px 0 0 0;
-  font-size: 0.85em;
-  color: var(--color-darker);
+  font-size: 0.9em;
+  color: var(--color-dark);
   overflow-wrap: anywhere;
 }
 
-/* How many hold it: the sentence's own size and color, so it reads as part of
-   what the badge is rather than as the row's own line under it. */
-.achievement-modal-holders {
-  margin: 2px 0 0 0;
-  font-size: 0.85em;
-  color: var(--color-darker);
+/* The facts about the badge — how many hold it, then the day or the bar — set
+   apart from what it is by the 16px gap and the step down in size and colour,
+   never a hairline (ui-guidelines §5). */
+.achievement-modal-meta {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  align-items: center;
+  margin-top: 16px;
   font-variant-numeric: tabular-nums;
 }
 
-.achievement-modal-meta {
-  margin: 10px 0 0 0;
+.achievement-modal-holders,
+.achievement-modal-earned {
+  margin: 0;
   font-size: 0.8em;
   color: var(--color-darker);
-  font-variant-numeric: tabular-nums;
 }
 
 /* A fixed width rather than a share of the column: the column is `max-content`,
    so a percentage here would be a circle — and a bar as wide as a one-word name
-   would read as a mark rather than as progress. */
+   would read as a mark rather than as progress. 8px under the holders line,
+   the group's 4px and these 4px: a bar is a step further from a line of text
+   than one line is from the next. */
 .achievement-modal .achievement-progress {
   width: 240px;
   max-width: 100%;
-  margin-top: 12px;
+}
+
+.achievement-modal-holders + .achievement-progress {
+  margin-top: 4px;
 }

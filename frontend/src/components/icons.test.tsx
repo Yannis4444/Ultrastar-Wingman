@@ -1,4 +1,4 @@
-import { render } from "@testing-library/react";
+import { cleanup, render } from "@testing-library/react";
 import { iconNames } from "../test/icons";
 import { ICON_PATHS, Icon, PICKER_ICON_NAMES, type IconName } from "./icons";
 
@@ -82,8 +82,15 @@ const NOT_PICKABLE: IconName[] = [
   "shuffle",
   "external-link",
   "share",
+  "format-square",
+  "format-story",
   "chevron-down",
   "arrow-up",
+  "brand-spotify",
+  "brand-applemusic",
+  "brand-youtubemusic",
+  "brand-tidal",
+  "brand-deezer",
 ];
 
 test("the picker offers exactly the glyphs that say something about a song", () => {
@@ -117,8 +124,9 @@ test("every subpath is closed, so the nonzero fill has something to fill", () =>
     // cut-outs here were drawn against. `Z` before every `M` and at the end —
     // and before every `m` too: a relative move continues the path just as an
     // absolute one does, so `smile`'s second eye is a subpath of its own and
-    // an unclosed one would leak exactly the same way.
-    expect({ name, closed: d.trimEnd().endsWith("Z") }).toEqual({
+    // an unclosed one would leak exactly the same way. Either case: `z` and
+    // `Z` are the same command, and the brand marks are pasted as published.
+    expect({ name, closed: /[Zz]$/.test(d.trimEnd()) }).toEqual({
       name,
       closed: true,
     });
@@ -179,6 +187,27 @@ test("a link that leaves Wingman has a glyph of its own, out of the picker", () 
   expect(iconNames(container)).toEqual(["external-link"]);
 });
 
+test("the five streaming services each have their mark, out of the picker", () => {
+  const brands = [
+    "brand-spotify",
+    "brand-applemusic",
+    "brand-youtubemusic",
+    "brand-tidal",
+    "brand-deezer",
+  ] as const;
+  // With `github`, the only brand marks there are (ui-guidelines §3).
+  expect(
+    Object.keys(ICON_PATHS).filter((name) => name.startsWith("brand-")),
+  ).toEqual([...brands]);
+  for (const name of brands) {
+    expect(PICKER_ICON_NAMES).not.toContain(name);
+    // Pasted as published on the 24x24 grid, one path like every glyph.
+    const { container } = render(<Icon name={name} />);
+    expect(container.querySelectorAll("path")).toHaveLength(1);
+    expect(iconNames(container)).toEqual([name]);
+  }
+});
+
 test("a picture of scores to send has a glyph of its own, never the archive's", () => {
   // Three discs and the two bars joining them: five subpaths in one `d`.
   expect(ICON_PATHS.share.match(/M/g)).toHaveLength(5);
@@ -189,4 +218,25 @@ test("a picture of scores to send has a glyph of its own, never the archive's", 
   const { container } = render(<Icon name="share" />);
   expect(container.querySelectorAll("path")).toHaveLength(1);
   expect(iconNames(container)).toEqual(["share"]);
+});
+
+test("the share panel's two formats are the two shapes of one outline", () => {
+  const formats = ["format-square", "format-story"] as const;
+  for (const name of formats) {
+    // The outline and its counter-wound inside: two subpaths, one `d`.
+    expect(ICON_PATHS[name].match(/M/g)).toHaveLength(2);
+    expect(PICKER_ICON_NAMES).not.toContain(name);
+    const { container } = render(<Icon name={name} />);
+    expect(container.querySelectorAll("path")).toHaveLength(1);
+    expect(iconNames(container)).toEqual([name]);
+    cleanup();
+  }
+  expect(ICON_PATHS["format-square"]).not.toBe(ICON_PATHS["format-story"]);
+  // The outer contour runs clockwise (its arcs sweep 1), the inside the other
+  // way round (sweep 0), which is what keeps the middle open under nonzero.
+  for (const name of formats) {
+    const [outer, inner] = ICON_PATHS[name].split(/(?=M)/);
+    expect(outer.match(/a3 3 0 0 1/g)).toHaveLength(4);
+    expect(inner.match(/a1 1 0 0 0/g)).toHaveLength(4);
+  }
 });

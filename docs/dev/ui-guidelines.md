@@ -95,9 +95,9 @@ parent's `font-size` (`.icon` is 1em). `gradient` swaps that fill for a two-stop
 gradient the caller colours with `stop-color` (`.playlist-spin` only). Read `ICON_PATHS` before
 adding — `dice` is the five, `dice-1`…`dice-4` and `dice-6` the other faces. Never `heart` for a
 wish (favorites own it), never `star` (the winner accent owns it), never a bare `check` as a
-control glyph. `clock` is "Recent". **`tag` is the tags feature**: the song modal's summary
-strip, the Tags admin entry and its `ManageMenu` row, the tags empty state, the fallback for an
-icon-less tag — so the song details list's **Genre** row takes `music` instead.
+control glyph. `clock` is "Recent". **`tag` is the tags feature**: the song modal's action
+bar, the Tags admin entry and its `ManageMenu` row, the tags empty state, the fallback for an
+icon-less tag — so the song modal's fact line takes `music` for the genre instead.
 
 Glyphs with a fixed meaning; the two playlist families lead, kept apart at a glance. What a tag
 may wear is the picker's list below, never this table.
@@ -105,19 +105,21 @@ may wear is the picker's list below, never this table.
 | Glyph | Means | Drawing note |
 |---|---|---|
 | `playlist-plus` / `playlist-check` · `list-plus` / `list` / `list-check` | wish off / wish on, `playlist-plus` also heading the wishlist · add to playlist / picker row not in it / already in it, `list` also the "Playlists" link | solid bars · bulleted rows |
-| `filter` / `comment` / `drag-handle` / `copy` / `send` / `user-plus` | the Songs Filter chip and its panel · comments: the song modal's summary strip, the sub-view, the empty state · reordering — the grip on a row and, on the Achievements admin, the header control that opens the mode · "Save a copy" of a playlist · submit in the comment composer · add a member, add a person to a tag | solid funnel, a wide bar tapering into a short stem · one rounded speech bubble, tail at the bottom left · six dots in two columns of three · two offset rounded squares, the front one solid · a paper plane, one triangle with the fold cut out · the `user` bust with a plus at its shoulder |
+| `filter` / `comment` / `drag-handle` / `copy` / `send` / `user-plus` | the Songs Filter chip and its panel · comments: the song modal's action bar, the sub-view, the empty state · reordering — the grip on a row and, on the Achievements admin, the header control that opens the mode · "Save a copy" of a playlist · submit in the comment composer · add a member, add a person to a tag | solid funnel, a wide bar tapering into a short stem · one rounded speech bubble, tail at the bottom left · six dots in two columns of three · two offset rounded squares, the front one solid · a paper plane, one triangle with the fold cut out · the `user` bust with a plus at its shoulder |
 | `lock` / `bookmark` / `bookmark-off` / `eye` / `eye-off` / `layers` | kept back: a tag row nobody assigns here (no `assign`), an achievement that is hidden until it is earned — the masked badge and the mark on its admin row are one glyph — and a built-in achievement's conditions, which are Wingman's own · follow / unfollow a playlist, `bookmark-off` also labelling the collapsed *Hidden* group · a player who is shown / one who is hidden in the people admin, and a party in or out of the session picker's list — the pair reads the state, never the action — with `eye-off` alone also standing in for a Filter chip's glyph on *No* · the session picker's row for every session at once | padlock, solid body under a counter-wound shackle so the nonzero fill leaves the hole · ribbon with a notched foot · the same ribbon behind a diagonal bar · an almond outline around a pupil disc, the almond counter-wound so the white of the eye stays open · the same almond behind a diagonal bar · three stacked lozenges, the top one solid and the two beneath it thin bars |
 | `archive` / `flame` / `moon` / `snowflake` / `gift` / `cake` / `child` | a tag for put-away songs, and the Achievements admin's *Import and export* heading — that section is about archive files · for party songs · for slow songs and ballads · tags for christmas: the winter half · presents · a tag for birthdays · for songs for kids | a lid bar over a box body, one notch in the lid · one teardrop tongue, notched at the foot · a crescent as one contour, the rim the long way round and back along the cutting circle — a cut-out cannot do it, the cutting disc has to reach past the rim · three crossed bars, a short fork at each of the six tips · a box under a lid bar, one ribbon band down the middle of the box and a two-petal bow on the lid · a slab on a plate, three candles · a round head over a body, arms out and legs apart, never `user` |
-| `guitar` / `crown` / `film` / `gamepad` / `flag` / `skull` / `sun` / `umbrella` | a tag for rock · for the classics everybody knows · for movies and musicals · for game music · for a language or country, which the song details list's **Language** row takes too · for hard to sing · tags for summer · for rainy songs | two bouts with a waist between them, sound hole cut out of the upper one, neck to the top right · three points over a solid band · an upright strip with a column of sprocket holes down each edge, `video` staying the camera · a lozenge, d-pad cross and two buttons cut out · a triangular pennant on a staff · a cranium over a jaw, the eye sockets and a nose cut out · a disc under eight detached tapered rays, nine subpaths, nothing cut out · a scalloped half-disc canopy over a stem that hooks left at the foot |
+| `guitar` / `crown` / `film` / `gamepad` / `flag` / `skull` / `sun` / `umbrella` | a tag for rock · for the classics everybody knows · for movies and musicals · for game music · for a language or country, which the song modal's fact line takes for the language too · for hard to sing · tags for summer · for rainy songs | two bouts with a waist between them, sound hole cut out of the upper one, neck to the top right · three points over a solid band · an upright strip with a column of sprocket holes down each edge, `video` staying the camera · a lozenge, d-pad cross and two buttons cut out · a triangular pennant on a staff · a cranium over a jaw, the eye sockets and a nose cut out · a disc under eight detached tapered rays, nine subpaths, nothing cut out · a scalloped half-disc canopy over a stem that hooks left at the foot |
 | `beer` / `car` / `plane` / `bolt` / `bell` / `ghost` / `ring` / `graduation-cap` | tags for drinking songs · for road songs · for holidays · for the loud fast ones · for new year · for halloween · for weddings · for school and graduation | a tankard under a three-lobe foam cap, the handle loop counter-wound · a cabin stepped onto a body over two wheel discs, the windows counter-wound · one outline — fuselage, swept wings, tailplane — nose to the top right · a single zigzag contour · a dome on a flared rim over a clapper disc · a dome over a three-lobe hem, the two eyes counter-wound · two concentric circles, the inner one counter-wound, a gem lozenge on top · a rhombus board on a trapezoid cap, a tassel cord down the right |
 | `headphones` / `drum` / `piano` / `rocket` / `anchor` / `tree` / `paw` / `smile` | tags for songs to play rather than sing · for the drum-driven ones · for songs at the keys · for the night's openers · for sea shanties · for folk · for animal songs · for the funny ones | a headband arc, its inner edge counter-wound, and two capsule earcups · a cylinder between two overhanging rim bars, one three-V zigzag band counter-wound out of the shell · a keybed bar over five keys, the four black ones counter-wound out of it · a pointed body between two fins over a flame, the porthole counter-wound · a ring over a shank crossed by a stock, above one curved fluke bar, the ring's hole counter-wound · three stacked triangles on a short trunk · a pad disc under four toe discs, five subpaths, nothing cut out · a disc with two eyes and a crescent mouth counter-wound out of it |
-| `hash` / `music` / `arrow-up` / `average` / `arrow-down` · `trophy` | a score summary's five numbers, in that order — sings, songs, best, average, worst · the best score as a thing to open: the §5 summary strip's gold button, never a number inside a score summary | two upright bars crossed by two horizontal ones · one contour, a note head under a flagged stem · one solid contour, a shaft behind a triangular head, and the same mirrored · a ring struck corner to corner by a bar · a cup between two handles over a stem and a foot bar. The reorder pair on a playlist or achievement row is `arrow-up` / `arrow-down` doing a job, not a second meaning. None of them is pickable — a number is not a thing a song is about — `music` excepted: it is in the picker already, meaning genre, and wears this second meaning only inside a summary; `trophy` stays out with `clock`, `globe`, `star` and `tag` |
+| `hash` / `music` / `arrow-up` / `average` / `arrow-down` · `trophy` | a score summary's five numbers, in that order — sings, songs, best, average, worst · the best score as a thing to open: the §5 action bar's gold button, never a number inside a score summary | two upright bars crossed by two horizontal ones · one contour, a note head under a flagged stem · one solid contour, a shaft behind a triangular head, and the same mirrored · a ring struck corner to corner by a bar · a cup between two handles over a stem and a foot bar. The reorder pair on a playlist or achievement row is `arrow-up` / `arrow-down` doing a job, not a second meaning. None of them is pickable — a number is not a thing a song is about — `music` excepted: it is in the picker already, meaning genre, and wears this second meaning only inside a summary; `trophy` stays out with `clock`, `globe`, `star` and `tag` |
 | `pause` / `skip` / `volume` | the background music's transport on the player and in the host screen's overlay, and `volume` labelling the **Sound** settings group and the `music` permission group | two upright bars at `play`'s own height · `play` again with the bar it runs into · a speaker cone under two arcs. None of the three is pickable: pausing is not a thing a song is about, and `volume` is doing a job in the two places it labels, the way `tv` labels the Host group |
 | `fullscreen` / `fullscreen-exit` | the host screen's full-screen control: enter, and while in full screen leave | four corner brackets at the edges of the square, corners pointing out · the same four with their corners pointing in towards the middle. Neither is pickable |
 | `upload` / `download` | the Achievements admin's two archive buttons: one in, one out | `download` mirrored — the same shaft, arrowhead and tray bar, the arrow coming up out of the bar instead of down into it. Neither is pickable: an archive is not a thing a tag or an achievement is about |
-| `trash` · `share` / `external-link` / `shuffle` | removing for everybody: an account or a player in the people admin, a comment, a song off the wishlist (the wishlist tile, the Random song page), `close` staying the reader's own take-back · a picture of scores to send: the party bar's button, an open score group's *Share a score*, the share panel's **Share** · a link that leaves Wingman: the song modal's *Open in a streaming service* row and every service behind it · *Shuffle again* beside the Songs sort while it is *Random* | `trash` as drawn · three discs, one at the left middle and two at the right top and bottom, joined by two bars, never `upload`'s arrow out of a tray, which is the archive · a square outline open at its upper-right corner, an arrow leaving through the gap to the top right · two arrows running left to right, crossing once, heads at the right. None is pickable, and the dice never stand in for `shuffle`: they are the reel's |
+| `trash` · `share` / `external-link` / `shuffle` | removing for everybody: an account or a player in the people admin, a comment, a song off the wishlist (the wishlist tile, the landed song on the Random song page and in *Spin on the host screen*), `close` staying the reader's own take-back · a picture of scores to send: the party bar's button, an open score group's *Share a score*, the share panel's **Share** · a link that leaves Wingman: the song modal's *Open in a streaming service* button and every service behind it · *Shuffle again* beside the Songs sort while it is *Random* | `trash` as drawn · three discs, one at the left middle and two at the right top and bottom, joined by two bars, never `upload`'s arrow out of a tray, which is the archive · a square outline open at its upper-right corner, an arrow leaving through the gap to the top right · two arrows running left to right, crossing once, heads at the right. None is pickable, and the dice never stand in for `shuffle`: they are the reel's |
 | `card` | the player selector device: the *Player selector* entry of the manage menu, the admin page's device rows, and the `devices` permission group | a card lying on its side, 20 by 12 with a corner radius of 2, its chip counter-wound out of the upper left. Wider and rounder than `tv`'s case, and the chip sits off centre where a bank card carries one. Not pickable: a card is not a thing a song is about |
-| `thumbs-up` / `hourglass` / `balloon` / `dumbbell` / `tv` | tags for the crowd-pleasers · for the long ones · for carnival · for the gym set · for series and anime — labelling the Host settings group is a job, not a meaning | a fist block with the thumb up over a separate cuff bar · two triangles meeting at the waist between two cap bars · a teardrop bulb over a short zigzag string · a bar between two pairs of stacked plates · a rounded case, the screen counter-wound, on a stand bar |
+| `format-square` / `format-story` | the share panel's two formats, 1080×1080 and 1080×1920 | a rounded square outline 16 by 16, two units thick, its inside counter-wound · an upright outline 10 by 18 (the story's 9:16) with the same stroke and corner radius, so the pair reads as the two shapes of one picture. Neither is pickable |
+| `brand-spotify` / `brand-applemusic` / `brand-youtubemusic` / `brand-tidal` / `brand-deezer` | the five services in *Open in a streaming service*, each before its name, never alone | from Simple Icons (CC0, no attribution): the 24×24 `d` string as published, checked under the nonzero rule `Icon` draws with — a hole that closes is re-wound, never given a `fill-rule`. Monochrome in the row's `--color-dark`, never the service's colour, which no token carries (§2); with `github` the only brand marks. None is pickable |
+| `thumbs-up` / `hourglass` / `balloon` / `dumbbell` / `tv` | tags for the crowd-pleasers · for the long ones · for carnival · for the gym set · for series and anime — labelling the Host settings group and *Spin on the host screen*, the square beside SPIN (§7), are jobs, not meanings | a fist block with the thumb up over a separate cuff bar · two triangles meeting at the waist between two cap bars · a teardrop bulb over a short zigzag string · a bar between two pairs of stacked plates · a rounded case, the screen counter-wound, on a stand bar |
 
 The **icon picker** (tag editor) offers `PICKER_ICON_NAMES`, an allowlist in `icons.tsx` — the
 glyphs that say something about a *song*, in this order: `users`, `alert`, `archive`,
@@ -252,41 +254,51 @@ panel holds (the party picker's *show all*), never for a row's own action.
 
 - **Bare modal** (`bare` + `hideTitle`) — the song modal (`SongDetails`), its sub-views, and the
   achievement modal (`AchievementModal`), which has its own bullet below.
-  Structure: hero (`.song-hero`: cover, title 1.15em, artist 0.85em `--color-darker`) → optional
-  preview `<audio>` → the song controls row → option rows (`.song-option`, 44px, hairline
-  `border-top`: icon, label in `--color-darker`, optional accent value, chevron) → the summary
-  strip. A collapsed row points `chevron-right`; one expanding inline swaps to `chevron-down`
-  with `aria-expanded` — never rotate the glyph.
-- **The summary strip** (`.song-summary`) closes the modal: a centred flat row of at most three
-  buttons, each an `IconStat`-shaped glyph over its number, each opening the sub-view it counts
-  — `trophy` (gold) with the best score, `tag` with the tags this reader sees on the song,
-  `comment` with the comments. `trophy` needs a score to exist; the other two stand at zero,
-  because tagging a song and being the first to say something are exactly what they lead to, and
-  `tag` goes only when the reader may neither see nor set a single tag. The strip counts, the
-  rows above it hold content and actions: **Details** and **Add to playlist** stay rows, neither
-  having a number to show.
+  The song modal (what a song row and the Home stage's cover open), by weight, in **two bands of controls**
+  and no list of labelled rows: the hero (`.song-hero`: cover, title 1.15em, artist 0.85em `--color-darker`)
+  and its fact line → optional preview `<audio>` → the song controls row (§4), Sing its one primary → the
+  action bar → the fine print. Sub-view rows are `.song-option` (44px, hairline `border-top`, icon, label, chevron).
+- **The fact line** (`.song-facts`), 8px under the artist, is the details as data: a centred
+  `flex-wrap` line, 12px apart, each fact a glyph (1em, `--color-darker`) beside its value (0.85em
+  `--color-dark`) and a `visually-hidden` name: `flag` language, `music` genre, `calendar` year,
+  `disc` edition. A value longer than 11em (about 150px) is cut short with an ellipsis (§1.11),
+  its whole self in the fact's `title`, so one long genre or edition cannot take a line of its
+  own; a long genre and a long edition together still fit two lines at 360px. No value, no fact (never "unknown"), no duration (§1.5). For `songs.edit` or
+  `songs.delete` it ends in a 40px `pencil` `.icon-button`, *Edit details*; with neither it is not
+  drawn. An 8px negative margin keeps the pencil from making its line 40px tall, and the line's
+  rows are 8px apart (`row-gap`), so on a line of two its box lands in the gap and never on the
+  facts above or below it. The **fine print** ends the modal 16px under the action bar: one centred 0.8em
+  `--color-darker` line, creator and source, "Made by DrFrank · usdb:24435", a missing half
+  dropped with its dot, `overflow-wrap: anywhere`.
+- **The action bar** (`.song-actions`): one centred flat row under a hairline `border-top`,
+  `margin: 0 16px`, wrapping, `align-items: center`. First the counts, each a 64×56 button,
+  glyph (1.4em) over number (0.85em), opening what it counts — `trophy` (gold) with the best
+  score, `tag` with the tags this reader sees, `comment` with the comments — then, 16px on, the
+  errands as 40px `.icon-button`s: `list-plus` *Add to playlist* (`playlists.manage`, with an
+  account), `external-link` *Open in a streaming service* (everybody). Each has `aria-label`
+  and `title`, a count's with its number ("Comments, 3"). `trophy` needs a score (and
+  `stats.history`); `tag` and `comment` stand at zero, the first tag or comment being what they
+  lead to, and `tag` goes only when the reader may neither see nor set a single tag.
 - **Sub-views** replace the modal body, the header's close acting as back: Best scores, Add to
   playlist, Open in a streaming service, Tags, Comments, Edit details, Player selection, and Add
-  songs (same mechanism, from the playlist page). Row order: Details, Add to playlist, Open in a
-  streaming service, Edit details. **Open in a streaming service** (`external-link`, every reader)
-  is a row, the controls row having no slot; its sub-view is one `.song-option` per service, Spotify,
-  Apple Music, YouTube Music, Tidal, Deezer, the name in text (no logos, §1.8) and a trailing
+  songs (same mechanism, from the playlist page), each opened by the button that names it.
+  **Open in a streaming service**'s sub-view is one `.song-option` per service, Spotify,
+  Apple Music, YouTube Music, Tidal, Deezer, its `brand-*` mark (§3; a pasted path is no dependency, §1.8) before the name and a trailing
   `external-link` where a chevron would promise a view inside: each a plain `<a>` to the service's search
-  for title and artist, `target="_blank" rel="noopener noreferrer"`, under one `.section-note`,
-  *Each one searches for this song.* Inside
+  for title and artist, `target="_blank" rel="noopener noreferrer"`, with no note over them. Inside
   Tags, an assignable tag is a toggle row (`aria-pressed`), any other — one nobody assigns here
   — a `lock` row. **Add to playlist** gives `playlists.manage` holders one `aria-pressed` row
   per playlist they may edit (state from the listing's `contains` flag, not a fetch per row) and
-  a "New playlist…" row (`plus`). **Edit details** (`pencil`) is the last row and the one place
+  a "New playlist…" row (`plus`). **Edit details** (the fact line's `pencil`) is the one place
   a song is changed at all — everything the party's helpers do to it, in one errand rather than
   a row each. It carries the details as labelled quiet inputs in their own order — title,
   artist, Language, Genre, Year, Edition — one primary Save, `.song-details-notice` for what the
   backend refused, and at the foot, held off the form's rhythm, a `.button-danger` **Delete
   song** (`songs.delete`) through a `ConfirmModal` that names the song and says the files go
-  with it. Nothing on the way there is red (§1.6). The row appears for `songs.edit` or
+  with it. Nothing on the way there is red (§1.6). The pencil appears for `songs.edit` or
   `songs.delete`; a reader holding only the second finds the fields disabled over the line
   saying why and the button live, an editor nobody may edit being the rarer half of a pair the
-  permission matrix allows and not worth a second row.
+  permission matrix allows and not worth a second button.
 - **Comment rows**, oldest first: 40px `PlayerAvatar` · username with a relative time (0.85em
   `--color-darker`) on one line · the body underneath, `overflow-wrap: anywhere` · a trailing
   `.icon-button-danger` `trash` for the author and `comments.moderate`, through `ConfirmModal`
@@ -297,12 +309,12 @@ panel holds (the party picker's *show all*), never for a row's own action.
   wants the page behind it darkened and blurred, not a tile drawn around it. In order: the
   badge at the song hero's cover size (200px, `max-width: 60vw`), asking the icon endpoint for
   `?size=full` through a prop naming the picture's **resolution** — never its size on screen,
-  which stays the parent's `font-size` (§3); the name at 1.15em; the description at 0.85em in
-  `--color-darker`; under it, at the same size with tabular numbers, how many players hold it —
-  *Earned by 3 players*, *Earned by 1 player*, *Nobody has earned this yet* — a line the
-  modal alone carries, never the user page's rows or the admin's (§1.3); then the one line the
-  row already carries — "Earned 12 Aug 2026", or the
-  progress bar over its "7 / 10". A **masked** one shows the `lock` badge over the stand-in
+  which stays the parent's `font-size` (§3); the name at 1.15em; the description at 0.9em in
+  `--color-dark`; then, 16px under it and set apart as facts by that gap and the step down (no
+  hairline), the meta group, 4px between lines, each 0.8em `--color-darker`, tabular: how many
+  players hold it — *Earned by 3 players*, *Earned by 1 player*, *Nobody has earned this yet*,
+  a line only the modal carries (§1.3) — then the row's own line, "Earned 12 Aug 2026", or the
+  progress bar over its "7 / 10" (8px under). A **masked** one shows the `lock` badge over the stand-in
   name and sentence and no bar and no holders line at all: a modal is a bigger place to say the same nothing,
   never a way around the masking. One with **no picture** shows its glyph plate at that same
   size — a glyph badge across half the screen is still the badge. What opens it is a
@@ -321,8 +333,8 @@ panel holds (the party picker's *show all*), never for a row's own action.
   first's idiom — a head, the middle, and a foot of buttons with one primary: the picker's foot
   is `.button`s, the spin view's is the gradient `SpinButton` (*Show it* while the TV spins,
   *Spin again* after) over a `.button-primary` Play and a quiet Cancel, and its middle is the
-  reel's `LogoTile` swapping to the song's cover on the reveal, the title and artist under it,
-  the way the Random song page stands. A fullscreen
+  reel's `LogoTile` swapping to the song's cover on the reveal, the title and artist under it
+  with the wishlist take-off beside them (§7), the way the Random song page stands. A fullscreen
   modal that holds no lock is a §6 route. A backdrop click closes any modal; Escape and the Tab
   trap belong to the topmost one alone (`Modal` keeps a stack), and closing restores the
   opener's focus. **Confirmations always use `ConfirmModal`** (`window.confirm` is banned):
@@ -391,10 +403,10 @@ saved) where a jump to the top would throw away the place they were working in.
   matches *Any* alone: no "No year" option, a gap in the metadata is not a decade. A facet off
   *Any* counts towards "Filter · N" like a tag. The list behind follows every change at once,
   Done only closes; Reset puts every chip back on its default, a `hide_by_default` tag on *No*.
-  **The order** is one quiet `<select>` in the count row under the chips (the count, *Sort* beside its
-  select in the Scores page's labelled shape, `min-width: 0` so it shrinks before a 360px row
-  overflows, rescan, add; under 380px the word *Sort* is visually hidden, staying the select's
-  name, because a four-digit count with *Shuffle again* left "Random" clipped to "Randc"),
+  **The order** is one quiet `<select>` in the count row under the chips, with no word beside it:
+  its options say what they are, and `aria-label="Sort"` on the select names it. The row reads
+  the count (0.85em `--color-darker`), the select (`min-width: 0`, so it shrinks before a 360px
+  row overflows), *Shuffle again* while *Random*, rescan, and add at the far end, 8px apart;
   never in the sticky toolbar, which is the
   search alone. Options, in the USDB page's words: *Artist A to Z* (default, then title), *Title A
   to Z*, *Year, newest first*, *Year, oldest first* (no year last either way), *Recently added*
@@ -436,16 +448,21 @@ saved) where a jump to the top would throw away the place they were working in.
   option the reader has nothing in is `disabled`, and the caption still says what the chosen
   pool holds. A fixed pool — a playlist's reel — drops the select and keeps the caption. Only
   *All songs* is filtered by the `hide_by_default` tags: a favorite, a wish and a playlist are
-  the reader's own choice, and hiding what they asked for would be a bug. Under SPIN, for
-  `karaoke.sing` and only with something to land on, one quiet `.button` *Spin on the host
-  screen* — never the gradient, never a second dice: SPIN stays the page's gesture, and the reel
-  it opens runs on the TV, the room's, while the phone (`HostSpin`, §5) shows the reel's logo
+  the reader's own choice, and hiding what they asked for would be a bug. The caption stays
+  under the select: SPIN and the host square draw from the same pool. The column ends in **one
+  action row**: SPIN (`flex: 1`, the one primary) and, 8px beside it for `karaoke.sing`, *Spin on
+  the host screen* as a 56px square icon-only button: `tv` 1.5em `--color-dark` on `--input-bg`,
+  SPIN's hairline and radius, the words as `aria-label` and `title`, disabled as SPIN is (the reel
+  running, nothing to land on), never the gradient, never a second dice. Its reel runs on the TV while the phone (`HostSpin`, §5) shows the reel's logo
   tile until the TV lands and the cover after it, the title and artist under them, over the
-  gradient die — the one place off this page it stands — Play and Cancel. On the two wishlist
-  pools, once the reel lands on a song still wished for, `wishlist.manage` adds one quiet `.button`
-  under the host one (or under SPIN), so SPIN never moves: `trash` and *Take off the wishlist*, the
-  wishlist tile's take-off for everybody, no confirmation as there. Pressed, it goes, the result
-  stays and the caption follows the smaller pool. Never on a playlist's reel.
+  gradient die — the one place off this page it stands — Play and Cancel. **A wish comes off
+  beside the song**: the result is a `40px 1fr 40px` grid, the `.spinner-winner` button (title over
+  artist) the middle cell and the take-off its sibling, never inside it. On the two wishlist pools,
+  once the reel has landed on a song still wished for, `wishlist.manage` puts the wishlist tile's
+  `trash` `.icon-button-bordered` in the right cell (*Take <title> off the wishlist for everybody*,
+  no confirmation). Pressed, it goes, the result stays and the caption follows the smaller pool.
+  `HostSpin` asks the same in its own terms (`spin.scope` `wishlist` or `weighted`, `selection.song`
+  still wished, `wishlist.manage`, revealed) and draws the grid inside `.host-spin-words`' reserved height. Never on a playlist's reel.
 - **Tags admin** (`/user/tags`, a `ManageMenu` entry gated on `tags.manage`): rows of the 40px
   coloured glyph square, the name, a meta line "N songs · hidden by default · shown in list" and
   a chevron; the header `+` opens `/user/tags/new`. Under them an `h2` *Built-in* over eight
@@ -619,21 +636,40 @@ saved) where a jump to the top would throw away the place they were working in.
   two. Both confirmations stand over the panel rather than instead of it, so cancelling comes
   back to the players; its title and the pencil's label cover the pair, a panel that also
   deletes not being "Who sang this?" alone. The number and the song are never editable — a
-  wrongly picked singer is the mistake this fixes. An open group ends, in its tile under its scores,
-  in one centred plain `.button`, `share` and *Share a score*, placed like `.delete-row` but never
-  that danger class; one per group, never per row. Ungrouped rows never unfold, so share nothing.
+  wrongly picked singer is the mistake this fixes. An open group's scores start with one plain
+  `.button`, `share` and *Share a score*, right-aligned on a line of its own, 12px under the summary
+  and its chart and 8px over the first score — the tile's first line where a one-score group has
+  no summary; never the danger class; one per group, never per row. Ungrouped rows never unfold, so share nothing.
 - **Share cards** ([share-cards.md](share-cards.md) is the design) open from those two buttons into
   one panel modal, *Share this score* or *Share this party*, its header the heading and the close
   alone. *Share a score* on a group of several first lists its scores as the group draws them, best
   first, each a `<button>` with a trailing `chevron-right` (a choice, never `PickerRow`'s membership
-  mark); the row tapped becomes the card, the close going back to the list. Then: the preview, a real `<img>` of the PNG at the panel's width under
-  `max-height: 50vh` (`object-fit: contain`, an `alt` saying what it shows), `Loading` for the
-  first draw and the old picture kept through a redraw; *Format* (*Square* · *Story*), *Look*
-  (*Dark* · *Cover*, or *Dark* · *Mosaic*), the party's *Focus* (*Podium* · *Spread*) and, on a
-  square Dark podium card, its *Under the podium* (*Ranking* · *Score strip*) as §4's pills, a
-  look the card cannot draw disabled over a `.section-note` saying why;
-  the toggles as `CheckOption` checkboxes, three that all fit (§4): *Other singers' pictures*,
-  *Party name and date*, the party's *Only me and my place*. The foot is §5's `flex: 1 1 0` row of
+  mark); the row tapped becomes the card, the close going back to the list. Then, in order:
+  **Format** as two icon-only §4 pills centred over the preview, 40×40, `format-square` and `format-story`
+  (1.25em) named by a `visually-hidden` *Square* / *Story*. **The designs are a carousel**, one slide
+  each in a fixed order — a score's *Dark* · *Cover*, a party's *Dark* · *Mosaic* · *Spread* (the
+  focus folded in: the spread is drawn on Dark alone, so look and focus are one choice) — a
+  `scroll-snap-type: x mandatory` row, `overscroll-behavior-x: contain`, slides 84% of the panel's
+  width, centred, 8px apart, so a neighbour peeks in at each edge. A story slide is as wide as its
+  box, `min(84%, 50vh × 9 ÷ 16)`, never wider: half the screen tall at 9:16 is narrower than 84%,
+  and a picture centred in a wider slide kept the neighbour out of sight. In each slide a box
+  `min(width ÷ the card's ratio, 50vh)` tall, one height for every slide of a format, holds the real
+  `<img>` of its PNG (`object-fit: contain`, an `alt`), or `Loading` until drawn; only the slide in
+  view and its neighbours are drawn, each cached per option set, the old picture kept through a
+  redraw. A design the card cannot draw keeps its place as a **dimmed slot**: the box on `--input-bg`,
+  the design's name and `possible.ts`'s sentence centred in 0.85em `--color-dark`. Under it a 40px
+  row: `chevron-left` / `chevron-right` `.icon-button`s (*Previous design* / *Next design*, disabled
+  at the ends) around one 8px dot per slide, `aria-hidden` decoration and never a control
+  (`--highlight-blue-light` in view, `--color-darkerer` else, a dimmed slot's a hairline ring), the
+  design's name under it in 0.85em `--color-dark`. Arrows and ←/→ on the carousel (`tabindex="0"`,
+  `aria-roledescription` *carousel*, slides named "Mosaic, 2 of 3") scroll smoothly, and jump under
+  reduced motion. The slide in view **is** the choice the buttons send and the panel remembers
+  (*Spread* excepted); a dimmed slot has no picture, so there they hold still as through a redraw
+  (share-cards §5), each drawn as held: the word in `--color-darkerer` on `--input-bg`, the
+  primary's fill given up as `SpinButton`'s is. *Under the podium* is §4's pills under the name,
+  its row on every party slide so a swipe moves nothing (`underNote`'s sentence in its place off a square Dark podium); then one column
+  of `CheckOption`s: *Other singers' pictures*, *Party name and date*, *Wingman logo* (on), the
+  party's *Only me and my place*. The foot is §5's `flex: 1 1 0` row of
   what works in this browser, never a greyed button: **Share** (`share`, the primary) where
   `navigator.canShare({files})` says yes, **Copy image** where `ClipboardItem` exists, **Save
   image**, primary where Share is absent; on plain http a touch screen also reads *Press and hold
@@ -682,17 +718,17 @@ saved) where a jump to the top would throw away the place they were working in.
   `--bg`, the white QR card its one tile and the selection cards its one other surface. It is
   also the **one screen that makes sound**: `MusicSink` is mounted in `App.tsx` rather than
   here (the host walks from `/host/manage` into `/settings` and `/user/*`, and a sink under a
-  page would stop the music mid-song) and plays only for `auth.isHost`. `HostBrand` gains one
-  quiet line under the scan hint naming the background song, drawn only where `scan` is true
-  so the between-singers beat stays bare; it is content, not a control, so it is **not** in
-  the reveal-on-movement overlay and adds no second idle timer. *Turn on sound* is not in the
+  page would stop the music mid-song) and plays only for `auth.isHost`. **The music line**
+  (`.host-music-line`, the page's own, fixed at the foot of the whole screen and centred on it) names
+  the background song outside the takeovers: content while `playing`, never fading with the chrome
+  (while `paused` it is chrome, below). *Turn on sound* is not in the
   overlay for the same reason — `.host-controls` is invisible the moment the mouse stops, which
   on a TV is always — and not in `.host-rail` either, which is down while the room picks
   singers: `.host-sound-on` is a large primary fixed at the bottom centre of the screen
   (`bottom: 8vh`, over everything, above the music line), pulsing outside reduced motion,
   because a browser that plays nothing until somebody clicks is a fault the whole room has to
   see from the sofa.
-  Controls reveal on pointer movement through the page's single `useIdle` mechanism — never add a second idle timer.
+  **The chrome is two groups**, revealed on pointer movement and faded together by the page's single `useIdle` — never a second idle timer: the screen's at the top left (`.host-controls`), the music's at the foot (`.host-music`, its two cells `.host-reveal`, held up and let go of as the top left is).
   The full-screen button is one of them, in `.host-controls` so a takeover never takes it down,
   and stays there in full screen as the way out: a host with a mouse alone has no Esc. Keyboard focus
   holds the overlay up (`:has(:focus-visible)`), a click's focus does not: a control a click focused
@@ -700,25 +736,34 @@ saved) where a jump to the top would throw away the place they were working in.
   holding one lets go when the chrome fades, because any later key, Esc out of full screen among
   them, would turn that focus visible. The overlay runs, wrapping (`flex-wrap`) rather than leaving
   the screen: gear, full screen, one slot that is **Stop** while a sing runs and **Ultrastar Deluxe**
-  otherwise (the launch is refused while a song plays), the music's transport, the host-rights line.
+  otherwise (the launch is refused while a song plays); under that row the host-rights line, then the legend.
   *Ultrastar Deluxe* (`settings.manage`, the launch route's right) is a `.button` with `RunUsdxRow`'s
   `power` and the word, a power glyph alone on a TV reading as switching it off (§1.5), then one
   visible caption in the host-rights line's quiet 14px, *For settings like microphones*, the short
   label that says why a host opens it. Its window coming to the front is the acknowledgement; a
-  refusal is one more `.host-error` in `explainUsdxProblem`'s words. The transport (`music.control`) takes the gear's 40px `.icon-button`s, not the tile's
-  `.song-control-transport`, the overlay being the mouse's chrome and not content for the sofa:
-  play/pause and skip while the music is on and its own (`music.hasTransport`: `playing`,
-  `paused`, `waiting`, `empty` — never `blocked`, where beside the red Stop they read as the
-  sing's), then `volume`, the master `.range-input` (§4) and its tabular number, which stand
-  whatever the status. A key whose control is not drawn is ignored.
+  refusal is one more `.host-error` in `explainUsdxProblem`'s words. **The music group**
+  (`music.control`) is one 40px row at the music line's `bottom`, columns `minmax(var(--host-music-side),
+  1fr) minmax(0, auto) minmax(var(--host-music-side), 1fr)` (the volume cell's width), 24px gaps, so the
+  line in the middle stays centred and ellipses first: the left cell ends in play/pause and skip, the
+  right starts with `volume`, the master `.range-input` (§4) and its tabular number, all the gear's
+  40px `.icon-button`s. The transport stands while the music is its own (`music.hasTransport`:
+  `playing`, `paused`, `waiting`, `empty`, never `blocked`); while `paused` the line names the paused
+  track with the chrome, in `--color-darkerer`, beside the play it resumes. The volume always stands:
+  during a sing and with the music off it is the row alone, centred. In a takeover, whose foot is the
+  cards' and the badges', the group without the line moves to the top right the rail has left,
+  `.host-controls` keeping to the other half. The page reserves `max(40px, var(--host-music-line-height))`
+  at its foot whenever either is drawn; under 1101px both take their place in the flow. A key whose control is not drawn is ignored.
   **Keyboard shortcuts**, on `/host` alone: `Space` or `K` play/pause, `N` skip,
   `ArrowUp` / `ArrowDown` master volume by 5 (a held key repeats, one write per pause), `F` full
   screen where its button is drawn; each `preventDefault`s, none takes Esc (full screen and `Modal`
   own it). A press with Ctrl, Alt or Meta, from an input, select, textarea, button, link or
   editable element, or while any modal is open (`Modal`'s `openModals`, exported for it from `modalStack.ts`) is ignored. A shortcut moves no focus: `useIdle`
   already wakes on `keydown`, so the overlay shows the change and fades as usual. Each control
-  names its key in its `title` (*Pause (K)*) and `aria-keyshortcuts`; no hint line, one more
-  standing string on a TV. Verify at 1280×720 and up,
+  names its key in its `title` (*Pause (Space)*) and `aria-keyshortcuts`, and **the legend** says
+  them while the chrome is up, takeovers too (both stages are centred columns, clear of the corners): one 14px `--color-darker` line, each key a `<kbd>` (13px
+  `--color-dark` on `--input-bg`, the hairline, `0 6px` padding, half `--border-radius-small`)
+  before its word, 16px between entries — `Space` Play or pause, `N` Skip, `↑` `↓` Volume, `F`
+  Full screen — listing only keys whose control is drawn. Verify at 1280×720 and up,
   and re-check it after touching any shared component (`CurrentlyPlaying`, `LastSong`,
   `SongCover`, `SessionLeaderboard`). `LastSong` takes the same score summary as the phones,
   in the naming column beside the cover and under the artist line, wrapping there instead of
@@ -739,7 +784,7 @@ saved) where a jump to the top would throw away the place they were working in.
   the same proportion, and the whole `--badge` ladder up one rung, the row of four taking
   today's one-badge `clamp(34px, 6.4vh, 74px)` and the rows of one to three keeping the lead
   they hold over it today, `--column` and the gaps widening with them. Under each description, the
-  modal's holders line (§5) at the description's size, counting the singer, so one holder reads *First to earn it*.
+  modal's holders line (§5), counting the singer so one holder reads *First to earn it*, set apart by a gap of `calc(var(--badge) * 0.28)` (no hairline on a TV), in `--color-darker` at `max(16px, calc(var(--badge) * 0.38))`.
   **Picking singers is the second takeover** (the user's request, 2026-09-06): while
   `HostSelection` reports `selecting` the rail is down the same way, and the block keeps
   reporting it underneath the badges that outrank it, so the code does not come back for the
@@ -751,10 +796,13 @@ saved) where a jump to the top would throw away the place they were working in.
   never a line of its own and never a card, because the head's height is budgeted to that line
   and a line added under it pushed the cards off the stage — over **one card per slot** along
   the foot (capped at 26vh wide, the rest of that budget), in the host's order
-  and sharing the width: an outline in the slot's own hex, the avatar above the name, and for
-  a slot nobody is on the card filled with that same colour 25% into `--bg` under a
-  placeholder a step lighter, saying *empty* or *Unknown card* in `--color-dark`
-  (`--color-darker` is 2.7:1 on the darkened yellow, §1.6's reasoning). The cards are the one
+  and sharing the width: an outline in the slot's own hex over that same colour 18% into
+  `--bg`, taken or not, the avatar above the name. A card nobody owns lying on a slot is the
+  full card under a placeholder a step lighter (32%), saying *Unknown card*; a slot nobody is
+  on is a **short box** along the foot of the row (`clamp(40px, 6.5vh, 76px)`), its colour and
+  the word *empty*, that grows into the card the moment somebody takes it, so the free slots
+  are told apart at a glance (2026-09-06, `player-selector.md` §7). Both words are in
+  `--color-dark` (`--color-darker` is 2.7:1 on the darkened yellow, §1.6's reasoning). The cards are the one
   sanctioned departure from §1.1. A spin a **phone** started draws no row at all and centres
   the head in the stage (the slots are the picker's, the next screen); the selector's spin
   keeps the cards, and counts down once the reel has landed. The song plays the way the

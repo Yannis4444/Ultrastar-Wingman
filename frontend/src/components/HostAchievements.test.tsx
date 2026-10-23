@@ -153,10 +153,13 @@ test("under each description, how many hold it with the singer counted", async (
     "Earned by 2 players",
     null,
   ]);
-  // Under the description, where there is one.
-  expect(
-    document.querySelector(".host-achievement-holders")?.previousElementSibling,
-  ).toHaveClass("host-achievement-description");
+  // Under the description, where there is one — its own line, never part of
+  // the sentence (ui-guidelines §7).
+  const first = document.querySelector(".host-achievement-holders");
+  expect(first?.previousElementSibling).toHaveClass(
+    "host-achievement-description",
+  );
+  expect(first?.previousElementSibling).not.toHaveTextContent("First to earn");
 });
 
 test("six badges are two rows: the first four, then the rest", async () => {

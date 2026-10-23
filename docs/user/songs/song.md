@@ -4,14 +4,37 @@ Tapping a song anywhere in Wingman opens the same view. That works from the song
 list, from the wishlist, from a playlist, from the reel, and from the cover of
 the song playing right now.
 
-At the top stand the cover, the title, and the artist. Under them sits an audio
-preview, so you can hear which version this is before the room does. A song
-whose folder holds no audio has no player.
+At the top stand the cover, the title, and the artist, with what the song says
+about itself on one line under them. Then comes an audio preview, so you can
+hear which version this is before the room does. A song whose folder holds no
+audio has no player.
 
-![The song view for I Got You Babe, with the cover, the three buttons, the rows under them, and the summary strip](../assets/screenshots/songs/song.png){ width="320" loading=lazy }
+![The song view for I Got You Babe, with the cover, the facts under the artist, the three buttons, and the action bar under them](../assets/screenshots/songs/song.png){ width="320" loading=lazy }
 /// caption
-The three glyphs at the foot count the best score, the tags, and the comments.
+The glyphs with numbers count the best score, the tags, and the comments.
 ///
+
+## What the song says
+
+The line under the artist holds up to four facts, each after its own glyph:
+
+| Glyph | Fact |
+|---|---|
+| :wingman-flag: | The language |
+| :wingman-music: | The genre |
+| :wingman-calendar: | The year |
+| :wingman-disc: | The edition |
+
+A fact the file does not name is left out. A song that names none of them
+shows no facts. A very long genre or edition is cut short.
+
+For the party's helpers, the line ends in :wingman-pencil: **Edit details**. It
+corrects what the song says about itself, and **Delete song** at the foot of
+that form takes the song out of the library. See
+[Fix or delete a song](fix-or-delete.md).
+
+The small line at the very foot of the view says who built the karaoke file and
+where the song came from, such as "Made by DrFrank · usdb:24435".
 
 ## The three buttons
 
@@ -32,36 +55,29 @@ on the list. See [Wish for a song](../party/wishlist.md).
 :wingman-play: **Sing** is the way into the evening. See
 [Sing a song](../party/sing.md).
 
-## Details and the rows under it
+## The action bar
 
-- :wingman-info: **Details** unfolds the language, the genre, the year, the
-  edition, who built the karaoke file, and where the song came from. A value the
-  file does not name reads **unknown**.
-- :wingman-list-plus: **Add to playlist** lists the playlists you may edit. Tap
-  one to add the song, tap it again to take it out. See
-  [Playlists](playlists.md).
-- :wingman-external-link: **Open in a streaming service** lists five music
-  services. See [Open in a streaming service](#open-in-a-streaming-service).
-- :wingman-pencil: **Edit details** is the row for the party's helpers. It
-  corrects what the song says about itself, and **Delete song** at the foot of
-  that form takes it out of the library. See
-  [Fix or delete a song](fix-or-delete.md).
-
-You only see the rows your role may use.
-
-## The summary strip
-
-Three glyphs close the view, each with a number under it, and each opening what
-it counts.
+One row sits under the three buttons. It starts with three glyphs, each with a
+number under it, and each opens what it counts.
 
 - :wingman-trophy: **Best scores** is the highest score anybody ever got on the
   song. It appears once somebody has sung it. It also needs the right to read
   past parties, which an account holds and a guest phone does not.
-- :wingman-tag: **Tags** is how many labels the song wears.
-- :wingman-comment: **Comments** is how many people said something.
+- :wingman-tag: **Tags** is how many tags the song wears.
+- :wingman-comment: **Comments** is how many comments people left.
 
 **Tags** and **Comments** stand at **0** as well. Putting the first tag on a
 song and being the first to say something are exactly what they lead to.
+
+Two plain buttons end the row:
+
+- :wingman-list-plus: **Add to playlist** lists the playlists you may edit. Tap
+  one to add the song, tap it again to take it out. It needs an account. See
+  [Playlists](playlists.md).
+- :wingman-external-link: **Open in a streaming service** lists five music
+  services. See [Open in a streaming service](#open-in-a-streaming-service).
+
+You only see the buttons your role may use.
 
 ## Best scores
 
@@ -79,13 +95,13 @@ two, with the median of all of them written above it.
 ## Open in a streaming service
 
 **Open in a streaming service** lists **Spotify**, **Apple Music**,
-**YouTube Music**, **Tidal**, and **Deezer**. Tap one and the service opens in a
-new tab, searching for the artist and the title.
+**YouTube Music**, **Tidal**, and **Deezer**, each after its own mark. Tap one and
+the service opens in a new tab, searching for the artist and the title.
 
 It is a search, so a song the service spells a little differently still turns
 up. Wingman leaves out the notes a karaoke file adds to a title, such as "[DUET]".
-Everybody gets this row, a guest phone included. Listening somewhere else takes
-no permission in Wingman.
+Everybody gets this button, a guest phone included. Listening somewhere else
+takes no permission in Wingman.
 
 ## Tags
 

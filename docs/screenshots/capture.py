@@ -491,7 +491,7 @@ ROWS: dict[str, Row] = {
         identity="Leela",
         viewport="phone",
         route="/songs",
-        ready='q(".songs-search input") && q(".songs-chips") && q(".songs-sort select")'
+        ready='q(".songs-search input") && q(".songs-chips") && q("select.songs-sort")'
         ' && qa(".song-list-item").length >= 20 && q(".song-mark")',
     ),
     "songs-filter": Row(
@@ -531,7 +531,11 @@ ROWS: dict[str, Row] = {
                 'q(".song-hero-title")',
             ),
         ),
-        ready='q(".song-hero-cover") && q(".song-details-controls") && q(".song-summary")'
+        # Every count settled: a dash is a listing still in flight.
+        ready='q(".song-hero-cover") && q(".song-details-controls") && q(".song-facts-edit")'
+        ' && qa(".song-facts .song-fact").length === 4 && q(".song-fine-print")'
+        ' && qa(".song-actions .song-action-count").length === 3'
+        ' && !qa(".song-action-count-value").some((value) => text(value) === "—")'
         ' && text(q(".song-hero-title")) === "I Got You Babe"',
     ),
     "song-comments": Row(
@@ -539,8 +543,11 @@ ROWS: dict[str, Row] = {
         viewport="phone",
         route="/songs",
         steps=(
-            ('click(byText(".song-list-item", "I Got You Babe"))', 'q(".song-summary")'),
-            ('click(byText(".song-summary-stat", "Comments"))', 'q(".song-comments")'),
+            ('click(byText(".song-list-item", "I Got You Babe"))', 'q(".song-actions")'),
+            (
+                "click(q('.song-actions button[aria-label^=\"Comments\"]'))",
+                'q(".song-comments")',
+            ),
         ),
         ready='qa(".song-comment").length >= 3 && q(".song-comment-composer")',
     ),
@@ -549,8 +556,8 @@ ROWS: dict[str, Row] = {
         viewport="phone",
         route="/songs",
         steps=(
-            ('click(byText(".song-list-item", "I Got You Babe"))', 'q(".song-options")'),
-            ('click(byText(".song-option", "Edit details"))', 'q(".song-edit")'),
+            ('click(byText(".song-list-item", "I Got You Babe"))', 'q(".song-facts-edit")'),
+            ("click(q('button[aria-label=\"Edit details\"]'))", 'q(".song-edit")'),
         ),
         # The delete row too: the page this picture serves is *Fix or delete a song*,
         # and deleting one lives at the foot of this same form.
@@ -629,14 +636,26 @@ ROWS: dict[str, Row] = {
         viewport="phone",
         route="/spinner",
         steps=(
+            # The wishlist, so the reel lands on a wish and the trash stands beside it. The
+            # option loads disabled until the wishes are in.
+            (
+                "true",
+                "q('.spinner-pick-select option[value=\"wishlist\"]')"
+                " && !q('.spinner-pick-select option[value=\"wishlist\"]').disabled",
+            ),
+            (
+                'setValue(q(".spinner-pick-select"), "wishlist")',
+                'q(".spinner-pick-select").value === "wishlist"',
+            ),
             # The phone reveals the song when the reel on the TV lands, a fixed few seconds
             # after the server's `spun_at`, reduced motion or not: this wait is the feature.
             ('click(q(".spinner-host"))', 'q(".host-spin")'),
             ("true", 'q(".host-spin-title")'),
         ),
-        # The cover has risen in, the words are under it, and the die reads *Spin again*:
-        # it read *Show it* while the TV's reel ran.
+        # The cover has risen in, the words are under it beside the take-off, and the die
+        # reads *Spin again*: it read *Show it* while the TV's reel ran.
         ready='q(".host-spin-cover-revealed") && q(".host-spin-title") && q(".host-spin-artist")'
+        ' && q(".host-spin-take-off")'
         ' && byText(".host-spin-actions button", "Spin again")'
         ' && byText(".host-spin-actions button", "Play")',
         # Cancel gives the room's lock back. Left open, the selection would answer every
@@ -726,12 +745,13 @@ ROWS: dict[str, Row] = {
         steps=(
             (
                 "click(q('button[aria-label=\"Share this party\"]'))",
-                'q(".share-preview-image")',
+                'q(".share-carousel .share-preview-image")',
             ),
         ),
-        # The picture is drawn in the browser, so it is in only once it has decoded.
-        ready='q(".share-preview-image") && q(".share-preview-image").complete'
-        ' && q(".share-preview-image").naturalWidth > 0 && qa(".share-pills").length >= 3',
+        # The pictures are drawn in the browser, so they are in only once they have
+        # decoded: the Dark slide in view and the Mosaic one peeking in beside it.
+        ready='qa(".share-dot").length === 3 && qa(".share-preview-image").length >= 2'
+        ' && qa(".share-preview-image").every((i) => i.complete && i.naturalWidth > 0)',
     ),
     "user": Row(
         identity="Bender",

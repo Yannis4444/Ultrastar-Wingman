@@ -328,13 +328,23 @@ test("clicking a song opens the details modal", async () => {
   expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
 });
 
-test("missing metadata shows as unknown in the modal", async () => {
+test("missing metadata is left off the modal's fact line, never called unknown", async () => {
   renderSongs([song({ duration_seconds: null, genre: null, year: null })]);
 
   fireEvent.click(await screen.findByText("Dancing Queen"));
 
   const modal = screen.getByRole("dialog", { name: "Dancing Queen" });
-  expect(modal).toHaveTextContent("unknown");
+  // What the file names stands on the line under the artist; what it does
+  // not name is no fact at all (§5).
+  const facts = modal.querySelector(".song-facts") as HTMLElement;
+  expect(
+    [...facts.querySelectorAll(".song-fact .visually-hidden")].map(
+      (name) => name.textContent,
+    ),
+  ).toEqual(["Language", "Edition"]);
+  expect(facts).toHaveTextContent("English");
+  expect(facts).toHaveTextContent("SingStar");
+  expect(modal).not.toHaveTextContent("unknown");
 });
 
 test("escape closes the modal", async () => {
@@ -1803,6 +1813,12 @@ test("the order is a select in the count row, artist A to Z by default", async (
   expect(select.closest(".songs-count")).not.toBeNull();
   // Never in the sticky toolbar, which is the search alone.
   expect(select.closest(".songs-toolbar")).toBeNull();
+  // No word beside it: the options say what they are, the label names it.
+  expect(select).toHaveAttribute("aria-label", "Sort");
+  expect(select.closest("label")).toBeNull();
+  expect(
+    within(select.closest(".songs-count") as HTMLElement).queryByText("Sort"),
+  ).not.toBeInTheDocument();
   expect(select).toHaveValue("artist");
   expect(
     within(select)

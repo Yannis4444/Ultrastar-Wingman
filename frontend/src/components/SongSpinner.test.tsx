@@ -499,15 +499,23 @@ test("a favorited song stays in the reel even when a tag would hide it", async (
 const hostButton = () =>
   screen.queryByRole("button", { name: "Spin on the host screen" });
 
-test("the quiet host button stands under SPIN, and rests while the reel runs", async () => {
+test("the host square stands beside SPIN in one row, and rests while the reel runs", async () => {
   vi.useFakeTimers({ shouldAdvanceTime: true });
   renderSpinner([QUEEN, AFRICA], []);
   await screen.findByText("2 songs");
 
-  // A plain button, never the gradient: SPIN is the gesture of this page.
-  expect(hostButton()).toHaveClass("button");
-  expect(hostButton()).not.toHaveClass("spinner-spin");
-  expect(hostButton()).toBeEnabled();
+  // One action row: SPIN first, then the square — the `tv` glyph alone, the
+  // words its name and its tooltip, never the gradient and never a die.
+  const square = hostButton()!;
+  const row = square.parentElement!;
+  expect(row).toHaveClass("spinner-actions");
+  expect([...row.children]).toEqual([spinButton(), square]);
+  expect(iconNames(square)).toEqual(["tv"]);
+  expect(square).toHaveAttribute("title", "Spin on the host screen");
+  expect(square).toHaveTextContent("");
+  expect(square).not.toHaveClass("spinner-spin");
+  expect(square).not.toHaveClass("button");
+  expect(square).toBeEnabled();
 
   fireEvent.click(spinButton());
   expect(hostButton()).toBeDisabled();
@@ -516,13 +524,14 @@ test("the quiet host button stands under SPIN, and rests while the reel runs", a
   expect(hostButton()).toBeEnabled();
 });
 
-test("with nothing to land on there is no host button either", async () => {
+test("with nothing to land on the host square rests, as SPIN does", async () => {
   renderSpinner([], []);
 
   expect(
     await screen.findByText("No songs in the library yet"),
   ).toBeInTheDocument();
-  expect(hostButton()).toBeNull();
+  expect(spinButton()).toBeDisabled();
+  expect(hostButton()).toBeDisabled();
 });
 
 test("without the right to start a song there is no host button", async () => {
@@ -604,7 +613,7 @@ test("the reel waits for the tags rather than spinning what they would hide", as
 const MANAGING = [...SINGING, "wishlist.manage"];
 
 const takeOffButton = () =>
-  screen.queryByRole("button", { name: "Take off the wishlist" });
+  screen.queryByRole("button", { name: /off the wishlist for everybody$/ });
 
 /** Spins the scope of that label and lets the reel land. */
 async function spinAndLand(label: string): Promise<void> {
@@ -626,13 +635,22 @@ test("a landed wish can be taken off the wishlist, and the result stays", async 
   vi.spyOn(Math, "random").mockReturnValue(0);
   await spinAndLand("Wishlist");
 
-  // Nothing to take off while the reel runs; once it lands the quiet button is
-  // there, last in the column under the host one.
+  // Once it lands the wishlist tile's own trash is there, named for the song,
+  // beside the result and not inside it: the right cell of the result's grid,
+  // the song's button its sibling.
   const button = takeOffButton();
-  expect(button).toHaveClass("button");
+  expect(button).toHaveAccessibleName(
+    "Take Africa off the wishlist for everybody",
+  );
+  expect(button).toHaveClass("icon-button", "icon-button-bordered");
   expect(iconNames(button!)).toEqual(["trash"]);
-  const column = button!.parentElement!;
-  expect(column.lastElementChild).toBe(button);
+  const result = button!.parentElement!;
+  expect(result).toHaveClass("spinner-result");
+  const winner = result.querySelector(".spinner-winner")!;
+  expect([...result.children]).toEqual([winner, button]);
+  expect(winner).not.toContainElement(button);
+  // Not in the action row either.
+  expect(hostButton()!.parentElement).not.toContainElement(button);
 
   clearWishes.mockResolvedValue({ data: undefined });
   listWishlist.mockResolvedValue({ data: { wishes: [wish(WATERLOO)] } });
@@ -648,6 +666,22 @@ test("a landed wish can be taken off the wishlist, and the result stays", async 
   await waitFor(() => expect(takeOffButton()).toBeNull());
   expect(screen.getByText("1 wished song")).toBeInTheDocument();
   expect(screen.getByText("Africa")).toBeInTheDocument();
+});
+
+test("the take-off waits for the reel to land, and steps back with the next spin", async () => {
+  vi.useFakeTimers({ shouldAdvanceTime: true });
+  renderSpinner([QUEEN], [wish(QUEEN)], [], ACCOUNT, MANAGING);
+  await chooseScope("Wishlist");
+
+  fireEvent.click(spinButton());
+  expect(takeOffButton()).toBeNull();
+
+  act(() => vi.advanceTimersByTime(6000));
+  expect(takeOffButton()).toBeInTheDocument();
+
+  // A new spin: the result line steps back, and so does its take-off.
+  fireEvent.click(spinButton());
+  expect(takeOffButton()).toBeNull();
 });
 
 test("the weighted wishlist offers the take-off too", async () => {

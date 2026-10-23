@@ -1273,9 +1273,8 @@ test("the transport pauses, plays and skips the music, naming its keys", async (
   renderHost("/host");
 
   const pause = await screen.findByRole("button", { name: "Pause" });
-  expect(pause).toHaveAttribute("title", "Pause (K)");
+  expect(pause).toHaveAttribute("title", "Pause (Space)");
   expect(pause).toHaveAttribute("aria-keyshortcuts", "Space K");
-  expect(pause.closest(".host-controls")).not.toBeNull();
   const skip = screen.getByRole("button", { name: "Skip" });
   expect(skip).toHaveAttribute("title", "Skip (N)");
   expect(skip).toHaveAttribute("aria-keyshortcuts", "N");
@@ -1283,11 +1282,244 @@ test("the transport pauses, plays and skips the music, naming its keys", async (
   fireEvent.click(pause);
   await waitFor(() => expect(pauseMusic).toHaveBeenCalledTimes(1));
   const play = await screen.findByRole("button", { name: "Play" });
-  expect(play).toHaveAttribute("title", "Play (K)");
+  expect(play).toHaveAttribute("title", "Play (Space)");
   expect(iconNames(play)).toEqual(["play"]);
 
   fireEvent.click(screen.getByRole("button", { name: "Skip" }));
   await waitFor(() => expect(skipMusic).toHaveBeenCalledTimes(1));
+});
+
+/** The music group's children, in order, by what each one is. */
+function musicCells(): string[] {
+  const group = document.querySelector(".host-music");
+  if (group === null) return [];
+  return [...group.children].map((child) =>
+    child.classList.contains("host-music-line")
+      ? "line"
+      : child.classList.contains("host-volume")
+        ? "volume"
+        : child.classList.contains("host-music-transport")
+          ? "transport"
+          : child.className,
+  );
+}
+
+/** The legend's entries as they read: keys, then the word. */
+function legend(): string[] {
+  const line = document.querySelector(".host-legend");
+  if (line === null) return [];
+  return [...line.querySelectorAll(".host-legend-entry")].map((entry) => {
+    const keys = [...entry.querySelectorAll("kbd")].map(
+      (kbd) => kbd.textContent ?? "",
+    );
+    const word = [...entry.childNodes]
+      .filter((node) => node.nodeType === Node.TEXT_NODE)
+      .map((node) => node.textContent ?? "")
+      .join("");
+    return [...keys, word].join(" ");
+  });
+}
+
+test("the music's controls stand beside its song at the foot, not in the corner", async () => {
+  asHost();
+  getMusic.mockResolvedValue({ data: playingMusic() });
+  const { container } = renderHost("/host");
+
+  const pause = await screen.findByRole("button", { name: "Pause" });
+  const group = container.querySelector<HTMLElement>(".host-music");
+  // One group along the foot of the page, outside the stage and the corner.
+  expect(group?.parentElement).toBe(container.querySelector(".host-page"));
+  expect(container.querySelector(".host-controls")).not.toContainElement(pause);
+  expect(container.querySelector(".host-stage")).not.toContainElement(group);
+  // Corner, stage, music, rail in the page: Tab starts in the corner, and a
+  // narrow page flows the music between the stage and the rail.
+  expect(
+    [...(container.querySelector(".host-page")?.children ?? [])]
+      .map((child) => child.className)
+      .filter((name) =>
+        ["host-controls", "host-stage", "host-music", "host-rail"].includes(
+          name,
+        ),
+      ),
+  ).toEqual(["host-controls", "host-stage", "host-music", "host-rail"]);
+  // Play or pause and skip end the cell left of the song, the volume starts
+  // the one right of it.
+  expect(musicCells()).toEqual(["transport", "line", "volume"]);
+  const [transport, line, volume] = [...(group?.children ?? [])];
+  expect(transport).toContainElement(pause);
+  expect(transport).toContainElement(
+    screen.getByRole("button", { name: "Skip" }),
+  );
+  expect(line).toHaveTextContent("Waterloo · ABBA");
+  expect(volume).toContainElement(
+    screen.getByRole("slider", { name: "Master volume" }),
+  );
+  // The cells are the overlay's and fade with it; the song playing is content.
+  expect(transport).toHaveClass("host-reveal");
+  expect(volume).toHaveClass("host-reveal");
+  expect(line).not.toHaveClass("host-reveal");
+  expect(line).not.toHaveClass("host-music-line-paused");
+  expect(group).not.toHaveClass("host-music-single");
+});
+
+test("a paused song is named beside its play, as chrome", async () => {
+  asHost();
+  getMusic.mockResolvedValue({ data: playingMusic({ status: "paused" }) });
+  renderHost("/host");
+
+  await screen.findByRole("button", { name: "Play" });
+  expect(musicCells()).toEqual(["transport", "line", "volume"]);
+  const line = screen.getByText("Waterloo · ABBA");
+  expect(line).toHaveClass("host-music-line", "host-music-line-paused");
+  expect(line).toHaveClass("host-reveal");
+});
+
+test("a guest is told what plays, but not what was paused", async () => {
+  getMe.mockResolvedValue(meResponse(["songs.view", "music.view"]));
+  getMusic.mockResolvedValue({ data: playingMusic() });
+  renderHost("/host");
+
+  // The line alone, in the middle.
+  await screen.findByText(/Waterloo · ABBA/);
+  expect(musicCells()).toEqual(["line"]);
+  expect(document.querySelector(".host-music")).toHaveClass(
+    "host-music-single",
+  );
+
+  act(() =>
+    FakeSocket.deliver({
+      event: "music.changed",
+      music: playingMusic({ status: "paused" }),
+    }),
+  );
+  await waitFor(() => expect(document.querySelector(".host-music")).toBeNull());
+});
+
+test("with the music off and during a sing the volume is the row alone, centred", async () => {
+  asHost();
+  const { container } = renderHost("/host");
+
+  await screen.findByRole("slider", { name: "Master volume" });
+  expect(musicCells()).toEqual(["volume"]);
+  expect(container.querySelector(".host-music")).toHaveClass(
+    "host-music-single",
+  );
+
+  act(() =>
+    FakeSocket.deliver({
+      event: "music.changed",
+      music: playingMusic({ status: "blocked", blocked_by: "sing" }),
+    }),
+  );
+  await waitFor(() => expect(musicCells()).toEqual(["volume"]));
+  expect(container.querySelector(".host-music")).toHaveClass(
+    "host-music-single",
+  );
+});
+
+test("between songs the transport stands beside the volume with no line", async () => {
+  asHost();
+  getMusic.mockResolvedValue({
+    data: playingMusic({ status: "waiting", track: null }),
+  });
+  renderHost("/host");
+
+  await screen.findByRole("button", { name: "Pause" });
+  expect(musicCells()).toEqual(["transport", "volume"]);
+  expect(document.querySelector(".host-music")).not.toHaveClass(
+    "host-music-single",
+  );
+});
+
+test("in a takeover the music group stands without its line, the corner keeping the screen's", async () => {
+  fullscreenApi();
+  asHost();
+  getMusic.mockResolvedValue({ data: playingMusic() });
+  const { container } = renderHost("/host");
+  await screen.findByText("Waterloo · ABBA");
+
+  picks();
+  await screen.findByLabelText("Picking singers");
+  await waitFor(() => expect(container.querySelector(".host-rail")).toBeNull());
+  expect(container.querySelector(".host-page")).toHaveClass("host-takeover");
+  // The line goes — the reel names its own song — and the cells stay.
+  expect(musicCells()).toEqual(["transport", "volume"]);
+  expect(container.querySelector(".host-controls")).toContainElement(
+    screen.getByRole("button", { name: "Full screen" }),
+  );
+  expect(container.querySelector(".host-controls")).not.toContainElement(
+    screen.getByRole("button", { name: "Pause" }),
+  );
+  // The legend still says the keys: the chrome is up over a takeover too.
+  expect(legend()).toEqual([
+    "Space Play or pause",
+    "N Skip",
+    "↑ ↓ Volume",
+    "F Full screen",
+  ]);
+});
+
+test("the legend names the keys of the controls that are drawn, under the host-rights line", async () => {
+  fullscreenApi();
+  asHost();
+  getMusic.mockResolvedValue({ data: playingMusic() });
+  const { container } = renderHost("/host");
+  await screen.findByRole("button", { name: "Pause" });
+
+  expect(legend()).toEqual([
+    "Space Play or pause",
+    "N Skip",
+    "↑ ↓ Volume",
+    "F Full screen",
+  ]);
+  // In the corner, after the row of buttons and the host-rights line.
+  const controls = container.querySelector(".host-controls");
+  const lines = [...(controls?.children ?? [])].map((child) => child.className);
+  expect(lines.slice(0, 3)).toEqual([
+    "host-controls-row",
+    "host-caption",
+    "host-legend",
+  ]);
+  expect(controls?.children[1]).toHaveTextContent(
+    "This browser holds host rights",
+  );
+
+  // A sing holds the transport back, and the legend its keys with it.
+  act(() =>
+    FakeSocket.deliver({
+      event: "music.changed",
+      music: playingMusic({ status: "blocked", blocked_by: "sing" }),
+    }),
+  );
+  await waitFor(() =>
+    expect(legend()).toEqual(["↑ ↓ Volume", "F Full screen"]),
+  );
+});
+
+test("the legend leaves out full screen where the browser cannot do it", async () => {
+  asHost();
+  getMusic.mockResolvedValue({ data: playingMusic({ status: "paused" }) });
+  renderHost("/host");
+  await screen.findByRole("button", { name: "Play" });
+
+  expect(legend()).toEqual(["Space Play or pause", "N Skip", "↑ ↓ Volume"]);
+});
+
+test("a guest's legend has no music keys, and is not there at all without full screen", async () => {
+  getMe.mockResolvedValue(meResponse(["songs.view", "music.view"]));
+  getMusic.mockResolvedValue({ data: playingMusic() });
+  const { unmount } = renderHost("/host");
+
+  await screen.findByText(/Waterloo · ABBA/);
+  expect(document.querySelector(".host-legend")).toBeNull();
+  unmount();
+
+  // Full screen is every browser's, so its key is a guest's too.
+  fullscreenApi();
+  renderHost("/host");
+  await screen.findByRole("button", { name: "Full screen" });
+  await screen.findByText(/Waterloo · ABBA/);
+  expect(legend()).toEqual(["F Full screen"]);
 });
 
 test("with the music off only the master volume stands", async () => {
