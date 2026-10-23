@@ -8,7 +8,7 @@ from fastapi import WebSocket
 from pydantic import BaseModel
 
 from .achievements.schema import EarnedByPlayer
-from .downloads.schema import DownloadRead
+from .downloads.schema import DownloadRead, LoudnessPassRead
 from .karaoke.schema import CurrentSing, ScoreRead, SelectionRead
 from .music.schema import MusicRead
 from .songs.schema import SongRead
@@ -67,6 +67,19 @@ class DownloadUpdated(Event):
 
     event: Literal["download.updated"] = "download.updated"
     download: DownloadRead
+
+
+class LoudnessChanged(Event):
+    """The pass that evens out the loudness of the songs already in the library started,
+    moved on to the next song, began or stopped waiting for a song being sung, was asked
+    to stop, or ended. At most one message per song, which is a second or so.
+
+    The state without the song in hand (`LoudnessPassRead`): every socket gets this, a
+    guest's included, and a song a tag hides from guests must not ride along. The Settings
+    page asks `GET /downloads/loudness` for the song."""
+
+    event: Literal["loudness.changed"] = "loudness.changed"
+    loudness: LoudnessPassRead
 
 
 class KaraokeStarted(Event):

@@ -19,6 +19,8 @@ does not move; they are skipped where there is no ffmpeg (`WINGMAN_TEST_FFMPEG`,
 one on `PATH`).
 """
 
+import asyncio
+import contextlib
 import json
 import logging
 import math
@@ -27,6 +29,7 @@ import shutil
 import sqlite3
 import stat
 import subprocess
+from collections.abc import AsyncIterator
 from pathlib import Path
 from typing import Any
 
@@ -48,8 +51,9 @@ from ultrastar_wingman.songs.model import Song
 
 FIXTURES = Path(__file__).parent / "fixtures" / "loudness"
 
-# A JSON file is `{"audio": ..., "tags": {...}}`; a real audio file's tags are read with
-# mutagen; anything else is a corrupt file.
+# A JSON file is `{"audio": ..., "tags": {...}}`, and may say what it measures at
+# (`integrated`, `true_peak`); a real audio file's tags are read with mutagen; anything else
+# is a corrupt file.
 FAKE_FFMPEG = r"""
 import json
 import pathlib
@@ -117,15 +121,18 @@ if any("ebur128" in argument for argument in arguments):
     if control.get("measure_fails"):
         fail("Error while filtering: Invalid data found when processing input")
     time.sleep(control.get("measure_sleep", 0))
+    # A JSON file may carry its own loudness, so one library can hold a silent song too.
+    integrated = song.get("integrated", control.get("integrated", "-25.9"))
+    true_peak = song.get("true_peak", control.get("true_peak", "-14.4"))
     sys.stderr.write(
         "[Parsed_ebur128_0 @ 0000020d] Summary:\n\n"
         "  Integrated loudness:\n"
-        f"    I:         {control.get('integrated', '-25.9')} LUFS\n"
+        f"    I:         {integrated} LUFS\n"
         "    Threshold: -35.9 LUFS\n\n"
         "  Loudness range:\n"
         "    LRA:         5.6 LU\n\n"
         "  True peak:\n"
-        f"    Peak:      {control.get('true_peak', '-14.4')} dBFS\n"
+        f"    Peak:      {true_peak} dBFS\n"
     )
     sys.exit(0)
 
@@ -831,8 +838,10 @@ async def test_normalize_turns_every_failure_into_an_outcome(
 
     assert (outcome.status, outcome.gain) == (status, gain)
     # Only a measured file whose format keeps no tag is worth remembering: its numbers are
-    # true, and trying again would change nothing.
-    assert outcome.stored == (gain if status == "unsupported" else None)
+    # true, and trying again would change nothing. Silence is remembered as no gain at all,
+    # so the pass over the library does not measure it again.
+    expected = {"unsupported": gain, "silent": loudness.SILENT_GAIN}.get(status)
+    assert outcome.stored == expected
     assert song.read_bytes() == content
 
 
@@ -848,6 +857,68 @@ async def test_normalize_says_when_the_file_is_in_use(
 
     # Measured, so a retry knows what to write; not stored, so a retry is looked for.
     assert (outcome.status, outcome.gain, outcome.stored) == ("in_use", DEFAULT_GAIN, None)
+
+
+async def test_normalize_writes_inside_the_window_it_is_handed(ffmpeg: str, tmp_path: Path) -> None:
+    song = silent_audio(tmp_path / "library" / "song.mp3")
+    seen: list[list[str]] = []
+
+    @contextlib.asynccontextmanager
+    async def window() -> AsyncIterator[None]:
+        # Entered after the measurement and before anything was copied.
+        seen.append(kinds(ffmpeg))
+        assert listing(song.parent) == ["song.mp3"]
+        yield
+        seen.append(kinds(ffmpeg))
+
+    outcome = await loudness.normalize(ffmpeg, song, write_window=window)
+
+    assert outcome.status == "tagged"
+    assert seen == [["read", "measure"], ["read", "measure", "read"]]
+
+
+async def test_a_window_that_refuses_leaves_the_file_alone(ffmpeg: str, tmp_path: Path) -> None:
+    song = silent_audio(tmp_path / "library" / "song.mp3")
+    content = song.read_bytes()
+
+    @contextlib.asynccontextmanager
+    async def window() -> AsyncIterator[None]:
+        raise LookupError("the song is gone")
+        yield
+
+    with pytest.raises(LookupError):
+        await loudness.normalize(ffmpeg, song, write_window=window)
+
+    assert song.read_bytes() == content
+    assert listing(song.parent) == ["song.mp3"]
+
+
+async def test_a_cancellation_during_the_write_waits_for_it(
+    ffmpeg: str, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """Between the tagged copy and the replace is the one place a stop must never land."""
+    song = silent_audio(tmp_path / "library" / "song.mp3")
+    writing = asyncio.Event()
+    real_write = loudness.write_tags
+
+    async def slow_write(*arguments: Any) -> None:
+        writing.set()
+        await asyncio.sleep(0.3)
+        await real_write(*arguments)
+
+    monkeypatch.setattr(loudness, "write_tags", slow_write)
+    task = asyncio.create_task(loudness.normalize(ffmpeg, song))
+    await writing.wait()
+    task.cancel()
+
+    with pytest.raises(asyncio.CancelledError):
+        await task
+    # Cancelled, and written all the same: the whole tag, and no copy left beside it.
+    assert tags_of(song) == {
+        "REPLAYGAIN_TRACK_GAIN": "7.90 dB",
+        "REPLAYGAIN_TRACK_PEAK": f"{DEFAULT_GAIN.peak:.6f}",
+    }
+    assert listing(song.parent) == ["song.mp3"]
 
 
 async def test_normalize_of_a_missing_or_corrupt_file(ffmpeg: str, tmp_path: Path) -> None:

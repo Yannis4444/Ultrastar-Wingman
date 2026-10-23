@@ -23,6 +23,7 @@ from ultrastar_wingman.auth.service import SESSION_TTL, token_hash
 from ultrastar_wingman.config import BootstrapSettings
 from ultrastar_wingman.db import run_migrations
 from ultrastar_wingman.devices import service as devices
+from ultrastar_wingman.downloads import loudness_pass
 from ultrastar_wingman.events import event_bus
 from ultrastar_wingman.karaoke import selection, usdx_paths, usdx_window
 from ultrastar_wingman.music import service as music
@@ -316,6 +317,15 @@ def fresh_music_state() -> None:
     music._volumes = music.DEFAULT_VOLUMES
     music._lock = asyncio.Lock()
     music._watchdog = None
+
+
+@pytest.fixture(autouse=True)
+def fresh_loudness_pass_state() -> None:
+    """Same reasoning again: the pass over the library and its progress are module state,
+    while every test brings its own event loop and its own database. A task left from a
+    previous test belongs to a loop that is gone, so it is forgotten, never cancelled."""
+    loudness_pass._task = None
+    loudness_pass._progress = loudness_pass._Progress()
 
 
 @pytest.fixture(autouse=True)

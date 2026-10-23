@@ -31,7 +31,8 @@ import math
 import os
 import re
 import shutil
-from collections.abc import Callable, Sequence
+from collections.abc import Callable, Coroutine, Sequence
+from contextlib import AbstractAsyncContextManager
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Any, Literal, NamedTuple
@@ -112,6 +113,15 @@ class ReplayGain(NamedTuple):
     peak: float | None
 
 
+# What the row keeps for a silent file, which gets no tag: no gain to apply and no peak.
+# The file plays as it is, which is what USDX does with it too, and a pass over the library
+# finds the row filled and does not measure the silence again.
+SILENT_GAIN = ReplayGain(gain_db=0.0, peak=None)
+
+# What `normalize` enters around the write (`write_window`).
+WriteWindow = Callable[[], AbstractAsyncContextManager[object]]
+
+
 @dataclass(frozen=True)
 class Outcome:
     """What `normalize` did to one file.
@@ -121,7 +131,7 @@ class Outcome:
     - `unsupported`: measured, but the file's format keeps no such tag (a raw `.aac`, a
       `.wav`), or the file is not what its name says or is too damaged for mutagen to load,
       so the file was left alone.
-    - `silent`: nothing to measure.
+    - `silent`: nothing to measure, so no tag. The row keeps `SILENT_GAIN`.
     - `missing`: no audio file at all.
     - `in_use`: measured, but another program holds the file open, so it could not be
       replaced. Worth trying again later.
@@ -135,6 +145,8 @@ class Outcome:
     @property
     def stored(self) -> ReplayGain | None:
         """The values to keep on the song row, or None to keep none."""
+        if self.status == "silent":
+            return SILENT_GAIN
         return self.gain if self.status in STORED else None
 
 
@@ -249,10 +261,16 @@ async def write_tags(ffmpeg: str, file: Path, gain_db: float, peak: float | None
             await asyncio.to_thread(_remove, temporary)
 
 
-async def normalize(ffmpeg: str, file: Path) -> Outcome:
+async def normalize(ffmpeg: str, file: Path, *, write_window: WriteWindow | None = None) -> Outcome:
     """Read, and unless the file already carries a gain, measure and write. Never raises:
     every failure is an outcome, logged at debug level here — the caller knows which song
-    it is and says so (`normalize_song`)."""
+    it is and says so (`normalize_song`).
+
+    `write_window` is entered around the write, after the measurement: the library pass
+    waits there while a song is being sung. Whatever it raises leaves `normalize` as it
+    is, and nothing has been written then. The write itself is never cut short: a
+    cancellation that arrives during it waits for the file to be replaced (or the copy
+    removed), and is raised afterwards."""
     if not await asyncio.to_thread(file.is_file):
         return Outcome("missing", detail=f"{file.name} is not there")
     try:
@@ -270,7 +288,8 @@ async def normalize(ffmpeg: str, file: Path) -> Outcome:
         logger.debug("%s is silent, so it gets no gain", file)
         return Outcome("silent")
     try:
-        await write_tags(ffmpeg, file, measured.gain_db, measured.peak)
+        async with write_window() if write_window is not None else contextlib.nullcontext():
+            await _to_the_end(write_tags(ffmpeg, file, measured.gain_db, measured.peak))
     except FileInUseError as error:
         return Outcome("in_use", measured, str(error))
     except UnsupportedFormatError as error:
@@ -282,17 +301,16 @@ async def normalize(ffmpeg: str, file: Path) -> Outcome:
 
 
 async def normalize_song(session: AsyncSession, ffmpeg: str, song: Song) -> Outcome:
-    """`normalize` the song's audio file and keep what came of it on the row: the values
-    for an outcome in `STORED`, nothing for any other — a song whose file could not be
-    tagged reads as not normalized, which is what a later pass over the library looks
-    for. Logs the outcome by the song's name; commits."""
+    """`normalize` the song's audio file and keep what came of it on the row (`keep`): the
+    values for an outcome in `STORED`, `SILENT_GAIN` for silence, nothing for any other — a
+    song whose file could not be tagged reads as not normalized, which is what the pass
+    over the library (`loudness_pass`) looks for. Logs the outcome by the song's name;
+    commits."""
     if song.audio_file is None:
         outcome = Outcome("missing", detail="the song names no audio file")
     else:
         outcome = await normalize(ffmpeg, Path(song.audio_file))
-    stored = outcome.stored
-    song.replay_gain_db = None if stored is None else stored.gain_db
-    song.replay_gain_peak = None if stored is None else stored.peak
+    keep(song, outcome)
     await session.commit()
     label = song_label(song)
     if outcome.status in ("failed", "in_use"):
@@ -306,6 +324,34 @@ async def normalize_song(session: AsyncSession, ffmpeg: str, song: Song) -> Outc
     else:
         logger.debug("loudness of %s: %s %s", label, outcome.status, outcome.gain)
     return outcome
+
+
+def keep(song: Song, outcome: Outcome) -> None:
+    """Put what `outcome` says is worth keeping on the row (`Outcome.stored`), and clear
+    both columns for an outcome that keeps nothing. Does not commit."""
+    stored = outcome.stored
+    song.replay_gain_db = None if stored is None else stored.gain_db
+    song.replay_gain_peak = None if stored is None else stored.peak
+
+
+async def _to_the_end[T](work: Coroutine[Any, Any, T]) -> T:
+    """Await `work` to its end even when the caller is cancelled meanwhile, and raise the
+    cancellation afterwards. For the write: between the tagged copy and the replace is the
+    one place a cancellation must never land, and a thread `asyncio.to_thread` started
+    runs on regardless, so a cancelled await would only remove the copy under its feet.
+
+    `asyncio.wait` and not `asyncio.shield`: it never raises the work's own exception, so
+    a cancellation can never be lost behind a `LoudnessError`."""
+    task = asyncio.ensure_future(work)
+    cancelled = False
+    while not task.done():
+        try:
+            await asyncio.wait({task})
+        except asyncio.CancelledError:
+            cancelled = True
+    if cancelled:
+        raise asyncio.CancelledError
+    return task.result()
 
 
 def format_gain(gain_db: float) -> str:

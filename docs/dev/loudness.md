@@ -1,6 +1,6 @@
 # Loudness normalization
 
-*Design, 2026-10-23. Branch `feat/host-controls-loudness-share-cards`. Part 1 of 3: the core.
+*Design, 2026-10-23. Branch `feat/host-controls-loudness-share-cards`. Part 1 of 3: the core; part 2 is built (§5).
 Part 2 is the pass over the songs already in the library, part 3 the host screen playing with
 the gain and the user documentation's own page. Where this document and the code disagree,
 the code is right and this document is updated.*
@@ -31,7 +31,8 @@ Made here, open to a veto:
    "or should we just enable it by editing the USDX config file?" with yes, tied to Wingman's
    own switch.
 4. **Silence gets no tag.** A file measured at ebur128's absolute gate (-70 LUFS) would get a
-   gain of +52 dB.
+   gain of +52 dB. The row keeps a gain of 0 and no peak (part 2's decision): it plays as it
+   is, and the pass over the library does not measure it again.
 5. **A format that keeps no tag is measured and left alone** (`unsupported`): a raw `.aac`
    and a `.wav`. The numbers are still stored, so the host screen can use them. **Only the
    formats of §3's table are ever tagged** (`WRITABLE_SUFFIXES`: `.mp3`, `.ogg`, `.opus`,
@@ -203,13 +204,13 @@ is dropped without a word, on load and so on save.
 - `backend/src/ultrastar_wingman/downloads/loudness.py`: `measure`, `read_tags`, `write_tags`
   (raise `LoudnessError`, `FileInUseError`, `UnsupportedFormatError`; `write_tags` takes the
   ffmpeg as the reader of its copy, the writers per format are `_tag_mp3`, `_tag_ogg`,
-  `_tag_flac` and `_tag_m4a`), `normalize(ffmpeg, file) -> Outcome` (never raises),
+  `_tag_flac` and `_tag_m4a`), `normalize(ffmpeg, file, *, write_window=None) -> Outcome` (never raises; the window is entered around the write, which a cancellation never cuts short),
   `normalize_song(session, ffmpeg, song) -> Outcome` (stores and logs by the song's name). In
   `downloads/` because ffmpeg is the downloads' tool. The mutagen classes are imported by name,
   which is also what puts them into the frozen exe (the spec lists nothing for them).
 - `Outcome.status`: `tagged`, `already_tagged` (left alone), `unsupported`, `silent`,
-  `missing`, `in_use`, `failed`. `Outcome.stored` is what goes on the row: the numbers for the
-  first three, nothing for the rest.
+  `missing`, `in_use`, `failed`. `Outcome.stored` is what goes on the row (`keep`): the numbers
+  for the first three, `SILENT_GAIN` (0 dB, no peak) for `silent`, nothing for the rest.
 - `songs.replay_gain_db` and `songs.replay_gain_peak` (migration 0037, no backfill). A rescan
   leaves them alone and clears them when the txt names an audio file of another **name** (a
   library moved to another drive keeps them). A download writes them, or clears them.
@@ -222,21 +223,41 @@ is dropped without a word, on load and so on save.
 
 ## 5. The seams for parts 2 and 3
 
-**Part 2, the library pass.** The songs to visit are the rows with an `audio_file` and
-`replay_gain_db IS NULL`. For each, `normalize_song(session, ffmpeg, song)`, with one ffmpeg
-resolved once (`media.ensure_ffmpeg`). `already_tagged` is cheap (one read, nothing written)
-and fills the row from a tag USDB Syncer or UltraStar Manager wrote. `in_use` is worth a retry
-later: on Windows it is Ultrastar Deluxe playing the file, or the host screen streaming it
-(`PermissionError` from the replace, WinError 32 or 5). `unsupported` and `silent` are final,
-and so is a file whose content is not what its suffix says (`unsupported`, decision 5). One
-`failed` outcome is final too and would be retried forever: a read-only file. An mp3 without
-an info frame, a VBR mp3 and an mp3 with ID3v1 or APEv2 tags are no longer a class of their
-own: mutagen tags them like any other, and the tags survive (§3), and so does an ID3v2.4
-footer. A *would change more than its ID3v2 tag* refusal would be a mutagen bug, or an ID3v2
-layout nobody has tried, and is worth a log line rather than a retry.
-To weigh: silently, on a rescan, or asked; the scan lock (`scanner.library_lock`) while a file
-is replaced; and §3's last paragraph, the parts of an ID3v2 tag mutagen does not keep byte for
-byte.
+**Part 2, the library pass (built).** `downloads/loudness_pass.py`, behind `GET`, `POST` and
+`DELETE /downloads/loudness` (`settings.manage`) and the `loudness.changed` event; the row is
+*Songs already in the library* under **Normalize loudness** on the Settings page
+(`LoudnessPassRow`). Open to the user's veto:
+
+- **Opt-in** (the orchestrator's ruling): nothing runs on a rescan or at startup; the host
+  presses **Even out** and watches it run, because it rewrites the host's own files. It runs
+  whatever the **Normalize loudness** switch says, which tags the downloads. Ultrastar
+  Deluxe only hears the tags while its own **ReplayGain** option is on, and that switch is
+  also what turns the option on before every song: with it off, the option stays as the
+  host set it, and the pass tags files that may play untouched.
+- **Visited:** the rows with an `audio_file` and `replay_gain_db IS NULL`, in the song list's
+  order (`lower(artist)`, `lower(title)`, `id`), one at a time, with `normalize(...,
+  write_window=...)` and `loudness.keep` — not `normalize_song`, which would log a first
+  `in_use` as a warning. One ffmpeg per pass, looked for only when there is a song to visit;
+  none ends the pass `failed` with its sentence in `error`.
+- **Remembered:** what `keep` stores, silence included as `SILENT_GAIN` (0 dB, no peak: the
+  file plays as it is, as USDX plays it), so a second pass visits only what is left. A
+  `failed` file (read-only, damaged), a `missing` one and a final `in_use` keep nothing and
+  are tried again by the next pass.
+- **Waiting** while `karaoke.current_sing()` or `karaoke.usdx_is_open()`, checked before each
+  song and again in the write window, once a second.
+- **The write window** holds `scanner.library_lock()` and re-reads the row: a song deleted,
+  moved to another audio file or filled by a download meanwhile is skipped, under no outcome.
+  Storing the outcome takes the lock and looks again, so a rescan landing between the write
+  and the row never ends up with this file's numbers on another file's row. The look is not
+  a lock on the room: a sing started during the write (the copy and its read-back) finds the
+  file whole, because the copy replaces it in one `os.replace`, which Windows refuses for a
+  file Ultrastar Deluxe holds open (`in_use`).
+- **Stopping** cancels the task: a measurement is given up, a write is finished first
+  (`loudness._to_the_end`, which a download's shutdown now gets too); the row of a song
+  written that way is filled by the next pass, from the tag.
+- **`in_use`** is tried once more at the end of the pass, and counted only then.
+- **The event carries no song:** every socket gets it, and a song a tag hides from guests
+  must not ride along. `GET /downloads/loudness` adds the song in hand.
 
 **Part 3, the host.** `MusicTrackRead.gain_db` / `.peak` and the same on `MusicPreviewRead`.
 To match USDX: `10^(gain_db/20)`, capped at `1/peak` when there is a peak, multiplied into the

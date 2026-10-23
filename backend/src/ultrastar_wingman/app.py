@@ -18,6 +18,7 @@ from .auth import service as auth
 from .config import BootstrapSettings, get_bootstrap_settings
 from .db import run_migrations
 from .devices import service as devices
+from .downloads import loudness_pass
 from .downloads import service as downloads
 from .frontend import mount_frontend, resolve_frontend_dir
 from .karaoke import service as karaoke
@@ -73,6 +74,10 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
         await music.stop_watchdog()
         await devices.stop_watchdog()
         await downloads.stop()
+        # Never started here: the pass over the library is the host's press alone. Stopped
+        # here, so a pass the host left running does not outlive the database; the song in
+        # hand is finished, never left half written.
+        await loudness_pass.stop()
         await usdb.aclose()
         # Before the engine goes: a scan or a score import outliving it would fail on a
         # dead connection pool. Ending the karaoke session kills a running song — the

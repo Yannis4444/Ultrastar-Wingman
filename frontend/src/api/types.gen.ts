@@ -1037,6 +1037,95 @@ export type LoginRequest = {
 };
 
 /**
+ * LoudnessCounts
+ *
+ * How many songs of the pass ended in each `loudness.Outcome` status. A song counts
+ * once, by its last try: a file in use is tried again at the end of the pass.
+ */
+export type LoudnessCounts = {
+    /**
+     * Tagged
+     */
+    tagged: number;
+    /**
+     * Already Tagged
+     */
+    already_tagged: number;
+    /**
+     * Unsupported
+     */
+    unsupported: number;
+    /**
+     * Silent
+     */
+    silent: number;
+    /**
+     * Missing
+     */
+    missing: number;
+    /**
+     * In Use
+     */
+    in_use: number;
+    /**
+     * Failed
+     */
+    failed: number;
+};
+
+/**
+ * LoudnessPassStatus
+ *
+ * `LoudnessPassRead` and the song in hand, for the one reader allowed to see it.
+ */
+export type LoudnessPassStatus = {
+    /**
+     * State
+     */
+    state: 'idle' | 'running' | 'stopping';
+    /**
+     * Waiting
+     */
+    waiting: boolean;
+    /**
+     * Total
+     */
+    total: number;
+    /**
+     * Done
+     */
+    done: number;
+    counts: LoudnessCounts;
+    /**
+     * Ended
+     */
+    ended: 'finished' | 'stopped' | 'failed' | null;
+    /**
+     * Error
+     */
+    error: string | null;
+    song: LoudnessSongRead | null;
+};
+
+/**
+ * LoudnessSongRead
+ */
+export type LoudnessSongRead = {
+    /**
+     * Id
+     */
+    id: string;
+    /**
+     * Title
+     */
+    title: string;
+    /**
+     * Artist
+     */
+    artist: string;
+};
+
+/**
  * MeRead
  *
  * Everything the frontend needs to render itself. Works for anonymous callers too:
@@ -4625,6 +4714,61 @@ export type DismissDownloadResponses = {
 };
 
 export type DismissDownloadResponse = DismissDownloadResponses[keyof DismissDownloadResponses];
+
+export type StopLoudnessPassData = {
+    body?: never;
+    path?: never;
+    query?: never;
+    url: '/api/v1/downloads/loudness';
+};
+
+export type StopLoudnessPassResponses = {
+    /**
+     * Successful Response
+     */
+    200: LoudnessPassStatus;
+};
+
+export type StopLoudnessPassResponse = StopLoudnessPassResponses[keyof StopLoudnessPassResponses];
+
+export type ReadLoudnessPassData = {
+    body?: never;
+    path?: never;
+    query?: never;
+    url: '/api/v1/downloads/loudness';
+};
+
+export type ReadLoudnessPassResponses = {
+    /**
+     * Successful Response
+     */
+    200: LoudnessPassStatus;
+};
+
+export type ReadLoudnessPassResponse = ReadLoudnessPassResponses[keyof ReadLoudnessPassResponses];
+
+export type StartLoudnessPassData = {
+    body?: never;
+    path?: never;
+    query?: never;
+    url: '/api/v1/downloads/loudness';
+};
+
+export type StartLoudnessPassErrors = {
+    /**
+     * A pass is running already.
+     */
+    409: unknown;
+};
+
+export type StartLoudnessPassResponses = {
+    /**
+     * Successful Response
+     */
+    202: LoudnessPassStatus;
+};
+
+export type StartLoudnessPassResponse = StartLoudnessPassResponses[keyof StartLoudnessPassResponses];
 
 export type UsdbStatusData = {
     body?: never;

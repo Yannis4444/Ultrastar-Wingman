@@ -1,5 +1,5 @@
 import { useQuery, useQueryClient } from "@tanstack/react-query";
-import { useMemo, type ComponentType } from "react";
+import { Fragment, useMemo, type ComponentType } from "react";
 import type { SettingRead } from "../api";
 import {
   listSettingsOptions,
@@ -10,6 +10,7 @@ import { useAuth } from "../auth";
 import { Icon, type IconName } from "../components/icons";
 import JoinUrlField from "../components/JoinUrlField";
 import KaraokeSlotsField from "../components/KaraokeSlotsField";
+import LoudnessPassRow from "../components/LoudnessPassRow";
 import PageHeader from "../components/PageHeader";
 import RunUsdxRow from "../components/RunUsdxRow";
 import SettingField from "../components/SettingField";
@@ -80,6 +81,16 @@ const GROUP_ACTIONS: Record<
   USDX: RunUsdxRow,
 };
 
+/**
+ * Rows that follow one setting, for what that setting cannot do by itself.
+ * Not settings, so drawn only for `settings.manage`: there is nothing in them
+ * to read without pressing it. The Normalize loudness switch tags every
+ * download; the row under it tags the songs that were there before.
+ */
+const SETTING_ACTIONS: Record<string, ComponentType | undefined> = {
+  "downloads.normalize_loudness": LoudnessPassRow,
+};
+
 /** The group a Wingman that brings its own Ultrastar Deluxe has no settings
     in, and keeps anyway: its Launch row still has a job. */
 const USDX_GROUP = "USDX";
@@ -142,7 +153,13 @@ export default function Settings() {
 
   const renderField = (setting: SettingRead) => {
     const Field = CUSTOM_FIELDS[setting.key] ?? SettingField;
-    return <Field key={setting.key} setting={setting} readOnly={!mayManage} />;
+    const Action = mayManage ? SETTING_ACTIONS[setting.key] : undefined;
+    return (
+      <Fragment key={setting.key}>
+        <Field setting={setting} readOnly={!mayManage} />
+        {Action && <Action />}
+      </Fragment>
+    );
   };
 
   if (auth.loaded && !mayView) {

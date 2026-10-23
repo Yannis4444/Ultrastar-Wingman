@@ -77,7 +77,7 @@ what the writes take. Reads and writes that take no capability say so.
 | `/players` | The people a score is filed under, and their pictures | `players.view`, then `players.manage` and `players.avatar` |
 | `/karaoke` | The running song: `sing`, `stop`, `current`, slots and colors | `songs.view` and `players.view` to read, then `karaoke.sing` and `karaoke.stop` |
 | `/music` | The background music between songs: what is on, `play`, `pause`, `skip`, `volume`, its options, and the `sink` routes the playing screen reports through | `music.view`, then `music.control` and `music.manage` |
-| `/downloads` | The download queue and what it is doing | `downloads.view`, then `downloads.manage` |
+| `/downloads` | The download queue and what it is doing, and `loudness`: evening out the songs already in the library | `downloads.view`, then `downloads.manage`. `settings.manage` for `loudness` |
 | `/sources` | Searching USDB, the source those downloads come from | `usdb.search` |
 | `/stats` | Parties and their scores, and the two corrections to one | `stats.view` and `stats.history`, then `stats.manage`, `stats.hide` and `stats.moderate` |
 | `/achievements` | The catalog of achievements, and what a player earned | None to read, `achievements.manage` to write |

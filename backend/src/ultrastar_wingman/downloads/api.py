@@ -2,16 +2,17 @@
 
 import logging
 
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends, HTTPException, Request
 from pydantic import BaseModel
 from sqlalchemy import select
 
 from ..auth.deps import require
+from ..config import BootstrapSettings
 from ..db import SessionDep
 from ..sources.base import UnknownSourceError
-from . import service
+from . import loudness_pass, service
 from .model import Download
-from .schema import DownloadList, DownloadRead, read_download
+from .schema import DownloadList, DownloadRead, LoudnessPassStatus, read_download
 from .video_quality import PRESETS
 
 logger = logging.getLogger(__name__)
@@ -131,3 +132,47 @@ async def dismiss_download(download_id: int, session: SessionDep) -> DownloadRea
     except service.DownloadStillRunningError as error:
         raise HTTPException(status_code=409, detail="still_running") from error
     return read_download(row)
+
+
+@router.get(
+    "/downloads/loudness",
+    response_model=LoudnessPassStatus,
+    # The pass rewrites the host's own song files, and its row is on the Settings page:
+    # the host's right, not a helper's (`downloads.manage` is `trusted`'s).
+    dependencies=[Depends(require("settings.manage"))],
+)
+async def read_loudness_pass() -> LoudnessPassStatus:
+    """What the pass that evens out the loudness of the songs already in the library is
+    doing, the song in hand included. Its changes arrive as `loudness.changed`."""
+    return loudness_pass.read()
+
+
+@router.post(
+    "/downloads/loudness",
+    response_model=LoudnessPassStatus,
+    status_code=202,
+    dependencies=[Depends(require("settings.manage"))],
+    responses={409: {"description": "A pass is running already."}},
+)
+async def start_loudness_pass(request: Request) -> LoudnessPassStatus:
+    """Write a ReplayGain tag into every song's audio file that has none yet, one song at a
+    time, holding still while a song is being sung. Runs whatever the Normalize loudness
+    setting says, which tags the downloads; but Ultrastar Deluxe hears the tags only while
+    its own ReplayGain option is on, which that setting switches on before every song."""
+    settings: BootstrapSettings = request.app.state.bootstrap_settings
+    try:
+        return await loudness_pass.start(request.app.state.session_factory, settings.data_dir)
+    except loudness_pass.PassRunningError as error:
+        raise HTTPException(status_code=409, detail="loudness_running") from error
+
+
+@router.delete(
+    "/downloads/loudness",
+    response_model=LoudnessPassStatus,
+    dependencies=[Depends(require("settings.manage"))],
+)
+async def stop_loudness_pass() -> LoudnessPassStatus:
+    """Stop the pass, and answer once it has: a song being written is finished first. What
+    it has done stays done. Stopping when nothing runs is not a mistake (a double tap)."""
+    await loudness_pass.stop()
+    return loudness_pass.read()

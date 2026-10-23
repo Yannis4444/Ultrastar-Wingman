@@ -90,6 +90,10 @@ line saying so instead. See
 | **Normalize loudness** | Writes each download's loudness into its audio file, and switches on Ultrastar Deluxe's **ReplayGain** option before every song, so every song plays at about the same volume | on |
 | **Video quality** | Which stream is downloaded | High (1080p) |
 
+Under **Normalize loudness**, the **Songs already in the library** row is no
+setting. Its **Even out** button tags the songs that were there before. See
+[The songs you already have](../start/ultrastar-deluxe.md#the-songs-you-already-have).
+
 **Video quality** offers four presets and one free field. *Best available* takes
 whatever YouTube has, at any size. *High (1080p)*, *Medium (720p)*, and *Small
 (480p)* cap the picture at that height. *Custom* takes a yt-dlp format string
