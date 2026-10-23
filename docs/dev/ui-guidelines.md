@@ -265,7 +265,9 @@ panel holds (the party picker's *show all*), never for a row's own action.
   its whole self in the fact's `title`, so one long genre or edition cannot take a line of its
   own; a long genre and a long edition together still fit two lines at 360px. No value, no fact (never "unknown"), no duration (§1.5). For `songs.edit` or
   `songs.delete` it ends in a 40px `pencil` `.icon-button`, *Edit details*; with neither it is not
-  drawn. The **fine print** ends the modal 16px under the action bar: one centred 0.8em
+  drawn. An 8px negative margin keeps the pencil from making its line 40px tall, and the line's
+  rows are 8px apart (`row-gap`), so on a line of two its box lands in the gap and never on the
+  facts above or below it. The **fine print** ends the modal 16px under the action bar: one centred 0.8em
   `--color-darker` line, creator and source, "Made by DrFrank · usdb:24435", a missing half
   dropped with its dot, `overflow-wrap: anywhere`.
 - **The action bar** (`.song-actions`): one centred flat row under a hairline `border-top`,
@@ -648,7 +650,9 @@ saved) where a jump to the top would throw away the place they were working in.
   each in a fixed order — a score's *Dark* · *Cover*, a party's *Dark* · *Mosaic* · *Spread* (the
   focus folded in: the spread is drawn on Dark alone, so look and focus are one choice) — a
   `scroll-snap-type: x mandatory` row, `overscroll-behavior-x: contain`, slides 84% of the panel's
-  width, centred, 8px apart, so a neighbour peeks in at each edge. In each slide a box
+  width, centred, 8px apart, so a neighbour peeks in at each edge. A story slide is as wide as its
+  box, `min(84%, 50vh × 9 ÷ 16)`, never wider: half the screen tall at 9:16 is narrower than 84%,
+  and a picture centred in a wider slide kept the neighbour out of sight. In each slide a box
   `min(width ÷ the card's ratio, 50vh)` tall, one height for every slide of a format, holds the real
   `<img>` of its PNG (`object-fit: contain`, an `alt`), or `Loading` until drawn; only the slide in
   view and its neighbours are drawn, each cached per option set, the old picture kept through a
@@ -661,8 +665,9 @@ saved) where a jump to the top would throw away the place they were working in.
   `aria-roledescription` *carousel*, slides named "Mosaic, 2 of 3") scroll smoothly, and jump under
   reduced motion. The slide in view **is** the choice the buttons send and the panel remembers
   (*Spread* excepted); a dimmed slot has no picture, so there they hold still as through a redraw
-  (share-cards §5). *Under the podium* is §4's pills under the name, its row on every party slide so a
-  swipe moves nothing (`underNote`'s sentence in its place off a square Dark podium); then one column
+  (share-cards §5), each drawn as held: the word in `--color-darkerer` on `--input-bg`, the
+  primary's fill given up as `SpinButton`'s is. *Under the podium* is §4's pills under the name,
+  its row on every party slide so a swipe moves nothing (`underNote`'s sentence in its place off a square Dark podium); then one column
   of `CheckOption`s: *Other singers' pictures*, *Party name and date*, *Wingman logo* (on), the
   party's *Only me and my place*. The foot is §5's `flex: 1 1 0` row of
   what works in this browser, never a greyed button: **Share** (`share`, the primary) where
@@ -791,10 +796,13 @@ saved) where a jump to the top would throw away the place they were working in.
   never a line of its own and never a card, because the head's height is budgeted to that line
   and a line added under it pushed the cards off the stage — over **one card per slot** along
   the foot (capped at 26vh wide, the rest of that budget), in the host's order
-  and sharing the width: an outline in the slot's own hex, the avatar above the name, and for
-  a slot nobody is on the card filled with that same colour 25% into `--bg` under a
-  placeholder a step lighter, saying *empty* or *Unknown card* in `--color-dark`
-  (`--color-darker` is 2.7:1 on the darkened yellow, §1.6's reasoning). The cards are the one
+  and sharing the width: an outline in the slot's own hex over that same colour 18% into
+  `--bg`, taken or not, the avatar above the name. A card nobody owns lying on a slot is the
+  full card under a placeholder a step lighter (32%), saying *Unknown card*; a slot nobody is
+  on is a **short box** along the foot of the row (`clamp(40px, 6.5vh, 76px)`), its colour and
+  the word *empty*, that grows into the card the moment somebody takes it, so the free slots
+  are told apart at a glance (2026-09-06, `player-selector.md` §7). Both words are in
+  `--color-dark` (`--color-darker` is 2.7:1 on the darkened yellow, §1.6's reasoning). The cards are the one
   sanctioned departure from §1.1. A spin a **phone** started draws no row at all and centres
   the head in the stage (the slots are the picker's, the next screen); the selector's spin
   keeps the cards, and counts down once the reel has landed. The song plays the way the

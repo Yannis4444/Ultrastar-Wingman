@@ -89,7 +89,7 @@ types into a plain `CardContent`, and applies the toggles there.
 | What | Where it comes from |
 |---|---|
 | head | the party's name over "17 Oct 2026 · 5 singers", or unnamed its date over "5 singers"; with decision 4's toggle off, no head and no singer count at all: the numbers lead (§4.2, §7.9), while the file name and the `alt` still name the party by its name or date |
-| Sings · Songs · Best · Average | `stats.ts` `scoreSummary` minus Worst (decision 2); a duet run is one sing. Best is gold with the holder ("Best · Chiara") |
+| Sings · Songs · Best · Average | `stats.ts` `scoreSummary` minus Worst (decision 2); a duet run is one sing. Best is gold with the holder ("Best · Chiara"). A count of one takes the singular label, "1 Song" (`stats.ts` `countWord`) |
 | podium, ranking | `sessionLeaderboard(…, "best")`'s order, named on the card ("ranked by best score"); places are competition ranking, so two equal bests are both 1st |
 | score strip | `ScoreStrip`'s content: every score as a grey dot, the best in gold, the median dashed, and "Median N" written above it — not the best, which the numbers above already print with its holder, the way `ScoreStrip` leaves it out under a score summary |
 | spread rows | `groupScores(…, "player")` and `boxStats` per singer, in the ranking's order (§3.3) |
@@ -180,7 +180,7 @@ rating 44, the bar, the singer row, and the brand on the safe area's last line.
 
 | y | Region |
 |---|---|
-| 72–190 | the head 56 bold (→ 44, then an ellipsis), one line, over its sub line 32 in `#888` (§2.2). With *Party name and date* off the region goes: the numbers start at 72 and the podium centres in what that frees (Spread's ranking line and rows move up with them) |
+| 72–190 | the head 56 bold (→ 44, then an ellipsis), one line, over its sub line 32 in `#888` (§2.2). With *Party name and date* off the region goes and the rest closes up: the numbers, the podium 150 under their top and what is under it 24 below the podium stand as one block, centred between the margin and the brand's line (y 72–936), so no air is left above ranks 4–6. Spread's numbers start at 72, its ranking line and rows moving up with them |
 | 222–331 | four numbers in columns 190 · 190 · 316 · 240 wide: the value 56 bold, the label 32 in `#888`; Best gold with its holder |
 | 372–694 | the podium: 1st in the middle and raised, avatar 180; 2nd and 3rd avatar 140, 60 lower; the pink rank numeral 40 bold before the name 40 (→ 32); the score 44 bold (gold for the best). Two singers stand about the middle, 2nd at the left. Centred in the space when nothing is under it |
 | 722–936 | **either** ranks 4–6 as 56 px rows (the pink numeral, a 48 avatar, the name 40 → 32, the score 40 at the right) plus "+N more" 32, **or** the score strip ("Median N" at 32, a 100 px band of dots r 10 ringed in `--bg`, the best gold with a gold ring r 19, the median dashed 3 px, the gridlines and the axis 3 px, ticks 0 / 5k / 10k at 32) |
@@ -249,8 +249,10 @@ every browser; the specs mark them `[SecureContext]`.
   Safari's `share()` then throws `NotAllowedError`.
 - **A redraw holds the buttons still.** The old picture stays up while the new one is drawn,
   but it is the card of the options before: Share and Copy image are disabled and Save image
-  ignores a press until the new file is there, so a quick tap never sends the wrong card. A
-  redraw that fails takes the old picture and the buttons with it.
+  ignores a press until the new file is there, so a quick tap never sends the wrong card. All
+  three look held while they wait, the word in `--color-darkerer` on `--input-bg` and the
+  primary's fill gone, so a held button never reads as one that went nowhere. A redraw that
+  fails takes the old picture and the buttons with it.
 - **Share the file alone.** A `title` or `text` adds a stray `.txt` to the iOS share sheet.
 - **Errors:** `AbortError` is the user cancelling, so nothing follows. `NotAllowedError` and
   `TypeError` fall back to Save.

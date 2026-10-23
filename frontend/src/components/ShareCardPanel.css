@@ -31,13 +31,16 @@
 
 /* -------------------------------------------------------------- carousel
    One slide per design, 84% of the panel wide and centred, 8px apart, so a
-   neighbour peeks in at each edge and says there is more. The row scrolls
-   inside itself and never the page: the panel is `overflow-x: hidden`, and a
-   swipe that runs past the last slide stops here instead of handing itself
-   to whatever is behind. The two spacers let the first and the last slide
-   come to the middle — `padding` at a scroller's far end is not honoured the
-   same way in every browser. */
+   neighbour peeks in at each edge and says there is more. A story slide is
+   only as wide as its picture: half the screen tall at 9:16 is narrower than
+   84%, and a wider slide would centre the picture in it and keep the
+   neighbour out of sight. The row scrolls inside itself and never the page:
+   the panel is `overflow-x: hidden`, and a swipe that runs past the last
+   slide stops here instead of handing itself to whatever is behind. The two
+   spacers let the first and the last slide come to the middle — `padding` at
+   a scroller's far end is not honoured the same way in every browser. */
 .share-carousel {
+  --share-slide: 84%;
   position: relative;
   display: flex;
   gap: 8px;
@@ -55,10 +58,15 @@
   display: none;
 }
 
+/* The box's own `max-height: 50vh` at the story's ratio. */
+.share-carousel-story {
+  --share-slide: min(84%, calc(50vh * 9 / 16));
+}
+
 .share-carousel::before,
 .share-carousel::after {
   content: "";
-  flex: 0 0 calc(8% - 8px);
+  flex: 0 0 calc((100% - var(--share-slide)) / 2 - 8px);
 }
 
 /* The row runs the panel's whole width, where an outline round it would be
@@ -79,7 +87,7 @@
 }
 
 .share-slide {
-  flex: 0 0 84%;
+  flex: 0 0 var(--share-slide);
   min-width: 0;
   scroll-snap-align: center;
 }
@@ -323,16 +331,20 @@
   white-space: nowrap;
 }
 
-/* The moment a redraw takes, and a design the card cannot draw: Save image
-   is a link, which `:disabled` does not reach, so it wears
-   `.button:disabled`'s look by hand. */
-.share-actions .button[aria-disabled="true"] {
-  color: var(--color-dark);
+/* The moment a redraw takes, and a design the card cannot draw: the row holds
+   still, and every button in it reads as held — the glyph and the word in
+   `--color-darkerer`, the off-state token of the app's other disabled
+   controls, and the primary's fill given up for the plain `--input-bg`, as
+   the gradient die gives up its own (`SpinButton.css`). `.button:disabled`'s
+   `--color-dark` alone left Share as loud as ever. Save image is a link,
+   which `:disabled` does not reach, so it wears the look by its
+   `aria-disabled`. `.share-panel` in front, so the panel's own primary
+   (`.modal:not(.modal-bare) .button-primary`) never wins on bundle order. */
+.share-panel .share-actions .button:disabled,
+.share-panel .share-actions .button[aria-disabled="true"] {
+  color: var(--color-darkerer);
+  background-color: var(--input-bg);
   cursor: default;
-}
-
-.share-actions .button:disabled {
-  color: var(--color-dark);
 }
 
 .share-status,

@@ -8,6 +8,7 @@ import {
   boxStats,
   evaluationLabel,
   groupScores,
+  plural,
   scorePlayer,
   scorePlayerKey,
   scoreSummary,
@@ -166,10 +167,6 @@ export function ordinal(value: number): string {
     default:
       return `${value}th`;
   }
-}
-
-function plural(count: number, word: string): string {
-  return `${count} ${word}${count === 1 ? "" : "s"}`;
 }
 
 /** The first letter of a name, the way `PlayerAvatar` and `CoverImage` draw

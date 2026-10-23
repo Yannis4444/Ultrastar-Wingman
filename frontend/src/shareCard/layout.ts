@@ -1,7 +1,7 @@
 import { scoreTickLabel, scoreX, swarm, jitterOf } from "../chartLayout";
 import { chartTheme, MAX_SCORE } from "../chartTheme";
 import type { IconName } from "../components/icons";
-import { CHART_MIN_SCORES } from "../stats";
+import { CHART_MIN_SCORES, countWord } from "../stats";
 import {
   FACES_SHOWN,
   type CardDot,
@@ -852,8 +852,9 @@ const NUMBERS_HEIGHT = 56 * 1.2 + lineHeight(MIN_TEXT);
 function numbers(b: Builder, content: PartyCardContent, top: number): void {
   const { sings, songs, best, bestBy, average } = content.numbers;
   const columns: [number, string, string][] = [
-    [sings, "Sings", CARD_COLORS.text],
-    [songs, "Songs", CARD_COLORS.text],
+    // "1 Song", never "1 Songs": *Only me* is often one of each.
+    [sings, countWord(sings, "Sing"), CARD_COLORS.text],
+    [songs, countWord(songs, "Song"), CARD_COLORS.text],
     [best, bestBy === null ? "Best" : `Best · ${bestBy}`, CARD_COLORS.gold],
     [average, "Average", CARD_COLORS.text],
   ];
@@ -982,6 +983,17 @@ function heroHeight(
   );
 }
 
+/** The largest hero that fits `room`, or the smallest there is. */
+function heroPreset(
+  content: PartyCardContent,
+  room: number,
+): (typeof HERO_PRESETS)[number] {
+  return (
+    HERO_PRESETS.find((option) => heroHeight(content, option) <= room) ??
+    HERO_PRESETS[HERO_PRESETS.length - 1]
+  );
+}
+
 function hero(
   b: Builder,
   content: PartyCardContent,
@@ -989,10 +1001,7 @@ function hero(
   bottom: number,
 ): void {
   const entry = content.ranking[0];
-  const preset =
-    HERO_PRESETS.find(
-      (option) => heroHeight(content, option) <= bottom - top,
-    ) ?? HERO_PRESETS[HERO_PRESETS.length - 1];
+  const preset = heroPreset(content, bottom - top);
   let y = top + (bottom - top - heroHeight(content, preset)) / 2;
   b.image(
     "hero",
@@ -1532,11 +1541,12 @@ function mosaicCells(urls: string[], height: number): MosaicCell[] {
   return cells;
 }
 
-/** §4.2's square: where the numbers stand under a head, and how far below
- * them the body starts. Without a head the numbers move up to the margin and
- * everything under them by as much (§7.9). */
+/** §4.2's square: where the numbers stand under a head, how far below them
+ * the body starts, and the air between the podium and what is under it.
+ * Without a head the numbers lead, and the block they head is centred (§7.9). */
 const SQUARE_NUMBERS_TOP = 222;
 const SQUARE_BODY_GAP = 150;
+const SQUARE_UNDER_GAP = 24;
 
 function partySquare(
   b: Builder,
@@ -1545,11 +1555,11 @@ function partySquare(
 ): void {
   if (content.head !== null) partyHead(b, content.head, content.sub, MARGIN);
   const numbersTop = content.head === null ? MARGIN : SQUARE_NUMBERS_TOP;
-  numbers(b, content, numbersTop);
   const bodyTop = numbersTop + SQUARE_BODY_GAP;
   const bodyBottom = 1080 - MARGIN - BRAND_LOGO - 24;
 
   if (options.focus === "spread") {
+    numbers(b, content, numbersTop);
     rankingLine(b, content, bodyTop - 10);
     spread(b, content, bodyTop + 68, bodyBottom, 96);
     brand(b, 1080 - MARGIN, content.rankingNote, options.logo);
@@ -1564,17 +1574,61 @@ function partySquare(
       : under === "strip"
         ? stripHeight(stripBand)
         : 0;
+  const placeUnder = (top: number) => {
+    if (under === "ranking") rows(b, content, top);
+    if (under === "strip")
+      strip(b, content.dots, content.median, top, stripBand);
+  };
+
+  if (content.head === null) {
+    // Nothing above the numbers: rather than leaving the podium alone in the
+    // middle of what the head freed, with the rows still at the foot, the
+    // whole block closes up at the head card's own gaps and is centred
+    // between the margin and the brand (§4.2).
+    const one = content.ranking.length === 1;
+    const underRoom = underHeight > 0 ? SQUARE_UNDER_GAP + underHeight : 0;
+    const bodyHeight = one
+      ? heroHeight(
+          content,
+          heroPreset(content, bodyBottom - bodyTop - underRoom),
+        )
+      : PODIUM_HEIGHT;
+    const items: StackItem[] = [
+      {
+        height: NUMBERS_HEIGHT,
+        gap: 0,
+        place: (top) => numbers(b, content, top),
+      },
+      {
+        height: bodyHeight,
+        gap: SQUARE_BODY_GAP - NUMBERS_HEIGHT,
+        place: (top) =>
+          one
+            ? hero(b, content, top, top + bodyHeight)
+            : podium(b, content, top),
+      },
+    ];
+    if (underHeight > 0)
+      items.push({
+        height: underHeight,
+        gap: SQUARE_UNDER_GAP,
+        place: placeUnder,
+      });
+    stack(items, MARGIN, bodyBottom, 0, 0);
+    brand(b, 1080 - MARGIN, content.rankingNote, options.logo);
+    return;
+  }
+
+  numbers(b, content, numbersTop);
   const underTop = bodyBottom - underHeight;
-  const heroBottom = underHeight > 0 ? underTop - 24 : bodyBottom;
+  const heroBottom = underHeight > 0 ? underTop - SQUARE_UNDER_GAP : bodyBottom;
   if (content.ranking.length === 1) {
     hero(b, content, bodyTop, heroBottom);
   } else {
     const space = heroBottom - bodyTop;
     podium(b, content, bodyTop + Math.max(0, (space - PODIUM_HEIGHT) / 2));
   }
-  if (under === "ranking") rows(b, content, underTop);
-  if (under === "strip")
-    strip(b, content.dots, content.median, underTop, stripBand);
+  placeUnder(underTop);
   brand(b, 1080 - MARGIN, content.rankingNote, options.logo);
 }
 

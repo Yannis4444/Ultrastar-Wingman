@@ -825,8 +825,12 @@ test("a party's head is its name over the date and the singer count", () => {
   ]);
 });
 
+/** The margin, and the line 24 above the brand's logo: what a square party
+ * card's content stands between. */
+const SQUARE_CONTENT = { top: 72, bottom: 1080 - 72 - 48 - 24 };
+
 test.each(["ranking", "strip"] as const)(
-  "with the name and date off the numbers start at 72 and the podium centres in what that frees, %s under it",
+  "with the name and date off the block closes up and is centred, %s under the podium",
   (under) => {
     const options = {
       format: "square",
@@ -841,20 +845,74 @@ test.each(["ranking", "strip"] as const)(
       false,
     );
     expect(texts(off).some((text) => text.includes("singers"))).toBe(false);
-    expect(topOf(off, "numbers")).toBe(72);
-    // The body starts 150 higher and ends where it did: the podium stands in
-    // the middle of the larger space, 75 higher, and what is under it stays.
-    expect(topOf(off, "podium")).toBeCloseTo(topOf(on, "podium") - 75);
     const region = under === "ranking" ? "rows" : "strip";
-    expect(topOf(off, region)).toBe(topOf(on, region));
-    // Centred between the body's top and the 24 above what is under it (the
-    // rows' first numeral sits 2 into its row's line, hence the slack).
-    const space = { top: 72 + 150, bottom: topOf(off, region) - 24 };
-    const above = topOf(off, "podium") - space.top;
-    const below = space.bottom - bottomOf(off, "podium");
-    expect(Math.abs(above - below)).toBeLessThanOrEqual(2);
+    // What is under the podium follows it at the head card's own 24 (the
+    // rows' first numeral sits 2 into its row's line, hence the slack),
+    // rather than staying at the foot with the air above it.
+    const gap = topOf(off, region) - bottomOf(off, "podium");
+    expect(gap).toBeGreaterThanOrEqual(24);
+    expect(gap).toBeLessThanOrEqual(26);
+    // The podium starts 150 under the numbers' top, the head card's body gap
+    // without the slack the head card centres its podium in.
+    const numbersToPodium = topOf(off, "podium") - topOf(off, "numbers");
+    expect(numbersToPodium).toBeCloseTo(150);
+    expect(numbersToPodium).toBeLessThanOrEqual(
+      topOf(on, "podium") - topOf(on, "numbers"),
+    );
+    // And the whole block, numbers to the last row or the strip's axis, is
+    // centred in the card's content area.
+    const above = topOf(off, "numbers") - SQUARE_CONTENT.top;
+    const below = SQUARE_CONTENT.bottom - bottomOf(off, region);
+    expect(above).toBeGreaterThan(0);
+    expect(Math.abs(above - below)).toBeLessThanOrEqual(4);
   },
 );
+
+test.each([
+  ["the mosaic's podium alone", nameless, "mosaic", "podium"],
+  [
+    "one singer's hero",
+    party(cardParty(1, 5), { partyNameAndDate: false }),
+    "dark",
+    "hero",
+  ],
+] as const)(
+  "with the name and date off %s is centred with the numbers over it",
+  (_, content, look, body) => {
+    const options = {
+      format: "square",
+      look,
+      focus: "podium",
+      under: "none",
+      logo: true,
+    } as const;
+    const off = layoutPartyCard(content, options, fakeMeasure);
+    expect(topOf(off, body) - topOf(off, "numbers")).toBeCloseTo(150);
+    const above = topOf(off, "numbers") - SQUARE_CONTENT.top;
+    const below = SQUARE_CONTENT.bottom - bottomOf(off, body);
+    expect(above).toBeGreaterThan(0);
+    expect(Math.abs(above - below)).toBeLessThanOrEqual(4);
+  },
+);
+
+test("the party's numbers say 1 Sing and 1 Song, never 1 Songs", () => {
+  const options = {
+    format: "square",
+    look: "dark",
+    focus: "podium",
+    under: "none",
+    logo: true,
+  } as const;
+  const one = layoutPartyCard(party(cardParty(1, 1)), options, fakeMeasure);
+  expect(texts(one, "numbers")).toEqual(
+    expect.arrayContaining(["1", "Sing", "Song"]),
+  );
+  expect(texts(one, "numbers")).not.toContain("Songs");
+  const many = layoutPartyCard(named, options, fakeMeasure);
+  expect(texts(many, "numbers")).toEqual(
+    expect.arrayContaining(["Sings", "Songs"]),
+  );
+});
 
 test("with the name and date off the spread's line and rows move up by the head", () => {
   const options = {

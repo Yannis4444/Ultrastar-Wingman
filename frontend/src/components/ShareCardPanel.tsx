@@ -283,6 +283,8 @@ function scrollToSlide(
 }
 
 interface CarouselProps {
+  /** The slides' shape: a story slide is as narrow as its picture. */
+  format: CardFormat;
   slides: Slide[];
   /** The slide in view. */
   index: number;
@@ -300,7 +302,13 @@ interface CarouselProps {
  * the choice at once and lets the row follow; the reading the settled scroll
  * then makes agrees with it, so nothing flickers.
  */
-function DesignCarousel({ slides, index, onMove, renderSlide }: CarouselProps) {
+function DesignCarousel({
+  format,
+  slides,
+  index,
+  onMove,
+  renderSlide,
+}: CarouselProps) {
   const carousel = useRef<HTMLDivElement>(null);
   const previous = useRef<HTMLButtonElement>(null);
   const next = useRef<HTMLButtonElement>(null);
@@ -316,6 +324,16 @@ function DesignCarousel({ slides, index, onMove, renderSlide }: CarouselProps) {
     if (row !== null) scrollToSlide(row, current.current, "instant");
     return () => window.clearTimeout(settle.current);
   }, []);
+
+  // The other format changes every slide's width under the scroll position:
+  // the slide in view is brought back to the middle before the paint.
+  const shownFormat = useRef(format);
+  useLayoutEffect(() => {
+    if (shownFormat.current === format) return;
+    shownFormat.current = format;
+    const row = carousel.current;
+    if (row !== null) scrollToSlide(row, current.current, "instant");
+  }, [format]);
 
   const go = (to: number, from: "previous" | "next" | null) => {
     if (to < 0 || to > last || to === index) return;
@@ -349,7 +367,7 @@ function DesignCarousel({ slides, index, onMove, renderSlide }: CarouselProps) {
     <>
       <div
         ref={carousel}
-        className="share-carousel"
+        className={`share-carousel share-carousel-${format}`}
         tabIndex={0}
         role="region"
         aria-roledescription="carousel"
@@ -1035,7 +1053,9 @@ export default function ShareCardPanel({
       <div ref={panelBody} className="share-panel">
         {!showCarousel ? (
           // The first drawing is a wait, at the size the slide will have.
-          <div className="share-carousel share-carousel-waiting">
+          <div
+            className={`share-carousel share-carousel-${format} share-carousel-waiting`}
+          >
             <div className="share-slide">
               <div className={`share-slide-box share-slide-box-${format}`}>
                 <Loading />
@@ -1062,6 +1082,7 @@ export default function ShareCardPanel({
               onChange={(next) => update({ format: next })}
             />
             <DesignCarousel
+              format={format}
               slides={slides}
               index={index}
               onMove={move}

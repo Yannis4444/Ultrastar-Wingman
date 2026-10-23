@@ -624,6 +624,23 @@ test("the arrows scroll the row smoothly, and at once for less motion", async ()
   expect(scrollTo).toHaveBeenLastCalledWith({ left: 520, behavior: "instant" });
 });
 
+test("the other format narrows the slides to the story's picture and keeps the one in view in the middle", async () => {
+  renderPanel(partyTarget());
+  await preview();
+  expect(carousel()).toHaveClass("share-carousel-square");
+  const { scrollTo } = layOut();
+  fireEvent.click(nextDesign());
+  scrollTo.mockClear();
+  fireEvent.click(screen.getByRole("radio", { name: "Story" }));
+  // A story slide is as wide as its picture, so a neighbour peeks in.
+  expect(carousel()).toHaveClass("share-carousel-story");
+  expect(carousel()).not.toHaveClass("share-carousel-square");
+  // Every slide changed width under the scroll position: Mosaic is brought
+  // back to the middle at once, before the paint, not run to.
+  expect(scrollTo).toHaveBeenCalledWith({ left: 260, behavior: "instant" });
+  expect(designName()).toBe("Mosaic");
+});
+
 test("a swipe settles on the slide nearest the middle, and that slide is the choice", async () => {
   renderPanel(partyTarget());
   await preview();

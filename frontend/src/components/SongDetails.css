@@ -36,14 +36,17 @@
 }
 
 /* The fact line (§5): the details as data, 8px under the artist. A centred
-   line that wraps between facts, never inside the hero's width. */
+   line that wraps between facts, never inside the hero's width. Its lines
+   are 8px apart, which is exactly what the pencil's 40px box reaches past
+   its line (`.song-facts-edit`), so on a line of two it lands in the gap and
+   never on the facts above or below it. */
 .song-facts {
   display: flex;
   flex-wrap: wrap;
   justify-content: center;
   align-items: center;
   column-gap: 12px;
-  row-gap: 4px;
+  row-gap: 8px;
   max-width: 100%;
   margin: 8px 0 0 0;
 }
