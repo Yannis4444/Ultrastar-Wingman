@@ -94,8 +94,8 @@ hold so many of each that the glyphs would say nothing. The colors and the
 on-off switches are the party's, and so is which tags reach a row. See
 [Tags](../tags/index.md).
 
-Genre, language, edition, and year are never marks. They live in the song's own
-**Details** and in the filter.
+Genre, language, edition, and year are never marks. They live on the line under
+the artist in the song's own view, and in the filter.
 
 ## What has already been sung
 

@@ -38,7 +38,6 @@ import { CHART_MIN_SCORES } from "../stats";
 import { streamingLinks } from "../streamingLinks";
 import { tagColorClass, tagGlyph } from "../tags";
 import ConfirmModal from "./ConfirmModal";
-import IconStat from "./IconStat";
 import { Icon, type IconName } from "./icons";
 import Loading from "./Loading";
 import Modal from "./Modal";
@@ -214,7 +213,6 @@ export default function SongDetails({ song, onClose }: SongDetailsProps) {
   // There is no has_audio flag; the preview 404s for songs without audio and
   // the element's error event is the only signal.
   const [noAudio, setNoAudio] = useState(false);
-  const [detailsOpen, setDetailsOpen] = useState(false);
   // The inline name field of the "New playlist…" row, and what is in it.
   const [naming, setNaming] = useState(false);
   const [newName, setNewName] = useState("");
@@ -337,7 +335,7 @@ export default function SongDetails({ song, onClose }: SongDetailsProps) {
   });
 
   // Both directions refetch the assignments, which is where a mark on a song
-  // row and the glyphs on the Tags row come from. The backend broadcasts
+  // row and the action bar's tag count come from. The backend broadcasts
   // `song_tags.changed` as well, for every other reader in the room.
   const refreshTags = (): void => {
     void queryClient.invalidateQueries({
@@ -363,8 +361,8 @@ export default function SongDetails({ song, onClose }: SongDetailsProps) {
   });
 
   // What everybody said about the song, oldest first. Asked for as the modal
-  // opens rather than with the sub-view: the count is the option row's value,
-  // so the row cannot wait for the view it leads into. Reading takes only
+  // opens rather than with the sub-view: the count is the action bar's number,
+  // so the button cannot wait for the view it leads into. Reading takes only
   // `songs.view`, which is what got this reader to the song in the first place.
   const comments = useQuery(
     listSongCommentsOptions({ path: { song_id: song.id } }),
@@ -379,7 +377,7 @@ export default function SongDetails({ song, onClose }: SongDetailsProps) {
 
   // Somebody else in the room said something, or a moderator took one away.
   // The bodies are not on the bus, so the list refetches itself — which is
-  // what moves the count on the option row as well.
+  // what moves the count in the action bar as well.
   useWingmanEvent<CommentsChanged>("comments.changed", (message) => {
     if (message.song_id === song.id) refreshComments();
   });
@@ -473,23 +471,35 @@ export default function SongDetails({ song, onClose }: SongDetailsProps) {
     say.mutate({ path: { song_id: song.id }, body: { body } });
   };
 
-  // Duration lives in the preview player and artist in the hero, so the
-  // details keep only what the modal does not show anyway.
-  const rows: { icon: IconName; label: string; value: string | null }[] = [
+  // The fact line under the artist (§5): what the song says about itself, as
+  // data rather than a list of labelled rows. Duration lives in the preview
+  // player and the artist in the hero, so neither is here (§1.5); a value the
+  // file does not name is no fact at all, never "unknown".
+  const allFacts: { icon: IconName; name: string; value: string | null }[] = [
     // `flag` is "a language or a country" (§3); `globe` means global sharing.
-    { icon: "flag", label: "Language", value: shown.language },
-    // Not `tag`: that glyph is the tags feature's, one row further down (§3).
-    { icon: "music", label: "Genre", value: shown.genre },
+    { icon: "flag", name: "Language", value: shown.language },
+    // Not `tag`: that glyph is the tags feature's, in the action bar (§3).
+    { icon: "music", name: "Genre", value: shown.genre },
     {
       icon: "calendar",
-      label: "Year",
+      name: "Year",
       value: shown.year === null ? null : String(shown.year),
     },
-    { icon: "disc", label: "Edition", value: shown.edition },
-    { icon: "user", label: "Creator", value: shown.creator },
-    // The id already names the source ("usdb:24435"), so one row covers both.
-    { icon: "database", label: "Source", value: shown.id },
+    { icon: "disc", name: "Edition", value: shown.edition },
   ];
+  const facts = allFacts.filter(
+    (fact) => fact.value !== null && fact.value !== "",
+  );
+
+  // The fine print (§5): who built the karaoke file and where it came from.
+  // The id already names the source ("usdb:24435"); a missing creator is
+  // dropped with its dot.
+  const finePrint = [
+    shown.creator ? `Made by ${shown.creator}` : null,
+    shown.id,
+  ]
+    .filter((part) => part !== null && part !== "")
+    .join(" · ");
 
   // The fields the editor writes, in the order §5 fixes. The creator is not
   // among them: it says who built the karaoke file, which is not a fact about
@@ -1032,6 +1042,17 @@ export default function SongDetails({ song, onClose }: SongDetailsProps) {
   const favorite = favorites.ids.has(song.id);
   const hasControls =
     favorites.available || auth.can("karaoke.sing") || auth.can("wishlist.add");
+  // The one way into the editor, and with it into deleting the song: one
+  // errand rather than a control each, so a reader who holds only the right to
+  // delete finds the fields locked and the button live (§5).
+  const canOpenEditor = canEditSong || canDeleteSong;
+
+  /** A count's name, with its number once there is one to say. A dash is the
+   * absence of an answer, and "Comments, dash" would read it out as one. */
+  const countLabel = (name: string, value: number | null): string =>
+    value === null ? name : `${name}, ${value}`;
+  const tagCount = tags.isSuccess ? carried.length : null;
+  const commentCount = comments.isSuccess ? said.length : null;
 
   return (
     <>
@@ -1040,6 +1061,44 @@ export default function SongDetails({ song, onClose }: SongDetailsProps) {
           <SongCover song={shown} className="song-hero-cover" />
           <h3 className="song-hero-title">{shown.title}</h3>
           <p className="song-hero-artist">{shown.artist}</p>
+          {/* The details as data, 8px under the artist (§5). Inside the hero,
+              so it is centred on the cover and the stretches either side of
+              it stay backdrop. Not drawn at all with nothing to say and
+              nothing to press. */}
+          {(facts.length > 0 || canOpenEditor) && (
+            <div className="song-facts">
+              {facts.map(({ icon, name, value }) => (
+                <span
+                  key={name}
+                  className="song-fact"
+                  // The name for a pointer, and the whole value with it: a
+                  // long one is cut short on screen.
+                  title={`${name}: ${value}`}
+                >
+                  <Icon name={icon} className="song-fact-icon" />
+                  <span className="visually-hidden">{name}</span>
+                  <span className="song-fact-value">{value}</span>
+                </span>
+              ))}
+              {canOpenEditor && (
+                <button
+                  type="button"
+                  className="icon-button song-facts-edit"
+                  aria-label="Edit details"
+                  title="Edit details"
+                  onClick={() => {
+                    setNotice(null);
+                    // Filled from what is on screen, which is what the backend
+                    // is told the edit was based on when it is saved.
+                    setForm(formOf(shown));
+                    setView("edit");
+                  }}
+                >
+                  <Icon name="pencil" />
+                </button>
+              )}
+            </div>
+          )}
         </div>
 
         {!noAudio && (
@@ -1113,159 +1172,109 @@ export default function SongDetails({ song, onClose }: SongDetailsProps) {
           </p>
         )}
 
-        <div className="song-options">
-          <button
-            type="button"
-            className="song-option"
-            aria-expanded={detailsOpen}
-            onClick={() => setDetailsOpen(!detailsOpen)}
-          >
-            <Icon name="info" className="song-option-icon" />
-            <span className="song-option-label">Details</span>
-            {/* A glyph swap, not a rotation: every collapsed option row points
-                right, whether it expands inline or opens a sub-view, and
-                rotating `chevron-down` by 180° would point it up. */}
-            <Icon
-              name={detailsOpen ? "chevron-down" : "chevron-right"}
-              className="song-option-chevron"
-            />
-          </button>
-          {/* Always in the DOM: `hidden` keeps the metadata findable (search,
-              screen-reader "show all") without conditional rendering. */}
-          <ul className="song-details-list" hidden={!detailsOpen}>
-            {rows.map(({ icon, label, value }) => (
-              <li key={label} title={label}>
-                <Icon name={icon} />
-                <span>{value ?? "unknown"}</span>
-              </li>
-            ))}
-          </ul>
+        {/* The action bar (§5): one flat row under a hairline. The counts
+            first, each opening what it counts, then the two errands. Two
+            groups, so a narrow phone wraps the errands as a pair rather than
+            tearing a count away from its neighbours. */}
+        <div className="song-actions">
+          <div className="song-actions-counts">
+            {/* A trophy with nothing behind it would be a promise the song
+                cannot keep: unlike a tag or a comment, nobody can put the first
+                score on a song from here. Without `stats.history` the query
+                never runs, so the button is absent for that reason too. */}
+            {best.length > 0 && (
+              <button
+                type="button"
+                className="song-action-count song-action-scores"
+                aria-label={countLabel("Best scores", best[0].score)}
+                title={countLabel("Best scores", best[0].score)}
+                onClick={() => setView("scores")}
+              >
+                <Icon name="trophy" className="song-action-count-icon" />
+                <span className="song-action-count-value">{best[0].score}</span>
+              </button>
+            )}
 
-          {/* Offered on the strength of the right alone, not of the listing: a
-              reader with no list yet is exactly who the "New playlist…" row
-              inside is for, and the listing has not been asked for at this
-              point anyway. */}
-          {canManagePlaylists && (
+            {/* Absent only when the reader may neither see nor set a single
+                tag: a button leading into an empty list is worse than no
+                button (§5). At zero it stays, since putting the first tag on a
+                song is what it is for. The two listings answer separately, so
+                the count waits for both: a zero drawn in between, or after the
+                assignments failed, would be a claim nobody checked. */}
+            {tags.tags.length > 0 && (
+              <button
+                type="button"
+                className="song-action-count"
+                aria-label={countLabel("Tags", tagCount)}
+                title={countLabel("Tags", tagCount)}
+                onClick={() => setView("tags")}
+              >
+                <Icon name="tag" className="song-action-count-icon" />
+                <span className="song-action-count-value">
+                  {tagCount ?? UNKNOWN}
+                </span>
+              </button>
+            )}
+
+            {/* Nobody is kept out of this one: reading what the room said
+                about a song is part of looking at it, and being the first to
+                say something is exactly what a zero leads to. Writing needs an
+                account, and that is said inside. Zero once the listing says
+                so and not a moment earlier. */}
             <button
               type="button"
-              className="song-option"
-              onClick={() => setView("playlists")}
-            >
-              <Icon name="list-plus" className="song-option-icon" />
-              <span className="song-option-label">Add to playlist</span>
-              <Icon name="chevron-right" className="song-option-chevron" />
-            </button>
-          )}
-
-          {/* Every reader's: listening to a song somewhere else takes no right
-              in Wingman. The row opens a view inside, hence the chevron; the
-              links in there are what leave. */}
-          <button
-            type="button"
-            className="song-option"
-            onClick={() => {
-              setNotice(null);
-              setView("streaming");
-            }}
-          >
-            <Icon name="external-link" className="song-option-icon" />
-            <span className="song-option-label">
-              Open in a streaming service
-            </span>
-            <Icon name="chevron-right" className="song-option-chevron" />
-          </button>
-
-          {/* The last row, and the one place a song is changed at all: what
-              the details say, and — at the foot of that same form — whether
-              the song stays in the library. One row rather than two, because
-              both are the same errand, and a reader who holds only the right
-              to delete finds the fields locked and the button live. */}
-          {(canEditSong || canDeleteSong) && (
-            <button
-              type="button"
-              className="song-option"
+              className="song-action-count"
+              aria-label={countLabel("Comments", commentCount)}
+              title={countLabel("Comments", commentCount)}
               onClick={() => {
                 setNotice(null);
-                // Filled from what is on screen — which is what the backend is
-                // told the edit was based on when it is saved.
-                setForm(formOf(shown));
-                setView("edit");
+                setView("comments");
               }}
             >
-              <Icon name="pencil" className="song-option-icon" />
-              <span className="song-option-label">Edit details</span>
-              <Icon name="chevron-right" className="song-option-chevron" />
+              <Icon name="comment" className="song-action-count-icon" />
+              <span className="song-action-count-value">
+                {commentCount ?? UNKNOWN}
+              </span>
             </button>
-          )}
-        </div>
+          </div>
 
-        {/* The summary strip closes the modal (§5): the three counted things as
-            a glyph over its number, each opening the sub-view it counts. The
-            rows above hold content and actions; these hold numbers. */}
-        <div className="song-summary">
-          {/* A trophy with nothing behind it would be a promise the song cannot
-              keep — unlike a tag or a comment, nobody can put the first score on
-              a song from here. Without `stats.history` the query never runs, so
-              the button is absent for the same reason the old row was. */}
-          {best.length > 0 && (
+          <div className="song-actions-errands">
+            {/* Offered on the strength of the right alone, not of the listing:
+                a reader with no list yet is exactly who the "New playlist…" row
+                inside is for, and the listing has not been asked for yet. */}
+            {canManagePlaylists && (
+              <button
+                type="button"
+                className="icon-button"
+                aria-label="Add to playlist"
+                title="Add to playlist"
+                onClick={() => setView("playlists")}
+              >
+                <Icon name="list-plus" />
+              </button>
+            )}
+
+            {/* Every reader's: listening to a song somewhere else takes no
+                right in Wingman. The button opens a view inside; the links in
+                there are what leave. */}
             <button
               type="button"
-              className="song-summary-stat song-summary-scores"
-              onClick={() => setView("scores")}
+              className="icon-button"
+              aria-label="Open in a streaming service"
+              title="Open in a streaming service"
+              onClick={() => {
+                setNotice(null);
+                setView("streaming");
+              }}
             >
-              <IconStat
-                icon="trophy"
-                label="Best scores"
-                value={best[0].score}
-              />
+              <Icon name="external-link" />
             </button>
-          )}
-
-          {/* Absent only when the reader may neither see nor set a single tag: a
-              button leading into an empty list is worse than no button (§5). At
-              zero it stays — putting the first tag on a song is what it is for. */}
-          {tags.tags.length > 0 && (
-            <button
-              type="button"
-              className="song-summary-stat"
-              onClick={() => setView("tags")}
-            >
-              {/* The two listings answer separately, and the tags one first, so
-                  the count waits for both of them — exactly as the comments one
-                  below does. A zero drawn in between would say "no tags on this
-                  song" about a song whose assignments are still in flight, and
-                  a zero drawn after the assignments *failed* would say it about
-                  a song nobody could look up at all. */}
-              <IconStat
-                icon="tag"
-                label="Tags"
-                value={tags.isSuccess ? carried.length : UNKNOWN}
-              />
-            </button>
-          )}
-
-          {/* Nobody is kept out of this one: reading what the room said about a
-              song is part of looking at it, and being the first to say something
-              is exactly what a zero leads to. Writing needs an account, and that
-              is said inside. */}
-          <button
-            type="button"
-            className="song-summary-stat"
-            onClick={() => {
-              setNotice(null);
-              setView("comments");
-            }}
-          >
-            {/* Zero once the listing says so, and not a moment earlier: while it
-                is in flight — or after it failed, when `said` stays empty for
-                good — "0" would be a claim nobody checked. */}
-            <IconStat
-              icon="comment"
-              label="Comments"
-              value={comments.isSuccess ? said.length : UNKNOWN}
-            />
-          </button>
+          </div>
         </div>
+
+        {/* Who built the karaoke file and where it came from: the quietest
+            line, at the very foot (§5). */}
+        <p className="song-fine-print">{finePrint}</p>
       </Modal>
     </>
   );

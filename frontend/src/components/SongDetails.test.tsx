@@ -184,14 +184,18 @@ beforeEach(() => {
   deleteSongComment.mockResolvedValue({ data: undefined });
 });
 
-test("the strip's trophy carries the top score and opens the ranked view", async () => {
+test("the action bar's trophy carries the top score and opens the ranked view", async () => {
   renderDetails();
 
   const row = await screen.findByRole("button", { name: /Best scores/ });
   expect(row).toHaveTextContent("9500");
-  // A glyph over its number, and no chevron: the strip is not a row (§5).
+  // Its name says the number it shows, for a reader and for a pointer alike.
+  expect(row).toHaveAccessibleName("Best scores, 9500");
+  expect(row).toHaveAttribute("title", "Best scores, 9500");
+  // A glyph over its number, and no chevron: the bar is not a row (§5).
   expect(iconNames(row)).toEqual(["trophy"]);
-  expect(row.closest(".song-summary")).not.toBeNull();
+  expect(row).toHaveClass("song-action-count", "song-action-scores");
+  expect(row.closest(".song-actions")).not.toBeNull();
 
   fireEvent.click(row);
   const dialog = screen.getByRole("dialog", { name: "Best scores" });
@@ -368,7 +372,14 @@ test("a song nobody has sung carries no trophy", async () => {
   renderDetails();
 
   await waitFor(() => expect(listSongScores).toHaveBeenCalled());
-  expect(screen.queryByText("Best scores")).not.toBeInTheDocument();
+  // The bar still stands, with the comments, but no trophy in it.
+  await screen.findByRole("button", { name: /Comments/ });
+  expect(
+    screen.queryByRole("button", { name: /Best scores/ }),
+  ).not.toBeInTheDocument();
+  expect(
+    iconNames(document.querySelector(".song-actions") as Element),
+  ).not.toContain("trophy");
 });
 
 test("without stats.history the scores are not even requested", async () => {
@@ -377,27 +388,144 @@ test("without stats.history the scores are not even requested", async () => {
   renderDetails();
 
   await waitFor(() => expect(getMe).toHaveBeenCalled());
-  expect(screen.queryByText("Best scores")).not.toBeInTheDocument();
+  expect(
+    screen.queryByRole("button", { name: /Best scores/ }),
+  ).not.toBeInTheDocument();
   expect(listSongScores).not.toHaveBeenCalled();
 });
 
-test("the details section starts collapsed and toggles open", async () => {
+/** The fact line's facts, as glyph, hidden name and value per fact. */
+function factsOf(line: Element): [string, string, string][] {
+  return [...line.querySelectorAll(".song-fact")].map((fact) => [
+    iconNames(fact as HTMLElement)[0],
+    fact.querySelector(".visually-hidden")?.textContent ?? "",
+    fact.querySelector(".song-fact-value")?.textContent ?? "",
+  ]);
+}
+
+/** A song that names everything the fact line and the fine print can say. */
+const complete: SongRead = {
+  ...song,
+  genre: "Rock",
+  edition: "SingStar Queen",
+  creator: "DrFrank",
+};
+
+test("the facts stand under the artist, each glyph only with its value", async () => {
   renderDetails();
 
-  const toggle = await screen.findByRole("button", { name: "Details" });
-  expect(toggle).toHaveAttribute("aria-expanded", "false");
-  // Collapsed means hidden, not gone: the values stay in the DOM.
-  expect(screen.getByRole("dialog")).toHaveTextContent("English");
-
-  fireEvent.click(toggle);
-  expect(toggle).toHaveAttribute("aria-expanded", "true");
-  expect(screen.getByText("English")).toBeVisible();
-
-  fireEvent.click(toggle);
-  expect(toggle).toHaveAttribute("aria-expanded", "false");
+  const dialog = await screen.findByRole("dialog", {
+    name: "Bohemian Rhapsody",
+  });
+  const line = dialog.querySelector(".song-facts") as HTMLElement;
+  // In the hero, straight under the artist (§5): the details are data now,
+  // not a row to unfold.
+  expect(line.parentElement).toHaveClass("song-hero");
+  expect(line.previousElementSibling).toHaveClass("song-hero-artist");
+  // The fixture names a language and a year and nothing else, so the genre's
+  // and the edition's glyphs are not drawn either, and "unknown" is not said.
+  expect(factsOf(line)).toEqual([
+    ["flag", "Language", "English"],
+    ["calendar", "Year", "1975"],
+  ]);
+  expect(dialog).not.toHaveTextContent("unknown");
+  // No duration: the preview player shows it (§1.5).
+  expect(dialog).not.toHaveTextContent("5:55");
 });
 
-test("the rows hold the content and the actions, the strip the numbers", async () => {
+test("a song with every fact names all four, in the order §5 fixes", async () => {
+  renderSong(complete);
+
+  const dialog = await screen.findByRole("dialog", {
+    name: "Bohemian Rhapsody",
+  });
+  // `flag` the language and `music` the genre: `globe` means global sharing
+  // and `tag` is the tags feature's, which has its own button (§3).
+  expect(factsOf(dialog.querySelector(".song-facts") as Element)).toEqual([
+    ["flag", "Language", "English"],
+    ["music", "Genre", "Rock"],
+    ["calendar", "Year", "1975"],
+    ["disc", "Edition", "SingStar Queen"],
+  ]);
+  // The name is there for a pointer too, with the whole value: a long one
+  // is cut short on screen.
+  expect(iconNames(screen.getByTitle("Genre: Rock"))).toEqual(["music"]);
+  expect(screen.getByTitle("Edition: SingStar Queen")).toHaveClass("song-fact");
+});
+
+test("a song that names nothing draws no fact line for a reader who may not edit", async () => {
+  renderSong({ ...song, language: null, year: null });
+
+  // The trophy waits for `/auth/me`, so the answer is in by now.
+  await screen.findByRole("button", { name: /Best scores/ });
+  // Nothing to say and nothing to press: no empty line under the artist.
+  expect(document.querySelector(".song-facts")).toBeNull();
+  // And the rest of the modal stands as ever, the fine print included.
+  expect(document.querySelector(".song-actions")).not.toBeNull();
+  expect(document.querySelector(".song-fine-print")).toHaveTextContent(
+    "usdb:1",
+  );
+});
+
+test("a song that names nothing keeps the pencil alone for the right to delete", async () => {
+  asAccount(["songs.delete"]);
+  renderSong({ ...song, language: null, year: null });
+
+  // Otherwise the editor, and deleting the song with it, would be out of reach.
+  const pencil = await screen.findByRole("button", { name: "Edit details" });
+  const line = pencil.closest(".song-facts") as HTMLElement;
+  expect(line.querySelectorAll(".song-fact")).toHaveLength(0);
+  expect(iconNames(line)).toEqual(["pencil"]);
+
+  fireEvent.click(pencil);
+  expect(
+    within(screen.getByRole("dialog", { name: "Edit details" })).getByRole(
+      "button",
+      { name: "Delete song" },
+    ),
+  ).toBeEnabled();
+});
+
+test("the fine print names who made the file and where it came from", async () => {
+  renderSong(complete);
+
+  const line = (await screen.findByRole("dialog")).querySelector(
+    ".song-fine-print",
+  );
+  expect(line).toHaveTextContent(/^Made by DrFrank · usdb:1$/);
+  // The last thing in the modal, under the action bar.
+  expect(line?.previousElementSibling).toHaveClass("song-actions");
+});
+
+test("a song without a creator keeps the source alone, without the dot", async () => {
+  renderDetails();
+
+  const line = (await screen.findByRole("dialog")).querySelector(
+    ".song-fine-print",
+  );
+  expect(line).toHaveTextContent(/^usdb:1$/);
+});
+
+test("there is no Details row and no list of rows on the song itself", async () => {
+  asAccount(["playlists.manage", "songs.edit", "songs.delete"]);
+  renderDetails();
+
+  const dialog = await screen.findByRole("dialog", {
+    name: "Bohemian Rhapsody",
+  });
+  await screen.findByRole("button", { name: "Edit details" });
+  // The facts are inline and the fine print carries creator and source, so
+  // the row that used to unfold them is gone, and so is every option row.
+  expect(
+    within(dialog).queryByRole("button", { name: "Details" }),
+  ).not.toBeInTheDocument();
+  expect(dialog.querySelector(".song-option")).toBeNull();
+  expect(dialog.querySelector(".song-options")).toBeNull();
+  expect(iconNames(dialog)).not.toContain("info");
+  expect(iconNames(dialog)).not.toContain("chevron-right");
+});
+
+test("the action bar holds the counts first, then the errands", async () => {
   withPlaylist(false);
   // Everything the modal can offer at once, so the order is the whole order.
   getMe.mockResolvedValue(
@@ -412,33 +540,63 @@ test("the rows hold the content and the actions, the strip the numbers", async (
   });
   renderDetails();
 
-  // Details first, Add to playlist second, the streaming services third — the
-  // order §5 prescribes, with the place after them reserved for Edit details.
+  // The counts first, each a glyph over its number, then the two errands as
+  // plain icon buttons: the order §5 prescribes.
   await screen.findByRole("button", { name: "Add to playlist" });
-  expect(
-    [...document.querySelectorAll(".song-option .song-option-label")].map(
-      (label) => label.textContent,
-    ),
-  ).toEqual(["Details", "Add to playlist", "Open in a streaming service"]);
-
-  // Everything with a number to show sits in the strip instead, in one order.
-  const strip = document.querySelector(".song-summary") as HTMLElement;
+  const bar = document.querySelector(".song-actions") as HTMLElement;
   await waitFor(() =>
-    expect(iconNames(strip)).toEqual(["trophy", "tag", "comment"]),
+    expect(iconNames(bar)).toEqual([
+      "trophy",
+      "tag",
+      "comment",
+      "list-plus",
+      "external-link",
+    ]),
   );
+  const buttons = within(bar).getAllByRole("button");
+  await waitFor(() =>
+    expect(buttons.map((button) => button.getAttribute("aria-label"))).toEqual([
+      "Best scores, 9500",
+      "Tags, 1",
+      "Comments, 1",
+      "Add to playlist",
+      "Open in a streaming service",
+    ]),
+  );
+  // Every one of them says its name to a pointer too.
+  for (const button of buttons)
+    expect(button).toHaveAttribute("title", button.getAttribute("aria-label"));
+  // Three counts, two errands, each set in its own group.
+  expect(
+    [...bar.querySelectorAll(".song-actions-counts > button")].map((button) =>
+      button.className.includes("song-action-count"),
+    ),
+  ).toEqual([true, true, true]);
+  expect(
+    [...bar.querySelectorAll(".song-actions-errands > button")].map(
+      (button) => button.className,
+    ),
+  ).toEqual(["icon-button", "icon-button"]);
+  // Under the song controls, and the fine print under it.
+  expect(bar.previousElementSibling).toHaveClass("song-details-controls");
 });
 
-test("the collapsed details row points right and only turns down when open", async () => {
+test("each count opens what it counts, and the close goes back to the song", async () => {
+  withTags([BROKEN], ["t-broken"]);
   renderDetails();
 
-  const toggle = await screen.findByRole("button", { name: "Details" });
-  // Row icon then chevron; every collapsed option row points the same way.
-  expect(iconNames(toggle)).toEqual(["info", "chevron-right"]);
-
-  fireEvent.click(toggle);
-  expect(iconNames(toggle)).toEqual(["info", "chevron-down"]);
-  // The rotation trick is gone: it pointed the arrow up.
-  expect(toggle.querySelector(".song-chevron-open")).toBeNull();
+  for (const [name, view] of [
+    [/Best scores/, "Best scores"],
+    [/Tags/, "Tags"],
+    [/Comments/, "Comments"],
+  ] as const) {
+    fireEvent.click(await screen.findByRole("button", { name }));
+    const dialog = screen.getByRole("dialog", { name: view });
+    fireEvent.click(within(dialog).getByRole("button", { name: "Close" }));
+    expect(
+      await screen.findByRole("dialog", { name: "Bohemian Rhapsody" }),
+    ).toBeInTheDocument();
+  }
 });
 
 test("the wish control wears the three-bar wishlist glyphs", async () => {
@@ -502,12 +660,16 @@ function withPlaylist(
   });
 }
 
-test("the playlist row and picker wear the bulleted-list glyphs", async () => {
+test("the playlist button and picker wear the bulleted-list glyphs", async () => {
   withPlaylist(false);
   renderDetails();
 
   const option = await screen.findByRole("button", { name: "Add to playlist" });
-  expect(iconNames(option)).toEqual(["list-plus", "chevron-right"]);
+  // A 40px icon button in the action bar, the glyph alone (§5).
+  expect(option).toHaveClass("icon-button");
+  expect(option).toHaveAttribute("title", "Add to playlist");
+  expect(iconNames(option)).toEqual(["list-plus"]);
+  expect(option.closest(".song-actions-errands")).not.toBeNull();
 
   fireEvent.click(option);
   const dialog = screen.getByRole("dialog", { name: "Add to playlist" });
@@ -702,31 +864,77 @@ const ARCHIVE = tagRead({
   can_assign: false,
 });
 
-test("the genre row wears the music glyph, the tags feature keeps its own", async () => {
-  renderDetails();
+test("the genre fact wears the music glyph, the tags feature keeps its own", async () => {
+  withTags([BROKEN]);
+  renderSong(complete);
 
-  fireEvent.click(await screen.findByRole("button", { name: "Details" }));
-  expect(iconNames(screen.getByTitle("Genre"))).toEqual(["music"]);
+  await screen.findByRole("button", { name: /Tags/ });
+  expect(iconNames(screen.getByTitle("Genre: Rock"))).toEqual(["music"]);
+  // `tag` is the action bar's, and only there.
+  expect(
+    iconNames(document.querySelector(".song-facts") as Element),
+  ).not.toContain("tag");
 });
 
-test("the language row wears the flag, the glyph the Language facet wears", async () => {
+test("the language fact wears the flag, the glyph the Language facet wears", async () => {
   renderDetails();
 
-  fireEvent.click(await screen.findByRole("button", { name: "Details" }));
+  await screen.findByRole("button", { name: /Comments/ });
   // Not `globe`: that one means global sharing (a public playlist, USDB).
-  expect(iconNames(screen.getByTitle("Language"))).toEqual(["flag"]);
+  expect(iconNames(screen.getByTitle("Language: English"))).toEqual(["flag"]);
+});
+
+test("the host screen gets no playlist errand: a playlist is somebody's", async () => {
+  // Every right and no account, exactly what the host token grants.
+  getMe.mockResolvedValue(
+    meResponse(["songs.view", "playlists.manage", "songs.edit"], {
+      role: "admin",
+      is_host: true,
+    }),
+  );
+  renderDetails();
+
+  // The pencil waits for `/auth/me`, so the answer has arrived by now.
+  await screen.findByRole("button", { name: "Edit details" });
+  const errands = document.querySelector(".song-actions-errands") as Element;
+  expect(iconNames(errands)).toEqual(["external-link"]);
+});
+
+test("an account whose role may not manage playlists gets no playlist errand", async () => {
+  asAccount(["songs.edit"]);
+  renderDetails();
+
+  await screen.findByRole("button", { name: "Edit details" });
+  expect(
+    screen.queryByRole("button", { name: "Add to playlist" }),
+  ).not.toBeInTheDocument();
+});
+
+test("the playlist picker's close goes back to the song", async () => {
+  withPlaylist(false);
+  renderDetails();
+
+  fireEvent.click(
+    await screen.findByRole("button", { name: "Add to playlist" }),
+  );
+  const dialog = screen.getByRole("dialog", { name: "Add to playlist" });
+  fireEvent.click(within(dialog).getByRole("button", { name: "Close" }));
+  expect(
+    await screen.findByRole("dialog", { name: "Bohemian Rhapsody" }),
+  ).toBeInTheDocument();
+  expect(screen.getByRole("button", { name: "Add to playlist" })).toBeVisible();
 });
 
 test("there is no tag button when the reader may not view a single tag", async () => {
   renderDetails();
 
-  await screen.findByRole("button", { name: "Details" });
+  await screen.findByRole("button", { name: /Comments/ });
   expect(
     screen.queryByRole("button", { name: /Tags/ }),
   ).not.toBeInTheDocument();
 });
 
-test("the strip counts the song's tags and opens the sub-view", async () => {
+test("the action bar counts the song's tags and opens the sub-view", async () => {
   const many = [1, 2, 3, 4].map((n) =>
     tagRead({ id: `t${n}`, name: `tag ${n}`, icon: "music" }),
   );
@@ -737,6 +945,7 @@ test("the strip counts the song's tags and opens the sub-view", async () => {
   // The feature's glyph and how many the song wears — never the tags' own
   // glyphs, which stopped being recognisable past three of them.
   await waitFor(() => expect(button).toHaveTextContent("5"));
+  expect(button).toHaveAccessibleName("Tags, 5");
   expect(iconNames(button)).toEqual(["tag"]);
 
   fireEvent.click(button);
@@ -768,6 +977,8 @@ test("a tag count still in flight is a dash, never a zero", async () => {
   const button = await screen.findByRole("button", { name: /Tags/ });
   expect(button).toHaveTextContent("—");
   expect(button).not.toHaveTextContent("0");
+  // The dash is drawn, never read out: the name waits for a number.
+  expect(button).toHaveAccessibleName("Tags");
 });
 
 test("a tag count nobody could fetch is a dash too, never a zero", async () => {
@@ -782,7 +993,7 @@ test("a tag count nobody could fetch is a dash too, never a zero", async () => {
   expect(button).not.toHaveTextContent("0");
 });
 
-test("a tag set from the sub-view moves the strip's count", async () => {
+test("a tag set from the sub-view moves the action bar's count", async () => {
   withTags([BROKEN]);
   renderDetails();
 
@@ -936,7 +1147,7 @@ async function openComments(): Promise<HTMLElement> {
   return screen.getByRole("dialog", { name: "Comments" });
 }
 
-test("the strip counts what was said and opens the sub-view", async () => {
+test("the action bar counts what was said and opens the sub-view", async () => {
   listSongComments.mockResolvedValue({
     data: {
       comments: [comment(1, "Bob", "Banger."), comment(2, "Cara", "No")],
@@ -946,6 +1157,9 @@ test("the strip counts what was said and opens the sub-view", async () => {
 
   const row = await screen.findByRole("button", { name: /Comments/ });
   await waitFor(() => expect(row).toHaveTextContent("2"));
+  // "Comments, 3" is the guideline's own example of a count's name (§5).
+  expect(row).toHaveAccessibleName("Comments, 2");
+  expect(row).toHaveAttribute("title", "Comments, 2");
   expect(iconNames(row)).toEqual(["comment"]);
   expect(listSongComments.mock.calls[0][0]).toMatchObject({
     path: { song_id: "usdb:1" },
@@ -969,7 +1183,7 @@ test("a song nobody has commented on stands at zero, not without a number", asyn
 });
 
 test("a comment count nobody has yet is a dash, never a zero", async () => {
-  // Never answers: the state the strip is in for as long as the request runs.
+  // Never answers: the state the bar is in for as long as the request runs.
   listSongComments.mockReturnValue(new Promise(() => {}));
   renderDetails();
 
@@ -990,7 +1204,7 @@ test("a comment listing that failed stays a dash rather than settling on zero", 
   expect(button).not.toHaveTextContent("0");
 });
 
-test("a comment posted from the sub-view moves the strip's count", async () => {
+test("a comment posted from the sub-view moves the action bar's count", async () => {
   asAccount(["comments.write"]);
   addSongComment.mockResolvedValue({ data: {} });
   renderDetails();
@@ -1012,7 +1226,7 @@ test("a comment posted from the sub-view moves the strip's count", async () => {
   fireEvent.click(within(dialog).getByRole("button", { name: "Send" }));
   await waitFor(() => expect(addSongComment).toHaveBeenCalled());
 
-  // Back on the song, the strip counts what was just said.
+  // Back on the song, the action bar counts what was just said.
   fireEvent.click(within(dialog).getByRole("button", { name: "Close" }));
   await waitFor(() =>
     expect(screen.getByRole("button", { name: /Comments/ })).toHaveTextContent(
@@ -1357,12 +1571,12 @@ test("no Delete inside the editor without the right", async () => {
   expect(
     within(dialog).queryByRole("button", { name: "Delete song" }),
   ).not.toBeInTheDocument();
-  // Nor does the row it used to be its own way in through.
+  // Nor is there a way in of its own, on the song or anywhere in its bar.
+  fireEvent.click(within(dialog).getByRole("button", { name: "Close" }));
+  await screen.findByRole("dialog", { name: "Bohemian Rhapsody" });
   expect(
-    [...document.querySelectorAll(".song-option .song-option-label")].map(
-      (label) => label.textContent,
-    ),
-  ).not.toContain("Delete song");
+    screen.queryByRole("button", { name: /Delete/ }),
+  ).not.toBeInTheDocument();
 });
 
 test("Delete song is the danger button at the foot of the editor", async () => {
@@ -1509,18 +1723,21 @@ test("a deletion in flight locks the form it started in", async () => {
   ).toBeDisabled();
 });
 
-test("no Edit details row without either right", async () => {
+test("no Edit details pencil without either right", async () => {
   renderDetails();
 
-  // The trophy waits for `/auth/me`, so by the time it is here the row has had
-  // its answer too — and the answer is no.
+  // The trophy waits for `/auth/me`, so by the time it is here the pencil has
+  // had its answer too, and the answer is no. The facts stand alone.
   await screen.findByRole("button", { name: /Best scores/ });
   expect(
     screen.queryByRole("button", { name: "Edit details" }),
   ).not.toBeInTheDocument();
+  expect(
+    iconNames(document.querySelector(".song-facts") as Element),
+  ).not.toContain("pencil");
 });
 
-test("the right to delete alone is enough for the Edit details row", async () => {
+test("the right to delete alone is enough for the Edit details pencil", async () => {
   asAccount(["songs.delete"]);
   renderDetails();
 
@@ -1529,24 +1746,32 @@ test("the right to delete alone is enough for the Edit details row", async () =>
   ).toBeInTheDocument();
 });
 
-test("Edit details is the last row and looks like every other one", async () => {
+test("Edit details is the pencil that ends the fact line", async () => {
   asAccount(["playlists.manage", "songs.edit", "songs.delete"]);
   renderDetails();
 
-  const row = await screen.findByRole("button", { name: "Edit details" });
-  // An ordinary row with the pencil (§3), like the two above it.
-  expect(row.className).toBe("song-option");
-  expect(iconNames(row)).toEqual(["pencil", "chevron-right"]);
+  const pencil = await screen.findByRole("button", { name: "Edit details" });
+  // A 40px icon button with the pencil (§3), the details' own way to change
+  // them, and the last thing on their line.
+  expect(pencil.className).toBe("icon-button song-facts-edit");
+  expect(pencil).toHaveAttribute("title", "Edit details");
+  expect(iconNames(pencil)).toEqual(["pencil"]);
+  const line = pencil.closest(".song-facts") as HTMLElement;
+  expect(line.lastElementChild).toBe(pencil);
+  // Not in the action bar: that one holds the counts and the errands.
+  expect(pencil.closest(".song-actions")).toBeNull();
+});
+
+test("the editor's close goes back to the song", async () => {
+  asAccount(["songs.edit"]);
+  renderDetails();
+
+  const dialog = await openEditor();
+  fireEvent.click(within(dialog).getByRole("button", { name: "Close" }));
   expect(
-    [...document.querySelectorAll(".song-option .song-option-label")].map(
-      (label) => label.textContent,
-    ),
-  ).toEqual([
-    "Details",
-    "Add to playlist",
-    "Open in a streaming service",
-    "Edit details",
-  ]);
+    await screen.findByRole("dialog", { name: "Bohemian Rhapsody" }),
+  ).toBeInTheDocument();
+  expect(screen.getByRole("button", { name: "Edit details" })).toBeVisible();
 });
 
 /** A duet as USDB files it: the tag is in the title, never in a service's. */
@@ -1577,22 +1802,30 @@ async function openStreaming(): Promise<HTMLElement> {
   return screen.getByRole("dialog", { name: "Open in a streaming service" });
 }
 
-test("a guest gets the streaming row too, a right nobody needs", async () => {
+test("a guest gets the streaming errand too, a right nobody needs", async () => {
   // Nobody: no account, no right beyond seeing the song.
   getMe.mockResolvedValue(meResponse(["songs.view"]));
   renderDetails();
 
-  const row = await screen.findByRole("button", {
+  const button = await screen.findByRole("button", {
     name: "Open in a streaming service",
   });
-  // An ordinary row that opens a view inside: the glyph, then a chevron.
-  expect(row.className).toBe("song-option");
-  expect(iconNames(row)).toEqual(["external-link", "chevron-right"]);
+  // A 40px icon button that opens a view inside, its glyph alone.
+  expect(button.className).toBe("icon-button");
+  expect(button).toHaveAttribute("title", "Open in a streaming service");
+  expect(iconNames(button)).toEqual(["external-link"]);
+  // A guest's bar: the comments, and the one errand everybody gets. No
+  // trophy (no `stats.history`), no tags to see, no playlist without an
+  // account, and no pencil on the fact line.
+  await waitFor(() => expect(getMe).toHaveBeenCalled());
+  await waitFor(() =>
+    expect(
+      iconNames(document.querySelector(".song-actions") as Element),
+    ).toEqual(["comment", "external-link"]),
+  );
   expect(
-    [...document.querySelectorAll(".song-option .song-option-label")].map(
-      (label) => label.textContent,
-    ),
-  ).toEqual(["Details", "Open in a streaming service"]);
+    screen.queryByRole("button", { name: "Edit details" }),
+  ).not.toBeInTheDocument();
 });
 
 test("the streaming view links to each service's search, in a new tab", async () => {
@@ -1750,8 +1983,12 @@ test("saving sends the new values and what they were based on", async () => {
   const song_modal = await screen.findByRole("dialog", {
     name: "Bohemian Rhapsody",
   });
-  fireEvent.click(within(song_modal).getByRole("button", { name: "Details" }));
-  expect(within(song_modal).getByText("Rock")).toBeVisible();
+  // The fact line says it at once, glyph and all.
+  expect(factsOf(song_modal.querySelector(".song-facts") as Element)).toEqual([
+    ["flag", "Language", "English"],
+    ["music", "Genre", "Rock"],
+    ["calendar", "Year", "1976"],
+  ]);
 });
 
 test("an emptied field is saved as no value at all", async () => {

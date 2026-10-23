@@ -18,8 +18,8 @@ interface IconStatProps {
 
 /**
  * One number behind a glyph. `showLabel` decides whether the word is printed
- * under it: `ScoreSummary` prints all five of its own, a summary strip of a
- * couple of counts does not.
+ * under it: `ScoreSummary` prints all five of its own, a party's summary row
+ * of a couple of counts does not.
  *
  * Unprinted, the word is not lost: `title` shows it on hover and the visually
  * hidden copy is what a screen reader announces before the value.

@@ -42,7 +42,7 @@ export interface Tags {
   /**
    * One of the two listings came back with a failure. Everything above is then
    * as empty as it would be for a party with no tags at all, which is why a
-   * surface that *counts* what is in here — the song modal's summary strip —
+   * surface that *counts* what is in here — the song modal's action bar —
    * has to ask before it prints a number.
    */
   isError: boolean;

@@ -365,8 +365,9 @@ test("a result that is in the library opens the song details", async () => {
   // The standard song modal, not a USDB-only view.
   const dialog = await screen.findByRole("dialog", { name: "Dancing Queen" });
   expect(within(dialog).getByText("ABBA")).toBeInTheDocument();
+  // The modal's own action bar, which every reader gets.
   expect(
-    within(dialog).getByRole("button", { name: "Details" }),
+    within(dialog).getByRole("button", { name: "Open in a streaming service" }),
   ).toBeInTheDocument();
 });
 

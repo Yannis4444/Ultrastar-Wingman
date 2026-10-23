@@ -587,7 +587,7 @@ test("the best on the user page wears the arrow, never the cup", async () => {
   });
   renderUser();
 
-  // `trophy` is the song modal's summary strip, where the best score is a
+  // `trophy` is the song modal's action bar, where the best score is a
   // thing to open. Inside a score summary it is a number like any other.
   const stat = (await screen.findByText("Best")).parentElement!;
   expect(iconNames(stat)).toEqual(["arrow-up"]);

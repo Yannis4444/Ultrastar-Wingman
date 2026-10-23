@@ -520,7 +520,7 @@ about, and the **Must be visible** column names that part alone.
 | `home-playing` | `party/sing.md` | `/` | **launcher**: a song playing | 390x844 | The stage showing cover, title, artist, song controls |
 | `songs-list` | `songs/index.md` | `/songs` | Seeded library, two favorites, two sung | 390x844 | Search box, chip row, the order select beside the song count, rows with marks |
 | `songs-filter` | `songs/filter.md` | `/songs` | Filter panel open, Video on Yes, Decade set to 1980s | 390x844 | The hint line, both chip clouds, Video on Yes, the Decade chip showing 1980s, and a tag struck through on No |
-| `song` | `songs/song.md` | `/songs` | Song modal open on "I Got You Babe" | 390x844 | Cover hero, the wish and favorite toggles, and the summary strip |
+| `song` | `songs/song.md` | `/songs` | Song modal open on "I Got You Babe" | 390x844 | Cover hero, the four facts and the pencil under the artist, the wish and favorite toggles, the action bar, and the fine print |
 | `song-comments` | `songs/song.md` | `/songs` | Song modal, comments sub-view, three comments | 390x844 | The comment list and the composer |
 | `song-edit` | `songs/fix-or-delete.md` | `/songs` | Song modal, details editor open | 390x844 | The six labeled inputs, the save row, and **Delete song** under it |
 | `player-selection` | `party/sing.md` | `/songs` | Song modal, player selection open | 390x844 | Two singers picked on their microphone colors |

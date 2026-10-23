@@ -531,7 +531,11 @@ ROWS: dict[str, Row] = {
                 'q(".song-hero-title")',
             ),
         ),
-        ready='q(".song-hero-cover") && q(".song-details-controls") && q(".song-summary")'
+        # Every count settled: a dash is a listing still in flight.
+        ready='q(".song-hero-cover") && q(".song-details-controls") && q(".song-facts-edit")'
+        ' && qa(".song-facts .song-fact").length === 4 && q(".song-fine-print")'
+        ' && qa(".song-actions .song-action-count").length === 3'
+        ' && !qa(".song-action-count-value").some((value) => text(value) === "—")'
         ' && text(q(".song-hero-title")) === "I Got You Babe"',
     ),
     "song-comments": Row(
@@ -539,8 +543,11 @@ ROWS: dict[str, Row] = {
         viewport="phone",
         route="/songs",
         steps=(
-            ('click(byText(".song-list-item", "I Got You Babe"))', 'q(".song-summary")'),
-            ('click(byText(".song-summary-stat", "Comments"))', 'q(".song-comments")'),
+            ('click(byText(".song-list-item", "I Got You Babe"))', 'q(".song-actions")'),
+            (
+                "click(q('.song-actions button[aria-label^=\"Comments\"]'))",
+                'q(".song-comments")',
+            ),
         ),
         ready='qa(".song-comment").length >= 3 && q(".song-comment-composer")',
     ),
@@ -549,8 +556,8 @@ ROWS: dict[str, Row] = {
         viewport="phone",
         route="/songs",
         steps=(
-            ('click(byText(".song-list-item", "I Got You Babe"))', 'q(".song-options")'),
-            ('click(byText(".song-option", "Edit details"))', 'q(".song-edit")'),
+            ('click(byText(".song-list-item", "I Got You Babe"))', 'q(".song-facts-edit")'),
+            ("click(q('button[aria-label=\"Edit details\"]'))", 'q(".song-edit")'),
         ),
         # The delete row too: the page this picture serves is *Fix or delete a song*,
         # and deleting one lives at the foot of this same form.

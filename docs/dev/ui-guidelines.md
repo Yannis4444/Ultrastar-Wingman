@@ -261,7 +261,9 @@ panel holds (the party picker's *show all*), never for a row's own action.
 - **The fact line** (`.song-facts`), 8px under the artist, is the details as data: a centred
   `flex-wrap` line, 12px apart, each fact a glyph (1em, `--color-darker`) beside its value (0.85em
   `--color-dark`) and a `visually-hidden` name: `flag` language, `music` genre, `calendar` year,
-  `disc` edition. No value, no fact (never "unknown"), no duration (§1.5). For `songs.edit` or
+  `disc` edition. A value longer than 11em (about 150px) is cut short with an ellipsis (§1.11),
+  its whole self in the fact's `title`, so one long genre or edition cannot take a line of its
+  own; a long genre and a long edition together still fit two lines at 360px. No value, no fact (never "unknown"), no duration (§1.5). For `songs.edit` or
   `songs.delete` it ends in a 40px `pencil` `.icon-button`, *Edit details*; with neither it is not
   drawn. The **fine print** ends the modal 16px under the action bar: one centred 0.8em
   `--color-darker` line, creator and source, "Made by DrFrank · usdb:24435", a missing half

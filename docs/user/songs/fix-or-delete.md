@@ -2,9 +2,9 @@
 
 Downloaded songs arrive with whatever the person who built them typed. That can
 be a misspelled artist, no year, a genre in the wrong language, or a title with
-a website's name stuck to it. Both repairs live behind the same row of the
-song's own view, :wingman-pencil: **Edit details**. See
-[Open a song](song.md).
+a website's name stuck to it. Both repairs live behind the same button of the
+song's own view, :wingman-pencil: **Edit details** at the end of the line under
+the artist. See [Open a song](song.md).
 
 ## Fix a song's details
 

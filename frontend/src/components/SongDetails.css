@@ -35,6 +35,56 @@
   color: var(--color-darker);
 }
 
+/* The fact line (§5): the details as data, 8px under the artist. A centred
+   line that wraps between facts, never inside the hero's width. */
+.song-facts {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  align-items: center;
+  column-gap: 12px;
+  row-gap: 4px;
+  max-width: 100%;
+  margin: 8px 0 0 0;
+}
+
+/* One fact: its glyph beside its value, 4px apart, read as one token. */
+.song-fact {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  min-width: 0;
+  max-width: 100%;
+}
+
+.song-fact-icon {
+  flex: 0 0 auto;
+  font-size: 1em;
+  color: var(--color-darker);
+}
+
+/* A genre or an edition is whatever the file says, so a long one truncates
+   (§1.11) rather than taking a line of its own. 11em (about 150px) is what
+   keeps a long genre and a long edition together, with the other two facts
+   and the pencil, on two lines at 360px; the whole value is the fact's
+   tooltip, and the editor's field. */
+.song-fact-value {
+  min-width: 0;
+  max-width: 11em;
+  overflow: hidden;
+  font-size: 0.85em;
+  color: var(--color-dark);
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+
+/* The way into the editor ends the line it edits. The negative margin keeps
+   the 40px target (§1.10) from making the line 40px tall: the facts beside it
+   are one line of text, and the space above and below is the hero's own. */
+.song-facts-edit {
+  margin: -8px 0;
+}
+
 .song-preview {
   display: block;
   width: calc(100% - 32px);
@@ -60,8 +110,8 @@
   color: var(--color-dark);
 }
 
-/* Icon + title rows: the content and the actions (§5). What is counted sits in
-   the summary strip below them instead. */
+/* Icon + title rows, the sub-views' own (§5): the streaming services. The
+   song itself carries none; its actions are the action bar's buttons. */
 .song-options {
   margin: 4px 16px 0 16px;
 }
@@ -115,26 +165,51 @@ a.song-option {
   color: var(--color-darker);
 }
 
-/* The summary strip (§5): the counted things as one centred flat row under the
-   option rows, held to them by the same hairline every row carries. */
-.song-summary {
+/* The action bar (§5): one centred flat row under the song controls, set off
+   by a hairline. The counts, then 16px on, the errands; each group stays
+   whole, so a narrow phone wraps the pair of errands under the counts rather
+   than splitting either. */
+.song-actions {
   display: flex;
+  flex-wrap: wrap;
   justify-content: center;
-  gap: 8px;
+  align-items: center;
+  column-gap: 16px;
+  row-gap: 4px;
   margin: 0 16px;
   padding: 4px 0 0 0;
   border-top: 1px solid var(--input-border-color);
 }
 
-/* One counted thing: a 40px-floor button (§1.10) whose whole content is the
-   glyph over its number. Flat like everything else in the bare modal. */
-.song-summary-stat {
+.song-actions-counts,
+.song-actions-errands {
   display: flex;
-  min-width: 64px;
-  min-height: 56px;
   align-items: center;
   justify-content: center;
-  padding: 8px;
+}
+
+/* The counts sit flush: a 64px button is already three times its glyph, and
+   the 16px an 8px gap would add between three of them is what tips the bar
+   onto a second row on a 360px phone (3 × 64 + 16 + 2 × 40 + 8 = 296 of the
+   304 the modal leaves it). */
+.song-actions-errands {
+  gap: 8px;
+}
+
+/* One counted thing: a 64×56 button whose whole content is the glyph over
+   its number, the `IconStat` look stood on end. Flat like everything else in
+   the bare modal. */
+.song-action-count {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 2px;
+  min-width: 64px;
+  /* 56px (§5): the glyph over its number is 42px, so the padding is the
+     sides' alone, and 8px above and below would make it 58. */
+  min-height: 56px;
+  padding: 0 8px;
   font: inherit;
   background: none;
   border: none;
@@ -144,29 +219,36 @@ a.song-option {
 
 /* Pointers only: a tap fakes a hover that outlives the finger (§1.12). */
 @media (hover: hover) {
-  .song-summary-stat:hover {
+  .song-action-count:hover {
     background-color: var(--highlight-blue-dark);
   }
 }
 
-/* The `IconStat` idiom stood on end — glyph over number rather than beside it,
-   because the strip is a row of them and each has to read as one token. */
-.song-summary-stat .icon-stat {
-  flex-direction: column;
-  gap: 2px;
-}
-
-.song-summary-stat .icon-stat-icon {
+.song-action-count-icon {
   font-size: 1.4em;
+  color: var(--highlight-blue-light);
 }
 
-.song-summary-stat .icon-stat-value {
+.song-action-count-value {
   font-size: 0.85em;
+  color: var(--color);
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
 }
 
 /* A score is an accolade, and gold is what says so wherever one appears (§2). */
-.song-summary-scores .icon-stat-icon {
+.song-action-scores .song-action-count-icon {
   color: var(--highlight-gold-light);
+}
+
+/* The fine print ends the modal (§5): who built the file, where it came from.
+   A local song's id is a long unbroken hex string, hence `anywhere`. */
+.song-fine-print {
+  margin: 16px 16px 0 16px;
+  font-size: 0.8em;
+  color: var(--color-darker);
+  text-align: center;
+  overflow-wrap: anywhere;
 }
 
 /* Comments (§5). One row per comment on the same axis as every other list in
@@ -270,27 +352,7 @@ a.song-option {
   cursor: default;
 }
 
-.song-details-list {
-  margin: 0;
-  padding: 0 0 4px 0;
-  list-style: none;
-}
-
-.song-details-list li {
-  display: flex;
-  gap: 10px;
-  align-items: center;
-  padding: 8px 0 8px 26px;
-  font-size: 0.9em;
-  overflow-wrap: anywhere;
-}
-
-.song-details-list .icon {
-  font-size: 1.1em;
-  color: var(--color-darker);
-}
-
-/* Edit details (§5): the details list as fields, on the modal's own gutter. */
+/* Edit details (§5): the fact line as fields, on the modal's own gutter. */
 .song-edit {
   display: flex;
   flex-direction: column;
