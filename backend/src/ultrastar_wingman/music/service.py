@@ -941,7 +941,8 @@ async def _watchdog_loop(session_factory: async_sessionmaker[AsyncSession]) -> N
 
 
 async def broadcast(payload: MusicRead) -> None:
-    """Tell every client. Called by the routes, outside the lock."""
+    """Tell every client. Called by the routes and by the player selector's cancel button
+    (`karaoke.selection`), outside the lock."""
     await event_bus.broadcast(MusicChanged(music=payload))
 
 

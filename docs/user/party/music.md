@@ -57,6 +57,10 @@ play button.
 Skipping always starts the next song from the beginning. So does the music coming
 back after somebody sings: Wingman never resumes a song it interrupted.
 
+A [player selector](../selector/index.md) skips too. Its cancel button moves the
+music on while nobody is picking singers, unless the host turned that off on
+**User** > **Player selector**.
+
 ## Volume
 
 The slider on the player is the background music's own volume. The overall volume

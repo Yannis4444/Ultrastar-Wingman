@@ -130,6 +130,24 @@ does an empty one.
 The reel picks by the rules on [Let the reel pick](../party/reel.md), as a
 guest sees the library. A song a tag hides from guests cannot win.
 
+## When the cancel button is pressed with nothing open
+
+A press on a **Cancel the selection** button gives up the song the room is
+picking singers for. While nobody is picking, this setting says what the press
+does instead. Its line says: *A paused room stays paused. Nothing happens while
+the music is off or somebody sings.*
+
+- **Skip to the next background song**, which is how a fresh Wingman is set.
+  The [background music](../party/music.md) moves on to its next song, from the
+  beginning, the same way skipping on the player does.
+- **Nothing happens** leaves the music alone.
+
+A press in the pause after somebody sang does nothing either. The music comes
+back when the pause is over, as it always does.
+
+A press while the room is picking singers always cancels the selection and
+skips nothing.
+
 !!! note
     Cheap batches of cards sometimes repeat a number, and two cards with the
     same number are one card to Wingman. A phone cannot stand in for a card

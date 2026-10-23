@@ -35,6 +35,7 @@ from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
 
 from ..events import SelectionChanged, event_bus
 from ..music import service as music
+from ..music.schema import MusicRead
 from ..players.model import Player
 from ..players.schema import PlayerRead, read_player
 from ..songs.model import Song
@@ -664,6 +665,7 @@ async def button_pressed(
     action: ButtonAction,
     without_selection: StartWithoutSelection | None = None,
     auto_start: AutoStart | None = None,
+    skip_music: bool = False,
 ) -> None:
     """A button on the player selector was pressed.
 
@@ -675,6 +677,11 @@ async def button_pressed(
     song out of nowhere is a thing the host asks for. `auto_start` is the host's automatic
     start, for the countdown a selector's spin runs once its reel has landed.
 
+    `skip_music` is what a `cancel` press does when nobody is picking anything
+    (`devices.cancel_without_selection`): the background music moves on to its next song,
+    the very call `POST /music/skip` makes and under its rules (`_skip_music_locked`). With a
+    selection open a cancel gives it up, as it always has, and skips nothing.
+
     A `start` at a *spun* selection whose reel is still running lands the reel — the room
     did not want to wait — and does nothing else, whoever stands on the slots. Otherwise,
     with nobody on any slot it spins again — the room is still looking for the right song,
@@ -683,7 +690,21 @@ async def button_pressed(
     starts the song, as at any other selection.
     """
     if action == "cancel":
-        await close_selection(any_opener=True)
+        # Decided under the lock: a selection opened between "is anything open" and the
+        # skip would otherwise be the one press both closing it and moving the music on.
+        async with _lock:
+            stood = _selection is not None
+            await _expire_locked()
+            if _selection is not None:
+                await _drop_locked(_selection)
+                return
+            if stood or not skip_music:
+                # One that ran out of time on this very press was still on the TV, so the
+                # press was meant for it. It is gone, and that is all the press does.
+                return
+            payload = await _skip_music_locked(session)
+        if payload is not None:
+            await music.broadcast(payload)
         return
     async with _lock:
         await _expire_locked()
@@ -847,6 +868,52 @@ async def _start_locked(
     )
     await _drop_locked(selection)
     return sing
+
+
+async def _skip_music_locked(session: AsyncSession) -> MusicRead | None:
+    """The cancel button, pressed at a room where nobody is picking anything: the background
+    music's next song, by the phone's own Next (`music.skip`) and under its rules — a paused
+    room stays paused, and nothing moves while the music is off or Ultrastar Deluxe has the
+    speakers.
+
+    Nobody is on the other end of a button, so every refusal is one log line and nothing
+    else. Returns what the room is to be told, or None for a press that changed nothing.
+    Never raises: the answer to the report carries the lights, and a device that got a 500
+    would retry with the same counter, so the press would be lost all the same.
+    """
+    try:
+        payload = await music.skip(session)
+    except music.MusicDisabledError:
+        logger.info("The player selector's cancel button skipped nothing: the music is off")
+        return None
+    except music.MusicBlockedError:
+        logger.info(
+            "The player selector's cancel button skipped nothing: Ultrastar Deluxe has the speakers"
+        )
+        return None
+    except music.EmptyPoolError:
+        state = await music.read()
+        if state.status == "waiting":
+            # The pause after a song: there was no track to take off, and the skip does not
+            # end the pause (the phone has no Next there either). Nothing moved.
+            logger.info(
+                "The player selector's cancel button skipped nothing: the music is pausing "
+                "after a song"
+            )
+            return None
+        logger.info("The player selector's cancel button found no background song to skip to")
+        # The track the skip took off is gone all the same, and the phones are still
+        # drawing it. The route leaves that to the refusal it answers; a button has none.
+        return state
+    except Exception:
+        logger.exception("the player selector's cancel button could not skip the music")
+        return None
+    if payload.track is not None:
+        logger.info(
+            "The player selector's cancel button skipped the background music to %s",
+            song_label(payload.track.song),
+        )
+    return payload
 
 
 async def _start_without_selection_locked(

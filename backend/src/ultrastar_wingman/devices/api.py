@@ -95,6 +95,7 @@ class DeviceSettingsUpdate(BaseModel):
     start_without_selection: str | None = None
     random_scope: str | None = None
     random_playlist: str | None = None
+    cancel_without_selection: str | None = None
 
 
 def get_session_factory(request: Request) -> async_sessionmaker[AsyncSession]:
@@ -311,7 +312,8 @@ async def get_device_settings(session: SessionDep) -> DeviceSettings:
 async def update_device_settings(body: DeviceSettingsUpdate, session: SessionDep) -> DeviceSettings:
     """Switch the automatic start on, retime it, decide what a second scan does, say how
     long a half-picked song may stand, or say what the start button does at a quiet room —
-    and, for a random song, what it spins the reel over.
+    and, for a random song, what it spins the reel over — and what the cancel button does
+    there.
 
     The playlist is not checked against the table: it may be deleted after it was chosen,
     and the press falls back to every song then rather than the setting refusing to save.

@@ -21,11 +21,12 @@ An empty slot is a short box along the foot of its row, and it grows as somebody
 A strip of lights beside the readers is optional. It says what the TV says:
 which slot is taken, and which card Wingman does not know.
 
-Two settings let the box act on its own. **When the start button is pressed
+Three settings let the box act on its own. **When the start button is pressed
 with nothing open** turns a press into the most wished song, or into a spin of
-the reel on the TV. A second press confirms the spin. **Time before an idle
-selection closes** is how long a phone keeps the room before it gives it back.
-Both are on **User** > **Player selector**.
+the reel on the TV. A second press confirms the spin. **When the cancel button
+is pressed with nothing open** skips to the next background song. **Time before
+an idle selection closes** is how long a phone keeps the room before it gives
+it back. All three are on **User** > **Player selector**.
 
 ## The pages in this section
 

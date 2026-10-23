@@ -1591,7 +1591,8 @@ export const getDeviceSettings = <ThrowOnError extends boolean = false>(options?
  *
  * Switch the automatic start on, retime it, decide what a second scan does, say how
  * long a half-picked song may stand, or say what the start button does at a quiet room —
- * and, for a random song, what it spins the reel over.
+ * and, for a random song, what it spins the reel over — and what the cancel button does
+ * there.
  *
  * The playlist is not checked against the table: it may be deleted after it was chosen,
  * and the press falls back to every song then rather than the setting refusing to save.

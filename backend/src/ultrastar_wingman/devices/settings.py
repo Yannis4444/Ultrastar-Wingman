@@ -1,4 +1,4 @@
-"""The seven knobs the player selector has, and where they live.
+"""The eight knobs the player selector has, and where they live.
 
 Module-private definitions read through a `SettingsService` built on them, the
 `achievements/settings.py` pattern and for the first of its two reasons: `settings.manage`
@@ -26,10 +26,16 @@ SELECTION_IDLE = "devices.selection_idle_s"
 START_WITHOUT_SELECTION = "devices.start_without_selection"
 RANDOM_SCOPE = "devices.random_scope"
 RANDOM_PLAYLIST = "devices.random_playlist"
+CANCEL_WITHOUT_SELECTION = "devices.cancel_without_selection"
 
 # What the start button does when nobody is picking anything. `nothing` is the default: a
 # button that starts a song out of a quiet room is a surprise, and the host asks for it.
 START_MODES: tuple[str, ...] = ("nothing", "top_wish", "random")
+
+# What the cancel button does when nobody is picking anything. `skip_music` is the default,
+# unlike the start button's: moving the background music on to its next song is what the
+# room asked the button for, and it neither starts a song nor takes a microphone.
+CANCEL_MODES: tuple[str, ...] = ("skip_music", "nothing")
 
 # What `random` spins the reel over: the phone's scopes (`karaoke.schema.Scope`) minus
 # `favorites`, which need an account and the button has none behind it.
@@ -61,6 +67,11 @@ def _validate_delay(value: SettingValue) -> None:
 def _validate_start_mode(value: SettingValue) -> None:
     if not isinstance(value, str) or value not in START_MODES:
         raise ValueError(f"one of {', '.join(START_MODES)}")
+
+
+def _validate_cancel_mode(value: SettingValue) -> None:
+    if not isinstance(value, str) or value not in CANCEL_MODES:
+        raise ValueError(f"one of {', '.join(CANCEL_MODES)}")
 
 
 def _validate_idle(value: SettingValue) -> None:
@@ -161,6 +172,17 @@ DEFINITIONS: dict[str, SettingDefinition] = {
         ),
         validate=_validate_playlist,
     ),
+    CANCEL_WITHOUT_SELECTION: SettingDefinition(
+        key=CANCEL_WITHOUT_SELECTION,
+        value_type=str,
+        default="skip_music",
+        group="Player selector",
+        description=(
+            "What the cancel button does while nobody is picking singers: skip the "
+            "background music to its next song, or nothing at all."
+        ),
+        validate=_validate_cancel_mode,
+    ),
 }
 
 
@@ -169,5 +191,5 @@ def service(session: AsyncSession) -> SettingsService:
 
 
 async def read_all(session: AsyncSession) -> dict[str, SettingValue]:
-    """All seven, one query — what a report reads before it diffs anything."""
+    """All eight, one query — what a report reads before it diffs anything."""
     return await service(session).all()

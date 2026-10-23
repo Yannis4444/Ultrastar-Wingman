@@ -702,6 +702,10 @@ export type DeviceSettings = {
      * Random Playlist
      */
     random_playlist: string;
+    /**
+     * Cancel Without Selection
+     */
+    cancel_without_selection: string;
 };
 
 /**
@@ -739,6 +743,10 @@ export type DeviceSettingsUpdate = {
      * Random Playlist
      */
     random_playlist?: string | null;
+    /**
+     * Cancel Without Selection
+     */
+    cancel_without_selection?: string | null;
 };
 
 /**

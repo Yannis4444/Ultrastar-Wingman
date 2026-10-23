@@ -36,7 +36,12 @@ import {
 } from "../components/PrivateSettingRow";
 import "../components/PickerRow.css";
 import "../components/SettingField.css";
-import { deviceMeta, RANDOM_SCOPES, START_WITHOUT_SELECTION } from "../devices";
+import {
+  CANCEL_WITHOUT_SELECTION,
+  deviceMeta,
+  RANDOM_SCOPES,
+  START_WITHOUT_SELECTION,
+} from "../devices";
 import { errorDetail, errorMessage, missingPermission } from "../errors";
 import { useWingmanEvent } from "../hooks/useWingmanEvents";
 import "./Devices.css";
@@ -502,6 +507,37 @@ export default function Devices() {
                       )}
                     </PrivateSettingRow>
                   )}
+
+                  {/* After the start button's rows, not between them and the
+                      two they bring along: the cancel button's answer to a
+                      quiet room is its own question. */}
+                  <PrivateSettingRow
+                    id="cancel_without_selection"
+                    label="When the cancel button is pressed with nothing open"
+                    description="A paused room stays paused. Nothing happens while the music is off or somebody sings."
+                    saved={savedField === "cancel_without_selection"}
+                  >
+                    {(inputId, describedBy) => (
+                      <select
+                        className="text-input text-input-quiet setting-input"
+                        id={inputId}
+                        aria-describedby={describedBy}
+                        value={options.cancel_without_selection}
+                        disabled={save.isPending}
+                        onChange={(event) =>
+                          patch({
+                            cancel_without_selection: event.target.value,
+                          })
+                        }
+                      >
+                        {CANCEL_WITHOUT_SELECTION.map((choice) => (
+                          <option key={choice.value} value={choice.value}>
+                            {choice.label}
+                          </option>
+                        ))}
+                      </select>
+                    )}
+                  </PrivateSettingRow>
 
                   {save.isError && (
                     <p className="error-notice devices-notice" role="alert">

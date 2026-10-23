@@ -103,6 +103,8 @@ class DeviceSettings(BaseModel):
     # for the `playlist` scope — the empty string while none is chosen.
     random_scope: str
     random_playlist: str
+    # What a `cancel` press does while nobody is picking singers (`settings.CANCEL_MODES`).
+    cancel_without_selection: str
 
 
 class DeviceStatus(BaseModel):

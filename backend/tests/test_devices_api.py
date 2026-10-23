@@ -35,6 +35,9 @@ from test_karaoke_selection import (
     selection_events,
     two_slot_selection,
 )
+from test_music_state import add_song as add_music_song
+from test_music_state import enable as enable_music
+from test_music_state import register as register_music_sink
 from ultrastar_wingman.app import create_app
 from ultrastar_wingman.config import BootstrapSettings
 from ultrastar_wingman.devices import firmware
@@ -43,6 +46,7 @@ from ultrastar_wingman.devices.protocol import DeviceReport
 from ultrastar_wingman.karaoke import selection
 from ultrastar_wingman.karaoke import service as karaoke
 from ultrastar_wingman.karaoke.schema import SelectionRead
+from ultrastar_wingman.music import service as music
 from ultrastar_wingman.settings import SettingsService
 
 # The fake-USDX fixtures, bound here so pytest can resolve them by name — the same binding
@@ -739,6 +743,274 @@ async def test_a_button_with_no_action_does_nothing(
     assert await selection.current_selection() is not None
 
 
+# --- the cancel button at a quiet room ---------------------------------------------------
+
+
+async def music_playing(session: AsyncSession, tmp_path: Path) -> str:
+    """Background music on, two songs to choose between and a host screen listening, so a
+    skip has somewhere to go. Returns the id of the track the music is on."""
+    await add_music_song(session, tmp_path / "music", 1)
+    await add_music_song(session, tmp_path / "music", 2)
+    await enable_music(session)
+    await register_music_sink(session)
+    state = await music.read()
+    assert state.status == "playing"
+    assert state.track is not None
+    return state.track.id
+
+
+async def cancel_button(client: AsyncClient) -> str:
+    """A device with one button, mapped to cancel, that has reported once. Returns its
+    token; `press_cancel` presses it."""
+    _, token = await mapped_device(client, button_actions={"0": "cancel"})
+    return token
+
+
+async def press_cancel(client: AsyncClient, token: str, presses: int = 1) -> None:
+    response = await post_report(
+        client, token, readers=[reader(0), reader(1)], buttons=[button(0, presses)]
+    )
+    assert response.status_code == 200, response.text
+
+
+def music_events(events: list[dict[str, object]]) -> list[dict[str, object]]:
+    return [event for event in events if event["event"] == "music.changed"]
+
+
+async def test_the_cancel_button_skips_the_background_song_with_nothing_open(
+    client: AsyncClient,
+    session: AsyncSession,
+    tmp_path: Path,
+    broadcast_events: list[dict[str, object]],
+) -> None:
+    """What `POST /music/skip` does, on the button: the next song, from its beginning, and
+    every phone told."""
+    before = await music_playing(session, tmp_path)
+    token = await cancel_button(client)
+    said_so_far = len(music_events(broadcast_events))
+
+    await press_cancel(client, token)
+
+    after = await music.read()
+    assert after.status == "playing"
+    assert after.track is not None
+    assert after.track.id != before
+    # From its beginning: the real clock has moved a few milliseconds since.
+    assert after.track.position_s == pytest.approx(0, abs=1)
+    # Nothing is being picked, so there is no song being previewed for the skip to touch.
+    assert after.preview is None
+    told = music_events(broadcast_events)[said_so_far:]
+    assert told, "the room was never told about the skip"
+    assert cast(dict[str, Any], told[-1]["music"])["track"]["id"] == after.track.id
+
+
+async def test_the_cancel_button_gives_a_selection_up_and_skips_nothing(
+    client: AsyncClient,
+    session: AsyncSession,
+    song: str,
+    tmp_path: Path,
+) -> None:
+    before = await music_playing(session, tmp_path)
+    token = await cancel_button(client)
+    await two_slot_selection(session, song)
+
+    await press_cancel(client, token)
+
+    assert await selection.current_selection() is None
+    after = await music.read()
+    assert after.track is not None
+    assert after.track.id == before
+
+
+async def test_a_cancel_press_at_a_selection_that_just_ran_out_skips_nothing(
+    client: AsyncClient,
+    session: AsyncSession,
+    song: str,
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """A selection past its idle time is still on the TV until something drops it, so a
+    cancel pressed at it was meant for it: it goes, and the music stays where it is."""
+    before = await music_playing(session, tmp_path)
+    token = await cancel_button(client)
+    await two_slot_selection(session, song)
+
+    async def nobody_sweeps() -> None:
+        """The devices watchdog's sweep, held off: one landing before the press would make
+        this a press at a room with nothing open, which is the other test."""
+
+    monkeypatch.setattr(selection, "expire_stale", nobody_sweeps)
+    monkeypatch.setattr(
+        selection,
+        "_now",
+        lambda: datetime.now(UTC) + selection.DEFAULT_IDLE_TTL + timedelta(seconds=1),
+    )
+
+    await press_cancel(client, token)
+
+    assert await selection.current_selection() is None
+    after = await music.read()
+    assert after.track is not None
+    assert after.track.id == before
+
+
+async def test_the_cancel_button_set_to_nothing_skips_nothing(
+    client: AsyncClient,
+    session: AsyncSession,
+    tmp_path: Path,
+    broadcast_events: list[dict[str, object]],
+) -> None:
+    before = await music_playing(session, tmp_path)
+    response = await client.patch(
+        "/api/v1/devices/settings", json={"cancel_without_selection": "nothing"}
+    )
+    assert response.status_code == 200, response.text
+    token = await cancel_button(client)
+    said_so_far = len(music_events(broadcast_events))
+
+    await press_cancel(client, token)
+
+    after = await music.read()
+    assert after.track is not None
+    assert after.track.id == before
+    assert music_events(broadcast_events)[said_so_far:] == []
+
+
+async def test_the_cancel_button_keeps_a_paused_room_paused(
+    client: AsyncClient, session: AsyncSession, tmp_path: Path
+) -> None:
+    """The phone's Next rule: somebody silenced the room on purpose, and a press of Next is
+    not somebody unsilencing it."""
+    before = await music_playing(session, tmp_path)
+    await music.pause(session)
+    token = await cancel_button(client)
+
+    await press_cancel(client, token)
+
+    after = await music.read()
+    assert after.status == "paused"
+    assert after.track is not None
+    assert after.track.id != before
+
+
+async def test_a_cancel_press_during_a_sing_does_nothing(
+    client: AsyncClient,
+    session: AsyncSession,
+    tmp_path: Path,
+    broadcast_events: list[dict[str, object]],
+    caplog: pytest.LogCaptureFixture,
+) -> None:
+    """Ultrastar Deluxe has the speakers: one log line, no state moved, nobody told."""
+    await music_playing(session, tmp_path)
+    await music.sing_started()
+    token = await cancel_button(client)
+    before = await music.read()
+    said_so_far = len(music_events(broadcast_events))
+
+    with caplog.at_level(logging.INFO, logger="ultrastar_wingman.karaoke.selection"):
+        await press_cancel(client, token)
+
+    after = await music.read()
+    assert (after.status, after.blocked_by, after.track) == ("blocked", "sing", before.track)
+    assert music_events(broadcast_events)[said_so_far:] == []
+    assert any("Ultrastar Deluxe has the speakers" in line for line in caplog.messages)
+
+
+async def test_a_cancel_press_with_nothing_to_skip_to_says_so(
+    client: AsyncClient,
+    session: AsyncSession,
+    tmp_path: Path,
+    broadcast_events: list[dict[str, object]],
+    caplog: pytest.LogCaptureFixture,
+) -> None:
+    """A pool with nothing in it — a playlist scope with no playlist chosen — is the route's
+    409 `empty_pool`. A button has nobody to answer, so it is a log line and the state as
+    it now stands, for the phones."""
+    await add_music_song(session, tmp_path / "music", 1)
+    await enable_music(session, scope="playlist")
+    await register_music_sink(session)
+    token = await cancel_button(client)
+    said_so_far = len(music_events(broadcast_events))
+
+    with caplog.at_level(logging.INFO, logger="ultrastar_wingman.karaoke.selection"):
+        await press_cancel(client, token)
+
+    state = await music.read()
+    assert (state.status, state.track) == ("empty", None)
+    told = music_events(broadcast_events)[said_so_far:]
+    assert told
+    assert cast(dict[str, Any], told[-1]["music"])["status"] == "empty"
+    assert any("no background song to skip to" in line for line in caplog.messages)
+
+
+async def test_a_cancel_press_with_the_music_off_does_nothing(
+    client: AsyncClient,
+    session: AsyncSession,
+    tmp_path: Path,
+    broadcast_events: list[dict[str, object]],
+    caplog: pytest.LogCaptureFixture,
+) -> None:
+    await add_music_song(session, tmp_path / "music", 1)
+    token = await cancel_button(client)
+    said_so_far = len(music_events(broadcast_events))
+
+    with caplog.at_level(logging.INFO, logger="ultrastar_wingman.karaoke.selection"):
+        await press_cancel(client, token)
+
+    assert (await music.read()).status == "off"
+    assert music_events(broadcast_events)[said_so_far:] == []
+    assert any("the music is off" in line for line in caplog.messages)
+
+
+async def test_a_cancel_press_in_the_pause_after_a_song_does_nothing(
+    client: AsyncClient,
+    session: AsyncSession,
+    tmp_path: Path,
+    broadcast_events: list[dict[str, object]],
+    caplog: pytest.LogCaptureFixture,
+) -> None:
+    """The phone has no Next during the pause after a song, and the skip does not end it:
+    there was no track to take off, so nobody is told anything."""
+    await music_playing(session, tmp_path)
+    await music.sing_started()
+    await music.sing_ended()
+    assert (await music.read()).status == "waiting"
+    token = await cancel_button(client)
+    said_so_far = len(music_events(broadcast_events))
+
+    with caplog.at_level(logging.INFO, logger="ultrastar_wingman.karaoke.selection"):
+        await press_cancel(client, token)
+
+    assert (await music.read()).status == "waiting"
+    assert music_events(broadcast_events)[said_so_far:] == []
+    assert any("pausing after a song" in line for line in caplog.messages)
+    assert not any("no background song" in line for line in caplog.messages)
+
+
+async def test_a_skip_that_fails_never_fails_the_report(
+    client: AsyncClient,
+    session: AsyncSession,
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+    caplog: pytest.LogCaptureFixture,
+) -> None:
+    """The answer carries the lights, and a device given a 500 retries with the same
+    counter, so the press would be lost anyway: the failure is logged and the report is
+    answered as always."""
+    await music_playing(session, tmp_path)
+    token = await cancel_button(client)
+
+    async def broken(session: AsyncSession) -> object:
+        raise RuntimeError("the database went away")
+
+    monkeypatch.setattr(music, "skip", broken)
+
+    with caplog.at_level(logging.INFO, logger="ultrastar_wingman.karaoke.selection"):
+        await press_cancel(client, token)
+
+    assert any("could not skip the music" in line for line in caplog.messages)
+
+
 async def test_the_first_report_places_the_cards_but_presses_nothing(
     client: AsyncClient, session: AsyncSession, song: str
 ) -> None:
@@ -1312,7 +1584,7 @@ async def test_forgetting_the_card_on_a_slot_makes_it_an_unknown_card_again(
 # --- the options ------------------------------------------------------------------------
 
 
-async def test_the_seven_options(client: AsyncClient) -> None:
+async def test_the_eight_options(client: AsyncClient) -> None:
     defaults = await client.get("/api/v1/devices/settings")
     assert defaults.status_code == 200, defaults.text
     assert defaults.json() == {
@@ -1323,6 +1595,7 @@ async def test_the_seven_options(client: AsyncClient) -> None:
         "start_without_selection": "nothing",
         "random_scope": "all",
         "random_playlist": "",
+        "cancel_without_selection": "skip_music",
     }
 
     changed = await client.patch(
@@ -1335,6 +1608,7 @@ async def test_the_seven_options(client: AsyncClient) -> None:
             # Not checked against the table: the playlist may go later, and the press falls
             # back to every song then.
             "random_playlist": "not-a-playlist-yet",
+            "cancel_without_selection": "nothing",
         },
     )
     assert changed.status_code == 200, changed.text
@@ -1346,7 +1620,18 @@ async def test_the_seven_options(client: AsyncClient) -> None:
         "start_without_selection": "top_wish",
         "random_scope": "playlist",
         "random_playlist": "not-a-playlist-yet",
+        "cancel_without_selection": "nothing",
     }
+
+    # Skipping the music or nothing: a cancel press never starts anything.
+    no_start = await client.patch(
+        "/api/v1/devices/settings", json={"cancel_without_selection": "top_wish"}
+    )
+    assert no_start.status_code == 422
+    assert "skip_music" in no_start.json()["detail"]
+    assert (await client.get("/api/v1/devices/settings")).json()[
+        "cancel_without_selection"
+    ] == "nothing"
 
     unknown = await client.patch(
         "/api/v1/devices/settings", json={"start_without_selection": "whatever_it_feels_like"}
