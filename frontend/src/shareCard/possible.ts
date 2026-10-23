@@ -12,10 +12,13 @@ import type {
 
 /**
  * What a card can be drawn as, and why not where it cannot — what the share
- * panel needs to know (ui-guidelines §7, *Share cards*): a look the card
- * cannot draw is a disabled pill over the sentence in `reason`, never a
- * button that does nothing. `resolve…Options` turns what the reader asked for
- * into what is drawn, falling back the way §3.1 says (Cover → Dark, Mosaic →
+ * panel needs to know (ui-guidelines §7, *Share cards*). The panel's designs
+ * are a carousel, one slide per design in a fixed order (a score's *Dark* ·
+ * *Cover*, a party's *Dark* · *Mosaic* · *Spread*, the focus folded in), and a
+ * design the card cannot draw is a dimmed slot holding the sentence in
+ * `reason`; a choice of *Under the podium* it cannot take is a disabled pill
+ * over its sentence. `resolve…Options` turns what the reader asked for into
+ * what is drawn, falling back the way §3.1 says (Cover → Dark, Mosaic →
  * Dark). *Wingman logo* is drawable on every card and is carried through as
  * asked.
  */
@@ -23,14 +26,39 @@ import type {
 export interface Choice<T> {
   value: T;
   ok: boolean;
-  /** The sentence the panel prints under a disabled pill; `null` when ok. */
+  /** The sentence the panel prints for a choice it cannot take; `null` when
+   * ok. */
   reason: string | null;
+}
+
+/** A score card's slides, in the carousel's order. */
+export type ScoreDesign = ScoreLook;
+export const SCORE_DESIGNS: readonly ScoreDesign[] = ["dark", "cover"];
+
+/** A party card's slides, in the carousel's order: the look and the focus
+ * as one choice, because the spread is drawn on Dark alone. */
+export type PartyDesign = "dark" | "mosaic" | "spread";
+export const PARTY_DESIGNS: readonly PartyDesign[] = [
+  "dark",
+  "mosaic",
+  "spread",
+];
+
+/** The look and the focus one party slide stands for. */
+export function partyDesignOptions(design: PartyDesign): {
+  look: PartyLook;
+  focus: PartyFocus;
+} {
+  if (design === "mosaic") return { look: "mosaic", focus: "podium" };
+  if (design === "spread") return { look: "dark", focus: "spread" };
+  return { look: "dark", focus: "podium" };
 }
 
 /** Whether a picture the card asks for arrived — the panel loads them first. */
 export type Loaded = (url: string) => boolean;
 
-const FORMATS: Choice<CardFormat>[] = [
+/** Both formats, on every card: there is no 4:5 (share-cards §7.5). */
+export const FORMATS: Choice<CardFormat>[] = [
   { value: "square", ok: true, reason: null },
   { value: "story", ok: true, reason: null },
 ];
@@ -44,7 +72,8 @@ function choice<T>(value: T, reason: string | null): Choice<T> {
 
 export interface ScoreCardChoices {
   formats: Choice<CardFormat>[];
-  looks: Choice<ScoreLook>[];
+  /** One per slide, in `SCORE_DESIGNS`' order. */
+  designs: Choice<ScoreDesign>[];
 }
 
 function coverReason(content: ScoreCardContent, loaded: Loaded): string | null {
@@ -61,7 +90,7 @@ export function scoreCardChoices(
 ): ScoreCardChoices {
   return {
     formats: FORMATS,
-    looks: [
+    designs: [
       choice("dark", null),
       choice("cover", coverReason(content, loaded)),
     ],
@@ -82,11 +111,13 @@ export function resolveScoreOptions(
 
 export interface PartyCardChoices {
   formats: Choice<CardFormat>[];
-  looks: Choice<PartyLook>[];
-  focus: Choice<PartyFocus>[];
+  /** One per slide, in `PARTY_DESIGNS`' order; whether each can be drawn
+   * does not hang on the options asked for. */
+  designs: Choice<PartyDesign>[];
   /**
-   * *Under the podium* (*Ranking* · *Score strip*), or `null` where the card
-   * has no such choice — then `underNote` says why.
+   * *Under the podium* (*Ranking* · *Score strip*) on the card the options
+   * ask for, or `null` where it has no such choice — then `underNote` says
+   * why.
    */
   under: Choice<Exclude<UnderPodium, "none">>[] | null;
   underNote: string | null;
@@ -104,13 +135,12 @@ function spreadReason(content: PartyCardContent): string | null {
   return null;
 }
 
+/** Why the Mosaic slide cannot be drawn. It is always a podium card: the
+ * spread is a slide of its own, drawn on Dark (`resolveLook`). */
 function mosaicReason(
   content: PartyCardContent,
-  focus: PartyFocus,
   loaded: Loaded,
 ): string | null {
-  if (focus === "spread")
-    return "The spread is drawn on the dark look, where its dots can be read.";
   const covers = content.covers.filter(loaded).length;
   if (covers < MOSAIC_MIN_COVERS) {
     const have =
@@ -150,12 +180,19 @@ function resolveLook(
   focus: PartyFocus,
   loaded: Loaded,
 ): PartyLook {
-  return requested === "mosaic" && mosaicReason(content, focus, loaded) === null
+  // The spread is drawn on Dark, where its dots can be read.
+  return requested === "mosaic" &&
+    focus === "podium" &&
+    mosaicReason(content, loaded) === null
     ? "mosaic"
     : "dark";
 }
 
-function underApplies(
+/** Why a party slide has no *Under the podium* choice, or `null` where it has
+ * one: a square Dark podium. Asked of the design itself, so a dimmed slot
+ * says what its design would do — `partyCardChoices` asks it of what is
+ * drawn. */
+export function underPodiumNote(
   format: CardFormat,
   look: PartyLook,
   focus: PartyFocus,
@@ -175,14 +212,14 @@ export function partyCardChoices(
 ): PartyCardChoices {
   const focus = resolveFocus(content, requested.focus);
   const look = resolveLook(content, requested.look, focus, loaded);
-  const underNote = underApplies(requested.format, look, focus);
+  const underNote = underPodiumNote(requested.format, look, focus);
   return {
     formats: FORMATS,
-    looks: [
+    designs: [
       choice("dark", null),
-      choice("mosaic", mosaicReason(content, focus, loaded)),
+      choice("mosaic", mosaicReason(content, loaded)),
+      choice("spread", spreadReason(content)),
     ],
-    focus: [choice("podium", null), choice("spread", spreadReason(content))],
     under:
       underNote === null
         ? [
@@ -206,7 +243,7 @@ export function resolvePartyOptions(
   const focus = resolveFocus(content, requested.focus);
   const look = resolveLook(content, requested.look, focus, loaded);
   let under: UnderPodium = "none";
-  if (underApplies(requested.format, look, focus) === null) {
+  if (underPodiumNote(requested.format, look, focus) === null) {
     const ranking = rankingReason(content) === null;
     const strip = stripReason(content) === null;
     if (requested.under === "strip" && strip) under = "strip";

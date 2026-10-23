@@ -1,21 +1,188 @@
-/* The share panel (ui-guidelines §7, *Share cards*): the picture at the
-   panel's width, its choices as §4's pills and `CheckOption`s, and §5's row
-   of buttons at the foot. */
+/* The share panel (ui-guidelines §7, *Share cards*): the two formats as
+   icon-only pills over the card, the card's designs as a carousel of real
+   pictures with its arrows and dots, the few choices left as §4's pills and
+   `CheckOption`s, and §5's row of buttons at the foot. */
 
-/* The picture is the card itself, scaled down: as wide as the panel, never
-   taller than half the screen, so a story card leaves the choices in view.
-   `contain`, because a story is twice as tall as it is wide and must never be
-   cropped on the way to the screen. */
-.share-preview {
-  margin: 0 16px;
+/* ---------------------------------------------------------------- format
+   Two 40px squares centred over the picture, each the shape it makes: the
+   glyph says it, the word is the reader's alone. Compound, because the
+   fieldset is a `.share-group` too and that rule, further down, would
+   otherwise take the 12px off the foot and leave the pills on the card. */
+.share-group.share-formats {
+  margin: 16px 16px 12px 16px;
 }
 
+.share-formats .share-pills {
+  justify-content: center;
+  gap: 8px;
+}
+
+.share-formats .share-pill-text {
+  justify-content: center;
+  width: 40px;
+  height: 40px;
+  padding: 0;
+  font-size: inherit;
+}
+
+.share-formats .icon {
+  font-size: 1.25em;
+}
+
+/* -------------------------------------------------------------- carousel
+   One slide per design, 84% of the panel wide and centred, 8px apart, so a
+   neighbour peeks in at each edge and says there is more. The row scrolls
+   inside itself and never the page: the panel is `overflow-x: hidden`, and a
+   swipe that runs past the last slide stops here instead of handing itself
+   to whatever is behind. The two spacers let the first and the last slide
+   come to the middle — `padding` at a scroller's far end is not honoured the
+   same way in every browser. */
+.share-carousel {
+  position: relative;
+  display: flex;
+  gap: 8px;
+  min-width: 0;
+  overflow-x: auto;
+  overflow-y: hidden;
+  overscroll-behavior-x: contain;
+  scroll-snap-type: x mandatory;
+  /* The dots under it say where the reader is; a scrollbar would be a
+     second, thinner way of saying it. */
+  scrollbar-width: none;
+}
+
+.share-carousel::-webkit-scrollbar {
+  display: none;
+}
+
+.share-carousel::before,
+.share-carousel::after {
+  content: "";
+  flex: 0 0 calc(8% - 8px);
+}
+
+/* The row runs the panel's whole width, where an outline round it would be
+   cut by the panel's edge and painted under the pictures: the ring goes on
+   the slide in view instead, over its picture. */
+.share-carousel:focus-visible {
+  outline: none;
+}
+
+.share-carousel:focus-visible
+  .share-slide[aria-current="true"]
+  .share-slide-box::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  border: 2px solid var(--highlight-blue-light);
+  pointer-events: none;
+}
+
+.share-slide {
+  flex: 0 0 84%;
+  min-width: 0;
+  scroll-snap-align: center;
+}
+
+/* The card scaled down: as wide as its slide and never taller than half the
+   screen, so a story leaves the choices in view. One height for every slide
+   of a format, whatever is in it. The picture lies over the box rather than
+   in its flow, so its own 1920 pixels never stretch it. */
+.share-slide-box {
+  position: relative;
+  display: flex;
+  box-sizing: border-box;
+  align-items: center;
+  justify-content: center;
+  width: 100%;
+  min-height: 0;
+  max-height: 50vh;
+  overflow: hidden;
+}
+
+.share-slide-box-square {
+  aspect-ratio: 1 / 1;
+}
+
+.share-slide-box-story {
+  aspect-ratio: 9 / 16;
+}
+
+/* `contain`, because a story is twice as tall as it is wide and must never be
+   cropped on the way to the screen. */
 .share-preview-image {
+  position: absolute;
+  inset: 0;
   display: block;
   width: 100%;
-  height: auto;
-  max-height: 50vh;
+  height: 100%;
   object-fit: contain;
+}
+
+/* A design this card cannot draw keeps its place, as the box it would fill,
+   with its name and the sentence saying why. */
+.share-slide-dimmed {
+  flex-direction: column;
+  gap: 4px;
+  padding: 16px;
+  font-size: 0.85em;
+  color: var(--color-dark);
+  text-align: center;
+  background-color: var(--input-bg);
+}
+
+.share-slide-dimmed-name {
+  font-weight: bold;
+}
+
+/* The arrows around the dots, then the name of the design in view. */
+.share-carousel-nav {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  height: 40px;
+  margin: 8px 16px 0 16px;
+}
+
+.share-dots {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.share-dot {
+  box-sizing: border-box;
+  width: 8px;
+  height: 8px;
+  background-color: var(--color-darkerer);
+  border-radius: 50%;
+  transition:
+    background-color 0.15s,
+    border-color 0.15s;
+}
+
+.share-dot-on {
+  background-color: var(--highlight-blue-light);
+}
+
+/* A dimmed slot is a slide all the same, so it has its dot: a ring, the
+   empty box it is. */
+.share-dot-dimmed {
+  background-color: transparent;
+  border: 1px solid var(--color-darkerer);
+}
+
+.share-dot-dimmed.share-dot-on {
+  border-color: var(--highlight-blue-light);
+}
+
+.share-design-name {
+  margin: 0 16px;
+  font-size: 0.85em;
+  line-height: 20px;
+  color: var(--color-dark);
+  text-align: center;
 }
 
 .share-press-note {
@@ -34,7 +201,7 @@
 
 .share-group-legend {
   padding: 0;
-  margin-bottom: 6px;
+  margin: 0 0 6px 0;
   font-size: 0.85em;
   color: var(--color-darker);
 }
@@ -82,8 +249,8 @@
   border-color: var(--highlight-blue-light);
 }
 
-/* A look the card cannot draw: still there, so the reader learns it exists,
-   and quiet, with the sentence under it saying why. */
+/* A choice the card cannot take: still there, so the reader learns it
+   exists, and quiet, with the sentence under it saying why. */
 .share-pills input:disabled ~ .share-pill-text {
   color: var(--color-darker);
   border-style: dashed;
@@ -98,6 +265,27 @@
 /* The group's own gutter already holds it. */
 .share-group-note {
   margin: 6px 0 0 0;
+}
+
+/* *Under the podium*: one row on every party slide, its pills or the
+   sentence standing in for them laid in one grid cell, so the row is as tall
+   as the tallest and a swipe moves nothing under it. */
+.share-under {
+  display: grid;
+  margin: 12px 16px 0 16px;
+}
+
+.share-under-variant {
+  grid-area: 1 / 1;
+  min-width: 0;
+}
+
+.share-under-variant[data-active="false"] {
+  visibility: hidden;
+}
+
+.share-under .share-group {
+  margin: 0;
 }
 
 /* --------------------------------------------------------------- toggles */
@@ -135,8 +323,9 @@
   white-space: nowrap;
 }
 
-/* The moment a redraw takes: Save image is a link, which `:disabled` does not
-   reach, so it wears `.button:disabled`'s look by hand. */
+/* The moment a redraw takes, and a design the card cannot draw: Save image
+   is a link, which `:disabled` does not reach, so it wears
+   `.button:disabled`'s look by hand. */
 .share-actions .button[aria-disabled="true"] {
   color: var(--color-dark);
   cursor: default;
@@ -179,7 +368,8 @@
 }
 
 @media (prefers-reduced-motion: reduce) {
-  .share-pill-text {
+  .share-pill-text,
+  .share-dot {
     transition: none;
   }
 }

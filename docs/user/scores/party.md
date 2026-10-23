@@ -180,27 +180,43 @@ party's scores may share them.
   the party button's row. **All parties** and **All my scores** have none,
   because a card is one evening.
 - To share one score, open a grouped row and tap :wingman-share:
-  **Share a score** at the foot of its card. If the row holds several scores,
-  pick one from the list first. :wingman-close: **Close** takes you back to
-  that list.
+  **Share a score** at the top of its scores. If the row holds several
+  scores, pick one from the list first. :wingman-close: **Close** takes you
+  back to that list.
 
-![The Share this party panel with the picture of the party card, its podium of three singers, and the Format and Look choices under it](../assets/screenshots/scores/scores-share.png){ width="320" loading=lazy }
+![The Share this party panel: Square and Story at the top, the party card with the next design peeking in, and the arrows and dots under it](../assets/screenshots/scores/scores-share.png){ width="320" loading=lazy }
 /// caption
-The picture is the card exactly as it is sent.
+The picture is the card exactly as it is sent. Swipe it to see the other
+designs.
 ///
 
-Under the picture you choose how the card looks.
+The two buttons over the picture choose its shape:
+:wingman-format-square: **Square** for a chat, :wingman-format-story:
+**Story** for a story app, which draws its own controls over the top and the
+foot.
 
-| Choice | What it does |
+The picture itself is one of the card's designs, and the next one peeks in at
+the edge. Swipe the picture sideways to go through them, or tap
+:wingman-chevron-left: **Previous design** and :wingman-chevron-right:
+**Next design** under it. On a keyboard, the left and right arrow keys do the
+same once the picture has the focus. The dots between the arrows show how many
+designs there are and which one you are on, and its name is written under
+them. The design you see is the one that is sent.
+
+| Card | Designs |
 |---|---|
-| **Format** | **Square** for a chat. **Story** for a story app, which draws its own controls over the top and the foot |
-| **Look** | **Dark**. For a score, **Cover** blurs the song's cover behind it. For a party, **Mosaic** lays the party's covers behind the whole card, dimmed so the words stay readable |
-| **Focus** | A party only: the **Podium**, or the **Spread** of every singer's scores |
-| **Under the podium** | A square, dark podium card only: the **Ranking** of the next singers, or the **Score strip** of every score |
+| A score | **Dark**, then **Cover**, which blurs the song's cover behind it |
+| A party | **Dark**, then **Mosaic**, which lays the party's covers behind the whole card, dimmed so the words stay readable, then **Spread**, which puts every singer's scores side by side instead of the podium |
 
-A choice the card cannot draw stays in the list but cannot be picked. A line
-under it says why: **Mosaic** needs four different covers, for example, and a
-song without a cover has no **Cover** look.
+A design the card cannot draw keeps its place as an empty box with a line
+saying why: **Mosaic** needs four different covers, for example, and a song
+without a cover has no **Cover**. Its dot is a ring. While it is on screen,
+the buttons at the foot wait.
+
+On a party card, **Under the podium** chooses what a square, dark podium card
+shows under the podium: the **Ranking** of the next singers, or the
+**Score strip** of every score. On the other designs, and on a story, a line
+in its place says why there is nothing to choose.
 
 Four checkboxes decide who and what is on the card.
 
@@ -215,7 +231,10 @@ Four checkboxes decide who and what is on the card.
   own figures and your place, such as "2nd of 5". It is there for somebody who
   sang at that party.
 
-The panel remembers the format, the look, and the checkboxes on this device.
+The panel remembers the format, the design, and the checkboxes on this
+device, and opens on that design the next time. **Spread** is not
+remembered: the panel opens on **Dark** or **Mosaic**, whichever you had
+before.
 
 ### What a card shows
 

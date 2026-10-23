@@ -1,5 +1,13 @@
 import { useQuery } from "@tanstack/react-query";
-import { useEffect, useMemo, useRef, useState } from "react";
+import {
+  useEffect,
+  useLayoutEffect,
+  useMemo,
+  useReducer,
+  useRef,
+  useState,
+  type ReactNode,
+} from "react";
 import type { PlayerRead, ScoreWithContext, SessionRead } from "../api";
 import { listSongScoresOptions } from "../api/@tanstack/react-query.gen";
 import { useAuth } from "../auth";
@@ -12,13 +20,18 @@ import {
 import { LOGO_URL, renderCard, type CardRequest } from "../shareCard/draw";
 import { scoreFlags } from "../shareCard/flags";
 import { loadCardImages, type ImageCache } from "../shareCard/images";
-import type { PartyFocus, UnderPodium } from "../shareCard/layout";
+import type { CardFormat, UnderPodium } from "../shareCard/layout";
 import {
+  FORMATS,
   partyCardChoices,
+  partyDesignOptions,
   resolvePartyOptions,
   resolveScoreOptions,
   scoreCardChoices,
   type Choice,
+  type PartyDesign,
+  type ScoreDesign,
+  underPodiumNote,
 } from "../shareCard/possible";
 import { readPrefs, writePrefs, type SharePrefs } from "../shareCard/prefs";
 import type { Grouping } from "../stats";
@@ -59,14 +72,29 @@ interface ShareCardPanelProps {
   onClose: () => void;
 }
 
+type Design = ScoreDesign | PartyDesign;
+
 const FORMAT_LABELS = { square: "Square", story: "Story" } as const;
-const LOOK_LABELS = { dark: "Dark", cover: "Cover", mosaic: "Mosaic" } as const;
-const FOCUS_LABELS = { podium: "Podium", spread: "Spread" } as const;
+const FORMAT_ICONS = {
+  square: "format-square",
+  story: "format-story",
+} as const;
+const DESIGN_LABELS: Record<Design, string> = {
+  dark: "Dark",
+  cover: "Cover",
+  mosaic: "Mosaic",
+  spread: "Spread",
+};
 const UNDER_LABELS = { ranking: "Ranking", strip: "Score strip" } as const;
 
 /** What the long press is for on a page that may not share or copy. */
 export const LONG_PRESS_NOTE =
   "Press and hold the picture to save or share it.";
+
+/** How long the carousel has to stand still before the slide it came to rest
+ * on is the one in view — the snap ends in a run of scroll events, and a
+ * quiet tenth of a second is a swipe that has settled. */
+export const SETTLE_MS = 100;
 
 /** "Bohemian Rhapsody" → "bohemian-rhapsody", for the file's name. */
 function slug(text: string): string {
@@ -123,25 +151,32 @@ function canCopyImage(): boolean {
   );
 }
 
-/** A touch screen on a page that is not a secure context: no share, no copy,
- * and the long press on the picture is what is left besides the download. */
-function longPressPage(): boolean {
-  if (window.isSecureContext) return false;
+function mediaMatches(query: string): boolean {
   try {
-    return window.matchMedia("(pointer: coarse)").matches;
+    return window.matchMedia?.(query).matches ?? false;
   } catch {
     return false;
   }
 }
 
+/** A touch screen on a page that is not a secure context: no share, no copy,
+ * and the long press on the picture is what is left besides the download. */
+function longPressPage(): boolean {
+  return !window.isSecureContext && mediaMatches("(pointer: coarse)");
+}
+
 interface PillsProps<T extends string> {
   legend: string;
+  /** The legend for a reader alone, where the pills say it themselves. */
+  legendHidden?: boolean;
   name: string;
   choices: Choice<T>[];
-  labels: Record<T, string>;
+  /** What a pill draws: its word, or a glyph over a hidden word. */
+  label: (value: T) => ReactNode;
   /** The choice as drawn, which is not always the one asked for. */
   checked: T | null;
   onChange: (value: T) => void;
+  className?: string;
 }
 
 /**
@@ -151,16 +186,24 @@ interface PillsProps<T extends string> {
  */
 function Pills<T extends string>({
   legend,
+  legendHidden = false,
   name,
   choices,
-  labels,
+  label,
   checked,
   onChange,
+  className,
 }: PillsProps<T>) {
   const reasons = choices.filter((choice) => choice.reason !== null);
   return (
-    <fieldset className="share-group">
-      <legend className="share-group-legend">{legend}</legend>
+    <fieldset
+      className={className ? `share-group ${className}` : "share-group"}
+    >
+      <legend
+        className={legendHidden ? "visually-hidden" : "share-group-legend"}
+      >
+        {legend}
+      </legend>
       <div className="share-pills">
         {choices.map((choice) => (
           <label key={choice.value} className="share-pill">
@@ -173,7 +216,7 @@ function Pills<T extends string>({
               disabled={!choice.ok}
               onChange={() => onChange(choice.value)}
             />
-            <span className="share-pill-text">{labels[choice.value]}</span>
+            <span className="share-pill-text">{label(choice.value)}</span>
           </label>
         ))}
       </div>
@@ -186,11 +229,206 @@ function Pills<T extends string>({
   );
 }
 
+/** One design of the card, as its slide in the carousel. */
+interface Slide {
+  design: Design;
+  /** Whether it can be drawn, and the sentence of its dimmed slot. */
+  choice: Choice<Design>;
+  /** What is drawn on it; `null` for a dimmed slot, which is never drawn. */
+  request: CardRequest | null;
+  /** `request` as a value, the key a picture is cached under; "" when dimmed. */
+  key: string;
+}
+
+/** A drawn picture, and the request it was drawn from. */
+interface Shot {
+  file: File;
+  url: string;
+  key: string;
+}
+
+/** The slide nearest the carousel's own middle, read off the layout; `null`
+ * where there is no layout to read (jsdom, a panel not yet laid out). */
+function slideNearest(carousel: HTMLElement): number | null {
+  const width = carousel.clientWidth;
+  if (width === 0) return null;
+  const middle = carousel.scrollLeft + width / 2;
+  const slides = carousel.querySelectorAll<HTMLElement>(".share-slide");
+  let best: number | null = null;
+  let distance = Infinity;
+  slides.forEach((slide, index) => {
+    const away = Math.abs(slide.offsetLeft + slide.offsetWidth / 2 - middle);
+    if (away < distance) {
+      distance = away;
+      best = index;
+    }
+  });
+  return best;
+}
+
+/** Brings one slide to the carousel's middle: smoothly, or at once for a
+ * reader who asked for less motion. */
+function scrollToSlide(
+  carousel: HTMLElement,
+  index: number,
+  behavior: ScrollBehavior,
+): void {
+  const slide = carousel.querySelectorAll<HTMLElement>(".share-slide")[index];
+  if (slide === undefined) return;
+  const left =
+    slide.offsetLeft + slide.offsetWidth / 2 - carousel.clientWidth / 2;
+  if (typeof carousel.scrollTo === "function")
+    carousel.scrollTo({ left, behavior });
+  else carousel.scrollLeft = left;
+}
+
+interface CarouselProps {
+  slides: Slide[];
+  /** The slide in view. */
+  index: number;
+  onMove: (index: number) => void;
+  /** What one slide holds. */
+  renderSlide: (slide: Slide, index: number) => ReactNode;
+}
+
+/**
+ * The card's designs as one scroll-snapped row (ui-guidelines §7, *Share
+ * cards*), with the arrows and the dots under it. The slide in view is read
+ * off the scroll position once a swipe has settled (`SETTLE_MS`): one path in
+ * every browser, Safari's without `scrollend` included, and exact where an
+ * `IntersectionObserver` would answer in thresholds. An arrow or a key moves
+ * the choice at once and lets the row follow; the reading the settled scroll
+ * then makes agrees with it, so nothing flickers.
+ */
+function DesignCarousel({ slides, index, onMove, renderSlide }: CarouselProps) {
+  const carousel = useRef<HTMLDivElement>(null);
+  const previous = useRef<HTMLButtonElement>(null);
+  const next = useRef<HTMLButtonElement>(null);
+  const settle = useRef<number | undefined>(undefined);
+  const current = useRef(index);
+  current.current = index;
+  const last = slides.length - 1;
+
+  // Opened on the remembered design: there before the first paint, so the row
+  // never visibly runs to it.
+  useLayoutEffect(() => {
+    const row = carousel.current;
+    if (row !== null) scrollToSlide(row, current.current, "instant");
+    return () => window.clearTimeout(settle.current);
+  }, []);
+
+  const go = (to: number, from: "previous" | "next" | null) => {
+    if (to < 0 || to > last || to === index) return;
+    onMove(to);
+    const row = carousel.current;
+    if (row !== null)
+      scrollToSlide(
+        row,
+        to,
+        mediaMatches("(prefers-reduced-motion: reduce)") ? "instant" : "smooth",
+      );
+    // An arrow that reached its end is disabled under the finger, and a
+    // disabled button drops the keyboard on the page: it moves to the other.
+    if (from === "next" && to === last) previous.current?.focus();
+    if (from === "previous" && to === 0) next.current?.focus();
+  };
+
+  const onScroll = () => {
+    window.clearTimeout(settle.current);
+    settle.current = window.setTimeout(() => {
+      const row = carousel.current;
+      if (row === null) return;
+      const nearest = slideNearest(row);
+      if (nearest !== null && nearest !== current.current) onMove(nearest);
+    }, SETTLE_MS);
+  };
+
+  const label = (slide: Slide) => DESIGN_LABELS[slide.design];
+
+  return (
+    <>
+      <div
+        ref={carousel}
+        className="share-carousel"
+        tabIndex={0}
+        role="region"
+        aria-roledescription="carousel"
+        aria-label="Designs"
+        onScroll={onScroll}
+        onKeyDown={(event) => {
+          if (event.key !== "ArrowLeft" && event.key !== "ArrowRight") return;
+          // The row would scroll a few pixels by itself and snap back.
+          event.preventDefault();
+          go(event.key === "ArrowLeft" ? index - 1 : index + 1, null);
+        }}
+      >
+        {slides.map((slide, i) => (
+          <div
+            key={slide.design}
+            className="share-slide"
+            role="group"
+            aria-roledescription="slide"
+            aria-label={`${label(slide)}, ${i + 1} of ${slides.length}`}
+            data-design={slide.design}
+            aria-current={i === index || undefined}
+          >
+            {renderSlide(slide, i)}
+          </div>
+        ))}
+      </div>
+      <div className="share-carousel-nav">
+        <button
+          ref={previous}
+          type="button"
+          className="icon-button"
+          aria-label="Previous design"
+          title="Previous design"
+          disabled={index === 0}
+          onClick={() => go(index - 1, "previous")}
+        >
+          <Icon name="chevron-left" />
+        </button>
+        {/* Decoration: the arrows, the keys and the swipe are the controls,
+            the slides' own names say where the reader is. */}
+        <div className="share-dots" aria-hidden="true">
+          {slides.map((slide, i) => (
+            <span
+              key={slide.design}
+              className={[
+                "share-dot",
+                i === index ? "share-dot-on" : "",
+                slide.request === null ? "share-dot-dimmed" : "",
+              ]
+                .filter(Boolean)
+                .join(" ")}
+            />
+          ))}
+        </div>
+        <button
+          ref={next}
+          type="button"
+          className="icon-button"
+          aria-label="Next design"
+          title="Next design"
+          disabled={index === last}
+          onClick={() => go(index + 1, "next")}
+        >
+          <Icon name="chevron-right" />
+        </button>
+      </div>
+      <p className="share-design-name" aria-live="polite">
+        {label(slides[index])}
+      </p>
+    </>
+  );
+}
+
 /**
  * The share panel (share-cards.md §5, ui-guidelines §7 *Share cards*): the
- * card as a real picture, the few choices it takes, and the buttons this
- * browser can actually carry out. *Share a score* on a group of several first
- * asks which score, and its close goes back to that list.
+ * card's designs as real pictures in a carousel, the few choices it takes,
+ * and the buttons this browser can actually carry out. *Share a score* on a
+ * group of several first asks which score, and its close goes back to that
+ * list.
  */
 export default function ShareCardPanel({
   target,
@@ -200,8 +438,10 @@ export default function ShareCardPanel({
   const auth = useAuth();
   const me = auth.user?.player_id ?? null;
   const [prefs, setPrefs] = useState<SharePrefs>(readPrefs);
-  const [focus, setFocus] = useState<PartyFocus>("podium");
   const [under, setUnder] = useState<Exclude<UnderPodium, "none">>("ranking");
+  /** The slide in view; `null` until the carousel opens on the remembered
+   * design. */
+  const [inView, setInView] = useState<number | null>(null);
   const choosing = target.kind === "score" && target.scores.length > 1;
   const [chosen, setChosen] = useState<ScoreWithContext | null>(
     target.kind === "score" && target.scores.length === 1
@@ -212,10 +452,15 @@ export default function ShareCardPanel({
   /** The row the chooser goes back to, so the keyboard lands where it left. */
   const lastChosen = useRef<number | null>(null);
 
+  // On the prefs as they are when it lands, not as a render saw them: a
+  // swipe's settled reading arrives a moment after the scroll, and a toggle
+  // pressed in between must not be written back over.
   const update = (patch: Partial<SharePrefs>) => {
-    const next = { ...prefs, ...patch };
-    setPrefs(next);
-    writePrefs(next);
+    setPrefs((was) => {
+      const next = { ...was, ...patch };
+      writePrefs(next);
+      return next;
+    });
   };
 
   // The flags need the song's whole history, which is the archive: only a
@@ -297,117 +542,253 @@ export default function ShareCardPanel({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [urlsKey]);
   const imagesReady = images !== null && images.key === urlsKey;
-  const loaded = (url: string) => images?.map.has(url) ?? false;
+  // The choices wait for the pictures: whether a Cover or a Mosaic can be
+  // drawn is only known once the covers have arrived, and a slide that dims
+  // itself a moment later reads as a fault. A toggle that asks for other
+  // pictures (*Other singers' pictures* back on) keeps the slides it has,
+  // read off the pictures there were, while the new ones arrive: the songs
+  // and so the covers are the same.
+  const ready = images !== null && auth.loaded && content !== null;
 
-  // -------------------------------------------------------------- options
-  const request: CardRequest | null = useMemo(() => {
-    if (content === null) return null;
-    if (content.kind === "score")
-      return {
-        kind: "score",
-        content,
-        options: {
-          format: prefs.format,
-          look: prefs.scoreLook,
-          logo: prefs.logo,
-        },
-      };
-    return {
-      kind: "party",
+  // ---------------------------------------------------------------- slides
+  // One per design, in the fixed order; each asks for exactly what it draws
+  // (the resolved options), so a choice that does not reach a slide — *Under
+  // the podium* on a Mosaic — never redraws it.
+  const loadedMap = images?.map;
+  const slides = useMemo<Slide[]>(() => {
+    if (!ready || content === null || loadedMap === undefined) return [];
+    const loaded = (url: string) => loadedMap.has(url);
+    if (content.kind === "score") {
+      return scoreCardChoices(content, loaded).designs.map((choice) => {
+        if (!choice.ok)
+          return { design: choice.value, choice, request: null, key: "" };
+        const request: CardRequest = {
+          kind: "score",
+          content,
+          options: resolveScoreOptions(
+            content,
+            { format: prefs.format, look: choice.value, logo: prefs.logo },
+            loaded,
+          ),
+        };
+        return {
+          design: choice.value,
+          choice,
+          request,
+          key: JSON.stringify(request),
+        };
+      });
+    }
+    const base = { format: prefs.format, under, logo: prefs.logo };
+    return partyCardChoices(
       content,
-      options: {
-        format: prefs.format,
-        look: prefs.partyLook,
-        focus,
-        under,
-        logo: prefs.logo,
-      },
-    };
-  }, [content, prefs, focus, under]);
-  const requestKey = request === null ? "" : JSON.stringify(request);
+      { ...base, look: "dark", focus: "podium" },
+      loaded,
+    ).designs.map((choice) => {
+      if (!choice.ok)
+        return { design: choice.value, choice, request: null, key: "" };
+      const request: CardRequest = {
+        kind: "party",
+        content,
+        options: resolvePartyOptions(
+          content,
+          { ...base, ...partyDesignOptions(choice.value) },
+          loaded,
+        ),
+      };
+      return {
+        design: choice.value,
+        choice,
+        request,
+        key: JSON.stringify(request),
+      };
+    });
+  }, [ready, content, loadedMap, prefs.format, prefs.logo, under]);
 
-  // ----------------------------------------------------------- the picture
+  /** Where the carousel opens: on the design remembered, unless this card
+   * cannot draw it — a panel opening on held buttons reads as broken. */
+  const remembered =
+    content?.kind === "score" ? prefs.scoreLook : prefs.partyLook;
+  const opening = Math.max(
+    0,
+    slides.findIndex(
+      (slide) => slide.design === remembered && slide.request !== null,
+    ),
+  );
+  const index = Math.min(inView ?? opening, Math.max(0, slides.length - 1));
+  useEffect(() => {
+    if (imagesReady && slides.length > 0 && inView === null) setInView(opening);
+  }, [imagesReady, slides.length, inView, opening]);
+
+  /** The slide in view is the choice, and the one remembered — but a dimmed
+   * slot is no choice, and the spread is not kept (share-cards §5). */
+  const move = (to: number) => {
+    setInView(to);
+    const slide = slides[to];
+    if (slide === undefined || slide.request === null) return;
+    if (slide.design === "dark" || slide.design === "cover") {
+      if (content?.kind === "score") update({ scoreLook: slide.design });
+      else if (slide.design === "dark") update({ partyLook: "dark" });
+    } else if (slide.design === "mosaic") update({ partyLook: "mosaic" });
+  };
+
+  // ---------------------------------------------------------- the pictures
   // Built the moment the options settle and never inside a click: awaiting
   // the PNG in the click can use up the tap's user activation, and Safari's
-  // `share()` then refuses (§5).
-  // `key` is the request the picture was drawn from: while it is not the
-  // request on screen, the old picture stands but is not what the reader
-  // asked for, so nothing sends it (`current` below).
-  const [shot, setShot] = useState<{
-    file: File;
-    url: string;
-    key: string;
-  } | null>(null);
-  const [drawError, setDrawError] = useState(false);
-  /** The URL the preview stands on, and the ones it stood on before, which
-   * are let go once the new picture is on screen (`onLoad` below): revoked
-   * any sooner, the old one could flash as a broken image. */
-  const shotUrl = useRef<string | null>(null);
-  const retired = useRef<string[]>([]);
-  const letRetiredGo = () => {
-    for (const url of retired.current) URL.revokeObjectURL(url);
-    retired.current = [];
+  // `share()` then refuses (§5). The slide in view and its neighbours are
+  // drawn, one at a time and the one in view first; each keeps its latest
+  // picture, cached under the request it was drawn from, so a swipe back to
+  // a slide whose options have not moved draws nothing.
+  const shots = useRef(new Map<Design, Shot>());
+  /** The URLs a slide stood on before, let go once its new picture is on
+   * screen (`onLoad` below): revoked any sooner, the old one could flash as a
+   * broken image. */
+  const retired = useRef(new Map<Design, string[]>());
+  const [failed, setFailed] = useState<Partial<Record<Design, string>>>({});
+  const [, redraw] = useReducer((n: number) => n + 1, 0);
+  /** The drawing on its way, if any. */
+  const drawing = useRef<object | null>(null);
+  /** Moves on whenever the pictures there are stop being this card's — another
+   * score, or the panel gone — so a drawing that lands late is let fall. */
+  const generation = useRef(0);
+
+  const letRetiredGo = (design: Design) => {
+    for (const url of retired.current.get(design) ?? [])
+      URL.revokeObjectURL(url);
+    retired.current.delete(design);
+  };
+  /** One slide's pictures, for a slide that has nothing to show any more. */
+  const letSlideGo = (design: Design) => {
+    letRetiredGo(design);
+    const shot = shots.current.get(design);
+    if (shot !== undefined) URL.revokeObjectURL(shot.url);
+    shots.current.delete(design);
   };
   /** Every URL at once, for when nothing is to be shown any more. Safari
    * keeps canvas memory alive behind a live URL. */
   const letAllGo = () => {
-    letRetiredGo();
-    if (shotUrl.current !== null) URL.revokeObjectURL(shotUrl.current);
-    shotUrl.current = null;
+    for (const design of [...retired.current.keys()]) letRetiredGo(design);
+    for (const shot of shots.current.values()) URL.revokeObjectURL(shot.url);
+    shots.current.clear();
   };
+
+  const slidesKey = slides.map((slide) => `${slide.design}=${slide.key}`);
+  // In view first: it is the one drawn first.
+  const wanted = [index, index - 1, index + 1]
+    .map((i) => slides[i])
+    .filter((slide): slide is Slide => slide?.request != null);
+
+  // A slot that has dimmed since it was drawn has no picture to keep.
   useEffect(() => {
-    if (request === null || !imagesReady || !flagsSettled || images === null)
+    let dropped = false;
+    for (const slide of slides)
+      if (slide.request === null && shots.current.has(slide.design)) {
+        letSlideGo(slide.design);
+        dropped = true;
+      }
+    if (dropped) redraw();
+    // `slidesKey` is `slides` as a value.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [slidesKey.join("\n")]);
+
+  // After every render, and cheap when there is nothing to do: one drawing at
+  // a time, and the one that finishes calls `redraw`, which is what brings
+  // the next slide's turn.
+  useEffect(() => {
+    if (
+      !flagsSettled ||
+      !imagesReady ||
+      images === null ||
+      drawing.current !== null
+    )
       return;
-    let live = true;
-    const name = fileName(request.content);
-    const key = requestKey;
-    renderCard(request, images.map).then(
+    const slide = wanted.find(
+      (candidate) =>
+        shots.current.get(candidate.design)?.key !== candidate.key &&
+        failed[candidate.design] !== candidate.key,
+    );
+    if (slide === undefined || slide.request === null) return;
+    const token = {};
+    drawing.current = token;
+    const at = generation.current;
+    const { design, key } = slide;
+    const name = fileName(slide.request.content);
+    renderCard(slide.request, images.map).then(
       (blob) => {
-        if (!live) return;
+        if (drawing.current === token) drawing.current = null;
+        if (at !== generation.current) return;
         const file = new File([blob], name, { type: "image/png" });
         const url = URL.createObjectURL(file);
         // The old picture stands through the redraw and goes once the new
         // one is shown.
-        if (shotUrl.current !== null) retired.current.push(shotUrl.current);
-        shotUrl.current = url;
-        setShot({ file, url, key });
-        setDrawError(false);
+        const old = shots.current.get(design);
+        if (old !== undefined)
+          retired.current.set(design, [
+            ...(retired.current.get(design) ?? []),
+            old.url,
+          ]);
+        shots.current.set(design, { file, url, key });
+        setFailed((was) => {
+          if (was[design] === undefined) return was;
+          const rest = { ...was };
+          delete rest[design];
+          return rest;
+        });
+        redraw();
       },
       () => {
-        if (!live) return;
+        if (drawing.current === token) drawing.current = null;
+        if (at !== generation.current) return;
         // A picture of the options before is not this card: it goes, and
         // with it every button that could send it.
-        letAllGo();
-        setShot(null);
-        setDrawError(true);
+        letSlideGo(design);
+        setFailed((was) => ({ ...was, [design]: key }));
+        redraw();
       },
     );
-    return () => {
-      live = false;
-    };
-    // `requestKey` is `request` as a value; `images` is read through
-    // `imagesReady`, which moves with it.
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [requestKey, imagesReady, flagsSettled]);
+  });
 
-  // Whatever URL is left when the panel goes.
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  useEffect(() => letAllGo, []);
+  // Whatever URL is left when the panel goes, and nothing drawn after it.
+  useEffect(
+    () => () => {
+      generation.current += 1;
+      drawing.current = null;
+      letAllGo();
+    },
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [],
+  );
 
   // ---------------------------------------------------------- the buttons
   const [notice, setNotice] = useState<string | null>(null);
   const [failure, setFailure] = useState<string | null>(null);
   const saveLink = useRef<HTMLAnchorElement>(null);
-  const shareable = shot !== null && canShareFile(shot.file);
-  const copyable = shot !== null && canCopyImage();
-  // Whether the picture standing is the card the options now ask for. While a
-  // redraw is on its way it is not: the buttons hold still rather than send
-  // the card from before, and the file they wait for is built outside the
-  // click all the same.
-  const current = shot !== null && shot.key === requestKey;
+  const slide = slides[index] as Slide | undefined;
+  const shot =
+    slide === undefined ? undefined : shots.current.get(slide.design);
+  const anyShot = shot ?? shots.current.values().next().value;
+  const slideFailed =
+    slide !== undefined &&
+    slide.request !== null &&
+    failed[slide.design] === slide.key;
+  // Up from the first moment the choices are known, and kept while a toggle's
+  // new pictures arrive, as long as there is a picture to stand on.
+  const showCarousel =
+    slides.length > 0 && (imagesReady || anyShot !== undefined);
+  const shareable = anyShot !== undefined && canShareFile(anyShot.file);
+  const copyable = anyShot !== undefined && canCopyImage();
+  // Whether the picture in view is the card the options now ask for. While a
+  // redraw is on its way it is not, and a dimmed slot has none: the buttons
+  // hold still rather than send the card from before, and the file they wait
+  // for is built outside the click all the same.
+  const current =
+    slide !== undefined &&
+    slide.request !== null &&
+    shot !== undefined &&
+    shot.key === slide.key;
 
   const share = () => {
-    if (shot === null || !current) return;
+    if (shot === undefined || !current) return;
     setNotice(null);
     setFailure(null);
     // Called straight from the click, the file already built; the file alone,
@@ -431,7 +812,7 @@ export default function ShareCardPanel({
   };
 
   const copy = () => {
-    if (shot === null || !current) return;
+    if (shot === undefined || !current) return;
     setNotice(null);
     setFailure(null);
     navigator.clipboard
@@ -446,19 +827,23 @@ export default function ShareCardPanel({
   };
 
   // ------------------------------------------------- the chooser and back
-  // Another score is another card: the last one's picture and file go, so a
-  // quick press can never send the score that was there before, and the next
-  // card is a first drawing behind `Loading`.
-  const dropShot = () => {
+  // Another score is another card: the last one's pictures and files go, so
+  // a quick press can never send the score that was there before, and the
+  // next card is a first drawing behind `Loading`, opening on the design
+  // remembered.
+  const dropShots = () => {
+    generation.current += 1;
+    drawing.current = null;
     letAllGo();
-    setShot(null);
-    setDrawError(false);
+    setFailed({});
+    setInView(null);
     setNotice(null);
     setFailure(null);
+    redraw();
   };
   const choose = (score: ScoreWithContext) => {
     lastChosen.current = score.id;
-    dropShot();
+    dropShots();
     setChosen(score);
   };
   // The close is the way back to the list for a group of several — the song
@@ -466,7 +851,7 @@ export default function ShareCardPanel({
   const close =
     choosing && chosen !== null
       ? () => {
-          dropShot();
+          dropShots();
           setChosen(null);
         }
       : onClose;
@@ -535,120 +920,167 @@ export default function ShareCardPanel({
   // `content` is set from here on: a party always has one, and a score target
   // without a chosen score returned the chooser above.
   const card = content as CardContent;
-  const scoreChoices =
-    card.kind === "score" ? scoreCardChoices(card, loaded) : null;
-  const scoreDrawn =
-    card.kind === "score"
-      ? resolveScoreOptions(
-          card,
-          { format: prefs.format, look: prefs.scoreLook, logo: prefs.logo },
-          loaded,
-        )
-      : null;
-  const partyRequested = {
-    format: prefs.format,
-    look: prefs.partyLook,
-    focus,
-    under,
-    logo: prefs.logo,
-  };
-  const partyChoices =
-    card.kind === "party"
-      ? partyCardChoices(card, partyRequested, loaded)
-      : null;
-  const partyDrawn =
-    card.kind === "party"
-      ? resolvePartyOptions(card, partyRequested, loaded)
-      : null;
+  const format: CardFormat = prefs.format;
   const pressHold = longPressPage();
+  const wantedDesigns = new Set(wanted.map((candidate) => candidate.design));
+
+  const renderSlide = (candidate: Slide) => {
+    const picture = shots.current.get(candidate.design);
+    const box = `share-slide-box share-slide-box-${format}`;
+    if (candidate.request === null)
+      return (
+        <div className={`${box} share-slide-dimmed`}>
+          <span className="share-slide-dimmed-name">
+            {DESIGN_LABELS[candidate.design]}
+          </span>
+          <span className="share-slide-dimmed-reason">
+            {candidate.choice.reason}
+          </span>
+        </div>
+      );
+    const waiting = picture === undefined || picture.key !== candidate.key;
+    const broken = failed[candidate.design] === candidate.key;
+    return (
+      <div className={box} aria-busy={(waiting && !broken) || undefined}>
+        {picture !== undefined ? (
+          <img
+            className="share-preview-image"
+            src={picture.url}
+            alt={altText(card)}
+            onLoad={() => letRetiredGo(candidate.design)}
+            onError={() => letRetiredGo(candidate.design)}
+          />
+        ) : broken || !wantedDesigns.has(candidate.design) ? null : (
+          <Loading />
+        )}
+      </div>
+    );
+  };
+
+  // *Under the podium* keeps one row on every party slide, so a swipe moves
+  // nothing: the pills where the slide in view takes them, its sentence in
+  // their place where it does not, all of them laid in one grid cell so the
+  // row is as tall as the tallest.
+  let underRow: ReactNode = null;
+  let onlyMe: Choice<boolean> | null = null;
+  if (card.kind === "party" && slides.length > 0 && loadedMap !== undefined) {
+    // The one slide that takes the choice is the square Dark podium, and the
+    // pills are its; every other slide says why not, asked of its own design
+    // — so a dimmed Spread says what the spread does, not what is drawn in
+    // its stead.
+    const podium = partyCardChoices(
+      card,
+      { format, under, logo: prefs.logo, look: "dark", focus: "podium" },
+      (url) => loadedMap.has(url),
+    );
+    onlyMe = podium.onlyMe;
+    const noteOf = (design: Design): string | null => {
+      const { look, focus } = partyDesignOptions(design as PartyDesign);
+      return underPodiumNote(format, look, focus);
+    };
+    const inViewNote = noteOf(slides[index].design);
+    const notes = [
+      ...new Set(
+        slides
+          .map((candidate) => noteOf(candidate.design))
+          .filter((note): note is string => note !== null),
+      ),
+    ];
+    const pills = podium.under;
+    const pillsActive = pills !== null && inViewNote === null;
+    const dark = slides.find((candidate) => candidate.design === "dark");
+    const drawnUnder =
+      dark?.request?.kind === "party" ? dark.request.options.under : "none";
+    underRow = (
+      <div className="share-under">
+        {pills !== null && (
+          <div
+            className="share-under-variant"
+            aria-hidden={!pillsActive || undefined}
+            inert={!pillsActive}
+            data-active={pillsActive}
+          >
+            <Pills
+              legend="Under the podium"
+              name="share-under"
+              choices={pills}
+              label={(value) => UNDER_LABELS[value]}
+              checked={drawnUnder === "none" ? null : drawnUnder}
+              onChange={setUnder}
+            />
+          </div>
+        )}
+        {notes.map((note) => {
+          const active = inViewNote === note;
+          return (
+            <div
+              key={note}
+              className="share-under-variant"
+              aria-hidden={!active || undefined}
+              data-active={active}
+            >
+              <div className="share-group">
+                <p className="share-group-legend">Under the podium</p>
+                <p className="section-note share-group-note">{note}</p>
+              </div>
+            </div>
+          );
+        })}
+      </div>
+    );
+  }
 
   return (
     <Modal title={title} onClose={close}>
       <div ref={panelBody} className="share-panel">
-        <div
-          className="share-preview"
-          aria-busy={(!current && !drawError) || undefined}
-        >
-          {shot !== null ? (
-            <img
-              className="share-preview-image"
-              src={shot.url}
-              alt={altText(card)}
-              onLoad={letRetiredGo}
-              onError={letRetiredGo}
+        {!showCarousel ? (
+          // The first drawing is a wait, at the size the slide will have.
+          <div className="share-carousel share-carousel-waiting">
+            <div className="share-slide">
+              <div className={`share-slide-box share-slide-box-${format}`}>
+                <Loading />
+              </div>
+            </div>
+          </div>
+        ) : (
+          <>
+            <Pills
+              className="share-formats"
+              legend="Format"
+              legendHidden
+              name="share-format"
+              choices={FORMATS}
+              label={(value) => (
+                <>
+                  <Icon name={FORMAT_ICONS[value]} />
+                  <span className="visually-hidden">
+                    {FORMAT_LABELS[value]}
+                  </span>
+                </>
+              )}
+              checked={format}
+              onChange={(next) => update({ format: next })}
             />
-          ) : drawError ? null : (
-            <Loading />
-          )}
-        </div>
-        {drawError && (
+            <DesignCarousel
+              slides={slides}
+              index={index}
+              onMove={move}
+              renderSlide={renderSlide}
+            />
+          </>
+        )}
+        {slideFailed && (
           <p className="error-notice share-notice" role="alert">
             The card could not be drawn in this browser.
           </p>
         )}
-        {pressHold && shot !== null && (
+        {pressHold && anyShot !== undefined && (
           <p className="section-note share-press-note">{LONG_PRESS_NOTE}</p>
         )}
 
-        {/* The choices wait for the pictures: whether a Cover or a Mosaic can
-            be drawn is only known once the covers have arrived, and a pill
-            that turns itself off a moment later reads as a fault. */}
-        {(imagesReady || shot !== null) && auth.loaded && (
+        {showCarousel && (
           <>
-            <Pills
-              legend="Format"
-              name="share-format"
-              choices={(scoreChoices ?? partyChoices)?.formats ?? []}
-              labels={FORMAT_LABELS}
-              checked={prefs.format}
-              onChange={(format) => update({ format })}
-            />
-            {scoreChoices !== null && scoreDrawn !== null && (
-              <Pills
-                legend="Look"
-                name="share-look"
-                choices={scoreChoices.looks}
-                labels={LOOK_LABELS}
-                checked={scoreDrawn.look}
-                onChange={(look) => update({ scoreLook: look })}
-              />
-            )}
-            {partyChoices !== null && partyDrawn !== null && (
-              <>
-                <Pills
-                  legend="Look"
-                  name="share-look"
-                  choices={partyChoices.looks}
-                  labels={LOOK_LABELS}
-                  checked={partyDrawn.look}
-                  onChange={(look) => update({ partyLook: look })}
-                />
-                <Pills
-                  legend="Focus"
-                  name="share-focus"
-                  choices={partyChoices.focus}
-                  labels={FOCUS_LABELS}
-                  checked={partyDrawn.focus}
-                  onChange={setFocus}
-                />
-                {/* Only where it applies: a square Dark podium card. A story
-                    has room for both, Mosaic keeps the podium alone, and the
-                    spread takes the podium's place. */}
-                {partyChoices.under !== null && (
-                  <Pills
-                    legend="Under the podium"
-                    name="share-under"
-                    choices={partyChoices.under}
-                    labels={UNDER_LABELS}
-                    checked={
-                      partyDrawn.under === "none" ? null : partyDrawn.under
-                    }
-                    onChange={setUnder}
-                  />
-                )}
-              </>
-            )}
-
+            {underRow}
             <div className="share-toggles">
               <CheckOption
                 type="checkbox"
@@ -670,18 +1102,18 @@ export default function ShareCardPanel({
                 checked={prefs.logo}
                 onChange={() => update({ logo: !prefs.logo })}
               />
-              {partyChoices !== null && card.kind === "party" && (
+              {onlyMe !== null && card.kind === "party" && (
                 <>
                   <CheckOption
                     type="checkbox"
                     label="Only me and my place"
                     checked={card.onlyMe}
-                    disabled={!partyChoices.onlyMe.ok}
+                    disabled={!onlyMe.ok}
                     onChange={() => update({ onlyMe: !prefs.onlyMe })}
                   />
-                  {partyChoices.onlyMe.reason !== null && (
+                  {onlyMe.reason !== null && (
                     <p className="section-note share-toggle-note">
-                      {partyChoices.onlyMe.reason}
+                      {onlyMe.reason}
                     </p>
                   )}
                 </>
@@ -692,9 +1124,10 @@ export default function ShareCardPanel({
 
         {/* Only what works in this browser, and never a greyed button: the
             row waits for the first picture, and holds still for the moment
-            a redraw takes. The primary is the last one — Share where the
-            browser can, Save image where it cannot. */}
-        {shot !== null && (
+            a redraw takes and on a design the card cannot draw. The primary
+            is the last one — Share where the browser can, Save image where
+            it cannot. A drawing that failed takes the row with it. */}
+        {anyShot !== undefined && !slideFailed && (
           <div className="share-actions">
             {copyable && (
               <button
@@ -708,9 +1141,10 @@ export default function ShareCardPanel({
             )}
             <a
               ref={saveLink}
+              role="link"
               className={shareable ? "button" : "button button-primary"}
-              href={shot.url}
-              download={shot.file.name}
+              href={shot?.url}
+              download={shot?.file.name ?? fileName(card)}
               aria-disabled={!current || undefined}
               onClick={(event) => {
                 if (!current) {

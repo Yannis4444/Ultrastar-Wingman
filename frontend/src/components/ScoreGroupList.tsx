@@ -46,8 +46,8 @@ interface ScoreGroupListProps {
   /** A score was moved or deleted; the page refetches what it holds. */
   onModerated?: () => void;
   /**
-   * Whether an open group ends in *Share a score* (ui-guidelines §7), and
-   * what it opens. Only `/scores` passes it — the two entry points of the
+   * Whether an open group's scores start with *Share a score*
+   * (ui-guidelines §7), and what it opens. Only `/scores` passes it — the two entry points of the
    * share cards are that page's (share-cards.md §7.3). One per group, never
    * per row; ungrouped rows never unfold, so they share nothing.
    */
@@ -341,6 +341,24 @@ export default function ScoreGroupList({
                   />
                 )}
 
+                {/* The scores' own first line, at their right: one per group,
+                    so a row's own controls stay the moderator's pencil alone,
+                    and never in the danger colour — sharing takes nothing
+                    away. Where a group of one has no summary it is the
+                    tile's first line. */}
+                {onShare !== undefined && (
+                  <div className="score-group-share">
+                    <button
+                      type="button"
+                      className="button"
+                      onClick={() => onShare(group)}
+                    >
+                      <Icon name="share" />
+                      Share a score
+                    </button>
+                  </div>
+                )}
+
                 <ul className="score-group-scores">
                   {group.scores.map((score) => {
                     const body = (
@@ -372,22 +390,6 @@ export default function ScoreGroupList({
                     );
                   })}
                 </ul>
-
-                {/* The tile's last word, placed like `.delete-row` and never
-                    in its danger colour: one per group, so a row's own
-                    controls stay the moderator's pencil alone. */}
-                {onShare !== undefined && (
-                  <div className="score-group-share">
-                    <button
-                      type="button"
-                      className="button"
-                      onClick={() => onShare(group)}
-                    >
-                      <Icon name="share" />
-                      Share a score
-                    </button>
-                  </div>
-                )}
               </div>
             </details>
           </li>

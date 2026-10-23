@@ -12,6 +12,7 @@ import type { CardRequest } from "../shareCard/draw";
 import { coverUrl } from "../shareCard/content";
 import { PREFS_KEY } from "../shareCard/prefs";
 import { meResponse, userRead } from "../test/auth";
+import { iconNames } from "../test/icons";
 import {
   SONGS,
   cardParty,
@@ -21,6 +22,7 @@ import {
 } from "../test/shareCard";
 import ShareCardPanel, {
   LONG_PRESS_NOTE,
+  SETTLE_MS,
   type ShareTarget,
 } from "./ShareCardPanel";
 
@@ -82,11 +84,21 @@ function copyableBrowser(write = vi.fn(() => Promise.resolve())) {
   return write;
 }
 
-function touchScreen(coarse: boolean): void {
+/** The media the page matches: a touch screen, and less motion. */
+function media({
+  coarse = false,
+  reducedMotion = false,
+}: { coarse?: boolean; reducedMotion?: boolean } = {}): void {
   defineOn(window, "matchMedia", (query: string) => ({
-    matches: coarse && query.includes("coarse"),
+    matches:
+      (coarse && query.includes("coarse")) ||
+      (reducedMotion && query.includes("reduced-motion")),
     media: query,
   }));
+}
+
+function touchScreen(coarse: boolean): void {
+  media({ coarse });
 }
 
 beforeEach(() => {
@@ -132,6 +144,7 @@ afterEach(() => {
   vi.unstubAllGlobals();
   for (const key of ["canShare", "share", "clipboard"])
     delete (navigator as unknown as Record<string, unknown>)[key];
+  delete (HTMLElement.prototype as unknown as Record<string, unknown>).scrollTo;
 });
 
 function renderPanel(target: ShareTarget, onClose = vi.fn()) {
@@ -172,9 +185,49 @@ function lastRequest(): CardRequest {
   return calls[calls.length - 1][0] as CardRequest;
 }
 
-/** The picture, once the first drawing is in. */
-function preview(): Promise<HTMLElement> {
-  return screen.findByRole("img", { name: /^Share card/ });
+/** Every request drawn so far, in order. */
+function requests(): CardRequest[] {
+  return renderCard.mock.calls.map((call) => call[0] as CardRequest);
+}
+
+/** The look and the focus a request draws: which slide it was for. */
+function designOf(request: CardRequest): string {
+  if (request.kind === "score") return request.options.look;
+  return request.options.focus === "spread" ? "spread" : request.options.look;
+}
+
+function carousel(): HTMLElement {
+  return screen.getByRole("region", { name: "Designs" });
+}
+
+/** The slide in view. */
+function inView(): HTMLElement {
+  const slide = document.querySelector<HTMLElement>(
+    '.share-slide[aria-current="true"]',
+  );
+  if (slide === null) throw new Error("no slide in view");
+  return slide;
+}
+
+/** The name under the dots, which is the slide in view's. */
+function designName(): string {
+  return document.querySelector(".share-design-name")?.textContent ?? "";
+}
+
+/** The picture in view, if it is drawn. */
+function shown(): HTMLImageElement | null {
+  return document.querySelector<HTMLImageElement>(
+    '.share-slide[aria-current="true"] img',
+  );
+}
+
+/** The picture in view, once its first drawing is in. */
+async function preview(): Promise<HTMLImageElement> {
+  return waitFor(() => {
+    const image = shown();
+    if (image === null) throw new Error("not drawn yet");
+    return image;
+  });
 }
 
 /** The buttons' row, in the order it draws them. */
@@ -190,6 +243,54 @@ function primary(): string | null {
   );
 }
 
+function nextDesign(): HTMLElement {
+  return screen.getByRole("button", { name: "Next design" });
+}
+
+function previousDesign(): HTMLElement {
+  return screen.getByRole("button", { name: "Previous design" });
+}
+
+/** The dots, as `[in view, dimmed]`. */
+function dots(): [boolean, boolean][] {
+  return [...document.querySelectorAll(".share-dot")].map((dot) => [
+    dot.classList.contains("share-dot-on"),
+    dot.classList.contains("share-dot-dimmed"),
+  ]);
+}
+
+/**
+ * Lays the carousel out the way a browser would — jsdom has no layout and no
+ * scroll-snap — so the scroll position can be read: a 300px row, slides 252
+ * wide and 8 apart behind a 16px spacer, and a `scrollTo` that moves the row
+ * at once and says so the way the browser does, with a scroll event.
+ */
+function layOut(): { scrollTo: ReturnType<typeof vi.fn> } {
+  const row = carousel();
+  defineOn(row, "clientWidth", 300);
+  defineOn(row, "scrollLeft", 0);
+  row.querySelectorAll<HTMLElement>(".share-slide").forEach((slide, i) => {
+    defineOn(slide, "offsetLeft", 24 + i * 260);
+    defineOn(slide, "offsetWidth", 252);
+  });
+  const scrollTo = vi.fn(function (
+    this: HTMLElement,
+    options: ScrollToOptions,
+  ) {
+    defineOn(this, "scrollLeft", options.left ?? 0);
+    fireEvent.scroll(this);
+  });
+  defineOn(row, "scrollTo", scrollTo);
+  return { scrollTo };
+}
+
+/** A finger leaving the row at `left`: a scroll, then nothing for a while. */
+function swipeTo(left: number): void {
+  const row = carousel();
+  defineOn(row, "scrollLeft", left);
+  fireEvent.scroll(row);
+}
+
 test("the party bar's panel is titled for a party and draws the card as a picture", async () => {
   renderPanel(partyTarget());
   expect(
@@ -202,7 +303,7 @@ test("the party bar's panel is titled for a party and draws the card as a pictur
   expect(image).toHaveAccessibleName(
     "Share card of Friday karaoke, ranked by best score",
   );
-  expect(lastRequest().kind).toBe("party");
+  expect(requests()[0].kind).toBe("party");
 });
 
 test("on plain http there is Save image alone, and it is the primary", async () => {
@@ -294,6 +395,31 @@ test("Copy image puts the PNG on the clipboard", async () => {
   expect(Object.keys(items[0].items)).toEqual(["image/png"]);
 });
 
+test("Copy image copies the slide in view, never another slide's picture", async () => {
+  const write = copyableBrowser();
+  // Each design's file says which design it is, in its size: jsdom's blobs
+  // cannot be read back.
+  const sizes: Record<string, number> = { dark: 1, mosaic: 2, spread: 3 };
+  renderCard.mockImplementation((request: CardRequest) =>
+    Promise.resolve(
+      new Blob(["x".repeat(sizes[designOf(request)])], { type: "image/png" }),
+    ),
+  );
+  renderPanel(partyTarget());
+  await preview();
+  fireEvent.click(nextDesign());
+  expect(designName()).toBe("Mosaic");
+  await waitFor(() =>
+    expect(screen.getByRole("button", { name: "Copy image" })).toBeEnabled(),
+  );
+  fireEvent.click(screen.getByRole("button", { name: "Copy image" }));
+  await waitFor(() => expect(write).toHaveBeenCalledTimes(1));
+  const [items] = write.mock.calls[0] as unknown as [
+    { items: Record<string, Blob> }[],
+  ];
+  expect(items[0].items["image/png"].size).toBe(sizes.mosaic);
+});
+
 test("a touch screen on plain http reads the long-press hint under the picture", async () => {
   defineOn(window, "isSecureContext", false);
   touchScreen(true);
@@ -327,68 +453,319 @@ function pills(legend: string): [string, boolean, boolean][] {
     ]);
 }
 
-test("a party's card offers format, look, focus and what stands under the podium", async () => {
+/** The slides, by the names they are read out with. */
+function slideNames(): string[] {
+  return within(carousel())
+    .getAllByRole("group")
+    .map((slide) => slide.getAttribute("aria-label") ?? "");
+}
+
+test("a party's designs are a carousel of Dark, Mosaic and Spread, in that order", async () => {
+  renderPanel(partyTarget());
+  await preview();
+  const row = carousel();
+  expect(row).toHaveAttribute("aria-roledescription", "carousel");
+  expect(row).toHaveAttribute("tabindex", "0");
+  expect(slideNames()).toEqual([
+    "Dark, 1 of 3",
+    "Mosaic, 2 of 3",
+    "Spread, 3 of 3",
+  ]);
+  for (const slide of within(row).getAllByRole("group"))
+    expect(slide).toHaveAttribute("aria-roledescription", "slide");
+  // Opened on Dark, the default: its name under the dots, its dot lit.
+  expect(designName()).toBe("Dark");
+  expect(inView()).toHaveAttribute("data-design", "dark");
+  expect(dots()).toEqual([
+    [true, false],
+    [false, false],
+    [false, false],
+  ]);
+  expect(document.querySelector(".share-dots")).toHaveAttribute(
+    "aria-hidden",
+    "true",
+  );
+  // The slide in view and its neighbour are drawn, the one in view first;
+  // the spread, two away, is not.
+  await waitFor(() => expect(renderCard).toHaveBeenCalledTimes(2));
+  expect(requests().map(designOf)).toEqual(["dark", "mosaic"]);
+  expect(requests()[1].options).toMatchObject({
+    look: "mosaic",
+    focus: "podium",
+  });
+});
+
+test("a score's designs are Dark and Cover", async () => {
+  renderPanel(scoreTarget([cardScore("chiara", 8662, SONGS[0])]));
+  await preview();
+  expect(slideNames()).toEqual(["Dark, 1 of 2", "Cover, 2 of 2"]);
+  expect(dots()).toHaveLength(2);
+  await waitFor(() => expect(renderCard).toHaveBeenCalledTimes(2));
+  expect(requests().map(designOf)).toEqual(["dark", "cover"]);
+  // A score card has no party choices.
+  expect(screen.queryByText("Under the podium")).toBeNull();
+  expect(screen.queryByLabelText("Only me and my place")).toBeNull();
+});
+
+test("the format is two icon-only pills, Square and Story", async () => {
   renderPanel(partyTarget());
   await preview();
   expect(pills("Format")).toEqual([
     ["Square", true, false],
     ["Story", false, false],
   ]);
-  expect(pills("Look")).toEqual([
-    ["Dark", true, false],
-    ["Mosaic", false, false],
+  const square = screen.getByRole("radio", { name: "Square" });
+  const story = screen.getByRole("radio", { name: "Story" });
+  // The glyph is what is drawn; the word is the reader's alone.
+  expect(iconNames(square.closest("label") as HTMLElement)).toEqual([
+    "format-square",
   ]);
-  expect(pills("Focus")).toEqual([
-    ["Podium", true, false],
-    ["Spread", false, false],
+  expect(iconNames(story.closest("label") as HTMLElement)).toEqual([
+    "format-story",
   ]);
+  expect(
+    within(story.closest("label") as HTMLElement).getByText("Story"),
+  ).toHaveClass("visually-hidden");
+  // Over the carousel.
+  const format = screen.getByRole("group", { name: "Format" });
+  expect(
+    format.compareDocumentPosition(carousel()) &
+      Node.DOCUMENT_POSITION_FOLLOWING,
+  ).toBeTruthy();
+
+  fireEvent.click(story);
+  await waitFor(() =>
+    expect(lastRequest().options).toMatchObject({ format: "story" }),
+  );
+  expect(document.querySelector(".share-slide-box-story")).not.toBeNull();
+});
+
+test("Next and Previous move the slide in view, and it is what the buttons send", async () => {
+  const share = shareableBrowser();
+  renderPanel(partyTarget());
+  await preview();
+  expect(previousDesign()).toBeDisabled();
+  fireEvent.click(nextDesign());
+  expect(designName()).toBe("Mosaic");
+  expect(inView()).toHaveAttribute("data-design", "mosaic");
+  expect(dots().map(([on]) => on)).toEqual([false, true, false]);
+  // Mosaic was drawn as the neighbour already; the spread is its neighbour
+  // now, and is drawn.
+  await waitFor(() =>
+    expect(requests().map(designOf)).toEqual(["dark", "mosaic", "spread"]),
+  );
+  expect(requests()[2].options).toMatchObject({
+    look: "dark",
+    focus: "spread",
+    under: "none",
+  });
+  const mosaic = await preview();
+  expect(mosaic).toHaveAttribute("src", "blob:card-2");
+  expect(screen.getByRole("link", { name: "Save image" })).toHaveAttribute(
+    "href",
+    "blob:card-2",
+  );
+  fireEvent.click(screen.getByRole("button", { name: "Share" }));
+  const [data] = share.mock.calls[0] as unknown as [ShareData];
+  expect(data.files?.[0]).toBeInstanceOf(File);
+
+  fireEvent.click(nextDesign());
+  expect(designName()).toBe("Spread");
+  expect(nextDesign()).toBeDisabled();
+  expect(await preview()).toHaveAttribute("src", "blob:card-3");
+  fireEvent.click(previousDesign());
+  fireEvent.click(previousDesign());
+  expect(designName()).toBe("Dark");
+  expect(previousDesign()).toBeDisabled();
+  // Every slide was drawn once: going back draws nothing again.
+  expect(renderCard).toHaveBeenCalledTimes(3);
+});
+
+test("an arrow that reaches its end hands the keyboard to the other one", async () => {
+  renderPanel(partyTarget());
+  await preview();
+  nextDesign().focus();
+  fireEvent.click(nextDesign());
+  expect(nextDesign()).toHaveFocus();
+  fireEvent.click(nextDesign());
+  expect(nextDesign()).toBeDisabled();
+  expect(previousDesign()).toHaveFocus();
+  fireEvent.click(previousDesign());
+  fireEvent.click(previousDesign());
+  expect(nextDesign()).toHaveFocus();
+});
+
+test("the arrow keys on the carousel move it, and the row does not scroll by itself", async () => {
+  renderPanel(partyTarget());
+  await preview();
+  const row = carousel();
+  // `fireEvent` answers false when the default was prevented.
+  expect(fireEvent.keyDown(row, { key: "ArrowRight" })).toBe(false);
+  expect(designName()).toBe("Mosaic");
+  fireEvent.keyDown(row, { key: "ArrowRight" });
+  fireEvent.keyDown(row, { key: "ArrowRight" });
+  expect(designName()).toBe("Spread");
+  fireEvent.keyDown(row, { key: "ArrowLeft" });
+  expect(designName()).toBe("Mosaic");
+  // Any other key is the row's own.
+  expect(fireEvent.keyDown(row, { key: "Tab" })).toBe(true);
+});
+
+test("the arrows scroll the row smoothly, and at once for less motion", async () => {
+  renderPanel(partyTarget());
+  await preview();
+  const { scrollTo } = layOut();
+  fireEvent.click(nextDesign());
+  // Mosaic's middle (24 + 260 + 126) in the row's middle (150).
+  expect(scrollTo).toHaveBeenLastCalledWith({ left: 260, behavior: "smooth" });
+
+  media({ reducedMotion: true });
+  fireEvent.keyDown(carousel(), { key: "ArrowRight" });
+  expect(scrollTo).toHaveBeenLastCalledWith({ left: 520, behavior: "instant" });
+});
+
+test("a swipe settles on the slide nearest the middle, and that slide is the choice", async () => {
+  renderPanel(partyTarget());
+  await preview();
+  layOut();
+  // Not yet: the row is still moving.
+  swipeTo(240);
+  expect(designName()).toBe("Dark");
+  await waitFor(() => expect(designName()).toBe("Mosaic"), {
+    timeout: SETTLE_MS * 10,
+  });
+  expect(JSON.parse(window.localStorage.getItem(PREFS_KEY) ?? "{}")).toEqual(
+    expect.objectContaining({ partyLook: "mosaic" }),
+  );
+  // Past the middle of the last gap is the spread.
+  swipeTo(470);
+  await waitFor(() => expect(designName()).toBe("Spread"), {
+    timeout: SETTLE_MS * 10,
+  });
+  expect(await preview()).toHaveAttribute("src", "blob:card-3");
+});
+
+test("a design the card cannot draw is a dimmed slot with its sentence, and the buttons hold still there", async () => {
+  // Two of the six covers arrive: no Mosaic.
+  for (const song of SONGS.slice(2)) broken.add(coverUrl(song.id));
+  shareableBrowser();
+  renderPanel(partyTarget());
+  await preview();
+  const mosaic = within(carousel()).getByRole("group", {
+    name: "Mosaic, 2 of 3",
+  });
+  expect(mosaic.querySelector("img")).toBeNull();
+  expect(within(mosaic).getByText("Mosaic")).toBeInTheDocument();
+  expect(
+    within(mosaic).getByText(
+      "Mosaic needs four different covers, and this party has 2.",
+    ),
+  ).toBeInTheDocument();
+  expect(mosaic.querySelector(".share-slide-dimmed")).not.toBeNull();
+  expect(dots()).toEqual([
+    [true, false],
+    [false, true],
+    [false, false],
+  ]);
+  // Never drawn: a Mosaic that cannot be drawn would come back as Dark.
+  expect(requests().map(designOf)).toEqual(["dark"]);
+
+  fireEvent.click(nextDesign());
+  expect(designName()).toBe("Mosaic");
+  // Its neighbour, the spread, is drawn; the slot itself never is.
+  await waitFor(() =>
+    expect(requests().map(designOf)).toEqual(["dark", "spread"]),
+  );
+  const shareButton = screen.getByRole("button", { name: "Share" });
+  const save = screen.getByRole("link", { name: "Save image" });
+  expect(shareButton).toBeDisabled();
+  expect(save).toHaveAttribute("aria-disabled", "true");
+  expect(fireEvent.click(save)).toBe(false);
+  expect(screen.queryByRole("alert")).toBeNull();
+  // A dimmed slot is no choice to remember.
+  expect(
+    JSON.parse(window.localStorage.getItem(PREFS_KEY) ?? "{}").partyLook,
+  ).not.toBe("mosaic");
+
+  fireEvent.click(previousDesign());
+  expect(shareButton).toBeEnabled();
+  expect(save).not.toHaveAttribute("aria-disabled");
+});
+
+test("a song without a cover has a dimmed Cover slot, and says why", async () => {
+  const only = cardScore("chiara", 8662, SONGS[0]);
+  broken.add(coverUrl(SONGS[0].id));
+  renderPanel(scoreTarget([only]));
+  await preview();
+  const cover = within(carousel()).getByRole("group", {
+    name: "Cover, 2 of 2",
+  });
+  expect(
+    within(cover).getByText("This song has no cover, so the card stays dark."),
+  ).toBeInTheDocument();
+  expect(cover.querySelector("img")).toBeNull();
+});
+
+test("Under the podium keeps its row on every party slide", async () => {
+  renderPanel(partyTarget());
+  await preview();
+  const row = document.querySelector(".share-under") as HTMLElement;
+  const variants = row.querySelectorAll(".share-under-variant").length;
+  const active = () =>
+    row.querySelector('.share-under-variant[data-active="true"]');
+  // On a square Dark podium: the pills.
   expect(pills("Under the podium")).toEqual([
     ["Ranking", true, false],
     ["Score strip", false, false],
   ]);
-
   fireEvent.click(screen.getByRole("radio", { name: "Score strip" }));
   await waitFor(() =>
     expect(lastRequest().options).toMatchObject({ under: "strip" }),
   );
-  // A story has room for both, so the choice leaves.
+  // Only Dark takes it: the Mosaic it does not reach is not drawn again.
+  expect(requests().map(designOf)).toEqual(["dark", "mosaic", "dark"]);
+
+  // Mosaic: the sentence in the pills' place, the row where it was.
+  fireEvent.click(nextDesign());
+  expect(screen.queryByRole("group", { name: "Under the podium" })).toBeNull();
+  expect(active()).toHaveTextContent(
+    "Mosaic keeps the podium alone over the covers.",
+  );
+  fireEvent.click(nextDesign());
+  expect(active()).toHaveTextContent(
+    "The spread takes the place of the podium.",
+  );
+  // So it does where the spread cannot be drawn: the sentence is the
+  // design's, never the podium's pills in its slot.
+  fireEvent.click(
+    screen.getByRole("checkbox", { name: "Only me and my place" }),
+  );
+  await waitFor(() =>
+    expect(
+      document.querySelector('[data-design="spread"] .share-slide-dimmed'),
+    ).not.toBeNull(),
+  );
+  expect(screen.queryByRole("group", { name: "Under the podium" })).toBeNull();
+  expect(active()).toHaveTextContent(
+    "The spread takes the place of the podium.",
+  );
+  fireEvent.click(
+    screen.getByRole("checkbox", { name: "Only me and my place" }),
+  );
+  expect(row.querySelectorAll(".share-under-variant")).toHaveLength(variants);
+  expect(document.querySelector(".share-under")).toBe(row);
+
+  // A story has room for both, on every slide.
+  fireEvent.click(previousDesign());
+  fireEvent.click(previousDesign());
   fireEvent.click(screen.getByRole("radio", { name: "Story" }));
   await waitFor(() =>
     expect(lastRequest().options).toMatchObject({ format: "story" }),
   );
   expect(screen.queryByRole("group", { name: "Under the podium" })).toBeNull();
-});
-
-test("a look the card cannot draw is a disabled pill over the reason", async () => {
-  // Two of the six covers arrive: no Mosaic.
-  for (const song of SONGS.slice(2)) broken.add(coverUrl(song.id));
-  renderPanel(partyTarget());
-  await preview();
-  expect(pills("Look")).toEqual([
-    ["Dark", true, false],
-    ["Mosaic", false, true],
-  ]);
-  const note = within(screen.getByRole("group", { name: "Look" })).getByText(
-    "Mosaic needs four different covers, and this party has 2.",
+  expect(active()).toHaveTextContent(
+    "A story has room for the ranking and the strip both.",
   );
-  expect(note).toHaveClass("section-note");
-});
-
-test("a song without a cover cannot take the Cover look, and says why", async () => {
-  const only = cardScore("chiara", 8662, SONGS[0]);
-  broken.add(coverUrl(SONGS[0].id));
-  renderPanel(scoreTarget([only]));
-  await preview();
-  expect(pills("Look")).toEqual([
-    ["Dark", true, false],
-    ["Cover", false, true],
-  ]);
-  expect(
-    screen.getByText("This song has no cover, so the card stays dark."),
-  ).toBeInTheDocument();
-  // A score card has no party choices.
-  expect(screen.queryByRole("group", { name: "Focus" })).toBeNull();
-  expect(screen.queryByLabelText("Only me and my place")).toBeNull();
 });
 
 test("the toggles are checkboxes the card is drawn with", async () => {
@@ -416,6 +793,14 @@ test("the toggles are checkboxes the card is drawn with", async () => {
     const request = lastRequest();
     expect(request.kind === "party" && request.content.onlyMe).toBe(true);
   });
+  // Only me leaves nobody to compare with: the spread dims.
+  expect(
+    within(
+      within(carousel()).getByRole("group", { name: "Spread, 3 of 3" }),
+    ).getByText(
+      "Only me and my place shows one singer, and the spread compares several.",
+    ),
+  ).toBeInTheDocument();
 });
 
 test("the Wingman logo is a toggle, on by default, on both cards, remembered", async () => {
@@ -458,6 +843,7 @@ test("the Wingman logo is a toggle, on by default, on both cards, remembered", a
 test("with the name and date off the file and the alt text still name the party", async () => {
   renderPanel(partyTarget());
   await preview();
+  await waitFor(() => expect(renderCard).toHaveBeenCalledTimes(2));
   fireEvent.click(
     screen.getByRole("checkbox", { name: "Party name and date" }),
   );
@@ -465,26 +851,27 @@ test("with the name and date off the file and the alt text still name the party"
     const request = lastRequest();
     expect(request.kind === "party" && request.content.head).toBeNull();
   });
+  // Drawn again, the slide in view first.
   await waitFor(() =>
     expect(screen.getByRole("link", { name: "Save image" })).toHaveAttribute(
       "href",
-      "blob:card-2",
+      "blob:card-3",
     ),
   );
   expect(screen.getByRole("link", { name: "Save image" })).toHaveAttribute(
     "download",
     "wingman-friday-karaoke.png",
   );
-  expect(screen.getByRole("img", { name: /^Share card/ })).toHaveAccessibleName(
+  expect(shown()).toHaveAccessibleName(
     "Share card of Friday karaoke, ranked by best score",
   );
 });
 
-test("the panel remembers format, look and toggles on this device", async () => {
+test("the panel remembers the format, the design in view and the toggles", async () => {
   renderPanel(partyTarget());
   await preview();
   fireEvent.click(screen.getByRole("radio", { name: "Story" }));
-  fireEvent.click(screen.getByRole("radio", { name: "Mosaic" }));
+  fireEvent.click(nextDesign());
   fireEvent.click(
     screen.getByRole("checkbox", { name: "Other singers' pictures" }),
   );
@@ -495,19 +882,55 @@ test("the panel remembers format, look and toggles on this device", async () => 
       otherPictures: false,
     }),
   );
+  // The spread is not kept: Mosaic stays the one remembered.
+  fireEvent.click(nextDesign());
+  expect(designName()).toBe("Spread");
+  expect(
+    JSON.parse(window.localStorage.getItem(PREFS_KEY) ?? "{}").partyLook,
+  ).toBe("mosaic");
 
   cleanup();
+  renderCard.mockClear();
   renderPanel(partyTarget());
   await preview();
   expect(screen.getByRole("radio", { name: "Story" })).toBeChecked();
-  expect(screen.getByRole("radio", { name: "Mosaic" })).toBeChecked();
+  expect(designName()).toBe("Mosaic");
   expect(
     screen.getByRole("checkbox", { name: "Other singers' pictures" }),
   ).not.toBeChecked();
-  expect(lastRequest().options).toMatchObject({
+  // Opened on Mosaic, so Mosaic is drawn first.
+  expect(requests()[0].options).toMatchObject({
     format: "story",
     look: "mosaic",
   });
+});
+
+test("a score card remembers Cover, apart from the party's look", async () => {
+  renderPanel(scoreTarget([cardScore("chiara", 8662, SONGS[0])]));
+  await preview();
+  fireEvent.click(nextDesign());
+  expect(JSON.parse(window.localStorage.getItem(PREFS_KEY) ?? "{}")).toEqual(
+    expect.objectContaining({ scoreLook: "cover", partyLook: "dark" }),
+  );
+  cleanup();
+  renderPanel(scoreTarget([cardScore("chiara", 8662, SONGS[0])]));
+  await preview();
+  expect(designName()).toBe("Cover");
+});
+
+test("a remembered design this card cannot draw opens on Dark", async () => {
+  window.localStorage.setItem(
+    PREFS_KEY,
+    JSON.stringify({ partyLook: "mosaic" }),
+  );
+  for (const song of SONGS.slice(2)) broken.add(coverUrl(song.id));
+  renderPanel(partyTarget());
+  await preview();
+  expect(designName()).toBe("Dark");
+  // And it is still remembered for a party that can.
+  expect(
+    JSON.parse(window.localStorage.getItem(PREFS_KEY) ?? "{}").partyLook,
+  ).toBe("mosaic");
 });
 
 test("storage that throws leaves the panel working on its defaults", async () => {
@@ -523,6 +946,8 @@ test("storage that throws leaves the panel working on its defaults", async () =>
   await waitFor(() =>
     expect(lastRequest().options).toMatchObject({ format: "story" }),
   );
+  fireEvent.click(nextDesign());
+  expect(designName()).toBe("Mosaic");
   get.mockRestore();
   set.mockRestore();
 });
@@ -573,7 +998,7 @@ test("Share a score on a group of several asks which score first", async () => {
   expect(
     await screen.findByRole("button", { name: /Dancing Queen/ }),
   ).toHaveFocus();
-  expect(screen.queryByRole("img", { name: /^Share card/ })).toBeNull();
+  expect(shown()).toBeNull();
 
   fireEvent.click(
     within(screen.getByRole("dialog")).getByRole("button", { name: "Close" }),
@@ -587,6 +1012,9 @@ test("another score from the list is a new first drawing, never the last card", 
   renderPanel(scoreTarget([first, second]));
   fireEvent.click(screen.getByRole("button", { name: /Bohemian Rhapsody/ }));
   expect(await preview()).toHaveAttribute("src", "blob:card-1");
+  // Swiped on to Cover, which is remembered…
+  fireEvent.click(nextDesign());
+  await waitFor(() => expect(created).toHaveLength(2));
 
   // The second song's pictures take their time.
   let arrive: () => void = () => undefined;
@@ -598,27 +1026,26 @@ test("another score from the list is a new first drawing, never the last card", 
       }),
   );
   fireEvent.click(screen.getByRole("button", { name: "Close" }));
-  // Going back lets the last card go.
-  expect(revoked).toEqual(["blob:card-1"]);
+  // Going back lets the last card go, every slide of it.
+  expect(revoked).toEqual(["blob:card-1", "blob:card-2"]);
   fireEvent.click(await screen.findByRole("button", { name: /Dancing Queen/ }));
 
   // Nothing of the first card is left to press, and no choice is drawn
   // against pictures that have not arrived.
   expect(screen.getByRole("status", { name: "Loading" })).toBeInTheDocument();
-  expect(screen.queryByRole("img", { name: /^Share card/ })).toBeNull();
+  expect(document.querySelector("img")).toBeNull();
   expect(document.querySelector(".share-actions")).toBeNull();
-  expect(screen.queryByRole("group", { name: "Look" })).toBeNull();
+  expect(screen.queryByRole("region", { name: "Designs" })).toBeNull();
 
   arrive();
   const image = await preview();
-  expect(image).toHaveAttribute("src", "blob:card-2");
+  // …so the next card opens on it, and draws it first.
+  expect(designName()).toBe("Cover");
+  expect(image).toHaveAttribute("src", "blob:card-3");
   expect(image).toHaveAccessibleName(
     "Share card: Chiara scored 8662 on Dancing Queen",
   );
-  expect(pills("Look")).toEqual([
-    ["Dark", true, false],
-    ["Cover", false, false],
-  ]);
+  expect(slideNames()).toEqual(["Dark, 1 of 2", "Cover, 2 of 2"]);
 });
 
 test("a group of one score goes straight to its card, and the close closes", async () => {
@@ -669,10 +1096,11 @@ test("with stats.history the song's history decides New Highscore", async () => 
   expect(listSongScores.mock.calls[0][0].path).toEqual({
     song_id: SONGS[0].id,
   });
-  // Drawn once, with the flag: the history is waited for, not patched in.
-  expect(renderCard).toHaveBeenCalledTimes(1);
-  const request = lastRequest();
-  expect(request.kind === "score" && request.content.flag).toBe("highscore");
+  // Drawn once per slide, each with the flag: the history is waited for, not
+  // patched in.
+  await waitFor(() => expect(renderCard).toHaveBeenCalledTimes(2));
+  for (const request of requests())
+    expect(request.kind === "score" && request.content.flag).toBe("highscore");
 });
 
 test("a failed history read draws the card without a flag", async () => {
@@ -689,33 +1117,39 @@ test("a failed history read draws the card without a flag", async () => {
   expect(request.kind === "score" && request.content.flag).toBeNull();
 });
 
-test("every picture URL is let go: the old one on a redraw, the last on close", async () => {
+test("every picture URL is let go: each slide's old one on a redraw, the rest on close", async () => {
   const { unmount } = renderPanel(partyTarget());
   await preview();
-  expect(created).toEqual(["blob:card-1"]);
+  fireEvent.click(nextDesign());
+  await waitFor(() =>
+    expect(created).toEqual(["blob:card-1", "blob:card-2", "blob:card-3"]),
+  );
   expect(revoked).toEqual([]);
 
+  // Mosaic in view: drawn again first, then its two neighbours.
   fireEvent.click(screen.getByRole("radio", { name: "Story" }));
-  await waitFor(() =>
-    expect(screen.getByRole("img", { name: /^Share card/ })).toHaveAttribute(
-      "src",
-      "blob:card-2",
-    ),
-  );
-  // The old picture stands until the new one is on screen: let go any sooner,
-  // it could flash as a broken image.
+  await waitFor(() => expect(created).toHaveLength(6));
+  expect(shown()).toHaveAttribute("src", "blob:card-4");
+  // The old pictures stand until the new ones are on screen: let go any
+  // sooner, they could flash as broken images.
   expect(revoked).toEqual([]);
-  fireEvent.load(screen.getByRole("img", { name: /^Share card/ }));
-  expect(revoked).toEqual(["blob:card-1"]);
+  fireEvent.load(shown() as HTMLImageElement);
+  expect(revoked).toEqual(["blob:card-2"]);
+  for (const image of document.querySelectorAll("img")) fireEvent.load(image);
+  expect([...revoked].sort()).toEqual([
+    "blob:card-1",
+    "blob:card-2",
+    "blob:card-3",
+  ]);
 
   unmount();
-  expect(revoked).toEqual(["blob:card-1", "blob:card-2"]);
-  expect(revoked.length).toBe(created.length);
+  expect([...revoked].sort()).toEqual([...created].sort());
 });
 
 test("the old picture stays up while the card is drawn again", async () => {
   renderPanel(partyTarget());
   await preview();
+  await waitFor(() => expect(renderCard).toHaveBeenCalledTimes(2));
   let finish: (blob: Blob) => void = () => undefined;
   renderCard.mockImplementation(
     () =>
@@ -724,19 +1158,11 @@ test("the old picture stays up while the card is drawn again", async () => {
       }),
   );
   fireEvent.click(screen.getByRole("radio", { name: "Story" }));
-  await waitFor(() => expect(renderCard).toHaveBeenCalledTimes(2));
-  expect(screen.getByRole("img", { name: /^Share card/ })).toHaveAttribute(
-    "src",
-    "blob:card-1",
-  );
-  expect(screen.queryByRole("status", { name: "Loading" })).toBeNull();
+  await waitFor(() => expect(renderCard).toHaveBeenCalledTimes(3));
+  expect(shown()).toHaveAttribute("src", "blob:card-1");
+  expect(within(inView()).queryByRole("status")).toBeNull();
   finish(new Blob(["png"], { type: "image/png" }));
-  await waitFor(() =>
-    expect(screen.getByRole("img", { name: /^Share card/ })).toHaveAttribute(
-      "src",
-      "blob:card-2",
-    ),
-  );
+  await waitFor(() => expect(shown()).toHaveAttribute("src", "blob:card-3"));
 });
 
 test("a press while the card is drawn again never sends the card from before", async () => {
@@ -744,6 +1170,7 @@ test("a press while the card is drawn again never sends the card from before", a
   const write = copyableBrowser();
   renderPanel(partyTarget());
   await preview();
+  await waitFor(() => expect(renderCard).toHaveBeenCalledTimes(2));
   let finish: (blob: Blob) => void = () => undefined;
   renderCard.mockImplementation(
     () =>
@@ -752,7 +1179,7 @@ test("a press while the card is drawn again never sends the card from before", a
       }),
   );
   fireEvent.click(screen.getByRole("radio", { name: "Story" }));
-  await waitFor(() => expect(renderCard).toHaveBeenCalledTimes(2));
+  await waitFor(() => expect(renderCard).toHaveBeenCalledTimes(3));
 
   // The square picture still stands, and nothing sends it.
   const shareButton = screen.getByRole("button", { name: "Share" });
@@ -776,18 +1203,57 @@ test("a press while the card is drawn again never sends the card from before", a
   expect(data.files?.[0].size).toBe("story picture".length);
 });
 
+test("a swipe onto a slide still being drawn holds the buttons until its own picture is in", async () => {
+  const share = shareableBrowser();
+  renderPanel(partyTarget());
+  await preview();
+  await waitFor(() => expect(renderCard).toHaveBeenCalledTimes(2));
+  let finish: (blob: Blob) => void = () => undefined;
+  renderCard.mockImplementation(
+    () =>
+      new Promise<Blob>((resolve) => {
+        finish = resolve;
+      }),
+  );
+  // On to Mosaic, drawn, then to the spread, which is still on its way.
+  fireEvent.click(nextDesign());
+  await waitFor(() => expect(renderCard).toHaveBeenCalledTimes(3));
+  fireEvent.click(nextDesign());
+  expect(designName()).toBe("Spread");
+  expect(shown()).toBeNull();
+  expect(
+    within(inView()).getByRole("status", { name: "Loading" }),
+  ).toBeTruthy();
+  const shareButton = screen.getByRole("button", { name: "Share" });
+  expect(shareButton).toBeDisabled();
+  expect(screen.getByRole("link", { name: "Save image" })).not.toHaveAttribute(
+    "href",
+  );
+  fireEvent.click(shareButton);
+  expect(share).not.toHaveBeenCalled();
+
+  finish(new Blob(["the spread"], { type: "image/png" }));
+  await waitFor(() => expect(shareButton).toBeEnabled());
+  fireEvent.click(shareButton);
+  const [data] = share.mock.calls[0] as unknown as [ShareData];
+  expect(data.files?.[0].size).toBe("the spread".length);
+});
+
 test("a redraw that fails takes the picture from before with it", async () => {
   shareableBrowser();
   renderPanel(partyTarget());
   await preview();
+  await waitFor(() => expect(created).toHaveLength(2));
   renderCard.mockRejectedValue(new Error("no canvas"));
   fireEvent.click(screen.getByRole("radio", { name: "Story" }));
   expect(
     await screen.findByText("The card could not be drawn in this browser."),
   ).toBeInTheDocument();
-  expect(screen.queryByRole("img", { name: /^Share card/ })).toBeNull();
+  expect(shown()).toBeNull();
   expect(document.querySelector(".share-actions")).toBeNull();
-  expect(revoked).toEqual(["blob:card-1"]);
+  await waitFor(() =>
+    expect([...revoked].sort()).toEqual(["blob:card-1", "blob:card-2"]),
+  );
 });
 
 test("a card that cannot be drawn says so and offers no buttons", async () => {

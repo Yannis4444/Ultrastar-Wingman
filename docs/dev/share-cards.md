@@ -285,8 +285,9 @@ image), and every URL it holds when it closes or moves to another score.
     where the browser has it, code points otherwise), so a flag or a joined emoji is never
     split;
   - `layout.ts` — the layouts in numbers, as boxes the renderer paints;
-  - `possible.ts` — which looks, focus and under-the-podium choices a card allows, and why
-    not;
+  - `possible.ts` — the carousel's designs in their fixed order (`SCORE_DESIGNS`,
+    `PARTY_DESIGNS`, `partyDesignOptions` turning a party's slide into its look and focus),
+    which of them and of the under-the-podium choices a card allows, and why not;
   - `draw.ts` — `renderCard(request, images) → Promise<Blob>`, the seam for the panel:
     `images` maps each URL the content names (and `LOGO_URL`) to an `HTMLImageElement` the
     caller loaded from Wingman's own origin; a missing or broken one draws as its letter.
@@ -300,9 +301,14 @@ image), and every URL it holds when it closes or moves to another score.
 - The strip and the spread are drawn with Canvas 2D over `chartLayout.ts` (`scoreX`, `swarm`,
   `jitterOf`, `scoreTickLabel`) and `chartTheme`, the screens' own helpers; nothing of the SVG
   components is serialised (§7.2).
-- `icons.tsx` has the `share` glyph. `download` is taken (it means the achievements archive).
-- `components/ShareCardPanel.tsx` — the panel: the chooser of a group's scores, the preview,
-  the pills and the toggles, the buttons. It asks `GET /stats/songs/{id}/scores` for the
+- `icons.tsx` has the `share` glyph and the two formats' `format-square` / `format-story`.
+  `download` is taken (it means the achievements archive).
+- `components/ShareCardPanel.tsx` — the panel: the chooser of a group's scores, the format
+  pills, the carousel of designs (`DesignCarousel`: the slide in view read off the scroll
+  position once it has been still for `SETTLE_MS`, which is one path in every browser —
+  Safari's without `scrollend` included — and an exact answer where an
+  `IntersectionObserver` gives thresholds), *Under the podium* and the toggles, the
+  buttons. It asks `GET /stats/songs/{id}/scores` for the
   flags only for a reader holding `stats.history`, and draws nothing until that read (or its
   failure) and `/auth/me` are in.
 - The entry points: `pages/Scores.tsx`'s session bar (*Share this party*) and

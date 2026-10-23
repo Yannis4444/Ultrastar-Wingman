@@ -1722,7 +1722,7 @@ test("a party without a score has nothing to put on a card", async () => {
   ).not.toBeInTheDocument();
 });
 
-test("an open group ends in one Share a score, never one per row", async () => {
+test("an open group's scores start with one Share a score, never one per row", async () => {
   renderScores();
   const groups = await screen.findAllByTestId("score-group");
   for (const group of groups) {
@@ -1731,12 +1731,24 @@ test("an open group ends in one Share a score, never one per row", async () => {
       hidden: true,
     });
     expect(buttons).toHaveLength(1);
-    // A plain button at the tile's foot: sharing takes nothing away.
+    // A plain button: sharing takes nothing away.
     expect(buttons[0]).toHaveClass("button");
     expect(buttons[0]).not.toHaveClass("button-danger");
-    expect(buttons[0].closest(".score-group-share")).not.toBeNull();
+    const line = buttons[0].closest(".score-group-share") as HTMLElement;
+    expect(line).not.toBeNull();
     for (const row of within(group).getAllByTestId("score-row"))
       expect(row.querySelector(".score-group-share")).toBeNull();
+    // On a line of its own, right over the first score — under the summary
+    // where the group has one, the tile's first line where it has not.
+    expect(line.nextElementSibling).toHaveClass("score-group-scores");
+    const panel = line.closest(".score-group-panel") as HTMLElement;
+    const rows = within(group).getAllByTestId("score-row");
+    if (rows.length > 1) {
+      expect(panel.firstElementChild).not.toBe(line);
+      expect(line.previousElementSibling).not.toBeNull();
+    } else {
+      expect(panel.firstElementChild).toBe(line);
+    }
   }
 
   // Bob's group: his two scores, best first; the whole page beside them, where

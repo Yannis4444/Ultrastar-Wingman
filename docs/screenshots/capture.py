@@ -745,12 +745,13 @@ ROWS: dict[str, Row] = {
         steps=(
             (
                 "click(q('button[aria-label=\"Share this party\"]'))",
-                'q(".share-preview-image")',
+                'q(".share-carousel .share-preview-image")',
             ),
         ),
-        # The picture is drawn in the browser, so it is in only once it has decoded.
-        ready='q(".share-preview-image") && q(".share-preview-image").complete'
-        ' && q(".share-preview-image").naturalWidth > 0 && qa(".share-pills").length >= 3',
+        # The pictures are drawn in the browser, so they are in only once they have
+        # decoded: the Dark slide in view and the Mosaic one peeking in beside it.
+        ready='qa(".share-dot").length === 3 && qa(".share-preview-image").length >= 2'
+        ' && qa(".share-preview-image").every((i) => i.complete && i.naturalWidth > 0)',
     ),
     "user": Row(
         identity="Bender",

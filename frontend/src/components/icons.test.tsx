@@ -1,4 +1,4 @@
-import { render } from "@testing-library/react";
+import { cleanup, render } from "@testing-library/react";
 import { iconNames } from "../test/icons";
 import { ICON_PATHS, Icon, PICKER_ICON_NAMES, type IconName } from "./icons";
 
@@ -82,6 +82,8 @@ const NOT_PICKABLE: IconName[] = [
   "shuffle",
   "external-link",
   "share",
+  "format-square",
+  "format-story",
   "chevron-down",
   "arrow-up",
   "brand-spotify",
@@ -216,4 +218,25 @@ test("a picture of scores to send has a glyph of its own, never the archive's", 
   const { container } = render(<Icon name="share" />);
   expect(container.querySelectorAll("path")).toHaveLength(1);
   expect(iconNames(container)).toEqual(["share"]);
+});
+
+test("the share panel's two formats are the two shapes of one outline", () => {
+  const formats = ["format-square", "format-story"] as const;
+  for (const name of formats) {
+    // The outline and its counter-wound inside: two subpaths, one `d`.
+    expect(ICON_PATHS[name].match(/M/g)).toHaveLength(2);
+    expect(PICKER_ICON_NAMES).not.toContain(name);
+    const { container } = render(<Icon name={name} />);
+    expect(container.querySelectorAll("path")).toHaveLength(1);
+    expect(iconNames(container)).toEqual([name]);
+    cleanup();
+  }
+  expect(ICON_PATHS["format-square"]).not.toBe(ICON_PATHS["format-story"]);
+  // The outer contour runs clockwise (its arcs sweep 1), the inside the other
+  // way round (sweep 0), which is what keeps the middle open under nonzero.
+  for (const name of formats) {
+    const [outer, inner] = ICON_PATHS[name].split(/(?=M)/);
+    expect(outer.match(/a3 3 0 0 1/g)).toHaveLength(4);
+    expect(inner.match(/a1 1 0 0 0/g)).toHaveLength(4);
+  }
 });

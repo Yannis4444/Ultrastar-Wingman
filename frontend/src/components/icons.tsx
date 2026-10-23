@@ -203,6 +203,17 @@ export const ICON_PATHS = {
     "M4 4h6v2H6v4H4V4ZM14 4h6v6h-2V6h-4V4ZM20 20h-6v-2h4v-4h2v6ZM4 20v-6h2v4h4v2H4Z",
   "fullscreen-exit":
     "M8 4h2v6H4V8h4V4ZM14 4h2v4h4v2h-6V4ZM14 14h6v2h-4v4h-2v-6ZM4 14h6v6H8v-4H4v-2Z",
+  // The share panel's two formats, 1080×1080 and 1080×1920: the two shapes of
+  // one picture. A rounded outline two units thick — outer corners of radius
+  // 3, inner of 1, so the band keeps its width round the bend — wound
+  // clockwise, its inside counter-wound so the nonzero fill leaves it open.
+  // The square is 16 by 16; the story 10 by 18, the 9:16 of its card, with the
+  // same band and corners. Neither is pickable: a control, not a thing a song
+  // is about.
+  "format-square":
+    "M7 4h10a3 3 0 0 1 3 3v10a3 3 0 0 1-3 3H7a3 3 0 0 1-3-3V7a3 3 0 0 1 3-3ZM7 6a1 1 0 0 0-1 1v10a1 1 0 0 0 1 1h10a1 1 0 0 0 1-1V7a1 1 0 0 0-1-1H7Z",
+  "format-story":
+    "M10 3h4a3 3 0 0 1 3 3v12a3 3 0 0 1-3 3h-4a3 3 0 0 1-3-3V6a3 3 0 0 1 3-3ZM10 5a1 1 0 0 0-1 1v12a1 1 0 0 0 1 1h4a1 1 0 0 0 1-1V6a1 1 0 0 0-1-1h-4Z",
   // The octocat silhouette, one closed outline — the ears, the arms and the
   // tail are all the same subpath, so no fill rule is involved. Drawn on the
   // 18px grid `info` and `clock` use (3…21) rather than edge to edge, or the

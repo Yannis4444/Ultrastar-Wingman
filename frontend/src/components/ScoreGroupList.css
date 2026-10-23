@@ -187,13 +187,19 @@ details[open] > summary .score-group-chevron {
   margin-top: 8px;
 }
 
-/* *Share a score*, ending the tile under its scores: centred like
-   `.delete-row`, with the same 24px above it, and never its danger colour —
-   sharing takes nothing away. The tile's own padding is the side margin. */
+/* *Share a score*, the scores' first line: at their right edge, 12px under
+   the summary and its chart (and the hairline under them, below) and 8px
+   over the first score, and never the danger colour — sharing takes nothing
+   away. A group of one has no summary, so there it is the tile's first line.
+   The tile's own padding is the side margin. */
 .score-group-share {
   display: flex;
-  justify-content: center;
-  margin-top: 24px;
+  justify-content: flex-end;
+  margin: 12px 0 8px 0;
+}
+
+.score-group-share:first-child {
+  margin-top: 0;
 }
 
 .score-group-share .button {
@@ -217,11 +223,20 @@ details[open] > summary .score-group-chevron {
   border-top: 1px solid var(--input-border-color);
 }
 
-/* The scores are a section of the tile, not a continuation of the numbers. */
+/* The scores are a section of the tile, not a continuation of the numbers:
+   the summary stands over a hairline, and what follows it — the scores, or
+   *Share a score* opening them — starts 12px under that line. A group of one,
+   where the button is the first line, draws none at all. */
 .score-summary + .score-group-scores,
 .score-group-chart + .score-group-scores {
   margin-top: 12px;
   padding-top: 4px;
+  border-top: 1px solid var(--input-border-color);
+}
+
+.score-summary + .score-group-share,
+.score-group-chart + .score-group-share {
+  padding-top: 12px;
   border-top: 1px solid var(--input-border-color);
 }
 
