@@ -319,7 +319,7 @@ Never carry the word into a user page without saying which one you mean:
 |---|---|---|
 | The Scores page ("All parties", "Rename party", "Party name") | One evening of singing | party |
 | The downloads panel ("Since Wingman started") | Downloads since Wingman was started | this run of Wingman |
-| The host screen ("This browser holds host rights") | This browser holds host rights | host rights |
+| The user page's tile for the host's browser ("Host screen") | This browser holds host rights | host rights |
 
 The UI copy pass has renamed all three, so the labels above are what the app says today.
 Only the first row is a party. Write the third column, never "session".
@@ -684,8 +684,8 @@ ones a page written against an older draft still gets wrong:
 - **Colour** over the color picker in both editors is **Color**.
 - The Scores page called a party a session. It says party.
 - The downloads panel's filter is **Since Wingman started**, not a party.
-- The host screen says **This browser holds host rights**, not "Host session active". The
-  user page names the same browser **Host screen**, with the role **Admin** under it, and
+- The host screen carries no line about host rights, and never "Host session active". The
+  user page names the browser that holds them **Host screen**, with the role **Admin** under it, and
   its button is **Log in as a user**, no longer "Log in as a user instead".
 - The USDB sort options spell the range out: **Artist A to Z**, never an en dash.
 - The shipped achievement is **Well Traveled**. Migration 0025 renamed it in every database
