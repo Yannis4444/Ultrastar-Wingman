@@ -30,41 +30,47 @@
   font-size: 3.2em;
 }
 
+/* Cover, title and artist as one column: a plain block until the read says
+   the reader may open the song, then one button into the song modal — one tab
+   stop, the global focus ring round the three. Both are drawn by this one
+   rule, with no padding and the page's own font and leading, so turning the
+   block into the button moves nothing. */
+.sing-view-song {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  max-width: 100%;
+  margin: 0;
+  padding: 0;
+  font: inherit;
+  color: inherit;
+  text-align: center;
+  background: none;
+  border: 0;
+  border-radius: var(--border-radius-small);
+}
+
+button.sing-view-song {
+  cursor: pointer;
+}
+
+/* The underline under a pointer alone: a finger has no hover to show. */
+@media (hover: hover) {
+  button.sing-view-song:hover .sing-view-title {
+    text-decoration: underline;
+  }
+}
+
 .sing-view-title {
+  display: block;
   margin: 10px 0 0 0;
   font-size: 1.15em;
   color: var(--color);
   overflow-wrap: anywhere;
 }
 
-/* The way into the song modal, looking like the title it is: no box, the
-   underline only under a pointer, the ring for the keyboard. */
-/* No padding and the paragraph's own leading: the title is plain text until
-   the read says it may open the song, and turning into a button must not
-   move the lines under it. */
-.sing-view-title-button {
-  padding: 0;
-  font-family: inherit;
-  line-height: inherit;
-  text-align: center;
-  background: none;
-  border: 0;
-  border-radius: var(--border-radius-small);
-  cursor: pointer;
-}
-
-@media (hover: hover) {
-  .sing-view-title-button:hover {
-    text-decoration: underline;
-  }
-}
-
-.sing-view-title-button:focus-visible {
-  outline: 2px solid var(--highlight-blue-light);
-  outline-offset: 2px;
-}
-
 .sing-view-artist {
+  display: block;
   margin: 2px 0 0 0;
   font-size: 0.85em;
   color: var(--color-darker);

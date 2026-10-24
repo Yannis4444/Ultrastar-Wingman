@@ -129,13 +129,16 @@ const history = [
   score(1, "Alice", 9500),
 ];
 
-function renderDetails(onClose: () => void = () => {}) {
+function renderDetails(
+  onClose: () => void = () => {},
+  onSing?: (() => void) | null,
+) {
   const client = new QueryClient({
     defaultOptions: { queries: { retry: false } },
   });
   return render(
     <QueryClientProvider client={client}>
-      <SongDetails song={song} onClose={onClose} />
+      <SongDetails song={song} onClose={onClose} onSing={onSing} />
     </QueryClientProvider>,
   );
 }
@@ -705,6 +708,38 @@ test("the three controls carry their word under the glyph, out of their names", 
   expect(
     dialog.querySelectorAll(".song-details-controls .song-control-caption"),
   ).toHaveLength(3);
+});
+
+test("a caller holding the room's selection takes Sing: the modal closes and hands over", async () => {
+  asAccount(["karaoke.sing"]);
+  const onClose = vi.fn();
+  const onSing = vi.fn();
+  renderDetails(onClose, onSing);
+
+  const sing = await screen.findByRole("button", { name: "Sing" });
+  expect(sing).toBeEnabled();
+  fireEvent.click(sing);
+
+  // Play's own path, the caller's: no player selection of the modal's own.
+  expect(onClose).toHaveBeenCalledTimes(1);
+  expect(onSing).toHaveBeenCalledTimes(1);
+  expect(
+    screen.queryByRole("dialog", { name: "Player selection" }),
+  ).not.toBeInTheDocument();
+});
+
+test("a held selection this song cannot be sung through draws Sing disabled", async () => {
+  asAccount(["karaoke.sing"]);
+  const onClose = vi.fn();
+  renderDetails(onClose, null);
+
+  const sing = await screen.findByRole("button", { name: "Sing" });
+  expect(sing).toBeDisabled();
+  fireEvent.click(sing);
+  expect(onClose).not.toHaveBeenCalled();
+  expect(
+    screen.queryByRole("dialog", { name: "Player selection" }),
+  ).not.toBeInTheDocument();
 });
 
 test("a caption names the control, not its state", async () => {

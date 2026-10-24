@@ -31,8 +31,7 @@ Wingman opening a browser at all.
     page saying the link does not work any more means you need that new line
     from the console. Browsers that already hold host rights keep them.
 
-The corner of the screen says *This browser holds host rights* while they are
-in force. See [People](../people/index.md) for what that browser may do.
+See [People](../people/index.md) for what a browser with host rights may do.
 
 ## What stands where
 
@@ -157,9 +156,8 @@ groups, the screen's and the music's. Both fade out after a few seconds without
 a mouse or a keyboard, and come back together on the next movement. So do the
 three ranking words beside **Tonight**.
 
-The screen's controls stand in the top left corner: a row of buttons, the line
-saying this browser holds host rights under it, and the keyboard shortcuts
-under that.
+The screen's controls stand in the top left corner: a row of buttons, and the
+keyboard shortcuts under it.
 
 - :wingman-gear: **Manage** opens the management page. See
   [Manage from the TV](manage.md).
@@ -170,10 +168,11 @@ under that.
 - :wingman-stop: **Stop** ends the song. It asks first, and it names the song.
   It is there while a song plays, for a browser that may stop one.
 - :wingman-power: **Open Ultrastar Deluxe** stands in the same place while no
-  song plays, with *For settings like microphones* under it. It opens Ultrastar
-  Deluxe for the settings only it has, such as which microphone is player one,
-  and brings its window to the front when it is already open. It is there for a
-  browser that may change the settings. See
+  song plays, as quiet as the buttons beside it, with *For settings like
+  microphones* under it. It opens Ultrastar Deluxe for the settings only it
+  has, such as which microphone is player one, and brings its window to the
+  front when it is already open. It is there for a browser that may change the
+  settings. See
   [Start Ultrastar Deluxe on its own](../start/ultrastar-deluxe.md#start-ultrastar-deluxe-on-its-own).
 
 !!! warning

@@ -1,6 +1,6 @@
 import { useQuery } from "@tanstack/react-query";
 import { useState } from "react";
-import type { ScoreWithContext } from "../api";
+import type { ScoreWithContext, SongRead } from "../api";
 import {
   listPlayersOptions,
   readSingOptions,
@@ -37,6 +37,26 @@ interface ScoresChanged extends WingmanEvent {
 function difficultyCaption(score: ScoreWithContext): string {
   const difficulty = difficultyLabel(score.difficulty);
   return difficulty === "—" ? "" : difficulty;
+}
+
+/**
+ * The hero's three: the cover — or the `?` tile of a song that left the
+ * library — over the title and the artist. Spans, so the same content fits a
+ * `<button>` and a `<div>` alike and nothing moves when the one turns into the
+ * other.
+ */
+function SongHero({ song, title }: { song: SongRead | null; title: string }) {
+  return (
+    <>
+      {song === null ? (
+        <MissingCover className="sing-view-cover" />
+      ) : (
+        <SongCover song={song} className="sing-view-cover" />
+      )}
+      <span className="sing-view-title">{title}</span>
+      {song !== null && <span className="sing-view-artist">{song.artist}</span>}
+    </>
+  );
 }
 
 /**
@@ -97,23 +117,24 @@ export default function SingView({ score, onClose }: SingViewProps) {
       <Modal title={`Sing of ${title}`} hideTitle bare onClose={onClose}>
         <div className="sing-view">
           <div className="sing-view-hero">
-            {song === null ? (
-              <MissingCover className="sing-view-cover" />
-            ) : (
-              <SongCover song={song} className="sing-view-cover" />
-            )}
+            {/* Cover, title and artist are one way into the song modal — the
+                cover a second door to the one action, never a second control
+                (share-cards §8). Listed implies a song, so the `?` tile of a
+                song that left the library is never inside the button. */}
             {listed ? (
               <button
                 type="button"
-                className="sing-view-title sing-view-title-button"
+                className="sing-view-song"
+                aria-label={title}
                 onClick={() => setSongOpen(true)}
               >
-                {title}
+                <SongHero song={song} title={title} />
               </button>
             ) : (
-              <p className="sing-view-title">{title}</p>
+              <div className="sing-view-song">
+                <SongHero song={song} title={title} />
+              </div>
             )}
-            {song !== null && <p className="sing-view-artist">{song.artist}</p>}
             <p className="sing-view-when">{when}</p>
           </div>
 

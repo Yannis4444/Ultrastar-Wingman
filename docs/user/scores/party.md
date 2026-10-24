@@ -186,8 +186,8 @@ Fry tapped his own score, so his row is lit. Tapping Leela's would share hers.
 - The rows are best first. The number in front of a row is the place that
   score took, so two singers on the same score share one. A sing one person
   sang alone has no place at all. Your own row says **You**.
-- Tap the song's title to open the song. A song you may not open, or one that
-  has left the library, is plain text.
+- Tap the song's cover or its title to open the song. A song you may not open,
+  or one that has left the library, opens nothing.
 - :wingman-share: **Share** makes a card of the lit row's score. See
   [Share a party, a score, or a singer's stats](#share-a-party-a-score-or-a-singers-stats).
 

@@ -400,9 +400,10 @@ interface LegendEntry {
 }
 
 /**
- * The keyboard shortcuts in words, under the host-rights line while the chrome
- * is up (§7): only the keys whose control is drawn, so the legend never offers
- * what the page would ignore. Nothing at all when no key is anybody's.
+ * The keyboard shortcuts in words, the corner's last line under the row of
+ * buttons while the chrome is up (§7): only the keys whose control is drawn, so
+ * the legend never offers what the page would ignore. Nothing at all when no
+ * key is anybody's.
  */
 function HostLegend({ entries }: { entries: LegendEntry[] }) {
   if (entries.length === 0) return null;
@@ -590,7 +591,7 @@ export default function Host() {
       ])
     : [];
 
-  // The legend under the host-rights line names the keys whose control is
+  // The legend under the row of buttons names the keys whose control is
   // drawn — the transport's while it stands, busy or not, so the line does not
   // flicker with every press the server is still answering.
   const legend: LegendEntry[] = [];
@@ -702,13 +703,14 @@ export default function Host() {
             : // The launch route's own right — asked once it is known, so a
               // guest's TV never flashes the button while `/auth/me` is on the
               // wire. The glyph alone would read as switching the TV off, so
-              // the word goes with it.
+              // the word goes with it — at the gear's weight, never a filled
+              // button outweighing the icons beside it.
               auth.loaded &&
               auth.can("settings.manage") && (
                 <div className="host-usdx">
                   <button
                     type="button"
-                    className="button host-usdx-button"
+                    className="icon-button icon-button-text"
                     title="Open Ultrastar Deluxe"
                     aria-describedby="host-usdx-caption"
                     disabled={launch.isPending}
@@ -723,9 +725,8 @@ export default function Host() {
                 </div>
               )}
         </div>
-        {auth.isHost && (
-          <p className="host-caption">This browser holds host rights</p>
-        )}
+        {/* No line says this browser holds host rights: drawn only where it
+            is true, it would say nothing (§7). */}
         <HostLegend entries={legend} />
         {/* Last, so a refusal coming and going moves nothing above it. */}
         {launchRefusal.map((sentence) => (

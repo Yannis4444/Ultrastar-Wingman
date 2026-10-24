@@ -19,10 +19,13 @@ There are two ways in:
 1. Choose what the reel may pick from in the **Pick from** list. The line under
    it says how many songs are in the running.
 2. Tap **Spin**.
-3. The reel runs for a few seconds and reveals the song.
-4. Tap the winner to open it. From there you go straight into
-   :wingman-play: **Sing**. Or tap :wingman-play: **Play** beside **Spin** to
-   pick the singers for it right away. See [Sing a song](sing.md).
+3. The reel runs for a few seconds and reveals the song. To see it sooner, tap
+   **Show it**, which stands where **Spin** was while the reel runs: the reel
+   stops on the winner at once.
+4. Tap the winner's cover or its title to open the song. There you can give it
+   a heart, wish for it, or go straight into :wingman-play: **Sing**. Or tap
+   :wingman-play: **Play** beside **Spin** to pick the singers for it right
+   away. See [Sing a song](sing.md).
 
 **Play** is there for anybody who may start a song. It stays off until the reel
 has landed.
@@ -80,8 +83,12 @@ Your phone remembers the choice for next time.
 4. The cover, the title, and the artist appear on your phone the moment the
    reel lands on the TV. To see the result sooner, tap **Show it**: the TV
    stops at once.
-5. Tap **Spin again** for another song.
-6. Tap **Play** to pick the singers: the player selection opens for that
+5. Tap the cover or the title to open the song, to give it a heart or wish for
+   it. Its :wingman-play: **Sing** does what **Play** does, over the same pick.
+   If the room spins again while the song is open, its **Sing** turns off: it
+   would sing another song.
+6. Tap **Spin again** for another song.
+7. Tap **Play** to pick the singers: the player selection opens for that
    song. See [Sing a song](sing.md).
 
 To stop, tap **This screen**. That gives the TV back and picks nothing. Leaving
@@ -147,4 +154,5 @@ this playlist on the TV. A playlist's reel never takes a song off the wishlist.
 
 !!! note
     A phone set to reduce motion skips the animation and shows the winner right
-    away. The pick is the same either way.
+    away, so **Show it** never comes up on **This screen**. The pick is the
+    same either way.

@@ -61,6 +61,16 @@ import "./SongDetails.css";
 interface SongDetailsProps {
   song: SongRead;
   onClose: () => void;
+  /**
+   * What Sing does instead of opening the player selection, for a caller that
+   * already holds the room's selection over this song — the Random song page
+   * while its spin is on the host screen, where a second selection would be
+   * this phone's own lock taking itself over (ui-guidelines §7). The modal
+   * closes and this runs. `null` draws Sing `disabled`: the caller holds a
+   * selection this song cannot be sung through (a respin from the room moved
+   * it on). Left out, Sing is the ordinary one.
+   */
+  onSing?: (() => void) | null;
 }
 
 /** One song's comments changed — somebody said something, or one was deleted. */
@@ -210,7 +220,11 @@ function SongControlCaption({ word }: { word: string }) {
   );
 }
 
-export default function SongDetails({ song, onClose }: SongDetailsProps) {
+export default function SongDetails({
+  song,
+  onClose,
+  onSing,
+}: SongDetailsProps) {
   const [selectingPlayers, setSelectingPlayers] = useState(false);
   // Sub-views swap the modal content; closing them returns to the song. Always
   // from the song itself: the one caller that opened straight into the picker
@@ -1152,7 +1166,15 @@ export default function SongDetails({ song, onClose }: SongDetailsProps) {
                 type="button"
                 className="song-control song-control-lead song-control-sing"
                 aria-label="Sing"
-                onClick={() => setSelectingPlayers(true)}
+                disabled={onSing === null}
+                onClick={() => {
+                  if (onSing === undefined) {
+                    setSelectingPlayers(true);
+                  } else if (onSing !== null) {
+                    onClose();
+                    onSing();
+                  }
+                }}
               >
                 <Icon name="play" />
                 <SongControlCaption word="Sing" />

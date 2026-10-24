@@ -109,8 +109,11 @@ interface SongSpinnerProps {
  * empty tile until the TV has landed, then shows the cover; Play moves the
  * room on to its singers over that same selection.
  *
- * A finished spin never opens the song modal by itself — on this screen the
- * cover and the result line are the way in, and the user takes it.
+ * SPIN reads *Show it* while a reel runs — this phone's own or the TV's — and
+ * a press lands it at once. A finished spin never opens the song modal by
+ * itself: in both modes the landed cover and the result line are the way in,
+ * and the user takes it. While this phone holds the TV's spin, the modal's
+ * Sing is handed `onSing`, so it moves the room on exactly as Play does.
  */
 export default function SongSpinner({
   songs: fixed,
@@ -120,6 +123,9 @@ export default function SongSpinner({
   const [scope, setScope] = useState<Scope>("all");
   const [spin, setSpin] = useState<Spin | null>(null);
   const [spinning, setSpinning] = useState(false);
+  // *Show it* was pressed while this phone's reel runs: the reel lands at once
+  // on the winner it already has (`SongReel`'s `settled` turning true).
+  const [showIt, setShowIt] = useState(false);
   const [winner, setWinner] = useState<SongRead | null>(null);
   const [details, setDetails] = useState<SongRead | null>(null);
   // The landed song this phone is picking singers for, on this screen.
@@ -189,11 +195,17 @@ export default function SongSpinner({
       host.press(request);
       return;
     }
-    if (spinning) return;
+    if (spinning) {
+      // *Show it*: the winner is already drawn, so this only stops the covers.
+      setShowIt(true);
+      return;
+    }
     // The winner is decided here, and the reel gets the same pool for the
     // covers that fly past — with its duplicates, which is the weighted scope.
     // Under reduced motion the reel lands in the same breath and `spinning` is
-    // over before the die's first roll is due.
+    // over before the die's first roll is due, and before *Show it* is ever
+    // painted.
+    setShowIt(false);
     setSpin({
       id: (spin?.id ?? 0) + 1,
       winner: candidates[Math.floor(Math.random() * candidates.length)],
@@ -204,6 +216,7 @@ export default function SongSpinner({
   const settle = (song: SongRead) => {
     setWinner(song);
     setSpinning(false);
+    setShowIt(false);
   };
 
   /** The pills: back on this screen gives the room back — the one way out. */
@@ -216,6 +229,20 @@ export default function SongSpinner({
 
   const settled = spinning ? null : winner;
   const hostSpun = host.phase === "spun" && host.selection !== null;
+  // The song modal's Sing while this phone holds the TV's spin (§7): Play's
+  // own path — `/pick`, then the hand-over — and never a second selection,
+  // which this phone's own lock would answer with a take-over of itself. Live
+  // while Play is and the held song is the modal's; a respin from the room
+  // turns it off rather than singing another song. `undefined` — the page
+  // holds nothing — is the ordinary Sing.
+  const holding = onHost && (host.phase === "opening" || hostSpun);
+  const singHeld =
+    details !== null &&
+    host.playable &&
+    host.selection !== null &&
+    host.selection.song.id === details.id
+      ? host.play
+      : null;
   // The wishlist tile's take-off for everybody, offered where the reel landed
   // on a wish: the host who spun the wishlist and will not sing this one says
   // so here instead of going back to Home. Only on the two wishlist pools —
@@ -275,9 +302,11 @@ export default function SongSpinner({
     return null;
   })();
 
+  // Live while this phone's reel runs, not busy-disabled: that press is *Show
+  // it*.
   const spinDisabled = onHost
     ? host.busy || !host.ready || candidates.length === 0
-    : spinning || candidates.length === 0;
+    : candidates.length === 0;
 
   return (
     <>
@@ -341,13 +370,22 @@ export default function SongSpinner({
           <>
             {/* The reel is the TV's alone: the empty window's tile until it
                 has landed there, then the cover at rest. Remounted between
-                the two, so every wait starts from the tile again. A plain
-                frame — the song modal's Sing would race this phone's lock. */}
+                the two, so every wait starts from the tile again — and for
+                every other landed song, because a respin the room has already
+                revealed goes from one song to the next with no wait between,
+                and a reel keyed on the landing alone would keep the last
+                cover, its door opening the last song. The landed cover is the
+                song modal's door; the logo tile never is. */}
             <SongReel
-              key={host.shown === null ? "host-waiting" : "host-landed"}
+              key={
+                host.shown === null
+                  ? "host-waiting"
+                  : `host-landed:${host.shown.id}`
+              }
               spin={host.shown === null ? null : { id: 1, winner: host.shown }}
               fillers={[]}
               settled
+              onOpen={host.shown === null ? undefined : setDetails}
             />
             {/* Loaded under the tile while the TV spins, so the cover is there
                 the moment it lands instead of popping in after. */}
@@ -365,8 +403,9 @@ export default function SongSpinner({
             spin={spin}
             fillers={candidates}
             // Remounted on the way back from the TV: a reel that had landed is
-            // drawn landed, not spun again.
-            settled={!spinning}
+            // drawn landed, not spun again. Turning true mid-spin is *Show
+            // it*: the reel lands at once and `onSettled` stops the die.
+            settled={!spinning || showIt}
             onSettled={settle}
             onOpen={setDetails}
           />
@@ -380,14 +419,19 @@ export default function SongSpinner({
           {onHost
             ? (hostLine ??
               (host.shown && (
-                <div className="spinner-words">
+                // The second door to the song modal, from the landing on.
+                <button
+                  type="button"
+                  className="spinner-winner"
+                  onClick={() => setDetails(host.shown)}
+                >
                   <span className="spinner-winner-title">
                     {host.shown.title}
                   </span>
                   <span className="spinner-winner-artist">
                     {host.shown.artist}
                   </span>
-                </div>
+                </button>
               )))
             : winner && (
                 <button
@@ -436,15 +480,15 @@ export default function SongSpinner({
         {/* One action row: SPIN, the page's gesture, and beside it Play — the
             way on to the singers in both modes. */}
         <div className="spinner-actions">
-          {/* Uppercased in CSS: the caps are the look, "Spin" is the name. On
-              the TV's spin it is live while the reel there runs: the press
-              that shows the result. */}
+          {/* Uppercased in CSS: the caps are the look, "Spin" is the name. It
+              is live while a reel runs, here or on the TV: the press that
+              shows the result. */}
           <SpinButton
             spinning={onHost ? host.rolling : spinning}
             disabled={spinDisabled}
             onClick={startSpin}
           >
-            {onHost ? host.label : "Spin"}
+            {onHost ? host.label : spinning ? "Show it" : "Spin"}
           </SpinButton>
           {canSing &&
             (onHost && host.phase === "blocked" ? (
@@ -473,7 +517,11 @@ export default function SongSpinner({
       </div>
 
       {details && (
-        <SongDetails song={details} onClose={() => setDetails(null)} />
+        <SongDetails
+          song={details}
+          onClose={() => setDetails(null)}
+          onSing={holding ? singHeld : undefined}
+        />
       )}
 
       {singing && (
