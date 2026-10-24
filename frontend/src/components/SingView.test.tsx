@@ -288,6 +288,34 @@ test("a sing from before parties were recorded reads the date alone", async () =
   );
 });
 
+test("cover, title and artist are one button into the song", async () => {
+  renderView();
+  const hero = await screen.findByRole("button", {
+    name: "Bohemian Rhapsody",
+  });
+  // One control holding all three, named by the title alone: one tab stop,
+  // the cover a second door to the same action and never a second button.
+  expect(hero).toHaveClass("sing-view-song");
+  expect(hero.querySelector(".sing-view-cover")).not.toBeNull();
+  expect(hero.querySelector(".sing-view-title")).toHaveTextContent(
+    "Bohemian Rhapsody",
+  );
+  expect(hero.querySelector(".sing-view-artist")).toHaveTextContent("Queen");
+  const heroArea = hero.closest(".sing-view-hero") as HTMLElement;
+  expect(heroArea.querySelectorAll("button")).toHaveLength(1);
+  // The when line stays outside it.
+  expect(hero).not.toHaveTextContent("·");
+  expect(heroArea.querySelector(".sing-view-when")?.parentElement).toBe(
+    heroArea,
+  );
+
+  // A tap on the cover is the same press.
+  fireEvent.click(hero.querySelector(".sing-view-cover") as HTMLElement);
+  expect(screen.getByTestId("song-details")).toHaveTextContent(
+    "Bohemian Rhapsody",
+  );
+});
+
 test("the title opens the song when the reader may open it", async () => {
   renderView();
   const title = await screen.findByRole("button", {
@@ -310,7 +338,11 @@ test("a song a tag keeps back is plain text, never a way in", async () => {
   expect(
     screen.queryByRole("button", { name: "Bohemian Rhapsody" }),
   ).toBeNull();
-  expect(screen.getByText("Bohemian Rhapsody").tagName).toBe("P");
+  // The same three in a plain block, drawn by the same rule as the button.
+  const block = screen.getByText("Bohemian Rhapsody").parentElement;
+  expect(block?.tagName).toBe("DIV");
+  expect(block).toHaveClass("sing-view-song");
+  expect(block?.querySelector(".sing-view-cover")).not.toBeNull();
 });
 
 test("a song that left the library reads Unknown song, with no artist", async () => {
@@ -326,12 +358,13 @@ test("a song that left the library reads Unknown song, with no artist", async ()
 
   const dialog = screen.getByRole("dialog", { name: "Sing of Unknown song" });
   await screen.findByRole("list", { name: "Who sang" });
-  expect(within(dialog).getByText("Unknown song").tagName).toBe("P");
+  expect(within(dialog).getByText("Unknown song").closest("button")).toBeNull();
   expect(within(dialog).queryByText("Queen")).toBeNull();
-  // The `?` tile in the cover's place.
-  expect(
-    dialog.querySelector(".song-cover-fallback.sing-view-cover"),
-  ).not.toBeNull();
+  // The `?` tile in the cover's place, and never inside a button.
+  const missing = dialog.querySelector(".song-cover-fallback.sing-view-cover");
+  expect(missing).not.toBeNull();
+  expect(missing?.closest("button")).toBeNull();
+  expect(missing?.parentElement?.tagName).toBe("DIV");
 });
 
 test("Share opens the panel on the pressed score, with the sing and its party", async () => {

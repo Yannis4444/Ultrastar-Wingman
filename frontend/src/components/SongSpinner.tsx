@@ -1,5 +1,5 @@
 import { useQuery } from "@tanstack/react-query";
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import type { SongRead, SpinRequest, WishRead } from "../api";
 import { listSongsOptions } from "../api/@tanstack/react-query.gen";
 import { useAuth } from "../auth";
@@ -24,6 +24,17 @@ import SpinButton from "./SpinButton";
 import "./SongSpinner.css";
 
 type Scope = "all" | "favorites" | "wishlist" | "weighted";
+
+/**
+ * How long this screen's *Show it* holds still after SPIN started the reel:
+ * the second tap of a double tap on SPIN lands inside it and is one spin, not a
+ * spin and a landing. Half a second covers the platforms' double-tap and
+ * double-click windows (300–500 ms), and it is the moment the reel is visibly
+ * under way — the die is up to speed within it (`SpinButton.css`) — so a
+ * deliberate second press, which comes after somebody has seen the covers
+ * move, still lands it.
+ */
+export const SHOW_IT_DELAY_MS = 500;
 
 const SCOPES: [Scope, string][] = [
   ["all", "All songs"],
@@ -109,8 +120,14 @@ interface SongSpinnerProps {
  * empty tile until the TV has landed, then shows the cover; Play moves the
  * room on to its singers over that same selection.
  *
- * A finished spin never opens the song modal by itself — on this screen the
- * cover and the result line are the way in, and the user takes it.
+ * SPIN reads *Show it* while a reel runs — this phone's own or the TV's — and
+ * a press lands it at once. On this screen it is held, lit and focusable, for
+ * the first `SHOW_IT_DELAY_MS`, so a double tap on SPIN is one spin; on the
+ * TV's spin only the open's round trip holds it, which on a fast network is
+ * shorter than a double tap. A finished spin never opens the song modal by
+ * itself: in both modes the landed cover and the result line are the way in,
+ * and the user takes it. While this phone holds the TV's spin, the modal's
+ * Sing is handed `onSing`, so it moves the room on exactly as Play does.
  */
 export default function SongSpinner({
   songs: fixed,
@@ -120,6 +137,13 @@ export default function SongSpinner({
   const [scope, setScope] = useState<Scope>("all");
   const [spin, setSpin] = useState<Spin | null>(null);
   const [spinning, setSpinning] = useState(false);
+  // *Show it* was pressed while this phone's reel runs: the reel lands at once
+  // on the winner it already has (`SongReel`'s `settled` turning true).
+  const [showIt, setShowIt] = useState(false);
+  // The spin whose *Show it* may be pressed: `SHOW_IT_DELAY_MS` after it
+  // started. Keyed on the spin, not a bare flag, so the next spin never
+  // inherits the last one's for a frame.
+  const [landableFor, setLandableFor] = useState<number | null>(null);
   const [winner, setWinner] = useState<SongRead | null>(null);
   const [details, setDetails] = useState<SongRead | null>(null);
   // The landed song this phone is picking singers for, on this screen.
@@ -189,11 +213,18 @@ export default function SongSpinner({
       host.press(request);
       return;
     }
-    if (spinning) return;
+    if (spinning) {
+      // *Show it*: the winner is already drawn, so this only stops the covers
+      // — once the double tap's window is over.
+      if (landable) setShowIt(true);
+      return;
+    }
     // The winner is decided here, and the reel gets the same pool for the
     // covers that fly past — with its duplicates, which is the weighted scope.
     // Under reduced motion the reel lands in the same breath and `spinning` is
-    // over before the die's first roll is due.
+    // over before the die's first roll is due, and before *Show it* is ever
+    // painted.
+    setShowIt(false);
     setSpin({
       id: (spin?.id ?? 0) + 1,
       winner: candidates[Math.floor(Math.random() * candidates.length)],
@@ -201,9 +232,20 @@ export default function SongSpinner({
     setSpinning(true);
   };
 
+  // Under reduced motion the reel lands in the press, so `spinning` is false
+  // again before this runs and no timer is ever set.
+  const spinId = spin?.id ?? null;
+  useEffect(() => {
+    if (!spinning || spinId === null) return;
+    const timer = setTimeout(() => setLandableFor(spinId), SHOW_IT_DELAY_MS);
+    return () => clearTimeout(timer);
+  }, [spinning, spinId]);
+  const landable = spinning && landableFor === spinId;
+
   const settle = (song: SongRead) => {
     setWinner(song);
     setSpinning(false);
+    setShowIt(false);
   };
 
   /** The pills: back on this screen gives the room back — the one way out. */
@@ -216,6 +258,20 @@ export default function SongSpinner({
 
   const settled = spinning ? null : winner;
   const hostSpun = host.phase === "spun" && host.selection !== null;
+  // The song modal's Sing while this phone holds the TV's spin (§7): Play's
+  // own path — `/pick`, then the hand-over — and never a second selection,
+  // which this phone's own lock would answer with a take-over of itself. Live
+  // while Play is and the held song is the modal's; a respin from the room
+  // turns it off rather than singing another song. `undefined` — the page
+  // holds nothing — is the ordinary Sing.
+  const holding = onHost && (host.phase === "opening" || hostSpun);
+  const singHeld =
+    details !== null &&
+    host.playable &&
+    host.selection !== null &&
+    host.selection.song.id === details.id
+      ? host.play
+      : null;
   // The wishlist tile's take-off for everybody, offered where the reel landed
   // on a wish: the host who spun the wishlist and will not sing this one says
   // so here instead of going back to Home. Only on the two wishlist pools —
@@ -275,9 +331,15 @@ export default function SongSpinner({
     return null;
   })();
 
+  // Live while this phone's reel runs, that press being *Show it* — except for
+  // its first `SHOW_IT_DELAY_MS`, held: lit (the die still rolls), focusable
+  // and `aria-disabled`, so the second tap of a double tap on SPIN lands
+  // nothing and a keyboard's focus stays on the button. On the TV's spin it is
+  // `busy` until the open's answer, and nothing more.
   const spinDisabled = onHost
     ? host.busy || !host.ready || candidates.length === 0
-    : spinning || candidates.length === 0;
+    : candidates.length === 0;
+  const spinHeld = !onHost && spinning && !landable;
 
   return (
     <>
@@ -341,13 +403,22 @@ export default function SongSpinner({
           <>
             {/* The reel is the TV's alone: the empty window's tile until it
                 has landed there, then the cover at rest. Remounted between
-                the two, so every wait starts from the tile again. A plain
-                frame — the song modal's Sing would race this phone's lock. */}
+                the two, so every wait starts from the tile again — and for
+                every other landed song, because a respin the room has already
+                revealed goes from one song to the next with no wait between,
+                and a reel keyed on the landing alone would keep the last
+                cover, its door opening the last song. The landed cover is the
+                song modal's door; the logo tile never is. */}
             <SongReel
-              key={host.shown === null ? "host-waiting" : "host-landed"}
+              key={
+                host.shown === null
+                  ? "host-waiting"
+                  : `host-landed:${host.shown.id}`
+              }
               spin={host.shown === null ? null : { id: 1, winner: host.shown }}
               fillers={[]}
               settled
+              onOpen={host.shown === null ? undefined : setDetails}
             />
             {/* Loaded under the tile while the TV spins, so the cover is there
                 the moment it lands instead of popping in after. */}
@@ -365,8 +436,9 @@ export default function SongSpinner({
             spin={spin}
             fillers={candidates}
             // Remounted on the way back from the TV: a reel that had landed is
-            // drawn landed, not spun again.
-            settled={!spinning}
+            // drawn landed, not spun again. Turning true mid-spin is *Show
+            // it*: the reel lands at once and `onSettled` stops the die.
+            settled={!spinning || showIt}
             onSettled={settle}
             onOpen={setDetails}
           />
@@ -380,14 +452,19 @@ export default function SongSpinner({
           {onHost
             ? (hostLine ??
               (host.shown && (
-                <div className="spinner-words">
+                // The second door to the song modal, from the landing on.
+                <button
+                  type="button"
+                  className="spinner-winner"
+                  onClick={() => setDetails(host.shown)}
+                >
                   <span className="spinner-winner-title">
                     {host.shown.title}
                   </span>
                   <span className="spinner-winner-artist">
                     {host.shown.artist}
                   </span>
-                </div>
+                </button>
               )))
             : winner && (
                 <button
@@ -436,15 +513,16 @@ export default function SongSpinner({
         {/* One action row: SPIN, the page's gesture, and beside it Play — the
             way on to the singers in both modes. */}
         <div className="spinner-actions">
-          {/* Uppercased in CSS: the caps are the look, "Spin" is the name. On
-              the TV's spin it is live while the reel there runs: the press
-              that shows the result. */}
+          {/* Uppercased in CSS: the caps are the look, "Spin" is the name. It
+              is live while a reel runs, here or on the TV — once the double
+              tap's moment is over — the press that shows the result. */}
           <SpinButton
             spinning={onHost ? host.rolling : spinning}
             disabled={spinDisabled}
+            held={spinHeld}
             onClick={startSpin}
           >
-            {onHost ? host.label : "Spin"}
+            {onHost ? host.label : spinning ? "Show it" : "Spin"}
           </SpinButton>
           {canSing &&
             (onHost && host.phase === "blocked" ? (
@@ -473,7 +551,11 @@ export default function SongSpinner({
       </div>
 
       {details && (
-        <SongDetails song={details} onClose={() => setDetails(null)} />
+        <SongDetails
+          song={details}
+          onClose={() => setDetails(null)}
+          onSing={holding ? singHeld : undefined}
+        />
       )}
 
       {singing && (

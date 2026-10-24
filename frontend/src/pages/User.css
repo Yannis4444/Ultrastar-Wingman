@@ -126,11 +126,10 @@
   margin: 12px 0 0 0;
 }
 
-/* Flat, no tile: the identity card above it is the page's one surface. Four
-   stats fit one line on any phone; they wrap rather than truncate all the same. */
-/* The record is `ScoreSummary`'s shape, layout included: the same five numbers
-   an open score group and a song's ranking print. The page only says where the
-   block sits — its own gutter, and 12px down to the chart. */
+/* Flat, no tile: the identity card above it is the page's one surface. The
+   record is `ScoreOverview`'s shape, layout included: the same head line and
+   marked histogram an open score group draws. The page only says where the
+   block sits — its own gutter, and 12px down to the row under it. */
 .user-stats {
   margin: 12px 16px;
 }
@@ -140,17 +139,10 @@
   color: var(--color-darker);
 }
 
-/* Where those scores actually land, drawn flat on the page: the stat bar above
-   already carries 12px below itself, so the chart only needs the page gutter
-   and its own 12px down to the row that opens the full list. */
-.user-stats-chart {
-  margin: 0 16px 12px 16px;
-}
-
 /* The way into the numbers above, not an errand: a quiet full-width line held
-   to the stats block by one hairline, on the same 16px column as the stat bar
-   and the chart, and deliberately unlike the 48px glyph rows of Manage below.
-   No top margin — whatever sits above already carries its own 12px. */
+   to the stats block by one hairline, on the same 16px column as the
+   overview, and deliberately unlike the 48px glyph rows of Manage below. No
+   top margin — the overview above already carries its own 12px. */
 .user-stats-link {
   display: flex;
   align-items: center;

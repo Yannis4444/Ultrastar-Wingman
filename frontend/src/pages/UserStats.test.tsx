@@ -339,13 +339,12 @@ test("nothing in the list repeats the one singer it is about", async () => {
   expect(panel).not.toHaveTextContent("Alice");
   expect(panel).toHaveTextContent("9500");
   expect(panel).toHaveTextContent("3000");
-  // And no Songs stat: every row of this list is one song, so it would read
-  // "1" on every one of them.
-  expect(
-    [...panel.querySelectorAll(".score-summary-stat .icon-stat-label")].map(
-      (label) => label.textContent,
-    ),
-  ).toEqual(["Sings", "Best", "Average", "Worst"]);
+  // And no Songs in the head line: every row of this list is one song, so it
+  // would read "1 song" on every one of them. No Share stats either: this page
+  // shares from its header.
+  const head = panel.querySelector(".score-overview-head") as HTMLElement;
+  expect(head.textContent).toMatch(/^\d+ sings?$/);
+  expect(head).not.toHaveClass("score-overview-head-action");
 });
 
 test("a score is dated, not just clocked: this list spans parties", async () => {
@@ -370,9 +369,9 @@ test("a song sung once carries its artist, and its run one tap away", async () =
   expect(row.querySelector(".score-group-caption")).toHaveTextContent("Queen");
 
   // One score is its own best, worst and average, so the tile opens with no
-  // summary at all — just the run behind it, which is what tells two apart.
+  // overview at all — just the run behind it, which is what tells two apart.
   fireEvent.click(screen.getByText("Bohemian Rhapsody"));
-  expect(document.querySelector(".score-summary")).toBeNull();
+  expect(document.querySelector(".score-overview")).toBeNull();
   expect(screen.getByTestId("score-row")).toHaveTextContent(
     shortDate("2026-08-23T20:00:00Z"),
   );

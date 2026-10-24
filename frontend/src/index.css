@@ -297,6 +297,23 @@ a.icon-button:hover {
   background-color: var(--highlight-red-light);
 }
 
+/* The same quiet 40px box widened to a word or two after its glyph, for a
+   control that must not outweigh the icon buttons beside it (the host
+   corner's Open Ultrastar Deluxe): transparent, glyph and word in
+   `--color-dark`, the hover fill and the disabled grey of `.icon-button`. The
+   word at the page's size, the glyph at the icon buttons' 1.25em. */
+.icon-button-text {
+  gap: 8px;
+  width: auto;
+  padding: 0 12px 0 10px;
+  font: inherit;
+  white-space: nowrap;
+}
+
+.icon-button-text .icon {
+  font-size: 1.25em;
+}
+
 /* The icon toggle (ui-guidelines §4): a `<button aria-pressed>` whose glyph
    is the thing it puts on or leaves off. On, the glyph in `--color`; off, in
    `--color-darkerer` under one 2px bar from its lower left to its upper

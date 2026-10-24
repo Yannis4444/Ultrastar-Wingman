@@ -129,13 +129,16 @@ const history = [
   score(1, "Alice", 9500),
 ];
 
-function renderDetails(onClose: () => void = () => {}) {
+function renderDetails(
+  onClose: () => void = () => {},
+  onSing?: (() => void) | null,
+) {
   const client = new QueryClient({
     defaultOptions: { queries: { retry: false } },
   });
   return render(
     <QueryClientProvider client={client}>
-      <SongDetails song={song} onClose={onClose} />
+      <SongDetails song={song} onClose={onClose} onSing={onSing} />
     </QueryClientProvider>,
   );
 }
@@ -242,11 +245,21 @@ test("the ranking summarises the song's whole history above the rows", async () 
   const dialog = screen.getByRole("dialog", { name: "Best scores" });
 
   // Six sings, and the average over every score — not over the listed ten.
-  // No Songs stat: every score in here is this one song. Best and Worst name
-  // the singer who holds them, rank 1 one row below saying it again.
-  expect(dialog.querySelector(".song-scores-stats")).toHaveTextContent(
-    "6Sings9500Best · Alice4083Average1000Worst · Frank",
+  // No Songs: every score in here is this one song. Best and Worst name the
+  // singer who holds them, rank 1 one row below saying it again. The line
+  // form at any count: the strip under it is this view's picture.
+  const overview = dialog.querySelector(".song-scores-stats") as HTMLElement;
+  expect(overview).toHaveClass("score-overview");
+  expect(overview.querySelector(".score-overview-counts")?.textContent).toBe(
+    "6 sings",
   );
+  expect(overview.querySelector(".score-overview-line")?.textContent).toBe(
+    "Best 9500 Alice · Average 4083 · Worst 1000 Frank",
+  );
+  expect(overview.querySelector(".score-overview-band")).toBeNull();
+  expect(
+    within(overview).queryByRole("img", { hidden: true }),
+  ).not.toBeInTheDocument();
 });
 
 test("the whole history is drawn as the all-scores strip above the ranking", async () => {
@@ -705,6 +718,38 @@ test("the three controls carry their word under the glyph, out of their names", 
   expect(
     dialog.querySelectorAll(".song-details-controls .song-control-caption"),
   ).toHaveLength(3);
+});
+
+test("a caller holding the room's selection takes Sing: the modal closes and hands over", async () => {
+  asAccount(["karaoke.sing"]);
+  const onClose = vi.fn();
+  const onSing = vi.fn();
+  renderDetails(onClose, onSing);
+
+  const sing = await screen.findByRole("button", { name: "Sing" });
+  expect(sing).toBeEnabled();
+  fireEvent.click(sing);
+
+  // Play's own path, the caller's: no player selection of the modal's own.
+  expect(onClose).toHaveBeenCalledTimes(1);
+  expect(onSing).toHaveBeenCalledTimes(1);
+  expect(
+    screen.queryByRole("dialog", { name: "Player selection" }),
+  ).not.toBeInTheDocument();
+});
+
+test("a held selection this song cannot be sung through draws Sing disabled", async () => {
+  asAccount(["karaoke.sing"]);
+  const onClose = vi.fn();
+  renderDetails(onClose, null);
+
+  const sing = await screen.findByRole("button", { name: "Sing" });
+  expect(sing).toBeDisabled();
+  fireEvent.click(sing);
+  expect(onClose).not.toHaveBeenCalled();
+  expect(
+    screen.queryByRole("dialog", { name: "Player selection" }),
+  ).not.toBeInTheDocument();
 });
 
 test("a caption names the control, not its state", async () => {

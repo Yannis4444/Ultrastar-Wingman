@@ -666,12 +666,13 @@ ROWS: dict[str, Row] = {
             # is the feature.
             (SPIN_ON_HOST, SPUN_ON_HOST),
             ('click(q(".spinner-spin"))', 'q(".spinner-state")'),
-            ("true", 'q(".spinner-words .spinner-winner-title")'),
+            ("true", 'q(".spinner-winner .spinner-winner-title")'),
         ),
-        # The cover stands in the window, the words are under it beside the take-off, and the
-        # die reads *Spin again*: it read *Show it* while the TV's reel ran.
-        ready='q(".spinner-window img") && q(".spinner-words .spinner-winner-title")'
-        ' && q(".spinner-words .spinner-winner-artist") && q(".spinner-take-off")'
+        # The cover stands in the window, the words are under it beside the take-off — both
+        # the song modal's doors, from the landing on — and the die reads *Spin again*: it
+        # read *Show it* while the TV's reel ran.
+        ready='q(".spinner-window img") && q(".spinner-winner .spinner-winner-title")'
+        ' && q(".spinner-winner .spinner-winner-artist") && q(".spinner-take-off")'
         ' && byText(".spinner-actions button", "Spin again")'
         ' && byText(".spinner-actions button", "Play")'
         ' && !q(".spinner-actions .spinner-play").disabled',
@@ -802,7 +803,7 @@ ROWS: dict[str, Row] = {
         viewport="phone",
         route="/user",
         ready='text(q(".user-identity-name")) === "Bender" && q(".user-stats")'
-        ' && q(".user-stats-chart")',
+        ' && qa(".user-stats .score-overview-mark").length === 3',
     ),
     "user-stats": Row(
         identity="Bender",
@@ -970,8 +971,8 @@ ROWS: dict[str, Row] = {
         viewport="host",
         route="/host",
         # `host-idle` is the TV three seconds after the last time anybody touched it: the
-        # gear, the "this browser holds host rights" line and the leaderboard's order pills
-        # have faded out. That is the screen a room looks at, so it is the one photographed.
+        # corner's buttons and keyboard legend and the leaderboard's order pills have faded
+        # out. That is the screen a room looks at, so it is the one photographed.
         ready=HOST_IDLE + ' && q(".host-join-url") && q(".host-leaderboard") && q(".host-wishes")',
     ),
     "host-playing": Row(

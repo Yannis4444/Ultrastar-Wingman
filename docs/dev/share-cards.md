@@ -33,8 +33,9 @@ on the second (11 to 14):
    - Each in **square** (1080×1080) and **story** (1080×1920).
    - The panel offers format, look and the toggles below, with a live preview.
 2. **No worst score on a card.** The party's numbers are Sings · Songs · Best · Average.
-   This departs on purpose from `ScoreSummary`'s fixed five on every surface: a card leaves
-   the room, and the lowest score with a name next to it is not something to send around.
+   This departs on purpose from `ScoreOverview`, which prints the worst on every surface: a
+   card leaves the room, and the lowest score with a name next to it is not something to send
+   around.
 3. **Other singers' pictures are a toggle.** When it is off, they are drawn as their
    initials. The sharer's own picture is always theirs.
 4. **The party's name and date are a toggle**, on both card kinds.
@@ -105,7 +106,7 @@ types into a plain `CardContent`, and applies the toggles there.
 | head | the party's name over "17 Oct 2026 · 5 singers", or unnamed its date over "5 singers"; with decision 4's toggle off, no head and no singer count at all: the numbers lead (§4.2, §7.9), while the file name and the `alt` still name the party by its name or date |
 | Sings · Songs · Best · Average | `stats.ts` `scoreSummary` minus Worst (decision 2); a duet run is one sing. Best is gold with the holder ("Best · Chiara"). A count of one takes the singular label, "1 Song" (`stats.ts` `countWord`) |
 | podium, ranking | `sessionLeaderboard(…, "best")`'s order, named on the card ("ranked by best score"); places are competition ranking, so two equal bests are both 1st |
-| score strip | `ScoreStrip`'s content: every score as a grey dot, the best in gold, the median dashed, and "Median N" written above it — not the best, which the numbers above already print with its holder, the way `ScoreStrip` leaves it out under a score summary |
+| score strip | `ScoreStrip`'s content: every score as a grey dot, the best in gold, the median dashed, and "Median N" written above it — not the best, which the numbers above already print with its holder, the way `ScoreStrip` leaves it out under the song modal's score overview |
 | spread rows | `groupScores(…, "player")` and `boxStats` per singer, in the ranking's order (§3.3) |
 | covers for *Mosaic* | the distinct covers of the party's songs in the order they were sung, at most eighteen |
 | *Only me and my place* | the *You* slide (§5): the sharer alone, their own Sings · Songs · Best · Average (Best without a holder), their picture large, "2nd of 5" and their best; drawable only for somebody who sang at the party. A party of one has no place, as a solo sing has none: never "1st of 1" |
@@ -538,7 +539,7 @@ score away the best one is pressed instead.
 the grouping, and the ungrouped rows, in every party and in *All parties*; on `/user/stats`
 the rows of an open song group. A group's summary row still folds its group out; only a
 row that *is* a score opens the view, on `/user/stats` too, where the song is one tap
-further, on the view's title. The `stats.moderate`
+further, on the view's hero. The `stats.moderate`
 pencil stays on the `/scores` row beside the button, never inside it, and never moves
 into the view.
 
@@ -548,12 +549,14 @@ into the view.
 ```
  390px
                                               [x]
-                    +--------------+
-                    |    cover     |   160px, max 45vw
-                    +--------------+
-                  Bohemian Rhapsody          <- a button into the song modal
-                        Queen
-              17 Oct 2026, 21:42 · Ben's birthday
+                 . . . . . . . . . . .
+                 .  +--------------+  .
+                 .  |    cover     |  .  160px, max 45vw
+                 .  +--------------+  .   <- cover, title and artist: ONE button
+                 .  Bohemian Rhapsody .      into the song modal, one tab stop,
+                 .        Queen       .      one focus ring round the three
+                 . . . . . . . . . . .
+              17 Oct 2026, 21:42 · Ben's birthday   <- outside it
    ---------------------------------------------------
     1  (A)  Alice                              8662
             Medium
@@ -567,10 +570,16 @@ into the view.
 - **The hero**: the cover (`SongCover`, square, 160px, `max-width: 45vw`; the `?` tile of
   `MissingCover`, today private to `ScoreGroupList.tsx` and exported from it for the view,
   for a song that left the library), the title at 1.15em and the artist at
-  0.85em `--color-darker`, the song modal's hero a size down. The title is a plain `<button>`
+  0.85em `--color-darker`, the song modal's hero a size down. **Cover, title and artist are
+  one `<button>`** (`.sing-view-song`, a column, no fill or border, its name the title text)
   that opens `SongDetails` over the view when `song_listed` says the reader may open that
-  song, and plain text otherwise; a song that left the library reads *Unknown song* with no
-  artist, as `songLabel` does.
+  song — the cover a second door to the one action, never a second control: one tab stop,
+  the global focus ring round the three (the button's corners `--border-radius-small`), the
+  title's underline under a pointer alone (`@media (hover: hover)`), and
+  nothing in it moves when the read turns the plain block into the button. Unlisted, the
+  same three are a plain `<div>`; the `MissingCover` of a song that left the library is
+  never inside a button — that song reads *Unknown song* with no artist, as `songLabel`
+  does. The when line stays outside the button (`SingView.tsx` / `.css` / `.test.tsx`).
 - **When**: one centred 0.85em `--color-darker` line, the sing's start as date and time in
   the reader's locale with its year, then the party's name after a dot; a nameless party is
   the date alone, which the line already says.
@@ -661,10 +670,10 @@ Calls the design left open, each vetoable:
   drawn by the panel, which shows the dimmed slot instead.
 
 **Where it opens.** *Share stats* on an open **player** group on `/scores` (grouped by
-player, in any party or in *All parties*): one plain `.button` with `share`, right-aligned on
-a line of its own 12px under the summary and its chart, one per group whose scores a design
-can draw; a song group has none. On `/user/stats`, one `.icon-button-bordered`
-`share`, *Share my stats*, trailing the `PageHeader` (a page-level control, ui-guidelines
+player, in any party or in *All parties*): one plain `.button` with `share` at the end of the
+group's score-overview head line (ui-guidelines §7, *Score overviews*), one per group whose
+scores a design can draw; a song group has none, and neither has `/user`. On `/user/stats`,
+one `.icon-button-bordered` `share`, *Share my stats*, trailing the `PageHeader` (a page-level control, ui-guidelines
 §6), drawn once the scores are in and a design can be drawn from them. Whoever may see the scores may share them,
 somebody else's included (§1, *No new permission*).
 

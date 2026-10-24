@@ -133,18 +133,6 @@
   grid-column: 3;
 }
 
-/* The TV's song as plain words in the same middle cell: no button, because
-   the song modal's Sing would race this phone's own hold on the room. */
-.spinner-words {
-  grid-column: 2;
-  display: grid;
-  gap: 2px;
-  min-width: 0;
-  text-align: center;
-  color: var(--color);
-  animation: spinner-rise 0.3s ease-out;
-}
-
 /* What the TV's spin is doing when there is no song to name: one quiet
    sentence across the whole slot — no take-off stands beside a sentence — and
    never more than two lines, so another selection's long title cannot push
@@ -275,8 +263,7 @@
     transition: none;
   }
 
-  .spinner-winner,
-  .spinner-words {
+  .spinner-winner {
     animation: none;
   }
 }

@@ -3,15 +3,13 @@ import type { PlayerRead, ScoreWithContext, SongRead } from "../api";
 import { shortDate, shortTime } from "../duration";
 import { playerStatsShareable } from "../shareCard/possible";
 import {
-  CHART_MIN_SCORES,
   groupValue,
   scorePlayer,
   type Grouping,
   type ScoreGroup,
   type Sorting,
 } from "../stats";
-import ScoreHistogram from "./ScoreHistogram";
-import ScoreSummary from "./ScoreSummary";
+import ScoreOverview from "./ScoreOverview";
 import { Icon } from "./icons";
 import PlayerAvatar from "./PlayerAvatar";
 import ScoreActions from "./ScoreActions";
@@ -54,8 +52,8 @@ interface ScoreGroupListProps {
   /** A score was moved or deleted; the page refetches what it holds. */
   onModerated?: () => void;
   /**
-   * Whether an open **player** group's scores start with *Share stats*
-   * (share-cards §9, ui-guidelines §7), and what it opens: a card of that
+   * Whether an open **player** group's overview ends its head line with
+   * *Share stats* (share-cards §9, ui-guidelines §7), and what it opens: a card of that
    * singer's scores as the group holds them. One per group whose scores a
    * player design can draw (`playerStatsShareable`); a song group, or an
    * ungrouped row, never has one. Only `/scores` passes it — `/user/stats`
@@ -113,38 +111,34 @@ function rowLines(
 }
 
 /**
- * What an opened group adds up to: the numbers the row no longer carries, and
- * the shape behind them. Sits at the head of the tile the row unfolds; one
- * score is its own best, worst and average, so a group of one has no summary
- * to show and the tile opens on its single row instead.
+ * What an opened group adds up to: the numbers the row no longer carries, on
+ * the shape behind them (`ScoreOverview`). Sits at the head of the tile the
+ * row unfolds; one score is its own best, worst and average, so a group of one
+ * has no overview to show and the tile opens on its single row instead.
  *
- * A song group leaves the Songs stat out — it would read "1" on every row of
- * the list; a player group keeps it, that being what their evening was made
- * of.
+ * A song group leaves Songs out of the head line — it would read "1 song" on
+ * every row of the list; a player group keeps it, that being what their
+ * evening was made of. `action` is the head line's far end: *Share stats*.
  */
 function GroupSummary({
   group,
   named,
   songs,
+  action,
 }: {
   group: ScoreGroup;
   named: boolean;
   songs: boolean;
+  action?: ReactNode;
 }) {
   return (
-    <>
-      <ScoreSummary scores={group.scores} songs={songs} named={named} />
-      {/* A couple of bars across twenty buckets is noise, not a shape. */}
-      {group.scores.length >= CHART_MIN_SCORES && (
-        <div className="score-group-chart">
-          <ScoreHistogram
-            scores={group.scores}
-            height={96}
-            label={`Score distribution for ${group.label}`}
-          />
-        </div>
-      )}
-    </>
+    <ScoreOverview
+      scores={group.scores}
+      songs={songs}
+      named={named}
+      action={action}
+      label={`Score distribution for ${group.label}`}
+    />
   );
 }
 
@@ -346,28 +340,28 @@ export default function ScoreGroupList({
                     group={group}
                     named={namedPeaks}
                     songs={grouping === "player"}
+                    action={
+                      // The head line's far end: one per player group, so a
+                      // row's own control stays the moderator's pencil alone —
+                      // and only where a design can be drawn (four scores, or
+                      // two songs), never a way into a panel of dimmed slots.
+                      // Such a group is never a group of one, so it always
+                      // has its overview.
+                      onShareStats !== undefined &&
+                      grouping === "player" &&
+                      playerStatsShareable(group.scores) ? (
+                        <button
+                          type="button"
+                          className="button score-group-share"
+                          onClick={() => onShareStats(group)}
+                        >
+                          <Icon name="share" />
+                          Share stats
+                        </button>
+                      ) : undefined
+                    }
                   />
                 )}
-
-                {/* The scores' own first line, at their right: one per player
-                    group, so a row's own control stays the moderator's pencil
-                    alone — and only where a design can be drawn (four
-                    scores, or two songs), never a way into a panel of dimmed
-                    slots. Such a group always has its summary above. */}
-                {onShareStats !== undefined &&
-                  grouping === "player" &&
-                  playerStatsShareable(group.scores) && (
-                    <div className="score-group-share">
-                      <button
-                        type="button"
-                        className="button"
-                        onClick={() => onShareStats(group)}
-                      >
-                        <Icon name="share" />
-                        Share stats
-                      </button>
-                    </div>
-                  )}
 
                 <ul className="score-group-scores">
                   {group.scores.map((score) => (

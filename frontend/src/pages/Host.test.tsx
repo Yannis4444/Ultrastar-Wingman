@@ -295,15 +295,15 @@ test("a used token says so and points at the server log", async () => {
   );
 });
 
-test("an established host session is shown as active", async () => {
+test("the host's own browser carries no line about host rights", async () => {
   getMe.mockResolvedValue(
     meResponse(["songs.view"], { is_host: true, role: "admin" }),
   );
   renderHost("/host");
 
-  expect(
-    await screen.findByText("This browser holds host rights"),
-  ).toBeInTheDocument();
+  // Drawn only where it is true, the line would say nothing (§7).
+  await screen.findByText("Scan to join");
+  expect(screen.queryByText(/host rights/i)).toBeNull();
 });
 
 test("the QR encodes the server's join URL and prints it readably", async () => {
@@ -1201,6 +1201,9 @@ test("the overlay opens Ultrastar Deluxe, with the reason a host would", async (
   expect(iconNames(open)).toEqual(["power"]);
   expect(open).toHaveAccessibleDescription("For settings like microphones");
   expect(open.closest(".host-controls")).not.toBeNull();
+  // A word button of the gear's weight, never a filled `.button` (§7).
+  expect(open).toHaveClass("icon-button", "icon-button-text");
+  expect(open).not.toHaveClass("button");
 
   // The caption is the button's own: described by it, standing under it in
   // the button's own slot, and describing nothing else in the corner.
@@ -1481,7 +1484,7 @@ test("in a takeover the music group stands without its line, the corner keeping 
   ]);
 });
 
-test("the legend names the keys of the controls that are drawn, under the host-rights line", async () => {
+test("the legend names the keys of the controls that are drawn, directly under the row", async () => {
   fullscreenApi();
   asHost();
   getMusic.mockResolvedValue({ data: playingMusic() });
@@ -1494,17 +1497,12 @@ test("the legend names the keys of the controls that are drawn, under the host-r
     "↑ ↓ Volume",
     "F Full screen",
   ]);
-  // In the corner, after the row of buttons and the host-rights line.
+  // In the corner, the line straight after the row of buttons and the
+  // corner's last: no host-rights line between them, nothing after it.
   const controls = container.querySelector(".host-controls");
   const lines = [...(controls?.children ?? [])].map((child) => child.className);
-  expect(lines.slice(0, 3)).toEqual([
-    "host-controls-row",
-    "host-caption",
-    "host-legend",
-  ]);
-  expect(controls?.children[1]).toHaveTextContent(
-    "This browser holds host rights",
-  );
+  expect(lines).toEqual(["host-controls-row", "host-legend"]);
+  expect(controls).not.toHaveTextContent(/host rights/i);
 
   // A sing holds the transport back, and the legend its keys with it.
   act(() =>

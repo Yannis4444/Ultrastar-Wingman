@@ -130,12 +130,19 @@ function lines(row: HTMLElement): (string | null)[] {
   ].map((selector) => row.querySelector(selector)?.textContent ?? null);
 }
 
-/** The tile's stats as `[label, value]` pairs, in the order it prints them. */
-function stats(panel: HTMLElement): (string | null)[][] {
-  return [...panel.querySelectorAll(".score-summary-stat")].map((stat) => [
-    stat.querySelector(".icon-stat-label")?.textContent ?? null,
-    stat.querySelector(".icon-stat-value")?.textContent ?? null,
-  ]);
+/**
+ * The tile's overview as it reads: the head line, then the numbers — the one
+ * line under four scores, the band's labels over the chart from four on.
+ */
+function overview(panel: HTMLElement): (string | null)[] {
+  const head =
+    panel.querySelector(".score-overview-counts")?.textContent ?? null;
+  const numbers =
+    panel.querySelector(".score-overview-line")?.textContent ??
+    [...panel.querySelectorAll(".score-overview-mark")]
+      .map((mark) => mark.textContent)
+      .join(" · ");
+  return [head, numbers];
 }
 
 /** Open the session picker and hand the panel back. */
@@ -1038,8 +1045,8 @@ test("a collapsed row carries a list row's two lines, not a spread", async () =>
 
   const alice = (await screen.findAllByTestId("score-group"))[0];
   expect(lines(summaryOf(alice))).toEqual(["Alice", "2 scores", "9000"]);
-  // The five stats moved into the tile the row unfolds.
-  expect(within(summaryOf(alice)).queryByText("Average")).toBeNull();
+  // The numbers moved into the tile the row unfolds.
+  expect(within(summaryOf(alice)).queryByText(/Average/)).toBeNull();
 
   choose("Group", "song");
   await waitFor(() => {
@@ -1055,14 +1062,12 @@ test("an opened group states its whole spread in one tile", async () => {
   fireEvent.click(within(summaryOf(alice)).getByText("Alice"));
 
   const panel = alice.querySelector(".score-group-panel") as HTMLElement;
-  // A singer's evening was made of songs, so their summary counts them; the
-  // peaks stay unnamed, the row above already being her name.
-  expect(stats(panel)).toEqual([
-    ["Sings", "2"],
-    ["Songs", "2"],
-    ["Best", "9000"],
-    ["Average", "8500"],
-    ["Worst", "8000"],
+  // A singer's evening was made of songs, so the head line counts them; the
+  // peaks stay unnamed, the row above already being her name. Two scores are
+  // no chart: the numbers are one line.
+  expect(overview(panel)).toEqual([
+    "2 sings · 2 songs",
+    "Best 9000 · Average 8500 · Worst 8000",
   ]);
   // The scores are part of that tile, not a list left behind under it.
   expect(panel.querySelector(".score-group-scores")).not.toBeNull();
@@ -1093,17 +1098,18 @@ test("the tile's chart waits for the fourth score, its rows do not", async () =>
   expect(
     within(bob).queryByRole("img", { name: "Score distribution for Bob" }),
   ).toBeNull();
-  // The list under the summary is drawn either way, and so is the summary.
+  // From four the numbers are marks on the chart, Best first.
+  expect(
+    overview(alice.querySelector(".score-group-panel") as HTMLElement),
+  ).toEqual(["4 sings · 2 songs", "Best 9000 · Average 7250 · Worst 5000"]);
+  expect(alice.querySelector(".score-overview-line")).toBeNull();
+  // The list under the overview is drawn either way, and so is the overview —
+  // its numbers one line.
   expect(bob.querySelectorAll(".score-entry")).toHaveLength(3);
-  expect(stats(bob.querySelector(".score-group-panel") as HTMLElement)).toEqual(
-    [
-      ["Sings", "3"],
-      ["Songs", "2"],
-      ["Best", "6000"],
-      ["Average", "4333"],
-      ["Worst", "3000"],
-    ],
-  );
+  expect(
+    overview(bob.querySelector(".score-group-panel") as HTMLElement),
+  ).toEqual(["3 sings · 2 songs", "Best 6000 · Average 4333 · Worst 3000"]);
+  expect(bob.querySelector(".score-overview-band")).toBeNull();
 });
 
 test("under a song, best and worst still name the singer who managed them", async () => {
@@ -1116,14 +1122,12 @@ test("under a song, best and worst still name the singer who managed them", asyn
   const wonderwall = (await screen.findAllByTestId("score-group"))[0];
   await waitFor(() =>
     expect(
-      stats(wonderwall.querySelector(".score-group-panel") as HTMLElement),
+      overview(wonderwall.querySelector(".score-group-panel") as HTMLElement),
     ).toEqual([
       // One run of Wonderwall with two people on it: one sing, two scores.
-      // And no Songs stat under a song, which would read "1" on every row.
-      ["Sings", "1"],
-      ["Best · Alice", "9000"],
-      ["Average", "7500"],
-      ["Worst · Bob", "6000"],
+      // And no Songs under a song, which would read "1 song" on every row.
+      "1 sing",
+      "Best 9000 Alice · Average 7500 · Worst 6000 Bob",
     ]),
   );
 });
@@ -1826,19 +1830,22 @@ test("no group carries Share a score: a score is shared from its sing", async ()
   ).not.toBeInTheDocument();
 });
 
-test("an open player group's scores start with Share stats, a card of that singer at this party", async () => {
+test("an open player group's head line ends in Share stats, a card of that singer at this party", async () => {
   renderScores();
   const groups = await screen.findAllByTestId("score-group");
-  // One per player group, the line between the summary and the scores.
+  // One per player group, at the far end of the overview's head line — never
+  // a line of its own between the numbers and the scores.
   for (const group of groups) {
-    const line = group.querySelector(".score-group-share") as HTMLElement;
-    expect(line).not.toBeNull();
-    expect(line.previousElementSibling).toHaveClass("score-summary");
-    expect(line.nextElementSibling).toHaveClass("score-group-scores");
-    const button = within(line).getByRole("button", {
+    const head = group.querySelector(".score-overview-head") as HTMLElement;
+    expect(head).toHaveClass("score-overview-head-action");
+    expect(head.closest(".score-overview")?.nextElementSibling).toHaveClass(
+      "score-group-scores",
+    );
+    const button = within(head).getByRole("button", {
       name: "Share stats",
       hidden: true,
     });
+    expect(head.lastElementChild).toBe(button);
     expect(button).toHaveClass("button");
     expect(button).not.toHaveClass("button-primary");
     expect(iconNames(button)).toEqual(["share"]);
@@ -1878,8 +1885,11 @@ test("a song group and an ungrouped row carry no Share stats", async () => {
   expect(groupLabels()).toEqual(
     expect.arrayContaining(["Bohemian Rhapsody", "Wonderwall"]),
   );
-  for (const group of songs)
+  for (const group of songs) {
     expect(group.querySelector(".score-group-share")).toBeNull();
+    // The head line is the counts alone, at its own height.
+    expect(group.querySelector(".score-overview-head-action")).toBeNull();
+  }
   choose("Group", "none");
   await screen.findAllByTestId("score-group");
   expect(
@@ -1905,6 +1915,7 @@ test("a player group no design can draw carries no Share stats", async () => {
   expect(groups).toHaveLength(2);
   for (const group of groups) {
     expect(group.querySelector(".score-group-share")).toBeNull();
+    expect(group.querySelector(".score-overview-head-action")).toBeNull();
     // The scores are still there to open, and the one-score tile opens on
     // its single row.
     expect(group.querySelector(".score-group-scores")).not.toBeNull();

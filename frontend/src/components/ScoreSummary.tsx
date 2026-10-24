@@ -7,13 +7,8 @@ interface ScoreSummaryProps {
   /** The scores being added up. Empty draws nothing at all. */
   scores: ScoreWithContext[];
   /**
-   * Whether the distinct songs are counted. Left out where every score in the
-   * summary is the same song, which would make it a permanent "1".
-   */
-  songs?: boolean;
-  /**
    * Whether Best and Worst name the singer who holds them. Off where every
-   * score in the summary belongs to the reader: their own name twice says
+   * score in the summary belongs to one singer: their name twice says
    * nothing (§1.5).
    */
   named?: boolean;
@@ -22,21 +17,19 @@ interface ScoreSummaryProps {
 }
 
 /**
- * What a set of scores adds up to, in one shape wherever they are added up
- * (§7): Sings · Songs · Best · Average · Worst — what was sung before how well
- * it went, and the three score numbers reading down from the best.
+ * What a song's history adds up to on the host's results (`LastSong`, §7
+ * *Host*): Sings · Best · Average · Worst, what was sung before how well it
+ * went, and the three score numbers reading down from the best. No Songs: the
+ * results are one song's.
  *
- * Every word is printed under its number: five glyphs in a row is exactly
- * where an icon stops being self-evident, so this is the one place `IconStat`
- * is asked for its label.
- *
- * The chart under a summary belongs to the surface, not to this component: the
- * user page and an open group want a distribution, a song's ranking wants the
- * scores themselves. Only the threshold is shared (`CHART_MIN_SCORES`).
+ * The host's alone. Every phone surface adds its scores up in `ScoreOverview`
+ * instead, the numbers marked on its histogram; read across a room, that
+ * would be too small, so the TV keeps a glyph, a number and a word per stat —
+ * five glyphs in a row being exactly where an icon stops being self-evident,
+ * this is the one place `IconStat` is asked for its label.
  */
 export default function ScoreSummary({
   scores,
-  songs = false,
   named = false,
   className,
 }: ScoreSummaryProps) {
@@ -44,10 +37,7 @@ export default function ScoreSummary({
   // Nothing to add up: the surface says why in its own words, if at all.
   if (summary === null) return null;
 
-  // Four stats read as two rows of two on a phone, five as three and two. The
-  // count is fixed per surface, so the class says which rather than a guess.
   const classes = ["score-summary"];
-  if (songs) classes.push("score-summary-five");
   if (className !== undefined) classes.push(className);
 
   return (
@@ -59,15 +49,6 @@ export default function ScoreSummary({
         value={summary.sings}
         showLabel
       />
-      {songs && (
-        <IconStat
-          className="score-summary-stat"
-          icon="music"
-          label="Songs"
-          value={summary.songs}
-          showLabel
-        />
-      )}
       <IconStat
         className="score-summary-stat"
         icon="arrow-up"

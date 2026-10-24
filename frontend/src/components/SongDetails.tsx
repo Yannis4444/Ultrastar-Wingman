@@ -48,7 +48,7 @@ import PlayerSelection from "./PlayerSelection";
 import PlaylistCover from "./PlaylistCover";
 import RankedScoreList from "./RankedScoreList";
 import ScoreStrip from "./ScoreStrip";
-import ScoreSummary from "./ScoreSummary";
+import ScoreOverview from "./ScoreOverview";
 import SongCover from "./SongCover";
 // The control row is shared with the Home stage.
 import "./SongControls.css";
@@ -61,6 +61,16 @@ import "./SongDetails.css";
 interface SongDetailsProps {
   song: SongRead;
   onClose: () => void;
+  /**
+   * What Sing does instead of opening the player selection, for a caller that
+   * already holds the room's selection over this song — the Random song page
+   * while its spin is on the host screen, where a second selection would be
+   * this phone's own lock taking itself over (ui-guidelines §7). The modal
+   * closes and this runs. `null` draws Sing `disabled`: the caller holds a
+   * selection this song cannot be sung through (a respin from the room moved
+   * it on). Left out, Sing is the ordinary one.
+   */
+  onSing?: (() => void) | null;
 }
 
 /** One song's comments changed — somebody said something, or one was deleted. */
@@ -210,7 +220,11 @@ function SongControlCaption({ word }: { word: string }) {
   );
 }
 
-export default function SongDetails({ song, onClose }: SongDetailsProps) {
+export default function SongDetails({
+  song,
+  onClose,
+  onSing,
+}: SongDetailsProps) {
   const [selectingPlayers, setSelectingPlayers] = useState(false);
   // Sub-views swap the modal content; closing them returns to the song. Always
   // from the song itself: the one caller that opened straight into the picker
@@ -647,16 +661,23 @@ export default function SongDetails({ song, onClose }: SongDetailsProps) {
   if (view === "scores") {
     return (
       <Modal title="Best scores" bare onClose={() => setView("main")}>
-        {/* The song's whole history in the app's one score summary (§7), so
-            the ranking below has something to be read against. Best and Worst
-            name the singer who holds them — rank 1 says it again one row
-            further down, and one shape everywhere beats one line saved. No
-            Songs stat: every score in here is this one song. */}
-        <ScoreSummary scores={allScores} named className="song-scores-stats" />
+        {/* The song's whole history as the phones' one score overview (§7),
+            so the ranking below has something to be read against — in its
+            line form at any count, the dated strip under it being this view's
+            picture. Best and Worst name the singer who holds them — rank 1
+            says it again one row further down, and one shape everywhere beats
+            one line saved. No Songs: every score in here is this one song. */}
+        <ScoreOverview
+          scores={allScores}
+          named
+          chart={false}
+          label="Every score this song ever got"
+          className="song-scores-stats"
+        />
         {/* Four scores are the fewest that make a picture (§7): a couple of
             dots have no spread to show and no median worth drawing a line for,
             and the ranking below says everything they do. The modal is flat on
-            `--bg`, the ground every chart is drawn for (§1.1). The summary
+            `--bg`, the ground every chart is drawn for (§1.1). The overview
             right above already prints Best and who holds it, so the strip's
             own line keeps the median alone. */}
         {allScores.length >= CHART_MIN_SCORES && (
@@ -1152,7 +1173,15 @@ export default function SongDetails({ song, onClose }: SongDetailsProps) {
                 type="button"
                 className="song-control song-control-lead song-control-sing"
                 aria-label="Sing"
-                onClick={() => setSelectingPlayers(true)}
+                disabled={onSing === null}
+                onClick={() => {
+                  if (onSing === undefined) {
+                    setSelectingPlayers(true);
+                  } else if (onSing !== null) {
+                    onClose();
+                    onSing();
+                  }
+                }}
               >
                 <Icon name="play" />
                 <SongControlCaption word="Sing" />

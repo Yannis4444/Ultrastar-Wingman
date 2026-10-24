@@ -151,21 +151,27 @@ the top. Under **best score** and **average score** the first three numbers
 stand out, because the order really is a ranking. Tap a grouped row and it
 unfolds into a card.
 
-A row with more than one score behind it is headed by the same figures the
-**User** tab prints over your own record: :wingman-hash: **Sings**,
-:wingman-music: **Songs**, :wingman-arrow-up: **Best**,
-:wingman-average: **Average**, and :wingman-arrow-down: **Worst**.
+A row with more than one score behind it opens on the same overview the
+**User** tab draws for your own record. Its first line says what was sung,
+such as "12 sings · 9 songs".
 
 - **Sings** counts performances, not scores. A duet two people sang together
   is one sing and two rows in the list below it.
-- **Songs** stands under a singer only. Under a song it would read **1** on
+- **Songs** stands under a singer only. Under a song it would read "1 song" on
   every row, so it is left out there.
-- Under a song, **Best** and **Worst** name the singer who managed them. Under
-  a singer they name nobody: the row above is already their name.
 
-From four scores on, a bar chart shows where they land. Under all of it stands
-every single score behind the row: the songs that singer sang, or the singers
-of that song.
+From four scores on, a bar chart shows where the scores land. **Best**,
+**Average**, and **Worst** are lines through its bars, each with its number
+over the chart. Best is the gold line, and the bar it runs through is gold
+too. Tap a bar to see its range and how many scores are in it. With fewer than
+four scores there is no chart, and the three numbers stand on one line
+instead. When every score is the same number, only **Best** is shown.
+
+Under a song, **Best** and **Worst** name the singer who managed them. Under a
+singer they name nobody: the row above is already their name.
+
+Under all of it stands every single score behind the row: the songs that
+singer sang, or the singers of that song.
 
 Grouped by song, the cover on a row opens the song. Every single score opens
 its sing: the rows inside an open card, and every row when the list is not
@@ -186,8 +192,8 @@ Fry tapped his own score, so his row is lit. Tapping Leela's would share hers.
 - The rows are best first. The number in front of a row is the place that
   score took, so two singers on the same score share one. A sing one person
   sang alone has no place at all. Your own row says **You**.
-- Tap the song's title to open the song. A song you may not open, or one that
-  has left the library, is plain text.
+- Tap the cover, the title, or the artist to open the song. A song you may not
+  open, or one that has left the library, opens nothing.
 - :wingman-share: **Share** makes a card of the lit row's score. See
   [Share a party, a score, or a singer's stats](#share-a-party-a-score-or-a-singers-stats).
 
@@ -207,12 +213,12 @@ from there. Whoever may read a party's scores may share them.
   **Share**. The card is of the row that is lit there, so a duet partner's
   score is shared the same way as your own.
 - To share one singer's figures, set **Group** to **group by player** and
-  open their row. :wingman-share: **Share stats** stands under their figures,
-  over their scores. The card is of that singer at this party. Under **All
-  parties** or **All my scores** it adds up every party on the page, and the
-  card says **All parties**. A row grouped by song has no **Share stats**, and
-  neither has a singer with fewer than four scores, all of one song: no design
-  of the card can be drawn from those yet.
+  open their row. :wingman-share: **Share stats** stands at the end of the
+  first line, beside the number of sings and songs. The card is of that
+  singer at this party. Under **All parties** or **All my scores** it adds up
+  every party on the page, and the card says **All parties**. A row grouped by
+  song has no **Share stats**, and neither has a singer with fewer than four
+  scores, all of one song: no design of the card can be drawn from those yet.
   Your own record has the same card on the **User** tab, see
   [Share your stats](your-scores.md#share-your-stats).
 

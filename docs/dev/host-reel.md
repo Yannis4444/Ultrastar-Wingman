@@ -167,8 +167,9 @@ held), `opening`, `spun`, `blocked`, `empty` and `lost`:
   the answer is out. The window stands on the reel's empty tile (`SongReel` with no spin,
   remounted for every wait) and the result slot reads *Spinning on the host screen…*
   (`role="status"`) until `spun_at + REVEAL_MS` — capped at `REVEAL_MS` from the answer —
-  or `spin.revealed`; then the cover settled in the window and the title over the artist
-  as plain words (the song modal's Sing would race this phone's own lock).
+  or `spin.revealed`; then the cover settled in the window and the title over the artist,
+  both opening the song modal, whose Sing is handed `onSing` while this phone holds the
+  spin so it never races its own lock (ui-guidelines §7, *Random song*).
 - SPIN reads *Show it* while the TV spins and *Spin again* after: both are `POST …/spin`,
   and the server decides which (the same song `revealed`, or a respin).
 - *Play* stays off until the reveal; it is `/pick`, then `PlayerSelection` adopts the
@@ -189,7 +190,10 @@ held), `opening`, `spun`, `blocked`, `empty` and `lost`:
   on `hold`: an open answered after the pills came back gives its token straight back even
   when the next SPIN has already taken the room again.
 
-*This screen* is the phone's own reel, unchanged, and its *Play* opens the player
+*This screen* is the phone's own reel, its SPIN reading *Show it* while the reel runs —
+held (lit, `aria-disabled`, still focused) for its first `SHOW_IT_DELAY_MS`, so a double tap
+is one spin (ui-guidelines §7); the TV's spin is held only by the open's round trip, which on
+a fast network is shorter than a double tap — and its *Play* opens the player
 selection over the landed song — the song modal's Sing by another door, so both modes
 share one action row.
 

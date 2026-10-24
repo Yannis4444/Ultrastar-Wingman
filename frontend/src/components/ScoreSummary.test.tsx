@@ -63,14 +63,13 @@ const evening = [
   score("Alice", 8000, bohemian),
 ];
 
-test("five stats in one order, every one of them behind its own word", () => {
-  const { container } = render(<ScoreSummary scores={evening} songs />);
+test("four stats in one order, every one of them behind its own word", () => {
+  const { container } = render(<ScoreSummary scores={evening} />);
 
   // What was sung before how well it went, and the three score numbers
-  // reading down from the best.
+  // reading down from the best. No Songs: the host's results are one song's.
   expect(stats(container)).toEqual([
     ["hash", "2", "Sings"],
-    ["music", "2", "Songs"],
     // `arrow-up`, never `trophy`: the cup belongs to the song modal's strip.
     ["arrow-up", "9000", "Best"],
     ["average", "7667", "Average"],
@@ -83,20 +82,9 @@ test("one duet run is one sing, not two", () => {
     score("Alice", 9000, wonderwall, "sing-duet"),
     score("Bob", 6000, wonderwall, "sing-duet"),
   ];
-  const { container } = render(<ScoreSummary scores={duet} songs />);
+  const { container } = render(<ScoreSummary scores={duet} />);
 
   expect(stats(container)[0]).toEqual(["hash", "1", "Sings"]);
-});
-
-test("where every score is the same song, the Songs stat is left out", () => {
-  const { container } = render(<ScoreSummary scores={evening} />);
-
-  expect(stats(container).map((stat) => stat[2])).toEqual([
-    "Sings",
-    "Best",
-    "Average",
-    "Worst",
-  ]);
 });
 
 test("named, the peaks carry the singer who holds them", () => {
@@ -111,13 +99,13 @@ test("named, the peaks carry the singer who holds them", () => {
 });
 
 test("unnamed by default: a page of the reader's own scores says one name once", () => {
-  const { container } = render(<ScoreSummary scores={evening} songs />);
+  const { container } = render(<ScoreSummary scores={evening} />);
 
   expect(container.textContent).not.toContain("Alice");
 });
 
 test("nothing at all without a score to add up", () => {
-  const { container } = render(<ScoreSummary scores={[]} songs named />);
+  const { container } = render(<ScoreSummary scores={[]} named />);
 
   // Not five zeroes: the surface says why in its own words, if at all.
   expect(container.querySelector(".score-summary")).toBeNull();

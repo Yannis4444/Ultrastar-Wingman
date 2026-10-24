@@ -319,7 +319,7 @@ Never carry the word into a user page without saying which one you mean:
 |---|---|---|
 | The Scores page ("All parties", "Rename party", "Party name") | One evening of singing | party |
 | The downloads panel ("Since Wingman started") | Downloads since Wingman was started | this run of Wingman |
-| The host screen ("This browser holds host rights") | This browser holds host rights | host rights |
+| The user page's tile for the host's browser ("Host screen") | This browser holds host rights | host rights |
 
 The UI copy pass has renamed all three, so the labels above are what the app says today.
 Only the first row is a party. Write the third column, never "session".
@@ -540,7 +540,7 @@ about, and the **Must be visible** column names that part alone.
 | `scores-spread` | `scores/party.md` | `/scores` | Same party, grouped by player, **Spread** picked | 390x844 | The **Spread** view with a box row, a plain-dot row, and the gold best column |
 | `sing-view` | `scores/party.md` | `/scores` | Signed in as Fry, grouped by song, his score of tonight's "I Got You Babe" duet tapped | 390x844 | The cover over the title and artist, the day and time with the party's name, Leela and Fry ranked with Fry's row lit and marked **You**, and **Share** under the rows |
 | `scores-share` | `scores/party.md` | `/scores` | Signed in as Bender, **Share this party** pressed on the party that is still going | 390x844 | The party card's Podium slide with the Strip slide peeking in at the right edge, the arrows around the five dots under it with the two format glyphs after a rule, and the row of three symbol toggles over its line |
-| `user` | `scores/your-scores.md` | `/user` | Signed in as Bender | 390x844 | Identity tile, the stat bar, the histogram |
+| `user` | `scores/your-scores.md` | `/user` | Signed in as Bender | 390x844 | Identity tile, the head line of sings and songs, the histogram with Best, Average and Worst marked on it |
 | `user-stats` | `scores/your-scores.md` | `/user/stats` | Bender's own record across both seeded parties | 390x844 | The **Your scores** header, the charts of his own record |
 | `stats-share` | `scores/your-scores.md` | `/user/stats` | Signed in as Bender, **Share my stats** pressed | 390x844 | The player card's Histogram slide with his picture, **All parties** and the four figures, the Strip slide peeking in at the right edge, the arrows around the three dots with the two format glyphs after a rule, and the row of three symbol toggles over its line |
 | `user-achievements` | `achievements/index.md` | `/user` | Signed in as Fry, whose earned badges leave room for a bar below them | 390x844 | The open badge strip, its count, one row with a progress bar |
@@ -684,8 +684,8 @@ ones a page written against an older draft still gets wrong:
 - **Colour** over the color picker in both editors is **Color**.
 - The Scores page called a party a session. It says party.
 - The downloads panel's filter is **Since Wingman started**, not a party.
-- The host screen says **This browser holds host rights**, not "Host session active". The
-  user page names the same browser **Host screen**, with the role **Admin** under it, and
+- The host screen carries no line about host rights, and never "Host session active". The
+  user page names the browser that holds them **Host screen**, with the role **Admin** under it, and
   its button is **Log in as a user**, no longer "Log in as a user instead".
 - The USDB sort options spell the range out: **Artist A to Z**, never an en dash.
 - The shipped achievement is **Well Traveled**. Migration 0025 renamed it in every database

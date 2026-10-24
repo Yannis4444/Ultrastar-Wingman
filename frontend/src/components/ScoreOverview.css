@@ -1,0 +1,108 @@
+/* A score overview (§7): the head line saying what was sung, then the numbers —
+   on the chart from four scores, one quiet line under that. The surface gives
+   it its margins and nothing else. */
+
+/* "12 sings · 9 songs", and at its far end the surface's one action. 40px tall
+   while it holds one, so the button sits in the line instead of on top of it. */
+.score-overview-head {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.score-overview-head-action {
+  min-height: 40px;
+}
+
+.score-overview-head > :not(.score-overview-counts) {
+  flex: none;
+  margin-left: auto;
+}
+
+.score-overview-counts {
+  flex: 1 1 auto;
+  min-width: 0;
+  margin: 0;
+  font-size: 0.85em;
+  color: var(--color-darker);
+}
+
+.score-overview-number {
+  color: var(--color-dark);
+  font-variant-numeric: tabular-nums;
+}
+
+/* Under four scores: Best · Average · Worst as one line in `ScoreStrip`'s
+   idiom, wrapping between entries and never inside one. */
+.score-overview-line {
+  margin: 4px 0 0 0;
+  font-size: 13px;
+  color: var(--color-darker);
+}
+
+.score-overview-entry {
+  white-space: nowrap;
+}
+
+.score-overview-value-average,
+.score-overview-value-worst {
+  color: var(--color-dark);
+  font-variant-numeric: tabular-nums;
+}
+
+.score-overview-value-best {
+  font-weight: 700;
+  color: var(--highlight-gold-light);
+  font-variant-numeric: tabular-nums;
+}
+
+.score-overview-holder {
+  color: var(--color-darker);
+}
+
+/* The band the labels stand in, right over the bars their lines run through.
+   8px under the head line; the plot under the band is the band's width. */
+.score-overview-chart {
+  margin-top: 8px;
+}
+
+/* One 16px line of labels, or two 15px ones where the holders are named. */
+.score-overview-band {
+  position: relative;
+  height: 16px;
+  font-size: 11px;
+  line-height: 16px;
+  color: var(--color-darker);
+  /* The labels are read, never pressed: a tap belongs to the bucket. */
+  pointer-events: none;
+}
+
+.score-overview-band-named {
+  height: 30px;
+  line-height: 15px;
+}
+
+/* One slot per line, as tall as the band, placed by `spreadMarkLabels`; the
+   words hang off the line's point inside it and ellipse at its edges. 11px is
+   every chart label's size (`CHART_LABEL_SIZE`). */
+.score-overview-mark {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+}
+
+/* `max-content` so a box placed far into its slot is not squeezed by the room
+   left of it there: the translate pulls it back inside, the cap ellipses it. */
+.score-overview-mark-text {
+  position: absolute;
+  top: 0;
+  width: max-content;
+  max-width: 100%;
+}
+
+.score-overview-mark-line {
+  display: block;
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}

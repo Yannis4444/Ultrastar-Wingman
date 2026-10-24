@@ -155,10 +155,10 @@
 
 /* The chrome is two groups (§7), revealed and faded together by the one idle
    timer: the screen's here, the music's at the foot. Top-left because the QR
-   owns the right: the row of buttons, then the host-rights line, then the
-   legend, each under the last. The row wraps rather than leaving the screen,
-   and while the rail stands it wraps before the QR card's column: the card is
-   what the room is scanning. */
+   owns the right: the row of buttons, then the legend 12px under it, the
+   corner's last line but for a refusal. The row wraps rather than leaving the
+   screen, and while the rail stands it wraps before the QR card's column: the
+   card is what the room is scanning. */
 .host-page {
   --host-controls-inset: clamp(12px, 2vw, 24px);
   --host-controls-top: clamp(12px, 2vh, 24px);
@@ -250,16 +250,17 @@
   }
 }
 
-/* The overlay's quiet words: the host-rights line, and the caption that says
-   why a host opens Ultrastar Deluxe. */
+/* The overlay's quiet words: the caption that says why a host opens
+   Ultrastar Deluxe. */
 .host-caption {
   margin: 0;
   color: var(--color-darker);
   font-size: 14px;
 }
 
-/* The keyboard shortcuts, under the host-rights line in its quiet voice: one
-   line of entries, each key before its word, wrapping as whole entries. */
+/* The keyboard shortcuts, under the row of buttons in the caption's quiet
+   voice: one line of entries, each key before its word, wrapping as whole
+   entries. */
 .host-legend {
   display: flex;
   flex-wrap: wrap;
@@ -305,12 +306,6 @@
 
 .host-usdx .host-caption {
   text-align: center;
-}
-
-.host-usdx-button {
-  display: flex;
-  align-items: center;
-  gap: 8px;
 }
 
 /* The music group along the foot (§7): one row at the music line's own

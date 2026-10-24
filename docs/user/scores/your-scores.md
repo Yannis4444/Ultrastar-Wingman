@@ -5,34 +5,37 @@ the **User** tab, and it needs an account.
 
 ## The numbers on your page
 
-Log in and open **User**. Under your name stand five figures over your whole
-record, every party included. Wingman uses the same figures in the same order
-wherever it adds a set of scores up, so an open row on the **Scores** tab and a
-song's own ranking read the same way.
+Log in and open **User**. Under your name stands an overview of your whole
+record, every party included. Wingman draws the same overview wherever a phone
+adds a set of scores up, so an open row on the **Scores** tab and a song's own
+ranking read the same way.
 
 | Figure | What it counts |
 |---|---|
-| :wingman-hash: **Sings** | How many times you sang. A duet you sang with somebody counts once |
-| :wingman-music: **Songs** | How many different songs |
-| :wingman-arrow-up: **Best** | Your best score ever |
-| :wingman-average: **Average** | The mean of all your scores, as a whole number |
-| :wingman-arrow-down: **Worst** | Your lowest score ever |
+| **Sings** | How many times you sang. A duet you sang with somebody counts once |
+| **Songs** | How many different songs |
+| **Best** | Your best score ever |
+| **Average** | The mean of all your scores, as a whole number |
+| **Worst** | Your lowest score ever |
+
+The first line reads like "12 sings · 9 songs". From four scores on, a bar
+chart under it shows where your scores land across the full range, and
+**Best**, **Average**, and **Worst** are lines through its bars with their
+numbers over the chart. Best is the gold line, and its bar is gold too. With
+fewer than four scores the three numbers stand on one line instead. Before your
+first score the page says "Sing a song and your stats appear here."
 
 **Best** and **Worst** name nobody here. Every score on this page is yours, so
 the name would be your own twice.
 
-From four scores on, a bar chart under the figures shows where your scores
-land across the full range. Before your first score the page says "Sing a song
-and your stats appear here" instead.
-
-![Bender's User tab with his picture, the figures over his whole record, a best of 9,842, and the bar chart of where his scores land](../assets/screenshots/scores/user.png){ width="320" loading=lazy }
+![Bender's User tab with his picture, the number of sings and songs over the bar chart of where his scores land, with his best of 9,842, his average, and his worst marked on it](../assets/screenshots/scores/user.png){ width="320" loading=lazy }
 /// caption
-The lone bar at the right of the chart is that best of 9,842.
+The gold bar at the right of the chart holds that best of 9,842.
 ///
 
 ## Your scores, party after party
 
-Tap **All my scores** under the figures. The page is called **Your scores**,
+Tap **All my scores** under the overview. The page is called **Your scores**,
 and it holds every score you ever got.
 
 ![The Your scores page for Bender, with the All scores chart over his whole record and Rap God at 9,842 on top](../assets/screenshots/scores/user-stats.png){ width="320" loading=lazy }
@@ -52,9 +55,10 @@ median and your best. Its labels carry the day as well as the time, so two
 runs of one song months apart still read apart.
 
 Tap a row for what that song adds up to. A song you sang more than once is
-headed by the same figures as the page above, minus **Songs**: every row here
-is one song, so counting them would print a **1** on every row. A bar chart
-follows from four runs on. Under that stands every single run with the day and
+headed by the same overview as the **User** tab, minus the song count: every
+row here is one song, so counting them would print "1 song" on every row. From
+four runs on, the bar chart with its **Best**, **Average**, and **Worst** lines
+follows. Under that stands every single run with the day and
 time it happened. Tap one to open its sing: who sang it with you that time,
 what they got, and :wingman-share: **Share** for a card of it. See
 [One sing](party.md#one-sing). The cover on the row opens the song.

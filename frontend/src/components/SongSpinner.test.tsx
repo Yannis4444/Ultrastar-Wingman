@@ -23,7 +23,7 @@ import { FakeSocket } from "../test/fakeSocket";
 import { iconNames } from "../test/icons";
 import { tagRead } from "../test/tags";
 import { REVEAL_MS } from "./SongReel";
-import SongSpinner from "./SongSpinner";
+import SongSpinner, { SHOW_IT_DELAY_MS } from "./SongSpinner";
 
 // Same seam as the other tests: the real TanStack wiring runs, only the
 // transport is faked.
@@ -223,6 +223,11 @@ function reelSongIds(container: HTMLElement): string[] {
 }
 
 const spinButton = () => screen.getByRole("button", { name: "Spin" });
+/** This screen's SPIN while its own reel runs: the press that lands it. */
+const localShowIt = () => screen.getByRole("button", { name: "Show it" });
+/** SPIN whatever it reads: the die is on it either way. */
+const spinControl = () =>
+  screen.getByRole("button", { name: /^(Spin|Show it)$/ });
 
 const fetchMock = vi.fn();
 
@@ -467,9 +472,17 @@ test("the finished spin settles in place and opens no modal by itself", async ()
   await screen.findByText("1 song");
 
   fireEvent.click(spinButton());
-  expect(spinButton()).toBeDisabled();
-  // The button keeps its word while the reel runs — no "…" flicker.
-  expect(spinButton()).toHaveTextContent("Spin");
+  // While the reel runs the button names the press that lands it, and never a
+  // "…" flicker — held, lit, for the double tap's moment, then live. Held is
+  // `aria-disabled`, never `disabled`, which would throw a keyboard's focus
+  // off the button the moment it spun.
+  expect(localShowIt()).toHaveTextContent("Show it");
+  expect(localShowIt()).toHaveClass("spinner-spin-running");
+  expect(localShowIt()).toBeEnabled();
+  expect(localShowIt()).toHaveAttribute("aria-disabled", "true");
+  act(() => vi.advanceTimersByTime(SHOW_IT_DELAY_MS));
+  expect(localShowIt()).toBeEnabled();
+  expect(localShowIt()).not.toHaveAttribute("aria-disabled");
 
   act(() => vi.advanceTimersByTime(6000));
 
@@ -479,11 +492,124 @@ test("the finished spin settles in place and opens no modal by itself", async ()
   expect(spinButton()).toBeEnabled();
 });
 
+test("Show it on this screen lands the reel at once on the winner it drew", async () => {
+  vi.useFakeTimers({ shouldAdvanceTime: true });
+  const { container } = renderSpinner([QUEEN, AFRICA], []);
+  await screen.findByText("2 songs");
+  // Pinned randomness: the winner is the first song of the pool.
+  vi.spyOn(Math, "random").mockReturnValue(0);
+
+  fireEvent.click(spinButton());
+  act(() => vi.advanceTimersByTime(1000));
+  // Mid-spin: the covers fly, the die rolls, Pick from and the pills rest.
+  expect(localShowIt()).toHaveClass("spinner-spin-running");
+  expect(pickFrom()).toBeDisabled();
+  expect(hostPill()).toBeDisabled();
+  expect(playButton()).toBeDisabled();
+
+  fireEvent.click(localShowIt());
+
+  // Landed in the press, seconds before the reel would have: the winner it
+  // already had in the window and the words, the die at rest, SPIN reading
+  // Spin, and everything that rested while it ran back on.
+  expect(
+    screen.getByRole("button", { name: "Details for Dancing Queen" }),
+  ).toBeEnabled();
+  expect(container.querySelectorAll(".spinner-reel img")).toHaveLength(1);
+  expect(screen.getByText("Dancing Queen").closest("button")).toHaveClass(
+    "spinner-winner",
+  );
+  expect(spinButton()).not.toHaveClass("spinner-spin-running");
+  expect(screen.queryByRole("button", { name: "Show it" })).toBeNull();
+  expect(pickFrom()).toBeEnabled();
+  expect(hostPill()).toBeEnabled();
+  expect(playButton()).toBeEnabled();
+
+  // The reel's own timer running out later lands nothing a second time.
+  act(() => vi.advanceTimersByTime(6000));
+  expect(screen.getByText("Dancing Queen")).toBeInTheDocument();
+
+  // And the next press is a spin again, not a landing.
+  fireEvent.click(spinButton());
+  expect(localShowIt()).toHaveClass("spinner-spin-running");
+});
+
+test("a double tap on this screen's SPIN is one spin, not a spin and a landing", async () => {
+  vi.useFakeTimers({ shouldAdvanceTime: true });
+  const { container } = renderSpinner([QUEEN, AFRICA], []);
+  await screen.findByText("2 songs");
+
+  // The second tap of the double tap, as fast as a finger makes it.
+  fireEvent.click(spinButton());
+  act(() => vi.advanceTimersByTime(150));
+  fireEvent.click(localShowIt());
+
+  // Still spinning: the covers fly, the die rolls, nothing has landed.
+  expect(
+    container.querySelectorAll(".spinner-reel img").length,
+  ).toBeGreaterThan(1);
+  expect(localShowIt()).toHaveClass("spinner-spin-running");
+  expect(playButton()).toBeDisabled();
+  expect(
+    screen.queryByRole("button", { name: /^Details for / }),
+  ).not.toBeInTheDocument();
+
+  // And it lands on the reel's own clock, once.
+  act(() => vi.advanceTimersByTime(6000));
+  expect(container.querySelectorAll(".spinner-reel img")).toHaveLength(1);
+  expect(spinButton()).toBeEnabled();
+  expect(playButton()).toBeEnabled();
+});
+
+test("this screen's Show it becomes pressable exactly SHOW_IT_DELAY_MS into the spin", async () => {
+  vi.useFakeTimers({ shouldAdvanceTime: true });
+  const { container } = renderSpinner([QUEEN, AFRICA], []);
+  await screen.findByText("2 songs");
+
+  fireEvent.click(spinButton());
+  // Short of the moment by more than the few real milliseconds the clock may
+  // drift on its own here.
+  act(() => vi.advanceTimersByTime(SHOW_IT_DELAY_MS - 50));
+  expect(localShowIt()).toHaveAttribute("aria-disabled", "true");
+  // The click reaches the button — it is not `disabled` — and is ignored.
+  fireEvent.click(localShowIt());
+  expect(localShowIt()).toHaveClass("spinner-spin-running");
+  expect(
+    container.querySelectorAll(".spinner-reel img").length,
+  ).toBeGreaterThan(1);
+
+  act(() => vi.advanceTimersByTime(50));
+  expect(localShowIt()).not.toHaveAttribute("aria-disabled");
+  // A deliberate second press, after the covers have been seen to move, lands
+  // the reel at once.
+  fireEvent.click(localShowIt());
+  expect(container.querySelectorAll(".spinner-reel img")).toHaveLength(1);
+  expect(spinButton()).not.toHaveClass("spinner-spin-running");
+  expect(playButton()).toBeEnabled();
+
+  // The next spin starts held again: the last spin's moment is not inherited.
+  fireEvent.click(spinButton());
+  expect(localShowIt()).toHaveAttribute("aria-disabled", "true");
+});
+
+test("under reduced motion this screen's SPIN never reads Show it", async () => {
+  vi.stubGlobal("matchMedia", vi.fn().mockReturnValue({ matches: true }));
+  renderSpinner([QUEEN], []);
+  await screen.findByText("1 song");
+
+  // The reel lands in the press that spun it.
+  fireEvent.click(spinButton());
+  expect(screen.queryByRole("button", { name: "Show it" })).toBeNull();
+  expect(spinButton()).toBeEnabled();
+  expect(screen.getByText("Dancing Queen")).toBeInTheDocument();
+  expect(playButton()).toBeEnabled();
+});
+
 test("the die on the button rolls through its faces while the reel runs", async () => {
   vi.useFakeTimers({ shouldAdvanceTime: true });
   renderSpinner([QUEEN, AFRICA], []);
   await screen.findByText("2 songs");
-  const die = () => iconNames(spinButton())[0];
+  const die = () => iconNames(spinControl())[0];
   expect(die()).toBe("dice");
 
   fireEvent.click(spinButton());
@@ -511,7 +637,7 @@ test("the number on the die comes to rest before the reel does", async () => {
   vi.spyOn(Math, "random").mockReturnValue(0);
   renderSpinner([QUEEN, AFRICA], []);
   await screen.findByText("2 songs");
-  const die = () => iconNames(spinButton())[0];
+  const die = () => iconNames(spinControl())[0];
 
   fireEvent.click(spinButton());
   // Both ends have to be pinned. Deep into the spin the die is still rolling —
@@ -523,13 +649,13 @@ test("the number on the die comes to rest before the reel does", async () => {
   expect(die()).not.toBe(late);
 
   // And from here it no longer changes, while the covers are still gliding —
-  // the button is busy — which is what makes the stop look like a die coming
+  // SPIN still reads Show it — which is what makes the stop look like a die coming
   // to rest instead of a counter being switched off.
   act(() => vi.advanceTimersByTime(300));
   const settled = die();
   act(() => vi.advanceTimersByTime(700));
 
-  expect(spinButton()).toBeDisabled();
+  expect(localShowIt()).toHaveClass("spinner-spin-running");
   expect(die()).toBe(settled);
 });
 
@@ -1049,17 +1175,25 @@ test("Spin opens the room's selection with a spin and waits for the TV's reel", 
   expect(playButton()).toBeDisabled();
   const live = container.querySelector('[aria-live="polite"]');
   expect(live).toHaveTextContent("");
+  // No door to the song while the TV spins: the logo tile is a plain frame.
+  expect(container.querySelector(".spinner-winner")).toBeNull();
+  expect(container.querySelector(".spinner-window")?.tagName).toBe("DIV");
 
   act(() => vi.advanceTimersByTime(REVEAL_MS - 100));
   expect(screen.queryByText("Dancing Queen")).not.toBeInTheDocument();
+  expect(container.querySelector(".spinner-window")?.tagName).toBe("DIV");
 
   act(() => vi.advanceTimersByTime(100));
-  // The cover settled in the window at once, the words under it — plain
-  // words, not the song modal's button — and the region says the song.
+  // The cover settled in the window at once, the words under it — both the
+  // song modal's doors from the landing on — and the region says the song.
   expect(screen.getByText("Dancing Queen")).toBeInTheDocument();
   expect(screen.getByText("Artist of Dancing Queen")).toBeInTheDocument();
-  expect(container.querySelector(".spinner-winner")).toBeNull();
-  expect(container.querySelector(".spinner-window")?.tagName).toBe("DIV");
+  expect(screen.getByText("Dancing Queen").closest("button")).toHaveClass(
+    "spinner-winner",
+  );
+  expect(
+    screen.getByRole("button", { name: "Details for Dancing Queen" }),
+  ).toHaveClass("spinner-window");
   expect(container.querySelector(".spinner-window img")).toHaveAttribute(
     "src",
     "/api/v1/songs/usdb%3A1/cover",
@@ -1120,6 +1254,33 @@ test("a TV that already landed is shown at once", async () => {
 
   expect(await screen.findByText("Dancing Queen")).toBeInTheDocument();
   expect(screen.queryByText(WAITING)).not.toBeInTheDocument();
+});
+
+test("a double tap on the Host screen's SPIN opens the room once and shows nothing early", async () => {
+  // Host mode as it stands: SPIN is busy for the open's round trip and no
+  // longer, so a second tap inside that round trip lands nowhere — one after
+  // a faster answer would be a press on Show it.
+  let land: () => void = () => {};
+  openPlayerSelection.mockImplementationOnce(async () => {
+    await new Promise<void>((resolve) => {
+      land = resolve;
+    });
+    return { data: { selection: spunSelection(QUEEN), token: TOKEN } };
+  });
+  await onHostScreen(LIBRARY, []);
+
+  fireEvent.click(spinButton());
+  await waitFor(() => expect(openPlayerSelection).toHaveBeenCalled());
+  act(() => vi.advanceTimersByTime(150));
+  expect(spinButton()).toBeDisabled();
+  expect(spinButton()).toHaveClass("spinner-spin-running");
+  fireEvent.click(spinButton());
+
+  await act(async () => land());
+  expect(await screen.findByText(WAITING)).toBeInTheDocument();
+  expect(openPlayerSelection).toHaveBeenCalledTimes(1);
+  expect(spinPlayerSelection).not.toHaveBeenCalled();
+  expect(showIt()).toBeEnabled();
 });
 
 test("Show it while the TV spins shows the song at once, the same one", async () => {
@@ -1258,6 +1419,153 @@ test("Play moves the room on to its singers, hands the selection on, and the pag
   fireEvent.click(localPill()!);
   await act(async () => {});
   expect(releases()).toHaveLength(1);
+});
+
+test("the TV's landed song opens the song modal, whose Sing is Play's own path", async () => {
+  await onHostScreen(LIBRARY, []);
+  await spunOnHost();
+  reelLands();
+
+  // The words are the door (the cover is the other one).
+  fireEvent.click(screen.getByText("Dancing Queen"));
+  const modal = screen.getByRole("dialog", { name: "Dancing Queen" });
+  const sing = within(modal).getByRole("button", { name: "Sing" });
+  expect(sing).toBeEnabled();
+
+  fireEvent.click(sing);
+
+  // The modal closes and the room moves on over the selection this phone
+  // already holds: `/pick` with its token, then the hand-over — never a
+  // second selection, and nothing given back.
+  expect(
+    screen.queryByRole("dialog", { name: "Dancing Queen" }),
+  ).not.toBeInTheDocument();
+  await waitFor(() => expect(pickPlayerSelection).toHaveBeenCalledTimes(1));
+  expect(pickPlayerSelection.mock.calls[0][0].headers).toEqual({
+    "X-Selection-Token": TOKEN,
+  });
+  const picker = await screen.findByRole("dialog", {
+    name: "Player selection",
+  });
+  expect(picker).toHaveTextContent("Dancing Queen");
+  expect(openPlayerSelection).toHaveBeenCalledTimes(1);
+  expect(releases()).toHaveLength(0);
+});
+
+test("the cover is the TV's song's second door, from the landing on", async () => {
+  await onHostScreen(LIBRARY, []);
+  await spunOnHost();
+  expect(
+    screen.queryByRole("button", { name: /^Details for/ }),
+  ).not.toBeInTheDocument();
+  reelLands();
+
+  fireEvent.click(
+    screen.getByRole("button", { name: "Details for Dancing Queen" }),
+  );
+  expect(
+    screen.getByRole("dialog", { name: "Dancing Queen" }),
+  ).toBeInTheDocument();
+});
+
+test("a respin from the room turns the open modal's Sing off", async () => {
+  await onHostScreen(LIBRARY, []);
+  await spunOnHost();
+  reelLands();
+  fireEvent.click(screen.getByText("Dancing Queen"));
+  const modal = screen.getByRole("dialog", { name: "Dancing Queen" });
+
+  // The selector's start spun again: the held selection is another song now.
+  broadcast(spunSelection(AFRICA, [], {}, 2));
+
+  // Still this song's modal, but its Sing would sing another one: off.
+  const sing = within(modal).getByRole("button", { name: "Sing" });
+  expect(sing).toBeDisabled();
+  fireEvent.click(sing);
+  await act(async () => {});
+  expect(pickPlayerSelection).not.toHaveBeenCalled();
+  expect(openPlayerSelection).toHaveBeenCalledTimes(1);
+});
+
+test("a respin the room has already revealed puts its own cover in the window", async () => {
+  await onHostScreen(LIBRARY, []);
+  await spunOnHost();
+  reelLands();
+  expect(
+    screen.getByRole("button", { name: "Details for Dancing Queen" }),
+  ).toBeInTheDocument();
+
+  // The selector's start spun again and the room showed it at once: the page
+  // goes from one landed song to the next without a wait in between.
+  broadcast(
+    spunSelection(AFRICA, [], {
+      spin: {
+        id: 2,
+        spun_at: new Date(Date.now()).toISOString(),
+        scope: "all",
+        playlist_id: null,
+        origin: "device",
+        revealed: true,
+      },
+    }),
+  );
+
+  // The window is the new song's door, never the last song's cover.
+  expect(
+    screen.queryByRole("button", { name: "Details for Dancing Queen" }),
+  ).toBeNull();
+  const door = screen.getByRole("button", { name: "Details for Africa" });
+  expect(door.querySelector("img")).toHaveAttribute(
+    "src",
+    "/api/v1/songs/usdb%3A2/cover",
+  );
+  fireEvent.click(door);
+  const modal = screen.getByRole("dialog", { name: "Africa" });
+  expect(within(modal).getByRole("button", { name: "Sing" })).toBeEnabled();
+});
+
+test("a selection lost while the song modal is open leaves the ordinary Sing", async () => {
+  await onHostScreen(LIBRARY, []);
+  await spunOnHost();
+  reelLands();
+  fireEvent.click(screen.getByText("Dancing Queen"));
+  const modal = screen.getByRole("dialog", { name: "Dancing Queen" });
+
+  // Another phone took the room over: another selection's `opened_at`.
+  broadcast(
+    spunSelection(WATERLOO, [], { opened_at: "2026-10-24T09:00:00Z" }, 3),
+  );
+  expect(
+    screen.getByText("Somebody else took over the selection."),
+  ).toBeInTheDocument();
+
+  // The page holds nothing now: Sing opens a selection of its own, which the
+  // room answers as it answers anybody, and never a `/pick` over a lock this
+  // phone no longer has.
+  fireEvent.click(within(modal).getByRole("button", { name: "Sing" }));
+  await waitFor(() => expect(openPlayerSelection).toHaveBeenCalledTimes(2));
+  expect(openPlayerSelection.mock.calls[1][0].body.song_id).toBe("usdb:1");
+  expect(pickPlayerSelection).not.toHaveBeenCalled();
+});
+
+test("once the page holds nothing the song modal's Sing is the ordinary one", async () => {
+  await onHostScreen(LIBRARY, []);
+  await spunOnHost();
+  reelLands();
+  fireEvent.click(playButton());
+  const picker = await screen.findByRole("dialog", {
+    name: "Player selection",
+  });
+  fireEvent.click(within(picker).getByRole("button", { name: "Cancel" }));
+  await waitFor(() => expect(releases()).toHaveLength(1));
+
+  // The words stay, still the door; Sing now opens a selection of its own.
+  fireEvent.click(screen.getByText("Dancing Queen"));
+  const modal = screen.getByRole("dialog", { name: "Dancing Queen" });
+  fireEvent.click(within(modal).getByRole("button", { name: "Sing" }));
+  await waitFor(() => expect(openPlayerSelection).toHaveBeenCalledTimes(2));
+  expect(openPlayerSelection.mock.calls[1][0].body.song_id).toBe("usdb:1");
+  expect(pickPlayerSelection).toHaveBeenCalledTimes(1);
 });
 
 test("a card that lands is kept for the hand-over", async () => {
@@ -1660,7 +1968,9 @@ test("the TV's wishlist spin offers the take-off beside the song once it has lan
   expect(iconNames(button!)).toEqual(["trash"]);
   const result = button!.parentElement!;
   expect(result).toHaveClass("spinner-result");
-  const words = result.querySelector(".spinner-words")!;
+  // The take-off beside the song's own button, never inside it.
+  const words = result.querySelector(".spinner-winner")!;
+  expect(words.tagName).toBe("BUTTON");
   expect([...result.children]).toEqual([words, button]);
 
   clearWishes.mockResolvedValue({ data: undefined });

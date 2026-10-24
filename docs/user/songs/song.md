@@ -86,14 +86,14 @@ You only see the buttons your role may use.
 
 ## Best scores
 
-**Best scores** opens the song's whole record. It is headed by the same figures
-the **User** tab and the **Scores** tab print: :wingman-hash: **Sings**,
-:wingman-arrow-up: **Best**, :wingman-average: **Average**, and
-:wingman-arrow-down: **Worst**. There is no **Songs** figure here, because every
+**Best scores** opens the song's whole record. It is headed by the same
+overview the **User** tab and the **Scores** tab draw: how many sings, then
+**Best**, **Average**, and **Worst** on one line, such as "Best 9500 Alice ·
+Average 5467 · Worst 1000 Frank". There is no song count here, because every
 score in the view is this one song. **Best** and **Worst** name the singer who
 holds them.
 
-Under the figures stands the ranking, best first, up to ten singers deep. From
+Under that line stands the ranking, best first, up to ten singers deep. From
 four scores on, a picture of every score the song ever got stands between the
 two, with the median of all of them written above it.
 
