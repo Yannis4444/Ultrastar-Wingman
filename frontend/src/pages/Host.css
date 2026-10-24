@@ -307,8 +307,8 @@
    leaves 13.5px of its own box under the word's baseline, which with a 4px
    gap and the caption's `normal` line put the caption's capitals 22.5px under
    it (measured at 1280x720). A declared 16px line pulled 2px up into the
-   button's box brings them to 15, 1.5px clear of the hover fill and of the
-   focus ring below. The overlap is the caption's and never the button's: it
+   button's box brings them to 14.5, 1px clear of the hover fill; the focus
+   ring is drawn inside the box (below). The overlap is the caption's and never the button's: it
    lets every press through, so the target stays 40px. */
 .host-usdx .host-caption {
   margin-top: -2px;
