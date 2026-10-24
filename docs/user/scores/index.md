@@ -63,9 +63,9 @@ are worked out from. See
 
 ## The pages in this section
 
-- [A party's scores](party.md): the party picker, the charts, the ranking, a
-  picture of a party or a score to share, and the two corrections a moderator
-  may make.
+- [A party's scores](party.md): the party picker, the charts, the ranking, the
+  view of one sing, a picture to share of a party, a score, or a singer's stats,
+  and the two corrections a moderator may make.
 - [Your own scores](your-scores.md): your own record across every party, on the
   **User** tab.
 
