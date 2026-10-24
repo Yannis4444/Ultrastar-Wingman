@@ -689,8 +689,8 @@ saved) where a jump to the top would throw away the place they were working in.
   one; `chart={false}` keeps that line at any count for the song modal, whose picture is the
   dated `ScoreStrip` under it (`showBest={false}`). Every score the same number is one *Best*
   in both forms. A one-score group draws no overview. Nothing moves: no reduced-motion
-  branch. At 360px a tile's plot is 288px (gutter, the tile's margin and padding): three
-  96px slots.
+  branch. At 360px a tile's plot is 304px (the list's 8px, the tile's 8px margin and
+  12px padding a side; measured): three 96px slots.
   ```
    390px  /scores, by player, Alice open    /scores, by song, open (named)
    +-------------------------------------+  +-------------------------------------+

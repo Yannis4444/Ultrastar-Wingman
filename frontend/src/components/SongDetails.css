@@ -487,11 +487,9 @@ a.song-option {
   margin-top: 12px;
 }
 
-/* Best-scores sub-view: the song's history over the ranking, as one wrapping
-   run of glyph+number pairs — 8px inside a pair's own gap, 16px between them. */
-/* The summary is `ScoreSummary`'s shape, layout included; the modal only puts
-   it in the page gutter, on the same 16px column as the strip and the ranking
-   under it. */
+/* Best-scores sub-view: the song's history over the ranking. The overview is
+   `ScoreOverview`'s shape, layout included; the modal only puts it in the page
+   gutter, on the same 16px column as the strip and the ranking under it. */
 .song-scores-stats {
   margin: 0 16px 12px 16px;
 }

@@ -245,11 +245,21 @@ test("the ranking summarises the song's whole history above the rows", async () 
   const dialog = screen.getByRole("dialog", { name: "Best scores" });
 
   // Six sings, and the average over every score — not over the listed ten.
-  // No Songs stat: every score in here is this one song. Best and Worst name
-  // the singer who holds them, rank 1 one row below saying it again.
-  expect(dialog.querySelector(".song-scores-stats")).toHaveTextContent(
-    "6Sings9500Best · Alice4083Average1000Worst · Frank",
+  // No Songs: every score in here is this one song. Best and Worst name the
+  // singer who holds them, rank 1 one row below saying it again. The line
+  // form at any count: the strip under it is this view's picture.
+  const overview = dialog.querySelector(".song-scores-stats") as HTMLElement;
+  expect(overview).toHaveClass("score-overview");
+  expect(overview.querySelector(".score-overview-counts")?.textContent).toBe(
+    "6 sings",
   );
+  expect(overview.querySelector(".score-overview-line")?.textContent).toBe(
+    "Best 9500 Alice · Average 4083 · Worst 1000 Frank",
+  );
+  expect(overview.querySelector(".score-overview-band")).toBeNull();
+  expect(
+    within(overview).queryByRole("img", { hidden: true }),
+  ).not.toBeInTheDocument();
 });
 
 test("the whole history is drawn as the all-scores strip above the ranking", async () => {

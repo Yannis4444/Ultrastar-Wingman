@@ -44,9 +44,9 @@ export interface ScoreGroup {
 }
 
 /**
- * What a set of scores adds up to: the five numbers `ScoreSummary` prints
- * wherever scores are totalled — the user page, an open score group, a song's
- * best scores.
+ * What a set of scores adds up to: the numbers `ScoreOverview` prints wherever
+ * a phone totals scores — the user page, an open score group, a song's best
+ * scores — and `ScoreSummary` on the host's results.
  */
 export interface ScoreSummaryStats {
   /** Performances that were scored, not scores: one duet run counts once. */
@@ -64,9 +64,9 @@ export interface ScoreSummaryStats {
   worstBy: string;
 }
 
-/** How many scores a summary needs before a chart is drawn under it (§7): a
+/** How many scores an overview needs before its numbers go on a chart (§7): a
  * couple of dots have no spread and a handful of bars across twenty buckets is
- * noise. The list under a summary is drawn either way. */
+ * noise. The list under an overview is drawn either way. */
 export const CHART_MIN_SCORES = 4;
 
 export interface SessionSummary {
@@ -186,6 +186,83 @@ export function scoreMarkers(
   }
   marks.push({ kind: "best", offset: best });
   return marks;
+}
+
+/** The widest a mark label's slot over the score overview's histogram gets,
+ * in px: "Average 6890" at 11px and some air. */
+export const MARK_LABEL_SLOT = 96;
+
+/** Where one of the score overview's mark labels stands over the plot. */
+export interface MarkLabelSlot {
+  /** The slot's left edge, in px from the plot's left edge. */
+  left: number;
+  /** The slot's width, in px — the same for every slot of one plot. */
+  width: number;
+  /**
+   * Where the mark's line falls inside the slot, as a fraction of its width
+   * (0 its left edge, 1 its right, 0.5 a slot centred on its line). The label
+   * hangs off that point, so a slot pushed aside keeps its words beside its
+   * line instead of centring them away from it.
+   */
+  anchor: number;
+}
+
+/**
+ * The slots the score overview's Best · Average · Worst labels stand in over
+ * the histogram (ui-guidelines §7, *Score overviews*), one per line x, `xs` in
+ * ascending order — the order the slots keep, so the nth label is always the
+ * nth line and its word is what pairs them.
+ *
+ * Each slot is `min(MARK_LABEL_SLOT, width ÷ 3)` wide and centred on its line
+ * where it can be. Slots that would overlap are moved apart as a run, the run
+ * centred where its lines want it on average, and every run is held inside the
+ * plot. None is ever dropped, unlike `scoreMarkers`: the host's marks decorate
+ * numbers printed beside them, while these labels are the numbers' only print.
+ */
+export function spreadMarkLabels(xs: number[], width: number): MarkLabelSlot[] {
+  const slot = Math.min(MARK_LABEL_SLOT, width / 3);
+  // A run of touching slots: its first label's index, how many it holds, and
+  // the sum of where each member wants the run to start — its own wish less
+  // the slots in front of it in the run, so the mean is the run's best start.
+  interface Run {
+    first: number;
+    count: number;
+    wish: number;
+    left: number;
+  }
+  const place = (run: Run): number =>
+    Math.max(0, Math.min(width - run.count * slot, run.wish / run.count));
+  const runs: Run[] = [];
+  xs.forEach((x, index) => {
+    const run: Run = { first: index, count: 1, wish: x - slot / 2, left: 0 };
+    run.left = place(run);
+    runs.push(run);
+    // Merge backwards for as long as the newest run overlaps the one before:
+    // a merged run may move left into its neighbour in turn.
+    while (runs.length > 1) {
+      const last = runs[runs.length - 1];
+      const before = runs[runs.length - 2];
+      if (before.left + before.count * slot <= last.left) break;
+      before.wish += last.wish - before.count * slot * last.count;
+      before.count += last.count;
+      before.left = place(before);
+      runs.pop();
+    }
+  });
+  const slots: MarkLabelSlot[] = [];
+  for (const run of runs) {
+    for (let offset = 0; offset < run.count; offset++) {
+      const left = run.left + offset * slot;
+      const x = xs[run.first + offset];
+      const anchor = slot > 0 ? (x - left) / slot : 0.5;
+      slots.push({
+        left,
+        width: slot,
+        anchor: Math.max(0, Math.min(1, anchor)),
+      });
+    }
+  }
+  return slots;
 }
 
 /**

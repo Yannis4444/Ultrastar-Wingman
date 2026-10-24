@@ -19,13 +19,11 @@ import LoginForm from "../components/LoginForm";
 import ManageMenu from "../components/ManageMenu";
 import MyCards from "../components/MyCards";
 import PlayerAvatar from "../components/PlayerAvatar";
-import ScoreHistogram from "../components/ScoreHistogram";
-import ScoreSummary from "../components/ScoreSummary";
+import ScoreOverview from "../components/ScoreOverview";
 import UserAchievements from "../components/UserAchievements";
 import { errorDetail, errorMessage } from "../errors";
 import { REPOSITORY_URL } from "../links";
 import { manageEntries } from "../manage";
-import { CHART_MIN_SCORES } from "../stats";
 import "./User.css";
 
 /** Mirrors the backend's limit so an oversized file never leaves the browser. */
@@ -100,26 +98,22 @@ function UserStats({ playerId }: { playerId: string | null }) {
 
   return (
     <>
-      {/* The same five numbers every other set of scores in the app is added
-          up into (§7), and no favorites count: a favorite is a filter on the
-          song list, not something achieved. Best and Worst go unnamed — every
-          score on this page is the reader's own. */}
-      <ScoreSummary scores={scores.data.scores} songs className="user-stats" />
-      {/* The shape behind the numbers: where this singer's scores actually land
-          across the full 0–10000 range. Flat on the page like the stat bar
-          above it — the identity card is this page's one surface. */}
-      {scores.data.scores.length >= CHART_MIN_SCORES && (
-        <div className="user-stats-chart">
-          <ScoreHistogram
-            scores={scores.data.scores}
-            height={96}
-            label="Your score distribution"
-          />
-        </div>
-      )}
+      {/* The score overview every phone surface adds scores up in (§7): what
+          was sung, then Best · Average · Worst on the shape of where this
+          singer's scores land — flat on the page, the identity card being its
+          one surface. No favorites count: a favorite is a filter on the song
+          list, not something achieved. The peaks go unnamed and there is no
+          action — every score here is the reader's own, and *All my scores*
+          under it is the way to the card. */}
+      <ScoreOverview
+        scores={scores.data.scores}
+        songs
+        label="Your score distribution"
+        className="user-stats"
+      />
       {/* Inside this component on purpose: it is the only place that knows the
-          five numbers have something behind them, so the row can never lead to
-          an empty page. A quiet line tied to the block above by its hairline —
+          numbers have something behind them, so the row can never lead to an
+          empty page. A quiet line tied to the block above by its hairline —
           no leading glyph, which is what made it read as a Manage errand. */}
       <Link className="user-stats-link" to="/user/stats">
         <span className="user-stats-link-label">All my scores</span>

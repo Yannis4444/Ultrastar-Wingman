@@ -12,6 +12,7 @@ import {
   histogram,
   isNewHighscore,
   isTucked,
+  MARK_LABEL_SLOT,
   scoreMarkers,
   scoreOffset,
   scorePlayer,
@@ -23,7 +24,9 @@ import {
   songHistory,
   songLabel,
   sortGroups,
+  spreadMarkLabels,
   summarize,
+  type MarkLabelSlot,
   type SongHistory,
 } from "./stats";
 
@@ -605,6 +608,94 @@ test("exactly the minimum gap is far enough for a marker to stay", () => {
   // The same boundary between the two ends: at the gap they both stay.
   expect(kinds(marks(2000, 2250, 2500), 5)).toEqual(["worst", "best"]);
   expect(kinds(marks(2000, 2250, 2499), 5)).toEqual(["average"]);
+});
+
+/** Whether no two of the slots overlap, and every one lies inside the plot. */
+function apartAndInside(slots: MarkLabelSlot[], width: number): boolean {
+  return slots.every(
+    (slot, index) =>
+      slot.left >= 0 &&
+      slot.left + slot.width <= width + 1e-9 &&
+      (index === 0 ||
+        slots[index - 1].left + slots[index - 1].width <= slot.left + 1e-9),
+  );
+}
+
+test("mark labels with room between them stand centred on their lines", () => {
+  const slots = spreadMarkLabels([60, 200, 340], 400);
+
+  expect(slots.map((slot) => slot.left)).toEqual([12, 152, 292]);
+  expect(slots.every((slot) => slot.width === MARK_LABEL_SLOT)).toBe(true);
+  expect(slots.map((slot) => slot.anchor)).toEqual([0.5, 0.5, 0.5]);
+});
+
+test("a 304px plot is three 96px slots, side by side, none dropped", () => {
+  // The 360px phone's tile: close peaks, three lines a few pixels apart. The
+  // run is held against the right edge, its 16px of room left over at the left.
+  const slots = spreadMarkLabels([228, 232, 237], 304);
+
+  expect(slots).toHaveLength(3);
+  expect(slots.map((slot) => slot.width)).toEqual([96, 96, 96]);
+  expect(slots.map((slot) => slot.left)).toEqual([16, 112, 208]);
+  expect(apartAndInside(slots, 304)).toBe(true);
+});
+
+test("a narrower plot shares its width in three", () => {
+  const slots = spreadMarkLabels([100, 101, 102], 240);
+
+  expect(slots.map((slot) => slot.width)).toEqual([80, 80, 80]);
+  expect(apartAndInside(slots, 240)).toBe(true);
+});
+
+test("overlapping slots move apart as a run, centred where their lines are", () => {
+  // Two lines 10px apart in the middle of a wide plot: both give way, equally.
+  const slots = spreadMarkLabels([400, 410, 700], 800);
+
+  expect(slots[0].left).toBeCloseTo(309);
+  expect(slots[1].left).toBeCloseTo(405);
+  expect(slots[2].left).toBeCloseTo(652);
+  expect(apartAndInside(slots, 800)).toBe(true);
+  // Each label hangs off its own line's point in the slot it was moved to:
+  // the left one towards its right edge, the right one from its left.
+  expect(slots[0].anchor).toBeCloseTo(91 / 96);
+  expect(slots[1].anchor).toBeCloseTo(5 / 96);
+});
+
+test("the order of the lines is the order of the slots", () => {
+  // The nth label is the nth line, so the word is what pairs them.
+  for (const xs of [
+    [10, 12, 14],
+    [140, 141, 290],
+    [0, 150, 151],
+    [500, 790, 799],
+  ]) {
+    const slots = spreadMarkLabels(xs, 800);
+    const lefts = slots.map((slot) => slot.left);
+    expect([...lefts].sort((a, b) => a - b)).toEqual(lefts);
+    expect(apartAndInside(slots, 800)).toBe(true);
+  }
+});
+
+test("a slot at either end is held inside the plot", () => {
+  const slots = spreadMarkLabels([2, 150, 287], 288);
+
+  expect(slots[0].left).toBe(0);
+  expect(slots[2].left).toBe(192);
+  // Pushed in from the edge, the label starts or ends on its line.
+  expect(slots[0].anchor).toBeCloseTo(2 / 96);
+  expect(slots[2].anchor).toBeCloseTo(95 / 96);
+});
+
+test("equal scores keep one slot each, and one alone is one slot", () => {
+  const tied = spreadMarkLabels([200, 200, 200], 600);
+  expect(tied).toHaveLength(3);
+  expect(apartAndInside(tied, 600)).toBe(true);
+  // The run is centred on the one line all three stand on.
+  expect(tied[1].left + tied[1].width / 2).toBeCloseTo(200);
+
+  expect(spreadMarkLabels([150], 300)).toEqual([
+    { left: 102, width: 96, anchor: 0.5 },
+  ]);
 });
 
 test("a record is one where the whole all-time best came out of this sing", () => {

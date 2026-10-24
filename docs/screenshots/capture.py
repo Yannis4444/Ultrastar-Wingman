@@ -803,7 +803,7 @@ ROWS: dict[str, Row] = {
         viewport="phone",
         route="/user",
         ready='text(q(".user-identity-name")) === "Bender" && q(".user-stats")'
-        ' && q(".user-stats-chart")',
+        ' && qa(".user-stats .score-overview-mark").length === 3',
     ),
     "user-stats": Row(
         identity="Bender",

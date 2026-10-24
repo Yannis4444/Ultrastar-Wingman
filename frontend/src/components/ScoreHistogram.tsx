@@ -1,12 +1,32 @@
 import type { ScoreWithContext } from "../api";
+import { CHART_LABEL_SIZE, histogramLineX } from "../chartLayout";
 import { MAX_SCORE, chartTheme } from "../chartTheme";
 import { useChartTip } from "../hooks/useChartTip";
 import { useMeasuredWidth } from "../hooks/useMeasuredWidth";
-import { HISTOGRAM_BUCKETS, histogram } from "../stats";
+import { HISTOGRAM_BUCKETS, bucketOf, histogram } from "../stats";
 import ChartTip from "./ChartTip";
 
 const PAD_BOTTOM = 14;
 const BUCKET_WIDTH = MAX_SCORE / HISTOGRAM_BUCKETS;
+
+/** One of the score overview's three numbers, drawn as a line through the
+ * bars at its score. */
+export interface HistogramMark {
+  kind: "worst" | "average" | "best";
+  score: number;
+}
+
+/** The order the lines are painted in: gold last, so it is on top. */
+const PAINT_ORDER: HistogramMark["kind"][] = ["worst", "average", "best"];
+
+const MARK_STYLE: Record<
+  HistogramMark["kind"],
+  { stroke: string; dash?: string }
+> = {
+  worst: { stroke: chartTheme.dot },
+  average: { stroke: chartTheme.axis, dash: "3 3" },
+  best: { stroke: chartTheme.gold },
+};
 
 interface ScoreHistogramProps {
   scores: ScoreWithContext[];
@@ -14,6 +34,19 @@ interface ScoreHistogramProps {
   height: number;
   /** Announced to screen readers, which get nothing out of the drawing. */
   label: string;
+  /**
+   * Lines through the bars, from the top of the drawing to the axis, at each
+   * mark's score — the score overview's Best · Average · Worst. Their labels
+   * are the caller's, as HTML over the drawing, where a screen reader reads
+   * them. Left out, the chart is the bare distribution.
+   */
+  marks?: HistogramMark[];
+  /**
+   * The best score of the lot, and who holds it where the peaks are named:
+   * its bucket is the gold one (the player card's rule), and that bucket's
+   * tip says so. Left out, every bar is the accent.
+   */
+  best?: { score: number; holder?: string };
 }
 
 /**
@@ -26,17 +59,31 @@ export default function ScoreHistogram({
   scores,
   height,
   label,
+  marks = [],
+  best,
 }: ScoreHistogramProps) {
   const [containerRef, width] = useMeasuredWidth<HTMLDivElement>(340);
   const { tip, clear, markTip, surfaceTip } = useChartTip(containerRef);
   const buckets = histogram(scores);
   const fullest = Math.max(...buckets, 1);
   const barWidth = width / HISTOGRAM_BUCKETS;
-  const barSpace = height - PAD_BOTTOM - 4;
-  const bucketLines = (index: number) => [
-    `${index * BUCKET_WIDTH} to ${(index + 1) * BUCKET_WIDTH}`,
-    `${buckets[index]} score${buckets[index] === 1 ? "" : "s"}`,
-  ];
+  const axisY = height - PAD_BOTTOM;
+  const barSpace = axisY - 4;
+  const bestBucket = best === undefined ? null : bucketOf(best.score);
+  const bucketLines = (index: number) => {
+    const lines = [
+      `${index * BUCKET_WIDTH} to ${(index + 1) * BUCKET_WIDTH}`,
+      `${buckets[index]} score${buckets[index] === 1 ? "" : "s"}`,
+    ];
+    if (best !== undefined && index === bestBucket) {
+      lines.push(
+        best.holder === undefined
+          ? `Best ${best.score}`
+          : `Best ${best.score} · ${best.holder}`,
+      );
+    }
+    return lines;
+  };
   // The full-height columns tile the SVG, so every tap lands on one — the
   // surface handler only needs them for the exact-hit resolution.
   const tappable = buckets.map((_count, index) => ({
@@ -45,6 +92,9 @@ export default function ScoreHistogram({
     y: height / 2,
     lines: bucketLines(index),
   }));
+  const painted = PAINT_ORDER.flatMap((kind) =>
+    marks.filter((mark) => mark.kind === kind),
+  );
 
   return (
     <div
@@ -67,10 +117,12 @@ export default function ScoreHistogram({
               <rect
                 data-testid="histogram-bar"
                 x={index * barWidth + 0.5}
-                y={height - PAD_BOTTOM - barHeight}
+                y={axisY - barHeight}
                 width={Math.max(barWidth - 1, 1)}
                 height={barHeight}
-                fill={chartTheme.accent}
+                fill={
+                  index === bestBucket ? chartTheme.gold : chartTheme.accent
+                }
               />
               {/* The whole column answers, not just the bar — an empty or
                   1px bucket is otherwise impossible to ask about. */}
@@ -89,15 +141,34 @@ export default function ScoreHistogram({
         <line
           x1={0}
           x2={width}
-          y1={height - PAD_BOTTOM}
-          y2={height - PAD_BOTTOM}
+          y1={axisY}
+          y2={axisY}
           stroke={chartTheme.grid}
           strokeWidth={1}
         />
+        {/* Over the hit columns, so they must let a tap through to them. */}
+        {painted.map((mark) => {
+          const x = histogramLineX(mark.score, width);
+          const style = MARK_STYLE[mark.kind];
+          return (
+            <line
+              key={mark.kind}
+              data-testid={`histogram-mark-${mark.kind}`}
+              x1={x}
+              x2={x}
+              y1={0}
+              y2={axisY}
+              stroke={style.stroke}
+              strokeWidth={1}
+              strokeDasharray={style.dash}
+              pointerEvents="none"
+            />
+          );
+        })}
         <text
           x={0}
           y={height - 2}
-          fontSize={10}
+          fontSize={CHART_LABEL_SIZE}
           fill={chartTheme.axisQuiet}
           textAnchor="start"
         >
@@ -106,7 +177,7 @@ export default function ScoreHistogram({
         <text
           x={width}
           y={height - 2}
-          fontSize={10}
+          fontSize={CHART_LABEL_SIZE}
           fill={chartTheme.axisQuiet}
           textAnchor="end"
         >

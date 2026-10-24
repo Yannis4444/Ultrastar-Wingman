@@ -48,7 +48,7 @@ import PlayerSelection from "./PlayerSelection";
 import PlaylistCover from "./PlaylistCover";
 import RankedScoreList from "./RankedScoreList";
 import ScoreStrip from "./ScoreStrip";
-import ScoreSummary from "./ScoreSummary";
+import ScoreOverview from "./ScoreOverview";
 import SongCover from "./SongCover";
 // The control row is shared with the Home stage.
 import "./SongControls.css";
@@ -661,16 +661,23 @@ export default function SongDetails({
   if (view === "scores") {
     return (
       <Modal title="Best scores" bare onClose={() => setView("main")}>
-        {/* The song's whole history in the app's one score summary (§7), so
-            the ranking below has something to be read against. Best and Worst
-            name the singer who holds them — rank 1 says it again one row
-            further down, and one shape everywhere beats one line saved. No
-            Songs stat: every score in here is this one song. */}
-        <ScoreSummary scores={allScores} named className="song-scores-stats" />
+        {/* The song's whole history as the phones' one score overview (§7),
+            so the ranking below has something to be read against — in its
+            line form at any count, the dated strip under it being this view's
+            picture. Best and Worst name the singer who holds them — rank 1
+            says it again one row further down, and one shape everywhere beats
+            one line saved. No Songs: every score in here is this one song. */}
+        <ScoreOverview
+          scores={allScores}
+          named
+          chart={false}
+          label="Every score this song ever got"
+          className="song-scores-stats"
+        />
         {/* Four scores are the fewest that make a picture (§7): a couple of
             dots have no spread to show and no median worth drawing a line for,
             and the ranking below says everything they do. The modal is flat on
-            `--bg`, the ground every chart is drawn for (§1.1). The summary
+            `--bg`, the ground every chart is drawn for (§1.1). The overview
             right above already prints Best and who holds it, so the strip's
             own line keeps the median alone. */}
         {allScores.length >= CHART_MIN_SCORES && (

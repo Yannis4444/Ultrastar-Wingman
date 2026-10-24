@@ -556,31 +556,33 @@ test("the account's own totals are summed up under the identity", async () => {
   });
   renderUser();
 
-  expect(await screen.findByText("Sings")).toBeInTheDocument();
+  const record = await waitFor(() => {
+    const found = document.querySelector(".user-stats");
+    expect(found).not.toBeNull();
+    return found as HTMLElement;
+  });
   await waitFor(() =>
     expect(listPlayerScores.mock.calls[0][0].path).toEqual({
       player_id: "aaa",
     }),
   );
-  expect(screen.getByText("Sings").previousSibling).toHaveTextContent("2");
-  expect(screen.getByText("Best").previousSibling).toHaveTextContent("9000");
-  expect(screen.getByText("Average").previousSibling).toHaveTextContent("8500");
-  expect(screen.getByText("Worst").previousSibling).toHaveTextContent("8000");
-  // Both scores are on songs that have left the library: one unknown song.
-  expect(screen.getByText("Songs").previousSibling).toHaveTextContent("1");
-  // The app's one score summary (§7): what was sung before how well it went,
-  // and the three score numbers reading down from the best.
-  expect(
-    [...document.querySelectorAll(".score-summary-stat .icon-stat-label")].map(
-      (label) => label.textContent,
-    ),
-  ).toEqual(["Sings", "Songs", "Best", "Average", "Worst"]);
-  // Every score on this page is the reader's own, so the peaks name nobody.
-  expect(screen.getByText("Best").textContent).toBe("Best");
-  expect(screen.getByText("Worst").textContent).toBe("Worst");
+  // The phones' score overview (§7): what was sung — both scores are on songs
+  // that have left the library, one unknown song — then how well it went,
+  // reading down from the best. Two scores are no chart, so one line.
+  expect(record).toHaveClass("score-overview");
+  expect(record.querySelector(".score-overview-counts")).toHaveTextContent(
+    /^2 sings · 1 song$/,
+  );
+  expect(record.querySelector(".score-overview-line")?.textContent).toBe(
+    "Best 9000 · Average 8500 · Worst 8000",
+  );
+  // Every score on this page is the reader's own, so the peaks name nobody,
+  // and there is no action: All my scores is the way to the card.
+  expect(record).not.toHaveTextContent("Alice");
+  expect(record.querySelector(".score-overview-head-action")).toBeNull();
 });
 
-test("the best on the user page wears the arrow, never the cup", async () => {
+test("the numbers on the user page wear words, never glyphs", async () => {
   loggedInAsAlice();
   listPlayerScores.mockResolvedValue({
     data: { scores: [score(9000, "s1"), score(8000, "s2")] },
@@ -588,9 +590,14 @@ test("the best on the user page wears the arrow, never the cup", async () => {
   renderUser();
 
   // `trophy` is the song modal's action bar, where the best score is a
-  // thing to open. Inside a score summary it is a number like any other.
-  const stat = (await screen.findByText("Best")).parentElement!;
-  expect(iconNames(stat)).toEqual(["arrow-up"]);
+  // thing to open; the host's results wear `arrow-up`. The phones' overview
+  // prints words.
+  const line = await waitFor(() => {
+    const found = document.querySelector(".user-stats .score-overview-line");
+    expect(found).not.toBeNull();
+    return found as HTMLElement;
+  });
+  expect(iconNames(line)).toEqual([]);
 });
 
 test("the distribution sits between the numbers and the way into the list", async () => {
@@ -619,13 +626,17 @@ test("the distribution sits between the numbers and the way into the list", asyn
     0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 0, 1, 0, 1, 0,
   ]);
 
-  const wrapper = chart.parentElement;
+  // The numbers are marks on it, labelled over the bars and unnamed.
+  const record = chart.closest(".user-stats") as HTMLElement;
+  expect(record).not.toBeNull();
   expect(
-    wrapper?.previousElementSibling?.classList.contains("user-stats"),
-  ).toBe(true);
-  expect(
-    wrapper?.nextElementSibling?.classList.contains("user-stats-link"),
-  ).toBe(true);
+    [...record.querySelectorAll(".score-overview-mark")].map(
+      (mark) => mark.textContent,
+    ),
+  ).toEqual(["Best 9000", "Average 6500", "Worst 2000"]);
+  expect(record.nextElementSibling?.classList.contains("user-stats-link")).toBe(
+    true,
+  );
 });
 
 test("three scores are too few buckets to be a shape", async () => {
@@ -765,8 +776,13 @@ test("favorites are no achievement, so the stat bar does not count them", async 
   // Two favorites are there to be counted; the bar still does not count them.
   renderUser();
 
-  expect(await screen.findByText("Sings")).toBeInTheDocument();
-  expect(screen.queryByText("Favorites")).not.toBeInTheDocument();
+  // One score is still the record: its head line, and its one Best.
+  await waitFor(() =>
+    expect(
+      document.querySelector(".user-stats .score-overview-counts")?.textContent,
+    ).toBe("1 sing · 1 song"),
+  );
+  expect(screen.queryByText(/Favorites/)).not.toBeInTheDocument();
   expect(listFavorites).not.toHaveBeenCalled();
 });
 
@@ -777,7 +793,7 @@ test("a singer without scores is asked to sing instead of shown zeroes", async (
   expect(
     await screen.findByText("Sing a song and your stats appear here."),
   ).toBeInTheDocument();
-  expect(screen.queryByText("Average")).not.toBeInTheDocument();
+  expect(document.querySelector(".score-overview")).toBeNull();
 });
 
 test("stats stay away from a role that may not see statistics", async () => {
@@ -786,7 +802,7 @@ test("stats stay away from a role that may not see statistics", async () => {
 
   await screen.findByRole("button", { name: "Log out" });
   expect(listPlayerScores).not.toHaveBeenCalled();
-  expect(screen.queryByText("Sings")).not.toBeInTheDocument();
+  expect(document.querySelector(".score-overview")).toBeNull();
   expect(
     screen.queryByText("Sing a song and your stats appear here."),
   ).not.toBeInTheDocument();

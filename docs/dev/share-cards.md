@@ -33,8 +33,9 @@ on the second (11 to 14):
    - Each in **square** (1080×1080) and **story** (1080×1920).
    - The panel offers format, look and the toggles below, with a live preview.
 2. **No worst score on a card.** The party's numbers are Sings · Songs · Best · Average.
-   This departs on purpose from `ScoreSummary`'s fixed five on every surface: a card leaves
-   the room, and the lowest score with a name next to it is not something to send around.
+   This departs on purpose from `ScoreOverview`, which prints the worst on every surface: a
+   card leaves the room, and the lowest score with a name next to it is not something to send
+   around.
 3. **Other singers' pictures are a toggle.** When it is off, they are drawn as their
    initials. The sharer's own picture is always theirs.
 4. **The party's name and date are a toggle**, on both card kinds.

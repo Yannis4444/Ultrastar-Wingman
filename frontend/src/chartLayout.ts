@@ -25,6 +25,15 @@ export function scoreX(score: number, width: number, inset = 0): number {
   return inset + (score / MAX_SCORE) * (width - 2 * inset);
 }
 
+/**
+ * Where a 1px mark line through the histogram stands: the bars' own mapping,
+ * no inset, so a score's line runs through the bucket it is counted in — held
+ * half a pixel inside either end, where a 0 or a 10000 would be cut in half.
+ */
+export function histogramLineX(score: number, width: number): number {
+  return Math.min(width - 0.5, Math.max(0.5, scoreX(score, width)));
+}
+
 /** The inset the score charts draw `scoreX` with — the strip and the spread
  * rows alike, so their tracks start and end on the same rule. */
 export const SCORE_INSET = 6;

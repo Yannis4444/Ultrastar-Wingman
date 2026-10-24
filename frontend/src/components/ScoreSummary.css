@@ -1,29 +1,19 @@
-/* One shape wherever scores are added up (§7). The stats sit in equal columns
-   so the words line up down the surface: four of them are two rows of two on a
-   phone, five are three and two, and from 560px up the lot stands on one line.
-   The column count is a class rather than `auto-fit`, which would guess the
-   same count for both and leave a fifth stat alone on a line of its own. */
+/* The host results' numbers (§7, *Host*). The four stats sit in equal columns
+   so the words line up: two rows of two in a narrow column, and from 560px up
+   — every TV — the lot stands on one line. */
 .score-summary {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
   gap: 12px 8px;
 }
 
-.score-summary-five {
-  grid-template-columns: repeat(3, minmax(0, 1fr));
-}
-
 @media (min-width: 560px) {
   .score-summary {
     grid-template-columns: repeat(4, minmax(0, 1fr));
   }
-
-  .score-summary-five {
-    grid-template-columns: repeat(5, minmax(0, 1fr));
-  }
 }
 
-/* Glyph and number on one line with the word under them: five stats stacked
+/* Glyph and number on one line with the word under them: four stats stacked
    glyph over number over word would be half a score tile tall and push the
    scores themselves off the screen. Two classes on purpose — this has to beat
    `.icon-stat`'s own row layout no matter which of the two stylesheets the
