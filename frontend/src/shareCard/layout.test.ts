@@ -7,12 +7,16 @@ import {
   cardScore,
   fakeMeasure,
   partySession,
+  singerScores,
   song,
 } from "../test/shareCard";
+import { chartTheme } from "../chartTheme";
 import {
   partyCard,
+  playerCard,
   scoreCard,
   type PartyCardContent,
+  type PlayerCardContent,
   type ScoreCardContent,
 } from "./content";
 import {
@@ -25,6 +29,7 @@ import {
   SCRIM_ALPHA,
   elementBox,
   layoutPartyCard,
+  layoutPlayerCard,
   layoutScoreCard,
   type Box,
   type CardFormat,
@@ -33,7 +38,9 @@ import {
 } from "./layout";
 import {
   PARTY_DESIGNS,
+  PLAYER_DESIGNS,
   resolvePartyOptions,
+  resolvePlayerOptions,
   resolveScoreOptions,
 } from "./possible";
 
@@ -368,6 +375,335 @@ describe.each(PARTIES)("the party card, %s", (_, content) => {
       );
       checkLayout(layoutPartyCard(content, options, fakeMeasure), format);
     },
+  );
+});
+
+function playerOf(
+  scores: ScoreWithContext[],
+  overrides: Partial<Parameters<typeof playerCard>[0]> = {},
+): PlayerCardContent {
+  return playerCard({
+    scores,
+    session: partySession(),
+    players,
+    me: "chiara",
+    otherPictures: true,
+    partyNameAndDate: true,
+    ...overrides,
+  });
+}
+
+/** A record of `count` scores over every song, spread over the range. */
+function record(id: string, count: number): ScoreWithContext[] {
+  return singerScores(
+    id,
+    Array.from({ length: count }, (_, index) =>
+      Math.round(9800 - ((index * 3137) % 7000)),
+    ),
+  );
+}
+
+const manySongs = Array.from({ length: 12 }, (_, index) =>
+  index % 4 === 3
+    ? longSong
+    : song(`usdb:${200 + index}`, `Artist ${index}`, `Song number ${index}`),
+);
+
+const PLAYERS: [string, PlayerCardContent][] = [
+  ["many scores", playerOf(record("alice", 60))],
+  ["four scores", playerOf(record("alice", 4))],
+  ["one score", playerOf(record("alice", 1))],
+  [
+    "three scores of one song",
+    playerOf(singerScores("alice", [7000, 8000, 6000], [SONGS[0]])),
+  ],
+  ["my own, all parties", playerOf(record("chiara", 20), { session: null })],
+  ["line off", playerOf(record("alice", 12), { partyNameAndDate: false })],
+  [
+    "a long name at a long party, long songs",
+    playerOf(
+      singerScores(
+        "long",
+        Array.from({ length: 24 }, (_, index) => 9500 - index * 300),
+        manySongs,
+      ),
+      { session: longParty },
+    ),
+  ],
+  [
+    "lost songs, a zero and a perfect score",
+    playerOf(singerScores("alice", [0, 10000, 5000, 2500], [null, SONGS[1]])),
+  ],
+  [
+    "every score in one bucket",
+    playerOf(singerScores("alice", [8100, 8200, 8300, 8400, 8450])),
+  ],
+];
+
+/** Every slide of a player card in both formats, the logo on and off. */
+const PLAYER_SLIDES = FORMATS.flatMap((format) =>
+  PLAYER_DESIGNS.flatMap((design) =>
+    [true, false].map((logo) => [format, design, logo] as const),
+  ),
+);
+
+describe.each(PLAYERS)("the player card, %s", (_, content) => {
+  test.each(PLAYER_SLIDES)(
+    "%s %s, logo %s, keeps every region apart and readable",
+    (format, design, logo) => {
+      const options = resolvePlayerOptions(content, design, format, logo);
+      checkLayout(layoutPlayerCard(content, options, fakeMeasure), format);
+    },
+  );
+});
+
+test("the player square sits where §9 puts it: the head, the numbers at 232, the focus between 392 and 936", () => {
+  const content = PLAYERS[0][1];
+  for (const design of PLAYER_DESIGNS) {
+    const layout = layoutPlayerCard(
+      content,
+      { format: "square", focus: design, logo: true },
+      fakeMeasure,
+    );
+    const avatar = layout.elements.find(
+      (element) => element.kind === "image" && element.region === "head",
+    );
+    expect(avatar).toMatchObject({ x: 72, y: 72, w: 120, h: 120 });
+    const value = layout.elements.find(
+      (element) => element.kind === "text" && element.region === "numbers",
+    );
+    expect(value).toMatchObject({ y: 232, size: 56 });
+    const focus = layout.elements.filter(
+      (element) =>
+        element.region === design ||
+        (design === "strip" && element.region === "strip"),
+    );
+    expect(focus.length).toBeGreaterThan(0);
+    for (const element of focus) {
+      const box = elementBox(element);
+      expect(box.y).toBeGreaterThanOrEqual(392 - 0.5);
+      expect(box.y + box.h).toBeLessThanOrEqual(936 + 0.5);
+    }
+    expect(layout.background).toEqual({ kind: "dark" });
+    expect(texts(layout, "head")).toEqual([
+      "Alice",
+      `Friday karaoke · ${cardDate(partySession().started_at)}`,
+    ]);
+    // "ranked by best score" is the Songs design's alone.
+    expect(texts(layout, "brand-note")).toEqual(
+      design === "songs" ? ["ranked by best score"] : [],
+    );
+  }
+});
+
+test("the numbers are Sings, Songs, Best and Average, Best gold with no holder", () => {
+  const layout = layoutPlayerCard(
+    PLAYERS[0][1],
+    { format: "square", focus: "histogram", logo: true },
+    fakeMeasure,
+  );
+  const labels = texts(layout, "numbers").filter((text) => /\D/.test(text));
+  expect(labels).toEqual(["Sings", "Songs", "Best", "Average"]);
+  const best = layout.elements.find(
+    (element) =>
+      element.kind === "text" &&
+      element.region === "numbers" &&
+      element.runs[0].text === String(PLAYERS[0][1].numbers.best),
+  ) as TextElement;
+  expect(best.runs[0].color).toBe(CARD_COLORS.gold);
+});
+
+test("the histogram is twenty bars at most 440 tall, the best's bar gold, on a baseline over three ticks", () => {
+  const content = PLAYERS[0][1];
+  const layout = layoutPlayerCard(
+    content,
+    { format: "square", focus: "histogram", logo: true },
+    fakeMeasure,
+  );
+  const bars = layout.elements.filter(
+    (element) => element.kind === "rect" && element.region === "histogram",
+  );
+  expect(bars).toHaveLength(
+    content.buckets.filter((count) => count > 0).length,
+  );
+  expect(
+    Math.max(...bars.map((bar) => (bar.kind === "rect" ? bar.h : 0))),
+  ).toBe(440);
+  const gold = bars.filter(
+    (bar) => bar.kind === "rect" && bar.fill === chartTheme.gold,
+  );
+  expect(gold).toHaveLength(1);
+  expect(texts(layout, "histogram")).toEqual(["0", "5k", "10k"]);
+  // A bucket of one among many is still a bar a chat keeps.
+  for (const bar of bars)
+    if (bar.kind === "rect") expect(bar.h).toBeGreaterThanOrEqual(8);
+  const story = layoutPlayerCard(
+    content,
+    { format: "story", focus: "histogram", logo: true },
+    fakeMeasure,
+  );
+  const storyBars = story.elements.filter(
+    (element) => element.kind === "rect" && element.region === "histogram",
+  );
+  expect(
+    Math.max(...storyBars.map((bar) => (bar.kind === "rect" ? bar.h : 0))),
+  ).toBe(640);
+});
+
+test("the strip is the party card's, larger: Median over dots r 12, the best one gold", () => {
+  const layout = layoutPlayerCard(
+    PLAYERS[1][1],
+    { format: "square", focus: "strip", logo: true },
+    fakeMeasure,
+  );
+  expect(texts(layout, "strip")[0]).toMatch(/^Median \d+$/);
+  const dots = layout.elements.filter(
+    (element) =>
+      element.kind === "circle" &&
+      element.region === "strip" &&
+      element.fill !== null,
+  );
+  expect(dots).toHaveLength(4);
+  for (const dot of dots) if (dot.kind === "circle") expect(dot.r).toBe(12);
+  expect(
+    dots.filter((dot) => dot.kind === "circle" && dot.fill === chartTheme.gold),
+  ).toHaveLength(1);
+});
+
+test.each(FORMATS)(
+  "a dense cloud on the %s strip gets a lane per dot: the band grows instead of piling them up",
+  (format) => {
+    // Fifty scores packed into 6000–8500, as an evening of one regular is.
+    const content = playerOf(
+      singerScores(
+        "alice",
+        Array.from({ length: 50 }, (_, index) => 6000 + ((index * 977) % 2500)),
+      ),
+    );
+    const layout = layoutPlayerCard(
+      content,
+      { format, focus: "strip", logo: true },
+      fakeMeasure,
+    );
+    checkLayout(layout, format);
+    const dots = layout.elements.flatMap((element) =>
+      element.kind === "circle" &&
+      element.region === "strip" &&
+      element.fill !== null
+        ? [element]
+        : [],
+    );
+    expect(dots).toHaveLength(50);
+    for (let i = 0; i < dots.length; i++)
+      for (let j = i + 1; j < dots.length; j++)
+        expect(
+          Math.hypot(dots[i].cx - dots[j].cx, dots[i].cy - dots[j].cy),
+        ).toBeGreaterThanOrEqual(28 - 1e-6);
+    // The grid lines are the band: every dot and its ring inside it.
+    const band = layout.elements.flatMap((element) =>
+      element.kind === "line" &&
+      element.region === "strip" &&
+      element.x1 === element.x2
+        ? [element]
+        : [],
+    );
+    const top = Math.min(...band.map((line) => line.y1));
+    const bottom = Math.max(...band.map((line) => line.y2));
+    // The square's 200 is too low for this cloud; the story's 280 holds it.
+    if (format === "square") expect(bottom - top).toBeGreaterThan(200);
+    else expect(bottom - top).toBe(280);
+    for (const dot of dots) {
+      expect(dot.cy - 24).toBeGreaterThanOrEqual(top);
+      expect(dot.cy + 24).toBeLessThanOrEqual(bottom);
+    }
+  },
+);
+
+test.each(
+  FORMATS.flatMap((format) =>
+    PLAYER_DESIGNS.map((design) => [format, design] as const),
+  ),
+)(
+  "a player %s %s: the logo off takes the brand line and moves nothing else",
+  (format, focus) => {
+    const content = PLAYERS[0][1];
+    const on = layoutPlayerCard(
+      content,
+      { format, focus, logo: true },
+      fakeMeasure,
+    );
+    const off = layoutPlayerCard(
+      content,
+      { format, focus, logo: false },
+      fakeMeasure,
+    );
+    expect(off.elements.some((element) => element.kind === "logo")).toBe(false);
+    expect(texts(off).some((text) => text.includes("Wingman"))).toBe(false);
+    const rest = (layout: CardLayout) =>
+      layout.elements.filter((element) => element.region !== "brand");
+    expect(rest(off)).toEqual(rest(on));
+    expect(texts(off, "brand-note")).toEqual(
+      focus === "songs" ? ["ranked by best score"] : [],
+    );
+  },
+);
+
+test("Songs lists five on a square and eight on a story, the top one gold", () => {
+  const content = PLAYERS[6][1];
+  const rows = (format: CardFormat) =>
+    layoutPlayerCard(
+      content,
+      { format, focus: "songs", logo: true },
+      fakeMeasure,
+    ).elements.filter(
+      (element) => element.kind === "image" && element.region === "songs",
+    );
+  expect(rows("square")).toHaveLength(5);
+  expect(rows("story")).toHaveLength(8);
+  for (const cover of rows("square"))
+    expect(cover).toMatchObject({ w: 80, h: 80, radius: 0 });
+  const square = layoutPlayerCard(
+    content,
+    { format: "square", focus: "songs", logo: true },
+    fakeMeasure,
+  );
+  const golds = square.elements.filter(
+    (element) =>
+      element.kind === "text" &&
+      element.region === "songs" &&
+      element.runs.some((part) => part.color === CARD_COLORS.gold),
+  );
+  expect(golds).toHaveLength(1);
+});
+
+test("with the line off the name stands alone, and the story's head is centred", () => {
+  const content = PLAYERS[5][1];
+  const square = layoutPlayerCard(
+    content,
+    { format: "square", focus: "histogram", logo: true },
+    fakeMeasure,
+  );
+  expect(texts(square, "head")).toEqual(["Alice"]);
+  const story = layoutPlayerCard(
+    PLAYERS[0][1],
+    { format: "story", focus: "histogram", logo: true },
+    fakeMeasure,
+  );
+  const avatar = story.elements.find(
+    (element) => element.kind === "image" && element.region === "head",
+  );
+  expect(avatar).toMatchObject({ w: 200, x: 540 - 100 });
+});
+
+test("a card with nothing to focus on is the head and the numbers alone", () => {
+  const content = PLAYERS[2][1];
+  const layout = layoutPlayerCard(
+    content,
+    resolvePlayerOptions(content, "histogram", "square", true),
+    fakeMeasure,
+  );
+  expect(new Set(layout.elements.map((element) => element.region))).toEqual(
+    new Set(["head", "numbers", "brand"]),
   );
 });
 

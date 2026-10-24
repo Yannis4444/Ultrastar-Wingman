@@ -4,10 +4,13 @@ import type { IconName } from "../components/icons";
 import { CHART_MIN_SCORES, countWord } from "../stats";
 import {
   FACES_SHOWN,
+  RANKING_NOTE,
   type CardDot,
   type CardImage,
+  type CardNumbers,
   type CardRank,
   type PartyCardContent,
+  type PlayerCardContent,
   type ScoreCardContent,
 } from "./content";
 import { fitLine, fitLines, type FontWeight, type Measure } from "./fit";
@@ -43,6 +46,18 @@ export interface PartyCardOptions {
   look: PartyLook;
   focus: PartyFocus;
   under: UnderPodium;
+  /** As on a score card. */
+  logo: boolean;
+}
+
+/** What a player card is built around (share-cards §9): one of its three
+ * designs, or nothing under the head and the numbers (`none`) where the card
+ * cannot draw the design asked for. */
+export type PlayerFocus = "histogram" | "strip" | "songs" | "none";
+
+export interface PlayerCardOptions {
+  format: CardFormat;
+  focus: PlayerFocus;
   /** As on a score card. */
   logo: boolean;
 }
@@ -851,8 +866,8 @@ const HEAD_HEIGHT = lineHeight(56) + 4 + lineHeight(MIN_TEXT);
 const NUMBER_COLUMNS = [190, 190, 316, 240];
 const NUMBERS_HEIGHT = 56 * 1.2 + lineHeight(MIN_TEXT);
 
-function numbers(b: Builder, content: PartyCardContent, top: number): void {
-  const { sings, songs, best, bestBy, average } = content.numbers;
+function numbers(b: Builder, values: CardNumbers, top: number): void {
+  const { sings, songs, best, bestBy, average } = values;
   const columns: [number, string, string][] = [
     // "1 Song", never "1 Songs": *Only me* is often one of each.
     [sings, countWord(sings, "Sing"), CARD_COLORS.text],
@@ -1125,8 +1140,18 @@ function rows(b: Builder, content: PartyCardContent, top: number): void {
   }
 }
 
+interface StripMarks {
+  r: number;
+  ring: number;
+  /** How far apart the swarm keeps two dots. */
+  gap: number;
+  bestRing: number;
+}
+
 /** The strip's marks, at §4.2's sizes: dots r 10, the best's gold ring. */
-const STRIP_DOT = { r: 10, ring: 3, gap: 24, bestRing: 19 };
+const STRIP_DOT: StripMarks = { r: 10, ring: 3, gap: 24, bestRing: 19 };
+/** The player card's strip, the focus of its card: dots r 12 (§9). */
+const PLAYER_STRIP_DOT: StripMarks = { r: 12, ring: 3, gap: 28, bestRing: 22 };
 /** What keeps a mark on 0 or 10k from being cut by the card's margin. */
 const STRIP_INSET = 24;
 
@@ -1173,6 +1198,7 @@ function strip(
   median: number | null,
   top: number,
   band: number,
+  mark: StripMarks = STRIP_DOT,
 ): void {
   const region = "strip";
   if (median !== null) {
@@ -1215,14 +1241,14 @@ function strip(
       alpha: 0.8,
     });
   }
-  const reach = STRIP_DOT.bestRing + STRIP_DOT.ring / 2;
-  const lanes = Math.floor((band / 2 - reach - 2) / STRIP_DOT.gap);
+  const reach = mark.bestRing + mark.ring / 2;
+  const lanes = Math.floor((band / 2 - reach - 2) / mark.gap);
   const placed = swarm(
     dots,
     (dot) => x(dot.score),
     middle,
-    STRIP_DOT.gap,
-    Math.max(0, lanes) * STRIP_DOT.gap,
+    mark.gap,
+    Math.max(0, lanes) * mark.gap,
   );
   // The gold one last, so no grey dot is ever painted over it.
   placed.sort((a, b2) => Number(a.item.best) - Number(b2.item.best));
@@ -1232,10 +1258,10 @@ function strip(
       region,
       cx,
       cy: y,
-      r: STRIP_DOT.r,
+      r: mark.r,
       fill: item.best ? chartTheme.gold : chartTheme.dot,
       stroke: CARD_COLORS.bg,
-      lineWidth: STRIP_DOT.ring,
+      lineWidth: mark.ring,
     });
     if (item.best) {
       b.push({
@@ -1243,10 +1269,10 @@ function strip(
         region,
         cx,
         cy: y,
-        r: STRIP_DOT.bestRing,
+        r: mark.bestRing,
         fill: null,
         stroke: chartTheme.gold,
-        lineWidth: STRIP_DOT.ring,
+        lineWidth: mark.ring,
       });
     }
   }
@@ -1561,7 +1587,7 @@ function partySquare(
   const bodyBottom = 1080 - MARGIN - BRAND_LOGO - 24;
 
   if (options.focus === "spread") {
-    numbers(b, content, numbersTop);
+    numbers(b, content.numbers, numbersTop);
     rankingLine(b, content, bodyTop - 10);
     spread(b, content, bodyTop + 68, bodyBottom, 96);
     brand(b, 1080 - MARGIN, content.rankingNote, options.logo);
@@ -1599,7 +1625,7 @@ function partySquare(
       {
         height: NUMBERS_HEIGHT,
         gap: 0,
-        place: (top) => numbers(b, content, top),
+        place: (top) => numbers(b, content.numbers, top),
       },
       {
         height: bodyHeight,
@@ -1621,7 +1647,7 @@ function partySquare(
     return;
   }
 
-  numbers(b, content, numbersTop);
+  numbers(b, content.numbers, numbersTop);
   const underTop = bodyBottom - underHeight;
   const heroBottom = underHeight > 0 ? underTop - SQUARE_UNDER_GAP : bodyBottom;
   if (content.ranking.length === 1) {
@@ -1654,7 +1680,7 @@ function partyStory(
   items.push({
     height: NUMBERS_HEIGHT,
     gap: items.length > 0 ? 56 : 0,
-    place: (top) => numbers(b, content, top),
+    place: (top) => numbers(b, content.numbers, top),
   });
 
   if (options.focus === "spread") {
@@ -1708,6 +1734,412 @@ function partyStory(
   brand(b, area.bottom, content.rankingNote, options.logo);
 }
 
+// ---------------------------------------------------------------------------
+// One singer
+
+/** §9's square: the head's avatar, where the numbers stand, and the region
+ * the focus is centred in, down to 24 over the brand's line. */
+const PLAYER_SQUARE = {
+  avatar: 120,
+  numbersTop: 232,
+  focusTop: 392,
+  focusBottom: 1080 - MARGIN - BRAND_LOGO - 24,
+  histogram: 440,
+  /** The strip's band at its least: it grows with the cloud (`stripBand`). */
+  stripBand: 200,
+};
+
+/** §9's story: the head's avatar gives — it is the one thing that shrinks,
+ * from 200 down to 120, so the eight song rows fit under it — and the focus'
+ * own heights. */
+const PLAYER_STORY = {
+  avatarMax: 200,
+  avatarMin: 120,
+  gap: 48,
+  histogram: 640,
+  /** At its least, as on the square; at most as tall as the histogram. */
+  stripBand: 280,
+};
+
+/**
+ * The player strip's band: §9's 200 (a story's 280) at least, and as tall as
+ * the swarm needs for every dot to find a lane of its own — a band that caps
+ * the lanes piles the rest of a big cloud onto the outer one, dots over dots —
+ * up to what the format has room for (the square's focus region, the story's
+ * histogram height). Past that the lanes are capped as on the party card.
+ */
+function stripBand(content: PlayerCardContent, format: CardFormat): number {
+  const least =
+    format === "story" ? PLAYER_STORY.stripBand : PLAYER_SQUARE.stripBand;
+  const most =
+    format === "story"
+      ? PLAYER_STORY.histogram
+      : PLAYER_SQUARE.focusBottom - PLAYER_SQUARE.focusTop - stripHeight(0);
+  const mark = PLAYER_STRIP_DOT;
+  // The very placement `strip` makes, uncapped: same dots, same order.
+  const spread = Math.max(
+    0,
+    ...swarm(
+      content.dots,
+      (dot) => MARGIN + scoreX(dot.score, CONTENT, STRIP_INSET),
+      0,
+      mark.gap,
+    ).map((placed) => Math.abs(placed.y)),
+  );
+  const needed = 2 * (spread + mark.bestRing + mark.ring / 2 + 2);
+  return Math.min(most, Math.max(least, needed));
+}
+
+/** The song rows: the cover 80 in a 104 row on a square, eight of them in
+ * 96 rows on a story, where 104 does not fit under the head. */
+const SONG_ROWS = {
+  cover: 80,
+  square: { pitch: 104, shown: 5 },
+  story: { pitch: 96, shown: 8 },
+};
+
+/** The histogram's bars: 6 apart, and a bucket that holds anything never
+ * lower than this, or one score among fifty is gone in a chat thumbnail. */
+const BAR_GAP = 6;
+const BAR_MIN = 8;
+
+/** The square's head: the avatar at the margin and, centred on it, the name
+ * 56 bold (→ 44, then an ellipsis) over the party line 32 (§9). A name cut to
+ * 44 keeps its 56 line, so the party line never moves. */
+function playerHeadSquare(b: Builder, content: PlayerCardContent): void {
+  const size = PLAYER_SQUARE.avatar;
+  b.image(
+    "head",
+    { x: MARGIN, y: MARGIN, w: size, h: size },
+    content.person.avatar,
+    true,
+  );
+  const left = MARGIN + size + 32;
+  const room = RIGHT - left;
+  const name = fitLine(content.person.name, [56, 44], "bold", room, b.measure);
+  const line =
+    content.line === null
+      ? null
+      : fitLine(content.line, [MIN_TEXT], "normal", room, b.measure);
+  const column =
+    lineHeight(56) + (line === null ? 0 : 4 + lineHeight(MIN_TEXT));
+  const top = MARGIN + (size - column) / 2;
+  b.text(
+    "head",
+    [bold(name.text)],
+    name.size,
+    left,
+    top + (lineHeight(56) - lineHeight(name.size)) / 2,
+  );
+  if (line !== null) {
+    b.text(
+      "head",
+      [run(line.text, CARD_COLORS.textDarker)],
+      line.size,
+      left,
+      top + lineHeight(56) + 4,
+    );
+  }
+}
+
+/** The story's head under its avatar: the name 64 (→ 52) over the party line
+ * 36 (→ 32), both centred. */
+function playerNameStory(
+  b: Builder,
+  content: PlayerCardContent,
+  top: number,
+): void {
+  const name = fitLine(
+    content.person.name,
+    [64, 52],
+    "bold",
+    CONTENT,
+    b.measure,
+  );
+  b.text(
+    "head",
+    [bold(name.text)],
+    name.size,
+    CENTER,
+    top + (lineHeight(64) - lineHeight(name.size)) / 2,
+    "center",
+  );
+  if (content.line === null) return;
+  const line = fitLine(
+    content.line,
+    [36, MIN_TEXT],
+    "normal",
+    CONTENT,
+    b.measure,
+  );
+  b.text(
+    "head",
+    [run(line.text, CARD_COLORS.textDarker)],
+    line.size,
+    CENTER,
+    top + lineHeight(64) + 4 + (lineHeight(36) - lineHeight(line.size)) / 2,
+    "center",
+  );
+}
+
+function playerNameStoryHeight(content: PlayerCardContent): number {
+  return lineHeight(64) + (content.line === null ? 0 : 4 + lineHeight(36));
+}
+
+function histogramHeight(maxBar: number): number {
+  return maxBar + 3 + 8 + lineHeight(MIN_TEXT);
+}
+
+/**
+ * The histogram as the focus (§9): `ScoreHistogram`'s twenty buckets over
+ * 0–10k across the content width, the bars in the charts' blue and the one
+ * holding the best score gold, on a 3 px baseline over 0 / 5k / 10k. The
+ * fullest bucket is `maxBar` tall.
+ */
+function bars(
+  b: Builder,
+  content: PlayerCardContent,
+  top: number,
+  maxBar: number,
+): void {
+  const region = "histogram";
+  const count = content.buckets.length;
+  const width = (CONTENT - (count - 1) * BAR_GAP) / count;
+  const fullest = Math.max(1, ...content.buckets);
+  const base = top + maxBar;
+  content.buckets.forEach((value, index) => {
+    if (value === 0) return;
+    const height = Math.max(BAR_MIN, (value / fullest) * maxBar);
+    b.push({
+      kind: "rect",
+      region,
+      x: MARGIN + index * (width + BAR_GAP),
+      y: base - height,
+      w: width,
+      h: height,
+      radius: 0,
+      fill: index === content.bestBucket ? chartTheme.gold : chartTheme.accent,
+      stroke: null,
+      lineWidth: 0,
+    });
+  });
+  b.push({
+    kind: "line",
+    region,
+    x1: MARGIN,
+    y1: base + 1.5,
+    x2: RIGHT,
+    y2: base + 1.5,
+    color: chartTheme.grid,
+    width: 3,
+    dash: null,
+    alpha: 1,
+  });
+  ticks(b, region, MARGIN, CONTENT, 0, base + 3 + 8);
+}
+
+/** Their best song by song (§9): the cover 80 with square corners, the title
+ * 40 bold (→ 32, then an ellipsis) over the artist 32, their best 44 bold at
+ * the right — gold on the song their best of all is on. */
+function songRows(
+  b: Builder,
+  content: PlayerCardContent,
+  top: number,
+  pitch: number,
+  shown: number,
+): void {
+  const region = "songs";
+  const size = SONG_ROWS.cover;
+  content.songs.slice(0, shown).forEach((entry, index) => {
+    const middle = top + index * pitch + pitch / 2;
+    b.image(
+      region,
+      { x: MARGIN, y: middle - size / 2, w: size, h: size },
+      entry.cover,
+      false,
+    );
+    const score = [
+      bold(
+        String(entry.best),
+        entry.gold ? CARD_COLORS.gold : CARD_COLORS.text,
+      ),
+    ];
+    const scoreWidth = b.width(score, 44);
+    const left = MARGIN + size + 24;
+    const room = RIGHT - scoreWidth - 24 - left;
+    const title = fitLine(
+      entry.title,
+      [COLOURED_MIN, MIN_TEXT],
+      "bold",
+      room,
+      b.measure,
+    );
+    const artist =
+      entry.artist === null
+        ? null
+        : fitLine(entry.artist, [MIN_TEXT], "normal", room, b.measure);
+    const column =
+      lineHeight(COLOURED_MIN) + (artist === null ? 0 : lineHeight(MIN_TEXT));
+    const textTop = middle - column / 2;
+    b.text(
+      region,
+      [bold(title.text)],
+      title.size,
+      left,
+      textTop + (lineHeight(COLOURED_MIN) - lineHeight(title.size)) / 2,
+    );
+    if (artist !== null) {
+      b.text(
+        region,
+        [run(artist.text, CARD_COLORS.textDark)],
+        artist.size,
+        left,
+        textTop + lineHeight(COLOURED_MIN),
+      );
+    }
+    b.text(region, score, 44, RIGHT, middle - lineHeight(44) / 2, "right");
+  });
+}
+
+/** How many song rows a format lists. */
+function songsShown(content: PlayerCardContent, format: CardFormat): number {
+  return Math.min(content.songs.length, SONG_ROWS[format].shown);
+}
+
+/** The focus' height on a format, for centring it. */
+function playerFocusHeight(
+  content: PlayerCardContent,
+  options: PlayerCardOptions,
+): number {
+  const story = options.format === "story";
+  switch (options.focus) {
+    case "histogram":
+      return histogramHeight(
+        story ? PLAYER_STORY.histogram : PLAYER_SQUARE.histogram,
+      );
+    case "strip":
+      return stripHeight(stripBand(content, options.format));
+    case "songs":
+      return (
+        songsShown(content, options.format) * SONG_ROWS[options.format].pitch
+      );
+    default:
+      return 0;
+  }
+}
+
+function placePlayerFocus(
+  b: Builder,
+  content: PlayerCardContent,
+  options: PlayerCardOptions,
+  top: number,
+): void {
+  const story = options.format === "story";
+  switch (options.focus) {
+    case "histogram":
+      bars(
+        b,
+        content,
+        top,
+        story ? PLAYER_STORY.histogram : PLAYER_SQUARE.histogram,
+      );
+      return;
+    case "strip":
+      strip(
+        b,
+        content.dots,
+        content.median,
+        top,
+        stripBand(content, options.format),
+        PLAYER_STRIP_DOT,
+      );
+      return;
+    case "songs":
+      songRows(
+        b,
+        content,
+        top,
+        SONG_ROWS[options.format].pitch,
+        songsShown(content, options.format),
+      );
+      return;
+    default:
+      return;
+  }
+}
+
+/** "ranked by best score" at the foot of *Songs*, the one design that ranks
+ * anything (§9). */
+function playerNote(options: PlayerCardOptions): string | null {
+  return options.focus === "songs" ? RANKING_NOTE : null;
+}
+
+function playerSquare(
+  b: Builder,
+  content: PlayerCardContent,
+  options: PlayerCardOptions,
+): void {
+  playerHeadSquare(b, content);
+  numbers(b, content.numbers, PLAYER_SQUARE.numbersTop);
+  const room = PLAYER_SQUARE.focusBottom - PLAYER_SQUARE.focusTop;
+  const height = playerFocusHeight(content, options);
+  placePlayerFocus(
+    b,
+    content,
+    options,
+    PLAYER_SQUARE.focusTop + Math.max(0, (room - height) / 2),
+  );
+  brand(b, 1080 - MARGIN, playerNote(options), options.logo);
+}
+
+function playerStory(
+  b: Builder,
+  content: PlayerCardContent,
+  options: PlayerCardOptions,
+): void {
+  const area = SAFE_AREA.story;
+  const bottom = area.bottom - BRAND_LOGO - 40;
+  const items: (StackItem | ((avatar: number) => StackItem))[] = [
+    (avatar) => ({
+      height: avatar,
+      gap: 0,
+      place: (top) =>
+        b.image(
+          "head",
+          { x: CENTER - avatar / 2, y: top, w: avatar, h: avatar },
+          content.person.avatar,
+          true,
+        ),
+    }),
+    {
+      height: playerNameStoryHeight(content),
+      gap: 16,
+      place: (top) => playerNameStory(b, content, top),
+    },
+    {
+      height: NUMBERS_HEIGHT,
+      gap: PLAYER_STORY.gap,
+      place: (top) => numbers(b, content.numbers, top),
+    },
+  ];
+  const height = playerFocusHeight(content, options);
+  if (height > 0) {
+    items.push({
+      height,
+      gap: PLAYER_STORY.gap,
+      place: (top) => placePlayerFocus(b, content, options, top),
+    });
+  }
+  stack(
+    items,
+    area.top,
+    bottom,
+    PLAYER_STORY.avatarMax,
+    PLAYER_STORY.avatarMin,
+  );
+  brand(b, area.bottom, playerNote(options), options.logo);
+}
+
 /**
  * A Mosaic's words (§3.1): the covers stay visible behind them, so the
  * `#888` that reads on flat `--bg` takes `#ccc`, each over its halo.
@@ -1752,6 +2184,25 @@ export function layoutScoreCard(
       options.look === "cover" && content.cover.url !== null
         ? { kind: "cover", url: content.cover.url }
         : { kind: "dark" },
+    elements: b.elements,
+    halo: false,
+  };
+}
+
+/** A player card, for options `resolvePlayerOptions` made drawable. Always on
+ * Dark (§9): a chart over a cover wash does not read. */
+export function layoutPlayerCard(
+  content: PlayerCardContent,
+  options: PlayerCardOptions,
+  measure: Measure,
+): CardLayout {
+  const b = new Builder(measure);
+  if (options.format === "square") playerSquare(b, content, options);
+  else playerStory(b, content, options);
+  return {
+    width: CARD_WIDTH,
+    height: CARD_HEIGHT[options.format],
+    background: { kind: "dark" },
     elements: b.elements,
     halo: false,
   };

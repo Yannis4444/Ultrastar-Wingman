@@ -487,7 +487,8 @@ export default function Scores() {
   const [openSong, setOpenSong] = useState<SongRead | null>(null);
   // The score row whose sing is open; a score is shared from there.
   const [openScore, setOpenScore] = useState<ScoreWithContext | null>(null);
-  // What the party bar's share panel is open on.
+  // What the share panel is open on: the party, from the bar, or one
+  // singer's stats, from their open group.
   const [sharing, setSharing] = useState<ShareTarget | null>(null);
 
   const canView = auth.can("stats.view");
@@ -796,6 +797,11 @@ export default function Scores() {
             onOpenScore={setOpenScore}
             canModerate={auth.can("stats.moderate")}
             onModerated={refresh}
+            /* A singer's stats at this party, or over every party the head
+               row holds — the card says *All parties* there. */
+            onShareStats={(group) =>
+              setSharing({ kind: "player", scores: group.scores, session })
+            }
           />
         </>
       )}

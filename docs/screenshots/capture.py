@@ -810,6 +810,24 @@ ROWS: dict[str, Row] = {
         route="/user/stats",
         ready='q(".scores-page") && q(".scores-chart") && q(".scores-controls")',
     ),
+    "stats-share": Row(
+        # Bender's whole record: enough scores over enough songs that every slide is
+        # live, and his own picture on the card whatever the toggles say.
+        identity="Bender",
+        viewport="phone",
+        route="/user/stats",
+        steps=(
+            (
+                "click(q('button[aria-label=\"Share my stats\"]'))",
+                'q(".share-carousel .share-preview-image")',
+            ),
+        ),
+        # Drawn in the browser, so in only once decoded: the Histogram slide in view
+        # and the Strip one peeking in beside it.
+        ready='qa(".share-dot").length === 3 && qa(".share-preview-image").length >= 2'
+        ' && qa(".share-preview-image").every((i) => i.complete && i.naturalWidth > 0)'
+        ' && qa(".share-toggles .icon-toggle").length === 3',
+    ),
     "user-achievements": Row(
         # Fry, not Bender. The list puts every earned badge first, so Bender's fill the
         # viewport before the first progress bar and the manifest asks for one. Fry has

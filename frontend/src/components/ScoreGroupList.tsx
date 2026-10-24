@@ -52,6 +52,14 @@ interface ScoreGroupListProps {
   canModerate?: boolean;
   /** A score was moved or deleted; the page refetches what it holds. */
   onModerated?: () => void;
+  /**
+   * Whether an open **player** group's scores start with *Share stats*
+   * (share-cards §9, ui-guidelines §7), and what it opens: a card of that
+   * singer's scores as the group holds them. One per group; a song group, or
+   * an ungrouped row, never has one. Only `/scores` passes it — `/user/stats`
+   * shares from its header.
+   */
+  onShareStats?: (group: ScoreGroup) => void;
 }
 
 /**
@@ -211,6 +219,7 @@ export default function ScoreGroupList({
   ownRows = false,
   canModerate = false,
   onModerated = () => {},
+  onShareStats,
 }: ScoreGroupListProps) {
   /**
    * A score row plus the corrections that may be made to it. The control is
@@ -336,6 +345,23 @@ export default function ScoreGroupList({
                     named={namedPeaks}
                     songs={grouping === "player"}
                   />
+                )}
+
+                {/* The scores' own first line, at their right: one per player
+                    group, so a row's own control stays the moderator's pencil
+                    alone. Where a group of one has no summary it is the
+                    tile's first line. */}
+                {onShareStats !== undefined && grouping === "player" && (
+                  <div className="score-group-share">
+                    <button
+                      type="button"
+                      className="button"
+                      onClick={() => onShareStats(group)}
+                    >
+                      <Icon name="share" />
+                      Share stats
+                    </button>
+                  </div>
                 )}
 
                 <ul className="score-group-scores">

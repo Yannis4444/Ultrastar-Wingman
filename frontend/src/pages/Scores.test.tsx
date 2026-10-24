@@ -62,8 +62,8 @@ vi.mock("../components/SongDetails", () => ({
 }));
 
 // The share panel is tested where it lives; here, only what opens it and what
-// it is handed. The page opens it for a party alone: a score is shared from
-// the sing view.
+// it is handed. The page opens it for a party and for one singer's stats: a
+// score is shared from the sing view.
 vi.mock("../components/ShareCardPanel", () => ({
   default: ({
     target,
@@ -1815,22 +1815,86 @@ test("a party without a score has nothing to put on a card", async () => {
 
 test("no group carries Share a score: a score is shared from its sing", async () => {
   renderScores();
-  const groups = await screen.findAllByTestId("score-group");
+  await screen.findAllByTestId("score-group");
   expect(
     screen.queryByRole("button", { name: "Share a score", hidden: true }),
   ).not.toBeInTheDocument();
-  // An open group's scores follow its summary directly.
-  for (const group of groups) {
-    const list = group.querySelector(".score-group-scores") as HTMLElement;
-    expect(list).not.toBeNull();
-    expect(group.querySelector(".score-group-share")).toBeNull();
-  }
-
   choose("Group", "none");
   expect(await screen.findAllByTestId("score-group")).toHaveLength(4);
   expect(
     screen.queryByRole("button", { name: "Share a score", hidden: true }),
   ).not.toBeInTheDocument();
+});
+
+test("an open player group's scores start with Share stats, a card of that singer at this party", async () => {
+  renderScores();
+  const groups = await screen.findAllByTestId("score-group");
+  // One per player group, the line between the summary and the scores.
+  for (const group of groups) {
+    const line = group.querySelector(".score-group-share") as HTMLElement;
+    expect(line).not.toBeNull();
+    expect(line.previousElementSibling).toHaveClass("score-summary");
+    expect(line.nextElementSibling).toHaveClass("score-group-scores");
+    const button = within(line).getByRole("button", {
+      name: "Share stats",
+      hidden: true,
+    });
+    expect(button).toHaveClass("button");
+    expect(button).not.toHaveClass("button-primary");
+    expect(iconNames(button)).toEqual(["share"]);
+  }
+  const alice = groups.find((group) => lines(group)[0] === "Alice")!;
+  fireEvent.click(
+    within(alice).getByRole("button", { name: "Share stats", hidden: true }),
+  );
+  const panel = screen.getByTestId("share-panel");
+  expect(panel).toHaveAttribute("data-kind", "player");
+  expect(panel).toHaveAttribute("data-session", "session-new");
+  // That singer's scores exactly as their group holds them, best first.
+  expect(panel).toHaveAttribute("data-scores", "2,1");
+});
+
+test("on the head row Share stats hands over every party's scores and no party", async () => {
+  renderScores();
+  const picker = await openSessions();
+  fireEvent.click(within(picker).getByText("All my scores"));
+  await waitFor(() => expect(listAllScores).toHaveBeenCalled());
+  const groups = await screen.findAllByTestId("score-group");
+  const alice = groups.find((group) => lines(group)[0] === "Alice")!;
+  fireEvent.click(
+    within(alice).getByRole("button", { name: "Share stats", hidden: true }),
+  );
+  const panel = screen.getByTestId("share-panel");
+  expect(panel).toHaveAttribute("data-kind", "player");
+  expect(panel).toHaveAttribute("data-session", "none");
+  expect(panel).toHaveAttribute("data-scores", "2,1,9");
+});
+
+test("a song group and an ungrouped row carry no Share stats", async () => {
+  renderScores();
+  await screen.findAllByTestId("score-group");
+  choose("Group", "song");
+  const songs = await screen.findAllByTestId("score-group");
+  expect(groupLabels()).toEqual(
+    expect.arrayContaining(["Bohemian Rhapsody", "Wonderwall"]),
+  );
+  for (const group of songs)
+    expect(group.querySelector(".score-group-share")).toBeNull();
+  choose("Group", "none");
+  await screen.findAllByTestId("score-group");
+  expect(
+    screen.queryByRole("button", { name: "Share stats", hidden: true }),
+  ).not.toBeInTheDocument();
+});
+
+test("a player group of one score carries Share stats as its tile's first line", async () => {
+  listSessionScores.mockResolvedValue({
+    data: { scores: [tonightScores[0]] },
+  });
+  renderScores();
+  const [group] = await screen.findAllByTestId("score-group");
+  const tile = group.querySelector(".score-group-panel") as HTMLElement;
+  expect(tile.firstElementChild).toHaveClass("score-group-share");
 });
 
 test("the moderator's pencil opens its panel and never the sing view", async () => {

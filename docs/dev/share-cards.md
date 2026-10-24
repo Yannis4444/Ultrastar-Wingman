@@ -5,9 +5,9 @@
 card says, how its text fits, the layouts and the canvas renderer (`frontend/src/shareCard/`,
 §6); part 2 the first panel, its two entry points on `/scores`, the buttons and the user
 documentation. The panel as §5 draws it (decision 11) was built 2026-10-24 on
-`feat/design-feedback-round-3`, and so was the sing view's read (§8, `GET /stats/sings/{id}`).
-The sing view itself (§8), the player card (§9) and the achievement card (§10) are designed
-and **not built yet**: until they are, this document leads and the
+`feat/design-feedback-round-3`, and so were the sing view (§8, with its read
+`GET /stats/sings/{id}`) and the player card (§9). The achievement card (§10) is designed
+and **not built yet**: until it is, this document leads and the
 code is what changes. §7 records how what was open was settled. Once built, when this
 document and the code disagree, the code is right and this document is updated, unless the
 code falls short of §1.*
@@ -248,7 +248,7 @@ achievement* is the dialog's accessible name only. Top to bottom, one centred co
    touch screen outside a secure context (it is known then, so nothing moves under it).
 2. **The carousel of designs**, one slide per design in a fixed order per card kind, every
    design of the kind always present: a score's *Dark* · *Cover*; a party's *Podium* ·
-   *Strip* · *Mosaic* · *Spread* · *You*; a player's *Histogram* · *Strip* · *Songs* (§9); an
+   *Strip* · *Mosaic* · *Spread* · *You*; a player's *Histogram* · *Strip* · *Songs* (§9), always on Dark; an
    achievement's one *Badge* (§10). A choice that used to be an option is a slide:
    *Under the podium* is *Podium* (ranks 4–6 under it) against *Strip* (the score strip
    under it), and *Only me and my place* is *You*. A design the card cannot draw is a dimmed
@@ -359,7 +359,8 @@ every browser; the specs mark them `[SecureContext]`.
 The panel remembers the last format, design and toggles per device (`shareCard/prefs.ts`:
 `localStorage`, wrapped in try/catch, every value checked on its own). That is a per-viewer
 convenience. A *Spread* or *You* slide is not remembered: the panel opens on the remembered
-design unless the card cannot draw it, and on the first slide then.
+design unless the card cannot draw it, and on the first slide it can draw then. A player
+card's design is remembered apart from a party's, all three of them.
 
 **Save image** is an `<a download>` on the preview's own object URL, so it needs no URL of its
 own; a share that falls back to Save clicks it. The panel revokes the preview's URL once a
@@ -371,24 +372,30 @@ move to.
 ## 6. Where it lives in the code
 
 - `frontend/src/shareCard/`, each part tested without a canvas:
-  - `content.ts` — `scoreCard` / `partyCard`: what goes on a card from the data, the toggles
-    applied; `cardImageUrls` is every picture a card can draw, for the panel to load — of a
-    party's singers only the six faces a card ever shows (`FACES_SHOWN`: the podium and
-    ranks 4–6);
+  - `content.ts` — `scoreCard` / `partyCard` / `playerCard`: what goes on a card from the
+    data, the toggles applied (a player's `scope` — the party's name · date, its date, or
+    `ALL_PARTIES` — and the `line` the date toggle takes off, the twenty `histogram`
+    buckets with the best's, the strip's dots, their best per song up to
+    `PLAYER_SONGS_SHOWN`); `cardImageUrls` is every picture a card can draw, for the panel
+    to load — of a party's singers only the six faces a card ever shows (`FACES_SHOWN`: the
+    podium and ranks 4–6), of a player their face and the covers of the songs listed;
   - `fit.ts` — the text fitting, with the measurer passed in (`fakeMeasure` in
     `src/test/shareCard.ts` for the tests); every cut is on graphemes (`Intl.Segmenter`
     where the browser has it, code points otherwise), so a flag or a joined emoji is never
     split;
-  - `layout.ts` — the layouts in numbers, as boxes the renderer paints;
+  - `layout.ts` — the layouts in numbers, as boxes the renderer paints (`layoutScoreCard`,
+    `layoutPartyCard`, `layoutPlayerCard`; the player's histogram is plain `rect`s);
   - `possible.ts` — the carousel's designs in their fixed order (`SCORE_DESIGNS`,
-    `PARTY_DESIGNS`, and `PLAYER_DESIGNS`, `ACHIEVEMENT_DESIGNS` once §9 and §10 are built;
+    `PARTY_DESIGNS`, `PLAYER_DESIGNS`, and `ACHIEVEMENT_DESIGNS` once §10 is built;
     `partyDesignOptions` turning a party's slide into its look, focus, what stands under the
     podium and whether it is the sharer alone), which of them a card allows
-    (`scoreCardDesigns`, `partyCardDesigns`), which toggles each slide honours and why not
-    (`SHARE_TOGGLES`, `scoreSlideToggles`, `partySlideToggles`, `toggleSentence`,
-    `TOGGLES_REST`), `resolvePartyOptions` turning a slide into what is drawn and
-    `settlePartyOptions` asking that again of the pictures that decoded (`draw.ts`), never
-    swapping what stands under the podium for the other;
+    (`scoreCardDesigns`, `partyCardDesigns`, `playerCardDesigns`), which toggles each slide
+    honours and why not (`SHARE_TOGGLES`, `scoreSlideToggles`, `partySlideToggles`,
+    `playerSlideToggles`, `toggleSentence` — the card kind its fourth argument, for a
+    player's *party line* —, `TOGGLES_REST`), `resolvePartyOptions` turning a slide into
+    what is drawn and `settlePartyOptions` asking that again of the pictures that decoded
+    (`draw.ts`), never swapping what stands under the podium for the other, and
+    `resolvePlayerOptions` turning a design the card cannot take into `none`;
   - `draw.ts` — `renderCard(request, images) → Promise<Blob>`, the seam for the panel:
     `images` maps each URL the content names (and `LOGO_URL`) to an `HTMLImageElement` the
     caller loaded from Wingman's own origin; a missing or broken one draws as its letter.
@@ -400,7 +407,8 @@ move to.
     the song, alone, out of at least two tries of theirs), from the song's all-time scores;
   - `prefs.ts` — what the panel remembers per device: the format, `scoreLook`,
     `partyDesign` (`REMEMBERED_PARTY_DESIGNS`: *Podium*, *Strip*, *Mosaic*; an older build's
-    `partyLook` of `mosaic` carries over, its `onlyMe` is dropped) and the three toggles.
+    `partyLook` of `mosaic` carries over, its `onlyMe` is dropped), `playerDesign` (all
+    three) and the three toggles.
 - The strip and the spread are drawn with Canvas 2D over `chartLayout.ts` (`scoreX`, `swarm`,
   `jitterOf`, `scoreTickLabel`) and `chartTheme`, the screens' own helpers; nothing of the SVG
   components is serialised (§7.2).
@@ -417,14 +425,15 @@ move to.
   and draws nothing until that read (or its failure) and `/auth/me` are in. It takes one
   card to draw and never a list to choose from: choosing the score is the sing view's (§8),
   which hands it the pressed score, the sing's session and every score of the sing
-  (`ShareTarget`'s `singScores`).
+  (`ShareTarget`'s `singScores`). A player is `ShareTarget`'s third kind, one singer's
+  scores as the surface showed them and the party they are of, or `null` for every party.
 - The entry points, four: `pages/Scores.tsx`'s session bar (*Share this party*), the sing
   view's **Share** (§8), *Share stats* on an open player group and on `/user/stats` (§9), and
   the achievement modal's **Share** (§10). The score card takes the rest of its sing from
   the sing view's read, so a duet partner in another group is never missed.
-- The user documentation: `docs/user/scores/party.md` (the screenshot `scores-share`), and
-  the sing view, the stats card and the achievement card where their surfaces are
-  documented.
+- The user documentation: `docs/user/scores/party.md` (the screenshot `scores-share`), the
+  stats card there and in `docs/user/scores/your-scores.md` (the screenshot `stats-share`),
+  and the achievement card where its surface is documented.
 - One backend read, §8's `GET /stats/sings/{sing_id}`; the flags of §7.4 come from reads that
   exist.
 - The codebase map in `CLAUDE.md` in the same commit.
@@ -587,6 +596,37 @@ user pages of both surfaces.
 
 One singer's scores as a picture: at one party, or their whole record.
 
+**Built** (2026-10-24): `playerCard`, `PLAYER_DESIGNS` and `layoutPlayerCard` (§6), the panel's
+third target, *Share stats* on an open player group and *Share my stats* on `/user/stats`.
+Calls the design left open, each vetoable:
+
+- **The control stands for every non-empty record**, as written below, though below four
+  scores of one song every design is a dimmed slot: a single score opens a panel of three
+  slots and no buttons. The alternative is to draw the control only where one design can
+  be drawn (four scores, or two songs).
+- **The panel opens on the first design the card can draw** when the remembered one is
+  dimmed (§5 says the first slide; a party's Podium and a score's Dark always can be drawn,
+  a player's Histogram cannot below four scores).
+- **The story's song rows are 96 high**, not the square's 104, and the story's avatar is
+  the one thing that gives (200 down to 120, `stack`'s flexible item): eight rows of 104
+  under a 200 avatar, the name, the line and the numbers do not fit in y 270–1650. On
+  *Histogram* and *Strip* the avatar stays 200.
+- **The strip's dots** are r 12 with a gold ring of 22 and 28 px between swarm lanes
+  (`PLAYER_STRIP_DOT`), and **the band grows with the cloud** (`stripBand`): 200 on a
+  square and 280 on a story are its least, and it is as tall as the swarm needs for every
+  dot to have a lane of its own, up to the square's focus region (about 450) and the
+  story's 640. A fixed 200 piled a cloud of fifty scores onto its outer lanes, dots over
+  dots; only a cloud past those heights still does, as the party card's strip does at 100.
+- **A histogram bar is never under 8 px** where its bucket holds a score, and the bars
+  have square corners on the baseline.
+- **The scope line reads *All parties*** under *All my scores* as well, the head row of a
+  reader without `stats.history`.
+- **`/user/stats` reads the roster when the panel opens** (`players.view`), for the
+  reader's own picture, and the panel waits for that answer; a reader without the right
+  gets their initial.
+- A design the card cannot take resolves to `none`: the head and the numbers alone, never
+  drawn by the panel, which shows the dimmed slot instead.
+
 **Where it opens.** *Share stats* on an open **player** group on `/scores` (grouped by
 player, in any party or in *All parties*): one plain `.button` with `share`, right-aligned on
 a line of its own 12px under the summary and its chart, one per group; a song group has
@@ -619,12 +659,12 @@ head and the numbers always stand.
 |---|---|
 | 72–192 | the avatar 120 (radius 20%); beside it, centred on it, the name 56 bold (→ 44, then an ellipsis) over the party line 32 in `#888` |
 | 232–341 | the four numbers in the party card's columns (190 · 190 · 316 · 240): the value 56 bold, the label 32 in `#888`, Best gold |
-| 392–936 | the focus. *Histogram*: twenty bars across 936 (6 px apart), at most 440 tall, on a 3 px baseline, ticks 0 / 5k / 10k at 32 under it. *Strip*: "Median N" at 32, then the party card's strip with its band at 200 and dots r 12, centred in the region. *Songs*: five 104 px rows, the cover 80 (square corners), the title 40 bold (→ 32, then an ellipsis) over the artist 32 in `#ccc`, the best 44 bold at the right, gold for the top one |
+| 392–936 | the focus. *Histogram*: twenty bars across 936 (6 px apart), at most 440 tall, on a 3 px baseline, ticks 0 / 5k / 10k at 32 under it. *Strip*: "Median N" at 32, then the party card's strip with its band at 200 (at least: it grows with the cloud, see *Built* above) and dots r 12, centred in the region. *Songs*: five 104 px rows, the cover 80 (square corners), the title 40 bold (→ 32, then an ellipsis) over the artist 32 in `#ccc`, the best 44 bold at the right, gold for the top one |
 | 960–1008 | the brand; "ranked by best score" at 32 on the right on *Songs* |
 
 **Story** (1080×1920): the same order in y 270–1650, the head centred (the avatar 200 over
-the name 64 and the party line 36), the histogram up to 640 tall, the strip's band 280,
-eight song rows.
+the name 64 and the party line 36), the histogram up to 640 tall, the strip's band 280 (at
+least, as on the square), eight song rows.
 
 **Toggles:** pictures (dimmed while the singer is the sharer: *Nobody else is on this
 card.*; for somebody else, off draws their initial), date (the party line), logo.

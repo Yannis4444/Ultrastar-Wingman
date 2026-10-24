@@ -8,7 +8,7 @@ import {
   waitFor,
   within,
 } from "@testing-library/react";
-import type { ScoreWithContext } from "../api";
+import type { ScoreWithContext, SessionRead } from "../api";
 import { coverUrl } from "../shareCard/content";
 import { LOGO_URL, type CardRequest } from "../shareCard/draw";
 import { TOGGLES_REST } from "../shareCard/possible";
@@ -21,6 +21,7 @@ import {
   cardPlayers,
   cardScore,
   partySession,
+  singerScores,
 } from "../test/shareCard";
 import ShareCardPanel, {
   LONG_PRESS_NOTE,
@@ -197,6 +198,7 @@ function requests(): CardRequest[] {
 /** Which slide a request was drawn for. */
 function designOf(request: CardRequest): string {
   if (request.kind === "score") return request.options.look;
+  if (request.kind === "player") return request.options.focus;
   if (request.content.onlyMe) return "you";
   if (request.options.focus === "spread") return "spread";
   if (request.options.look === "mosaic") return "mosaic";
@@ -1375,4 +1377,143 @@ test("a card that cannot be drawn says so and offers no buttons", async () => {
     await screen.findByText("The card could not be drawn in this browser."),
   ).toBeInTheDocument();
   expect(document.querySelector(".share-actions")).toBeNull();
+});
+
+// ---------------------------------------------------------- a player's stats
+
+/** Alice's evening: six scores over the six songs, every design drawable. */
+const aliceScores = singerScores("alice", [9100, 8400, 7700, 7000, 6300, 5600]);
+
+function playerTarget(
+  scores: ScoreWithContext[] = aliceScores,
+  session: SessionRead | null = partySession(),
+): ShareTarget {
+  return { kind: "player", scores, session };
+}
+
+test("a player's panel is named for stats, and its designs are Histogram, Strip and Songs", async () => {
+  renderPanel(playerTarget());
+  const dialog = screen.getByRole("dialog", { name: "Share these stats" });
+  expect(within(dialog).queryByRole("heading")).toBeNull();
+  const image = await preview();
+  expect(image).toHaveAccessibleName(
+    expect.stringMatching(/^Share card of Alice's scores, Friday karaoke · /),
+  );
+  expect(slideNames()).toEqual([
+    "Histogram, 1 of 3",
+    "Strip, 2 of 3",
+    "Songs, 3 of 3",
+  ]);
+  expect(designName()).toBe("Histogram");
+  await waitFor(() => expect(renderCard).toHaveBeenCalledTimes(2));
+  expect(requests().map((request) => request.kind)).toEqual([
+    "player",
+    "player",
+  ]);
+  expect(requests().map(designOf)).toEqual(["histogram", "strip"]);
+  // The same three toggles as every card.
+  expect(toggles().map(([name]) => name)).toEqual([
+    "Other singers' pictures",
+    "Party name and date",
+    "Wingman logo",
+  ]);
+});
+
+test("a whole record is shared as All parties", async () => {
+  renderPanel(playerTarget(aliceScores, null));
+  expect(await preview()).toHaveAccessibleName(
+    "Share card of Alice's scores, All parties",
+  );
+  const request = lastRequest();
+  if (request.kind !== "player") throw new Error("not a player card");
+  expect(request.content.line).toBe("All parties");
+});
+
+test("under four scores the charts are dimmed slots with their sentences, Songs drawn", async () => {
+  renderPanel(playerTarget(aliceScores.slice(0, 3)));
+  await preview();
+  expect(designName()).toBe("Songs");
+  for (const [name, reason] of [
+    ["Histogram, 1 of 3", "The histogram needs at least four scores."],
+    ["Strip, 2 of 3", "The strip needs at least four scores."],
+  ]) {
+    const slot = within(carousel()).getByRole("group", { name });
+    expect(slot.querySelector(".share-slide-dimmed")).not.toBeNull();
+    expect(within(slot).getByText(reason)).toBeInTheDocument();
+  }
+  expect(dots()).toEqual([
+    [false, true],
+    [false, true],
+    [true, false],
+  ]);
+});
+
+test("a single score is three dimmed slots and no buttons", async () => {
+  shareableBrowser();
+  renderPanel(playerTarget(aliceScores.slice(0, 1)));
+  await waitFor(() =>
+    expect(
+      within(carousel()).getByText("One song is no list of songs."),
+    ).toBeInTheDocument(),
+  );
+  expect(renderCard).not.toHaveBeenCalled();
+  expect(document.querySelector(".share-actions")).toBeNull();
+});
+
+test("on the reader's own stats the pictures toggle is dimmed and says why; on somebody else's it is live", async () => {
+  renderPanel(playerTarget(singerScores("chiara", [9000, 8000, 7000, 6000])));
+  await preview();
+  expect(toggles()[0]).toEqual(["Other singers' pictures", true, true]);
+  fireEvent.click(toggle("Other singers' pictures"));
+  expect(line()).toBe("Nobody else is on this card.");
+  cleanup();
+  renderPanel(playerTarget());
+  await preview();
+  expect(toggles()[0]).toEqual(["Other singers' pictures", true, false]);
+});
+
+test("on a player card the date toggle speaks of the party line, and takes it off the card", async () => {
+  renderPanel(playerTarget());
+  await preview();
+  fireEvent.click(toggle("Party name and date"));
+  expect(line()).toBe("The party line is left off.");
+  await waitFor(() => {
+    const request = lastRequest();
+    if (request.kind !== "player") throw new Error("not a player card");
+    expect(request.content.line).toBeNull();
+  });
+  fireEvent.click(toggle("Party name and date"));
+  expect(line()).toBe("The party line is on the card.");
+});
+
+test("a player card remembers its design apart from the party's, Songs included", async () => {
+  renderPanel(playerTarget());
+  await preview();
+  forward(2);
+  expect(designName()).toBe("Songs");
+  expect(stored()).toEqual(
+    expect.objectContaining({ playerDesign: "songs", partyDesign: "podium" }),
+  );
+  cleanup();
+  renderCard.mockClear();
+  renderPanel(playerTarget());
+  await preview();
+  expect(designName()).toBe("Songs");
+  expect(requests().map(designOf)[0]).toBe("songs");
+  // A party card still opens on its own.
+  cleanup();
+  renderPanel(partyTarget());
+  await preview();
+  expect(designName()).toBe("Podium");
+});
+
+test("a remembered player design this record cannot draw opens on the first that it can", async () => {
+  window.localStorage.setItem(
+    PREFS_KEY,
+    JSON.stringify({ playerDesign: "histogram" }),
+  );
+  renderPanel(playerTarget(aliceScores.slice(0, 2)));
+  await preview();
+  expect(designName()).toBe("Songs");
+  expect(stored().playerDesign).toBe("histogram");
 });

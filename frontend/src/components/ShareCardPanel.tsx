@@ -14,6 +14,7 @@ import { useAuth } from "../auth";
 import {
   cardImageUrls,
   partyCard,
+  playerCard,
   scoreCard,
   type CardContent,
   type PartyCardContent,
@@ -28,13 +29,17 @@ import {
   TOGGLES_REST,
   partyCardDesigns,
   partySlideToggles,
+  playerCardDesigns,
+  playerSlideToggles,
   resolvePartyOptions,
+  resolvePlayerOptions,
   resolveScoreOptions,
   scoreCardDesigns,
   scoreSlideToggles,
   toggleSentence,
   type Choice,
   type PartyDesign,
+  type PlayerDesign,
   type ScoreDesign,
   type ShareToggle,
   type ToggleReasons,
@@ -51,7 +56,8 @@ import Loading from "./Loading";
 import Modal from "./Modal";
 import "./ShareCardPanel.css";
 
-/** What the panel makes a card of: a whole party, or one score. It takes one
+/** What the panel makes a card of: a whole party, one score, or one singer's
+ * scores at a party or over every party (share-cards §9). It takes one
  * card to draw and never a list to choose from (share-cards §6): choosing
  * the score is the surface's that opens it. */
 export type ShareTarget =
@@ -70,6 +76,15 @@ export type ShareTarget =
       /** Every score of the sing, out of the sing view's read: where the
        * "with <name>" of a duet is found (share-cards §7.7). */
       singScores: ScoreWithContext[];
+    }
+  | {
+      kind: "player";
+      /** One singer's scores, exactly as the surface showed them: an open
+       * player group on `/scores`, or the reader's own record. */
+      scores: ScoreWithContext[];
+      /** The party they are of; `null` for every party at once, which the
+       * card calls *All parties* (share-cards §9). */
+      session: SessionRead | null;
     };
 
 interface ShareCardPanelProps {
@@ -79,7 +94,7 @@ interface ShareCardPanelProps {
   onClose: () => void;
 }
 
-type Design = ScoreDesign | PartyDesign;
+type Design = ScoreDesign | PartyDesign | PlayerDesign;
 
 const FORMAT_LABELS = { square: "Square", story: "Story" } as const;
 const FORMAT_ICONS = {
@@ -94,6 +109,8 @@ const DESIGN_LABELS: Record<Design, string> = {
   mosaic: "Mosaic",
   spread: "Spread",
   you: "You",
+  histogram: "Histogram",
+  songs: "Songs",
 };
 /** Each toggle's name — the option's, never the action (ui-guidelines §4). */
 const TOGGLE_LABELS: Record<ShareToggle, string> = {
@@ -127,15 +144,20 @@ function slug(text: string): string {
 /** The file's name. A party's is its name or date even when the card leaves
  * them off (share-cards §2.2): the file stays on the sharer's phone. */
 function fileName(content: CardContent): string {
-  return content.kind === "score"
-    ? `wingman-${slug(content.title)}-${content.score}.png`
-    : `wingman-${slug(content.party)}.png`;
+  if (content.kind === "score")
+    return `wingman-${slug(content.title)}-${content.score}.png`;
+  // A player's names the scope too, even when the card leaves it off.
+  if (content.kind === "player")
+    return `wingman-${slug(content.person.name)}-${slug(content.scope)}.png`;
+  return `wingman-${slug(content.party)}.png`;
 }
 
 /** What the picture shows, for a reader who cannot see it. */
 function altText(content: CardContent): string {
   if (content.kind === "score")
     return `Share card: ${content.singer.name} scored ${content.score} on ${content.title}`;
+  if (content.kind === "player")
+    return `Share card of ${content.person.name}'s scores, ${content.scope}`;
   if (content.onlyMe)
     return `Share card of ${content.party}: ${content.ranking[0].person.name}'s scores`;
   return `Share card of ${content.party}, ranked by best score`;
@@ -583,6 +605,16 @@ export default function ShareCardPanel({
         mine: partyCard({ ...input, onlyMe: true }),
       };
     }
+    if (target.kind === "player") {
+      return {
+        content: playerCard({
+          ...toggles,
+          scores: target.scores,
+          session: target.session,
+        }),
+        mine: null,
+      };
+    }
     return {
       content: scoreCard({
         ...toggles,
@@ -677,6 +709,25 @@ export default function ShareCardPanel({
         ),
       );
     }
+    if (content.kind === "player") {
+      const toggles = playerSlideToggles(content);
+      return playerCardDesigns(content).map((choice) =>
+        slide(
+          choice,
+          {
+            kind: "player",
+            content,
+            options: resolvePlayerOptions(
+              content,
+              choice.value,
+              prefs.format,
+              prefs.logo,
+            ),
+          },
+          toggles,
+        ),
+      );
+    }
     const alone = mine ?? content;
     return partyCardDesigns(content, alone, loaded).map((choice) => {
       const drawn = choice.value === "you" ? alone : content;
@@ -701,12 +752,21 @@ export default function ShareCardPanel({
   /** Where the carousel opens: on the design remembered, unless this card
    * cannot draw it — a panel opening on held buttons reads as broken. */
   const remembered: Design =
-    content.kind === "score" ? prefs.scoreLook : prefs.partyDesign;
+    content.kind === "score"
+      ? prefs.scoreLook
+      : content.kind === "player"
+        ? prefs.playerDesign
+        : prefs.partyDesign;
+  // Otherwise the first one it can draw: a party's Podium and a score's Dark
+  // always can, a player's Histogram not below four scores.
+  const rememberedAt = slides.findIndex(
+    (slide) => slide.design === remembered && slide.request !== null,
+  );
   const opening = Math.max(
     0,
-    slides.findIndex(
-      (slide) => slide.design === remembered && slide.request !== null,
-    ),
+    rememberedAt >= 0
+      ? rememberedAt
+      : slides.findIndex((slide) => slide.request !== null),
   );
   const index = Math.min(inView ?? opening, Math.max(0, slides.length - 1));
   useEffect(() => {
@@ -721,6 +781,8 @@ export default function ShareCardPanel({
     if (slide === undefined || slide.request === null) return;
     if (slide.request.kind === "score")
       update({ scoreLook: slide.design as ScoreDesign });
+    else if (slide.request.kind === "player")
+      update({ playerDesign: slide.design as PlayerDesign });
     else if (
       REMEMBERED_PARTY_DESIGNS.includes(slide.design as RememberedPartyDesign)
     )
@@ -934,7 +996,12 @@ export default function ShareCardPanel({
   const line =
     explained === null
       ? TOGGLES_REST
-      : toggleSentence(explained, values[explained], reasons[explained]);
+      : toggleSentence(
+          explained,
+          values[explained],
+          reasons[explained],
+          content.kind,
+        );
   const toggle = (which: ShareToggle) => {
     if (which === "pictures") update({ otherPictures: !prefs.otherPictures });
     else if (which === "date")
@@ -943,7 +1010,11 @@ export default function ShareCardPanel({
   };
 
   const title =
-    target.kind === "party" ? "Share this party" : "Share this score";
+    target.kind === "party"
+      ? "Share this party"
+      : target.kind === "player"
+        ? "Share these stats"
+        : "Share this score";
   const format: CardFormat = prefs.format;
   const pressHold = longPressPage();
   const wantedDesigns = new Set(wanted.map((candidate) => candidate.design));

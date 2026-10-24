@@ -1,10 +1,16 @@
 import { CHART_MIN_SCORES } from "../stats";
-import type { PartyCardContent, ScoreCardContent } from "./content";
+import type {
+  PartyCardContent,
+  PlayerCardContent,
+  ScoreCardContent,
+} from "./content";
 import type {
   CardFormat,
   PartyCardOptions,
   PartyFocus,
   PartyLook,
+  PlayerCardOptions,
+  PlayerFocus,
   ScoreCardOptions,
   ScoreLook,
   UnderPodium,
@@ -15,7 +21,8 @@ import type {
  * panel needs to know (share-cards.md §5, ui-guidelines §7 *Share cards*).
  * The designs are a carousel, one slide per design in a fixed order (a
  * score's *Dark* · *Cover*, a party's *Podium* · *Strip* · *Mosaic* ·
- * *Spread* · *You*), and a design the card cannot draw is a dimmed slot
+ * *Spread* · *You*, a player's *Histogram* · *Strip* · *Songs*), and a
+ * design the card cannot draw is a dimmed slot
  * holding the sentence in `reason`. Every choice that used to change what a
  * slide could draw is a slide of its own (§7.11), so nothing here hangs on
  * the slide in view. The three toggles are the same on every slide; a slide
@@ -119,14 +126,27 @@ const TOGGLE_SENTENCES: Record<ShareToggle, { on: string; off: string }> = {
   },
 };
 
-/** The toggle's sentence for the state it is in, or the slide's reason. */
+/** On a player card the date toggle is the line under the name, which may
+ * read *All parties* rather than a party's name and date (share-cards §5). */
+const PLAYER_DATE_SENTENCES = {
+  on: "The party line is on the card.",
+  off: "The party line is left off.",
+};
+
+/** The toggle's sentence for the state it is in, or the slide's reason.
+ * `card` is the kind of card the panel is showing. */
 export function toggleSentence(
   toggle: ShareToggle,
   on: boolean,
   reason: string | null,
+  card: "score" | "party" | "player" = "score",
 ): string {
   if (reason !== null) return reason;
-  return TOGGLE_SENTENCES[toggle][on ? "on" : "off"];
+  const sentences =
+    card === "player" && toggle === "date"
+      ? PLAYER_DATE_SENTENCES
+      : TOGGLE_SENTENCES[toggle];
+  return sentences[on ? "on" : "off"];
 }
 
 const NOBODY_ELSE = "Nobody else is on this card.";
@@ -257,6 +277,75 @@ export function resolvePartyOptions(
     { format, look, focus, under, logo },
     loaded,
   );
+}
+
+// ---------------------------------------------------------- one singer
+
+/** A player card's slides, in the carousel's order (share-cards §9). All on
+ * Dark: a chart over a cover wash does not read. */
+export type PlayerDesign = "histogram" | "strip" | "songs";
+export const PLAYER_DESIGNS: readonly PlayerDesign[] = [
+  "histogram",
+  "strip",
+  "songs",
+];
+
+function histogramReason(content: PlayerCardContent): string | null {
+  return content.scoreCount < CHART_MIN_SCORES
+    ? "The histogram needs at least four scores."
+    : null;
+}
+
+function playerStripReason(content: PlayerCardContent): string | null {
+  return content.scoreCount < CHART_MIN_SCORES
+    ? "The strip needs at least four scores."
+    : null;
+}
+
+function songsReason(content: PlayerCardContent): string | null {
+  return content.songCount < 2 ? "One song is no list of songs." : null;
+}
+
+const PLAYER_REASONS: Record<
+  PlayerDesign,
+  (content: PlayerCardContent) => string | null
+> = {
+  histogram: histogramReason,
+  strip: playerStripReason,
+  songs: songsReason,
+};
+
+/** One per slide, in `PLAYER_DESIGNS`' order. */
+export function playerCardDesigns(
+  content: PlayerCardContent,
+): Choice<PlayerDesign>[] {
+  return PLAYER_DESIGNS.map((design) =>
+    choice(design, PLAYER_REASONS[design](content)),
+  );
+}
+
+/** A player card's toggles: the pictures reach the singer only when they are
+ * not the sharer, whose own picture is always theirs (§1.3). */
+export function playerSlideToggles(content: PlayerCardContent): ToggleReasons {
+  return {
+    pictures: content.mine ? NOBODY_ELSE : null,
+    date: null,
+    logo: null,
+  };
+}
+
+/** What one player slide draws: its design, or — for a design the card
+ * cannot take, which the panel never sends — the head and the numbers alone
+ * (`none`), never another design's drawing. */
+export function resolvePlayerOptions(
+  content: PlayerCardContent,
+  design: PlayerDesign,
+  format: CardFormat,
+  logo: boolean,
+): PlayerCardOptions {
+  const focus: PlayerFocus =
+    PLAYER_REASONS[design](content) === null ? design : "none";
+  return { format, focus, logo };
 }
 
 /**

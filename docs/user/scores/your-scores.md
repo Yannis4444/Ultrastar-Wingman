@@ -64,6 +64,37 @@ what they got, and :wingman-share: **Share** for a card of it. See
     same name in the party picker on the **Scores** tab is something else. That
     one adds up every party you may open, with everybody who sang in them.
 
+## Share your stats
+
+Tap :wingman-share: **Share my stats** at the right of the **Your scores**
+heading. Wingman draws a card of your whole record: your picture and name over
+**All parties**, then **Sings**, **Songs**, **Best**, and **Average**. The
+worst score is never on a card. The button is there once you have a score.
+
+![The share panel over the Your scores page: Bender's card with his picture over All parties, his four figures and the bar chart, the next design peeking in, the dots under it with Square and Story beside them, and the three symbols over their line](../assets/screenshots/scores/stats-share.png){ width="320" loading=lazy }
+/// caption
+The gold bar holds Bender's best of 9,842.
+///
+
+Swipe the picture for the three designs:
+
+| Design | What stands under the figures |
+|---|---|
+| **Histogram** | A bar chart of where your scores land. The bar with your best is gold |
+| **Strip** | Every score as a dot, your best in gold, and your median |
+| **Songs** | Your best score on each song, best first: five on a square, eight on a story |
+
+**Histogram** and **Strip** need four scores. **Songs** needs two different
+songs. A design that cannot be drawn yet keeps its place with a line saying
+why. With fewer than four scores, all of one song, every design is such a box
+and there is nothing to send yet. The rest of the panel works as it does for a party card: the shape, the
+three symbols, and the buttons. See
+[Share a party or a score](party.md#share-a-party-or-a-score). On your own
+card the pictures symbol is faded, because your own picture is always on it.
+
+To share your stats at one party only, or somebody else's, use **Share stats**
+on the **Scores** tab with the rows grouped by player.
+
 ## One song's best runs
 
 A song's own view has the same thing for one song. :wingman-trophy:

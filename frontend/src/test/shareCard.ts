@@ -141,3 +141,15 @@ export function cardParty(singers: number, each: number): ScoreWithContext[] {
   }
   return scores;
 }
+
+/** One singer's scores, `values` in the order they were sung, the songs taken
+ * in turn from `songs` — a player card's record. */
+export function singerScores(
+  playerId: string,
+  values: number[],
+  songs: (SongRead | null)[] = SONGS,
+): ScoreWithContext[] {
+  return values.map((value, index) =>
+    cardScore(playerId, value, songs[index % songs.length]),
+  );
+}

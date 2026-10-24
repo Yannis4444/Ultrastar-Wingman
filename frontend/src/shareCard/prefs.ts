@@ -1,5 +1,9 @@
 import type { CardFormat, ScoreLook } from "./layout";
-import type { PartyDesign } from "./possible";
+import {
+  PLAYER_DESIGNS,
+  type PartyDesign,
+  type PlayerDesign,
+} from "./possible";
 
 /**
  * What the share panel remembers per device (share-cards.md §5): the last
@@ -24,6 +28,8 @@ export interface SharePrefs {
   format: CardFormat;
   scoreLook: ScoreLook;
   partyDesign: RememberedPartyDesign;
+  /** All three of a player card's designs are kept (share-cards §5). */
+  playerDesign: PlayerDesign;
   otherPictures: boolean;
   partyNameAndDate: boolean;
   /** *Wingman logo*, on by default (§1.8). */
@@ -34,6 +40,7 @@ export const DEFAULT_PREFS: SharePrefs = {
   format: "square",
   scoreLook: "dark",
   partyDesign: "podium",
+  playerDesign: "histogram",
   otherPictures: true,
   partyNameAndDate: true,
   logo: true,
@@ -73,6 +80,7 @@ export function readPrefs(): SharePrefs {
     format: pick(stored.format, ["square", "story"], d.format),
     scoreLook: pick(stored.scoreLook, ["dark", "cover"], d.scoreLook),
     partyDesign: pick(stored.partyDesign, REMEMBERED_PARTY_DESIGNS, olderParty),
+    playerDesign: pick(stored.playerDesign, PLAYER_DESIGNS, d.playerDesign),
     otherPictures: flag(stored.otherPictures, d.otherPictures),
     partyNameAndDate: flag(stored.partyNameAndDate, d.partyNameAndDate),
     logo: flag(stored.logo, d.logo),

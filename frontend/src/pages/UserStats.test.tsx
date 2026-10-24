@@ -11,6 +11,7 @@ import type { ScoreWithContext, SongRead } from "../api";
 import { chartTheme } from "../chartTheme";
 import { shortDate } from "../duration";
 import { meResponse, userRead } from "../test/auth";
+import { iconNames } from "../test/icons";
 import UserStats from "./UserStats";
 
 const { getMe, listPlayerScores, listPlayers } = vi.hoisted(() => ({
@@ -29,6 +30,31 @@ vi.mock("../api/sdk.gen", async (importOriginal) => ({
 vi.mock("../components/SongDetails", () => ({
   default: ({ song }: { song: SongRead }) => (
     <div data-testid="song-details">{song.title}</div>
+  ),
+}));
+
+// Tested where it lives; here, what opens it and what it is handed.
+vi.mock("../components/ShareCardPanel", () => ({
+  default: ({
+    target,
+    players,
+    onClose,
+  }: {
+    target: { kind: string; scores: ScoreWithContext[]; session: unknown };
+    players: Map<string, unknown>;
+    onClose: () => void;
+  }) => (
+    <div
+      data-testid="share-panel"
+      data-kind={target.kind}
+      data-scores={target.scores.map((entry) => entry.id).join(",")}
+      data-session={target.session === null ? "none" : "some"}
+      data-players={[...players.keys()].join(",")}
+    >
+      <button type="button" onClick={onClose}>
+        Close the share panel
+      </button>
+    </div>
   ),
 }));
 
@@ -417,6 +443,60 @@ test("the roster is not fetched for a list of avatars nobody draws", async () =>
   await waitFor(() => expect(groupLabels()).toHaveLength(2));
 
   expect(listPlayers).not.toHaveBeenCalled();
+});
+
+test("Share my stats trails the header and opens a card of the whole record", async () => {
+  renderStats();
+  const share = await screen.findByRole("button", { name: "Share my stats" });
+  expect(share).toHaveClass("icon-button", "icon-button-bordered");
+  expect(share.closest(".page-header")).not.toBeNull();
+  expect(iconNames(share)).toEqual(["share"]);
+  // Nothing about the card is asked for before it is wanted.
+  expect(listPlayers).not.toHaveBeenCalled();
+
+  fireEvent.click(share);
+  const panel = await screen.findByTestId("share-panel");
+  expect(panel).toHaveAttribute("data-kind", "player");
+  // Every party: the card says All parties.
+  expect(panel).toHaveAttribute("data-session", "none");
+  expect(panel).toHaveAttribute("data-scores", "1,2,3,4");
+  // The roster came first, for the reader's own picture.
+  expect(listPlayers).toHaveBeenCalledTimes(1);
+  expect(panel).toHaveAttribute("data-players", "aaa");
+
+  fireEvent.click(
+    screen.getByRole("button", { name: "Close the share panel" }),
+  );
+  expect(screen.queryByTestId("share-panel")).toBeNull();
+});
+
+test("a reader who may not list players still shares, with their initial", async () => {
+  loggedIn(["songs.view", "stats.view"]);
+  renderStats();
+  fireEvent.click(
+    await screen.findByRole("button", { name: "Share my stats" }),
+  );
+  const panel = await screen.findByTestId("share-panel");
+  expect(panel).toHaveAttribute("data-players", "");
+  expect(listPlayers).not.toHaveBeenCalled();
+});
+
+test("with no score there is no Share my stats", async () => {
+  listPlayerScores.mockResolvedValue({ data: { scores: [] } });
+  renderStats();
+  await screen.findByText(/Sing a song and your whole record builds up here/);
+  expect(
+    screen.queryByRole("button", { name: "Share my stats" }),
+  ).not.toBeInTheDocument();
+});
+
+test("a record that could not be read has nothing to share", async () => {
+  listPlayerScores.mockRejectedValue({ detail: "boom" });
+  renderStats();
+  await screen.findByRole("alert");
+  expect(
+    screen.queryByRole("button", { name: "Share my stats" }),
+  ).not.toBeInTheDocument();
 });
 
 test("a failed history request says so instead of claiming nothing was sung", async () => {

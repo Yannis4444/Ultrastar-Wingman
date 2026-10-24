@@ -196,9 +196,9 @@ never from inside the sing. See [Correct a score](#correct-a-score).
 
 ## Share a party or a score
 
-Wingman draws a picture of a party or of one score for you to send to friends.
-Your browser draws it, and you save or share it from there. Whoever may read a
-party's scores may share them.
+Wingman draws a picture of a party, of one score, or of one singer's scores
+for you to send to friends. Your browser draws it, and you save or share it
+from there. Whoever may read a party's scores may share them.
 
 - To share the party, tap :wingman-share: **Share this party** at the end of
   the party button's row. **All parties** and **All my scores** have none,
@@ -206,6 +206,13 @@ party's scores may share them.
 - To share a score, tap it to open its sing, then tap :wingman-share:
   **Share**. The card is of the row that is lit there, so a duet partner's
   score is shared the same way as your own.
+- To share one singer's figures, set **Group** to **group by player** and
+  open their row. :wingman-share: **Share stats** stands under their figures,
+  over their scores. The card is of that singer at this party. Under **All
+  parties** or **All my scores** it adds up every party on the page, and the
+  card says **All parties**. A row grouped by song has no **Share stats**.
+  Your own record has the same card on the **User** tab, see
+  [Share your stats](your-scores.md#share-your-stats).
 
 ![The Share this party panel on the blurred page: the party card with the next design peeking in, the arrows and dots under it with Square and Story beside them, and the three symbols over their line](../assets/screenshots/scores/scores-share.png){ width="320" loading=lazy }
 /// caption
@@ -225,6 +232,7 @@ them. The design you see is the one that is sent.
 |---|---|
 | A score | **Dark**, then **Cover**, which blurs the song's cover behind it |
 | A party | **Podium**, with the next singers listed under it. **Strip**, with every score of the party as a dot under it. **Mosaic**, which lays the party's covers behind the whole card, dimmed so the words stay readable. **Spread**, which puts every singer's scores side by side instead of the podium. **You**, which shows you alone, with your own figures and your place, such as "2nd of 5" |
+| A singer's stats | **Histogram**, a bar chart of where the scores land, the bar with the best one in gold. **Strip**, every score as a dot. **Songs**, the singer's best score on each song, best first: five on a square, eight on a story |
 
 On a story, **Podium** lists the next singers, and **Strip** has room for the
 list and the dots both.
@@ -232,8 +240,9 @@ list and the dots both.
 A design the card cannot draw keeps its place as an empty box with a line
 saying why: **Mosaic** needs four different covers, for example, a song
 without a cover has no **Cover**, and **You** is there for somebody who sang
-at that party. Its dot is a ring. While it is on screen, the buttons at the
-foot wait.
+at that party. A singer's **Histogram** and **Strip** need four scores, and
+**Songs** needs two different songs. Its dot is a ring. While it is on
+screen, the buttons at the foot wait.
 
 The two symbols at the end of the dots choose the card's shape:
 :wingman-format-square: **Square** for a chat, :wingman-format-story:
@@ -250,17 +259,19 @@ under them says what the last one you touched does.
 | Symbol | On | Off |
 |---|---|---|
 | :wingman-image: **Other singers' pictures** | Everybody's picture | Everybody else is drawn as their initial. Your own picture is always yours |
-| :wingman-calendar: **Party name and date** | The party's name and its day | The card names no party and no day. A party card then starts with its figures. The saved file is still named after the party, or after its date, so you can find it on your phone |
+| :wingman-calendar: **Party name and date** | The party's name and its day. On a singer's card, the line under their name, which may read **All parties** | The card names no party and no day. A party card then starts with its figures, and a singer's name stands alone. The saved file is still named after the party, or after its date, so you can find it on your phone |
 | The logo itself, **Wingman logo** | The logo and the Ultrastar Wingman name in the bottom corner | Both go, and nothing else on the card moves |
 
 A symbol a design has no use for stays where it is, faded, and keeps your
 choice for the designs that do. The line says why when you tap it: your own
-score, **You**, and a party you sang alone show no other singer, and
-**Spread** draws names rather than pictures.
+score, your own stats, **You**, and a party you sang alone show no other
+singer, and **Spread** draws names rather than pictures.
 
 The panel remembers the shape, the design, and the three symbols on this
 device, and opens on that design the next time. **Spread** and **You** are not
-remembered: the panel opens on the design you had before them.
+remembered: the panel opens on the design you had before them. A singer's
+card keeps its own design apart from the party card's. When the card cannot
+draw the design it remembers, it opens on the first one it can.
 
 ### What a card shows
 
@@ -271,6 +282,10 @@ A party card opens with the party's name over its date and how many sang. A
 party without a name opens with its date. Then come **Sings**, **Songs**,
 **Best**, and **Average**, and the podium. No card ever shows the worst score:
 a card leaves the room.
+
+A singer's card opens with their picture and name over the party's name and
+date, or **All parties**. Then come the same four figures, and the design.
+**Best** names nobody, because the whole card is one person's.
 
 For a reader who may open past parties, a score that holds the song's record
 says **New Highscore**. One that is the singer's own best on the song says

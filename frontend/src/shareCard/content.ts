@@ -8,6 +8,8 @@ import {
   boxStats,
   evaluationLabel,
   groupScores,
+  bucketOf,
+  histogram,
   plural,
   scorePlayer,
   scorePlayerKey,
@@ -144,7 +146,51 @@ export interface PartyCardContent {
   rankingNote: string | null;
 }
 
-export type CardContent = ScoreCardContent | PartyCardContent;
+/** One song on a player card's *Songs* design: their best score on it. */
+export interface CardSongRow {
+  key: string;
+  /** The song's title, or *Unknown song* once it has left the library. */
+  title: string;
+  artist: string | null;
+  cover: CardImage;
+  best: number;
+  /** The song their best score of all is on: the one gold number. */
+  gold: boolean;
+}
+
+export interface PlayerCardContent {
+  kind: "player";
+  person: CardPerson;
+  /** The singer is the sharer: theirs is the only face on the card, so
+   * *Other singers' pictures* has nothing to reach (share-cards §9). */
+  mine: boolean;
+  /** "Ben's birthday · 17 Oct 2026", a nameless party's date, or *All
+   * parties* — whatever the toggle says: the file name and the `alt` name it
+   * even when the card does not. */
+  scope: string;
+  /** The party line under the name: `scope`, or `null` with *Party name and
+   * date* off. */
+  line: string | null;
+  /** Sings · Songs · Best · Average, Best without a holder: the card is one
+   * person's. */
+  numbers: CardNumbers;
+  scoreCount: number;
+  /** `stats.ts` `histogram`'s twenty buckets over 0–10k. */
+  buckets: number[];
+  /** The bucket their best score falls in: the gold bar. */
+  bestBucket: number | null;
+  /** Their scores ascending, for the strip, the best one gold. */
+  dots: CardDot[];
+  median: number | null;
+  /** Their best score per song, best first — at most `PLAYER_SONGS_SHOWN`,
+   * the story's eight. */
+  songs: CardSongRow[];
+  /** How many different songs they sang, whatever the card lists of them. */
+  songCount: number;
+}
+
+export type CardContent =
+  ScoreCardContent | PartyCardContent | PlayerCardContent;
 
 /** At most this many covers are asked for: the story's mosaic has eighteen
  * cells and a long party should not cost a hundred requests. */
@@ -410,6 +456,103 @@ export function partyCard(input: PartyCardInput): PartyCardContent {
   };
 }
 
+/** What a player card's scope line says for a whole record, or for the
+ * *All parties* row of `/scores` (share-cards §9). */
+export const ALL_PARTIES = "All parties";
+
+/** The most songs a player card lists: the story's eight (§9). */
+export const PLAYER_SONGS_SHOWN = 8;
+
+export interface PlayerCardInput {
+  /** One singer's scores, exactly as the surface showed them: an open player
+   * group on `/scores`, or the reader's own record on `/user/stats`. */
+  scores: ScoreWithContext[];
+  /** The party they are of, `null` for every party at once. */
+  session: SessionRead | null;
+  players: Map<string, PlayerRead>;
+  me: string | null;
+  otherPictures: boolean;
+  partyNameAndDate: boolean;
+}
+
+/** Earlier first, the row id breaking a tie — `scoreSummary`'s rule for who
+ * holds a shared peak, so the gold song is the summary's Best. */
+function sungBefore(a: ScoreWithContext, b: ScoreWithContext): number {
+  return (
+    parseServerTime(a.recorded_at) - parseServerTime(b.recorded_at) ||
+    a.id - b.id
+  );
+}
+
+/**
+ * One singer's scores as a card (share-cards §9): their face and name, where
+ * the scores are from, the four numbers, and what the designs draw — the
+ * histogram's buckets, the strip's dots, and their best song by song. Only
+ * ever handed one singer's scores; the first one names them.
+ */
+export function playerCard(input: PlayerCardInput): PlayerCardContent {
+  const { scores, session } = input;
+  const first = scores[0];
+  const summary = scoreSummary(scores);
+  const best = bestScoreOf(scores);
+  const dots = dotsOf(scores);
+
+  let scope = ALL_PARTIES;
+  if (session !== null) {
+    const date = cardDate(session.started_at);
+    const name = session.name ?? "";
+    // A nameless party is its date, which the line then says once.
+    scope = name === "" ? date : `${name} · ${date}`;
+  }
+
+  const songs = groupScores(scores, "song")
+    .flatMap((group) => {
+      const top = bestScoreOf(group.scores);
+      return top === null ? [] : [{ group, top }];
+    })
+    .sort((a, b) => b.top.score - a.top.score || sungBefore(a.top, b.top))
+    .map(({ group, top }): CardSongRow => {
+      const song = top.song;
+      return {
+        key: group.key,
+        title: song?.title ?? "Unknown song",
+        artist: song?.artist ?? null,
+        cover: {
+          url: song === null ? null : coverUrl(song.id),
+          initial: song === null ? "?" : initialOf(song.artist),
+        },
+        best: top.score,
+        gold: best !== null && top.id === best.id,
+      };
+    });
+
+  return {
+    kind: "player",
+    person:
+      first === undefined
+        ? { name: "", avatar: { url: null, initial: "?" } }
+        : personOf(first, input.players, input.me, input.otherPictures),
+    mine:
+      first !== undefined && input.me !== null && first.player_id === input.me,
+    scope,
+    line: input.partyNameAndDate ? scope : null,
+    numbers: {
+      sings: summary?.sings ?? 0,
+      songs: summary?.songs ?? 0,
+      best: summary?.best ?? 0,
+      bestBy: null,
+      average: summary?.average ?? 0,
+    },
+    scoreCount: scores.length,
+    buckets: histogram(scores),
+    bestBucket: best === null ? null : bucketOf(best.score),
+    dots,
+    median: medianOf(dots.map((dot) => dot.score)),
+    songs: songs.slice(0, PLAYER_SONGS_SHOWN),
+    songCount: songs.length,
+  };
+}
+
 /** How many of a party's singers a card ever draws a face for: the podium's
  * three and the three rows under it (§4.2). The spread draws none. */
 export const FACES_SHOWN = 6;
@@ -421,11 +564,16 @@ export function cardImageUrls(content: CardContent): string[] {
   const urls =
     content.kind === "score"
       ? [content.cover.url, content.singer.avatar.url]
-      : [
-          ...content.ranking
-            .slice(0, FACES_SHOWN)
-            .map((entry) => entry.person.avatar.url),
-          ...content.covers,
-        ];
+      : content.kind === "player"
+        ? [
+            content.person.avatar.url,
+            ...content.songs.map((entry) => entry.cover.url),
+          ]
+        : [
+            ...content.ranking
+              .slice(0, FACES_SHOWN)
+              .map((entry) => entry.person.avatar.url),
+            ...content.covers,
+          ];
   return [...new Set(urls.filter((url): url is string => url !== null))];
 }

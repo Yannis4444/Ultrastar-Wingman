@@ -4,16 +4,22 @@ import {
   cardPlayers,
   cardScore,
   partySession,
+  singerScores,
+  song,
 } from "../test/shareCard";
 import { cardDate } from "../duration";
 import {
+  ALL_PARTIES,
+  PLAYER_SONGS_SHOWN,
   cardImageUrls,
   coverUrl,
   ordinal,
   partnersLine,
   partyCard,
+  playerCard,
   scoreCard,
   type PartyCardInput,
+  type PlayerCardInput,
   type ScoreCardInput,
 } from "./content";
 
@@ -364,4 +370,143 @@ test("an initial is the first character a reader sees, a flag whole", () => {
     scoreInput({ score: flagged, otherPictures: false }),
   );
   expect(content.singer.avatar.initial).toBe("🇩🇪");
+});
+
+// ---------------------------------------------------------------- a player
+
+function playerInput(
+  overrides: Partial<PlayerCardInput> & Pick<PlayerCardInput, "scores">,
+): PlayerCardInput {
+  return {
+    session: partySession(),
+    players,
+    me: "chiara",
+    otherPictures: true,
+    partyNameAndDate: true,
+    ...overrides,
+  };
+}
+
+test("a player: their four numbers, Best without a holder, never the worst", () => {
+  // Two runs of one sing would be a duet, here five sings of three songs.
+  const scores = singerScores(
+    "alice",
+    [8000, 6000, 9100, 4000, 7000],
+    SONGS.slice(0, 3),
+  );
+  const content = playerCard(playerInput({ scores }));
+  expect(content.kind).toBe("player");
+  expect(content.person.name).toBe("Alice");
+  expect(content.numbers).toEqual({
+    sings: 5,
+    songs: 3,
+    best: 9100,
+    bestBy: null,
+    average: 6820,
+  });
+  expect(content.scoreCount).toBe(5);
+  expect(content.mine).toBe(false);
+  expect(Object.keys(content.numbers)).not.toContain("worst");
+});
+
+test("the party line is the party's name and date, a nameless party its date, every party All parties", () => {
+  const scores = singerScores("alice", [8000]);
+  const date = cardDate(partySession().started_at);
+  expect(playerCard(playerInput({ scores })).line).toBe(
+    `Friday karaoke · ${date}`,
+  );
+  expect(
+    playerCard(playerInput({ scores, session: partySession({ name: null }) }))
+      .line,
+  ).toBe(date);
+  const all = playerCard(playerInput({ scores, session: null }));
+  expect(all.line).toBe(ALL_PARTIES);
+  expect(all.scope).toBe("All parties");
+});
+
+test("with the date toggle off the line goes, and the scope stays for the file", () => {
+  const content = playerCard(
+    playerInput({
+      scores: singerScores("alice", [8000]),
+      partyNameAndDate: false,
+    }),
+  );
+  expect(content.line).toBeNull();
+  expect(content.scope).toMatch(/^Friday karaoke · /);
+});
+
+test("somebody else's picture is their initial with the toggle off, the sharer's never", () => {
+  const theirs = playerCard(
+    playerInput({
+      scores: singerScores("alice", [8000]),
+      otherPictures: false,
+    }),
+  );
+  expect(theirs.person.avatar).toEqual({ url: null, initial: "A" });
+  const mine = playerCard(
+    playerInput({
+      scores: singerScores("chiara", [8000]),
+      otherPictures: false,
+    }),
+  );
+  expect(mine.mine).toBe(true);
+  expect(mine.person.avatar.url).toBe("/api/v1/players/chiara/avatar?v=3");
+});
+
+test("the histogram is twenty buckets, a perfect score in the last, the best's bucket gold", () => {
+  const content = playerCard(
+    playerInput({
+      scores: singerScores("alice", [0, 499, 500, 7250, 10000, 9999]),
+    }),
+  );
+  expect(content.buckets).toHaveLength(20);
+  expect(content.buckets[0]).toBe(2);
+  expect(content.buckets[1]).toBe(1);
+  expect(content.buckets[14]).toBe(1);
+  expect(content.buckets[19]).toBe(2);
+  expect(content.bestBucket).toBe(19);
+  expect(content.dots.filter((dot) => dot.best)).toHaveLength(1);
+  expect(content.dots.find((dot) => dot.best)?.score).toBe(10000);
+  expect(content.median).toBe(3875);
+});
+
+test("the songs are their best per song, best first, the top one gold, a lost song unknown", () => {
+  const scores = singerScores(
+    "alice",
+    [5000, 9000, 7000, 8000, 6000],
+    [SONGS[0], SONGS[1], SONGS[0], null, SONGS[1]],
+  );
+  const content = playerCard(playerInput({ scores }));
+  expect(
+    content.songs.map((entry) => [entry.title, entry.best, entry.gold]),
+  ).toEqual([
+    ["Dancing Queen", 9000, true],
+    ["Unknown song", 8000, false],
+    ["Bohemian Rhapsody", 7000, false],
+  ]);
+  expect(content.songs[1].artist).toBeNull();
+  expect(content.songs[1].cover).toEqual({ url: null, initial: "?" });
+  expect(content.songCount).toBe(3);
+});
+
+test("a long record lists eight songs and counts them all", () => {
+  const many = Array.from({ length: 12 }, (_, index) =>
+    song(`usdb:${100 + index}`, `Artist ${index}`, `Song ${index}`),
+  );
+  const content = playerCard(
+    playerInput({
+      scores: singerScores(
+        "alice",
+        many.map((_, index) => 9000 - index * 100),
+        many,
+      ),
+    }),
+  );
+  expect(content.songs).toHaveLength(PLAYER_SONGS_SHOWN);
+  expect(content.songCount).toBe(12);
+  // The picture, and the covers of the songs a card can list — not twelve.
+  expect(cardImageUrls(content)).toEqual([
+    "/api/v1/players/alice/avatar?v=3",
+    ...many.slice(0, 8).map((entry) => coverUrl(entry.id)),
+  ]);
 });

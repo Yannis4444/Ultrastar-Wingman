@@ -1,13 +1,18 @@
 import { useQuery } from "@tanstack/react-query";
-import { useState } from "react";
+import { useMemo, useState } from "react";
 import type { ScoreWithContext, SongRead } from "../api";
-import { listPlayerScoresOptions } from "../api/@tanstack/react-query.gen";
+import {
+  listPlayerScoresOptions,
+  listPlayersOptions,
+} from "../api/@tanstack/react-query.gen";
 import { useAuth } from "../auth";
+import { Icon } from "../components/icons";
 import Loading from "../components/Loading";
 import PageHeader from "../components/PageHeader";
 import ScoreGroupList from "../components/ScoreGroupList";
 import ScoresEmpty from "../components/ScoresEmpty";
 import ScoreStrip from "../components/ScoreStrip";
+import ShareCardPanel, { type ShareTarget } from "../components/ShareCardPanel";
 import SingView from "../components/SingView";
 import SongDetails from "../components/SongDetails";
 import { errorMessage } from "../errors";
@@ -112,7 +117,7 @@ function History({ playerId }: { playerId: string }) {
         sorting={sorting}
         /* Empty on purpose: the map only feeds avatars, and `ownRows` is what
            took the reader's own avatar off every row. Nothing here needs the
-           roster, so nothing here fetches it. */
+           roster; the share card asks for it when it opens. */
         players={new Map()}
         onOpenSong={setOpenSong}
         onOpenScore={setOpenScore}
@@ -143,10 +148,62 @@ function History({ playerId }: { playerId: string }) {
 export default function UserStats() {
   const auth = useAuth();
   const playerId = auth.user?.player_id ?? null;
+  const reading = auth.loaded && auth.can("stats.view") && playerId !== null;
+  // The same query `History` reads, so it is one request: the header's share
+  // button waits for the record and is not drawn while it is empty.
+  const scores = useQuery({
+    ...listPlayerScoresOptions({ path: { player_id: playerId ?? "" } }),
+    enabled: reading,
+  });
+  const rows = scores.data?.scores ?? [];
+  const [sharing, setSharing] = useState(false);
+  // The card draws the reader's own picture, which is in the roster: asked
+  // for once the card is, and the panel waits for the answer, so it is never
+  // drawn first with the initial. A reader who may not list players — or
+  // whose roster read failed — gets their initial, as everywhere else.
+  const askRoster = sharing && auth.can("players.view");
+  const playerList = useQuery({
+    ...listPlayersOptions(),
+    enabled: askRoster,
+  });
+  // Kept as they are across renders, as `/scores` keeps its own: the panel
+  // works its card out again whenever either changes.
+  const roster = playerList.data?.players;
+  const players = useMemo(
+    () => new Map((roster ?? []).map((player) => [player.id, player])),
+    [roster],
+  );
+  const record = scores.data?.scores;
+  const target = useMemo<ShareTarget>(
+    () => ({ kind: "player", scores: record ?? [], session: null }),
+    [record],
+  );
+  const rosterSettled = !askRoster || !playerList.isPending;
 
   return (
     <div className="scores-page">
-      <PageHeader title="Your scores" back="/user" />
+      <PageHeader title="Your scores" back="/user">
+        {/* A page-level control (ui-guidelines §6): the whole record as a
+            card (share-cards §9), once there is a record to draw. */}
+        {reading && scores.isSuccess && rows.length > 0 && (
+          <button
+            type="button"
+            className="icon-button icon-button-bordered"
+            aria-label="Share my stats"
+            title="Share my stats"
+            onClick={() => setSharing(true)}
+          >
+            <Icon name="share" />
+          </button>
+        )}
+      </PageHeader>
+      {sharing && rows.length > 0 && rosterSettled && (
+        <ShareCardPanel
+          target={target}
+          players={players}
+          onClose={() => setSharing(false)}
+        />
+      )}
       {/* Nothing until /auth/me answered: `can` says yes while it is in flight,
           and `player_id` is not known either. */}
       {auth.loaded &&

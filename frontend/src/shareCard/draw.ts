@@ -2,6 +2,7 @@ import { ICON_PATHS } from "../components/icons";
 import {
   cardImageUrls,
   type PartyCardContent,
+  type PlayerCardContent,
   type ScoreCardContent,
 } from "./content";
 import { fontString, type Measure } from "./fit";
@@ -12,6 +13,7 @@ import {
   HALO,
   SCRIM_ALPHA,
   layoutPartyCard,
+  layoutPlayerCard,
   layoutScoreCard,
   type CardBackground,
   type CardElement,
@@ -19,6 +21,7 @@ import {
   type ImageElement,
   type TextElement,
   type PartyCardOptions,
+  type PlayerCardOptions,
   type ScoreCardOptions,
 } from "./layout";
 import { resolveScoreOptions, settlePartyOptions } from "./possible";
@@ -44,7 +47,8 @@ export type CardImages = ReadonlyMap<string, HTMLImageElement>;
 
 export type CardRequest =
   | { kind: "score"; content: ScoreCardContent; options: ScoreCardOptions }
-  | { kind: "party"; content: PartyCardContent; options: PartyCardOptions };
+  | { kind: "party"; content: PartyCardContent; options: PartyCardOptions }
+  | { kind: "player"; content: PlayerCardContent; options: PlayerCardOptions };
 
 /** The blurred cover is the cover drawn this small and scaled back up:
  * `ctx.filter` is not reliable on WebKit (§4.3). */
@@ -364,6 +368,10 @@ function layoutOf(
     );
     return layoutScoreCard(request.content, options, measure);
   }
+  // A player card is Dark whatever arrived: a cover that did not decode is
+  // its letter on its row, as every other missing picture.
+  if (request.kind === "player")
+    return layoutPlayerCard(request.content, request.options, measure);
   const options = settlePartyOptions(request.content, request.options, loaded);
   return layoutPartyCard(request.content, options, measure, loaded);
 }

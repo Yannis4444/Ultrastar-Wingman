@@ -5,11 +5,22 @@ import {
   cardPlayers,
   cardScore,
   partySession,
+  singerScores,
 } from "../test/shareCard";
-import { partyCard, scoreCard, type PartyCardContent } from "./content";
+import {
+  partyCard,
+  playerCard,
+  scoreCard,
+  type PartyCardContent,
+  type PlayerCardContent,
+} from "./content";
 import {
   FORMATS,
   PARTY_DESIGNS,
+  PLAYER_DESIGNS,
+  playerCardDesigns,
+  playerSlideToggles,
+  resolvePlayerOptions,
   SCORE_DESIGNS,
   SHARE_TOGGLES,
   TOGGLES_REST,
@@ -315,5 +326,110 @@ test("a toggle's sentence follows its state, and a dimmed one says why", () => {
   );
   expect(toggleSentence("pictures", true, "Nobody else is on this card.")).toBe(
     "Nobody else is on this card.",
+  );
+});
+
+// ---------------------------------------------------------------- a player
+
+function playerOf(
+  scores: ScoreWithContext[],
+  overrides: Partial<Parameters<typeof playerCard>[0]> = {},
+): PlayerCardContent {
+  return playerCard({
+    scores,
+    session: partySession(),
+    players,
+    me: "chiara",
+    otherPictures: true,
+    partyNameAndDate: true,
+    ...overrides,
+  });
+}
+
+const reasons = (content: PlayerCardContent) =>
+  playerCardDesigns(content).map((entry) => [entry.value, entry.reason]);
+
+test("a player's slides are Histogram, Strip and Songs, all drawable from four scores of two songs", () => {
+  expect(PLAYER_DESIGNS).toEqual(["histogram", "strip", "songs"]);
+  const content = playerOf(singerScores("alice", [9000, 8000, 7000, 6000]));
+  expect(reasons(content)).toEqual([
+    ["histogram", null],
+    ["strip", null],
+    ["songs", null],
+  ]);
+  for (const design of PLAYER_DESIGNS)
+    expect(resolvePlayerOptions(content, design, "story", false)).toEqual({
+      format: "story",
+      focus: design,
+      logo: false,
+    });
+});
+
+test("under four scores the two charts are dimmed with their sentences, Songs still drawn", () => {
+  const content = playerOf(singerScores("alice", [9000, 8000, 7000]));
+  expect(reasons(content)).toEqual([
+    ["histogram", "The histogram needs at least four scores."],
+    ["strip", "The strip needs at least four scores."],
+    ["songs", null],
+  ]);
+});
+
+test("two scores of two songs are a list of songs, and not yet a chart", () => {
+  const content = playerOf(
+    singerScores("alice", [9000, 8000], [SONGS[0], SONGS[1]]),
+  );
+  expect(reasons(content)).toEqual([
+    ["histogram", "The histogram needs at least four scores."],
+    ["strip", "The strip needs at least four scores."],
+    ["songs", null],
+  ]);
+});
+
+test("one song is no list of songs, however often it was sung", () => {
+  const content = playerOf(
+    singerScores("alice", [9000, 8000, 7000, 6000], [SONGS[0]]),
+  );
+  expect(reasons(content)).toEqual([
+    ["histogram", null],
+    ["strip", null],
+    ["songs", "One song is no list of songs."],
+  ]);
+});
+
+test("a design the card cannot draw resolves to the head and the numbers, never another design", () => {
+  const one = playerOf(singerScores("alice", [9000]));
+  expect(playerCardDesigns(one).every((entry) => !entry.ok)).toBe(true);
+  for (const design of PLAYER_DESIGNS)
+    expect(resolvePlayerOptions(one, design, "square", true).focus).toBe(
+      "none",
+    );
+});
+
+test("on the sharer's own stats the pictures toggle is dimmed, on somebody else's it is live", () => {
+  expect(playerSlideToggles(playerOf(singerScores("chiara", [9000])))).toEqual({
+    pictures: "Nobody else is on this card.",
+    date: null,
+    logo: null,
+  });
+  expect(playerSlideToggles(playerOf(singerScores("alice", [9000])))).toEqual({
+    pictures: null,
+    date: null,
+    logo: null,
+  });
+});
+
+test("on a player card the date toggle speaks of the party line", () => {
+  expect(toggleSentence("date", true, null, "player")).toBe(
+    "The party line is on the card.",
+  );
+  expect(toggleSentence("date", false, null, "player")).toBe(
+    "The party line is left off.",
+  );
+  // The other two read as on every card.
+  expect(toggleSentence("logo", false, null, "player")).toBe(
+    "The Wingman logo is left off.",
+  );
+  expect(toggleSentence("date", true, null, "party")).toBe(
+    "The party's name and date are on the card.",
   );
 });

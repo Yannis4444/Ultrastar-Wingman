@@ -38,12 +38,25 @@ test("what was written is what is read back", () => {
     format: "story",
     scoreLook: "cover",
     partyDesign: "strip",
+    playerDesign: "songs",
     otherPictures: false,
     partyNameAndDate: false,
     logo: false,
   } as const;
   writePrefs(prefs);
   expect(readPrefs()).toEqual(prefs);
+});
+
+test("a player card's design is kept apart, all three of them, and an unknown one falls back to Histogram", () => {
+  for (const playerDesign of ["histogram", "strip", "songs"]) {
+    window.localStorage.setItem(PREFS_KEY, JSON.stringify({ playerDesign }));
+    expect(readPrefs()).toEqual({ ...DEFAULT_PREFS, playerDesign });
+  }
+  window.localStorage.setItem(
+    PREFS_KEY,
+    JSON.stringify({ playerDesign: "mosaic" }),
+  );
+  expect(readPrefs().playerDesign).toBe("histogram");
 });
 
 test("Spread and You are never read back as the design to open on", () => {
