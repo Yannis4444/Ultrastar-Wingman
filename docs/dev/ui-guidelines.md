@@ -115,7 +115,8 @@ may wear is the picker's list below, never this table.
 | `pause` / `skip` / `volume` | the background music's transport on the player and in the host screen's overlay, and `volume` labelling the **Sound** settings group and the `music` permission group | two upright bars at `play`'s own height · `play` again with the bar it runs into · a speaker cone under two arcs. None of the three is pickable: pausing is not a thing a song is about, and `volume` is doing a job in the two places it labels, the way `tv` labels the Host group |
 | `fullscreen` / `fullscreen-exit` | the host screen's full-screen control: enter, and while in full screen leave | four corner brackets at the edges of the square, corners pointing out · the same four with their corners pointing in towards the middle. Neither is pickable |
 | `upload` / `download` | the Achievements admin's two archive buttons: one in, one out | `download` mirrored — the same shaft, arrowhead and tray bar, the arrow coming up out of the bar instead of down into it. Neither is pickable: an archive is not a thing a tag or an achievement is about |
-| `trash` · `share` / `external-link` / `shuffle` | removing for everybody: an account or a player in the people admin, a comment, a song off the wishlist (the wishlist tile, the landed song on the Random song page in either mode), `close` staying the reader's own take-back · a picture to send: the party bar's button, *Share stats*, the sing view's and the achievement modal's **Share**, the share panel's **Share** · a link that leaves Wingman: the song modal's *Open in a streaming service* button and every service behind it, and its USDB fine print · *Shuffle again* beside the Songs sort while it is *Random* | `trash` as drawn · three discs, one at the left middle and two at the right top and bottom, joined by two bars, never `upload`'s arrow out of a tray, which is the archive · a square outline open at its upper-right corner, an arrow leaving through the gap to the top right · two arrows running left to right, crossing once, heads at the right. None is pickable, and the dice never stand in for `shuffle`: they are the reel's |
+| `trash` · `share` / `external-link` / `shuffle` | removing for everybody: an account or a player in the people admin, a comment, a song off the wishlist (the wishlist tile, the landed song on the Random song page in either mode), `close` staying the reader's own take-back · a picture to send: the party bar's button, *Share stats* (the glyph alone), the sing view's and the achievement modal's **Share**, the share panel's **Share** · a link that leaves Wingman: the song modal's *Open in a streaming service* button and every service behind it, and its USDB fine print · *Shuffle again* beside the Songs sort while it is *Random* | `trash` as drawn · three discs, one at the left middle and two at the right top and bottom, joined by two bars, never `upload`'s arrow out of a tray, which is the archive · a square outline open at its upper-right corner, an arrow leaving through the gap to the top right · two arrows running left to right, crossing once, heads at the right. None is pickable, and the dice never stand in for `shuffle`: they are the reel's |
+| `log-out` | *Log out* on the user tile, the glyph alone | a door frame open to the right, one two-unit band with `external-link`'s rounded outside and square inside, and an arrow leaving through the opening, its shaft starting inside the frame and its solid triangular head out past it. Never `power`, which opens Ultrastar Deluxe. Not pickable |
 | `card` | the player selector device: the *Player selector* entry of the manage menu, the admin page's device rows, and the `devices` permission group | a card lying on its side, 20 by 12 with a corner radius of 2, its chip counter-wound out of the upper left. Wider and rounder than `tv`'s case, and the chip sits off centre where a bank card carries one. Not pickable: a card is not a thing a song is about |
 | `format-square` / `format-story` · `image` / `calendar` | the share panel's two formats, 1080×1080 and 1080×1920 · *Change your picture* on the user tile, and the panel's *Other singers' pictures* toggle / the year and decade facets, and the panel's *Party name and date* toggle — jobs there, not meanings; its third toggle, *Wingman logo*, is `/logo.png` itself, never a glyph (share-cards §5) | a rounded square outline 16 by 16, two units thick, its inside counter-wound · an upright outline 10 by 18 (the story's 9:16) with the same stroke and corner radius, so the pair reads as the two shapes of one picture. Neither format is pickable · `image` and `calendar` as drawn, `calendar` pickable for what a song is about |
 | `brand-spotify` / `brand-applemusic` / `brand-youtubemusic` / `brand-tidal` / `brand-deezer` | the five services in *Open in a streaming service*, each before its name, never alone | from Simple Icons (CC0, no attribution): the 24×24 `d` string as published, checked under the nonzero rule `Icon` draws with — a hole that closes is re-wound, never given a `fill-rule`. Monochrome in the row's `--color-dark`, never the service's colour, which no token carries (§2); with `github` the only brand marks. None is pickable |
@@ -142,7 +143,8 @@ exception). Tests identify glyphs with `iconNames()` from `src/test/icons.ts`.
   `color-mix(in srgb, var(--highlight-blue-light) 40%, var(--highlight-blue-dark))`, 7.3:1
   under white, because the dark blue is the tile within a shade and read as outlined only;
   the page-level ones, the login form's included, keep the dark blue), `.button-danger`;
-  exactly one primary per view, and confirm dialogs put Cancel first, then
+  at most one primary per view (a bare modal whose one errand is a share, the sing view's
+  and the achievement modal's, has none), and confirm dialogs put Cancel first, then
   primary/danger, both `flex: 1 1 0`. `.icon-button` = 40×40, transparent, `--color-dark` glyph,
   hover `--highlight-blue-dark` fill; `.icon-button-bordered` beside an input on the page
   background, `.icon-button-danger` for destructive, `.icon-button-text` the same box widened
@@ -655,9 +657,13 @@ saved) where a jump to the top would throw away the place they were working in.
   row is a swarm wearing singer initials until 8 scores, then dots — never a box; a row grows
   only where near-ties have to stack. Nothing scrolls sideways; the spread draws the first
   eight groups of the list in the same order and owns up to the rest ("… n more in the list
-  below"), and every mark answers hover or tap with `ChartTip` — a mouse per mark, a finger tap
-  resolving to the nearest mark within ~28px, off on a repeat and dismissed beside the marks;
-  `.chart-plot` carries `touch-action: manipulation` so two quick taps are not a zoom.
+  below"), and every mark answers hover or tap with `ChartTip` — a mouse per mark, gone when
+  it leaves, a finger tap resolving to the nearest mark within ~28px, off on a repeat and
+  dismissed beside the marks. Because a chart may have no "beside" (the histogram's twenty
+  columns tile its plot), an open tip also closes on a press anywhere outside the chart and
+  on Escape, and opening one closes any other: the page holds one tip at a time
+  (`hooks/useChartTip.ts`, for every chart at once). `.chart-plot` carries
+  `touch-action: manipulation` so two quick taps are not a zoom.
   *Chronological* joins the sort select for every grouping but *group by player* (which falls
   back to *best score*), and only orders the rows and the list, never swaps a chart.
 - **Score overviews** are one shape wherever a phone adds a set of scores up — an open score
@@ -667,7 +673,7 @@ saved) where a jump to the top would throw away the place they were working in.
   *12 sings · 9 songs* (0.85em, numbers `--color-dark` and tabular, words `--color-darker`,
   `countWord`): distinct sings, so a duet run is one, and no Songs where every score is one
   song. Its far end is the surface's one `action` slot, the line 40px tall when it holds one:
-  *Share stats* on an open player group. The peaks are **named** (the holder with Best and
+  *Share stats* on an open player group, the `share` glyph alone as an `.icon-button`. The peaks are **named** (the holder with Best and
   Worst) where the scores are several singers' — a song group on `/scores`, the song modal —
   never under one singer's: a player group, `/user`, `/user/stats`. From **four scores**
   (`CHART_MIN_SCORES`) the histogram follows and Best · Average · Worst are **marks on it**:
@@ -700,7 +706,7 @@ saved) where a jump to the top would throw away the place they were working in.
   ```
    390px  /scores, by player, Alice open    /scores, by song, open (named)
    +-------------------------------------+  +-------------------------------------+
-   | 12 sings · 9 songs  [^ Share stats] |  | 7 sings                             |
+   | 12 sings · 9 songs            share |  | 7 sings                             |
    |   Worst 2100 Average 6100 Best 8800 |  |   Worst 2100 Average 6100 Best 8800 |
    |        |        ===:==          |     |  |   bob                     alice     |
    |        |     ======:=====    ##     |  |        |     ======:=====    ##     |
@@ -733,8 +739,9 @@ saved) where a jump to the top would throw away the place they were working in.
   where a score is shared from. Inside an open group the row is a `.score-entry-button`, its
   hover band lifted off `--tile-bg`; ungrouped it is a `.score-group-row-button`, the group
   summary's shape on the page with the page's `--highlight-blue-dark` band. An open **player**
-  group's *Share stats* (share-cards §9), one plain `.button` with `share`, is the overview's
-  `action`, never a line of its own: one per group a player design can draw (four scores, or
+  group's *Share stats* (share-cards §9), the `share` glyph alone in a transparent 40px
+  `.icon-button` (`aria-label` and `title` *Share stats*), the score rows' pencil's weight,
+  is the overview's `action`, never a line of its own: one per group a player design can draw (four scores, or
   two songs: `possible.ts` `playerStatsShareable`), none on a song group. `/user/stats` has it
   as a trailing `share` `.icon-button-bordered` in its `PageHeader`, *Share my stats*;
   `/user` has none, *All my scores* being the way there.
@@ -770,9 +777,13 @@ saved) where a jump to the top would throw away the place they were working in.
   Home's head and nothing else, 88px at 16 of padding: the avatar (`PlayerAvatar` at the
   stage's art size) beside a column centred against it of declared px rows — the name as the
   page's `h1` (1.3em on 28px, left, ellipsed), the role word (`auth.role` capitalised, 0.85em
-  on 20px, `--color-darker`; the host's is *Admin* too) and one 40px `.button` on an 18px line:
-  *Log out*, or for the host *Log in as a user*, which goes once pressed and opens the login
-  form under the tile. The avatar is the upload — a `<label>` over a hidden file input named
+  on 20px, `--color-darker`; the host's is *Admin* too) and one 40px control, 28 + 20 + 40
+  adding up to the picture's 88. For an account that is *Log out* as the `log-out` glyph
+  alone, a transparent `.icon-button` (`aria-label` and `title` *Log out*) pulled 10px left so
+  the glyph's box stands on the name's left edge: the way out is there when it is wanted and
+  never the loudest thing on the singer's own tile. The host keeps the words, one `.button` on
+  an 18px line, *Log in as a user*: no glyph says "as a user" on a tile that reads *Host
+  screen*, and it goes once pressed and opens the login form under the tile. The avatar is the upload — a `<label>` over a hidden file input named
   *Change your picture*, `image` in its lower-right corner on `--highlight-blue-dark` — and a
   refusal is one `.error-notice` under the head, inside the tile. The host draws `shield` in
   the avatar's square on `--input-bg` over *Host screen*; logged out there is no tile, the `h1`
@@ -837,8 +848,15 @@ saved) where a jump to the top would throw away the place they were working in.
   transparent, 40px, glyph and word `--color-dark`, `--color` on `--highlight-blue-dark` under
   a pointer, `--color-darkerer` while the launch is on the wire. The words stay (a power glyph alone on a TV reads as switching it off,
   §1.5), and **its caption is its own**: `.host-usdx` is a column, the button over *For
-  settings like microphones* in `.host-caption`'s 14px `--color-darker`, centred, 4px under
-  it, `aria-describedby` on the button, never in the row's line; the row aligns at the top,
+  settings like microphones* in `.host-caption`'s 14px `--color-darker`, centred, on a
+  declared 16px line pulled 2px up into the button's box, so the caption's capitals stand
+  14.5px under the word's baseline and the pair reads as one block — the button's own 40px
+  leaves 13.5px under the baseline, which with a 4px gap and a `normal` line was 22.5. The
+  capitals stay clear of the hover fill, and the button's focus ring is drawn inside its box
+  (`outline-offset: -2px`, the list rows' inset ring), because the global ring's 2 to 4px
+  outside it is where the capitals are. The caption takes no pointer (`pointer-events: none`),
+  so the overlap never shortens the 40px
+  target; `aria-describedby` on the button, never in the row's line; the row aligns at the top,
   so the gear and full screen stand level with the button (`Host.tsx`, `.css`, `.test.tsx`):
   ```
    [gear] [full screen]  power Open Ultrastar Deluxe      <- no fill, no border, all three

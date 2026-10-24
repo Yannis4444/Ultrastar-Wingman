@@ -61,7 +61,8 @@ further out, so the host does not log in again next weekend.
 ## Your own page
 
 Once you are logged in, the **User** tab is you. It shows your picture with your
-name beside it, your role under the name, and **Log out**. Tap the picture to
+name beside it, your role under the name, and :wingman-log-out: **Log out** under
+that. Tap the picture to
 change it, which needs no right at all. With single sign-on, the provider's
 picture stands there until you pick one of your own. See [Single sign-on](single-sign-on.md#the-picture).
 
@@ -69,7 +70,8 @@ Below stand your totals over every party you sang at, a link to your whole
 record of scores, and the badges you hold. See [Scores](../scores/index.md) and
 [Achievements](../achievements/index.md).
 
-**Log out** signs this browser out and leaves everything else alone.
+:wingman-log-out: **Log out** signs this browser out and leaves everything else
+alone.
 
 At the foot of the page stand the Wingman logo, the version this Wingman is
 running, and a link to the project on GitHub. Quote that version in a bug

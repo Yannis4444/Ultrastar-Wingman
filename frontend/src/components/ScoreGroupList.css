@@ -205,20 +205,6 @@ details[open] > summary .score-group-chevron {
   border-top: 1px solid var(--input-border-color);
 }
 
-/* *Share stats*, the overview's action at the head line's far end
-   (share-cards §9), and never the danger colour — sharing takes nothing
-   away. Its height declared, §1.10's 40px, so the head line is the 40px the
-   guideline gives it rather than `.button`'s natural 43; two classes deep so
-   `.button`'s own padding cannot win on the bundle's order. */
-.button.score-group-share {
-  box-sizing: border-box;
-  display: inline-flex;
-  align-items: center;
-  gap: 8px;
-  height: 40px;
-  padding: 0 16px;
-}
-
 /* `border-box` because the app is content-box: `width: 100%` plus 8px of
    padding a side made every expanded row wider than the tile it sits in, which
    is what put a horizontal scrollbar under the whole page. */

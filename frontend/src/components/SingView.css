@@ -114,6 +114,8 @@ button.sing-view-song {
   margin: 16px auto 0 auto;
 }
 
+/* A plain `.button` with its glyph, the achievement modal's Share: the view's
+   one errand, never louder than the rows it shares from. */
 .sing-view-share {
   display: inline-flex;
   gap: 8px;

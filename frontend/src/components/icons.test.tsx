@@ -82,6 +82,7 @@ const NOT_PICKABLE: IconName[] = [
   "shuffle",
   "external-link",
   "share",
+  "log-out",
   "format-square",
   "format-story",
   "chevron-down",

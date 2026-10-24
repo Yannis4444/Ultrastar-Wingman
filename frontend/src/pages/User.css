@@ -122,6 +122,14 @@
   text-overflow: ellipsis;
 }
 
+/* *Log out* as the glyph alone, `.icon-button`'s 40px: the row it is in is the
+   word button's own 40, so the rows still add up to the picture's 88. Pulled
+   left by the box's own inset (40 less the 20px glyph, halved), so the glyph
+   stands on the name's left edge rather than 10px inside it. */
+.user-identity-logout {
+  margin-left: -10px;
+}
+
 .user-identity-error {
   margin: 12px 0 0 0;
 }

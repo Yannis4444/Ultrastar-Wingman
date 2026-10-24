@@ -174,7 +174,7 @@ export default function SingView({ score, onClose }: SingViewProps) {
             <div className="sing-view-actions">
               <button
                 type="button"
-                className="button button-primary sing-view-share"
+                className="button sing-view-share"
                 onClick={() =>
                   setSharing({
                     kind: "score",

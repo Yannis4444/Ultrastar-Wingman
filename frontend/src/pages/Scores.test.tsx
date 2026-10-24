@@ -1846,8 +1846,11 @@ test("an open player group's head line ends in Share stats, a card of that singe
       hidden: true,
     });
     expect(head.lastElementChild).toBe(button);
-    expect(button).toHaveClass("button");
-    expect(button).not.toHaveClass("button-primary");
+    // The glyph alone, the gear's weight: no fill, no word beside it.
+    expect(button).toHaveClass("icon-button");
+    expect(button).not.toHaveClass("button");
+    expect(button).toHaveAttribute("title", "Share stats");
+    expect(button.textContent).toBe("");
     expect(iconNames(button)).toEqual(["share"]);
   }
   const alice = groups.find((group) => lines(group)[0] === "Alice")!;
