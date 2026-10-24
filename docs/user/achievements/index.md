@@ -68,10 +68,29 @@ One still out there shows its bar and its numbers, or nothing where there is
 nothing to fill up. A hidden one opens as well, and says exactly what its row
 says. It doesn't say how many players hold it either.
 
-![One badge over the blurred page, with its name, its description, how many players hold it, and the day it was earned](../assets/screenshots/achievements/achievement-modal.png){ width="320" loading=lazy }
+![One badge over the blurred page, with its name, its description, how many players hold it, the day it was earned, and the Share button under them](../assets/screenshots/achievements/achievement-modal.png){ width="320" loading=lazy }
 /// caption
 Tap the darkened page above or below it, or :wingman-close: in the corner.
 ///
+
+## Share a badge
+
+A badge you earned ends in :wingman-share: **Share**. Tap it and Wingman draws
+a card of it: the badge large, its name and description, your picture and
+name, the day you earned it, and how many players hold it. If you are the only
+one, it says *First to earn it*. A badge you have not earned yet has no
+**Share**.
+
+![The share panel: the badge card with Fry's picture and the day, Square and Story under it, and the three symbols over their line](../assets/screenshots/achievements/achievement-share.png){ width="320" loading=lazy }
+/// caption
+A badge has one design, so there is nothing to swipe.
+///
+
+Pick **Square** or **Story** under the picture. Of the three symbols, only the
+Wingman logo changes this card. The only picture on it is your own, and the
+day belongs to the badge, not to a party. The two faded symbols say so when
+you tap them. Saving and sending work as for a party card. See
+[Save it or send it](../scores/party.md#save-it-or-send-it).
 
 ## The moment on the host screen
 

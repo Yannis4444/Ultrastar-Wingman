@@ -7,10 +7,10 @@ not yours, and it needs no account. The phone remembers who wished for what.
 
 1. Open a song from anywhere in Wingman. See
    [Open a song](../songs/song.md).
-2. Tap :wingman-playlist-plus: **Wish**.
+2. Tap :wingman-playlist-plus: **Wishlist** under the cover.
 
-The button turns into :wingman-playlist-check: **Remove wish**, and the song
-appears on the wishlist for everybody.
+Its glyph turns into :wingman-playlist-check:, and the song appears on the
+wishlist for everybody.
 
 ## Read the list
 

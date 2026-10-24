@@ -55,12 +55,47 @@ Tap a row for what that song adds up to. A song you sang more than once is
 headed by the same figures as the page above, minus **Songs**: every row here
 is one song, so counting them would print a **1** on every row. A bar chart
 follows from four runs on. Under that stands every single run with the day and
-time it happened. Tap one to open the song.
+time it happened. Tap one to open its sing: who sang it with you that time,
+what they got, and :wingman-share: **Share** for a card of it. See
+[One sing](party.md#one-sing). The cover on the row opens the song.
 
 !!! note
     **All my scores** on the **User** tab is your own record. The row with the
     same name in the party picker on the **Scores** tab is something else. That
     one adds up every party you may open, with everybody who sang in them.
+
+## Share your stats
+
+Tap :wingman-share: **Share my stats** at the right of the **Your scores**
+heading. Wingman draws a card of your whole record: your picture and name over
+**All parties**, then **Sings**, **Songs**, **Best**, and **Average**. The
+worst score is never on a card. The button is there once you have four
+scores, or scores on two different songs.
+
+![The share panel over the Your scores page: Bender's card with his picture over All parties, his four figures and the bar chart, the next design peeking in, the dots under it with Square and Story beside them, and the three symbols over their line](../assets/screenshots/scores/stats-share.png){ width="320" loading=lazy }
+/// caption
+The gold bar holds Bender's best of 9,842.
+///
+
+Swipe the picture for the three designs:
+
+| Design | What stands under the figures |
+|---|---|
+| **Histogram** | A bar chart of where your scores land. The bar with your best is gold |
+| **Strip** | Every score as a dot, your best in gold, and your median |
+| **Songs** | Your best score on each song, best first: five on a square, eight on a story |
+
+**Histogram** and **Strip** need four scores. **Songs** needs two different
+songs. A design that cannot be drawn yet keeps its place with a line saying
+why. With fewer than four scores, all of one song, none of them can be drawn,
+so there is no **Share my stats** yet. The rest of the panel works as it does
+for a party card: the shape, the three symbols, and the buttons. See
+[Share a party, a score, or a singer's stats](party.md#share-a-party-a-score-or-a-singers-stats).
+On your own card the pictures symbol is faded, because your own picture is
+always on it.
+
+To share your stats at one party only, or somebody else's, use **Share stats**
+on the **Scores** tab with the rows grouped by player.
 
 ## One song's best runs
 

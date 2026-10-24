@@ -1,6 +1,7 @@
 import type { ReactNode } from "react";
 import type { PlayerRead, ScoreWithContext, SongRead } from "../api";
 import { shortDate, shortTime } from "../duration";
+import { playerStatsShareable } from "../shareCard/possible";
 import {
   CHART_MIN_SCORES,
   groupValue,
@@ -23,7 +24,14 @@ interface ScoreGroupListProps {
   sorting: Sorting;
   /** Registered players by id, for the avatars. */
   players: Map<string, PlayerRead>;
+  /** A song group's cover was tapped: the song modal. */
   onOpenSong: (song: SongRead) => void;
+  /**
+   * A row that *is* one score was tapped — inside an open group, or an
+   * ungrouped row: the page opens the sing view on it (share-cards §8), which
+   * is where the song and the share card are one tap further.
+   */
+  onOpenScore: (score: ScoreWithContext) => void;
   /**
    * Whether the panel's best and worst name the singer who managed them.
    * Under a song that name is the interesting half, which is the default — but
@@ -46,20 +54,23 @@ interface ScoreGroupListProps {
   /** A score was moved or deleted; the page refetches what it holds. */
   onModerated?: () => void;
   /**
-   * Whether an open group's scores start with *Share a score*
-   * (ui-guidelines §7), and what it opens. Only `/scores` passes it — the two entry points of the
-   * share cards are that page's (share-cards.md §7.3). One per group, never
-   * per row; ungrouped rows never unfold, so they share nothing.
+   * Whether an open **player** group's scores start with *Share stats*
+   * (share-cards §9, ui-guidelines §7), and what it opens: a card of that
+   * singer's scores as the group holds them. One per group whose scores a
+   * player design can draw (`playerStatsShareable`); a song group, or an
+   * ungrouped row, never has one. Only `/scores` passes it — `/user/stats`
+   * shares from its header.
    */
-  onShare?: (group: ScoreGroup) => void;
+  onShareStats?: (group: ScoreGroup) => void;
 }
 
 /**
  * The frame a score keeps when its song has left the library: the same square
  * the covers occupy, so a row without one does not shift its whole text column
  * left. Shares `SongCover`'s fallback look rather than inventing a second one.
+ * Exported for the sing view's hero, where the song has left the library too.
  */
-function MissingCover({ className }: { className: string }) {
+export function MissingCover({ className }: { className: string }) {
   return (
     <span
       className={`song-cover song-cover-fallback ${className}`}
@@ -148,10 +159,9 @@ interface ScoreEntryBodyProps {
 
 /**
  * What one score inside an open group shows: its cover or its singer, its
- * two lines and its number. Exported for the share panel's chooser, which
- * lists a group's scores exactly as the group draws them.
+ * two lines and its number.
  */
-export function ScoreEntryBody({
+function ScoreEntryBody({
   score,
   players,
   ownRows,
@@ -195,7 +205,8 @@ export function ScoreEntryBody({
  *
  * `<details>` does the expanding — no state, and it stays keyboard-operable.
  * The song modal therefore hangs off the cover rather than the row: a click
- * anywhere else in a `<summary>` is the toggle.
+ * anywhere else in a `<summary>` is the toggle. A row that *is* one score —
+ * inside an open group, or ungrouped — is a button into the sing view.
  */
 export default function ScoreGroupList({
   groups,
@@ -203,18 +214,20 @@ export default function ScoreGroupList({
   sorting,
   players,
   onOpenSong,
+  onOpenScore,
   // Under a song, "who" is the interesting half of best and worst; under a
   // player it would repeat the name the row is already headed by.
   namedPeaks = grouping === "song",
   ownRows = false,
   canModerate = false,
   onModerated = () => {},
-  onShare,
+  onShareStats,
 }: ScoreGroupListProps) {
   /**
    * A score row plus the corrections that may be made to it. The control is
    * the row's sibling and not its child: the row is itself a button (it opens
-   * the song), and nesting one inside it is invalid HTML.
+   * the sing view), and nesting one inside it is invalid HTML — and a press on
+   * the pencil never reaches the row, so it never opens the view as well.
    */
   const withActions = (row: ReactNode, score: ScoreWithContext) =>
     !canModerate ? (
@@ -233,11 +246,11 @@ export default function ScoreGroupList({
   // Ranks 1–3 are a podium only while the list is ordered best-first. Under
   // "alphabetically" or "worst score" the numerals are positions, nothing more.
   const podium = sorting === "best" || sorting === "average";
-  // Grouped by player the expanded rows are songs, so they are the way into the
-  // song modal; otherwise they are singers and carry an avatar instead.
+  // Grouped by player the expanded rows are songs, so they lead with the
+  // cover; otherwise they are singers and carry an avatar instead.
   const rowsAreSongs = grouping === "player";
   // Ungrouped a row *is* one score — there is nothing behind it to unfold, so
-  // it is a plain song row that opens the modal, as everywhere else in the app.
+  // it opens the sing view like every other score row.
   const expandable = grouping !== "none";
 
   return (
@@ -273,7 +286,7 @@ export default function ScoreGroupList({
                 <SongCover song={song} className="score-group-cover" />
               </button>
             ) : (
-              // The whole row already opens the modal; a button inside it
+              // The whole row already opens the sing view; a button inside it
               // would be a second one, and nested buttons are invalid HTML.
               <SongCover song={song} className="score-group-cover" />
             )}
@@ -300,24 +313,19 @@ export default function ScoreGroupList({
         if (!expandable) {
           // Ungrouped a row *is* one score, so it is a score row: it carries
           // the moderator's pencil like the rows inside an open group.
+          const only = group.scores[0];
           return (
             <li key={group.key}>
               {withActions(
-                song === null ? (
-                  <div className="score-group-row" data-testid="score-group">
-                    {head}
-                  </div>
-                ) : (
-                  <button
-                    type="button"
-                    className="score-group-row score-group-row-button"
-                    data-testid="score-group"
-                    onClick={() => onOpenSong(song)}
-                  >
-                    {head}
-                  </button>
-                ),
-                group.scores[0],
+                <button
+                  type="button"
+                  className="score-group-row score-group-row-button"
+                  data-testid="score-group"
+                  onClick={() => onOpenScore(only)}
+                >
+                  {head}
+                </button>,
+                only,
               )}
             </li>
           );
@@ -341,54 +349,46 @@ export default function ScoreGroupList({
                   />
                 )}
 
-                {/* The scores' own first line, at their right: one per group,
-                    so a row's own controls stay the moderator's pencil alone,
-                    and never in the danger colour — sharing takes nothing
-                    away. Where a group of one has no summary it is the
-                    tile's first line. */}
-                {onShare !== undefined && (
-                  <div className="score-group-share">
-                    <button
-                      type="button"
-                      className="button"
-                      onClick={() => onShare(group)}
-                    >
-                      <Icon name="share" />
-                      Share a score
-                    </button>
-                  </div>
-                )}
+                {/* The scores' own first line, at their right: one per player
+                    group, so a row's own control stays the moderator's pencil
+                    alone — and only where a design can be drawn (four
+                    scores, or two songs), never a way into a panel of dimmed
+                    slots. Such a group always has its summary above. */}
+                {onShareStats !== undefined &&
+                  grouping === "player" &&
+                  playerStatsShareable(group.scores) && (
+                    <div className="score-group-share">
+                      <button
+                        type="button"
+                        className="button"
+                        onClick={() => onShareStats(group)}
+                      >
+                        <Icon name="share" />
+                        Share stats
+                      </button>
+                    </div>
+                  )}
 
                 <ul className="score-group-scores">
-                  {group.scores.map((score) => {
-                    const body = (
-                      <ScoreEntryBody
-                        score={score}
-                        players={players}
-                        ownRows={ownRows}
-                        rowsAreSongs={rowsAreSongs}
-                      />
-                    );
-                    const entrySong = score.song;
-                    return (
-                      <li key={score.id} data-testid="score-row">
-                        {withActions(
-                          rowsAreSongs && entrySong !== null ? (
-                            <button
-                              type="button"
-                              className="score-entry score-entry-button"
-                              onClick={() => onOpenSong(entrySong)}
-                            >
-                              {body}
-                            </button>
-                          ) : (
-                            <div className="score-entry">{body}</div>
-                          ),
-                          score,
-                        )}
-                      </li>
-                    );
-                  })}
+                  {group.scores.map((score) => (
+                    <li key={score.id} data-testid="score-row">
+                      {withActions(
+                        <button
+                          type="button"
+                          className="score-entry score-entry-button"
+                          onClick={() => onOpenScore(score)}
+                        >
+                          <ScoreEntryBody
+                            score={score}
+                            players={players}
+                            ownRows={ownRows}
+                            rowsAreSongs={rowsAreSongs}
+                          />
+                        </button>,
+                        score,
+                      )}
+                    </li>
+                  ))}
                 </ul>
               </div>
             </details>

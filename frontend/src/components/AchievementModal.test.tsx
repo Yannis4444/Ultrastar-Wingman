@@ -1,4 +1,10 @@
-import { fireEvent, render, screen } from "@testing-library/react";
+import {
+  cleanup,
+  fireEvent,
+  render,
+  screen,
+  waitFor,
+} from "@testing-library/react";
 import {
   achievementRead,
   maskedAchievementRead,
@@ -6,16 +12,57 @@ import {
 } from "../test/achievements";
 import { cardDate } from "../duration";
 import { iconNames } from "../test/icons";
-import AchievementModal from "./AchievementModal";
+import { player } from "../test/shareCard";
+import AchievementModal, { type AchievementSharer } from "./AchievementModal";
+import type { ShareTarget } from "./ShareCardPanel";
 import type { PlayerAchievementRead } from "../api";
 
+// The panel is tested on its own; here it is a dialog that says what it was
+// handed, so opening it over the modal and closing it again are real.
+vi.mock("./ShareCardPanel", async () => {
+  const { default: Modal } = await import("./Modal");
+  return {
+    default: ({
+      target,
+      onClose,
+    }: {
+      target: ShareTarget;
+      onClose: () => void;
+    }) => (
+      <Modal title="Share this achievement" onClose={onClose}>
+        <div
+          data-testid="share-panel"
+          data-kind={target.kind}
+          data-achievement={
+            target.kind === "achievement" ? target.row.achievement_id : ""
+          }
+          data-name={target.kind === "achievement" ? target.name : ""}
+          data-player={
+            target.kind === "achievement" ? (target.player?.id ?? "none") : ""
+          }
+        />
+      </Modal>
+    ),
+  };
+});
+
 /** The modal over one record row, with a spy on what closes it. */
-function renderModal(row: PlayerAchievementRead) {
+function renderModal(row: PlayerAchievementRead, sharer?: AchievementSharer) {
   const onClose = vi.fn();
   const { container } = render(
-    <AchievementModal row={row} onClose={onClose} />,
+    <AchievementModal row={row} sharer={sharer} onClose={onClose} />,
   );
   return { onClose, container };
+}
+
+/** Chiara on her own record, her player row in hand. */
+const OWN: AchievementSharer = {
+  player: player("chiara", "Chiara"),
+  name: "Chiara",
+};
+
+function shareButton(): HTMLElement | null {
+  return screen.queryByRole("button", { name: "Share" });
 }
 
 /** A press is a mousedown and a click on the same element (see Modal.tsx). */
@@ -247,4 +294,114 @@ it("closes on its own close button", () => {
 
   fireEvent.click(screen.getByRole("button", { name: "Close" }));
   expect(onClose).toHaveBeenCalled();
+});
+
+// ------------------------------------------------------------------ sharing
+
+it("offers Share on an earned achievement of the reader's own, under the facts", () => {
+  const { container } = renderModal(
+    playerAchievementRead({
+      achievement: achievementRead({ holder_count: 3 }),
+    }),
+    OWN,
+  );
+
+  const share = shareButton();
+  expect(share).not.toBeNull();
+  // A plain button, the modal's one control (ui-guidelines §5) — not the
+  // sing view's primary.
+  expect(share).toHaveClass("button", "achievement-modal-share");
+  expect(share).not.toHaveClass("button-primary");
+  expect(iconNames(share!)).toEqual(["share"]);
+  // Last in the column, after the meta group.
+  const column = container.querySelector(".achievement-modal")!;
+  expect(column.lastElementChild).toBe(share);
+  expect(share!.previousElementSibling).toHaveClass("achievement-modal-meta");
+});
+
+it("offers no Share on one not earned yet, a masked one, a switched-off one, or a record that is not the reader's", () => {
+  renderModal(
+    playerAchievementRead({
+      earned_at: null,
+      progress_current: 3,
+      progress_target: 10,
+    }),
+    OWN,
+  );
+  expect(shareButton()).toBeNull();
+  cleanup();
+
+  renderModal(
+    playerAchievementRead({
+      achievement: maskedAchievementRead(),
+      earned_at: null,
+    }),
+    OWN,
+  );
+  expect(shareButton()).toBeNull();
+  cleanup();
+
+  // Switched off since: the record still carries the row until the pass
+  // drops it, and a badge nobody is evaluated against is nothing to send.
+  renderModal(
+    playerAchievementRead({
+      achievement: achievementRead({ enabled: false }),
+    }),
+    OWN,
+  );
+  expect(screen.getByText(/^Earned /)).toBeInTheDocument();
+  expect(shareButton()).toBeNull();
+  cleanup();
+
+  // No sharer: whatever opens the modal for a record that is not the
+  // reader's own — or for the catalogue — offers nothing to send.
+  renderModal(playerAchievementRead());
+  expect(screen.getByText(/^Earned /)).toBeInTheDocument();
+  expect(shareButton()).toBeNull();
+});
+
+it("opens the share panel over the modal on this achievement and the sharer", () => {
+  renderModal(playerAchievementRead({ player_id: "chiara" }), OWN);
+
+  fireEvent.click(shareButton()!);
+  const panel = screen.getByTestId("share-panel");
+  expect(panel).toHaveAttribute("data-kind", "achievement");
+  expect(panel).toHaveAttribute("data-achievement", "a-golden");
+  expect(panel).toHaveAttribute("data-name", "Chiara");
+  expect(panel).toHaveAttribute("data-player", "chiara");
+  // Over it, not instead of it.
+  expect(
+    screen.getByRole("dialog", { name: "Golden Voice" }),
+  ).toBeInTheDocument();
+  expect(
+    screen.getByRole("dialog", { name: "Share this achievement" }),
+  ).toBeInTheDocument();
+});
+
+it("comes back to the modal and onto Share when the panel closes", async () => {
+  const { onClose } = renderModal(playerAchievementRead(), OWN);
+
+  const share = shareButton()!;
+  share.focus();
+  fireEvent.click(share);
+  expect(screen.getByTestId("share-panel")).toBeInTheDocument();
+
+  // Escape closes the panel on top and only that.
+  fireEvent.keyDown(document, { key: "Escape" });
+  await waitFor(() => expect(screen.queryByTestId("share-panel")).toBeNull());
+  expect(onClose).not.toHaveBeenCalled();
+  expect(
+    screen.getByRole("dialog", { name: "Golden Voice" }),
+  ).toBeInTheDocument();
+  expect(document.activeElement).toBe(share);
+});
+
+it("hands the panel no player row where the page has none: the card draws the initial", () => {
+  renderModal(playerAchievementRead(), { player: null, name: "Chiara" });
+
+  fireEvent.click(shareButton()!);
+  expect(screen.getByTestId("share-panel")).toHaveAttribute(
+    "data-player",
+    "none",
+  );
 });

@@ -79,7 +79,13 @@ Three harnesses that have proven reliable when Chrome automation is unavailable:
    `Target.attachToTarget` (flatten) → `Emulation.setDeviceMetricsOverride`
    (390×844 mobile or 1280×720) → `Network.setCookie` → `Page.navigate` → wait
    → `Runtime.evaluate` (`getBoundingClientRect` as JSON) →
-   `Page.captureScreenshot`. For pure CSS questions, a static HTML file with
+   `Page.captureScreenshot`. A horizontal swipe sent as `Input.dispatchTouchEvent`
+   under `Emulation.setTouchEmulationEnabled` goes back in history wherever it starts
+   and whatever `overscroll-behavior` says (measured 2026-10-24: from the share
+   carousel's first slide and from the panel's toggles row with `none` on `html`, `body`
+   and `.modal` as well as the carousel's own `contain`, and from a page with no modal) — and
+   `Input.synthesizeScrollGesture` never navigates at all, so neither says anything
+   about scroll containment on a phone. For pure CSS questions, a static HTML file with
    the real `index.css` + the page's CSS and `chrome.exe --headless=new
    --virtual-time-budget=1500 --dump-dom file:///…` is enough (`--window-size`
    is ignored there — vary a wrapper div's width instead).

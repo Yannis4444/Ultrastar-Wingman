@@ -1,6 +1,11 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useState, type ReactNode } from "react";
-import type { SessionList, SessionRead, SongRead } from "../api";
+import type {
+  ScoreWithContext,
+  SessionList,
+  SessionRead,
+  SongRead,
+} from "../api";
 import {
   listAllScoresOptions,
   listAllScoresQueryKey,
@@ -21,6 +26,7 @@ import ScoresEmpty from "../components/ScoresEmpty";
 import ScoreStrip from "../components/ScoreStrip";
 import SessionSummaryRow from "../components/SessionSummaryRow";
 import ShareCardPanel, { type ShareTarget } from "../components/ShareCardPanel";
+import SingView from "../components/SingView";
 import SongDetails from "../components/SongDetails";
 import SpreadRows from "../components/SpreadRows";
 import Loading from "../components/Loading";
@@ -479,7 +485,10 @@ export default function Scores() {
   // the view does.
   const [sessionChart, setSessionChart] = useState<SessionChart>("scores");
   const [openSong, setOpenSong] = useState<SongRead | null>(null);
-  // What the share panel is open on: the party, or one group's scores.
+  // The score row whose sing is open; a score is shared from there.
+  const [openScore, setOpenScore] = useState<ScoreWithContext | null>(null);
+  // What the share panel is open on: the party, from the bar, or one
+  // singer's stats, from their open group.
   const [sharing, setSharing] = useState<ShareTarget | null>(null);
 
   const canView = auth.can("stats.view");
@@ -785,16 +794,13 @@ export default function Scores() {
             sorting={sorting}
             players={players}
             onOpenSong={setOpenSong}
+            onOpenScore={setOpenScore}
             canModerate={auth.can("stats.moderate")}
             onModerated={refresh}
-            onShare={(group) =>
-              setSharing({
-                kind: "score",
-                scores: group.scores,
-                grouping,
-                session,
-                pageScores: rows,
-              })
+            /* A singer's stats at this party, or over every party the head
+               row holds — the card says *All parties* there. */
+            onShareStats={(group) =>
+              setSharing({ kind: "player", scores: group.scores, session })
             }
           />
         </>
@@ -802,6 +808,10 @@ export default function Scores() {
 
       {openSong !== null && (
         <SongDetails song={openSong} onClose={() => setOpenSong(null)} />
+      )}
+
+      {openScore !== null && (
+        <SingView score={openScore} onClose={() => setOpenScore(null)} />
       )}
 
       {sharing !== null && (

@@ -66,3 +66,12 @@
 .achievement-modal-holders + .achievement-progress {
   margin-top: 4px;
 }
+
+/* The modal's one control, for an earned achievement of the reader's own
+   (share-cards §10): 16px under the meta group, centred in the column. */
+.achievement-modal-share {
+  display: inline-flex;
+  gap: 8px;
+  align-items: center;
+  margin-top: 16px;
+}

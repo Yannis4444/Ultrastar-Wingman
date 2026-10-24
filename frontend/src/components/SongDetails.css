@@ -107,6 +107,69 @@
   color: var(--highlight-blue-light);
 }
 
+/* The captions under the three controls (§4), the modal's alone: the Home
+   stage's fixed 200px tile shares SongControls.css and never draws one, so
+   every rule for them is here. Each control becomes its glyph over its word;
+   the cells end on one line, so the three words share a baseline whatever the
+   glyphs above them measure. */
+.song-details-controls:has(.song-control-caption) {
+  align-items: end;
+}
+
+.song-details-controls .song-control {
+  flex-direction: column;
+  justify-content: flex-end;
+  gap: 4px;
+  width: auto;
+  min-width: 48px;
+  height: auto;
+  min-height: 48px;
+  padding: 4px;
+  font-family: inherit;
+}
+
+/* The lead keeps its 72px width; with a word under it the box is no circle
+   any more, so the focus ring follows the flanks' rounded square instead. The
+   hover's growth is the glyph's alone, so the word under it holds still. */
+.song-details-controls .song-control-lead {
+  width: 72px;
+  height: auto;
+  border-radius: var(--border-radius-small);
+}
+
+.song-details-controls .song-control-lead .icon {
+  transition: transform 0.15s ease;
+}
+
+.song-details-controls .song-control-lead:hover:enabled {
+  transform: none;
+}
+
+.song-details-controls .song-control-lead:hover:enabled .icon {
+  transform: scale(1.06);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .song-details-controls .song-control-lead .icon {
+    transition: none;
+  }
+
+  .song-details-controls .song-control-lead:hover:enabled .icon {
+    transform: none;
+  }
+}
+
+/* The bottom nav's caption: 12px on a declared 16px line, so the row is the
+   same height in every font, and one quiet colour in every state — the glyph
+   above it is what says on or off. */
+.song-control-caption {
+  display: block;
+  font-size: 12px;
+  line-height: 16px;
+  color: var(--color-darker);
+  white-space: nowrap;
+}
+
 .song-details-notice {
   margin: 12px 16px 0 16px;
   font-size: 0.85em;
@@ -227,21 +290,19 @@ a.song-option {
   }
 }
 
+/* The bar is monochrome (§5): every glyph and every number in the errands'
+   own idle `--color-dark`, so nothing in it outweighs the three controls
+   above — a blue glyph, a gold trophy or a white number would. */
 .song-action-count-icon {
   font-size: 1.4em;
-  color: var(--highlight-blue-light);
+  color: var(--color-dark);
 }
 
 .song-action-count-value {
   font-size: 0.85em;
-  color: var(--color);
+  color: var(--color-dark);
   font-variant-numeric: tabular-nums;
   white-space: nowrap;
-}
-
-/* A score is an accolade, and gold is what says so wherever one appears (§2). */
-.song-action-scores .song-action-count-icon {
-  color: var(--highlight-gold-light);
 }
 
 /* The fine print ends the modal (§5): who built the file, where it came from.
@@ -252,6 +313,36 @@ a.song-option {
   color: var(--color-darker);
   text-align: center;
   overflow-wrap: anywhere;
+}
+
+/* A USDB song's line is a link to its page there: the line's own colour and
+   size, a 40px box for the finger, an underline on hover and the
+   `external-link` the streaming rows end in. 12px less margin above, so the
+   words stand about where the plain line's do with the taller box around
+   them. */
+.song-fine-print-link {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 40px;
+  margin-top: 4px;
+  text-decoration: none;
+  border-radius: var(--border-radius-small);
+}
+
+.song-fine-print-link:hover {
+  text-decoration: underline;
+}
+
+/* The id and the glyph never part: a wrapped line ends in the glyph. */
+.song-fine-print-end {
+  white-space: nowrap;
+}
+
+.song-fine-print-icon {
+  margin-left: 4px;
+  font-size: 1em;
+  vertical-align: -0.125em;
 }
 
 /* Comments (§5). One row per comment on the same axis as every other list in

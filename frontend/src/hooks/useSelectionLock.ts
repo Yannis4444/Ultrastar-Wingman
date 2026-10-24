@@ -14,8 +14,8 @@ interface SelectionChanged extends WingmanEvent {
 }
 
 /**
- * A selection somebody else opened, handed on with its token — the host spin
- * giving its pick to the player selection. Whoever adopts it opens nothing and
+ * A selection somebody else opened, handed on with its token — the Random song
+ * page's spin on the host screen giving its pick to the player selection. Whoever adopts it opens nothing and
  * carries on with this token as if it had opened the selection itself.
  */
 export interface SelectionAdoption {
@@ -46,16 +46,31 @@ export interface SelectionLock {
   /** The opener's secret, `null` while this component holds no selection. */
   token(): string | null;
   /**
-   * Take the token out of an opened answer. `false` when this component was
-   * closed while the request was in flight: the token is given straight back,
-   * because the room would otherwise stay locked over a song nobody is picking.
+   * About to take the room again after a `close`, for a component that stays
+   * on the page between selections — the Random song page in *Host screen*
+   * mode. Returns the ticket the answer is held with: an open sent before the
+   * last `close` carries an older one, and its token is given straight back.
    */
-  hold(opened: SelectionOpened): boolean;
+  begin(): number;
+  /** Whether an open sent with `ticket` is still this component's to hold. */
+  isCurrent(ticket: number): boolean;
+  /**
+   * Take the token out of an opened answer. `false` when this component was
+   * closed while the request was in flight — or, with a `ticket`, closed since
+   * the request was sent: the token is given straight back, because the room
+   * would otherwise stay locked over a song nobody is picking.
+   */
+  hold(opened: SelectionOpened, ticket?: number): boolean;
   /** Drop the token without giving the room back — the selection lives on
       without this component: Play started it, or another modal took it on. */
   forget(): void;
-  /** Done with the room: give the selection back, and give it back once. */
-  close(): void;
+  /**
+   * Done with the room: give the selection back, and give it back once. The
+   * promise settles when the room has answered the DELETE (or it failed), for
+   * a caller about to open a selection of its own right after: sent at once,
+   * that open could reach the server first and find its own old one there.
+   */
+  close(): Promise<void>;
 }
 
 /**
@@ -64,26 +79,29 @@ export interface SelectionLock {
  * generated client's fetch halfway, and `keepalive` is what carries this one
  * out of a closing tab.
  */
-function release(token: string): void {
-  void fetch(SELECTION_URL, {
+function release(token: string): Promise<void> {
+  return fetch(SELECTION_URL, {
     method: "DELETE",
     headers: { "X-Selection-Token": token },
     keepalive: true,
     credentials: "same-origin",
-    // Nobody is waiting for the answer, and there is nothing to report it to.
-  }).catch(() => {});
+  }).then(
+    () => undefined,
+    // Nothing to report it to: a refusal is a selection that is gone already.
+    () => undefined,
+  );
 }
 
 /** The token out of its ref and the room given back, if there is one to give. */
 function giveBack(
   tokenRef: RefObject<string | null>,
   openedAtRef: RefObject<string | null>,
-): void {
+): Promise<void> {
   const token = tokenRef.current;
-  if (token === null) return;
+  if (token === null) return Promise.resolve();
   tokenRef.current = null;
   openedAtRef.current = null;
-  release(token);
+  return release(token);
 }
 
 /**
@@ -101,13 +119,16 @@ export function latest(
 }
 
 /**
- * The lifecycle of holding the room's one player selection, shared by every
- * modal that opens one: the token, kept in a ref and never drawn; the one
- * hand-written `keepalive` DELETE that gives it back on Cancel, on unmount and
- * when the tab closes — exactly once; and the reading of `selection.changed`
- * that tells an update to this selection from its loss.
+ * The lifecycle of holding the room's one player selection, shared by
+ * everything that opens one — the player selection, and the Random song page's
+ * *Host screen* mode (`useHostSpin`): the token, kept in a ref and never drawn;
+ * the one hand-written `keepalive` DELETE that gives it back on Cancel (or the
+ * page's pills back on *This screen*), on unmount and when the tab closes —
+ * exactly once; and the reading of `selection.changed` that tells an update to
+ * this selection from its loss. A component that stays mounted across several
+ * selections takes the room again with `begin`.
  *
- * What the modal draws and what it writes with the token stay its own.
+ * What the component draws and what it writes with the token stay its own.
  */
 export function useSelectionLock({
   adopt,
@@ -127,9 +148,15 @@ export function useSelectionLock({
   // after Cancel gives its token straight back instead of leaving the room
   // locked.
   const closedRef = useRef(false);
+  // One more on every `close`: an open sent before it carries an older ticket,
+  // and its answer is not this component's any more even once `begin` has
+  // opened the door again for the next one.
+  const generationRef = useRef(0);
   // The unmount's release, queued and still cancellable — see the effect below.
   const unmountReleaseRef = useRef<{ cancelled: boolean } | null>(null);
-  const releaseToken = (): void => giveBack(tokenRef, openedAtRef);
+  const isCurrent = (ticket?: number): boolean =>
+    !closedRef.current &&
+    (ticket === undefined || ticket === generationRef.current);
 
   // The component going away gives the room's lock back, however it went — the
   // component unmounting, or the whole page going with it. Both paths go
@@ -160,7 +187,7 @@ export function useSelectionLock({
     // token, or the singer would return to a selection nothing can write to.
     const onPageHide = (event: PageTransitionEvent): void => {
       if (event.persisted) return;
-      giveBack(tokenRef, openedAtRef);
+      void giveBack(tokenRef, openedAtRef);
     };
     window.addEventListener("pagehide", onPageHide);
 
@@ -172,7 +199,7 @@ export function useSelectionLock({
       queueMicrotask(() => {
         if (release.cancelled) return;
         unmountReleaseRef.current = null;
-        giveBack(tokenRef, openedAtRef);
+        void giveBack(tokenRef, openedAtRef);
       });
     };
   }, []);
@@ -202,9 +229,14 @@ export function useSelectionLock({
 
   return {
     token: () => tokenRef.current,
-    hold: (opened) => {
-      if (closedRef.current) {
-        release(opened.token);
+    begin: () => {
+      closedRef.current = false;
+      return generationRef.current;
+    },
+    isCurrent: (ticket) => isCurrent(ticket),
+    hold: (opened, ticket) => {
+      if (!isCurrent(ticket)) {
+        void release(opened.token);
         return false;
       }
       tokenRef.current = opened.token;
@@ -219,7 +251,8 @@ export function useSelectionLock({
       // Before the token is read: an open that lands after this has to give the
       // room back what this component is no longer picking with.
       closedRef.current = true;
-      releaseToken();
+      generationRef.current += 1;
+      return giveBack(tokenRef, openedAtRef);
     },
   };
 }

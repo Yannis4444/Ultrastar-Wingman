@@ -1,18 +1,27 @@
 import type { ScoreWithContext } from "../api";
 import { cardDate } from "../duration";
 import {
+  LONG_ACHIEVEMENT,
+  PICTURED,
   SONGS,
+  achievementContent,
   cardParty,
   cardPlayers,
   cardScore,
   fakeMeasure,
   partySession,
+  singerId,
+  singerScores,
   song,
 } from "../test/shareCard";
+import { chartTheme } from "../chartTheme";
 import {
   partyCard,
+  type AchievementCardContent,
+  playerCard,
   scoreCard,
   type PartyCardContent,
+  type PlayerCardContent,
   type ScoreCardContent,
 } from "./content";
 import {
@@ -24,15 +33,23 @@ import {
   SAFE_AREA,
   SCRIM_ALPHA,
   elementBox,
+  layoutAchievementCard,
   layoutPartyCard,
+  layoutPlayerCard,
   layoutScoreCard,
   type Box,
   type CardFormat,
   type CardLayout,
-  type PartyCardOptions,
   type TextElement,
 } from "./layout";
-import { resolvePartyOptions, resolveScoreOptions } from "./possible";
+import {
+  PARTY_DESIGNS,
+  PLAYER_DESIGNS,
+  resolveAchievementOptions,
+  resolvePartyOptions,
+  resolvePlayerOptions,
+  resolveScoreOptions,
+} from "./possible";
 
 const players = cardPlayers();
 const all = () => true;
@@ -340,41 +357,455 @@ describe.each(SCORES)("the score card, %s", (_, content) => {
   );
 });
 
-const PARTY_OPTIONS: PartyCardOptions[] = FORMATS.flatMap((format) =>
-  (["dark", "mosaic"] as const).flatMap((look) =>
-    (["podium", "spread"] as const).flatMap((focus) =>
-      (["ranking", "strip"] as const).flatMap((under) =>
-        [true, false].map((logo) => ({
-          format,
-          look,
-          focus,
-          under,
-          logo,
-        })),
-      ),
-    ),
+/** Every slide of the carousel in both formats, the logo on and off: what
+ * the panel can ask a party card for. */
+const PARTY_SLIDES = FORMATS.flatMap((format) =>
+  PARTY_DESIGNS.flatMap((design) =>
+    [true, false].map((logo) => ({ format, design, logo })),
   ),
 );
 
 describe.each(PARTIES)("the party card, %s", (_, content) => {
   test.each(
-    PARTY_OPTIONS.map(
-      (options) =>
-        [
-          options.format,
-          options.look,
-          options.focus,
-          options.under,
-          options.logo,
-          options,
-        ] as const,
+    PARTY_SLIDES.map(
+      (slide) => [slide.format, slide.design, slide.logo, slide] as const,
     ),
   )(
-    "%s %s %s %s, logo %s, keeps every region apart and readable",
-    (format, _look, _focus, _under, _logo, requested) => {
-      const options = resolvePartyOptions(content, requested, all);
+    "%s %s, logo %s, keeps every region apart and readable",
+    (format, _design, _logo, slide) => {
+      const options = resolvePartyOptions(
+        content,
+        slide.design,
+        slide.format,
+        slide.logo,
+        all,
+      );
       checkLayout(layoutPartyCard(content, options, fakeMeasure), format);
     },
+  );
+});
+
+function playerOf(
+  scores: ScoreWithContext[],
+  overrides: Partial<Parameters<typeof playerCard>[0]> = {},
+): PlayerCardContent {
+  return playerCard({
+    scores,
+    session: partySession(),
+    players,
+    me: "chiara",
+    otherPictures: true,
+    partyNameAndDate: true,
+    ...overrides,
+  });
+}
+
+/** A record of `count` scores over every song, spread over the range. */
+function record(id: string, count: number): ScoreWithContext[] {
+  return singerScores(
+    id,
+    Array.from({ length: count }, (_, index) =>
+      Math.round(9800 - ((index * 3137) % 7000)),
+    ),
+  );
+}
+
+const manySongs = Array.from({ length: 12 }, (_, index) =>
+  index % 4 === 3
+    ? longSong
+    : song(`usdb:${200 + index}`, `Artist ${index}`, `Song number ${index}`),
+);
+
+const PLAYERS: [string, PlayerCardContent][] = [
+  ["many scores", playerOf(record("alice", 60))],
+  ["four scores", playerOf(record("alice", 4))],
+  ["one score", playerOf(record("alice", 1))],
+  [
+    "three scores of one song",
+    playerOf(singerScores("alice", [7000, 8000, 6000], [SONGS[0]])),
+  ],
+  ["my own, all parties", playerOf(record("chiara", 20), { session: null })],
+  ["line off", playerOf(record("alice", 12), { partyNameAndDate: false })],
+  [
+    "a long name at a long party, long songs",
+    playerOf(
+      singerScores(
+        "long",
+        Array.from({ length: 24 }, (_, index) => 9500 - index * 300),
+        manySongs,
+      ),
+      { session: longParty },
+    ),
+  ],
+  [
+    "lost songs, a zero and a perfect score",
+    playerOf(singerScores("alice", [0, 10000, 5000, 2500], [null, SONGS[1]])),
+  ],
+  [
+    "every score in one bucket",
+    playerOf(singerScores("alice", [8100, 8200, 8300, 8400, 8450])),
+  ],
+];
+
+/** Every slide of a player card in both formats, the logo on and off. */
+const PLAYER_SLIDES = FORMATS.flatMap((format) =>
+  PLAYER_DESIGNS.flatMap((design) =>
+    [true, false].map((logo) => [format, design, logo] as const),
+  ),
+);
+
+describe.each(PLAYERS)("the player card, %s", (_, content) => {
+  test.each(PLAYER_SLIDES)(
+    "%s %s, logo %s, keeps every region apart and readable",
+    (format, design, logo) => {
+      const options = resolvePlayerOptions(content, design, format, logo);
+      checkLayout(layoutPlayerCard(content, options, fakeMeasure), format);
+    },
+  );
+});
+
+test("the player square sits where §9 puts it: the head, the numbers at 232, the focus between 392 and 936", () => {
+  const content = PLAYERS[0][1];
+  for (const design of PLAYER_DESIGNS) {
+    const layout = layoutPlayerCard(
+      content,
+      { format: "square", focus: design, logo: true },
+      fakeMeasure,
+    );
+    const avatar = layout.elements.find(
+      (element) => element.kind === "image" && element.region === "head",
+    );
+    expect(avatar).toMatchObject({ x: 72, y: 72, w: 120, h: 120 });
+    const value = layout.elements.find(
+      (element) => element.kind === "text" && element.region === "numbers",
+    );
+    expect(value).toMatchObject({ y: 232, size: 56 });
+    const focus = layout.elements.filter(
+      (element) =>
+        element.region === design ||
+        (design === "strip" && element.region === "strip"),
+    );
+    expect(focus.length).toBeGreaterThan(0);
+    for (const element of focus) {
+      const box = elementBox(element);
+      expect(box.y).toBeGreaterThanOrEqual(392 - 0.5);
+      expect(box.y + box.h).toBeLessThanOrEqual(936 + 0.5);
+    }
+    expect(layout.background).toEqual({ kind: "dark" });
+    expect(texts(layout, "head")).toEqual([
+      "Alice",
+      `Friday karaoke · ${cardDate(partySession().started_at)}`,
+    ]);
+    // "ranked by best score" is the Songs design's alone.
+    expect(texts(layout, "brand-note")).toEqual(
+      design === "songs" ? ["ranked by best score"] : [],
+    );
+  }
+});
+
+test("the numbers are Sings, Songs, Best and Average, Best gold with no holder", () => {
+  const layout = layoutPlayerCard(
+    PLAYERS[0][1],
+    { format: "square", focus: "histogram", logo: true },
+    fakeMeasure,
+  );
+  const labels = texts(layout, "numbers").filter((text) => /\D/.test(text));
+  expect(labels).toEqual(["Sings", "Songs", "Best", "Average"]);
+  const best = layout.elements.find(
+    (element) =>
+      element.kind === "text" &&
+      element.region === "numbers" &&
+      element.runs[0].text === String(PLAYERS[0][1].numbers.best),
+  ) as TextElement;
+  expect(best.runs[0].color).toBe(CARD_COLORS.gold);
+});
+
+test("the histogram is twenty bars at most 440 tall, the best's bar gold, on a baseline over three ticks", () => {
+  const content = PLAYERS[0][1];
+  const layout = layoutPlayerCard(
+    content,
+    { format: "square", focus: "histogram", logo: true },
+    fakeMeasure,
+  );
+  const bars = layout.elements.filter(
+    (element) => element.kind === "rect" && element.region === "histogram",
+  );
+  expect(bars).toHaveLength(
+    content.buckets.filter((count) => count > 0).length,
+  );
+  expect(
+    Math.max(...bars.map((bar) => (bar.kind === "rect" ? bar.h : 0))),
+  ).toBe(440);
+  const gold = bars.filter(
+    (bar) => bar.kind === "rect" && bar.fill === chartTheme.gold,
+  );
+  expect(gold).toHaveLength(1);
+  expect(texts(layout, "histogram")).toEqual(["0", "5k", "10k"]);
+  // A bucket of one among many is still a bar a chat keeps.
+  for (const bar of bars)
+    if (bar.kind === "rect") expect(bar.h).toBeGreaterThanOrEqual(8);
+  const story = layoutPlayerCard(
+    content,
+    { format: "story", focus: "histogram", logo: true },
+    fakeMeasure,
+  );
+  const storyBars = story.elements.filter(
+    (element) => element.kind === "rect" && element.region === "histogram",
+  );
+  expect(
+    Math.max(...storyBars.map((bar) => (bar.kind === "rect" ? bar.h : 0))),
+  ).toBe(640);
+});
+
+test("the strip is the party card's, larger: Median over dots r 12, the best one gold", () => {
+  const layout = layoutPlayerCard(
+    PLAYERS[1][1],
+    { format: "square", focus: "strip", logo: true },
+    fakeMeasure,
+  );
+  expect(texts(layout, "strip")[0]).toMatch(/^Median \d+$/);
+  const dots = layout.elements.filter(
+    (element) =>
+      element.kind === "circle" &&
+      element.region === "strip" &&
+      element.fill !== null,
+  );
+  expect(dots).toHaveLength(4);
+  for (const dot of dots) if (dot.kind === "circle") expect(dot.r).toBe(12);
+  expect(
+    dots.filter((dot) => dot.kind === "circle" && dot.fill === chartTheme.gold),
+  ).toHaveLength(1);
+});
+
+test.each(FORMATS)(
+  "a dense cloud on the %s strip gets a lane per dot: the band grows instead of piling them up",
+  (format) => {
+    // Fifty scores packed into 6000–8500, as an evening of one regular is.
+    const content = playerOf(
+      singerScores(
+        "alice",
+        Array.from({ length: 50 }, (_, index) => 6000 + ((index * 977) % 2500)),
+      ),
+    );
+    const layout = layoutPlayerCard(
+      content,
+      { format, focus: "strip", logo: true },
+      fakeMeasure,
+    );
+    checkLayout(layout, format);
+    const dots = layout.elements.flatMap((element) =>
+      element.kind === "circle" &&
+      element.region === "strip" &&
+      element.fill !== null
+        ? [element]
+        : [],
+    );
+    expect(dots).toHaveLength(50);
+    for (let i = 0; i < dots.length; i++)
+      for (let j = i + 1; j < dots.length; j++)
+        expect(
+          Math.hypot(dots[i].cx - dots[j].cx, dots[i].cy - dots[j].cy),
+        ).toBeGreaterThanOrEqual(28 - 1e-6);
+    // The grid lines are the band: every dot and its ring inside it.
+    const band = layout.elements.flatMap((element) =>
+      element.kind === "line" &&
+      element.region === "strip" &&
+      element.x1 === element.x2
+        ? [element]
+        : [],
+    );
+    const top = Math.min(...band.map((line) => line.y1));
+    const bottom = Math.max(...band.map((line) => line.y2));
+    // The square's 200 is too low for this cloud; the story's 280 holds it.
+    if (format === "square") expect(bottom - top).toBeGreaterThan(200);
+    else expect(bottom - top).toBe(280);
+    for (const dot of dots) {
+      expect(dot.cy - 24).toBeGreaterThanOrEqual(top);
+      expect(dot.cy + 24).toBeLessThanOrEqual(bottom);
+    }
+  },
+);
+
+/** The strip's band (its grid lines' extent) and its dots. */
+function stripOf(layout: CardLayout) {
+  const lines = layout.elements.flatMap((element) =>
+    element.kind === "line" &&
+    element.region === "strip" &&
+    element.x1 === element.x2
+      ? [element]
+      : [],
+  );
+  const dots = layout.elements.flatMap((element) =>
+    element.kind === "circle" &&
+    element.region === "strip" &&
+    element.fill !== null
+      ? [element]
+      : [],
+  );
+  const top = Math.min(...lines.map((line) => line.y1));
+  const bottom = Math.max(...lines.map((line) => line.y2));
+  // Every dot at one size, whichever step the strip took (§4.2: r 10, 8, 6).
+  const r = Math.max(...dots.map((dot) => dot.r));
+  expect(dots.every((dot) => dot.r === r)).toBe(true);
+  // The swarm's gap is 2.4 radii (24 at r 10): no two dots closer, no pile.
+  const apart = dots.every((dot, i) =>
+    dots
+      .slice(i + 1)
+      .every(
+        (other) =>
+          Math.hypot(dot.cx - other.cx, dot.cy - other.cy) >= 2.4 * r - 1e-6,
+      ),
+  );
+  return { band: bottom - top, top, bottom, dots, r, apart };
+}
+
+/** Forty-eight scores packed into 6000–8500 over `singers` singers: a big
+ * evening's dense cloud. */
+function denseParty(singers: number): ScoreWithContext[] {
+  return Array.from({ length: 48 }, (_, index) =>
+    cardScore(
+      singerId(index % singers),
+      6000 + ((index * 977) % 2500),
+      SONGS[index % SONGS.length],
+    ),
+  );
+}
+
+test.each([
+  // [what, singers, format, head, the band at most, the dots' radius]
+  // Under a head the square has about 120 of air: too little for every dot
+  // at r 10 or r 8, so the dots step down to r 6 rather than pile.
+  ["a square under a head", 8, "square", true, 120, 6],
+  ["a square without a head", 8, "square", false, 270, 10],
+  ["a story with rows", 8, "story", true, 175, 8],
+  ["a story of three singers", 3, "story", true, 452, 10],
+  // One singer is the hero: it keeps the preset it takes at the least band.
+  ["a square of one singer under a head", 1, "square", true, 120, 6],
+  ["a square of one singer without a head", 1, "square", false, 160, 8],
+] as const)(
+  "a dense party strip on %s grows into the room its region leaves, then draws smaller dots, never piled ones",
+  (_, singers, format, head, most, r) => {
+    const content = party(denseParty(singers), { partyNameAndDate: head });
+    const options = resolvePartyOptions(content, "strip", format, true, all);
+    expect(options.under).toBe("strip");
+    const layout = layoutPartyCard(content, options, fakeMeasure);
+    checkLayout(layout, format);
+    const strip = stripOf(layout);
+    expect(strip.dots).toHaveLength(48);
+    // Never under its least, and never past what the podium leaves.
+    expect(strip.band).toBeGreaterThanOrEqual(format === "square" ? 100 : 150);
+    expect(strip.band).toBeLessThanOrEqual(most);
+    expect(strip.r).toBeCloseTo(r);
+    for (const dot of strip.dots) {
+      expect(dot.cy - dot.r).toBeGreaterThanOrEqual(strip.top);
+      expect(dot.cy + dot.r).toBeLessThanOrEqual(strip.bottom);
+    }
+    // Every dot has a lane of its own.
+    expect(strip.apart).toBe(true);
+  },
+);
+
+test.each(FORMATS)(
+  "a party strip of a few scores keeps its least band on a %s",
+  (format) => {
+    const content = party(cardParty(4, 2));
+    const layout = layoutPartyCard(
+      content,
+      resolvePartyOptions(content, "strip", format, true, all),
+      fakeMeasure,
+    );
+    const strip = stripOf(layout);
+    expect(strip.band).toBe(format === "square" ? 100 : 150);
+    // And its full-size dots.
+    expect(strip.r).toBe(10);
+  },
+);
+
+test.each(
+  FORMATS.flatMap((format) =>
+    PLAYER_DESIGNS.map((design) => [format, design] as const),
+  ),
+)(
+  "a player %s %s: the logo off takes the brand line and moves nothing else",
+  (format, focus) => {
+    const content = PLAYERS[0][1];
+    const on = layoutPlayerCard(
+      content,
+      { format, focus, logo: true },
+      fakeMeasure,
+    );
+    const off = layoutPlayerCard(
+      content,
+      { format, focus, logo: false },
+      fakeMeasure,
+    );
+    expect(off.elements.some((element) => element.kind === "logo")).toBe(false);
+    expect(texts(off).some((text) => text.includes("Wingman"))).toBe(false);
+    const rest = (layout: CardLayout) =>
+      layout.elements.filter((element) => element.region !== "brand");
+    expect(rest(off)).toEqual(rest(on));
+    expect(texts(off, "brand-note")).toEqual(
+      focus === "songs" ? ["ranked by best score"] : [],
+    );
+  },
+);
+
+test("Songs lists five on a square and eight on a story, the top one gold", () => {
+  const content = PLAYERS[6][1];
+  const rows = (format: CardFormat) =>
+    layoutPlayerCard(
+      content,
+      { format, focus: "songs", logo: true },
+      fakeMeasure,
+    ).elements.filter(
+      (element) => element.kind === "image" && element.region === "songs",
+    );
+  expect(rows("square")).toHaveLength(5);
+  expect(rows("story")).toHaveLength(8);
+  for (const cover of rows("square"))
+    expect(cover).toMatchObject({ w: 80, h: 80, radius: 0 });
+  const square = layoutPlayerCard(
+    content,
+    { format: "square", focus: "songs", logo: true },
+    fakeMeasure,
+  );
+  const golds = square.elements.filter(
+    (element) =>
+      element.kind === "text" &&
+      element.region === "songs" &&
+      element.runs.some((part) => part.color === CARD_COLORS.gold),
+  );
+  expect(golds).toHaveLength(1);
+});
+
+test("with the line off the name stands alone, and the story's head is centred", () => {
+  const content = PLAYERS[5][1];
+  const square = layoutPlayerCard(
+    content,
+    { format: "square", focus: "histogram", logo: true },
+    fakeMeasure,
+  );
+  expect(texts(square, "head")).toEqual(["Alice"]);
+  const story = layoutPlayerCard(
+    PLAYERS[0][1],
+    { format: "story", focus: "histogram", logo: true },
+    fakeMeasure,
+  );
+  const avatar = story.elements.find(
+    (element) => element.kind === "image" && element.region === "head",
+  );
+  expect(avatar).toMatchObject({ w: 200, x: 540 - 100 });
+});
+
+test("a card with nothing to focus on is the head and the numbers alone", () => {
+  const content = PLAYERS[2][1];
+  const layout = layoutPlayerCard(
+    content,
+    resolvePlayerOptions(content, "histogram", "square", true),
+    fakeMeasure,
+  );
+  expect(new Set(layout.elements.map((element) => element.region))).toEqual(
+    new Set(["head", "numbers", "brand"]),
   );
 });
 
@@ -552,38 +983,27 @@ test("one singer gets no podium: their picture large, their best the hero", () =
   ]);
 });
 
-test("a story has room for the rows and the strip both", () => {
-  const layout = layoutPartyCard(
-    PARTIES[3][1],
-    {
-      format: "story",
-      look: "dark",
-      focus: "podium",
-      under: "ranking",
-      logo: true,
-    },
-    fakeMeasure,
-  );
-  expect(layout.elements.some((element) => element.region === "rows")).toBe(
-    true,
-  );
-  expect(layout.elements.some((element) => element.region === "strip")).toBe(
-    true,
-  );
-  const few = layoutPartyCard(
-    PARTIES[5][1],
-    {
-      format: "story",
-      look: "dark",
-      focus: "podium",
-      under: "ranking",
-      logo: true,
-    },
-    fakeMeasure,
-  );
-  expect(few.elements.some((element) => element.region === "strip")).toBe(
-    false,
-  );
+test("a story's Podium draws the rows, its Strip the rows and the strip", () => {
+  const story = (under: "ranking" | "strip", content = PARTIES[3][1]) =>
+    layoutPartyCard(
+      content,
+      { format: "story", look: "dark", focus: "podium", under, logo: true },
+      fakeMeasure,
+    );
+  const has = (layout: CardLayout, region: string) =>
+    layout.elements.some((element) => element.region === region);
+  const podium = story("ranking");
+  expect(has(podium, "rows")).toBe(true);
+  expect(has(podium, "strip")).toBe(false);
+  const strip = story("strip");
+  expect(has(strip, "rows")).toBe(true);
+  expect(has(strip, "strip")).toBe(true);
+  // Each where there is something to draw: three singers have no rows, and
+  // under four scores there is no strip.
+  const three = story("strip", PARTIES[2][1]);
+  expect(has(three, "rows")).toBe(false);
+  expect(has(three, "strip")).toBe(true);
+  expect(has(story("strip", PARTIES[5][1]), "strip")).toBe(false);
 });
 
 test("the strip marks one gold score and says the median, not the best", () => {
@@ -1011,3 +1431,204 @@ test.each(["square", "story"] as const)(
     expect(texts(off, "brand-note")).toEqual(["ranked by best score"]);
   },
 );
+
+// ------------------------------------------------------------ an achievement
+
+const ACHIEVEMENTS: [string, AchievementCardContent][] = [
+  ["a built-in with a picture", achievementContent(PICTURED)],
+  ["a badge without a picture", achievementContent({ icon: "mic" })],
+  [
+    "a long name and a long description, no picture",
+    achievementContent(LONG_ACHIEVEMENT),
+  ],
+  [
+    "a long name and description with a picture, no count, no face",
+    achievementContent(
+      { ...PICTURED, ...LONG_ACHIEVEMENT, holder_count: null },
+      null,
+    ),
+  ],
+  ["a sentence of one line", achievementContent({ description: "Sing." })],
+  ["no sentence at all", achievementContent({ description: "" })],
+];
+
+const ACHIEVEMENT_SLIDES = FORMATS.flatMap((format) =>
+  [true, false].map((logo) => ({ format, logo })),
+);
+
+describe.each(ACHIEVEMENTS)("the achievement card, %s", (_, content) => {
+  test.each(ACHIEVEMENT_SLIDES)(
+    "fits on a $format card, logo $logo",
+    ({ format, logo }) => {
+      const options = resolveAchievementOptions(format, logo);
+      // Both with the picture in and without it: one that did not decode is
+      // the plate, which takes the same box.
+      for (const loaded of [all, () => false]) {
+        checkLayout(
+          layoutAchievementCard(content, options, fakeMeasure, loaded),
+          format,
+        );
+      }
+    },
+  );
+});
+
+function boxOf(layout: CardLayout, region: string): Box {
+  const boxes = layout.elements
+    .filter((element) => element.region === region)
+    .map(elementBox);
+  const x = Math.min(...boxes.map((box) => box.x));
+  const y = Math.min(...boxes.map((box) => box.y));
+  return {
+    x,
+    y,
+    w: Math.max(...boxes.map((box) => box.x + box.w)) - x,
+    h: Math.max(...boxes.map((box) => box.y + box.h)) - y,
+  };
+}
+
+test("the achievement square sits where §10 puts it", () => {
+  const layout = layoutAchievementCard(
+    achievementContent({
+      ...PICTURED,
+      // Two lines of description, as §10's table is drawn for.
+      description:
+        "Sing your very first song at a party, any song at all, and any score.",
+    }),
+    { format: "square", logo: true },
+    fakeMeasure,
+  );
+  const badge = layout.elements.find((element) => element.region === "badge");
+  expect(badge).toMatchObject({ kind: "image", w: 400, h: 400, radius: 80 });
+  expect(boxOf(layout, "badge").x).toBe(340);
+  expect(boxOf(layout, "badge").y).toBeCloseTo(72, 0);
+  expect(boxOf(layout, "name").y).toBeCloseTo(512, 0);
+  expect(boxOf(layout, "description").y).toBeCloseTo(600, 0);
+  expect(boxOf(layout, "description").h).toBeCloseTo(104, 0);
+  expect(boxOf(layout, "sharer").y).toBeCloseTo(744, 0);
+  expect(boxOf(layout, "sharer").h).toBe(72);
+  expect(boxOf(layout, "earned").y).toBeCloseTo(848, 0);
+  expect(texts(layout, "name")).toEqual(["First Time on the Mic"]);
+  expect(texts(layout, "sharer")).toEqual(["Chiara"]);
+  expect(texts(layout, "earned")).toEqual([
+    `Earned ${cardDate("2026-08-12T20:15:00Z")}`,
+    "Earned by 3 players",
+  ]);
+  // Everything is centred on the card.
+  for (const region of ["badge", "name", "description", "sharer", "earned"]) {
+    const box = boxOf(layout, region);
+    expect(box.x + box.w / 2).toBeCloseTo(CARD_WIDTH / 2, 0);
+  }
+  // The brand alone at the foot, nothing at its right.
+  expect(texts(layout, "brand")).toEqual(["Ultrastar Wingman"]);
+  expect(texts(layout, "brand-note")).toEqual([]);
+});
+
+test("without a picture the badge is its plate, a fifth rounded, the glyph half its side in --bg", () => {
+  const content = achievementContent({ icon: "mic", color: "gold" });
+  for (const [format, side] of [
+    ["square", 400],
+    ["story", 560],
+  ] as const) {
+    const layout = layoutAchievementCard(
+      content,
+      { format, logo: true },
+      fakeMeasure,
+    );
+    const badge = layout.elements.filter(
+      (element) => element.region === "badge",
+    );
+    expect(badge).toMatchObject([
+      { kind: "rect", w: side, h: side, radius: side / 5, fill: "#faa636" },
+      { kind: "icon", name: "mic", size: side / 2, color: CARD_COLORS.bg },
+    ]);
+  }
+});
+
+test("a picture that did not arrive is drawn as the plate, never a letter", () => {
+  const layout = layoutAchievementCard(
+    achievementContent(PICTURED),
+    { format: "square", logo: true },
+    fakeMeasure,
+    () => false,
+  );
+  expect(
+    layout.elements
+      .filter((element) => element.region === "badge")
+      .map((element) => element.kind),
+  ).toEqual(["rect", "icon"]);
+});
+
+test("a long name is one line, cut; a long description two lines on a square and three on a story", () => {
+  const content = achievementContent(LONG_ACHIEVEMENT);
+  const square = layoutAchievementCard(
+    content,
+    { format: "square", logo: true },
+    fakeMeasure,
+  );
+  const story = layoutAchievementCard(
+    content,
+    { format: "story", logo: true },
+    fakeMeasure,
+  );
+  for (const layout of [square, story]) {
+    const name = texts(layout, "name");
+    expect(name).toHaveLength(1);
+    expect(name[0].endsWith("…")).toBe(true);
+  }
+  expect(texts(square, "description")).toHaveLength(2);
+  expect(texts(square, "description")[1].endsWith("…")).toBe(true);
+  expect(texts(story, "description")).toHaveLength(3);
+  // The name at its smaller size, the description at its one.
+  const sizes = (layout: CardLayout, region: string) =>
+    layout.elements
+      .filter(
+        (element): element is TextElement =>
+          element.kind === "text" && element.region === region,
+      )
+      .map((element) => element.size);
+  expect(sizes(square, "name")).toEqual([52]);
+  expect(sizes(story, "name")).toEqual([60]);
+  expect(new Set(sizes(square, "description"))).toEqual(new Set([40]));
+  expect(new Set(sizes(story, "description"))).toEqual(new Set([44]));
+});
+
+test("the achievement story keeps the order in its safe area: the badge 560, the avatar 96", () => {
+  const layout = layoutAchievementCard(
+    achievementContent(PICTURED),
+    { format: "story", logo: true },
+    fakeMeasure,
+  );
+  expect(boxOf(layout, "badge")).toMatchObject({ w: 560, h: 560 });
+  expect(boxOf(layout, "sharer").h).toBe(96);
+  const order = ["badge", "name", "description", "sharer", "earned", "brand"];
+  for (let i = 1; i < order.length; i++) {
+    const above = boxOf(layout, order[i - 1]);
+    expect(boxOf(layout, order[i]).y).toBeGreaterThan(above.y + above.h);
+  }
+  expect(boxOf(layout, "badge").y).toBeGreaterThanOrEqual(SAFE_AREA.story.top);
+});
+
+test("with the logo off the achievement card loses the brand and nothing moves", () => {
+  const content = achievementContent(PICTURED);
+  for (const format of FORMATS) {
+    const on = layoutAchievementCard(
+      content,
+      { format, logo: true },
+      fakeMeasure,
+    );
+    const off = layoutAchievementCard(
+      content,
+      { format, logo: false },
+      fakeMeasure,
+    );
+    const rest = (layout: CardLayout) =>
+      layout.elements.filter((element) => element.region !== "brand");
+    expect(
+      off.elements.filter((element) => element.region === "brand"),
+    ).toEqual([]);
+    expect(rest(off)).toEqual(rest(on));
+    expect(on.background).toEqual({ kind: "dark" });
+    expect(on.halo).toBe(false);
+  }
+});

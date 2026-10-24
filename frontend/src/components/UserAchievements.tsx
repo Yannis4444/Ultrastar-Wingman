@@ -14,7 +14,7 @@ import { cardDate } from "../duration";
 import { useAchievements } from "../hooks/useAchievements";
 import { useWingmanEvent, type WingmanEvent } from "../hooks/useWingmanEvents";
 import AchievementBadge from "./AchievementBadge";
-import AchievementModal from "./AchievementModal";
+import AchievementModal, { type AchievementSharer } from "./AchievementModal";
 import AchievementProgress from "./AchievementProgress";
 import { Icon } from "./icons";
 import "./UserAchievements.css";
@@ -117,12 +117,16 @@ function AchievementRow({
  *
  * Every badge and every row opens the same modal, the strip's included — a
  * badge is a picture, and a picture 30px across is a thing to tap rather than a
- * thing to look at.
+ * thing to look at. The record is always the reader's own, so the modal is
+ * handed `sharer` and offers *Share* on what they earned (share-cards §10).
  */
 export default function UserAchievements({
   playerId,
+  sharer,
 }: {
   playerId: string | null;
+  /** The reader, for the achievement card: whose record this is. */
+  sharer: AchievementSharer;
 }) {
   const queryClient = useQueryClient();
   // The achievement being shown large, by id rather than by row: a refetch
@@ -271,7 +275,11 @@ export default function UserAchievements({
           bubbles, and a modal rendered under the summary would toggle the list
           each time somebody pressed its close button. */}
       {shown !== undefined && (
-        <AchievementModal row={shown} onClose={() => setShownId(null)} />
+        <AchievementModal
+          row={shown}
+          sharer={sharer}
+          onClose={() => setShownId(null)}
+        />
       )}
     </>
   );

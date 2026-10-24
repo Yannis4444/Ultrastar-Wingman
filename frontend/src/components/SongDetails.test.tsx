@@ -506,6 +506,51 @@ test("a song without a creator keeps the source alone, without the dot", async (
   expect(line).toHaveTextContent(/^usdb:1$/);
 });
 
+test("a USDB song's fine print is one link to its USDB page", async () => {
+  renderSong({ ...complete, id: "usdb:24435" });
+
+  const link = await screen.findByRole("link", {
+    name: "Made by DrFrank · usdb:24435",
+  });
+  expect(link).toHaveAttribute(
+    "href",
+    "https://usdb.animux.de/index.php?link=detail&id=24435",
+  );
+  // It leaves Wingman, so a new tab, and nothing of this page goes with it.
+  expect(link).toHaveAttribute("target", "_blank");
+  expect(link).toHaveAttribute("rel", "noopener noreferrer");
+  // The streaming rows' mark for a link that leaves, after the words.
+  expect(iconNames(link)).toEqual(["external-link"]);
+  // The glyph and the id are one run that cannot wrap apart, so a long
+  // creator that wraps the line still ends it in the glyph.
+  const end = link.querySelector(".song-fine-print-end") as HTMLElement;
+  expect(end).toHaveTextContent(/^usdb:24435$/);
+  expect(end.lastElementChild).toHaveClass("icon");
+  expect(link.querySelector(".icon")).toBe(end.lastElementChild);
+  // The whole line is the link, and still the last thing in the modal.
+  expect(link).toHaveClass("song-fine-print");
+  expect(link.previousElementSibling).toHaveClass("song-actions");
+  expect(document.querySelectorAll(".song-fine-print")).toHaveLength(1);
+});
+
+test("any other source's fine print is the plain line", async () => {
+  renderSong({
+    ...complete,
+    id: "local:6f1c0a2e-4b7d-4c1e-9a3f-2d8e5b7c9a10",
+    source: "local",
+  });
+
+  const dialog = await screen.findByRole("dialog");
+  const line = dialog.querySelector(".song-fine-print") as HTMLElement;
+  expect(line.tagName).toBe("P");
+  expect(line).toHaveTextContent(
+    /^Made by DrFrank · local:6f1c0a2e-4b7d-4c1e-9a3f-2d8e5b7c9a10$/,
+  );
+  expect(within(line).queryByRole("link")).toBeNull();
+  expect(iconNames(line)).toEqual([]);
+  expect(within(dialog).queryByRole("link", { name: /Made by/ })).toBeNull();
+});
+
 test("there is no Details row and no list of rows on the song itself", async () => {
   asAccount(["playlists.manage", "songs.edit", "songs.delete"]);
   renderDetails();
@@ -607,7 +652,7 @@ test("the wish control wears the three-bar wishlist glyphs", async () => {
 
   // Off: the plus says what tapping it does. The bare bars are used nowhere.
   expect(
-    iconNames(await screen.findByRole("button", { name: "Wish" })),
+    iconNames(await screen.findByRole("button", { name: "Add to wishlist" })),
   ).toEqual(["playlist-plus"]);
 
   listWishlist.mockResolvedValue({
@@ -617,8 +662,72 @@ test("the wish control wears the three-bar wishlist glyphs", async () => {
   });
   renderDetails();
   expect(
-    iconNames(await screen.findByRole("button", { name: "Remove wish" })),
+    iconNames(
+      await screen.findByRole("button", { name: "Remove from wishlist" }),
+    ),
   ).toEqual(["playlist-check"]);
+});
+
+/** The word under one song control, and whether it is out of the name. */
+function captionOf(button: HTMLElement): [string, string | null] {
+  const caption = button.querySelector(".song-control-caption");
+  return [
+    caption?.textContent ?? "",
+    caption?.getAttribute("aria-hidden") ?? null,
+  ];
+}
+
+test("the three controls carry their word under the glyph, out of their names", async () => {
+  asAccount(["karaoke.sing", "wishlist.view", "wishlist.add"]);
+  renderDetails();
+
+  const favorite = await screen.findByRole("button", {
+    name: "Add to favorites",
+  });
+  const sing = screen.getByRole("button", { name: "Sing" });
+  const wish = screen.getByRole("button", { name: "Add to wishlist" });
+  // Inside each button, after its glyph, hidden from the accessibility tree:
+  // the `aria-label` keeps the verb and says the word already.
+  expect(captionOf(favorite)).toEqual(["Favorite", "true"]);
+  expect(captionOf(sing)).toEqual(["Sing", "true"]);
+  expect(captionOf(wish)).toEqual(["Wishlist", "true"]);
+  for (const button of [favorite, sing, wish]) {
+    expect(button.lastElementChild).toHaveClass("song-control-caption");
+    expect(button.firstElementChild).toHaveClass("icon");
+  }
+  // Three words in the row, in the row's order, and nowhere else in the modal.
+  const dialog = screen.getByRole("dialog", { name: "Bohemian Rhapsody" });
+  expect(
+    Array.from(dialog.querySelectorAll(".song-control-caption")).map(
+      (caption) => caption.textContent,
+    ),
+  ).toEqual(["Favorite", "Sing", "Wishlist"]);
+  expect(
+    dialog.querySelectorAll(".song-details-controls .song-control-caption"),
+  ).toHaveLength(3);
+});
+
+test("a caption names the control, not its state", async () => {
+  asAccount(["wishlist.view", "wishlist.add"]);
+  listWishlist.mockResolvedValue({
+    data: {
+      wishes: [{ song, count: 1, mine: true, latest: "2026-08-23T20:00:00Z" }],
+    },
+  });
+  renderDetails();
+
+  const wish = await screen.findByRole("button", {
+    name: "Remove from wishlist",
+  });
+  // The glyph says on or off; the word stays the same.
+  expect(captionOf(wish)).toEqual(["Wishlist", "true"]);
+  // No Sing without the right, and so no caption for it either.
+  expect(screen.queryByRole("button", { name: "Sing" })).toBeNull();
+  expect(
+    Array.from(document.querySelectorAll(".song-control-caption")).map(
+      (caption) => caption.textContent,
+    ),
+  ).toEqual(["Favorite", "Wishlist"]);
 });
 
 /** A logged-in playlist owner with one playlist; `contains` is what the picker

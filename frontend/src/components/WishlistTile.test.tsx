@@ -193,7 +193,7 @@ test("the wish button in the song details adds a wish", async () => {
   });
 
   fireEvent.click(await screen.findByText("Africa"));
-  fireEvent.click(screen.getByRole("button", { name: "Wish" }));
+  fireEvent.click(screen.getByRole("button", { name: "Add to wishlist" }));
 
   await waitFor(() =>
     expect(addWish.mock.calls[0][0].body).toEqual({ song_id: "usdb:2" }),

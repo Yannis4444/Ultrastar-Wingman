@@ -1,15 +1,22 @@
 import { useQuery } from "@tanstack/react-query";
-import { useState } from "react";
-import type { SongRead } from "../api";
-import { listPlayerScoresOptions } from "../api/@tanstack/react-query.gen";
+import { useMemo, useState } from "react";
+import type { ScoreWithContext, SongRead } from "../api";
+import {
+  listPlayerScoresOptions,
+  listPlayersOptions,
+} from "../api/@tanstack/react-query.gen";
 import { useAuth } from "../auth";
+import { Icon } from "../components/icons";
 import Loading from "../components/Loading";
 import PageHeader from "../components/PageHeader";
 import ScoreGroupList from "../components/ScoreGroupList";
 import ScoresEmpty from "../components/ScoresEmpty";
 import ScoreStrip from "../components/ScoreStrip";
+import ShareCardPanel, { type ShareTarget } from "../components/ShareCardPanel";
+import SingView from "../components/SingView";
 import SongDetails from "../components/SongDetails";
 import { errorMessage } from "../errors";
+import { playerStatsShareable } from "../shareCard/possible";
 import { groupScores, sortGroups, type Sorting } from "../stats";
 // The rules are the Scores page's; this view is the same list with one singer
 // in it, so it shares the stylesheet instead of restating it.
@@ -30,6 +37,8 @@ function History({ playerId }: { playerId: string }) {
   // The old app's default order, and the one a scoreboard is read for.
   const [sorting, setSorting] = useState<Sorting>("best");
   const [openSong, setOpenSong] = useState<SongRead | null>(null);
+  // The run whose sing is open: who else sang it, and Share.
+  const [openScore, setOpenScore] = useState<ScoreWithContext | null>(null);
 
   const scores = useQuery(
     listPlayerScoresOptions({ path: { player_id: playerId } }),
@@ -109,15 +118,22 @@ function History({ playerId }: { playerId: string }) {
         sorting={sorting}
         /* Empty on purpose: the map only feeds avatars, and `ownRows` is what
            took the reader's own avatar off every row. Nothing here needs the
-           roster, so nothing here fetches it. */
+           roster; the share card asks for it when it opens. */
         players={new Map()}
         onOpenSong={setOpenSong}
+        onOpenScore={setOpenScore}
         namedPeaks={false}
         ownRows
       />
 
       {openSong !== null && (
         <SongDetails song={openSong} onClose={() => setOpenSong(null)} />
+      )}
+
+      {/* The sing view reads its own roster: a duet partner's face is not
+          the reader's, so the empty map above would not do there. */}
+      {openScore !== null && (
+        <SingView score={openScore} onClose={() => setOpenScore(null)} />
       )}
     </>
   );
@@ -133,10 +149,65 @@ function History({ playerId }: { playerId: string }) {
 export default function UserStats() {
   const auth = useAuth();
   const playerId = auth.user?.player_id ?? null;
+  const reading = auth.loaded && auth.can("stats.view") && playerId !== null;
+  // The same query `History` reads, so it is one request: the header's share
+  // button waits for the record and is not drawn while it is empty.
+  const scores = useQuery({
+    ...listPlayerScoresOptions({ path: { player_id: playerId ?? "" } }),
+    enabled: reading,
+  });
+  const rows = scores.data?.scores ?? [];
+  // The card needs one design it can draw: four scores, or two songs.
+  const shareable = playerStatsShareable(rows);
+  const [sharing, setSharing] = useState(false);
+  // The card draws the reader's own picture, which is in the roster: asked
+  // for once the card is, and the panel waits for the answer, so it is never
+  // drawn first with the initial. A reader who may not list players — or
+  // whose roster read failed — gets their initial, as everywhere else.
+  const askRoster = sharing && auth.can("players.view");
+  const playerList = useQuery({
+    ...listPlayersOptions(),
+    enabled: askRoster,
+  });
+  // Kept as they are across renders, as `/scores` keeps its own: the panel
+  // works its card out again whenever either changes.
+  const roster = playerList.data?.players;
+  const players = useMemo(
+    () => new Map((roster ?? []).map((player) => [player.id, player])),
+    [roster],
+  );
+  const record = scores.data?.scores;
+  const target = useMemo<ShareTarget>(
+    () => ({ kind: "player", scores: record ?? [], session: null }),
+    [record],
+  );
+  const rosterSettled = !askRoster || !playerList.isPending;
 
   return (
     <div className="scores-page">
-      <PageHeader title="Your scores" back="/user" />
+      <PageHeader title="Your scores" back="/user">
+        {/* A page-level control (ui-guidelines §6): the whole record as a
+            card (share-cards §9), once the record makes one with a design
+            to draw. */}
+        {reading && scores.isSuccess && shareable && (
+          <button
+            type="button"
+            className="icon-button icon-button-bordered"
+            aria-label="Share my stats"
+            title="Share my stats"
+            onClick={() => setSharing(true)}
+          >
+            <Icon name="share" />
+          </button>
+        )}
+      </PageHeader>
+      {sharing && shareable && rosterSettled && (
+        <ShareCardPanel
+          target={target}
+          players={players}
+          onClose={() => setSharing(false)}
+        />
+      )}
       {/* Nothing until /auth/me answered: `can` says yes while it is in flight,
           and `player_id` is not known either. */}
       {auth.loaded &&

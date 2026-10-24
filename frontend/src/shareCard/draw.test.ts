@@ -1,5 +1,7 @@
 import {
+  PICTURED,
   SONGS,
+  achievementContent,
   cardParty,
   cardPlayers,
   cardScore,
@@ -9,6 +11,7 @@ import {
   cardImageUrls,
   partyCard,
   scoreCard,
+  type AchievementCardContent,
   type PartyCardContent,
 } from "./content";
 import { LOGO_URL, paintCard, type CardRequest } from "./draw";
@@ -31,6 +34,8 @@ interface Call {
   globalAlpha: number;
   globalCompositeOperation: string;
   fillStyle: unknown;
+  imageSmoothingEnabled: boolean;
+  imageSmoothingQuality: string;
 }
 
 const STATE = {
@@ -70,6 +75,8 @@ function recordingContext() {
       globalAlpha: state.globalAlpha,
       globalCompositeOperation: state.globalCompositeOperation,
       fillStyle: state.fillStyle,
+      imageSmoothingEnabled: state.imageSmoothingEnabled,
+      imageSmoothingQuality: state.imageSmoothingQuality,
     });
   const methods: Record<string, (...args: unknown[]) => unknown> = {
     save: () => void stack.push({ ...state }),
@@ -269,6 +276,101 @@ test("a mosaic: one uniform scrim, no gradient, and every word and the logo over
   );
   expect(covers.length).toBeGreaterThan(0);
   expect(covers.every(plain)).toBe(true);
+});
+
+test("a mosaic's cover cells are drawn at high smoothing, like every other picture", async () => {
+  const { canvas, calls } = fakeCanvas();
+  const content = partyContent();
+  const images = imagesFor(content);
+  await paintCard(
+    canvas,
+    {
+      kind: "party",
+      content,
+      options: {
+        format: "square",
+        look: "mosaic",
+        focus: "podium",
+        under: "none",
+        logo: true,
+      },
+    },
+    images,
+  );
+  const coverPictures = new Set(content.covers.map((url) => images.get(url)));
+  const cells = calls.filter(
+    (call) =>
+      call.method === "drawImage" &&
+      coverPictures.has(call.args[0] as HTMLImageElement),
+  );
+  // Nine cells on a square, each a cover cut to a 360 px square.
+  expect(cells).toHaveLength(9);
+  for (const cell of cells) {
+    expect(cell.imageSmoothingEnabled).toBe(true);
+    expect(cell.imageSmoothingQuality).toBe("high");
+  }
+});
+
+function achievementRequest(content: AchievementCardContent): CardRequest {
+  return {
+    kind: "achievement",
+    content,
+    options: { format: "square", logo: true },
+  };
+}
+
+test("an achievement's picture is drawn once, clipped to the badge's rounded square", async () => {
+  const { canvas, calls } = fakeCanvas();
+  const content = achievementContent(PICTURED);
+  const images = imagesFor(null);
+  const badge = picture();
+  images.set(content.badge.url ?? "", badge);
+  await paintCard(canvas, achievementRequest(content), images);
+  const drawn = calls.filter(
+    (call) => call.method === "drawImage" && call.args[0] === badge,
+  );
+  expect(drawn).toHaveLength(1);
+  expect(drawn[0].args.slice(5)).toEqual([340, expect.any(Number), 400, 400]);
+  // The clip is the rounded square: arcs, not a plain rectangle.
+  const clip = calls.findIndex((call) => call.method === "clip");
+  expect(clip).toBeGreaterThan(-1);
+  expect(
+    calls.slice(0, clip).filter((call) => call.method === "arcTo").length,
+  ).toBeGreaterThanOrEqual(4);
+  expect(texts(calls).map(textOf)).toContain("First Time on the Mic");
+});
+
+test("an achievement's picture that will not decode is the plate and its glyph", async () => {
+  const { canvas, calls } = fakeCanvas();
+  vi.stubGlobal(
+    "Path2D",
+    class {
+      readonly d: string;
+      constructor(d: string) {
+        this.d = d;
+      }
+    },
+  );
+  try {
+    const content = achievementContent({ ...PICTURED, color: "pink" });
+    const images = imagesFor(null);
+    images.set(content.badge.url ?? "", {
+      ...picture(),
+      decode: () => Promise.reject(new Error("broken")),
+    } as unknown as HTMLImageElement);
+    await paintCard(canvas, achievementRequest(content), images);
+    const fills = calls.filter((call) => call.method === "fill");
+    // The plate in its colour, then the glyph cut out of it in --bg.
+    expect(fills.some((call) => call.fillStyle === "#9e3b95")).toBe(true);
+    expect(
+      fills.some(
+        (call) =>
+          call.fillStyle === CARD_COLORS.bg && call.args[0] instanceof Path2D,
+      ),
+    ).toBe(true);
+  } finally {
+    vi.unstubAllGlobals();
+  }
 });
 
 test("on dark nothing is haloed and every word is painted once", async () => {

@@ -490,8 +490,8 @@ export const ICON_PATHS = {
   // pickable: a link is not a thing a song is about.
   "external-link":
     "M11 4H6a2 2 0 0 0-2 2v12a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-5h-2v5H6V6h5V4ZM14 2h8v8h-2V5.41l-8.59 8.59L10 12.59 18.59 4H14V2Z",
-  // A picture of scores to send: the Scores page's party button, an open score
-  // group's *Share a score*, the share panel's Share. Three discs of radius 3,
+  // A picture of scores to send: the Scores page's party button, the sing
+  // view's Share, the share panel's Share. Three discs of radius 3,
   // one at the left middle and two at the right top and bottom, joined by two
   // bars two units thick. All five subpaths are wound clockwise, so where a
   // bar runs into a disc the fill stays solid. Never `upload`'s arrow out of a

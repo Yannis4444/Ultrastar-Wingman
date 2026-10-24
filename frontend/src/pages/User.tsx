@@ -313,7 +313,13 @@ export default function User() {
             {/* The rest of the record: what those scores earned. After the
                 numbers because it is what they add up to, and before *Manage*
                 because it is still the singer's own page and not an errand. */}
-            <UserAchievements playerId={auth.user.player_id} />
+            {/* The record is the reader's own, so its badges may be shared:
+                the card carries the name the tile above writes, and the
+                picture where the roster gave the player row. */}
+            <UserAchievements
+              playerId={auth.user.player_id}
+              sharer={{ player: ownPlayer, name: auth.user.username }}
+            />
             {/* The cards that pick this singer at the player selector. After
                 the record because it is a thing to set up rather than a thing
                 to read, and before *Manage* because it is still the singer's

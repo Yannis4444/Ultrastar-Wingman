@@ -1,0 +1,115 @@
+/* One sing (share-cards §8), on a bare modal's blurred backdrop: the song
+   modal's hero a size down, the singers between two hairlines, Share under
+   them. */
+/* No box of its own: on a bare modal the stretches beside the hero and
+   beside Share are the backdrop the reader sees there, and a tap on them has
+   to land on the panel itself to close it (Modal's `closeOnOwnSurface`), as
+   it does beside the song modal's hero. The class stays a scope. */
+.sing-view {
+  display: contents;
+}
+
+.sing-view-hero {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  width: max-content;
+  max-width: calc(100% - 32px);
+  margin: 0 auto;
+  text-align: center;
+}
+
+/* Square at both ends: 160px, or 45vw on a narrow phone. The compound
+   selector beats the 40px base in SongCover.css whatever the bundle order. */
+.song-cover.sing-view-cover {
+  width: min(160px, 45vw);
+  height: min(160px, 45vw);
+}
+
+.song-cover-fallback.sing-view-cover {
+  font-size: 3.2em;
+}
+
+.sing-view-title {
+  margin: 10px 0 0 0;
+  font-size: 1.15em;
+  color: var(--color);
+  overflow-wrap: anywhere;
+}
+
+/* The way into the song modal, looking like the title it is: no box, the
+   underline only under a pointer, the ring for the keyboard. */
+/* No padding and the paragraph's own leading: the title is plain text until
+   the read says it may open the song, and turning into a button must not
+   move the lines under it. */
+.sing-view-title-button {
+  padding: 0;
+  font-family: inherit;
+  line-height: inherit;
+  text-align: center;
+  background: none;
+  border: 0;
+  border-radius: var(--border-radius-small);
+  cursor: pointer;
+}
+
+@media (hover: hover) {
+  .sing-view-title-button:hover {
+    text-decoration: underline;
+  }
+}
+
+.sing-view-title-button:focus-visible {
+  outline: 2px solid var(--highlight-blue-light);
+  outline-offset: 2px;
+}
+
+.sing-view-artist {
+  margin: 2px 0 0 0;
+  font-size: 0.85em;
+  color: var(--color-darker);
+  overflow-wrap: anywhere;
+}
+
+.sing-view-when {
+  margin: 8px 0 0 0;
+  font-size: 0.85em;
+  color: var(--color-darker);
+  font-variant-numeric: tabular-nums;
+  overflow-wrap: anywhere;
+}
+
+/* Who sang, between two hairlines on the page gutter. The list's own 8px
+   margin puts its text on the 16px gutter and lets the pressed band bleed. */
+.sing-view-scores {
+  margin: 16px 8px 0 8px;
+  padding: 4px 0;
+  border-top: 1px solid var(--input-border-color);
+  border-bottom: 1px solid var(--input-border-color);
+}
+
+.sing-view-scores .ranked-score-list {
+  margin: 0;
+}
+
+.sing-view-error {
+  margin: 8px;
+}
+
+.sing-view-empty {
+  margin: 12px 8px;
+  text-align: center;
+}
+
+/* As wide as Share and no wider, centred, for the same reason. */
+.sing-view-actions {
+  display: flex;
+  width: max-content;
+  margin: 16px auto 0 auto;
+}
+
+.sing-view-share {
+  display: inline-flex;
+  gap: 8px;
+  align-items: center;
+}

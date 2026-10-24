@@ -70,3 +70,27 @@ class SingRead(BaseModel):
 
 class SingList(BaseModel):
     sings: list[SingRead]
+
+
+class SingDetail(BaseModel):
+    """One sing whole: what was sung, when, in which party and what everybody got — the sing
+    view. Named apart from `SingRead`, which is the *Recently played* row."""
+
+    sing_id: str
+    song_id: str
+    # NULL when the song left the library — the sing outlives it (`sings.song_id` is
+    # deliberately not a foreign key), exactly as in `ScoreWithContext`.
+    song: SongRead | None
+    # The song is in the library *and* no tag keeps it back from this caller: whether the
+    # view may offer the song itself. The song is not withheld from `song` when this is
+    # false — a score list shows it too, the leak `test_tags_api` accepts.
+    song_listed: bool
+    # The party as the session listing reads it, hidden or not. NULL for a sing recorded
+    # before migration 0008, which belongs to no party.
+    session: SessionRead | None
+    started_at: datetime
+    # NULL when Wingman went down mid-song.
+    ended_at: datetime | None
+    # Every score of the sing, best first (score descending, id ascending), `placement` and
+    # `field_size` as they were stored and never recounted.
+    scores: list[ScoreWithContext]

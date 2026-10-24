@@ -148,13 +148,15 @@ Two consequences the run handles, and neither is luck:
   *Player selector offline* once a device that was there is gone, and that line has no
   business in `host-results`.
 
-One phone row holds the room too. `reel-host-spin` presses **Spin on the host screen**
-in the page itself, so the phone holds the room's selection lock in its modal, and the
-row's `after` steps press **Cancel** before the tab is closed: closing a headless tab is
-not the `pagehide` that would give the lock back. The row waits about six seconds between
-the press and the shutter, because the phone reveals the song when the TV's reel lands,
-reduced motion or not; the TV in `host-reel` lands at once under the reduced motion every
-capture asks for.
+One phone row holds the room too. `reel-host-spin` puts the Random song page on **Host
+screen** and presses **Spin** in the page itself, so the phone holds the room's selection
+lock, and the row's `after` step puts the pills back on **This screen** before the tab is
+closed: that is the page's one way out, and closing a headless tab is not the `pagehide`
+that would give the lock back. The choice is kept per device, so the `reel` and
+`playlist-reel` rows pick **This screen** first too. The row waits about six seconds
+between the press and the shutter, because the phone reveals the song when the TV's reel
+lands, reduced motion or not; the TV in `host-reel` lands at once under the reduced motion
+every capture asks for.
 
 To look at one of those pages by hand, keep the device online yourself:
 

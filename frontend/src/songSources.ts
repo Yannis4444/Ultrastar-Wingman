@@ -30,3 +30,22 @@ export const SONG_SOURCES: SongSource[] = [
       "Search usdb.animux.de, the community song database, and download songs straight into the library.",
   },
 ];
+
+/**
+ * A USDB song's own page, the address the song modal's fine print links to
+ * with the song's number appended. A constant rather than the backend's
+ * `usdb.base_url`: that setting is where Wingman downloads from, which a host
+ * may point somewhere else, while a link for a person to open wants the
+ * public site.
+ */
+export const USDB_SONG_PAGE =
+  "https://usdb.animux.de/index.php?link=detail&id=";
+
+/**
+ * The USDB page of a song whose id is `usdb:<number>`, or `null` for any other
+ * id — a local song, or one whose number is not a number.
+ */
+export function usdbSongUrl(songId: string): string | null {
+  const match = /^usdb:(\d+)$/.exec(songId);
+  return match === null ? null : `${USDB_SONG_PAGE}${match[1]}`;
+}

@@ -20,9 +20,10 @@ interface SpinButtonProps {
 
 /**
  * The gradient die: the blue→pink sweep with the rolling die that marks the
- * SPIN action (ui-guidelines §4). The Random song page's SPIN and the phone's
- * *Spin again* over a spin on the host screen are the two that carry it as a
- * fill, and both are this component, so the look is declared once.
+ * SPIN action (ui-guidelines §4). The Random song page's SPIN — on a
+ * playlist's reel too, and in both places the reel runs, where on the host
+ * screen it reads *Show it* and *Spin again* — carries it as a fill, and it is
+ * this component, so the look is declared once.
  */
 export default function SpinButton({
   spinning,

@@ -75,8 +75,8 @@ shows both.
 The wishlist stays below the stage, so the room can keep reading it.
 ///
 
-- :wingman-heart: **Add to favorites** and :wingman-playlist-plus: **Wish** do
-  the same as in the song's own view.
+- :wingman-heart: **Add to favorites** and :wingman-playlist-plus: **Add to
+  wishlist** do the same as in the song's own view.
 - :wingman-stop: **Stop** is the large button in the middle. It asks before it
   ends the song. Only somebody who may stop a song sees it at all, which an
   account holds by default and a guest phone does not.

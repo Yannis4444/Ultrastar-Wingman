@@ -1,5 +1,5 @@
 /* The gradient die — the SPIN action's button, declared once for the Random
-   song page and for the phone's *Spin again* over a spin on the host screen.
+   song page and the playlist reel, in both places the reel runs.
    The same sweep as the Random-song button on Home: the gesture that opened the
    page is the gesture that spins. The gradient stays lit while the reel runs —
    the button is busy, not off — and only goes flat when there is nothing to

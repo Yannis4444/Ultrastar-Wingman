@@ -435,7 +435,7 @@ export default function PlayerSelection({
   };
 
   const cancel = (): void => {
-    lock.close();
+    void lock.close();
     onClose();
   };
 

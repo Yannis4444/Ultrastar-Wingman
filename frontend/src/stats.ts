@@ -617,14 +617,15 @@ export function scoreSummary(
 export const HISTOGRAM_BUCKETS = 20;
 const BUCKET_WIDTH = MAX_SCORE / HISTOGRAM_BUCKETS;
 
+/** The bucket of `histogram` a score falls into. */
+export function bucketOf(score: number): number {
+  // A perfect 10000 belongs in the last bucket, not in a 21st one.
+  return Math.min(Math.floor(score / BUCKET_WIDTH), HISTOGRAM_BUCKETS - 1);
+}
+
 /** How many of `scores` fall into each equally wide score bucket. */
 export function histogram(scores: ScoreWithContext[]): number[] {
   const buckets = new Array<number>(HISTOGRAM_BUCKETS).fill(0);
-  for (const { score } of scores) {
-    // A perfect 10000 belongs in the last bucket, not in a 21st one.
-    buckets[
-      Math.min(Math.floor(score / BUCKET_WIDTH), HISTOGRAM_BUCKETS - 1)
-    ]++;
-  }
+  for (const { score } of scores) buckets[bucketOf(score)]++;
   return buckets;
 }

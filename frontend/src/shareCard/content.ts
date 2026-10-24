@@ -1,5 +1,19 @@
-import type { PlayerRead, ScoreWithContext, SessionRead } from "../api";
+import {
+  achievementDescription,
+  achievementGlyph,
+  achievementIconUrl,
+  achievementName,
+  holdersLine,
+} from "../achievements";
+import type {
+  PlayerAchievementRead,
+  PlayerRead,
+  ScoreWithContext,
+  SessionRead,
+} from "../api";
 import { avatarUrl } from "../avatars";
+import type { IconName } from "../components/icons";
+import { TAG_COLORS, type TagColor } from "../tags";
 import { MAX_SCORE } from "../chartTheme";
 // A card leaves the room, so its date always carries the year.
 import { cardDate, parseServerTime } from "../duration";
@@ -8,6 +22,8 @@ import {
   boxStats,
   evaluationLabel,
   groupScores,
+  bucketOf,
+  histogram,
   plural,
   scorePlayer,
   scorePlayerKey,
@@ -55,6 +71,9 @@ export interface ScoreCardContent {
   /** Where the score sits on the 0–10000 bar, 0…1. */
   fraction: number;
   singer: CardPerson;
+  /** The score is the sharer's own: the only face on the card is theirs, so
+   * *Other singers' pictures* has nothing to reach (share-cards §5). */
+  mine: boolean;
   /** "1st of 3", or `null` where there is no place to give (§2.1). */
   place: string | null;
   /** The other singers of the same sing — a duet, or a few mics at once. */
@@ -121,17 +140,17 @@ export interface PartyCardContent {
    * off, the count going with the head (§7.9). */
   sub: string | null;
   numbers: CardNumbers;
-  /** Everybody, best first — or the sharer alone with *Only me*. */
+  /** Everybody, best first — or the sharer alone on the *You* slide. */
   ranking: CardRank[];
   /** How many sang at the party, whatever the card shows of them. */
   singerCount: number;
-  /** Whether *Only me and my place* is applied. */
+  /** Whether this is the *You* slide's content: the sharer alone (§2.2). */
   onlyMe: boolean;
   /** Whether it could be: the sharer sang at this party. */
   mayOnlyMe: boolean;
-  /** "2nd of 5" with *Only me*, `null` otherwise. */
+  /** "2nd of 5" on *You*, `null` otherwise. */
   myPlace: string | null;
-  /** The scores on the strip: the party's, or the sharer's with *Only me*. */
+  /** The scores on the strip: the party's, or the sharer's on *You*. */
   dots: CardDot[];
   median: number | null;
   /** The distinct covers of the party's songs, in the order they were sung,
@@ -141,7 +160,80 @@ export interface PartyCardContent {
   rankingNote: string | null;
 }
 
-export type CardContent = ScoreCardContent | PartyCardContent;
+/** One song on a player card's *Songs* design: their best score on it. */
+export interface CardSongRow {
+  key: string;
+  /** The song's title, or *Unknown song* once it has left the library. */
+  title: string;
+  artist: string | null;
+  cover: CardImage;
+  best: number;
+  /** The song their best score of all is on: the one gold number. */
+  gold: boolean;
+}
+
+export interface PlayerCardContent {
+  kind: "player";
+  person: CardPerson;
+  /** The singer is the sharer: theirs is the only face on the card, so
+   * *Other singers' pictures* has nothing to reach (share-cards §9). */
+  mine: boolean;
+  /** "Ben's birthday · 17 Oct 2026", a nameless party's date, or *All
+   * parties* — whatever the toggle says: the file name and the `alt` name it
+   * even when the card does not. */
+  scope: string;
+  /** The party line under the name: `scope`, or `null` with *Party name and
+   * date* off. */
+  line: string | null;
+  /** Sings · Songs · Best · Average, Best without a holder: the card is one
+   * person's. */
+  numbers: CardNumbers;
+  scoreCount: number;
+  /** `stats.ts` `histogram`'s twenty buckets over 0–10k. */
+  buckets: number[];
+  /** The bucket their best score falls in: the gold bar. */
+  bestBucket: number | null;
+  /** Their scores ascending, for the strip, the best one gold. */
+  dots: CardDot[];
+  median: number | null;
+  /** Their best score per song, best first — at most `PLAYER_SONGS_SHOWN`,
+   * the story's eight. */
+  songs: CardSongRow[];
+  /** How many different songs they sang, whatever the card lists of them. */
+  songCount: number;
+}
+
+/** The badge as `AchievementBadge` draws it earned: the picture, or the plate
+ * in the achievement's colour with its glyph cut out of it in `--bg`. */
+export interface CardBadge {
+  /** The icon endpoint at full size, `null` for a glyph-only badge. */
+  url: string | null;
+  glyph: IconName;
+  /** The plate's colour, a literal: the `tag-color-*` class's. */
+  plate: string;
+}
+
+export interface AchievementCardContent {
+  kind: "achievement";
+  /** The achievement's own id, for the file's name. */
+  id: string;
+  name: string;
+  description: string;
+  badge: CardBadge;
+  /** The sharer, whose achievement it is: theirs is the only face on it. */
+  sharer: CardPerson;
+  /** "Earned 12 Aug 2026". */
+  earned: string;
+  /** `holdersLine` counted with the sharer — *First to earn it*, *Earned by 3
+   * players* — or `null` where there is no count. */
+  holders: string | null;
+}
+
+export type CardContent =
+  | ScoreCardContent
+  | PartyCardContent
+  | PlayerCardContent
+  | AchievementCardContent;
 
 /** At most this many covers are asked for: the story's mosaic has eighteen
  * cells and a long party should not cost a hundred requests. */
@@ -279,6 +371,7 @@ export function scoreCard(input: ScoreCardInput): ScoreCardContent {
     rating: evaluationLabel(score.score),
     fraction: Math.min(1, Math.max(0, score.score / MAX_SCORE)),
     singer: personOf(score, input.players, input.me, input.otherPictures),
+    mine: input.me !== null && score.player_id === input.me,
     place,
     partners,
     detail: detail === "" ? null : detail,
@@ -406,6 +499,170 @@ export function partyCard(input: PartyCardInput): PartyCardContent {
   };
 }
 
+/** What a player card's scope line says for a whole record, or for the
+ * *All parties* row of `/scores` (share-cards §9). */
+export const ALL_PARTIES = "All parties";
+
+/** The most songs a player card lists: the story's eight (§9). */
+export const PLAYER_SONGS_SHOWN = 8;
+
+export interface PlayerCardInput {
+  /** One singer's scores, exactly as the surface showed them: an open player
+   * group on `/scores`, or the reader's own record on `/user/stats`. */
+  scores: ScoreWithContext[];
+  /** The party they are of, `null` for every party at once. */
+  session: SessionRead | null;
+  players: Map<string, PlayerRead>;
+  me: string | null;
+  otherPictures: boolean;
+  partyNameAndDate: boolean;
+}
+
+/** Earlier first, the row id breaking a tie — `scoreSummary`'s rule for who
+ * holds a shared peak, so the gold song is the summary's Best. */
+function sungBefore(a: ScoreWithContext, b: ScoreWithContext): number {
+  return (
+    parseServerTime(a.recorded_at) - parseServerTime(b.recorded_at) ||
+    a.id - b.id
+  );
+}
+
+/**
+ * One singer's scores as a card (share-cards §9): their face and name, where
+ * the scores are from, the four numbers, and what the designs draw — the
+ * histogram's buckets, the strip's dots, and their best song by song. Only
+ * ever handed one singer's scores; the first one names them.
+ */
+export function playerCard(input: PlayerCardInput): PlayerCardContent {
+  const { scores, session } = input;
+  const first = scores[0];
+  const summary = scoreSummary(scores);
+  const best = bestScoreOf(scores);
+  const dots = dotsOf(scores);
+
+  let scope = ALL_PARTIES;
+  if (session !== null) {
+    const date = cardDate(session.started_at);
+    const name = session.name ?? "";
+    // A nameless party is its date, which the line then says once.
+    scope = name === "" ? date : `${name} · ${date}`;
+  }
+
+  const songs = groupScores(scores, "song")
+    .flatMap((group) => {
+      const top = bestScoreOf(group.scores);
+      return top === null ? [] : [{ group, top }];
+    })
+    .sort((a, b) => b.top.score - a.top.score || sungBefore(a.top, b.top))
+    .map(({ group, top }): CardSongRow => {
+      const song = top.song;
+      return {
+        key: group.key,
+        title: song?.title ?? "Unknown song",
+        artist: song?.artist ?? null,
+        cover: {
+          url: song === null ? null : coverUrl(song.id),
+          initial: song === null ? "?" : initialOf(song.artist),
+        },
+        best: top.score,
+        gold: best !== null && top.id === best.id,
+      };
+    });
+
+  return {
+    kind: "player",
+    person:
+      first === undefined
+        ? { name: "", avatar: { url: null, initial: "?" } }
+        : personOf(first, input.players, input.me, input.otherPictures),
+    mine:
+      first !== undefined && input.me !== null && first.player_id === input.me,
+    scope,
+    line: input.partyNameAndDate ? scope : null,
+    numbers: {
+      sings: summary?.sings ?? 0,
+      songs: summary?.songs ?? 0,
+      best: summary?.best ?? 0,
+      bestBy: null,
+      average: summary?.average ?? 0,
+    },
+    scoreCount: scores.length,
+    buckets: histogram(scores),
+    bestBucket: best === null ? null : bucketOf(best.score),
+    dots,
+    median: medianOf(dots.map((dot) => dot.score)),
+    songs: songs.slice(0, PLAYER_SONGS_SHOWN),
+    songCount: songs.length,
+  };
+}
+
+/** A plate colour per tag colour, as `index.css`'s `.tag-color-*` paint it;
+ * an unknown one is neutral, as `tagColorClass` reads it. */
+const PLATES: Record<TagColor, string> = {
+  neutral: "#ccc",
+  blue: "#4b92cd",
+  pink: "#9e3b95",
+  gold: "#faa636",
+};
+
+export function plateColor(color: string): string {
+  return (TAG_COLORS as readonly string[]).includes(color)
+    ? PLATES[color as TagColor]
+    : PLATES.neutral;
+}
+
+export interface AchievementCardInput {
+  /** The reader's own record row: an earned, unmasked achievement — the only
+   * kind the modal offers to share (share-cards §10). */
+  row: PlayerAchievementRead;
+  /** The sharer's player row, for the picture; `null` where the page could
+   * not read it, which draws their initial. */
+  player: PlayerRead | null;
+  /** Their name, as the user page writes it. */
+  name: string;
+}
+
+/**
+ * One earned achievement as a card (share-cards §10): the badge as the modal
+ * shows it large — the full-size picture, or the plate and its glyph — the
+ * name, the description, the sharer, the day and the holders line. No toggle
+ * reaches any of it but the logo: the only face is the sharer's own, and the
+ * date is the achievement's, not a party's.
+ */
+export function achievementCard(
+  input: AchievementCardInput,
+): AchievementCardContent {
+  const { row, player } = input;
+  const achievement = row.achievement;
+  return {
+    kind: "achievement",
+    id: achievement.id,
+    name: achievementName(achievement),
+    description: achievementDescription(achievement),
+    badge: {
+      url: achievement.has_image
+        ? achievementIconUrl(achievement.id, achievement.icon_version, "full")
+        : null,
+      glyph: achievementGlyph(achievement.icon),
+      plate: plateColor(achievement.color),
+    },
+    sharer: {
+      name: input.name,
+      avatar: {
+        url:
+          player !== null && player.has_avatar
+            ? avatarUrl(player.id, player.avatar_version)
+            : null,
+        initial: initialOf(input.name),
+      },
+    },
+    earned: row.earned_at === null ? "" : `Earned ${cardDate(row.earned_at)}`,
+    // The count already holds the sharer, as the host screen's does: one
+    // holder is them.
+    holders: holdersLine(achievement, { singer: true }),
+  };
+}
+
 /** How many of a party's singers a card ever draws a face for: the podium's
  * three and the three rows under it (§4.2). The spread draws none. */
 export const FACES_SHOWN = 6;
@@ -414,14 +671,23 @@ export const FACES_SHOWN = 6;
  * The logo is not among them: it is the same on every card. A party of fifty
  * asks for the six faces it can draw, not fifty. */
 export function cardImageUrls(content: CardContent): string[] {
+  if (content.kind === "achievement")
+    return [content.badge.url, content.sharer.avatar.url].filter(
+      (url): url is string => url !== null,
+    );
   const urls =
     content.kind === "score"
       ? [content.cover.url, content.singer.avatar.url]
-      : [
-          ...content.ranking
-            .slice(0, FACES_SHOWN)
-            .map((entry) => entry.person.avatar.url),
-          ...content.covers,
-        ];
+      : content.kind === "player"
+        ? [
+            content.person.avatar.url,
+            ...content.songs.map((entry) => entry.cover.url),
+          ]
+        : [
+            ...content.ranking
+              .slice(0, FACES_SHOWN)
+              .map((entry) => entry.person.avatar.url),
+            ...content.covers,
+          ];
   return [...new Set(urls.filter((url): url is string => url !== null))];
 }

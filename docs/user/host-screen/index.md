@@ -169,10 +169,11 @@ under that.
   instead.*
 - :wingman-stop: **Stop** ends the song. It asks first, and it names the song.
   It is there while a song plays, for a browser that may stop one.
-- :wingman-power: **Ultrastar Deluxe** stands in the same place while no song
-  plays. It opens Ultrastar Deluxe for the settings only it has, such as which
-  microphone is player one, and brings its window to the front when it is
-  already open. It is there for a browser that may change the settings. See
+- :wingman-power: **Open Ultrastar Deluxe** stands in the same place while no
+  song plays, with *For settings like microphones* under it. It opens Ultrastar
+  Deluxe for the settings only it has, such as which microphone is player one,
+  and brings its window to the front when it is already open. It is there for a
+  browser that may change the settings. See
   [Start Ultrastar Deluxe on its own](../start/ultrastar-deluxe.md#start-ultrastar-deluxe-on-its-own).
 
 !!! warning

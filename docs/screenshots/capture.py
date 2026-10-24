@@ -469,6 +469,13 @@ DEVICE_SETTINGS = "devices."
 # How long the selector's start press may take to put a spun selection on the room.
 SELECTION_TIMEOUT = 10.0
 
+# The Random song page's two pills, *This screen* and *Host screen*, and the check that one
+# of them is chosen. The choice is kept per device, so every reel row says where it spins.
+SPIN_HERE = "click(q('.spinner-target input[value=\"local\"]'))"
+SPUN_HERE = "q('.spinner-target input[value=\"local\"]').checked"
+SPIN_ON_HOST = "click(q('.spinner-target input[value=\"host\"]'))"
+SPUN_ON_HOST = "q('.spinner-target input[value=\"host\"]').checked"
+
 ROWS: dict[str, Row] = {
     "home": Row(
         identity="Leela",
@@ -533,7 +540,8 @@ ROWS: dict[str, Row] = {
         ),
         # Every count settled: a dash is a listing still in flight.
         ready='q(".song-hero-cover") && q(".song-details-controls") && q(".song-facts-edit")'
-        ' && qa(".song-facts .song-fact").length === 4 && q(".song-fine-print")'
+        ' && qa(".song-details-controls .song-control-caption").length === 3'
+        ' && qa(".song-facts .song-fact").length === 4 && q("a.song-fine-print")'
         ' && qa(".song-actions .song-action-count").length === 3'
         ' && !qa(".song-action-count-value").some((value) => text(value) === "—")'
         ' && text(q(".song-hero-title")) === "I Got You Babe"',
@@ -609,6 +617,8 @@ ROWS: dict[str, Row] = {
         viewport="phone",
         route="/spinner",
         steps=(
+            # Where the reel runs is kept per device: this one is the phone's own reel.
+            (SPIN_HERE, SPUN_HERE),
             (
                 # Reduced motion makes the reel reveal at once, so a spin is one click and one
                 # tick. Which song it lands on is `Math.random`'s, so it is spun until it is
@@ -620,16 +630,19 @@ ROWS: dict[str, Row] = {
                 'text(q(".spinner-winner-title")) === "Sandstorm"',
             ),
         ),
-        ready='q(".spinner-pick-select") && q(".spinner-spin") && q(".spinner-host")'
-        ' && text(q(".spinner-winner-title")) === "Sandstorm"',
+        ready='q(".spinner-pick-select") && q(".spinner-spin") && q(".spinner-target")'
+        ' && q(".spinner-play") && text(q(".spinner-winner-title")) === "Sandstorm"',
     ),
     "playlist-reel": Row(
         identity="Leela",
         viewport="phone",
         route="/songs/playlists/{playlist}/spinner",
-        steps=(('click(q(".spinner-spin"))', 'q(".spinner-winner-title")'),),
+        steps=(
+            (SPIN_HERE, SPUN_HERE),
+            ('click(q(".spinner-spin"))', 'q(".spinner-winner-title")'),
+        ),
         ready='q(".spinner-winner-title") && text(q(".page-header-title, h1"))!== ""'
-        ' && q(".spinner-spin") && q(".spinner-host")',
+        ' && q(".spinner-spin") && q(".spinner-target") && q(".spinner-play")',
     ),
     "reel-host-spin": Row(
         identity="Leela",
@@ -647,20 +660,25 @@ ROWS: dict[str, Row] = {
                 'setValue(q(".spinner-pick-select"), "wishlist")',
                 'q(".spinner-pick-select").value === "wishlist"',
             ),
-            # The phone reveals the song when the reel on the TV lands, a fixed few seconds
-            # after the server's `spun_at`, reduced motion or not: this wait is the feature.
-            ('click(q(".spinner-host"))', 'q(".host-spin")'),
-            ("true", 'q(".host-spin-title")'),
+            # The page itself in *Host screen* mode: the pill opens nothing, SPIN takes the
+            # room's selection. The phone reveals the song when the reel on the TV lands, a
+            # fixed few seconds after the server's `spun_at`, reduced motion or not: this wait
+            # is the feature.
+            (SPIN_ON_HOST, SPUN_ON_HOST),
+            ('click(q(".spinner-spin"))', 'q(".spinner-state")'),
+            ("true", 'q(".spinner-words .spinner-winner-title")'),
         ),
-        # The cover has risen in, the words are under it beside the take-off, and the die
-        # reads *Spin again*: it read *Show it* while the TV's reel ran.
-        ready='q(".host-spin-cover-revealed") && q(".host-spin-title") && q(".host-spin-artist")'
-        ' && q(".host-spin-take-off")'
-        ' && byText(".host-spin-actions button", "Spin again")'
-        ' && byText(".host-spin-actions button", "Play")',
-        # Cancel gives the room's lock back. Left open, the selection would answer every
-        # later `POST /karaoke/sing` with 409 until it idles out.
-        after=(('click(byText(".host-spin-actions button", "Cancel"))', '!q(".host-spin")'),),
+        # The cover stands in the window, the words are under it beside the take-off, and the
+        # die reads *Spin again*: it read *Show it* while the TV's reel ran.
+        ready='q(".spinner-window img") && q(".spinner-words .spinner-winner-title")'
+        ' && q(".spinner-words .spinner-winner-artist") && q(".spinner-take-off")'
+        ' && byText(".spinner-actions button", "Spin again")'
+        ' && byText(".spinner-actions button", "Play")'
+        ' && !q(".spinner-actions .spinner-play").disabled',
+        # The pills back on *This screen* give the room's lock back — the page's one way
+        # out — and leave this device on its own reel for the rows after. Left open, the
+        # selection would answer every later `POST /karaoke/sing` with 409 until it idles out.
+        after=((SPIN_HERE, SPUN_HERE + ' && !q(".spinner-state")'),),
     ),
     "usdb-search": Row(
         identity="host",
@@ -736,9 +754,34 @@ ROWS: dict[str, Row] = {
         ready='q(".spread-rows") && qa(".spread-row").length >= 2',
         scroll='show(q(".scores-chart"))',
     ),
+    "sing-view": Row(
+        # Fry, not the host: tonight's one duet is his and Leela's, so the view opens on
+        # his score, second of two, with his own row saying You.
+        identity="Fry",
+        viewport="phone",
+        route="/scores",
+        steps=(
+            (
+                # Grouped by song, the duet's card holds both singers' rows.
+                'setValue(qa(".scores-control select")[0], "song")',
+                'qa(".scores-control select")[0].value === "song"',
+            ),
+            (
+                "click(byText('.score-groups summary', 'I Got You Babe'))",
+                "byText('.score-groups details[open] .score-entry-button', 'Fry')",
+            ),
+            (
+                "click(byText('.score-groups details[open] .score-entry-button', 'Fry'))",
+                "q('.sing-view .ranked-score-button[aria-pressed=\"true\"]')",
+            ),
+        ),
+        ready='qa(".sing-view .ranked-score-button").length === 2'
+        ' && q(".sing-view-share") && q(".sing-view .ranked-score-you")'
+        ' && qa(".sing-view img").every((i) => i.complete && i.naturalWidth > 0)',
+    ),
     "scores-share": Row(
-        # Bender, not the host: he sang at the party, so every choice of the panel is live
-        # and his own picture is on the card whatever the toggles say.
+        # Bender, not the host: he sang at the party, so every slide of the panel, You
+        # included, is live and his own picture is on the card whatever the toggles say.
         identity="Bender",
         viewport="phone",
         route="/scores",
@@ -749,9 +792,10 @@ ROWS: dict[str, Row] = {
             ),
         ),
         # The pictures are drawn in the browser, so they are in only once they have
-        # decoded: the Dark slide in view and the Mosaic one peeking in beside it.
-        ready='qa(".share-dot").length === 3 && qa(".share-preview-image").length >= 2'
-        ' && qa(".share-preview-image").every((i) => i.complete && i.naturalWidth > 0)',
+        # decoded: the Podium slide in view and the Strip one peeking in beside it.
+        ready='qa(".share-dot").length === 5 && qa(".share-preview-image").length >= 2'
+        ' && qa(".share-preview-image").every((i) => i.complete && i.naturalWidth > 0)'
+        ' && qa(".share-toggles .icon-toggle").length === 3',
     ),
     "user": Row(
         identity="Bender",
@@ -765,6 +809,24 @@ ROWS: dict[str, Row] = {
         viewport="phone",
         route="/user/stats",
         ready='q(".scores-page") && q(".scores-chart") && q(".scores-controls")',
+    ),
+    "stats-share": Row(
+        # Bender's whole record: enough scores over enough songs that every slide is
+        # live, and his own picture on the card whatever the toggles say.
+        identity="Bender",
+        viewport="phone",
+        route="/user/stats",
+        steps=(
+            (
+                "click(q('button[aria-label=\"Share my stats\"]'))",
+                'q(".share-carousel .share-preview-image")',
+            ),
+        ),
+        # Drawn in the browser, so in only once decoded: the Histogram slide in view
+        # and the Strip one peeking in beside it.
+        ready='qa(".share-dot").length === 3 && qa(".share-preview-image").length >= 2'
+        ' && qa(".share-preview-image").every((i) => i.complete && i.naturalWidth > 0)'
+        ' && qa(".share-toggles .icon-toggle").length === 3',
     ),
     "user-achievements": Row(
         # Fry, not Bender. The list puts every earned badge first, so Bender's fill the
@@ -800,10 +862,34 @@ ROWS: dict[str, Row] = {
                 'q(".achievement-modal")',
             ),
         ),
-        # The full-resolution file, which is the whole point of the view.
+        # The full-resolution file, which is the whole point of the view. The badge is
+        # one Fry earned, so the modal ends in **Share**.
         ready='q(".achievement-modal") && q(".achievement-modal-name")'
-        ' && q(".achievement-modal-holders")'
+        ' && q(".achievement-modal-holders") && q(".achievement-modal-share")'
         " && q('.achievement-modal img[src*=\"size=full\"]')",
+    ),
+    "achievement-share": Row(
+        # The same badge as `achievement-modal`, a built-in with a shipped picture, so the
+        # card draws the picture and not the plate; Fry's own, so his face is on it.
+        identity="Fry",
+        viewport="phone",
+        route="/user",
+        steps=(
+            (
+                'click(qa(".user-achievements-badge-button")[0])',
+                'q(".achievement-modal-share")',
+            ),
+            (
+                'click(q(".achievement-modal-share"))',
+                'q(".share-carousel .share-preview-image")',
+            ),
+        ),
+        # Drawn in the browser, so in only once decoded. One slide: no dots, and the
+        # format pair alone under it.
+        ready='qa(".share-preview-image").length === 1'
+        ' && qa(".share-preview-image").every((i) => i.complete && i.naturalWidth > 0)'
+        ' && qa(".share-dot").length === 0 && qa(".share-format").length === 2'
+        ' && qa(".share-toggles .icon-toggle").length === 3',
     ),
     "achievements-admin": Row(
         identity="host",

@@ -1,7 +1,9 @@
 import { ICON_PATHS } from "../components/icons";
 import {
   cardImageUrls,
+  type AchievementCardContent,
   type PartyCardContent,
+  type PlayerCardContent,
   type ScoreCardContent,
 } from "./content";
 import { fontString, type Measure } from "./fit";
@@ -11,17 +13,21 @@ import {
   CARD_WIDTH,
   HALO,
   SCRIM_ALPHA,
+  layoutAchievementCard,
   layoutPartyCard,
+  layoutPlayerCard,
   layoutScoreCard,
   type CardBackground,
   type CardElement,
   type CardLayout,
+  type AchievementCardOptions,
   type ImageElement,
   type TextElement,
   type PartyCardOptions,
+  type PlayerCardOptions,
   type ScoreCardOptions,
 } from "./layout";
-import { resolvePartyOptions, resolveScoreOptions } from "./possible";
+import { resolveScoreOptions, settlePartyOptions } from "./possible";
 
 /**
  * The share card renderer: a layout painted onto a fixed-size canvas and
@@ -44,7 +50,13 @@ export type CardImages = ReadonlyMap<string, HTMLImageElement>;
 
 export type CardRequest =
   | { kind: "score"; content: ScoreCardContent; options: ScoreCardOptions }
-  | { kind: "party"; content: PartyCardContent; options: PartyCardOptions };
+  | { kind: "party"; content: PartyCardContent; options: PartyCardOptions }
+  | { kind: "player"; content: PlayerCardContent; options: PlayerCardOptions }
+  | {
+      kind: "achievement";
+      content: AchievementCardContent;
+      options: AchievementCardOptions;
+    };
 
 /** The blurred cover is the cover drawn this small and scaled back up:
  * `ctx.filter` is not reliable on WebKit (§4.3). */
@@ -153,6 +165,10 @@ function paintBackground(
     ctx.drawImage(blurred, (width - side) / 2, (height - side) / 2, side, side);
     blurred.width = 0;
   } else {
+    // A cover of any size into a 360 px cell: averaged like every other
+    // picture on the card (`paintImage`), not sampled at the default `low`.
+    ctx.imageSmoothingEnabled = true;
+    ctx.imageSmoothingQuality = "high";
     for (const cell of background.cells) {
       const cover = images.get(cell.url);
       if (cover === undefined) continue;
@@ -190,6 +206,10 @@ function paintImage(
     ctx.save();
     rounded(ctx, x, y, w, h, radius);
     ctx.clip();
+    // Shrunk to a fraction of its size — a badge's 1254 px file to 400, an
+    // avatar to 72 — and the default `low` smoothing would alias its lines.
+    ctx.imageSmoothingEnabled = true;
+    ctx.imageSmoothingQuality = "high";
     drawCropped(ctx, picture, x, y, w, h);
     ctx.restore();
     return;
@@ -364,7 +384,20 @@ function layoutOf(
     );
     return layoutScoreCard(request.content, options, measure);
   }
-  const options = resolvePartyOptions(request.content, request.options, loaded);
+  // A player card is Dark whatever arrived: a cover that did not decode is
+  // its letter on its row, as every other missing picture.
+  if (request.kind === "player")
+    return layoutPlayerCard(request.content, request.options, measure);
+  // A badge picture that did not decode is the plate and its glyph, the way
+  // `AchievementBadge` draws one without a picture — never a letter.
+  if (request.kind === "achievement")
+    return layoutAchievementCard(
+      request.content,
+      request.options,
+      measure,
+      loaded,
+    );
+  const options = settlePartyOptions(request.content, request.options, loaded);
   return layoutPartyCard(request.content, options, measure, loaded);
 }
 

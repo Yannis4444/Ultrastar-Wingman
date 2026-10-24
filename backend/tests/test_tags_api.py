@@ -29,7 +29,7 @@ from ultrastar_wingman.app import create_app
 from ultrastar_wingman.auth.deps import COOKIE_NAME
 from ultrastar_wingman.config import BootstrapSettings
 from ultrastar_wingman.db import migrations_dir
-from ultrastar_wingman.karaoke.model import KaraokeSession, Sing
+from ultrastar_wingman.karaoke.model import KaraokeSession, Score, Sing
 from ultrastar_wingman.library.model import PlaylistEntry
 from ultrastar_wingman.settings import Setting as SettingRow
 from ultrastar_wingman.songs.model import Song
@@ -630,6 +630,42 @@ async def test_the_recently_played_tab_hides_a_hidden_song(party: Party) -> None
     assert await played(party["trusted"]) == [OTHER_SONG, SONG]
 
 
+async def test_a_sing_of_a_hidden_song_reads_but_does_not_offer_the_song(party: Party) -> None:
+    """`GET /stats/sings/{id}` is a scoreboard, so the song stays in it (the accepted leak
+    below); `song_listed` is what keeps the sing view from opening a song the library keeps
+    back from this caller."""
+    started = datetime.now(UTC) - timedelta(minutes=5)
+    async with factory(party.app)() as session:
+        karaoke_session = KaraokeSession(started_at=started, last_activity_at=started)
+        session.add(karaoke_session)
+        await session.flush()
+        sing = Sing(song_id=SONG, session_id=karaoke_session.id, started_at=started)
+        session.add(sing)
+        await session.flush()
+        session.add(
+            Score(
+                sing_id=sing.id,
+                player_name="Alex",
+                score=7000,
+                difficulty=1,
+                recorded_at=started + timedelta(minutes=3),
+            )
+        )
+        await session.commit()
+        sing_id = sing.id
+    await tag_song(party["trusted"], SONG, BROKEN_TAG_ID)
+
+    async def read(client: AsyncClient) -> tuple[str | None, bool]:
+        response = await client.get(f"/api/v1/stats/sings/{sing_id}")
+        assert response.status_code == 200, response.text
+        body = response.json()
+        return body["song"]["id"], body["song_listed"]
+
+    assert await read(party["anonymous"]) == (SONG, False)
+    assert await read(party["user"]) == (SONG, False)
+    assert await read(party["trusted"]) == (SONG, True)
+
+
 async def test_the_leaks_we_accept(party: Party) -> None:
     """What a hidden song still shows, on purpose.
 
@@ -639,9 +675,10 @@ async def test_the_leaks_we_accept(party: Party) -> None:
     * `karaoke.started` and `GET /karaoke/current` — the TV is showing the song; a phone in
       the same room learning its title is not a leak.
     * the statistics score lists (`/stats/latest`, `/stats/scores`, a session's and a
-      player's scores) carry the song title of everything that was ever sung, hidden or
-      not: a score belongs to the singer, and dropping rows would make two people disagree
-      about a scoreboard — `/stats/scores` is every party at once and no different, it is
+      player's scores, and one sing's — whose `song_listed` is all the tag changes) carry
+      the song title of everything that was ever sung, hidden or not: a score belongs to
+      the singer, and dropping rows would make two people disagree about a scoreboard —
+      `/stats/scores` is every party at once and no different, it is
       the same board read end to end rather than one evening at a time. The
       current session's *sings* are no longer among them — that one is the Songs page's
       Recent tab, a song list rather than a scoreboard, and

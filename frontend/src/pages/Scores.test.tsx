@@ -62,7 +62,8 @@ vi.mock("../components/SongDetails", () => ({
 }));
 
 // The share panel is tested where it lives; here, only what opens it and what
-// it is handed.
+// it is handed. The page opens it for a party and for one singer's stats: a
+// score is shared from the sing view.
 vi.mock("../components/ShareCardPanel", () => ({
   default: ({
     target,
@@ -70,8 +71,7 @@ vi.mock("../components/ShareCardPanel", () => ({
   }: {
     target: {
       kind: string;
-      scores: ScoreWithContext[];
-      pageScores?: ScoreWithContext[];
+      scores?: ScoreWithContext[];
       session: SessionRead | null;
     };
     onClose: () => void;
@@ -79,12 +79,33 @@ vi.mock("../components/ShareCardPanel", () => ({
     <div
       data-testid="share-panel"
       data-kind={target.kind}
-      data-scores={target.scores.map((entry) => entry.id).join(",")}
-      data-page={(target.pageScores ?? []).map((entry) => entry.id).join(",")}
+      data-scores={(target.scores ?? []).map((entry) => entry.id).join(",")}
       data-session={target.session?.id ?? "none"}
     >
       <button type="button" onClick={onClose}>
         Close the share panel
+      </button>
+    </div>
+  ),
+}));
+
+// The sing view reads its own sing and is tested where it lives; here, which
+// row opens it on which score.
+vi.mock("../components/SingView", () => ({
+  default: ({
+    score,
+    onClose,
+  }: {
+    score: ScoreWithContext;
+    onClose: () => void;
+  }) => (
+    <div
+      data-testid="sing-view"
+      data-score={score.id}
+      data-sing={score.sing_id}
+    >
+      <button type="button" onClick={onClose}>
+        Close the sing view
       </button>
     </div>
   ),
@@ -843,13 +864,13 @@ test("'don't group' leaves every score standing on its own", async () => {
   expect(first.closest("details")).toBeNull();
 });
 
-test("an ungrouped row opens the song it is a score of", async () => {
+test("an ungrouped row opens the sing it is a score of", async () => {
   renderScores();
   await screen.findAllByTestId("score-group");
   choose("Group", "none");
 
-  // No disclosure on these rows, so the whole row is the way into the song —
-  // as a song list row is everywhere else in the app.
+  // No disclosure on these rows: the row is one score, so it is the way into
+  // its sing, and the song is one tap further there.
   const row = await waitFor(() => {
     const first = screen.getAllByTestId("score-group")[0];
     expect(first.tagName).toBe("BUTTON");
@@ -857,8 +878,32 @@ test("an ungrouped row opens the song it is a score of", async () => {
   });
   fireEvent.click(row);
 
-  expect(await screen.findByTestId("song-details")).toHaveTextContent(
-    "Wonderwall",
+  const view = await screen.findByTestId("sing-view");
+  expect(view).toHaveAttribute("data-score", "2");
+  expect(view).toHaveAttribute("data-sing", "sing-wonderwall");
+  expect(screen.queryByTestId("song-details")).toBeNull();
+
+  fireEvent.click(screen.getByRole("button", { name: "Close the sing view" }));
+  expect(screen.queryByTestId("sing-view")).toBeNull();
+});
+
+test("an ungrouped score whose song has left the library still opens its sing", async () => {
+  listSessionScores.mockResolvedValue({
+    data: { scores: [{ ...tonightScores[2], song: null }] },
+  });
+  renderScores();
+  await screen.findAllByTestId("score-group");
+  choose("Group", "none");
+
+  const row = await waitFor(() => {
+    const first = screen.getAllByTestId("score-group")[0];
+    expect(first.tagName).toBe("BUTTON");
+    return first;
+  });
+  fireEvent.click(row);
+  expect(await screen.findByTestId("sing-view")).toHaveAttribute(
+    "data-score",
+    "3",
   );
 });
 
@@ -1123,15 +1168,61 @@ test("a song's cover opens its details instead of expanding the row", async () =
   expect(cover.closest("details")).not.toHaveAttribute("open");
 });
 
-test("a song under a player opens its details when the row is tapped", async () => {
+test("a song under a player opens its sing when the row is tapped", async () => {
   renderScores();
 
+  // Alice's group leads; its first row is her Wonderwall, score 2.
   fireEvent.click(
     (await screen.findAllByRole("button", { name: /Wonderwall/ }))[0],
   );
 
-  expect(await screen.findByTestId("song-details")).toHaveTextContent(
-    "Wonderwall",
+  const view = await screen.findByTestId("sing-view");
+  expect(view).toHaveAttribute("data-score", "2");
+  expect(view).toHaveAttribute("data-sing", "sing-wonderwall");
+  // The song is the sing view's title away, never the row's own.
+  expect(screen.queryByTestId("song-details")).toBeNull();
+});
+
+test("a singer under a song opens that singer's score of the sing", async () => {
+  renderScores();
+  await screen.findAllByTestId("score-group");
+  choose("Group", "song");
+
+  // Under a song the rows are the singers; every one of them is a button.
+  const wonderwall = screen
+    .getAllByTestId("score-group")
+    .find((group) => group.textContent?.includes("Wonderwall")) as HTMLElement;
+  const rows = within(wonderwall).getAllByTestId("score-row");
+  for (const row of rows)
+    expect(row.querySelector("button.score-entry-button")).not.toBeNull();
+  const bob = rows.find((row) => row.textContent?.includes("Bob"));
+  fireEvent.click(bob?.querySelector("button") as HTMLElement);
+
+  expect(await screen.findByTestId("sing-view")).toHaveAttribute(
+    "data-score",
+    "4",
+  );
+});
+
+test("the head row's scores open their sings too", async () => {
+  renderScores();
+  const panel = await openSessions();
+  fireEvent.click(within(panel).getByText("All my scores"));
+  await waitFor(() => expect(listAllScores).toHaveBeenCalled());
+  await screen.findAllByTestId("score-group");
+  choose("Group", "none");
+
+  const newYear = await waitFor(() => {
+    const row = screen
+      .getAllByTestId("score-group")
+      .find((entry) => entry.textContent?.includes("7000"));
+    expect(row).toBeDefined();
+    return row as HTMLElement;
+  });
+  fireEvent.click(newYear);
+  expect(await screen.findByTestId("sing-view")).toHaveAttribute(
+    "data-sing",
+    "sing-newyear",
   );
 });
 
@@ -1722,58 +1813,138 @@ test("a party without a score has nothing to put on a card", async () => {
   ).not.toBeInTheDocument();
 });
 
-test("an open group's scores start with one Share a score, never one per row", async () => {
-  renderScores();
-  const groups = await screen.findAllByTestId("score-group");
-  for (const group of groups) {
-    const buttons = within(group).getAllByRole("button", {
-      name: "Share a score",
-      hidden: true,
-    });
-    expect(buttons).toHaveLength(1);
-    // A plain button: sharing takes nothing away.
-    expect(buttons[0]).toHaveClass("button");
-    expect(buttons[0]).not.toHaveClass("button-danger");
-    const line = buttons[0].closest(".score-group-share") as HTMLElement;
-    expect(line).not.toBeNull();
-    for (const row of within(group).getAllByTestId("score-row"))
-      expect(row.querySelector(".score-group-share")).toBeNull();
-    // On a line of its own, right over the first score — under the summary
-    // where the group has one, the tile's first line where it has not.
-    expect(line.nextElementSibling).toHaveClass("score-group-scores");
-    const panel = line.closest(".score-group-panel") as HTMLElement;
-    const rows = within(group).getAllByTestId("score-row");
-    if (rows.length > 1) {
-      expect(panel.firstElementChild).not.toBe(line);
-      expect(line.previousElementSibling).not.toBeNull();
-    } else {
-      expect(panel.firstElementChild).toBe(line);
-    }
-  }
-
-  // Bob's group: his two scores, best first; the whole page beside them, where
-  // the other half of each duet is.
-  fireEvent.click(
-    within(groups[1]).getByRole("button", {
-      name: "Share a score",
-      hidden: true,
-    }),
-  );
-  const panel = screen.getByTestId("share-panel");
-  expect(panel).toHaveAttribute("data-kind", "score");
-  expect(panel).toHaveAttribute("data-scores", "4,3");
-  expect(panel).toHaveAttribute("data-page", "1,2,3,4");
-  expect(panel).toHaveAttribute("data-session", "session-new");
-});
-
-test("ungrouped rows never unfold, so they share nothing", async () => {
+test("no group carries Share a score: a score is shared from its sing", async () => {
   renderScores();
   await screen.findAllByTestId("score-group");
+  expect(
+    screen.queryByRole("button", { name: "Share a score", hidden: true }),
+  ).not.toBeInTheDocument();
   choose("Group", "none");
   expect(await screen.findAllByTestId("score-group")).toHaveLength(4);
   expect(
     screen.queryByRole("button", { name: "Share a score", hidden: true }),
   ).not.toBeInTheDocument();
+});
+
+test("an open player group's scores start with Share stats, a card of that singer at this party", async () => {
+  renderScores();
+  const groups = await screen.findAllByTestId("score-group");
+  // One per player group, the line between the summary and the scores.
+  for (const group of groups) {
+    const line = group.querySelector(".score-group-share") as HTMLElement;
+    expect(line).not.toBeNull();
+    expect(line.previousElementSibling).toHaveClass("score-summary");
+    expect(line.nextElementSibling).toHaveClass("score-group-scores");
+    const button = within(line).getByRole("button", {
+      name: "Share stats",
+      hidden: true,
+    });
+    expect(button).toHaveClass("button");
+    expect(button).not.toHaveClass("button-primary");
+    expect(iconNames(button)).toEqual(["share"]);
+  }
+  const alice = groups.find((group) => lines(group)[0] === "Alice")!;
+  fireEvent.click(
+    within(alice).getByRole("button", { name: "Share stats", hidden: true }),
+  );
+  const panel = screen.getByTestId("share-panel");
+  expect(panel).toHaveAttribute("data-kind", "player");
+  expect(panel).toHaveAttribute("data-session", "session-new");
+  // That singer's scores exactly as their group holds them, best first.
+  expect(panel).toHaveAttribute("data-scores", "2,1");
+});
+
+test("on the head row Share stats hands over every party's scores and no party", async () => {
+  renderScores();
+  const picker = await openSessions();
+  fireEvent.click(within(picker).getByText("All my scores"));
+  await waitFor(() => expect(listAllScores).toHaveBeenCalled());
+  const groups = await screen.findAllByTestId("score-group");
+  const alice = groups.find((group) => lines(group)[0] === "Alice")!;
+  fireEvent.click(
+    within(alice).getByRole("button", { name: "Share stats", hidden: true }),
+  );
+  const panel = screen.getByTestId("share-panel");
+  expect(panel).toHaveAttribute("data-kind", "player");
+  expect(panel).toHaveAttribute("data-session", "none");
+  expect(panel).toHaveAttribute("data-scores", "2,1,9");
+});
+
+test("a song group and an ungrouped row carry no Share stats", async () => {
+  renderScores();
+  await screen.findAllByTestId("score-group");
+  choose("Group", "song");
+  const songs = await screen.findAllByTestId("score-group");
+  expect(groupLabels()).toEqual(
+    expect.arrayContaining(["Bohemian Rhapsody", "Wonderwall"]),
+  );
+  for (const group of songs)
+    expect(group.querySelector(".score-group-share")).toBeNull();
+  choose("Group", "none");
+  await screen.findAllByTestId("score-group");
+  expect(
+    screen.queryByRole("button", { name: "Share stats", hidden: true }),
+  ).not.toBeInTheDocument();
+});
+
+test("a player group no design can draw carries no Share stats", async () => {
+  // Alice once, Bob three times on one song: neither has four scores or two
+  // songs, so either panel would be dimmed slots and no button.
+  listSessionScores.mockResolvedValue({
+    data: {
+      scores: [
+        tonightScores[0],
+        score(3, "Bob", 4000, bohemian, "sing-bohemian"),
+        score(5, "Bob", 5000, bohemian, "sing-bohemian-2"),
+        score(6, "Bob", 6000, bohemian, "sing-bohemian-3"),
+      ],
+    },
+  });
+  renderScores();
+  const groups = await screen.findAllByTestId("score-group");
+  expect(groups).toHaveLength(2);
+  for (const group of groups) {
+    expect(group.querySelector(".score-group-share")).toBeNull();
+    // The scores are still there to open, and the one-score tile opens on
+    // its single row.
+    expect(group.querySelector(".score-group-scores")).not.toBeNull();
+  }
+  expect(
+    screen.queryByRole("button", { name: "Share stats", hidden: true }),
+  ).not.toBeInTheDocument();
+});
+
+test("the moderator's pencil opens its panel and never the sing view", async () => {
+  getMe.mockResolvedValue(
+    meResponse(["stats.view", "stats.moderate", "players.view"]),
+  );
+  renderScores();
+  await screen.findAllByTestId("score-group");
+
+  // Inside an open group: the pencil stands beside the row's button.
+  const pencils = await screen.findAllByRole("button", {
+    name: "Correct the score 4000",
+  });
+  const pencil = pencils[0];
+  const row = pencil.closest("[data-testid='score-row']") as HTMLElement;
+  expect(row.querySelector("button.score-entry-button")).not.toBeNull();
+  expect(pencil.closest("button.score-entry-button, .score-entry")).toBeNull();
+  fireEvent.click(pencil);
+  expect(
+    await screen.findByRole("dialog", { name: "Correct this score" }),
+  ).toBeInTheDocument();
+  expect(screen.queryByTestId("sing-view")).toBeNull();
+
+  // And ungrouped, where the whole row is the button.
+  fireEvent.keyDown(document, { key: "Escape" });
+  choose("Group", "none");
+  fireEvent.click(
+    await screen.findByRole("button", { name: "Correct the score 6000" }),
+  );
+  expect(
+    await screen.findByRole("dialog", { name: "Correct this score" }),
+  ).toBeInTheDocument();
+  expect(screen.queryByTestId("sing-view")).toBeNull();
 });
 
 test("a moved score reaches the other screens in the room", async () => {

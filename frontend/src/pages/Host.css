@@ -181,10 +181,13 @@
   transition: opacity 200ms ease;
 }
 
+/* Top-aligned: the Ultrastar Deluxe slot is taller than the rest by its
+   caption, and the gear and full screen stand level with its button, not with
+   the middle of button and caption together. */
 .host-controls-row {
   display: flex;
   flex-wrap: wrap;
-  align-items: center;
+  align-items: flex-start;
   gap: 12px;
 }
 
@@ -283,17 +286,25 @@
   font-size: 13px;
 }
 
-/* The Ultrastar Deluxe button and its caption wrap as one: a caption that
-   dropped onto the next row would explain whatever happened to stand there. */
-.host-usdx,
 .host-music-cell {
   display: flex;
   flex: 0 0 auto;
   align-items: center;
 }
 
+/* The Open Ultrastar Deluxe button over its own caption (§7): one column, so
+   the caption wraps with the button and reads as the button's alone, never as
+   the whole row's — which it did standing beside it in the row's line. */
 .host-usdx {
-  gap: 8px;
+  display: flex;
+  flex: 0 0 auto;
+  flex-direction: column;
+  align-items: center;
+  gap: 4px;
+}
+
+.host-usdx .host-caption {
+  text-align: center;
 }
 
 .host-usdx-button {

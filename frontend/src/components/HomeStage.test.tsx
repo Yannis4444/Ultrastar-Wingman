@@ -330,9 +330,32 @@ test("the heart and the wish work on the background song", async () => {
   await waitFor(() => expect(addFavorite).toHaveBeenCalled());
   expect(addFavorite.mock.calls[0][0].path.song_id).toBe("usdb:2");
 
-  fireEvent.click(screen.getByRole("button", { name: "Wish" }));
+  // The song modal's own names for the same control.
+  fireEvent.click(screen.getByRole("button", { name: "Add to wishlist" }));
   await waitFor(() => expect(addWish).toHaveBeenCalled());
   expect(addWish.mock.calls[0][0].body.song_id).toBe("usdb:2");
+});
+
+test("a wished background song offers Remove from wishlist, the song modal's name", async () => {
+  getMusic.mockResolvedValue({ data: music() });
+  listWishlist.mockResolvedValue({
+    data: {
+      wishes: [
+        {
+          song: BACKGROUND,
+          count: 1,
+          mine: true,
+          latest: "2026-08-23T20:00:00Z",
+        },
+      ],
+    },
+  });
+  renderStage();
+
+  fireEvent.click(
+    await screen.findByRole("button", { name: "Remove from wishlist" }),
+  );
+  await waitFor(() => expect(removeWish).toHaveBeenCalled());
 });
 
 test("the control row reads favorite, lead, wish — the song modal's order", async () => {
@@ -346,6 +369,35 @@ test("the control row reads favorite, lead, wish — the song modal's order", as
     "stop",
     "playlist-plus",
   ]);
+});
+
+test("the stage's controls carry no captions, while the modal it opens does", async () => {
+  // The tile is a fixed 200px (§4): the words under the song modal's three
+  // controls are the modal's alone, in either of the stage's song modes.
+  getCurrentSing.mockResolvedValue({ data: { sing: SING } });
+  const { container, unmount } = renderStage();
+  await screen.findByRole("region", { name: "Now playing" });
+  let row = container.querySelector(".home-stage-controls") as HTMLElement;
+  expect(row.querySelector(".song-control-caption")).toBeNull();
+  expect(row).not.toHaveTextContent(/Favorite|Sing|Wishlist/);
+  unmount();
+
+  getCurrentSing.mockResolvedValue({ data: { sing: null } });
+  getMusic.mockResolvedValue({ data: music() });
+  const background = renderStage();
+  await screen.findByRole("region", { name: "Background music" });
+  row = background.container.querySelector(
+    ".home-stage-controls",
+  ) as HTMLElement;
+  expect(row.querySelector(".song-control-caption")).toBeNull();
+  expect(row).not.toHaveTextContent(/Favorite|Sing|Wishlist/);
+
+  fireEvent.click(screen.getByRole("button", { name: "Details for Waterloo" }));
+  const modal = await screen.findByRole("dialog", { name: "Waterloo" });
+  expect(
+    modal.querySelectorAll(".song-control-caption").length,
+  ).toBeGreaterThan(0);
+  expect(row.querySelector(".song-control-caption")).toBeNull();
 });
 
 test("pausing and skipping call the backend", async () => {

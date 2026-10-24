@@ -4,6 +4,7 @@ import {
   allSessionsMeta,
   bestScoreOf,
   boxStats,
+  bucketOf,
   difficultyLabel,
   evaluationLabel,
   groupScores,
@@ -266,6 +267,8 @@ test("histogram buckets cover the whole score range, 10000 included", () => {
   expect(buckets[0]).toBe(2);
   expect(buckets[19]).toBe(2);
   expect(buckets.reduce((sum, count) => sum + count, 0)).toBe(4);
+  // The share card's gold bar asks the same rule of one score.
+  expect([0, 499, 500, 9999, 10000].map(bucketOf)).toEqual([0, 0, 1, 19, 19]);
 });
 
 test("the summary counts distinct songs and singers and finds the top score", () => {

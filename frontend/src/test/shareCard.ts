@@ -1,10 +1,17 @@
 import type {
+  AchievementRead,
   PlayerRead,
   ScoreWithContext,
   SessionRead,
   SongRead,
 } from "../api";
+import {
+  achievementCard,
+  type AchievementCardContent,
+  type AchievementCardInput,
+} from "../shareCard/content";
 import type { Measure } from "../shareCard/fit";
+import { achievementRead, playerAchievementRead } from "./achievements";
 
 /** The share card tests' data: songs, scores, a party and its players. */
 
@@ -141,3 +148,63 @@ export function cardParty(singers: number, each: number): ScoreWithContext[] {
   }
   return scores;
 }
+
+/** One singer's scores, `values` in the order they were sung, the songs taken
+ * in turn from `songs` — a player card's record. */
+export function singerScores(
+  playerId: string,
+  values: number[],
+  songs: (SongRead | null)[] = SONGS,
+): ScoreWithContext[] {
+  return values.map((value, index) =>
+    cardScore(playerId, value, songs[index % songs.length]),
+  );
+}
+
+/** An achievement card's input: Chiara's own record row, earned on 12 Aug
+ * 2026, of an achievement three players hold — `achievement` overriding the
+ * fixture's *Golden Voice*, `player` her player row (`null` for a page that
+ * could not read it). */
+export function achievementInput(
+  achievement: Partial<AchievementRead> = {},
+  player: PlayerRead | null = cardPlayers().get("chiara") ?? null,
+): AchievementCardInput {
+  return {
+    row: playerAchievementRead({
+      player_id: "chiara",
+      earned_at: "2026-08-12T20:15:00Z",
+      achievement: achievementRead({ holder_count: 3, ...achievement }),
+    }),
+    player,
+    name: "Chiara",
+  };
+}
+
+/** The same as a card's content. */
+export function achievementContent(
+  achievement: Partial<AchievementRead> = {},
+  player?: PlayerRead | null,
+): AchievementCardContent {
+  return achievementCard(achievementInput(achievement, player));
+}
+
+/** A built-in with a picture Wingman ships, at a version to bust a cache. */
+export const PICTURED = {
+  id: "first-time-on-the-mic",
+  name: "First Time on the Mic",
+  description: "Sing your first song.",
+  has_image: true,
+  image_shipped: true,
+  icon_version: 7,
+  built_in: true,
+  color: "blue",
+} satisfies Partial<AchievementRead>;
+
+/** An achievement whose name and description run long, and no picture. */
+export const LONG_ACHIEVEMENT = {
+  name: "The Unbelievably Long-Winded Marathon of Every Single Eighties Ballad",
+  description:
+    "Sing twenty different ballads from the eighties in one party, every one " +
+    "of them above seven thousand, without a single song in between that is " +
+    "not a ballad, and do it before midnight strikes on a weekday.",
+} satisfies Partial<AchievementRead>;

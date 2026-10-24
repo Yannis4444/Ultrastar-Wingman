@@ -164,7 +164,7 @@ export default function HomeStage() {
           : "song-control song-control-wish"
       }
       aria-pressed={wished}
-      aria-label={wished ? "Remove wish" : "Wish"}
+      aria-label={wished ? "Remove from wishlist" : "Add to wishlist"}
       onClick={() => {
         if (wished) wishlist.unwish(song.id);
         else wishlist.wish(song.id);
