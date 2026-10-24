@@ -163,6 +163,9 @@ ROUTES: list[tuple[str, str, str, dict[str, object] | None]] = [
     ("stats.history", "GET", "/api/v1/stats/songs/usdb:1/scores", None),
     # Somebody else's player; your own scores are identity — see test_stats_api.
     ("stats.history", "GET", "/api/v1/stats/players/nope/scores", None),
+    # An unknown sing is the same refusal as somebody else's without history, and a 404
+    # with it; the identity ways in are test_stats_api's.
+    ("stats.history", "GET", "/api/v1/stats/sings/nope", None),
     ("stats.manage", "PATCH", "/api/v1/stats/sessions/nope", {"name": "Party"}),
     # Keeping a party out of the picker is not the naming right: `stats.manage` names one.
     ("stats.hide", "PUT", "/api/v1/stats/sessions/nope/hidden", {"hidden": True}),

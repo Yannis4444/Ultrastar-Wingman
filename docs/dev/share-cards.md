@@ -5,8 +5,9 @@
 card says, how its text fits, the layouts and the canvas renderer (`frontend/src/shareCard/`,
 §6); part 2 the first panel, its two entry points on `/scores`, the buttons and the user
 documentation. The panel as §5 draws it (decision 11) was built 2026-10-24 on
-`feat/design-feedback-round-3`. The sing view (§8), the player card (§9) and the achievement
-card (§10) are designed and **not built yet**: until they are, this document leads and the
+`feat/design-feedback-round-3`, and so was the sing view's read (§8, `GET /stats/sings/{id}`).
+The sing view itself (§8), the player card (§9) and the achievement card (§10) are designed
+and **not built yet**: until they are, this document leads and the
 code is what changes. §7 records how what was open was settled. Once built, when this
 document and the code disagree, the code is right and this document is updated, unless the
 code falls short of §1.*

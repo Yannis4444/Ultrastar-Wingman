@@ -2412,6 +2412,41 @@ export type SingCreate = {
 };
 
 /**
+ * SingDetail
+ *
+ * One sing whole: what was sung, when, in which party and what everybody got — the sing
+ * view. Named apart from `SingRead`, which is the *Recently played* row.
+ */
+export type SingDetail = {
+    /**
+     * Sing Id
+     */
+    sing_id: string;
+    /**
+     * Song Id
+     */
+    song_id: string;
+    song: SongRead | null;
+    /**
+     * Song Listed
+     */
+    song_listed: boolean;
+    session: SessionRead | null;
+    /**
+     * Started At
+     */
+    started_at: string;
+    /**
+     * Ended At
+     */
+    ended_at: string | null;
+    /**
+     * Scores
+     */
+    scores: Array<ScoreWithContext>;
+};
+
+/**
  * SingList
  */
 export type SingList = {
@@ -5879,6 +5914,44 @@ export type ListSongScoresResponses = {
 };
 
 export type ListSongScoresResponse = ListSongScoresResponses[keyof ListSongScoresResponses];
+
+export type ReadSingData = {
+    body?: never;
+    path: {
+        /**
+         * Sing Id
+         */
+        sing_id: string;
+    };
+    query?: never;
+    url: '/api/v1/stats/sings/{sing_id}';
+};
+
+export type ReadSingErrors = {
+    /**
+     * A sing of a party this caller was not at, without history.
+     */
+    403: unknown;
+    /**
+     * Unknown sing — said only to a caller with `stats.history`.
+     */
+    404: unknown;
+    /**
+     * Validation Error
+     */
+    422: HttpValidationError;
+};
+
+export type ReadSingError = ReadSingErrors[keyof ReadSingErrors];
+
+export type ReadSingResponses = {
+    /**
+     * Successful Response
+     */
+    200: SingDetail;
+};
+
+export type ReadSingResponse = ReadSingResponses[keyof ReadSingResponses];
 
 export type ListPlayerScoresData = {
     body?: never;

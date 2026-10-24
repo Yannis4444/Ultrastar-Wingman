@@ -17,13 +17,13 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from ..auth.deps import HiddenSongsDep, Principal, PrincipalDep, missing_permission, require
 from ..db import SessionDep
-from ..karaoke.model import KaraokeSession, Score
+from ..karaoke.model import KaraokeSession, Score, Sing
 from ..karaoke.schema import ScoreRead
 from ..players import service as players
 from ..players.model import Player
 from ..songs.api import song_or_404
 from . import service
-from .schema import ScoreList, SessionList, SessionRead, SingList
+from .schema import ScoreList, SessionList, SessionRead, SingDetail, SingList
 
 logger = logging.getLogger(__name__)
 
@@ -325,6 +325,66 @@ async def list_song_scores(song_id: str, session: SessionDep, hidden: HiddenSong
     """Every score one song ever got, across all sessions, newest first."""
     await song_or_404(song_id, session, hidden)
     return ScoreList(scores=await service.song_scores(session, song_id))
+
+
+@router.get(
+    "/stats/sings/{sing_id}",
+    response_model=SingDetail,
+    dependencies=[Depends(require("stats.view"))],
+    responses={
+        403: {"description": "A sing of a party this caller was not at, without history."},
+        404: {"description": "Unknown sing — said only to a caller with `stats.history`."},
+    },
+)
+async def read_sing(
+    sing_id: str,
+    session: SessionDep,
+    principal: PrincipalDep,
+    visible: VisibleSessionsDep,
+    hidden: HiddenSongsDep,
+) -> SingDetail:
+    """One sing whole — the song, when, the party, and every score it got, best first: the
+    sing view that opens from a score row.
+
+    Readable with `stats.history`, or when the sing's party is one this caller may open
+    (`visible_session_ids`), or when the caller's own player holds a score of it. The last
+    is the `own_player_or_history_right` reasoning, and it is what lets "All my scores" open
+    a sing from before migration 0008, which belongs to no party at all.
+
+    Without `stats.history`, an unknown sing is the same 403 as one the caller may not open,
+    and is refused before anything says it is missing: otherwise a 404 against a 403 would
+    tell anybody which sing ids were ever recorded, the archive this right guards. Only a
+    caller who could have opened any sing is told that one does not exist. The decision is
+    made over the bare row, before the sing is read whole.
+
+    A party kept out of the picker (`stats.hide`) opens here as before: hiding reaches the
+    session listing alone.
+
+    Not filtered by `HiddenSongsDep`, like every score list (a score belongs to its singer);
+    the dependency only decides `song_listed`.
+    """
+    sing = await service.find_sing(session, sing_id)
+    if may_see_every_session(principal):
+        if sing is None:
+            raise HTTPException(status_code=404, detail=f"unknown sing '{sing_id}'")
+    elif sing is None or not await _sang_or_was_there(sing, session, principal, visible):
+        raise missing_permission("stats.history")
+    return await service.sing_detail(session, sing, hidden)
+
+
+async def _sang_or_was_there(
+    sing: Sing, session: AsyncSession, principal: Principal, visible: frozenset[str]
+) -> bool:
+    if sing.session_id is not None and sing.session_id in visible:
+        return True
+    # A walk-in's score carries no player id, and neither does a guest phone: only an
+    # account linked to a player can be on a sing by identity.
+    own = (
+        None
+        if principal.user is None
+        else await players.player_id_of_user(session, principal.user.id)
+    )
+    return own is not None and await service.scored_on(session, sing.id, own)
 
 
 async def own_player_or_history_right(

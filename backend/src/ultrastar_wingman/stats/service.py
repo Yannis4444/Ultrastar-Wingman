@@ -20,7 +20,7 @@ from ..karaoke.schema import ScoreRead, read_score
 from ..players.model import Player
 from ..songs.model import Song
 from ..songs.schema import read_song
-from .schema import ScoreWithContext, SessionRead, SingRead
+from .schema import ScoreWithContext, SessionRead, SingDetail, SingRead
 
 logger = logging.getLogger(__name__)
 
@@ -277,6 +277,60 @@ async def all_scores(
     if session_ids is not None:
         query = query.where(Sing.session_id.in_(session_ids))
     return await _read_scores(session, query)
+
+
+async def find_sing(session: AsyncSession, sing_id: str) -> Sing | None:
+    return await session.get(Sing, sing_id)
+
+
+async def scored_on(session: AsyncSession, sing_id: str, player_id: str) -> bool:
+    """Whether this player holds a score of this sing — matched on the player id, so a
+    walk-in who typed the same name into USDX is not them (`player_scores`' rule)."""
+    found = await session.scalar(
+        select(Score.id).where(Score.sing_id == sing_id, Score.player_id == player_id).limit(1)
+    )
+    return found is not None
+
+
+async def sing_detail(
+    session: AsyncSession, sing: Sing, hidden_song_ids: Collection[str]
+) -> SingDetail:
+    """One sing with its song, its party and every score it got.
+
+    Nothing here decides who may read it — that is `api.read_sing`'s business, settled over
+    the bare row (`find_sing`, `scored_on`) before this is called, so a refused caller never
+    costs the sessions aggregation behind `read_session`. `hidden_song_ids` only says whether
+    the reader may open the song itself (`song_listed`); the song is in the answer either way.
+
+    The song is looked up on its own rather than off the score rows, because a sing that
+    lost its last score still has a song. The scores go through the one query every listing
+    uses, ordered by rank instead of by time.
+    """
+    song = await session.get(Song, sing.song_id)
+    # `sings.session_id` is not a foreign key either, so a party is read only once it is
+    # known to exist.
+    karaoke_session = (
+        None if sing.session_id is None else await session.get(KaraokeSession, sing.session_id)
+    )
+    scores = await _read_scores(
+        session,
+        _scores_query()
+        .where(Score.sing_id == sing.id)
+        .order_by(None)
+        # Best first; the id breaks a tie, so two equal scores keep the order they came in.
+        .order_by(Score.score.desc(), Score.id),
+    )
+    return SingDetail(
+        sing_id=sing.id,
+        song_id=sing.song_id,
+        song=None if song is None else read_song(song),
+        song_listed=song is not None and sing.song_id not in hidden_song_ids,
+        session=None if karaoke_session is None else await read_session(session, karaoke_session),
+        # Naive coming out of SQLite; everything we write is UTC (see `as_utc`).
+        started_at=as_utc(sing.started_at),
+        ended_at=None if sing.ended_at is None else as_utc(sing.ended_at),
+        scores=scores,
+    )
 
 
 async def reassign_score(session: AsyncSession, score: Score, player: Player) -> ScoreRead:
