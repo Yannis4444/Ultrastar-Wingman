@@ -724,7 +724,8 @@ saved) where a jump to the top would throw away the place they were working in.
   at the ends) around one 8px dot per slide, `aria-hidden` decoration and never a control
   (`--highlight-blue-light` in view, `--color-darkerer` else, a dimmed slot's a hairline ring),
   then the borderless format pair (share-cards §5), the design's name under the row in 0.85em
-  `--color-dark`. Arrows and ←/→ on the carousel (`tabindex="0"`,
+  `--color-dark`. A card of one design (the achievement's *Badge*) draws no arrows, dots or
+  rule, and the pair stands alone in the middle of the row. Arrows and ←/→ on the carousel (`tabindex="0"`,
   `aria-roledescription` *carousel*, slides named "Mosaic, 3 of 5") scroll smoothly, and jump under
   reduced motion. The slide in view **is** the choice the buttons send and the panel remembers
   (*Spread* and *You* excepted); a dimmed slot has no picture, so there they hold still as through a redraw

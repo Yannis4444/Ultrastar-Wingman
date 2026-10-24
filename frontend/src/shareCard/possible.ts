@@ -5,6 +5,7 @@ import type {
   ScoreCardContent,
 } from "./content";
 import type {
+  AchievementCardOptions,
   CardFormat,
   PartyCardOptions,
   PartyFocus,
@@ -21,8 +22,9 @@ import type {
  * panel needs to know (share-cards.md §5, ui-guidelines §7 *Share cards*).
  * The designs are a carousel, one slide per design in a fixed order (a
  * score's *Dark* · *Cover*, a party's *Podium* · *Strip* · *Mosaic* ·
- * *Spread* · *You*, a player's *Histogram* · *Strip* · *Songs*), and a
- * design the card cannot draw is a dimmed slot
+ * *Spread* · *You*, a player's *Histogram* · *Strip* · *Songs*, an
+ * achievement's one *Badge*), and a design the card cannot draw is a dimmed
+ * slot
  * holding the sentence in `reason`. Every choice that used to change what a
  * slide could draw is a slide of its own (§7.11), so nothing here hangs on
  * the slide in view. The three toggles are the same on every slide; a slide
@@ -139,7 +141,7 @@ export function toggleSentence(
   toggle: ShareToggle,
   on: boolean,
   reason: string | null,
-  card: "score" | "party" | "player" = "score",
+  card: "score" | "party" | "player" | "achievement" = "score",
 ): string {
   if (reason !== null) return reason;
   const sentences =
@@ -346,6 +348,34 @@ export function resolvePlayerOptions(
   const focus: PlayerFocus =
     PLAYER_REASONS[design](content) === null ? design : "none";
   return { format, focus, logo };
+}
+
+// ------------------------------------------------------- an achievement
+
+/** An achievement card's one slide (share-cards §10): the badge, on Dark. */
+export type AchievementDesign = "badge";
+export const ACHIEVEMENT_DESIGNS: readonly AchievementDesign[] = ["badge"];
+
+/** The date toggle's reason on an achievement card, whose earned day always
+ * stands: it is the achievement's, not a party's. */
+export const NO_PARTY = "An achievement belongs to no party.";
+
+/** One per slide: the one, which every earned achievement can draw. */
+export function achievementCardDesigns(): Choice<AchievementDesign>[] {
+  return ACHIEVEMENT_DESIGNS.map((design) => choice(design, null));
+}
+
+/** "Not much customization": the only face is the sharer's own and the date
+ * is no party's, so the logo is the one toggle that reaches the card. */
+export function achievementSlideToggles(): ToggleReasons {
+  return { pictures: NOBODY_ELSE, date: NO_PARTY, logo: null };
+}
+
+export function resolveAchievementOptions(
+  format: CardFormat,
+  logo: boolean,
+): AchievementCardOptions {
+  return { format, logo };
 }
 
 /**

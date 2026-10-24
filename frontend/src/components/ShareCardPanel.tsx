@@ -8,10 +8,16 @@ import {
   useState,
   type ReactNode,
 } from "react";
-import type { PlayerRead, ScoreWithContext, SessionRead } from "../api";
+import type {
+  PlayerAchievementRead,
+  PlayerRead,
+  ScoreWithContext,
+  SessionRead,
+} from "../api";
 import { listSongScoresOptions } from "../api/@tanstack/react-query.gen";
 import { useAuth } from "../auth";
 import {
+  achievementCard,
   cardImageUrls,
   partyCard,
   playerCard,
@@ -27,16 +33,20 @@ import {
   FORMATS,
   SHARE_TOGGLES,
   TOGGLES_REST,
+  achievementCardDesigns,
+  achievementSlideToggles,
   partyCardDesigns,
   partySlideToggles,
   playerCardDesigns,
   playerSlideToggles,
+  resolveAchievementOptions,
   resolvePartyOptions,
   resolvePlayerOptions,
   resolveScoreOptions,
   scoreCardDesigns,
   scoreSlideToggles,
   toggleSentence,
+  type AchievementDesign,
   type Choice,
   type PartyDesign,
   type PlayerDesign,
@@ -56,8 +66,9 @@ import Loading from "./Loading";
 import Modal from "./Modal";
 import "./ShareCardPanel.css";
 
-/** What the panel makes a card of: a whole party, one score, or one singer's
- * scores at a party or over every party (share-cards §9). It takes one
+/** What the panel makes a card of: a whole party, one score, one singer's
+ * scores at a party or over every party (share-cards §9), or one earned
+ * achievement of the reader's own (share-cards §10). It takes one
  * card to draw and never a list to choose from (share-cards §6): choosing
  * the score is the surface's that opens it. */
 export type ShareTarget =
@@ -85,6 +96,17 @@ export type ShareTarget =
       /** The party they are of; `null` for every party at once, which the
        * card calls *All parties* (share-cards §9). */
       session: SessionRead | null;
+    }
+  | {
+      kind: "achievement";
+      /** The reader's own record row, earned and not masked: the only one
+       * the achievement modal offers to share (share-cards §10). */
+      row: PlayerAchievementRead;
+      /** The sharer's player row, for the picture; `null` where the page
+       * could not read it, which draws the initial. */
+      player: PlayerRead | null;
+      /** The sharer's name as the user page writes it. */
+      name: string;
     };
 
 interface ShareCardPanelProps {
@@ -94,7 +116,7 @@ interface ShareCardPanelProps {
   onClose: () => void;
 }
 
-type Design = ScoreDesign | PartyDesign | PlayerDesign;
+type Design = ScoreDesign | PartyDesign | PlayerDesign | AchievementDesign;
 
 const FORMAT_LABELS = { square: "Square", story: "Story" } as const;
 const FORMAT_ICONS = {
@@ -111,6 +133,7 @@ const DESIGN_LABELS: Record<Design, string> = {
   you: "You",
   histogram: "Histogram",
   songs: "Songs",
+  badge: "Badge",
 };
 /** Each toggle's name — the option's, never the action (ui-guidelines §4). */
 const TOGGLE_LABELS: Record<ShareToggle, string> = {
@@ -149,6 +172,8 @@ function fileName(content: CardContent): string {
   // A player's names the scope too, even when the card leaves it off.
   if (content.kind === "player")
     return `wingman-${slug(content.person.name)}-${slug(content.scope)}.png`;
+  if (content.kind === "achievement")
+    return `wingman-${slug(content.name)}-${slug(content.sharer.name)}.png`;
   return `wingman-${slug(content.party)}.png`;
 }
 
@@ -158,6 +183,8 @@ function altText(content: CardContent): string {
     return `Share card: ${content.singer.name} scored ${content.score} on ${content.title}`;
   if (content.kind === "player")
     return `Share card of ${content.person.name}'s scores, ${content.scope}`;
+  if (content.kind === "achievement")
+    return `Share card: ${content.sharer.name} earned ${content.name}`;
   if (content.onlyMe)
     return `Share card of ${content.party}: ${content.ranking[0].person.name}'s scores`;
   return `Share card of ${content.party}, ranked by best score`;
@@ -386,45 +413,51 @@ function DesignCarousel({
         ))}
       </div>
       <div className="share-carousel-nav">
-        <button
-          ref={previous}
-          type="button"
-          className="icon-button"
-          aria-label="Previous design"
-          title="Previous design"
-          disabled={index === 0}
-          onClick={() => go(index - 1, "previous")}
-        >
-          <Icon name="chevron-left" />
-        </button>
-        {/* Decoration: the arrows, the keys and the swipe are the controls,
-            the slides' own names say where the reader is. */}
-        <div className="share-dots" aria-hidden="true">
-          {slides.map((slide, i) => (
-            <span
-              key={slide.design}
-              className={[
-                "share-dot",
-                i === index ? "share-dot-on" : "",
-                slide.request === null ? "share-dot-dimmed" : "",
-              ]
-                .filter(Boolean)
-                .join(" ")}
-            />
-          ))}
-        </div>
-        <button
-          ref={next}
-          type="button"
-          className="icon-button"
-          aria-label="Next design"
-          title="Next design"
-          disabled={index === last}
-          onClick={() => go(index + 1, "next")}
-        >
-          <Icon name="chevron-right" />
-        </button>
-        <span className="share-nav-rule" aria-hidden="true" />
+        {/* One slide has nowhere to go: no arrows, no dots and no rule, and
+            the format pair stands alone in the middle (share-cards §5). */}
+        {last > 0 && (
+          <>
+            <button
+              ref={previous}
+              type="button"
+              className="icon-button"
+              aria-label="Previous design"
+              title="Previous design"
+              disabled={index === 0}
+              onClick={() => go(index - 1, "previous")}
+            >
+              <Icon name="chevron-left" />
+            </button>
+            {/* Decoration: the arrows, the keys and the swipe are the
+                controls, the slides' own names say where the reader is. */}
+            <div className="share-dots" aria-hidden="true">
+              {slides.map((slide, i) => (
+                <span
+                  key={slide.design}
+                  className={[
+                    "share-dot",
+                    i === index ? "share-dot-on" : "",
+                    slide.request === null ? "share-dot-dimmed" : "",
+                  ]
+                    .filter(Boolean)
+                    .join(" ")}
+                />
+              ))}
+            </div>
+            <button
+              ref={next}
+              type="button"
+              className="icon-button"
+              aria-label="Next design"
+              title="Next design"
+              disabled={index === last}
+              onClick={() => go(index + 1, "next")}
+            >
+              <Icon name="chevron-right" />
+            </button>
+            <span className="share-nav-rule" aria-hidden="true" />
+          </>
+        )}
         {trailing}
       </div>
       <p className="share-design-name" aria-live="polite">
@@ -615,6 +648,18 @@ export default function ShareCardPanel({
         mine: null,
       };
     }
+    // No toggle reaches its content: the only face is the sharer's own, and
+    // the day is the achievement's (share-cards §10).
+    if (target.kind === "achievement") {
+      return {
+        content: achievementCard({
+          row: target.row,
+          player: target.player,
+          name: target.name,
+        }),
+        mine: null,
+      };
+    }
     return {
       content: scoreCard({
         ...toggles,
@@ -728,6 +773,19 @@ export default function ShareCardPanel({
         ),
       );
     }
+    if (content.kind === "achievement") {
+      return achievementCardDesigns().map((choice) =>
+        slide(
+          choice,
+          {
+            kind: "achievement",
+            content,
+            options: resolveAchievementOptions(prefs.format, prefs.logo),
+          },
+          achievementSlideToggles(),
+        ),
+      );
+    }
     const alone = mine ?? content;
     return partyCardDesigns(content, alone, loaded).map((choice) => {
       const drawn = choice.value === "you" ? alone : content;
@@ -756,7 +814,9 @@ export default function ShareCardPanel({
       ? prefs.scoreLook
       : content.kind === "player"
         ? prefs.playerDesign
-        : prefs.partyDesign;
+        : content.kind === "achievement"
+          ? "badge"
+          : prefs.partyDesign;
   // Otherwise the first one it can draw: a party's Podium and a score's Dark
   // always can, a player's Histogram not below four scores.
   const rememberedAt = slides.findIndex(
@@ -783,6 +843,9 @@ export default function ShareCardPanel({
       update({ scoreLook: slide.design as ScoreDesign });
     else if (slide.request.kind === "player")
       update({ playerDesign: slide.design as PlayerDesign });
+    // One design, nothing to remember of it: the format and the logo are
+    // all an achievement card keeps.
+    else if (slide.request.kind === "achievement") return;
     else if (
       REMEMBERED_PARTY_DESIGNS.includes(slide.design as RememberedPartyDesign)
     )
@@ -1014,7 +1077,9 @@ export default function ShareCardPanel({
       ? "Share this party"
       : target.kind === "player"
         ? "Share these stats"
-        : "Share this score";
+        : target.kind === "achievement"
+          ? "Share this achievement"
+          : "Share this score";
   const format: CardFormat = prefs.format;
   const pressHold = longPressPage();
   const wantedDesigns = new Set(wanted.map((candidate) => candidate.design));

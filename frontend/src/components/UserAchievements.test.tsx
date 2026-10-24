@@ -30,6 +30,9 @@ vi.mock("../api/sdk.gen", async (importOriginal) => ({
 
 const EARNED_AT = "2026-09-01T20:15:00Z";
 
+/** The reader, whose record this always is: the modal may offer Share. */
+const SHARER = { player: null, name: "Chiara" };
+
 function renderSection(
   catalogue: AchievementRead[],
   rows: PlayerAchievementRead[],
@@ -45,7 +48,7 @@ function renderSection(
   return render(
     <QueryClientProvider client={client}>
       <MemoryRouter>
-        <UserAchievements playerId="p1" />
+        <UserAchievements playerId="p1" sharer={SHARER} />
       </MemoryRouter>
     </QueryClientProvider>,
   );
@@ -268,7 +271,7 @@ it("picks up an achievement earned while the page is open", async () => {
   render(
     <QueryClientProvider client={client}>
       <MemoryRouter>
-        <UserAchievements playerId="p1" />
+        <UserAchievements playerId="p1" sharer={SHARER} />
       </MemoryRouter>
     </QueryClientProvider>,
   );
@@ -471,6 +474,20 @@ it("opens the same thing from a row of the list", async () => {
   expect(dialog).toHaveAccessibleName("Ten songs");
   // The row's own line, again: the modal is a bigger place for the same words.
   expect(dialog).toHaveTextContent("7 / 10");
+  // Nothing to share yet.
+  expect(screen.queryByRole("button", { name: "Share" })).toBeNull();
+});
+
+it("offers Share on an earned badge, the record being the reader's own", async () => {
+  const achievement = achievementRead();
+  const { container } = renderSection(
+    [achievement],
+    [playerAchievementRead({ achievement })],
+  );
+
+  await screen.findByText("1 of 1");
+  fireEvent.click(stripButtons(container)[0]);
+  expect(screen.getByRole("button", { name: "Share" })).toBeInTheDocument();
 });
 
 it("asks for the full-size picture only while the modal is open", async () => {

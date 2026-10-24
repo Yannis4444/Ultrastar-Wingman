@@ -5,6 +5,7 @@ import { CHART_MIN_SCORES, countWord } from "../stats";
 import {
   FACES_SHOWN,
   RANKING_NOTE,
+  type AchievementCardContent,
   type CardDot,
   type CardImage,
   type CardNumbers,
@@ -58,6 +59,14 @@ export type PlayerFocus = "histogram" | "strip" | "songs" | "none";
 export interface PlayerCardOptions {
   format: CardFormat;
   focus: PlayerFocus;
+  /** As on a score card. */
+  logo: boolean;
+}
+
+/** An achievement card has one design and nothing to choose but these two
+ * (share-cards §10). */
+export interface AchievementCardOptions {
+  format: CardFormat;
   /** As on a score card. */
   logo: boolean;
 }
@@ -2140,6 +2149,225 @@ function playerStory(
   brand(b, area.bottom, playerNote(options), options.logo);
 }
 
+// ---------------------------------------------------------------------------
+// An achievement
+
+/** §10's numbers per format: the badge, the name's sizes, the description's
+ * size and lines, the sharer's avatar and name, the earned lines' size, and
+ * the gaps between them — the square's reproduce §10's table (the badge at
+ * 72, the name at 512, the description at 600, the sharer at 744, the day at
+ * 848) for a full card, and the whole column is centred when a short
+ * description or a missing holders line leaves it shorter. */
+const ACHIEVEMENT = {
+  square: {
+    badge: 400,
+    name: [64, 52],
+    description: 40,
+    lines: 2,
+    avatar: 72,
+    sharer: [40, 32],
+    facts: MIN_TEXT,
+    gaps: { name: 40, description: 4.8, sharer: 40, facts: 32 },
+  },
+  story: {
+    badge: 560,
+    name: [72, 60],
+    description: 44,
+    lines: 3,
+    avatar: 96,
+    sharer: [44, 36],
+    facts: 36,
+    gaps: { name: 48, description: 8, sharer: 48, facts: 40 },
+  },
+} as const;
+
+/** The badge as `AchievementBadge` draws it earned, a rounded square whose
+ * radius is a fifth of its side: the picture clipped to it, or — without
+ * one, or with one that did not decode — the plate in the achievement's
+ * colour with the glyph, half the side, cut out of it in `--bg`. */
+function badge(
+  b: Builder,
+  content: AchievementCardContent,
+  top: number,
+  size: number,
+  loaded: (url: string) => boolean,
+): void {
+  const x = CENTER - size / 2;
+  const radius = size / 5;
+  const url = content.badge.url;
+  if (url !== null && loaded(url)) {
+    b.push({
+      kind: "image",
+      region: "badge",
+      x,
+      y: top,
+      w: size,
+      h: size,
+      image: { url, initial: "" },
+      radius,
+      initialColor: CARD_COLORS.textDark,
+      shadow: false,
+    });
+    return;
+  }
+  b.push({
+    kind: "rect",
+    region: "badge",
+    x,
+    y: top,
+    w: size,
+    h: size,
+    radius,
+    fill: content.badge.plate,
+    stroke: null,
+    lineWidth: 0,
+  });
+  b.push({
+    kind: "icon",
+    region: "badge",
+    name: content.badge.glyph,
+    x: x + size / 4,
+    y: top + size / 4,
+    size: size / 2,
+    color: CARD_COLORS.bg,
+  });
+}
+
+/** The sharer as one centred row: the avatar and the name beside it. */
+function sharerRow(
+  b: Builder,
+  content: AchievementCardContent,
+  top: number,
+  avatar: number,
+  sizes: readonly number[],
+): void {
+  const gap = 24;
+  const name = fitLine(
+    content.sharer.name,
+    sizes,
+    "bold",
+    CONTENT - avatar - gap,
+    b.measure,
+  );
+  const width = avatar + gap + b.width([bold(name.text)], name.size);
+  const x = CENTER - width / 2;
+  b.image(
+    "sharer",
+    { x, y: top, w: avatar, h: avatar },
+    content.sharer.avatar,
+    true,
+  );
+  b.text(
+    "sharer",
+    [bold(name.text)],
+    name.size,
+    x + avatar + gap,
+    top + (avatar - lineHeight(name.size)) / 2,
+  );
+}
+
+function achievementColumn(
+  b: Builder,
+  content: AchievementCardContent,
+  format: CardFormat,
+  logo: boolean,
+  loaded: (url: string) => boolean,
+): void {
+  const n = ACHIEVEMENT[format];
+  const nameSize = n.name[0];
+  const name = fitLine(content.name, n.name, "bold", CONTENT, b.measure);
+  const description =
+    content.description.trim() === ""
+      ? null
+      : fitLines(
+          content.description,
+          [n.description],
+          "normal",
+          CONTENT,
+          n.lines,
+          b.measure,
+        );
+  const facts = [content.earned, content.holders].filter(
+    (line): line is string => line !== null && line !== "",
+  );
+  const items: StackItem[] = [
+    {
+      height: n.badge,
+      gap: 0,
+      place: (top) => badge(b, content, top, n.badge, loaded),
+    },
+    {
+      height: lineHeight(nameSize),
+      gap: n.gaps.name,
+      // A name cut to the smaller size keeps the larger's line, so nothing
+      // under it moves.
+      place: (top) =>
+        b.text(
+          "name",
+          [bold(name.text)],
+          name.size,
+          CENTER,
+          top + (lineHeight(nameSize) - lineHeight(name.size)) / 2,
+          "center",
+        ),
+    },
+  ];
+  if (description !== null) {
+    items.push({
+      height: description.lines.length * lineHeight(description.size),
+      gap: n.gaps.description,
+      place: (top) =>
+        description.lines.forEach((line, index) =>
+          b.text(
+            "description",
+            [run(line, CARD_COLORS.textDark)],
+            description.size,
+            CENTER,
+            top + index * lineHeight(description.size),
+            "center",
+          ),
+        ),
+    });
+  }
+  items.push({
+    height: n.avatar,
+    gap: n.gaps.sharer,
+    place: (top) => sharerRow(b, content, top, n.avatar, n.sharer),
+  });
+  if (facts.length > 0) {
+    items.push({
+      height: facts.length * lineHeight(n.facts) + (facts.length - 1) * 4,
+      gap: n.gaps.facts,
+      place: (top) =>
+        facts.forEach((line, index) => {
+          const fitted = fitLine(
+            line,
+            [n.facts, MIN_TEXT],
+            "normal",
+            CONTENT,
+            b.measure,
+          );
+          b.text(
+            "earned",
+            [run(fitted.text, CARD_COLORS.textDarker)],
+            fitted.size,
+            CENTER,
+            top +
+              index * (lineHeight(n.facts) + 4) +
+              (lineHeight(n.facts) - lineHeight(fitted.size)) / 2,
+            "center",
+          );
+        }),
+    });
+  }
+  const area = SAFE_AREA[format];
+  // Down to 24 over the brand's line on a square, 40 on a story, as on the
+  // other cards.
+  const bottom = area.bottom - BRAND_LOGO - (format === "story" ? 40 : 24);
+  stack(items, area.top, bottom, 0, 0);
+  brand(b, area.bottom, null, logo);
+}
+
 /**
  * A Mosaic's words (§3.1): the covers stay visible behind them, so the
  * `#888` that reads on flat `--bg` takes `#ccc`, each over its halo.
@@ -2199,6 +2427,29 @@ export function layoutPlayerCard(
   const b = new Builder(measure);
   if (options.format === "square") playerSquare(b, content, options);
   else playerStory(b, content, options);
+  return {
+    width: CARD_WIDTH,
+    height: CARD_HEIGHT[options.format],
+    background: { kind: "dark" },
+    elements: b.elements,
+    halo: false,
+  };
+}
+
+/**
+ * An achievement card (share-cards §10), always on Dark: the badge large and
+ * centred over its name, its description, the sharer, the day and the
+ * holders line. `loaded` says whether the badge's picture arrived; without it
+ * the badge is its plate and glyph, never a letter.
+ */
+export function layoutAchievementCard(
+  content: AchievementCardContent,
+  options: AchievementCardOptions,
+  measure: Measure,
+  loaded: (url: string) => boolean = () => true,
+): CardLayout {
+  const b = new Builder(measure);
+  achievementColumn(b, content, options.format, options.logo, loaded);
   return {
     width: CARD_WIDTH,
     height: CARD_HEIGHT[options.format],

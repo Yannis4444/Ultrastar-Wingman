@@ -1,5 +1,19 @@
-import type { PlayerRead, ScoreWithContext, SessionRead } from "../api";
+import {
+  achievementDescription,
+  achievementGlyph,
+  achievementIconUrl,
+  achievementName,
+  holdersLine,
+} from "../achievements";
+import type {
+  PlayerAchievementRead,
+  PlayerRead,
+  ScoreWithContext,
+  SessionRead,
+} from "../api";
 import { avatarUrl } from "../avatars";
+import type { IconName } from "../components/icons";
+import { TAG_COLORS, type TagColor } from "../tags";
 import { MAX_SCORE } from "../chartTheme";
 // A card leaves the room, so its date always carries the year.
 import { cardDate, parseServerTime } from "../duration";
@@ -189,8 +203,37 @@ export interface PlayerCardContent {
   songCount: number;
 }
 
+/** The badge as `AchievementBadge` draws it earned: the picture, or the plate
+ * in the achievement's colour with its glyph cut out of it in `--bg`. */
+export interface CardBadge {
+  /** The icon endpoint at full size, `null` for a glyph-only badge. */
+  url: string | null;
+  glyph: IconName;
+  /** The plate's colour, a literal: the `tag-color-*` class's. */
+  plate: string;
+}
+
+export interface AchievementCardContent {
+  kind: "achievement";
+  /** The achievement's own id, for the file's name. */
+  id: string;
+  name: string;
+  description: string;
+  badge: CardBadge;
+  /** The sharer, whose achievement it is: theirs is the only face on it. */
+  sharer: CardPerson;
+  /** "Earned 12 Aug 2026". */
+  earned: string;
+  /** `holdersLine` counted with the sharer — *First to earn it*, *Earned by 3
+   * players* — or `null` where there is no count. */
+  holders: string | null;
+}
+
 export type CardContent =
-  ScoreCardContent | PartyCardContent | PlayerCardContent;
+  | ScoreCardContent
+  | PartyCardContent
+  | PlayerCardContent
+  | AchievementCardContent;
 
 /** At most this many covers are asked for: the story's mosaic has eighteen
  * cells and a long party should not cost a hundred requests. */
@@ -553,6 +596,73 @@ export function playerCard(input: PlayerCardInput): PlayerCardContent {
   };
 }
 
+/** A plate colour per tag colour, as `index.css`'s `.tag-color-*` paint it;
+ * an unknown one is neutral, as `tagColorClass` reads it. */
+const PLATES: Record<TagColor, string> = {
+  neutral: "#ccc",
+  blue: "#4b92cd",
+  pink: "#9e3b95",
+  gold: "#faa636",
+};
+
+export function plateColor(color: string): string {
+  return (TAG_COLORS as readonly string[]).includes(color)
+    ? PLATES[color as TagColor]
+    : PLATES.neutral;
+}
+
+export interface AchievementCardInput {
+  /** The reader's own record row: an earned, unmasked achievement — the only
+   * kind the modal offers to share (share-cards §10). */
+  row: PlayerAchievementRead;
+  /** The sharer's player row, for the picture; `null` where the page could
+   * not read it, which draws their initial. */
+  player: PlayerRead | null;
+  /** Their name, as the user page writes it. */
+  name: string;
+}
+
+/**
+ * One earned achievement as a card (share-cards §10): the badge as the modal
+ * shows it large — the full-size picture, or the plate and its glyph — the
+ * name, the description, the sharer, the day and the holders line. No toggle
+ * reaches any of it but the logo: the only face is the sharer's own, and the
+ * date is the achievement's, not a party's.
+ */
+export function achievementCard(
+  input: AchievementCardInput,
+): AchievementCardContent {
+  const { row, player } = input;
+  const achievement = row.achievement;
+  return {
+    kind: "achievement",
+    id: achievement.id,
+    name: achievementName(achievement),
+    description: achievementDescription(achievement),
+    badge: {
+      url: achievement.has_image
+        ? achievementIconUrl(achievement.id, achievement.icon_version, "full")
+        : null,
+      glyph: achievementGlyph(achievement.icon),
+      plate: plateColor(achievement.color),
+    },
+    sharer: {
+      name: input.name,
+      avatar: {
+        url:
+          player !== null && player.has_avatar
+            ? avatarUrl(player.id, player.avatar_version)
+            : null,
+        initial: initialOf(input.name),
+      },
+    },
+    earned: row.earned_at === null ? "" : `Earned ${cardDate(row.earned_at)}`,
+    // The count already holds the sharer, as the host screen's does: one
+    // holder is them.
+    holders: holdersLine(achievement, { singer: true }),
+  };
+}
+
 /** How many of a party's singers a card ever draws a face for: the podium's
  * three and the three rows under it (§4.2). The spread draws none. */
 export const FACES_SHOWN = 6;
@@ -561,6 +671,10 @@ export const FACES_SHOWN = 6;
  * The logo is not among them: it is the same on every card. A party of fifty
  * asks for the six faces it can draw, not fifty. */
 export function cardImageUrls(content: CardContent): string[] {
+  if (content.kind === "achievement")
+    return [content.badge.url, content.sharer.avatar.url].filter(
+      (url): url is string => url !== null,
+    );
   const urls =
     content.kind === "score"
       ? [content.cover.url, content.singer.avatar.url]

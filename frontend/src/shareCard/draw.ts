@@ -1,6 +1,7 @@
 import { ICON_PATHS } from "../components/icons";
 import {
   cardImageUrls,
+  type AchievementCardContent,
   type PartyCardContent,
   type PlayerCardContent,
   type ScoreCardContent,
@@ -12,12 +13,14 @@ import {
   CARD_WIDTH,
   HALO,
   SCRIM_ALPHA,
+  layoutAchievementCard,
   layoutPartyCard,
   layoutPlayerCard,
   layoutScoreCard,
   type CardBackground,
   type CardElement,
   type CardLayout,
+  type AchievementCardOptions,
   type ImageElement,
   type TextElement,
   type PartyCardOptions,
@@ -48,7 +51,12 @@ export type CardImages = ReadonlyMap<string, HTMLImageElement>;
 export type CardRequest =
   | { kind: "score"; content: ScoreCardContent; options: ScoreCardOptions }
   | { kind: "party"; content: PartyCardContent; options: PartyCardOptions }
-  | { kind: "player"; content: PlayerCardContent; options: PlayerCardOptions };
+  | { kind: "player"; content: PlayerCardContent; options: PlayerCardOptions }
+  | {
+      kind: "achievement";
+      content: AchievementCardContent;
+      options: AchievementCardOptions;
+    };
 
 /** The blurred cover is the cover drawn this small and scaled back up:
  * `ctx.filter` is not reliable on WebKit (§4.3). */
@@ -194,6 +202,10 @@ function paintImage(
     ctx.save();
     rounded(ctx, x, y, w, h, radius);
     ctx.clip();
+    // Shrunk to a fraction of its size — a badge's 1254 px file to 400, an
+    // avatar to 72 — and the default `low` smoothing would alias its lines.
+    ctx.imageSmoothingEnabled = true;
+    ctx.imageSmoothingQuality = "high";
     drawCropped(ctx, picture, x, y, w, h);
     ctx.restore();
     return;
@@ -372,6 +384,15 @@ function layoutOf(
   // its letter on its row, as every other missing picture.
   if (request.kind === "player")
     return layoutPlayerCard(request.content, request.options, measure);
+  // A badge picture that did not decode is the plate and its glyph, the way
+  // `AchievementBadge` draws one without a picture — never a letter.
+  if (request.kind === "achievement")
+    return layoutAchievementCard(
+      request.content,
+      request.options,
+      measure,
+      loaded,
+    );
   const options = settlePartyOptions(request.content, request.options, loaded);
   return layoutPartyCard(request.content, options, measure, loaded);
 }

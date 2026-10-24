@@ -6,11 +6,9 @@ card says, how its text fits, the layouts and the canvas renderer (`frontend/src
 §6); part 2 the first panel, its two entry points on `/scores`, the buttons and the user
 documentation. The panel as §5 draws it (decision 11) was built 2026-10-24 on
 `feat/design-feedback-round-3`, and so were the sing view (§8, with its read
-`GET /stats/sings/{id}`) and the player card (§9). The achievement card (§10) is designed
-and **not built yet**: until it is, this document leads and the
-code is what changes. §7 records how what was open was settled. Once built, when this
-document and the code disagree, the code is right and this document is updated, unless the
-code falls short of §1.*
+`GET /stats/sings/{id}`), the player card (§9) and the achievement card (§10). §7 records
+how what was open was settled. When this document and the code disagree, the code is right
+and this document is updated, unless the code falls short of §1.*
 
 A singer gets **a picture of their scores** to send to friends: one score (the song's cover,
 the number, the rating word, the place) or a whole party (the podium, a few numbers, a
@@ -372,34 +370,44 @@ move to.
 ## 6. Where it lives in the code
 
 - `frontend/src/shareCard/`, each part tested without a canvas:
-  - `content.ts` — `scoreCard` / `partyCard` / `playerCard`: what goes on a card from the
-    data, the toggles applied (a player's `scope` — the party's name · date, its date, or
-    `ALL_PARTIES` — and the `line` the date toggle takes off, the twenty `histogram`
-    buckets with the best's, the strip's dots, their best per song up to
-    `PLAYER_SONGS_SHOWN`); `cardImageUrls` is every picture a card can draw, for the panel
-    to load — of a party's singers only the six faces a card ever shows (`FACES_SHOWN`: the
-    podium and ranks 4–6), of a player their face and the covers of the songs listed;
+  - `content.ts` — `scoreCard` / `partyCard` / `playerCard` / `achievementCard`: what goes
+    on a card from the data, the toggles applied (a player's `scope` — the party's name ·
+    date, its date, or `ALL_PARTIES` — and the `line` the date toggle takes off, the
+    twenty `histogram` buckets with the best's, the strip's dots, their best per song up
+    to `PLAYER_SONGS_SHOWN`; an achievement's `badge` — the full-size picture's URL or
+    none, the glyph, and the plate's colour as a literal, `plateColor` — the sharer, the
+    earned line and `holdersLine` counted with the sharer); `cardImageUrls` is every
+    picture a card can draw, for the panel to load — of a party's singers only the six
+    faces a card ever shows (`FACES_SHOWN`: the podium and ranks 4–6), of a player their
+    face and the covers of the songs listed, of an achievement the badge's picture and the
+    sharer's face;
   - `fit.ts` — the text fitting, with the measurer passed in (`fakeMeasure` in
     `src/test/shareCard.ts` for the tests); every cut is on graphemes (`Intl.Segmenter`
     where the browser has it, code points otherwise), so a flag or a joined emoji is never
     split;
   - `layout.ts` — the layouts in numbers, as boxes the renderer paints (`layoutScoreCard`,
-    `layoutPartyCard`, `layoutPlayerCard`; the player's histogram is plain `rect`s);
+    `layoutPartyCard`, `layoutPlayerCard`, `layoutAchievementCard`; the player's histogram
+    is plain `rect`s, and the badge is an `image` with a fifth of its side as radius, or a
+    `rect` plate under an `icon` glyph — no element kind of its own);
   - `possible.ts` — the carousel's designs in their fixed order (`SCORE_DESIGNS`,
-    `PARTY_DESIGNS`, `PLAYER_DESIGNS`, and `ACHIEVEMENT_DESIGNS` once §10 is built;
+    `PARTY_DESIGNS`, `PLAYER_DESIGNS`, `ACHIEVEMENT_DESIGNS`;
     `partyDesignOptions` turning a party's slide into its look, focus, what stands under the
     podium and whether it is the sharer alone), which of them a card allows
-    (`scoreCardDesigns`, `partyCardDesigns`, `playerCardDesigns`), which toggles each slide
-    honours and why not (`SHARE_TOGGLES`, `scoreSlideToggles`, `partySlideToggles`,
-    `playerSlideToggles`, `toggleSentence` — the card kind its fourth argument, for a
-    player's *party line* —, `TOGGLES_REST`), `resolvePartyOptions` turning a slide into
-    what is drawn and `settlePartyOptions` asking that again of the pictures that decoded
-    (`draw.ts`), never swapping what stands under the podium for the other, and
-    `resolvePlayerOptions` turning a design the card cannot take into `none`;
+    (`scoreCardDesigns`, `partyCardDesigns`, `playerCardDesigns`,
+    `achievementCardDesigns`), which toggles each slide honours and why not
+    (`SHARE_TOGGLES`, `scoreSlideToggles`, `partySlideToggles`, `playerSlideToggles`,
+    `achievementSlideToggles` — pictures and date dimmed, `NO_PARTY` the date's reason —,
+    `toggleSentence` — the card kind its fourth argument, for a player's *party line* —,
+    `TOGGLES_REST`), `resolvePartyOptions` turning a slide into what is drawn and
+    `settlePartyOptions` asking that again of the pictures that decoded (`draw.ts`), never
+    swapping what stands under the podium for the other, `resolvePlayerOptions` turning a
+    design the card cannot take into `none`, and `resolveAchievementOptions` (the format
+    and the logo, all there is);
   - `draw.ts` — `renderCard(request, images) → Promise<Blob>`, the seam for the panel:
     `images` maps each URL the content names (and `LOGO_URL`) to an `HTMLImageElement` the
-    caller loaded from Wingman's own origin; a missing or broken one draws as its letter.
-    `paintCard` is the same onto a canvas the caller owns;
+    caller loaded from Wingman's own origin; a missing or broken one draws as its letter —
+    a badge's picture as its plate and glyph, `layoutAchievementCard` being handed what
+    decoded. `paintCard` is the same onto a canvas the caller owns;
   - `images.ts` — `loadCardImages`: each URL loaded and decoded once per open panel, a
     failed one left out of the map, which is what `possible.ts`'s `loaded` reads;
   - `flags.ts` — `scoreFlags`: *New Highscore* (the score holds the song's record alone,
@@ -408,7 +416,8 @@ move to.
   - `prefs.ts` — what the panel remembers per device: the format, `scoreLook`,
     `partyDesign` (`REMEMBERED_PARTY_DESIGNS`: *Podium*, *Strip*, *Mosaic*; an older build's
     `partyLook` of `mosaic` carries over, its `onlyMe` is dropped), `playerDesign` (all
-    three) and the three toggles.
+    three) and the three toggles. An achievement card adds nothing: its one design is not
+    remembered, and of the toggles only the logo reaches it.
 - The strip and the spread are drawn with Canvas 2D over `chartLayout.ts` (`scoreX`, `swarm`,
   `jitterOf`, `scoreTickLabel`) and `chartTheme`, the screens' own helpers; nothing of the SVG
   components is serialised (§7.2).
@@ -427,13 +436,17 @@ move to.
   which hands it the pressed score, the sing's session and every score of the sing
   (`ShareTarget`'s `singScores`). A player is `ShareTarget`'s third kind, one singer's
   scores as the surface showed them and the party they are of, or `null` for every party.
+  An achievement is the fourth: the reader's own record row, their player row (or `null`)
+  and their name. With one slide the carousel draws no arrows, dots or rule, and the
+  format pair stands alone in the row.
 - The entry points, four: `pages/Scores.tsx`'s session bar (*Share this party*), the sing
   view's **Share** (§8), *Share stats* on an open player group and on `/user/stats` (§9), and
   the achievement modal's **Share** (§10). The score card takes the rest of its sing from
   the sing view's read, so a duet partner in another group is never missed.
 - The user documentation: `docs/user/scores/party.md` (the screenshot `scores-share`), the
   stats card there and in `docs/user/scores/your-scores.md` (the screenshot `stats-share`),
-  and the achievement card where its surface is documented.
+  and the achievement card in `docs/user/achievements/index.md`, *Share a badge* (the
+  screenshot `achievement-share`).
 - One backend read, §8's `GET /stats/sings/{sing_id}`; the flags of §7.4 come from reads that
   exist.
 - The codebase map in `CLAUDE.md` in the same commit.
@@ -677,10 +690,43 @@ their tests, `src/test/shareCard.ts`, `components/ShareCardPanel.tsx`,
 
 One earned achievement, as the modal shows it large.
 
+**Built** (2026-10-24): `achievementCard`, `ACHIEVEMENT_DESIGNS` and
+`layoutAchievementCard` (§6), the panel's fourth target, and **Share** on
+`AchievementModal`. Calls the design left open, each vetoable:
+
+- **Share is offered by the opener, not worked out by the modal.** `AchievementModal`
+  takes an optional `sharer` (the reader's player row and name) and draws Share only when
+  it is given, the row is earned, the achievement is switched on (the record can carry a
+  switched-off one's row until the pass the switch started drops it) and it is not
+  masked. Its one opener today,
+  `UserAchievements` on `/user`, always passes it, because that record is always the
+  reader's own; the admin page and the TV open no modal. The feature switch needs no check
+  of its own: `UserAchievements` draws nothing while it is off.
+- **The sharer's name is the account's** (`auth.user.username`, what the identity tile
+  writes), and the picture is the player row `/user` already reads from the roster
+  (`players.view`); without it the card draws the initial. The panel does not wait for
+  the roster, which `/user` has read long before a badge is opened.
+- **The column is centred, not pinned.** The square's gaps reproduce the table below
+  exactly for a two-line description with a holders line (to within half a pixel); a
+  one-line description, none at all, or no holders line closes the column up and centres
+  it between the margin and 24 over the brand, rather than leaving holes. The story does
+  the same in 270–1650 (down to 40 over the brand), with the sharer's name at 44 (→ 36)
+  and the earned lines at 36, which the design left unsaid.
+- **The name gives on one line** — 64 → 52 on a square, 72 → 60 on a story, then an
+  ellipsis — and the description wraps at its one size, ellipsized on its last line.
+- **A picture that does not decode is the plate and glyph**, never a letter: the layout
+  is handed what decoded, as the party card's Mosaic is.
+- **The holders line is counted with the sharer**, as on the host screen: one holder reads
+  *First to earn it*, while the modal above reads *Earned by 1 player* for the same count.
+- **The panel keeps the design's name** (*Badge*) under the format pair, as §5 item 4
+  draws it for every card.
+- **The file** is `wingman-<achievement>-<sharer>.png`, the `alt` *Share card: Fry earned
+  First Time on the Mic*.
+
 **Where it opens.** `AchievementModal`, for an achievement the reader's own player has
 earned: one `.button` with `share`, *Share*, centred 16px under the meta group, the modal's
-one control. Not drawn for a masked achievement, one not earned yet, or while the feature
-is off. The alternative the user may ask for instead is the collection — `UserAchievements`'
+one control. Not drawn for a masked achievement, one not earned yet, one switched off, or
+while the feature is off. The alternative the user may ask for instead is the collection — `UserAchievements`'
 "7 of 35" with the earned badges as a grid — which is not built.
 
 **What it says**, top to bottom: the badge, the name, the description, the sharer (avatar and
@@ -710,5 +756,6 @@ achievement belongs to no party.*), the logo the one that works — "not much cu
 and the row still reads the same as on every other card.
 
 **Files:** `shareCard/content.ts` (`achievementCard`), `layout.ts`, `possible.ts`, `draw.ts`
-and their tests, `components/AchievementModal.tsx` + `.css`, `components/ShareCardPanel.tsx`,
-`docs/user/` where the user page's achievements are described.
+and their tests, `src/test/shareCard.ts`, `components/AchievementModal.tsx` + `.css`,
+`components/UserAchievements.tsx`, `pages/User.tsx`, `components/ShareCardPanel.tsx`, and
+`docs/user/achievements/index.md`.

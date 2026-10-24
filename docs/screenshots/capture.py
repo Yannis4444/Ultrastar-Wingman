@@ -862,10 +862,34 @@ ROWS: dict[str, Row] = {
                 'q(".achievement-modal")',
             ),
         ),
-        # The full-resolution file, which is the whole point of the view.
+        # The full-resolution file, which is the whole point of the view. The badge is
+        # one Fry earned, so the modal ends in **Share**.
         ready='q(".achievement-modal") && q(".achievement-modal-name")'
-        ' && q(".achievement-modal-holders")'
+        ' && q(".achievement-modal-holders") && q(".achievement-modal-share")'
         " && q('.achievement-modal img[src*=\"size=full\"]')",
+    ),
+    "achievement-share": Row(
+        # The same badge as `achievement-modal`, a built-in with a shipped picture, so the
+        # card draws the picture and not the plate; Fry's own, so his face is on it.
+        identity="Fry",
+        viewport="phone",
+        route="/user",
+        steps=(
+            (
+                'click(qa(".user-achievements-badge-button")[0])',
+                'q(".achievement-modal-share")',
+            ),
+            (
+                'click(q(".achievement-modal-share"))',
+                'q(".share-carousel .share-preview-image")',
+            ),
+        ),
+        # Drawn in the browser, so in only once decoded. One slide: no dots, and the
+        # format pair alone under it.
+        ready='qa(".share-preview-image").length === 1'
+        ' && qa(".share-preview-image").every((i) => i.complete && i.naturalWidth > 0)'
+        ' && qa(".share-dot").length === 0 && qa(".share-format").length === 2'
+        ' && qa(".share-toggles .icon-toggle").length === 3',
     ),
     "achievements-admin": Row(
         identity="host",

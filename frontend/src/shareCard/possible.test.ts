@@ -15,8 +15,12 @@ import {
   type PlayerCardContent,
 } from "./content";
 import {
+  ACHIEVEMENT_DESIGNS,
   FORMATS,
   PARTY_DESIGNS,
+  achievementCardDesigns,
+  achievementSlideToggles,
+  resolveAchievementOptions,
   PLAYER_DESIGNS,
   playerCardDesigns,
   playerSlideToggles,
@@ -432,4 +436,45 @@ test("on a player card the date toggle speaks of the party line", () => {
   expect(toggleSentence("date", true, null, "party")).toBe(
     "The party's name and date are on the card.",
   );
+});
+
+// ------------------------------------------------------------ an achievement
+
+test("an achievement card is one slide, Badge, which it can always draw", () => {
+  expect(ACHIEVEMENT_DESIGNS).toEqual(["badge"]);
+  expect(achievementCardDesigns()).toEqual([
+    { value: "badge", ok: true, reason: null },
+  ]);
+});
+
+test("on an achievement card only the logo reaches the card, the other two say why", () => {
+  const reasons = achievementSlideToggles();
+  expect(reasons).toEqual({
+    pictures: "Nobody else is on this card.",
+    date: "An achievement belongs to no party.",
+    logo: null,
+  });
+  // The line reads the reason whatever state the toggle was left in.
+  expect(toggleSentence("date", true, reasons.date, "achievement")).toBe(
+    "An achievement belongs to no party.",
+  );
+  expect(
+    toggleSentence("pictures", false, reasons.pictures, "achievement"),
+  ).toBe("Nobody else is on this card.");
+  expect(toggleSentence("logo", false, reasons.logo, "achievement")).toBe(
+    "The Wingman logo is left off.",
+  );
+});
+
+test("an achievement card draws in the format and with the logo asked for", () => {
+  for (const format of FORMATS) {
+    expect(resolveAchievementOptions(format, true)).toEqual({
+      format,
+      logo: true,
+    });
+    expect(resolveAchievementOptions(format, false)).toEqual({
+      format,
+      logo: false,
+    });
+  }
 });

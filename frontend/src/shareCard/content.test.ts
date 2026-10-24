@@ -1,9 +1,12 @@
 import {
+  PICTURED,
   SONGS,
+  achievementContent,
   cardParty,
   cardPlayers,
   cardScore,
   partySession,
+  player,
   singerScores,
   song,
 } from "../test/shareCard";
@@ -16,6 +19,7 @@ import {
   ordinal,
   partnersLine,
   partyCard,
+  plateColor,
   playerCard,
   scoreCard,
   type PartyCardInput,
@@ -509,4 +513,77 @@ test("a long record lists eight songs and counts them all", () => {
     "/api/v1/players/alice/avatar?v=3",
     ...many.slice(0, 8).map((entry) => coverUrl(entry.id)),
   ]);
+});
+
+// ------------------------------------------------------------ an achievement
+
+test("an achievement card says the badge, the name, the sentence, the sharer, the day and the holders", () => {
+  const content = achievementContent(PICTURED);
+  expect(content).toMatchObject({
+    kind: "achievement",
+    id: "first-time-on-the-mic",
+    name: "First Time on the Mic",
+    description: "Sing your first song.",
+    sharer: {
+      name: "Chiara",
+      avatar: { url: "/api/v1/players/chiara/avatar?v=3", initial: "C" },
+    },
+    earned: `Earned ${cardDate("2026-08-12T20:15:00Z")}`,
+    holders: "Earned by 3 players",
+  });
+  // The full-size picture at the row's own version, on Wingman's origin.
+  expect(content.badge.url).toBe(
+    "/api/v1/achievements/first-time-on-the-mic/icon?size=full&v=7",
+  );
+  expect(content.badge.plate).toBe("#4b92cd");
+  // The picture and the sharer's face: everything the card can draw.
+  expect(cardImageUrls(content)).toEqual([
+    "/api/v1/achievements/first-time-on-the-mic/icon?size=full&v=7",
+    "/api/v1/players/chiara/avatar?v=3",
+  ]);
+});
+
+test("without a picture the badge is the plate in its colour under its glyph", () => {
+  const content = achievementContent({ icon: "mic", color: "pink" });
+  expect(content.badge).toEqual({
+    url: null,
+    glyph: "mic",
+    plate: "#9e3b95",
+  });
+  // A glyph this build has not got is the feature's own, as on the badge.
+  expect(achievementContent({ icon: "no-such-glyph" }).badge.glyph).toBe(
+    "trophy",
+  );
+  expect(cardImageUrls(content)).toEqual(["/api/v1/players/chiara/avatar?v=3"]);
+});
+
+test("the plate takes each tag colour's literal, and an unknown one is neutral", () => {
+  expect(plateColor("neutral")).toBe("#ccc");
+  expect(plateColor("blue")).toBe("#4b92cd");
+  expect(plateColor("pink")).toBe("#9e3b95");
+  expect(plateColor("gold")).toBe("#faa636");
+  expect(plateColor("teal")).toBe("#ccc");
+});
+
+test("the holders line is counted with the sharer, and there is none without a count", () => {
+  // One holder is the sharer: the host screen's reading, not the modal's.
+  expect(achievementContent({ holder_count: 1 }).holders).toBe(
+    "First to earn it",
+  );
+  expect(achievementContent({ holder_count: 12 }).holders).toBe(
+    "Earned by 12 players",
+  );
+  expect(achievementContent({ holder_count: null }).holders).toBeNull();
+});
+
+test("a sharer whose player row the page could not read is their initial", () => {
+  const content = achievementContent({}, null);
+  expect(content.sharer).toEqual({
+    name: "Chiara",
+    avatar: { url: null, initial: "C" },
+  });
+  expect(cardImageUrls(content)).toEqual([]);
+  // And one without a picture of their own, the same.
+  const plain = achievementContent({}, player("chiara", "Chiara", false));
+  expect(plain.sharer.avatar.url).toBeNull();
 });

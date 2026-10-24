@@ -16,7 +16,9 @@ import { PREFS_KEY } from "../shareCard/prefs";
 import { meResponse, userRead } from "../test/auth";
 import { iconNames } from "../test/icons";
 import {
+  PICTURED,
   SONGS,
+  achievementInput,
   cardParty,
   cardPlayers,
   cardScore,
@@ -199,6 +201,7 @@ function requests(): CardRequest[] {
 function designOf(request: CardRequest): string {
   if (request.kind === "score") return request.options.look;
   if (request.kind === "player") return request.options.focus;
+  if (request.kind === "achievement") return "badge";
   if (request.content.onlyMe) return "you";
   if (request.options.focus === "spread") return "spread";
   if (request.options.look === "mosaic") return "mosaic";
@@ -1516,4 +1519,134 @@ test("a remembered player design this record cannot draw opens on the first that
   await preview();
   expect(designName()).toBe("Songs");
   expect(stored().playerDesign).toBe("histogram");
+});
+
+// ------------------------------------------------------------ an achievement
+
+function achievementTarget(
+  achievement: Parameters<typeof achievementInput>[0] = PICTURED,
+): ShareTarget {
+  return { kind: "achievement", ...achievementInput(achievement) };
+}
+
+test("an achievement's panel is named for it, one Badge slide drawn from the full-size picture", async () => {
+  renderPanel(achievementTarget());
+  const dialog = screen.getByRole("dialog", {
+    name: "Share this achievement",
+  });
+  expect(within(dialog).queryByRole("heading")).toBeNull();
+  const image = await preview();
+  expect(image).toHaveAccessibleName(
+    "Share card: Chiara earned First Time on the Mic",
+  );
+  expect(slideNames()).toEqual(["Badge, 1 of 1"]);
+  expect(designName()).toBe("Badge");
+  const request = lastRequest();
+  expect(request.kind).toBe("achievement");
+  expect(requests()).toHaveLength(1);
+  // The picture the card draws is asked for by the panel, at full size.
+  const asked = loadCardImages.mock.calls[0][0] as string[];
+  expect(asked).toContain(
+    "/api/v1/achievements/first-time-on-the-mic/icon?size=full&v=7",
+  );
+  expect(asked).toContain(LOGO_URL);
+});
+
+test("one slide draws no arrows, no dots and no rule, and the format pair stands alone", async () => {
+  renderPanel(achievementTarget());
+  await preview();
+  expect(screen.queryByRole("button", { name: "Previous design" })).toBeNull();
+  expect(screen.queryByRole("button", { name: "Next design" })).toBeNull();
+  expect(document.querySelector(".share-dots")).toBeNull();
+  expect(dots()).toEqual([]);
+  expect(document.querySelector(".share-nav-rule")).toBeNull();
+  const nav = document.querySelector(".share-carousel-nav") as HTMLElement;
+  // The pair is all the row holds.
+  expect([...nav.children].map((child) => child.className)).toEqual([
+    "share-formats",
+  ]);
+  const pair = within(nav).getByRole("radiogroup", { name: "Format" });
+  expect(within(pair).getAllByRole("radio")).toHaveLength(2);
+  // A story is the format the next drawing asks for.
+  fireEvent.click(within(pair).getByRole("radio", { name: "Story" }));
+  await waitFor(() => expect(lastRequest().options.format).toBe("story"));
+});
+
+test("on an achievement card only the logo is live; the other two are dimmed and say why", async () => {
+  renderPanel(achievementTarget());
+  await preview();
+  expect(toggles()).toEqual([
+    ["Other singers' pictures", true, true],
+    ["Party name and date", true, true],
+    ["Wingman logo", true, false],
+  ]);
+  fireEvent.click(toggle("Other singers' pictures"));
+  expect(line()).toBe("Nobody else is on this card.");
+  fireEvent.click(toggle("Party name and date"));
+  expect(line()).toBe("An achievement belongs to no party.");
+  // A dimmed press changes nothing that is kept.
+  expect(stored().partyNameAndDate).toBeUndefined();
+  expect(toggles()[1]).toEqual(["Party name and date", true, true]);
+  fireEvent.click(toggle("Wingman logo"));
+  expect(line()).toBe("The Wingman logo is left off.");
+  await waitFor(() => {
+    const request = lastRequest();
+    if (request.kind !== "achievement") throw new Error("not an achievement");
+    expect(request.options.logo).toBe(false);
+  });
+});
+
+test("an achievement card keeps the format and the logo, and remembers no design of its own", async () => {
+  renderPanel(achievementTarget());
+  await preview();
+  fireEvent.click(screen.getByRole("radio", { name: "Story" }));
+  fireEvent.click(toggle("Wingman logo"));
+  await waitFor(() => expect(stored().format).toBe("story"));
+  expect(stored()).toEqual(
+    expect.objectContaining({
+      logo: false,
+      scoreLook: "dark",
+      partyDesign: "podium",
+      playerDesign: "histogram",
+    }),
+  );
+  expect(Object.values(stored())).not.toContain("badge");
+});
+
+test("an achievement card opens on the remembered format and logo", async () => {
+  window.localStorage.setItem(
+    PREFS_KEY,
+    JSON.stringify({ format: "story", logo: false, partyDesign: "mosaic" }),
+  );
+  renderPanel(achievementTarget());
+  await preview();
+  const request = lastRequest();
+  if (request.kind !== "achievement") throw new Error("not an achievement");
+  expect(request.options).toEqual({ format: "story", logo: false });
+  expect(screen.getByRole("radio", { name: "Story" })).toBeChecked();
+  // A design remembered for another card kind is left as it was.
+  expect(stored().partyDesign).toBe("mosaic");
+});
+
+test("the arrow keys on a one-slide carousel go nowhere and draw nothing more", async () => {
+  renderPanel(achievementTarget());
+  await preview();
+  const drawn = requests().length;
+  fireEvent.keyDown(carousel(), { key: "ArrowRight" });
+  fireEvent.keyDown(carousel(), { key: "ArrowLeft" });
+  expect(designName()).toBe("Badge");
+  expect(slideNames()).toEqual(["Badge, 1 of 1"]);
+  expect(requests()).toHaveLength(drawn);
+  expect(stored()).toEqual({});
+});
+
+test("an achievement card's file is named for the achievement and the sharer", async () => {
+  renderPanel(achievementTarget());
+  await preview();
+  await waitFor(() =>
+    expect(screen.getByRole("link", { name: "Save image" })).toHaveAttribute(
+      "download",
+      "wingman-first-time-on-the-mic-chiara.png",
+    ),
+  );
 });

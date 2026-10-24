@@ -1,7 +1,10 @@
 import type { ScoreWithContext } from "../api";
 import { cardDate } from "../duration";
 import {
+  LONG_ACHIEVEMENT,
+  PICTURED,
   SONGS,
+  achievementContent,
   cardParty,
   cardPlayers,
   cardScore,
@@ -13,6 +16,7 @@ import {
 import { chartTheme } from "../chartTheme";
 import {
   partyCard,
+  type AchievementCardContent,
   playerCard,
   scoreCard,
   type PartyCardContent,
@@ -28,6 +32,7 @@ import {
   SAFE_AREA,
   SCRIM_ALPHA,
   elementBox,
+  layoutAchievementCard,
   layoutPartyCard,
   layoutPlayerCard,
   layoutScoreCard,
@@ -39,6 +44,7 @@ import {
 import {
   PARTY_DESIGNS,
   PLAYER_DESIGNS,
+  resolveAchievementOptions,
   resolvePartyOptions,
   resolvePlayerOptions,
   resolveScoreOptions,
@@ -1329,3 +1335,204 @@ test.each(["square", "story"] as const)(
     expect(texts(off, "brand-note")).toEqual(["ranked by best score"]);
   },
 );
+
+// ------------------------------------------------------------ an achievement
+
+const ACHIEVEMENTS: [string, AchievementCardContent][] = [
+  ["a built-in with a picture", achievementContent(PICTURED)],
+  ["a badge without a picture", achievementContent({ icon: "mic" })],
+  [
+    "a long name and a long description, no picture",
+    achievementContent(LONG_ACHIEVEMENT),
+  ],
+  [
+    "a long name and description with a picture, no count, no face",
+    achievementContent(
+      { ...PICTURED, ...LONG_ACHIEVEMENT, holder_count: null },
+      null,
+    ),
+  ],
+  ["a sentence of one line", achievementContent({ description: "Sing." })],
+  ["no sentence at all", achievementContent({ description: "" })],
+];
+
+const ACHIEVEMENT_SLIDES = FORMATS.flatMap((format) =>
+  [true, false].map((logo) => ({ format, logo })),
+);
+
+describe.each(ACHIEVEMENTS)("the achievement card, %s", (_, content) => {
+  test.each(ACHIEVEMENT_SLIDES)(
+    "fits on a $format card, logo $logo",
+    ({ format, logo }) => {
+      const options = resolveAchievementOptions(format, logo);
+      // Both with the picture in and without it: one that did not decode is
+      // the plate, which takes the same box.
+      for (const loaded of [all, () => false]) {
+        checkLayout(
+          layoutAchievementCard(content, options, fakeMeasure, loaded),
+          format,
+        );
+      }
+    },
+  );
+});
+
+function boxOf(layout: CardLayout, region: string): Box {
+  const boxes = layout.elements
+    .filter((element) => element.region === region)
+    .map(elementBox);
+  const x = Math.min(...boxes.map((box) => box.x));
+  const y = Math.min(...boxes.map((box) => box.y));
+  return {
+    x,
+    y,
+    w: Math.max(...boxes.map((box) => box.x + box.w)) - x,
+    h: Math.max(...boxes.map((box) => box.y + box.h)) - y,
+  };
+}
+
+test("the achievement square sits where §10 puts it", () => {
+  const layout = layoutAchievementCard(
+    achievementContent({
+      ...PICTURED,
+      // Two lines of description, as §10's table is drawn for.
+      description:
+        "Sing your very first song at a party, any song at all, and any score.",
+    }),
+    { format: "square", logo: true },
+    fakeMeasure,
+  );
+  const badge = layout.elements.find((element) => element.region === "badge");
+  expect(badge).toMatchObject({ kind: "image", w: 400, h: 400, radius: 80 });
+  expect(boxOf(layout, "badge").x).toBe(340);
+  expect(boxOf(layout, "badge").y).toBeCloseTo(72, 0);
+  expect(boxOf(layout, "name").y).toBeCloseTo(512, 0);
+  expect(boxOf(layout, "description").y).toBeCloseTo(600, 0);
+  expect(boxOf(layout, "description").h).toBeCloseTo(104, 0);
+  expect(boxOf(layout, "sharer").y).toBeCloseTo(744, 0);
+  expect(boxOf(layout, "sharer").h).toBe(72);
+  expect(boxOf(layout, "earned").y).toBeCloseTo(848, 0);
+  expect(texts(layout, "name")).toEqual(["First Time on the Mic"]);
+  expect(texts(layout, "sharer")).toEqual(["Chiara"]);
+  expect(texts(layout, "earned")).toEqual([
+    `Earned ${cardDate("2026-08-12T20:15:00Z")}`,
+    "Earned by 3 players",
+  ]);
+  // Everything is centred on the card.
+  for (const region of ["badge", "name", "description", "sharer", "earned"]) {
+    const box = boxOf(layout, region);
+    expect(box.x + box.w / 2).toBeCloseTo(CARD_WIDTH / 2, 0);
+  }
+  // The brand alone at the foot, nothing at its right.
+  expect(texts(layout, "brand")).toEqual(["Ultrastar Wingman"]);
+  expect(texts(layout, "brand-note")).toEqual([]);
+});
+
+test("without a picture the badge is its plate, a fifth rounded, the glyph half its side in --bg", () => {
+  const content = achievementContent({ icon: "mic", color: "gold" });
+  for (const [format, side] of [
+    ["square", 400],
+    ["story", 560],
+  ] as const) {
+    const layout = layoutAchievementCard(
+      content,
+      { format, logo: true },
+      fakeMeasure,
+    );
+    const badge = layout.elements.filter(
+      (element) => element.region === "badge",
+    );
+    expect(badge).toMatchObject([
+      { kind: "rect", w: side, h: side, radius: side / 5, fill: "#faa636" },
+      { kind: "icon", name: "mic", size: side / 2, color: CARD_COLORS.bg },
+    ]);
+  }
+});
+
+test("a picture that did not arrive is drawn as the plate, never a letter", () => {
+  const layout = layoutAchievementCard(
+    achievementContent(PICTURED),
+    { format: "square", logo: true },
+    fakeMeasure,
+    () => false,
+  );
+  expect(
+    layout.elements
+      .filter((element) => element.region === "badge")
+      .map((element) => element.kind),
+  ).toEqual(["rect", "icon"]);
+});
+
+test("a long name is one line, cut; a long description two lines on a square and three on a story", () => {
+  const content = achievementContent(LONG_ACHIEVEMENT);
+  const square = layoutAchievementCard(
+    content,
+    { format: "square", logo: true },
+    fakeMeasure,
+  );
+  const story = layoutAchievementCard(
+    content,
+    { format: "story", logo: true },
+    fakeMeasure,
+  );
+  for (const layout of [square, story]) {
+    const name = texts(layout, "name");
+    expect(name).toHaveLength(1);
+    expect(name[0].endsWith("…")).toBe(true);
+  }
+  expect(texts(square, "description")).toHaveLength(2);
+  expect(texts(square, "description")[1].endsWith("…")).toBe(true);
+  expect(texts(story, "description")).toHaveLength(3);
+  // The name at its smaller size, the description at its one.
+  const sizes = (layout: CardLayout, region: string) =>
+    layout.elements
+      .filter(
+        (element): element is TextElement =>
+          element.kind === "text" && element.region === region,
+      )
+      .map((element) => element.size);
+  expect(sizes(square, "name")).toEqual([52]);
+  expect(sizes(story, "name")).toEqual([60]);
+  expect(new Set(sizes(square, "description"))).toEqual(new Set([40]));
+  expect(new Set(sizes(story, "description"))).toEqual(new Set([44]));
+});
+
+test("the achievement story keeps the order in its safe area: the badge 560, the avatar 96", () => {
+  const layout = layoutAchievementCard(
+    achievementContent(PICTURED),
+    { format: "story", logo: true },
+    fakeMeasure,
+  );
+  expect(boxOf(layout, "badge")).toMatchObject({ w: 560, h: 560 });
+  expect(boxOf(layout, "sharer").h).toBe(96);
+  const order = ["badge", "name", "description", "sharer", "earned", "brand"];
+  for (let i = 1; i < order.length; i++) {
+    const above = boxOf(layout, order[i - 1]);
+    expect(boxOf(layout, order[i]).y).toBeGreaterThan(above.y + above.h);
+  }
+  expect(boxOf(layout, "badge").y).toBeGreaterThanOrEqual(SAFE_AREA.story.top);
+});
+
+test("with the logo off the achievement card loses the brand and nothing moves", () => {
+  const content = achievementContent(PICTURED);
+  for (const format of FORMATS) {
+    const on = layoutAchievementCard(
+      content,
+      { format, logo: true },
+      fakeMeasure,
+    );
+    const off = layoutAchievementCard(
+      content,
+      { format, logo: false },
+      fakeMeasure,
+    );
+    const rest = (layout: CardLayout) =>
+      layout.elements.filter((element) => element.region !== "brand");
+    expect(
+      off.elements.filter((element) => element.region === "brand"),
+    ).toEqual([]);
+    expect(rest(off)).toEqual(rest(on));
+    expect(on.background).toEqual({ kind: "dark" });
+    expect(on.halo).toBe(false);
+  }
+});
