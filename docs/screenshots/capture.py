@@ -469,6 +469,13 @@ DEVICE_SETTINGS = "devices."
 # How long the selector's start press may take to put a spun selection on the room.
 SELECTION_TIMEOUT = 10.0
 
+# The Random song page's two pills, *This screen* and *Host screen*, and the check that one
+# of them is chosen. The choice is kept per device, so every reel row says where it spins.
+SPIN_HERE = "click(q('.spinner-target input[value=\"local\"]'))"
+SPUN_HERE = "q('.spinner-target input[value=\"local\"]').checked"
+SPIN_ON_HOST = "click(q('.spinner-target input[value=\"host\"]'))"
+SPUN_ON_HOST = "q('.spinner-target input[value=\"host\"]').checked"
+
 ROWS: dict[str, Row] = {
     "home": Row(
         identity="Leela",
@@ -610,6 +617,8 @@ ROWS: dict[str, Row] = {
         viewport="phone",
         route="/spinner",
         steps=(
+            # Where the reel runs is kept per device: this one is the phone's own reel.
+            (SPIN_HERE, SPUN_HERE),
             (
                 # Reduced motion makes the reel reveal at once, so a spin is one click and one
                 # tick. Which song it lands on is `Math.random`'s, so it is spun until it is
@@ -621,16 +630,19 @@ ROWS: dict[str, Row] = {
                 'text(q(".spinner-winner-title")) === "Sandstorm"',
             ),
         ),
-        ready='q(".spinner-pick-select") && q(".spinner-spin") && q(".spinner-host")'
-        ' && text(q(".spinner-winner-title")) === "Sandstorm"',
+        ready='q(".spinner-pick-select") && q(".spinner-spin") && q(".spinner-target")'
+        ' && q(".spinner-play") && text(q(".spinner-winner-title")) === "Sandstorm"',
     ),
     "playlist-reel": Row(
         identity="Leela",
         viewport="phone",
         route="/songs/playlists/{playlist}/spinner",
-        steps=(('click(q(".spinner-spin"))', 'q(".spinner-winner-title")'),),
+        steps=(
+            (SPIN_HERE, SPUN_HERE),
+            ('click(q(".spinner-spin"))', 'q(".spinner-winner-title")'),
+        ),
         ready='q(".spinner-winner-title") && text(q(".page-header-title, h1"))!== ""'
-        ' && q(".spinner-spin") && q(".spinner-host")',
+        ' && q(".spinner-spin") && q(".spinner-target") && q(".spinner-play")',
     ),
     "reel-host-spin": Row(
         identity="Leela",
@@ -648,20 +660,25 @@ ROWS: dict[str, Row] = {
                 'setValue(q(".spinner-pick-select"), "wishlist")',
                 'q(".spinner-pick-select").value === "wishlist"',
             ),
-            # The phone reveals the song when the reel on the TV lands, a fixed few seconds
-            # after the server's `spun_at`, reduced motion or not: this wait is the feature.
-            ('click(q(".spinner-host"))', 'q(".host-spin")'),
-            ("true", 'q(".host-spin-title")'),
+            # The page itself in *Host screen* mode: the pill opens nothing, SPIN takes the
+            # room's selection. The phone reveals the song when the reel on the TV lands, a
+            # fixed few seconds after the server's `spun_at`, reduced motion or not: this wait
+            # is the feature.
+            (SPIN_ON_HOST, SPUN_ON_HOST),
+            ('click(q(".spinner-spin"))', 'q(".spinner-state")'),
+            ("true", 'q(".spinner-words .spinner-winner-title")'),
         ),
-        # The cover has risen in, the words are under it beside the take-off, and the die
-        # reads *Spin again*: it read *Show it* while the TV's reel ran.
-        ready='q(".host-spin-cover-revealed") && q(".host-spin-title") && q(".host-spin-artist")'
-        ' && q(".host-spin-take-off")'
-        ' && byText(".host-spin-actions button", "Spin again")'
-        ' && byText(".host-spin-actions button", "Play")',
-        # Cancel gives the room's lock back. Left open, the selection would answer every
-        # later `POST /karaoke/sing` with 409 until it idles out.
-        after=(('click(byText(".host-spin-actions button", "Cancel"))', '!q(".host-spin")'),),
+        # The cover stands in the window, the words are under it beside the take-off, and the
+        # die reads *Spin again*: it read *Show it* while the TV's reel ran.
+        ready='q(".spinner-window img") && q(".spinner-words .spinner-winner-title")'
+        ' && q(".spinner-words .spinner-winner-artist") && q(".spinner-take-off")'
+        ' && byText(".spinner-actions button", "Spin again")'
+        ' && byText(".spinner-actions button", "Play")'
+        ' && !q(".spinner-actions .spinner-play").disabled',
+        # The pills back on *This screen* give the room's lock back — the page's one way
+        # out — and leave this device on its own reel for the rows after. Left open, the
+        # selection would answer every later `POST /karaoke/sing` with 409 until it idles out.
+        after=((SPIN_HERE, SPUN_HERE + ' && !q(".spinner-state")'),),
     ),
     "usdb-search": Row(
         identity="host",

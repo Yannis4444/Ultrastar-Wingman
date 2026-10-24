@@ -1,5 +1,6 @@
-/* One centred column: the pool select and the pool size, the reel alone, the
-   result, the action row of SPIN and the host square. Flat on the page — the
+/* One centred column, the same in both places the reel runs: the pills, the
+   pool select and the pool size, the reel alone, the result, the action row of
+   SPIN and Play. Flat on the page — the
    reel is the only surface. The reel's own rules are `SongReel.css`; this is
    what stands around it. */
 .spinner {
@@ -36,12 +37,17 @@
   min-width: 0;
 }
 
+.spinner-pick + .spinner-pool {
+  margin-top: -8px;
+}
+
 /* What the reel can land on. The line is always reserved, so switching scopes
    never shifts the reel; it sits closer to the select than the column
-   rhythm. */
+   rhythm — and only to the select: under the pills of a playlist's reel it
+   keeps the rhythm, or it would read as the pills' own line. */
 .spinner-pool {
   min-height: 1.2em;
-  margin: -8px 0 0;
+  margin: 0;
   font-size: 0.85em;
   font-variant-numeric: tabular-nums;
   text-align: center;
@@ -61,7 +67,7 @@
   align-items: center;
   align-self: stretch;
   min-width: 0;
-  min-height: 2.75em;
+  min-height: 2.875em;
 }
 
 /* The result, flat under the reel at the song hero's sizes — no box, the reel
@@ -127,9 +133,48 @@
   grid-column: 3;
 }
 
-/* The column's one action row: SPIN takes the width, the host square its
-   56px beside it. The SPIN button itself is `SpinButton.css`: the gradient die
-   is shared with the phone's *Spin again* over a spin on the host screen. */
+/* The TV's song as plain words in the same middle cell: no button, because
+   the song modal's Sing would race this phone's own hold on the room. */
+.spinner-words {
+  grid-column: 2;
+  display: grid;
+  gap: 2px;
+  min-width: 0;
+  text-align: center;
+  color: var(--color);
+  animation: spinner-rise 0.3s ease-out;
+}
+
+/* What the TV's spin is doing when there is no song to name: one quiet
+   sentence across the whole slot — no take-off stands beside a sentence — and
+   never more than two lines, so another selection's long title cannot push
+   the action row down out of the reserved height. */
+.spinner-state {
+  grid-column: 1 / -1;
+  display: -webkit-box;
+  overflow: hidden;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
+  line-clamp: 2;
+  margin: 0;
+  font-size: 0.85em;
+  text-align: center;
+  color: var(--color-dark);
+}
+
+/* The cover of the TV's pick, loading while its reel runs. Never drawn. */
+.spinner-preload {
+  display: none;
+}
+
+/* A refusal over the action row; the state above it stands. */
+.spinner-notice {
+  align-self: stretch;
+  margin: 0;
+}
+
+/* The column's one action row: SPIN takes the width, Play its own width
+   beside it. The SPIN button itself is `SpinButton.css`. */
 .spinner-actions {
   display: flex;
   gap: 8px;
@@ -142,38 +187,87 @@
   min-width: 0;
 }
 
-/* The same spin on the TV, as a square as high as SPIN: its hairline and
-   radius, the quiet input fill under the `tv` glyph — never the gradient,
-   never a second die. It rests whenever SPIN does. */
-.spinner-host {
-  display: flex;
+/* Play — or, while somebody else is picking, Take over — a plain `.button`
+   as high as SPIN, never a second primary. */
+.spinner-play {
+  display: inline-flex;
   box-sizing: border-box;
-  flex: 0 0 56px;
+  flex: 0 0 auto;
   align-items: center;
   justify-content: center;
-  width: 56px;
-  height: 56px;
-  padding: 0;
-  font: inherit;
-  font-size: 1.5em;
-  color: var(--color-dark);
-  background-color: var(--input-bg);
-  border: 1px solid var(--input-border-color);
-  border-radius: var(--border-radius);
-  cursor: pointer;
-  transition:
-    color 0.15s ease,
-    background-color 0.15s ease;
+  gap: 8px;
+  min-height: 56px;
+  white-space: nowrap;
 }
 
-.spinner-host:hover:enabled {
-  color: var(--color);
-  background-color: var(--highlight-blue-dark);
+.spinner-play-icon {
+  font-size: 1.25em;
+  color: var(--highlight-blue-light);
 }
 
-.spinner-host:disabled {
+.spinner-play:disabled .spinner-play-icon {
   color: var(--color-darkerer);
+}
+
+/* Where the reel runs: §4's pills (hidden radio, visible span), centred over
+   the pool. The label keeps the 40px touch floor while the pill is 32px. */
+.spinner-target {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 6px;
+  margin: 0 0 -8px;
+  padding: 0;
+  border: none;
+}
+
+.spinner-target-pill {
+  display: inline-flex;
+  align-items: center;
+  min-height: 40px;
+  cursor: pointer;
+}
+
+.spinner-target-text {
+  display: inline-flex;
+  box-sizing: border-box;
+  align-items: center;
+  gap: 6px;
+  min-height: 32px;
+  padding: 0 14px;
+  font-size: 0.85em;
+  color: var(--color-darker);
+  border: 1px solid var(--input-border-color);
+  border-radius: 999px;
+}
+
+/* On `--bg` the dark fill alone barely lifts off the page, so the chosen pill
+   keeps a border too, in the accent its text wears. */
+.spinner-target-pill input:checked ~ .spinner-target-text {
+  color: var(--highlight-blue-light);
+  background-color: var(--highlight-blue-dark);
+  border-color: var(--highlight-blue-light);
+}
+
+.spinner-target-pill input:focus-visible ~ .spinner-target-text {
+  outline: 2px solid var(--highlight-blue-light);
+  outline-offset: 2px;
+}
+
+.spinner-target-pill input:disabled ~ .spinner-target-text {
+  opacity: 0.6;
+}
+
+.spinner-target-pill:has(input:disabled) {
   cursor: default;
+}
+
+@media (hover: hover) {
+  .spinner-target-pill
+    input:not(:checked):enabled
+    ~ .spinner-target-text:hover {
+    color: var(--color-dark);
+  }
 }
 
 @media (prefers-reduced-motion: reduce) {
@@ -181,11 +275,8 @@
     transition: none;
   }
 
-  .spinner-winner {
+  .spinner-winner,
+  .spinner-words {
     animation: none;
-  }
-
-  .spinner-host {
-    transition: none;
   }
 }

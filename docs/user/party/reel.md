@@ -3,7 +3,7 @@
 Nobody can decide what to sing? The reel picks for you. A stack of covers
 scrolls past for a few seconds and stops on the winner.
 
-![The Random song page with Pick from on All songs, 42 songs under it, and the reel landed on Sandstorm by Darude](../assets/screenshots/party/reel.png){ width="320" loading=lazy }
+![The Random song page on This screen, with Pick from on All songs, 42 songs under it, the reel landed on Sandstorm by Darude, and Spin beside Play](../assets/screenshots/party/reel.png){ width="320" loading=lazy }
 /// caption
 The line under **Pick from** counts the songs in the running.
 ///
@@ -21,7 +21,11 @@ There are two ways in:
 2. Tap **Spin**.
 3. The reel runs for a few seconds and reveals the song.
 4. Tap the winner to open it. From there you go straight into
-   :wingman-play: **Sing**. See [Sing a song](sing.md).
+   :wingman-play: **Sing**. Or tap :wingman-play: **Play** beside **Spin** to
+   pick the singers for it right away. See [Sing a song](sing.md).
+
+**Play** is there for anybody who may start a song. It stays off until the reel
+has landed.
 
 ## What it picks from
 
@@ -64,23 +68,27 @@ See [Spin on the host screen](#spin-on-the-host-screen).
 
 ## Spin on the host screen
 
-The reel can run on the TV instead, so the whole room watches the pick. Beside
-**Spin** stands a small square button with a screen on it, :wingman-tv:
-**Spin on the host screen**. It is there for anybody who may start a song. It
-rests whenever **Spin** does: while the reel runs, and while there is nothing to
-pick from.
+The reel can run on the TV instead, so the whole room watches the pick. Two
+buttons at the top of the page say where it runs: **This screen** and
+:wingman-tv: **Host screen**. They are there for anybody who may start a song.
+Your phone remembers the choice for next time.
 
-1. Choose what the reel may pick from in the **Pick from** list.
-2. Tap :wingman-tv: **Spin on the host screen** beside **Spin**.
-3. The phone shows the reel's empty tile and *Spinning on the host screen…*
-   while the covers scroll past on the TV. The cover, the title, and the
-   artist appear on the phone the moment the reel lands there.
-4. Tap **Show it** while the TV spins to show the result at once. The same
-   button reads **Spin again** once the reel has landed, and picks another
-   song.
-5. Tap **Play** to pick the singers: the player selection opens for that
+1. Tap :wingman-tv: **Host screen**. The TV does nothing yet.
+2. Choose what the reel may pick from in the **Pick from** list.
+3. Tap **Spin**. The covers scroll past on the TV. Your phone keeps the reel's
+   empty frame and reads *Spinning on the host screen…*
+4. The cover, the title, and the artist appear on your phone the moment the
+   reel lands on the TV. To see the result sooner, tap **Show it**: the TV
+   stops at once.
+5. Tap **Spin again** for another song.
+6. Tap **Play** to pick the singers: the player selection opens for that
    song. See [Sing a song](sing.md).
-6. **Cancel** gives the TV back and picks nothing.
+
+To stop, tap **This screen**. That gives the TV back and picks nothing. Leaving
+the page does the same. There is no other button to close it.
+
+Changed the **Pick from** list while the TV shows a song? The TV keeps that
+song until you tap **Spin again**. Then it spins over the new choice.
 
 On a wishlist choice, the party's helpers find :wingman-trash: **Take off the
 wishlist for everybody** beside the title here as well, once the TV's reel has
@@ -88,15 +96,15 @@ landed on a song still wished for. The song comes off the wishlist and stays on
 the phone. **Play** still picks the singers for it, and **Spin again** picks
 another song.
 
-![The spin view landed on a wished song: cover, title and artist with the trash beside them, the Spin again die, Play, and Cancel](../assets/screenshots/party/reel-host-spin.png){ width="320" loading=lazy }
+![The Random song page on Host screen, landed on a wished song: the cover in the frame, the title and the artist with the trash beside them, the Spin again die, and Play](../assets/screenshots/party/reel-host-spin.png){ width="320" loading=lazy }
 /// caption
-The phone shows the pick under its cover. The animation is the TV's.
+The same page, with the TV's pick under its cover. The animation is the TV's.
 ///
 
 Wingman picks the song here, by the table above and as you see the library. A
 song hidden from you cannot win on the TV either. A choice with nothing behind
-it gets a sentence and **Cancel**, such as *The wishlist is empty. The reel has
-nothing to land on.*
+it gets a sentence where the song would be, such as *The wishlist is empty. The
+reel has nothing to land on.*
 
 When the reel lands, the TV plays the song from where its singing starts, so the
 room hears what it picked. It keeps playing after you tap **Play** while the
@@ -108,9 +116,10 @@ volume** beside it sets how loud it plays (see
 
 Spinning on the host screen holds the room the way **Sing** does. Nobody else
 can start a song while your phone holds the pick. If somebody is already
-picking singers, the phone says so and offers **Take over**. Taking over ends
-their pick. When somebody takes over yours, your phone reads *Somebody else
-took over the selection.* and offers **Spin again**.
+picking singers, the phone says so and offers **Take over** in place of
+**Play**. Taking over ends their pick. When somebody takes over yours, your
+phone reads *Somebody else took over the selection.* Tap **Spin** to start a
+new pick.
 
 On the TV, the reel stands where the song's cover stands while singers are
 picked. It shows the reel and the song alone, and the microphone slots appear
@@ -126,16 +135,15 @@ Opened from a playlist, the reel picks from that playlist and nothing else.
 There is no **Pick from** list above it, only the number of songs it can land
 on, and the playlist's name stands in the header.
 
-![The reel opened from Planet Express party mix, with the playlist name in the header, 8 songs under it, and one of them landed in the frame](../assets/screenshots/party/playlist-reel.png){ width="320" loading=lazy }
+![The reel opened from Planet Express party mix, with the playlist name in the header, This screen and Host screen under it, 8 songs under those, one of them landed in the frame, and Spin beside Play](../assets/screenshots/party/playlist-reel.png){ width="320" loading=lazy }
 /// caption
 The header names the playlist, so the reel picks from its eight songs alone.
 ///
 
 The dice appears once the playlist has a song in it. A song only folded away by
 a tag can win here, the same way the playlist itself still lists it. Somebody
-put it there on purpose. :wingman-tv: **Spin on the host screen** stands beside
-**Spin** here too, and spins this playlist on the TV. A playlist's reel never
-takes a song off the wishlist.
+put it there on purpose. :wingman-tv: **Host screen** is here too, and spins
+this playlist on the TV. A playlist's reel never takes a song off the wishlist.
 
 !!! note
     A phone set to reduce motion skips the animation and shows the winner right

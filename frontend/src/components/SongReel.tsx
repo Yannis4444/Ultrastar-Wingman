@@ -43,10 +43,11 @@ function prefersReducedMotion(): boolean {
 
 /**
  * The empty window's tile: black with the logo on it, what the reel shows
- * before anything has spun and what the first spin starts moving from. The
- * phone waiting on a spin on the host screen draws the same tile where the
- * cover will be, so nothing is given away before the TV's reel lands. Sized by
- * the caller's class; in the reel it is one `spinner-cover`.
+ * before anything has spun and what the first spin starts moving from — and
+ * what the Random song page's window stands on while the reel runs on the host
+ * screen, so nothing is given away before the TV's reel lands. Home's idle
+ * player draws it too. Sized by the caller's class; in the reel it is one
+ * `spinner-cover`.
  */
 export function LogoTile({ className }: { className?: string }) {
   return (

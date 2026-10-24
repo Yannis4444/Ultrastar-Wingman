@@ -114,6 +114,8 @@ function renderPage(
 
 beforeEach(() => {
   vi.resetAllMocks();
+  // Where the reel runs is kept per device: every test starts on this screen.
+  window.localStorage.clear();
   vi.stubGlobal("WebSocket", FakeSocket);
   listSongs.mockResolvedValue({ data: { songs: [] } });
   listWishlist.mockResolvedValue({ data: { wishes: [] } });
@@ -127,12 +129,13 @@ beforeEach(() => {
 
 afterEach(() => vi.unstubAllGlobals());
 
-test("the host button spins this playlist on the host screen", async () => {
+test("on the Host screen SPIN spins this playlist on the TV", async () => {
   renderPage(detail(), [...LIBRARY, "karaoke.sing"]);
 
-  fireEvent.click(
-    await screen.findByRole("button", { name: "Spin on the host screen" }),
-  );
+  fireEvent.click(await screen.findByRole("radio", { name: "Host screen" }));
+  const spin = screen.getByRole("button", { name: "Spin" });
+  await waitFor(() => expect(spin).toBeEnabled());
+  fireEvent.click(spin);
 
   await waitFor(() => expect(openPlayerSelection).toHaveBeenCalledTimes(1));
   expect(openPlayerSelection.mock.calls[0][0].body.spin).toEqual({

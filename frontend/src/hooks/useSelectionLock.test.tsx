@@ -284,6 +284,108 @@ test("without a token a broadcast is nobody's business", () => {
   expect(onChanged).not.toHaveBeenCalled();
 });
 
+/**
+ * A component that stays on the page across selections — the Random song
+ * page's *Host screen*: it takes the room again with `begin`, and holds the
+ * answer with the ticket that came with it.
+ */
+function Reopener() {
+  const lock = useSelectionLock({ onLost, onChanged });
+  const [, setPresses] = useState(0);
+  const [ticket, setTicket] = useState<number | null>(null);
+  const pressing = (action: () => void) => () => {
+    action();
+    setPresses((count) => count + 1);
+  };
+  return (
+    <div>
+      <output>{lock.token() ?? "none"}</output>
+      <button type="button" onClick={pressing(() => setTicket(lock.begin()))}>
+        begin
+      </button>
+      {/* Takes the room again but keeps the old ticket for `hold`: the
+          answer to the earlier open, landing late. */}
+      <button type="button" onClick={pressing(() => void lock.begin())}>
+        begin again
+      </button>
+      <button
+        type="button"
+        onClick={pressing(() => lock.hold(OPENED, ticket ?? undefined))}
+      >
+        hold
+      </button>
+      <button type="button" onClick={pressing(() => void lock.close())}>
+        close
+      </button>
+    </div>
+  );
+}
+
+test("begin takes the room again after a close, and the answer is held", () => {
+  render(<Reopener />);
+  press("begin");
+  press("hold");
+  press("close");
+  expect(releases()).toHaveLength(1);
+
+  press("begin");
+  press("hold");
+
+  expect(screen.getByRole("status")).toHaveTextContent(TOKEN);
+  expect(releases()).toHaveLength(1);
+});
+
+test("an answer to an open sent before the last close is given back, even after begin", () => {
+  render(<Reopener />);
+  // Sent with the first ticket, then the pills came back and the next SPIN
+  // took the room again before the first answer landed.
+  press("begin");
+  press("close");
+  press("begin again");
+  press("hold");
+
+  expect(releases()).toHaveLength(1);
+  expectRelease(releases()[0]);
+  expect(screen.getByRole("status")).toHaveTextContent("none");
+});
+
+test("close settles once the room has answered the DELETE", async () => {
+  let answer: () => void = () => {};
+  fetchMock.mockImplementationOnce(
+    () =>
+      new Promise<void>((resolve) => {
+        answer = resolve;
+      }),
+  );
+  let closed = false;
+  function Closer() {
+    const lock = useSelectionLock({ onLost, onChanged });
+    return (
+      <button
+        type="button"
+        onClick={() => {
+          lock.hold(OPENED);
+          void lock.close().then(() => {
+            closed = true;
+          });
+        }}
+      >
+        go
+      </button>
+    );
+  }
+  render(<Closer />);
+
+  press("go");
+  await act(async () => {});
+  expect(closed).toBe(false);
+
+  await act(async () => {
+    answer();
+  });
+  expect(closed).toBe(true);
+});
+
 test("latest never steps back to an older selection", () => {
   const older = selection({ updated_at: "2026-09-06T20:00:01.000Z" });
   const newer = selection({ updated_at: "2026-09-06T20:00:02.000Z" });
