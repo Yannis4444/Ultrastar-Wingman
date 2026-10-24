@@ -192,8 +192,8 @@ Fry tapped his own score, so his row is lit. Tapping Leela's would share hers.
 - The rows are best first. The number in front of a row is the place that
   score took, so two singers on the same score share one. A sing one person
   sang alone has no place at all. Your own row says **You**.
-- Tap the song's cover or its title to open the song. A song you may not open,
-  or one that has left the library, opens nothing.
+- Tap the cover, the title, or the artist to open the song. A song you may not
+  open, or one that has left the library, opens nothing.
 - :wingman-share: **Share** makes a card of the lit row's score. See
   [Share a party, a score, or a singer's stats](#share-a-party-a-score-or-a-singers-stats).
 
@@ -215,11 +215,10 @@ from there. Whoever may read a party's scores may share them.
 - To share one singer's figures, set **Group** to **group by player** and
   open their row. :wingman-share: **Share stats** stands at the end of the
   first line, beside the number of sings and songs. The card is of that
-  singer at this party. Under **All
-  parties** or **All my scores** it adds up every party on the page, and the
-  card says **All parties**. A row grouped by song has no **Share stats**, and
-  neither has a singer with fewer than four scores, all of one song: no design
-  of the card can be drawn from those yet.
+  singer at this party. Under **All parties** or **All my scores** it adds up
+  every party on the page, and the card says **All parties**. A row grouped by
+  song has no **Share stats**, and neither has a singer with fewer than four
+  scores, all of one song: no design of the card can be drawn from those yet.
   Your own record has the same card on the **User** tab, see
   [Share your stats](your-scores.md#share-your-stats).
 
