@@ -348,6 +348,35 @@ test("the control row reads favorite, lead, wish — the song modal's order", as
   ]);
 });
 
+test("the stage's controls carry no captions, while the modal it opens does", async () => {
+  // The tile is a fixed 200px (§4): the words under the song modal's three
+  // controls are the modal's alone, in either of the stage's song modes.
+  getCurrentSing.mockResolvedValue({ data: { sing: SING } });
+  const { container, unmount } = renderStage();
+  await screen.findByRole("region", { name: "Now playing" });
+  let row = container.querySelector(".home-stage-controls") as HTMLElement;
+  expect(row.querySelector(".song-control-caption")).toBeNull();
+  expect(row).not.toHaveTextContent(/Favorite|Sing|Wishlist/);
+  unmount();
+
+  getCurrentSing.mockResolvedValue({ data: { sing: null } });
+  getMusic.mockResolvedValue({ data: music() });
+  const background = renderStage();
+  await screen.findByRole("region", { name: "Background music" });
+  row = background.container.querySelector(
+    ".home-stage-controls",
+  ) as HTMLElement;
+  expect(row.querySelector(".song-control-caption")).toBeNull();
+  expect(row).not.toHaveTextContent(/Favorite|Sing|Wishlist/);
+
+  fireEvent.click(screen.getByRole("button", { name: "Details for Waterloo" }));
+  const modal = await screen.findByRole("dialog", { name: "Waterloo" });
+  expect(
+    modal.querySelectorAll(".song-control-caption").length,
+  ).toBeGreaterThan(0);
+  expect(row.querySelector(".song-control-caption")).toBeNull();
+});
+
 test("pausing and skipping call the backend", async () => {
   getMusic.mockResolvedValue({ data: music() });
   renderStage();

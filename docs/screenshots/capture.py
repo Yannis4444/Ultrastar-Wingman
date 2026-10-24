@@ -533,7 +533,8 @@ ROWS: dict[str, Row] = {
         ),
         # Every count settled: a dash is a listing still in flight.
         ready='q(".song-hero-cover") && q(".song-details-controls") && q(".song-facts-edit")'
-        ' && qa(".song-facts .song-fact").length === 4 && q(".song-fine-print")'
+        ' && qa(".song-details-controls .song-control-caption").length === 3'
+        ' && qa(".song-facts .song-fact").length === 4 && q("a.song-fine-print")'
         ' && qa(".song-actions .song-action-count").length === 3'
         ' && !qa(".song-action-count-value").some((value) => text(value) === "—")'
         ' && text(q(".song-hero-title")) === "I Got You Babe"',

@@ -683,8 +683,10 @@ export default function Host() {
           {/* For every browser on this page, host rights or not: putting the
               screen on the TV is not a management task. */}
           <HostFullscreen onRefused={setFullscreenRefused} />
-          {/* One slot: Stop while a song plays, Ultrastar Deluxe otherwise —
-              the launch is refused while a song plays anyway. */}
+          {/* One slot: Stop while a song plays, Open Ultrastar Deluxe
+              otherwise — the launch is refused while a song plays anyway. Its
+              caption stands under the button inside the slot, never beside it
+              in the row, where it read as the whole row's. */}
           {sing !== null
             ? auth.can("karaoke.stop") && (
                 <button
@@ -713,7 +715,7 @@ export default function Host() {
                     onClick={() => launch.mutate({})}
                   >
                     <Icon name="power" />
-                    Ultrastar Deluxe
+                    Open Ultrastar Deluxe
                   </button>
                   <p className="host-caption" id="host-usdx-caption">
                     For settings like microphones

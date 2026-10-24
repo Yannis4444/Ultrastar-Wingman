@@ -1193,10 +1193,28 @@ test("the overlay opens Ultrastar Deluxe, with the reason a host would", async (
   asHost();
   renderHost("/host");
 
-  const open = await screen.findByRole("button", { name: "Ultrastar Deluxe" });
+  const open = await screen.findByRole("button", {
+    name: "Open Ultrastar Deluxe",
+  });
+  // The words say what the power glyph alone would not (§1.5).
+  expect(open).toHaveTextContent(/^Open Ultrastar Deluxe$/);
   expect(iconNames(open)).toEqual(["power"]);
   expect(open).toHaveAccessibleDescription("For settings like microphones");
   expect(open.closest(".host-controls")).not.toBeNull();
+
+  // The caption is the button's own: described by it, standing under it in
+  // the button's own slot, and describing nothing else in the corner.
+  const caption = screen.getByText("For settings like microphones");
+  expect(open).toHaveAttribute("aria-describedby", caption.id);
+  expect(caption.parentElement).toHaveClass("host-usdx");
+  expect(caption.previousElementSibling).toBe(open);
+  const corner = open.closest(".host-controls") as HTMLElement;
+  expect(corner.querySelectorAll("[aria-describedby]")).toHaveLength(1);
+  expect(
+    document.querySelectorAll(`[aria-describedby~="${caption.id}"]`),
+  ).toHaveLength(1);
+  // Not a sibling of the gear and the full-screen button in the row's line.
+  expect(caption.parentElement).not.toHaveClass("host-controls-row");
 
   fireEvent.click(open);
   await waitFor(() => expect(launchUsdx).toHaveBeenCalledTimes(1));
@@ -1211,7 +1229,9 @@ test("while a song plays the slot is Stop, and Ultrastar Deluxe is not offered",
   renderHost("/host");
 
   expect(await screen.findByRole("button", { name: "Stop" })).toBeVisible();
-  expect(screen.queryByRole("button", { name: "Ultrastar Deluxe" })).toBeNull();
+  expect(
+    screen.queryByRole("button", { name: "Open Ultrastar Deluxe" }),
+  ).toBeNull();
   expect(screen.queryByText("For settings like microphones")).toBeNull();
 });
 
@@ -1222,7 +1242,9 @@ test("a browser without the settings' right gets no Ultrastar Deluxe", async () 
   renderHost("/host");
 
   await screen.findByText("Scan to join");
-  expect(screen.queryByRole("button", { name: "Ultrastar Deluxe" })).toBeNull();
+  expect(
+    screen.queryByRole("button", { name: "Open Ultrastar Deluxe" }),
+  ).toBeNull();
 });
 
 test("a refused launch says why in the overlay, and goes once the mouse rests", async () => {
@@ -1232,7 +1254,7 @@ test("a refused launch says why in the overlay, and goes once the mouse rests", 
   renderHost("/host");
 
   fireEvent.click(
-    await screen.findByRole("button", { name: "Ultrastar Deluxe" }),
+    await screen.findByRole("button", { name: "Open Ultrastar Deluxe" }),
   );
   const alert = await screen.findByRole("alert");
   expect(alert).toHaveTextContent(
@@ -1259,7 +1281,7 @@ test("a launch refused for the setup says each problem in words", async () => {
   renderHost("/host");
 
   fireEvent.click(
-    await screen.findByRole("button", { name: "Ultrastar Deluxe" }),
+    await screen.findByRole("button", { name: "Open Ultrastar Deluxe" }),
   );
   const alert = await screen.findByRole("alert");
   expect(alert).not.toHaveTextContent("C:\\Karaoke");

@@ -24,8 +24,8 @@ song gets started, and how one gets picked when nobody can decide.
 - [Let the reel pick](reel.md): the random song picker, and what it picks from.
 
 A song's own view is where both of those start. Tap
-:wingman-playlist-plus: **Wish** and the whole room sees the song on the
-wishlist. Tap :wingman-heart: **Add to favorites** and the song is yours alone,
+:wingman-playlist-plus: **Wishlist** and the whole room sees the song on the
+wishlist. Tap :wingman-heart: **Favorite** and the song is yours alone,
 party after party. A favorite carries its heart on the song's row in
 [the song list](../songs/index.md). A wish does not. A wish belongs to tonight,
 and the wishlist is where it is counted.

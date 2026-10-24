@@ -34,23 +34,28 @@ that form takes the song out of the library. See
 [Fix or delete a song](fix-or-delete.md).
 
 The small line at the very foot of the view says who built the karaoke file and
-where the song came from, such as "Made by DrFrank · usdb:24435".
+where the song came from, such as "Made by DrFrank · usdb:24435". For a song
+from USDB the line ends in :wingman-external-link:, and tapping it opens the
+song's page on USDB in a new tab.
 
 ## The three buttons
 
+Each of the three carries its word under its glyph.
+
 | Button | What it does |
 |---|---|
-| :wingman-heart: **Add to favorites** | Marks the song for you alone |
+| :wingman-heart: **Favorite** | Marks the song for you alone |
 | :wingman-play: **Sing** | Opens the player selection |
-| :wingman-playlist-plus: **Wish** | Puts the song on tonight's wishlist |
+| :wingman-playlist-plus: **Wishlist** | Puts the song on tonight's wishlist |
 
-**Add to favorites** needs an account, because a favorite belongs to one. Nobody
-else can see your favorites, and there is no right for the host to grant. Tap
-the heart again to take the song back off. Your favorites have their own chip on
+**Favorite** needs an account, because a favorite belongs to one. Nobody else
+can see your favorites, and there is no right for the host to grant. Tap the
+heart again to take the song back off. Your favorites have their own chip on
 [the song list](index.md).
 
-**Wish** turns into :wingman-playlist-check: **Remove wish** once the song is
-on the list. See [Wish for a song](../party/wishlist.md).
+Once the song is on the list, the glyph over **Wishlist** turns into
+:wingman-playlist-check:. Tap it again to take your wish back. See
+[Wish for a song](../party/wishlist.md).
 
 :wingman-play: **Sing** is the way into the evening. See
 [Sing a song](../party/sing.md).

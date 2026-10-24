@@ -34,6 +34,7 @@ import { useFavorites } from "../hooks/useFavorites";
 import { useTags } from "../hooks/useTags";
 import { useWingmanEvent, type WingmanEvent } from "../hooks/useWingmanEvents";
 import { useWishlist } from "../hooks/useWishlist";
+import { usdbSongUrl } from "../songSources";
 import { CHART_MIN_SCORES } from "../stats";
 import { streamingLinks } from "../streamingLinks";
 import { tagColorClass, tagGlyph } from "../tags";
@@ -193,6 +194,20 @@ function grow(field: HTMLTextAreaElement): void {
   // jsdom measures nothing, and a 0px composer would be unusable in a browser
   // whose layout has not happened yet.
   field.style.height = wanted > 0 ? `${wanted}px` : "";
+}
+
+/**
+ * The word under one of the modal's three song controls (§4), the bottom
+ * nav's caption. Hidden from the accessibility tree: the button's own
+ * `aria-label` already says the word and the verb with it. The modal's alone —
+ * the Home stage's fixed tile draws the same controls without it.
+ */
+function SongControlCaption({ word }: { word: string }) {
+  return (
+    <span className="song-control-caption" aria-hidden="true">
+      {word}
+    </span>
+  );
 }
 
 export default function SongDetails({ song, onClose }: SongDetailsProps) {
@@ -500,6 +515,7 @@ export default function SongDetails({ song, onClose }: SongDetailsProps) {
   ]
     .filter((part) => part !== null && part !== "")
     .join(" · ");
+  const usdbPage = usdbSongUrl(shown.id);
 
   // The fields the editor writes, in the order §5 fixes. The creator is not
   // among them: it says who built the karaoke file, which is not a fact about
@@ -1128,6 +1144,7 @@ export default function SongDetails({ song, onClose }: SongDetailsProps) {
                 onClick={() => favorites.toggle(song.id)}
               >
                 <Icon name="heart" />
+                <SongControlCaption word="Favorite" />
               </button>
             )}
             {auth.can("karaoke.sing") && (
@@ -1138,6 +1155,7 @@ export default function SongDetails({ song, onClose }: SongDetailsProps) {
                 onClick={() => setSelectingPlayers(true)}
               >
                 <Icon name="play" />
+                <SongControlCaption word="Sing" />
               </button>
             )}
             {auth.can("wishlist.add") && (
@@ -1149,7 +1167,7 @@ export default function SongDetails({ song, onClose }: SongDetailsProps) {
                     : "song-control song-control-wish"
                 }
                 aria-pressed={wished}
-                aria-label={wished ? "Remove wish" : "Wish"}
+                aria-label={wished ? "Remove from wishlist" : "Add to wishlist"}
                 onClick={() => {
                   setNotice(null);
                   if (wished) wishlist.unwish(song.id);
@@ -1157,6 +1175,7 @@ export default function SongDetails({ song, onClose }: SongDetailsProps) {
                 }}
               >
                 <Icon name={wished ? "playlist-check" : "playlist-plus"} />
+                <SongControlCaption word="Wishlist" />
               </button>
             )}
           </div>
@@ -1273,8 +1292,28 @@ export default function SongDetails({ song, onClose }: SongDetailsProps) {
         </div>
 
         {/* Who built the karaoke file and where it came from: the quietest
-            line, at the very foot (§5). */}
-        <p className="song-fine-print">{finePrint}</p>
+            line, at the very foot (§5). A USDB song's whole line is the way
+            to its page there, which leaves Wingman. The id and the glyph are
+            one unbreakable run, so a long creator that wraps the line still
+            ends it in the glyph after the last word, never beside the block. */}
+        {usdbPage === null ? (
+          <p className="song-fine-print">{finePrint}</p>
+        ) : (
+          <a
+            className="song-fine-print song-fine-print-link"
+            href={usdbPage}
+            target="_blank"
+            rel="noopener noreferrer"
+          >
+            <span>
+              {shown.creator ? `Made by ${shown.creator} · ` : null}
+              <span className="song-fine-print-end">
+                {shown.id}
+                <Icon name="external-link" className="song-fine-print-icon" />
+              </span>
+            </span>
+          </a>
+        )}
       </Modal>
     </>
   );

@@ -94,8 +94,8 @@ Ultrastar Deluxe with no song and leaves its player configuration alone. Press
 Wingman brings its window to the front.
 
 The host screen has the same button. Move the mouse and click :wingman-power:
-**Ultrastar Deluxe** in the corner, beside *For settings like microphones*. It
-is there while no song plays. See
+**Open Ultrastar Deluxe** in the corner, over *For settings like microphones*.
+It is there while no song plays. See
 [The controls that fade](../host-screen/index.md#the-controls-that-fade).
 
 Close Ultrastar Deluxe when you are done. While it stands in its own menus, a
