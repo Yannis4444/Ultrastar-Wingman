@@ -98,8 +98,8 @@ for a party card: the shape, the three symbols, and the buttons. See
 On your own card the pictures symbol is faded, because your own picture is
 always on it.
 
-To share your stats at one party only, or somebody else's, use **Share stats**
-on the **Scores** tab with the rows grouped by player.
+To share your stats at one party only, or somebody else's, use :wingman-share:
+**Share stats** on the **Scores** tab with the rows grouped by player.
 
 ## One song's best runs
 

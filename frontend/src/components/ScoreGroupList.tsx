@@ -352,11 +352,12 @@ export default function ScoreGroupList({
                       playerStatsShareable(group.scores) ? (
                         <button
                           type="button"
-                          className="button score-group-share"
+                          className="icon-button score-group-share"
+                          aria-label="Share stats"
+                          title="Share stats"
                           onClick={() => onShareStats(group)}
                         >
                           <Icon name="share" />
-                          Share stats
                         </button>
                       ) : undefined
                     }

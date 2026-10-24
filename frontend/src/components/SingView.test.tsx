@@ -370,7 +370,10 @@ test("a song that left the library reads Unknown song, with no artist", async ()
 test("Share opens the panel on the pressed score, with the sing and its party", async () => {
   renderView();
   const share = await screen.findByRole("button", { name: "Share" });
-  expect(share).toHaveClass("button", "button-primary");
+  // A plain button, the achievement modal's Share: sharing is the view's
+  // errand, not its headline (share-cards §8).
+  expect(share).toHaveClass("button");
+  expect(share).not.toHaveClass("button-primary");
   expect(iconNames(share)).toEqual(["share"]);
 
   // A duet partner's score is shared from the same place as your own.

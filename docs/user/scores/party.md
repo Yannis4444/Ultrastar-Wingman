@@ -138,8 +138,9 @@ In **Spread**:
 - The party's best score is gold here too.
 
 Rest the pointer on a mark to read the singer, the song, the score, and the
-time. On a phone, tap near a mark instead. Tap it again, or anywhere beside the
-marks, to put the label away.
+time. On a phone, tap near a mark instead. To put the label away, tap it
+again, tap outside the chart, or press ++esc++. Opening another label closes
+it too.
 
 **All parties** and **All my scores** are no single evening, so they offer no
 **The evening**. Their labels carry the date as well as the time.
@@ -163,9 +164,10 @@ such as "12 sings · 9 songs".
 From four scores on, a bar chart shows where the scores land. **Best**,
 **Average**, and **Worst** are lines through its bars, each with its number
 over the chart. Best is the gold line, and the bar it runs through is gold
-too. Tap a bar to see its range and how many scores are in it. With fewer than
-four scores there is no chart, and the three numbers stand on one line
-instead. When every score is the same number, only **Best** is shown.
+too. Tap a bar to see its range and how many scores are in it, and tap outside
+the chart to put that away. With fewer than four scores there is no chart, and
+the three numbers stand on one line instead. When every score is the same
+number, only **Best** is shown.
 
 Under a song, **Best** and **Worst** name the singer who managed them. Under a
 singer they name nobody: the row above is already their name.
@@ -213,8 +215,8 @@ from there. Whoever may read a party's scores may share them.
   **Share**. The card is of the row that is lit there, so a duet partner's
   score is shared the same way as your own.
 - To share one singer's figures, set **Group** to **group by player** and
-  open their row. :wingman-share: **Share stats** stands at the end of the
-  first line, beside the number of sings and songs. The card is of that
+  open their row, then tap :wingman-share: **Share stats** at the end of its
+  first line, across from the number of sings and songs. The card is of that
   singer at this party. Under **All parties** or **All my scores** it adds up
   every party on the page, and the card says **All parties**. A row grouped by
   song has no **Share stats**, and neither has a singer with fewer than four

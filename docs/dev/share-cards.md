@@ -594,10 +594,12 @@ into the view.
   quiet *You* after the name (0.8em `--color-darker`, a word, never a chip).
 - **A sing with one score** is one row with no rank (a solo sing is not a win) and nothing
   else in its place.
-- **Share**: one `.button-primary` with `share`, *Share*, centred 16px under the rows; the
-  bare modal's primary is the page-level dark blue (ui-guidelines §4). It opens the share
-  panel (§5) over the view on the pressed score's card; closing the panel comes back here.
-  It is drawn once the rows are in.
+- **Share**: one plain `.button` with `share`, *Share*, centred 16px under the rows — the
+  achievement modal's Share (§10) on the same bare surface, never a primary: sharing is the
+  view's errand, not its headline. The word stays,
+  because it is the one control the view adds and nothing around it says what the view is
+  for. It opens the share panel (§5) over the view on the pressed score's card; closing the
+  panel comes back here. It is drawn once the rows are in.
 - **While it loads**, the hero stands at once from the row that was tapped, `Loading` in
   the rows' place; a refusal is one `.error-notice` there, and Share is not drawn.
 
@@ -670,7 +672,8 @@ Calls the design left open, each vetoable:
   drawn by the panel, which shows the dimmed slot instead.
 
 **Where it opens.** *Share stats* on an open **player** group on `/scores` (grouped by
-player, in any party or in *All parties*): one plain `.button` with `share` at the end of the
+player, in any party or in *All parties*): the `share` glyph alone as a transparent 40px
+`.icon-button`, named *Share stats* by its `aria-label` and `title`, at the end of the
 group's score-overview head line (ui-guidelines §7, *Score overviews*), one per group whose
 scores a design can draw; a song group has none, and neither has `/user`. On `/user/stats`,
 one `.icon-button-bordered` `share`, *Share my stats*, trailing the `PageHeader` (a page-level control, ui-guidelines

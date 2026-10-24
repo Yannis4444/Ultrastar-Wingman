@@ -287,13 +287,17 @@ export default function User() {
                 <div className="user-identity-text">
                   <h1 className="user-identity-name">{auth.user.username}</h1>
                   <p className="user-identity-role">{auth.user.role}</p>
+                  {/* The glyph alone: the way out is there when it is wanted,
+                      never the loudest thing on the singer's own tile. */}
                   <button
                     type="button"
-                    className="button user-identity-action"
+                    className="icon-button user-identity-logout"
+                    aria-label="Log out"
+                    title="Log out"
                     disabled={logOut.isPending}
                     onClick={() => logOut.mutate({})}
                   >
-                    Log out
+                    <Icon name="log-out" />
                   </button>
                 </div>
               </div>

@@ -301,11 +301,27 @@
   flex: 0 0 auto;
   flex-direction: column;
   align-items: center;
-  gap: 4px;
 }
 
+/* Tucked under the word, so the two read as one block: the 40px button
+   leaves 13.5px of its own box under the word's baseline, which with a 4px
+   gap and the caption's `normal` line put the caption's capitals 22.5px under
+   it (measured at 1280x720). A declared 16px line pulled 2px up into the
+   button's box brings them to 14.5, 1px clear of the hover fill; the focus
+   ring is drawn inside the box (below). The overlap is the caption's and never the button's: it
+   lets every press through, so the target stays 40px. */
 .host-usdx .host-caption {
+  margin-top: -2px;
+  line-height: 16px;
   text-align: center;
+  pointer-events: none;
+}
+
+/* The ring inside the button's box, the list rows' inset ring: the global
+   one stands 2 to 4px outside it, which is where the caption's capitals are,
+   and a keyboard's focus struck a line through them. */
+.host-usdx .icon-button:focus-visible {
+  outline-offset: -2px;
 }
 
 /* The music group along the foot (§7): one row at the music line's own

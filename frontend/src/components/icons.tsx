@@ -498,6 +498,14 @@ export const ICON_PATHS = {
   // tray, which is the achievements archive; not pickable.
   share:
     "M3 12a3 3 0 1 1 6 0 3 3 0 1 1-6 0ZM15 5a3 3 0 1 1 6 0 3 3 0 1 1-6 0ZM15 19a3 3 0 1 1 6 0 3 3 0 1 1-6 0ZM6.5 12.86l-1-1.72 12-7 1 1.72-12 7ZM5.5 12.86l1-1.72 12 7-1 1.72-12-7Z",
+  // Log out, on the user tile: a door frame open to the right — one two-unit
+  // band, `external-link`'s rounded outside and square inside — and an arrow
+  // leaving through the opening, its shaft starting inside the frame and its
+  // triangular head out past it, `arrow-up`'s solid shape lying on its side.
+  // Two subpaths that never touch, so the winding does not matter. Never
+  // `power`, which is Open Ultrastar Deluxe; not pickable.
+  "log-out":
+    "M11 3H5a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h6v-2H5V5h6V3ZM9 11h8V7l5 5-5 5v-4H9v-2Z",
 } as const;
 
 export type IconName = keyof typeof ICON_PATHS;

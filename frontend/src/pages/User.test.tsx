@@ -382,11 +382,27 @@ test("an account's tile is the picture beside its name, role and the way out", a
   ).toEqual([
     "user-identity-name",
     "user-identity-role",
-    "button user-identity-action",
+    "icon-button user-identity-logout",
   ]);
-  expect(screen.getByRole("button", { name: "Log out" })).toBe(
-    column?.lastElementChild,
+  const logOut = screen.getByRole("button", { name: "Log out" });
+  expect(logOut).toBe(column?.lastElementChild);
+  // The glyph alone, named by its label and its tooltip: never a word button.
+  expect(logOut).toHaveAttribute("title", "Log out");
+  expect(logOut.textContent).toBe("");
+  expect(iconNames(logOut)).toEqual(["log-out"]);
+});
+
+test("the host's way to a login keeps its words", async () => {
+  getMe.mockResolvedValue(
+    meResponse(ADMIN_CAPABILITIES, { is_host: true, role: "admin" }),
   );
+  renderUser();
+
+  // "Log in as a user" on a tile that reads Host screen and Admin is no
+  // glyph's to say: it stays a word button (§7 User).
+  const logIn = await screen.findByRole("button", { name: "Log in as a user" });
+  expect(logIn).toHaveClass("button", "user-identity-action");
+  expect(logIn).toHaveTextContent("Log in as a user");
 });
 
 test("the SSO button appears only when the provider is configured", async () => {

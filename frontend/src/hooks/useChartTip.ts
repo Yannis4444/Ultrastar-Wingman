@@ -1,4 +1,4 @@
-import { useRef, useState, type RefObject } from "react";
+import { useEffect, useRef, useState, type RefObject } from "react";
 
 export interface ChartTipState {
   /** What the tip belongs to — a second tap on the same mark closes it. */
@@ -32,12 +32,27 @@ interface MarkTipProps {
 const TAP_RANGE = 28;
 
 /**
+ * Closes the tip of whichever chart has one open, so the page never holds
+ * two. The document listener below already closes a chart's tip when a press
+ * lands in another chart; this covers the opening that comes with no press at
+ * all, a mouse hovering one chart while another holds a tapped tip.
+ */
+let closeOpenTip: (() => void) | null = null;
+
+/**
  * The tooltip state of one chart. A mouse gets hover (enter shows, leave
  * hides, per mark via `markTip`); a finger gets taps, resolved on the whole
  * SVG via `surfaceTip`: the tap means the mark it landed on, or failing that
  * the nearest one within `TAP_RANGE` — never a pixel hunt. A second tap on
  * the same mark closes the tip; a tap on nothing falls through to the
  * container, whose `onClick` gets the returned `clear` and dismisses.
+ *
+ * A chart whose marks tile the whole plot, like the histogram's twenty
+ * columns, has no nothing to tap. So while a tip is open, a press anywhere
+ * outside the container closes it — a capture-phase `pointerdown` on the
+ * document, so a target that stops propagation still closes it — and so does
+ * Escape; both listeners exist only while the tip does. Opening a tip closes
+ * any other chart's.
  */
 export function useChartTip(container: RefObject<HTMLElement | null>): {
   tip: ChartTipState | null;
@@ -54,6 +69,33 @@ export function useChartTip(container: RefObject<HTMLElement | null>): {
   // click's own pointerType cannot be trusted — the pointerdown that always
   // precedes it can, on every engine.
   const lastPointerType = useRef<string | undefined>(undefined);
+
+  // Keyed on whether a tip is open, not on the tip: moving from one mark to
+  // the next keeps the same listeners.
+  const open = tip !== null;
+  useEffect(() => {
+    if (!open) return;
+    const close = () => setTip(null);
+    closeOpenTip?.();
+    closeOpenTip = close;
+    const onPointerDown = (event: Event) => {
+      const target = event.target;
+      if (target instanceof Node && container.current?.contains(target)) {
+        return;
+      }
+      close();
+    };
+    const onKeyDown = (event: KeyboardEvent) => {
+      if (event.key === "Escape") close();
+    };
+    document.addEventListener("pointerdown", onPointerDown, true);
+    document.addEventListener("keydown", onKeyDown);
+    return () => {
+      document.removeEventListener("pointerdown", onPointerDown, true);
+      document.removeEventListener("keydown", onKeyDown);
+      if (closeOpenTip === close) closeOpenTip = null;
+    };
+  }, [open, container]);
 
   // Where a point of an SVG sits inside the container — the tip is absolutely
   // positioned in the container, but a chart can hold several row SVGs.
