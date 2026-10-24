@@ -297,6 +297,82 @@ a.icon-button:hover {
   background-color: var(--highlight-red-light);
 }
 
+/* The icon toggle (ui-guidelines §4): a `<button aria-pressed>` whose glyph
+   is the thing it puts on or leaves off. On, the glyph in `--color`; off, in
+   `--color-darkerer` under one 2px bar from its lower left to its upper
+   right, the way `eye-off`'s runs, so no toggle needs an `-off` twin in
+   `ICON_PATHS`. A picture glyph cannot take a colour: it goes grey at half
+   opacity under the same bar. A toggle that cannot act here keeps its
+   state's drawing at 40% under `aria-disabled` and stays focusable, so the
+   line that says why can be reached. After the hover rule, which
+   `aria-disabled` does not switch off (the button is still `:enabled`). */
+.icon-button.icon-toggle {
+  position: relative;
+  color: var(--color);
+}
+
+.icon-toggle img {
+  display: block;
+  width: 24px;
+  height: 24px;
+}
+
+.icon-button.icon-toggle[aria-pressed="false"] {
+  color: var(--color-darkerer);
+}
+
+.icon-toggle[aria-pressed="false"]::after {
+  content: "";
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  width: 30px;
+  height: 2px;
+  background-color: currentColor;
+  border-radius: 1px;
+  transform: translate(-50%, -50%) rotate(-45deg);
+  pointer-events: none;
+}
+
+.icon-toggle[aria-pressed="false"] img {
+  filter: grayscale(1);
+  opacity: 0.5;
+}
+
+/* On the drawing and never the button: an `opacity` on the button would take
+   the keyboard's focus ring down to 40% with it. */
+.icon-button.icon-toggle[aria-disabled="true"] {
+  cursor: default;
+}
+
+.icon-toggle[aria-disabled="true"] > *,
+.icon-toggle[aria-disabled="true"]::after {
+  opacity: 0.4;
+}
+
+.icon-toggle[aria-disabled="true"][aria-pressed="false"] img {
+  opacity: 0.2;
+}
+
+/* The hover fill for pointers alone, as the chip's: a phone keeps `:hover`
+   on whatever was tapped last, and a toggle left sitting in the blue fill
+   reads as a second "on". It never fills where the toggle cannot act, and
+   the glyph keeps its state's colour under it. */
+.icon-button.icon-toggle:hover:enabled {
+  color: var(--color);
+  background: none;
+}
+
+.icon-button.icon-toggle[aria-pressed="false"]:hover:enabled {
+  color: var(--color-darkerer);
+}
+
+@media (hover: hover) {
+  .icon-button.icon-toggle:not([aria-disabled="true"]):hover:enabled {
+    background-color: var(--highlight-blue-dark);
+  }
+}
+
 /* The chip (ui-guidelines §4): the Songs page's row of presets and the Filter
    panel's clouds draw this one box. Glyph · name, 40px, the name ellipsed
    rather than the chip outgrowing its line. `position: relative` is for the

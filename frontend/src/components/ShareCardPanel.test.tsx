@@ -1,5 +1,6 @@
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import {
+  act,
   cleanup,
   fireEvent,
   render,
@@ -8,8 +9,9 @@ import {
   within,
 } from "@testing-library/react";
 import type { ScoreWithContext } from "../api";
-import type { CardRequest } from "../shareCard/draw";
 import { coverUrl } from "../shareCard/content";
+import { LOGO_URL, type CardRequest } from "../shareCard/draw";
+import { TOGGLES_REST } from "../shareCard/possible";
 import { PREFS_KEY } from "../shareCard/prefs";
 import { meResponse, userRead } from "../test/auth";
 import { iconNames } from "../test/icons";
@@ -163,21 +165,23 @@ function renderPanel(target: ShareTarget, onClose = vi.fn()) {
   return { ...view, onClose };
 }
 
+/** Four singers, two scores each: every party slide can be drawn. Chiara,
+ * the reader, is the best of them. */
 const party = cardParty(4, 2);
 
 function partyTarget(scores: ScoreWithContext[] = party): ShareTarget {
   return { kind: "party", session: partySession(), scores };
 }
 
-function scoreTarget(scores: ScoreWithContext[]): ShareTarget {
-  return {
-    kind: "score",
-    scores,
-    grouping: "player",
-    session: partySession(),
-    pageScores: scores,
-  };
+function scoreTarget(
+  score: ScoreWithContext,
+  pageScores: ScoreWithContext[] = [score],
+): ShareTarget {
+  return { kind: "score", score, session: partySession(), pageScores };
 }
+
+/** A score of somebody else's, so every toggle reaches the card. */
+const theirs = () => cardScore("alice", 8662, SONGS[0]);
 
 /** The request of the latest drawing. */
 function lastRequest(): CardRequest {
@@ -190,10 +194,13 @@ function requests(): CardRequest[] {
   return renderCard.mock.calls.map((call) => call[0] as CardRequest);
 }
 
-/** The look and the focus a request draws: which slide it was for. */
+/** Which slide a request was drawn for. */
 function designOf(request: CardRequest): string {
   if (request.kind === "score") return request.options.look;
-  return request.options.focus === "spread" ? "spread" : request.options.look;
+  if (request.content.onlyMe) return "you";
+  if (request.options.focus === "spread") return "spread";
+  if (request.options.look === "mosaic") return "mosaic";
+  return request.options.under === "strip" ? "strip" : "podium";
 }
 
 function carousel(): HTMLElement {
@@ -251,12 +258,60 @@ function previousDesign(): HTMLElement {
   return screen.getByRole("button", { name: "Previous design" });
 }
 
+/** Moves on `times` slides with the arrow. */
+function forward(times: number): void {
+  for (let i = 0; i < times; i++) fireEvent.click(nextDesign());
+}
+
 /** The dots, as `[in view, dimmed]`. */
 function dots(): [boolean, boolean][] {
   return [...document.querySelectorAll(".share-dot")].map((dot) => [
     dot.classList.contains("share-dot-on"),
     dot.classList.contains("share-dot-dimmed"),
   ]);
+}
+
+/** The slides, by the names they are read out with. */
+function slideNames(): string[] {
+  return within(carousel())
+    .getAllByRole("group")
+    .map((slide) => slide.getAttribute("aria-label") ?? "");
+}
+
+function stored(): Record<string, unknown> {
+  return JSON.parse(window.localStorage.getItem(PREFS_KEY) ?? "{}") as Record<
+    string,
+    unknown
+  >;
+}
+
+/** The three toggles, as `[name, pressed, dimmed]`, in the row's order. */
+function toggles(): [string, boolean, boolean][] {
+  const row = screen.getByRole("group", { name: "On the card" });
+  return within(row)
+    .getAllByRole("button")
+    .map((button) => [
+      button.getAttribute("aria-label") ?? "",
+      button.getAttribute("aria-pressed") === "true",
+      button.getAttribute("aria-disabled") === "true",
+    ]);
+}
+
+function toggle(name: string): HTMLElement {
+  return screen.getByRole("button", { name });
+}
+
+/** The line under the toggles. */
+function line(): string {
+  return document.querySelector(".share-toggle-line")?.textContent ?? "";
+}
+
+/** A pointer coming over an element. jsdom has no `PointerEvent`, so the
+ * `pointerType` React reads is put on the event by hand. */
+function pointerOver(element: Element, pointerType: string): void {
+  const event = new MouseEvent("pointerover", { bubbles: true });
+  defineOn(event, "pointerType", pointerType);
+  fireEvent(element, event);
 }
 
 /**
@@ -291,11 +346,16 @@ function swipeTo(left: number): void {
   fireEvent.scroll(row);
 }
 
-test("the party bar's panel is titled for a party and draws the card as a picture", async () => {
-  renderPanel(partyTarget());
-  expect(
-    screen.getByRole("dialog", { name: "Share this party" }),
-  ).toBeInTheDocument();
+// ---------------------------------------------------------------- the panel
+
+test("the panel is the bare blurred modal, named for a party and with no heading, the close alone", async () => {
+  const { onClose } = renderPanel(partyTarget());
+  const dialog = screen.getByRole("dialog", { name: "Share this party" });
+  expect(dialog).toHaveClass("modal-bare");
+  expect(dialog.parentElement).toHaveClass("modal-backdrop-blur");
+  // The name is the dialog's alone: nothing on screen heads the panel.
+  expect(within(dialog).queryByRole("heading")).toBeNull();
+  expect(within(dialog).queryByText("Share this party")).toBeNull();
   // The first drawing is a wait, and the wait is the app's one indicator.
   expect(screen.getByRole("status", { name: "Loading" })).toBeInTheDocument();
   const image = await preview();
@@ -304,6 +364,20 @@ test("the party bar's panel is titled for a party and draws the card as a pictur
     "Share card of Friday karaoke, ranked by best score",
   );
   expect(requests()[0].kind).toBe("party");
+  fireEvent.click(within(dialog).getByRole("button", { name: "Close" }));
+  expect(onClose).toHaveBeenCalledTimes(1);
+});
+
+test("a score's panel is named for a score and draws that one score", async () => {
+  renderPanel(scoreTarget(theirs()));
+  expect(
+    screen.getByRole("dialog", { name: "Share this score" }),
+  ).toBeInTheDocument();
+  expect(await preview()).toHaveAccessibleName(
+    "Share card: Alice scored 8662 on Bohemian Rhapsody",
+  );
+  // No list of scores to choose from: the card is there at once.
+  expect(document.querySelector(".score-entry")).toBeNull();
 });
 
 test("on plain http there is Save image alone, and it is the primary", async () => {
@@ -399,7 +473,13 @@ test("Copy image copies the slide in view, never another slide's picture", async
   const write = copyableBrowser();
   // Each design's file says which design it is, in its size: jsdom's blobs
   // cannot be read back.
-  const sizes: Record<string, number> = { dark: 1, mosaic: 2, spread: 3 };
+  const sizes: Record<string, number> = {
+    podium: 1,
+    strip: 2,
+    mosaic: 3,
+    spread: 4,
+    you: 5,
+  };
   renderCard.mockImplementation((request: CardRequest) =>
     Promise.resolve(
       new Blob(["x".repeat(sizes[designOf(request)])], { type: "image/png" }),
@@ -408,7 +488,7 @@ test("Copy image copies the slide in view, never another slide's picture", async
   renderPanel(partyTarget());
   await preview();
   fireEvent.click(nextDesign());
-  expect(designName()).toBe("Mosaic");
+  expect(designName()).toBe("Strip");
   await waitFor(() =>
     expect(screen.getByRole("button", { name: "Copy image" })).toBeEnabled(),
   );
@@ -417,15 +497,23 @@ test("Copy image copies the slide in view, never another slide's picture", async
   const [items] = write.mock.calls[0] as unknown as [
     { items: Record<string, Blob> }[],
   ];
-  expect(items[0].items["image/png"].size).toBe(sizes.mosaic);
+  expect(items[0].items["image/png"].size).toBe(sizes.strip);
 });
 
-test("a touch screen on plain http reads the long-press hint under the picture", async () => {
+test("a touch screen on plain http reads the long-press hint above the picture, from the start", async () => {
   defineOn(window, "isSecureContext", false);
   touchScreen(true);
   renderPanel(partyTarget());
+  // There while the first picture is still on its way, so nothing moves
+  // under it when the picture comes.
+  const hint = screen.getByText(LONG_PRESS_NOTE);
+  expect(hint).toHaveClass("section-note");
+  expect(screen.getByRole("status", { name: "Loading" })).toBeInTheDocument();
   await preview();
-  expect(screen.getByText(LONG_PRESS_NOTE)).toHaveClass("section-note");
+  expect(
+    hint.compareDocumentPosition(carousel()) & Node.DOCUMENT_POSITION_FOLLOWING,
+  ).toBeTruthy();
+  expect(screen.getByText(LONG_PRESS_NOTE)).toBe(hint);
 });
 
 test("a mouse, or a secure page, needs no long-press hint", async () => {
@@ -441,43 +529,30 @@ test("a mouse, or a secure page, needs no long-press hint", async () => {
   expect(screen.queryByText(LONG_PRESS_NOTE)).toBeNull();
 });
 
-/** The pills of one group, as `[label, checked, disabled]`. */
-function pills(legend: string): [string, boolean, boolean][] {
-  const group = screen.getByRole("group", { name: legend });
-  return within(group)
-    .getAllByRole("radio")
-    .map((radio) => [
-      radio.closest("label")?.textContent ?? "",
-      (radio as HTMLInputElement).checked,
-      (radio as HTMLInputElement).disabled,
-    ]);
-}
+// ---------------------------------------------------------------- designs
 
-/** The slides, by the names they are read out with. */
-function slideNames(): string[] {
-  return within(carousel())
-    .getAllByRole("group")
-    .map((slide) => slide.getAttribute("aria-label") ?? "");
-}
-
-test("a party's designs are a carousel of Dark, Mosaic and Spread, in that order", async () => {
+test("a party's designs are a carousel of Podium, Strip, Mosaic, Spread and You, in that order", async () => {
   renderPanel(partyTarget());
   await preview();
   const row = carousel();
   expect(row).toHaveAttribute("aria-roledescription", "carousel");
   expect(row).toHaveAttribute("tabindex", "0");
   expect(slideNames()).toEqual([
-    "Dark, 1 of 3",
-    "Mosaic, 2 of 3",
-    "Spread, 3 of 3",
+    "Podium, 1 of 5",
+    "Strip, 2 of 5",
+    "Mosaic, 3 of 5",
+    "Spread, 4 of 5",
+    "You, 5 of 5",
   ]);
   for (const slide of within(row).getAllByRole("group"))
     expect(slide).toHaveAttribute("aria-roledescription", "slide");
-  // Opened on Dark, the default: its name under the dots, its dot lit.
-  expect(designName()).toBe("Dark");
-  expect(inView()).toHaveAttribute("data-design", "dark");
+  // Opened on Podium, the default: its name under the dots, its dot lit.
+  expect(designName()).toBe("Podium");
+  expect(inView()).toHaveAttribute("data-design", "podium");
   expect(dots()).toEqual([
     [true, false],
+    [false, false],
+    [false, false],
     [false, false],
     [false, false],
   ]);
@@ -486,36 +561,98 @@ test("a party's designs are a carousel of Dark, Mosaic and Spread, in that order
     "true",
   );
   // The slide in view and its neighbour are drawn, the one in view first;
-  // the spread, two away, is not.
+  // the rest are not.
   await waitFor(() => expect(renderCard).toHaveBeenCalledTimes(2));
-  expect(requests().map(designOf)).toEqual(["dark", "mosaic"]);
-  expect(requests()[1].options).toMatchObject({
-    look: "mosaic",
+  expect(requests().map(designOf)).toEqual(["podium", "strip"]);
+});
+
+test("Podium draws ranks 4 to 6 under the podium, Strip the score strip, in both formats", async () => {
+  renderPanel(partyTarget());
+  await preview();
+  await waitFor(() => expect(renderCard).toHaveBeenCalledTimes(2));
+  const [podium, strip] = requests();
+  expect(podium.options).toMatchObject({
+    look: "dark",
     focus: "podium",
+    under: "ranking",
   });
+  expect(strip.options).toMatchObject({
+    look: "dark",
+    focus: "podium",
+    under: "strip",
+  });
+  // On a story too: the layout draws the rows on both and the strip on
+  // Strip (share-cards §4.2).
+  fireEvent.click(screen.getByRole("radio", { name: "Story" }));
+  await waitFor(() => expect(renderCard).toHaveBeenCalledTimes(4));
+  expect(
+    requests()
+      .slice(2)
+      .map((request) => request.options),
+  ).toEqual([
+    expect.objectContaining({ format: "story", under: "ranking" }),
+    expect.objectContaining({ format: "story", under: "strip" }),
+  ]);
+});
+
+test("three singers' Podium is the podium alone, never the strip in its place", async () => {
+  renderPanel(partyTarget(cardParty(3, 2)));
+  await preview();
+  await waitFor(() => expect(renderCard).toHaveBeenCalledTimes(2));
+  expect(requests().map((request) => request.options)).toEqual([
+    expect.objectContaining({ under: "none" }),
+    expect.objectContaining({ under: "strip" }),
+  ]);
+});
+
+test("You is the sharer alone, with their own place", async () => {
+  renderPanel(partyTarget());
+  await preview();
+  forward(4);
+  expect(designName()).toBe("You");
+  await waitFor(() => expect(requests().map(designOf)).toContain("you"));
+  const request = requests().find((drawn) => designOf(drawn) === "you");
+  if (request?.kind !== "party") throw new Error("not a party card");
+  expect(request.content.ranking.map((entry) => entry.person.name)).toEqual([
+    "Chiara",
+  ]);
+  expect(request.content.myPlace).toBe("1st of 4");
+  expect(request.options).toMatchObject({ look: "dark", focus: "podium" });
+  expect(await preview()).toHaveAccessibleName(
+    "Share card of Friday karaoke: Chiara's scores",
+  );
+});
+
+test("somebody who did not sing at the party has a dimmed You slot, with why", async () => {
+  getMe.mockResolvedValue(meResponse(["stats.view"]));
+  renderPanel(partyTarget());
+  await preview();
+  const you = within(carousel()).getByRole("group", { name: "You, 5 of 5" });
+  expect(you.querySelector(".share-slide-dimmed")).not.toBeNull();
+  expect(
+    within(you).getByText("You did not sing at this party."),
+  ).toBeInTheDocument();
 });
 
 test("a score's designs are Dark and Cover", async () => {
-  renderPanel(scoreTarget([cardScore("chiara", 8662, SONGS[0])]));
+  renderPanel(scoreTarget(theirs()));
   await preview();
   expect(slideNames()).toEqual(["Dark, 1 of 2", "Cover, 2 of 2"]);
   expect(dots()).toHaveLength(2);
   await waitFor(() => expect(renderCard).toHaveBeenCalledTimes(2));
   expect(requests().map(designOf)).toEqual(["dark", "cover"]);
-  // A score card has no party choices.
-  expect(screen.queryByText("Under the podium")).toBeNull();
-  expect(screen.queryByLabelText("Only me and my place")).toBeNull();
 });
 
-test("the format is two icon-only pills, Square and Story", async () => {
+// ----------------------------------------------------------------- format
+
+test("the format is two borderless radios at the end of the dots row, after a rule", async () => {
   renderPanel(partyTarget());
   await preview();
-  expect(pills("Format")).toEqual([
-    ["Square", true, false],
-    ["Story", false, false],
-  ]);
-  const square = screen.getByRole("radio", { name: "Square" });
-  const story = screen.getByRole("radio", { name: "Story" });
+  const group = screen.getByRole("radiogroup", { name: "Format" });
+  const square = within(group).getByRole("radio", { name: "Square" });
+  const story = within(group).getByRole("radio", { name: "Story" });
+  expect(square).toBeChecked();
+  expect(story).not.toBeChecked();
   // The glyph is what is drawn; the word is the reader's alone.
   expect(iconNames(square.closest("label") as HTMLElement)).toEqual([
     "format-square",
@@ -526,10 +663,30 @@ test("the format is two icon-only pills, Square and Story", async () => {
   expect(
     within(story.closest("label") as HTMLElement).getByText("Story"),
   ).toHaveClass("visually-hidden");
-  // Over the carousel.
-  const format = screen.getByRole("group", { name: "Format" });
+  // No chip box or pill: a bare glyph.
+  expect(group.querySelector(".chip, .share-pill-text")).toBeNull();
+  // In the dots row, to the right of the dots and the next arrow, after the
+  // rule — and so under the picture, not over it.
+  const nav = document.querySelector(".share-carousel-nav") as HTMLElement;
+  expect(group.parentElement).toBe(nav);
+  const order = [...nav.children].map((child) =>
+    child.classList.contains("share-dots")
+      ? "dots"
+      : child.classList.contains("share-nav-rule")
+        ? "rule"
+        : child === group
+          ? "format"
+          : (child.getAttribute("aria-label") ?? ""),
+  );
+  expect(order).toEqual([
+    "Previous design",
+    "dots",
+    "Next design",
+    "rule",
+    "format",
+  ]);
   expect(
-    format.compareDocumentPosition(carousel()) &
+    carousel().compareDocumentPosition(group) &
       Node.DOCUMENT_POSITION_FOLLOWING,
   ).toBeTruthy();
 
@@ -537,8 +694,11 @@ test("the format is two icon-only pills, Square and Story", async () => {
   await waitFor(() =>
     expect(lastRequest().options).toMatchObject({ format: "story" }),
   );
+  expect(story).toBeChecked();
   expect(document.querySelector(".share-slide-box-story")).not.toBeNull();
 });
+
+// --------------------------------------------------------------- carousel
 
 test("Next and Previous move the slide in view, and it is what the buttons send", async () => {
   const share = shareableBrowser();
@@ -546,21 +706,16 @@ test("Next and Previous move the slide in view, and it is what the buttons send"
   await preview();
   expect(previousDesign()).toBeDisabled();
   fireEvent.click(nextDesign());
-  expect(designName()).toBe("Mosaic");
-  expect(inView()).toHaveAttribute("data-design", "mosaic");
-  expect(dots().map(([on]) => on)).toEqual([false, true, false]);
-  // Mosaic was drawn as the neighbour already; the spread is its neighbour
-  // now, and is drawn.
+  expect(designName()).toBe("Strip");
+  expect(inView()).toHaveAttribute("data-design", "strip");
+  expect(dots().map(([on]) => on)).toEqual([false, true, false, false, false]);
+  // Strip was drawn as the neighbour already; Mosaic is its neighbour now,
+  // and is drawn.
   await waitFor(() =>
-    expect(requests().map(designOf)).toEqual(["dark", "mosaic", "spread"]),
+    expect(requests().map(designOf)).toEqual(["podium", "strip", "mosaic"]),
   );
-  expect(requests()[2].options).toMatchObject({
-    look: "dark",
-    focus: "spread",
-    under: "none",
-  });
-  const mosaic = await preview();
-  expect(mosaic).toHaveAttribute("src", "blob:card-2");
+  const strip = await preview();
+  expect(strip).toHaveAttribute("src", "blob:card-2");
   expect(screen.getByRole("link", { name: "Save image" })).toHaveAttribute(
     "href",
     "blob:card-2",
@@ -569,28 +724,25 @@ test("Next and Previous move the slide in view, and it is what the buttons send"
   const [data] = share.mock.calls[0] as unknown as [ShareData];
   expect(data.files?.[0]).toBeInstanceOf(File);
 
-  fireEvent.click(nextDesign());
-  expect(designName()).toBe("Spread");
+  forward(3);
+  expect(designName()).toBe("You");
   expect(nextDesign()).toBeDisabled();
-  expect(await preview()).toHaveAttribute("src", "blob:card-3");
-  fireEvent.click(previousDesign());
-  fireEvent.click(previousDesign());
-  expect(designName()).toBe("Dark");
+  await preview();
+  for (let i = 0; i < 4; i++) fireEvent.click(previousDesign());
+  expect(designName()).toBe("Podium");
   expect(previousDesign()).toBeDisabled();
   // Every slide was drawn once: going back draws nothing again.
-  expect(renderCard).toHaveBeenCalledTimes(3);
+  await waitFor(() => expect(renderCard).toHaveBeenCalledTimes(5));
+  expect(new Set(requests().map(designOf)).size).toBe(5);
 });
 
 test("an arrow that reaches its end hands the keyboard to the other one", async () => {
-  renderPanel(partyTarget());
+  renderPanel(scoreTarget(theirs()));
   await preview();
   nextDesign().focus();
   fireEvent.click(nextDesign());
-  expect(nextDesign()).toHaveFocus();
-  fireEvent.click(nextDesign());
   expect(nextDesign()).toBeDisabled();
   expect(previousDesign()).toHaveFocus();
-  fireEvent.click(previousDesign());
   fireEvent.click(previousDesign());
   expect(nextDesign()).toHaveFocus();
 });
@@ -601,12 +753,11 @@ test("the arrow keys on the carousel move it, and the row does not scroll by its
   const row = carousel();
   // `fireEvent` answers false when the default was prevented.
   expect(fireEvent.keyDown(row, { key: "ArrowRight" })).toBe(false);
+  expect(designName()).toBe("Strip");
+  fireEvent.keyDown(row, { key: "ArrowRight" });
   expect(designName()).toBe("Mosaic");
-  fireEvent.keyDown(row, { key: "ArrowRight" });
-  fireEvent.keyDown(row, { key: "ArrowRight" });
-  expect(designName()).toBe("Spread");
   fireEvent.keyDown(row, { key: "ArrowLeft" });
-  expect(designName()).toBe("Mosaic");
+  expect(designName()).toBe("Strip");
   // Any other key is the row's own.
   expect(fireEvent.keyDown(row, { key: "Tab" })).toBe(true);
 });
@@ -616,7 +767,7 @@ test("the arrows scroll the row smoothly, and at once for less motion", async ()
   await preview();
   const { scrollTo } = layOut();
   fireEvent.click(nextDesign());
-  // Mosaic's middle (24 + 260 + 126) in the row's middle (150).
+  // Strip's middle (24 + 260 + 126) in the row's middle (150).
   expect(scrollTo).toHaveBeenLastCalledWith({ left: 260, behavior: "smooth" });
 
   media({ reducedMotion: true });
@@ -635,10 +786,10 @@ test("the other format narrows the slides to the story's picture and keeps the o
   // A story slide is as wide as its picture, so a neighbour peeks in.
   expect(carousel()).toHaveClass("share-carousel-story");
   expect(carousel()).not.toHaveClass("share-carousel-square");
-  // Every slide changed width under the scroll position: Mosaic is brought
+  // Every slide changed width under the scroll position: Strip is brought
   // back to the middle at once, before the paint, not run to.
   expect(scrollTo).toHaveBeenCalledWith({ left: 260, behavior: "instant" });
-  expect(designName()).toBe("Mosaic");
+  expect(designName()).toBe("Strip");
 });
 
 test("a swipe settles on the slide nearest the middle, and that slide is the choice", async () => {
@@ -647,16 +798,14 @@ test("a swipe settles on the slide nearest the middle, and that slide is the cho
   layOut();
   // Not yet: the row is still moving.
   swipeTo(240);
-  expect(designName()).toBe("Dark");
-  await waitFor(() => expect(designName()).toBe("Mosaic"), {
+  expect(designName()).toBe("Podium");
+  await waitFor(() => expect(designName()).toBe("Strip"), {
     timeout: SETTLE_MS * 10,
   });
-  expect(JSON.parse(window.localStorage.getItem(PREFS_KEY) ?? "{}")).toEqual(
-    expect.objectContaining({ partyLook: "mosaic" }),
-  );
-  // Past the middle of the last gap is the spread.
+  expect(stored()).toEqual(expect.objectContaining({ partyDesign: "strip" }));
+  // Past the middle of the next gap is Mosaic.
   swipeTo(470);
-  await waitFor(() => expect(designName()).toBe("Spread"), {
+  await waitFor(() => expect(designName()).toBe("Mosaic"), {
     timeout: SETTLE_MS * 10,
   });
   expect(await preview()).toHaveAttribute("src", "blob:card-3");
@@ -669,7 +818,7 @@ test("a design the card cannot draw is a dimmed slot with its sentence, and the 
   renderPanel(partyTarget());
   await preview();
   const mosaic = within(carousel()).getByRole("group", {
-    name: "Mosaic, 2 of 3",
+    name: "Mosaic, 3 of 5",
   });
   expect(mosaic.querySelector("img")).toBeNull();
   expect(within(mosaic).getByText("Mosaic")).toBeInTheDocument();
@@ -681,17 +830,19 @@ test("a design the card cannot draw is a dimmed slot with its sentence, and the 
   expect(mosaic.querySelector(".share-slide-dimmed")).not.toBeNull();
   expect(dots()).toEqual([
     [true, false],
+    [false, false],
     [false, true],
     [false, false],
+    [false, false],
   ]);
-  // Never drawn: a Mosaic that cannot be drawn would come back as Dark.
-  expect(requests().map(designOf)).toEqual(["dark"]);
+  // The slot's reason is in the slot, never in the toggles' line.
+  expect(line()).toBe(TOGGLES_REST);
 
-  fireEvent.click(nextDesign());
+  forward(2);
   expect(designName()).toBe("Mosaic");
-  // Its neighbour, the spread, is drawn; the slot itself never is.
+  // Its neighbours are drawn; the slot itself never is.
   await waitFor(() =>
-    expect(requests().map(designOf)).toEqual(["dark", "spread"]),
+    expect(requests().map(designOf)).toEqual(["podium", "strip", "spread"]),
   );
   const shareButton = screen.getByRole("button", { name: "Share" });
   const save = screen.getByRole("link", { name: "Save image" });
@@ -700,9 +851,7 @@ test("a design the card cannot draw is a dimmed slot with its sentence, and the 
   expect(fireEvent.click(save)).toBe(false);
   expect(screen.queryByRole("alert")).toBeNull();
   // A dimmed slot is no choice to remember.
-  expect(
-    JSON.parse(window.localStorage.getItem(PREFS_KEY) ?? "{}").partyLook,
-  ).not.toBe("mosaic");
+  expect(stored().partyDesign).toBe("strip");
 
   fireEvent.click(previousDesign());
   expect(shareButton).toBeEnabled();
@@ -710,9 +859,8 @@ test("a design the card cannot draw is a dimmed slot with its sentence, and the 
 });
 
 test("a song without a cover has a dimmed Cover slot, and says why", async () => {
-  const only = cardScore("chiara", 8662, SONGS[0]);
   broken.add(coverUrl(SONGS[0].id));
-  renderPanel(scoreTarget([only]));
+  renderPanel(scoreTarget(theirs()));
   await preview();
   const cover = within(carousel()).getByRole("group", {
     name: "Cover, 2 of 2",
@@ -723,147 +871,187 @@ test("a song without a cover has a dimmed Cover slot, and says why", async () =>
   expect(cover.querySelector("img")).toBeNull();
 });
 
-test("Under the podium keeps its row on every party slide", async () => {
-  renderPanel(partyTarget());
-  await preview();
-  const row = document.querySelector(".share-under") as HTMLElement;
-  const variants = row.querySelectorAll(".share-under-variant").length;
-  const active = () =>
-    row.querySelector('.share-under-variant[data-active="true"]');
-  // On a square Dark podium: the pills.
-  expect(pills("Under the podium")).toEqual([
-    ["Ranking", true, false],
-    ["Score strip", false, false],
-  ]);
-  fireEvent.click(screen.getByRole("radio", { name: "Score strip" }));
-  await waitFor(() =>
-    expect(lastRequest().options).toMatchObject({ under: "strip" }),
-  );
-  // Only Dark takes it: the Mosaic it does not reach is not drawn again.
-  expect(requests().map(designOf)).toEqual(["dark", "mosaic", "dark"]);
+// ---------------------------------------------------------------- toggles
 
-  // Mosaic: the sentence in the pills' place, the row where it was.
-  fireEvent.click(nextDesign());
-  expect(screen.queryByRole("group", { name: "Under the podium" })).toBeNull();
-  expect(active()).toHaveTextContent(
-    "Mosaic keeps the podium alone over the covers.",
-  );
-  fireEvent.click(nextDesign());
-  expect(active()).toHaveTextContent(
-    "The spread takes the place of the podium.",
-  );
-  // So it does where the spread cannot be drawn: the sentence is the
-  // design's, never the podium's pills in its slot.
-  fireEvent.click(
-    screen.getByRole("checkbox", { name: "Only me and my place" }),
-  );
-  await waitFor(() =>
-    expect(
-      document.querySelector('[data-design="spread"] .share-slide-dimmed'),
-    ).not.toBeNull(),
-  );
-  expect(screen.queryByRole("group", { name: "Under the podium" })).toBeNull();
-  expect(active()).toHaveTextContent(
-    "The spread takes the place of the podium.",
-  );
-  fireEvent.click(
-    screen.getByRole("checkbox", { name: "Only me and my place" }),
-  );
-  expect(row.querySelectorAll(".share-under-variant")).toHaveLength(variants);
-  expect(document.querySelector(".share-under")).toBe(row);
-
-  // A story has room for both, on every slide.
-  fireEvent.click(previousDesign());
-  fireEvent.click(previousDesign());
-  fireEvent.click(screen.getByRole("radio", { name: "Story" }));
-  await waitFor(() =>
-    expect(lastRequest().options).toMatchObject({ format: "story" }),
-  );
-  expect(screen.queryByRole("group", { name: "Under the podium" })).toBeNull();
-  expect(active()).toHaveTextContent(
-    "A story has room for the ranking and the strip both.",
-  );
-});
-
-test("the toggles are checkboxes the card is drawn with", async () => {
-  renderPanel(partyTarget());
-  await preview();
-  const names = screen.getByRole("checkbox", { name: "Party name and date" });
-  expect(names).toBeChecked();
-  expect(
-    screen.getByRole("checkbox", { name: "Other singers' pictures" }),
-  ).toBeChecked();
-  expect(
-    screen.getByRole("checkbox", { name: "Only me and my place" }),
-  ).not.toBeChecked();
-
-  fireEvent.click(names);
-  await waitFor(() => {
-    const request = lastRequest();
-    expect(request.kind === "party" && request.content.sub).toBeNull();
-  });
-
-  fireEvent.click(
-    screen.getByRole("checkbox", { name: "Only me and my place" }),
-  );
-  await waitFor(() => {
-    const request = lastRequest();
-    expect(request.kind === "party" && request.content.onlyMe).toBe(true);
-  });
-  // Only me leaves nobody to compare with: the spread dims.
-  expect(
-    within(
-      within(carousel()).getByRole("group", { name: "Spread, 3 of 3" }),
-    ).getByText(
-      "Only me and my place shows one singer, and the spread compares several.",
-    ),
-  ).toBeInTheDocument();
-});
-
-test("the Wingman logo is a toggle, on by default, on both cards, remembered", async () => {
-  renderPanel(partyTarget());
-  await preview();
-  const logo = screen.getByRole("checkbox", { name: "Wingman logo" });
-  expect(logo).toBeChecked();
-  expect(lastRequest().options.logo).toBe(true);
-  // The third of the column: pictures, name and date, logo, only me.
-  const toggles = [
-    ...document.querySelectorAll<HTMLInputElement>(
-      '.share-toggles input[type="checkbox"]',
-    ),
-  ].map((input) => input.closest("label")?.textContent);
-  expect(toggles).toEqual([
+test("the same three toggles stand in the same order on every slide of both cards", async () => {
+  const names = [
     "Other singers' pictures",
     "Party name and date",
     "Wingman logo",
-    "Only me and my place",
-  ]);
-
-  fireEvent.click(logo);
-  await waitFor(() => expect(lastRequest().options.logo).toBe(false));
-  expect(JSON.parse(window.localStorage.getItem(PREFS_KEY) ?? "{}")).toEqual(
-    expect.objectContaining({ logo: false }),
-  );
+  ];
+  renderPanel(partyTarget());
+  await preview();
+  for (let i = 0; i < 5; i++) {
+    expect(toggles().map(([name]) => name)).toEqual(names);
+    if (i < 4) fireEvent.click(nextDesign());
+  }
+  const row = screen.getByRole("group", { name: "On the card" });
+  const buttons = within(row).getAllByRole("button");
+  for (const button of buttons) {
+    expect(button).toHaveClass("icon-button", "icon-toggle");
+    // Named for the option, never for the action.
+    expect(button).toHaveAttribute("title", button.getAttribute("aria-label"));
+  }
+  expect(iconNames(buttons[0])).toEqual(["image"]);
+  expect(iconNames(buttons[1])).toEqual(["calendar"]);
+  // The logo toggle's glyph is the logo itself.
+  expect(buttons[2].querySelector("img")).toHaveAttribute("src", LOGO_URL);
+  // No checkbox is left of the old list, and no *Only me* or *Under the
+  // podium* among the options.
+  expect(screen.queryByRole("checkbox")).toBeNull();
+  expect(screen.queryByText(/Only me|Under the podium/)).toBeNull();
 
   cleanup();
-  renderPanel(scoreTarget([cardScore("chiara", 8662, SONGS[0])]));
+  renderPanel(scoreTarget(theirs()));
   await preview();
-  expect(
-    screen.getByRole("checkbox", { name: "Wingman logo" }),
-  ).not.toBeChecked();
+  expect(toggles().map(([name]) => name)).toEqual(names);
+  fireEvent.click(nextDesign());
+  expect(toggles().map(([name]) => name)).toEqual(names);
+});
+
+test("a toggle pressed off is struck through, and the card is drawn without it", async () => {
+  renderPanel(partyTarget());
+  await preview();
+  expect(toggles()).toEqual([
+    ["Other singers' pictures", true, false],
+    ["Party name and date", true, false],
+    ["Wingman logo", true, false],
+  ]);
+  expect(lastRequest().options.logo).toBe(true);
+  fireEvent.click(toggle("Wingman logo"));
+  expect(toggle("Wingman logo")).toHaveAttribute("aria-pressed", "false");
+  await waitFor(() => expect(lastRequest().options.logo).toBe(false));
+  expect(stored()).toEqual(expect.objectContaining({ logo: false }));
+
+  fireEvent.click(toggle("Party name and date"));
+  await waitFor(() => {
+    const request = lastRequest();
+    expect(request.kind === "party" && request.content.head).toBeNull();
+  });
+  fireEvent.click(toggle("Other singers' pictures"));
+  await waitFor(() => {
+    const request = lastRequest();
+    expect(
+      request.kind === "party" &&
+        request.content.ranking
+          .filter((entry) => !entry.isMe)
+          .every((entry) => entry.person.avatar.url === null),
+    ).toBe(true);
+  });
+  expect(toggles().map(([, pressed]) => pressed)).toEqual([
+    false,
+    false,
+    false,
+  ]);
+
+  // Remembered, on the other card kind too.
+  cleanup();
+  renderPanel(scoreTarget(theirs()));
+  await preview();
+  expect(toggle("Wingman logo")).toHaveAttribute("aria-pressed", "false");
   expect(lastRequest()).toMatchObject({
     kind: "score",
     options: { logo: false },
   });
 });
 
+test("a toggle a slide cannot honour is dimmed in place and keeps the state the other slides use", async () => {
+  renderPanel(partyTarget());
+  await preview();
+  // Pictures off on the Podium…
+  fireEvent.click(toggle("Other singers' pictures"));
+  expect(toggles()[0]).toEqual(["Other singers' pictures", false, false]);
+  // …and on You, where the only face is the reader's own, it is dimmed —
+  // still drawn off, still there, still focusable.
+  forward(4);
+  expect(designName()).toBe("You");
+  expect(toggles()[0]).toEqual(["Other singers' pictures", false, true]);
+  const pictures = toggle("Other singers' pictures");
+  expect(pictures).not.toBeDisabled();
+  act(() => pictures.focus());
+  expect(pictures).toHaveFocus();
+  expect(line()).toBe("Nobody else is on this card.");
+  // A press changes nothing, and says why.
+  fireEvent.click(pictures);
+  expect(toggles()[0]).toEqual(["Other singers' pictures", false, true]);
+  expect(stored().otherPictures).toBe(false);
+  expect(line()).toBe("Nobody else is on this card.");
+  // The others stay live there.
+  expect(toggles()[1][2]).toBe(false);
+  expect(toggles()[2][2]).toBe(false);
+  // Back on the Podium the state the reader left is what is drawn.
+  for (let i = 0; i < 4; i++) fireEvent.click(previousDesign());
+  expect(toggles()[0]).toEqual(["Other singers' pictures", false, false]);
+});
+
+test("on the reader's own score the pictures toggle is dimmed, on somebody else's it is live", async () => {
+  renderPanel(scoreTarget(cardScore("chiara", 8662, SONGS[0])));
+  await preview();
+  expect(toggles()[0]).toEqual(["Other singers' pictures", true, true]);
+  cleanup();
+  renderPanel(scoreTarget(theirs()));
+  await preview();
+  expect(toggles()[0]).toEqual(["Other singers' pictures", true, false]);
+});
+
+test("the line rests on its hint, and a mouse over a toggle reads that toggle's sentence", async () => {
+  renderPanel(partyTarget());
+  await preview();
+  const note = document.querySelector(".share-toggle-line") as HTMLElement;
+  expect(note).toHaveClass("section-note");
+  expect(note).toHaveAttribute("aria-live", "polite");
+  expect(line()).toBe("Press a symbol to take it off the card or put it back.");
+  // A finger's emulated hover is not a second trigger.
+  pointerOver(toggle("Wingman logo"), "touch");
+  expect(line()).toBe(TOGGLES_REST);
+  pointerOver(toggle("Wingman logo"), "mouse");
+  expect(line()).toBe("The Wingman logo is on the card.");
+  pointerOver(toggle("Party name and date"), "mouse");
+  expect(line()).toBe("The party's name and date are on the card.");
+  // The pointer leaving never puts the resting line back.
+  fireEvent.pointerLeave(toggle("Party name and date"));
+  expect(line()).toBe("The party's name and date are on the card.");
+  // The keyboard reaches it the same way.
+  act(() => toggle("Other singers' pictures").focus());
+  expect(line()).toBe("Other singers' pictures are on the card.");
+});
+
+test("on a touch screen a tap changes the option and explains it, and a second tap undoes it", async () => {
+  touchScreen(true);
+  renderPanel(partyTarget());
+  await preview();
+  fireEvent.click(toggle("Wingman logo"));
+  expect(toggle("Wingman logo")).toHaveAttribute("aria-pressed", "false");
+  expect(line()).toBe("The Wingman logo is left off.");
+  await waitFor(() => expect(lastRequest().options.logo).toBe(false));
+  fireEvent.click(toggle("Wingman logo"));
+  expect(toggle("Wingman logo")).toHaveAttribute("aria-pressed", "true");
+  expect(line()).toBe("The Wingman logo is on the card.");
+  fireEvent.click(toggle("Other singers' pictures"));
+  expect(line()).toBe("Other singers are drawn as their initials.");
+});
+
+test("a new slide coming into view re-reads the last toggle's sentence for itself", async () => {
+  renderPanel(partyTarget());
+  await preview();
+  pointerOver(toggle("Other singers' pictures"), "mouse");
+  expect(line()).toBe("Other singers' pictures are on the card.");
+  // The spread draws no faces: there the same toggle says why, untouched.
+  forward(3);
+  expect(designName()).toBe("Spread");
+  expect(toggles()[0][2]).toBe(true);
+  expect(line()).toBe("The spread draws names, not pictures.");
+  fireEvent.click(nextDesign());
+  expect(line()).toBe("Nobody else is on this card.");
+  for (let i = 0; i < 4; i++) fireEvent.click(previousDesign());
+  expect(line()).toBe("Other singers' pictures are on the card.");
+});
+
 test("with the name and date off the file and the alt text still name the party", async () => {
   renderPanel(partyTarget());
   await preview();
   await waitFor(() => expect(renderCard).toHaveBeenCalledTimes(2));
-  fireEvent.click(
-    screen.getByRole("checkbox", { name: "Party name and date" }),
-  );
+  fireEvent.click(toggle("Party name and date"));
   await waitFor(() => {
     const request = lastRequest();
     expect(request.kind === "party" && request.content.head).toBeNull();
@@ -884,27 +1072,29 @@ test("with the name and date off the file and the alt text still name the party"
   );
 });
 
-test("the panel remembers the format, the design in view and the toggles", async () => {
+// --------------------------------------------------------------- memory
+
+test("the panel remembers the format, the design in view and the toggles, but never Spread or You", async () => {
   renderPanel(partyTarget());
   await preview();
   fireEvent.click(screen.getByRole("radio", { name: "Story" }));
-  fireEvent.click(nextDesign());
-  fireEvent.click(
-    screen.getByRole("checkbox", { name: "Other singers' pictures" }),
-  );
-  expect(JSON.parse(window.localStorage.getItem(PREFS_KEY) ?? "{}")).toEqual(
+  forward(2);
+  fireEvent.click(toggle("Other singers' pictures"));
+  expect(stored()).toEqual(
     expect.objectContaining({
       format: "story",
-      partyLook: "mosaic",
+      partyDesign: "mosaic",
       otherPictures: false,
     }),
   );
-  // The spread is not kept: Mosaic stays the one remembered.
+  // Spread and You are not kept: Mosaic stays the one remembered.
   fireEvent.click(nextDesign());
   expect(designName()).toBe("Spread");
-  expect(
-    JSON.parse(window.localStorage.getItem(PREFS_KEY) ?? "{}").partyLook,
-  ).toBe("mosaic");
+  expect(stored().partyDesign).toBe("mosaic");
+  fireEvent.click(nextDesign());
+  expect(designName()).toBe("You");
+  await preview();
+  expect(stored().partyDesign).toBe("mosaic");
 
   cleanup();
   renderCard.mockClear();
@@ -912,9 +1102,10 @@ test("the panel remembers the format, the design in view and the toggles", async
   await preview();
   expect(screen.getByRole("radio", { name: "Story" })).toBeChecked();
   expect(designName()).toBe("Mosaic");
-  expect(
-    screen.getByRole("checkbox", { name: "Other singers' pictures" }),
-  ).not.toBeChecked();
+  expect(toggle("Other singers' pictures")).toHaveAttribute(
+    "aria-pressed",
+    "false",
+  );
   // Opened on Mosaic, so Mosaic is drawn first.
   expect(requests()[0].options).toMatchObject({
     format: "story",
@@ -922,32 +1113,41 @@ test("the panel remembers the format, the design in view and the toggles", async
   });
 });
 
-test("a score card remembers Cover, apart from the party's look", async () => {
-  renderPanel(scoreTarget([cardScore("chiara", 8662, SONGS[0])]));
+test("Strip is remembered and opened on again", async () => {
+  renderPanel(partyTarget());
   await preview();
   fireEvent.click(nextDesign());
-  expect(JSON.parse(window.localStorage.getItem(PREFS_KEY) ?? "{}")).toEqual(
-    expect.objectContaining({ scoreLook: "cover", partyLook: "dark" }),
+  expect(stored().partyDesign).toBe("strip");
+  cleanup();
+  renderPanel(partyTarget());
+  await preview();
+  expect(designName()).toBe("Strip");
+});
+
+test("a score card remembers Cover, apart from the party's design", async () => {
+  renderPanel(scoreTarget(theirs()));
+  await preview();
+  fireEvent.click(nextDesign());
+  expect(stored()).toEqual(
+    expect.objectContaining({ scoreLook: "cover", partyDesign: "podium" }),
   );
   cleanup();
-  renderPanel(scoreTarget([cardScore("chiara", 8662, SONGS[0])]));
+  renderPanel(scoreTarget(theirs()));
   await preview();
   expect(designName()).toBe("Cover");
 });
 
-test("a remembered design this card cannot draw opens on Dark", async () => {
+test("a remembered design this card cannot draw opens on the first slide", async () => {
   window.localStorage.setItem(
     PREFS_KEY,
-    JSON.stringify({ partyLook: "mosaic" }),
+    JSON.stringify({ partyDesign: "mosaic" }),
   );
   for (const song of SONGS.slice(2)) broken.add(coverUrl(song.id));
   renderPanel(partyTarget());
   await preview();
-  expect(designName()).toBe("Dark");
+  expect(designName()).toBe("Podium");
   // And it is still remembered for a party that can.
-  expect(
-    JSON.parse(window.localStorage.getItem(PREFS_KEY) ?? "{}").partyLook,
-  ).toBe("mosaic");
+  expect(stored().partyDesign).toBe("mosaic");
 });
 
 test("storage that throws leaves the panel working on its defaults", async () => {
@@ -964,125 +1164,17 @@ test("storage that throws leaves the panel working on its defaults", async () =>
     expect(lastRequest().options).toMatchObject({ format: "story" }),
   );
   fireEvent.click(nextDesign());
-  expect(designName()).toBe("Mosaic");
+  expect(designName()).toBe("Strip");
   get.mockRestore();
   set.mockRestore();
 });
 
-test("somebody who did not sing at the party gets Only me disabled, with why", async () => {
-  getMe.mockResolvedValue(meResponse(["stats.view"]));
-  renderPanel(partyTarget());
-  await preview();
-  await waitFor(() =>
-    expect(
-      screen.getByRole("checkbox", { name: "Only me and my place" }),
-    ).toBeDisabled(),
-  );
-  expect(
-    screen.getByText("You did not sing at this party."),
-  ).toBeInTheDocument();
-});
+// ------------------------------------------------------------- one score
 
-test("Share a score on a group of several asks which score first", async () => {
-  const scores = [
-    cardScore("chiara", 9124, SONGS[0]),
-    cardScore("chiara", 8662, SONGS[1]),
-    cardScore("chiara", 7000, SONGS[2]),
-  ];
-  const { onClose } = renderPanel(scoreTarget(scores));
-  const dialog = screen.getByRole("dialog", { name: "Share this score" });
-  const rows = within(dialog).getAllByRole("button", {
-    name: /Bohemian|Dancing|Africa/,
-  });
-  // As the group draws them, best first, each leading on to the card.
-  expect(rows.map((row) => row.textContent)).toEqual([
-    "Bohemian RhapsodyQueen9124",
-    "Dancing QueenABBA8662",
-    "AfricaToto7000",
-  ]);
-  for (const row of rows)
-    expect(row.querySelector(".share-choice-chevron")).toBeInTheDocument();
-  expect(renderCard).not.toHaveBeenCalled();
-
-  fireEvent.click(rows[1]);
-  await preview();
-  const request = lastRequest();
-  expect(request.kind === "score" && request.content.score).toBe(8662);
-
-  // The close goes back to the list, not out of the panel.
-  fireEvent.click(within(dialog).getByRole("button", { name: "Close" }));
-  expect(onClose).not.toHaveBeenCalled();
-  expect(
-    await screen.findByRole("button", { name: /Dancing Queen/ }),
-  ).toHaveFocus();
-  expect(shown()).toBeNull();
-
-  fireEvent.click(
-    within(screen.getByRole("dialog")).getByRole("button", { name: "Close" }),
-  );
-  expect(onClose).toHaveBeenCalledTimes(1);
-});
-
-test("another score from the list is a new first drawing, never the last card", async () => {
-  const first = cardScore("chiara", 9124, SONGS[0]);
-  const second = cardScore("chiara", 8662, SONGS[1]);
-  renderPanel(scoreTarget([first, second]));
-  fireEvent.click(screen.getByRole("button", { name: /Bohemian Rhapsody/ }));
-  expect(await preview()).toHaveAttribute("src", "blob:card-1");
-  // Swiped on to Cover, which is remembered…
-  fireEvent.click(nextDesign());
-  await waitFor(() => expect(created).toHaveLength(2));
-
-  // The second song's pictures take their time.
-  let arrive: () => void = () => undefined;
-  loadCardImages.mockImplementation(
-    (urls: string[]) =>
-      new Promise((resolve) => {
-        arrive = () =>
-          resolve(new Map(urls.map((url) => [url, {} as HTMLImageElement])));
-      }),
-  );
-  fireEvent.click(screen.getByRole("button", { name: "Close" }));
-  // Going back lets the last card go, every slide of it.
-  expect(revoked).toEqual(["blob:card-1", "blob:card-2"]);
-  fireEvent.click(await screen.findByRole("button", { name: /Dancing Queen/ }));
-
-  // Nothing of the first card is left to press, and no choice is drawn
-  // against pictures that have not arrived.
-  expect(screen.getByRole("status", { name: "Loading" })).toBeInTheDocument();
-  expect(document.querySelector("img")).toBeNull();
-  expect(document.querySelector(".share-actions")).toBeNull();
-  expect(screen.queryByRole("region", { name: "Designs" })).toBeNull();
-
-  arrive();
-  const image = await preview();
-  // …so the next card opens on it, and draws it first.
-  expect(designName()).toBe("Cover");
-  expect(image).toHaveAttribute("src", "blob:card-3");
-  expect(image).toHaveAccessibleName(
-    "Share card: Chiara scored 8662 on Dancing Queen",
-  );
-  expect(slideNames()).toEqual(["Dark, 1 of 2", "Cover, 2 of 2"]);
-});
-
-test("a group of one score goes straight to its card, and the close closes", async () => {
-  const only = cardScore("chiara", 8662, SONGS[0]);
-  const { onClose } = renderPanel(scoreTarget([only]));
-  await preview();
-  fireEvent.click(screen.getByRole("button", { name: "Close" }));
-  expect(onClose).toHaveBeenCalledTimes(1);
-});
-
-test("the rest of the sing comes from the page, not from the group", async () => {
+test("the rest of the sing comes from the page", async () => {
   const mine = cardScore("chiara", 8662, SONGS[0], { sing_id: "duet" });
   const partner = cardScore("alice", 7100, SONGS[0], { sing_id: "duet" });
-  renderPanel({
-    kind: "score",
-    scores: [mine],
-    grouping: "player",
-    session: partySession(),
-    pageScores: [mine, partner],
-  });
+  renderPanel(scoreTarget(mine, [mine, partner]));
   await preview();
   const request = lastRequest();
   expect(request.kind === "score" && request.content.partners).toEqual([
@@ -1092,7 +1184,7 @@ test("the rest of the sing comes from the page, not from the group", async () =>
 
 test("without stats.history nothing is asked and the card carries no flag", async () => {
   const only = cardScore("chiara", 9999, SONGS[0]);
-  renderPanel(scoreTarget([only]));
+  renderPanel(scoreTarget(only));
   await preview();
   expect(listSongScores).not.toHaveBeenCalled();
   const request = lastRequest();
@@ -1108,7 +1200,7 @@ test("with stats.history the song's history decides New Highscore", async () => 
   const only = cardScore("chiara", 9500, SONGS[0]);
   const older = cardScore("alice", 9100, SONGS[0]);
   listSongScores.mockResolvedValue({ data: { scores: [only, older] } });
-  renderPanel(scoreTarget([only]));
+  renderPanel(scoreTarget(only));
   await preview();
   expect(listSongScores.mock.calls[0][0].path).toEqual({
     song_id: SONGS[0].id,
@@ -1128,11 +1220,13 @@ test("a failed history read draws the card without a flag", async () => {
   );
   listSongScores.mockRejectedValue(new Error("offline"));
   const only = cardScore("chiara", 9500, SONGS[0]);
-  renderPanel(scoreTarget([only]));
+  renderPanel(scoreTarget(only));
   await preview();
   const request = lastRequest();
   expect(request.kind === "score" && request.content.flag).toBeNull();
 });
+
+// ------------------------------------------------------------- pictures
 
 test("every picture URL is let go: each slide's old one on a redraw, the rest on close", async () => {
   const { unmount } = renderPanel(partyTarget());
@@ -1143,7 +1237,7 @@ test("every picture URL is let go: each slide's old one on a redraw, the rest on
   );
   expect(revoked).toEqual([]);
 
-  // Mosaic in view: drawn again first, then its two neighbours.
+  // Strip in view: drawn again first, then its two neighbours.
   fireEvent.click(screen.getByRole("radio", { name: "Story" }));
   await waitFor(() => expect(created).toHaveLength(6));
   expect(shown()).toHaveAttribute("src", "blob:card-4");
@@ -1152,7 +1246,8 @@ test("every picture URL is let go: each slide's old one on a redraw, the rest on
   expect(revoked).toEqual([]);
   fireEvent.load(shown() as HTMLImageElement);
   expect(revoked).toEqual(["blob:card-2"]);
-  for (const image of document.querySelectorAll("img")) fireEvent.load(image);
+  for (const image of document.querySelectorAll("img.share-preview-image"))
+    fireEvent.load(image);
   expect([...revoked].sort()).toEqual([
     "blob:card-1",
     "blob:card-2",
@@ -1232,11 +1327,11 @@ test("a swipe onto a slide still being drawn holds the buttons until its own pic
         finish = resolve;
       }),
   );
-  // On to Mosaic, drawn, then to the spread, which is still on its way.
+  // On to Strip, drawn, then to Mosaic, which is still on its way.
   fireEvent.click(nextDesign());
   await waitFor(() => expect(renderCard).toHaveBeenCalledTimes(3));
   fireEvent.click(nextDesign());
-  expect(designName()).toBe("Spread");
+  expect(designName()).toBe("Mosaic");
   expect(shown()).toBeNull();
   expect(
     within(inView()).getByRole("status", { name: "Loading" }),
@@ -1249,11 +1344,11 @@ test("a swipe onto a slide still being drawn holds the buttons until its own pic
   fireEvent.click(shareButton);
   expect(share).not.toHaveBeenCalled();
 
-  finish(new Blob(["the spread"], { type: "image/png" }));
+  finish(new Blob(["the mosaic"], { type: "image/png" }));
   await waitFor(() => expect(shareButton).toBeEnabled());
   fireEvent.click(shareButton);
   const [data] = share.mock.calls[0] as unknown as [ShareData];
-  expect(data.files?.[0].size).toBe("the spread".length);
+  expect(data.files?.[0].size).toBe("the mosaic".length);
 });
 
 test("a redraw that fails takes the picture from before with it", async () => {

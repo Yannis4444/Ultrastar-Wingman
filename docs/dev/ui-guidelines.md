@@ -251,13 +251,15 @@ exception). Tests identify glyphs with `iconNames()` from `src/test/icons.ts`.
   On SPIN, and on the phone for as long as the TV's reel runs, the die tumbles through its
   faces.
 - **The icon toggle** (`.icon-button.icon-toggle`, a new modifier `index.css` gains with the
-  share panel, keeping the icon button's box, fill and hover and adding only the states) is a `<button aria-pressed>`
+  share panel, keeping the icon button's box and fill and adding only the states; its hover
+  fill is a pointer's alone, in `@media (hover: hover)` as the chip's, because a phone keeps
+  `:hover` on the toggle it tapped and the blue fill read as a second "on") is a `<button aria-pressed>`
   whose glyph is the thing it puts on or leaves off: on, the glyph in `--color`; off, the glyph in
   `--color-darkerer` under one 2px bar in `currentColor` from its lower left to its upper
   right, the way `eye-off`'s runs (a `::after`, so no toggle needs an `-off` twin in
   `ICON_PATHS`; a picture glyph goes `grayscale(1)` at 50% instead); a toggle that cannot
-  act here keeps its state's drawing at 40% opacity under `aria-disabled` and stays
-  focusable. Its name is the option's (`aria-label` and `title`), never the action. The share
+  act here keeps its state's drawing at 40% opacity under `aria-disabled` — the glyph and
+  the bar, never the button, whose focus ring would fade with it — and stays focusable. Its name is the option's (`aria-label` and `title`), never the action. The share
   panel's options row (share-cards §5) is its first user; `eye` / `eye-off` stay glyphs,
   reading a state that is not an option.
 - **`Loading`** (`components/Loading.tsx`) is the only loading indicator — every `Suspense`

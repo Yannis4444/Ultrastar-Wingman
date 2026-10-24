@@ -55,6 +55,9 @@ export interface ScoreCardContent {
   /** Where the score sits on the 0–10000 bar, 0…1. */
   fraction: number;
   singer: CardPerson;
+  /** The score is the sharer's own: the only face on the card is theirs, so
+   * *Other singers' pictures* has nothing to reach (share-cards §5). */
+  mine: boolean;
   /** "1st of 3", or `null` where there is no place to give (§2.1). */
   place: string | null;
   /** The other singers of the same sing — a duet, or a few mics at once. */
@@ -121,17 +124,17 @@ export interface PartyCardContent {
    * off, the count going with the head (§7.9). */
   sub: string | null;
   numbers: CardNumbers;
-  /** Everybody, best first — or the sharer alone with *Only me*. */
+  /** Everybody, best first — or the sharer alone on the *You* slide. */
   ranking: CardRank[];
   /** How many sang at the party, whatever the card shows of them. */
   singerCount: number;
-  /** Whether *Only me and my place* is applied. */
+  /** Whether this is the *You* slide's content: the sharer alone (§2.2). */
   onlyMe: boolean;
   /** Whether it could be: the sharer sang at this party. */
   mayOnlyMe: boolean;
-  /** "2nd of 5" with *Only me*, `null` otherwise. */
+  /** "2nd of 5" on *You*, `null` otherwise. */
   myPlace: string | null;
-  /** The scores on the strip: the party's, or the sharer's with *Only me*. */
+  /** The scores on the strip: the party's, or the sharer's on *You*. */
   dots: CardDot[];
   median: number | null;
   /** The distinct covers of the party's songs, in the order they were sung,
@@ -279,6 +282,7 @@ export function scoreCard(input: ScoreCardInput): ScoreCardContent {
     rating: evaluationLabel(score.score),
     fraction: Math.min(1, Math.max(0, score.score / MAX_SCORE)),
     singer: personOf(score, input.players, input.me, input.otherPictures),
+    mine: input.me !== null && score.player_id === input.me,
     place,
     partners,
     detail: detail === "" ? null : detail,

@@ -70,7 +70,8 @@ vi.mock("../components/ShareCardPanel", () => ({
   }: {
     target: {
       kind: string;
-      scores: ScoreWithContext[];
+      scores?: ScoreWithContext[];
+      score?: ScoreWithContext;
       pageScores?: ScoreWithContext[];
       session: SessionRead | null;
     };
@@ -79,7 +80,9 @@ vi.mock("../components/ShareCardPanel", () => ({
     <div
       data-testid="share-panel"
       data-kind={target.kind}
-      data-scores={target.scores.map((entry) => entry.id).join(",")}
+      data-scores={(target.scores ?? (target.score ? [target.score] : []))
+        .map((entry) => entry.id)
+        .join(",")}
       data-page={(target.pageScores ?? []).map((entry) => entry.id).join(",")}
       data-session={target.session?.id ?? "none"}
     >
@@ -1751,8 +1754,8 @@ test("an open group's scores start with one Share a score, never one per row", a
     }
   }
 
-  // Bob's group: his two scores, best first; the whole page beside them, where
-  // the other half of each duet is.
+  // Bob's group: the panel takes one score, his best, until the sing view
+  // picks it; the whole page beside it, where the other half of each duet is.
   fireEvent.click(
     within(groups[1]).getByRole("button", {
       name: "Share a score",
@@ -1761,7 +1764,7 @@ test("an open group's scores start with one Share a score, never one per row", a
   );
   const panel = screen.getByTestId("share-panel");
   expect(panel).toHaveAttribute("data-kind", "score");
-  expect(panel).toHaveAttribute("data-scores", "4,3");
+  expect(panel).toHaveAttribute("data-scores", "4");
   expect(panel).toHaveAttribute("data-page", "1,2,3,4");
   expect(panel).toHaveAttribute("data-session", "session-new");
 });

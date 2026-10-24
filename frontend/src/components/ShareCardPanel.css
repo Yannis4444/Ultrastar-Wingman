@@ -1,32 +1,13 @@
-/* The share panel (ui-guidelines §7, *Share cards*): the two formats as
-   icon-only pills over the card, the card's designs as a carousel of real
-   pictures with its arrows and dots, the few choices left as §4's pills and
-   `CheckOption`s, and §5's row of buttons at the foot. */
+/* The share panel (share-cards §5, ui-guidelines §7 *Share cards*): a bare
+   modal on the blurred backdrop, one centred column — the long-press hint,
+   the card's designs as a carousel of real pictures, the dots row with the
+   format pair at its end, the design's name, the three icon toggles and the
+   line explaining them, and §5's row of buttons at the foot. */
 
-/* ---------------------------------------------------------------- format
-   Two 40px squares centred over the picture, each the shape it makes: the
-   glyph says it, the word is the reader's alone. Compound, because the
-   fieldset is a `.share-group` too and that rule, further down, would
-   otherwise take the 12px off the foot and leave the pills on the card. */
-.share-group.share-formats {
-  margin: 16px 16px 12px 16px;
-}
-
-.share-formats .share-pills {
-  justify-content: center;
-  gap: 8px;
-}
-
-.share-formats .share-pill-text {
-  justify-content: center;
-  width: 40px;
-  height: 40px;
-  padding: 0;
-  font-size: inherit;
-}
-
-.share-formats .icon {
-  font-size: 1.25em;
+/* The long-press hint, over the picture where it is hard to miss. */
+.share-press-note {
+  margin: 0 16px 12px 16px;
+  text-align: center;
 }
 
 /* -------------------------------------------------------------- carousel
@@ -128,7 +109,8 @@
 }
 
 /* A design this card cannot draw keeps its place, as the box it would fill,
-   with its name and the sentence saying why. */
+   with its name and the sentence saying why — its reason lives here, where
+   the eye is, and never in the toggles' line. */
 .share-slide-dimmed {
   flex-direction: column;
   gap: 4px;
@@ -143,7 +125,9 @@
   font-weight: bold;
 }
 
-/* The arrows around the dots, then the name of the design in view. */
+/* ------------------------------------------------------------- dots row
+   The arrows around the dots, then — 12px on, after a hairline rule — the
+   format pair, all one centred group of 40px; the design's name under it. */
 .share-carousel-nav {
   display: flex;
   align-items: center;
@@ -185,6 +169,55 @@
   border-color: var(--highlight-blue-light);
 }
 
+/* The row's own 8px gap and 4px of margin: 12px on either side. */
+.share-nav-rule {
+  flex: 0 0 auto;
+  width: 1px;
+  height: 24px;
+  margin: 0 4px;
+  background-color: var(--input-border-color);
+}
+
+/* The format pair: two borderless 40px radios, the glyph the shape it makes
+   and the word the reader's alone. No chip box and no fill: the chosen glyph
+   in `--color`, the other in `--color-darker`. */
+.share-formats {
+  display: flex;
+  gap: 0;
+}
+
+.share-format {
+  display: flex;
+}
+
+.share-format-glyph {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 40px;
+  height: 40px;
+  font-size: 1.25em;
+  color: var(--color-darker);
+  border-radius: var(--border-radius-small);
+  cursor: pointer;
+  transition: color 0.15s;
+}
+
+.share-format:hover .share-format-glyph {
+  color: var(--color-dark);
+}
+
+/* After the hover rule at equal specificity, so a hovered chosen glyph keeps
+   its state. */
+.share-formats input:checked ~ .share-format-glyph {
+  color: var(--color);
+}
+
+.share-formats input:focus-visible ~ .share-format-glyph {
+  outline: 2px solid var(--highlight-blue-light);
+  outline-offset: -2px;
+}
+
 .share-design-name {
   margin: 0 16px;
   font-size: 0.85em;
@@ -193,124 +226,33 @@
   text-align: center;
 }
 
-.share-press-note {
-  margin-top: 8px;
-}
-
-/* --------------------------------------------------------------- choices
-   One group per choice: its name over the pills, the reasons for a pill
-   that cannot be taken under them. */
-.share-group {
-  margin: 16px 16px 0 16px;
-  padding: 0;
-  border: none;
-  min-width: 0;
-}
-
-.share-group-legend {
-  padding: 0;
-  margin: 0 0 6px 0;
-  font-size: 0.85em;
-  color: var(--color-darker);
-}
-
-.share-pills {
+/* --------------------------------------------------------------- toggles
+   The three icon toggles (`.icon-toggle`, index.css) as one centred row, and
+   under it the one line that speaks of the last one touched — two lines
+   tall whatever it holds, so a longer sentence never moves the buttons. */
+.share-toggles {
   display: flex;
-  flex-wrap: wrap;
-  gap: 6px;
-}
-
-.share-pill {
-  display: flex;
-  min-width: 0;
-}
-
-.share-pill-text {
-  display: flex;
-  box-sizing: border-box;
-  align-items: center;
-  min-height: 40px;
-  padding: 0 14px;
-  font-size: 0.85em;
-  white-space: nowrap;
-  color: var(--color-dark);
-  background-color: transparent;
-  border: 1px solid var(--input-border-color);
-  border-radius: var(--border-radius);
-  cursor: pointer;
-  transition:
-    color 0.15s,
-    background-color 0.15s,
-    border-color 0.15s;
-}
-
-.share-pill:hover input:enabled ~ .share-pill-text {
-  color: var(--color);
-  border-color: var(--color-darker);
-}
-
-/* After the hover rule at equal specificity, so a hovered chosen pill keeps
-   the accent. */
-.share-pills input:checked ~ .share-pill-text {
-  color: var(--highlight-blue-light);
-  background-color: var(--highlight-blue-dark);
-  border-color: var(--highlight-blue-light);
-}
-
-/* A choice the card cannot take: still there, so the reader learns it
-   exists, and quiet, with the sentence under it saying why. */
-.share-pills input:disabled ~ .share-pill-text {
-  color: var(--color-darker);
-  border-style: dashed;
-  cursor: default;
-}
-
-.share-pills input:focus-visible ~ .share-pill-text {
-  outline: 2px solid var(--highlight-blue-light);
-  outline-offset: 2px;
-}
-
-/* The group's own gutter already holds it. */
-.share-group-note {
-  margin: 6px 0 0 0;
-}
-
-/* *Under the podium*: one row on every party slide, its pills or the
-   sentence standing in for them laid in one grid cell, so the row is as tall
-   as the tallest and a swipe moves nothing under it. */
-.share-under {
-  display: grid;
+  justify-content: center;
+  gap: 8px;
   margin: 12px 16px 0 16px;
 }
 
-.share-under-variant {
-  grid-area: 1 / 1;
-  min-width: 0;
-}
-
-.share-under-variant[data-active="false"] {
-  visibility: hidden;
-}
-
-.share-under .share-group {
-  margin: 0;
-}
-
-/* --------------------------------------------------------------- toggles */
-.share-toggles {
-  margin-top: 12px;
-}
-
-.share-toggle-note {
-  margin-left: 32px;
+.share-toggle-line {
+  min-height: calc(2 * 1.4em);
+  margin: 4px 16px 0 16px;
+  font-size: 0.8em;
+  line-height: 1.4;
+  text-align: center;
 }
 
 /* --------------------------------------------------------------- buttons
-   §5's row: every button an equal share of the width, the one primary last. */
+   §5's row: every button an equal share of the width, the one primary last.
+   In a bare modal the primary is the page-level dark blue (ui-guidelines
+   §4). */
 .share-actions {
   display: flex;
   gap: 8px;
-  margin: 16px 16px 0 16px;
+  margin: 12px 16px 0 16px;
 }
 
 .share-actions .button {
@@ -338,8 +280,7 @@
    the gradient die gives up its own (`SpinButton.css`). `.button:disabled`'s
    `--color-dark` alone left Share as loud as ever. Save image is a link,
    which `:disabled` does not reach, so it wears the look by its
-   `aria-disabled`. `.share-panel` in front, so the panel's own primary
-   (`.modal:not(.modal-bare) .button-primary`) never wins on bundle order. */
+   `aria-disabled`. */
 .share-panel .share-actions .button:disabled,
 .share-panel .share-actions .button[aria-disabled="true"] {
   color: var(--color-darkerer);
@@ -350,6 +291,7 @@
 .share-status,
 .share-notice {
   margin-top: 8px;
+  text-align: center;
 }
 
 .share-notice {
@@ -357,30 +299,8 @@
   margin-right: 16px;
 }
 
-/* --------------------------------------------------------------- chooser
-   The group's own score rows, as buttons that lead to the card. */
-.share-choose-note {
-  margin-bottom: 8px;
-}
-
-.share-choices {
-  margin: 0 8px;
-}
-
-/* The row's looks and its hover band are `.score-entry-button`'s, which lifts
-   off `--tile-bg` rather than painting the blue the tile already is; the tap
-   gets the same band, a finger having no hover. */
-.share-choice:active {
-  background-color: color-mix(in srgb, var(--tile-bg) 88%, #fff);
-}
-
-.share-choice-chevron {
-  flex: 0 0 auto;
-  color: var(--color-dark);
-}
-
 @media (prefers-reduced-motion: reduce) {
-  .share-pill-text,
+  .share-format-glyph,
   .share-dot {
     transition: none;
   }

@@ -21,7 +21,7 @@ import {
   type PartyCardOptions,
   type ScoreCardOptions,
 } from "./layout";
-import { resolvePartyOptions, resolveScoreOptions } from "./possible";
+import { resolveScoreOptions, settlePartyOptions } from "./possible";
 
 /**
  * The share card renderer: a layout painted onto a fixed-size canvas and
@@ -364,7 +364,7 @@ function layoutOf(
     );
     return layoutScoreCard(request.content, options, measure);
   }
-  const options = resolvePartyOptions(request.content, request.options, loaded);
+  const options = settlePartyOptions(request.content, request.options, loaded);
   return layoutPartyCard(request.content, options, measure, loaded);
 }
 

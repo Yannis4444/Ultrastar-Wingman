@@ -28,6 +28,7 @@ import { errorMessage } from "../errors";
 import { useWingmanEvent } from "../hooks/useWingmanEvents";
 import {
   allSessionsMeta,
+  bestScoreOf,
   groupScores,
   isTucked,
   sessionLabel,
@@ -787,15 +788,20 @@ export default function Scores() {
             onOpenSong={setOpenSong}
             canModerate={auth.can("stats.moderate")}
             onModerated={refresh}
-            onShare={(group) =>
-              setSharing({
-                kind: "score",
-                scores: group.scores,
-                grouping,
-                session,
-                pageScores: rows,
-              })
-            }
+            onShare={(group) => {
+              // Until the sing view picks the score (share-cards §8), and
+              // *Share a score* goes with it, the panel opens on the group's
+              // best one: it takes exactly one score and no longer offers a
+              // list to choose from.
+              const best = bestScoreOf(group.scores);
+              if (best !== null)
+                setSharing({
+                  kind: "score",
+                  score: best,
+                  session,
+                  pageScores: rows,
+                });
+            }}
           />
         </>
       )}

@@ -755,8 +755,8 @@ ROWS: dict[str, Row] = {
         scroll='show(q(".scores-chart"))',
     ),
     "scores-share": Row(
-        # Bender, not the host: he sang at the party, so every choice of the panel is live
-        # and his own picture is on the card whatever the toggles say.
+        # Bender, not the host: he sang at the party, so every slide of the panel, You
+        # included, is live and his own picture is on the card whatever the toggles say.
         identity="Bender",
         viewport="phone",
         route="/scores",
@@ -767,9 +767,10 @@ ROWS: dict[str, Row] = {
             ),
         ),
         # The pictures are drawn in the browser, so they are in only once they have
-        # decoded: the Dark slide in view and the Mosaic one peeking in beside it.
-        ready='qa(".share-dot").length === 3 && qa(".share-preview-image").length >= 2'
-        ' && qa(".share-preview-image").every((i) => i.complete && i.naturalWidth > 0)',
+        # decoded: the Podium slide in view and the Strip one peeking in beside it.
+        ready='qa(".share-dot").length === 5 && qa(".share-preview-image").length >= 2'
+        ' && qa(".share-preview-image").every((i) => i.complete && i.naturalWidth > 0)'
+        ' && qa(".share-toggles .icon-toggle").length === 3',
     ),
     "user": Row(
         identity="Bender",

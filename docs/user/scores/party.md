@@ -179,24 +179,18 @@ party's scores may share them.
 - To share the party, tap :wingman-share: **Share this party** at the end of
   the party button's row. **All parties** and **All my scores** have none,
   because a card is one evening.
-- To share one score, open a grouped row and tap :wingman-share:
-  **Share a score** at the top of its scores. If the row holds several
-  scores, pick one from the list first. :wingman-close: **Close** takes you
-  back to that list.
+- To share a score, open a grouped row and tap :wingman-share:
+  **Share a score** at the top of its scores. The card is of the row's best
+  score.
 
-![The Share this party panel: Square and Story at the top, the party card with the next design peeking in, and the arrows and dots under it](../assets/screenshots/scores/scores-share.png){ width="320" loading=lazy }
+![The Share this party panel on the blurred page: the party card with the next design peeking in, the arrows and dots under it with Square and Story beside them, and the three symbols over their line](../assets/screenshots/scores/scores-share.png){ width="320" loading=lazy }
 /// caption
 The picture is the card exactly as it is sent. Swipe it to see the other
 designs.
 ///
 
-The two buttons over the picture choose its shape:
-:wingman-format-square: **Square** for a chat, :wingman-format-story:
-**Story** for a story app, which draws its own controls over the top and the
-foot.
-
-The picture itself is one of the card's designs, and the next one peeks in at
-the edge. Swipe the picture sideways to go through them, or tap
+The picture is one of the card's designs, and the next one peeks in at the
+edge. Swipe the picture sideways to go through them, or tap
 :wingman-chevron-left: **Previous design** and :wingman-chevron-right:
 **Next design** under it. On a keyboard, the left and right arrow keys do the
 same once the picture has the focus. The dots between the arrows show how many
@@ -206,35 +200,43 @@ them. The design you see is the one that is sent.
 | Card | Designs |
 |---|---|
 | A score | **Dark**, then **Cover**, which blurs the song's cover behind it |
-| A party | **Dark**, then **Mosaic**, which lays the party's covers behind the whole card, dimmed so the words stay readable, then **Spread**, which puts every singer's scores side by side instead of the podium |
+| A party | **Podium**, with the next singers listed under it. **Strip**, with every score of the party as a dot under it. **Mosaic**, which lays the party's covers behind the whole card, dimmed so the words stay readable. **Spread**, which puts every singer's scores side by side instead of the podium. **You**, which shows you alone, with your own figures and your place, such as "2nd of 5" |
+
+On a story, **Podium** lists the next singers, and **Strip** has room for the
+list and the dots both.
 
 A design the card cannot draw keeps its place as an empty box with a line
-saying why: **Mosaic** needs four different covers, for example, and a song
-without a cover has no **Cover**. Its dot is a ring. While it is on screen,
-the buttons at the foot wait.
+saying why: **Mosaic** needs four different covers, for example, a song
+without a cover has no **Cover**, and **You** is there for somebody who sang
+at that party. Its dot is a ring. While it is on screen, the buttons at the
+foot wait.
 
-On a party card, **Under the podium** chooses what a square, dark podium card
-shows under the podium: the **Ranking** of the next singers, or the
-**Score strip** of every score. On the other designs, and on a story, a line
-in its place says why there is nothing to choose.
+The two symbols at the end of the dots choose the card's shape:
+:wingman-format-square: **Square** for a chat, :wingman-format-story:
+**Story** for a story app, which draws its own controls over the top and the
+foot. The one in white is the one in use.
 
-Four checkboxes decide who and what is on the card.
+### Choose what goes on it
 
-- **Other singers' pictures**: cleared, everybody else is drawn as their
-  initial. Your own picture is always yours.
-- **Party name and date**: cleared, the card names no party and no day. A
-  party card then starts with its figures. The saved file is still named
-  after the party, or after its date, so you can find it on your phone.
-- **Wingman logo**: the Ultrastar Wingman logo and name in the bottom corner.
-  It is on until you clear it. Clearing it moves nothing else on the card.
-- **Only me and my place**: a party only. The card shows you alone, with your
-  own figures and your place, such as "2nd of 5". It is there for somebody who
-  sang at that party.
+Under the design's name, three symbols say what goes on the card. They are
+the same three, in the same order, on every design. Tap one to take it off the
+card: it turns gray and is crossed out. Tap it again to put it back. The line
+under them says what the last one you touched does.
 
-The panel remembers the format, the design, and the checkboxes on this
-device, and opens on that design the next time. **Spread** is not
-remembered: the panel opens on **Dark** or **Mosaic**, whichever you had
-before.
+| Symbol | On | Off |
+|---|---|---|
+| :wingman-image: **Other singers' pictures** | Everybody's picture | Everybody else is drawn as their initial. Your own picture is always yours |
+| :wingman-calendar: **Party name and date** | The party's name and its day | The card names no party and no day. A party card then starts with its figures. The saved file is still named after the party, or after its date, so you can find it on your phone |
+| The logo itself, **Wingman logo** | The logo and the Ultrastar Wingman name in the bottom corner | Both go, and nothing else on the card moves |
+
+A symbol a design has no use for stays where it is, faded, and keeps your
+choice for the designs that do. The line says why when you tap it: your own
+score, **You**, and a party you sang alone show no other singer, and
+**Spread** draws names rather than pictures.
+
+The panel remembers the shape, the design, and the three symbols on this
+device, and opens on that design the next time. **Spread** and **You** are not
+remembered: the panel opens on the design you had before them.
 
 ### What a card shows
 
@@ -261,7 +263,8 @@ The buttons under the choices are the ones your browser can carry out.
 
 **Share** and **Copy image** need a secure connection, so a phone on the home
 network usually has **Save image** alone. Press and hold the picture instead, and the
-phone offers to save it to your photos or share it.
+phone offers to save it to your photos or share it. The panel says so above the
+picture on such a phone.
 
 ## Correct a score
 

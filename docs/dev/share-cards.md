@@ -4,11 +4,12 @@
 `feat/host-controls-loudness-share-cards`. The user's decisions are in §1. Part 1 built what a
 card says, how its text fits, the layouts and the canvas renderer (`frontend/src/shareCard/`,
 §6); part 2 the first panel, its two entry points on `/scores`, the buttons and the user
-documentation. The panel as §5 now draws it (decision 11), the sing view (§8), the player card
-(§9) and the achievement card (§10) are designed and **not built yet**: until they are, this
-document leads and the code is what changes. §7 records how what was open was settled. Once
-built, when this document and the code disagree, the code is right and this document is
-updated, unless the code falls short of §1.*
+documentation. The panel as §5 draws it (decision 11) was built 2026-10-24 on
+`feat/design-feedback-round-3`. The sing view (§8), the player card (§9) and the achievement
+card (§10) are designed and **not built yet**: until they are, this document leads and the
+code is what changes. §7 records how what was open was settled. Once built, when this
+document and the code disagree, the code is right and this document is updated, unless the
+code falls short of §1.*
 
 A singer gets **a picture of their scores** to send to friends: one score (the song's cover,
 the number, the rating word, the place) or a whole party (the podium, a few numbers, a
@@ -263,7 +264,7 @@ achievement* is the dialog's accessible name only. Top to bottom, one centred co
    every card kind — *Other singers' pictures* (`image`), *Party name and date*
    (`calendar`), *Wingman logo* (the app's own `/logo.png` at 24px, the one toggle whose
    glyph is a picture: off, it goes grey and to half opacity under the bar) — each one
-   ui-guidelines §4's `.icon-toggle`. A toggle the slide in view cannot honour is dimmed in
+   ui-guidelines §4's `.icon-toggle`, 40px boxes 8px apart in one centred row. A toggle the slide in view cannot honour is dimmed in
    place (`aria-disabled`), never removed and never renamed: it keeps drawing the state the
    reader left it in, which the slides that honour it still use, and a press on it changes
    nothing and says why in the line below.
@@ -309,8 +310,13 @@ are drawn as their initials.*; *The party's name and date are on the card.* · *
 name and date are left off.* (on a player card: *The party line is on the card.* · *…is
 left off.*); *The Wingman logo is on the card.* · *The Wingman logo is left off.* Dimmed:
 *Nobody else is on this card.* (pictures, wherever the only face is the sharer's — their own
-score, *You*, their own stats, an achievement) and *An achievement belongs to no party.*
-(the date toggle on §10's card, whose earned date always stands).
+score, *You*, a party they sang alone, their own stats, an achievement), *The spread draws
+names, not pictures.* (pictures on *Spread*, which draws no face at all) and *An achievement
+belongs to no party.* (the date toggle on §10's card, whose earned date always stands).
+
+The hover fill of an icon toggle is a pointer's alone (`@media (hover: hover)`, as the
+chip's): a phone keeps `:hover` on whatever was tapped last, and a toggle left in the blue
+fill read as a second "on".
 
 `shareCard/possible.ts` says which designs a card can take and, for each it cannot, the
 slot's sentence, and which toggles the slide honours and why not; `resolve…Options` turns
@@ -357,7 +363,9 @@ design unless the card cannot draw it, and on the first slide then.
 **Save image** is an `<a download>` on the preview's own object URL, so it needs no URL of its
 own; a share that falls back to Save clicks it. The panel revokes the preview's URL once a
 redraw's new picture has loaded in its place (any sooner, the old one could flash as a broken
-image), and every URL it holds when it closes or moves to another score.
+image), every URL of a slide that has dimmed since it was drawn, and every URL it holds
+when it closes. It takes one card for as long as it is open, so there is no other score to
+move to.
 
 ## 6. Where it lives in the code
 
@@ -372,10 +380,14 @@ image), and every URL it holds when it closes or moves to another score.
     split;
   - `layout.ts` — the layouts in numbers, as boxes the renderer paints;
   - `possible.ts` — the carousel's designs in their fixed order (`SCORE_DESIGNS`,
-    `PARTY_DESIGNS`, `PLAYER_DESIGNS`, `ACHIEVEMENT_DESIGNS`, `partyDesignOptions` turning a
-    party's slide into its look, focus, what stands under the podium and whether it is the
-    sharer alone), which of them a card allows and which toggles each slide honours, and
-    why not;
+    `PARTY_DESIGNS`, and `PLAYER_DESIGNS`, `ACHIEVEMENT_DESIGNS` once §9 and §10 are built;
+    `partyDesignOptions` turning a party's slide into its look, focus, what stands under the
+    podium and whether it is the sharer alone), which of them a card allows
+    (`scoreCardDesigns`, `partyCardDesigns`), which toggles each slide honours and why not
+    (`SHARE_TOGGLES`, `scoreSlideToggles`, `partySlideToggles`, `toggleSentence`,
+    `TOGGLES_REST`), `resolvePartyOptions` turning a slide into what is drawn and
+    `settlePartyOptions` asking that again of the pictures that decoded (`draw.ts`), never
+    swapping what stands under the podium for the other;
   - `draw.ts` — `renderCard(request, images) → Promise<Blob>`, the seam for the panel:
     `images` maps each URL the content names (and `LOGO_URL`) to an `HTMLImageElement` the
     caller loaded from Wingman's own origin; a missing or broken one draws as its letter.
@@ -385,7 +397,9 @@ image), and every URL it holds when it closes or moves to another score.
   - `flags.ts` — `scoreFlags`: *New Highscore* (the score holds the song's record alone,
     `isNewHighscore` over the score by itself) and *Personal best* (the singer's own best on
     the song, alone, out of at least two tries of theirs), from the song's all-time scores;
-  - `prefs.ts` — what the panel remembers per device.
+  - `prefs.ts` — what the panel remembers per device: the format, `scoreLook`,
+    `partyDesign` (`REMEMBERED_PARTY_DESIGNS`: *Podium*, *Strip*, *Mosaic*; an older build's
+    `partyLook` of `mosaic` carries over, its `onlyMe` is dropped) and the three toggles.
 - The strip and the spread are drawn with Canvas 2D over `chartLayout.ts` (`scoreX`, `swarm`,
   `jitterOf`, `scoreTickLabel`) and `chartTheme`, the screens' own helpers; nothing of the SVG
   components is serialised (§7.2).
@@ -395,10 +409,15 @@ image), and every URL it holds when it closes or moves to another score.
   (`DesignCarousel`: the slide in view read off the scroll position once it has been still
   for `SETTLE_MS`, which is one path in every browser — Safari's without `scrollend`
   included — and an exact answer where an `IntersectionObserver` gives thresholds), the
-  dots row with the format pair, the options row and its line, the buttons. It asks
+  dots row with the format pair (`FormatPair`, passed in as the row's `trailing`), the
+  options row (`ShareToggles`) and its line, the buttons. A party is two `partyCard`
+  contents, the whole party for four slides and the sharer alone for *You*. It asks
   `GET /stats/songs/{id}/scores` for the flags only for a reader holding `stats.history`,
   and draws nothing until that read (or its failure) and `/auth/me` are in. It takes one
   card to draw and never a list to choose from: choosing the score is the sing view's (§8).
+  Until §8 is built, `pages/Scores.tsx`'s *Share a score* hands it the group's best score
+  (`stats.ts` `bestScoreOf`) — the interim the sing view replaces, *Share a score* going
+  with it.
 - The entry points, four: `pages/Scores.tsx`'s session bar (*Share this party*), the sing
   view's **Share** (§8), *Share stats* on an open player group and on `/user/stats` (§9), and
   the achievement modal's **Share** (§10). The score card takes the rest of its sing from

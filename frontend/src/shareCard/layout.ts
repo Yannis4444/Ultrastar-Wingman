@@ -24,8 +24,10 @@ export type ScoreLook = "dark" | "cover";
 export type PartyLook = "dark" | "mosaic";
 /** What a party card is built around: the podium, or the spread rows (§7.1). */
 export type PartyFocus = "podium" | "spread";
-/** What stands under the podium on a square Dark card; `none` is what is left
- * when neither can be drawn, never something the panel offers. */
+/** What stands under the podium on a Dark card: the *Podium* slide's ranks
+ * 4–6 or the *Strip* slide's score strip (a story draws the rows on both and
+ * the strip on *Strip* alone); `none` where the slide has nothing to put
+ * there. */
 export type UnderPodium = "ranking" | "strip" | "none";
 
 export interface ScoreCardOptions {
@@ -1680,7 +1682,8 @@ function partyStory(
       place: (top) =>
         one ? hero(b, content, top, top + heroRoom) : podium(b, content, top),
     });
-    // A story has room for both the rows and the strip (§4.2).
+    // A story has room for both (§4.2): its *Podium* draws the rows, its
+    // *Strip* the rows and the strip, each where there is something to draw.
     if (plain && rowsHeight(content) > 0) {
       items.push({
         height: rowsHeight(content),
@@ -1688,7 +1691,11 @@ function partyStory(
         place: (top) => rows(b, content, top),
       });
     }
-    if (plain && content.dots.length >= CHART_MIN_SCORES) {
+    if (
+      plain &&
+      options.under === "strip" &&
+      content.dots.length >= CHART_MIN_SCORES
+    ) {
       const band = 150;
       items.push({
         height: stripHeight(band),

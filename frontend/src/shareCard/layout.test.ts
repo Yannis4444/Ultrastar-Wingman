@@ -29,10 +29,13 @@ import {
   type Box,
   type CardFormat,
   type CardLayout,
-  type PartyCardOptions,
   type TextElement,
 } from "./layout";
-import { resolvePartyOptions, resolveScoreOptions } from "./possible";
+import {
+  PARTY_DESIGNS,
+  resolvePartyOptions,
+  resolveScoreOptions,
+} from "./possible";
 
 const players = cardPlayers();
 const all = () => true;
@@ -340,39 +343,29 @@ describe.each(SCORES)("the score card, %s", (_, content) => {
   );
 });
 
-const PARTY_OPTIONS: PartyCardOptions[] = FORMATS.flatMap((format) =>
-  (["dark", "mosaic"] as const).flatMap((look) =>
-    (["podium", "spread"] as const).flatMap((focus) =>
-      (["ranking", "strip"] as const).flatMap((under) =>
-        [true, false].map((logo) => ({
-          format,
-          look,
-          focus,
-          under,
-          logo,
-        })),
-      ),
-    ),
+/** Every slide of the carousel in both formats, the logo on and off: what
+ * the panel can ask a party card for. */
+const PARTY_SLIDES = FORMATS.flatMap((format) =>
+  PARTY_DESIGNS.flatMap((design) =>
+    [true, false].map((logo) => ({ format, design, logo })),
   ),
 );
 
 describe.each(PARTIES)("the party card, %s", (_, content) => {
   test.each(
-    PARTY_OPTIONS.map(
-      (options) =>
-        [
-          options.format,
-          options.look,
-          options.focus,
-          options.under,
-          options.logo,
-          options,
-        ] as const,
+    PARTY_SLIDES.map(
+      (slide) => [slide.format, slide.design, slide.logo, slide] as const,
     ),
   )(
-    "%s %s %s %s, logo %s, keeps every region apart and readable",
-    (format, _look, _focus, _under, _logo, requested) => {
-      const options = resolvePartyOptions(content, requested, all);
+    "%s %s, logo %s, keeps every region apart and readable",
+    (format, _design, _logo, slide) => {
+      const options = resolvePartyOptions(
+        content,
+        slide.design,
+        slide.format,
+        slide.logo,
+        all,
+      );
       checkLayout(layoutPartyCard(content, options, fakeMeasure), format);
     },
   );
@@ -552,38 +545,27 @@ test("one singer gets no podium: their picture large, their best the hero", () =
   ]);
 });
 
-test("a story has room for the rows and the strip both", () => {
-  const layout = layoutPartyCard(
-    PARTIES[3][1],
-    {
-      format: "story",
-      look: "dark",
-      focus: "podium",
-      under: "ranking",
-      logo: true,
-    },
-    fakeMeasure,
-  );
-  expect(layout.elements.some((element) => element.region === "rows")).toBe(
-    true,
-  );
-  expect(layout.elements.some((element) => element.region === "strip")).toBe(
-    true,
-  );
-  const few = layoutPartyCard(
-    PARTIES[5][1],
-    {
-      format: "story",
-      look: "dark",
-      focus: "podium",
-      under: "ranking",
-      logo: true,
-    },
-    fakeMeasure,
-  );
-  expect(few.elements.some((element) => element.region === "strip")).toBe(
-    false,
-  );
+test("a story's Podium draws the rows, its Strip the rows and the strip", () => {
+  const story = (under: "ranking" | "strip", content = PARTIES[3][1]) =>
+    layoutPartyCard(
+      content,
+      { format: "story", look: "dark", focus: "podium", under, logo: true },
+      fakeMeasure,
+    );
+  const has = (layout: CardLayout, region: string) =>
+    layout.elements.some((element) => element.region === region);
+  const podium = story("ranking");
+  expect(has(podium, "rows")).toBe(true);
+  expect(has(podium, "strip")).toBe(false);
+  const strip = story("strip");
+  expect(has(strip, "rows")).toBe(true);
+  expect(has(strip, "strip")).toBe(true);
+  // Each where there is something to draw: three singers have no rows, and
+  // under four scores there is no strip.
+  const three = story("strip", PARTIES[2][1]);
+  expect(has(three, "rows")).toBe(false);
+  expect(has(three, "strip")).toBe(true);
+  expect(has(story("strip", PARTIES[5][1]), "strip")).toBe(false);
 });
 
 test("the strip marks one gold score and says the median, not the best", () => {

@@ -538,7 +538,7 @@ about, and the **Must be visible** column names that part alone.
 | `built-in-tags` | `tags/built-in.md` | `/user/tags/decade` | The Decade built-in | 390x844 | The reduced editor and the line saying why it is reduced |
 | `scores-party` | `scores/party.md` | `/scores` | One party, 23 scores, five singers | 390x844 | The party selector at the top, the strip chart, the score rows |
 | `scores-spread` | `scores/party.md` | `/scores` | Same party, grouped by player, **Spread** picked | 390x844 | The **Spread** view with a box row, a plain-dot row, and the gold best column |
-| `scores-share` | `scores/party.md` | `/scores` | Signed in as Bender, **Share this party** pressed on the party that is still going | 390x844 | The two format buttons over the carousel, the party card's Dark slide with the Mosaic slide peeking in at the right edge, and the arrows around the three dots under it |
+| `scores-share` | `scores/party.md` | `/scores` | Signed in as Bender, **Share this party** pressed on the party that is still going | 390x844 | The party card's Podium slide with the Strip slide peeking in at the right edge, the arrows around the five dots under it with the two format glyphs after a rule, and the row of three symbol toggles over its line |
 | `user` | `scores/your-scores.md` | `/user` | Signed in as Bender | 390x844 | Identity tile, the stat bar, the histogram |
 | `user-stats` | `scores/your-scores.md` | `/user/stats` | Bender's own record across both seeded parties | 390x844 | The **Your scores** header, the charts of his own record |
 | `user-achievements` | `achievements/index.md` | `/user` | Signed in as Fry, whose earned badges leave room for a bar below them | 390x844 | The open badge strip, its count, one row with a progress bar |
