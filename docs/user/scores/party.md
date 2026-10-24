@@ -167,8 +167,32 @@ From four scores on, a bar chart shows where they land. Under all of it stands
 every single score behind the row: the songs that singer sang, or the singers
 of that song.
 
-Grouped by song, the cover on a row opens the song. Grouped by player, the rows
-inside the card do. Ungrouped, the whole row does.
+Grouped by song, the cover on a row opens the song. Every single score opens
+its sing: the rows inside an open card, and every row when the list is not
+grouped.
+
+## One sing
+
+Tap a score and its sing opens over the page: the song, when it was sung, and
+everybody who sang it with what they got.
+
+![One sing on the blurred page: the cover of I Got You Babe over its title and artist, the day and time with the party's name, Leela first and Fry second under it with Fry's row lit and saying You, and Share under them](../assets/screenshots/scores/sing-view.png){ width="320" loading=lazy }
+/// caption
+Fry tapped his own score, so his row is lit. Tapping Leela's would share hers.
+///
+
+- The line under the song gives the day and time the sing started, then the
+  party's name. A party without a name gives the day and time alone.
+- The rows are best first. The number in front of a row is the place that
+  score took, so two singers on the same score share one. A sing one person
+  sang alone has no place at all. Your own row says **You**.
+- Tap the song's title to open the song. A song you may not open, or one that
+  has left the library, is plain text.
+- :wingman-share: **Share** makes a card of the lit row's score. See
+  [Share a party or a score](#share-a-party-or-a-score).
+
+Somebody who may correct scores still does that from the row on this page,
+never from inside the sing. See [Correct a score](#correct-a-score).
 
 ## Share a party or a score
 
@@ -179,9 +203,9 @@ party's scores may share them.
 - To share the party, tap :wingman-share: **Share this party** at the end of
   the party button's row. **All parties** and **All my scores** have none,
   because a card is one evening.
-- To share a score, open a grouped row and tap :wingman-share:
-  **Share a score** at the top of its scores. The card is of the row's best
-  score.
+- To share a score, tap it to open its sing, then tap :wingman-share:
+  **Share**. The card is of the row that is lit there, so a duet partner's
+  score is shared the same way as your own.
 
 ![The Share this party panel on the blurred page: the party card with the next design peeking in, the arrows and dots under it with Square and Story beside them, and the three symbols over their line](../assets/screenshots/scores/scores-share.png){ width="320" loading=lazy }
 /// caption

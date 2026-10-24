@@ -55,7 +55,9 @@ Tap a row for what that song adds up to. A song you sang more than once is
 headed by the same figures as the page above, minus **Songs**: every row here
 is one song, so counting them would print a **1** on every row. A bar chart
 follows from four runs on. Under that stands every single run with the day and
-time it happened. Tap one to open the song.
+time it happened. Tap one to open its sing: who sang it with you that time,
+what they got, and :wingman-share: **Share** for a card of it. See
+[One sing](party.md#one-sing). The cover on the row opens the song.
 
 !!! note
     **All my scores** on the **User** tab is your own record. The row with the

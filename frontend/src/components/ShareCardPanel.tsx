@@ -64,12 +64,12 @@ export type ShareTarget =
   | {
       kind: "score";
       score: ScoreWithContext;
-      /** The party the score belongs to; `null` on the head row, which is
-       * every party at once and names none. */
+      /** The party the sing belongs to, as the sing view read it; `null` for
+       * a sing from before parties were recorded, which names none. */
       session: SessionRead | null;
-      /** Every score the page showed: where the rest of a sing is found, the
-       * other half of a duet sitting in another singer's group. */
-      pageScores: ScoreWithContext[];
+      /** Every score of the sing, out of the sing view's read: where the
+       * "with <name>" of a duet is found (share-cards §7.7). */
+      singScores: ScoreWithContext[];
     };
 
 interface ShareCardPanelProps {
@@ -587,7 +587,7 @@ export default function ShareCardPanel({
       content: scoreCard({
         ...toggles,
         score: target.score,
-        partyScores: target.pageScores,
+        partyScores: target.singScores,
         session: target.session,
         newHighscore: flags?.newHighscore,
         personalBest: flags?.personalBest,

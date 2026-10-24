@@ -1,6 +1,11 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useState, type ReactNode } from "react";
-import type { SessionList, SessionRead, SongRead } from "../api";
+import type {
+  ScoreWithContext,
+  SessionList,
+  SessionRead,
+  SongRead,
+} from "../api";
 import {
   listAllScoresOptions,
   listAllScoresQueryKey,
@@ -21,6 +26,7 @@ import ScoresEmpty from "../components/ScoresEmpty";
 import ScoreStrip from "../components/ScoreStrip";
 import SessionSummaryRow from "../components/SessionSummaryRow";
 import ShareCardPanel, { type ShareTarget } from "../components/ShareCardPanel";
+import SingView from "../components/SingView";
 import SongDetails from "../components/SongDetails";
 import SpreadRows from "../components/SpreadRows";
 import Loading from "../components/Loading";
@@ -28,7 +34,6 @@ import { errorMessage } from "../errors";
 import { useWingmanEvent } from "../hooks/useWingmanEvents";
 import {
   allSessionsMeta,
-  bestScoreOf,
   groupScores,
   isTucked,
   sessionLabel,
@@ -480,7 +485,9 @@ export default function Scores() {
   // the view does.
   const [sessionChart, setSessionChart] = useState<SessionChart>("scores");
   const [openSong, setOpenSong] = useState<SongRead | null>(null);
-  // What the share panel is open on: the party, or one group's scores.
+  // The score row whose sing is open; a score is shared from there.
+  const [openScore, setOpenScore] = useState<ScoreWithContext | null>(null);
+  // What the party bar's share panel is open on.
   const [sharing, setSharing] = useState<ShareTarget | null>(null);
 
   const canView = auth.can("stats.view");
@@ -786,28 +793,19 @@ export default function Scores() {
             sorting={sorting}
             players={players}
             onOpenSong={setOpenSong}
+            onOpenScore={setOpenScore}
             canModerate={auth.can("stats.moderate")}
             onModerated={refresh}
-            onShare={(group) => {
-              // Until the sing view picks the score (share-cards §8), and
-              // *Share a score* goes with it, the panel opens on the group's
-              // best one: it takes exactly one score and no longer offers a
-              // list to choose from.
-              const best = bestScoreOf(group.scores);
-              if (best !== null)
-                setSharing({
-                  kind: "score",
-                  score: best,
-                  session,
-                  pageScores: rows,
-                });
-            }}
           />
         </>
       )}
 
       {openSong !== null && (
         <SongDetails song={openSong} onClose={() => setOpenSong(null)} />
+      )}
+
+      {openScore !== null && (
+        <SingView score={openScore} onClose={() => setOpenScore(null)} />
       )}
 
       {sharing !== null && (

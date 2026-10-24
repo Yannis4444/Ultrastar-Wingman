@@ -175,9 +175,9 @@ function partyTarget(scores: ScoreWithContext[] = party): ShareTarget {
 
 function scoreTarget(
   score: ScoreWithContext,
-  pageScores: ScoreWithContext[] = [score],
+  singScores: ScoreWithContext[] = [score],
 ): ShareTarget {
-  return { kind: "score", score, session: partySession(), pageScores };
+  return { kind: "score", score, session: partySession(), singScores };
 }
 
 /** A score of somebody else's, so every toggle reaches the card. */

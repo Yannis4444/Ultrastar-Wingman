@@ -415,10 +415,9 @@ move to.
   contents, the whole party for four slides and the sharer alone for *You*. It asks
   `GET /stats/songs/{id}/scores` for the flags only for a reader holding `stats.history`,
   and draws nothing until that read (or its failure) and `/auth/me` are in. It takes one
-  card to draw and never a list to choose from: choosing the score is the sing view's (§8).
-  Until §8 is built, `pages/Scores.tsx`'s *Share a score* hands it the group's best score
-  (`stats.ts` `bestScoreOf`) — the interim the sing view replaces, *Share a score* going
-  with it.
+  card to draw and never a list to choose from: choosing the score is the sing view's (§8),
+  which hands it the pressed score, the sing's session and every score of the sing
+  (`ShareTarget`'s `singScores`).
 - The entry points, four: `pages/Scores.tsx`'s session bar (*Share this party*), the sing
   view's **Share** (§8), *Share stats* on an open player group and on `/user/stats` (§9), and
   the achievement modal's **Share** (§10). The score card takes the rest of its sing from
@@ -484,6 +483,17 @@ Settled the same way when the panel was redone and §8–§10 were designed (dec
 
 One sing: what was sung, when, who sang and what they got. It is where a score is shared
 from, and a place to look in its own right.
+
+**Built** (2026-10-24): the read below, `components/SingView.tsx`, the rows of
+`ScoreGroupList` on `/scores` and `/user/stats` opening it, and *Share a score* gone. Three
+calls the design left open, each vetoable: the view fetches its own roster
+(`players.view`) rather than taking the page's, because `/user/stats` holds none and a duet
+partner's face belongs on the rows and the card; a sing from before migration 0008 (no
+party) reads the date alone, the same line as a nameless party, never a sentence such as
+*before parties were recorded*; and a refusal is `errorMessage`'s sentence, so the 403
+says *Your role may not do this (stats.history). Ask the host for access.* The view also
+refetches on a `scores.changed` naming its sing, and if a correction took the pressed
+score away the best one is pressed instead.
 
 **Where it opens.** A tap on any score row: on `/scores` the rows of an open group, whatever
 the grouping, and the ungrouped rows, in every party and in *All parties*; on `/user/stats`

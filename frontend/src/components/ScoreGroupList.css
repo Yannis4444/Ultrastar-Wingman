@@ -13,7 +13,7 @@
 
 /* One shape for both forms of the row: the `<summary>` of a group that
    unfolds, and the plain row of a single ungrouped score, which has nothing to
-   unfold and opens the song modal instead. */
+   unfold and opens the sing view instead. */
 .score-groups summary,
 .score-group-row {
   box-sizing: border-box;
@@ -48,8 +48,8 @@
   border: 0;
 }
 
-/* Only the button form is clickable: a score whose song has left the library
-   has no modal to open, so it gets neither the hover band nor the hand. */
+/* Both forms are clickable: a group's summary folds it out, an ungrouped row
+   opens its sing — a score whose song has left the library included. */
 .score-groups summary,
 .score-group-row-button {
   cursor: pointer;
@@ -187,27 +187,6 @@ details[open] > summary .score-group-chevron {
   margin-top: 8px;
 }
 
-/* *Share a score*, the scores' first line: at their right edge, 12px under
-   the summary and its chart (and the hairline under them, below) and 8px
-   over the first score, and never the danger colour — sharing takes nothing
-   away. A group of one has no summary, so there it is the tile's first line.
-   The tile's own padding is the side margin. */
-.score-group-share {
-  display: flex;
-  justify-content: flex-end;
-  margin: 12px 0 8px 0;
-}
-
-.score-group-share:first-child {
-  margin-top: 0;
-}
-
-.score-group-share .button {
-  display: inline-flex;
-  align-items: center;
-  gap: 8px;
-}
-
 /* The scores themselves, filling the rest of the tile. The 8px negative
    margin is the row padding given back: the rows read as a list that runs the
    width of the tile, and their hover band still bleeds past their text. */
@@ -224,19 +203,12 @@ details[open] > summary .score-group-chevron {
 }
 
 /* The scores are a section of the tile, not a continuation of the numbers:
-   the summary stands over a hairline, and what follows it — the scores, or
-   *Share a score* opening them — starts 12px under that line. A group of one,
-   where the button is the first line, draws none at all. */
+   the summary stands over a hairline, and the scores start 12px under that
+   line. A group of one has no summary and draws none at all. */
 .score-summary + .score-group-scores,
 .score-group-chart + .score-group-scores {
   margin-top: 12px;
   padding-top: 4px;
-  border-top: 1px solid var(--input-border-color);
-}
-
-.score-summary + .score-group-share,
-.score-group-chart + .score-group-share {
-  padding-top: 12px;
   border-top: 1px solid var(--input-border-color);
 }
 
@@ -254,7 +226,7 @@ details[open] > summary .score-group-chevron {
   border-radius: var(--border-radius-small);
 }
 
-/* A row that opens the song modal: a button that keeps the row's looks. */
+/* Every score row opens the sing view: a button that keeps the row's looks. */
 .score-entry-button {
   font: inherit;
   color: inherit;

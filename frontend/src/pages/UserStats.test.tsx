@@ -32,6 +32,17 @@ vi.mock("../components/SongDetails", () => ({
   ),
 }));
 
+// Tested where it lives; here, which run opens it.
+vi.mock("../components/SingView", () => ({
+  default: ({ score }: { score: ScoreWithContext }) => (
+    <div
+      data-testid="sing-view"
+      data-score={score.id}
+      data-sing={score.sing_id}
+    />
+  ),
+}));
+
 const CAPABILITIES = ["songs.view", "players.view", "stats.view"];
 
 function song(id: string, artist: string, title: string): SongRead {
@@ -154,7 +165,7 @@ test("the account's whole history is grouped by song, best first", async () => {
   await waitFor(() =>
     expect(groupLabels()).toEqual(["Bohemian Rhapsody", "Wonderwall"]),
   );
-  // The share cards open from `/scores` alone (share-cards.md §7.3).
+  // A score is shared from its sing, never from a group.
   expect(
     screen.queryByRole("button", { name: "Share a score", hidden: true }),
   ).not.toBeInTheDocument();
@@ -383,6 +394,22 @@ test("an expanded row leads with the run, not with the reader's own name", async
     shortDate("2026-08-23T20:00:00Z"),
   );
   expect(rows[0]).toHaveTextContent("9500");
+});
+
+test("a run opens its sing, the song staying one tap further", async () => {
+  renderStats();
+
+  fireEvent.click(await screen.findByText("Bohemian Rhapsody"));
+  const rows = await screen.findAllByTestId("score-row");
+  // A button, so the keyboard reaches it; the best run of the song first.
+  const run = rows[0].querySelector("button.score-entry-button") as HTMLElement;
+  expect(run).not.toBeNull();
+  fireEvent.click(run);
+
+  const view = await screen.findByTestId("sing-view");
+  expect(view).toHaveAttribute("data-score", "1");
+  expect(view).toHaveAttribute("data-sing", "sing-1");
+  expect(screen.queryByTestId("song-details")).toBeNull();
 });
 
 test("the roster is not fetched for a list of avatars nobody draws", async () => {

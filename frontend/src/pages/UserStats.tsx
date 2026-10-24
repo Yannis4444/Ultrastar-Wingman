@@ -1,6 +1,6 @@
 import { useQuery } from "@tanstack/react-query";
 import { useState } from "react";
-import type { SongRead } from "../api";
+import type { ScoreWithContext, SongRead } from "../api";
 import { listPlayerScoresOptions } from "../api/@tanstack/react-query.gen";
 import { useAuth } from "../auth";
 import Loading from "../components/Loading";
@@ -8,6 +8,7 @@ import PageHeader from "../components/PageHeader";
 import ScoreGroupList from "../components/ScoreGroupList";
 import ScoresEmpty from "../components/ScoresEmpty";
 import ScoreStrip from "../components/ScoreStrip";
+import SingView from "../components/SingView";
 import SongDetails from "../components/SongDetails";
 import { errorMessage } from "../errors";
 import { groupScores, sortGroups, type Sorting } from "../stats";
@@ -30,6 +31,8 @@ function History({ playerId }: { playerId: string }) {
   // The old app's default order, and the one a scoreboard is read for.
   const [sorting, setSorting] = useState<Sorting>("best");
   const [openSong, setOpenSong] = useState<SongRead | null>(null);
+  // The run whose sing is open: who else sang it, and Share.
+  const [openScore, setOpenScore] = useState<ScoreWithContext | null>(null);
 
   const scores = useQuery(
     listPlayerScoresOptions({ path: { player_id: playerId } }),
@@ -112,12 +115,19 @@ function History({ playerId }: { playerId: string }) {
            roster, so nothing here fetches it. */
         players={new Map()}
         onOpenSong={setOpenSong}
+        onOpenScore={setOpenScore}
         namedPeaks={false}
         ownRows
       />
 
       {openSong !== null && (
         <SongDetails song={openSong} onClose={() => setOpenSong(null)} />
+      )}
+
+      {/* The sing view reads its own roster: a duet partner's face is not
+          the reader's, so the empty map above would not do there. */}
+      {openScore !== null && (
+        <SingView score={openScore} onClose={() => setOpenScore(null)} />
       )}
     </>
   );

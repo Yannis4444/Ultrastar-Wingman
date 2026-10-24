@@ -754,6 +754,31 @@ ROWS: dict[str, Row] = {
         ready='q(".spread-rows") && qa(".spread-row").length >= 2',
         scroll='show(q(".scores-chart"))',
     ),
+    "sing-view": Row(
+        # Fry, not the host: tonight's one duet is his and Leela's, so the view opens on
+        # his score, second of two, with his own row saying You.
+        identity="Fry",
+        viewport="phone",
+        route="/scores",
+        steps=(
+            (
+                # Grouped by song, the duet's card holds both singers' rows.
+                'setValue(qa(".scores-control select")[0], "song")',
+                'qa(".scores-control select")[0].value === "song"',
+            ),
+            (
+                "click(byText('.score-groups summary', 'I Got You Babe'))",
+                "byText('.score-groups details[open] .score-entry-button', 'Fry')",
+            ),
+            (
+                "click(byText('.score-groups details[open] .score-entry-button', 'Fry'))",
+                "q('.sing-view .ranked-score-button[aria-pressed=\"true\"]')",
+            ),
+        ),
+        ready='qa(".sing-view .ranked-score-button").length === 2'
+        ' && q(".sing-view-share") && q(".sing-view .ranked-score-you")'
+        ' && qa(".sing-view img").every((i) => i.complete && i.naturalWidth > 0)',
+    ),
     "scores-share": Row(
         # Bender, not the host: he sang at the party, so every slide of the panel, You
         # included, is live and his own picture is on the card whatever the toggles say.
