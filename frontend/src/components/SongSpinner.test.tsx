@@ -23,7 +23,7 @@ import { FakeSocket } from "../test/fakeSocket";
 import { iconNames } from "../test/icons";
 import { tagRead } from "../test/tags";
 import { REVEAL_MS } from "./SongReel";
-import SongSpinner from "./SongSpinner";
+import SongSpinner, { SHOW_IT_DELAY_MS } from "./SongSpinner";
 
 // Same seam as the other tests: the real TanStack wiring runs, only the
 // transport is faked.
@@ -472,10 +472,17 @@ test("the finished spin settles in place and opens no modal by itself", async ()
   await screen.findByText("1 song");
 
   fireEvent.click(spinButton());
-  // While the reel runs the button names the press that lands it — live, not
-  // busy-disabled, and never a "…" flicker.
-  expect(localShowIt()).toBeEnabled();
+  // While the reel runs the button names the press that lands it, and never a
+  // "…" flicker — held, lit, for the double tap's moment, then live. Held is
+  // `aria-disabled`, never `disabled`, which would throw a keyboard's focus
+  // off the button the moment it spun.
   expect(localShowIt()).toHaveTextContent("Show it");
+  expect(localShowIt()).toHaveClass("spinner-spin-running");
+  expect(localShowIt()).toBeEnabled();
+  expect(localShowIt()).toHaveAttribute("aria-disabled", "true");
+  act(() => vi.advanceTimersByTime(SHOW_IT_DELAY_MS));
+  expect(localShowIt()).toBeEnabled();
+  expect(localShowIt()).not.toHaveAttribute("aria-disabled");
 
   act(() => vi.advanceTimersByTime(6000));
 
@@ -525,6 +532,64 @@ test("Show it on this screen lands the reel at once on the winner it drew", asyn
   // And the next press is a spin again, not a landing.
   fireEvent.click(spinButton());
   expect(localShowIt()).toHaveClass("spinner-spin-running");
+});
+
+test("a double tap on this screen's SPIN is one spin, not a spin and a landing", async () => {
+  vi.useFakeTimers({ shouldAdvanceTime: true });
+  const { container } = renderSpinner([QUEEN, AFRICA], []);
+  await screen.findByText("2 songs");
+
+  // The second tap of the double tap, as fast as a finger makes it.
+  fireEvent.click(spinButton());
+  act(() => vi.advanceTimersByTime(150));
+  fireEvent.click(localShowIt());
+
+  // Still spinning: the covers fly, the die rolls, nothing has landed.
+  expect(
+    container.querySelectorAll(".spinner-reel img").length,
+  ).toBeGreaterThan(1);
+  expect(localShowIt()).toHaveClass("spinner-spin-running");
+  expect(playButton()).toBeDisabled();
+  expect(
+    screen.queryByRole("button", { name: /^Details for / }),
+  ).not.toBeInTheDocument();
+
+  // And it lands on the reel's own clock, once.
+  act(() => vi.advanceTimersByTime(6000));
+  expect(container.querySelectorAll(".spinner-reel img")).toHaveLength(1);
+  expect(spinButton()).toBeEnabled();
+  expect(playButton()).toBeEnabled();
+});
+
+test("this screen's Show it becomes pressable exactly SHOW_IT_DELAY_MS into the spin", async () => {
+  vi.useFakeTimers({ shouldAdvanceTime: true });
+  const { container } = renderSpinner([QUEEN, AFRICA], []);
+  await screen.findByText("2 songs");
+
+  fireEvent.click(spinButton());
+  // Short of the moment by more than the few real milliseconds the clock may
+  // drift on its own here.
+  act(() => vi.advanceTimersByTime(SHOW_IT_DELAY_MS - 50));
+  expect(localShowIt()).toHaveAttribute("aria-disabled", "true");
+  // The click reaches the button — it is not `disabled` — and is ignored.
+  fireEvent.click(localShowIt());
+  expect(localShowIt()).toHaveClass("spinner-spin-running");
+  expect(
+    container.querySelectorAll(".spinner-reel img").length,
+  ).toBeGreaterThan(1);
+
+  act(() => vi.advanceTimersByTime(50));
+  expect(localShowIt()).not.toHaveAttribute("aria-disabled");
+  // A deliberate second press, after the covers have been seen to move, lands
+  // the reel at once.
+  fireEvent.click(localShowIt());
+  expect(container.querySelectorAll(".spinner-reel img")).toHaveLength(1);
+  expect(spinButton()).not.toHaveClass("spinner-spin-running");
+  expect(playButton()).toBeEnabled();
+
+  // The next spin starts held again: the last spin's moment is not inherited.
+  fireEvent.click(spinButton());
+  expect(localShowIt()).toHaveAttribute("aria-disabled", "true");
 });
 
 test("under reduced motion this screen's SPIN never reads Show it", async () => {
@@ -1189,6 +1254,33 @@ test("a TV that already landed is shown at once", async () => {
 
   expect(await screen.findByText("Dancing Queen")).toBeInTheDocument();
   expect(screen.queryByText(WAITING)).not.toBeInTheDocument();
+});
+
+test("a double tap on the Host screen's SPIN opens the room once and shows nothing early", async () => {
+  // Host mode as it stands: SPIN is busy for the open's round trip and no
+  // longer, so a second tap inside that round trip lands nowhere — one after
+  // a faster answer would be a press on Show it.
+  let land: () => void = () => {};
+  openPlayerSelection.mockImplementationOnce(async () => {
+    await new Promise<void>((resolve) => {
+      land = resolve;
+    });
+    return { data: { selection: spunSelection(QUEEN), token: TOKEN } };
+  });
+  await onHostScreen(LIBRARY, []);
+
+  fireEvent.click(spinButton());
+  await waitFor(() => expect(openPlayerSelection).toHaveBeenCalled());
+  act(() => vi.advanceTimersByTime(150));
+  expect(spinButton()).toBeDisabled();
+  expect(spinButton()).toHaveClass("spinner-spin-running");
+  fireEvent.click(spinButton());
+
+  await act(async () => land());
+  expect(await screen.findByText(WAITING)).toBeInTheDocument();
+  expect(openPlayerSelection).toHaveBeenCalledTimes(1);
+  expect(spinPlayerSelection).not.toHaveBeenCalled();
+  expect(showIt()).toBeEnabled();
 });
 
 test("Show it while the TV spins shows the song at once, the same one", async () => {

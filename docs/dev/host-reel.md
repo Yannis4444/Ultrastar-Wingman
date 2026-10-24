@@ -190,8 +190,10 @@ held), `opening`, `spun`, `blocked`, `empty` and `lost`:
   on `hold`: an open answered after the pills came back gives its token straight back even
   when the next SPIN has already taken the room again.
 
-*This screen* is the phone's own reel, its SPIN reading *Show it* while the reel runs
-(ui-guidelines §7), and its *Play* opens the player
+*This screen* is the phone's own reel, its SPIN reading *Show it* while the reel runs —
+held (lit, `aria-disabled`, still focused) for its first `SHOW_IT_DELAY_MS`, so a double tap
+is one spin (ui-guidelines §7); the TV's spin is held only by the open's round trip, which on
+a fast network is shorter than a double tap — and its *Play* opens the player
 selection over the landed song — the song modal's Sing by another door, so both modes
 share one action row.
 

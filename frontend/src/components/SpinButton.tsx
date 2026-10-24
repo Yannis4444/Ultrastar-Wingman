@@ -12,6 +12,12 @@ interface SpinButtonProps {
    */
   spinning: boolean;
   disabled?: boolean;
+  /**
+   * Not pressable for a moment, and still the focused control: a press is
+   * ignored and `aria-disabled` says so, where `disabled` would throw keyboard
+   * focus off the button — the hold on *Show it* right after SPIN (§7).
+   */
+  held?: boolean;
   onClick: () => void;
   className?: string;
   /** The word beside the die. Uppercased in CSS: the caps are the look. */
@@ -21,13 +27,14 @@ interface SpinButtonProps {
 /**
  * The gradient die: the blue→pink sweep with the rolling die that marks the
  * SPIN action (ui-guidelines §4). The Random song page's SPIN — on a
- * playlist's reel too, and in both places the reel runs, where on the host
- * screen it reads *Show it* and *Spin again* — carries it as a fill, and it is
+ * playlist's reel too, and in both places the reel runs, reading *Show it*
+ * while a reel runs and, on the host screen, *Spin again* after — carries it as a fill, and it is
  * this component, so the look is declared once.
  */
 export default function SpinButton({
   spinning,
   disabled = false,
+  held = false,
   onClick,
   className,
   children,
@@ -42,7 +49,10 @@ export default function SpinButton({
       type="button"
       className={classes.join(" ")}
       disabled={disabled}
-      onClick={onClick}
+      aria-disabled={held || undefined}
+      onClick={() => {
+        if (!held) onClick();
+      }}
     >
       <Icon name={face} className="spinner-spin-dice" />
       {children}

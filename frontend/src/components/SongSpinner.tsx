@@ -1,5 +1,5 @@
 import { useQuery } from "@tanstack/react-query";
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import type { SongRead, SpinRequest, WishRead } from "../api";
 import { listSongsOptions } from "../api/@tanstack/react-query.gen";
 import { useAuth } from "../auth";
@@ -24,6 +24,17 @@ import SpinButton from "./SpinButton";
 import "./SongSpinner.css";
 
 type Scope = "all" | "favorites" | "wishlist" | "weighted";
+
+/**
+ * How long this screen's *Show it* holds still after SPIN started the reel:
+ * the second tap of a double tap on SPIN lands inside it and is one spin, not a
+ * spin and a landing. Half a second covers the platforms' double-tap and
+ * double-click windows (300–500 ms), and it is the moment the reel is visibly
+ * under way — the die is up to speed within it (`SpinButton.css`) — so a
+ * deliberate second press, which comes after somebody has seen the covers
+ * move, still lands it.
+ */
+export const SHOW_IT_DELAY_MS = 500;
 
 const SCOPES: [Scope, string][] = [
   ["all", "All songs"],
@@ -110,7 +121,10 @@ interface SongSpinnerProps {
  * room on to its singers over that same selection.
  *
  * SPIN reads *Show it* while a reel runs — this phone's own or the TV's — and
- * a press lands it at once. A finished spin never opens the song modal by
+ * a press lands it at once. On this screen it is held, lit and focusable, for
+ * the first `SHOW_IT_DELAY_MS`, so a double tap on SPIN is one spin; on the
+ * TV's spin only the open's round trip holds it, which on a fast network is
+ * shorter than a double tap. A finished spin never opens the song modal by
  * itself: in both modes the landed cover and the result line are the way in,
  * and the user takes it. While this phone holds the TV's spin, the modal's
  * Sing is handed `onSing`, so it moves the room on exactly as Play does.
@@ -126,6 +140,10 @@ export default function SongSpinner({
   // *Show it* was pressed while this phone's reel runs: the reel lands at once
   // on the winner it already has (`SongReel`'s `settled` turning true).
   const [showIt, setShowIt] = useState(false);
+  // The spin whose *Show it* may be pressed: `SHOW_IT_DELAY_MS` after it
+  // started. Keyed on the spin, not a bare flag, so the next spin never
+  // inherits the last one's for a frame.
+  const [landableFor, setLandableFor] = useState<number | null>(null);
   const [winner, setWinner] = useState<SongRead | null>(null);
   const [details, setDetails] = useState<SongRead | null>(null);
   // The landed song this phone is picking singers for, on this screen.
@@ -196,8 +214,9 @@ export default function SongSpinner({
       return;
     }
     if (spinning) {
-      // *Show it*: the winner is already drawn, so this only stops the covers.
-      setShowIt(true);
+      // *Show it*: the winner is already drawn, so this only stops the covers
+      // — once the double tap's window is over.
+      if (landable) setShowIt(true);
       return;
     }
     // The winner is decided here, and the reel gets the same pool for the
@@ -212,6 +231,16 @@ export default function SongSpinner({
     });
     setSpinning(true);
   };
+
+  // Under reduced motion the reel lands in the press, so `spinning` is false
+  // again before this runs and no timer is ever set.
+  const spinId = spin?.id ?? null;
+  useEffect(() => {
+    if (!spinning || spinId === null) return;
+    const timer = setTimeout(() => setLandableFor(spinId), SHOW_IT_DELAY_MS);
+    return () => clearTimeout(timer);
+  }, [spinning, spinId]);
+  const landable = spinning && landableFor === spinId;
 
   const settle = (song: SongRead) => {
     setWinner(song);
@@ -302,11 +331,15 @@ export default function SongSpinner({
     return null;
   })();
 
-  // Live while this phone's reel runs, not busy-disabled: that press is *Show
-  // it*.
+  // Live while this phone's reel runs, that press being *Show it* — except for
+  // its first `SHOW_IT_DELAY_MS`, held: lit (the die still rolls), focusable
+  // and `aria-disabled`, so the second tap of a double tap on SPIN lands
+  // nothing and a keyboard's focus stays on the button. On the TV's spin it is
+  // `busy` until the open's answer, and nothing more.
   const spinDisabled = onHost
     ? host.busy || !host.ready || candidates.length === 0
     : candidates.length === 0;
+  const spinHeld = !onHost && spinning && !landable;
 
   return (
     <>
@@ -481,11 +514,12 @@ export default function SongSpinner({
             way on to the singers in both modes. */}
         <div className="spinner-actions">
           {/* Uppercased in CSS: the caps are the look, "Spin" is the name. It
-              is live while a reel runs, here or on the TV: the press that
-              shows the result. */}
+              is live while a reel runs, here or on the TV — once the double
+              tap's moment is over — the press that shows the result. */}
           <SpinButton
             spinning={onHost ? host.rolling : spinning}
             disabled={spinDisabled}
+            held={spinHeld}
             onClick={startSpin}
           >
             {onHost ? host.label : spinning ? "Show it" : "Spin"}
