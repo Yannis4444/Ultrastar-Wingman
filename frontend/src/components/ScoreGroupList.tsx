@@ -1,6 +1,7 @@
 import type { ReactNode } from "react";
 import type { PlayerRead, ScoreWithContext, SongRead } from "../api";
 import { shortDate, shortTime } from "../duration";
+import { playerStatsShareable } from "../shareCard/possible";
 import {
   CHART_MIN_SCORES,
   groupValue,
@@ -55,8 +56,9 @@ interface ScoreGroupListProps {
   /**
    * Whether an open **player** group's scores start with *Share stats*
    * (share-cards §9, ui-guidelines §7), and what it opens: a card of that
-   * singer's scores as the group holds them. One per group; a song group, or
-   * an ungrouped row, never has one. Only `/scores` passes it — `/user/stats`
+   * singer's scores as the group holds them. One per group whose scores a
+   * player design can draw (`playerStatsShareable`); a song group, or an
+   * ungrouped row, never has one. Only `/scores` passes it — `/user/stats`
    * shares from its header.
    */
   onShareStats?: (group: ScoreGroup) => void;
@@ -349,20 +351,23 @@ export default function ScoreGroupList({
 
                 {/* The scores' own first line, at their right: one per player
                     group, so a row's own control stays the moderator's pencil
-                    alone. Where a group of one has no summary it is the
-                    tile's first line. */}
-                {onShareStats !== undefined && grouping === "player" && (
-                  <div className="score-group-share">
-                    <button
-                      type="button"
-                      className="button"
-                      onClick={() => onShareStats(group)}
-                    >
-                      <Icon name="share" />
-                      Share stats
-                    </button>
-                  </div>
-                )}
+                    alone — and only where a design can be drawn (four
+                    scores, or two songs), never a way into a panel of dimmed
+                    slots. Such a group always has its summary above. */}
+                {onShareStats !== undefined &&
+                  grouping === "player" &&
+                  playerStatsShareable(group.scores) && (
+                    <div className="score-group-share">
+                      <button
+                        type="button"
+                        className="button"
+                        onClick={() => onShareStats(group)}
+                      >
+                        <Icon name="share" />
+                        Share stats
+                      </button>
+                    </div>
+                  )}
 
                 <ul className="score-group-scores">
                   {group.scores.map((score) => (

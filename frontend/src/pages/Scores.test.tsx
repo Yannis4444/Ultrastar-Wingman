@@ -1887,14 +1887,31 @@ test("a song group and an ungrouped row carry no Share stats", async () => {
   ).not.toBeInTheDocument();
 });
 
-test("a player group of one score carries Share stats as its tile's first line", async () => {
+test("a player group no design can draw carries no Share stats", async () => {
+  // Alice once, Bob three times on one song: neither has four scores or two
+  // songs, so either panel would be dimmed slots and no button.
   listSessionScores.mockResolvedValue({
-    data: { scores: [tonightScores[0]] },
+    data: {
+      scores: [
+        tonightScores[0],
+        score(3, "Bob", 4000, bohemian, "sing-bohemian"),
+        score(5, "Bob", 5000, bohemian, "sing-bohemian-2"),
+        score(6, "Bob", 6000, bohemian, "sing-bohemian-3"),
+      ],
+    },
   });
   renderScores();
-  const [group] = await screen.findAllByTestId("score-group");
-  const tile = group.querySelector(".score-group-panel") as HTMLElement;
-  expect(tile.firstElementChild).toHaveClass("score-group-share");
+  const groups = await screen.findAllByTestId("score-group");
+  expect(groups).toHaveLength(2);
+  for (const group of groups) {
+    expect(group.querySelector(".score-group-share")).toBeNull();
+    // The scores are still there to open, and the one-score tile opens on
+    // its single row.
+    expect(group.querySelector(".score-group-scores")).not.toBeNull();
+  }
+  expect(
+    screen.queryByRole("button", { name: "Share stats", hidden: true }),
+  ).not.toBeInTheDocument();
 });
 
 test("the moderator's pencil opens its panel and never the sing view", async () => {

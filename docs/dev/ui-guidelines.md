@@ -702,12 +702,16 @@ saved) where a jump to the top would throw away the place they were working in.
   back to the players; its title and the pencil's label cover the pair, a panel that also
   deletes not being "Who sang this?" alone. The number and the song are never editable — a
   wrongly picked singer is the mistake this fixes. **A row that is a score opens the sing view**
-  (share-cards §8) — on `/scores` and on `/user/stats` alike, the row a `.score-entry-button` and
-  the pencil its sibling — which is where a score is shared from. An open **player** group's
-  scores start with one plain `.button`, `share` and *Share stats* (share-cards §9),
+  (share-cards §8) — on `/scores` and on `/user/stats` alike, the pencil its sibling — which is
+  where a score is shared from. Inside an open group the row is a `.score-entry-button`, its
+  hover band lifted off `--tile-bg`; ungrouped it is a `.score-group-row-button`, the group
+  summary's shape on the page with the page's `--highlight-blue-dark` band. An open **player**
+  group's scores start with one plain `.button`, `share` and *Share stats* (share-cards §9),
   right-aligned on a line of its own, 12px under the summary and its chart and 8px over the
-  first score; one per group, none on a song group. `/user/stats` carries the same as a
-  trailing `share` `.icon-button-bordered` in its `PageHeader`, *Share my stats*.
+  first score; one per group whose scores a player design can draw (four scores, or two songs:
+  `possible.ts` `playerStatsShareable`), none on a song group. `/user/stats` carries the same
+  under the same rule as a trailing `share` `.icon-button-bordered` in its `PageHeader`,
+  *Share my stats*.
 - **Share cards** ([share-cards.md](share-cards.md) is the design, §5 the panel) open from the
   party bar, the sing view, *Share stats* and the achievement modal into one **bare** panel with
   no heading. The designs are a carousel, one slide each in a fixed order, a

@@ -1,4 +1,5 @@
-import { CHART_MIN_SCORES } from "../stats";
+import type { ScoreWithContext } from "../api";
+import { CHART_MIN_SCORES, groupScores } from "../stats";
 import type {
   PartyCardContent,
   PlayerCardContent,
@@ -292,30 +293,51 @@ export const PLAYER_DESIGNS: readonly PlayerDesign[] = [
   "songs",
 ];
 
-function histogramReason(content: PlayerCardContent): string | null {
-  return content.scoreCount < CHART_MIN_SCORES
+/** All a player design's reason reads: how many scores and how many
+ * different songs. */
+type PlayerCounts = Pick<PlayerCardContent, "scoreCount" | "songCount">;
+
+function histogramReason(counts: PlayerCounts): string | null {
+  return counts.scoreCount < CHART_MIN_SCORES
     ? "The histogram needs at least four scores."
     : null;
 }
 
-function playerStripReason(content: PlayerCardContent): string | null {
-  return content.scoreCount < CHART_MIN_SCORES
+function playerStripReason(counts: PlayerCounts): string | null {
+  return counts.scoreCount < CHART_MIN_SCORES
     ? "The strip needs at least four scores."
     : null;
 }
 
-function songsReason(content: PlayerCardContent): string | null {
-  return content.songCount < 2 ? "One song is no list of songs." : null;
+function songsReason(counts: PlayerCounts): string | null {
+  return counts.songCount < 2 ? "One song is no list of songs." : null;
 }
 
 const PLAYER_REASONS: Record<
   PlayerDesign,
-  (content: PlayerCardContent) => string | null
+  (counts: PlayerCounts) => string | null
 > = {
   histogram: histogramReason,
   strip: playerStripReason,
   songs: songsReason,
 };
+
+/**
+ * Whether one singer's scores, as a surface shows them, make a player card
+ * with at least one design to draw — four scores, or two different songs.
+ * *Share stats* and *Share my stats* are drawn only then (share-cards §9): a
+ * panel of dimmed slots and no buttons is a dead end. Counted the way
+ * `playerCard` counts, so the button and the panel never disagree.
+ */
+export function playerStatsShareable(scores: ScoreWithContext[]): boolean {
+  const counts: PlayerCounts = {
+    scoreCount: scores.length,
+    songCount: groupScores(scores, "song").length,
+  };
+  return PLAYER_DESIGNS.some(
+    (design) => PLAYER_REASONS[design](counts) === null,
+  );
+}
 
 /** One per slide, in `PLAYER_DESIGNS`' order. */
 export function playerCardDesigns(

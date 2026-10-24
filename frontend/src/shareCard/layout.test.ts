@@ -10,6 +10,7 @@ import {
   cardScore,
   fakeMeasure,
   partySession,
+  singerId,
   singerScores,
   song,
 } from "../test/shareCard";
@@ -622,6 +623,101 @@ test.each(FORMATS)(
       expect(dot.cy - 24).toBeGreaterThanOrEqual(top);
       expect(dot.cy + 24).toBeLessThanOrEqual(bottom);
     }
+  },
+);
+
+/** The strip's band (its grid lines' extent) and its dots. */
+function stripOf(layout: CardLayout) {
+  const lines = layout.elements.flatMap((element) =>
+    element.kind === "line" &&
+    element.region === "strip" &&
+    element.x1 === element.x2
+      ? [element]
+      : [],
+  );
+  const dots = layout.elements.flatMap((element) =>
+    element.kind === "circle" &&
+    element.region === "strip" &&
+    element.fill !== null
+      ? [element]
+      : [],
+  );
+  const top = Math.min(...lines.map((line) => line.y1));
+  const bottom = Math.max(...lines.map((line) => line.y2));
+  // Every dot at one size, whichever step the strip took (§4.2: r 10, 8, 6).
+  const r = Math.max(...dots.map((dot) => dot.r));
+  expect(dots.every((dot) => dot.r === r)).toBe(true);
+  // The swarm's gap is 2.4 radii (24 at r 10): no two dots closer, no pile.
+  const apart = dots.every((dot, i) =>
+    dots
+      .slice(i + 1)
+      .every(
+        (other) =>
+          Math.hypot(dot.cx - other.cx, dot.cy - other.cy) >= 2.4 * r - 1e-6,
+      ),
+  );
+  return { band: bottom - top, top, bottom, dots, r, apart };
+}
+
+/** Forty-eight scores packed into 6000–8500 over `singers` singers: a big
+ * evening's dense cloud. */
+function denseParty(singers: number): ScoreWithContext[] {
+  return Array.from({ length: 48 }, (_, index) =>
+    cardScore(
+      singerId(index % singers),
+      6000 + ((index * 977) % 2500),
+      SONGS[index % SONGS.length],
+    ),
+  );
+}
+
+test.each([
+  // [what, singers, format, head, the band at most, the dots' radius]
+  // Under a head the square has about 120 of air: too little for every dot
+  // at r 10 or r 8, so the dots step down to r 6 rather than pile.
+  ["a square under a head", 8, "square", true, 120, 6],
+  ["a square without a head", 8, "square", false, 270, 10],
+  ["a story with rows", 8, "story", true, 175, 8],
+  ["a story of three singers", 3, "story", true, 452, 10],
+  // One singer is the hero: it keeps the preset it takes at the least band.
+  ["a square of one singer under a head", 1, "square", true, 120, 6],
+  ["a square of one singer without a head", 1, "square", false, 160, 8],
+] as const)(
+  "a dense party strip on %s grows into the room its region leaves, then draws smaller dots, never piled ones",
+  (_, singers, format, head, most, r) => {
+    const content = party(denseParty(singers), { partyNameAndDate: head });
+    const options = resolvePartyOptions(content, "strip", format, true, all);
+    expect(options.under).toBe("strip");
+    const layout = layoutPartyCard(content, options, fakeMeasure);
+    checkLayout(layout, format);
+    const strip = stripOf(layout);
+    expect(strip.dots).toHaveLength(48);
+    // Never under its least, and never past what the podium leaves.
+    expect(strip.band).toBeGreaterThanOrEqual(format === "square" ? 100 : 150);
+    expect(strip.band).toBeLessThanOrEqual(most);
+    expect(strip.r).toBeCloseTo(r);
+    for (const dot of strip.dots) {
+      expect(dot.cy - dot.r).toBeGreaterThanOrEqual(strip.top);
+      expect(dot.cy + dot.r).toBeLessThanOrEqual(strip.bottom);
+    }
+    // Every dot has a lane of its own.
+    expect(strip.apart).toBe(true);
+  },
+);
+
+test.each(FORMATS)(
+  "a party strip of a few scores keeps its least band on a %s",
+  (format) => {
+    const content = party(cardParty(4, 2));
+    const layout = layoutPartyCard(
+      content,
+      resolvePartyOptions(content, "strip", format, true, all),
+      fakeMeasure,
+    );
+    const strip = stripOf(layout);
+    expect(strip.band).toBe(format === "square" ? 100 : 150);
+    // And its full-size dots.
+    expect(strip.r).toBe(10);
   },
 );
 

@@ -165,6 +165,10 @@ function paintBackground(
     ctx.drawImage(blurred, (width - side) / 2, (height - side) / 2, side, side);
     blurred.width = 0;
   } else {
+    // A cover of any size into a 360 px cell: averaged like every other
+    // picture on the card (`paintImage`), not sampled at the default `low`.
+    ctx.imageSmoothingEnabled = true;
+    ctx.imageSmoothingQuality = "high";
     for (const cell of background.cells) {
       const cover = images.get(cell.url);
       if (cover === undefined) continue;

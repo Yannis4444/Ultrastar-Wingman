@@ -490,6 +490,25 @@ test("with no score there is no Share my stats", async () => {
   ).not.toBeInTheDocument();
 });
 
+test("a record no player design can draw has no Share my stats", async () => {
+  // Three runs of one song: no histogram, no strip, no list of songs — the
+  // panel would be three dimmed slots and no button (share-cards §9).
+  listPlayerScores.mockResolvedValue({
+    data: {
+      scores: [
+        score(1, 9500, bohemian, "sing-1"),
+        score(2, 8000, bohemian, "sing-2"),
+        score(3, 7000, bohemian, "sing-3"),
+      ],
+    },
+  });
+  renderStats();
+  await waitFor(() => expect(groupLabels()).toHaveLength(1));
+  expect(
+    screen.queryByRole("button", { name: "Share my stats" }),
+  ).not.toBeInTheDocument();
+});
+
 test("a record that could not be read has nothing to share", async () => {
   listPlayerScores.mockRejectedValue({ detail: "boom" });
   renderStats();

@@ -24,6 +24,7 @@ import {
   PLAYER_DESIGNS,
   playerCardDesigns,
   playerSlideToggles,
+  playerStatsShareable,
   resolvePlayerOptions,
   SCORE_DESIGNS,
   SHARE_TOGGLES,
@@ -407,6 +408,29 @@ test("a design the card cannot draw resolves to the head and the numbers, never 
     expect(resolvePlayerOptions(one, design, "square", true).focus).toBe(
       "none",
     );
+});
+
+test.each([
+  ["one score", [9000], SONGS, false],
+  ["three scores of one song", [9000, 8000, 7000], [SONGS[0]], false],
+  ["three scores of songs that left the library", [9, 8, 7], [null], false],
+  ["two scores of two songs", [9000, 8000], SONGS, true],
+  ["four scores of one song", [9000, 8000, 7000, 6000], [SONGS[0]], true],
+  ["one known song and one that left", [9000, 8000], [SONGS[0], null], true],
+] as const)(
+  "the share control stands for %s only where a design can be drawn",
+  (_, values, songs, shareable) => {
+    const scores = singerScores("alice", [...values], [...songs]);
+    expect(playerStatsShareable(scores)).toBe(shareable);
+    // One rule with the panel's: never a button into a panel of dimmed slots.
+    expect(playerCardDesigns(playerOf(scores)).some((entry) => entry.ok)).toBe(
+      shareable,
+    );
+  },
+);
+
+test("no scores, no share control", () => {
+  expect(playerStatsShareable([])).toBe(false);
 });
 
 test("on the sharer's own stats the pictures toggle is dimmed, on somebody else's it is live", () => {

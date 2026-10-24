@@ -198,13 +198,30 @@ rating 44, the bar, the singer row, and the brand on the safe area's last line.
 | 72–190 | the head 56 bold (→ 44, then an ellipsis), one line, over its sub line 32 in `#888` (§2.2). With *Party name and date* off the region goes and the rest closes up: the numbers, the podium 150 under their top and what is under it 24 below the podium stand as one block, centred between the margin and the brand's line (y 72–936), so no air is left above ranks 4–6. Spread's numbers start at 72, its ranking line and rows moving up with them |
 | 222–331 | four numbers in columns 190 · 190 · 316 · 240 wide: the value 56 bold, the label 32 in `#888`; Best gold with its holder |
 | 372–694 | the podium: 1st in the middle and raised, avatar 180; 2nd and 3rd avatar 140, 60 lower; the pink rank numeral 40 bold before the name 40 (→ 32); the score 44 bold (gold for the best). Two singers stand about the middle, 2nd at the left. Centred in the space when nothing is under it |
-| 722–936 | **either** ranks 4–6 as 56 px rows (the pink numeral, a 48 avatar, the name 40 → 32, the score 40 at the right) plus "+N more" 32, **or** the score strip ("Median N" at 32, a 100 px band of dots r 10 ringed in `--bg`, the best gold with a gold ring r 19, the median dashed 3 px, the gridlines and the axis 3 px, ticks 0 / 5k / 10k at 32) |
+| 722–936 | **either** ranks 4–6 as 56 px rows (the pink numeral, a 48 avatar, the name 40 → 32, the score 40 at the right) plus "+N more" 32, **or** the score strip ("Median N" at 32, a band of dots r 10 ringed in `--bg` — 100 px at the least, growing with the cloud, and the dots smaller only where it has no room, below —, the best gold with a gold ring r 19, the median dashed 3 px, the gridlines and the axis 3 px, ticks 0 / 5k / 10k at 32) |
 | 960–1008 | the brand; "ranked by best score" at 32 on the right |
 
 - **Which slide draws what under the podium** (§5): *Podium* draws ranks 4–6, *Strip* the
   score strip. **Story:** the same order in y 270–1650, centred; its *Podium* draws the
   rows, its *Strip* the rows **and** the strip (each where there is something to draw; the
-  strip's band 150).
+  strip's band 150 at the least).
+- **The strip grows with the cloud**, by the player card's rule (§9, `layout.ts`
+  `fittedStrip`): the band as tall as the swarm needs for every dot to have a lane of its
+  own, never under its least, and only into the air its region leaves — the podium, or the
+  one-singer hero at the preset it takes with the band at its least, keeps its size. That
+  air is the maximum: about **120** on a square under a head (the podium's slack above
+  722, so a square with a head barely grows; about 118 over a party of one and 101 on
+  *You*, whose place line leaves the hero almost no slack), about **270** on a square without
+  one (about 158 over a party of one), and
+  on a story whatever the stack leaves under the head, the numbers, the podium and the
+  rows — about **175** under three rows and "+N more", **330** under one row, **450** with
+  no rows. Where even that is too little at full size, the marks step down — dot, ring,
+  gap and gold ring together, r 10 → 8 → 6 (`STRIP_SCALES`, `heroPreset`'s idiom) — to the
+  first step at which every dot has its lane; only a cloud past the last step piles on the
+  outer lanes. A cloud of 48 scores packed into 6000–8500 needs 189 at r 10: it fits at full
+  size without a head and on a story of three singers, at r 8 on a story with three rows
+  and "+N more" and over a party of one without a head, and at r 6 on a square under a
+  head.
 - **Mosaic:** the podium centred in the space left, nothing under it.
 - **Spread** (§3.3): the head and the numbers, the ranking line at 36 (→ 32, then fewer
   entries) at 362, the rows from 440 down to the axis at the foot (a name column 260, the
@@ -613,10 +630,11 @@ One singer's scores as a picture: at one party, or their whole record.
 third target, *Share stats* on an open player group and *Share my stats* on `/user/stats`.
 Calls the design left open, each vetoable:
 
-- **The control stands for every non-empty record**, as written below, though below four
-  scores of one song every design is a dimmed slot: a single score opens a panel of three
-  slots and no buttons. The alternative is to draw the control only where one design can
-  be drawn (four scores, or two songs).
+- **The control stands only where one design can be drawn**: four scores, or two songs
+  (the user's ruling of 2026-10-24, after the first build drew it for every non-empty
+  record and a single score opened a panel of three dimmed slots and no buttons).
+  `possible.ts` `playerStatsShareable` is the one predicate both entry points ask, over the
+  scores they would hand the panel, counted as `playerCard` counts them.
 - **The panel opens on the first design the card can draw** when the remembered one is
   dimmed (§5 says the first slide; a party's Podium and a score's Dark always can be drawn,
   a player's Histogram cannot below four scores).
@@ -625,11 +643,13 @@ Calls the design left open, each vetoable:
   under a 200 avatar, the name, the line and the numbers do not fit in y 270–1650. On
   *Histogram* and *Strip* the avatar stays 200.
 - **The strip's dots** are r 12 with a gold ring of 22 and 28 px between swarm lanes
-  (`PLAYER_STRIP_DOT`), and **the band grows with the cloud** (`stripBand`): 200 on a
+  (`PLAYER_STRIP_DOT`), and **the band grows with the cloud** (`playerStrip`): 200 on a
   square and 280 on a story are its least, and it is as tall as the swarm needs for every
   dot to have a lane of its own, up to the square's focus region (about 450) and the
   story's 640. A fixed 200 piled a cloud of fifty scores onto its outer lanes, dots over
-  dots; only a cloud past those heights still does, as the party card's strip does at 100.
+  dots. A cloud past those heights steps its marks down (r 12 → 9.6 → 7.2, §4.2's
+  `STRIP_SCALES`) before it piles, and only one past the last step still does. The party
+  card's strip follows the same rule within its own region (§4.2).
 - **A histogram bar is never under 8 px** where its bucket holds a score, and the bars
   have square corners on the baseline.
 - **The scope line reads *All parties*** under *All my scores* as well, the head row of a
@@ -642,10 +662,10 @@ Calls the design left open, each vetoable:
 
 **Where it opens.** *Share stats* on an open **player** group on `/scores` (grouped by
 player, in any party or in *All parties*): one plain `.button` with `share`, right-aligned on
-a line of its own 12px under the summary and its chart, one per group; a song group has
-none. On `/user/stats`, one `.icon-button-bordered`
+a line of its own 12px under the summary and its chart, one per group whose scores a design
+can draw; a song group has none. On `/user/stats`, one `.icon-button-bordered`
 `share`, *Share my stats*, trailing the `PageHeader` (a page-level control, ui-guidelines
-§6), drawn once the scores are in and not empty. Whoever may see the scores may share them,
+§6), drawn once the scores are in and a design can be drawn from them. Whoever may see the scores may share them,
 somebody else's included (§1, *No new permission*).
 
 **What it says.**
@@ -663,8 +683,9 @@ histogram as the focus), *Strip* (the strip as the focus) and *Songs* (the best 
 rows), all on Dark: a chart over a cover wash does not read. *Histogram* and *Strip* need
 four scores (`CHART_MIN_SCORES`), *Songs* two songs, each dimmed with its sentence below
 that (*The histogram needs at least four scores.*, *The strip needs at least four scores.*,
-*One song is no list of songs.*); the control is drawn for one score already, because the
-head and the numbers always stand.
+*One song is no list of songs.*). The control is drawn only where at least one of the three
+can be drawn — four scores, or two songs — so a panel never opens on dimmed slots alone;
+a single score, or three of one song, has no *Share stats* and no *Share my stats*.
 
 **Square** (1080, margins 72):
 

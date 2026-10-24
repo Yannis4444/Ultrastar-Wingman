@@ -189,12 +189,12 @@ Fry tapped his own score, so his row is lit. Tapping Leela's would share hers.
 - Tap the song's title to open the song. A song you may not open, or one that
   has left the library, is plain text.
 - :wingman-share: **Share** makes a card of the lit row's score. See
-  [Share a party or a score](#share-a-party-or-a-score).
+  [Share a party, a score, or a singer's stats](#share-a-party-a-score-or-a-singers-stats).
 
 Somebody who may correct scores still does that from the row on this page,
 never from inside the sing. See [Correct a score](#correct-a-score).
 
-## Share a party or a score
+## Share a party, a score, or a singer's stats
 
 Wingman draws a picture of a party, of one score, or of one singer's scores
 for you to send to friends. Your browser draws it, and you save or share it
@@ -210,7 +210,9 @@ from there. Whoever may read a party's scores may share them.
   open their row. :wingman-share: **Share stats** stands under their figures,
   over their scores. The card is of that singer at this party. Under **All
   parties** or **All my scores** it adds up every party on the page, and the
-  card says **All parties**. A row grouped by song has no **Share stats**.
+  card says **All parties**. A row grouped by song has no **Share stats**, and
+  neither has a singer with fewer than four scores, all of one song: no design
+  of the card can be drawn from those yet.
   Your own record has the same card on the **User** tab, see
   [Share your stats](your-scores.md#share-your-stats).
 

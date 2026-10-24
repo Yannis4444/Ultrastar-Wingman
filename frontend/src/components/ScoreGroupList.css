@@ -215,17 +215,13 @@ details[open] > summary .score-group-chevron {
 /* *Share stats*, an open player group's first line under its numbers
    (share-cards §9): at the scores' right edge, 12px under the summary and its
    chart (and the hairline under them) and 8px over the first score, and never
-   the danger colour — sharing takes nothing away. A group of one has no
-   summary, so there it is the tile's first line. The tile's own padding is
-   the side margin. */
+   the danger colour — sharing takes nothing away. Only a group a player
+   design can draw carries it, and that is never a group of one, so a summary
+   always stands above it. The tile's own padding is the side margin. */
 .score-group-share {
   display: flex;
   justify-content: flex-end;
   margin: 12px 0 8px 0;
-}
-
-.score-group-share:first-child {
-  margin-top: 0;
 }
 
 .score-group-share .button {

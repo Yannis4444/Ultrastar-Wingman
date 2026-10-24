@@ -3,7 +3,8 @@
 *Design, 2026-09-06. Branch `feat/host-spinner`. The user's decisions are in §1; everything
 else is the plan the agents build from. Where this document and the code disagree after the
 round, the code is right and this document is updated: §6 is what shipped and where it
-departs from §§2–4, and §7.1 the same for the third round of §7.*
+departs from §§2–4, §7.1 the same for the third round of §7, and §8 what the round of
+2026-10-24 changed. §3.2 and §3.5 describe the page and its tests as they are now.*
 
 The Random song page picks a song on one phone. This round lets the room watch the pick on
 the TV: a phone (or the player selector's start button) spins the reel **on the host
@@ -149,14 +150,8 @@ the Random song page: compare before and after in the browser.
 
 ### 3.2 The phone: the Random song page in *Host screen* mode
 
-*Rewritten 2026-10-24. Until then this was a separate fullscreen modal, `HostSpin.tsx`,
-opened by a `tv` square beside SPIN: planned (91b9fe9) in the idiom of `PlayerSelection`,
-the one fullscreen modal that holds the room's lock and the screen it hands over to, it
-carried that modal's header close, and the R5 redesign (§7) added a **Cancel** at its foot
-— two ways out of one view. The user asked for one way out and for one page; the target is
-ui-guidelines §7, Random song, and this section is what shipped.*
-
-There is no second view. The Random song page and a playlist's reel
+The target is ui-guidelines §7, Random song; how the page came to replace the modal the
+first rounds built is §8. There is no second view. The Random song page and a playlist's reel
 (`components/SongSpinner.tsx`) draw one layout for both places the reel runs: §4's pills
 *This screen* · *Host screen* (`tv` before the word) as the column's first row, drawn only
 for `karaoke.sing` and only where the server has a pool to spin (the library's scopes, or a
@@ -164,8 +159,8 @@ playlist's id); *Pick from* and the pool caption; the reel's window; the result 
 action row of SPIN and *Play*. The choice is kept per device (`spinTarget.ts`), and a kept
 *Host screen* opens nothing on entry: the room's selection is taken by the first SPIN.
 
-*Host screen* is `hooks/useHostSpin.ts` over `useSelectionLock`, HostSpin's phase logic
-moved there with an `idle` phase in front of it:
+*Host screen* is `hooks/useHostSpin.ts` over `useSelectionLock`, six phases: `idle` (nothing
+held), `opening`, `spun`, `blocked`, `empty` and `lost`:
 
 - SPIN reads *Spin*: `POST /karaoke/selection` with `spin` (the select's scope, or the
   playlist's id) and the remembered slots out of `playerSlots.ts`, the die tumbling while
@@ -180,7 +175,7 @@ moved there with an `idle` phase in front of it:
   selection and its token (`lock.forget()`, nothing given back). Once the picker closes the
   page holds nothing: the words stay, SPIN reads *Spin*, Play is off.
 - A pool changed under a held selection leaves the TV on it until the next press, which
-  gives it back (`lock.close()`, now a promise of the DELETE's answer) and opens anew only
+  gives it back (`lock.close()`, a promise of the DELETE's answer) and opens anew only
   once the room has answered — sent together, the open could find the phone's own
   selection still there and be refused with `selection_open`.
 - *Somebody is picking singers for <title>.* (Play's place a *Take over* through a danger
@@ -190,8 +185,8 @@ moved there with an `idle` phase in front of it:
   slot, SPIN reading *Spin*. Any other refusal is an `.error-notice` over the action row.
 - No close and no Cancel: the pills back on *This screen*, leaving the page and closing the
   tab give the room back through the lock's one `keepalive` DELETE. Because the page stays
-  mounted across selections, the lock grew `begin()` / `isCurrent(ticket)` and a ticket on
-  `hold`: an open answered after the pills came back gives its token straight back even
+  mounted across selections, the lock has `begin()` / `isCurrent(ticket)` and takes a ticket
+  on `hold`: an open answered after the pills came back gives its token straight back even
   when the next SPIN has already taken the room again.
 
 *This screen* is the phone's own reel, unchanged, and its *Play* opens the player
@@ -217,12 +212,14 @@ playlists). Each writes one PATCH like the settings above it.
 
 ### 3.5 Tests
 
-`SongReel.test.tsx`, the existing `SongSpinner.test.tsx` kept green, `HostSpin.test.tsx`
-(the reveal wait, the three buttons, the takeover, the empty pool — since 2026-10-24 in
-`SongSpinner.test.tsx`, the file gone with the modal), `PlayerSelection`
-adopt mode, `HostSelection` with a spin (reel present, title held back, no countdown),
-`Devices` settings controls. Browser check per `docs/dev/verifying.md` on a scratch
-backend: phone spin → TV reel → Play → picker; device rules through the report route.
+`SongReel.test.tsx`; `SongSpinner.test.tsx`, which holds both modes of §3.2 — the pills and
+their memory, the reveal wait and its cap, *Show it* / *Spin again*, Play and the hand-over,
+the takeover, the empty pool, a selection lost, and the room given back once on the pills,
+on leaving the page and for a spin that lands after the pills came back; `spinTarget.test.ts`;
+`useSelectionLock.test.tsx` (the tickets); `PlayerSelection` adopt mode; `HostSelection` with
+a spin (reel present, title held back, no countdown); `Devices` settings controls. Browser
+check per `docs/dev/verifying.md` on a scratch backend: phone spin → TV reel → Play →
+picker; device rules through the report route.
 
 ## 4. Documentation
 
@@ -293,9 +290,7 @@ Everything in §1 holds. The plan was silent on, or wrong about, the following.
   host spin **does** send the remembered slots on open (§3.2 said nothing about slots), the
   way the player selection does, filtered against the live player and slot lists first so a
   player who left cannot 404 the request. The player selection alone writes it, on Play.
-- `HostSpin` had five phases (since 2026-10-24 they are `useHostSpin`'s, with `idle` in
-  front and the modal gone; §3.2 is the page as it is now): `opening`, `spun`, `blocked`,
-  `empty`, `lost`. The lost state
+- `HostSpin` had five phases: `opening`, `spun`, `blocked`, `empty`, `lost`. The lost state
   (taken over, expired, or a `not_the_opener` / `no_selection` on a respin) offers **Spin
   again**, which re-opens with the same spin — not *Pick again*. The blocked head names the
   other selection's song (one `GET /karaoke/selection` while blocked). *Spin again* and
@@ -323,9 +318,8 @@ Everything in §1 holds. The plan was silent on, or wrong about, the following.
 - `capture.py` emulates reduced motion, so the TV's reel in `host-reel` lands the moment it
   is drawn and the row is a check, not a wait; the phone's reveal in `reel-host-spin` waits
   `REVEAL_MS` regardless, so that row waits about six seconds in a step. The row presses
-  **Cancel** after the shot (`Row.after`; since 2026-10-24 the *This screen* pill, the
-  page's one way out) because closing a headless tab is not the `pagehide` that gives the
-  lock back. Which song either picture lands on is the server's.
+  **Cancel** after the shot (`Row.after`) because closing a headless tab is not the
+  `pagehide` that gives the lock back. Which song either picture lands on is the server's.
 - `integrate/`: only the `selection.changed` payload cell in `events.md` mentions `spin`.
   `devices.md` lists no settings keys and `rest-api.md`'s `/karaoke` row never named the
   selection routes, so neither was touched.
@@ -458,3 +452,23 @@ R1–R6 hold, with these departures and details the plan left open:
   seeded device and change `selector-device`'s picture. No separate picture of a phone's
   spin on the TV: `host-screen/index.md` already carries three, and that state is the
   same head without the row, which one sentence covers.
+
+## 8. One page, the modal retired (2026-10-24)
+
+Commit 68ea84f on `feat/design-feedback-round-3`. Until then the phone's side of a host spin
+was a separate fullscreen modal, `components/HostSpin.tsx`, opened by a `tv` square beside
+SPIN: planned (91b9fe9) in the idiom of `PlayerSelection`, the one fullscreen modal that
+holds the room's lock and the screen it hands over to. It carried that modal's header close,
+and the R5 redesign (§7) added a **Cancel** at its foot — two ways out of one view. The user
+asked for one way out and for one page, ui-guidelines §7's Random song; §3.2 is that page.
+
+- `HostSpin.tsx`, its stylesheet and `HostSpin.test.tsx` are gone. The five phases of §6
+  moved into `hooks/useHostSpin.ts` with an `idle` phase in front of them, and the modal's
+  tests into `SongSpinner.test.tsx`.
+- The *This screen* · *Host screen* pills replace the `tv` square, kept per device in
+  `spinTarget.ts`.
+- `useSelectionLock` grew `begin()` / `isCurrent(ticket)` and a ticket on `hold`, because
+  the page stays mounted across selections, and `close()` became a promise of the DELETE's
+  answer.
+- `capture.py`'s `reel-host-spin` row gives the room back with the *This screen* pill after
+  the shot instead of **Cancel**: the pill is the page's one way out.

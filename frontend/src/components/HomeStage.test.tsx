@@ -330,9 +330,32 @@ test("the heart and the wish work on the background song", async () => {
   await waitFor(() => expect(addFavorite).toHaveBeenCalled());
   expect(addFavorite.mock.calls[0][0].path.song_id).toBe("usdb:2");
 
-  fireEvent.click(screen.getByRole("button", { name: "Wish" }));
+  // The song modal's own names for the same control.
+  fireEvent.click(screen.getByRole("button", { name: "Add to wishlist" }));
   await waitFor(() => expect(addWish).toHaveBeenCalled());
   expect(addWish.mock.calls[0][0].body.song_id).toBe("usdb:2");
+});
+
+test("a wished background song offers Remove from wishlist, the song modal's name", async () => {
+  getMusic.mockResolvedValue({ data: music() });
+  listWishlist.mockResolvedValue({
+    data: {
+      wishes: [
+        {
+          song: BACKGROUND,
+          count: 1,
+          mine: true,
+          latest: "2026-08-23T20:00:00Z",
+        },
+      ],
+    },
+  });
+  renderStage();
+
+  fireEvent.click(
+    await screen.findByRole("button", { name: "Remove from wishlist" }),
+  );
+  await waitFor(() => expect(removeWish).toHaveBeenCalled());
 });
 
 test("the control row reads favorite, lead, wish — the song modal's order", async () => {

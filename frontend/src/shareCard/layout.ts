@@ -1157,15 +1157,82 @@ interface StripMarks {
   bestRing: number;
 }
 
-/** The strip's marks, at §4.2's sizes: dots r 10, the best's gold ring. */
+/** The strip's marks, at §4.2's sizes: dots r 10, the best's gold ring —
+ * smaller only for a cloud its region has no room for (`fittedStrip`). */
 const STRIP_DOT: StripMarks = { r: 10, ring: 3, gap: 24, bestRing: 19 };
-/** The player card's strip, the focus of its card: dots r 12 (§9). */
+/** The party strip's band at its least (§4.2); it grows with the cloud
+ * into the air its region leaves (`fittedStrip`). */
+const PARTY_STRIP_BAND = { square: 100, story: 150 };
+/** The player card's strip, the focus of its card: dots r 12 (§9), stepped
+ * down the same way. */
 const PLAYER_STRIP_DOT: StripMarks = { r: 12, ring: 3, gap: 28, bestRing: 22 };
 /** What keeps a mark on 0 or 10k from being cut by the card's margin. */
 const STRIP_INSET = 24;
 
 function stripHeight(band: number): number {
   return lineHeight(MIN_TEXT) + 8 + band + 8 + lineHeight(MIN_TEXT);
+}
+
+/** The steps a strip's marks take down, `heroPreset`'s idiom: a cloud its
+ * region cannot give every dot a lane at full size is drawn smaller before it
+ * is drawn piled — the dot, its ring, the gap and the gold ring together. */
+const STRIP_SCALES = [1, 0.8, 0.6] as const;
+
+function scaledMarks(mark: StripMarks, scale: number): StripMarks {
+  return {
+    r: mark.r * scale,
+    ring: mark.ring * scale,
+    gap: mark.gap * scale,
+    bestRing: mark.bestRing * scale,
+  };
+}
+
+/** The band the swarm needs at `mark` for every dot to find a lane of its
+ * own. */
+function neededBand(dots: CardDot[], mark: StripMarks): number {
+  // The very placement `strip` makes, uncapped: same dots, same order.
+  const spread = Math.max(
+    0,
+    ...swarm(
+      dots,
+      (dot) => MARGIN + scoreX(dot.score, CONTENT, STRIP_INSET),
+      0,
+      mark.gap,
+    ).map((placed) => Math.abs(placed.y)),
+  );
+  return 2 * (spread + mark.bestRing + mark.ring / 2 + 2);
+}
+
+/** A strip's band and the marks it is drawn at (`fittedStrip`). */
+interface FittedStrip {
+  band: number;
+  mark: StripMarks;
+}
+
+/**
+ * A strip that grows with its cloud: the band `least` at the least, and as
+ * tall as the swarm needs for every dot to find a lane of its own — a band
+ * that caps the lanes piles the rest of a big cloud onto the outer one, dots
+ * over dots — up to `most`, the room its region has. Where even `most` is too
+ * little at full size the marks step down (`STRIP_SCALES`) until the cloud
+ * fits; past the last step the lanes are capped and the outer ones carry the
+ * rest.
+ */
+function fittedStrip(
+  dots: CardDot[],
+  mark: StripMarks,
+  least: number,
+  most: number,
+): FittedStrip {
+  const room = Math.max(least, most);
+  let fitted: FittedStrip = { band: least, mark };
+  for (const scale of STRIP_SCALES) {
+    const scaled = scaledMarks(mark, scale);
+    const needed = neededBand(dots, scaled);
+    fitted = { band: Math.max(least, Math.min(most, needed)), mark: scaled };
+    if (needed <= room) break;
+  }
+  return fitted;
 }
 
 /** Tick labels under an axis from `left` over `width`, 0 and 10k inwards. */
@@ -1251,7 +1318,9 @@ function strip(
     });
   }
   const reach = mark.bestRing + mark.ring / 2;
-  const lanes = Math.floor((band / 2 - reach - 2) / mark.gap);
+  // A band `neededBand` sized holds its lanes exactly; the 1e-6 keeps a
+  // scaled gap's rounding from taking the last one away.
+  const lanes = Math.floor((band / 2 - reach - 2) / mark.gap + 1e-6);
   const placed = swarm(
     dots,
     (dot) => x(dot.score),
@@ -1604,32 +1673,43 @@ function partySquare(
   }
 
   const under = options.look === "mosaic" ? "none" : options.under;
-  const stripBand = 100;
-  const underHeight =
+  const one = content.ranking.length === 1;
+  const least = PARTY_STRIP_BAND.square;
+  // At its least first: what the podium or the hero takes is settled at
+  // that, and the band then grows into the air they leave and no further.
+  let fitted: FittedStrip = { band: least, mark: STRIP_DOT };
+  const underHeightAt = (band: number) =>
     under === "ranking"
       ? rowsHeight(content)
       : under === "strip"
-        ? stripHeight(stripBand)
+        ? stripHeight(band)
         : 0;
   const placeUnder = (top: number) => {
     if (under === "ranking") rows(b, content, top);
     if (under === "strip")
-      strip(b, content.dots, content.median, top, stripBand);
+      strip(b, content.dots, content.median, top, fitted.band, fitted.mark);
   };
+  const grow = (slack: number) =>
+    fittedStrip(content.dots, STRIP_DOT, least, least + Math.max(0, slack));
 
   if (content.head === null) {
     // Nothing above the numbers: rather than leaving the podium alone in the
     // middle of what the head freed, with the rows still at the foot, the
     // whole block closes up at the head card's own gaps and is centred
     // between the margin and the brand (§4.2).
-    const one = content.ranking.length === 1;
-    const underRoom = underHeight > 0 ? SQUARE_UNDER_GAP + underHeight : 0;
+    const leastHeight = underHeightAt(least);
+    const underRoom = leastHeight > 0 ? SQUARE_UNDER_GAP + leastHeight : 0;
     const bodyHeight = one
       ? heroHeight(
           content,
           heroPreset(content, bodyBottom - bodyTop - underRoom),
         )
       : PODIUM_HEIGHT;
+    if (under === "strip")
+      fitted = grow(
+        bodyBottom - MARGIN - SQUARE_BODY_GAP - bodyHeight - underRoom,
+      );
+    const underHeight = underHeightAt(fitted.band);
     const items: StackItem[] = [
       {
         height: NUMBERS_HEIGHT,
@@ -1657,9 +1737,17 @@ function partySquare(
   }
 
   numbers(b, content.numbers, numbersTop);
+  if (under === "strip") {
+    const space = bodyBottom - SQUARE_UNDER_GAP - stripHeight(least) - bodyTop;
+    const body = one
+      ? heroHeight(content, heroPreset(content, space))
+      : PODIUM_HEIGHT;
+    fitted = grow(space - body);
+  }
+  const underHeight = underHeightAt(fitted.band);
   const underTop = bodyBottom - underHeight;
   const heroBottom = underHeight > 0 ? underTop - SQUARE_UNDER_GAP : bodyBottom;
-  if (content.ranking.length === 1) {
+  if (one) {
     hero(b, content, bodyTop, heroBottom);
   } else {
     const space = heroBottom - bodyTop;
@@ -1731,11 +1819,23 @@ function partyStory(
       options.under === "strip" &&
       content.dots.length >= CHART_MIN_SCORES
     ) {
-      const band = 150;
+      // What the stack leaves under everything else is the strip's room.
+      const gap = 64;
+      const taken = items.reduce(
+        (sum, item) => sum + item.height + item.gap,
+        0,
+      );
+      const least = PARTY_STRIP_BAND.story;
+      const { band, mark } = fittedStrip(
+        content.dots,
+        STRIP_DOT,
+        least,
+        bottom - area.top - taken - gap - stripHeight(0),
+      );
       items.push({
         height: stripHeight(band),
-        gap: 64,
-        place: (top) => strip(b, content.dots, content.median, top, band),
+        gap,
+        place: (top) => strip(b, content.dots, content.median, top, band, mark),
       });
     }
   }
@@ -1754,7 +1854,7 @@ const PLAYER_SQUARE = {
   focusTop: 392,
   focusBottom: 1080 - MARGIN - BRAND_LOGO - 24,
   histogram: 440,
-  /** The strip's band at its least: it grows with the cloud (`stripBand`). */
+  /** The strip's band at its least: it grows with the cloud (`playerStrip`). */
   stripBand: 200,
 };
 
@@ -1771,32 +1871,21 @@ const PLAYER_STORY = {
 };
 
 /**
- * The player strip's band: §9's 200 (a story's 280) at least, and as tall as
- * the swarm needs for every dot to find a lane of its own — a band that caps
- * the lanes piles the rest of a big cloud onto the outer one, dots over dots —
- * up to what the format has room for (the square's focus region, the story's
- * histogram height). Past that the lanes are capped as on the party card.
+ * The player strip (`fittedStrip`): §9's 200 (a story's 280) at least, up to
+ * what the format has room for — the square's focus region, the story's
+ * histogram height.
  */
-function stripBand(content: PlayerCardContent, format: CardFormat): number {
+function playerStrip(
+  content: PlayerCardContent,
+  format: CardFormat,
+): FittedStrip {
   const least =
     format === "story" ? PLAYER_STORY.stripBand : PLAYER_SQUARE.stripBand;
   const most =
     format === "story"
       ? PLAYER_STORY.histogram
       : PLAYER_SQUARE.focusBottom - PLAYER_SQUARE.focusTop - stripHeight(0);
-  const mark = PLAYER_STRIP_DOT;
-  // The very placement `strip` makes, uncapped: same dots, same order.
-  const spread = Math.max(
-    0,
-    ...swarm(
-      content.dots,
-      (dot) => MARGIN + scoreX(dot.score, CONTENT, STRIP_INSET),
-      0,
-      mark.gap,
-    ).map((placed) => Math.abs(placed.y)),
-  );
-  const needed = 2 * (spread + mark.bestRing + mark.ring / 2 + 2);
-  return Math.min(most, Math.max(least, needed));
+  return fittedStrip(content.dots, PLAYER_STRIP_DOT, least, most);
 }
 
 /** The song rows: the cover 80 in a 104 row on a square, eight of them in
@@ -2027,7 +2116,7 @@ function playerFocusHeight(
         story ? PLAYER_STORY.histogram : PLAYER_SQUARE.histogram,
       );
     case "strip":
-      return stripHeight(stripBand(content, options.format));
+      return stripHeight(playerStrip(content, options.format).band);
     case "songs":
       return (
         songsShown(content, options.format) * SONG_ROWS[options.format].pitch
@@ -2053,16 +2142,11 @@ function placePlayerFocus(
         story ? PLAYER_STORY.histogram : PLAYER_SQUARE.histogram,
       );
       return;
-    case "strip":
-      strip(
-        b,
-        content.dots,
-        content.median,
-        top,
-        stripBand(content, options.format),
-        PLAYER_STRIP_DOT,
-      );
+    case "strip": {
+      const { band, mark } = playerStrip(content, options.format);
+      strip(b, content.dots, content.median, top, band, mark);
       return;
+    }
     case "songs":
       songRows(
         b,

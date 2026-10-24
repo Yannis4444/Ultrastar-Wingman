@@ -16,6 +16,7 @@ import ShareCardPanel, { type ShareTarget } from "../components/ShareCardPanel";
 import SingView from "../components/SingView";
 import SongDetails from "../components/SongDetails";
 import { errorMessage } from "../errors";
+import { playerStatsShareable } from "../shareCard/possible";
 import { groupScores, sortGroups, type Sorting } from "../stats";
 // The rules are the Scores page's; this view is the same list with one singer
 // in it, so it shares the stylesheet instead of restating it.
@@ -156,6 +157,8 @@ export default function UserStats() {
     enabled: reading,
   });
   const rows = scores.data?.scores ?? [];
+  // The card needs one design it can draw: four scores, or two songs.
+  const shareable = playerStatsShareable(rows);
   const [sharing, setSharing] = useState(false);
   // The card draws the reader's own picture, which is in the roster: asked
   // for once the card is, and the panel waits for the answer, so it is never
@@ -184,8 +187,9 @@ export default function UserStats() {
     <div className="scores-page">
       <PageHeader title="Your scores" back="/user">
         {/* A page-level control (ui-guidelines §6): the whole record as a
-            card (share-cards §9), once there is a record to draw. */}
-        {reading && scores.isSuccess && rows.length > 0 && (
+            card (share-cards §9), once the record makes one with a design
+            to draw. */}
+        {reading && scores.isSuccess && shareable && (
           <button
             type="button"
             className="icon-button icon-button-bordered"
@@ -197,7 +201,7 @@ export default function UserStats() {
           </button>
         )}
       </PageHeader>
-      {sharing && rows.length > 0 && rosterSettled && (
+      {sharing && shareable && rosterSettled && (
         <ShareCardPanel
           target={target}
           players={players}
