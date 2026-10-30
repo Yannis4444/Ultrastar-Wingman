@@ -95,7 +95,8 @@
 
 /* The avatar takes whatever height the bar ends up with, so the two can never
    disagree — square while the type fits, cropped rather than short if it does
-   not. */
+   not. The ratio on the avatar is what keeps it square: without it a portrait
+   picture sizes the row by its own natural height and the whole line grows. */
 .last-song-row {
   align-items: stretch;
 }
@@ -140,6 +141,7 @@
 .last-song .last-song-avatar {
   width: var(--last-song-row);
   height: auto;
+  aspect-ratio: 1;
   align-self: stretch;
   font-size: calc(var(--last-song-row) * 0.45);
 }
