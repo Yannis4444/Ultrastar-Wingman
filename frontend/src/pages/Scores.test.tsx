@@ -1302,7 +1302,7 @@ test("a role without stats.view gets an explanation, not a chart", async () => {
   getMe.mockResolvedValue(meResponse(["songs.view"]));
   renderScores();
 
-  expect(await screen.findByText(/not open to your role/i)).toBeInTheDocument();
+  expect(await screen.findByText(/not open to you\./i)).toBeInTheDocument();
   expect(listSessions).not.toHaveBeenCalled();
 });
 

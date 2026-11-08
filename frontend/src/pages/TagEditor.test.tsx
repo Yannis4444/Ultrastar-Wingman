@@ -58,7 +58,7 @@ vi.mock("../api/sdk.gen", async (importOriginal) => ({
 const MANAGER = ["songs.view", "tags.manage"];
 const ACCOUNT: Partial<MeRead> = { user: userRead(), ...AS.trusted };
 
-/** The groups `GET /groups` answers: the matrix's columns but Admin. */
+/** The groups `GET /groups` answers: the permission rows but Admin. */
 const GROUPS: GroupRead[] = [
   ["guest", "Guest"],
   ["user", "User"],
@@ -198,7 +198,7 @@ afterEach(() => {
   vi.unstubAllGlobals();
 });
 
-it("keeps the editor from a role that may not manage tags", async () => {
+it("keeps the editor from a reader who may not manage tags", async () => {
   renderEditor({ capabilities: ["songs.view"] });
 
   expect(
@@ -397,7 +397,7 @@ it("keeps a name this build has no glyph for chosen, drawn as the tag itself", a
   expect(glyphClass("sparkles")).toBe("icon tag-color-gold");
 });
 
-it("replaces the permissions when a box in the matrix moves", async () => {
+it("replaces the permissions when a box in a group row moves", async () => {
   replaceTagPermissions.mockResolvedValue({ data: tag() });
   renderEditor();
 
@@ -441,6 +441,8 @@ it("leaves out a row for a group that is gone", async () => {
 
   await screen.findByDisplayValue("broken");
   fireEvent.click(await screen.findByLabelText("Tag songs for Trusted"));
+  // Drawn nowhere: there is no row for a group the listing does not hold.
+  expect(screen.queryByLabelText(/for gone-group/)).not.toBeInTheDocument();
   fireEvent.click(screen.getByRole("button", { name: "Save" }));
 
   await waitFor(() => expect(replaceTagPermissions).toHaveBeenCalled());
@@ -547,6 +549,9 @@ it("warns about a tagger who would not see what they tagged", async () => {
   await screen.findByDisplayValue("broken");
   expect(screen.queryByText(/could not undo it/)).not.toBeInTheDocument();
 
+  // Trusted adds to User: while User sees the songs, so do Trusted's members,
+  // and unticking Trusted's own row alone changes nothing for them.
+  fireEvent.click(screen.getByLabelText("See songs for User"));
   fireEvent.click(screen.getByLabelText("See songs for Trusted"));
   expect(await screen.findByText(/Trusted may tag songs/)).toBeInTheDocument();
 
@@ -554,6 +559,100 @@ it("warns about a tagger who would not see what they tagged", async () => {
   await waitFor(() =>
     expect(screen.queryByText(/may tag songs without/)).not.toBeInTheDocument(),
   );
+});
+
+it("draws one row per group but Admin, the actions as its columns", async () => {
+  renderEditor();
+
+  await screen.findByDisplayValue("broken");
+  const rows = within(
+    screen.getByRole("list", { name: "Permissions" }),
+  ).getAllByRole("listitem");
+  expect(rows.map((row) => row.textContent)).toEqual([
+    "Guest",
+    "User",
+    "Trusted",
+  ]);
+  // Admin is no row: the hint over the rows says why.
+  expect(screen.queryByLabelText("See tag for Admin")).not.toBeInTheDocument();
+  expect(screen.getByText(/Administrators are not in the table/)).toBeVisible();
+  // Each row's lead is the group's square, the people rows' avatar's place.
+  expect(iconNames(rows[2])).toContain("users");
+});
+
+it("locks what User holds in a group that adds to it, and never sends it", async () => {
+  const DJS = "d".repeat(32);
+  replaceTagPermissions.mockResolvedValue({ data: tag() });
+  renderEditor({
+    tags: [
+      tag({
+        permissions: [
+          ...roleRows().filter((row) => row.group_id !== TRUSTED_GROUP_ID),
+        ],
+      }),
+    ],
+  });
+  listGroups.mockResolvedValue({
+    data: {
+      groups: [
+        ...GROUPS.slice(0, 2),
+        { ...GROUPS[2], id: DJS, name: "DJs" },
+        GROUPS[3],
+      ],
+      capabilities: null,
+    },
+  });
+
+  await screen.findByDisplayValue("broken");
+  const seeTag = await screen.findByLabelText("See tag for DJs");
+  // User sees the tag, so every account in DJs does: ticked, and locked.
+  expect(seeTag).toBeChecked();
+  expect(seeTag).toBeDisabled();
+  expect(seeTag).toHaveAttribute(
+    "title",
+    "Every account holds this through User.",
+  );
+  expect(screen.getByLabelText("Tag songs for DJs")).toBeEnabled();
+  // Built-ins are bundles of their own: Guest's boxes stay its own.
+  expect(screen.getByLabelText("See tag for Guest")).toBeEnabled();
+
+  fireEvent.click(screen.getByLabelText("Tag songs for DJs"));
+  fireEvent.click(screen.getByRole("button", { name: "Save" }));
+
+  await waitFor(() => expect(replaceTagPermissions).toHaveBeenCalled());
+  const sent = sentRows(replaceTagPermissions.mock.calls[0][0].body);
+  expect(sent).toContain(`assign ${DJS}`);
+  // What was drawn on User's behalf is not a row of DJs.
+  expect(sent).not.toContain(`view ${DJS}`);
+  expect(sent).not.toContain(`view_songs ${DJS}`);
+});
+
+it("a new tag lets Trusted tag songs only while Trusted exists", async () => {
+  createTag.mockResolvedValue({ data: tag({ id: "t-new", name: "duet" }) });
+  renderEditor({ path: "/user/tags/new", tags: [] });
+  // The host deleted Trusted.
+  listGroups.mockResolvedValue({
+    data: {
+      groups: GROUPS.filter((group) => group.id !== TRUSTED_GROUP_ID),
+      capabilities: null,
+    },
+  });
+
+  await screen.findByLabelText("Name");
+  await screen.findByLabelText("See tag for User");
+  expect(screen.queryByLabelText("Tag songs for Trusted")).toBeNull();
+  fireEvent.change(screen.getByLabelText("Name"), {
+    target: { value: "duet" },
+  });
+  fireEvent.click(screen.getByRole("button", { name: "Save" }));
+
+  await waitFor(() => expect(createTag).toHaveBeenCalled());
+  expect(sentRows(createTag.mock.calls[0][0].body)).toEqual([
+    "view guest",
+    "view user",
+    "view_songs guest",
+    "view_songs user",
+  ]);
 });
 
 it("warns about a filter that can never have anything in it", async () => {
@@ -593,6 +692,28 @@ it("explains a name another tag already has", async () => {
       "It did not go through. The message at the top of the page says why.",
     ),
   ).toBeInTheDocument();
+});
+
+it("words a group deleted since the page read the groups", async () => {
+  replaceTagPermissions.mockRejectedValue({ detail: "unknown_group" });
+  renderEditor();
+
+  fireEvent.click(await screen.findByLabelText("Tag songs for User"));
+  fireEvent.click(screen.getByRole("button", { name: "Save" }));
+
+  expect(await screen.findByRole("alert")).toHaveTextContent(
+    "That group no longer exists.",
+  );
+});
+
+it("says so when the groups cannot be read, rather than drawing no rows", async () => {
+  renderEditor();
+  listGroups.mockRejectedValue({ detail: "boom" });
+
+  await screen.findByDisplayValue("broken");
+  expect(await screen.findByRole("alert")).toHaveTextContent(
+    "Could not load the groups.",
+  );
 });
 
 it("keeps Save and Delete tag on the one action row", async () => {

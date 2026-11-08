@@ -7,22 +7,22 @@ looks after them.
 The page opens for anybody holding one of the four rights behind it: adding
 players, changing pictures, reading the accounts, or managing them. It shows
 only what your rights cover. Trusted holds the first three by default, and
-managing accounts is Admin's. See [Roles and permissions](roles.md).
+managing accounts is Admin's. See [Groups and permissions](groups.md).
 
-## The two groups
+## Accounts and guests
 
-The page lists everybody in two groups.
+The page lists everybody in two sections.
 
-- **Accounts** holds the people who log in. Their role and their picture are
+- **Accounts** holds the people who log in. Their groups and their picture are
   here. An account that logs in through single sign-on says *Signs in with*
   and the sign-in button's name under its name. See
   [Single sign-on](single-sign-on.md).
 - **Guests** holds the people who only sing. A guest is taken over by whoever
   registers that name, and the scores come along.
 
-![The Players and accounts page with Bender, Fry, and Leela under Accounts, the guests under that, and Scruffy's row grayed out](../assets/screenshots/people/people-admin.png){ width="320" loading=lazy }
+![The Players and accounts page with Bender, Fry, and Leela under Accounts, each with their groups beside the name, the guests under that, and Scruffy's row grayed out](../assets/screenshots/people/people-admin.png){ width="320" loading=lazy }
 /// caption
-Leela is the administrator here, which her row's role picker says.
+Leela is the administrator here, and Bender is in Trusted and DJs.
 ///
 
 ## Add a player
@@ -83,15 +83,30 @@ either.
     Logging in unhides you, and your wishes are back on the list. A singer who
     comes back after all does not have to ask anybody.
 
-## Roles
+## Groups
 
-Every account row carries a role: **User**, **Trusted**, or **Admin**. Pick
-another one and it applies at once. The picker is there for whoever may manage
-accounts, which is Admin by default.
+Every account row names the account's groups beside it: **Admin** for an
+administrator, otherwise the groups it is in, or **User** when it is in none.
+The button is there for whoever may manage accounts, which is Admin by default.
 
-Nobody is put back to **Guest**. That is the role for people without an account,
-so take the account away instead. The last administrator cannot be demoted
-either. Wingman answers *There has to be one administrator left.*
+1. Tap the groups on the account's row. **Groups of** and the name opens.
+2. Tap a group to put the account in it. :wingman-list-check: marks the groups
+   it is in.
+3. Tap a marked group to take the account out again.
+
+Every tap applies at once, on the account's own phone too. Each row says how
+many rights the group adds to what every account holds.
+
+Some rows cannot be tapped, and the row says why:
+
+- *Only an administrator can change this* stands on **Admin** for anybody who is
+  not an administrator.
+- *Carries a right you do not hold* stands on a group that gives something you
+  do not hold yourself. Taking somebody out of it is still allowed.
+
+Nobody is put in **Guest** or **User**: every account is in User already. The
+last administrator cannot leave **Admin** either. Wingman answers *There has to
+be one administrator left.* See [Groups and permissions](groups.md).
 
 ## Delete somebody
 
@@ -99,7 +114,8 @@ An account and its player are deleted separately, and the account goes first.
 
 - :wingman-trash: **Delete** on an account row keeps its player, as a guest.
   Every score it ever sang stays under that name. Deleting an account is
-  Admin's.
+  Admin's. An administrator's account carries the button for administrators
+  alone.
 - :wingman-trash: **Delete** on a guest row removes the player. Recorded scores
   keep the name and belong to nobody. Trusted may do this.
 

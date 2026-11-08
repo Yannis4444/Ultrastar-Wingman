@@ -202,7 +202,7 @@ test("a guest without the right is told who may do this", async () => {
   renderManage(detail(), ["songs.view"], {});
 
   expect(
-    await screen.findByText(/Playlists are not open to your role/),
+    await screen.findByText(/Playlists are not open to you\./),
   ).toBeInTheDocument();
   expect(getPlaylist).not.toHaveBeenCalled();
 });

@@ -213,8 +213,7 @@ export default function UserStats() {
       {auth.loaded &&
         (!auth.can("stats.view") ? (
           <p className="settings-notice">
-            Statistics are not open to your role. Log in or ask the host for
-            access.
+            Statistics are not open to you. Log in or ask the host for access.
           </p>
         ) : playerId === null ? (
           <p className="settings-notice">

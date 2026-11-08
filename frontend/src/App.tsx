@@ -1,10 +1,17 @@
+import { useQueryClient } from "@tanstack/react-query";
 import { Suspense, lazy, useLayoutEffect } from "react";
 import {
+  Navigate,
   Route,
   Routes,
   useLocation,
   useNavigationType,
 } from "react-router-dom";
+import {
+  getMeQueryKey,
+  listGroupsQueryKey,
+  listUsersQueryKey,
+} from "./api/@tanstack/react-query.gen";
 import { backTarget } from "./backLink";
 import BottomNav from "./components/BottomNav";
 import MusicSink from "./components/MusicSink";
@@ -14,6 +21,8 @@ import Achievements from "./pages/Achievements";
 import Device from "./pages/Device";
 import Devices from "./pages/Devices";
 import DeviceSetup from "./pages/DeviceSetup";
+import GroupEditor from "./pages/GroupEditor";
+import Groups from "./pages/Groups";
 import Home from "./pages/Home";
 import Host from "./pages/Host";
 import HostManage from "./pages/HostManage";
@@ -29,7 +38,7 @@ import Tags from "./pages/Tags";
 import Usdb from "./pages/Usdb";
 import User from "./pages/User";
 import UserAccounts from "./pages/UserAccounts";
-import UserPermissions from "./pages/UserPermissions";
+import { useWingmanEvent } from "./hooks/useWingmanEvents";
 
 // Split out: the two stats pages carry the chart drawing nothing else needs.
 // echarts is gone — the charts are hand-drawn SVG now — so the chunk is small,
@@ -67,7 +76,29 @@ function ScrollToTop() {
   return null;
 }
 
+/**
+ * A group was made, renamed, given other rights or deleted, or somebody was
+ * put in one or taken out (permission-groups.md §4). What this browser may do
+ * may have moved with it, so `/auth/me` is read again — a helper put in
+ * Trusted sees the download button appear without a reload — and so are the
+ * two listings that draw groups and memberships. Once for the whole app, not
+ * per page: the event carries nothing, and every open page needs the same
+ * three answers.
+ */
+function useGroupsChanged(): void {
+  const queryClient = useQueryClient();
+  useWingmanEvent("groups.changed", () => {
+    for (const queryKey of [
+      getMeQueryKey(),
+      listGroupsQueryKey(),
+      listUsersQueryKey(),
+    ])
+      void queryClient.invalidateQueries({ queryKey });
+  });
+}
+
 export default function App() {
+  useGroupsChanged();
   const location = useLocation();
   // The host screen is a TV view, not a phone: no tab bar on it — and none on
   // the management pages it opens either, whose tab bar would lead the host
@@ -104,7 +135,15 @@ export default function App() {
           <Route path="/user" element={<User />} />
           <Route path="/user/accounts" element={<UserAccounts />} />
           <Route path="/user/stats" element={<UserStats />} />
-          <Route path="/user/permissions" element={<UserPermissions />} />
+          <Route path="/user/groups" element={<Groups />} />
+          {/* Before the id route, so `new` is a new group and not an id. */}
+          <Route path="/user/groups/new" element={<GroupEditor />} />
+          <Route path="/user/groups/:groupId" element={<GroupEditor />} />
+          {/* The page's old address, so a bookmark still lands. */}
+          <Route
+            path="/user/permissions"
+            element={<Navigate to="/user/groups" replace />}
+          />
           <Route path="/user/achievements" element={<Achievements />} />
           <Route
             path="/user/achievements/new"

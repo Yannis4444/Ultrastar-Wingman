@@ -293,7 +293,7 @@ test("a refused create says which capability is missing", async () => {
   // nobody reads, and the panel stays open with the name still in it.
   const panel = within(screen.getByRole("dialog", { name: "New playlist" }));
   expect(await panel.findByRole("alert")).toHaveTextContent(
-    "Your role may not do this (playlists.manage)",
+    "You may not do this (playlists.manage)",
   );
 });
 
@@ -322,11 +322,11 @@ test("a guest with nothing to see is not invited to create one", async () => {
   ).toBeInTheDocument();
 });
 
-test("a role without playlists.view is told who may look", async () => {
+test("a reader without playlists.view is told who may look", async () => {
   renderPlaylists([], ["songs.view"], { user: null, ...AS.guest });
 
   expect(
-    await screen.findByText(/Playlists are not open to your role/),
+    await screen.findByText(/Playlists are not open to you\./),
   ).toBeInTheDocument();
   expect(listPlaylists).not.toHaveBeenCalled();
 });

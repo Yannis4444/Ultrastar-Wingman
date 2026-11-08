@@ -588,8 +588,7 @@ export default function Scores() {
       <div className="scores-page">
         <h1 className="visually-hidden">Scores</h1>
         <p className="scores-notice">
-          Statistics are not open to your role. Log in or ask the host for
-          access.
+          Statistics are not open to you. Log in or ask the host for access.
         </p>
       </div>
     );

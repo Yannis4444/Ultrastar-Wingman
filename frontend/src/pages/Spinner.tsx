@@ -14,8 +14,8 @@ export default function Spinner() {
           <SongSpinner />
         ) : (
           <p className="settings-notice">
-            The song library is not open to your role. Log in or ask the host
-            for access.
+            The song library is not open to you. Log in or ask the host for
+            access.
           </p>
         ))}
     </>

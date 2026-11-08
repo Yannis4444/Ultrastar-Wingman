@@ -285,7 +285,9 @@ test("an ordinary account has nothing to manage", async () => {
   expect(
     screen.queryByRole("link", { name: "Players & accounts" }),
   ).not.toBeInTheDocument();
-  expect(screen.queryByText("Permissions")).not.toBeInTheDocument();
+  expect(
+    screen.queryByRole("link", { name: "Groups" }),
+  ).not.toBeInTheDocument();
   expect(
     screen.queryByRole("link", { name: "Settings" }),
   ).not.toBeInTheDocument();
@@ -309,7 +311,9 @@ test("a helper reaches the players page, and nothing else", async () => {
   expect(
     screen.getByRole("link", { name: "Players & accounts" }),
   ).toHaveAttribute("href", "/user/accounts");
-  expect(screen.queryByText("Permissions")).not.toBeInTheDocument();
+  expect(
+    screen.queryByRole("link", { name: "Groups" }),
+  ).not.toBeInTheDocument();
   expect(
     screen.queryByRole("link", { name: "Settings" }),
   ).not.toBeInTheDocument();
@@ -336,9 +340,9 @@ test("an admin gets one menu row per admin surface, not the surfaces inline", as
     "href",
     "/user/tags",
   );
-  expect(screen.getByRole("link", { name: "Permissions" })).toHaveAttribute(
+  expect(screen.getByRole("link", { name: "Groups" })).toHaveAttribute(
     "href",
-    "/user/permissions",
+    "/user/groups",
   );
   // The account list itself lives on the subpage now.
   expect(listUsers).not.toHaveBeenCalled();
@@ -355,7 +359,7 @@ test("the host screen gets an identity tile, and the login form only on request"
     await screen.findByRole("heading", { name: "Host screen" }),
   ).toBeInTheDocument();
   // The same group line an account's tile carries: the host is in Admin.
-  expect(screen.getByText("Admin")).toHaveClass("user-identity-role");
+  expect(screen.getByText("Admin")).toHaveClass("user-identity-groups");
   expect(screen.queryByLabelText("Password")).not.toBeInTheDocument();
 
   fireEvent.click(screen.getByRole("button", { name: "Log in as a user" }));
@@ -368,7 +372,7 @@ test("the host screen gets an identity tile, and the login form only on request"
   ).not.toBeInTheDocument();
 });
 
-test("an account's tile is the picture beside its name, role and the way out", async () => {
+test("an account's tile is the picture beside its name, groups and the way out", async () => {
   loggedInAsAlice();
   renderUser();
 
@@ -377,7 +381,7 @@ test("an account's tile is the picture beside its name, role and the way out", a
   const head = name.closest(".user-identity-head");
   expect(head).not.toBeNull();
   // One head: the picture (the upload label) and the text column side by side,
-  // the name, the role word and Log out stacked in that column.
+  // the name, the groups line and Log out stacked in that column.
   expect(
     head?.querySelector(":scope > .user-identity-avatar-label"),
   ).not.toBeNull();
@@ -386,7 +390,7 @@ test("an account's tile is the picture beside its name, role and the way out", a
     Array.from(column?.children ?? []).map((child) => child.className),
   ).toEqual([
     "user-identity-name",
-    "user-identity-role",
+    "user-identity-groups",
     "icon-button user-identity-logout",
   ]);
   const logOut = screen.getByRole("button", { name: "Log out" });
@@ -395,6 +399,47 @@ test("an account's tile is the picture beside its name, role and the way out", a
   expect(logOut).toHaveAttribute("title", "Log out");
   expect(logOut.textContent).toBe("");
   expect(iconNames(logOut)).toEqual(["log-out"]);
+});
+
+test("the groups line reads Admin, the groups beyond User, or User", async () => {
+  const DJS = { id: "d".repeat(32), name: "DJs" };
+  // An account in no group: User, never an empty line.
+  loggedInAsAlice();
+  const { unmount } = renderUser();
+  const line = await screen.findByText("User", {
+    selector: ".user-identity-groups",
+  });
+  expect(line).toHaveAttribute("title", "User");
+  unmount();
+
+  // Two groups, in the backend's order, joined into one line.
+  getMe.mockResolvedValue(
+    meResponse(USER_CAPABILITIES, {
+      user: userRead({ groups: [...MEMBER_OF.trusted, DJS.id] }),
+      groups: [...AS.trusted.groups, DJS],
+      is_admin: false,
+    }),
+  );
+  const second = renderUser();
+  expect(
+    await screen.findByText("Trusted · DJs", {
+      selector: ".user-identity-groups",
+    }),
+  ).toHaveAttribute("title", "Trusted · DJs");
+  second.unmount();
+
+  // An administrator is Admin, whatever else they are in.
+  getMe.mockResolvedValue(
+    meResponse(USER_CAPABILITIES, {
+      user: userRead({ groups: [...MEMBER_OF.admin, ...MEMBER_OF.trusted] }),
+      groups: [...AS.admin.groups, ...AS.trusted.groups.slice(1)],
+      is_admin: true,
+    }),
+  );
+  renderUser();
+  expect(
+    await screen.findByText("Admin", { selector: ".user-identity-groups" }),
+  ).toBeInTheDocument();
 });
 
 test("the host's way to a login keeps its words", async () => {

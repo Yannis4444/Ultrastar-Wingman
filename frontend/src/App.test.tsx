@@ -133,3 +133,26 @@ test("a page opened from the host view keeps the phone chrome away", async () =>
   );
   expect(screen.queryByRole("link", { name: "Home" })).not.toBeInTheDocument();
 });
+
+test("the old permissions address lands on the groups page", async () => {
+  renderApp("/user/permissions");
+
+  expect(
+    await screen.findByRole("heading", { name: "Groups" }),
+  ).toBeInTheDocument();
+  expect(screen.getByRole("link", { name: "User" })).toHaveClass("active");
+});
+
+test("a groups change makes every open page read who it is again", async () => {
+  const { getMe } = await import("./api/sdk.gen");
+  renderApp("/");
+  await waitFor(() => expect(getMe).toHaveBeenCalled());
+  const before = vi.mocked(getMe).mock.calls.length;
+
+  // Somebody put this account in a group, or took it out of one.
+  FakeSocket.deliver({ event: "groups.changed" });
+
+  await waitFor(() =>
+    expect(vi.mocked(getMe).mock.calls.length).toBeGreaterThan(before),
+  );
+});

@@ -32,6 +32,7 @@ const COVERS: Record<string, string[]> = {
     "/user/tags",
     "/user/achievements",
     "/user/devices",
+    "/user/groups",
   ],
 };
 

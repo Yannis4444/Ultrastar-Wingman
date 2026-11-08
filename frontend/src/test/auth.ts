@@ -1,7 +1,8 @@
 import type { GroupRef, MeRead, UserRead } from "../api";
+import { TRUSTED_GROUP_ID } from "../groups";
 
-/** The fixed id of the Trusted group (`auth.permissions.TRUSTED_GROUP_ID`). */
-export const TRUSTED_GROUP_ID = "7a1c4e9b2d6f48a3b5e0c8d1f2a3b4c5";
+// Said once, in `groups.ts`; tests that build group rows import it from here.
+export { TRUSTED_GROUP_ID };
 
 const GUEST: GroupRef = { id: "guest", name: "Guest" };
 const USER: GroupRef = { id: "user", name: "User" };

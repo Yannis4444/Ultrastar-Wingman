@@ -6,7 +6,7 @@ card belongs to whom. The host reaches the same page from **Manage** on the host
 screen.
 
 The page opens for whoever may set the player selector up, which is Admin by
-default. See [Roles and permissions](../people/roles.md).
+default. See [Groups and permissions](../people/groups.md).
 
 ## Give a card to a singer
 

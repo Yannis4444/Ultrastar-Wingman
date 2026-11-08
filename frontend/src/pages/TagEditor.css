@@ -1,8 +1,7 @@
-/* The tag editor (§7): Name, Icon, Colour, the two flags, the permission
-   matrix and the people named on the tag, in that order, flat on `--bg`. The
-   page frame comes from `Tags.css` and the matrix classes from
-   `RolePermissions.css`, both of which the page imports. Only what is this
-   page's own lives here. */
+/* The tag editor (§7): Name, Icon, Colour, the two flags, the group rows and
+   the people named on the tag, in that order, flat on `--bg`. The page frame
+   comes from `Tags.css` and the checkbox cells from `GroupCapabilities.css`,
+   both of which the page imports. Only what is this page's own lives here. */
 
 .tag-editor-form {
   display: flex;
@@ -157,22 +156,40 @@
   margin-bottom: 0;
 }
 
-/* ---------------------------------------------------------------- matrix
-   `RolePermissions`' grid with three columns. Two differences: the head does
-   not follow the scroll (three rows never leave the screen, and a header
-   sticking to the viewport while the reader scrolls past the icon picker would
-   only be in the way), and the row names are sentences rather than the single
-   capitalized verbs of the permissions table. */
-.tag-editor .perm-head {
-  position: static;
-}
-
-.tag-editor .perm-name {
-  text-transform: none;
-}
-
+/* ----------------------------------------------------------- permissions
+   The groups as rows with the three actions as columns, in the people grid
+   below (§9.4): what each column means is said once, over both grids, as a
+   short list of the three labels and their sentences. */
 .tag-editor .perm-hint {
   margin: 8px 16px;
+}
+
+.tag-actions {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  margin: 0 16px;
+  font-size: 0.8em;
+}
+
+.tag-action {
+  display: block;
+}
+
+.tag-action dt {
+  display: inline;
+  font-weight: bold;
+  color: var(--color-dark);
+}
+
+.tag-action dt::after {
+  content: ": ";
+}
+
+.tag-action dd {
+  display: inline;
+  margin: 0;
+  color: var(--color-darker);
 }
 
 /* A consequence the reader should know about, not a refusal: the save button
@@ -187,9 +204,9 @@
 }
 
 /* ---------------------------------------------------------------- people
-   A people row (§4) with the three rights on it. The columns are the three
-   actions, not the three roles of the matrix above, so the two grids do not
-   share a template — the head names them instead. */
+   A people row (§4) with the three rights on it, its head naming the three
+   actions. The group rows above run on the same template, the group's square
+   where an avatar stands and nothing in the trailing cell. */
 .tag-people {
   margin: 8px 8px 0 8px;
 }

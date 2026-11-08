@@ -31,10 +31,11 @@ answers the same way for both, so a probe learns nothing.
     curl -b wingman.jar http://localhost:8080/api/v1/auth/me
     ```
 
-    `GET /auth/me` answers with your account, your groups, and the exact list of
-    capabilities you hold. Call it first when a request is refused.
+    `GET /auth/me` answers with your account, your `groups`, `is_admin`, and
+    the exact list of capabilities you hold. Call it first when a request is
+    refused.
 
-## Register the account and give it a role
+## Register the account and give it its groups
 
 `POST /api/v1/auth/register` takes the same two fields, creates the account,
 and logs it in. A name is 3 to 32 characters, and a password is at least 8.
@@ -46,18 +47,23 @@ A name somebody already took is `409` with `duplicate_username`.
     host screen has no account yet. Have the host register their own account
     before the bot gets one.
 
-A new account holds the `user` role. An administrator changes that on **User** >
-**Players & accounts**. Over the API it is a `PUT` to
-`/api/v1/users/{user_id}/groups` with the account's whole list of `groups`,
-and it takes `users.manage`.
+A new account is in the `user` group alone. An administrator puts it in more on
+**User** > **Players & accounts**. Over the API it is a `PUT` to
+`/api/v1/users/{user_id}/groups` with the account's whole list of `groups`, and
+it takes `users.manage`. The list never names `user` or `guest`: every account
+is in User, and Guest is nobody with an account.
 
-Give the script the smallest role that covers what it does. See
-[Roles and permissions](../people/roles.md) for what the four roles are for,
-and **User** > **Permissions** for the exact rights each one holds today.
+`GET /auth/me` lists your groups as `id` and `name` pairs, User first, and
+`is_admin` says whether you hold every right. `GET /api/v1/groups` lists every
+group with what it holds.
+
+Give the script a group of its own, holding the least that covers what it does.
+See [Groups and permissions](../people/groups.md) for what the groups are for,
+and **User** > **Groups** for the exact rights each one holds today.
 
 ## A guest cookie
 
-A caller with no session is the `guest` role rather than a rejected request. By
+A caller with no session is in the `guest` group rather than refused. By
 default a guest may read the song list, see the players, and start a song. They
 may also read the wishlist, add a wish, open a shared playlist, and watch
 tonight's scores.
@@ -84,9 +90,9 @@ scripts. See [Single sign-on](../people/single-sign-on.md).
 
 - `401` with `not_authenticated`: the route wants an account and your cookie is
   missing, expired, or points at an account that was deleted. Log in again.
-- `403` with `missing_permission:<capability>`: your role does not hold that
+- `403` with `missing_permission:<capability>`: none of your groups holds that
   right. `missing_permission:settings.view` names it exactly. An administrator
-  grants it to your role on **User** > **Permissions**.
+  grants it to one of your groups on **User** > **Groups**.
 - `404` on a song you know is there: a tag hides it from you. It answers
   the same as an unknown id on purpose.
 

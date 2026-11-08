@@ -61,8 +61,8 @@ A guest gets most of the app without an account. By default they may:
 
 Favorites, playlists of their own, their own record of scores, and comments all
 need an account. So does opening any party but tonight's. Those are the
-defaults, and the host can change what each role may do. See
-[Roles and permissions](../people/roles.md).
+defaults, and the host can change what each group may do. See
+[Groups and permissions](../people/groups.md).
 
 ## The wishes on a guest phone
 

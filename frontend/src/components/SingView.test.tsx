@@ -400,7 +400,7 @@ test("a sing the reader may not open says why, and offers no Share", async () =>
   renderView();
 
   expect(await screen.findByRole("alert")).toHaveTextContent(
-    "Your role may not do this (stats.history). Ask the host for access.",
+    "You may not do this (stats.history). Ask the host for access.",
   );
   expect(screen.queryByRole("button", { name: "Share" })).toBeNull();
   // The hero still stands: the reader tapped a row they could see.

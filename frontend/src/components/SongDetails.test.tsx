@@ -1480,9 +1480,7 @@ test("an account whose role may not comment is told so, not shown a field", asyn
 
   const dialog = await openComments();
   expect(
-    within(dialog).getByText(
-      "Your role may not comment. Ask the host for access.",
-    ),
+    within(dialog).getByText("You may not comment. Ask the host for access."),
   ).toBeInTheDocument();
 });
 
@@ -1575,7 +1573,7 @@ test("a refused comment says so instead of vanishing", async () => {
   fireEvent.click(within(dialog).getByRole("button", { name: "Send" }));
 
   expect(await screen.findByRole("alert")).toHaveTextContent(
-    "Your role may not do this (comments.write).",
+    "You may not do this (comments.write).",
   );
 });
 
@@ -1709,7 +1707,7 @@ test("a delete the backend refuses says which right is missing", async () => {
   );
 
   expect(await screen.findByRole("alert")).toHaveTextContent(
-    "Your role may not do this (comments.moderate).",
+    "You may not do this (comments.moderate).",
   );
 });
 
@@ -1855,7 +1853,7 @@ test("a reader who may only delete gets the editor locked around it", async () =
   expect(
     within(dialog).queryByRole("button", { name: "Save" }),
   ).not.toBeInTheDocument();
-  expect(dialog).toHaveTextContent("Your role may not change these values.");
+  expect(dialog).toHaveTextContent("You may not change these values.");
   // The one thing they came for is live.
   expect(
     within(dialog).getByRole("button", { name: "Delete song" }),

@@ -457,6 +457,33 @@ def create_accounts(base: str) -> dict[str, dict[str, str]]:
     return accounts
 
 
+def create_groups(state: State) -> list[dict[str, str]]:
+    """The party's own groups, then who is in which. The groups are made by the host, which
+    is an administrator, so neither rule of permission-groups.md §5 stands in the way."""
+    api = state.api
+    created = [
+        {
+            "id": api.post(
+                "/groups", json={"name": plan.name, "capabilities": list(plan.capabilities)}
+            )["id"],
+            "name": plan.name,
+        }
+        for plan in scenario.GROUPS
+    ]
+    by_name = {group["name"]: group["id"] for group in created}
+    for username, groups in scenario.MEMBERSHIPS.items():
+        account = state.data["accounts"][username]
+        answer = api.put(
+            f"/users/{account['user_id']}/groups",
+            json={"groups": [by_name.get(group, group) for group in groups]},
+        )
+        # Named for the cookie list `_report` prints, in the groups' own order.
+        names = {group["id"]: group["name"] for group in created}
+        names[scenario.TRUSTED_GROUP_ID] = "Trusted"
+        account["groups"] = ", ".join(names.get(group, group) for group in answer["groups"])
+    return created
+
+
 def create_guest_players(api: Api) -> dict[str, str]:
     players = {}
     for name in scenario.GUEST_PLAYERS:
@@ -878,6 +905,7 @@ def command_up(arguments: argparse.Namespace) -> int:
             path=data_dir / STATE_FILE,
         )
 
+        state.data["groups"] = create_groups(state)
         state.data["wishes"] = len(set_wishes(state, 4))
         add_favorites(state)
         state.data["playlists"] = create_playlists(state)

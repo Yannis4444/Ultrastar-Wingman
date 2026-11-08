@@ -1,0 +1,14 @@
+/* The group editor (§7) is the tag editor's form (`TagEditor.css`) around the
+   capability list (`GroupCapabilities.css`); only what is this page's own
+   lives here. */
+
+/* The line under a built-in's heading stands where the name field would. */
+.group-editor .tag-editor-form > .tag-editor-hint:first-child {
+  margin-top: 16px;
+}
+
+/* Where the members are changed, set off from the last capability row the
+   way a section is (§1.1): spacing, no box. */
+.group-editor-members {
+  margin-top: 16px;
+}

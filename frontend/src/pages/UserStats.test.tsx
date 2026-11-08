@@ -312,7 +312,7 @@ test("a role without stats.view is told so and asks for nothing", async () => {
   renderStats();
 
   expect(
-    await screen.findByText(/Statistics are not open to your role/),
+    await screen.findByText(/Statistics are not open to you\./),
   ).toBeInTheDocument();
   expect(listPlayerScores).not.toHaveBeenCalled();
 });

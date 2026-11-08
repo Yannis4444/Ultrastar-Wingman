@@ -20,7 +20,7 @@ The chips under the search box switch what the list holds.
 3. Tap a row to open the song.
 
 The line above the list counts the songs the current filter holds. Two buttons
-sit beside that count, for the roles that may use them.
+sit beside that count, for whoever may use them.
 
 - :wingman-refresh: **Rescan** reads the song folders again, for songs you
   copied in by hand. A finished download needs no rescan.
@@ -118,7 +118,7 @@ Some songs are deliberately kept out of the list.
   reel's **All songs** until you put that tag's chip on **Any** or **Yes** in
   **Filter**. They are still there. A playlist that holds one still shows it,
   and a wished one can still win the reel.
-- A tag can also take seeing its songs away from a role. Those songs do not
+- A tag can also take seeing its songs away from a group. Those songs do not
   exist for that person at all. They are not in the list, not in the search, not
   in the reel, and not on a playlist or the wishlist either.
 

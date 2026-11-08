@@ -1,39 +1,27 @@
 import { useQuery } from "@tanstack/react-query";
 import type { GroupRef, UserRead } from "./api";
 import { getMeOptions } from "./api/@tanstack/react-query.gen";
+import { groupWords } from "./groups";
 
 export interface Auth {
   /** The logged-in account, or `null` for a guest (and for the host session). */
   user: UserRead | null;
   /**
-   * The caller's permission groups, Guest alone without an account, User and the
-   * account's groups with one, Admin for the host — the backend never 401s
-   * `/auth/me`.
+   * The caller's permission groups in the backend's one order: Guest alone
+   * without an account, User and the account's groups with one, Admin for the
+   * host — the backend never 401s `/auth/me`.
    */
   groups: GroupRef[];
   /** The host screen, or an account in Admin. */
   isAdmin: boolean;
-  /**
-   * The one line saying which groups the caller is in: *Admin* for an
-   * administrator, otherwise the groups beyond User by name, or *User* (or
-   * *Guest*) when there are none. Empty until `/auth/me` answered.
-   */
+  /** The user tile's line, `groups.ts` `groupWords` over the two above. Empty
+   *  until `/auth/me` answered. */
   groupWords: string;
   capabilities: string[];
   isHost: boolean;
   /** False until `/auth/me` answered, so no login form flashes on a reload. */
   loaded: boolean;
   can: (capability: string) => boolean;
-}
-
-/** See `Auth.groupWords`; the groups arrive in the backend's one order. */
-export function groupWords(groups: GroupRef[], isAdmin: boolean): string {
-  if (isAdmin) return "Admin";
-  const own = groups.filter(
-    (group) => group.id !== "user" && group.id !== "guest",
-  );
-  if (own.length > 0) return own.map((group) => group.name).join(" · ");
-  return groups[0]?.name ?? "";
 }
 
 /**

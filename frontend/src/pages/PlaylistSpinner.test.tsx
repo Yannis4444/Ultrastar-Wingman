@@ -186,7 +186,7 @@ test("a role without playlists.view is told who may look", async () => {
   renderPage(detail(), ["songs.view"], { user: null, ...AS.guest });
 
   expect(
-    await screen.findByText(/Playlists are not open to your role/),
+    await screen.findByText(/Playlists are not open to you\./),
   ).toBeInTheDocument();
   expect(getPlaylist).not.toHaveBeenCalled();
 });

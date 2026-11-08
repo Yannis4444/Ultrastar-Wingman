@@ -1,46 +1,28 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useRef, useState } from "react";
-import type { GroupRead, PlayerRead, UserRead } from "../api";
+import type { PlayerRead, UserRead } from "../api";
 import {
   deletePlayerMutation,
   deleteUserMutation,
   getMeQueryKey,
-  listGroupsOptions,
-  listGroupsQueryKey,
   listPlayersOptions,
   listPlayersQueryKey,
   listUsersOptions,
   listUsersQueryKey,
   oidcConfigOptions,
   setPlayerAvatarMutation,
-  setUserGroupsMutation,
   updatePlayerMutation,
 } from "../api/@tanstack/react-query.gen";
 import { useAuth } from "../auth";
-import { errorDetail, errorMessage } from "../errors";
+import { errorDetail, errorMessage, groupMessage } from "../errors";
+import { ADMIN, accountGroups, groupWords } from "../groups";
+import { useGroups } from "../hooks/useGroups";
+import AccountGroups from "./AccountGroups";
 import AddPlayerForm from "./AddPlayerForm";
 import ConfirmModal from "./ConfirmModal";
 import { Icon } from "./icons";
 import PlayerAvatar from "./PlayerAvatar";
 import "./PeopleAdmin.css";
-
-/**
- * The groups an account can be put in: every one but Guest (the anonymous
- * fallback) and User (every account, without being named). A stopgap until the
- * accounts page's own groups panel (permission-groups.md §9.2): one select per
- * account whose options put it in a group or take it out of one.
- */
-function assignableGroups(groups: GroupRead[]): GroupRead[] {
-  return groups.filter((group) => group.id !== "guest" && group.id !== "user");
-}
-
-/** The account's groups by name, *User* for none — the user tile's line. */
-function accountGroupWords(account: UserRead, groups: GroupRead[]): string {
-  const names = groups
-    .filter((group) => account.groups.includes(group.id))
-    .map((group) => group.name);
-  return names.length > 0 ? names.join(" · ") : "User";
-}
 
 /** Mirrors the backend's limit so an oversized file never leaves the browser. */
 const MAX_AVATAR_BYTES = 5 * 1024 * 1024;
@@ -62,14 +44,6 @@ interface Person {
   name: string;
   player: PlayerRead | null;
   account: UserRead | null;
-}
-
-function accountMessage(error: unknown, fallback: string): string {
-  const detail = errorDetail(error);
-  if (detail === "last_admin") return "There has to be one administrator left.";
-  if (detail === "admin_required")
-    return "Only an administrator puts somebody in Admin or takes them out.";
-  return errorMessage(error, fallback);
 }
 
 /**
@@ -120,14 +94,18 @@ export default function PeopleAdmin() {
     ...listUsersOptions(),
     enabled: auth.loaded && mayViewUsers,
   });
-  const groups = useQuery({
-    ...listGroupsOptions(),
-    enabled: auth.loaded && mayManageUsers,
-  });
+  // Only the groups button needs them: a reader with `users.view` alone sees
+  // no groups on the rows (the row has no room for a read-only control).
+  const groups = useGroups(mayManageUsers);
   const allGroups = groups.data?.groups ?? [];
 
   const [deletingPlayer, setDeletingPlayer] = useState<PlayerRead | null>(null);
   const [deletingAccount, setDeletingAccount] = useState<UserRead | null>(null);
+  // The account whose groups panel is open, by id: the panel reads the account
+  // out of the live listing, so a write that landed redraws it.
+  const [groupsOf, setGroupsOf] = useState<{ id: string; name: string } | null>(
+    null,
+  );
   const [accountError, setAccountError] = useState<string | null>(null);
   // Which row the message belongs under, not which player it is about: every row
   // has an uploader of its own, and the failure has to show up under the one
@@ -152,22 +130,11 @@ export default function PeopleAdmin() {
     refreshPlayers();
   };
 
-  const setGroups = useMutation({
-    ...setUserGroupsMutation(),
-    onSuccess: () => {
-      refreshAccounts();
-      // The member counts the groups answer with.
-      void queryClient.invalidateQueries({ queryKey: listGroupsQueryKey() });
-    },
-    onError: (cause) =>
-      setAccountError(accountMessage(cause, "Could not change the groups.")),
-  });
-
   const removeAccount = useMutation({
     ...deleteUserMutation(),
     onSuccess: refreshAccounts,
     onError: (cause) =>
-      setAccountError(accountMessage(cause, "Could not delete the account.")),
+      setAccountError(groupMessage(cause, "Could not delete the account.")),
   });
 
   const removePlayer = useMutation({
@@ -263,6 +230,18 @@ export default function PeopleAdmin() {
     (!mayViewPlayers || players.isSuccess) &&
     (!mayViewUsers || users.isSuccess);
 
+  /** An account's groups in the user tile's words: *Admin*, the groups beyond
+   *  User joined by ` · `, or *User*. */
+  const words = (account: UserRead): string =>
+    groupWords(
+      accountGroups(account.groups, allGroups),
+      account.groups.includes(ADMIN),
+    );
+  const panelAccount =
+    groupsOf === null
+      ? undefined
+      : userList.find((user) => user.id === groupsOf.id);
+
   const row = (person: Person) => {
     const { key, name, player, account } = person;
     // Not the same as `account !== null`: a viewer without `users.view` sees
@@ -326,60 +305,29 @@ export default function PeopleAdmin() {
             </button>
           )}
           {account !== null && mayManageUsers && (
-            <span className="people-role-wrap">
-              <select
-                className="people-role"
-                aria-label={`Groups of ${name}`}
-                title={accountGroupWords(account, allGroups)}
-                value=""
-                disabled={setGroups.isPending}
-                onChange={(event) => {
-                  const picked = event.target.value;
-                  if (picked === "") return;
-                  setGroups.mutate({
-                    path: { user_id: account.id },
-                    body: {
-                      // The whole set, with the picked group flipped.
-                      groups: account.groups.includes(picked)
-                        ? account.groups.filter((id) => id !== picked)
-                        : [...account.groups, picked],
-                    },
-                  });
-                }}
-              >
-                <option value="">
-                  {accountGroupWords(account, allGroups)}
-                </option>
-                {assignableGroups(allGroups).map((group) => {
-                  const member = account.groups.includes(group.id);
-                  return (
-                    <option
-                      key={group.id}
-                      value={group.id}
-                      // Taking somebody out is free but for Admin; putting
-                      // them in needs `can_assign` (§5 of the design).
-                      disabled={
-                        group.id === "admin"
-                          ? !auth.isAdmin
-                          : !member && !group.can_assign
-                      }
-                    >
-                      {member
-                        ? `Take out of ${group.name}`
-                        : `Put in ${group.name}`}
-                    </option>
-                  );
-                })}
-              </select>
+            // The role select's old look, but a button: it opens the panel
+            // where each group is a row of its own. It shrinks first, so a
+            // long list of groups never pushes the name off the row.
+            <button
+              type="button"
+              className="people-groups"
+              aria-label={`Groups of ${name}`}
+              title={words(account)}
+              onClick={() => setGroupsOf({ id: account.id, name })}
+            >
+              <span className="people-groups-words">{words(account)}</span>
               <Icon name="chevron-down" />
-            </span>
+            </button>
           )}
           {/* Somebody registered is deleted as an account: that keeps the player,
             as a guest, and only then can the player itself go. Deleting it
-            straight away would leave an account without one. */}
+            straight away would leave an account without one. An
+            administrator's account is an administrator's to delete (rule 1 of
+            permission-groups.md §5), so nobody else is offered the trash. */}
           {registered
             ? account !== null &&
-              mayManageUsers && (
+              mayManageUsers &&
+              (auth.isAdmin || !account.groups.includes(ADMIN)) && (
                 <button
                   type="button"
                   className="icon-button icon-button-danger"
@@ -480,6 +428,16 @@ export default function PeopleAdmin() {
             setDeletingPlayer(null);
           }}
           onCancel={() => setDeletingPlayer(null)}
+        />
+      )}
+
+      {groupsOf !== null && panelAccount !== undefined && (
+        <AccountGroups
+          account={panelAccount}
+          name={groupsOf.name}
+          groups={allGroups}
+          isAdmin={auth.isAdmin}
+          onClose={() => setGroupsOf(null)}
         />
       )}
 

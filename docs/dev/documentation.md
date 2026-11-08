@@ -34,7 +34,7 @@ branch. A feature without its page is not finished.
 |---|---|---|---|
 | Guest at a party | Nothing about Wingman | To wish for a song and sing | `docs/user/`, phone pages |
 | Host | Their own PC, Ultrastar Deluxe | To run the evening | `docs/user/`, setup and host pages |
-| Administrator | The host's job, plus tags, roles, achievements | To set the party up for other people | `docs/user/`, management pages |
+| Administrator | The host's job, plus tags, groups, achievements | To set the party up for other people | `docs/user/`, management pages |
 | Integrator | HTTP, JSON, a scripting language | To build a bot, an overlay, an importer | `docs/user/integrate/` |
 | Us | The code | To change it safely | `docs/dev/`, never on the site |
 
@@ -101,7 +101,7 @@ is small.
 | Host | `help/` | `ultrastar-deluxe.md` | Ultrastar Deluxe problems | Host | The setup and launch failures | How-to |
 | Manage | `people/` | `index.md` | People | Everyone | Accounts, guests, players, and logging in | Index |
 | Manage | `people/` | `players.md` | Players and avatars | Host | Guests, pictures, taking somebody out of the picker | How-to |
-| Manage | `people/` | `roles.md` | Roles and permissions | Administrator | What a role is, the four of them, and where the exact rights live | Reference |
+| Manage | `people/` | `groups.md` | Groups and permissions | Administrator | What a group is, the built-ins and Trusted, making and deleting one, the two rules, and where the exact rights live | Reference |
 | Manage | `people/` | `single-sign-on.md` | Single sign-on | Administrator | Logging in through an identity provider | How-to |
 | Manage | `settings/` | `index.md` | Settings | Host | How settings work, who may change them | Index |
 | Manage | `settings/` | `reference.md` | All settings | Host | Every setting, one table per group | Reference |
@@ -139,7 +139,7 @@ list before you claim a section is done:
 | `/user` | `people/index.md` signed out, `scores/your-scores.md` and `achievements/index.md` signed in, and `selector/cards.md` for the **My cards** block |
 | `/user/stats` | `scores/your-scores.md` |
 | `/user/accounts` | `people/players.md` |
-| `/user/permissions` | `people/roles.md` |
+| `/user/groups`, `/user/groups/new`, `/user/groups/:id` | `people/groups.md` (`/user/permissions` redirects to `/user/groups`) |
 | `/user/tags`, `/user/tags/new`, `/user/tags/:id` | `tags/index.md`, and `tags/built-in.md` for a built-in |
 | `/user/achievements`, `/user/achievements/new`, `/user/achievements/:id` | `achievements/manage/index.md` and `achievements/manage/create.md` |
 | `/user/devices` | `selector/setup.md`, and `selector/cards.md` for the cards on it |
@@ -170,7 +170,7 @@ Three things happen across several pages. Each has one owner, and the other page
 | `tags.md` | `tags/index.md`, `tags/built-in.md` |
 | `achievements.md` | `achievements/index.md`, `achievements/manage/create.md`, `achievements/manage/index.md` |
 | `the-spinner.md` | `party/reel.md` |
-| `accounts-and-permissions.md` | `people/index.md`, `people/players.md`, `people/roles.md`, `people/single-sign-on.md` |
+| `accounts-and-permissions.md` | `people/index.md`, `people/players.md`, `people/groups.md`, `people/single-sign-on.md` |
 | `statistics.md` | `scores/index.md`, `scores/party.md`, `scores/your-scores.md` |
 | `settings.md` | `settings/index.md`, `settings/reference.md` |
 | `troubleshooting.md` | `help/index.md`, `help/ultrastar-deluxe.md` |
@@ -195,7 +195,7 @@ delete a song". Skeleton:
 5. What you see when it worked.
 6. The exceptions, as short `##` sections or a note.
 
-**Reference.** Settings, roles, built-in tags, the event list. Title is a plain noun phrase.
+**Reference.** Settings, groups, built-in tags, the event list. Title is a plain noun phrase.
 Skeleton: one sentence saying what the table covers, then the table, then nothing. Reference
 pages describe. They do not instruct. Link to the how-to instead.
 
@@ -277,7 +277,7 @@ Use the left column. Never the right column.
 | host | The person running Wingman on the karaoke PC | admin, DJ, operator |
 | guest | Somebody at the party without an account | anonymous user, visitor |
 | singer | Whoever is singing a song right now | performer |
-| administrator | Somebody with the admin role | superuser, root, sysadmin |
+| administrator | Somebody in the Admin group | superuser, root, sysadmin |
 | account | A name and password somebody registered | user, profile |
 | player | The name a score is filed under, with or without an account | user, participant |
 | party | One evening of singing, with its own scores | session, event |
@@ -300,7 +300,7 @@ Use the left column. Never the right column.
 | microphone color | The color a singer's microphone is assigned | mic colour, channel |
 | permission | What somebody is allowed to do, in user pages | capability |
 | capability | The exact name of a permission, in the integration section only | permission |
-| role | Guest, User, Trusted, or Admin | group, level |
+| group | Guest, User, Admin, and the ones the host makes | role, level |
 
 Three notes on that table.
 
@@ -308,9 +308,10 @@ Three notes on that table.
 page is **Random song**, and its button is **Spin**. The app draws that button in capitals
 through CSS, so write **Spin** and never SPIN.
 
-**A role keeps its own name.** The fourth role is **Admin**, and a page that names the role
-writes **Admin**. Somebody who holds it is an administrator, and the person running the
-evening is the host. Do not call the host an admin.
+**A group keeps its own name.** The built-in group with every right is **Admin**, and a page
+that names the group writes **Admin**. Somebody in it is an administrator, and the person
+running the evening is the host. Do not call the host an admin. Trusted is a group the host
+may rename, so a page names it as the app ships it, **Trusted**.
 
 **"Session" means three different things in the app today.** Only one of them is a party.
 Never carry the word into a user page without saying which one you mean:
@@ -437,7 +438,10 @@ own library, names, and scores never appear.
 - Players are Futurama characters. The roster is the ten pictures in
   `docs/screenshots/avatars/`: Fry, Leela, Bender, Zoidberg, Amy, Hermes, Farnsworth, Zapp,
   Kif, and Scruffy. Leela holds the administrator account, so management surfaces are
-  reachable in a shot. Fry and Bender have accounts. The other seven are guests.
+  reachable in a shot. Fry and Bender have accounts. The other seven are guests. Bender is
+  in Trusted and in DJs, a group the seed makes, so the groups surfaces have a helper and a
+  group of the party's own to show. Fry is in no group: the tag editor's picture gives him
+  on one tag what no group of his gives.
 - Those files are the avatars. The seeding script uploads each picture as it lies on disk,
   through the avatar endpoint. It neither crops nor redraws: the repository has no image
   library, and the app accepts a jpeg, png or webp of any shape. Add a character by putting
@@ -534,7 +538,7 @@ about, and the **Must be visible** column names that part alone.
 | `usdb-search` | `songs/download.md` | `/usdb` | Search results for a common artist | 390x844 | Result rows and the download buttons |
 | `usdb-downloads` | `songs/download.md` | `/usdb` | One download at 60 percent, one queued | 390x844 | The downloads panel with both bars |
 | `tags-admin` | `tags/index.md` | `/user/tags` | Three tags of the party's own, beside Wingman's own `broken` | 390x844 | Tag rows, the Built-in heading, the eight built-in rows |
-| `tag-editor` | `tags/index.md` | `/user/tags/:id` | An existing tag with people rows | 390x844 | The **Permissions** matrix and the **Specific people** row |
+| `tag-editor` | `tags/index.md` | `/user/tags/:id` | An existing tag with people rows | 390x844 | The **Permissions** rows, one per group with the three rights as columns, and the **Specific people** row |
 | `built-in-tags` | `tags/built-in.md` | `/user/tags/decade` | The Decade built-in | 390x844 | The reduced editor and the line saying why it is reduced |
 | `scores-party` | `scores/party.md` | `/scores` | One party, 23 scores, five singers | 390x844 | The party selector at the top, the strip chart, the score rows |
 | `scores-spread` | `scores/party.md` | `/scores` | Same party, grouped by player, **Spread** picked | 390x844 | The **Spread** view with a box row, a plain-dot row, and the gold best column |
@@ -548,8 +552,9 @@ about, and the **Must be visible** column names that part alone.
 | `achievement-share` | `achievements/index.md` | `/user` | Signed in as Fry, the same badge opened large and **Share** pressed | 390x844 | The achievement card's one Badge slide with the badge picture, its name, Fry's picture and the day, the two format glyphs alone under it with no arrows or dots, and the row of two symbol toggles over its line |
 | `achievements-admin` | `achievements/manage/index.md` | `/user/achievements` | Two of the party's own achievements, one switched off | 390x844 | The three settings, the one list over the whole catalogue, an *Included* row, a lock mark, the off row |
 | `achievement-editor` | `achievements/manage/create.md` | `/user/achievements/:id` | The 80s achievement from the worked example | 390x844 | The condition block and its plain sentence |
-| `people-admin` | `people/players.md` | `/user/accounts` | Three accounts, seven guests, one of them hidden | 390x844 | Both groups, the role controls, a hidden row |
-| `permissions` | `people/roles.md` | `/user/permissions` | Defaults | 390x844 | The three columns Guest, User, and Trusted, and the line saying admins are not in the table |
+| `people-admin` | `people/players.md` | `/user/accounts` | Three accounts, seven guests, one of them hidden, Bender in Trusted and DJs | 390x844 | Both sections, the groups buttons, a hidden row |
+| `groups` | `people/groups.md` | `/user/groups` | Trusted and DJs with Bender in both | 390x844 | Every group's row with its line, Admin last without a chevron, and the note over the rows |
+| `group-editor` | `people/groups.md` | `/user/groups/:id` | The DJs group | 390x844 | The name, the first areas of rights with a box ticked and grayed out because User holds it, and the save row |
 | `login` | `people/index.md` | `/user` | Signed out | 390x844 | Name, Password, **Log in**, and the **New account** switch |
 | `settings` | `settings/index.md` | `/settings` | USDX group open, its Advanced line folded | 390x844 | The group header and its icon, the Base path field, the Advanced line |
 | `host-screen` | `host-screen/index.md` | `/host` | A party going, four wishes, five singers scored | 1280x720 | QR card, join address, standing, most wished |
@@ -567,7 +572,7 @@ about, and the **Must be visible** column names that part alone.
 
 - Relative Markdown links between pages, with the `.md` extension:
   `[Download songs](../songs/download.md)`. They work on the site and on GitHub.
-- Link text names the target: `see [Roles and permissions](../people/roles.md)`. Never "click
+- Link text names the target: `see [Groups and permissions](../people/groups.md)`. Never "click
   here", never a bare URL, never the whole sentence.
 - Link a page the first time it is relevant on the current page, then stop. Three links to
   the same page is two too many.
@@ -615,9 +620,9 @@ about, and the **Must be visible** column names that part alone.
   used to be". Git has the history.
 - What the UI already says. If a field's description on the Settings page is enough, the docs
   table says the same thing once and moves on. If it is not enough, fix the UI copy too.
-- The permission matrix, row by row. The app renders it live on **User** > **Permissions**,
-  where it always matches the build. `people/roles.md` says what a role is and what each of
-  the four is for, then sends the reader to that page for the exact ticks.
+- The rights of each group, row by row. The app renders them live on **User** > **Groups**,
+  where they always match the build. `people/groups.md` says what a group is and what each
+  of the starting groups is for, then sends the reader to that page for the exact ticks.
 - Anything unreleased, planned, or speculative.
 - Anything you have not seen work. If you cannot verify a claim, ask, or leave it out.
 
@@ -685,7 +690,7 @@ ones a page written against an older draft still gets wrong:
 - The Scores page called a party a session. It says party.
 - The downloads panel's filter is **Since Wingman started**, not a party.
 - The host screen carries no line about host rights, and never "Host session active". The
-  user page names the browser that holds them **Host screen**, with the role **Admin** under it, and
+  user page names the browser that holds them **Host screen**, with **Admin** under it, and
   its button is **Log in as a user**, no longer "Log in as a user instead".
 - The USDB sort options spell the range out: **Artist A to Z**, never an en dash.
 - The shipped achievement is **Well Traveled**. Migration 0025 renamed it in every database

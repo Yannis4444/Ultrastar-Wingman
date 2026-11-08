@@ -795,7 +795,7 @@ saved) where a jump to the top would throw away the place they were working in.
   page's `h1` (1.3em on 28px, left, ellipsed), the groups line (0.85em on 20px,
   `--color-darker`, one line ellipsed with the whole of it in `title`: *Admin* for an
   administrator and for the host, else the account's groups by name in the groups' order
-  joined by ` · `, *Trusted · DJs*, or *User* when it is in none — `groups.ts`
+  joined by ` · `, *DJs · Trusted*, or *User* when it is in none — `groups.ts`
   `groupWords`) and one 40px control, 28 + 20 + 40
   adding up to the picture's 88. For an account that is *Log out* as the `log-out` glyph
   alone, a transparent `.icon-button` (`aria-label` and `title` *Log out*) pulled 10px left so
@@ -827,7 +827,8 @@ saved) where a jump to the top would throw away the place they were working in.
   administrator puts somebody in Admin or takes them out.*), then one `PickerRow` per group
   but Guest and User in the groups' order, its lead the group's 40px square, its meta *adds 11
   rights* or *every right*, `list-check` while the account is in it. A tap is one write of the
-  account's whole set, that row disabled for the round trip; a row the reader may not change is
+  account's whole set, every row disabled for the round trip (the next body is built from the
+  answer, never from a set the first tap has not reached yet); a row the reader may not change is
   disabled with its reason as its meta line — Admin for a non-administrator, *Only an
   administrator can change this*; a group the account is not in that carries a right the
   reader lacks, *Carries a right you do not hold* — taking somebody out of any other group

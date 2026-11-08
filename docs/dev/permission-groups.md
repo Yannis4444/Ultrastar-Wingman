@@ -413,7 +413,7 @@ is in Trusted and DJs now* / *'Fry' is in no group now*. Registering keeps its l
 | `karaoke/api.py`, `tags/api.py` | `tag_viewer(principal)` | unchanged calls |
 | `karaoke/selection.py`, `karaoke/reel.py`, `music/service.py` | carry a `tags.Viewer`; the selection stores the opener's for every respin, `_GUEST` and the music use `GUEST_VIEWER` | unchanged. A membership change while a selection stands is seen from its next opening, not its next respin — the same as a role change today, for a lock that idles out in two minutes. Accepted |
 | `auth/oidc.py` | no role of its own: it calls `service.upsert_oidc_user`, which picks the role | unchanged; the first-account rule moves with `upsert_oidc_user` (§3.3) |
-| User-facing copy that says "role": `errors.ts` (*Your role may not do this (…)*), `components/SongDetails.tsx` (*Your role may not change these values.*, *Your role may not comment.*), `pages/Playlist.tsx` (*Playlists are not open to your role.*) | "role" | the same sentences without the word — *You may not do this (…). Ask the host for access.*, *You may not change these values…*, *You may not comment…*, *Playlists are not open to you. Log in or ask the host for access.* — a caller holds rights through several groups now, so no one group is "yours" |
+| User-facing copy that says "role": `errors.ts` (*Your role may not do this (…)*), `components/SongDetails.tsx` (*Your role may not change these values.*, *Your role may not comment.*), `pages/Playlist.tsx`, `Playlists.tsx`, `PlaylistManage.tsx` and `PlaylistSpinner.tsx` (*Playlists are not open to your role.*), `Scores.tsx` and `UserStats.tsx` (*Statistics are not open to your role.*), `Spinner.tsx` (*The song library is not open to your role.*) | "role" | the same sentences without the word — *You may not do this (…). Ask the host for access.*, *You may not change these values…*, *You may not comment…*, *Playlists are not open to you. Log in or ask the host for access.*, *Statistics are not open to you…*, *The song library is not open to you…* — a caller holds rights through several groups now, so no one group is "yours" |
 | `frontend/src/auth.ts` | `role` | `groups: GroupRef[]`, `isAdmin` |
 | `pages/User.tsx` | the tile's role word | §9.3 |
 | `components/PeopleAdmin.tsx` | `ASSIGNABLE_ROLES`, the role `<select>` | §9.2 |
@@ -590,7 +590,9 @@ with its reason in `title` and a `visually-hidden` sentence, when:
   tick: it is data, and unticking it must stay possible);
 - it is Guest and the capability is `playlists.manage` (`GUEST_INERT`, as today);
 - the reader is not an administrator, the box is off, and they do not hold the capability: *You
-  can only hand out a right you hold yourself.* (rule 2).
+  can only hand out a right you hold yourself.* (rule 2; built: and the group does not hold it
+  as stored, because rule 2 binds on the change — a stored row unticked by mistake may be
+  ticked again).
 
 **What Save sends is the group's own rows alone**: the stored ticks the reader left on and the
 boxes they ticked. A box drawn ticked because User grants it is never in the body, so saving a
@@ -598,7 +600,9 @@ group never turns User's rights into rows of its own; a stored row that User als
 live tick and goes along unless it was unticked.
 
 Then, for a group with members, a `.section-note` naming the count and where they are changed:
-*3 accounts are in this group. Put people in it on Players & accounts.* Then `EditorActions`:
+*3 accounts are in this group. Put people in it on Players & accounts.* (built: for a group
+that is not built in, the last three words a link; User's count is every account and nobody
+is put in it, so it carries no such note.) Then `EditorActions`:
 Save (one `POST` or `PATCH`), and for a group that is not built in a danger **Delete** through a
 `ConfirmModal` that says what happens: *Delete the group "DJs"? Its 3 members lose the rights it
 gives them. Their accounts stay.* A new group's Save replaces `/new` with its id (REPLACE, §6 of
@@ -630,12 +634,14 @@ The role `<select>` on an account row becomes a **button in the same look** — 
 *Groups of <name>* (`aria-label`). It is drawn for `users.manage`, as the select was. Unlike the
 select it may shrink (`flex: 0 1 auto; min-width: 0; max-width: 35%` of the row, so the name, the eye and the trash
 keep theirs), its words one line
-ellipsed with the whole of them in `title`, so *Trusted · DJs · Moderators* never pushes the
+ellipsed with the whole of them in `title`, so *DJs · Moderators · Trusted* never pushes the
 name off a 360px row; its box stays 40px tall. It opens a **panel modal**, *Groups of Fry*,
 holding one `PickerRow` per group but Guest and User, in §2.5's order: the group's 40px square as
 the lead, the name, *adds 11 rights* or *every right* as the meta line, `list-check` when the
 account is in it. A tap is one `PUT /users/{id}/groups` carrying the whole set with that row
-flipped, the row disabled for its round trip. Over the rows one `.section-note`: *A group adds
+flipped, every row disabled for its round trip (built: the body is the whole set as the listing
+has it, so a second tap before the first answer would send a set without the first flip — the
+playlist picker's `busy` rule). Over the rows one `.section-note`: *A group adds
 its rights to what every account holds.*, and for a reader who is not an administrator a second
 sentence, *Only an administrator puts somebody in Admin or takes them out.* A row the reader may
 not change is disabled, and its meta line says why in place of the count, because a disabled
@@ -660,8 +666,9 @@ to the API: *See who has an account and which groups they are in.*
 ### 9.3 The user tile
 
 The 20px line under the name, `auth.role` today, reads **Admin** for an administrator and the
-host screen, otherwise the account's groups by name in §2.5's order joined by ` · ` (*Trusted ·
-DJs*), or **User** when it is in none. One line, ellipsed, `title` the whole of it; the tile's
+host screen, otherwise the account's groups by name in §2.5's order joined by ` · ` (*DJs ·
+Trusted*: the order is by name, so Trusted is no first among them), or **User** when it is in
+none. One line, ellipsed, `title` the whole of it; the tile's
 28 + 20 + 40 rows do not change. Admin alone because every other group means nothing next to
 it; User when nothing else because "no group" is not a thing a reader should have to decode.
 
@@ -676,7 +683,9 @@ and people now read in one shape. In a row of a group that is not built in, an a
 on this tag is drawn ticked and disabled, *Every account holds this through User.*, and as in
 the group editor such a box is never sent: the tag's `permissions` carry the rows somebody
 ticked, nothing drawn on their behalf. The hint *Administrators are not in the table…* stays
-over the rows. A stored row whose `group_id` is no group in `GET /groups` (a hand edit; deleting
+over the rows. (Built: the three actions' sentences, which the old matrix drew under each row,
+stand once over both grids as a short list, *See tag:* and its sentence and so on, each box
+described by its action's.) A stored row whose `group_id` is no group in `GET /groups` (a hand edit; deleting
 a group deletes its rows) is drawn nowhere and left out of the body, where today's editor
 carries an unknown role through — which today's backend then refuses, so such a tag could never
 be saved. A row for Admin cannot exist after the migration (§8.1 step 4).
@@ -967,12 +976,19 @@ Each with what this document builds; the alternative in brackets.
 
 ### 15.4 09: frontend
 
-- `auth.ts`: `groups: GroupRef[]`, `isAdmin`; `role` gone. `test/auth.ts`'s `meResponse` and
-  `userRead`, and every test literal carrying `role:` (`grep -rln 'role: "' src`, about thirty
-  files), follow.
+- `auth.ts`: `groups: GroupRef[]`, `isAdmin`, and `groupWords` — the tile's line, worked out by
+  `groups.ts`; `role` gone. `test/auth.ts`'s `meResponse` and `userRead`, and every test
+  literal carrying `role:` (`grep -rln 'role: "' src`, about thirty files), follow; `AS` and
+  `MEMBER_OF` stay as the tests' idiom, and `TRUSTED_GROUP_ID` is re-exported from `groups.ts`.
 - `groups.ts` (new, + test): the ids `GUEST`, `USER`, `ADMIN`, `TRUSTED_GROUP_ID`;
-  `groupWords(groups, isAdmin)` for the tile and the accounts button (§9.3);
-  `addedRights(group, user)`.
+  `groupWords(groups, isAdmin)` for the tile and the accounts button (§9.3), `accountGroups`
+  naming an account's ids out of `GET /groups` for it; `addedRights(group)` — *8 rights*,
+  *adds 11 rights*, *every right* — and `memberWords(group)`, the two halves of a meta line,
+  both over `right_count` and `member_count` alone (built: an `addedRights(group, user)` that
+  took User's capabilities would need `capabilities`, which the accounts page's reader is
+  never told).
+- `components/GroupSquare.tsx` (+ `.css`, built): the 40px square of §9 — `users`, `shield` for
+  Admin — shared by the Groups page, the panel and the tag editor.
 - `hooks/useGroups.ts` (new): one `GET /groups`, enabled by the caller's capabilities, and
   refetched on `players.changed` too (the member counts, §4). `App.tsx` mounts one
   `groups.changed` listener invalidating `/auth/me`, `GET /groups` and `GET /users`. Every
@@ -994,9 +1010,11 @@ Each with what this document builds; the alternative in brackets.
 - `pages/TagEditor.tsx` + `.css` + test: the turned matrix, `NEW_TAG_GRANTS` over ids, the
   groups read.
 - `errors.ts`: sentences for `admin_required`, `built_in_group`, `admin_not_editable`,
-  `duplicate_group_name`, `unknown_group`, `not_assignable`; `last_admin` stays; the
+  `duplicate_group_name`, `unknown_group`, `not_assignable`; `last_admin` stays (built as one
+  `groupMessage(error, fallback)` the editor, the panel and the account delete share); the
   `missing_permission` sentence without "role" (§7), and the same for the copy in
-  `components/SongDetails.tsx` and `pages/Playlist.tsx`, with their tests.
+  `components/SongDetails.tsx`, `pages/Playlist.tsx` and the five more pages §7's row names,
+  with their tests.
 
 ### 15.5 09: user docs and screenshots
 
@@ -1005,7 +1023,9 @@ Each with what this document builds; the alternative in brackets.
   group, level` becomes `group | Guest, User, Admin, and the ones the host makes | role,
   level`, and its paragraph *A role keeps its own name* becomes the same for a group (*Admin*
   is the group, *administrator* the person); the structure table's `roles.md` row and the route
-  table's `/user/permissions` row; the screenshot rows `permissions` (now the groups list) and
-  `people-admin` (the button), and a new `group-editor` row.
+  table's `/user/permissions` row; the screenshot rows `permissions` (now the groups list,
+  built under the id `groups`, so its file is `people/groups.png` beside the page it shows) and
+  `people-admin` (the button), and a new `group-editor` row; `tag-editor`'s picture follows the
+  turned matrix too.
 - New captures through `docs/screenshots/capture.py` for those rows, per screenshots.md.
 - `CLAUDE.md`: the frontend rows for the new pages, components and helpers, and the routes line.

@@ -131,7 +131,7 @@ Songs that were in your library before, or that came from somewhere else, have
 no loudness written yet. Wingman never measures them by itself, not on a rescan
 and not at startup. Under **Normalize loudness**, the **Songs already in the
 library** row has an **Even out** button for them. It is there for whoever may
-change the settings, an administrator unless you gave that to another role.
+change the settings, an administrator unless you gave that to another group.
 
 Press **Even out**, and Wingman goes through every song with no loudness
 written, one at a time. It measures each one and writes the result into its audio file.

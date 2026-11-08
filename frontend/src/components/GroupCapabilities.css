@@ -1,6 +1,7 @@
-.permissions-notice {
-  margin: 8px 16px;
-}
+/* The capability list of the group editor (ui-guidelines §4): area headings
+   over one row per capability, one checkbox column for the group being edited
+   and no head. The tag editor borrows `.perm-hint` and `.perm-cell` from here,
+   so every checkbox grid in the app sits on the same metrics. */
 
 .perm-hint {
   margin: 16px;
@@ -8,38 +9,9 @@
   font-size: 0.85em;
 }
 
-/* Header and rows share one template, so the three role columns line up down
-   the page without a table wrapping the group headings. */
-.perm-head,
-.perm-row {
-  display: grid;
-  grid-template-columns: minmax(0, 1fr) repeat(var(--perm-roles, 3), 44px);
-  align-items: center;
-  column-gap: 4px;
-}
-
-/* One header for the whole matrix: it follows the scroll instead of being
-   repeated under every group. The 16px gutter is padding, not margin, so the
-   background repaints the full width the rows scroll under. */
-.perm-head {
-  position: sticky;
-  top: 0;
-  z-index: 1;
-  padding: 6px 16px;
-  background-color: var(--bg);
-  border-bottom: 1px solid var(--input-border-color);
-}
-
-.perm-head-role {
-  font-size: 0.75em;
-  color: var(--color-darker);
-  text-align: center;
-  text-transform: capitalize;
-}
-
 /* Same section idiom as the settings groups: uppercase, quiet, hairline under
    it — a header, not a card. */
-.perm-group {
+.perm-area {
   display: flex;
   align-items: center;
   gap: 8px;
@@ -56,7 +28,7 @@
 
 /* 24px per the section-header rule, and its own font-size: the heading text is
    0.8em, which the glyph must not shrink with. */
-.perm-group-icon {
+.perm-area-icon {
   font-size: 24px;
   color: var(--color-dark);
 }
@@ -67,15 +39,21 @@
   list-style: none;
 }
 
+/* One template for every row; `--perm-roles` is the number of checkbox
+   columns, which is one wherever a capability list is drawn. */
 .perm-row {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) repeat(var(--perm-roles, 1), 44px);
+  align-items: center;
+  column-gap: 4px;
   min-height: 44px;
   margin: 0 16px;
   padding: 8px 0;
   border-bottom: 1px solid var(--input-border-color);
 }
 
-/* The next group heading already closes the group off; a hairline over its
-   24px gap would only float there. */
+/* The next area heading already closes the area off; a hairline over its 24px
+   gap would only float there. */
 .perm-list > .perm-row:last-child {
   border-bottom: none;
 }
@@ -84,37 +62,13 @@
   min-width: 0;
 }
 
-.perm-line {
-  display: flex;
-  align-items: baseline;
-  gap: 8px;
-  min-width: 0;
-}
-
 .perm-name {
+  display: block;
   min-width: 0;
   overflow: hidden;
   white-space: nowrap;
   text-overflow: ellipsis;
   text-transform: capitalize;
-}
-
-.perm-saved {
-  flex: 0 0 auto;
-  color: var(--highlight-blue-light);
-  font-size: 0.8em;
-}
-
-/* The failure has to be readable where the tick was, because the notice above
-   the matrix is off-screen for every row but the first few. Red is fill only,
-   so the word rides on it. */
-.perm-failed {
-  flex: 0 0 auto;
-  padding: 0 6px;
-  color: var(--color);
-  font-size: 0.8em;
-  background-color: var(--highlight-red-dark);
-  border-radius: var(--border-radius-small);
 }
 
 .perm-description {
@@ -151,9 +105,10 @@
   cursor: inherit;
 }
 
-/* A grant the backend could not honour: an empty box dims, `accent-color` only
-   paints a tick, so the box itself has to fade — otherwise it is an ordinary
-   off box that silently refuses the click. */
+/* A box that cannot be changed here — one User already gives, one the reader
+   may not hand out: an empty box dims, `accent-color` only paints a tick, so
+   the box itself has to fade, or it is an ordinary box that silently refuses
+   the click. */
 .perm-cell input:disabled {
   opacity: 0.45;
 }

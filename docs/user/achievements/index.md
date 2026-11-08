@@ -14,7 +14,7 @@ matched no player earns nothing, because Wingman does not know who that was.
 
 Everybody sees badges, and nobody needs a permission for that. Making them and
 switching them off takes the right to manage achievements, which Admin holds by
-default. See [Roles and permissions](../people/roles.md).
+default. See [Groups and permissions](../people/groups.md).
 
 ## Your badges on your own page
 

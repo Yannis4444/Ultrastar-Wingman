@@ -93,30 +93,35 @@
   border-radius: 50%;
 }
 
-/* The old app's role picker: visibly a choice, not a text field. */
-.people-role-wrap {
+/* The groups button, in the old app's role picker's look: visibly a choice,
+   not a text field. Unlike a select it shrinks first — up to 35% of the row,
+   its words one ellipsed line — so a long list of groups never pushes the
+   name, the eye or the trash off a 360px row. Its box stays 40px tall. */
+.people-groups {
   display: flex;
-  flex: 0 0 auto;
+  flex: 0 1 auto;
   align-items: center;
   gap: 4px;
-  color: var(--highlight-blue-light);
-}
-
-.people-role-wrap .icon {
-  pointer-events: none;
-}
-
-.people-role {
-  padding: 10px 0;
+  min-width: 0;
+  max-width: 35%;
+  min-height: 40px;
+  padding: 0;
   font: inherit;
   color: var(--highlight-blue-light);
   text-align: right;
   background: transparent;
   border: none;
-  appearance: none;
+  border-radius: var(--border-radius-small);
   cursor: pointer;
 }
 
-.people-role option {
-  background-color: var(--input-bg);
+.people-groups-words {
+  min-width: 0;
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+
+.people-groups .icon {
+  flex: 0 0 auto;
 }

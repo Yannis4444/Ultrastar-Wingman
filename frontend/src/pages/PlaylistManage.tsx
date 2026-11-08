@@ -250,8 +250,7 @@ export default function PlaylistManage() {
 
           {!allowed && (
             <p className="settings-notice">
-              Playlists are not open to your role. Log in or ask the host for
-              access.
+              Playlists are not open to you. Log in or ask the host for access.
             </p>
           )}
 

@@ -53,7 +53,7 @@ Three things decide what the **Scores** tab offers you.
 
 The party picker holds exactly the parties you may open, so it never names one
 only to refuse it. A guest phone has no player to go by and gets tonight alone.
-See [Roles and permissions](../people/roles.md).
+See [Groups and permissions](../people/groups.md).
 
 A party can also be taken off that list to keep it short. That reaches the
 picker and nothing else: the party keeps every score it has, in your own

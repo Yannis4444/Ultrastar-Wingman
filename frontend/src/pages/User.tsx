@@ -286,7 +286,9 @@ export default function User() {
                 )}
                 <div className="user-identity-text">
                   <h1 className="user-identity-name">{auth.user.username}</h1>
-                  <p className="user-identity-role" title={auth.groupWords}>
+                  {/* Admin, or the groups beyond User, or User: one line,
+                      the whole of it in the tooltip once it is cut short. */}
+                  <p className="user-identity-groups" title={auth.groupWords}>
                     {auth.groupWords}
                   </p>
                   {/* The glyph alone: the way out is there when it is wanted,
@@ -342,7 +344,9 @@ export default function User() {
                   <h1 className="user-identity-name">Host screen</h1>
                   {/* The same line an account's tile carries: the host session
                       is an administrator, it is just not a person. */}
-                  <p className="user-identity-role">{auth.groupWords}</p>
+                  <p className="user-identity-groups" title={auth.groupWords}>
+                    {auth.groupWords}
+                  </p>
                   {!showLogin && (
                     <button
                       type="button"

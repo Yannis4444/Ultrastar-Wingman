@@ -77,15 +77,17 @@ fixed, because each step needs the one before it:
 6. Settings: the USDX paths, the stand-in USDB address, the join URL.
 7. A library scan.
 8. Two parties with their sings and scores, written straight into the database.
-9. Wishes, favorites, playlists, tags, comments, achievements, the two download rows.
-10. The player selector: the device is created, it reports once, and only then is its
+9. The party's own permission groups (*DJs*), then who is in which: Bender in Trusted and
+   DJs. Before the tags, whose editor draws one row per group.
+10. Wishes, favorites, playlists, tags, comments, achievements, the two download rows.
+11. The player selector: the device is created, it reports once, and only then is its
     mapping written. A slot color on a reader that never answered is refused, so the
     report has to come first.
-11. The run waits until the achievements pass has counted the history and left Bender
+12. The run waits until the achievements pass has counted the history and left Bender
     one song short of the *Eighties Marathon*.
 
 Everything the seed learns is written to `<data dir>\screenshots.json`. `capture.py`
-reads playlist, tag, song and player ids from there and hardcodes none of them.
+reads playlist, tag, group, song and player ids from there and hardcodes none of them.
 
 The seeded clock is relative to the moment of seeding, and one thing goes stale: the
 second party ended five minutes ago, so it is the party that is still going, and a

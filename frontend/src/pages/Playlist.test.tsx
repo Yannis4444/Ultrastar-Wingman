@@ -490,7 +490,7 @@ test("an order the server refuses goes back where it was", async () => {
   fireEvent.click(screen.getByRole("button", { name: "Move Africa down" }));
 
   expect(await screen.findByRole("alert")).toHaveTextContent(
-    "Your role may not do this (playlists.manage)",
+    "You may not do this (playlists.manage)",
   );
   // Not left claiming an order the server never took.
   const moves = screen.getAllByRole("button", { name: /^Move / });
@@ -759,7 +759,7 @@ test("a role without playlists.view is told who may look", async () => {
   renderPlaylist(detail(), ["songs.view"], { user: null, ...AS.guest });
 
   expect(
-    await screen.findByText(/Playlists are not open to your role/),
+    await screen.findByText(/Playlists are not open to you\./),
   ).toBeInTheDocument();
   expect(getPlaylist).not.toHaveBeenCalled();
 });

@@ -13,7 +13,7 @@ asks for neither. The rest has sensible defaults. See
 Changing a setting takes the right to manage settings, which Admin holds by
 default. The host screen's browser holds it too.
 
-A role that may look but not change sees every box grayed out. The page says so
+Somebody who may look but not change sees every box grayed out. The page says so
 in one line: *You can see the settings but not change them.*
 
 ## How the page is laid out
