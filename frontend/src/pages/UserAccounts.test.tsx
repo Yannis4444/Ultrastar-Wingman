@@ -292,6 +292,36 @@ test("the button names every group beyond User, and the title holds them all", a
   expect(bob).toHaveAttribute("title", "Trusted · DJs");
 });
 
+test("an account in a group says nothing until the groups have been named", async () => {
+  // Never answered: *User* in the meantime would be a word that then changes.
+  listGroups.mockReturnValue(new Promise(() => {}));
+  listUsers.mockResolvedValue({
+    data: {
+      users: [
+        userRead({ groups: MEMBER_OF.admin }),
+        userRead({
+          id: "user-2",
+          username: "Bob",
+          player_id: "bbb",
+          groups: [TRUSTED_GROUP_ID],
+        }),
+        userRead({ id: "user-3", username: "Carol", player_id: null }),
+      ],
+    },
+  });
+  renderPage();
+
+  const bob = await screen.findByRole("button", { name: "Groups of Bob" });
+  expect(bob).toHaveTextContent(/^$/);
+  // The two answers the ids give on their own are there at once.
+  expect(
+    screen.getByRole("button", { name: "Groups of Alice" }),
+  ).toHaveTextContent("Admin");
+  expect(
+    screen.getByRole("button", { name: "Groups of Carol" }),
+  ).toHaveTextContent("User");
+});
+
 test("the panel puts the account in a group with one write of the whole set", async () => {
   setUserGroups.mockResolvedValue({
     data: userRead({

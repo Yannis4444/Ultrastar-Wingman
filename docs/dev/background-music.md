@@ -299,10 +299,12 @@ The two write bodies follow `devices/api.py` exactly — `model_fields_set`, the
 ```python
 MusicStatus = Literal["off", "blocked", "waiting", "empty", "playing", "paused"]
 
-class MusicTrackRead:   id, song, started_at, position_s, position_at, duration_s
-class MusicVolumeRead:  master, music, effects
-class MusicRead:        status, track, blocked_by, resume_at, retry_at,
-                        sink_online, sink_generation, volume, scope
+class MusicTrackRead:   id, song, started_at, position_s, position_at, duration_s,
+                        gain_db, peak
+class MusicPreviewRead: id, song, start_s, reveal_at, gain_db, peak
+class MusicVolumeRead:  master, music, preview, effects
+class MusicRead:        status, track, preview, blocked_by, resume_at, retry_at,
+                        sink_online, sink_generation, volume, sound_effects, scope
 class MusicSettings:    enabled, scope, playlist, resume_delay_s    # music.manage only
 ```
 

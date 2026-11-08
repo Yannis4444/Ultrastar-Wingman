@@ -358,7 +358,7 @@ export default function Playlist() {
   );
 
   return (
-    <div className="playlists-page">
+    <div className="playlists-page page-foot">
       <PageHeader
         title={playlist.data?.name ?? "Playlist"}
         back="/songs/playlists"

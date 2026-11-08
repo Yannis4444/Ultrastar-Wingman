@@ -250,8 +250,8 @@ function RealTagEditor() {
           named.push({
             id: row.user_id,
             username: row.username,
-            playerId: null,
-            avatarVersion: null,
+            playerId: row.player_id ?? null,
+            avatarVersion: row.avatar_version ?? null,
           });
       } else if (row.group_id !== null) {
         // Kept even for a group the listing does not hold: it is drawn

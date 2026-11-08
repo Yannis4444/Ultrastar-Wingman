@@ -16,6 +16,8 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from ..auth.model import Group, User
 from ..auth.permissions import ADMIN, GUEST, NotAssignableError, UnknownGroupError
 from ..events import SongTagsChanged, TagsChanged, event_bus
+from ..players.model import Player
+from ..players.schema import avatar_version
 from ..songs.model import Song
 from .model import SongTag, Tag, TagPermission
 from .schema import TagAction, TagAssignment, TagPermissionRead, TagRead
@@ -174,35 +176,59 @@ async def _song_counts(session: AsyncSession, tag_ids: Collection[str]) -> dict[
     }
 
 
-async def _usernames(session: AsyncSession, user_ids: Collection[str]) -> dict[str, str]:
+@dataclass(frozen=True)
+class _Account:
+    """An account named on a tag, as its permission rows read it out: the name, and the
+    player it sings as with that player's picture version."""
+
+    username: str
+    player_id: str | None
+    avatar_version: int | None
+
+
+async def _accounts(session: AsyncSession, user_ids: Collection[str]) -> dict[str, _Account]:
     if not user_ids:
         return {}
+    rows = await session.execute(
+        select(User, Player)
+        .join(Player, Player.user_id == User.id, isouter=True)
+        .where(User.id.in_(user_ids))
+    )
     return {
-        user.id: user.username
-        for user in await session.scalars(select(User).where(User.id.in_(user_ids)))
+        user.id: _Account(
+            username=user.username,
+            player_id=None if player is None else player.id,
+            avatar_version=None if player is None else avatar_version(player.avatar_file),
+        )
+        for user, player in rows
     }
 
 
 def _read_permissions(
-    rows: Iterable[TagPermission], usernames: dict[str, str]
+    rows: Iterable[TagPermission], accounts: dict[str, _Account]
 ) -> list[TagPermissionRead]:
-    return [
-        TagPermissionRead(
-            # The CHECK constraint on the column is what keeps this cast honest.
-            action=cast(TagAction, row.action),
-            group_id=row.group_id,
-            user_id=row.user_id,
-            username=None if row.user_id is None else usernames.get(row.user_id),
+    read: list[TagPermissionRead] = []
+    for row in rows:
+        account = None if row.user_id is None else accounts.get(row.user_id)
+        read.append(
+            TagPermissionRead(
+                # The CHECK constraint on the column is what keeps this cast honest.
+                action=cast(TagAction, row.action),
+                group_id=row.group_id,
+                user_id=row.user_id,
+                username=None if account is None else account.username,
+                player_id=None if account is None else account.player_id,
+                avatar_version=None if account is None else account.avatar_version,
+            )
         )
-        for row in rows
-    ]
+    return read
 
 
 def _read_tag(
     tag: Tag,
     rows: Sequence[TagPermission],
     rights: TagRights,
-    usernames: dict[str, str],
+    accounts: dict[str, _Account],
     song_count: int,
     with_permissions: bool,
 ) -> TagRead:
@@ -216,7 +242,7 @@ def _read_tag(
         can_view=rights.can_view,
         can_assign=rights.can_assign,
         song_count=song_count,
-        permissions=_read_permissions(rows, usernames) if with_permissions else None,
+        permissions=_read_permissions(rows, accounts) if with_permissions else None,
     )
 
 
@@ -224,10 +250,10 @@ async def read_tag(
     session: AsyncSession, tag: Tag, viewer: Viewer, with_permissions: bool
 ) -> TagRead:
     rows = (await permission_rows(session, [tag.id])).get(tag.id, [])
-    usernames = await _usernames(session, [row.user_id for row in rows if row.user_id])
+    accounts = await _accounts(session, [row.user_id for row in rows if row.user_id])
     counts = await _song_counts(session, [tag.id])
     return _read_tag(
-        tag, rows, rights_for(rows, viewer), usernames, counts.get(tag.id, 0), with_permissions
+        tag, rows, rights_for(rows, viewer), accounts, counts.get(tag.id, 0), with_permissions
     )
 
 
@@ -254,8 +280,8 @@ async def visible_tags(session: AsyncSession, viewer: Viewer, manages: bool) -> 
     half twice over: which accounts were named on a tag is a manager's business, nobody
     else's, and so is a tag they gave themselves no right to see."""
     listed = await _listed(session, viewer, manages)
-    usernames = (
-        await _usernames(
+    accounts = (
+        await _accounts(
             session,
             {row.user_id for _, tag_rows in listed for row in tag_rows if row.user_id},
         )
@@ -268,7 +294,7 @@ async def visible_tags(session: AsyncSession, viewer: Viewer, manages: bool) -> 
             tag,
             tag_rows,
             rights_for(tag_rows, viewer),
-            usernames,
+            accounts,
             counts.get(tag.id, 0),
             manages,
         )
@@ -370,7 +396,7 @@ async def _check_subjects(session: AsyncSession, specs: Sequence[PermissionSpec]
     would mean nothing), `UnknownGroupError` or `UnknownUserError`. Called before anything
     is written, so a bad row in the body cannot leave half a tag behind."""
     user_ids = {spec.user_id for spec in specs if spec.user_id is not None}
-    known = await _usernames(session, user_ids)
+    known = await _accounts(session, user_ids)
     group_ids = {spec.group_id for spec in specs if spec.group_id is not None}
     groups = (
         set(await session.scalars(select(Group.id).where(Group.id.in_(group_ids))))

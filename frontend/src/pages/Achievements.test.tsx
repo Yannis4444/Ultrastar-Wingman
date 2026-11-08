@@ -436,8 +436,8 @@ it("imports an archive and says what it did to which achievement", async () => {
 });
 
 it("ends the page in one section, which holds the buttons and their answer", async () => {
-  // The section is what keeps the page's foot off the nav (Achievements.css),
-  // whichever of these is the last thing on it.
+  // The page block carries the foot that keeps it off the nav (`page-foot`,
+  // index.css), and the section ends it whichever of these is its last thing.
   importAchievements.mockResolvedValue({
     data: { created: ["a-new"], updated: [] },
   });
@@ -445,6 +445,7 @@ it("ends the page in one section, which holds the buttons and their answer", asy
 
   await screen.findByText("Golden Voice");
   const page = container.querySelector(".achievements-page");
+  expect(page).toHaveClass("page-foot");
   const section = container.querySelector(".achievements-transfer");
   expect(section).not.toBeNull();
   expect(page?.lastElementChild).toBe(section);

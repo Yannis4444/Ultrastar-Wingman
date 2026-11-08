@@ -794,7 +794,7 @@ export default function Achievements() {
     rows.find((achievement) => achievement.id === id)?.name ?? id;
 
   return (
-    <div className="achievements-page">
+    <div className="achievements-page page-foot">
       <PageHeader title="Achievements" back="/user">
         {/* Arranging first, `+` where it has always been: the way to a new
             achievement is the page's principal action and stays at the edge. */}

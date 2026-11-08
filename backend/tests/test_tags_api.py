@@ -25,6 +25,7 @@ from httpx import ASGITransport, AsyncClient
 from sqlalchemy import delete, select
 
 from conftest import BASE_URL, IDENTITY_GROUPS, add_session, add_user
+from test_players_api import PNG
 from test_wishlist_api import OTHER_SONG, SONG, THIRD_SONG, add_songs, factory
 from ultrastar_wingman.app import create_app
 from ultrastar_wingman.auth.deps import COOKIE_NAME
@@ -33,6 +34,7 @@ from ultrastar_wingman.config import BootstrapSettings
 from ultrastar_wingman.db import migrations_dir
 from ultrastar_wingman.karaoke.model import KaraokeSession, Score, Sing
 from ultrastar_wingman.library.model import PlaylistEntry
+from ultrastar_wingman.players.model import Player
 from ultrastar_wingman.settings import Setting as SettingRow
 from ultrastar_wingman.songs.model import Song
 from ultrastar_wingman.tags import builtin
@@ -347,6 +349,43 @@ async def test_replacing_the_permissions_can_name_a_single_account(
     assert await tag_song(party["trusted"], OTHER_SONG, archive, expect=404) is not None
 
 
+async def test_an_account_named_on_a_tag_comes_with_its_player_and_picture(
+    party: Party, archive: str
+) -> None:
+    """The editor draws everybody named on a tag with their picture, as the account search
+    that added them did; read back from the tag they used to be initials only."""
+    async with factory(party.app)() as session:
+        player = Player(name="Singer", registered=True, user_id=party.ids["user"])
+        session.add(player)
+        await session.commit()
+        player_id = player.id
+    uploaded = await party["admin"].put(
+        f"/api/v1/players/{player_id}/avatar", files={"file": ("a.png", PNG, "image/png")}
+    )
+    assert uploaded.status_code == 200, uploaded.text
+
+    response = await party["admin"].put(
+        f"/api/v1/tags/{archive}/permissions",
+        json={
+            "permissions": [
+                {"action": "view", "user_id": party.ids["user"]},
+                {"action": "assign", "user_id": party.ids["trusted"]},
+            ]
+        },
+    )
+
+    assert response.status_code == 200, response.text
+    named = {row["user_id"]: row for row in response.json()["permissions"]}
+    assert named[party.ids["user"]]["player_id"] == player_id
+    assert named[party.ids["user"]]["avatar_version"] == uploaded.json()["avatar_version"]
+    assert isinstance(named[party.ids["user"]]["avatar_version"], int)
+    # An account with no player has neither, and the listing says the same as the write.
+    assert named[party.ids["trusted"]]["player_id"] is None
+    assert named[party.ids["trusted"]]["avatar_version"] is None
+    listed = {tag["id"]: tag for tag in await tags_of(party["admin"])}
+    assert {row["user_id"]: row for row in listed[archive]["permissions"]} == named
+
+
 async def test_a_manager_can_create_edit_and_delete_a_tag(party: Party, archive: str) -> None:
     created = await make_tag(
         party["trusted"],
@@ -483,7 +522,14 @@ async def test_the_same_row_twice_is_one_row(party: Party) -> None:
     )
 
     assert created["permissions"] == [
-        {"action": "view", "group_id": "guest", "user_id": None, "username": None}
+        {
+            "action": "view",
+            "group_id": "guest",
+            "user_id": None,
+            "username": None,
+            "player_id": None,
+            "avatar_version": None,
+        }
     ]
 
 

@@ -168,6 +168,11 @@ exception). Tests identify glyphs with `iconNames()` from `src/test/icons.ts`.
   `role="alert"` sentence for it is, and *Saved* in `--highlight-blue-light` when one
   landed; that slot takes any write's acknowledgement (`savedLabel`, *"Reset — the shipped
   achievement is back."* for a reset).
+- **A page's foot:** a page that ends in a list, a row of buttons, a form that saves as it goes
+  or a wizard rather than in an editor's action row carries `.page-foot` (`index.css`) on its
+  outermost block, which holds whatever ends it 24px off the nav — `#root` itself reserves
+  the nav's height and no air, so that row can ride flush. The user page's signature is the
+  one exception: it signs off 8px above the nav, like a footer.
 - **Text inputs, loud and quiet:** `.text-input` (16px radius, `--input-bg`, ≥40px) is for the
   page's one main control (the Songs search); `.text-input-quiet` (36px, hairline, transparent)
   is everything else — settings fields, selects, filters, forms. At most one loud input per
@@ -948,9 +953,11 @@ saved) where a jump to the top would throw away the place they were working in.
   and re-check it after touching any shared component (`CurrentlyPlaying`, `LastSong`,
   `SongCover`, `SessionLeaderboard`). **The standing ends after a whole row**, at every height and
   whoever has sung: `SessionLeaderboard` draws five at most, all five share the rail's height out
-  with the wishes as before, and the list — a wrapping flex column under `overflow: hidden` — sends a
+  with the wishes as before, and the list — a wrapping flex column under `overflow: clip` — sends a
   row it cannot hold whole into a second column out of sight; never a fade over a row still half
   there, and no line counting the rest, a shorter top N being the truth as it is for the wishes.
+  **The wishes end after a whole row** the same way (`.host-wishes-list`), under the 720p rule
+  that a rail with a standing gives up its wishes' tail first.
   `LastSong` keeps `ScoreSummary` — the numbers as
   `IconStat`s with their words, named, no Songs; read across a room, the phones' overview
   would be too small — in the naming column beside the cover and under the artist line, wrapping there instead of

@@ -160,7 +160,7 @@ export default function Playlists() {
   const empty = playlists.isSuccess && rows.length === 0;
 
   return (
-    <div className="playlists-page">
+    <div className="playlists-page page-foot">
       <PageHeader title="Playlists" back="/songs">
         {canManage && (
           <button

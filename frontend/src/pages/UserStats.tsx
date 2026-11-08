@@ -184,7 +184,7 @@ export default function UserStats() {
   const rosterSettled = !askRoster || !playerList.isPending;
 
   return (
-    <div className="scores-page">
+    <div className="scores-page page-foot">
       <PageHeader title="Your scores" back="/user">
         {/* A page-level control (ui-guidelines §6): the whole record as a
             card (share-cards §9), once the record makes one with a design

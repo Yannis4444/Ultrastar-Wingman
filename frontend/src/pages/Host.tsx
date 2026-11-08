@@ -452,7 +452,7 @@ function HostWishes({ wishes }: { wishes: WishRead[] }) {
        would only be a second copy to keep in step with it. */
     <section className="host-wishes" aria-labelledby="host-wishes-heading">
       <h2 id="host-wishes-heading">Most wished</h2>
-      <ol>
+      <ol className="host-wishes-list">
         {wishes.map((wish) => (
           <li key={wish.song.id}>
             <SongCover song={wish.song} className="host-wishes-cover" />

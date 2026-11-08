@@ -114,12 +114,12 @@ Some boxes cannot be changed, and the box says why when you point at it:
 
 - In a group of your own, a right User already gives is ticked and grayed out.
   Every account holds it, the group's members included.
-- **manage** under **playlists** cannot be ticked for **Guest**. A playlist
+- **Manage** under **Playlists** cannot be ticked for **Guest**. A playlist
   belongs to an account, so somebody without one has none to create.
 - A right you do not hold yourself cannot be ticked, unless you are an
   administrator.
 
-**moderate** under **playlists** only works alongside **manage**. It reaches the
+**Moderate** under **Playlists** only works alongside **Manage**. It reaches the
 party's shared lists and the ones somebody shared with the holder. A private
 list stays private.
 

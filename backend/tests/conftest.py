@@ -1,4 +1,5 @@
 import asyncio
+import contextlib
 import shutil
 from collections.abc import AsyncIterator, Sequence
 from concurrent.futures import ThreadPoolExecutor
@@ -132,7 +133,18 @@ async def session(
 
 @pytest.fixture
 async def broadcast_events() -> AsyncIterator[list[dict[str, object]]]:
-    """Records everything the event bus broadcasts while the test runs."""
+    """Records everything the event bus broadcasts while the test runs.
+
+    An app fixture requested before this one has started the lifespan's library scan in
+    the background. It is let finish before the recording starts: its `songs.scan_started`
+    and `songs.scan_finished` belong to the lifespan, not to the test, and landing whenever
+    the scan happened to end on a loaded machine they broke exact assertions now and then.
+    """
+    task = scanner._scan_task
+    if task is not None:
+        # A scan that fails says so in its own tests; here it only has to be over.
+        with contextlib.suppress(Exception):
+            await task
     events: list[dict[str, object]] = []
 
     class Recorder:

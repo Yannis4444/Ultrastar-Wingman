@@ -543,6 +543,49 @@ it("drops every right of a person who is removed", async () => {
   );
 });
 
+it("draws a person named on the tag with their own picture", async () => {
+  // Read back from the stored tag, not added through the search this visit:
+  // those rows used to come without a player and always drew the initial.
+  renderEditor({
+    tags: [
+      tag({
+        permissions: [
+          ...roleRows(),
+          {
+            action: "view",
+            group_id: null,
+            user_id: "u-bob",
+            username: "Bob",
+            player_id: "bbb",
+            avatar_version: 7,
+          },
+          {
+            action: "view",
+            group_id: null,
+            user_id: "u-cid",
+            username: "Cid",
+            player_id: null,
+            avatar_version: null,
+          },
+        ],
+      }),
+    ],
+  });
+
+  await screen.findByDisplayValue("broken");
+  const rows = screen
+    .getAllByRole("listitem")
+    .filter((row) => row.classList.contains("tag-people-row"));
+  const bob = rows.find((row) => row.textContent?.includes("Bob"));
+  expect(bob?.querySelector("img.player-avatar")).toHaveAttribute(
+    "src",
+    "/api/v1/players/bbb/avatar?v=7",
+  );
+  const cid = rows.find((row) => row.textContent?.includes("Cid"));
+  expect(cid?.querySelector("img")).toBeNull();
+  expect(cid?.querySelector(".player-avatar-letter")).toHaveTextContent("C");
+});
+
 it("warns about a tagger who would not see what they tagged", async () => {
   renderEditor();
 

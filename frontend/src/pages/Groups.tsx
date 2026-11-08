@@ -44,7 +44,7 @@ export default function Groups() {
   const rows = groups.data?.groups ?? [];
 
   return (
-    <div className="tags-page groups-page">
+    <div className="tags-page groups-page page-foot">
       <PageHeader title="Groups" back="/user">
         {allowed && (
           <Link

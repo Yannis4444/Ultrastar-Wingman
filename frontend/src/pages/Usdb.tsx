@@ -319,7 +319,7 @@ export default function Usdb() {
   }
 
   return (
-    <div className="usdb-page">
+    <div className="usdb-page page-foot">
       {/* Sticky, so the downloads status is reachable without scrolling past a
           955-page result list. Below the modal backdrop's z-index of 2000. */}
       <PageHeader title="USDB" back="/songs">

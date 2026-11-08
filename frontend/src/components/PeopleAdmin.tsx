@@ -231,12 +231,18 @@ export default function PeopleAdmin() {
     (!mayViewUsers || users.isSuccess);
 
   /** An account's groups in the user tile's words: *Admin*, the groups beyond
-   *  User joined by ` · `, or *User*. */
+   *  User joined by ` · `, or *User*. Nothing yet for an account in a group
+   *  the listing has to name: *User* until `GET /groups` answers would be a
+   *  word that then changes under the reader. */
   const words = (account: UserRead): string =>
-    groupWords(
-      accountGroups(account.groups, allGroups),
-      account.groups.includes(ADMIN),
-    );
+    groups.data === undefined &&
+    !account.groups.includes(ADMIN) &&
+    account.groups.length > 0
+      ? ""
+      : groupWords(
+          accountGroups(account.groups, allGroups),
+          account.groups.includes(ADMIN),
+        );
   const panelAccount =
     groupsOf === null
       ? undefined

@@ -2941,6 +2941,14 @@ export type TagPermissionRead = {
      * Username
      */
     username: string | null;
+    /**
+     * Player Id
+     */
+    player_id?: string | null;
+    /**
+     * Avatar Version
+     */
+    avatar_version?: number | null;
 };
 
 /**

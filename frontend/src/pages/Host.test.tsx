@@ -922,6 +922,9 @@ test("the wishes sit in the rail and make room for the standing", async () => {
     expect(within(wishes).getAllByRole("listitem")).toHaveLength(3),
   );
   expect(within(wishes).getByText("Wish 1")).toBeInTheDocument();
+  // All three stay in the list whatever the TV's height, the standing's way:
+  // the stylesheet wraps a row that does not fit whole out of sight.
+  expect(within(wishes).getByRole("list")).toHaveClass("host-wishes-list");
 });
 
 test("without a standing the rail gives the wishes the whole column", async () => {

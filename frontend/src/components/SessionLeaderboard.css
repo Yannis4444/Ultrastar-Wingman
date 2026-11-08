@@ -73,10 +73,12 @@
    has — every row drawn counts towards it — and the list then takes the height
    it was given (`flex` + `min-height: 0`) as a column that wraps: a row that
    does not fit it whole goes to a second column, to the right of the list's
-   own width, where `overflow: hidden` keeps it out of sight. No measuring, so
-   nothing to flash when a new score reorders the rows, and no fade over a row
-   that is still half there. Below 1101px the page scrolls, the list's height
-   is its content's, and nothing wraps. */
+   own width, where `overflow: clip` keeps it out of sight — `clip` rather than
+   `hidden` because no row takes focus, and nothing should be able to scroll
+   that column into view. No measuring, so nothing to flash when a new score
+   reorders the rows, and no fade over a row that is still half there. Below
+   1101px the page scrolls, the list's height is its content's, and nothing
+   wraps. */
 .host-leaderboard-list {
   display: flex;
   flex: 1 1 auto;
@@ -86,7 +88,7 @@
   min-height: 0;
   margin: 0;
   padding: 0;
-  overflow: hidden;
+  overflow: clip;
   list-style: none;
 }
 
