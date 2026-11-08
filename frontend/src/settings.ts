@@ -13,13 +13,16 @@ const WORD_OVERRIDES: Record<string, string> = {
 };
 
 /**
- * Settings whose key no longer says what they do. A key is stored in every
+ * Settings whose key does not say what they do. A key is stored in every
  * database that ever wrote it, so it keeps its name and the label moves on:
  * `sound.reel_preview` was the reel's song alone, and since 2026-10-22 it is
- * the song of every selection, spun or not.
+ * the song of every selection, spun or not. `sound.effects` would read
+ * *Effects* alone, a word that under the Sound heading still leaves a reader
+ * guessing which.
  */
 const KEY_LABELS: Record<string, string> = {
   "sound.reel_preview": "Song preview",
+  "sound.effects": "Sound effects",
 };
 
 /**

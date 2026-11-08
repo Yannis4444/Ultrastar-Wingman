@@ -322,7 +322,7 @@ code:
 |---|---|---|---|
 | `sound.master_volume` | int 0–100 | 100 | everything Wingman plays on the host screen |
 | `sound.music_volume` | int 0–100 | 100 | the background music |
-| `sound.effects_volume` | int 0–100 | 100 | the sound effects — nothing uses it yet, and the description says so |
+| `sound.effects_volume` | int 0–100 | 100 | the sound effects, with the switch `sound.effects` beside it (both in [sound-effects.md](sound-effects.md)) |
 
 Private in `music/settings.py`, behind `music.manage`:
 

@@ -189,6 +189,7 @@ function quietMusic(overrides: Partial<MusicRead> = {}): MusicRead {
     sink_online: false,
     sink_generation: 0,
     volume: { master: 100, music: 60, preview: 100, effects: 80 },
+    sound_effects: true,
     scope: "all",
     ...overrides,
   };

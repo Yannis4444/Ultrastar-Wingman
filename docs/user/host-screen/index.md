@@ -150,6 +150,17 @@ TV gets no presses. When that is what is stopping it, a large **Turn on sound**
 appears at the bottom of the screen, in the middle, even while the room picks
 singers. One click anywhere on the page does the same thing.
 
+## Sound effects
+
+The host screen makes a few short sounds of its own. The reel ticks for every
+cover that passes and clicks when it lands. Every new badge after a song lands
+with a whoosh. A host screen that opens after the reel has landed stays quiet.
+Like the music, they wait for one click or key press anywhere on the page.
+The phones make none of these sounds, and nothing plays during a song. Switch
+them off with **Sound effects** in the **Sound** group of the settings, and set
+how loud they are with **Effects volume** there. See
+[Settings reference](../settings/reference.md#sound).
+
 ## The controls that fade
 
 The controls are only for whoever is at the karaoke PC. They stand in two

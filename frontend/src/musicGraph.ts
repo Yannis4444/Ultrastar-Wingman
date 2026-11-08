@@ -16,6 +16,10 @@
  * Where there is no Web Audio (no `AudioContext`, or one that cannot be made)
  * nothing is routed, and `levelOf` folds the loudness into the element's own
  * volume instead, as far as a volume can go.
+ *
+ * The same context carries the host screen's sound effects (`sfx.ts`), through
+ * one bus gain node at the level `setEffectsLevel` was last handed — and an
+ * effect is only ever played into a context that is already running.
  */
 
 let audioContext: AudioContext | null = null;
@@ -129,10 +133,66 @@ export function onAudioState(handler: (() => void) | null): void {
   stateHandler = handler;
 }
 
+// --- the sound effects' bus ---------------------------------------------------
+//
+// Every effect (`sfx.ts`) plays into one gain node on this same context, set to
+// master × effects — and to 0 wherever the effects are off, which is every tab
+// but the host screen holding the music sink's lease. `MusicSink` is what sets
+// it, from the music state, so a slider moved or the switch thrown on the
+// Settings page reaches the very next tick — and one already sounding.
+
+let effectsLevel = 0;
+let effectsBus: GainNode | null = null;
+
+/**
+ * What every effect plays at, as a linear gain: master × effects, or 0.
+ *
+ * A step, never a glide. The bus sits idle between effects, and Chrome does
+ * not run the automation of a node nothing is playing through: a glide set
+ * while it idled started only under the next effect, which then sounded at a
+ * twentieth of its level (measured, 2026-11-08). The effects are a fraction of
+ * a second long, so a step under one is no click worth the risk.
+ */
+export function setEffectsLevel(level: number): void {
+  effectsLevel = Number.isFinite(level) ? Math.max(0, level) : 0;
+  if (effectsBus === null) return;
+  effectsBus.gain.cancelScheduledValues(0);
+  effectsBus.gain.value = effectsLevel;
+}
+
+/**
+ * Where an effect plays into right now, or `null` when it would not be heard:
+ * the level is 0 (switched off, no lease, not the host screen), there is no
+ * context yet, or the context is not running. Never makes a context and never
+ * resumes one: the sink's unlock — any press on the host page — does both,
+ * and an effect that finds the graph asleep is simply skipped.
+ */
+export function effectsOutput(): {
+  context: AudioContext;
+  destination: AudioNode;
+} | null {
+  if (effectsLevel === 0) return null;
+  const graph = audioContext;
+  if (graph === null || graph.state !== "running") return null;
+  if (effectsBus === null) {
+    try {
+      effectsBus = graph.createGain();
+      effectsBus.gain.value = effectsLevel;
+      effectsBus.connect(graph.destination);
+    } catch {
+      effectsBus = null;
+      return null;
+    }
+  }
+  return { context: graph, destination: effectsBus };
+}
+
 /** Only for the tests: forget the graph, so each test makes its own. */
 export function resetLoudnessGraph(): void {
   audioContext = null;
   gains = new WeakMap();
   unroutable = new WeakSet();
   stateHandler = null;
+  effectsLevel = 0;
+  effectsBus = null;
 }

@@ -30,6 +30,7 @@ from .sound import (
     MUSIC_VOLUME,
     PREVIEW_VOLUME,
     REEL_PREVIEW,
+    SOUND_EFFECTS,
     VOLUME_KEYS,
     validate_volume,
 )
@@ -225,7 +226,7 @@ register(
         value_type=int,
         default=100,
         group="Sound",
-        description="Wingman's own sound effects. Nothing plays any yet.",
+        description="Wingman's own sound effects on the host screen.",
         validate=validate_volume,
     )
 )
@@ -240,6 +241,19 @@ register(
             "from where its singing starts: once the reel lands on it, or at once for a song "
             "somebody chose. It stops when the song starts or the pick is given up, and the "
             "background music pauses for it."
+        ),
+    )
+)
+register(
+    SettingDefinition(
+        key=SOUND_EFFECTS,
+        value_type=bool,
+        default=True,
+        group="Sound",
+        description=(
+            "Short sounds on the host screen: a tick for every cover the reel passes and a "
+            "click when it lands, and a whoosh for every new badge after a song. Nothing on "
+            "the phones, and nothing while a song is sung."
         ),
     )
 )

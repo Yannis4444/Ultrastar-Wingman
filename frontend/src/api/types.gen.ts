@@ -1226,6 +1226,10 @@ export type MusicRead = {
     sink_generation: number;
     volume: MusicVolumeRead;
     /**
+     * Sound Effects
+     */
+    sound_effects: boolean;
+    /**
      * Scope
      */
     scope: 'all' | 'favorites' | 'wishlist' | 'weighted' | 'playlist';

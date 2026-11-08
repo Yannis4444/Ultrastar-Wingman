@@ -822,7 +822,9 @@ saved) where a jump to the top would throw away the place they were working in.
   `--bg`, the white QR card its one tile and the selection cards its one other surface. It is
   also the **one screen that makes sound**: `MusicSink` is mounted in `App.tsx` rather than
   here (the host walks from `/host/manage` into `/settings` and `/user/*`, and a sink under a
-  page would stop the music mid-song) and plays only for `auth.isHost`. **The music line**
+  page would stop the music mid-song) and plays only for `auth.isHost`. Its sound effects are the
+  host screen's alone — the reel's ticks and landing and the badges' whoosh, never a phone's
+  ([sound-effects.md](sound-effects.md)). **The music line**
   (`.host-music-line`, the page's own, fixed at the foot of the whole screen and centred on it) names
   the background song outside the takeovers: content while `playing`, never fading with the chrome
   (while `paused` it is chrome, below). *Turn on sound* is not in the
