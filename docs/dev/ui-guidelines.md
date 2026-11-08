@@ -14,7 +14,7 @@ request does not override are the accessibility and dependency floors in §1.8�
 2. **`--tile-bg` is whitelisted, not general.** Allowed: `.home-stage`, `.user-identity`,
    `.modal` (non-bare), `.score-group-panel`, the USDB login card, the login
    form, the "add songs from…" source cards. Nothing else; extending it is a user decision.
-3. **No per-row badges for near-universal attributes.** No "MP3", "downloaded" or role chips
+3. **No per-row badges for near-universal attributes.** No "MP3", "downloaded" or group chips
    per row, and never a valued facet — a genre, a language, an edition, a decade belongs in
    the details modal, where it is one line and not a mark. Allowed per row: the marks of rule
    4 and one numeric (or `—`) value column. Opt-in marks are the exception: a tag most songs
@@ -112,12 +112,13 @@ may wear is the picker's list below, never this table.
 | `beer` / `car` / `plane` / `bolt` / `bell` / `ghost` / `ring` / `graduation-cap` | tags for drinking songs · for road songs · for holidays · for the loud fast ones · for new year · for halloween · for weddings · for school and graduation | a tankard under a three-lobe foam cap, the handle loop counter-wound · a cabin stepped onto a body over two wheel discs, the windows counter-wound · one outline — fuselage, swept wings, tailplane — nose to the top right · a single zigzag contour · a dome on a flared rim over a clapper disc · a dome over a three-lobe hem, the two eyes counter-wound · two concentric circles, the inner one counter-wound, a gem lozenge on top · a rhombus board on a trapezoid cap, a tassel cord down the right |
 | `headphones` / `drum` / `piano` / `rocket` / `anchor` / `tree` / `paw` / `smile` | tags for songs to play rather than sing · for the drum-driven ones · for songs at the keys · for the night's openers · for sea shanties · for folk · for animal songs · for the funny ones | a headband arc, its inner edge counter-wound, and two capsule earcups · a cylinder between two overhanging rim bars, one three-V zigzag band counter-wound out of the shell · a keybed bar over five keys, the four black ones counter-wound out of it · a pointed body between two fins over a flame, the porthole counter-wound · a ring over a shank crossed by a stock, above one curved fluke bar, the ring's hole counter-wound · three stacked triangles on a short trunk · a pad disc under four toe discs, five subpaths, nothing cut out · a disc with two eyes and a crescent mouth counter-wound out of it |
 | `hash` / `music` / `arrow-up` / `average` / `arrow-down` · `trophy` | sings, songs, best, average, worst, in that order: the host results' score summary (`ScoreSummary`) wears all but `music`, a song's history being one song, and its marker strip the last three; a party's figures on `/scores` (`SessionSummaryRow`) wear `hash` and `music`; the phones' score overview prints words, never these · the best score as a thing to open: the §5 action bar's button, never a number inside a score summary | two upright bars crossed by two horizontal ones · one contour, a note head under a flagged stem · one solid contour, a shaft behind a triangular head, and the same mirrored · a ring struck corner to corner by a bar · a cup between two handles over a stem and a foot bar. The reorder pair on a playlist or achievement row is `arrow-up` / `arrow-down` doing a job, not a second meaning. None of them is pickable — a number is not a thing a song is about — `music` excepted: it is in the picker already, meaning genre, and wears this second meaning only inside a summary; `trophy` stays out with `clock`, `globe`, `star` and `tag` |
-| `pause` / `skip` / `volume` | the background music's transport on the player and in the host screen's overlay, and `volume` labelling the **Sound** settings group and the `music` permission group | two upright bars at `play`'s own height · `play` again with the bar it runs into · a speaker cone under two arcs. None of the three is pickable: pausing is not a thing a song is about, and `volume` is doing a job in the two places it labels, the way `tv` labels the Host group |
+| `pause` / `skip` / `volume` | the background music's transport on the player and in the host screen's overlay, and `volume` labelling the **Sound** settings group and the `music` capability area | two upright bars at `play`'s own height · `play` again with the bar it runs into · a speaker cone under two arcs. None of the three is pickable: pausing is not a thing a song is about, and `volume` is doing a job in the two places it labels, the way `tv` labels the Host group |
 | `fullscreen` / `fullscreen-exit` | the host screen's full-screen control: enter, and while in full screen leave | four corner brackets at the edges of the square, corners pointing out · the same four with their corners pointing in towards the middle. Neither is pickable |
 | `upload` / `download` | the Achievements admin's two archive buttons: one in, one out | `download` mirrored — the same shaft, arrowhead and tray bar, the arrow coming up out of the bar instead of down into it. Neither is pickable: an archive is not a thing a tag or an achievement is about |
 | `trash` · `share` / `external-link` / `shuffle` | removing for everybody: an account or a player in the people admin, a comment, a song off the wishlist (the wishlist tile, the landed song on the Random song page in either mode), `close` staying the reader's own take-back · a picture to send: the party bar's button, *Share stats* (the glyph alone), `/user/stats`' *Share my stats*, the sing view's and the achievement modal's **Share**, the share panel's **Share** · a link that leaves Wingman: the song modal's *Open in a streaming service* button and every service behind it, and its USDB fine print · *Shuffle again* beside the Songs sort while it is *Random* | `trash` as drawn · three discs, one at the left middle and two at the right top and bottom, joined by two bars, never `upload`'s arrow out of a tray, which is the archive · a square outline open at its upper-right corner, an arrow leaving through the gap to the top right · two arrows running left to right, crossing once, heads at the right. None is pickable, and the dice never stand in for `shuffle`: they are the reel's |
 | `log-out` | *Log out* on the user tile, the glyph alone | a door frame open to the right, one two-unit band with `external-link`'s rounded outside and square inside, and an arrow leaving through the opening, its shaft starting inside the frame and its solid triangular head out past it. Never `power`, which opens Ultrastar Deluxe. Not pickable |
-| `card` | the player selector device: the *Player selector* entry of the manage menu, the admin page's device rows, and the `devices` permission group | a card lying on its side, 20 by 12 with a corner radius of 2, its chip counter-wound out of the upper left. Wider and rounder than `tv`'s case, and the chip sits off centre where a bank card carries one. Not pickable: a card is not a thing a song is about |
+| `card` | the player selector device: the *Player selector* entry of the manage menu, the admin page's device rows, and the `devices` capability area | a card lying on its side, 20 by 12 with a corner radius of 2, its chip counter-wound out of the upper left. Wider and rounder than `tv`'s case, and the chip sits off centre where a bank card carries one. Not pickable: a card is not a thing a song is about |
+| `shield` · `users` | Admin and the rights behind it: the *Groups* entry of the manage menu, Admin's 40px square on the Groups page and in the account's groups panel, and the host's square on the user tile · a group of accounts: every other group's square on those two surfaces, a job like the *Players & accounts* entry's ([permission-groups.md](permission-groups.md) §9) | both as drawn. `shield` is not pickable; `users` stays pickable, meaning a song sung by several (the *Duet* facet), and wears the group meaning only as a group's square |
 | `format-square` / `format-story` · `image` / `calendar` | the share panel's two formats, 1080×1080 and 1080×1920 · *Change your picture* on the user tile, and the panel's *Other singers' pictures* toggle / the year and decade facets, and the panel's *Party name and date* toggle — jobs there, not meanings (share-cards §5) | a rounded square outline 16 by 16, two units thick, its inside counter-wound · an upright outline 10 by 18 (the story's 9:16) with the same stroke and corner radius, so the pair reads as the two shapes of one picture. Neither format is pickable · `image` and `calendar` as drawn, `calendar` pickable for what a song is about |
 | `brand-spotify` / `brand-applemusic` / `brand-youtubemusic` / `brand-tidal` / `brand-deezer` | the five services in *Open in a streaming service*, each before its name, never alone | from Simple Icons (CC0, no attribution): the 24×24 `d` string as published, checked under the nonzero rule `Icon` draws with — a hole that closes is re-wound, never given a `fill-rule`. Monochrome in the row's `--color-dark`, never the service's colour, which no token carries (§2); with `github` the only brand marks. None is pickable |
 | `thumbs-up` / `hourglass` / `balloon` / `dumbbell` / `tv` | tags for the crowd-pleasers · for the long ones · for carnival · for the gym set · for series and anime — labelling the Host settings group and the Random song page's *Host screen* pill (§7) are jobs, not meanings | a fist block with the thumb up over a separate cuff bar · two triangles meeting at the waist between two cap bars · a teardrop bulb over a short zigzag string · a bar between two pairs of stacked plates · a rounded case, the screen counter-wound, on a stand bar |
@@ -227,10 +228,19 @@ exception). Tests identify glyphs with `iconNames()` from `src/test/icons.ts`.
   the tag's glyph wherever it appears. A tag or playlist row leads with a 40px square
   (`--input-bg`, `--border-radius-small`, glyph 1.25em): `--color-darker` for a playlist, the
   tag's colour for a tag.
-- **Matrices, grids and people rows.** A permission matrix copies `RolePermissions`:
-  `.perm-head` and `.perm-row` share the columns `minmax(0, 1fr) repeat(var(--perm-roles, 3),
-  44px)`, `.perm-head` is sticky, `.perm-cell` holds a native checkbox (`accent-color:
-  var(--highlight-blue-light)`), admin sits in `.perm-hint`, not a column. The icon picker is
+- **Matrices, grids and people rows.** A capability list copies `GroupCapabilities` (the
+  group editor's, [permission-groups.md](permission-groups.md) §9): area headings over
+  `.perm-row`s on the columns `minmax(0, 1fr) repeat(var(--perm-roles, 1), 44px)`: one
+  checkbox column, the group being edited, and no `.perm-head` — the page's name says whose
+  column it is. `.perm-cell` holds a native checkbox (`accent-color:
+  var(--highlight-blue-light)`). A column is never a group: a 44px head cannot hold a name
+  somebody typed, and a phone cannot hold five columns, so where several groups are granted
+  something they are **rows** with the actions as columns (the tag editor, §7). A box another
+  group already grants (User's, in a group that adds to it) is drawn ticked and disabled with
+  its reason in `title` and a `visually-hidden` sentence; a right the reader may not hand out
+  is drawn off and disabled the same way. In a capability list or a grant grid Admin is never
+  a column or a row; where the grid has to say so, `.perm-hint` does (the tag editor), and the
+  Groups page lists Admin as a row that is no link (§7). The icon picker is
   40×40 `.icon-button`s in `repeat(auto-fill, minmax(40px, 1fr))`, `aria-pressed` on the chosen
   one, first cell "no icon" (`close`); its glyphs sit idle in `--color-dark` and the chosen cell
   repeats the 40px tag square above — `--input-bg` fill under the tag's colour, the "no icon"
@@ -549,9 +559,15 @@ saved) where a jump to the top would throw away the place they were working in.
   mode, not a tag, and has no row. The **tag editor** (`/user/tags/:id`) runs in one order: Name
   (quiet input), Icon (the picker grid), Color (radio pills), the checkboxes "Show in song
   list" and "Hide songs by default", each with a one-line explanation of its effect on other
-  people, the permission matrix (rows *See tag* / *See songs* / *Tag songs* × columns Guest /
-  User / Trusted, admin always on), then "Specific people" — people-rows with the same three
-  checkboxes. Save is the page's one primary and, with the danger Delete an existing tag has —
+  people, the permissions as **one row per group** — Guest, User, then the host's groups by
+  name, never Admin, which `.perm-hint` says holds every tag — with the three actions *See tag*
+  / *See songs* / *Tag songs* as columns: the *Specific people* grid (`.tag-people-head` /
+  `.tag-people-row`, `40px minmax(0, 1fr) repeat(3, 44px) 40px`) with the group's 40px square
+  where an avatar stands and nothing in the trailing cell, so any number of groups fits at
+  360px; in the row of a group that is not built in, an action User holds on this tag is
+  ticked and disabled, *Every account holds this through User.* Then "Specific people" —
+  people-rows with the same three checkboxes. Save is the page's one primary and, with the
+  danger Delete an existing tag has —
   whose `ConfirmModal` says how many songs lose it — rides in the sticky action row of §4. A **built-in** opens that editor on a reserved id
   (`/user/tags/favorites`, `/user/tags/duet`, …) — one row idiom, one editor, and a 32-hex tag
   id cannot collide with a word. A mark keeps Color and "Show in song list" (`heart` pink,
@@ -776,8 +792,11 @@ saved) where a jump to the top would throw away the place they were working in.
 - **User** (`/user`) is the identity tile, the singer's own record, then *Manage*. The tile is
   Home's head and nothing else, 88px at 16 of padding: the avatar (`PlayerAvatar` at the
   stage's art size) beside a column centred against it of declared px rows — the name as the
-  page's `h1` (1.3em on 28px, left, ellipsed), the role word (`auth.role` capitalised, 0.85em
-  on 20px, `--color-darker`; the host's is *Admin* too) and one 40px control, 28 + 20 + 40
+  page's `h1` (1.3em on 28px, left, ellipsed), the groups line (0.85em on 20px,
+  `--color-darker`, one line ellipsed with the whole of it in `title`: *Admin* for an
+  administrator and for the host, else the account's groups by name in the groups' order
+  joined by ` · `, *Trusted · DJs*, or *User* when it is in none — `groups.ts`
+  `groupWords`) and one 40px control, 28 + 20 + 40
   adding up to the picture's 88. For an account that is *Log out* as the `log-out` glyph
   alone, a transparent `.icon-button` (`aria-label` and `title` *Log out*) pulled 10px left so
   the glyph's box stands on the name's left edge: the way out is there when it is wanted and
@@ -798,7 +817,24 @@ saved) where a jump to the top would throw away the place they were working in.
 - **People** (`/user/accounts`, `PeopleAdmin`) gives each of its two `h2`s one `.section-note`:
   *Accounts* says a forgotten password is no disaster — delete the account, register the name
   again, the player keeps every score — *Guests* that a guest is taken over by whoever registers
-  that name. A row's trailing controls run eye, role, delete. The `eye` / `eye-off`
+  that name. A row's trailing controls run eye, groups, delete. The groups control
+  (`users.manage`) is a `<button>` in the role select's old look (`.people-groups`:
+  `--highlight-blue-light` text, right-aligned, a `chevron-down`, 40px tall) — the account's
+  groups in the tile's words (`groupWords`), one line ellipsed with the whole in `title`,
+  shrinking first (`flex: 0 1 auto; min-width: 0; max-width: 35%`), `aria-label` *Groups of
+  <name>* — and opens a panel modal of that name: one `.section-note` (*A group adds its
+  rights to what every account holds.*, and for a reader who is not an administrator *Only an
+  administrator puts somebody in Admin or takes them out.*), then one `PickerRow` per group
+  but Guest and User in the groups' order, its lead the group's 40px square, its meta *adds 11
+  rights* or *every right*, `list-check` while the account is in it. A tap is one write of the
+  account's whole set, that row disabled for the round trip; a row the reader may not change is
+  disabled with its reason as its meta line — Admin for a non-administrator, *Only an
+  administrator can change this*; a group the account is not in that carries a right the
+  reader lacks, *Carries a right you do not hold* — taking somebody out of any other group
+  never is; a refusal is one `.error-notice` in
+  the panel, *There has to be one administrator left.* for the last one. An Admin member's
+  delete is drawn for an administrator alone, and a reader with `users.view` only sees no
+  groups on the rows. The `eye` / `eye-off`
   `.icon-button` (`aria-pressed`, `players.manage`) puts a player out of sight for the evening:
   hidden means gone from player selection, and the account's wishes off the wishlist and out
   of every spin, and from nothing else — scores, stats and past sessions still name them —
@@ -808,6 +844,25 @@ saved) where a jump to the top would throw away the place they were working in.
   the name, no glyph and no badge): *Signs in with* and the login button's `display_name`, or
   *single sign-on* while that is unknown — the config is asked for only once such an account
   is listed.
+- **Groups** (`/user/groups`, a `ManageMenu` entry with `shield` gated on
+  `permissions.manage`; `/user/permissions` redirects there) is the tags admin's shape, one row
+  per group in one fixed order — Guest, User, the host's groups by name, Admin last: the 40px
+  square (`users` on `--input-bg` in `--color-darker`, `shield` for Admin), the name, a meta
+  line saying who is in it and what it gives — *Everybody without an account · 8 rights*,
+  *Every account · 13 rights*, *3 members · adds 11 rights*, *2 members · every right* — and a
+  `chevron-right`; Admin's row is no link and has no chevron, its line already saying there is
+  nothing to edit. One `.section-note` over the rows: *Every account is in User. A group adds
+  its rights to User's. Admins hold every right, so nothing here can lock the host out.* The
+  header's `+` opens `/user/groups/new`. Never a matrix with a column per group
+  ([permission-groups.md](permission-groups.md) §9.1). The **group editor**
+  (`/user/groups/:groupId`, `/new` registered first) runs in the tag editor's order: the name
+  (quiet input; a built-in's name is the `h1` alone, over one line saying a built-in keeps its
+  name), then every capability as the capability list of §4 — the area headings with their
+  glyphs, the verb, the sentence, one checkbox column and no head — then, for a group with
+  members, one `.section-note` naming the count and *Put people in it on Players & accounts*,
+  then `EditorActions`: Save, and for a group that is not built in a danger Delete whose
+  `ConfirmModal` says *Its 3 members lose the rights it gives them. Their accounts stay.*
+  Membership is never edited here: the accounts page is its one place.
 - **Settings** groups are `<details class="settings-group" open>` with a section icon, the
   `summary` `position: sticky; top: 0` on `--bg` so the section being scrolled stays named (the
   nested *Advanced* summary is not sticky). Fields are flat `.setting-field` rows of two lines:
@@ -947,5 +1002,5 @@ saved) where a jump to the top would throw away the place they were working in.
 3. New routes: `App.tsx` **and** `COVERS`; sub-pages: `PageHeader`, `back`, capability gate.
 4. Every animation has a reduced-motion branch; every control has a name and a focus ring.
 5. Nothing scrolls sideways at 360px; the host page still reads at 1280×720.
-6. Tests referencing changed labels/roles are updated, not deleted.
+6. Tests referencing changed labels/groups are updated, not deleted.
 7. `docs/user/` reflects moved buttons, renamed tabs and new controls.
