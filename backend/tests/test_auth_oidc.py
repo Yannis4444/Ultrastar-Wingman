@@ -43,6 +43,7 @@ from oidc_provider import (
     sign_up,
     start_login,
 )
+from ultrastar_wingman.auth import groups as auth_groups
 from ultrastar_wingman.auth import oidc, oidc_picture, providers, service
 from ultrastar_wingman.auth.deps import COOKIE_NAME, GUEST_COOKIE_NAME
 from ultrastar_wingman.auth.model import User, UserSession
@@ -77,6 +78,12 @@ async def only_user(session_factory: async_sessionmaker[AsyncSession]) -> User:
 async def users(session_factory: async_sessionmaker[AsyncSession]) -> list[User]:
     async with session_factory() as session:
         return list(await session.scalars(select(User)))
+
+
+async def groups_of(session_factory: async_sessionmaker[AsyncSession], user: User) -> list[str]:
+    """The groups the account was put in — empty for an account in User alone."""
+    async with session_factory() as session:
+        return await auth_groups.groups_of(session, user.id)
 
 
 # The three stand-ins below are how a one-request test reaches the unique indexes: a
@@ -241,7 +248,7 @@ async def test_a_new_subject_stops_at_the_form_and_is_logged_in_by_it(
     # No password to check locally, ever.
     assert user.password_hash is None
     # The first account is the administrator, whichever provider created it.
-    assert user.role == "admin"
+    assert await groups_of(session_factory, user) == ["admin"]
 
     async with session_factory() as session:
         player = (await session.scalars(select(Player))).one()
@@ -275,13 +282,22 @@ async def test_a_later_account_is_a_plain_user(
     session_factory: async_sessionmaker[AsyncSession],
     provider: FakeProvider,
 ) -> None:
-    await add_user(session_factory, "yannis", "admin")
+    """In User alone: nothing in the ID token is read for groups — not even a token that
+    claims Admin, in every spelling a provider uses for it."""
+    await add_user(session_factory, "yannis", groups=["admin"])
     await configure(session_factory)
+    provider.claims.update(
+        {"groups": ["admin", "Admin"], "roles": ["admin"], "wingman_groups": ["admin"]}
+    )
 
     await sign_up(anonymous_client, provider)
 
     created = next(user for user in await users(session_factory) if user.auth_provider == "oidc")
-    assert created.role == "user"
+    assert await groups_of(session_factory, created) == []
+    me = (await anonymous_client.get("/api/v1/auth/me")).json()
+    assert me["user"]["id"] == created.id
+    assert me["is_admin"] is False
+    assert [group["id"] for group in me["groups"]] == ["user"]
 
 
 async def test_a_username_taken_by_a_local_account_is_suffixed_in_the_preset(
@@ -292,7 +308,7 @@ async def test_a_username_taken_by_a_local_account_is_suffixed_in_the_preset(
     """A provider knows nothing about the names already in Wingman, and a collision must not
     turn into a failed login — or, worse, into somebody else's account. The form opens on a
     name that would go through, which the singer is free to replace."""
-    local_id = await add_user(session_factory, "singer", "user")
+    local_id = await add_user(session_factory, "singer")
     await configure(session_factory)
 
     assert (await login(anonymous_client, provider)).headers["location"] == CHOOSE_NAME
@@ -408,7 +424,7 @@ async def test_a_taken_name_is_refused_and_the_login_survives_it(
 ) -> None:
     """A chosen name is never silently suffixed — it is refused, and the form asks again.
     The verified subject stands until something came of it, so the round trip is not lost."""
-    await add_user(session_factory, "yannis", "admin")
+    await add_user(session_factory, "yannis", groups=["admin"])
     await configure(session_factory)
     await login(anonymous_client, provider)
 
@@ -438,7 +454,7 @@ async def test_a_name_taken_after_the_check_is_refused_by_the_index(
     login survives it exactly as it survives the ordinary 409: the same browser names the
     account a moment later.
     """
-    await add_user(session_factory, "yannis", "admin")
+    await add_user(session_factory, "yannis", groups=["admin"])
     await configure(session_factory)
     await login(anonymous_client, provider)
     monkeypatch.setattr(service, "find_by_username", _free_name)
@@ -1046,7 +1062,7 @@ async def test_an_oidc_account_can_be_deleted_like_any_other(
     assert refused.status_code == 409
     assert refused.json() == {"detail": "last_admin"}
 
-    await add_user(session_factory, "second-admin", "admin")
+    await add_user(session_factory, "second-admin", groups=["admin"])
     assert (await anonymous_client.delete(f"/api/v1/users/{user.id}")).status_code == 204
     async with session_factory() as session:
         player = (await session.scalars(select(Player))).one()
@@ -1490,7 +1506,7 @@ async def test_an_account_tells_how_it_logs_in(
     sign-on ones. The first account is the administrator, so it may read the list."""
     await configure(session_factory)
     await sign_up(anonymous_client, provider)
-    await add_user(session_factory, "yannis", "user")
+    await add_user(session_factory, "yannis")
 
     me = await anonymous_client.get("/api/v1/auth/me")
     assert me.json()["user"]["auth_provider"] == "oidc"

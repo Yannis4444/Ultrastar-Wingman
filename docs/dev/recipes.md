@@ -19,11 +19,17 @@ the same commit.
    `songs.api.song_or_404` (or filters the ids out): a tag's `view_songs` hides
    songs everywhere, see [architecture](architecture.md#permissions).
 4. **Capability**: if none fits, add `<area>.<verb>` to `CAPABILITIES` in
-   `auth/permissions.py` and to the role defaults there, and mention it in
-   `docs/user/people/roles.md`, the page that says what each role may do. The
-   permissions UI groups by the `<area>` prefix and shows the verb, so a new
-   capability needs no frontend change beyond a group icon if the area is new
-   (`RolePermissions.tsx`).
+   `auth/permissions.py` and to `DEFAULT_GROUP_CAPABILITIES` there (Guest,
+   User, Trusted — never Admin, which holds every capability by rule), and seed
+   it for a database that already exists with a migration of its own:
+   insert-if-missing into `group_capabilities` for `guest` and `user`, and for
+   Trusted only while the group exists, because the host may have deleted it
+   ([permission-groups.md §8.4](permission-groups.md#84-seeding-a-capability-from-now-on)
+   has the statement). `test_permissions.test_the_migration_seeds_the_module_defaults`
+   keeps the two in step. Mention it in `docs/user/people/groups.md`, the page
+   that says what each group may do. The permissions UI groups by the
+   `<area>` prefix and shows the verb, so a new capability needs no frontend
+   change beyond an area icon if the area is new (`RolePermissions.tsx`).
 5. **Tests** in `tests/test_<module>_api.py`: happy path with `client`
    (admin), the error case. Add the route to `ROUTES` in
    `tests/test_permissions.py` — the matrix test proves that every identity

@@ -2,7 +2,7 @@ import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { MemoryRouter, Route, Routes } from "react-router-dom";
 import type { ButtonRead, DeviceRead, MeRead, ReaderRead } from "../api";
-import { meResponse, userRead } from "../test/auth";
+import { AS, meResponse, userRead } from "../test/auth";
 import { FakeSocket } from "../test/fakeSocket";
 import DeviceSetup from "./DeviceSetup";
 
@@ -72,7 +72,7 @@ vi.mock("esptool-js", () => ({
 }));
 
 const MANAGER = ["devices.manage"];
-const ACCOUNT: Partial<MeRead> = { user: userRead(), role: "admin" };
+const ACCOUNT: Partial<MeRead> = { user: userRead(), ...AS.admin };
 const HELLO =
   '{"type":"hello","firmware":"0.1.0","protocol":1,"chip":"ESP32","mac":"AA:BB:CC:DD:EE:FF","configured":false,"build":"0.1.0-2-gabc"}';
 const TOKEN = "wd_0123456789";

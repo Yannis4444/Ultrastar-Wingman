@@ -969,6 +969,102 @@ export type FirmwareUpdate = {
 };
 
 /**
+ * GroupCreate
+ */
+export type GroupCreate = {
+    /**
+     * Name
+     */
+    name: string;
+    /**
+     * Capabilities
+     */
+    capabilities?: Array<string>;
+};
+
+/**
+ * GroupList
+ */
+export type GroupList = {
+    /**
+     * Groups
+     */
+    groups: Array<GroupRead>;
+    /**
+     * Capabilities
+     */
+    capabilities: Array<string> | null;
+};
+
+/**
+ * GroupRead
+ *
+ * One group as the groups page, the accounts page's panel and the tag editor see it.
+ */
+export type GroupRead = {
+    /**
+     * Id
+     */
+    id: string;
+    /**
+     * Name
+     */
+    name: string;
+    /**
+     * Built In
+     */
+    built_in: boolean;
+    /**
+     * Member Count
+     */
+    member_count: number | null;
+    /**
+     * Capabilities
+     */
+    capabilities: Array<string> | null;
+    /**
+     * Right Count
+     */
+    right_count: number | null;
+    /**
+     * Can Assign
+     */
+    can_assign: boolean;
+};
+
+/**
+ * GroupRef
+ *
+ * A group by name, for a reader who only has to say which groups somebody is in.
+ */
+export type GroupRef = {
+    /**
+     * Id
+     */
+    id: string;
+    /**
+     * Name
+     */
+    name: string;
+};
+
+/**
+ * GroupUpdate
+ *
+ * A PATCH touches what it names: a name, the whole set of capabilities, or both.
+ */
+export type GroupUpdate = {
+    /**
+     * Name
+     */
+    name?: string | null;
+    /**
+     * Capabilities
+     */
+    capabilities?: Array<string> | null;
+};
+
+/**
  * HTTPValidationError
  */
 export type HttpValidationError = {
@@ -1142,14 +1238,18 @@ export type LoudnessSongRead = {
  * MeRead
  *
  * Everything the frontend needs to render itself. Works for anonymous callers too:
- * `user` is then null and `role` is `guest`.
+ * `user` is then null and `groups` is Guest alone.
  */
 export type MeRead = {
     user: UserRead | null;
     /**
-     * Role
+     * Groups
      */
-    role: string;
+    groups: Array<GroupRef>;
+    /**
+     * Is Admin
+     */
+    is_admin: boolean;
     /**
      * Capabilities
      */
@@ -1487,20 +1587,6 @@ export type PendingLoginRead = {
      * Username
      */
     username: string;
-};
-
-/**
- * PermissionsRead
- *
- * role -> capabilities, for the permission editor.
- */
-export type PermissionsRead = {
-    /**
-     * Roles
-     */
-    roles: {
-        [key: string]: Array<string>;
-    };
 };
 
 /**
@@ -1970,16 +2056,6 @@ export type ReportEnvelope = {
      * Protocol
      */
     protocol: number;
-};
-
-/**
- * RolePermissionsUpdate
- */
-export type RolePermissionsUpdate = {
-    /**
-     * Capabilities
-     */
-    capabilities: Array<string>;
 };
 
 /**
@@ -2833,9 +2909,9 @@ export type TagPermissionInput = {
      */
     action: 'view' | 'view_songs' | 'assign';
     /**
-     * Role
+     * Group Id
      */
-    role?: string | null;
+    group_id?: string | null;
     /**
      * User Id
      */
@@ -2845,7 +2921,8 @@ export type TagPermissionInput = {
 /**
  * TagPermissionRead
  *
- * Who may do one thing with a tag: a role, or one account.
+ * Who may do one thing with a tag: a permission group, or one account. No group name:
+ * the tag editor has `GET /groups` for that.
  */
 export type TagPermissionRead = {
     /**
@@ -2853,9 +2930,9 @@ export type TagPermissionRead = {
      */
     action: 'view' | 'view_songs' | 'assign';
     /**
-     * Role
+     * Group Id
      */
-    role: string | null;
+    group_id: string | null;
     /**
      * User Id
      */
@@ -3074,6 +3151,16 @@ export type UsdxStatusRead = {
 };
 
 /**
+ * UserGroupsUpdate
+ */
+export type UserGroupsUpdate = {
+    /**
+     * Groups
+     */
+    groups: Array<string>;
+};
+
+/**
  * UserList
  */
 export type UserList = {
@@ -3131,9 +3218,9 @@ export type UserRead = {
      */
     username: string;
     /**
-     * Role
+     * Groups
      */
-    role: string;
+    groups: Array<string>;
     /**
      * Player Id
      */
@@ -3142,16 +3229,6 @@ export type UserRead = {
      * Auth Provider
      */
     auth_provider?: string;
-};
-
-/**
- * UserUpdate
- */
-export type UserUpdate = {
-    /**
-     * Role
-     */
-    role: string;
 };
 
 /**
@@ -3566,6 +3643,46 @@ export type LookupUsersResponses = {
 
 export type LookupUsersResponse = LookupUsersResponses[keyof LookupUsersResponses];
 
+export type SetUserGroupsData = {
+    body: UserGroupsUpdate;
+    path: {
+        /**
+         * User Id
+         */
+        user_id: string;
+    };
+    query?: never;
+    url: '/api/v1/users/{user_id}/groups';
+};
+
+export type SetUserGroupsErrors = {
+    /**
+     * Only an administrator changes who is in Admin (`admin_required`), or the caller does not hold everything a group they add carries (`missing_permission:<capability>`).
+     */
+    403: unknown;
+    /**
+     * Unknown user.
+     */
+    404: unknown;
+    /**
+     * This would leave the app without an administrator.
+     */
+    409: unknown;
+    /**
+     * A group that does not exist, or User or Guest.
+     */
+    422: unknown;
+};
+
+export type SetUserGroupsResponses = {
+    /**
+     * Successful Response
+     */
+    200: UserRead;
+};
+
+export type SetUserGroupsResponse = SetUserGroupsResponses[keyof SetUserGroupsResponses];
+
 export type DeleteUserData = {
     body?: never;
     path: {
@@ -3579,6 +3696,10 @@ export type DeleteUserData = {
 };
 
 export type DeleteUserErrors = {
+    /**
+     * Only an administrator deletes an account in Admin.
+     */
+    403: unknown;
     /**
      * Unknown user.
      */
@@ -3604,25 +3725,72 @@ export type DeleteUserResponses = {
 
 export type DeleteUserResponse = DeleteUserResponses[keyof DeleteUserResponses];
 
-export type UpdateUserData = {
-    body: UserUpdate;
-    path: {
-        /**
-         * User Id
-         */
-        user_id: string;
-    };
+export type ListGroupsData = {
+    body?: never;
+    path?: never;
     query?: never;
-    url: '/api/v1/users/{user_id}';
+    url: '/api/v1/groups';
 };
 
-export type UpdateUserErrors = {
+export type ListGroupsResponses = {
     /**
-     * Unknown user.
+     * Successful Response
+     */
+    200: GroupList;
+};
+
+export type ListGroupsResponse = ListGroupsResponses[keyof ListGroupsResponses];
+
+export type CreateGroupData = {
+    body: GroupCreate;
+    path?: never;
+    query?: never;
+    url: '/api/v1/groups';
+};
+
+export type CreateGroupErrors = {
+    /**
+     * A capability the caller does not hold themselves.
+     */
+    403: unknown;
+    /**
+     * A group of that name already exists (`duplicate_group_name`).
+     */
+    409: unknown;
+    /**
+     * A bad name, or an unknown capability (`unknown_capability`).
+     */
+    422: unknown;
+};
+
+export type CreateGroupResponses = {
+    /**
+     * Successful Response
+     */
+    201: GroupRead;
+};
+
+export type CreateGroupResponse = CreateGroupResponses[keyof CreateGroupResponses];
+
+export type DeleteGroupData = {
+    body?: never;
+    path: {
+        /**
+         * Group Id
+         */
+        group_id: string;
+    };
+    query?: never;
+    url: '/api/v1/groups/{group_id}';
+};
+
+export type DeleteGroupErrors = {
+    /**
+     * Unknown group.
      */
     404: unknown;
     /**
-     * This would leave the app without an administrator.
+     * Guest, User and Admin cannot be deleted (`built_in_group`).
      */
     409: unknown;
     /**
@@ -3631,64 +3799,56 @@ export type UpdateUserErrors = {
     422: HttpValidationError;
 };
 
-export type UpdateUserError = UpdateUserErrors[keyof UpdateUserErrors];
+export type DeleteGroupError = DeleteGroupErrors[keyof DeleteGroupErrors];
 
-export type UpdateUserResponses = {
+export type DeleteGroupResponses = {
     /**
      * Successful Response
      */
-    200: UserRead;
+    204: void;
 };
 
-export type UpdateUserResponse = UpdateUserResponses[keyof UpdateUserResponses];
+export type DeleteGroupResponse = DeleteGroupResponses[keyof DeleteGroupResponses];
 
-export type GetPermissionsData = {
-    body?: never;
-    path?: never;
-    query?: never;
-    url: '/api/v1/permissions';
-};
-
-export type GetPermissionsResponses = {
-    /**
-     * Successful Response
-     */
-    200: PermissionsRead;
-};
-
-export type GetPermissionsResponse = GetPermissionsResponses[keyof GetPermissionsResponses];
-
-export type UpdateRolePermissionsData = {
-    body: RolePermissionsUpdate;
+export type UpdateGroupData = {
+    body: GroupUpdate;
     path: {
         /**
-         * Role
+         * Group Id
          */
-        role: string;
+        group_id: string;
     };
     query?: never;
-    url: '/api/v1/permissions/{role}';
+    url: '/api/v1/groups/{group_id}';
 };
 
-export type UpdateRolePermissionsErrors = {
+export type UpdateGroupErrors = {
     /**
-     * Unknown role.
+     * A capability the caller does not hold themselves.
+     */
+    403: unknown;
+    /**
+     * Unknown group.
      */
     404: unknown;
     /**
-     * Unknown capability, or the admin role (it is not editable).
+     * A name for a built-in group (`built_in_group`), capabilities for Admin (`admin_not_editable`), or a name that is taken (`duplicate_group_name`).
+     */
+    409: unknown;
+    /**
+     * A bad name, or an unknown capability (`unknown_capability`).
      */
     422: unknown;
 };
 
-export type UpdateRolePermissionsResponses = {
+export type UpdateGroupResponses = {
     /**
      * Successful Response
      */
-    200: PermissionsRead;
+    200: GroupRead;
 };
 
-export type UpdateRolePermissionsResponse = UpdateRolePermissionsResponses[keyof UpdateRolePermissionsResponses];
+export type UpdateGroupResponse = UpdateGroupResponses[keyof UpdateGroupResponses];
 
 export type ListSongsData = {
     body?: never;
@@ -6071,7 +6231,7 @@ export type CreateTagErrors = {
      */
     409: unknown;
     /**
-     * Unknown role or account, or a bad color or icon.
+     * Unknown group (`unknown_group`) or account, Admin as a subject (`not_assignable`), or a bad color or icon.
      */
     422: unknown;
 };
@@ -6219,7 +6379,7 @@ export type ReplaceTagPermissionsErrors = {
      */
     404: unknown;
     /**
-     * Unknown role or account.
+     * Unknown group (`unknown_group`) or account, or Admin as a subject (`not_assignable`).
      */
     422: unknown;
 };

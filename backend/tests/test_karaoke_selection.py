@@ -33,7 +33,7 @@ from ultrastar_wingman.songs.model import Song
 from ultrastar_wingman.tags.service import Viewer
 
 # The reel as the selector's start button spins it: no account behind it at all.
-GUEST = Viewer(role=permissions.DEFAULT_ROLE, user_id=None)
+GUEST = Viewer(groups=frozenset({permissions.GUEST}), user_id=None)
 
 # The fake-USDX fixtures, bound here so pytest can resolve them by name — the same binding
 # `test_achievements_triggers` does, and for the same reason: a selection's Play is the sing
@@ -1770,8 +1770,8 @@ async def test_the_start_button_folds_away_what_the_guest_sees_folded(
             "color": "neutral",
             "hide_by_default": True,
             "permissions": [
-                {"action": "view", "role": "guest"},
-                {"action": "view_songs", "role": "guest"},
+                {"action": "view", "group_id": "guest"},
+                {"action": "view_songs", "group_id": "guest"},
             ],
         },
     )
@@ -1801,7 +1801,7 @@ async def test_the_start_button_folds_away_what_the_guest_sees_folded(
     # nothing folds, and the greater id is back in the running.
     rows = await client.put(
         f"/api/v1/tags/{tag_id}/permissions",
-        json={"permissions": [{"action": "view_songs", "role": "guest"}]},
+        json={"permissions": [{"action": "view_songs", "group_id": "guest"}]},
     )
     assert rows.status_code == 200, rows.text
     assert await press("all") == folded

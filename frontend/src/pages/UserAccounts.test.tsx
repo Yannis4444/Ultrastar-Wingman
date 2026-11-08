@@ -7,14 +7,21 @@ import {
   within,
 } from "@testing-library/react";
 import { MemoryRouter } from "react-router-dom";
-import type { PlayerRead } from "../api";
-import { meResponse, userRead } from "../test/auth";
+import type { GroupRead, PlayerRead } from "../api";
+import {
+  AS,
+  MEMBER_OF,
+  TRUSTED_GROUP_ID,
+  meResponse,
+  userRead,
+} from "../test/auth";
 import UserAccounts from "./UserAccounts";
 
 const {
   getMe,
   listUsers,
-  updateUser,
+  listGroups,
+  setUserGroups,
   deleteUser,
   listPlayers,
   createPlayer,
@@ -25,7 +32,8 @@ const {
 } = vi.hoisted(() => ({
   getMe: vi.fn(),
   listUsers: vi.fn(),
-  updateUser: vi.fn(),
+  listGroups: vi.fn(),
+  setUserGroups: vi.fn(),
   deleteUser: vi.fn(),
   listPlayers: vi.fn(),
   createPlayer: vi.fn(),
@@ -39,7 +47,8 @@ vi.mock("../api/sdk.gen", async (importOriginal) => ({
   ...(await importOriginal<typeof import("../api/sdk.gen")>()),
   getMe,
   listUsers,
-  updateUser,
+  listGroups,
+  setUserGroups,
   deleteUser,
   listPlayers,
   createPlayer,
@@ -48,6 +57,26 @@ vi.mock("../api/sdk.gen", async (importOriginal) => ({
   updatePlayer,
   oidcConfig,
 }));
+
+function group(id: string, name: string): GroupRead {
+  const builtIn = id === "guest" || id === "user" || id === "admin";
+  return {
+    id,
+    name,
+    built_in: builtIn,
+    member_count: 1,
+    capabilities: null,
+    right_count: null,
+    can_assign: id !== "guest" && id !== "user",
+  };
+}
+
+const GROUPS: GroupRead[] = [
+  group("guest", "Guest"),
+  group("user", "User"),
+  group(TRUSTED_GROUP_ID, "Trusted"),
+  group("admin", "Admin"),
+];
 
 // What `trusted` holds over the players: the roster, the pictures, and adding
 // and deleting people.
@@ -90,14 +119,17 @@ beforeEach(() => {
   // The admin browser: logged in as Alice, allowed to manage both.
   getMe.mockResolvedValue(
     meResponse(ADMIN_CAPABILITIES, {
-      user: userRead({ role: "admin" }),
-      role: "admin",
+      user: userRead({ groups: MEMBER_OF.admin }),
+      ...AS.admin,
     }),
   );
+  listGroups.mockResolvedValue({
+    data: { groups: GROUPS, capabilities: null },
+  });
   listUsers.mockResolvedValue({
     data: {
       users: [
-        userRead({ role: "admin" }),
+        userRead({ groups: MEMBER_OF.admin }),
         userRead({ id: "user-2", username: "Bob", player_id: "bbb" }),
       ],
     },
@@ -205,27 +237,73 @@ test("seeing the players is not on its own a reason to open this page", async ()
   expect(listPlayers).not.toHaveBeenCalled();
 });
 
-test("the own account is marked and a role can be changed", async () => {
-  updateUser.mockResolvedValue({
-    data: userRead({ id: "user-2", role: "trusted" }),
+test("the own account is marked and its groups can be changed", async () => {
+  setUserGroups.mockResolvedValue({
+    data: userRead({ id: "user-2", groups: MEMBER_OF.trusted }),
   });
   renderPage();
 
   // Alice is the caller, so her row carries the marker.
   expect(await screen.findByText("(you)")).toBeInTheDocument();
+  await within(await screen.findByLabelText("Groups of Bob")).findByRole(
+    "option",
+    { name: "Put in Trusted" },
+  );
+  // Bob is in no group, so the select reads User.
+  expect(screen.getByLabelText("Groups of Bob")).toHaveAttribute(
+    "title",
+    "User",
+  );
 
-  fireEvent.change(screen.getByLabelText("Role of Bob"), {
-    target: { value: "trusted" },
+  fireEvent.change(screen.getByLabelText("Groups of Bob"), {
+    target: { value: TRUSTED_GROUP_ID },
   });
 
   await waitFor(() =>
-    expect(updateUser.mock.calls[0][0]).toMatchObject({
+    expect(setUserGroups.mock.calls[0][0]).toMatchObject({
       path: { user_id: "user-2" },
-      body: { role: "trusted" },
+      body: { groups: [TRUSTED_GROUP_ID] },
     }),
   );
-  // A guest has no account, so there is no role to pick for one.
-  expect(screen.queryByLabelText("Role of Mallory")).not.toBeInTheDocument();
+  // A guest has no account, so there are no groups to pick for one.
+  expect(screen.queryByLabelText("Groups of Mallory")).not.toBeInTheDocument();
+});
+
+test("picking a group the account is in takes it out of it", async () => {
+  listUsers.mockResolvedValue({
+    data: {
+      users: [
+        userRead({ groups: MEMBER_OF.admin }),
+        userRead({
+          id: "user-2",
+          username: "Bob",
+          player_id: "bbb",
+          groups: MEMBER_OF.trusted,
+        }),
+      ],
+    },
+  });
+  setUserGroups.mockResolvedValue({ data: userRead({ id: "user-2" }) });
+  renderPage();
+
+  await within(await screen.findByLabelText("Groups of Bob")).findByRole(
+    "option",
+    { name: "Take out of Trusted" },
+  );
+  expect(screen.getByLabelText("Groups of Bob")).toHaveAttribute(
+    "title",
+    "Trusted",
+  );
+  fireEvent.change(screen.getByLabelText("Groups of Bob"), {
+    target: { value: TRUSTED_GROUP_ID },
+  });
+
+  await waitFor(() =>
+    expect(setUserGroups.mock.calls[0][0]).toMatchObject({
+      path: { user_id: "user-2" },
+      body: { groups: [] },
+    }),
+  );
 });
 
 test("each heading explains itself", async () => {
@@ -347,7 +425,7 @@ test("an account whose player is gone is still listed and manageable", async () 
 
   await screen.findByText("Dana");
   expect(within(section("Accounts")).getByText("Dana")).toBeInTheDocument();
-  expect(screen.getByLabelText("Role of Dana")).toBeInTheDocument();
+  expect(screen.getByLabelText("Groups of Dana")).toBeInTheDocument();
   // No player, so nothing to upload a picture for.
   expect(screen.queryByLabelText("Avatar for Dana")).not.toBeInTheDocument();
 });
@@ -355,8 +433,8 @@ test("an account whose player is gone is still listed and manageable", async () 
 test("managing only the accounts never asks for the players", async () => {
   getMe.mockResolvedValue(
     meResponse(["users.manage"], {
-      user: userRead({ role: "admin" }),
-      role: "admin",
+      user: userRead({ groups: MEMBER_OF.admin }),
+      ...AS.admin,
     }),
   );
   renderPage();
@@ -381,7 +459,7 @@ test("a player manager sees the people but no account controls", async () => {
   expect(listUsers).not.toHaveBeenCalled();
   // `registered` marks the accounts even for somebody who may not see them.
   expect(within(section("Accounts")).getByText("Alice")).toBeInTheDocument();
-  expect(screen.queryByLabelText("Role of Alice")).not.toBeInTheDocument();
+  expect(screen.queryByLabelText("Groups of Alice")).not.toBeInTheDocument();
   expect(
     screen.queryByRole("button", { name: "Delete account Alice" }),
   ).not.toBeInTheDocument();
@@ -406,8 +484,8 @@ test("only looking on means no form, no delete and no uploader", async () => {
     screen.queryByRole("button", { name: "Delete Mallory" }),
   ).not.toBeInTheDocument();
   expect(screen.queryByLabelText("Avatar for Mallory")).not.toBeInTheDocument();
-  // Read-only over the accounts too: the names, never the roles.
-  expect(screen.queryByLabelText("Role of Alice")).not.toBeInTheDocument();
+  // Read-only over the accounts too: the names, never the groups.
+  expect(screen.queryByLabelText("Groups of Alice")).not.toBeInTheDocument();
   expect(
     screen.queryByRole("button", { name: "Delete account Alice" }),
   ).not.toBeInTheDocument();
@@ -560,7 +638,7 @@ test("an account single sign-on answers for says so under its name", async () =>
   listUsers.mockResolvedValue({
     data: {
       users: [
-        userRead({ role: "admin", auth_provider: "local" }),
+        userRead({ groups: MEMBER_OF.admin, auth_provider: "local" }),
         userRead({
           id: "user-2",
           username: "Bob",
@@ -584,7 +662,9 @@ test("an account single sign-on answers for says so under its name", async () =>
 test("the note reads without the provider's name until it is known", async () => {
   oidcConfig.mockReturnValue(new Promise(() => {}));
   listUsers.mockResolvedValue({
-    data: { users: [userRead({ role: "admin", auth_provider: "oidc" })] },
+    data: {
+      users: [userRead({ groups: MEMBER_OF.admin, auth_provider: "oidc" })],
+    },
   });
   renderPage();
 

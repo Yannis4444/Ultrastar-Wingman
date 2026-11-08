@@ -112,14 +112,15 @@ async def test_the_token_makes_the_browser_an_admin_and_survives_a_restart(
             assert response.status_code == 200
             assert response.json() == {
                 "user": None,
-                "role": "admin",
+                "groups": [{"id": "admin", "name": "Admin"}],
+                "is_admin": True,
                 "capabilities": sorted(ALL_CAPABILITIES),
                 "is_host": True,
             }
             host_cookie = client.cookies.get(COOKIE_NAME)
             assert host_cookie is not None
             # Being admin is not just a claim in the payload — the routes agree.
-            assert (await client.get("/api/v1/permissions")).status_code == 200
+            assert (await client.get("/api/v1/groups")).status_code == 200
 
             # Single use, and a wrong guess never worked in the first place.
             assert (
@@ -143,7 +144,9 @@ async def test_the_token_makes_the_browser_an_admin_and_survives_a_restart(
             )
             assert me.status_code == 200
             assert me.json()["is_host"] is True
-            assert me.json()["role"] == "admin"
+            # An administrator without a row in Admin.
+            assert me.json()["groups"] == [{"id": "admin", "name": "Admin"}]
+            assert me.json()["is_admin"] is True
 
 
 async def test_a_stale_token_from_a_previous_run_is_refused(

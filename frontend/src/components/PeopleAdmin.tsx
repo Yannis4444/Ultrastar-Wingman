@@ -1,18 +1,20 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useRef, useState } from "react";
-import type { PlayerRead, UserRead } from "../api";
+import type { GroupRead, PlayerRead, UserRead } from "../api";
 import {
   deletePlayerMutation,
   deleteUserMutation,
   getMeQueryKey,
+  listGroupsOptions,
+  listGroupsQueryKey,
   listPlayersOptions,
   listPlayersQueryKey,
   listUsersOptions,
   listUsersQueryKey,
   oidcConfigOptions,
   setPlayerAvatarMutation,
+  setUserGroupsMutation,
   updatePlayerMutation,
-  updateUserMutation,
 } from "../api/@tanstack/react-query.gen";
 import { useAuth } from "../auth";
 import { errorDetail, errorMessage } from "../errors";
@@ -22,8 +24,23 @@ import { Icon } from "./icons";
 import PlayerAvatar from "./PlayerAvatar";
 import "./PeopleAdmin.css";
 
-/** `guest` is the anonymous fallback, not an account role — the backend rejects it. */
-const ASSIGNABLE_ROLES = ["user", "trusted", "admin"];
+/**
+ * The groups an account can be put in: every one but Guest (the anonymous
+ * fallback) and User (every account, without being named). A stopgap until the
+ * accounts page's own groups panel (permission-groups.md §9.2): one select per
+ * account whose options put it in a group or take it out of one.
+ */
+function assignableGroups(groups: GroupRead[]): GroupRead[] {
+  return groups.filter((group) => group.id !== "guest" && group.id !== "user");
+}
+
+/** The account's groups by name, *User* for none — the user tile's line. */
+function accountGroupWords(account: UserRead, groups: GroupRead[]): string {
+  const names = groups
+    .filter((group) => account.groups.includes(group.id))
+    .map((group) => group.name);
+  return names.length > 0 ? names.join(" · ") : "User";
+}
 
 /** Mirrors the backend's limit so an oversized file never leaves the browser. */
 const MAX_AVATAR_BYTES = 5 * 1024 * 1024;
@@ -48,9 +65,11 @@ interface Person {
 }
 
 function accountMessage(error: unknown, fallback: string): string {
-  return errorDetail(error) === "last_admin"
-    ? "There has to be one administrator left."
-    : errorMessage(error, fallback);
+  const detail = errorDetail(error);
+  if (detail === "last_admin") return "There has to be one administrator left.";
+  if (detail === "admin_required")
+    return "Only an administrator puts somebody in Admin or takes them out.";
+  return errorMessage(error, fallback);
 }
 
 /**
@@ -78,7 +97,7 @@ function byName(one: Person, other: Person): number {
  *
  * `players.view` shows the roster, `players.avatar` adds the pictures,
  * `players.manage` the new player and the guest deletions, `users.view` the
- * accounts behind the names and `users.manage` their roles and deletions. The
+ * accounts behind the names and `users.manage` their groups and deletions. The
  * caller gates on at least one of the last four.
  */
 export default function PeopleAdmin() {
@@ -101,6 +120,11 @@ export default function PeopleAdmin() {
     ...listUsersOptions(),
     enabled: auth.loaded && mayViewUsers,
   });
+  const groups = useQuery({
+    ...listGroupsOptions(),
+    enabled: auth.loaded && mayManageUsers,
+  });
+  const allGroups = groups.data?.groups ?? [];
 
   const [deletingPlayer, setDeletingPlayer] = useState<PlayerRead | null>(null);
   const [deletingAccount, setDeletingAccount] = useState<UserRead | null>(null);
@@ -128,11 +152,15 @@ export default function PeopleAdmin() {
     refreshPlayers();
   };
 
-  const setRole = useMutation({
-    ...updateUserMutation(),
-    onSuccess: refreshAccounts,
+  const setGroups = useMutation({
+    ...setUserGroupsMutation(),
+    onSuccess: () => {
+      refreshAccounts();
+      // The member counts the groups answer with.
+      void queryClient.invalidateQueries({ queryKey: listGroupsQueryKey() });
+    },
     onError: (cause) =>
-      setAccountError(accountMessage(cause, "Could not change the role.")),
+      setAccountError(accountMessage(cause, "Could not change the groups.")),
   });
 
   const removeAccount = useMutation({
@@ -301,24 +329,47 @@ export default function PeopleAdmin() {
             <span className="people-role-wrap">
               <select
                 className="people-role"
-                aria-label={`Role of ${name}`}
-                value={account.role}
-                disabled={setRole.isPending}
-                onChange={(event) =>
-                  setRole.mutate({
+                aria-label={`Groups of ${name}`}
+                title={accountGroupWords(account, allGroups)}
+                value=""
+                disabled={setGroups.isPending}
+                onChange={(event) => {
+                  const picked = event.target.value;
+                  if (picked === "") return;
+                  setGroups.mutate({
                     path: { user_id: account.id },
-                    body: { role: event.target.value },
-                  })
-                }
+                    body: {
+                      // The whole set, with the picked group flipped.
+                      groups: account.groups.includes(picked)
+                        ? account.groups.filter((id) => id !== picked)
+                        : [...account.groups, picked],
+                    },
+                  });
+                }}
               >
-                {(ASSIGNABLE_ROLES.includes(account.role)
-                  ? ASSIGNABLE_ROLES
-                  : [account.role, ...ASSIGNABLE_ROLES]
-                ).map((role) => (
-                  <option key={role} value={role}>
-                    {role}
-                  </option>
-                ))}
+                <option value="">
+                  {accountGroupWords(account, allGroups)}
+                </option>
+                {assignableGroups(allGroups).map((group) => {
+                  const member = account.groups.includes(group.id);
+                  return (
+                    <option
+                      key={group.id}
+                      value={group.id}
+                      // Taking somebody out is free but for Admin; putting
+                      // them in needs `can_assign` (§5 of the design).
+                      disabled={
+                        group.id === "admin"
+                          ? !auth.isAdmin
+                          : !member && !group.can_assign
+                      }
+                    >
+                      {member
+                        ? `Take out of ${group.name}`
+                        : `Put in ${group.name}`}
+                    </option>
+                  );
+                })}
               </select>
               <Icon name="chevron-down" />
             </span>

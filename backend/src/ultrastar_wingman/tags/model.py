@@ -76,9 +76,10 @@ class Tag(Base):
 
 
 class TagPermission(Base):
-    """One thing one subject may do with one tag. The subject is a role or a single
-    account, never both — "trusted and above" is spelled out as one row per role, because
-    roles are a set of bundles and not a ladder."""
+    """One thing one subject may do with one tag. The subject is a permission group or a
+    single account, never both. Never Admin: an administrator sees every tag by rule. A row
+    whose group is gone (no foreign keys) gives nobody anything; deleting a group deletes its
+    rows."""
 
     __tablename__ = "tag_permissions"
     __table_args__ = (
@@ -86,18 +87,18 @@ class TagPermission(Base):
             "action IN ('view', 'view_songs', 'assign')", name="ck_tag_permissions_action"
         ),
         CheckConstraint(
-            "(role IS NULL) <> (user_id IS NULL)", name="ck_tag_permissions_one_subject"
+            "(group_id IS NULL) <> (user_id IS NULL)", name="ck_tag_permissions_one_subject"
         ),
         # The NULL half of each pair never collides: SQLite treats NULLs as distinct in a
         # unique index, which is exactly what is wanted here.
-        UniqueConstraint("tag_id", "action", "role", name="uq_tag_permissions_role"),
+        UniqueConstraint("tag_id", "action", "group_id", name="uq_tag_permissions_group"),
         UniqueConstraint("tag_id", "action", "user_id", name="uq_tag_permissions_user"),
     )
 
     id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
     tag_id: Mapped[str] = mapped_column(String(32), index=True)
     action: Mapped[str] = mapped_column(String(16))
-    role: Mapped[str | None] = mapped_column(String(16), nullable=True)
+    group_id: Mapped[str | None] = mapped_column(String(32), nullable=True)
     user_id: Mapped[str | None] = mapped_column(String(32), nullable=True)
 
 

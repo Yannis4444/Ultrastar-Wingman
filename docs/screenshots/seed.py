@@ -449,7 +449,8 @@ def create_accounts(base: str) -> dict[str, dict[str, str]]:
         accounts[username] = {
             "user_id": body["id"],
             "player_id": body["player_id"],
-            "role": body["role"],
+            # The groups the account was put in: Admin for the first, none for the rest.
+            "groups": ", ".join(body["groups"]) or "user",
             "password": password,
             "cookie": cookie,
         }
@@ -589,11 +590,12 @@ def create_tags(state: State) -> list[dict[str, str]]:
     created = []
     for plan in scenario.TAGS:
         permissions: list[dict[str, str]] = []
-        for role in plan.view_roles:
-            permissions.append({"action": "view", "role": role})
-            permissions.append({"action": "view_songs", "role": role})
-        for role in plan.assign_roles:
-            permissions.append({"action": "assign", "role": role})
+        for group_id in plan.view_groups:
+            permissions.append({"action": "view", "group_id": group_id})
+            permissions.append({"action": "view_songs", "group_id": group_id})
+        for group_id in plan.assign_groups:
+            # *Tag songs* only with *See tag*: Trusted sees the tag through User's row.
+            permissions.append({"action": "assign", "group_id": group_id})
         for username in plan.assign_users:
             # All three, not the assign alone: a person who may tag songs they cannot see
             # is a misconfiguration, and the editor says so in a warning box. The tag
@@ -1036,7 +1038,7 @@ def _report(state: State, missing: list[str]) -> None:
     print("cookies (set them on the browser before opening a page)")
     print(f"  {data['session_cookie_name']}={data['host_cookie']}   host, admin")
     for username, entry in data["accounts"].items():
-        print(f"  {data['session_cookie_name']}={entry['cookie']}   {username} ({entry['role']})")
+        print(f"  {data['session_cookie_name']}={entry['cookie']}   {username} ({entry['groups']})")
     print()
     print("accounts")
     for username, entry in data["accounts"].items():

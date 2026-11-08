@@ -1,27 +1,40 @@
 """The permission matrix — this file is the authorization spec.
 
-Every capability-gated route appears in `ROUTES` with the capability it demands. The test
-then hits each of them as an anonymous caller (role `guest`), a `user`, a `trusted` user and
-an `admin`, and asserts a 403 exactly where the role does not hold that capability. A route
-that loses its `require(...)` fails here; so does a role that silently gains a capability.
+Every capability-gated route appears in `ROUTES` with the capability it demands (or in
+`ANY_ROUTES` with the capabilities any one of which opens it). The test then hits each of
+them as an anonymous caller (Guest), a plain account (User), a helper (User and Trusted) and
+an administrator (Admin), and asserts a 403 exactly where the caller does not hold that
+capability. A route that loses its `require(...)` fails here; so does a group that silently
+gains a capability.
 """
 
 from collections.abc import AsyncIterator, Mapping
+from typing import Any, cast
 
 import pytest
 from httpx import ASGITransport, AsyncClient, MockTransport, Response
-from sqlalchemy import select
+from sqlalchemy import delete, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from conftest import BASE_URL, add_session, add_user, admin_client, authenticate_admin
+from conftest import (
+    BASE_URL,
+    IDENTITY_GROUPS,
+    add_session,
+    add_user,
+    admin_client,
+    authenticate_admin,
+)
 from ultrastar_wingman.app import create_app
+from ultrastar_wingman.auth import permissions
 from ultrastar_wingman.auth.deps import COOKIE_NAME
-from ultrastar_wingman.auth.model import RolePermission
+from ultrastar_wingman.auth.model import GroupCapability
 from ultrastar_wingman.auth.permissions import (
     ALL_CAPABILITIES,
     CAPABILITIES,
-    DEFAULT_ROLE_CAPABILITIES,
-    ROLES,
+    DEFAULT_GROUP_CAPABILITIES,
+    GUEST,
+    TRUSTED_GROUP_ID,
+    USER,
 )
 from ultrastar_wingman.config import BootstrapSettings
 from ultrastar_wingman.sources import usdb
@@ -275,16 +288,29 @@ ROUTES: list[tuple[str, str, str, dict[str, object] | None]] = [
     # here: USDX is not configured in this fixture, so a permitted caller gets a 400.
     ("settings.manage", "POST", "/api/v1/karaoke/usdx/launch", None),
     ("users.view", "GET", "/api/v1/users", None),
-    ("users.manage", "PATCH", "/api/v1/users/nope", {"role": "user"}),
+    # Memberships and accounts. Unknown ids, so a permitted caller gets a 404 and the matrix
+    # moves nobody.
+    ("users.manage", "PUT", "/api/v1/users/nope/groups", {"groups": []}),
     ("users.manage", "DELETE", "/api/v1/users/nope", None),
-    ("permissions.manage", "GET", "/api/v1/permissions", None),
-    # The body is the role's own defaults, so a permitted caller changes nothing and the
-    # remaining rows of the matrix stay meaningful.
+    # The groups. `GET /groups` takes any of four capabilities and lives in `ANY_ROUTES`.
+    # Creating one called "Admin" is the 409 for a name the built-in holds, so a permitted
+    # caller creates nothing; the others name a group that does not exist.
+    ("permissions.manage", "POST", "/api/v1/groups", {"name": "Admin"}),
+    ("permissions.manage", "PATCH", "/api/v1/groups/nope", {"name": "Nope"}),
+    ("permissions.manage", "DELETE", "/api/v1/groups/nope", None),
+]
+
+# The routes one of several capabilities opens (`deps.require_any`). An identity holding
+# none of them gets the 403 naming the first; holding any one of them is enough, so one row
+# per alternative would wrongly expect a 403 from an identity that holds another.
+ANY_ROUTES: list[tuple[tuple[str, ...], str, str, dict[str, object] | None]] = [
+    # The one read every page that draws groups shares: the groups page, the accounts
+    # page's panel, the tag editor, and whoever reads the ids `GET /users` answers.
     (
-        "permissions.manage",
-        "PUT",
-        "/api/v1/permissions/guest",
-        {"capabilities": sorted(DEFAULT_ROLE_CAPABILITIES["guest"])},
+        ("users.view", "users.manage", "permissions.manage", "tags.manage"),
+        "GET",
+        "/api/v1/groups",
+        None,
     ),
 ]
 
@@ -311,11 +337,12 @@ PUBLIC_ROUTES: list[tuple[str, str]] = [
     ("DELETE", "/api/v1/auth/oidc/pending"),
 ]
 
-# What each caller in the matrix may do. Anonymous callers are the `guest` role.
+# What each caller in the matrix may do. Anonymous callers are in Guest; an account holds
+# User's bundle and its groups' — never Guest's.
 IDENTITY_CAPABILITIES: Mapping[str, frozenset[str]] = {
-    "anonymous": DEFAULT_ROLE_CAPABILITIES["guest"],
-    "user": DEFAULT_ROLE_CAPABILITIES["user"],
-    "trusted": DEFAULT_ROLE_CAPABILITIES["trusted"],
+    "anonymous": DEFAULT_GROUP_CAPABILITIES[GUEST],
+    "user": DEFAULT_GROUP_CAPABILITIES[USER],
+    "trusted": DEFAULT_GROUP_CAPABILITIES[USER] | DEFAULT_GROUP_CAPABILITIES[TRUSTED_GROUP_ID],
     "admin": ALL_CAPABILITIES,
 }
 
@@ -338,11 +365,11 @@ async def clients(
     async with app.router.lifespan_context(app), usdb_client:
         transport = ASGITransport(app=app)
         clients = {"anonymous": AsyncClient(transport=transport, base_url=BASE_URL)}
-        for role in ("user", "trusted", "admin"):
-            user_id = await add_user(app.state.session_factory, f"{role}-account", role)
-            token = f"{role}-session-token"
+        for name, groups in IDENTITY_GROUPS.items():
+            user_id = await add_user(app.state.session_factory, f"{name}-account", groups=groups)
+            token = f"{name}-session-token"
             await add_session(app.state.session_factory, token, user_id)
-            clients[role] = AsyncClient(
+            clients[name] = AsyncClient(
                 transport=transport, base_url=BASE_URL, cookies={COOKIE_NAME: token}
             )
         try:
@@ -375,6 +402,47 @@ async def test_the_permission_matrix(
 
 
 @pytest.mark.parametrize(
+    ("capabilities", "method", "path", "body"),
+    ANY_ROUTES,
+    ids=[f"{method} {path} needs any of {len(caps)}" for caps, method, path, _ in ANY_ROUTES],
+)
+async def test_the_any_of_matrix(
+    clients: dict[str, AsyncClient],
+    capabilities: tuple[str, ...],
+    method: str,
+    path: str,
+    body: dict[str, object] | None,
+) -> None:
+    """Holding none of them is the 403 naming the first; holding any one is enough."""
+    for identity, held in IDENTITY_CAPABILITIES.items():
+        response = await clients[identity].request(method, path, json=body)
+        where = f"{identity} {method} {path}"
+        if held.isdisjoint(capabilities):
+            assert response.status_code == 403, f"{where} was allowed: {response.text}"
+            assert response.json() == {"detail": f"missing_permission:{capabilities[0]}"}, where
+        else:
+            assert response.status_code != 403, f"{where} was refused: {response.text}"
+
+
+@pytest.mark.parametrize("capability", ANY_ROUTES[0][0])
+async def test_any_one_of_the_four_opens_the_groups(
+    clients: dict[str, AsyncClient], capability: str
+) -> None:
+    """Each alternative alone: User is given just that one, and the plain account — which
+    holds none of the four by default — reads the groups."""
+    refused = await clients["user"].get("/api/v1/groups")
+    assert refused.json() == {"detail": "missing_permission:users.view"}
+
+    granted = await clients["admin"].patch(
+        "/api/v1/groups/user",
+        json={"capabilities": sorted(DEFAULT_GROUP_CAPABILITIES[USER] | {capability})},
+    )
+    assert granted.status_code == 200, granted.text
+
+    assert (await clients["user"].get("/api/v1/groups")).status_code == 200
+
+
+@pytest.mark.parametrize(
     ("method", "path"), PUBLIC_ROUTES, ids=[f"{method} {path}" for method, path in PUBLIC_ROUTES]
 )
 async def test_the_public_routes_stay_public(
@@ -397,30 +465,78 @@ def test_every_capability_is_enforced_somewhere() -> None:
     """A capability nobody requires is either dead or a route that forgot its check."""
     # users.manage and permissions.manage are in ROUTES; nothing may be missing.
     assert (
-        set(CAPABILITIES) == {capability for capability, _, _, _ in ROUTES} | ROW_LEVEL_CAPABILITIES
+        set(CAPABILITIES)
+        == {capability for capability, _, _, _ in ROUTES}
+        | {capability for capabilities, _, _, _ in ANY_ROUTES for capability in capabilities}
+        | ROW_LEVEL_CAPABILITIES
     )
 
 
+def _in_catalogue_order(capabilities: frozenset[str]) -> list[str]:
+    return [capability for capability in CAPABILITIES if capability in capabilities]
+
+
 async def test_the_migration_seeds_the_module_defaults(session: AsyncSession) -> None:
-    """Migrations 0006 to 0014 spell the defaults out literally, each seeding the
-    capabilities it introduces; this is what keeps them and the module in step."""
+    """Migrations 0006 to 0034 spell the defaults out literally per role, each seeding the
+    capabilities it introduces, and 0039 copies them into groups; this is what keeps them and
+    the module in step. Admin has no rows: it holds every capability by rule."""
     seeded: dict[str, set[str]] = {}
-    for row in await session.scalars(select(RolePermission)):
-        seeded.setdefault(row.role, set()).add(row.capability)
+    for row in await session.scalars(select(GroupCapability)):
+        seeded.setdefault(row.group_id, set()).add(row.capability)
 
     assert seeded == {
-        role: set(capabilities) for role, capabilities in DEFAULT_ROLE_CAPABILITIES.items()
+        group_id: set(capabilities) for group_id, capabilities in DEFAULT_GROUP_CAPABILITIES.items()
     }
 
 
-async def test_get_permissions_lists_every_role(client: AsyncClient) -> None:
-    response = await client.get("/api/v1/permissions")
+class _WriteCommitsMidLoad:
+    """A session whose capability read has its rows in hand when a capability write commits
+    and invalidates the cache — the interleaving any request in flight can meet."""
+
+    def __init__(self, session: AsyncSession) -> None:
+        self.session = session
+        self.reads = 0
+
+    async def scalars(self, statement: Any) -> Any:
+        rows = list(await self.session.scalars(statement))
+        self.reads += 1
+        # The second read is the capabilities (the first is the group ids).
+        if self.reads == 2:
+            await self.session.execute(
+                delete(GroupCapability).where(
+                    GroupCapability.group_id == USER, GroupCapability.capability == "karaoke.stop"
+                )
+            )
+            await self.session.commit()
+            permissions.invalidate_cache()
+        return rows
+
+
+async def test_a_load_overtaken_by_a_write_is_never_kept(session: AsyncSession) -> None:
+    """A load that began before a write's invalidation answers its own caller, but the next
+    reader loads again and sees the capability gone rather than a cache from before."""
+    racing = _WriteCommitsMidLoad(session)
+
+    stale = await permissions.all_group_capabilities(cast(AsyncSession, racing))
+
+    # The race really happened: the overtaken load read the rights from before the write.
+    assert "karaoke.stop" in stale[USER]
+    assert "karaoke.stop" not in await permissions.capabilities_for_groups(
+        session, frozenset({USER})
+    )
+
+
+async def test_get_groups_lists_every_group(client: AsyncClient) -> None:
+    response = await client.get("/api/v1/groups")
 
     assert response.status_code == 200
-    roles = response.json()["roles"]
-    assert set(roles) == set(ROLES)
-    assert roles["admin"] == sorted(ALL_CAPABILITIES)
-    assert roles["guest"] == sorted(DEFAULT_ROLE_CAPABILITIES["guest"])
+    body = response.json()
+    # Guest, User, the others by name, Admin last.
+    assert [group["id"] for group in body["groups"]] == ["guest", "user", TRUSTED_GROUP_ID, "admin"]
+    by_id = {group["id"]: group for group in body["groups"]}
+    assert by_id["admin"]["capabilities"] == list(CAPABILITIES)
+    assert by_id["guest"]["capabilities"] == _in_catalogue_order(DEFAULT_GROUP_CAPABILITIES[GUEST])
+    assert body["capabilities"] == list(CAPABILITIES)
 
 
 async def test_a_permission_change_takes_effect_without_a_restart(
@@ -428,50 +544,75 @@ async def test_a_permission_change_takes_effect_without_a_restart(
 ) -> None:
     assert (await clients["user"].post("/api/v1/karaoke/stop")).status_code == 204
 
-    response = await clients["admin"].put(
-        "/api/v1/permissions/user", json={"capabilities": ["songs.view"]}
+    response = await clients["admin"].patch(
+        "/api/v1/groups/user", json={"capabilities": ["songs.view"]}
     )
 
     assert response.status_code == 200
-    assert response.json()["roles"]["user"] == ["songs.view"]
+    assert response.json()["capabilities"] == ["songs.view"]
     stopped = await clients["user"].post("/api/v1/karaoke/stop")
     assert stopped.status_code == 403
     assert stopped.json() == {"detail": "missing_permission:karaoke.stop"}
-    # Taking a capability away does not touch the others.
+    # Taking a capability away does not touch the others: Trusted holds it itself.
     assert (await clients["trusted"].post("/api/v1/karaoke/stop")).status_code == 204
 
 
-async def test_the_guest_role_is_editable(clients: dict[str, AsyncClient]) -> None:
+async def test_a_membership_change_takes_effect_without_a_restart(
+    clients: dict[str, AsyncClient],
+) -> None:
+    """Memberships are read on every request, so the account's very next one has the new
+    set — no session ended, no cookie changed — and taking it out again is just as quick."""
+    user_id = (await clients["user"].get("/api/v1/auth/me")).json()["user"]["id"]
+    assert (await clients["user"].get("/api/v1/downloads")).status_code == 403
+
+    put_in = await clients["admin"].put(
+        f"/api/v1/users/{user_id}/groups", json={"groups": [TRUSTED_GROUP_ID]}
+    )
+
+    assert put_in.status_code == 200, put_in.text
+    assert (await clients["user"].get("/api/v1/downloads")).status_code == 200
+    me = (await clients["user"].get("/api/v1/auth/me")).json()
+    assert [group["name"] for group in me["groups"]] == ["User", "Trusted"]
+
+    taken_out = await clients["admin"].put(f"/api/v1/users/{user_id}/groups", json={"groups": []})
+
+    assert taken_out.status_code == 200, taken_out.text
+    assert (await clients["user"].get("/api/v1/downloads")).status_code == 403
+
+
+async def test_guest_is_editable(clients: dict[str, AsyncClient]) -> None:
     assert (await clients["anonymous"].get("/api/v1/downloads")).status_code == 403
 
-    granted = await clients["admin"].put(
-        "/api/v1/permissions/guest", json={"capabilities": ["songs.view", "downloads.view"]}
+    granted = await clients["admin"].patch(
+        "/api/v1/groups/guest", json={"capabilities": ["songs.view", "downloads.view"]}
     )
 
     assert granted.status_code == 200
     assert (await clients["anonymous"].get("/api/v1/downloads")).status_code == 200
+    # Guest's rights are not an account's: the plain account still may not.
+    assert (await clients["user"].get("/api/v1/downloads")).status_code == 403
 
 
-async def test_the_admin_role_is_not_editable(client: AsyncClient) -> None:
+async def test_admin_is_not_editable(client: AsyncClient) -> None:
     """An admin locking every administrator out of the app is not a supported move."""
-    response = await client.put("/api/v1/permissions/admin", json={"capabilities": ["songs.view"]})
+    response = await client.patch("/api/v1/groups/admin", json={"capabilities": ["songs.view"]})
 
-    assert response.status_code == 422
-    assert (await client.get("/api/v1/permissions")).json()["roles"]["admin"] == sorted(
-        ALL_CAPABILITIES
-    )
+    assert response.status_code == 409
+    assert response.json() == {"detail": "admin_not_editable"}
+    groups = (await client.get("/api/v1/groups")).json()["groups"]
+    assert {group["id"]: group for group in groups}["admin"]["capabilities"] == list(CAPABILITIES)
 
 
-async def test_an_unknown_role_or_capability_is_refused(client: AsyncClient) -> None:
+async def test_an_unknown_group_or_capability_is_refused(client: AsyncClient) -> None:
     assert (
-        await client.put("/api/v1/permissions/wizard", json={"capabilities": []})
+        await client.patch("/api/v1/groups/wizard", json={"capabilities": []})
     ).status_code == 404
-    assert (
-        await client.put("/api/v1/permissions/user", json={"capabilities": ["songs.destroy"]})
-    ).status_code == 422
+    unknown = await client.patch("/api/v1/groups/user", json={"capabilities": ["songs.destroy"]})
+    assert (unknown.status_code, unknown.json()) == (422, {"detail": "unknown_capability"})
     # Nothing was written on the way to the error.
-    assert (await client.get("/api/v1/permissions")).json()["roles"]["user"] == sorted(
-        DEFAULT_ROLE_CAPABILITIES["user"]
+    groups = (await client.get("/api/v1/groups")).json()["groups"]
+    assert {group["id"]: group for group in groups}["user"]["capabilities"] == (
+        _in_catalogue_order(DEFAULT_GROUP_CAPABILITIES[USER])
     )
 
 
@@ -482,8 +623,9 @@ async def test_a_permission_change_survives_a_restart(
     async with app.router.lifespan_context(app):
         await authenticate_admin(app)
         async with admin_client(app) as client:
-            changed = await client.put(
-                "/api/v1/permissions/trusted", json={"capabilities": ["songs.view", "usdb.search"]}
+            changed = await client.patch(
+                f"/api/v1/groups/{TRUSTED_GROUP_ID}",
+                json={"capabilities": ["songs.view", "usdb.search"]},
             )
             assert changed.status_code == 200
 
@@ -491,5 +633,6 @@ async def test_a_permission_change_survives_a_restart(
     async with restarted.router.lifespan_context(restarted):
         await authenticate_admin(restarted)
         async with admin_client(restarted) as client:
-            roles = (await client.get("/api/v1/permissions")).json()["roles"]
-            assert roles["trusted"] == ["songs.view", "usdb.search"]
+            groups = (await client.get("/api/v1/groups")).json()["groups"]
+            trusted = {group["id"]: group for group in groups}[TRUSTED_GROUP_ID]
+            assert trusted["capabilities"] == ["songs.view", "usdb.search"]

@@ -1,8 +1,8 @@
 """Tags, their permissions, and which songs carry them. Knows nothing about FastAPI.
 
-The caller is passed around as a `Viewer` — a role and, when there is an account behind
-the request, its id. The FastAPI dependency that builds one lives in `auth.deps`, which
-this module must not import.
+The caller is passed around as a `Viewer` — the permission groups it is in, whether it is
+an administrator and, when there is an account behind the request, its id. The FastAPI
+dependency that builds one lives in `auth.deps`, which this module must not import.
 """
 
 import logging
@@ -13,8 +13,8 @@ from typing import cast
 from sqlalchemy import ColumnElement, delete, func, or_, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from ..auth.model import User
-from ..auth.permissions import ADMIN, DEFAULT_ROLE, ROLES, UnknownRoleError
+from ..auth.model import Group, User
+from ..auth.permissions import ADMIN, GUEST, NotAssignableError, UnknownGroupError
 from ..events import SongTagsChanged, TagsChanged, event_bus
 from ..songs.model import Song
 from .model import SongTag, Tag, TagPermission
@@ -42,11 +42,14 @@ class UnknownUserError(LookupError):
 
 @dataclass(frozen=True)
 class Viewer:
-    """Who is asking. `user_id` is None for the host screen and for every anonymous
-    caller — the host is an administrator by device, so it never needs a per-user row."""
+    """Who is asking: every permission group they are in, their account's id — None for the
+    host screen and for every anonymous caller; the host is an administrator by device, so
+    it never needs a per-user row — and whether they are an administrator, who sees every
+    tag. Frozen and hashable: the room's selection keeps its opener's for every respin."""
 
-    role: str
+    groups: frozenset[str]
     user_id: str | None
+    is_admin: bool = False
 
 
 # The viewer for everything Wingman does with no account behind it at all: the player
@@ -56,16 +59,16 @@ class Viewer:
 #
 # It lives here rather than in either caller because a constant that decides what a stranger
 # may see should have exactly one copy.
-GUEST_VIEWER = Viewer(role=DEFAULT_ROLE, user_id=None)
+GUEST_VIEWER = Viewer(groups=frozenset({GUEST}), user_id=None, is_admin=False)
 
 
 @dataclass(frozen=True)
 class PermissionSpec:
-    """One row a manager asked for. Exactly one of `role` and `user_id` is set — the
+    """One row a manager asked for. Exactly one of `group_id` and `user_id` is set — the
     request model enforces that, so the service only has to check they exist."""
 
     action: TagAction
-    role: str | None = None
+    group_id: str | None = None
     user_id: str | None = None
 
 
@@ -91,16 +94,16 @@ UNSET = _Unset()
 def allowed(rows: Iterable[TagPermission], action: str, viewer: Viewer) -> bool:
     """Whether `viewer` holds `action` on the tag those rows belong to.
 
-    Roles are bundles, not a ladder: a row for `trusted` says nothing about `admin`, which
-    is why "trusted and above" is stored as one row per role. The one exception is `admin`
-    itself, which is not data anywhere in Wingman — an administrator sees every tag.
+    A row counts when its group is one the viewer is in, or its account is the viewer's —
+    so an account in Trusted gets User's rows and Trusted's both. Guest's rows reach nobody
+    with an account. Admin is not data anywhere in Wingman: an administrator sees every tag.
     """
-    if viewer.role == ADMIN:
+    if viewer.is_admin:
         return True
     for row in rows:
         if row.action != action:
             continue
-        if row.role is not None and row.role == viewer.role:
+        if row.group_id is not None and row.group_id in viewer.groups:
             return True
         if viewer.user_id is not None and row.user_id == viewer.user_id:
             return True
@@ -121,10 +124,11 @@ def rights_for(rows: Iterable[TagPermission], viewer: Viewer) -> TagRights:
 
 def _subject(viewer: Viewer) -> ColumnElement[bool]:
     """Match the permission rows that speak for this caller. `user_id == None` would be
-    wrong rather than empty: it matches every role row, whose `user_id` is NULL."""
+    wrong rather than empty: it matches every group row, whose `user_id` is NULL."""
+    in_groups = TagPermission.group_id.in_(viewer.groups)
     if viewer.user_id is None:
-        return TagPermission.role == viewer.role
-    return or_(TagPermission.role == viewer.role, TagPermission.user_id == viewer.user_id)
+        return in_groups
+    return or_(in_groups, TagPermission.user_id == viewer.user_id)
 
 
 async def permission_rows(
@@ -186,7 +190,7 @@ def _read_permissions(
         TagPermissionRead(
             # The CHECK constraint on the column is what keeps this cast honest.
             action=cast(TagAction, row.action),
-            role=row.role,
+            group_id=row.group_id,
             user_id=row.user_id,
             username=None if row.user_id is None else usernames.get(row.user_id),
         )
@@ -281,7 +285,7 @@ async def hidden_song_ids(session: AsyncSession, viewer: Viewer) -> frozenset[st
     no rows rather than a setting. Cheap when nothing is tagged: two small queries and an
     empty set.
     """
-    if viewer.role == ADMIN:
+    if viewer.is_admin:
         return frozenset()
     tag_ids = set(await session.scalars(select(Tag.id)))
     if not tag_ids:
@@ -362,13 +366,22 @@ async def _check_name(session: AsyncSession, name: str, tag_id: str | None) -> N
 
 
 async def _check_subjects(session: AsyncSession, specs: Sequence[PermissionSpec]) -> None:
-    """Raises `UnknownRoleError` / `UnknownUserError`. Called before anything is written,
-    so a bad row in the body cannot leave half a tag behind."""
+    """Raises `NotAssignableError` (Admin, which sees every tag by rule, so a row for it
+    would mean nothing), `UnknownGroupError` or `UnknownUserError`. Called before anything
+    is written, so a bad row in the body cannot leave half a tag behind."""
     user_ids = {spec.user_id for spec in specs if spec.user_id is not None}
     known = await _usernames(session, user_ids)
+    group_ids = {spec.group_id for spec in specs if spec.group_id is not None}
+    groups = (
+        set(await session.scalars(select(Group.id).where(Group.id.in_(group_ids))))
+        if group_ids
+        else set()
+    )
     for spec in specs:
-        if spec.role is not None and spec.role not in ROLES:
-            raise UnknownRoleError(spec.role)
+        if spec.group_id == ADMIN:
+            raise NotAssignableError(spec.group_id)
+        if spec.group_id is not None and spec.group_id not in groups:
+            raise UnknownGroupError(spec.group_id)
         if spec.user_id is not None and spec.user_id not in known:
             raise UnknownUserError(spec.user_id)
 
@@ -379,12 +392,14 @@ def _rows_for(tag_id: str, specs: Sequence[PermissionSpec]) -> list[TagPermissio
     seen: set[tuple[str, str | None, str | None]] = set()
     rows = []
     for spec in specs:
-        key = (spec.action, spec.role, spec.user_id)
+        key = (spec.action, spec.group_id, spec.user_id)
         if key in seen:
             continue
         seen.add(key)
         rows.append(
-            TagPermission(tag_id=tag_id, action=spec.action, role=spec.role, user_id=spec.user_id)
+            TagPermission(
+                tag_id=tag_id, action=spec.action, group_id=spec.group_id, user_id=spec.user_id
+            )
         )
     return rows
 
@@ -398,7 +413,8 @@ async def create_tag(
     hide_by_default: bool,
     specs: Sequence[PermissionSpec],
 ) -> Tag:
-    """Raises `DuplicateTagNameError`, `UnknownRoleError` or `UnknownUserError`."""
+    """Raises `DuplicateTagNameError`, `NotAssignableError`, `UnknownGroupError` or
+    `UnknownUserError`."""
     await _check_name(session, name, None)
     await _check_subjects(session, specs)
     tag = Tag(
@@ -448,8 +464,8 @@ async def update_tag(
 async def replace_permissions(
     session: AsyncSession, tag: Tag, specs: Sequence[PermissionSpec]
 ) -> None:
-    """Rewrite who the tag is for, in one transaction. Raises `UnknownRoleError` /
-    `UnknownUserError` before anything is deleted."""
+    """Rewrite who the tag is for, in one transaction. Raises `NotAssignableError`,
+    `UnknownGroupError` or `UnknownUserError` before anything is deleted."""
     await _check_subjects(session, specs)
     rows = _rows_for(tag.id, specs)
     await session.execute(delete(TagPermission).where(TagPermission.tag_id == tag.id))

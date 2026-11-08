@@ -15,7 +15,7 @@ import {
   achievementSettings,
   builtInAchievementReads,
 } from "../test/achievements";
-import { meResponse, userRead } from "../test/auth";
+import { AS, meResponse, userRead } from "../test/auth";
 import { FakeSocket } from "../test/fakeSocket";
 import { iconNames } from "../test/icons";
 import Achievements from "./Achievements";
@@ -47,7 +47,7 @@ vi.mock("../api/sdk.gen", async (importOriginal) => ({
 }));
 
 const MANAGER = ["songs.view", "achievements.manage"];
-const ACCOUNT: Partial<MeRead> = { user: userRead(), role: "trusted" };
+const ACCOUNT: Partial<MeRead> = { user: userRead(), ...AS.trusted };
 
 function renderPage(
   achievements: AchievementRead[] | Error = [achievementRead()],

@@ -4,16 +4,28 @@ import { MemoryRouter } from "react-router-dom";
 import { meResponse } from "../test/auth";
 import UserPermissions from "./UserPermissions";
 
-const { getMe, getPermissions } = vi.hoisted(() => ({
+const { getMe, listGroups } = vi.hoisted(() => ({
   getMe: vi.fn(),
-  getPermissions: vi.fn(),
+  listGroups: vi.fn(),
 }));
 
 vi.mock("../api/sdk.gen", async (importOriginal) => ({
   ...(await importOriginal<typeof import("../api/sdk.gen")>()),
   getMe,
-  getPermissions,
+  listGroups,
 }));
+
+function group(id: string, name: string, capabilities: string[]) {
+  return {
+    id,
+    name,
+    built_in: true,
+    member_count: null,
+    capabilities,
+    right_count: null,
+    can_assign: false,
+  };
+}
 
 function renderPage() {
   const client = new QueryClient({
@@ -31,12 +43,13 @@ function renderPage() {
 beforeEach(() => {
   vi.resetAllMocks();
   getMe.mockResolvedValue(meResponse(["permissions.manage"]));
-  getPermissions.mockResolvedValue({
+  listGroups.mockResolvedValue({
     data: {
-      roles: {
-        guest: ["songs.view"],
-        admin: ["songs.view", "users.manage"],
-      },
+      groups: [
+        group("guest", "Guest", ["songs.view"]),
+        group("admin", "Admin", ["songs.view", "users.manage"]),
+      ],
+      capabilities: ["songs.view", "users.manage"],
     },
   });
 });
@@ -51,8 +64,8 @@ test("the back link leads to the user page and the roles load", async () => {
   expect(
     screen.getByRole("heading", { name: "Permissions" }),
   ).toBeInTheDocument();
-  // One matrix, no role picker: the guest column is simply there.
-  expect(await screen.findByLabelText("songs.view for guest")).toBeChecked();
+  // One matrix, no group picker: the Guest column is simply there.
+  expect(await screen.findByLabelText("songs.view for Guest")).toBeChecked();
 });
 
 test("without permissions.manage the page explains itself and asks nothing", async () => {
@@ -62,5 +75,5 @@ test("without permissions.manage the page explains itself and asks nothing", asy
   expect(
     await screen.findByText(/Managing permissions is for the host/),
   ).toBeInTheDocument();
-  expect(getPermissions).not.toHaveBeenCalled();
+  expect(listGroups).not.toHaveBeenCalled();
 });

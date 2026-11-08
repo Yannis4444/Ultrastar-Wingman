@@ -2,7 +2,7 @@ import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { render, screen, waitFor, within } from "@testing-library/react";
 import { MemoryRouter } from "react-router-dom";
 import type { BuiltInTagRead, MeRead, TagRead } from "../api";
-import { meResponse, userRead } from "../test/auth";
+import { AS, meResponse, userRead } from "../test/auth";
 import { FakeSocket } from "../test/fakeSocket";
 import { iconNames } from "../test/icons";
 import { builtInTagRead, builtInTagReads, tagRead } from "../test/tags";
@@ -20,7 +20,7 @@ vi.mock("../api/sdk.gen", async (importOriginal) => ({
 }));
 
 const MANAGER = ["songs.view", "tags.manage"];
-const ACCOUNT: Partial<MeRead> = { user: userRead(), role: "trusted" };
+const ACCOUNT: Partial<MeRead> = { user: userRead(), ...AS.trusted };
 
 function tag(overrides: Partial<TagRead> = {}): TagRead {
   return tagRead({

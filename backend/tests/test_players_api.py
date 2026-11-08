@@ -461,7 +461,7 @@ async def singer(app: FastAPI, player_id: str, username: str) -> AsyncClient:
     """A logged-in `user` account that sings as `player_id`. A plain `user` holds neither
     `players.manage` nor `players.avatar`, which is the whole point of these tests."""
     factory: async_sessionmaker[AsyncSession] = app.state.session_factory
-    user_id = await add_user(factory, username, "user")
+    user_id = await add_user(factory, username)
     async with factory() as session:
         player = await session.get(Player, player_id)
         assert player is not None
@@ -516,7 +516,7 @@ async def test_an_account_without_a_player_may_change_nobody_s_picture(
     app, admin = party
     player = await create(admin, "Yannis")
     factory: async_sessionmaker[AsyncSession] = app.state.session_factory
-    user_id = await add_user(factory, "nobody", "user")
+    user_id = await add_user(factory, "nobody")
     await add_session(factory, "nobody-token", user_id)
 
     async with AsyncClient(

@@ -25,6 +25,10 @@ from __future__ import annotations
 
 from dataclasses import dataclass, field
 
+# The group migration 0039 creates for the party's helpers, under the fixed id
+# `auth.permissions.TRUSTED_GROUP_ID` names. Written out: this file is plain data.
+TRUSTED_GROUP_ID = "7a1c4e9b2d6f48a3b5e0c8d1f2a3b4c5"
+
 # --- the people --------------------------------------------------------------------------
 
 # The three accounts, in the order they are created: the first account an instance ever has
@@ -250,10 +254,11 @@ class TagPlan:
     show_in_list: bool
     hide_by_default: bool
     usdb_ids: tuple[int, ...]
-    # Roles that may see the tag and the songs it sits on. Without them a tag is
-    # administrators-only and every song it touches disappears for everybody else.
-    view_roles: tuple[str, ...] = ("guest", "user", "trusted")
-    assign_roles: tuple[str, ...] = ("trusted",)
+    # Groups that may see the tag and the songs it sits on. Without them a tag is
+    # administrators-only and every song it touches disappears for everybody else. User's row
+    # reaches every account, Trusted's members included, so Guest and User are the whole room.
+    view_groups: tuple[str, ...] = ("guest", "user")
+    assign_groups: tuple[str, ...] = (TRUSTED_GROUP_ID,)
     # Accounts named on the tag by hand, so the editor has a "Specific people" row. Each of
     # them is given all three actions; assign on its own is a misconfiguration the editor
     # warns about, and the tag editor's picture must not be of one.

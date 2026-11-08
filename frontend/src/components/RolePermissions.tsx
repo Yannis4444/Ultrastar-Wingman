@@ -6,22 +6,20 @@ import {
   useState,
   type CSSProperties,
 } from "react";
-import type { PermissionsRead } from "../api";
+import type { GroupList } from "../api";
 import {
-  getPermissionsOptions,
-  getPermissionsQueryKey,
-  updateRolePermissionsMutation,
+  listGroupsOptions,
+  listGroupsQueryKey,
+  updateGroupMutation,
 } from "../api/@tanstack/react-query.gen";
 import { errorMessage } from "../errors";
 import { Icon, type IconName } from "./icons";
 import "./RolePermissions.css";
 
-/** The backend hardwires admin to every capability, so it is never editable. */
-const LOCKED_ROLE = "admin";
-
-/** Column order. A role the backend grows later is appended instead of dropped,
- * so a new role still reaches this table without a frontend change. */
-const ROLE_ORDER = ["guest", "user", "trusted"];
+/** The backend hardwires Admin to every capability, so it is never editable.
+ * A stopgap until the groups page (permission-groups.md §9.1): the matrix runs
+ * over every other group `GET /groups` answers, in its order. */
+const LOCKED_GROUP = "admin";
 
 /** One glyph per section, so a group is found by shape before it is read.
  * Existing icon names only. */
@@ -100,8 +98,9 @@ const DESCRIPTIONS: Record<string, string> = {
     "Take a party off the list on the Scores tab, or put it back. It keeps every score it has.",
   "settings.view": "See Wingman's settings.",
   "settings.manage": "Change every setting, the USDB login included.",
-  "users.view": "See who has an account and what role they hold.",
-  "users.manage": "Change what role other accounts have, and delete them.",
+  "users.view": "See who has an account and which groups they are in.",
+  "users.manage":
+    "Put other accounts in groups and take them out, and delete them.",
   "permissions.manage": "Change this table.",
 };
 
@@ -133,12 +132,12 @@ function rowId(capability: string): string {
   return `perm-${capability.replace(".", "-")}`;
 }
 
-/** The whole role/capability matrix: one row per capability, one column per
- * editable role. Needs `permissions.manage`; the page around it gates. */
+/** The whole group/capability matrix: one row per capability, one column per
+ * editable group. Needs `permissions.manage`; the page around it gates. */
 export default function RolePermissions() {
   const queryClient = useQueryClient();
-  const key = getPermissionsQueryKey();
-  const permissions = useQuery(getPermissionsOptions());
+  const key = listGroupsQueryKey();
+  const permissions = useQuery(listGroupsOptions());
   const [error, setError] = useState<string | null>(null);
   // The row that was last written and how it went, for the acknowledgement next
   // to its name — the notice above the matrix is out of sight from most rows.
@@ -147,30 +146,36 @@ export default function RolePermissions() {
   );
   // The snapshot to restore when a PUT fails. A ref, not the mutation context,
   // because the generated mutation options fix the context type to `unknown`.
-  const rollback = useRef<PermissionsRead | undefined>(undefined);
+  const rollback = useRef<GroupList | undefined>(undefined);
 
   const save = useMutation({
-    ...updateRolePermissionsMutation(),
+    ...updateGroupMutation(),
     onMutate: async (variables) => {
       // Without this a request already in flight can land after the optimistic
       // write and put the old checkboxes back.
       await queryClient.cancelQueries({ queryKey: key });
-      rollback.current = queryClient.getQueryData<PermissionsRead>(key);
+      rollback.current = queryClient.getQueryData<GroupList>(key);
       setError(null);
-      queryClient.setQueryData<PermissionsRead>(key, (old) =>
+      queryClient.setQueryData<GroupList>(key, (old) =>
         old === undefined
           ? old
           : {
-              roles: {
-                ...old.roles,
-                [variables.path.role]: variables.body.capabilities,
-              },
+              ...old,
+              groups: old.groups.map((group) =>
+                group.id === variables.path.group_id
+                  ? {
+                      ...group,
+                      capabilities: variables.body.capabilities ?? null,
+                    }
+                  : group,
+              ),
             },
       );
     },
-    onSuccess: (data) => queryClient.setQueryData<PermissionsRead>(key, data),
+    // The answer is the one group; the rest of the list (counts) refetches.
+    onSuccess: () => void queryClient.invalidateQueries({ queryKey: key }),
     onError: (cause) => {
-      queryClient.setQueryData<PermissionsRead>(key, rollback.current);
+      queryClient.setQueryData<GroupList>(key, rollback.current);
       setError(errorMessage(cause, "Could not save the permissions."));
     },
   });
@@ -183,17 +188,22 @@ export default function RolePermissions() {
     return () => clearTimeout(timer);
   }, [ack]);
 
-  const roles = permissions.data?.roles;
-  const editableRoles = Object.keys(roles ?? {}).filter(
-    (role) => role !== LOCKED_ROLE,
+  const data = permissions.data;
+  const roles: Record<string, string[]> | undefined =
+    data === undefined
+      ? undefined
+      : Object.fromEntries(
+          data.groups.map((group) => [group.id, group.capabilities ?? []]),
+        );
+  const groupNames: Record<string, string> = Object.fromEntries(
+    (data?.groups ?? []).map((group) => [group.id, group.name]),
   );
-  const columns = [
-    ...ROLE_ORDER.filter((role) => editableRoles.includes(role)),
-    ...editableRoles.filter((role) => !ROLE_ORDER.includes(role)),
-  ];
-  // Admin always holds everything, which makes its list the full capability
-  // list; sorted, so same-prefix capabilities sit together for grouping.
-  const capabilities = [...(roles?.[LOCKED_ROLE] ?? [])].sort();
+  // In the backend's one order: Guest, User, the others by name.
+  const columns = (data?.groups ?? [])
+    .map((group) => group.id)
+    .filter((id) => id !== LOCKED_GROUP);
+  // The catalogue, sorted, so same-prefix capabilities sit together.
+  const capabilities = [...(data?.capabilities ?? [])].sort();
   const groups: [string, string[]][] = [];
   for (const capability of capabilities) {
     const group = capability.split(".")[0];
@@ -206,7 +216,7 @@ export default function RolePermissions() {
     const current = roles?.[role] ?? [];
     save.mutate(
       {
-        path: { role },
+        path: { group_id: role },
         body: {
           capabilities: granted
             ? [...current, capability]
@@ -242,8 +252,12 @@ export default function RolePermissions() {
           <div className="perm-head" aria-hidden="true">
             <span />
             {columns.map((role) => (
-              <span key={role} className="perm-head-role">
-                {role}
+              <span
+                key={role}
+                className="perm-head-role"
+                title={groupNames[role] ?? role}
+              >
+                {groupNames[role] ?? role}
               </span>
             ))}
           </div>
@@ -302,7 +316,7 @@ export default function RolePermissions() {
                           <label className="perm-cell" key={role}>
                             <input
                               type="checkbox"
-                              aria-label={`${capability} for ${role}`}
+                              aria-label={`${capability} for ${groupNames[role] ?? role}`}
                               aria-describedby={
                                 describedBy.length === 0
                                   ? undefined

@@ -18,7 +18,7 @@ import type {
   SpinRequest,
   WishRead,
 } from "../api";
-import { meResponse, userRead } from "../test/auth";
+import { AS, meResponse, userRead } from "../test/auth";
 import { FakeSocket } from "../test/fakeSocket";
 import { iconNames } from "../test/icons";
 import { tagRead } from "../test/tags";
@@ -184,7 +184,7 @@ function picked(
 }
 
 /** Signed in by default: favorites need an account to belong to. */
-const ACCOUNT: Partial<MeRead> = { user: userRead(), role: "user" };
+const ACCOUNT: Partial<MeRead> = { user: userRead(), ...AS.user };
 
 const SINGING = ["songs.view", "wishlist.view", "karaoke.sing"];
 
@@ -353,7 +353,7 @@ test("the favorites scope spins the hearted songs and counts them", async () => 
 });
 
 test("without an account favorites cannot be picked and are not fetched", async () => {
-  renderSpinner([QUEEN, AFRICA], [], [], { user: null, role: "guest" });
+  renderSpinner([QUEEN, AFRICA], [], [], { user: null, ...AS.guest });
 
   await screen.findByRole("combobox", { name: "Pick from" });
   expect(scopeOption("Favorites")).toBeDisabled();

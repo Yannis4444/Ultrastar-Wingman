@@ -28,6 +28,7 @@ from test_wishlist_api import (
 )
 from ultrastar_wingman.app import create_app
 from ultrastar_wingman.auth.deps import COOKIE_NAME
+from ultrastar_wingman.auth.permissions import TRUSTED_GROUP_ID
 from ultrastar_wingman.config import BootstrapSettings
 from ultrastar_wingman.library.model import Favorite, Playlist, PlaylistEntry, PlaylistMember
 from ultrastar_wingman.songs.model import Song
@@ -247,7 +248,7 @@ async def test_the_listing_names_the_first_songs_for_the_cover_mosaic(
 
 async def test_a_playlist_needs_an_account(app_with_songs: FastAPI) -> None:
     """401, not 403: a playlist has to belong to somebody, so "log in" is the useful answer
-    rather than "the guest role lacks a capability it could never hold"."""
+    rather than "Guest lacks a capability it could never hold"."""
     async with guest(app_with_songs) as client:
         refused = await client.post("/api/v1/playlists", json={"name": "Party"})
 
@@ -343,9 +344,9 @@ async def test_mutating_somebody_elses_private_playlist_is_404(app_with_songs: F
 
 
 async def moderator(app: FastAPI, username: str = "boss") -> AsyncClient:
-    """A client holding `playlists.moderate` — `trusted` holds it by default now, so the
+    """A client holding `playlists.moderate` — Trusted holds it by default now, so the
     party's helpers can tidy up the global lists without being administrators."""
-    user = await add_user(factory(app), username, "trusted")
+    user = await add_user(factory(app), username, groups=[TRUSTED_GROUP_ID])
     await add_session(factory(app), f"{username}-token", user)
     client = guest(app)
     set_cookie(client, COOKIE_NAME, f"{username}-token")
@@ -736,7 +737,7 @@ async def test_the_host_session_moderates_a_global_list_but_owns_nothing(
         assert needs_an_account.json() == {"detail": "not_authenticated"}
 
 
-async def test_copying_is_a_right_a_role_holds(app_with_songs: FastAPI) -> None:
+async def test_copying_is_a_right_a_group_gives(app_with_songs: FastAPI) -> None:
     """403 rather than 401: `playlists.manage` is checked before the account is, so the
     permission matrix can see the route."""
     owner = await account(app_with_songs, "owner")

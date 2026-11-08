@@ -31,7 +31,7 @@ answers the same way for both, so a probe learns nothing.
     curl -b wingman.jar http://localhost:8080/api/v1/auth/me
     ```
 
-    `GET /auth/me` answers with your account, your role, and the exact list of
+    `GET /auth/me` answers with your account, your groups, and the exact list of
     capabilities you hold. Call it first when a request is refused.
 
 ## Register the account and give it a role
@@ -47,8 +47,9 @@ A name somebody already took is `409` with `duplicate_username`.
     before the bot gets one.
 
 A new account holds the `user` role. An administrator changes that on **User** >
-**Players & accounts**. Over the API it is a `PATCH` to
-`/api/v1/users/{user_id}` with a `role` field, and it takes `users.manage`.
+**Players & accounts**. Over the API it is a `PUT` to
+`/api/v1/users/{user_id}/groups` with the account's whole list of `groups`,
+and it takes `users.manage`.
 
 Give the script the smallest role that covers what it does. See
 [Roles and permissions](../people/roles.md) for what the four roles are for,

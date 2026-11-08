@@ -82,7 +82,7 @@ what the writes take. Reads and writes that take no capability say so.
 | `/stats` | Parties and their scores, one sing whole, and the two corrections to one | `stats.view` and `stats.history`, then `stats.manage`, `stats.hide` and `stats.moderate` |
 | `/achievements` | The catalog of achievements, and what a player earned. A listed achievement carries `holder_count`, how many players earned it, and `null` where the name is hidden too | None to read, `achievements.manage` to write |
 | `/settings` | Every setting the app has | `settings.view`, then `settings.manage` |
-| `/auth`, `/users`, `/permissions` | Accounts, logging in, roles, and what a role may do | None for `/auth`, then `users.view`, `users.manage`, `permissions.manage` |
+| `/auth`, `/users`, `/groups` | Accounts, logging in, groups, and what a group may do | None for `/auth`, then `users.view`, `users.manage`, `permissions.manage` |
 | `/join` | The address the QR code on the TV carries | None |
 | `/health` | The name and version of the running app | None |
 

@@ -54,14 +54,22 @@ plug in from outside the repo).
 ## Permissions
 
 - Permission checks live in one place (FastAPI dependencies) and are named by
-  capability (`downloads.manage`, `playlists.manage`, …), not by role. Roles are
-  bundles of capabilities.
+  capability (`downloads.manage`, `playlists.manage`, …), not by group. Groups
+  are bundles of capabilities ([permission-groups.md](permission-groups.md)):
+  a caller without an account is in Guest, every account is in User and in any
+  number of other groups, and holds the union of their bundles. Admin is a
+  rule, not rows: its members hold every capability whatever the tables say.
+  Nothing in Wingman asks which group somebody is in.
+- Who may change the groups is held to two rules, in `auth/groups.py`: only an
+  administrator changes who is in Admin, and nobody but an administrator hands
+  out a right they do not hold — so `users.manage` and `permissions.manage` are
+  safe to give a helper.
 - The host UI (the TV where USDX runs) is always admin — model this as a
   trusted local session, not a hardcoded bypass inside individual handlers.
 - **Per-resource rights sit under the capability, not beside it.** A capability
   opens the door (`playlists.manage`, `tags.manage`); which resource it reaches
   is a row: `playlist_members` grants read/write/admin on one list, and
-  `tag_permissions` grants view / view_songs / assign on one tag, per role or
+  `tag_permissions` grants view / view_songs / assign on one tag, per group or
   per account. Those row checks live in the owning service (`library/`,
   `tags/`), never in `auth/deps.py` — `deps.py` only answers "does this
   principal hold the capability".

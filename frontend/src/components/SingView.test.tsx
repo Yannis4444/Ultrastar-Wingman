@@ -13,7 +13,7 @@ import type {
   SongRead,
 } from "../api";
 import { cardDate, shortTime } from "../duration";
-import { meResponse, userRead } from "../test/auth";
+import { AS, meResponse, userRead } from "../test/auth";
 import { FakeSocket } from "../test/fakeSocket";
 import { iconNames } from "../test/icons";
 import SingView from "./SingView";
@@ -169,7 +169,7 @@ beforeEach(() => {
   getMe.mockResolvedValue(
     meResponse(["stats.view", "players.view"], {
       user: userRead({ username: "Bob", player_id: "player-bob" }),
-      role: "user",
+      ...AS.user,
     }),
   );
   readSing.mockResolvedValue(detail());

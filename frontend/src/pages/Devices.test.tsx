@@ -17,7 +17,7 @@ import type {
   ReaderRead,
 } from "../api";
 import { shortDate, shortTime } from "../duration";
-import { meResponse, userRead } from "../test/auth";
+import { AS, meResponse, userRead } from "../test/auth";
 import { FakeSocket } from "../test/fakeSocket";
 import Devices from "./Devices";
 
@@ -60,7 +60,7 @@ vi.mock("../api/sdk.gen", async (importOriginal) => ({
 }));
 
 const MANAGER = ["devices.manage", "players.view", "playlists.view"];
-const ACCOUNT: Partial<MeRead> = { user: userRead(), role: "admin" };
+const ACCOUNT: Partial<MeRead> = { user: userRead(), ...AS.admin };
 const SEEN = "2026-08-12T14:03:00Z";
 
 const SETTINGS: DeviceSettings = {

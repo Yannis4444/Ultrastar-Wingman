@@ -7,7 +7,7 @@ import {
   within,
 } from "@testing-library/react";
 import type { CurrentSing, MusicRead, MusicTrackRead } from "../api";
-import { meResponse, userRead } from "../test/auth";
+import { AS, meResponse, userRead } from "../test/auth";
 import { FakeSocket } from "../test/fakeSocket";
 import { iconNames } from "../test/icons";
 import HomeStage from "./HomeStage";
@@ -162,7 +162,7 @@ const FULL = [
 
 function signedIn(capabilities: string[] = FULL): void {
   getMe.mockResolvedValue(
-    meResponse(capabilities, { user: userRead(), role: "user" }),
+    meResponse(capabilities, { user: userRead(), ...AS.user }),
   );
 }
 

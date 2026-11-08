@@ -10,7 +10,7 @@ import { MemoryRouter } from "react-router-dom";
 import type { ScoreWithContext, SongRead } from "../api";
 import { chartTheme } from "../chartTheme";
 import { shortDate } from "../duration";
-import { meResponse, userRead } from "../test/auth";
+import { AS, meResponse, userRead } from "../test/auth";
 import { iconNames } from "../test/icons";
 import UserStats from "./UserStats";
 
@@ -130,7 +130,7 @@ function loggedIn(
   getMe.mockResolvedValue(
     meResponse(capabilities, {
       user: userRead({ username: "Alice", player_id: playerId }),
-      role: "user",
+      ...AS.user,
     }),
   );
 }

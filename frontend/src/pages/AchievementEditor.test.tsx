@@ -15,7 +15,7 @@ import {
   achievementSettings,
   condition,
 } from "../test/achievements";
-import { meResponse, userRead } from "../test/auth";
+import { AS, meResponse, userRead } from "../test/auth";
 import { FakeSocket } from "../test/fakeSocket";
 import AchievementEditor from "./AchievementEditor";
 
@@ -67,7 +67,7 @@ function builtIn(overrides: Partial<AchievementRead> = {}): AchievementRead {
 }
 
 const BUILT_IN_PATH = "/user/achievements/builtin-score-9000";
-const ACCOUNT: Partial<MeRead> = { user: userRead(), role: "trusted" };
+const ACCOUNT: Partial<MeRead> = { user: userRead(), ...AS.trusted };
 
 /** Where a create or a delete has taken the reader. */
 function Probe() {

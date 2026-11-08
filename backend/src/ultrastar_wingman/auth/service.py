@@ -17,8 +17,9 @@ from ..library import service as library
 from ..players import service as players
 from ..players.model import Player
 from ..tags import service as tags
-from .model import User, UserSession, as_utc, utcnow
-from .permissions import ADMIN, ASSIGNABLE_ROLES, USER, UnknownRoleError
+from .groups import AdminRequiredError, LastAdminError, admin_count, groups_of
+from .model import User, UserGroup, UserSession, as_utc, utcnow
+from .permissions import ADMIN
 from .providers import LOCAL, OIDC, find_by_username, hash_password
 from .schema import UserRead, read_user
 
@@ -61,11 +62,6 @@ class DuplicateUsernameError(ValueError):
     def __init__(self, username: str) -> None:
         super().__init__(f"'{username}' is taken")
         self.username = username
-
-
-class LastAdminError(ValueError):
-    def __init__(self) -> None:
-        super().__init__("the last administrator cannot be demoted or deleted")
 
 
 def new_token() -> str:
@@ -186,10 +182,10 @@ async def register_user(session: AsyncSession, username: str, password: str) -> 
     if await find_by_username(session, username) is not None:
         raise DuplicateUsernameError(username)
 
+    first = await _is_first_account(session)
     user = User(
         username=username,
         password_hash=hash_password(password),
-        role=await _role_for_new_user(session),
         auth_provider=LOCAL,
     )
     session.add(user)
@@ -198,6 +194,7 @@ async def register_user(session: AsyncSession, username: str, password: str) -> 
         # below, so `lower(username)` refuses a name taken since the check above *there*,
         # while the player row goes in at the commit and `lower(name)` refuses it there.
         await session.flush()
+        _groups_for_new_user(session, user, first)
         await _attach_player(session, user)
         await session.commit()
     except IntegrityError as error:
@@ -206,7 +203,7 @@ async def register_user(session: AsyncSession, username: str, password: str) -> 
         # check above would have given it a moment earlier.
         await session.rollback()
         raise DuplicateUsernameError(username) from error
-    logger.info("'%s' registered an account (role %s)", user.username, user.role)
+    logger.info("'%s' registered an account%s", user.username, _first_tail(first))
     # A new player, or a guest's one turned into the account's.
     await players.announce_players()
     return user
@@ -233,11 +230,11 @@ async def upsert_oidc_user(session: AsyncSession, subject: str, username: str) -
     if await find_by_username(session, username) is not None:
         raise DuplicateUsernameError(username)
 
+    first = await _is_first_account(session)
     user = User(
         username=username,
         # No password: there is nothing to check locally, ever.
         password_hash=None,
-        role=await _role_for_new_user(session),
         auth_provider=OIDC,
         oidc_subject=subject,
     )
@@ -245,8 +242,10 @@ async def upsert_oidc_user(session: AsyncSession, subject: str, username: str) -
     try:
         # The whole write, not the commit alone: the account row goes in at this `flush`,
         # so the two indexes on it — oidc_subject and lower(username) — refuse it here,
-        # and only the player's lower(name) is left to refuse it at the commit.
+        # and only the player's lower(name) is left to refuse it at the commit. Nothing in
+        # the ID token is read for groups: the account lands in User alone (bar the first).
         await session.flush()
+        _groups_for_new_user(session, user, first)
         await _attach_player(session, user)
         await session.commit()
     except IntegrityError as error:
@@ -264,7 +263,7 @@ async def upsert_oidc_user(session: AsyncSession, subject: str, username: str) -
             raise DuplicateUsernameError(username) from error
         return existing
     logger.info(
-        "'%s' registered an account through single sign-on (role %s)", user.username, user.role
+        "'%s' registered an account through single sign-on%s", user.username, _first_tail(first)
     )
     await players.announce_players()
     return user
@@ -296,9 +295,20 @@ async def free_username(session: AsyncSession, wanted: str) -> str:
     raise DuplicateUsernameError(wanted)
 
 
-async def _role_for_new_user(session: AsyncSession) -> str:
-    """The very first account is the administrator — there is nobody who could grant it."""
-    return USER if await session.scalar(select(func.count()).select_from(User)) else ADMIN
+async def _is_first_account(session: AsyncSession) -> bool:
+    return not await session.scalar(select(func.count()).select_from(User))
+
+
+def _groups_for_new_user(session: AsyncSession, user: User, first: bool) -> None:
+    """The very first account is the administrator — there is nobody who could put it in
+    Admin. Every later one gets no row and is in User alone. Called after the account's
+    flush, so its id exists, and before the commit that writes both."""
+    if first:
+        session.add(UserGroup(user_id=user.id, group_id=ADMIN))
+
+
+def _first_tail(first: bool) -> str:
+    return " (administrator)" if first else ""
 
 
 async def _attach_player(session: AsyncSession, user: User) -> Player:
@@ -329,7 +339,7 @@ async def read_user_with_player(session: AsyncSession, user: User) -> UserRead:
     """An account as the API answers with it, player and all. Every way into an account
     answers with this, the OIDC ones included, so there is one shape to read."""
     player = await player_for_user(session, user.id)
-    return read_user(user, None if player is None else player.id)
+    return read_user(user, None if player is None else player.id, await groups_of(session, user.id))
 
 
 async def player_for_user(session: AsyncSession, user_id: str) -> Player | None:
@@ -368,29 +378,28 @@ async def list_users(session: AsyncSession) -> Sequence[User]:
     return result.all()
 
 
-async def set_user_role(session: AsyncSession, user: User, role: str) -> User:
-    """Raises `UnknownRoleError`, or `LastAdminError` when this would leave no admin."""
-    if role not in ASSIGNABLE_ROLES:
-        raise UnknownRoleError(role)
-    if user.role == ADMIN and role != ADMIN and await _admin_count(session) <= 1:
-        raise LastAdminError
-    user.role = role
-    await session.commit()
-    logger.info("Account '%s' now has the role %s", user.username, role)
-    return user
-
-
-async def delete_user(session: AsyncSession, user: User) -> None:
+async def delete_user(session: AsyncSession, user: User, by_admin: bool) -> None:
     """Delete the account. Its player survives as a temporary one so the statistics it
-    already collected keep their owner. Raises `LastAdminError`."""
-    if user.role == ADMIN and await _admin_count(session) <= 1:
+    already collected keep their owner.
+
+    An account in Admin is an administrator's to delete (permission-groups.md §5, rule 1:
+    `AdminRequiredError` for anybody else), and never the last one (`LastAdminError`).
+    Deleting any other account takes rights away and gives none, so `users.manage` is enough.
+    """
+    in_admin = await session.get(UserGroup, (user.id, ADMIN)) is not None
+    if in_admin and not by_admin:
+        raise AdminRequiredError
+    if in_admin and await admin_count(session) <= 1:
         raise LastAdminError
     player = await player_for_user(session, user.id)
     if player is not None:
         player.user_id = None
         player.registered = False
-    # In the same transaction as the delete: a live cookie must not outlive its account.
+    # In the same transaction as the delete: a live cookie must not outlive its account, and
+    # neither may its memberships. No `groups.changed`: an account leaving moves only a member
+    # count, and `players.changed` below already reaches the pages that draw one.
     await session.execute(delete(UserSession).where(UserSession.user_id == user.id))
+    await session.execute(delete(UserGroup).where(UserGroup.user_id == user.id))
     # Statistics belong to the player and survive; wishes, favorites and playlists belong
     # to the account and go with it.
     await library.delete_user_data(session, user.id)
@@ -408,9 +417,3 @@ async def delete_user(session: AsyncSession, user: User) -> None:
     if player is not None:
         # Its player is a temporary one now.
         await players.announce_players()
-
-
-async def _admin_count(session: AsyncSession) -> int:
-    return (
-        await session.scalar(select(func.count()).select_from(User).where(User.role == ADMIN)) or 0
-    )

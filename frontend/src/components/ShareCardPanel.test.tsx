@@ -13,7 +13,7 @@ import { coverUrl } from "../shareCard/content";
 import { LOGO_URL, type CardRequest } from "../shareCard/draw";
 import { TOGGLES_NONE, TOGGLES_REST } from "../shareCard/possible";
 import { PREFS_KEY } from "../shareCard/prefs";
-import { meResponse, userRead } from "../test/auth";
+import { AS, meResponse, userRead } from "../test/auth";
 import { iconNames } from "../test/icons";
 import {
   PICTURED,
@@ -117,7 +117,7 @@ beforeEach(() => {
   getMe.mockResolvedValue(
     meResponse(["stats.view"], {
       user: userRead({ player_id: "chiara", username: "Chiara" }),
-      role: "user",
+      ...AS.user,
     }),
   );
   renderCard.mockImplementation(() =>

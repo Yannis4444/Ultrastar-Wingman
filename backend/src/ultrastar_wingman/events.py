@@ -231,6 +231,17 @@ class TagsChanged(Event):
     event: Literal["tags.changed"] = "tags.changed"
 
 
+class GroupsChanged(Event):
+    """A permission group was created, renamed, had its capabilities set or was deleted, or
+    somebody was put in a group or taken out of one (docs/dev/permission-groups.md §4). No
+    payload, the `tags.changed` precedent: what a reader may know about groups depends on who
+    they are. Every open page reads `/auth/me` again on it, so a right given or taken shows
+    without a reload. Not sent when an account is registered or deleted: that moves only a
+    member count, and `players.changed` already goes out for both."""
+
+    event: Literal["groups.changed"] = "groups.changed"
+
+
 class SongTagsChanged(Event):
     """One song was tagged or untagged. Ids only, for the same reason: a client that may
     not view the tag learns nothing from the pair it cannot resolve."""

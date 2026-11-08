@@ -16,7 +16,13 @@ vi.mock("./api/sdk.gen", async (importOriginal) => ({
   listSongs: vi.fn(async () => ({ data: { songs: [] } })),
   listWishlist: vi.fn(async () => ({ data: { wishes: [] } })),
   getMe: vi.fn(async () => ({
-    data: { user: null, role: "guest", capabilities: [], is_host: false },
+    data: {
+      user: null,
+      groups: [{ id: "guest", name: "Guest" }],
+      is_admin: false,
+      capabilities: [],
+      is_host: false,
+    },
   })),
   // The USDB page asks for these while /auth/me is still in flight.
   usdbStatus: vi.fn(async () => ({ data: { logged_in: false } })),

@@ -30,13 +30,14 @@ BuiltInTagKind = Literal["mark", "boolean", "valued"]
 
 
 class TagPermissionRead(BaseModel):
-    """Who may do one thing with a tag: a role, or one account."""
+    """Who may do one thing with a tag: a permission group, or one account. No group name:
+    the tag editor has `GET /groups` for that."""
 
     action: TagAction
-    role: str | None
+    group_id: str | None
     user_id: str | None
     # Filled beside `user_id` so the manage UI does not need a second request; None for a
-    # role row and for an account that is gone.
+    # group row and for an account that is gone.
     username: str | None
 
 

@@ -111,8 +111,10 @@ A group the host makes gets a `uuid4().hex` id. Its name is:
   *Guest*, *User* and *Admin*, that index alone refuses `admin`, `ADMIN` or ` Admin `: the
   three names and their case variants are reserved without a list of reserved words.
 
-A clash is 409 `duplicate_group_name`, checked before the write and caught again as an
-`IntegrityError` at the flush, the `tags._check_name` shape. The id never changes on a rename,
+A clash is 409 `duplicate_group_name`, checked before the write (the `tags._check_name`
+shape) and caught again as an `IntegrityError` at the flush and the commit, the way
+`auth.service.register_user` catches a taken username — `tags._check_name` itself checks only
+before. The id never changes on a rename,
 so a rename moves nothing: memberships, tag rows and the editor's URL all follow.
 
 ### 2.5 One order
@@ -165,7 +167,8 @@ A stored group id that no longer names a group — a hand-edited row — gives n
 500, the `capabilities_for` rule of today. It is not listed either: `UserRead.groups`,
 `MeRead.groups` and the member counts read `user_groups` joined to `groups`, so the next
 `PUT /users/{id}/groups` the accounts page sends (the whole set, as listed) drops the row. A tag
-row naming a gone group is listed by `GET /tags/{id}` as stored, and the tag editor leaves it
+row naming a gone group is listed by `GET /tags` (its `permissions`, for a `tags.manage`
+caller — there is no `GET /tags/{id}`) as stored, and the tag editor leaves it
 out of what it sends back (§9.4), so it can never block a save with 422 `unknown_group`.
 
 ### 3.3 The fixed points
@@ -191,7 +194,9 @@ out of what it sends back (§9.4), so it can never block a save with 422 `unknow
   exists. The host screen does not count: it is one browser, and its token works once per start.
 - **Deleting a group** deletes its `group_capabilities`, its `user_groups` and its
   `tag_permissions` rows, in one transaction. Its members lose the group and nothing else:
-  their accounts, players, wishes, playlists and the rights other groups give them stay.
+  their accounts, players, wishes, playlists and the rights other groups give them stay. When
+  it had tag rows, `tags.changed` follows `groups.changed`, because who may see which tag (and
+  so which songs) moved with them.
 - **Deleting an account** deletes its `user_groups` rows in the transaction that already deletes
   its sessions (`service.delete_user`).
 
@@ -201,7 +206,10 @@ out of what it sends back (§9.4), so it can never block a save with 422 `unknow
 `_cache: dict[str, frozenset[str]] | None`, every group in the table with its capabilities
 (unknown capability names dropped as today) and `admin` set to `ALL_CAPABILITIES` in code. It is
 loaded by one query and invalidated by every write that changes it: creating a group, setting
-its capabilities, deleting it. A rename changes no capability and leaves it alone.
+its capabilities, deleting it. A rename changes no capability and leaves it alone. A load
+that a write's invalidation overtakes — the write committed while the load was suspended in
+its two reads — answers its own caller and is not kept (`_generation`), so a right taken away
+never outlives the write that took it.
 
 **Memberships are not cached.** `current_principal` already reads the session row and the
 `User` row on every request; it reads `select(UserGroup.group_id).where(user_id == …)` beside
@@ -310,8 +318,8 @@ All under `/api/v1`, in `auth/api.py`.
 | Route | Requires | Answers | Refusals |
 |---|---|---|---|
 | `GET /groups` | any of `users.view`, `users.manage`, `permissions.manage`, `tags.manage` | `GroupList` | 403 `missing_permission:users.view` (the first of the four) |
-| `POST /groups` | `permissions.manage` | 201 `GroupRead` | 409 `duplicate_group_name`, 422 (name, unknown capability), 403 (rule 2) |
-| `PATCH /groups/{group_id}` | `permissions.manage` | `GroupRead` | 404, 409 `built_in_group` (a name for a built-in), 409 `admin_not_editable`, 409 `duplicate_group_name`, 422, 403 (rule 2) |
+| `POST /groups` | `permissions.manage` | 201 `GroupRead` | 409 `duplicate_group_name`, 422 (name; `unknown_capability`), 403 (rule 2) |
+| `PATCH /groups/{group_id}` | `permissions.manage` | `GroupRead` | 404, 409 `built_in_group` (a name for a built-in), 409 `admin_not_editable`, 409 `duplicate_group_name`, 422 (name; `unknown_capability`), 403 (rule 2) |
 | `DELETE /groups/{group_id}` | `permissions.manage` | 204 | 404, 409 `built_in_group` |
 | `PUT /users/{user_id}/groups` | `users.manage` | `UserRead` | 404, 422 `unknown_group` / `not_assignable`, 403 `admin_required` / `missing_permission:…`, 409 `last_admin` |
 | `DELETE /users/{user_id}` | `users.manage` (unchanged) | 204 | + 403 `admin_required` (rule 1) |
@@ -451,8 +459,12 @@ runs. The next start runs the revision again from the top, which must work:
 - every `CREATE TABLE` and `CREATE INDEX` of steps 1–3 is `IF NOT EXISTS` (`op.create_table` /
   `op.create_index` with `if_not_exists=True`, or `op.execute` of the literal statement);
 - every insert of steps 1–3 is insert-if-missing (§8.4's shape);
+- steps 4 and 5 run only while the `role` column they remove is still there (and step 4 adds
+  `group_id` only while it is missing), and step 6 is `DROP TABLE IF EXISTS` — belt and braces
+  beyond what the measured failure leaves, so a revision interrupted anywhere runs again;
 - `test_permission_groups_migration.py` runs the upgrade on a database at the previous revision
-  that already holds an empty `groups` table and its index, and expects the same result.
+  that already holds an empty `groups` table and its index, and expects the same result (and
+  once more over all three new tables with some of their rows already in).
 
 Additions first, rebuilds after, the drop last:
 
@@ -472,7 +484,7 @@ Additions first, rebuilds after, the drop last:
    reflection misses): add `group_id` String(32) nullable, fill it from `role` (`guest`, `user`
    as they are, `trusted` → the Trusted id), **delete every row whose `role` is set and is none
    of those three** — `admin` (Admin sees every tag by rule; today's `_check_subjects` let such a
-   row in) and any other string (only a hand edit makes one; it matched no caller, and its
+   row in) and any other string (only a hand edit makes one; it matched no account the API could make, and its
    `group_id` would stay NULL beside a NULL `user_id` and break the new check) — then drop
    `role`, `ck_tag_permissions_one_subject` and `uq_tag_permissions_role` and create
    `ck_tag_permissions_one_subject` over `(group_id IS NULL) <> (user_id IS NULL)` and
@@ -509,11 +521,14 @@ it is held to §8.1's re-run rule only as far as its own creates go (`IF NOT EXI
   had taken from Trusted something User still holds, that helper **gains** it. Never a loss.
 - Tags: a Guest or User row keeps meaning what it meant (Guest's rows still apply to no
   account, §3.2); a Trusted member now also gets User's rows. Again only a gain. The rows the
-  migration deletes (`admin` and unknown strings, §8.1 step 4) gave nobody anything.
+  migration deletes (`admin` and unknown strings, §8.1 step 4) gave no account the API could
+  have made anything.
 - An account whose `role` is none of the four, or `guest` — neither is reachable through the
   API (`ASSIGNABLE_ROLES`); only a hand edit makes one — becomes a plain account in User. An
-  unknown string held nothing and gains User's; `guest` held Guest's and now holds User's, a
-  loss only where the host had given Guest something User lacks. The docstring names this.
+  unknown string held nothing — unless a second hand edit gave that string `role_permissions`
+  or tag rows of its own, which are not copied — and gains User's; `guest` held Guest's and
+  now holds User's, a loss only where the host had given Guest something User lacks. The
+  docstring names this.
 
 So the rule the docstring states: **this migration never takes a right away from any account
 the API could have made, nor from a caller without one; where the old bundles were not nested,
@@ -852,8 +867,9 @@ Each with what this document builds; the alternative in brackets.
   (`guest`, `user`, `TRUSTED_GROUP_ID`, written out of today's three frozensets, no admin); the
   long comment on who starts with what stays, worded for groups; the cache keyed by group id;
   `capabilities_for_groups`; `UnknownGroupError`, `UnknownCapabilityError`,
-  `AdminNotEditableError`, `BuiltInGroupError`. `set_role_capabilities` moves into the groups
-  service.
+  `AdminNotEditableError`, `BuiltInGroupError`, and `NotAssignableError` (User and Guest for a
+  membership, Admin on a tag row — in this module because both `auth.groups` and
+  `tags.service` raise it). `set_role_capabilities` moves into the groups service.
 - `auth/model.py`: `Group`, `GroupCapability`, `UserGroup`; `User.role` and `RolePermission`
   gone; the module docstring names the new tables.
 - `auth/groups.py` (new, FastAPI-free, the `oidc_picture.py` split): `list_groups` (§2.5's
@@ -863,8 +879,9 @@ Each with what this document builds; the alternative in brackets.
   `event_bus.broadcast(GroupsChanged())` after the commit.
 - `auth/service.py`: `_groups_for_new_user` in `register_user` and `upsert_oidc_user` (one
   `admin` row for the first account), `delete_user(…, by_admin: bool)` (rule 1, last admin, its
-  `user_groups` rows; `players.changed` as today, no `groups.changed`, §4), `_admin_count` over
-  `user_groups` joined to `users`;
+  `user_groups` rows; `players.changed` as today, no `groups.changed`, §4); the count over
+  `user_groups` joined to `users` is `groups.admin_count`, beside `LastAdminError` and
+  `AdminRequiredError` in `groups.py`, which `service.py` imports (one direction, no cycle);
   `set_user_role` and `ASSIGNABLE_ROLES` gone.
 - `auth/schema.py`: `GroupRead`, `GroupList`, `GroupRef`, `MeRead` (`groups`, `is_admin`),
   `UserRead.groups`, `read_user` taking the account's groups; `PermissionsRead` gone.
@@ -878,8 +895,17 @@ Each with what this document builds; the alternative in brackets.
 - `docs/screenshots/seed.py` and `scenario.py`: `body["groups"]` instead of `body["role"]`,
   `view_groups` / `assign_groups` with the Trusted id; ruff check and format as CLAUDE.md says.
 - Regenerate the frontend client (recipes.md, the offline variant when no backend is on
-  :8080) and commit `frontend/src/api/`. The frontend will not build against it until 09; 08
-  says so in its report and leaves the TypeScript untouched.
+  :8080) and commit `frontend/src/api/`. Every check suite stays green at the end of 08, so 08
+  also makes the **smallest** frontend adaptation that keeps the existing pages compiling and
+  working against the new API — temporary until 09, which redesigns them per §9: `auth.ts`
+  exposes `groups`, `isAdmin` and `groupWords` (§9.3's line, which the user tile shows in
+  place of the role word); `test/auth.ts` (`AS`, `MEMBER_OF`, `TRUSTED_GROUP_ID`) and every
+  test literal carrying `role` follow `MeRead` / `UserRead`; `RolePermissions` is the old
+  matrix over the groups `GET /groups` answers (a column per group but Admin, one
+  `PATCH /groups/{id}` per tick); `PeopleAdmin`'s role select is a select of *Put in …* /
+  *Take out of …* options calling `PUT /users/{id}/groups`; the tag editor's matrix has a
+  column per group but Admin, `NEW_TAG_GRANTS` per §7, and leaves out a row for a group the
+  list does not hold.
 
 ### 15.2 08: backend tests
 
@@ -887,9 +913,13 @@ Each with what this document builds; the alternative in brackets.
   place of `role`; the `clients` fixture builds `user` (no group), `trusted` (the Trusted row)
   and `admin` (the `admin` row); `fresh_permission_cache` keeps resetting the cache. Every test
   that passes a role (`grep -rln "role" backend/tests`: `test_auth_api`, `test_auth_host`,
-  `test_auth_oidc`, `test_devices_api`, `test_events`, `test_karaoke_selection`,
-  `test_permissions`, `test_playlists_api`, `test_stats_api`, `test_tags_api`, the achievements
-  and stats migration tests) moves to groups.
+  `test_auth_oidc`, `test_events`, `test_karaoke_selection`, `test_permissions`,
+  `test_playlists_api`, `test_stats_api`, `test_tags_api`, the achievements and stats migration
+  tests — and, passing it positionally or through a dict the grep misses, `test_achievements_api`,
+  `test_comments_api`, `test_players_api` and `test_wishlist_api`; `test_devices_api`'s `role`
+  is a reader's and stays) moves to groups. `add_user` takes `groups` keyword-only, so a role
+  string left positional fails loudly instead of becoming one-letter group ids, and
+  `conftest.IDENTITY_GROUPS` is the one map from the old identities to their groups.
 - `ROUTES` in `tests/test_permissions.py` is one capability per route, and its matrix test says
   every identity without that capability gets 403. `GET /groups` takes any of four, so it needs
   an any-of form there: the route listed with all four, an identity holding none of them 403,

@@ -84,7 +84,7 @@ def guest(app: FastAPI) -> AsyncClient:
 
 async def account(app: FastAPI, username: str) -> AsyncClient:
     """A logged-in `user` account, its password the shared test one."""
-    user_id = await add_user(factory(app), username, "user")
+    user_id = await add_user(factory(app), username)
     token = f"{username}-token"
     await add_session(factory(app), token, user_id)
     return AsyncClient(
@@ -467,7 +467,7 @@ async def test_a_plain_account_may_not_clear_somebody_else_s_wish(
 
 async def singer(app: FastAPI, username: str) -> tuple[AsyncClient, str]:
     """A logged-in `user` account that sings as a player of its own, and that player's id."""
-    user_id = await add_user(factory(app), username, "user")
+    user_id = await add_user(factory(app), username)
     token = f"{username}-token"
     await add_session(factory(app), token, user_id)
     async with factory(app)() as session:

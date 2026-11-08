@@ -7,7 +7,7 @@ import {
   within,
 } from "@testing-library/react";
 import type { CommentRead, ScoreWithContext, SongRead, TagRead } from "../api";
-import { meResponse, userRead } from "../test/auth";
+import { AS, meResponse, userRead } from "../test/auth";
 import { FakeSocket } from "../test/fakeSocket";
 import { iconNames } from "../test/icons";
 import { tagRead } from "../test/tags";
@@ -589,7 +589,7 @@ test("the action bar holds the counts first, then the errands", async () => {
   getMe.mockResolvedValue(
     meResponse(["songs.view", "playlists.manage", "stats.history"], {
       user: userRead(),
-      role: "user",
+      ...AS.user,
     }),
   );
   withTags([BROKEN], ["t-broken"]);
@@ -800,7 +800,7 @@ function withPlaylist(
   getMe.mockResolvedValue(
     meResponse(["songs.view", "playlists.manage"], {
       user: userRead(),
-      role: "user",
+      ...AS.user,
     }),
   );
   listPlaylists.mockResolvedValue({
@@ -920,7 +920,7 @@ test("the picker offers itself with no playlist at all, and makes a private one"
   getMe.mockResolvedValue(
     meResponse(["songs.view", "playlists.manage"], {
       user: userRead(),
-      role: "user",
+      ...AS.user,
     }),
   );
   listPlaylists.mockResolvedValue({ data: { playlists: [] } });
@@ -1058,7 +1058,7 @@ test("the host screen gets no playlist errand: a playlist is somebody's", async 
   // Every right and no account, exactly what the host token grants.
   getMe.mockResolvedValue(
     meResponse(["songs.view", "playlists.manage", "songs.edit"], {
-      role: "admin",
+      ...AS.host,
       is_host: true,
     }),
   );
@@ -1306,7 +1306,7 @@ function asAccount(capabilities: string[]) {
   getMe.mockResolvedValue(
     meResponse(["songs.view", ...capabilities], {
       user: userRead(),
-      role: "user",
+      ...AS.user,
     }),
   );
 }
@@ -1490,7 +1490,7 @@ test("the host screen is an administrator without a name to sign with", async ()
   // Every right, no account — exactly what the host token grants.
   getMe.mockResolvedValue(
     meResponse(["songs.view", "comments.write", "comments.moderate"], {
-      role: "admin",
+      ...AS.host,
       is_host: true,
     }),
   );

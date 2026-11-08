@@ -50,8 +50,8 @@ persistent trusted-admin cookie that also works through the vite proxy. The
 token is single-use per backend start; `POST /api/v1/auth/logout` drops you
 back to guest.
 
-Logged-in-*account* UI (a `user` role, a player bound to an account) cannot be
-reached this way. Verify it with unit tests (`meResponse` in
+Logged-in-*account* UI (an account in no group, a player bound to an account)
+cannot be reached this way. Verify it with unit tests (`meResponse` in
 `src/test/auth.ts`) or by intercepting `/api/v1/auth/me` in a harness, and say
 explicitly in the report what stayed unverified.
 

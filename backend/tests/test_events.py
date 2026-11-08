@@ -67,7 +67,7 @@ def become_admin(client: TestClient) -> None:
         "/api/v1/auth/register", json={"username": "host", "password": "password123"}
     )
     assert response.status_code == 201, response.text
-    assert response.json()["role"] == "admin"
+    assert response.json()["groups"] == ["admin"]
 
 
 def next_setting_event(websocket: WebSocketTestSession) -> dict[str, object]:
