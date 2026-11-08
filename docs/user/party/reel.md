@@ -132,7 +132,10 @@ singers are picked, and **Spin again** starts the next song in its place. The
 background music, if any, fades out for it and comes back afterwards. **Song
 preview** under **Sound** in **Settings** switches this off, and **Preview
 volume** beside it sets how loud it plays (see
-[Background music](music.md#the-song-being-picked)).
+[Background music](music.md#the-song-being-picked)). The TV's reel also ticks
+for every cover that passes and clicks when it lands, unless **Sound effects**
+under **Sound** is off. See
+[Sound effects](../host-screen/index.md#sound-effects).
 
 Spinning on the host screen holds the room the way **Sing** does. Nobody else
 can start a song while your phone holds the pick. If somebody is already

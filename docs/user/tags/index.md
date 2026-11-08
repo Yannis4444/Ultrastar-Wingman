@@ -61,7 +61,7 @@ Everybody who may see the tag can bring the songs back. See
 
 ## Who sees what
 
-Every tag carries three separate rights, one row each in the editor.
+Every tag carries three separate rights, one column each in the editor.
 
 | Right | What it means |
 |---|---|

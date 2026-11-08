@@ -61,14 +61,15 @@ API answers with. The OpenAPI document at
 | `wishlist.updated` | A song's wish count changed. Starting a song, taking it off the wishlist for everybody, or deleting it drops every wish for it, so `count` is 0. Hiding a player or showing them again sends one for every song their account wished for | `song_id`, `count` (the wishes of hidden players left out), and `latest`, the time of the newest wish or `null` |
 | `playlists.changed` | A playlist was created, changed, shared, followed, copied, or deleted | `playlist_id`, or `null` when several changed at once |
 | `tags.changed` | A tag was created, edited, deleted, or had its permissions replaced | None. Fetch `GET /tags` again |
+| `groups.changed` | A group was created, renamed, given a right or had one taken away, or deleted, or somebody was put in a group or taken out of one. Registering or deleting an account does not send it | None. Fetch `GET /groups` again, and `GET /auth/me` for your own rights |
 | `song_tags.changed` | A tag was put on a song, or taken off one | `song_id`, `tag_id` |
 | `comments.changed` | Somebody commented on a song, took a comment back, or a moderator removed one | `song_id`, `count` |
 | `devices.changed` | A player selector was added, mapped, or forgotten, a card was given to somebody, a selector option changed, or a device came online, went quiet, or moved a card | None. Fetch `GET /devices` again |
 
 An event with no payload, and one that carries ids only, is deliberate. What a
-client may see of the tags, the playlists, and the achievements depends on who
-that client is, and the socket does not know. Fetch the list again and Wingman
-answers for whoever asks.
+client may see of the tags, the groups, the playlists, and the achievements
+depends on who that client is, and the socket does not know. Fetch the list
+again and Wingman answers for whoever asks.
 
 !!! example "A bot that posts every new wish"
     A few lines in a browser are enough to follow the party live.

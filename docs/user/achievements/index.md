@@ -101,7 +101,9 @@ are done. One singer at a time: their picture and their name, and their badges
 flying in beside the name and the one-line description. At most four badges
 land in a row. Under each description stands how many players hold it now,
 the singer included. A badge only the singer holds reads *First to earn it*.
-Then the next singer, then the results as usual.
+Then the next singer, then the results as usual. Each badge flies in with a
+whoosh, unless the host switched the sound effects off. See
+[Sound effects](../host-screen/index.md#sound-effects).
 
 ![The host screen with Bender's picture and name over two badges, Eighties Marathon and Iron Lungs, each with its description and First to earn it](../assets/screenshots/achievements/host-achievements.png){ width="720" loading=lazy }
 /// caption

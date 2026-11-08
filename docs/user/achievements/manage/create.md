@@ -42,8 +42,9 @@ Wingman's back.
 An achievement is a list of conditions. Once there are two or more,
 **Conditions that have to hold** above them says **All of them** (each one has
 to come true) or **Any of them** (one is enough, and every condition after the
-first then reads *"Or, …"*). Tap **Add condition** and one block appears,
-numbered, with
+first then reads *"Or, …"*). With **Any of them**, the bar on a singer's own
+page follows the condition they are closest to. Tap **Add condition** and one
+block appears, numbered, with
 :wingman-close: **Remove condition** at its corner. A fresh block reads
 *"Over all time, some score of 9000 or more."*, so most achievements change two
 or three boxes.

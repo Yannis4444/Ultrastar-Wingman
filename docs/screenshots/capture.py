@@ -1405,7 +1405,16 @@ def capture_launcher(
                 except CaptureError as error:
                     results[identifier] = Result(row.identity, False, "-", row.ready, str(error))
             # The TV has to be listening before the song ends, or it misses the event that
-            # puts the results on the stage.
+            # puts the results on the stage. Without the picture of the song playing nothing
+            # above waited for that, nor for the stand-in to start: `--id host-results` alone
+            # released a launch that was not there yet.
+            if "host-playing" not in wanted:
+                playing = ROWS["host-playing"]
+                tv.await_ready(playing.ready, "host-playing", timeout=LAUNCHER_TIMEOUT)
+            launch = Path(state.data["usdx_dir"]) / "standin" / "last-launch.json"
+            deadline = time.monotonic() + LAUNCHER_TIMEOUT
+            while not launch.is_file() and time.monotonic() < deadline:
+                time.sleep(0.2)
             seed.command_release(
                 argparse.Namespace(data_dir=Path(state.data["data_dir"]), scores=None)
             )

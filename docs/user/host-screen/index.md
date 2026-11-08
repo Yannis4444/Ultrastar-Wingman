@@ -61,8 +61,9 @@ first three places carry a highlighted rank number.
 **Most wished** is the wishlist, most wished song first, with the number of
 wishes beside each. It holds five songs on its own, and three while **Tonight**
 is up. On a short screen, such as a 720p TV, **Tonight** leaves room for two,
-or for one while the music's line or its controls stand along the bottom. See
-[Wish for a song](../party/wishlist.md).
+or for one while the music's line or its controls stand along the bottom. A
+screen too short for all of them shows as many as fit, and never half a song.
+See [Wish for a song](../party/wishlist.md).
 
 ## While singers are picked
 
@@ -153,13 +154,14 @@ singers. One click anywhere on the page does the same thing.
 ## Sound effects
 
 The host screen makes a few short sounds of its own. The reel ticks for every
-cover that passes and clicks when it lands. Every new badge after a song lands
-with a whoosh. A host screen that opens after the reel has landed stays quiet.
-Like the music, they wait for one click or key press anywhere on the page.
-The phones make none of these sounds, and nothing plays during a song. Switch
-them off with **Sound effects** in the **Sound** group of the settings, and set
-how loud they are with **Effects volume** there. See
-[Settings reference](../settings/reference.md#sound).
+cover that passes and clicks when it lands. Every new badge after a song flies
+in with a whoosh and lands with a soft thud. A host screen that opens after the
+reel has landed stays quiet. Like the music, they wait for one click or key
+press anywhere on the page, and only the host screen that plays the music makes
+them. The phones make none of these sounds, and nothing plays during a song.
+Switch them off with **Sound effects** in the **Sound** group of the settings,
+and set how loud they are with **Effects volume** there. See
+[All settings](../settings/reference.md#sound).
 
 ## The controls that fade
 

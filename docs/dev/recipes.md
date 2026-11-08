@@ -29,7 +29,8 @@ the same commit.
    keeps the two in step. Mention it in `docs/user/people/groups.md`, the page
    that says what each group may do. The permissions UI groups by the
    `<area>` prefix and shows the verb, so a new capability needs no frontend
-   change beyond an area icon if the area is new (`RolePermissions.tsx`).
+   change beyond an area icon if the area is new (`AREA_ICONS` in
+   `components/GroupCapabilities.tsx`).
 5. **Tests** in `tests/test_<module>_api.py`: happy path with `client`
    (admin), the error case. Add the route to `ROUTES` in
    `tests/test_permissions.py` — the matrix test proves that every identity
