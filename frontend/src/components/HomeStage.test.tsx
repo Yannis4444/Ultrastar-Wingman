@@ -7,7 +7,7 @@ import {
   within,
 } from "@testing-library/react";
 import type { CurrentSing, MusicRead, MusicTrackRead } from "../api";
-import { meResponse, userRead } from "../test/auth";
+import { AS, meResponse, userRead } from "../test/auth";
 import { FakeSocket } from "../test/fakeSocket";
 import { iconNames } from "../test/icons";
 import HomeStage from "./HomeStage";
@@ -141,6 +141,7 @@ function music(overrides: Partial<MusicRead> = {}): MusicRead {
     sink_online: true,
     sink_generation: 1,
     volume: { master: 100, music: 60, preview: 100, effects: 80 },
+    sound_effects: true,
     scope: "all",
     ...overrides,
   };
@@ -161,7 +162,7 @@ const FULL = [
 
 function signedIn(capabilities: string[] = FULL): void {
   getMe.mockResolvedValue(
-    meResponse(capabilities, { user: userRead(), role: "user" }),
+    meResponse(capabilities, { user: userRead(), ...AS.user }),
   );
 }
 
@@ -344,6 +345,7 @@ test("a wished background song offers Remove from wishlist, the song modal's nam
         {
           song: BACKGROUND,
           count: 1,
+          weight: 1,
           mine: true,
           latest: "2026-08-23T20:00:00Z",
         },

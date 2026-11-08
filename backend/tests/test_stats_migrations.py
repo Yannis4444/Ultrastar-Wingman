@@ -73,10 +73,12 @@ async def test_the_parties_already_recorded_come_out_on_the_list(tmp_path: Path)
                 text("SELECT id, hidden FROM karaoke_sessions ORDER BY id")
             )
             assert [(row[0], row[1]) for row in rows] == [("party-new", 0), ("party-old", 0)]
+            # Seeded for `admin` by 0028; since 0039 Admin holds every capability by rule, so
+            # no group row names it.
             granted = await connection.execute(
-                text("SELECT role FROM role_permissions WHERE capability = 'stats.hide'")
+                text("SELECT group_id FROM group_capabilities WHERE capability = 'stats.hide'")
             )
-            assert [row[0] for row in granted] == ["admin"]
+            assert [row[0] for row in granted] == []
     finally:
         await engine.dispose()
 

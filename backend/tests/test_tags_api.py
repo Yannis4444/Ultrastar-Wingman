@@ -5,8 +5,9 @@ list — it is what "this song is not there" means for that caller, everywhere: 
 the cover, the audio, wishing for it, favoriting it, putting it in a playlist, singing it
 and its score history all answer 404, because a 403 would confirm the song exists.
 
-Roles are bundles and not a ladder, so every grant is spelled out per role; only `admin`
-(the host screen included) is exempt, the same way it is exempt from `role_permissions`.
+A row names a permission group or one account. An account holds the rows of User and of
+every group it is in, never Guest's; only an administrator (the host screen included) is
+exempt, the same way Admin holds every capability by rule.
 """
 
 import sqlite3
@@ -23,14 +24,17 @@ from fastapi import FastAPI
 from httpx import ASGITransport, AsyncClient
 from sqlalchemy import delete, select
 
-from conftest import BASE_URL, add_session, add_user
+from conftest import BASE_URL, IDENTITY_GROUPS, add_session, add_user
+from test_players_api import PNG
 from test_wishlist_api import OTHER_SONG, SONG, THIRD_SONG, add_songs, factory
 from ultrastar_wingman.app import create_app
 from ultrastar_wingman.auth.deps import COOKIE_NAME
+from ultrastar_wingman.auth.permissions import TRUSTED_GROUP_ID
 from ultrastar_wingman.config import BootstrapSettings
 from ultrastar_wingman.db import migrations_dir
 from ultrastar_wingman.karaoke.model import KaraokeSession, Score, Sing
 from ultrastar_wingman.library.model import PlaylistEntry
+from ultrastar_wingman.players.model import Player
 from ultrastar_wingman.settings import Setting as SettingRow
 from ultrastar_wingman.songs.model import Song
 from ultrastar_wingman.tags import builtin
@@ -47,17 +51,19 @@ from ultrastar_wingman.tags.schema import BuiltInTagId, BuiltInTagKind, TagActio
 BROKEN = "broken"
 
 # The other tag most of these tests need: one everybody may see, whose songs are folded
-# away by default and which trusted accounts may set. Nothing seeds it — the `archive`
-# fixture makes it, the way the handbook tells a party to make it themselves.
+# away by default and which Trusted may set. Nothing seeds it — the `archive` fixture makes
+# it, the way the handbook tells a party to make it themselves. Spelled out for Trusted too,
+# as migration 0013 seeded its own `archive` (which the 0015 tests below count): under groups
+# User's rows already reach Trusted's members.
 ARCHIVE = "archive"
 ARCHIVE_GRANTS: list[dict[str, str]] = [
-    {"action": "view", "role": "guest"},
-    {"action": "view", "role": "user"},
-    {"action": "view", "role": "trusted"},
-    {"action": "view_songs", "role": "guest"},
-    {"action": "view_songs", "role": "user"},
-    {"action": "view_songs", "role": "trusted"},
-    {"action": "assign", "role": "trusted"},
+    {"action": "view", "group_id": "guest"},
+    {"action": "view", "group_id": "user"},
+    {"action": "view", "group_id": TRUSTED_GROUP_ID},
+    {"action": "view_songs", "group_id": "guest"},
+    {"action": "view_songs", "group_id": "user"},
+    {"action": "view_songs", "group_id": TRUSTED_GROUP_ID},
+    {"action": "assign", "group_id": TRUSTED_GROUP_ID},
 ]
 
 
@@ -85,10 +91,10 @@ async def party(bootstrap_settings: BootstrapSettings) -> AsyncIterator[Party]:
         await add_songs(app, SONG, OTHER_SONG, THIRD_SONG)
         clients = {"anonymous": _client(app)}
         ids: dict[str, str] = {}
-        for role in ("user", "trusted", "admin"):
-            ids[role] = await add_user(factory(app), f"{role}-account", role)
-            await add_session(factory(app), f"{role}-token", ids[role])
-            clients[role] = _client(app, f"{role}-token")
+        for name, groups in IDENTITY_GROUPS.items():
+            ids[name] = await add_user(factory(app), f"{name}-account", groups=groups)
+            await add_session(factory(app), f"{name}-token", ids[name])
+            clients[name] = _client(app, f"{name}-token")
         # The host screen: an administrator by device, with no account behind it.
         await add_session(factory(app), "host-token", None, is_host=True)
         clients["host"] = _client(app, "host-token")
@@ -183,13 +189,13 @@ async def test_only_a_tag_manager_is_shown_who_a_tag_is_for(party: Party, archiv
     accounts named on it."""
     plain = {tag["name"]: tag for tag in await tags_of(party["user"])}
     assert plain[ARCHIVE]["permissions"] is None
-    # It may see the tag but not set it: `assign` on it is trusted's.
+    # It may see the tag but not set it: `assign` on it is Trusted's.
     assert plain[ARCHIVE]["can_assign"] is False
 
     managed = {tag["name"]: tag for tag in await tags_of(party["trusted"])}
     assert managed[ARCHIVE]["can_assign"] is True
-    assert {(row["action"], row["role"]) for row in managed[ARCHIVE]["permissions"]} == {
-        (row["action"], row["role"]) for row in ARCHIVE_GRANTS
+    assert {(row["action"], row["group_id"]) for row in managed[ARCHIVE]["permissions"]} == {
+        (row["action"], row["group_id"]) for row in ARCHIVE_GRANTS
     }
     assert all(row["user_id"] is None for row in managed[ARCHIVE]["permissions"])
 
@@ -322,8 +328,8 @@ async def test_replacing_the_permissions_can_name_a_single_account(
         json={
             "permissions": [
                 {"action": "view", "user_id": party.ids["user"]},
-                {"action": "view_songs", "role": "guest"},
-                {"action": "view_songs", "role": "user"},
+                {"action": "view_songs", "group_id": "guest"},
+                {"action": "view_songs", "group_id": "user"},
                 {"action": "assign", "user_id": party.ids["user"]},
             ]
         },
@@ -343,6 +349,43 @@ async def test_replacing_the_permissions_can_name_a_single_account(
     assert await tag_song(party["trusted"], OTHER_SONG, archive, expect=404) is not None
 
 
+async def test_an_account_named_on_a_tag_comes_with_its_player_and_picture(
+    party: Party, archive: str
+) -> None:
+    """The editor draws everybody named on a tag with their picture, as the account search
+    that added them did; read back from the tag they used to be initials only."""
+    async with factory(party.app)() as session:
+        player = Player(name="Singer", registered=True, user_id=party.ids["user"])
+        session.add(player)
+        await session.commit()
+        player_id = player.id
+    uploaded = await party["admin"].put(
+        f"/api/v1/players/{player_id}/avatar", files={"file": ("a.png", PNG, "image/png")}
+    )
+    assert uploaded.status_code == 200, uploaded.text
+
+    response = await party["admin"].put(
+        f"/api/v1/tags/{archive}/permissions",
+        json={
+            "permissions": [
+                {"action": "view", "user_id": party.ids["user"]},
+                {"action": "assign", "user_id": party.ids["trusted"]},
+            ]
+        },
+    )
+
+    assert response.status_code == 200, response.text
+    named = {row["user_id"]: row for row in response.json()["permissions"]}
+    assert named[party.ids["user"]]["player_id"] == player_id
+    assert named[party.ids["user"]]["avatar_version"] == uploaded.json()["avatar_version"]
+    assert isinstance(named[party.ids["user"]]["avatar_version"], int)
+    # An account with no player has neither, and the listing says the same as the write.
+    assert named[party.ids["trusted"]]["player_id"] is None
+    assert named[party.ids["trusted"]]["avatar_version"] is None
+    listed = {tag["id"]: tag for tag in await tags_of(party["admin"])}
+    assert {row["user_id"]: row for row in listed[archive]["permissions"]} == named
+
+
 async def test_a_manager_can_create_edit_and_delete_a_tag(party: Party, archive: str) -> None:
     created = await make_tag(
         party["trusted"],
@@ -351,8 +394,8 @@ async def test_a_manager_can_create_edit_and_delete_a_tag(party: Party, archive:
         color="blue",
         show_in_list=True,
         permissions=[
-            {"action": "view", "role": "guest"},
-            {"action": "view_songs", "role": "guest"},
+            {"action": "view", "group_id": "guest"},
+            {"action": "view_songs", "group_id": "guest"},
         ],
     )
 
@@ -425,20 +468,46 @@ async def test_a_bad_body_is_refused_before_anything_is_written(party: Party) ->
         {
             "name": "x",
             "color": "blue",
-            "permissions": [{"action": "view", "role": "g", "user_id": "u"}],
+            "permissions": [{"action": "view", "group_id": "g", "user_id": "u"}],
         },
-        {"name": "x", "color": "blue", "permissions": [{"action": "sing", "role": "guest"}]},
+        {"name": "x", "color": "blue", "permissions": [{"action": "sing", "group_id": "guest"}]},
+        # The old field: a row must name a group by `group_id` now.
+        {"name": "x", "color": "blue", "permissions": [{"action": "view", "role": "guest"}]},
     ]
     for body in bad_bodies:
         response = await party["admin"].post("/api/v1/tags", json=body)
         assert response.status_code == 422, f"{body}: {response.text}"
 
-    for body in (
-        {"name": "x", "color": "blue", "permissions": [{"action": "view", "role": "wizard"}]},
-        {"name": "x", "color": "blue", "permissions": [{"action": "view", "user_id": "nobody"}]},
+    for body, detail in (
+        (
+            {
+                "name": "x",
+                "color": "blue",
+                "permissions": [{"action": "view", "group_id": "wizard"}],
+            },
+            "unknown_group",
+        ),
+        # Admin exists but is no subject: it sees every tag by rule.
+        (
+            {
+                "name": "x",
+                "color": "blue",
+                "permissions": [{"action": "view", "group_id": "admin"}],
+            },
+            "not_assignable",
+        ),
+        (
+            {
+                "name": "x",
+                "color": "blue",
+                "permissions": [{"action": "view", "user_id": "nobody"}],
+            },
+            "unknown user 'nobody'",
+        ),
     ):
         response = await party["admin"].post("/api/v1/tags", json=body)
         assert response.status_code == 422, f"{body}: {response.text}"
+        assert response.json() == {"detail": detail}
     assert await names(party["admin"]) == [BROKEN]
 
 
@@ -446,11 +515,21 @@ async def test_the_same_row_twice_is_one_row(party: Party) -> None:
     """The unique index would make a duplicated row a 500; the service drops it instead."""
     created = await make_tag(
         party["admin"],
-        permissions=[{"action": "view", "role": "guest"}, {"action": "view", "role": "guest"}],
+        permissions=[
+            {"action": "view", "group_id": "guest"},
+            {"action": "view", "group_id": "guest"},
+        ],
     )
 
     assert created["permissions"] == [
-        {"action": "view", "role": "guest", "user_id": None, "username": None}
+        {
+            "action": "view",
+            "group_id": "guest",
+            "user_id": None,
+            "username": None,
+            "player_id": None,
+            "avatar_version": None,
+        }
     ]
 
 
@@ -548,7 +627,7 @@ async def test_a_freshly_written_tag_answers_with_its_count(party: Party) -> Non
 
     granted = await party["admin"].put(
         f"/api/v1/tags/{created['id']}/permissions",
-        json={"permissions": [{"action": "view", "role": "user"}]},
+        json={"permissions": [{"action": "view", "group_id": "user"}]},
     )
     assert granted.status_code == 200, granted.text
     assert granted.json()["song_count"] == 1
@@ -576,10 +655,81 @@ async def test_deleting_an_account_drops_the_rows_that_named_it(party: Party, ar
         assert list(await session.scalars(select(SongTag.song_id))) == [SONG]
 
 
+async def test_a_trusted_member_gets_users_rows_as_well(party: Party) -> None:
+    """A row for User reaches every account, a member of Trusted included; one for Guest
+    reaches no account at all (permission-groups.md §3.2)."""
+    for_user = await make_tag(
+        party["admin"],
+        name="for-user",
+        permissions=[
+            {"action": "view", "group_id": "user"},
+            {"action": "view_songs", "group_id": "user"},
+            {"action": "assign", "group_id": "user"},
+        ],
+    )
+    for_guest = await make_tag(
+        party["admin"],
+        name="for-guest",
+        permissions=[{"action": "view", "group_id": "guest"}],
+    )
+
+    assert "for-user" in await names(party["trusted"])
+    await tag_song(party["trusted"], SONG, for_user["id"])
+    assert "for-guest" in await names(party["anonymous"])
+    assert "for-guest" not in await names(party["user"])
+    # Trusted manages tags, so it is *listed* every tag; whether it may know this one is
+    # `can_view`.
+    trusted = {tag["id"]: tag for tag in await tags_of(party["trusted"])}
+    assert trusted[for_guest["id"]]["can_view"] is False
+    assert trusted[for_user["id"]]["can_view"] is True
+
+
+async def test_deleting_a_group_takes_its_tag_rows(party: Party) -> None:
+    """The rows go with the group in one transaction; the rows of other groups stay."""
+    group = await party["admin"].post("/api/v1/groups", json={"name": "Taggers"})
+    assert group.status_code == 201, group.text
+    group_id = group.json()["id"]
+    tag = await make_tag(
+        party["admin"],
+        permissions=[
+            {"action": "view", "group_id": group_id},
+            {"action": "view", "group_id": "user"},
+        ],
+    )
+    assert {row["group_id"] for row in tag["permissions"]} == {group_id, "user"}
+
+    assert (await party["admin"].delete(f"/api/v1/groups/{group_id}")).status_code == 204
+
+    after = {row["id"]: row for row in await tags_of(party["admin"])}[tag["id"]]
+    assert [row["group_id"] for row in after["permissions"]] == ["user"]
+
+
+async def test_a_row_naming_a_group_that_is_gone_gives_nothing(party: Party) -> None:
+    """A hand-edited row (no foreign keys) is listed as stored and gives nobody anything."""
+    tag = await make_tag(party["admin"], name="orphaned")
+    async with factory(party.app)() as session:
+        session.add(TagPermission(tag_id=tag["id"], action="view", group_id="0" * 32))
+        await session.commit()
+
+    assert "orphaned" not in await names(party["user"])
+    listed = {row["id"]: row for row in await tags_of(party["admin"])}[tag["id"]]
+    assert [row["group_id"] for row in listed["permissions"]] == ["0" * 32]
+
+
+async def test_nothing_is_hidden_from_an_administrator(party: Party) -> None:
+    """An account in Admin and the host screen see every song, whatever the tag rows say."""
+    hidden = await make_tag(party["admin"], name="nobodys")
+    await tag_song(party["admin"], SONG, hidden["id"])
+
+    assert SONG not in await library_ids(party["trusted"])
+    assert SONG in await library_ids(party["admin"])
+    assert SONG in await library_ids(party["host"])
+
+
 async def test_the_changes_are_broadcast(
     party: Party, broadcast_events: list[dict[str, object]]
 ) -> None:
-    created = await make_tag(party["admin"], permissions=[{"action": "view", "role": "guest"}])
+    created = await make_tag(party["admin"], permissions=[{"action": "view", "group_id": "guest"}])
     await tag_song(party["admin"], SONG, created["id"])
     await party["admin"].put(f"/api/v1/tags/{created['id']}/permissions", json={"permissions": []})
     await party["admin"].delete(f"/api/v1/tags/{created['id']}")
@@ -1003,7 +1153,7 @@ async def test_the_reserved_ids_are_not_tags(party: Party) -> None:
         assert (
             await admin.put(
                 f"/api/v1/tags/{built_in_id}/permissions",
-                json={"permissions": [{"action": "view", "role": "user"}]},
+                json={"permissions": [{"action": "view", "group_id": "user"}]},
             )
         ).status_code == 404
         assert (await admin.delete(f"/api/v1/tags/{built_in_id}")).status_code == 404

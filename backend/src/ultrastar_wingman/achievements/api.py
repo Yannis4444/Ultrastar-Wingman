@@ -58,6 +58,7 @@ from .schema import (
     AchievementName,
     AchievementRead,
     AchievementSettings,
+    Combine,
     Condition,
     PlayerAchievementList,
     PlayerAchievementRead,
@@ -106,6 +107,9 @@ class AchievementCreate(BaseModel):
     hidden: bool = False
     enabled: bool = True
     definition: list[Condition]
+    # Whether all of the conditions have to hold or any one of them is enough. Left out, it
+    # is what an achievement always meant.
+    combine: Combine = "all"
 
 
 class AchievementUpdate(BaseModel):
@@ -129,6 +133,9 @@ class AchievementUpdate(BaseModel):
     hidden: bool | None = None
     enabled: bool | None = None
     definition: list[Condition] | None = None
+    # Half of what the achievement asks for, under the same rule as `definition`: a value
+    # that would move a built-in's is a 409.
+    combine: Combine | None = None
 
 
 class AchievementExport(BaseModel):
@@ -297,6 +304,7 @@ async def create_achievement(
         hidden=body.hidden,
         enabled=body.enabled,
         definition=body.definition,
+        combine=body.combine,
     )
     service.start_full_pass(factory, f"achievement '{achievement.id}' was created")
     return read_achievement(achievement, definition=True)
@@ -388,7 +396,10 @@ async def import_achievements(
     dependencies=[Depends(require("achievements.manage"))],
     responses={
         **UNKNOWN_ACHIEVEMENT,
-        409: {"description": "A definition on one of the built-in achievements."},
+        409: {
+            "description": "A definition, or a combine, that would change one of the built-in "
+            "achievements."
+        },
         422: {"description": "A definition the condition models refuse."},
     },
 )
@@ -407,7 +418,9 @@ async def update_achievement(
     only write that touches those conditions is `POST /achievements/{id}/reset`, which puts
     the shipped ones back. A `definition` repeating what the row already holds is let through
     as the no-op it is, so a client that sends the whole achievement back unchanged is not
-    refused for a field it never meant to touch.
+    refused for a field it never meant to touch. `combine` — whether all of the conditions
+    have to hold or any one of them — is half of what it asks for and is held to the same
+    rule.
 
     409 rather than 422: the body is one the condition models parsed happily, and what
     refuses it is the row it was sent to — the same reasoning as the 409 on deleting a
@@ -428,6 +441,7 @@ async def update_achievement(
             hidden=body.hidden,
             enabled=body.enabled,
             definition=body.definition,
+            combine=body.combine,
         )
     except service.BuiltInDefinitionError as error:
         raise HTTPException(status_code=409, detail="built_in_definition") from error

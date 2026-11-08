@@ -64,7 +64,7 @@ const QUEEN = song("usdb:1", "Dancing Queen", "ABBA");
 const AFRICA = song("usdb:2", "Africa", "Toto");
 
 function wish(song: SongRead, count: number, mine: boolean): WishRead {
-  return { song, count, mine, latest: new Date().toISOString() };
+  return { song, count, weight: count, mine, latest: new Date().toISOString() };
 }
 
 function renderTile(wishes: WishRead[], capabilities = WISHLIST) {

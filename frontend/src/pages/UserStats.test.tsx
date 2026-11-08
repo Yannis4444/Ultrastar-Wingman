@@ -10,7 +10,7 @@ import { MemoryRouter } from "react-router-dom";
 import type { ScoreWithContext, SongRead } from "../api";
 import { chartTheme } from "../chartTheme";
 import { shortDate } from "../duration";
-import { meResponse, userRead } from "../test/auth";
+import { AS, meResponse, userRead } from "../test/auth";
 import { iconNames } from "../test/icons";
 import UserStats from "./UserStats";
 
@@ -130,7 +130,7 @@ function loggedIn(
   getMe.mockResolvedValue(
     meResponse(capabilities, {
       user: userRead({ username: "Alice", player_id: playerId }),
-      role: "user",
+      ...AS.user,
     }),
   );
 }
@@ -312,7 +312,7 @@ test("a role without stats.view is told so and asks for nothing", async () => {
   renderStats();
 
   expect(
-    await screen.findByText(/Statistics are not open to your role/),
+    await screen.findByText(/Statistics are not open to you\./),
   ).toBeInTheDocument();
   expect(listPlayerScores).not.toHaveBeenCalled();
 });

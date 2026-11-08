@@ -56,8 +56,10 @@ from .evaluate import NOT_EARNED, ScoreRow, evaluate
 from .model import Achievement, PlayerAchievement
 from .schema import (
     AchievementImportResult,
+    Combine,
     Condition,
     EarnedByPlayer,
+    parse_combine,
     parse_definition,
     read_achievement,
 )
@@ -312,7 +314,12 @@ async def _write(
     newly_earned: list[str] = []
     for achievement in achievements:
         conditions = parse_definition(achievement.id, achievement.definition)
-        outcome = NOT_EARNED if conditions is None else evaluate(conditions, rows)
+        combine = parse_combine(achievement.id, achievement.combine)
+        outcome = (
+            NOT_EARNED
+            if conditions is None or combine is None
+            else evaluate(conditions, rows, combine)
+        )
         row = existing.pop(achievement.id, None)
         if row is None:
             row = PlayerAchievement(achievement_id=achievement.id, player_id=player_id)
@@ -515,6 +522,7 @@ async def create_achievement(
     hidden: bool,
     enabled: bool,
     definition: list[Condition],
+    combine: Combine = "all",
 ) -> Achievement:
     """A new achievement, at the end of the list.
 
@@ -534,6 +542,7 @@ async def create_achievement(
         enabled=enabled,
         sort_order=await _next_sort_order(session),
         definition=dump_definition(definition),
+        combine=combine,
     )
     session.add(achievement)
     await session.commit()
@@ -553,6 +562,7 @@ async def update_achievement(
     hidden: bool | None = None,
     enabled: bool | None = None,
     definition: list[Condition] | None = None,
+    combine: Combine | None = None,
 ) -> Achievement:
     """Change what an achievement is, or what it asks for.
 
@@ -567,14 +577,21 @@ async def update_achievement(
     all is written. A `definition` that repeats what the row already holds is let through as
     the no-op it is, so a client that sends the whole achievement back unchanged is not
     refused for a field it never meant to touch.
+
+    `combine` is half of what an achievement asks for, so it follows the very same rule: a
+    built-in's `all` is Wingman's, a `combine` that would move it is the same refusal, and one
+    that repeats it is let through.
     """
-    if definition is not None and achievement.built_in:
+    if achievement.built_in:
         # Checked before a single field is applied, so a refusal leaves the row untouched
         # rather than dirty in the session. The stored column is what `dump_definition`
         # writes, so comparing the dumped form is an exact comparison and not a guess.
-        if dump_definition(definition) != achievement.definition:
+        if definition is not None and dump_definition(definition) != achievement.definition:
+            raise BuiltInDefinitionError(achievement.id)
+        if combine is not None and combine != achievement.combine:
             raise BuiltInDefinitionError(achievement.id)
         definition = None
+        combine = None
     if name is not None:
         achievement.name = name
     if description is not None:
@@ -590,6 +607,8 @@ async def update_achievement(
         achievement.enabled = enabled
     if definition is not None:
         achievement.definition = dump_definition(definition)
+    if combine is not None:
+        achievement.combine = combine
     await session.commit()
     logger.info("Achievement '%s' changed", achievement.name)
     await event_bus.broadcast(AchievementsChanged())
@@ -657,6 +676,9 @@ async def reset_built_in(
     # A copy: the column would otherwise hold the very list `builtin.py` declares, and a JSON
     # column is a mutable the ORM hands out again on the next read.
     achievement.definition = deepcopy(built_in.definition)
+    # Every shipped achievement asks for all of its conditions — `builtin.py` has no other
+    # way of saying anything — so this is the other half of putting its conditions back.
+    achievement.combine = "all"
     await session.commit()
     logger.info("Achievement '%s' reset to the one Wingman ships", achievement.name)
     await event_bus.broadcast(AchievementsChanged())
@@ -752,6 +774,7 @@ async def export_archive(session: AsyncSession, achievement_ids: list[str]) -> b
                 # copy of the row, so one somebody hand-edited into a shape the models refuse
                 # comes out as it stands and can be fixed in the archive.
                 definition=achievement.definition,
+                combine=achievement.combine,
                 icon_image=await _icon_image(achievement),
             )
         )
@@ -828,15 +851,19 @@ async def import_archive(
                     if shipped is None
                     else deepcopy(shipped.definition)
                 )
+                achievement.combine = file.combine if shipped is None else "all"
             else:
                 updated.append(file.id)
                 if achievement.built_in:
                     # An archive never rewrites what a built-in asks for: an
                     # `achievement.json` in a text file would otherwise be a way straight
                     # past the refusal `PATCH` gives. Said out loud in the log when the file
-                    # really did carry other conditions, because the answer only counts the
-                    # row as updated.
-                    if achievement.definition != dump_definition(file.definition):
+                    # really did carry other conditions — or another way of combining
+                    # them — because the answer only counts the row as updated.
+                    if (
+                        achievement.definition != dump_definition(file.definition)
+                        or achievement.combine != file.combine
+                    ):
                         logger.debug(
                             "the archive's conditions for the built-in '%s' were left "
                             "alone: what one of the shipped achievements asks for is not "
@@ -845,6 +872,7 @@ async def import_archive(
                         )
                 else:
                     achievement.definition = dump_definition(file.definition)
+                    achievement.combine = file.combine
             achievement.name = file.name
             achievement.description = file.description
             achievement.icon = file.icon

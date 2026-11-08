@@ -72,7 +72,7 @@ export default function Tags() {
   const builtIns = builtInTags(tags.data?.built_ins);
 
   return (
-    <div className="tags-page">
+    <div className="tags-page page-foot">
       <PageHeader title="Tags" back="/user">
         {allowed && (
           <Link

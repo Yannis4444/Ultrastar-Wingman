@@ -13,7 +13,7 @@ import type {
   SongRead,
 } from "../api";
 import { cardDate, shortTime } from "../duration";
-import { meResponse, userRead } from "../test/auth";
+import { AS, meResponse, userRead } from "../test/auth";
 import { FakeSocket } from "../test/fakeSocket";
 import { iconNames } from "../test/icons";
 import SingView from "./SingView";
@@ -169,7 +169,7 @@ beforeEach(() => {
   getMe.mockResolvedValue(
     meResponse(["stats.view", "players.view"], {
       user: userRead({ username: "Bob", player_id: "player-bob" }),
-      role: "user",
+      ...AS.user,
     }),
   );
   readSing.mockResolvedValue(detail());
@@ -400,7 +400,7 @@ test("a sing the reader may not open says why, and offers no Share", async () =>
   renderView();
 
   expect(await screen.findByRole("alert")).toHaveTextContent(
-    "Your role may not do this (stats.history). Ask the host for access.",
+    "You may not do this (stats.history). Ask the host for access.",
   );
   expect(screen.queryByRole("button", { name: "Share" })).toBeNull();
   // The hero still stands: the reader tapped a row they could see.

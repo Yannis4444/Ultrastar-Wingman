@@ -18,7 +18,7 @@ import type {
   SpinRequest,
   WishRead,
 } from "../api";
-import { meResponse, userRead } from "../test/auth";
+import { AS, meResponse, userRead } from "../test/auth";
 import { FakeSocket } from "../test/fakeSocket";
 import { iconNames } from "../test/icons";
 import { tagRead } from "../test/tags";
@@ -101,8 +101,10 @@ function song(id: string, title: string): SongRead {
   };
 }
 
-function wish(song: SongRead, count = 1): WishRead {
-  return { song, count, mine: false, latest: "2026-08-23T10:00:00" };
+/** A wished song. Its weight is its count unless a test says otherwise, which
+    is what the server sends while *Fair wishes* is off. */
+function wish(song: SongRead, count = 1, weight = count): WishRead {
+  return { song, count, weight, mine: false, latest: "2026-08-23T10:00:00" };
 }
 
 const QUEEN = song("usdb:1", "Dancing Queen");
@@ -182,7 +184,7 @@ function picked(
 }
 
 /** Signed in by default: favorites need an account to belong to. */
-const ACCOUNT: Partial<MeRead> = { user: userRead(), role: "user" };
+const ACCOUNT: Partial<MeRead> = { user: userRead(), ...AS.user };
 
 const SINGING = ["songs.view", "wishlist.view", "karaoke.sing"];
 
@@ -351,7 +353,7 @@ test("the favorites scope spins the hearted songs and counts them", async () => 
 });
 
 test("without an account favorites cannot be picked and are not fetched", async () => {
-  renderSpinner([QUEEN, AFRICA], [], [], { user: null, role: "guest" });
+  renderSpinner([QUEEN, AFRICA], [], [], { user: null, ...AS.guest });
 
   await screen.findByRole("combobox", { name: "Pick from" });
   expect(scopeOption("Favorites")).toBeDisabled();
@@ -369,7 +371,7 @@ test("the caption under the select counts what the reel can land on", async () =
   await chooseScope("Wishlist");
   expect(screen.getByText("2 wished songs")).toBeInTheDocument();
 
-  // Weighted: one ticket per wish, so the wish total is what matters.
+  // Weighted: the caption counts the wishes behind the songs as well.
   await chooseScope("Wishlist (weighted)");
   expect(screen.getByText("2 wished songs · 4 wishes")).toBeInTheDocument();
 });
@@ -405,9 +407,9 @@ test("the result slot is reserved but empty before the first spin", async () => 
   expect(screen.queryByText("Dancing Queen")).not.toBeInTheDocument();
 });
 
-test("the weighted scope gives a song one ticket per wish", async () => {
-  // Every pick lands in the middle of the pool: ["Africa", "Africa", "Africa",
-  // "Waterloo"] weighted against ["Africa", "Waterloo"] unweighted, so the two
+test("the weighted scope draws a song as often as its wishes weigh", async () => {
+  // Every pick lands in the middle of the pool: Africa weighing 3 against
+  // Waterloo's 1 weighted, ["Africa", "Waterloo"] unweighted, so the two
   // scopes must produce different winners.
   vi.spyOn(Math, "random").mockReturnValue(0.5);
   const wishes = [wish(AFRICA, 3), wish(WATERLOO, 1)];
@@ -422,6 +424,28 @@ test("the weighted scope gives a song one ticket per wish", async () => {
   await chooseScope("Wishlist (weighted)");
   fireEvent.click(spinButton());
   expect(new Set(reelSongIds(weighted.container))).toEqual(new Set(["usdb:2"]));
+});
+
+test("the weighted winner is drawn with the server's weight, not the count", async () => {
+  // Africa's three wishes come from somebody with a long list and weigh 0.6
+  // together; Waterloo's one wish weighs 1. A draw at 0.5 of the 1.6 lands
+  // past Africa's slice — where one ticket per wish would have landed on it.
+  vi.useFakeTimers({ shouldAdvanceTime: true });
+  vi.spyOn(Math, "random").mockReturnValue(0.5);
+  const { container } = renderSpinner(
+    [AFRICA, WATERLOO],
+    [wish(AFRICA, 3, 0.6), wish(WATERLOO, 1, 1)],
+  );
+  await chooseScope("Wishlist (weighted)");
+
+  fireEvent.click(spinButton());
+  act(() => vi.advanceTimersByTime(6000));
+
+  expect(container.querySelector(".spinner-winner")).toHaveTextContent(
+    "Waterloo",
+  );
+  // No chances on screen: the caption still counts the wishes, never weights.
+  expect(screen.getByText("2 wished songs · 4 wishes")).toBeInTheDocument();
 });
 
 test("the first spin starts from the logo, later spins from the last winner", async () => {

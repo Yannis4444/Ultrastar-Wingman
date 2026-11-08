@@ -1,6 +1,7 @@
 import asyncio
+import contextlib
 import shutil
-from collections.abc import AsyncIterator
+from collections.abc import AsyncIterator, Sequence
 from concurrent.futures import ThreadPoolExecutor
 from datetime import datetime
 from pathlib import Path
@@ -18,14 +19,14 @@ from ultrastar_wingman.achievements import service as achievements
 from ultrastar_wingman.app import create_app
 from ultrastar_wingman.auth import oidc, permissions
 from ultrastar_wingman.auth.deps import COOKIE_NAME
-from ultrastar_wingman.auth.model import User, UserSession, utcnow
+from ultrastar_wingman.auth.model import User, UserGroup, UserSession, utcnow
 from ultrastar_wingman.auth.service import SESSION_TTL, token_hash
 from ultrastar_wingman.config import BootstrapSettings
 from ultrastar_wingman.db import run_migrations
 from ultrastar_wingman.devices import service as devices
 from ultrastar_wingman.downloads import loudness_pass
 from ultrastar_wingman.events import event_bus
-from ultrastar_wingman.karaoke import selection, usdx_paths, usdx_window
+from ultrastar_wingman.karaoke import reel, selection, usdx_paths, usdx_window
 from ultrastar_wingman.music import service as music
 from ultrastar_wingman.players import service as players
 from ultrastar_wingman.songs import scanner
@@ -132,7 +133,18 @@ async def session(
 
 @pytest.fixture
 async def broadcast_events() -> AsyncIterator[list[dict[str, object]]]:
-    """Records everything the event bus broadcasts while the test runs."""
+    """Records everything the event bus broadcasts while the test runs.
+
+    An app fixture requested before this one has started the lifespan's library scan in
+    the background. It is let finish before the recording starts: its `songs.scan_started`
+    and `songs.scan_finished` belong to the lifespan, not to the test, and landing whenever
+    the scan happened to end on a loaded machine they broke exact assertions now and then.
+    """
+    task = scanner._scan_task
+    if task is not None:
+        # A scan that fails says so in its own tests; here it only has to be over.
+        with contextlib.suppress(Exception):
+            await task
     events: list[dict[str, object]] = []
 
     class Recorder:
@@ -150,16 +162,33 @@ async def broadcast_events() -> AsyncIterator[list[dict[str, object]]]:
         event_bus.disconnect(socket)
 
 
+# The groups each of the old roles' identities is put in, for the tests that build one
+# account per kind of caller: a plain account is in User alone (no row), a helper in Trusted,
+# an administrator in Admin.
+IDENTITY_GROUPS: dict[str, tuple[str, ...]] = {
+    "user": (),
+    "trusted": (permissions.TRUSTED_GROUP_ID,),
+    "admin": (permissions.ADMIN,),
+}
+
+
 async def add_user(
     session_factory: async_sessionmaker[AsyncSession],
     username: str,
-    role: str,
+    *,
+    groups: Sequence[str] = (),
     password_hash: str = ADMIN_PASSWORD_HASH,
 ) -> str:
-    """Insert an account straight into the database and return its id."""
+    """Insert an account straight into the database, put it in `groups` (one `user_groups`
+    row each — every account is in User without one) and return its id.
+
+    `groups` is keyword-only: a group id is a string, and a bare string is a sequence of
+    one-letter group ids."""
     async with session_factory() as session:
-        user = User(username=username, password_hash=password_hash, role=role)
+        user = User(username=username, password_hash=password_hash)
         session.add(user)
+        await session.flush()
+        session.add_all(UserGroup(user_id=user.id, group_id=group_id) for group_id in groups)
         await session.commit()
         return user.id
 
@@ -201,7 +230,7 @@ async def authenticate_admin(app: FastAPI) -> str:
         )
     if existing:
         return ADMIN_TOKEN
-    user_id = await add_user(session_factory, ADMIN_USERNAME, permissions.ADMIN)
+    user_id = await add_user(session_factory, ADMIN_USERNAME, groups=[permissions.ADMIN])
     await add_session(session_factory, ADMIN_TOKEN, user_id)
     return ADMIN_TOKEN
 
@@ -284,6 +313,9 @@ def fresh_selection_state() -> None:
     # And the idle time, which the devices watchdog writes from a setting at startup: a test
     # that shortened it must not shorten the next test's room.
     selection._idle_ttl = selection.DEFAULT_IDLE_TTL
+    # And the songs the reel on the host screen landed on, which weigh less for half an
+    # hour: a previous test's spins must not tilt this one's.
+    reel.forget_spins()
 
 
 @pytest.fixture(autouse=True)
@@ -337,7 +369,7 @@ def fresh_avatar_lock() -> None:
 
 @pytest.fixture(autouse=True)
 def fresh_permission_cache() -> None:
-    """The role/capability cache is module-global while every test has its own database."""
+    """The group/capability cache is module-global while every test has its own database."""
     permissions.invalidate_cache()
 
 

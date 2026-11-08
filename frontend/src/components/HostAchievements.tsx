@@ -14,6 +14,7 @@ import {
 import type { AchievementRead, AchievementSettings, PlayerRead } from "../api";
 import { useAchievements } from "../hooks/useAchievements";
 import { useWingmanEvent, type WingmanEvent } from "../hooks/useWingmanEvents";
+import { playEffect, type Voice } from "../sfx";
 import AchievementBadge from "./AchievementBadge";
 import PlayerAvatar from "./PlayerAvatar";
 import "./HostAchievements.css";
@@ -153,6 +154,32 @@ function buildSteps(
   return steps;
 }
 
+/** When the throw's badge lands, into its 640 ms: the keyframe at 68 %
+ *  (HostAchievements.css), where it has travelled in and squashes. */
+const THROW_LANDS_S = 0.64 * 0.68;
+
+/**
+ * What one animation starting in the row sounds like: a badge's throw is a
+ * whoosh and, as it lands, a soft thud; under reduced motion the badge only
+ * appears, nothing flies, and the thud alone marks it. The name and the words
+ * under a badge animate too and make no sound.
+ */
+function badgeSounds(animation: string, target: EventTarget): Voice[] {
+  if (
+    !(target instanceof Element) ||
+    !target.classList.contains("host-achievement-badge")
+  ) {
+    return [];
+  }
+  const voices =
+    animation === "host-achievement-throw"
+      ? [playEffect("whoosh"), playEffect("thud", THROW_LANDS_S)]
+      : animation === "host-achievement-appear"
+        ? [playEffect("thud")]
+        : [];
+  return voices.filter((voice): voice is Voice => voice !== null);
+}
+
 /**
  * Where a badge is thrown from: slightly off-centre, alternating sides so a row
  * does not arrive as one block. Deterministic in the index — the same row looks
@@ -184,6 +211,23 @@ export default function HostAchievements({ onPhase, fallback }: Props) {
   /** Non-null while the stage is holding the beat after `scores.recorded`. */
   const [arm, setArm] = useState<number | null>(null);
   const runs = useRef(0);
+  // The badges' sounds still sounding or still to come, cut when the run they
+  // belong to is (the next song starting, the feature switched off).
+  const voices = useRef<Voice[]>([]);
+
+  useEffect(() => {
+    if (run !== null) return;
+    for (const voice of voices.current) voice.stop();
+    voices.current = [];
+  }, [run]);
+
+  useEffect(
+    () => () => {
+      for (const voice of voices.current) voice.stop();
+      voices.current = [];
+    },
+    [],
+  );
 
   const stop = () => {
     setRun(null);
@@ -291,6 +335,12 @@ export default function HostAchievements({ onPhase, fallback }: Props) {
         className="host-achievement-row"
         data-count={step.achievements.length}
         key={`${run.id}-${index}`}
+        // The sound of each badge arriving, started by its own animation —
+        // which begins after the badge's stagger delay — so it can never run
+        // ahead of or behind what the room sees.
+        onAnimationStart={(event) =>
+          voices.current.push(...badgeSounds(event.animationName, event.target))
+        }
       >
         {step.achievements.map((achievement, position) => {
           const from = throwFrom(position);

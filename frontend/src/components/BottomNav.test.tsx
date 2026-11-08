@@ -2,7 +2,7 @@ import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { MemoryRouter } from "react-router-dom";
 import type { PlayerRead } from "../api";
-import { meResponse, userRead } from "../test/auth";
+import { AS, meResponse, userRead } from "../test/auth";
 import BottomNav from "./BottomNav";
 
 const { listPlayers, getMe } = vi.hoisted(() => ({
@@ -54,7 +54,7 @@ beforeEach(() => {
   getMe.mockResolvedValue(
     meResponse(CAPABILITIES, {
       user: userRead({ username: "Alice", player_id: "aaa" }),
-      role: "user",
+      ...AS.user,
     }),
   );
 });

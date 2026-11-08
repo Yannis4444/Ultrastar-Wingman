@@ -8,7 +8,7 @@ import {
 } from "@testing-library/react";
 import { MemoryRouter, Route, Routes, useLocation } from "react-router-dom";
 import type { MeRead, PlaylistDetail, SongRead } from "../api";
-import { meResponse, userRead } from "../test/auth";
+import { AS, meResponse, userRead } from "../test/auth";
 import { FakeSocket } from "../test/fakeSocket";
 import { iconNames } from "../test/icons";
 import { builtInTagRead, tagRead } from "../test/tags";
@@ -76,7 +76,7 @@ const LIBRARY = [
   "playlists.manage",
   "wishlist.view",
 ];
-const ACCOUNT: Partial<MeRead> = { user: userRead(), role: "user" };
+const ACCOUNT: Partial<MeRead> = { user: userRead(), ...AS.user };
 
 function song(overrides: Partial<SongRead> = {}): SongRead {
   return {
@@ -490,7 +490,7 @@ test("an order the server refuses goes back where it was", async () => {
   fireEvent.click(screen.getByRole("button", { name: "Move Africa down" }));
 
   expect(await screen.findByRole("alert")).toHaveTextContent(
-    "Your role may not do this (playlists.manage)",
+    "You may not do this (playlists.manage)",
   );
   // Not left claiming an order the server never took.
   const moves = screen.getAllByRole("button", { name: /^Move / });
@@ -725,7 +725,7 @@ test("the copy opens as a list of its own, not as the one being edited", async (
 test("without an account there is nothing to save a copy to", async () => {
   renderPlaylist(detail(THEIRS), LIBRARY, {
     user: null,
-    role: "admin",
+    ...AS.host,
     is_host: true,
   });
 
@@ -756,10 +756,10 @@ test("a deleted playlist points back at the list", async () => {
 });
 
 test("a role without playlists.view is told who may look", async () => {
-  renderPlaylist(detail(), ["songs.view"], { user: null, role: "guest" });
+  renderPlaylist(detail(), ["songs.view"], { user: null, ...AS.guest });
 
   expect(
-    await screen.findByText(/Playlists are not open to your role/),
+    await screen.findByText(/Playlists are not open to you\./),
   ).toBeInTheDocument();
   expect(getPlaylist).not.toHaveBeenCalled();
 });

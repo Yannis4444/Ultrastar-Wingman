@@ -25,6 +25,10 @@ from __future__ import annotations
 
 from dataclasses import dataclass, field
 
+# The group migration 0039 creates for the party's helpers, under the fixed id
+# `auth.permissions.TRUSTED_GROUP_ID` names. Written out: this file is plain data.
+TRUSTED_GROUP_ID = "7a1c4e9b2d6f48a3b5e0c8d1f2a3b4c5"
+
 # --- the people --------------------------------------------------------------------------
 
 # The three accounts, in the order they are created: the first account an instance ever has
@@ -36,6 +40,30 @@ ACCOUNTS: tuple[tuple[str, str], ...] = (
     ("Fry", "fry-screenshot-pw"),
     ("Bender", "bender-screenshot-pw"),
 )
+
+
+@dataclass(frozen=True)
+class GroupPlan:
+    """A permission group the party makes for itself, beside the built-ins and Trusted."""
+
+    name: str
+    capabilities: tuple[str, ...]
+
+
+# The groups pictures want one group of the party's own: the music people. Its rights are
+# ones User does not hold, so the list says what it adds and the editor has User's rights
+# to draw ticked and grayed out beside them.
+GROUPS: tuple[GroupPlan, ...] = (
+    GroupPlan(name="DJs", capabilities=("music.manage", "wishlist.manage")),
+)
+
+# Who is in which group beyond User, by group name (Trusted by its fixed id). Bender is the
+# helper, so the accounts page and the groups list have a member to show. Fry stays in no
+# group: the tag editor's picture gives him on one tag what no group of his gives, and his
+# own pages read the plain account they always did. Leela is Admin as the first account.
+MEMBERSHIPS: dict[str, tuple[str, ...]] = {
+    "Bender": (TRUSTED_GROUP_ID, "DJs"),
+}
 
 # Everybody else sings as a guest player, created by the host. Scruffy is hidden: the
 # people-admin row needs one player who is out of the singer picker.
@@ -250,10 +278,11 @@ class TagPlan:
     show_in_list: bool
     hide_by_default: bool
     usdb_ids: tuple[int, ...]
-    # Roles that may see the tag and the songs it sits on. Without them a tag is
-    # administrators-only and every song it touches disappears for everybody else.
-    view_roles: tuple[str, ...] = ("guest", "user", "trusted")
-    assign_roles: tuple[str, ...] = ("trusted",)
+    # Groups that may see the tag and the songs it sits on. Without them a tag is
+    # administrators-only and every song it touches disappears for everybody else. User's row
+    # reaches every account, Trusted's members included, so Guest and User are the whole room.
+    view_groups: tuple[str, ...] = ("guest", "user")
+    assign_groups: tuple[str, ...] = (TRUSTED_GROUP_ID,)
     # Accounts named on the tag by hand, so the editor has a "Specific people" row. Each of
     # them is given all three actions; assign on its own is a misconfiguration the editor
     # warns about, and the tag editor's picture must not be of one.

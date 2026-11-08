@@ -9,7 +9,14 @@ import {
 } from "../api/@tanstack/react-query.gen";
 import { useAuth } from "../auth";
 import { errorDetail } from "../errors";
-import { useWingmanEvent } from "./useWingmanEvents";
+import { useWingmanEvent, type WingmanEvent } from "./useWingmanEvents";
+
+interface SettingChanged extends WingmanEvent {
+  key: string;
+}
+
+/** The switch that says what a wish weighs (`karaoke.weighting.FAIR_WISHES`). */
+const FAIR_WISHES_SETTING = "karaoke.fair_wishes";
 
 export interface Wishlist {
   wishes: WishRead[];
@@ -30,7 +37,9 @@ export interface Wishlist {
  *
  * `wishlist.updated` only carries a song id and the new count — not the song
  * itself and not whether the caller is one of the wishers — so a broadcast
- * refetches the (small) list instead of being folded into the cache.
+ * refetches the (small) list instead of being folded into the cache. The
+ * whole list, because one person's new wish moves the `weight` of every other
+ * song they wished for.
  */
 export function useWishlist(): Wishlist {
   const queryClient = useQueryClient();
@@ -44,6 +53,13 @@ export function useWishlist(): Wishlist {
   });
 
   useWingmanEvent("wishlist.updated", refresh);
+  // A wish's `weight` moves without a wish row moving: the switch behind it,
+  // and a scan that loses or finds the file of a song somebody wished for —
+  // which changes how many wishes they hold in the library.
+  useWingmanEvent<SettingChanged>("setting.changed", ({ key }) => {
+    if (key === FAIR_WISHES_SETTING) refresh();
+  });
+  useWingmanEvent("songs.scan_finished", refresh);
 
   const add = useMutation({
     ...addWishMutation(),

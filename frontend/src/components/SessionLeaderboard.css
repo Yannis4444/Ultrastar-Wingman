@@ -68,23 +68,53 @@
   outline-offset: 2px;
 }
 
+/* The standing ends after a whole row, never in the middle of a player. The
+   rail shares its height out between the standing and the wishes as it always
+   has — every row drawn counts towards it — and the list then takes the height
+   it was given (`flex` + `min-height: 0`) as a column that wraps: a row that
+   does not fit it whole goes to a second column, to the right of the list's
+   own width, where `overflow: clip` keeps it out of sight — `clip` rather than
+   `hidden` because no row takes focus, and nothing should be able to scroll
+   that column into view. No measuring, so nothing to flash when a new score
+   reorders the rows, and no fade over a row that is still half there. Below
+   1101px the page scrolls, the list's height is its content's, and nothing
+   wraps. */
 .host-leaderboard-list {
+  display: flex;
+  flex: 1 1 auto;
+  flex-direction: column;
+  flex-wrap: wrap;
+  align-content: flex-start;
+  min-height: 0;
   margin: 0;
   padding: 0;
+  overflow: clip;
   list-style: none;
 }
 
+/* A flex line always takes its first item, fitting or not, so on a window too
+   short for even one player the first row would stand half in the list. This
+   empty item, no height and the full width, is that first item instead, and the
+   first row wraps out of sight like any other that does not fit whole. */
+.host-leaderboard-list::before {
+  content: "";
+  width: 100%;
+}
+
+/* The hairline goes between rows rather than under each one, so the last row
+   the list shows — which need not be its last child — ends without a rule. */
 .host-leaderboard-list > li {
   display: grid;
   grid-template-columns: auto auto minmax(0, 1fr) auto;
   gap: clamp(8px, 1vw, 20px);
   align-items: center;
+  box-sizing: border-box;
+  width: 100%;
   padding: clamp(5px, 0.9vh, 12px) 0;
-  border-bottom: 1px solid var(--input-border-color);
 }
 
-.host-leaderboard-list > li:last-child {
-  border-bottom: 0;
+.host-leaderboard-list > li + li {
+  border-top: 1px solid var(--input-border-color);
 }
 
 .host-leaderboard-rank {
@@ -119,8 +149,8 @@
   font-variant-numeric: tabular-nums;
 }
 
-/* Four rows and up: a step tighter, so the fifth one does not cost the wishes
-   below their last row. */
+/* Five rows (more than `DENSE_FROM`): a step tighter, so the fifth one does not
+   cost the wishes below their last row. */
 .host-leaderboard-dense > li {
   padding: clamp(3px, 0.5vh, 7px) 0;
 }

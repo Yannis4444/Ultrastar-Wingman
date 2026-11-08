@@ -173,6 +173,36 @@ async def test_the_reel_switch_is_a_sound_setting_and_not_a_music_option(
     assert (await client.get("/api/v1/music")).json()["preview"] is None
 
 
+async def test_the_sound_effects_switch_rides_the_music_state(
+    client: AsyncClient, broadcast_events: list[dict[str, Any]]
+) -> None:
+    """The host plays its effects off the music state, so the switch is on it — and a write
+    on the Settings page reaches an open host page as `music.changed`, without a reload."""
+    rows = {row["key"]: row for row in (await client.get("/api/v1/settings")).json()}
+    assert rows["sound.effects"]["value"] is True
+    assert rows["sound.effects"]["group"] == "Sound"
+    assert (await client.get("/api/v1/music")).json()["sound_effects"] is True
+
+    response = await client.patch("/api/v1/settings/sound.effects", json={"value": False})
+    assert response.status_code == 200
+
+    changed = events_named(broadcast_events, "music.changed")
+    assert changed
+    payload = changed[-1]["music"]
+    assert isinstance(payload, dict)
+    assert payload["sound_effects"] is False
+    assert (await client.get("/api/v1/music")).json()["sound_effects"] is False
+
+
+async def test_the_sound_effects_switch_sits_next_to_the_song_preview(
+    client: AsyncClient,
+) -> None:
+    """Registered right after `sound.reel_preview`, so the Settings page, which keeps the
+    registry's order inside a group, draws the two switches together."""
+    keys = [row["key"] for row in (await client.get("/api/v1/settings")).json()]
+    assert keys.index("sound.effects") == keys.index("sound.reel_preview") + 1
+
+
 async def test_only_the_volumes_named_are_written(client: AsyncClient) -> None:
     await client.put("/api/v1/music/volume", json={"master": 40})
     body = (await client.put("/api/v1/music/volume", json={"effects": 10})).json()

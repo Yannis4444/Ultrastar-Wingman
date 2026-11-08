@@ -546,6 +546,88 @@ it("asks the library for nothing while no condition chooses songs", () => {
   expect(listSongs).not.toHaveBeenCalled();
 });
 
+describe("how the conditions combine", () => {
+  function renderCombined(
+    value: Condition[],
+    combine: "all" | "any",
+    readOnly = false,
+  ) {
+    const onCombineChange = vi.fn<(combine: "all" | "any") => void>();
+    const client = new QueryClient({
+      defaultOptions: { queries: { retry: false } },
+    });
+    render(
+      <QueryClientProvider client={client}>
+        <ConditionBuilder
+          value={value}
+          onChange={() => {}}
+          combine={combine}
+          onCombineChange={onCombineChange}
+          readOnly={readOnly}
+        />
+      </QueryClientProvider>,
+    );
+    return onCombineChange;
+  }
+
+  const TWO = [
+    condition({ comparator: "=", value: 1111 }),
+    condition({ comparator: "=", value: 2222 }),
+  ];
+
+  it("draws no select for one condition, which has nothing to combine with", () => {
+    renderCombined([condition()], "any");
+
+    expect(
+      screen.queryByLabelText("Conditions that have to hold"),
+    ).not.toBeInTheDocument();
+    // A single condition reads as itself, never as an alternative.
+    expect(
+      screen.getByText("Over all time, some score of 9000 or more."),
+    ).toBeVisible();
+  });
+
+  it("draws the select from two conditions on, and emits the choice", () => {
+    const onCombineChange = renderCombined(TWO, "all");
+
+    const select = screen.getByLabelText("Conditions that have to hold");
+    expect(select).toHaveValue("all");
+    expect(
+      within(select)
+        .getAllByRole("option")
+        .map((option) => option.textContent),
+    ).toEqual(["All of them", "Any of them"]);
+
+    fireEvent.change(select, { target: { value: "any" } });
+    expect(onCombineChange).toHaveBeenCalledWith("any");
+  });
+
+  it("heads every alternative after the first with Or", () => {
+    renderCombined(TWO, "any");
+
+    expect(
+      screen.getByText("Over all time, some score of exactly 1111."),
+    ).toBeVisible();
+    expect(
+      screen.getByText("Or, over all time, some score of exactly 2222."),
+    ).toBeVisible();
+  });
+
+  it("reads all of them as a list of things that all come true", () => {
+    renderCombined(TWO, "all");
+
+    expect(
+      screen.getByText("Over all time, some score of exactly 2222."),
+    ).toBeVisible();
+  });
+
+  it("is locked with the rest of a built-in's conditions", () => {
+    renderCombined(TWO, "all", true);
+
+    expect(screen.queryByRole("combobox")).not.toBeInTheDocument();
+  });
+});
+
 describe("locked", () => {
   /** What a built-in's conditions are drawn as: the sentences, and nothing to
    *  press. */

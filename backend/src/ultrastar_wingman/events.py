@@ -205,8 +205,9 @@ class AchievementsChanged(Event):
 class WishlistUpdated(Event):
     """One song's wish count changed: somebody wished for it, took the wish back, or logged
     in and brought their guest wishes along — or the song started, or was taken off the
-    wishlist for everybody, or deleted, which drop every wish for it. `count` is 0 when the
-    last wish is gone."""
+    wishlist for everybody, or deleted, which drop every wish for it — or a wisher's player
+    was hidden or shown again, which takes their wish out of the count or puts it back.
+    `count` is what everybody's listing counts, and 0 when the last such wish is gone."""
 
     event: Literal["wishlist.updated"] = "wishlist.updated"
     song_id: str
@@ -228,6 +229,17 @@ class TagsChanged(Event):
     what a listener may see of the tags depends on who it is, which the bus does not know."""
 
     event: Literal["tags.changed"] = "tags.changed"
+
+
+class GroupsChanged(Event):
+    """A permission group was created, renamed, had its capabilities set or was deleted, or
+    somebody was put in a group or taken out of one (docs/dev/permission-groups.md §4). No
+    payload, the `tags.changed` precedent: what a reader may know about groups depends on who
+    they are. Every open page reads `/auth/me` again on it, so a right given or taken shows
+    without a reload. Not sent when an account is registered or deleted: that moves only a
+    member count, and `players.changed` already goes out for both."""
+
+    event: Literal["groups.changed"] = "groups.changed"
 
 
 class SongTagsChanged(Event):

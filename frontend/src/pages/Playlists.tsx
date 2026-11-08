@@ -160,7 +160,7 @@ export default function Playlists() {
   const empty = playlists.isSuccess && rows.length === 0;
 
   return (
-    <div className="playlists-page">
+    <div className="playlists-page page-foot">
       <PageHeader title="Playlists" back="/songs">
         {canManage && (
           <button
@@ -255,8 +255,7 @@ export default function Playlists() {
           </>
         ) : (
           <p className="settings-notice">
-            Playlists are not open to your role. Log in or ask the host for
-            access.
+            Playlists are not open to you. Log in or ask the host for access.
           </p>
         ))}
 

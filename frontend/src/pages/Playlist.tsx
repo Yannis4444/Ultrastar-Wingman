@@ -358,7 +358,7 @@ export default function Playlist() {
   );
 
   return (
-    <div className="playlists-page">
+    <div className="playlists-page page-foot">
       <PageHeader
         title={playlist.data?.name ?? "Playlist"}
         back="/songs/playlists"
@@ -577,8 +577,7 @@ export default function Playlist() {
           </>
         ) : (
           <p className="settings-notice">
-            Playlists are not open to your role. Log in or ask the host for
-            access.
+            Playlists are not open to you. Log in or ask the host for access.
           </p>
         ))}
 

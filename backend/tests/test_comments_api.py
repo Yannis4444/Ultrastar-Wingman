@@ -19,7 +19,7 @@ from fastapi import FastAPI
 from httpx import ASGITransport, AsyncClient
 from sqlalchemy import select
 
-from conftest import BASE_URL, add_session, add_user
+from conftest import BASE_URL, IDENTITY_GROUPS, add_session, add_user
 from test_wishlist_api import OTHER_SONG, SONG, add_songs, factory
 from ultrastar_wingman.app import create_app
 from ultrastar_wingman.auth.deps import COOKIE_NAME
@@ -31,7 +31,8 @@ from ultrastar_wingman.tags.model import BROKEN_TAG_ID
 # The accounts in the fixture. `other` is a second plain account, so "somebody else's
 # comment" is a plain user's comment and not a helper's.
 ACCOUNTS = ("user", "other", "trusted", "admin")
-ROLE_OF = {"user": "user", "other": "user", "trusted": "trusted", "admin": "admin"}
+# The groups each account is in: `other` is a second plain account.
+GROUPS_OF = {**IDENTITY_GROUPS, "other": IDENTITY_GROUPS["user"]}
 
 
 @dataclass
@@ -62,7 +63,7 @@ async def party(bootstrap_settings: BootstrapSettings) -> AsyncIterator[Party]:
         clients = {"anonymous": _client(app)}
         ids: dict[str, str] = {}
         for name in ACCOUNTS:
-            ids[name] = await add_user(factory(app), f"{name}-account", ROLE_OF[name])
+            ids[name] = await add_user(factory(app), f"{name}-account", groups=GROUPS_OF[name])
             await add_session(factory(app), f"{name}-token", ids[name])
             clients[name] = _client(app, f"{name}-token")
         # The host screen: an administrator by device, with no account behind it.

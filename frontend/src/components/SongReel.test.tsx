@@ -334,3 +334,185 @@ test("without a way in, the window is a frame and not a button", () => {
   expect(container.querySelector(".spinner-window")?.tagName).toBe("DIV");
   expect(reelSongIds(container)).toEqual(["usdb:2"]);
 });
+
+describe("the reel's sounds", () => {
+  /** The animation frames, run by hand; and where the browser says the reel is. */
+  function frames() {
+    const queue = new Map<number, FrameRequestCallback>();
+    let next = 0;
+    const request = vi.fn((callback: FrameRequestCallback) => {
+      next += 1;
+      queue.set(next, callback);
+      return next;
+    });
+    vi.stubGlobal("requestAnimationFrame", request);
+    vi.stubGlobal("cancelAnimationFrame", (id: number) => queue.delete(id));
+    let offset = 0;
+    const realStyle = window.getComputedStyle.bind(window);
+    vi.spyOn(window, "getComputedStyle").mockImplementation((element) => {
+      const style = realStyle(element);
+      if (!(element as Element).classList.contains("spinner-reel")) {
+        return style;
+      }
+      return {
+        ...style,
+        transform: `matrix(1, 0, 0, 1, 0, ${offset})`,
+      } as CSSStyleDeclaration;
+    });
+    // Every cover 100px high.
+    vi.spyOn(HTMLElement.prototype, "offsetHeight", "get").mockReturnValue(100);
+    return {
+      request,
+      /** One frame with the reel at `y`. */
+      at(y: number) {
+        offset = y;
+        const due = [...queue.values()];
+        queue.clear();
+        act(() => {
+          for (const callback of due) callback(0);
+        });
+      },
+    };
+  }
+
+  function sounds() {
+    return { pass: vi.fn(), land: vi.fn() };
+  }
+
+  afterEach(() => {
+    vi.restoreAllMocks();
+  });
+
+  test("a cover crossing the line is a tick, and the covers stopping is the landing", () => {
+    vi.useFakeTimers({ shouldAdvanceTime: true });
+    const reel = frames();
+    const ear = sounds();
+    const { container } = render(
+      <SongReel spin={{ id: 1, winner: AFRICA }} fillers={POOL} sounds={ear} />,
+    );
+
+    reel.at(-4000);
+    reel.at(-3960);
+    // Still the same cover at the line: nothing yet.
+    expect(ear.pass).not.toHaveBeenCalled();
+    reel.at(-3940);
+    expect(ear.pass).toHaveBeenCalledTimes(1);
+    // Several covers in one frame are still one tick: a frame is the most the
+    // ear can tell apart, and a burst would be a buzz.
+    reel.at(-3500);
+    expect(ear.pass).toHaveBeenCalledTimes(2);
+    expect(ear.land).not.toHaveBeenCalled();
+
+    // jsdom has no TransitionEvent: a plain event carrying what one would.
+    const stopped = new Event("transitionend", { bubbles: true });
+    Object.defineProperty(stopped, "propertyName", { value: "transform" });
+    act(() => {
+      reelElement(container).dispatchEvent(stopped);
+    });
+    expect(ear.land).toHaveBeenCalledTimes(1);
+    // The reveal half a second later is the same landing.
+    act(() => vi.advanceTimersByTime(REVEAL_MS));
+    expect(ear.land).toHaveBeenCalledTimes(1);
+  });
+
+  test("a reel run a cover a frame ticks once for every cover it carries past", () => {
+    vi.useFakeTimers({ shouldAdvanceTime: true });
+    const reel = frames();
+    const ear = sounds();
+    const { container } = render(
+      <SongReel spin={{ id: 1, winner: AFRICA }} fillers={POOL} sounds={ear} />,
+    );
+    // The winner, the 40-60 fillers and the entry it starts from.
+    const covers = reelElement(container).children.length;
+    expect(covers).toBeGreaterThan(40);
+
+    for (let at = covers - 1; at >= 0; at -= 1) reel.at(-at * 100);
+
+    // From the bottom entry up to the winner: one edge per step.
+    expect(ear.pass).toHaveBeenCalledTimes(covers - 1);
+  });
+
+  test("a respin is heard again", () => {
+    vi.useFakeTimers({ shouldAdvanceTime: true });
+    frames();
+    const ear = sounds();
+    const { rerender } = render(
+      <SongReel spin={{ id: 1, winner: AFRICA }} fillers={POOL} sounds={ear} />,
+    );
+    act(() => vi.advanceTimersByTime(REVEAL_MS));
+    expect(ear.land).toHaveBeenCalledTimes(1);
+
+    rerender(
+      <SongReel spin={{ id: 2, winner: QUEEN }} fillers={POOL} sounds={ear} />,
+    );
+    act(() => vi.advanceTimersByTime(REVEAL_MS));
+    expect(ear.land).toHaveBeenCalledTimes(2);
+  });
+
+  test("a reel drawn at rest makes no sound at all", () => {
+    vi.useFakeTimers({ shouldAdvanceTime: true });
+    const reel = frames();
+    const ear = sounds();
+    render(
+      <SongReel
+        spin={{ id: 3, winner: WATERLOO }}
+        fillers={POOL}
+        settled
+        sounds={ear}
+      />,
+    );
+    act(() => vi.advanceTimersByTime(REVEAL_MS));
+
+    expect(reel.request).not.toHaveBeenCalled();
+    expect(ear.pass).not.toHaveBeenCalled();
+    expect(ear.land).not.toHaveBeenCalled();
+  });
+
+  test("a spin cut short lands with one click", () => {
+    vi.useFakeTimers({ shouldAdvanceTime: true });
+    const reel = frames();
+    const ear = sounds();
+    const { rerender } = render(
+      <SongReel spin={{ id: 1, winner: AFRICA }} fillers={POOL} sounds={ear} />,
+    );
+    reel.at(-4000);
+    rerender(
+      <SongReel
+        spin={{ id: 1, winner: AFRICA }}
+        fillers={POOL}
+        settled
+        sounds={ear}
+      />,
+    );
+
+    expect(ear.land).toHaveBeenCalledTimes(1);
+    // The reel jumped to its end: no frame after the landing reads that jump
+    // as one more cover passing.
+    reel.at(0);
+    expect(ear.pass).not.toHaveBeenCalled();
+    act(() => vi.advanceTimersByTime(REVEAL_MS));
+    expect(ear.land).toHaveBeenCalledTimes(1);
+  });
+
+  test("under reduced motion only the landing sounds", () => {
+    vi.stubGlobal("matchMedia", vi.fn().mockReturnValue({ matches: true }));
+    const reel = frames();
+    const ear = sounds();
+    render(
+      <SongReel spin={{ id: 1, winner: AFRICA }} fillers={POOL} sounds={ear} />,
+    );
+
+    expect(reel.request).not.toHaveBeenCalled();
+    expect(ear.pass).not.toHaveBeenCalled();
+    expect(ear.land).toHaveBeenCalledTimes(1);
+  });
+
+  test("a reel without sounds watches nothing", () => {
+    vi.useFakeTimers({ shouldAdvanceTime: true });
+    const reel = frames();
+    render(<SongReel spin={{ id: 1, winner: AFRICA }} fillers={POOL} />);
+    act(() => vi.advanceTimersByTime(REVEAL_MS));
+
+    expect(reel.request).not.toHaveBeenCalled();
+  });
+});

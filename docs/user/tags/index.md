@@ -13,7 +13,7 @@ may see the songs under it.
 
 Making tags takes the right to manage tags, which Trusted and Admin hold by
 default. Everybody else sees the result. See
-[Roles and permissions](../people/roles.md).
+[Groups and permissions](../people/groups.md).
 
 ## The tags page
 
@@ -61,7 +61,7 @@ Everybody who may see the tag can bring the songs back. See
 
 ## Who sees what
 
-Every tag carries three separate rights, one row each in the editor.
+Every tag carries three separate rights, one column each in the editor.
 
 | Right | What it means |
 |---|---|
@@ -76,17 +76,21 @@ of the reel, and off any playlist. That is how **broken** works.
 **Tag songs** only works alongside **See tag**. Nobody sets a label they are not
 allowed to know about.
 
-The columns are **Guest**, **User**, and **Trusted**. Administrators are in no
-column. They see every tag and every song, so no combination of ticks hides
-anything from the host.
+Under **Permissions** every group is a row, Guest and User first, with the
+three rights as its columns. Administrators have no row. They see every tag and
+every song, so no combination of ticks hides anything from the host.
 
-**Specific people** under the table gives one account more than its role holds.
-Type into **Add people** to search by username, then tick the rights for that
-person.
+A group of your own adds to User. Where User holds a right on the tag, the
+group's box is ticked and grayed out: every account holds that right already,
+the group's members included. See [Groups and permissions](../people/groups.md).
 
-![The tag editor's Permissions matrix with its Guest, User, and Trusted columns, and a Specific people row giving Fry all three rights](../assets/screenshots/tags/tag-editor.png){ width="320" loading=lazy }
+**Specific people** under the groups gives one account more than its groups
+hold. Type into **Add people** to search by username, then tick the rights for
+that person.
+
+![The tag editor's Permissions rows for Guest, User, DJs, and Trusted with the three rights as columns, and a Specific people row giving Fry all three rights](../assets/screenshots/tags/tag-editor.png){ width="320" loading=lazy }
 /// caption
-Fry may tag songs here, although his role on its own may not.
+Fry may tag songs here, although no group of his may.
 ///
 
 Two sentences may appear under the table while you tick. They are warnings, not

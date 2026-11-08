@@ -16,12 +16,11 @@ from types import ModuleType
 
 from alembic import command
 from alembic.config import Config
-from sqlalchemy import bindparam, func, select, text
+from sqlalchemy import bindparam, select, text
 from sqlalchemy.ext.asyncio import create_async_engine
 
 from ultrastar_wingman.achievements.builtin import BUILT_INS
 from ultrastar_wingman.achievements.model import Achievement, PlayerAchievement
-from ultrastar_wingman.auth.model import RolePermission
 from ultrastar_wingman.db import migrations_dir
 
 
@@ -54,15 +53,18 @@ async def test_the_seed_revisions_survive_a_round_trip(tmp_path: Path) -> None:
     try:
         async with engine.connect() as connection:
             seeded = list(await connection.scalars(select(Achievement.id).order_by(Achievement.id)))
+            # Seeded for `admin` by 0024; since 0039 Admin holds it by rule and no group row
+            # names it.
             granted = list(
                 await connection.scalars(
-                    select(RolePermission.role).where(
-                        RolePermission.capability == "achievements.manage"
+                    text(
+                        "SELECT group_id FROM group_capabilities "
+                        "WHERE capability = 'achievements.manage'"
                     )
                 )
             )
         assert sorted(seeded) == sorted(slugs)
-        assert granted == ["admin"]
+        assert granted == []
 
         # A player's progress on one of them, so the downgrade has something to clean up.
         async with engine.begin() as connection:
@@ -81,26 +83,30 @@ async def test_the_seed_revisions_survive_a_round_trip(tmp_path: Path) -> None:
             # The progress row went with the achievement it was progress toward: leaving it
             # behind is what would make the next upgrade seed on top of an orphan.
             assert list(await connection.scalars(select(PlayerAchievement.achievement_id))) == []
+            # Back below 0039 the roles' table is there again, and below 0024 it no longer
+            # grants the capability to anybody.
             assert (
                 await connection.scalar(
-                    select(func.count())
-                    .select_from(RolePermission)
-                    .where(RolePermission.capability == "achievements.manage")
+                    text(
+                        "SELECT COUNT(*) FROM role_permissions "
+                        "WHERE capability = 'achievements.manage'"
+                    )
                 )
             ) == 0
 
         await _alembic(database_url, "head")
         async with engine.connect() as connection:
             again = list(await connection.scalars(select(Achievement.id)))
-            roles = list(
+            groups = list(
                 await connection.scalars(
-                    select(RolePermission.role).where(
-                        RolePermission.capability == "achievements.manage"
+                    text(
+                        "SELECT group_id FROM group_capabilities "
+                        "WHERE capability = 'achievements.manage'"
                     )
                 )
             )
         assert sorted(again) == sorted(slugs)
-        assert roles == ["admin"]
+        assert groups == []
     finally:
         await engine.dispose()
 
@@ -482,3 +488,49 @@ async def test_0031_takes_only_its_own_row_back_off(tmp_path: Path) -> None:
     # highest of them rather than back in the gap.
     await _alembic(database_url, "head")
     assert [row[0] for row in await _catalogue(database_url)] == kept_ids + [new_id]
+
+
+async def _combines(database_url: str) -> dict[str, str]:
+    engine = create_async_engine(database_url)
+    try:
+        async with engine.connect() as connection:
+            rows = await connection.execute(text("SELECT id, combine FROM achievements"))
+        return {str(row[0]): str(row[1]) for row in rows}
+    finally:
+        await engine.dispose()
+
+
+async def test_0038_reads_every_achievement_already_there_as_all(tmp_path: Path) -> None:
+    """Every definition written before 0038 is a list of conditions that all have to hold, and
+    the column it adds says so of every row already in the table — the built-ins and the
+    host's own alike — so nothing changes meaning. Stepping back takes the column off again
+    and leaves the rows."""
+    database_url = f"sqlite+aiosqlite:///{tmp_path / 'combine.db'}"
+
+    await _alembic(database_url, "0037")
+    await _execute(
+        database_url,
+        "INSERT INTO achievements "
+        "(id, name, description, color, hidden, enabled, built_in, sort_order, definition, "
+        "created_at) "
+        "VALUES ('a-host-s-own', 'Own', '', 'gold', 0, 1, 0, 99, '[]', '2026-09-01 20:00:00')",
+        {},
+    )
+
+    await _alembic(database_url, "head")
+    combines = await _combines(database_url)
+    assert sorted(combines) == sorted([built_in.id for built_in in BUILT_INS] + ["a-host-s-own"])
+    assert set(combines.values()) == {"all"}
+
+    await _alembic(database_url, "0037", down=True)
+    engine = create_async_engine(database_url)
+    try:
+        async with engine.connect() as connection:
+            columns = [
+                row[1] for row in await connection.execute(text("PRAGMA table_info(achievements)"))
+            ]
+            count = await connection.scalar(text("SELECT COUNT(*) FROM achievements"))
+    finally:
+        await engine.dispose()
+    assert "combine" not in columns
+    assert count == len(BUILT_INS) + 1

@@ -603,7 +603,7 @@ export default function SongDetails({
             <p className="song-details-notice">
               {canEditSong
                 ? "The values go into the song's own file, so Ultrastar Deluxe shows them too. Its lyrics and its music are not touched."
-                : "Your role may not change these values. Ask the host for access."}
+                : "You may not change these values. Ask the host for access."}
             </p>
             {notice && (
               <p className="song-details-notice" role="alert">
@@ -947,7 +947,7 @@ export default function SongDetails({
       ? "The host screen has no name to sign a comment with. Say it from your own phone."
       : auth.user === null
         ? "Comments carry a name, so writing one takes an account. Log in to say something."
-        : "Your role may not comment. Ask the host for access.";
+        : "You may not comment. Ask the host for access.";
     return (
       <>
         <Modal

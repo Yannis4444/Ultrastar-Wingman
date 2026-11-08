@@ -1,6 +1,7 @@
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { render, screen } from "@testing-library/react";
 import { MemoryRouter } from "react-router-dom";
+import type { MusicRead } from "../api";
 import { meResponse } from "../test/auth";
 import { FakeSocket } from "../test/fakeSocket";
 import { iconNames } from "../test/icons";
@@ -52,14 +53,16 @@ beforeEach(() => {
     data: {
       status: "off",
       track: null,
+      preview: null,
       blocked_by: null,
       resume_at: null,
       retry_at: null,
       sink_online: false,
       sink_generation: 0,
-      volume: { master: 100, music: 60, effects: 80 },
+      volume: { master: 100, music: 60, preview: 100, effects: 80 },
+      sound_effects: true,
       scope: "all",
-    },
+    } satisfies MusicRead,
   });
   listKaraokeColors.mockResolvedValue({ data: { colors: [] } });
   listSongs.mockResolvedValue({ data: { songs: [] } });

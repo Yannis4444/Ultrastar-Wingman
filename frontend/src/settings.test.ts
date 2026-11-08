@@ -23,6 +23,12 @@ test("a key that outgrew its name keeps it and says what it does", () => {
   expect(labelize("other.reel_preview")).toBe("Reel preview");
 });
 
+test("the sound effects switch says which effects", () => {
+  expect(labelize("sound.effects")).toBe("Sound effects");
+  // The volume beside it keeps its generic label.
+  expect(labelize("sound.effects_volume")).toBe("Effects volume");
+});
+
 test("a key without a group prefix still gets a label", () => {
   expect(labelize("parallel_downloads")).toBe("Parallel downloads");
 });

@@ -156,8 +156,7 @@ DEFINITIONS: dict[str, SettingDefinition] = {
         group="Player selector",
         description=(
             "What the start button spins the reel over when it starts a random song: every "
-            "song, the wishlist (each song once, or as often as it was wished for), or one "
-            "playlist."
+            "song, the wishlist (each song once, or weighted by its wishes), or one playlist."
         ),
         validate=_validate_random_scope,
     ),

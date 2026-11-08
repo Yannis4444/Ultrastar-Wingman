@@ -16,7 +16,7 @@ import type {
   ReaderRead,
 } from "../api";
 import { shortDate, shortTime } from "../duration";
-import { meResponse, userRead } from "../test/auth";
+import { AS, meResponse, userRead } from "../test/auth";
 import { FakeSocket } from "../test/fakeSocket";
 import Device from "./Device";
 
@@ -50,7 +50,7 @@ vi.mock("../api/sdk.gen", async (importOriginal) => ({
 }));
 
 const MANAGER = ["devices.manage"];
-const ACCOUNT: Partial<MeRead> = { user: userRead(), role: "admin" };
+const ACCOUNT: Partial<MeRead> = { user: userRead(), ...AS.admin };
 const SEEN = "2026-08-12T14:03:00Z";
 
 /** A build that carries the bare application image, which is the half of an

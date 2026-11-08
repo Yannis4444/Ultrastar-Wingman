@@ -1,5 +1,11 @@
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import { fireEvent, render, screen, waitFor } from "@testing-library/react";
+import {
+  fireEvent,
+  render,
+  screen,
+  waitFor,
+  within,
+} from "@testing-library/react";
 import { MemoryRouter } from "react-router-dom";
 import { MANAGE_CATALOGUE } from "../achievements";
 import type { AchievementRead, AchievementSettings, MeRead } from "../api";
@@ -9,7 +15,7 @@ import {
   achievementSettings,
   builtInAchievementReads,
 } from "../test/achievements";
-import { meResponse, userRead } from "../test/auth";
+import { AS, meResponse, userRead } from "../test/auth";
 import { FakeSocket } from "../test/fakeSocket";
 import { iconNames } from "../test/icons";
 import Achievements from "./Achievements";
@@ -41,7 +47,7 @@ vi.mock("../api/sdk.gen", async (importOriginal) => ({
 }));
 
 const MANAGER = ["songs.view", "achievements.manage"];
-const ACCOUNT: Partial<MeRead> = { user: userRead(), role: "trusted" };
+const ACCOUNT: Partial<MeRead> = { user: userRead(), ...AS.trusted };
 
 function renderPage(
   achievements: AchievementRead[] | Error = [achievementRead()],
@@ -427,6 +433,31 @@ it("imports an archive and says what it did to which achievement", async () => {
   );
   // And the catalogue is asked for again, socket or no socket.
   await waitFor(() => expect(listAchievements.mock.calls.length).toBe(2));
+});
+
+it("ends the page in one section, which holds the buttons and their answer", async () => {
+  // The page block carries the foot that keeps it off the nav (`page-foot`,
+  // index.css), and the section ends it whichever of these is its last thing.
+  importAchievements.mockResolvedValue({
+    data: { created: ["a-new"], updated: [] },
+  });
+  const { container } = renderPage();
+
+  await screen.findByText("Golden Voice");
+  const page = container.querySelector(".achievements-page");
+  expect(page).toHaveClass("page-foot");
+  const section = container.querySelector(".achievements-transfer");
+  expect(section).not.toBeNull();
+  expect(page?.lastElementChild).toBe(section);
+  const transfer = within(section as HTMLElement);
+  expect(transfer.getByLabelText("Import archive")).toBeInTheDocument();
+  expect(transfer.getByRole("button", { name: "Export…" })).toBeInTheDocument();
+
+  fireEvent.change(screen.getByLabelText("Import archive"), {
+    target: { files: [archive()] },
+  });
+  expect(await transfer.findByRole("status")).toHaveTextContent("Added a-new");
+  expect(page?.lastElementChild).toBe(section);
 });
 
 it("shows what a refused archive was refused for", async () => {

@@ -35,7 +35,7 @@ with the song: its tags, favorites, wishes, playlist entries, comments, and
 scores.
 
 Fixing details is a helper's job. Trusted and Admin hold the right by default.
-See [Roles and permissions](../people/roles.md).
+See [Groups and permissions](../people/groups.md).
 
 ### When Wingman refuses to save
 
@@ -66,10 +66,10 @@ file, a duplicate, a download that went wrong.
 3. Read what the confirmation names, then tap **Delete**.
 
 Only Admin holds the right by default, and the host can hand it to Trusted as
-well. See [Roles and permissions](../people/roles.md).
+well. See [Groups and permissions](../people/groups.md).
 
 Deleting a song and correcting its details are the same errand, so they share
-one form. If your role may delete a song but not correct it, the fields are
+one form. If you may delete a song but not correct it, the fields are
 there to read. **Delete song** is then the only thing you can tap.
 
 !!! warning

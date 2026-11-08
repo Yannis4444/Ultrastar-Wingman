@@ -2,6 +2,7 @@ import {
   errorDetail,
   errorMessage,
   explainUsdxProblem,
+  groupMessage,
   missingPermission,
   usdxLaunchRefusal,
   usdxProblems,
@@ -42,7 +43,29 @@ test("a string detail is passed through, a permission denial is named", () => {
   expect(errorMessage({ detail: "already_playing" }, "Nope.")).toBe("Nope.");
   expect(
     errorMessage({ detail: "missing_permission:karaoke.stop" }, "Nope."),
-  ).toContain("karaoke.stop");
+  ).toBe("You may not do this (karaoke.stop). Ask the host for access.");
+});
+
+test("every refusal of the groups API has its own sentence", () => {
+  for (const [slug, sentence] of [
+    ["admin_required", "Only an administrator can change who is in Admin"],
+    ["built_in_group", "Guest, User, and Admin are built in."],
+    ["admin_not_editable", "Admin holds every right, always."],
+    ["duplicate_group_name", "A group with that name already exists."],
+    ["unknown_group", "That group no longer exists."],
+    ["not_assignable", "Nobody is put in Guest or User."],
+    ["last_admin", "There has to be one administrator left."],
+  ])
+    expect(groupMessage({ detail: slug }, "Nope.")).toContain(sentence);
+  // Rule 2's refusal is the ordinary 403, and anything else the fallback.
+  expect(
+    groupMessage({ detail: "missing_permission:songs.rescan" }, "Nope."),
+  ).toBe("You may not do this (songs.rescan). Ask the host for access.");
+  expect(groupMessage({ detail: "something_else" }, "Nope.")).toBe("Nope.");
+  // No sentence anywhere says "role" any more.
+  expect(
+    errorMessage({ detail: "missing_permission:x.y" }, "Nope."),
+  ).not.toMatch(/role/);
 });
 
 test("the USDX report comes out of the object detail", () => {

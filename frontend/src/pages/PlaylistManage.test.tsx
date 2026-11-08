@@ -8,7 +8,7 @@ import {
 } from "@testing-library/react";
 import { MemoryRouter, Route, Routes, useLocation } from "react-router-dom";
 import type { MeRead, PlaylistDetail, PlaylistMemberRead } from "../api";
-import { meResponse, userRead } from "../test/auth";
+import { AS, meResponse, userRead } from "../test/auth";
 import { FakeSocket } from "../test/fakeSocket";
 import { iconNames } from "../test/icons";
 import PlaylistManage from "./PlaylistManage";
@@ -49,7 +49,7 @@ vi.mock("../api/sdk.gen", async (importOriginal) => ({
 }));
 
 const LIBRARY = ["songs.view", "playlists.view", "playlists.manage"];
-const ACCOUNT: Partial<MeRead> = { user: userRead(), role: "user" };
+const ACCOUNT: Partial<MeRead> = { user: userRead(), ...AS.user };
 
 function detail(overrides: Partial<PlaylistDetail> = {}): PlaylistDetail {
   return {
@@ -202,7 +202,7 @@ test("a guest without the right is told who may do this", async () => {
   renderManage(detail(), ["songs.view"], {});
 
   expect(
-    await screen.findByText(/Playlists are not open to your role/),
+    await screen.findByText(/Playlists are not open to you\./),
   ).toBeInTheDocument();
   expect(getPlaylist).not.toHaveBeenCalled();
 });

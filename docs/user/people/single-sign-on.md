@@ -94,8 +94,10 @@ is no account yet, and nobody is logged in.
 - **Players & accounts** says *Signs in with* and the button's name under the
   account's name. See [Players and avatars](players.md).
 
-Everything else is normal. It holds a role, it stands in the permissions table,
-and it can be deleted. See [Roles and permissions](roles.md).
+Everything else is normal. It lands in **User** alone, like an account somebody
+registered, and the host puts it in more groups by hand. Nothing the provider
+says about groups reaches Wingman. It can be deleted like any account. See
+[Groups and permissions](groups.md).
 
 ### The picture
 

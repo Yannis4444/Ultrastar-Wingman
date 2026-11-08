@@ -110,6 +110,10 @@ class MusicRead(BaseModel):
     # been taken over, and silences itself without waiting for a refused report.
     sink_generation: int
     volume: MusicVolumeRead
+    # `sound.effects`: whether the host screen plays its sound effects (the reel's ticks and
+    # landing, the badges' whoosh), at `volume.master` × `volume.effects`. Here rather than
+    # behind `settings.view` because the host reads its sound off this state, live.
+    sound_effects: bool
     scope: Scope
 
 

@@ -23,7 +23,7 @@ from fastapi import FastAPI
 from httpx import ASGITransport, AsyncClient
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
 
-from conftest import BASE_URL, add_session, add_user
+from conftest import BASE_URL, IDENTITY_GROUPS, add_session, add_user
 from ultrastar_wingman.achievements import pictures, service
 from ultrastar_wingman.achievements.builtin import BUILT_INS, BY_ID
 from ultrastar_wingman.achievements.model import Achievement, PlayerAchievement
@@ -46,7 +46,8 @@ JPEG = bytes.fromhex("ffd8ffe000104a46494600010100000100010000ffc0000b0800010001
 
 # A plain account and a helper: neither holds `achievements.manage`, which nobody but an
 # administrator does by default.
-ACCOUNTS = {"user": "user", "trusted": "trusted", "admin": "admin"}
+# One account per kind of caller, with the groups it is in.
+ACCOUNTS = IDENTITY_GROUPS
 
 SECRET = {
     "name": "Brave Soul",
@@ -99,8 +100,8 @@ async def party(bootstrap_settings: BootstrapSettings) -> AsyncIterator[Party]:
         clients = {"anonymous": _client(app)}
         ids: dict[str, str] = {}
         session_factory: async_sessionmaker[AsyncSession] = app.state.session_factory
-        for name, role in ACCOUNTS.items():
-            ids[name] = await add_user(session_factory, f"{name}-account", role)
+        for name, groups in ACCOUNTS.items():
+            ids[name] = await add_user(session_factory, f"{name}-account", groups=groups)
             await add_session(session_factory, f"{name}-token", ids[name])
             clients[name] = _client(app, f"{name}-token")
         try:
@@ -388,6 +389,62 @@ async def test_a_built_ins_conditions_cannot_be_changed(party: Party) -> None:
     assert rows["builtin-score-9000"]["name"] == "Golden Voice"
 
 
+async def test_how_a_built_ins_conditions_combine_cannot_be_changed_either(party: Party) -> None:
+    """`combine` is half of what an achievement asks for: a PATCH that names nothing else is
+    the same 409 a definition is, and one that repeats the shipped `all` is the same no-op."""
+    refused = await party["admin"].patch(
+        "/api/v1/achievements/builtin-score-9000", json={"name": "Renamed", "combine": "any"}
+    )
+
+    assert refused.status_code == 409, refused.text
+    assert refused.json() == {"detail": "built_in_definition"}
+    rows = {row["id"]: row for row in await catalogue(party["admin"], manage=True)}
+    assert rows["builtin-score-9000"]["combine"] == "all"
+    assert rows["builtin-score-9000"]["name"] == "Golden Voice"
+
+    repeated = await party["admin"].patch(
+        "/api/v1/achievements/builtin-score-9000", json={"name": "Renamed", "combine": "all"}
+    )
+    assert repeated.status_code == 200, repeated.text
+    assert repeated.json()["name"] == "Renamed"
+    assert repeated.json()["combine"] == "all"
+
+
+async def test_every_built_in_asks_for_all_of_its_conditions(party: Party) -> None:
+    """Nothing about the shipped set moved: every one of them reads `all`, the only thing a
+    definition could mean before an achievement could say otherwise."""
+    rows = await catalogue(party["admin"], manage=True)
+
+    assert {row["combine"] for row in rows if row["built_in"]} == {"all"}
+
+
+async def test_combine_is_created_patched_and_handed_to_the_management_page_alone(
+    party: Party,
+) -> None:
+    """Left out it is `all`. It rides with the definition and is kept from exactly the
+    answers the definition is kept from — the catalogue everybody reads carries neither."""
+    plain = await create(party["admin"], name="Plain")
+    either = await create(party["admin"], name="Either", combine="any")
+
+    assert plain["combine"] == "all"
+    assert either["combine"] == "any"
+    managed = {row["id"]: row for row in await catalogue(party["admin"], manage=True)}
+    assert managed[either["id"]]["combine"] == "any"
+    for row in await catalogue(party["anonymous"]):
+        assert row["combine"] is None
+        assert row["definition"] is None
+
+    patched = await party["admin"].patch(
+        f"/api/v1/achievements/{plain['id']}", json={"combine": "any"}
+    )
+    assert patched.status_code == 200, patched.text
+    assert patched.json()["combine"] == "any"
+    refused = await party["admin"].patch(
+        f"/api/v1/achievements/{plain['id']}", json={"combine": "some"}
+    )
+    assert refused.status_code == 422, refused.text
+
+
 async def test_a_patch_repeating_a_built_ins_own_conditions_is_no_refusal(party: Party) -> None:
     """A client that sends the whole achievement back — the shipped definition included —
     changed nothing about the conditions, and is not refused for a field it never meant to
@@ -461,6 +518,8 @@ async def test_resetting_a_built_in_puts_back_everything_but_whether_it_is_on(
         row = await session.get(Achievement, "builtin-score-9000")
         assert row is not None
         row.definition = [{"metric": "any_score", "comparator": ">=", "value": 1}]
+        # And how they combine, which no route can move on a built-in either.
+        row.combine = "any"
         row.sort_order = 99
         await session.commit()
 
@@ -483,6 +542,7 @@ async def test_resetting_a_built_in_puts_back_everything_but_whether_it_is_on(
     assert restored["enabled"] is False
     assert restored["sort_order"] == 99
     assert await stored_definition(party, "builtin-score-9000") == shipped.definition
+    assert restored["combine"] == "all"
     assert icon_files(party.icons) == []
 
 

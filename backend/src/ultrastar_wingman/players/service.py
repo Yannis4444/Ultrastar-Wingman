@@ -24,6 +24,7 @@ from ..images import (
     store_image,
     validate_image,
 )
+from ..library import service as library
 from .model import AVATAR_MANUAL, AVATAR_OIDC, Player
 
 logger = logging.getLogger(__name__)
@@ -86,16 +87,31 @@ async def player_id_of_user(session: AsyncSession, user_id: str) -> str | None:
 async def set_hidden(session: AsyncSession, player: Player, hidden: bool) -> Player:
     """Take a player out of the singer picker, or put them back.
 
-    Nothing else reads the flag: the scores, the sessions and the statistics are the record
-    of what happened and keep naming them.
+    The wishlist reads the flag too: a hidden player's wishes leave the shared list and
+    every spin pool (`library.service._counted`) and come back with them, so every song the
+    account wished for is announced again — only when the flag actually moved, because a
+    count that did not change is nothing for every phone to refetch. Nothing else does: the
+    scores, the sessions and the statistics are the record of what happened and keep naming
+    them.
     """
+    moved = player.hidden != hidden
     player.hidden = hidden
     await session.commit()
     logger.info(
         "Player '%s' %s the singer picker", player.name, "taken out of" if hidden else "back in"
     )
     await announce_players()
+    if moved:
+        await _announce_wishes(session, player.user_id)
     return player
+
+
+async def _announce_wishes(session: AsyncSession, user_id: str | None) -> None:
+    """The wishlist after a player's `hidden` stopped or started counting against their
+    account. Only an account wishes as somebody a player can be traced to; a player without
+    one has no wishes to announce."""
+    if user_id is not None:
+        await library.announce_wishes_of(session, user_id)
 
 
 async def unhide_player_of_user(session: AsyncSession, user_id: str) -> None:
@@ -111,6 +127,7 @@ async def unhide_player_of_user(session: AsyncSession, user_id: str) -> None:
     await session.commit()
     logger.info("Player '%s' back in the singer picker after logging in", player.name)
     await announce_players()
+    await _announce_wishes(session, user_id)
 
 
 async def delete_player(session: AsyncSession, player: Player, avatars_dir: Path) -> None:
@@ -123,12 +140,16 @@ async def delete_player(session: AsyncSession, player: Player, avatars_dir: Path
     from ..devices import service as devices
 
     await devices.forget_cards_of(session, player.id)
+    # Read before the row goes: a hidden player's account wishes count again once no player
+    # row names it (`library.service._counted`), so they are announced like a *show*.
+    hidden_account = player.user_id if player.hidden else None
     async with _avatar_lock:
         await remove_images(avatars_dir, player.id)
         await session.delete(player)
         await session.commit()
     logger.info("Player '%s' deleted", player.name)
     await announce_players()
+    await _announce_wishes(session, hidden_account)
 
 
 # One avatar write at a time, file and row together. A single sign-on login decides whether

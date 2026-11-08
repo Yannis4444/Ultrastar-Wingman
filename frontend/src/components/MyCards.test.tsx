@@ -7,7 +7,7 @@ import {
   waitFor,
 } from "@testing-library/react";
 import type { CardRead, PlayerRead } from "../api";
-import { meResponse, userRead } from "../test/auth";
+import { AS, meResponse, userRead } from "../test/auth";
 import { FakeSocket } from "../test/fakeSocket";
 import MyCards from "./MyCards";
 
@@ -96,7 +96,7 @@ beforeEach(() => {
   getMe.mockResolvedValue(
     meResponse(["songs.view", "players.view"], {
       user: userRead(),
-      role: "user",
+      ...AS.user,
     }),
   );
   getDeviceStatus.mockResolvedValue({ data: { online: true } });

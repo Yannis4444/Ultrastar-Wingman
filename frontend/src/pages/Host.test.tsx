@@ -19,7 +19,7 @@ import type {
   WishRead,
 } from "../api";
 import { achievementRead, achievementSettings } from "../test/achievements";
-import { meResponse } from "../test/auth";
+import { AS, meResponse } from "../test/auth";
 import { FakeSocket } from "../test/fakeSocket";
 import { iconNames } from "../test/icons";
 import Host from "./Host";
@@ -164,6 +164,7 @@ function ranking(): (string | null)[][] {
 const WISHES: WishRead[] = [1, 2, 3, 4, 5].map((n) => ({
   song: { ...RHAPSODY, id: `usdb:w${n}`, title: `Wish ${n}` },
   count: 6 - n,
+  weight: 6 - n,
   latest: "2026-08-23T20:00:00Z",
   mine: false,
 }));
@@ -188,6 +189,7 @@ function quietMusic(overrides: Partial<MusicRead> = {}): MusicRead {
     sink_online: false,
     sink_generation: 0,
     volume: { master: 100, music: 60, preview: 100, effects: 80 },
+    sound_effects: true,
     scope: "all",
     ...overrides,
   };
@@ -196,7 +198,7 @@ function quietMusic(overrides: Partial<MusicRead> = {}): MusicRead {
 /** A host screen that has something to rank: last song plus leaderboard. */
 function withScores() {
   getMe.mockResolvedValue(
-    meResponse(["stats.view"], { is_host: true, role: "admin" }),
+    meResponse(["stats.view"], { is_host: true, ...AS.host }),
   );
   listLatestScores.mockResolvedValue({ data: { scores: PARTY } });
   listSongScores.mockResolvedValue({ data: { scores: PARTY } });
@@ -265,7 +267,7 @@ afterEach(() => {
 
 test("the token from the host URL is exchanged and taken out of the URL", async () => {
   exchangeHostToken.mockResolvedValue({
-    data: meResponse([], { is_host: true, role: "admin" }).data,
+    data: meResponse([], { is_host: true, ...AS.host }).data,
   });
   renderHost("/host?hostToken=secret-token");
 
@@ -297,7 +299,7 @@ test("a used token says so and points at the server log", async () => {
 
 test("the host's own browser carries no line about host rights", async () => {
   getMe.mockResolvedValue(
-    meResponse(["songs.view"], { is_host: true, role: "admin" }),
+    meResponse(["songs.view"], { is_host: true, ...AS.host }),
   );
   renderHost("/host");
 
@@ -325,7 +327,7 @@ test("an https join URL keeps its scheme in the printed line", async () => {
 
 test("the overlay opens the host's own manage view, not the user page", async () => {
   getMe.mockResolvedValue(
-    meResponse(["settings.view"], { is_host: true, role: "admin" }),
+    meResponse(["settings.view"], { is_host: true, ...AS.host }),
   );
   renderHost("/host");
 
@@ -905,7 +907,7 @@ test("the wishes sit in the rail and make room for the standing", async () => {
   getMe.mockResolvedValue(
     meResponse(["stats.view", "wishlist.view"], {
       is_host: true,
-      role: "admin",
+      ...AS.host,
     }),
   );
   listWishlist.mockResolvedValue({ data: { wishes: WISHES } });
@@ -920,6 +922,9 @@ test("the wishes sit in the rail and make room for the standing", async () => {
     expect(within(wishes).getAllByRole("listitem")).toHaveLength(3),
   );
   expect(within(wishes).getByText("Wish 1")).toBeInTheDocument();
+  // All three stay in the list whatever the TV's height, the standing's way:
+  // the stylesheet wraps a row that does not fit whole out of sight.
+  expect(within(wishes).getByRole("list")).toHaveClass("host-wishes-list");
 });
 
 test("without a standing the rail gives the wishes the whole column", async () => {
@@ -959,7 +964,7 @@ test.each(["players.changed", "server.ready"])(
     getMe.mockResolvedValue(
       meResponse(["stats.view", "players.view"], {
         is_host: true,
-        role: "admin",
+        ...AS.host,
       }),
     );
     const party = [{ ...PARTY[0], player_id: "player-alice" }, PARTY[1]];
@@ -1072,7 +1077,7 @@ test("the rail says the player selector is gone, but only once it was there", as
 
 test("the idle screen names the background song, quietly", async () => {
   getMe.mockResolvedValue(
-    meResponse(["music.view"], { is_host: true, role: "admin" }),
+    meResponse(["music.view"], { is_host: true, ...AS.host }),
   );
   const track: MusicTrackRead = {
     id: "t-1",
@@ -1100,7 +1105,7 @@ test("the idle screen names the background song, quietly", async () => {
 test("the background song stays named along the foot with the scores up, and goes with the rail", async () => {
   withScores();
   getMe.mockResolvedValue(
-    meResponse(["music.view", "stats.view"], { is_host: true, role: "admin" }),
+    meResponse(["music.view", "stats.view"], { is_host: true, ...AS.host }),
   );
   const track: MusicTrackRead = {
     id: "t-1",
@@ -1134,7 +1139,7 @@ test("the background song stays named along the foot with the scores up, and goe
 
 test("a screen that is not playing anything says nothing about music", async () => {
   getMe.mockResolvedValue(
-    meResponse(["music.view"], { is_host: true, role: "admin" }),
+    meResponse(["music.view"], { is_host: true, ...AS.host }),
   );
   renderHost("/host");
 
@@ -1175,7 +1180,7 @@ function asHost() {
         "music.view",
         "music.control",
       ],
-      { is_host: true, role: "admin" },
+      { is_host: true, ...AS.host },
     ),
   );
 }
@@ -1240,7 +1245,7 @@ test("while a song plays the slot is Stop, and Ultrastar Deluxe is not offered",
 
 test("a browser without the settings' right gets no Ultrastar Deluxe", async () => {
   getMe.mockResolvedValue(
-    meResponse(["settings.view", "music.view"], { role: "user" }),
+    meResponse(["settings.view", "music.view"], { ...AS.user }),
   );
   renderHost("/host");
 

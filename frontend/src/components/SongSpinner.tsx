@@ -14,6 +14,7 @@ import {
   type SpinTarget,
 } from "../spinTarget";
 import { defaultTagCriteria, passesTagCriteria } from "../tags";
+import { weightedPick } from "../weightedPick";
 import ConfirmModal from "./ConfirmModal";
 import { Icon } from "./icons";
 import PlayerSelection from "./PlayerSelection";
@@ -52,7 +53,9 @@ function pool(
   if (scope === "all") return songs;
   if (scope === "favorites") return favorites;
   if (scope === "wishlist") return wishes.map((wish) => wish.song);
-  // Weighted: a song wished for three times gets three tickets.
+  // Weighted: a song wished for three times gets three tickets — for the
+  // covers that fly past alone. The winner is drawn with the server's
+  // `weight` (`weightedPick` in `startSpin`), which a ticket per wish is not.
   return wishes.flatMap((wish) => Array<SongRead>(wish.count).fill(wish.song));
 }
 
@@ -220,15 +223,20 @@ export default function SongSpinner({
       return;
     }
     // The winner is decided here, and the reel gets the same pool for the
-    // covers that fly past — with its duplicates, which is the weighted scope.
-    // Under reduced motion the reel lands in the same breath and `spinning` is
-    // over before the die's first roll is due, and before *Show it* is ever
-    // painted.
+    // covers that fly past — with its duplicates on the weighted scope. That
+    // scope's winner is drawn with what each song's wishes weigh, as the
+    // server works it out (`WishRead.weight`), so a long wishlist does not
+    // drown out a short one; every other pool is a uniform draw. Under reduced
+    // motion the reel lands in the same breath and `spinning` is over before
+    // the die's first roll is due, and before *Show it* is ever painted.
+    const uniform = () =>
+      candidates[Math.floor(Math.random() * candidates.length)];
+    const drawn =
+      fixed === undefined && scope === "weighted"
+        ? (weightedPick(wishes, (wish) => wish.weight)?.song ?? uniform())
+        : uniform();
     setShowIt(false);
-    setSpin({
-      id: (spin?.id ?? 0) + 1,
-      winner: candidates[Math.floor(Math.random() * candidates.length)],
-    });
+    setSpin({ id: (spin?.id ?? 0) + 1, winner: drawn });
     setSpinning(true);
   };
 

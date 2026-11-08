@@ -63,7 +63,7 @@ test("without songs.view the page says so and asks for nothing", async () => {
   renderPage();
 
   expect(
-    await screen.findByText(/The song library is not open to your role/),
+    await screen.findByText(/The song library is not open to you\./),
   ).toBeInTheDocument();
   expect(listSongs).not.toHaveBeenCalled();
 });

@@ -28,6 +28,7 @@ import {
   resolvePlayerOptions,
   SCORE_DESIGNS,
   SHARE_TOGGLES,
+  TOGGLES_NONE,
   TOGGLES_REST,
   partyCardDesigns,
   partyDesignOptions,
@@ -37,6 +38,7 @@ import {
   scoreCardDesigns,
   scoreSlideToggles,
   toggleSentence,
+  togglesRest,
   type PartyDesign,
 } from "./possible";
 
@@ -76,7 +78,7 @@ function reasonOf<T>(choices: { value: T; reason: string | null }[], value: T) {
 }
 
 function drawn(content: PartyCardContent, design: PartyDesign, loaded = all) {
-  return resolvePartyOptions(content, design, "square", true, loaded);
+  return resolvePartyOptions(content, design, "square", loaded);
 }
 
 test("a score without a cover falls back to Dark and says why", () => {
@@ -112,51 +114,11 @@ test("a score without a cover falls back to Dark and says why", () => {
   ]);
   expect(SCORE_DESIGNS).toEqual(["dark", "cover"]);
   expect(
-    resolveScoreOptions(
-      missing,
-      { format: "story", look: "cover", logo: true },
-      none,
-    ),
-  ).toEqual({ format: "story", look: "dark", logo: true });
+    resolveScoreOptions(missing, { format: "story", look: "cover" }, none),
+  ).toEqual({ format: "story", look: "dark" });
   expect(
-    resolveScoreOptions(
-      missing,
-      { format: "story", look: "cover", logo: true },
-      all,
-    ),
-  ).toEqual({ format: "story", look: "cover", logo: true });
-});
-
-test("the Wingman logo is the reader's on every card, carried through as asked", () => {
-  const score = scoreCard({
-    score: cardScore("chiara", 8000, SONGS[0]),
-    partyScores: [],
-    session: null,
-    players,
-    me: "chiara",
-    otherPictures: true,
-    partyNameAndDate: true,
-  });
-  for (const logo of [true, false]) {
-    // Even where the look falls back, the logo stays what was asked.
-    expect(
-      resolveScoreOptions(
-        score,
-        { format: "square", look: "cover", logo },
-        none,
-      ).logo,
-    ).toBe(logo);
-    const content = party(cardParty(6, 4));
-    expect(
-      resolvePartyOptions(content, "spread", "square", logo, none),
-    ).toEqual({
-      format: "square",
-      look: "dark",
-      focus: "spread",
-      under: "none",
-      logo,
-    });
-  }
+    resolveScoreOptions(missing, { format: "story", look: "cover" }, all),
+  ).toEqual({ format: "story", look: "cover" });
 });
 
 test("both formats, on every card; there is no 4:5", () => {
@@ -232,7 +194,6 @@ test("the spread needs two singers and four scores, and the dark look", () => {
     look: "dark",
     focus: "spread",
     under: "none",
-    logo: true,
   });
   const one = both(cardParty(1, 5), { me: "chiara" });
   expect(reasonOf(partyCardDesigns(...one, all), "spread")).toBe(
@@ -266,15 +227,14 @@ test("You is the sharer alone with their own strip, for somebody who sang there"
   }
 });
 
-test("the toggles are the same three on every slide, in one order", () => {
-  expect(SHARE_TOGGLES).toEqual(["pictures", "date", "logo"]);
+test("the toggles are the same two on every slide, in one order, and the logo is none of them", () => {
+  expect(SHARE_TOGGLES).toEqual(["pictures", "date"]);
   const [whole, mine] = both(cardParty(6, 2));
   for (const design of PARTY_DESIGNS) {
     const content = design === "you" ? mine : whole;
     expect(Object.keys(partySlideToggles(design, content))).toEqual([
       "pictures",
       "date",
-      "logo",
     ]);
   }
 });
@@ -286,7 +246,6 @@ test("other singers' pictures dim wherever the only face is the sharer's, and on
   expect(partySlideToggles("you", mine)).toEqual({
     pictures: "Nobody else is on this card.",
     date: null,
-    logo: null,
   });
   expect(partySlideToggles("spread", whole).pictures).toBe(
     "The spread draws names, not pictures.",
@@ -323,12 +282,6 @@ test("a toggle's sentence follows its state, and a dimmed one says why", () => {
   expect(toggleSentence("date", false, null)).toBe(
     "The party's name and date are left off.",
   );
-  expect(toggleSentence("logo", true, null)).toBe(
-    "The Wingman logo is on the card.",
-  );
-  expect(toggleSentence("logo", false, null)).toBe(
-    "The Wingman logo is left off.",
-  );
   expect(toggleSentence("pictures", true, "Nobody else is on this card.")).toBe(
     "Nobody else is on this card.",
   );
@@ -363,10 +316,9 @@ test("a player's slides are Histogram, Strip and Songs, all drawable from four s
     ["songs", null],
   ]);
   for (const design of PLAYER_DESIGNS)
-    expect(resolvePlayerOptions(content, design, "story", false)).toEqual({
+    expect(resolvePlayerOptions(content, design, "story")).toEqual({
       format: "story",
       focus: design,
-      logo: false,
     });
 });
 
@@ -405,9 +357,7 @@ test("a design the card cannot draw resolves to the head and the numbers, never 
   const one = playerOf(singerScores("alice", [9000]));
   expect(playerCardDesigns(one).every((entry) => !entry.ok)).toBe(true);
   for (const design of PLAYER_DESIGNS)
-    expect(resolvePlayerOptions(one, design, "square", true).focus).toBe(
-      "none",
-    );
+    expect(resolvePlayerOptions(one, design, "square").focus).toBe("none");
 });
 
 test.each([
@@ -437,12 +387,10 @@ test("on the sharer's own stats the pictures toggle is dimmed, on somebody else'
   expect(playerSlideToggles(playerOf(singerScores("chiara", [9000])))).toEqual({
     pictures: "Nobody else is on this card.",
     date: null,
-    logo: null,
   });
   expect(playerSlideToggles(playerOf(singerScores("alice", [9000])))).toEqual({
     pictures: null,
     date: null,
-    logo: null,
   });
 });
 
@@ -453,9 +401,9 @@ test("on a player card the date toggle speaks of the party line", () => {
   expect(toggleSentence("date", false, null, "player")).toBe(
     "The party line is left off.",
   );
-  // The other two read as on every card.
-  expect(toggleSentence("logo", false, null, "player")).toBe(
-    "The Wingman logo is left off.",
+  // The pictures toggle, and the date on any other card, read as ever.
+  expect(toggleSentence("pictures", false, null, "player")).toBe(
+    "Other singers are drawn as their initials.",
   );
   expect(toggleSentence("date", true, null, "party")).toBe(
     "The party's name and date are on the card.",
@@ -471,12 +419,11 @@ test("an achievement card is one slide, Badge, which it can always draw", () => 
   ]);
 });
 
-test("on an achievement card only the logo reaches the card, the other two say why", () => {
+test("on an achievement card neither toggle reaches the card, and both say why", () => {
   const reasons = achievementSlideToggles();
   expect(reasons).toEqual({
     pictures: "Nobody else is on this card.",
     date: "An achievement belongs to no party.",
-    logo: null,
   });
   // The line reads the reason whatever state the toggle was left in.
   expect(toggleSentence("date", true, reasons.date, "achievement")).toBe(
@@ -485,20 +432,22 @@ test("on an achievement card only the logo reaches the card, the other two say w
   expect(
     toggleSentence("pictures", false, reasons.pictures, "achievement"),
   ).toBe("Nobody else is on this card.");
-  expect(toggleSentence("logo", false, reasons.logo, "achievement")).toBe(
-    "The Wingman logo is left off.",
+  // Before a press the line does not offer a change the card cannot take.
+  expect(togglesRest(reasons)).toBe(TOGGLES_NONE);
+  expect(TOGGLES_NONE).toBe(
+    "Neither symbol changes this card. Press one to see why.",
   );
 });
 
-test("an achievement card draws in the format and with the logo asked for", () => {
-  for (const format of FORMATS) {
-    expect(resolveAchievementOptions(format, true)).toEqual({
-      format,
-      logo: true,
-    });
-    expect(resolveAchievementOptions(format, false)).toEqual({
-      format,
-      logo: false,
-    });
-  }
+test("a slide that honours a toggle rests on the inviting line", () => {
+  expect(togglesRest({ pictures: null, date: null })).toBe(TOGGLES_REST);
+  // One dimmed and one live, as on the sharer's own score or *You*.
+  expect(
+    togglesRest({ pictures: "Nobody else is on this card.", date: null }),
+  ).toBe(TOGGLES_REST);
+});
+
+test("an achievement card draws in the format asked for, and nothing else is asked", () => {
+  for (const format of FORMATS)
+    expect(resolveAchievementOptions(format)).toEqual({ format });
 });

@@ -1,7 +1,7 @@
 /* The share panel (share-cards §5, ui-guidelines §7 *Share cards*): a bare
    modal on the blurred backdrop, one centred column — the long-press hint,
    the card's designs as a carousel of real pictures, the dots row with the
-   format pair at its end, the design's name, the three icon toggles and the
+   format pair at its end, the design's name, the two icon toggles and the
    line explaining them, and §5's row of buttons at the foot. */
 
 /* The long-press hint, over the picture where it is hard to miss. */
@@ -227,7 +227,7 @@
 }
 
 /* --------------------------------------------------------------- toggles
-   The three icon toggles (`.icon-toggle`, index.css) as one centred row, and
+   The two icon toggles (`.icon-toggle`, index.css) as one centred row, and
    under it the one line that speaks of the last one touched — two lines
    tall whatever it holds, so a longer sentence never moves the buttons. */
 .share-toggles {

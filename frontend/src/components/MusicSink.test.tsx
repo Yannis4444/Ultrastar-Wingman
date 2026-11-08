@@ -3,7 +3,7 @@ import { act, render, waitFor } from "@testing-library/react";
 import { StrictMode } from "react";
 import type { MusicRead, MusicTrackRead, SongRead } from "../api";
 import { musicSinkStore, useMusicSinkStatus } from "../hooks/useMusicSink";
-import { resetLoudnessGraph } from "../musicGraph";
+import { resetLoudnessGraph, setEffectsLevel } from "../musicGraph";
 import { meResponse } from "../test/auth";
 import { FakeSocket } from "../test/fakeSocket";
 import MusicSink, { SPIN_FADE_OUT_MS } from "./MusicSink";
@@ -30,6 +30,12 @@ vi.mock("../api/sdk.gen", async (importOriginal) => ({
   registerMusicSink,
   reportMusicSink,
 }));
+
+// The real graph, with the effects level watched: the sink is what sets it.
+vi.mock("../musicGraph", async (importOriginal) => {
+  const actual = await importOriginal<typeof import("../musicGraph")>();
+  return { ...actual, setEffectsLevel: vi.fn(actual.setEffectsLevel) };
+});
 
 const AT = "2026-09-12T20:00:00Z";
 
@@ -74,6 +80,7 @@ function music(overrides: Partial<MusicRead> = {}): MusicRead {
     sink_online: true,
     sink_generation: 1,
     volume: { master: 100, music: 50, preview: 100, effects: 80 },
+    sound_effects: true,
     scope: "all",
     ...overrides,
   };
@@ -676,6 +683,48 @@ it("stays silent on a tab that does not hold the lease", async () => {
   await waitFor(() => expect(getMusic).toHaveBeenCalled());
   expect(audio.getAttribute("src")).toBe(null);
   expect(HTMLMediaElement.prototype.play).not.toHaveBeenCalled();
+});
+
+it("sets the sound effects to master × effects on the screen that holds the lease", async () => {
+  draw();
+  await waitFor(() => expect(registerMusicSink).toHaveBeenCalled());
+  // 100 % of 80 %, off the state the claim answered with.
+  await waitFor(() =>
+    expect(vi.mocked(setEffectsLevel)).toHaveBeenLastCalledWith(0.8),
+  );
+
+  act(() => {
+    FakeSocket.deliver({
+      event: "music.changed",
+      music: music({
+        volume: { master: 50, music: 100, preview: 100, effects: 40 },
+      }),
+    });
+  });
+  await waitFor(() =>
+    expect(vi.mocked(setEffectsLevel)).toHaveBeenLastCalledWith(0.2),
+  );
+
+  // The switch thrown on the Settings page: silence, without a reload.
+  act(() => {
+    FakeSocket.deliver({
+      event: "music.changed",
+      music: music({ sound_effects: false }),
+    });
+  });
+  await waitFor(() =>
+    expect(vi.mocked(setEffectsLevel)).toHaveBeenLastCalledWith(0),
+  );
+});
+
+it("keeps the sound effects silent on a tab without the lease", async () => {
+  registerMusicSink.mockRejectedValue(new Error("another tab has it"));
+  draw();
+  await waitFor(() => expect(registerMusicSink).toHaveBeenCalled());
+  await waitFor(() => expect(getMusic).toHaveBeenCalled());
+
+  const levels = vi.mocked(setEffectsLevel).mock.calls.map(([level]) => level);
+  expect(levels.every((level) => level === 0)).toBe(true);
 });
 
 it("falls silent when another screen takes the sound over", async () => {

@@ -19,7 +19,7 @@ export default function UserAccounts() {
     auth.can("users.manage");
 
   return (
-    <>
+    <div className="page-foot">
       <PageHeader title="Players & accounts" back="/user" />
       {/* Nothing until /auth/me answered: `can` says yes while it is in flight. */}
       {auth.loaded &&
@@ -31,6 +31,6 @@ export default function UserAccounts() {
             account the rights.
           </p>
         ))}
-    </>
+    </div>
   );
 }

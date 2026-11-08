@@ -18,7 +18,7 @@ import type {
 import { shortTime } from "../duration";
 import { newShuffleSeed, sortSongs } from "../songSort";
 import { ANY_VALUE } from "../tags";
-import { meResponse, userRead } from "../test/auth";
+import { AS, meResponse, userRead } from "../test/auth";
 import { FakeSocket } from "../test/fakeSocket";
 import { iconNames } from "../test/icons";
 import { builtInTagRead, builtInTagReads, tagRead } from "../test/tags";
@@ -520,7 +520,7 @@ const LIBRARY = [
   "playlists.view",
   "playlists.manage",
 ];
-const ACCOUNT: Partial<MeRead> = { user: userRead(), role: "user" };
+const ACCOUNT: Partial<MeRead> = { user: userRead(), ...AS.user };
 
 const QUEEN = song();
 const AFRICA = song({ id: "local:abc", title: "Africa", artist: "Toto" });
@@ -918,7 +918,7 @@ test("a fresh score of the reader's own refetches the sung songs", async () => {
 test("an account with no player behind it gets no sung chip", async () => {
   renderSongs([QUEEN], LIBRARY, {
     user: userRead({ player_id: null }),
-    role: "user",
+    ...AS.user,
   });
   await screen.findByText("Dancing Queen");
 

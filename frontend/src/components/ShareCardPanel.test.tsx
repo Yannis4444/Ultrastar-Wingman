@@ -11,9 +11,9 @@ import {
 import type { ScoreWithContext, SessionRead } from "../api";
 import { coverUrl } from "../shareCard/content";
 import { LOGO_URL, type CardRequest } from "../shareCard/draw";
-import { TOGGLES_REST } from "../shareCard/possible";
+import { TOGGLES_NONE, TOGGLES_REST } from "../shareCard/possible";
 import { PREFS_KEY } from "../shareCard/prefs";
-import { meResponse, userRead } from "../test/auth";
+import { AS, meResponse, userRead } from "../test/auth";
 import { iconNames } from "../test/icons";
 import {
   PICTURED,
@@ -117,7 +117,7 @@ beforeEach(() => {
   getMe.mockResolvedValue(
     meResponse(["stats.view"], {
       user: userRead({ player_id: "chiara", username: "Chiara" }),
-      role: "user",
+      ...AS.user,
     }),
   );
   renderCard.mockImplementation(() =>
@@ -290,7 +290,7 @@ function stored(): Record<string, unknown> {
   >;
 }
 
-/** The three toggles, as `[name, pressed, dimmed]`, in the row's order. */
+/** The two toggles, as `[name, pressed, dimmed]`, in the row's order. */
 function toggles(): [string, boolean, boolean][] {
   const row = screen.getByRole("group", { name: "On the card" });
   return within(row)
@@ -878,12 +878,8 @@ test("a song without a cover has a dimmed Cover slot, and says why", async () =>
 
 // ---------------------------------------------------------------- toggles
 
-test("the same three toggles stand in the same order on every slide of both cards", async () => {
-  const names = [
-    "Other singers' pictures",
-    "Party name and date",
-    "Wingman logo",
-  ];
+test("the same two toggles stand in the same order on every slide of both cards", async () => {
+  const names = ["Other singers' pictures", "Party name and date"];
   renderPanel(partyTarget());
   await preview();
   for (let i = 0; i < 5; i++) {
@@ -899,12 +895,15 @@ test("the same three toggles stand in the same order on every slide of both card
   }
   expect(iconNames(buttons[0])).toEqual(["image"]);
   expect(iconNames(buttons[1])).toEqual(["calendar"]);
-  // The logo toggle's glyph is the logo itself.
-  expect(buttons[2].querySelector("img")).toHaveAttribute("src", LOGO_URL);
+  // The logo is on every card and no option of the row.
+  expect(buttons).toHaveLength(2);
+  expect(row.querySelector("img")).toBeNull();
   // No checkbox is left of the old list, and no *Only me* or *Under the
   // podium* among the options.
   expect(screen.queryByRole("checkbox")).toBeNull();
-  expect(screen.queryByText(/Only me|Under the podium/)).toBeNull();
+  expect(
+    screen.queryByText(/Only me|Under the podium|Wingman logo/),
+  ).toBeNull();
 
   cleanup();
   renderPanel(scoreTarget(theirs()));
@@ -920,19 +919,22 @@ test("a toggle pressed off is struck through, and the card is drawn without it",
   expect(toggles()).toEqual([
     ["Other singers' pictures", true, false],
     ["Party name and date", true, false],
-    ["Wingman logo", true, false],
   ]);
-  expect(lastRequest().options.logo).toBe(true);
-  fireEvent.click(toggle("Wingman logo"));
-  expect(toggle("Wingman logo")).toHaveAttribute("aria-pressed", "false");
-  await waitFor(() => expect(lastRequest().options.logo).toBe(false));
-  expect(stored()).toEqual(expect.objectContaining({ logo: false }));
+  // The logo is nothing the request carries: the card always draws it.
+  expect(lastRequest().options).not.toHaveProperty("logo");
 
   fireEvent.click(toggle("Party name and date"));
+  expect(toggle("Party name and date")).toHaveAttribute(
+    "aria-pressed",
+    "false",
+  );
   await waitFor(() => {
     const request = lastRequest();
     expect(request.kind === "party" && request.content.head).toBeNull();
   });
+  expect(stored()).toEqual(
+    expect.objectContaining({ partyNameAndDate: false }),
+  );
   fireEvent.click(toggle("Other singers' pictures"));
   await waitFor(() => {
     const request = lastRequest();
@@ -943,21 +945,18 @@ test("a toggle pressed off is struck through, and the card is drawn without it",
           .every((entry) => entry.person.avatar.url === null),
     ).toBe(true);
   });
-  expect(toggles().map(([, pressed]) => pressed)).toEqual([
-    false,
-    false,
-    false,
-  ]);
+  expect(toggles().map(([, pressed]) => pressed)).toEqual([false, false]);
 
   // Remembered, on the other card kind too.
   cleanup();
   renderPanel(scoreTarget(theirs()));
   await preview();
-  expect(toggle("Wingman logo")).toHaveAttribute("aria-pressed", "false");
-  expect(lastRequest()).toMatchObject({
-    kind: "score",
-    options: { logo: false },
-  });
+  expect(toggle("Party name and date")).toHaveAttribute(
+    "aria-pressed",
+    "false",
+  );
+  const request = lastRequest();
+  expect(request.kind === "score" && request.content.eyebrow).toBeNull();
 });
 
 test("a toggle a slide cannot honour is dimmed in place and keeps the state the other slides use", async () => {
@@ -981,9 +980,8 @@ test("a toggle a slide cannot honour is dimmed in place and keeps the state the 
   expect(toggles()[0]).toEqual(["Other singers' pictures", false, true]);
   expect(stored().otherPictures).toBe(false);
   expect(line()).toBe("Nobody else is on this card.");
-  // The others stay live there.
+  // The other stays live there.
   expect(toggles()[1][2]).toBe(false);
-  expect(toggles()[2][2]).toBe(false);
   // Back on the Podium the state the reader left is what is drawn.
   for (let i = 0; i < 4; i++) fireEvent.click(previousDesign());
   expect(toggles()[0]).toEqual(["Other singers' pictures", false, false]);
@@ -1007,10 +1005,8 @@ test("the line rests on its hint, and a mouse over a toggle reads that toggle's 
   expect(note).toHaveAttribute("aria-live", "polite");
   expect(line()).toBe("Press a symbol to take it off the card or put it back.");
   // A finger's emulated hover is not a second trigger.
-  pointerOver(toggle("Wingman logo"), "touch");
+  pointerOver(toggle("Party name and date"), "touch");
   expect(line()).toBe(TOGGLES_REST);
-  pointerOver(toggle("Wingman logo"), "mouse");
-  expect(line()).toBe("The Wingman logo is on the card.");
   pointerOver(toggle("Party name and date"), "mouse");
   expect(line()).toBe("The party's name and date are on the card.");
   // The pointer leaving never puts the resting line back.
@@ -1025,13 +1021,19 @@ test("on a touch screen a tap changes the option and explains it, and a second t
   touchScreen(true);
   renderPanel(partyTarget());
   await preview();
-  fireEvent.click(toggle("Wingman logo"));
-  expect(toggle("Wingman logo")).toHaveAttribute("aria-pressed", "false");
-  expect(line()).toBe("The Wingman logo is left off.");
-  await waitFor(() => expect(lastRequest().options.logo).toBe(false));
-  fireEvent.click(toggle("Wingman logo"));
-  expect(toggle("Wingman logo")).toHaveAttribute("aria-pressed", "true");
-  expect(line()).toBe("The Wingman logo is on the card.");
+  fireEvent.click(toggle("Party name and date"));
+  expect(toggle("Party name and date")).toHaveAttribute(
+    "aria-pressed",
+    "false",
+  );
+  expect(line()).toBe("The party's name and date are left off.");
+  await waitFor(() => {
+    const request = lastRequest();
+    expect(request.kind === "party" && request.content.head).toBeNull();
+  });
+  fireEvent.click(toggle("Party name and date"));
+  expect(toggle("Party name and date")).toHaveAttribute("aria-pressed", "true");
+  expect(line()).toBe("The party's name and date are on the card.");
   fireEvent.click(toggle("Other singers' pictures"));
   expect(line()).toBe("Other singers are drawn as their initials.");
 });
@@ -1414,11 +1416,10 @@ test("a player's panel is named for stats, and its designs are Histogram, Strip 
     "player",
   ]);
   expect(requests().map(designOf)).toEqual(["histogram", "strip"]);
-  // The same three toggles as every card.
+  // The same two toggles as every card.
   expect(toggles().map(([name]) => name)).toEqual([
     "Other singers' pictures",
     "Party name and date",
-    "Wingman logo",
   ]);
 });
 
@@ -1572,14 +1573,15 @@ test("one slide draws no arrows, no dots and no rule, and the format pair stands
   await waitFor(() => expect(lastRequest().options.format).toBe("story"));
 });
 
-test("on an achievement card only the logo is live; the other two are dimmed and say why", async () => {
+test("on an achievement card both toggles are dimmed and say why", async () => {
   renderPanel(achievementTarget());
   await preview();
   expect(toggles()).toEqual([
     ["Other singers' pictures", true, true],
     ["Party name and date", true, true],
-    ["Wingman logo", true, false],
   ]);
+  // Nothing in the row can change this card, so the line does not invite it.
+  expect(line()).toBe(TOGGLES_NONE);
   fireEvent.click(toggle("Other singers' pictures"));
   expect(line()).toBe("Nobody else is on this card.");
   fireEvent.click(toggle("Party name and date"));
@@ -1587,24 +1589,16 @@ test("on an achievement card only the logo is live; the other two are dimmed and
   // A dimmed press changes nothing that is kept.
   expect(stored().partyNameAndDate).toBeUndefined();
   expect(toggles()[1]).toEqual(["Party name and date", true, true]);
-  fireEvent.click(toggle("Wingman logo"));
-  expect(line()).toBe("The Wingman logo is left off.");
-  await waitFor(() => {
-    const request = lastRequest();
-    if (request.kind !== "achievement") throw new Error("not an achievement");
-    expect(request.options.logo).toBe(false);
-  });
+  expect(stored().otherPictures).toBeUndefined();
 });
 
-test("an achievement card keeps the format and the logo, and remembers no design of its own", async () => {
+test("an achievement card keeps the format, and remembers no design of its own", async () => {
   renderPanel(achievementTarget());
   await preview();
   fireEvent.click(screen.getByRole("radio", { name: "Story" }));
-  fireEvent.click(toggle("Wingman logo"));
   await waitFor(() => expect(stored().format).toBe("story"));
   expect(stored()).toEqual(
     expect.objectContaining({
-      logo: false,
       scoreLook: "dark",
       partyDesign: "podium",
       playerDesign: "histogram",
@@ -1613,7 +1607,7 @@ test("an achievement card keeps the format and the logo, and remembers no design
   expect(Object.values(stored())).not.toContain("badge");
 });
 
-test("an achievement card opens on the remembered format and logo", async () => {
+test("an achievement card opens on the remembered format, and an older build's logo choice changes nothing", async () => {
   window.localStorage.setItem(
     PREFS_KEY,
     JSON.stringify({ format: "story", logo: false, partyDesign: "mosaic" }),
@@ -1622,7 +1616,7 @@ test("an achievement card opens on the remembered format and logo", async () => 
   await preview();
   const request = lastRequest();
   if (request.kind !== "achievement") throw new Error("not an achievement");
-  expect(request.options).toEqual({ format: "story", logo: false });
+  expect(request.options).toEqual({ format: "story" });
   expect(screen.getByRole("radio", { name: "Story" })).toBeChecked();
   // A design remembered for another card kind is left as it was.
   expect(stored().partyDesign).toBe("mosaic");

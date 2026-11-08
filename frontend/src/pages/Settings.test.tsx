@@ -4,7 +4,7 @@ import { MemoryRouter } from "react-router-dom";
 import type { LoudnessPassStatus, SettingRead } from "../api";
 import { BUNDLED_USDX_NOTE } from "../errors";
 import { LOUDNESS_PASS_NOTE } from "../loudness";
-import { meResponse, userRead } from "../test/auth";
+import { AS, MEMBER_OF, meResponse, userRead } from "../test/auth";
 import { FakeSocket } from "../test/fakeSocket";
 import Settings from "./Settings";
 
@@ -183,8 +183,8 @@ beforeEach(() => {
   readLoudnessPass.mockResolvedValue({ data: loudnessPass() });
   getMe.mockResolvedValue(
     meResponse(["settings.view", "settings.manage"], {
-      user: userRead({ role: "admin" }),
-      role: "admin",
+      user: userRead({ groups: MEMBER_OF.admin }),
+      ...AS.admin,
     }),
   );
 });
@@ -511,8 +511,8 @@ test("a setting a normal setup never touches is folded away in its group", async
 test("view-only access disables every input", async () => {
   getMe.mockResolvedValue(
     meResponse(["settings.view"], {
-      user: userRead({ role: "user" }),
-      role: "user",
+      user: userRead({ groups: MEMBER_OF.user }),
+      ...AS.user,
     }),
   );
   renderSettings();
@@ -624,7 +624,10 @@ const ADMIN = ["songs.view", "settings.view", "settings.manage"];
 
 function asAdmin() {
   getMe.mockResolvedValue(
-    meResponse(ADMIN, { user: userRead({ role: "admin" }), role: "admin" }),
+    meResponse(ADMIN, {
+      user: userRead({ groups: MEMBER_OF.admin }),
+      ...AS.admin,
+    }),
   );
 }
 
@@ -697,8 +700,8 @@ test("an Ultrastar Deluxe the host points at keeps its path fields", async () =>
 test("view-only access has nothing to launch", async () => {
   getMe.mockResolvedValue(
     meResponse(["settings.view"], {
-      user: userRead({ role: "user" }),
-      role: "user",
+      user: userRead({ groups: MEMBER_OF.user }),
+      ...AS.user,
     }),
   );
   renderSettings();
@@ -788,8 +791,8 @@ test("a rejected format string is reported at the quality field", async () => {
 test("view-only access cannot change the download quality", async () => {
   getMe.mockResolvedValue(
     meResponse(["settings.view"], {
-      user: userRead({ role: "user" }),
-      role: "user",
+      user: userRead({ groups: MEMBER_OF.user }),
+      ...AS.user,
     }),
   );
   renderSettings();
@@ -1025,8 +1028,8 @@ test("view-only access gets no row to even out the songs", async () => {
   withNormalize();
   getMe.mockResolvedValue(
     meResponse(["settings.view"], {
-      user: userRead({ role: "user" }),
-      role: "user",
+      user: userRead({ groups: MEMBER_OF.user }),
+      ...AS.user,
     }),
   );
   renderSettings();

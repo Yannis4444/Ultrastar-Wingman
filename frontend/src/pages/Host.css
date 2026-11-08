@@ -547,22 +547,46 @@
   letter-spacing: 0.08em;
 }
 
-.host-wishes ol {
+/* The wishes end after a whole row, the standing's pattern
+   (`SessionLeaderboard.css`): the rail shares its height out between the two
+   lists as it always has, and this list takes what the wishes were given as a
+   column that wraps, a row that does not fit it whole going to a second column
+   out of sight. `clip` rather than `hidden`: nothing in a row takes focus, and
+   nothing should be able to scroll that column into view. Below 1101px the
+   page scrolls and nothing wraps. */
+.host-wishes-list {
+  display: flex;
+  flex: 1 1 auto;
+  flex-direction: column;
+  flex-wrap: wrap;
+  align-content: flex-start;
+  min-height: 0;
   margin: 0;
   padding: 0;
+  overflow: clip;
   list-style: none;
 }
 
-.host-wishes li {
+/* The first item a flex line always takes, so even the first wish wraps out of
+   sight on a rail too short for it rather than standing half in the list. */
+.host-wishes-list::before {
+  content: "";
+  width: 100%;
+}
+
+/* The hairline between rows rather than under each one, so the last row shown
+   — not necessarily the last child — ends without a rule. */
+.host-wishes-list > li {
   display: flex;
   align-items: center;
   gap: clamp(10px, 1.2vw, 20px);
+  box-sizing: border-box;
+  width: 100%;
   padding: clamp(6px, 1vh, 14px) 0;
-  border-bottom: 1px solid var(--input-border-color);
 }
 
-.host-wishes li:last-child {
-  border-bottom: 0;
+.host-wishes-list > li + li {
+  border-top: 1px solid var(--input-border-color);
 }
 
 /* Two classes: beats .song-cover's own size whatever the CSS import order. */
@@ -603,9 +627,10 @@
 }
 
 /* A 720p rail cannot hold the QR, five ranks and three wishes at a size the
-   room can read. One of the two lists has to give up its tail, and it is the
-   wishes: the standing keeps its full five (measured: QR + 5 ranks + 2 wishes
-   fills a 720p rail exactly, with nothing clipped), and a shorter "top N" is
+   room can read. The wishes give up their tail here, and the standing ends
+   after the last rank that still fits whole (`SessionLeaderboard.css`; measured
+   2026-11-08 with the music row: four ranks and one wish at 1280x720, five and
+   one at 1366x768; without it four and two at 1280x720). A shorter "top N" is
    still the truth. Shrinking the type past its floors is not an option — the
    whole page is written to be read from the sofa.
    Two-column layout only: below 1101px the rail is under the stage and the page
@@ -613,10 +638,6 @@
 @media (max-height: 820px) and (min-width: 1101px) {
   .host-rail:has(.host-leaderboard) .host-wishes li:nth-child(n + 3) {
     display: none;
-  }
-
-  .host-rail:has(.host-leaderboard) .host-wishes li:nth-child(2) {
-    border-bottom: 0;
   }
 
   /* The music group's row along the foot takes about one wish row's height
@@ -628,11 +649,15 @@
     display: none;
   }
 
-  .host-page:not(.host-takeover):has(> .host-music)
-    .host-rail:has(.host-leaderboard)
-    .host-wishes
-    li:first-child {
-    border-bottom: 0;
+  /* The one or two wishes left are all the wishes are here, so the section
+     keeps the room for them (its min-content: the heading and those rows) and
+     the standing, which ends after its last whole row anyway, gives the
+     difference. Shared out by size alone, a 1280x720 rail left the one wish
+     beside the music row a few pixels short, and the second without it — and
+     a wish that does not fit whole wraps out of sight: the heading over
+     nothing, or one wish where there is room for two. */
+  .host-rail:has(.host-leaderboard) .host-wishes {
+    min-height: min-content;
   }
 }
 

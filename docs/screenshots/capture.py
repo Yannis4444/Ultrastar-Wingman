@@ -416,7 +416,8 @@ class Row:
 
     identity: str
     viewport: str
-    # May carry ``{playlist}``, ``{tag}`` or ``{device}``, filled from what the seed minted.
+    # May carry ``{playlist}``, ``{tag}``, ``{group}`` or ``{device}``, filled from what the
+    # seed minted.
     route: str
     # A JavaScript expression that is true once the picture can be taken. This is the
     # manifest's "must be visible" column, as something a machine can check.
@@ -715,9 +716,11 @@ ROWS: dict[str, Row] = {
         identity="host",
         viewport="phone",
         route="/user/tags/{tag}",
-        ready='q(".tag-editor-form") && q(".perm-matrix") && q(".tag-people-row")'
+        # The group rows (Guest, User, DJs, Trusted) and, under them, Fry's people row.
+        ready='q(".tag-editor-form") && qa(".tag-groups .tag-people-row").length >= 4'
+        ' && qa(".tag-people-row").length > qa(".tag-groups .tag-people-row").length'
         ' && q("#tag-permissions") && q("#tag-people")',
-        scroll='show(q("#tag-permissions"))',
+        scroll='show(q(".tag-groups"))',
     ),
     "built-in-tags": Row(
         identity="host",
@@ -796,7 +799,7 @@ ROWS: dict[str, Row] = {
         # decoded: the Podium slide in view and the Strip one peeking in beside it.
         ready='qa(".share-dot").length === 5 && qa(".share-preview-image").length >= 2'
         ' && qa(".share-preview-image").every((i) => i.complete && i.naturalWidth > 0)'
-        ' && qa(".share-toggles .icon-toggle").length === 3',
+        ' && qa(".share-toggles .icon-toggle").length === 2',
     ),
     "user": Row(
         identity="Bender",
@@ -827,7 +830,7 @@ ROWS: dict[str, Row] = {
         # and the Strip one peeking in beside it.
         ready='qa(".share-dot").length === 3 && qa(".share-preview-image").length >= 2'
         ' && qa(".share-preview-image").every((i) => i.complete && i.naturalWidth > 0)'
-        ' && qa(".share-toggles .icon-toggle").length === 3',
+        ' && qa(".share-toggles .icon-toggle").length === 2',
     ),
     "user-achievements": Row(
         # Fry, not Bender. The list puts every earned badge first, so Bender's fill the
@@ -890,7 +893,7 @@ ROWS: dict[str, Row] = {
         ready='qa(".share-preview-image").length === 1'
         ' && qa(".share-preview-image").every((i) => i.complete && i.naturalWidth > 0)'
         ' && qa(".share-dot").length === 0 && qa(".share-format").length === 2'
-        ' && qa(".share-toggles .icon-toggle").length === 3',
+        ' && qa(".share-toggles .icon-toggle").length === 2',
     ),
     "achievements-admin": Row(
         identity="host",
@@ -920,17 +923,26 @@ ROWS: dict[str, Row] = {
         identity="host",
         viewport="phone",
         route="/user/accounts",
-        ready='qa(".people-row").length >= 10 && q(".people-role")'
-        ' && byText(".people-row", "Scruffy")',
+        ready='qa(".people-row").length >= 10 && qa(".people-groups").length >= 3'
+        ' && byText(".people-groups", "DJs") && byText(".people-row", "Scruffy")',
         # The hidden player is the last row that fits, one line below the fold. Scrolling
-        # exactly far enough for it keeps both groups and the role controls in the shot.
+        # exactly far enough for it keeps both sections and the groups buttons in the shot.
         scroll='showAbove(byText(".people-row", "Scruffy"), 85)',
     ),
-    "permissions": Row(
+    "groups": Row(
         identity="host",
         viewport="phone",
-        route="/user/permissions",
-        ready='q(".perm-matrix") && qa(".perm-head-role").length === 3 && q(".perm-hint")',
+        route="/user/groups",
+        ready='qa(".tags-list li").length >= 5 && q(".groups-static") && q(".groups-note")'
+        ' && byText(".tags-list li", "DJs")',
+    ),
+    "group-editor": Row(
+        identity="host",
+        viewport="phone",
+        route="/user/groups/{group}",
+        # The name, and a box User already gives drawn ticked and grayed out.
+        ready='q(".tag-editor-field input")?.value === "DJs" && q(".perm-row")'
+        ' && q(".perm-cell input:disabled:checked") && q(".editor-actions")',
     ),
     "login": Row(
         identity="guest",
@@ -1331,10 +1343,12 @@ def hold_settings(
 def route_of(row: Row, state: seed.State) -> str:
     playlists = state.data.get("playlists") or []
     tags = state.data.get("tags") or []
+    groups = state.data.get("groups") or []
     device = state.data.get("device") or {}
     return row.route.format(
         playlist=playlists[scenario.FEATURED_PLAYLIST]["id"] if playlists else "",
         tag=tags[0]["id"] if tags else "",
+        group=groups[0]["id"] if groups else "",
         device=device.get("id", ""),
     )
 
@@ -1391,7 +1405,16 @@ def capture_launcher(
                 except CaptureError as error:
                     results[identifier] = Result(row.identity, False, "-", row.ready, str(error))
             # The TV has to be listening before the song ends, or it misses the event that
-            # puts the results on the stage.
+            # puts the results on the stage. Without the picture of the song playing nothing
+            # above waited for that, nor for the stand-in to start: `--id host-results` alone
+            # released a launch that was not there yet.
+            if "host-playing" not in wanted:
+                playing = ROWS["host-playing"]
+                tv.await_ready(playing.ready, "host-playing", timeout=LAUNCHER_TIMEOUT)
+            launch = Path(state.data["usdx_dir"]) / "standin" / "last-launch.json"
+            deadline = time.monotonic() + LAUNCHER_TIMEOUT
+            while not launch.is_file() and time.monotonic() < deadline:
+                time.sleep(0.2)
             seed.command_release(
                 argparse.Namespace(data_dir=Path(state.data["data_dir"]), scores=None)
             )

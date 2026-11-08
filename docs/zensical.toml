@@ -70,7 +70,7 @@ nav = [
     { "People" = [
       "people/index.md",
       { "Players and avatars" = "people/players.md" },
-      { "Roles and permissions" = "people/roles.md" },
+      { "Groups and permissions" = "people/groups.md" },
       { "Single sign-on" = "people/single-sign-on.md" },
     ] },
     { "Settings" = [

@@ -11,9 +11,9 @@ Move the mouse to bring the corner controls back, then click :wingman-gear:
 screen. So does every page you open from here, which is the whole point of this
 view.
 
-![The Manage page on the TV, with Back at the top and rows for Settings, Players & accounts, Tags, Achievements, and Permissions](../assets/screenshots/host-screen/host-manage.png){ width="720" loading=lazy }
+![The Manage page on the TV, with Back at the top and rows for Settings, Players & accounts, Tags, Achievements, Player selector, and Groups](../assets/screenshots/host-screen/host-manage.png){ width="720" loading=lazy }
 /// caption
-The host browser holds every right, so it gets all five rows.
+The host browser holds every right, so it gets all six rows.
 ///
 
 ## The rows
@@ -22,18 +22,21 @@ The host browser holds every right, so it gets all five rows.
   Ultrastar Deluxe paths to the singing slots and their colors. See
   [Settings](../settings/index.md).
 - :wingman-users: **Players & accounts**: the people at the party, their
-  pictures, their roles, and who the singer picker offers. See
+  pictures, their groups, and who the singer picker offers. See
   [Players and avatars](../people/players.md).
 - :wingman-tag: **Tags**: the labels on songs, who may see them, and the
   built-in marks and facets. See [Tags](../tags/index.md).
 - :wingman-trophy: **Achievements**: the badges this party hands out, and the
   three options behind them. See
   [Manage achievements](../achievements/manage/index.md).
-- :wingman-shield: **Permissions**: what each role may do. See
-  [Roles and permissions](../people/roles.md).
+- :wingman-card: **Player selector**: the box of card readers that picks the
+  singers, and the cards that go with it. See
+  [Player selector](../selector/index.md).
+- :wingman-shield: **Groups**: the groups of the party and what each one may
+  do. See [Groups and permissions](../people/groups.md).
 
 A row is only there when this browser may do something behind it. The host
-browser holds every right, so it sees all five.
+browser holds every right, so it sees all six.
 
 ## When there are no rows
 

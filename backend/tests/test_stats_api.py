@@ -5,7 +5,7 @@ Sings and scores are inserted straight into the database here: what USDX does wi
 """
 
 import sqlite3
-from collections.abc import Mapping
+from collections.abc import Mapping, Sequence
 from datetime import UTC, datetime, timedelta
 from pathlib import Path
 from types import MappingProxyType
@@ -21,7 +21,7 @@ from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
 from conftest import add_session, add_user
 from ultrastar_wingman.auth import permissions
 from ultrastar_wingman.auth.deps import COOKIE_NAME
-from ultrastar_wingman.auth.model import RolePermission, as_utc
+from ultrastar_wingman.auth.model import GroupCapability, as_utc
 from ultrastar_wingman.db import migrations_dir
 from ultrastar_wingman.karaoke import service
 from ultrastar_wingman.karaoke.model import KaraokeSession, Score, Sing, placements
@@ -130,14 +130,15 @@ async def sign_in(
     session: AsyncSession,
     username: str,
     player: Player | None = None,
-    role: str = "user",
+    groups: Sequence[str] = (),
 ) -> str:
-    """Log `client` in as a fresh account, optionally the one `player` sings as.
+    """Log `client` in as a fresh account in `groups` (User alone by default), optionally
+    the one `player` sings as.
 
     Linking the player is what makes the account a *singer*: a score carries a player id,
     so that is the only thing tying an account to a party it was at.
     """
-    user_id = await add_user(session_factory, username, role)
+    user_id = await add_user(session_factory, username, groups=groups)
     if player is not None:
         player.user_id = user_id
         player.registered = True
@@ -147,12 +148,17 @@ async def sign_in(
     return user_id
 
 
-async def take_history_away(session: AsyncSession, role: str = "user") -> None:
-    """Drop `stats.history` from a role — what a host does who keeps the archive to
-    themselves. Everything below it is then identity, not a capability."""
+async def take_history_away(session: AsyncSession, group_id: str = permissions.USER) -> None:
+    """Drop `stats.history` from a group — User by default, what a host does who keeps the
+    archive to themselves. Everything below it is then identity, not a capability."""
+    await take_away(session, group_id, "stats.history")
+
+
+async def take_away(session: AsyncSession, group_id: str, capability: str) -> None:
+    """Untick one capability of one group straight in the table."""
     await session.execute(
-        delete(RolePermission).where(
-            RolePermission.role == role, RolePermission.capability == "stats.history"
+        delete(GroupCapability).where(
+            GroupCapability.group_id == group_id, GroupCapability.capability == capability
         )
     )
     await session.commit()
@@ -491,13 +497,7 @@ async def test_the_current_session_ends_exactly_at_the_session_gap(session: Asyn
 async def test_listing_the_current_sings_needs_stats_view(
     anonymous_client: AsyncClient, session: AsyncSession
 ) -> None:
-    await session.execute(
-        delete(RolePermission).where(
-            RolePermission.role == "guest", RolePermission.capability == "stats.view"
-        )
-    )
-    await session.commit()
-    permissions.invalidate_cache()
+    await take_away(session, permissions.GUEST, "stats.view")
 
     response = await anonymous_client.get("/api/v1/stats/sessions/current/sings")
 
@@ -545,19 +545,14 @@ async def test_your_own_scores_need_no_history_right_but_somebody_else_s_do(
     seeded: dict[str, Any],
 ) -> None:
     """Identity, not a capability: "Your scores" must not empty out when the host takes the
-    archive away from the `user` role."""
+    archive away from User."""
     yannis: Player = seeded["yannis"]
-    user_id = await add_user(session_factory, "yannis", "user")
+    user_id = await add_user(session_factory, "yannis")
     yannis.user_id = user_id
     yannis.registered = True
-    await session.execute(
-        delete(RolePermission).where(
-            RolePermission.role == "user", RolePermission.capability == "stats.history"
-        )
-    )
     await session.commit()
+    await take_history_away(session)
     await add_session(session_factory, "yannis-token", user_id)
-    permissions.invalidate_cache()
     anonymous_client.cookies.set(COOKIE_NAME, "yannis-token", domain="wingman.test", path="/")
 
     own = await anonymous_client.get(f"/api/v1/stats/players/{yannis.id}/scores")
@@ -786,7 +781,9 @@ async def test_asking_for_the_hidden_parties_needs_the_capability(
     rather than a 403, the way this route already answers."""
     await client.put(f"/api/v1/stats/sessions/{seeded['old'].id}/hidden", json={"hidden": True})
     # An account that may read the whole archive, and still may not ask for the hidden ones.
-    await sign_in(anonymous_client, session_factory, session, "reader", role="trusted")
+    await sign_in(
+        anonymous_client, session_factory, session, "reader", groups=[permissions.TRUSTED_GROUP_ID]
+    )
 
     listed = (await anonymous_client.get("/api/v1/stats/sessions?include_hidden=true")).json()
 
@@ -801,7 +798,9 @@ async def test_hiding_a_party_is_not_a_naming_right(
 ) -> None:
     """`stats.manage` names a party; deciding which evenings the room still gets to look at
     is a right of its own."""
-    await sign_in(anonymous_client, session_factory, session, "helper", role="trusted")
+    await sign_in(
+        anonymous_client, session_factory, session, "helper", groups=[permissions.TRUSTED_GROUP_ID]
+    )
 
     named = await anonymous_client.patch(
         f"/api/v1/stats/sessions/{seeded['old'].id}", json={"name": "Renamed"}
@@ -1220,13 +1219,7 @@ async def test_reading_a_sing_needs_stats_view(
     anonymous_client: AsyncClient, session: AsyncSession, running: dict[str, Any]
 ) -> None:
     """Even a sing of tonight's party: `stats.view` is the door to every statistics read."""
-    await session.execute(
-        delete(RolePermission).where(
-            RolePermission.role == "guest", RolePermission.capability == "stats.view"
-        )
-    )
-    await session.commit()
-    permissions.invalidate_cache()
+    await take_away(session, permissions.GUEST, "stats.view")
 
     response = await anonymous_client.get(f"/api/v1/stats/sings/{running['first'].id}")
 

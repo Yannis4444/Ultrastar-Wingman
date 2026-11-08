@@ -10,11 +10,16 @@ line inside its group. See [Settings](index.md) for how the page works.
 |---|---|---|
 | **Players** | How many people sing at once. Ultrastar Deluxe plays 1, 2, 3, 4, or 6 on one screen | 4 |
 | **Slot 1** to **Slot n** | The microphone color of each slot, out of Ultrastar Deluxe's own sixteen | blue, red, green, yellow |
+| **Fair wishes** | On **Wishlist (weighted)**, each further wish of the same person counts a little less, so a long wishlist does not drown out a short one. Off, every wish counts the same | on |
+| **Rest skipped songs** | A song the reel on the host screen landed on, and the room spun past, comes up less often for the next half hour. It is never left out | on |
 
-Both are one setting seen from two sides. The count says how many slots the
-singer picker offers, and each slot names a color of its own. Two slots cannot
-share a color. Give a slot a color another one already has and the two swap. See
-[Sing a song](../party/sing.md).
+**Players** and the slots are one setting seen from two sides. The count says
+how many slots the singer picker offers, and each slot names a color of its own.
+Two slots cannot share a color. Give a slot a color another one already has and
+the two swap. See [Sing a song](../party/sing.md).
+
+**Fair wishes** and **Rest skipped songs** decide what the reel lands on. See
+[Let the reel pick](../party/reel.md).
 
 ## Host
 
@@ -29,8 +34,9 @@ share a color. Give a slot a color another one already has and the two swap. See
 | **Master volume** | Everything the host screen plays is scaled by this one | 100 |
 | **Music volume** | The background music between songs. Anybody who may control the music can also change this from the player | 100 |
 | **Preview volume** | The song being picked, while the singers are chosen | 100 |
-| **Effects volume** | Wingman's own sound effects. Nothing plays any yet | 100 |
+| **Effects volume** | Wingman's own sound effects on the host screen | 100 |
 | **Song preview** | Play the song being picked on the host screen while the singers are chosen, from where its singing starts: once the reel lands on it, or at once for a song somebody chose. It stops when the song starts or the pick is given up, and the background music pauses for it | on |
+| **Sound effects** | Short sounds on the host screen: a tick for every cover the reel passes and a click when it lands, and a whoosh for every new badge after a song. Nothing on the phones, and nothing while a song is sung. See [Sound effects](../host-screen/index.md#sound-effects) | on |
 
 The volumes are percentages, and the master multiplies the others. None of them
 touches Ultrastar Deluxe, which mixes a song being sung itself. See

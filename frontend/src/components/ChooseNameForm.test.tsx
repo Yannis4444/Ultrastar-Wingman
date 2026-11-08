@@ -31,7 +31,7 @@ function renderForm(preset = "singer") {
 beforeEach(() => {
   vi.resetAllMocks();
   completeOidcLogin.mockResolvedValue({
-    data: { id: "u1", username: "singer", role: "user", player_id: "p1" },
+    data: { id: "u1", username: "singer", groups: [], player_id: "p1" },
   });
   forgetOidcLogin.mockResolvedValue({ data: undefined });
 });

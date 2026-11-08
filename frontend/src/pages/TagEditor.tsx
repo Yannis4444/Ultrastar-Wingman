@@ -1,5 +1,5 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { useMemo, useState, type CSSProperties } from "react";
+import { useMemo, useState } from "react";
 import { Link, useLocation, useNavigate, useParams } from "react-router-dom";
 import type {
   BuiltInTagUpdate,
@@ -21,11 +21,15 @@ import {
 import { useAuth } from "../auth";
 import ConfirmModal from "../components/ConfirmModal";
 import EditorActions from "../components/EditorActions";
+import { THROUGH_USER } from "../components/GroupCapabilities";
+import GroupSquare from "../components/GroupSquare";
 import { Icon, PICKER_ICON_NAMES } from "../components/icons";
 import Loading from "../components/Loading";
 import PageHeader from "../components/PageHeader";
 import PlayerAvatar from "../components/PlayerAvatar";
-import { errorDetail, errorMessage } from "../errors";
+import { errorDetail, errorMessage, groupMessage } from "../errors";
+import { ADMIN, GUEST, TRUSTED_GROUP_ID, USER, isBuiltIn } from "../groups";
+import { useGroups } from "../hooks/useGroups";
 import { useUserLookup } from "../hooks/useUserLookup";
 import { useWingmanEvent } from "../hooks/useWingmanEvents";
 import {
@@ -40,9 +44,9 @@ import {
   tagGlyph,
   type TagColor,
 } from "../tags";
-// The permission matrix is `RolePermissions`' grid, class for class (§4), so
-// the two tables of checkboxes in the app line up on the same metrics.
-import "../components/RolePermissions.css";
+// The checkbox cells and the hint are the capability list's (§4), so every
+// grid of checkboxes in the app sits on the same metrics.
+import "../components/GroupCapabilities.css";
 import "./Tags.css";
 import "./TagEditor.css";
 
@@ -74,11 +78,6 @@ const ACTIONS: { action: Action; label: string; description: string }[] = [
   },
 ];
 
-/** The roles the matrix has a column for. Admin is not one: it holds every
- *  right in every table, which is what keeps the host from locking themselves
- *  out. A role the backend grows later is carried through untouched. */
-const ROLE_COLUMNS = ["guest", "user", "trusted"];
-
 const COLOR_LABELS: Record<TagColor, string> = {
   neutral: "Neutral",
   blue: "Blue",
@@ -88,23 +87,25 @@ const COLOR_LABELS: Record<TagColor, string> = {
 
 /**
  * What a fresh tag is for before anybody says otherwise, written out here and
- * copied from no existing tag: everybody knows it and sees its songs, trusted
- * accounts may set it. Starting from "nobody" would be worse than useless: a
+ * copied from no existing tag: everybody knows it and sees its songs, Trusted
+ * may set it. Starting from "nobody" would be worse than useless: a
  * `tags.manage` holder who is not an administrator would not be granted `view`
- * on the tag they just made, and it would disappear from their own list.
+ * on the tag they just made, and it would disappear from their own list. User's
+ * row reaches every account, Trusted's members included; Trusted's *Tag songs*
+ * is drawn and sent only while the group exists (the host may have deleted it).
  */
 const NEW_TAG_GRANTS: [Action, string][] = [
-  ["view", "guest"],
-  ["view", "user"],
-  ["view", "trusted"],
-  ["view_songs", "guest"],
-  ["view_songs", "user"],
-  ["view_songs", "trusted"],
-  ["assign", "trusted"],
+  ["view", GUEST],
+  ["view", USER],
+  ["view_songs", GUEST],
+  ["view_songs", USER],
+  ["assign", TRUSTED_GROUP_ID],
 ];
 
+type Subject = "group" | "user";
+
 /** One grant, as a string so a draft is a plain `Set`. */
-function grantKey(action: Action, kind: "role" | "user", id: string): string {
+function grantKey(action: Action, kind: Subject, id: string): string {
   return `${action}|${kind}|${id}`;
 }
 
@@ -112,8 +113,8 @@ function grantKey(action: Action, kind: "role" | "user", id: string): string {
 function grantRow(entry: string): TagPermissionInput {
   const [action, kind, ...rest] = entry.split("|");
   const id = rest.join("|");
-  return kind === "role"
-    ? { action: action as Action, role: id }
+  return kind === "group"
+    ? { action: action as Action, group_id: id }
     : { action: action as Action, user_id: id };
 }
 
@@ -210,6 +211,13 @@ function RealTagEditor() {
     (useLocation().state as { created?: boolean } | null)?.created === true;
 
   const tags = useQuery({ ...listTagsOptions(), enabled: allowed });
+  const groups = useGroups(allowed);
+  // One row per group but Admin, in the backend's one order (§9.4): Admin
+  // holds every tag by rule and is no subject a row could name.
+  const groupRows = (groups.data?.groups ?? []).filter(
+    (group) => group.id !== ADMIN,
+  );
+  const listed = new Set(groupRows.map((group) => group.id));
 
   // There is no GET /tags/{id}: the listing is the one request, and it is the
   // one the admin list already made.
@@ -222,10 +230,6 @@ function RealTagEditor() {
   const [hideByDefault, setHideByDefault] = useState(false);
   const [grants, setGrants] = useState<Set<string>>(new Set());
   const [people, setPeople] = useState<Person[]>([]);
-  // Permission rows this page has no column for — an `admin` row somebody wrote
-  // by hand, a role the backend grew after this build. They are sent back
-  // untouched, because a PUT replaces every row the tag has.
-  const [extras, setExtras] = useState<TagPermissionInput[]>([]);
   const [base, setBase] = useState<Draft>(NEW_DRAFT);
   const [baseGrants, setBaseGrants] = useState<Set<string>>(new Set());
   const [seeded, setSeeded] = useState<string | null>(null);
@@ -239,7 +243,6 @@ function RealTagEditor() {
   const seedFrom = (tag: TagRead) => {
     const next = new Set<string>();
     const named: Person[] = [];
-    const other: TagPermissionInput[] = [];
     for (const row of tag.permissions ?? []) {
       if (row.user_id !== null) {
         next.add(grantKey(row.action, "user", row.user_id));
@@ -247,15 +250,15 @@ function RealTagEditor() {
           named.push({
             id: row.user_id,
             username: row.username,
-            playerId: null,
-            avatarVersion: null,
+            playerId: row.player_id ?? null,
+            avatarVersion: row.avatar_version ?? null,
           });
-      } else if (row.role !== null && ROLE_COLUMNS.includes(row.role)) {
-        next.add(grantKey(row.action, "role", row.role));
-      } else if (row.role !== null) {
-        other.push({ action: row.action, role: row.role });
+      } else if (row.group_id !== null) {
+        // Kept even for a group the listing does not hold: it is drawn
+        // nowhere and left out of the body (`permissionRows`).
+        next.add(grantKey(row.action, "group", row.group_id));
       }
-      // A row naming neither a role nor an account is dropped rather than sent
+      // A row naming neither a group nor an account is dropped rather than sent
       // back: the API refuses a subjectless row, and it would take every other
       // row of the PUT down with it.
     }
@@ -267,7 +270,6 @@ function RealTagEditor() {
     setGrants(next);
     setBaseGrants(new Set(next));
     setPeople(named);
-    setExtras(other);
     setBase({
       name: tag.name.trim(),
       icon: tag.icon,
@@ -286,7 +288,9 @@ function RealTagEditor() {
     if (creating) {
       setSeeded(draftId);
       const next = new Set(
-        NEW_TAG_GRANTS.map(([action, role]) => grantKey(action, "role", role)),
+        NEW_TAG_GRANTS.map(([action, group]) =>
+          grantKey(action, "group", group),
+        ),
       );
       setName("");
       setIcon(null);
@@ -296,7 +300,6 @@ function RealTagEditor() {
       setGrants(next);
       setBaseGrants(new Set());
       setPeople([]);
-      setExtras([]);
       setBase(NEW_DRAFT);
       setError(null);
       setSaved(false);
@@ -345,15 +348,23 @@ function RealTagEditor() {
     [base.icon],
   );
 
-  const has = (action: Action, kind: "role" | "user", id: string) =>
+  const has = (action: Action, kind: Subject, id: string) =>
     grants.has(grantKey(action, kind, id));
 
-  const toggle = (
-    action: Action,
-    kind: "role" | "user",
-    id: string,
-    on: boolean,
-  ) => {
+  /** A box drawn ticked on User's behalf: in the row of a group that adds to
+   *  User, an action User holds on this tag and the group has no row of its
+   *  own for. It is locked and never sent. */
+  const throughUser = (action: Action, groupId: string) =>
+    !isBuiltIn(groupId) &&
+    has(action, "group", USER) &&
+    !has(action, "group", groupId);
+
+  /** What a subject ends up with on this tag: its own row, or — for a group
+   *  that adds to User — User's. */
+  const holds = (action: Action, kind: Subject, id: string) =>
+    has(action, kind, id) || (kind === "group" && throughUser(action, id));
+
+  const toggle = (action: Action, kind: Subject, id: string, on: boolean) => {
     setSaved(false);
     setGrants((old) => {
       const next = new Set(old);
@@ -376,10 +387,19 @@ function RealTagEditor() {
     return body;
   };
 
-  const permissionRows = (): TagPermissionInput[] => [
-    ...[...grants].map(grantRow),
-    ...extras,
-  ];
+  const permissionRows = (): TagPermissionInput[] =>
+    [...grants]
+      .map(grantRow)
+      // A row for a group `GET /groups` does not hold (deleted since, or a hand
+      // edit) is left out: the backend would refuse it as `unknown_group` and
+      // take every other row of the write down with it. Admin is no subject
+      // either (`not_assignable`).
+      .filter(
+        (row) =>
+          row.group_id == null ||
+          (row.group_id !== ADMIN &&
+            (groups.data === undefined || listed.has(row.group_id))),
+      );
 
   const fieldsChanged = Object.keys(changes()).length > 0;
   const grantsChanged = !sameGrants(grants, baseGrants);
@@ -463,19 +483,20 @@ function RealTagEditor() {
       setError(
         errorDetail(cause) === "duplicate_tag_name"
           ? `A tag called "${trimmed}" already exists. Pick another name.`
-          : errorMessage(cause, "Could not save the tag."),
+          : // A group deleted since the page read them (`unknown_group`).
+            groupMessage(cause, "Could not save the tag."),
       );
     } finally {
       setSaving(false);
     }
   };
 
-  /** Everybody the matrix and the people rows speak for, by display name. */
-  const subjects: { name: string; kind: "role" | "user"; id: string }[] = [
-    ...ROLE_COLUMNS.map((role) => ({
-      name: role[0].toUpperCase() + role.slice(1),
-      kind: "role" as const,
-      id: role,
+  /** Everybody the group rows and the people rows speak for, by name. */
+  const subjects: { name: string; kind: Subject; id: string }[] = [
+    ...groupRows.map((group) => ({
+      name: group.name,
+      kind: "group" as const,
+      id: group.id,
     })),
     ...people.map((person) => ({
       name: person.username ?? "a deleted account",
@@ -486,18 +507,19 @@ function RealTagEditor() {
 
   // A tagger who may not see the songs they tag loses each one the moment they
   // tag it, and cannot untag it again. The weaker "the filter is always empty"
-  // warning skips those: it would say the same thing about the same people.
+  // warning skips those: it would say the same thing about the same people. A
+  // group's members also hold User's rows, so a group is measured with them.
   const lockedOut = subjects.filter(
     (subject) =>
-      has("assign", subject.kind, subject.id) &&
-      !has("view_songs", subject.kind, subject.id),
+      holds("assign", subject.kind, subject.id) &&
+      !holds("view_songs", subject.kind, subject.id),
   );
   const emptyFilter = subjects.filter(
     (subject) =>
-      has("view", subject.kind, subject.id) &&
-      !has("view_songs", subject.kind, subject.id) &&
+      holds("view", subject.kind, subject.id) &&
+      !holds("view_songs", subject.kind, subject.id) &&
       // A ticked Tag songs is what sends somebody to the warning above.
-      !has("assign", subject.kind, subject.id),
+      !holds("assign", subject.kind, subject.id),
   );
 
   const named = new Set(people.map((person) => person.id));
@@ -689,58 +711,101 @@ function RealTagEditor() {
                     </div>
 
                     <h2 id="tag-permissions">Permissions</h2>
-                    <div
-                      className="perm-matrix"
-                      style={{ "--perm-roles": 3 } as CSSProperties}
-                    >
-                      <p className="perm-hint">
-                        Administrators are not in the table: they see every tag
-                        and may set every one, so nothing here can hide a song
-                        from the host.
+                    <p className="perm-hint">
+                      Administrators are not in the table: they see every tag
+                      and may set every one, so nothing here can hide a song
+                      from the host.
+                    </p>
+                    {/* What each column means, said once above both grids. */}
+                    <dl className="tag-actions">
+                      {ACTIONS.map(({ action, label, description }) => (
+                        <div key={action} className="tag-action">
+                          <dt>{label}</dt>
+                          <dd id={`tag-perm-${action}`}>{description}</dd>
+                        </div>
+                      ))}
+                    </dl>
+                    {/* The rows wait for `GET /groups`; without it the grid
+                        would be a bare head reading as "no groups at all". */}
+                    {groups.isPending && <Loading />}
+                    {groups.isError && (
+                      <p className="error-notice tags-notice" role="alert">
+                        Could not load the groups.
                       </p>
-                      {/* Decoration: every checkbox names its own right and role. */}
-                      <div className="perm-head" aria-hidden="true">
+                    )}
+                    {/* One row per group, the three actions as its columns:
+                        the people grid's shape, so any number of groups fits
+                        and groups and people read alike (§9.4). */}
+                    <div className="tag-people tag-groups">
+                      <div className="tag-people-head" aria-hidden="true">
                         <span />
-                        {ROLE_COLUMNS.map((role) => (
-                          <span key={role} className="perm-head-role">
-                            {role}
+                        <span />
+                        {ACTIONS.map(({ action, label }) => (
+                          <span key={action} className="tag-people-head-cell">
+                            {label}
                           </span>
                         ))}
+                        <span />
                       </div>
-                      <ul className="perm-list">
-                        {ACTIONS.map(({ action, label, description }) => (
-                          <li key={action} className="perm-row">
-                            <div className="perm-label">
-                              <span className="perm-line">
-                                <span className="perm-name">{label}</span>
-                              </span>
-                              <p
-                                className="perm-description"
-                                id={`tag-perm-${action}`}
-                              >
-                                {description}
-                              </p>
-                            </div>
-                            {ROLE_COLUMNS.map((role) => (
-                              // A label, so the tap target is the whole cell
-                              // and not just the box in the middle of it.
-                              <label className="perm-cell" key={role}>
-                                <input
-                                  type="checkbox"
-                                  aria-label={`${label} for ${role}`}
-                                  aria-describedby={`tag-perm-${action}`}
-                                  checked={has(action, "role", role)}
-                                  onChange={(event) =>
-                                    toggle(
-                                      action,
-                                      "role",
-                                      role,
-                                      event.target.checked,
-                                    )
-                                  }
-                                />
-                              </label>
-                            ))}
+                      <ul
+                        className="tag-people-list"
+                        aria-labelledby="tag-permissions"
+                      >
+                        {groupRows.map((group) => (
+                          <li key={group.id} className="tag-people-row">
+                            <GroupSquare groupId={group.id} />
+                            {/* A name the host typed may be cut short here;
+                                the title gives it back. */}
+                            <span
+                              className="tag-person-name"
+                              title={group.name}
+                            >
+                              {group.name}
+                            </span>
+                            {ACTIONS.map(({ action, label }) => {
+                              const locked = throughUser(action, group.id);
+                              const reasonId = `tag-perm-${action}-${group.id}-reason`;
+                              return (
+                                // A label, so the tap target is the whole cell
+                                // and not just the box in the middle of it.
+                                <label className="perm-cell" key={action}>
+                                  <input
+                                    type="checkbox"
+                                    aria-label={`${label} for ${group.name}`}
+                                    aria-describedby={
+                                      locked
+                                        ? `tag-perm-${action} ${reasonId}`
+                                        : `tag-perm-${action}`
+                                    }
+                                    checked={
+                                      locked || has(action, "group", group.id)
+                                    }
+                                    disabled={locked}
+                                    title={locked ? THROUGH_USER : undefined}
+                                    onChange={(event) =>
+                                      toggle(
+                                        action,
+                                        "group",
+                                        group.id,
+                                        event.target.checked,
+                                      )
+                                    }
+                                  />
+                                  {locked && (
+                                    <span
+                                      className="visually-hidden"
+                                      id={reasonId}
+                                    >
+                                      {THROUGH_USER}
+                                    </span>
+                                  )}
+                                </label>
+                              );
+                            })}
+                            {/* The people rows' trailing control column,
+                                empty: a group is not taken off a tag, its
+                                boxes are. */}
+                            <span />
                           </li>
                         ))}
                       </ul>
@@ -764,8 +829,8 @@ function RealTagEditor() {
 
                     <h2 id="tag-people">Specific people</h2>
                     <p className="tag-editor-hint">
-                      One account at a time, on top of what its role already
-                      holds.
+                      One account at a time, on top of what its groups already
+                      hold.
                     </p>
 
                     <label className="tag-editor-field">
@@ -851,7 +916,7 @@ function RealTagEditor() {
 
                     {people.length === 0 ? (
                       <p className="tag-editor-hint">
-                        Nobody is named on this tag on their own. The roles
+                        Nobody is named on this tag on their own. The groups
                         above decide.
                       </p>
                     ) : (

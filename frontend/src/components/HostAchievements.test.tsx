@@ -5,13 +5,28 @@ import { achievementRead, achievementSettings } from "../test/achievements";
 import { FakeSocket } from "../test/fakeSocket";
 import HostAchievements from "./HostAchievements";
 
-const { listAchievements } = vi.hoisted(() => ({
-  listAchievements: vi.fn(),
-}));
+const { listAchievements, playEffect, stopped } = vi.hoisted(() => {
+  const stopped = { count: 0 };
+  return {
+    listAchievements: vi.fn(),
+    stopped,
+    // Every effect a voice that counts how often it was cut.
+    playEffect: vi.fn(() => ({
+      stop: () => {
+        stopped.count += 1;
+      },
+    })),
+  };
+});
 
 vi.mock("../api/sdk.gen", async (importOriginal) => ({
   ...(await importOriginal<typeof import("../api/sdk.gen")>()),
   listAchievements,
+}));
+
+vi.mock("../sfx", async (importOriginal) => ({
+  ...(await importOriginal<typeof import("../sfx")>()),
+  playEffect,
 }));
 
 function player(id: string, name: string): PlayerRead {
@@ -101,8 +116,25 @@ beforeEach(() => {
   vi.useFakeTimers({ shouldAdvanceTime: true });
   listAchievements.mockReset();
   onPhase.mockReset();
+  playEffect.mockClear();
+  stopped.count = 0;
   catalogue();
 });
+
+/** An element's CSS animation starting, as the browser reports it once the
+ *  stagger delay is over. jsdom has no AnimationEvent: a plain event with the
+ *  one field React reads. */
+function animationStarts(element: Element, animationName: string): void {
+  const event = new Event("animationstart", { bubbles: true });
+  Object.defineProperty(event, "animationName", { value: animationName });
+  act(() => {
+    element.dispatchEvent(event);
+  });
+}
+
+function badgeElements(): Element[] {
+  return [...document.querySelectorAll(".host-achievement-badge")];
+}
 
 afterEach(() => {
   // A leaked fake clock would break every later test's `findBy*`.
@@ -243,6 +275,57 @@ test("the next song cuts the sequence short", async () => {
   // Badges over a running song would be the sequence outliving its own song.
   expect(screen.queryByLabelText("New achievements")).not.toBeInTheDocument();
   expect(onPhase).toHaveBeenLastCalledWith("idle");
+});
+
+test("a badge's throw is a whoosh, and a thud as it lands", async () => {
+  await ready();
+  earned([{ player: player("p1", "Alice"), achievements: badges(2) }]);
+  await screen.findByLabelText("New achievements");
+  // Nothing sounds before the badge's own animation starts.
+  expect(playEffect).not.toHaveBeenCalled();
+
+  animationStarts(badgeElements()[1], "host-achievement-throw");
+
+  expect(playEffect.mock.calls).toEqual([
+    ["whoosh"],
+    // The keyframe at 68 % of the 640 ms throw, where it lands.
+    ["thud", expect.closeTo(0.435, 2)],
+  ]);
+});
+
+test("under reduced motion a badge only appears, and only the thud marks it", async () => {
+  await ready();
+  earned([{ player: player("p1", "Alice"), achievements: badges(1) }]);
+  await screen.findByLabelText("New achievements");
+
+  animationStarts(badgeElements()[0], "host-achievement-appear");
+
+  expect(playEffect.mock.calls).toEqual([["thud"]]);
+});
+
+test("the name and the words animate without a sound", async () => {
+  await ready();
+  earned([{ player: player("p1", "Alice"), achievements: badges(1) }]);
+  await screen.findByLabelText("New achievements");
+
+  const words = document.querySelector(".host-achievement-text");
+  if (words === null) throw new Error("no words");
+  animationStarts(words, "host-achievement-rise");
+  animationStarts(words, "host-achievement-appear");
+
+  expect(playEffect).not.toHaveBeenCalled();
+});
+
+test("the next song cuts the badges' sounds off with the badges", async () => {
+  await ready();
+  earned([{ player: player("p1", "Alice"), achievements: badges(1) }]);
+  await screen.findByLabelText("New achievements");
+  animationStarts(badgeElements()[0], "host-achievement-throw");
+
+  act(() => FakeSocket.deliver({ event: "karaoke.started", sing: null }));
+
+  // The whoosh and the thud still to come, both cut.
+  expect(stopped.count).toBe(2);
 });
 
 test("the scores are given a beat to be followed by badges", async () => {

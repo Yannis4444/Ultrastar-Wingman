@@ -224,7 +224,7 @@ from there. Whoever may read a party's scores may share them.
   Your own record has the same card on the **User** tab, see
   [Share your stats](your-scores.md#share-your-stats).
 
-![The Share this party panel on the blurred page: the party card with the next design peeking in, the arrows and dots under it with Square and Story beside them, and the three symbols over their line](../assets/screenshots/scores/scores-share.png){ width="320" loading=lazy }
+![The Share this party panel on the blurred page: the party card with the next design peeking in, the arrows and dots under it with Square and Story beside them, and the two symbols over their line](../assets/screenshots/scores/scores-share.png){ width="320" loading=lazy }
 /// caption
 The picture is the card exactly as it is sent. Swipe it to see the other
 designs.
@@ -261,8 +261,8 @@ foot. The one in white is the one in use.
 
 ### Choose what goes on it
 
-Under the design's name, three symbols say what goes on the card. They are
-the same three, in the same order, on every design. Tap one to take it off the
+Under the design's name, two symbols say what goes on the card. They are
+the same two, in the same order, on every design. Tap one to take it off the
 card: it turns gray and is crossed out. Tap it again to put it back. The line
 under them says what the last one you touched does.
 
@@ -270,14 +270,16 @@ under them says what the last one you touched does.
 |---|---|---|
 | :wingman-image: **Other singers' pictures** | Everybody's picture | Everybody else is drawn as their initial. Your own picture is always yours |
 | :wingman-calendar: **Party name and date** | The party's name and its day. On a singer's card, the line under their name, which may read **All parties** | The card names no party and no day. A party card then starts with its figures, and a singer's name stands alone. The saved file is still named after the party, or after its date, so you can find it on your phone |
-| The logo itself, **Wingman logo** | The logo and the Ultrastar Wingman name in the bottom corner | Both go, and nothing else on the card moves |
+
+The Wingman logo and the Ultrastar Wingman name stand in the bottom corner of
+every card. They are not an option.
 
 A symbol a design has no use for stays where it is, faded, and keeps your
 choice for the designs that do. The line says why when you tap it: your own
 score, your own stats, **You**, and a party you sang alone show no other
 singer, and **Spread** draws names rather than pictures.
 
-The panel remembers the shape, the design, and the three symbols on this
+The panel remembers the shape, the design, and the two symbols on this
 device, and opens on that design the next time. **Spread** and **You** are not
 remembered: the panel opens on the design you had before them. A singer's
 card keeps its own design apart from the party card's. When the card cannot

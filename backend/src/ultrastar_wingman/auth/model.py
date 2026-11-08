@@ -1,8 +1,11 @@
-"""The `users`, `sessions` and `role_permissions` tables.
+"""The `users` and `sessions` tables, and the permission groups: `groups`,
+`group_capabilities` and `user_groups` (docs/dev/permission-groups.md §2).
 
 No foreign keys: SQLite only enforces them when `PRAGMA foreign_keys` is on, which it is
 not here, so a decorative constraint would be worse than none — the service deletes a
-user's sessions and unlinks their player explicitly.
+user's sessions and memberships and unlinks their player explicitly, deleting a group
+deletes its rows, and every reader treats a row naming a group that is gone as giving
+nothing.
 """
 
 import uuid
@@ -29,8 +32,8 @@ def as_utc(value: datetime) -> datetime:
 
 
 class User(Base):
-    """An account. `role` is one of `permissions.ROLES`; the capabilities behind it are
-    data (`role_permissions`), not code."""
+    """An account. It is in User without a row and in every group a `user_groups` row puts
+    it in; the capabilities behind those groups are data (`group_capabilities`), not code."""
 
     __tablename__ = "users"
     # Usernames are unique case-insensitively, exactly like player names (same ASCII-only
@@ -46,7 +49,6 @@ class User(Base):
     username: Mapped[str] = mapped_column(Text)
     # NULL for an account that has no password: an OIDC account authenticates at its provider.
     password_hash: Mapped[str | None] = mapped_column(Text, nullable=True)
-    role: Mapped[str] = mapped_column(String(16))
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow)
     # Which `providers.PROVIDERS` entry this account belongs to. The username stays the
     # identity inside Wingman; for an OIDC account the provider's `sub` is the identity
@@ -70,11 +72,38 @@ class UserSession(Base):
     expires_at: Mapped[datetime] = mapped_column(DateTime(timezone=True))
 
 
-class RolePermission(Base):
-    """One capability granted to one role. Editable at runtime, hence a table and not a
-    constant — the defaults are seeded by migration 0006."""
+class Group(Base):
+    """A bundle of capabilities people can be put in. The three built-ins (`guest`, `user`,
+    `admin`) are rows too, so their names reserve themselves in the name index; whether a
+    group is built in is read off its id (`permissions.BUILT_IN_GROUPS`), never stored."""
 
-    __tablename__ = "role_permissions"
+    __tablename__ = "groups"
+    # Unique case-insensitively, exactly like tags, usernames and player names (the same
+    # ASCII-only fold): "admin" is refused because the built-in row is called "Admin".
+    __table_args__ = (Index("ix_groups_name_lower", text("lower(name)"), unique=True),)
 
-    role: Mapped[str] = mapped_column(String(16), primary_key=True)
+    id: Mapped[str] = mapped_column(String(32), primary_key=True, default=lambda: uuid.uuid4().hex)
+    name: Mapped[str] = mapped_column(Text)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow)
+
+
+class GroupCapability(Base):
+    """One capability granted to one group. Editable at runtime, hence a table and not a
+    constant. Admin has no rows: it holds every capability by rule."""
+
+    __tablename__ = "group_capabilities"
+
+    group_id: Mapped[str] = mapped_column(String(32), primary_key=True)
     capability: Mapped[str] = mapped_column(String(64), primary_key=True)
+
+
+class UserGroup(Base):
+    """One account in one group. Never a row for `user` (every account is in it) or `guest`
+    (nobody with an account is)."""
+
+    __tablename__ = "user_groups"
+
+    user_id: Mapped[str] = mapped_column(String(32), primary_key=True)
+    # Indexed for the member counts; the primary key's leading column serves the per-request
+    # read of one account's groups.
+    group_id: Mapped[str] = mapped_column(String(32), primary_key=True, index=True)

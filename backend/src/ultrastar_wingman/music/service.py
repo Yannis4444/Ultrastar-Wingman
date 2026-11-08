@@ -36,7 +36,14 @@ from ..karaoke.schema import Scope
 from ..settings import SettingsService, SettingValue
 from ..songs.model import Song
 from ..songs.schema import SongRead, read_song
-from ..sound import EFFECTS_VOLUME, MASTER_VOLUME, MUSIC_VOLUME, PREVIEW_VOLUME, REEL_PREVIEW
+from ..sound import (
+    EFFECTS_VOLUME,
+    MASTER_VOLUME,
+    MUSIC_VOLUME,
+    PREVIEW_VOLUME,
+    REEL_PREVIEW,
+    SOUND_EFFECTS,
+)
 from ..tags import service as tags
 from . import settings as music_settings
 from .schema import (
@@ -85,6 +92,9 @@ class _Options:
     playlist: str
     resume_delay_s: int
     song_preview: bool
+    # `sound.effects`: carried to the host on the state, which is all the backend does with
+    # it — the effects are the host page's own (docs/dev/sound-effects.md).
+    sound_effects: bool
 
 
 @dataclass(frozen=True)
@@ -96,7 +106,12 @@ class _Volumes:
 
 
 DEFAULT_OPTIONS = _Options(
-    enabled=False, scope="all", playlist="", resume_delay_s=10, song_preview=True
+    enabled=False,
+    scope="all",
+    playlist="",
+    resume_delay_s=10,
+    song_preview=True,
+    sound_effects=True,
 )
 DEFAULT_VOLUMES = _Volumes(master=100, music=100, preview=100, effects=100)
 
@@ -314,6 +329,7 @@ def _read(at: datetime | None = None) -> MusicRead:
             preview=_volumes.preview,
             effects=_volumes.effects,
         ),
+        sound_effects=_options.sound_effects,
         scope=_scope(),
     )
 
@@ -737,6 +753,7 @@ async def _load_caches(session: AsyncSession) -> None:
         playlist=str(values[music_settings.PLAYLIST]),
         resume_delay_s=int(values[music_settings.RESUME_DELAY]),
         song_preview=registered.get(REEL_PREVIEW, DEFAULT_OPTIONS.song_preview) is True,
+        sound_effects=registered.get(SOUND_EFFECTS, DEFAULT_OPTIONS.sound_effects) is True,
     )
     _volumes = _Volumes(
         master=_percent(registered.get(MASTER_VOLUME), DEFAULT_VOLUMES.master),

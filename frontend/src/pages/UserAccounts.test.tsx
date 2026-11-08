@@ -7,14 +7,21 @@ import {
   within,
 } from "@testing-library/react";
 import { MemoryRouter } from "react-router-dom";
-import type { PlayerRead } from "../api";
-import { meResponse, userRead } from "../test/auth";
+import type { GroupRead, PlayerRead } from "../api";
+import {
+  AS,
+  MEMBER_OF,
+  TRUSTED_GROUP_ID,
+  meResponse,
+  userRead,
+} from "../test/auth";
 import UserAccounts from "./UserAccounts";
 
 const {
   getMe,
   listUsers,
-  updateUser,
+  listGroups,
+  setUserGroups,
   deleteUser,
   listPlayers,
   createPlayer,
@@ -25,7 +32,8 @@ const {
 } = vi.hoisted(() => ({
   getMe: vi.fn(),
   listUsers: vi.fn(),
-  updateUser: vi.fn(),
+  listGroups: vi.fn(),
+  setUserGroups: vi.fn(),
   deleteUser: vi.fn(),
   listPlayers: vi.fn(),
   createPlayer: vi.fn(),
@@ -39,7 +47,8 @@ vi.mock("../api/sdk.gen", async (importOriginal) => ({
   ...(await importOriginal<typeof import("../api/sdk.gen")>()),
   getMe,
   listUsers,
-  updateUser,
+  listGroups,
+  setUserGroups,
   deleteUser,
   listPlayers,
   createPlayer,
@@ -48,6 +57,26 @@ vi.mock("../api/sdk.gen", async (importOriginal) => ({
   updatePlayer,
   oidcConfig,
 }));
+
+function group(id: string, name: string): GroupRead {
+  const builtIn = id === "guest" || id === "user" || id === "admin";
+  return {
+    id,
+    name,
+    built_in: builtIn,
+    member_count: 1,
+    capabilities: null,
+    right_count: null,
+    can_assign: id !== "guest" && id !== "user",
+  };
+}
+
+const GROUPS: GroupRead[] = [
+  group("guest", "Guest"),
+  group("user", "User"),
+  group(TRUSTED_GROUP_ID, "Trusted"),
+  group("admin", "Admin"),
+];
 
 // What `trusted` holds over the players: the roster, the pictures, and adding
 // and deleting people.
@@ -90,14 +119,17 @@ beforeEach(() => {
   // The admin browser: logged in as Alice, allowed to manage both.
   getMe.mockResolvedValue(
     meResponse(ADMIN_CAPABILITIES, {
-      user: userRead({ role: "admin" }),
-      role: "admin",
+      user: userRead({ groups: MEMBER_OF.admin }),
+      ...AS.admin,
     }),
   );
+  listGroups.mockResolvedValue({
+    data: { groups: GROUPS, capabilities: null },
+  });
   listUsers.mockResolvedValue({
     data: {
       users: [
-        userRead({ role: "admin" }),
+        userRead({ groups: MEMBER_OF.admin }),
         userRead({ id: "user-2", username: "Bob", player_id: "bbb" }),
       ],
     },
@@ -205,27 +237,288 @@ test("seeing the players is not on its own a reason to open this page", async ()
   expect(listPlayers).not.toHaveBeenCalled();
 });
 
-test("the own account is marked and a role can be changed", async () => {
-  updateUser.mockResolvedValue({
-    data: userRead({ id: "user-2", role: "trusted" }),
-  });
+/** Opens the groups panel of one account and hands back the dialog. */
+async function openGroups(name: string): Promise<HTMLElement> {
+  fireEvent.click(
+    await screen.findByRole("button", { name: `Groups of ${name}` }),
+  );
+  return screen.findByRole("dialog", { name: `Groups of ${name}` });
+}
+
+test("the own account is marked and each account's groups are a button", async () => {
   renderPage();
 
   // Alice is the caller, so her row carries the marker.
   expect(await screen.findByText("(you)")).toBeInTheDocument();
+  // The words the user tile uses: Admin, or User for an account in nothing.
+  const alice = await screen.findByRole("button", { name: "Groups of Alice" });
+  expect(alice).toHaveTextContent("Admin");
+  expect(alice).toHaveAttribute("title", "Admin");
+  const bob = screen.getByRole("button", { name: "Groups of Bob" });
+  expect(bob).toHaveTextContent("User");
+  expect(bob).toHaveClass("people-groups");
+  // A guest has no account, so there are no groups to pick for one.
+  expect(
+    screen.queryByRole("button", { name: "Groups of Mallory" }),
+  ).not.toBeInTheDocument();
+});
 
-  fireEvent.change(screen.getByLabelText("Role of Bob"), {
-    target: { value: "trusted" },
+test("the button names every group beyond User, and the title holds them all", async () => {
+  const DJS = "d".repeat(32);
+  listGroups.mockResolvedValue({
+    data: {
+      groups: [...GROUPS.slice(0, 3), group(DJS, "DJs"), GROUPS[3]],
+      capabilities: null,
+    },
   });
+  listUsers.mockResolvedValue({
+    data: {
+      users: [
+        userRead({ groups: MEMBER_OF.admin }),
+        userRead({
+          id: "user-2",
+          username: "Bob",
+          player_id: "bbb",
+          groups: [DJS, TRUSTED_GROUP_ID],
+        }),
+      ],
+    },
+  });
+  renderPage();
+
+  const bob = await screen.findByRole("button", { name: "Groups of Bob" });
+  // In the groups' one order, whatever order the ids were stored in.
+  await waitFor(() => expect(bob).toHaveTextContent("Trusted · DJs"));
+  expect(bob).toHaveAttribute("title", "Trusted · DJs");
+});
+
+test("an account in a group says nothing until the groups have been named", async () => {
+  // Never answered: *User* in the meantime would be a word that then changes.
+  listGroups.mockReturnValue(new Promise(() => {}));
+  listUsers.mockResolvedValue({
+    data: {
+      users: [
+        userRead({ groups: MEMBER_OF.admin }),
+        userRead({
+          id: "user-2",
+          username: "Bob",
+          player_id: "bbb",
+          groups: [TRUSTED_GROUP_ID],
+        }),
+        userRead({ id: "user-3", username: "Carol", player_id: null }),
+      ],
+    },
+  });
+  renderPage();
+
+  const bob = await screen.findByRole("button", { name: "Groups of Bob" });
+  expect(bob).toHaveTextContent(/^$/);
+  // The two answers the ids give on their own are there at once.
+  expect(
+    screen.getByRole("button", { name: "Groups of Alice" }),
+  ).toHaveTextContent("Admin");
+  expect(
+    screen.getByRole("button", { name: "Groups of Carol" }),
+  ).toHaveTextContent("User");
+});
+
+test("the panel puts the account in a group with one write of the whole set", async () => {
+  setUserGroups.mockResolvedValue({
+    data: userRead({
+      id: "user-2",
+      username: "Bob",
+      player_id: "bbb",
+      groups: MEMBER_OF.trusted,
+    }),
+  });
+  renderPage();
+
+  const panel = await openGroups("Bob");
+  // Every group but Guest and User, in the one order, each with its square.
+  const rows = within(panel).getAllByRole("button", { pressed: false });
+  expect(
+    rows.map((row) => row.querySelector(".picker-row-title")?.textContent),
+  ).toEqual(["Trusted", "Admin"]);
+  expect(
+    within(panel).getByText(
+      "A group adds its rights to what every account holds.",
+    ),
+  ).toBeInTheDocument();
+  // An administrator reads no second sentence about Admin.
+  expect(within(panel).queryByText(/Only an administrator puts/)).toBeNull();
+
+  // What the listing says once the write is in.
+  listUsers.mockResolvedValue({
+    data: {
+      users: [
+        userRead({ groups: MEMBER_OF.admin }),
+        userRead({
+          id: "user-2",
+          username: "Bob",
+          player_id: "bbb",
+          groups: MEMBER_OF.trusted,
+        }),
+      ],
+    },
+  });
+  fireEvent.click(within(panel).getByRole("button", { name: /Trusted/ }));
 
   await waitFor(() =>
-    expect(updateUser.mock.calls[0][0]).toMatchObject({
+    expect(setUserGroups.mock.calls[0][0]).toMatchObject({
       path: { user_id: "user-2" },
-      body: { role: "trusted" },
+      body: { groups: [TRUSTED_GROUP_ID] },
     }),
   );
-  // A guest has no account, so there is no role to pick for one.
-  expect(screen.queryByLabelText("Role of Mallory")).not.toBeInTheDocument();
+  // The panel reads the account out of the live listing: pressed now.
+  await waitFor(() =>
+    expect(
+      within(panel).getByRole("button", { name: /Trusted/ }),
+    ).toHaveAttribute("aria-pressed", "true"),
+  );
+});
+
+test("pressing a group the account is in takes it out of it", async () => {
+  listUsers.mockResolvedValue({
+    data: {
+      users: [
+        userRead({ groups: MEMBER_OF.admin }),
+        userRead({
+          id: "user-2",
+          username: "Bob",
+          player_id: "bbb",
+          groups: MEMBER_OF.trusted,
+        }),
+      ],
+    },
+  });
+  setUserGroups.mockResolvedValue({ data: userRead({ id: "user-2" }) });
+  renderPage();
+
+  const panel = await openGroups("Bob");
+  const trusted = within(panel).getByRole("button", { name: /Trusted/ });
+  expect(trusted).toHaveAttribute("aria-pressed", "true");
+  fireEvent.click(trusted);
+
+  await waitFor(() =>
+    expect(setUserGroups.mock.calls[0][0]).toMatchObject({
+      path: { user_id: "user-2" },
+      body: { groups: [] },
+    }),
+  );
+});
+
+test("a helper may not touch Admin nor hand out a group carrying more than they hold", async () => {
+  // A helper holding users.manage, not an administrator: Trusted carries a
+  // right they lack (`can_assign` false), Moderators does not.
+  const MODS = "m".repeat(32);
+  getMe.mockResolvedValue(
+    meResponse(["users.manage"], {
+      user: userRead({ id: "user-9", username: "Amy", groups: [MODS] }),
+      groups: [
+        { id: "user", name: "User" },
+        { id: MODS, name: "Moderators" },
+      ],
+      is_admin: false,
+    }),
+  );
+  listGroups.mockResolvedValue({
+    data: {
+      groups: [
+        GROUPS[0],
+        GROUPS[1],
+        { ...group(MODS, "Moderators"), right_count: 2 },
+        {
+          ...group(TRUSTED_GROUP_ID, "Trusted"),
+          can_assign: false,
+          right_count: 11,
+        },
+        { ...group("admin", "Admin"), can_assign: false },
+      ],
+      capabilities: null,
+    },
+  });
+  listUsers.mockResolvedValue({
+    data: {
+      users: [
+        userRead({ groups: MEMBER_OF.admin }),
+        userRead({ id: "user-2", username: "Bob", player_id: "bbb" }),
+      ],
+    },
+  });
+  renderPage();
+
+  const panel = await openGroups("Bob");
+  expect(
+    within(panel).getByText(
+      /Only an administrator puts somebody in Admin or takes them out\./,
+    ),
+  ).toBeInTheDocument();
+  const admin = within(panel).getByRole("button", { name: /Admin/ });
+  expect(admin).toBeDisabled();
+  expect(admin).toHaveTextContent("Only an administrator can change this");
+  const trusted = within(panel).getByRole("button", { name: /Trusted/ });
+  expect(trusted).toBeDisabled();
+  expect(trusted).toHaveTextContent("Carries a right you do not hold");
+  const mods = within(panel).getByRole("button", { name: /Moderators/ });
+  expect(mods).toBeEnabled();
+  expect(mods).toHaveTextContent("adds 2 rights");
+  // And the administrator's account carries no trash for them (rule 1).
+  fireEvent.click(within(panel).getByRole("button", { name: "Close" }));
+  expect(
+    screen.queryByRole("button", { name: "Delete account Alice" }),
+  ).not.toBeInTheDocument();
+  expect(
+    screen.getByRole("button", { name: "Delete account Bob" }),
+  ).toBeInTheDocument();
+});
+
+test("taking somebody out of a group they are in is never disabled but for Admin", async () => {
+  listGroups.mockResolvedValue({
+    data: {
+      groups: [
+        GROUPS[0],
+        GROUPS[1],
+        { ...group(TRUSTED_GROUP_ID, "Trusted"), can_assign: false },
+        GROUPS[3],
+      ],
+      capabilities: null,
+    },
+  });
+  getMe.mockResolvedValue(
+    meResponse(["users.manage"], {
+      user: userRead({ id: "user-9", username: "Amy" }),
+      ...AS.user,
+    }),
+  );
+  listUsers.mockResolvedValue({
+    data: {
+      users: [
+        userRead({
+          id: "user-2",
+          username: "Bob",
+          player_id: "bbb",
+          groups: MEMBER_OF.trusted,
+        }),
+      ],
+    },
+  });
+  renderPage();
+
+  const panel = await openGroups("Bob");
+  expect(within(panel).getByRole("button", { name: /Trusted/ })).toBeEnabled();
+});
+
+test("the last administrator cannot leave Admin, and the panel says why", async () => {
+  setUserGroups.mockRejectedValue({ detail: "last_admin" });
+  renderPage();
+
+  const panel = await openGroups("Alice");
+  fireEvent.click(within(panel).getByRole("button", { name: /Admin/ }));
+
+  expect(await within(panel).findByRole("alert")).toHaveTextContent(
+    "There has to be one administrator left.",
+  );
+  expect(setUserGroups.mock.calls[0][0].body).toEqual({ groups: [] });
 });
 
 test("each heading explains itself", async () => {
@@ -347,7 +640,7 @@ test("an account whose player is gone is still listed and manageable", async () 
 
   await screen.findByText("Dana");
   expect(within(section("Accounts")).getByText("Dana")).toBeInTheDocument();
-  expect(screen.getByLabelText("Role of Dana")).toBeInTheDocument();
+  expect(screen.getByLabelText("Groups of Dana")).toBeInTheDocument();
   // No player, so nothing to upload a picture for.
   expect(screen.queryByLabelText("Avatar for Dana")).not.toBeInTheDocument();
 });
@@ -355,8 +648,8 @@ test("an account whose player is gone is still listed and manageable", async () 
 test("managing only the accounts never asks for the players", async () => {
   getMe.mockResolvedValue(
     meResponse(["users.manage"], {
-      user: userRead({ role: "admin" }),
-      role: "admin",
+      user: userRead({ groups: MEMBER_OF.admin }),
+      ...AS.admin,
     }),
   );
   renderPage();
@@ -381,7 +674,7 @@ test("a player manager sees the people but no account controls", async () => {
   expect(listUsers).not.toHaveBeenCalled();
   // `registered` marks the accounts even for somebody who may not see them.
   expect(within(section("Accounts")).getByText("Alice")).toBeInTheDocument();
-  expect(screen.queryByLabelText("Role of Alice")).not.toBeInTheDocument();
+  expect(screen.queryByLabelText("Groups of Alice")).not.toBeInTheDocument();
   expect(
     screen.queryByRole("button", { name: "Delete account Alice" }),
   ).not.toBeInTheDocument();
@@ -406,8 +699,8 @@ test("only looking on means no form, no delete and no uploader", async () => {
     screen.queryByRole("button", { name: "Delete Mallory" }),
   ).not.toBeInTheDocument();
   expect(screen.queryByLabelText("Avatar for Mallory")).not.toBeInTheDocument();
-  // Read-only over the accounts too: the names, never the roles.
-  expect(screen.queryByLabelText("Role of Alice")).not.toBeInTheDocument();
+  // Read-only over the accounts too: the names, never the groups.
+  expect(screen.queryByLabelText("Groups of Alice")).not.toBeInTheDocument();
   expect(
     screen.queryByRole("button", { name: "Delete account Alice" }),
   ).not.toBeInTheDocument();
@@ -560,7 +853,7 @@ test("an account single sign-on answers for says so under its name", async () =>
   listUsers.mockResolvedValue({
     data: {
       users: [
-        userRead({ role: "admin", auth_provider: "local" }),
+        userRead({ groups: MEMBER_OF.admin, auth_provider: "local" }),
         userRead({
           id: "user-2",
           username: "Bob",
@@ -584,7 +877,9 @@ test("an account single sign-on answers for says so under its name", async () =>
 test("the note reads without the provider's name until it is known", async () => {
   oidcConfig.mockReturnValue(new Promise(() => {}));
   listUsers.mockResolvedValue({
-    data: { users: [userRead({ role: "admin", auth_provider: "oidc" })] },
+    data: {
+      users: [userRead({ groups: MEMBER_OF.admin, auth_provider: "oidc" })],
+    },
   });
   renderPage();
 

@@ -28,7 +28,7 @@ import type {
  * slot
  * holding the sentence in `reason`. Every choice that used to change what a
  * slide could draw is a slide of its own (§7.11), so nothing here hangs on
- * the slide in view. The three toggles are the same on every slide; a slide
+ * the slide in view. The two toggles are the same on every slide; a slide
  * that cannot honour one dims it, and `…SlideToggles` says why.
  * `resolve…Options` turns a slide into what is drawn, falling back the way
  * §3.1 says (Cover → Dark).
@@ -99,13 +99,10 @@ function choice<T>(value: T, reason: string | null): Choice<T> {
 
 // ------------------------------------------------------------------ toggles
 
-/** The options row, in its fixed order on every slide of every card. */
-export type ShareToggle = "pictures" | "date" | "logo";
-export const SHARE_TOGGLES: readonly ShareToggle[] = [
-  "pictures",
-  "date",
-  "logo",
-];
+/** The options row, in its fixed order on every slide of every card. The
+ * Wingman logo is no toggle: it is on every card (§1.8). */
+export type ShareToggle = "pictures" | "date";
+export const SHARE_TOGGLES: readonly ShareToggle[] = ["pictures", "date"];
 
 /** Why a slide cannot honour a toggle, per toggle; `null` where it can. */
 export type ToggleReasons = Record<ShareToggle, string | null>;
@@ -113,6 +110,18 @@ export type ToggleReasons = Record<ShareToggle, string | null>;
 /** What the line under the row reads before any toggle has been touched. */
 export const TOGGLES_REST =
   "Press a symbol to take it off the card or put it back.";
+
+/** What it reads instead on a slide that honours neither toggle — an
+ * achievement's — where pressing one changes nothing but this line. */
+export const TOGGLES_NONE =
+  "Neither symbol changes this card. Press one to see why.";
+
+/** The line before any toggle has been touched, for the slide in view. */
+export function togglesRest(reasons: ToggleReasons): string {
+  return SHARE_TOGGLES.every((toggle) => reasons[toggle] !== null)
+    ? TOGGLES_NONE
+    : TOGGLES_REST;
+}
 
 const TOGGLE_SENTENCES: Record<ShareToggle, { on: string; off: string }> = {
   pictures: {
@@ -122,10 +131,6 @@ const TOGGLE_SENTENCES: Record<ShareToggle, { on: string; off: string }> = {
   date: {
     on: "The party's name and date are on the card.",
     off: "The party's name and date are left off.",
-  },
-  logo: {
-    on: "The Wingman logo is on the card.",
-    off: "The Wingman logo is left off.",
   },
 };
 
@@ -160,7 +165,6 @@ export function scoreSlideToggles(content: ScoreCardContent): ToggleReasons {
   return {
     pictures: content.mine ? NOBODY_ELSE : null,
     date: null,
-    logo: null,
   };
 }
 
@@ -173,7 +177,7 @@ export function partySlideToggles(
   let pictures: string | null = null;
   if (design === "spread") pictures = "The spread draws names, not pictures.";
   else if (content.ranking.every((entry) => entry.isMe)) pictures = NOBODY_ELSE;
-  return { pictures, date: null, logo: null };
+  return { pictures, date: null };
 }
 
 // --------------------------------------------------------------- one score
@@ -203,7 +207,7 @@ export function resolveScoreOptions(
     requested.look === "cover" && coverReason(content, loaded) === null
       ? "cover"
       : "dark";
-  return { format: requested.format, look, logo: requested.logo };
+  return { format: requested.format, look };
 }
 
 // ---------------------------------------------------------------- a party
@@ -271,15 +275,10 @@ export function resolvePartyOptions(
   content: PartyCardContent,
   design: PartyDesign,
   format: CardFormat,
-  logo: boolean,
   loaded: Loaded,
 ): PartyCardOptions {
   const { look, focus, under } = partyDesignOptions(design);
-  return settlePartyOptions(
-    content,
-    { format, look, focus, under, logo },
-    loaded,
-  );
+  return settlePartyOptions(content, { format, look, focus, under }, loaded);
 }
 
 // ---------------------------------------------------------- one singer
@@ -354,7 +353,6 @@ export function playerSlideToggles(content: PlayerCardContent): ToggleReasons {
   return {
     pictures: content.mine ? NOBODY_ELSE : null,
     date: null,
-    logo: null,
   };
 }
 
@@ -365,11 +363,10 @@ export function resolvePlayerOptions(
   content: PlayerCardContent,
   design: PlayerDesign,
   format: CardFormat,
-  logo: boolean,
 ): PlayerCardOptions {
   const focus: PlayerFocus =
     PLAYER_REASONS[design](content) === null ? design : "none";
-  return { format, focus, logo };
+  return { format, focus };
 }
 
 // ------------------------------------------------------- an achievement
@@ -388,16 +385,16 @@ export function achievementCardDesigns(): Choice<AchievementDesign>[] {
 }
 
 /** "Not much customization": the only face is the sharer's own and the date
- * is no party's, so the logo is the one toggle that reaches the card. */
+ * is no party's, so neither toggle reaches the card — both stand dimmed, as
+ * on every other card the row is the same two. */
 export function achievementSlideToggles(): ToggleReasons {
-  return { pictures: NOBODY_ELSE, date: NO_PARTY, logo: null };
+  return { pictures: NOBODY_ELSE, date: NO_PARTY };
 }
 
 export function resolveAchievementOptions(
   format: CardFormat,
-  logo: boolean,
 ): AchievementCardOptions {
-  return { format, logo };
+  return { format };
 }
 
 /**
@@ -411,7 +408,7 @@ export function settlePartyOptions(
   asked: PartyCardOptions,
   loaded: Loaded,
 ): PartyCardOptions {
-  const { format, logo } = asked;
+  const { format } = asked;
   const focus: PartyFocus =
     asked.focus === "spread" && spreadReason(content) === null
       ? "spread"
@@ -426,5 +423,5 @@ export function settlePartyOptions(
     if (asked.under === "strip" && stripReason(content) === null)
       under = "strip";
   }
-  return { format, look, focus, under, logo };
+  return { format, look, focus, under };
 }

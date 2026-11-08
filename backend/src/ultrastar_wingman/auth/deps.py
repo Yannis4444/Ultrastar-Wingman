@@ -17,7 +17,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from ..db import SessionDep
 from ..library import service as library
 from ..tags import service as tags
-from . import permissions, service
+from . import groups, permissions, service
 from .model import User
 
 logger = logging.getLogger(__name__)
@@ -56,11 +56,19 @@ def clear_session_cookie(response: Response) -> None:
 
 @dataclass(frozen=True)
 class Principal:
-    """The caller. Anonymous callers are not rejected — they are the `guest` role."""
+    """The caller. Anonymous callers are not rejected — they are in Guest.
+
+    `groups` is every group the caller is in (permission-groups.md §3.2): `{guest}` without
+    an account, `{user}` and every group an account has a row in, `{admin}` for the host
+    screen. `capabilities` is the union of their bundles.
+    """
 
     user: User | None
     is_host: bool
-    role: str
+    groups: frozenset[str]
+    # The host screen, or an account in Admin: every capability, and the two rules of §5
+    # never bind.
+    is_admin: bool
     capabilities: frozenset[str]
 
     def require(self, capability: str) -> None:
@@ -74,13 +82,20 @@ def missing_permission(capability: str) -> HTTPException:
     return HTTPException(status_code=403, detail=f"missing_permission:{capability}")
 
 
-async def _guest(session: AsyncSession) -> Principal:
+async def _principal(
+    session: AsyncSession, user: User | None, is_host: bool, groups: frozenset[str]
+) -> Principal:
     return Principal(
-        user=None,
-        is_host=False,
-        role=permissions.DEFAULT_ROLE,
-        capabilities=await permissions.capabilities_for(session, permissions.DEFAULT_ROLE),
+        user=user,
+        is_host=is_host,
+        groups=groups,
+        is_admin=permissions.ADMIN in groups,
+        capabilities=await permissions.capabilities_for_groups(session, groups),
     )
+
+
+async def _guest(session: AsyncSession) -> Principal:
+    return await _principal(session, None, False, frozenset({permissions.GUEST}))
 
 
 async def current_principal(request: Request, session: SessionDep) -> Principal:
@@ -90,17 +105,17 @@ async def current_principal(request: Request, session: SessionDep) -> Principal:
         return await _guest(session)
     await service.touch_session(session, row)
     user = None if row.user_id is None else await session.get(User, row.user_id)
-    if user is None and not row.is_host:
+    if row.is_host:
+        # The host UI is the TV next to the USDX machine: trusted by device, an
+        # administrator without a row in Admin.
+        return await _principal(session, user, True, frozenset({permissions.ADMIN}))
+    if user is None:
         # The account behind the cookie is gone; the session is worthless.
         return await _guest(session)
-    # The host UI is the TV next to the USDX machine: trusted by device, always admin.
-    role = permissions.ADMIN if row.is_host else (user.role if user else permissions.DEFAULT_ROLE)
-    return Principal(
-        user=user,
-        is_host=row.is_host,
-        role=role,
-        capabilities=await permissions.capabilities_for(session, role),
-    )
+    # Read on every request, never cached: a membership change reaches this account's next
+    # request with nothing to invalidate (permission-groups.md §4).
+    member_of = await groups.member_group_ids(session, user.id)
+    return await _principal(session, user, False, frozenset({permissions.USER}) | member_of)
 
 
 PrincipalDep = Annotated[Principal, Depends(current_principal)]
@@ -114,6 +129,26 @@ def require(capability: str) -> Callable[[Principal], Principal]:
     def dependency(principal: PrincipalDep) -> Principal:
         if capability not in principal.capabilities:
             raise missing_permission(capability)
+        return principal
+
+    return dependency
+
+
+def require_any(*capabilities: str) -> Callable[[Principal], Principal]:
+    """Dependency that refuses the request unless the caller holds at least one of
+    `capabilities` — for a read several pages gated by different rights all draw from. The
+    refusal names the first of them, so it reads like every other 403."""
+    if not capabilities:
+        raise ValueError("require_any needs at least one capability")
+    unknown = next(
+        (name for name in capabilities if name not in permissions.ALL_CAPABILITIES), None
+    )
+    if unknown is not None:
+        raise ValueError(f"unknown capability '{unknown}'")
+
+    def dependency(principal: PrincipalDep) -> Principal:
+        if principal.capabilities.isdisjoint(capabilities):
+            raise missing_permission(capabilities[0])
         return principal
 
     return dependency
@@ -141,7 +176,9 @@ def tag_viewer(principal: Principal) -> tags.Viewer:
     """The caller as `tags.service` sees them. That module must not import FastAPI, so the
     `Principal` is taken apart here — the same split as the wishlist identity below."""
     return tags.Viewer(
-        role=principal.role, user_id=None if principal.user is None else principal.user.id
+        groups=principal.groups,
+        user_id=None if principal.user is None else principal.user.id,
+        is_admin=principal.is_admin,
     )
 
 

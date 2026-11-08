@@ -26,7 +26,7 @@ from ..players.schema import read_player
 from ..settings import SettingsService
 from ..songs.model import Song
 from ..songs.schema import read_song, song_label
-from . import usdx_scores
+from . import reel, usdx_scores
 from .colors import color_index
 from .launcher import KaraokeLauncher, LaunchSlot
 from .model import SESSION_GAP, KaraokeSession, Score, Sing, placements
@@ -259,6 +259,8 @@ async def start_sing(
         await music.sing_started()
         await event_bus.broadcast(KaraokeStarted(sing=running.sing))
         await _clear_wishes(session, song.id)
+        # The room chose it, so a reel that landed on it earlier passed nothing over.
+        reel.clear_spun(song.id)
         return running.sing
 
 

@@ -99,7 +99,8 @@ way the new version ships it.
 
 At the foot of the page stands :wingman-archive: **Import and export**. An
 archive is one `.tar.gz` file with a folder per achievement, holding its
-settings, its conditions, and its picture. It is a plain file, so a set you
+settings, its conditions with whether all or any of them have to hold, and its
+picture. It is a plain file, so a set you
 invented on one machine can be handed to another or published.
 
 **To export:** tap :wingman-download: **Export**, select the achievements you

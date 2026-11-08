@@ -2,7 +2,7 @@ import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { MemoryRouter, Route, Routes } from "react-router-dom";
 import type { MeRead, PlaylistDetail, SongRead } from "../api";
-import { meResponse, userRead } from "../test/auth";
+import { AS, meResponse, userRead } from "../test/auth";
 import { FakeSocket } from "../test/fakeSocket";
 import PlaylistSpinner from "./PlaylistSpinner";
 
@@ -39,7 +39,7 @@ vi.mock("../api/sdk.gen", async (importOriginal) => ({
 }));
 
 const LIBRARY = ["songs.view", "playlists.view", "wishlist.view"];
-const ACCOUNT: Partial<MeRead> = { user: userRead(), role: "user" };
+const ACCOUNT: Partial<MeRead> = { user: userRead(), ...AS.user };
 
 function song(overrides: Partial<SongRead> = {}): SongRead {
   return {
@@ -183,10 +183,10 @@ test("a deleted playlist points back at the list", async () => {
 });
 
 test("a role without playlists.view is told who may look", async () => {
-  renderPage(detail(), ["songs.view"], { user: null, role: "guest" });
+  renderPage(detail(), ["songs.view"], { user: null, ...AS.guest });
 
   expect(
-    await screen.findByText(/Playlists are not open to your role/),
+    await screen.findByText(/Playlists are not open to you\./),
   ).toBeInTheDocument();
   expect(getPlaylist).not.toHaveBeenCalled();
 });

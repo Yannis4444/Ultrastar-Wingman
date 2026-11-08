@@ -9,11 +9,12 @@ import {
 import { MemoryRouter, Route, Routes, useLocation } from "react-router-dom";
 import type {
   BuiltInTagRead,
+  GroupRead,
   MeRead,
   TagPermissionRead,
   TagRead,
 } from "../api";
-import { meResponse, userRead } from "../test/auth";
+import { AS, TRUSTED_GROUP_ID, meResponse, userRead } from "../test/auth";
 import { FakeSocket } from "../test/fakeSocket";
 import { iconNames } from "../test/icons";
 import { builtInTagRead, builtInTagReads, tagRead } from "../test/tags";
@@ -22,6 +23,7 @@ import TagEditor from "./TagEditor";
 const {
   getMe,
   listTags,
+  listGroups,
   createTag,
   updateTag,
   replaceTagPermissions,
@@ -31,6 +33,7 @@ const {
 } = vi.hoisted(() => ({
   getMe: vi.fn(),
   listTags: vi.fn(),
+  listGroups: vi.fn(),
   createTag: vi.fn(),
   updateTag: vi.fn(),
   replaceTagPermissions: vi.fn(),
@@ -43,6 +46,7 @@ vi.mock("../api/sdk.gen", async (importOriginal) => ({
   ...(await importOriginal<typeof import("../api/sdk.gen")>()),
   getMe,
   listTags,
+  listGroups,
   createTag,
   updateTag,
   replaceTagPermissions,
@@ -52,14 +56,34 @@ vi.mock("../api/sdk.gen", async (importOriginal) => ({
 }));
 
 const MANAGER = ["songs.view", "tags.manage"];
-const ACCOUNT: Partial<MeRead> = { user: userRead(), role: "trusted" };
+const ACCOUNT: Partial<MeRead> = { user: userRead(), ...AS.trusted };
 
-/** Everybody may see the tag and its songs — the shape the editor's own default
- *  for a new tag has, spelled out in `NEW_TAG_GRANTS` and copied from no row. */
+/** The groups `GET /groups` answers: the permission rows but Admin. */
+const GROUPS: GroupRead[] = [
+  ["guest", "Guest"],
+  ["user", "User"],
+  [TRUSTED_GROUP_ID, "Trusted"],
+  ["admin", "Admin"],
+].map(([id, name]) => ({
+  id,
+  name,
+  built_in: id !== TRUSTED_GROUP_ID,
+  member_count: null,
+  capabilities: null,
+  right_count: null,
+  can_assign: false,
+}));
+
+/** Everybody may see the tag and its songs, spelled out for Trusted too. */
 function roleRows(): TagPermissionRead[] {
-  return (["guest", "user", "trusted"] as const).flatMap((role) => [
-    { action: "view" as const, role, user_id: null, username: null },
-    { action: "view_songs" as const, role, user_id: null, username: null },
+  return (["guest", "user", TRUSTED_GROUP_ID] as const).flatMap((id) => [
+    { action: "view" as const, group_id: id, user_id: null, username: null },
+    {
+      action: "view_songs" as const,
+      group_id: id,
+      user_id: null,
+      username: null,
+    },
   ]);
 }
 
@@ -73,7 +97,12 @@ function tag(overrides: Partial<TagRead> = {}): TagRead {
     hide_by_default: true,
     permissions: [
       ...roleRows(),
-      { action: "assign", role: "trusted", user_id: null, username: null },
+      {
+        action: "assign",
+        group_id: TRUSTED_GROUP_ID,
+        user_id: null,
+        username: null,
+      },
     ],
     ...overrides,
   });
@@ -97,6 +126,9 @@ function renderEditor({
 } = {}) {
   getMe.mockResolvedValue(meResponse(capabilities, ACCOUNT));
   listTags.mockResolvedValue({ data: { tags, built_ins: builtIns } });
+  listGroups.mockResolvedValue({
+    data: { groups: GROUPS, capabilities: null },
+  });
   const client = new QueryClient({
     defaultOptions: { queries: { retry: false } },
   });
@@ -124,17 +156,21 @@ function glyphClass(label: string): string {
   );
 }
 
-/** A permissions body, as a sorted set of `action role|user` strings — the
- *  order the rows go out in is not part of the contract. */
+/** A permissions body, as a sorted set of `action group|user` strings, Trusted's
+ *  id read as `trusted` — the order the rows go out in is not part of the
+ *  contract. */
 function sentRows(body: { permissions: unknown[] }): string[] {
   return (
     body.permissions as {
       action: string;
-      role?: string;
+      group_id?: string;
       user_id?: string;
     }[]
   )
-    .map((row) => `${row.action} ${row.role ?? row.user_id}`)
+    .map((row) => {
+      const subject = row.group_id ?? row.user_id;
+      return `${row.action} ${subject === TRUSTED_GROUP_ID ? "trusted" : subject}`;
+    })
     .sort();
 }
 
@@ -144,6 +180,7 @@ beforeEach(() => {
   for (const mock of [
     getMe,
     listTags,
+    listGroups,
     createTag,
     updateTag,
     replaceTagPermissions,
@@ -161,7 +198,7 @@ afterEach(() => {
   vi.unstubAllGlobals();
 });
 
-it("keeps the editor from a role that may not manage tags", async () => {
+it("keeps the editor from a reader who may not manage tags", async () => {
   renderEditor({ capabilities: ["songs.view"] });
 
   expect(
@@ -189,9 +226,9 @@ it("seeds the form from the tag it is editing", async () => {
     "aria-pressed",
     "true",
   );
-  expect(screen.getByLabelText("See tag for guest")).toBeChecked();
-  expect(screen.getByLabelText("Tag songs for guest")).not.toBeChecked();
-  expect(screen.getByLabelText("Tag songs for trusted")).toBeChecked();
+  expect(screen.getByLabelText("See tag for Guest")).toBeChecked();
+  expect(screen.getByLabelText("Tag songs for Guest")).not.toBeChecked();
+  expect(screen.getByLabelText("Tag songs for Trusted")).toBeChecked();
   // Nothing to send yet.
   expect(screen.getByRole("button", { name: "Save" })).toBeDisabled();
 });
@@ -221,13 +258,12 @@ it("creates a tag with the rights the form was left on", async () => {
   // A fresh tag opens on `NEW_TAG_GRANTS` — its own constant, not a copy of any
   // existing tag: the listing above is empty and the rows are still these, so
   // the manager who made it can still see it.
+  // User's rows reach Trusted's members, so the view rows name Guest and User.
   expect(sentRows(body)).toEqual([
     "assign trusted",
     "view guest",
-    "view trusted",
     "view user",
     "view_songs guest",
-    "view_songs trusted",
     "view_songs user",
   ]);
   expect(await screen.findByText("at /user/tags/t-new")).toBeInTheDocument();
@@ -361,13 +397,13 @@ it("keeps a name this build has no glyph for chosen, drawn as the tag itself", a
   expect(glyphClass("sparkles")).toBe("icon tag-color-gold");
 });
 
-it("replaces the permissions when a box in the matrix moves", async () => {
+it("replaces the permissions when a box in a group row moves", async () => {
   replaceTagPermissions.mockResolvedValue({ data: tag() });
   renderEditor();
 
   await screen.findByDisplayValue("broken");
-  fireEvent.click(screen.getByLabelText("Tag songs for user"));
-  fireEvent.click(screen.getByLabelText("See tag for guest"));
+  fireEvent.click(screen.getByLabelText("Tag songs for User"));
+  fireEvent.click(screen.getByLabelText("See tag for Guest"));
   fireEvent.click(screen.getByRole("button", { name: "Save" }));
 
   await waitFor(() => expect(replaceTagPermissions).toHaveBeenCalled());
@@ -383,28 +419,35 @@ it("replaces the permissions when a box in the matrix moves", async () => {
   ]);
 });
 
-it("keeps rows for subjects the matrix has no column for", async () => {
+it("leaves out a row for a group that is gone", async () => {
   replaceTagPermissions.mockResolvedValue({ data: tag() });
   renderEditor({
     tags: [
       tag({
         permissions: [
           ...roleRows(),
-          // A role the table does not draw; a PUT that dropped it would take
-          // the grant away without anybody asking.
-          { action: "view", role: "curator", user_id: null, username: null },
+          // A group `GET /groups` does not hold: sent back, it would be the
+          // backend's `unknown_group` and the tag could never be saved.
+          {
+            action: "view",
+            group_id: "gone-group",
+            user_id: null,
+            username: null,
+          },
         ],
       }),
     ],
   });
 
   await screen.findByDisplayValue("broken");
-  fireEvent.click(screen.getByLabelText("Tag songs for trusted"));
+  fireEvent.click(await screen.findByLabelText("Tag songs for Trusted"));
+  // Drawn nowhere: there is no row for a group the listing does not hold.
+  expect(screen.queryByLabelText(/for gone-group/)).not.toBeInTheDocument();
   fireEvent.click(screen.getByRole("button", { name: "Save" }));
 
   await waitFor(() => expect(replaceTagPermissions).toHaveBeenCalled());
-  expect(sentRows(replaceTagPermissions.mock.calls[0][0].body)).toContain(
-    "view curator",
+  expect(sentRows(replaceTagPermissions.mock.calls[0][0].body)).not.toContain(
+    "view gone-group",
   );
 });
 
@@ -417,24 +460,25 @@ it("drops a row that names nobody rather than sending it back", async () => {
           ...roleRows(),
           // The API refuses a row without a subject, and it would refuse the
           // whole PUT with it — every other grant on the tag included.
-          { action: "view", role: null, user_id: null, username: null },
+          { action: "view", group_id: null, user_id: null, username: null },
         ],
       }),
     ],
   });
 
   await screen.findByDisplayValue("broken");
-  fireEvent.click(screen.getByLabelText("Tag songs for trusted"));
+  fireEvent.click(await screen.findByLabelText("Tag songs for Trusted"));
   fireEvent.click(screen.getByRole("button", { name: "Save" }));
 
   await waitFor(() => expect(replaceTagPermissions).toHaveBeenCalled());
   const rows = replaceTagPermissions.mock.calls[0][0].body.permissions as {
-    role?: string | null;
+    group_id?: string | null;
     user_id?: string | null;
   }[];
   expect(
     rows.every(
-      (row) => (row.role ?? null) !== null || (row.user_id ?? null) !== null,
+      (row) =>
+        (row.group_id ?? null) !== null || (row.user_id ?? null) !== null,
     ),
   ).toBe(true);
 });
@@ -475,10 +519,10 @@ it("drops every right of a person who is removed", async () => {
       tag({
         permissions: [
           ...roleRows(),
-          { action: "view", role: null, user_id: "u-bob", username: "Bob" },
+          { action: "view", group_id: null, user_id: "u-bob", username: "Bob" },
           {
             action: "view_songs",
-            role: null,
+            group_id: null,
             user_id: "u-bob",
             username: "Bob",
           },
@@ -499,19 +543,159 @@ it("drops every right of a person who is removed", async () => {
   );
 });
 
+it("draws a person named on the tag with their own picture", async () => {
+  // Read back from the stored tag, not added through the search this visit:
+  // those rows used to come without a player and always drew the initial.
+  renderEditor({
+    tags: [
+      tag({
+        permissions: [
+          ...roleRows(),
+          {
+            action: "view",
+            group_id: null,
+            user_id: "u-bob",
+            username: "Bob",
+            player_id: "bbb",
+            avatar_version: 7,
+          },
+          {
+            action: "view",
+            group_id: null,
+            user_id: "u-cid",
+            username: "Cid",
+            player_id: null,
+            avatar_version: null,
+          },
+        ],
+      }),
+    ],
+  });
+
+  await screen.findByDisplayValue("broken");
+  const rows = screen
+    .getAllByRole("listitem")
+    .filter((row) => row.classList.contains("tag-people-row"));
+  const bob = rows.find((row) => row.textContent?.includes("Bob"));
+  expect(bob?.querySelector("img.player-avatar")).toHaveAttribute(
+    "src",
+    "/api/v1/players/bbb/avatar?v=7",
+  );
+  const cid = rows.find((row) => row.textContent?.includes("Cid"));
+  expect(cid?.querySelector("img")).toBeNull();
+  expect(cid?.querySelector(".player-avatar-letter")).toHaveTextContent("C");
+});
+
 it("warns about a tagger who would not see what they tagged", async () => {
   renderEditor();
 
   await screen.findByDisplayValue("broken");
   expect(screen.queryByText(/could not undo it/)).not.toBeInTheDocument();
 
-  fireEvent.click(screen.getByLabelText("See songs for trusted"));
+  // Trusted adds to User: while User sees the songs, so do Trusted's members,
+  // and unticking Trusted's own row alone changes nothing for them.
+  fireEvent.click(screen.getByLabelText("See songs for User"));
+  fireEvent.click(screen.getByLabelText("See songs for Trusted"));
   expect(await screen.findByText(/Trusted may tag songs/)).toBeInTheDocument();
 
-  fireEvent.click(screen.getByLabelText("See songs for trusted"));
+  fireEvent.click(screen.getByLabelText("See songs for Trusted"));
   await waitFor(() =>
     expect(screen.queryByText(/may tag songs without/)).not.toBeInTheDocument(),
   );
+});
+
+it("draws one row per group but Admin, the actions as its columns", async () => {
+  renderEditor();
+
+  await screen.findByDisplayValue("broken");
+  const rows = within(
+    screen.getByRole("list", { name: "Permissions" }),
+  ).getAllByRole("listitem");
+  expect(rows.map((row) => row.textContent)).toEqual([
+    "Guest",
+    "User",
+    "Trusted",
+  ]);
+  // Admin is no row: the hint over the rows says why.
+  expect(screen.queryByLabelText("See tag for Admin")).not.toBeInTheDocument();
+  expect(screen.getByText(/Administrators are not in the table/)).toBeVisible();
+  // Each row's lead is the group's square, the people rows' avatar's place.
+  expect(iconNames(rows[2])).toContain("users");
+});
+
+it("locks what User holds in a group that adds to it, and never sends it", async () => {
+  const DJS = "d".repeat(32);
+  replaceTagPermissions.mockResolvedValue({ data: tag() });
+  renderEditor({
+    tags: [
+      tag({
+        permissions: [
+          ...roleRows().filter((row) => row.group_id !== TRUSTED_GROUP_ID),
+        ],
+      }),
+    ],
+  });
+  listGroups.mockResolvedValue({
+    data: {
+      groups: [
+        ...GROUPS.slice(0, 2),
+        { ...GROUPS[2], id: DJS, name: "DJs" },
+        GROUPS[3],
+      ],
+      capabilities: null,
+    },
+  });
+
+  await screen.findByDisplayValue("broken");
+  const seeTag = await screen.findByLabelText("See tag for DJs");
+  // User sees the tag, so every account in DJs does: ticked, and locked.
+  expect(seeTag).toBeChecked();
+  expect(seeTag).toBeDisabled();
+  expect(seeTag).toHaveAttribute(
+    "title",
+    "Every account holds this through User.",
+  );
+  expect(screen.getByLabelText("Tag songs for DJs")).toBeEnabled();
+  // Built-ins are bundles of their own: Guest's boxes stay its own.
+  expect(screen.getByLabelText("See tag for Guest")).toBeEnabled();
+
+  fireEvent.click(screen.getByLabelText("Tag songs for DJs"));
+  fireEvent.click(screen.getByRole("button", { name: "Save" }));
+
+  await waitFor(() => expect(replaceTagPermissions).toHaveBeenCalled());
+  const sent = sentRows(replaceTagPermissions.mock.calls[0][0].body);
+  expect(sent).toContain(`assign ${DJS}`);
+  // What was drawn on User's behalf is not a row of DJs.
+  expect(sent).not.toContain(`view ${DJS}`);
+  expect(sent).not.toContain(`view_songs ${DJS}`);
+});
+
+it("a new tag lets Trusted tag songs only while Trusted exists", async () => {
+  createTag.mockResolvedValue({ data: tag({ id: "t-new", name: "duet" }) });
+  renderEditor({ path: "/user/tags/new", tags: [] });
+  // The host deleted Trusted.
+  listGroups.mockResolvedValue({
+    data: {
+      groups: GROUPS.filter((group) => group.id !== TRUSTED_GROUP_ID),
+      capabilities: null,
+    },
+  });
+
+  await screen.findByLabelText("Name");
+  await screen.findByLabelText("See tag for User");
+  expect(screen.queryByLabelText("Tag songs for Trusted")).toBeNull();
+  fireEvent.change(screen.getByLabelText("Name"), {
+    target: { value: "duet" },
+  });
+  fireEvent.click(screen.getByRole("button", { name: "Save" }));
+
+  await waitFor(() => expect(createTag).toHaveBeenCalled());
+  expect(sentRows(createTag.mock.calls[0][0].body)).toEqual([
+    "view guest",
+    "view user",
+    "view_songs guest",
+    "view_songs user",
+  ]);
 });
 
 it("warns about a filter that can never have anything in it", async () => {
@@ -520,12 +704,12 @@ it("warns about a filter that can never have anything in it", async () => {
   await screen.findByDisplayValue("broken");
   expect(screen.queryByText(/always empty/)).not.toBeInTheDocument();
 
-  fireEvent.click(screen.getByLabelText("See songs for guest"));
+  fireEvent.click(screen.getByLabelText("See songs for Guest"));
   expect(await screen.findByText(/Guest may see the tag/)).toHaveTextContent(
     "always empty",
   );
 
-  fireEvent.click(screen.getByLabelText("See tag for guest"));
+  fireEvent.click(screen.getByLabelText("See tag for Guest"));
   await waitFor(() =>
     expect(screen.queryByText(/always empty/)).not.toBeInTheDocument(),
   );
@@ -551,6 +735,28 @@ it("explains a name another tag already has", async () => {
       "It did not go through. The message at the top of the page says why.",
     ),
   ).toBeInTheDocument();
+});
+
+it("words a group deleted since the page read the groups", async () => {
+  replaceTagPermissions.mockRejectedValue({ detail: "unknown_group" });
+  renderEditor();
+
+  fireEvent.click(await screen.findByLabelText("Tag songs for User"));
+  fireEvent.click(screen.getByRole("button", { name: "Save" }));
+
+  expect(await screen.findByRole("alert")).toHaveTextContent(
+    "That group no longer exists.",
+  );
+});
+
+it("says so when the groups cannot be read, rather than drawing no rows", async () => {
+  renderEditor();
+  listGroups.mockRejectedValue({ detail: "boom" });
+
+  await screen.findByDisplayValue("broken");
+  expect(await screen.findByRole("alert")).toHaveTextContent(
+    "Could not load the groups.",
+  );
 });
 
 it("keeps Save and Delete tag on the one action row", async () => {

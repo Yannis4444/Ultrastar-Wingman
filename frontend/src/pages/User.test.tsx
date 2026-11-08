@@ -7,7 +7,7 @@ import {
   achievementSettings,
   playerAchievementRead,
 } from "../test/achievements";
-import { meResponse, userRead } from "../test/auth";
+import { AS, MEMBER_OF, meResponse, userRead } from "../test/auth";
 import { FakeSocket } from "../test/fakeSocket";
 import { iconNames } from "../test/icons";
 import User from "./User";
@@ -173,7 +173,7 @@ beforeEach(() => {
   getMe.mockResolvedValue(
     meResponse(USER_CAPABILITIES, {
       user: userRead({ username: "Charlie", player_id: "ccc" }),
-      role: "user",
+      ...AS.user,
     }),
   );
   oidcConfig.mockResolvedValue({
@@ -192,7 +192,7 @@ afterEach(() => vi.unstubAllGlobals());
 test("an anonymous visitor gets the login form and the profile after logging in", async () => {
   // `players.view` is a guest capability, so this is what a stranger holds.
   getMe.mockResolvedValue(meResponse(["songs.view", "players.view"]));
-  login.mockResolvedValue({ data: userRead({ role: "trusted" }) });
+  login.mockResolvedValue({ data: userRead({ groups: MEMBER_OF.trusted }) });
   renderUser();
 
   await screen.findByRole("button", { name: "New account" });
@@ -212,8 +212,8 @@ test("an anonymous visitor gets the login form and the profile after logging in"
   // The answer to `/auth/me` changes with the session cookie the login sets.
   getMe.mockResolvedValue(
     meResponse(TRUSTED_CAPABILITIES, {
-      user: userRead({ role: "trusted" }),
-      role: "trusted",
+      user: userRead({ groups: MEMBER_OF.trusted }),
+      ...AS.trusted,
     }),
   );
   fireEvent.click(screen.getByRole("button", { name: "Log in" }));
@@ -224,7 +224,8 @@ test("an anonymous visitor gets the login form and the profile after logging in"
       password: "hunter2hunter2",
     }),
   );
-  expect(await screen.findByText("trusted")).toBeInTheDocument();
+  // The tile's line names the groups beyond User.
+  expect(await screen.findByText("Trusted")).toBeInTheDocument();
   expect(screen.getByRole("button", { name: "Log out" })).toBeInTheDocument();
   // The players are a page of their own now, and the account may reach it.
   expect(
@@ -284,7 +285,9 @@ test("an ordinary account has nothing to manage", async () => {
   expect(
     screen.queryByRole("link", { name: "Players & accounts" }),
   ).not.toBeInTheDocument();
-  expect(screen.queryByText("Permissions")).not.toBeInTheDocument();
+  expect(
+    screen.queryByRole("link", { name: "Groups" }),
+  ).not.toBeInTheDocument();
   expect(
     screen.queryByRole("link", { name: "Settings" }),
   ).not.toBeInTheDocument();
@@ -294,8 +297,12 @@ test("an ordinary account has nothing to manage", async () => {
 test("a helper reaches the players page, and nothing else", async () => {
   getMe.mockResolvedValue(
     meResponse(TRUSTED_CAPABILITIES, {
-      user: userRead({ id: "user-3", username: "Charlie", role: "trusted" }),
-      role: "trusted",
+      user: userRead({
+        id: "user-3",
+        username: "Charlie",
+        groups: MEMBER_OF.trusted,
+      }),
+      ...AS.trusted,
     }),
   );
   renderUser();
@@ -304,7 +311,9 @@ test("a helper reaches the players page, and nothing else", async () => {
   expect(
     screen.getByRole("link", { name: "Players & accounts" }),
   ).toHaveAttribute("href", "/user/accounts");
-  expect(screen.queryByText("Permissions")).not.toBeInTheDocument();
+  expect(
+    screen.queryByRole("link", { name: "Groups" }),
+  ).not.toBeInTheDocument();
   expect(
     screen.queryByRole("link", { name: "Settings" }),
   ).not.toBeInTheDocument();
@@ -313,8 +322,8 @@ test("a helper reaches the players page, and nothing else", async () => {
 test("an admin gets one menu row per admin surface, not the surfaces inline", async () => {
   getMe.mockResolvedValue(
     meResponse(ADMIN_CAPABILITIES, {
-      user: userRead({ role: "admin" }),
-      role: "admin",
+      user: userRead({ groups: MEMBER_OF.admin }),
+      ...AS.admin,
     }),
   );
   renderUser();
@@ -331,9 +340,9 @@ test("an admin gets one menu row per admin surface, not the surfaces inline", as
     "href",
     "/user/tags",
   );
-  expect(screen.getByRole("link", { name: "Permissions" })).toHaveAttribute(
+  expect(screen.getByRole("link", { name: "Groups" })).toHaveAttribute(
     "href",
-    "/user/permissions",
+    "/user/groups",
   );
   // The account list itself lives on the subpage now.
   expect(listUsers).not.toHaveBeenCalled();
@@ -342,15 +351,15 @@ test("an admin gets one menu row per admin surface, not the surfaces inline", as
 
 test("the host screen gets an identity tile, and the login form only on request", async () => {
   getMe.mockResolvedValue(
-    meResponse(ADMIN_CAPABILITIES, { is_host: true, role: "admin" }),
+    meResponse(ADMIN_CAPABILITIES, { is_host: true, ...AS.host }),
   );
   renderUser();
 
   expect(
     await screen.findByRole("heading", { name: "Host screen" }),
   ).toBeInTheDocument();
-  // The same role line an account's tile carries: the host is an admin.
-  expect(screen.getByText("admin")).toHaveClass("user-identity-role");
+  // The same group line an account's tile carries: the host is in Admin.
+  expect(screen.getByText("Admin")).toHaveClass("user-identity-groups");
   expect(screen.queryByLabelText("Password")).not.toBeInTheDocument();
 
   fireEvent.click(screen.getByRole("button", { name: "Log in as a user" }));
@@ -363,7 +372,7 @@ test("the host screen gets an identity tile, and the login form only on request"
   ).not.toBeInTheDocument();
 });
 
-test("an account's tile is the picture beside its name, role and the way out", async () => {
+test("an account's tile is the picture beside its name, groups and the way out", async () => {
   loggedInAsAlice();
   renderUser();
 
@@ -372,7 +381,7 @@ test("an account's tile is the picture beside its name, role and the way out", a
   const head = name.closest(".user-identity-head");
   expect(head).not.toBeNull();
   // One head: the picture (the upload label) and the text column side by side,
-  // the name, the role word and Log out stacked in that column.
+  // the name, the groups line and Log out stacked in that column.
   expect(
     head?.querySelector(":scope > .user-identity-avatar-label"),
   ).not.toBeNull();
@@ -381,7 +390,7 @@ test("an account's tile is the picture beside its name, role and the way out", a
     Array.from(column?.children ?? []).map((child) => child.className),
   ).toEqual([
     "user-identity-name",
-    "user-identity-role",
+    "user-identity-groups",
     "icon-button user-identity-logout",
   ]);
   const logOut = screen.getByRole("button", { name: "Log out" });
@@ -392,9 +401,50 @@ test("an account's tile is the picture beside its name, role and the way out", a
   expect(iconNames(logOut)).toEqual(["log-out"]);
 });
 
+test("the groups line reads Admin, the groups beyond User, or User", async () => {
+  const DJS = { id: "d".repeat(32), name: "DJs" };
+  // An account in no group: User, never an empty line.
+  loggedInAsAlice();
+  const { unmount } = renderUser();
+  const line = await screen.findByText("User", {
+    selector: ".user-identity-groups",
+  });
+  expect(line).toHaveAttribute("title", "User");
+  unmount();
+
+  // Two groups, in the backend's order, joined into one line.
+  getMe.mockResolvedValue(
+    meResponse(USER_CAPABILITIES, {
+      user: userRead({ groups: [...MEMBER_OF.trusted, DJS.id] }),
+      groups: [...AS.trusted.groups, DJS],
+      is_admin: false,
+    }),
+  );
+  const second = renderUser();
+  expect(
+    await screen.findByText("Trusted · DJs", {
+      selector: ".user-identity-groups",
+    }),
+  ).toHaveAttribute("title", "Trusted · DJs");
+  second.unmount();
+
+  // An administrator is Admin, whatever else they are in.
+  getMe.mockResolvedValue(
+    meResponse(USER_CAPABILITIES, {
+      user: userRead({ groups: [...MEMBER_OF.admin, ...MEMBER_OF.trusted] }),
+      groups: [...AS.admin.groups, ...AS.trusted.groups.slice(1)],
+      is_admin: true,
+    }),
+  );
+  renderUser();
+  expect(
+    await screen.findByText("Admin", { selector: ".user-identity-groups" }),
+  ).toBeInTheDocument();
+});
+
 test("the host's way to a login keeps its words", async () => {
   getMe.mockResolvedValue(
-    meResponse(ADMIN_CAPABILITIES, { is_host: true, role: "admin" }),
+    meResponse(ADMIN_CAPABILITIES, { is_host: true, ...AS.host }),
   );
   renderUser();
 
@@ -478,7 +528,7 @@ test("a first sign-on is asked for a name, and logging in follows from it", asyn
   getMe.mockResolvedValue(
     meResponse(USER_CAPABILITIES, {
       user: userRead({ username: "Yannis", player_id: "ccc" }),
-      role: "user",
+      ...AS.user,
     }),
   );
   fireEvent.click(screen.getByRole("button", { name: "Create account" }));
@@ -560,7 +610,7 @@ function loggedInAsAlice(capabilities: string[] = USER_CAPABILITIES) {
   getMe.mockResolvedValue(
     meResponse(capabilities, {
       user: userRead({ username: "Alice", player_id: "aaa" }),
-      role: "user",
+      ...AS.user,
     }),
   );
 }
@@ -719,7 +769,7 @@ test("no badges are drawn for a singer with no player of their own", async () =>
   getMe.mockResolvedValue(
     meResponse(USER_CAPABILITIES, {
       user: userRead({ username: "Alice", player_id: null }),
-      role: "user",
+      ...AS.user,
     }),
   );
   const { container } = renderUser();

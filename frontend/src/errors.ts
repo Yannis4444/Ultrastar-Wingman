@@ -55,14 +55,42 @@ export function missingPermission(error: unknown): string | null {
 
 /**
  * Notice text for a failed request: a permission denial explains itself (the
- * UI hides most of them, but a role can change while a page is open),
- * everything else falls back to the caller's message.
+ * UI hides most of them, but somebody's groups can change while a page is
+ * open), everything else falls back to the caller's message. It says "you",
+ * never a group: a caller holds rights through several groups at once, so no
+ * one of them is "yours".
  */
 export function errorMessage(error: unknown, fallback: string): string {
   const capability = missingPermission(error);
   return capability === null
     ? fallback
-    : `Your role may not do this (${capability}). Ask the host for access.`;
+    : `You may not do this (${capability}). Ask the host for access.`;
+}
+
+/**
+ * The refusals of the groups API and the membership write
+ * (permission-groups.md §5, §6), in words. A `missing_permission` from rule 2
+ * is worded by `errorMessage`, like every other 403.
+ */
+const GROUP_REFUSALS: Record<string, string> = {
+  admin_required:
+    "Only an administrator can change who is in Admin or delete an administrator.",
+  built_in_group:
+    "Guest, User, and Admin are built in. They keep their names and cannot be deleted.",
+  admin_not_editable:
+    "Admin holds every right, always. Its rights cannot be changed.",
+  duplicate_group_name: "A group with that name already exists. Pick another.",
+  unknown_group: "That group no longer exists. Reload the page and try again.",
+  not_assignable:
+    "Nobody is put in Guest or User. Every account is in User already.",
+  last_admin: "There has to be one administrator left.",
+};
+
+/** Notice text for a failed write to a group or to somebody's groups. */
+export function groupMessage(error: unknown, fallback: string): string {
+  return (
+    GROUP_REFUSALS[errorDetail(error) ?? ""] ?? errorMessage(error, fallback)
+  );
 }
 
 /**

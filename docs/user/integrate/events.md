@@ -52,23 +52,24 @@ API answers with. The OpenAPI document at
 | `karaoke.started` | A song started playing | `sing`: its id, the song, the time it started, and the singers in their microphone slots |
 | `karaoke.ended` | The running song stopped | `sing_id`, `song_id` |
 | `scores.recorded` | Right after `karaoke.ended`, and only when Ultrastar Deluxe scored something | `sing_id`, and `scores`, one entry per singer with the number and the player |
-| `music.changed` | The background music moved to another song, was paused or played again, lost or gained the screen that makes the sound, was blocked by Ultrastar Deluxe, or had one of its options changed. Also when the song being picked starts or stops playing on the host screen: a new selection, a respin, or the result shown early, but never a singer moved | `music`, the whole state as `GET /music` returns it. A plain progress report from the playing screen is never broadcast |
+| `music.changed` | The background music moved to another song, was paused or played again, lost or gained the screen that makes the sound, was blocked by Ultrastar Deluxe, or had one of its options or a **Sound** setting changed. Also when the song being picked starts or stops playing on the host screen: a new selection, a respin, or the result shown early, but never a singer moved | `music`, the whole state as `GET /music` returns it. A plain progress report from the playing screen is never broadcast |
 | `scores.changed` | A recorded score was put on another player, or taken off the record | `sing_id` |
 | `sessions.changed` | A party was named, taken off the list on the Scores tab, or put back | None. Fetch `GET /stats/sessions` again |
 | `players.changed` | A player was added, hidden or put back, deleted, or given a new picture, or an account that sings as one was created or deleted | None. Fetch `GET /players` again |
 | `achievements.earned` | A finished sing earned somebody a badge | `sing_id`, and `players`, one entry per player with the badges they earned. Each badge carries `holder_count`, how many players hold it after this song, the singer included |
 | `achievements.changed` | The catalog of achievements itself changed | None. Fetch `GET /achievements` again |
-| `wishlist.updated` | A song's wish count changed. Starting a song, taking it off the wishlist for everybody, or deleting it drops every wish for it, so `count` is 0 | `song_id`, `count`, and `latest`, the time of the newest wish or `null` |
+| `wishlist.updated` | A song's wish count changed. Starting a song, taking it off the wishlist for everybody, or deleting it drops every wish for it, so `count` is 0. Hiding a player or showing them again sends one for every song their account wished for | `song_id`, `count` (the wishes of hidden players left out), and `latest`, the time of the newest wish or `null` |
 | `playlists.changed` | A playlist was created, changed, shared, followed, copied, or deleted | `playlist_id`, or `null` when several changed at once |
 | `tags.changed` | A tag was created, edited, deleted, or had its permissions replaced | None. Fetch `GET /tags` again |
+| `groups.changed` | A group was created, renamed, given a right or had one taken away, or deleted, or somebody was put in a group or taken out of one. Registering or deleting an account does not send it | None. Fetch `GET /groups` again, and `GET /auth/me` for your own rights |
 | `song_tags.changed` | A tag was put on a song, or taken off one | `song_id`, `tag_id` |
 | `comments.changed` | Somebody commented on a song, took a comment back, or a moderator removed one | `song_id`, `count` |
 | `devices.changed` | A player selector was added, mapped, or forgotten, a card was given to somebody, a selector option changed, or a device came online, went quiet, or moved a card | None. Fetch `GET /devices` again |
 
 An event with no payload, and one that carries ids only, is deliberate. What a
-client may see of the tags, the playlists, and the achievements depends on who
-that client is, and the socket does not know. Fetch the list again and Wingman
-answers for whoever asks.
+client may see of the tags, the groups, the playlists, and the achievements
+depends on who that client is, and the socket does not know. Fetch the list
+again and Wingman answers for whoever asks.
 
 !!! example "A bot that posts every new wish"
     A few lines in a browser are enough to follow the party live.

@@ -36,14 +36,14 @@ scores of its own.
 | **host** | The person running Wingman on the karaoke PC |
 | **guest** | Somebody at the party without an account |
 | **singer** | Whoever is singing a song right now |
-| **administrator** | Somebody holding the Admin role, who sets the party up |
+| **administrator** | Somebody in the Admin group, who sets the party up |
 
 A guest needs no account. Their phone gets a cookie, which is enough to browse,
 wish, and start a song. An account is only for personal things: favorites, your
 own playlists, your own record of scores, and the rights the host hands out.
 
-Every role is a bundle of rights, and the host can change what each one may do.
-See [Roles and permissions](people/roles.md).
+Rights are handed out in groups, and the host can change what each one may do.
+See [Groups and permissions](people/groups.md).
 
 ## Which tab is yours
 
@@ -55,7 +55,7 @@ The tabs at the top sort the guide by what you are doing.
 - **Host**: for whoever runs the PC. Install Wingman, connect Ultrastar Deluxe,
   let guests in, put the host screen on the TV, and fix what goes wrong. Start at
   [Get started](start/index.md).
-- **Manage**: for the administrator. People and their roles, settings, tags, and
+- **Manage**: for the administrator. People and their groups, settings, tags, and
   the achievements the party makes. Start at [People](people/index.md).
 - **Integrate**: for somebody building a bot or an overlay on top of Wingman.
   Start at [Integrate](integrate/index.md).

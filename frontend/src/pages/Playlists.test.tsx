@@ -8,7 +8,7 @@ import {
 } from "@testing-library/react";
 import { MemoryRouter, useLocation } from "react-router-dom";
 import type { MeRead, PlaylistRead } from "../api";
-import { meResponse, userRead } from "../test/auth";
+import { AS, meResponse, userRead } from "../test/auth";
 import { FakeSocket } from "../test/fakeSocket";
 import { iconNames } from "../test/icons";
 import Playlists from "./Playlists";
@@ -29,7 +29,7 @@ vi.mock("../api/sdk.gen", async (importOriginal) => ({
 }));
 
 const LIBRARY = ["playlists.view", "playlists.manage"];
-const ACCOUNT: Partial<MeRead> = { user: userRead(), role: "user" };
+const ACCOUNT: Partial<MeRead> = { user: userRead(), ...AS.user };
 
 function playlist(overrides: Partial<PlaylistRead> = {}): PlaylistRead {
   return {
@@ -293,14 +293,14 @@ test("a refused create says which capability is missing", async () => {
   // nobody reads, and the panel stays open with the name still in it.
   const panel = within(screen.getByRole("dialog", { name: "New playlist" }));
   expect(await panel.findByRole("alert")).toHaveTextContent(
-    "Your role may not do this (playlists.manage)",
+    "You may not do this (playlists.manage)",
   );
 });
 
 test("a guest sees the global lists and no way to make one", async () => {
   renderPlaylists([playlist(THEIRS)], ["playlists.view"], {
     user: null,
-    role: "guest",
+    ...AS.guest,
   });
 
   await screen.findByRole("link", { name: /Party/ });
@@ -311,7 +311,7 @@ test("a guest sees the global lists and no way to make one", async () => {
 });
 
 test("a guest with nothing to see is not invited to create one", async () => {
-  renderPlaylists([], ["playlists.view"], { user: null, role: "guest" });
+  renderPlaylists([], ["playlists.view"], { user: null, ...AS.guest });
 
   await screen.findByRole("heading", { name: "No playlists yet" });
   expect(
@@ -322,11 +322,11 @@ test("a guest with nothing to see is not invited to create one", async () => {
   ).toBeInTheDocument();
 });
 
-test("a role without playlists.view is told who may look", async () => {
-  renderPlaylists([], ["songs.view"], { user: null, role: "guest" });
+test("a reader without playlists.view is told who may look", async () => {
+  renderPlaylists([], ["songs.view"], { user: null, ...AS.guest });
 
   expect(
-    await screen.findByText(/Playlists are not open to your role/),
+    await screen.findByText(/Playlists are not open to you\./),
   ).toBeInTheDocument();
   expect(listPlaylists).not.toHaveBeenCalled();
 });

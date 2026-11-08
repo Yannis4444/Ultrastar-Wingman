@@ -42,7 +42,7 @@ The party's helpers get :wingman-trash: **Take off the wishlist for everybody**
 beside the row instead, for the wish the party is not going to sing. Trusted and
 Admin hold that by default. It never appears where your own wish is the only
 one, because taking your wish back already does exactly that. See
-[Roles and permissions](../people/roles.md). The reel offers them the same
+[Groups and permissions](../people/groups.md). The reel offers them the same
 :wingman-trash: button beside the wished song it lands on, on the phone and
 when it spins on the host screen. See
 [Let the reel pick](reel.md#take-the-song-off-the-wishlist).
@@ -51,13 +51,18 @@ when it spins on the host screen. See
 
 A wish is a vote in two places.
 
-- **The reel.** **Wishlist (weighted)** gives a song one ticket per wish. A song
-  three people want has three times the chance of a song one person wants. See
-  [Let the reel pick](reel.md).
+- **The reel.** On **Wishlist (weighted)**, every wish adds to a song's chance.
+  Each further wish of the same person counts a little less, so a long wishlist
+  does not drown out a short one. See [Let the reel pick](reel.md).
 - **The host screen.** **Most wished** is the room's own running order.
 
 Starting a song takes it off the wishlist for everybody, whoever wished for it
 and whoever sings it.
+
+Somebody who went home and was hidden from the singer picker takes their wishes
+with them. They are off the list and out of the reel until that player is shown
+again or logs in. Their own phone still marks them. See
+[Take somebody out of the picker](../people/players.md#take-somebody-out-of-the-picker).
 
 !!! note
     Made an account later in the evening? The wishes from that browser move over

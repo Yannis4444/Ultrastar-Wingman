@@ -75,6 +75,10 @@ moves here (`top_wish` included, as its own function):
 - `playlist`: the entries of the playlist, `None` when the playlist does not exist or is
   empty. Not filtered.
 - Always: candidates sorted, then `random.choice`, so a seeded generator reproduces a pick.
+- Since [reel-weighting.md](reel-weighting.md): still sorted, but the draw is
+  `random.choices` with weights — `weighted` weighs a song what its wishes weigh (fair
+  wishes, §3 there) rather than one ticket per wish, and a host spin weighs a song it just
+  landed on down for half an hour (§5 there).
 
 A song hidden from the viewer altogether (`view` denied) can win in no scope — the same
 rule the phone's reel documents. Check what `hidden_song_ids` covers and apply the stricter
@@ -265,7 +269,9 @@ Everything in §1 holds. The plan was silent on, or wrong about, the following.
   only there, either way round a 422. A playlist the phone may not see is 404
   (`playlist_or_404`), like on its own route.
 - A respin may land on the same song. The pool is `random.choice` over the sorted candidates
-  and nothing is excluded; on a one-song wishlist that is every respin.
+  and nothing is excluded; on a one-song wishlist that is every respin. Since
+  [reel-weighting.md](reel-weighting.md) the draw is weighted and the song just passed over
+  weighs a fifth in it, still never out.
 - A respin that runs dry raises **before** anything is written (fb12e85): the selection,
   its song and its `updated_at` stand exactly as they were, so a phone told *nothing to pick
   from* has not touched the room and the TV's idea of it stays in step. The device's press

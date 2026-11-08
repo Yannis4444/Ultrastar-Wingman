@@ -82,7 +82,7 @@ Two plain buttons end the row:
 - :wingman-external-link: **Open in a streaming service** lists five music
   services. See [Open in a streaming service](#open-in-a-streaming-service).
 
-You only see the buttons your role may use.
+You only see the buttons your groups let you use.
 
 ## Best scores
 
@@ -143,7 +143,7 @@ up to 1000 characters, and there is no editing.
 Tap :wingman-trash: **Delete** on your own comment to take it back. Wingman asks
 first. Nobody has to grant you that and nobody can take it away. Deleting
 somebody else's comment is a moderator's right, which Trusted and Admin hold by
-default. See [Roles and permissions](../people/roles.md).
+default. See [Groups and permissions](../people/groups.md).
 
 !!! note
     The host screen reads comments and writes none. It is an administrator, but

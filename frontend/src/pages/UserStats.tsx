@@ -184,7 +184,7 @@ export default function UserStats() {
   const rosterSettled = !askRoster || !playerList.isPending;
 
   return (
-    <div className="scores-page">
+    <div className="scores-page page-foot">
       <PageHeader title="Your scores" back="/user">
         {/* A page-level control (ui-guidelines §6): the whole record as a
             card (share-cards §9), once the record makes one with a design
@@ -213,8 +213,7 @@ export default function UserStats() {
       {auth.loaded &&
         (!auth.can("stats.view") ? (
           <p className="settings-notice">
-            Statistics are not open to your role. Log in or ask the host for
-            access.
+            Statistics are not open to you. Log in or ask the host for access.
           </p>
         ) : playerId === null ? (
           <p className="settings-notice">

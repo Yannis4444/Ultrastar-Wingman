@@ -50,6 +50,8 @@ export function achievementRead(
     // No count, which is no holders line: a test about that line names one.
     holder_count: null,
     definition: [condition()],
+    // Filled exactly where the definition is, as the API does.
+    combine: "all",
     ...overrides,
   };
 }
@@ -75,6 +77,7 @@ export function maskedAchievementRead(
     icon_version: null,
     hidden: true,
     definition: null,
+    combine: null,
     ...overrides,
   });
 }

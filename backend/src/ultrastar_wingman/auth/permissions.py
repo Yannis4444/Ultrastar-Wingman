@@ -1,21 +1,25 @@
-"""Capabilities, roles and the runtime-editable mapping between them.
+"""Capabilities, groups and the runtime-editable mapping between them.
 
-Permission checks are named by capability, never by role (architecture.md): a role is a
-bundle of capabilities, stored in `role_permissions` and editable through the API. The
-mapping is cached in this module because every single request reads it.
+Permission checks are named by capability, never by group (architecture.md): a group is a
+bundle of capabilities, stored in `group_capabilities` and editable through the API, and
+what a caller holds is the union of the bundles of the groups they are in
+(docs/dev/permission-groups.md §3.2). The group → capabilities mapping is cached in this
+module because every single request reads it; who is in which group is not cached, it is
+read with the session on every request (§4).
 """
 
 import logging
 
-from sqlalchemy import delete, select
+from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from .model import RolePermission
+from .model import Group, GroupCapability
 
 logger = logging.getLogger(__name__)
 
 # Every capability Wingman knows. Adding one means adding a `require(...)` somewhere and
-# granting it to a role — no migration needed.
+# granting it to a group — a seed migration (permission-groups.md §8.4) puts it into the
+# tables of a database that already exists.
 CAPABILITIES: tuple[str, ...] = (
     "songs.view",
     "songs.rescan",
@@ -57,20 +61,26 @@ CAPABILITIES: tuple[str, ...] = (
 
 ALL_CAPABILITIES = frozenset(CAPABILITIES)
 
+# The three built-in groups. Their ids are words, which a group the host makes (a
+# `uuid4().hex`) can never be; whether a group is built in is read off its id, never stored.
+#
+# * `guest` — every caller without an account, and nobody else.
+# * `user` — every account, without a row in `user_groups`.
+# * `admin` — the accounts with a row in it, and the host screen without one. Its members
+#   hold every capability by rule, whatever `group_capabilities` says.
 GUEST = "guest"
 USER = "user"
-TRUSTED = "trusted"
 ADMIN = "admin"
 
-# Anonymous requests act as this role — a party guest can browse and start a song.
-DEFAULT_ROLE = GUEST
+BUILT_IN_GROUPS: tuple[str, ...] = (GUEST, USER, ADMIN)
 
-ROLES: tuple[str, ...] = (GUEST, USER, TRUSTED, ADMIN)
+# The party's helpers. Created by migration 0039 with this exact id so the migration, the
+# tag editor's default and the tests can name it — the `tags.model.BROKEN_TAG_ID`
+# precedent — and otherwise an ordinary group: the host may rename, change or delete it.
+TRUSTED_GROUP_ID = "7a1c4e9b2d6f48a3b5e0c8d1f2a3b4c5"
 
-# Roles a user account can hold. `guest` is deliberately not among them: it is the role
-# anonymous callers act as, so demoting an account to it would say "logged in, but treated
-# exactly like a stranger" — take the account away instead.
-ASSIGNABLE_ROLES: tuple[str, ...] = (USER, TRUSTED, ADMIN)
+# The longest a group name may get — the tag name's bound.
+MAX_GROUP_NAME_LENGTH = 32
 
 # A party guest browses, wishes, sings and looks at the scoreboard — wishing is the whole
 # point of the guest cookie.
@@ -88,11 +98,13 @@ _GUEST_CAPABILITIES = frozenset(
         "music.view",
     }
 )
-# Only an account can own a playlist, so only an account may manage one. Reading the
-# archive of past parties is an account's right too: `stats.view` is tonight's scoreboard,
-# which a guest phone is welcome to, and `stats.history` is every party before it.
-# Saying something about a song is an account's right too: a comment carries a name and a
-# picture, and an anonymous phone has neither — it may read the conversation, not join it.
+# Every account. An account does not inherit Guest's bundle (permission-groups.md §3.2), so
+# User spells everything a guest may do out again. Only an account can own a playlist, so
+# only an account may manage one. Reading the archive of past parties is an account's right
+# too: `stats.view` is tonight's scoreboard, which a guest phone is welcome to, and
+# `stats.history` is every party before it. Saying something about a song is an account's
+# right too: a comment carries a name and a picture, and an anonymous phone has neither — it
+# may read the conversation, not join it.
 _USER_CAPABILITIES = _GUEST_CAPABILITIES | {
     "karaoke.stop",
     "playlists.manage",
@@ -103,10 +115,13 @@ _USER_CAPABILITIES = _GUEST_CAPABILITIES | {
     # name behind it, not enough to be the host's alone.
     "music.control",
 }
-# The party's helpers: naming a session, the download queue — and the rights over other
-# people. Adding and deleting players used to be a `user` right, which let anybody with an
-# account delete anybody else's; changing your own picture never needed it (that is
-# identity, like favorites), so nothing a normal account does is lost by moving it here.
+# The party's helpers (Trusted): naming a session, the download queue — and the rights over
+# other people. Adding and deleting players used to be every account's right, which let
+# anybody with an account delete anybody else's; changing your own picture never needed it
+# (that is identity, like favorites), so nothing a plain account does is lost by moving it
+# here. Spelled out with User's rights included, as the role it was: a member holds User's
+# bundle anyway, and keeping Trusted's rows a superset of User's is what made migration 0039
+# keep every helper's rights exactly.
 _TRUSTED_CAPABILITIES = _USER_CAPABILITIES | {
     "players.manage",
     "players.avatar",
@@ -138,9 +153,9 @@ _TRUSTED_CAPABILITIES = _USER_CAPABILITIES | {
 }
 
 # Nobody but an administrator: `songs.delete` erases a song folder from the disk, which no
-# role below the host can undo — so it is in `CAPABILITIES` and in no bundle above. An
-# administrator holds it because `ADMIN` is `ALL_CAPABILITIES`, not because a set names it;
-# the host can still hand it to `trusted` in the permissions table like any other right.
+# group below the host can undo — so it is in `CAPABILITIES` and in no bundle above. An
+# administrator holds it because Admin is `ALL_CAPABILITIES` by rule, not because a set
+# names it; the host can still hand it to Trusted in the group editor like any other right.
 # `stats.moderate` is the second one: rewriting a recorded score's singer, or deleting the
 # score outright, edits the party's own record after the fact. Renaming a party
 # (`stats.manage`) changes a label; this changes what happened, so it starts with nobody.
@@ -152,28 +167,39 @@ _TRUSTED_CAPABILITIES = _USER_CAPABILITIES | {
 # `stats.hide` is the fourth: it takes a party out of the Scores page's picker for *everybody*
 # — a guest's phone included — so, like renaming, it is a decision about the party's shelf
 # rather than about one reader's view. It is fully reversible and reaches that one list (see
-# `stats.service.set_session_hidden`), so `trusted` is a defensible home for it; it starts
+# `stats.service.set_session_hidden`), so Trusted is a defensible home for it; it starts
 # with the administrator all the same, because deciding which evenings the room still gets to
-# look at is the host's call, and handing it to `trusted` is one tick in the permissions table.
+# look at is the host's call, and handing it to Trusted is one tick in its group editor.
 # `devices.manage` is the fifth: a player selector device is trusted to say who sings. Its
 # token is a standing key to the report endpoint, and the reader mapping decides which card
 # puts which person on the TV, so whoever holds this capability can hand out a device that
 # selects singers by itself. That is the host's own machine, not a helper's job.
+# `users.manage` and `permissions.manage` start with Admin alone too; a helper given either
+# is still held to the two rules of permission-groups.md §5 (`auth.groups`).
 
-# What migrations 0006 to 0034 seed. Kept here as well so a test can prove the two never
-# drift.
-DEFAULT_ROLE_CAPABILITIES: dict[str, frozenset[str]] = {
+# What migrations 0006 to 0034 seeded per role, and 0039 copied into groups. Kept here as
+# well so a test can prove the two never drift. No entry for Admin: it is a rule, not rows.
+DEFAULT_GROUP_CAPABILITIES: dict[str, frozenset[str]] = {
     GUEST: _GUEST_CAPABILITIES,
     USER: _USER_CAPABILITIES,
-    TRUSTED: _TRUSTED_CAPABILITIES,
-    ADMIN: ALL_CAPABILITIES,
+    TRUSTED_GROUP_ID: _TRUSTED_CAPABILITIES,
 }
 
 
-class UnknownRoleError(LookupError):
-    def __init__(self, role: str) -> None:
-        super().__init__(f"unknown role '{role}'")
-        self.role = role
+class UnknownGroupError(LookupError):
+    def __init__(self, group_id: str) -> None:
+        super().__init__(f"unknown group '{group_id}'")
+        self.group_id = group_id
+
+
+class NotAssignableError(ValueError):
+    """A group that exists but cannot be named here: User and Guest for a membership (every
+    account is in User, nobody with one in Guest), Admin on a tag row (it sees every tag by
+    rule, so a row for it would mean nothing)."""
+
+    def __init__(self, group_id: str) -> None:
+        super().__init__(f"the group '{group_id}' cannot be assigned here")
+        self.group_id = group_id
 
 
 class UnknownCapabilityError(LookupError):
@@ -182,63 +208,66 @@ class UnknownCapabilityError(LookupError):
         self.capability = capability
 
 
-class ImmutableRoleError(ValueError):
-    def __init__(self, role: str) -> None:
-        super().__init__(f"role '{role}' always holds every capability and cannot be changed")
-        self.role = role
+class AdminNotEditableError(ValueError):
+    def __init__(self) -> None:
+        super().__init__("Admin always holds every capability and cannot be changed")
 
 
-# Read on every request, written only by `set_role_capabilities`. `None` means "not loaded".
+class BuiltInGroupError(ValueError):
+    def __init__(self, group_id: str) -> None:
+        super().__init__(f"the built-in group '{group_id}' can be neither renamed nor deleted")
+        self.group_id = group_id
+
+
+# group id -> its capabilities, every group in the table and Admin set by rule. Read on every
+# request; invalidated by every write that changes it (`auth.groups`). `None` means "not
+# loaded".
 _cache: dict[str, frozenset[str]] | None = None
+# Moved by every invalidation. A load reads the tables across two awaits, and a write can
+# commit and invalidate while it is suspended in them: a load that began before the
+# invalidation answers its own caller but is never kept, or the rights from before the
+# write — a capability just taken away included — would stand until the next write.
+_generation = 0
 
 
 def invalidate_cache() -> None:
-    global _cache
+    global _cache, _generation
     _cache = None
+    _generation += 1
 
 
-async def all_role_capabilities(session: AsyncSession) -> dict[str, frozenset[str]]:
+async def all_group_capabilities(session: AsyncSession) -> dict[str, frozenset[str]]:
     """The full mapping, one query per process until it is invalidated."""
     global _cache
     if _cache is None:
-        rows = await session.scalars(select(RolePermission))
-        loaded: dict[str, set[str]] = {role: set() for role in ROLES}
-        for row in rows:
+        generation = _generation
+        loaded: dict[str, set[str]] = {
+            group_id: set() for group_id in await session.scalars(select(Group.id))
+        }
+        for row in await session.scalars(select(GroupCapability)):
             # A capability that was dropped from the code stays in the table until the row
-            # is rewritten; ignoring it keeps an old database usable.
-            if row.capability in ALL_CAPABILITIES:
-                loaded.setdefault(row.role, set()).add(row.capability)
+            # is rewritten; ignoring it keeps an old database usable. A row naming a group
+            # that is gone (no foreign keys) gives nothing to anybody.
+            if row.capability in ALL_CAPABILITIES and row.group_id in loaded:
+                loaded[row.group_id].add(row.capability)
         # Admin is not data: a wrong row (or a hand-edited database) must never be able to
         # lock every administrator out of the app.
         loaded[ADMIN] = set(ALL_CAPABILITIES)
-        _cache = {role: frozenset(capabilities) for role, capabilities in loaded.items()}
+        mapping = {group_id: frozenset(capabilities) for group_id, capabilities in loaded.items()}
+        if generation == _generation:
+            _cache = mapping
+        return mapping
     return _cache
 
 
-async def capabilities_for(session: AsyncSession, role: str) -> frozenset[str]:
-    """The capabilities of `role`. An unknown role gets nothing rather than raising —
-    a stale role string in the database must not turn into a 500."""
-    return (await all_role_capabilities(session)).get(role, frozenset())
-
-
-async def set_role_capabilities(
-    session: AsyncSession, role: str, capabilities: list[str]
-) -> frozenset[str]:
-    """Replace a role's capabilities. Raises `UnknownRoleError`, `UnknownCapabilityError`
-    or `ImmutableRoleError`."""
-    if role not in ROLES:
-        raise UnknownRoleError(role)
-    if role == ADMIN:
-        raise ImmutableRoleError(role)
-    unknown = next((name for name in capabilities if name not in ALL_CAPABILITIES), None)
-    if unknown is not None:
-        raise UnknownCapabilityError(unknown)
-
-    await session.execute(delete(RolePermission).where(RolePermission.role == role))
-    session.add_all(
-        RolePermission(role=role, capability=capability) for capability in set(capabilities)
-    )
-    await session.commit()
-    invalidate_cache()
-    logger.info("The permissions of the role %s changed", role)
-    return frozenset(capabilities)
+async def capabilities_for_groups(session: AsyncSession, groups: frozenset[str]) -> frozenset[str]:
+    """What a caller in `groups` holds: the union of their bundles, every capability the
+    moment Admin is among them. A stale group id contributes nothing rather than raising —
+    a hand-edited row must not turn into a 500."""
+    if ADMIN in groups:
+        return ALL_CAPABILITIES
+    mapping = await all_group_capabilities(session)
+    held: set[str] = set()
+    for group_id in groups:
+        held |= mapping.get(group_id, frozenset())
+    return frozenset(held)

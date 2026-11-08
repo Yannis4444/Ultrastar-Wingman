@@ -27,7 +27,9 @@ Scores and badges belong to the player, not to the account. A guest earns badges
 by singing like anybody else. The account is what gives you a page to read them
 on, on any browser you log in from.
 
-An account also holds a role, and a role is how the host hands rights out.
+Every account is in the group **User**, and the host can put it in more groups.
+Groups are how the host hands rights out. See
+[Groups and permissions](groups.md).
 
 ## Log in or register
 
@@ -61,9 +63,11 @@ further out, so the host does not log in again next weekend.
 ## Your own page
 
 Once you are logged in, the **User** tab is you. It shows your picture with your
-name beside it, your role under the name, and :wingman-log-out: **Log out** under
-that. Tap the picture to change it, which needs no right at all. With single
-sign-on, the provider's picture stands there until you pick one of your own.
+name beside it, your groups under the name, and :wingman-log-out: **Log out**
+under that. The line says **Admin** for an administrator, otherwise the groups
+you are in by name, such as *DJs · Trusted*, or **User** when you are in none.
+Tap the picture to change it, which needs no right at all. With single sign-on,
+the provider's picture stands there until you pick one of your own.
 See [Single sign-on](single-sign-on.md#the-picture).
 
 Below stand your totals over every party you sang at, a link to your whole
@@ -80,7 +84,7 @@ report.
 ## The host screen's browser
 
 The browser the host opened with the host link is not an account. The **User**
-tab names it **Host screen**, with the role **Admin** under it. It may change
+tab names it **Host screen**, with **Admin** under it. It may change
 every setting. It owns nothing, so it has no favorites, no playlists, and no
 scores of its own.
 
@@ -98,7 +102,7 @@ Registering on that browser brings those wishes along to the account. See
 
 - [Players and avatars](players.md): who sings, their pictures, and how to take
   somebody out of the singer picker.
-- [Roles and permissions](roles.md): the four roles, what each one may do, and
+- [Groups and permissions](groups.md): the groups, what each one may do, and
   where the exact rights are edited.
 - [Single sign-on](single-sign-on.md): logging in through an identity provider
   instead of a Wingman password.

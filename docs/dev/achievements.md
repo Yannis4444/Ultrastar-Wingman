@@ -10,8 +10,9 @@ or any of the frontend surfaces that draw a badge.
 One row in `achievements`, made of two halves:
 
 * **presentation** — name, description, icon, colour, `hidden`, `enabled`;
-* **definition** — a list of *conditions*, all of which must hold, stored as
-  one JSON column.
+* **definition** — a list of *conditions*, stored as one JSON column, and
+  `combine` beside it: `all` of them must hold, or `any` one of them is enough
+  (see [All of them, or any of them](#all-of-them-or-any-of-them)).
 
 The definition is never queried in SQL. It is evaluated in Python against the
 scores a player already has, so a relational table per condition would buy
@@ -35,13 +36,45 @@ import a round trip.
 
 | Field | Meaning |
 |---|---|
-| `scope` | `global` — every score the player ever got. `session` — the condition has to hold inside **one** party; which party is the same for every condition of the achievement (a `GROUP BY session HAVING …`, not one party per condition). |
+| `scope` | `global` — every score the player ever got. `session` — the condition has to hold inside **one** party. Under `all` which party is the same for every condition of the achievement (a `GROUP BY session HAVING …`, not one party per condition); under `any` each condition is an alternative of its own and holds or not inside a party of its own. |
 | `metric` | What is measured over the scores the filters left. See the table below. |
 | `comparator` | `>` `>=` `=` `<=` `<` |
 | `value` | The number compared against. |
 | `score_filter` | Optional `min` / `max` — drops scores outside the range **before** the metric is computed. "Ten scores above 9000" is `number_of_scores >= 10` with `score_filter.min = 9000`. A `min` above the `max` is refused: no score survives it, so the condition could never be satisfied by anybody. |
 | `songs` | Optional. An explicit list of song ids the scores must be on. |
 | `match` | Optional. A selector over song metadata instead of a list. `songs` and `match` are mutually exclusive — the editor switches between them. |
+
+### All of them, or any of them
+
+`achievements.combine` (migration 0038) says how the conditions of one
+achievement are put together: `all` — every one of them has to hold, the only
+meaning a definition had before the column existed — or `any` — one of them
+holding is enough. "A score of exactly 1111, or of exactly 2222, or …" is the
+shape that asked for it: no list of conditions that all have to hold can say
+it.
+
+* **Its own column, not a second shape of `definition`.** The definition stays
+  the list it always was in the API, in an archive and in every row, so
+  `parse_definition`, the definition comparison in `update_achievement` and the
+  `definition` type of the generated client are untouched; the column arrived with `all` as its server
+  default, so every row already in a database — the built-ins among them —
+  means exactly what it meant. `schema.parse_combine` reads it back the way
+  `parse_definition` reads a definition: anything but the two words was written
+  straight into the database, and that row is never satisfied rather than an
+  exception.
+* **The session rule stays honest under `any`.** A session-scoped condition
+  still has to hold inside one party — three scores spread over two parties are
+  not three scores in a party — but each alternative holds or not in a party of
+  its own: there is nothing for two alternatives to agree on. A global one is
+  checked over everything, as ever. `session_id` is the earliest party a
+  session-scoped condition held in, and `None` when only global ones hold.
+* **No conditions is never satisfied** under either word.
+* `combine` is half of what an achievement asks for, so it travels with the
+  definition everywhere: in the managing listing beside it and in no other
+  answer, in `POST` / `PATCH` (`all` when a create leaves it out), in the
+  archive, and under every built-in rule below — a built-in's is `all` and
+  Wingman's, a `PATCH` that would move it is the same 409 a definition is, an
+  import reads it and never applies it, and a reset puts `all` back.
 
 ### Metrics
 
@@ -226,7 +259,9 @@ thousand comparisons — microseconds, and no cache to invalidate.
 every session-scoped condition of that achievement; global conditions in the
 same achievement are checked over everything. An achievement mixing both is
 legal and means "this much tonight, by somebody who has also done that much
-overall".
+overall". That is `all`; under `any` the achievement is satisfied the moment
+one condition is — a session-scoped one inside some single party, a global one
+over everything (see [All of them, or any of them](#all-of-them-or-any-of-them)).
 
 ### Revocation
 
@@ -254,6 +289,16 @@ a lie.
 * For `session` scope it is measured in **one** party: the party that satisfied
   the session-scoped conditions, or the player's **newest** party while none
   has. Never the best one they ever had. See below.
+* Under `any` it is the mirror image: the **most complete** condition, because
+  one route is enough and the closest one is the honest number
+  (`evaluate._evaluate_any`). A tie keeps the condition listed first, as a tie
+  for the weakest does. A session-scoped condition is measured in the party it
+  holds in, or the player's newest party while it holds in none — the rule
+  above, condition by condition — and `progress_session_id` is the party the
+  winning condition was measured in. Once the achievement is **earned** only
+  the conditions that hold are weighed, so the number beside the badge is a
+  route that earned it; when none of those has a target the row stores `NULL`,
+  rather than a half-full bar of a route nobody took beside a won badge.
 * An achievement with no progressible condition stores `NULL` and draws no
   bar.
 * A `hidden` achievement draws no bar until it is earned — a bar would leak
@@ -295,10 +340,15 @@ Two consequences worth knowing:
 
 * Progress from a **global** condition carries no `progress_session_id` and is
   never zeroed. Where an achievement mixes the two scopes, the stored party is
-  the *weakest* condition's — so a mixed achievement can perfectly well read a
+  the *weakest* condition's (the *closest* one's under `any`) — so a mixed achievement can perfectly well read a
   global number that stands still between parties. Progress is one condition's
   number, and that is the condition it came from. (No shipped achievement
   mixes scopes.)
+* Under `any` the closest condition is picked when the pass runs, while the
+  party it was counted in may still be going. Once that party is over the row
+  reads `0` of that condition's target — even where a global alternative is
+  further along — until the next pass picks again. The engine has no clock, so
+  it cannot know the evening will end; the bar is wrong in the safe direction.
 * A row written before migration 0029 carries `NULL` and therefore shows the
   old best-party figure until the next pass rewrites it — a sing the player is
   scored in, or any edit to the catalogue. Nothing runs a pass at startup, and
@@ -530,7 +580,7 @@ from nothing else:
 | `PATCH /achievements/settings` | The settings ride along in the same answer — and `enabled` decides whether anything is drawn at all. |
 
 A refused write sends nothing: a 409 on a built-in delete, a 409 on a
-`definition` sent to a built-in, a 409 on a reset of something nobody ships, a
+`definition` or a `combine` that would change a built-in, a 409 on a reset of something nobody ships, a
 422 on a definition the models reject, a 422 on an order that is no permutation
 of the catalogue and a 404 on an unknown id all changed no row. Neither does a
 settings PATCH that named no field.
@@ -568,9 +618,17 @@ routes over them.
   "hidden": false,
   "enabled": true,
   "sort_order": 3,
+  "combine": "all",
   "definition": [ … ]
 }
 ```
+
+`combine` is always written by an export, right above the conditions it is
+about, and may be left out of a file: absent means `all`, which is what every
+archive exported before the field existed meant, so those import exactly as
+they did. A value that is neither word is refused like any other bad field.
+Like a missing picture, a missing `combine` is part of the whole description an
+entry is: importing it over a row that said `any` puts that row on `all`.
 
 Two spaces of indent, no escaped non-ASCII and a trailing newline: the point
 of a directory of small files is that a person opens one, understands it and
@@ -620,15 +678,15 @@ built-in be shared between instances. The answer names what happened —
 rather than "done".
 
 The one field an archive cannot carry into the catalogue is a **built-in's**
-`definition`. It is still in the file — an export is a faithful copy of the row,
+`definition` — and its `combine`, the other half of what it asks for. It is still in the file — an export is a faithful copy of the row,
 and that is what keeps the round trip a fixed point — it simply has no effect on
 one of the shipped ids. See the table.
 
 | What it meets | What it does |
 |---|---|
-| An existing ordinary row | Updates every presentation field **and** the definition, exactly as `PATCH` would — plus, where the file carries one, the place in the list a `PATCH` cannot touch (below). |
+| An existing ordinary row | Updates every presentation field **and** the definition and `combine`, exactly as `PATCH` would — plus, where the file carries one, the place in the list a `PATCH` cannot touch (below). |
 | An existing **built-in** | Updates every presentation field the same way and **leaves its conditions where they are**, `built_in` included: what one of the shipped built-ins asks for is `builtin.py`'s, and an `achievement.json` in a text file would otherwise be the way straight round the 409 `PATCH` gives. The row still counts as updated — it really did change, only not there — and the skipped definition is logged. |
-| An unknown id that Wingman ships | Creates it **as a built-in**, with the conditions out of `builtin.py` rather than out of the file. The id is the only thing that may say a row is one of the shipped set, which is what lets a shipped achievement be handed from one instance to another. |
+| An unknown id that Wingman ships | Creates it **as a built-in**, with the conditions out of `builtin.py` rather than out of the file, and `combine` `all`. The id is the only thing that may say a row is one of the shipped set, which is what lets a shipped achievement be handed from one instance to another. |
 | Any other unknown id | Creates it as an ordinary row. An archive cannot mint an undeletable achievement of its own. |
 | An entry with an `icon.<ext>` | Stores it through `images.py` — the same allowlist, byte cap and pixel cap an upload goes through. |
 | An entry **without** one | **Clears** whatever picture the row had. The archive is the whole description of the achievement it names, and anything else would make importing the same archive twice mean two different things. |
@@ -790,7 +848,7 @@ at the end of the host's arrangement on one that was already seeded.
 | | |
 |---|---|
 | `DELETE /achievements/{id}` | A 409. An instance always has the set it ships with; it may switch one off instead. |
-| Its **conditions** | `builtin.py`'s, and nothing else's. A `definition` on one is a 409 from `PATCH`, and an import writes every other field of a built-in but leaves its stored conditions alone. *Golden Voice* therefore means the same thing at every party, whatever it has been renamed to. |
+| Its **conditions** | `builtin.py`'s, and nothing else's — every one of them asks for `all` of its conditions. A `definition` or a `combine` that would change them is a 409 from `PATCH`, and an import writes every other field of a built-in but leaves its stored conditions and `combine` alone. *Golden Voice* therefore means the same thing at every party, whatever it has been renamed to. |
 | `POST /achievements/{id}/reset` | Only a built-in has one — see below. |
 
 Everything else about one is as editable as any other achievement's: the name,
@@ -841,7 +899,7 @@ back to.
 | Field | What a reset does |
 |---|---|
 | `name`, `description`, `icon`, `color`, `hidden` | Back to `builtin.py`. |
-| `definition` | Back to `builtin.py`, written raw exactly as the seed migration writes it — so a reset row and a freshly seeded one are the same row. |
+| `definition` | Back to `builtin.py`, written raw exactly as the seed migration writes it — so a reset row and a freshly seeded one are the same row. `combine` back to `all` with it. |
 | `sort_order` | **Left exactly as it is.** The order of the catalogue is the host's — they arranged it with `PUT /achievements/order`, which numbers the whole table — so this row's index in `BUILT_INS` means nothing beside the numbers the others now hold, and putting it back would drop the row at an arbitrary spot rather than "where Wingman had it". A reset restores what an achievement *is*, not where it is filed. |
 | `icon_file` | **Dropped**, file and all — which is what puts the shipped picture back in front (or, for a built-in whose artwork does not exist yet, the restored glyph). An upload left standing would make the reset look as though it had done nothing. |
 | `enabled` | **Left exactly as it is.** Switching a built-in off is the one thing a party is told it may do to one, and undoing that would be unwelcome. |

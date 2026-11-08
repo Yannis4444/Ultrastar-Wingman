@@ -150,6 +150,10 @@ async def pick_song(session, scope, viewer, *, playlist_id=None,
 The **guest viewer** is not a detail: `music.changed` rides the anonymous WebSocket, so a song
 a tag hides from guests must never be in it.
 
+*The wishlist weighted* is a weighted draw over what each song's wishes weigh, the fair-wishes
+rule of [reel-weighting.md](reel-weighting.md) §3. The signature has since gained `rest_at`,
+which the music never passes: the rest rule for skipped songs is the host spins' alone.
+
 An empty pool sets `_retry_at` 30 s out and reports `empty`. A playlist that was deleted is
 the same thing and **does not fall back to the whole library** — a one-off button press falling
 back is a kindness, an hour of music out of the pool the host excluded is not.
@@ -295,10 +299,12 @@ The two write bodies follow `devices/api.py` exactly — `model_fields_set`, the
 ```python
 MusicStatus = Literal["off", "blocked", "waiting", "empty", "playing", "paused"]
 
-class MusicTrackRead:   id, song, started_at, position_s, position_at, duration_s
-class MusicVolumeRead:  master, music, effects
-class MusicRead:        status, track, blocked_by, resume_at, retry_at,
-                        sink_online, sink_generation, volume, scope
+class MusicTrackRead:   id, song, started_at, position_s, position_at, duration_s,
+                        gain_db, peak
+class MusicPreviewRead: id, song, start_s, reveal_at, gain_db, peak
+class MusicVolumeRead:  master, music, preview, effects
+class MusicRead:        status, track, preview, blocked_by, resume_at, retry_at,
+                        sink_online, sink_generation, volume, sound_effects, scope
 class MusicSettings:    enabled, scope, playlist, resume_delay_s    # music.manage only
 ```
 
@@ -318,7 +324,7 @@ code:
 |---|---|---|---|
 | `sound.master_volume` | int 0–100 | 100 | everything Wingman plays on the host screen |
 | `sound.music_volume` | int 0–100 | 100 | the background music |
-| `sound.effects_volume` | int 0–100 | 100 | the sound effects — nothing uses it yet, and the description says so |
+| `sound.effects_volume` | int 0–100 | 100 | the sound effects, with the switch `sound.effects` beside it (both in [sound-effects.md](sound-effects.md)) |
 
 Private in `music/settings.py`, behind `music.manage`:
 

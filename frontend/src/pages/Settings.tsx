@@ -175,7 +175,7 @@ export default function Settings() {
   }
 
   return (
-    <div className="settings-page">
+    <div className="settings-page page-foot">
       <PageHeader title="Settings" back="/user" />
 
       {mayView && !mayManage && (

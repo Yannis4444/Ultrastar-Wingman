@@ -19,7 +19,9 @@ import {
 } from "../api/@tanstack/react-query.gen";
 import {
   achievementGlyph,
+  type Combine,
   conditionProblem,
+  conditionsNote,
   MANAGE_CATALOGUE,
 } from "../achievements";
 import { useAuth } from "../auth";
@@ -75,6 +77,7 @@ interface Draft {
   hidden: boolean;
   enabled: boolean;
   definition: string;
+  combine: Combine;
 }
 
 const NEW_DRAFT: Draft = {
@@ -85,6 +88,7 @@ const NEW_DRAFT: Draft = {
   hidden: false,
   enabled: true,
   definition: "[]",
+  combine: "all",
 };
 
 /**
@@ -137,6 +141,7 @@ export default function AchievementEditor() {
   const [hidden, setHidden] = useState(false);
   const [enabled, setEnabled] = useState(true);
   const [conditions, setConditions] = useState<Condition[]>([]);
+  const [combine, setCombine] = useState<Combine>("all");
   // The picture is not part of the form: it is its own endpoint and lands the
   // moment it is picked, so it is state of its own rather than a field of the
   // draft. `iconVersion` is the stored file's own version, taken off whatever
@@ -169,6 +174,9 @@ export default function AchievementEditor() {
   /** Take the draft from an achievement the server answered with. */
   const seedFrom = (achievement: AchievementRead) => {
     const definition = achievement.definition ?? [];
+    // `null` only on an answer that carries no definition either, which this
+    // page never reads; `all` is what a list of conditions always meant.
+    const combined: Combine = achievement.combine ?? "all";
     setName(achievement.name);
     setDescription(achievement.description);
     setIcon(achievement.icon);
@@ -176,6 +184,7 @@ export default function AchievementEditor() {
     setHidden(achievement.hidden);
     setEnabled(achievement.enabled);
     setConditions(definition);
+    setCombine(combined);
     setHasImage(achievement.has_image);
     setImageShipped(achievement.image_shipped ?? false);
     setIconVersion(achievement.icon_version ?? null);
@@ -188,6 +197,7 @@ export default function AchievementEditor() {
       hidden: achievement.hidden,
       enabled: achievement.enabled,
       definition: JSON.stringify(definition),
+      combine: combined,
     });
     setError(null);
     setIconError(null);
@@ -208,6 +218,7 @@ export default function AchievementEditor() {
       setHidden(false);
       setEnabled(true);
       setConditions([]);
+      setCombine("all");
       setHasImage(false);
       setIconVersion(null);
       setBuiltIn(false);
@@ -345,6 +356,9 @@ export default function AchievementEditor() {
     // and `PATCH` answers a definition on one with a 409.
     if (!builtIn && JSON.stringify(conditions) !== base.definition)
       body.definition = conditions;
+    // The other half of what it asks for, under the same rule: a built-in's is
+    // Wingman's, and the 409 is the same one.
+    if (!builtIn && combine !== base.combine) body.combine = combine;
     return body;
   };
 
@@ -407,6 +421,7 @@ export default function AchievementEditor() {
             hidden,
             enabled,
             definition: conditions,
+            combine,
           },
         });
         // Into the cache before the route changes, so the editor at the new URL
@@ -797,9 +812,7 @@ export default function AchievementEditor() {
 
                     <h2>Conditions</h2>
                     <p className="section-note">
-                      {builtIn
-                        ? "All of them have to hold before anybody earns it. What one of Wingman's own achievements asks for cannot be changed. The same badge means the same thing at every party. Reset below puts everything else back too."
-                        : "All of them have to hold before anybody earns it."}
+                      {conditionsNote(combine, conditions.length, builtIn)}
                     </p>
 
                     {!builtIn && conditions.length === 0 && (
@@ -812,10 +825,15 @@ export default function AchievementEditor() {
 
                     <ConditionBuilder
                       value={conditions}
+                      combine={combine}
                       readOnly={builtIn}
                       onChange={(next) => {
                         setSaved(false);
                         setConditions(next);
+                      }}
+                      onCombineChange={(next) => {
+                        setSaved(false);
+                        setCombine(next);
                       }}
                     />
 

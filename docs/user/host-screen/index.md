@@ -53,15 +53,17 @@ The rail holds three blocks, top to bottom:
 - **Most wished**, what the room has asked for.
 
 **Tonight** appears once two songs of this party have been scored, and it lists
-the five strongest singers. The three words beside the heading say how they are
+the five strongest singers. A screen too short for five shows as many as fit,
+and never half a singer. The three words beside the heading say how they are
 ranked: **best score**, **average**, or **sings**. Click one to change it. The
 first three places carry a highlighted rank number.
 
 **Most wished** is the wishlist, most wished song first, with the number of
 wishes beside each. It holds five songs on its own, and three while **Tonight**
 is up. On a short screen, such as a 720p TV, **Tonight** leaves room for two,
-or for one while the music's line or its controls stand along the bottom. See
-[Wish for a song](../party/wishlist.md).
+or for one while the music's line or its controls stand along the bottom. A
+screen too short for all of them shows as many as fit, and never half a song.
+See [Wish for a song](../party/wishlist.md).
 
 ## While singers are picked
 
@@ -148,6 +150,18 @@ A browser plays no sound until somebody has pressed something on the page, and a
 TV gets no presses. When that is what is stopping it, a large **Turn on sound**
 appears at the bottom of the screen, in the middle, even while the room picks
 singers. One click anywhere on the page does the same thing.
+
+## Sound effects
+
+The host screen makes a few short sounds of its own. The reel ticks for every
+cover that passes and clicks when it lands. Every new badge after a song flies
+in with a whoosh and lands with a soft thud. A host screen that opens after the
+reel has landed stays quiet. Like the music, they wait for one click or key
+press anywhere on the page, and only the host screen that plays the music makes
+them. The phones make none of these sounds, and nothing plays during a song.
+Switch them off with **Sound effects** in the **Sound** group of the settings,
+and set how loud they are with **Effects volume** there. See
+[All settings](../settings/reference.md#sound).
 
 ## The controls that fade
 

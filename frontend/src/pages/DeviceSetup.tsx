@@ -739,7 +739,7 @@ export default function DeviceSetup() {
           .join(" · ");
 
   return (
-    <div className="devices-page">
+    <div className="devices-page page-foot">
       <PageHeader title="Set up a device" back="/user/devices" />
 
       {/* Nothing until /auth/me answered: `can` says yes while it is in flight. */}

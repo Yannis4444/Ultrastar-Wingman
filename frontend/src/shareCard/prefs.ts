@@ -32,8 +32,6 @@ export interface SharePrefs {
   playerDesign: PlayerDesign;
   otherPictures: boolean;
   partyNameAndDate: boolean;
-  /** *Wingman logo*, on by default (§1.8). */
-  logo: boolean;
 }
 
 export const DEFAULT_PREFS: SharePrefs = {
@@ -43,7 +41,6 @@ export const DEFAULT_PREFS: SharePrefs = {
   playerDesign: "histogram",
   otherPictures: true,
   partyNameAndDate: true,
-  logo: true,
 };
 
 export const PREFS_KEY = "wingman.shareCard";
@@ -63,7 +60,8 @@ function flag(value: unknown, fallback: boolean): boolean {
 /** The remembered choices, each one checked on its own: a value this build
  * does not know falls back to its default and takes nothing else with it. An
  * older build's `partyLook` of `mosaic` is still a Mosaic; its `onlyMe` is
- * read as nothing, *You* being a slide that is not remembered. */
+ * read as nothing, *You* being a slide that is not remembered, and its `logo`
+ * too, the logo being on every card. */
 export function readPrefs(): SharePrefs {
   let stored: Record<string, unknown> = {};
   try {
@@ -83,7 +81,6 @@ export function readPrefs(): SharePrefs {
     playerDesign: pick(stored.playerDesign, PLAYER_DESIGNS, d.playerDesign),
     otherPictures: flag(stored.otherPictures, d.otherPictures),
     partyNameAndDate: flag(stored.partyNameAndDate, d.partyNameAndDate),
-    logo: flag(stored.logo, d.logo),
   };
 }
 

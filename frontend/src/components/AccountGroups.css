@@ -1,0 +1,9 @@
+/* The groups panel (§7, People): one explaining line over the rows, on the
+   rows' own axis (the picker list's 8px plus the row's 8px of padding). */
+.account-groups-note {
+  margin: 0 8px 12px 8px;
+}
+
+.account-groups-error {
+  margin: 0 8px 12px 8px;
+}

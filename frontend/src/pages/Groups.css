@@ -1,0 +1,17 @@
+/* The Groups page (§7) is the tags admin's list (`Tags.css`); only what is
+   this page's own lives here. */
+
+.groups-note {
+  margin-bottom: 8px;
+}
+
+/* Admin's row: the link rows' geometry without the link, the hover band or
+   the chevron. There is nothing behind it to open. */
+.groups-static {
+  display: flex;
+  gap: 12px;
+  align-items: center;
+  min-width: 0;
+  min-height: 56px;
+  padding: 6px 8px;
+}

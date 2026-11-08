@@ -16,19 +16,21 @@ from sqlalchemy.orm import Mapped, mapped_column
 from .db import Base
 
 # The definitions live here, so a rule that only a domain module can state has to be
-# imported here. `karaoke.slots`, `downloads.video_quality` and `downloads.ytdlp_arguments` are
-# leaves on purpose — they must never import this module back, or the services that do
-# close the circle.
+# imported here. `karaoke.slots`, `karaoke.weighting`, `downloads.video_quality` and
+# `downloads.ytdlp_arguments` are leaves on purpose — they must never import this module
+# back, or the services that do close the circle.
 from .downloads.video_quality import DEFAULT_VIDEO_FORMAT, validate_video_format
 from .downloads.ytdlp_arguments import validate_ytdlp_args
 from .join_url import validate_join_url
 from .karaoke.slots import DEFAULT_SLOT_COLORS_SETTING, validate_slot_colors
+from .karaoke.weighting import FAIR_WISHES, REST_SKIPPED
 from .sound import (
     EFFECTS_VOLUME,
     MASTER_VOLUME,
     MUSIC_VOLUME,
     PREVIEW_VOLUME,
     REEL_PREVIEW,
+    SOUND_EFFECTS,
     VOLUME_KEYS,
     validate_volume,
 )
@@ -145,6 +147,34 @@ register(
         validate=validate_slot_colors,
     )
 )
+# Two switches and no `validate`: the registry's type check is the whole rule for a bool.
+# Not advanced — a host who finds the wishlist unfair reaches for these.
+register(
+    SettingDefinition(
+        key=FAIR_WISHES,
+        value_type=bool,
+        default=True,
+        group="Karaoke",
+        description=(
+            "Wishlist (weighted) gives everybody who wished a fair share: each further wish "
+            "of the same person counts a little less, so a long wishlist does not drown out "
+            "a short one. Off: every wish counts the same."
+        ),
+    )
+)
+register(
+    SettingDefinition(
+        key=REST_SKIPPED,
+        value_type=bool,
+        default=True,
+        group="Karaoke",
+        description=(
+            "When the reel on the host screen lands on a song and the room spins again "
+            "instead of singing it, that song comes up less often for the next half hour. "
+            "It is never left out."
+        ),
+    )
+)
 register(
     SettingDefinition(
         key="host.join_url",
@@ -196,7 +226,7 @@ register(
         value_type=int,
         default=100,
         group="Sound",
-        description="Wingman's own sound effects. Nothing plays any yet.",
+        description="Wingman's own sound effects on the host screen.",
         validate=validate_volume,
     )
 )
@@ -211,6 +241,19 @@ register(
             "from where its singing starts: once the reel lands on it, or at once for a song "
             "somebody chose. It stops when the song starts or the pick is given up, and the "
             "background music pauses for it."
+        ),
+    )
+)
+register(
+    SettingDefinition(
+        key=SOUND_EFFECTS,
+        value_type=bool,
+        default=True,
+        group="Sound",
+        description=(
+            "Short sounds on the host screen: a tick for every cover the reel passes and a "
+            "click when it lands, and a whoosh for every new badge after a song. Nothing on "
+            "the phones, and nothing while a song is sung."
         ),
     )
 )

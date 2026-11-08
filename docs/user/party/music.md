@@ -31,7 +31,7 @@ The gear holds three more options.
 |---|---|
 | All songs | Everything in the library |
 | Wishlist | The songs people wished for tonight, each one once |
-| Wishlist (weighted) | The same, but a song wished for three times comes up three times as often |
+| Wishlist (weighted) | The same, but every wish adds to a song's chance. Each further wish of the same person counts a little less |
 | A playlist | One playlist you choose |
 
 **Playlist** appears when you pick a playlist, and lists the ones you can see.

@@ -2,7 +2,7 @@ import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { fireEvent, render, screen } from "@testing-library/react";
 import { MemoryRouter, Route, Routes } from "react-router-dom";
 import PageHeader from "../components/PageHeader";
-import { meResponse } from "../test/auth";
+import { AS, meResponse } from "../test/auth";
 import HostManage from "./HostManage";
 
 const { getMe } = vi.hoisted(() => ({ getMe: vi.fn() }));
@@ -40,7 +40,7 @@ beforeEach(() => {
   getMe.mockResolvedValue(
     meResponse(
       ["settings.view", "players.manage", "users.manage", "permissions.manage"],
-      { is_host: true, role: "admin" },
+      { is_host: true, ...AS.host },
     ),
   );
 });
@@ -55,9 +55,9 @@ test("the host session gets every management page and a way back to the stage", 
     "href",
     "/settings",
   );
-  expect(screen.getByRole("link", { name: "Permissions" })).toHaveAttribute(
+  expect(screen.getByRole("link", { name: "Groups" })).toHaveAttribute(
     "href",
-    "/user/permissions",
+    "/user/groups",
   );
   // The stage, not /user: this view is the host screen's own chrome.
   expect(screen.getByRole("link", { name: "Back" })).toHaveAttribute(
@@ -83,7 +83,7 @@ test("only the entries the session may open are listed", async () => {
   renderPage();
 
   expect(await screen.findByRole("link", { name: "Settings" })).toBeVisible();
-  expect(screen.queryByRole("link", { name: "Permissions" })).toBeNull();
+  expect(screen.queryByRole("link", { name: "Groups" })).toBeNull();
   expect(screen.queryByRole("link", { name: "Players & accounts" })).toBeNull();
 });
 

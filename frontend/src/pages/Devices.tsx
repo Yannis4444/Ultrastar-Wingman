@@ -284,7 +284,7 @@ export default function Devices() {
       : null;
 
   return (
-    <div className="devices-page">
+    <div className="devices-page page-foot">
       <PageHeader title="Player selector" back="/user">
         {allowed && (
           <Link

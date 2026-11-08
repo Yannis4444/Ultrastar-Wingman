@@ -1,7 +1,9 @@
 import pytest
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
 
+from ultrastar_wingman.karaoke.weighting import FAIR_WISHES, REST_SKIPPED
 from ultrastar_wingman.settings import (
+    DEFINITIONS,
     Setting,
     SettingDefinition,
     SettingsService,
@@ -164,3 +166,22 @@ async def test_value_survives_a_new_session(
         await make_service(session).set("test.text", "persisted")
     async with session_factory() as session:
         assert await make_service(session).get("test.text") == "persisted"
+
+
+@pytest.mark.parametrize("key", [FAIR_WISHES, REST_SKIPPED])
+def test_the_reel_s_two_switches_are_karaoke_booleans_on_by_default(key: str) -> None:
+    """Drawn as two plain toggles under Karaoke: no rule beyond the type, nothing folded
+    away, and on — the rule the party asked for, not one it has to find."""
+    definition = DEFINITIONS[key]
+    assert definition.value_type is bool
+    assert definition.default is True
+    assert definition.group == "Karaoke"
+    assert definition.validate is None
+    assert not definition.advanced
+    assert not definition.secret
+
+
+def test_the_reel_s_switches_follow_the_player_colors() -> None:
+    keys = list(DEFINITIONS)
+    start = keys.index("karaoke.player_colors")
+    assert keys[start + 1 : start + 3] == [FAIR_WISHES, REST_SKIPPED]

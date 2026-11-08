@@ -5,11 +5,13 @@ import {
   achievementGlyph,
   achievementIconUrl,
   achievementName,
+  combinesAsAny,
   COMPARATOR_LABELS,
   COMPARATORS,
   conditionHasProgress,
   conditionProblem,
   conditionSentence,
+  conditionsNote,
   conditionTarget,
   holdersLine,
   importSummary,
@@ -424,6 +426,34 @@ describe("conditionProblem", () => {
   });
 });
 
+describe("how an achievement's conditions combine", () => {
+  it("means any only from two conditions on", () => {
+    expect(combinesAsAny("any", 2)).toBe(true);
+    expect(combinesAsAny("any", 1)).toBe(false);
+    expect(combinesAsAny("any", 0)).toBe(false);
+    expect(combinesAsAny("all", 3)).toBe(false);
+  });
+
+  it("says all of these or any of these in the section's note", () => {
+    expect(conditionsNote("all", 2, false)).toBe(
+      "All of them have to hold before anybody earns it.",
+    );
+    expect(conditionsNote("any", 2, false)).toBe(
+      "Any one of them is enough: whoever meets one of these earns it.",
+    );
+    // One condition reads the same whichever way it would be combined.
+    expect(conditionsNote("any", 1, false)).toBe(
+      "All of them have to hold before anybody earns it.",
+    );
+  });
+
+  it("adds why a built-in's conditions cannot be changed", () => {
+    expect(conditionsNote("all", 2, true)).toMatch(
+      /^All of them have to hold before anybody earns it\. What one of Wingman's own achievements asks for cannot be changed\./,
+    );
+  });
+});
+
 describe("conditionSentence", () => {
   it("says which scope it is over", () => {
     expect(conditionSentence(condition())).toBe(
@@ -431,6 +461,15 @@ describe("conditionSentence", () => {
     );
     expect(conditionSentence(condition({ scope: "session" }))).toBe(
       "In one party, some score of 9000 or more.",
+    );
+  });
+
+  it("heads an alternative with Or, over either scope", () => {
+    expect(conditionSentence(condition(), true)).toBe(
+      "Or, over all time, some score of 9000 or more.",
+    );
+    expect(conditionSentence(condition({ scope: "session" }), true)).toBe(
+      "Or, in one party, some score of 9000 or more.",
     );
   });
 

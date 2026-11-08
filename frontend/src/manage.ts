@@ -58,8 +58,8 @@ export const MANAGE_ENTRIES: ManageEntry[] = [
   },
   {
     capabilities: ["permissions.manage"],
-    label: "Permissions",
-    to: "/user/permissions",
+    label: "Groups",
+    to: "/user/groups",
     icon: "shield",
   },
 ];

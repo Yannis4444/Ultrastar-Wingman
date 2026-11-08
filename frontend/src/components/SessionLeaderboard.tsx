@@ -14,7 +14,12 @@ const ORDERS: { value: LeaderboardOrder; label: string }[] = [
   { value: "sings", label: "sings" },
 ];
 
-/** What the rail has room for beside the QR code and the wishes. */
+/**
+ * The most the rail ranks beside the QR code and the wishes. All of them take
+ * part in sharing the rail's height out; on a TV too short for every one, the
+ * rows that do not fit whole wrap out of sight (`SessionLeaderboard.css`), so
+ * the standing always ends after a whole row.
+ */
 const MAX_ROWS = 5;
 
 /** Above this many rows the TV needs the tighter treatment to fit them. */

@@ -14,7 +14,7 @@ matched no player earns nothing, because Wingman does not know who that was.
 
 Everybody sees badges, and nobody needs a permission for that. Making them and
 switching them off takes the right to manage achievements, which Admin holds by
-default. See [Roles and permissions](../people/roles.md).
+default. See [Groups and permissions](../people/groups.md).
 
 ## Your badges on your own page
 
@@ -81,15 +81,15 @@ name, the day you earned it, and how many players hold it. If you are the only
 one, it says *First to earn it*. A badge you have not earned yet has no
 **Share**.
 
-![The share panel: the badge card with Fry's picture and the day, Square and Story under it, and the three symbols over their line](../assets/screenshots/achievements/achievement-share.png){ width="320" loading=lazy }
+![The share panel: the badge card with Fry's picture and the day, Square and Story under it, and the two symbols over their line](../assets/screenshots/achievements/achievement-share.png){ width="320" loading=lazy }
 /// caption
 A badge has one design, so there is nothing to swipe.
 ///
 
-Pick **Square** or **Story** under the picture. Of the three symbols, only the
-Wingman logo changes this card. The only picture on it is your own, and the
-day belongs to the badge, not to a party. The two faded symbols say so when
-you tap them. Saving and sending work as for a party card. See
+Pick **Square** or **Story** under the picture. Neither symbol changes this
+card, so both are faded and the line under them says so: the only picture on
+it is your own, and the day belongs to the badge, not to a party. Tap one to
+read why. Saving and sending work as for a party card. See
 [Save it or send it](../scores/party.md#save-it-or-send-it).
 
 ## The moment on the host screen
@@ -101,7 +101,9 @@ are done. One singer at a time: their picture and their name, and their badges
 flying in beside the name and the one-line description. At most four badges
 land in a row. Under each description stands how many players hold it now,
 the singer included. A badge only the singer holds reads *First to earn it*.
-Then the next singer, then the results as usual.
+Then the next singer, then the results as usual. Each badge flies in with a
+whoosh, unless the host switched the sound effects off. See
+[Sound effects](../host-screen/index.md#sound-effects).
 
 ![The host screen with Bender's picture and name over two badges, Eighties Marathon and Iron Lungs, each with its description and First to earn it](../assets/screenshots/achievements/host-achievements.png){ width="720" loading=lazy }
 /// caption

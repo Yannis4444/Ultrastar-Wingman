@@ -14,7 +14,7 @@ from pydantic import BaseModel, Field, StringConstraints, model_validator
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from ..auth.deps import HiddenSongsDep, Principal, PrincipalDep, require, tag_viewer
-from ..auth.permissions import UnknownRoleError
+from ..auth.permissions import NotAssignableError, UnknownGroupError
 from ..db import SessionDep
 from ..settings import SettingValue
 from ..songs.api import song_or_404
@@ -49,13 +49,14 @@ class TagPermissionInput(BaseModel):
     """One row: an action, and exactly one subject to grant it to."""
 
     action: TagAction
-    role: str | None = None
+    # A permission group's id (`GET /groups`), never Admin, which sees every tag by rule.
+    group_id: str | None = None
     user_id: str | None = None
 
     @model_validator(mode="after")
     def _exactly_one_subject(self) -> Self:
-        if (self.role is None) == (self.user_id is None):
-            raise ValueError("give exactly one of 'role' and 'user_id'")
+        if (self.group_id is None) == (self.user_id is None):
+            raise ValueError("give exactly one of 'group_id' and 'user_id'")
         return self
 
 
@@ -164,7 +165,10 @@ async def list_tag_assignments(
     dependencies=[Depends(require("tags.manage"))],
     responses={
         409: {"description": "A tag of that name already exists."},
-        422: {"description": "Unknown role or account, or a bad color or icon."},
+        422: {
+            "description": "Unknown group (`unknown_group`) or account, Admin as a subject "
+            "(`not_assignable`), or a bad color or icon."
+        },
     },
 )
 async def create_tag(body: TagCreate, session: SessionDep, principal: PrincipalDep) -> TagRead:
@@ -180,8 +184,8 @@ async def create_tag(body: TagCreate, session: SessionDep, principal: PrincipalD
         )
     except service.DuplicateTagNameError as error:
         raise HTTPException(status_code=409, detail="duplicate_tag_name") from error
-    except (UnknownRoleError, service.UnknownUserError) as error:
-        raise HTTPException(status_code=422, detail=str(error)) from error
+    except (NotAssignableError, UnknownGroupError, service.UnknownUserError) as error:
+        raise _subject_refusal(error) from error
     return await service.read_tag(session, tag, tag_viewer(principal), _manages(principal))
 
 
@@ -214,7 +218,13 @@ async def update_tag(
     "/tags/{tag_id}/permissions",
     response_model=TagRead,
     dependencies=[Depends(require("tags.manage"))],
-    responses={**UNKNOWN_TAG, 422: {"description": "Unknown role or account."}},
+    responses={
+        **UNKNOWN_TAG,
+        422: {
+            "description": "Unknown group (`unknown_group`) or account, or Admin as a subject "
+            "(`not_assignable`)."
+        },
+    },
 )
 async def replace_tag_permissions(
     tag_id: str, body: TagPermissionsUpdate, session: SessionDep, principal: PrincipalDep
@@ -224,8 +234,8 @@ async def replace_tag_permissions(
     tag = await _tag_or_404(tag_id, session)
     try:
         await service.replace_permissions(session, tag, _specs(body.permissions))
-    except (UnknownRoleError, service.UnknownUserError) as error:
-        raise HTTPException(status_code=422, detail=str(error)) from error
+    except (NotAssignableError, UnknownGroupError, service.UnknownUserError) as error:
+        raise _subject_refusal(error) from error
     return await service.read_tag(session, tag, tag_viewer(principal), _manages(principal))
 
 
@@ -305,9 +315,19 @@ def _options(body: BuiltInTagUpdate) -> dict[str, SettingValue]:
 
 def _specs(rows: list[TagPermissionInput]) -> list[service.PermissionSpec]:
     return [
-        service.PermissionSpec(action=row.action, role=row.role, user_id=row.user_id)
+        service.PermissionSpec(action=row.action, group_id=row.group_id, user_id=row.user_id)
         for row in rows
     ]
+
+
+def _subject_refusal(error: Exception) -> HTTPException:
+    """A permission row naming a subject that cannot have one: the membership slugs for a
+    group (permission-groups.md §5.1), the message for an account, as before."""
+    if isinstance(error, NotAssignableError):
+        return HTTPException(status_code=422, detail="not_assignable")
+    if isinstance(error, UnknownGroupError):
+        return HTTPException(status_code=422, detail="unknown_group")
+    return HTTPException(status_code=422, detail=str(error))
 
 
 async def _tag_or_404(tag_id: str, session: AsyncSession) -> Tag:

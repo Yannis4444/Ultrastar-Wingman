@@ -1,0 +1,14 @@
+/* The playlist row's square (§4): `--input-bg` under a `--color-darker`
+   glyph, because a group has no colour of its own to show. */
+.group-square {
+  display: flex;
+  flex: 0 0 auto;
+  align-items: center;
+  justify-content: center;
+  width: 40px;
+  height: 40px;
+  font-size: 1.25em;
+  color: var(--color-darker);
+  background-color: var(--input-bg);
+  border-radius: var(--border-radius-small);
+}

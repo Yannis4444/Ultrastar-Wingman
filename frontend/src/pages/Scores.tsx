@@ -588,8 +588,7 @@ export default function Scores() {
       <div className="scores-page">
         <h1 className="visually-hidden">Scores</h1>
         <p className="scores-notice">
-          Statistics are not open to your role. Log in or ask the host for
-          access.
+          Statistics are not open to you. Log in or ask the host for access.
         </p>
       </div>
     );
@@ -678,7 +677,7 @@ export default function Scores() {
   );
 
   return (
-    <div className="scores-page">
+    <div className="scores-page page-foot">
       {/* The bottom nav already names the page; the heading stays for the
           document outline and for screen readers. */}
       <h1 className="visually-hidden">Scores</h1>

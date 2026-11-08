@@ -93,8 +93,9 @@
   text-overflow: ellipsis;
 }
 
-/* The second line every row in the app has: the meta voice. */
-.user-identity-role {
+/* The second line every row in the app has: the meta voice. The groups'
+   names as the host typed them, so no case is forced on them. */
+.user-identity-groups {
   max-width: 100%;
   margin: 0;
   font-size: 0.85em;
@@ -103,11 +104,6 @@
   overflow: hidden;
   white-space: nowrap;
   text-overflow: ellipsis;
-}
-
-/* The bare role id ("admin") reads as a word. */
-.user-identity-role:first-letter {
-  text-transform: uppercase;
 }
 
 /* `.button` with its height declared: 18 + 2 × 10 of padding + the hairline

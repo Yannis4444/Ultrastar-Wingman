@@ -19,6 +19,7 @@ import {
   onAudioState,
   resumeAudio,
   route,
+  setEffectsLevel,
   setLoudness,
 } from "../musicGraph";
 
@@ -380,6 +381,19 @@ function ActiveSink() {
       reel.volume = levelOf(reel, previewVolume, previewFactorRef.current);
     }
   }, [volume, previewVolume, shouldPlay, trackFactor]);
+
+  // The sound effects' level (`sfx.ts`): master × effects while the host has
+  // them on, and nothing on a tab without the lease — the screen that makes
+  // the music is the one that makes the effects, so a second host tab never
+  // ticks a beat behind the TV. Zero again when the sink goes.
+  const effectsLevel =
+    holding && state?.sound_effects === true
+      ? effectiveVolume(state.volume.master, state.volume.effects)
+      : 0;
+  useEffect(() => {
+    setEffectsLevel(effectsLevel);
+  }, [effectsLevel]);
+  useEffect(() => () => setEffectsLevel(0), []);
 
   // --- the song being picked, any selection's --------------------------------
 

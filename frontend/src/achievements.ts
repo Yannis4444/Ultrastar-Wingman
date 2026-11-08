@@ -323,11 +323,49 @@ export function conditionHasProgress(condition: Condition): boolean {
   return conditionTarget(condition) !== null;
 }
 
-/** The two ways a selector's clauses are put together. */
-export const COMBINE_LABELS: Record<"all" | "any", string> = {
+/** The two ways a list is put together: a selector's clauses, and an
+ *  achievement's conditions (`AchievementRead.combine`). */
+export type Combine = "all" | "any";
+
+/** The two ways a selector's clauses — or an achievement's conditions — are
+ *  put together, in the order the select offers them. */
+export const COMBINES: readonly Combine[] = ["all", "any"];
+
+export const COMBINE_LABELS: Record<Combine, string> = {
   all: "All of them",
   any: "Any of them",
 };
+
+/** How many conditions it takes before there is anything to combine: one
+ *  condition holds or not, whichever way it would be put together with
+ *  others, so the builder draws its *All of them / Any of them* select from
+ *  two on. */
+export const COMBINE_FROM = 2;
+
+/** Whether an achievement's conditions are effectively combined as `any`: the
+ *  stored word, and enough conditions for it to mean anything. A saved `any`
+ *  over a single condition reads — and is earned — exactly as `all`. */
+export function combinesAsAny(combine: Combine, count: number): boolean {
+  return combine === "any" && count >= COMBINE_FROM;
+}
+
+/**
+ * The note under the editor's *Conditions* heading: what has to hold before
+ * anybody earns it. A built-in's conditions are Wingman's, so its note says so
+ * as well — and every shipped achievement asks for all of them.
+ */
+export function conditionsNote(
+  combine: Combine,
+  count: number,
+  builtIn: boolean,
+): string {
+  const rule = combinesAsAny(combine, count)
+    ? "Any one of them is enough: whoever meets one of these earns it."
+    : "All of them have to hold before anybody earns it.";
+  return builtIn
+    ? `${rule} What one of Wingman's own achievements asks for cannot be changed. The same badge means the same thing at every party. Reset below puts everything else back too.`
+    : rule;
+}
 
 /** The song fields a selector clause may ask about — `SongRead`'s own (§the
  *  song selector), in the order the song details list names them. */
@@ -678,11 +716,22 @@ function songWords(condition: Condition): string {
  * whose ends are the wrong way round is spelled out as written, because the
  * point of the sentence is to make exactly that visible (`conditionProblem` is
  * what names it as a mistake).
+ *
+ * `alternative` is for every condition after the first of an achievement whose
+ * conditions combine as *any of them*: the sentence starts *"Or, …"*, so the
+ * headings read down the list as the alternatives they are rather than as
+ * things that all have to come true.
  */
-export function conditionSentence(condition: Condition): string {
+export function conditionSentence(
+  condition: Condition,
+  alternative = false,
+): string {
   const scope =
     (condition.scope ?? "global") === "session"
-      ? "In one party, "
-      : "Over all time, ";
-  return `${scope}${measured(condition)}${songWords(condition)}.`;
+      ? "in one party, "
+      : "over all time, ";
+  const opening = alternative
+    ? `Or, ${scope}`
+    : `${scope.charAt(0).toUpperCase()}${scope.slice(1)}`;
+  return `${opening}${measured(condition)}${songWords(condition)}.`;
 }
