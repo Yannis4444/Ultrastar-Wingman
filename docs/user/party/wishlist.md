@@ -59,6 +59,11 @@ A wish is a vote in two places.
 Starting a song takes it off the wishlist for everybody, whoever wished for it
 and whoever sings it.
 
+Somebody who went home and was hidden from the singer picker takes their wishes
+with them. They are off the list and out of the reel until that player is shown
+again or logs in. Their own phone still marks them. See
+[Take somebody out of the picker](../people/players.md#take-somebody-out-of-the-picker).
+
 !!! note
     Made an account later in the evening? The wishes from that browser move over
     to your account when you log in. Nothing is lost.

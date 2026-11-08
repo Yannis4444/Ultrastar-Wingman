@@ -148,7 +148,7 @@ export default function PeopleAdmin() {
   });
 
   // Hiding is for the evening: it takes the player out of the singer picker and
-  // out of nothing else, and their next login clears it again.
+  // their account's wishes off the wishlist, and their next login clears it again.
   const setHidden = useMutation({
     ...updatePlayerMutation(),
     onSuccess: () => {
@@ -277,9 +277,9 @@ export default function PeopleAdmin() {
               </span>
             )}
           </span>
-          {/* Out of sight for the evening: gone from the singer picker and from
-              nothing else — the scores, the sessions and the statistics all keep
-              naming them, and logging in puts them back. */}
+          {/* Out of sight for the evening: gone from the singer picker, and their
+              account's wishes off the wishlist — the scores, the sessions and the
+              statistics all keep naming them, and logging in puts them back. */}
           {player !== null && mayManagePlayers && (
             <button
               type="button"

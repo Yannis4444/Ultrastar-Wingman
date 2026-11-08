@@ -205,8 +205,9 @@ class AchievementsChanged(Event):
 class WishlistUpdated(Event):
     """One song's wish count changed: somebody wished for it, took the wish back, or logged
     in and brought their guest wishes along — or the song started, or was taken off the
-    wishlist for everybody, or deleted, which drop every wish for it. `count` is 0 when the
-    last wish is gone."""
+    wishlist for everybody, or deleted, which drop every wish for it — or a wisher's player
+    was hidden or shown again, which takes their wish out of the count or puts it back.
+    `count` is what everybody's listing counts, and 0 when the last such wish is gone."""
 
     event: Literal["wishlist.updated"] = "wishlist.updated"
     song_id: str

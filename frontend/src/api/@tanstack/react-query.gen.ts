@@ -585,9 +585,11 @@ export const deletePlayerMutation = (options?: Partial<Options<DeletePlayerData>
  *
  * Hide a player for the evening, or show them again.
  *
- * Hidden takes them out of the singer picker and out of nothing else — the scoreboard, the
- * statistics and every past session still name them. The next time the account behind the
- * player logs in, the flag clears itself.
+ * Hidden takes them out of the singer picker, and their account's wishes out of the
+ * wishlist and every spin pool — the scoreboard, the statistics and every past session
+ * still name them. Every song the account wished for is announced as `wishlist.updated`.
+ * The next time the account behind the player logs in, the flag clears itself and the
+ * wishes are back.
  */
 export const updatePlayerMutation = (options?: Partial<Options<UpdatePlayerData>>): UseMutationOptions<UpdatePlayerResponse, UpdatePlayerError, Options<UpdatePlayerData>> => {
     const mutationOptions: UseMutationOptions<UpdatePlayerResponse, UpdatePlayerError, Options<UpdatePlayerData>> = {

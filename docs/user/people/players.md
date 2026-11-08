@@ -72,13 +72,16 @@ evening.
 Their name goes quiet and the eye grows a bar through it. Tap it again to bring
 them back.
 
-Hiding reaches the singer picker and nothing else. The scoreboard, the
-statistics, and every past party still name them, and their scores are
-untouched. A slot somebody set earlier does not bring them back either.
+Hiding reaches the singer picker and the wishlist. The wishes they made with
+their account leave the wishlist and the reel, and come back when they are shown
+again. Wishes made on a phone without an account belong to no player and stay.
+The scoreboard, the statistics, and every past party still name them, and their
+scores are untouched. A slot somebody set earlier does not bring them back
+either.
 
 !!! note
-    Logging in unhides you. A singer who comes back after all does not have to
-    ask anybody.
+    Logging in unhides you, and your wishes are back on the list. A singer who
+    comes back after all does not have to ask anybody.
 
 ## Roles
 

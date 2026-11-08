@@ -41,7 +41,8 @@ has landed.
 
 Weighted is the fair one for a full room. A song three people wished for has
 three times the chance of a song only one person wished for. Its line counts
-both numbers: the wished songs, and the wishes behind them. See
+both numbers: the wished songs, and the wishes behind them. The wishes of a
+player hidden from the singer picker are not among them. See
 [Wish for a song](wishlist.md).
 
 A choice with nothing behind it cannot be picked. That is both wishlist choices

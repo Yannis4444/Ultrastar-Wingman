@@ -11,8 +11,9 @@ class PlayerRead(BaseModel):
     id: str
     name: str
     registered: bool
-    # Out of the singer picker for the evening, and out of nothing else: the flag rides on
-    # every listing so the picker can drop the row while the scoreboard still draws it.
+    # Out of the singer picker for the evening — and the account's wishes out of the wishlist
+    # (`library.service._counted`) — and out of nothing else: the flag rides on every
+    # listing so the picker can drop the row while the scoreboard still draws it.
     hidden: bool
     has_avatar: bool
     # Replacing a picture changes neither the id, the avatar URL nor `has_avatar`, so this

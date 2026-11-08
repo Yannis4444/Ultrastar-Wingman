@@ -800,8 +800,9 @@ saved) where a jump to the top would throw away the place they were working in.
   again, the player keeps every score — *Guests* that a guest is taken over by whoever registers
   that name. A row's trailing controls run eye, role, delete. The `eye` / `eye-off`
   `.icon-button` (`aria-pressed`, `players.manage`) puts a player out of sight for the evening:
-  hidden means gone from player selection and from nothing else — scores, stats and past
-  sessions still name them — and the row draws its name in `--color-darker` while it lasts.
+  hidden means gone from player selection, and the account's wishes off the wishlist and out
+  of every spin, and from nothing else — scores, stats and past sessions still name them —
+  and the row draws its name in `--color-darker` while it lasts.
   Logging in unhides. An account single sign-on answers for (`auth_provider` `oidc`) carries
   one quiet line under its name, `.people-provider` (0.8em, `--color-darker`, truncated like
   the name, no glyph and no badge): *Signs in with* and the login button's `display_name`, or

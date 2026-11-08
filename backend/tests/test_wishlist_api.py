@@ -25,10 +25,13 @@ from test_songs_api import make_song
 from ultrastar_wingman.app import create_app
 from ultrastar_wingman.auth.deps import COOKIE_NAME, GUEST_COOKIE_MAX_AGE, GUEST_COOKIE_NAME
 from ultrastar_wingman.config import BootstrapSettings
+from ultrastar_wingman.karaoke import reel
 from ultrastar_wingman.library import service as library
 from ultrastar_wingman.library.model import Wish
+from ultrastar_wingman.players.model import Player
 from ultrastar_wingman.songs import scanner
 from ultrastar_wingman.songs.model import Song
+from ultrastar_wingman.tags import service as tags
 
 SONG = "usdb:1234"
 OTHER_SONG = "local:aaaa"
@@ -455,3 +458,240 @@ async def test_a_plain_account_may_not_clear_somebody_else_s_wish(
         assert refused.status_code == 403
         assert refused.json() == {"detail": "missing_permission:wishlist.manage"}
         assert len(await stored_wishes(app_with_songs)) == 1
+
+
+# A hidden player's wishes. Only an account's wish leads to a player (`Player.user_id`), so
+# these tests give an account a player of its own the way registering does.
+
+
+async def singer(app: FastAPI, username: str) -> tuple[AsyncClient, str]:
+    """A logged-in `user` account that sings as a player of its own, and that player's id."""
+    user_id = await add_user(factory(app), username, "user")
+    token = f"{username}-token"
+    await add_session(factory(app), token, user_id)
+    async with factory(app)() as session:
+        player = Player(name=username, registered=True, user_id=user_id)
+        session.add(player)
+        await session.commit()
+        player_id = player.id
+    client = AsyncClient(
+        transport=ASGITransport(app=app), base_url=BASE_URL, cookies={COOKIE_NAME: token}
+    )
+    return client, player_id
+
+
+async def set_hidden(admin: AsyncClient, player_id: str, hidden: bool) -> None:
+    response = await admin.patch(f"/api/v1/players/{player_id}", json={"hidden": hidden})
+    assert response.status_code == 200, response.text
+
+
+def listed(rows: list[dict[str, Any]]) -> list[tuple[str, int, bool]]:
+    return [(row["song"]["id"], row["count"], row["mine"]) for row in rows]
+
+
+def wishlist_updates(events: list[dict[str, object]]) -> list[tuple[object, object]]:
+    return [
+        (event["song_id"], event["count"])
+        for event in events
+        if event["event"] == "wishlist.updated"
+    ]
+
+
+async def test_a_hidden_player_s_wishes_leave_the_wishlist_until_they_are_shown_again(
+    app_with_songs: FastAPI,
+) -> None:
+    """Filtered, never deleted: showing the player again brings every wish back. A guest's
+    wish has no player behind it and is never touched."""
+    await authenticate_admin(app_with_songs)
+    alice, alice_player = await singer(app_with_songs, "alice")
+    async with alice, guest(app_with_songs) as browser, admin_client(app_with_songs) as admin:
+        await wish(alice, SONG)
+        await wish(alice, OTHER_SONG)
+        await wish(browser, OTHER_SONG)
+
+        await set_hidden(admin, alice_player, True)
+
+        assert listed(await wishes(browser)) == [(OTHER_SONG, 1, True)]
+        assert listed(await wishes(admin)) == [(OTHER_SONG, 1, False)]
+        # Her own phone still counts her own wishes, so it marks them and can take them back.
+        assert sorted(listed(await wishes(alice))) == [(OTHER_SONG, 2, True), (SONG, 1, True)]
+        assert len(await stored_wishes(app_with_songs)) == 3
+
+        await set_hidden(admin, alice_player, False)
+
+        assert listed(await wishes(browser)) == [(OTHER_SONG, 2, True), (SONG, 1, False)]
+
+
+async def test_a_hidden_player_can_still_take_their_own_wish_back(
+    app_with_songs: FastAPI,
+) -> None:
+    await authenticate_admin(app_with_songs)
+    alice, alice_player = await singer(app_with_songs, "alice")
+    async with alice, admin_client(app_with_songs) as admin:
+        await wish(alice, SONG)
+        await set_hidden(admin, alice_player, True)
+
+        assert (await alice.delete(f"/api/v1/wishlist/{SONG}")).status_code == 204
+        assert await stored_wishes(app_with_songs) == []
+
+
+async def test_a_hidden_player_s_new_wish_counts_for_them_and_for_nobody_else(
+    app_with_songs: FastAPI, broadcast_events: list[dict[str, object]]
+) -> None:
+    """The answer is the caller's own listing; the event is everybody's."""
+    await authenticate_admin(app_with_songs)
+    alice, alice_player = await singer(app_with_songs, "alice")
+    async with alice, guest(app_with_songs) as browser, admin_client(app_with_songs) as admin:
+        await wish(browser, SONG)
+        await set_hidden(admin, alice_player, True)
+        broadcast_events.clear()
+
+        created = await wish(alice, SONG)
+
+        assert (created["count"], created["mine"]) == (2, True)
+        assert wishlist_updates(broadcast_events) == [(SONG, 1)]
+
+
+async def test_hiding_and_showing_a_player_announce_the_songs_they_wished_for(
+    app_with_songs: FastAPI, broadcast_events: list[dict[str, object]]
+) -> None:
+    """`wishlist.updated` is what every phone's wishlist and reel refetch on, with the count
+    as everybody now counts it."""
+    await authenticate_admin(app_with_songs)
+    alice, alice_player = await singer(app_with_songs, "alice")
+    async with alice, guest(app_with_songs) as browser, admin_client(app_with_songs) as admin:
+        await wish(alice, SONG)
+        await wish(alice, OTHER_SONG)
+        await wish(browser, OTHER_SONG)
+        broadcast_events.clear()
+
+        await set_hidden(admin, alice_player, True)
+        assert wishlist_updates(broadcast_events) == [(OTHER_SONG, 1), (SONG, 0)]
+        broadcast_events.clear()
+
+        await set_hidden(admin, alice_player, False)
+        assert wishlist_updates(broadcast_events) == [(OTHER_SONG, 2), (SONG, 1)]
+
+
+async def test_a_hide_that_changes_nothing_announces_no_wishes(
+    app_with_songs: FastAPI, broadcast_events: list[dict[str, object]]
+) -> None:
+    """Hiding a hidden player, or showing a shown one, moves no count: no phone refetches."""
+    await authenticate_admin(app_with_songs)
+    alice, alice_player = await singer(app_with_songs, "alice")
+    async with alice, admin_client(app_with_songs) as admin:
+        await wish(alice, SONG)
+        broadcast_events.clear()
+
+        await set_hidden(admin, alice_player, False)
+        assert wishlist_updates(broadcast_events) == []
+
+        await set_hidden(admin, alice_player, True)
+        broadcast_events.clear()
+        await set_hidden(admin, alice_player, True)
+        assert wishlist_updates(broadcast_events) == []
+
+
+async def test_deleting_a_hidden_player_brings_their_account_s_wishes_back(
+    app_with_songs: FastAPI, broadcast_events: list[dict[str, object]]
+) -> None:
+    """Without a player row nothing names the account as hidden, so its wishes count again,
+    and every phone is told so."""
+    await authenticate_admin(app_with_songs)
+    alice, alice_player = await singer(app_with_songs, "alice")
+    async with alice, admin_client(app_with_songs) as admin:
+        await wish(alice, SONG)
+        await set_hidden(admin, alice_player, True)
+        assert await wishes(admin) == []
+        broadcast_events.clear()
+
+        assert (await admin.delete(f"/api/v1/players/{alice_player}")).status_code == 204
+
+        assert listed(await wishes(admin)) == [(SONG, 1, False)]
+        assert wishlist_updates(broadcast_events) == [(SONG, 1)]
+
+
+async def test_hiding_a_player_without_an_account_announces_no_wishes(
+    app_with_songs: FastAPI, broadcast_events: list[dict[str, object]]
+) -> None:
+    """A temporary player wishes as nobody: an anonymous phone's wish has a guest cookie
+    behind it and no player, so there is nothing of theirs to take out of the list."""
+    await authenticate_admin(app_with_songs)
+    async with guest(app_with_songs) as browser, admin_client(app_with_songs) as admin:
+        await wish(browser, SONG)
+        created = await admin.post("/api/v1/players", json={"name": "Bob"})
+        assert created.status_code == 201, created.text
+        broadcast_events.clear()
+
+        await set_hidden(admin, created.json()["id"], True)
+
+        assert wishlist_updates(broadcast_events) == []
+        assert listed(await wishes(browser)) == [(SONG, 1, True)]
+
+
+async def test_logging_in_brings_a_hidden_player_s_wishes_back(
+    app_with_songs: FastAPI, broadcast_events: list[dict[str, object]]
+) -> None:
+    await authenticate_admin(app_with_songs)
+    alice, alice_player = await singer(app_with_songs, "alice")
+    async with alice, guest(app_with_songs) as browser, admin_client(app_with_songs) as admin:
+        await wish(alice, SONG)
+        await set_hidden(admin, alice_player, True)
+        assert await wishes(admin) == []
+        broadcast_events.clear()
+
+        logged_in = await browser.post(
+            "/api/v1/auth/login", json={"username": "alice", "password": ADMIN_PASSWORD}
+        )
+
+        assert logged_in.status_code == 200, logged_in.text
+        assert listed(await wishes(admin)) == [(SONG, 1, False)]
+        assert wishlist_updates(broadcast_events) == [(SONG, 1)]
+
+
+async def test_no_spin_picks_from_a_hidden_player_s_wishes(
+    app_with_songs: FastAPI, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """The top wish (the selector's start button) and both wishlist scopes of the reel (the
+    TV's spin, the start button's random song, the background music) read the wishlist as
+    nobody in particular, so a hidden player's own wish is never in them."""
+    pools: list[list[str]] = []
+
+    def choice(candidates: list[str]) -> str:
+        pools.append(list(candidates))
+        return candidates[0]
+
+    monkeypatch.setattr(reel.random, "choice", choice)
+
+    async def top_and_pools() -> tuple[str | None, list[list[str]]]:
+        pools.clear()
+        async with factory(app_with_songs)() as session:
+            top = await reel.top_wish(session, tags.GUEST_VIEWER)
+            await reel.pick_song(session, "wishlist", tags.GUEST_VIEWER)
+            await reel.pick_song(session, "weighted", tags.GUEST_VIEWER)
+        return None if top is None else top.id, list(pools)
+
+    await authenticate_admin(app_with_songs)
+    alice, alice_player = await singer(app_with_songs, "alice")
+    friend = await account(app_with_songs, "friend")
+    async with alice, friend, guest(app_with_songs) as browser:
+        await wish(alice, SONG)
+        await wish(alice, THIRD_SONG)
+        await wish(friend, SONG)
+        # Last, so it wins a tie of counts on being the newer wish.
+        await wish(browser, OTHER_SONG)
+    # The pools as `pick_song` sorts them: local:aaaa, local:cccc, usdb:1234.
+    everybody = (
+        SONG,
+        [[OTHER_SONG, THIRD_SONG, SONG], [OTHER_SONG, THIRD_SONG, SONG, SONG]],
+    )
+
+    assert await top_and_pools() == everybody
+
+    async with admin_client(app_with_songs) as admin:
+        await set_hidden(admin, alice_player, True)
+    assert await top_and_pools() == (OTHER_SONG, [[OTHER_SONG, SONG], [OTHER_SONG, SONG]])
+
+    async with admin_client(app_with_songs) as admin:
+        await set_hidden(admin, alice_player, False)
+    assert await top_and_pools() == everybody

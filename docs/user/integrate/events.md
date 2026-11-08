@@ -58,7 +58,7 @@ API answers with. The OpenAPI document at
 | `players.changed` | A player was added, hidden or put back, deleted, or given a new picture, or an account that sings as one was created or deleted | None. Fetch `GET /players` again |
 | `achievements.earned` | A finished sing earned somebody a badge | `sing_id`, and `players`, one entry per player with the badges they earned. Each badge carries `holder_count`, how many players hold it after this song, the singer included |
 | `achievements.changed` | The catalog of achievements itself changed | None. Fetch `GET /achievements` again |
-| `wishlist.updated` | A song's wish count changed. Starting a song, taking it off the wishlist for everybody, or deleting it drops every wish for it, so `count` is 0 | `song_id`, `count`, and `latest`, the time of the newest wish or `null` |
+| `wishlist.updated` | A song's wish count changed. Starting a song, taking it off the wishlist for everybody, or deleting it drops every wish for it, so `count` is 0. Hiding a player or showing them again sends one for every song their account wished for | `song_id`, `count` (the wishes of hidden players left out), and `latest`, the time of the newest wish or `null` |
 | `playlists.changed` | A playlist was created, changed, shared, followed, copied, or deleted | `playlist_id`, or `null` when several changed at once |
 | `tags.changed` | A tag was created, edited, deleted, or had its permissions replaced | None. Fetch `GET /tags` again |
 | `song_tags.changed` | A tag was put on a song, or taken off one | `song_id`, `tag_id` |
