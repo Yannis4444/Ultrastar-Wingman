@@ -135,7 +135,7 @@ function partyContent(): PartyCardContent {
   });
 }
 
-function scoreRequest(logo: boolean): CardRequest {
+function scoreRequest(): CardRequest {
   return {
     kind: "score",
     content: scoreCard({
@@ -150,7 +150,7 @@ function scoreRequest(logo: boolean): CardRequest {
       otherPictures: true,
       partyNameAndDate: true,
     }),
-    options: { format: "square", look: "dark", logo },
+    options: { format: "square", look: "dark" },
   };
 }
 
@@ -170,7 +170,7 @@ test("the logo is drawn as it is: the picture itself, once, nothing composited i
   const { canvas, calls } = fakeCanvas();
   const images = imagesFor(null);
   const logo = images.get(LOGO_URL);
-  await paintCard(canvas, scoreRequest(true), images);
+  await paintCard(canvas, scoreRequest(), images);
   const drawn = calls.filter(
     (call) => call.method === "drawImage" && call.args[0] === logo,
   );
@@ -180,21 +180,9 @@ test("the logo is drawn as it is: the picture itself, once, nothing composited i
   expect(
     calls.some((call) => call.globalCompositeOperation !== "source-over"),
   ).toBe(false);
-  expect(texts(calls).map(textOf)).toContain("Ultrastar Wingman");
-});
-
-test("the logo off takes the logo and its words, and leaves the note", async () => {
-  const { canvas, calls } = fakeCanvas();
-  const images = imagesFor(null);
-  await paintCard(canvas, scoreRequest(false), images);
-  expect(
-    calls.some(
-      (call) =>
-        call.method === "drawImage" && call.args[0] === images.get(LOGO_URL),
-    ),
-  ).toBe(false);
   const words = texts(calls).map(textOf);
-  expect(words).not.toContain("Ultrastar Wingman");
+  expect(words).toContain("Ultrastar Wingman");
+  // The note on the same line as ever.
   expect(words.some((text) => text.startsWith("Friday karaoke · "))).toBe(true);
 });
 
@@ -213,7 +201,6 @@ test("a mosaic: one uniform scrim, no gradient, and every word and the logo over
         look: "mosaic",
         focus: "podium",
         under: "none",
-        logo: true,
       },
     },
     images,
@@ -292,7 +279,6 @@ test("a mosaic's cover cells are drawn at high smoothing, like every other pictu
         look: "mosaic",
         focus: "podium",
         under: "none",
-        logo: true,
       },
     },
     images,
@@ -315,7 +301,7 @@ function achievementRequest(content: AchievementCardContent): CardRequest {
   return {
     kind: "achievement",
     content,
-    options: { format: "square", logo: true },
+    options: { format: "square" },
   };
 }
 
@@ -386,7 +372,6 @@ test("on dark nothing is haloed and every word is painted once", async () => {
         look: "dark",
         focus: "podium",
         under: "strip",
-        logo: true,
       },
     },
     imagesFor(content),

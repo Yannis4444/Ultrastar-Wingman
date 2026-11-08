@@ -76,7 +76,7 @@ heading. Wingman draws a card of your whole record: your picture and name over
 worst score is never on a card. The button is there once you have four
 scores, or scores on two different songs.
 
-![The share panel over the Your scores page: Bender's card with his picture over All parties, his four figures and the bar chart, the next design peeking in, the dots under it with Square and Story beside them, and the three symbols over their line](../assets/screenshots/scores/stats-share.png){ width="320" loading=lazy }
+![The share panel over the Your scores page: Bender's card with his picture over All parties, his four figures and the bar chart, the next design peeking in, the dots under it with Square and Story beside them, and the two symbols over their line](../assets/screenshots/scores/stats-share.png){ width="320" loading=lazy }
 /// caption
 The gold bar holds Bender's best of 9,842.
 ///
@@ -93,7 +93,7 @@ Swipe the picture for the three designs:
 songs. A design that cannot be drawn yet keeps its place with a line saying
 why. With fewer than four scores, all of one song, none of them can be drawn,
 so there is no **Share my stats** yet. The rest of the panel works as it does
-for a party card: the shape, the three symbols, and the buttons. See
+for a party card: the shape, the two symbols, and the buttons. See
 [Share a party, a score, or a singer's stats](party.md#share-a-party-a-score-or-a-singers-stats).
 On your own card the pictures symbol is faded, because your own picture is
 always on it.

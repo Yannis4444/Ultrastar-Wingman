@@ -344,42 +344,25 @@ test("the checks themselves catch an overlap, a small text and a stray box", () 
 describe.each(SCORES)("the score card, %s", (_, content) => {
   test.each(
     FORMATS.flatMap((format) =>
-      (["dark", "cover"] as const).flatMap((look) =>
-        [true, false].map((logo) => [format, look, logo] as const),
-      ),
+      (["dark", "cover"] as const).map((look) => [format, look] as const),
     ),
-  )(
-    "%s %s, logo %s, keeps every region apart and readable",
-    (format, look, logo) => {
-      const options = resolveScoreOptions(content, { format, look, logo }, all);
-      checkLayout(layoutScoreCard(content, options, fakeMeasure), format);
-    },
-  );
+  )("%s %s keeps every region apart and readable", (format, look) => {
+    const options = resolveScoreOptions(content, { format, look }, all);
+    checkLayout(layoutScoreCard(content, options, fakeMeasure), format);
+  });
 });
 
-/** Every slide of the carousel in both formats, the logo on and off: what
- * the panel can ask a party card for. */
+/** Every slide of the carousel in both formats: what the panel can ask a
+ * party card for. */
 const PARTY_SLIDES = FORMATS.flatMap((format) =>
-  PARTY_DESIGNS.flatMap((design) =>
-    [true, false].map((logo) => ({ format, design, logo })),
-  ),
+  PARTY_DESIGNS.map((design) => [format, design] as const),
 );
 
 describe.each(PARTIES)("the party card, %s", (_, content) => {
-  test.each(
-    PARTY_SLIDES.map(
-      (slide) => [slide.format, slide.design, slide.logo, slide] as const,
-    ),
-  )(
-    "%s %s, logo %s, keeps every region apart and readable",
-    (format, _design, _logo, slide) => {
-      const options = resolvePartyOptions(
-        content,
-        slide.design,
-        slide.format,
-        slide.logo,
-        all,
-      );
+  test.each(PARTY_SLIDES)(
+    "%s %s keeps every region apart and readable",
+    (format, design) => {
+      const options = resolvePartyOptions(content, design, format, all);
       checkLayout(layoutPartyCard(content, options, fakeMeasure), format);
     },
   );
@@ -447,18 +430,16 @@ const PLAYERS: [string, PlayerCardContent][] = [
   ],
 ];
 
-/** Every slide of a player card in both formats, the logo on and off. */
+/** Every slide of a player card in both formats. */
 const PLAYER_SLIDES = FORMATS.flatMap((format) =>
-  PLAYER_DESIGNS.flatMap((design) =>
-    [true, false].map((logo) => [format, design, logo] as const),
-  ),
+  PLAYER_DESIGNS.map((design) => [format, design] as const),
 );
 
 describe.each(PLAYERS)("the player card, %s", (_, content) => {
   test.each(PLAYER_SLIDES)(
-    "%s %s, logo %s, keeps every region apart and readable",
-    (format, design, logo) => {
-      const options = resolvePlayerOptions(content, design, format, logo);
+    "%s %s keeps every region apart and readable",
+    (format, design) => {
+      const options = resolvePlayerOptions(content, design, format);
       checkLayout(layoutPlayerCard(content, options, fakeMeasure), format);
     },
   );
@@ -469,7 +450,7 @@ test("the player square sits where §9 puts it: the head, the numbers at 232, th
   for (const design of PLAYER_DESIGNS) {
     const layout = layoutPlayerCard(
       content,
-      { format: "square", focus: design, logo: true },
+      { format: "square", focus: design },
       fakeMeasure,
     );
     const avatar = layout.elements.find(
@@ -506,7 +487,7 @@ test("the player square sits where §9 puts it: the head, the numbers at 232, th
 test("the numbers are Sings, Songs, Best and Average, Best gold with no holder", () => {
   const layout = layoutPlayerCard(
     PLAYERS[0][1],
-    { format: "square", focus: "histogram", logo: true },
+    { format: "square", focus: "histogram" },
     fakeMeasure,
   );
   const labels = texts(layout, "numbers").filter((text) => /\D/.test(text));
@@ -524,7 +505,7 @@ test("the histogram is twenty bars at most 440 tall, the best's bar gold, on a b
   const content = PLAYERS[0][1];
   const layout = layoutPlayerCard(
     content,
-    { format: "square", focus: "histogram", logo: true },
+    { format: "square", focus: "histogram" },
     fakeMeasure,
   );
   const bars = layout.elements.filter(
@@ -546,7 +527,7 @@ test("the histogram is twenty bars at most 440 tall, the best's bar gold, on a b
     if (bar.kind === "rect") expect(bar.h).toBeGreaterThanOrEqual(8);
   const story = layoutPlayerCard(
     content,
-    { format: "story", focus: "histogram", logo: true },
+    { format: "story", focus: "histogram" },
     fakeMeasure,
   );
   const storyBars = story.elements.filter(
@@ -560,7 +541,7 @@ test("the histogram is twenty bars at most 440 tall, the best's bar gold, on a b
 test("the strip is the party card's, larger: Median over dots r 12, the best one gold", () => {
   const layout = layoutPlayerCard(
     PLAYERS[1][1],
-    { format: "square", focus: "strip", logo: true },
+    { format: "square", focus: "strip" },
     fakeMeasure,
   );
   expect(texts(layout, "strip")[0]).toMatch(/^Median \d+$/);
@@ -589,7 +570,7 @@ test.each(FORMATS)(
     );
     const layout = layoutPlayerCard(
       content,
-      { format, focus: "strip", logo: true },
+      { format, focus: "strip" },
       fakeMeasure,
     );
     checkLayout(layout, format);
@@ -686,7 +667,7 @@ test.each([
   "a dense party strip on %s grows into the room its region leaves, then draws smaller dots, never piled ones",
   (_, singers, format, head, most, r) => {
     const content = party(denseParty(singers), { partyNameAndDate: head });
-    const options = resolvePartyOptions(content, "strip", format, true, all);
+    const options = resolvePartyOptions(content, "strip", format, all);
     expect(options.under).toBe("strip");
     const layout = layoutPartyCard(content, options, fakeMeasure);
     checkLayout(layout, format);
@@ -711,7 +692,7 @@ test.each(FORMATS)(
     const content = party(cardParty(4, 2));
     const layout = layoutPartyCard(
       content,
-      resolvePartyOptions(content, "strip", format, true, all),
+      resolvePartyOptions(content, "strip", format, all),
       fakeMeasure,
     );
     const strip = stripOf(layout);
@@ -726,25 +707,15 @@ test.each(
     PLAYER_DESIGNS.map((design) => [format, design] as const),
   ),
 )(
-  "a player %s %s: the logo off takes the brand line and moves nothing else",
+  "a player %s %s carries the logo and its words, and the note on Songs alone",
   (format, focus) => {
-    const content = PLAYERS[0][1];
-    const on = layoutPlayerCard(
-      content,
-      { format, focus, logo: true },
+    const layout = layoutPlayerCard(
+      PLAYERS[0][1],
+      { format, focus },
       fakeMeasure,
     );
-    const off = layoutPlayerCard(
-      content,
-      { format, focus, logo: false },
-      fakeMeasure,
-    );
-    expect(off.elements.some((element) => element.kind === "logo")).toBe(false);
-    expect(texts(off).some((text) => text.includes("Wingman"))).toBe(false);
-    const rest = (layout: CardLayout) =>
-      layout.elements.filter((element) => element.region !== "brand");
-    expect(rest(off)).toEqual(rest(on));
-    expect(texts(off, "brand-note")).toEqual(
+    expectBrand(layout, format);
+    expect(texts(layout, "brand-note")).toEqual(
       focus === "songs" ? ["ranked by best score"] : [],
     );
   },
@@ -755,7 +726,7 @@ test("Songs lists five on a square and eight on a story, the top one gold", () =
   const rows = (format: CardFormat) =>
     layoutPlayerCard(
       content,
-      { format, focus: "songs", logo: true },
+      { format, focus: "songs" },
       fakeMeasure,
     ).elements.filter(
       (element) => element.kind === "image" && element.region === "songs",
@@ -766,7 +737,7 @@ test("Songs lists five on a square and eight on a story, the top one gold", () =
     expect(cover).toMatchObject({ w: 80, h: 80, radius: 0 });
   const square = layoutPlayerCard(
     content,
-    { format: "square", focus: "songs", logo: true },
+    { format: "square", focus: "songs" },
     fakeMeasure,
   );
   const golds = square.elements.filter(
@@ -782,13 +753,13 @@ test("with the line off the name stands alone, and the story's head is centred",
   const content = PLAYERS[5][1];
   const square = layoutPlayerCard(
     content,
-    { format: "square", focus: "histogram", logo: true },
+    { format: "square", focus: "histogram" },
     fakeMeasure,
   );
   expect(texts(square, "head")).toEqual(["Alice"]);
   const story = layoutPlayerCard(
     PLAYERS[0][1],
-    { format: "story", focus: "histogram", logo: true },
+    { format: "story", focus: "histogram" },
     fakeMeasure,
   );
   const avatar = story.elements.find(
@@ -801,7 +772,7 @@ test("a card with nothing to focus on is the head and the numbers alone", () => 
   const content = PLAYERS[2][1];
   const layout = layoutPlayerCard(
     content,
-    resolvePlayerOptions(content, "histogram", "square", true),
+    resolvePlayerOptions(content, "histogram", "square"),
     fakeMeasure,
   );
   expect(new Set(layout.elements.map((element) => element.region))).toEqual(
@@ -823,7 +794,7 @@ test("the dark score square sits where §4.1 puts it", () => {
   const content = SCORES[0][1];
   const layout = layoutScoreCard(
     content,
-    { format: "square", look: "dark", logo: true },
+    { format: "square", look: "dark" },
     fakeMeasure,
   );
   const cover = layout.elements.find((element) => element.kind === "image");
@@ -839,12 +810,12 @@ test("the dark score square sits where §4.1 puts it", () => {
 test("the score turns gold only for a new highscore", () => {
   const plain = layoutScoreCard(
     SCORES[0][1],
-    { format: "square", look: "dark", logo: true },
+    { format: "square", look: "dark" },
     fakeMeasure,
   );
   const record = layoutScoreCard(
     SCORES[2][1],
-    { format: "square", look: "dark", logo: true },
+    { format: "square", look: "dark" },
     fakeMeasure,
   );
   const colour = (layout: CardLayout) =>
@@ -862,7 +833,7 @@ test("the cover look blurs the song's own cover behind the card", () => {
   const content = SCORES[0][1];
   const layout = layoutScoreCard(
     content,
-    { format: "square", look: "cover", logo: true },
+    { format: "square", look: "cover" },
     fakeMeasure,
   );
   expect(layout.background).toEqual({ kind: "cover", url: content.cover.url });
@@ -872,7 +843,7 @@ test("the cover look blurs the song's own cover behind the card", () => {
   );
   const story = layoutScoreCard(
     content,
-    { format: "story", look: "cover", logo: true },
+    { format: "story", look: "cover" },
     fakeMeasure,
   );
   expect(story.elements.some((element) => element.region === "bar")).toBe(true);
@@ -883,11 +854,7 @@ test("a title never runs to a third line", () => {
   const content = SCORES[1][1];
   for (const format of FORMATS) {
     for (const look of ["dark", "cover"] as const) {
-      const layout = layoutScoreCard(
-        content,
-        { format, look, logo: true },
-        fakeMeasure,
-      );
+      const layout = layoutScoreCard(content, { format, look }, fakeMeasure);
       const lines = layout.elements.filter(
         (element) => element.kind === "text" && element.region === "title",
       );
@@ -907,7 +874,6 @@ test("ten singers: the podium, three rows and +4 more", () => {
       look: "dark",
       focus: "podium",
       under: "ranking",
-      logo: true,
     },
     fakeMeasure,
   );
@@ -929,7 +895,6 @@ test("fifty singers: three rows and +44 more, the spread seven rows and +43 more
       look: "dark",
       focus: "podium",
       under: "ranking",
-      logo: true,
     },
     fakeMeasure,
   );
@@ -941,7 +906,6 @@ test("fifty singers: three rows and +44 more, the spread seven rows and +43 more
       look: "dark",
       focus: "spread",
       under: "none",
-      logo: true,
     },
     fakeMeasure,
   );
@@ -953,7 +917,6 @@ test("fifty singers: three rows and +44 more, the spread seven rows and +43 more
       look: "dark",
       focus: "spread",
       under: "none",
-      logo: true,
     },
     fakeMeasure,
   );
@@ -970,7 +933,6 @@ test("one singer gets no podium: their picture large, their best the hero", () =
       look: "dark",
       focus: "podium",
       under: "strip",
-      logo: true,
     },
     fakeMeasure,
   );
@@ -987,7 +949,7 @@ test("a story's Podium draws the rows, its Strip the rows and the strip", () => 
   const story = (under: "ranking" | "strip", content = PARTIES[3][1]) =>
     layoutPartyCard(
       content,
-      { format: "story", look: "dark", focus: "podium", under, logo: true },
+      { format: "story", look: "dark", focus: "podium", under },
       fakeMeasure,
     );
   const has = (layout: CardLayout, region: string) =>
@@ -1015,7 +977,6 @@ test("the strip marks one gold score and says the median, not the best", () => {
       look: "dark",
       focus: "podium",
       under: "strip",
-      logo: true,
     },
     fakeMeasure,
   );
@@ -1039,7 +1000,6 @@ test("the spread is one row per singer under a one-line ranking", () => {
       look: "dark",
       focus: "spread",
       under: "none",
-      logo: true,
     },
     fakeMeasure,
   );
@@ -1061,7 +1021,6 @@ test("the spread is one row per singer under a one-line ranking", () => {
       look: "dark",
       focus: "spread",
       under: "none",
-      logo: true,
     },
     fakeMeasure,
   );
@@ -1077,7 +1036,6 @@ test("the spread boxes a singer from five scores on", () => {
       look: "dark",
       focus: "spread",
       under: "none",
-      logo: true,
     },
     fakeMeasure,
   );
@@ -1096,7 +1054,6 @@ test("the mosaic fills its grid by repeating the covers it has", () => {
       look: "mosaic",
       focus: "podium",
       under: "none",
-      logo: true,
     },
     fakeMeasure,
   );
@@ -1113,7 +1070,6 @@ test("the mosaic fills its grid by repeating the covers it has", () => {
       look: "mosaic",
       focus: "podium",
       under: "none",
-      logo: true,
     },
     fakeMeasure,
   );
@@ -1127,7 +1083,6 @@ test("the mosaic fills its grid by repeating the covers it has", () => {
       look: "mosaic",
       focus: "podium",
       under: "none",
-      logo: true,
     },
     fakeMeasure,
     (url) => url !== content.covers[0],
@@ -1149,7 +1104,7 @@ test.each(["square", "story"] as const)(
   (format) => {
     const layout = layoutPartyCard(
       party(cardParty(4, 2)),
-      { format, look: "mosaic", focus: "podium", under: "none", logo: true },
+      { format, look: "mosaic", focus: "podium", under: "none" },
       fakeMeasure,
     );
     if (layout.background.kind !== "mosaic") throw new Error("not a mosaic");
@@ -1172,7 +1127,6 @@ test("dark has no halo and keeps its #888 words", () => {
       look: "dark",
       focus: "podium",
       under: "none",
-      logo: true,
     },
     fakeMeasure,
   );
@@ -1181,7 +1135,7 @@ test("dark has no halo and keeps its #888 words", () => {
   expect(runColors(dark)).toContain(CARD_COLORS.textDarker);
   const score = layoutScoreCard(
     SCORES[0][1],
-    { format: "square", look: "cover", logo: true },
+    { format: "square", look: "cover" },
     fakeMeasure,
   );
   expect(score.halo).toBe(false);
@@ -1218,7 +1172,6 @@ test("a party's head is its name over the date and the singer count", () => {
       look: "dark",
       focus: "podium",
       under: "strip",
-      logo: true,
     },
     fakeMeasure,
   );
@@ -1235,7 +1188,6 @@ test("a party's head is its name over the date and the singer count", () => {
       look: "dark",
       focus: "podium",
       under: "strip",
-      logo: true,
     },
     fakeMeasure,
   );
@@ -1257,7 +1209,6 @@ test.each(["ranking", "strip"] as const)(
       look: "dark",
       focus: "podium",
       under,
-      logo: true,
     } as const;
     const on = layoutPartyCard(named, options, fakeMeasure);
     const off = layoutPartyCard(nameless, options, fakeMeasure);
@@ -1304,7 +1255,6 @@ test.each([
       look,
       focus: "podium",
       under: "none",
-      logo: true,
     } as const;
     const off = layoutPartyCard(content, options, fakeMeasure);
     expect(topOf(off, body) - topOf(off, "numbers")).toBeCloseTo(150);
@@ -1321,7 +1271,6 @@ test("the party's numbers say 1 Sing and 1 Song, never 1 Songs", () => {
     look: "dark",
     focus: "podium",
     under: "none",
-    logo: true,
   } as const;
   const one = layoutPartyCard(party(cardParty(1, 1)), options, fakeMeasure);
   expect(texts(one, "numbers")).toEqual(
@@ -1340,7 +1289,6 @@ test("with the name and date off the spread's line and rows move up by the head"
     look: "dark",
     focus: "spread",
     under: "none",
-    logo: true,
   } as const;
   const on = layoutPartyCard(named, options, fakeMeasure);
   const off = layoutPartyCard(nameless, options, fakeMeasure);
@@ -1361,7 +1309,6 @@ test.each(["podium", "spread"] as const)(
       look: "dark",
       focus,
       under: "none",
-      logo: true,
     } as const;
     const on = layoutPartyCard(named, options, fakeMeasure);
     const off = layoutPartyCard(nameless, options, fakeMeasure);
@@ -1381,54 +1328,40 @@ test.each(["podium", "spread"] as const)(
   },
 );
 
-test.each([
-  ["a score, square dark", SCORES[1][1], "square", "dark"],
-  ["a score, square cover", SCORES[1][1], "square", "cover"],
-] as const)(
-  "%s: the logo off takes the logo and the words and moves nothing else",
-  (_, content, format, look) => {
-    const on = layoutScoreCard(
-      content,
-      { format, look, logo: true },
-      fakeMeasure,
+/** One logo, at the brand's place and size, and its words beside it. */
+function expectBrand(layout: CardLayout, format: "square" | "story"): void {
+  const logos = layout.elements.filter((element) => element.kind === "logo");
+  expect(logos).toHaveLength(1);
+  const bottom = SAFE_AREA[format].bottom;
+  expect(logos[0]).toMatchObject({ x: 72, y: bottom - 48, size: 48 });
+  expect(texts(layout, "brand")).toEqual(["Ultrastar Wingman"]);
+}
+
+test.each(
+  FORMATS.flatMap((format) =>
+    (["dark", "cover"] as const).map((look) => [format, look] as const),
+  ),
+)(
+  "a score %s %s carries the logo and its words, with the party · date beside them on a square",
+  (format, look) => {
+    const layout = layoutScoreCard(SCORES[1][1], { format, look }, fakeMeasure);
+    expectBrand(layout, format);
+    expect(texts(layout, "brand-note")).toHaveLength(
+      format === "square" ? 1 : 0,
     );
-    const off = layoutScoreCard(
-      content,
-      { format, look, logo: false },
-      fakeMeasure,
-    );
-    expect(on.elements.some((element) => element.kind === "logo")).toBe(true);
-    expect(off.elements.some((element) => element.kind === "logo")).toBe(false);
-    expect(texts(off).some((text) => text.includes("Wingman"))).toBe(false);
-    const rest = (layout: CardLayout) =>
-      layout.elements.filter((element) => element.region !== "brand");
-    expect(rest(off)).toEqual(rest(on));
-    expect(texts(off, "brand-note")).toHaveLength(1);
   },
 );
 
-test.each(["square", "story"] as const)(
-  "a party %s: the logo off keeps the ranking note where it was",
-  (format) => {
-    const options = {
-      format,
-      look: "dark",
-      focus: "podium",
-      under: "ranking",
-    } as const;
-    const on = layoutPartyCard(named, { ...options, logo: true }, fakeMeasure);
-    const off = layoutPartyCard(
+test.each(PARTY_SLIDES)(
+  "a party %s %s carries the logo and its words, and the ranking note",
+  (format, design) => {
+    const layout = layoutPartyCard(
       named,
-      { ...options, logo: false },
+      resolvePartyOptions(named, design, format, all),
       fakeMeasure,
     );
-    expect(
-      off.elements.filter((element) => element.region === "brand"),
-    ).toEqual([]);
-    const rest = (layout: CardLayout) =>
-      layout.elements.filter((element) => element.region !== "brand");
-    expect(rest(off)).toEqual(rest(on));
-    expect(texts(off, "brand-note")).toEqual(["ranked by best score"]);
+    expectBrand(layout, format);
+    expect(texts(layout, "brand-note")).toEqual(["ranked by best score"]);
   },
 );
 
@@ -1452,25 +1385,18 @@ const ACHIEVEMENTS: [string, AchievementCardContent][] = [
   ["no sentence at all", achievementContent({ description: "" })],
 ];
 
-const ACHIEVEMENT_SLIDES = FORMATS.flatMap((format) =>
-  [true, false].map((logo) => ({ format, logo })),
-);
-
 describe.each(ACHIEVEMENTS)("the achievement card, %s", (_, content) => {
-  test.each(ACHIEVEMENT_SLIDES)(
-    "fits on a $format card, logo $logo",
-    ({ format, logo }) => {
-      const options = resolveAchievementOptions(format, logo);
-      // Both with the picture in and without it: one that did not decode is
-      // the plate, which takes the same box.
-      for (const loaded of [all, () => false]) {
-        checkLayout(
-          layoutAchievementCard(content, options, fakeMeasure, loaded),
-          format,
-        );
-      }
-    },
-  );
+  test.each(FORMATS)("fits on a %s card", (format) => {
+    const options = resolveAchievementOptions(format);
+    // Both with the picture in and without it: one that did not decode is
+    // the plate, which takes the same box.
+    for (const loaded of [all, () => false]) {
+      checkLayout(
+        layoutAchievementCard(content, options, fakeMeasure, loaded),
+        format,
+      );
+    }
+  });
 });
 
 function boxOf(layout: CardLayout, region: string): Box {
@@ -1495,7 +1421,7 @@ test("the achievement square sits where §10 puts it", () => {
       description:
         "Sing your very first song at a party, any song at all, and any score.",
     }),
-    { format: "square", logo: true },
+    { format: "square" },
     fakeMeasure,
   );
   const badge = layout.elements.find((element) => element.region === "badge");
@@ -1530,11 +1456,7 @@ test("without a picture the badge is its plate, a fifth rounded, the glyph half 
     ["square", 400],
     ["story", 560],
   ] as const) {
-    const layout = layoutAchievementCard(
-      content,
-      { format, logo: true },
-      fakeMeasure,
-    );
+    const layout = layoutAchievementCard(content, { format }, fakeMeasure);
     const badge = layout.elements.filter(
       (element) => element.region === "badge",
     );
@@ -1548,7 +1470,7 @@ test("without a picture the badge is its plate, a fifth rounded, the glyph half 
 test("a picture that did not arrive is drawn as the plate, never a letter", () => {
   const layout = layoutAchievementCard(
     achievementContent(PICTURED),
-    { format: "square", logo: true },
+    { format: "square" },
     fakeMeasure,
     () => false,
   );
@@ -1563,12 +1485,12 @@ test("a long name is one line, cut; a long description two lines on a square and
   const content = achievementContent(LONG_ACHIEVEMENT);
   const square = layoutAchievementCard(
     content,
-    { format: "square", logo: true },
+    { format: "square" },
     fakeMeasure,
   );
   const story = layoutAchievementCard(
     content,
-    { format: "story", logo: true },
+    { format: "story" },
     fakeMeasure,
   );
   for (const layout of [square, story]) {
@@ -1596,7 +1518,7 @@ test("a long name is one line, cut; a long description two lines on a square and
 test("the achievement story keeps the order in its safe area: the badge 560, the avatar 96", () => {
   const layout = layoutAchievementCard(
     achievementContent(PICTURED),
-    { format: "story", logo: true },
+    { format: "story" },
     fakeMeasure,
   );
   expect(boxOf(layout, "badge")).toMatchObject({ w: 560, h: 560 });
@@ -1609,26 +1531,13 @@ test("the achievement story keeps the order in its safe area: the badge 560, the
   expect(boxOf(layout, "badge").y).toBeGreaterThanOrEqual(SAFE_AREA.story.top);
 });
 
-test("with the logo off the achievement card loses the brand and nothing moves", () => {
+test("the achievement card carries the logo and its words, on Dark, with no note", () => {
   const content = achievementContent(PICTURED);
   for (const format of FORMATS) {
-    const on = layoutAchievementCard(
-      content,
-      { format, logo: true },
-      fakeMeasure,
-    );
-    const off = layoutAchievementCard(
-      content,
-      { format, logo: false },
-      fakeMeasure,
-    );
-    const rest = (layout: CardLayout) =>
-      layout.elements.filter((element) => element.region !== "brand");
-    expect(
-      off.elements.filter((element) => element.region === "brand"),
-    ).toEqual([]);
-    expect(rest(off)).toEqual(rest(on));
-    expect(on.background).toEqual({ kind: "dark" });
-    expect(on.halo).toBe(false);
+    const layout = layoutAchievementCard(content, { format }, fakeMeasure);
+    expectBrand(layout, format);
+    expect(texts(layout, "brand-note")).toEqual([]);
+    expect(layout.background).toEqual({ kind: "dark" });
+    expect(layout.halo).toBe(false);
   }
 });

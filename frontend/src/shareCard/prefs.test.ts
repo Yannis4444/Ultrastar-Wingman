@@ -4,23 +4,22 @@ beforeEach(() => window.localStorage.clear());
 
 test("nothing stored reads as the defaults", () => {
   expect(readPrefs()).toEqual(DEFAULT_PREFS);
-  // The Wingman logo is on until the reader takes it off, and a party opens
-  // on its Podium.
-  expect(DEFAULT_PREFS.logo).toBe(true);
+  // A party opens on its Podium.
   expect(DEFAULT_PREFS.partyDesign).toBe("podium");
 });
 
-test("what an older build wrote, without the logo, reads with the logo on", () => {
+test("an older build's logo choice is read as nothing: the logo is on every card", () => {
   window.localStorage.setItem(
     PREFS_KEY,
-    JSON.stringify({ format: "story", partyNameAndDate: false }),
+    JSON.stringify({ format: "story", partyNameAndDate: false, logo: false }),
   );
-  expect(readPrefs()).toEqual({
+  const prefs = readPrefs();
+  expect(prefs).toEqual({
     ...DEFAULT_PREFS,
     format: "story",
     partyNameAndDate: false,
-    logo: true,
   });
+  expect(prefs).not.toHaveProperty("logo");
 });
 
 test("an older build's party look carries over, and its only-me is dropped", () => {
@@ -41,7 +40,6 @@ test("what was written is what is read back", () => {
     playerDesign: "songs",
     otherPictures: false,
     partyNameAndDate: false,
-    logo: false,
   } as const;
   writePrefs(prefs);
   expect(readPrefs()).toEqual(prefs);
@@ -72,7 +70,7 @@ test("a value this build does not know falls back alone", () => {
     JSON.stringify({
       format: "portrait",
       partyDesign: "mosaic",
-      logo: "off",
+      otherPictures: "off",
     }),
   );
   expect(readPrefs()).toEqual({ ...DEFAULT_PREFS, partyDesign: "mosaic" });

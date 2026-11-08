@@ -37,9 +37,6 @@ export type UnderPodium = "ranking" | "strip" | "none";
 export interface ScoreCardOptions {
   format: CardFormat;
   look: ScoreLook;
-  /** *Wingman logo*: the logo and its words at the foot (§1.8). Off, both
-   * go and the note beside them stays where it was. */
-  logo: boolean;
 }
 
 export interface PartyCardOptions {
@@ -47,8 +44,6 @@ export interface PartyCardOptions {
   look: PartyLook;
   focus: PartyFocus;
   under: UnderPodium;
-  /** As on a score card. */
-  logo: boolean;
 }
 
 /** What a player card is built around (share-cards §9): one of its three
@@ -59,16 +54,12 @@ export type PlayerFocus = "histogram" | "strip" | "songs" | "none";
 export interface PlayerCardOptions {
   format: CardFormat;
   focus: PlayerFocus;
-  /** As on a score card. */
-  logo: boolean;
 }
 
-/** An achievement card has one design and nothing to choose but these two
+/** An achievement card has one design and nothing to choose but its format
  * (share-cards §10). */
 export interface AchievementCardOptions {
   format: CardFormat;
-  /** As on a score card. */
-  logo: boolean;
 }
 
 /** The app's tokens (`index.css`), as the canvas needs them: literal colours. */
@@ -408,34 +399,26 @@ const BRAND_WORDS = [run("Ultrastar Wingman", CARD_COLORS.textDarker)];
 
 /**
  * The Wingman logo and its words bottom left, and `note` at the right of the
- * same line — the party · date of a score, or what a party is ranked by.
- * Without `logo` the logo and the words go and the note is fitted exactly as
- * beside them, so nothing on the card moves (§4.1).
+ * same line — the party · date of a score, or what a party is ranked by. On
+ * every card of every kind (§1.8): it is not an option.
  */
-function brand(
-  b: Builder,
-  bottom: number,
-  note: string | null,
-  logo: boolean,
-): void {
+function brand(b: Builder, bottom: number, note: string | null): void {
   const top = bottom - BRAND_LOGO;
   const wordsLeft = MARGIN + BRAND_LOGO + 16;
-  if (logo) {
-    b.push({
-      kind: "logo",
-      region: "brand",
-      x: MARGIN,
-      y: top,
-      size: BRAND_LOGO,
-    });
-    b.text(
-      "brand",
-      BRAND_WORDS,
-      MIN_BRAND_TEXT,
-      wordsLeft,
-      top + (BRAND_LOGO - lineHeight(MIN_BRAND_TEXT)) / 2,
-    );
-  }
+  b.push({
+    kind: "logo",
+    region: "brand",
+    x: MARGIN,
+    y: top,
+    size: BRAND_LOGO,
+  });
+  b.text(
+    "brand",
+    BRAND_WORDS,
+    MIN_BRAND_TEXT,
+    wordsLeft,
+    top + (BRAND_LOGO - lineHeight(MIN_BRAND_TEXT)) / 2,
+  );
   if (note === null) return;
   const wordsRight = wordsLeft + b.width(BRAND_WORDS, MIN_BRAND_TEXT);
   const room = RIGHT - (wordsRight + 32);
@@ -594,11 +577,7 @@ function singerRow(
 
 /** §4.1: the cover beside the title, the score big at the left, the bar, the
  * singer, the brand with party · date at the right. */
-function scoreDarkSquare(
-  b: Builder,
-  content: ScoreCardContent,
-  logo: boolean,
-): void {
+function scoreDarkSquare(b: Builder, content: ScoreCardContent): void {
   const cover = 216;
   b.image(
     "cover",
@@ -648,7 +627,7 @@ function scoreDarkSquare(
   const flagW = flagWidth(b, content);
   singerRow(b, content, 730, MARGIN, CONTENT - (flagW > 0 ? flagW + 32 : 0));
   if (flagW > 0) flag(b, content, RIGHT - flagW, 730 + AVATAR / 2);
-  brand(b, 1080 - MARGIN, content.eyebrow, logo);
+  brand(b, 1080 - MARGIN, content.eyebrow);
 }
 
 interface StackItem {
@@ -698,7 +677,6 @@ function scoreCentred(
   b: Builder,
   content: ScoreCardContent,
   format: CardFormat,
-  logo: boolean,
 ): void {
   const story = format === "story";
   const area = SAFE_AREA[format];
@@ -834,7 +812,7 @@ function scoreCentred(
   });
 
   stack(items, area.top, brandTop - 40, story ? 440 : 300, story ? 280 : 180);
-  brand(b, area.bottom, story ? null : content.eyebrow, logo);
+  brand(b, area.bottom, story ? null : content.eyebrow);
 }
 
 // ---------------------------------------------------------------------------
@@ -1668,7 +1646,7 @@ function partySquare(
     numbers(b, content.numbers, numbersTop);
     rankingLine(b, content, bodyTop - 10);
     spread(b, content, bodyTop + 68, bodyBottom, 96);
-    brand(b, 1080 - MARGIN, content.rankingNote, options.logo);
+    brand(b, 1080 - MARGIN, content.rankingNote);
     return;
   }
 
@@ -1732,7 +1710,7 @@ function partySquare(
         place: placeUnder,
       });
     stack(items, MARGIN, bodyBottom, 0, 0);
-    brand(b, 1080 - MARGIN, content.rankingNote, options.logo);
+    brand(b, 1080 - MARGIN, content.rankingNote);
     return;
   }
 
@@ -1754,7 +1732,7 @@ function partySquare(
     podium(b, content, bodyTop + Math.max(0, (space - PODIUM_HEIGHT) / 2));
   }
   placeUnder(underTop);
-  brand(b, 1080 - MARGIN, content.rankingNote, options.logo);
+  brand(b, 1080 - MARGIN, content.rankingNote);
 }
 
 function partyStory(
@@ -1840,7 +1818,7 @@ function partyStory(
     }
   }
   stack(items, area.top, bottom, 0, 0);
-  brand(b, area.bottom, content.rankingNote, options.logo);
+  brand(b, area.bottom, content.rankingNote);
 }
 
 // ---------------------------------------------------------------------------
@@ -2182,7 +2160,7 @@ function playerSquare(
     options,
     PLAYER_SQUARE.focusTop + Math.max(0, (room - height) / 2),
   );
-  brand(b, 1080 - MARGIN, playerNote(options), options.logo);
+  brand(b, 1080 - MARGIN, playerNote(options));
 }
 
 function playerStory(
@@ -2230,7 +2208,7 @@ function playerStory(
     PLAYER_STORY.avatarMax,
     PLAYER_STORY.avatarMin,
   );
-  brand(b, area.bottom, playerNote(options), options.logo);
+  brand(b, area.bottom, playerNote(options));
 }
 
 // ---------------------------------------------------------------------------
@@ -2354,7 +2332,6 @@ function achievementColumn(
   b: Builder,
   content: AchievementCardContent,
   format: CardFormat,
-  logo: boolean,
   loaded: (url: string) => boolean,
 ): void {
   const n = ACHIEVEMENT[format];
@@ -2449,7 +2426,7 @@ function achievementColumn(
   // other cards.
   const bottom = area.bottom - BRAND_LOGO - (format === "story" ? 40 : 24);
   stack(items, area.top, bottom, 0, 0);
-  brand(b, area.bottom, null, logo);
+  brand(b, area.bottom, null);
 }
 
 /**
@@ -2485,9 +2462,9 @@ export function layoutScoreCard(
 ): CardLayout {
   const b = new Builder(measure);
   if (options.format === "square" && options.look === "dark") {
-    scoreDarkSquare(b, content, options.logo);
+    scoreDarkSquare(b, content);
   } else {
-    scoreCentred(b, content, options.format, options.logo);
+    scoreCentred(b, content, options.format);
   }
   return {
     width: CARD_WIDTH,
@@ -2533,7 +2510,7 @@ export function layoutAchievementCard(
   loaded: (url: string) => boolean = () => true,
 ): CardLayout {
   const b = new Builder(measure);
-  achievementColumn(b, content, options.format, options.logo, loaded);
+  achievementColumn(b, content, options.format, loaded);
   return {
     width: CARD_WIDTH,
     height: CARD_HEIGHT[options.format],

@@ -48,13 +48,16 @@ on the second (11 to 14):
    - The test page's own log recorded nothing, so *which* path worked was not captured. It
      was either the long-press menu on the picture or the download.
    - §7.8 is about confirming that per platform.
-8. **The Wingman logo is drawn as it is**, in its own colours, and is a toggle, on by default (§4.1).
+8. **The Wingman logo is drawn as it is**, in its own colours, on every card (§4.1). It
+   started as a toggle, on by default; on 2026-11-08 the user took the option away — the
+   logo is always on the card.
 9. **The panel is redone**: the formats as two icons, the designs swiped through with dots (§5).
 10. **A party card's head is never the singer count**, and Mosaic text sits on no opaque band (§3.1, §4.2).
 11. **The panel is a bare modal with no heading**, the long-press hint above the picture, the
     formats beside the dots without a button border, and options that guide the eye instead
     of a list to read through — a logo button greyed or struck out when pressed being the
-    user's own example (§5; how the options became one fixed row of icon toggles is §7.11).
+    user's own example (§5; how the options became one fixed row of icon toggles is §7.11;
+    the logo button itself went with decision 8's change).
 12. **A score is shared from its sing**: a score row opens the sing view, and its Share
     button is the way in. A score group carries no *Share a score* (§8).
 13. **A player's stats are a card**, for one party and for a whole record (§9).
@@ -174,7 +177,7 @@ numbers below are what it draws.
 | 576 | the rating word, 44 bold, blue |
 | 660 | a 24 px bar on `--input-bg` with the pink fill over 0–10000, radius 8 (the bar of `LastSong`) |
 | 730–850 | the avatar 120 (radius 20%); the name 48 bold; the place and the others of the sing 36 in `#ccc`. Right: the trophy and *New Highscore* at 40 bold in gold, or `arrow-up` and *Personal best* at 40 bold in blue |
-| 960–1008 | the logo 48, drawn as it is (a plain `drawImage`, never the grey `source-in` mark), and *Ultrastar Wingman* 28 in `#888`; party · date at 32 in `#888` at the right of the same line. With *Wingman logo* off the logo and the words go, the note stays, and nothing moves |
+| 960–1008 | the logo 48, drawn as it is (a plain `drawImage`, never the grey `source-in` mark), and *Ultrastar Wingman* 28 in `#888`; party · date at 32 in `#888` at the right of the same line |
 
 **Cover** centres everything: the cover up to 300 with a shadow, the title (52 → 44), the
 artist, the score at 200, the rating word with the flag beside it on the same line, then the
@@ -277,17 +280,17 @@ achievement* is the dialog's accessible name only. Top to bottom, one centred co
    named *Square* / *Story*. The row is one centred group; an achievement's single slide
    draws no arrows, dots or rule, and the pair stands alone in the middle.
 4. **The design's name**, 0.85em `--color-dark`, under the row.
-5. **The options row**: the same three icon toggles, in the same order, on every slide of
-   every card kind — *Other singers' pictures* (`image`), *Party name and date*
-   (`calendar`), *Wingman logo* (the app's own `/logo.png` at 24px, the one toggle whose
-   glyph is a picture: off, it goes grey and to half opacity under the bar) — each one
+5. **The options row**: the same two icon toggles, in the same order, on every slide of
+   every card kind — *Other singers' pictures* (`image`) and *Party name and date*
+   (`calendar`); the Wingman logo is no option (decision 8) — each one
    ui-guidelines §4's `.icon-toggle`, 40px boxes 8px apart in one centred row. A toggle the slide in view cannot honour is dimmed in
    place (`aria-disabled`), never removed and never renamed: it keeps drawing the state the
    reader left it in, which the slides that honour it still use, and a press on it changes
    nothing and says why in the line below.
 6. **The line**: one `.section-note`, centred, two lines tall whatever it holds,
    `aria-live="polite"`. At rest it reads *Press a symbol to take it off the card or put it
-   back.*; once a toggle is pressed, focused, or hovered by a mouse (`pointerType` `mouse`
+   back.* — or, on a slide that honours neither toggle (§10's), *Neither symbol changes this
+   card. Press one to see why.*; once a toggle is pressed, focused, or hovered by a mouse (`pointerType` `mouse`
    alone, so a tap's emulated hover is not a second trigger) it reads that toggle's sentence
    for the state it is in now, or its reason where it is dimmed. It keeps the last toggle's
    sentence — a pointer leaving never puts the rest line back — and re-reads it for the slide
@@ -308,24 +311,24 @@ achievement* is the dialog's accessible name only. Top to bottom, one centred co
    +--------------------------------------+ +---
         <   *  o  o  o  o   >  |  [#] [|]
                      Podium
-               [img]  [cal]  [logo]
+                  [img]  [cal]
      Press a symbol to take it off the card or put it back.
    [      Save image      ] [      ^ Share      ]
 ```
 
 ```
- the options row, logo pressed off
-     +------+   +------+   +------+
-     | img  |   | cal  |   |  \   |      on: --color glyph
-     |      |   |      |   | logo |      off: --color-darkerer, struck
-     +------+   +------+   +--\---+      dimmed: 40% under its own state
-          The Wingman logo is left off.
+ the options row, the party name and date pressed off
+       +------+   +------+
+       | img  |   |  \   |      on: --color glyph
+       |      |   | cal  |      off: --color-darkerer, struck
+       +------+   +--\---+      dimmed: 40% under its own state
+     The party's name and date are left off.
 ```
 
 The toggles' sentences, on · off: *Other singers' pictures are on the card.* · *Other singers
 are drawn as their initials.*; *The party's name and date are on the card.* · *The party's
 name and date are left off.* (on a player card: *The party line is on the card.* · *…is
-left off.*); *The Wingman logo is on the card.* · *The Wingman logo is left off.* Dimmed:
+left off.*). Dimmed:
 *Nobody else is on this card.* (pictures, wherever the only face is the sharer's — their own
 score, *You*, a party they sang alone, their own stats, an achievement), *The spread draws
 names, not pictures.* (pictures on *Spread*, which draws no face at all) and *An achievement
@@ -416,11 +419,12 @@ move to.
     (`SHARE_TOGGLES`, `scoreSlideToggles`, `partySlideToggles`, `playerSlideToggles`,
     `achievementSlideToggles` — pictures and date dimmed, `NO_PARTY` the date's reason —,
     `toggleSentence` — the card kind its fourth argument, for a player's *party line* —,
-    `TOGGLES_REST`), `resolvePartyOptions` turning a slide into what is drawn and
+    `TOGGLES_REST`, and `togglesRest`, which rests on `TOGGLES_NONE` where every toggle
+    is dimmed), `resolvePartyOptions` turning a slide into what is drawn and
     `settlePartyOptions` asking that again of the pictures that decoded (`draw.ts`), never
     swapping what stands under the podium for the other, `resolvePlayerOptions` turning a
-    design the card cannot take into `none`, and `resolveAchievementOptions` (the format
-    and the logo, all there is);
+    design the card cannot take into `none`, and `resolveAchievementOptions` (the format,
+    all there is);
   - `draw.ts` — `renderCard(request, images) → Promise<Blob>`, the seam for the panel:
     `images` maps each URL the content names (and `LOGO_URL`) to an `HTMLImageElement` the
     caller loaded from Wingman's own origin; a missing or broken one draws as its letter —
@@ -434,8 +438,9 @@ move to.
   - `prefs.ts` — what the panel remembers per device: the format, `scoreLook`,
     `partyDesign` (`REMEMBERED_PARTY_DESIGNS`: *Podium*, *Strip*, *Mosaic*; an older build's
     `partyLook` of `mosaic` carries over, its `onlyMe` is dropped), `playerDesign` (all
-    three) and the three toggles. An achievement card adds nothing: its one design is not
-    remembered, and of the toggles only the logo reaches it.
+    three) and the two toggles. An achievement card adds nothing: its one design is not
+    remembered, and neither toggle reaches it. An older build's `logo` is read as nothing,
+    the logo being on every card.
 - The strip and the spread are drawn with Canvas 2D over `chartLayout.ts` (`scoreX`, `swarm`,
   `jitterOf`, `scoreTickLabel`) and `chartTheme`, the screens' own helpers; nothing of the SVG
   components is serialised (§7.2).
@@ -506,10 +511,11 @@ Settled the same way when the panel was redone and §8–§10 were designed (dec
 11. **The options never change between slides.** Every option that used to be a toggle or a
     pill and changed what a slide could draw is a slide of its own: *Under the podium* is
     *Podium* · *Strip*, *Only me and my place* is *You* (decision 5 named a toggle). What
-    stays a toggle — pictures, party and date, logo — is the same three icons in the same
-    order on every card, dimmed where a slide cannot honour one. The alternatives: *Only me*
-    as a fourth toggle (`user`), and *Under the podium* as one strip toggle dimmed off a
-    square Dark podium.
+    stays a toggle — pictures, party and date (the logo was a third until decision 8's
+    change) — is the same two icons in the same order on every card, dimmed where a slide
+    cannot honour one. The alternatives: *Only me* as a fourth toggle (`user`, beside the
+    three there were then), and *Under the podium* as one strip toggle dimmed off a square
+    Dark podium.
 12. **A dimmed design's reason stays in its slot**, not in the options' line.
 13. **The player card's *Songs* design** is an addition beside the histogram the user named
     and the strip.
@@ -713,7 +719,7 @@ the name 64 and the party line 36), the histogram up to 640 tall, the strip's ba
 least, as on the square), eight song rows.
 
 **Toggles:** pictures (dimmed while the singer is the sharer: *Nobody else is on this
-card.*; for somebody else, off draws their initial), date (the party line), logo.
+card.*; for somebody else, off draws their initial), date (the party line).
 
 **Files:** `shareCard/content.ts` (`playerCard`), `layout.ts`, `possible.ts`, `draw.ts`,
 their tests, `src/test/shareCard.ts`, `components/ShareCardPanel.tsx`,
@@ -785,8 +791,10 @@ up to three lines, the avatar 96.
 
 **One design**, *Badge*, on Dark: the carousel is one slide, so the dots row is the format
 pair alone. **Toggles:** pictures dimmed (*Nobody else is on this card.*), date dimmed (*An
-achievement belongs to no party.*), the logo the one that works — "not much customization",
-and the row still reads the same as on every other card.
+achievement belongs to no party.*) — "not much customization", and the row still reads the
+same as on every other card. The logo, as on every card, is simply there. With nothing in
+the row to change, the line rests on *Neither symbol changes this card. Press one to see
+why.* rather than inviting a press that does nothing (§5).
 
 **Files:** `shareCard/content.ts` (`achievementCard`), `layout.ts`, `possible.ts`, `draw.ts`
 and their tests, `src/test/shareCard.ts`, `components/AchievementModal.tsx` + `.css`,

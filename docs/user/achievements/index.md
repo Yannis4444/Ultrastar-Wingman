@@ -81,15 +81,15 @@ name, the day you earned it, and how many players hold it. If you are the only
 one, it says *First to earn it*. A badge you have not earned yet has no
 **Share**.
 
-![The share panel: the badge card with Fry's picture and the day, Square and Story under it, and the three symbols over their line](../assets/screenshots/achievements/achievement-share.png){ width="320" loading=lazy }
+![The share panel: the badge card with Fry's picture and the day, Square and Story under it, and the two symbols over their line](../assets/screenshots/achievements/achievement-share.png){ width="320" loading=lazy }
 /// caption
 A badge has one design, so there is nothing to swipe.
 ///
 
-Pick **Square** or **Story** under the picture. Of the three symbols, only the
-Wingman logo changes this card. The only picture on it is your own, and the
-day belongs to the badge, not to a party. The two faded symbols say so when
-you tap them. Saving and sending work as for a party card. See
+Pick **Square** or **Story** under the picture. Neither symbol changes this
+card, so both are faded and the line under them says so: the only picture on
+it is your own, and the day belongs to the badge, not to a party. Tap one to
+read why. Saving and sending work as for a party card. See
 [Save it or send it](../scores/party.md#save-it-or-send-it).
 
 ## The moment on the host screen

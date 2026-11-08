@@ -318,20 +318,13 @@ a.icon-button:hover {
    is the thing it puts on or leaves off. On, the glyph in `--color`; off, in
    `--color-darkerer` under one 2px bar from its lower left to its upper
    right, the way `eye-off`'s runs, so no toggle needs an `-off` twin in
-   `ICON_PATHS`. A picture glyph cannot take a colour: it goes grey at half
-   opacity under the same bar. A toggle that cannot act here keeps its
-   state's drawing at 40% under `aria-disabled` and stays focusable, so the
-   line that says why can be reached. After the hover rule, which
+   `ICON_PATHS`. A toggle that cannot act here keeps its state's drawing at
+   40% under `aria-disabled` and stays focusable, so the line that says why
+   can be reached. After the hover rule, which
    `aria-disabled` does not switch off (the button is still `:enabled`). */
 .icon-button.icon-toggle {
   position: relative;
   color: var(--color);
-}
-
-.icon-toggle img {
-  display: block;
-  width: 24px;
-  height: 24px;
 }
 
 .icon-button.icon-toggle[aria-pressed="false"] {
@@ -351,11 +344,6 @@ a.icon-button:hover {
   pointer-events: none;
 }
 
-.icon-toggle[aria-pressed="false"] img {
-  filter: grayscale(1);
-  opacity: 0.5;
-}
-
 /* On the drawing and never the button: an `opacity` on the button would take
    the keyboard's focus ring down to 40% with it. */
 .icon-button.icon-toggle[aria-disabled="true"] {
@@ -365,10 +353,6 @@ a.icon-button:hover {
 .icon-toggle[aria-disabled="true"] > *,
 .icon-toggle[aria-disabled="true"]::after {
   opacity: 0.4;
-}
-
-.icon-toggle[aria-disabled="true"][aria-pressed="false"] img {
-  opacity: 0.2;
 }
 
 /* The hover fill for pointers alone, as the chip's: a phone keeps `:hover`

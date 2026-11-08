@@ -32,7 +32,6 @@ import type { CardFormat } from "../shareCard/layout";
 import {
   FORMATS,
   SHARE_TOGGLES,
-  TOGGLES_REST,
   achievementCardDesigns,
   achievementSlideToggles,
   partyCardDesigns,
@@ -46,6 +45,7 @@ import {
   scoreCardDesigns,
   scoreSlideToggles,
   toggleSentence,
+  togglesRest,
   type AchievementDesign,
   type Choice,
   type PartyDesign,
@@ -139,9 +139,8 @@ const DESIGN_LABELS: Record<Design, string> = {
 const TOGGLE_LABELS: Record<ShareToggle, string> = {
   pictures: "Other singers' pictures",
   date: "Party name and date",
-  logo: "Wingman logo",
 };
-const NO_REASONS: ToggleReasons = { pictures: null, date: null, logo: null };
+const NO_REASONS: ToggleReasons = { pictures: null, date: null };
 
 /** What the long press is for on a page that may not share or copy. */
 export const LONG_PRESS_NOTE =
@@ -241,7 +240,7 @@ interface Slide {
   request: CardRequest | null;
   /** `request` as a value, the key a picture is cached under; "" when dimmed. */
   key: string;
-  /** Which of the three toggles this slide cannot honour, and why. */
+  /** Which of the two toggles this slide cannot honour, and why. */
   toggles: ToggleReasons;
 }
 
@@ -512,7 +511,7 @@ interface TogglesProps {
 }
 
 /**
- * The options row (share-cards §5): the same three icon toggles in the same
+ * The options row (share-cards §5): the same two icon toggles in the same
  * order on every slide, each `.icon-toggle`. One the slide cannot honour is
  * dimmed in place and keeps the state the reader left it in — the slides
  * that honour it still use it — and a press on it changes nothing but the
@@ -544,11 +543,7 @@ function ShareToggles({ values, reasons, onToggle, onExplain }: TogglesProps) {
               if (event.pointerType === "mouse") onExplain(toggle);
             }}
           >
-            {toggle === "logo" ? (
-              <img src={LOGO_URL} alt="" width={24} height={24} />
-            ) : (
-              <Icon name={toggle === "pictures" ? "image" : "calendar"} />
-            )}
+            <Icon name={toggle === "pictures" ? "image" : "calendar"} />
           </button>
         );
       })}
@@ -559,7 +554,7 @@ function ShareToggles({ values, reasons, onToggle, onExplain }: TogglesProps) {
 /**
  * The share panel (share-cards.md §5, ui-guidelines §7 *Share cards*): a bare
  * modal with no visible heading over the card's designs as real pictures in a
- * carousel, the format beside the dots, the three toggles and the line that
+ * carousel, the format beside the dots, the two toggles and the line that
  * explains them, and the buttons this browser can actually carry out.
  */
 export default function ShareCardPanel({
@@ -746,7 +741,7 @@ export default function ShareCardPanel({
             content,
             options: resolveScoreOptions(
               content,
-              { format: prefs.format, look: choice.value, logo: prefs.logo },
+              { format: prefs.format, look: choice.value },
               loaded,
             ),
           },
@@ -762,12 +757,7 @@ export default function ShareCardPanel({
           {
             kind: "player",
             content,
-            options: resolvePlayerOptions(
-              content,
-              choice.value,
-              prefs.format,
-              prefs.logo,
-            ),
+            options: resolvePlayerOptions(content, choice.value, prefs.format),
           },
           toggles,
         ),
@@ -780,7 +770,7 @@ export default function ShareCardPanel({
           {
             kind: "achievement",
             content,
-            options: resolveAchievementOptions(prefs.format, prefs.logo),
+            options: resolveAchievementOptions(prefs.format),
           },
           achievementSlideToggles(),
         ),
@@ -798,14 +788,13 @@ export default function ShareCardPanel({
             drawn,
             choice.value,
             prefs.format,
-            prefs.logo,
             loaded,
           ),
         },
         partySlideToggles(choice.value, drawn),
       );
     });
-  }, [ready, content, mine, loadedMap, prefs.format, prefs.logo]);
+  }, [ready, content, mine, loadedMap, prefs.format]);
 
   /** Where the carousel opens: on the design remembered, unless this card
    * cannot draw it — a panel opening on held buttons reads as broken. */
@@ -843,8 +832,8 @@ export default function ShareCardPanel({
       update({ scoreLook: slide.design as ScoreDesign });
     else if (slide.request.kind === "player")
       update({ playerDesign: slide.design as PlayerDesign });
-    // One design, nothing to remember of it: the format and the logo are
-    // all an achievement card keeps.
+    // One design, nothing to remember of it: the format is all an
+    // achievement card keeps.
     else if (slide.request.kind === "achievement") return;
     else if (
       REMEMBERED_PARTY_DESIGNS.includes(slide.design as RememberedPartyDesign)
@@ -1050,15 +1039,15 @@ export default function ShareCardPanel({
   const values: Record<ShareToggle, boolean> = {
     pictures: prefs.otherPictures,
     date: prefs.partyNameAndDate,
-    logo: prefs.logo,
   };
   const reasons = slide?.toggles ?? NO_REASONS;
   // Worked out on every render from the slide in view, so a new slide coming
   // into view re-reads the last toggle's sentence for itself: one dimmed
-  // there says why without being touched again.
+  // there says why without being touched again. A slide that honours neither
+  // toggle (an achievement's) rests on a line that does not invite a change.
   const line =
     explained === null
-      ? TOGGLES_REST
+      ? togglesRest(reasons)
       : toggleSentence(
           explained,
           values[explained],
@@ -1067,9 +1056,7 @@ export default function ShareCardPanel({
         );
   const toggle = (which: ShareToggle) => {
     if (which === "pictures") update({ otherPictures: !prefs.otherPictures });
-    else if (which === "date")
-      update({ partyNameAndDate: !prefs.partyNameAndDate });
-    else update({ logo: !prefs.logo });
+    else update({ partyNameAndDate: !prefs.partyNameAndDate });
   };
 
   const title =

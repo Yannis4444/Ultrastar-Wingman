@@ -626,8 +626,8 @@ export interface AchievementCardInput {
  * One earned achievement as a card (share-cards §10): the badge as the modal
  * shows it large — the full-size picture, or the plate and its glyph — the
  * name, the description, the sharer, the day and the holders line. No toggle
- * reaches any of it but the logo: the only face is the sharer's own, and the
- * date is the achievement's, not a party's.
+ * reaches any of it: the only face is the sharer's own, and the date is the
+ * achievement's, not a party's.
  */
 export function achievementCard(
   input: AchievementCardInput,

@@ -796,7 +796,7 @@ ROWS: dict[str, Row] = {
         # decoded: the Podium slide in view and the Strip one peeking in beside it.
         ready='qa(".share-dot").length === 5 && qa(".share-preview-image").length >= 2'
         ' && qa(".share-preview-image").every((i) => i.complete && i.naturalWidth > 0)'
-        ' && qa(".share-toggles .icon-toggle").length === 3',
+        ' && qa(".share-toggles .icon-toggle").length === 2',
     ),
     "user": Row(
         identity="Bender",
@@ -827,7 +827,7 @@ ROWS: dict[str, Row] = {
         # and the Strip one peeking in beside it.
         ready='qa(".share-dot").length === 3 && qa(".share-preview-image").length >= 2'
         ' && qa(".share-preview-image").every((i) => i.complete && i.naturalWidth > 0)'
-        ' && qa(".share-toggles .icon-toggle").length === 3',
+        ' && qa(".share-toggles .icon-toggle").length === 2',
     ),
     "user-achievements": Row(
         # Fry, not Bender. The list puts every earned badge first, so Bender's fill the
@@ -890,7 +890,7 @@ ROWS: dict[str, Row] = {
         ready='qa(".share-preview-image").length === 1'
         ' && qa(".share-preview-image").every((i) => i.complete && i.naturalWidth > 0)'
         ' && qa(".share-dot").length === 0 && qa(".share-format").length === 2'
-        ' && qa(".share-toggles .icon-toggle").length === 3',
+        ' && qa(".share-toggles .icon-toggle").length === 2',
     ),
     "achievements-admin": Row(
         identity="host",
